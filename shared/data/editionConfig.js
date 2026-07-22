@@ -24,6 +24,11 @@ export const upgradeUrl = null;
 // editionLinks.js). Null here so hasEditionLinks() is false and nothing renders.
 export const demoUrl = null;
 
+// License gate config (data/license.js). Exported so license.js's named import
+// always resolves, but the gate is OFF in this default (editionFlags.licenseGate
+// unset) — Pro's own editionConfig turns it on and supplies the real checkout URL.
+export const licenseConfig = { checkoutUrl: null, portalUrl: null, yearlyVariantPattern: 'year|annual' };
+
 // --- Cap hooks -------------------------------------------------------------
 // The interactive dog/litter writers await these before persisting (the three
 // sites in the cap spec §3: dogRepo.create, dogRepo.update, litterRepo.create).
