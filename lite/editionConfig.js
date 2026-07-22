@@ -33,3 +33,19 @@ export const editionFlags = {
   includeArchivedToggles: true,
   archivedDogLinks: true,
 };
+
+// --- Navigation (Lite — reduced) -------------------------------------------
+// Pro-only hubs are omitted: People (Contacts), Reports, Documents, Companion.
+// The "Placements & Contracts" hub is relabeled "Sales" since Contracts and
+// Stud services are Pro-only — only Sales remains in Lite.
+export const navItems = [
+  { label: 'Today',    path: 'pages/today.html' },
+  { label: 'Dogs',     path: 'pages/dogs.html' },
+  { label: 'Breeding', path: 'pages/breeding.html' },
+  { label: 'Sales',    path: 'pages/sales.html' },
+  { label: 'Financials', path: 'pages/financials.html' },
+];
+
+export const moreItems = [
+  { label: 'Import/Export', path: 'pages/import-export.html' },
+];

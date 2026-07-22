@@ -40,3 +40,22 @@ export const editionFlags = {
   includeArchivedToggles: true,  // Lite: false — no way to surface departed dogs
   archivedDogLinks: true,        // Lite: false — archived dog names aren't clickable
 };
+
+// --- Navigation ------------------------------------------------------------
+// nav.js renders from these. This default (Pro/shared) is the full bar. Lite
+// ships a reduced list (its own editionConfig) that omits the Pro-only hubs.
+export const navItems = [
+  { label: 'Today',    path: 'pages/today.html' },    // dashboard + reminders + upcoming + board
+  { label: 'Dogs',     path: 'pages/dogs.html' },
+  { label: 'Breeding', path: 'pages/breeding.html' }, // pairings + litters + resulting puppies
+  { label: 'People',   path: 'pages/contacts.html' }, // contacts + waitlist / buyers
+  { label: 'Placements & Contracts', path: 'pages/sales.html' }, // sales + stud services + contracts
+  { label: 'Financials', path: 'pages/financials.html' }, // the expense ledger — where the money lives
+];
+
+export const moreItems = [
+  { label: 'Reports',       path: 'pages/reports.html' },
+  { label: 'Documents',     path: 'pages/documents.html' },
+  { label: 'Companion',     path: 'pages/companion.html' },
+  { label: 'Import/Export', path: 'pages/import-export.html' },
+];
