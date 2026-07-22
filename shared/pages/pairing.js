@@ -10,6 +10,7 @@ import { studServiceRepo } from '../data/studServiceRepo.js';
 import { PAIRING_TYPE, PAIRING_METHOD, PAIRING_STATUS, LITTER_STATUS, STUD_SERVICE_DIRECTION, STUD_SERVICE_STATUS } from '../data/vocab.js';
 import { esc, badge, fmtDate, param, confirmModal } from '../assets/ui.js';
 import { addDaysToYMD } from '../data/dateUtils.js';
+import { editionFlags } from '../data/editionConfig.js';
 import { renderTimeline } from '../assets/timeline.js';
 import { openEventFromQuery } from '../assets/eventForm.js';
 import { renderExpensePanel } from '../assets/expensePanel.js';
@@ -327,6 +328,7 @@ async function renderLitterSection() {
 // there is nothing to link/create from this side; Data Model v3 §5.8) --------
 async function renderStudServiceSection() {
   if (!els.studService) return;
+  if (!editionFlags.studServices) { els.studService.innerHTML = ''; return; } // Pro-only in Lite
   if (ctx.mode !== 'view' || !ctx.original) { els.studService.innerHTML = ''; return; }
   const studServices = await studServiceRepo.getByPairing(ctx.original.id);
   if (!studServices.length) { els.studService.innerHTML = ''; return; }

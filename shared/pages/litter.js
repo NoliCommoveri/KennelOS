@@ -10,6 +10,7 @@ import { saleRepo } from '../data/saleRepo.js';
 import { contactRepo } from '../data/contactRepo.js';
 import { kennelRepo } from '../data/kennelRepo.js';
 import { LITTER_STATUS, PAIRING_STATUS, DOG_STATUS, SEX, SALE_STATUS, FOSTER_DIRECTION, FOSTER_COMP_MODEL, FOSTER_SPLIT_BASIS, descriptor } from '../data/vocab.js';
+import { editionFlags } from '../data/editionConfig.js';
 import { esc, badge, fmtDate, fmtMoney, todayYMD, param, confirmModal } from '../assets/ui.js';
 import { addDaysToYMD } from '../data/dateUtils.js';
 import { renderTimeline } from '../assets/timeline.js';
@@ -202,7 +203,7 @@ function fosterViewHtml(l) {
       <h3 style="margin:0;">Foster arrangement ${badge(FOSTER_DIRECTION, l.foster_direction)}</h3>
     </div>
     <dl class="dl-meta" style="margin-top:10px;">
-      ${row(partnerLabel, partner ? `<a href="contact.html?id=${encodeURIComponent(partner.id)}">${esc(partner.name)}</a>${kennelName ? ` <span class="faint">(${esc(kennelName)})</span>` : ''}` : '')}
+      ${row(partnerLabel, partner ? `${editionFlags.contactsSection ? `<a href="contact.html?id=${encodeURIComponent(partner.id)}">${esc(partner.name)}</a>` : esc(partner.name)}${kennelName ? ` <span class="faint">(${esc(kennelName)})</span>` : ''}` : '')}
       ${row('Compensation', l.foster_comp_model ? esc(descriptor(FOSTER_COMP_MODEL, l.foster_comp_model).label) : '')}
       ${compRows}
       ${row('Terms', l.foster_split_notes ? esc(l.foster_split_notes).replace(/\n/g, '<br>') : '')}

@@ -320,7 +320,7 @@ function renderEdit() {
       ${field('Registration #', `<input id="f-registration_number" type="text" value="${esc(d.registration_number)}">`)}
       ${field('Microchip', `<input id="f-microchip_id" type="text" value="${esc(d.microchip_id)}">`)}
       ${field('URL', `<input id="f-url" type="url" value="${esc(d.url || '')}" placeholder="https://…">`)}
-      ${field('Ownership', `<select id="f-ownership_type">${vocabOptions(OWNERSHIP_TYPE, d.ownership_type, 'Select…')}</select>`, { required: true })}
+      ${field('Ownership', `<select id="f-ownership_type">${vocabOptions(editionFlags.externalOwnership ? OWNERSHIP_TYPE : OWNERSHIP_TYPE.filter((o) => ['owned', 'co_owned'].includes(o.value)), d.ownership_type, 'Select…')}</select>`, { required: true })}
       ${field('Status', `<select id="f-status">${vocabOptions(DOG_STATUS, d.status, 'Select…')}</select>`, { required: true })}
       ${d.status === 'puppy' ? field('Disposition', `<select id="f-disposition">${vocabOptions(DISPOSITION, d.disposition || 'undecided')}</select>`, { hint: 'Keeping this puppy or offering it? Drives the prospective-families view. Puppy-only — clears when Status moves past Puppy.' }) : ''}
       ${field('Sire', `<select id="f-sire_id">${dogOptions(d.sire_id, ctx.original?.id, 'male')}</select>`)}

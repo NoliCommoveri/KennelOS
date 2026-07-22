@@ -9,6 +9,7 @@ import { contactRepo } from '../data/contactRepo.js';
 import { litterRepo } from '../data/litterRepo.js';
 import { PLACEMENT_TYPE, SALE_STATUS, CONTRACT_TYPE, CONTRACT_STATUS, descriptor } from '../data/vocab.js';
 import { esc, badge, fmtDate } from '../assets/ui.js';
+import { editionFlags } from '../data/editionConfig.js';
 
 const body = document.getElementById('sale-list');
 const errorBox = document.getElementById('page-error');
@@ -67,7 +68,7 @@ function saleCard(s, dogsById, contactsById, contractsBySale, linkableContracts)
         </div>
         <a class="btn btn-sm" href="sale.html?id=${encodeURIComponent(s.id)}">Open sale</a>
       </div>
-      ${contractBlockHtml(s.id, linked, linkableContracts)}
+      ${editionFlags.contracts ? contractBlockHtml(s.id, linked, linkableContracts) : ''}
     </section>`;
 }
 
@@ -91,6 +92,10 @@ function dogEntriesHtml(byDog, dogsById, cardHtml) {
 }
 
 async function main() {
+  // Lite: the Stud Services / Other contracts seg-tabs point at Pro-only pages —
+  // remove them when those features are off.
+  if (!editionFlags.studServices) document.querySelector('.seg-tab[href="stud-services.html"]')?.remove();
+  if (!editionFlags.contracts) document.querySelector('.seg-tab[href="contracts.html"]')?.remove();
   const [sales, dogs, contacts, contracts, litters] = await Promise.all([
     saleRepo.getAll({ includeArchived: false }),
     dogRepo.getAll({ includeArchived: true }),
