@@ -96,7 +96,10 @@ KennelOS/
   vendor/                      Vendored deps: dexie.min.mjs, papaparse.min.mjs,
                                lz-string.min.mjs
   resources/
-    common_tests_by_breed_seed.csv   Optional breed→test seed data
+    common_tests_by_breed_seed.csv   Optional breed→test seed data. Columns:
+                               `Breed Group,breed,test_name` (col A is for the
+                               picker's "browse by breed group" dropdown only —
+                               never stored)
   data/                        THE DATA LAYER (repos + shared data logic)
     db.js                      Dexie schema — the only schema definition
     repoBase.js                makeRepo factory (shared repo surface)
@@ -145,6 +148,9 @@ KennelOS/
     eventForm.js               Add/edit event modal
     puppyForm.js               Litter → puppy roster entry
     contactPicker.js           Inline "＋ New contact" decorator for pickers
+    breedTestPicker.js         Search/browse-by-breed-group picker widget shared
+                               by both seed-import wizards (kennel-tests-import
+                               page + kennelSetupUI's prefill section)
     importView.js              Shared CSV import dry-run/commit UI
     onboardingUI.js            First-run Welcome → tour-offer → backups/install cards (§11)
     sampleDataUI.js            Sample-data banner + Clear-sample-data flow
@@ -171,7 +177,7 @@ commonly blank at entry time.
 |---|---|---|
 | **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status` | `registered_name`, `date_of_birth`, `date_of_death`, `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (the kennel that *produced* this dog — own or an outside contact's; distinct from `kennel_id`, the kennel it belongs to *now* — the user's own for a dog they own, or an outside kennel for an external/leased dog (the form's Kennel picker offers every kennel, not just own ones); auto-prefilled from the litter's dam's own `kennel_id` when that dam is owned/co-owned), `owner_contact_id`, `co_owner_contact_ids[]`, `kennel_id`, `color_markings`, `registry`, `registration_number`, `microchip_id`, `url` (plain, unindexed — a link for this dog, e.g. a registry page or listing), `planned_tests[]`, `recorded_coi{value,method,source,as_of_date}`, `disposition` (`undecided`/`keeping`/`available`/`placed` — breeder intent; **puppy-only**, valid only while `status='puppy'` and forced null otherwise. Enforced in `dogRepo` create/update and mirrored in the UI: the dog form shows it only for a puppy, `sale.js` won't set one on a non-puppy, the profile hides the row otherwise. Feeds the Today "Active litters" card, the promote-lifecycle nudge, and the litter-lifecycle nudges, §19), `notes`. Owner required when `ownership_type ∈ {external, leased_in}`. |
 | **Contact** | `name` | `contact_type[]` (multi), `email`, `phone`, `address`, `kennel_id`, `waitlist_status`, `first_contact_source`, `notes`, `companion_note` (plain, unindexed — a per-recipient message **meant for the recipient's eyes**, shown on their companion share page; deliberately distinct from the private `notes`; §20). Buyers are Contacts — **there is no Buyer table**. `address` also resolves an in-person stud service's away-board location (§19). |
-| **Kennel** | `kennel_name` | `is_own_kennel`, `prefix`, `location`, `website` (plain, unindexed — a link for this kennel, mirrors `Dog.url`), `logo_data_url` (plain, unindexed — a downscaled PNG/SVG **data URL** for the kennel's logo, uploaded/removed on the kennel detail page, rendered on its invoices/receipts (§24) and puppy records (§23); rides the JSON backup), `preferred_tests[]`, `preferred_breeds[]`, `promote_nudge_enabled` (bool, default off), `promote_age_male_months`/`promote_age_female_months` (the promote-lifecycle nudge's per-kennel thresholds, §19). Lightweight; added inline from the Contact form. |
+| **Kennel** | `kennel_name` | `is_own_kennel`, `prefix`, `location`, `website` (plain, unindexed — a link for this kennel, mirrors `Dog.url`), `logo_data_url` (plain, unindexed — a downscaled PNG/SVG **data URL** for the kennel's logo, uploaded/removed on the kennel detail page, rendered on its invoices/receipts (§24) and puppy records (§23); rides the JSON backup), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds` (plain, unindexed — `{ [testKey]: breed[] }`; which breed(s) tagged each preferred test via the breed-seed import, keyed lowercase-trimmed; a test added by typing directly into the kennel's own "Add a test" field has no entry and stays breed-agnostic. Never edited directly — written by `kennelRepo.addPreferredTest`'s third arg, read via `testBreedsFor`/`testsForBreed`), `promote_nudge_enabled` (bool, default off), `promote_age_male_months`/`promote_age_female_months` (the promote-lifecycle nudge's per-kennel thresholds, §19). Lightweight; added inline from the Contact form. |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status` | `method`, `planned_date` (shown as "Planned first date" — the first planned/tie date), `last_observed_date` (plain, unindexed — a subsequent observed tie/breeding date), `expected_due_date` (prefilled on the detail page as 63 days after `planned_date` when still empty, never clobbering a deliberate edit), `notes`. Sire ≠ dam (hard block). |
 | **Litter** | `dam_id`, `sire_id`, `status` | `nickname` (plain, unindexed — optional friendly label, e.g. "Party of Five"; when set it leads the detail-page title and shows as its own column on the Litters list and report, searchable across all three; falls back to `dam × sire` when blank), `pairing_id`, `whelp_date`, `accept_deposits_date` (plain, unindexed — when the breeder begins accepting deposits; on the detail page it sits between `whelp_date` and `estimated_ready_date`, and surfaces in the **prospective** companion bundle between "Born" and "Estimated ready" when set, §20), `estimated_ready_date` (plain, unindexed — prefilled as 8 weeks/56 days after `whelp_date` when still empty, never clobbering a deliberate edit), `litter_registration_number`, `puppies_born_total/alive/deceased/abnormalities` (the last a count, not mutually exclusive with alive/deceased), `expected_price_male`/`expected_price_female`/`expected_deposit_male`/`expected_deposit_female` (plain, unindexed — per-litter defaults, grouped by sex on the detail page; `sale.js` prefills a new Sale's `price` and `deposit_amount` from the matching-sex pair by the puppy's `sex`, only into fields still empty), `foster_direction` (plain, unindexed — nullable `foster_in`/`foster_out`; null = an ordinary litter. **Foster is a per-litter fact** (guide §25): the same dam can have foster and non-foster litters, so it can't live on the Dog. A foster puppy is distinguished from a plain "external" dog purely by DERIVATION of its litter's `foster_direction` — it stays a normal `status='puppy'` Dog we manage and sell), `foster_partner_contact_id` (**indexed FK → Contact**; the counterparty — the dam's owner for foster-in, the caretaker for foster-out — guarded in `CONTACT_REFERENCES`; its `kennel_id` is the owner/caretaker kennel a companion share can reveal), `foster_comp_model` (plain, unindexed — `income_split`/`flat_per_pup`; how the partner is paid), `foster_our_share_pct`/`foster_split_basis` (the income-split terms), `foster_flat_fee_per_pup` (the per-pup flat fee), `foster_split_notes` (all plain, unindexed — documentation of the terms for either model; the actual payout to the other party is a real `foster_split` ("Foster compensation") Expense, never a stored derived number), `notes`. The litter's own sire/dam are authoritative. Puppy roster is **derived** (`Dog WHERE litter_id`). |
 | **Sale** | `dog_id`, `buyer_contact_id`, `placement_type`, `status` | `sale_date`, `price`, `deposit_amount`, `deposit_date`, `balance_due_date`, `balance_paid_date`, `transport_fee` (plain, unindexed — a flat delivery/transport charge, decimal), `deferred_boarding_amount`/`deferred_boarding_frequency`/`deferred_boarding_duration_days` (plain, unindexed — a boarding rate for a buyer who delayed pickup: decimal amount + `BOARDING_FREQUENCY_OPTIONS` Day/Week/Month + a free-text **count of frequency units** (despite the `_days` name, the value is the number of units — `2` with frequency `Week` means two weeks), rendered as "amount per frequency × count"; the family companion bundle multiplies `amount × count` into a deferred-pickup total feeding the computed remaining balance (§20); never cents, never an Expense — see §21), `lead_source`, `referred_by_contact_id` (indexed FK → the Contact who referred this buyer; `CONTACT_REFERENCES`; on save `saleRepo` auto-tags that contact `buyer_referrer` via `contactRepo.ensureType`), `payment_method`/`payment_reference`/`invoice_number`/`invoice_notes` (plain, unindexed — invoice/receipt document fields set from the Financials generator modal; §24), `notes`. On the detail page (`sale.js`) all fee fields render/edit above all date fields. Its own table (not a Dog field) so reserve/return/re-place stay distinct facts. |
@@ -326,7 +332,12 @@ Notable repo specifics:
   contract block (§20), so the two can't drift.
 - **kennelRepo**: `preferred_tests`/`preferred_breeds` authoring (dedupe-on-write;
   remove drops membership only, never purges a token another event may need);
-  `getVocabulary`/`getBreedVocabulary` union over own-kennels.
+  `getVocabulary`/`getBreedVocabulary` union over own-kennels. `addPreferredTest`'s
+  optional third arg tags the test with a contributing breed in
+  `preferred_test_breeds`; `testBreedsFor(k, token)` reads that tag back sorted for
+  display, `testsForBreed(k, breed)` filters the panel to one breed (a tagged test
+  needs a match, an untagged one always passes) — see the seedImport.js bullet below
+  and §8.
 - **expenseRepo**: `getForSubject`, `getByEvent`/`getOneByEvent`, and `total(rows)`. See §21.
 - **contactRepo.ensureType(id, type)**: adds a `contact_type` role if missing (no-op
   otherwise). `saleRepo`/`studServiceRepo` call it on save to auto-tag a
@@ -586,10 +597,24 @@ way.
   recipient on all three tabs (prospective / current families / partners). Editing this file
   still bumps `CACHE_NAME` (§ service worker); it adds no new file or FK.
 - **seedImport.js** — optional breed+test vocabulary seed (from
-  `resources/common_tests_by_breed_seed.csv` or a user file). Appends to
-  `Kennel.preferred_tests` / `preferred_breeds`; creates **no** records. Deliberately
-  **not** routed through the csvImport engine (different shape). Used by both the standalone
-  import page and the kennel-setup wizard.
+  `resources/common_tests_by_breed_seed.csv` or a user file). Rows carry an optional
+  `Breed Group` column (col A) that `buildSeedGroups()` attaches to each group as
+  `breedGroup`, purely to power the picker's "browse by breed group" dropdown — it is
+  never stored on the kennel. `listBreedGroups()` returns the unique group names.
+  Appends to `Kennel.preferred_tests` / `preferred_breeds`; creates **no** records.
+  Deliberately **not** routed through the csvImport engine (different shape). Both
+  wizards below render the same `assets/breedTestPicker.js` widget over these groups:
+  a type-ahead search box plus the breed-group dropdown (which opens a checkbox
+  modal for that group's breeds); either path checks the breed into a list at the
+  bottom that both wizards read at commit/save time. Used by both the standalone
+  import page and the kennel-setup wizard. `applySeedToKennel` passes each test's
+  contributing breed into `kennelRepo.addPreferredTest`'s third arg, tagging it in
+  `preferred_test_breeds` — this is what powers the breed-scoped consumers: the
+  kennel detail page's `(Breed1, Breed2)` display, new-dog auto-fill on `dog.js`
+  save, and both "copy/apply from kennel" actions (`dog.js`'s Copy plan from…,
+  `kennel.js`'s Apply to dogs…) — each resolves through `kennelRepo.testsForBreed`
+  instead of the raw flat list, so a dog only inherits tests tagged for its own
+  breed (plus any untagged/breed-agnostic ones).
 - **kennelSetup.js** — the "your kennel and owner name" wizard; creates real
   Kennel/Contact records and remembers them by id in settings.
 - **appReset.js** — `resetApp()` clears every table + all settings → the exact blank slate
