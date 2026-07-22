@@ -43,6 +43,12 @@ export async function enforceLitterCap(/* { candidate } */) {
   // no-op: Pro/Demo are unlimited.
 }
 
+// Read by dog.js's "New Dog" page for its "Creating x/6 available dogs"
+// banner. Null means uncapped, so Pro/Demo show nothing.
+export async function dogCapStatus() {
+  return null;
+}
+
 // --- UI capability flags ---------------------------------------------------
 // Read by shared UI to gate the edition-specific behaviors described in the cap
 // spec. Pro defaults = everything on; Lite will flip these to hide the archive
@@ -53,6 +59,7 @@ export const editionFlags = {
   manualDogArchive: true,        // Lite: false — departure is the only exit
   includeArchivedToggles: true,  // Lite: false — no way to surface departed dogs
   archivedDogLinks: true,        // Lite: false — archived dog names aren't clickable
+  fullDogStatuses: true,         // Lite: false — Status picker drops Pet home/For Sale/External reference
 
   // Pro-only feature gates. The Pro-only PAGES are excluded from the Lite build
   // (Option B); these flags let shared pages hide the in-page doors to them (a
@@ -66,6 +73,7 @@ export const editionFlags = {
   reports: true,           // Reports hub + report pages
   invoicing: true,         // Invoice/receipt generation (print docs)
   puppyRecord: true,       // Puppy Record generation (print doc)
+  fosterArrangement: true, // Foster litter tracking (direction/partner/compensation)
   receiptAttach: true,     // Attach a receipt photo/PDF to an expense (file storage)
   externalOwnership: true, // external / leased dog ownership types
   assistant: true,         // Dropbox sync + KennelAssistant helper (§26)

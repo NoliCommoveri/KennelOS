@@ -31,10 +31,17 @@ export async function enforceLitterCap(/* { candidate } */) {
   // no-op: writes are blocked by demo mode, not the cap.
 }
 
+// Read by dog.js's "New Dog" page for its cap-status banner. Null means
+// uncapped, so Demo shows nothing (Demo mirrors the Pro feature set).
+export async function dogCapStatus() {
+  return null;
+}
+
 export const editionFlags = {
   manualDogArchive: true,
   includeArchivedToggles: true,
   archivedDogLinks: true,
+  fullDogStatuses: true,
   demoMode: true, // read by demoMode.js — every user write becomes a no-op
   // Pro-only feature gates — all on in Demo (shows the whole Pro app).
   contactsSection: true,
@@ -45,6 +52,7 @@ export const editionFlags = {
   reports: true,
   invoicing: true,
   puppyRecord: true,
+  fosterArrangement: true,
   receiptAttach: true,
   externalOwnership: true,
   assistant: true,

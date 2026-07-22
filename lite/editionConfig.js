@@ -86,6 +86,14 @@ export async function enforceLitterCap(/* { candidate } */) {
   if (current >= CAP_LITTERS) throw new CapExceededError('litters', current, CAP_LITTERS);
 }
 
+// Read by dog.js's "New Dog" page for a "Creating x/6 available dogs" banner —
+// a plain read of the same countsTowardDogCap predicate the create guard
+// above enforces, so the number shown always matches what would actually
+// block the save.
+export async function dogCapStatus() {
+  return { current: await countCountingDogs(), cap: CAP_DOGS };
+}
+
 // --- UI capability flags ---------------------------------------------------
 // Lite hides the archive machinery (cap spec §5/§7) so "archived = departed and
 // uncounted" can't be reverse-engineered into a bypass, and turns off every
@@ -96,6 +104,7 @@ export const editionFlags = {
   manualDogArchive: false,       // departure is the only exit; no free Archive/Unarchive button
   includeArchivedToggles: false, // no "include archived" toggle anywhere (list, pickers)
   archivedDogLinks: false,       // archived dog names render as plain text, never links; no "arch" badge
+  fullDogStatuses: false,        // Status picker: puppy/active_breeding/retired_breeding/deceased only
 
   // Pro-only feature gates — OFF in Lite.
   contactsSection: false,
@@ -106,6 +115,7 @@ export const editionFlags = {
   reports: false,
   invoicing: false,
   puppyRecord: false,
+  fosterArrangement: false,
   receiptAttach: false,
   externalOwnership: false,
   assistant: false,
