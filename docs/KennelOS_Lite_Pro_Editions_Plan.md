@@ -157,15 +157,21 @@ acceptable-but-worse version of the same soft caveat everything else here carrie
 
 ## Licensing — Lemon Squeezy monthly & yearly keys (decided)
 
-Pro is a **subscription** sold through **Lemon Squeezy**, offered in **two billing intervals —
-monthly (~$3–4/mo) or yearly (~$20–30/yr, a discount on twelve months)** — unlocked with a
-**license key**. Both intervals unlock the *same* Pro; the only differences are the price, the
-renewal cadence, and the length of the grace window (below). This has to work with **no backend
-of our own** — the app is a static, offline-first PWA — and Lemon Squeezy fits because its
-**License API is callable straight from the browser**: the activate/validate endpoints
-authenticate with the *license key itself*, not the store's secret API key, so there's no server
-to stand up. Each interval is just a separate Lemon Squeezy variant/checkout; the app doesn't
-need to know which one was bought to activate it.
+Pro is sold through **Lemon Squeezy** in **three tiers — monthly ($2.99/mo) or yearly
+($22.99/yr, a discount on twelve months) subscriptions, plus a one-time Lifetime purchase
+($69.99, perpetual)** — all unlocked with a **license key**. Every tier unlocks the *same* Pro;
+the differences are price, renewal cadence, and how the entitlement is verified over time (the
+grace window below, and — for Lifetime — no expiry and no re-validation at all). This has to work
+with **no backend of our own** — the app is a static, offline-first PWA — and Lemon Squeezy fits
+because its **License API is callable straight from the browser**: the activate/validate
+endpoints authenticate with the *license key itself*, not the store's secret API key, so there's
+no server to stand up. Each tier is just a separate Lemon Squeezy variant/checkout; the app
+activates any of them the same way and infers the tier from the returned variant name.
+
+The **Annual** tier carries a **7-day free trial** (a Lemon Squeezy setting, not app logic):
+during the trial the subscription is `on_trial` and the key validates as `active`, so the app
+shows full Pro with no trial-specific UI. If a trial lapses without converting, the key expires
+like any other and the yearly grace window (below) applies before the wall.
 
 - **Activate (first run, online):** Pro asks for the key → `POST /v1/licenses/activate` → on
   success, store the activation record locally (via `settings.js`) with the returned expiry.
@@ -181,12 +187,20 @@ need to know which one was bought to activate it.
     of the shorter cycle.
 
   The activation record carries the interval, but Lemon Squeezy's validate/activate response has
-  no clean interval field — the app infers it from `meta.variant_name` by regex (yearly if the
-  variant name matches `year|annual`, else monthly), so the yearly variant must be *named* with
-  "year"/"annual" or the `licenseConfig.yearlyVariantPattern` tuned to match. If the interval is
-  ever missing/unknown, default to the shorter (3-day) window. When the subscription truly lapses
-  past its grace window, `/validate` returns expired and Pro drops to the "renew to continue" wall.
-- **Renewal** is automatic on Lemon Squeezy's side for both intervals; the key's status flips and
+  no clean interval field — the app infers it from `meta.variant_name` by regex (lifetime if it
+  matches `lifetime|perpetual`, else yearly if it matches `year|annual`, else monthly), so each
+  variant must be *named* accordingly or the matching `licenseConfig.*VariantPattern` tuned to
+  match. If the interval is ever missing/unknown, default to the shorter (3-day) window. When a
+  subscription truly lapses past its grace window, `/validate` returns expired and Pro drops to
+  the "renew to continue" wall.
+- **Lifetime → perpetual, no re-validation.** A one-time Lifetime purchase gets a key with no
+  expiry. The app detects it by variant name and treats it as always-valid while the key is
+  `active`, and — critically — **exempts it from the offline re-validation requirement** that
+  subscriptions have (there's no subscription to lapse, so forcing a lifetime buyer back online
+  would just lock an off-grid owner out of a "furever yours" purchase). A refunded/disabled
+  lifetime key still walls on the next successful online `/validate`; the offline gap between
+  refund and reconnect is an accepted edge per the honest caveat.
+- **Renewal** is automatic on Lemon Squeezy's side for both subscription intervals; the key's status flips and
   the next `/validate` sees it. A buyer can switch monthly↔yearly through Lemon Squeezy's
   customer portal — same key, the interval (and thus the grace window) updates on the next
   validate.
@@ -343,10 +357,12 @@ see "Hosting, editions, and origin isolation."
   new adult; at the cap it's blocked with a clear upgrade nudge + archive escape.
 - **Walled apart, via distinct origins (#5)** — each edition on its own subdomain of one bought
   domain, so IndexedDB is isolated automatically; JSON export/import is the upgrade bridge.
-- **Pricing / platform (#6)** — Lemon Squeezy subscription in **two intervals: monthly (~$3–4/mo)
-  or yearly (~$20–30/yr)**, both unlocking the same Pro, unlocked by a browser-validated license
-  key. The **offline/renewal grace window scales with the interval — yearly 7 days, monthly
-  3 days** (a shorter cycle gets a proportionally shorter buffer); unknown interval defaults to
+- **Pricing / platform (#6)** — Lemon Squeezy in **three tiers: monthly ($2.99/mo), yearly
+  ($22.99/yr), and one-time Lifetime ($69.99, perpetual)**, all unlocking the same Pro via a
+  browser-validated license key. The Annual tier has a **7-day free trial**. The
+  **offline/renewal grace window scales with the interval — yearly 7 days, monthly
+  3 days** (a shorter cycle gets a proportionally shorter buffer); a **Lifetime** key never
+  expires and is exempt from offline re-validation entirely; unknown interval defaults to
   the shorter window.
 - **Demo behavior (#7)** — strictly **read-only**, re-seeded clean each visit (not a sandbox).
 - **Demo hardening (#8)** — **strip** the save/export paths from the demo build; an unlocked copy
