@@ -42,8 +42,30 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     Confirmed on `dist/lite`: Pro pages return **404**, no console errors. See `build/README.md`.
 
   **Step 2 is complete — the partition (nav + gating + Lite build) is done.**
-- **Next:** Lite's real cap (6/2) + archive-on-departure + hidden-archive links +
-  upgrade nudges + per-edition index/manifest; then Demo mode.
+- **Step 3 — the Lite cap, done & browser-verified (headless Chromium, both editions,
+  no console errors).** The full `KennelOS_Lite_Cap_Enforcement_Spec.md` is now
+  implemented:
+  - **Real cap** in `lite/editionConfig.js` — `enforceDogCap`/`enforceLitterCap` with the
+    6/2 caps and the `countsTowardDogCap` predicate (owned/co-owned live adults;
+    `is_archived` counts as departed). Block rule is transition-in only (create or a
+    ✗→✓ maturing pup); editing a counting dog and departing one are never blocked.
+    `CapExceededError` lives in `shared/data/repoBase.js` beside `ReferenceBlockedError`.
+  - **Upgrade nudge** — the three write forms (dog, litter, and the Today promote-pup
+    nudge) catch `CapExceededError` and render `shared/assets/upgradeNudge.js` (a friendly
+    prompt + "Upgrade to Pro →" CTA that exports a JSON backup then heads to checkout),
+    never a raw error.
+  - **Archive-on-departure** — Lite has no free Archive button; a dog leaves via a
+    confirmed "Remove from program" departure (dog profile + sale-delivery flow, replacing
+    Pro's ownership→External prompt). Sold pups depart the same way.
+  - **Hidden archive machinery** — `editionFlags` (`manualDogArchive`,
+    `includeArchivedToggles`, `archivedDogLinks`) hide the mechanism: no "Show archived"
+    toggle (listView) or picker toggle, and a departed dog's name renders as plain text
+    (no link, no "arch" badge, no ↗) everywhere it appears — pedigree tree + offspring,
+    the pedigree root picker, dog/litter/pairing/sale references (shared `dogRefHtml`).
+  - Pro/Demo keep the shared no-op config, so **no cap logic ships in the Pro download**
+    and Pro's archive UX is unchanged.
+- **Next:** per-edition index/manifest (edition front doors, in-Lite Demo/Pro links);
+  then Demo mode (read-only, seeded showcase).
 
 ## Build & deploy
 

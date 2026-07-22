@@ -6,6 +6,7 @@
 // Data is loaded once (including archived) and filtered in memory — trivial at
 // kennel scale and keeps typing in the search box instant.
 import { esc } from './ui.js';
+import { editionFlags } from '../data/editionConfig.js';
 import Papa from '../vendor/papaparse.min.mjs';
 
 function downloadCsv(filename, text) {
@@ -77,14 +78,19 @@ export function createListView(opts) {
   spacer.className = 'toolbar-spacer';
   toolbar.appendChild(spacer);
 
-  const archLabel = document.createElement('label');
-  archLabel.className = 'check-inline';
-  const archCheck = document.createElement('input');
-  archCheck.type = 'checkbox';
-  archCheck.addEventListener('change', () => { state.showArchived = archCheck.checked; render(); });
-  archLabel.appendChild(archCheck);
-  archLabel.appendChild(document.createTextNode(' Show archived'));
-  toolbar.appendChild(archLabel);
+  // "Show archived" toggle. Lite hides it (cap spec §7 — no include-archived
+  // toggles anywhere): archived = departed, and state.showArchived stays false,
+  // so departed dogs never surface in any list.
+  if (editionFlags.includeArchivedToggles) {
+    const archLabel = document.createElement('label');
+    archLabel.className = 'check-inline';
+    const archCheck = document.createElement('input');
+    archCheck.type = 'checkbox';
+    archCheck.addEventListener('change', () => { state.showArchived = archCheck.checked; render(); });
+    archLabel.appendChild(archCheck);
+    archLabel.appendChild(document.createTextNode(' Show archived'));
+    toolbar.appendChild(archLabel);
+  }
 
   if (csv) {
     const exportBtn = document.createElement('button');

@@ -1,12 +1,19 @@
 # KennelOS Lite — Cap Enforcement Spec
 
-> **Status: the target spec for the cap pass; partially wired.** The three enforcement
-> call sites named below (`dogRepo.create`, `dogRepo.update`, `litterRepo.create`) already
-> `await` the `enforceDogCap` / `enforceLitterCap` hooks from `shared/data/editionConfig.js`,
-> but those hooks are **no-ops today** — the real predicate, the 6/2 caps, the archive-on-
-> departure exit, and the hidden-archive links are not built yet. Paths below are now under
-> `shared/` (e.g. `shared/data/dogRepo.js`, `shared/assets/pedigree.js`). See the top-level
-> `README.md` for progress.
+> **Status: IMPLEMENTED & browser-verified (Lite + Pro, headless Chromium, no console
+> errors).** Everything below is now built. The three enforcement call sites
+> (`dogRepo.create`, `dogRepo.update`, `litterRepo.create`) `await` the real
+> `enforceDogCap` / `enforceLitterCap` hooks from Lite's `editionConfig.js` (the shared/Pro
+> copy stays a no-op, so no cap logic ships in Pro). `CapExceededError` lives in
+> `shared/data/repoBase.js`; the shared archived-dog-link rule is `dogRefHtml` in
+> `shared/assets/ui.js`; the upgrade nudge is `shared/assets/upgradeNudge.js`. Paths below
+> are under `shared/` (e.g. `shared/data/dogRepo.js`, `shared/assets/pedigree.js`). See the
+> top-level `README.md` for progress.
+>
+> **One launch-config placeholder:** `lite/editionConfig.js` exports `upgradeUrl` — the
+> checkout link the "Upgrade to Pro →" CTA opens after exporting the backup. It's a
+> placeholder (`https://kennelos.app/upgrade`) pending the real Lemon Squeezy URL; a
+> one-line swap.
 
 *Implementation-grade companion to `KennelOS_Lite_Pro_Editions_Plan.md`. This is the Lite-only
 cap: what counts, where it's enforced, how a slot is freed, and how the "archive = departed"

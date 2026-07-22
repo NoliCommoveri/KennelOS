@@ -11,6 +11,7 @@
 // caller-supplied onNavigate; a small link opens the dog's full record.
 import { dogRepo } from '../data/dogRepo.js';
 import { esc, fmtDate } from './ui.js';
+import { editionFlags } from '../data/editionConfig.js';
 
 const NODE_W = 190;
 const NODE_H = 56;
@@ -66,11 +67,21 @@ function nodeHtml(n) {
   const d = n.dog;
   const dob = d.date_of_birth ? fmtDate(d.date_of_birth) : '';
   const reg = d.registered_name ? `<div class="ped-reg">${esc(d.registered_name)}</div>` : '';
+  // A departed (archived) ancestor in Lite must stay a static node (cap spec §7):
+  // no re-center link, no "arch" badge, no ↗ open-record link — otherwise a
+  // curious user could open it, see it's only "archived", and infer an un-archive
+  // bypass. The name still renders for lineage; it's just not clickable.
+  const hideArchive = d.is_archived && !editionFlags.archivedDogLinks;
+  const nameHtml = hideArchive
+    ? `<span class="ped-name ped-name-static">${esc(d.call_name || '(unnamed)')}</span>`
+    : `<a href="#" class="ped-name" data-nav="${esc(d.id)}" title="Re-center on this dog">${esc(d.call_name || '(unnamed)')}</a>`;
+  const archBadge = d.is_archived && !hideArchive ? '<span class="badge badge-gray ped-arch">arch</span>' : '';
+  const openLink = hideArchive ? '' : `<a class="ped-open" href="dog.html?id=${encodeURIComponent(d.id)}" title="Open record">↗</a>`;
   return `<div class="ped-node" style="width:${NODE_W}px;height:${NODE_H}px;border-left-color:${SEX_BORDER[d.sex] || SEX_BORDER.unknown};">
     <div class="ped-main">
-      <a href="#" class="ped-name" data-nav="${esc(d.id)}" title="Re-center on this dog">${esc(d.call_name || '(unnamed)')}</a>
-      ${d.is_archived ? '<span class="badge badge-gray ped-arch">arch</span>' : ''}
-      <a class="ped-open" href="dog.html?id=${encodeURIComponent(d.id)}" title="Open record">↗</a>
+      ${nameHtml}
+      ${archBadge}
+      ${openLink}
     </div>
     ${reg}
     ${dob ? `<div class="ped-dob faint">${esc(dob)}</div>` : ''}
@@ -166,9 +177,16 @@ export async function renderPedigree({ mount, rootId, generations = 3, onNavigat
         const otherParentName = otherParent ? esc(otherParent.call_name || '(unnamed)') : '[Unknown parent]';
         const dob = pup.date_of_birth ? fmtDate(pup.date_of_birth) : '';
         const genderIndicator = pup.sex === 'male' ? 'M' : pup.sex === 'female' ? 'F' : '?';
+        // A departed (archived) offspring in Lite is plain text — re-centering the
+        // tree on it would expose the departed record the same way an open link
+        // would (cap spec §7).
+        const pupName = `${esc(pup.call_name || '(unnamed)')} ${genderIndicator}`;
+        const pupHtml = pup.is_archived && !editionFlags.archivedDogLinks
+          ? `<span style="font-weight: 500;">${pupName}</span>`
+          : `<a href="#" class="ped-pup-nav" data-pup-id="${esc(pup.id)}" style="font-weight: 500; color: var(--link-color); text-decoration: none; cursor: pointer;">${pupName}</a>`;
         offspringHtml += `<div style="display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border-subtle);">
           <span style="font-size: 14px; color: var(--text-muted);">× ${otherParentName} (${role})</span>
-          <a href="#" class="ped-pup-nav" data-pup-id="${esc(pup.id)}" style="font-weight: 500; color: var(--link-color); text-decoration: none; cursor: pointer;">${esc(pup.call_name || '(unnamed)')} ${genderIndicator}</a>
+          ${pupHtml}
           ${dob ? `<span style="font-size: 14px; color: var(--text-muted); margin-left: auto;">${esc(dob)}</span>` : ''}
         </div>`;
       }

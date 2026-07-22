@@ -7,7 +7,7 @@ import { dogRepo } from '../data/dogRepo.js';
 import { contactRepo } from '../data/contactRepo.js';
 import { litterRepo } from '../data/litterRepo.js';
 import { PLACEMENT_TYPE, SALE_STATUS, DISPOSITION, CONTRACT_TYPE, CONTRACT_STATUS, BOARDING_FREQUENCY_OPTIONS, descriptor } from '../data/vocab.js';
-import { esc, badge, fmtDate, todayYMD, param, confirmModal, selectModal } from '../assets/ui.js';
+import { esc, badge, fmtDate, todayYMD, param, confirmModal, selectModal, dogRefHtml } from '../assets/ui.js';
 import { openEventForm } from '../assets/eventForm.js';
 import { attachNewContactButton } from '../assets/contactPicker.js';
 import { editionFlags } from '../data/editionConfig.js';
@@ -126,7 +126,7 @@ function renderView() {
   const s = ctx.original;
   els.body.innerHTML = `
     <dl class="dl-meta" style="margin-top:14px;">
-      ${row('Dog', `<a href="dog.html?id=${encodeURIComponent(s.dog_id)}">${esc(dogName(s.dog_id) || '—')}</a>`)}
+      ${row('Dog', dogRefHtml(s.dog_id, dogName(s.dog_id) || '—', ctx.dogsById.get(s.dog_id)?.is_archived))}
       ${row('Buyer', editionFlags.contactsSection
         ? `<a href="contact.html?id=${encodeURIComponent(s.buyer_contact_id)}">${esc(contactName(s.buyer_contact_id) || '—')}</a>`
         : esc(contactName(s.buyer_contact_id) || '—'))}
@@ -380,6 +380,27 @@ function promptOwnershipUpdate(sale) {
   });
 }
 
+// Lite's delivery-departure (cap spec §5): on the transition into Delivered,
+// offer to remove the sold dog (or sold puppy) from the roster. This is the Lite
+// exit that replaces the Pro ownership→External prompt — archiving is the only
+// way a dog leaves the roster in Lite, always gated by the blocking "permanent"
+// confirm. Declining keeps the dog. The Sale record and pedigree survive either
+// way (archive is a soft delete). A pup never counted toward the cap, so this is
+// roster tidiness for pups and a genuine slot-free for a sold adult.
+async function promptDepartOnDelivery(sale) {
+  const dog = await dogRepo.getById(sale.dog_id);
+  if (!dog || dog.is_archived) return;
+  const dogLabel = dog.call_name || 'this dog';
+  const ok = await confirmModal({
+    title: `Remove “${dogLabel}” from your program?`,
+    message: `This sale is delivered. This can't be undone here — ${dogLabel} leaves your roster and you won't be able to edit it or bring it back. It stays in your dogs' pedigrees and this Sale record for history.`,
+    confirmLabel: 'Remove permanently',
+    cancelLabel: 'Keep on roster',
+    danger: true,
+  });
+  if (ok) await dogRepo.archive(sale.dog_id);
+}
+
 // --- Sale-specific prompt helpers ----------------------------------------
 // Opens the shared event modal and resolves once it's saved or dismissed, so the
 // post-save sequence can await it before navigating/re-rendering.
@@ -433,10 +454,14 @@ async function save() {
       }
     }
 
-    // Ownership-update prompt fires only on the transition INTO delivered.
-    // Choosing "External" also sets the dog's status to external_reference.
+    // Fires only on the transition INTO delivered. In Pro this offers to mark the
+    // sold dog's ownership External/Co-owned (External also flips status to
+    // external_reference). Lite has no external ownership, and its dogs leave the
+    // program by DEPARTURE (archive) instead (cap spec §5) — so Lite runs the
+    // "remove from program" prompt here, which also archives sold puppies.
     if (saved.status === 'delivered' && prevStatus !== 'delivered') {
-      await promptOwnershipUpdate(saved);
+      if (editionFlags.externalOwnership) await promptOwnershipUpdate(saved);
+      else await promptDepartOnDelivery(saved);
     }
 
     // Any new sale → offer to update the dog's disposition, defaulting to Placed.

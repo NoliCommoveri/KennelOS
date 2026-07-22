@@ -8,7 +8,7 @@ import { litterRepo } from '../data/litterRepo.js';
 import { dogRepo } from '../data/dogRepo.js';
 import { studServiceRepo } from '../data/studServiceRepo.js';
 import { PAIRING_TYPE, PAIRING_METHOD, PAIRING_STATUS, LITTER_STATUS, STUD_SERVICE_DIRECTION, STUD_SERVICE_STATUS } from '../data/vocab.js';
-import { esc, badge, fmtDate, param, confirmModal } from '../assets/ui.js';
+import { esc, badge, fmtDate, param, confirmModal, dogRefHtml } from '../assets/ui.js';
 import { addDaysToYMD } from '../data/dateUtils.js';
 import { editionFlags } from '../data/editionConfig.js';
 import { renderTimeline } from '../assets/timeline.js';
@@ -66,7 +66,7 @@ function dogName(id) {
 function dogLink(id) {
   const name = dogName(id);
   if (!name) return '';
-  return `<a href="dog.html?id=${encodeURIComponent(id)}">${esc(name)}</a>`;
+  return dogRefHtml(id, name, ctx.dogsById.get(id)?.is_archived);
 }
 
 // --- Option builders -----------------------------------------------------

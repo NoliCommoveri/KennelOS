@@ -396,6 +396,16 @@ table.data tr.row-detail .dl-meta { margin: 0; }
 .inline-warn { color: var(--warn); background: var(--warn-soft); border: 1px solid #e6d5ad; padding: 8px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 10px; }
 .inline-error { color: var(--danger); background: var(--danger-soft); border: 1px solid #e6c3c3; padding: 8px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 10px; }
 
+/* Lite cap upgrade nudge (cap spec §6) — a friendly prompt, not an error. */
+.upgrade-nudge { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; background: var(--accent-soft); border: 1px solid #bfe0cd; color: var(--accent-dark); padding: 12px 14px; border-radius: var(--radius-sm); margin-top: 10px; }
+.upgrade-nudge-body { flex: 1 1 240px; }
+.upgrade-nudge-detail { font-size: 13px; margin-top: 3px; color: var(--text); }
+.upgrade-nudge .btn-primary { flex: 0 0 auto; }
+
+/* A departed (archived) dog reference that renders as plain text, not a link
+   (Lite — cap spec §7). Kept visually like body text so lineage still reads. */
+.dog-name-static { color: var(--text); }
+
 /* --- Modal -------------------------------------------------------------- */
 .modal-overlay {
   position: fixed;
@@ -459,6 +469,8 @@ table.data tr.row-detail .dl-meta { margin: 0; }
 .ped-node .ped-main { display: flex; align-items: center; gap: 6px; }
 .ped-name { font-weight: 700; color: var(--text); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ped-name:hover { color: var(--accent); text-decoration: underline; }
+/* Departed (archived) dog in Lite: name renders but isn't a link (cap spec §7). */
+.ped-name-static, .ped-name-static:hover { color: var(--text); text-decoration: none; cursor: default; }
 .ped-open { margin-left: auto; color: var(--text-faint); text-decoration: none; font-size: 13px; }
 .ped-open:hover { color: var(--accent); }
 .ped-arch { font-size: 10px; padding: 0 6px; }

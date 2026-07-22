@@ -16,6 +16,10 @@
 
 export const edition = 'pro';
 
+// No in-app upgrade CTA in this edition (Pro is already the full app; Demo is a
+// read-only showcase). Exported so shared code that reads it always resolves.
+export const upgradeUrl = null;
+
 // --- Cap hooks -------------------------------------------------------------
 // The interactive dog/litter writers await these before persisting (the three
 // sites in the cap spec §3: dogRepo.create, dogRepo.update, litterRepo.create).
