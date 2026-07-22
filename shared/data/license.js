@@ -29,12 +29,12 @@ import { getProLicense, setProLicense, clearProLicense } from './settings.js';
 const API = 'https://api.lemonsqueezy.com/v1';
 
 // Grace window scales with the billing interval (plan §Licensing): a once-a-year
-// renewal warrants a long buffer so a breeder off the grid for weeks keeps Pro; a
-// monthly cycle renews 12× as often, so a month-long buffer would swallow whole
-// periods — a shorter buffer keeps the "don't lock me out for a blip" spirit
-// proportioned to the shorter cycle. Unknown interval defaults to the shorter one.
+// renewal warrants a longer buffer so a breeder off the grid for a week keeps Pro;
+// a monthly cycle renews 12× as often, so a proportionally shorter buffer keeps the
+// "don't lock me out for a blip" spirit without swallowing a chunk of the period.
+// Unknown interval defaults to the shorter one.
 const DAY_MS = 24 * 60 * 60 * 1000;
-const GRACE_MS = { yearly: 30 * DAY_MS, monthly: 7 * DAY_MS };
+const GRACE_MS = { yearly: 7 * DAY_MS, monthly: 3 * DAY_MS };
 const graceFor = (record) => (record?.interval === 'yearly' ? GRACE_MS.yearly : GRACE_MS.monthly);
 
 // True only in the Pro edition (its editionConfig sets editionFlags.licenseGate).

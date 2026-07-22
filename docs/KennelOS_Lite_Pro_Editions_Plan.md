@@ -174,16 +174,18 @@ need to know which one was bought to activate it.
   activation within a **grace window** so a breeder with no signal (or a just-lapsed renewal)
   isn't locked out mid-use, then drop to a "renew to continue" wall. The window mirrors the
   billing cadence:
-  - **Yearly → ~21–30 days.** A once-a-year renewal warrants a long buffer; a breeder can be off
-    the grid for weeks without losing Pro.
-  - **Monthly → 5–7 days.** A monthly cycle renews twelve times as often, so a month-long buffer
-    would swallow whole billing periods. A shrunk 5–7 day grace keeps the same "don't lock me out
-    for a blip" spirit, proportioned to the shorter cycle.
+  - **Yearly → 7 days.** A once-a-year renewal warrants the longer buffer; a breeder can be off
+    the grid for a week without losing Pro.
+  - **Monthly → 3 days.** A monthly cycle renews twelve times as often, so a proportionally
+    shorter grace keeps the same "don't lock me out for a blip" spirit without swallowing a chunk
+    of the shorter cycle.
 
-  The activation record already carries the interval (Lemon Squeezy returns it), so the app picks
-  the matching window from it; if the interval is ever missing/unknown, default to the shorter
-  (5–7 day) window. When the subscription truly lapses past its grace window, `/validate` returns
-  expired and Pro drops to the "renew to continue" wall.
+  The activation record carries the interval, but Lemon Squeezy's validate/activate response has
+  no clean interval field — the app infers it from `meta.variant_name` by regex (yearly if the
+  variant name matches `year|annual`, else monthly), so the yearly variant must be *named* with
+  "year"/"annual" or the `licenseConfig.yearlyVariantPattern` tuned to match. If the interval is
+  ever missing/unknown, default to the shorter (3-day) window. When the subscription truly lapses
+  past its grace window, `/validate` returns expired and Pro drops to the "renew to continue" wall.
 - **Renewal** is automatic on Lemon Squeezy's side for both intervals; the key's status flips and
   the next `/validate` sees it. A buyer can switch monthly↔yearly through Lemon Squeezy's
   customer portal — same key, the interval (and thus the grace window) updates on the next
@@ -343,8 +345,8 @@ see "Hosting, editions, and origin isolation."
   domain, so IndexedDB is isolated automatically; JSON export/import is the upgrade bridge.
 - **Pricing / platform (#6)** — Lemon Squeezy subscription in **two intervals: monthly (~$3–4/mo)
   or yearly (~$20–30/yr)**, both unlocking the same Pro, unlocked by a browser-validated license
-  key. The **offline/renewal grace window scales with the interval — yearly ~21–30 days, monthly
-  5–7 days** (a shorter cycle gets a proportionally shorter buffer); unknown interval defaults to
+  key. The **offline/renewal grace window scales with the interval — yearly 7 days, monthly
+  3 days** (a shorter cycle gets a proportionally shorter buffer); unknown interval defaults to
   the shorter window.
 - **Demo behavior (#7)** — strictly **read-only**, re-seeded clean each visit (not a sandbox).
 - **Demo hardening (#8)** — **strip** the save/export paths from the demo build; an unlocked copy
