@@ -26,6 +26,12 @@ export const edition = 'lite';
 // post-purchase redirect set to the Pro origin) at launch. One-line change here.
 export const upgradeUrl = 'https://kennelos.app/upgrade';
 
+// Where Lite's "See the full app ↗" link points — the seeded, read-only Demo
+// origin (editions plan §"In-Lite links to Demo and Pro"). Pro/Demo leave this
+// null (no outbound edition links there). PLACEHOLDER — the real Demo origin from
+// build/README.md; swap if the domain changes. One-line change here.
+export const demoUrl = 'https://demo.kennelos.app/';
+
 // --- The counting predicate (cap spec §2) ----------------------------------
 // A dog counts toward the Lite cap only when it is a live, owned/co-owned adult.
 // - is_archived is IN the predicate: an archived dog is a *departed* dog and

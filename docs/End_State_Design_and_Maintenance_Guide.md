@@ -293,6 +293,12 @@ Uniform surface:
 - `getDeleteBlockers(id)` — reference blockers without deleting (for UI)
 - `hardDelete(id)` — blocked if any reference exists (throws `ReferenceBlockedError`)
 
+`create`/`update`/`hardDelete` each call `assertWritable()` (`data/demoMode.js`) first — a
+**no-op in this (Pro/shared) code**, but the single lever the Demo edition flips to make
+every user write a friendly no-op (throws `DemoModeError`); the demo seed writes inside a
+`withSeedAllowed()` window. `fileRepo` (which bypasses `makeRepo`) carries the same guard.
+Edition machinery — see the editions README / cap spec, not this guide.
+
 Conventions each entity repo follows:
 - `create`/`update` run a `validate<Entity>` first, then delegate to base. Update
   validates the **merged** result so partial updates are checked as a whole.
