@@ -50,6 +50,23 @@ External and leased dogs are **Pro-only**. In Lite the dog form's ownership pick
 
 ---
 
+## 1a. Status vocab is restricted in Lite
+
+Lite's dog form Status picker offers only **Puppy, Active breeding, Retired breeding, Deceased**.
+`pet_home`, `for_sale`, and `external_reference` are never selectable — `external_reference` doesn't
+apply (Lite has no external ownership, §1); `pet_home`/`for_sale` are Pro's more granular disposition
+tracking, not needed once archive-on-departure is the single Lite exit (§5: a dog that's placed or
+sold just departs, it doesn't pass through an intermediate status first).
+
+- The counting predicate (§2) still checks `CAP_ADULT_STATUS` against `pet_home`/`for_sale`
+  **defensively** — bulk import bypasses the interactive guard (§7), so a Pro backup imported into
+  Lite could carry a dog already in one of those statuses, and it must still count toward the cap
+  rather than slip through as a bypass.
+- A Lite user can never manually create or transition a dog into `pet_home`/`for_sale`/
+  `external_reference` — those values only ever arrive pre-existing via import.
+
+---
+
 ## 2. What counts — `countsTowardDogCap(dog)`
 
 ```js
@@ -69,6 +86,7 @@ const countsTowardDogCap = (dog) =>
   separate Sale record) never counts.
 - `for_sale` counts only for an **adult** listed for sale; a puppy can't be `for_sale` (vocab
   invariant), so pup sales are unaffected.
+- `pet_home`/`for_sale` are counted defensively but not reachable from Lite's own UI — see §1a.
 
 ---
 
@@ -188,6 +206,12 @@ Pro →"** CTA wired to the export→checkout→import bridge:
 
 Wording varies by `err.kind` and by create-vs-mature, but it's one catch site per form.
 
+**Proactive counterpart:** the New Dog page (`dog.js`) also shows a plain "Creating x/6 available
+dogs" line under the title, reading `editionConfig.dogCapStatus()` — a side-effect-free read of the
+same `countsTowardDogCap`/`CAP_DOGS` used to enforce the cap, so the number always matches what
+would actually block the save. Pro/Demo's `dogCapStatus()` resolves `null` (uncapped), so nothing
+renders there.
+
 ---
 
 ## 7. Hiding the mechanism (so it can't be reverse-engineered)
@@ -196,6 +220,9 @@ Wording varies by `err.kind` and by create-vs-mature, but it's one catch site pe
 machinery. In Lite:
 
 - **No "include archived" toggles** anywhere (dog list, pickers, reports).
+- **No archived-count tiles either** — the dashboard's "Kennel overview" card drops its
+  "Archived (any status)" stat tile in Lite (`dashboard.js`, gated on `includeArchivedToggles`).
+  A raw count is still a reveal of the mechanism, even without a toggle or a link.
 - **No view links to an archived dog's `dog.html`.** The name still renders (for lineage/history),
   but as **plain text, never a link**, and no "arch" badge advertises the state. Apply everywhere a
   dog name is otherwise clickable:

@@ -152,12 +152,26 @@ selections), **Financials — the expense ledger + sales→income** ✅.
 - External / leased dogs (Lite ownership picker = `owned` / `co_owned` only).
 - **All Reports** (Reports hub + every report page).
 - **Invoice / receipt generation** — the `pages/invoice.html` print doc.
+- **Puppy Record generation** — the `pages/puppy-record.html` print doc.
 
 **Shared pages that render differently in Lite (edition-flag gates, NOT omissions):**
 - **Financials (`financials.js`)** — kept for expense tracking, but the **"Invoice /
   Receipt" generator button is hidden** in Lite.
 - **Expense form** — kept, but the **"attach a receipt photo" widget is hidden**
   (receipts & file storage are Pro).
+- **Dog Status picker** — reduced to Puppy / Active breeding / Retired breeding / Deceased;
+  Pet home, For Sale, and External reference are Pro-only (cap spec §1a).
+- **New Dog page** — shows a "Creating x/6 available dogs" counter under the title
+  (cap spec §6), reading the same predicate the cap enforces.
+- **Sale form's inline "＋ New" contact** (`contactPicker.js`) — the Contact type list
+  drops to just Buyer, since full Contacts (People section) is Pro-only.
+- **Sale form's "Referred by"** field/link is hidden entirely — it's a Buyer-referrer
+  Contacts feature, Pro-only.
+- **Litter form's "Foster arrangement" section** is hidden entirely in Lite (Pro-only).
+  In Pro/Demo it's a `<details>` disclosure, collapsed by default and open only when
+  the litter already has foster data.
+- **Dashboard "Archived (any status)" tile** is hidden in Lite — archive counts are
+  part of the hidden archive machinery (cap spec §7), not just the toggles/links.
 
 (The cap itself — 6 counting dogs, 2 litters — and archive-on-departure are separate
 from this page partition; see the cap spec.)
