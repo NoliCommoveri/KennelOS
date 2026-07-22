@@ -27,8 +27,8 @@ function currentFile() {
   return parts[parts.length - 1] || 'index.html';
 }
 
-function currentId() {
-  return new URLSearchParams(location.search).get('id');
+function currentId(param) {
+  return new URLSearchParams(location.search).get(param);
 }
 
 // Detail-page steps carry an `anchor` slug (e.g. 'juniper'); resolve it to the
@@ -39,21 +39,28 @@ function resolvedAnchorId(step) {
   return getSampleDataManifest()?.named?.[step.anchor] || null;
 }
 
+// Almost every detail page reads its record id from `?id=`; a couple of
+// print-doc pages (puppy-record.html reads `?sale=`) use a different key —
+// `idParam` on the step overrides it.
+function anchorParam(step) {
+  return step.idParam || 'id';
+}
+
 // Is the browser already on this step's page? Intro steps have no page — they
 // render wherever the user is, so they always count as "on page". For an
-// anchored detail step the ?id= must be the resolved anchor id too, so advancing
-// between two different dogs (both dog.html) still navigates.
+// anchored detail step the id param must be the resolved anchor id too, so
+// advancing between two different dogs (both dog.html) still navigates.
 function isOnStepPage(step) {
   if (!step.page) return true;
   if (step.page.split('?')[0] !== currentFile()) return false;
   const wantId = resolvedAnchorId(step);
-  return wantId ? currentId() === wantId : true;
+  return wantId ? currentId(anchorParam(step)) === wantId : true;
 }
 
 function resolveStepUrl(step) {
   const base = `${rootPrefix()}pages/${step.page.split('?')[0]}`;
   const id = resolvedAnchorId(step);
-  return id ? `${base}?id=${id}` : base;
+  return id ? `${base}?${anchorParam(step)}=${id}` : base;
 }
 
 function goToStep(step) {

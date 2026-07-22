@@ -24,6 +24,10 @@
 //              the link can only be resolved per-seed; manifest.named is the
 //              map the seed writes for exactly this (spec §3.2, reconciled to
 //              the actual seed).
+//   idParam    (detail pages only, optional) overrides the query key the
+//              resolved anchor id is written to — defaults to 'id'. A couple
+//              of print-doc pages read a different key (puppy-record.html
+//              reads `?sale=`); anchor still resolves the same way.
 //   selector   CSS selector for the coach-mark target on that page. Container
 //              ids (`#…-section`, `[data-card="…"]`) are stable mount points
 //              that always resolve; a step whose selector matches nothing
@@ -275,6 +279,12 @@ export const WIZARD_STEPS = [
     body: 'The details of a sale for a particular puppy — sale type (show or pet), a price prefilled from the litter and editable, any transport or deferred pick-up boarding charge, and a status tracking where the sale is in its lifecycle. You can also create or link a contract specific to the sale here.'
   },
   {
+    id: 'puppy-record', hub: 'Placements', page: 'puppy-record.html', anchor: 'cedarSale', idParam: 'sale',
+    selector: '#pr-root',
+    title: 'Puppy Record',
+    body: 'A printable handout for the buyer — the puppy’s identity, its sire and dam with their own health testing, the puppy’s own health history, and the buyer’s contact details, all on one page. Reach it from “Print Puppy Record” on the Sales list or from a sale’s own page, then Print / Save as PDF to hand it over or email it.'
+  },
+  {
     id: 'stud-list', hub: 'Placements', page: 'stud-services.html',
     selector: '#stud-service-list',
     title: 'Stud services',
@@ -322,6 +332,12 @@ export const WIZARD_STEPS = [
     selector: '#gen-document',
     title: 'Invoices & receipts',
     body: 'Generate invoices (for money owed) and receipts (for money paid) right in the app, pre-filled from your existing sales and stud services. Choose full or partial amounts, decide which payment methods you’ll accept, and set due dates easily. Click Print to save a PDF to email or hand over in person.'
+  },
+  {
+    id: 'invoice-doc', hub: 'Financials', page: 'invoice.html', anchor: 'cedarSale',
+    selector: '#inv-root',
+    title: 'A generated invoice',
+    body: 'What comes out of the generator: an itemized bill with due dates, a running balance, and the payment methods you accept — ready to Print / Save as PDF. Switch the doc type in the generator to produce a receipt the same way, for money already collected.'
   },
 
   // --- More: Reports / Companion / Import-Export --------------------------
