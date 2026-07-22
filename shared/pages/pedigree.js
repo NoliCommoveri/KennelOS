@@ -4,6 +4,7 @@
 import { dogRepo } from '../data/dogRepo.js';
 import { renderPedigree } from '../assets/pedigree.js';
 import { esc, param } from '../assets/ui.js';
+import { editionFlags } from '../data/editionConfig.js';
 
 const rootSel = document.getElementById('ped-root');
 const gensSel = document.getElementById('ped-gens');
@@ -17,6 +18,10 @@ let currentId = null;
 function fillPicker(selectedId) {
   const opts = dogs
     .slice()
+    // Lite excludes departed (archived) dogs from the root picker so the tree
+    // can't be centered on one (cap spec §7); the renderer still draws them as
+    // static ancestor/offspring nodes for lineage.
+    .filter((d) => editionFlags.includeArchivedToggles || !d.is_archived)
     .sort((a, b) => (a.call_name || '').localeCompare(b.call_name || ''))
     .map((d) => `<option value="${esc(d.id)}"${d.id === selectedId ? ' selected' : ''}>${esc(d.call_name || '(unnamed)')}${d.registered_name ? ' — ' + esc(d.registered_name) : ''}${d.is_archived ? ' (archived)' : ''}</option>`)
     .join('');
@@ -25,7 +30,12 @@ function fillPicker(selectedId) {
 
 async function show(id) {
   currentId = id;
-  if (!id) {
+  // Lite: a departed (archived) dog isn't a reachable pedigree root (cap spec §7)
+  // — even a hand-typed ?id= for one falls back to the empty state, and its
+  // open-record link never shows.
+  const rootDog = id ? dogs.find((d) => d.id === id) : null;
+  const hiddenArchived = rootDog && rootDog.is_archived && !editionFlags.archivedDogLinks;
+  if (!id || hiddenArchived) {
     mount.innerHTML = `<div class="empty-state">Choose a dog to view its pedigree.</div>`;
     openLink.style.visibility = 'hidden';
     return;

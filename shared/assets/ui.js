@@ -2,6 +2,7 @@
 // just functions that return safe HTML strings or build DOM.
 import { descriptor } from '../data/vocab.js';
 import { todayYMD } from '../data/dateUtils.js';
+import { editionFlags } from '../data/editionConfig.js';
 
 // Re-exported so pages keep importing todayYMD from here alongside the rest
 // of the shared rendering helpers — the one implementation lives in
@@ -19,6 +20,21 @@ export function esc(s) {
 }
 
 // A colored badge for a single vocab value.
+// A read-only dog reference. Normally a link to the dog's record; but in Lite an
+// ARCHIVED dog is a *departed* dog whose record must not be reachable (cap spec
+// §7 — a visible link would let a curious user open it, see it's merely
+// "archived", and infer an un-archive bypasses the cap). When editionFlags.
+// archivedDogLinks is false and the dog is archived, its name renders as plain
+// text (no href, no "arch" badge) so the departure mechanism stays invisible.
+// `name` is raw text (escaped here). `isArchived` is the dog's is_archived.
+export function dogRefHtml(id, name, isArchived = false) {
+  const text = esc(name);
+  if (isArchived && !editionFlags.archivedDogLinks) {
+    return `<span class="dog-name-static">${text}</span>`;
+  }
+  return `<a href="dog.html?id=${encodeURIComponent(id)}">${text}</a>`;
+}
+
 export function badge(vocab, value) {
   const d = descriptor(vocab, value);
   return `<span class="badge ${d.badge}">${esc(d.label)}</span>`;

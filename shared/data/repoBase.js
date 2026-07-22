@@ -26,6 +26,23 @@ export class ReferenceBlockedError extends Error {
   }
 }
 
+// Thrown by the Lite edition's cap hooks (editionConfig.js) when an interactive
+// write would add a new counting dog / litter past the Lite limit (cap spec §6).
+// A repo can't prompt, so it hard-throws this; the dog / litter / puppy forms
+// catch it and render the upgrade nudge (never a raw error). Lives here — beside
+// ReferenceBlockedError — so both the per-edition editionConfig and the shared
+// forms that catch it import from one shared module. The Pro/Demo editionConfig
+// never constructs it (their hooks are no-ops), so no cap wording ships in Pro.
+export class CapExceededError extends Error {
+  constructor(kind, current, limit) {
+    super(`Lite limit reached: ${current}/${limit} ${kind}.`);
+    this.name = 'CapExceededError';
+    this.kind = kind; // 'dogs' | 'litters'
+    this.current = current;
+    this.limit = limit;
+  }
+}
+
 // Build the standard repo for a table.
 //   tableName  — Dexie table name
 //   references — the entity's registry array (from referenceRegistry.js), or null

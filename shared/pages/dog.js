@@ -4,6 +4,7 @@
 // cycles), soft/interactive ones (sex mismatch warn, the deceased confirmations)
 // live here because they need the user.
 import { dogRepo, ReferenceBlockedError } from '../data/dogRepo.js';
+import { CapExceededError } from '../data/repoBase.js';
 import { contactRepo } from '../data/contactRepo.js';
 import { litterRepo } from '../data/litterRepo.js';
 import { pairingRepo } from '../data/pairingRepo.js';
@@ -19,7 +20,8 @@ import {
   PLACEMENT_TYPE, SALE_STATUS, STUD_SERVICE_DIRECTION, STUD_SERVICE_STATUS,
   LITTER_STATUS, EVENT_TYPES, descriptor, COI_METHOD_SUGGESTIONS, CONTRACT_TYPE, CONTRACT_STATUS
 } from '../data/vocab.js';
-import { esc, badge, fmtDate, todayYMD, param, confirmModal } from '../assets/ui.js';
+import { esc, badge, fmtDate, todayYMD, param, confirmModal, dogRefHtml } from '../assets/ui.js';
+import { renderUpgradeNudge } from '../assets/upgradeNudge.js';
 import { renderTimeline } from '../assets/timeline.js';
 import { renderExpensePanel } from '../assets/expensePanel.js';
 import { openEventFromQuery } from '../assets/eventForm.js';
@@ -176,7 +178,7 @@ function dogName(id) {
 function dogLink(id) {
   const name = dogName(id);
   if (!name) return '';
-  return `<a href="dog.html?id=${encodeURIComponent(id)}">${esc(name)}</a>`;
+  return dogRefHtml(id, name, ctx.dogsById.get(id)?.is_archived);
 }
 function contactName(id) {
   const c = ctx.contactsById.get(id);
@@ -330,9 +332,9 @@ function renderEdit() {
       ${field('Owner', `<select id="f-owner_contact_id">${contactOptions(d.owner_contact_id)}</select>`, { hint: 'Required for external / leased-in dogs.' })}
       ${field('Co-owners', `<select id="f-co_owner_contact_ids" multiple size="4">${coOptions}</select>`, { hint: 'Ctrl/Cmd-click to select multiple.' })}
       ${field('Kennel', `<select id="f-kennel_id">${kennelOptions(d.kennel_id)}</select>`, { hint: 'The kennel this dog belongs to — your own, or an outside kennel for a dog you don’t own.' })}
-      <div class="field field-wide">
+      ${editionFlags.includeArchivedToggles ? `<div class="field field-wide">
         <label class="check-inline"><input id="picker-archived" type="checkbox"${ctx.pickerArchived ? ' checked' : ''}> Include archived dogs/contacts/kennels in the pickers above</label>
-      </div>
+      </div>` : ''}
       ${field('Notes', `<textarea id="f-notes">${esc(d.notes)}</textarea>`, { wide: true })}
     </div>
     <div id="form-warn"></div>`;
@@ -340,7 +342,7 @@ function renderEdit() {
   const form = document.getElementById('dog-form');
   form.addEventListener('input', updateWarnings);
   form.addEventListener('change', updateWarnings);
-  document.getElementById('picker-archived').addEventListener('change', (e) => {
+  document.getElementById('picker-archived')?.addEventListener('change', (e) => {
     ctx.draft = readForm();
     ctx.pickerArchived = e.target.checked;
     renderEdit();
@@ -500,19 +502,30 @@ async function renderHeaderActions() {
   els.headerActions.innerHTML = '';
   if (ctx.mode === 'new' || !ctx.original) return;
   const d = ctx.original;
-  const archiveLabel = d.is_archived ? 'Unarchive' : 'Archive';
   const blockers = await dogRepo.getDeleteBlockers(d.id);
+  const altAction = editionFlags.manualDogArchive ? 'archive instead.' : 'remove it from your program instead.';
   const delTitle = blockers.length
-    ? 'Referenced as ' + blockers.map((b) => `${b.label} (${b.count})`).join(', ') + ' — archive instead.'
+    ? 'Referenced as ' + blockers.map((b) => `${b.label} (${b.count})`).join(', ') + ' — ' + altAction
     : 'Permanently delete this record.';
   const documentsBtn = editionFlags.documents
     ? `<a class="btn btn-sm" href="documents.html?dog=${encodeURIComponent(d.id)}" title="View this dog's filed documents">📄 Documents</a>`
     : '';
+  // Archive control. Pro offers a free Archive/Unarchive toggle. Lite hides the
+  // archive machinery (cap spec §5/§7): the only exit is a confirmed "remove from
+  // program" departure, and a departed dog can't be brought back in Lite (so no
+  // control at all once archived).
+  let archiveBtn = '';
+  if (editionFlags.manualDogArchive) {
+    archiveBtn = `<button class="btn btn-sm" id="btn-archive">${d.is_archived ? 'Unarchive' : 'Archive'}</button>`;
+  } else if (!d.is_archived) {
+    archiveBtn = `<button class="btn btn-sm" id="btn-depart" title="Remove this dog from your program">Remove from program</button>`;
+  }
   els.headerActions.innerHTML = `
     ${documentsBtn}
-    <button class="btn btn-sm" id="btn-archive">${archiveLabel}</button>
+    ${archiveBtn}
     <button class="btn btn-danger btn-sm" id="btn-delete"${blockers.length ? ' disabled' : ''} title="${esc(delTitle)}">Delete</button>`;
-  document.getElementById('btn-archive').onclick = toggleArchive;
+  document.getElementById('btn-archive')?.addEventListener('click', toggleArchive);
+  document.getElementById('btn-depart')?.addEventListener('click', departDog);
   const del = document.getElementById('btn-delete');
   if (!blockers.length) del.onclick = doDelete;
 }
@@ -603,7 +616,15 @@ async function save() {
     ctx.original = await dogRepo.getById(saved.id);
     renderAll();
   } catch (e) {
-    showError(e.message || String(e));
+    // The Lite cap throws CapExceededError (a repo can't prompt); show the
+    // upgrade nudge, not a raw error. mode is still 'new' on a blocked create
+    // and 'edit' on a blocked ✗→✓ transition (a kept pup maturing).
+    if (e instanceof CapExceededError) {
+      renderUpgradeNudge(els.error, e, ctx.mode === 'new' ? 'create' : 'mature');
+      els.error.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      showError(e.message || String(e));
+    }
   }
 }
 
@@ -613,6 +634,26 @@ async function toggleArchive() {
   if (!(await confirmModal({ title: `${verb} “${d.call_name}”?`, confirmLabel: verb }))) return;
   ctx.original = d.is_archived ? await dogRepo.unarchive(d.id) : await dogRepo.archive(d.id);
   renderAll();
+}
+
+// Lite's departure exit (cap spec §5): the ONLY way a dog leaves the active
+// roster in Lite, gated by a blocking "this is permanent" confirm the user must
+// accept. It archives the record (freeing a cap slot honestly — the dog is gone,
+// not hidden-but-owned) and returns to the roster, since a departed dog's page
+// isn't meant to be a place you linger in Lite. No auto-undo: the confirm IS the
+// safety, and history/pedigree stay intact because archive is a soft delete.
+async function departDog() {
+  const d = ctx.original;
+  const ok = await confirmModal({
+    title: `Remove “${d.call_name}” from your program?`,
+    message: `This can't be undone here — ${d.call_name} leaves your roster and you won't be able to edit it or bring it back. It stays in your dogs' pedigrees for lineage.`,
+    confirmLabel: 'Remove permanently',
+    cancelLabel: 'Cancel',
+    danger: true,
+  });
+  if (!ok) return;
+  await dogRepo.archive(d.id);
+  location.href = 'dogs.html';
 }
 
 async function doDelete() {

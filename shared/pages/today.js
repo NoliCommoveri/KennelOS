@@ -22,6 +22,8 @@ import { saleRepo } from '../data/saleRepo.js';
 import { contactRepo } from '../data/contactRepo.js';
 import { EVENT_TYPES, DOG_STATUS, DISPOSITION } from '../data/vocab.js';
 import { esc, badge, fmtDate, cardShell } from '../assets/ui.js';
+import { renderUpgradeNudge } from '../assets/upgradeNudge.js';
+import { CapExceededError } from '../data/repoBase.js';
 import { todayYMD, daysFromToday } from '../data/dateUtils.js';
 
 const DUE_SOON_DAYS = 30; // shared window with the reminder buckets (§3.3)
@@ -169,7 +171,13 @@ async function renderNudges() {
     holder.querySelectorAll('[data-nudge-action]').forEach((btn) => {
       btn.addEventListener('click', async () => {
         try { await nudge.actions[Number(btn.dataset.nudgeAction)].run(); renderNudges(); }
-        catch (e) { showError(e.message || String(e)); }
+        catch (e) {
+          // The promote-lifecycle nudge matures a pup (a ✗→✓ dog transition); in
+          // Lite that can hit the cap and throw CapExceededError — show the
+          // upgrade nudge rather than a raw error (cap spec §6).
+          if (e instanceof CapExceededError) renderUpgradeNudge(errorBox, e, 'mature');
+          else showError(e.message || String(e));
+        }
       });
     });
     const dismissBtn = holder.querySelector('[data-nudge-dismiss]');

@@ -8,6 +8,10 @@
 
 export const edition = 'pro';
 
+// No in-app upgrade CTA in this edition (Pro is already the full app; Demo is a
+// read-only showcase). Exported so shared code that reads it always resolves.
+export const upgradeUrl = null;
+
 export async function enforceDogCap(/* { candidate, existing, id } */) {
   // no-op: Pro is unlimited.
 }

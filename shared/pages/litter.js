@@ -4,6 +4,7 @@
 // Timeline of litter-subject events. Hard blocks come from litterRepo (required
 // fields); the sync/count/date checks are warn-only here per Stage 3 Brief §3.
 import { litterRepo, ReferenceBlockedError } from '../data/litterRepo.js';
+import { CapExceededError } from '../data/repoBase.js';
 import { pairingRepo } from '../data/pairingRepo.js';
 import { dogRepo } from '../data/dogRepo.js';
 import { saleRepo } from '../data/saleRepo.js';
@@ -11,7 +12,8 @@ import { contactRepo } from '../data/contactRepo.js';
 import { kennelRepo } from '../data/kennelRepo.js';
 import { LITTER_STATUS, PAIRING_STATUS, DOG_STATUS, SEX, SALE_STATUS, FOSTER_DIRECTION, FOSTER_COMP_MODEL, FOSTER_SPLIT_BASIS, descriptor } from '../data/vocab.js';
 import { editionFlags } from '../data/editionConfig.js';
-import { esc, badge, fmtDate, fmtMoney, todayYMD, param, confirmModal } from '../assets/ui.js';
+import { esc, badge, fmtDate, fmtMoney, todayYMD, param, confirmModal, dogRefHtml } from '../assets/ui.js';
+import { renderUpgradeNudge } from '../assets/upgradeNudge.js';
 import { addDaysToYMD } from '../data/dateUtils.js';
 import { renderTimeline } from '../assets/timeline.js';
 import { renderExpensePanel } from '../assets/expensePanel.js';
@@ -84,7 +86,7 @@ function dogName(id) {
 function dogLink(id) {
   const name = dogName(id);
   if (!name) return '';
-  return `<a href="dog.html?id=${encodeURIComponent(id)}">${esc(name)}</a>`;
+  return dogRefHtml(id, name, ctx.dogsById.get(id)?.is_archived);
 }
 function pairingLabel(p) {
   if (!p) return '';
@@ -527,7 +529,14 @@ async function save() {
       await maybePromptPairingWhelped(saved);
     }
   } catch (e) {
-    showError(e.message || String(e));
+    // Lite cap: creating a litter past the limit throws CapExceededError — show
+    // the upgrade nudge instead of a raw error (litter update is never capped).
+    if (e instanceof CapExceededError) {
+      renderUpgradeNudge(els.error, e);
+      els.error.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      showError(e.message || String(e));
+    }
   }
 }
 
@@ -561,11 +570,18 @@ async function renderRosterSection() {
   const activePuppies = puppies.filter((d) => !d.is_archived);
 
   const rowsHtml = puppies.length
-    ? `<ul class="linked-list" style="margin:14px 0 0; padding:0; list-style:none;">` + puppies.map((d) => `
+    ? `<ul class="linked-list" style="margin:14px 0 0; padding:0; list-style:none;">` + puppies.map((d) => {
+        // A departed (archived) pup in Lite must not advertise its archived state
+        // or link back to its record (cap spec §7) — plain row, no badge, no Open.
+        const hideArchive = d.is_archived && !editionFlags.archivedDogLinks;
+        const archBadge = d.is_archived && !hideArchive ? ' <span class="badge badge-gray">Archived</span>' : '';
+        const openBtn = hideArchive ? '' : `<a class="btn btn-sm" href="dog.html?id=${encodeURIComponent(d.id)}">Open →</a>`;
+        return `
         <li class="row-between" style="padding:8px 0; border-top:1px solid var(--border);">
-          <span>${badge(SEX, d.sex)} <strong>${esc(d.call_name)}</strong>${d.registered_name ? ` <span class="faint">${esc(d.registered_name)}</span>` : ''} ${badge(DOG_STATUS, d.status)}${d.is_archived ? ' <span class="badge badge-gray">Archived</span>' : ''}</span>
-          <a class="btn btn-sm" href="dog.html?id=${encodeURIComponent(d.id)}">Open →</a>
-        </li>`).join('') + `</ul>`
+          <span>${badge(SEX, d.sex)} <strong>${esc(d.call_name)}</strong>${d.registered_name ? ` <span class="faint">${esc(d.registered_name)}</span>` : ''} ${badge(DOG_STATUS, d.status)}${archBadge}</span>
+          ${openBtn}
+        </li>`;
+      }).join('') + `</ul>`
     : `<p class="muted" style="margin:14px 0 0;">No puppies recorded yet. Each puppy is an ordinary Dog record with this litter set.</p>`;
 
   const dam = ctx.dogsById.get(ctx.original.dam_id);
