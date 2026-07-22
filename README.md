@@ -152,6 +152,7 @@ selections), **Financials — the expense ledger + sales→income** ✅.
 - External / leased dogs (Lite ownership picker = `owned` / `co_owned` only).
 - **All Reports** (Reports hub + every report page).
 - **Invoice / receipt generation** — the `pages/invoice.html` print doc.
+- **Puppy Record generation** — the `pages/puppy-record.html` print doc.
 
 **Shared pages that render differently in Lite (edition-flag gates, NOT omissions):**
 - **Financials (`financials.js`)** — kept for expense tracking, but the **"Invoice /

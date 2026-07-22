@@ -44,6 +44,7 @@ export const editionFlags = {
   companion: true,
   reports: true,
   invoicing: true,
+  puppyRecord: true,
   receiptAttach: true,
   externalOwnership: true,
   assistant: true,

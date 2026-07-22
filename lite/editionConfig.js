@@ -105,6 +105,7 @@ export const editionFlags = {
   companion: false,
   reports: false,
   invoicing: false,
+  puppyRecord: false,
   receiptAttach: false,
   externalOwnership: false,
   assistant: false,

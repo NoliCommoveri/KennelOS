@@ -65,6 +65,7 @@ export const editionFlags = {
   companion: true,         // Companion buyer/partner share-out
   reports: true,           // Reports hub + report pages
   invoicing: true,         // Invoice/receipt generation (print docs)
+  puppyRecord: true,       // Puppy Record generation (print doc)
   receiptAttach: true,     // Attach a receipt photo/PDF to an expense (file storage)
   externalOwnership: true, // external / leased dog ownership types
   assistant: true,         // Dropbox sync + KennelAssistant helper (§26)

@@ -277,8 +277,11 @@ async function renderHeaderActions() {
   const delTitle = blockers.length
     ? 'Referenced as ' + blockers.map((b) => `${b.label} (${b.count})`).join(', ') + ' — archive instead.'
     : 'Permanently delete this record.';
+  const puppyRecordBtn = editionFlags.puppyRecord
+    ? `<a class="btn btn-sm" id="btn-puppy-record" href="puppy-record.html?sale=${encodeURIComponent(s.id)}">Puppy Record (PDF)</a>`
+    : '';
   els.headerActions.innerHTML = `
-    <a class="btn btn-sm" id="btn-puppy-record" href="puppy-record.html?sale=${encodeURIComponent(s.id)}">Puppy Record (PDF)</a>
+    ${puppyRecordBtn}
     <button class="btn btn-sm" id="btn-archive">${archiveLabel}</button>
     <button class="btn btn-danger btn-sm" id="btn-delete"${blockers.length ? ' disabled' : ''} title="${esc(delTitle)}">Delete</button>`;
   document.getElementById('btn-archive').onclick = toggleArchive;
