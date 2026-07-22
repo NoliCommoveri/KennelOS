@@ -10,6 +10,7 @@ import { PLACEMENT_TYPE, SALE_STATUS, DISPOSITION, CONTRACT_TYPE, CONTRACT_STATU
 import { esc, badge, fmtDate, todayYMD, param, confirmModal, selectModal } from '../assets/ui.js';
 import { openEventForm } from '../assets/eventForm.js';
 import { attachNewContactButton } from '../assets/contactPicker.js';
+import { editionFlags } from '../data/editionConfig.js';
 
 // Statuses that warrant the "log a scheduled pickup" prompt (Stage4.5 Addendum §D4).
 const PLACEMENT_PROMPT_STATUSES = ['paid_in_full', 'delivered'];
@@ -126,7 +127,9 @@ function renderView() {
   els.body.innerHTML = `
     <dl class="dl-meta" style="margin-top:14px;">
       ${row('Dog', `<a href="dog.html?id=${encodeURIComponent(s.dog_id)}">${esc(dogName(s.dog_id) || '—')}</a>`)}
-      ${row('Buyer', `<a href="contact.html?id=${encodeURIComponent(s.buyer_contact_id)}">${esc(contactName(s.buyer_contact_id) || '—')}</a>`)}
+      ${row('Buyer', editionFlags.contactsSection
+        ? `<a href="contact.html?id=${encodeURIComponent(s.buyer_contact_id)}">${esc(contactName(s.buyer_contact_id) || '—')}</a>`
+        : esc(contactName(s.buyer_contact_id) || '—'))}
       ${row('Placement type', badge(PLACEMENT_TYPE, s.placement_type))}
       ${row('Status', badge(SALE_STATUS, s.status))}
       ${row('Price', esc(money(s.price)))}
@@ -138,7 +141,9 @@ function renderView() {
       ${row('Balance due date', s.balance_due_date ? esc(fmtDate(s.balance_due_date)) : '')}
       ${row('Balance paid date', s.balance_paid_date ? esc(fmtDate(s.balance_paid_date)) : '')}
       ${row('Lead source', esc(s.lead_source))}
-      ${row('Referred by', s.referred_by_contact_id ? `<a href="contact.html?id=${encodeURIComponent(s.referred_by_contact_id)}">${esc(contactName(s.referred_by_contact_id) || '—')}</a>` : '')}
+      ${row('Referred by', s.referred_by_contact_id ? (editionFlags.contactsSection
+        ? `<a href="contact.html?id=${encodeURIComponent(s.referred_by_contact_id)}">${esc(contactName(s.referred_by_contact_id) || '—')}</a>`
+        : esc(contactName(s.referred_by_contact_id) || '—')) : '')}
       ${row('Notes', s.notes ? esc(s.notes).replace(/\n/g, '<br>') : '')}
     </dl>`;
 }
@@ -527,6 +532,7 @@ async function doDelete() {
 // --- Contracts panel (derived) --------------------------------------------
 async function renderContractsSection() {
   if (!els.contracts) return;
+  if (!editionFlags.contracts) { els.contracts.innerHTML = ''; return; } // Pro-only in Lite
   if (ctx.mode !== 'view' || !ctx.original) { els.contracts.innerHTML = ''; return; }
   const contracts = await contractRepo.getBySale(ctx.original.id);
   contracts.sort((a, b) => (b.signed_date || b.created_at || '').localeCompare(a.signed_date || a.created_at || ''));

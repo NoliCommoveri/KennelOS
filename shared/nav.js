@@ -1,30 +1,16 @@
 // nav.js — single source of truth for the top navigation, injected into the
 // <div id="app-nav"></div> that every page includes.
 //
-// The bar is organized by JOB, not by table: six workflow hubs in the main bar
-// (Today / Dogs / Breeding / People / Placements & Contracts / Financials), and
-// the back-of-house utilities (Reports, Companion, Import/Export) tucked behind a
-// "More" corner menu. Detail, edit, and import pages are NOT nav entries — they're
-// reached by clicking into a hub. Consolidated pages (Pairings, Litters, Roster,
-// Board, Upcoming, Reminders, …) still exist and keep their URLs; the bar simply
-// consolidates the doors to them.
-export const NAV_ITEMS = [
-  { label: 'Today',    path: 'pages/today.html' },    // dashboard + reminders + upcoming + board
-  { label: 'Dogs',     path: 'pages/dogs.html' },
-  { label: 'Breeding', path: 'pages/breeding.html' }, // pairings + litters + resulting puppies
-  { label: 'People',   path: 'pages/contacts.html' }, // contacts + waitlist / buyers
-  { label: 'Placements & Contracts', path: 'pages/sales.html' }, // sales + stud services + contracts
-  { label: 'Financials', path: 'pages/financials.html' } // the expense ledger — where the money lives
-];
-
-// Back-of-house utilities — rarely opened, so they live behind a corner menu
-// rather than costing a slot in the main bar.
-export const MORE_ITEMS = [
-  { label: 'Reports',       path: 'pages/reports.html' },
-  { label: 'Documents',     path: 'pages/documents.html' },
-  { label: 'Companion',     path: 'pages/companion.html' },
-  { label: 'Import/Export', path: 'pages/import-export.html' }
-];
+// The bar is organized by JOB, not by table: workflow hubs in the main bar
+// (Today / Dogs / Breeding / … / Financials) plus back-of-house utilities behind
+// a "More" corner menu. Detail, edit, and import pages are NOT nav entries —
+// they're reached by clicking into a hub.
+//
+// The lists themselves are EDITION-SPECIFIC (Lite omits the Pro-only hubs —
+// People, Reports, Documents, Companion), so they come from editionConfig and
+// this renderer stays edition-agnostic. Aliased to the original names to keep
+// the rest of this file unchanged.
+import { navItems as NAV_ITEMS, moreItems as MORE_ITEMS } from './data/editionConfig.js';
 
 // Pages live one directory deep (/pages/*.html); index.html sits at the app root.
 // Links are stored app-root-relative and prefixed at render time so they resolve

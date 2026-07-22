@@ -28,8 +28,37 @@ export async function enforceLitterCap(/* { candidate } */) {
 }
 
 export const editionFlags = {
-  // Left at Pro defaults for foundation; the cap pass flips these to false.
+  // Archive flags left at Pro defaults for foundation; the cap pass flips these.
   manualDogArchive: true,
   includeArchivedToggles: true,
   archivedDogLinks: true,
+  // Pro-only feature gates — OFF in Lite. Shared pages read these to hide the
+  // in-page doors to Pro features; the Pro pages themselves are excluded from
+  // the Lite build (Option B).
+  contactsSection: false,
+  studServices: false,
+  contracts: false,
+  documents: false,
+  companion: false,
+  reports: false,
+  invoicing: false,
+  receiptAttach: false,
+  externalOwnership: false,
+  assistant: false,
 };
+
+// --- Navigation (Lite — reduced) -------------------------------------------
+// Pro-only hubs are omitted: People (Contacts), Reports, Documents, Companion.
+// The "Placements & Contracts" hub is relabeled "Sales" since Contracts and
+// Stud services are Pro-only — only Sales remains in Lite.
+export const navItems = [
+  { label: 'Today',    path: 'pages/today.html' },
+  { label: 'Dogs',     path: 'pages/dogs.html' },
+  { label: 'Breeding', path: 'pages/breeding.html' },
+  { label: 'Sales',    path: 'pages/sales.html' },
+  { label: 'Financials', path: 'pages/financials.html' },
+];
+
+export const moreItems = [
+  { label: 'Import/Export', path: 'pages/import-export.html' },
+];

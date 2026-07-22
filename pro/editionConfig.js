@@ -20,4 +20,32 @@ export const editionFlags = {
   manualDogArchive: true,
   includeArchivedToggles: true,
   archivedDogLinks: true,
+  // Pro-only feature gates — all on in Pro.
+  contactsSection: true,
+  studServices: true,
+  contracts: true,
+  documents: true,
+  companion: true,
+  reports: true,
+  invoicing: true,
+  receiptAttach: true,
+  externalOwnership: true,
+  assistant: true,
 };
+
+// Full nav bar (Pro has every hub).
+export const navItems = [
+  { label: 'Today',    path: 'pages/today.html' },
+  { label: 'Dogs',     path: 'pages/dogs.html' },
+  { label: 'Breeding', path: 'pages/breeding.html' },
+  { label: 'People',   path: 'pages/contacts.html' },
+  { label: 'Placements & Contracts', path: 'pages/sales.html' },
+  { label: 'Financials', path: 'pages/financials.html' },
+];
+
+export const moreItems = [
+  { label: 'Reports',       path: 'pages/reports.html' },
+  { label: 'Documents',     path: 'pages/documents.html' },
+  { label: 'Companion',     path: 'pages/companion.html' },
+  { label: 'Import/Export', path: 'pages/import-export.html' },
+];

@@ -7,6 +7,8 @@ import { getResetCounts, resetApp } from '../data/appReset.js';
 import { isTourAvailable, restartWizard } from '../data/wizardState.js';
 import { runWizardStep } from '../assets/wizardUI.js';
 import { esc, confirmModal } from '../assets/ui.js';
+import { editionFlags, edition } from '../data/editionConfig.js';
+import { isProOnlyPage } from '../data/proPages.js';
 import {
   completeDropboxAuth, beginDropboxAuth, isDropboxConnected, disconnectDropbox
 } from '../data/dropbox.js';
@@ -109,6 +111,14 @@ brTabs.addEventListener('click', (e) => {
 // CSV import is a single dropdown — pick a data type and go straight to its
 // dedicated import page (each has its own dry-run preview).
 const csvSelect = document.getElementById('csv-import-select');
+// Lite is the only build that excludes Pro-only pages, so only there do we drop
+// CSV-import options whose target page (Contacts, Stud services, Kennel tests)
+// would be absent. Pro/Demo ship every page, so they keep every option.
+if (edition === 'lite') {
+  for (const opt of [...csvSelect.options]) {
+    if (opt.value && isProOnlyPage(opt.value)) opt.remove();
+  }
+}
 csvSelect.addEventListener('change', () => {
   if (csvSelect.value) location.href = csvSelect.value;
 });
@@ -218,6 +228,7 @@ renderResetAppStatus();
 const dropboxBody = document.getElementById('dropbox-body');
 
 function renderDropbox() {
+  if (!dropboxBody) return; // Lite: the Dropbox/KennelAssistant section is removed
   if (!isDropboxConnected()) {
     dropboxBody.innerHTML = `
       <div class="form-actions" style="margin-top:0;">
@@ -359,8 +370,14 @@ function showAssistantPreviewModal({ generated_at, rows }) {
   });
 }
 
-// Finish an in-flight OAuth redirect (if the URL carries ?code=), then render.
-completeDropboxAuth()
-  .then((handled) => { if (handled) flash('Dropbox connected.'); })
-  .catch((e) => flash(e.message || String(e), 'err'))
-  .finally(renderDropbox);
+// Dropbox sync + KennelAssistant is Pro (§26). In Lite, remove the section and
+// skip the OAuth-completion / status render entirely.
+if (!editionFlags.assistant) {
+  document.getElementById('dropbox-section')?.remove();
+} else {
+  // Finish an in-flight OAuth redirect (if the URL carries ?code=), then render.
+  completeDropboxAuth()
+    .then((handled) => { if (handled) flash('Dropbox connected.'); })
+    .catch((e) => flash(e.message || String(e), 'err'))
+    .finally(renderDropbox);
+}

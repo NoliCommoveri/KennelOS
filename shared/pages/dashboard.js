@@ -14,6 +14,7 @@ import { pairingRepo } from '../data/pairingRepo.js';
 import { saleRepo } from '../data/saleRepo.js';
 import { contactRepo } from '../data/contactRepo.js';
 import { eventRepo } from '../data/eventRepo.js';
+import { editionFlags } from '../data/editionConfig.js';
 import { getAwayBoardRows } from '../data/awayBoard.js';
 import { DOG_STATUS } from '../data/vocab.js';
 import { esc } from '../assets/ui.js';
@@ -91,7 +92,7 @@ async function main() {
       stat(dueSoon, `Due within ${DUE_SOON_DAYS} days`, { href: 'reminders.html', tone: 'warn' }),
       stat(upcomingPlacements, 'Upcoming placements', { href: 'scheduled-placements.html' }),
       stat(awayCount, 'Dogs away (boarding)', { href: 'board.html' }),
-      stat(waitlistActive, 'Active waitlist', { href: 'contacts.html?group=clients' })
+      editionFlags.contactsSection ? stat(waitlistActive, 'Active waitlist', { href: 'contacts.html?group=clients' }) : ''
     ].join(''), 'Live counts you can act on — each tile opens the full list.');
 }
 

@@ -29,6 +29,7 @@ import { getInvoiceDefaults, setInvoiceDefaults } from '../data/settings.js';
 import { createReportView } from '../assets/reportView.js';
 import { buildMileageFields, wireMileageMode } from '../assets/expensePanel.js';
 import { buildReceiptField, wireReceiptField } from '../assets/receiptCapture.js';
+import { editionFlags } from '../data/editionConfig.js';
 import { esc, badge, fmtDate, fmtMoney, todayYMD, param } from '../assets/ui.js';
 import {
   EXPENSE_CATEGORIES, EXPENSE_SUBJECT_TYPES, INCOME_SOURCE_TYPES, INCOME_COMPONENTS,
@@ -135,7 +136,7 @@ function openAddExpense(onSaved) {
         <div class="field"><label>Receipt #</label>
           <input id="af-receipt" type="text" placeholder="Optional — auto-filled from a scanned receipt when found"></div>
         <div class="field field-wide"><label>Notes</label><textarea id="af-notes"></textarea></div>
-        ${buildReceiptField('af', {})}
+        ${editionFlags.receiptAttach ? buildReceiptField('af', {}) : ''}
       </div>
       <div id="af-error"></div>
       <div class="form-actions">
@@ -149,7 +150,7 @@ function openAddExpense(onSaved) {
   const subjSel = modal.querySelector('#af-subject-id');
   typeSel.addEventListener('change', () => { subjSel.innerHTML = subjectOptionsFor(typeSel.value); });
   const mileage = wireMileageMode(modal, 'af', modal.querySelector('#af-category'));
-  const receipt = wireReceiptField(modal, 'af', {});
+  const receipt = editionFlags.receiptAttach ? wireReceiptField(modal, 'af', {}) : null;
 
   function close() { overlay.remove(); document.removeEventListener('keydown', onKey); }
   function onKey(e) { if (e.key === 'Escape') close(); }
@@ -157,7 +158,7 @@ function openAddExpense(onSaved) {
     const saveBtn = modal.querySelector('[data-act="save"]');
     saveBtn.disabled = true;
     try {
-      const receipt_file_id = await receipt.resolveFileId(null);
+      const receipt_file_id = receipt ? await receipt.resolveFileId(null) : null;
       const saved = await expenseRepo.create({
         subject_type: typeSel.value,
         subject_id: subjSel.value,
@@ -858,9 +859,11 @@ async function init() {
   const addBtn = document.getElementById('add-expense');
   if (addBtn) addBtn.style.display = 'none';
 
-  // The Invoice / Receipt generator is available from every Financials view.
+  // The Invoice / Receipt generator is available from every Financials view —
+  // except in Lite, where invoice/receipt generation is Pro-only (hide the button).
   const genBtn = document.getElementById('gen-document');
-  if (genBtn) genBtn.addEventListener('click', () => openGenerateModal());
+  if (genBtn && editionFlags.invoicing) genBtn.addEventListener('click', () => openGenerateModal());
+  else if (genBtn) genBtn.style.display = 'none';
 
   if (view === 'income') initIncome();
   else if (view === 'overview') await initOverview();
