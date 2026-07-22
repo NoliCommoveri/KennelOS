@@ -336,11 +336,18 @@ see "Hosting, editions, and origin isolation."
   archived/departed dogs **don't**. Full rules in `KennelOS_Lite_Cap_Enforcement_Spec.md`.
 - **Exit = archive-on-departure** — sold/rehomed/placed dogs *and sold puppies* are archived and
   hidden; every archive action is gated by a **"this is permanent" confirm** the user must accept.
+- **Inline "add buyer" in the sale flow (#1) — confirmed YES.** Lite can both pick an existing
+  buyer and create a new one from inside the sale, without the Pro-only Contacts section. The
+  mechanism is edition-agnostic and already shipped: the Buyer `<select>` in the sale edit form
+  lists existing contacts, and `contactPicker.js`'s `attachNewContactButton` decorates it with a
+  **"＋ New"** button whose minimal inline-create modal (name required, type optional) writes a
+  Contact via `contactRepo` and selects it — wired unconditionally in `sale.js` (not behind
+  `editionFlags.contactsSection`). `contactPicker.js`/`contactRepo.js` are shared, not in
+  `proPages.js`, so they ship in the Lite build. Lite gates only the *view link* to the full
+  Contact page: the buyer name renders as plain text (no `contact.html` link) rather than as a
+  door to a Pro page. Same inline-create is available on the sale's "Referred by" picker.
 
-**Still open (don't block the layout, but pin before shipping):**
-
-1. **Inline "add buyer" in the sale flow** — confirm Lite can create/pick a buyer from inside
-   a sale, since the full Contacts section is Pro-only.
+**Still open:** none — every item above is pinned.
 
 ---
 
