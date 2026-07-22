@@ -113,6 +113,12 @@ function assemble(edition) {
   // Overlay the edition's config at the fixed shared path.
   cpSync(join(ROOT, edition, 'editionConfig.js'), join(dest, 'data', 'editionConfig.js'));
 
+  // Overlay the edition's guided-tour package (sample seed + step catalog) if it
+  // ships one — only Lite does; Pro/Demo keep the shared default (the full
+  // Thornfield packet + full step catalog). Same fixed-path overlay as the config.
+  const tourOverlay = join(ROOT, edition, 'editionTour.js');
+  if (existsSync(tourOverlay)) cpSync(tourOverlay, join(dest, 'data', 'editionTour.js'));
+
   // Exclude Pro-only files (Lite).
   const excluded = [];
   for (const rel of exclusionsFor(edition)) {

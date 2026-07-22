@@ -91,9 +91,13 @@ one-bump-per-batch rule applies.
 - Strict layering: pages → repos → Dexie. Pages never call `db.*` directly, and never touch `localStorage` (go through a repo / `settings.js`).
 - One thin repo per entity: `getById`, `getAll({includeArchived})`, `create`, `update`, `archive`, `hardDelete`. New entity = new repo + page; don't reshape existing ones.
 - **Editions layering:** the shared core stays edition-agnostic — it never hardcodes a
-  cap or a Pro/Lite check. Anything edition-specific goes through `shared/data/editionConfig.js`
-  (the per-edition injection point). Pro-only *pages* live in `pro/`, not `shared/`, so
-  they're physically absent from the Lite download (that absence IS the paywall).
+  cap or a Pro/Lite check. Anything edition-specific goes through a per-edition **injection
+  point**: `shared/data/editionConfig.js` (cap hooks, flags, nav) and
+  `shared/data/editionTour.js` (the guided-tour package — sample seed + step catalog). Each
+  edition ships its own copy at that fixed shared path; `build/assemble.mjs` overlays it (Lite
+  supplies both overrides; Pro/Demo use the shared defaults). Pro-only *pages* live in `pro/`,
+  not `shared/`, so they're physically absent from the Lite download (that absence IS the
+  paywall).
 
 ## Two decisions — do not re-litigate
 - One `Dog` table for breeding stock, puppies, external dogs. Life-stage change = `status` update on the same record, never a new record.
