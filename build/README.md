@@ -35,7 +35,32 @@ node build/assemble.mjs lite     # just one
 ## Deploy
 
 Each edition deploys to **its own origin** (a subdomain), so its IndexedDB stays
-isolated (editions plan). Point each origin's web root at the matching `dist/<edition>/`.
+isolated (editions plan). Live at:
+
+- `lite.kennelos.app` ← `dist/lite/`
+- `pro.kennelos.app` ← `dist/pro/`
+- `demo.kennelos.app` ← `dist/demo/`
+
+Hosting is GitHub Pages, one edition per repo (GitHub Pages allows exactly one custom
+domain per repo, so three subdomains need three repos):
+[`kennelos-lite`](https://github.com/NoliCommoveri/kennelos-lite),
+[`kennelos-pro`](https://github.com/NoliCommoveri/kennelos-pro),
+[`kennelos-demo`](https://github.com/NoliCommoveri/kennelos-demo). Each publish repo
+holds **only build output** — never hand-edit a file in one of them; it's overwritten
+on the next deploy.
+
+`.github/workflows/deploy.yml` in *this* repo (`nolicommoveri/kennelos`) is the deploy
+mechanism: on every push to `main`, it runs `node build/assemble.mjs <edition>` for all
+three editions and force-publishes `dist/<edition>/` (plus a generated `CNAME` file) to
+`main` on the matching publish repo, via
+[`peaceiris/actions-gh-pages`](https://github.com/peaceiris/actions-gh-pages) authenticated
+with a single repo secret, `EDITIONS_DEPLOY_PAT` — a fine-grained PAT scoped to
+`Contents: Read and write` on just the three publish repos. Each publish repo has GitHub
+Pages enabled (Settings → Pages → source = `main` branch, root) with its custom domain
+set to match the `CNAME` above and "Enforce HTTPS" on.
+
+To deploy manually instead of waiting for CI: run `node build/assemble.mjs`, then push
+`dist/<edition>/` as the `main` branch of the matching publish repo.
 
 ## Two source-of-truth files — keep them true
 
