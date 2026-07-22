@@ -266,9 +266,9 @@ function renderEdit() {
       <div class="field field-wide"><h3 style="margin:8px 0 0;">Females — expected price &amp; deposit</h3></div>
       ${field('Expected price (female)', `<input id="f-expected_price_female" type="number" min="0" step="0.01" value="${esc(l.expected_price_female)}">`, { hint: 'Prefills a new sale\'s price when the puppy sold is female. Still editable per sale.' })}
       ${field('Expected deposit (female)', `<input id="f-expected_deposit_female" type="number" min="0" step="0.01" value="${esc(l.expected_deposit_female)}">`, { hint: 'Prefills a new sale\'s deposit amount when the puppy sold is female. Still editable per sale.' })}
-      <div class="field field-wide">
+      ${editionFlags.includeArchivedToggles ? `<div class="field field-wide">
         <label class="check-inline"><input id="picker-archived" type="checkbox"${ctx.pickerArchived ? ' checked' : ''}> Include archived dogs/pairings/contacts in the pickers above</label>
-      </div>
+      </div>` : ''}
       ${field('Notes', `<textarea id="f-notes">${esc(l.notes)}</textarea>`, { wide: true })}
       <div class="field field-wide"><h3 style="margin:8px 0 0;">Foster arrangement</h3>
         <span class="field-hint">Leave the direction blank for an ordinary litter. Foster is per-litter — the same dam can have foster and non-foster litters.</span></div>
@@ -288,7 +288,7 @@ function renderEdit() {
   const form = document.getElementById('litter-form');
   form.addEventListener('input', updateWarnings);
   form.addEventListener('change', updateWarnings);
-  document.getElementById('picker-archived').addEventListener('change', (e) => {
+  document.getElementById('picker-archived')?.addEventListener('change', (e) => {
     ctx.draft = readForm();
     ctx.pickerArchived = e.target.checked;
     renderEdit();
@@ -399,15 +399,19 @@ async function renderHeaderActions() {
   els.headerActions.innerHTML = '';
   if (ctx.mode === 'new' || !ctx.original) return;
   const l = ctx.original;
-  const archiveLabel = l.is_archived ? 'Unarchive' : 'Archive';
   const blockers = await litterRepo.getDeleteBlockers(l.id);
   const delTitle = blockers.length
     ? 'Referenced as ' + blockers.map((b) => `${b.label} (${b.count})`).join(', ') + ' — archive instead.'
     : 'Permanently delete this record.';
+  // Archive control. Lite hides the archive machinery (cap spec §5/§7) — no
+  // manual litter-archive at all (litters have no "departure" substitute).
+  const archiveBtn = editionFlags.manualDogArchive
+    ? `<button class="btn btn-sm" id="btn-archive">${l.is_archived ? 'Unarchive' : 'Archive'}</button>`
+    : '';
   els.headerActions.innerHTML = `
-    <button class="btn btn-sm" id="btn-archive">${archiveLabel}</button>
+    ${archiveBtn}
     <button class="btn btn-danger btn-sm" id="btn-delete"${blockers.length ? ' disabled' : ''} title="${esc(delTitle)}">Delete</button>`;
-  document.getElementById('btn-archive').onclick = toggleArchive;
+  document.getElementById('btn-archive')?.addEventListener('click', toggleArchive);
   const del = document.getElementById('btn-delete');
   if (!blockers.length) del.onclick = doDelete;
 }
