@@ -34,7 +34,9 @@ node build/assemble.mjs lite     # just one
    so an installed edition reads as its own app rather than a generic "KennelOS". Names
    come from `EDITION_NAMES` in `assemble.mjs`; only those keys are touched.
 5. **Regenerate** `dist/<edition>/sw.js`: an edition-specific `CACHE_NAME`
-   (`kennelos-<edition>-shell-v1`) and a `PRECACHE_URLS` list filtered to the files that
+   (`kennelos-<edition>-shell-vN`, where **N is carried from the shared `sw.js` cache
+   version** — so the one CLAUDE.md `CACHE_NAME` bump rolls every edition over) and a
+   `PRECACHE_URLS` list filtered to the files that
    actually exist in the artifact (so `cache.addAll`, which is atomic, can never fail on
    an excluded path).
 

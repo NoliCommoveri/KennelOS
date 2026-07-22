@@ -68,7 +68,11 @@ function rewriteServiceWorker(destDir, edition) {
   const swPath = join(destDir, 'sw.js');
   let text = readFileSync(swPath, 'utf8');
 
-  text = text.replace(/const CACHE_NAME = '[^']*';/, `const CACHE_NAME = 'kennelos-${edition}-shell-v1';`);
+  // Carry the shared cache version (kennelos-shell-vN in shared/sw.js) into the
+  // edition name, so the one CLAUDE.md bump rolls every edition's cache over on
+  // the next deploy. Falls back to v1 if the shared name isn't in the expected shape.
+  const ver = text.match(/const CACHE_NAME = 'kennelos-shell-v(\d+)';/)?.[1] ?? '1';
+  text = text.replace(/const CACHE_NAME = '[^']*';/, `const CACHE_NAME = 'kennelos-${edition}-shell-v${ver}';`);
 
   const m = text.match(/const PRECACHE_URLS = \[([\s\S]*?)\];/);
   if (!m) throw new Error(`${edition}: could not find PRECACHE_URLS in sw.js`);
@@ -79,7 +83,7 @@ function rewriteServiceWorker(destDir, edition) {
   text = text.replace(/const PRECACHE_URLS = \[[\s\S]*?\];/, rebuilt);
 
   writeFileSync(swPath, text);
-  return { precache: kept.length, droppedFromPrecache: dropped.length };
+  return { precache: kept.length, droppedFromPrecache: dropped.length, cacheName: `kennelos-${edition}-shell-v${ver}` };
 }
 
 // Stamp the edition's name into manifest.json (name + short_name) so the PWA
@@ -120,7 +124,7 @@ function assemble(edition) {
   rewriteIndexTitle(dest, edition);
 
   const sw = rewriteServiceWorker(dest, edition);
-  console.log(`✅ ${edition}: dist/${edition}/  (excluded ${excluded.length} files, precache ${sw.precache}, cache kennelos-${edition}-shell-v1)`);
+  console.log(`✅ ${edition}: dist/${edition}/  (excluded ${excluded.length} files, precache ${sw.precache}, cache ${sw.cacheName})`);
 }
 
 const arg = process.argv[2];
