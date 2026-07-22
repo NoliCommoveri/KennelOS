@@ -36,9 +36,24 @@ export async function enforceLitterCap(/* { candidate } */) {
 // mechanism (no manual dog-archive, no include-archived toggles, archived-dog
 // names render as plain text rather than links).
 export const editionFlags = {
+  // Archive-mechanism flags (Lite hides the machinery; cap spec §5/§7).
   manualDogArchive: true,        // Lite: false — departure is the only exit
   includeArchivedToggles: true,  // Lite: false — no way to surface departed dogs
   archivedDogLinks: true,        // Lite: false — archived dog names aren't clickable
+
+  // Pro-only feature gates. The Pro-only PAGES are excluded from the Lite build
+  // (Option B); these flags let shared pages hide the in-page doors to them (a
+  // Dog profile's "Add Stud Service" button, Sale's contact links, the Financials
+  // "Invoice/Receipt" button, …). Pro/Demo: all true. Lite: all false.
+  contactsSection: true,   // People/Contacts browse + management pages
+  studServices: true,      // Stud service records
+  contracts: true,         // Contract records (beyond a logged sale)
+  documents: true,         // Documents + file storage
+  companion: true,         // Companion buyer/partner share-out
+  reports: true,           // Reports hub + report pages
+  invoicing: true,         // Invoice/receipt generation (print docs)
+  receiptAttach: true,     // Attach a receipt photo/PDF to an expense (file storage)
+  externalOwnership: true, // external / leased dog ownership types
 };
 
 // --- Navigation ------------------------------------------------------------

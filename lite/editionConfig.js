@@ -28,10 +28,22 @@ export async function enforceLitterCap(/* { candidate } */) {
 }
 
 export const editionFlags = {
-  // Left at Pro defaults for foundation; the cap pass flips these to false.
+  // Archive flags left at Pro defaults for foundation; the cap pass flips these.
   manualDogArchive: true,
   includeArchivedToggles: true,
   archivedDogLinks: true,
+  // Pro-only feature gates — OFF in Lite. Shared pages read these to hide the
+  // in-page doors to Pro features; the Pro pages themselves are excluded from
+  // the Lite build (Option B).
+  contactsSection: false,
+  studServices: false,
+  contracts: false,
+  documents: false,
+  companion: false,
+  reports: false,
+  invoicing: false,
+  receiptAttach: false,
+  externalOwnership: false,
 };
 
 // --- Navigation (Lite — reduced) -------------------------------------------

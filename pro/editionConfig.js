@@ -20,6 +20,16 @@ export const editionFlags = {
   manualDogArchive: true,
   includeArchivedToggles: true,
   archivedDogLinks: true,
+  // Pro-only feature gates — all on in Pro.
+  contactsSection: true,
+  studServices: true,
+  contracts: true,
+  documents: true,
+  companion: true,
+  reports: true,
+  invoicing: true,
+  receiptAttach: true,
+  externalOwnership: true,
 };
 
 // Full nav bar (Pro has every hub).

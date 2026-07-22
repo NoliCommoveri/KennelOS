@@ -22,6 +22,16 @@ export const editionFlags = {
   includeArchivedToggles: true,
   archivedDogLinks: true,
   demoMode: true, // placeholder — read by the shared write layer in the Demo pass
+  // Pro-only feature gates — all on in Demo (shows the whole Pro app).
+  contactsSection: true,
+  studServices: true,
+  contracts: true,
+  documents: true,
+  companion: true,
+  reports: true,
+  invoicing: true,
+  receiptAttach: true,
+  externalOwnership: true,
 };
 
 // Full nav bar (Demo shows the whole Pro app, read-only).
