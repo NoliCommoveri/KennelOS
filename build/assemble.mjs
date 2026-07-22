@@ -25,6 +25,16 @@ import { PRO_ONLY_PAGES, PRO_ONLY_STANDALONE } from '../shared/data/proPages.js'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const EDITIONS = ['lite', 'pro', 'demo'];
 
+// Per-edition PWA identity, stamped into the copied manifest.json (and the root
+// index.html <title>) so an installed edition reads as its own app rather than a
+// generic "KennelOS". Each edition already deploys to its own origin, so this is
+// purely how it's LABELLED (installer name, tab title), not scoping.
+const EDITION_NAMES = {
+  lite: 'KennelOS Lite',
+  pro:  'KennelOS Pro',
+  demo: 'KennelOS Demo',
+};
+
 function stemJs(htmlBasename) {
   return htmlBasename.replace(/\.html$/, '.js');
 }
@@ -60,6 +70,25 @@ function rewriteServiceWorker(destDir, edition) {
   return { precache: kept.length, droppedFromPrecache: dropped.length };
 }
 
+// Stamp the edition's name into manifest.json (name + short_name) so the PWA
+// installs as "KennelOS Lite/Pro/Demo". Parse/serialize as JSON so we touch only
+// those two keys and leave icons/colors/etc. intact.
+function rewriteManifest(destDir, edition) {
+  const p = join(destDir, 'manifest.json');
+  const manifest = JSON.parse(readFileSync(p, 'utf8'));
+  manifest.name = EDITION_NAMES[edition];
+  manifest.short_name = EDITION_NAMES[edition];
+  writeFileSync(p, JSON.stringify(manifest, null, 2) + '\n');
+}
+
+// Stamp the edition name into the root index.html <title> (the front door). Only
+// the root redirect page is edition-labelled here; per-page titles stay generic.
+function rewriteIndexTitle(destDir, edition) {
+  const p = join(destDir, 'index.html');
+  const text = readFileSync(p, 'utf8').replace(/<title>[^<]*<\/title>/, `<title>${EDITION_NAMES[edition]}</title>`);
+  writeFileSync(p, text);
+}
+
 function assemble(edition) {
   const dest = join(ROOT, 'dist', edition);
   rmSync(dest, { recursive: true, force: true });
@@ -74,6 +103,9 @@ function assemble(edition) {
     const p = join(dest, rel);
     if (existsSync(p)) { rmSync(p); excluded.push(rel); }
   }
+
+  rewriteManifest(dest, edition);
+  rewriteIndexTitle(dest, edition);
 
   const sw = rewriteServiceWorker(dest, edition);
   console.log(`✅ ${edition}: dist/${edition}/  (excluded ${excluded.length} files, precache ${sw.precache}, cache kennelos-${edition}-shell-v1)`);

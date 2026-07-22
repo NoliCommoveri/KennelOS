@@ -19,6 +19,7 @@ const PRECACHE_URLS = [
   'manifest.json',
   'assets/app.css',
   'assets/contactPicker.js',
+  'assets/editionLinks.js',
   'assets/eventForm.js',
   'assets/expensePanel.js',
   'assets/importView.js',

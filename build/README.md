@@ -27,7 +27,11 @@ node build/assemble.mjs lite     # just one
    (`PRO_ONLY_PAGES` + `PRO_ONLY_STANDALONE`) — the `.html`, its `.js` sibling, and the
    standalone Companion/Assistant shells. There is nothing to unlock because the files
    aren't there.
-4. **Regenerate** `dist/<edition>/sw.js`: an edition-specific `CACHE_NAME`
+4. **Stamp the edition identity** into `dist/<edition>/manifest.json` (`name` +
+   `short_name` → `KennelOS Lite` / `Pro` / `Demo`) and the root `index.html` `<title>`,
+   so an installed edition reads as its own app rather than a generic "KennelOS". Names
+   come from `EDITION_NAMES` in `assemble.mjs`; only those keys are touched.
+5. **Regenerate** `dist/<edition>/sw.js`: an edition-specific `CACHE_NAME`
    (`kennelos-<edition>-shell-v1`) and a `PRECACHE_URLS` list filtered to the files that
    actually exist in the artifact (so `cache.addAll`, which is atomic, can never fail on
    an excluded path).

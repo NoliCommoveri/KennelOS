@@ -20,6 +20,10 @@ export const edition = 'pro';
 // read-only showcase). Exported so shared code that reads it always resolves.
 export const upgradeUrl = null;
 
+// No outbound edition links from Pro/Demo (Lite is the hub that links out — see
+// editionLinks.js). Null here so hasEditionLinks() is false and nothing renders.
+export const demoUrl = null;
+
 // --- Cap hooks -------------------------------------------------------------
 // The interactive dog/litter writers await these before persisting (the three
 // sites in the cap spec §3: dogRepo.create, dogRepo.update, litterRepo.create).

@@ -13,6 +13,11 @@ export const edition = 'demo';
 // read-only showcase). Exported so shared code that reads it always resolves.
 export const upgradeUrl = null;
 
+// No outbound edition links from Demo (Lite is the hub that links out; Demo is
+// itself the target of Lite's "See the full app" link). Null so hasEditionLinks()
+// is false and nothing renders.
+export const demoUrl = null;
+
 export async function enforceDogCap(/* { candidate, existing, id } */) {
   // no-op: writes are blocked by demo mode, not the cap.
 }
