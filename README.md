@@ -107,10 +107,29 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     `pro-promo` upsell cards (a new centered step kind, Lite-only). Finishing still clears the
     seed and hands off to kennel setup. Demo has no tour (its boot returns before the wizard),
     so it's unaffected; Pro is unchanged.
-- **Next:** the editions build is feature-complete (Lite cap, Pro, Demo, front doors, tour).
-  Remaining before launch is deploy-time config, not code: buy the domain, wire the three
-  publish repos + `EDITIONS_DEPLOY_PAT` (see `build/README.md`), and swap the Lemon Squeezy
-  `upgradeUrl` / Demo-origin `demoUrl` placeholders in `lite/editionConfig.js`.
+- **Step 7 — Pro license gate, done & browser-verified (headless Chromium, all three
+  editions, no console errors).** Pro is a Lemon Squeezy subscription unlocked by a
+  browser-validated license key — no backend, per the plan's §Licensing.
+  - **The gap it closes:** before this, `pro.kennelos.app` unlocked the full app for anyone
+    who opened it — there was no key check anywhere. Selling a sub for something already free
+    to any visitor was the real blocker between "I have a store" and "I can charge".
+  - **`shared/data/license.js`** — `activate()`/`validate()` call Lemon Squeezy's
+    browser-callable `POST /v1/licenses/activate` + `/validate` (license key in the body, no
+    store secret), and a verdict state machine applies an **interval-scaled offline grace
+    window** (yearly ~30d, monthly ~7d; unknown → the shorter). Interval is inferred from the
+    returned `variant_name` against a configurable pattern. The cached activation lives under
+    its own `settings.js` key, **excluded from Reset App** (entitlement isn't program data).
+  - **`shared/assets/licenseGate.js`** — the UI: a full-screen **activation wall** (first run,
+    enter key), a **renewal wall** (lapsed past grace: re-check / renew / use a different key),
+    and a dismissible **grace banner**. Invoked from `app.js`'s `boot()` before the app renders.
+  - **One flag, Pro-only** — `editionFlags.licenseGate` is true only in `pro/editionConfig.js`;
+    Lite is free and Demo is a public showcase, so the gate is inert there (verified: Lite/Demo
+    render with no wall). The Lemon Squeezy checkout URL lives in Pro's `licenseConfig`.
+- **Next:** the editions build is now feature-complete (Lite cap, Pro + license gate, Demo,
+  front doors, tour). Remaining before launch is deploy-time config, not code: buy the domain,
+  wire the three publish repos + `EDITIONS_DEPLOY_PAT` (see `build/README.md`), swap the Lemon
+  Squeezy `upgradeUrl` / Demo-origin `demoUrl` placeholders in `lite/editionConfig.js`, and
+  swap Pro's `licenseConfig.checkoutUrl` (+ tune `yearlyVariantPattern`) in `pro/editionConfig.js`.
 
 ## Build & deploy
 

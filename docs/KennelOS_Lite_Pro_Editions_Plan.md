@@ -191,7 +191,11 @@ need to know which one was bought to activate it.
 
 **One thing to confirm against current Lemon Squeezy docs at build time:** that the
 activate/validate endpoints are CORS-enabled for browser calls and need only the license key
-(no store secret). The whole no-backend design rests on that.
+(no store secret). The whole no-backend design rests on that. **✅ Confirmed, and the gate is
+built** — `shared/data/license.js` (activate/validate + interval-scaled offline grace) and
+`shared/assets/licenseGate.js` (activation/renewal walls + grace banner), gated on
+`editionFlags.licenseGate` (Pro only). The only launch step left is swapping the checkout URL
+placeholder in `pro/editionConfig.js`. See `README.md` Step 7.
 
 **The honest caveat:** the license check runs in the buyer's browser, so a technical person
 could bypass it. The audience is dog breeders, not crackers — the key stops ~99%, and the sub is
