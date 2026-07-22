@@ -1,0 +1,47 @@
+name: Deploy editions
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - edition: lite
+            repo: NoliCommoveri/kennelos-lite
+            domain: lite.kennelos.app
+          - edition: pro
+            repo: NoliCommoveri/kennelos-pro
+            domain: pro.kennelos.app
+          - edition: demo
+            repo: NoliCommoveri/kennelos-demo
+            domain: demo.kennelos.app
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build ${{ matrix.edition }}
+        run: node build/assemble.mjs ${{ matrix.edition }}
+
+      - name: Add CNAME
+        run: echo "${{ matrix.domain }}" > dist/${{ matrix.edition }}/CNAME
+
+      - name: Publish to ${{ matrix.repo }}
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          personal_token: ${{ secrets.EDITIONS_DEPLOY_PAT }}
+          external_repository: ${{ matrix.repo }}
+          publish_branch: main
+          publish_dir: dist/${{ matrix.edition }}
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'Deploy ${{ matrix.edition }}: ${{ github.sha }}'
