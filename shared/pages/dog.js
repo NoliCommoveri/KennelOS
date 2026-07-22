@@ -13,6 +13,7 @@ import { saleRepo } from '../data/saleRepo.js';
 import { studServiceRepo } from '../data/studServiceRepo.js';
 import { contractRepo } from '../data/contractRepo.js';
 import { getMyContactId } from '../data/kennelSetup.js';
+import { editionFlags } from '../data/editionConfig.js';
 import {
   SEX, DOG_STATUS, DISPOSITION, OWNERSHIP_TYPE, PAIRING_TYPE, PAIRING_STATUS,
   PLACEMENT_TYPE, SALE_STATUS, STUD_SERVICE_DIRECTION, STUD_SERVICE_STATUS,
@@ -504,8 +505,11 @@ async function renderHeaderActions() {
   const delTitle = blockers.length
     ? 'Referenced as ' + blockers.map((b) => `${b.label} (${b.count})`).join(', ') + ' — archive instead.'
     : 'Permanently delete this record.';
+  const documentsBtn = editionFlags.documents
+    ? `<a class="btn btn-sm" href="documents.html?dog=${encodeURIComponent(d.id)}" title="View this dog's filed documents">📄 Documents</a>`
+    : '';
   els.headerActions.innerHTML = `
-    <a class="btn btn-sm" href="documents.html?dog=${encodeURIComponent(d.id)}" title="View this dog's filed documents">📄 Documents</a>
+    ${documentsBtn}
     <button class="btn btn-sm" id="btn-archive">${archiveLabel}</button>
     <button class="btn btn-danger btn-sm" id="btn-delete"${blockers.length ? ' disabled' : ''} title="${esc(delTitle)}">Delete</button>`;
   document.getElementById('btn-archive').onclick = toggleArchive;
@@ -968,6 +972,7 @@ async function renderSalesSection() {
 // on either side. Shown for breeding-age dogs or a dog with existing records.
 async function renderStudServicesSection() {
   if (!els.studServices) return;
+  if (!editionFlags.studServices) { els.studServices.innerHTML = ''; return; } // Pro-only in Lite
   if (ctx.mode !== 'view' || !ctx.original) { els.studServices.innerHTML = ''; return; }
   const d = ctx.original;
   const studServices = await studServiceRepo.getForDog(d.id);
@@ -997,6 +1002,7 @@ async function renderStudServicesSection() {
 // dogs or a dog with existing linked contracts.
 async function renderContractsSection() {
   if (!els.contracts) return;
+  if (!editionFlags.contracts) { els.contracts.innerHTML = ''; return; } // Pro-only in Lite
   if (ctx.mode !== 'view' || !ctx.original) { els.contracts.innerHTML = ''; return; }
   const d = ctx.original;
   const contracts = await contractRepo.getByDog(d.id);
