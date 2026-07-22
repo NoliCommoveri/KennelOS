@@ -20,6 +20,13 @@
 >   The `data/editionConfig.js` injection point (Lite/Pro cap hooks) and the
 >   `data/editionTour.js` injection point (per-edition guided-tour package: sample seed +
 >   step catalog — see §11) are the additions not yet folded into the sections below.
+> - **Pro license gate** (`data/license.js` + `assets/licenseGate.js`) is a boot-time
+>   addition too: in the Pro edition only (`editionConfig.editionFlags.licenseGate`),
+>   `app.js`'s `boot()` calls `ensureLicensed()` before rendering — a Lemon Squeezy
+>   key is browser-validated (activate/validate, no backend) with an interval-scaled
+>   offline grace window, and an unlicensed load is walled. The cached activation lives
+>   under its own `settings.js` key (`kennelOS.proLicense`) that is deliberately **excluded
+>   from `clearAllSettings()`**, so Reset App keeps paid entitlement. Inert in Lite/Demo.
 >
 > Treat everything under this line as an accurate map of the shared/Pro **code**, with
 > the caveats above.
