@@ -17,8 +17,9 @@
 > - **Still true and still load-bearing:** everything about the data model, the Dexie
 >   schema, the repo layer, referential integrity, the Event model, escaping contracts,
 >   and the change recipes — that all applies unchanged to the code now under `shared/`.
->   The `data/editionConfig.js` injection point (Lite/Pro cap hooks) is the one addition
->   not yet folded into the sections below.
+>   The `data/editionConfig.js` injection point (Lite/Pro cap hooks) and the
+>   `data/editionTour.js` injection point (per-edition guided-tour package: sample seed +
+>   step catalog — see §11) are the additions not yet folded into the sections below.
 >
 > Treat everything under this line as an accurate map of the shared/Pro **code**, with
 > the caveats above.
@@ -122,11 +123,13 @@ KennelOS/
                                assistant feed builder, outbox import (§26)
     assistantStore.js          KennelAssistant's OWN Dexie db + its data layer (§26)
     appReset.js                Full "reset to first run" teardown
-    sampleData.js              "Thornfield Kennels" demo seed/clear
+    sampleData.js              "Thornfield Kennels" demo seed + generic clear (§11)
     seedImport.js              Optional breed+test vocabulary seed
     kennelSetup.js             First-run "your kennel/owner" wizard logic
     wizardState.js             Guided-tour status/index state machine (§11)
-    wizardSteps.js             Guided-tour step catalog — data only (§11)
+    wizardSteps.js             Full (Pro/Demo) guided-tour step catalog — data only (§11)
+    editionTour.js             Per-edition tour package (seed + steps) injection point;
+                               shared copy re-exports the full seed + catalog (§11)
     settings.js                localStorage-backed UI prefs / identity keys
     nudgeState.js              Device-local dismissal ledger for derived nudges
     nudges.js                  Derived-nudge engine — computeNudges() (§19)
@@ -610,19 +613,30 @@ persistent banner + the shared Clear-sample-data flow.
 UI/state feature that reads existing records (never writes app data) and persists its own
 progress in `localStorage` via `settings.js` (`wizardStatus` + `wizardStepIndex`), no Dexie
 table, no schema, no `referenceRegistry.js` entry. Three modules: **`data/wizardState.js`**
-(the status/index state machine, `isTourAvailable()` gating the tour on the Thornfield seed
+(the status/index state machine, `isTourAvailable()` gating the tour on the seed
 being active, `isIntroStep()`, and the `HIGHLIGHT_STEPS` list the "Step n of N" counter uses),
-**`data/wizardSteps.js`** (the static ordered `WIZARD_STEPS` catalog — data only, like
+**`data/wizardSteps.js`** (the static ordered full `WIZARD_STEPS` catalog — data only, like
 `vocab.js`), and **`assets/wizardUI.js`** (the box-shadow spotlight overlay, the cards, the
-nav "Take the tour" entry, and the free-navigation "Resume tour" pill). The tour can also be
+nav "Take the tour" entry, and the free-navigation "Resume tour" pill). **Editions note:**
+`wizardState.js`/`wizardUI.js` import `WIZARD_STEPS`, and `onboardingUI.js`/`app.js` import the
+`seedSampleData` seed, from the **`data/editionTour.js`** injection point — not from
+`wizardSteps.js`/`sampleData.js` directly — so the tour and its seed vary together per edition.
+The shared copy re-exports the full catalog + Thornfield seed (Pro/Demo); Lite overlays its own
+`editionTour.js` (a smaller packet sized to the 6-dog/2-litter cap, no Pro-only entities, and a
+step catalog scoped to Lite's pages with `pro-promo` upsell cards). `clearSampleData()` /
+`hasSampleData()` stay in `sampleData.js` — manifest-driven and generic, so one copy clears
+whichever packet was seeded. The tour can also be
 relaunched from the **Import / Export** page's "Guided tour" section — a button that calls
 `restartWizard()` + `runWizardStep()` (its opening card is a page-agnostic intro, so it appears
 in place); it and the nav entry share the `isTourAvailable()` gate, so both hide once the sample
-data is cleared. The catalog has two
-step **kinds**: an **intro** step (`kind: 'tour-intro'` or `'hub-intro'`) is a centered,
-page-agnostic card with a single forward button (`step.button`, e.g. "Explore Today Hub →")
-— one tour-intro leads the tour, and a hub-intro precedes each hub's stops; a **highlight**
-step (no `kind`) spotlights a real element and pins a compact card to the **top** of the
+data is cleared. The catalog has three
+step **kinds** (all three are centered/single-button except the last): an **intro** step
+(`kind: 'tour-intro'` or `'hub-intro'`) is a centered, page-agnostic card with a single forward
+button (`step.button`, e.g. "Explore Today Hub →") — one tour-intro leads the tour, and a
+hub-intro precedes each hub's stops; a **`pro-promo`** step (Lite catalog only) is the same
+centered single-button card with an accent + "KennelOS Pro" eyebrow, pitching a Pro feature
+(`isIntroStep()` treats it like an intro, so it renders centered and is excluded from the
+"Step n of N" count); a **highlight** step (no `kind`) spotlights a real element and pins a compact card to the **top** of the
 viewport, scrolling its target to sit just below so the card never covers it (a target pinned
 too high on its page to clear the top card flips the card to the **bottom** of the viewport
 instead; a `ResizeObserver` re-positions the target as a content-heavy page's sections load in,

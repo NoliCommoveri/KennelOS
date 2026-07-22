@@ -92,7 +92,22 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     prompts and shows a persistent "read-only demo" banner.
   - **Save/export stripped** — Import/Export removed from demo nav *and* excluded from the
     demo build (`assemble.mjs`; a direct URL 404s). `restoreBackup()` also asserts writable.
-- **Next:** the editions build is feature-complete (Lite cap, Pro, Demo, front doors).
+- **Step 6 — per-edition guided tour, done & browser-verified (headless Chromium, Lite build,
+  no console errors).** The tour + its sample data are now injected per edition via
+  `shared/data/editionTour.js` (a second injection point beside `editionConfig.js`; the shared
+  copy re-exports the full Thornfield seed + `WIZARD_STEPS`, and `build/assemble.mjs` overlays
+  `<edition>/editionTour.js` when present — only Lite ships one).
+  - **The bug it fixes:** the shared Thornfield packet (21 dogs / 5 litters) run through Lite's
+    repos tripped the cap mid-seed (`litterRepo.create` threw on the 3rd litter) *before* the
+    manifest was written — leaving orphan dogs with no "Clear Sample Data" banner — and the
+    shared tour then walked to Pro-only pages that 404 in Lite.
+  - **`lite/editionTour.js`** — a smaller packet sized to exactly the 6-dog / 2-litter cap (so
+    the seed completes *and* the kennel reads as "at the cap", teeing up the upgrade pitch), no
+    Pro-only entities, plus a Lite step catalog that visits only Lite's pages and folds in
+    `pro-promo` upsell cards (a new centered step kind, Lite-only). Finishing still clears the
+    seed and hands off to kennel setup. Demo has no tour (its boot returns before the wizard),
+    so it's unaffected; Pro is unchanged.
+- **Next:** the editions build is feature-complete (Lite cap, Pro, Demo, front doors, tour).
   Remaining before launch is deploy-time config, not code: buy the domain, wire the three
   publish repos + `EDITIONS_DEPLOY_PAT` (see `build/README.md`), and swap the Lemon Squeezy
   `upgradeUrl` / Demo-origin `demoUrl` placeholders in `lite/editionConfig.js`.

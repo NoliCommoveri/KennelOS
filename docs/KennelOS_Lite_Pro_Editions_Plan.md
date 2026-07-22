@@ -226,6 +226,20 @@ just sequencing them around the purchase. The "Upgrade to Pro" button runs three
 So the whole move is export-in-Lite → import-in-Pro, bracketing the purchase — both halves the
 app already does, with no human in the loop.
 
+### The guided tour is per-edition
+
+The first-run **"Show me around!"** tour and its sample data are one system: the tour's step
+catalog hard-names anchor records (a specific dog, the current litter) and resolves them against
+the ids the seed writes. So they must vary together per edition, through a dedicated injection
+point — **`shared/data/editionTour.js`** (a sibling of `editionConfig.js`; `build/assemble.mjs`
+overlays each edition's copy). Pro/Demo use the shared default (the full Thornfield packet + full
+catalog). **Lite ships its own**: the shared packet would trip Lite's cap *mid-seed* (leaving
+orphan records the user can't clear) and then navigate to Pro-only pages that 404, so Lite gets a
+smaller packet sized to exactly the **6-dog / 2-litter cap** — which doubles as a selling point
+(the demo kennel reads as "at the limit") — and a step catalog that visits only Lite's pages and
+weaves in **Pro-promo cards** pitching what Pro unlocks. (The Demo edition never runs the tour —
+its boot returns before the wizard hooks — so this is a Lite-vs-Pro split.)
+
 ---
 
 ## The Demo edition (seeded, read-only showcase)
