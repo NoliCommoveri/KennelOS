@@ -34,12 +34,21 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     Contracts panel; Financials invoice button + expense receipt-attach; Sales contract
     block + seg-tabs; Pairing stud panel; Litter foster-partner link; Dashboard waitlist
     tile; Dog ownership picker → owned/co_owned only).
-  - **Remaining Step 2 — the Lite build mechanics:** a canonical Pro-only page-file
-    list, a Lite `sw.js` (precache minus Pro pages, own cache name), a small assemble
-    script that produces the Lite artifact excluding those files, and a documented deploy
-    step. (The manual assemble used for the smoke test already proves the shape works.)
-- **After that:** Lite's real cap + archive-on-departure + hidden-archive links +
+  - **Lite build mechanics — done & browser-verified against the built artifacts:**
+    `shared/data/proPages.js` (canonical Pro-only page list); `build/assemble.mjs`
+    (copies `shared/` → `dist/<edition>/`, overlays the edition config, excludes the
+    Pro-only files for Lite, regenerates `sw.js` with an edition cache name + filtered
+    precache); Import/Export page gated too (Pro CSV options + Dropbox/Assistant section).
+    Confirmed on `dist/lite`: Pro pages return **404**, no console errors. See `build/README.md`.
+
+  **Step 2 is complete — the partition (nav + gating + Lite build) is done.**
+- **Next:** Lite's real cap (6/2) + archive-on-departure + hidden-archive links +
   upgrade nudges + per-edition index/manifest; then Demo mode.
+
+## Build & deploy
+
+`node build/assemble.mjs` → `dist/{lite,pro,demo}/`, each a servable/deployable tree
+(deploy each to its own origin). Details in `build/README.md`.
 
 ## Lite scope (decided)
 

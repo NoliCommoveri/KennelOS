@@ -49,15 +49,18 @@ schema block, and section prose all consistent with each other and with the code
 
 This is the single most-forgotten step. The app is an offline PWA with a **cache-first**
 service worker, so an installed client only picks up changed files when the cache name
-changes. **Note: there is now one service worker per edition** — `shared/sw.js` is the
-shared default; each edition (`lite/`, `pro/`, `demo/`) will get its own `sw.js` +
-precache list + cache name. When you change the file set, fix **every** affected
-edition's precache list, not just one. **Whenever you add, rename, or remove any app
-file** (`.html`/`.js`/`.css`, an icon, a `vendor/` or `resources/` asset):
+changes. **There is one service worker per edition, but you only maintain ONE:**
+`shared/sw.js`. Each edition's `dist/<edition>/sw.js` is **generated** by
+`build/assemble.mjs` — it copies `shared/sw.js`, gives it an edition-specific
+`CACHE_NAME`, and filters the precache to the files that edition actually ships (Lite
+drops the Pro-only pages from `shared/data/proPages.js`). **Never hand-edit a
+`dist/*/sw.js`** — edit `shared/sw.js` and re-assemble. **Whenever you add, rename, or
+remove any app file** (`.html`/`.js`/`.css`, an icon, a `vendor/` or `resources/` asset):
 
-1. Update the `PRECACHE_URLS` list in the affected `sw.js` (today `shared/sw.js`) to
-   match (add/rename/remove the entry). `cache.addAll` is atomic — one missing or
-   misnamed path fails the whole install and silently breaks offline.
+1. Update the `PRECACHE_URLS` list in `shared/sw.js` (the one source) to match
+   (add/rename/remove the entry). `cache.addAll` is atomic — one missing or misnamed
+   path fails the whole install and silently breaks offline. (If the new file is
+   Pro-only, also add it to `shared/data/proPages.js` so the Lite build excludes it.)
 2. **Bump `CACHE_NAME`** in that `sw.js` (e.g. `kennelos-shell-vN` → `vN+1`).
    Without this, clients keep serving the old cache and never see your change.
    **Never bump on your own initiative — ASK the user to confirm they're done, and

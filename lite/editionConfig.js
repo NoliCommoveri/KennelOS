@@ -44,6 +44,7 @@ export const editionFlags = {
   invoicing: false,
   receiptAttach: false,
   externalOwnership: false,
+  assistant: false,
 };
 
 // --- Navigation (Lite — reduced) -------------------------------------------

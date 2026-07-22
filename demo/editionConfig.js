@@ -32,6 +32,7 @@ export const editionFlags = {
   invoicing: true,
   receiptAttach: true,
   externalOwnership: true,
+  assistant: true,
 };
 
 // Full nav bar (Demo shows the whole Pro app, read-only).
