@@ -23,10 +23,12 @@ node build/assemble.mjs lite     # just one
    This is the injection point (cap spec §8): Lite's copy carries the reduced nav +
    feature flags; Pro/Demo carry the full/no-op copy. **Pro's build therefore contains
    no cap logic** — the whole point of the editions model.
-3. **(Lite only) Exclude** the Pro-only pages listed in `shared/data/proPages.js`
-   (`PRO_ONLY_PAGES` + `PRO_ONLY_STANDALONE`) — the `.html`, its `.js` sibling, and the
-   standalone Companion/Assistant shells. There is nothing to unlock because the files
-   aren't there.
+3. **Exclude edition-stripped pages.** *Lite* drops the Pro-only pages listed in
+   `shared/data/proPages.js` (`PRO_ONLY_PAGES` + `PRO_ONLY_STANDALONE`) — the `.html`,
+   its `.js` sibling, and the standalone Companion/Assistant shells. *Demo* drops the
+   Import/Export page (`DEMO_EXCLUDED_PAGES` in `assemble.mjs`) — the save/export path is
+   stripped so an unlocked copy is a dead end (editions plan §Demo hardening #8). In both
+   cases there's nothing to unlock because the files aren't there; a direct URL 404s.
 4. **Stamp the edition identity** into `dist/<edition>/manifest.json` (`name` +
    `short_name` → `KennelOS Lite` / `Pro` / `Demo`) and the root `index.html` `<title>`,
    so an installed edition reads as its own app rather than a generic "KennelOS". Names

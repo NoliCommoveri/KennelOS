@@ -30,7 +30,7 @@ export const editionFlags = {
   manualDogArchive: true,
   includeArchivedToggles: true,
   archivedDogLinks: true,
-  demoMode: true, // placeholder — read by the shared write layer in the Demo pass
+  demoMode: true, // read by demoMode.js — every user write becomes a no-op
   // Pro-only feature gates — all on in Demo (shows the whole Pro app).
   contactsSection: true,
   studServices: true,
@@ -54,9 +54,11 @@ export const navItems = [
   { label: 'Financials', path: 'pages/financials.html' },
 ];
 
+// Import/Export is omitted — the demo strips the save/export paths (editions plan
+// §Demo hardening #8); the page files are excluded from the demo build too, so a
+// direct URL 404s just like a Pro-only page does in Lite.
 export const moreItems = [
   { label: 'Reports',       path: 'pages/reports.html' },
   { label: 'Documents',     path: 'pages/documents.html' },
   { label: 'Companion',     path: 'pages/companion.html' },
-  { label: 'Import/Export', path: 'pages/import-export.html' },
 ];

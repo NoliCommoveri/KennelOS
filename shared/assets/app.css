@@ -413,6 +413,18 @@ table.data tr.row-detail .dl-meta { margin: 0; }
 .edition-links-nav .edition-link-upgrade { color: #ffd88a; font-weight: 600; }
 .edition-links-nav .edition-links-note { margin: 4px 10px 0; font-size: 12px; color: #d7e6de; }
 
+/* Demo edition read-only banner (app.js renderDemoBanner) — a persistent strip
+   at the very top of every page so a blocked write is expected, not a surprise. */
+.demo-banner {
+  background: #3a2a12;
+  color: #ffe6b0;
+  border-bottom: 1px solid #5a441d;
+  text-align: center;
+  padding: 7px 16px;
+  font-size: 13px;
+}
+.demo-banner strong { color: #fff; }
+
 /* On Today: a centered footer strip below the last card. */
 .edition-footer:empty { display: none; }
 .edition-footer { max-width: var(--maxw); margin: 0 auto; padding: 8px 16px 48px; }

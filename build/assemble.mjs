@@ -39,15 +39,27 @@ function stemJs(htmlBasename) {
   return htmlBasename.replace(/\.html$/, '.js');
 }
 
-// Files excluded from an edition (Lite excludes the Pro-only pages; Pro/Demo exclude nothing).
+// Pages excluded from the Demo build: the save/export surface is stripped so an
+// unlocked copy is a dead end (editions plan §Demo hardening #8). Excluded like a
+// Pro-only page is from Lite — the file simply isn't there, so a direct URL 404s.
+const DEMO_EXCLUDED_PAGES = ['import-export.html'];
+
+// Files excluded from an edition. Lite drops the Pro-only pages; Demo drops the
+// save/export page; Pro ships everything.
 function exclusionsFor(edition) {
-  if (edition !== 'lite') return [];
   const files = [];
-  for (const html of PRO_ONLY_PAGES) {
-    files.push(join('pages', html));
-    files.push(join('pages', stemJs(html))); // .js sibling, if it exists
+  if (edition === 'lite') {
+    for (const html of PRO_ONLY_PAGES) {
+      files.push(join('pages', html));
+      files.push(join('pages', stemJs(html))); // .js sibling, if it exists
+    }
+    for (const f of PRO_ONLY_STANDALONE) files.push(f);
+  } else if (edition === 'demo') {
+    for (const html of DEMO_EXCLUDED_PAGES) {
+      files.push(join('pages', html));
+      files.push(join('pages', stemJs(html)));
+    }
   }
-  for (const f of PRO_ONLY_STANDALONE) files.push(f);
   return files;
 }
 

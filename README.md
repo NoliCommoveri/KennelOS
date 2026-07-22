@@ -77,8 +77,25 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     export-first bridge (`runUpgradeBridge`, now shared with the cap upgrade nudge):
     export the JSON backup, then head to checkout. `demoUrl` (Lite) points at the Demo
     origin — placeholder until the domain is live.
-- **Next:** Demo mode (read-only, seeded showcase) — the demo-mode write short-circuit
-  in the shared repo layer, auto-seed-on-load, and the stripped save/export paths.
+- **Step 5 — Demo mode (read-only, seeded showcase), done & browser-verified (headless
+  Chromium, all three editions, no console errors).**
+  - **One-lever read-only** — `shared/data/demoMode.js`: `assertWritable()` is called at
+    the top of every repo write (`repoBase` create/update/hardDelete, and `fileRepo`) and
+    throws a friendly `DemoModeError` ("This is a demo — changes aren't saved") in demo.
+    Pages surface it the same way they already surface cap/reference errors. The sample
+    seed writes through those same repos, so it runs inside `withSeedAllowed()` — a window
+    user writes never get. `isDemo()`/the guard are no-ops in Lite/Pro (verified: Lite
+    writes still work), so no demo wording ships in those builds.
+  - **Auto-seed on load** — `app.js` seeds the sample packet when the DB is empty (through
+    the seed window) then reloads once so the page renders against seeded data; blocked
+    writes keep it pristine across visits. Demo skips the first-run/kennel-setup/sample
+    prompts and shows a persistent "read-only demo" banner.
+  - **Save/export stripped** — Import/Export removed from demo nav *and* excluded from the
+    demo build (`assemble.mjs`; a direct URL 404s). `restoreBackup()` also asserts writable.
+- **Next:** the editions build is feature-complete (Lite cap, Pro, Demo, front doors).
+  Remaining before launch is deploy-time config, not code: buy the domain, wire the three
+  publish repos + `EDITIONS_DEPLOY_PAT` (see `build/README.md`), and swap the Lemon Squeezy
+  `upgradeUrl` / Demo-origin `demoUrl` placeholders in `lite/editionConfig.js`.
 
 ## Build & deploy
 

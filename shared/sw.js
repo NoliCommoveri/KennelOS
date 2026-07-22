@@ -50,6 +50,7 @@ const PRECACHE_URLS = [
   'data/csvImport.js',
   'data/dateUtils.js',
   'data/db.js',
+  'data/demoMode.js',
   'data/documentRepo.js',
   'data/dogRepo.js',
   'data/dropbox.js',
