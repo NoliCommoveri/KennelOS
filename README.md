@@ -24,10 +24,22 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   `dogRepo.create/update` and `litterRepo.create`; `lite/pro/demo/` exist as config
   skeletons; docs + CLAUDE.md carried over and marked for the editions architecture.
   **No behavior change yet.**
-- **Next — Step 2: the shared↔Pro page partition.** Move the Pro-only pages out of
-  `shared/` into `pro/` and give Lite a reduced nav, per the Lite scope below.
+- **Step 2 — partition, chosen approach = Option B (single `pages/` root; Pro-only
+  pages excluded from the Lite *build*, not physically moved).** Every page stays in
+  `shared/pages/`, so all existing relative links keep working; Lite ships fewer files.
+  - **Done & browser-verified (headless Chromium, both editions, no console errors):**
+    edition-driven nav (Lite = Today/Dogs/Breeding/Sales/Financials + Import-Export);
+    Pro-only `editionFlags`; within-page gating so Lite hides the in-page doors to Pro
+    features (Dog profile stud/contract/documents; Sale buyer/referred-by links +
+    Contracts panel; Financials invoice button + expense receipt-attach; Sales contract
+    block + seg-tabs; Pairing stud panel; Litter foster-partner link; Dashboard waitlist
+    tile; Dog ownership picker → owned/co_owned only).
+  - **Remaining Step 2 — the Lite build mechanics:** a canonical Pro-only page-file
+    list, a Lite `sw.js` (precache minus Pro pages, own cache name), a small assemble
+    script that produces the Lite artifact excluding those files, and a documented deploy
+    step. (The manual assemble used for the smoke test already proves the shape works.)
 - **After that:** Lite's real cap + archive-on-departure + hidden-archive links +
-  ownership-vocab restriction + upgrade nudges + per-edition service workers; then Demo.
+  upgrade nudges + per-edition index/manifest; then Demo mode.
 
 ## Lite scope (decided)
 
