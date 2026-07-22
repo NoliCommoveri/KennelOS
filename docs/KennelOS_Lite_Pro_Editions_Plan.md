@@ -155,22 +155,39 @@ distinct origins.**
 or they collide. You lose true origin isolation (a devtools user could read across), an
 acceptable-but-worse version of the same soft caveat everything else here carries.
 
-## Licensing — Lemon Squeezy yearly keys (decided)
+## Licensing — Lemon Squeezy monthly & yearly keys (decided)
 
-Pro is a **yearly subscription (~$20–30/yr)** sold through **Lemon Squeezy**, unlocked with a
-**license key**. This has to work with **no backend of our own** — the app is a static,
-offline-first PWA — and Lemon Squeezy fits because its **License API is callable straight from
-the browser**: the activate/validate endpoints authenticate with the *license key itself*, not
-the store's secret API key, so there's no server to stand up.
+Pro is a **subscription** sold through **Lemon Squeezy**, offered in **two billing intervals —
+monthly (~$3–4/mo) or yearly (~$20–30/yr, a discount on twelve months)** — unlocked with a
+**license key**. Both intervals unlock the *same* Pro; the only differences are the price, the
+renewal cadence, and the length of the grace window (below). This has to work with **no backend
+of our own** — the app is a static, offline-first PWA — and Lemon Squeezy fits because its
+**License API is callable straight from the browser**: the activate/validate endpoints
+authenticate with the *license key itself*, not the store's secret API key, so there's no server
+to stand up. Each interval is just a separate Lemon Squeezy variant/checkout; the app doesn't
+need to know which one was bought to activate it.
 
 - **Activate (first run, online):** Pro asks for the key → `POST /v1/licenses/activate` → on
   success, store the activation record locally (via `settings.js`) with the returned expiry.
-- **Offline-first, honored:** don't demand network every launch. Re-validate (`/validate`)
-  silently *when online*; honor the cached activation within a **grace window (~21–30 days
-  offline)** so a breeder with no signal isn't locked out. When the subscription lapses,
-  `/validate` returns expired and Pro drops to a "renew to continue" wall.
-- **Renewal** is automatic on Lemon Squeezy's side; the key's status flips and the next
-  `/validate` sees it.
+- **Offline-first, honored — grace window scales with the billing interval:** don't demand
+  network every launch. Re-validate (`/validate`) silently *when online*; honor the cached
+  activation within a **grace window** so a breeder with no signal (or a just-lapsed renewal)
+  isn't locked out mid-use, then drop to a "renew to continue" wall. The window mirrors the
+  billing cadence:
+  - **Yearly → ~21–30 days.** A once-a-year renewal warrants a long buffer; a breeder can be off
+    the grid for weeks without losing Pro.
+  - **Monthly → 5–7 days.** A monthly cycle renews twelve times as often, so a month-long buffer
+    would swallow whole billing periods. A shrunk 5–7 day grace keeps the same "don't lock me out
+    for a blip" spirit, proportioned to the shorter cycle.
+
+  The activation record already carries the interval (Lemon Squeezy returns it), so the app picks
+  the matching window from it; if the interval is ever missing/unknown, default to the shorter
+  (5–7 day) window. When the subscription truly lapses past its grace window, `/validate` returns
+  expired and Pro drops to the "renew to continue" wall.
+- **Renewal** is automatic on Lemon Squeezy's side for both intervals; the key's status flips and
+  the next `/validate` sees it. A buyer can switch monthly↔yearly through Lemon Squeezy's
+  customer portal — same key, the interval (and thus the grace window) updates on the next
+  validate.
 
 **One thing to confirm against current Lemon Squeezy docs at build time:** that the
 activate/validate endpoints are CORS-enabled for browser calls and need only the license key
@@ -306,8 +323,11 @@ see "Hosting, editions, and origin isolation."
   new adult; at the cap it's blocked with a clear upgrade nudge + archive escape.
 - **Walled apart, via distinct origins (#5)** — each edition on its own subdomain of one bought
   domain, so IndexedDB is isolated automatically; JSON export/import is the upgrade bridge.
-- **Pricing / platform (#6)** — Lemon Squeezy **yearly subscription, ~$20–30/yr**, unlocked by a
-  browser-validated license key with an offline grace window.
+- **Pricing / platform (#6)** — Lemon Squeezy subscription in **two intervals: monthly (~$3–4/mo)
+  or yearly (~$20–30/yr)**, both unlocking the same Pro, unlocked by a browser-validated license
+  key. The **offline/renewal grace window scales with the interval — yearly ~21–30 days, monthly
+  5–7 days** (a shorter cycle gets a proportionally shorter buffer); unknown interval defaults to
+  the shorter window.
 - **Demo behavior (#7)** — strictly **read-only**, re-seeded clean each visit (not a sandbox).
 - **Demo hardening (#8)** — **strip** the save/export paths from the demo build; an unlocked copy
   is a dead end.
