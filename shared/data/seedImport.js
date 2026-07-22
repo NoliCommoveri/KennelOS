@@ -90,8 +90,13 @@ export async function fetchBundledSeedGroups() {
 }
 
 // Append the selected breeds (and their tests) to a kennel's vocabularies.
-// Dedupe lives in the repo (case-insensitive); this only tallies what was
-// genuinely new so callers can report accurate counts. Add-only, never wipes.
+// Each test is tagged with the breed(s) it was imported for
+// (kennelRepo.addPreferredTest's third arg -> preferred_test_breeds), which is
+// what lets the kennel detail page show "(Breed1, Breed2)" after a test name
+// and lets new-dog auto-fill scope the panel to one dog's own breed
+// (kennelRepo.testsForBreed). Dedupe lives in the repo (case-insensitive);
+// this only tallies what was genuinely new so callers can report accurate
+// counts. Add-only, never wipes.
 export async function applySeedToKennel(kennelId, groups, selectedKeys) {
   const selected = selectedKeys instanceof Set ? selectedKeys : new Set(selectedKeys);
   const before = await kennelRepo.getById(kennelId);
@@ -105,7 +110,7 @@ export async function applySeedToKennel(kennelId, groups, selectedKeys) {
     await kennelRepo.addPreferredBreed(kennelId, g.display);
     if (!haveBreeds.has(g.key)) { haveBreeds.add(g.key); breedsAdded++; }
     for (const t of g.tests) {
-      await kennelRepo.addPreferredTest(kennelId, t.display);
+      await kennelRepo.addPreferredTest(kennelId, t.display, g.display);
       if (!haveTests.has(t.key) && !countedTests.has(t.key)) { countedTests.add(t.key); testsAdded++; }
     }
   }
