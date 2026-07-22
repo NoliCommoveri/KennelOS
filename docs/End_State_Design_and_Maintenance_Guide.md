@@ -96,7 +96,10 @@ KennelOS/
   vendor/                      Vendored deps: dexie.min.mjs, papaparse.min.mjs,
                                lz-string.min.mjs
   resources/
-    common_tests_by_breed_seed.csv   Optional breed→test seed data
+    common_tests_by_breed_seed.csv   Optional breed→test seed data. Columns:
+                               `Breed Group,breed,test_name` (col A is for the
+                               picker's "browse by breed group" dropdown only —
+                               never stored)
   data/                        THE DATA LAYER (repos + shared data logic)
     db.js                      Dexie schema — the only schema definition
     repoBase.js                makeRepo factory (shared repo surface)
@@ -145,6 +148,9 @@ KennelOS/
     eventForm.js               Add/edit event modal
     puppyForm.js               Litter → puppy roster entry
     contactPicker.js           Inline "＋ New contact" decorator for pickers
+    breedTestPicker.js         Search/browse-by-breed-group picker widget shared
+                               by both seed-import wizards (kennel-tests-import
+                               page + kennelSetupUI's prefill section)
     importView.js              Shared CSV import dry-run/commit UI
     onboardingUI.js            First-run Welcome → tour-offer → backups/install cards (§11)
     sampleDataUI.js            Sample-data banner + Clear-sample-data flow
@@ -586,9 +592,16 @@ way.
   recipient on all three tabs (prospective / current families / partners). Editing this file
   still bumps `CACHE_NAME` (§ service worker); it adds no new file or FK.
 - **seedImport.js** — optional breed+test vocabulary seed (from
-  `resources/common_tests_by_breed_seed.csv` or a user file). Appends to
-  `Kennel.preferred_tests` / `preferred_breeds`; creates **no** records. Deliberately
-  **not** routed through the csvImport engine (different shape). Used by both the standalone
+  `resources/common_tests_by_breed_seed.csv` or a user file). Rows carry an optional
+  `Breed Group` column (col A) that `buildSeedGroups()` attaches to each group as
+  `breedGroup`, purely to power the picker's "browse by breed group" dropdown — it is
+  never stored on the kennel. `listBreedGroups()` returns the unique group names.
+  Appends to `Kennel.preferred_tests` / `preferred_breeds`; creates **no** records.
+  Deliberately **not** routed through the csvImport engine (different shape). Both
+  wizards below render the same `assets/breedTestPicker.js` widget over these groups:
+  a type-ahead search box plus the breed-group dropdown (which opens a checkbox
+  modal for that group's breeds); either path checks the breed into a list at the
+  bottom that both wizards read at commit/save time. Used by both the standalone
   import page and the kennel-setup wizard.
 - **kennelSetup.js** — the "your kennel and owner name" wizard; creates real
   Kennel/Contact records and remembers them by id in settings.
