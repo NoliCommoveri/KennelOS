@@ -257,15 +257,30 @@ no-op returns immediately: zero runtime cost, and **no cap logic ships in the Pr
 
 ## 9. Import / backup / upgrade-bridge interaction
 
-Bulk import bypasses the repo guards. Stance:
+Two bulk paths reach Dexie outside the interactive dog form; **both are cap-gated in Lite**:
 
-- **Lite import may exceed the cap** — restoring a legitimate backup never fails and never silently
-  drops dogs. The user then lands in the over-cap `✓→✓` state where *edits* work but new *adds* are
-  blocked (§4) — consistent with "existing dogs grandfathered, you just can't grow."
-- The residual loophole (hand-edit a Lite JSON and reimport to overfill) is the accepted
-  "technical user in devtools" caveat; not worth defending for this audience.
-- Lite still needs export+import for backups and for the upgrade bridge, so import can't be
-  cap-gated without breaking those.
+- **CSV import** (`csvImport.commitPlan`) creates each dog through `dogRepo.create`, so the per-row
+  interactive guard (§3) already applies: at the cap, the 7th+ counting row fails with the cap
+  message and lands in the import's failed list while the rest still import. Enforcement is per row,
+  so a partial import is possible.
+- **JSON restore** (`importExport.restoreBackup`) writes straight to Dexie via `bulkPut`, bypassing
+  the per-row guard, so the shared restore path calls the edition hook
+  `enforceImportDogCap({ incomingDogs, mode })` **before any write**. Lite counts the active-roster
+  dogs the restore would *leave* (`rosterCount.dogsAfterImport`: `replace` becomes exactly the
+  incoming rows; `merge` upserts them by id over what's already stored) and throws a
+  `CapExceededError` if that exceeds the cap. The restore is **all-or-nothing** — nothing is
+  written, and the Import/Export page surfaces the message so the user can trim the file or upgrade.
+  A legitimate ≤6 backup restores cleanly.
+
+**This reverses the earlier "Lite import may exceed the cap" stance.** The earlier design let an
+oversized backup land the user in an over-cap `✓→✓` state (edits work, new adds blocked); we now
+refuse the oversized restore outright rather than persist an over-cap roster. The upgrade bridge is
+unaffected — it exports **from** Lite and imports **into** Pro, which is uncapped (its
+`enforceImportDogCap` is the shared no-op).
+
+- The residual loophole (hand-edit a Lite JSON down to ≤6 active dogs — flip the excess to `puppy`
+  or `is_archived`, or delete them — then reimport) is the accepted "technical user in devtools"
+  caveat; not worth defending for this audience.
 
 ---
 
@@ -282,7 +297,9 @@ Bulk import bypasses the repo guards. Stance:
      bring it back, and its name in the **pedigree** and in its **Sale** is **not clickable** and
      shows **no "arch" badge**.
   5. Deliver a puppy sale → the pup is archived (departs the roster) and its Sale record remains.
-  6. Import a 10-dog backup into Lite → succeeds; a subsequent new adult add is blocked.
+  6. Restore a backup whose active-roster dogs exceed 6 into Lite → the restore is **refused**
+     with the cap message and **nothing is written** (all-or-nothing); a ≤6 backup restores cleanly.
+     A CSV dog import at the cap lands the first available slots and fails the excess rows per row.
 - In a **Pro** build (no-op config): none of the above blocks; archived dogs remain clickable with
   the "arch" badge (existing behavior).
 

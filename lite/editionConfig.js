@@ -12,6 +12,7 @@
 // cap logic lands in the Pro download.
 import { db } from './db.js';
 import { CapExceededError } from './repoBase.js';
+import { isActiveRosterDog, countActiveRosterDogs, dogsAfterImport } from './rosterCount.js';
 
 // --- The two numbers (cap spec §0) — locked for launch ---------------------
 const CAP_DOGS = 6; // counting dogs
@@ -39,29 +40,22 @@ export const licenseConfig = { checkoutUrl: null, portalUrl: null, yearlyVariant
 
 // --- The counting predicate (cap spec §2) ----------------------------------
 // A dog counts toward the Lite cap only when it is a live, owned/co-owned adult.
-// - is_archived is IN the predicate: an archived dog is a *departed* dog and
-//   does not count (that departure is the honest slot-free — §4/§5).
+// The classification itself is the shared, edition-agnostic "active roster dog"
+// fact (data/rosterCount.js) — Lite is simply the edition that caps that
+// population at a number. Reusing the shared predicate keeps the interactive
+// guard, the import cap below, and the shared restore path all counting the same
+// way, and keeps that counting logic unit-testable without a browser.
+// - is_archived is excluded: an archived dog is a *departed* dog and does not
+//   count (that departure is the honest slot-free — §4/§5).
 // - Only adult stages count, so a whole kept litter (status 'puppy') never trips
 //   the cap, and puppies/deceased/external_reference are excluded automatically.
 // - co_owned counts (excluding it would be a one-click "mark it co-owned" bypass).
-const CAP_OWNERSHIP = new Set(['owned', 'co_owned']);
-const CAP_ADULT_STATUS = new Set(['active_breeding', 'retired_breeding', 'pet_home', 'for_sale']);
-
-const countsTowardDogCap = (dog) =>
-  !dog.is_archived &&
-  CAP_OWNERSHIP.has(dog.ownership_type) &&
-  CAP_ADULT_STATUS.has(dog.status);
+const countsTowardDogCap = isActiveRosterDog;
 
 // Count the current counting dogs, optionally excluding one id (an update
 // compares the record against everyone *else*).
 async function countCountingDogs(excludeId = null) {
-  const all = await db.dogs.toArray();
-  let n = 0;
-  for (const d of all) {
-    if (d.id === excludeId) continue;
-    if (countsTowardDogCap(d)) n++;
-  }
-  return n;
+  return countActiveRosterDogs(await db.dogs.toArray(), excludeId);
 }
 
 // --- Cap hooks (cap spec §3/§4) --------------------------------------------
@@ -84,6 +78,21 @@ export async function enforceDogCap({ candidate, existing /*, id */ }) {
 export async function enforceLitterCap(/* { candidate } */) {
   const current = (await db.litters.toArray()).length;
   if (current >= CAP_LITTERS) throw new CapExceededError('litters', current, CAP_LITTERS);
+}
+
+// Bulk-import cap (cap spec §9). Unlike the per-row interactive guards, a JSON
+// restore writes straight to Dexie (importExport.restoreBackup), so the shared
+// restore path calls this hook FIRST with the backup's dog rows and the mode.
+// Lite rejects the whole restore — all-or-nothing, nothing written — when the
+// resulting roster would exceed the cap, so a legitimate ≤6 backup restores
+// cleanly and an oversized/Pro backup is refused with a clear message (surfaced
+// by the Import/Export page) rather than silently overfilling or dropping dogs.
+// The count is taken over the RESULTING table: 'replace' becomes exactly the
+// incoming rows; 'merge' upserts them by id over what's already there.
+export async function enforceImportDogCap({ incomingDogs = [], mode = 'replace' } = {}) {
+  const existing = mode === 'merge' ? await db.dogs.toArray() : [];
+  const resulting = countActiveRosterDogs(dogsAfterImport(existing, incomingDogs, mode));
+  if (resulting > CAP_DOGS) throw new CapExceededError('dogs', resulting, CAP_DOGS);
 }
 
 // Read by dog.js's "New Dog" page for a "Creating x/6 available dogs" banner —

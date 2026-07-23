@@ -564,6 +564,10 @@ doing cross-table transaction work).
     result is exactly the backup (a table the file omits ends up empty).
   - `'merge'` — upserts the file's rows by id, leaving other records intact.
   - Unknown collections (tables not in this schema version) are skipped, not errors.
+  - Before any write it awaits the edition hook `enforceImportDogCap({ incomingDogs, mode })`
+    (`data/editionConfig.js`; classification math in `data/rosterCount.js`). The shared/Pro
+    default is a no-op, so Pro/Demo restore is exactly as above; the Lite override rejects a
+    restore that would leave more than its dog cap (all-or-nothing — see the cap spec §9).
 
 `BACKUP_FORMAT_VERSION` bumps only when the on-disk shape changes in a migration-requiring
 way.

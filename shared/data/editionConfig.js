@@ -43,6 +43,14 @@ export async function enforceLitterCap(/* { candidate } */) {
   // no-op: Pro/Demo are unlimited.
 }
 
+// Bulk-import cap hook (cap spec §9). The shared restore path (importExport.js)
+// awaits this before writing a JSON backup, passing the backup's dog rows and the
+// restore mode; Lite rejects an over-cap restore. Default here does nothing, so
+// Pro/Demo restore any backup unchanged.
+export async function enforceImportDogCap(/* { incomingDogs, mode } */) {
+  // no-op: Pro/Demo are unlimited.
+}
+
 // Read by dog.js's "New Dog" page for its "Creating x/6 available dogs"
 // banner. Null means uncapped, so Pro/Demo show nothing.
 export async function dogCapStatus() {

@@ -116,8 +116,9 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   - **`shared/data/license.js`** — `activate()`/`validate()` call Lemon Squeezy's
     browser-callable `POST /v1/licenses/activate` + `/validate` (license key in the body, no
     store secret), and a verdict state machine applies an **interval-scaled offline grace
-    window** (yearly ~30d, monthly ~7d; unknown → the shorter). Interval is inferred from the
-    returned `variant_name` against a configurable pattern. The cached activation lives under
+    window** (yearly 7d, monthly 3d; unknown → the shorter). Interval is inferred from the
+    returned `variant_name` against a configurable pattern. (Windows: yearly 7d, monthly 3d — see
+    `data/license.js`'s `GRACE_MS` and the plan's §Licensing.) The cached activation lives under
     its own `settings.js` key, **excluded from Reset App** (entitlement isn't program data).
   - **`shared/assets/licenseGate.js`** — the UI: a full-screen **activation wall** (first run,
     enter key), a **renewal wall** (lapsed past grace: re-check / renew / use a different key),

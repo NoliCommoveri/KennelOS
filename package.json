@@ -1,0 +1,10 @@
+{
+  "name": "kennelos",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Dev-only manifest. KennelOS ships as static files with no build step; this exists solely so Node's built-in test runner treats the repo's ES-module .js files as modules. It is NOT copied into any edition artifact (build/assemble.mjs only copies shared/).",
+  "scripts": {
+    "test": "node --test"
+  }
+}
