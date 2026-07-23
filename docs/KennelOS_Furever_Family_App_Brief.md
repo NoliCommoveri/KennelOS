@@ -1,11 +1,14 @@
-# KennelOS Furever — Companion Family App (starter brief)
+# KennelOS Furever (starter brief)
 
 > **Starter, not a spec.** This sketches a free, buyer-facing app — branded **KennelOS
-> Furever** — that a puppy family installs at pickup and keeps for years. Everything here
-> is a starting point and open to change — treat the choices as leanings, not decisions. It
-> builds on the existing Companion machinery (`shared/data/companionExport.js` +
-> `shared/companion-view.html`) rather than replacing it. A couple of small measurements
-> back the delivery notes (appendix).
+> Furever**, a distinct app from the existing **Companion** share-out feature (the
+> prospective/family/partner links Pro sends from `shared/data/companionExport.js` +
+> `shared/companion-view.html`) — that a puppy family installs at pickup and keeps for
+> years. Everything here is a starting point and open to change — treat the choices as
+> leanings, not decisions. Furever builds on the existing Companion machinery rather than
+> replacing it, so the two overlap in mechanism but not in name — say "Companion" for the
+> share-out links, "Furever" for this app. A couple of small measurements back the
+> delivery notes (appendix).
 
 ---
 
