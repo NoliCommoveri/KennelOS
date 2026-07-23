@@ -7,11 +7,20 @@ script, which produces a servable, deployable directory per edition.
 ## Run it
 
 ```
-node build/assemble.mjs          # assemble all editions -> dist/lite, dist/pro, dist/demo
-node build/assemble.mjs lite     # just one
+node build/assemble.mjs            # assemble all editions -> dist/lite, dist/pro, dist/demo
+node build/assemble.mjs lite       # just one
+node build/assemble.mjs --release  # + fail on any unresolved launch placeholder
 ```
 
 `dist/` is git-ignored; it's an output, not source.
+
+**`--release` (launch guard).** The edition configs carry stand-in URLs until launch
+(Lite's `upgradeUrl`, Pro's `licenseConfig.checkoutUrl` — see `LAUNCH_PLACEHOLDERS` in
+`assemble.mjs`). A plain build only **warns** if one is still present, so building
+editions to test locally keeps working; a `--release` build **fails** on it. The deploy
+workflow (`.github/workflows/deploy.yml`) passes `--release`, so a merge to `main` can't
+ship a dead upgrade/checkout link. Swap the placeholders (see
+`docs/LAUNCH_CHECKLIST.md`) to make a release build pass.
 
 ## What it does (per edition)
 

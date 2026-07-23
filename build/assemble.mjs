@@ -25,6 +25,29 @@ import { PRO_ONLY_PAGES, PRO_ONLY_STANDALONE } from '../shared/data/proPages.js'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const EDITIONS = ['lite', 'pro', 'demo'];
 
+// --- Launch placeholder guard ---------------------------------------------
+// Values in the edition configs that are stand-ins until launch: Lite's upgrade
+// CTA and Pro's checkout URL. Shipping one means a live store with a dead
+// "buy/upgrade" link, so a RELEASE build (CI / `--release`) refuses to assemble
+// an edition whose overlaid editionConfig still contains one. A plain dev build
+// only warns, so building editions to test locally still works while these are
+// unset. Trim an entry once its real value lands (and it no longer matches).
+const LAUNCH_PLACEHOLDERS = [
+  'https://kennelos.app/upgrade',               // lite/editionConfig.js  upgradeUrl
+  'https://kennelos.lemonsqueezy.com/checkout', // pro/editionConfig.js   licenseConfig.checkoutUrl
+];
+
+// Scan an assembled edition's editionConfig for any unresolved placeholder.
+// In release mode a hit throws (fails the build/deploy); otherwise it warns.
+function checkLaunchPlaceholders(destDir, edition, release) {
+  const text = readFileSync(join(destDir, 'data', 'editionConfig.js'), 'utf8');
+  const hits = LAUNCH_PLACEHOLDERS.filter((p) => text.includes(p));
+  if (!hits.length) return;
+  const detail = `${edition}: editionConfig still has launch placeholder(s): ${hits.join(', ')}`;
+  if (release) throw new Error(`${detail}\nReplace them (see docs/LAUNCH_CHECKLIST.md) or build without --release for local testing.`);
+  console.warn(`⚠️  ${detail} (dev build — would FAIL a --release/CI build)`);
+}
+
 // Per-edition PWA identity, stamped into the copied manifest.json (and the root
 // index.html <title>) so an installed edition reads as its own app rather than a
 // generic "KennelOS". Each edition already deploys to its own origin, so this is
@@ -105,13 +128,16 @@ function rewriteIndexTitle(destDir, edition) {
   writeFileSync(p, text);
 }
 
-function assemble(edition) {
+function assemble(edition, release) {
   const dest = join(ROOT, 'dist', edition);
   rmSync(dest, { recursive: true, force: true });
   cpSync(join(ROOT, 'shared'), dest, { recursive: true });
 
   // Overlay the edition's config at the fixed shared path.
   cpSync(join(ROOT, edition, 'editionConfig.js'), join(dest, 'data', 'editionConfig.js'));
+
+  // Fail a release build (never a dev build) if launch placeholders remain.
+  checkLaunchPlaceholders(dest, edition, release);
 
   // Overlay the edition's guided-tour package (sample seed + step catalog) if it
   // ships one — only Lite does; Pro/Demo keep the shared default (the full
@@ -133,9 +159,15 @@ function assemble(edition) {
   console.log(`✅ ${edition}: dist/${edition}/  (excluded ${excluded.length} files, precache ${sw.precache}, cache ${sw.cacheName})`);
 }
 
-const arg = process.argv[2];
+// Args: an optional edition name (or 'all') plus an optional --release flag that
+// turns the launch-placeholder check from a warning into a hard failure (used by
+// the deploy workflow, which ships to the live origins).
+const args = process.argv.slice(2);
+const release = args.includes('--release');
+const positional = args.filter((a) => !a.startsWith('--'));
+const arg = positional[0];
 const targets = !arg || arg === 'all' ? EDITIONS : [arg];
 for (const e of targets) {
   if (!EDITIONS.includes(e)) { console.error(`unknown edition: ${e}`); process.exit(1); }
-  assemble(e);
+  assemble(e, release);
 }
