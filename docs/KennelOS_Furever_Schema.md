@@ -1,10 +1,12 @@
 # KennelOS Furever — Data Model & Schema
 
-Status: **schema draft, data layer only.** This is the spec the code in
+Status: **data layer complete; first UI slice built.** This is the spec the code in
 `furever/data/` is written against. It turns the starter brief
 (`KennelOS_Furever_Family_App_Brief.md`) into a concrete Dexie schema, repos, and
-a derived-reminder engine. No pages, service worker, or deploy wiring exist yet
-(see § Not built yet).
+a derived-reminder engine. The first pages now sit on top of it — an app shell
+(nav + active-pet picker) and the Today / Pets / My Pet pages that exercise the
+pet-as-scope and derived-schedule decisions end to end (see `furever/README.md`).
+The remaining pieces are listed in § Not built yet; the deploy pipeline is wired.
 
 Furever is a **separate app on its own origin** (deploy target
 `NoliCommoveri/KennelOS-Furever`, a GitHub Pages repo, published from `main` the
@@ -291,8 +293,25 @@ Furever ships through the same pipeline as the editions, as a **standalone app**
 - Until the app's pages exist, `furever/index.html` is a clean "coming soon"
   placeholder, so the live origin is a real page rather than a 404.
 
+## Built (first UI slice)
+The app shell and core pages now sit on the data layer (`furever/README.md` has the
+file map):
+- `app.js` / `nav.js` — shell boot + top nav with the **active-pet picker** (the
+  pet-as-scope decision, made real: switching re-scopes every page).
+- `pages/today.*` — the family-wide **due-soon feed** (`schedule.familyDueSoon`), the
+  one cross-pet view.
+- `pages/pets.*` — the roster (seeded vs. self), **add a self pet**, set active.
+- `pages/pet.*` — the active pet's **derived schedule** (`evaluateSchedule`) with a
+  one-tap **log-done** that appends a `care_events` actual (the reminder clears / a
+  recurring item rolls forward), plus care history.
+- `assets/petSchedule.js` assembles a pet's schedule sources (universal library +
+  family plans; packs deferred) so Today and My Pet agree; `assets/ui.js` holds the
+  shared `esc`/`badge` helpers.
+
 ## Not built yet
-Pages, `nav.js`, the pet-picker, `sw.js`/PWA/precache, import-export, the
-countdown card, the seed-link decoder (lz-string), and the one-time pack fetch.
-This document + the `furever/data/` modules are the data-layer foundation those
-build on, and the deploy pipeline is ready to ship them.
+The **seed-link decoder** (lz-string) so a texted breeder link seeds a pup, the
+**one-time content-pack fetch**, the **document / photo / contact** pages,
+**import-export / backup**, the pre-pickup **countdown card**, and the
+**service worker / PWA / precache** (offline + install). The app runs online today;
+the offline layer is deferred until the page set settles. The deploy pipeline is
+ready to ship whatever `furever/` contains.

@@ -13,15 +13,37 @@ data model.
   (the `EDITIONS_DEPLOY_PAT` covering this repo, Pages + DNS for the domain) are noted
   in `build/README.md`.
 
-## Status: data layer + placeholder front door
-What exists so far is the schema, repos, referential-integrity registry, controlled
-vocabularies, the universal care content, and the derived-reminder engine — plus a
-`index.html` "coming soon" placeholder so the deployed origin isn't a 404. No real
-pages, nav, or service worker yet.
+## Status: data layer + first UI slice (app shell + core pages)
+The data layer (schema, repos, referential-integrity registry, controlled
+vocabularies, universal care content, derived-reminder engine) is complete, and the
+**first working UI** now sits on top of it: an app shell (nav + active-pet picker)
+and three core pages — **Today** (the family-wide due-soon feed), **Pets** (roster +
+add-a-pet + set-active), and **My Pet** (the active pet's derived schedule with a
+one-tap "log done", plus care history). Browser-verified (headless Chromium: add a
+dog → its schedule projects from DOB → checking an item off logs an actual and the
+item clears/rolls forward → Today's cross-pet feed updates; no console errors).
+
+Still to build (each a later step): the **breeder seed-link decoder** (lz-string) so
+a texted link seeds a pup, the **content-pack fetch**, the **document/photo/contact**
+pages, **import-export/backup**, the **pre-pickup countdown card**, and the
+**service worker / PWA / manifest** (offline + install). The app runs online today;
+the offline layer is deliberately deferred until the page set settles.
 
 ```
 furever/
-  index.html             — placeholder front door ("coming soon") until pages exist
+  index.html             — front door: redirects to Today (carries any #hash for the
+                           future seed-link decoder)
+  app.js                 — shared boot: renders nav, requests persistent storage once
+  nav.js                 — top nav + the app-wide active-pet picker
+  assets/
+    app.css              — the single stylesheet (warm palette; badge-* match vocab)
+    ui.js                — esc()/badge()/showError() + small date/age helpers
+    petSchedule.js       — assembles a pet's schedule sources and evaluates them
+                           (shared by Today + My Pet)
+  pages/
+    today.html + .js     — the family-wide due-soon feed (the one cross-pet view)
+    pets.html  + .js      — roster (seeded vs. self) + add-a-pet form + set active
+    pet.html   + .js      — the active pet: derived schedule, log-done, care history
   data/
     db.js                — Dexie schema (KennelOSFurever), the two-layer model
     repoBase.js          — thin repo factory (no editions/cap/demo coupling)

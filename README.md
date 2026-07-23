@@ -11,9 +11,11 @@ lite/     Lite (free): shared pages only + a soft cap + archive-on-departure.
 pro/      Pro (paid): the full app; holds the Pro-only pages + license gate.
 demo/     Pro with demo mode on: seeded, read-only showcase.
 furever/  KennelOS Furever — a SEPARATE family-facing pet-care app (its own origin
-          + IndexedDB, not an edition of the breeder core). Data layer + placeholder
-          front door so far; deploys to NoliCommoveri/KennelOS-Furever at
-          furever.kennelos.app (standalone build path). See furever/README.md.
+          + IndexedDB, not an edition of the breeder core). Data layer + first UI
+          slice: app shell (nav + active-pet picker) and the Today / Pets / My Pet
+          pages (derived care schedule with log-done). Deploys to
+          NoliCommoveri/KennelOS-Furever at furever.kennelos.app (standalone build
+          path). See furever/README.md.
 ```
 
 Each edition deploys to **its own origin** (a subdomain) so its IndexedDB stays
