@@ -258,10 +258,15 @@ Schedule item ids are shipped-stable (logged history references them).
 
 ---
 
+## Decided
+- **`breeder_key` is part of the packet.** The seed packet carries a stable
+  `breederKey` (alongside the per-pup `pupId`) so the normalized `breeders` table
+  can dedupe two pups from one kennel; `breederRepo.upsertFromSeed` keys on it.
+- **Deploy domain: `furever.kennelos.app`.** Its own GitHub Pages origin (deploy
+  repo `NoliCommoveri/KennelOS-Furever`), isolating the family's storage — wired in
+  `.github/workflows/deploy.yml` + the `assemble.mjs` standalone build path.
+
 ## Open questions / decisions still to make
-- **`breeder_key` in the packet.** The brief specifies only `pup_id`; the
-  normalized `breeders` table needs its own stable key to dedupe two pups from one
-  kennel. Schema assumes a `breederKey` is added to the packet.
 - **Snooze/dismiss a due item.** Deliberately **not** in v1: with no stored
   reminder rows there's nowhere to hang "remind me next week," and the due-soon
   list simply keeps showing an item until it's logged. Add a small per-item snooze
@@ -272,9 +277,22 @@ Schedule item ids are shipped-stable (logged history references them).
 - **Multi-species depth.** Schema is species-agnostic; only the schedule/content is
   dog-first. Other species are records-only until a content pack exists.
 
+## Deploy (wired)
+Furever ships through the same pipeline as the editions, as a **standalone app**:
+- `build/assemble.mjs` has a standalone path (`assembleStandalone`) that copies
+  `furever/` → `dist/furever/` and vendors Dexie beside it (from `shared/vendor/`,
+  so still no CDN). Run: `node build/assemble.mjs furever`.
+- `.github/workflows/deploy.yml` has a matrix entry publishing `dist/furever/` to
+  `NoliCommoveri/KennelOS-Furever` `main` with CNAME `furever.kennelos.app`.
+- **Operational prerequisites (outside this repo):** the `EDITIONS_DEPLOY_PAT`
+  secret must include `Contents: write` on `KennelOS-Furever`; that repo needs
+  GitHub Pages enabled (source = `main`, custom domain `furever.kennelos.app`,
+  Enforce HTTPS); and DNS for `furever.kennelos.app` must point at Pages.
+- Until the app's pages exist, `furever/index.html` is a clean "coming soon"
+  placeholder, so the live origin is a real page rather than a 404.
+
 ## Not built yet
 Pages, `nav.js`, the pet-picker, `sw.js`/PWA/precache, import-export, the
-countdown card, the seed-link decoder (lz-string), the one-time pack fetch, and
-the deploy wiring (`build/assemble.mjs` furever target + a `deploy.yml` matrix
-entry for `NoliCommoveri/KennelOS-Furever` + a domain). This document + the
-`furever/data/` modules are the data-layer foundation those build on.
+countdown card, the seed-link decoder (lz-string), and the one-time pack fetch.
+This document + the `furever/data/` modules are the data-layer foundation those
+build on, and the deploy pipeline is ready to ship them.

@@ -7,10 +7,18 @@ script, which produces a servable, deployable directory per edition.
 ## Run it
 
 ```
-node build/assemble.mjs            # assemble all editions -> dist/lite, dist/pro, dist/demo
+node build/assemble.mjs            # assemble all editions + standalone apps -> dist/*
 node build/assemble.mjs lite       # just one
+node build/assemble.mjs furever    # the standalone Furever app (see below)
 node build/assemble.mjs --release  # + fail on any unresolved launch placeholder
 ```
+
+**Standalone apps (Furever).** `furever` is **not** an edition of the shared core —
+it's a separate app built off `furever/` (its own origin + IndexedDB). It takes a
+separate path (`assembleStandalone`): copy `furever/` → `dist/furever/` and vendor
+Dexie beside it (from `shared/vendor/`, so still no CDN), with none of the
+editionConfig-overlay / manifest-restamp / service-worker-rewrite steps below. It
+has no launch placeholders, so `--release` is a no-op for it.
 
 `dist/` is git-ignored; it's an output, not source.
 
@@ -57,24 +65,28 @@ isolated (editions plan). Live at:
 - `lite.kennelos.app` ← `dist/lite/`
 - `pro.kennelos.app` ← `dist/pro/`
 - `demo.kennelos.app` ← `dist/demo/`
+- `furever.kennelos.app` ← `dist/furever/` (the standalone Furever app)
 
-Hosting is GitHub Pages, one edition per repo (GitHub Pages allows exactly one custom
-domain per repo, so three subdomains need three repos):
+Hosting is GitHub Pages, one app per repo (GitHub Pages allows exactly one custom
+domain per repo, so each subdomain needs its own repo):
 [`kennelos-lite`](https://github.com/NoliCommoveri/kennelos-lite),
 [`kennelos-pro`](https://github.com/NoliCommoveri/kennelos-pro),
-[`kennelos-demo`](https://github.com/NoliCommoveri/kennelos-demo). Each publish repo
-holds **only build output** — never hand-edit a file in one of them; it's overwritten
-on the next deploy.
+[`kennelos-demo`](https://github.com/NoliCommoveri/kennelos-demo), and
+[`KennelOS-Furever`](https://github.com/NoliCommoveri/KennelOS-Furever). Each publish
+repo holds **only build output** — never hand-edit a file in one of them; it's
+overwritten on the next deploy.
 
 `.github/workflows/deploy.yml` in *this* repo (`nolicommoveri/kennelos`) is the deploy
-mechanism: on every push to `main`, it runs `node build/assemble.mjs <edition>` for all
-three editions and force-publishes `dist/<edition>/` (plus a generated `CNAME` file) to
-`main` on the matching publish repo, via
+mechanism: on every push to `main`, it runs `node build/assemble.mjs <target>` for all
+three editions plus Furever and force-publishes `dist/<target>/` (plus a generated
+`CNAME` file) to `main` on the matching publish repo, via
 [`peaceiris/actions-gh-pages`](https://github.com/peaceiris/actions-gh-pages) authenticated
 with a single repo secret, `EDITIONS_DEPLOY_PAT` — a fine-grained PAT scoped to
-`Contents: Read and write` on just the three publish repos. Each publish repo has GitHub
+`Contents: Read and write` on the publish repos. Each publish repo has GitHub
 Pages enabled (Settings → Pages → source = `main` branch, root) with its custom domain
-set to match the `CNAME` above and "Enforce HTTPS" on.
+set to match the `CNAME` above and "Enforce HTTPS" on. **Adding Furever requires the PAT
+to also cover `KennelOS-Furever`, and that repo to have Pages + the `furever.kennelos.app`
+domain + DNS configured** — otherwise its deploy job fails while the editions still ship.
 
 To deploy manually instead of waiting for CI: run `node build/assemble.mjs`, then push
 `dist/<edition>/` as the `main` branch of the matching publish repo.

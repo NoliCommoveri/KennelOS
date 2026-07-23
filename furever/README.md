@@ -6,18 +6,22 @@ Companion share-out: its own origin, its own IndexedDB (`KennelOSFurever`), its 
 data model.
 
 - **Develop here, in the main KennelOS repo.** This folder is the source of truth.
-- **Deploys to `NoliCommoveri/KennelOS-Furever`** (a GitHub Pages repo), published
-  from `main` the same way the breeder-app editions ship — see
-  `.github/workflows/deploy.yml` for the pattern. That deploy wiring is **not yet
-  added** (needs a buildable app + a domain).
+- **Deploys to `NoliCommoveri/KennelOS-Furever`** at `furever.kennelos.app`, published
+  from `main` the same way the breeder-app editions ship. Wired: `assemble.mjs` builds
+  it via a standalone path (`node build/assemble.mjs furever`) and
+  `.github/workflows/deploy.yml` publishes `dist/furever/`. Live-deploy prerequisites
+  (the `EDITIONS_DEPLOY_PAT` covering this repo, Pages + DNS for the domain) are noted
+  in `build/README.md`.
 
-## Status: data layer only
+## Status: data layer + placeholder front door
 What exists so far is the schema, repos, referential-integrity registry, controlled
-vocabularies, the universal care content, and the derived-reminder engine. No pages,
-nav, service worker, or deploy target yet.
+vocabularies, the universal care content, and the derived-reminder engine — plus a
+`index.html` "coming soon" placeholder so the deployed origin isn't a 404. No real
+pages, nav, or service worker yet.
 
 ```
 furever/
+  index.html             — placeholder front door ("coming soon") until pages exist
   data/
     db.js                — Dexie schema (KennelOSFurever), the two-layer model
     repoBase.js          — thin repo factory (no editions/cap/demo coupling)
