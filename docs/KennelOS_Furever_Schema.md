@@ -282,8 +282,10 @@ Schedule item ids are shipped-stable (logged history references them).
 ## Deploy (wired)
 Furever ships through the same pipeline as the editions, as a **standalone app**:
 - `build/assemble.mjs` has a standalone path (`assembleStandalone`) that copies
-  `furever/` → `dist/furever/` and vendors Dexie beside it (from `shared/vendor/`,
-  so still no CDN). Run: `node build/assemble.mjs furever`.
+  `furever/` → `dist/furever/`. Dexie is **committed** at `furever/vendor/dexie.min.mjs`
+  (like `shared/vendor/`) so the source folder is directly servable with no build;
+  the assembler re-copies the same file from `shared/vendor/` as a parity refresh.
+  Run: `node build/assemble.mjs furever`.
 - `.github/workflows/deploy.yml` has a matrix entry publishing `dist/furever/` to
   `NoliCommoveri/KennelOS-Furever` `main` with CNAME `furever.kennelos.app`.
 - **Operational prerequisites (outside this repo):** the `EDITIONS_DEPLOY_PAT`

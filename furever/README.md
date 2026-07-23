@@ -40,10 +40,15 @@ furever/
     ui.js                — esc()/badge()/showError() + small date/age helpers
     petSchedule.js       — assembles a pet's schedule sources and evaluates them
                            (shared by Today + My Pet)
+    bootcheck.js         — classic (non-module) guard: surfaces a fatal module-load
+                           failure instead of a page stuck on "Loading…"
   pages/
     today.html + .js     — the family-wide due-soon feed (the one cross-pet view)
     pets.html  + .js      — roster (seeded vs. self) + add-a-pet form + set active
     pet.html   + .js      — the active pet: derived schedule, log-done, care history
+  vendor/
+    dexie.min.mjs        — vendored Dexie, COMMITTED (like shared/vendor/) so the
+                           folder is directly servable — no build step to run it
   data/
     db.js                — Dexie schema (KennelOSFurever), the two-layer model
     repoBase.js          — thin repo factory (no editions/cap/demo coupling)
@@ -75,3 +80,17 @@ Same as the breeder core (`CLAUDE.md`): pages → repos → Dexie; UUID ids; sof
 delete only; date-only fields are `YYYY-MM-DD`; one thin repo per entity; referential
 integrity via `referenceRegistry.js`. Serve over HTTP, never `file://`.
 No build step for the app itself; verify touched modules with `node --check`.
+
+## Local dev
+Serve the `furever/` folder directly and open Today — Dexie is committed under
+`vendor/`, so no build is needed to run it:
+
+```
+python3 -m http.server 8000 --directory furever   # then open /pages/today.html
+```
+
+The `node build/assemble.mjs furever` path is only for producing the deployable
+`dist/furever/` (it re-copies the same vendored Dexie). **If pages render but stay
+stuck on "Loading…" with an empty nav, a module failed to load** — almost always a
+missing `vendor/dexie.min.mjs`; `bootcheck.js` now turns that silent hang into a
+visible error.
