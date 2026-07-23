@@ -270,6 +270,11 @@ Index notes:
   archive backing both Documents and `expenses.receipt_file_id` — is fetched only by
   id, so only `created_at` (backup ordering) is indexed. `expenses.receipt_file_id`
   is a **plain, unindexed** FK into `files` (fetched by id only, never queried on).
+  `documents.contract_id` (§26.1) is a **plain, unindexed** optional FK into
+  `contracts` — the same posture — so the Contract page can surface its filed
+  signed document(s). Its reverse (`documentRepo.getByContract`) is an in-memory
+  scan, not an index probe, and it is deliberately **not** a `referenceRegistry`
+  entry (cleared on the contract's `hardDelete` instead).
 - `events.reminder_date` is indexed for the reminder engine's range probe. Every other
   canonical FK is indexed so reverse lookups are index probes, not scans.
 - **Unindexed but persisted:** `events.event_end_date`, `events.reminder_dismissed`,
@@ -393,9 +398,16 @@ the normal remove and never cascades**.
   expenses.
 - `DOG_REFERENCES` also carries a `documents.dog_id` entry (§26.1), so a dog with filed
   documents can't be hard-deleted out from under them.
-- `Contract`, `Expense`, and `Document` are leaves (empty `CONTRACT_REFERENCES` /
-  `EXPENSE_REFERENCES` / `DOCUMENT_REFERENCES` — nothing points *at* them). A `files`
-  row is **not** in the registry: it is owned by exactly one Document (`documents.file_id`)
+- `Contract`, `Expense`, and `Document` are leaves *for the registry* (empty
+  `CONTRACT_REFERENCES` / `EXPENSE_REFERENCES` / `DOCUMENT_REFERENCES` — nothing in the
+  registry points *at* them, so none is ever a hard-delete blocker). The one exception
+  that stays outside the registry: a Document may carry an **unindexed** `contract_id`
+  back-link to a Contract (§26.1). Because it isn't a registry entry it never blocks the
+  contract's delete; `contractRepo.hardDelete` clears it first (via
+  `documentRepo.unlinkContract`) so no document is left pointing at a deleted contract —
+  the same "owner clears its unregistered back-link on delete" shape as the `files` rule
+  below. A `files` row is **not** in the registry: it is owned by exactly one Document
+  (`documents.file_id`)
   or one Expense (`expenses.receipt_file_id`) and is deleted alongside its owner in that
   repo's `hardDelete`, never orphan-guarded.
 - The guard **skips any table not present in the current schema** — so it can't rot;
@@ -1626,8 +1638,23 @@ Two surfaces share one storage stack:
   **More** menu, plus a "📄 Documents" button on the dog page) where you file a document
   against a dog (pedigree / health test / registration / contract / other), grouped by dog,
   with a type filter and search. Full CRUD, all local.
+- **Contract documents** — the Contract detail page (`pages/contract.js`) files the signed
+  contract PDF through the *same* Documents stack, without leaving the contract. An
+  **"Attach signed contract"** button opens the add-document modal pre-filled with the dog
+  the contract resolves to (`related_dog_id`, else the linked Sale's dog, else the linked
+  StudService's our/partner dog) and **Type = Contract**, and stamps the saved document's
+  `contract_id`. The contract then lists its filed document(s) with inline **View / Download**
+  (`documentRepo.getByContract`). This is a plain, unindexed back-link — see the
+  referential-integrity note in §7 / the index notes in §5. The Contract's own DocuSign-style
+  `document_url` ("Document link") is a *separate* field and is unaffected.
 - **Expense receipts** — the receipt-capture widget on both expense forms (§21): attach a
   receipt to any ledger row. See "Receipt capture" below.
+
+The add/edit and view dialogs are the shared **`assets/documentModal.js`** (`openDocumentModal`
+/ `openDocumentViewModal`) — one implementation driven by both the Documents page and the
+Contract page, self-contained (each loads its own dogs/file and reports back through
+`onSaved`/`onDeleted`/`onEdit` callbacks). It is Pro-only code (`PRO_ONLY_STANDALONE` in
+`proPages.js`), since both its callers are Pro-only pages, so the Lite build drops it.
 
 **Storage stack (shared by both).** Two Dexie tables (§4, §5): `documents` (metadata + a
 `dog_id` and a `file_id`, via `data/documentRepo.js` on the standard `makeRepo` +
@@ -1664,7 +1691,7 @@ so filed documents and receipts survive backup/restore and two-phone sync. A pla
 round-trip the same way.
 
 - **Precache:** `pages/documents.html`, `pages/documents.js`, `data/documentRepo.js`,
-  `data/fileRepo.js`, `data/pdfBuild.js`, `data/ocr.js`, `assets/receiptCapture.js`, and the
-  four `vendor/tesseract/*` assets are in `sw.js` — scanning works with no network after
-  first install. Bump `CACHE_NAME` on any change to that file set (currently
-  `kennelos-shell-v5`).
+  `data/fileRepo.js`, `data/pdfBuild.js`, `data/ocr.js`, `assets/receiptCapture.js`,
+  `assets/documentModal.js` (the shared add/edit + view dialogs), and the four
+  `vendor/tesseract/*` assets are in `sw.js` — scanning works with no network after
+  first install. Bump `CACHE_NAME` on any change to that file set.
