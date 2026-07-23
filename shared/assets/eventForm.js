@@ -140,7 +140,7 @@ export async function openEventForm(opts) {
 
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
-  overlay.innerHTML = `<div class="modal" role="dialog" aria-modal="true"></div>`;
+  overlay.innerHTML = `<div class="modal" id="ef-modal" role="dialog" aria-modal="true"></div>`;
   const modal = overlay.querySelector('.modal');
   document.body.appendChild(overlay);
 

@@ -36,6 +36,13 @@
 //              that may start collapsed — reuses the delegated card-toggle
 //              listener. dog/litter/etc. sections default to expanded when the
 //              seed populates them, so they need no reveal.
+//              { click: '<selector>' } clicks a trigger button to open a modal
+//              form (Add Event, Add Document, …) before spotlighting it — pair
+//              with a `selector` matching the modal itself (its root carries a
+//              stable id, e.g. `#ef-modal`), not the trigger. wizardUI.js
+//              clicks once per step render (its target-poll otherwise fires
+//              repeatedly while the modal's async setup is still in flight)
+//              and closes the modal via Escape when the step tears down.
 //   title/body one idea per stop, from the Tour Guide copy.
 
 export const WIZARD_STEPS = [
@@ -157,7 +164,7 @@ export const WIZARD_STEPS = [
   },
   {
     id: 'dog-add-event', hub: 'Dogs', page: 'dog.html', anchor: 'percy',
-    selector: '#tl-add',
+    selector: '#ef-modal', beforeShow: { click: '#tl-add' },
     title: 'Adding new events',
     body: 'Event fields adapt to the event type: some offer helpful dropdowns or auto-filled values, others suggest entries as you type (a health test offers your planned test suite). You can also log the cost of an event straight to your Expenses table from here.'
   },
@@ -354,7 +361,7 @@ export const WIZARD_STEPS = [
   },
   {
     id: 'documents', hub: 'More', page: 'documents.html',
-    selector: '#btn-add-document',
+    selector: '#doc-form-modal', beforeShow: { click: '#btn-add-document' },
     title: 'Documents',
     body: 'File a dog’s pedigree, registration, health-test results, or other paperwork here — upload a PDF, or take/choose a photo and KennelOS turns it into a compressed PDF automatically. Everything is grouped by dog and stored right on this device.'
   },

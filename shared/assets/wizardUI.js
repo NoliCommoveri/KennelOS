@@ -97,6 +97,10 @@ export function renderWizardMenuEntry() {
 let mountedNodes = [];
 let spotlightEl = null;
 let reflowObserver = null; // re-positions the target as late-loading content settles
+// Set when the current step's beforeShow.click opened a modal (eventForm.js,
+// documents.js, …) so teardown() knows to close it before the next step's
+// content — those modals all close on Escape, so that's the generic close.
+let modalOpenedByWizard = false;
 
 function teardown() {
   renderToken++; // invalidate any in-flight target poll
@@ -106,6 +110,10 @@ function teardown() {
   if (spotlightEl) {
     spotlightEl.classList.remove('wizard-spotlight-target');
     spotlightEl = null;
+  }
+  if (modalOpenedByWizard) {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    modalOpenedByWizard = false;
   }
 }
 
@@ -121,11 +129,27 @@ function mountOverlay(dim) {
 }
 
 function revealTarget(step) {
-  if (!step.beforeShow?.openCard) return;
-  const key = step.beforeShow.openCard;
-  const btn = document.querySelector(`[data-card="${CSS.escape(key)}"] .card-toggle-btn`);
-  const body = btn?.closest('.card-collapsible')?.querySelector('.card-body');
-  if (btn && body && body.hidden) btn.click();
+  if (step.beforeShow?.openCard) {
+    const key = step.beforeShow.openCard;
+    const btn = document.querySelector(`[data-card="${CSS.escape(key)}"] .card-toggle-btn`);
+    const body = btn?.closest('.card-collapsible')?.querySelector('.card-body');
+    if (btn && body && body.hidden) btn.click();
+  }
+  // Re-clicked on every poll until a modal actually appears — a page's own
+  // script (documents.js, dog.js, …) loads and wires its button's click
+  // handler AFTER app.js's shared boot() has already called this once (module
+  // scripts execute in document order), so the first click or two can be a
+  // silent no-op; a one-shot guard here would consume itself on that no-op
+  // and never open the modal at all. openEventForm/openAddEditModal build
+  // their DOM after an async repo read, so the check is "no modal yet", not
+  // "haven't clicked yet".
+  if (step.beforeShow?.click && !document.querySelector('.modal-overlay')) {
+    const btn = document.querySelector(step.beforeShow.click);
+    if (btn) {
+      btn.click();
+      modalOpenedByWizard = true;
+    }
+  }
 }
 
 const CLOSING_MESSAGE = 'And that’s it! You now know how to use KennelOS to manage your entire ' +
@@ -288,7 +312,7 @@ let renderToken = 0;
 // is reserved for genuinely-absent targets, not slow renders.
 function waitForTarget(step, overlay, token, attempt) {
   if (token !== renderToken) return; // superseded by a newer step/teardown
-  revealTarget(step); // open a collapsed card once it exists
+  revealTarget(step); // open a collapsed card, or click to open a modal, once it exists
   const target = document.querySelector(step.selector);
   if (target) {
     target.classList.add('wizard-spotlight-target');
