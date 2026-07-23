@@ -17,13 +17,17 @@
 //      filtered to the files that actually exist in the artifact (so cache.addAll,
 //      which is atomic, can never fail on a missing/excluded path).
 
-import { existsSync, rmSync, cpSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, rmSync, cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PRO_ONLY_PAGES, PRO_ONLY_STANDALONE } from '../shared/data/proPages.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const EDITIONS = ['lite', 'pro', 'demo'];
+// Standalone apps are NOT editions of the shared core — they build off their own
+// folder, so they take a separate assembly path (assembleStandalone) with none of
+// the editionConfig / manifest / service-worker rewriting below.
+const STANDALONE_APPS = ['furever'];
 
 // --- Launch placeholder guard ---------------------------------------------
 // Values in the edition configs that are stand-ins until launch: Lite's upgrade
@@ -159,6 +163,23 @@ function assemble(edition, release) {
   console.log(`✅ ${edition}: dist/${edition}/  (excluded ${excluded.length} files, precache ${sw.precache}, cache ${sw.cacheName})`);
 }
 
+// --- Standalone app assembly (Furever) ------------------------------------
+// Furever is a SEPARATE app (its own origin + IndexedDB), built off furever/ not
+// shared/. The assembler just copies the app tree and vendors Dexie next to it —
+// from the shared vendored copy, so there's still no CDN and the data layer's
+// `../vendor/dexie.min.mjs` import resolves offline. No editionConfig overlay, no
+// manifest/index restamping, no service-worker rewrite (Furever ships none yet).
+// The --release flag has no launch placeholders to guard here, so it's a no-op.
+function assembleStandalone(app) {
+  const dest = join(ROOT, 'dist', app);
+  rmSync(dest, { recursive: true, force: true });
+  cpSync(join(ROOT, app), dest, { recursive: true });
+  const vendorDir = join(dest, 'vendor');
+  mkdirSync(vendorDir, { recursive: true });
+  cpSync(join(ROOT, 'shared', 'vendor', 'dexie.min.mjs'), join(vendorDir, 'dexie.min.mjs'));
+  console.log(`✅ ${app}: dist/${app}/  (standalone app; vendored dexie)`);
+}
+
 // Args: an optional edition name (or 'all') plus an optional --release flag that
 // turns the launch-placeholder check from a warning into a hard failure (used by
 // the deploy workflow, which ships to the live origins).
@@ -166,8 +187,10 @@ const args = process.argv.slice(2);
 const release = args.includes('--release');
 const positional = args.filter((a) => !a.startsWith('--'));
 const arg = positional[0];
-const targets = !arg || arg === 'all' ? EDITIONS : [arg];
-for (const e of targets) {
-  if (!EDITIONS.includes(e)) { console.error(`unknown edition: ${e}`); process.exit(1); }
-  assemble(e, release);
+const ALL_TARGETS = [...EDITIONS, ...STANDALONE_APPS];
+const targets = !arg || arg === 'all' ? ALL_TARGETS : [arg];
+for (const t of targets) {
+  if (STANDALONE_APPS.includes(t)) { assembleStandalone(t); continue; }
+  if (!EDITIONS.includes(t)) { console.error(`unknown target: ${t}`); process.exit(1); }
+  assemble(t, release);
 }

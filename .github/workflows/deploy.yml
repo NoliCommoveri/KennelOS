@@ -20,6 +20,11 @@ jobs:
           - edition: demo
             repo: NoliCommoveri/kennelos-demo
             domain: demo.kennelos.app
+          # Furever is a standalone app (not an edition of the shared core);
+          # assemble.mjs builds it off furever/ via its standalone path.
+          - edition: furever
+            repo: NoliCommoveri/KennelOS-Furever
+            domain: furever.kennelos.app
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
