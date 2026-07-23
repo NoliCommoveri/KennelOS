@@ -165,11 +165,12 @@ function assemble(edition, release) {
 
 // --- Standalone app assembly (Furever) ------------------------------------
 // Furever is a SEPARATE app (its own origin + IndexedDB), built off furever/ not
-// shared/. The assembler just copies the app tree and vendors Dexie next to it —
-// from the shared vendored copy, so there's still no CDN and the data layer's
-// `../vendor/dexie.min.mjs` import resolves offline. No editionConfig overlay, no
-// manifest/index restamping, no service-worker rewrite (Furever ships none yet).
-// The --release flag has no launch placeholders to guard here, so it's a no-op.
+// shared/. Its vendored Dexie is COMMITTED at furever/vendor/dexie.min.mjs (like
+// shared/vendor/), so the source folder is directly servable and the copy below is
+// just a belt-and-suspenders refresh from shared to keep the two dexie copies in
+// lockstep. No editionConfig overlay, no manifest/index restamping, no
+// service-worker rewrite (Furever ships none yet). The --release flag has no launch
+// placeholders to guard here, so it's a no-op.
 function assembleStandalone(app) {
   const dest = join(ROOT, 'dist', app);
   rmSync(dest, { recursive: true, force: true });
