@@ -18,7 +18,7 @@
       box.className = 'error-box';
       box.textContent = 'Couldn’t load the app. Please refresh — if it keeps happening you may be offline, or a file failed to load.';
     }
-    ['today-body', 'pets-body', 'pet-body'].forEach(function (id) {
+    ['today-body', 'profile-body', 'reminders-body', 'log-body', 'addpet-body'].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.innerHTML = '';
     });

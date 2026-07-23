@@ -295,20 +295,28 @@ Furever ships through the same pipeline as the editions, as a **standalone app**
 - Until the app's pages exist, `furever/index.html` is a clean "coming soon"
   placeholder, so the live origin is a real page rather than a 404.
 
-## Built (first UI slice)
-The app shell and core pages now sit on the data layer (`furever/README.md` has the
+## Built (UI: left-sidebar shell + pet-scoped pages)
+The app shell and pages now sit on the data layer (`furever/README.md` has the
 file map):
-- `app.js` / `nav.js` — shell boot + top nav with the **active-pet picker** (the
-  pet-as-scope decision, made real: switching re-scopes every page).
-- `pages/today.*` — the family-wide **due-soon feed** (`schedule.familyDueSoon`), the
-  one cross-pet view.
-- `pages/pets.*` — the roster (seeded vs. self), **add a self pet**, set active.
-- `pages/pet.*` — the active pet's **derived schedule** (`evaluateSchedule`) with a
-  one-tap **log-done** that appends a `care_events` actual (the reminder clears / a
-  recurring item rolls forward), plus care history.
+- `app.js` / `nav.js` — shell boot + the **left sidebar** (`At A Glance`, one entry
+  per pet, `Add New Pet`) which is also the **active-pet picker** (the pet-as-scope
+  decision, made real: picking a pet re-scopes every page), plus the pet-scoped
+  **top sub-nav** (Profile / Reminders / Log). The sidebar is an off-canvas drawer on
+  mobile.
+- `pages/today.*` — **At A Glance**: the family-wide **due-soon feed**
+  (`schedule.familyDueSoon`), the one cross-pet view; carries no sub-nav.
+- `pages/profile.*` — a pet's landing page: an Add-Picture box (the chosen image is
+  downscaled to a data URL and stored in `pet.photo_url`) plus the pet's details at a
+  large size, with inline editing.
+- `pages/reminders.*` — the active pet's **derived schedule** (`evaluateSchedule`)
+  with a one-tap **log-done** that appends a `care_events` actual (the reminder clears
+  / a recurring item rolls forward).
+- `pages/log.*` — the active pet's **care history** (the logged `care_events` actuals).
+- `pages/addpet.*` — the **Add New Pet** form (creates a self pet, then opens Profile).
 - `assets/petSchedule.js` assembles a pet's schedule sources (universal library +
-  family plans; packs deferred) so Today and My Pet agree; `assets/ui.js` holds the
-  shared `esc`/`badge` helpers.
+  family plans; packs deferred) so At A Glance and Reminders agree; `assets/ui.js`
+  holds the shared `esc`/`badge` helpers and `imageFileToDataUrl` (profile-photo
+  downscale).
 
 ## Not built yet
 The **seed-link decoder** (lz-string) so a texted breeder link seeds a pup, the
