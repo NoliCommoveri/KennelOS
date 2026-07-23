@@ -30,7 +30,10 @@ jobs:
           node-version: 20
 
       - name: Build ${{ matrix.edition }}
-        run: node build/assemble.mjs ${{ matrix.edition }}
+        # --release makes the launch-placeholder guard (build/assemble.mjs) a hard
+        # failure, so a deploy can't ship a dead upgrade/checkout link. Swap the
+        # placeholders (see docs/LAUNCH_CHECKLIST.md) to make this pass.
+        run: node build/assemble.mjs ${{ matrix.edition }} --release
 
       - name: Add CNAME
         run: echo "${{ matrix.domain }}" > dist/${{ matrix.edition }}/CNAME
