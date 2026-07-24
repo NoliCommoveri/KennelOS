@@ -246,6 +246,16 @@ A new `furever/data/contentPackFetch.js`, called from `app.js boot()` **after**
    leave the cache as-is, surface nothing fatal, retry on the next open. Runs after the app is
    already usable, never blocking first paint.
 
+**No family-side clock.** The breeder's ~1h OAuth token (§4.1) is a **breeder-only** limit that
+matters only during a publish; it has **nothing to do with how long the family has to click the
+link.** The seed link itself never expires (it's a static payload pointing at public Drive
+files), and the family read key is a permanent public key, not a token. A family can open the
+link any time — the only things that would make a late click come up short are the breeder
+*deleting* the files or *un-sharing* the folder, not any timeout. A late click simply fetches the
+**current** published version. (If the family opens a link before that pack was published, its
+pointers aren't in the packet yet, so the pup shows no breeder docs until a later open after
+publish.)
+
 **Resend semantics** (owner's "first open + every resend"): a resend re-applies the seed
 (refreshing `contentPackages`), and the fetch re-runs; the `version` check makes an unchanged
 pack a cheap no-op, and a bumped pack replaces its breeder docs in place. The family's own
