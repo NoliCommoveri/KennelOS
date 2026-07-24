@@ -361,7 +361,7 @@ described in §2–4, not just the credential consts (§8 lists every file).
 ### 5.3 Breeder per-kennel steps (in-app, minimal)
 
 1. Open the Furever console → **Connect Google Drive** (one Google consent).
-2. **Publish** the kennel-wide pack (pick docs / upload the care guide, hit Publish).
+2. **Publish** the kennel-wide pack (upload the care guide etc., hit Publish).
 3. Per litter: **Publish** that litter's pack (pick the litter's docs).
    *(KennelOS creates the folders, uploads, shares, and writes the manifest — the breeder never
    touches Drive directly. A no-OAuth manual fallback exists — § Decisions (settled), decision 1.)*
@@ -408,9 +408,13 @@ described in §2–4, not just the credential consts (§8 lists every file).
 2. **Document sourcing → keep documents dog-scoped; add a bulk-add picker.** No new per-litter or
    per-kennel document store and **no reshape of the per-dog `documents` table**. The Publish
    picker (§4.2-2) sources from the documents already filed on the litter's connected dogs (pups
-   + sire + dam) for a litter pack, and from any dog + an "Upload new" affordance for a
-   kennel-wide pack, with **bulk selectors** (select-all, per-type, per-dog) so many docs go in at
-   once. Selection is cached on the pack pointer (§3.4 `selection`) for pre-checked republish.
+   + sire + dam) for a litter pack, with **bulk selectors** (select-all, per-type, per-dog) so many
+   docs go in at once. Selection is cached on the pack pointer (§3.4 `selection`) for pre-checked
+   republish. **(Revised 2026-07-24 — see decision 5.)** The kennel-wide pack does NOT source from
+   any dog's filed documents: it is uploads-only ("Upload new," not filed on a dog). A per-dog
+   document is dog/litter-scoped by definition, so offering it in the kennel-wide picker too meant
+   the exact same document could show up in two different packs — confusing, since the two packs
+   have different audiences (every family vs. just this litter's).
 3. **Sensitive documents → warn + per-doc opt-in.** Published files are world-readable-by-link,
    so the picker leaves PII-bearing types (`contract`) unchecked by default and requires an
    explicit "this becomes public" confirmation to include; the publish summary restates what's
@@ -425,6 +429,48 @@ described in §2–4, not just the credential consts (§8 lists every file).
    to "this pup's own documents + the litter's parents' documents" before writing the family's
    breeder-doc layer. A kennel-wide pack is untouched — it has no per-file tagging and stays
    deliberately identical for every family.
+5. **Kennel-wide pack scoped to uploads only; published uploads now survive a republish (fixed
+   post-launch).** Two bugs, one root cause: `furever.js`'s kennel-wide "Upload new" list
+   (`kennelUploads`) was purely an in-session staging array, wiped to `[]` right after every
+   Publish click and never reloaded from what was actually persisted
+   (`settings.contentPack.selection.uploads`). That meant (a) a breeder could never see their own
+   already-published kennel-wide files in the console again — even though the files were sitting
+   in Drive exactly where expected — and (b) a second publish only ever sent the *new* staged
+   uploads to `publishPack`, so the previous uploads silently dropped out of `pack.json` (the
+   manifest is rewritten whole on every publish), even though the Drive files themselves weren't
+   touched. Fixed by having the console re-read the persisted upload list on every render/publish:
+   `fureverContentPack.js`'s `publishPack` now accepts upload entries with no `blob` (a prior
+   publish's item, carried by id/metadata only) and threads them straight into the new manifest by
+   their already-known Drive file id, instead of requiring a fresh blob to re-upload. The console
+   also dropped the "any dog" document picker from the kennel-wide section entirely (decision 2) —
+   between the two fixes, the kennel-wide card now shows exactly what it publishes: an "Already
+   published" list (with a per-item Remove/Undo, and a Drive link) plus the "Upload new" staging
+   box, no dog-scoped documents.
+6. **Removing a doc/upload from a pack now trashes its Drive file (added post-launch — closes a
+   real gap, not a nicety).** Before this, "removing" something from a pack — unchecking a
+   previously-published litter document, or hitting Remove on a kennel-wide upload — only dropped
+   it from the *next* `pack.json`; the actual file stayed sitting in the shared Drive folder,
+   still reachable by anyone who'd kept a link to it or the folder, forever. `googleDrive.js` gained
+   `trashFile(fileId)` (a `PATCH {trashed: true}` — Drive's own recoverable Trash, not an instant
+   permanent delete; trashing a file also drops "anyone with the link" access for everyone but the
+   owner). `publishPack` takes a new `removedKeys` param — `driveFileIds` keys (`doc:<id>` /
+   `upload:<id>`) the console computes as "was in the last-published selection, isn't now" — and
+   trashes + purges each one (step 0, before anything else) as part of the same publish. Both
+   `doKennelPublish` (kennel uploads) and `doLitterPublish` (litter documents) compute and pass
+   this; the UI says so up front ("trashed in Drive on next publish" / the litter picker's caption)
+   rather than leaving it a surprise. Note this is scoped to files this app itself uploaded
+   (`drive.file`) — there's no cross-pack effect even when the same underlying KennelOS `Document`
+   is filed on a dog that's a parent in multiple litters, because each pack publish uploads into
+   its own Drive folder and tracks its own `driveFileIds`, never sharing a Drive file id across
+   packs.
+7. **Overwrite is keyed by KennelOS record id, not by filename.** A republish reuses the same
+   Drive file (PATCH in place) only when the exact same source — the same `Document.id`
+   (`doc:<id>`) or the same client-assigned upload id (`upload:<id>`) — is sent again; Drive itself
+   has no notion of "same name" and happily holds duplicates. Uploading a brand-new "Upload new"
+   item with a title that matches something already published does **not** overwrite it — it
+   creates a second file with the same displayed name. To actually replace a published file's
+   *content*, remove the old one (decision 6 trashes it) and add the replacement as a new upload;
+   there's no in-place "replace this file's bytes" affordance today.
 
 ---
 
