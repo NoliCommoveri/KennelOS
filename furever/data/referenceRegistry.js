@@ -17,7 +17,7 @@ export const PET_REFERENCES = [
   { table: 'care_plans',     field: 'pet_id', label: 'a custom care plan' },
   { table: 'feeding',        field: 'pet_id', label: 'a feeding plan' },
   { table: 'potty_events',   field: 'pet_id', label: 'a potty log entry' },
-  { table: 'contacts',       field: 'pet_id', label: 'a saved contact' },
+  { table: 'contacts',       field: 'pet_ids', label: 'a saved contact' },
   { table: 'documents',      field: 'pet_id', label: 'a filed document' },
   { table: 'photos',         field: 'pet_id', label: 'a photo' },
   { table: 'practice_logs',  field: 'pet_id', label: 'a logged training session' },

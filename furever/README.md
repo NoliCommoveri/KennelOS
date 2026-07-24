@@ -184,7 +184,7 @@ furever/
                            failure; also applies the saved theme pre-paint
   pages/
     today.html    + .js  — At A Glance: the family-wide due-soon feed (one cross-pet
-                           view; no sub-nav)
+                           view). Sub-nav toggles Due Soon / Contacts / Documents.
     profile.html  + .js  — a pet's landing page: Add-Picture box (saved to
                            pet.photo_url) + large-font details, inline edit, breeder card
     health.html   + .js  — Health (merged Reminders + Log): derived schedule bucketed
@@ -195,13 +195,29 @@ furever/
     training.html + .js  — Training: track dropdown (AKC Timeline / S.T.A.R. /
                            Kennel Club), skills grouped by stage or level, log a
                            practice + mark learned (progress ports across tracks)
-    documents.html+ .js  — Documents: file vault (add/download/hard-delete)
+    documents.html+ .js  — Documents: file vault, two collapsible buckets (family
+                           docs above breeder's, each defaults open only if it has
+                           documents). "+ New" opens a modal (add/download/hard-delete)
     photos.html   + .js  — Photos: gallery grid + view modal (add/hard-delete)
-    contacts.html + .js  — Contacts: the pet's own + family-wide contacts (add/
-                           edit/archive)
+    contacts.html + .js  — Contacts: family-wide, lives under At A Glance (not a
+                           pet page). Each contact names the specific pets it
+                           applies to (pet_ids); collapsed rows show type + "For
+                           <pets>", "+ New" opens a modal, editing an existing
+                           contact requires an explicit Edit click.
+    alldocuments.html+.js— Documents (At A Glance toggle): family-wide, display-only
+                           view of every pet's documents (family + breeder mixed,
+                           nothing here is editable), bucketed by pet, every bucket
+                           collapsed by default. Download only — add/remove stays
+                           on the pet-scoped documents.html.
+    allphotos.html+ .js  — Photo Gallery: standalone sidebar entry (between At A
+                           Glance and the pet list), display-only. Pet tabs switch
+                           which pet's gallery shows (local view state, doesn't
+                           touch the app-wide active pet); no add/remove — that
+                           stays on the pet-scoped photos.html.
     addpet.html   + .js  — the Add New Pet form (creates a self pet, opens Profile)
-    family.html   + .js  — Family & Settings: family name, family-wide vet, theme,
-                           backup & restore, storage/reset danger zone
+    family.html   + .js  — Family & Settings: family name, shared vet (re-snapshot
+                           to every current pet on save), theme, backup & restore,
+                           storage/reset danger zone
   vendor/
     dexie.min.mjs        — vendored Dexie, COMMITTED (like shared/vendor/) so the
                            folder is directly servable — no build step to run it

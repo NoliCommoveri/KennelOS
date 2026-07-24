@@ -4,6 +4,11 @@
 // is built specifically to delete a document AND its owned file together, so
 // "Remove" is a true delete, not an archive — correcting a mistake is remove +
 // re-add rather than editing metadata around an unchangeable upload.
+//
+// Two collapsible buckets, family docs first: "Your documents" (family-owned,
+// full add/remove) above "From your breeder" (read-only, replaced wholesale on a
+// pack resend). Each bucket defaults OPEN if it has documents, closed if empty.
+// "+ New" opens a modal to add a document instead of an inline form.
 import { petRepo } from '../data/petRepo.js';
 import { documentRepo } from '../data/documentRepo.js';
 import { fileRepo } from '../data/fileRepo.js';
@@ -30,35 +35,6 @@ function typeOptionsHtml() {
   return DOC_TYPE.map((t) => `<option value="${t.value}">${esc(t.label)}</option>`).join('');
 }
 
-function formHtml() {
-  return `
-    <div class="card">
-      <h2>Add a document</h2>
-      <form id="doc-form" class="form-grid">
-        <div class="field">
-          <label for="d-file">File</label>
-          <input id="d-file" name="file" type="file" required />
-          <span class="hint">A photo of the paperwork works fine.</span>
-        </div>
-        <div class="field">
-          <label for="d-title">Title</label>
-          <input id="d-title" name="title" autocomplete="off" placeholder="e.g. AKC registration" />
-        </div>
-        <div class="field">
-          <label for="d-type">Type</label>
-          <select id="d-type" name="doc_type">${typeOptionsHtml()}</select>
-        </div>
-        <div class="field">
-          <label for="d-date">Date</label>
-          <input id="d-date" name="doc_date" type="date" max="${todayYMD()}" value="${todayYMD()}" />
-        </div>
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary">Save document</button>
-        </div>
-      </form>
-    </div>`;
-}
-
 function docRowHtml(doc) {
   const confirming = doc.id === confirmId;
   const actions = confirming
@@ -75,13 +51,6 @@ function docRowHtml(doc) {
       </div>
       ${actions}
     </div>`;
-}
-
-function listHtml(pet, docs) {
-  if (!docs.length) {
-    return `<div class="card"><p class="muted" style="margin:0;">No documents filed for ${esc(pet.name)} yet.</p></div>`;
-  }
-  return `<div class="card"><h2>${esc(pet.name)}'s documents</h2>${docs.map(docRowHtml).join('')}</div>`;
 }
 
 // Breeder-published docs (source:'breeder', landed by contentPackFetch.js) are
@@ -101,13 +70,111 @@ function breederDocRowHtml(doc) {
     </div>`;
 }
 
-function breederGroupHtml(breederDocs) {
-  if (!breederDocs.length) return '';
-  return `<div class="card">
-    <h2>From your breeder</h2>
-    <p class="muted" style="margin-top:0;">Sent by your breeder and kept up to date automatically — not editable here.</p>
-    ${breederDocs.map(breederDocRowHtml).join('')}
-  </div>`;
+function bucketSummaryHtml(label, count) {
+  return `<summary class="bucket-summary"><span class="bucket-title">${esc(label)}</span><span class="bucket-count">${count ? count : 'nothing yet'}</span></summary>`;
+}
+
+function familyBucketHtml(pet, docs) {
+  const inner = docs.length
+    ? docs.map(docRowHtml).join('')
+    : `<p class="muted" style="padding:.5rem .2rem 0;">No documents filed for ${esc(pet.name)} yet.</p>`;
+  return `<details class="bucket"${docs.length ? ' open' : ''}>
+    ${bucketSummaryHtml('Your documents', docs.length)}
+    <div>${inner}</div>
+  </details>`;
+}
+
+function breederBucketHtml(docs) {
+  const note = `<p class="muted" style="margin:0 0 .5rem;">Sent by your breeder and kept up to date automatically — not editable here.</p>`;
+  const inner = docs.length
+    ? note + docs.map(breederDocRowHtml).join('')
+    : note + `<p class="muted" style="margin:0;">Nothing sent yet.</p>`;
+  return `<details class="bucket"${docs.length ? ' open' : ''}>
+    ${bucketSummaryHtml('From your breeder', docs.length)}
+    <div>${inner}</div>
+  </details>`;
+}
+
+function newDocModalHtml() {
+  return `
+    <div class="modal-backdrop" id="doc-modal">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="doc-modal-title">
+        <button type="button" class="modal-close" id="doc-modal-close" aria-label="Close">×</button>
+        <h2 class="modal-title" id="doc-modal-title">Add a document</h2>
+        <div id="doc-modal-error" class="error-box"></div>
+        <form id="doc-form" class="form-grid">
+          <div class="field">
+            <label for="d-file">File</label>
+            <input id="d-file" name="file" type="file" required />
+            <span class="hint">A photo of the paperwork works fine.</span>
+          </div>
+          <div class="field">
+            <label for="d-title">Title</label>
+            <input id="d-title" name="title" autocomplete="off" placeholder="e.g. AKC registration" />
+          </div>
+          <div class="field">
+            <label for="d-type">Type</label>
+            <select id="d-type" name="doc_type">${typeOptionsHtml()}</select>
+          </div>
+          <div class="field">
+            <label for="d-date">Date</label>
+            <input id="d-date" name="doc_date" type="date" max="${todayYMD()}" value="${todayYMD()}" />
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save document</button>
+          </div>
+        </form>
+      </div>
+    </div>`;
+}
+
+function closeDocModal() {
+  const backdrop = document.getElementById('doc-modal');
+  if (backdrop) backdrop.remove();
+  document.removeEventListener('keydown', onDocModalKey);
+}
+
+function onDocModalKey(e) {
+  if (e.key === 'Escape') closeDocModal();
+}
+
+function openDocModal(pet) {
+  closeDocModal();
+  document.body.insertAdjacentHTML('beforeend', newDocModalHtml());
+  const backdrop = document.getElementById('doc-modal');
+  const closeBtn = document.getElementById('doc-modal-close');
+  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closeDocModal(); });
+  closeBtn.addEventListener('click', closeDocModal);
+  document.addEventListener('keydown', onDocModalKey);
+  closeBtn.focus();
+
+  const form = document.getElementById('doc-form');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const submit = form.querySelector('button[type="submit"]');
+    if (submit.disabled) return;
+    submit.disabled = true;
+    try {
+      const fd = new FormData(form);
+      const file = fd.get('file');
+      if (!file || !(file instanceof File) || !file.size) {
+        throw new Error('Please choose a file.');
+      }
+      const fileRecord = await fileRepo.create({ blob: file, name: file.name, mime: file.type });
+      await documentRepo.create({
+        pet_id: pet.id,
+        doc_type: fd.get('doc_type') || 'other',
+        doc_date: fd.get('doc_date') || todayYMD(),
+        title: (fd.get('title') || '').toString().trim() || null,
+        file_id: fileRecord.id
+      });
+      closeDocModal();
+      render();
+    } catch (err) {
+      submit.disabled = false;
+      showError(err.message || String(err), 'doc-modal-error');
+    }
+  });
 }
 
 async function render() {
@@ -136,12 +203,13 @@ async function render() {
           <h1>Documents</h1>
           <p class="page-subtitle">${esc(pet.name)}'s contract, registration, and other paperwork.</p>
         </div>
+        <button type="button" class="btn btn-primary" id="btn-new-doc">+ New</button>
       </div>
-      ${breederGroupHtml(breederDocs)}
-      ${formHtml()}
-      ${listHtml(pet, familyDocs)}`;
+      ${familyBucketHtml(pet, familyDocs)}
+      ${breederBucketHtml(breederDocs)}`;
 
     wire(pet);
+    document.getElementById('btn-new-doc').addEventListener('click', () => openDocModal(pet));
   } catch (err) {
     showError(err.message || String(err));
     body.innerHTML = '';
@@ -149,33 +217,6 @@ async function render() {
 }
 
 function wire(pet) {
-  const form = document.getElementById('doc-form');
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const submit = form.querySelector('button[type="submit"]');
-    if (submit.disabled) return;
-    submit.disabled = true;
-    try {
-      const fd = new FormData(form);
-      const file = fd.get('file');
-      if (!file || !(file instanceof File) || !file.size) {
-        throw new Error('Please choose a file.');
-      }
-      const fileRecord = await fileRepo.create({ blob: file, name: file.name, mime: file.type });
-      await documentRepo.create({
-        pet_id: pet.id,
-        doc_type: fd.get('doc_type') || 'other',
-        doc_date: fd.get('doc_date') || todayYMD(),
-        title: (fd.get('title') || '').toString().trim() || null,
-        file_id: fileRecord.id
-      });
-      render();
-    } catch (err) {
-      submit.disabled = false;
-      showError(err.message || String(err));
-    }
-  });
-
   body.querySelectorAll('[data-download]').forEach((el) => {
     el.addEventListener('click', async () => {
       try {

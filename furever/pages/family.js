@@ -2,10 +2,14 @@
 // this" needs a home for:
 //   • the family name  → household singleton (shown as "Carson Family Pets" in the
 //     banner), read back live into the nav after a save.
-//   • the family's vet → a family-wide contacts row (pet_id null, type 'vet'), the
-//     schema's designated home for it (shows for every pet).
+//   • the family's vet → a contacts row (type 'vet') whose pet_ids snapshot is
+//     every pet you currently have. There's no dynamic "every pet" sentinel any
+//     more, so a pet added later isn't automatically covered — saving here again
+//     re-snapshots the full pet list (linking a new pet to an existing vet is a
+//     future prompt, not built yet).
 //   • the palette      → a simple theme switcher (localStorage, applied instantly).
 import { householdRepo } from '../data/householdRepo.js';
+import { petRepo } from '../data/petRepo.js';
 import { contactRepo } from '../data/contactRepo.js';
 import { getTheme, setTheme, THEMES, getLastBackupDate } from '../data/settings.js';
 import { requestPersistentStorage, isStoragePersisted } from '../data/db.js';
@@ -16,10 +20,17 @@ import { esc, showError, clearError } from '../assets/ui.js';
 
 const body = document.getElementById('family-body');
 
-// The one family-wide vet contact (pet_id null, type 'vet'), or null.
-async function getFamilyVet() {
+function samePetSet(ids, activeIds) {
+  if (!Array.isArray(ids) || ids.length !== activeIds.length) return false;
+  const set = new Set(activeIds);
+  return ids.every((id) => set.has(id));
+}
+
+// The vet shared by every pet you currently have: a contact whose pet_ids
+// snapshot matches the full active-pet set exactly, or null.
+async function getFamilyVet(activePetIds) {
   const all = await contactRepo.getAll();
-  return all.find((c) => c.pet_id == null && c.contact_type === 'vet') || null;
+  return all.find((c) => c.contact_type === 'vet' && samePetSet(c.pet_ids, activePetIds)) || null;
 }
 
 function familyCardHtml(household, vet) {
@@ -147,12 +158,14 @@ function dangerCardHtml() {
 async function render() {
   try {
     clearError();
-    const [household, vet, persisted] = await Promise.all([
-      householdRepo.get(), getFamilyVet(), isStoragePersisted()
+    const [household, pets, persisted] = await Promise.all([
+      householdRepo.get(), petRepo.getAll(), isStoragePersisted()
     ]);
+    const activePetIds = pets.map((p) => p.id);
+    const vet = await getFamilyVet(activePetIds);
     body.innerHTML = familyCardHtml(household, vet) + themeCardHtml()
       + storageCardHtml(persisted) + backupCardHtml(getLastBackupDate()) + dangerCardHtml();
-    wireFamilyForm(vet);
+    wireFamilyForm(vet, activePetIds);
     wireThemes();
     wireStorage();
     wireBackup();
@@ -163,7 +176,7 @@ async function render() {
   }
 }
 
-function wireFamilyForm(existingVet) {
+function wireFamilyForm(existingVet, activePetIds) {
   const form = document.getElementById('family-form');
   const preview = document.getElementById('fam-preview');
   const famInput = document.getElementById('f-family');
@@ -182,7 +195,8 @@ function wireFamilyForm(existingVet) {
       const familyName = (fd.get('family_name') || '').toString().trim();
       await householdRepo.save({ family_name: familyName || null });
 
-      // Upsert (or remove) the single family-wide vet contact.
+      // Upsert (or remove) the shared vet contact — re-snapshotted to every pet
+      // you currently have each time this form is saved.
       const vetName = (fd.get('vet_name') || '').toString().trim();
       const vetFields = {
         name: vetName,
@@ -191,8 +205,9 @@ function wireFamilyForm(existingVet) {
         address: (fd.get('vet_address') || '').toString().trim() || null
       };
       if (vetName) {
-        if (existingVet) await contactRepo.update(existingVet.id, vetFields);
-        else await contactRepo.create({ pet_id: null, contact_type: 'vet', ...vetFields });
+        if (!activePetIds.length) throw new Error('Add a pet before saving your vet — contacts need at least one pet.');
+        if (existingVet) await contactRepo.update(existingVet.id, { ...vetFields, pet_ids: activePetIds });
+        else await contactRepo.create({ pet_ids: activePetIds, contact_type: 'vet', ...vetFields });
       } else if (existingVet) {
         await contactRepo.archive(existingVet.id);
       }
