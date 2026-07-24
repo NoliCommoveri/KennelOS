@@ -64,7 +64,7 @@ function detailsHtml(pet, breeder) {
     <div class="pill-row" style="margin-bottom:.5rem;">
       <button type="button" class="btn btn-sm" id="btn-edit">Edit details</button>
     </div>
-    ${pet.date_of_birth ? '' : '<p class="muted">Add a birthday to unlock the care schedule on the Reminders page.</p>'}
+    ${pet.date_of_birth ? '' : '<p class="muted">Add a birthday to unlock the care schedule on the Health page.</p>'}
     <div class="detail-list">${rows.join('')}</div>`;
 }
 

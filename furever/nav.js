@@ -12,8 +12,10 @@
 //      pet entries double as the active-pet picker.
 //
 //   2. The TOP SUB-NAV (into <div id="app-subnav">) — the pet-scoped page tabs
-//        Profile · Reminders · Log
+//        Profile · Health · Feeding · Potty · Training
 //      shown only while a pet page is open. At A Glance has no sub-nav for now.
+//      (Health is the merged former Reminders + Log: the derived schedule, bucketed
+//      by life-stage, with inline completed-on logging and the care history.)
 import { petRepo } from './data/petRepo.js';
 import { householdRepo } from './data/householdRepo.js';
 import { getActivePetId, setActivePetId } from './data/settings.js';
@@ -35,8 +37,10 @@ function currentFile() {
 // here: it is family-wide and carries no sub-nav.
 const PET_TABS = [
   { file: 'profile.html', label: 'Profile' },
-  { file: 'reminders.html', label: 'Reminders' },
-  { file: 'log.html', label: 'Log' }
+  { file: 'health.html', label: 'Health' },
+  { file: 'feeding.html', label: 'Feeding' },
+  { file: 'potty.html', label: 'Potty' },
+  { file: 'training.html', label: 'Training' }
 ];
 const PET_FILES = PET_TABS.map((t) => t.file);
 

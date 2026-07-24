@@ -52,11 +52,11 @@ async function render() {
 
     body.innerHTML = `<div class="card">${feed.map(rowHtml).join('')}</div>`;
 
-    // Clicking a due item re-scopes the app to that pet and opens its reminders.
+    // Clicking a due item re-scopes the app to that pet and opens its Health page.
     body.querySelectorAll('.sched-item[data-pet]').forEach((el) => {
       el.addEventListener('click', () => {
         setActivePetId(el.getAttribute('data-pet'));
-        location.href = 'reminders.html';
+        location.href = 'health.html';
       });
     });
   } catch (err) {

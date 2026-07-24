@@ -83,16 +83,20 @@ furever/
     ui.js                — esc()/badge()/showError(), imageFileToDataUrl() (profile
                            photo downscale) + small date/age helpers
     petSchedule.js       — assembles a pet's schedule sources and evaluates them
-                           (shared by At A Glance + Reminders)
+                           (shared by At A Glance + Health)
     bootcheck.js         — classic (non-module) guard: surfaces a fatal module-load
                            failure; also applies the saved theme pre-paint
   pages/
     today.html    + .js  — At A Glance: the family-wide due-soon feed (one cross-pet
                            view; no sub-nav)
     profile.html  + .js  — a pet's landing page: Add-Picture box (saved to
-                           pet.photo_url) + large-font details, with inline edit
-    reminders.html + .js — the active pet's derived schedule + one-tap log-done
-    log.html      + .js  — the active pet's care history (the logged actuals)
+                           pet.photo_url) + large-font details, inline edit, breeder card
+    health.html   + .js  — Health (merged Reminders + Log): derived schedule bucketed
+                           by life-stage (current age open), inline completed-on log,
+                           + care-history section
+    feeding.html  + .js  — Feeding: food brand + age-driven schedule radios / Custom
+    potty.html    + .js  — Potty: one-day-at-a-time house-training log
+    training.html + .js  — Training (placeholder — needs research)
     addpet.html   + .js  — the Add New Pet form (creates a self pet, opens Profile)
     family.html   + .js  — Family & Settings: family name, family-wide vet, theme
   vendor/
@@ -105,9 +109,10 @@ furever/
     repoBase.js          — thin repo factory (no editions/cap/demo coupling)
     referenceRegistry.js — every FK, drives hard-delete blocking
     dateUtils.js         — YYYY-MM-DD arithmetic + offsets
+    ageBrackets.js       — life-stage brackets (Health buckets + Feeding presets)
     vocab.js             — controlled vocabularies (badges + dropdowns)
     settings.js          — active pet (app-wide scope) + UI prefs incl. theme, localStorage
-    careLibrary.js       — universal dog schedule + feeding/safety content (shipped)
+    careLibrary.js       — universal dog schedule + FEEDING_PLAN / safety content (shipped)
     schedule.js          — the DERIVED reminder engine (stores nothing)
     seedLink.js          — decodes + applies a breeder "#seed=…" link (decompress →
                            parse → validate → upsert breeder → upsert pet); no DOM
@@ -117,6 +122,8 @@ furever/
     contactRepo.js       — family's own contacts (vet, groomer, …)
     careEventRepo.js     — append-only actuals log ("what happened")
     carePlanRepo.js      — family-authored cadences
+    feedingRepo.js       — the pet's feeding setup (one row per pet: brand + choice)
+    pottyRepo.js         — the house-training log (potty_events)
     documentRepo.js      — document vault (owns a file)
     photoRepo.js         — gallery (owns a file)
     fileRepo.js          — blob archive behind documents/photos

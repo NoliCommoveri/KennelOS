@@ -84,15 +84,27 @@ export const DOG_SCHEDULE = [
   }
 ];
 
-// --- Feeding reference (brief §feeding and safety reference) ----------------
-// Static guidance shown on the care page; a breeder pack can override with their
-// own words. Not scheduled — reference content only.
-export const FEEDING_GUIDE = [
-  { ageLabel: '8–12 weeks', mealsPerDay: 4, note: 'Small, frequent meals of a quality puppy food.' },
-  { ageLabel: '3–6 months', mealsPerDay: 3, note: 'Three meals a day as the puppy grows.' },
-  { ageLabel: '6–12 months', mealsPerDay: 2, note: 'Transition toward twice-daily feeding.' },
-  { ageLabel: 'Adult', mealsPerDay: 2, note: 'Twice-daily adult feeding; adjust portions to body condition.' }
+// --- Feeding plan (brief §feeding and safety reference) ---------------------
+// The age-driven feeding presets the Feeding page offers as radio options, keyed
+// to the life-stage brackets in ageBrackets.js (`bracket` matches an AGE_BRACKETS
+// value). Each is a portion + meals-per-day the family can accept as-is or replace
+// with a Custom schedule. This is placeholder CONTENT — real portions are
+// breed/food specific and will be pulled from the breeder's own feeding guidance
+// (a fetched content pack, brief §Delivery) later; a Custom entry always overrides.
+// `portionText` is the amount per meal; the schedule string the page shows is
+// `${portionText}, ${mealsPerDay}× per day`.
+export const FEEDING_PLAN = [
+  { bracket: 'baby',   portionText: '½ cup',      mealsPerDay: 4, note: 'Small, frequent meals of a quality puppy food.' },
+  { bracket: 'puppy',  portionText: '¾ cup',      mealsPerDay: 3, note: 'Three meals a day as the puppy grows.' },
+  { bracket: 'junior', portionText: '1 cup',      mealsPerDay: 2, note: 'Transition toward twice-daily feeding.' },
+  { bracket: 'adult',  portionText: '1–1½ cups',  mealsPerDay: 2, note: 'Twice-daily adult feeding; adjust portions to body condition.' }
 ];
+
+// A FEEDING_PLAN row's human schedule string, e.g. "½ cup, 3× per day".
+export function feedingScheduleText(plan) {
+  if (!plan) return '';
+  return `${plan.portionText}, ${plan.mealsPerDay}× per day`;
+}
 
 // --- Safety reference: foods poisonous to dogs (brief §day one) -------------
 export const POISONOUS_FOODS = [
