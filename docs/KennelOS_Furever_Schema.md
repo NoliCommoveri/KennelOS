@@ -456,12 +456,41 @@ the decoder above consumes:
   console → opened it on the Furever side → the pet, breeder identity, note, and
   pickup plan all decoded correctly; no console errors on either side.
 
+## Built (document / photo / contact pages)
+Three more pet-scoped tabs, after Training in the sub-nav (`furever/README.md`
+has the file map): `pages/documents.*`, `pages/photos.*`, `pages/contacts.*`.
+- **Documents** (`documentRepo` + `fileRepo`) — an add form (file, title, `doc_type`,
+  `doc_date`) plus a list of the pet's filed documents with **Download** (streams
+  the stored blob through a throwaway object URL) and a two-step **Remove**
+  (`documentRepo.hardDelete`, which deletes the row and its owned `files` row
+  together — safe unconditionally since `documents` is a referenceRegistry leaf).
+  Add-only + remove, deliberately no in-place edit: correcting an upload is
+  remove-and-re-add, not editing metadata around an unchangeable file.
+- **Photos** (`photoRepo` + `fileRepo`) — a gallery grid with a dashed "Add Photo"
+  tile; picking a file opens a pending-upload card (preview + caption + `taken_date`)
+  that saves through a new `imageFileToBlob` helper (`assets/ui.js`) — a downscaled-
+  JPEG-**Blob** sibling of the profile-avatar's `imageFileToDataUrl` (which returns a
+  data URL for the small `pet.photo_url` field instead). A gallery photo is a real
+  `files` blob, fetched per-thumbnail via object URLs (revoked on re-render).
+  Clicking a thumbnail opens a modal (full image + caption + date) with the same
+  two-step hard-delete Remove.
+- **Contacts** (`contactRepo`) — the family's own contacts for the active pet:
+  vet, emergency vet, groomer, trainer, other, each scoped to just this pet or
+  "All pets" (`pet_id` null). The one family-wide vet the Family & Settings page's
+  single vet field writes shows up here too, editable in place. **Remove archives**
+  (`contactRepo.archive`), not hard-deletes — matching `family.js`'s existing
+  precedent for that same vet contact; unlike documents/photos there's no blob to
+  reclaim, so soft delete is the right default.
+
+Browser-verified end to end (headless Chromium): added a pet → added a pet-scoped
+and a family-wide contact, edited one, archived one → uploaded a document,
+downloaded it, hard-deleted it → uploaded a photo, viewed it in the modal,
+hard-deleted it; no console errors on any page.
+
 ## Not built yet
 The **Training page** (placeholder only — needs a researched puppy curriculum), the
 **one-time content-pack fetch** (which will also supply the breeder's real feeding
-plan, replacing `FEEDING_PLAN`'s placeholder portions), the **document / photo /
-contact** pages (the family's own contacts — the seed-layer breeder/vet card is
-built, see profile above), **import-export / backup**, and the **service worker /
-PWA / precache** (offline + install). The app runs online today; the offline layer
-is deferred until the page set settles. The deploy pipeline is ready to ship
-whatever `furever/` contains.
+plan, replacing `FEEDING_PLAN`'s placeholder portions), **import-export / backup**,
+and the **service worker / PWA / precache** (offline + install). The app runs
+online today; the offline layer is deferred until the page set settles. The
+deploy pipeline is ready to ship whatever `furever/` contains.

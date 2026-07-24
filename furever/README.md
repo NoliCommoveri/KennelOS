@@ -66,10 +66,40 @@ pickup photo, an "it's almost time for [pup] to come home!" headline with a live
 all read from the seed the link carried (`pet.seed.pickupPlan` / `pet.seed.note`),
 so nothing is family-authored. It retires itself once pickup day passes.
 
-Still to build (each a later step): the **content-pack fetch**, the
-**document/photo/contact** pages, **import-export/backup**, and the **service
-worker / PWA / manifest** (offline + install). The app runs online today; the
-offline layer is deliberately deferred until the page set settles.
+**The document/photo/contact pages are now built.** Three more pet-scoped tabs
+(`pages/documents.*`, `pages/photos.*`, `pages/contacts.*`), added to the sub-nav
+after Training:
+- **Documents** — a file vault (`documentRepo` + `fileRepo`): an add form (file +
+  title + type + date) and a list of filed documents with Download (streams the
+  stored blob through a temporary object URL) and a two-step **Remove** (calls
+  `documentRepo.hardDelete`, which deletes the row and its owned file together —
+  documents are a leaf, so this is never blocked; add-only + remove, no in-place
+  edit, since correcting an upload is remove-and-re-add rather than editing
+  around an unchangeable file).
+- **Photos** — a gallery grid (`photoRepo` + `fileRepo`): a dashed "Add Photo"
+  tile opens a file picker, then a pending-upload card (preview + caption + date)
+  saves through `imageFileToBlob` (`assets/ui.js`, a downscaled-JPEG-Blob sibling
+  of the profile-avatar's `imageFileToDataUrl`, since a gallery photo is stored as
+  a real `files` blob, not inlined on the pet record). Clicking a thumbnail opens
+  a modal (full image + caption + date) with the same two-step hard-delete Remove.
+- **Contacts** — the family's own contacts for the active pet (`contactRepo`):
+  vet, emergency vet, groomer, trainer, other, each either scoped to just this
+  pet or "All pets" (`pet_id` null — the same family-wide vet the Family &
+  Settings page's single vet field writes shows up here too, editable in place).
+  Unlike Documents/Photos, Remove here **archives** (`contactRepo.archive`), not
+  hard-deletes — matching `family.js`'s existing precedent of archiving the vet
+  contact rather than destroying it, since a contact carries no heavy blob to
+  reclaim.
+
+Browser-verified end to end (headless Chromium): added a pet → added a pet-scoped
+and a family-wide contact, edited one, archived one → uploaded a document,
+downloaded it, hard-deleted it → uploaded a photo, viewed it in the modal,
+hard-deleted it; no console errors on any page.
+
+Still to build (each a later step): the **content-pack fetch**, **import-export
+/backup**, and the **service worker / PWA / manifest** (offline + install). The
+app runs online today; the offline layer is deliberately deferred until the page
+set settles.
 
 ```
 furever/
@@ -87,7 +117,8 @@ furever/
     app.css              — the single stylesheet (theme palettes via [data-theme];
                            badge-* match vocab)
     ui.js                — esc()/badge()/showError(), imageFileToDataUrl() (profile
-                           photo downscale) + small date/age helpers
+                           photo downscale), imageFileToBlob() (gallery-photo
+                           downscale, for fileRepo) + small date/age helpers
     petSchedule.js       — assembles a pet's schedule sources and evaluates them
                            (shared by At A Glance + Health)
     bootcheck.js         — classic (non-module) guard: surfaces a fatal module-load
@@ -103,6 +134,10 @@ furever/
     feeding.html  + .js  — Feeding: food brand + age-driven schedule radios / Custom
     potty.html    + .js  — Potty: one-day-at-a-time house-training log
     training.html + .js  — Training (placeholder — needs research)
+    documents.html+ .js  — Documents: file vault (add/download/hard-delete)
+    photos.html   + .js  — Photos: gallery grid + view modal (add/hard-delete)
+    contacts.html + .js  — Contacts: the pet's own + family-wide contacts (add/
+                           edit/archive)
     addpet.html   + .js  — the Add New Pet form (creates a self pet, opens Profile)
     family.html   + .js  — Family & Settings: family name, family-wide vet, theme
   vendor/
