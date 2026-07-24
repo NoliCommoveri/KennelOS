@@ -182,6 +182,17 @@ family's own uploads exactly like the seed/family layer split the schema doc emp
   ~1 hour, **access-token-only** (no refresh token without a backend). Held in memory for the
   publish session; a later publish re-requests a token — silent (`prompt: ''`) when the
   breeder's Google session is still live, otherwise a quick re-consent.
+- **Token lifetime is fixed at ~1 hour by Google — not configurable, and not a deadline the
+  breeder races.** A token matters only *while a publish is running* (seconds), so 1 hour is far
+  more than one publish needs. If a token has expired by the time a Drive call fires (breeder
+  connected then stepped away, or a large multi-file upload runs long), the call returns `401`;
+  the client **re-requests a token and retries** — the same 401-retry `dropbox.js` already does.
+  The re-request is **silent** when the Google session is still live, a one-click re-consent
+  otherwise. **No refresh token exists to renew silently in the background**, so we always
+  acquire/refresh the token *at* publish time (a token grabbed only at "Connect" may already be
+  stale). Because publish is **re-runnable** — folders reused by cached ID, files upserted by
+  `drive_file_id`, manifest overwritten wholesale — a re-auth-and-retry resumes cleanly with no
+  partial-publish or data loss. Worst case for the breeder: one extra click.
 - `drive.file` means KennelOS can see/manage **only files it created** — it cannot read the
   breeder's other Drive files. State this in the UI; it's a privacy selling point.
 
