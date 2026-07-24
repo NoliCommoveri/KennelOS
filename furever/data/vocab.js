@@ -92,6 +92,38 @@ export const POTTY_OUTCOME = [
   { value: 'accident', label: 'Accident',     badge: 'badge-amber' }
 ];
 
+// Training tracks — the dropdown on the Training page (schema §training_skills).
+export const TRAINING_PROGRAM = [
+  { value: 'akc_timeline', label: 'AKC Age-Based Timeline', badge: 'badge-blue' },
+  { value: 'akc_star_puppy', label: 'AKC S.T.A.R. Puppy', badge: 'badge-green' },
+  { value: 'kc_good_citizen', label: 'Good Citizen Dog Training Scheme (UK)', badge: 'badge-purple' }
+];
+
+// Training skill categories (trainingContent.js's CATEGORIES ids).
+export const TRAINING_CATEGORY = [
+  { value: 'socialization', label: 'Socialization', badge: 'badge-blue' },
+  { value: 'handling_grooming', label: 'Handling & Grooming', badge: 'badge-purple' },
+  { value: 'house_training', label: 'House Training', badge: 'badge-green' },
+  { value: 'crate_confinement', label: 'Crate & Confinement', badge: 'badge-green' },
+  { value: 'impulse_control', label: 'Impulse Control', badge: 'badge-amber' },
+  { value: 'polite_play_bite_inhibition', label: 'Polite Play & Bite Inhibition', badge: 'badge-amber' },
+  { value: 'leash_walking', label: 'Leash Walking', badge: 'badge-blue' },
+  { value: 'recall', label: 'Recall', badge: 'badge-blue' },
+  { value: 'basic_cues', label: 'Basic Cues', badge: 'badge-purple' },
+  { value: 'distraction_proofing', label: 'Distraction Proofing', badge: 'badge-amber' },
+  { value: 'alone_training', label: 'Alone Training', badge: 'badge-neutral' },
+  { value: 'public_manners', label: 'Public Manners', badge: 'badge-blue' },
+  { value: 'advanced_control', label: 'Advanced Control', badge: 'badge-purple' }
+];
+
+// A skill's "mark it learned" status (skill_progress.status). Not a locked state
+// machine — a family can move backward without friction.
+export const SKILL_STATUS = [
+  { value: 'not_started', label: 'Not started', badge: 'badge-gray' },
+  { value: 'in_progress', label: 'Practicing', badge: 'badge-amber' },
+  { value: 'learned', label: 'Learned', badge: 'badge-green' }
+];
+
 // Lookup helper: the {label, badge} for a value in one of the vocabs above.
 export function labelFor(vocab, value) {
   const hit = vocab.find((v) => v.value === value);

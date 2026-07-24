@@ -11,7 +11,8 @@ const KEYS = {
   persistRequested: 'furever.persistRequested',
   lastBackupDate: 'furever.lastBackupDate',
   addToHomeScreenDismissed: 'furever.addToHomeScreenDismissed',
-  theme: 'furever.theme'
+  theme: 'furever.theme',
+  trainingContentVersion: 'furever.trainingContentVersion'
 };
 
 // The palette ids the switcher offers. 'warm' is the default (no data-theme
@@ -86,6 +87,18 @@ export function wasAddToHomeScreenDismissed() {
 
 export function markAddToHomeScreenDismissed() {
   localStorage.setItem(KEYS.addToHomeScreenDismissed, '1');
+}
+
+// --- Training content version-gate (trainingSkillRepo.ensureTrainingSkillsSeeded) --
+// A plain "have we caught up to trainingContent.js's version" flag — the same
+// small synchronous-state role this file plays for lastBackupDate.
+export function getTrainingContentVersion() {
+  const raw = localStorage.getItem(KEYS.trainingContentVersion);
+  return raw == null ? null : Number(raw);
+}
+
+export function setTrainingContentVersion(version) {
+  localStorage.setItem(KEYS.trainingContentVersion, String(version));
 }
 
 // --- Full reset ------------------------------------------------------------
