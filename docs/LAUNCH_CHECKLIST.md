@@ -11,6 +11,11 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
 
 ## 1. Code freeze (in `nolicommoveri/kennelos`, before merging to `main`)
 
+- [ ] **`[!]` Restore `licenseGate: true` in `pro/editionConfig.js`** — currently
+  `false` so `pro.kennelos.app` is browsable for live testing ahead of a real
+  Lemon Squeezy store/license. While it's off, **Pro ships fully unlocked to any
+  visitor** — no activation wall at all. Flip back to `true` (and re-run/redeploy)
+  once the store swaps below are done, before any real user traffic.
 - [ ] **`[!]` Restore `--release` in `.github/workflows/deploy.yml`** — currently
   removed from the `Build ${{ matrix.edition }}` step so lite/pro/demo can deploy
   for live testing ahead of the real launch URLs (this bullet). While it's off, the
