@@ -59,16 +59,26 @@ export const db = new Dexie('KennelOSFurever');
 //    derived reminder — is a probe, not a scan. `event_date` is the ACTUAL date,
 //    indexed for newest-first history.
 //  - care_plans holds only FAMILY-AUTHORED cadences ("vet says every 6 weeks").
-//    Universal + breeder-overlay schedule items are CONTENT (careLibrary.js /
-//    content_packs), not rows here. Indexed on pet_id (scope) and category.
+//    Universal schedule items are CONTENT (careLibrary.js), not rows here.
+//    Indexed on pet_id (scope) and category. (Breeder packs are DOCUMENTS-only,
+//    per Content Package Fetch Mechanism §0 — they never contribute schedule
+//    items, so content_packs plays no part in the schedule engine.)
 //  - contacts `pet_id` is NULLABLE: null = a family-wide contact (their vet)
 //    that shows for every pet; set = specific to one pet.
 //  - documents/photos each own exactly one `files` row (fileRepo), deleted
 //    alongside — files is never a referenceRegistry target, only fetched by id,
-//    so only `created_at` (backup ordering) rides beside it.
-//  - content_packs is the persisted home for a breeder's custom overlay, fetched
-//    ONCE on first open (too big to ride the text link — brief §Delivery/appendix).
-//    `pack_key` is unique (&): a pet points at it by key, and a re-fetch upserts.
+//    so only `created_at` (backup ordering) rides beside it. `documents` also
+//    carries plain, unindexed `source`/`pack_key`/`drive_file_id` fields:
+//    breeder-published rows (source:'breeder') land via contentPackFetch.js and
+//    are blindly replaced wholesale on a pack version bump
+//    (documentRepo.replaceBreederLayer); family uploads (source:'self', default)
+//    are never touched by a fetch.
+//  - content_packs is the MANIFEST CACHE for a breeder's published packs
+//    (Content Package Fetch Mechanism §3.3 — repurposed from an earlier "custom
+//    overlay" design, dropped for a documents-only payload): just "which version
+//    of which pack have we fetched," so contentPackFetch.js can skip an
+//    unchanged pack on a resend. `pack_key` is unique (&): a pet points at its
+//    kennel-wide pack by key (pets.content_pack_key), and a re-fetch upserts.
 //  - household is a SINGLETON (one row, fixed id 'household'): the family's own
 //    identity — their name ("Carson" → shown as "Carson Family Pets" in the app
 //    banner) and room to grow (address/phone later). App-wide, not pet-scoped, so

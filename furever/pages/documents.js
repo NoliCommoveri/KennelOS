@@ -84,6 +84,32 @@ function listHtml(pet, docs) {
   return `<div class="card"><h2>${esc(pet.name)}'s documents</h2>${docs.map(docRowHtml).join('')}</div>`;
 }
 
+// Breeder-published docs (source:'breeder', landed by contentPackFetch.js) are
+// read-only: Download only, no edit and no family Remove — a republish blindly
+// replaces them (documentRepo.replaceBreederLayer), so a family "Remove" would
+// just reappear on the next resend, which reads as a bug (Content Package Fetch
+// Mechanism §3.3).
+function breederDocRowHtml(doc) {
+  return `
+    <div class="list-row" data-doc="${esc(doc.id)}">
+      <span class="doc-icon" aria-hidden="true">${docIcon(doc.doc_type)}</span>
+      <div class="grow">
+        <strong>${esc(doc.title || labelFor(DOC_TYPE, doc.doc_type))}</strong> ${badge(DOC_TYPE, doc.doc_type)}
+        ${doc.doc_date ? `<div class="muted" style="font-size:.85rem;">${esc(doc.doc_date)}</div>` : ''}
+      </div>
+      <button type="button" class="btn btn-sm" data-download="${esc(doc.id)}">Download</button>
+    </div>`;
+}
+
+function breederGroupHtml(breederDocs) {
+  if (!breederDocs.length) return '';
+  return `<div class="card">
+    <h2>From your breeder</h2>
+    <p class="muted" style="margin-top:0;">Sent by your breeder and kept up to date automatically — not editable here.</p>
+    ${breederDocs.map(breederDocRowHtml).join('')}
+  </div>`;
+}
+
 async function render() {
   try {
     clearError();
@@ -99,8 +125,10 @@ async function render() {
       return;
     }
 
-    const docs = await documentRepo.getByPet(pet.id);
-    if (confirmId && !docs.some((d) => d.id === confirmId)) confirmId = null;
+    const allDocs = await documentRepo.getByPet(pet.id);
+    const breederDocs = allDocs.filter((d) => d.source === 'breeder');
+    const familyDocs = allDocs.filter((d) => d.source !== 'breeder');
+    if (confirmId && !familyDocs.some((d) => d.id === confirmId)) confirmId = null;
 
     body.innerHTML = `
       <div class="page-header">
@@ -109,8 +137,9 @@ async function render() {
           <p class="page-subtitle">${esc(pet.name)}'s contract, registration, and other paperwork.</p>
         </div>
       </div>
+      ${breederGroupHtml(breederDocs)}
       ${formHtml()}
-      ${listHtml(pet, docs)}`;
+      ${listHtml(pet, familyDocs)}`;
 
     wire(pet);
   } catch (err) {

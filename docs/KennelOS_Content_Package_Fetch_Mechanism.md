@@ -1,21 +1,19 @@
 # KennelOS — Content Package Fetch Mechanism
 
-> **Status: mechanism spec, pre-build.** This turns the "one-time content-pack fetch"
-> that `KennelOS_Furever_Schema.md` (§ Not built yet) and the Furever brief
-> (`KennelOS_Furever_Family_App_Brief.md` §Content/§Delivery) leave open into a concrete,
-> buildable mechanism. It reflects the owner's decisions on 2026-07-24 (documents-only
-> payload; fetch on first open **and** every resend; "do as much as possible from KennelOS,
-> including creating the Drive folders and dropping the generated manifest in"). It is a
-> **design target for the build**, not shipped code — nothing here has been implemented.
-> The open decisions were settled by the owner on 2026-07-24 (§ Decisions (settled)): OAuth-write
-> primary with a manual fallback; documents stay **dog-scoped** with a **bulk-add** picker; and
-> published files carry a sensitive-doc warning + per-doc opt-in. Ready for Sonnet to build.
+> **Status: built (2026-07-24), OAuth-write path.** The mechanism described below — the
+> Furever-side fetch (§4.4) and the KennelOS-side connect/publish flow (§4.1/§4.2) — is now
+> implemented, following the owner's 2026-07-24 decisions (documents-only payload; fetch on
+> first open **and** every resend; "do as much as possible from KennelOS, including creating
+> the Drive folders and dropping the generated manifest in") and the settled §7 decisions
+> (OAuth-write primary, manual fallback **documented only, not built** — see §7 decision 1;
+> documents stay dog-scoped with a bulk-add picker; a sensitive-doc warning + per-doc opt-in
+> on publish). See §8 for exactly which files landed. **Not yet browser/round-trip verified
+> against a real Google account** — no live OAuth consent flow or Drive API round trip has
+> been exercised in this environment; verify end-to-end before relying on it in production.
 >
-> **§5.1 update (2026-07-24): the one-time Google Cloud setup is done.** The owner created the
-> Cloud project, enabled the Drive API, configured the OAuth consent screen (`drive.file` only),
-> and created + restricted both credentials. Both are now recorded in code — see §5.1/§5.2 below
-> for the values and file homes. The connect/publish/fetch mechanism itself (everything else in
-> this doc) is still unbuilt.
+> **§5.1: the one-time Google Cloud setup is done** (owner, 2026-07-24) — Cloud project, Drive
+> API, OAuth consent screen (`drive.file` only), both credentials created + restricted, both
+> recorded in code (§5.1/§5.2).
 
 ---
 
@@ -339,12 +337,10 @@ public by design (see § 6) — the restrictions above are the actual control, n
 |---|---|---|---|
 | OAuth client ID (`drive.file`) | KennelOS (`shared/`, Pro console) | `shared/data/googleDrive.js` — `CLIENT_ID` const (done) | `dropbox.js` `APP_KEY` |
 | Public Drive API read key | Furever (`furever/`) | `furever/data/contentPackFetch.js` — `API_KEY` const (done) | brief appendix |
-| GIS library `gsi/client.js` | KennelOS | **vendored** into `shared/vendor/` + precached | no-CDN rule |
+| GIS library `gsi/client.js` | KennelOS | **vendored** into `shared/vendor/gsi/client.js`, listed in `sw.js` `PRECACHE_URLS` (done) | no-CDN rule |
 
-Both `googleDrive.js` and `contentPackFetch.js` exist today holding only the credential
-const — the connect/publish/fetch logic described in §2–4 that will actually *use* them is
-not built yet (that's the next chunk of work, scoped separately from this one-time setup).
-The GIS library row above is still pending — nothing is vendored yet.
+`googleDrive.js` and `contentPackFetch.js` now hold the full connect/publish/fetch logic
+described in §2–4, not just the credential consts (§8 lists every file).
 
 ### 5.3 Breeder per-kennel steps (in-app, minimal)
 
@@ -406,37 +402,62 @@ The GIS library row above is still pending — nothing is vendored yet.
 
 ---
 
-## 8. Build task list (for Sonnet — §7 is settled, ready to build)
+## 8. Build task list — done (2026-07-24)
 
 **Furever (family) side**
-- `furever/data/contentPackFetch.js` — public-key manifest + file fetch, version-gated,
-  best-effort, resourceKey header handling; called from `app.js boot()` after `consumeSeedLink`.
-- Extend `furever/data/db.js`: `documents` gains `source`/`pack_key`/`drive_file_id` (plain,
-  unindexed — no schema-version bump needed pre-release, reconcile with Reset+reseed);
-  repurpose `content_packs` to the manifest cache (drop `payload`, add `scope`/`version`).
-- Extend `contentPackRepo` (manifest cache) + `documentRepo`/`fileRepo` breeder-layer replace.
-- `documents.js` page: read-only "From your breeder" group for `source:'breeder'` rows.
-- Bake the public API read key; **vendor** nothing new here (fetch is plain `fetch`).
+- ✅ `furever/data/contentPackFetch.js` — public-key manifest + file fetch, version-gated,
+  best-effort, resourceKey header handling; called from `app.js boot()` after `consumeSeedLink`
+  (via a `sessionStorage` hand-off, since the seed-link flow usually redirects to Profile
+  before a fetch could otherwise start — see the file's `app.js` header comment).
+- ✅ `furever/data/db.js`: `documents`/`content_packs` usage notes updated for `source`/
+  `pack_key`/`drive_file_id` (plain, unindexed — no schema-version bump needed) and the
+  manifest-cache repurposing (drop `payload`, add `scope`).
+- ✅ `contentPackRepo` (manifest cache) + `documentRepo` (`getBreederDocsForPack`,
+  `replaceBreederLayer` — a blind wholesale replace per version bump, §3.3) +
+  `fileRepo` (already generic enough, unchanged).
+- ✅ `documents.js` page: read-only "From your breeder" group for `source:'breeder'` rows
+  (Download only, no edit/remove).
+- ✅ Public API read key baked in; no vendoring on this side (fetch is plain `fetch`).
 
 **KennelOS (breeder) side**
-- `shared/data/googleDrive.js` — GIS token client wrapper (connect, get token, folder ensure,
-  upload, share, write manifest); OAuth client ID const.
-- Vendor `gsi/client.js` into `shared/vendor/` and add to `shared/sw.js` `PRECACHE_URLS`.
-- `shared/data/fureverContentPack.js` — build `pack.json` (named-copy), the publish orchestration.
-- Extend `shared/data/fureverSeedExport.js` to emit `contentPackages`.
-- Extend `settings.js` (kennel pack pointer + Drive connection state) and `litterRepo` (litter
-  `furever_pack`).
-- Furever console (`shared/pages/furever.*`): Connect-Drive UI, per-scope Publish, the **bulk-add
-  doc picker** (litter pool = pups + sire + dam via `documentRepo.getByDog`; select-all/per-type/
-  per-dog selectors; "Upload new" for kennel-level files; pre-check from cached `selection`),
-  and the sensitive-doc (`contract`) opt-in warning.
+- ✅ `shared/data/googleDrive.js` — GIS token client wrapper (connect, ensure-token-with-401-retry,
+  ensure-folder, upload/overwrite via hand-built multipart/related, share-public, write-manifest).
+- ✅ Vendored `gsi/client.js` into `shared/vendor/gsi/client.js`, added to `shared/sw.js`
+  `PRECACHE_URLS` (landed with this change; `CACHE_NAME` bump is separate — ask-first, per
+  CLAUDE.md).
+- ✅ `shared/data/fureverContentPack.js` — builds `pack.json` (named-copy) and orchestrates a
+  publish (ensure folders → upload each source, reusing a cached Drive file id when the same
+  source was published before → share → write manifest → return the pointer to persist).
+- ✅ `shared/data/fureverSeedExport.js` — `buildSeedPacket` is now `async` and emits
+  `contentPackages` (kennel pointer from settings + this dog's litter pointer via `litter_id`).
+- ✅ `settings.js` (`contentPack`: packKey/folderId/manifestFileId/manifestResourceKey/version/
+  selection, plus `driveConnected` UI state) and the litter's plain `furever_pack` field
+  (no `litterRepo` code change needed — `update()` already merges arbitrary fields).
+- ✅ Furever console (`shared/pages/furever.*`): Connect-Drive button, a kennel-wide Publish
+  panel and one per litter, the bulk-add picker (select-all / per-type / per-dog-select-all,
+  litter pool = pups + sire + dam via `documentRepo.getByDog`, "Upload new" for kennel-level
+  files, pre-checked from the cached `selection`), and the sensitive-doc (`contract`)
+  unchecked-by-default + confirm-to-publish warning.
 
-**Docs to update in the same change when built** (per CLAUDE.md doc-truth rules)
-- `KennelOS_Furever_Schema.md`: the `documents`/`content_packs` field changes, the fetch flow,
-  move "content-pack fetch" out of § Not built yet.
+**Known gaps / not built**
+- The **manual (no-OAuth) fallback** from §7 decision 1 is documented only, not built — the
+  owner settled OAuth-write as first-priority and the fallback as second-priority/deferred.
+- **Not browser-verified against a real Google account** — no live OAuth consent or Drive API
+  round trip has been exercised (this build environment can't drive a real Google consent
+  popup). Verify Connect → Publish → a family device fetching real docs before relying on it.
+- True "skip identical bytes" isn't implemented — a republish re-uploads every selected file's
+  bytes, but reuses the same Drive file id per source (a stable overwrite, not a new file each
+  time), so Drive doesn't accumulate duplicates; see `fureverContentPack.js`'s header comment.
+
+**Docs updated in the same change**
+- `KennelOS_Furever_Schema.md`: the `documents`/`content_packs` field changes, a new "Built
+  (content-pack fetch)" section, moved out of § Not built yet.
+- `furever/README.md`: file map + status prose.
 - `End_State_Design_and_Maintenance_Guide.md` (→ `shared/…`): the new `shared/data/googleDrive.js`
   + `fureverContentPack.js`, the `fureverSeedExport` packet field, the litter `furever_pack` field.
-- `README.md` § Next / `build/README.md`: the Google Cloud OAuth-client + API-key prerequisites.
+- `README.md` / `build/README.md`: left as-is — neither documents third-party credential setup
+  today (Dropbox's App Key isn't mentioned there either), and the Google Cloud setup itself
+  needs no further action (§5.1 is done, nothing pending).
 - **SW precache + `CACHE_NAME` bump** for the vendored GIS lib and any new files (ask-first, per CLAUDE.md).
 
 ---
