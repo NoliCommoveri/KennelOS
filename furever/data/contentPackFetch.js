@@ -53,11 +53,24 @@ function isValidManifest(m) {
     && Array.isArray(m.files);
 }
 
+// A litter-scope manifest's files are already tagged per-dog on the breeder
+// side (fureverContentPack.js) — this pup only gets its OWN documents plus the
+// litter's sire/dam documents (shared with every pup in the litter), never
+// another pup's. A kennel-scope manifest has no such tagging and is always
+// shared with everyone, by design. `pupId` is this family's pet.pup_id — the
+// same breeder-side Dog id the manifest's `dogId`/`parentDogIds` are stated in.
+export function filesForThisPup(manifest, pupId) {
+  if (manifest.scope !== 'litter') return manifest.files;
+  const parentIds = Array.isArray(manifest.parentDogIds) ? manifest.parentDogIds : [];
+  return manifest.files.filter((f) => !f || !f.dogId || f.dogId === pupId || parentIds.includes(f.dogId));
+}
+
 // One pack pointer (§3.2): fetch its manifest, skip if unchanged, else fetch
-// every listed file and blind-replace this pet's breeder layer for the pack.
-// Never throws — every failure just leaves the cache/documents as they were,
-// retried on the next open that carries this pointer.
-async function fetchOnePackage(petId, pointer) {
+// every listed file relevant to this pup and blind-replace this pet's breeder
+// layer for the pack. Never throws — every failure just leaves the
+// cache/documents as they were, retried on the next open that carries this
+// pointer.
+async function fetchOnePackage(petId, pointer, pupId) {
   if (!pointer || !pointer.manifestFileId || !pointer.packKey) return;
 
   let manifest;
@@ -75,7 +88,7 @@ async function fetchOnePackage(petId, pointer) {
 
   const docDate = manifest.updatedAt ? String(manifest.updatedAt).slice(0, 10) : '';
   const entries = [];
-  for (const f of manifest.files) {
+  for (const f of filesForThisPup(manifest, pupId)) {
     if (!f || !f.fileId) continue;
     try {
       const blob = await fetchFileBlob(f.fileId, f.resourceKey);
@@ -112,7 +125,7 @@ export async function fetchContentPackagesForPet(pet) {
     : [];
   for (const pointer of pointers) {
     try {
-      await fetchOnePackage(pet.id, pointer);
+      await fetchOnePackage(pet.id, pointer, pet.pup_id);
     } catch {
       // best-effort — one pack's failure never breaks another's or the caller
     }

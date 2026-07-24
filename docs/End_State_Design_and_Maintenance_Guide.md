@@ -650,7 +650,12 @@ way.
   instead of the raw flat list, so a dog only inherits tests tagged for its own
   breed (plus any untagged/breed-agnostic ones).
 - **kennelSetup.js** — the "your kennel and owner name" wizard; creates real
-  Kennel/Contact records and remembers them by id in settings.
+  Kennel/Contact records and remembers them by id in settings. The owner
+  Contact is always saved with `kennel_id` set to the kennel just created/
+  updated — this is definitionally the breeder's own contact at their own
+  kennel, so it must never come out of the wizard unlinked (a Kennel's
+  `getContacts()` and the Kennel detail page's own-kennel views both depend on
+  this link existing).
 - **appReset.js** — `resetApp()` clears every table + all settings → the exact blank slate
   a never-visited browser sees.
 
@@ -1722,7 +1727,14 @@ destination — Furever is a **separate origin/app**, not the recipient-facing s
 Companion uses.
 
 **The Furever console** (`pages/furever.*`, "More" menu, gated by
-`editionFlags.furever` + `data/proPages.js`'s `PRO_ONLY_PAGES`) has two parts:
+`editionFlags.furever` + `data/proPages.js`'s `PRO_ONLY_PAGES`) has two parts,
+plus a **setup-nudges strip** above them (`#setup-nudges`, `renderSetupNudges`):
+subtle, non-blocking reminders for the two furever-relevant things easy to
+forget — "No vet contact on file. Add one now →" (`vets.length === 0` from the
+identity load) and "No feeding schedule configured for `<breed(s)>`. Configure
+now →" (breeds among today's open-sale recipients that have no
+`breedFeedingScheduleRepo` row, §27.2) — each a plain link to fix it, nothing
+blocks sending a link without either.
 
 - **Kennel identity**, saved once via `settings.js`'s `getFureverSettings`/
   `setFureverSettings` (`localStorage`, key `kennelOS.furever`, cleared by Reset
@@ -1840,6 +1852,24 @@ the breeder never touches Drive directly.
   verified** against a real Google account (no live consent/Drive round trip has
   been exercised) — verify Connect → Publish → a family device actually receiving
   the docs before relying on this in production.
+- **Per-pup privacy within a litter pack** (mechanism doc §7 decision 4, added
+  post-launch — fixes a real leak, not a design nicety): a litter pack is one
+  shared Drive manifest for the whole litter, but a document filed on ONE pup
+  must never appear in every OTHER pup's family's app. Each manifest file now
+  carries the `dogId` it was filed on (`fureverContentPack.js`'s
+  `loadDocumentSource`/`buildManifest`), and `doLitterPublish` (`pages/
+  furever.js`) passes the litter's `sire_id`/`dam_id` into `publishPack` as
+  `parentDogIds` — documents filed on the sire or dam are shared with the
+  whole litter (relevant to every family), a pup's own documents are not.
+  `furever/data/contentPackFetch.js`'s `filesForThisPup(manifest, pupId)`
+  filters the fetched file list down to "this pup's own + the parents'"
+  before writing the family's breeder-doc layer — `pupId` is the family's
+  `pet.pup_id`. A `scope:'kennel'` pack carries no `dogId`/`parentDogIds` at
+  all and is never filtered (deliberately identical for every family). The
+  litter picker's checkbox groups (`dogGroupHtml`/`pickerHtml`) now label each
+  group **(Sire)**/**(Dam)**/**(Pup)** and carry an explanatory line, so which
+  documents go to everyone vs. one family is explicit in the UI, not just
+  implicit in the data.
 
 ### 27.2 Feeding Schedules (breed default + litter override) — Pro-only
 

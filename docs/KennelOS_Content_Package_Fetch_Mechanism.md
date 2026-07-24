@@ -114,6 +114,7 @@ fields by name; a new Dog/Sale/Litter field never rides along silently).
   "kennelName": "Thornfield",
   "version": 3,                     // CONTENT version — bumped each republish; Furever skips re-download when unchanged
   "updatedAt": "2026-07-24T12:00:00Z",
+  "parentDogIds": ["d1a2…", "d3b4…"], // scope:"litter" ONLY — the litter's sire/dam Dog ids, shared with every pup
   "files": [
     {
       "fileId": "1AbC…",            // Drive file ID (public-by-link)
@@ -121,11 +122,26 @@ fields by name; a new Dog/Sale/Litter field never rides along silently).
       "title": "Health Guarantee",
       "docType": "contract",        // maps to Furever documents.doc_type vocab
       "mime": "application/pdf",
-      "size": 128374
+      "size": 128374,
+      "dogId": "d5c6…"               // scope:"litter" ONLY — the Dog this document was filed on
     }
   ]
 }
 ```
+
+**Per-pup scoping (scope:"litter" only).** The manifest is one shared file for
+the whole litter (one Drive folder, one `pack.json`), but every pup's Furever
+app fetches the SAME manifest and must not show every OTHER pup's documents.
+Each file therefore carries the `dogId` it was filed on; a document filed on
+the litter's sire or dam is additionally listed in `parentDogIds` and is shared
+with every pup's family, but a document filed on one specific pup is filtered
+OUT of every other pup's family view. The filter runs client-side, after
+fetch, in `furever/data/contentPackFetch.js`'s `filesForThisPup(manifest,
+pupId)` — `pupId` is the family's `pet.pup_id`, the same breeder-side Dog id
+`dogId`/`parentDogIds` are stated in. A `scope:"kennel"` manifest carries no
+`dogId`/`parentDogIds` at all and is never filtered — it is deliberately the
+SAME for every family (a breed care guide, a blank guarantee template), so
+there is nothing to scope.
 
 ### 3.2 Seed-packet addition (emitted by `shared/data/fureverSeedExport.js`)
 
@@ -399,6 +415,16 @@ described in §2–4, not just the credential consts (§8 lists every file).
    so the picker leaves PII-bearing types (`contract`) unchecked by default and requires an
    explicit "this becomes public" confirmation to include; the publish summary restates what's
    going public (§4.2-2, §6).
+4. **Litter pack privacy → tag by dog, filter per pup, no new document store (added
+   post-launch).** The original build shipped one shared manifest per litter with no per-file
+   dog association — every pup's family in a litter fetched the exact same file list, so a
+   document filed on ONE pup was visible to every OTHER pup's family too. Fixed without
+   reshaping `documents` (decision 2 still holds): each manifest file now carries the `dogId`
+   it was filed on (§3.1), the litter's sire/dam ids ride along as `parentDogIds` (shared with
+   the whole litter), and `furever/data/contentPackFetch.js` filters the fetched file list down
+   to "this pup's own documents + the litter's parents' documents" before writing the family's
+   breeder-doc layer. A kennel-wide pack is untouched — it has no per-file tagging and stays
+   deliberately identical for every family.
 
 ---
 
