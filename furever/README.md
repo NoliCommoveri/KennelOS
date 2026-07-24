@@ -53,12 +53,17 @@ end to end (headless Chromium): built a link on the breeder console → opened i
 the pet, breeder identity, note, and pickup plan all decoded correctly on the
 Furever side; no console errors on either side.
 
+**The pre-pickup countdown card is now built.** A seeded pup's Profile opens with
+a breeder-authored countdown card (`pages/profile.js`, `countdownCardHtml`): the
+pickup photo, an "it's almost time for [pup] to come home!" headline with a live
+"N days to go" badge, the pickup date/time/place, and the breeder's personal note —
+all read from the seed the link carried (`pet.seed.pickupPlan` / `pet.seed.note`),
+so nothing is family-authored. It retires itself once pickup day passes.
+
 Still to build (each a later step): the **content-pack fetch**, the
-**document/photo/contact** pages, **import-export/backup**, the **pre-pickup
-countdown card** (the packet already carries `pickupPlan`, no page renders it yet),
-and the **service worker / PWA / manifest** (offline + install). The app runs
-online today; the offline layer is deliberately deferred until the page set
-settles.
+**document/photo/contact** pages, **import-export/backup**, and the **service
+worker / PWA / manifest** (offline + install). The app runs online today; the
+offline layer is deliberately deferred until the page set settles.
 
 ```
 furever/

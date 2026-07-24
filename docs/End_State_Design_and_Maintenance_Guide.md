@@ -1723,12 +1723,19 @@ Companion uses.
   "inherently yours, never generic" fields the Furever brief calls for. `breederKey`
   is generated on first read (`crypto.randomUUID()`) and persisted — deliberately
   **not** tied to `myKennelId` (§11), so Furever works even when Kennel Setup was
-  skipped. Copied into every packet sent from then on.
+  skipped. Copied into every packet sent from then on. **The card prefills from the
+  breeder's existing records** so identity isn't retyped: kennel name from My Kennel
+  (`getMyKennelId`), the breeder contact from their owner Contact (`getMyContactId`),
+  and the vet from any Contact tagged `'vet'` — offered as a **picker** that fills
+  the vet fields (and auto-filled when there's exactly one vet). Prefill is
+  **non-binding and blanks-only** (it never overwrites a saved value and the Furever
+  block stays its own store, consistent with the not-tied-to-`myKennelId` rule);
+  filled blanks are persisted on load so a link can be prepared without a manual save.
 - **Recipients** are pups with an **open sale** (`saleRepo.isOpenSale` — the exact
   membership predicate Companion's "family" package uses, §20), one card each. A
   personal note and pickup-plan fields (date/time/place/photo URL — the brief's
-  pre-pickup countdown card content, not yet rendered anywhere in Furever itself)
-  persist as **plain `sales` fields**, no schema/index change and no
+  pre-pickup countdown card content, rendered by Furever's Profile page as the
+  countdown card, below) persist as **plain `sales` fields**, no schema/index change and no
   `referenceRegistry` entry needed (not FKs): `furever_note`,
   `furever_pickup_date`, `furever_pickup_time`, `furever_pickup_place`,
   `furever_pickup_photo_url`. Persisting them (rather than a one-shot form) means a
@@ -1751,6 +1758,11 @@ ceilings) mirror `companion.js`'s `prepareLink` pattern; there is no local previ
 Furever has none, and the real link would write into whatever browser opens it, so
 previewing it isn't safe to fake).
 
-**Not built:** nothing in Furever itself renders `pickupPlan` yet (the pre-pickup
-countdown card, `furever/README.md`'s "Not built yet"); the content-pack fetch that
-would let the breeder's own care content override Furever's universal defaults.
+**Rendered on the Furever side:** the seed's `pickupPlan` + `note` become the
+**pre-pickup countdown card** at the top of a seeded pup's Profile
+(`furever/pages/profile.js`, `countdownCardHtml`) — photo, "it's almost time…"
+headline with a live "N days to go" badge, pickup date/time/place, and the personal
+note; it retires once the pickup date passes.
+
+**Not built:** the content-pack fetch that would let the breeder's own care content
+override Furever's universal defaults.
