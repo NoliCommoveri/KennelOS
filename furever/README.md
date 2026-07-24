@@ -34,17 +34,39 @@ to `<html data-theme>` and remembered). Browser-verified (headless Chromium: add
 it moves to the Log; set family name + vet + theme → banner shows "Carson Family Pets"
 and the palette persists across reloads; no console errors).
 
-Still to build (each a later step): the **breeder seed-link decoder** (lz-string) so
-a texted link seeds a pup, the **content-pack fetch**, the **document/photo/contact**
-pages, **import-export/backup**, the **pre-pickup countdown card**, and the
-**service worker / PWA / manifest** (offline + install). The app runs online today;
-the offline layer is deliberately deferred until the page set settles.
+**The breeder seed link is now built end to end.** The decoder (`data/seedLink.js`,
+this app): a texted `#seed=<lz-string-compressed JSON>` link is decoded and applied
+through the existing seed-layer upserts (`breederRepo.upsertFromSeed` +
+`petRepo.upsertSeededPet`), landing the family on their new pup's Profile with the
+sidebar already showing it. A resend (same `pupId`) upserts in place; a malformed
+link shows a friendly error and the app still boots. The **generator** lives on the
+breeder side, in the main KennelOS repo's `shared/` app (Pro-only): the **Furever
+console** (`shared/pages/furever.*`, "More" menu) — a one-time "Kennel identity"
+card (kennel name/tagline, the breeder's own contact, their vet's contact,
+`shared/data/settings.js`'s `getFureverSettings`/`setFureverSettings`) plus one row
+per pup with an open sale, each with a personal note + pickup-plan fields
+(`sales.furever_note`/`furever_pickup_*` — plain Sale fields, no schema change) and
+a **Prepare link** action (`shared/data/fureverSeedExport.js` builds the packet,
+same allow-list-by-name discipline as `companionExport.js`) that hands off a real
+email/SMS send, mirroring the Companion feature's send mechanics. Browser-verified
+end to end (headless Chromium): built a link on the breeder console → opened it →
+the pet, breeder identity, note, and pickup plan all decoded correctly on the
+Furever side; no console errors on either side.
+
+Still to build (each a later step): the **content-pack fetch**, the
+**document/photo/contact** pages, **import-export/backup**, the **pre-pickup
+countdown card** (the packet already carries `pickupPlan`, no page renders it yet),
+and the **service worker / PWA / manifest** (offline + install). The app runs
+online today; the offline layer is deliberately deferred until the page set
+settles.
 
 ```
 furever/
-  index.html             — front door: redirects to Today (carries any #hash for the
-                           future seed-link decoder)
-  app.js                 — shared boot: renders nav, requests persistent storage once
+  index.html             — front door: redirects to Today (carries any #hash so a
+                           "#seed=…" breeder link reaches app.js's decoder there)
+  app.js                 — shared boot: consumes a "#seed=…" link if present
+                           (data/seedLink.js) before rendering nav, then requests
+                           persistent storage once
   nav.js                 — the CONSTANT BANNER (app title "Furever / by KennelOS" +
                            the family name "…Family Pets") over the LEFT SIDEBAR
                            (At A Glance / pets / Add New Pet, the active-pet picker,
@@ -71,6 +93,8 @@ furever/
   vendor/
     dexie.min.mjs        — vendored Dexie, COMMITTED (like shared/vendor/) so the
                            folder is directly servable — no build step to run it
+    lz-string.min.mjs    — vendored lz-string (copy of shared/vendor/), COMMITTED;
+                           powers the seed-link hash compress/decompress
   data/
     db.js                — Dexie schema (KennelOSFurever), the two-layer model
     repoBase.js          — thin repo factory (no editions/cap/demo coupling)
@@ -80,6 +104,8 @@ furever/
     settings.js          — active pet (app-wide scope) + UI prefs incl. theme, localStorage
     careLibrary.js       — universal dog schedule + feeding/safety content (shipped)
     schedule.js          — the DERIVED reminder engine (stores nothing)
+    seedLink.js          — decodes + applies a breeder "#seed=…" link (decompress →
+                           parse → validate → upsert breeder → upsert pet); no DOM
     petRepo.js           — top-level entity; seed upsert by pup_id
     householdRepo.js     — the family's own identity (singleton: family_name)
     breederRepo.js       — seed-layer breeder identity (upsert by breeder_key)

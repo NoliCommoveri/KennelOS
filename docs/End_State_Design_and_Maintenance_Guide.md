@@ -601,8 +601,11 @@ way.
   refresh token, cached access token, in-flight PKCE verifier; the app key itself is
   hardcoded in `data/dropbox.js`, not stored here — §26, via
   `getDropboxSettings`/`setDropboxSettings`/`clearDropboxSettings`), `assistantLastSync`
-  (when the KennelAssistant page last pulled the dog feed, §26). `clearAllSettings()`
-  drops them all (used by Reset App).
+  (when the KennelAssistant page last pulled the dog feed, §26), `furever` (the Furever
+  seed-link generator's kennel-wide identity block — kennel name/tagline, breeder
+  contact, breeder's vet, plus an auto-generated `breederKey` — §27, via
+  `getFureverSettings`/`setFureverSettings`). `clearAllSettings()` drops them all (used
+  by Reset App).
 - **nudgeState.js** — a second, deliberately separate `localStorage` module (one key,
   `kennelOS.nudgeDismissals`): the derived-nudge dismissal ledger (§19). Kept out of
   `settings.js`/`clearAllSettings()` on purpose — `appReset.js` calls its own `clearAll()`
@@ -790,7 +793,7 @@ implementation lives in `data/dateUtils.js`.
 
 Organized **by job, not by table**: six workflow hubs in the main bar — **Today / Dogs /
 Breeding / People / Placements & Contracts / Financials** — plus a "More" corner menu for
-**Reports**, **Companion** (§20), and **Import/Export**. Financials is a first-class hub,
+**Reports**, **Companion** (§20), **Furever** (§27), and **Import/Export**. Financials is a first-class hub,
 not a report (money is operational; Reports are analytics queries). Detail/edit/import pages
 are not nav entries; `HUB_CHILDREN` maps them to the hub tab that should light up. Links are
 stored app-root-relative and prefixed at render time so they resolve from `index.html` or
@@ -800,7 +803,8 @@ stored app-root-relative and prefixed at render time so they resolve from `index
 
 Hubs & landing: `today`, `dogs`, `breeding`, `contacts`, `sales`, `financials` (the
 Financials hub — Overview / Income / Expenses toggle, §21), `reports`, `companion` (the
-Companion Messaging console, §20), `import-export`, plus root `index.html`.
+Companion Messaging console, §20), `furever` (the Furever seed-link console, §27),
+`import-export`, plus root `index.html`.
 Dogs: `dog` (detail), `roster`, `pedigree`.
 Breeding: `pairings`/`pairing`, `litters`/`litter`, `active-breeding`, `live-births`.
 People: `contact`, `kennels` (list — identity CRUD only: name/prefix/location/own + archive/
@@ -1695,3 +1699,58 @@ round-trip the same way.
   `assets/documentModal.js` (the shared add/edit + view dialogs), and the four
   `vendor/tesseract/*` assets are in `sw.js` — scanning works with no network after
   first install. Bump `CACHE_NAME` on any change to that file set.
+
+---
+
+## 27. Furever seed-link generator (breeder side)
+
+**KennelOS Furever** (`furever/`, this repo, a separate deployed app — see
+`furever/README.md` and `docs/KennelOS_Furever_Schema.md`) is a free family-facing
+pet-care app a puppy family installs at pickup. It's seeded by a **texted link**
+whose payload the family app decodes and applies (`furever/data/seedLink.js`); this
+section covers the **encoder side**, which lives here in the breeder app, Pro-only
+(§13's Pro-only feature gates), same shape as Companion (§20) but for a different
+destination — Furever is a **separate origin/app**, not the recipient-facing shell
+Companion uses.
+
+**The Furever console** (`pages/furever.*`, "More" menu, gated by
+`editionFlags.furever` + `data/proPages.js`'s `PRO_ONLY_PAGES`) has two parts:
+
+- **Kennel identity**, saved once via `settings.js`'s `getFureverSettings`/
+  `setFureverSettings` (`localStorage`, key `kennelOS.furever`, cleared by Reset
+  App like Companion's settings): kennel name, tagline, the breeder's own contact
+  (`{name, phone, email}`), their vet's contact (`{name, phone, address}`) — the
+  "inherently yours, never generic" fields the Furever brief calls for. `breederKey`
+  is generated on first read (`crypto.randomUUID()`) and persisted — deliberately
+  **not** tied to `myKennelId` (§11), so Furever works even when Kennel Setup was
+  skipped. Copied into every packet sent from then on.
+- **Recipients** are pups with an **open sale** (`saleRepo.isOpenSale` — the exact
+  membership predicate Companion's "family" package uses, §20), one card each. A
+  personal note and pickup-plan fields (date/time/place/photo URL — the brief's
+  pre-pickup countdown card content, not yet rendered anywhere in Furever itself)
+  persist as **plain `sales` fields**, no schema/index change and no
+  `referenceRegistry` entry needed (not FKs): `furever_note`,
+  `furever_pickup_date`, `furever_pickup_time`, `furever_pickup_place`,
+  `furever_pickup_photo_url`. Persisting them (rather than a one-shot form) means a
+  resend starts from the last-sent details, same reasoning as Companion's
+  `Contact.companion_note`.
+
+**`data/fureverSeedExport.js`** builds the packet: named-copy-only from the dog +
+the saved identity (same allow-list discipline `companionExport.js`'s header
+explains, §20's "load-bearing security invariant" — no record spread), matching
+exactly what the Furever-side decoder reads by name (`pupId`, `breederKey`, `name`,
+`species`, `sex`, `breed`, `dob`, `photoUrl`, `note`, `pickupPlan`, `kennelName`,
+`tagline`, `breederContact`, `breederVet`). Compressed with the already-vendored
+`vendor/lz-string.min.mjs` into `https://furever.kennelos.app/#seed=<payload>`
+(`FUREVER_APP_URL`, a fixed constant — Furever is one app at one origin regardless
+of which edition sends the link, unlike Companion's same-origin relative shell
+URL). `furever.js`'s send mechanics (real `mailto:`/`sms:` anchors so the tap is
+the activating gesture, a copy-link fallback, the same SMS/email payload-size
+ceilings) mirror `companion.js`'s `prepareLink` pattern; there is no local preview
+(Companion's iframe-preview trick needs a local read-only shell to render into —
+Furever has none, and the real link would write into whatever browser opens it, so
+previewing it isn't safe to fake).
+
+**Not built:** nothing in Furever itself renders `pickupPlan` yet (the pre-pickup
+countdown card, `furever/README.md`'s "Not built yet"); the content-pack fetch that
+would let the breeder's own care content override Furever's universal defaults.

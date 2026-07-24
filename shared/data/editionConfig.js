@@ -78,6 +78,7 @@ export const editionFlags = {
   contracts: true,         // Contract records (beyond a logged sale)
   documents: true,         // Documents + file storage
   companion: true,         // Companion buyer/partner share-out
+  furever: true,           // Furever seed-link generator (send a pup its own family app)
   reports: true,           // Reports hub + report pages
   invoicing: true,         // Invoice/receipt generation (print docs)
   puppyRecord: true,       // Puppy Record generation (print doc)
@@ -103,5 +104,6 @@ export const moreItems = [
   { label: 'Reports',       path: 'pages/reports.html' },
   { label: 'Documents',     path: 'pages/documents.html' },
   { label: 'Companion',     path: 'pages/companion.html' },
+  { label: 'Furever',       path: 'pages/furever.html' },
   { label: 'Import/Export', path: 'pages/import-export.html' },
 ];

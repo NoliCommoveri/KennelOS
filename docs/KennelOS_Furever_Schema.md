@@ -340,10 +340,69 @@ file map):
   holds the shared `esc`/`badge` helpers and `imageFileToDataUrl` (profile-photo
   downscale).
 
+## Built (seed-link decoder)
+`furever/data/seedLink.js` decodes a breeder-sent `#seed=<lz-string-compressed
+JSON>` link and applies it — no encoder/generator yet (that's a future breeder-side
+step; a family can't currently receive a link, only an already-built test payload
+can exercise this). `index.html` forwards its whole hash to `pages/today.html`
+unchanged (already wired); `app.js`'s `boot()` calls `consumeSeedLinkIfPresent()`
+**before** `renderNav()`, so the sidebar already reflects the new pet on first
+paint. The packet is **one flat object** shaped to match what the two seed-layer
+upserts already read by name — `breederRepo.upsertFromSeed` (`breederKey`,
+`kennelName`, `tagline`, `breederContact`, `breederVet`) and
+`petRepo.upsertSeededPet` (`pupId`, `name`, `species`, `sex`, `breed`, `dob`,
+`photoUrl`, `contentPackKey`, plus `note`/`pickupPlan` which ride along unindexed
+in `pet.seed`) — so decode is just decompress → parse → validate → upsert breeder
+→ upsert pet.
+- **Format decision:** `#seed=<payload>`, extracted with a plain string-prefix
+  check, deliberately **not** `URLSearchParams` — lz-string's
+  `compressToEncodedURIComponent` charset includes a raw `+`, and form-decoding's
+  "+ → space" rule would silently corrupt it.
+- **Landing + cleanup:** on success the family is redirected to that pet's Profile
+  (`location.replace('profile.html')`, not wherever the link happened to open),
+  and the hash is stripped via `history.replaceState` immediately on read —
+  success or failure — so a reload/share/back-button can't re-seed or leak the
+  packet.
+- **Malformed link:** `SeedLinkError` with a friendly, family-facing message
+  surfaced through the page's existing `#page-error` box; the rest of the app
+  boots normally underneath (never a hard fail).
+- **Resend = upsert, verified:** a second link with the same `pupId` updates the
+  seed fields in place (name, DOB, etc.) — no duplicate pet, family-layer data
+  untouched. Browser-verified (headless Chromium): fresh install via a seed link
+  → lands on the new pet's Profile with the sidebar already showing it; a resend
+  with the same `pupId` updates in place; a malformed `#seed=` shows the friendly
+  error and Today still renders. No console errors from app code.
+
+## Built (breeder-side seed-link generator)
+The **Furever console** (main KennelOS repo, `shared/pages/furever.*`, Pro-only —
+`shared/data/proPages.js` + `editionFlags.furever`) is the encoder side of the link
+the decoder above consumes:
+- **Kennel identity**, saved once (`shared/data/settings.js`'s
+  `getFureverSettings`/`setFureverSettings`, `localStorage` under
+  `kennelOS.furever`): kennel name, tagline, the breeder's own contact, their vet's
+  contact. `breederKey` is generated on first read (`crypto.randomUUID()`) and
+  persisted — deliberately independent of "My Kennel" (Kennel Setup), so Furever
+  works even if that was skipped.
+- **Recipients** are pups with an **open sale** (`saleRepo.isOpenSale` — the same
+  membership predicate Companion's "family" package uses), each with a personal
+  note + pickup-plan fields persisted as plain (unindexed, no FK) `sales` fields —
+  `furever_note`, `furever_pickup_date`, `furever_pickup_time`,
+  `furever_pickup_place`, `furever_pickup_photo_url` — so a resend starts from the
+  last-sent details.
+- **`shared/data/fureverSeedExport.js`** builds the packet field-by-field (named
+  copy only, same allow-list discipline as `companionExport.js`) from the dog +
+  the saved identity, compresses it with the already-vendored lz-string, and forms
+  `https://furever.kennelos.app/#seed=<payload>`. The send mechanics (real
+  `mailto:`/`sms:` anchors, a copy-link fallback, the SMS/email size ceilings) copy
+  Companion's `companion.js` pattern.
+- Browser-verified end to end (headless Chromium): built a link on the breeder
+  console → opened it on the Furever side → the pet, breeder identity, note, and
+  pickup plan all decoded correctly; no console errors on either side.
+
 ## Not built yet
-The **seed-link decoder** (lz-string) so a texted breeder link seeds a pup, the
-**one-time content-pack fetch**, the **document / photo / contact** pages,
-**import-export / backup**, the pre-pickup **countdown card**, and the
-**service worker / PWA / precache** (offline + install). The app runs online today;
-the offline layer is deferred until the page set settles. The deploy pipeline is
-ready to ship whatever `furever/` contains.
+The **one-time content-pack fetch**, the **document / photo / contact** pages,
+**import-export / backup**, the pre-pickup **countdown card** (the packet already
+carries `pickupPlan`, but no Furever page renders it yet), and the **service
+worker / PWA / precache** (offline + install). The app runs online today; the
+offline layer is deferred until the page set settles. The deploy pipeline is ready
+to ship whatever `furever/` contains.

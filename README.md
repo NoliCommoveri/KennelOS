@@ -155,7 +155,7 @@ selections), **Financials — the expense ledger + sales→income** ✅.
 
 **Pro-only (absent from Lite):**
 - People / Contacts section, full Kennel management, Stud services, Contracts.
-- Companion share-out, Assistant, Documents + file storage.
+- Companion share-out, the Furever seed-link generator, Assistant, Documents + file storage.
 - External / leased dogs (Lite ownership picker = `owned` / `co_owned` only).
 - **All Reports** (Reports hub + every report page).
 - **Invoice / receipt generation** — the `pages/invoice.html` print doc.

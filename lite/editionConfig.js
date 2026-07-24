@@ -121,6 +121,7 @@ export const editionFlags = {
   contracts: false,
   documents: false,
   companion: false,
+  furever: false,
   reports: false,
   invoicing: false,
   puppyRecord: false,
