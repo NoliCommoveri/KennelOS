@@ -9,6 +9,13 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     strategy:
+      # The four editions are independent deploy targets (different repos, different
+      # origins) — one failing (e.g. furever's known EDITIONS_DEPLOY_PAT permission
+      # gap, docs/LAUNCH_CHECKLIST.md §3) must never cancel the others mid-publish.
+      # Without this, GitHub's default fail-fast races a cancel signal against an
+      # in-flight job — seen in practice: lite/pro's own steps (incl. Publish) showed
+      # "success" while the job itself got stamped "cancelled".
+      fail-fast: false
       matrix:
         include:
           - edition: lite
