@@ -373,11 +373,36 @@ in `pet.seed`) — so decode is just decompress → parse → validate → upser
   with the same `pupId` updates in place; a malformed `#seed=` shows the friendly
   error and Today still renders. No console errors from app code.
 
+## Built (breeder-side seed-link generator)
+The **Furever console** (main KennelOS repo, `shared/pages/furever.*`, Pro-only —
+`shared/data/proPages.js` + `editionFlags.furever`) is the encoder side of the link
+the decoder above consumes:
+- **Kennel identity**, saved once (`shared/data/settings.js`'s
+  `getFureverSettings`/`setFureverSettings`, `localStorage` under
+  `kennelOS.furever`): kennel name, tagline, the breeder's own contact, their vet's
+  contact. `breederKey` is generated on first read (`crypto.randomUUID()`) and
+  persisted — deliberately independent of "My Kennel" (Kennel Setup), so Furever
+  works even if that was skipped.
+- **Recipients** are pups with an **open sale** (`saleRepo.isOpenSale` — the same
+  membership predicate Companion's "family" package uses), each with a personal
+  note + pickup-plan fields persisted as plain (unindexed, no FK) `sales` fields —
+  `furever_note`, `furever_pickup_date`, `furever_pickup_time`,
+  `furever_pickup_place`, `furever_pickup_photo_url` — so a resend starts from the
+  last-sent details.
+- **`shared/data/fureverSeedExport.js`** builds the packet field-by-field (named
+  copy only, same allow-list discipline as `companionExport.js`) from the dog +
+  the saved identity, compresses it with the already-vendored lz-string, and forms
+  `https://furever.kennelos.app/#seed=<payload>`. The send mechanics (real
+  `mailto:`/`sms:` anchors, a copy-link fallback, the SMS/email size ceilings) copy
+  Companion's `companion.js` pattern.
+- Browser-verified end to end (headless Chromium): built a link on the breeder
+  console → opened it on the Furever side → the pet, breeder identity, note, and
+  pickup plan all decoded correctly; no console errors on either side.
+
 ## Not built yet
-The breeder-side **seed-link generator** (Pro authors and sends the link the
-decoder above consumes — out of scope here), the **one-time content-pack fetch**,
-the **document / photo / contact** pages, **import-export / backup**, the
-pre-pickup **countdown card** (the packet already carries `pickupPlan`, but no
-page renders it yet), and the **service worker / PWA / precache** (offline +
-install). The app runs online today; the offline layer is deferred until the page
-set settles. The deploy pipeline is ready to ship whatever `furever/` contains.
+The **one-time content-pack fetch**, the **document / photo / contact** pages,
+**import-export / backup**, the pre-pickup **countdown card** (the packet already
+carries `pickupPlan`, but no Furever page renders it yet), and the **service
+worker / PWA / precache** (offline + install). The app runs online today; the
+offline layer is deferred until the page set settles. The deploy pipeline is ready
+to ship whatever `furever/` contains.

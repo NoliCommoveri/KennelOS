@@ -34,21 +34,31 @@ to `<html data-theme>` and remembered). Browser-verified (headless Chromium: add
 it moves to the Log; set family name + vet + theme → banner shows "Carson Family Pets"
 and the palette persists across reloads; no console errors).
 
-**The breeder seed-link decoder is now built** (`data/seedLink.js`): a texted
-`#seed=<lz-string-compressed JSON>` link is decoded and applied through the
-existing seed-layer upserts (`breederRepo.upsertFromSeed` +
+**The breeder seed link is now built end to end.** The decoder (`data/seedLink.js`,
+this app): a texted `#seed=<lz-string-compressed JSON>` link is decoded and applied
+through the existing seed-layer upserts (`breederRepo.upsertFromSeed` +
 `petRepo.upsertSeededPet`), landing the family on their new pup's Profile with the
 sidebar already showing it. A resend (same `pupId`) upserts in place; a malformed
-link shows a friendly error and the app still boots. Browser-verified (headless
-Chromium, no console errors). The breeder-side **generator** that actually produces
-these links (in Pro) doesn't exist yet — that's a separate, later step.
+link shows a friendly error and the app still boots. The **generator** lives on the
+breeder side, in the main KennelOS repo's `shared/` app (Pro-only): the **Furever
+console** (`shared/pages/furever.*`, "More" menu) — a one-time "Kennel identity"
+card (kennel name/tagline, the breeder's own contact, their vet's contact,
+`shared/data/settings.js`'s `getFureverSettings`/`setFureverSettings`) plus one row
+per pup with an open sale, each with a personal note + pickup-plan fields
+(`sales.furever_note`/`furever_pickup_*` — plain Sale fields, no schema change) and
+a **Prepare link** action (`shared/data/fureverSeedExport.js` builds the packet,
+same allow-list-by-name discipline as `companionExport.js`) that hands off a real
+email/SMS send, mirroring the Companion feature's send mechanics. Browser-verified
+end to end (headless Chromium): built a link on the breeder console → opened it →
+the pet, breeder identity, note, and pickup plan all decoded correctly on the
+Furever side; no console errors on either side.
 
-Still to build (each a later step): the breeder-side **seed-link generator**, the
-**content-pack fetch**, the **document/photo/contact** pages,
-**import-export/backup**, the **pre-pickup countdown card** (the packet already
-carries `pickupPlan`, no page renders it yet), and the **service worker / PWA /
-manifest** (offline + install). The app runs online today; the offline layer is
-deliberately deferred until the page set settles.
+Still to build (each a later step): the **content-pack fetch**, the
+**document/photo/contact** pages, **import-export/backup**, the **pre-pickup
+countdown card** (the packet already carries `pickupPlan`, no page renders it yet),
+and the **service worker / PWA / manifest** (offline + install). The app runs
+online today; the offline layer is deliberately deferred until the page set
+settles.
 
 ```
 furever/
