@@ -87,6 +87,42 @@ export function imageFileToDataUrl(file, maxDim = 900) {
   });
 }
 
+// Read an image File and return a downscaled JPEG Blob, for photos stored in the
+// files table (fileRepo) rather than inlined as a data URL (imageFileToDataUrl
+// above is for the small pet-avatar field only). Same downscale logic, different
+// output type and a larger default cap since a gallery photo is viewed full-size.
+export function imageFileToBlob(file, maxDim = 1600) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type || !file.type.startsWith('image/')) {
+      reject(new Error('Please choose an image file.'));
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        (blob) => (blob ? resolve(blob) : reject(new Error('Could not process that image.'))),
+        'image/jpeg',
+        0.85
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Could not read that image.'));
+    };
+    img.src = url;
+  });
+}
+
 // Age in whole months/years from a YYYY-MM-DD DOB to today, for a pet header.
 export function ageLabel(dobYMD, todayYMD) {
   if (!dobYMD) return '';

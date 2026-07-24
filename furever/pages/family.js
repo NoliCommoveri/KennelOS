@@ -7,9 +7,10 @@
 //   • the palette      → a simple theme switcher (localStorage, applied instantly).
 import { householdRepo } from '../data/householdRepo.js';
 import { contactRepo } from '../data/contactRepo.js';
-import { getTheme, setTheme, THEMES } from '../data/settings.js';
+import { getTheme, setTheme, THEMES, getLastBackupDate } from '../data/settings.js';
 import { requestPersistentStorage, isStoragePersisted } from '../data/db.js';
 import { getResetCounts, resetApp } from '../data/appReset.js';
+import { downloadBackup, readBackupFile, inspectBackup, restoreBackup } from '../data/importExport.js';
 import { renderNav } from '../nav.js';
 import { esc, showError, clearError } from '../assets/ui.js';
 
@@ -97,6 +98,36 @@ function storageCardHtml(persisted) {
     </div>`;
 }
 
+// --- Backup & restore --------------------------------------------------------
+// A full JSON export/import of everything in Furever (data/importExport.js) — the
+// family's own copy, independent of the browser's storage surviving. Restore is a
+// two-step flow: pick a file → see a row-count preview → confirm merge/replace,
+// the same "see it, then commit" shape as the danger-zone reset below.
+function backupCardHtml(lastBackupIso) {
+  const last = lastBackupIso
+    ? new Date(lastBackupIso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+    : 'Never';
+  return `
+    <div class="card">
+      <h2>Backup &amp; restore</h2>
+      <p class="muted" style="margin-top:0;">
+        Download everything in Furever — every pet, photo, document, and care
+        history — as one file you keep. Save it somewhere safe (cloud storage,
+        email it to yourself); restoring it, even on a new phone, brings
+        everything back.
+      </p>
+      <div class="form-actions" style="align-items:center;">
+        <button type="button" id="btn-backup" class="btn btn-primary">Download backup</button>
+        <span class="muted">Last backup: ${esc(last)}</span>
+      </div>
+      <div class="section-title">Restore from a file</div>
+      <div class="field">
+        <input type="file" id="restore-file" accept="application/json" />
+      </div>
+      <div id="restore-preview"></div>
+    </div>`;
+}
+
 // --- Danger zone (hard reset) ----------------------------------------------
 function dangerCardHtml() {
   return `
@@ -120,10 +151,11 @@ async function render() {
       householdRepo.get(), getFamilyVet(), isStoragePersisted()
     ]);
     body.innerHTML = familyCardHtml(household, vet) + themeCardHtml()
-      + storageCardHtml(persisted) + dangerCardHtml();
+      + storageCardHtml(persisted) + backupCardHtml(getLastBackupDate()) + dangerCardHtml();
     wireFamilyForm(vet);
     wireThemes();
     wireStorage();
+    wireBackup();
     wireDanger();
   } catch (err) {
     showError(err.message || String(err));
@@ -199,6 +231,87 @@ function wireStorage() {
     } else {
       btn.disabled = false;
       if (note) note.textContent = 'Your browser didn’t grant this. Adding Furever to your home screen helps.';
+    }
+  });
+}
+
+function wireBackup() {
+  const backupBtn = document.getElementById('btn-backup');
+  backupBtn.addEventListener('click', async () => {
+    backupBtn.disabled = true;
+    try {
+      await downloadBackup();
+      render(); // refresh the "Last backup" line
+    } catch (err) {
+      backupBtn.disabled = false;
+      showError(err.message || String(err));
+    }
+  });
+
+  const fileInput = document.getElementById('restore-file');
+  const preview = document.getElementById('restore-preview');
+  let pendingBackup = null;
+
+  function renderPreview(info) {
+    const total = Object.values(info.counts).reduce((a, b) => a + b, 0);
+    const rows = Object.entries(info.counts)
+      .filter(([, n]) => n > 0)
+      .map(([name, n]) => `<div class="detail-row" style="font-size:.9rem;padding:.3rem 0;"><span class="detail-key">${esc(name)}</span><span class="detail-val">${n}</span></div>`)
+      .join('');
+    const when = info.exported_at ? new Date(info.exported_at).toLocaleString() : 'an unknown date';
+    preview.innerHTML = `
+      <div class="card" style="margin-top:.75rem;background:var(--surface-2);box-shadow:none;">
+        <p class="muted" style="margin-top:0;">Exported ${esc(when)} — ${total} record(s).</p>
+        ${rows || '<p class="muted">This backup is empty.</p>'}
+        ${info.unknownTables.length ? `<p class="muted">Ignoring unrecognized data: ${esc(info.unknownTables.join(', '))}.</p>` : ''}
+        <div class="form-actions" id="restore-actions">
+          <button type="button" class="btn" id="btn-merge">Merge into current data</button>
+          <button type="button" class="btn btn-danger" id="btn-replace">Replace all data</button>
+        </div>
+      </div>`;
+    document.getElementById('btn-merge').addEventListener('click', () => renderConfirm('merge', info));
+    document.getElementById('btn-replace').addEventListener('click', () => renderConfirm('replace', info));
+  }
+
+  function renderConfirm(mode, info) {
+    const actions = document.getElementById('restore-actions');
+    const text = mode === 'replace'
+      ? 'This replaces ALL current data with the file’s contents. This can’t be undone.'
+      : 'This merges the file’s records into your current data — anything with a matching id is overwritten.';
+    actions.innerHTML = `
+      <p class="danger-confirm-text" style="flex-basis:100%;">${esc(text)}</p>
+      <button type="button" class="btn btn-danger" id="btn-restore-confirm">${mode === 'replace' ? 'Yes, replace everything' : 'Yes, merge'}</button>
+      <button type="button" class="btn" id="btn-restore-cancel">Cancel</button>`;
+    document.getElementById('btn-restore-cancel').addEventListener('click', () => renderPreview(info));
+    document.getElementById('btn-restore-confirm').addEventListener('click', async () => {
+      const confirmBtn = document.getElementById('btn-restore-confirm');
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Working…';
+      try {
+        const result = await restoreBackup(pendingBackup, mode);
+        const total = result.reduce((n, r) => n + r.count, 0);
+        preview.innerHTML = `<p class="muted">Restore complete — ${total} record(s) loaded. Reloading…</p>`;
+        setTimeout(() => location.reload(), 1000);
+      } catch (err) {
+        showError(err.message || String(err));
+        renderPreview(info);
+      }
+    });
+  }
+
+  fileInput.addEventListener('change', async () => {
+    clearError();
+    preview.innerHTML = '';
+    pendingBackup = null;
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    try {
+      const obj = await readBackupFile(file);
+      const info = inspectBackup(obj);
+      pendingBackup = obj;
+      renderPreview(info);
+    } catch (err) {
+      showError(err.message || String(err));
     }
   });
 }

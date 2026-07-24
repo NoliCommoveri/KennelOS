@@ -456,12 +456,68 @@ the decoder above consumes:
   console → opened it on the Furever side → the pet, breeder identity, note, and
   pickup plan all decoded correctly; no console errors on either side.
 
+## Built (document / photo / contact pages)
+Three more pet-scoped tabs, after Training in the sub-nav (`furever/README.md`
+has the file map): `pages/documents.*`, `pages/photos.*`, `pages/contacts.*`.
+- **Documents** (`documentRepo` + `fileRepo`) — an add form (file, title, `doc_type`,
+  `doc_date`) plus a list of the pet's filed documents with **Download** (streams
+  the stored blob through a throwaway object URL) and a two-step **Remove**
+  (`documentRepo.hardDelete`, which deletes the row and its owned `files` row
+  together — safe unconditionally since `documents` is a referenceRegistry leaf).
+  Add-only + remove, deliberately no in-place edit: correcting an upload is
+  remove-and-re-add, not editing metadata around an unchangeable file.
+- **Photos** (`photoRepo` + `fileRepo`) — a gallery grid with a dashed "Add Photo"
+  tile; picking a file opens a pending-upload card (preview + caption + `taken_date`)
+  that saves through a new `imageFileToBlob` helper (`assets/ui.js`) — a downscaled-
+  JPEG-**Blob** sibling of the profile-avatar's `imageFileToDataUrl` (which returns a
+  data URL for the small `pet.photo_url` field instead). A gallery photo is a real
+  `files` blob, fetched per-thumbnail via object URLs (revoked on re-render).
+  Clicking a thumbnail opens a modal (full image + caption + date) with the same
+  two-step hard-delete Remove.
+- **Contacts** (`contactRepo`) — the family's own contacts for the active pet:
+  vet, emergency vet, groomer, trainer, other, each scoped to just this pet or
+  "All pets" (`pet_id` null). The one family-wide vet the Family & Settings page's
+  single vet field writes shows up here too, editable in place. **Remove archives**
+  (`contactRepo.archive`), not hard-deletes — matching `family.js`'s existing
+  precedent for that same vet contact; unlike documents/photos there's no blob to
+  reclaim, so soft delete is the right default.
+
+Browser-verified end to end (headless Chromium): added a pet → added a pet-scoped
+and a family-wide contact, edited one, archived one → uploaded a document,
+downloaded it, hard-deleted it → uploaded a photo, viewed it in the modal,
+hard-deleted it; no console errors on any page.
+
+## Built (import-export / backup)
+`data/importExport.js` — a full JSON backup/restore of every table, mirroring the
+breeder core's `shared/data/importExport.js` (same blob round-tripping + counts-
+preview shape) but simpler: no editions, no demo mode, no per-collection import
+cap. `files.blob` (behind documents/photos) is base64-tagged on export and
+rehydrated on restore, same as the breeder app. The export is tagged
+`app: 'furever'` so a breeder-app backup can't be mistaken for one and restored
+here (or vice versa) — `inspectBackup` rejects a mismatch. `BACKUP_FORMAT_VERSION`
+is separate from the breeder app's (starts at 1) — the two apps' backup formats
+are independent even though the code shape rhymes.
+
+Surfaced on the **Family & Settings** page (a new "Backup & restore" card, between
+"Keeping your data safe" and the danger zone — no separate nav destination, same
+as everything else app-wide on that page): **Download backup** (also recorded via
+the already-existing `settings.getLastBackupDate`/`setLastBackupDate`, shown as
+"Last backup: …"), and **Restore from a file** — pick a file → a row-count preview
+per table → **Merge** (upsert by id) or **Replace** (wipe every table first) →
+each behind its own inline "are you sure" confirm step (the same shape as the
+Reset-app danger button, no `window.confirm`) before it writes anything.
+
+Browser-verified end to end (headless Chromium): seeded a pet + contact + document
++ photo → downloaded a backup (confirmed the file carries all four collections
+with an encoded file blob) → added a junk pet → restored with **Replace** (the
+junk pet was gone, the seeded pet and its data were back) → added another pet →
+restored the same file with **Merge** (the new pet survived, the seeded data was
+still there); no console errors.
+
 ## Not built yet
 The **Training page** (placeholder only — needs a researched puppy curriculum), the
 **one-time content-pack fetch** (which will also supply the breeder's real feeding
-plan, replacing `FEEDING_PLAN`'s placeholder portions), the **document / photo /
-contact** pages (the family's own contacts — the seed-layer breeder/vet card is
-built, see profile above), **import-export / backup**, and the **service worker /
+plan, replacing `FEEDING_PLAN`'s placeholder portions), and the **service worker /
 PWA / precache** (offline + install). The app runs online today; the offline layer
 is deferred until the page set settles. The deploy pipeline is ready to ship
 whatever `furever/` contains.
