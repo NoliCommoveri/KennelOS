@@ -129,6 +129,7 @@ export const editionFlags = {
   receiptAttach: false,
   externalOwnership: false,
   assistant: false,
+  feedingSchedule: false,
 };
 
 // --- Navigation (Lite — reduced) -------------------------------------------

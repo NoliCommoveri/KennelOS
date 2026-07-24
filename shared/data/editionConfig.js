@@ -86,6 +86,7 @@ export const editionFlags = {
   receiptAttach: true,     // Attach a receipt photo/PDF to an expense (file storage)
   externalOwnership: true, // external / leased dog ownership types
   assistant: true,         // Dropbox sync + KennelAssistant helper (§26)
+  feedingSchedule: true,   // Per-breed feeding schedules + a litter's override field
 };
 
 // --- Navigation ------------------------------------------------------------
@@ -105,5 +106,6 @@ export const moreItems = [
   { label: 'Documents',     path: 'pages/documents.html' },
   { label: 'Companion',     path: 'pages/companion.html' },
   { label: 'Furever',       path: 'pages/furever.html' },
+  { label: 'Feeding Schedules', path: 'pages/breed-feeding-schedules.html' },
   { label: 'Import/Export', path: 'pages/import-export.html' },
 ];

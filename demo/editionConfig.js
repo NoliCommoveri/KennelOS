@@ -57,6 +57,7 @@ export const editionFlags = {
   receiptAttach: true,
   externalOwnership: true,
   assistant: true,
+  feedingSchedule: true,
 };
 
 // Full nav bar (Demo shows the whole Pro app, read-only).
@@ -77,4 +78,5 @@ export const moreItems = [
   { label: 'Documents',     path: 'pages/documents.html' },
   { label: 'Companion',     path: 'pages/companion.html' },
   { label: 'Furever',       path: 'pages/furever.html' },
+  { label: 'Feeding Schedules', path: 'pages/breed-feeding-schedules.html' },
 ];
