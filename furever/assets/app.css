@@ -43,6 +43,22 @@
   }
 }
 
+/* --- Theme palettes ------------------------------------------------------- */
+/* A simple palette switcher (Family & Settings page). The default is Warm (the
+   base :root above, no attribute). Each theme just re-tints the accent family;
+   the light/dark base carries everything else, so every palette works in both.
+   Applied by setting data-theme on <html> (bootcheck.js, from the saved pref). */
+:root[data-theme="ocean"]  { --accent: #2f7ca8; --accent-dark: #205e82; --accent-soft: #e0edf5; }
+:root[data-theme="forest"] { --accent: #4c8a5d; --accent-dark: #366b45; --accent-soft: #e4efe7; }
+:root[data-theme="berry"]  { --accent: #a6518f; --accent-dark: #803a6f; --accent-soft: #f3e5ef; }
+:root[data-theme="slate"]  { --accent: #5b6b86; --accent-dark: #414f66; --accent-soft: #e7eaf0; }
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="ocean"]  { --accent: #61a9d1; --accent-dark: #82c1e5; --accent-soft: #21343f; }
+  :root[data-theme="forest"] { --accent: #79c08e; --accent-dark: #94d4a6; --accent-soft: #1f3025; }
+  :root[data-theme="berry"]  { --accent: #d68ac6; --accent-dark: #e7a7db; --accent-soft: #382435; }
+  :root[data-theme="slate"]  { --accent: #93a1bd; --accent-dark: #b0bcd4; --accent-soft: #252b38; }
+}
+
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body {
@@ -53,29 +69,57 @@ body {
 }
 a { color: var(--accent-dark); }
 
-/* --- App frame: left sidebar + content column ---------------------------- */
-/* Furever's primary navigation is a LEFT SIDEBAR: it holds At A Glance, one
-   entry per pet, and Add New Pet. On narrow screens it becomes an off-canvas
-   drawer that slides in from the left (never a drop-down). The per-pet page
-   tabs (Profile / Reminders / Log) live in a separate top sub-nav under a
-   border, in the content column. */
-body { display: flex; min-height: 100vh; }
+/* --- App frame: constant banner over a left sidebar + content column ------ */
+/* A CONSTANT BANNER sits on top of everything (the app title left, the family's
+   name right). Below it, Furever's primary navigation is a LEFT SIDEBAR: At A
+   Glance, one entry per pet, and Add New Pet. On narrow screens the sidebar
+   becomes an off-canvas drawer that slides in from the left (never a drop-down),
+   opened from the ☰ in the banner. The per-pet page tabs (Profile / Reminders /
+   Log) live in a top sub-nav under a border, in the content column. */
+:root { --banner-h: 4rem; }
+body { min-height: 100vh; }
+
+/* Constant banner */
+#app-banner {
+  position: sticky; top: 0; z-index: 40;
+  background: var(--card); border-bottom: 1px solid var(--border);
+}
+.banner-inner {
+  display: flex; align-items: center; gap: 1rem;
+  min-height: var(--banner-h); padding: .4rem clamp(.75rem, 4vw, 2rem);
+}
+.brand {
+  display: flex; align-items: center; gap: .55rem;
+  text-decoration: none; color: var(--fg);
+}
+.brand-paw { font-size: 1.6rem; line-height: 1; }
+.brand-name { font-size: 1.7rem; font-weight: 700; letter-spacing: -.02em; line-height: 1; }
+.brand-by {
+  display: flex; flex-direction: column; justify-content: center;
+  font-size: .62rem; font-weight: 700; line-height: 1.18;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+}
+.family-badge {
+  margin-left: auto; text-decoration: none; font-weight: 600;
+  color: var(--accent-dark); background: var(--accent-soft);
+  padding: .4rem .9rem; border-radius: 999px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 48vw;
+}
+.family-badge:hover { filter: brightness(.97); }
+.family-badge.family-unset { color: var(--muted); background: var(--surface-2); font-weight: 500; }
+
+/* Sidebar + content row */
+.app-body { display: flex; align-items: flex-start; }
 
 #app-nav {
   flex: none; width: 15rem;
   background: var(--card); border-right: 1px solid var(--border);
-  position: sticky; top: 0; align-self: flex-start;
-  height: 100vh; overflow-y: auto;
+  position: sticky; top: var(--banner-h); align-self: flex-start;
+  height: calc(100vh - var(--banner-h)); overflow-y: auto;
   display: flex; flex-direction: column;
   padding: 1rem .75rem;
   z-index: 30;
 }
-.nav-brand {
-  display: inline-flex; align-items: center; gap: .45rem;
-  font-weight: 700; font-size: 1.2rem; color: var(--fg); text-decoration: none;
-  letter-spacing: -.01em; padding: .35rem .6rem .85rem;
-}
-.nav-brand .paw { font-size: 1.4rem; }
 
 .side-link {
   display: flex; align-items: center; gap: .6rem;
@@ -103,9 +147,9 @@ body { display: flex; min-height: 100vh; }
 /* Content column */
 .app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 
-/* Top sub-nav — the pet-scoped page tabs, under a border. Collapses to nothing
-   on At A Glance (which has no other pages for now). */
-#app-subnav { position: sticky; top: 0; z-index: 20; background: var(--bg); }
+/* Top sub-nav — the pet-scoped page tabs, under a border. Sticks just below the
+   constant banner. Collapses to nothing on At A Glance (no other pages for now). */
+#app-subnav { position: sticky; top: var(--banner-h); z-index: 20; background: var(--bg); }
 #app-subnav:empty { display: none; }
 .subnav-inner {
   display: flex; gap: .25rem; align-items: center;
@@ -120,28 +164,29 @@ body { display: flex; min-height: 100vh; }
 .subnav-link:hover { background: var(--surface-2); color: var(--fg); }
 .subnav-link.active { background: var(--accent-soft); color: var(--accent-dark); }
 
-/* Mobile drawer toggle + backdrop */
+/* Mobile drawer toggle (lives in the banner) + backdrop */
 .nav-toggle {
-  display: none; position: fixed; top: .6rem; left: .6rem; z-index: 40;
-  width: 2.5rem; height: 2.5rem; border-radius: 10px;
-  background: var(--card); border: 1px solid var(--border); color: var(--fg);
-  font-size: 1.3rem; line-height: 1; cursor: pointer; box-shadow: var(--shadow);
+  display: none; margin: -.2rem .1rem -.2rem -.3rem;
+  width: 2.4rem; height: 2.4rem; border-radius: 10px; flex: none;
+  background: none; border: 1px solid var(--border); color: var(--fg);
+  font-size: 1.25rem; line-height: 1; cursor: pointer;
 }
+.nav-toggle:hover { background: var(--surface-2); }
 .nav-backdrop { display: none; }
 
 @media (max-width: 720px) {
+  :root { --banner-h: 3.4rem; }
   #app-nav {
     position: fixed; top: 0; left: 0; bottom: 0; height: auto;
     width: min(16rem, 80vw);
     transform: translateX(-100%); transition: transform .22s ease;
-    box-shadow: var(--shadow);
+    box-shadow: var(--shadow); z-index: 50;
   }
   body.nav-open #app-nav { transform: translateX(0); }
-  .nav-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, .38); z-index: 25; }
+  .nav-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, .38); z-index: 45; }
   body.nav-open .nav-backdrop { display: block; }
-  .nav-toggle { display: block; }
-  .app-main { padding-top: 3.2rem; }
-  .subnav-inner { padding-left: 3.4rem; }
+  .nav-toggle { display: inline-flex; align-items: center; justify-content: center; }
+  .brand-name { font-size: 1.45rem; }
 }
 
 /* --- Layout -------------------------------------------------------------- */
@@ -253,6 +298,18 @@ main {
 }
 .muted { color: var(--muted); }
 .section-title { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 1.25rem 0 .35rem; }
+
+/* --- Theme switcher swatches (Family & Settings) ------------------------- */
+.theme-swatches { display: flex; gap: .6rem; flex-wrap: wrap; }
+.theme-swatch {
+  display: inline-flex; align-items: center; gap: .45rem;
+  font: inherit; font-weight: 600; font-size: .9rem; cursor: pointer;
+  padding: .4rem .7rem .4rem .45rem; border-radius: 999px;
+  background: var(--card); color: var(--fg); border: 1px solid var(--border);
+}
+.theme-swatch:hover { background: var(--surface-2); }
+.theme-swatch.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.theme-dot { width: 1.1rem; height: 1.1rem; border-radius: 50%; flex: none; border: 1px solid rgba(0, 0, 0, .12); }
 
 /* --- Pet profile (the pet's landing page) -------------------------------- */
 /* An "Add Picture" box on top, then the pet's details at a much larger size

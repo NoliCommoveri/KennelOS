@@ -10,8 +10,19 @@ const KEYS = {
   activePetId: 'furever.activePetId',
   persistRequested: 'furever.persistRequested',
   lastBackupDate: 'furever.lastBackupDate',
-  addToHomeScreenDismissed: 'furever.addToHomeScreenDismissed'
+  addToHomeScreenDismissed: 'furever.addToHomeScreenDismissed',
+  theme: 'furever.theme'
 };
+
+// The palette ids the switcher offers. 'warm' is the default (no data-theme
+// attribute); the rest map to the :root[data-theme=…] blocks in app.css.
+export const THEMES = [
+  { value: 'warm',   label: 'Warm',   swatch: '#b06a4f' },
+  { value: 'ocean',  label: 'Ocean',  swatch: '#2f7ca8' },
+  { value: 'forest', label: 'Forest', swatch: '#4c8a5d' },
+  { value: 'berry',  label: 'Berry',  swatch: '#a6518f' },
+  { value: 'slate',  label: 'Slate',  swatch: '#5b6b86' }
+];
 
 // --- Active pet (app-wide scope) ------------------------------------------
 export function getActivePetId() {
@@ -26,6 +37,27 @@ export function setActivePetId(petId) {
 
 export function clearActivePet() {
   localStorage.removeItem(KEYS.activePetId);
+}
+
+// --- Theme (palette) -------------------------------------------------------
+// Stored in localStorage (a UI pref, not a record) so bootcheck.js can apply it
+// synchronously in <head> and avoid a flash of the default palette.
+export function getTheme() {
+  return localStorage.getItem(KEYS.theme) || 'warm';
+}
+
+export function setTheme(theme) {
+  const value = theme || 'warm';
+  localStorage.setItem(KEYS.theme, value);
+  applyTheme(value);
+  return value;
+}
+
+// Reflect a palette onto <html> (warm = no attribute, the base :root palette).
+export function applyTheme(theme = getTheme()) {
+  const root = document.documentElement;
+  if (!theme || theme === 'warm') root.removeAttribute('data-theme');
+  else root.setAttribute('data-theme', theme);
 }
 
 // --- Storage durability ----------------------------------------------------

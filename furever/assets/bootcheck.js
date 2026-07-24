@@ -9,6 +9,14 @@
 // modules), registers a capture-phase listener for the script element's `error`
 // event, and reveals a message if boot fails.
 (function () {
+  // Apply the saved palette synchronously, before any CSS paints, so there's no
+  // flash of the default theme. Classic script (no imports) — reads the same
+  // localStorage key settings.js writes ('warm' = the base :root, no attribute).
+  try {
+    var theme = localStorage.getItem('furever.theme');
+    if (theme && theme !== 'warm') document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) { /* private mode / storage blocked — fall back to default */ }
+
   var shown = false;
   function fail() {
     if (shown) return;
@@ -18,7 +26,7 @@
       box.className = 'error-box';
       box.textContent = 'Couldn’t load the app. Please refresh — if it keeps happening you may be offline, or a file failed to load.';
     }
-    ['today-body', 'profile-body', 'reminders-body', 'log-body', 'addpet-body'].forEach(function (id) {
+    ['today-body', 'profile-body', 'reminders-body', 'log-body', 'addpet-body', 'family-body'].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.innerHTML = '';
     });

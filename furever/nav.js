@@ -1,15 +1,21 @@
-// nav.js — Furever's navigation. Two regions, both rendered from here:
+// nav.js — Furever's navigation. Three regions, all rendered from here:
+//
+//   0. The CONSTANT BANNER (into <header id="app-banner">) — always on top, above
+//      the interior navs. Left: the app title, "Furever" large with "by KennelOS"
+//      small on two lines beside it. Right: the family's name ("Carson Family
+//      Pets") once set, which links to the Family page (also the entry point to
+//      set it up). On mobile the banner hosts the ☰ drawer toggle.
 //
 //   1. The LEFT SIDEBAR (into <div id="app-nav">) — the app's primary nav:
 //        At A Glance · one entry per pet · Add New Pet
 //      On narrow screens it becomes a drawer that slides in from the left. The
-//      pet entries double as the active-pet picker: clicking one re-scopes the
-//      app to that pet (settings.js, localStorage) and opens its Profile.
+//      pet entries double as the active-pet picker.
 //
 //   2. The TOP SUB-NAV (into <div id="app-subnav">) — the pet-scoped page tabs
 //        Profile · Reminders · Log
 //      shown only while a pet page is open. At A Glance has no sub-nav for now.
 import { petRepo } from './data/petRepo.js';
+import { householdRepo } from './data/householdRepo.js';
 import { getActivePetId, setActivePetId } from './data/settings.js';
 import { esc } from './assets/ui.js';
 
@@ -53,14 +59,37 @@ function petAvatar(pet) {
 }
 
 export async function renderNav() {
-  await renderSidebar();
+  const prefix = rootPrefix();
+  const familyName = await householdRepo.getFamilyName();
+  renderBanner(prefix, familyName);
+  await renderSidebar(prefix);
   renderSubnav();
+  wireDrawer();
 }
 
-async function renderSidebar() {
+function renderBanner(prefix, familyName) {
+  const host = document.getElementById('app-banner');
+  if (!host) return;
+  const family = familyName
+    ? `<a class="family-badge" href="${prefix}pages/family.html" title="Family & vet info">${esc(familyName)} Family Pets</a>`
+    : `<a class="family-badge family-unset" href="${prefix}pages/family.html">＋ Set up your family</a>`;
+  host.innerHTML = `
+    <div class="banner-inner">
+      <button type="button" class="nav-toggle" aria-label="Menu">☰</button>
+      <a class="brand" href="${prefix}index.html">
+        <span class="brand-paw" aria-hidden="true">🐾</span>
+        <span class="brand-name">Furever</span>
+        <span class="brand-by"><span>by</span><span>KennelOS</span></span>
+      </a>
+      ${family}
+    </div>`;
+  const toggle = host.querySelector('.nav-toggle');
+  if (toggle) toggle.addEventListener('click', () => document.body.classList.toggle('nav-open'));
+}
+
+async function renderSidebar(prefix) {
   const host = document.getElementById('app-nav');
   if (!host) return;
-  const prefix = rootPrefix();
   const here = currentFile();
   const onPetPage = PET_FILES.includes(here);
   const { pets, activeId } = await resolveActive();
@@ -79,7 +108,6 @@ async function renderSidebar() {
     : '';
 
   host.innerHTML = `
-    <a class="nav-brand" href="${prefix}index.html"><span class="paw">🐾</span> Furever</a>
     <a class="side-link${glanceActive}" href="${prefix}pages/today.html">
       <span class="side-ava" aria-hidden="true">✨</span><span class="side-name">At A Glance</span>
     </a>
@@ -95,8 +123,6 @@ async function renderSidebar() {
   host.querySelectorAll('[data-pet]').forEach((el) => {
     el.addEventListener('click', () => setActivePetId(el.getAttribute('data-pet')));
   });
-
-  wireDrawer();
 }
 
 function renderSubnav() {
@@ -112,23 +138,13 @@ function renderSubnav() {
   host.innerHTML = `<div class="subnav-inner">${tabs}</div>`;
 }
 
-// The mobile drawer: a floating ☰ toggle and a backdrop, created once and shared
-// by every page. Toggling adds/removes `nav-open` on <body> (the CSS slides the
-// sidebar in from the left).
+// The mobile drawer backdrop, created once. The ☰ toggle (rendered in the banner)
+// flips `nav-open` on <body>; the CSS slides the sidebar in from the left. Tapping
+// the backdrop closes it.
 function wireDrawer() {
-  if (!document.querySelector('.nav-toggle')) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'nav-toggle';
-    btn.setAttribute('aria-label', 'Menu');
-    btn.textContent = '☰';
-    btn.addEventListener('click', () => document.body.classList.toggle('nav-open'));
-    document.body.appendChild(btn);
-  }
-  if (!document.querySelector('.nav-backdrop')) {
-    const back = document.createElement('div');
-    back.className = 'nav-backdrop';
-    back.addEventListener('click', () => document.body.classList.remove('nav-open'));
-    document.body.appendChild(back);
-  }
+  if (document.querySelector('.nav-backdrop')) return;
+  const back = document.createElement('div');
+  back.className = 'nav-backdrop';
+  back.addEventListener('click', () => document.body.classList.remove('nav-open'));
+  document.body.appendChild(back);
 }

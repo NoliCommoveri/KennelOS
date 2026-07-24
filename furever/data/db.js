@@ -69,9 +69,15 @@ export const db = new Dexie('KennelOSFurever');
 //  - content_packs is the persisted home for a breeder's custom overlay, fetched
 //    ONCE on first open (too big to ride the text link — brief §Delivery/appendix).
 //    `pack_key` is unique (&): a pet points at it by key, and a re-fetch upserts.
+//  - household is a SINGLETON (one row, fixed id 'household'): the family's own
+//    identity — their name ("Carson" → shown as "Carson Family Pets" in the app
+//    banner) and room to grow (address/phone later). App-wide, not pet-scoped, so
+//    it carries no pet_id and nothing points at it. Their vet and other contacts
+//    are NOT here — those are family-wide `contacts` rows (pet_id null).
 db.version(1).stores({
   pets:          'id, pup_id, source, breeder_id, species, is_archived',
   breeders:      'id, breeder_key, is_archived',
+  household:     'id',
   contacts:      'id, pet_id, contact_type, is_archived',
   care_events:   'id, pet_id, plan_item_id, event_type, event_date, is_archived',
   care_plans:    'id, pet_id, category, is_archived',
