@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Pets — Furever</title>
+  <title>Reminders — Furever</title>
   <meta name="theme-color" content="#b06a4f" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Ctext%20y='.9em'%20font-size='90'%3E%F0%9F%90%BE%3C/text%3E%3C/svg%3E" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -12,22 +12,18 @@
   <script src="../assets/bootcheck.js"></script>
 </head>
 <body>
-  <div id="app-nav"></div>
-  <main>
-    <div class="page-header">
-      <div>
-        <h1>Pets</h1>
-        <p class="page-subtitle">Every pet in your home — the ones from your breeder and the ones you add.</p>
-      </div>
-      <div class="pill-row">
-        <button class="btn btn-primary" id="btn-add-pet" type="button">+ Add a pet</button>
-      </div>
+  <header id="app-banner"></header>
+  <div class="app-body">
+    <div id="app-nav"></div>
+    <div class="app-main">
+    <div id="app-subnav"></div>
+    <main>
+      <div id="page-error" class="error-box"></div>
+      <div id="reminders-body"><div class="card empty-state">Loading…</div></div>
+    </main>
     </div>
-    <div id="page-error" class="error-box"></div>
-    <div id="pet-form-host"></div>
-    <div id="pets-body"><div class="card empty-state">Loading…</div></div>
-  </main>
+  </div>
   <script type="module" src="../app.js"></script>
-  <script type="module" src="./pets.js"></script>
+  <script type="module" src="./reminders.js"></script>
 </body>
 </html>

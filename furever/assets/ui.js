@@ -52,6 +52,41 @@ export function relativeDue(days) {
   return `${Math.abs(days)} days overdue`;
 }
 
+// Read an image File and return a downscaled JPEG data URL, so a pet's profile
+// photo stays small enough to live in the pet record (photo_url) and render via
+// a plain <img src>. Longest edge is capped at `maxDim`; aspect ratio is kept.
+export function imageFileToDataUrl(file, maxDim = 900) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type || !file.type.startsWith('image/')) {
+      reject(new Error('Please choose an image file.'));
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      try {
+        resolve(canvas.toDataURL('image/jpeg', 0.82));
+      } catch (err) {
+        reject(new Error('Could not process that image.'));
+      }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Could not read that image.'));
+    };
+    img.src = url;
+  });
+}
+
 // Age in whole months/years from a YYYY-MM-DD DOB to today, for a pet header.
 export function ageLabel(dobYMD, todayYMD) {
   if (!dobYMD) return '';

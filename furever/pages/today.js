@@ -35,7 +35,7 @@ async function render() {
           <h2>Welcome to Furever</h2>
           <p>Add your first pet to start a lifelong care calendar — vaccines, deworming,
              vet visits, and more, all timed from their birthday.</p>
-          <p><a class="btn btn-primary" href="pets.html">Add a pet</a></p>
+          <p><a class="btn btn-primary" href="addpet.html">Add a pet</a></p>
         </div>`;
       return;
     }
@@ -52,11 +52,11 @@ async function render() {
 
     body.innerHTML = `<div class="card">${feed.map(rowHtml).join('')}</div>`;
 
-    // Clicking a due item re-scopes the app to that pet and opens its page.
+    // Clicking a due item re-scopes the app to that pet and opens its reminders.
     body.querySelectorAll('.sched-item[data-pet]').forEach((el) => {
       el.addEventListener('click', () => {
         setActivePetId(el.getAttribute('data-pet'));
-        location.href = 'pet.html';
+        location.href = 'reminders.html';
       });
     });
   } catch (err) {

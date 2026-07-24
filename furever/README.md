@@ -13,15 +13,26 @@ data model.
   (the `EDITIONS_DEPLOY_PAT` covering this repo, Pages + DNS for the domain) are noted
   in `build/README.md`.
 
-## Status: data layer + first UI slice (app shell + core pages)
+## Status: data layer + UI (banner + left-sidebar shell + pet-scoped pages)
 The data layer (schema, repos, referential-integrity registry, controlled
 vocabularies, universal care content, derived-reminder engine) is complete, and the
-**first working UI** now sits on top of it: an app shell (nav + active-pet picker)
-and three core pages — **Today** (the family-wide due-soon feed), **Pets** (roster +
-add-a-pet + set-active), and **My Pet** (the active pet's derived schedule with a
-one-tap "log done", plus care history). Browser-verified (headless Chromium: add a
-dog → its schedule projects from DOB → checking an item off logs an actual and the
-item clears/rolls forward → Today's cross-pet feed updates; no console errors).
+UI sits on top of it. A **constant banner** tops every page — the app title
+(`Furever` / `by KennelOS`) on the left and the family's name (`Carson Family Pets`)
+on the right, linking to Family & Settings. Below it, **navigation is a LEFT
+SIDEBAR** — `At A Glance` (the family-wide due-soon feed), one entry per pet (which
+doubles as the active-pet picker), and `Add New Pet`. It's a persistent rail on
+desktop and an off-canvas drawer that slides in from the left on mobile (opened from
+the ☰ in the banner). Selecting a pet re-scopes the app and opens its **Profile**;
+the pet-scoped pages — **Profile** (an Add-Picture box plus the pet's details at a
+large size), **Reminders** (the derived schedule with one-tap "log done"), and
+**Log** (the care history) — sit under a top sub-nav in the content column.
+`At A Glance` has no sub-nav. **Family & Settings** collects the family name (stored
+in a `household` singleton, shown in the banner), the family-wide vet (a `contacts`
+row), and a simple **theme switcher** (Warm / Ocean / Forest / Berry / Slate, applied
+to `<html data-theme>` and remembered). Browser-verified (headless Chromium: add a dog
+→ Profile → set a picture → Reminders projects the schedule from DOB → log an item →
+it moves to the Log; set family name + vet + theme → banner shows "Carson Family Pets"
+and the palette persists across reloads; no console errors).
 
 Still to build (each a later step): the **breeder seed-link decoder** (lz-string) so
 a texted link seeds a pup, the **content-pack fetch**, the **document/photo/contact**
@@ -34,18 +45,29 @@ furever/
   index.html             — front door: redirects to Today (carries any #hash for the
                            future seed-link decoder)
   app.js                 — shared boot: renders nav, requests persistent storage once
-  nav.js                 — top nav + the app-wide active-pet picker
+  nav.js                 — the CONSTANT BANNER (app title "Furever / by KennelOS" +
+                           the family name "…Family Pets") over the LEFT SIDEBAR
+                           (At A Glance / pets / Add New Pet, the active-pet picker,
+                           mobile drawer) + the pet-scoped top sub-nav (Profile /
+                           Reminders / Log)
   assets/
-    app.css              — the single stylesheet (warm palette; badge-* match vocab)
-    ui.js                — esc()/badge()/showError() + small date/age helpers
+    app.css              — the single stylesheet (theme palettes via [data-theme];
+                           badge-* match vocab)
+    ui.js                — esc()/badge()/showError(), imageFileToDataUrl() (profile
+                           photo downscale) + small date/age helpers
     petSchedule.js       — assembles a pet's schedule sources and evaluates them
-                           (shared by Today + My Pet)
+                           (shared by At A Glance + Reminders)
     bootcheck.js         — classic (non-module) guard: surfaces a fatal module-load
-                           failure instead of a page stuck on "Loading…"
+                           failure; also applies the saved theme pre-paint
   pages/
-    today.html + .js     — the family-wide due-soon feed (the one cross-pet view)
-    pets.html  + .js      — roster (seeded vs. self) + add-a-pet form + set active
-    pet.html   + .js      — the active pet: derived schedule, log-done, care history
+    today.html    + .js  — At A Glance: the family-wide due-soon feed (one cross-pet
+                           view; no sub-nav)
+    profile.html  + .js  — a pet's landing page: Add-Picture box (saved to
+                           pet.photo_url) + large-font details, with inline edit
+    reminders.html + .js — the active pet's derived schedule + one-tap log-done
+    log.html      + .js  — the active pet's care history (the logged actuals)
+    addpet.html   + .js  — the Add New Pet form (creates a self pet, opens Profile)
+    family.html   + .js  — Family & Settings: family name, family-wide vet, theme
   vendor/
     dexie.min.mjs        — vendored Dexie, COMMITTED (like shared/vendor/) so the
                            folder is directly servable — no build step to run it
@@ -55,10 +77,11 @@ furever/
     referenceRegistry.js — every FK, drives hard-delete blocking
     dateUtils.js         — YYYY-MM-DD arithmetic + offsets
     vocab.js             — controlled vocabularies (badges + dropdowns)
-    settings.js          — active pet (app-wide scope) + UI prefs, localStorage
+    settings.js          — active pet (app-wide scope) + UI prefs incl. theme, localStorage
     careLibrary.js       — universal dog schedule + feeding/safety content (shipped)
     schedule.js          — the DERIVED reminder engine (stores nothing)
     petRepo.js           — top-level entity; seed upsert by pup_id
+    householdRepo.js     — the family's own identity (singleton: family_name)
     breederRepo.js       — seed-layer breeder identity (upsert by breeder_key)
     contactRepo.js       — family's own contacts (vet, groomer, …)
     careEventRepo.js     — append-only actuals log ("what happened")

@@ -43,6 +43,22 @@
   }
 }
 
+/* --- Theme palettes ------------------------------------------------------- */
+/* A simple palette switcher (Family & Settings page). The default is Warm (the
+   base :root above, no attribute). Each theme just re-tints the accent family;
+   the light/dark base carries everything else, so every palette works in both.
+   Applied by setting data-theme on <html> (bootcheck.js, from the saved pref). */
+:root[data-theme="ocean"]  { --accent: #2f7ca8; --accent-dark: #205e82; --accent-soft: #e0edf5; }
+:root[data-theme="forest"] { --accent: #4c8a5d; --accent-dark: #366b45; --accent-soft: #e4efe7; }
+:root[data-theme="berry"]  { --accent: #a6518f; --accent-dark: #803a6f; --accent-soft: #f3e5ef; }
+:root[data-theme="slate"]  { --accent: #5b6b86; --accent-dark: #414f66; --accent-soft: #e7eaf0; }
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="ocean"]  { --accent: #61a9d1; --accent-dark: #82c1e5; --accent-soft: #21343f; }
+  :root[data-theme="forest"] { --accent: #79c08e; --accent-dark: #94d4a6; --accent-soft: #1f3025; }
+  :root[data-theme="berry"]  { --accent: #d68ac6; --accent-dark: #e7a7db; --accent-soft: #382435; }
+  :root[data-theme="slate"]  { --accent: #93a1bd; --accent-dark: #b0bcd4; --accent-soft: #252b38; }
+}
+
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body {
@@ -53,55 +69,129 @@ body {
 }
 a { color: var(--accent-dark); }
 
-/* --- Top nav ------------------------------------------------------------- */
-#app-nav { position: sticky; top: 0; z-index: 20; }
-.nav-inner {
-  display: flex; align-items: center; gap: .5rem;
-  background: var(--card); border-bottom: 1px solid var(--border);
-  padding: .55rem clamp(.75rem, 4vw, 2rem);
-}
-.nav-brand {
-  display: inline-flex; align-items: center; gap: .4rem;
-  font-weight: 700; font-size: 1.1rem; color: var(--fg); text-decoration: none;
-  letter-spacing: -.01em;
-}
-.nav-brand .paw { font-size: 1.25rem; }
-.nav-links { display: flex; align-items: center; gap: .25rem; margin-left: .75rem; flex: 1; }
-.nav-link {
-  color: var(--muted); text-decoration: none; font-weight: 500;
-  padding: .35rem .7rem; border-radius: 999px; white-space: nowrap;
-}
-.nav-link:hover { background: var(--surface-2); color: var(--fg); }
-.nav-link.active { background: var(--accent-soft); color: var(--accent-dark); }
-.nav-pet { margin-left: auto; display: flex; align-items: center; gap: .4rem; }
-.nav-pet label { color: var(--muted); font-size: .85rem; }
-.nav-pet select {
-  font: inherit; font-size: .95rem; color: var(--fg);
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: 999px; padding: .3rem 1.6rem .3rem .7rem; max-width: 12rem;
-}
-.nav-toggle { display: none; }
+/* --- App frame: constant banner over a left sidebar + content column ------ */
+/* A CONSTANT BANNER sits on top of everything (the app title left, the family's
+   name right). Below it, Furever's primary navigation is a LEFT SIDEBAR: At A
+   Glance, one entry per pet, and Add New Pet. On narrow screens the sidebar
+   becomes an off-canvas drawer that slides in from the left (never a drop-down),
+   opened from the ☰ in the banner. The per-pet page tabs (Profile / Reminders /
+   Log) live in a top sub-nav under a border, in the content column. */
+:root { --banner-h: 4rem; }
+body { min-height: 100vh; }
 
-@media (max-width: 640px) {
-  .nav-toggle {
-    display: inline-block; margin-left: auto; font-size: 1.3rem; line-height: 1;
-    background: none; border: none; color: var(--fg); cursor: pointer;
+/* Constant banner */
+#app-banner {
+  position: sticky; top: 0; z-index: 40;
+  background: var(--card); border-bottom: 1px solid var(--border);
+}
+.banner-inner {
+  display: flex; align-items: center; gap: 1rem;
+  min-height: var(--banner-h); padding: .4rem clamp(.75rem, 4vw, 2rem);
+}
+.brand {
+  display: flex; align-items: center; gap: .55rem;
+  text-decoration: none; color: var(--fg);
+}
+.brand-paw { font-size: 1.6rem; line-height: 1; }
+.brand-name { font-size: 1.7rem; font-weight: 700; letter-spacing: -.02em; line-height: 1; }
+.brand-by {
+  display: flex; flex-direction: column; justify-content: center;
+  font-size: .62rem; font-weight: 700; line-height: 1.18;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+}
+.family-badge {
+  margin-left: auto; text-decoration: none; font-weight: 600;
+  color: var(--accent-dark); background: var(--accent-soft);
+  padding: .4rem .9rem; border-radius: 999px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 48vw;
+}
+.family-badge:hover { filter: brightness(.97); }
+.family-badge.family-unset { color: var(--muted); background: var(--surface-2); font-weight: 500; }
+
+/* Sidebar + content row */
+.app-body { display: flex; align-items: flex-start; }
+
+#app-nav {
+  flex: none; width: 15rem;
+  background: var(--card); border-right: 1px solid var(--border);
+  position: sticky; top: var(--banner-h); align-self: flex-start;
+  height: calc(100vh - var(--banner-h)); overflow-y: auto;
+  display: flex; flex-direction: column;
+  padding: 1rem .75rem;
+  z-index: 30;
+}
+
+.side-link {
+  display: flex; align-items: center; gap: .6rem;
+  color: var(--fg); text-decoration: none; font-weight: 500;
+  padding: .55rem .7rem; border-radius: 10px; white-space: nowrap;
+  border: none; background: none; font: inherit; text-align: left; width: 100%;
+  cursor: pointer;
+}
+.side-link:hover { background: var(--surface-2); }
+.side-link.active { background: var(--accent-soft); color: var(--accent-dark); font-weight: 600; }
+.side-link .side-ava {
+  width: 1.75rem; height: 1.75rem; border-radius: 50%; object-fit: cover;
+  background: var(--surface-2); flex: none; display: grid; place-items: center;
+  font-size: .95rem;
+}
+.side-link .side-name { overflow: hidden; text-overflow: ellipsis; }
+.side-sep { height: 1px; background: var(--border); margin: .6rem .35rem; }
+.side-label {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--muted); padding: .5rem .7rem .2rem;
+}
+.side-add { margin-top: auto; padding-top: .6rem; }
+.side-add .side-link { color: var(--accent-dark); font-weight: 600; }
+
+/* Content column */
+.app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+/* Top sub-nav — the pet-scoped page tabs, under a border. Sticks just below the
+   constant banner. Collapses to nothing on At A Glance (no other pages for now). */
+#app-subnav { position: sticky; top: var(--banner-h); z-index: 20; background: var(--bg); }
+#app-subnav:empty { display: none; }
+.subnav-inner {
+  display: flex; gap: .25rem; align-items: center;
+  border-bottom: 1px solid var(--border);
+  padding: .5rem clamp(.75rem, 4vw, 2rem);
+  overflow-x: auto;
+}
+.subnav-link {
+  color: var(--muted); text-decoration: none; font-weight: 500;
+  padding: .4rem .9rem; border-radius: 999px; white-space: nowrap;
+}
+.subnav-link:hover { background: var(--surface-2); color: var(--fg); }
+.subnav-link.active { background: var(--accent-soft); color: var(--accent-dark); }
+
+/* Mobile drawer toggle (lives in the banner) + backdrop */
+.nav-toggle {
+  display: none; margin: -.2rem .1rem -.2rem -.3rem;
+  width: 2.4rem; height: 2.4rem; border-radius: 10px; flex: none;
+  background: none; border: 1px solid var(--border); color: var(--fg);
+  font-size: 1.25rem; line-height: 1; cursor: pointer;
+}
+.nav-toggle:hover { background: var(--surface-2); }
+.nav-backdrop { display: none; }
+
+@media (max-width: 720px) {
+  :root { --banner-h: 3.4rem; }
+  #app-nav {
+    position: fixed; top: 0; left: 0; bottom: 0; height: auto;
+    width: min(16rem, 80vw);
+    transform: translateX(-100%); transition: transform .22s ease;
+    box-shadow: var(--shadow); z-index: 50;
   }
-  .nav-links {
-    display: none; position: absolute; left: 0; right: 0; top: 100%;
-    flex-direction: column; align-items: stretch; gap: 0; margin: 0;
-    background: var(--card); border-bottom: 1px solid var(--border);
-    padding: .5rem clamp(.75rem, 4vw, 2rem) .75rem;
-  }
-  .nav-inner.nav-open .nav-links { display: flex; }
-  .nav-link { padding: .55rem .5rem; }
-  .nav-pet { margin: .5rem 0 0; }
-  .nav-pet select { max-width: none; flex: 1; }
+  body.nav-open #app-nav { transform: translateX(0); }
+  .nav-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, .38); z-index: 45; }
+  body.nav-open .nav-backdrop { display: block; }
+  .nav-toggle { display: inline-flex; align-items: center; justify-content: center; }
+  .brand-name { font-size: 1.45rem; }
 }
 
 /* --- Layout -------------------------------------------------------------- */
 main {
-  max-width: 52rem; margin: 0 auto;
+  width: 100%; max-width: 52rem; margin: 0 auto;
   padding: clamp(1rem, 4vw, 2rem) clamp(.75rem, 4vw, 2rem) 4rem;
 }
 .page-header {
@@ -208,3 +298,52 @@ main {
 }
 .muted { color: var(--muted); }
 .section-title { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 1.25rem 0 .35rem; }
+
+/* --- Theme switcher swatches (Family & Settings) ------------------------- */
+.theme-swatches { display: flex; gap: .6rem; flex-wrap: wrap; }
+.theme-swatch {
+  display: inline-flex; align-items: center; gap: .45rem;
+  font: inherit; font-weight: 600; font-size: .9rem; cursor: pointer;
+  padding: .4rem .7rem .4rem .45rem; border-radius: 999px;
+  background: var(--card); color: var(--fg); border: 1px solid var(--border);
+}
+.theme-swatch:hover { background: var(--surface-2); }
+.theme-swatch.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.theme-dot { width: 1.1rem; height: 1.1rem; border-radius: 50%; flex: none; border: 1px solid rgba(0, 0, 0, .12); }
+
+/* --- Pet profile (the pet's landing page) -------------------------------- */
+/* An "Add Picture" box on top, then the pet's details at a much larger size
+   than a compact list — this page is the pet's face in the app. */
+.photo-box {
+  position: relative; width: 100%; aspect-ratio: 16 / 10; max-height: 24rem;
+  border: 2px dashed var(--border); border-radius: 18px;
+  background: var(--surface-2); color: var(--muted);
+  display: grid; place-items: center; text-align: center;
+  cursor: pointer; overflow: hidden; margin-bottom: 1.75rem;
+}
+.photo-box:hover { border-color: var(--accent); color: var(--accent-dark); }
+.photo-box.has-photo { border-style: solid; border-color: var(--border); }
+.photo-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-box .ph-inner { padding: 2rem; }
+.photo-box .ph-icon { font-size: 3.2rem; display: block; line-height: 1; }
+.photo-box .ph-text { font-weight: 600; font-size: 1.05rem; margin-top: .5rem; }
+.photo-box .ph-change {
+  position: absolute; right: .75rem; bottom: .75rem;
+  background: rgba(0, 0, 0, .55); color: #fff; font-size: .8rem; font-weight: 600;
+  padding: .3rem .7rem; border-radius: 999px; opacity: 0; transition: opacity .15s;
+}
+.photo-box.has-photo:hover .ph-change { opacity: 1; }
+
+.profile-name {
+  font-size: clamp(2rem, 6vw, 3rem); margin: 0 0 .35rem;
+  letter-spacing: -.02em; line-height: 1.05;
+}
+.profile-badges { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.detail-list { display: grid; gap: 0; }
+.detail-row {
+  display: flex; justify-content: space-between; gap: 1rem; align-items: baseline;
+  border-top: 1px solid var(--border); padding: 1rem 0; font-size: 1.35rem;
+}
+.detail-row:first-child { border-top: none; }
+.detail-key { color: var(--muted); font-size: 1.05rem; font-weight: 600; }
+.detail-val { font-weight: 600; text-align: right; }

@@ -79,6 +79,7 @@ pre-first-release editing rule as the breeder app):
 db.version(1).stores({
   pets:          'id, pup_id, source, breeder_id, species, is_archived',
   breeders:      'id, breeder_key, is_archived',
+  household:     'id',
   contacts:      'id, pet_id, contact_type, is_archived',
   care_events:   'id, pet_id, plan_item_id, event_type, event_date, is_archived',
   care_plans:    'id, pet_id, category, is_archived',
@@ -125,8 +126,22 @@ pups from one kennel share a row.
 | `vet_contact` | | the **breeder's vet** `{ name, phone, address }` — a referral before the family has their own vet |
 | `is_archived` | ✓* | |
 
+### household — the family's own identity (singleton)
+Family layer. **One row, fixed id `household`** (a singleton, via `householdRepo`):
+"whose app is this". App-wide, not pet-scoped, so it carries no `pet_id` and nothing
+points at it (not a `referenceRegistry` target). The family's vet and other contacts
+are **not** here — those are family-wide `contacts` rows (below).
+
+| field | indexed | notes |
+|---|---|---|
+| `id` | ✓ (pk) | always the literal `'household'` |
+| `family_name` | | shown in the app banner as “{name} Family Pets” (e.g. `Carson` → “Carson Family Pets”); nullable until set. Room to grow (address/phone) later |
+| `created_at`, `updated_at` | | |
+
 ### contacts — family's own contacts
-Family layer. **Not** the breeder/breeder-vet (those are seed-layer, above).
+Family layer. **Not** the breeder/breeder-vet (those are seed-layer, above). The
+family-wide vet (`pet_id` null, `contact_type` `vet`) is what the Family & Settings
+page reads/writes.
 
 | field | indexed | notes |
 |---|---|---|
@@ -295,20 +310,34 @@ Furever ships through the same pipeline as the editions, as a **standalone app**
 - Until the app's pages exist, `furever/index.html` is a clean "coming soon"
   placeholder, so the live origin is a real page rather than a 404.
 
-## Built (first UI slice)
-The app shell and core pages now sit on the data layer (`furever/README.md` has the
+## Built (UI: left-sidebar shell + pet-scoped pages)
+The app shell and pages now sit on the data layer (`furever/README.md` has the
 file map):
-- `app.js` / `nav.js` — shell boot + top nav with the **active-pet picker** (the
-  pet-as-scope decision, made real: switching re-scopes every page).
-- `pages/today.*` — the family-wide **due-soon feed** (`schedule.familyDueSoon`), the
-  one cross-pet view.
-- `pages/pets.*` — the roster (seeded vs. self), **add a self pet**, set active.
-- `pages/pet.*` — the active pet's **derived schedule** (`evaluateSchedule`) with a
-  one-tap **log-done** that appends a `care_events` actual (the reminder clears / a
-  recurring item rolls forward), plus care history.
+- `app.js` / `nav.js` — shell boot + a **constant banner** (the app title "Furever /
+  by KennelOS" left, the family's name "{name} Family Pets" right, linking to the
+  Family page) over the **left sidebar** (`At A Glance`, one entry per pet, `Add New
+  Pet`) which is also the **active-pet picker** (the pet-as-scope decision, made real:
+  picking a pet re-scopes every page), plus the pet-scoped **top sub-nav** (Profile /
+  Reminders / Log). The sidebar is an off-canvas drawer on mobile (opened from the ☰
+  in the banner).
+- `pages/family.*` — **Family & Settings**: the family name (→ `household` singleton,
+  surfaced in the banner), the family-wide **vet** (→ a `contacts` row, `pet_id` null),
+  and a simple **theme switcher** (Warm / Ocean / Forest / Berry / Slate — a
+  localStorage pref applied to `<html data-theme>`, pre-paint via `bootcheck.js`).
+- `pages/today.*` — **At A Glance**: the family-wide **due-soon feed**
+  (`schedule.familyDueSoon`), the one cross-pet view; carries no sub-nav.
+- `pages/profile.*` — a pet's landing page: an Add-Picture box (the chosen image is
+  downscaled to a data URL and stored in `pet.photo_url`) plus the pet's details at a
+  large size, with inline editing.
+- `pages/reminders.*` — the active pet's **derived schedule** (`evaluateSchedule`)
+  with a one-tap **log-done** that appends a `care_events` actual (the reminder clears
+  / a recurring item rolls forward).
+- `pages/log.*` — the active pet's **care history** (the logged `care_events` actuals).
+- `pages/addpet.*` — the **Add New Pet** form (creates a self pet, then opens Profile).
 - `assets/petSchedule.js` assembles a pet's schedule sources (universal library +
-  family plans; packs deferred) so Today and My Pet agree; `assets/ui.js` holds the
-  shared `esc`/`badge` helpers.
+  family plans; packs deferred) so At A Glance and Reminders agree; `assets/ui.js`
+  holds the shared `esc`/`badge` helpers and `imageFileToDataUrl` (profile-photo
+  downscale).
 
 ## Not built yet
 The **seed-link decoder** (lz-string) so a texted breeder link seeds a pup, the
