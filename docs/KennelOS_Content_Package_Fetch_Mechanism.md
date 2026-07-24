@@ -7,7 +7,9 @@
 > payload; fetch on first open **and** every resend; "do as much as possible from KennelOS,
 > including creating the Drive folders and dropping the generated manifest in"). It is a
 > **design target for the build**, not shipped code — nothing here has been implemented.
-> Two decisions still need owner sign-off (see § Decisions still open) before Sonnet builds.
+> The open decisions were settled by the owner on 2026-07-24 (§ Decisions (settled)): OAuth-write
+> primary with a manual fallback; documents stay **dog-scoped** with a **bulk-add** picker; and
+> published files carry a sensitive-doc warning + per-doc opt-in. Ready for Sonnet to build.
 
 ---
 
@@ -146,8 +148,8 @@ family's own uploads exactly like the seed/family layer split the schema doc emp
   `source:'self'` and are **never** touched by a fetch. Breeder rows for a `pack_key` are
   replaced wholesale on a version bump (blind replace of the breeder layer — same discipline
   as `petRepo.upsertSeededPet`). Breeder docs render read-only in a "From your breeder" group;
-  no in-place edit, no family Remove (or a Remove that just hides, re-appearing on resend —
-  decide at build, lean: read-only, no Remove).
+  **no in-place edit and no family Remove** (settled — a Remove would just re-appear on the next
+  resend, which reads as a bug; family owns only `source:'self'` docs).
 - **`content_packs`** is **repurposed** from the old care-overlay cache to the **manifest
   cache**: `{ id, &pack_key, kennel_name, scope, version, fetched_at }` (drop `payload`). It
   records "which version of which pack we've already fetched" so §2-B can skip unchanged packs.
@@ -162,11 +164,17 @@ family's own uploads exactly like the seed/family layer split the schema doc emp
 
 - **Kennel-wide pack** → `getFureverSettings()`/`setFureverSettings()` in
   `shared/data/settings.js` (`kennelOS.furever`): `{ packKey, folderId, manifestFileId,
-  manifestResourceKey, version }`, plus the connected-Drive token state.
+  manifestResourceKey, version, selection }`, plus the connected-Drive token state.
 - **Per-litter pack** → a plain, unindexed field group on the **litter** record
   (`litterRepo`): `furever_pack = { packKey, folderId, manifestFileId, manifestResourceKey,
-  version }`. Additive; no new index, no `referenceRegistry` entry (it points *out* to Drive,
-  not at a KennelOS entity).
+  version, selection }`. Additive; no new index, no `referenceRegistry` entry (it points *out*
+  to Drive, not at a KennelOS entity).
+- **`selection`** is what makes republish pre-checked and keeps the picker (§4.2) fast without
+  reshaping the `documents` table: `{ documentIds: [...KennelOS doc IDs...], uploads: [{ title,
+  docType, drive_file_id, resourceKey }] }`. `documentIds` are the dog-scoped documents the
+  breeder ticked; `uploads` are files pushed straight to Drive that aren't filed on a dog (a care
+  guide, a poison list). The Drive **manifest is the authoritative file list**; `selection` is
+  just the cached UI state so the next Publish opens with the right boxes already ticked.
 
 ---
 
@@ -204,10 +212,26 @@ litter page / console). With a live token:
 1. **Ensure folders.** If no `folderId` cached for this scope, `files.create` a folder
    (`mimeType: application/vnd.google-apps.folder`) under a root "KennelOS Furever" folder;
    cache the ID. Reuse on republish.
-2. **Choose documents.** A picker lists candidates — existing KennelOS **dog documents**
-   (`documentRepo`, filtered to this litter's pups for a litter pack) **and** an "upload new"
-   affordance for kennel-level material (care guide, poison list) that isn't a dog document.
-   (Sourcing model needs sign-off — see § Decisions still open.)
+2. **Choose documents — a bulk-add picker** (settled: documents stay **dog-scoped**; no new
+   per-litter/kennel document store). The picker never makes the breeder add files one at a time:
+   - **Litter pack** — the candidate pool is every document filed on the dogs **connected to this
+     litter**: its pups (`dogRepo` where `litter_id` = this litter) **and** the sire + dam
+     (`litter.sire_id`/`dam_id`), each via `documentRepo.getByDog`. They're shown grouped by dog
+     with **bulk selectors**: a master "select all", a **per-type** toggle ("add every
+     registration", "add every health test"), and per-dog "select all". So "add all 8 pups'
+     registrations" is one click, not eight.
+   - **Kennel-wide pack** — same picker over **any** dog's documents (for reusable material like a
+     breed care guide filed on a representative dog), **plus** an **"Upload new"** affordance for
+     kennel-level files that aren't filed on a dog at all (care guide, poison list, blank
+     guarantee template). Uploaded-new files go straight to Drive (§4.2-3) and are tracked in the
+     pack's `selection.uploads`, never forced into the dog-scoped `documents` table.
+   - The picker **pre-checks** from the pack's cached `selection` (§3.4), so republishing after
+     adding one pup's paperwork is: open Publish → the prior set is already ticked → tick the new
+     one → Publish.
+   - **Sensitive-doc guard** (settled): each candidate shows its `doc_type`; anything that
+     typically carries buyer PII (a signed `contract`) is **unchecked by default** and, if ticked,
+     requires an explicit "this will be publicly readable by link" confirmation before it's
+     included. The publish summary restates what's about to become public.
 3. **Upload** each chosen file's bytes to the scope's folder (`files.create` multipart);
    capture `fileId` (+ `resourceKey` from the response). Skip files already uploaded at the
    same content (track by `drive_file_id`), so republish is incremental.
@@ -305,7 +329,7 @@ documents (`source:'self'`) are never involved.
 2. **Publish** the kennel-wide pack (pick docs / upload the care guide, hit Publish).
 3. Per litter: **Publish** that litter's pack (pick the litter's docs).
    *(KennelOS creates the folders, uploads, shares, and writes the manifest — the breeder never
-   touches Drive directly. A no-OAuth fallback exists — § Decisions still open.)*
+   touches Drive directly. A no-OAuth manual fallback exists — § Decisions (settled), decision 1.)*
 
 ### 5.4 Family steps
 
@@ -317,8 +341,9 @@ documents (`source:'self'`) are never involved.
 
 - **Public-by-link is real.** Anything published is readable by anyone who has the file ID (in
   the link). Fine for a care guide, breed info, pedigree, a blank guarantee template — **not**
-  for a signed contract carrying buyer PII. The console must **warn on publish** and default to
-  requiring an explicit per-doc opt-in for anything sensitive. (Needs sign-off — § Decisions.)
+  for a signed contract carrying buyer PII. The console **warns on publish** and requires an
+  explicit per-doc opt-in for anything sensitive — `contract`-type docs are unchecked by default
+  and need a "this becomes publicly readable by link" confirmation to include (settled; see §4.2-2).
 - **`drive.file` is least-privilege.** KennelOS can only ever see files it created; it cannot
   read the breeder's wider Drive. Good posture and worth stating in-app.
 - **API key is referrer-restricted + Drive-only.** Its worst case is reading files that are
@@ -334,34 +359,31 @@ documents (`source:'self'`) are never involved.
 
 ---
 
-## 7. Decisions still open (need owner sign-off before build)
+## 7. Decisions (settled 2026-07-24)
 
-1. **Breeder auth model — confirm OAuth-write (recommended) vs. manifest-only manual.**
-   - *OAuth-write (recommended, matches "do as much as possible from KennelOS"):* the §4 flow —
-     KennelOS creates folders, uploads, shares, writes the manifest. Cost: the owner sets up the
-     OAuth client (§5.1) and we vendor GIS; the breeder re-grants a short-lived token per publish
-     session (usually silent).
-   - *Manifest-only fallback (no breeder OAuth):* KennelOS **generates** `pack.json` (and lists
-     the files to upload) for the breeder to **download**; the breeder makes the Drive folder,
-     uploads the files + `pack.json`, sets "Anyone with the link", and **pastes the folder/
-     manifest link back**; KennelOS parses the link for the manifest file ID (+ resourceKey).
-     No breeder Google connection, but several manual steps and easy to get the sharing wrong.
-   - *Lean:* ship OAuth-write as primary, keep manifest-only as a documented fallback for
-     breeders who won't connect Google.
-2. **Kennel-wide + litter document sourcing (small KennelOS schema/UX).** KennelOS documents are
-   **per-dog** today; there is no kennel-level or litter-level document. Where do the two packs'
-   files come from? Options: (a) a dedicated "Furever share" picker in the console that pulls
-   from existing dog documents **and** allows new uploads, tagging each kennel/litter — **no
-   reshape of the per-dog `documents` table** (recommended); (b) add a real per-litter / kennel
-   document store; (c) derive a litter pack purely from its pups' existing documents (no
-   kennel-level material). Recommend (a).
-3. **Sensitive-document handling on publish.** Public-by-link means published files are world-
-   readable. Confirm: a per-publish warning + explicit per-doc opt-in for anything with PII
-   (recommended), vs. trust the breeder to only tag safe docs.
+1. **Breeder auth model → OAuth-write primary, manual fallback documented.** Build the §4 flow —
+   KennelOS creates folders, uploads, shares, writes the manifest via a GIS `drive.file` token.
+   The owner sets up the OAuth client (§5.1) and we vendor GIS; the breeder re-grants a
+   short-lived token per publish session (usually silent — §4.1). A **no-OAuth manual fallback**
+   stays documented for breeders who won't connect Google: KennelOS **generates** `pack.json`
+   (and the file list) for **download**; the breeder makes the Drive folder, uploads the files +
+   `pack.json`, sets "Anyone with the link", and **pastes the manifest/folder link back**;
+   KennelOS parses out the manifest file ID (+ resourceKey). Fallback is second-priority — ship
+   the OAuth path first.
+2. **Document sourcing → keep documents dog-scoped; add a bulk-add picker.** No new per-litter or
+   per-kennel document store and **no reshape of the per-dog `documents` table**. The Publish
+   picker (§4.2-2) sources from the documents already filed on the litter's connected dogs (pups
+   + sire + dam) for a litter pack, and from any dog + an "Upload new" affordance for a
+   kennel-wide pack, with **bulk selectors** (select-all, per-type, per-dog) so many docs go in at
+   once. Selection is cached on the pack pointer (§3.4 `selection`) for pre-checked republish.
+3. **Sensitive documents → warn + per-doc opt-in.** Published files are world-readable-by-link,
+   so the picker leaves PII-bearing types (`contract`) unchecked by default and requires an
+   explicit "this becomes public" confirmation to include; the publish summary restates what's
+   going public (§4.2-2, §6).
 
 ---
 
-## 8. Build task list (for Sonnet, once §7 is signed off)
+## 8. Build task list (for Sonnet — §7 is settled, ready to build)
 
 **Furever (family) side**
 - `furever/data/contentPackFetch.js` — public-key manifest + file fetch, version-gated,
@@ -381,8 +403,10 @@ documents (`source:'self'`) are never involved.
 - Extend `shared/data/fureverSeedExport.js` to emit `contentPackages`.
 - Extend `settings.js` (kennel pack pointer + Drive connection state) and `litterRepo` (litter
   `furever_pack`).
-- Furever console (`shared/pages/furever.*`): Connect-Drive UI, per-scope Publish, doc picker,
-  sensitive-doc warning.
+- Furever console (`shared/pages/furever.*`): Connect-Drive UI, per-scope Publish, the **bulk-add
+  doc picker** (litter pool = pups + sire + dam via `documentRepo.getByDog`; select-all/per-type/
+  per-dog selectors; "Upload new" for kennel-level files; pre-check from cached `selection`),
+  and the sensitive-doc (`contract`) opt-in warning.
 
 **Docs to update in the same change when built** (per CLAUDE.md doc-truth rules)
 - `KennelOS_Furever_Schema.md`: the `documents`/`content_packs` field changes, the fetch flow,
