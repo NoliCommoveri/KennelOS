@@ -61,8 +61,11 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
   overwritten on every deploy).
 - [ ] **`EDITIONS_DEPLOY_PAT`** secret set in `nolicommoveri/kennelos` — a fine-grained PAT
   with `Contents: Read/Write` scoped to all four repos above. **`[!]` Currently missing
-  write access to `KennelOS-Furever`** — its deploy job fails with a 403 on push
-  (`furever/README.md`); the other three repos need the same scope confirmed.
+  write access to `KennelOS-Furever`** — its deploy job failed with a 403 on push
+  (`furever/README.md`), so the **furever leg is temporarily commented out of
+  `deploy.yml`'s matrix** to keep the workflow green. **Grant the PAT write access to
+  `KennelOS-Furever`, then un-comment that matrix entry to re-enable the furever deploy.**
+  The other three repos need the same scope confirmed.
 - [ ] Each publish repo: Pages source = `main` / root, custom domain = its subdomain,
   **Enforce HTTPS on**.
 - [ ] Merge to `main` → `deploy.yml` assembles (`--release`) and force-publishes all three.
