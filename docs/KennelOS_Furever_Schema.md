@@ -487,10 +487,37 @@ and a family-wide contact, edited one, archived one → uploaded a document,
 downloaded it, hard-deleted it → uploaded a photo, viewed it in the modal,
 hard-deleted it; no console errors on any page.
 
+## Built (import-export / backup)
+`data/importExport.js` — a full JSON backup/restore of every table, mirroring the
+breeder core's `shared/data/importExport.js` (same blob round-tripping + counts-
+preview shape) but simpler: no editions, no demo mode, no per-collection import
+cap. `files.blob` (behind documents/photos) is base64-tagged on export and
+rehydrated on restore, same as the breeder app. The export is tagged
+`app: 'furever'` so a breeder-app backup can't be mistaken for one and restored
+here (or vice versa) — `inspectBackup` rejects a mismatch. `BACKUP_FORMAT_VERSION`
+is separate from the breeder app's (starts at 1) — the two apps' backup formats
+are independent even though the code shape rhymes.
+
+Surfaced on the **Family & Settings** page (a new "Backup & restore" card, between
+"Keeping your data safe" and the danger zone — no separate nav destination, same
+as everything else app-wide on that page): **Download backup** (also recorded via
+the already-existing `settings.getLastBackupDate`/`setLastBackupDate`, shown as
+"Last backup: …"), and **Restore from a file** — pick a file → a row-count preview
+per table → **Merge** (upsert by id) or **Replace** (wipe every table first) →
+each behind its own inline "are you sure" confirm step (the same shape as the
+Reset-app danger button, no `window.confirm`) before it writes anything.
+
+Browser-verified end to end (headless Chromium): seeded a pet + contact + document
++ photo → downloaded a backup (confirmed the file carries all four collections
+with an encoded file blob) → added a junk pet → restored with **Replace** (the
+junk pet was gone, the seeded pet and its data were back) → added another pet →
+restored the same file with **Merge** (the new pet survived, the seeded data was
+still there); no console errors.
+
 ## Not built yet
 The **Training page** (placeholder only — needs a researched puppy curriculum), the
 **one-time content-pack fetch** (which will also supply the breeder's real feeding
-plan, replacing `FEEDING_PLAN`'s placeholder portions), **import-export / backup**,
-and the **service worker / PWA / precache** (offline + install). The app runs
-online today; the offline layer is deferred until the page set settles. The
-deploy pipeline is ready to ship whatever `furever/` contains.
+plan, replacing `FEEDING_PLAN`'s placeholder portions), and the **service worker /
+PWA / precache** (offline + install). The app runs online today; the offline layer
+is deferred until the page set settles. The deploy pipeline is ready to ship
+whatever `furever/` contains.

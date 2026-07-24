@@ -96,10 +96,25 @@ and a family-wide contact, edited one, archived one → uploaded a document,
 downloaded it, hard-deleted it → uploaded a photo, viewed it in the modal,
 hard-deleted it; no console errors on any page.
 
-Still to build (each a later step): the **content-pack fetch**, **import-export
-/backup**, and the **service worker / PWA / manifest** (offline + install). The
-app runs online today; the offline layer is deliberately deferred until the page
-set settles.
+**Import-export/backup is now built.** A "Backup & restore" card on **Family &
+Settings** (`data/importExport.js`): **Download backup** exports every table
+(including file blobs, base64-tagged) to one JSON file and records the time
+(`settings.getLastBackupDate`, shown as "Last backup: …"); **Restore from a file**
+reads a file, previews row counts per table, and commits via **Merge** (upsert by
+id) or **Replace** (wipe first) — each behind its own inline confirm step, same
+shape as the Reset-app danger button. The export is tagged `app: 'furever'` so a
+breeder-app backup can't be restored here by mistake. Mirrors the breeder core's
+`shared/data/importExport.js` (same blob round-tripping) but drops everything
+edition/demo-specific that doesn't apply here.
+
+Browser-verified end to end (headless Chromium): seeded a pet + contact + document
++ photo → downloaded a backup → added a junk pet → restored with Replace (junk
+pet gone, seeded data back) → added another pet → restored the same file with
+Merge (new pet survived, seeded data still there); no console errors.
+
+Still to build (each a later step): the **content-pack fetch** and the **service
+worker / PWA / manifest** (offline + install). The app runs online today; the
+offline layer is deliberately deferred until the page set settles.
 
 ```
 furever/
@@ -139,7 +154,8 @@ furever/
     contacts.html + .js  — Contacts: the pet's own + family-wide contacts (add/
                            edit/archive)
     addpet.html   + .js  — the Add New Pet form (creates a self pet, opens Profile)
-    family.html   + .js  — Family & Settings: family name, family-wide vet, theme
+    family.html   + .js  — Family & Settings: family name, family-wide vet, theme,
+                           backup & restore, storage/reset danger zone
   vendor/
     dexie.min.mjs        — vendored Dexie, COMMITTED (like shared/vendor/) so the
                            folder is directly servable — no build step to run it
@@ -172,6 +188,8 @@ furever/
     photoRepo.js         — gallery (owns a file)
     fileRepo.js          — blob archive behind documents/photos
     contentPackRepo.js   — fetched-once breeder overlay cache
+    importExport.js      — full JSON backup/restore (blob round-tripping,
+                           merge/replace); Family & Settings' backup card
   README.md
 ```
 
