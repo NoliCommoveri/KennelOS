@@ -87,3 +87,12 @@ export function wasAddToHomeScreenDismissed() {
 export function markAddToHomeScreenDismissed() {
   localStorage.setItem(KEYS.addToHomeScreenDismissed, '1');
 }
+
+// --- Full reset ------------------------------------------------------------
+// Remove every localStorage key this app owns, so a hard reset lands back on the
+// exact first-run state a never-visited browser would see (active pet, theme,
+// persist/backup/nudge bookkeeping — all of it). Paired with clearing the tables
+// in appReset.js.
+export function clearAllSettings() {
+  for (const key of Object.values(KEYS)) localStorage.removeItem(key);
+}
