@@ -231,7 +231,7 @@ When you need "the reverse of X," write a query. Do not add a mirror field.
 
 ## 5. Dexie schema (`data/db.js`)
 
-DB name: `KennelOSBreedingApp`. All twelve tables live in a **single collapsed
+DB name: `KennelOSBreedingApp`. All thirteen tables live in a **single collapsed
 `version(1)` block**. Indexes:
 
 ```
@@ -255,6 +255,7 @@ stud_services: id, our_dog_id, partner_dog_id, partner_contact_id,
                referred_by_contact_id, direction, status, pairing_id, is_archived
 documents:     id, dog_id, doc_type, doc_date, is_archived
 files:         id, created_at
+breed_feeding_schedules: id, breed, is_archived
 ```
 
 Index notes:
@@ -288,6 +289,10 @@ Index notes:
   way — a plain `JSON.stringify` silently drops a Blob to `{}`.
 - `is_archived` is filtered in JS, not by index (IndexedDB can't key on booleans;
   trivial at kennel scale).
+- `breed_feeding_schedules` (§27.2) is indexed on `breed` — a free-text lookup
+  key matched against `Dog.breed`, not a stored FK, so `breedFeedingScheduleRepo.
+  getByBreed` is a probe rather than a scan. `litters.feeding_schedule_override`
+  (§27.2) is plain and unindexed, same posture as the foster fields.
 
 Everything lives in that one `version(1)` block, including later additions like
 `litters.foster_partner_contact_id` (§25, the referential guard for a foster partner
@@ -398,8 +403,9 @@ the normal remove and never cascades**.
   expenses.
 - `DOG_REFERENCES` also carries a `documents.dog_id` entry (§26.1), so a dog with filed
   documents can't be hard-deleted out from under them.
-- `Contract`, `Expense`, and `Document` are leaves *for the registry* (empty
-  `CONTRACT_REFERENCES` / `EXPENSE_REFERENCES` / `DOCUMENT_REFERENCES` — nothing in the
+- `Contract`, `Expense`, `Document`, and `BreedFeedingSchedule` (§27.2) are leaves
+  *for the registry* (empty `CONTRACT_REFERENCES` / `EXPENSE_REFERENCES` /
+  `DOCUMENT_REFERENCES` / `BREED_FEEDING_SCHEDULE_REFERENCES` — nothing in the
   registry points *at* them, so none is ever a hard-delete blocker). The one exception
   that stays outside the registry: a Document may carry an **unindexed** `contract_id`
   back-link to a Contract (§26.1). Because it isn't a registry entry it never blocks the
@@ -644,7 +650,12 @@ way.
   instead of the raw flat list, so a dog only inherits tests tagged for its own
   breed (plus any untagged/breed-agnostic ones).
 - **kennelSetup.js** — the "your kennel and owner name" wizard; creates real
-  Kennel/Contact records and remembers them by id in settings.
+  Kennel/Contact records and remembers them by id in settings. The owner
+  Contact is always saved with `kennel_id` set to the kennel just created/
+  updated — this is definitionally the breeder's own contact at their own
+  kennel, so it must never come out of the wizard unlinked (a Kennel's
+  `getContacts()` and the Kennel detail page's own-kennel views both depend on
+  this link existing).
 - **appReset.js** — `resetApp()` clears every table + all settings → the exact blank slate
   a never-visited browser sees.
 
@@ -810,8 +821,8 @@ Breeding: `pairings`/`pairing`, `litters`/`litter`, `active-breeding`, `live-bir
 People: `contact`, `kennels` (list — identity CRUD only: name/prefix/location/own + archive/
 delete; the add form stays collapsed behind a **+ Add New Kennel** button, and rows sort own
 kennels first then everyone else's alphabetically by name) / `kennel` (detail — hosts that kennel's Expenses ledger plus, for own kennels, its
-program configuration: the preferred-tests panel and the lifecycle-nudge thresholds). Both
-map to the People hub in `HUB_CHILDREN`.
+program configuration: the preferred-tests panel, the lifecycle-nudge thresholds, and a
+doorway card into Feeding Schedules, §27.2). Both map to the People hub in `HUB_CHILDREN`.
 Placements/contracts: `sale`/`sales`, `stud-service`/`stud-services`, `contract`/`contracts`,
 `puppy-record` (print-only puppy record, §23 — not a nav entry, reached from `sale`/`sales`).
 Financials print docs: `invoice` (print-only invoice/receipt generator, §24 — not a nav
@@ -823,6 +834,8 @@ Reports: `litters-report`, `stud-services-report`, `placements-report`,
 `health-tests-report`, `litter-finances-report` (Litter P&L; `data/litterFinances.js`).
 Import pages: `dog-import`, `contact-import`, `pairing-import`, `litter-import`,
 `sale-import`, `event-import`, `stud-service-import`, `expense-import`, `kennel-tests-import`.
+`breed-feeding-schedules` (Feeding Schedules — per-breed feeding grids, §27.2 — Pro-only,
+reached from the Kennel detail page, not a nav entry).
 
 ---
 
@@ -1714,7 +1727,14 @@ destination — Furever is a **separate origin/app**, not the recipient-facing s
 Companion uses.
 
 **The Furever console** (`pages/furever.*`, "More" menu, gated by
-`editionFlags.furever` + `data/proPages.js`'s `PRO_ONLY_PAGES`) has two parts:
+`editionFlags.furever` + `data/proPages.js`'s `PRO_ONLY_PAGES`) has two parts,
+plus a **setup-nudges strip** above them (`#setup-nudges`, `renderSetupNudges`):
+subtle, non-blocking reminders for the two furever-relevant things easy to
+forget — "No vet contact on file. Add one now →" (`vets.length === 0` from the
+identity load) and "No feeding schedule configured for `<breed(s)>`. Configure
+now →" (breeds among today's open-sale recipients that have no
+`breedFeedingScheduleRepo` row, §27.2) — each a plain link to fix it, nothing
+blocks sending a link without either.
 
 - **Kennel identity**, saved once via `settings.js`'s `getFureverSettings`/
   `setFureverSettings` (`localStorage`, key `kennelOS.furever`, cleared by Reset
@@ -1832,3 +1852,97 @@ the breeder never touches Drive directly.
   verified** against a real Google account (no live consent/Drive round trip has
   been exercised) — verify Connect → Publish → a family device actually receiving
   the docs before relying on this in production.
+- **Per-pup privacy within a litter pack** (mechanism doc §7 decision 4, added
+  post-launch — fixes a real leak, not a design nicety): a litter pack is one
+  shared Drive manifest for the whole litter, but a document filed on ONE pup
+  must never appear in every OTHER pup's family's app. Each manifest file now
+  carries the `dogId` it was filed on (`fureverContentPack.js`'s
+  `loadDocumentSource`/`buildManifest`), and `doLitterPublish` (`pages/
+  furever.js`) passes the litter's `sire_id`/`dam_id` into `publishPack` as
+  `parentDogIds` — documents filed on the sire or dam are shared with the
+  whole litter (relevant to every family), a pup's own documents are not.
+  `furever/data/contentPackFetch.js`'s `filesForThisPup(manifest, pupId)`
+  filters the fetched file list down to "this pup's own + the parents'"
+  before writing the family's breeder-doc layer — `pupId` is the family's
+  `pet.pup_id`. A `scope:'kennel'` pack carries no `dogId`/`parentDogIds` at
+  all and is never filtered (deliberately identical for every family). The
+  litter picker's checkbox groups (`dogGroupHtml`/`pickerHtml`) now label each
+  group **(Sire)**/**(Dam)**/**(Pup)** and carry an explanatory line, so which
+  documents go to everyone vs. one family is explicit in the UI, not just
+  implicit in the data.
+
+### 27.2 Feeding Schedules (breed default + litter override) — Pro-only
+
+The breeder's own recommended feeding amounts, structured as a small
+weight-band x age-column grid (both axes free text — a real breeder's printed
+feeding guide rarely fits a fixed set of life-stage labels) plus a food brand
+and notes. **Per breed**, not a kennel-wide default: a Boston Terrier's weight
+bands top out around 60 lbs, a large breed's look nothing like that. Rides into
+a placed pup's Furever seed packet so the family sees the breeder's own
+guidance instead of Furever's generic age-bracket placeholder
+(`furever/data/careLibrary.js` `FEEDING_PLAN`), which is untouched.
+
+- **`data/db.js`** — new table `breed_feeding_schedules: 'id, breed, is_archived'`.
+  `breed` is a free-text lookup key (matched case-insensitively/trimmed against
+  `Dog.breed`, same posture as CSV import's name matching), not a stored FK —
+  so it carries no `referenceRegistry` entry (`BREED_FEEDING_SCHEDULE_REFERENCES
+  = []`, a leaf like `CONTRACT_REFERENCES`/`DOCUMENT_REFERENCES`). Record shape:
+  `{ breed, food_brand, age_columns: string[], weight_rows: [{ label, amounts:
+  string[] }], notes }` — `amounts[i]` aligns with `age_columns[i]` by index.
+  `litters.feeding_schedule_override` is a plain, unindexed free-text field
+  (filtered in JS like the foster fields) — the per-litter override that takes
+  priority over the breed default; additive, no `litterRepo` code change needed
+  (its `update()` already merges arbitrary fields).
+- **`data/breedFeedingScheduleRepo.js`** — the standard thin repo
+  (`makeRepo('breed_feeding_schedules', ...)`), `breed` required, plus
+  `getByBreed(breed)` (case-insensitive/trimmed match, returns null when unset).
+- **`pages/breed-feeding-schedules.*`** (not a nav entry — reached via a "Open
+  Feeding Schedules →" doorway card on the own-kennel's Kennel detail page,
+  `pages/kennel.js` `feedingScheduleCard()`, alongside Lifecycle nudges and
+  Preferred tests; gated by `data/proPages.js`'s `PRO_ONLY_PAGES` the same as
+  every other Pro-only page) — one collapsible card per breed **pulled from the
+  kennel's own dogs**
+  (`dogRepo.getBreeds()` — the existing distinct-breed query breed autocomplete
+  already uses elsewhere, not a separate vocabulary), so a breeder only ever
+  authors schedules for breeds they actually have. Each card is a food-brand
+  input, an editable grid (add/remove weight row, add/remove age column, every
+  cell free text), and a notes field. Cell/label edits mutate an in-memory
+  draft directly (no re-render, so typing doesn't lose focus); add/remove
+  re-renders just that card from the updated draft, mirroring the litter-form
+  re-render pattern.
+- **`pages/litter.js`** — a `feeding_schedule_override` textarea (view row +
+  edit field), gated by `editionFlags.feedingSchedule` the same way the Foster
+  arrangement section is gated by `editionFlags.fosterArrangement`: absent from
+  the DOM in Lite, `readForm()` falls back to the stored draft value instead of
+  being clobbered to `''`.
+- **`data/fureverSeedExport.js`** — `buildSeedPacket` now also fetches the
+  pup's litter once (shared by both `contentPackages` and the new
+  `feedingSchedule` field, replacing two separate `litterRepo.getById` calls)
+  and adds `feedingSchedule: { litterOverride, breedSchedule }` — named-copy-only
+  like every other field here (never a record spread); `null` when neither a
+  litter override nor a breed default exists, so an untouched pup's Furever app
+  is unaffected.
+- **Furever side (`furever/pages/feeding.js`)** — purely additive: reads
+  `pet.seed.feedingSchedule` (already riding along unindexed in `pet.seed` —
+  `petRepo.upsertSeededPet` copies the whole incoming packet by spreading `seed`
+  into that one field, so **no `furever/` schema or repo change was needed** for
+  this to arrive) and renders a reference card above the existing age-bracket
+  radio presets: the litter override (if any) as a highlighted note, else the
+  breed grid as a small table. The family's own save/radio flow (`feedingRepo`,
+  `careLibrary.FEEDING_PLAN`) is completely untouched.
+- **Editions** — Pro/Demo only (the page itself, and its `kennel.js` doorway
+  card — `kennel.html` doesn't exist in the Lite build at all, so no extra
+  edition-flag gate was needed on the card). The litter override field is the
+  one piece that lives on a **shared** page (`litter.js`, kept in Lite), so
+  *that* needs its own flag: `editionFlags.feedingSchedule` is `true` in
+  `pro/editionConfig.js` and `demo/editionConfig.js`, `false` in
+  `lite/editionConfig.js`; `shared/data/editionConfig.js` (the Pro-semantics
+  default) also carries it — remember all **three edition copies plus the
+  shared default** need updating together for a new flag, since each edition
+  ships its own full `editionConfig.js` (`build/assemble.mjs` always overlays
+  `<edition>/editionConfig.js` verbatim — there is no shared/edition merge at
+  build time, despite `editionConfig.js`'s own header describing Pro/Demo as
+  "using the shared defaults"; in practice each keeps its own synced copy).
+  `breed-feeding-schedules.html` was added to `data/proPages.js`'s
+  `PRO_ONLY_PAGES` (excluded from the Lite build, and gates any in-app link to
+  it at runtime) — same mechanism as every other Pro-only page.

@@ -52,6 +52,38 @@ function customRadioHtml({ checked, customText }) {
     </div>`;
 }
 
+// The breeder's own guidance, when the seed packet carried one (Feeding
+// Schedules feature, breeder-side). A litter override (free text) renders as a
+// short highlighted note; a breed default renders as its weight x age grid.
+// Rendered ABOVE the existing age-bracket presets — those keep working exactly
+// as before, this is purely additive reference info.
+function breederScheduleHtml(fs, breed) {
+  if (!fs || (!fs.litterOverride && !fs.breedSchedule)) return '';
+  if (fs.litterOverride) {
+    return `<div class="card" style="margin-bottom:12px; border-left:3px solid var(--brand, #b06a4f);">
+      <h3 style="margin:0 0 6px;">Your breeder's recommendation</h3>
+      <p style="margin:0; white-space:pre-wrap;">${esc(fs.litterOverride)}</p>
+    </div>`;
+  }
+  const bs = fs.breedSchedule;
+  const cols = bs.ageColumns || [];
+  const rowsHtml = (bs.weightRows || []).map((r) => `
+    <tr><td style="padding:4px 8px 4px 0; white-space:nowrap;">${esc(r.label)}</td>${
+      cols.map((_, i) => `<td style="padding:4px 8px;">${esc((r.amounts || [])[i] || '')}</td>`).join('')
+    }</tr>`).join('');
+  return `<div class="card" style="margin-bottom:12px; border-left:3px solid var(--brand, #b06a4f);">
+    <h3 style="margin:0 0 6px;">Your breeder's feeding guide${breed ? ` for ${esc(breed)}` : ''}</h3>
+    ${bs.foodBrand ? `<p class="muted" style="margin:0 0 8px;">${esc(bs.foodBrand)}</p>` : ''}
+    <div style="overflow-x:auto;">
+      <table style="border-collapse:collapse; font-size:.9rem;">
+        <thead><tr><th style="text-align:left; padding:4px 8px 4px 0;">Weight</th>${cols.map((c) => `<th style="text-align:left; padding:4px 8px;">${esc(c)}</th>`).join('')}</tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>
+    ${bs.notes ? `<p class="muted" style="margin:8px 0 0;">${esc(bs.notes)}</p>` : ''}
+  </div>`;
+}
+
 function formHtml(pet, feeding) {
   const brand = feeding ? (feeding.brand || '') : '';
   const savedChoice = feeding ? feeding.schedule_choice : null;
@@ -109,7 +141,8 @@ async function render() {
       return;
     }
     const feeding = await feedingRepo.getForPet(pet.id);
-    body.innerHTML = formHtml(pet, feeding);
+    const fs = pet.seed && pet.seed.feedingSchedule;
+    body.innerHTML = breederScheduleHtml(fs, pet.breed) + formHtml(pet, feeding);
     wireForm(pet);
   } catch (err) {
     showError(err.message || String(err));

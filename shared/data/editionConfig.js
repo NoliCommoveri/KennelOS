@@ -86,6 +86,7 @@ export const editionFlags = {
   receiptAttach: true,     // Attach a receipt photo/PDF to an expense (file storage)
   externalOwnership: true, // external / leased dog ownership types
   assistant: true,         // Dropbox sync + KennelAssistant helper (§26)
+  feedingSchedule: true,   // Per-breed feeding schedules + a litter's override field
 };
 
 // --- Navigation ------------------------------------------------------------

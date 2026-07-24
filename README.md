@@ -155,7 +155,9 @@ selections), **Financials — the expense ledger + sales→income** ✅.
 
 **Pro-only (absent from Lite):**
 - People / Contacts section, full Kennel management, Stud services, Contracts.
-- Companion share-out, the Furever seed-link generator, Assistant, Documents + file storage.
+- Companion share-out, the Furever seed-link generator, Feeding Schedules
+  (per-breed feeding grids fed into the Furever seed packet), Assistant,
+  Documents + file storage.
 - External / leased dogs (Lite ownership picker = `owned` / `co_owned` only).
 - **All Reports** (Reports hub + every report page).
 - **Invoice / receipt generation** — the `pages/invoice.html` print doc.
@@ -177,6 +179,8 @@ selections), **Financials — the expense ledger + sales→income** ✅.
 - **Litter form's "Foster arrangement" section** is hidden entirely in Lite (Pro-only).
   In Pro/Demo it's a `<details>` disclosure, collapsed by default and open only when
   the litter already has foster data.
+- **Litter form's "Feeding schedule override" field** is hidden entirely in Lite
+  (Pro-only) — the per-litter override for the Feeding Schedules feature.
 - **Dashboard "Archived (any status)" tile** is hidden in Lite — archive counts are
   part of the hidden archive machinery (cap spec §7), not just the toggles/links.
 
