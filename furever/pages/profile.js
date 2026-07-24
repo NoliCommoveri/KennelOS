@@ -7,7 +7,7 @@ import { breederRepo } from '../data/breederRepo.js';
 import { getActivePetId } from '../data/settings.js';
 import { renderNav } from '../nav.js';
 import { SPECIES, SEX, PET_SOURCE, labelFor } from '../data/vocab.js';
-import { todayYMD, parsePartialDate, formatPartialDate } from '../data/dateUtils.js';
+import { todayYMD, daysBetween, parsePartialDate, formatPartialDate } from '../data/dateUtils.js';
 import { esc, ageLabel, imageFileToDataUrl, showError, clearError } from '../assets/ui.js';
 
 const body = document.getElementById('profile-body');
@@ -71,6 +71,80 @@ const MONTH_LABELS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
+
+// A full YYYY-MM-DD as a friendly "August 3, 2026". Falls back to the raw string
+// for anything unrecognized rather than hiding it.
+function formatLongDate(ymd) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd || '');
+  if (!m) return ymd || '';
+  const name = MONTH_LABELS[Number(m[2]) - 1];
+  return name ? `${name} ${Number(m[3])}, ${m[1]}` : ymd;
+}
+
+// --- Pre-pickup countdown card ----------------------------------------------
+// The emotional lead-in the Furever brief calls for (§"Pre-pickup countdown
+// message"): the breeder-authored photo + "it's almost time" + pickup
+// date/time/place + personal note, sitting ABOVE the pet's details on the pup's
+// landing page. It reads only the seed the breeder sent (pet.seed.pickupPlan /
+// pet.seed.note — decoded by seedLink.js, stored on the seeded pet), so nothing
+// here is family-authored and it never touches the family's own records. Shown
+// only for a SEEDED pet, and only until pickup day passes (a past pickup date
+// means the pup's already home — the card retires itself).
+function countdownCardHtml(pet) {
+  if (pet.source !== 'seeded' || !pet.seed) return '';
+  const plan = pet.seed.pickupPlan || {};
+  const note = (pet.seed.note || '').trim();
+  const hasPlan = !!(plan.date || plan.time || plan.place || plan.photoUrl);
+  if (!hasPlan && !note) return '';
+
+  let daysToGo = null;
+  if (plan.date) {
+    daysToGo = daysBetween(todayYMD(), plan.date);
+    if (daysToGo < 0) return ''; // pickup has passed — the pup's home now
+  }
+
+  const name = esc(pet.name || 'your pup');
+  let headline;
+  let countLine = '';
+  if (daysToGo === null) {
+    headline = `Get ready for ${name}!`;
+  } else if (daysToGo === 0) {
+    headline = `${name} comes home today!`;
+    countLine = 'Today! 🎉';
+  } else if (daysToGo === 1) {
+    headline = `${name} comes home tomorrow!`;
+    countLine = '1 day to go';
+  } else {
+    headline = `It's almost time for ${name} to come home!`;
+    countLine = `${daysToGo} days to go`;
+  }
+
+  const photo = plan.photoUrl
+    ? `<img class="countdown-photo" src="${esc(plan.photoUrl)}" alt="${name}" onerror="this.remove()" />`
+    : '';
+
+  const rows = [];
+  if (plan.date) {
+    rows.push(`<div class="countdown-detail"><span aria-hidden="true">📅</span> ${esc(formatLongDate(plan.date))}${plan.time ? ` · ${esc(plan.time)}` : ''}</div>`);
+  } else if (plan.time) {
+    rows.push(`<div class="countdown-detail"><span aria-hidden="true">🕑</span> ${esc(plan.time)}</div>`);
+  }
+  if (plan.place) rows.push(`<div class="countdown-detail"><span aria-hidden="true">📍</span> ${esc(plan.place)}</div>`);
+
+  const countHtml = countLine ? `<div class="countdown-badge">${esc(countLine)}</div>` : '';
+  const noteHtml = note ? `<p class="countdown-note">${esc(note)}</p>` : '';
+
+  return `
+    <section class="countdown-card" aria-label="Pickup countdown">
+      ${photo}
+      <div class="countdown-body">
+        ${countHtml}
+        <h2 class="countdown-headline">${headline}</h2>
+        <div class="countdown-details">${rows.join('')}</div>
+        ${noteHtml}
+      </div>
+    </section>`;
+}
 
 function editFormHtml(pet) {
   const speciesOpts = SPECIES.map((s) => `<option value="${s.value}"${s.value === pet.species ? ' selected' : ''}>${esc(s.label)}</option>`).join('');
@@ -138,7 +212,7 @@ async function render() {
     }
 
     const breeder = pet.breeder_id ? await breederRepo.getById(pet.breeder_id) : null;
-    body.innerHTML = photoBoxHtml(pet) + detailsHtml(pet, breeder);
+    body.innerHTML = countdownCardHtml(pet) + photoBoxHtml(pet) + detailsHtml(pet, breeder);
     wirePhoto(pet);
     wireEdit(pet);
   } catch (err) {
