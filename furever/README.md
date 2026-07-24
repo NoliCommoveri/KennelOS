@@ -128,6 +128,34 @@ a republish just replaces it in place). See
 including the breeder-side publish console in the main KennelOS repo
 (`shared/pages/furever.*`).
 
+**Training is now built**, compiled from AKC and The Kennel Club (UK) — see
+`docs/Puppy_Training_Guide_Content_Brief.md` for sourcing/rationale. Unlike every
+other Furever table, `training_skills` holds CONTENT, not family data: it's
+version-gated seeded from `data/trainingContent.js` (`trainingSkillRepo.
+ensureTrainingSkillsSeeded()`, called from `app.js` boot — a blind wholesale
+replace on a content bump, same discipline as a breeder content-pack republish),
+so it can still be queried/filtered with Dexie like everything else. The page
+(`pages/training.*`) offers a **track dropdown** switching between three
+overlapping programs — AKC's age-staged Timeline (auto-expands the pet's current
+stage by age in weeks), AKC's S.T.A.R. Puppy flat checklist, and the Kennel
+Club's level scheme (Puppy Foundation → Bronze → Silver → Gold, sequential by
+prerequisite rather than age) — each skill showing its category, source link,
+and teaching steps. **Progress ports between tracks**: `skill_progress` is keyed
+on `[pet_id+skill_concept_id]` (a curated cross-program equivalence id in
+`trainingContent.js`, NOT the per-track skill id), so marking "Sits on cue"
+learned under S.T.A.R. shows the Timeline's "Sit before good things happen" and
+the Kennel Club's Bronze sit/down/stay skill as learned too — the three tracks
+cover a lot of the same ground under different wording. Logging a practice
+session (`practice_logs`, append-only, mirrors `care_events`' spirit but kept
+separate since training isn't a derived/due-date schedule) auto-bumps a
+not-started skill to "in progress"; "Mark as learned" is a friction-free toggle,
+not a locked state machine, matching the un-mark posture of Dog/Pairing status
+fields elsewhere in KennelOS. Browser-verified end to end (headless Chromium):
+added a pet at 10 weeks old → Training opened with Stage 1 auto-expanded → logged
+a practice and marked "Sit before good things happen" learned → switched tracks
+to S.T.A.R. → the equivalent "Sits on cue" showed Learned already; switched to
+the Kennel Club scheme → all four levels rendered; no console errors.
+
 Still to build: the **service worker / PWA / manifest** (offline + install) for
 Furever itself. The app runs online today; the offline layer is deliberately
 deferred until the page set settles.
@@ -164,7 +192,9 @@ furever/
                            + care-history section
     feeding.html  + .js  — Feeding: food brand + age-driven schedule radios / Custom
     potty.html    + .js  — Potty: one-day-at-a-time house-training log
-    training.html + .js  — Training (placeholder — needs research)
+    training.html + .js  — Training: track dropdown (AKC Timeline / S.T.A.R. /
+                           Kennel Club), skills grouped by stage or level, log a
+                           practice + mark learned (progress ports across tracks)
     documents.html+ .js  — Documents: file vault (add/download/hard-delete)
     photos.html   + .js  — Photos: gallery grid + view modal (add/hard-delete)
     contacts.html + .js  — Contacts: the pet's own + family-wide contacts (add/
@@ -189,6 +219,9 @@ furever/
     appReset.js          — "Reset app": clears every table + every localStorage key,
                            back to first-run (no reference guard); Settings danger button
     careLibrary.js       — universal dog schedule + FEEDING_PLAN / safety content (shipped)
+    trainingContent.js   — universal puppy training curriculum content (AKC +
+                           Kennel Club UK), incl. the cross-program
+                           skill_concept_id grouping; seeded into training_skills
     schedule.js          — the DERIVED reminder engine (stores nothing)
     seedLink.js          — decodes + applies a breeder "#seed=…" link (decompress →
                            parse → validate → upsert breeder → upsert pet); no DOM
@@ -198,6 +231,11 @@ furever/
     contactRepo.js       — family's own contacts (vet, groomer, …)
     careEventRepo.js     — append-only actuals log ("what happened")
     carePlanRepo.js      — family-authored cadences
+    trainingSkillRepo.js — reads training_skills + ensureTrainingSkillsSeeded()
+                           (the version-gated bulk-load from trainingContent.js)
+    practiceLogRepo.js   — append-only "I practiced this" log (practice_logs)
+    skillProgressRepo.js — the [pet_id+skill_concept_id] "learned" state, not
+                           built on repoBase (compound key, no single id)
     feedingRepo.js       — the pet's feeding setup (one row per pet: brand + choice)
     pottyRepo.js         — the house-training log (potty_events)
     documentRepo.js      — document vault (owns a file); breeder-published rows
@@ -216,6 +254,9 @@ furever/
 - `docs/KennelOS_Furever_Schema.md` — the data-model spec this code implements
   (the two design decisions: pet-as-scope and derived reminders).
 - `docs/KennelOS_Furever_Family_App_Brief.md` — the starter brief / product intent.
+- `docs/Puppy_Training_Guide_Content_Brief.md` — sourcing/rationale for the
+  Training content (AKC + Kennel Club UK), plus an implementation-status note on
+  how the shipped schema differs from its original §6 suggestion.
 
 ## Conventions
 Same as the breeder core (`CLAUDE.md`): pages → repos → Dexie; UUID ids; soft

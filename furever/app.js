@@ -12,6 +12,7 @@ import { wasPersistRequested, markPersistRequested, setActivePetId } from './dat
 import { consumeSeedLink, SeedLinkError } from './data/seedLink.js';
 import { fetchContentPackagesForPet } from './data/contentPackFetch.js';
 import { petRepo } from './data/petRepo.js';
+import { ensureTrainingSkillsSeeded } from './data/trainingSkillRepo.js';
 import { showError } from './assets/ui.js';
 
 async function firstRunPersistence() {
@@ -68,6 +69,7 @@ async function runPendingContentPackFetch() {
 async function boot() {
   const redirecting = await consumeSeedLinkIfPresent();
   if (redirecting) return;
+  await ensureTrainingSkillsSeeded();
   await renderNav();
   await firstRunPersistence();
   runPendingContentPackFetch();

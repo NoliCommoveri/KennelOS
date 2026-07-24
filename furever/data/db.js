@@ -73,6 +73,27 @@ export const db = new Dexie('KennelOSFurever');
 //    are blindly replaced wholesale on a pack version bump
 //    (documentRepo.replaceBreederLayer); family uploads (source:'self', default)
 //    are never touched by a fetch.
+//  - training_skills is CONTENT seeded from trainingContent.js (trainingSkillRepo.
+//    ensureSeeded(), version-gated), not family data — a table only so the
+//    Training page can query/filter it with Dexie like everything else. A content
+//    bump wipes and re-bulk-puts the whole table; never edited in place, and never
+//    referenced by referenceRegistry (a family's practice_logs.skill_id points at
+//    a stable content id the same way plan_item_id points at a careLibrary id).
+//    Indexed on program_id/stage_id/level_id/category_id (the Training page's
+//    filters) and skill_concept_id (how progress ports between tracks — see
+//    trainingContent.js's header).
+//  - practice_logs is the family's append-only "I practiced this" log — same
+//    shape/spirit as care_events but kept separate since a practice session isn't
+//    scheduled/derived the way vaccines are. `skill_id` names the exact
+//    training_skills row practiced (for the history view); indexed on pet_id
+//    (scope) and session_date (newest-first).
+//  - skill_progress is the "mark it learned" state, ONE ROW PER pet × concept
+//    (compound key `[pet_id+skill_concept_id]`, not per skill_id) so marking a
+//    skill learned on one track shows as learned on every other track's
+//    equivalent skill. Status is not a locked state machine — a family can
+//    un-mark a skill without friction, same posture as Dog/Pairing status
+//    elsewhere. `last_practiced_at` is NOT stored here — derive it from
+//    practice_logs, same "derive, don't duplicate" principle as elsewhere.
 //  - content_packs is the MANIFEST CACHE for a breeder's published packs
 //    (Content Package Fetch Mechanism §3.3 — repurposed from an earlier "custom
 //    overlay" design, dropped for a documents-only payload): just "which version
@@ -104,7 +125,10 @@ db.version(1).stores({
   documents:     'id, pet_id, doc_type, doc_date, is_archived',
   photos:        'id, pet_id, taken_date, is_archived',
   files:         'id, created_at',
-  content_packs: 'id, &pack_key'
+  content_packs: 'id, &pack_key',
+  training_skills: 'id, program_id, stage_id, level_id, category_id, skill_concept_id',
+  practice_logs:   'id, pet_id, skill_id, session_date, is_archived',
+  skill_progress:  '[pet_id+skill_concept_id], pet_id, status'
 });
 
 // --- First-run storage durability -----------------------------------------
