@@ -78,5 +78,4 @@ export const moreItems = [
   { label: 'Documents',     path: 'pages/documents.html' },
   { label: 'Companion',     path: 'pages/companion.html' },
   { label: 'Furever',       path: 'pages/furever.html' },
-  { label: 'Feeding Schedules', path: 'pages/breed-feeding-schedules.html' },
 ];

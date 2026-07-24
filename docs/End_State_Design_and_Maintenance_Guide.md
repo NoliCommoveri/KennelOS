@@ -816,8 +816,8 @@ Breeding: `pairings`/`pairing`, `litters`/`litter`, `active-breeding`, `live-bir
 People: `contact`, `kennels` (list — identity CRUD only: name/prefix/location/own + archive/
 delete; the add form stays collapsed behind a **+ Add New Kennel** button, and rows sort own
 kennels first then everyone else's alphabetically by name) / `kennel` (detail — hosts that kennel's Expenses ledger plus, for own kennels, its
-program configuration: the preferred-tests panel and the lifecycle-nudge thresholds). Both
-map to the People hub in `HUB_CHILDREN`.
+program configuration: the preferred-tests panel, the lifecycle-nudge thresholds, and a
+doorway card into Feeding Schedules, §27.2). Both map to the People hub in `HUB_CHILDREN`.
 Placements/contracts: `sale`/`sales`, `stud-service`/`stud-services`, `contract`/`contracts`,
 `puppy-record` (print-only puppy record, §23 — not a nav entry, reached from `sale`/`sales`).
 Financials print docs: `invoice` (print-only invoice/receipt generator, §24 — not a nav
@@ -829,8 +829,8 @@ Reports: `litters-report`, `stud-services-report`, `placements-report`,
 `health-tests-report`, `litter-finances-report` (Litter P&L; `data/litterFinances.js`).
 Import pages: `dog-import`, `contact-import`, `pairing-import`, `litter-import`,
 `sale-import`, `event-import`, `stud-service-import`, `expense-import`, `kennel-tests-import`.
-`breed-feeding-schedules` (Feeding Schedules — per-breed feeding grids, §27.2 — in the
-"More" menu, Pro-only).
+`breed-feeding-schedules` (Feeding Schedules — per-breed feeding grids, §27.2 — Pro-only,
+reached from the Kennel detail page, not a nav entry).
 
 ---
 
@@ -1866,9 +1866,12 @@ guidance instead of Furever's generic age-bracket placeholder
 - **`data/breedFeedingScheduleRepo.js`** — the standard thin repo
   (`makeRepo('breed_feeding_schedules', ...)`), `breed` required, plus
   `getByBreed(breed)` (case-insensitive/trimmed match, returns null when unset).
-- **`pages/breed-feeding-schedules.*`** ("More" menu, "Feeding Schedules", gated
-  by `editionFlags.feedingSchedule` + `data/proPages.js`'s `PRO_ONLY_PAGES`) —
-  one collapsible card per breed **pulled from the kennel's own dogs**
+- **`pages/breed-feeding-schedules.*`** (not a nav entry — reached via a "Open
+  Feeding Schedules →" doorway card on the own-kennel's Kennel detail page,
+  `pages/kennel.js` `feedingScheduleCard()`, alongside Lifecycle nudges and
+  Preferred tests; gated by `data/proPages.js`'s `PRO_ONLY_PAGES` the same as
+  every other Pro-only page) — one collapsible card per breed **pulled from the
+  kennel's own dogs**
   (`dogRepo.getBreeds()` — the existing distinct-breed query breed autocomplete
   already uses elsewhere, not a separate vocabulary), so a breeder only ever
   authors schedules for breeds they actually have. Each card is a food-brand
@@ -1897,7 +1900,11 @@ guidance instead of Furever's generic age-bracket placeholder
   radio presets: the litter override (if any) as a highlighted note, else the
   breed grid as a small table. The family's own save/radio flow (`feedingRepo`,
   `careLibrary.FEEDING_PLAN`) is completely untouched.
-- **Editions** — Pro/Demo only. `editionFlags.feedingSchedule` is `true` in
+- **Editions** — Pro/Demo only (the page itself, and its `kennel.js` doorway
+  card — `kennel.html` doesn't exist in the Lite build at all, so no extra
+  edition-flag gate was needed on the card). The litter override field is the
+  one piece that lives on a **shared** page (`litter.js`, kept in Lite), so
+  *that* needs its own flag: `editionFlags.feedingSchedule` is `true` in
   `pro/editionConfig.js` and `demo/editionConfig.js`, `false` in
   `lite/editionConfig.js`; `shared/data/editionConfig.js` (the Pro-semantics
   default) also carries it — remember all **three edition copies plus the
@@ -1906,8 +1913,6 @@ guidance instead of Furever's generic age-bracket placeholder
   `<edition>/editionConfig.js` verbatim — there is no shared/edition merge at
   build time, despite `editionConfig.js`'s own header describing Pro/Demo as
   "using the shared defaults"; in practice each keeps its own synced copy).
-  `moreItems` in all three (Pro/Demo/shared) got a "Feeding Schedules" entry;
-  Lite's `moreItems` is a separate short list that was never going to include
-  it. `breed-feeding-schedules.html` was added to `data/proPages.js`'s
+  `breed-feeding-schedules.html` was added to `data/proPages.js`'s
   `PRO_ONLY_PAGES` (excluded from the Lite build, and gates any in-app link to
   it at runtime) — same mechanism as every other Pro-only page.
