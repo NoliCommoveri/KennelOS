@@ -10,6 +10,12 @@
 > The open decisions were settled by the owner on 2026-07-24 (§ Decisions (settled)): OAuth-write
 > primary with a manual fallback; documents stay **dog-scoped** with a **bulk-add** picker; and
 > published files carry a sensitive-doc warning + per-doc opt-in. Ready for Sonnet to build.
+>
+> **§5.1 update (2026-07-24): the one-time Google Cloud setup is done.** The owner created the
+> Cloud project, enabled the Drive API, configured the OAuth consent screen (`drive.file` only),
+> and created + restricted both credentials. Both are now recorded in code — see §5.1/§5.2 below
+> for the values and file homes. The connect/publish/fetch mechanism itself (everything else in
+> this doc) is still unbuilt.
 
 ---
 
@@ -291,6 +297,11 @@ documents (`source:'self'`) are never involved.
 
 ### 5.1 Owner one-time setup — Google Cloud (like registering the Dropbox app once)
 
+**Status: done (2026-07-24).** Steps 1–5 below are complete; the owner confirmed both
+credentials' restrictions are set (API key: HTTP referrer + API restriction; OAuth client:
+JS origins). Left as a numbered list because it's also the recipe for rotating either
+credential later, not just the original setup log.
+
 1. **Create a Google Cloud project** (e.g. "KennelOS").
 2. **Enable the Google Drive API** on it.
 3. **OAuth consent screen:** User type **External**; app name/logo/support email; scope list =
@@ -315,13 +326,25 @@ documents (`source:'self'`) are never involved.
 > Dropbox / domain items in `README.md` § Next and `build/README.md` as an
 > owner-does-once external prerequisite.
 
+**Recorded values (2026-07-24)** — the source of truth is the code in §5.2; copied here
+only so a new session doesn't have to open those files to see what's configured. Both are
+public by design (see § 6) — the restrictions above are the actual control, not secrecy.
+
+- OAuth 2.0 Client ID: `566763436944-k7rk72avivr1qg5nd7sn1fhbbg0343r2.apps.googleusercontent.com`
+- API key: `AIzaSyBvoty8PqxHv6KaZ3le_H0LNHYW9KhpZIk`
+
 ### 5.2 Where the credentials live in code
 
-| Credential | Build | Suggested home | Precedent |
+| Credential | Build | Home | Precedent |
 |---|---|---|---|
-| OAuth client ID (`drive.file`) | KennelOS (`shared/`, Pro console) | new `shared/data/googleDrive.js` const | `dropbox.js` `APP_KEY` |
-| Public Drive API read key | Furever (`furever/`) | new `furever/data/contentPackFetch.js` const | brief appendix |
+| OAuth client ID (`drive.file`) | KennelOS (`shared/`, Pro console) | `shared/data/googleDrive.js` — `CLIENT_ID` const (done) | `dropbox.js` `APP_KEY` |
+| Public Drive API read key | Furever (`furever/`) | `furever/data/contentPackFetch.js` — `API_KEY` const (done) | brief appendix |
 | GIS library `gsi/client.js` | KennelOS | **vendored** into `shared/vendor/` + precached | no-CDN rule |
+
+Both `googleDrive.js` and `contentPackFetch.js` exist today holding only the credential
+const — the connect/publish/fetch logic described in §2–4 that will actually *use* them is
+not built yet (that's the next chunk of work, scoped separately from this one-time setup).
+The GIS library row above is still pending — nothing is vendored yet.
 
 ### 5.3 Breeder per-kennel steps (in-app, minimal)
 
