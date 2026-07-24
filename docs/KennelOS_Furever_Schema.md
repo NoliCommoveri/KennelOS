@@ -83,6 +83,8 @@ db.version(1).stores({
   contacts:      'id, pet_id, contact_type, is_archived',
   care_events:   'id, pet_id, plan_item_id, event_type, event_date, is_archived',
   care_plans:    'id, pet_id, category, is_archived',
+  feeding:       'id, pet_id, is_archived',
+  potty_events:  'id, pet_id, occurred_date, is_archived',
   documents:     'id, pet_id, doc_type, doc_date, is_archived',
   photos:        'id, pet_id, taken_date, is_archived',
   files:         'id, created_at',
@@ -183,6 +185,38 @@ just the family's own (“vet said every 6 weeks”). Each row's `id` is the
 | `cadence` | | `{ kind:'once' }` or `{ kind:'recurring', interval, unit }` |
 | `is_archived` | ✓* | |
 
+### feeding — the pet's feeding setup
+Family layer. **One row per pet** (`feedingRepo.getForPet`/`saveForPet` upsert on
+`pet_id`): the pet's food brand plus a chosen feeding schedule. The age→portion
+presets themselves are **content** (`careLibrary.FEEDING_PLAN`, keyed to the
+life-stage brackets in `ageBrackets.js`), not rows — only the family's brand +
+choice persist here.
+
+| field | indexed | notes |
+|---|---|---|
+| `id` | ✓ (pk) | |
+| `pet_id` | ✓ | scope index; one row per pet |
+| `brand` | | free text, e.g. "Purina Pro Plan Puppy" |
+| `schedule_choice` | | an `AGE_BRACKETS` value (accepted an age preset) **or** `'custom'` |
+| `custom_schedule` | | the family's own schedule text; set only when `schedule_choice='custom'` |
+| `is_archived` | ✓* | |
+
+### potty_events — the house-training log
+Family layer. High-frequency, unscheduled taps shown **one calendar day at a
+time** (Potty page). Kept **out of `care_events`** on purpose so that table stays
+the scheduled-care actuals log (the `plan_item_id` pairing). A leaf — nothing
+points at a potty row, so the page's "remove" hard-deletes freely.
+
+| field | indexed | notes |
+|---|---|---|
+| `id` | ✓ (pk) | |
+| `pet_id` | ✓ | scope index |
+| `occurred_date` | ✓ | `YYYY-MM-DD`; the day the potty happened (the one-day-at-a-time view keys on it) |
+| `occurred_time` | | `HH:MM` captured at log time, for ordering within the day |
+| `outcome` | | vocab `POTTY_OUTCOME` (`success` \| `accident`) |
+| `notes` | | optional, unindexed |
+| `is_archived` | ✓* | |
+
 ### documents — the document vault
 Family layer. Each owns exactly one `files` row.
 
@@ -237,16 +271,16 @@ One declared list of every FK pointing **at** each entity; hard delete is blocke
 whenever any reference exists (archive instead). Canonical direction only — the
 reverse is always a derived query.
 
-- **PET_REFERENCES** — `care_events.pet_id`, `care_plans.pet_id`, `contacts.pet_id`,
-  `documents.pet_id`, `photos.pet_id`.
+- **PET_REFERENCES** — `care_events.pet_id`, `care_plans.pet_id`, `feeding.pet_id`,
+  `potty_events.pet_id`, `contacts.pet_id`, `documents.pet_id`, `photos.pet_id`.
 - **BREEDER_REFERENCES** — `pets.breeder_id`.
 - **CARE_PLAN_REFERENCES** — `care_events.plan_item_id`. (A logged actual against a
   family plan blocks its delete. Universal/pack item ids also live in
   `plan_item_id` but point at content, not a row, so they never match this guard —
   intended.)
-- **Leaves** (nothing points at them): `contacts`, `care_events`, `documents`,
-  `photos`, `content_packs`. `files` is owned by one document/photo and deleted by
-  it, never guarded.
+- **Leaves** (nothing points at them): `contacts`, `care_events`, `feeding`,
+  `potty_events`, `documents`, `photos`, `content_packs`. `files` is owned by one
+  document/photo and deleted by it, never guarded.
 
 **When you add an FK, add its line here** or hard delete will silently orphan.
 
@@ -270,9 +304,16 @@ it computes each item's live state:
 
 `careLibrary.js` ships a representative universal dog schedule (puppy vaccine +
 deworming series, arrival-week well-visit, monthly preventative, annual exam/
-boosters), a feeding guide, and a poisonous-foods list. It is a **shape-correct
-starter, not a vet-authoritative protocol** — real content is a launch task.
-Schedule item ids are shipped-stable (logged history references them).
+boosters), the age-driven **`FEEDING_PLAN`** (per-bracket portion + meals-per-day,
+what the Feeding page offers as radio presets), and a poisonous-foods list. It is a
+**shape-correct starter, not a vet-authoritative protocol** — real content is a
+launch task. Schedule item ids are shipped-stable (logged history references them).
+
+**Life-stage brackets (`ageBrackets.js`).** `AGE_BRACKETS` — up to 2 months / 2–6 /
+6–12 / 1 year+ — is the shared life-stage vocabulary the Health page buckets its
+schedule by (auto-expanding the pet's current stage) and the Feeding page keys its
+age presets to. An item is bucketed by the age it comes **due at** (`offsetToMonths`
+of its offset), so bucketing works even before a birthday is on file.
 
 ---
 
@@ -319,8 +360,8 @@ file map):
   Family page) over the **left sidebar** (`At A Glance`, one entry per pet, `Add New
   Pet`) which is also the **active-pet picker** (the pet-as-scope decision, made real:
   picking a pet re-scopes every page), plus the pet-scoped **top sub-nav** (Profile /
-  Reminders / Log). The sidebar is an off-canvas drawer on mobile (opened from the ☰
-  in the banner).
+  Health / Feeding / Potty / Training). The sidebar is an off-canvas drawer on mobile
+  (opened from the ☰ in the banner).
 - `pages/family.*` — **Family & Settings**: the family name (→ `household` singleton,
   surfaced in the banner), the family-wide **vet** (→ a `contacts` row, `pet_id` null),
   and a simple **theme switcher** (Warm / Ocean / Forest / Berry / Slate — a
@@ -329,14 +370,30 @@ file map):
   (`schedule.familyDueSoon`), the one cross-pet view; carries no sub-nav.
 - `pages/profile.*` — a pet's landing page: an Add-Picture box (the chosen image is
   downscaled to a data URL and stored in `pet.photo_url`) plus the pet's details at a
-  large size, with inline editing.
-- `pages/reminders.*` — the active pet's **derived schedule** (`evaluateSchedule`)
-  with a one-tap **log-done** that appends a `care_events` actual (the reminder clears
-  / a recurring item rolls forward).
-- `pages/log.*` — the active pet's **care history** (the logged `care_events` actuals).
+  large size, with inline editing. Above the details it renders the **pre-pickup
+  countdown card** (seeded pets, from `pet.seed.pickupPlan`/`note`, retiring itself once
+  pickup day passes) and, in the meta row, a **Breeder Info** button that opens the
+  breeder "call us anytime" card as a modal — the seed-layer `breeders` row this pet's
+  `breeder_id` points at (kennel name, the breeder's own contact, and their vet as a
+  referral). Read-only display of breeder-authored seed; the family never edits it.
+- `pages/health.*` — the merged **Reminders + Log** page. The active pet's
+  **derived schedule** (`evaluateSchedule`) **bucketed by life-stage** (`ageBrackets.js`):
+  each bracket is a collapsible `<details>` and only the pet's **current age bucket**
+  is open on load. Beside each reminder is an inline **completed-on date** (defaults to
+  today) + a log button that appends a `care_events` actual (the reminder clears / a
+  recurring item rolls forward). A collapsible **Care history** section below lists the
+  logged actuals (the former Log page). Replaces `pages/reminders.*` + `pages/log.*`.
+- `pages/feeding.*` — the pet's **food brand** + a **feeding schedule** chosen from
+  age-driven radio presets (`careLibrary.FEEDING_PLAN`, current-age one marked
+  Recommended) or **Custom**, persisted to the `feeding` row (`feedingRepo`).
+- `pages/potty.*` — the **house-training log**, one day at a time (prev/next day),
+  with one-tap **Went outside** / **Accident** buttons appending `potty_events`
+  (`pottyRepo`) and a per-day tally + removable entries.
+- `pages/training.*` — **placeholder** ("coming soon"); real training content needs
+  research (schema doc § Not built yet).
 - `pages/addpet.*` — the **Add New Pet** form (creates a self pet, then opens Profile).
 - `assets/petSchedule.js` assembles a pet's schedule sources (universal library +
-  family plans; packs deferred) so At A Glance and Reminders agree; `assets/ui.js`
+  family plans; packs deferred) so At A Glance and Health agree; `assets/ui.js`
   holds the shared `esc`/`badge` helpers and `imageFileToDataUrl` (profile-photo
   downscale).
 
@@ -400,9 +457,11 @@ the decoder above consumes:
   pickup plan all decoded correctly; no console errors on either side.
 
 ## Not built yet
-The **one-time content-pack fetch**, the **document / photo / contact** pages,
-**import-export / backup**, the pre-pickup **countdown card** (the packet already
-carries `pickupPlan`, but no Furever page renders it yet), and the **service
-worker / PWA / precache** (offline + install). The app runs online today; the
-offline layer is deferred until the page set settles. The deploy pipeline is ready
-to ship whatever `furever/` contains.
+The **Training page** (placeholder only — needs a researched puppy curriculum), the
+**one-time content-pack fetch** (which will also supply the breeder's real feeding
+plan, replacing `FEEDING_PLAN`'s placeholder portions), the **document / photo /
+contact** pages (the family's own contacts — the seed-layer breeder/vet card is
+built, see profile above), **import-export / backup**, and the **service worker /
+PWA / precache** (offline + install). The app runs online today; the offline layer
+is deferred until the page set settles. The deploy pipeline is ready to ship
+whatever `furever/` contains.

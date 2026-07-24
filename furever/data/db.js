@@ -74,6 +74,14 @@ export const db = new Dexie('KennelOSFurever');
 //    banner) and room to grow (address/phone later). App-wide, not pet-scoped, so
 //    it carries no pet_id and nothing points at it. Their vet and other contacts
 //    are NOT here — those are family-wide `contacts` rows (pet_id null).
+//  - feeding is ONE ROW PER PET (feedingRepo upserts by pet_id): the pet's food
+//    brand + chosen feeding schedule (an age-bracket preset key or a Custom text).
+//    The age→portion presets themselves are CONTENT (careLibrary.FEEDING_PLAN),
+//    not rows; only the family's brand + choice persist here.
+//  - potty_events is the Potty page's high-frequency log (a success or an
+//    accident, with the calendar date it happened). Kept OUT of care_events so
+//    that table stays the scheduled-care actuals log (plan_item_id pairing);
+//    indexed on pet_id (scope) + occurred_date (the one-day-at-a-time view).
 db.version(1).stores({
   pets:          'id, pup_id, source, breeder_id, species, is_archived',
   breeders:      'id, breeder_key, is_archived',
@@ -81,6 +89,8 @@ db.version(1).stores({
   contacts:      'id, pet_id, contact_type, is_archived',
   care_events:   'id, pet_id, plan_item_id, event_type, event_date, is_archived',
   care_plans:    'id, pet_id, category, is_archived',
+  feeding:       'id, pet_id, is_archived',
+  potty_events:  'id, pet_id, occurred_date, is_archived',
   documents:     'id, pet_id, doc_type, doc_date, is_archived',
   photos:        'id, pet_id, taken_date, is_archived',
   files:         'id, created_at',

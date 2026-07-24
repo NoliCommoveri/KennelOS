@@ -13,11 +13,13 @@ import { db, existingTableNames } from './db.js';
 // The whole family layer hangs off the pet, so a pet can't be hard-deleted while
 // any of its records survive — archive it (which the active-pet menu hides).
 export const PET_REFERENCES = [
-  { table: 'care_events', field: 'pet_id', label: 'a logged care entry' },
-  { table: 'care_plans',  field: 'pet_id', label: 'a custom care plan' },
-  { table: 'contacts',    field: 'pet_id', label: 'a saved contact' },
-  { table: 'documents',   field: 'pet_id', label: 'a filed document' },
-  { table: 'photos',      field: 'pet_id', label: 'a photo' }
+  { table: 'care_events',  field: 'pet_id', label: 'a logged care entry' },
+  { table: 'care_plans',   field: 'pet_id', label: 'a custom care plan' },
+  { table: 'feeding',      field: 'pet_id', label: 'a feeding plan' },
+  { table: 'potty_events', field: 'pet_id', label: 'a potty log entry' },
+  { table: 'contacts',     field: 'pet_id', label: 'a saved contact' },
+  { table: 'documents',    field: 'pet_id', label: 'a filed document' },
+  { table: 'photos',       field: 'pet_id', label: 'a photo' }
 ];
 
 // --- Breeder: what can point at a Breeder -----------------------------------
@@ -42,6 +44,8 @@ export const CARE_PLAN_REFERENCES = [
 // document/photo and deleted alongside it (fileRepo), never guarded here.
 export const CONTACT_REFERENCES = [];
 export const CARE_EVENT_REFERENCES = [];
+export const FEEDING_REFERENCES = [];
+export const POTTY_EVENT_REFERENCES = [];
 export const DOCUMENT_REFERENCES = [];
 export const PHOTO_REFERENCES = [];
 export const CONTENT_PACK_REFERENCES = [];

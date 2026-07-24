@@ -35,16 +35,17 @@ function detailRow(key, val) {
 }
 
 // The age/breeder line under the name: age (derived from DOB) on the left,
-// the breeder's kennel name on the right when this pet came from one — same
-// line, so the two never compete for vertical space on a small screen.
+// a "Breeder Info" button on the right when this pet came from a breeder — same
+// line, so the two never compete for vertical space on a small screen. The
+// button opens the breeder "call us anytime" card (breederModal below); the
+// kennel name itself now lives inside that card rather than on this line.
 function metaRowHtml(pet, breeder) {
   const age = pet.date_of_birth ? ageLabel(pet.date_of_birth, todayYMD()) : '';
-  const kennelName = breeder && breeder.kennel_name;
-  if (!age && !kennelName) return '';
+  if (!age && !breeder) return '';
   return `
     <div class="profile-meta-row">
       <span class="profile-age">${age ? `${esc(age)} old` : ''}</span>
-      <span class="profile-breeder">${kennelName ? esc(kennelName) : ''}</span>
+      ${breeder ? `<button type="button" class="btn btn-sm" id="btn-breeder-info">Breeder Info</button>` : ''}
     </div>`;
 }
 
@@ -63,7 +64,7 @@ function detailsHtml(pet, breeder) {
     <div class="pill-row" style="margin-bottom:.5rem;">
       <button type="button" class="btn btn-sm" id="btn-edit">Edit details</button>
     </div>
-    ${pet.date_of_birth ? '' : '<p class="muted">Add a birthday to unlock the care schedule on the Reminders page.</p>'}
+    ${pet.date_of_birth ? '' : '<p class="muted">Add a birthday to unlock the care schedule on the Health page.</p>'}
     <div class="detail-list">${rows.join('')}</div>`;
 }
 
@@ -146,6 +147,77 @@ function countdownCardHtml(pet) {
     </section>`;
 }
 
+// --- Breeder Info card (the "call us anytime" popup) ------------------------
+// The seed-layer breeder identity (breederRepo → the `breeders` row this pet's
+// breeder_id points at), surfaced on demand behind the meta-row's "Breeder Info"
+// button. Everything here is breeder-authored seed data (kennel name + their own
+// contact + their vet's contact); the family never edits it, so this is read-only
+// display. Shown as a modal overlay so it stays one tap away for years (brief
+// §"Why it's good for the breeder") without taking permanent space on the page.
+
+// A phone number as a tappable tel: link (this whole card is a "call us" prompt),
+// falling back to plain escaped text when there's no number.
+function phoneHtml(phone) {
+  const p = (phone || '').trim();
+  if (!p) return '';
+  return `<a href="tel:${encodeURIComponent(p)}">${esc(p)}</a>`;
+}
+
+function breederModalHtml(breeder) {
+  const contact = breeder.breeder_contact || {};
+  const vet = breeder.vet_contact || {};
+
+  const lines = [];
+  if (breeder.kennel_name) lines.push(`<div class="breeder-kennel">${esc(breeder.kennel_name)}</div>`);
+  if (contact.name) lines.push(`<div class="breeder-line">${esc(contact.name)}</div>`);
+  if (contact.phone) lines.push(`<div class="breeder-line">${phoneHtml(contact.phone)}</div>`);
+
+  // The vet referral only makes sense with something to reach them by, so the
+  // welcome message + vet block appear together or not at all.
+  const hasVet = !!(vet.name || vet.phone || vet.address);
+  let vetSection = '';
+  if (hasVet) {
+    const vetLines = [];
+    if (vet.name) vetLines.push(`<div class="breeder-vet-name">${esc(vet.name)}</div>`);
+    if (vet.phone) vetLines.push(`<div class="breeder-line">${phoneHtml(vet.phone)}</div>`);
+    if (vet.address) vetLines.push(`<div class="breeder-line breeder-vet-address">${esc(vet.address)}</div>`);
+    vetSection = `
+      <p class="breeder-welcome">We always welcome your call! If you or your veterinarian have questions about your pup's prior medical care specifically, please reach out to our kennel vet, contact information below:</p>
+      <div class="breeder-vet">${vetLines.join('')}</div>`;
+  }
+
+  return `
+    <div class="modal-backdrop" id="breeder-modal">
+      <div class="modal breeder-modal" role="dialog" aria-modal="true" aria-labelledby="breeder-modal-title">
+        <button type="button" class="modal-close" id="breeder-modal-close" aria-label="Close">×</button>
+        <h2 class="modal-title" id="breeder-modal-title">Your pup's breeder</h2>
+        <div class="breeder-identity">${lines.join('')}</div>
+        ${vetSection}
+      </div>
+    </div>`;
+}
+
+function openBreederModal(breeder) {
+  closeBreederModal(); // never stack two
+  document.body.insertAdjacentHTML('beforeend', breederModalHtml(breeder));
+  const backdrop = document.getElementById('breeder-modal');
+  const closeBtn = document.getElementById('breeder-modal-close');
+  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closeBreederModal(); });
+  closeBtn.addEventListener('click', closeBreederModal);
+  document.addEventListener('keydown', onBreederModalKey);
+  closeBtn.focus();
+}
+
+function closeBreederModal() {
+  const backdrop = document.getElementById('breeder-modal');
+  if (backdrop) backdrop.remove();
+  document.removeEventListener('keydown', onBreederModalKey);
+}
+
+function onBreederModalKey(e) {
+  if (e.key === 'Escape') closeBreederModal();
+}
+
 function editFormHtml(pet) {
   const speciesOpts = SPECIES.map((s) => `<option value="${s.value}"${s.value === pet.species ? ' selected' : ''}>${esc(s.label)}</option>`).join('');
   const sexOpts = ['<option value="">—</option>', ...SEX.map((s) => `<option value="${s.value}"${s.value === pet.sex ? ' selected' : ''}>${esc(s.label)}</option>`)].join('');
@@ -215,6 +287,7 @@ async function render() {
     body.innerHTML = countdownCardHtml(pet) + photoBoxHtml(pet) + detailsHtml(pet, breeder);
     wirePhoto(pet);
     wireEdit(pet);
+    wireBreederInfo(breeder);
   } catch (err) {
     showError(err.message || String(err));
     body.innerHTML = '';
@@ -257,6 +330,12 @@ function wireEdit(pet) {
   const btn = document.getElementById('btn-edit');
   if (!btn) return;
   btn.addEventListener('click', () => openEdit(pet));
+}
+
+function wireBreederInfo(breeder) {
+  const btn = document.getElementById('btn-breeder-info');
+  if (!btn || !breeder) return;
+  btn.addEventListener('click', () => openBreederModal(breeder));
 }
 
 function openEdit(pet) {

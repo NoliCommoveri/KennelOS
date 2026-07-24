@@ -85,6 +85,13 @@ export const DOC_TYPE = [
   { value: 'other',        label: 'Other',        badge: 'badge-gray' }
 ];
 
+// Potty-log outcomes (schema doc §potty_events). A successful outside potty vs an
+// indoor accident — the two things the Potty page records, one tap each.
+export const POTTY_OUTCOME = [
+  { value: 'success',  label: 'Went outside', badge: 'badge-green' },
+  { value: 'accident', label: 'Accident',     badge: 'badge-amber' }
+];
+
 // Lookup helper: the {label, badge} for a value in one of the vocabs above.
 export function labelFor(vocab, value) {
   const hit = vocab.find((v) => v.value === value);
