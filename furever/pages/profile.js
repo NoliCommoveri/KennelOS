@@ -3,11 +3,12 @@
 // The photo is stored downscaled in pet.photo_url (the same field the sidebar
 // avatar and other pages read), so no separate blob wiring is needed here.
 import { petRepo } from '../data/petRepo.js';
+import { breederRepo } from '../data/breederRepo.js';
 import { getActivePetId } from '../data/settings.js';
 import { renderNav } from '../nav.js';
 import { SPECIES, SEX, PET_SOURCE, labelFor } from '../data/vocab.js';
-import { todayYMD } from '../data/dateUtils.js';
-import { esc, badge, ageLabel, imageFileToDataUrl, showError, clearError } from '../assets/ui.js';
+import { todayYMD, parsePartialDate, formatPartialDate } from '../data/dateUtils.js';
+import { esc, ageLabel, imageFileToDataUrl, showError, clearError } from '../assets/ui.js';
 
 const body = document.getElementById('profile-body');
 
@@ -33,23 +34,32 @@ function detailRow(key, val) {
   return `<div class="detail-row"><span class="detail-key">${esc(key)}</span><span class="detail-val">${val}</span></div>`;
 }
 
-function detailsHtml(pet) {
+// The age/breeder line under the name: age (derived from DOB) on the left,
+// the breeder's kennel name on the right when this pet came from one — same
+// line, so the two never compete for vertical space on a small screen.
+function metaRowHtml(pet, breeder) {
+  const age = pet.date_of_birth ? ageLabel(pet.date_of_birth, todayYMD()) : '';
+  const kennelName = breeder && breeder.kennel_name;
+  if (!age && !kennelName) return '';
+  return `
+    <div class="profile-meta-row">
+      <span class="profile-age">${age ? `${esc(age)} old` : ''}</span>
+      <span class="profile-breeder">${kennelName ? esc(kennelName) : ''}</span>
+    </div>`;
+}
+
+function detailsHtml(pet, breeder) {
   const rows = [];
   rows.push(detailRow('Species', esc(labelFor(SPECIES, pet.species))));
   if (pet.breed) rows.push(detailRow('Breed', esc(pet.breed)));
   if (pet.sex) rows.push(detailRow('Sex', esc(labelFor(SEX, pet.sex))));
-  if (pet.date_of_birth) {
-    const age = ageLabel(pet.date_of_birth, todayYMD());
-    rows.push(detailRow('Birthday', `${esc(pet.date_of_birth)}${age ? ` <span class="muted">· ${esc(age)} old</span>` : ''}`));
-  }
+  if (pet.date_of_birth) rows.push(detailRow('Birthday', esc(pet.date_of_birth)));
+  if (pet.joined_family_date) rows.push(detailRow('Joined family', esc(formatPartialDate(pet.joined_family_date))));
   rows.push(detailRow('Added', esc(labelFor(PET_SOURCE, pet.source))));
-
-  const badges = [badge(SPECIES, pet.species)];
-  if (pet.sex) badges.push(badge(SEX, pet.sex));
 
   return `
     <h1 class="profile-name">${esc(pet.name)}</h1>
-    <div class="profile-badges">${badges.join(' ')}</div>
+    ${metaRowHtml(pet, breeder)}
     <div class="pill-row" style="margin-bottom:.5rem;">
       <button type="button" class="btn btn-sm" id="btn-edit">Edit details</button>
     </div>
@@ -57,9 +67,19 @@ function detailsHtml(pet) {
     <div class="detail-list">${rows.join('')}</div>`;
 }
 
+const MONTH_LABELS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
 function editFormHtml(pet) {
   const speciesOpts = SPECIES.map((s) => `<option value="${s.value}"${s.value === pet.species ? ' selected' : ''}>${esc(s.label)}</option>`).join('');
   const sexOpts = ['<option value="">—</option>', ...SEX.map((s) => `<option value="${s.value}"${s.value === pet.sex ? ' selected' : ''}>${esc(s.label)}</option>`)].join('');
+  const { year: joinedYear, month: joinedMonth } = parsePartialDate(pet.joined_family_date);
+  const joinedMonthOpts = ['<option value="">— (year only)</option>', ...MONTH_LABELS.map((label, i) => {
+    const value = String(i + 1).padStart(2, '0');
+    return `<option value="${value}"${value === joinedMonth ? ' selected' : ''}>${label}</option>`;
+  })].join('');
   return `
     <div class="card">
       <h2>Edit ${esc(pet.name)}</h2>
@@ -86,6 +106,14 @@ function editFormHtml(pet) {
           <label for="f-breed">Breed</label>
           <input id="f-breed" name="breed" autocomplete="off" value="${esc(pet.breed)}" />
         </div>
+        <div class="field">
+          <label for="f-joined-year">Joined the family</label>
+          <div class="joined-inputs">
+            <select id="f-joined-month" name="joined_month">${joinedMonthOpts}</select>
+            <input id="f-joined-year" name="joined_year" type="number" inputmode="numeric" min="1900" max="${todayYMD().slice(0, 4)}" placeholder="Year" value="${esc(joinedYear)}" />
+          </div>
+          <span class="hint">Just a year is fine — month is optional, no day needed.</span>
+        </div>
         <div class="form-actions">
           <button type="submit" class="btn btn-primary">Save</button>
           <button type="button" class="btn" id="btn-cancel">Cancel</button>
@@ -109,7 +137,8 @@ async function render() {
       return;
     }
 
-    body.innerHTML = photoBoxHtml(pet) + detailsHtml(pet);
+    const breeder = pet.breeder_id ? await breederRepo.getById(pet.breeder_id) : null;
+    body.innerHTML = photoBoxHtml(pet) + detailsHtml(pet, breeder);
     wirePhoto(pet);
     wireEdit(pet);
   } catch (err) {
@@ -172,12 +201,15 @@ function openEdit(pet) {
     submit.disabled = true;
     try {
       const fd = new FormData(form);
+      const joinedYear = (fd.get('joined_year') || '').toString().trim();
+      const joinedMonth = (fd.get('joined_month') || '').toString().trim();
       await petRepo.update(pet.id, {
         name: (fd.get('name') || '').toString().trim(),
         species: fd.get('species') || 'dog',
         date_of_birth: fd.get('date_of_birth') || null,
         sex: fd.get('sex') || null,
-        breed: (fd.get('breed') || '').toString().trim() || null
+        breed: (fd.get('breed') || '').toString().trim() || null,
+        joined_family_date: joinedYear ? (joinedMonth ? `${joinedYear}-${joinedMonth}` : joinedYear) : null
       });
       await renderNav(); // name/avatar may have changed
       render();

@@ -65,3 +65,28 @@ export function daysBetween(fromYMD, toYMD) {
   const to = new Date(ty, tm - 1, td);
   return Math.round((to.getTime() - from.getTime()) / 86400000);
 }
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+// Split a partial date ("YYYY" or "YYYY-MM") into its parts, for pre-filling an
+// edit form. Returns { year: '', month: '' } for anything unrecognized.
+export function parsePartialDate(value) {
+  const m = /^(\d{4})(?:-(\d{2}))?$/.exec(value || '');
+  if (!m) return { year: '', month: '' };
+  return { year: m[1], month: m[2] || '' };
+}
+
+// Human label for a partial "joined the family" date — deliberately never a day,
+// just "2024" or "June 2024" (dateUtils.js §joined-family field). Falls back to
+// the raw string for anything unrecognized rather than hiding it.
+export function formatPartialDate(value) {
+  if (!value) return '';
+  const { year, month } = parsePartialDate(value);
+  if (!year) return value;
+  if (!month) return year;
+  const name = MONTH_NAMES[Number(month) - 1];
+  return name ? `${name} ${year}` : value;
+}
