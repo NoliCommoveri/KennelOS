@@ -9,12 +9,12 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     strategy:
-      # The four editions are independent deploy targets (different repos, different
-      # origins) — one failing (e.g. furever's known EDITIONS_DEPLOY_PAT permission
-      # gap, docs/LAUNCH_CHECKLIST.md §3) must never cancel the others mid-publish.
-      # Without this, GitHub's default fail-fast races a cancel signal against an
-      # in-flight job — seen in practice: lite/pro's own steps (incl. Publish) showed
-      # "success" while the job itself got stamped "cancelled".
+      # The editions are independent deploy targets (different repos, different
+      # origins) — one failing must never cancel the others mid-publish. Without
+      # this, GitHub's default fail-fast races a cancel signal against an in-flight
+      # job — seen in practice: lite/pro's own steps (incl. Publish) showed
+      # "success" while the job itself got stamped "cancelled". Kept on even though
+      # only three legs remain, so a future re-added leg can't regress the others.
       fail-fast: false
       matrix:
         include:
@@ -28,10 +28,14 @@ jobs:
             repo: NoliCommoveri/kennelos-demo
             domain: demo.kennelos.app
           # Furever is a standalone app (not an edition of the shared core);
-          # assemble.mjs builds it off furever/ via its standalone path.
-          - edition: furever
-            repo: NoliCommoveri/KennelOS-Furever
-            domain: furever.kennelos.app
+          # assemble.mjs still builds it off furever/ via its standalone path, but
+          # its deploy leg is DISABLED here because EDITIONS_DEPLOY_PAT lacks push
+          # access to NoliCommoveri/KennelOS-Furever (403 on publish — the known gap
+          # in docs/LAUNCH_CHECKLIST.md §3). Re-add this entry once the PAT is
+          # granted write access to that repo.
+          # - edition: furever
+          #   repo: NoliCommoveri/KennelOS-Furever
+          #   domain: furever.kennelos.app
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
