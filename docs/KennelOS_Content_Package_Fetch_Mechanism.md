@@ -1,0 +1,398 @@
+# KennelOS — Content Package Fetch Mechanism
+
+> **Status: mechanism spec, pre-build.** This turns the "one-time content-pack fetch"
+> that `KennelOS_Furever_Schema.md` (§ Not built yet) and the Furever brief
+> (`KennelOS_Furever_Family_App_Brief.md` §Content/§Delivery) leave open into a concrete,
+> buildable mechanism. It reflects the owner's decisions on 2026-07-24 (documents-only
+> payload; fetch on first open **and** every resend; "do as much as possible from KennelOS,
+> including creating the Drive folders and dropping the generated manifest in"). It is a
+> **design target for the build**, not shipped code — nothing here has been implemented.
+> Two decisions still need owner sign-off (see § Decisions still open) before Sonnet builds.
+
+---
+
+## 0. TL;DR
+
+A breeder puts documents (health guarantee, registration how-to, pedigree, litter health
+records, a care-guide PDF…) into Google Drive folders. At Furever share-out the breeder
+**tags which folders apply to this pup** — always the one **kennel-wide** folder plus this
+pup's **litter** folder. The texted seed link stays tiny: it carries only *pointers* to a
+small **manifest file** in each folder, never the files themselves (files are far over the
+~1.7K text budget — brief appendix). On first open, and again on every resend, **Furever**
+fetches each manifest with a public read-only API key, then fetches each listed file, and
+lands them in the pet's **document vault** as read-only "From your breeder" documents,
+cached offline thereafter.
+
+The breeder does as much as possible **from inside KennelOS**: they connect Google Drive
+once, and KennelOS creates the folders, uploads the tagged files, writes the manifest JSON,
+and sets the public-link sharing — all through the browser, no backend.
+
+Two sides, two Google credentials:
+
+| Side | Who | Credential | What it can do |
+|---|---|---|---|
+| **Breeder** (KennelOS Pro, Furever console) | the breeder, once | **OAuth token** (Google Identity Services, `drive.file` scope) | create/upload/share **only files this app made** in the breeder's own Drive |
+| **Family** (Furever app) | nobody — automatic | **public API key** (baked into the build, referrer-restricted) | read the publicly-shared manifest + files by ID |
+
+---
+
+## 1. Why Drive, and why this shape
+
+- **The files are too big to text.** A per-pup seed packet is ~1.7K compressed; care-guide
+  prose alone is ~1.5K *per page*, and PDFs are far bigger (brief appendix). So the payload
+  can't ride the link — only *pointers* can. Drive is the transport/CDN; the link stays a text.
+- **No family account, ever.** Google Drive's API host (`googleapis.com/…?alt=media`) is
+  CORS-open and serves a publicly-shared file to an anonymous caller holding only a public
+  API key (brief appendix verified this for a *known file ID*). The family never signs in.
+- **Manifest, not live folder-listing.** We deliberately fetch **one known manifest file per
+  folder** (its Drive file ID is in the seed packet) rather than calling `files.list` on the
+  folder. Anonymous `files.list?q='<folderId>' in parents` *can* work for an "Anyone with the
+  link" folder, but link-shared items can additionally require a **resourceKey** (Google's
+  2021 security change) and the listing surface is fragile. Fetching a known file ID by manifest
+  is the robust path **and** it's exactly what "KennelOS generates the JSON and drops it in"
+  produces — so the owner's automation goal and the reliable transport are the same choice.
+- **Backend-less on both sides.** Mirrors the existing zero-backend integrations: the family
+  read key is one baked-in public key (like `dropbox.js`'s `APP_KEY`), and the breeder write
+  side uses Google Identity Services' **token model** — browser-only, CORS-supported, access
+  token only, **no client secret** and **no backend**. The `drive.file` scope is
+  **non-sensitive**, so publishing the OAuth app needs **no Google verification review**.
+
+---
+
+## 2. The two-sided architecture
+
+```
+  BREEDER SIDE  (KennelOS Pro — shared/pages/furever.*, Pro-only)
+  ────────────────────────────────────────────────────────────────
+   1. Connect Google Drive         GIS token client, scope drive.file  → 1h access token
+   2. Ensure folder tree           files.create (folders) in breeder's own Drive
+        KennelOS Furever/
+          Kennel-wide/             ← one, shared by every pup from this kennel
+          Litter — <nickname>/     ← one per litter
+   3. Upload tagged documents      files.create (multipart) → fileId (+ resourceKey)
+   4. Share for public link        permissions.create {type:'anyone', role:'reader'} on the folder
+   5. Write manifest (pack.json)   files.create/overwrite → manifestFileId (+ resourceKey), bump version
+   6. Persist pack pointers        kennel-wide → Furever settings; litter → litterRepo field
+
+                     │  breeder sends the Furever seed link (existing flow)
+                     ▼
+   seed packet gains  contentPackages: [ {kennel pack pointer}, {this pup's litter pack pointer} ]
+                     │  (pointers only — fileIds + resourceKeys + version; NO key, NO file bytes)
+                     ▼
+  FAMILY SIDE  (Furever — furever/…)
+  ────────────────────────────────────────────────────────────────
+   on first open + every resend:
+   A. for each pack pointer:  fetch manifestFileId  (files/{id}?alt=media&key=PUBLIC_KEY  [+resourceKey])
+   B. if manifest.version > cached:  fetch each listed file → Blob
+   C. store Blob in `files`, upsert a read-only `documents` row (source='breeder', pack_key, drive_file_id)
+   D. drop breeder docs for that pack_key that are no longer in the manifest
+   E. cache manifest meta (content_packs: pack_key, version, fetched_at)
+      — all wrapped so an offline/failed fetch never breaks boot; retried next open
+```
+
+The **manifest** is the contract between the two sides. Named-copy discipline applies to the
+seed-packet additions exactly as in `fureverSeedExport.js`/`companionExport.js` (build the
+fields by name; a new Dog/Sale/Litter field never rides along silently).
+
+---
+
+## 3. Data shapes
+
+### 3.1 Manifest file (`pack.json`, one per folder, hosted in Drive)
+
+```jsonc
+{
+  "packVersion": 1,                 // manifest FORMAT version (bump only on breaking shape change)
+  "packKey": "5f3c…",               // stable UUID per (kennel, scope): one for kennel-wide, one per litter
+  "scope": "kennel",                // "kennel" | "litter"
+  "kennelName": "Thornfield",
+  "version": 3,                     // CONTENT version — bumped each republish; Furever skips re-download when unchanged
+  "updatedAt": "2026-07-24T12:00:00Z",
+  "files": [
+    {
+      "fileId": "1AbC…",            // Drive file ID (public-by-link)
+      "resourceKey": "0-xY…",       // present only when Drive assigned one; passed on fetch, else omitted
+      "title": "Health Guarantee",
+      "docType": "contract",        // maps to Furever documents.doc_type vocab
+      "mime": "application/pdf",
+      "size": 128374
+    }
+  ]
+}
+```
+
+### 3.2 Seed-packet addition (emitted by `shared/data/fureverSeedExport.js`)
+
+```jsonc
+"contentPackages": [
+  { "packKey": "5f3c…", "scope": "kennel", "manifestFileId": "1KwD…", "manifestResourceKey": "0-aa…", "version": 3 },
+  { "packKey": "9b21…", "scope": "litter", "manifestFileId": "1LtE…", "manifestResourceKey": "0-bb…", "version": 1 }
+]
+```
+
+- **No API key and no file bytes in the packet** — only public pointers. Adds ~150–250
+  compressed chars to the ~1.7K packet; still comfortably textable.
+- The public read key lives **once** in the Furever build (§5.2), never in the link.
+- Only packs that are actually configured are included (an unpublished kennel/litter pack is
+  simply absent — the pup just has no breeder docs).
+
+### 3.3 Furever storage (documents-only decision → reuse the vault, repurpose `content_packs`)
+
+Fetched files land in the **existing** `documents` + `files` vault, kept separable from the
+family's own uploads exactly like the seed/family layer split the schema doc emphasizes:
+
+- **`documents`** gains three plain (unindexed) fields on breeder-sourced rows:
+  `source` (`'self'` default | `'breeder'`), `pack_key`, `drive_file_id`. Family uploads stay
+  `source:'self'` and are **never** touched by a fetch. Breeder rows for a `pack_key` are
+  replaced wholesale on a version bump (blind replace of the breeder layer — same discipline
+  as `petRepo.upsertSeededPet`). Breeder docs render read-only in a "From your breeder" group;
+  no in-place edit, no family Remove (or a Remove that just hides, re-appearing on resend —
+  decide at build, lean: read-only, no Remove).
+- **`content_packs`** is **repurposed** from the old care-overlay cache to the **manifest
+  cache**: `{ id, &pack_key, kennel_name, scope, version, fetched_at }` (drop `payload`). It
+  records "which version of which pack we've already fetched" so §2-B can skip unchanged packs.
+  The actual bytes live in `files`; each fetched file is a `documents` row linked by `pack_key`
+  + `drive_file_id`. (`contentPackRepo.upsert` already keys on `pack_key` — extend, don't add
+  a table.)
+- **`pets.content_pack_key`** — the schema already has this single-pack pointer; generalize to
+  the `contentPackages` array on the pet's `seed`, or keep `content_pack_key` for the kennel
+  pack and add `litter_pack_key`. (Build detail; either is additive.)
+
+### 3.4 Breeder-side pointers (KennelOS Pro)
+
+- **Kennel-wide pack** → `getFureverSettings()`/`setFureverSettings()` in
+  `shared/data/settings.js` (`kennelOS.furever`): `{ packKey, folderId, manifestFileId,
+  manifestResourceKey, version }`, plus the connected-Drive token state.
+- **Per-litter pack** → a plain, unindexed field group on the **litter** record
+  (`litterRepo`): `furever_pack = { packKey, folderId, manifestFileId, manifestResourceKey,
+  version }`. Additive; no new index, no `referenceRegistry` entry (it points *out* to Drive,
+  not at a KennelOS entity).
+
+---
+
+## 4. The flows in detail
+
+### 4.1 Breeder: connect Drive (once)
+
+- A **"Connect Google Drive"** button in the Furever console, same UX slot as Dropbox's
+  Connect. Loads Google Identity Services (`https://accounts.google.com/gsi/client` — **must be
+  vendored**, per the no-CDN rule) and calls `google.accounts.oauth2.initTokenClient({
+  client_id, scope: 'https://www.googleapis.com/auth/drive.file', callback })`.
+- Clicking requests an access token (a Google consent popup the first time). Token is
+  ~1 hour, **access-token-only** (no refresh token without a backend). Held in memory for the
+  publish session; a later publish re-requests a token — silent (`prompt: ''`) when the
+  breeder's Google session is still live, otherwise a quick re-consent.
+- `drive.file` means KennelOS can see/manage **only files it created** — it cannot read the
+  breeder's other Drive files. State this in the UI; it's a privacy selling point.
+
+### 4.2 Breeder: publish a package
+
+Triggered by a **"Publish to Furever"** action per scope (kennel-wide; and per litter on the
+litter page / console). With a live token:
+
+1. **Ensure folders.** If no `folderId` cached for this scope, `files.create` a folder
+   (`mimeType: application/vnd.google-apps.folder`) under a root "KennelOS Furever" folder;
+   cache the ID. Reuse on republish.
+2. **Choose documents.** A picker lists candidates — existing KennelOS **dog documents**
+   (`documentRepo`, filtered to this litter's pups for a litter pack) **and** an "upload new"
+   affordance for kennel-level material (care guide, poison list) that isn't a dog document.
+   (Sourcing model needs sign-off — see § Decisions still open.)
+3. **Upload** each chosen file's bytes to the scope's folder (`files.create` multipart);
+   capture `fileId` (+ `resourceKey` from the response). Skip files already uploaded at the
+   same content (track by `drive_file_id`), so republish is incremental.
+4. **Share** the folder public-by-link once: `permissions.create` `{type:'anyone',
+   role:'reader'}`. Children inherit, so every file + the manifest become link-readable.
+5. **Write the manifest.** Build `pack.json` (§3.1) by name from the chosen files, **bump
+   `version`**, and `files.create`/overwrite it in the folder; capture its `manifestFileId`
+   (+ resourceKey).
+6. **Persist pointers** (§3.4). Done — the next seed link for any pup in scope carries them.
+
+### 4.3 Seed-link send (existing flow, extended)
+
+`fureverSeedExport.buildSeedPacket(dog, sale)` additionally reads the kennel-wide pointer
+(settings) and this dog's litter pointer (`litterRepo` via `dog.litter_id`) and emits
+`contentPackages` (§3.2), named-copy only. Everything else about the send (mailto/sms/copy,
+size ceilings) is unchanged.
+
+### 4.4 Family: fetch (first open + every resend)
+
+A new `furever/data/contentPackFetch.js`, called from `app.js boot()` **after**
+`consumeSeedLink()` applied the packet (so the pet + its `contentPackages` exist):
+
+1. For each pointer in the pet's `contentPackages`: `GET
+   https://www.googleapis.com/drive/v3/files/{manifestFileId}?alt=media&key={PUBLIC_KEY}` with
+   header `X-Goog-Drive-Resource-Keys: {manifestFileId}/{manifestResourceKey}` when present.
+   Parse → validate manifest shape (friendly failure, never a hard boot error).
+2. If `manifest.version` ≤ the cached `content_packs.version` for this `pack_key`, **skip**.
+3. Else for each `files[]` entry: `GET files/{fileId}?alt=media&key=…` (+ resourceKey) → Blob →
+   `fileRepo` row → upsert a `documents` row (`source:'breeder'`, `pack_key`, `drive_file_id`,
+   `doc_type`, `title`, `doc_date` = manifest `updatedAt`).
+4. Remove breeder `documents` (and owned `files`) for this `pack_key` whose `drive_file_id`
+   is no longer in the manifest.
+5. Update the `content_packs` cache row (`pack_key`, `version`, `fetched_at`, `kennel_name`,
+   `scope`).
+6. **Resilience:** the whole thing is best-effort and online-only. Offline / any fetch error →
+   leave the cache as-is, surface nothing fatal, retry on the next open. Runs after the app is
+   already usable, never blocking first paint.
+
+**Resend semantics** (owner's "first open + every resend"): a resend re-applies the seed
+(refreshing `contentPackages`), and the fetch re-runs; the `version` check makes an unchanged
+pack a cheap no-op, and a bumped pack replaces its breeder docs in place. The family's own
+documents (`source:'self'`) are never involved.
+
+---
+
+## 5. Every credential + setup step ("record all the pieces")
+
+### 5.1 Owner one-time setup — Google Cloud (like registering the Dropbox app once)
+
+1. **Create a Google Cloud project** (e.g. "KennelOS").
+2. **Enable the Google Drive API** on it.
+3. **OAuth consent screen:** User type **External**; app name/logo/support email; scope list =
+   **`.../auth/drive.file` only** (non-sensitive → **no verification review**, no security
+   assessment). **Publish the app to Production** so it isn't capped at 100 test users; because
+   the scope is non-sensitive, production publishing is immediate.
+4. **OAuth 2.0 Client ID**, type **Web application**. Authorized **JavaScript origins** =
+   KennelOS Pro origin + Demo origin (whichever ship the console) + `http://localhost:8000`
+   for dev. (Token model uses JS origins, **no redirect URIs**.) → yields the **OAuth client
+   ID** baked into the KennelOS build. **No client secret is used or stored.**
+5. **API key** (separate credential), restricted two ways:
+   - **Application restriction:** HTTP referrers = `https://furever.kennelos.app/*` (+
+     `http://localhost:8000/*` for dev).
+   - **API restriction:** Google Drive API only.
+   → yields the **public read key** baked into the **Furever** build.
+6. Record both in the builds the same way `dropbox.js` records `APP_KEY`: OAuth client ID in a
+   KennelOS module (breeder side), API key in a Furever module (family side). Both are **public
+   by design** — the referrer/origin restrictions and the read-only-of-already-public scope are
+   the actual control, not secrecy.
+
+> Deploy-config parity with the existing launch tasks: this joins the Lemon Squeezy /
+> Dropbox / domain items in `README.md` § Next and `build/README.md` as an
+> owner-does-once external prerequisite.
+
+### 5.2 Where the credentials live in code
+
+| Credential | Build | Suggested home | Precedent |
+|---|---|---|---|
+| OAuth client ID (`drive.file`) | KennelOS (`shared/`, Pro console) | new `shared/data/googleDrive.js` const | `dropbox.js` `APP_KEY` |
+| Public Drive API read key | Furever (`furever/`) | new `furever/data/contentPackFetch.js` const | brief appendix |
+| GIS library `gsi/client.js` | KennelOS | **vendored** into `shared/vendor/` + precached | no-CDN rule |
+
+### 5.3 Breeder per-kennel steps (in-app, minimal)
+
+1. Open the Furever console → **Connect Google Drive** (one Google consent).
+2. **Publish** the kennel-wide pack (pick docs / upload the care guide, hit Publish).
+3. Per litter: **Publish** that litter's pack (pick the litter's docs).
+   *(KennelOS creates the folders, uploads, shares, and writes the manifest — the breeder never
+   touches Drive directly. A no-OAuth fallback exists — § Decisions still open.)*
+
+### 5.4 Family steps
+
+**None.** The docs appear in the pet's document vault on first open and refresh on resend.
+
+---
+
+## 6. Privacy & security
+
+- **Public-by-link is real.** Anything published is readable by anyone who has the file ID (in
+  the link). Fine for a care guide, breed info, pedigree, a blank guarantee template — **not**
+  for a signed contract carrying buyer PII. The console must **warn on publish** and default to
+  requiring an explicit per-doc opt-in for anything sensitive. (Needs sign-off — § Decisions.)
+- **`drive.file` is least-privilege.** KennelOS can only ever see files it created; it cannot
+  read the breeder's wider Drive. Good posture and worth stating in-app.
+- **API key is referrer-restricted + Drive-only.** Its worst case is reading files that are
+  already public; the restriction blocks casual reuse from other origins.
+- **Seed link leaks nothing new.** It carries only public Drive pointers (IDs + resourceKeys),
+  no key, no bytes — same exposure as the already-public `photosUrl` in existing bundles.
+- **Named-copy allow-list.** The `contentPackages` seed fields and the `pack.json` builder both
+  follow `fureverSeedExport.js`/`companionExport.js` discipline: fields copied **by name**, so
+  no Dog/Sale/Litter field ever rides along by accident.
+- **Blast radius on decode.** Furever validates the manifest shape and every fetch is
+  best-effort; a malformed/hostile manifest can at worst fail its own fetch — it never writes
+  outside the breeder layer for its `pack_key`, and never touches family rows.
+
+---
+
+## 7. Decisions still open (need owner sign-off before build)
+
+1. **Breeder auth model — confirm OAuth-write (recommended) vs. manifest-only manual.**
+   - *OAuth-write (recommended, matches "do as much as possible from KennelOS"):* the §4 flow —
+     KennelOS creates folders, uploads, shares, writes the manifest. Cost: the owner sets up the
+     OAuth client (§5.1) and we vendor GIS; the breeder re-grants a short-lived token per publish
+     session (usually silent).
+   - *Manifest-only fallback (no breeder OAuth):* KennelOS **generates** `pack.json` (and lists
+     the files to upload) for the breeder to **download**; the breeder makes the Drive folder,
+     uploads the files + `pack.json`, sets "Anyone with the link", and **pastes the folder/
+     manifest link back**; KennelOS parses the link for the manifest file ID (+ resourceKey).
+     No breeder Google connection, but several manual steps and easy to get the sharing wrong.
+   - *Lean:* ship OAuth-write as primary, keep manifest-only as a documented fallback for
+     breeders who won't connect Google.
+2. **Kennel-wide + litter document sourcing (small KennelOS schema/UX).** KennelOS documents are
+   **per-dog** today; there is no kennel-level or litter-level document. Where do the two packs'
+   files come from? Options: (a) a dedicated "Furever share" picker in the console that pulls
+   from existing dog documents **and** allows new uploads, tagging each kennel/litter — **no
+   reshape of the per-dog `documents` table** (recommended); (b) add a real per-litter / kennel
+   document store; (c) derive a litter pack purely from its pups' existing documents (no
+   kennel-level material). Recommend (a).
+3. **Sensitive-document handling on publish.** Public-by-link means published files are world-
+   readable. Confirm: a per-publish warning + explicit per-doc opt-in for anything with PII
+   (recommended), vs. trust the breeder to only tag safe docs.
+
+---
+
+## 8. Build task list (for Sonnet, once §7 is signed off)
+
+**Furever (family) side**
+- `furever/data/contentPackFetch.js` — public-key manifest + file fetch, version-gated,
+  best-effort, resourceKey header handling; called from `app.js boot()` after `consumeSeedLink`.
+- Extend `furever/data/db.js`: `documents` gains `source`/`pack_key`/`drive_file_id` (plain,
+  unindexed — no schema-version bump needed pre-release, reconcile with Reset+reseed);
+  repurpose `content_packs` to the manifest cache (drop `payload`, add `scope`/`version`).
+- Extend `contentPackRepo` (manifest cache) + `documentRepo`/`fileRepo` breeder-layer replace.
+- `documents.js` page: read-only "From your breeder" group for `source:'breeder'` rows.
+- Bake the public API read key; **vendor** nothing new here (fetch is plain `fetch`).
+
+**KennelOS (breeder) side**
+- `shared/data/googleDrive.js` — GIS token client wrapper (connect, get token, folder ensure,
+  upload, share, write manifest); OAuth client ID const.
+- Vendor `gsi/client.js` into `shared/vendor/` and add to `shared/sw.js` `PRECACHE_URLS`.
+- `shared/data/fureverContentPack.js` — build `pack.json` (named-copy), the publish orchestration.
+- Extend `shared/data/fureverSeedExport.js` to emit `contentPackages`.
+- Extend `settings.js` (kennel pack pointer + Drive connection state) and `litterRepo` (litter
+  `furever_pack`).
+- Furever console (`shared/pages/furever.*`): Connect-Drive UI, per-scope Publish, doc picker,
+  sensitive-doc warning.
+
+**Docs to update in the same change when built** (per CLAUDE.md doc-truth rules)
+- `KennelOS_Furever_Schema.md`: the `documents`/`content_packs` field changes, the fetch flow,
+  move "content-pack fetch" out of § Not built yet.
+- `End_State_Design_and_Maintenance_Guide.md` (→ `shared/…`): the new `shared/data/googleDrive.js`
+  + `fureverContentPack.js`, the `fureverSeedExport` packet field, the litter `furever_pack` field.
+- `README.md` § Next / `build/README.md`: the Google Cloud OAuth-client + API-key prerequisites.
+- **SW precache + `CACHE_NAME` bump** for the vendored GIS lib and any new files (ask-first, per CLAUDE.md).
+
+---
+
+## 9. Verified technical facts (so the build isn't guessing)
+
+- **Anonymous public read of a known file ID** via `files/{id}?alt=media&key=KEY` is CORS-open
+  and works with a public API key (brief appendix, round-trip verified).
+- **Backend-less Drive write** from the browser via Google Identity Services' **token model**
+  (`initTokenClient`, `drive.file`) is supported: access-token-only, **no client secret**, no
+  backend; Google APIs support CORS with a bearer token.
+- **`drive.file` is a non-sensitive scope** → the OAuth app publishes to production with **no
+  verification review**, and the app can only touch files it created.
+- **resourceKey caveat:** link-shared items (post-2021) can require a `resourceKey`, passed via
+  the `X-Goog-Drive-Resource-Keys` header (`{fileId}/{resourceKey}`) or a `resourceKey` query
+  param. We capture it from the create/get response and carry it in the manifest + packet, so
+  fetches always include it when present.
+- **Folder-listing (`files.list … in parents`) is deliberately avoided** in favor of the
+  known-manifest fetch — more robust and it's the artifact the breeder-side automation produces
+  anyway.
+
+Sources:
+[Use the token model (GIS)](https://developers.google.com/identity/oauth2/web/guides/use-token-model) ·
+[files.get (alt=media)](https://developers.google.com/workspace/drive/api/reference/rest/v3/files/get) ·
+[files.list](https://developers.google.com/workspace/drive/api/reference/rest/v3/files/list) ·
+[Access link-shared files with resource keys](https://developers.google.com/workspace/drive/api/guides/resource-keys) ·
+[Add restrictions to API keys](https://docs.cloud.google.com/api-keys/docs/add-restrictions-api-keys)
