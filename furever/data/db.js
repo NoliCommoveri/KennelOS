@@ -63,8 +63,12 @@ export const db = new Dexie('KennelOSFurever');
 //    Indexed on pet_id (scope) and category. (Breeder packs are DOCUMENTS-only,
 //    per Content Package Fetch Mechanism §0 — they never contribute schedule
 //    items, so content_packs plays no part in the schedule engine.)
-//  - contacts `pet_id` is NULLABLE: null = a family-wide contact (their vet)
-//    that shows for every pet; set = specific to one pet.
+//  - contacts `pet_ids` is an ARRAY of the specific pets it applies to (a
+//    multiEntry index, `*pet_ids`, so `where('pet_ids').equals(petId)` still
+//    finds it). There is no null/"every pet" sentinel any more — a contact
+//    meant for every pet just lists all of them as a snapshot; a pet added
+//    later is not automatically covered (linking a new pet to an existing
+//    contact is a future prompt, not built yet).
 //  - documents/photos each own exactly one `files` row (fileRepo), deleted
 //    alongside — files is never a referenceRegistry target, only fetched by id,
 //    so only `created_at` (backup ordering) rides beside it. `documents` also
@@ -104,7 +108,8 @@ export const db = new Dexie('KennelOSFurever');
 //    identity — their name ("Carson" → shown as "Carson Family Pets" in the app
 //    banner) and room to grow (address/phone later). App-wide, not pet-scoped, so
 //    it carries no pet_id and nothing points at it. Their vet and other contacts
-//    are NOT here — those are family-wide `contacts` rows (pet_id null).
+//    are NOT here — those are `contacts` rows scoped to whichever pets they were
+//    saved for.
 //  - feeding is ONE ROW PER PET (feedingRepo upserts by pet_id): the pet's food
 //    brand + chosen feeding schedule (an age-bracket preset key or a Custom text).
 //    The age→portion presets themselves are CONTENT (careLibrary.FEEDING_PLAN),
@@ -129,6 +134,36 @@ db.version(1).stores({
   training_skills: 'id, program_id, stage_id, level_id, category_id, skill_concept_id',
   practice_logs:   'id, pet_id, skill_id, session_date, is_archived',
   skill_progress:  '[pet_id+skill_concept_id], pet_id, status'
+});
+
+// v2: contacts.pet_id (nullable single pet) → contacts.pet_ids (array). The old
+// null ("family-wide, every pet, including future ones") has no direct
+// equivalent once pet association is a plain snapshot array, so the migration
+// bakes it down to the full pet list as it stood at upgrade time — every pet
+// that could see that contact keeps seeing it; a pet added after this runs does
+// not, automatically.
+db.version(2).stores({
+  pets:          'id, pup_id, source, breeder_id, species, is_archived',
+  breeders:      'id, breeder_key, is_archived',
+  household:     'id',
+  contacts:      'id, *pet_ids, contact_type, is_archived',
+  care_events:   'id, pet_id, plan_item_id, event_type, event_date, is_archived',
+  care_plans:    'id, pet_id, category, is_archived',
+  feeding:       'id, pet_id, is_archived',
+  potty_events:  'id, pet_id, occurred_date, is_archived',
+  documents:     'id, pet_id, doc_type, doc_date, is_archived',
+  photos:        'id, pet_id, taken_date, is_archived',
+  files:         'id, created_at',
+  content_packs: 'id, &pack_key',
+  training_skills: 'id, program_id, stage_id, level_id, category_id, skill_concept_id',
+  practice_logs:   'id, pet_id, skill_id, session_date, is_archived',
+  skill_progress:  '[pet_id+skill_concept_id], pet_id, status'
+}).upgrade(async (tx) => {
+  const allPetIds = await tx.table('pets').toCollection().primaryKeys();
+  await tx.table('contacts').toCollection().modify((c) => {
+    c.pet_ids = c.pet_id == null ? allPetIds.slice() : [c.pet_id];
+    delete c.pet_id;
+  });
 });
 
 // --- First-run storage durability -----------------------------------------
