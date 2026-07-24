@@ -112,9 +112,25 @@ Browser-verified end to end (headless Chromium): seeded a pet + contact + docume
 pet gone, seeded data back) → added another pet → restored the same file with
 Merge (new pet survived, seeded data still there); no console errors.
 
-Still to build (each a later step): the **content-pack fetch** and the **service
-worker / PWA / manifest** (offline + install). The app runs online today; the
-offline layer is deliberately deferred until the page set settles.
+**The content-pack fetch is now built.** `data/contentPackFetch.js` fetches each
+breeder-published pack (kennel-wide + this pet's litter, from `pet.seed.
+contentPackages`) on first open and every resend: a public-key read of that pack's
+Drive-hosted `pack.json` manifest, skipped if unchanged (`content_packs` cache),
+else a public-key read of every listed file, landed as `source:'breeder'` rows in
+`documentRepo` (a blind wholesale replace per pack on each version bump) — no
+family sign-in, best-effort/online-only, never blocking first paint. `app.js`
+triggers it via a `sessionStorage` hand-off (the seed-link flow usually redirects
+to Profile right after applying a packet, which would otherwise cancel an in-flight
+fetch). The Documents page (`pages/documents.*`) now renders a read-only "From your
+breeder" group above the family's own documents (Download only — no edit/remove;
+a republish just replaces it in place). See
+`docs/KennelOS_Content_Package_Fetch_Mechanism.md` for the full mechanism,
+including the breeder-side publish console in the main KennelOS repo
+(`shared/pages/furever.*`).
+
+Still to build: the **service worker / PWA / manifest** (offline + install) for
+Furever itself. The app runs online today; the offline layer is deliberately
+deferred until the page set settles.
 
 ```
 furever/
@@ -184,10 +200,13 @@ furever/
     carePlanRepo.js      — family-authored cadences
     feedingRepo.js       — the pet's feeding setup (one row per pet: brand + choice)
     pottyRepo.js         — the house-training log (potty_events)
-    documentRepo.js      — document vault (owns a file)
+    documentRepo.js      — document vault (owns a file); breeder-published rows
+                           (source:'breeder') land via replaceBreederLayer()
     photoRepo.js         — gallery (owns a file)
     fileRepo.js          — blob archive behind documents/photos
-    contentPackRepo.js   — fetched-once breeder overlay cache
+    contentPackRepo.js   — the manifest cache (which pack version we've fetched)
+    contentPackFetch.js  — fetches a breeder's published pack(s): public-key
+                           manifest + file reads, version-gated, best-effort
     importExport.js      — full JSON backup/restore (blob round-tripping,
                            merge/replace); Family & Settings' backup card
   README.md

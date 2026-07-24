@@ -1747,11 +1747,13 @@ the saved identity (same allow-list discipline `companionExport.js`'s header
 explains, §20's "load-bearing security invariant" — no record spread), matching
 exactly what the Furever-side decoder reads by name (`pupId`, `breederKey`, `name`,
 `species`, `sex`, `breed`, `dob`, `photoUrl`, `note`, `pickupPlan`, `kennelName`,
-`tagline`, `breederContact`, `breederVet`). Compressed with the already-vendored
-`vendor/lz-string.min.mjs` into `https://furever.kennelos.app/#seed=<payload>`
-(`FUREVER_APP_URL`, a fixed constant — Furever is one app at one origin regardless
-of which edition sends the link, unlike Companion's same-origin relative shell
-URL). `furever.js`'s send mechanics (real `mailto:`/`sms:` anchors so the tap is
+`tagline`, `breederContact`, `breederVet`, `contentPackages`). Compressed with the
+already-vendored `vendor/lz-string.min.mjs` into
+`https://furever.kennelos.app/#seed=<payload>` (`FUREVER_APP_URL`, a fixed constant
+— Furever is one app at one origin regardless of which edition sends the link,
+unlike Companion's same-origin relative shell URL). `buildSeedPacket` is `async`
+(it reads the dog's litter record for its content-pack pointer, below) — `furever.js`
+awaits it. `furever.js`'s send mechanics (real `mailto:`/`sms:` anchors so the tap is
 the activating gesture, a copy-link fallback, the same SMS/email payload-size
 ceilings) mirror `companion.js`'s `prepareLink` pattern; there is no local preview
 (Companion's iframe-preview trick needs a local read-only shell to render into —
@@ -1764,5 +1766,69 @@ previewing it isn't safe to fake).
 headline with a live "N days to go" badge, pickup date/time/place, and the personal
 note; it retires once the pickup date passes.
 
-**Not built:** the content-pack fetch that would let the breeder's own care content
-override Furever's universal defaults.
+### 27.1 Content-pack publish (breeder side) — `docs/KennelOS_Content_Package_Fetch_Mechanism.md`
+
+The breeder-authored counterpart to Furever's content-pack fetch (schema doc's
+"Built (content-pack fetch)" section): the Furever console publishes documents to
+Google Drive so the family app can pull them in automatically, with KennelOS doing
+every Drive-side step (create the folder, upload, share, write the manifest) —
+the breeder never touches Drive directly.
+
+- **`data/googleDrive.js`** — the Google Identity Services (GIS) **token-model**
+  OAuth client (`drive.file` scope, non-sensitive → no Google verification review;
+  `CLIENT_ID` const, same public-identifier posture as `dropbox.js`'s `APP_KEY`).
+  `connectDrive()` is the interactive "Connect Google Drive" action; the token lives
+  **in memory only** for the tab (no refresh token in this model, so nothing is
+  persisted) and every Drive call goes through `ensureAccessToken`, which tries a
+  SILENT re-request first and only surfaces a friendly "click Connect again" error
+  rather than popping an unexpected consent dialog mid-publish. `driveFetch` retries
+  once on a 401 with a forced token re-acquisition, mirroring `dropbox.js`'s
+  `contentCall`. Also holds `ensureFolder` (find-or-create, safe under `drive.file`
+  scope since `files.list` here can only ever see folders this app created),
+  `shareFolderPublic` (`permissions.create {type:'anyone', role:'reader'}`), and
+  `uploadFile`/`writeManifestFile` (hand-built `multipart/related` bodies — Drive's
+  multipart upload endpoint does NOT accept `fetch`'s own `multipart/form-data`).
+  The GIS library itself is **vendored** at `vendor/gsi/client.js` (no-CDN rule) and
+  loaded as a plain `<script>` (not a module) in `pages/furever.html`, ahead of the
+  module scripts, so `window.google` exists before any Drive call could run.
+- **`data/fureverContentPack.js`** — builds `pack.json` (§3.1 of the mechanism doc)
+  **by name** from the chosen sources (never a record spread, same discipline as
+  `fureverSeedExport.js`) and orchestrates one Publish: ensure folders (reusing a
+  cached `folderId`) → upload each source (a KennelOS `Document`'s file, or a
+  kennel-level "Upload new" blob), **reusing the same Drive file id** when that
+  exact source was published before (tracked in the pointer's cached
+  `selection.driveFileIds`, keyed `doc:<id>` / `upload:<id>`) so a republish
+  overwrites in place instead of accumulating duplicate Drive files → share the
+  folder public-by-link → write/overwrite the manifest, bumping its `version` →
+  return the new pointer for the caller to persist. Exports `SENSITIVE_DOC_TYPES`
+  (`['contract']`) / `isSensitiveDocType` so the console's picker and any future
+  check agree on which types need the "this becomes public" confirmation.
+- **`settings.js`'s `getFureverSettings`/`setFureverSettings`** gained the
+  **kennel-wide** pack pointer, nested under `contentPack`:
+  `{ packKey, folderId, manifestFileId, manifestResourceKey, version, selection:
+  { documentIds, uploads, driveFileIds } }`, plus `driveConnected` (UI-only — "has
+  Connect ever succeeded," never the token itself). The **per-litter** equivalent is
+  a plain, unindexed **`furever_pack`** field (same shape) directly on the litter
+  record — additive, no `litterRepo` code change needed (its `update()` already
+  merges arbitrary fields) and no `referenceRegistry` entry (it points *out* to
+  Drive, not at a KennelOS entity).
+- **Furever console UI** (`pages/furever.js`, new "Content packages" section below
+  the existing recipients list): a **Connect Google Drive** button; a **kennel-wide
+  pack** panel (candidate pool = any non-archived dog's documents, plus an
+  "Upload new" area for kennel-level files not filed on a dog); one **collapsible
+  panel per litter** (candidate pool = that litter's pups **and** `sire_id`/`dam_id`,
+  each via `documentRepo.getByDog` — Data Model §5.4's "litter's own sire_id/dam_id
+  are authoritative"). Each picker offers **bulk selectors** — a master "select
+  all," a **per-type** toggle per doc type present, and a **per-dog** "select all" —
+  built as plain DOM checkbox manipulation (no separate JS selection model to keep
+  in sync; the checked boxes ARE the state while a panel is open) and pre-checked
+  from the pointer's cached `selection.documentIds`. Publish reads the checked boxes
+  at click time; if any selected document's `doc_type` is sensitive
+  (`isSensitiveDocType`), an inline confirmation (`sensitiveConfirmHtml`) lists
+  exactly which titles are about to become publicly link-readable and requires an
+  explicit "Yes, publish anyway" before the actual `publishPack` call runs.
+- **Not built:** the manual (no-OAuth) fallback (mechanism doc §7 decision 1 —
+  documented, deliberately second-priority). **Not yet browser/round-trip
+  verified** against a real Google account (no live consent/Drive round trip has
+  been exercised) — verify Connect → Publish → a family device actually receiving
+  the docs before relying on this in production.

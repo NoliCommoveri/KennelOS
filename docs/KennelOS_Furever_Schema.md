@@ -218,7 +218,9 @@ points at a potty row, so the page's "remove" hard-deletes freely.
 | `is_archived` | ✓* | |
 
 ### documents — the document vault
-Family layer. Each owns exactly one `files` row.
+Two sources share this table (Content Package Fetch Mechanism §3.3): the family's
+own uploads, and documents published by the breeder and landed automatically by
+`contentPackFetch.js`. Each row owns exactly one `files` row.
 
 | field | indexed | notes |
 |---|---|---|
@@ -228,7 +230,18 @@ Family layer. Each owns exactly one `files` row.
 | `doc_date` | ✓ | newest-first sort |
 | `title` | | |
 | `file_id` | | FK → `files` (owned; deleted with the document) |
+| `source` | | `self` (default) \| `breeder` — which layer created this row |
+| `pack_key` | | breeder rows only: which content pack (→ `content_packs.pack_key`) this came from |
+| `drive_file_id` | | breeder rows only: the Google Drive file id it was fetched from (dedupe/diff key) |
 | `is_archived` | ✓* | |
+
+`source`/`pack_key`/`drive_file_id` are plain, unindexed fields — no schema-version
+bump. A family upload never sets them (`source` defaults to `'self'`); a breeder
+row is never hand-edited or removed by the family — a pack republish blindly
+replaces every `source:'breeder'` row for its `pack_key`
+(`documentRepo.replaceBreederLayer`), same discipline as `petRepo.upsertSeededPet`'s
+blind seed-side replace. The Documents page renders breeder rows in a read-only
+"From your breeder" group (Download only).
 
 ### photos — the gallery
 Family layer. Each owns one `files` row.
@@ -252,17 +265,23 @@ one row and deleted alongside it (so **not** a `referenceRegistry` target).
 | `created_at` | ✓ | backup ordering |
 | `blob`, `name`, `mime`, `size` | | |
 
-### content_packs — the fetched-once breeder overlay
-Persisted cache of a breeder's custom care content (too big to text — brief
-appendix), fetched once and used offline. `pack_key` unique; a re-fetch upserts.
+### content_packs — the manifest cache
+Repurposed from an earlier "custom care overlay" design (dropped — the owner
+settled on a **documents-only** payload, Content Package Fetch Mechanism
+§0/§3.3): no `payload` field anymore. This is now just "which version of which
+pack have we fetched" — `contentPackFetch.js` reads it to skip an unchanged pack
+on a resend; the actual bytes live in `files`, referenced from `documents` rows
+tagged `source:'breeder'` + `pack_key` + `drive_file_id`. `pack_key` unique; a
+re-fetch upserts.
 
 | field | indexed | notes |
 |---|---|---|
 | `id` | ✓ (pk) | |
-| `pack_key` | ✓ unique (`&`) | referenced by `pets.content_pack_key` |
-| `kennel_name`, `version` | | |
+| `pack_key` | ✓ unique (`&`) | referenced by `pets.content_pack_key` (kennel-wide) and by `documents.pack_key` (either scope) |
+| `kennel_name` | | display only |
+| `scope` | | `kennel` \| `litter`, carried through from the manifest |
+| `version` | | the CONTENT version last fetched (manifest §3.1); the skip-if-unchanged check |
 | `fetched_at` | | |
-| `payload` | | care-guide prose + schedule overrides/additions + feeding guidance |
 
 ---
 
@@ -514,10 +533,31 @@ junk pet was gone, the seeded pet and its data were back) → added another pet 
 restored the same file with **Merge** (the new pet survived, the seeded data was
 still there); no console errors.
 
+## Built (content-pack fetch)
+`furever/data/contentPackFetch.js` implements the family side of
+`docs/KennelOS_Content_Package_Fetch_Mechanism.md`: on first open and every resend
+(triggered right after `app.js`'s `consumeSeedLinkIfPresent()` applies a seed
+packet), it fetches each pointer in the pet's `seed.contentPackages` — a public-key
+read of that pack's `pack.json` manifest, skipped if `content_packs`'s cached
+version is already current, else a public-key read of every listed file, landed as
+`source:'breeder'` `documents` rows via `documentRepo.replaceBreederLayer` (a blind
+wholesale replace of that pack's prior rows) and recorded in `content_packs`. No
+family sign-in; best-effort and online-only — any failure just leaves things as
+they were, retried on the next open that carries the pointer. The breeder-side
+**Furever console** (`shared/pages/furever.*`, Pro-only, in the main KennelOS repo)
+is the encoder/publisher: Connect Google Drive once, then Publish a kennel-wide
+pack and one pack per litter from documents already filed on dogs (a bulk-add
+picker), with a sensitive-doc (`contract`) opt-in warning before anything
+publicly-readable goes out.
+
+This is **documents-only** — no care-guide prose or schedule overrides ship this
+way (the owner's 2026-07-24 decision, mechanism doc §0); `FEEDING_PLAN`'s
+placeholder portions are unaffected and still a future improvement.
+
 ## Not built yet
-The **Training page** (placeholder only — needs a researched puppy curriculum), the
-**one-time content-pack fetch** (which will also supply the breeder's real feeding
-plan, replacing `FEEDING_PLAN`'s placeholder portions), and the **service worker /
-PWA / precache** (offline + install). The app runs online today; the offline layer
-is deferred until the page set settles. The deploy pipeline is ready to ship
-whatever `furever/` contains.
+The **Training page** (placeholder only — needs a researched puppy curriculum), a
+**manual (no-OAuth) fallback** for the content-pack publish flow (documented,
+second-priority — mechanism doc §7 decision 1), and the **service worker / PWA /
+precache** (offline + install) for Furever itself. The app runs online today; the
+offline layer is deferred until the page set settles. The deploy pipeline is ready
+to ship whatever `furever/` contains.
