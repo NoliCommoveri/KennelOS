@@ -112,6 +112,20 @@ export async function requestPersistentStorage() {
   return false;
 }
 
+// Whether the browser has ALREADY granted durable storage to this origin (vs.
+// requestPersistentStorage(), which asks for it). Lets the Settings page show the
+// current state and offer a manual re-request if first-run didn't get it.
+export async function isStoragePersisted() {
+  try {
+    if (navigator.storage && navigator.storage.persisted) {
+      return await navigator.storage.persisted();
+    }
+  } catch {
+    /* non-fatal */
+  }
+  return false;
+}
+
 // Convenience: the table names that exist in the current schema version, so the
 // reference-integrity guard never probes a table that isn't there yet.
 export function existingTableNames() {

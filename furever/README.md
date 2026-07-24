@@ -29,7 +29,13 @@ large size), **Reminders** (the derived schedule with one-tap "log done"), and
 `At A Glance` has no sub-nav. **Family & Settings** collects the family name (stored
 in a `household` singleton, shown in the banner), the family-wide vet (a `contacts`
 row), and a simple **theme switcher** (Warm / Ocean / Forest / Berry / Slate, applied
-to `<html data-theme>` and remembered). Browser-verified (headless Chromium: add a dog
+to `<html data-theme>` and remembered). It also carries two device-level controls: a
+**Keeping your data safe** card that shows whether the browser has granted durable
+storage and lets the family (re-)request it (`db.isStoragePersisted` /
+`requestPersistentStorage` — the manual counterpart to the silent first-run request in
+`app.js`), and a **Reset app** danger button that, behind a two-step confirm, wipes
+every table and every localStorage key and reloads to a blank first-run app
+(`data/appReset.js`). Browser-verified (headless Chromium: add a dog
 → Profile → set a picture → Reminders projects the schedule from DOB → log an item →
 it moves to the Log; set family name + vet + theme → banner shows "Carson Family Pets"
 and the palette persists across reloads; no console errors).
@@ -111,7 +117,10 @@ furever/
     dateUtils.js         — YYYY-MM-DD arithmetic + offsets
     ageBrackets.js       — life-stage brackets (Health buckets + Feeding presets)
     vocab.js             — controlled vocabularies (badges + dropdowns)
-    settings.js          — active pet (app-wide scope) + UI prefs incl. theme, localStorage
+    settings.js          — active pet (app-wide scope) + UI prefs incl. theme, localStorage;
+                           clearAllSettings() drops every key for the hard reset
+    appReset.js          — "Reset app": clears every table + every localStorage key,
+                           back to first-run (no reference guard); Settings danger button
     careLibrary.js       — universal dog schedule + FEEDING_PLAN / safety content (shipped)
     schedule.js          — the DERIVED reminder engine (stores nothing)
     seedLink.js          — decodes + applies a breeder "#seed=…" link (decompress →

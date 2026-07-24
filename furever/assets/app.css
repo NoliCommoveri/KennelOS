@@ -284,7 +284,12 @@ main {
 .btn:disabled { opacity: .55; cursor: default; }
 .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 .btn-primary:hover { background: var(--accent-dark); }
+.btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+.btn-danger:hover { background: var(--danger); filter: brightness(.92); }
 .btn-sm { padding: .3rem .7rem; font-size: .85rem; }
+.danger-card { border-color: var(--danger); }
+.danger-card h2 { color: var(--danger); }
+.danger-confirm-text { color: var(--danger); font-weight: 600; margin: 0 0 .6rem; }
 .pill-row { display: flex; gap: .5rem; flex-wrap: wrap; }
 
 /* --- Badges (values from vocab.js) --------------------------------------- */

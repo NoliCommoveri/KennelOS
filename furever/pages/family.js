@@ -8,6 +8,8 @@
 import { householdRepo } from '../data/householdRepo.js';
 import { contactRepo } from '../data/contactRepo.js';
 import { getTheme, setTheme, THEMES } from '../data/settings.js';
+import { requestPersistentStorage, isStoragePersisted } from '../data/db.js';
+import { getResetCounts, resetApp } from '../data/appReset.js';
 import { renderNav } from '../nav.js';
 import { esc, showError, clearError } from '../assets/ui.js';
 
@@ -74,13 +76,55 @@ function themeCardHtml() {
     </div>`;
 }
 
+// --- Keeping your data safe (storage durability) ---------------------------
+// Furever asks for durable storage silently once on first run (app.js). If the
+// browser didn't grant it then, this is the family's way to ask again — and to
+// see that their data is protected.
+function storageCardHtml(persisted) {
+  return `
+    <div class="card">
+      <h2>Keeping your data safe</h2>
+      <p class="muted" style="margin-top:0;">
+        Everything in Furever lives on this device, in this browser. Ask your
+        browser to hold onto it so it isn’t cleared to free up space.
+      </p>
+      <div class="form-actions" style="align-items:center;">
+        <button type="button" id="persist-btn" class="btn"${persisted ? ' disabled' : ''}>
+          ${persisted ? 'Your data is protected ✓' : 'Keep my data safe'}
+        </button>
+        <span id="persist-note" class="muted" style="align-self:center;"></span>
+      </div>
+    </div>`;
+}
+
+// --- Danger zone (hard reset) ----------------------------------------------
+function dangerCardHtml() {
+  return `
+    <div class="card danger-card">
+      <h2>Reset app</h2>
+      <p class="muted" style="margin-top:0;">
+        Erase <strong>everything</strong> in Furever on this device — every pet,
+        photo, document, and all your care history — and start over from a blank
+        app. This can’t be undone.
+      </p>
+      <div id="reset-controls" class="form-actions">
+        <button type="button" id="reset-start" class="btn btn-danger">Reset app…</button>
+      </div>
+    </div>`;
+}
+
 async function render() {
   try {
     clearError();
-    const [household, vet] = await Promise.all([householdRepo.get(), getFamilyVet()]);
-    body.innerHTML = familyCardHtml(household, vet) + themeCardHtml();
+    const [household, vet, persisted] = await Promise.all([
+      householdRepo.get(), getFamilyVet(), isStoragePersisted()
+    ]);
+    body.innerHTML = familyCardHtml(household, vet) + themeCardHtml()
+      + storageCardHtml(persisted) + dangerCardHtml();
     wireFamilyForm(vet);
     wireThemes();
+    wireStorage();
+    wireDanger();
   } catch (err) {
     showError(err.message || String(err));
     body.innerHTML = '';
@@ -138,6 +182,61 @@ function wireThemes() {
       setTheme(btn.getAttribute('data-theme'));
       body.querySelectorAll('.theme-swatch').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
+    });
+  });
+}
+
+function wireStorage() {
+  const btn = document.getElementById('persist-btn');
+  if (!btn || btn.disabled) return; // already protected — nothing to ask for
+  const note = document.getElementById('persist-note');
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    const granted = await requestPersistentStorage();
+    if (granted) {
+      btn.textContent = 'Your data is protected ✓';
+      if (note) note.textContent = '';
+    } else {
+      btn.disabled = false;
+      if (note) note.textContent = 'Your browser didn’t grant this. Adding Furever to your home screen helps.';
+    }
+  });
+}
+
+function wireDanger() {
+  const start = document.getElementById('reset-start');
+  if (!start) return;
+  start.addEventListener('click', async () => {
+    const controls = document.getElementById('reset-controls');
+    let total = 0;
+    try {
+      const counts = await getResetCounts();
+      total = Object.values(counts).reduce((a, b) => a + b, 0);
+    } catch { /* fall back to a generic confirm below */ }
+    const amount = total === 0 ? 'everything' : total === 1 ? '1 record' : `all ${total} records`;
+    controls.innerHTML = `
+      <p class="danger-confirm-text">
+        This permanently erases ${esc(amount)} and can’t be undone. Are you sure?
+      </p>
+      <div class="form-actions">
+        <button type="button" id="reset-cancel" class="btn">Keep my data</button>
+        <button type="button" id="reset-confirm" class="btn btn-danger">Yes, erase everything</button>
+      </div>`;
+    document.getElementById('reset-cancel').addEventListener('click', render);
+    document.getElementById('reset-confirm').addEventListener('click', async () => {
+      const confirmBtn = document.getElementById('reset-confirm');
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Erasing…';
+      try {
+        await resetApp();
+        // Back to the exact first-run state — reload via the front door so the
+        // sidebar, active pet, and first-run flows all rebuild from scratch.
+        location.replace('../index.html');
+      } catch (err) {
+        showError(err.message || String(err));
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Yes, erase everything';
+      }
     });
   });
 }
