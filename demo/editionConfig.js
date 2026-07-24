@@ -49,6 +49,7 @@ export const editionFlags = {
   contracts: true,
   documents: true,
   companion: true,
+  furever: true,
   reports: true,
   invoicing: true,
   puppyRecord: true,
@@ -75,4 +76,5 @@ export const moreItems = [
   { label: 'Reports',       path: 'pages/reports.html' },
   { label: 'Documents',     path: 'pages/documents.html' },
   { label: 'Companion',     path: 'pages/companion.html' },
+  { label: 'Furever',       path: 'pages/furever.html' },
 ];
