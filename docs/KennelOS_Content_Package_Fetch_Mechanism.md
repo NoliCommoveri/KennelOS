@@ -446,6 +446,31 @@ described in §2–4, not just the credential consts (§8 lists every file).
    between the two fixes, the kennel-wide card now shows exactly what it publishes: an "Already
    published" list (with a per-item Remove/Undo, and a Drive link) plus the "Upload new" staging
    box, no dog-scoped documents.
+6. **Removing a doc/upload from a pack now trashes its Drive file (added post-launch — closes a
+   real gap, not a nicety).** Before this, "removing" something from a pack — unchecking a
+   previously-published litter document, or hitting Remove on a kennel-wide upload — only dropped
+   it from the *next* `pack.json`; the actual file stayed sitting in the shared Drive folder,
+   still reachable by anyone who'd kept a link to it or the folder, forever. `googleDrive.js` gained
+   `trashFile(fileId)` (a `PATCH {trashed: true}` — Drive's own recoverable Trash, not an instant
+   permanent delete; trashing a file also drops "anyone with the link" access for everyone but the
+   owner). `publishPack` takes a new `removedKeys` param — `driveFileIds` keys (`doc:<id>` /
+   `upload:<id>`) the console computes as "was in the last-published selection, isn't now" — and
+   trashes + purges each one (step 0, before anything else) as part of the same publish. Both
+   `doKennelPublish` (kennel uploads) and `doLitterPublish` (litter documents) compute and pass
+   this; the UI says so up front ("trashed in Drive on next publish" / the litter picker's caption)
+   rather than leaving it a surprise. Note this is scoped to files this app itself uploaded
+   (`drive.file`) — there's no cross-pack effect even when the same underlying KennelOS `Document`
+   is filed on a dog that's a parent in multiple litters, because each pack publish uploads into
+   its own Drive folder and tracks its own `driveFileIds`, never sharing a Drive file id across
+   packs.
+7. **Overwrite is keyed by KennelOS record id, not by filename.** A republish reuses the same
+   Drive file (PATCH in place) only when the exact same source — the same `Document.id`
+   (`doc:<id>`) or the same client-assigned upload id (`upload:<id>`) — is sent again; Drive itself
+   has no notion of "same name" and happily holds duplicates. Uploading a brand-new "Upload new"
+   item with a title that matches something already published does **not** overwrite it — it
+   creates a second file with the same displayed name. To actually replace a published file's
+   *content*, remove the old one (decision 6 trashes it) and add the replacement as a new upload;
+   there's no in-place "replace this file's bytes" affordance today.
 
 ---
 

@@ -439,7 +439,7 @@ function publishedUploadRowHtml(u) {
   return `
     <div class="list-row" data-published-upload="${esc(u.id)}" style="display:flex; align-items:center; gap:8px;${removed ? ' opacity:.5;' : ''}">
       <span aria-hidden="true">${docTypeIcon(u.docType)}</span>
-      <span class="grow">${esc(u.title)}${removed ? ' <span class="muted">(removed on next publish)</span>' : ''}</span>
+      <span class="grow">${esc(u.title)}${removed ? ' <span class="muted">(trashed in Drive on next publish)</span>' : ''}</span>
       ${badge(DOC_TYPES, u.docType)}
       ${driveLink ? `<a href="${esc(driveLink)}" target="_blank" rel="noopener" class="muted" style="font-size:.85rem;">View in Drive</a>` : ''}
       <button type="button" class="btn btn-sm cp-published-upload-remove" data-published-upload="${esc(u.id)}">${removed ? 'Undo' : 'Remove'}</button>
@@ -629,6 +629,10 @@ async function doKennelPublish() {
   const publishedUploads = settings.contentPack.selection.uploads || [];
   const carryForward = publishedUploads.filter((u) => !removedKennelUploadIds.has(u.id));
   const allUploads = [...carryForward, ...kennelUploads];
+  // Anything the breeder marked Remove gets its Drive file trashed as part of
+  // this publish (fureverContentPack.js's publishPack, step 0) — not just
+  // dropped from the new manifest.
+  const removedKeys = Array.from(removedKennelUploadIds, (id) => `upload:${id}`);
 
   // Only the newly staged items need the "about to become public" warning —
   // a carried-forward upload was already published (and already confirmed,
@@ -655,7 +659,8 @@ async function doKennelPublish() {
       kennelName: settings.kennelName,
       pointer: settings.contentPack,
       documents: [],
-      uploads: allUploads
+      uploads: allUploads,
+      removedKeys
     });
     setFureverSettings({ contentPack: pointer, driveConnected: true });
     kennelUploads = [];
@@ -692,6 +697,13 @@ async function doLitterPublish(litter, rows) {
   statusEl.textContent = 'Publishing…';
   try {
     const settings = getFureverSettings();
+    // Any document that WAS in the last-published selection but isn't checked
+    // now got un-ticked — trash its Drive file as part of this publish rather
+    // than just dropping it from the new manifest (fureverContentPack.js's
+    // publishPack, step 0).
+    const prevSelectedIds = (litter.furever_pack && litter.furever_pack.selection && litter.furever_pack.selection.documentIds) || [];
+    const nowSelectedIds = new Set(selectedDocs.map((d) => d.id));
+    const removedKeys = prevSelectedIds.filter((id) => !nowSelectedIds.has(id)).map((id) => `doc:${id}`);
     const pointer = await publishPack({
       scope: 'litter',
       kennelName: settings.kennelName,
@@ -699,6 +711,7 @@ async function doLitterPublish(litter, rows) {
       pointer: litter.furever_pack || {},
       documents: selectedDocs,
       uploads: [],
+      removedKeys,
       // The litter's parents' documents go to every pup's family in the
       // litter; each pup's own documents go only to that pup's family
       // (contentPackFetch.js's per-pup filter reads this back).
@@ -744,7 +757,7 @@ function litterSectionHtml(litter, rows) {
         </div>
       </div>
       <div class="r-body" style="display:none; margin-top:10px;">
-        <p class="muted" style="margin:0 0 8px; font-size:.85rem;">Sire/dam documents go to every family in this litter. A pup's own documents go only to that pup's family — check just that pup's box to send something to one family alone.</p>
+        <p class="muted" style="margin:0 0 8px; font-size:.85rem;">Sire/dam documents go to every family in this litter. A pup's own documents go only to that pup's family — check just that pup's box to send something to one family alone. Unchecking something that was already published trashes its Drive copy on the next publish — it isn't just removed from the list.</p>
         ${pickerHtml({ prefix: `litter-${litter.id}`, rows, selectedIds, parentIds: { sireId: litter.sire_id, damId: litter.dam_id } })}
         <div class="cp-litter-confirm"></div>
         <div style="margin-top:10px; display:flex; align-items:center; gap:10px;">

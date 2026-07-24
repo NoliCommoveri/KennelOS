@@ -7,7 +7,7 @@
 // and flow this implements. The Furever console (pages/furever.*) is the only
 // caller — it owns picking WHICH documents/uploads go in; this module only knows
 // how to publish whatever it's handed.
-import { ensureFolder, shareFolderPublic, uploadFile, writeManifestFile } from './googleDrive.js';
+import { ensureFolder, shareFolderPublic, uploadFile, writeManifestFile, trashFile } from './googleDrive.js';
 import { fileRepo } from './fileRepo.js';
 
 const ROOT_FOLDER_NAME = 'KennelOS Furever';
@@ -98,6 +98,11 @@ function loadUploadSource(upload) {
 //   litterNickname  only used for scope:'litter' (the Drive folder name)
 //   documents       KennelOS Document rows the breeder ticked (dog-scoped)
 //   uploads         [{ id, title, docType, blob }] kennel-scope "Upload new" items
+//   removedKeys     driveFileIds keys (`doc:<id>` / `upload:<id>`) the breeder
+//                    un-ticked/removed since the last publish — their Drive
+//                    files get trashed (§below) instead of just quietly
+//                    dropping out of the manifest while still sitting shared
+//                    in the folder
 //   sireId, damId   only used for scope:'litter' — the litter's parents, whose
 //                   documents are shared with every pup's family in the litter
 //                   (unlike an individual pup's own documents, which are not)
@@ -105,9 +110,20 @@ function loadUploadSource(upload) {
 // Returns the new pointer to persist (settings.js's contentPack, or the litter's
 // furever_pack field) — this module never writes those itself, so it stays
 // agnostic to which scope it's publishing.
-export async function publishPack({ scope, kennelName, litterNickname, pointer = {}, documents = [], uploads = [], sireId = null, damId = null }) {
+export async function publishPack({ scope, kennelName, litterNickname, pointer = {}, documents = [], uploads = [], removedKeys = [], sireId = null, damId = null }) {
   const packKey = pointer.packKey || crypto.randomUUID();
   const driveFileIds = { ...((pointer.selection && pointer.selection.driveFileIds) || {}) };
+
+  // 0. Trash whatever the breeder removed since the last publish, so a
+  // "removed" doc/upload actually stops being reachable instead of just
+  // dropping out of the new manifest while its file (and the folder's
+  // "anyone with the link" share) stays live in Drive.
+  for (const key of removedKeys) {
+    const existing = driveFileIds[key];
+    if (!existing) continue;
+    await trashFile(existing.fileId);
+    delete driveFileIds[key];
+  }
 
   // 1. Ensure folders (reuse the cached id — the common case on a republish).
   let folderId = pointer.folderId || null;

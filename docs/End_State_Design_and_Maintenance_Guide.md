@@ -1855,6 +1855,25 @@ the breeder never touches Drive directly.
   `publishPack` can thread a no-longer-blob-holding prior upload into the new
   manifest by its already-known Drive file id instead of silently dropping it
   (mechanism doc §7 decision 5).
+- **Removing a doc/upload from a pack trashes its Drive file** (mechanism doc §7
+  decision 6, added post-launch — closes a real gap, not a nicety): unchecking a
+  previously-published litter document, or clicking Remove on a kennel-wide
+  upload, no longer just drops it from the next `pack.json` while the file keeps
+  sitting shared in Drive. `googleDrive.js`'s `trashFile(fileId)` PATCHes
+  `{trashed: true}` (Drive's own recoverable Trash — also drops "anyone with the
+  link" access for non-owners); `publishPack` takes a `removedKeys` param
+  (`driveFileIds` keys the console diffs "last-published selection" against
+  "checked/staged now") and trashes + purges each one as step 0 of the publish,
+  before anything else. Scoped per-pack — a `Document` filed on a dog that's a
+  parent in multiple litters gets an independent Drive file (and `driveFileIds`
+  entry) per litter's own publish, so trashing it out of one litter's pack never
+  touches another litter's copy.
+- **Overwrite is keyed by the KennelOS record id, not the filename** — a
+  republish only PATCHes the same Drive file when the exact same `Document.id`
+  or client-assigned upload id is sent again (mechanism doc §7 decision 7). A
+  new "Upload new" item with a title matching something already published
+  creates a second, separate file rather than replacing it; there's no in-place
+  "replace this file's bytes" affordance today.
 - **Not built:** the manual (no-OAuth) fallback (mechanism doc §7 decision 1 —
   documented, deliberately second-priority). **Not yet browser/round-trip
   verified** against a real Google account (no live consent/Drive round trip has
