@@ -11,6 +11,12 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
 
 ## 1. Code freeze (in `nolicommoveri/kennelos`, before merging to `main`)
 
+- [ ] **`[!]` Restore `--release` in `.github/workflows/deploy.yml`** — currently
+  removed from the `Build ${{ matrix.edition }}` step so lite/pro/demo can deploy
+  for live testing ahead of the real launch URLs (this bullet). While it's off, the
+  launch guard only **warns** instead of failing, so a deploy can ship a dead
+  Upgrade/checkout link. Put it back the moment the swaps below land, before real
+  user traffic.
 - [ ] **`[!]` Swap Lite placeholders** — `lite/editionConfig.js`:
   - `upgradeUrl` (`https://kennelos.app/upgrade`) → the real Lemon Squeezy checkout URL.
   - `demoUrl` (`https://demo.kennelos.app/`) → confirm it's the final Demo origin.
@@ -45,10 +51,13 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
 
 ## 3. Deploy infrastructure (per `build/README.md`)
 
-- [ ] Three publish repos exist: `NoliCommoveri/kennelos-{lite,pro,demo}` (build output only —
-  never hand-edited; each is overwritten on every deploy).
+- [ ] Four publish repos exist: `NoliCommoveri/kennelos-{lite,pro,demo}` **and**
+  `NoliCommoveri/KennelOS-Furever` (build output only — never hand-edited; each is
+  overwritten on every deploy).
 - [ ] **`EDITIONS_DEPLOY_PAT`** secret set in `nolicommoveri/kennelos` — a fine-grained PAT
-  with `Contents: Read/Write` scoped to just those three repos.
+  with `Contents: Read/Write` scoped to all four repos above. **`[!]` Currently missing
+  write access to `KennelOS-Furever`** — its deploy job fails with a 403 on push
+  (`furever/README.md`); the other three repos need the same scope confirmed.
 - [ ] Each publish repo: Pages source = `main` / root, custom domain = its subdomain,
   **Enforce HTTPS on**.
 - [ ] Merge to `main` → `deploy.yml` assembles (`--release`) and force-publishes all three.

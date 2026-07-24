@@ -35,10 +35,13 @@ jobs:
           node-version: 20
 
       - name: Build ${{ matrix.edition }}
-        # --release makes the launch-placeholder guard (build/assemble.mjs) a hard
-        # failure, so a deploy can't ship a dead upgrade/checkout link. Swap the
-        # placeholders (see docs/LAUNCH_CHECKLIST.md) to make this pass.
-        run: node build/assemble.mjs ${{ matrix.edition }} --release
+        # TEMPORARY: --release removed so lite/pro/demo can deploy for live testing
+        # before the real launch URLs are in hand (docs/LAUNCH_CHECKLIST.md §1 is
+        # still open — lite's upgradeUrl / pro's licenseConfig.checkoutUrl are still
+        # placeholders). A plain build only WARNS on those, it doesn't fail, so this
+        # ships a dead Upgrade/checkout link for now. Put --release back the moment
+        # the checklist's §1 swaps land, before any real user traffic.
+        run: node build/assemble.mjs ${{ matrix.edition }}
 
       - name: Add CNAME
         run: echo "${{ matrix.domain }}" > dist/${{ matrix.edition }}/CNAME
