@@ -107,6 +107,7 @@ The active-pet scope's root. Two kinds, same shape.
 | `date_of_birth` | | `YYYY-MM-DD`; the anchor for age-based schedule items |
 | `sex` | | vocab `SEX` |
 | `breed` | | |
+| `joined_family_date` | | family-entered, partial: `YYYY` or `YYYY-MM` (never a day) — when this pet joined the household, distinct from `date_of_birth` |
 | `photo_url` | | seed-provided avatar (URL, not blob — brief) |
 | `content_pack_key` | | which fetched pack overlays this pet (→ `content_packs.pack_key`) |
 | `seed` | | **unindexed snapshot** of the last received packet: `{ pupId, name, dob, sex, breed, photoUrl, note, pickupPlan:{photoUrl,date,time,place}, breederKey, receivedAt }`. Keeps "what the breeder sent" separable from family edits; the seed-owned identity fields above are re-derived from it on each resend. |

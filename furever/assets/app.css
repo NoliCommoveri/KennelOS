@@ -276,6 +276,9 @@ main {
   width: 100%;
 }
 .field .hint { color: var(--muted); font-size: .8rem; }
+.joined-inputs { display: flex; gap: .5rem; }
+.joined-inputs select { flex: 1.3; }
+.joined-inputs input { flex: 1; }
 .form-actions { display: flex; gap: .5rem; margin-top: .5rem; }
 
 /* --- Misc ---------------------------------------------------------------- */
@@ -338,7 +341,12 @@ main {
   font-size: clamp(2rem, 6vw, 3rem); margin: 0 0 .35rem;
   letter-spacing: -.02em; line-height: 1.05;
 }
-.profile-badges { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.profile-meta-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 1rem; margin-bottom: 1.5rem; font-size: 1.1rem;
+}
+.profile-age { color: var(--muted); font-weight: 600; }
+.profile-breeder { color: var(--muted); font-weight: 600; text-align: right; }
 .detail-list { display: grid; gap: 0; }
 .detail-row {
   display: flex; justify-content: space-between; gap: 1rem; align-items: baseline;
