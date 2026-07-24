@@ -1834,19 +1834,27 @@ the breeder never touches Drive directly.
   Drive, not at a KennelOS entity).
 - **Furever console UI** (`pages/furever.js`, new "Content packages" section below
   the existing recipients list): a **Connect Google Drive** button; a **kennel-wide
-  pack** panel (candidate pool = any non-archived dog's documents, plus an
-  "Upload new" area for kennel-level files not filed on a dog); one **collapsible
+  pack** panel — **uploads only** ("Upload new" area for kennel-level files not
+  filed on any dog; there is deliberately no per-dog document picker here, see
+  mechanism doc §7 decision 5 — a per-dog document is dog/litter-scoped material and
+  belongs in a litter pack, not the every-family kennel-wide one); one **collapsible
   panel per litter** (candidate pool = that litter's pups **and** `sire_id`/`dam_id`,
   each via `documentRepo.getByDog` — Data Model §5.4's "litter's own sire_id/dam_id
-  are authoritative"). Each picker offers **bulk selectors** — a master "select
-  all," a **per-type** toggle per doc type present, and a **per-dog** "select all" —
-  built as plain DOM checkbox manipulation (no separate JS selection model to keep
-  in sync; the checked boxes ARE the state while a panel is open) and pre-checked
-  from the pointer's cached `selection.documentIds`. Publish reads the checked boxes
-  at click time; if any selected document's `doc_type` is sensitive
-  (`isSensitiveDocType`), an inline confirmation (`sensitiveConfirmHtml`) lists
-  exactly which titles are about to become publicly link-readable and requires an
-  explicit "Yes, publish anyway" before the actual `publishPack` call runs.
+  are authoritative"), with **bulk selectors** — a master "select all," a
+  **per-type** toggle per doc type present, and a **per-dog** "select all" — built as
+  plain DOM checkbox manipulation (no separate JS selection model to keep in sync;
+  the checked boxes ARE the state while a panel is open) and pre-checked from the
+  pointer's cached `selection.documentIds`. Publish reads the checked boxes at click
+  time; if any selected document's `doc_type` is sensitive (`isSensitiveDocType`), an
+  inline confirmation (`sensitiveConfirmHtml`) lists exactly which titles are about
+  to become publicly link-readable and requires an explicit "Yes, publish anyway"
+  before the actual `publishPack` call runs. The kennel-wide panel also shows an
+  **"Already published"** list (title, doc-type badge, a "View in Drive" link, a
+  per-item Remove/Undo) sourced from `settings.contentPack.selection.uploads` — every
+  publish re-sends that full carried-forward list plus whatever's newly staged, so
+  `publishPack` can thread a no-longer-blob-holding prior upload into the new
+  manifest by its already-known Drive file id instead of silently dropping it
+  (mechanism doc §7 decision 5).
 - **Not built:** the manual (no-OAuth) fallback (mechanism doc §7 decision 1 —
   documented, deliberately second-priority). **Not yet browser/round-trip
   verified** against a real Google account (no live consent/Drive round trip has

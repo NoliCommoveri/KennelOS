@@ -117,10 +117,15 @@ export async function publishPack({ scope, kennelName, litterNickname, pointer =
     folderId = await ensureFolder(name, rootId);
   }
 
-  // 2. Load every chosen source's bytes.
+  // 2. Load every chosen source's bytes. A kennel upload only carries a blob
+  // when it's new/changed this session — an upload carried forward from a
+  // prior publish (the console re-sends its metadata every publish so it
+  // isn't silently dropped from the manifest) has none and is handled in 3b.
   const sources = [];
   for (const doc of documents) sources.push(await loadDocumentSource(doc));
-  for (const upload of uploads) sources.push(loadUploadSource(upload));
+  for (const upload of uploads) {
+    if (upload.blob) sources.push(loadUploadSource(upload));
+  }
 
   // 3. Upload each — PATCHing the same Drive file id when we've published this
   // exact source before (by its stable key), so a republish doesn't pile up
@@ -137,6 +142,21 @@ export async function publishPack({ scope, kennelName, litterNickname, pointer =
       fileId: uploaded.id, resourceKey: uploaded.resourceKey || null,
       title: src.title, docType: src.docType, mime: src.mime, size: src.blob.size || 0,
       dogId: src.dogId || null
+    });
+  }
+
+  // 3b. Carry forward kennel uploads that weren't re-sent this publish (no
+  // blob this session, but a Drive file id from a previous one) — otherwise
+  // a republish would silently drop them from the manifest even though the
+  // Drive file is still sitting in the folder.
+  for (const upload of uploads) {
+    if (upload.blob) continue;
+    const existing = driveFileIds[`upload:${upload.id}`];
+    if (!existing) continue;
+    files.push({
+      fileId: existing.fileId, resourceKey: existing.resourceKey || null,
+      title: upload.title || 'File', docType: upload.docType || 'other',
+      mime: upload.mime || '', size: upload.size || 0, dogId: null
     });
   }
 
@@ -161,13 +181,18 @@ export async function publishPack({ scope, kennelName, litterNickname, pointer =
     version,
     selection: {
       documentIds: documents.map((d) => d.id),
-      uploads: uploads.map((u) => ({
-        id: u.id,
-        title: u.title,
-        docType: u.docType,
-        drive_file_id: (driveFileIds[`upload:${u.id}`] || {}).fileId || null,
-        resourceKey: (driveFileIds[`upload:${u.id}`] || {}).resourceKey || null
-      })),
+      uploads: uploads.map((u) => {
+        const uploaded = driveFileIds[`upload:${u.id}`] || {};
+        return {
+          id: u.id,
+          title: u.title,
+          docType: u.docType,
+          mime: (u.blob && u.blob.type) || u.mime || '',
+          size: u.blob ? (u.blob.size || 0) : (u.size || 0),
+          drive_file_id: uploaded.fileId || null,
+          resourceKey: uploaded.resourceKey || null
+        };
+      }),
       driveFileIds
     }
   };
