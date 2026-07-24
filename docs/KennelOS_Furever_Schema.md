@@ -329,7 +329,12 @@ file map):
   (`schedule.familyDueSoon`), the one cross-pet view; carries no sub-nav.
 - `pages/profile.*` — a pet's landing page: an Add-Picture box (the chosen image is
   downscaled to a data URL and stored in `pet.photo_url`) plus the pet's details at a
-  large size, with inline editing.
+  large size, with inline editing. Above the details it renders the **pre-pickup
+  countdown card** (seeded pets, from `pet.seed.pickupPlan`/`note`, retiring itself once
+  pickup day passes) and, in the meta row, a **Breeder Info** button that opens the
+  breeder "call us anytime" card as a modal — the seed-layer `breeders` row this pet's
+  `breeder_id` points at (kennel name, the breeder's own contact, and their vet as a
+  referral). Read-only display of breeder-authored seed; the family never edits it.
 - `pages/reminders.*` — the active pet's **derived schedule** (`evaluateSchedule`)
   with a one-tap **log-done** that appends a `care_events` actual (the reminder clears
   / a recurring item rolls forward).
@@ -400,9 +405,9 @@ the decoder above consumes:
   pickup plan all decoded correctly; no console errors on either side.
 
 ## Not built yet
-The **one-time content-pack fetch**, the **document / photo / contact** pages,
-**import-export / backup**, the pre-pickup **countdown card** (the packet already
-carries `pickupPlan`, but no Furever page renders it yet), and the **service
-worker / PWA / precache** (offline + install). The app runs online today; the
-offline layer is deferred until the page set settles. The deploy pipeline is ready
-to ship whatever `furever/` contains.
+The **one-time content-pack fetch**, the **document / photo / contact** pages
+(the family's own contacts — the seed-layer breeder/vet card is built, see profile
+above), **import-export / backup**, and the **service worker / PWA / precache**
+(offline + install). The app runs online today; the offline layer is deferred until
+the page set settles. The deploy pipeline is ready to ship whatever `furever/`
+contains.
