@@ -54,7 +54,7 @@ Three separable changes, in dependency order:
 | 1 | Stamped or derived scope? | **Stamped.** A real, indexed `kennel_id` on the scoped tables. Not derived through the dog/dam. |
 | 2 | Segment over own kennels only? | **Yes.** The scope picker lists `is_own_kennel` kennels; outside kennels stay pure reference data and are never a scope. The dual-purpose table stays as-is. |
 | 3 | Global scope or per-list filter? | **Global.** One active-kennel switcher in the shell, persisted in `settings.js`, with an "All kennels" option. |
-| 4 | Unassigned records? | **No such thing.** There is no live data and no users, so there is no backfill and no "Unassigned" bucket. `kennel_id` becomes **mandatory on new dogs** (see §3.1 for the exact rule). |
+| 4 | Unassigned records? | **No such thing.** There is no live data and no users, so there is no backfill and no "Unassigned" bucket. `kennel_id` becomes **mandatory on new dogs** (§3.1a), and **kennel setup at first launch becomes mandatory** (§3.2) so a kennel always exists to stamp. |
 | 5 | Edition posture? | **Pro-only.** `editionFlags.multiKennel`; Lite keeps exactly one kennel and today's behavior verbatim. |
 
 Decision 1 is what makes the rest work: deriving a sale's kennel through its dog
@@ -84,19 +84,100 @@ is scoped by ownership, not blanket:
 This only bites in Pro: Lite has no external ownership at all
 (`editionFlags.externalOwnership: false`).
 
-**(b) Kennel setup can no longer be skippable — or the dog form must create one.**
-`settings.js` has `wasMyKennelSetupSkipped()` / `markMyKennelSetupSkipped()` and
-`app.js`'s first-run flow lets the user skip. With a required `kennel_id`, a user
-who skips is dead-ended at the first dog they try to create — in **both**
-editions.
+**(b) A dog with no kennel to point at.** With a required `kennel_id`, a user who
+skips kennel setup is dead-ended at the first dog they try to create — in **both**
+editions. Resolved by §3.2: setup stops being skippable.
 
-**Resolution:** keep the skip (don't make onboarding more coercive), and make the
-New Dog form's kennel field a required picker with an inline **"+ New kennel"**
-that creates one on the spot — the same pattern the sale form already uses for
-contacts (`contactPicker.js`). A user who skipped setup then creates their kennel
-at the moment it first means something. In Lite the field is invisible and
-auto-stamped (§12), so the inline create is the *only* path that needs to exist
-there, and it fires at most once.
+## 3.2 Kennel setup at first launch becomes mandatory
+
+**Decision: the first-run kennel setup is a hard gate.** No "Skip for now". The
+app is not usable until one own kennel exists, because from §3.1(a) onward every
+owned dog needs one to point at.
+
+### 3.2.1 Retire the skip
+
+Delete the skip path outright rather than hiding its button:
+
+- `settings.js` — `KEYS.myKennelSetupSkipped`, `wasMyKennelSetupSkipped()`,
+  `markMyKennelSetupSkipped()`.
+- `kennelSetup.js` — `skipKennelSetup()`, and the `wasMyKennelSetupSkipped()`
+  term in `shouldOfferKennelSetupPrompt()`.
+- `kennelSetupUI.js` — the `skippable` branch at line 52 and the
+  `if (skippable) skipKennelSetup()` at line 92.
+
+### 3.2.2 `showKennelSetupModal` grows a third posture
+
+Today's `skippable` boolean is really two modes, and it needs to become three —
+minus the one being retired, that leaves two:
+
+| Mode | Dismiss control | Used by |
+|---|---|---|
+| `required` | **none** — no Skip, no Cancel, no backdrop close, no Escape | the three first-run call sites below |
+| `cancellable` | Cancel (closes, changes nothing) | `import-export.js:168` — a deliberate reopen to *edit* an existing kennel, which must stay dismissible |
+
+`required` is the posture `onboardCard()` in `onboardingUI.js` already implements
+for the Welcome card — a dimmed, non-dismissible overlay whose only exit is the
+button. Reuse that behavior rather than inventing a second one.
+
+The three call sites that become `required`:
+
+- `onboardingUI.js:105` — the "I'll explore" branch.
+- `wizardUI.js:167` — the guided tour's finish handoff.
+- `kennelSetupUI.js:15` (`maybeShowKennelSetupPrompt`, called from `app.js`) —
+  the catch-all that fires on the load after sample data is cleared.
+
+### 3.2.3 The gate re-fires until satisfied — mostly for free
+
+The "user reloads to escape the modal" hole is already closed by existing logic,
+which is worth knowing before anyone adds new machinery for it:
+
+`declineSampleData()` calls `markSampleDataCleared()` (`sampleData.js:61-63`). So
+on the explore branch, a reload makes `shouldOfferFirstRunPrompt()` return false
+(the cleared flag is set — `sampleData.js:51`) and `app.js` falls through to
+`maybeShowKennelSetupPrompt()`, whose `shouldOfferKennelSetupPrompt()` is then
+true: no sample data, cleared flag set, not set up. **The only thing suppressing
+that re-fire today is the skip flag.** Removing it (§3.2.1) turns the existing
+fall-through into the mandatory gate, with no new state to track.
+
+### 3.2.4 The gate's condition is "an own kennel exists", not "myKennelId is set"
+
+The guided-tour branch seeds Thornfield with `is_own_kennel: true`
+(`editionTour.js:46`) but never sets `myKennelId` — only `completeKennelSetup()`
+does. Both the shared and Lite seeds do this. So the gate must be satisfied by the
+sample data (as `shouldOfferKennelSetupPrompt`'s `hasSampleData()` term already
+arranges) and fire at the tour's finish handoff, which is exactly where
+`wizardUI.js:167` already calls it.
+
+### 3.2.5 Demo stays exempt
+
+`app.js`'s `boot()` returns inside the `isDemo()` branch before the first-run flow
+(`app.js:96-104`), so the gate never runs in Demo — and must not be moved ahead of
+that return. Demo is a seeded, read-only showcase; its writes throw `DemoModeError`
+anyway, so a mandatory setup modal there would be an unclosable dialog over a
+read-only app. **Any refactor that relocates the gate has to preserve this
+ordering.**
+
+### 3.2.6 Two hazards this creates
+
+- **Abandoning the tour mid-way.** Sample data stays present, so the gate stays
+  satisfied and the user can create real dogs stamped into the *sample* Thornfield
+  kennel — which `clearSampleData()` later deletes, orphaning a real dog's
+  `kennel_id`. This hazard exists today in a milder form; a mandatory `kennel_id`
+  makes it likely rather than theoretical. Clearing sample data must refuse (or
+  re-home) when a non-seeded record points at a seeded kennel.
+- **`is_own_kennel` is not enforced on create.** The Kennels page checkbox
+  (`kennels.js:145`) defaults unchecked, so a Pro user can make a kennel that is
+  invisible to the scope picker. The required dog-form picker lists own kennels
+  only, so any inline "+ New kennel" it offers must force `is_own_kennel: true`.
+
+### 3.2.7 The dog form's inline create is now optional, not load-bearing
+
+With setup mandatory, an inline **"+ New kennel"** on the dog form is no longer
+needed to prevent a dead-end — a kennel always exists. It stays worth having in
+**Pro** as a convenience for adding a *second* kennel without leaving the form
+(the pattern `contactPicker.js` already uses for contacts), but it is no longer
+required for correctness, and **Lite doesn't need it at all** (single kennel,
+field hidden and auto-stamped — §12).
 
 ## 4. Data model
 
@@ -308,8 +389,10 @@ so this is an extension of the existing partition, not a new gate.
 - **Lite:** exactly one own kennel. No switcher, no picker, no scope UI anywhere.
   Writes auto-stamp the single kennel; `isScoped()` returns false, so `inScope()`
   is a constant `true` and Lite's read paths behave exactly as they do today. The
-  mandatory-kennel rule is satisfied silently — the only Lite-visible piece is the
-  inline-create fallback from §3.1(b) for a user who skipped setup.
+  mandatory-kennel rule is satisfied silently, with no picker and no inline create.
+- **The mandatory setup gate (§3.2) is NOT Pro-only** — it ships in both editions,
+  because both need a kennel to stamp. It is the one piece of this spec Lite users
+  will actually see.
 - **The cap is unaffected.** Lite is single-kennel, so "is the 6-dog cap per
   kennel or global?" never arises. `rosterCount.js` needs no change, and no cap
   logic becomes kennel-aware.
@@ -330,9 +413,11 @@ litters, and sales, or the Demo edition shows a switcher with one entry in it.
 Same-change work per CLAUDE.md, not follow-up:
 
 - **End-State guide** — §4 (field tables: the six new FKs), §5 (the schema
-  block), §7 (registry — the new `KENNEL_REFERENCES` lines), §13 (UI layer: the
-  scope service + switcher), §19 (nudges), §21 (financials). The guide's field
-  tables, schema block, and prose all have to agree with each other and the code.
+  block), §7 (registry — the new `KENNEL_REFERENCES` lines), **§11 (first-run,
+  sample data, settings — the retired skip flag and the mandatory gate)**, §13 (UI
+  layer: the scope service + switcher), §19 (nudges), §21 (financials). The
+  guide's field tables, schema block, and prose all have to agree with each other
+  and the code.
 - **README.md** — a build-status entry for the feature.
 - **`shared/sw.js`** — `kennelScope.js` (and any new page) added to
   `PRECACHE_URLS`; `cache.addAll` is atomic, so one missing path breaks offline
@@ -342,10 +427,15 @@ Same-change work per CLAUDE.md, not follow-up:
 
 ## 15. Phasing
 
-**Phase 1 — schema + writes (pre-launch).** §4, §5, §6. Records start carrying a
-kennel; nothing filters yet; no visible behavior change beyond the required field
-on the dog form. This is the piece that gets expensive after release — it should
+**Phase 1 — schema + writes + the setup gate (pre-launch).** §3.2, §4, §5, §6.
+Records start carrying a kennel; nothing filters yet. Two visible changes: the
+required kennel field on the dog form, and first-run setup no longer offering
+"Skip for now". This is the piece that gets expensive after release — it should
 land before the first deploy regardless of when Phases 2-3 happen.
+
+§3.2 belongs in Phase 1 rather than later precisely because it is what makes the
+required `kennel_id` safe: shipping the required field without the gate is the
+dead-end described in §3.1(b).
 
 **Phase 2 — the scope.** §7, §8, §9. The switcher and the kennel hub go live.
 This is the long pole: it touches most of the ~11k lines of page code, and every
