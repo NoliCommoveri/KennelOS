@@ -7,9 +7,10 @@ script, which produces a servable, deployable directory per edition.
 ## Run it
 
 ```
-node build/assemble.mjs            # assemble all editions + standalone apps -> dist/*
+node build/assemble.mjs            # assemble every target -> dist/*
 node build/assemble.mjs lite       # just one
 node build/assemble.mjs furever    # the standalone Furever app (see below)
+node build/assemble.mjs site       # the marketing website (see below)
 node build/assemble.mjs --release  # + fail on any unresolved launch placeholder
 ```
 
@@ -19,6 +20,14 @@ separate path (`assembleStandalone`): copy `furever/` → `dist/furever/` and ve
 Dexie beside it (from `shared/vendor/`, so still no CDN), with none of the
 editionConfig-overlay / manifest-restamp / service-worker-rewrite steps below. It
 has no launch placeholders, so `--release` is a no-op for it.
+
+**Static sites (the marketing website).** `site` is not an app either — it's the public
+website at the apex domain (`site/`, see `site/README.md`). Its assembly is a straight
+copy (`assembleStaticSite`): no editionConfig overlay, no manifest/index restamp, no
+service-worker rewrite, because it ships none of those by design (it is deliberately
+not a PWA). `--release` is a no-op for it too — note that means the checkout-URL
+placeholders in `site/pro.html` do **not** fail a release build; they're tracked in
+`site/README.md` and the launch checklist instead.
 
 `dist/` is git-ignored; it's an output, not source.
 
@@ -66,13 +75,16 @@ isolated (editions plan). Live at:
 - `pro.kennelos.app` ← `dist/pro/`
 - `demo.kennelos.app` ← `dist/demo/`
 - `furever.kennelos.app` ← `dist/furever/` (the standalone Furever app)
+- `kennelos.app` ← `dist/site/` (the marketing website, on the apex domain)
 
 Hosting is GitHub Pages, one app per repo (GitHub Pages allows exactly one custom
 domain per repo, so each subdomain needs its own repo):
 [`kennelos-lite`](https://github.com/NoliCommoveri/kennelos-lite),
 [`kennelos-pro`](https://github.com/NoliCommoveri/kennelos-pro),
-[`kennelos-demo`](https://github.com/NoliCommoveri/kennelos-demo), and
-[`KennelOS-Furever`](https://github.com/NoliCommoveri/KennelOS-Furever). Each publish
+[`kennelos-demo`](https://github.com/NoliCommoveri/kennelos-demo),
+[`KennelOS-Furever`](https://github.com/NoliCommoveri/KennelOS-Furever), and
+`kennelos-site` (the apex marketing site — apex domains need GitHub's `A`/`AAAA`
+records, not a `CNAME` at the DNS level). Each publish
 repo holds **only build output** — never hand-edit a file in one of them; it's
 overwritten on the next deploy.
 

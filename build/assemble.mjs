@@ -28,6 +28,9 @@ const EDITIONS = ['lite', 'pro', 'demo'];
 // folder, so they take a separate assembly path (assembleStandalone) with none of
 // the editionConfig / manifest / service-worker rewriting below.
 const STANDALONE_APPS = ['furever'];
+// Static sites are not apps at all — plain marketing/content pages with no Dexie,
+// no service worker and no manifest. They take the simplest path of all (a copy).
+const STATIC_SITES = ['site'];
 
 // --- Launch placeholder guard ---------------------------------------------
 // Values in the edition configs that are stand-ins until launch: Lite's upgrade
@@ -181,6 +184,23 @@ function assembleStandalone(app) {
   console.log(`✅ ${app}: dist/${app}/  (standalone app; vendored dexie)`);
 }
 
+// --- Static site assembly (the marketing site) -----------------------------
+// site/ is the public marketing website at the apex domain — plain HTML/CSS with
+// one small script, DELIBERATELY not a PWA (no manifest, no service worker, so it
+// never competes with the real apps' install prompt or caches itself onto a
+// visitor's device). There is nothing to overlay, exclude or rewrite: assembly is
+// a straight copy, and it exists only so the site deploys through the same
+// workflow as everything else.
+function assembleStaticSite(name) {
+  const dest = join(ROOT, 'dist', name);
+  rmSync(dest, { recursive: true, force: true });
+  cpSync(join(ROOT, name), dest, { recursive: true });
+  // The folder's README is internal (it lists the unswapped launch placeholders);
+  // the publish repo is world-readable, so it doesn't ship.
+  rmSync(join(dest, 'README.md'), { force: true });
+  console.log(`✅ ${name}: dist/${name}/  (static site; copied as-is)`);
+}
+
 // Args: an optional edition name (or 'all') plus an optional --release flag that
 // turns the launch-placeholder check from a warning into a hard failure (used by
 // the deploy workflow, which ships to the live origins).
@@ -188,9 +208,10 @@ const args = process.argv.slice(2);
 const release = args.includes('--release');
 const positional = args.filter((a) => !a.startsWith('--'));
 const arg = positional[0];
-const ALL_TARGETS = [...EDITIONS, ...STANDALONE_APPS];
+const ALL_TARGETS = [...EDITIONS, ...STANDALONE_APPS, ...STATIC_SITES];
 const targets = !arg || arg === 'all' ? ALL_TARGETS : [arg];
 for (const t of targets) {
+  if (STATIC_SITES.includes(t)) { assembleStaticSite(t); continue; }
   if (STANDALONE_APPS.includes(t)) { assembleStandalone(t); continue; }
   if (!EDITIONS.includes(t)) { console.error(`unknown target: ${t}`); process.exit(1); }
   assemble(t, release);
