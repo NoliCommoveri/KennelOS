@@ -20,6 +20,9 @@ const CAP_LITTERS = 2; // litters
 
 export const edition = 'lite';
 
+// Suffix shown after "KennelOS" in the nav brand (nav.js). Null renders nothing.
+export const editionLabel = 'Lite';
+
 // Where the "Upgrade to Pro →" CTA sends the owner AFTER their backup export
 // runs (upgrade bridge — editions plan §"Converting Lite → Pro"). The bridge is
 // export-in-Lite → checkout → import-in-Pro; this is the checkout step's URL.
