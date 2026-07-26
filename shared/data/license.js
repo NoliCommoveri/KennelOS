@@ -37,6 +37,17 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const GRACE_MS = { yearly: 7 * DAY_MS, monthly: 3 * DAY_MS };
 const graceFor = (record) => (record?.interval === 'yearly' ? GRACE_MS.yearly : GRACE_MS.monthly);
 
+// Lifetime check-in (see offlineVerdict). A perpetual key has no expiry to
+// measure against, so its offline limit is measured from the last successful
+// validate instead: full access for this long, then a banner asking for one
+// reconnect, then the wall.
+//
+// Deliberately generous — 4 months from the last time the app saw the internet.
+// A lifetime key that reaches the wall has lost nothing: one reconnect restores
+// it permanently, and the records were never touched.
+const LIFETIME_REVALIDATE_MS = 90 * DAY_MS;
+const LIFETIME_OFFLINE_GRACE_MS = 30 * DAY_MS;
+
 // True only in the Pro edition (its editionConfig sets editionFlags.licenseGate).
 export const isLicenseGated = () => Boolean(editionFlags.licenseGate);
 
@@ -44,8 +55,10 @@ export const isLicenseGated = () => Boolean(editionFlags.licenseGate);
 // the interval from it against configurable patterns (licenseConfig carries them so
 // they can be tuned to the store's actual variant names without a code change):
 //   • lifetime  — a one-time, PERPETUAL purchase (no subscription, no expiry). Its
-//                 verdict never expires and it's exempt from the offline re-validation
-//                 requirement below, because there's no subscription that could lapse.
+//                 verdict never expires, and it gets a far longer offline check-in
+//                 window than a subscription (months, not days — see offlineVerdict)
+//                 since there's no billing cycle to police, only a periodic
+//                 confirmation that the key itself is still good.
 //   • yearly    — annual subscription (longer grace window).
 //   • monthly   — the fallback for anything not clearly lifetime or yearly, and the
 //                 shorter/stricter grace window, per the plan's "unknown → shorter" rule.
@@ -259,13 +272,25 @@ export function onlineVerdict(record) {
 export function offlineVerdict(record) {
   const base = onlineVerdict(record);
   if (base === 'wall') return 'wall';
-  // Perpetual licenses need no periodic re-validation — there's no subscription
-  // to lapse, so a lifetime buyer stays licensed offline indefinitely after the
-  // one online activation. (The rare refunded-lifetime case is an accepted gap,
-  // per the honest caveat — not worth locking every off-grid owner out over.)
-  if (record.interval === 'lifetime') return base;
   const since = Date.now() - Date.parse(record.lastValidated || 0);
-  if (!Number.isFinite(since) || since > graceFor(record)) return 'wall';
+  if (!Number.isFinite(since)) return 'wall';
+  // Perpetual licenses used to be exempt from this check entirely, which meant a
+  // lifetime key activated once could run forever on any number of machines
+  // without ever contacting the store again — no expiry to lapse, nothing to
+  // re-check, so a refund or a shared key was undetectable after activation. It
+  // was the strongest key in the catalogue with the weakest control.
+  //
+  // They now check in too, on a window measured in months rather than the days a
+  // subscription gets: there is still no subscription to lapse, so the goal is
+  // only to guarantee the app eventually hears "this key is still good", not to
+  // police a billing cycle. A lifetime owner who is simply offline for a season
+  // sees a reconnect banner for a further month before anything blocks, and one
+  // successful validate resets the clock completely.
+  if (record.interval === 'lifetime') {
+    if (since <= LIFETIME_REVALIDATE_MS) return base;
+    return since <= LIFETIME_REVALIDATE_MS + LIFETIME_OFFLINE_GRACE_MS ? 'grace' : 'wall';
+  }
+  if (since > graceFor(record)) return 'wall';
   return base;
 }
 

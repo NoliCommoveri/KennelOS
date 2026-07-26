@@ -131,6 +131,14 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     returned `variant_name` against a configurable pattern. (Windows: yearly 7d, monthly 3d — see
     `data/license.js`'s `GRACE_MS` and the plan's §Licensing.) The cached activation lives under
     its own `settings.js` key, **excluded from Reset App** (entitlement isn't program data).
+  - **Lifetime keys check in too.** A perpetual key never expires, but it is not exempt from
+    offline re-validation: 90 days of full access from the last successful `/validate`, then 30
+    days of a reconnect banner, then a wall — all reset by a single successful validate, so it
+    only ever reaches a device that has been off the internet for a season. The exemption it
+    replaces let one activated lifetime key run indefinitely on any number of machines without
+    contacting the store again. A lifetime key blocked on staleness gets a **reconnect** wall,
+    never the renewal wall (`isStaleLifetime`) — there is nothing to renew, and offering a
+    checkout there would read as being asked to pay twice.
   - **`shared/assets/licenseGate.js`** — the UI: a full-screen **activation wall** (first run,
     enter key + optionally name this device), a **renewal wall** (lapsed past grace: re-check /
     renew / use a different key), and a dismissible **grace banner**. Invoked from `app.js`'s

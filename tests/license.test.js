@@ -92,10 +92,46 @@ test('offlineVerdict: a base wall stays a wall regardless of freshness', () => {
   );
 });
 
-test('offlineVerdict: lifetime needs no periodic re-validation', () => {
+// Lifetime keys were once exempt from the offline check-in entirely, so one
+// activation could run forever on any number of machines without contacting the
+// store again. They now check in on a months-long window instead of days.
+test('offlineVerdict: lifetime is trusted offline for 90 days', () => {
+  const lt = (validatedAgo) =>
+    offlineVerdict(rec({ interval: 'lifetime', status: 'active', lastValidated: iso(validatedAgo) }));
+  assert.equal(lt(-1 * DAY), 'valid');
+  assert.equal(lt(-89 * DAY), 'valid', 'a season offline is still full access');
+});
+
+test('offlineVerdict: a stale lifetime key gets a month of grace, then walls', () => {
+  const lt = (validatedAgo) =>
+    offlineVerdict(rec({ interval: 'lifetime', status: 'active', lastValidated: iso(validatedAgo) }));
+  assert.equal(lt(-91 * DAY), 'grace', 'past 90d → reconnect banner, app still usable');
+  assert.equal(lt(-119 * DAY), 'grace', 'still inside the 30d reconnect window');
+  assert.equal(lt(-121 * DAY), 'wall', 'past 120d offline → wall, fixed by one reconnect');
+});
+
+test('offlineVerdict: a lifetime key validated today is unaffected', () => {
+  // The check-in only ever bites a device that has been off the internet for
+  // months; a connected owner re-validates on every launch.
   assert.equal(
-    offlineVerdict(rec({ interval: 'lifetime', status: 'active', lastValidated: iso(-999 * DAY) })),
-    'valid', 'a lifetime key stays licensed offline indefinitely'
+    offlineVerdict(rec({ interval: 'lifetime', status: 'active', lastValidated: iso(0) })),
+    'valid'
+  );
+});
+
+test('onlineVerdict: lifetime is still perpetual — the check-in is offline-only', () => {
+  // The window must not leak into the online verdict: a lifetime key that DOES
+  // reach the store is valid no matter how long the previous gap was.
+  assert.equal(
+    onlineVerdict(rec({ interval: 'lifetime', status: 'active', lastValidated: iso(-999 * DAY) })),
+    'valid'
+  );
+});
+
+test('offlineVerdict: a revoked lifetime key walls immediately, no check-in window', () => {
+  assert.equal(
+    offlineVerdict(rec({ interval: 'lifetime', status: 'disabled', lastValidated: iso(0) })),
+    'wall'
   );
 });
 

@@ -25,8 +25,13 @@
 >   `app.js`'s `boot()` calls `ensureLicensed()` before rendering — a Lemon Squeezy
 >   key is browser-validated (activate/validate, no backend) with an interval-scaled
 >   offline grace window (monthly/yearly subscriptions); a one-time **Lifetime** key is
->   perpetual — never expires and is exempt from offline re-validation. An unlicensed
->   load is walled. The cached activation lives
+>   perpetual — it never expires, but it is **no longer exempt from offline
+>   re-validation**: 90 days of full access from the last successful `/validate`, then 30
+>   days of a reconnect banner, then a wall, all reset by one successful validate. (The
+>   old exemption let an activated lifetime key run forever on any number of machines
+>   without contacting the store again.) A lifetime key blocked on staleness gets a
+>   *reconnect* wall, never the renewal wall — `licenseGate.js`'s `isStaleLifetime`.
+>   An unlicensed load is walled. The cached activation lives
 >   under its own `settings.js` key (`kennelOS.proLicense`) that is deliberately **excluded
 >   from `clearAllSettings()`**, so Reset App keeps paid entitlement. Inert in Lite/Demo.
 > - **Activations are a countable, releasable resource.** Lemon Squeezy counts
