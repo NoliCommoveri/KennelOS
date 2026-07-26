@@ -230,6 +230,38 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     swaps the kennel name/tagline by hand before sending if they want per-send branding.
   - `editionFlags.multiKennel` needed no new work — it already existed everywhere Phase 1
     put it.
+- **Kennel identity & Kennel Cards — done & browser-verified (headless Chromium, all three
+  editions, no console errors).** The first half of "an enforceable source of truth for
+  cross-kennel references", built **without a backend**. Design + full detail:
+  `docs/End_State_Design_and_Maintenance_Guide.md` §28.
+  - **The problem** — every cross-kennel reference (a stud service with an outside dog, a
+    dog's `breeder_kennel_id`, a foster partner's kennel) is a Kennel row that exists only
+    in *your* IndexedDB. The breeder on the other side has their own unrelated row for the
+    same real-world kennel, and nothing ever reconciles the two.
+  - **`kennels.public_id` (schema, pre-launch, deliberately now)** — a portable
+    `kos1_<uuid>` identity, indexed, minted once for an **own** kennel and immutable
+    thereafter. An **outside** kennel is never minted one locally; it can only ever be
+    *received*, because minting one would be inventing somebody else's identity. It rides
+    the JSON backup, the Lite→Pro bridge, and Dropbox sync for free (`importExport.js` is
+    table-generic) — which is exactly why doing it before the first release is nearly free
+    and doing it after would be a versioned migration plus a backfill over live data.
+  - **Kennel Cards** (`data/kennelCard.js` + Pro-only `assets/kennelCardUI.js`) — a small
+    lz-string payload, sent as a link or a copyable code, that lands in another breeder's
+    app as a Kennel record carrying your `public_id`. Peer-to-peer: **no registry, no
+    directory, no lookup, no server, no network call.** Same named-copy allow-list posture
+    as `companionExport.js` (identity only — never the kennel's program config, logo, or
+    anything about dogs, people, or money), and the same dry-run-preview-before-commit rule
+    every import in the app follows.
+  - **The load-bearing rule** — a received card can never set `is_own_kennel`, and a card
+    naming one of your own kennels is refused with nothing written. An imported kennel in
+    your own-kennel set would enter your scope switcher, portfolio, test vocabulary, and
+    (in Lite) cap accounting.
+  - **Reconciliation, offered not automatic** — match-or-create keys on `public_id`; on a
+    create the preview additionally *offers* any unlinked same-name kennel you typed in
+    yourself, so linking keeps everything already pointing at it instead of stranding it on
+    a duplicate. A name is not a key, so it is never auto-matched.
+  - **Not multi-device.** A card carries identity, not records; a second device restores a
+    backup or syncs via Dropbox, and the import preview says so when fed your own card.
 - **Next:** the editions build is now feature-complete (Lite cap, Pro + license gate, Demo,
   front doors, tour). Remaining before launch is deploy-time config, not code: buy the domain,
   wire the three publish repos + `EDITIONS_DEPLOY_PAT` (see `build/README.md`), swap the Lemon

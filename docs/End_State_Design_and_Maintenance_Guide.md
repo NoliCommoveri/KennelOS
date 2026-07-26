@@ -194,7 +194,7 @@ commonly blank at entry time.
 |---|---|---|
 | **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`, plus `kennel_id` **when `ownership_type` is `owned`/`co_owned`** (the kennel scope — must be one of your own kennels; optional and free to name an outside kennel for `external`/`leased_in`) | `registered_name`, `date_of_birth`, `date_of_death`, `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (the kennel that *produced* this dog — own or an outside contact's; distinct from `kennel_id`, the kennel it belongs to *now* — the user's own for a dog they own, or an outside kennel for an external/leased dog (the form's Kennel picker offers every kennel, not just own ones); auto-prefilled from the litter's dam's own `kennel_id` when that dam is owned/co-owned), `owner_contact_id`, `co_owner_contact_ids[]`, `kennel_id`, `color_markings`, `registry`, `registration_number`, `microchip_id`, `url` (plain, unindexed — a link for this dog, e.g. a registry page or listing), `planned_tests[]`, `recorded_coi{value,method,source,as_of_date}`, `disposition` (`undecided`/`keeping`/`available`/`placed` — breeder intent; **puppy-only**, valid only while `status='puppy'` and forced null otherwise. Enforced in `dogRepo` create/update and mirrored in the UI: the dog form shows it only for a puppy, `sale.js` won't set one on a non-puppy, the profile hides the row otherwise. Feeds the Today "Active litters" card, the promote-lifecycle nudge, and the litter-lifecycle nudges, §19), `notes`. Owner required when `ownership_type ∈ {external, leased_in}`. |
 | **Contact** | `name` | `contact_type[]` (multi), `email`, `phone`, `address`, `kennel_id`, `waitlist_status`, `first_contact_source`, `notes`, `companion_note` (plain, unindexed — a per-recipient message **meant for the recipient's eyes**, shown on their companion share page; deliberately distinct from the private `notes`; §20). Buyers are Contacts — **there is no Buyer table**. `address` also resolves an in-person stud service's away-board location (§19). |
-| **Kennel** | `kennel_name` | `is_own_kennel`, `prefix`, `location`, `website` (plain, unindexed — a link for this kennel, mirrors `Dog.url`), `logo_data_url` (plain, unindexed — a downscaled PNG/SVG **data URL** for the kennel's logo, uploaded/removed on the kennel detail page, rendered on its invoices/receipts (§24) and puppy records (§23); rides the JSON backup), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds` (plain, unindexed — `{ [testKey]: breed[] }`; which breed(s) tagged each preferred test via the breed-seed import, keyed lowercase-trimmed; a test added by typing directly into the kennel's own "Add a test" field has no entry and stays breed-agnostic. Never edited directly — written by `kennelRepo.addPreferredTest`'s third arg, read via `testBreedsFor`/`testsForBreed`), `promote_nudge_enabled` (bool, default off), `promote_age_male_months`/`promote_age_female_months` (the promote-lifecycle nudge's per-kennel thresholds, §19). Lightweight; added inline from the Contact form. |
+| **Kennel** | `kennel_name` | `public_id` (**indexed** — the kennel's portable PUBLIC IDENTITY, `kos1_<uuid>`; minted once for an **own** kennel and immutable thereafter, so the same real-world kennel keeps one identifier across a backup/restore, the Lite→Pro bridge, a Dropbox sync, and every kennel card it issues. An **outside** kennel never has one minted locally — it can only ever be *received* from a card its owner issued, so a blank value there means “I typed this kennel in myself”, not missing data. Not a foreign key: nothing points at it, so it carries **no** `referenceRegistry` entry. See §28), `is_own_kennel`, `prefix`, `location`, `website` (plain, unindexed — a link for this kennel, mirrors `Dog.url`), `logo_data_url` (plain, unindexed — a downscaled PNG/SVG **data URL** for the kennel's logo, uploaded/removed on the kennel detail page, rendered on its invoices/receipts (§24) and puppy records (§23); rides the JSON backup), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds` (plain, unindexed — `{ [testKey]: breed[] }`; which breed(s) tagged each preferred test via the breed-seed import, keyed lowercase-trimmed; a test added by typing directly into the kennel's own "Add a test" field has no entry and stays breed-agnostic. Never edited directly — written by `kennelRepo.addPreferredTest`'s third arg, read via `testBreedsFor`/`testsForBreed`), `promote_nudge_enabled` (bool, default off), `promote_age_male_months`/`promote_age_female_months` (the promote-lifecycle nudge's per-kennel thresholds, §19). Lightweight; added inline from the Contact form. |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date` (shown as "Planned first date" — the first planned/tie date), `last_observed_date` (plain, unindexed — a subsequent observed tie/breeding date), `expected_due_date` (prefilled on the detail page as 63 days after `planned_date` when still empty, never clobbering a deliberate edit), `notes`. Sire ≠ dam (hard block). |
 | **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname` (plain, unindexed — optional friendly label, e.g. "Party of Five"; when set it leads the detail-page title and shows as its own column on the Litters list and report, searchable across all three; falls back to `dam × sire` when blank), `pairing_id`, `whelp_date`, `accept_deposits_date` (plain, unindexed — when the breeder begins accepting deposits; on the detail page it sits between `whelp_date` and `estimated_ready_date`, and surfaces in the **prospective** companion bundle between "Born" and "Estimated ready" when set, §20), `estimated_ready_date` (plain, unindexed — prefilled as 8 weeks/56 days after `whelp_date` when still empty, never clobbering a deliberate edit), `litter_registration_number`, `puppies_born_total/alive/deceased/abnormalities` (the last a count, not mutually exclusive with alive/deceased), `expected_price_male`/`expected_price_female`/`expected_deposit_male`/`expected_deposit_female` (plain, unindexed — per-litter defaults, grouped by sex on the detail page; `sale.js` prefills a new Sale's `price` and `deposit_amount` from the matching-sex pair by the puppy's `sex`, only into fields still empty), `foster_direction` (plain, unindexed — nullable `foster_in`/`foster_out`; null = an ordinary litter. **Foster is a per-litter fact** (guide §25): the same dam can have foster and non-foster litters, so it can't live on the Dog. A foster puppy is distinguished from a plain "external" dog purely by DERIVATION of its litter's `foster_direction` — it stays a normal `status='puppy'` Dog we manage and sell), `foster_partner_contact_id` (**indexed FK → Contact**; the counterparty — the dam's owner for foster-in, the caretaker for foster-out — guarded in `CONTACT_REFERENCES`; its `kennel_id` is the owner/caretaker kennel a companion share can reveal), `foster_comp_model` (plain, unindexed — `income_split`/`flat_per_pup`; how the partner is paid), `foster_our_share_pct`/`foster_split_basis` (the income-split terms), `foster_flat_fee_per_pup` (the per-pup flat fee), `foster_split_notes` (all plain, unindexed — documentation of the terms for either model; the actual payout to the other party is a real `foster_split` ("Foster compensation") Expense, never a stored derived number), `notes`. The litter's own sire/dam are authoritative. Puppy roster is **derived** (`Dog WHERE litter_id`). |
 | **Sale** | `dog_id`, `buyer_contact_id`, `placement_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`, `deposit_date`, `balance_due_date`, `balance_paid_date`, `transport_fee` (plain, unindexed — a flat delivery/transport charge, decimal), `deferred_boarding_amount`/`deferred_boarding_frequency`/`deferred_boarding_duration_days` (plain, unindexed — a boarding rate for a buyer who delayed pickup: decimal amount + `BOARDING_FREQUENCY_OPTIONS` Day/Week/Month + a free-text **count of frequency units** (despite the `_days` name, the value is the number of units — `2` with frequency `Week` means two weeks), rendered as "amount per frequency × count"; the family companion bundle multiplies `amount × count` into a deferred-pickup total feeding the computed remaining balance (§20); never cents, never an Expense — see §21), `lead_source`, `referred_by_contact_id` (indexed FK → the Contact who referred this buyer; `CONTACT_REFERENCES`; on save `saleRepo` auto-tags that contact `buyer_referrer` via `contactRepo.ensureType`), `payment_method`/`payment_reference`/`invoice_number`/`invoice_notes` (plain, unindexed — invoice/receipt document fields set from the Financials generator modal; §24), `notes`. On the detail page (`sale.js`) all fee fields render/edit above all date fields. Its own table (not a Dog field) so reserve/return/re-place stay distinct facts. |
@@ -269,7 +269,7 @@ events:        id, [subject_type+subject_id], event_type, event_date,
 expenses:      id, event_id, [subject_type+subject_id], category,
                expense_date, is_archived
 contacts:      id, kennel_id, waitlist_status, is_archived
-kennels:       id, is_archived
+kennels:       id, public_id, is_archived
 pairings:      id, kennel_id, sire_id, dam_id, status, pairing_type, is_archived
 litters:       id, kennel_id, pairing_id, sire_id, dam_id, status, whelp_date,
                foster_partner_contact_id, is_archived
@@ -297,6 +297,13 @@ Index notes:
   stays optional. Deliberately NOT scoped: `events`/`expenses` (polymorphic — scope
   derives from the subject), `files` (fetched by id only), and
   `breed_feeding_schedules` (a program-wide per-breed lookup).
+- **`kennels.public_id` is an IDENTITY field, not a foreign key** (§28). It is indexed because the
+  kennel-card import's match-or-create step probes it (`kennelRepo.getByPublicId`) on every apply, and
+  because that lookup is the only thing standing between “link this card to the kennel I already
+  have” and a duplicate. It gets **no `referenceRegistry` entry** — no table stores a pointer to it,
+  so there is nothing to guard on hard delete (same posture as `breed_feeding_schedules.breed`).
+  The index is deliberately **plain, not Dexie-unique (`&`)**: uniqueness is enforced in `kennelRepo`
+  so a collision reaches the user as a sentence about kennels rather than a raw `DexieError`.
 - `events.[subject_type+subject_id]` **and** `expenses.[subject_type+subject_id]` are
   **compound** indexes (fast per-subject timeline / ledger). Do not split them.
 - `expenses.event_id` is indexed so `expenseRepo.getByEvent` is an index probe.
@@ -2125,3 +2132,139 @@ guidance instead of Furever's generic age-bracket placeholder
   `breed-feeding-schedules.html` was added to `data/proPages.js`'s
   `PRO_ONLY_PAGES` (excluded from the Lite build, and gates any in-app link to
   it at runtime) — same mechanism as every other Pro-only page.
+
+---
+
+## 28. Kennel identity & Kennel Cards
+
+**The problem this solves.** Every cross-kennel reference in the app is otherwise a
+privately-typed string. When you record a stud service with an outside dog, set a dog's
+`breeder_kennel_id` to the kennel that produced it, or name a foster partner's kennel, you
+create a Kennel row that exists only in *your* IndexedDB. If the breeder on the other side
+also runs KennelOS, they have their own unrelated row for the same real-world kennel, and
+nothing will ever reconcile the two. Provenance across a kennel boundary is therefore
+name-matching-by-memory.
+
+Two pieces close that, and they are deliberately separate:
+
+- **§28.1 — the identity** (`kennels.public_id`): a durable, portable identifier for a
+  kennel. Ships in every edition.
+- **§28.2 — the card** (`data/kennelCard.js`): the payload that hands that identity to
+  another breeder, peer-to-peer. Pro-only UI.
+
+**What is deliberately NOT here.** There is no registry, no directory, no lookup, no
+server, and no network call of any kind — a card only goes where the breeder sends it.
+Discovery ("find other breeders") is a genuinely different problem that cannot be solved
+local-first, and nothing in this section pretends to solve it. This design is the piece
+that has to exist *first* either way: whenever a registry does arrive, existing kennels
+can **claim** an identifier they already have rather than being re-keyed. Nor does a card
+solve multi-device — it carries identity, not records; a second device restores a JSON
+backup or syncs via Dropbox (§10, §26), and the import preview says so in as many words
+when you feed it your own card.
+
+### 28.1 `kennels.public_id` — the portable identity
+
+Format `kos1_<uuid>` (`kennelRepo.newPublicId` / `isPublicId`).
+
+- **Not the row `id`.** The row id is a database key: it is recreated whenever the record
+  is (a fresh install where the breeder retypes their kennel instead of restoring, a
+  delete-and-re-add, a hand-edited backup), and it names nothing outside this database.
+  The public id is what another breeder's copy points at, so it has to outlive all of that.
+- **Why a prefix, when the codebase otherwise uses bare UUIDs.** This value is copied
+  between apps and, some day, into a registry. A bare UUID pasted into the wrong field is
+  indistinguishable from a right one; `kos1_` makes a mis-paste fail loudly, gives a
+  registry a cheap format check, and gives us a version to migrate off.
+- **Own kennels only.** Minted in `kennelRepo.create` when `is_own_kennel`, and on the
+  update that *promotes* a kennel to own — which by the same line self-heals any own
+  kennel predating the field. An outside kennel is **never** minted one locally: doing so
+  would be inventing somebody else's identity, the same failure the CSV importer refuses
+  (§9). Its `public_id` can only ever be *received*.
+- **Write-once.** `kennelRepo.update` throws on any attempt to change a non-empty
+  `public_id`, and silently ignores an attempt to blank one. Empty → set is allowed (that
+  is exactly what linking a card does).
+- **Uniqueness** is a repo-level guard (`assertPublicIdFree`), not a Dexie `&` index — see
+  the §5 index note.
+- **Portability is free**, and that is the point: `importExport.js` iterates whatever
+  tables exist and copies whole rows, so the identity rides the JSON backup, the Lite→Pro
+  bridge, and the Dropbox sync with no code of its own. Pinned by a browser check.
+
+**Relationship to Furever's `breederKey` (`settings.js`, §27).** Different scopes,
+deliberately not merged. `breederKey` identifies the *installation's breeder* to the family
+app — one key shared across all of a user's own kennels, so every pup they place dedupes
+into one `breeders` row — and re-keying it would break the dedup of packets already sent.
+`public_id` identifies *one Kennel record*. **Not a gap to close.**
+
+### 28.2 The Kennel Card
+
+`data/kennelCard.js` (data layer, ships in every edition — reached through `kennelRepo`,
+exactly as `data/companionExport.js` ships to Lite while `companion.html` does not) plus
+`assets/kennelCardUI.js` (in `PRO_ONLY_STANDALONE`, so it is absent from the Lite build).
+
+**The allow-list invariant**, same posture and same reasoning as `companionExport.js`
+(§20): `buildKennelCard` names every field it copies and copies nothing else, then
+`assertOnlyKeys` runs a **positive** check before the card can leave. A new Kennel field
+does not ride along until someone adds it here by name. That matters more here than most
+places — the Kennel record also carries the kennel's *program* (`preferred_tests`,
+`preferred_breeds`, `preferred_test_breeds`, `promote_*`) and its `logo_data_url`, none of
+which is identity and none of which is anyone else's business.
+
+A card carries exactly: `cardVersion`, `publicId`, `kennelName`, `prefix`, `location`,
+`website`, `issuedAt`. Pinned field-by-field in `tests/kennelCard.test.js`.
+
+**The load-bearing rule on the receiving side: a card can never set `is_own_kennel`.** A
+card names somebody else's kennel by definition, and an imported kennel landing in your
+own-kennel set would enter your scope switcher (§Multi-Kennel), your portfolio, your shared
+preferred-test vocabulary, and — in Lite — your cap accounting. Import forces
+`is_own_kennel: false` on create and never touches the flag on update. A card whose
+`publicId` matches one of *your own* kennels is refused outright with nothing written, so a
+third party can never rewrite your kennel's name.
+
+**Transport** mirrors the two mechanisms already in the repo — lz-string-compressed JSON,
+carried either as a **link** (`kennels.html#kennelcard=…`, like Furever's seed link) or as
+a copyable **code**. The link is the nicer path but is only correct when both breeders are
+on the same origin — which is the common case, since every Pro user shares
+`pro.kennelos.app`. The **code is the universal path** and is the one to hand someone whose
+install you can't locate. Both are offline; nothing here makes a network call. The link
+handler listens for `hashchange` as well as running at load, because pasting a card link
+while already on the Kennels page is a same-document navigation that re-runs no module.
+
+**Every import is a dry-run preview before a commit** (CLAUDE.md), and a payload that
+arrived from another person is the last place to make an exception. `previewKennelCard`
+writes nothing; four outcomes:
+
+| Outcome | When | What commits |
+|---|---|---|
+| `create` | no local kennel carries this identity | a new **outside** kennel — or, if the user picks one, a *link* to an existing record (below) |
+| `update` | a linked outside kennel exists and the card differs | the four identity fields, shown as a before/after diff first |
+| `unchanged` | linked and nothing new | nothing; no commit button is rendered |
+| `own` | the identity is one of *your* kennels | nothing, ever |
+
+**Match-or-create is keyed on `public_id`, never the row id** (§9's rule). On a `create`,
+the preview additionally *offers* any **unlinked, non-own kennel whose name matches**
+case-insensitively (`kennelRepo.findUnlinkedByName`) — the real-world case where the
+breeder typed "Thornfield Kennels" in by hand last year and is now receiving Thornfield's
+actual card. Linking attaches the identity to that existing record, so everything already
+pointing at it (dogs, stud services, contracts) keeps pointing at it instead of being
+stranded on a duplicate. This is **offered and never automatic**: a name is not a key, and
+auto-matching one would be exactly the "silently invented relationship" §9 forbids. "Add as
+a new kennel" is the pre-selected default.
+
+**Surfaces.** The share half is a card section on the Kennel hub (`kennel.html`, own
+kennels only; an outside kennel that arrived via a card shows the ID it came with instead).
+The receive half is "Add from a card" on the Kennels list (`kennels.html`), which also
+badges a card-linked outside kennel as **linked** — the visible difference between a
+cross-kennel reference that lines up with the other breeder's records and one typed from
+memory. Both host pages are Pro-only, so no edition flag was needed.
+
+### 28.3 Changing this
+
+- Adding a field to the card means adding it to `CARD_KEYS` **and** (if it should write on
+  the receiving side) to `CARD_FIELDS` — and asking first whether it is *identity*. Program
+  config, money, and anything about dogs or people are all out of scope by design.
+- `KENNEL_CARD_VERSION` bumps only on a breaking shape change. Adding an optional field is
+  additive; `decodeKennelCard` already drops unknown keys so a card issued by a later
+  version still imports its v1 identity.
+- If a registry is ever built, it slots in **above** this, not instead of it: `public_id`
+  becomes the thing a kennel claims, and a human-readable handle (which needs enforced
+  uniqueness, and therefore a server) would be the new field. Nothing here has to change
+  for that to happen — which is the whole reason it exists now.
