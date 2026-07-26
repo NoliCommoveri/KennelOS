@@ -65,10 +65,37 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
   breeders a phone *and* a computer, and each browser profile is its own activation.
   The app can release a slot (Import/Export → *This device's license*), so a limit is
   recoverable — but pick a number that leaves room for ordinary re-installs.
-- [ ] **Dropbox app console** (Pro only — Lite/Demo ship no Dropbox/Assistant) — add the
-  production **redirect URIs** for the deployed `import-export.html` and `assistant.html`
-  on `pro.kennelos.app`; keep the `http://localhost:8000/…` entries for dev. App-folder
-  access type (see the header comment in `shared/data/dropbox.js`).
+- [ ] **Dropbox app console** — *Scoped access*, access type **App folder**, permissions
+  `files.content.write` + `files.content.read` (see the header comment in
+  `shared/data/dropbox.js`). **Lite ships no Dropbox at all** (`assistant: false`, and
+  `assistant.html` is in `PRO_ONLY_STANDALONE`), so it needs nothing here. **Demo is not
+  Dropbox-free** despite what this line used to claim: `demo/editionConfig.js` sets
+  `assistant: true` and the Demo build ships `assistant.html`, so its Connect button is
+  live — either register its URI below or flip Demo's `assistant` flag off.
+- [ ] **Redirect URIs** — the URI is `location.origin + location.pathname`
+  (`dropboxRedirectUri()`), matched **exactly** by Dropbox, so every page that can start
+  an auth flow needs its own entry, character-for-character:
+
+  | | URI |
+  |---|---|
+  | Pro (prod) | `https://pro.kennelos.app/pages/import-export.html` |
+  | Pro (prod) | `https://pro.kennelos.app/assistant.html` |
+  | Pro (prod) | `https://pro.kennelos.app/pages/assistant.html` — the Assistant console (Sharing hub) |
+  | Demo (prod) | `https://demo.kennelos.app/assistant.html` — only if Demo keeps `assistant: true` |
+  | dev, source | `http://localhost:8000/shared/pages/import-export.html` |
+  | dev, source | `http://localhost:8000/shared/assistant.html` |
+  | dev, source | `http://localhost:8000/shared/pages/assistant.html` |
+  | dev, built | `http://localhost:8000/dist/pro/pages/import-export.html` |
+  | dev, built | `http://localhost:8000/dist/pro/assistant.html` |
+  | dev, built | `http://localhost:8000/dist/pro/pages/assistant.html` |
+
+  Exact-match means `127.0.0.1` is a *different* entry from `localhost`, and a different
+  dev port (`npx serve`) is a different entry again — add whichever you actually browse.
+- [ ] **`APP_KEY`** (`shared/data/dropbox.js`) matches the app console's *App key*. It's a
+  public PKCE client id, safe in the repo — but changing Dropbox accounts means a new app
+  and a new key, and **every connected device must reconnect** (refresh tokens are issued
+  per-app) while the previous app folder's files stay behind. Never paste an `sl.…` access
+  token here: the app mints its own tokens per user and has no slot for one.
 
 ## 3. Deploy infrastructure (per `build/README.md`)
 
