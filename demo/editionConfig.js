@@ -35,6 +35,10 @@ export async function enforceLitterCap(/* { candidate } */) {
   // no-op: writes are blocked by demo mode, not the cap.
 }
 
+export async function enforceImportDogCap(/* { incomingDogs, mode } */) {
+  // no-op: writes are blocked by demo mode, not the cap.
+}
+
 // Read by dog.js's "New Dog" page for its cap-status banner. Null means
 // uncapped, so Demo shows nothing (Demo mirrors the Pro feature set).
 export async function dogCapStatus() {
