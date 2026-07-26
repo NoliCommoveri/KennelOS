@@ -955,13 +955,18 @@ implementation lives in `data/dateUtils.js`.
 
 ### Navigation (`nav.js`)
 
-Organized **by job, not by table**: six workflow hubs in the main bar — **Today / Dogs /
-Breeding / People / Placements & Contracts / Financials** — plus a "More" corner menu for
-**Reports**, **Companion** (§20), **Furever** (§27), and **Import/Export**. Financials is a first-class hub,
-not a report (money is operational; Reports are analytics queries). Detail/edit/import pages
-are not nav entries; `HUB_CHILDREN` maps them to the hub tab that should light up. Links are
-stored app-root-relative and prefixed at render time so they resolve from `index.html` or
-`/pages/` and any GitHub Pages sub-path.
+Organized **by job, not by table**: seven workflow hubs in the main bar — **Today / Dogs /
+Breeding / People / Placements & Contracts / Financials / Sharing** — plus a "More" corner
+menu for **Reports**, **Documents**, and **Import/Export**. Financials is a first-class hub,
+not a report (money is operational; Reports are analytics queries). **Sharing** is the same
+Sales/Stud-Services/Contracts trick applied to a second trio: its nav path is
+`pages/companion.html` (the Companion Messaging console, §20), which carries a `seg-tabs`
+row to its siblings `furever.html` (§27) and `assistant.html` (the owner console, §26) — all
+three are otherwise unrelated tools, just reached through one top-level tab instead of three.
+Detail/edit/import pages are not nav entries; `HUB_CHILDREN` maps them to the hub tab that
+should light up (`pages/companion.html` → `furever.html`/`assistant.html`, same as
+`pages/sales.html` → its two siblings). Links are stored app-root-relative and prefixed at
+render time so they resolve from `index.html` or `/pages/` and any GitHub Pages sub-path.
 
 The bar also carries the **active-kennel switcher** in a `#nav-kennel-scope` slot before
 the "More" menu (Multi-Kennel Scope Spec §8). `nav.js` stays edition-agnostic: it renders
@@ -1270,7 +1275,8 @@ single-user/offline/all-local; this adds *recipients*.
 
 ### Console — one package type at a time
 
-The **Companion Messaging console** (`pages/companion.*`, in the "More" menu) is scoped by
+The **Companion Messaging console** (`pages/companion.*`, the Sharing nav item's landing
+page) is scoped by
 `?type=` seg-tabs — one per `COMPANION_TYPES` value (Prospective families / Current families /
 Partners), the same URL-param tab pattern as the Contacts group tabs; no param defaults to the
 first type. The active tab drives the whole page: the single template card shown, a
@@ -1965,7 +1971,7 @@ section covers the **encoder side**, which lives here in the breeder app, Pro-on
 destination — Furever is a **separate origin/app**, not the recipient-facing shell
 Companion uses.
 
-**The Furever console** (`pages/furever.*`, "More" menu, gated by
+**The Furever console** (`pages/furever.*`, a Sharing seg-tab sibling of Companion, gated by
 `editionFlags.furever` + `data/proPages.js`'s `PRO_ONLY_PAGES`) has two parts,
 plus a **setup-nudges strip** above them (`#setup-nudges`, `renderSetupNudges`):
 subtle, non-blocking reminders for the two furever-relevant things easy to
