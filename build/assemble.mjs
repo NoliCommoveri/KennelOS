@@ -72,7 +72,11 @@ function stemJs(htmlBasename) {
 // Pages excluded from the Demo build: the save/export surface is stripped so an
 // unlocked copy is a dead end (editions plan §Demo hardening #8). Excluded like a
 // Pro-only page is from Lite — the file simply isn't there, so a direct URL 404s.
-const DEMO_EXCLUDED_PAGES = ['import-export.html'];
+// `assistant.html` (the owner console) joins it for the same reason: its whole
+// job is pushing your records out to a real Dropbox account, which is the
+// opposite of a sealed read-only showcase. The helper app at the root still
+// ships — that decision is open, see LAUNCH_CHECKLIST's Dropbox item.
+const DEMO_EXCLUDED_PAGES = ['import-export.html', 'assistant.html'];
 
 // Files excluded from an edition. Lite drops the Pro-only pages; Demo drops the
 // save/export page; Pro ships everything.

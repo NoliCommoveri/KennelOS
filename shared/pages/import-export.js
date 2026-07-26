@@ -12,9 +12,7 @@ import { editionFlags, edition } from '../data/editionConfig.js';
 import { isProOnlyPage } from '../data/proPages.js';
 import { isDropboxConnected } from '../data/dropbox.js';
 import { mountDropboxConnect, dropboxRequiredNotice } from '../assets/dropboxConnectUI.js';
-import {
-  pushToDropbox, fetchDropboxBackup, fetchAssistantOutbox, importAssistantEvents
-} from '../data/assistantSync.js';
+import { pushToDropbox, fetchDropboxBackup } from '../data/assistantSync.js';
 
 const msg = document.getElementById('page-msg');
 function flash(text, kind = 'ok') {
@@ -455,89 +453,6 @@ licenseReleaseBtn.addEventListener('click', async () => {
 
 renderLicenseSection();
 
-// --- KennelAssistant --------------------------------------------------------
-// Only the outbox import lives here now — push and pull moved onto the backup
-// card above as the Dropbox destination, which is what they always were.
-// (In step 2 this whole section becomes its own page under the Sharing nav hub,
-// with its own copy of the connect control, and the "above" pointer goes away.)
-
-const assistantBody = document.getElementById('assistant-body');
-
-function renderAssistant() {
-  if (!assistantBody) return; // Lite: the section is removed entirely
-  if (!isDropboxConnected()) {
-    assistantBody.innerHTML = dropboxRequiredNotice('in Backup & restore above');
-    return;
-  }
-  assistantBody.innerHTML = `
-    <div class="form-actions" style="margin-top:0;">
-      <button class="btn" id="dbx-outbox">📥 Bring in updates</button>
-    </div>`;
-  const btn = document.getElementById('dbx-outbox');
-  btn.addEventListener('click', () => runNetworkAction(btn, doAssistantImport));
-}
-
-async function doAssistantImport() {
-  const outbox = await fetchAssistantOutbox();
-  if (!outbox) {
-    flash('No assistant updates in Dropbox yet — have the assistant app send first.', 'err');
-    return;
-  }
-  if (!outbox.rows.length) {
-    flash('The assistant has no unsent updates — nothing to bring in.');
-    return;
-  }
-  showAssistantPreviewModal(outbox);
-}
-
-const OUTBOX_STATUS_LABELS = {
-  new: { text: 'New', cls: 'badge-green' },
-  update: { text: 'Already imported', cls: 'badge-neutral' },
-  no_dog: { text: 'Skipped — unknown dog', cls: 'badge-red' },
-  invalid: { text: 'Skipped — incomplete', cls: 'badge-red' }
-};
-
-// Dry-run preview before committing the assistant's events — same posture as
-// every other import in the app: see it, then write it.
-function showAssistantPreviewModal({ generated_at, rows }) {
-  const importable = rows.filter((r) => r.status === 'new' || r.status === 'update').length;
-  const listRows = rows.map((r) => {
-    const s = OUTBOX_STATUS_LABELS[r.status];
-    return `<tr>
-      <td>${esc(r.dogName || '—')}</td>
-      <td>${esc(r.typeLabel)}</td>
-      <td>${esc(r.event.event_date || '—')}</td>
-      <td><span class="badge ${s.cls}">${esc(s.text)}</span></td>
-    </tr>`;
-  }).join('');
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  overlay.innerHTML = `
-    <div class="modal" role="dialog" aria-modal="true" style="max-width:520px;">
-      <h2 style="margin-top:0;">Assistant updates</h2>
-      <p class="muted">Sent ${generated_at ? esc(new Date(generated_at).toLocaleString()) : 'at an unknown time'}. Nothing is written until you import.</p>
-      <div style="max-height:300px;overflow-y:auto;">
-        <table class="data"><thead><tr><th>Dog</th><th>Event</th><th>Date</th><th>Status</th></tr></thead><tbody>${listRows}</tbody></table>
-      </div>
-      <div class="form-actions">
-        <button class="btn btn-primary" id="outbox-import" ${importable ? '' : 'disabled'}>Import ${importable} event(s)</button>
-        <button class="btn" data-act="cancel">Cancel</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-  overlay.querySelector('[data-act="cancel"]').addEventListener('click', () => overlay.remove());
-  overlay.querySelector('#outbox-import').addEventListener('click', async () => {
-    try {
-      const result = await importAssistantEvents(rows);
-      overlay.remove();
-      flash(`Assistant updates imported — ${result.imported} event(s)${result.skipped ? `, ${result.skipped} skipped` : ''}.`);
-    } catch (e) {
-      overlay.remove();
-      flash(e.message || String(e), 'err');
-    }
-  });
-}
-
 // Dropbox sync + KennelAssistant is Pro (§26). In Lite there is no second
 // destination at all, so the whole Dropbox axis disappears and the card renders
 // as the plain local backup/restore it has always been.
@@ -546,18 +461,15 @@ if (!dropboxEnabled) {
   document.getElementById('dest-warn')?.remove();
   document.getElementById('btn-dbx-fetch')?.remove();
   document.getElementById('dropbox-connect')?.remove();
-  document.getElementById('assistant-section')?.remove();
   renderBackupRestore();
 } else {
   renderBackupRestore();
-  renderAssistant();
   // Mounts the connect control AND finishes an in-flight OAuth redirect, so
   // everything gated on the connection re-renders once it lands.
   mountDropboxConnect(document.getElementById('dropbox-connect'), {
     onChange: (connected) => {
       if (connected) flash('Dropbox connected.');
       renderBackupRestore();
-      renderAssistant();
     },
     onError: (m) => flash(m, 'err')
   });

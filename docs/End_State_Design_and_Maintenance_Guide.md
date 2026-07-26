@@ -706,7 +706,10 @@ plain local backup/restore.
   refresh token, cached access token, in-flight PKCE verifier; the app key itself is
   hardcoded in `data/dropbox.js`, not stored here — §26, via
   `getDropboxSettings`/`setDropboxSettings`/`clearDropboxSettings`), `assistantLastSync`
-  (when the KennelAssistant page last pulled the dog feed, §26), `furever` (the Furever
+  (when the KennelAssistant page last pulled the dog feed, §26),
+  `assistantFeedPushedAt` (the owner-side mirror: when THIS device last *uploaded* the
+  feed — what the Assistant console's "Last sent" reads, since `assistantLastSync` is a
+  read stamp written on the helper's phone and can't answer it here, §26), `furever` (the Furever
   seed-link generator's kennel-wide identity block — kennel name/tagline, breeder
   contact, breeder's vet, plus an auto-generated `breederKey` — §27, via
   `getFureverSettings`/`setFureverSettings`). `clearAllSettings()` drops them all (used
@@ -971,7 +974,8 @@ Lite and before the first own kennel exists — the CSS layout rules are keyed o
 Hubs & landing: `today`, `dogs`, `breeding`, `contacts`, `sales`, `financials` (the
 Financials hub — Overview / Income / Expenses toggle, §21), `reports`, `companion` (the
 Companion Messaging console, §20), `furever` (the Furever seed-link console, §27),
-`import-export`, plus root `index.html`.
+`import-export`, `assistant` (the KennelAssistant owner console, §26 — distinct from the
+root-level `assistant.html` the helper opens), plus root `index.html`.
 Dogs: `dog` (detail), `roster`, `pedigree`.
 Breeding: `pairings`/`pairing`, `litters`/`litter`, `active-breeding`, `live-births`.
 People: `contact`, `kennels` (two screens in one page: on top the **portfolio** — one card
@@ -1740,8 +1744,9 @@ nothing syncs on its own, and the rest of the app stays fully offline-capable (�
   Dropbox app registered once, by the developer, at dropbox.com/developers/apps:
   *Scoped access*, access type **App folder** (tokens can only ever see
   `/Apps/KennelOS/`), permissions `files.content.write` + `files.content.read`, and every
-  connecting page's URL listed under **Redirect URIs** (`pages/import-export.html` and
-  `assistant.html`, deployed + localhost variants).
+  connecting page's URL listed under **Redirect URIs** (`pages/import-export.html`,
+  `pages/assistant.html`, and the root `assistant.html`, deployed + localhost variants —
+  the exact list lives in `docs/LAUNCH_CHECKLIST.md`).
 - The **app key itself is hardcoded** as `APP_KEY` in `data/dropbox.js` — same pattern as
   `KennelPapers/data/dropbox.js`. This is safe because a PKCE client id is a public
   identifier, not a secret: every install shares the one key, but each user still does
@@ -1801,11 +1806,42 @@ one writer**, which is what makes the scheme conflict-free — preserve that inv
   needed. Contacts, sales,
   financials, kennels, contracts never reach the assistant device at all — that, not UI
   hiding, is the security boundary (everything client-side is inspectable).
+- **`pushAssistantFeed()`** uploads *only* the feed — the Assistant console's "send
+  updates to my helper", so telling the helper about a dog added five minutes ago doesn't
+  require a full backup round-trip. It stamps `assistantFeedPushedAt` but deliberately
+  **not** `lastBackupDate`: the feed is an allow-listed slice, not a backup, and counting
+  it as one would tell an owner they're safe when they aren't. `pushToDropbox()` calls it
+  for the feed half of its work, so there is one uploader for that file.
 - **Outbox import** (`fetchAssistantOutbox` → preview → `importAssistantEvents`) is the
   app's standard dry-run-then-commit posture: rows are annotated `new` / `update` /
   `no_dog` (unknown subject dog → **skipped, never invented**, per the import rule) /
   `invalid`, shown in a preview modal, then bulk-upserted by id — so re-importing the
   same outbox is a no-op. The assistant's local `pending` marker is stripped on import.
+  It writes through `db` rather than a repo (cross-table data-layer work, like
+  `importExport.js`), so it calls **`assertWritable()` itself** — repoBase's blanket demo
+  guard never sees these rows.
+
+### The owner console (`pages/assistant.html` + `pages/assistant.js`)
+
+Same console/recipient split as Companion: the page that *configures and sends* lives in
+`pages/`, the thing the recipient opens lives at the root (`assistant.html`, §26's
+KennelAssistant shell below). Both share a basename, in `PRO_ONLY_PAGES` and
+`PRO_ONLY_STANDALONE` respectively — different directories, and both Pro-only, so
+`isProOnlyPage()`'s basename match is right either way.
+
+Three cards, in the order an owner meets them: **Connection** (mounts the shared
+`dropboxConnectUI` control — the same connection Import/Export uses, so connecting on
+either page sets both), **Your helper's copy** (`assistantFeedPushedAt` + a live
+`buildAssistantFeed()` count of what a send would include, then `pushAssistantFeed()`),
+and **Their entries** (the outbox preview + import). Full backup push/pull is
+deliberately absent — that is Import/Export's Dropbox destination (§10), and the page
+links there rather than duplicating it. A fourth card explains what the helper can see,
+rendered **from `ASSISTANT_EVENT_TYPES`** rather than a hand-written list so the promise
+on screen can't drift from the allow-list that actually gates the feed.
+
+Excluded from the **Demo** build alongside `import-export.html` (`DEMO_EXCLUDED_PAGES`):
+a console whose job is pushing your records to a real Dropbox account is the opposite of
+a sealed read-only showcase. The helper app at the root still ships to Demo.
 
 ### KennelAssistant (`assistant.html` + `assistant.js` + `data/assistantStore.js`)
 

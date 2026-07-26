@@ -98,6 +98,8 @@ const PRECACHE_URLS = [
   'data/wizardSteps.js',
   'pages/active-breeding.html',
   'pages/active-breeding.js',
+  'pages/assistant.html',
+  'pages/assistant.js',
   'pages/board.html',
   'pages/board.js',
   'pages/breed-feeding-schedules.html',
