@@ -565,6 +565,17 @@ Rules that shape everything:
   value, `''` (blank), or `null` (present but unrecognized → flagged).
 - Relationship columns (sire/dam/dog names) resolve against **existing** records only; an
   unresolved name is flagged, never invented.
+- **Kennel by name** (Multi-Kennel Scope Spec §11): Dog, Pairing, Litter, Sale, and
+  StudService all accept an optional `kennel_name` column, resolved the same way as every
+  other relationship column — case-insensitive/trimmed, against existing kennels only, via
+  the shared `resolveKennelColumn()` helper. Pairing/Litter/Sale/StudService require the
+  match to be one of the user's **own** kennels (they only ever carry an own-kennel scope);
+  Dog requires it only when `ownership_type` is `owned`/`co_owned` — an external/leased dog
+  may legitimately name an outside kennel here. Either way, a named kennel that fails to
+  resolve routes the row to **review**, exactly like an unresolved sire/dam — it never falls
+  through to commit and silently lands on whatever `stampKennelScope()` would otherwise
+  default to. A blank column is not a failure: `commitPlan`'s `stampKennelScope()` fills it
+  from the active/sole kennel at commit time, same as before this column existed.
 - **Two deliberate exceptions** auto-create a Contact inline at commit (never a stall):
   Sale's `buyer_name` and StudService's `partner_contact_name`, via each mapping's
   `prepareRecord` hook.
@@ -680,6 +691,16 @@ way.
   with the reopen/sold anchors and the packet size, per the spec's §9.3). Companion has ≥1
   recipient on all three tabs (prospective / current families / partners). Editing this file
   still bumps `CACHE_NAME` (§ service worker); it adds no new file or FK.
+  - **Briar Hollow Kennels** (Multi-Kennel Scope Spec §13) is a SECOND own kennel —
+    Meadow Ridge is Dana Ruiz's outside kennel (the breeder-of-record/external-ownership
+    demo, never a scope), so it never exercised the kennel switcher. Briar Hollow is
+    deliberately small — its own sire/dam (Cassius × Opal, Golden Retrievers — a third
+    breed line makes "which kennel is this" obvious at a glance), one pairing, one litter,
+    one placed pup (Maple), one delivered sale — just enough for the switcher to show two
+    real entries, the kennel hub's roster/litters/P&L to have live cross-kennel content,
+    and a manual QA pass to confirm a picker's "show all my kennels" escape actually
+    surfaces something. All of it rides the same manifest/clear machinery as the rest of
+    the seed.
 - **seedImport.js** — optional breed+test vocabulary seed (from
   `resources/common_tests_by_breed_seed.csv` or a user file). Rows carry an optional
   `Breed Group` column (col A) that `buildSeedGroups()` attaches to each group as
@@ -1529,6 +1550,11 @@ once rendered.
 The header also renders the resolving own-kennel's `logo_data_url` (§24) above the kennel name
 when one is set.
 
+**Own-kennel resolution** (Multi-Kennel Scope Spec §10): the puppy's own `kennel_id`, else the
+active kennel scope (`data/kennelScope.js`'s `getActiveKennel()`), else the sole own kennel on
+record — never "whichever own kennel sorts first," so a Puppy Record for a kennel-B pup carries
+kennel B's name/logo even while the app is scoped (or not scoped) to kennel A.
+
 ---
 
 ## 24. Invoice & Receipt (print-only PDF)
@@ -1566,11 +1592,12 @@ gated by an `@media print` block), same posture as the Puppy Record.
   (`setInvoiceDefaults`).
 - **Receipt specifics:** keeps the **Payment received** box (method used / reference / date) and
   stamps **Paid**; totals "Total paid".
-- **Issuer** is the resolving own kennel (`dog.kennel_id` if own, else the first own kennel — the
-  Puppy Record fallback), with its `logo_data_url`, `location`, `website`, and the owner Contact's
-  name/email/phone (via `getMyContactId`). **Recipient** is the sale's buyer or the stud partner
-  contact. A document number defaults to a stable `INV-/RCT-<yyyymmdd>-<id>` when `invoice_number`
-  is blank.
+- **Issuer** is the resolving own kennel — the record's own `kennel_id` (a Sale/StudService always
+  carries one, §4), else the dog's own `kennel_id`, else the active kennel scope, else the sole own
+  kennel (same fallback order as the Puppy Record, §23/§10) — with its `logo_data_url`, `location`,
+  `website`, and the owner Contact's name/email/phone (via `getMyContactId`). **Recipient** is the
+  sale's buyer or the stud partner contact. A document number defaults to a stable
+  `INV-/RCT-<yyyymmdd>-<id>` when `invoice_number` is blank.
 - **Persisted fields** (`invoice_number`, `invoice_notes`, and — for receipts —
   `payment_method`/`payment_reference`, §4) are written on the Sale / StudService by the generator
   modal so they prefill next time and ride backups. Everything else (Full/Partial, collected, due

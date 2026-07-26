@@ -189,6 +189,36 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     still carry the wrong kennel's name/logo), the global Companion/Furever settings blobs,
     a CSV kennel column, and a sample seed with a *second* own kennel — until that lands,
     Demo shows a switcher with one entry.
+- **Multi-kennel scope, Phase 3 — partial (§10's invoice/puppy-record half, §11, §13 done
+  & browser-verified; §10's Companion/Furever half deliberately not started).**
+  - **Own-kennel identity, invoice + Puppy Record half** — `invoice.js`/`puppy-record.js` no
+    longer resolve "which own kennel" as `kennels.find(k => k.is_own_kennel)` (first match,
+    wrong the moment a second own kennel exists). Both now try the record's own `kennel_id`
+    (a Sale/StudService always carries one), then the dog's, then the **active kennel scope**
+    (`kennelScope.getActiveKennel()`), then the sole own kennel — so a document for a
+    kennel-B sale carries kennel B's name/logo regardless of which kennel the app happens to
+    be scoped to.
+  - **CSV kennel column (§11)** — Dog, Pairing, Litter, Sale, and StudService all take an
+    optional `kennel_name` column, resolved the same way as every other relationship column:
+    case-insensitive/trimmed against existing kennels, own-kennel-only for the four scoped
+    tables (Dog only when `owned`/`co_owned`), and **flagged to review** — never silently
+    invented, never silently defaulted — when a named kennel doesn't resolve. A blank column
+    still falls back to the active/sole kennel at commit, same as before this column existed.
+  - **Sample seed's second own kennel (§13)** — Briar Hollow Kennels (Cassius × Opal, Golden
+    Retrievers — a third breed line makes it visually distinct from Thornfield's Bostons/
+    Boxers) with its own litter, placed pup, and delivered sale. Meadow Ridge stays Dana's
+    *outside* kennel (the external-ownership demo) and was never a scope; this is the first
+    seed record the switcher actually segments. Verified in a headless-Chromium seed run: 3
+    kennels (2 own), the nav switcher lists both, no console errors.
+  - **Not started — §10's Companion/Furever half.** The Companion messaging templates
+    (`settings.js` `KEYS.companion`) and the Furever kennel-identity block (`KEYS.furever`)
+    are still ONE global `localStorage` blob each, wrong the moment a second own kennel
+    exists (spec calls this "the awkward one" — it doesn't pin down how to resolve which
+    kennel a given recipient/pup belongs to, and Furever's identity block is entangled with
+    the Drive content-pack pointers and the `breederKey` dedup, where a wrong call could
+    break already-sent packets). Left for a deliberate design pass rather than guessed at.
+  - **§12** needed no new work — `editionFlags.multiKennel` already existed everywhere Phase 1
+    put it.
 - **Next:** the editions build is now feature-complete (Lite cap, Pro + license gate, Demo,
   front doors, tour). Remaining before launch is deploy-time config, not code: buy the domain,
   wire the three publish repos + `EDITIONS_DEPLOY_PAT` (see `build/README.md`), swap the Lemon

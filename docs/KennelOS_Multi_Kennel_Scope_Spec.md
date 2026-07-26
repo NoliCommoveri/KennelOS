@@ -1,7 +1,10 @@
 # KennelOS — Multi-Kennel Scope Spec
 
-> **Status: Phases 1 and 2 built (§15); Phase 3 is still design.** This is the
-> authoritative target for making
+> **Status: Phases 1 and 2 built; Phase 3 partly built (§15).** §11 (CSV kennel
+> column), §12 (edition flag — needed no new work), §13 (sample seed's second
+> own kennel), and §10's invoice/Puppy-Record identity fix are done. §10's
+> Companion/Furever identity blobs are still open — see §15.
+> This is the authoritative target for making
 > Kennel a true top-level view — a scope every list, hub, and report is segmented
 > by — rather than the reference lookup it is today. Read alongside
 > `docs/End_State_Design_and_Maintenance_Guide.md` (the map of the `shared/` code
@@ -476,19 +479,32 @@ The build also picked up §8's kennel hub in full: `kennel.html` reports on the 
 *opened* (never the active scope — hence `getIncomeRows({ kennelId })`), and `kennels.html`
 gained the portfolio above its existing identity list.
 
-**Phase 3 — the trailing assumptions (not started, except §12's flag).** §10, §11, §12, §13. Identity, import,
-editions, seed.
+**Phase 3 — the trailing assumptions. §10 (half), §11, §12, §13 done; §10's other half
+open.** Identity, import, editions, seed.
 
-What is left in Phase 3, restated now that Phase 2 is in: the four
-`find(k => k.is_own_kennel)` identity sites (§10) still take whichever own kennel sorts
-first, so an invoice for a kennel-B sale can still carry kennel A's name and logo; the
-Companion and Furever settings blobs are still global; CSV import has no kennel column
-(§11); and the sample seed still has only ONE own kennel (§13), so Demo shows a switcher
-with a single entry.
+Done: `invoice.js`/`puppy-record.js` (§10) now resolve the record's/dog's own `kennel_id`,
+falling back to the active kennel scope and then the sole own kennel — never "whichever own
+kennel sorts first" — so an invoice/Puppy Record for a kennel-B sale carries kennel B's name
+and logo regardless of scope. CSV import (§11) resolves an optional `kennel_name` column on
+Dog/Pairing/Litter/Sale/StudService against existing kennels (own-kennel-only for the four
+scoped tables; Dog only when owned/co-owned), routing an unresolved name to review rather
+than falling through to the active/sole default. §12 needed no new work (the flag already
+existed everywhere Phase 1 put it). The sample seed (§13) gained a second own kennel, Briar
+Hollow Kennels, with its own sire/dam/litter/pup/sale — Demo's switcher now shows two real
+entries instead of one.
 
-Rough sizing: Phase 1 was small and mechanical. Phase 2 was the bulk. §10 and the
-§7 "NOT scoped" list carry the real correctness risk — a truncated pedigree or a
-silently hidden record is far worse than a missing filter.
+Still open: the Companion and Furever settings blobs (the other half of §10) are still one
+global `localStorage` object each. This is the genuinely under-specified part of this
+spec — it doesn't say how to resolve which kennel a given Companion recipient or Furever
+seed packet belongs to (a prospective/waitlist Contact has no own-kennel link at all today),
+and Furever's identity block is entangled with the Drive content-pack pointers and the
+`breederKey` dedup, where a wrong call risks breaking already-sent packets. Left for a
+deliberate design pass with the owner rather than guessed at.
+
+Rough sizing: Phase 1 was small and mechanical. Phase 2 was the bulk. The Companion/Furever
+half of §10 and the §7 "NOT scoped" list carry the real correctness risk — a truncated
+pedigree, a silently hidden record, or a Furever dedup break is far worse than a missing
+filter.
 
 ## 16. Verification
 
