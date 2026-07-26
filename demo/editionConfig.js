@@ -62,6 +62,8 @@ export const editionFlags = {
   externalOwnership: true,
   assistant: true,
   feedingSchedule: true,
+  // Multi-kennel scope — on, since Demo showcases the whole Pro app.
+  multiKennel: true,
 };
 
 // Full nav bar (Demo shows the whole Pro app, read-only).

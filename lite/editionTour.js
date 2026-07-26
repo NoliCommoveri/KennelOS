@@ -112,10 +112,12 @@ export async function seedSampleData() {
 
   // Litter 1/2 — the past "Summer" litter (Juniper × Gunnar), now grown and sold.
   const pairingSummer = await pairingRepo.create({
+    kennel_id: thornfield.id,
     sire_id: gunnar.id, dam_id: juniper.id, pairing_type: 'actual', method: 'natural',
     status: 'whelped', planned_date: '2023-06-18', expected_due_date: '2023-08-20'
   });
   const summerLitter = await litterRepo.create({
+    kennel_id: thornfield.id,
     pairing_id: pairingSummer.id, dam_id: juniper.id, sire_id: gunnar.id, nickname: 'Summer litter',
     whelp_date: '2023-08-20', litter_registration_number: 'THORN-L-2023-01',
     puppies_born_total: 2, puppies_born_alive: 2, puppies_born_deceased: 0, puppies_born_abnormalities: 0,
@@ -157,10 +159,12 @@ export async function seedSampleData() {
   // Litter 2/2 — the current "Autumn" litter (Ivy × Gunnar), whelped ~9 weeks ago,
   // priced and actively selling. Drives Today's Active-litters card and the Sales.
   const pairingAutumn = await pairingRepo.create({
+    kennel_id: thornfield.id,
     sire_id: gunnar.id, dam_id: ivy.id, pairing_type: 'actual', method: 'natural',
     status: 'whelped', planned_date: daysFromToday(-126), expected_due_date: daysFromToday(-63)
   });
   const autumnLitter = await litterRepo.create({
+    kennel_id: thornfield.id,
     pairing_id: pairingAutumn.id, dam_id: ivy.id, sire_id: gunnar.id, nickname: 'Autumn litter',
     whelp_date: daysFromToday(-63), estimated_ready_date: daysFromToday(-7),
     accept_deposits_date: daysFromToday(-30), litter_registration_number: 'THORN-L-2026-01',
@@ -193,6 +197,7 @@ export async function seedSampleData() {
 
   // A planned future pairing so the breeding chain shows a planned entry too.
   const pairingPlanned = await pairingRepo.create({
+    kennel_id: thornfield.id,
     sire_id: gunnar.id, dam_id: juniper.id, pairing_type: 'planned', status: 'planned',
     planned_date: monthsFromToday(4)
   });
@@ -206,12 +211,14 @@ export async function seedSampleData() {
 
   // --- Sales — a delivered one (collected income) and an open one (anticipated).
   const hazelSale = await saleRepo.create({
+    kennel_id: thornfield.id,
     dog_id: hazel.id, buyer_contact_id: nora.id, sale_date: '2024-01-15',
     price: 2500, deposit_amount: 500, deposit_date: '2023-11-01', balance_paid_date: '2024-01-15',
     placement_type: 'pet', status: 'delivered', lead_source: 'Website',
     notes: 'Went home with a family in Burlington, VT — regular updates from the family.'
   });
   const cedarSale = await saleRepo.create({
+    kennel_id: thornfield.id,
     dog_id: cedar.id, buyer_contact_id: jamal.id, sale_date: daysFromToday(-20),
     price: 2800, deposit_amount: 500, deposit_date: daysFromToday(-20), balance_due_date: daysFromToday(21),
     transport_fee: 250,
