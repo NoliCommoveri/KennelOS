@@ -30,6 +30,7 @@ serve-and-exercise verification in `CLAUDE.md` / the End-State guide.
 | `dateUtils.test.js` | The date-only (YYYY-MM-DD, local) helpers the repos and nudges build on. |
 | `eventRepo.test.js` | `testTokensOf` — the health-test name derivation across the three test-bearing event types. |
 | `editionConfig.test.js` | The shared (Pro/Demo) config stays a no-op so no cap logic runs in those builds. |
+| `csvImport.test.js` | The match-or-create engine's `classify()` for all 8 entity mappings — natural-key formation (case-insensitive+trimmed names, exact dates), keyless/unresolved-relationship rows forced to review, and each mapping's quirks (Sale/StudService inline-contact auto-create, Event's title tiebreak, StudService's always-ambiguous repeat-arrangement rule, Expense's mileage/receipt-number/subject rules). Bypasses `loadExisting()` (real Dexie) by seeding each mapping's private `this._foo` caches directly and driving `buildIndex()`/`classify()`, the same DB-free seam `scopePredicates.test.js` uses. `buildPlan`/`commitPlan`/`stampKennelScope` stay out of scope (real repo writes). |
 
 ## Adding tests
 
