@@ -60,6 +60,11 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
   variants **named to match the regex patterns** in Pro's config; **License Keys enabled**
   on the product; checkout's **post-purchase redirect → `https://pro.kennelos.app/`** so an
   upgrader lands there to activate + import their exported backup.
+- [ ] **Set each variant's activation limit** — this is the only thing that resists casual
+  key-sharing, and it's a store setting, not app code. Not 1: `site/faq.html` promises
+  breeders a phone *and* a computer, and each browser profile is its own activation.
+  The app can release a slot (Import/Export → *This device's license*), so a limit is
+  recoverable — but pick a number that leaves room for ordinary re-installs.
 - [ ] **Dropbox app console** (Pro only — Lite/Demo ship no Dropbox/Assistant) — add the
   production **redirect URIs** for the deployed `import-export.html` and `assistant.html`
   on `pro.kennelos.app`; keep the `http://localhost:8000/…` entries for dev. App-folder
@@ -92,6 +97,11 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
 - [ ] **Pro** (`pro.kennelos.app`) — activation wall on first load; a **real license key
   activates**; the full app renders; it survives offline within the grace window; a lapsed or
   revoked key shows the renewal wall.
+- [ ] **Pro activations** (against the real store, once a key exists) — the activation appears
+  in the Lemon Squeezy dashboard under the **name typed on the wall**, not a generic string;
+  **Import/Export → "This device's license" → Release** makes it disappear there and drops this
+  browser back to the activation wall; the freed slot is re-usable; and **deactivating an
+  instance in the dashboard** walls that device on its next load.
 - [ ] **Demo** (`demo.kennelos.app`) — auto-seeds on first load; read-only banner; writes are
   blocked with the friendly notice; `import-export.html` 404s.
 - [ ] Each edition installs as a PWA with the correct name/icon/title; each origin has its own

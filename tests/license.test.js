@@ -4,7 +4,10 @@
 // lifetime / expired / revoked branches.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { detectInterval, onlineVerdict, offlineVerdict } from '../shared/data/license.js';
+import {
+  detectInterval, onlineVerdict, offlineVerdict,
+  buildInstanceName, recordFromPayload, DEFAULT_DEVICE_LABEL,
+} from '../shared/data/license.js';
 
 const DAY = 24 * 60 * 60 * 1000;
 const iso = (msFromNow) => new Date(Date.now() + msFromNow).toISOString();
@@ -94,4 +97,87 @@ test('offlineVerdict: lifetime needs no periodic re-validation', () => {
     offlineVerdict(rec({ interval: 'lifetime', status: 'active', lastValidated: iso(-999 * DAY) })),
     'valid', 'a lifetime key stays licensed offline indefinitely'
   );
+});
+
+// --- Instance naming --------------------------------------------------------
+// The activation's name is the only handle an owner has on a slot they want to
+// release, so two activations must never produce the same string.
+
+test('buildInstanceName: owner label plus a short device-id suffix', () => {
+  const id = 'd3f1a2b4-1111-2222-3333-444455556666';
+  assert.equal(buildInstanceName('Kitchen laptop', id), 'Kitchen laptop · d3f1a2b4');
+  assert.equal(buildInstanceName('  Kitchen   laptop  ', id), 'Kitchen laptop · d3f1a2b4',
+    'whitespace is normalized so a stray space is not a different device');
+});
+
+test('buildInstanceName: an unnamed device still gets a distinct name', () => {
+  const a = buildInstanceName('', 'aaaaaaaa-0000-0000-0000-000000000000');
+  const b = buildInstanceName('', 'bbbbbbbb-0000-0000-0000-000000000000');
+  assert.equal(a, `${DEFAULT_DEVICE_LABEL} · aaaaaaaa`);
+  assert.notEqual(a, b, 'two unnamed devices must not collide — that was the old bug');
+  assert.equal(buildInstanceName(null, 'cccccccc-0000-0000-0000-000000000000'),
+    `${DEFAULT_DEVICE_LABEL} · cccccccc`);
+});
+
+test('buildInstanceName: two devices sharing a label stay distinguishable', () => {
+  assert.notEqual(
+    buildInstanceName('Laptop', '11111111-0000-0000-0000-000000000000'),
+    buildInstanceName('Laptop', '22222222-0000-0000-0000-000000000000')
+  );
+});
+
+test('buildInstanceName: an over-long label is capped, not rejected', () => {
+  const name = buildInstanceName('x'.repeat(200), 'abcdef12-0000-0000-0000-000000000000');
+  assert.equal(name, `${'x'.repeat(60)} · abcdef12`);
+});
+
+// --- Status precedence ------------------------------------------------------
+// `license_key.status` describes the KEY; `valid` describes THIS activation.
+// When they disagree, the activation has to win — otherwise a device released
+// (or deliberately cut off) in the store dashboard keeps running.
+
+test('recordFromPayload: valid:false downgrades an otherwise-active key', () => {
+  const r = recordFromPayload('K', {
+    valid: false,
+    error: 'instance_id not found',
+    license_key: { status: 'active', expires_at: null },
+  }, 'inst-1', 'Laptop · abcdef12');
+  assert.equal(r.status, 'inactive', 'a deactivated instance must not read as active');
+  assert.equal(onlineVerdict(r), 'wall', 'and it walls immediately, with no grace');
+});
+
+test('recordFromPayload: valid:false preserves a more specific key status', () => {
+  // A lapsed subscription is also valid:false, but 'expired' earns its grace
+  // window — flattening it to 'inactive' would wall a renewal a day late.
+  const r = recordFromPayload('K', {
+    valid: false,
+    license_key: { status: 'expired', expires_at: iso(-1 * DAY) },
+    meta: { variant_name: 'KennelOS Pro (Yearly)' },
+  }, 'inst-1', 'Laptop · abcdef12');
+  assert.equal(r.status, 'expired');
+  assert.equal(onlineVerdict(r), 'grace', 'a just-lapsed yearly key still gets its 7 days');
+});
+
+test('recordFromPayload: a valid activation is untouched', () => {
+  const r = recordFromPayload('K', {
+    valid: true,
+    license_key: { status: 'active', expires_at: null },
+    meta: { variant_name: 'KennelOS Pro (Monthly)' },
+  }, 'inst-1', 'Laptop · abcdef12');
+  assert.equal(r.status, 'active');
+  assert.equal(r.interval, 'monthly');
+  assert.equal(r.instanceId, 'inst-1');
+  assert.equal(onlineVerdict(r), 'valid');
+});
+
+test('recordFromPayload: an activate response (no `valid` field) never downgrades', () => {
+  // /activate answers with `activated`, not `valid`. An absent field must not be
+  // read as a failure, or every fresh activation would wall itself.
+  const r = recordFromPayload('K', {
+    activated: true,
+    license_key: { status: 'active', expires_at: null },
+    meta: { variant_name: 'Lifetime' },
+  }, 'inst-1', 'Laptop · abcdef12');
+  assert.equal(r.status, 'active');
+  assert.equal(onlineVerdict(r), 'valid');
 });

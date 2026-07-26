@@ -22,7 +22,7 @@
 // pressure is highest) is protected by the Pro code genuinely not being there;
 // Pro leans on the key.
 import { editionFlags, licenseConfig } from './editionConfig.js';
-import { getProLicense, setProLicense, clearProLicense } from './settings.js';
+import { getProLicense, setProLicense, clearProLicense, getDeviceId } from './settings.js';
 
 // Lemon Squeezy License API base. Fixed (not store-specific — the key identifies
 // the store), so it's a constant here rather than edition config.
@@ -63,19 +63,57 @@ export function detectInterval(variantName) {
   return 'monthly';
 }
 
+// The activation's name in the Lemon Squeezy dashboard — the ONLY thing that
+// lets an owner tell their activations apart when they have used their allowance
+// and need to release one. So it has to be human-readable AND unique.
+//
+// It used to be `KennelOS Pro @ ${location.hostname}`, which is the *app's*
+// origin, not anything about the buyer — the identical string for every buyer on
+// every device, so a dashboard full of them named nothing and "which one do I
+// release?" had no answer. Now it's the owner's own label plus a short slice of
+// this browser's random device id (settings.js) to keep two devices the owner
+// called the same thing distinguishable.
+//
+// Pure and parameterized so the naming rule is testable without a browser; the
+// id is read from settings at the one call site.
+export const DEFAULT_DEVICE_LABEL = 'This browser';
+
+export function buildInstanceName(label, deviceId) {
+  const clean = String(label ?? '').trim().replace(/\s+/g, ' ').slice(0, 60);
+  const suffix = String(deviceId ?? '').replace(/-/g, '').slice(0, 8);
+  const name = clean || DEFAULT_DEVICE_LABEL;
+  return suffix ? `${name} · ${suffix}` : name;
+}
+
 // Normalize an activate/validate JSON payload into the cached record shape. Both
 // endpoints return the same license_key + meta objects, so one mapper serves both.
-function recordFromPayload(key, data, instanceId, instanceName) {
+//
+// Exported for tests: it is a pure mapper, and the status rule below is the one
+// piece of this module that decides whether a de-authorized device keeps running.
+export function recordFromPayload(key, data, instanceId, instanceName) {
   const lk = data.license_key || {};
   const meta = data.meta || {};
   const variantName = meta.variant_name || '';
+  // Lemon Squeezy answers two different questions here and they can disagree:
+  // `license_key.status` describes the KEY ('active' | 'expired' | 'disabled' |
+  // 'inactive'), while `valid` describes THIS activation. Deactivate one instance
+  // — the whole point of releasing a seat, and the way a shared device gets cut
+  // off — and /validate comes back valid:false while the key stays 'active'.
+  // Reading the key alone (as this did) would keep that device running forever.
+  //
+  // So: an explicit valid:false downgrades an otherwise-'active' key to
+  // 'inactive' (revoked → walls immediately, no grace). A key status that is
+  // already more specific ('expired') is preserved rather than flattened, because
+  // onlineVerdict gives 'expired' its grace window and a lapsed renewal must
+  // still get that. `=== false` on purpose: /activate answers with `activated`
+  // and carries no `valid` at all, so an absent field never downgrades anything.
+  const keyStatus = lk.status || (data.valid ? 'active' : 'inactive');
+  const status = data.valid === false && keyStatus === 'active' ? 'inactive' : keyStatus;
   return {
     key,
     instanceId: instanceId || null,
     instanceName: instanceName || null,
-    // license_key.status is the authoritative signal: 'active' | 'expired' |
-    // 'disabled' | 'inactive'. Fall back to the boolean `valid` if it's missing.
-    status: lk.status || (data.valid ? 'active' : 'inactive'),
+    status,
     expiresAt: lk.expires_at || null, // ISO string or null (null = no set expiry)
     variantName,
     interval: detectInterval(variantName),
@@ -97,11 +135,16 @@ async function postLicense(path, params) {
 
 // First-run activation: bind this key to this browser as a Lemon Squeezy
 // "instance". Stores and returns the record on success; throws a user-facing
-// message on failure (invalid key, activation limit reached, network down).
-export async function activate(rawKey) {
+// message on failure (invalid key, activation limit reached, network down) —
+// Lemon Squeezy's own `error` text is passed straight through, so a key that has
+// used every activation says so rather than reading as a bad key.
+//
+// `deviceLabel` is what the owner typed on the activation wall (optional); it
+// names this activation in their store account so they can release it later.
+export async function activate(rawKey, deviceLabel) {
   const key = (rawKey || '').trim();
   if (!key) throw new Error('Enter your license key.');
-  const instanceName = `KennelOS Pro @ ${location.hostname || 'device'}`;
+  const instanceName = buildInstanceName(deviceLabel, getDeviceId());
   let res, data;
   try {
     ({ res, data } = await postLicense('licenses/activate', { license_key: key, instance_name: instanceName }));
@@ -132,10 +175,54 @@ export async function validate(record) {
   return setProLicense(recordFromPayload(record.key, data, record.instanceId, record.instanceName));
 }
 
-// Forget the cached activation (the "use a different key" action). Does NOT touch
-// program data — only the entitlement record. Reset App never calls this.
-export function resetLicense() {
+// Release this browser's activation on Lemon Squeezy's side, freeing the slot it
+// holds against the key's activation limit. Returns true when the slot came back,
+// false on any failure (offline, or an instance the store no longer knows about).
+// Never throws: every caller is on a path that has to reach an end state anyway,
+// and the two callers below want opposite things from a failure.
+//
+// This is the half that was missing. Nothing in the app released a slot, so every
+// cleared browser, reinstalled PWA, and replaced laptop consumed one permanently
+// — an owner could reach "no activations left" through ordinary browser hygiene,
+// with nothing in the app able to fix it.
+export async function deactivate(record) {
+  if (!record?.key || !record.instanceId) return false;
+  try {
+    const { res, data } = await postLicense('licenses/deactivate', {
+      license_key: record.key,
+      instance_id: record.instanceId,
+    });
+    return Boolean(res.ok && data.deactivated);
+  } catch {
+    return false;
+  }
+}
+
+// The deliberate "I'm done with this device" action (Import/Export → This
+// device's license). Releases the slot FIRST and forgets the local record only if
+// that succeeded — returning false and changing nothing otherwise. Clearing a
+// record whose slot is still held would cost the owner both this device's access
+// AND the slot, with no way back to either, which is the exact trap this whole
+// change exists to close.
+//
+// Does NOT touch program data: the kennel stays in IndexedDB, and re-activating
+// with the same key picks up right where it left off.
+export async function releaseThisDevice() {
+  const record = getProLicense();
+  if (!(await deactivate(record))) return false;
   clearProLicense();
+  return true;
+}
+
+// Forget the cached activation so a different key can be entered (the renewal
+// wall's "use a different key"). Best-effort release, then clear regardless: the
+// owner is already blocked behind a wall here, so a failed release must not trap
+// them. Returns whether the slot was actually freed so the caller can say so.
+// Reset App never calls this.
+export async function resetLicense() {
+  const released = await deactivate(getProLicense());
+  clearProLicense();
+  return released;
 }
 
 // The verdict from a record we just validated online: authoritative status +

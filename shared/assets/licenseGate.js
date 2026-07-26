@@ -57,12 +57,20 @@ function renderActivationWall() {
       <label class="license-label" for="license-key-input">License key</label>
       <input id="license-key-input" class="license-input" type="text" autocomplete="off"
              spellcheck="false" placeholder="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX" />
+      <div class="license-field">
+        <label class="license-label" for="license-device-input">
+          Name this device <span class="license-hint">— optional</span>
+        </label>
+        <input id="license-device-input" class="license-input" type="text" autocomplete="off"
+               maxlength="60" placeholder="Kitchen laptop" />
+      </div>
       <div class="license-error" id="license-error" role="alert"></div>
       <div class="license-actions">
         <button type="submit" class="btn btn-primary" id="license-activate">Activate</button>
         ${checkoutLinkHtml('Buy Pro →')}
       </div>
     </form>
+    <p class="license-note">Your key covers a set number of devices. Naming this one makes it easy to tell your devices apart later — you can release a device from <strong>Import/Export</strong> when you stop using it, which frees its slot.</p>
     <p class="license-note">Just upgrading from Lite? After activating, use <strong>Import</strong> to bring in the backup you exported.</p>
   `);
   wireActivationForm(card);
@@ -71,6 +79,7 @@ function renderActivationWall() {
 function wireActivationForm(card) {
   const form = card.querySelector('#license-form');
   const input = card.querySelector('#license-key-input');
+  const deviceInput = card.querySelector('#license-device-input');
   const errorSlot = card.querySelector('#license-error');
   const button = card.querySelector('#license-activate');
   input.focus();
@@ -80,7 +89,7 @@ function wireActivationForm(card) {
     button.disabled = true;
     button.textContent = 'Activating…';
     try {
-      await activate(input.value);
+      await activate(input.value, deviceInput.value);
       // Re-evaluate from scratch on a fresh load so the app boots licensed.
       location.reload();
     } catch (err) {
@@ -127,8 +136,15 @@ function wireRenewalWall(card) {
       ? 'That subscription is still not active. Renew to continue.'
       : "Couldn't reach the licensing server. Check your connection and try again.";
   });
-  card.querySelector('#license-reset').addEventListener('click', () => {
-    resetLicense();
+  // "Use a different key" now also hands this browser's activation slot back, so
+  // switching keys doesn't quietly consume one on the old key forever. Best-effort
+  // by design (data/license.js): the owner is already walled, so a failed release
+  // still drops them to the activation wall rather than trapping them here.
+  const reset = card.querySelector('#license-reset');
+  reset.addEventListener('click', async () => {
+    reset.disabled = true;
+    reset.textContent = 'Releasing…';
+    await resetLicense();
     renderActivationWall();
   });
 }

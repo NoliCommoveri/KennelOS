@@ -200,6 +200,26 @@ like any other and the yearly grace window (below) applies before the wall.
   would just lock an off-grid owner out of a "furever yours" purchase). A refunded/disabled
   lifetime key still walls on the next successful online `/validate`; the offline gap between
   refund and reconnect is an accepted edge per the honest caveat.
+- **Activations are a counter, and slots come back.** Lemon Squeezy tracks *activations*
+  ("instances") against a per-variant **activation limit**. This is not device detection — the
+  store knows nothing about the machine and neither does the app; it is simply "this key has
+  been activated N times". One activation per browser profile is a convention on our side: we
+  activate once, cache the returned `instance_id`, and `/validate` against it thereafter.
+  Because it is a counter, it needs a decrement, and the app provides one:
+  - **Import/Export → "This device's license"** is the deliberate release — it frees the slot
+    and only then forgets the local record, so a failed call never costs the owner both this
+    device's access *and* the slot.
+  - **The renewal wall's "use a different key"** releases best-effort and clears regardless: an
+    owner already stuck behind a wall must never be trapped there by a network failure.
+
+  Each activation is named `"<owner's label> · <8 chars of a random per-browser id>"`, the label
+  taken from an optional field on the activation wall. That name is the only handle an owner has
+  on a slot, so it has to be human-readable and unique.
+
+  **Set the activation limit with the multi-device promise in mind** — the FAQ tells breeders
+  they can use a phone and a computer — so a limit of 1 would contradict shipped copy. This is
+  the one lever that actually resists casual key-sharing between breeders; it does nothing
+  against a technical bypass, per the honest caveat below.
 - **Renewal** is automatic on Lemon Squeezy's side for both subscription intervals; the key's status flips and
   the next `/validate` sees it. A buyer can switch monthly↔yearly through Lemon Squeezy's
   customer portal — same key, the interval (and thus the grace window) updates on the next

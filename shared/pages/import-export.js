@@ -1,6 +1,7 @@
 // import-export.js — wires the Import/Export page to the backup engine.
 import { downloadBackup, readBackupFile, inspectBackup, restoreBackup } from '../data/importExport.js';
-import { getLastBackupDate } from '../data/settings.js';
+import { getLastBackupDate, getProLicense } from '../data/settings.js';
+import { isLicenseGated, releaseThisDevice } from '../data/license.js';
 import { hasMyKennelSetup, getMyKennelName } from '../data/kennelSetup.js';
 import { showKennelSetupModal } from '../assets/kennelSetupUI.js';
 import { getResetCounts, resetApp } from '../data/appReset.js';
@@ -232,6 +233,54 @@ function showResetAppModal() {
 document.getElementById('btn-reset-app').addEventListener('click', showResetAppModal);
 
 renderResetAppStatus();
+
+// --- This device's license (Pro only) ---------------------------------------
+// The proactive way to hand this browser's activation slot back, so an owner who
+// is about to clear their browser or replace a laptop doesn't burn a slot they
+// can never recover. Hidden entirely unless the license gate is on (Pro), so Lite
+// keeps rendering exactly as it did.
+
+const licenseSection = document.getElementById('license-section');
+const licenseReleaseBtn = document.getElementById('btn-license-release');
+
+function renderLicenseSection() {
+  if (!isLicenseGated()) return; // Lite/Demo: section stays hidden.
+  licenseSection.hidden = false;
+  const record = getProLicense();
+  const status = document.getElementById('license-device-status');
+  if (!record) {
+    status.textContent = 'This device is not activated.';
+    licenseReleaseBtn.disabled = true;
+    return;
+  }
+  const name = record.instanceName ? `“${record.instanceName}”` : 'this browser';
+  status.textContent = `Activated on this device as ${name}.`;
+}
+
+licenseReleaseBtn.addEventListener('click', async () => {
+  const ok = await confirmModal({
+    title: 'Release this device?',
+    message: 'This device will need the license key entered again before Pro will open here. '
+      + 'Your records stay exactly where they are — nothing is deleted.',
+    confirmLabel: 'Release this device',
+  });
+  if (!ok) return;
+  licenseReleaseBtn.disabled = true;
+  licenseReleaseBtn.textContent = 'Releasing…';
+  // Only reload once the slot is genuinely back: releaseThisDevice() leaves the
+  // activation untouched on failure, so the owner still has Pro here and can
+  // retry rather than losing both the device and the slot.
+  if (await releaseThisDevice()) {
+    flash('This device has been released. Reloading…');
+    setTimeout(() => location.reload(), 900);
+    return;
+  }
+  licenseReleaseBtn.disabled = false;
+  licenseReleaseBtn.textContent = 'Release this device…';
+  flash("Couldn't reach the licensing server, so this device still holds its slot and stays activated. Check your connection and try again.", 'err');
+});
+
+renderLicenseSection();
 
 // --- Dropbox sync -----------------------------------------------------------
 

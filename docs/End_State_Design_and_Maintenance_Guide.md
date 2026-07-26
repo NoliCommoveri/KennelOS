@@ -29,6 +29,19 @@
 >   load is walled. The cached activation lives
 >   under its own `settings.js` key (`kennelOS.proLicense`) that is deliberately **excluded
 >   from `clearAllSettings()`**, so Reset App keeps paid entitlement. Inert in Lite/Demo.
+> - **Activations are a countable, releasable resource.** Lemon Squeezy counts
+>   *activations* ("instances") against the variant's activation limit — it knows nothing
+>   about the machine, and neither do we. Three rules make that counter survivable:
+>   `deactivate()` hands a slot back (`releaseThisDevice()` from Import/Export → *This
+>   device's license*, which clears the local record **only** if the release succeeded;
+>   `resetLicense()` on the renewal wall, which is best-effort so a walled owner is never
+>   trapped); each activation is named `"<owner's label> · <8 chars of kennelOS.deviceId>"`
+>   so slots are distinguishable in the store dashboard; and `recordFromPayload()` lets an
+>   explicit `valid:false` downgrade an otherwise-`active` key to `inactive`, so a released
+>   or de-authorized device actually stops working (a more specific `expired` is preserved,
+>   because it earns its grace window). `kennelOS.deviceId` is a random per-browser UUID
+>   used only for that label — no fingerprinting, no system data — and, like the license
+>   record, it sits outside `KEYS` so Reset App leaves it alone.
 >
 > Treat everything under this line as an accurate map of the shared/Pro **code**, with
 > the caveats above.
