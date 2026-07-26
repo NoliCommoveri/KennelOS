@@ -8,6 +8,9 @@ as the app itself. Requires Node ≥ 18 (CI uses 20).
 node --test      # or: npm test  (auto-discovers tests/*.test.js)
 ```
 
+CI runs this on every push to `main`, before the build/publish steps in
+`.github/workflows/deploy.yml` — a red suite stops the deploy.
+
 The repo's root `package.json` exists only to mark the tree as ES modules for Node
 (so it can import the app's `.js` files) and to provide the `test` script. It is
 **not** part of any edition artifact — `build/assemble.mjs` only copies `shared/`.
@@ -30,6 +33,7 @@ serve-and-exercise verification in `CLAUDE.md` / the End-State guide.
 | `dateUtils.test.js` | The date-only (YYYY-MM-DD, local) helpers the repos and nudges build on. |
 | `eventRepo.test.js` | `testTokensOf` — the health-test name derivation across the three test-bearing event types. |
 | `editionConfig.test.js` | The shared (Pro/Demo) config stays a no-op so no cap logic runs in those builds. |
+| `moduleGraph.test.js` | Every **assembled** edition is link-clean: each import resolves to a file that exports it. Catches the editionConfig-overlay and Lite-exclude seams, where an unresolvable binding kills the whole module graph and leaves a page painted but inert. Also self-tests the checker. |
 
 ## Adding tests
 

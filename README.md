@@ -226,6 +226,15 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
 `node build/assemble.mjs` → `dist/{lite,pro,demo}/`, each a servable/deployable tree
 (deploy each to its own origin). Details in `build/README.md`.
 
+The assembler **link-checks each assembled edition and refuses to emit a broken one**
+(`build/verifyModuleGraph.mjs`): every import must resolve to a file that exports it.
+This guards the two seams the build itself creates — the overlaid `editionConfig.js`
+and Lite's excluded pages — where an unresolvable binding takes down a page's entire
+module graph, leaving it painted but inert (values stuck on placeholder text, buttons
+dead) and then cached offline in that state until the next `CACHE_NAME` rollover.
+`node --test` runs the same check plus the rest of the regression suite, and CI runs it
+before publishing.
+
 ## Lite scope (decided)
 
 What Lite ships, versus Pro-only. Pro-only *pages* live in `pro/` (physically absent

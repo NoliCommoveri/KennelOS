@@ -21,6 +21,7 @@ import { existsSync, rmSync, cpSync, mkdirSync, readFileSync, writeFileSync } fr
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PRO_ONLY_PAGES, PRO_ONLY_STANDALONE } from '../shared/data/proPages.js';
+import { verifyModuleGraph } from './verifyModuleGraph.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const EDITIONS = ['lite', 'pro', 'demo'];
@@ -160,7 +161,25 @@ function assemble(edition, release) {
   rewriteIndexTitle(dest, edition);
 
   const sw = rewriteServiceWorker(dest, edition);
-  console.log(`✅ ${edition}: dist/${edition}/  (excluded ${excluded.length} files, precache ${sw.precache}, cache ${sw.cacheName})`);
+
+  // Link-check the assembled tree before declaring the edition built. This runs
+  // AFTER the overlay + exclude steps on purpose: those two steps are the only
+  // things that can make an edition's module graph differ from shared/, and both
+  // failure modes they introduce (an overlaid editionConfig missing an export a
+  // shared module imports; a Lite page still importing a file the exclude step
+  // deleted) are unresolvable-binding errors that take down every page that
+  // loads them. Always fatal, never a warning like the launch placeholders —
+  // a placeholder ships a dead link, this ships a dead app, and the offline
+  // service worker then caches it into installed clients.
+  const { problems, moduleCount } = verifyModuleGraph(dest);
+  if (problems.length) {
+    throw new Error(
+      `${edition}: ${problems.length} unresolvable module import(s) in dist/${edition}/ — refusing to build.\n`
+      + problems.map((p) => `  • ${p}`).join('\n')
+    );
+  }
+
+  console.log(`✅ ${edition}: dist/${edition}/  (excluded ${excluded.length} files, precache ${sw.precache}, cache ${sw.cacheName}, ${moduleCount} modules linked)`);
 }
 
 // --- Standalone app assembly (Furever) ------------------------------------

@@ -44,6 +44,12 @@ jobs:
         with:
           node-version: 20
 
+      # The regression suite had no CI runner, so nothing it pins actually gated a
+      # deploy. Runs before the build (and so before Publish) — a red suite must stop
+      # the artifact reaching a publish repo, not be discovered after users have it.
+      - name: Run tests
+        run: node --test
+
       - name: Build ${{ matrix.edition }}
         # TEMPORARY: --release removed so lite/pro/demo can deploy for live testing
         # before the real launch URLs are in hand (docs/LAUNCH_CHECKLIST.md §1 is

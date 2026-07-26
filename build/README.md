@@ -25,10 +25,14 @@ has no launch placeholders, so `--release` is a no-op for it.
 **`--release` (launch guard).** The edition configs carry stand-in URLs until launch
 (Lite's `upgradeUrl`, Pro's `licenseConfig.checkoutUrl` — see `LAUNCH_PLACEHOLDERS` in
 `assemble.mjs`). A plain build only **warns** if one is still present, so building
-editions to test locally keeps working; a `--release` build **fails** on it. The deploy
-workflow (`.github/workflows/deploy.yml`) passes `--release`, so a merge to `main` can't
-ship a dead upgrade/checkout link. Swap the placeholders (see
-`docs/LAUNCH_CHECKLIST.md`) to make a release build pass.
+editions to test locally keeps working; a `--release` build **fails** on it. Swap the
+placeholders (see `docs/LAUNCH_CHECKLIST.md`) to make a release build pass.
+
+> **Note:** the deploy workflow does **not** currently pass `--release` — it was removed
+> so lite/pro/demo could deploy for live testing before the real launch URLs exist
+> (`docs/LAUNCH_CHECKLIST.md` §1 is still open). Until it goes back, a merge to `main`
+> *can* ship a dead upgrade/checkout link. The module-graph link-check in step 5 below
+> is unconditional and gates the deploy regardless.
 
 ## What it does (per edition)
 
@@ -50,7 +54,26 @@ ship a dead upgrade/checkout link. Swap the placeholders (see
    `short_name` → `KennelOS Lite` / `Pro` / `Demo`) and the root `index.html` `<title>`,
    so an installed edition reads as its own app rather than a generic "KennelOS". Names
    come from `EDITION_NAMES` in `assemble.mjs`; only those keys are touched.
-5. **Regenerate** `dist/<edition>/sw.js`: an edition-specific `CACHE_NAME`
+5. **Link-check the assembled tree** (`verifyModuleGraph.mjs`) and **refuse to emit a
+   broken edition**. Steps 2–3 are the only things that make an edition's module graph
+   differ from `shared/`, and both of their failure modes are unresolvable-binding
+   errors: an overlaid `editionConfig.js` missing an export a shared module imports, or
+   a Lite page still importing a file the exclude step deleted. Neither is visible in
+   any single file — only in the assembled seam — and neither fails quietly in a
+   browser: an unresolvable import takes down the **entire** module graph that reaches
+   it, so the HTML still paints while every value stays on its placeholder and every
+   button stays dead. (Pro shipped exactly this once: `pro/editionConfig.js` lacked
+   `enforceImportDogCap`, and Import/Export sat on "Checking…" with Reset and
+   Set-up-your-kennel inert until the next `CACHE_NAME` rollover evicted it from
+   installed clients.) So this check is **always fatal**, in dev builds too — unlike the
+   `--release` placeholder guard, which only warns. A placeholder ships a dead link;
+   this ships a dead app, and the offline service worker then pins it into every
+   installed client. It's a linker, not a type checker: it asks only whether each
+   imported file exists in this artifact and whether each named import appears among
+   that file's exports (following `export *` / `export { x } from` chains). Vendored
+   bundles under `vendor/` are existence-checked but never parsed. Covered by
+   `tests/moduleGraph.test.js`, which also self-tests the checker.
+6. **Regenerate** `dist/<edition>/sw.js`: an edition-specific `CACHE_NAME`
    (`kennelos-<edition>-shell-vN`, where **N is carried from the shared `sw.js` cache
    version** — so the one CLAUDE.md `CACHE_NAME` bump rolls every edition over) and a
    `PRECACHE_URLS` list filtered to the files that
