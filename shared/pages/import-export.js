@@ -257,14 +257,68 @@ function renderLicenseSection() {
   status.textContent = `Activated on this device as ${name}.`;
 }
 
-licenseReleaseBtn.addEventListener('click', async () => {
-  const ok = await confirmModal({
-    title: 'Release this device?',
-    message: 'This device will need the license key entered again before Pro will open here. '
-      + 'Your records stay exactly where they are — nothing is deleted.',
-    confirmLabel: 'Release this device',
+// Releasing is the one action here that takes away the ability to *reach* data
+// while leaving the data in place: the moment the slot goes back, every page
+// including this one shows the activation wall, so Export is behind the wall too.
+// The records are still in IndexedDB, but getting at them means re-activating —
+// which is exactly what an owner who released their last slot may not be able to
+// do. So the confirmation isn't a yes/no: it puts the backup one click away,
+// right here, before the door closes.
+function showReleaseModal() {
+  const iso = getLastBackupDate();
+  const last = iso
+    ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+    : 'Never';
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal" role="dialog" aria-modal="true" style="max-width:460px;">
+      <h2 style="margin-top:0;">Release this device?</h2>
+      <p class="muted">The license slot goes back so another device can use it. Your records are
+        <strong>not deleted</strong> — they stay in this browser exactly as they are.</p>
+      <p class="muted"><strong>Export a backup first.</strong> Once this device is released, Pro asks for a
+        key here again — and that includes this Import/Export page, so you won't be able to download a
+        backup until you re-activate. If you released this slot to free it for another device, that may
+        not be something you can undo today.</p>
+      <p class="muted">Last backup: <strong id="release-last-backup">${esc(last)}</strong></p>
+      <div id="release-error"></div>
+      <div class="form-actions">
+        <button class="btn btn-primary" id="release-backup-btn">⬇️ Download a backup</button>
+        <button class="btn" id="release-confirm-btn">Release this device</button>
+        <button class="btn" data-act="cancel">Cancel</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const errorBox = overlay.querySelector('#release-error');
+  const backupBtn = overlay.querySelector('#release-backup-btn');
+
+  backupBtn.addEventListener('click', async () => {
+    errorBox.innerHTML = '';
+    backupBtn.disabled = true;
+    backupBtn.textContent = 'Preparing…';
+    try {
+      await downloadBackup();
+      renderLastBackup();  // the page behind the modal, too
+      overlay.querySelector('#release-last-backup').textContent = 'just now';
+      backupBtn.textContent = '✅ Backup downloaded';
+    } catch (e) {
+      backupBtn.disabled = false;
+      backupBtn.textContent = '⬇️ Download a backup';
+      errorBox.innerHTML = `<div class="inline-error">${esc(e.message || String(e))}</div>`;
+    }
   });
-  if (!ok) return;
+
+  return new Promise((resolve) => {
+    const done = (val) => { overlay.remove(); resolve(val); };
+    overlay.querySelector('#release-confirm-btn').addEventListener('click', () => done(true));
+    overlay.querySelector('[data-act="cancel"]').addEventListener('click', () => done(false));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) done(false); });
+  });
+}
+
+licenseReleaseBtn.addEventListener('click', async () => {
+  if (!(await showReleaseModal())) return;
   licenseReleaseBtn.disabled = true;
   licenseReleaseBtn.textContent = 'Releasing…';
   // Only reload once the slot is genuinely back: releaseThisDevice() leaves the
