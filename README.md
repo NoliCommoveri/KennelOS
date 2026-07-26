@@ -153,8 +153,42 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   - **Pro-only** (`editionFlags.multiKennel`): Lite is single-kennel, renders no kennel picker,
     and auto-stamps its one kennel. A new test asserts every edition config declares every shared
     flag — the gap that first shipped `multiKennel` missing from `pro/` and `demo/`.
-  - **Not built yet (Phase 2+):** nothing filters by scope, and there is no switcher. `inScope()`
-    exists and is unused; `isScoped()` is false everywhere until the switcher lands.
+- **Multi-kennel scope, Phase 2 — done & browser-verified (headless Chromium, all three
+  editions, no console errors).** The scope goes live: one switcher, and every list, hub, and
+  report segmented by it.
+  - **The switcher** — `shared/assets/kennelScopeUI.js` holds all three pieces of scope UI:
+    the nav's active-kennel `<select>` (an empty `#nav-kennel-scope` slot `nav.js` renders
+    edition-agnostically), the **"kennel only" chip** a scoped list/report carries in its
+    toolbar with a one-click "Show all", and the **out-of-scope banner** on a detail page.
+    Switching reloads — pages build their view models once at load, so one repaint of the
+    truth beats a partial re-render.
+  - **One lever for every list screen** — `listView.js` and `reportView.js` both take a
+    `scope` predicate, applied before search/filters (so CSV exports the scoped set). Callers
+    pass `inScope` (stamped record), `dogInScope` (dogs — external/leased stay transparent),
+    or `subjectInScope` (a polymorphic Event, scoped through its subject). Everything off
+    those frameworks — Today, dashboard, breeding, sales, financials (income AND the
+    polymorphic expense ledger), nudges, the away board, and all ten reports — is hand-scoped.
+  - **What is deliberately NOT scoped is the load-bearing half**, each with a comment at its
+    call site: **pedigree/lineage** (a truncated pedigree is the worst regression available
+    here), **detail pages reached by id** (a direct link must always resolve — the record
+    renders in full above a "belongs to <kennel>" banner with a one-click switch, never a
+    404), **external/leased dogs**, and the **contact pool** (a buyer who bought from two of
+    your kennels is one person).
+  - **Pickers are scoped by default with an escape** (spec §9) — sire/dam, the linked-pairing
+    picker, the sold dog, our stud, and the expense subject each gain a "show all my kennels"
+    checkbox beside the existing "include archived" one, because co-breeding across your own
+    kennels and stud services are intentionally cross-kennel.
+  - **Kennel is a hub now** — `kennel.html` gained roster counts, active litters, recent
+    placements, and that kennel's P&L, all reporting on the kennel you *opened* rather than
+    the active scope; `kennels.html` gained a portfolio of your own kennels with live counts
+    and the switch into each (silent until a second own kennel exists).
+  - **Tested** — the pure predicates moved into a db-free `shared/data/scopePredicates.js`
+    (the split spec §16 held in reserve) with 12 unit tests pinning the two directions that
+    matter: nothing hidden when unscoped, nothing scope-transparent ever hidden.
+  - **Still Phase 3:** the four `find(k => k.is_own_kennel)` identity sites (an invoice can
+    still carry the wrong kennel's name/logo), the global Companion/Furever settings blobs,
+    a CSV kennel column, and a sample seed with a *second* own kennel — until that lands,
+    Demo shows a switcher with one entry.
 - **Next:** the editions build is now feature-complete (Lite cap, Pro + license gate, Demo,
   front doors, tour). Remaining before launch is deploy-time config, not code: buy the domain,
   wire the three publish repos + `EDITIONS_DEPLOY_PAT` (see `build/README.md`), swap the Lemon

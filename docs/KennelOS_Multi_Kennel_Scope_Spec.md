@@ -1,6 +1,6 @@
 # KennelOS — Multi-Kennel Scope Spec
 
-> **Status: Phase 1 built (§15); Phases 2-3 are still design.** This is the
+> **Status: Phases 1 and 2 built (§15); Phase 3 is still design.** This is the
 > authoritative target for making
 > Kennel a true top-level view — a scope every list, hub, and report is segmented
 > by — rather than the reference lookup it is today. Read alongside
@@ -440,14 +440,53 @@ land before the first deploy regardless of when Phases 2-3 happen.
 required `kennel_id` safe: shipping the required field without the gate is the
 dead-end described in §3.1(b).
 
-**Phase 2 — the scope (not started).** §7, §8, §9. The switcher and the kennel hub go live.
-This is the long pole: it touches most of the ~11k lines of page code, and every
-non-listView page is hand work.
+**Phase 2 — the scope. ✅ BUILT.** §7, §8, §9. The switcher and the kennel hub are live,
+and every list, hub, and report filters by the active kennel.
+
+Six decisions taken during the build that this spec did not pin down, recorded here so
+they are not re-litigated:
+
+1. **`contactPicker.js` is NOT scoped**, against §9's list. §7 governs: a Contact's
+   `kennel_id` is an *affiliation* (usually somebody else's kennel), not a scope, and a
+   buyer's is normally null — scoping the buyer picker by the active own-kennel would
+   hide essentially every buyer. Same reasoning applies to the litter form's foster-partner
+   picker and the sale form's buyer picker. Each carries a comment saying so.
+2. **The pure predicates were split out** into `data/scopePredicates.js` — the option §16
+   held in reserve. Phase 2 makes them load-bearing across every read path in the app, and
+   §7 calls a silently hidden record the worst failure available here, so they now have
+   real unit tests (`tests/scopePredicates.test.js`, 12 cases). `kennelScope.js` re-exports
+   them bound to the live active kennel; nothing else passes an id by hand.
+3. **`ownKennels()` is not memoized**, against §5's signature. It is one scan of a
+   handful-of-rows table, and a per-page-load cache would go stale between "create the
+   kennel" and "does an own kennel exist?" during first-run setup — the exact question the
+   mandatory gate asks.
+4. **The breeding hub scopes pairings and orphan litters only**, not the litter or puppies
+   hanging off an in-scope pairing. The page's whole job is the chain pairing → litter →
+   pups; dropping a link out of the middle would misrepresent the litter rather than
+   filter it. Stamping inheritance means they agree in practice.
+5. **Scoped views say so.** A scoped list/report renders a "🏠 <kennel> only" chip with a
+   one-click "Show all" in its toolbar, and an out-of-scope detail page renders the record
+   in full above a "belongs to <kennel>" banner. Between them there is no state in which
+   records are missing and the UI is silent about why.
+6. **Switching scope reloads.** Pages compute their view models once at load, so one
+   repaint of the truth beats a partial re-render — the same posture every other
+   whole-page filter takes.
+
+The build also picked up §8's kennel hub in full: `kennel.html` reports on the kennel you
+*opened* (never the active scope — hence `getIncomeRows({ kennelId })`), and `kennels.html`
+gained the portfolio above its existing identity list.
 
 **Phase 3 — the trailing assumptions (not started, except §12's flag).** §10, §11, §12, §13. Identity, import,
 editions, seed.
 
-Rough sizing: Phase 1 is small and mechanical. Phase 2 is the bulk. §10 and the
+What is left in Phase 3, restated now that Phase 2 is in: the four
+`find(k => k.is_own_kennel)` identity sites (§10) still take whichever own kennel sorts
+first, so an invoice for a kennel-B sale can still carry kennel A's name and logo; the
+Companion and Furever settings blobs are still global; CSV import has no kennel column
+(§11); and the sample seed still has only ONE own kennel (§13), so Demo shows a switcher
+with a single entry.
+
+Rough sizing: Phase 1 was small and mechanical. Phase 2 was the bulk. §10 and the
 §7 "NOT scoped" list carry the real correctness risk — a truncated pedigree or a
 silently hidden record is far worse than a missing filter.
 
