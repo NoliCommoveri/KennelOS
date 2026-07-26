@@ -5,7 +5,7 @@
 // that single-writer split is what makes the whole scheme conflict-free:
 //   /kennelos-backup.json   written HERE (pushToDropbox) — the full JSON backup,
 //                           same object the download-backup button builds; a
-//                           second phone pulls it and merge-restores.
+//                           second phone pulls it and restores (merge or replace).
 //   /assistant-feed.json    written HERE (pushToDropbox) — the curated slice the
 //                           KennelAssistant app is allowed to see: basic dog
 //                           fields + dog-subject events. Privacy is enforced at
@@ -20,7 +20,7 @@
 // Lives in the data layer, so like importExport.js it may use `db` directly for
 // the cross-table work; pages call these functions, never the pieces.
 import { db } from './db.js';
-import { exportAll, restoreBackup, inspectBackup } from './importExport.js';
+import { exportAll, inspectBackup } from './importExport.js';
 import { dropboxUploadJson, dropboxDownloadJson, DROPBOX_PATHS } from './dropbox.js';
 import { setLastBackupDate } from './settings.js';
 import { EVENT_TYPES, ASSISTANT_EVENT_TYPES, descriptor } from './vocab.js';
@@ -90,16 +90,13 @@ export async function pushToDropbox() {
 }
 
 // Fetch the backup another phone pushed. Returns { backup, info } for the page
-// to confirm before merging, or null when nothing has ever been pushed.
+// to show in its restore preview (the same dry-run a file restore gets — the
+// page then calls restoreBackup() itself in merge or replace mode), or null when
+// nothing has ever been pushed.
 export async function fetchDropboxBackup() {
   const backup = await dropboxDownloadJson(DROPBOX_PATHS.backup);
   if (!backup) return null;
   return { backup, info: inspectBackup(backup) };
-}
-
-// Merge-restore a fetched backup (upsert by id — same engine as file restore).
-export function mergeDropboxBackup(backup) {
-  return restoreBackup(backup, 'merge');
 }
 
 // --- Assistant outbox ------------------------------------------------------

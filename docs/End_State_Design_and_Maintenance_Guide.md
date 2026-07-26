@@ -194,6 +194,9 @@ KennelOS/
     expensePanel.js            Reusable per-subject expense ledger panel (§21)
     receiptCapture.js          Shared "attach a receipt" widget for both expense
                                forms — photo/screenshot (OCR + compress) or PDF (§26.1)
+    dropboxConnectUI.js        The one Dropbox connect/disconnect control + the
+                               OAuth-completion boilerplate, mounted by every page
+                               that needs the connection (§26)
   pages/                       One .js + .html per screen (see §13 catalog)
 ```
 
@@ -673,6 +676,16 @@ doing cross-table transaction work).
 
 `BACKUP_FORMAT_VERSION` bumps only when the on-disk shape changes in a migration-requiring
 way.
+
+**The Import/Export page's "Backup & restore" card drives this on two independent axes:**
+*what* (Back up / Restore — the seg-tabs) × *where* (This device / Dropbox — chosen per
+run, §26). They compose freely because a Dropbox push **is** a backup and a Dropbox pull
+**is** a restore, running the same `exportAll()` / `restoreBackup()` as the local paths.
+The invariant to preserve: **every restore source lands in the one preview**, so nothing
+is ever written without the same dry-run table and the same Merge/Replace choice — adding
+a third source means feeding that preview, not building a parallel flow. In Lite the whole
+Dropbox axis is removed (no destination row, no connect strip), leaving the card as
+plain local backup/restore.
 
 ---
 
@@ -1735,14 +1748,24 @@ nothing syncs on its own, and the rest of the app stays fully offline-capable (�
   their own "Connect" and signs into their **own** Dropbox account, landing in their own
   private `/Apps/KennelOS/` folder. The key grants no access by itself, so there's no
   per-device paste step and nothing for the user to register.
-- `beginDropboxAuth()` redirects out; `completeDropboxAuth()` (called on load by both
-  connecting pages) finishes the `?code=` round-trip, storing a long-lived refresh token
+- `beginDropboxAuth()` redirects out; `completeDropboxAuth()` finishes the `?code=`
+  round-trip, storing a long-lived refresh token
   (`token_access_type=offline`) and minting short-lived access tokens as needed. Tokens
   live in the `dropbox` settings blob (§11); `disconnectDropbox()` forgets them. The kid's
   phone signs into the **same Dropbox account** as the owner; the app-folder scope is
   what makes that acceptable.
 - `dropboxUploadJson(path, obj)` / `dropboxDownloadJson(path)` (download returns `null`
   for a file that doesn't exist yet). One 401-retry with a forced token refresh.
+- **The connect UI is a shared component, not per-page code:**
+  `assets/dropboxConnectUI.js`'s `mountDropboxConnect(host, { onChange, onError })`
+  renders the status/Connect/Disconnect strip into whatever element a page hands it,
+  **and calls `completeDropboxAuth()` itself** before first paint — so a host page never
+  hand-rolls the round-trip. `onChange(connected)` fires whenever the state actually
+  changes, which is how a page re-renders everything gated on the connection.
+  `dropboxRequiredNotice(where)` is the matching inline notice for a gated action.
+  Because the redirect URI is derived from `location.pathname`, **every page that mounts
+  this control needs its own URL registered under the app's Redirect URIs** — that
+  registration list is the one manual step a new host page costs.
 
 ### The three files — one writer each (`data/assistantSync.js`)
 
@@ -1755,11 +1778,14 @@ one writer**, which is what makes the scheme conflict-free — preserve that inv
 | `/assistant-feed.json` | owner (`pushToDropbox`) | assistant | allow-listed dog fields + all dog-subject events |
 | `/assistant-outbox.json` | assistant ("Send my updates") | owner | events the helper logged, with their own UUIDs |
 
-- **Push** uploads backup + a freshly rebuilt feed in one act (and stamps
-  `lastBackupDate`). **Pull** fetches the backup and **merge**-restores it (same upsert
-  engine as file restore, §10) after a confirm showing export date + record count. The
-  documented discipline: don't edit the *same record* on both phones between push and
-  pull — merge is a blind per-id upsert and the pulled copy wins.
+- **Push and pull are not a separate feature — they are the Import/Export page's backup
+  and restore with Dropbox chosen as the destination** (§13's Import/Export entry). Push
+  uploads backup + a freshly rebuilt feed in one act (and stamps `lastBackupDate`); pull
+  is `fetchDropboxBackup()` feeding the page's **normal restore preview**, so a Dropbox
+  restore gets the same dry-run table and the same **Merge / Replace** choice a file
+  restore gets, through the same `restoreBackup()` engine (§10). The documented
+  discipline: don't edit the *same record* on both phones between push and pull — merge
+  is a blind per-id upsert and the pulled copy wins.
 - **Privacy is enforced at feed-build time**, same posture as `companionExport.js`:
   `ASSISTANT_DOG_FIELDS` is a positive allow-list (id, call/registered name, breed, sex,
   status, DOB/DOD, color/markings, url, is_archived — **no** microchip, registration,
