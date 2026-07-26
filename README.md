@@ -1,7 +1,7 @@
 # KennelOS — Lite / Pro / Demo editions
 
 Local-first, static, multi-page dog-breeding records app (no backend, no build
-step), split into editions. One shared core; thin editions on top.
+step), split into editions. One shared core; thin editions on top..
 
 ```
 shared/   The database, repos, vocab, shared pages (Dogs, Breeding, Sales,
