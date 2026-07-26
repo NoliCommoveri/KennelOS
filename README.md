@@ -131,9 +131,33 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     returned `variant_name` against a configurable pattern. (Windows: yearly 7d, monthly 3d — see
     `data/license.js`'s `GRACE_MS` and the plan's §Licensing.) The cached activation lives under
     its own `settings.js` key, **excluded from Reset App** (entitlement isn't program data).
+  - **Lifetime keys check in too.** A perpetual key never expires, but it is not exempt from
+    offline re-validation: 90 days of full access from the last successful `/validate`, then 30
+    days of a reconnect banner, then a wall — all reset by a single successful validate, so it
+    only ever reaches a device that has been off the internet for a season. The exemption it
+    replaces let one activated lifetime key run indefinitely on any number of machines without
+    contacting the store again. A lifetime key blocked on staleness gets a **reconnect** wall,
+    never the renewal wall (`isStaleLifetime`) — there is nothing to renew, and offering a
+    checkout there would read as being asked to pay twice.
   - **`shared/assets/licenseGate.js`** — the UI: a full-screen **activation wall** (first run,
-    enter key), a **renewal wall** (lapsed past grace: re-check / renew / use a different key),
-    and a dismissible **grace banner**. Invoked from `app.js`'s `boot()` before the app renders.
+    enter key + optionally name this device), a **renewal wall** (lapsed past grace: re-check /
+    renew / use a different key), and a dismissible **grace banner**. Invoked from `app.js`'s
+    `boot()` before the app renders.
+  - **Activation slots are releasable.** Lemon Squeezy counts *activations* against the
+    variant's activation limit — a plain counter, not device detection; nothing anywhere reads
+    the machine. `deactivate()` hands a slot back, surfaced two ways: **Import/Export → "This
+    device's license"** (`releaseThisDevice()`, the deliberate "I'm done with this device"
+    action — clears the local record **only** if the release succeeded, so a failed call never
+    costs the owner both the device and the slot), and the renewal wall's *use a different key*
+    (`resetLicense()`, best-effort, since an already-walled owner must not be trapped). Without
+    this, every cleared browser and replaced laptop consumed a slot permanently, so an owner
+    could reach "no activations left" through ordinary browser hygiene with no in-app fix.
+    Each activation is named `"<owner's label> · <8 chars of a random per-browser id>"`
+    (`kennelOS.deviceId`, excluded from Reset App) — it used to be the app's own hostname,
+    identical for every buyer, which made "which slot do I release?" unanswerable.
+    `recordFromPayload()` also lets an explicit `valid:false` downgrade an otherwise-`active`
+    key to `inactive`, so a released or de-authorized device actually walls (a more specific
+    `expired` is preserved — it earns its grace window).
   - **One flag, Pro-only** — `editionFlags.licenseGate` is true only in `pro/editionConfig.js`;
     Lite is free and Demo is a public showcase, so the gate is inert there (verified: Lite/Demo
     render with no wall). The Lemon Squeezy checkout URL lives in Pro's `licenseConfig`.

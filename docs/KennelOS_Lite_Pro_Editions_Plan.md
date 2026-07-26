@@ -193,13 +193,51 @@ like any other and the yearly grace window (below) applies before the wall.
   match. If the interval is ever missing/unknown, default to the shorter (3-day) window. When a
   subscription truly lapses past its grace window, `/validate` returns expired and Pro drops to
   the "renew to continue" wall.
-- **Lifetime → perpetual, no re-validation.** A one-time Lifetime purchase gets a key with no
-  expiry. The app detects it by variant name and treats it as always-valid while the key is
-  `active`, and — critically — **exempts it from the offline re-validation requirement** that
-  subscriptions have (there's no subscription to lapse, so forcing a lifetime buyer back online
-  would just lock an off-grid owner out of a "furever yours" purchase). A refunded/disabled
-  lifetime key still walls on the next successful online `/validate`; the offline gap between
-  refund and reconnect is an accepted edge per the honest caveat.
+- **Lifetime → perpetual, but it checks in (revised).** A one-time Lifetime purchase gets a key
+  with no expiry. The app detects it by variant name and treats it as always-valid while the key
+  is `active` — no expiry, no billing cycle, nothing to renew.
+  It is **no longer exempt from offline re-validation**, which is a deliberate reversal of the
+  original decision here. That exemption meant a lifetime key, once activated, could run forever
+  on any number of machines without ever contacting the store again: nothing to lapse and nothing
+  to re-check made a refund or a shared key undetectable after activation, which left the most
+  expensive key in the catalogue with the weakest control.
+  The replacement is a check-in measured in **months rather than the days a subscription gets**,
+  because the goal is only to guarantee the app eventually hears "this key is still good", not to
+  police a cycle: **90 days** of full access from the last successful `/validate`, then **30 days**
+  of a reconnect banner with the app fully usable, then the wall. One successful validate resets
+  the clock completely, and a connected owner re-validates on every launch, so this only ever
+  reaches a device that has been off the internet for a season.
+  The cost is real and accepted: a genuinely permanently-offline lifetime owner is eventually
+  blocked, where before they were not. It is bounded to "connect once every four months", nothing
+  is deleted, and the records stay exportable — judged a fairer trade than an uncontrollable key.
+  **Copy that promises otherwise is part of this decision** — `site/faq.html` and `site/pro.html`
+  both used to say lifetime keys "never re-check", and were corrected with it.
+  A refunded/disabled lifetime key still walls on the next successful online `/validate`; the
+  offline gap between refund and reconnect is now bounded by the check-in window rather than
+  unbounded.
+  **The two walls are not interchangeable.** A lifetime key blocked on staleness is told to
+  *reconnect*, never to renew — there is nothing to buy, and a checkout link there would read as
+  being asked to pay twice. `licenseGate.js` branches on it (`isStaleLifetime`).
+- **Activations are a counter, and slots come back.** Lemon Squeezy tracks *activations*
+  ("instances") against a per-variant **activation limit**. This is not device detection — the
+  store knows nothing about the machine and neither does the app; it is simply "this key has
+  been activated N times". One activation per browser profile is a convention on our side: we
+  activate once, cache the returned `instance_id`, and `/validate` against it thereafter.
+  Because it is a counter, it needs a decrement, and the app provides one:
+  - **Import/Export → "This device's license"** is the deliberate release — it frees the slot
+    and only then forgets the local record, so a failed call never costs the owner both this
+    device's access *and* the slot.
+  - **The renewal wall's "use a different key"** releases best-effort and clears regardless: an
+    owner already stuck behind a wall must never be trapped there by a network failure.
+
+  Each activation is named `"<owner's label> · <8 chars of a random per-browser id>"`, the label
+  taken from an optional field on the activation wall. That name is the only handle an owner has
+  on a slot, so it has to be human-readable and unique.
+
+  **Set the activation limit with the multi-device promise in mind** — the FAQ tells breeders
+  they can use a phone and a computer — so a limit of 1 would contradict shipped copy. This is
+  the one lever that actually resists casual key-sharing between breeders; it does nothing
+  against a technical bypass, per the honest caveat below.
 - **Renewal** is automatic on Lemon Squeezy's side for both subscription intervals; the key's status flips and
   the next `/validate` sees it. A buyer can switch monthly↔yearly through Lemon Squeezy's
   customer portal — same key, the interval (and thus the grace window) updates on the next
