@@ -139,8 +139,13 @@ KennelOS/
     seedImport.js              Optional breed+test vocabulary seed
     kennelSetup.js             First-run "your kennel/owner" wizard logic (a mandatory gate)
     kennelScope.js             Active-kennel scope: which own kennel the app is
-                               narrowed to, the inScope() read predicate, and the
+                               narrowed to, the inScope()/dogInScope()/subjectInScope()
+                               read predicates bound to it, and the
                                resolveKennelIdForWrite() stamp every scoped create uses
+    scopePredicates.js         The PURE, db-free half of that scope — the record-shape
+                               rules, taking the active id as an argument so they are
+                               unit-testable in Node (tests/scopePredicates.test.js).
+                               kennelScope.js re-exports them bound; pages import those
     wizardState.js             Guided-tour status/index state machine (§11)
     wizardSteps.js             Full (Pro/Demo) guided-tour step catalog — data only (§11)
     editionTour.js             Per-edition tour package (seed + steps) injection point;
@@ -206,6 +211,17 @@ belongs to, and `Dog.kennel_id` is required for dogs the user owns. It is stampe
 create by inheriting from the record's parent, never derived at read time. Full rules
 in `docs/KennelOS_Multi_Kennel_Scope_Spec.md`; the scope itself is resolved through
 `data/kennelScope.js` and is Pro-only (`editionFlags.multiKennel`).
+
+On the READ side every list, hub, and report filters by that stamp. What is
+deliberately **not** filtered is as load-bearing as what is, and each exception
+carries a comment at its call site: **pedigree/lineage** (`assets/pedigree.js`,
+`pages/pedigree.js`, `dogRepo`'s ancestor/offspring walks — ancestry crosses kennels
+by definition), **detail pages reached by id** (a direct link must always resolve;
+an out-of-scope record renders in full above a "belongs to <kennel>" banner),
+**external/leased dogs** (scope-transparent: their `kennel_id` names somebody
+*else's* kennel), and the **contact pool** (program-wide; `Contact.kennel_id` is an
+affiliation, not a scope). `Event` and `Expense` carry no `kennel_id` at all — being
+polymorphic, their scope is their subject's, resolved by `subjectInScope`.
 
 ### 4.2 Relationship direction — the sixth design principle
 
@@ -818,6 +834,13 @@ This distinction is the single easiest thing to get wrong. Learn it:
   to enable click-to-sort headers. Supports filters, "show archived", collapsible columns,
   grouping, optional CSV export.
 
+Both also take an optional **`scope: (record) => bool`** — the active-kennel predicate
+(Multi-Kennel Scope Spec §7). It is applied before search/filters (so a CSV export
+exports the scoped set), and its presence is what makes the toolbar render the
+"🏠 <kennel> only" chip. Each caller passes the right flavor — `inScope` for a record
+with its own `kennel_id`, `dogInScope` for dogs, `subjectInScope` for a polymorphic
+event — or omits it **with a comment saying why** (Contacts is the standing example).
+
 When in doubt: `value` = text (auto-escaped), `cell` = HTML (you escape).
 
 ### Shared helpers (`assets/ui.js`)
@@ -857,6 +880,16 @@ implementation lives in `data/dateUtils.js`.
   Wired into sale (buyer), stud-service (partner), and `eventForm.js` (boarding/placement
   related contact).
 - **expensePanel.js** — the reusable per-subject expense ledger panel (§21).
+- **kennelScopeUI.js** — all three pieces of active-kennel UI, reading only
+  `data/kennelScope.js`: `renderKennelSwitcher(host)` (the nav's indicator + switcher),
+  `mountScopeChip(el)` (the toolbar chip a scoped list/report shows, with its "Show
+  all" escape), and `renderScopeNotice(host, record, {kind})` /
+  `renderDogScopeNotice(host, dog)` (the out-of-scope banner on a detail page). All
+  three are inert unless `editionFlags.multiKennel`, and switching scope always
+  **reloads** — pages compute their view models once at load, so one repaint of the
+  truth beats a partial re-render. Wired into `nav.js`, both list frameworks, and the
+  six record detail pages (dog/litter/pairing/sale/contract/stud-service, each with a
+  `<div id="scope-notice">` under `#page-error`).
 
 ### Navigation (`nav.js`)
 
@@ -868,6 +901,12 @@ are not nav entries; `HUB_CHILDREN` maps them to the hub tab that should light u
 stored app-root-relative and prefixed at render time so they resolve from `index.html` or
 `/pages/` and any GitHub Pages sub-path.
 
+The bar also carries the **active-kennel switcher** in a `#nav-kennel-scope` slot before
+the "More" menu (Multi-Kennel Scope Spec §8). `nav.js` stays edition-agnostic: it renders
+the empty slot and hands it to `renderKennelSwitcher`, which returns without touching it in
+Lite and before the first own kennel exists — the CSS layout rules are keyed on
+`.nav-scope:not(:empty)` so an edition without a scope lays out exactly as before.
+
 ### Page catalog (`pages/`, one `.js` + `.html` each)
 
 Hubs & landing: `today`, `dogs`, `breeding`, `contacts`, `sales`, `financials` (the
@@ -876,11 +915,17 @@ Companion Messaging console, §20), `furever` (the Furever seed-link console, §
 `import-export`, plus root `index.html`.
 Dogs: `dog` (detail), `roster`, `pedigree`.
 Breeding: `pairings`/`pairing`, `litters`/`litter`, `active-breeding`, `live-births`.
-People: `contact`, `kennels` (list — identity CRUD only: name/prefix/location/own + archive/
-delete; the add form stays collapsed behind a **+ Add New Kennel** button, and rows sort own
-kennels first then everyone else's alphabetically by name) / `kennel` (detail — hosts that kennel's Expenses ledger plus, for own kennels, its
-program configuration: the preferred-tests panel, the lifecycle-nudge thresholds, and a
-doorway card into Feeding Schedules, §27.2). Both map to the People hub in `HUB_CHILDREN`.
+People: `contact`, `kennels` (two screens in one page: on top the **portfolio** — one card
+per own kennel with live counts (roster / active litters / placements this year) and the
+button that switches the active scope, rendered only once a *second* own kennel exists;
+below it the original identity CRUD list over every kennel including outside ones —
+name/prefix/location/own + archive/delete, add form collapsed behind **+ Add New Kennel**,
+own kennels sorted first) / `kennel` (detail — a per-kennel **hub**: roster counts by status,
+active litters, recent placements, and that kennel's P&L, all filtered on THIS kennel's id
+rather than the active scope, plus a "scope the app to this kennel" action; below the hub,
+that kennel's Expenses ledger and, for own kennels, its program configuration: the
+preferred-tests panel, the lifecycle-nudge thresholds, and a doorway card into Feeding
+Schedules, §27.2). Both map to the People hub in `HUB_CHILDREN`.
 Placements/contracts: `sale`/`sales`, `stud-service`/`stud-services`, `contract`/`contracts`,
 `puppy-record` (print-only puppy record, §23 — not a nav entry, reached from `sale`/`sales`).
 Financials print docs: `invoice` (print-only invoice/receipt generator, §24 — not a nav
@@ -1014,6 +1059,13 @@ awareness) and returns zero or more:
 ```
 { key, title, detail, subjectHref, actions: [{ label, run: async () => {} }] }
 ```
+Every rule iterates the **active-kennel-scoped** set of whatever it nudges about (spec
+§7) — you should not be prompted about the kennel you are not looking at. The unscoped
+originals stay in play for every lookup and every "already handled?" dedup check
+(`pairingExistsForDam`, `pairingIdsWithLitter`, the pups/sales indexes). That asymmetry
+is deliberate: scoping a dedup check would resurrect a nudge whose answer already sits
+one kennel over.
+
 Eight rules, each producing its own stable `key` so a dismissal survives re-computation:
 - **Stud-service status** — `sent_date` passed + `status='arranged'` → suggest
   `in_progress`; `returned_date` passed + `status ∈ {arranged, in_progress}` → suggest
@@ -1071,6 +1123,12 @@ pickupTime, sourceType, sourceId, href }`): `eventRepo.getBoardRows()` (boarding
 tile). Boarding events still cover non-stud reasons (grow-out, foster, owner travel); a
 stud-reason stay is authored on the StudService record itself, not duplicated as a boarding
 event.
+
+Active-kennel scope is applied **inside** `getAwayBoardRows()`, not in the three renderers,
+so board/today/dashboard cannot disagree about who is away. Both row kinds normalize to a
+`dogId` and the dog is what is physically away, so both scope through that dog (transparent
+flavor — an outside stud boarding with you belongs to no kennel of yours and must not
+vanish). It costs one extra `dogRepo` read, and only when there IS a scope.
 
 `StudService.type` and the three `Kennel` nudge fields are plain unindexed fields (§5); the
 stud→pairing nudge action reuses the existing `StudService.pairing_id` link. No schema, index,
@@ -1363,6 +1421,15 @@ aggregator: it reads the Sale table and the **outgoing** StudService table — t
 money-in is recorded — and normalizes each into one view-model row per record, classifying every
 money component as **earned** or **anticipated** on each load. Storing this (or a mirror flag)
 would be a forbidden stored back-pointer (§7); it is always recomputed.
+
+Active-kennel scope is applied here at the **source records**, so the Financials Overview
+tiles, the Income view, the per-litter P&L, and the invoice/receipt generator's record
+picker can never disagree about which money is yours right now. `getIncomeRows()` also
+takes an optional `kennelId`, which overrides the active scope with one named kennel — the
+per-kennel hub (`kennel.html`) needs it, because it reports on the kennel you opened rather
+than the kennel you are scoped to. The Expense side is scoped separately in
+`pages/financials.js` (`expenseInScope`): an Expense is polymorphic and carries no
+`kennel_id`, so its scope is resolved through its subject.
 
 Classification (owner decisions):
 
