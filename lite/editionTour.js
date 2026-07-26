@@ -485,7 +485,7 @@ export const WIZARD_STEPS = [
   {
     id: 'promo-sales', kind: 'pro-promo', button: 'Keep exploring →',
     title: 'Placements & Contracts in Pro',
-    body: 'In Lite this hub is just Sales. Pro turns it into a full Placements & Contracts hub: income from studding your dogs out (stud services), standalone lease and co-ownership contracts, and Companion share-outs that send each buyer a clean, private page of their puppy’s details.'
+    body: 'In Lite this hub is just Sales. Pro turns it into a full Placements & Contracts hub: income from studding your dogs out (stud services) and standalone lease and co-ownership contracts.'
   },
 
   // --- Financials --------------------------------------------------------
