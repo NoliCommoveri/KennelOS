@@ -1,7 +1,9 @@
 # KennelOS — Multi-Kennel Scope Spec
 
-> **Status: Phases 1 and 2 built (§15); Phase 3 is still design.** This is the
-> authoritative target for making
+> **Status: Phases 1, 2, and 3 built (§15).** §10 (identity fallback + the
+> decision to keep Companion/Furever settings global), §11 (CSV kennel
+> column), §12 (edition flag — needed no new work), and §13 (sample seed's
+> second own kennel) are all done. This is the authoritative target for making
 > Kennel a true top-level view — a scope every list, hub, and report is segmented
 > by — rather than the reference lookup it is today. Read alongside
 > `docs/End_State_Design_and_Maintenance_Guide.md` (the map of the `shared/` code
@@ -361,13 +363,18 @@ happens to sort first.
 the nav banner and first-run) and is no longer treated as "the" kennel anywhere
 else.
 
-**The awkward one:** Companion messaging settings (`KEYS.companion`) and the
-Furever kennel-identity block (`KEYS.furever`) are **global localStorage blobs**
-holding per-kennel identity — kennel name, tagline, logo, breeder contact. With
-two kennels these are wrong. They need per-kennel keying, which is its own small
-(settings-only, no IndexedDB) migration. `getFureverSettings().breederKey` is
-deliberately independent of `myKennelId` and must stay stable per kennel, or
-already-sent Furever packets stop deduping into their breeder row.
+**The awkward one — decided, staying as-is:** Companion messaging settings
+(`KEYS.companion`) and the Furever kennel-identity block (`KEYS.furever`) are
+**global localStorage blobs** holding per-kennel identity — kennel name,
+tagline, logo, breeder contact. With two own kennels this is technically wrong
+(both share one identity/template set), but per-kennel keying was weighed
+against staying global (owner decision, Phase 3) and **staying global won** —
+it's the simpler shape, and a multi-kennel breeder can swap the kennel
+name/tagline by hand before sending if they want per-send branding. Revisit only
+if this becomes a real pain point in practice; don't build per-kennel keying
+speculatively. `getFureverSettings().breederKey` stays independent of
+`myKennelId` regardless (unrelated to this decision — it's what keeps
+already-sent Furever packets deduping into their breeder row).
 
 ## 11. Import / export & CSV
 
@@ -476,19 +483,35 @@ The build also picked up §8's kennel hub in full: `kennel.html` reports on the 
 *opened* (never the active scope — hence `getIncomeRows({ kennelId })`), and `kennels.html`
 gained the portfolio above its existing identity list.
 
-**Phase 3 — the trailing assumptions (not started, except §12's flag).** §10, §11, §12, §13. Identity, import,
+**Phase 3 — the trailing assumptions. ✅ BUILT.** §10, §11, §12, §13. Identity, import,
 editions, seed.
 
-What is left in Phase 3, restated now that Phase 2 is in: the four
-`find(k => k.is_own_kennel)` identity sites (§10) still take whichever own kennel sorts
-first, so an invoice for a kennel-B sale can still carry kennel A's name and logo; the
-Companion and Furever settings blobs are still global; CSV import has no kennel column
-(§11); and the sample seed still has only ONE own kennel (§13), so Demo shows a switcher
-with a single entry.
+`invoice.js`/`puppy-record.js` (§10) now resolve the record's/dog's own `kennel_id`, falling
+back to the active kennel scope and then the sole own kennel — never "whichever own kennel
+sorts first" — so an invoice/Puppy Record for a kennel-B sale carries kennel B's name and
+logo regardless of scope. CSV import (§11) resolves an optional `kennel_name` column on
+Dog/Pairing/Litter/Sale/StudService against existing kennels (own-kennel-only for the four
+scoped tables; Dog only when owned/co-owned), routing an unresolved name to review rather
+than falling through to the active/sole default. §12 needed no new work (the flag already
+existed everywhere Phase 1 put it). The sample seed (§13) gained a second own kennel, Briar
+Hollow Kennels, with its own sire/dam/litter/pup/sale — Demo's switcher now shows two real
+entries instead of one.
 
-Rough sizing: Phase 1 was small and mechanical. Phase 2 was the bulk. §10 and the
-§7 "NOT scoped" list carry the real correctness risk — a truncated pedigree or a
-silently hidden record is far worse than a missing filter.
+One decision taken during the build that this spec's §10 did not pin down, recorded here so
+it isn't re-litigated: the Companion and Furever settings blobs — the genuinely
+under-specified part of §10 (it doesn't say how to resolve which kennel a given Companion
+recipient or Furever seed packet belongs to, and a prospective/waitlist Contact has no
+own-kennel link at all today) — were weighed against per-kennel keying **and left global,
+by owner decision**. Per-kennel keying would also have touched the Furever identity block's
+entanglement with the Drive content-pack pointers and the `breederKey` dedup, where a wrong
+call risks breaking already-sent packets — one more reason staying global was the safer
+call. A multi-kennel breeder who wants per-kennel Companion/Furever branding swaps the
+kennel name/tagline by hand before sending; revisit only if that becomes a real pain point.
+
+Rough sizing: Phase 1 was small and mechanical. Phase 2 was the bulk. Phase 3 was mostly
+mechanical too, once the Companion/Furever question was resolved as "leave it." The §7 "NOT
+scoped" list remains the standing correctness risk — a truncated pedigree or a silently
+hidden record is far worse than a missing filter.
 
 ## 16. Verification
 
