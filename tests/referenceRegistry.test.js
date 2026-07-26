@@ -6,6 +6,7 @@
 // registry itself.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import * as registry from '../shared/data/referenceRegistry.js';
 
 // Mirror of the tables declared in db.version(1).stores (data/db.js). Kept here on
@@ -24,6 +25,7 @@ const registries = Object.entries(registry).filter(([name]) => name.endsWith('_R
 test('the module exports the expected registry arrays', () => {
   const names = registries.map(([n]) => n).sort();
   assert.deepEqual(names, [
+    'BREED_FEEDING_SCHEDULE_REFERENCES',
     'CONTACT_REFERENCES', 'CONTRACT_REFERENCES', 'DOCUMENT_REFERENCES',
     'DOG_REFERENCES', 'EVENT_REFERENCES', 'EXPENSE_REFERENCES',
     'KENNEL_REFERENCES', 'LITTER_REFERENCES', 'PAIRING_REFERENCES',
@@ -71,4 +73,36 @@ test('the documents FK is guarded on Dog (regression: a filed doc blocks dog del
     registry.DOG_REFERENCES.some((e) => e.table === 'documents' && e.field === 'dog_id'),
     'DOG_REFERENCES must include documents.dog_id'
   );
+});
+
+// --- Schema <-> registry consistency for kennel FKs -------------------------
+// CLAUDE.md calls out the registry line as the step that gets forgotten when a
+// new FK lands, and the kennel scope (Multi-Kennel Scope Spec §4) added six of
+// them at once. This reads the real schema in data/db.js and asserts that every
+// declared *kennel_id index has a matching KENNEL_REFERENCES entry — so adding a
+// seventh scoped table without registering it fails here rather than silently
+// letting a kennel be hard-deleted out from under its own records.
+test('every kennel_id index in the schema is registered in KENNEL_REFERENCES', () => {
+  const source = readFileSync(new URL('../shared/data/db.js', import.meta.url), 'utf8');
+  const stores = source.slice(source.indexOf('db.version(1).stores({'), source.indexOf('});', source.indexOf('db.version(1).stores({')));
+
+  const declared = [];
+  for (const line of stores.split('\n')) {
+    const m = line.match(/^\s*([a-z_]+):\s*'([^']*)'/);
+    if (!m) continue;
+    const [, table, indexes] = m;
+    for (const field of indexes.split(',').map((f) => f.trim().replace(/^[*&]/, ''))) {
+      if (field.endsWith('kennel_id')) declared.push(`${table}.${field}`);
+    }
+  }
+
+  const registered = new Set(registry.KENNEL_REFERENCES.map((r) => `${r.table}.${r.field}`));
+  const unregistered = declared.filter((d) => !registered.has(d));
+  assert.deepEqual(unregistered, [], `kennel FKs missing from KENNEL_REFERENCES: ${unregistered.join(', ')}`);
+
+  // And the six scoped tables specifically, so removing one is also caught.
+  for (const table of ['pairings', 'litters', 'sales', 'stud_services', 'contracts', 'documents']) {
+    assert.ok(declared.includes(`${table}.kennel_id`), `${table} should carry a kennel_id index`);
+    assert.ok(registered.has(`${table}.kennel_id`), `${table}.kennel_id should be in KENNEL_REFERENCES`);
+  }
 });

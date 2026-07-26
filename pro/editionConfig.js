@@ -8,6 +8,9 @@
 
 export const edition = 'pro';
 
+// Suffix shown after "KennelOS" in the nav brand (nav.js). Null renders nothing.
+export const editionLabel = 'Pro';
+
 // No in-app upgrade CTA in this edition (Pro is already the full app; Demo is a
 // read-only showcase). Exported so shared code that reads it always resolves.
 export const upgradeUrl = null;
@@ -48,6 +51,13 @@ export async function enforceLitterCap(/* { candidate } */) {
   // no-op: Pro is unlimited.
 }
 
+// Bulk-import cap hook (cap spec §9). The shared restore path (importExport.js)
+// awaits this before writing a JSON backup, passing the backup's dog rows and the
+// restore mode. No-op here, so Pro restores any backup unchanged.
+export async function enforceImportDogCap(/* { incomingDogs, mode } */) {
+  // no-op: Pro is unlimited.
+}
+
 // Read by dog.js's "New Dog" page for its cap-status banner. Null means
 // uncapped, so Pro shows nothing.
 export async function dogCapStatus() {
@@ -80,6 +90,9 @@ export const editionFlags = {
   externalOwnership: true,
   assistant: true,
   feedingSchedule: true,
+  // Multi-kennel scope (Multi-Kennel Scope Spec §12) — Pro is the edition that
+  // gets more than one own kennel and the active-kennel switcher.
+  multiKennel: true,
 };
 
 // Full nav bar (Pro has every hub).

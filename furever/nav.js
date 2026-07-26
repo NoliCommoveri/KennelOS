@@ -2,7 +2,7 @@
 //
 //   0. The CONSTANT BANNER (into <header id="app-banner">) — always on top, above
 //      the interior navs. Left: the app title, "Furever" large with "by KennelOS"
-//      small on two lines beside it. Right: the family's name ("Carson Family
+//      small underneath it. Right: the family's name ("Carson Family
 //      Pets") once set, which links to the Family page (also the entry point to
 //      set it up). On mobile the banner hosts the ☰ drawer toggle.
 //
@@ -100,8 +100,10 @@ function renderBanner(prefix, familyName) {
       <button type="button" class="nav-toggle" aria-label="Menu">☰</button>
       <a class="brand" href="${prefix}index.html">
         <span class="brand-paw" aria-hidden="true">🐾</span>
-        <span class="brand-name">Furever</span>
-        <span class="brand-by"><span>by</span><span>KennelOS</span></span>
+        <span class="brand-text">
+          <span class="brand-name">Furever</span>
+          <span class="brand-by">by KennelOS</span>
+        </span>
       </a>
       ${family}
     </div>`;

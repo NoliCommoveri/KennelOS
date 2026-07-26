@@ -9,12 +9,17 @@
 // The lists themselves are EDITION-SPECIFIC (Lite omits the Pro-only hubs —
 // People, Reports, Documents, Companion), so they come from editionConfig and
 // this renderer stays edition-agnostic. Aliased to the original names to keep
-// the rest of this file unchanged.
-import { navItems as NAV_ITEMS, moreItems as MORE_ITEMS } from './data/editionConfig.js';
+// the rest of this file unchanged. The "KennelOS" wordmark itself gets an
+// edition suffix ("Pro"/"Lite") the same way — editionLabel, null in Demo.
+import { navItems as NAV_ITEMS, moreItems as MORE_ITEMS, editionLabel as EDITION_LABEL } from './data/editionConfig.js';
 // Lite's outbound "See the full app ↗" / "Upgrade to Pro →" links live at the
 // foot of the More menu (and on Today). Edition-agnostic: no-ops in Pro/Demo,
 // where hasEditionLinks() is false (editions plan §"In-Lite links to Demo/Pro").
 import { hasEditionLinks, editionLinksHtml, wireEditionLinks } from './assets/editionLinks.js';
+// The active-kennel indicator + switcher (Multi-Kennel Scope Spec §8). Also
+// edition-agnostic here: it renders itself only when editionFlags.multiKennel is
+// on AND an own kennel exists, so Lite and a pre-setup first run get nothing.
+import { renderKennelSwitcher } from './assets/kennelScopeUI.js';
 
 // Pages live one directory deep (/pages/*.html); index.html sits at the app root.
 // Links are stored app-root-relative and prefixed at render time so they resolve
@@ -63,13 +68,15 @@ export function renderNav(targetId = 'app-nav') {
   // Lite appends its outbound edition links to the bottom of the menu; Pro/Demo
   // add nothing (hasEditionLinks() false).
   const editionExtra = hasEditionLinks() ? editionLinksHtml({ variant: 'nav' }) : '';
+  const editionTag = EDITION_LABEL ? `<span class="nav-edition">${EDITION_LABEL}</span>` : '';
 
   host.innerHTML = `
     <nav class="nav-inner">
-      <a class="nav-brand" href="${prefix}index.html"><span class="paw">🐾</span> KennelOS</a>
+      <a class="nav-brand" href="${prefix}index.html"><span class="paw">🐾</span> KennelOS${editionTag}</a>
       <button type="button" class="nav-toggle" aria-label="Menu" aria-expanded="false">☰</button>
       <div class="nav-links">
         ${links}
+        <div class="nav-scope" id="nav-kennel-scope"></div>
         <div class="nav-more">
           <button type="button" class="nav-link nav-more-btn${moreActive}" aria-haspopup="true" aria-expanded="false">More ▾</button>
           <div class="nav-more-menu">${moreLinks}${editionExtra}</div>
@@ -80,6 +87,9 @@ export function renderNav(targetId = 'app-nav') {
   wireToggle(host);
   wireMoreMenu(host);
   wireEditionLinks(host);
+  // Async (it reads the kennels table); fire-and-forget so nav never blocks the
+  // page. A no-op in Lite and before the first own kennel exists.
+  renderKennelSwitcher(host.querySelector('#nav-kennel-scope'));
 }
 
 // Hamburger toggle for narrow (phone) widths: reveals the stacked links. On wide

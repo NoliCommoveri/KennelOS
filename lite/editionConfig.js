@@ -20,6 +20,9 @@ const CAP_LITTERS = 2; // litters
 
 export const edition = 'lite';
 
+// Suffix shown after "KennelOS" in the nav brand (nav.js). Null renders nothing.
+export const editionLabel = 'Lite';
+
 // Where the "Upgrade to Pro →" CTA sends the owner AFTER their backup export
 // runs (upgrade bridge — editions plan §"Converting Lite → Pro"). The bridge is
 // export-in-Lite → checkout → import-in-Pro; this is the checkout step's URL.
@@ -130,6 +133,12 @@ export const editionFlags = {
   externalOwnership: false,
   assistant: false,
   feedingSchedule: false,
+  // Single-kennel (Multi-Kennel Scope Spec §12). Lite has exactly one own kennel:
+  // no switcher, no kennel picker on the dog form, no scope UI anywhere. Writes
+  // auto-stamp that one kennel via kennelScope.resolveKennelIdForWrite (which
+  // falls through to "the sole own kennel"), and isScoped() stays false so every
+  // read path behaves exactly as it did before scope existed.
+  multiKennel: false,
 };
 
 // --- Navigation (Lite — reduced) -------------------------------------------

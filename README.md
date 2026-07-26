@@ -147,6 +147,89 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   deploy workflow publishes it to `NoliCommoveri/kennelos-site` at `kennelos.app`.
   Content placeholders still to fill (checkout URLs, support email, the "who we are"
   story) are listed in `site/README.md`.
+- **Multi-kennel scope, Phase 1 — done & browser-verified (headless Chromium, all three
+  editions, no console errors).** Kennel becomes a real scope rather than a lookup. Design +
+  the remaining phases: `docs/KennelOS_Multi_Kennel_Scope_Spec.md`.
+  - **Schema (pre-launch, deliberately now)** — `kennel_id` added to `pairings`/`litters`/
+    `sales`/`stud_services`/`contracts`/`documents` in the still-editable `version(1)` block,
+    with the six matching `KENNEL_REFERENCES` entries. Doing this after the first release would
+    mean a versioned migration plus a backfill over live data. A new test parses `db.js` and
+    fails if a declared `*kennel_id` index has no registry entry.
+  - **Every scoped create is stamped** by inheriting from its parent — a sale from its dog, a
+    contract from its sale, a puppy from its litter, a litter/pairing from its dam then sire —
+    falling back to the active/sole kennel (`data/kennelScope.js`). `kennel_id` is **required**
+    on `owned`/`co_owned` dogs and must be an own kennel; `external`/`leased_in` dogs keep an
+    optional, outside-pointing kennel and are scope-transparent.
+  - **First-run kennel setup is now a MANDATORY gate** — no "Skip for now" (the skip flag is
+    gone entirely), no Cancel, no Escape, no backdrop close, and it re-fires on every load until
+    an own kennel exists, so reloading can't escape it. Import/Export's deliberate reopen keeps a
+    Cancel. Demo stays exempt. **Skipping the tour** now ends it the same way finishing does:
+    the seed is cleared immediately and setup follows.
+  - **Pro-only** (`editionFlags.multiKennel`): Lite is single-kennel, renders no kennel picker,
+    and auto-stamps its one kennel. A new test asserts every edition config declares every shared
+    flag — the gap that first shipped `multiKennel` missing from `pro/` and `demo/`.
+- **Multi-kennel scope, Phase 2 — done & browser-verified (headless Chromium, all three
+  editions, no console errors).** The scope goes live: one switcher, and every list, hub, and
+  report segmented by it.
+  - **The switcher** — `shared/assets/kennelScopeUI.js` holds all three pieces of scope UI:
+    the nav's active-kennel `<select>` (an empty `#nav-kennel-scope` slot `nav.js` renders
+    edition-agnostically), the **"kennel only" chip** a scoped list/report carries in its
+    toolbar with a one-click "Show all", and the **out-of-scope banner** on a detail page.
+    Switching reloads — pages build their view models once at load, so one repaint of the
+    truth beats a partial re-render.
+  - **One lever for every list screen** — `listView.js` and `reportView.js` both take a
+    `scope` predicate, applied before search/filters (so CSV exports the scoped set). Callers
+    pass `inScope` (stamped record), `dogInScope` (dogs — external/leased stay transparent),
+    or `subjectInScope` (a polymorphic Event, scoped through its subject). Everything off
+    those frameworks — Today, dashboard, breeding, sales, financials (income AND the
+    polymorphic expense ledger), nudges, the away board, and all ten reports — is hand-scoped.
+  - **What is deliberately NOT scoped is the load-bearing half**, each with a comment at its
+    call site: **pedigree/lineage** (a truncated pedigree is the worst regression available
+    here), **detail pages reached by id** (a direct link must always resolve — the record
+    renders in full above a "belongs to <kennel>" banner with a one-click switch, never a
+    404), **external/leased dogs**, and the **contact pool** (a buyer who bought from two of
+    your kennels is one person).
+  - **Pickers are scoped by default with an escape** (spec §9) — sire/dam, the linked-pairing
+    picker, the sold dog, our stud, and the expense subject each gain a "show all my kennels"
+    checkbox beside the existing "include archived" one, because co-breeding across your own
+    kennels and stud services are intentionally cross-kennel.
+  - **Kennel is a hub now** — `kennel.html` gained roster counts, active litters, recent
+    placements, and that kennel's P&L, all reporting on the kennel you *opened* rather than
+    the active scope; `kennels.html` gained a portfolio of your own kennels with live counts
+    and the switch into each (silent until a second own kennel exists).
+  - **Tested** — the pure predicates moved into a db-free `shared/data/scopePredicates.js`
+    (the split spec §16 held in reserve) with 12 unit tests pinning the two directions that
+    matter: nothing hidden when unscoped, nothing scope-transparent ever hidden.
+- **Multi-kennel scope, Phase 3 — done & browser-verified (headless Chromium, no console
+  errors).** The trailing identity/import/seed assumptions from Phases 1-2. Design +
+  full status: `docs/KennelOS_Multi_Kennel_Scope_Spec.md` §15.
+  - **Own-kennel identity** — `invoice.js`/`puppy-record.js` no longer resolve "which own
+    kennel" as `kennels.find(k => k.is_own_kennel)` (first match, wrong the moment a second
+    own kennel exists). Both now try the record's own `kennel_id` (a Sale/StudService always
+    carries one), then the dog's, then the **active kennel scope**
+    (`kennelScope.getActiveKennel()`), then the sole own kennel — so a document for a
+    kennel-B sale carries kennel B's name/logo regardless of which kennel the app happens to
+    be scoped to.
+  - **CSV kennel column** — Dog, Pairing, Litter, Sale, and StudService all take an
+    optional `kennel_name` column, resolved the same way as every other relationship column:
+    case-insensitive/trimmed against existing kennels, own-kennel-only for the four scoped
+    tables (Dog only when `owned`/`co_owned`), and **flagged to review** — never silently
+    invented, never silently defaulted — when a named kennel doesn't resolve. A blank column
+    still falls back to the active/sole kennel at commit, same as before this column existed.
+  - **Sample seed's second own kennel** — Briar Hollow Kennels (Cassius × Opal, Golden
+    Retrievers — a third breed line makes it visually distinct from Thornfield's Bostons/
+    Boxers) with its own litter, placed pup, and delivered sale. Meadow Ridge stays Dana's
+    *outside* kennel (the external-ownership demo) and was never a scope; this is the first
+    seed record the switcher actually segments. Verified in a headless-Chromium seed run: 3
+    kennels (2 own), the nav switcher lists both, no console errors.
+  - **Companion/Furever settings stay global — owner decision.** Weighed per-kennel keying
+    against staying one shared identity/template set across all your own kennels, and staying
+    global won: it's simpler, and per-kennel keying would also have touched the Furever
+    identity block's entanglement with the Drive content-pack pointers and the `breederKey`
+    dedup, where a wrong call risked breaking already-sent packets. A multi-kennel breeder
+    swaps the kennel name/tagline by hand before sending if they want per-send branding.
+  - `editionFlags.multiKennel` needed no new work — it already existed everywhere Phase 1
+    put it.
 - **Next:** the editions build is now feature-complete (Lite cap, Pro + license gate, Demo,
   front doors, tour). Remaining before launch is deploy-time config, not code: buy the domain,
   wire the three publish repos + `EDITIONS_DEPLOY_PAT` (see `build/README.md`), swap the Lemon

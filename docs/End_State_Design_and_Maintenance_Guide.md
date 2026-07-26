@@ -137,7 +137,15 @@ KennelOS/
     appReset.js                Full "reset to first run" teardown
     sampleData.js              "Thornfield Kennels" demo seed + generic clear (§11)
     seedImport.js              Optional breed+test vocabulary seed
-    kennelSetup.js             First-run "your kennel/owner" wizard logic
+    kennelSetup.js             First-run "your kennel/owner" wizard logic (a mandatory gate)
+    kennelScope.js             Active-kennel scope: which own kennel the app is
+                               narrowed to, the inScope()/dogInScope()/subjectInScope()
+                               read predicates bound to it, and the
+                               resolveKennelIdForWrite() stamp every scoped create uses
+    scopePredicates.js         The PURE, db-free half of that scope — the record-shape
+                               rules, taking the active id as an argument so they are
+                               unit-testable in Node (tests/scopePredicates.test.js).
+                               kennelScope.js re-exports them bound; pages import those
     wizardState.js             Guided-tour status/index state machine (§11)
     wizardSteps.js             Full (Pro/Demo) guided-tour step catalog — data only (§11)
     editionTour.js             Per-edition tour package (seed + steps) injection point;
@@ -184,18 +192,36 @@ commonly blank at entry time.
 
 | Entity | Required | Notable other fields |
 |---|---|---|
-| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status` | `registered_name`, `date_of_birth`, `date_of_death`, `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (the kennel that *produced* this dog — own or an outside contact's; distinct from `kennel_id`, the kennel it belongs to *now* — the user's own for a dog they own, or an outside kennel for an external/leased dog (the form's Kennel picker offers every kennel, not just own ones); auto-prefilled from the litter's dam's own `kennel_id` when that dam is owned/co-owned), `owner_contact_id`, `co_owner_contact_ids[]`, `kennel_id`, `color_markings`, `registry`, `registration_number`, `microchip_id`, `url` (plain, unindexed — a link for this dog, e.g. a registry page or listing), `planned_tests[]`, `recorded_coi{value,method,source,as_of_date}`, `disposition` (`undecided`/`keeping`/`available`/`placed` — breeder intent; **puppy-only**, valid only while `status='puppy'` and forced null otherwise. Enforced in `dogRepo` create/update and mirrored in the UI: the dog form shows it only for a puppy, `sale.js` won't set one on a non-puppy, the profile hides the row otherwise. Feeds the Today "Active litters" card, the promote-lifecycle nudge, and the litter-lifecycle nudges, §19), `notes`. Owner required when `ownership_type ∈ {external, leased_in}`. |
+| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`, plus `kennel_id` **when `ownership_type` is `owned`/`co_owned`** (the kennel scope — must be one of your own kennels; optional and free to name an outside kennel for `external`/`leased_in`) | `registered_name`, `date_of_birth`, `date_of_death`, `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (the kennel that *produced* this dog — own or an outside contact's; distinct from `kennel_id`, the kennel it belongs to *now* — the user's own for a dog they own, or an outside kennel for an external/leased dog (the form's Kennel picker offers every kennel, not just own ones); auto-prefilled from the litter's dam's own `kennel_id` when that dam is owned/co-owned), `owner_contact_id`, `co_owner_contact_ids[]`, `kennel_id`, `color_markings`, `registry`, `registration_number`, `microchip_id`, `url` (plain, unindexed — a link for this dog, e.g. a registry page or listing), `planned_tests[]`, `recorded_coi{value,method,source,as_of_date}`, `disposition` (`undecided`/`keeping`/`available`/`placed` — breeder intent; **puppy-only**, valid only while `status='puppy'` and forced null otherwise. Enforced in `dogRepo` create/update and mirrored in the UI: the dog form shows it only for a puppy, `sale.js` won't set one on a non-puppy, the profile hides the row otherwise. Feeds the Today "Active litters" card, the promote-lifecycle nudge, and the litter-lifecycle nudges, §19), `notes`. Owner required when `ownership_type ∈ {external, leased_in}`. |
 | **Contact** | `name` | `contact_type[]` (multi), `email`, `phone`, `address`, `kennel_id`, `waitlist_status`, `first_contact_source`, `notes`, `companion_note` (plain, unindexed — a per-recipient message **meant for the recipient's eyes**, shown on their companion share page; deliberately distinct from the private `notes`; §20). Buyers are Contacts — **there is no Buyer table**. `address` also resolves an in-person stud service's away-board location (§19). |
 | **Kennel** | `kennel_name` | `is_own_kennel`, `prefix`, `location`, `website` (plain, unindexed — a link for this kennel, mirrors `Dog.url`), `logo_data_url` (plain, unindexed — a downscaled PNG/SVG **data URL** for the kennel's logo, uploaded/removed on the kennel detail page, rendered on its invoices/receipts (§24) and puppy records (§23); rides the JSON backup), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds` (plain, unindexed — `{ [testKey]: breed[] }`; which breed(s) tagged each preferred test via the breed-seed import, keyed lowercase-trimmed; a test added by typing directly into the kennel's own "Add a test" field has no entry and stays breed-agnostic. Never edited directly — written by `kennelRepo.addPreferredTest`'s third arg, read via `testBreedsFor`/`testsForBreed`), `promote_nudge_enabled` (bool, default off), `promote_age_male_months`/`promote_age_female_months` (the promote-lifecycle nudge's per-kennel thresholds, §19). Lightweight; added inline from the Contact form. |
-| **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status` | `method`, `planned_date` (shown as "Planned first date" — the first planned/tie date), `last_observed_date` (plain, unindexed — a subsequent observed tie/breeding date), `expected_due_date` (prefilled on the detail page as 63 days after `planned_date` when still empty, never clobbering a deliberate edit), `notes`. Sire ≠ dam (hard block). |
-| **Litter** | `dam_id`, `sire_id`, `status` | `nickname` (plain, unindexed — optional friendly label, e.g. "Party of Five"; when set it leads the detail-page title and shows as its own column on the Litters list and report, searchable across all three; falls back to `dam × sire` when blank), `pairing_id`, `whelp_date`, `accept_deposits_date` (plain, unindexed — when the breeder begins accepting deposits; on the detail page it sits between `whelp_date` and `estimated_ready_date`, and surfaces in the **prospective** companion bundle between "Born" and "Estimated ready" when set, §20), `estimated_ready_date` (plain, unindexed — prefilled as 8 weeks/56 days after `whelp_date` when still empty, never clobbering a deliberate edit), `litter_registration_number`, `puppies_born_total/alive/deceased/abnormalities` (the last a count, not mutually exclusive with alive/deceased), `expected_price_male`/`expected_price_female`/`expected_deposit_male`/`expected_deposit_female` (plain, unindexed — per-litter defaults, grouped by sex on the detail page; `sale.js` prefills a new Sale's `price` and `deposit_amount` from the matching-sex pair by the puppy's `sex`, only into fields still empty), `foster_direction` (plain, unindexed — nullable `foster_in`/`foster_out`; null = an ordinary litter. **Foster is a per-litter fact** (guide §25): the same dam can have foster and non-foster litters, so it can't live on the Dog. A foster puppy is distinguished from a plain "external" dog purely by DERIVATION of its litter's `foster_direction` — it stays a normal `status='puppy'` Dog we manage and sell), `foster_partner_contact_id` (**indexed FK → Contact**; the counterparty — the dam's owner for foster-in, the caretaker for foster-out — guarded in `CONTACT_REFERENCES`; its `kennel_id` is the owner/caretaker kennel a companion share can reveal), `foster_comp_model` (plain, unindexed — `income_split`/`flat_per_pup`; how the partner is paid), `foster_our_share_pct`/`foster_split_basis` (the income-split terms), `foster_flat_fee_per_pup` (the per-pup flat fee), `foster_split_notes` (all plain, unindexed — documentation of the terms for either model; the actual payout to the other party is a real `foster_split` ("Foster compensation") Expense, never a stored derived number), `notes`. The litter's own sire/dam are authoritative. Puppy roster is **derived** (`Dog WHERE litter_id`). |
-| **Sale** | `dog_id`, `buyer_contact_id`, `placement_type`, `status` | `sale_date`, `price`, `deposit_amount`, `deposit_date`, `balance_due_date`, `balance_paid_date`, `transport_fee` (plain, unindexed — a flat delivery/transport charge, decimal), `deferred_boarding_amount`/`deferred_boarding_frequency`/`deferred_boarding_duration_days` (plain, unindexed — a boarding rate for a buyer who delayed pickup: decimal amount + `BOARDING_FREQUENCY_OPTIONS` Day/Week/Month + a free-text **count of frequency units** (despite the `_days` name, the value is the number of units — `2` with frequency `Week` means two weeks), rendered as "amount per frequency × count"; the family companion bundle multiplies `amount × count` into a deferred-pickup total feeding the computed remaining balance (§20); never cents, never an Expense — see §21), `lead_source`, `referred_by_contact_id` (indexed FK → the Contact who referred this buyer; `CONTACT_REFERENCES`; on save `saleRepo` auto-tags that contact `buyer_referrer` via `contactRepo.ensureType`), `payment_method`/`payment_reference`/`invoice_number`/`invoice_notes` (plain, unindexed — invoice/receipt document fields set from the Financials generator modal; §24), `notes`. On the detail page (`sale.js`) all fee fields render/edit above all date fields. Its own table (not a Dog field) so reserve/return/re-place stay distinct facts. |
-| **Contract** | `contract_type` | `status` (defaults `draft`), `related_sale_id`, `related_stud_service_id`, `related_dog_id` (canonical Dog link, used only for `lease`/`co_own`/`foster`/`other` types — where no linked Sale/StudService reaches a dog; forced `null` for other types via `contractRepo.DOG_LINK_TYPES`/`normalizeLinks`), `related_contact_id` (canonical counterparty link — lessee/co-owner/partner/foster owner — for the same `lease`/`co_own`/`foster`/`other` types via `CONTACT_LINK_TYPES`; sale/stud contracts reach their counterparty through the linked Sale/StudService, so it stays `null` there; scopes a contract into the **partner** companion bundle, §20), `document_url` (plain, unindexed — a share link to the signed document, e.g. a Drive "anyone with the link" URL; carried as a *pointer* into the buyer bundle, §20), `signed_date`, `lease_start_date`/`lease_end_date` (lease type; UI shows them and hides Related sale/stud fields when `contract_type='lease'`), `title`, `terms_summary`, `notes`. Generic across sale/stud/co-ownership/lease. Leaf for its own hard-delete (nothing points *at* a contract), but it points *at* its Dog via `related_dog_id` (guarded under `DOG_REFERENCES`) and its counterparty via `related_contact_id` (guarded under `CONTACT_REFERENCES`). |
-| **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status` | `pairing_id`, `fee_amount`, `fee_structure`, `pick_status` (plain, unindexed — suggested `pending`/`claimed`, free text allowed; meaningful **only** when `fee_structure ∈ {pick_of_litter, flat_plus_pick}`, forced `null` otherwise; feeds the partner companion bundle's compensation, §20), `pick_value_amount` (plain, unindexed decimal — the breeder's own estimated dollar value of the pick puppy, for income tracking; gated the same way as `pick_status`; deliberately **separate** from `fee_amount` (the actual cash); internal only — never in the partner bundle), `result_notes`, `type` (`in_person`/`ai` — coarse physical-travel flag; `in_person` + `sent_date`/`returned_date` window feeds the away-board, §19), `referred_by_contact_id` (indexed FK → the referring Contact; `CONTACT_REFERENCES`; on save `studServiceRepo` auto-tags `stud_referrer` via `contactRepo.ensureType`), `payment_method`/`payment_reference`/`invoice_number`/`invoice_notes` (plain, unindexed — invoice/receipt document fields, mirroring Sale's; only the outgoing direction is invoiceable, since incoming stud is an expense; §24), plus optional logistics dates. Covers both `incoming` and `outgoing`. |
+| **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date` (shown as "Planned first date" — the first planned/tie date), `last_observed_date` (plain, unindexed — a subsequent observed tie/breeding date), `expected_due_date` (prefilled on the detail page as 63 days after `planned_date` when still empty, never clobbering a deliberate edit), `notes`. Sire ≠ dam (hard block). |
+| **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname` (plain, unindexed — optional friendly label, e.g. "Party of Five"; when set it leads the detail-page title and shows as its own column on the Litters list and report, searchable across all three; falls back to `dam × sire` when blank), `pairing_id`, `whelp_date`, `accept_deposits_date` (plain, unindexed — when the breeder begins accepting deposits; on the detail page it sits between `whelp_date` and `estimated_ready_date`, and surfaces in the **prospective** companion bundle between "Born" and "Estimated ready" when set, §20), `estimated_ready_date` (plain, unindexed — prefilled as 8 weeks/56 days after `whelp_date` when still empty, never clobbering a deliberate edit), `litter_registration_number`, `puppies_born_total/alive/deceased/abnormalities` (the last a count, not mutually exclusive with alive/deceased), `expected_price_male`/`expected_price_female`/`expected_deposit_male`/`expected_deposit_female` (plain, unindexed — per-litter defaults, grouped by sex on the detail page; `sale.js` prefills a new Sale's `price` and `deposit_amount` from the matching-sex pair by the puppy's `sex`, only into fields still empty), `foster_direction` (plain, unindexed — nullable `foster_in`/`foster_out`; null = an ordinary litter. **Foster is a per-litter fact** (guide §25): the same dam can have foster and non-foster litters, so it can't live on the Dog. A foster puppy is distinguished from a plain "external" dog purely by DERIVATION of its litter's `foster_direction` — it stays a normal `status='puppy'` Dog we manage and sell), `foster_partner_contact_id` (**indexed FK → Contact**; the counterparty — the dam's owner for foster-in, the caretaker for foster-out — guarded in `CONTACT_REFERENCES`; its `kennel_id` is the owner/caretaker kennel a companion share can reveal), `foster_comp_model` (plain, unindexed — `income_split`/`flat_per_pup`; how the partner is paid), `foster_our_share_pct`/`foster_split_basis` (the income-split terms), `foster_flat_fee_per_pup` (the per-pup flat fee), `foster_split_notes` (all plain, unindexed — documentation of the terms for either model; the actual payout to the other party is a real `foster_split` ("Foster compensation") Expense, never a stored derived number), `notes`. The litter's own sire/dam are authoritative. Puppy roster is **derived** (`Dog WHERE litter_id`). |
+| **Sale** | `dog_id`, `buyer_contact_id`, `placement_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`, `deposit_date`, `balance_due_date`, `balance_paid_date`, `transport_fee` (plain, unindexed — a flat delivery/transport charge, decimal), `deferred_boarding_amount`/`deferred_boarding_frequency`/`deferred_boarding_duration_days` (plain, unindexed — a boarding rate for a buyer who delayed pickup: decimal amount + `BOARDING_FREQUENCY_OPTIONS` Day/Week/Month + a free-text **count of frequency units** (despite the `_days` name, the value is the number of units — `2` with frequency `Week` means two weeks), rendered as "amount per frequency × count"; the family companion bundle multiplies `amount × count` into a deferred-pickup total feeding the computed remaining balance (§20); never cents, never an Expense — see §21), `lead_source`, `referred_by_contact_id` (indexed FK → the Contact who referred this buyer; `CONTACT_REFERENCES`; on save `saleRepo` auto-tags that contact `buyer_referrer` via `contactRepo.ensureType`), `payment_method`/`payment_reference`/`invoice_number`/`invoice_notes` (plain, unindexed — invoice/receipt document fields set from the Financials generator modal; §24), `notes`. On the detail page (`sale.js`) all fee fields render/edit above all date fields. Its own table (not a Dog field) so reserve/return/re-place stay distinct facts. |
+| **Contract** | `contract_type`, `kennel_id` | `status` (defaults `draft`), `related_sale_id`, `related_stud_service_id`, `related_dog_id` (canonical Dog link, used only for `lease`/`co_own`/`foster`/`other` types — where no linked Sale/StudService reaches a dog; forced `null` for other types via `contractRepo.DOG_LINK_TYPES`/`normalizeLinks`), `related_contact_id` (canonical counterparty link — lessee/co-owner/partner/foster owner — for the same `lease`/`co_own`/`foster`/`other` types via `CONTACT_LINK_TYPES`; sale/stud contracts reach their counterparty through the linked Sale/StudService, so it stays `null` there; scopes a contract into the **partner** companion bundle, §20), `document_url` (plain, unindexed — a share link to the signed document, e.g. a Drive "anyone with the link" URL; carried as a *pointer* into the buyer bundle, §20), `signed_date`, `lease_start_date`/`lease_end_date` (lease type; UI shows them and hides Related sale/stud fields when `contract_type='lease'`), `title`, `terms_summary`, `notes`. Generic across sale/stud/co-ownership/lease. Leaf for its own hard-delete (nothing points *at* a contract), but it points *at* its Dog via `related_dog_id` (guarded under `DOG_REFERENCES`) and its counterparty via `related_contact_id` (guarded under `CONTACT_REFERENCES`). |
+| **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `pairing_id`, `fee_amount`, `fee_structure`, `pick_status` (plain, unindexed — suggested `pending`/`claimed`, free text allowed; meaningful **only** when `fee_structure ∈ {pick_of_litter, flat_plus_pick}`, forced `null` otherwise; feeds the partner companion bundle's compensation, §20), `pick_value_amount` (plain, unindexed decimal — the breeder's own estimated dollar value of the pick puppy, for income tracking; gated the same way as `pick_status`; deliberately **separate** from `fee_amount` (the actual cash); internal only — never in the partner bundle), `result_notes`, `type` (`in_person`/`ai` — coarse physical-travel flag; `in_person` + `sent_date`/`returned_date` window feeds the away-board, §19), `referred_by_contact_id` (indexed FK → the referring Contact; `CONTACT_REFERENCES`; on save `studServiceRepo` auto-tags `stud_referrer` via `contactRepo.ensureType`), `payment_method`/`payment_reference`/`invoice_number`/`invoice_notes` (plain, unindexed — invoice/receipt document fields, mirroring Sale's; only the outgoing direction is invoiceable, since incoming stud is an expense; §24), plus optional logistics dates. Covers both `incoming` and `outgoing`. |
 | **Event** | `subject_type`, `subject_id`, `event_type`, `event_date`, `title` | `event_end_date`, `reminder_date`, `reminder_dismissed`, `related_dog_id`, `related_contact_id`, `details{}`, `notes`. See §8. **No `cost` field** — a cost entered on the event form is written to the Expense ledger (`expenses.event_id` = the event) and read back via `expenseRepo.getByEvent`; see the Expense row and §21. |
 | **Expense** | `subject_type` (`dog`/`litter`/`pairing`/`kennel`), `subject_id`, `amount`, `category`, `expense_date` | `event_id` (nullable FK → the Event a cost was captured from — the one canonical event↔cost link; reverse is `expenseRepo.getByEvent`), `miles`/`mileage_rate` (plain, unindexed — a **mileage** expense: when `miles` is set, `amount` is **derived** = `miles × mileage_rate` in `expenseRepo.normalize`, never entered directly; both null on a flat expense. Default rate prefilled from `settings.getMileageDefaults()`; §21), `vendor`, `receipt_number` (plain, unindexed — a human-facing receipt/reference number printed on the receipt, not an id of anything in KennelOS; auto-filled by OCR off a scanned receipt when found (§26.1) and editable, shown/edited on both expense forms and the Financials ledger, searchable there, and the idempotent key on CSV re-import when present, §9), `receipt_file_id` (plain, unindexed FK → the `files` row holding the attached receipt — a photo/screenshot compressed to PDF, or an uploaded PDF, attached via the receipt-capture widget; deleted with the expense in `expenseRepo.hardDelete`; §26.1), `reimbursable`/`reimbursed_date` (plain, unindexed — a cost owed back to you, e.g. a foster-in rearing cost the dam's owner reimburses; `reimbursed_date` records when it was settled, and a set date coerces `reimbursable=true`. Litter P&L nets a reimbursed reimbursable out of your cost and lists a pending one as a receivable — §21/§25. "Reimbursable to whom" is derived from the litter's foster partner, so no per-expense contact FK), `notes`. The Financials ledger: the single home for money spent. Polymorphic like Event; `kennel`-subject rows are kennel-wide overhead. Leaf entity (`EXPENSE_REFERENCES` empty). See §21. |
 | **Document** | `dog_id`, `doc_type` (`pedigree`/`health_test`/`registration`/`contract`/`other`), `file_id` | `title`, `doc_date`, `issuer_or_lab`, `result`, `registry`, `registration_number`, `notes`. A filed document belonging to exactly one Dog (`dog_id`, guarded in `DOG_REFERENCES`) and pointing at exactly one stored `files` row (`file_id`) — the reverse "a dog's documents" is `documentRepo.getByDog`. Which optional fields show on the form is keyed by `doc_type` (`vocab.documentFieldsFor`). Leaf entity (`DOCUMENT_REFERENCES` empty); `hardDelete` also removes the linked file. See §26.1. |
 | **File** (`files`) | `blob`, `mime`, `filename`, `size`, `created_at` | `thumbnail` (a small JPEG data-URL for photo-sourced files; blank for uploaded PDFs, which show a doc-type icon). The blob archive behind **both** Documents (`documents.file_id`) and expense receipts (`expenses.receipt_file_id`) — every file is a PDF (photos are compressed to PDF by `pdfBuild.js` before storage). Fetched by id only; not an orphan-guarded entity — a file is owned by its one Document/Expense and deleted with it. `blob` is base64-round-tripped through backups (§5). See §26.1. |
+
+**Kennel scope.** `Pairing`/`Litter`/`Sale`/`Contract`/`StudService`/`Document` each
+carry a required `kennel_id` naming which of the user's **own** kennels the record
+belongs to, and `Dog.kennel_id` is required for dogs the user owns. It is stamped on
+create by inheriting from the record's parent, never derived at read time. Full rules
+in `docs/KennelOS_Multi_Kennel_Scope_Spec.md`; the scope itself is resolved through
+`data/kennelScope.js` and is Pro-only (`editionFlags.multiKennel`).
+
+On the READ side every list, hub, and report filters by that stamp. What is
+deliberately **not** filtered is as load-bearing as what is, and each exception
+carries a comment at its call site: **pedigree/lineage** (`assets/pedigree.js`,
+`pages/pedigree.js`, `dogRepo`'s ancestor/offspring walks — ancestry crosses kennels
+by definition), **detail pages reached by id** (a direct link must always resolve;
+an out-of-scope record renders in full above a "belongs to <kennel>" banner),
+**external/leased dogs** (scope-transparent: their `kennel_id` names somebody
+*else's* kennel), and the **contact pool** (program-wide; `Contact.kennel_id` is an
+affiliation, not a scope). `Event` and `Expense` carry no `kennel_id` at all — being
+polymorphic, their scope is their subject's, resolved by `subjectInScope`.
 
 ### 4.2 Relationship direction — the sixth design principle
 
@@ -244,21 +270,33 @@ expenses:      id, event_id, [subject_type+subject_id], category,
                expense_date, is_archived
 contacts:      id, kennel_id, waitlist_status, is_archived
 kennels:       id, is_archived
-pairings:      id, sire_id, dam_id, status, pairing_type, is_archived
-litters:       id, pairing_id, sire_id, dam_id, status, whelp_date,
+pairings:      id, kennel_id, sire_id, dam_id, status, pairing_type, is_archived
+litters:       id, kennel_id, pairing_id, sire_id, dam_id, status, whelp_date,
                foster_partner_contact_id, is_archived
-sales:         id, dog_id, buyer_contact_id, referred_by_contact_id, status,
-               placement_type, is_archived
-contracts:     id, contract_type, status, related_sale_id,
+sales:         id, kennel_id, dog_id, buyer_contact_id, referred_by_contact_id,
+               status, placement_type, is_archived
+contracts:     id, kennel_id, contract_type, status, related_sale_id,
                related_stud_service_id, related_dog_id, related_contact_id, is_archived
-stud_services: id, our_dog_id, partner_dog_id, partner_contact_id,
+stud_services: id, kennel_id, our_dog_id, partner_dog_id, partner_contact_id,
                referred_by_contact_id, direction, status, pairing_id, is_archived
-documents:     id, dog_id, doc_type, doc_date, is_archived
+documents:     id, kennel_id, dog_id, doc_type, doc_date, is_archived
 files:         id, created_at
 breed_feeding_schedules: id, breed, is_archived
 ```
 
 Index notes:
+- **`kennel_id` on `pairings`/`litters`/`sales`/`stud_services`/`contracts`/
+  `documents` is the KENNEL SCOPE** (`docs/KennelOS_Multi_Kennel_Scope_Spec.md` §4.1):
+  which of the user's own kennels the record belongs to. **Stamped on create** by
+  inheriting from the record's parent (a sale from its dog, a contract from its sale,
+  a puppy from its litter, a litter from its dam) and falling back to the active/sole
+  kennel — never derived at read time, so moving a dog between the user's kennels can't
+  retroactively rewrite the history of a litter or sale. `dogs.kennel_id` is the same
+  scope for a dog, and is **required** for `owned`/`co_owned` dogs (`dogRepo.validateDog`);
+  an `external`/`leased_in` dog's `kennel_id` still names somebody else's kennel and
+  stays optional. Deliberately NOT scoped: `events`/`expenses` (polymorphic — scope
+  derives from the subject), `files` (fetched by id only), and
+  `breed_feeding_schedules` (a program-wide per-breed lookup).
 - `events.[subject_type+subject_id]` **and** `expenses.[subject_type+subject_id]` are
   **compound** indexes (fast per-subject timeline / ledger). Do not split them.
 - `expenses.event_id` is indexed so `expenseRepo.getByEvent` is an index probe.
@@ -401,6 +439,16 @@ the normal remove and never cascades**.
 - `DOG_/LITTER_/PAIRING_/KENNEL_REFERENCES` each carry an `expenses.subject_id` entry
   (compound-index + discriminator), so a subject can't be hard-deleted out from under its
   expenses.
+- **`KENNEL_REFERENCES` also carries the six kennel-scope FKs** —
+  `pairings`/`litters`/`sales`/`stud_services`/`contracts`/`documents` `.kennel_id`
+  (§5, Multi-Kennel Scope Spec §4.2) — alongside `contacts.kennel_id`,
+  `dogs.kennel_id`, and `dogs.breeder_kennel_id`. **Consequence:** a kennel in real
+  use is effectively undeletable, because its own litters/sales/contracts block the
+  delete. That is intended (archive is the exit), and the Kennels page's Delete
+  button disables itself with the blocker list naming exactly what's holding it.
+  `tests/referenceRegistry.test.js` parses `db.js`'s schema and asserts every
+  declared `*kennel_id` index has a registry entry, so a seventh scoped table can't
+  be added without one.
 - `DOG_REFERENCES` also carries a `documents.dog_id` entry (§26.1), so a dog with filed
   documents can't be hard-deleted out from under them.
 - `Contract`, `Expense`, `Document`, and `BreedFeedingSchedule` (§27.2) are leaves
@@ -517,6 +565,17 @@ Rules that shape everything:
   value, `''` (blank), or `null` (present but unrecognized → flagged).
 - Relationship columns (sire/dam/dog names) resolve against **existing** records only; an
   unresolved name is flagged, never invented.
+- **Kennel by name** (Multi-Kennel Scope Spec §11): Dog, Pairing, Litter, Sale, and
+  StudService all accept an optional `kennel_name` column, resolved the same way as every
+  other relationship column — case-insensitive/trimmed, against existing kennels only, via
+  the shared `resolveKennelColumn()` helper. Pairing/Litter/Sale/StudService require the
+  match to be one of the user's **own** kennels (they only ever carry an own-kennel scope);
+  Dog requires it only when `ownership_type` is `owned`/`co_owned` — an external/leased dog
+  may legitimately name an outside kennel here. Either way, a named kennel that fails to
+  resolve routes the row to **review**, exactly like an unresolved sire/dam — it never falls
+  through to commit and silently lands on whatever `stampKennelScope()` would otherwise
+  default to. A blank column is not a failure: `commitPlan`'s `stampKennelScope()` fills it
+  from the active/sole kennel at commit time, same as before this column existed.
 - **Two deliberate exceptions** auto-create a Contact inline at commit (never a stall):
   Sale's `buyer_name` and StudService's `partner_contact_name`, via each mapping's
   `prepareRecord` hook.
@@ -597,7 +656,9 @@ way.
 - **settings.js** — the primary `localStorage` user. Pages never touch `localStorage`
   directly. Keys (all under `kennelOS.*`): `lastBackupDate`, `persistRequested`,
   `sampleDataManifest`, `sampleDataCleared`, `myKennelId`, `myContactId`,
-  `myKennelSetupSkipped`, `companion` (the Companion feature's per-type message templates
+  `activeKennelId` (which own kennel the app is scoped to, or absent for "All
+  kennels" — read/written only through `data/kennelScope.js`, never by a page),
+  `companion` (the Companion feature's per-type message templates
   — Layer 1, §20 — one JSON object keyed by recipient type via
   `getCompanionSettings`/`setCompanionSettings`), `invoiceDefaults` (the invoice
   generator's default accepted payment methods, §24, via
@@ -630,6 +691,16 @@ way.
   with the reopen/sold anchors and the packet size, per the spec's §9.3). Companion has ≥1
   recipient on all three tabs (prospective / current families / partners). Editing this file
   still bumps `CACHE_NAME` (§ service worker); it adds no new file or FK.
+  - **Briar Hollow Kennels** (Multi-Kennel Scope Spec §13) is a SECOND own kennel —
+    Meadow Ridge is Dana Ruiz's outside kennel (the breeder-of-record/external-ownership
+    demo, never a scope), so it never exercised the kennel switcher. Briar Hollow is
+    deliberately small — its own sire/dam (Cassius × Opal, Golden Retrievers — a third
+    breed line makes "which kennel is this" obvious at a glance), one pairing, one litter,
+    one placed pup (Maple), one delivered sale — just enough for the switcher to show two
+    real entries, the kennel hub's roster/litters/P&L to have live cross-kennel content,
+    and a manual QA pass to confirm a picker's "show all my kennels" escape actually
+    surfaces something. All of it rides the same manifest/clear machinery as the rest of
+    the seed.
 - **seedImport.js** — optional breed+test vocabulary seed (from
   `resources/common_tests_by_breed_seed.csv` or a user file). Rows carry an optional
   `Breed Group` column (col A) that `buildSeedGroups()` attaches to each group as
@@ -650,7 +721,15 @@ way.
   instead of the raw flat list, so a dog only inherits tests tagged for its own
   breed (plus any untagged/breed-agnostic ones).
 - **kennelSetup.js** — the "your kennel and owner name" wizard; creates real
-  Kennel/Contact records and remembers them by id in settings. The owner
+  Kennel/Contact records and remembers them by id in settings. **It is a MANDATORY
+  gate, not a prompt** (Multi-Kennel Scope Spec §3.2): every owned dog carries a
+  required `kennel_id`, so the app isn't usable until one own kennel exists. There
+  is no "Skip for now" and no skipped-flag setting — `shouldRequireKennelSetup()`
+  tests whether an **own kennel exists** (deliberately not whether `myKennelId` is
+  set: the guided tour seeds an own kennel without ever setting it), and `app.js`'s
+  existing fall-through re-fires the modal on every load until it's satisfied, so
+  reloading can't escape it. Demo is exempt — `boot()` returns inside its branch
+  before the first-run flow, and a read-only edition could never satisfy the gate. The owner
   Contact is always saved with `kennel_id` set to the kennel just created/
   updated — this is definitionally the breeder's own contact at their own
   kennel, so it must never come out of the wizard unlinked (a Kennel's
@@ -667,10 +746,17 @@ request durable storage once, then — on a genuinely fresh install (`shouldOffe
   destination page's `runWizardStep()` picks the tour up. Sample data is seeded **only** on
   this path.
 - **"No thanks…"** → `declineSampleData()` (a blank kennel, no sample data ever), a
-  **backups + install-as-app** card, then the **New Kennel** kennel-setup modal.
+  **backups + install-as-app** card, then the **New Kennel** kennel-setup modal, in its
+  `required` posture.
 
-On a non-fresh load the onboarding no-ops and `app.js` falls through to `maybeShowKennelSetupPrompt()`
-(which fires on the load right after sample data is cleared). `sampleDataUI.js` owns only the
+`showKennelSetupModal({ mode })` has two postures: **`required`** (no Skip, no Cancel, no
+backdrop close, no Escape — both ambient escapes are swallowed in the capture phase; used by
+all three first-run call sites) and **`cancellable`** (a Cancel that changes nothing — used
+*only* by Import/Export's deliberate reopen, which edits an existing kennel).
+
+On a non-fresh load the onboarding no-ops and `app.js` falls through to
+`maybeShowKennelSetupPrompt()` (gated by `shouldRequireKennelSetup()`, which fires on every
+load until an own kennel exists). `sampleDataUI.js` owns only the
 persistent banner + the shared Clear-sample-data flow.
 
 **Guided tour.** A spotlight coach-mark tour of the seeded Thornfield packet — a pure
@@ -705,9 +791,18 @@ viewport, scrolling its target to sit just below so the card never covers it (a 
 too high on its page to clear the top card flips the card to the **bottom** of the viewport
 instead; a `ResizeObserver` re-positions the target as a content-heavy page's sections load in,
 so a late reflow can't leave it off-screen; and it falls back to a centered card if the target
-never appears). **Finishing** the tour (the last step's "Finish") mirrors the "I'll explore"
-onboarding ending: it shows the closing card, then `clearSampleData()` removes the Thornfield
-seed and hands off to the kennel-setup modal (`showKennelSetupModal`). `app.js`'s shared `boot()` calls `runWizardStep()`
+never appears). **Both ways out of the tour** — the last step's "Finish" and the per-step
+**"Skip tour"** — go through one `endTour()` helper that mirrors the "I'll explore"
+onboarding ending: an acknowledgement card, then `clearSampleData()` removes the
+Thornfield seed, then the kennel-setup modal in its **`required`** posture
+(clearing the seed just deleted the only own kennel that existed, so there is
+nothing left to file a dog under). Skipping is deliberately *not* a quiet
+dismissal: leaving Thornfield in place would hand the user a kennel full of
+someone else's dogs and — because sample data satisfies the setup gate — let them
+start filing real dogs into a sample kennel. The clear is also retried with
+`{ archiveConflicting: true }` when it comes back `contaminated`, so a record the
+user made mid-tour keeps resolving instead of the promised clear silently not
+happening. `app.js`'s shared `boot()` calls `runWizardStep()`
 unconditionally on every page — the only wizard hook; no page file is wizard-aware.
 Detail-page highlight steps carry an `anchor` slug that `wizardUI.js` resolves to the current
 seed's real id at runtime via the `manifest.named` map the seed writes (the seed uses runtime
@@ -760,6 +855,13 @@ This distinction is the single easiest thing to get wrong. Learn it:
   to enable click-to-sort headers. Supports filters, "show archived", collapsible columns,
   grouping, optional CSV export.
 
+Both also take an optional **`scope: (record) => bool`** — the active-kennel predicate
+(Multi-Kennel Scope Spec §7). It is applied before search/filters (so a CSV export
+exports the scoped set), and its presence is what makes the toolbar render the
+"🏠 <kennel> only" chip. Each caller passes the right flavor — `inScope` for a record
+with its own `kennel_id`, `dogInScope` for dogs, `subjectInScope` for a polymorphic
+event — or omits it **with a comment saying why** (Contacts is the standing example).
+
 When in doubt: `value` = text (auto-escaped), `cell` = HTML (you escape).
 
 ### Shared helpers (`assets/ui.js`)
@@ -799,6 +901,16 @@ implementation lives in `data/dateUtils.js`.
   Wired into sale (buyer), stud-service (partner), and `eventForm.js` (boarding/placement
   related contact).
 - **expensePanel.js** — the reusable per-subject expense ledger panel (§21).
+- **kennelScopeUI.js** — all three pieces of active-kennel UI, reading only
+  `data/kennelScope.js`: `renderKennelSwitcher(host)` (the nav's indicator + switcher),
+  `mountScopeChip(el)` (the toolbar chip a scoped list/report shows, with its "Show
+  all" escape), and `renderScopeNotice(host, record, {kind})` /
+  `renderDogScopeNotice(host, dog)` (the out-of-scope banner on a detail page). All
+  three are inert unless `editionFlags.multiKennel`, and switching scope always
+  **reloads** — pages compute their view models once at load, so one repaint of the
+  truth beats a partial re-render. Wired into `nav.js`, both list frameworks, and the
+  six record detail pages (dog/litter/pairing/sale/contract/stud-service, each with a
+  `<div id="scope-notice">` under `#page-error`).
 
 ### Navigation (`nav.js`)
 
@@ -810,6 +922,12 @@ are not nav entries; `HUB_CHILDREN` maps them to the hub tab that should light u
 stored app-root-relative and prefixed at render time so they resolve from `index.html` or
 `/pages/` and any GitHub Pages sub-path.
 
+The bar also carries the **active-kennel switcher** in a `#nav-kennel-scope` slot before
+the "More" menu (Multi-Kennel Scope Spec §8). `nav.js` stays edition-agnostic: it renders
+the empty slot and hands it to `renderKennelSwitcher`, which returns without touching it in
+Lite and before the first own kennel exists — the CSS layout rules are keyed on
+`.nav-scope:not(:empty)` so an edition without a scope lays out exactly as before.
+
 ### Page catalog (`pages/`, one `.js` + `.html` each)
 
 Hubs & landing: `today`, `dogs`, `breeding`, `contacts`, `sales`, `financials` (the
@@ -818,11 +936,17 @@ Companion Messaging console, §20), `furever` (the Furever seed-link console, §
 `import-export`, plus root `index.html`.
 Dogs: `dog` (detail), `roster`, `pedigree`.
 Breeding: `pairings`/`pairing`, `litters`/`litter`, `active-breeding`, `live-births`.
-People: `contact`, `kennels` (list — identity CRUD only: name/prefix/location/own + archive/
-delete; the add form stays collapsed behind a **+ Add New Kennel** button, and rows sort own
-kennels first then everyone else's alphabetically by name) / `kennel` (detail — hosts that kennel's Expenses ledger plus, for own kennels, its
-program configuration: the preferred-tests panel, the lifecycle-nudge thresholds, and a
-doorway card into Feeding Schedules, §27.2). Both map to the People hub in `HUB_CHILDREN`.
+People: `contact`, `kennels` (two screens in one page: on top the **portfolio** — one card
+per own kennel with live counts (roster / active litters / placements this year) and the
+button that switches the active scope, rendered only once a *second* own kennel exists;
+below it the original identity CRUD list over every kennel including outside ones —
+name/prefix/location/own + archive/delete, add form collapsed behind **+ Add New Kennel**,
+own kennels sorted first) / `kennel` (detail — a per-kennel **hub**: roster counts by status,
+active litters, recent placements, and that kennel's P&L, all filtered on THIS kennel's id
+rather than the active scope, plus a "scope the app to this kennel" action; below the hub,
+that kennel's Expenses ledger and, for own kennels, its program configuration: the
+preferred-tests panel, the lifecycle-nudge thresholds, and a doorway card into Feeding
+Schedules, §27.2). Both map to the People hub in `HUB_CHILDREN`.
 Placements/contracts: `sale`/`sales`, `stud-service`/`stud-services`, `contract`/`contracts`,
 `puppy-record` (print-only puppy record, §23 — not a nav entry, reached from `sale`/`sales`).
 Financials print docs: `invoice` (print-only invoice/receipt generator, §24 — not a nav
@@ -956,6 +1080,13 @@ awareness) and returns zero or more:
 ```
 { key, title, detail, subjectHref, actions: [{ label, run: async () => {} }] }
 ```
+Every rule iterates the **active-kennel-scoped** set of whatever it nudges about (spec
+§7) — you should not be prompted about the kennel you are not looking at. The unscoped
+originals stay in play for every lookup and every "already handled?" dedup check
+(`pairingExistsForDam`, `pairingIdsWithLitter`, the pups/sales indexes). That asymmetry
+is deliberate: scoping a dedup check would resurrect a nudge whose answer already sits
+one kennel over.
+
 Eight rules, each producing its own stable `key` so a dismissal survives re-computation:
 - **Stud-service status** — `sent_date` passed + `status='arranged'` → suggest
   `in_progress`; `returned_date` passed + `status ∈ {arranged, in_progress}` → suggest
@@ -1013,6 +1144,12 @@ pickupTime, sourceType, sourceId, href }`): `eventRepo.getBoardRows()` (boarding
 tile). Boarding events still cover non-stud reasons (grow-out, foster, owner travel); a
 stud-reason stay is authored on the StudService record itself, not duplicated as a boarding
 event.
+
+Active-kennel scope is applied **inside** `getAwayBoardRows()`, not in the three renderers,
+so board/today/dashboard cannot disagree about who is away. Both row kinds normalize to a
+`dogId` and the dog is what is physically away, so both scope through that dog (transparent
+flavor — an outside stud boarding with you belongs to no kennel of yours and must not
+vanish). It costs one extra `dogRepo` read, and only when there IS a scope.
 
 `StudService.type` and the three `Kennel` nudge fields are plain unindexed fields (§5); the
 stud→pairing nudge action reuses the existing `StudService.pairing_id` link. No schema, index,
@@ -1306,6 +1443,15 @@ money-in is recorded — and normalizes each into one view-model row per record,
 money component as **earned** or **anticipated** on each load. Storing this (or a mirror flag)
 would be a forbidden stored back-pointer (§7); it is always recomputed.
 
+Active-kennel scope is applied here at the **source records**, so the Financials Overview
+tiles, the Income view, the per-litter P&L, and the invoice/receipt generator's record
+picker can never disagree about which money is yours right now. `getIncomeRows()` also
+takes an optional `kennelId`, which overrides the active scope with one named kennel — the
+per-kennel hub (`kennel.html`) needs it, because it reports on the kennel you opened rather
+than the kennel you are scoped to. The Expense side is scoped separately in
+`pages/financials.js` (`expenseInScope`): an Expense is polymorphic and carries no
+`kennel_id`, so its scope is resolved through its subject.
+
 Classification (owner decisions):
 
 - **Sale.** `price` splits into a deposit portion (`deposit_amount`) and a balance portion
@@ -1404,6 +1550,11 @@ once rendered.
 The header also renders the resolving own-kennel's `logo_data_url` (§24) above the kennel name
 when one is set.
 
+**Own-kennel resolution** (Multi-Kennel Scope Spec §10): the puppy's own `kennel_id`, else the
+active kennel scope (`data/kennelScope.js`'s `getActiveKennel()`), else the sole own kennel on
+record — never "whichever own kennel sorts first," so a Puppy Record for a kennel-B pup carries
+kennel B's name/logo even while the app is scoped (or not scoped) to kennel A.
+
 ---
 
 ## 24. Invoice & Receipt (print-only PDF)
@@ -1441,11 +1592,12 @@ gated by an `@media print` block), same posture as the Puppy Record.
   (`setInvoiceDefaults`).
 - **Receipt specifics:** keeps the **Payment received** box (method used / reference / date) and
   stamps **Paid**; totals "Total paid".
-- **Issuer** is the resolving own kennel (`dog.kennel_id` if own, else the first own kennel — the
-  Puppy Record fallback), with its `logo_data_url`, `location`, `website`, and the owner Contact's
-  name/email/phone (via `getMyContactId`). **Recipient** is the sale's buyer or the stud partner
-  contact. A document number defaults to a stable `INV-/RCT-<yyyymmdd>-<id>` when `invoice_number`
-  is blank.
+- **Issuer** is the resolving own kennel — the record's own `kennel_id` (a Sale/StudService always
+  carries one, §4), else the dog's own `kennel_id`, else the active kennel scope, else the sole own
+  kennel (same fallback order as the Puppy Record, §23/§10) — with its `logo_data_url`, `location`,
+  `website`, and the owner Contact's name/email/phone (via `getMyContactId`). **Recipient** is the
+  sale's buyer or the stud partner contact. A document number defaults to a stable
+  `INV-/RCT-<yyyymmdd>-<id>` when `invoice_number` is blank.
 - **Persisted fields** (`invoice_number`, `invoice_notes`, and — for receipts —
   `payment_method`/`payment_reference`, §4) are written on the Sale / StudService by the generator
   modal so they prefill next time and ride backups. Everything else (Full/Partial, collected, due

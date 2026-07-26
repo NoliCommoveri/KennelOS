@@ -12,6 +12,8 @@ import { documentRepo } from '../data/documentRepo.js';
 import { CONTRACT_TYPE, CONTRACT_STATUS, SEX, descriptor } from '../data/vocab.js';
 import { esc, badge, fmtDate, param, confirmModal } from '../assets/ui.js';
 import { openDocumentModal, openDocumentViewModal } from '../assets/documentModal.js';
+import { resolveKennelIdForWrite } from '../data/kennelScope.js';
+import { renderScopeNotice } from '../assets/kennelScopeUI.js';
 
 const els = {
   title: document.getElementById('contract-title'),
@@ -342,6 +344,17 @@ async function doSave() {
   const candidate = readForm();
   try {
     if (ctx.mode === 'new') {
+      // Kennel scope (Multi-Kennel Scope Spec §6): a contract files under whatever
+      // it documents — its sale, its stud service, or the dog it names — in that
+      // order. A counterparty-only contract (lease/co-own/other with no linked
+      // record) has nothing to inherit and falls back to the active/sole kennel.
+      candidate.kennel_id = await resolveKennelIdForWrite({
+        inheritFrom: [
+          ctx.allSales.find((x) => x.id === candidate.related_sale_id),
+          ctx.allStudServices.find((x) => x.id === candidate.related_stud_service_id),
+          ctx.dogsById.get(candidate.related_dog_id)
+        ]
+      });
       const saved = await contractRepo.create(candidate);
       location.href = `contract.html?id=${encodeURIComponent(saved.id)}`;
       return;
@@ -429,6 +442,12 @@ async function main() {
   if (!c) { showError('Contract not found. It may have been deleted.'); return; }
   ctx.original = c;
   ctx.mode = 'view';
+  // Out-of-scope banner (Multi-Kennel Scope Spec §7). A detail page reached by id
+  // is deliberately NEVER scope-filtered — a direct link, a bookmark, or a click
+  // through from a pedigree must always resolve — so an contract belonging to another
+  // kennel renders in full, with this above it saying whose it is and offering a
+  // one-click switch. Renders nothing in the ordinary in-scope case.
+  renderScopeNotice(document.getElementById('scope-notice'), c, { kind: 'contract' });
   renderAll();
 }
 

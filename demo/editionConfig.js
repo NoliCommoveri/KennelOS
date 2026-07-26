@@ -9,6 +9,10 @@
 
 export const edition = 'demo';
 
+// Suffix shown after "KennelOS" in the nav brand (nav.js). Null — Demo's banner
+// stays plain "KennelOS", unlabeled.
+export const editionLabel = null;
+
 // No in-app upgrade CTA in this edition (Pro is already the full app; Demo is a
 // read-only showcase). Exported so shared code that reads it always resolves.
 export const upgradeUrl = null;
@@ -28,6 +32,10 @@ export async function enforceDogCap(/* { candidate, existing, id } */) {
 }
 
 export async function enforceLitterCap(/* { candidate } */) {
+  // no-op: writes are blocked by demo mode, not the cap.
+}
+
+export async function enforceImportDogCap(/* { incomingDogs, mode } */) {
   // no-op: writes are blocked by demo mode, not the cap.
 }
 
@@ -58,6 +66,8 @@ export const editionFlags = {
   externalOwnership: true,
   assistant: true,
   feedingSchedule: true,
+  // Multi-kennel scope — on, since Demo showcases the whole Pro app.
+  multiKennel: true,
 };
 
 // Full nav bar (Demo shows the whole Pro app, read-only).
