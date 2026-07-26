@@ -132,6 +132,29 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   - **One flag, Pro-only** — `editionFlags.licenseGate` is true only in `pro/editionConfig.js`;
     Lite is free and Demo is a public showcase, so the gate is inert there (verified: Lite/Demo
     render with no wall). The Lemon Squeezy checkout URL lives in Pro's `licenseConfig`.
+- **Multi-kennel scope, Phase 1 — done & browser-verified (headless Chromium, all three
+  editions, no console errors).** Kennel becomes a real scope rather than a lookup. Design +
+  the remaining phases: `docs/KennelOS_Multi_Kennel_Scope_Spec.md`.
+  - **Schema (pre-launch, deliberately now)** — `kennel_id` added to `pairings`/`litters`/
+    `sales`/`stud_services`/`contracts`/`documents` in the still-editable `version(1)` block,
+    with the six matching `KENNEL_REFERENCES` entries. Doing this after the first release would
+    mean a versioned migration plus a backfill over live data. A new test parses `db.js` and
+    fails if a declared `*kennel_id` index has no registry entry.
+  - **Every scoped create is stamped** by inheriting from its parent — a sale from its dog, a
+    contract from its sale, a puppy from its litter, a litter/pairing from its dam then sire —
+    falling back to the active/sole kennel (`data/kennelScope.js`). `kennel_id` is **required**
+    on `owned`/`co_owned` dogs and must be an own kennel; `external`/`leased_in` dogs keep an
+    optional, outside-pointing kennel and are scope-transparent.
+  - **First-run kennel setup is now a MANDATORY gate** — no "Skip for now" (the skip flag is
+    gone entirely), no Cancel, no Escape, no backdrop close, and it re-fires on every load until
+    an own kennel exists, so reloading can't escape it. Import/Export's deliberate reopen keeps a
+    Cancel. Demo stays exempt. **Skipping the tour** now ends it the same way finishing does:
+    the seed is cleared immediately and setup follows.
+  - **Pro-only** (`editionFlags.multiKennel`): Lite is single-kennel, renders no kennel picker,
+    and auto-stamps its one kennel. A new test asserts every edition config declares every shared
+    flag — the gap that first shipped `multiKennel` missing from `pro/` and `demo/`.
+  - **Not built yet (Phase 2+):** nothing filters by scope, and there is no switcher. `inScope()`
+    exists and is unused; `isScoped()` is false everywhere until the switcher lands.
 - **Next:** the editions build is now feature-complete (Lite cap, Pro + license gate, Demo,
   front doors, tour). Remaining before launch is deploy-time config, not code: buy the domain,
   wire the three publish repos + `EDITIONS_DEPLOY_PAT` (see `build/README.md`), swap the Lemon

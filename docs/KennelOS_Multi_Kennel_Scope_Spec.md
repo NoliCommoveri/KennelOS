@@ -1,18 +1,18 @@
 # KennelOS — Multi-Kennel Scope Spec
 
-> **Status: design, not yet built.** This is the authoritative target for making
+> **Status: Phase 1 built (§15); Phases 2-3 are still design.** This is the
+> authoritative target for making
 > Kennel a true top-level view — a scope every list, hub, and report is segmented
 > by — rather than the reference lookup it is today. Read alongside
 > `docs/End_State_Design_and_Maintenance_Guide.md` (the map of the `shared/` code
 > this changes) and `docs/KennelOS_Lite_Pro_Editions_Plan.md` (the edition rules
 > §12 depends on).
 >
-> **Timing matters.** Per CLAUDE.md the Dexie schema is still one collapsed
-> `db.version(1)` block, editable in place **only because nothing has shipped**.
-> `docs/LAUNCH_CHECKLIST.md` puts the repo at code freeze. The schema half of this
-> spec (§4) is cheap now — a Reset App + re-seed — and expensive after the first
-> release, when it becomes an additive `version(2)` block plus a backfill over
-> live user data. If this feature is happening, §4 lands before launch.
+> **Timing.** The schema half (§4) is **done**, deliberately before launch: the
+> `db.version(1)` block is editable in place only because nothing has shipped, so
+> the six index adds cost a Reset App + re-seed today and would have cost an
+> additive `version(2)` block plus a backfill over live user data after the first
+> release.
 
 ---
 
@@ -179,6 +179,9 @@ needed to prevent a dead-end — a kennel always exists. It stays worth having i
 required for correctness, and **Lite doesn't need it at all** (single kennel,
 field hidden and auto-stamped — §12).
 
+**Not built in Phase 1** for that reason. The dog form's kennel field is a required
+picker over own kennels only; adding a second kennel goes through the Kennels page.
+
 ## 4. Data model
 
 ### 4.1 Schema (`shared/data/db.js`)
@@ -280,7 +283,7 @@ the sole own kennel.**
 |---|---|
 | Dog form (`dog.js`) | Required picker; defaults to active kennel. Generalizes today's `soleOwnKennelId()` (`dog.js:169`). |
 | `puppyForm.js` | Inherits from the **litter**, not the dam — the litter is the thing that belongs to a kennel. (Note: `breeder_kennel_id` inheritance at `puppyForm.js:30` is a *different* field and stays as-is.) |
-| Pairing / Litter | Active kennel; picker when >1 own kennel. |
+| Pairing / Litter | Dam's kennel, then sire's, then the active/sole kennel. (Built wider than this table originally specified: inheriting from an owned parent is strictly better than defaulting, and it removes the need for a picker in the common case. A foster-in litter out of an external dam inherits nothing from her and lands on the active kennel, which is correct — we are the ones raising it.) |
 | Sale (`sale.js`) | Inherits from the dog being placed. |
 | Stud service | Inherits from **our** dog (`our_dog_id`), never the partner's. |
 | Contract | Inherits from its linked sale / stud service / dog. |
@@ -427,7 +430,7 @@ Same-change work per CLAUDE.md, not follow-up:
 
 ## 15. Phasing
 
-**Phase 1 — schema + writes + the setup gate (pre-launch).** §3.2, §4, §5, §6.
+**Phase 1 — schema + writes + the setup gate (pre-launch). ✅ BUILT.** §3.2, §4, §5, §6.
 Records start carrying a kennel; nothing filters yet. Two visible changes: the
 required kennel field on the dog form, and first-run setup no longer offering
 "Skip for now". This is the piece that gets expensive after release — it should
@@ -437,11 +440,11 @@ land before the first deploy regardless of when Phases 2-3 happen.
 required `kennel_id` safe: shipping the required field without the gate is the
 dead-end described in §3.1(b).
 
-**Phase 2 — the scope.** §7, §8, §9. The switcher and the kennel hub go live.
+**Phase 2 — the scope (not started).** §7, §8, §9. The switcher and the kennel hub go live.
 This is the long pole: it touches most of the ~11k lines of page code, and every
 non-listView page is hand work.
 
-**Phase 3 — the trailing assumptions.** §10, §11, §12, §13. Identity, import,
+**Phase 3 — the trailing assumptions (not started, except §12's flag).** §10, §11, §12, §13. Identity, import,
 editions, seed.
 
 Rough sizing: Phase 1 is small and mechanical. Phase 2 is the bulk. §10 and the
@@ -453,10 +456,19 @@ silently hidden record is far worse than a missing filter.
 Per CLAUDE.md there is no build or linter, so verification is:
 
 - `node --check` on every touched `.js`.
-- `node --test` green — `tests/referenceRegistry.test.js` and
-  `tests/serviceWorker.test.js` both directly cover things this spec changes, and
-  `kennelScope.js` should ship with its own pure unit test (it is db-free by
-  design, like `rosterCount.js`).
+- `node --test` green. `kennelScope.js` turned out **not** to be unit-testable in
+  Node the way `rosterCount.js` is — it reaches `kennelRepo` (Dexie) and
+  `settings` (localStorage), neither of which exists there — so Phase 1 covers it
+  with two source-level guards plus browser runs instead:
+  - `tests/referenceRegistry.test.js` parses `db.js`'s schema block and fails if any
+    declared `*kennel_id` index has no `KENNEL_REFERENCES` entry (the "forgot the
+    registry line" failure CLAUDE.md warns about);
+  - `tests/editionConfig.test.js` asserts every edition's config declares every flag
+    the shared default does. This exists because `multiKennel` first shipped present
+    in `shared/` and missing from `pro/` and `demo/`, which silently rendered Pro
+    with no kennel picker at all — an absent flag reads as `undefined`, i.e. off.
+  - If the pure predicates ever need real unit tests, split them into a db-free
+    module the way `rosterCount.js` already is.
 - The precache sanity check from the guide's invariants section.
 - Served locally (never `file://`) and exercised in a browser **per edition** —
   Pro with two own kennels, Lite with one — with no console errors.

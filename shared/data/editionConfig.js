@@ -90,6 +90,13 @@ export const editionFlags = {
   externalOwnership: true, // external / leased dog ownership types
   assistant: true,         // Dropbox sync + KennelAssistant helper (§26)
   feedingSchedule: true,   // Per-breed feeding schedules + a litter's override field
+  // Multi-kennel scope (Multi-Kennel Scope Spec §12) — more than one own kennel,
+  // with an active-kennel switcher that segments every list/hub/report. Pro-only:
+  // Lite is single-kennel, so kennelScope.isScoped() is permanently false there and
+  // its reads behave exactly as they did before scope existed. The MANDATORY
+  // first-run kennel setup is NOT gated on this — both editions need a kennel to
+  // stamp dogs into.
+  multiKennel: true,
 };
 
 // --- Navigation ------------------------------------------------------------
