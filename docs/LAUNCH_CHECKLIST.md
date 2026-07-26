@@ -31,6 +31,15 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
   - **Tune `yearlyVariantPattern` / `lifetimeVariantPattern`** to your actual Lemon Squeezy
     variant names — the offline grace window (yearly 7d / monthly 3d / lifetime = perpetual)
     depends on these matching.
+- [ ] **`[!]` Swap the marketing-site placeholders** — `site/` (full list in
+  `site/README.md`). These are **not** covered by the `--release` guard (it only scans
+  edition configs), so nothing will stop a deploy shipping them:
+  - The six Lemon Squeezy checkout links (`site/pro.html`, `site/upgrade/index.html`) —
+    currently all `https://kennelos.lemonsqueezy.com/checkout`; use the real per-variant URLs.
+  - `hello@kennelos.app` → the real support address (`about.html`, `faq.html`, `upgrade/index.html`).
+  - The placeholder "Who we are" story in `site/about.html`.
+  - Drop the "Furever is in active development" line in `site/furever.html` once that origin is live.
+  - Re-check the prices/tiers on `site/pro.html` against the live Lemon Squeezy variants.
 - [ ] **Bump `CACHE_NAME`** in `shared/sw.js` once per shippable batch (clients only pick up
   changed files when it rolls over). The assembler carries the number into every edition.
 - [ ] `node --test` → green.
@@ -43,8 +52,10 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
 
 ## 2. External services
 
-- [ ] **Domain** — own `kennelos.app`; DNS `CNAME` records for `lite.` / `pro.` / `demo.`
-  pointing at the three GitHub Pages sites.
+- [ ] **Domain** — own `kennelos.app`; DNS `CNAME` records for `lite.` / `pro.` / `demo.` /
+  `furever.` pointing at their GitHub Pages sites, plus the **apex** `kennelos.app` for the
+  marketing site — an apex needs GitHub's `A`/`AAAA` records (a `CNAME` isn't legal at the
+  apex), optionally with `www.` as a `CNAME` alongside.
 - [ ] **Lemon Squeezy** — store live; product with monthly/yearly (and lifetime, if sold)
   variants **named to match the regex patterns** in Pro's config; **License Keys enabled**
   on the product; checkout's **post-purchase redirect → `https://pro.kennelos.app/`** so an
@@ -56,11 +67,13 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
 
 ## 3. Deploy infrastructure (per `build/README.md`)
 
-- [ ] Four publish repos exist: `NoliCommoveri/kennelos-{lite,pro,demo}` **and**
-  `NoliCommoveri/KennelOS-Furever` (build output only — never hand-edited; each is
-  overwritten on every deploy).
+- [ ] Five publish repos exist: `NoliCommoveri/kennelos-{lite,pro,demo}`,
+  `NoliCommoveri/KennelOS-Furever` **and** `NoliCommoveri/kennelos-site` (the marketing
+  website at the apex domain) — build output only, never hand-edited; each is
+  overwritten on every deploy. **`[!]` `kennelos-site` is new with the `site/` build:
+  create it, or its `deploy.yml` leg fails on push (the others still publish).**
 - [ ] **`EDITIONS_DEPLOY_PAT`** secret set in `nolicommoveri/kennelos` — a fine-grained PAT
-  with `Contents: Read/Write` scoped to all four repos above. **`[!]` Historically missing
+  with `Contents: Read/Write` scoped to all five repos above. **`[!]` Historically missing
   write access to `KennelOS-Furever`** — its deploy job 403'd on push (`furever/README.md`).
   The furever matrix leg is present and enabled in `deploy.yml`, so it publishes
   automatically once the PAT has write access to `KennelOS-Furever`; until then that one
@@ -83,6 +96,11 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
   blocked with the friendly notice; `import-export.html` 404s.
 - [ ] Each edition installs as a PWA with the correct name/icon/title; each origin has its own
   isolated IndexedDB.
+- [ ] **Marketing site** (`kennelos.app`) — every page loads; the nav works on mobile; each
+  "Get the app" button reaches the right origin; **every checkout link reaches the real Lemon
+  Squeezy checkout**; `kennelos.app/upgrade` resolves (it's the target of Lite's Upgrade
+  button); a bad URL shows the styled 404; and it does **not** offer to install as an app
+  (no manifest/service worker — that's on purpose).
 
 ## 5. Recurring (every subsequent release)
 

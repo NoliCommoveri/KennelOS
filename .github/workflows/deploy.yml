@@ -35,6 +35,15 @@ jobs:
           - edition: furever
             repo: NoliCommoveri/KennelOS-Furever
             domain: furever.kennelos.app
+          # The marketing website at the apex domain — a plain static site (not an
+          # app, not a PWA); assemble.mjs copies site/ verbatim. Same prerequisites
+          # as the furever leg: the publish repo must exist, EDITIONS_DEPLOY_PAT must
+          # have Contents:Read/Write on it, and Pages + DNS must point kennelos.app
+          # at it. Until then this leg fails alone (fail-fast: false). See
+          # LAUNCH_CHECKLIST §3.
+          - edition: site
+            repo: NoliCommoveri/kennelos-site
+            domain: kennelos.app
     steps:
       - name: Checkout source
         uses: actions/checkout@v4

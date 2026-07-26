@@ -10,6 +10,11 @@ shared/   The database, repos, vocab, shared pages (Dogs, Breeding, Sales,
 lite/     Lite (free): shared pages only + a soft cap + archive-on-departure.
 pro/      Pro (paid): the full app; holds the Pro-only pages + license gate.
 demo/     Pro with demo mode on: seeded, read-only showcase.
+site/     The public marketing WEBSITE at the apex domain (kennelos.app) — who we
+          are, the editions comparison, a page per edition, Furever, FAQ, and the
+          Lite→Pro upgrade landing page. Plain HTML/CSS, deliberately NOT a PWA
+          (no manifest, no service worker); every "Get the app" button links out
+          to an edition's own origin. See site/README.md.
 furever/  KennelOS Furever — a SEPARATE family-facing pet-care app (its own origin
           + IndexedDB, not an edition of the breeder core). Data layer + first UI
           slice: app shell (nav + active-pet picker) and the Today / Pets / My Pet
@@ -132,6 +137,16 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   - **One flag, Pro-only** — `editionFlags.licenseGate` is true only in `pro/editionConfig.js`;
     Lite is free and Demo is a public showcase, so the gate is inert there (verified: Lite/Demo
     render with no wall). The Lemon Squeezy checkout URL lives in Pro's `licenseConfig`.
+- **Marketing site — built (`site/`).** The public website that advertises the product
+  and sends visitors to the right edition: home, editions comparison, a page each for
+  Lite / Pro / Demo / Furever, About, FAQ, and `/upgrade` (the landing page Lite's
+  "Upgrade to Pro →" button already points at). It borrows the app's design tokens but
+  is a **plain website, not a PWA** — no manifest, no service worker, so it never
+  competes with the apps' install prompt and is exempt from the `PRECACHE_URLS` /
+  `CACHE_NAME` rules. `node build/assemble.mjs site` copies it to `dist/site/`; the
+  deploy workflow publishes it to `NoliCommoveri/kennelos-site` at `kennelos.app`.
+  Content placeholders still to fill (checkout URLs, support email, the "who we are"
+  story) are listed in `site/README.md`.
 - **Multi-kennel scope, Phase 1 — done & browser-verified (headless Chromium, all three
   editions, no console errors).** Kennel becomes a real scope rather than a lookup. Design +
   the remaining phases: `docs/KennelOS_Multi_Kennel_Scope_Spec.md`.
