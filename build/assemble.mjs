@@ -39,9 +39,14 @@ const STATIC_SITES = ['site'];
 // an edition whose overlaid editionConfig still contains one. A plain dev build
 // only warns, so building editions to test locally still works while these are
 // unset. Trim an entry once its real value lands (and it no longer matches).
+//
+// NOTE the match is a substring test, so an entry must never be a PREFIX of the
+// real value that replaces it. Pro's checkout was exactly that trap: the old
+// placeholder `https://kennelos.lemonsqueezy.com/checkout` is a prefix of the real
+// per-variant URL `…/checkout/buy/<variant-uuid>`, so leaving it listed would have
+// kept failing every --release build against a URL that is now correct.
 const LAUNCH_PLACEHOLDERS = [
-  'https://kennelos.app/upgrade',               // lite/editionConfig.js  upgradeUrl
-  'https://kennelos.lemonsqueezy.com/checkout', // pro/editionConfig.js   licenseConfig.checkoutUrl
+  'https://kennelos.app/upgrade', // lite/editionConfig.js  upgradeUrl
 ];
 
 // Scan an assembled edition's editionConfig for any unresolved placeholder.

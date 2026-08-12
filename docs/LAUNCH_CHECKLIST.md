@@ -11,22 +11,36 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
 
 ## 1. Code freeze (in `nolicommoveri/kennelos`, before merging to `main`)
 
-- [ ] **`[!]` Restore `licenseGate: true` in `pro/editionConfig.js`** — currently
-  `false` so `pro.kennelos.app` is browsable for live testing ahead of a real
-  Lemon Squeezy store/license. While it's off, **Pro ships fully unlocked to any
-  visitor** — no activation wall at all. Flip back to `true` (and re-run/redeploy)
-  once the store swaps below are done, before any real user traffic.
+- [x] **`licenseGate: true` is restored in `pro/editionConfig.js`** — it was
+  temporarily `false` so `pro.kennelos.app` stayed browsable for live testing;
+  that window is closed and Pro gates on a key again. **Consequence to finish
+  before/with the next Pro deploy:** the wall is the only way in, so Pro is
+  unusable until the Lemon Squeezy store below is live with **License Keys
+  enabled** and `licenseConfig.checkoutUrl` points at the real checkout —
+  otherwise a visitor gets an activation wall with no key to enter and a dead
+  buy link. Live testing of Pro from here on needs a real key (activate, then
+  Import/Export → *This device's license* → Release when done).
 - [ ] **`[!]` Restore `--release` in `.github/workflows/deploy.yml`** — currently
   removed from the `Build ${{ matrix.edition }}` step so lite/pro/demo can deploy
   for live testing ahead of the real launch URLs (this bullet). While it's off, the
   launch guard only **warns** instead of failing, so a deploy can ship a dead
   Upgrade/checkout link. Put it back the moment the swaps below land, before real
-  user traffic.
+  user traffic. **Now that Pro's gate is back on, a placeholder `checkoutUrl` is
+  no longer just a dead link on a browsable app — it's a dead link on the wall
+  that stands between a visitor and the whole app.**
 - [ ] **`[!]` Swap Lite placeholders** — `lite/editionConfig.js`:
   - `upgradeUrl` (`https://kennelos.app/upgrade`) → the real Lemon Squeezy checkout URL.
   - `demoUrl` (`https://demo.kennelos.app/`) → confirm it's the final Demo origin.
 - [ ] **`[!]` Confirm Pro license config** — `pro/editionConfig.js` `licenseConfig`:
-  - `checkoutUrl` (`https://kennelos.lemonsqueezy.com/checkout`) → the real store checkout.
+  - [x] `checkoutUrl` → **set to the real store checkout**
+    (`…lemonsqueezy.com/checkout/buy/7f92ce7d-…`), and its entry is trimmed from
+    `LAUNCH_PLACEHOLDERS` in `build/assemble.mjs`. That trim was mandatory, not
+    tidying: the guard matches by substring and the old placeholder is a **prefix**
+    of this URL, so leaving it listed would fail every `--release` build forever.
+    **Still to confirm:** this is one *per-variant* buy link, so the wall's buy
+    button lands on that single variant — if Pro sells monthly/yearly/lifetime,
+    decide whether the wall should point at a store/product page offering all of
+    them instead.
   - `portalUrl` (currently `null`) → set if you offer "Manage subscription", else leave null.
   - **Tune `yearlyVariantPattern` / `lifetimeVariantPattern`** to your actual Lemon Squeezy
     variant names — the offline grace window (yearly 7d / monthly 3d / lifetime = perpetual)
