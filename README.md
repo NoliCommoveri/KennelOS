@@ -290,13 +290,16 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   front doors, tour). Remaining before launch is deploy-time config, not code: buy the domain,
   wire the three publish repos + `EDITIONS_DEPLOY_PAT` (see `build/README.md`), and confirm the
   Demo-origin `demoUrl` in `lite/editionConfig.js`.
-  Pro's `licenseConfig.checkoutUrl` is **set to the real store checkout**; Lite's `upgradeUrl`
-  **stays** `https://kennelos.app/upgrade` (the built landing page — a final value, since it can
-  offer all three tiers where one per-variant link cannot). Both entries are therefore trimmed
-  from `LAUNCH_PLACEHOLDERS`, and **`--release` is restored in `deploy.yml`** (all five matrix
-  legs verified passing). Still open: `yearlyVariantPattern` / `lifetimeVariantPattern` need
-  tuning to the store's real variant names, and **`site/`'s six per-tier checkout links are
-  still placeholders** — unguarded by `--release`, and now the whole Lite→Pro funnel.
+  The store URLs are all real now: `site/`'s **six per-tier checkout links** carry their own
+  Lemon Squeezy variant (Monthly / Yearly / Lifetime, on both `pro.html` and `upgrade/`), Lite's
+  `upgradeUrl` **stays** `https://kennelos.app/upgrade`, and Pro's `licenseConfig.checkoutUrl`
+  points at `https://kennelos.app/pro.html#pricing` — the all-tiers section rather than one
+  variant, because that single slot feeds both "Buy Pro →" and "Renew Pro →" and a direct
+  variant link is right for at most one of them. `LAUNCH_PLACEHOLDERS` is therefore empty and
+  **`--release` is restored in `deploy.yml`** (all five matrix legs verified passing). Still
+  open: confirm `yearlyVariantPattern` / `lifetimeVariantPattern` against the store's real
+  variant names (a miss silently gives a yearly key the 3-day monthly grace window), and note
+  the six site links are **not** guarded by `--release` — click them after a deploy.
 - **Pro's pay gate is ON** (`editionFlags.licenseGate: true`), restored after the temporary
   live-testing window in which Pro shipped fully unlocked to any visitor. Lite and Demo declare
   no `licenseGate` at all and carry a null `licenseConfig` — they are structurally ungatable,

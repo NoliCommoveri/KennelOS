@@ -66,16 +66,17 @@ Marked inline with `<!-- LAUNCH PLACEHOLDER -->`. Note the assembler's `--releas
 guard only scans edition configs, so **nothing here fails a release build** — these are
 on you:
 
-- **Lemon Squeezy checkout URLs** — `pro.html` (3 tiers) and `upgrade/index.html`
-  (3 tiers) all point at `https://kennelos.lemonsqueezy.com/checkout`. Swap each for
-  its real per-variant checkout link. **Each tier needs its own** — Monthly, Yearly
-  and Lifetime are separate variants, so reusing one URL across them would charge
-  buyers for the wrong product. This is now the **highest-priority** item on this
-  list: Lite's in-app "Upgrade to Pro →" points at `/upgrade`, so these six links are
-  the entire Lite→Pro funnel, and Pro's activation wall is live, so people arriving to
-  buy have nowhere else to go. (One real variant URL is known — `…/checkout/buy/7f92ce7d-…`,
-  the one Pro's wall uses — but which tier it is has not been confirmed, so it was
-  deliberately not seeded into any of the three tier buttons.)
+- ~~**Lemon Squeezy checkout URLs**~~ — **done.** `pro.html` and `upgrade/index.html`
+  now carry the real per-variant links, one per tier (Monthly / Yearly / Lifetime are
+  separate variants, so each button gets its own URL — reusing one across tiers would
+  charge buyers for the wrong product).
+
+  These six links carry more weight than the rest of this page: Lite's in-app "Upgrade
+  to Pro →" points at `/upgrade`, and Pro's activation and renewal walls both point at
+  `pro.html#pricing`, so this is where **every** paying customer is sent. Nothing in the
+  build guards them — `--release` only scans edition configs — so click all six on the
+  live site after a deploy, and re-check them whenever a store variant is recreated (a
+  new variant means a new UUID, and the old link 404s).
 - **`hello@kennelos.app`** — `about.html`, `faq.html`, `upgrade/index.html`. Use the
   real support address.
 - **The "Who we are" section** in `about.html` — a generic placeholder story, flagged
