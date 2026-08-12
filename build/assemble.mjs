@@ -33,16 +33,27 @@ const STANDALONE_APPS = ['furever'];
 const STATIC_SITES = ['site'];
 
 // --- Launch placeholder guard ---------------------------------------------
-// Values in the edition configs that are stand-ins until launch: Lite's upgrade
-// CTA and Pro's checkout URL. Shipping one means a live store with a dead
-// "buy/upgrade" link, so a RELEASE build (CI / `--release`) refuses to assemble
-// an edition whose overlaid editionConfig still contains one. A plain dev build
-// only warns, so building editions to test locally still works while these are
-// unset. Trim an entry once its real value lands (and it no longer matches).
-const LAUNCH_PLACEHOLDERS = [
-  'https://kennelos.app/upgrade',               // lite/editionConfig.js  upgradeUrl
-  'https://kennelos.lemonsqueezy.com/checkout', // pro/editionConfig.js   licenseConfig.checkoutUrl
-];
+// Values in the edition configs that are stand-ins until launch. Shipping one means
+// a live store with a dead "buy/upgrade" link, so a RELEASE build (CI / `--release`)
+// refuses to assemble an edition whose overlaid editionConfig still contains one. A
+// plain dev build only warns, so building editions to test locally still works while
+// these are unset. Trim an entry once its real value lands.
+//
+// Empty by design as of the pay-gate restore: both original entries are resolved.
+// Pro's checkoutUrl is the real per-variant buy URL, and Lite's upgradeUrl keeps
+// `https://kennelos.app/upgrade` as its FINAL value — that landing page is built and
+// shipped from site/, so it is a real destination, not a stand-in. Keep the list and
+// the guard: this is where a future pre-launch stand-in gets registered.
+//
+// NOTE the match is a substring test, so an entry must never be a PREFIX of the real
+// value that replaces it. Pro's checkout was exactly that trap: the old placeholder
+// `https://kennelos.lemonsqueezy.com/checkout` is a prefix of the real per-variant URL
+// `…/checkout/buy/<variant-uuid>`, so leaving it listed would have kept failing every
+// --release build against a URL that is now correct.
+//
+// This guard only ever scans editionConfig — it does NOT cover site/, where the
+// per-tier checkout links live (LAUNCH_CHECKLIST §1).
+const LAUNCH_PLACEHOLDERS = [];
 
 // Scan an assembled edition's editionConfig for any unresolved placeholder.
 // In release mode a hit throws (fails the build/deploy); otherwise it warns.

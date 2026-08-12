@@ -54,13 +54,13 @@ jobs:
           node-version: 20
 
       - name: Build ${{ matrix.edition }}
-        # TEMPORARY: --release removed so lite/pro/demo can deploy for live testing
-        # before the real launch URLs are in hand (docs/LAUNCH_CHECKLIST.md §1 is
-        # still open — lite's upgradeUrl / pro's licenseConfig.checkoutUrl are still
-        # placeholders). A plain build only WARNS on those, it doesn't fail, so this
-        # ships a dead Upgrade/checkout link for now. Put --release back the moment
-        # the checklist's §1 swaps land, before any real user traffic.
-        run: node build/assemble.mjs ${{ matrix.edition }}
+        # --release makes the launch-placeholder guard FAIL the build instead of just
+        # warning, so a deploy can never ship an edition whose editionConfig still
+        # carries a stand-in buy/upgrade URL. Restored alongside Pro's pay gate: with
+        # the gate on, that guard protects the only way into the app, so a dead
+        # checkout link is no longer a cosmetic problem. Note it scans editionConfig
+        # ONLY — site/'s per-tier checkout links are not covered (LAUNCH_CHECKLIST §1).
+        run: node build/assemble.mjs ${{ matrix.edition }} --release
 
       - name: Add CNAME
         run: echo "${{ matrix.domain }}" > dist/${{ matrix.edition }}/CNAME
