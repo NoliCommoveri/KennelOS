@@ -20,16 +20,19 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
   otherwise a visitor gets an activation wall with no key to enter and a dead
   buy link. Live testing of Pro from here on needs a real key (activate, then
   Import/Export → *This device's license* → Release when done).
-- [ ] **`[!]` Restore `--release` in `.github/workflows/deploy.yml`** — currently
-  removed from the `Build ${{ matrix.edition }}` step so lite/pro/demo can deploy
-  for live testing ahead of the real launch URLs (this bullet). While it's off, the
-  launch guard only **warns** instead of failing, so a deploy can ship a dead
-  Upgrade/checkout link. Put it back the moment the swaps below land, before real
-  user traffic. **Now that Pro's gate is back on, a placeholder `checkoutUrl` is
-  no longer just a dead link on a browsable app — it's a dead link on the wall
-  that stands between a visitor and the whole app.**
+- [x] **`--release` is restored in `.github/workflows/deploy.yml`** — the guard fails
+  a deploy again instead of only warning. Restored alongside the pay gate, because a
+  placeholder `checkoutUrl` is no longer a dead link on a browsable app — it would be
+  a dead link on the wall standing between a visitor and the whole app. All five
+  matrix legs (lite/pro/demo/furever/site) were verified to pass `--release` locally.
+  **It scans `editionConfig` only** — the `site/` links below are NOT covered.
 - [ ] **`[!]` Swap Lite placeholders** — `lite/editionConfig.js`:
-  - `upgradeUrl` (`https://kennelos.app/upgrade`) → the real Lemon Squeezy checkout URL.
+  - [x] `upgradeUrl` — **decided: it stays `https://kennelos.app/upgrade`**, the built
+    marketing landing page, rather than pointing straight at a Lemon Squeezy variant.
+    That page explains the export/import bridge and offers all three tiers, which a
+    single per-variant checkout link cannot. It is therefore a final value, not a
+    placeholder, and its entry is trimmed from `LAUNCH_PLACEHOLDERS`. **This makes the
+    `site/` checkout links below load-bearing for Lite's whole upgrade funnel.**
   - `demoUrl` (`https://demo.kennelos.app/`) → confirm it's the final Demo origin.
 - [ ] **`[!]` Confirm Pro license config** — `pro/editionConfig.js` `licenseConfig`:
   - [x] `checkoutUrl` → **set to the real store checkout**
@@ -48,8 +51,16 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
 - [ ] **`[!]` Swap the marketing-site placeholders** — `site/` (full list in
   `site/README.md`). These are **not** covered by the `--release` guard (it only scans
   edition configs), so nothing will stop a deploy shipping them:
-  - The six Lemon Squeezy checkout links (`site/pro.html`, `site/upgrade/index.html`) —
-    currently all `https://kennelos.lemonsqueezy.com/checkout`; use the real per-variant URLs.
+  - **`[!]` The six Lemon Squeezy checkout links** (`site/pro.html`,
+    `site/upgrade/index.html`) — still all `https://kennelos.lemonsqueezy.com/checkout`.
+    They are **three distinct tiers** (Monthly $2.99 / Yearly $22.99 w/ 7-day trial /
+    Lifetime $69.99) on two pages, so each needs its **own** variant buy URL — one URL
+    reused across all three would charge buyers for the wrong product. Only one real
+    variant URL is known so far (`…/checkout/buy/7f92ce7d-…`, used by Pro's activation
+    wall); which tier it belongs to is unconfirmed, so nothing was seeded here rather
+    than guess. **Now the highest-priority site item:** Lite's `upgradeUrl` points at
+    `/upgrade`, so these links are the entire Lite→Pro funnel, and `--release` does not
+    guard them.
   - `hello@kennelos.app` → the real support address (`about.html`, `faq.html`, `upgrade/index.html`).
   - The placeholder "Who we are" story in `site/about.html`.
   - Drop the "Furever is in active development" line in `site/furever.html` once that origin is live.

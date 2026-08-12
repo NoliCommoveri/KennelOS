@@ -68,7 +68,14 @@ on you:
 
 - **Lemon Squeezy checkout URLs** — `pro.html` (3 tiers) and `upgrade/index.html`
   (3 tiers) all point at `https://kennelos.lemonsqueezy.com/checkout`. Swap each for
-  its real per-variant checkout link.
+  its real per-variant checkout link. **Each tier needs its own** — Monthly, Yearly
+  and Lifetime are separate variants, so reusing one URL across them would charge
+  buyers for the wrong product. This is now the **highest-priority** item on this
+  list: Lite's in-app "Upgrade to Pro →" points at `/upgrade`, so these six links are
+  the entire Lite→Pro funnel, and Pro's activation wall is live, so people arriving to
+  buy have nowhere else to go. (One real variant URL is known — `…/checkout/buy/7f92ce7d-…`,
+  the one Pro's wall uses — but which tier it is has not been confirmed, so it was
+  deliberately not seeded into any of the three tier buttons.)
 - **`hello@kennelos.app`** — `about.html`, `faq.html`, `upgrade/index.html`. Use the
   real support address.
 - **The "Who we are" section** in `about.html` — a generic placeholder story, flagged

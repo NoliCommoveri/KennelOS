@@ -288,13 +288,15 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     backup or syncs via Dropbox, and the import preview says so when fed your own card.
 - **Next:** the editions build is now feature-complete (Lite cap, Pro + license gate, Demo,
   front doors, tour). Remaining before launch is deploy-time config, not code: buy the domain,
-  wire the three publish repos + `EDITIONS_DEPLOY_PAT` (see `build/README.md`), and swap the Lemon
-  Squeezy `upgradeUrl` / Demo-origin `demoUrl` placeholders in `lite/editionConfig.js`.
-  Pro's `licenseConfig.checkoutUrl` is **set to the real store checkout** and its guard entry is
-  trimmed from `LAUNCH_PLACEHOLDERS`, so a `--release` build of Pro now passes; an all-editions
-  `--release` still fails on Lite's `upgradeUrl` alone (the guard working as designed), which is
-  what blocks restoring `--release` in `deploy.yml`. `yearlyVariantPattern` /
-  `lifetimeVariantPattern` still need tuning to the store's real variant names.
+  wire the three publish repos + `EDITIONS_DEPLOY_PAT` (see `build/README.md`), and confirm the
+  Demo-origin `demoUrl` in `lite/editionConfig.js`.
+  Pro's `licenseConfig.checkoutUrl` is **set to the real store checkout**; Lite's `upgradeUrl`
+  **stays** `https://kennelos.app/upgrade` (the built landing page — a final value, since it can
+  offer all three tiers where one per-variant link cannot). Both entries are therefore trimmed
+  from `LAUNCH_PLACEHOLDERS`, and **`--release` is restored in `deploy.yml`** (all five matrix
+  legs verified passing). Still open: `yearlyVariantPattern` / `lifetimeVariantPattern` need
+  tuning to the store's real variant names, and **`site/`'s six per-tier checkout links are
+  still placeholders** — unguarded by `--release`, and now the whole Lite→Pro funnel.
 - **Pro's pay gate is ON** (`editionFlags.licenseGate: true`), restored after the temporary
   live-testing window in which Pro shipped fully unlocked to any visitor. Lite and Demo declare
   no `licenseGate` at all and carry a null `licenseConfig` — they are structurally ungatable,
