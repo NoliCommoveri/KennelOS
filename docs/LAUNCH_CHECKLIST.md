@@ -63,7 +63,7 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
     `…/buy/7f92ce7d-…?enabled=1945407%2C1945410`. These six are the entire Lite→Pro
     funnel (Lite's `upgradeUrl` → `/upgrade`) *and* the destination of Pro's own walls,
     and `--release` does **not** guard them — verify all six by hand after deploy (§4).
-  - `hello@kennelos.app` → the real support address (`about.html`, `faq.html`, `upgrade/index.html`).
+  - [x] `admin.kennelos@gmail.com` → the real support address (`about.html`, `faq.html`, `upgrade/index.html`).
   - The placeholder "Who we are" story in `site/about.html`.
   - Drop the "Furever is in active development" line in `site/furever.html` once that origin is live.
   - Re-check the prices/tiers on `site/pro.html` against the live Lemon Squeezy variants.
