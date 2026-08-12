@@ -77,7 +77,7 @@ on you:
   build guards them — `--release` only scans edition configs — so click all six on the
   live site after a deploy, and re-check them whenever a store variant is recreated (a
   new variant means a new UUID, and the old link 404s).
-- **`hello@kennelos.app`** — `about.html`, `faq.html`, `upgrade/index.html`. Use the
+- **`admin.kennelos@gmail.com`** — `about.html`, `faq.html`, `upgrade/index.html`. Use the
   real support address.
 - **The "Who we are" section** in `about.html` — a generic placeholder story, flagged
   with an HTML comment. Write the real one; it's the page people read before trusting
