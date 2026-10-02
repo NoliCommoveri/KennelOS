@@ -629,6 +629,42 @@ test('event: missing a required field for a new event is flagged by name', () =>
   assert.ok(reasonsInclude(r.reasons, 'Missing required field(s) for a new event: title'));
 });
 
+// --- show double-headers (Show Tracking Spec §8) ---------------------------
+// For `show` rows the title always takes part in the match, even with a single
+// candidate, so "… Show 2" never silently overwrites "… Show 1".
+const showOnFile = { id: 's1', subject_type: 'dog', subject_id: 'puppy-1', event_type: 'show', event_date: '2024-03-02', title: 'Greater Example KC — Show 1' };
+const showRow = (over = {}) => validEventRow({ event_type: 'show', event_date: '2024-03-02', title: 'Greater Example KC — Show 1', ...over });
+
+test('event: a single same-day show with a DIFFERENT title goes to review, never a silent update', () => {
+  const index = eventIndex({ events: [showOnFile], dogs: [puppy] });
+  const r = eventMapping.classify(showRow({ title: 'Greater Example KC — Show 2' }), index, 0);
+  assert.equal(r.status, 'review');
+  assert.equal(r.match.id, 's1');
+  assert.ok(reasonsInclude(r.reasons, 'different title'));
+});
+
+test('event: a single same-day show with the SAME title (case/whitespace-insensitive) is an update', () => {
+  const index = eventIndex({ events: [showOnFile], dogs: [puppy] });
+  const r = eventMapping.classify(showRow({ title: '  greater example kc — show 1 ' }), index, 0);
+  assert.equal(r.status, 'update');
+  assert.equal(r.match.id, 's1');
+});
+
+test('event: a show with no candidates on its key is still a create', () => {
+  const index = eventIndex({ dogs: [puppy] });
+  const r = eventMapping.classify(showRow(), index, 0);
+  assert.equal(r.status, 'create');
+  assert.equal(r.record.event_type, 'show');
+});
+
+test('event: a NON-show type with a single candidate and a different title is still an update (unchanged)', () => {
+  const existing = { id: 'e1', subject_type: 'dog', subject_id: 'puppy-1', event_type: 'vaccination', event_date: '2024-01-15', title: 'Rabies' };
+  const index = eventIndex({ events: [existing], dogs: [puppy] });
+  const r = eventMapping.classify(validEventRow({ title: 'Something else' }), index, 0);
+  assert.equal(r.status, 'update');
+  assert.equal(r.match.id, 'e1');
+});
+
 // =========================================================================
 // StudService mapping
 // =========================================================================
