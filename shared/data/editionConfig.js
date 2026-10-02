@@ -90,6 +90,7 @@ export const editionFlags = {
   externalOwnership: true, // external / leased dog ownership types
   assistant: true,         // Dropbox sync + KennelAssistant helper (§26)
   feedingSchedule: true,   // Per-breed feeding schedules + a litter's override field
+  shows: true,             // Show tracking: the `show` event type, Shows page, points card (Show Tracking Spec §7)
   // Multi-kennel scope (Multi-Kennel Scope Spec §12) — more than one own kennel,
   // with an active-kennel switcher that segments every list/hub/report. Pro-only:
   // Lite is single-kennel, so kennelScope.isScoped() is permanently false there and

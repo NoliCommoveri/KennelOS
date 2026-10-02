@@ -66,6 +66,7 @@ export const editionFlags = {
   externalOwnership: true,
   assistant: true,
   feedingSchedule: true,
+  shows: true,             // Show tracking (Show Tracking Spec §7)
   // Multi-kennel scope — on, since Demo showcases the whole Pro app.
   multiKennel: true,
 };

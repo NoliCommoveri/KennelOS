@@ -457,7 +457,7 @@ the normal remove and never cascades**.
   per entry and returns human-readable `{label, count}` blockers; `hardDelete` throws
   `ReferenceBlockedError` if any exist.
 - `CONTACT_REFERENCES` covers owner/co-owner of a dog, buyer + referrer on a sale,
-  partner + referrer on a stud service, contact on a boarding event, the
+  partner + referrer on a stud service, contact on a boarding, placement, or show event, the
   lease/co_own/foster/other contract counterparty, and the **foster partner on a
   litter** (`litters.foster_partner_contact_id`, §25) — so a contact documented anywhere
   can't be hard-deleted out from under it.
@@ -516,14 +516,47 @@ One polymorphic table for all dated history. `subject_type ∈ {dog, pairing, li
 > event and the event's own subject; clearing the field removes that linked expense. The
 > timeline reads the amount back via `expenseRepo.getByEvent`. See §21.
 - `subjects[]` — which subject types may log it (`eventTypesFor(subjectType)` filters).
+- `editionFlag` (optional) — the type exists only when `editionFlags[editionFlag]` is on.
+  `enabledEventTypes()` = `EVENT_TYPES` minus types whose flag is off, and
+  `eventTypesFor()` filters *that*, so every type picker (event form, CSV import, the
+  assistant, Upcoming's Type filter) drops the type in one place. Flags are read at call
+  time, never cached in a top-level const. `EVENT_TYPES` itself stays complete, so
+  `descriptor()`/badges still resolve such an event arriving in a backup from another
+  edition. (`show` carries `editionFlag: 'shows'` — Pro/Demo only.)
 - `duration` — `'instant'` (single date) or `'span'` (`event_date` start, optional
   `event_end_date` end). Spans: `medication`, `heat_cycle`, `boarding`.
 - `badge` — colour class.
 - `fields[]` — the small type-specific form written into `details{}`. Field types:
   `text`, `textarea`, `number` (optional `step`), `date`, `combobox`
-  (suggest-not-enforce), `select` (enforced, options[] only).
+  (suggest-not-enforce), `select` (enforced, options[] only). Options are plain strings
+  **or** `{ value, label }` vocab objects (the form stores `value`, shows `label`). A
+  field may carry `default`, applied only when *creating* an event whose draft has no
+  value for that key (a prefill wins).
 - `relatedContact: true` — surfaces the top-level `related_contact_id` FK (boarding,
-  placement). Contacts on events are the canonical FK, never a `details` value.
+  placement, show). Contacts on events are the canonical FK, never a `details` value. A
+  **string** value is the picker's label (`show` → "Handler"). `eventForm.js`'s
+  `RELATED_CONTACT_ROLE` tags the saved contact with a role via `contactRepo.ensureType`
+  (`show` → `handler`), whether picked or created inline.
+- `titleFrom` (optional) — a `details` key that auto-fills the title (`show` →
+  `show_name`): while the title is empty, the type label, or the last auto-filled value,
+  typing in that field rewrites it; a hand-edited title is left alone.
+
+`openEventForm`'s `prefill` may also carry `event_date` (seeds a new event's date; today
+is the fallback).
+
+**Show specifics** (`show`, Pro-only — `docs/KennelOS_Show_Tracking_Spec.md`): one
+instant event per dog per show day. `related_contact_id` = handler; `reminder_date` =
+entries close; Cost → a `show` ("Shows & handling") expense. `details{}`: `entry_status`
+(`SHOW_ENTRY_STATUS`, default `planned`), `show_name`, `club`, `organization`
+(`SHOW_ORGANIZATIONS`, default `AKC`), `location`, `ring`, `ring_time` (inert string),
+`judge` (free text, not a Contact FK), `class` (`AKC_SHOW_CLASSES` suggestions),
+`placement` (`AKC_SHOW_AWARDS` suggestions), `points` (number), `points_toward`
+(`TITLE_TRACKS`), `defeated_champion` (Yes/No). Club and judge suggestions are the
+distinct values already logged (`eventForm.js` `LOGGED_VALUE_FIELDS` →
+`eventRepo.getDetailValues(type, key)`). Points/majors/titles are **derived, never
+stored**. Saving raises one soft confirm (never a block) for: points over the track's
+`perShowMax`, points while status ≠ `shown`, results on a future date, points with no
+`points_toward`.
 
 **Placement specifics:** `dropoff_method` (`select`, enforced choice from
 `PLACEMENT_METHODS` — Flight nanny / Ground transport / Local pickup / Other) sits first
@@ -610,7 +643,9 @@ Rules that shape everything:
 
 Per-entity natural keys: Dog = name+DOB; Contact = name; Pairing = sire+dam+planned;
 Litter = dam+sire+whelp; Sale = dog+buyer+sale_date; Event (dog-subject only) =
-dog+type+date (title tiebreak); StudService = our_dog+partner_dog+direction (no date, so
+dog+type+date (title tiebreak — and for `show` rows the title **always** takes part: a
+single same-day candidate with a different title goes to review, never a silent update,
+so a double-header's "Show 2" can't overwrite "Show 1"); StudService = our_dog+partner_dog+direction (no date, so
 any existing match is always routed to review); Expense = subject+expense_date+amount+
 category+vendor (idempotent re-import — the same file updates, never duplicates).
 
@@ -1468,12 +1503,14 @@ Cost amount upserts the linked `Expense` the normal event↔cost way.
 - **Event form → ledger.** The event form's "Cost" (+ "Cost category") field is a convenience
   writer: on save (`assets/eventForm.js`) it upserts an `Expense` carrying `event_id` = the
   saved event and the event's own subject; clearing the Cost hard-deletes that linked expense.
-  Cascade (litter-wide) events create one linked expense per created event. Event stores **no
+  Cascade (litter-wide) events create one linked expense per created event. One expense per
+  event is the **form's** limit, not the data model's — `expenses.event_id` allows several
+  and `expenseRepo.getByEvent` returns them all. Event stores **no
   `cost` field**. The Cost category dropdown pre-selects `defaultExpenseCategoryFor(event_type)`
   (overridable before save). `veterinary` is reserved for genuine clinical vet care
   (`vaccination`, `illness`, `injury`, `surgery`, `vet_visit`, `ultrasound`) — **not** a catch-all;
   diagnostic panels (`genetic_test`/`ofa_pennhip`/`breed_specific_test`/`progesterone_test`) map to
-  `testing`, `boarding`→`boarding`, `acquisition`→`dog_purchase`, and everything else (including
+  `testing`, `boarding`→`boarding`, `show`→`show` ("Shows & handling"), `acquisition`→`dog_purchase`, and everything else (including
   stockable products like `medication`/`preventative` and observation-only events like
   `abnormalities`) falls through to `other`.
 - **Ledger → event (display).** `timeline.js` reads amounts back via `expenseRepo.getByEvent`

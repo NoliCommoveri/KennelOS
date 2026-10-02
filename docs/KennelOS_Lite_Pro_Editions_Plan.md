@@ -83,6 +83,7 @@ without a server, and good enough.
 | Companion app (buyer/partner share-out) | ❌ | ✅ |
 | Assistant app | ❌ | ✅ |
 | Receipts & file storage | ❌ | ✅ |
+| Show tracking (show history, championship points, upcoming shows) | ❌ | ✅ |
 
 The through-line: **Lite = keep good basic records; Pro = run it as a business.** The paid
 value is *features*, not "more of the same."

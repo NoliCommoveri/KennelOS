@@ -286,6 +286,22 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     a duplicate. A name is not a key, so it is never auto-matched.
   - **Not multi-device.** A card carries identity, not records; a second device restores a
     backup or syncs via Dropbox, and the import preview says so when fed your own card.
+- **Show tracking (Pro) — Phase 1 of 4 done (type + gating, no new pages).** Building
+  `docs/KennelOS_Show_Tracking_Spec.md`. No schema change — it rides the `events` table.
+  - **`show` event type** in `vocab.js` plus `SHOW_ENTRY_STATUS`, `SHOW_ORGANIZATIONS`,
+    `TITLE_TRACKS`, `AKC_SHOW_CLASSES`, `AKC_SHOW_AWARDS`; `handler` contact role, `show`
+    expense category, and a "With handler / show circuit" boarding reason.
+  - **Edition gating in one place** — new `editionFlags.shows` (on in shared/pro/demo, off in
+    Lite) and the generic `editionFlag` descriptor key; `vocab.js` `enabledEventTypes()` feeds
+    `eventTypesFor()`, so the event form, CSV import and assistant drop `show` in Lite, and
+    Upcoming's Type filter reads it too.
+  - **Event form** — value/label select options, field `default`, `titleFrom` auto-title,
+    string `relatedContact` label ("Handler"), `prefill.event_date`, handler role tagging on
+    save, club/judge suggestions from logged values, and the show soft checks.
+  - **CSV** — `show` rows always match on title too, so a double-header's Show 2 lands in
+    review instead of overwriting Show 1.
+  - Browser-verified (headless Chromium): Pro form end-to-end; Lite build has no trace (type
+    picker, Upcoming filter, CSV import). **Next:** Phase 2 — `showPoints.js` + dog card.
 - **Next:** the editions build is now feature-complete (Lite cap, Pro + license gate, Demo,
   front doors, tour). Remaining before launch is deploy-time config, not code: buy the domain,
   wire the three publish repos + `EDITIONS_DEPLOY_PAT` (see `build/README.md`), and confirm the
