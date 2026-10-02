@@ -286,7 +286,7 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     a duplicate. A name is not a key, so it is never auto-matched.
   - **Not multi-device.** A card carries identity, not records; a second device restores a
     backup or syncs via Dropbox, and the import preview says so when fed your own card.
-- **Show tracking (Pro) — Phase 1 of 4 done (type + gating, no new pages).** Building
+- **Show tracking (Pro) — Phases 1–2 of 4 done (type + gating; points engine + dog card).** Building
   `docs/KennelOS_Show_Tracking_Spec.md`. No schema change — it rides the `events` table.
   - **`show` event type** in `vocab.js` plus `SHOW_ENTRY_STATUS`, `SHOW_ORGANIZATIONS`,
     `TITLE_TRACKS`, `AKC_SHOW_CLASSES`, `AKC_SHOW_AWARDS`; `handler` contact role, `show`
@@ -301,7 +301,17 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   - **CSV** — `show` rows always match on title too, so a double-header's Show 2 lands in
     review instead of overwriting Show 1.
   - Browser-verified (headless Chromium): Pro form end-to-end; Lite build has no trace (type
-    picker, Upcoming filter, CSV import). **Next:** Phase 2 — `showPoints.js` + dog card.
+    picker, Upcoming filter, CSV import).
+  - **Phase 2 — points engine + dog card.** `shared/data/showPoints.js`: a db-free pure core
+    (`trackProgress`, `showRecordFrom`) that derives points / majors / distinct judges /
+    champion defeats per `TITLE_TRACKS` row, the completing-win date, human-readable gaps,
+    and GCH's after-CH cut-off (from a logged CH `title_earned` or the completed CH track),
+    plus the `getShowRecord(dogId)` loader; pinned by `tests/showPoints.test.js`. The dog
+    page's **Show Record** card (Pro-only, appears once the dog has a show event) shows each
+    track's progress and a clickable history; `timeline.js` gained an `onChange` hook so the
+    card stays in step with Event History edits. Browser-verified (headless Chromium): card
+    tallies + gaps, row edit and timeline archive both refresh it, no card on a dog without
+    shows, none in the Lite build. **Next:** Phase 3 — the Shows page.
 - **Next:** the editions build is now feature-complete (Lite cap, Pro + license gate, Demo,
   front doors, tour). Remaining before launch is deploy-time config, not code: buy the domain,
   wire the three publish repos + `EDITIONS_DEPLOY_PAT` (see `build/README.md`), and confirm the

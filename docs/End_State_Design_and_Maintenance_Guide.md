@@ -164,6 +164,11 @@ KennelOS/
                                rules, taking the active id as an argument so they are
                                unit-testable in Node (tests/scopePredicates.test.js).
                                kennelScope.js re-exports them bound; pages import those
+    showPoints.js              Derived championship-points engine (Show Tracking Spec §4):
+                               a db-free pure core (trackProgress / showRecordFrom,
+                               tests/showPoints.test.js) + the getShowRecord(dogId)
+                               loader. Pro-used, shared-resident; callers gate on
+                               editionFlags.shows (§8 "Show specifics")
     wizardState.js             Guided-tour status/index state machine (§11)
     wizardSteps.js             Full (Pro/Demo) guided-tour step catalog — data only (§11)
     editionTour.js             Per-edition tour package (seed + steps) injection point;
@@ -558,6 +563,25 @@ stored**. Saving raises one soft confirm (never a block) for: points over the tr
 `perShowMax`, points while status ≠ `shown`, results on a future date, points with no
 `points_toward`.
 
+**Points engine (`data/showPoints.js`).** Title progress is derived on read from the
+dog's `show` events against the `TITLE_TRACKS` rows (AKC CH / GCH) — no stored points,
+majors or titles. A *counting* event is a non-archived `show` with `entry_status`
+`shown`, `points_toward` = the track, and `Number(points) > 0` (CSV strings coerced;
+blank/junk = 0). Per track: points = Σ min(points, `perShowMax`); a major = a win with
+points ≥ `majorMin` (derived, never a flag); distinct judges are compared trimmed,
+whitespace-collapsed and case-folded, and a blank judge never counts. Two majors under
+one judge are one major judge, so the track still needs "1 more major under a new
+judge". `trackProgress(events, track, {since})` returns the tally, `complete`,
+`completedOn` (the first win that satisfied every requirement), human-readable
+`missing[]`, and `notCounted`. A track with `requires` (GCH → CH) counts only wins dated
+**after** the required-title date — the earliest of a non-archived `title_earned` event
+whose `title_abbreviation` matches (case-insensitive) and the required track's
+`completedOn`; earlier wins are reported in `notCounted`, and with no such date the track
+is incomplete with "CH not yet earned". `showRecordFrom(dogEvents)` (pure) assembles one
+row per track the dog has show events aimed at plus the newest-first history;
+`getShowRecord(dogId)` is the one-query loader (`getForSubject`). Completion never writes
+anything.
+
 **Placement specifics:** `dropoff_method` (`select`, enforced choice from
 `PLACEMENT_METHODS` — Flight nanny / Ground transport / Local pickup / Other) sits first
 in the form, directly above `placement_time`. A deferred-pickup boarding rate lives on
@@ -950,7 +974,8 @@ implementation lives in `data/dateUtils.js`.
 ### Other components
 
 - **timeline.js** — a subject's event list with add/edit/archive/delete; spans render as a
-  date range; escapes all values.
+  date range; escapes all values. Optional `onChange` runs after any add/edit/archive/delete
+  so a page can redraw panels derived from the same events (`dog.js` → Show Record card).
 - **pedigree.js** — derived ancestor tree from `sire_id`/`dam_id`; SVG connectors over
   positioned nodes. Bounded by a `generations` depth cap (default 3), which makes it
   cycle-safe regardless of data. Below the tree it renders a derived **Offspring** section —
@@ -1016,7 +1041,10 @@ Financials hub — Overview / Income / Expenses toggle, §21), `reports`, `compa
 Companion Messaging console, §20), `furever` (the Furever seed-link console, §27),
 `import-export`, `assistant` (the KennelAssistant owner console, §26 — distinct from the
 root-level `assistant.html` the helper opens), plus root `index.html`.
-Dogs: `dog` (detail), `roster`, `pedigree`.
+Dogs: `dog` (detail — includes the Pro-only **Show Record** card, gated on
+`editionFlags.shows` and rendered only once the dog has a non-archived `show` event:
+per-track progress from `showPoints.js` plus a clickable show history; its "+ Add Show"
+opens the event form pre-set to `show`), `roster`, `pedigree`.
 Breeding: `pairings`/`pairing`, `litters`/`litter`, `active-breeding`, `live-births`.
 People: `contact`, `kennels` (two screens in one page: on top the **portfolio** — one card
 per own kennel with live counts (roster / active litters / placements this year) and the

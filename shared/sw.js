@@ -90,6 +90,7 @@ const PRECACHE_URLS = [
   'data/saleRepo.js',
   'data/sampleData.js',
   'data/scopePredicates.js',
+  'data/showPoints.js',
   'data/seedImport.js',
   'data/settings.js',
   'data/studServiceRepo.js',
