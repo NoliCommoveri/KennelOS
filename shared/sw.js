@@ -186,6 +186,8 @@ const PRECACHE_URLS = [
   'pages/sales.js',
   'pages/scheduled-placements.html',
   'pages/scheduled-placements.js',
+  'pages/shows.html',
+  'pages/shows.js',
   'pages/stud-service-import.html',
   'pages/stud-service-import.js',
   'pages/stud-service.html',

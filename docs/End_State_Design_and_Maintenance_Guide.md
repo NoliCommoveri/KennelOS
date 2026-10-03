@@ -619,6 +619,8 @@ later-in-the-day PM.
 - `getUpcoming()` — instant-duration events at/after today, any subject ("Upcoming
   Deliverables").
 - `getScheduledPlacements()` — future `placement` events only.
+- `getByType(type, {includeArchived})` — every event of one type across all subjects,
+  oldest first (one `event_type` index probe). The Shows page's read (`show`).
 - `getReminders()` / `getDismissedReminders()` — events with a non-null `reminder_date`,
   not archived, split by `reminder_dismissed`. `reminder_date` is the app's **one**
   future-dated mechanism. Bucketing into overdue/due-soon/upcoming is a display concern
@@ -948,7 +950,11 @@ This distinction is the single easiest thing to get wrong. Learn it:
 
 - **`assets/reportView.js`** — columns provide `value:(r)=>string` returning **plain text**;
   the framework escapes it (`esc`) before injecting. Return raw text; do not pre-escape.
-  `badge` columns render a controlled-vocab badge. Has CSV export.
+  `badge` columns render a controlled-vocab badge. Has CSV export. A column's optional
+  `tone:(r)=>badgeClass|null` wraps that row's (escaped) value in a badge of a class the
+  page code picks (the Shows page's amber/red "entries close"); an optional view-level
+  `groupBy:(r)=>string` inserts a full-width header row whenever consecutive rows change
+  group (rows keep the caller's `load()` order; CSV is unaffected).
 - **`assets/listView.js`** — columns provide `cell:(r)=>htmlString` returning **HTML**; the
   framework injects it **raw**. **The caller must `esc()` every user-controlled value inside
   `cell`.** Columns can be marked `sortable: true` with a `sortFn:(a,b)=>number` comparator
@@ -1064,6 +1070,19 @@ entry, reached from the Financials hub's "Invoice / Receipt" generator modal).
 Documents: `documents` (filed dog documents — local file storage, in the "More" menu and
 via a "📄 Documents" button on the dog page, §26.1).
 Today cluster: `dashboard`, `reminders`, `upcoming`, `board`, `scheduled-placements`.
+Shows: `shows` (Pro-only — `PRO_ONLY_PAGES`, a "More" menu entry in the shared/Pro/Demo
+`moreItems`, never Lite's; Show Tracking Spec §5.2). Two link-style seg-tabs
+(`?tab=upcoming|results`) over `eventRepo.getByType('show')`, both `reportView`s scoped
+with `subjectInScope` through the event's dog: **Upcoming** (`event_date >= today`, not
+`scratched`, grouped by date; entries close = `reminder_date`, amber within 7 days, red when
+past while still `planned`) and **Results** (`event_date < today`, newest first; Dog /
+Organization / Period — last 12 months or a year on file — / Track filters). Rows open the
+event's own edit modal in place. **+ Add entries** (Upcoming) creates one `show` event per
+picked dog × picked day via `HistoryEvent.create`, sharing show name (also the title),
+club, organization, location, handler, entries close and entry status; no cost field. Dogs
+are scoped with a "Show dogs from all my kennels" escape (archived/deceased left out); an
+entry already on file for the same dog + day + title (case-insensitive) is skipped, not
+duplicated; the handler is tagged `handler` via `contactRepo.ensureType`.
 Reports: `litters-report`, `stud-services-report`, `placements-report`,
 `health-tests-report`, `litter-finances-report` (Litter P&L; `data/litterFinances.js`).
 Import pages: `dog-import`, `contact-import`, `pairing-import`, `litter-import`,

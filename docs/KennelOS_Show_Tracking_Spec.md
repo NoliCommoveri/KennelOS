@@ -1,6 +1,6 @@
 # KennelOS — Show Tracking Slice Spec (Pro)
 
-> **Status: in progress — Phases 1 (type + gating) and 2 (points engine + dog card) built; Phases 3–4 not yet.** This is the authoritative target for tracking
+> **Status: in progress — Phases 1 (type + gating), 2 (points engine + dog card) and 3 (Shows page) built; Phase 4 not yet.** This is the authoritative target for tracking
 > conformation show history, current championship points, and the
 > location / handler / schedule of upcoming shows. Read alongside
 > `docs/End_State_Design_and_Maintenance_Guide.md` (the map of the `shared/` code

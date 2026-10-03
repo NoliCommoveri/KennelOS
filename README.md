@@ -286,7 +286,7 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     a duplicate. A name is not a key, so it is never auto-matched.
   - **Not multi-device.** A card carries identity, not records; a second device restores a
     backup or syncs via Dropbox, and the import preview says so when fed your own card.
-- **Show tracking (Pro) — Phases 1–2 of 4 done (type + gating; points engine + dog card).** Building
+- **Show tracking (Pro) — Phases 1–3 of 4 done (type + gating; points engine + dog card; Shows page).** Building
   `docs/KennelOS_Show_Tracking_Spec.md`. No schema change — it rides the `events` table.
   - **`show` event type** in `vocab.js` plus `SHOW_ENTRY_STATUS`, `SHOW_ORGANIZATIONS`,
     `TITLE_TRACKS`, `AKC_SHOW_CLASSES`, `AKC_SHOW_AWARDS`; `handler` contact role, `show`
@@ -311,7 +311,18 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     track's progress and a clickable history; `timeline.js` gained an `onChange` hook so the
     card stays in step with Event History edits. Browser-verified (headless Chromium): card
     tallies + gaps, row edit and timeline archive both refresh it, no card on a dog without
-    shows, none in the Lite build. **Next:** Phase 3 — the Shows page.
+    shows, none in the Lite build.
+  - **Phase 3 — Shows page.** `shared/pages/shows.html` + `shows.js` (Pro-only via
+    `PRO_ONLY_PAGES`; "Shows" in the More menu for shared/Pro/Demo, not Lite). **Upcoming**
+    tab grouped by show day with entries-close flags (amber ≤ 7 days, red when past and still
+    planned); **Results** tab with Dog / Organization / Period / Track filters + CSV export;
+    rows open the event's edit modal. **+ Add entries** creates one show event per dog per
+    day (scoped dog picker, "+ Next day" for clusters, skips entries already on file, tags the
+    handler). Supporting generic pieces: `eventRepo.getByType()`, and `reportView`'s column
+    `tone` + view `groupBy`. Browser-verified (headless Chromium): both tabs, tone flags,
+    bulk create 2 dogs × 2 days, duplicate re-run skipped, handler tagged, row → edit modal;
+    `shows.*` absent from `dist/lite/`. **Next:** Phase 4 — Today card, title nudge, sample
+    data.
 - **Next:** the editions build is now feature-complete (Lite cap, Pro + license gate, Demo,
   front doors, tour). Remaining before launch is deploy-time config, not code: buy the domain,
   wire the three publish repos + `EDITIONS_DEPLOY_PAT` (see `build/README.md`), and confirm the
