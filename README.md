@@ -286,7 +286,7 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     a duplicate. A name is not a key, so it is never auto-matched.
   - **Not multi-device.** A card carries identity, not records; a second device restores a
     backup or syncs via Dropbox, and the import preview says so when fed your own card.
-- **Show tracking (Pro) — Phases 1–3 of 4 done (type + gating; points engine + dog card; Shows page).** Building
+- **Show tracking (Pro) — all 4 phases done (type + gating; points engine + dog card; Shows page; Today, nudge, sample data).** Building
   `docs/KennelOS_Show_Tracking_Spec.md`. No schema change — it rides the `events` table.
   - **`show` event type** in `vocab.js` plus `SHOW_ENTRY_STATUS`, `SHOW_ORGANIZATIONS`,
     `TITLE_TRACKS`, `AKC_SHOW_CLASSES`, `AKC_SHOW_AWARDS`; `handler` contact role, `show`
@@ -321,8 +321,17 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     handler). Supporting generic pieces: `eventRepo.getByType()`, and `reportView`'s column
     `tone` + view `groupBy`. Browser-verified (headless Chromium): both tabs, tone flags,
     bulk create 2 dogs × 2 days, duplicate re-run skipped, handler tagged, row → edit modal;
-    `shows.*` absent from `dist/lite/`. **Next:** Phase 4 — Today card, title nudge, sample
-    data.
+    `shows.*` absent from `dist/lite/`.
+  - **Phase 4 — Today, nudge, sample data.** Today's **Upcoming shows** card (next 14 days,
+    grouped by day; shows leave the "Due outs & upcoming" card while the flag is on, so each
+    is listed once). Ninth nudge, **"log the title?"** — a completed track with no matching
+    `title_earned` deep-links to a prefilled title form (new generic `logDate` / `logTitle` /
+    `logDetails` params on `openEventFromQuery`); it clears once the title is logged.
+    Thornfield seed: Birch's CH campaign (12 pts, 1 major, 3 judges), handler Lauren Pike, an
+    upcoming cluster weekend with an entry fee and an entries-close reminder. Browser-verified
+    (headless Chromium): Today card + no double listing, reminder fires, card gaps, completing
+    win → nudge → prefilled form → title saved → nudge gone; Lite shows no card / nudge and
+    seeds no show events. Service-worker cache rolled to `kennelos-shell-v32`.
 - **Next:** the editions build is now feature-complete (Lite cap, Pro + license gate, Demo,
   front doors, tour). Remaining before launch is deploy-time config, not code: buy the domain,
   wire the three publish repos + `EDITIONS_DEPLOY_PAT` (see `build/README.md`), and confirm the

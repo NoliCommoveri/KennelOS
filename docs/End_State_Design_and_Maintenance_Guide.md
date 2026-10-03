@@ -787,10 +787,17 @@ plain local backup/restore.
   example on every hub: a two-breed program (Boston Terriers **and** Boxers), a priced,
   actively-selling **Autumn litter** with an open sale (transport fee + deferred-boarding
   balance math), an **expected** litter, a lease (leased-in Boxer + `lease` contract) and a
-  `co_own` contract, an **incoming AI** stud service, and dates tuned so seven of the eight
+  `co_own` contract, an **incoming AI** stud service, and dates tuned so seven of the nine
   Today nudges (§19) are live on a fresh seed — the litter→**close** rule is intentionally
   not live (it needs a `sold` litter whose placed pups are all `delivered`, which conflicts
-  with the reopen/sold anchors and the packet size, per the spec's §9.3). Companion has ≥1
+  with the reopen/sold anchors and the packet size, per the spec's §9.3), and the
+  show-title rule is deliberately unfinished so the card shows real gaps (below).
+  **Show tracking** (Show Tracking Spec §9; Pro/Demo only — Lite seeds from its own tour
+  package): Birch is working toward his AKC CH with handler **Lauren Pike** (`handler`
+  role) — 7 past results totalling 12 points, one major, 3 judges ("3 more points, 1 more
+  major under a new judge"), then a Thistle Valley cluster weekend 9–10 days out (Sat
+  `entered` with a $38 `show` entry-fee expense linked via `event_id`; Sun `planned` with
+  entries closing in 3 days — a live reminder and an amber flag on the Shows page). Companion has ≥1
   recipient on all three tabs (prospective / current families / partners). Editing this file
   still bumps `CACHE_NAME` (§ service worker); it adds no new file or FK.
   - **Briar Hollow Kennels** (Multi-Kennel Scope Spec §13) is a SECOND own kennel —
@@ -995,7 +1002,10 @@ implementation lives in `data/dateUtils.js`.
   deep-link "into" an event: each row's button navigates to the subject's own page
   (`dog.html`/`pairing.html`/`litter.html`) with an extra query param, and that page's
   `main()` calls this once after loading its record. `openEvent=<id>` opens that exact event
-  in edit mode; `logEvent=<event_type>` opens a fresh event of that type. Wired into
+  in edit mode; `logEvent=<event_type>` opens a fresh event of that type, optionally
+  prefilled by `logDate=<YYYY-MM-DD>`, `logTitle=<text>` and `logDetails=<URL-encoded JSON
+  object>` (string/number values only; malformed JSON is ignored) — used by the show-title
+  nudge (§19). Wired into
   `dog.js`/`pairing.js`/`litter.js` main() alongside their `new=1` prefill params.
 - **puppyForm.js**, **importView.js**, **onboardingUI.js**, **sampleDataUI.js**,
   **kennelSetupUI.js** — roster entry, the CSV dry-run/commit UI, the first-run onboarding
@@ -1216,7 +1226,7 @@ originals stay in play for every lookup and every "already handled?" dedup check
 is deliberate: scoping a dedup check would resurrect a nudge whose answer already sits
 one kennel over.
 
-Eight rules, each producing its own stable `key` so a dismissal survives re-computation:
+Nine rules, each producing its own stable `key` so a dismissal survives re-computation:
 - **Stud-service status** — `sent_date` passed + `status='arranged'` → suggest
   `in_progress`; `returned_date` passed + `status ∈ {arranged, in_progress}` → suggest
   `completed` (never both; completed wins if both hold).
@@ -1244,6 +1254,15 @@ Eight rules, each producing its own stable `key` so a dismissal survives re-comp
 - **Litter → close** — a `sold` litter with no `available` puppy where **every** `placed`
   puppy has a `delivered` sale suggests marking it `closed`. A placed puppy with no delivered
   sale — including one with no sale row at all — blocks the nudge.
+- **Show track complete → title** (Pro-only, gated on `editionFlags.shows`; Show Tracking
+  Spec §5.4) — for each in-scope dog, `showPoints.showRecordFrom` over its `show` +
+  `title_earned` events; a `TITLE_TRACKS` row whose progress is `complete` with **no**
+  `title_earned` carrying `title_abbreviation = track.title` suggests logging it. Key
+  `show-title:<dogId>:<track>`. The action deep-links to
+  `dog.html?id=…&logEvent=title_earned&logTitle=<track label>&logDetails=<JSON
+  {title_abbreviation, organization}>&logDate=<completedOn>` — a prefilled event form,
+  never an auto-created title. Auto-dismisses once the `title_earned` event exists (the
+  event is the done-signal).
 
 The three litter-lifecycle rules are aggregate facts over a litter's derived roster (and, for
 close, its sales), so `computeNudges()` groups the already-loaded `dogRepo.getAll()` result by
@@ -1257,6 +1276,14 @@ the window in question.
 **`data/nudgeState.js`** — the dismissal ledger (§11): `isDismissed`, `dismiss`, `clearAll`.
 A computed nudge has no backing row to persist "dismissed" on, so dismissal is device-local UI
 state, deliberately kept **out of** JSON backups.
+
+**Today's "Upcoming shows" card** (`renderShows`, Pro-only via `editionFlags.shows`; Show
+Tracking Spec §5.3): `show` events in the next 14 days, not `scratched`, grouped by date —
+dog · show · status badge, then location · handler · ring · ring time, each row deep-linking
+`openEvent=<id>`. Silent when empty. While the flag is on, `today.js` filters `event_type ===
+'show'` **out** of the rows it passes to the "Due outs & upcoming" card, so a show is listed
+once on Today; the filter lives in `today.js`, not `getUpcoming()`, so the Upcoming page still
+lists shows. Entries-close alerts are ordinary reminders (`reminder_date`) — no new code.
 
 **Rendering (`pages/today.js`)** owns the split: it calls `computeNudges()`, filters out
 `isDismissed(key)` itself, renders what's left in a "Nudges" section (above Reminders), wires
