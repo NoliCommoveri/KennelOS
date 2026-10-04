@@ -16,7 +16,8 @@
    pick the person, they tap Accept." Today it's "export JSON, email it, import it."
 3. **Multi-user business.** A household or a kennel with helpers should all see the same
    records on their own phones without anyone having to sync by hand.
-4. **Some things can stay local.** Financials, for example.
+4. **Sensitive data stays low-risk.** Financials, buyers' details and the like should not sit
+   readable on our server, but users who want them backed up should be able to. See §6.
 
 ## 2. Recommendation in one paragraph
 
@@ -66,7 +67,7 @@ R2 headroom for hundreds of kennels. Real cost grows mainly with document and ph
   already exists). One program has one owner and one subscription.
 - **Members and roles** (proposed):
   - **Owner** — everything, including billing and transfers.
-  - **Staff** — read and write all records except financials.
+  - **Staff** — read and write all kennel records (§6's cloud tier). No private fields in v1.
   - **Helper** — logs events against dogs only. This is today's KennelAssistant, which can
     then be retired. Helpers see the same allow-list `assistantSync.js` already enforces,
     but the server enforces it now, not just the export step.
@@ -85,6 +86,9 @@ R2 headroom for hundreds of kennels. Real cost grows mainly with document and ph
 - **Conflicts:** last writer wins **per record**, judged by server receive order. For a
   handful of people in one kennel, true same-record conflicts are rare. Per-field merging is
   a possible later refinement, not a starting requirement.
+- **Undo for mistakes:** the server keeps dated snapshots for 30 days (cloud tier and vault
+  alike), so "restore my program as of last Tuesday" recovers a bad import or a wrong delete
+  that has already synced everywhere.
 - **Hard delete** becomes a tombstone so other devices drop the row. The registry-driven
   reference check still runs locally first, against the fully synced set.
 - **Referential integrity across devices:** the whole program syncs, so every FK target is
@@ -92,28 +96,105 @@ R2 headroom for hundreds of kennels. Real cost grows mainly with document and ph
 - **Schema:** `sync_outbox` plus a per-table `seq` cursor in settings. Pre-launch this can go
   in the editable `version(1)` block. After launch it must be a new `db.version(N)`.
 
-## 6. What stays device-only
+## 6. Sensitive data: two tiers, and a private vault you can opt into
 
-Proposal: a table-level `sync: 'cloud' | 'device'` declaration. It would sit next to
-`referenceRegistry.js` so it's one reviewable list.
+**Goal:** back up and sync as much as possible automatically, while **the server never
+holds sensitive data in a form we (or anyone who breaches us) can read.** Users who want
+their sensitive data backed up too can turn on an encrypted vault.
 
-- **Device-only candidates:** `expenses` (Financials). These rows point *at* cloud records
-  (`event_id`, `subject_*`), and nothing in the cloud points back at them. Under the
-  one-canonical-direction rule that's safe: a teammate's device never sees a dangling FK.
-- **The catch, and why §9 Q2 matters:** device-only means *unprotected* again. Lose the phone
-  and the financials are gone, and a second phone or a spouse won't see them. Options:
-  1. Device-only, with the existing JSON/Dropbox backup kept for it.
-  2. Synced, but visible to Owner only, never to Staff or Helpers, and never in a transfer.
-     **This is my recommendation:** it fully meets the data-loss goal and still keeps
-     financials private from everyone else in the kennel.
-  3. ~~Synced and end-to-end encrypted with a key only the owner holds.~~ **Ruled out:** the
-     goal is data-*loss* protection, and a lost key means lost data, which is the exact failure
-     we're trying to remove for non-technical users.
-- Option 1 also works against the goal, since it leaves financials as the one thing a lost
-  phone can still take. Keep it only if there's a reason beyond privacy for financials to
-  stay off the server.
-- **Sales also carry money** (price, deposit, balance). Decide whether "financials" means
-  just the Expense ledger or also the money fields on Sale, Stud Service, and Litter.
+### 6.1 The two tiers
+
+| Tier | What it is | Where it lives | Who can read it |
+|---|---|---|---|
+| **Kennel records** (non-sensitive) | The dogs and their history: identity, pedigree, health tests, litters, pairings, schedules | Synced to the cloud automatically, always on | The program's members. It's also the only tier a transfer can draw from. |
+| **Private** (sensitive) | Other people's personal details, money, contracts, receipts, free-text notes | **On the device by default.** Optionally backed up to the cloud **end-to-end encrypted** (the vault, §6.3) | The owner only. The server sees only scrambled bytes. |
+
+**Why this is the low-risk split:** if our server is ever breached, misconfigured, or
+subpoenaed, what's exposed is pedigrees and whelping dates, not buyers' home addresses
+or what they paid. It also shrinks our obligations as an operator (§9 Q7). The
+sensitive tier is mostly *other people's* information (buyers, co-owners), and those
+people never agreed to us holding it.
+
+### 6.2 Classification is per field, not per table
+
+Sensitive data is spread through otherwise ordinary records. A Sale is a useful record
+for a teammate ("Maple goes home Saturday"), but its `price` isn't. So the classification
+is a **positive allow-list of cloud fields per table**, in a new
+`shared/data/syncRegistry.js`:
+
+- **Any field not on the list stays private.** A new field added later stays on the device
+  until someone deliberately classifies it. This is the same "silence is the safe default"
+  posture as `companionExport.js`. A check (like the existing registry-coverage test) fails if
+  a field seen in the sample data is unclassified, so the default never silently costs
+  someone a backup without anyone noticing.
+- **Locally nothing changes:** a record is still one Dexie row. Push sends only its cloud
+  fields. Pull **merges** the server copy into the local row and leaves private fields
+  alone. So there's no data-model split and no new FK rules, and pages don't know the
+  difference.
+- A few tables also need a **per-row** rule. Example: a Document filed as `health_test` or
+  `pedigree` is a kennel record, but one filed as `contract` is private.
+
+Proposed starting classification (to be reviewed field by field):
+
+| Table | Cloud (kennel records) | Private |
+|---|---|---|
+| dogs | everything except → | `notes` |
+| events | type, dates, title, structured `details`, related ids | `notes` (free text can hold anything) |
+| litters, pairings, breed_feeding_schedules | everything except → | `notes` |
+| kennels (own) | name, prefix, `public_id`, website, logo, preferences | `location` (often a home address; see Q9) |
+| contacts | `id`, `name`, `contact_type` (see Q10) | `email`, `phone`, `address`, `notes`, `companion_note`, `first_contact_source` |
+| sales | dog, buyer link, status, placement type, dates | `price`, `deposit_amount`, balance/boarding/transport amounts, `lead_source` |
+| stud_services | dogs, partner link, direction, status, dates, `fee_structure` | `fee_amount`, `pick_value_amount`, `result_notes` |
+| contracts | type, status, links, dates | `document_url`, terms, any money |
+| documents + files | rows with `doc_type` health_test / pedigree / registration | rows with `doc_type` contract / other |
+| expenses + receipt files | none | everything (all of Financials) |
+
+### 6.3 The private vault (opt-in, end-to-end encrypted)
+
+An **"Also back up my private info"** switch, off by default, with an advanced option to
+pick categories: contact details, financials, contracts & receipts, private notes.
+
+- The device encrypts the private fields and tables (WebCrypto, AES-GCM) **before**
+  upload. The server stores a scrambled blob it can't open, and keeps dated vault
+  snapshots for 30 days like the kennel tier.
+- **Unlocking without a password to remember:** the vault key is random and stored
+  wrapped (encrypted) two ways:
+  1. **By the user's passkey** (the WebAuthn PRF extension). On a new phone they sign in,
+     do Face ID or a fingerprint, and the vault opens. Passkeys sync through iCloud Keychain
+     and Google Password Manager, so a lost phone isn't a lost key.
+  2. **By a recovery code** shown once at setup, with a "print this / save to Files" step
+     that's required before the switch turns on.
+- **The honest trade-off, said plainly in the UI:** if they lose their passkey *and* their
+  recovery code, *we cannot open the vault*. That only costs data if they've **also** lost
+  every device holding the local copy. The vault is a second copy, never the only one.
+  This is why it's opt-in, and why it never applies to kennel records.
+- **Deliberately not offered:** backing up private info *unencrypted* to our server. It
+  would be easier to recover, but it puts us back to holding readable personal data, which
+  is the thing this design avoids. (Revisit only if support load shows the recovery code
+  failing real users.)
+
+### 6.4 Protecting private data that *isn't* in the vault
+
+If the vault is off, the private tier is exactly as fragile as the whole app is today.
+So the app keeps working at it:
+
+- Request persistent storage (`requestPersistentStorage()` already exists).
+- Keep the existing JSON download and Dropbox backup. Their reminder now refers only to
+  private info: "Your contacts' details and financials are only on this phone. Last
+  backed up 40 days ago." Each reminder also offers the vault.
+- **A restore without the vault is still usable.** Every record comes back. Sales still
+  show the buyer's name and the dog; the private fields are just blank, with a "private
+  details are on your other device / in your vault" hint.
+
+### 6.5 What this means for teams and transfers
+
+- **Transfers** draw only from the cloud tier, so nothing sensitive can cross between
+  accounts, by construction. The transfer allow-list (§7) is a subset of the cloud
+  allow-list.
+- **Staff and Helpers** see kennel records only. Sharing private fields with Staff (for
+  example a buyer's phone number for pickup day) means sharing the vault key with that
+  member's device. That's possible later (wrap the key to each member), but it's **not v1**.
+  In v1 the owner's devices are the only ones that see private fields.
 
 ## 7. Dog transfers between accounts
 
@@ -151,10 +232,11 @@ Under the hood:
 
 | Phase | Delivers | Risk |
 |---|---|---|
-| **1. Account + automatic cloud backup** | Sign in by email. The app pushes a backup snapshot on change, and a new phone signs in and restores. Solves the data-loss goal by itself. | Low. It reuses `exportAll`/restore unchanged and is effectively Dropbox sync without the Dropbox. |
+| **1. Account + automatic cloud backup** | Sign in by email. The app pushes a **cloud-tier** backup snapshot on change, and a new phone signs in and restores. Covers the bulk of the data-loss goal. | Low. It builds on `exportAll`/restore, filtered through `syncRegistry.js`. The classification has to land here, first, so private data never reaches the server even once. |
 | **2. Live multi-device sync** | Outbox, push/pull, websocket nudges. The same person's phone and laptop stay in step. | Medium. This is the core engineering. |
 | **3. Team members & roles** | Invites, Staff and Helper roles, server-enforced visibility. KennelAssistant retires. | Medium |
 | **4. Dog transfers** | §7 | Medium |
+| **2b. Private vault** | §6.3. Passkey + recovery code, encrypted private-tier backup | Medium. Crypto is standard WebCrypto, but the recovery UX must be tested on real non-technical users |
 | **5. Account-based licensing** | Lemon Squeezy webhooks, no device slots | Low |
 | **Later** | Linked dogs and co-ownership, and Furever families on accounts | Higher |
 
@@ -162,8 +244,8 @@ Under the hood:
 
 1. **Offline:** should the app keep working fully offline and sync when back online
    (recommended), or is "requires internet" acceptable?
-2. **Financials:** synced and owner-only (recommended), or device-only? And does
-   "financials" include sale prices and deposits, or just the Expense ledger?
+2. **Tiers (§6):** does the two-tier split match her instincts? Anything in the cloud column she
+   considers sensitive, or anything private she'd want teammates to see?
 3. **Editions:** which editions get cloud features? One suggestion: Lite gets Phase 1 backup,
    which is cheap and a strong reason to make an account. Pro gets sync, team, and transfers.
    Demo gets none.
@@ -172,12 +254,15 @@ Under the hood:
 6. **Existing users:** first sign-in uploads the current local data as the program (the
    proposed default). Should Dropbox sync and JSON-file transfers remain available
    afterwards, or retire?
-7. **Operator obligations:** holding buyers' names, addresses and phone numbers on our
-   server makes us a data processor. That means a privacy policy, a deletion-on-request path,
-   and breach responsibility. Is that acceptable? (Cloudflare encrypts at rest by default;
-   what remains is policy and process.)
+7. **Operator obligations:** with §6, the server holds contact *names* but not addresses,
+   phones, or money, and the vault only as scrambled bytes. We'd still need a privacy
+   policy and a delete-my-account path, but breach exposure is much smaller.
 8. **Who builds and runs the backend?** It's the first piece of this product that can go down
    at 2am.
+9. **Kennel location:** cloud or private? It's often the breeder's home address.
+10. **Contact names in the cloud:** recommended, so teammates and a no-vault restore still
+    show "Sale → Maple → Jane Smith". The stricter option keeps names private too, so
+    teammates see "Buyer (private)". That's lower risk but clumsier.
 
 ## 10. What changes in this repo if approved
 
@@ -185,7 +270,9 @@ Under the hood:
   first build step that isn't a static copy.
 - `shared/data/sync/` for the outbox, sync client, and auth session. Hooks go into
   `repoBase.js` and the few direct writers listed in §2.
-- `shared/data/syncRegistry.js` for the cloud/device declaration per table (§6).
+- `shared/data/syncRegistry.js`, the per-field cloud allow-list plus the per-row rules (§6.2),
+  with a coverage test.
+- `shared/data/vault.js` for vault encryption and key wrapping (§6.3).
 - `dogs.public_id` (§7).
 - CLAUDE.md, the README, the Editions Plan (§Licensing), and the End-State guide (§2, §10,
   §26, §28) get rewritten to drop "no backend" and describe the new layer.
