@@ -7,7 +7,8 @@
 
 ## 1. What's being asked
 
-1. **Data protection.** Today a kennel's entire history lives in one browser's IndexedDB.
+1. **Data-loss protection** (the primary goal — protection against *losing* data, not
+   privacy from the operator). Today a kennel's entire history lives in one browser's IndexedDB.
    If the browser clears site data, the phone gets replaced, or Safari evicts storage,
    the data is gone unless the owner remembered to export a JSON file or set up Dropbox.
    Our users are mostly non-technical, so in practice many of them have no backup.
@@ -103,11 +104,14 @@ Proposal: a table-level `sync: 'cloud' | 'device'` declaration. It would sit nex
   and the financials are gone, and a second phone or a spouse won't see them. Options:
   1. Device-only, with the existing JSON/Dropbox backup kept for it.
   2. Synced, but visible to Owner only, never to Staff or Helpers, and never in a transfer.
-     **This is my recommendation:** it fully meets "data protection" and still keeps
+     **This is my recommendation:** it fully meets the data-loss goal and still keeps
      financials private from everyone else in the kennel.
-  3. Synced and end-to-end encrypted with a key only the owner holds. This is strongest
-     against us, the operator, but a lost key means lost data, which is the exact failure we're
-     trying to remove for non-technical users.
+  3. ~~Synced and end-to-end encrypted with a key only the owner holds.~~ **Ruled out:** the
+     goal is data-*loss* protection, and a lost key means lost data, which is the exact failure
+     we're trying to remove for non-technical users.
+- Option 1 also works against the goal, since it leaves financials as the one thing a lost
+  phone can still take. Keep it only if there's a reason beyond privacy for financials to
+  stay off the server.
 - **Sales also carry money** (price, deposit, balance). Decide whether "financials" means
   just the Expense ledger or also the money fields on Sale, Stud Service, and Litter.
 
@@ -147,7 +151,7 @@ Under the hood:
 
 | Phase | Delivers | Risk |
 |---|---|---|
-| **1. Account + automatic cloud backup** | Sign in by email. The app pushes a backup snapshot on change, and a new phone signs in and restores. Solves data protection by itself. | Low. It reuses `exportAll`/restore unchanged and is effectively Dropbox sync without the Dropbox. |
+| **1. Account + automatic cloud backup** | Sign in by email. The app pushes a backup snapshot on change, and a new phone signs in and restores. Solves the data-loss goal by itself. | Low. It reuses `exportAll`/restore unchanged and is effectively Dropbox sync without the Dropbox. |
 | **2. Live multi-device sync** | Outbox, push/pull, websocket nudges. The same person's phone and laptop stay in step. | Medium. This is the core engineering. |
 | **3. Team members & roles** | Invites, Staff and Helper roles, server-enforced visibility. KennelAssistant retires. | Medium |
 | **4. Dog transfers** | §7 | Medium |
@@ -158,7 +162,7 @@ Under the hood:
 
 1. **Offline:** should the app keep working fully offline and sync when back online
    (recommended), or is "requires internet" acceptable?
-2. **Financials:** device-only, owner-only synced (recommended), or encrypted? And does
+2. **Financials:** synced and owner-only (recommended), or device-only? And does
    "financials" include sale prices and deposits, or just the Expense ledger?
 3. **Editions:** which editions get cloud features? One suggestion: Lite gets Phase 1 backup,
    which is cheap and a strong reason to make an account. Pro gets sync, team, and transfers.
