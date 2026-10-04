@@ -3,7 +3,7 @@
 > **Status: proposal for discussion. Nothing here is decided or built.** It reverses a
 > founding non-negotiable ("no backend"; Editions Plan §Licensing; End-State guide §2), so
 > every decision below needs explicit sign-off before any code lands. The open
-> questions are collected in §9.
+> questions are collected in §10.
 
 ## 1. What's being asked
 
@@ -111,7 +111,7 @@ their sensitive data backed up too can turn on an encrypted vault.
 
 **Why this is the low-risk split:** if our server is ever breached, misconfigured, or
 subpoenaed, what's exposed is pedigrees and whelping dates, not buyers' home addresses
-or what they paid. It also shrinks our obligations as an operator (§9 Q7). The
+or what they paid. It also shrinks our obligations as an operator (§10 Q7). The
 sensitive tier is mostly *other people's* information (buyers, co-owners), and those
 people never agreed to us holding it.
 
@@ -141,8 +141,8 @@ Proposed starting classification (to be reviewed field by field):
 | dogs | everything except → | `notes` |
 | events | type, dates, title, structured `details`, related ids | `notes` (free text can hold anything) |
 | litters, pairings, breed_feeding_schedules | everything except → | `notes` |
-| kennels (own) | name, prefix, `public_id`, website, logo, preferences | `location` (often a home address; see Q9) |
-| contacts | `id`, `name`, `contact_type` (see Q10) | `email`, `phone`, `address`, `notes`, `companion_note`, `first_contact_source` |
+| kennels (own) | name, prefix, `public_id`, location, website, logo, preferences | none (location: cloud, **decided**) |
+| contacts | `id`, `name`, `contact_type`, `public_id` (§8.5). Names in the cloud: **decided** | `email`, `phone`, `address`, `notes`, `companion_note`, `first_contact_source` |
 | sales | dog, buyer link, status, placement type, dates | `price`, `deposit_amount`, balance/boarding/transport amounts, `lead_source` |
 | stud_services | dogs, partner link, direction, status, dates, `fee_structure` | `fee_amount`, `pick_value_amount`, `result_notes` |
 | contracts | type, status, links, dates | `document_url`, terms, any money |
@@ -228,7 +228,103 @@ Under the hood:
   owner logs, and co-owned dogs can be visible in both programs. This is genuine two-program
   shared state and should wait until v1 transfers have real use.
 
-## 8. Phasing (each phase ships value on its own)
+## 8. Connections (breeder friends)
+
+Breeders in this market are often a close circle of friends who already trade dogs, stud
+services, and advice. A **Connection** is a mutual, consented link between two kennel
+programs. Once two breeders are connected, the app does the paperwork of knowing each other:
+each side's kennel and contact records are created and kept current automatically, and each
+can show off what they choose to the other. None of this is ever public.
+
+This is the networked version of the Kennel Card (End-State guide §28.2), and it keeps the
+card's rules. Identity is keyed on `public_id`. Everything leaving a program is a named
+allow-list. A card can never make itself one of *your* kennels. A received kennel can be
+offered as a link to one you typed in yourself, but is never matched by name automatically.
+
+### 8.1 Connecting
+
+- **Ways to connect,** in order of how non-technical users will actually do it:
+  1. **An invite link** sent by text or Messenger ("Join me on KennelOS"). It works whether or
+     not the friend has an account yet; if not, it signs them up for free Lite first.
+  2. **A QR code** shown phone-to-phone at a show or a visit.
+  3. **By email** from inside the app.
+- **Both sides must accept.** Nothing is shared until they do.
+- **No public directory and no search in v1.** You can only connect with someone who handed
+  you a link or code, or whose email you already know. That matches "intimate group of
+  friends", and nobody can be found by strangers. ("People you may know: connected to 3 of
+  your friends" is a possible later step, and only if it's opt-in.)
+- **Disconnect or block at any time.** Updates stop flowing both ways. The kennel and
+  contact records already on each side **stay** (soft data never cascades and history is
+  never destroyed); they lose their "connected" badge and stop auto-updating.
+
+### 8.2 The breeder profile: what a connection gives you automatically
+
+Each program has one **profile**: the information its owner chooses to give their
+connections. It is self-published, the breeder's own data shared about themselves, so it
+doesn't carry the third-party privacy concern of §6.
+
+| Profile field | Lands on the friend's side as |
+|---|---|
+| kennel name, prefix, location, website, logo, breeds | an **outside Kennel** (`public_id` linked, `is_own_kennel` forced false, same as card import) |
+| breeder's name | a **Contact** (`contact_type` breeder), affiliated to that kennel |
+| phone, email: **each opt-in, off by default** | that Contact's private fields (on the friend's device, or in their vault) |
+
+- **Live, not a snapshot:** when a friend updates their profile (new logo, moved, new
+  phone), your linked kennel and contact update too. The connection owns those fields;
+  your own notes and anything else on the records stay yours and are never overwritten.
+- **First connect runs the same preview as a card import:** "Create Thornfield Kennel as a
+  new kennel" or "Link to the *Thornfield Kennels* you typed in last year". The link option
+  is offered, never automatic, so everything already pointing at the hand-typed record keeps
+  pointing at it.
+
+### 8.3 Showing off, to connections only
+
+Opt-in per item, never by default. Each dog or litter gets a **Share with connections**
+switch, and what's shared appears in your connections' **Friends feed**.
+
+- **Dog cards:** photo, call/registered name, breed, sex, titles, health test results, show
+  wins, and pedigree (via `dogs.public_id`). It's a *live projection*, so a new health test or
+  title updates the card. Never shared: owner/buyer, prices, notes, or anything else from §6's
+  private tier.
+- **Milestone posts,** generated from events on shared dogs and confirmed with one tap before
+  posting: "Maple finished her Championship", "Juniper × Ash: 6 puppies born", "OFA Hips:
+  Excellent".
+- **Availability flags** (optional): "at stud", "planned litter", "puppies available". This is
+  the practical side of showing off, because friends breed to each other's dogs.
+- **Reactions** (a paw or heart) are the only interaction in v1. Comments and DMs are
+  deliberately out: they bring moderation burden, and these friends already text each other.
+
+### 8.4 What connections make easier elsewhere
+
+- **Transfers (§7):** pick the recipient from your connections instead of typing an email. The
+  buyer's side already has the right kennel and contact, so nothing needs matching.
+- **Stud services and pedigrees:** on a friend's shared dog, **"Add to my records"** creates an
+  *external* Dog keyed by its `public_id`, with pedigree ancestors included. It's a **linked
+  dog** in read-only form: when the friend logs a new health test or title, your copy updates.
+  This is the first useful slice of §7's "linked dogs", one-way and opt-in by the owner.
+  Duplicates are prevented by `public_id`: if a friend's sire arrives through a transfer and
+  again from their feed, it's the same record.
+- **Stud service records:** a stud service with a connected breeder's dog can prefill
+  partner, partner kennel, and partner dog from the connection.
+
+### 8.5 How it fits the data rules
+
+- **Server (D1):** `profiles` (one per program, the allow-listed fields), `connections`
+  (program A, program B, status: pending / accepted / blocked, who invited), and
+  `shared_items` (the dog-card projections and posts, each built field-by-field from the
+  cloud tier).
+- **Every outbound piece is an allow-list builder,** like `kennelCard.js`/`companionExport.js`,
+  with an `assertOnlyKeys` positive check. The profile and shared-item allow-lists are
+  **subsets of the cloud tier** (§6.2), so private-tier data can't reach a friend even through
+  a bug in the list itself.
+- **Local schema:** `contacts` gains a `public_id` (the connection-linked breeder, write-once,
+  same rules as `kennels.public_id`). `dogs.public_id` is already proposed in §7. Neither is an
+  FK, so neither needs a `referenceRegistry` entry. Connection state itself lives server-side
+  only; the device asks for it rather than storing a back-pointer.
+- **Reads of friends' data are online-only** (the feed, browsing their dogs). Anything you've
+  *added to your records* is local and works offline like everything else.
+
+## 9. Phasing (each phase ships value on its own)
 
 | Phase | Delivers | Risk |
 |---|---|---|
@@ -237,10 +333,11 @@ Under the hood:
 | **3. Team members & roles** | Invites, Staff and Helper roles, server-enforced visibility. KennelAssistant retires. | Medium |
 | **4. Dog transfers** | §7 | Medium |
 | **2b. Private vault** | §6.3. Passkey + recovery code, encrypted private-tier backup | Medium. Crypto is standard WebCrypto, but the recovery UX must be tested on real non-technical users |
+| **4b. Connections** | §8. Invite/QR/email connect, profile → auto kennel + contact, the feed, then "add to my records" linked dogs | Medium. Mostly allow-list builders plus a feed. Low data risk because everything shared is already cloud tier |
 | **5. Account-based licensing** | Lemon Squeezy webhooks, no device slots | Low |
-| **Later** | Linked dogs and co-ownership, and Furever families on accounts | Higher |
+| **Later** | Two-way linked dogs and co-ownership, optional "people you may know", and Furever families on accounts | Higher |
 
-## 9. Open questions (need answers before Phase 1)
+## 10. Open questions (need answers before Phase 1)
 
 1. **Offline:** should the app keep working fully offline and sync when back online
    (recommended), or is "requires internet" acceptable?
@@ -259,12 +356,15 @@ Under the hood:
    policy and a delete-my-account path, but breach exposure is much smaller.
 8. **Who builds and runs the backend?** It's the first piece of this product that can go down
    at 2am.
-9. **Kennel location:** cloud or private? It's often the breeder's home address.
-10. **Contact names in the cloud:** recommended, so teammates and a no-vault restore still
-    show "Sale → Maple → Jane Smith". The stricter option keeps names private too, so
-    teammates see "Buyer (private)". That's lower risk but clumsier.
+9. **Connections and editions:** recommended: connecting, profiles, and the feed are free in
+   Lite, since they spread the app through friend groups. "Add to my records" linked dogs and
+   transfers to a connection stay Pro.
+10. **Showcase defaults:** confirm sharing is per-dog opt-in, and milestone posts need a
+    one-tap confirm rather than auto-posting.
 
-## 10. What changes in this repo if approved
+**Decided:** contact names are in the cloud tier; kennel location is in the cloud tier.
+
+## 11. What changes in this repo if approved
 
 - New `cloud/` (the Worker plus Durable Object code), deployed with `wrangler`. This is the
   first build step that isn't a static copy.
@@ -273,7 +373,8 @@ Under the hood:
 - `shared/data/syncRegistry.js`, the per-field cloud allow-list plus the per-row rules (§6.2),
   with a coverage test.
 - `shared/data/vault.js` for vault encryption and key wrapping (§6.3).
-- `dogs.public_id` (§7).
+- `dogs.public_id` (§7) and `contacts.public_id` (§8.5).
+- `shared/data/connectionProfile.js` and `sharedItems.js`: the allow-list builders for §8.
 - CLAUDE.md, the README, the Editions Plan (§Licensing), and the End-State guide (§2, §10,
   §26, §28) get rewritten to drop "no backend" and describe the new layer.
 - `shared/sw.js`: the API is cross-origin, so the cache-first handler already ignores it.
