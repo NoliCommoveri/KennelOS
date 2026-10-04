@@ -18,6 +18,9 @@
    records on their own phones without anyone having to sync by hand.
 4. **Sensitive data stays low-risk.** Financials, buyers' details and the like should not sit
    readable on our server, but users who want them backed up should be able to. See §6.
+5. **Connections between breeder friends.** Connect privately (never publicly), have each
+   other's kennel and contact records created and kept current automatically, and show off
+   dogs and litters to friends. See §8.
 
 ## 2. Recommendation in one paragraph
 
