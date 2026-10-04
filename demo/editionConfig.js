@@ -86,6 +86,7 @@ export const navItems = [
 // direct URL 404s just like a Pro-only page does in Lite.
 export const moreItems = [
   { label: 'Reports',       path: 'pages/reports.html' },
+  { label: 'Shows',         path: 'pages/shows.html' },
   { label: 'Documents',     path: 'pages/documents.html' },
   { label: 'Companion',     path: 'pages/companion.html' },
   { label: 'Furever',       path: 'pages/furever.html' },

@@ -286,7 +286,7 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     a duplicate. A name is not a key, so it is never auto-matched.
   - **Not multi-device.** A card carries identity, not records; a second device restores a
     backup or syncs via Dropbox, and the import preview says so when fed your own card.
-- **Show tracking (Pro) — Phase 1 of 4 done (type + gating, no new pages).** Building
+- **Show tracking (Pro) — all 4 phases done (type + gating; points engine + dog card; Shows page; Today, nudge, sample data).** Building
   `docs/KennelOS_Show_Tracking_Spec.md`. No schema change — it rides the `events` table.
   - **`show` event type** in `vocab.js` plus `SHOW_ENTRY_STATUS`, `SHOW_ORGANIZATIONS`,
     `TITLE_TRACKS`, `AKC_SHOW_CLASSES`, `AKC_SHOW_AWARDS`; `handler` contact role, `show`
@@ -301,7 +301,37 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   - **CSV** — `show` rows always match on title too, so a double-header's Show 2 lands in
     review instead of overwriting Show 1.
   - Browser-verified (headless Chromium): Pro form end-to-end; Lite build has no trace (type
-    picker, Upcoming filter, CSV import). **Next:** Phase 2 — `showPoints.js` + dog card.
+    picker, Upcoming filter, CSV import).
+  - **Phase 2 — points engine + dog card.** `shared/data/showPoints.js`: a db-free pure core
+    (`trackProgress`, `showRecordFrom`) that derives points / majors / distinct judges /
+    champion defeats per `TITLE_TRACKS` row, the completing-win date, human-readable gaps,
+    and GCH's after-CH cut-off (from a logged CH `title_earned` or the completed CH track),
+    plus the `getShowRecord(dogId)` loader; pinned by `tests/showPoints.test.js`. The dog
+    page's **Show Record** card (Pro-only, appears once the dog has a show event) shows each
+    track's progress and a clickable history; `timeline.js` gained an `onChange` hook so the
+    card stays in step with Event History edits. Browser-verified (headless Chromium): card
+    tallies + gaps, row edit and timeline archive both refresh it, no card on a dog without
+    shows, none in the Lite build.
+  - **Phase 3 — Shows page.** `shared/pages/shows.html` + `shows.js` (Pro-only via
+    `PRO_ONLY_PAGES`; "Shows" in the More menu for shared/Pro/Demo, not Lite). **Upcoming**
+    tab grouped by show day with entries-close flags (amber ≤ 7 days, red when past and still
+    planned); **Results** tab with Dog / Organization / Period / Track filters + CSV export;
+    rows open the event's edit modal. **+ Add entries** creates one show event per dog per
+    day (scoped dog picker, "+ Next day" for clusters, skips entries already on file, tags the
+    handler). Supporting generic pieces: `eventRepo.getByType()`, and `reportView`'s column
+    `tone` + view `groupBy`. Browser-verified (headless Chromium): both tabs, tone flags,
+    bulk create 2 dogs × 2 days, duplicate re-run skipped, handler tagged, row → edit modal;
+    `shows.*` absent from `dist/lite/`.
+  - **Phase 4 — Today, nudge, sample data.** Today's **Upcoming shows** card (next 14 days,
+    grouped by day; shows leave the "Due outs & upcoming" card while the flag is on, so each
+    is listed once). Ninth nudge, **"log the title?"** — a completed track with no matching
+    `title_earned` deep-links to a prefilled title form (new generic `logDate` / `logTitle` /
+    `logDetails` params on `openEventFromQuery`); it clears once the title is logged.
+    Thornfield seed: Birch's CH campaign (12 pts, 1 major, 3 judges), handler Lauren Pike, an
+    upcoming cluster weekend with an entry fee and an entries-close reminder. Browser-verified
+    (headless Chromium): Today card + no double listing, reminder fires, card gaps, completing
+    win → nudge → prefilled form → title saved → nudge gone; Lite shows no card / nudge and
+    seeds no show events. Service-worker cache rolled to `kennelos-shell-v32`.
 - **Next:** the editions build is now feature-complete (Lite cap, Pro + license gate, Demo,
   front doors, tour). Remaining before launch is deploy-time config, not code: buy the domain,
   wire the three publish repos + `EDITIONS_DEPLOY_PAT` (see `build/README.md`), and confirm the
