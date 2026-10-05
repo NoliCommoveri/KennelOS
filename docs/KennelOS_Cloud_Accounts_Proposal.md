@@ -313,8 +313,8 @@ switch, and what's shared appears in your connections' **Friends feed**.
 ### 8.5 Editions (decided)
 
 - **Lite:** connect, profile, friends feed, and the connection-created outside kennel and
-  contact. This means **Lite users have accounts**, at least for connections (see Q3 for
-  whether Lite also gets cloud backup). The Lite cap is unaffected: it counts owned and
+  contact. **Lite users have accounts**, which also carry Lite's cloud backup and vault
+  (decided, §10). The Lite cap is unaffected: it counts owned and
   co-owned dogs only, and a connection creates no dogs.
 - **Lite needs its own surface for this.** The Kennels list and the Kennel Card UI are
   Pro-only today, so the connections page, invite/QR flow, and feed must live in
@@ -358,10 +358,7 @@ switch, and what's shared appears in your connections' **Friends feed**.
    (recommended), or is "requires internet" acceptable?
 2. **Tiers (§6):** does the two-tier split match her instincts? Anything in the cloud column she
    considers sensitive, or anything private she'd want teammates to see?
-3. **Editions:** Lite already gets an account for connections (decided below), so the remaining
-   question is whether Lite also gets Phase 1 cloud backup of its kennel records. Recommended:
-   yes. It's cheap at Lite's 6-dog / 2-litter size and is the data-loss goal itself. Pro gets
-   sync, team, vault, and transfers. Demo gets none.
+3. ~~Editions~~ (decided below).
 4. **What travels with a transferred dog** by default, and can the seller untick items?
 5. **Roles:** are Owner / Staff / Helper the right three?
 6. **Existing users:** first sign-in uploads the current local data as the program (the
@@ -379,6 +376,13 @@ switch, and what's shared appears in your connections' **Friends feed**.
   Transfers to a connection and "Add to my records" linked dogs stay Pro.
 - Sharing to connections is **opt-in per dog/litter**, and milestone posts need a **one-tap
   confirm**; nothing auto-posts.
+- **Data-loss protection is the same in Lite and Pro:** Lite gets Phase 1
+  cloud backup of kennel records **and** the private vault (§6.3), exactly as Pro does.
+  Protecting a user's data is never an upsell. Pro's paid additions are multi-device live
+  sync, team members, transfers, and linked dogs. Demo gets none of the cloud features.
+  Consequence for the build: the sign-in, backup-status, vault setup, and restore UI must
+  live in `shared/` and stay out of `proPages.js`. (Today's Dropbox section on
+  Import/Export is Pro-gated; the cloud equivalent must not be.)
 
 ## 11. What changes in this repo if approved
 
