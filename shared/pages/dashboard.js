@@ -98,8 +98,9 @@ async function main() {
   const upcomingPlacements = upcoming.filter((e) => e.event_type === 'placement' && eventInScope(e)).length;
   // Already scoped by getAwayBoardRows() — the one place that decision lives.
   const awayCount = boardRows.length;
-  // NOT scoped, deliberately (§7): the contact pool is program-wide, so the
-  // waitlist is one queue across the program rather than a per-kennel line.
+  // NOT scoped, deliberately (§7): this counts CONTACTS, and the contact pool is
+  // program-wide. The waitlist itself is per kennel (Waitlist Spec §0) — W1b
+  // replaces this tile with a scoped count of active waitlist entries.
   const waitlistActive = contacts.filter((c) => c.waitlist_status === 'active').length;
 
   body.innerHTML =

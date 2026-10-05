@@ -350,6 +350,13 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   live-testing window in which Pro shipped fully unlocked to any visitor. Lite and Demo declare
   no `licenseGate` at all and carry a null `licenseConfig` — they are structurally ungatable,
   not merely switched off (browser-verified: wall in Pro only).
+- **Waitlist, W1a — data layer built, no UI yet** (`docs/KennelOS_Waitlist_Spec.md` §0
+  decisions, §14 plan; End-State guide §29). Three per-kennel tables (`waitlist_entries`,
+  `waitlist_offers`, `waitlist_programs`), their repos (the entry repo keeps
+  `Contact.waitlist_status` in step), every FK registered, and the pure rules engine
+  `shared/data/waitlistRules.js` (position, eligibility including breed, passes, removal +
+  undo) with `tests/waitlistRules.test.js`. Repos exercised against a real IndexedDB in
+  headless Chromium. Next: W1b (the Pro-only Waitlist, entry and programs pages).
 
 ## Build & deploy
 

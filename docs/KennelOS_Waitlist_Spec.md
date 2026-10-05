@@ -7,6 +7,41 @@
 > ("Proposal §N") and `docs/KennelOS_Cloud_Phase1_Plan.md` ("Phase 1 §N"). The
 > requirements she gave are in §2. Leanings are marked **leaning**, and every open
 > question is collected in §13.
+>
+> **Build status:** W1a (the data layer: vocab, tables, repos, registry, the rules
+> engine and its tests) is built. W1b–W1d are not. See §12 and §14.
+
+## 0. Decisions taken at build start (2026-10-05)
+
+These were settled at the W1 review and are written into the sections below; they're
+gathered here so they aren't re-litigated.
+
+- **One list per kennel (Q2).** Every waitlist row carries a required own-kennel
+  `kennel_id`. This **reverses** the older note in `pages/dashboard.js` (and Multi-Kennel
+  Scope Spec §7) that called the waitlist "one queue across the program". That note was
+  about `Contact.waitlist_status`, and contacts stay program-wide: a family on two
+  kennels' lists is one contact with two entries.
+- **Waitlist settings live on the Kennel record**, as one unindexed `waitlist_config`
+  object, not in `settings.js`. localStorage doesn't ride the JSON backup, the Lite→Pro
+  bridge or Dropbox sync, so settings kept there would be lost on restore. A kennel
+  record is backed up and is already per kennel. The keys are listed in §4.6.
+- **No response counts as a pass (Q3):** yes, by default
+  (`waitlist_config.no_response_counts_as_pass = true`).
+- **Breed is a full preference.** `pref_breed` is always available, not only for
+  kennels with several breeds, and it decides eligibility (§6.2).
+- **Undoing a second-pass removal forgives that pass** (§6.4), so the entry doesn't
+  get removed again straight away.
+- **Picks get an explicit open state:** a nullable `Litter.picks_opened_date` (§4.5).
+- **No server in W1, so no silent automatic writes.** Past-due offers and expired fee
+  windows show up as one-tap **suggested actions** on Today (§6.5). She confirms them.
+- **An "available" pup** is one whose `disposition` isn't `keeping` or `placed` (unset
+  and `undecided` count as available), that isn't deceased or archived, and that has no
+  live Sale (any non-archived Sale whose status isn't `returned`/`cancelled`).
+- **Contact.waitlist_status is kept in step (Q1)** by `waitlistEntryRepo`. The
+  contact page's manual dropdown becomes read-only once a contact has entries (W1b).
+- **The Sale price/deposit prefill** moves out of `pages/sale.js` into a data helper, so
+  accepting an offer can reuse it (W1c).
+- `syncRegistry.js` and the kennel time zone are cloud work. They move to W2.
 
 ## 1. What this is, and what it isn't
 
@@ -103,22 +138,22 @@ code. See Q1.
 | Field | Indexed | Notes |
 |---|---|---|
 | `id`, `created_at`, `updated_at`, `is_archived` | id, archived | standard |
-| `kennel_id` | ✔ FK → Kennel | Which kennel's list. Multi-kennel programs keep **one list per kennel** (Q2). |
+| `kennel_id` | ✔ FK → Kennel | Which kennel's list. Multi-kennel programs keep **one list per kennel** (decided, §0). Required; must be one of her own kennels. |
 | `contact_id` | ✔ FK → Contact | The family. Created or matched on approval (§5.2). |
 | `status` | ✔ | §3 |
 | `waitlist_program_id` | ✔ FK → waitlist_programs, nullable | §7. Named this way, not `program_id`, because the cloud docs use `program_id` for an account's whole data set. |
 | `applied_date` | | `YYYY-MM-DD` |
 | `approved_date`, `declined_date` | | |
-| `fee_amount` | | Decimal, prefilled from settings or the program. Private tier (§9). |
+| `fee_amount` | | Decimal, prefilled from `waitlist_config.fee_amount` or the program's `fee_override`. Private tier (§9). |
 | `fee_due_date` | | Optional; drives `expired` |
 | `fee_received_date` | | **The position anchor** (§6.1). Cloud tier (§9), so a restore keeps the order. |
 | `fee_payment_method`, `fee_payment_reference` | | Same posture as `Sale.payment_*` |
-| `fee_credit_policy` | | `credited_to_purchase` / `non_refundable` / `refundable`, from settings (Q5) |
+| `fee_credit_policy` | | `credited_to_purchase` / `non_refundable` / `refundable`, copied from `waitlist_config` when the entry is approved (Q5) |
 | `position_anchor_date` | | Optional manual override (§6.1), rarely used. Replaces `fee_received_date` for ordering only. |
 | `pref_sex` | | `any` / `male` / `female` |
 | `pref_placement_type` | | From `PLACEMENT_TYPE` (pet / show / breeding_rights / co_own) |
 | `pref_colors` | | Free-text list. Used for eligibility only if she turns that on (Q4). |
-| `pref_breed` | | Only when the kennel has more than one breed |
+| `pref_breed` | | Free text; blank = any breed. Always offered (Decision §0); matched case-insensitively and trimmed against the pup's `Dog.breed` (§6.2) |
 | `listen_mode` | | `all` (default) or `selected` (§6.3) |
 | `listen_pairing_ids` | ✔ multi-entry FK → Pairing | Used when `listen_mode = 'selected'` |
 | `listen_litter_ids` | ✔ multi-entry FK → Litter | Same. Covers litters with no pairing record. |
@@ -190,6 +225,8 @@ waitlist_programs: 'id, kennel_id, is_archived'
   - `DOG_REFERENCES`: `waitlist_offers.chosen_dog_id` (indexed above so the check is a lookup, not a scan);
   - new `WAITLIST_ENTRY_REFERENCES` (`waitlist_offers.entry_id`) and
     `WAITLIST_PROGRAM_REFERENCES` (`waitlist_entries.waitlist_program_id`).
+- **Kennel gains `waitlist_config`** (§4.6), and **Litter gains `picks_opened_date`**
+  (nullable `YYYY-MM-DD`, plain unindexed field, set by **Open picks**, §6.5).
 - **One new field on Dog:** `intended_placement`, nullable, values from `PLACEMENT_TYPE`
   (pet / show / breeding_rights / co_own). It's the per-pup placement §6.2 matches
   against. Plain unindexed field, same posture as `disposition`; unset means "any
@@ -199,11 +236,29 @@ waitlist_programs: 'id, kennel_id, is_archived'
   `shared/data/waitlistRules.js`, so it can be unit-tested with no database.
 - **End-State guide:** the data model (including `Dog.intended_placement`), schema block,
   registry, and a new **"Waitlist"** section, all in the same change (CLAUDE.md).
-- **`syncRegistry.js`** (Phase 1 §5) classifies all three tables (§9).
+- **`syncRegistry.js`** (Phase 1 §5) classifies all three tables (§9) **when it exists**.
+  It doesn't yet, so this is W2 work.
 - **New pages and the service worker:** `pages/waitlist.html`/`.js` (the list),
   `pages/waitlist-entry.html`/`.js` (one family), and `pages/waitlist-programs.html`/`.js`
   go in `PRECACHE_URLS` and in `proPages.js` (§11). `CACHE_NAME` is bumped once at the
   end of the batch, after asking first.
+
+### 4.6 `Kennel.waitlist_config`: her waitlist settings
+
+One plain, unindexed object on each own kennel (§0). Missing keys fall back to the
+defaults in `waitlistRules.waitlistConfig()`, so an old kennel with no config just works.
+
+| Key | Default | Notes |
+|---|---|---|
+| `fee_amount` | `null` | The normal application fee. A program's `fee_override` replaces it. |
+| `fee_credit_policy` | `credited_to_purchase` | `credited_to_purchase` / `non_refundable` / `refundable` (Q5) |
+| `fee_due_days` | `null` | Days after approval to pay. `null` = no pay-by date, so nothing expires. |
+| `payment_instructions` | `''` | Free text shown to approved families (§5.3) |
+| `max_passes` | `2` | Passes before removal (§6.4) |
+| `respond_days` | `3` | Offer response window (§6.5). A program's `respond_days_override` replaces it. |
+| `no_response_counts_as_pass` | `true` | Q3, decided yes |
+| `color_matching` | `false` | Q4. Off: colors are notes only. |
+| `checkin_months` | `6` | W3 check-ins (§10.2) |
 
 ## 5. Getting onto the list
 
@@ -242,7 +297,7 @@ waitlist_programs: 'id, kennel_id, is_archived'
 - **On approval** the family gets the fee request. **The email carries no money details:**
   it says they're approved, gives the optional pay-by date, and links to their status page.
   **The status page** shows the amount (normal, or the program's override), **her payment
-  instructions** (free text from settings: "Venmo @…, Zelle …, or check to …"), and whether
+  instructions** (free text from `waitlist_config.payment_instructions`: "Venmo @…, Zelle …, or check to …"), and whether
   the fee is credited to the purchase price or non-refundable. (In W1, with no server, she
   sends these details herself.) See §8.1 for what this puts on the server.
 - **She taps "Fee received"** (with date, method and reference). This moves the entry to
@@ -293,10 +348,13 @@ A family is **eligible** for a litter when all of the following hold:
 - the entry is `active`, and not paused (`paused_until` empty or past);
 - `listen_mode` is `all`, **or** the litter is in `listen_litter_ids`, **or** its
   `pairing_id` is in `listen_pairing_ids`;
-- at least one pup in the litter is **available** (not reserved by a Sale, not kept
-  back), **and matches their preferences**: sex (unless `any`); placement type, checked
+- at least one pup in the litter is **available** (no live Sale, `disposition` not
+  `keeping`/`placed`, not deceased or archived; §0), **and matches their preferences**:
+  sex (unless `any`); **breed** (unless blank; case-insensitive and trimmed against
+  `Dog.breed`, and a pup with no breed recorded matches any); placement type, checked
   against the pup's `intended_placement` (§4.5; a pup with it unset matches any
-  placement); color, only if she has turned on color matching (Q4).
+  placement); color, only if she has turned on color matching (Q4; it's off by default,
+  and when on, any listed color must appear in the pup's `color_markings`).
 
 A family is **eligible for a pup** when the above holds for that particular pup.
 
@@ -331,11 +389,15 @@ A family is **eligible for a pup** when the above holds for that particular pup.
   - **Leaning:** an offer ending because the family accepted a pup from another litter
     (it's `voided` automatically).
 - **The second pass:** when the count of `counts_as_pass` offers on an entry reaches **2**
-  (`settings.waitlistMaxPasses`, default 2), the entry becomes `removed` with
+  (`waitlist_config.max_passes`, default 2), the entry becomes `removed` with
   `removed_reason = 'second_pass'`. "Basically automatic":
   - the removal happens by rule;
   - she gets a notice with a **7-day undo** ("Removed the Lees from the list after their
-    second pass. Undo");
+    second pass. Undo"). The window is worked out from `removed_date`, so nothing extra
+    is stored. **Undo** puts the entry back to `active` (its anchor is untouched, so it
+    keeps its place) and sets the triggering offer's `counts_as_pass` to `false` with a
+    "forgiven by you" note. Without that, the count would still be 2 and the entry would
+    be removed again at once;
   - the family gets a kind, editable message. Re-applying is allowed, with a new fee and
     a new place.
 - **The first pass** sends the family a note: "This counts as your first pass. You keep
@@ -363,11 +425,19 @@ A family is **eligible for a pup** when the above holds for that particular pup.
 - **Deadlines** are **date-only, end of day in the kennel's time zone** ("by 11:59 pm
   Central on Friday, March 14"). That keeps the project's date-only convention (no
   timestamps on business fields). The time zone is a new kennel setting. The window
-  defaults to `settings.waitlistRespondDays` (e.g. 3 days), and programs can lengthen it.
+  defaults to `waitlist_config.respond_days` (e.g. 3 days), and programs can lengthen it.
   On the server (§8.4) each deadline also gets its exact cutoff instant, computed once from
   the date and the kennel's time zone and stored server-side only, so the hourly cron
   (§8.5) fires it within the hour. The business field stays date-only.
 - **A reminder goes out** halfway through the window and the morning of the deadline (§10).
+- **W1 (no server):** nothing moves while she's away. An open offer whose
+  `respond_by_date` has passed, and an `approved` entry whose `fee_due_date` has passed,
+  show on Today as a **suggested action** ("The Lees' offer deadline passed: record no
+  response?"). She confirms with one tap, since she may have heard from the family
+  herself.
+- **Picks open state:** **Open picks** stamps `Litter.picks_opened_date`. While it's set
+  and the litter still has available pups, the next eligible family is offered whenever
+  an offer closes, and again when a new family becomes `active`.
 
 ## 7. Programs (requirement 4)
 
@@ -587,7 +657,7 @@ API. It has three jobs.
 
 ### 10.2 "Still interested?" check-ins
 
-- **When:** every *N* months for active entries (`settings.waitlistCheckinMonths`, e.g. 6),
+- **When:** every *N* months for active entries (`waitlist_config.checkin_months`, e.g. 6),
   and before an offer is likely (e.g. when a pairing they're near the top of is confirmed
   pregnant).
 - **The message** is written by the assistant from a template she approves. It always
@@ -647,7 +717,7 @@ API. It has three jobs.
 
 | Phase | Delivers | Needs the server? |
 |---|---|---|
-| **W1. The list, locally** | Tables, repos, rules engine + tests, Waitlist page (list, applications queue, entry page), programs, manual application entry + CSV import, approve / fee received / offers / passes / auto-removal with undo, Sale creation on accept, `waitlist_status` kept in step, Demo seed | No. Useful immediately; she runs it from her phone and messages families herself. |
+| **W1. The list, locally** (split into W1a–W1d, §14) | Tables, repos, rules engine + tests, Waitlist page (list, applications queue, entry page), programs, manual application entry + CSV import, approve / fee received / offers / passes / auto-removal with undo, Sale creation on accept, `waitlist_status` kept in step, Demo seed | No. Useful immediately; she runs it from her phone and messages families herself. |
 | **W2. Online** | Public form + encrypted inbox (with Rotate form key), status page with buttons, an encrypted message box and the optional "Message us on Facebook" button, no-reply fee/offer/decline/reminder emails from templates, family responses, server-side deadlines (§8.4), Pro entitlement + rate limits (§8.5) | Yes: after Phase 1's Worker and auth, **the private vault** (Proposal Phase 2b; §8.2), and **the server-side Pro license link** (Proposal Phase 5, brought forward for the waitlist routes only; §8.5) |
 | **W3. Assistant** | FAQ chat, check-ins, written messages | Yes |
 | **Later** | Pay links with automatic fee received, helpers working the list on their own devices (needs Proposal Phases 2–3), SMS and Messenger notifications (sent from her Page; needs Meta app review, and Meta's 24-hour messaging window limits check-ins and reminders) | Yes |
@@ -656,9 +726,9 @@ W1 is a full feature on its own and doesn't wait for the cloud work.
 
 ## 13. Open questions for her
 
-1. **`Contact.waitlist_status`:** keep it in step from the entries (leaning), or retire it?
-2. **Multi-kennel:** one list per kennel (leaning), or one list across all her kennels?
-3. **No response to an offer:** does it count as a pass (leaning yes)?
+1. ~~**`Contact.waitlist_status`:** keep it in step from the entries, or retire it?~~ **Decided: kept in step** (§0).
+2. ~~**Multi-kennel:** one list per kennel, or one list across all her kennels?~~ **Decided: one list per kennel** (§0).
+3. ~~**No response to an offer:** does it count as a pass?~~ **Decided: yes, by default** (§0).
 4. **Color preferences:** do they decide eligibility, or are they just notes she reads?
    (If a family only wants a chocolate and none are born, is that "no matching pup" (no
    pass), or would she expect them to consider other colors?)
@@ -688,3 +758,21 @@ W1 is a full feature on its own and doesn't wait for the cloud work.
 17. **Deposits vs. the application fee:** confirm that the deposit is still taken on the
     Sale after a family accepts a pup, separately from the application fee.
 18. **Response windows:** how many days for an offer, a fee and a check-in?
+
+## 14. W1 build plan
+
+| Slice | Delivers | Status |
+|---|---|---|
+| **W1a. Data** | Vocab; the three tables; `Dog.intended_placement`, `Litter.picks_opened_date` and `Kennel.waitlist_config` (documented, plain fields); the three repos (`waitlistEntryRepo` keeps `Contact.waitlist_status` in step); every FK in `referenceRegistry.js`; the pure `waitlistRules.js` and `tests/waitlistRules.test.js`; End-State guide §29. No UI. | **Built** |
+| **W1b. Intake + list** | Waitlist page (applications queue, active list with positions, program and "moved by you" badges); entry page (new application, possible contact match, approve/decline, fee received, preferences including breed, listen-only/pause, notes, offer history); programs page; `waitlist_config` editor on the Kennel page; intended-placement field on the Dog form; contact page dropdown read-only when entries exist; nav, `proPages.js`, `PRECACHE_URLS`. | Not started |
+| **W1c. Offers** | "Open picks" panel on the Litter page (hidden in Lite); accept / pass / no response / void; Sale on accept (via the moved prefill helper); automatic second-pass removal plus undo; other open offers voided on accept; Today: new-applications badge and the suggested actions in §6.5. | Not started. Q4, Q8 and Q9 still open; it will build on the spec's leanings (family picks a pup, one open offer per litter, colors off) unless she says otherwise. |
+| **W1d. Extras** | Demo seed (a program family, a listen-only family, one with a pass, an open offer; the Lite seed stays empty); CSV import of applications through the existing preview flow; `application_fee` income component in Financials. | Not started. Q5 open for the Financials part. |
+
+Known limit carried into W1b: "place them right after the Smiths" (§6.1) can only set
+the same anchor date as the Smiths, because the anchor is date-only. Ties then break by
+approval date and creation time, so the family lands among the Smiths' same-day peers,
+not necessarily directly after them. W1b's UI should say so.
+
+Hard-delete note: the multi-entry `listen_litter_ids` / `listen_pairing_ids` registry
+entries mean an entry still listening for a litter or pairing (even a withdrawn one)
+blocks that record's hard delete. Archive is the normal way out, so this is intended.

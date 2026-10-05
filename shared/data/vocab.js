@@ -135,6 +135,64 @@ export const WAITLIST_STATUS = [
   { value: 'fulfilled', label: 'Fulfilled', badge: 'badge-green' }
 ];
 
+// --- Waitlist (Waitlist Spec §3–§4) -----------------------------------------
+// One row per family per time on a kennel's list (waitlist_entries). Distinct
+// from Contact.waitlist_status above, which waitlistEntryRepo keeps in step from
+// these entries (Spec §0/§4.1). Pausing and listen-only are flags on an `active`
+// entry, never statuses, so narrowing what a family wants never costs its place.
+export const WAITLIST_ENTRY_STATUS = [
+  { value: 'applied',   label: 'Applied',    badge: 'badge-blue' },
+  { value: 'approved',  label: 'Fee due',    badge: 'badge-amber' },
+  { value: 'active',    label: 'On the list', badge: 'badge-green' },
+  { value: 'placed',    label: 'Placed',     badge: 'badge-neutral' },
+  { value: 'removed',   label: 'Removed',    badge: 'badge-red' },
+  { value: 'withdrawn', label: 'Withdrawn',  badge: 'badge-gray' },
+  { value: 'declined',  label: 'Declined',   badge: 'badge-gray' },
+  { value: 'expired',   label: 'Fee expired', badge: 'badge-gray' }
+];
+
+// Statuses where the family is still in the pipeline (drives Contact.waitlist_status
+// = 'active'). Everything else is a closed run through the list.
+export const WAITLIST_OPEN_STATUSES = ['applied', 'approved', 'active'];
+
+export const WAITLIST_OFFER_OUTCOME = [
+  { value: 'open',        label: 'Open',        badge: 'badge-blue' },
+  { value: 'accepted',    label: 'Accepted',    badge: 'badge-green' },
+  { value: 'passed',      label: 'Passed',      badge: 'badge-amber' },
+  { value: 'no_response', label: 'No response', badge: 'badge-amber' },
+  { value: 'voided',      label: 'Voided',      badge: 'badge-gray' }
+];
+
+export const WAITLIST_REMOVED_REASON = [
+  { value: 'second_pass',         label: 'Second pass',             badge: 'badge-red' },
+  { value: 'no_checkin_response', label: 'No check-in response',    badge: 'badge-red' },
+  { value: 'by_breeder',          label: 'Removed by you',          badge: 'badge-gray' },
+  { value: 'fee_expired',         label: 'Fee not received in time', badge: 'badge-gray' }
+];
+
+export const WAITLIST_PRIORITY = [
+  { value: 'standard', label: 'Standard',        badge: 'badge-gray' },
+  { value: 'ahead',    label: 'Ahead of standard', badge: 'badge-purple' }
+];
+
+export const WAITLIST_LISTEN_MODE = [
+  { value: 'all',      label: 'All litters',            badge: 'badge-gray' },
+  { value: 'selected', label: 'Selected litters only', badge: 'badge-blue' }
+];
+
+// A family's sex preference: SEX plus "any" (the default).
+export const WAITLIST_PREF_SEX = [
+  { value: 'any',    label: 'Either',  badge: 'badge-gray' },
+  { value: 'male',   label: 'Male',    badge: 'badge-blue' },
+  { value: 'female', label: 'Female',  badge: 'badge-purple' }
+];
+
+export const FEE_CREDIT_POLICY = [
+  { value: 'credited_to_purchase', label: 'Credited to purchase price', badge: 'badge-green' },
+  { value: 'non_refundable',       label: 'Non-refundable',             badge: 'badge-amber' },
+  { value: 'refundable',           label: 'Refundable',                 badge: 'badge-blue' }
+];
+
 export const PLACEMENT_TYPE = [
   { value: 'pet',            label: 'Pet',            badge: 'badge-neutral' },
   { value: 'show',           label: 'Show',           badge: 'badge-purple' },

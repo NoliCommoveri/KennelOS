@@ -15,6 +15,7 @@ import * as registry from '../shared/data/referenceRegistry.js';
 const KNOWN_TABLES = new Set([
   'dogs', 'events', 'expenses', 'contacts', 'kennels', 'pairings',
   'litters', 'sales', 'contracts', 'stud_services', 'documents', 'files',
+  'waitlist_entries', 'waitlist_offers', 'waitlist_programs',
 ]);
 
 const SUBJECT_TYPES = new Set(['dog', 'pairing', 'litter', 'kennel']);
@@ -30,6 +31,7 @@ test('the module exports the expected registry arrays', () => {
     'DOG_REFERENCES', 'EVENT_REFERENCES', 'EXPENSE_REFERENCES',
     'KENNEL_REFERENCES', 'LITTER_REFERENCES', 'PAIRING_REFERENCES',
     'SALE_REFERENCES', 'STUD_SERVICE_REFERENCES',
+    'WAITLIST_ENTRY_REFERENCES', 'WAITLIST_OFFER_REFERENCES', 'WAITLIST_PROGRAM_REFERENCES',
   ]);
 });
 
@@ -66,6 +68,39 @@ test('leaf entities declare an empty registry (nothing points at them)', () => {
   assert.deepEqual(registry.CONTRACT_REFERENCES, []);
   assert.deepEqual(registry.EXPENSE_REFERENCES, []);
   assert.deepEqual(registry.DOCUMENT_REFERENCES, []);
+  assert.deepEqual(registry.WAITLIST_OFFER_REFERENCES, []);
+});
+
+// Waitlist Spec §4.5: every waitlist FK is registered on its target, and every
+// field the registry names is actually indexed in the schema (the guard probes
+// with .where(field), which throws on an unindexed field).
+test('every waitlist FK is guarded on its target, against an indexed field', () => {
+  const expect = {
+    CONTACT_REFERENCES: ['waitlist_entries.contact_id'],
+    KENNEL_REFERENCES: ['waitlist_entries.kennel_id', 'waitlist_offers.kennel_id', 'waitlist_programs.kennel_id'],
+    LITTER_REFERENCES: ['waitlist_offers.litter_id', 'waitlist_entries.listen_litter_ids'],
+    PAIRING_REFERENCES: ['waitlist_entries.listen_pairing_ids'],
+    SALE_REFERENCES: ['waitlist_entries.placed_sale_id'],
+    DOG_REFERENCES: ['waitlist_offers.chosen_dog_id'],
+    WAITLIST_ENTRY_REFERENCES: ['waitlist_offers.entry_id'],
+    WAITLIST_PROGRAM_REFERENCES: ['waitlist_entries.waitlist_program_id'],
+  };
+  const source = readFileSync(new URL('../shared/data/db.js', import.meta.url), 'utf8');
+  const indexed = new Map();
+  for (const line of source.split('\n')) {
+    const m = line.match(/^\s*(waitlist_[a-z_]+):\s*'([^']*)'/);
+    if (m) indexed.set(m[1], m[2].split(',').map((f) => f.trim()));
+  }
+  for (const [reg, fks] of Object.entries(expect)) {
+    const have = new Map(registry[reg].map((r) => [`${r.table}.${r.field}`, r]));
+    for (const fk of fks) {
+      assert.ok(have.has(fk), `${reg} must include ${fk}`);
+      const [table, field] = fk.split('.');
+      const r = have.get(fk);
+      const idx = r.multiEntry ? `*${field}` : field;
+      assert.ok((indexed.get(table) || []).includes(idx), `${table} must index ${idx}`);
+    }
+  }
 });
 
 test('the documents FK is guarded on Dog (regression: a filed doc blocks dog delete)', () => {
