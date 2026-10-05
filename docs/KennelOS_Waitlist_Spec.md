@@ -8,8 +8,8 @@
 > requirements she gave are in §2. Leanings are marked **leaning**, and every open
 > question is collected in §13.
 >
-> **Build status:** W1a (the data layer: vocab, tables, repos, registry, the rules
-> engine and its tests) is built. W1b–W1d are not. See §12 and §14.
+> **Build status:** W1a (the data layer) and W1b (the intake + list pages) are built.
+> W1c (offers) and W1d (demo seed, CSV, Financials) are not. See §12 and §14.
 
 ## 0. Decisions taken at build start (2026-10-05)
 
@@ -160,6 +160,7 @@ code. See Q1.
 | `paused_until` | | Optional `YYYY-MM-DD`. Paused families aren't offered; position kept (§6.3). |
 | `pause_reason` | | Short text, mainly for program pauses (§7) |
 | `removed_date`, `removed_reason` | | `second_pass` / `no_checkin_response` / `by_breeder` / `fee_expired` |
+| `withdrawn_date` | | When the family withdrew (added at W1b) |
 | `placed_sale_id` | ✔ FK → Sale, nullable | Set when an offer is accepted |
 | `application` | | Object: the decrypted application answers (§8.2). Private tier. |
 | `notes` | | Her private notes |
@@ -764,14 +765,18 @@ W1 is a full feature on its own and doesn't wait for the cloud work.
 | Slice | Delivers | Status |
 |---|---|---|
 | **W1a. Data** | Vocab; the three tables; `Dog.intended_placement`, `Litter.picks_opened_date` and `Kennel.waitlist_config` (documented, plain fields); the three repos (`waitlistEntryRepo` keeps `Contact.waitlist_status` in step); every FK in `referenceRegistry.js`; the pure `waitlistRules.js` and `tests/waitlistRules.test.js`; End-State guide §29. No UI. | **Built** |
-| **W1b. Intake + list** | Waitlist page (applications queue, active list with positions, program and "moved by you" badges); entry page (new application, possible contact match, approve/decline, fee received, preferences including breed, listen-only/pause, notes, offer history); programs page; `waitlist_config` editor on the Kennel page; intended-placement field on the Dog form; contact page dropdown read-only when entries exist; nav, `proPages.js`, `PRECACHE_URLS`. | Not started |
+| **W1b. Intake + list** | Waitlist page (applications queue, active list with positions, program and "moved by you" badges); entry page (new application, possible contact match, approve/decline, fee received, preferences including breed, listen-only/pause, notes, offer history); programs page; `waitlist_config` editor on the Kennel page; intended-placement field on the Dog form; contact page dropdown read-only when entries exist; nav, `proPages.js`, `PRECACHE_URLS`. Also: `data/waitlistActions.js`, an `editionFlags.waitlist` flag (off in Lite), dashboard tiles counting entries per kennel, a Waitlist panel on the contact page, and **Re-apply** on a closed entry. | **Built** |
 | **W1c. Offers** | "Open picks" panel on the Litter page (hidden in Lite); accept / pass / no response / void; Sale on accept (via the moved prefill helper); automatic second-pass removal plus undo; other open offers voided on accept; Today: new-applications badge and the suggested actions in §6.5. | Not started. Q4, Q8 and Q9 still open; it will build on the spec's leanings (family picks a pup, one open offer per litter, colors off) unless she says otherwise. |
 | **W1d. Extras** | Demo seed (a program family, a listen-only family, one with a pass, an open offer; the Lite seed stays empty); CSV import of applications through the existing preview flow; `application_fee` income component in Financials. | Not started. Q5 open for the Financials part. |
 
-Known limit carried into W1b: "place them right after the Smiths" (§6.1) can only set
-the same anchor date as the Smiths, because the anchor is date-only. Ties then break by
-approval date and creation time, so the family lands among the Smiths' same-day peers,
-not necessarily directly after them. W1b's UI should say so.
+Known limit: "place them right after the Smiths" (§6.1) can only set the same anchor date
+as the Smiths, because the anchor is date-only. Ties then break by approval date and
+creation time, so the family lands among the Smiths' same-day peers, not necessarily
+directly after them. The Move dialog says so ("Place them with…").
+
+W1b choices worth knowing: removing a family by hand is final (the confirm says so; they
+re-apply), while a second-pass removal keeps its 7-day undo. Pausing and listen-only are
+set by her on the entry's Edit form; families can't change them until W2's status page.
 
 Hard-delete note: the multi-entry `listen_litter_ids` / `listen_pairing_ids` registry
 entries mean an entry still listening for a litter or pairing (even a withdrawn one)

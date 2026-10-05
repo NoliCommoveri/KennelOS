@@ -67,6 +67,7 @@ export const editionFlags = {
   assistant: true,
   feedingSchedule: true,
   shows: true,             // Show tracking (Show Tracking Spec §7)
+  waitlist: true,         // Per-kennel waitlist (Waitlist Spec)
   // Multi-kennel scope — on, since Demo showcases the whole Pro app.
   multiKennel: true,
 };

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Contact — KennelOS</title>
+  <title>Waitlist family — KennelOS</title>
   <link rel="stylesheet" href="../assets/app.css">
   <link rel="manifest" href="../manifest.json">
   <link rel="icon" href="../assets/icons/favicon-32.png" sizes="32x32">
@@ -18,15 +18,18 @@
   <main>
     <div class="page-header">
       <div>
-        <a class="muted" href="contacts.html">← All contacts</a>
-        <h1 id="contact-title">Contact</h1>
+        <a class="muted" id="back-link" href="waitlist.html">← Waitlist</a>
+        <h1 id="entry-title">Waitlist family</h1>
+        <p class="page-subtitle" id="entry-subtitle"></p>
       </div>
       <div id="header-actions" class="pill-row"></div>
     </div>
 
     <div id="page-error"></div>
 
-    <section class="card">
+    <section class="card" id="status-section"></section>
+
+    <section class="card" style="margin-top:16px;">
       <div class="row-between">
         <h2 style="margin:0;">Details</h2>
         <div id="profile-actions" class="pill-row"></div>
@@ -34,12 +37,10 @@
       <div id="profile-body"></div>
     </section>
 
-    <section id="dogs-section"></section>
-    <section id="waitlist-section"></section>
-    <section id="sales-section"></section>
+    <section id="offers-section"></section>
   </main>
 
   <script type="module" src="../app.js"></script>
-  <script type="module" src="./contact.js"></script>
+  <script type="module" src="./waitlist-entry.js"></script>
 </body>
 </html>

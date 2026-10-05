@@ -11,7 +11,7 @@ import {
   isPupAvailable, pupMatchesPrefs, prefColorTokens, isPaused, isListeningFor, eligiblePupsFor,
   litterQueue, nextFamilyForLitter, hasOpenOffer,
   countsAsPass, passesUsed, shouldRemoveForPasses, canUndoRemoval, passToForgive,
-  overdueOffers, overdueFees, deriveContactWaitlistStatus,
+  overdueOffers, overdueFees, deriveContactWaitlistStatus, contactMatches, entryName,
 } from '../shared/data/waitlistRules.js';
 
 const K = 'kennel-a';
@@ -330,4 +330,25 @@ test('contact waitlist_status: active while any run is open; fulfilled when the 
     entry({ status: 'withdrawn', created_at: '2026-01-01' }),
   ]), 'none', 'latest run ended without a placement');
   assert.equal(deriveContactWaitlistStatus([entry({ status: 'active', is_archived: true })]), 'none', 'archived ignored');
+});
+
+// --- Applicant ↔ Contact matching (Spec §5.2) ---------------------------------------
+
+test('contact matches: email first (case/space-insensitive), then same-name; archived excluded; never automatic', () => {
+  const contacts = [
+    { id: 'c1', name: 'Jane Smith', email: 'JANE@example.com ' },
+    { id: 'c2', name: 'jane smith', email: 'other@example.com' },
+    { id: 'c3', name: 'Jane Smith', email: '', is_archived: true },
+    { id: 'c4', name: 'Bob Lee', email: '' },
+  ];
+  const m = contactMatches({ name: ' Jane Smith', email: 'jane@example.com' }, contacts);
+  assert.deepEqual(m.map((x) => [x.contact.id, x.reason]), [['c1', 'email'], ['c2', 'name']]);
+  assert.deepEqual(contactMatches({ name: 'Nobody' }, contacts), []);
+  assert.deepEqual(contactMatches({}, contacts), [], 'blank applicant matches nothing');
+});
+
+test('entryName: the linked contact wins, else the applicant, else a placeholder', () => {
+  assert.equal(entryName({ application: { name: 'Applied As' } }, { name: 'Contact Name' }), 'Contact Name');
+  assert.equal(entryName({ application: { name: 'Applied As' } }, null), 'Applied As');
+  assert.equal(entryName({}, null), 'Unnamed applicant');
 });

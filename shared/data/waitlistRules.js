@@ -296,3 +296,26 @@ export function deriveContactWaitlistStatus(entries) {
   const latest = [...live].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))[0];
   return latest && latest.status === 'placed' ? 'fulfilled' : 'none';
 }
+
+// --- Applicant ↔ Contact matching (Spec §5.2) ------------------------------------
+
+// Existing contacts that might be this applicant — OFFERED at approval, never
+// applied automatically (CSV import's rule: email is the natural key; a name is a
+// hint). Email matches first, then name-only matches, archived contacts excluded.
+export function contactMatches(application, contacts) {
+  const email = key(application && application.email);
+  const name = key(application && application.name);
+  const live = contacts.filter((c) => !c.is_archived);
+  const byEmail = email ? live.filter((c) => key(c.email) === email) : [];
+  const seen = new Set(byEmail.map((c) => c.id));
+  const byName = name ? live.filter((c) => !seen.has(c.id) && key(c.name) === name) : [];
+  return [
+    ...byEmail.map((contact) => ({ contact, reason: 'email' })),
+    ...byName.map((contact) => ({ contact, reason: 'name' }))
+  ];
+}
+
+// The family's display name: the linked contact's, else the applicant's own.
+export function entryName(entry, contact) {
+  return (contact && contact.name) || (entry.application && entry.application.name) || 'Unnamed applicant';
+}

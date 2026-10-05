@@ -356,7 +356,15 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   `Contact.waitlist_status` in step), every FK registered, and the pure rules engine
   `shared/data/waitlistRules.js` (position, eligibility including breed, passes, removal +
   undo) with `tests/waitlistRules.test.js`. Repos exercised against a real IndexedDB in
-  headless Chromium. Next: W1b (the Pro-only Waitlist, entry and programs pages).
+  headless Chromium.
+- **Waitlist, W1b — intake + list pages built & browser-verified** (headless Chromium, no
+  console errors; phone width without horizontal scroll). Pro-only `waitlist` /
+  `waitlist-entry` / `waitlist-programs` pages (absent from `dist/lite`, 404 there), the
+  `data/waitlistActions.js` step layer (approve with offered contact match, fee received,
+  withdraw, remove, undo, re-apply, move), the Kennel page's Waitlist settings card, Dog
+  `intended_placement`, the contact page's Waitlist panel (its waitlist dropdown goes
+  read-only once entries exist), and per-kennel dashboard tiles. New flag
+  `editionFlags.waitlist` (off in Lite). Next: W1c (offers on the Litter page).
 
 ## Build & deploy
 
