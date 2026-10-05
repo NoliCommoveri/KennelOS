@@ -1,9 +1,10 @@
-# KennelOS Cloud — accounts, sync & dog transfers (PROPOSAL / DRAFT)
+# KennelOS Cloud — accounts, sync, transfers & connections (PROPOSAL / DRAFT)
 
-> **Status: proposal for discussion. Nothing here is decided or built.** It reverses a
-> founding non-negotiable ("no backend"; Editions Plan §Licensing; End-State guide §2), so
-> every decision below needs explicit sign-off before any code lands. The open
-> questions are collected in §10.
+> **Status: proposal, partly decided, nothing built.** Decisions made so far are listed at
+> the end of §10. It amends a founding non-negotiable ("no backend"; Editions Plan
+> §Licensing; End-State guide §2): the app stays fully functional with no backend, and a
+> backend becomes an **optional, removable add-on** (§2a). CLAUDE.md and those docs get
+> updated when the first phase is approved for build. Open questions are in §10.
 
 ## 1. What's being asked
 
@@ -43,6 +44,38 @@ Why this rather than a server-first rewrite:
 - **It keeps the layering intact:** pages → repos → Dexie, with sync sitting below the repos.
   Pages don't change.
 
+## 2a. The governing rule: the cloud is opt-in and removable (decided)
+
+**Every server-backed feature is something a user turns on, and the app must keep working
+exactly like today if we ever stop hosting.** The device stays the source of truth and the
+cloud is an add-on, never a dependency. Concretely:
+
+- **No sign-in required, ever, to use the app.** First run works as today. Cloud backup is
+  offered prominently (first-run card, periodic reminders: "Turn on cloud backup, recommended"),
+  but it is opt-in. An account is needed only for the features that inherently involve the
+  server: cloud backup/vault, sync, team, connections, transfers.
+- **Nothing in the core path calls the server.** Pages → repos → Dexie never waits on the
+  network. Sync runs in the background against the outbox; if the server is down or gone, the
+  outbox just grows and nothing else changes.
+- **Everything the cloud gave you is already local.** Synced records, connection-created
+  kennels and contacts, linked dogs, and accepted transfers all land as ordinary local rows.
+  Losing the server loses only *future* updates, pending transfers, and the live feed.
+- **The vault never holds the only copy.** Private data is decrypted and kept on the device as
+  today, so a shutdown can't strand it.
+- **The no-server backups stay:** JSON download/restore and Dropbox (answers the old "retire
+  them?" question: no). They're the path for anyone who never opts in, and the fallback if we
+  shut down.
+- **Licensing must not depend on our server** (see §4). Pro keeps validating directly with
+  Lemon Squeezy from the browser, as today. Account-linked licensing can be an optional
+  convenience on top, never the only path.
+- **One switch removes the cloud.** All cloud code is reached through one config value, the API
+  base URL in `editionConfig` (`cloudUrl`). With it `null`, no cloud UI renders and no sync runs.
+  That's the shutdown build, and it's also the behavior of today's app. A test pins that the app
+  boots, seeds, and runs every page with `cloudUrl: null`.
+- **A graceful sunset is planned up front.** The server can send a "service ending on <date>"
+  notice that the app shows in-app, prompting a JSON backup download. Then a final release ships
+  with `cloudUrl: null`.
+
 ## 3. The Cloudflare shape
 
 | Piece | Holds | Why this one |
@@ -74,9 +107,10 @@ R2 headroom for hundreds of kennels. Real cost grows mainly with document and ph
   - **Helper** — logs events against dogs only. This is today's KennelAssistant, which can
     then be retired. Helpers see the same allow-list `assistantSync.js` already enforces,
     but the server enforces it now, not just the export step.
-- **Licensing gets simpler.** Lemon Squeezy webhooks go to the Worker, and entitlement
-  belongs to the *account* rather than each browser. Activation slots, the device ids, the
-  grace-window state machine, and the "release this device" UI (README Step 7) can all retire.
+- **Licensing stays browser-to-Lemon-Squeezy** (§2a). An optional add-on: Lemon Squeezy
+  webhooks to the Worker let a signed-in user's key follow their account to a new device
+  without retyping it. The existing activation-slot/grace logic stays, because it must keep
+  working with no server of ours.
 
 ## 5. Sync model
 
@@ -343,27 +377,25 @@ switch, and what's shared appears in your connections' **Friends feed**.
 
 | Phase | Delivers | Risk |
 |---|---|---|
-| **1. Account + automatic cloud backup** | Sign in by email. The app pushes a **cloud-tier** backup snapshot on change, and a new phone signs in and restores. Covers the bulk of the data-loss goal. | Low. It builds on `exportAll`/restore, filtered through `syncRegistry.js`. The classification has to land here, first, so private data never reaches the server even once. |
+| **1. Account + automatic cloud backup** | **Opt-in** (§2a): turn on cloud backup, sign in by email. The app pushes a **cloud-tier** backup snapshot on change, and a new phone signs in and restores. Covers the bulk of the data-loss goal. | Low. It builds on `exportAll`/restore, filtered through `syncRegistry.js`. The classification has to land here, first, so private data never reaches the server even once. |
 | **2. Live multi-device sync** | Outbox, push/pull, websocket nudges. The same person's phone and laptop stay in step. | Medium. This is the core engineering. |
 | **3. Team members & roles** | Invites, Staff and Helper roles, server-enforced visibility. KennelAssistant retires. | Medium |
 | **4. Dog transfers** | §7 | Medium |
 | **2b. Private vault** | §6.3. Passkey + recovery code, encrypted private-tier backup | Medium. Crypto is standard WebCrypto, but the recovery UX must be tested on real non-technical users |
 | **4b. Connections** | §8. Invite/QR/email connect, profile → auto kennel + contact, the feed, then "add to my records" linked dogs | Medium. Mostly allow-list builders plus a feed. Low data risk because everything shared is already cloud tier |
-| **5. Account-based licensing** | Lemon Squeezy webhooks, no device slots | Low |
+| **5. Optional account-linked license** | Webhooks so a key follows a signed-in account; browser validation stays the base path (§2a) | Low |
 | **Later** | Two-way linked dogs and co-ownership, optional "people you may know", and Furever families on accounts | Higher |
 
 ## 10. Open questions (need answers before Phase 1)
 
-1. **Offline:** should the app keep working fully offline and sync when back online
-   (recommended), or is "requires internet" acceptable?
+1. ~~Offline~~ (decided below).
 2. **Tiers (§6):** does the two-tier split match her instincts? Anything in the cloud column she
    considers sensitive, or anything private she'd want teammates to see?
 3. ~~Editions~~ (decided below).
 4. **What travels with a transferred dog** by default, and can the seller untick items?
 5. **Roles:** are Owner / Staff / Helper the right three?
-6. **Existing users:** first sign-in uploads the current local data as the program (the
-   proposed default). Should Dropbox sync and JSON-file transfers remain available
-   afterwards, or retire?
+6. **Existing users:** turning on cloud backup uploads the current local data as the program
+   (proposed default). (Keeping Dropbox and JSON: decided, they stay, §2a.)
 7. **Operator obligations:** with §6, the server holds contact *names* but not addresses,
    phones, or money, and the vault only as scrambled bytes. We'd still need a privacy
    policy and a delete-my-account path, but breach exposure is much smaller.
@@ -371,6 +403,8 @@ switch, and what's shared appears in your connections' **Friends feed**.
    at 2am.
 
 **Decided:**
+- **Offline-first,** and **every cloud feature is opt-in and removable;** the app must run
+  exactly like today with no server (§2a).
 - Contact names are in the cloud tier; kennel location is in the cloud tier.
 - **Connections are free in Lite:** connecting, the breeder profile, and the friends feed.
   Transfers to a connection and "Add to my records" linked dogs stay Pro.
@@ -386,6 +420,8 @@ switch, and what's shared appears in your connections' **Friends feed**.
 
 ## 11. What changes in this repo if approved
 
+- `cloudUrl` in every `editionConfig` (and the every-flag-declared test), gating all cloud
+  code and UI (§2a), plus a no-server boot test.
 - New `cloud/` (the Worker plus Durable Object code), deployed with `wrangler`. This is the
   first build step that isn't a static copy.
 - `shared/data/sync/` for the outbox, sync client, and auth session. Hooks go into
