@@ -50,9 +50,14 @@ snapshots with record-level sync and keeps this plan's auth, server, and registr
 ### 2.2 While it's on
 - **A status line** on the Import/Export card: "Backed up 4 minutes ago". If it's falling
   behind: "Not backed up for 3 days: no internet?"
-- **When backups run:** about 30 seconds after the last change; when the app goes to the
-  background (`visibilitychange` → hidden); and at app start if anything changed since the
-  last backup. No network → silently retried later. Nothing ever blocks a page.
+- **When backups run** (only if something changed since the last push):
+  - after a change, **at most once every 5 minutes** (the first change starts a 5-minute
+    timer; more changes ride the same push);
+  - when the app goes to the background (`visibilitychange` → hidden), but no more than
+    once a minute, since a phone hides the app constantly;
+  - at app start.
+  No network → silently retried later. Nothing ever blocks a page. The status line still
+  reads "backed up minutes ago" for an active user.
 
 ### 2.3 New phone / reset / restore as of a date
 - **First-run gains a third choice:** "I already use KennelOS → sign in and restore". It sits
@@ -106,9 +111,12 @@ snapshots with record-level sync and keeps this plan's auth, server, and registr
 - `cloudSession` — `{ token, email, programId, deviceId }`.
 - `cloudBackupState` — `{ enabled, lastPushedAt, lastSnapshotId, lastError }`.
 - `cloudDirtyAt`.
-- **Reset App:** `cloudSession` is **kept** (so the user stays signed in and can restore), but
-  `cloudBackupState.enabled` is set to `false`. Turning backup back on after a reset goes
-  through the restore-or-overwrite prompt (§3.4).
+- **Reset App:** `cloudBackupState.enabled` is always set to `false`. Reset App also asks
+  **"Also sign out of cloud backup on this device?"**:
+  - **yes** (the default when the reset follows the typed "erase" confirmation, i.e. the
+    phone may be changing hands) clears `cloudSession` and revokes the token server-side;
+  - **no** keeps `cloudSession`, so the user stays signed in and can restore straight away.
+  Turning backup back on after a reset goes through the restore-or-overwrite prompt (§3.4).
 
 ### 3.4 One backup device at a time
 - **The server tracks** `backing_device_id` per program. Each push carries `device_id` +
@@ -116,7 +124,8 @@ snapshots with record-level sync and keeps this plan's auth, server, and registr
 - **Normal case:** a push from the backing device whose base is the latest is accepted.
 - **Otherwise → 409:** the app says "Backups for Thornfield are coming from *Jen's iPhone*
   (last backup 2 hours ago)." The two choices:
-  1. **Restore that backup here** (field-merge), then this device takes over.
+  1. **Restore that backup here** (field-merge, newer-wins: §4.3), then this device takes
+     over.
   2. **Replace it with this device's records** (typed confirm). The old backup is still in
      the 30-day history.
 - **In practice** this is the "new phone" case, and it's exactly what Phase 2's real sync
@@ -151,19 +160,34 @@ Without blobs, a large Pro program (hundreds of dogs, thousands of events) is a 
 and well under 1 MB gzipped. Files (health-test PDFs, pedigrees) dominate, which is why they're
 content-addressed and uploaded once (§6.3).
 
+**Per-user storage, worst case:** with the cadence in §2.2 and the retention in §6.3, a user
+keeps at most 24 hourly + 29 daily ≈ **53 snapshots**. At a large program's ~1 MB gzipped
+that's ~50 MB of snapshot JSON, and a typical Lite program (well under 100 KB) is a few MB.
+Files are stored once regardless of how many snapshots reference them. Uploads are bounded
+by the 5-minute cadence: at most ~12 an hour for someone editing non-stop, most of which are
+superseded by the hourly retention.
+
 ### 4.3 Restore: a new `restoreBackup` mode, `'cloud-merge'`
 The existing `'merge'` mode uses `bulkPut` on whole rows, which would **blank every private
-field** on a device that has them. So we add a third mode:
+field** on a device that has them. So we add a third mode, with one switch, `overwrite`:
 - **Existing local row:** overlay only the *registry's cloud fields* from the snapshot and leave
   every other field as it is.
+  - **Default (`overwrite: false`), used by new-device restore and the §3.4 takeover:**
+    overlay only when the snapshot row's `updated_at` is **newer** than the local row's.
+    A local row edited after the snapshot keeps its own values, so a record never ends up
+    with an old status next to a new price.
+  - **`overwrite: true`, used only by "Restore as of…":** a deliberate rollback, overlaid
+    regardless of `updated_at`. Before it runs, the confirmation screen says how many
+    records will be rolled back and that **their private fields keep their current
+    values** (private fields aren't in the snapshot, so they can't roll back).
 - **Missing local row:** insert the snapshot row as-is; its private fields are simply absent.
 - **Local rows not in the snapshot** are left alone. Restore never deletes; soft-delete
   history is preserved, as everywhere else.
 - **Files:** fetch each referenced sha256 not already present locally.
 - **Lite cap:** `enforceImportDogCap` runs exactly as for a file restore. It's a no-op for a
   Lite program's own backup, which already fits.
-- **"Restore as of a date"** uses the same mode. To *undo* an addition, a user archives the
-  record by hand. A Phase 1 restore never removes records (it's deliberately conservative;
+- **"Restore as of a date"** uses the same mode with `overwrite: true`. To *undo* an
+  addition, a user archives the record by hand. A Phase 1 restore never removes records (it's deliberately conservative;
   revisit in Phase 2).
 
 ## 5. The classification (`syncRegistry.js`)
@@ -205,6 +229,8 @@ information about other people, not kennel records, and nothing in Phase 1 needs
 - `buildCloudSnapshot()` over the sample packet contains **no** private key anywhere, and
   `assertSnapshotKeys` throws on an injected one.
 - `'cloud-merge'` restore preserves a pre-existing private field, and inserts a missing row.
+- `'cloud-merge'` with `overwrite: false` leaves a locally newer row untouched; with
+  `overwrite: true` it overlays it.
 - Shrink-guard thresholds.
 
 ## 6. Server (`cloud/`)
@@ -218,6 +244,7 @@ Phase 1 needs **Workers + D1 + R2 only.** No Durable Objects yet; they arrive wi
 | `POST /auth/start {email}` | Emails a 6-digit code (valid 10 min). Rate-limited per email and per IP. Always returns 200, so it can't be used to test which emails have accounts. |
 | `POST /auth/verify {email, code, deviceLabel}` | Max 5 attempts per code. Creates the user + program on first sign-in. Returns `{token, programId, deviceId}`. |
 | `POST /auth/signout` | Revokes this token. |
+| `POST /auth/signout-others` | Revokes every other session on the account ("Sign out other devices" on the Import/Export card). |
 | `GET /program` | Program name, backing device (label + last push), latest snapshot meta. |
 | `HEAD /files/:sha256` · `PUT /files/:sha256` | Upload-if-missing. The server re-hashes and rejects a mismatch. 25 MB cap per file. |
 | `POST /snapshots` | Body: gzipped envelope + `base_snapshot_id`, `device_id`. Returns 409 per §3.4. The server checks every referenced sha256 exists. |
@@ -230,19 +257,25 @@ Phase 1 needs **Workers + D1 + R2 only.** No Durable Objects yet; they arrive wi
 ```
 users(id, email UNIQUE, created_at)
 login_codes(email, code_hash, expires_at, attempts)
-sessions(token_hash PRIMARY KEY, user_id, device_id, device_label, created_at, last_seen_at, revoked_at)
+sessions(token_hash PRIMARY KEY, user_id, device_id, device_label, created_at, last_seen_at, expires_at, revoked_at)
 programs(id, owner_user_id, backing_device_id, latest_snapshot_id, created_at)
 snapshots(id, program_id, device_id, created_at, size, counts_json, r2_key)
 snapshot_files(snapshot_id, sha256)        -- for GC
 ```
 - **Hashing:** tokens and codes are stored hashed (SHA-256), never in plain text.
+- **Session expiry:** sliding 90 days. Each authenticated request that lands more than a day
+  after `last_seen_at` pushes `expires_at` out to 90 days from now. An expired or revoked
+  token gets `401` → `CloudAuthError`, and the app asks for a new code; backup pauses until
+  then, and local data is untouched.
 - **One program per user in Phase 1.** Phase 3 (teams) adds `memberships`.
 
 ### 6.3 R2 layout and retention
 - **Paths:** `snapshots/<program>/<snapshot_id>.json.gz` and `files/<program>/<sha256>`.
   Files are scoped per program, so one program's upload never answers another's `HEAD` and
   can't be used to probe whether someone else has a file.
-- **Retention:** every snapshot from the last 48 h, then one per day to 30 days, then deleted.
+- **Retention:** for the last 24 h, at most one snapshot per hour (the latest in each hour);
+  then one per day to 30 days; then deleted. The newest snapshot is always kept, whatever
+  its age. (Together with the §2.2 cadence that's at most ~53 snapshots per program; §4.2.)
   A daily cron Worker prunes snapshots, then deletes files no retained snapshot references.
 - **Backstop:** D1's own Time Travel (30 days) covers the metadata tables.
 
@@ -250,7 +283,11 @@ snapshot_files(snapshot_id, sha256)        -- for GC
 - **What the server holds** is the cloud tier only (§5), plus the account email. There are no
   buyer phone numbers, addresses, or money. This posture is pinned on the client by
   `assertSnapshotKeys`. The server doesn't parse record contents at all; it stores the blob.
-- **CORS:** only the edition origins (`lite.`/`pro.kennelos.app`) and `localhost` for dev.
+- **CORS:** only the origins that actually run Lite and Pro, per the Editions Plan's domain
+  map: `https://kennelos.app` (Lite), `https://pro.kennelos.app`, plus `localhost` for dev.
+  Demo is excluded (`cloudUrl: null`). The list is read from one shared editions-origins
+  constant that the Worker and the build both use, so a domain change can't leave the API
+  blocking an edition.
 - **No request bodies in logs.** Cloudflare encrypts R2 and D1 at rest.
 - **Privacy policy page** on `site/` before launch. It covers what's stored (§5's table in
   plain English), retention (30 days), how to delete, and what happens on shutdown.
