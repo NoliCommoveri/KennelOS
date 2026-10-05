@@ -144,7 +144,7 @@ One row each time a family is offered their turn for a litter.
 | `eligible_dog_ids` | | Snapshot of the pups that were eligible *for them* when offered. Plain field, for the record and the status page. |
 | `outcome` | ✔ | `open` / `accepted` / `passed` / `no_response` / `voided` |
 | `outcome_date` | | |
-| `chosen_dog_id` | FK → Dog, nullable | When `accepted` |
+| `chosen_dog_id` | ✔ FK → Dog, nullable | When `accepted` |
 | `counts_as_pass` | | Set **once**, when the outcome is recorded, from the rules in §6.4. Stored, not derived, so a later rule change never rewrites history. |
 | `notes` | | |
 
