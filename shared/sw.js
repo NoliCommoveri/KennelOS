@@ -210,6 +210,8 @@ const PRECACHE_URLS = [
   'pages/upcoming.js',
   'pages/waitlist-entry.html',
   'pages/waitlist-entry.js',
+  'pages/waitlist-import.html',
+  'pages/waitlist-import.js',
   'pages/waitlist-programs.html',
   'pages/waitlist-programs.js',
   'pages/waitlist.html',

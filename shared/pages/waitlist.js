@@ -44,6 +44,7 @@ async function main() {
   els.actions.innerHTML = `
     <a class="btn" href="kennel.html?id=${encodeURIComponent(kennel.id)}#waitlist-settings">Settings</a>
     <a class="btn" href="waitlist-programs.html?${kq}">Programs</a>
+    <a class="btn" href="waitlist-import.html?${kq}">Import CSV</a>
     <a class="btn btn-primary" href="waitlist-entry.html?new=1&${kq}">+ New application</a>`;
 
   const [entries, offers, programs, contacts] = await Promise.all([

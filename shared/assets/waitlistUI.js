@@ -3,18 +3,30 @@
 // guide §29). Which kennel's list a page shows, the kennel picker, and the
 // one-line preference summary. Pro-only like the pages (proPages.js).
 import { ownKennels, getActiveKennelId } from '../data/kennelScope.js';
+import { getMyKennelId } from '../data/settings.js';
+import { waitlistEntryRepo } from '../data/waitlistEntryRepo.js';
+import { WAITLIST_OPEN_STATUSES } from '../data/vocab.js';
 import { esc } from './ui.js';
 import { PLACEMENT_TYPE, descriptor } from '../data/vocab.js';
 import { isPaused } from '../data/waitlistRules.js';
 
 // The kennel whose list to show, in priority order: an explicit ?kennel= id (one
-// of your own), the active kennel scope, then your first own kennel. One list per
-// kennel (Spec §0), so a page always shows exactly one. Returns
-// { kennel, own } — kennel null only when you have no own kennel at all.
+// of your own), the active kennel scope, the own kennel with the most open
+// waitlist entries (so "All kennels" lands on the list you actually use), your
+// own kennel from setup, then the first alphabetically. One list per kennel
+// (Spec §0), so a page always shows exactly one. Returns { kennel, own } —
+// kennel null only when you have no own kennel at all.
 export async function resolveWaitlistKennel(requestedId) {
   const own = (await ownKennels()).sort((a, b) => (a.kennel_name || '').localeCompare(b.kennel_name || ''));
   const pick = (id) => own.find((k) => k.id === id) || null;
-  const kennel = pick(requestedId) || pick(getActiveKennelId()) || own[0] || null;
+  const explicit = pick(requestedId) || pick(getActiveKennelId());
+  if (explicit) return { kennel: explicit, own };
+  const counts = new Map();
+  for (const e of await waitlistEntryRepo.getAll()) {
+    if (WAITLIST_OPEN_STATUSES.includes(e.status)) counts.set(e.kennel_id, (counts.get(e.kennel_id) || 0) + 1);
+  }
+  const busiest = [...own].sort((a, b) => (counts.get(b.id) || 0) - (counts.get(a.id) || 0))[0];
+  const kennel = (busiest && counts.get(busiest.id) ? busiest : null) || pick(getMyKennelId()) || own[0] || null;
   return { kennel, own };
 }
 

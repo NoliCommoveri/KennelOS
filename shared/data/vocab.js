@@ -645,11 +645,13 @@ export const INCOME_STATES = [
   { value: 'anticipated', label: 'Anticipated', badge: 'badge-amber' }
 ];
 
-// Where an income row comes from — a Sale placement or an outgoing StudService
-// (incoming stud is money WE pay, so it is an expense, never income).
+// Where an income row comes from — a Sale placement, an outgoing StudService
+// (incoming stud is money WE pay, so it is an expense, never income), or a
+// received waitlist application fee (Waitlist Spec §5.3, Pro-only).
 export const INCOME_SOURCE_TYPES = [
   { value: 'sale', label: 'Sale',         badge: 'badge-blue' },
-  { value: 'stud', label: 'Stud service', badge: 'badge-purple' }
+  { value: 'stud', label: 'Stud service', badge: 'badge-purple' },
+  { value: 'waitlist', label: 'Waitlist fee', badge: 'badge-green' }
 ];
 
 // The money components a row breaks into, for the Income summary's per-component
@@ -663,5 +665,6 @@ export const INCOME_COMPONENTS = [
   { value: 'transport', label: 'Transport',         badge: 'badge-blue' },
   { value: 'boarding',  label: 'Deferred boarding',  badge: 'badge-amber' },
   { value: 'stud_fee',  label: 'Stud fees',         badge: 'badge-purple' },
-  { value: 'pick',      label: 'Pick value (est.)', badge: 'badge-neutral' }
+  { value: 'pick',      label: 'Pick value (est.)', badge: 'badge-neutral' },
+  { value: 'application_fee', label: 'Application fees', badge: 'badge-green' }
 ];

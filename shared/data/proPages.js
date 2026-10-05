@@ -41,7 +41,7 @@ export const PRO_ONLY_PAGES = [
   // Show tracking — the Shows page (Show Tracking Spec §5.2/§7)
   'shows.html',
   // Waitlist (Waitlist Spec §11) — the list, one family, and programs
-  'waitlist.html', 'waitlist-entry.html', 'waitlist-programs.html',
+  'waitlist.html', 'waitlist-entry.html', 'waitlist-programs.html', 'waitlist-import.html',
 ];
 
 // Standalone Pro files that live outside pages/ (no nav entry) — also excluded from

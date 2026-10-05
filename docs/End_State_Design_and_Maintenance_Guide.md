@@ -751,6 +751,19 @@ picker, prefilled from the CSV's name resolution, reassignable to any dog/litter
 kennel) before commit. Commit writes straight through `expenseRepo.create`/`update` with the
 chosen subject. This is the "relate each imported expense to a dog or litter" surface.
 
+**Waitlist application mapping** (`entity: 'waitlist'`, Waitlist Spec §5.1; Pro-only page
+`waitlist-import`, reached from the Waitlist page's **Import CSV** and the Import/Export
+dropdown). Each row becomes an `applied` entry on one own kennel's list — a `kennel_name`
+column, else the kennel the import page picked (`mapping.preferredKennelId`, set from its
+kennel picker), else the active/sole kennel; no kennel → needs review. **Natural key: email**
+(per kennel). No email or no name → needs review (skip). An email matching a still-`applied`
+entry on that kennel → **update**, which only refreshes the answers and preferences (never
+status, kennel or dates); matching an approved/on-the-list entry (by application or contact
+email) → needs review, skip. Contacts are never matched here — approval offers that match
+(§29). Recognized columns include a Google Form `Timestamp` (date part kept) and common
+question-style headers (aliases in `APP_COLUMNS`); unknown program/placement/kennel values are
+flagged, never invented.
+
 To add an entity to the importer: write one mapping object (`{entity, label,
 templateHeaders, requiredForCreate, loadExisting, buildIndex, classify, describe, repo,
 prepareRecord?}`) and register it in `MAPPINGS`. Don't rebuild the engine.
@@ -854,6 +867,19 @@ plain local backup/restore.
     and a manual QA pass to confirm a picker's "show all my kennels" escape actually
     surfaces something. All of it rides the same manifest/clear machinery as the rest of
     the seed.
+  - **A sample waitlist** (Waitlist Spec §11, Pro/Demo only — gated on
+    `editionFlags.waitlist`; Lite's own seed has none) on Thornfield, via
+    `seedWaitlist()`: Thornfield's `waitlist_config` ($300 credited fee, 14 days to
+    pay), a **Treatment family** program (ahead, fee waived, passes don't count),
+    and seven entries — Mia (in the program, **paused**), Owen (an **open offer** on the
+    Autumn litter, whose picks are open), Rachel (one counted pass on Fern), the Alders
+    (**listen-only** for the Winter litter), Hannah (approved, fee due), Leo (a new
+    application with no contact), and Priya's past run **placed** with Hazel (its credited
+    fee nets off her sale in Financials, §21). The manifest carries `waitlist_programs` /
+    `waitlist_entries` / `waitlist_offers`; `clearSampleData` deletes them first (offers →
+    entries → programs) and counts them as the seed's own references, not contamination.
+    The Pro/Demo tour gains two stops for it (the Waitlist page and the Autumn litter's
+    picks panel).
 - **seedImport.js** — optional breed+test vocabulary seed (from
   `resources/common_tests_by_breed_seed.csv` or a user file). Rows carry an optional
   `Breed Group` column (col A) that `buildSeedGroups()` attaches to each group as
@@ -1146,7 +1172,8 @@ duplicated; the handler is tagged `handler` via `contactRepo.ensureType`.
 Reports: `litters-report`, `stud-services-report`, `placements-report`,
 `health-tests-report`, `litter-finances-report` (Litter P&L; `data/litterFinances.js`).
 Import pages: `dog-import`, `contact-import`, `pairing-import`, `litter-import`,
-`sale-import`, `event-import`, `stud-service-import`, `expense-import`, `kennel-tests-import`.
+`sale-import`, `event-import`, `stud-service-import`, `expense-import`, `kennel-tests-import`,
+`waitlist-import` (Pro-only, §9/§29).
 `breed-feeding-schedules` (Feeding Schedules — per-breed feeding grids, §27.2 — Pro-only,
 reached from the Kennel detail page, not a nav entry).
 
@@ -1507,7 +1534,8 @@ The flags, by type:
   card is omitted entirely; when no pup carries a price/deposit the shell drops the deposit
   disclaimer.
 - **family:** `age`, `parentage`, `photos`, `readyPlacement`, `financials` (price, deposit,
-  transport, deferred-pickup, remaining balance, balance-due — **not** placement type / sale
+  transport, deferred-pickup, remaining balance — net of a credited waitlist application fee,
+  §21 — balance-due — **not** placement type / sale
   status, which always show), the five history flags `histVaccination`/`histPreventative`/
   `histWeight`/`histMilestone`/`histNote`, `histBoarding` (deferred-pickup boarding section),
   `contract`, `fosterOwnerKennel` (the pup card's `breederKennel` — the owner kennel of a
@@ -1687,8 +1715,26 @@ Classification (owner decisions):
   `failed`/`cancelled`. `pick_value_amount` is a **non-cash estimate**, surfaced on its own
   `pick` line and kept **out** of the earned/anticipated cash totals and the Net figure.
 
+- **Waitlist application fee** (Pro-only, `editionFlags.waitlist`; Waitlist Spec §5.3) — the
+  third source, read from `waitlist_entries`: an entry with `fee_received_date` and a
+  `fee_amount` above 0 is one row (`source_type: 'waitlist'`, component `application_fee`),
+  always **earned**, scoped by the entry's `kennel_id`. A waived (0) or unpaid fee is no row.
+  Refunds aren't tracked in W1. **Credit to purchase:** when the entry's
+  `fee_credit_policy` is `credited_to_purchase` and it's `placed` (`placed_sale_id`), the fee
+  was paid toward that pup's price, so `saleComponents(sale, feeCredit)` takes it off the
+  Sale's **balance** (never below 0) — otherwise the money would count twice — and the fee
+  row carries the pup's `dog_id`/`litter_id` so the Litter P&L (`litterFinances.js`, which
+  now sums `sale` **and** litter-scoped `waitlist` rows, counting only sales as pups sold)
+  keeps the full price. `getSaleFeeCredit(saleId)` exposes the credit: the invoice page and
+  the generator pass it to `incomeLineItems(…, { feeCredit })`, and the invoice's balance
+  line reads "Remaining Purchase Price (after $X application fee credit)"; the family
+  Companion bundle's computed remaining balance subtracts it too (§20). A waitlist row in the
+  Income boxes opens the family's waitlist entry instead of the Adjust modal; the generator
+  never lists waitlist rows.
+
 Vocabs (`vocab.js`): `INCOME_STATES` (earned/anticipated badges), `INCOME_SOURCE_TYPES`
-(sale/stud badges), `INCOME_COMPONENTS` (deposit/balance/transport/boarding/stud_fee/pick — the
+(sale/stud/waitlist badges — the Source filter drops `waitlist` where the flag is off),
+`INCOME_COMPONENTS` (deposit/balance/transport/boarding/stud_fee/pick/application_fee — the
 summary's per-component breakdown, mirroring the expense category one).
 
 Income surfaces (`pages/financials.js`): the Income view shows a summary card
@@ -2531,8 +2577,9 @@ memory. Both host pages are Pro-only, so no edition flag was needed.
 
 ## 29. Waitlist (per kennel) — `docs/KennelOS_Waitlist_Spec.md`
 
-**Build status: W1a (data layer), W1b (intake + list pages) and W1c (offers) are built.**
-W1d (demo seed / CSV / Financials) is not. The spec's §0 records the decisions, §14
+**Build status: W1 is complete** — W1a (data layer), W1b (intake + list pages), W1c
+(offers) and W1d (sample/Demo seed §11, CSV import of applications §9, application fees in
+Financials §21). W2 (online: form, status page, server) and W3 (assistant) are not started. The spec's §0 records the decisions, §14
 the slices.
 
 ### Model
@@ -2627,6 +2674,10 @@ herself.
   After each write the page re-reads the litter so a later Edit → Save can't write back a
   stale `picks_opened_date`.
 - **Today** (W1c): the four waitlist nudges (§19).
+- **W1d:** the `waitlist-import` page (§9), application-fee income + the purchase credit
+  (§21), and the sample/Demo seed (§11). A page with no `?kennel=` (dashboard tiles, the
+  Import/Export dropdown) lands on the own kennel with the most open entries, then your
+  own kennel from setup (`waitlistUI.resolveWaitlistKennel`).
 - **Dog form**: `intended_placement` for a puppy.
 - **Contact page**: a Waitlist panel listing the family's entries, and the waitlist dropdown
   becomes read-only (a badge) once any entry exists, since `waitlistEntryRepo` keeps it.

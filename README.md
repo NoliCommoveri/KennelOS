@@ -372,7 +372,15 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   shared `data/saleDefaults.js`) and places the family; a second counted pass removes them
   with a 7-day undo; Today gains four waitlist nudges (new applications, offer deadline
   passed, fee past due, undo a removal). The Lite litter page never requests the panel.
-  Next: W1d (Demo seed, CSV import of applications, application fee in Financials).
+- **Waitlist, W1d — W1 complete, browser-verified** (headless Chromium, Pro and Demo, no
+  console errors). A seven-family sample waitlist on Thornfield (program family paused, open
+  offer on the Autumn litter, a pass, listen-only, fee due, new application, a placed run) in
+  the shared seed — so Demo and the Pro tour show it (two new tour stops); clear-sample-data
+  removes it. CSV import of applications (`waitlist-import`, matched on email per kennel,
+  Google Form timestamps understood). Received application fees are Financials income; a fee
+  credited to the purchase nets off that family's Sale balance (ledger, Litter P&L, invoice
+  line, Companion remaining balance). Next: W2 (online form + status page; needs the cloud
+  Worker, vault and server-side license link).
 
 ## Build & deploy
 

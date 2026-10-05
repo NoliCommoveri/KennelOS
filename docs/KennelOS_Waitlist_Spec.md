@@ -8,8 +8,8 @@
 > requirements she gave are in §2. Leanings are marked **leaning**, and every open
 > question is collected in §13.
 >
-> **Build status:** W1a (the data layer), W1b (the intake + list pages) and W1c (offers)
-> are built. W1d (demo seed, CSV, Financials) is not. See §12 and §14.
+> **Build status:** W1 is complete (W1a data layer, W1b intake + list, W1c offers, W1d
+> seed / CSV / Financials). W2 and W3 are not started. See §12 and §14.
 
 ## 0. Decisions taken at build start (2026-10-05)
 
@@ -767,12 +767,25 @@ W1 is a full feature on its own and doesn't wait for the cloud work.
 | **W1a. Data** | Vocab; the three tables; `Dog.intended_placement`, `Litter.picks_opened_date` and `Kennel.waitlist_config` (documented, plain fields); the three repos (`waitlistEntryRepo` keeps `Contact.waitlist_status` in step); every FK in `referenceRegistry.js`; the pure `waitlistRules.js` and `tests/waitlistRules.test.js`; End-State guide §29. No UI. | **Built** |
 | **W1b. Intake + list** | Waitlist page (applications queue, active list with positions, program and "moved by you" badges); entry page (new application, possible contact match, approve/decline, fee received, preferences including breed, listen-only/pause, notes, offer history); programs page; `waitlist_config` editor on the Kennel page; intended-placement field on the Dog form; contact page dropdown read-only when entries exist; nav, `proPages.js`, `PRECACHE_URLS`. Also: `data/waitlistActions.js`, an `editionFlags.waitlist` flag (off in Lite), dashboard tiles counting entries per kennel, a Waitlist panel on the contact page, and **Re-apply** on a closed entry. | **Built** |
 | **W1c. Offers** | "Open picks" panel on the Litter page (hidden in Lite); accept / pass / no response / void; Sale on accept (via the moved prefill helper); automatic second-pass removal plus undo; other open offers voided on accept; Today: new-applications badge and the suggested actions in §6.5. | **Built**, on the spec's leanings for the still-open Q4/Q8/Q9: the family picks a pup, one open offer per litter, colors off by default. |
-| **W1d. Extras** | Demo seed (a program family, a listen-only family, one with a pass, an open offer; the Lite seed stays empty); CSV import of applications through the existing preview flow; `application_fee` income component in Financials. | Not started. Q5 open for the Financials part. |
+| **W1d. Extras** | Demo seed (a program family, a listen-only family, one with a pass, an open offer; the Lite seed stays empty); CSV import of applications through the existing preview flow; `application_fee` income component in Financials. | **Built.** Q5 is still open; Financials follows the leaning (received fees are income) and the `fee_credit_policy` setting, below. |
 
 Known limit: "place them right after the Smiths" (§6.1) can only set the same anchor date
 as the Smiths, because the anchor is date-only. Ties then break by approval date and
 creation time, so the family lands among the Smiths' same-day peers, not necessarily
 directly after them. The Move dialog says so ("Place them with…").
+
+W1d choices worth knowing:
+- **Fees in Financials:** a received fee above 0 is earned income (`Waitlist fee` source,
+  `Application fees` component). When the policy is **credited to purchase** and the family
+  is placed, the fee comes off that Sale's balance in the ledger (so it isn't counted twice),
+  rolls up to the pup's litter in the Litter P&L, appears on the invoice's balance line
+  ("after $300 application fee credit"), and reduces the Companion family page's remaining
+  balance. Refunds of a refundable fee aren't tracked in W1.
+- **CSV import:** one row = one application. Matched on email per kennel: a still-`applied`
+  match is refreshed, an approved/on-the-list match is skipped for review, no email → review.
+  Contacts are matched at approval, not import. The page picks the kennel's list to import into.
+- **Seed:** the Pro tour and Demo get a seven-family list on Thornfield (see End-State guide
+  §11) and two tour stops.
 
 W1c choices worth knowing: **Void** never moves the turn on by itself (the same family would
 just be offered again); she taps **Offer to them** for the next family. Accepting sets the
