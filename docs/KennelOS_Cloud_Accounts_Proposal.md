@@ -75,7 +75,8 @@ cloud is an add-on, never a dependency. Concretely:
   That's the shutdown build, and it's also the behavior of today's app. A test pins that the app
   boots, seeds, and runs every page with `cloudUrl: null`.
 - **A graceful sunset is planned up front.** The server can send a "service ending on <date>"
-  notice that the app shows in-app, prompting a JSON backup download. Then a final release ships
+  notice that the app shows in-app, prompting a JSON backup download. It's in-app only: the
+  server keeps no readable account emails (§4), so there's no shutdown email. Then a final release ships
   with `cloudUrl: null`.
 
 ## 3. The Cloudflare shape
@@ -104,6 +105,12 @@ R2 headroom for hundreds of kennels. Real cost grows mainly with document and ph
   from Safari, and a tapped email link opens Safari, signing in the wrong copy of the app
   (Phase 1 plan §2.1). Users don't manage passwords, so there's no password reset to
   support. Account recovery is the same email.
+- **No readable email on the server (decided).** The server keeps only a keyed hash of each
+  account's email, enough to find the account when the user types the address again (Phase 1
+  plan §6.2). Whenever the server sends an email (a sign-in code, a transfer notice, a
+  connection or team invite), it sends to an address someone has **just typed** into that
+  request, then discards it. The trade-off: we never email a user unprompted. Service notices
+  are in-app only (§2a).
 - **Program** = what one install holds today: one or more kennels (multi-kennel scope
   already exists). One program has one owner and one subscription.
 - **Members and roles** (proposed):
@@ -114,8 +121,9 @@ R2 headroom for hundreds of kennels. Real cost grows mainly with document and ph
     but the server enforces it now, not just the export step.
 - **Licensing stays browser-to-Lemon-Squeezy** (§2a). An optional add-on: Lemon Squeezy
   webhooks to the Worker let a signed-in user's key follow their account to a new device
-  without retyping it. The existing activation-slot/grace logic stays, because it must keep
-  working with no server of ours.
+  without retyping it. The webhook's customer email is hashed the same way and matched to
+  the account hash, so the server still never keeps the readable address. The existing
+  activation-slot/grace logic stays, because it must keep working with no server of ours.
 
 ## 5. Sync model
 
@@ -246,6 +254,8 @@ The flow the user sees:
    (or scan the buyer's Kennel Card, §28.2) and tick what goes with the dog.
 2. Buyer gets an email and an in-app inbox badge: "Thornfield Kennel wants to send you
    *Maple*." They tap **Accept** and the dog appears in their Dogs list with its history.
+   (The email goes to the address the seller just typed, once, and the pending transfer is
+   keyed by its hash (§4). Reminders after that are the in-app badge only.)
 3. On the seller's side the dog departs through the **existing** departure/sale flow
    (ownership → external, or archive-on-departure in Lite). History is never destroyed.
 
@@ -289,7 +299,7 @@ offered as a link to one you typed in yourself, but is never matched by name aut
   1. **An invite link** sent by text or Messenger ("Join me on KennelOS"). It works whether or
      not the friend has an account yet; if not, it signs them up for free Lite first.
   2. **A QR code** shown phone-to-phone at a show or a visit.
-  3. **By email** from inside the app.
+  3. **By email** from inside the app (sent once to the typed address, which isn't kept; §4).
 - **Both sides must accept.** Nothing is shared until they do.
 - **No public directory and no search in v1.** You can only connect with someone who handed
   you a link or code, or whose email you already know. That matches "intimate group of
@@ -402,7 +412,8 @@ switch, and what's shared appears in your connections' **Friends feed**.
 6. **Existing users:** turning on cloud backup uploads the current local data as the program
    (proposed default). (Keeping Dropbox and JSON: decided, they stay, §2a.)
 7. **Operator obligations:** with §6, the server holds contact *names* but not addresses,
-   phones, or money, and the vault only as scrambled bytes. We'd still need a privacy
+   phones, or money, the vault only as scrambled bytes, and account emails only as keyed
+   hashes (§4). We'd still need a privacy
    policy and a delete-my-account path, but breach exposure is much smaller.
 8. **Who builds and runs the backend?** It's the first piece of this product that can go down
    at 2am.
@@ -411,6 +422,9 @@ switch, and what's shared appears in your connections' **Friends feed**.
 - **Offline-first,** and **every cloud feature is opt-in and removable;** the app must run
   exactly like today with no server (§2a).
 - Contact names are in the cloud tier; kennel location is in the cloud tier.
+- **Account emails are stored only as keyed hashes** (§4). Codes, transfer notices and invites
+  go to an address typed in that request; nothing emails a user unprompted, and service
+  notices are in-app only.
 - **Connections are free in Lite:** connecting, the breeder profile, and the friends feed.
   Transfers to a connection and "Add to my records" linked dogs stay Pro.
 - Sharing to connections is **opt-in per dog/litter**, and milestone posts need a **one-tap
