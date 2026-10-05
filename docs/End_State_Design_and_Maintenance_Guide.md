@@ -175,7 +175,11 @@ KennelOS/
                                passes, removal/undo, contact matching, contact
                                status (§29; tests/waitlistRules.test.js)
     waitlistActions.js         The waitlist's multi-step writes — approve, decline,
-                               fee received, withdraw, remove, undo, re-apply, move (§29)
+                               fee received, withdraw, remove, undo, re-apply, move,
+                               and the offer flow: open/close picks, offer next,
+                               record an outcome (accept creates the Sale) (§29)
+    saleDefaults.js            expectedPricing(dog, litter) — a new Sale's price/deposit
+                               prefill, shared by sale.js and the waitlist accept flow
     wizardState.js             Guided-tour status/index state machine (§11)
     wizardSteps.js             Full (Pro/Demo) guided-tour step catalog — data only (§11)
     editionTour.js             Per-edition tour package (seed + steps) injection point;
@@ -207,6 +211,9 @@ KennelOS/
     waitlistUI.js              Waitlist pages' helpers: which kennel's list, kennel
                                picker, preference summary, form dialog (§29; Pro-only,
                                PRO_ONLY_STANDALONE)
+    waitlistPicksPanel.js      The Litter page's "Waitlist picks" panel (§29; Pro-only,
+                               PRO_ONLY_STANDALONE, imported dynamically by litter.js
+                               only when editionFlags.waitlist is on)
     receiptCapture.js          Shared "attach a receipt" widget for both expense
                                forms — photo/screenshot (OCR + compress) or PDF (§26.1)
     dropboxConnectUI.js        The one Dropbox connect/disconnect control + the
@@ -232,7 +239,7 @@ commonly blank at entry time.
 | **Contact** | `name` | `contact_type[]` (multi), `email`, `phone`, `address`, `kennel_id`, `waitlist_status`, `first_contact_source`, `notes`, `companion_note` (plain, unindexed — a per-recipient message **meant for the recipient's eyes**, shown on their companion share page; deliberately distinct from the private `notes`; §20). Buyers are Contacts — **there is no Buyer table**. `address` also resolves an in-person stud service's away-board location (§19). |
 | **Kennel** | `kennel_name` | `public_id` (**indexed** — the kennel's portable PUBLIC IDENTITY, `kos1_<uuid>`; minted once for an **own** kennel and immutable thereafter, so the same real-world kennel keeps one identifier across a backup/restore, the Lite→Pro bridge, a Dropbox sync, and every kennel card it issues. An **outside** kennel never has one minted locally — it can only ever be *received* from a card its owner issued, so a blank value there means “I typed this kennel in myself”, not missing data. Not a foreign key: nothing points at it, so it carries **no** `referenceRegistry` entry. See §28), `is_own_kennel`, `prefix`, `location`, `website` (plain, unindexed — a link for this kennel, mirrors `Dog.url`), `logo_data_url` (plain, unindexed — a downscaled PNG/SVG **data URL** for the kennel's logo, uploaded/removed on the kennel detail page, rendered on its invoices/receipts (§24) and puppy records (§23); rides the JSON backup), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds` (plain, unindexed — `{ [testKey]: breed[] }`; which breed(s) tagged each preferred test via the breed-seed import, keyed lowercase-trimmed; a test added by typing directly into the kennel's own "Add a test" field has no entry and stays breed-agnostic. Never edited directly — written by `kennelRepo.addPreferredTest`'s third arg, read via `testBreedsFor`/`testsForBreed`), `promote_nudge_enabled` (bool, default off), `promote_age_male_months`/`promote_age_female_months` (the promote-lifecycle nudge's per-kennel thresholds, §19), `waitlist_config` (plain, unindexed object — this kennel's waitlist settings: fee, credit policy, fee window, payment instructions, max passes, response days, whether no response counts as a pass, color matching, check-in months. Kept on the kennel, not in `settings.js`, so it rides the JSON backup/Dropbox sync; missing keys fall back to `waitlistRules.WAITLIST_CONFIG_DEFAULTS`; edited on the Kennel page's **Waitlist settings** card, §29). Lightweight; added inline from the Contact form. |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date` (shown as "Planned first date" — the first planned/tie date), `last_observed_date` (plain, unindexed — a subsequent observed tie/breeding date), `expected_due_date` (prefilled on the detail page as 63 days after `planned_date` when still empty, never clobbering a deliberate edit), `notes`. Sire ≠ dam (hard block). |
-| **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname` (plain, unindexed — optional friendly label, e.g. "Party of Five"; when set it leads the detail-page title and shows as its own column on the Litters list and report, searchable across all three; falls back to `dam × sire` when blank), `pairing_id`, `whelp_date`, `accept_deposits_date` (plain, unindexed — when the breeder begins accepting deposits; on the detail page it sits between `whelp_date` and `estimated_ready_date`, and surfaces in the **prospective** companion bundle between "Born" and "Estimated ready" when set, §20), `estimated_ready_date` (plain, unindexed — prefilled as 8 weeks/56 days after `whelp_date` when still empty, never clobbering a deliberate edit), `litter_registration_number`, `picks_opened_date` (plain, unindexed — nullable `YYYY-MM-DD` set by the waitlist's **Open picks**; while set and pups remain, the next eligible family is offered as each offer closes, §29), `puppies_born_total/alive/deceased/abnormalities` (the last a count, not mutually exclusive with alive/deceased), `expected_price_male`/`expected_price_female`/`expected_deposit_male`/`expected_deposit_female` (plain, unindexed — per-litter defaults, grouped by sex on the detail page; `sale.js` prefills a new Sale's `price` and `deposit_amount` from the matching-sex pair by the puppy's `sex`, only into fields still empty), `foster_direction` (plain, unindexed — nullable `foster_in`/`foster_out`; null = an ordinary litter. **Foster is a per-litter fact** (guide §25): the same dam can have foster and non-foster litters, so it can't live on the Dog. A foster puppy is distinguished from a plain "external" dog purely by DERIVATION of its litter's `foster_direction` — it stays a normal `status='puppy'` Dog we manage and sell), `foster_partner_contact_id` (**indexed FK → Contact**; the counterparty — the dam's owner for foster-in, the caretaker for foster-out — guarded in `CONTACT_REFERENCES`; its `kennel_id` is the owner/caretaker kennel a companion share can reveal), `foster_comp_model` (plain, unindexed — `income_split`/`flat_per_pup`; how the partner is paid), `foster_our_share_pct`/`foster_split_basis` (the income-split terms), `foster_flat_fee_per_pup` (the per-pup flat fee), `foster_split_notes` (all plain, unindexed — documentation of the terms for either model; the actual payout to the other party is a real `foster_split` ("Foster compensation") Expense, never a stored derived number), `notes`. The litter's own sire/dam are authoritative. Puppy roster is **derived** (`Dog WHERE litter_id`). |
+| **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname` (plain, unindexed — optional friendly label, e.g. "Party of Five"; when set it leads the detail-page title and shows as its own column on the Litters list and report, searchable across all three; falls back to `dam × sire` when blank), `pairing_id`, `whelp_date`, `accept_deposits_date` (plain, unindexed — when the breeder begins accepting deposits; on the detail page it sits between `whelp_date` and `estimated_ready_date`, and surfaces in the **prospective** companion bundle between "Born" and "Estimated ready" when set, §20), `estimated_ready_date` (plain, unindexed — prefilled as 8 weeks/56 days after `whelp_date` when still empty, never clobbering a deliberate edit), `litter_registration_number`, `picks_opened_date` (plain, unindexed — nullable `YYYY-MM-DD` set by the waitlist's **Open picks**; while set and pups remain, the next eligible family is offered as each offer closes, §29), `puppies_born_total/alive/deceased/abnormalities` (the last a count, not mutually exclusive with alive/deceased), `expected_price_male`/`expected_price_female`/`expected_deposit_male`/`expected_deposit_female` (plain, unindexed — per-litter defaults, grouped by sex on the detail page; `sale.js` prefills a new Sale's `price` and `deposit_amount` from the matching-sex pair by the puppy's `sex`, only into fields still empty; the rule lives in `data/saleDefaults.js` `expectedPricing`, shared with the waitlist's accept flow, §29), `foster_direction` (plain, unindexed — nullable `foster_in`/`foster_out`; null = an ordinary litter. **Foster is a per-litter fact** (guide §25): the same dam can have foster and non-foster litters, so it can't live on the Dog. A foster puppy is distinguished from a plain "external" dog purely by DERIVATION of its litter's `foster_direction` — it stays a normal `status='puppy'` Dog we manage and sell), `foster_partner_contact_id` (**indexed FK → Contact**; the counterparty — the dam's owner for foster-in, the caretaker for foster-out — guarded in `CONTACT_REFERENCES`; its `kennel_id` is the owner/caretaker kennel a companion share can reveal), `foster_comp_model` (plain, unindexed — `income_split`/`flat_per_pup`; how the partner is paid), `foster_our_share_pct`/`foster_split_basis` (the income-split terms), `foster_flat_fee_per_pup` (the per-pup flat fee), `foster_split_notes` (all plain, unindexed — documentation of the terms for either model; the actual payout to the other party is a real `foster_split` ("Foster compensation") Expense, never a stored derived number), `notes`. The litter's own sire/dam are authoritative. Puppy roster is **derived** (`Dog WHERE litter_id`). |
 | **Sale** | `dog_id`, `buyer_contact_id`, `placement_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`, `deposit_date`, `balance_due_date`, `balance_paid_date`, `transport_fee` (plain, unindexed — a flat delivery/transport charge, decimal), `deferred_boarding_amount`/`deferred_boarding_frequency`/`deferred_boarding_duration_days` (plain, unindexed — a boarding rate for a buyer who delayed pickup: decimal amount + `BOARDING_FREQUENCY_OPTIONS` Day/Week/Month + a free-text **count of frequency units** (despite the `_days` name, the value is the number of units — `2` with frequency `Week` means two weeks), rendered as "amount per frequency × count"; the family companion bundle multiplies `amount × count` into a deferred-pickup total feeding the computed remaining balance (§20); never cents, never an Expense — see §21), `lead_source`, `referred_by_contact_id` (indexed FK → the Contact who referred this buyer; `CONTACT_REFERENCES`; on save `saleRepo` auto-tags that contact `buyer_referrer` via `contactRepo.ensureType`), `payment_method`/`payment_reference`/`invoice_number`/`invoice_notes` (plain, unindexed — invoice/receipt document fields set from the Financials generator modal; §24), `notes`. On the detail page (`sale.js`) all fee fields render/edit above all date fields. Its own table (not a Dog field) so reserve/return/re-place stay distinct facts. |
 | **Contract** | `contract_type`, `kennel_id` | `status` (defaults `draft`), `related_sale_id`, `related_stud_service_id`, `related_dog_id` (canonical Dog link, used only for `lease`/`co_own`/`foster`/`other` types — where no linked Sale/StudService reaches a dog; forced `null` for other types via `contractRepo.DOG_LINK_TYPES`/`normalizeLinks`), `related_contact_id` (canonical counterparty link — lessee/co-owner/partner/foster owner — for the same `lease`/`co_own`/`foster`/`other` types via `CONTACT_LINK_TYPES`; sale/stud contracts reach their counterparty through the linked Sale/StudService, so it stays `null` there; scopes a contract into the **partner** companion bundle, §20), `document_url` (plain, unindexed — a share link to the signed document, e.g. a Drive "anyone with the link" URL; carried as a *pointer* into the buyer bundle, §20), `signed_date`, `lease_start_date`/`lease_end_date` (lease type; UI shows them and hides Related sale/stud fields when `contract_type='lease'`), `title`, `terms_summary`, `notes`. Generic across sale/stud/co-ownership/lease. Leaf for its own hard-delete (nothing points *at* a contract), but it points *at* its Dog via `related_dog_id` (guarded under `DOG_REFERENCES`) and its counterparty via `related_contact_id` (guarded under `CONTACT_REFERENCES`). |
 | **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `pairing_id`, `fee_amount`, `fee_structure`, `pick_status` (plain, unindexed — suggested `pending`/`claimed`, free text allowed; meaningful **only** when `fee_structure ∈ {pick_of_litter, flat_plus_pick}`, forced `null` otherwise; feeds the partner companion bundle's compensation, §20), `pick_value_amount` (plain, unindexed decimal — the breeder's own estimated dollar value of the pick puppy, for income tracking; gated the same way as `pick_status`; deliberately **separate** from `fee_amount` (the actual cash); internal only — never in the partner bundle), `result_notes`, `type` (`in_person`/`ai` — coarse physical-travel flag; `in_person` + `sent_date`/`returned_date` window feeds the away-board, §19), `referred_by_contact_id` (indexed FK → the referring Contact; `CONTACT_REFERENCES`; on save `studServiceRepo` auto-tags `stud_referrer` via `contactRepo.ensureType`), `payment_method`/`payment_reference`/`invoice_number`/`invoice_notes` (plain, unindexed — invoice/receipt document fields, mirroring Sale's; only the outgoing direction is invoiceable, since incoming stud is an expense; §24), plus optional logistics dates. Covers both `incoming` and `outgoing`. |
@@ -1269,7 +1276,7 @@ originals stay in play for every lookup and every "already handled?" dedup check
 is deliberate: scoping a dedup check would resurrect a nudge whose answer already sits
 one kennel over.
 
-Nine rules, each producing its own stable `key` so a dismissal survives re-computation:
+Nine rules (plus the four waitlist rules below), each producing its own stable `key` so a dismissal survives re-computation:
 - **Stud-service status** — `sent_date` passed + `status='arranged'` → suggest
   `in_progress`; `returned_date` passed + `status ∈ {arranged, in_progress}` → suggest
   `completed` (never both; completed wins if both hold).
@@ -1306,6 +1313,17 @@ Nine rules, each producing its own stable `key` so a dismissal survives re-compu
   {title_abbreviation, organization}>&logDate=<completedOn>` — a prefilled event form,
   never an auto-created title. Auto-dismisses once the `title_earned` event exists (the
   event is the done-signal).
+- **Waitlist** (Pro-only, gated on `editionFlags.waitlist`; Waitlist Spec §6.5, §29) — four
+  rules over the scoped `waitlist_entries`/`waitlist_offers`, each a one-tap suggestion
+  because W1 has no server and nothing moves on its own: **new applications** (one per
+  kennel queue, key `waitlist-applications:<kennelId>:<newestEntryId>` so a new
+  application resurfaces a dismissed batch; action deep-links to the Waitlist page);
+  **offer deadline passed** (`waitlist-offer-overdue:<offerId>`, action records
+  `no_response` via `waitlistActions.recordOutcome`, which also moves the turn on);
+  **fee past its pay-by date** (`waitlist-fee-overdue:<entryId>`, action closes the
+  application as `expired`); and **second-pass removal** while its 7-day undo lasts
+  (`waitlist-removed:<entryId>:<removed_date>`, action `undoRemoval`). Each auto-dismisses
+  when its condition clears.
 
 The three litter-lifecycle rules are aggregate facts over a litter's derived roster (and, for
 close, its sales), so `computeNudges()` groups the already-loaded `dogRepo.getAll()` result by
@@ -2513,8 +2531,8 @@ memory. Both host pages are Pro-only, so no edition flag was needed.
 
 ## 29. Waitlist (per kennel) — `docs/KennelOS_Waitlist_Spec.md`
 
-**Build status: W1a (data layer) and W1b (intake + list pages) are built.** W1c (offers)
-and W1d (demo seed / CSV / Financials) are not. The spec's §0 records the decisions, §14
+**Build status: W1a (data layer), W1b (intake + list pages) and W1c (offers) are built.**
+W1d (demo seed / CSV / Financials) is not. The spec's §0 records the decisions, §14
 the slices.
 
 ### Model
@@ -2572,11 +2590,43 @@ the same family/kennel with their preferences copied), and **setPositionAnchor**
 another family's anchor, or `null` to clear). W1 sends nothing; she contacts families
 herself.
 
+**The offer flow (W1c):**
+- **openPicks** stamps `Litter.picks_opened_date` and calls **offerNext**; **closePicks** clears
+  it (an open offer stays open until resolved).
+- **offerNext(litterId)** — only while picks are open and no offer is open on the litter:
+  `nextFamilyForLitter` picks the family, and the offer is written with `respond_by_date`
+  (`respondByDate`, program window first) and an `eligible_dog_ids` snapshot.
+- **advanceKennel(kennelId)** runs offerNext for every open-picks litter of the kennel; it
+  is called after a family becomes `active` (fee received, a fee-waived approval) or is
+  restored by an undo. Nothing calls it on page load.
+- **recordOutcome(offerId, outcome)**:
+  - `accepted` (with an available pup from that litter) creates the **Sale**
+    (`deposit_pending`, buyer = the family's contact, `placement_type` = the pup's
+    `intended_placement` → the family's preference → `pet`, `lead_source: 'Waitlist'`,
+    price/deposit from `saleDefaults.expectedPricing`), sets the pup's `disposition` to
+    `placed`, the entry to `placed` with `placed_sale_id`, and voids the family's other
+    open offers (never a pass; those litters move on).
+  - `passed`/`no_response` freezes `counts_as_pass` (`countsAsPass`) and removes the entry
+    (`second_pass`) once `shouldRemoveForPasses`.
+  - `voided` is never a pass and deliberately does **not** move the turn on (the same family
+    would just be re-offered); she offers the next family by hand.
+  - After accepted/passed/no_response the turn moves on (offerNext). The result
+    (`{ offer, sale, removed, passes, next }`) drives the page's confirmation message.
+
 ### Surfaces (W1b)
 - **Pages** (Pro-only, `PRO_ONLY_PAGES`): `waitlist`, `waitlist-entry`, `waitlist-programs`
   (§13 page catalog). A page shows ONE kennel: `?kennel=` → the active scope → the first
   own kennel, with a kennel picker once a second own kennel exists (`waitlistUI.js`).
 - **Kennel page**: the Waitlist settings card.
+- **Litter page** (W1c): the **Waitlist picks** panel (`assets/waitlistPicksPanel.js`) —
+  Open/Close picks, the open offer (family, respond-by with a "deadline passed" badge, the
+  pups currently available to them) with Accepted… / Passed / No response / Void, "Next up"
+  with a manual **Offer to them** (after a void, or when someone new becomes eligible),
+  the litter queue (per-litter position, overall #, pups for them; spent turns hidden), and
+  the offer history. Hidden for a kennel that has never used the waitlist on that litter.
+  After each write the page re-reads the litter so a later Edit → Save can't write back a
+  stale `picks_opened_date`.
+- **Today** (W1c): the four waitlist nudges (§19).
 - **Dog form**: `intended_placement` for a puppy.
 - **Contact page**: a Waitlist panel listing the family's entries, and the waitlist dropdown
   becomes read-only (a badge) once any entry exists, since `waitlistEntryRepo` keeps it.

@@ -1,18 +1,25 @@
 // waitlistActions.js — the waitlist's multi-step writes (Waitlist Spec §5–§6;
 // End-State guide §29): approve, decline, fee received, withdraw, remove, the
-// second-pass undo, re-apply, and the manual position override. Pages call these
-// rather than stitching repo writes together, so W1c's offer flow reuses the same
-// steps. Every decision comes from waitlistRules.js; this module only writes.
+// second-pass undo, re-apply, the manual position override, and the offer flow
+// (open picks, offer the next family, record an outcome — accept creates the
+// Sale). Pages and Today's nudges call these rather than stitching repo writes
+// together. Every decision comes from waitlistRules.js; this module only writes.
 //
 // W1 sends nothing: no emails, no status page. She messages families herself.
+// Nothing here runs on page load: every write follows a tap (Spec §0).
 import { kennelRepo } from './kennelRepo.js';
 import { contactRepo } from './contactRepo.js';
 import { waitlistEntryRepo } from './waitlistEntryRepo.js';
 import { waitlistOfferRepo } from './waitlistOfferRepo.js';
 import { waitlistProgramRepo } from './waitlistProgramRepo.js';
+import { litterRepo } from './litterRepo.js';
+import { dogRepo } from './dogRepo.js';
+import { saleRepo } from './saleRepo.js';
+import { expectedPricing } from './saleDefaults.js';
 import { todayYMD } from './dateUtils.js';
 import {
-  waitlistConfig, feeForEntry, feeDueDate, anchorDate, canUndoRemoval, passToForgive
+  waitlistConfig, feeForEntry, feeDueDate, anchorDate, canUndoRemoval, passToForgive,
+  nextFamilyForLitter, respondByDate, countsAsPass, shouldRemoveForPasses, passesUsed, isPupAvailable
 } from './waitlistRules.js';
 
 async function load(entryId) {
@@ -71,7 +78,9 @@ export async function approve(entryId, { date = todayYMD(), contactId = null, pr
   if (fee === 0) {
     Object.assign(changes, { status: 'active', fee_received_date: date, fee_payment_method: 'Waived' });
   }
-  return waitlistEntryRepo.update(entryId, changes);
+  const saved = await waitlistEntryRepo.update(entryId, changes);
+  if (saved.status === 'active') await advanceKennel(saved.kennel_id, { today: date });
+  return saved;
 }
 
 export async function decline(entryId, { date = todayYMD() } = {}) {
@@ -92,7 +101,10 @@ export async function feeReceived(entryId, { date = todayYMD(), amount, method =
     fee_payment_reference: reference
   };
   if (amount !== undefined) changes.fee_amount = amount === '' || amount == null ? null : Number(amount);
-  return waitlistEntryRepo.update(entryId, changes);
+  const saved = await waitlistEntryRepo.update(entryId, changes);
+  // A new family on the list may be next for a litter whose picks are open (§6.5).
+  await advanceKennel(saved.kennel_id);
+  return saved;
 }
 
 export async function markFeeExpired(entryId) {
@@ -130,7 +142,9 @@ export async function undoRemoval(entryId, { today = todayYMD() } = {}) {
       notes: forgive.notes ? `${forgive.notes}\n${note}` : note
     });
   }
-  return waitlistEntryRepo.update(entryId, { status: 'active', removed_date: null, removed_reason: null });
+  const saved = await waitlistEntryRepo.update(entryId, { status: 'active', removed_date: null, removed_reason: null });
+  await advanceKennel(saved.kennel_id, { today });
+  return saved;
 }
 
 // A closed run (placed, removed, withdrawn, declined, expired) → a NEW application
@@ -165,4 +179,141 @@ export async function setPositionAnchor(entryId, { date = null, afterEntryId = n
     anchor = anchorDate(other) || null;
   }
   return waitlistEntryRepo.update(entryId, { position_anchor_date: anchor });
+}
+
+// --- Offers (Spec §6.4–§6.5) ------------------------------------------------------
+
+// Everything the rules need to decide a litter's next offer.
+async function litterContext(litterId) {
+  const litter = await litterRepo.getById(litterId);
+  if (!litter) throw new Error('That litter no longer exists.');
+  const [kennel, entries, offers, pups, programsById, sales] = await Promise.all([
+    kennelRepo.getById(litter.kennel_id),
+    waitlistEntryRepo.getByKennel(litter.kennel_id),
+    waitlistOfferRepo.getByLitter(litterId),
+    dogRepo.getByLitter(litterId),
+    waitlistProgramRepo.getMapForKennel(litter.kennel_id),
+    saleRepo.getAll({ includeArchived: true })
+  ]);
+  const pupIds = new Set(pups.map((d) => d.id));
+  return {
+    litter, kennel, entries, offers, pups, programsById,
+    sales: sales.filter((x) => pupIds.has(x.dog_id)),
+    config: waitlistConfig(kennel)
+  };
+}
+
+// Offer the turn on this litter to the next eligible family, if picks are open
+// and no offer is open yet. Returns the new offer, or null (picks closed, an offer
+// already open, or nobody eligible left). One open offer per litter (Spec §6.5).
+export async function offerNext(litterId, { today = todayYMD() } = {}) {
+  const c = await litterContext(litterId);
+  if (!c.litter.picks_opened_date || c.litter.is_archived) return null;
+  const next = nextFamilyForLitter(c.entries, c.offers, c.litter, c.pups, c.sales, {
+    today, config: c.config, programsById: c.programsById
+  });
+  if (!next) return null;
+  const program = c.programsById.get(next.entry.waitlist_program_id) || null;
+  return waitlistOfferRepo.create({
+    entry_id: next.entry.id,
+    litter_id: c.litter.id,
+    kennel_id: c.litter.kennel_id,
+    offered_date: today,
+    respond_by_date: respondByDate(today, c.config, program),
+    eligible_dog_ids: next.eligibleDogs.map((d) => d.id),
+    outcome: 'open'
+  });
+}
+
+// Every open-picks litter of a kennel gets a chance at its next offer — after a
+// family joins the list, or is restored to it.
+export async function advanceKennel(kennelId, { today = todayYMD() } = {}) {
+  const litters = (await litterRepo.getAll()).filter((l) => l.kennel_id === kennelId && l.picks_opened_date);
+  for (const l of litters) await offerNext(l.id, { today });
+}
+
+// **Open picks** (Spec §6.5): stamp the litter and offer the first family.
+export async function openPicks(litterId, { date = todayYMD() } = {}) {
+  await litterRepo.update(litterId, { picks_opened_date: date });
+  return offerNext(litterId, { today: date });
+}
+
+// Stop making new offers on this litter. An open offer stays open until she
+// records its outcome.
+export async function closePicks(litterId) {
+  return litterRepo.update(litterId, { picks_opened_date: null });
+}
+
+// Record how an open offer ended. `outcome` is accepted / passed / no_response /
+// voided. Returns { offer, sale, removed, passes, next } for the page's message.
+//  - accepted: needs `chosenDogId` (an available pup from this litter). Creates the
+//    Sale (deposit_pending, prefilled price/deposit, buyer = the family), marks the
+//    pup placed, the entry `placed`, and voids the family's other open offers.
+//  - passed / no_response: counts_as_pass is decided now and frozen (§6.4); at the
+//    pass limit the entry is removed (second_pass, with a 7-day undo).
+//  - voided: never a pass. The turn is NOT moved on automatically (she voided it
+//    for a reason; the same family would just be offered again) — she offers the
+//    next family from the litter page.
+// After accepted/passed/no_response the turn moves on (offerNext).
+export async function recordOutcome(offerId, outcome, { date = todayYMD(), chosenDogId = null } = {}) {
+  const offer = await waitlistOfferRepo.getById(offerId);
+  if (!offer) throw new Error('That offer no longer exists.');
+  if (offer.outcome !== 'open') throw new Error('This offer has already been closed.');
+  const entry = await load(offer.entry_id);
+  const result = { offer: null, sale: null, removed: false, passes: null, next: null };
+
+  if (outcome === 'accepted') {
+    const c = await litterContext(offer.litter_id);
+    const dog = c.pups.find((d) => d.id === chosenDogId);
+    if (!dog) throw new Error('Pick one of this litter\'s pups.');
+    if (!isPupAvailable(dog, c.sales)) throw new Error(`${dog.call_name} is no longer available.`);
+    if (!entry.contact_id) throw new Error('This family has no contact record.');
+    result.sale = await saleRepo.create({
+      dog_id: dog.id,
+      buyer_contact_id: entry.contact_id,
+      placement_type: dog.intended_placement || entry.pref_placement_type || 'pet',
+      status: 'deposit_pending',
+      kennel_id: dog.kennel_id || c.litter.kennel_id,
+      sale_date: date,
+      lead_source: 'Waitlist',
+      ...expectedPricing(dog, c.litter)
+    });
+    await dogRepo.update(dog.id, { disposition: 'placed' });
+    result.offer = await waitlistOfferRepo.update(offerId, {
+      outcome: 'accepted', outcome_date: date, chosen_dog_id: dog.id, counts_as_pass: false
+    });
+    await waitlistEntryRepo.update(entry.id, { status: 'placed', placed_sale_id: result.sale.id });
+    // Their other open offers end too — never a pass (Spec §6.4 leaning).
+    const others = (await waitlistOfferRepo.getByEntry(entry.id)).filter((o) => o.id !== offerId && o.outcome === 'open' && !o.is_archived);
+    for (const o of others) {
+      await waitlistOfferRepo.update(o.id, {
+        outcome: 'voided', outcome_date: date, counts_as_pass: false,
+        notes: [o.notes, 'Voided automatically: the family accepted a pup from another litter.'].filter(Boolean).join('\n')
+      });
+      await offerNext(o.litter_id, { today: date });
+    }
+  } else if (outcome === 'passed' || outcome === 'no_response') {
+    const [kennel, program] = await Promise.all([
+      kennelRepo.getById(entry.kennel_id),
+      entry.waitlist_program_id ? waitlistProgramRepo.getById(entry.waitlist_program_id) : null
+    ]);
+    const config = waitlistConfig(kennel);
+    result.offer = await waitlistOfferRepo.update(offerId, {
+      outcome, outcome_date: date, counts_as_pass: countsAsPass(outcome, { config, program })
+    });
+    const offers = await waitlistOfferRepo.getByEntry(entry.id);
+    result.passes = { used: passesUsed(entry, offers), max: Number(config.max_passes), counted: result.offer.counts_as_pass };
+    if (shouldRemoveForPasses(entry, offers, config)) {
+      await waitlistEntryRepo.update(entry.id, { status: 'removed', removed_date: date, removed_reason: 'second_pass' });
+      result.removed = true;
+    }
+  } else if (outcome === 'voided') {
+    result.offer = await waitlistOfferRepo.update(offerId, { outcome: 'voided', outcome_date: date, counts_as_pass: false });
+    return result;
+  } else {
+    throw new Error(`Unknown outcome "${outcome}".`);
+  }
+
+  result.next = await offerNext(offer.litter_id, { today: date });
+  return result;
 }

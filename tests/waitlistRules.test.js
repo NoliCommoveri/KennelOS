@@ -352,3 +352,14 @@ test('entryName: the linked contact wins, else the applicant, else a placeholder
   assert.equal(entryName({ application: { name: 'Applied As' } }, null), 'Applied As');
   assert.equal(entryName({}, null), 'Unnamed applicant');
 });
+
+// --- Sale prefill shared with the accept flow (data/saleDefaults.js) ---------------
+import { expectedPricing } from '../shared/data/saleDefaults.js';
+
+test('expectedPricing: by the pup\'s sex from the litter; nulls when unknown or blank', () => {
+  const litter = { expected_price_male: 2500, expected_price_female: 2800, expected_deposit_male: 500, expected_deposit_female: '' };
+  assert.deepEqual(expectedPricing({ sex: 'male' }, litter), { price: 2500, deposit_amount: 500 });
+  assert.deepEqual(expectedPricing({ sex: 'female' }, litter), { price: 2800, deposit_amount: null });
+  assert.deepEqual(expectedPricing({ sex: '' }, litter), { price: null, deposit_amount: null });
+  assert.deepEqual(expectedPricing({ sex: 'male' }, null), { price: null, deposit_amount: null });
+});

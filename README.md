@@ -364,7 +364,15 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   withdraw, remove, undo, re-apply, move), the Kennel page's Waitlist settings card, Dog
   `intended_placement`, the contact page's Waitlist panel (its waitlist dropdown goes
   read-only once entries exist), and per-kennel dashboard tiles. New flag
-  `editionFlags.waitlist` (off in Lite). Next: W1c (offers on the Litter page).
+  `editionFlags.waitlist` (off in Lite).
+- **Waitlist, W1c — offers built & browser-verified** (headless Chromium, Pro and Lite, no
+  console errors). The Litter page's Pro-only **Waitlist picks** panel (open/close picks,
+  one open offer at a time in list order, Accepted… / Passed / No response / Void, next up,
+  the litter queue, offer history); accepting creates the Sale (prefilled via the new
+  shared `data/saleDefaults.js`) and places the family; a second counted pass removes them
+  with a 7-day undo; Today gains four waitlist nudges (new applications, offer deadline
+  passed, fee past due, undo a removal). The Lite litter page never requests the panel.
+  Next: W1d (Demo seed, CSV import of applications, application fee in Financials).
 
 ## Build & deploy
 
