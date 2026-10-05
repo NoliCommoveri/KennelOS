@@ -46,6 +46,16 @@ snapshots with record-level sync and keeps this plan's auth, server, and registr
 - **Why a typed code and not a magic link:** an iPhone home-screen PWA has *separate storage
   from Safari*, and a tapped email link opens Safari. A link would sign in the wrong copy of
   the app. A typed code always lands in the app the user is looking at.
+- **The server doesn't keep her email address (decided).** It stores only a keyed hash of it
+  (§6.2), enough to find her account when she types the address again, and never the
+  readable address. Each code goes to the address she has *just typed*, which is used for
+  that one send and then discarded. A breach therefore yields no list of breeders' emails.
+  The sign-in screen says so in one line: "We use your email to send your code. We don't
+  keep it." (The email provider does see the address for each send; §6.5.)
+- **Consequence: we never email her unprompted.** There are no newsletters, no "your backup
+  is failing" emails, and the shutdown warning is **in-app only** (the `/notice` channel,
+  §6.1; Proposal §2a). Someone who has stopped opening the app won't hear about a shutdown,
+  but their local data and file backups are untouched either way.
 
 ### 2.2 While it's on
 - **A status line** on the Import/Export card: "Backed up 4 minutes ago". If it's falling
@@ -241,8 +251,8 @@ Phase 1 needs **Workers + D1 + R2 only.** No Durable Objects yet; they arrive wi
 
 | Route | Does |
 |---|---|
-| `POST /auth/start {email}` | Emails a 6-digit code (valid 10 min). Rate-limited per email and per IP. Always returns 200, so it can't be used to test which emails have accounts. |
-| `POST /auth/verify {email, code, deviceLabel}` | Max 5 attempts per code. Creates the user + program on first sign-in. Returns `{token, programId, deviceId}`. |
+| `POST /auth/start {email}` | Emails a 6-digit code (valid 10 min) to the address in the request, then discards the address; only its keyed hash is kept (§6.2). Rate-limited per email hash and per IP. Always returns 200, so it can't be used to test which emails have accounts. |
+| `POST /auth/verify {email, code, deviceLabel}` | Max 5 attempts per code. Looks the account up by email hash; creates the user + program on first sign-in. Returns `{token, programId, deviceId}`. |
 | `POST /auth/signout` | Revokes this token. |
 | `POST /auth/signout-others` | Revokes every other session on the account ("Sign out other devices" on the Import/Export card). |
 | `GET /program` | Program name, backing device (label + last push), latest snapshot meta. |
@@ -255,14 +265,19 @@ Phase 1 needs **Workers + D1 + R2 only.** No Durable Objects yet; they arrive wi
 
 ### 6.2 D1 schema (sketch)
 ```
-users(id, email UNIQUE, created_at)
-login_codes(email, code_hash, expires_at, attempts)
+users(id, email_hash UNIQUE, created_at)
+login_codes(email_hash, code_hash, expires_at, attempts)
 sessions(token_hash PRIMARY KEY, user_id, device_id, device_label, created_at, last_seen_at, expires_at, revoked_at)
 programs(id, owner_user_id, backing_device_id, latest_snapshot_id, created_at)
 snapshots(id, program_id, device_id, created_at, size, counts_json, r2_key)
 snapshot_files(snapshot_id, sha256)        -- for GC
 ```
 - **Hashing:** tokens and codes are stored hashed (SHA-256), never in plain text.
+- **Email hash:** `email_hash = HMAC-SHA256(server secret, normalized email)`, where
+  normalized means trimmed and lower-cased. The secret lives in a Worker secret, not in D1,
+  so a leaked database can't be reversed by hashing a list of known emails. The readable
+  address is never written to D1, R2, or logs. (Rotating that secret would orphan every
+  account, so it's treated like a root key: set once, backed up offline.)
 - **Session expiry:** sliding 90 days. Each authenticated request that lands more than a day
   after `last_seen_at` pushes `expires_at` out to 90 days from now. An expired or revoked
   token gets `401` → `CloudAuthError`, and the app asks for a new code; backup pauses until
@@ -280,8 +295,8 @@ snapshot_files(snapshot_id, sha256)        -- for GC
 - **Backstop:** D1's own Time Travel (30 days) covers the metadata tables.
 
 ### 6.4 Security & privacy posture
-- **What the server holds** is the cloud tier only (§5), plus the account email. There are no
-  buyer phone numbers, addresses, or money. This posture is pinned on the client by
+- **What the server holds** is the cloud tier only (§5), plus a keyed hash of the account
+  email (§6.2), not the address itself. There are no buyer phone numbers, addresses, or money. This posture is pinned on the client by
   `assertSnapshotKeys`. The server doesn't parse record contents at all; it stores the blob.
 - **CORS:** only the origins that actually run Lite and Pro, per the Editions Plan's domain
   map: `https://kennelos.app` (Lite), `https://pro.kennelos.app`, plus `localhost` for dev.
@@ -294,7 +309,9 @@ snapshot_files(snapshot_id, sha256)        -- for GC
 
 ### 6.5 Email
 A transactional email provider is needed for the codes (Cloudflare Email Service, Resend,
-Postmark…). It's the one third-party dependency (see Q1). The sender domain is
+Postmark…). It's the one third-party dependency (see Q1). It sees the recipient address for
+each code it sends, so pick one whose logs can be set to short retention; the privacy policy
+names it. The sender domain is
 `kennelos.app`, with SPF/DKIM set up so codes don't land in spam.
 
 ## 7. Editions & build wiring
@@ -349,6 +366,8 @@ Postmark…). It's the one third-party dependency (see Q1). The sender domain is
 | A second device clobbers the first | One backing device, with 409 → explicit choice |
 | iPhone PWA / Safari storage split breaks sign-in | Typed code, not a link |
 | Email codes land in spam | SPF/DKIM on kennelos.app; "Didn't get it? Resend / check spam" |
+| A breach exposes breeders' email addresses | Only a keyed hash is stored (§6.2); the address is used per send and discarded |
+| A user who stopped opening the app misses a shutdown notice | Their data is local and untouched; the notice shows the next time they open the app |
 | We stop hosting | `cloudUrl: null` release, local data untouched, file backups still there (Proposal §2a) |
 | Large document libraries are slow on first backup | Content-addressed, upload-once files; progress bar; resumable because each file is independent |
 
