@@ -377,7 +377,7 @@ switch, and what's shared appears in your connections' **Friends feed**.
 
 | Phase | Delivers | Risk |
 |---|---|---|
-| **1. Account + automatic cloud backup** | **Opt-in** (§2a): turn on cloud backup, sign in by email. The app pushes a **cloud-tier** backup snapshot on change, and a new phone signs in and restores. Covers the bulk of the data-loss goal. | Low. It builds on `exportAll`/restore, filtered through `syncRegistry.js`. The classification has to land here, first, so private data never reaches the server even once. |
+| **1. Account + automatic cloud backup** (build plan: `KennelOS_Cloud_Phase1_Plan.md`) | **Opt-in** (§2a): turn on cloud backup, sign in by email. The app pushes a **cloud-tier** backup snapshot on change, and a new phone signs in and restores. Covers the bulk of the data-loss goal. | Low. It builds on `exportAll`/restore, filtered through `syncRegistry.js`. The classification has to land here, first, so private data never reaches the server even once. |
 | **2. Live multi-device sync** | Outbox, push/pull, websocket nudges. The same person's phone and laptop stay in step. | Medium. This is the core engineering. |
 | **3. Team members & roles** | Invites, Staff and Helper roles, server-enforced visibility. KennelAssistant retires. | Medium |
 | **4. Dog transfers** | §7 | Medium |
