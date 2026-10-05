@@ -67,7 +67,9 @@ cloud is an add-on, never a dependency. Concretely:
   shut down.
 - **Licensing must not depend on our server** (see §4). Pro keeps validating directly with
   Lemon Squeezy from the browser, as today. Account-linked licensing can be an optional
-  convenience on top, never the only path.
+  convenience on top, never the only path. (Server-run Pro features, such as the waitlist's
+  online routes, do check the license server-side. That gates only what our server does on a
+  user's behalf, never whether the app itself runs as Pro.)
 - **One switch removes the cloud.** All cloud code is reached through one config value, the API
   base URL in `editionConfig` (`cloudUrl`). With it `null`, no cloud UI renders and no sync runs.
   That's the shutdown build, and it's also the behavior of today's app. A test pins that the app
@@ -84,7 +86,7 @@ cloud is an add-on, never a dependency. Concretely:
 | **Durable Object per program** (SQLite-backed) | The authoritative record set for one account's program, an ever-increasing change sequence, and live websocket pushes to that program's devices | One object per kennel program puts every write for that program in a single queue. That gives a clean change order for "give me changes since #N" and avoids cross-tenant locking. Point-in-time recovery covers the last 30 days. |
 | **D1** | Global tables: users, programs, memberships/roles, pending transfers, the `kennels.public_id` directory, license entitlements | Cross-program lookups such as "which program owns kennel `kos1_…`?" and "what's in my transfer inbox?" |
 | **R2** | Documents, receipts, photos (today's `files` table blobs) | No egress fees. Large blobs stay out of the record store. |
-| **Email** (Cloudflare Email Service, Resend, or similar) | Sign-in links, transfer notices, invites | Non-technical users understand email. |
+| **Email** (Cloudflare Email Service, Resend, or similar) | Sign-in codes, transfer notices, invites | Non-technical users understand email. |
 
 **Server record format:** one generic row per record, `(table, id, data_json, updated_at,
 seq, deleted)`, rather than mirroring the 13 Dexie tables as SQL tables. The server then
@@ -97,8 +99,11 @@ R2 headroom for hundreds of kennels. Real cost grows mainly with document and ph
 
 ## 4. Accounts, sign-in, programs, roles
 
-- **Sign-in:** an emailed magic link, with optional passkeys added later. Users don't manage
-  passwords, so there's no password reset to support. Account recovery is the same email.
+- **Sign-in:** an emailed **6-digit code** the user types into the app, with optional
+  passkeys added later. **Not a magic link:** an iPhone home-screen app has separate storage
+  from Safari, and a tapped email link opens Safari, signing in the wrong copy of the app
+  (Phase 1 plan §2.1). Users don't manage passwords, so there's no password reset to
+  support. Account recovery is the same email.
 - **Program** = what one install holds today: one or more kennels (multi-kennel scope
   already exists). One program has one owner and one subscription.
 - **Members and roles** (proposed):
@@ -381,9 +386,9 @@ switch, and what's shared appears in your connections' **Friends feed**.
 | **2. Live multi-device sync** | Outbox, push/pull, websocket nudges. The same person's phone and laptop stay in step. | Medium. This is the core engineering. |
 | **3. Team members & roles** | Invites, Staff and Helper roles, server-enforced visibility. KennelAssistant retires. | Medium |
 | **4. Dog transfers** | §7 | Medium |
-| **2b. Private vault** | §6.3. Passkey + recovery code, encrypted private-tier backup | Medium. Crypto is standard WebCrypto, but the recovery UX must be tested on real non-technical users |
+| **2b. Private vault** | §6.3. Passkey + recovery code, encrypted private-tier backup. Also a prerequisite of the waitlist's W2, which keeps its application key in the vault (`KennelOS_Waitlist_Spec.md` §8.2). | Medium. Crypto is standard WebCrypto, but the recovery UX must be tested on real non-technical users |
 | **4b. Connections** | §8. Invite/QR/email connect, profile → auto kennel + contact, the feed, then "add to my records" linked dogs | Medium. Mostly allow-list builders plus a feed. Low data risk because everything shared is already cloud tier |
-| **5. Optional account-linked license** | Webhooks so a key follows a signed-in account; browser validation stays the base path (§2a) | Low |
+| **5. Optional account-linked license** | Webhooks so a key follows a signed-in account; browser validation stays the base path (§2a). **The webhook → Worker link is brought forward** as a prerequisite of the waitlist's W2, used only to gate the server-side waitlist routes (`KennelOS_Waitlist_Spec.md` §8.5, §12). | Low |
 | **Later** | Two-way linked dogs and co-ownership, optional "people you may know", and Furever families on accounts | Higher |
 
 ## 10. Open questions (need answers before Phase 1)

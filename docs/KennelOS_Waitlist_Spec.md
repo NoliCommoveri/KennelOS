@@ -76,7 +76,8 @@ what they want.
 ## 4. Data model (`shared/`)
 
 This is a schema change, so it's raised here for pushback before anything is built
-(CLAUDE.md). It adds **two tables**, plus one vocab table for programs. It follows the
+(CLAUDE.md). It adds **two tables**, plus one small table for programs, and one new
+field on Dog (`intended_placement`, §4.5). It follows the
 existing rules: client-side UUIDs, soft delete, date-only `YYYY-MM-DD` strings, one
 canonical direction for each relationship, and derived reverses.
 
@@ -103,15 +104,15 @@ code. See Q1.
 | `kennel_id` | ✔ FK → Kennel | Which kennel's list. Multi-kennel programs keep **one list per kennel** (Q2). |
 | `contact_id` | ✔ FK → Contact | The family. Created or matched on approval (§5.2). |
 | `status` | ✔ | §3 |
-| `program_id` | ✔ FK → waitlist_programs, nullable | §7 |
+| `waitlist_program_id` | ✔ FK → waitlist_programs, nullable | §7. Named this way, not `program_id`, because the cloud docs use `program_id` for an account's whole data set. |
 | `applied_date` | | `YYYY-MM-DD` |
 | `approved_date`, `declined_date` | | |
 | `fee_amount` | | Decimal, prefilled from settings or the program. Private tier (§9). |
 | `fee_due_date` | | Optional; drives `expired` |
-| `fee_received_date` | | **The position anchor** (§6.1) |
+| `fee_received_date` | | **The position anchor** (§6.1). Cloud tier (§9), so a restore keeps the order. |
 | `fee_payment_method`, `fee_payment_reference` | | Same posture as `Sale.payment_*` |
 | `fee_credit_policy` | | `credited_to_purchase` / `non_refundable` / `refundable`, from settings (Q5) |
-| `position_adjust` | | Optional manual override (§6.1), rarely used |
+| `position_anchor_date` | | Optional manual override (§6.1), rarely used. Replaces `fee_received_date` for ordering only. |
 | `pref_sex` | | `any` / `male` / `female` |
 | `pref_placement_type` | | From `PLACEMENT_TYPE` (pet / show / breeding_rights / co_own) |
 | `pref_colors` | | Free-text list. Used for eligibility only if she turns that on (Q4). |
@@ -164,13 +165,14 @@ Programs are **hers to define**, so this is a small table, not a fixed vocab lis
 | `fee_override` | `null` = normal fee; `0` = waived; or an amount |
 | `priority` | `standard` / `ahead` (§7) |
 | `pause_allowed` | Whether these families can pause without it counting against them (§7) |
+| `passes_count` | Boolean, default `true`. `false` = passes by these families never count toward removal (§6.4, §7) |
 | `respond_days_override` | A longer response window for offers and check-ins (§7) |
 | `notes` | Private |
 
 ### 4.5 Schema, registry, and doc obligations
 
 ```
-waitlist_entries:  'id, kennel_id, contact_id, status, program_id, *listen_pairing_ids, *listen_litter_ids, placed_sale_id, is_archived'
+waitlist_entries:  'id, kennel_id, contact_id, status, waitlist_program_id, *listen_pairing_ids, *listen_litter_ids, placed_sale_id, is_archived'
 waitlist_offers:   'id, entry_id, litter_id, kennel_id, chosen_dog_id, outcome, is_archived'
 waitlist_programs: 'id, kennel_id, is_archived'
 ```
@@ -185,12 +187,16 @@ waitlist_programs: 'id, kennel_id, is_archived'
   - `SALE_REFERENCES`: `waitlist_entries.placed_sale_id`;
   - `DOG_REFERENCES`: `waitlist_offers.chosen_dog_id` (indexed above so the check is a lookup, not a scan);
   - new `WAITLIST_ENTRY_REFERENCES` (`waitlist_offers.entry_id`) and
-    `WAITLIST_PROGRAM_REFERENCES` (`waitlist_entries.program_id`).
+    `WAITLIST_PROGRAM_REFERENCES` (`waitlist_entries.waitlist_program_id`).
+- **One new field on Dog:** `intended_placement`, nullable, values from `PLACEMENT_TYPE`
+  (pet / show / breeding_rights / co_own). It's the per-pup placement §6.2 matches
+  against. Plain unindexed field, same posture as `disposition`; unset means "any
+  placement". Its vocab already exists, so dropdown and badge read from `PLACEMENT_TYPE`.
 - **New repos:** `waitlistEntryRepo`, `waitlistOfferRepo`, `waitlistProgramRepo`, the
   standard six methods each. The rules engine (§6) is a separate, pure module,
   `shared/data/waitlistRules.js`, so it can be unit-tested with no database.
-- **End-State guide:** the data model, schema block, registry, and a new
-  **"Waitlist"** section, all in the same change (CLAUDE.md).
+- **End-State guide:** the data model (including `Dog.intended_placement`), schema block,
+  registry, and a new **"Waitlist"** section, all in the same change (CLAUDE.md).
 - **`syncRegistry.js`** (Phase 1 §5) classifies all three tables (§9).
 - **New pages and the service worker:** `pages/waitlist.html`/`.js` (the list),
   `pages/waitlist-entry.html`/`.js` (one family), and `pages/waitlist-programs.html`/`.js`
@@ -229,10 +235,12 @@ waitlist_programs: 'id, kennel_id, is_archived'
 
 ### 5.3 The application fee
 
-- **On approval** the family gets the fee request: the amount (normal, or the program's
-  override), **her payment instructions** (free text from settings: "Venmo @…, Zelle …,
-  or check to …"), whether the fee is credited to the purchase price or non-refundable,
-  and an optional pay-by date.
+- **On approval** the family gets the fee request. **The email carries no money details:**
+  it says they're approved, gives the optional pay-by date, and links to their status page.
+  **The status page** shows the amount (normal, or the program's override), **her payment
+  instructions** (free text from settings: "Venmo @…, Zelle …, or check to …"), and whether
+  the fee is credited to the purchase price or non-refundable. (In W1, with no server, she
+  sends these details herself.) See §8.1 for what this puts on the server.
 - **She taps "Fee received"** (with date, method and reference). This moves the entry to
   `active`, sets `fee_received_date`, which **fixes their place in line**, and sends a
   "You're on the list, you're #N" confirmation.
@@ -255,14 +263,20 @@ calls them. Nothing is stored except what §4 lists.
 
 - **Order**, among `active` entries for the kennel:
   1. **priority group:** `ahead` programs first (§7), then everyone else;
-  2. **`fee_received_date`** (earliest first);
+  2. **`position_anchor_date` if set, else `fee_received_date`** (earliest first);
   3. **tie-break:** `approved_date`, then `created_at`.
 - **Position is derived, never stored.** It's computed whenever it's needed. So when
   someone ahead of a family is placed or removed, everyone behind moves up with no
   updates to write.
-- **Manual override:** `position_adjust` lets her move a family up or down by a number of
-  places for a special case. It shows as "moved by you" in the list, so it's never
-  invisible. **Leaning:** she'll rarely need it, since programs cover the planned cases.
+- **Manual override:** `position_anchor_date` lets her move a family for a special case
+  by giving them a different place in the date order: "place them as if they paid on
+  March 2", or "place them right after the Smiths" (the app converts that to a date just
+  after the Smiths' anchor). Ordering then uses `position_anchor_date` instead of
+  `fee_received_date`; the real fee date is untouched. Because it's a date, not a "move N
+  places" offset, it stays put as families ahead are placed or removed, two overrides can't
+  collide, and it never crosses the priority group (step 1 still applies first). It shows
+  as "moved by you" in the list, so it's never invisible. **Leaning:** she'll rarely need
+  it, since programs cover the planned cases.
 
 **Two numbers, and the status page shows the second one:**
 - **Overall position:** the place on the whole rolling list.
@@ -276,9 +290,9 @@ A family is **eligible** for a litter when all of the following hold:
 - `listen_mode` is `all`, **or** the litter is in `listen_litter_ids`, **or** its
   `pairing_id` is in `listen_pairing_ids`;
 - at least one pup in the litter is **available** (not reserved by a Sale, not kept
-  back), **and matches their preferences**: sex (unless `any`); placement type, if she
-  marks each pup's intended placement; color, only if she has turned on color matching
-  (Q4).
+  back), **and matches their preferences**: sex (unless `any`); placement type, checked
+  against the pup's `intended_placement` (§4.5; a pup with it unset matches any
+  placement); color, only if she has turned on color matching (Q4).
 
 A family is **eligible for a pup** when the above holds for that particular pup.
 
@@ -322,8 +336,9 @@ A family is **eligible for a pup** when the above holds for that particular pup.
     a new place.
 - **The first pass** sends the family a note: "This counts as your first pass. You keep
   your place. A second pass will remove you from the list."
-- **Program override:** a program can mark passes as not counted (§7), e.g. while a
-  family is in treatment.
+- **Program override:** a program with `passes_count = false` (§4.4, §7) marks passes as
+  not counted, e.g. while a family is in treatment. It's read when the outcome is
+  recorded and frozen into that offer's `counts_as_pass`.
 
 ### 6.5 Offers and deadlines
 
@@ -345,6 +360,9 @@ A family is **eligible for a pup** when the above holds for that particular pup.
   Central on Friday, March 14"). That keeps the project's date-only convention (no
   timestamps on business fields). The time zone is a new kennel setting. The window
   defaults to `settings.waitlistRespondDays` (e.g. 3 days), and programs can lengthen it.
+  On the server (§8.4) each deadline also gets its exact cutoff instant, computed once from
+  the date and the kennel's time zone and stored server-side only, so the hourly cron
+  (§8.5) fires it within the hour. The business field stays date-only.
 - **A reminder goes out** halfway through the window and the morning of the deadline (§10).
 
 ## 7. Programs (requirement 4)
@@ -359,7 +377,7 @@ names it only if `public_description` is set.
 | `fee_override` | Waived (`0`) or reduced |
 | `priority = ahead` | Placed ahead of standard families (still ordered by fee date among themselves) |
 | `pause_allowed` | Can pause during treatment without losing their place |
-| passes don't count | Passing while in treatment isn't held against them |
+| `passes_count = false` | Passing while in treatment isn't held against them |
 | `respond_days_override` | 7 days to respond instead of 3 |
 
 Exactly **what** her current programs change is Q10. This model lets her define any of them
@@ -381,20 +399,31 @@ readable form** (Proposal §6). Applicants are other people. The split:
 | Full application answers (phone, address, household, essay…) | **Encrypted** to her device's key; the server can't read it | Nothing automatic needs it |
 | Applicant **name + email** | **Readable** | Automatic messages have to go out while her phone is off. The applicant gave these **directly to this service**, under its privacy policy, which differs from buyers she typed in herself. |
 | Position, status, offers, deadlines, litter cards | Readable (no personal details) | The status page and reminders |
-| Fee amounts / payments | **Not on the server** | Stays private tier |
+| Fee amount + her payment instructions, **for `approved` entries only** | **Readable, in that family's status-page projection only** | The status page shows what to pay and how (§5.3). Her device removes them from the projection once the fee is received, declined or expired. They never appear in an email. |
+| Fee payment records (received date aside, method, reference) | **Not on the server** | Stays private tier |
+| Outbound message bodies and, in W3, family email replies | **Readable** (messages log, §10.4) | The server sends the emails, and in W3 the assistant reads replies to classify them. Replies are whatever the family writes, so they can hold personal details. |
 
-This is the one deliberate exception to Proposal §6, and it's flagged for her decision:
-**Q11**.
+These are the deliberate exceptions to Proposal §6 (applicant name + email, the unpaid
+fee details, and message text). They're flagged for her decision: **Q11**.
 
 ### 8.2 Encrypted applications (the inbox)
 
-- **At setup** her device creates a key pair. The private key stays on her device; it's
-  wrapped into the vault (Proposal §6.3) once the vault exists. The public key is
+- **The vault is a prerequisite.** W2 doesn't ship until the private vault (Proposal §6.3,
+  Phase 2b) does (§12). Without it the private key would live only on her phone, and losing
+  or resetting the phone would make every application encrypted to it unreadable for good.
+- **At setup** her device creates a key pair. The private key is wrapped into the vault
+  immediately, so a new phone that opens the vault can read the inbox. The public key is
   published with her form.
+- **Rotate form key:** an action in her app that makes a new key pair, vaults it, and
+  publishes the new public key. Old keys stay in the vault so earlier applications still
+  open. It's the recovery path if a key is ever lost: only what's already in the inbox is
+  stranded, never future applications.
 - **The applicant's browser** encrypts the answers with that public key (WebCrypto) before
   sending. The server stores the encrypted blob plus name and email (§8.1).
 - **Her app** fetches new applications from the inbox and decrypts them locally. Each
-  becomes an `applied` entry with `application` filled in.
+  becomes an `applied` entry with `application` filled in. As with events (§8.4), only
+  the backup device turns inbox items into entries, so two devices never create the same
+  application twice.
 - **Spam protection:** Cloudflare Turnstile on the form, rate limits per IP and per email,
   and a confirmation email to the applicant (the application only reaches her inbox once
   they click it).
@@ -414,7 +443,8 @@ This is the one deliberate exception to Proposal §6, and it's flagged for her d
   - buttons: **Accept a pup**, **Pass**, **Still interested**, **Leave the list**.
 - **Never shown:** other families, anyone's name, prices she hasn't published, private notes.
 - **Kept current by her device:** after any waitlist change, her app pushes updated
-  projections. The rules run **on her device**, the single source of truth.
+  projections. The rules run **on her device**, the single source of truth. The server's
+  only independent moves are the narrow ones in §8.4.
 
 ### 8.4 When her device is offline: the automatic parts
 
@@ -428,11 +458,31 @@ set of actions it can take on its own**:
 - send scheduled reminders and deadline messages (§10).
 
 **Deadlines and turn-passing need care.** If a deadline expires while her device is
-offline, should the server move the turn on by itself? **Leaning: yes.** The server runs
-the same `waitlistRules.js` (shared code; no DOM in it) over the published data and moves
-the turn on, so "basically automatic" holds even if she doesn't open the app for a week.
-Her device accepts the server's moves on next sync. The alternative, "nothing moves until
-she opens the app", is simpler but defeats the point. Q13.
+offline, should the server move the turn on by itself? **Leaning: yes**, but only within a
+narrow, explicit role, so her device stays the single source of truth (Q13):
+
+- **Her device makes every decision; the server only walks a list she published.** With
+  each projection, her device publishes, per litter with open picks, the **next few
+  eligible families in order** (with the pups each is eligible for), computed by
+  `waitlistRules.js` on her device. The server never re-runs the rules over its own data.
+- **The server may do exactly two things on its own:** expire an offer whose deadline has
+  passed (recording `no_response`), and offer the turn to the next family on that
+  published list. If the list runs out, it stops and waits for her device.
+- **Every server move carries the projection version it was based on.** On sync, her
+  device applies a server move automatically only if nothing it touches (that entry, that
+  litter's offers, those pups) has changed locally since that version. Otherwise the move
+  becomes a **suggested action** she confirms or discards with one tap, the same pattern
+  as §10.2. A pup sold off-list, a voided offer, or an edit made offline therefore can't
+  be silently overridden.
+- The alternative, "nothing moves until she opens the app", is simpler but defeats the
+  point of "basically automatic".
+
+**Several devices:** family responses and server moves are an append-only event stream
+with a running sequence number. Each of her devices keeps its own read cursor, so one
+device reading events never hides them from another. **Only the backup device**
+(Phase 1 §3.4) **applies them** (creating Sales, recording outcomes); other devices
+receive the results through the normal backup/sync path. Two devices can therefore never
+both create a Sale for the same accept.
 
 ### 8.5 API additions (sketch)
 
@@ -440,22 +490,38 @@ she opens the app", is simpler but defeats the point. Q13.
 |---|---|
 | `GET /apply/:kennelPublicId` · `POST /apply/:kennelPublicId` | Form (questions + public key) and submission |
 | `GET /waitlist/inbox` · `POST /waitlist/inbox/ack` | Her device fetches and acknowledges applications |
-| `PUT /waitlist/projection` | Her device publishes entries, offers, litter cards and deadlines (allow-listed) |
-| `GET /waitlist/events` · `POST /waitlist/events/ack` | Her device fetches family responses and server-made moves |
+| `PUT /waitlist/projection` | Her device publishes entries, offers, litter cards, deadlines and the per-litter next-families lists (allow-listed, versioned, §8.4) |
+| `GET /waitlist/events?since=<seq>` | Any of her devices reads family responses and server-made moves after its own cursor (§8.4). No ack; events are never consumed by a read. |
 | `GET /s/:token` · `POST /s/:token/respond` | The family's status page and actions |
-| `POST /waitlist/messages` | Queue an outbound email (fee request, offer, decline, etc.) |
+| `POST /waitlist/messages` | Queue an outbound email (fee request, offer, decline, etc.). No money details in the body (§5.3). |
 
-D1 gains `wl_inbox`, `wl_projection`, `wl_events`, `wl_tokens` and `wl_messages`, all scoped
-by `program_id`. A daily cron runs deadlines (§8.4) and purges acknowledged inbox blobs after
-30 days.
+D1 gains `wl_inbox`, `wl_projection`, `wl_events` (with `seq`), `wl_tokens` and
+`wl_messages`, all scoped by the cloud account's `program_id` (the account's data set, not
+a waitlist program). **An hourly cron** runs deadlines and reminders against their
+stored cutoff instants (§6.5), so "end of day in the kennel's time zone" is honored for
+every time zone. A daily job purges acknowledged inbox blobs after 30 days and trims
+`wl_events` older than 90 days.
+
+**Pro entitlement on the server.** Every `/waitlist/*` route for her (not the public form
+or status page) requires a signed-in account with a server-known Pro license. That needs
+the Lemon Squeezy webhook → Worker link from Proposal Phase 5, brought forward for these
+routes only (§12). The browser-side license check stays the base path for the app itself
+(Proposal §2a). On top of that, every account has per-route rate limits and a monthly
+spending cap on the assistant routes (§10), whatever its edition.
 
 ## 9. Cloud backup classification (`syncRegistry.js`)
 
 | Table | Cloud | Private |
 |---|---|---|
-| `waitlist_entries` | `kennel_id`, `contact_id`, `status`, `program_id`, all dates except fee, `pref_*`, `listen_*`, `paused_until`, `removed_reason`, `placed_sale_id`, `position_adjust` | `application`, `fee_*` (all), `pause_reason` (it may name a medical situation), `notes` |
+| `waitlist_entries` | `kennel_id`, `contact_id`, `status`, `waitlist_program_id`, **every date field, including `fee_due_date` and `fee_received_date`** (the position anchor, §6.1), `position_anchor_date`, `pref_*`, `listen_*`, `paused_until`, `removed_reason`, `placed_sale_id` | `application`, `fee_amount`, `fee_payment_method`, `fee_payment_reference`, `fee_credit_policy`, `pause_reason` (it may name a medical situation), `notes` |
 | `waitlist_offers` | every field except → | `notes` |
-| `waitlist_programs` | `name`, `applicable_on_form`, `priority`, `pause_allowed`, `respond_days_override`, `public_description` | `fee_override`, `notes` |
+| `waitlist_programs` | `kennel_id`, `name`, `applicable_on_form`, `priority`, `pause_allowed`, `passes_count`, `respond_days_override`, `public_description` | `fee_override`, `notes` |
+| `dogs` (existing entry) | gains `intended_placement` (§4.5) | |
+
+**Why the fee dates are cloud:** a date reveals nothing sensitive, but it *is* the list
+order. With it private, a restore on a new phone would blank every family's anchor and
+silently re-order the list by the tie-breakers. Only the money and payment details stay
+private.
 
 **Note:** a program *name* like "Cancer-treatment family" linked to a contact's name is
 health-adjacent. **Leaning:** cloud tier is fine because it's her own label, but she may
@@ -511,7 +577,12 @@ API. It has three jobs.
   the family's entry in her app, so she can see exactly what was said.
 - **Third-party processing:** the LLM provider processes applicants' messages. The privacy
   policy says so (Q16).
-- **Cost:** small. A few short messages per family per month with a fast model.
+- **Cost:** small. A few short messages per family per month with a fast model. Capped
+  per account by the monthly spending cap (§8.5), and the assistant routes are Pro-gated
+  on the server, so a non-Pro account can't run up LLM costs.
+- **Inbound replies are plain text to us and the provider.** Classifying email replies
+  means the Worker and the LLM provider read them as written, and families may put
+  personal details in them. That's stated in the privacy policy and is part of Q11/Q16.
 - **Off switch:** every assistant feature is a setting. With it off, the same messages
   go out from her fixed templates.
 
@@ -532,7 +603,7 @@ API. It has three jobs.
 | Phase | Delivers | Needs the server? |
 |---|---|---|
 | **W1. The list, locally** | Tables, repos, rules engine + tests, Waitlist page (list, applications queue, entry page), programs, manual application entry + CSV import, approve / fee received / offers / passes / auto-removal with undo, Sale creation on accept, `waitlist_status` kept in step, Demo seed | No. Useful immediately; she runs it from her phone and messages families herself. |
-| **W2. Online** | Public form + encrypted inbox, status page, fee/offer/decline/reminder emails from templates, family responses, server-side deadlines (§8.4) | Yes: after Phase 1's Worker and auth |
+| **W2. Online** | Public form + encrypted inbox (with Rotate form key), status page, fee/offer/decline/reminder emails from templates, family responses, server-side deadlines (§8.4), Pro entitlement + rate limits (§8.5) | Yes: after Phase 1's Worker and auth, **the private vault** (Proposal Phase 2b; §8.2), and **the server-side Pro license link** (Proposal Phase 5, brought forward for the waitlist routes only; §8.5) |
 | **W3. Assistant** | FAQ, check-ins, reply classification, written messages | Yes |
 | **Later** | Pay links with automatic fee received, helpers working the list on their own devices (needs Proposal Phases 2–3), SMS | Yes |
 
@@ -556,15 +627,18 @@ W1 is a full feature on its own and doesn't wait for the cloud work.
    match pups to families)? This changes what "pass" means.
 9. **Sequential offers** (one family at a time, leaning) or several at once in pick order?
 10. **Her current programs:** what is each one, and which adjustments in §7 does it get?
-11. **Applicant name + email readable on the server** (§8.1): acceptable?
+11. **What's readable on the server** (§8.1): applicant name + email, the fee amount and
+    her payment instructions on an unpaid family's status page, and message text,
+    including families' email replies in W3. Acceptable?
 12. **Showing the exact overall number** to families, or only "in line for this litter",
     or a band ("near the top")?
-13. **Server moves the turn on by itself** when a deadline passes and her phone is offline
-    (leaning yes)?
+13. **Server moves the turn on by itself** when a deadline passes and her phone is offline,
+    limited to the list her device published (leaning yes, §8.4)? And how many families
+    deep should that published list go?
 14. **Program link in cloud backup**, or private?
 15. **No reply to a check-in:** pause, count as a pass, or remove? After how many?
-16. **Assistant:** happy for an LLM provider to process applicants' messages (stated in the
-    privacy policy)?
+16. **Assistant:** happy for an LLM provider to process applicants' messages, including
+    reading their email replies as written (stated in the privacy policy)?
 17. **Deposits vs. the application fee:** confirm that the deposit is still taken on the
     Sale after a family accepts a pup, separately from the application fee.
 18. **Response windows:** how many days for an offer, a fee and a check-in?
