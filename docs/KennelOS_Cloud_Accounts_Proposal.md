@@ -310,7 +310,19 @@ switch, and what's shared appears in your connections' **Friends feed**.
 - **Stud service records:** a stud service with a connected breeder's dog can prefill
   partner, partner kennel, and partner dog from the connection.
 
-### 8.5 How it fits the data rules
+### 8.5 Editions (decided)
+
+- **Lite:** connect, profile, friends feed, and the connection-created outside kennel and
+  contact. This means **Lite users have accounts**, at least for connections (see Q3 for
+  whether Lite also gets cloud backup). The Lite cap is unaffected: it counts owned and
+  co-owned dogs only, and a connection creates no dogs.
+- **Lite needs its own surface for this.** The Kennels list and the Kennel Card UI are
+  Pro-only today, so the connections page, invite/QR flow, and feed must live in
+  `shared/` (not `pro/`). The connection-created outside kennel has to be viewable from the
+  contact in Lite.
+- **Pro adds:** transfers to a connection (§7) and "Add to my records" linked dogs (§8.4).
+
+### 8.6 How it fits the data rules
 
 - **Server (D1):** `profiles` (one per program, the allow-listed fields), `connections`
   (program A, program B, status: pending / accepted / blocked, who invited), and
@@ -346,9 +358,10 @@ switch, and what's shared appears in your connections' **Friends feed**.
    (recommended), or is "requires internet" acceptable?
 2. **Tiers (§6):** does the two-tier split match her instincts? Anything in the cloud column she
    considers sensitive, or anything private she'd want teammates to see?
-3. **Editions:** which editions get cloud features? One suggestion: Lite gets Phase 1 backup,
-   which is cheap and a strong reason to make an account. Pro gets sync, team, and transfers.
-   Demo gets none.
+3. **Editions:** Lite already gets an account for connections (decided below), so the remaining
+   question is whether Lite also gets Phase 1 cloud backup of its kennel records. Recommended:
+   yes. It's cheap at Lite's 6-dog / 2-litter size and is the data-loss goal itself. Pro gets
+   sync, team, vault, and transfers. Demo gets none.
 4. **What travels with a transferred dog** by default, and can the seller untick items?
 5. **Roles:** are Owner / Staff / Helper the right three?
 6. **Existing users:** first sign-in uploads the current local data as the program (the
@@ -359,13 +372,13 @@ switch, and what's shared appears in your connections' **Friends feed**.
    policy and a delete-my-account path, but breach exposure is much smaller.
 8. **Who builds and runs the backend?** It's the first piece of this product that can go down
    at 2am.
-9. **Connections and editions:** recommended: connecting, profiles, and the feed are free in
-   Lite, since they spread the app through friend groups. "Add to my records" linked dogs and
-   transfers to a connection stay Pro.
-10. **Showcase defaults:** confirm sharing is per-dog opt-in, and milestone posts need a
-    one-tap confirm rather than auto-posting.
 
-**Decided:** contact names are in the cloud tier; kennel location is in the cloud tier.
+**Decided:**
+- Contact names are in the cloud tier; kennel location is in the cloud tier.
+- **Connections are free in Lite:** connecting, the breeder profile, and the friends feed.
+  Transfers to a connection and "Add to my records" linked dogs stay Pro.
+- Sharing to connections is **opt-in per dog/litter**, and milestone posts need a **one-tap
+  confirm**; nothing auto-posts.
 
 ## 11. What changes in this repo if approved
 
