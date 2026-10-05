@@ -456,7 +456,8 @@ address.
   - buttons: **Accept a pup**, **Pass**, **Still interested**, **Pause** (if allowed, Q7),
     **Leave the list**;
   - **a message box** ("Send [her name] a message"), plus her earlier messages and
-    questions to them. It's the only way a family writes to her through the service.
+    questions to them. It's the only way a family writes to her through the service;
+  - **optional "Message us on Facebook" button**, if she turns it on (below).
 - **Never shown:** other families, anyone's name, prices she hasn't published, private notes.
 - **The link exists from the moment they apply** (it's in the confirmation email), so an
   applicant can answer her questions before approval.
@@ -465,6 +466,20 @@ address.
   back to the status page, and is not stored or read.
 - **She finds out about new messages** when her app next syncs (a badge on Today and on the
   entry). A phone notification is a possible later addition, not part of W2.
+- **"Message us on Facebook" button: a setting, off by default.** In her waitlist settings,
+  per kennel (it follows the kennel scope, Q2): a **Show "Message us on Facebook"** switch and
+  her **Facebook Page link**.
+  - The switch can only be turned on once a link is entered. The link must be a
+    `facebook.com/…` or `m.me/…` address, and the button opens `m.me/<page>`.
+  - It's just a link to her own public Page: no Meta app, no API, no approval, nothing about
+    the family stored. The Page link rides the status-page projection like any other public
+    kennel detail.
+  - **The conversation lives entirely in Messenger.** It isn't logged on the family's entry,
+    isn't encrypted by us, and triggers no notifications or automatic actions. The settings
+    screen says so in one line, and the button's caption tells families that buttons and the
+    message box are still how they respond to offers and check-ins.
+  - Turning the switch off removes the button from every status page at the next projection
+    push.
 - **Kept current by her device:** after any waitlist change, her app pushes updated
   projections. The rules run **on her device**, the single source of truth. The server's
   only independent moves are the narrow ones in §8.4.
@@ -633,9 +648,9 @@ API. It has three jobs.
 | Phase | Delivers | Needs the server? |
 |---|---|---|
 | **W1. The list, locally** | Tables, repos, rules engine + tests, Waitlist page (list, applications queue, entry page), programs, manual application entry + CSV import, approve / fee received / offers / passes / auto-removal with undo, Sale creation on accept, `waitlist_status` kept in step, Demo seed | No. Useful immediately; she runs it from her phone and messages families herself. |
-| **W2. Online** | Public form + encrypted inbox (with Rotate form key), status page with buttons and an encrypted message box, no-reply fee/offer/decline/reminder emails from templates, family responses, server-side deadlines (§8.4), Pro entitlement + rate limits (§8.5) | Yes: after Phase 1's Worker and auth, **the private vault** (Proposal Phase 2b; §8.2), and **the server-side Pro license link** (Proposal Phase 5, brought forward for the waitlist routes only; §8.5) |
+| **W2. Online** | Public form + encrypted inbox (with Rotate form key), status page with buttons, an encrypted message box and the optional "Message us on Facebook" button, no-reply fee/offer/decline/reminder emails from templates, family responses, server-side deadlines (§8.4), Pro entitlement + rate limits (§8.5) | Yes: after Phase 1's Worker and auth, **the private vault** (Proposal Phase 2b; §8.2), and **the server-side Pro license link** (Proposal Phase 5, brought forward for the waitlist routes only; §8.5) |
 | **W3. Assistant** | FAQ chat, check-ins, written messages | Yes |
-| **Later** | Pay links with automatic fee received, helpers working the list on their own devices (needs Proposal Phases 2–3), SMS | Yes |
+| **Later** | Pay links with automatic fee received, helpers working the list on their own devices (needs Proposal Phases 2–3), SMS and Messenger notifications (sent from her Page; needs Meta app review, and Meta's 24-hour messaging window limits check-ins and reminders) | Yes |
 
 W1 is a full feature on its own and doesn't wait for the cloud work.
 
