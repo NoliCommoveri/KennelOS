@@ -53,6 +53,7 @@ const PRECACHE_URLS = [
   'data/assistantSync.js',
   'data/awayBoard.js',
   'data/breedFeedingScheduleRepo.js',
+  'data/cloud/cloudBackup.js',
   'data/companionExport.js',
   'data/contactRepo.js',
   'data/contractRepo.js',

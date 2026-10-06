@@ -132,7 +132,11 @@ KennelOS/
     repoBase.js                makeRepo factory (shared repo surface)
     referenceRegistry.js       FK declarations + hard-delete guard
     syncRegistry.js            Cloud-backup field allow-list + row rules (Cloud Phase 1
-                               plan §5); unlisted = private. Pure; not yet imported
+                               plan §5); unlisted = private. Pure functions, plus the
+                               field overlay the 'cloud-merge' restore uses
+    cloud/cloudBackup.js       Cloud snapshot builder (sample rows dropped, registry
+                               projection, file bytes by sha256, key check), gzip, and
+                               the shrink guard. No network yet (plan §9 step 4)
     dogRepo / contactRepo / kennelRepo / pairingRepo / litterRepo /
       saleRepo / contractRepo / studServiceRepo / eventRepo / expenseRepo /
       documentRepo   Entity repos
@@ -781,14 +785,26 @@ doing cross-table transaction work).
 
 - `exportAll()` iterates **whatever tables exist** (no hardcoded list) → `{ schema_version,
   format_version, exported_at, collections }`. `downloadBackup()` saves it and stamps
-  `lastBackupDate`.
+  `lastBackupDate`. `exportAll({ encodeBlobs: false })` leaves file blobs as real Blobs, for
+  the cloud snapshot builder, which hashes and uploads them itself.
 - `inspectBackup(obj)` validates shape and reports counts + unknown tables before any
   write.
 - `restoreBackup(obj, mode)`:
   - `'replace'` — clears **every** known table first, then loads the file's rows, so the
     result is exactly the backup (a table the file omits ends up empty).
   - `'merge'` — upserts the file's rows by id, leaving other records intact.
+  - `'cloud-merge'` (with `opts`: `overwrite`, `fetchFile`) — restores a **cloud snapshot**
+    (`data/cloud/cloudBackup.js`; Cloud Phase 1 plan §4.3). It overlays only the
+    `syncRegistry.js` cloud fields onto an existing row, so private fields already on the
+    device survive; `events.details` merges by key. With `overwrite: false` (new device,
+    takeover) a row is overlaid only when the snapshot's `updated_at` is newer. With
+    `overwrite: true` ("Restore as of…") it is overlaid regardless. A missing row is inserted;
+    a local row the snapshot lacks is left alone (it never deletes). A missing file is
+    fetched through `opts.fetchFile(sha256)`, or listed in `missingFiles`.
+    `planCloudMerge()` gives the same per-table counts without writing, for the
+    confirmation screen.
   - Unknown collections (tables not in this schema version) are skipped, not errors.
+  - Every restore calls `markDataChanged()` (§11), so the cloud backup sees it.
   - Before any write it awaits the edition hook `enforceImportDogCap({ incomingDogs, mode })`
     (`data/editionConfig.js`; classification math in `data/rosterCount.js`). The shared/Pro
     default is a no-op, so Pro/Demo restore is exactly as above; the Lite override rejects a
@@ -813,6 +829,11 @@ plain local backup/restore.
 
 - **settings.js** — the primary `localStorage` user. Pages never touch `localStorage`
   directly. Keys (all under `kennelOS.*`): `lastBackupDate`, `persistRequested`,
+  `cloudDirtyAt` (the cloud backup's dirty signal, Cloud Phase 1 plan §3.2: the time of the
+  latest data change, set by `markDataChanged()` from every write path — `repoBase`
+  create/update/hardDelete, `fileRepo`, `expenseRepo`'s cost migration, `assistantSync`,
+  every `restoreBackup` — and cleared by a push with `clearCloudDirty(pushedValue)`, so a
+  change made mid-push survives; `tests/cloudDirty.test.js` pins every direct writer),
   `sampleDataManifest`, `sampleDataCleared`, `myKennelId`, `myContactId`,
   `activeKennelId` (which own kennel the app is scoped to, or absent for "All
   kennels" — read/written only through `data/kennelScope.js`, never by a page),
@@ -1221,7 +1242,9 @@ Don't assume these exist; several are explicitly deferred "open doors":
    field.
 3. **New FK ⇒ registry line** in `referenceRegistry.js`. **New field ⇒ classified** in
    `syncRegistry.js` (cloud / private / pending); `tests/syncRegistry.test.js` fails on an
-   unclassified field the sample packet writes.
+   unclassified field the sample packet writes. **New direct `db` write ⇒
+   `markDataChanged()`** beside it (or a reasoned exemption); `tests/cloudDirty.test.js`
+   pins every write site.
 4. **Escaping:** every user value in hand-built innerHTML is `esc()`'d; `listView` `cell`
    functions escape; `reportView` `value` functions return plain text.
 5. **New/renamed/removed/edited app file ⇒ update `sw.js` `PRECACHE_URLS` **and** bump

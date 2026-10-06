@@ -3,7 +3,7 @@
 // itself (node --test only discovers *.test.js under tests/).
 //
 // It covers the slice of the Dexie Table API the repos and seed use today:
-// get/add/put/update/delete/bulkDelete/bulkPut/toArray/count, where(index)
+// get/add/put/update/delete/bulkDelete/bulkPut/clear/toArray/count, where(index)
 // .equals/anyOf/aboveOrEqual/between (multi-entry arrays match by membership;
 // a '[a+b]' compound index matches by tuple), and an immediate transaction().
 // If a repo starts using something else, the seed throws here, loudly.
@@ -52,6 +52,7 @@ function memoryTable(name) {
     delete: async (id) => { rows.delete(id); },
     bulkDelete: async (ids) => { ids.forEach((id) => rows.delete(id)); },
     bulkPut: async (rs) => { rs.forEach((r) => rows.set(r.id, copy(r))); },
+    clear: async () => { rows.clear(); },
     toArray: async () => [...rows.values()].map(copy),
     count: async () => rows.size,
     filter: (p) => collection(p),
@@ -84,6 +85,8 @@ export async function installMemoryDb() {
     tables[t.name] = memoryTable(t.name);
     Object.defineProperty(db, t.name, { value: tables[t.name], configurable: true });
   }
+  // Code that iterates db.tables (exportAll, restore) gets the stand-ins too.
+  Object.defineProperty(db, 'tables', { value: Object.values(tables), configurable: true });
   db.table = (n) => {
     if (!tables[n]) throw new Error(`memoryDb: no table "${n}"`);
     return tables[n];

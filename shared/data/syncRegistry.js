@@ -360,3 +360,47 @@ export function assertCloudCollections(collections) {
     for (const row of rows) assertCloudRow(table, row);
   }
 }
+
+// --- Restore: overlaying a snapshot row onto a local one (plan §4.3) -------
+// The 'cloud-merge' restore mode. Returns a NEW row: the local row with every
+// implicit + cloud field taken from `snapRow`, and every other (private) field
+// left exactly as it is locally. A cloud field the snapshot row doesn't carry
+// is REMOVED from the result, since the snapshot says it was absent at the
+// source. `details` (events) merges by key: the snapshot's cloud keys, plus the
+// local row's private keys (textarea / undeclared), so a restore never blanks a
+// treatment note that only this device has. Derived keys (files' sha256) are
+// never written to a local row.
+export function overlayCloudFields(table, localRow, snapRow) {
+  const entry = entryFor(table);
+  const out = { ...localRow };
+  for (const field of [...IMPLICIT_CLOUD_FIELDS, ...entry.cloud]) {
+    if (Object.prototype.hasOwnProperty.call(snapRow, field)) out[field] = snapRow[field];
+    else delete out[field];
+  }
+  if (table === 'events') {
+    const eventType = out.event_type;
+    const cloudKeys = cloudDetailKeys(eventType);
+    const localDetails = (localRow.details && typeof localRow.details === 'object') ? localRow.details : null;
+    const snapDetails = (snapRow.details && typeof snapRow.details === 'object') ? snapRow.details : null;
+    if (localDetails || snapDetails) {
+      const merged = {};
+      if (localDetails) {
+        for (const [k, v] of Object.entries(localDetails)) if (!cloudKeys.has(k)) merged[k] = v;
+      }
+      if (snapDetails) {
+        for (const [k, v] of Object.entries(snapDetails)) if (cloudKeys.has(k)) merged[k] = v;
+      }
+      out.details = merged;
+    }
+  }
+  return out;
+}
+
+// A snapshot row as a NEW local row (the "missing local row" case): the
+// snapshot's own fields, minus any derived key. Private fields are simply absent.
+export function snapshotRowToLocal(table, snapRow) {
+  const entry = entryFor(table);
+  const out = { ...snapRow };
+  for (const key of entry.derived || []) delete out[key];
+  return out;
+}

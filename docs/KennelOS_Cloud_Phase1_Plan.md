@@ -1,8 +1,9 @@
 # KennelOS Cloud — Phase 1 build plan: opt-in accounts + cloud backup (DRAFT)
 
 > Parent design: `docs/KennelOS_Cloud_Accounts_Proposal.md` (cited below as "Proposal §N").
-> Status: **in progress.** Built so far: §9 step 1 (`shared/data/syncRegistry.js`, awaiting
-> field-by-field review) and step 3 (the staging Worker). The README's build status is the
+> Status: **in progress.** Built so far: §9 steps 1–2 (`shared/data/syncRegistry.js`;
+> `shared/data/cloud/cloudBackup.js`, the `'cloud-merge'` restore and the dirty signal) and
+> step 3 (the staging Worker). The README's build status is the
 > live record. Decisions it relies on are recorded in Proposal §10. The ones it raises are in
 > §11 below.
 
@@ -201,6 +202,35 @@ field** on a device that has them. So we add a third mode, with one switch, `ove
 - **"Restore as of a date"** uses the same mode with `overwrite: true`. To *undo* an
   addition, a user archives the record by hand. A Phase 1 restore never removes records (it's deliberately conservative;
   revisit in Phase 2).
+
+### 4.4 As built (§9 step 2)
+- **Module split.** `buildCloudSnapshot`, gzip and the shrink guard are in
+  `data/cloud/cloudBackup.js` now. Its network half (`pushIfDirty`, `listSnapshots`,
+  `restoreSnapshot`, the scheduler) arrives in step 4. `buildCloudSnapshot` takes the
+  server-issued `deviceId` as an option and returns `{ envelope, files }`; `files` is one
+  `{ sha256, size, mime, blob }` per distinct content, for upload-if-missing (§6.1).
+- **`exportAll({ encodeBlobs: false })`** feeds it raw Blobs. The file backup's base64
+  markers would only be decoded again for hashing.
+- **`'cloud-merge'`** is `restoreBackup(snapshot, 'cloud-merge', { overwrite, fetchFile })`.
+  - **Files:** network stays out of `importExport.js`. Step 4 passes
+    `fetchFile(sha256) → Blob`, and a file it can't get is skipped and returned in
+    `missingFiles`. An existing local file row is never touched.
+  - **Preview:** `planCloudMerge()` returns the per-table
+    `{ inserted, updated, keptLocal, unchanged }` counts without writing. `updated` under
+    `overwrite: true` is the confirmation screen's "N records will be rolled back".
+  - **Absent fields:** a cloud field missing from a newer snapshot row is removed locally,
+    since the snapshot says it was absent at the source.
+  - **`events.details`** keeps the device's private keys and takes the snapshot's cloud
+    keys (`syncRegistry.overlayCloudFields`).
+- **Shrink guard reading.** "The last had ≥ 10" is applied to each measure separately:
+  the dog check runs when the last snapshot had at least 10 dogs, and the total check when
+  it had at least 10 records.
+- **Dirty signal.** `settings.markDataChanged()` / `getCloudDirtyAt()` /
+  `clearCloudDirty(ifAt)`. Exempt writers, pinned in `tests/cloudDirty.test.js`: clearing
+  sample data (those rows are never in a snapshot) and Reset App (plan §3.3).
+  - **Sample seed:** the seed writes through the repos, so seeding marks the flag even
+    though every seeded row is filtered out. The resulting push is harmless but empty.
+    Step 4's `pushIfDirty` can skip a snapshot identical to the last one.
 
 ## 5. The classification (`syncRegistry.js`)
 

@@ -19,7 +19,8 @@ const KEYS = {
   dropbox: 'kennelOS.dropbox',
   assistantLastSync: 'kennelOS.assistantLastSync',
   assistantFeedPushedAt: 'kennelOS.assistantFeedPushedAt',
-  furever: 'kennelOS.furever'
+  furever: 'kennelOS.furever',
+  cloudDirtyAt: 'kennelOS.cloudDirtyAt'
 };
 
 export function getLastBackupDate() {
@@ -427,6 +428,35 @@ export function getAssistantFeedPushedAt() {
 export function setAssistantFeedPushedAt(iso = new Date().toISOString()) {
   localStorage.setItem(KEYS.assistantFeedPushedAt, iso);
   return iso;
+}
+
+// --- Cloud backup dirty signal (Cloud Phase 1 plan §3.2) ---------------------
+// `cloudDirtyAt` is the ISO time of the latest local data change. Set by ONE
+// helper, markDataChanged(), which every data write calls: repoBase's
+// create/update/hardDelete and the direct writers (fileRepo, expenseRepo,
+// assistantSync, importExport.restoreBackup). tests/cloudDirty.test.js fails if
+// a new direct db writer appears without it. The backup scheduler pushes only
+// while this is set, and clears it with clearCloudDirty(the value it pushed),
+// so a change that lands mid-push keeps the flag for the next one. In KEYS, so
+// Reset App clears it (an empty program has nothing to push).
+export function markDataChanged(iso = new Date().toISOString()) {
+  try {
+    localStorage.setItem(KEYS.cloudDirtyAt, iso);
+  } catch {
+    /* storage unavailable: the next start-up push still sees the change */
+  }
+  return iso;
+}
+
+export function getCloudDirtyAt() {
+  return localStorage.getItem(KEYS.cloudDirtyAt); // ISO string or null
+}
+
+// Clears the flag only if it still holds `ifAt` (omit to clear unconditionally).
+export function clearCloudDirty(ifAt) {
+  if (ifAt === undefined || localStorage.getItem(KEYS.cloudDirtyAt) === ifAt) {
+    localStorage.removeItem(KEYS.cloudDirtyAt);
+  }
 }
 
 // Full app reset (Reset App to Start): drop every key this app owns in

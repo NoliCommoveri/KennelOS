@@ -438,9 +438,37 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     `dogs.recorded_coi` and `litters.picks_opened_date` are cloud; `kennels.waitlist_config`
     and `litters.feeding_schedule_override` are private. Nothing is pending now.
 
-  Next: §9 step 2 (snapshot building, `'cloud-merge'` restore, shrink guard and the dirty
-  signal). Then client cloud modules against staging (step 4), UI (step 5), and production
-  (step 6 / §6.7 item 6).
+- **Cloud Phase 1, §9 step 2: snapshot, `'cloud-merge'` restore, shrink guard and the dirty
+  signal are built** (plan §3.2, §3.5, §4.1, §4.3). There's still no network and no UI.
+  Nothing calls the new paths yet, apart from the dirty flag, which every write now sets.
+  - **`shared/data/cloud/cloudBackup.js`:**
+    - `buildCloudSnapshot()` drops sample rows (by the manifest), projects through
+      `syncRegistry.js`, swaps each kept file's blob for its `sha256` (returning the bytes,
+      deduped, for a separate upload), runs the positive key check and builds the
+      envelope;
+    - `gzipJson`/`gunzipJson`;
+    - `checkShrink()`: fewer than half the dogs or total records, each measure only when
+      its previous count was at least 10.
+  - **`importExport.restoreBackup(snapshot, 'cloud-merge', { overwrite, fetchFile })`:**
+    - it overlays only cloud fields, so private fields on the device survive, and
+      `events.details` merges by key;
+    - newer-wins by default, or a rollback with `overwrite: true`; `planCloudMerge()`
+      previews the counts;
+    - missing rows are inserted, missing files are fetched by sha256, and nothing is
+      ever deleted;
+    - the Lite cap is checked against the merged dogs.
+  - **Dirty signal:** `settings.markDataChanged()` sets `kennelOS.cloudDirtyAt` from
+    `repoBase` and the direct writers (`fileRepo`, `expenseRepo`, `assistantSync`, every
+    restore). `clearCloudDirty(pushedValue)` keeps a change made mid-push.
+    `tests/cloudDirty.test.js` pins every direct `db` write site. Clearing sample data and
+    Reset App are exempt, with reasons.
+  - `exportAll({ encodeBlobs: false })` lets the snapshot hash raw file bytes.
+  - 18 new tests (`cloudBackup.test.js`, `cloudDirty.test.js`). Browser smoke test in
+    headless Chromium: a real write sets the flag, a snapshot builds and gzips in the page
+    with the contact's email stripped, and there are no console errors.
+
+  Next: client cloud modules against staging (step 4), UI (step 5), and production (step 6 /
+  §6.7 item 6).
 
 ## Build & deploy
 
