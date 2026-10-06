@@ -167,6 +167,7 @@ code. See Q1.
 | `listen_mode` | | `all` (default) or `selected` (§6.3) |
 | `listen_sire_ids` | ✔ multi-entry FK → Dog | Used when `listen_mode = 'selected'`: the sires they're listening for (§6.3, §15.7) |
 | `listen_dam_ids` | ✔ multi-entry FK → Dog | Same, for dams. Which litters/pairings that covers is derived from their `sire_id`/`dam_id`, never stored. |
+| `ready_timing` | | `immediately` / `1_3_months` / `3_6_months` / `6_plus_months`: the locked, required "how soon could you buy?" answer. Anything but immediately is a derived readiness hold (§6.3, §15.8). |
 | `paused_until` | | Optional `YYYY-MM-DD`. Paused families aren't offered; position kept (§6.3). |
 | `pause_reason` | | Short text, mainly for program pauses (§7) |
 | `removed_date`, `removed_reason` | | `second_pass` / `no_checkin_response` / `by_breeder` / `fee_expired` |
@@ -387,6 +388,10 @@ A family is **eligible for a pup** when the above holds for that particular pup.
 - **Pause** (`paused_until`): the same effect for every litter until a date, e.g. during
   treatment or a move. It never counts as a pass. Whether families can pause themselves
   from the status page, or only through her, is Q7.
+- **Readiness hold** (`ready_timing`, §15.8): a family who said they won't be ready to buy
+  immediately is treated as paused, automatically, until 1, 3 or 6 months (the start of
+  the range they picked) after their fee was received, or approval if there's no fee.
+  Derived, never stored. Same effect as a pause everywhere, public list included.
 - **Turns are skipped, not spent.** When a listen-only or paused family would have been
   next, the offer goes to the next eligible family and **nothing is recorded** against
   the family that was skipped.
@@ -1070,3 +1075,26 @@ Listening for specific pairings or litters was the wrong unit: families follow a
 3. **Only after approval.** The Which litters section appears on the Edit form once the
    entry is `approved` or `active`; a new or still-pending application never shows it.
    Picks are kept, not cleared, when the family leaves the list.
+
+### 15.8 Readiness question, readiness hold, and an application FAQ (requested and built 2026-10-06)
+
+1. **A mandatory readiness question.** A new locked question (`key: ready_timing`, type
+   `preference`, required), default wording *"How soon do you anticipate being ready to
+   purchase should a puppy become available?"*. She can reword it; the answers are fixed
+   (`WAITLIST_READY_TIMING`: Immediately, 1-3 months, 3-6 months, 6+ months) because they
+   drive the hold. Stored on `WaitlistEntry.ready_timing`. Required when she types in a new
+   application; an older entry without an answer shows **Not answered** and has no hold.
+   CSV import reads it (aliases in `IMPORT_ALIASES.ready_timing`) and flags an answer it
+   can't read.
+2. **The readiness hold.** Anything but Immediately keeps the family from being offered
+   pups, so they can't use up passes on litters they already know are too soon. It lasts
+   from the fee-received date (or the approval date when there's no fee) for the **start**
+   of their range: 1-3 → 1 month, 3-6 → 3 months, 6+ → 6 months (*decided*). It's derived
+   (`waitlistRules.readyFromDate` / `isReadyHeld`), so changing their answer or recording
+   the fee moves it. It counts as paused everywhere (`isPaused`), and *decided*: they're
+   **left off the public list** like a paused family, their number skipped. Their place is
+   kept. The list and family page show **Not ready until …**.
+3. **An FAQ at the top of the application.** `waitlist_config.application_faq` — her own
+   ordered questions and answers (price range, how the waitlist works…), edited above the
+   questions on the Application form page and shown first on a new application. W2's
+   online form shows it the same way.
