@@ -386,10 +386,10 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   line, Companion remaining balance). Service-worker cache rolled to `kennelos-shell-v33`
   for all of W1. Next: W1e, then W2 (online form + status page; needs the cloud Worker,
   vault and server-side license link).
-- **Waitlist, W1e — recorded, not built** (Waitlist Spec §15, Q19–Q23). Her requests after
+- **Waitlist, W1e — recorded, not built** (Waitlist Spec §15; Q19–Q23 decided, Q24 open). Her requests after
   trying W1: her own application questions (form builder + import from an old form's CSV),
-  offering litters/pups from the waitlist with PDF invoices and receipts, a public list
-  (no opt-out; applicants told on the form), and emails sent in the kennel's name. The
+  offering litters/pups from the waitlist with PDF invoices and receipts (jsPDF), a public list
+  (no opt-out, applicants told on the form; paused families hidden), and emails sent in the kennel's name (still no-reply). The
   local parts are W1e, before W2; the public list page, PDFs on the status page and
   kennel-name email join W2.
 - **Cloud Phase 1, step 3a: the `cloud/` Worker skeleton is built**
