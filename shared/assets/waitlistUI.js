@@ -10,6 +10,7 @@ import { esc, fmtDate } from './ui.js';
 import { PLACEMENT_TYPE, descriptor } from '../data/vocab.js';
 import { isPaused, soonNoticeText, entryName } from '../data/waitlistRules.js';
 import { markSoonNotified } from '../data/waitlistActions.js';
+import { DemoModeError } from '../data/demoMode.js';
 
 // The kennel whose list to show, in priority order: an explicit ?kennel= id (one
 // of your own), the active kennel scope, the own kennel with the most open
@@ -178,7 +179,10 @@ function wireSoonNotice(overlay, { kennel, send, emailOf, litterIdsOf }) {
   // Record who was told. Not awaited before the mail app opens: the tap on the real
   // mailto: anchor must stay the activating gesture (iOS), so the write runs alongside.
   const record = (recipients) => markSoonNotified(new Map(recipients.map((r) => [r.entry.id, r.litterIds])))
-    .catch((err) => { hint.textContent = `Couldn't record who was told: ${err.message || err}`; });
+    .catch((err) => {
+      // Demo blocks every save; its own message says so plainly.
+      hint.textContent = err instanceof DemoModeError ? err.message : `Couldn't record who was told: ${err.message || err}`;
+    });
   const notice = () => {
     const { subject, body } = soonNoticeText({ soon_notice_text: overlay.querySelector('#sn-text').value }, kennel.kennel_name);
     return { subject, body, recipients: picked() };
