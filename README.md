@@ -410,8 +410,19 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
 
   65 tests, plus an end-to-end pass in local `wrangler dev`. **Deploying it needs Apply pending
   on staging's `/ops`** for `0002`; the API answers 503 until then. Sign-in codes are sent through
-  **Resend** once the `RESEND_API_KEY` secret is set; until then staging shows them on `/ops`.
-  Next: step 6 (domain onto Cloudflare DNS, Resend domain + key) and plan §9 steps 1–2 (`syncRegistry.js`, snapshot building, `'cloud-merge'`
+  **Resend**, and staging's `/ops` has a "Send a test email" button.
+- **Cloud Phase 1, step 6: done (2026-10-06).**
+  - `kennelos.app` DNS is on Cloudflare (shared account), and the GitHub Pages records are
+    DNS-only.
+  - The domain has no email of its own; Namecheap forwarding was removed.
+  - Resend is verified for `kennelos.app` (DKIM, SPF CNAMEs, DMARC).
+  - The staging Worker has `RESEND_API_KEY`, `0002` is applied, and a test email from
+    `signin@kennelos.app` arrived.
+
+  **The staging server side is complete.** Next: plan §9 steps 1–2 in `shared/`
+  (`syncRegistry.js` for field-by-field review, then snapshot building, `'cloud-merge'` restore,
+  shrink guard and the dirty signal). Then client cloud modules against staging (§9 step 4),
+  UI (step 5), and production (step 6 / §6.7 item 6) and plan §9 steps 1–2 (`syncRegistry.js`, snapshot building, `'cloud-merge'`
   restore).
 
 ## Build & deploy
