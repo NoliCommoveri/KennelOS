@@ -216,11 +216,13 @@ export function isPaused(entry, today) {
 }
 
 // Is the family listening for this litter? Everyone is, unless they've chosen
-// listen-only (`selected`) — then only for the litters / pairings they picked.
+// listen-only (`selected`) — then only for litters by a sire OR out of a dam they
+// picked. They pick parent dogs, never litters or pairings: which litters (and
+// upcoming pairings) that covers is derived from the litter's own sire_id/dam_id.
 export function isListeningFor(entry, litter) {
   if ((entry.listen_mode || 'all') !== 'selected') return true;
-  if ((entry.listen_litter_ids || []).includes(litter.id)) return true;
-  return Boolean(litter.pairing_id) && (entry.listen_pairing_ids || []).includes(litter.pairing_id);
+  return (Boolean(litter.sire_id) && (entry.listen_sire_ids || []).includes(litter.sire_id))
+    || (Boolean(litter.dam_id) && (entry.listen_dam_ids || []).includes(litter.dam_id));
 }
 
 // The pups in `litter` this family could be offered right now: [] when the family

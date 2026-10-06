@@ -27,8 +27,8 @@ const entry = (over = {}) => ({
   is_archived: false,
   listen_mode: 'all',
   pref_sex: 'any',
-  listen_pairing_ids: [],
-  listen_litter_ids: [],
+  listen_sire_ids: [],
+  listen_dam_ids: [],
   approved_date: '2026-01-01',
   fee_received_date: '2026-01-10',
   created_at: '2026-01-01T00:00:00.000Z',
@@ -192,13 +192,17 @@ test('pause: paused through paused_until inclusive, back in contention the day a
   assert.equal(isPaused(entry(), TODAY), false);
 });
 
-test('listen-only: considered only for chosen litters or pairings', () => {
-  const l = litter();
+test('listen-only: considered only for litters by a chosen sire OR out of a chosen dam', () => {
+  const l = litter({ sire_id: 'S1', dam_id: 'D1' });
+  const sel = (over) => entry({ listen_mode: 'selected', ...over });
   assert.equal(isListeningFor(entry(), l), true);
-  assert.equal(isListeningFor(entry({ listen_mode: 'selected' }), l), false);
-  assert.equal(isListeningFor(entry({ listen_mode: 'selected', listen_litter_ids: ['L1'] }), l), true);
-  assert.equal(isListeningFor(entry({ listen_mode: 'selected', listen_pairing_ids: ['P1'] }), l), true);
-  assert.equal(isListeningFor(entry({ listen_mode: 'selected', listen_pairing_ids: ['P1'] }), litter({ pairing_id: null })), false);
+  assert.equal(isListeningFor(sel(), l), false, 'nothing picked yet');
+  assert.equal(isListeningFor(sel({ listen_sire_ids: ['S1'] }), l), true);
+  assert.equal(isListeningFor(sel({ listen_dam_ids: ['D1'] }), l), true);
+  assert.equal(isListeningFor(sel({ listen_sire_ids: ['S1'], listen_dam_ids: ['D9'] }), l), true, 'either side is enough');
+  assert.equal(isListeningFor(sel({ listen_sire_ids: ['S9'], listen_dam_ids: ['D9'] }), l), false);
+  assert.equal(isListeningFor(sel({ listen_sire_ids: ['D1'] }), l), false, 'a dog picked as sire never matches the dam side');
+  assert.equal(isListeningFor(sel({ listen_sire_ids: ['S1'] }), litter({ sire_id: null, dam_id: 'D1' })), false, 'unknown sire');
 });
 
 test('eligible pups: only this litter, available, matching — and none for an ineligible family', () => {

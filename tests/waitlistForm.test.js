@@ -165,7 +165,7 @@ test('public list: real positions, paused families hidden with their number skip
     e('Ann Avery', '2026-01-01'),
     e('Bob Burns', '2026-02-01', { pref_sex: 'male' }),
     e('Cat Cole', '2026-03-01', { paused_until: '2026-12-01', pause_reason: 'Chemo' }),
-    e('Dee Dunn', '2026-04-01', { listen_mode: 'selected', listen_litter_ids: ['L1'] }),
+    e('Dee Dunn', '2026-04-01', { listen_mode: 'selected', listen_dam_ids: ['D1'] }),
     e('Eve Ely', '2026-05-01', { status: 'applied' }),
     e('Fay Fox', '2026-06-01', { kennel_id: 'other' })
   ];

@@ -177,7 +177,7 @@ export const WAITLIST_PRIORITY = [
 
 export const WAITLIST_LISTEN_MODE = [
   { value: 'all',      label: 'All litters',            badge: 'badge-gray' },
-  { value: 'selected', label: 'Selected litters only', badge: 'badge-blue' }
+  { value: 'selected', label: 'Selected sires & dams only', badge: 'badge-blue' }
 ];
 
 // A family's sex preference: SEX plus "any" (the default).

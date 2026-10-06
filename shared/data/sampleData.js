@@ -1075,8 +1075,8 @@ async function seedWaitlist(manifest, r) {
   await entry({
     contact_id: alders.id, status: 'active', applied_date: daysFromToday(-110), approved_date: daysFromToday(-108),
     fee_received_date: daysFromToday(-100), fee_amount: 300, fee_credit_policy: 'credited_to_purchase', fee_payment_method: 'Check',
-    listen_mode: 'selected', listen_litter_ids: [r.expectedLitter.id],
-    application: app('Ben & Kate Alder', 'alders@example.com', { timing: 'Only the Winter litter — we love Juniper' })
+    listen_mode: 'selected', listen_dam_ids: [r.expectedLitter.dam_id],
+    application: app('Ben & Kate Alder', 'alders@example.com', { timing: 'Only a Juniper litter — we love her' })
   });
 
   const hannah = await contact({ name: 'Hannah Moore', email: 'hannah.moore@example.com' });

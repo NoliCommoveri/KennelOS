@@ -153,7 +153,7 @@ export function openSoonNotice({ kennel, config, rows, contactsById, litterLabel
     title: "It's almost your turn",
     confirmLabel: 'Done',
     bodyHtml: send.length ? `
-      <p class="field-hint" style="margin-top:0;">These families' turn should come up for the pups available now: one family per pup, in line order, skipping anyone paused, listening for other litters, or with no matching pup.</p>
+      <p class="field-hint" style="margin-top:0;">These families' turn should come up for the pups available now: one family per pup, in line order, skipping anyone paused, listening only for other sires or dams, or with no matching pup.</p>
       ${sendRows}${heldHtml}
       <div class="field" style="margin-top:10px;"><label for="sn-text">Message</label>
         <textarea id="sn-text" style="width:100%;min-height:170px;font-family:inherit;">${esc(text)}</textarea>

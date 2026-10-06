@@ -85,7 +85,7 @@ gathered here so they aren't re-litigated.
 5. **Rolling list.** One list that carries across litters, not a new list per litter.
 6. **Two passes on eligible pups, then dropped.**
 7. **Listening for specific litters only.** A family can ask to hear about only certain
-   pairings. While they do, they're hidden from offers on other litters. This **does
+   sires and dams (decided 2026-10-06, §15.7: parent dogs, not pairings or litters). While they do, they're hidden from offers on other litters. This **does
    not cost them their position** and **does not count as a pass**.
 8. **Later: an LLM assistant** for FAQs, "are you still interested?" requests, and
    giving families a deadline they can refer back to, after which their non-response
@@ -165,8 +165,8 @@ code. See Q1.
 | `pref_colors` | | Free-text list. Used for eligibility only if she turns that on (Q4). |
 | `pref_breed` | | One of the kennel's breeds, picked from a dropdown (the breeds of that kennel's dogs plus its preferred breeds), never free text: decided 2026-10-06 after misspellings and shorthand made families match no pup (§15.6). Blank = any breed. Always offered (Decision §0); matched case-insensitively and trimmed against the pup's `Dog.breed` (§6.2). CSV import maps a breed to the kennel's spelling and flags one it can't, leaving it blank. |
 | `listen_mode` | | `all` (default) or `selected` (§6.3) |
-| `listen_pairing_ids` | ✔ multi-entry FK → Pairing | Used when `listen_mode = 'selected'` |
-| `listen_litter_ids` | ✔ multi-entry FK → Litter | Same. Covers litters with no pairing record. |
+| `listen_sire_ids` | ✔ multi-entry FK → Dog | Used when `listen_mode = 'selected'`: the sires they're listening for (§6.3, §15.7) |
+| `listen_dam_ids` | ✔ multi-entry FK → Dog | Same, for dams. Which litters/pairings that covers is derived from their `sire_id`/`dam_id`, never stored. |
 | `paused_until` | | Optional `YYYY-MM-DD`. Paused families aren't offered; position kept (§6.3). |
 | `pause_reason` | | Short text, mainly for program pauses (§7) |
 | `removed_date`, `removed_reason` | | `second_pass` / `no_checkin_response` / `by_breeder` / `fee_expired` |
@@ -220,7 +220,7 @@ Programs are **hers to define**, so this is a small table, not a fixed vocab lis
 ### 4.5 Schema, registry, and doc obligations
 
 ```
-waitlist_entries:  'id, kennel_id, contact_id, status, waitlist_program_id, *listen_pairing_ids, *listen_litter_ids, placed_sale_id, is_archived'
+waitlist_entries:  'id, kennel_id, contact_id, status, waitlist_program_id, *listen_sire_ids, *listen_dam_ids, placed_sale_id, is_archived'
 waitlist_offers:   'id, entry_id, litter_id, kennel_id, chosen_dog_id, outcome, is_archived'
 waitlist_programs: 'id, kennel_id, is_archived'
 ```
@@ -230,10 +230,10 @@ waitlist_programs: 'id, kennel_id, is_archived'
 - **`referenceRegistry.js`** gains entries for every FK above:
   - `CONTACT_REFERENCES`: `waitlist_entries.contact_id`;
   - `KENNEL_REFERENCES`: the three `kennel_id`s;
-  - `LITTER_REFERENCES`: `waitlist_offers.litter_id` and `waitlist_entries.listen_litter_ids` (multi-entry);
-  - `PAIRING_REFERENCES`: `waitlist_entries.listen_pairing_ids` (multi-entry);
+  - `LITTER_REFERENCES`: `waitlist_offers.litter_id`;
   - `SALE_REFERENCES`: `waitlist_entries.placed_sale_id`;
-  - `DOG_REFERENCES`: `waitlist_offers.chosen_dog_id` (indexed above so the check is a lookup, not a scan);
+  - `DOG_REFERENCES`: `waitlist_offers.chosen_dog_id` (indexed above so the check is a lookup, not a scan),
+    and the multi-entry `waitlist_entries.listen_sire_ids` / `listen_dam_ids`;
   - new `WAITLIST_ENTRY_REFERENCES` (`waitlist_offers.entry_id`) and
     `WAITLIST_PROGRAM_REFERENCES` (`waitlist_entries.waitlist_program_id`).
 - **Kennel gains `waitlist_config`** (§4.6), and **Litter gains `picks_opened_date`**
@@ -360,8 +360,8 @@ calls them. Nothing is stored except what §4 lists.
 
 A family is **eligible** for a litter when all of the following hold:
 - the entry is `active`, and not paused (`paused_until` empty or past);
-- `listen_mode` is `all`, **or** the litter is in `listen_litter_ids`, **or** its
-  `pairing_id` is in `listen_pairing_ids`;
+- `listen_mode` is `all`, **or** the litter's `sire_id` is in `listen_sire_ids`, **or** its
+  `dam_id` is in `listen_dam_ids` (either side is enough, §15.7);
 - at least one pup in the litter is **available** (no live Sale, `disposition` not
   `keeping`/`placed`, not deceased or archived; §0), **and matches their preferences**:
   sex (unless `any`); **breed** (unless blank; case-insensitive and trimmed against
@@ -374,8 +374,10 @@ A family is **eligible for a pup** when the above holds for that particular pup.
 
 ### 6.3 Pausing and listen-only (requirement 7)
 
-- **Listen-only** (`listen_mode = 'selected'`): the family is only considered for the
-  chosen pairings or litters.
+- **Listen-only** (`listen_mode = 'selected'`): the family is only considered for litters
+  by a sire, or out of a dam, they chose (OR, not AND: Gunnar + Juniper means any Gunnar
+  litter and any Juniper litter). They pick parent dogs, set **once they're approved**;
+  the litters and upcoming pairings that covers are derived (§15.7).
   - For every other litter they're simply **not eligible**. They aren't offered, so
     there's **nothing to pass**, and their position is unchanged because position is the
     fee date, not anything per litter.
@@ -874,9 +876,9 @@ W1b choices worth knowing: removing a family by hand is final (the confirm says 
 re-apply), while a second-pass removal keeps its 7-day undo. Pausing and listen-only are
 set by her on the entry's Edit form; families can't change them until W2's status page.
 
-Hard-delete note: the multi-entry `listen_litter_ids` / `listen_pairing_ids` registry
-entries mean an entry still listening for a litter or pairing (even a withdrawn one)
-blocks that record's hard delete. Archive is the normal way out, so this is intended.
+Hard-delete note: the multi-entry `listen_sire_ids` / `listen_dam_ids` registry
+entries mean an entry still listening for a sire or dam (even a withdrawn one)
+blocks that dog's hard delete. Archive is the normal way out, so this is intended.
 
 ## 15. Her requests after W1 (recorded 2026-10-06; W1e built)
 
@@ -1053,3 +1055,18 @@ picks open.
    dogs' breeds plus its preferred breeds). An older value that isn't one of them is kept
    but flagged **Unknown breed** on the Waitlist list and the family page so she can fix it.
 
+### 15.7 Listen-only picks sires and dams (requested and built 2026-10-06)
+
+Listening for specific pairings or litters was the wrong unit: families follow a dog
+("we love Juniper"), and a pairing record may not exist yet when they ask.
+
+1. **They pick parent dogs.** `listen_pairing_ids` / `listen_litter_ids` are replaced by
+   `listen_sire_ids` / `listen_dam_ids` (multi-entry FKs → Dog). The choices are this
+   kennel's active breeding dogs of that sex, plus any parent of one of its live litters
+   or upcoming pairings (an outside stud included), plus anything already picked.
+2. **Litters and pairings are derived.** A litter (or pairing) counts when its `sire_id`
+   is a picked sire **or** its `dam_id` is a picked dam: either side is enough
+   (*decided*: OR, not AND). The family page shows what that covers right now.
+3. **Only after approval.** The Which litters section appears on the Edit form once the
+   entry is `approved` or `active`; a new or still-pending application never shows it.
+   Picks are kept, not cleared, when the family leaves the list.
