@@ -83,7 +83,7 @@ cloud is an add-on, never a dependency. Concretely:
 
 | Piece | Holds | Why this one |
 |---|---|---|
-| **Workers** | The API (auth, sync, transfers, license webhooks) | Same platform as the static hosting, and cheap |
+| **Workers** | The API (auth, sync, transfers, license webhooks) | Cheap, and the only thing that can reach D1/R2. The editions stay on GitHub Pages and call it cross-origin (Phase 1 Plan §6) |
 | **Durable Object per program** (SQLite-backed) | The authoritative record set for one account's program, an ever-increasing change sequence, and live websocket pushes to that program's devices | One object per kennel program puts every write for that program in a single queue. That gives a clean change order for "give me changes since #N" and avoids cross-tenant locking. Point-in-time recovery covers the last 30 days. |
 | **D1** | Global tables: users, programs, memberships/roles, pending transfers, the `kennels.public_id` directory, license entitlements | Cross-program lookups such as "which program owns kennel `kos1_…`?" and "what's in my transfer inbox?" |
 | **R2** | Documents, receipts, photos (today's `files` table blobs) | No egress fees. Large blobs stay out of the record store. |

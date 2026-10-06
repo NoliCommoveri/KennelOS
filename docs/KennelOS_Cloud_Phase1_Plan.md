@@ -247,6 +247,30 @@ information about other people, not kennel records, and nothing in Phase 1 needs
 
 Phase 1 needs **Workers + D1 + R2 only.** No Durable Objects yet; they arrive with Phase 2 sync.
 
+**Hosting shape (decided).** The editions and the marketing site **stay on GitHub Pages**,
+deployed by `deploy.yml` exactly as today. The server is **one separate Worker**, `cloud/`,
+at `api.kennelos.app`, and it is the only thing that can reach D1 and R2 (through its
+bindings). The editions call it cross-origin with `fetch`, so it answers CORS preflights
+and authenticates by bearer token, never a cookie (Safari blocks cross-site cookies). It is
+a **Worker, not Cloudflare Pages**: Pages has no Cron Triggers, and §6.3's retention needs one.
+
+- **Account:** a shared Cloudflare account under the KennelOS email address, owning the
+  Worker, D1, R2 and the `kennelos.app` zone. A Worker Custom Domain needs its zone in the
+  same account.
+- **Deploy:** Cloudflare **Workers Builds**, connected to this repo with its **root directory
+  set to `cloud/`** (it looks for `wrangler.toml` there, not at the repo root). That way no
+  `CLOUDFLARE_API_TOKEN` is stored in GitHub. `deploy.yml` stays the editions' deploy and
+  never touches `cloud/`.
+- **Staging first:** a staging Worker with its own D1 and R2 runs on its free
+  `*.workers.dev` address, so the server can be built and exercised before the domain is on
+  Cloudflare. Production (§9 step 6) gets a separate D1 and R2 and the custom domain.
+- **Plan tier:** staging fits the free tier. Production needs the $5/month Workers plan
+  (Proposal §3): free-tier CPU (10 ms per request) and subrequest (50) limits are too small
+  for 25 MB file uploads.
+- **DNS:** when `kennelos.app` moves to Cloudflare DNS, the GitHub Pages records (`lite.`,
+  `pro.`, `demo.`, `furever.`, and the apex's `A`/`AAAA`) stay **DNS-only (grey cloud)**, so
+  GitHub keeps issuing their certificates.
+
 ### 6.1 API (all JSON; bearer token except `/auth/*` and `/notice`)
 
 | Route | Does |
@@ -256,12 +280,21 @@ Phase 1 needs **Workers + D1 + R2 only.** No Durable Objects yet; they arrive wi
 | `POST /auth/signout` | Revokes this token. |
 | `POST /auth/signout-others` | Revokes every other session on the account ("Sign out other devices" on the Import/Export card). |
 | `GET /program` | Program name, backing device (label + last push), latest snapshot meta. |
-| `HEAD /files/:sha256` · `PUT /files/:sha256` | Upload-if-missing. The server re-hashes and rejects a mismatch. 25 MB cap per file. |
-| `POST /snapshots` | Body: gzipped envelope + `base_snapshot_id`, `device_id`. Returns 409 per §3.4. The server checks every referenced sha256 exists. |
+| `HEAD /files/:sha256` · `PUT /files/:sha256` | Upload-if-missing, answered from D1's `files` table (§6.2), not by asking R2. `PUT` streams the body straight into R2 with `put(key, body, { sha256 })`, so **R2 verifies the hash** and rejects a mismatch. The Worker never buffers or re-hashes the file itself, which would blow the CPU and memory limits at 25 MB. On success it writes the `files` row. 25 MB cap per file, checked against `Content-Length` before streaming. |
+| `POST /snapshots` | Body: gzipped envelope (sent as `application/gzip`, not `Content-Encoding`) + `base_snapshot_id`, `device_id`. Returns 409 per §3.4. The server checks every referenced sha256 has a `files` row, in one query (§6.2). |
 | `GET /snapshots` · `GET /snapshots/:id` | The history list and one snapshot. |
 | `POST /program/backing-device` | Takeover (§3.4). |
 | `DELETE /account` | Deletes the account's rows, snapshots and files, and revokes tokens. |
 | `GET /notice` | Service notices (`{ level, message, until }`) for the sunset path (Proposal §2a). Public and cacheable. |
+| `/ops/*` | The operator's page (§6.6). Same-origin HTML, behind `OPS_TOKEN`, never in the CORS allow-list. |
+
+**Maintenance answer.** While any migration is pending or drifted (§6.6), every API route
+except `/ops` and `/notice` returns **`503 {maintenance: true}`**. `cloudApi` treats it like
+being offline: backup retries later and nothing is shown as an error. This covers the window
+between a deploy and **Apply pending**, when the code is newer than the database. Breeders'
+apps push in the background, so without this every sign-in or push in that window would
+fail. The check compares the newest applied id with the newest bundled one, cached per
+isolate.
 
 ### 6.2 D1 schema (sketch)
 ```
@@ -271,7 +304,17 @@ sessions(token_hash PRIMARY KEY, user_id, device_id, device_label, created_at, l
 programs(id, owner_user_id, backing_device_id, latest_snapshot_id, created_at)
 snapshots(id, program_id, device_id, created_at, size, counts_json, r2_key)
 snapshot_files(snapshot_id, sha256)        -- for GC
+files(program_id, sha256, size, created_at, PRIMARY KEY (program_id, sha256))
+_migrations(id, name, applied_at, checksum) -- the runner's own table (§6.6)
 ```
+- **`files` is the R2 index.** Upload-if-missing, the snapshot's reference check and the
+  retention GC all read it instead of calling R2 per file. One R2 call per file would exceed
+  the free tier's 50 subrequests on a program with a real document library, and would be slow
+  on any tier.
+- **D1 allows about 100 bound parameters per query**, and the local test shim (node:sqlite)
+  doesn't enforce that, so a test would never catch it. A list of sha256s is therefore never
+  bound as `IN (?, ?, …)`: it goes in as **one JSON parameter** read through
+  `json_each(?)`, and multi-row inserts are a `db.batch()` of single-row statements.
 - **Hashing:** tokens and codes are stored hashed (SHA-256), never in plain text.
 - **Email hash:** `email_hash = HMAC-SHA256(server secret, normalized email)`, where
   normalized means trimmed and lower-cased. The secret lives in a Worker secret, not in D1,
@@ -292,18 +335,30 @@ snapshot_files(snapshot_id, sha256)        -- for GC
   then one per day to 30 days; then deleted. The newest snapshot is always kept, whatever
   its age. (Together with the §2.2 cadence that's at most ~53 snapshots per program; §4.2.)
   A daily cron Worker prunes snapshots, then deletes files no retained snapshot references.
-- **Backstop:** D1's own Time Travel (30 days) covers the metadata tables.
+- **The cron is a backstop, never the only path.** Cron Triggers run in UTC and are not
+  retried if a run fails, so the prune is idempotent: it recomputes what to keep from the
+  stored rows on every run, and a missed day just leaves more to delete next time. `/ops`
+  has a **Run retention now** button (§6.6), because a cron can't be fired from a browser.
+- **Recovery, honestly:** D1 Time Travel (30 days) exists, but as far as we know it's run
+  from the CLI/API, not a dashboard button. Check that before relying on it. **R2 has no
+  time travel at all**, so rolling D1 back would leave snapshot rows pointing at objects the
+  prune has already deleted. The real recovery path is `/ops`'s **export/import of the D1
+  metadata** (§6.6). The breeders' own devices remain the primary copy of their data either
+  way; the cloud is the backup.
 
 ### 6.4 Security & privacy posture
 - **What the server holds** is the cloud tier only (§5), plus a keyed hash of the account
   email (§6.2), not the address itself. There are no buyer phone numbers, addresses, or money. This posture is pinned on the client by
   `assertSnapshotKeys`. The server doesn't parse record contents at all; it stores the blob.
-- **CORS:** only the origins that actually run Lite and Pro, per the Editions Plan's domain
-  map: `https://kennelos.app` (Lite), `https://pro.kennelos.app`, plus `localhost` for dev.
+- **CORS:** only the origins that actually run Lite and Pro, per `build/README.md`'s deploy
+  map: `https://lite.kennelos.app`, `https://pro.kennelos.app`, plus `localhost` for dev.
+  The apex `kennelos.app` is the marketing site and makes no API calls.
   Demo is excluded (`cloudUrl: null`). The list is read from one shared editions-origins
   constant that the Worker and the build both use, so a domain change can't leave the API
   blocking an edition.
-- **No request bodies in logs.** Cloudflare encrypts R2 and D1 at rest.
+- **No request bodies in logs, and never an email address.** `[observability]` is on (it is
+  the only place the operator can see why something failed), so the code never
+  `console.log`s an email, a code, a token or a body. Cloudflare encrypts R2 and D1 at rest.
 - **Privacy policy page** on `site/` before launch. It covers what's stored (§5's table in
   plain English), retention (30 days), how to delete, and what happens on shutdown.
 
@@ -314,12 +369,69 @@ each code it sends, so pick one whose logs can be set to short retention; the pr
 names it. The sender domain is
 `kennelos.app`, with SPF/DKIM set up so codes don't land in spam.
 
+**Check before choosing Cloudflare's own:** the provider has to send to *any* address a
+breeder types. Cloudflare's older Email Routing `send_email` binding only sends to addresses
+verified in advance, which rules it out. Confirm the account's Email Service supports
+arbitrary recipients before picking it over Resend/Postmark.
+
+### 6.6 Operations from the browser (`/ops`)
+**Constraint:** no step in setup, migration, or recovery needs a terminal. This is the same
+rule MCCE and Heritage Hooves run on, and the runner is ported from MCCE (`src/migrate.js`,
+`src/lib/sql.js`), not Heritage Hooves, whose splitter breaks on a `;` inside a string and
+whose page is open to anyone until the first account exists.
+
+- **Access:** a Worker secret, `OPS_TOKEN`, entered on `/ops` and held in a short-lived,
+  same-origin cookie. `/ops` refuses everything until the secret is set: it never falls
+  open. Breeder accounts have no admin role and never reach it.
+- **Migrations:** `.sql` files in `cloud/migrations/`, bundled as text by a `[[rules]]` entry
+  whose glob must be `**/*.sql` (wrangler matches the import string, so
+  `migrations/*.sql` misses). A `_migrations` table records id, name, applied_at and a
+  checksum, and the page lists each migration as **applied / pending / drifted /
+  orphaned**. Drift is shown and never fixed automatically. **Apply pending** runs each
+  migration's split statements plus its tracking row as one `db.batch()`, so a migration
+  lands whole or not at all. It halts on the first failure and prints the error with the
+  numbered statements, because D1 doesn't say which statement failed. `db.exec()` is never
+  used: it needs one statement per line.
+- **While anything is pending or drifted,** the page shows only the migration table and
+  Apply pending, and the API answers 503 (§6.1).
+- **Migration rules:**
+  - pre-launch, `0001` may be squashed and edited on staging;
+  - from the first real sign-in on production, files are **forward-only, additive**, and an
+    applied file is never edited;
+  - `PRAGMA foreign_keys=OFF` is a no-op inside a batch and D1 enforces foreign keys, so
+    rebuilding a table that something references means moving the child table out first
+    (Heritage Hooves migration `0064`);
+  - keep `LIKE`/`GLOB` patterns under 50 characters (MCCE §4).
+- **Also on the page:** a health check (D1 and R2 bound, row counts, schema version,
+  orphaned R2 keys), **Run retention now**, and **export/import of the D1 metadata** (the
+  import fills only an empty database). Every destructive control has a restore beside it.
+- **Tests:** `node --test` with MCCE's node:sqlite D1 shim, matching the repo's existing
+  runner, so there's no vitest dependency. The shim doesn't enforce D1's limits (§6.2), so
+  those rules are kept by design and code review, not by tests.
+
+### 6.7 What the operator sets up in the dashboard (once per environment)
+1. The shared Cloudflare account under the KennelOS email address, with each maintainer
+   invited as a member.
+2. A D1 database and an R2 bucket (staging: `kennelos-api-staging` /
+   `kennelos-files-staging`; production without the suffix). The D1 `database_id` goes into
+   `cloud/wrangler.toml`.
+3. The Worker via **Workers Builds**, connected to this repo, root directory `cloud/`.
+4. Two secrets under the Worker's **Settings → Variables and Secrets**:
+   - `OPS_TOKEN`;
+   - `EMAIL_HMAC_KEY` (§6.2). A Cloudflare secret can't be read back after it's saved, so
+     this one is generated first, stored in the password manager, then pasted in.
+     Production's key is permanent.
+5. The email provider's API key (a third secret) and its DNS records.
+6. Production only: the `kennelos.app` zone on Cloudflare DNS (GitHub Pages records
+   DNS-only), the `api.kennelos.app` Custom Domain on the Worker, and the Workers Paid plan.
+
 ## 7. Editions & build wiring
 - **`editionConfig` gains `cloudUrl`:**
   - `lite/` and `pro/`: `https://api.kennelos.app`;
   - `demo/`: `null`;
   - `shared/` (the default): `null`.
-  This keeps the shared core inert; a local-dev override lives in `editionConfig` too.
+  This keeps the shared core inert. A local-dev override lives in `editionConfig` too, and
+  it's how a dev build points at the staging Worker's `*.workers.dev` address (§6).
   `tests/editionConfig.test.js` today only checks that every edition declares every
   `editionFlags` key, so it gets extended to cover `cloudUrl` too.
 - **No-server boot test:** with `cloudUrl: null`, no cloud module makes a request and no cloud
@@ -346,16 +458,23 @@ names it. The sender domain is
    with your sister; it *is* the privacy promise.
 2. **`buildCloudSnapshot` + `'cloud-merge'` restore + shrink guard + `markDataChanged` hooks +
    the direct-writer coverage test.** Still no network.
-3. **`cloud/` Worker:** auth, snapshots, files, notice, D1 migrations, and the retention cron,
-   with tests using Miniflare/`vitest` (dev-only, like today's `package.json`). Deployed to a
-   staging subdomain.
+3. **`cloud/` Worker**, in two PRs:
+   - **3a, the skeleton:** `wrangler.toml`, the router, CORS, `/ops` with the ported
+     migration runner, health check, and `0001` (§6.2).
+   - **3b, the API:** auth, snapshots, files, notice, the 503 maintenance answer, the
+     retention cron plus Run retention now, and the D1 export/import.
+
+   Tests run on `node --test` with the node:sqlite D1 shim (§6.6). Staging is deployed to its
+   `*.workers.dev` address by Workers Builds after the operator's dashboard steps 1–4 (§6.7).
+   This can run in parallel with steps 1–2.
 4. **Client cloud modules** (`cloudConfig`, `cloudApi`, `cloudAuth`, `cloudBackup`) against
    staging.
 5. **UI:** the Import/Export card, first-run offer and restore-on-new-device, the Today nudge,
    and the 409/takeover and shrink-guard dialogs. Browser-verified in Lite and Pro, plus the
    Demo/no-server checks.
 6. **Docs (§8), privacy policy page, `PRECACHE_URLS`, and the SW bump** (asked first). Then
-   production deploy.
+   production: dashboard step 6 (§6.7), Apply pending on production's `/ops`, then the
+   editions deploy with `cloudUrl` set.
 
 ## 10. Risks & mitigations
 
@@ -370,12 +489,15 @@ names it. The sender domain is
 | A user who stopped opening the app misses a shutdown notice | Their data is local and untouched; the notice shows the next time they open the app |
 | We stop hosting | `cloudUrl: null` release, local data untouched, file backups still there (Proposal §2a) |
 | Large document libraries are slow on first backup | Content-addressed, upload-once files; progress bar; resumable because each file is independent |
+| A deploy lands before its migration is applied | API answers 503 maintenance until Apply pending (§6.1); the client retries quietly |
+| A per-file R2 call or an `IN (…)` list hits a D1/Workers limit that tests can't see | D1 `files` index and `json_each` (§6.2) |
+| The operator can't recover without a terminal | Everything on `/ops`, with export/import beside every destructive control (§6.6) |
 
 ## 11. Questions this plan raises
 1. **Email provider:** is any preference? Cloudflare Email Service keeps it all on one bill;
    Resend/Postmark have better deliverability tooling.
-2. **API domain:** is `api.kennelos.app` okay? And whose Cloudflare account owns it (ideally
-   your sister's, with you as a member)?
+2. **API domain:** is `api.kennelos.app` okay? (The owning account is decided: a shared
+   Cloudflare account under the KennelOS email address; see §6.)
 3. **Free-tier limits:** cap Lite cloud storage (e.g., 1 GB of documents)? Cost at Lite's
    6-dog / 2-litter size is negligible, but a cap protects against abuse.
 4. **Retention:** is 30 days right? Longer costs little for the JSON; files dominate.
