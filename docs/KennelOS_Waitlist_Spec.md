@@ -14,7 +14,7 @@
 > **Recorded 2026-10-06, not built:** four requests from her after trying W1 (custom
 > application questions, the waitlist as the main workflow with PDF invoices/receipts, a
 > public list, and emails sent in the kennel's name). They're in §15; her follow-up
-> answers settled Q19–Q23, and Q24 is open. The parts that work
+> answers settled Q19–Q24. The parts that work
 > without the server are slice **W1e**, to be done before W2. The rest is added to W2.
 
 ## 0. Decisions taken at build start (2026-10-05)
@@ -785,12 +785,10 @@ W1 is a full feature on its own and doesn't wait for the cloud work.
     every family will have seen the notice.
 23. ~~**Public list details.**~~ **Decided 2026-10-06: first name + last initial; paused
     families don't appear** (§15.3).
-24. **Public numbering around paused families** (§15.3): a paused family keeps its place
-    (§6.3) but is hidden from the public list. Should the public positions skip their
-    number (#1, #2, #4, which shows someone is hidden), or renumber the visible families
-    (#1, #2, #3, but when the paused family comes back everyone behind them drops one,
-    which can look like someone cut in)? And are listen-only families shown (assumed yes,
-    with no marker: they're in line, just choosy)?
+24. ~~**Public numbering around paused families:** skip their number or renumber? Are
+    listen-only families shown?~~ **Decided 2026-10-06: skip the number** (#1, #2, #4), so
+    nobody's public position shifts when a pause ends; **listen-only families show**, with
+    no marker (§15.3).
 
 ## 14. W1 build plan
 
@@ -800,7 +798,7 @@ W1 is a full feature on its own and doesn't wait for the cloud work.
 | **W1b. Intake + list** | Waitlist page (applications queue, active list with positions, program and "moved by you" badges); entry page (new application, possible contact match, approve/decline, fee received, preferences including breed, listen-only/pause, notes, offer history); programs page; `waitlist_config` editor on the Kennel page; intended-placement field on the Dog form; contact page dropdown read-only when entries exist; nav, `proPages.js`, `PRECACHE_URLS`. Also: `data/waitlistActions.js`, an `editionFlags.waitlist` flag (off in Lite), dashboard tiles counting entries per kennel, a Waitlist panel on the contact page, and **Re-apply** on a closed entry. | **Built** |
 | **W1c. Offers** | "Open picks" panel on the Litter page (hidden in Lite); accept / pass / no response / void; Sale on accept (via the moved prefill helper); automatic second-pass removal plus undo; other open offers voided on accept; Today: new-applications badge and the suggested actions in §6.5. | **Built**, on the spec's leanings for the still-open Q4/Q8/Q9: the family picks a pup, one open offer per litter, colors off by default. |
 | **W1d. Extras** | Demo seed (a program family, a listen-only family, one with a pass, an open offer; the Lite seed stays empty); CSV import of applications through the existing preview flow; `application_fee` income component in Financials. | **Built.** Q5 is still open; Financials follows the leaning (received fees are income) and the `fee_credit_policy` setting, below. |
-| **W1e. Her requests** | §15: form builder + question import, offer from the entry + "who's next" per litter, fee receipt + invoice/receipt PDFs, public-list notice, "Copy list for Facebook". | **Recorded 2026-10-06, not built.** Q19–Q23 decided, Q24 open. |
+| **W1e. Her requests** | §15: form builder + question import, offer from the entry + "who's next" per litter, fee receipt + invoice/receipt PDFs, public-list notice, "Copy list for Facebook". | **Recorded 2026-10-06, not built.** Q19–Q24 decided. |
 
 Known limit: "place them right after the Smiths" (§6.1) can only set the same anchor date
 as the Smiths, because the anchor is date-only. Ties then break by approval date and
@@ -839,7 +837,7 @@ blocks that record's hard delete. Archive is the normal way out, so this is inte
 
 She tried W1 and asked for four things before W2. They're recorded here with the design
 leanings from the discussion. **Nothing is built yet.** The local parts are slice **W1e**
-(§12) and the server parts join W2. Q19–Q23 are decided; Q24 is open (§13).
+(§12) and the server parts join W2. Q19–Q24 are decided (§13).
 
 ### 15.1 Custom application questions
 
@@ -918,8 +916,9 @@ list"); both are marked there.
 - **Shown (allow-list, decided 2026-10-06):** position, first name + last initial, sex
   preference, and date added (`fee_received_date`, or `position_anchor_date` if set).
 - **Paused families don't appear** (decided 2026-10-06). They keep their real place
-  (§6.3) and reappear when the pause ends. How the visible positions are numbered around
-  them is Q24. Listen-only families are assumed to appear, with no marker (Q24).
+  (§6.3) and reappear when the pause ends. **Their number is skipped** (#1, #2, #4; decided
+  2026-10-06, Q24): public positions are the real §6.1 positions, so nobody's number
+  shifts when a pause ends. **Listen-only families appear**, with no marker (decided).
 - **Never shown:** contact details, city, program (a program can be health-related), notes,
   money, other preferences, or applicants who aren't on the list yet (`applied` /
   `approved`). Only `active` entries appear.
