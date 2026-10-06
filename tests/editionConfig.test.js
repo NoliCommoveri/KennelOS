@@ -66,3 +66,31 @@ test('every edition declares all the shared editionFlags', () => {
     assert.deepEqual(missing, [], `${edition}/editionConfig.js is missing flag(s): ${missing.join(', ')}`);
   }
 });
+
+// --- Cloud backup URL (Cloud Phase 1 plan §7) ---------------------------------
+// Every edition must export both names (cloudConfig.js imports them, and a
+// missing named export is a module-load error that would brick the edition).
+// The shared core and Demo stay inert: cloudUrl null; Demo has no dev override
+// either. Lite/Pro's cloudUrl is null until production (§9 step 6), then the
+// production API — never anything else.
+function exportedValue(path, name) {
+  const src = readFileSync(new URL(path, import.meta.url), 'utf8');
+  const m = src.match(new RegExp(`^export const ${name} = (null|'[^']*');`, 'm'));
+  assert.ok(m, `${path}: no "export const ${name} = …" (null or a string literal)`);
+  return m[1] === 'null' ? null : m[1].slice(1, -1);
+}
+
+test('every edition declares cloudUrl and devCloudUrl; shared and Demo stay inert', () => {
+  const PROD = 'https://api.kennelos.app';
+  assert.equal(cfg.cloudUrl, null, 'the shared core never points at a server');
+  assert.equal(exportedValue('../demo/editionConfig.js', 'cloudUrl'), null);
+  assert.equal(exportedValue('../demo/editionConfig.js', 'devCloudUrl'), null, 'Demo has no cloud, even in dev');
+  for (const edition of ['lite', 'pro']) {
+    const url = exportedValue(`../${edition}/editionConfig.js`, 'cloudUrl');
+    assert.ok(url === null || url === PROD, `${edition}: cloudUrl must be null or ${PROD}`);
+  }
+  for (const path of ['../shared/data/editionConfig.js', '../lite/editionConfig.js', '../pro/editionConfig.js']) {
+    const dev = exportedValue(path, 'devCloudUrl');
+    assert.ok(dev === null || /^https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev$/.test(dev), `${path}: devCloudUrl must be a workers.dev staging address`);
+  }
+});

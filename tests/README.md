@@ -2,7 +2,7 @@
 
 Zero-dependency regression tests using Node's built-in test runner (`node:test` +
 `node:assert`). No framework, no `npm install`, nothing vendored — the same spirit
-as the app itself. Requires Node ≥ 18 (CI uses 20).
+as the app itself. Requires Node ≥ 18, and Node ≥ 22 for anything that loads the cloud Worker (`node:sqlite`): `cloudClient.test.js` and `cloud/tests`.
 
 ```sh
 node --test      # or: npm test  (auto-discovers tests/*.test.js)
@@ -34,6 +34,7 @@ serve-and-exercise verification in `CLAUDE.md` / the End-State guide.
 | `syncRegistry.test.js` | The cloud-backup allow-list (Cloud Phase 1 plan §5): every `db.js` table has an entry; each field sits in one bucket; **coverage**: every key the real Thornfield seed writes is classified; the cloud projection of that packet carries no private/pending key and passes `assertCloudRow`; the event-details filter matches `vocab.js`; documents/files/expenses row rules. Runs the real seed through the real repos against `support/memoryDb.js`, an in-memory stand-in for the Dexie tables (the one place IndexedDB is faked, so it's kept to the API slice the repos use). |
 | `cloudBackup.test.js` | Cloud Phase 1 §9 step 2: `buildCloudSnapshot` (sample rows dropped, cloud-tier projection, file bytes deduped by sha256 with the blob out of the JSON, the envelope), gzip round trip, the shrink-guard thresholds, and the `'cloud-merge'` restore (private fields survive, missing rows inserted, newer-wins vs `overwrite`, `events.details` merged by key, files fetched by sha256, never deletes, format check), plus the `cloudDirtyAt` signal. On `support/memoryDb.js`. |
 | `cloudDirty.test.js` | Every direct `db` write site in the app, counted per file: each writer calls `markDataChanged()` or is exempted with a reason (sample-data clear, Reset App). A new write site fails it. |
+| `cloudClient.test.js` | Cloud Phase 1 §9 step 4: the client modules (`data/cloud/cloudConfig`, `cloudApi`, `cloudAuth`, `cloudBackup`) end to end against the **real Worker code** (`cloud/src`) in-process, on the cloud tests' node:sqlite D1 + in-memory R2 (`cloud/tests/helpers`), with `fetch` routed to `worker.fetch`. Sign-in by code, push / unchanged / offline / maintenance / expired session, files uploaded once and first, the shrink guard, two simulated devices through the 409 → restore → takeover → replace sequence, Reset App, restore as of, delete, turn off, and the scheduler's timing. Also: no request at all when there's no server. Needs Node ≥ 22 (`node:sqlite`). |
 | `csvImport.test.js` | The match-or-create engine's `classify()` for all 8 entity mappings — natural-key formation (case-insensitive+trimmed names, exact dates), keyless/unresolved-relationship rows forced to review, and each mapping's quirks (Sale/StudService inline-contact auto-create, Event's title tiebreak, StudService's always-ambiguous repeat-arrangement rule, Expense's mileage/receipt-number/subject rules). Bypasses `loadExisting()` (real Dexie) by seeding each mapping's private `this._foo` caches directly and driving `buildIndex()`/`classify()`, the same DB-free seam `scopePredicates.test.js` uses. `buildPlan`/`commitPlan`/`stampKennelScope` stay out of scope (real repo writes). |
 
 ## Adding tests

@@ -27,6 +27,14 @@ export const upgradeUrl = null;
 // editionLinks.js). Null here so hasEditionLinks() is false and nothing renders.
 export const demoUrl = null;
 
+// Cloud backup API (Cloud Phase 1 plan §7; data/cloud/cloudConfig.js). Null here:
+// the shared core stays inert, so every cloud module and cloud UI is off.
+// `devCloudUrl` is the local-dev override, used ONLY when the app is served from
+// localhost/127.0.0.1: it points a dev build at the staging Worker. It never
+// applies on a deployed origin.
+export const cloudUrl = null;
+export const devCloudUrl = 'https://kennelos-api-staging.admin-kennelos.workers.dev';
+
 // License gate config (data/license.js). Exported so license.js's named import
 // always resolves, but the gate is OFF in this default (editionFlags.licenseGate
 // unset) — Pro's own editionConfig turns it on and supplies the real checkout URL.

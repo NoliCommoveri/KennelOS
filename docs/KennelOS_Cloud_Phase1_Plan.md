@@ -1,9 +1,9 @@
 # KennelOS Cloud — Phase 1 build plan: opt-in accounts + cloud backup (DRAFT)
 
 > Parent design: `docs/KennelOS_Cloud_Accounts_Proposal.md` (cited below as "Proposal §N").
-> Status: **in progress.** Built so far: §9 steps 1–2 (`shared/data/syncRegistry.js`;
-> `shared/data/cloud/cloudBackup.js`, the `'cloud-merge'` restore and the dirty signal) and
-> step 3 (the staging Worker). The README's build status is the
+> Status: **in progress.** Built so far: §9 steps 1–4 (the registry; snapshot, `'cloud-merge'`
+> restore and dirty signal; the staging Worker; the client cloud modules in
+> `shared/data/cloud/`). Next: step 5, the UI. The README's build status is the
 > live record. Decisions it relies on are recorded in Proposal §10. The ones it raises are in
 > §11 below.
 
@@ -231,6 +231,44 @@ field** on a device that has them. So we add a third mode, with one switch, `ove
   - **Sample seed:** the seed writes through the repos, so seeding marks the flag even
     though every seeded row is filtered out. The resulting push is harmless but empty.
     Step 4's `pushIfDirty` can skip a snapshot identical to the last one.
+
+### 4.5 As built (§9 step 4: the client modules)
+- **URL wiring (§7).** Every edition config exports `cloudUrl` and `devCloudUrl`.
+  `cloudUrl` stays `null` in Lite and Pro until production is live (step 6), so a deploy
+  before then can't point at a server that doesn't exist. `devCloudUrl` is the staging
+  Worker in shared, Lite and Pro. `cloudConfig` uses it **only** when the page's host is
+  `localhost`/`127.0.0.1`. Demo has neither. `tests/editionConfig.test.js` pins this.
+- **Device identity.** The server accepts a client-supplied device id on `/auth/verify`.
+  The client mints `cloudDeviceId` once and sends it on every sign-in, so signing in again
+  on the backing device doesn't make it a stranger. It's a separate key from the license's
+  `deviceId`.
+- **Settings (§3.3).** `cloudSession`, `cloudBackupState` and `cloudDeviceId` sit outside
+  `clearAllSettings()`'s keys. Reset App calls `appReset.stopCloudBackupAfterReset()`:
+  backup off, and `lastSnapshotId`/`lastCounts` forgotten, so re-enabling meets a 409
+  (`ownDevice: true`) and goes through §3.4's choice. The sign-out question stays with the
+  UI (step 5).
+- **Push results** are a status, never a thrown error: `pushed`, `unchanged`, `skipped`,
+  `offline`, `conflict`, `shrink`, `auth` or `error`. `conflict`, `shrink` and `auth`
+  **pause** automatic pushes (`lastError`) until the user acts, so the scheduler doesn't
+  retry them every five minutes. A push the user starts (`force`) goes ahead.
+- **"Unchanged" skip.** A dirty push whose cloud-tier content hashes the same as the last
+  push sends nothing and clears the flag. That covers a private-only edit (a note, a price)
+  and the sample seed, which writes through the repos.
+- **One push at a time** across tabs via `navigator.locks`. The state is re-read inside
+  the lock, so a second tab sees the first tab's push and doesn't 409 against itself.
+- **Scheduler and the multi-page app.** Every navigation is a page load, so "at app start"
+  means the **first page of a browsing session** (a `sessionStorage` mark): it pushes
+  immediately if dirty. Later pages resume the five-minute timer from `cloudDirtySince`,
+  the first unpushed change. A push also never starts sooner than five minutes after the
+  last attempt. Background pushes (`visibilitychange` → hidden) are at most once a minute.
+  The scheduler also re-arms when the browser comes back online.
+- **The §3.4 choices.** `restoreLatestAndTakeOver()` restores the latest snapshot with
+  newer-wins, takes over, then pushes. It is also `restoreOnNewDevice` for first-run.
+  `replaceCloudWithThisDevice()` takes over and pushes with the shrink guard waived (the
+  user chose it). The UI supplies the typed confirmation.
+- **Tests** drive the client against the real Worker code in-process
+  (`tests/cloudClient.test.js`). The fetch stand-in adds `Content-Length` as a browser
+  does for a Blob body.
 
 ## 5. The classification (`syncRegistry.js`)
 

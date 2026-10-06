@@ -467,8 +467,45 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     headless Chromium: a real write sets the flag, a snapshot builds and gzips in the page
     with the contact's email stripped, and there are no console errors.
 
-  Next: client cloud modules against staging (step 4), UI (step 5), and production (step 6 /
-  §6.7 item 6).
+- **Cloud Phase 1, §9 step 4: the client cloud modules are built** (plan §2–§4, §7), in
+  `shared/data/cloud/`. There is still no UI, and no page starts the scheduler (that's step
+  5), so nothing is user-visible.
+  - **`cloudConfig.js`:** the API base URL. Every edition config now exports `cloudUrl` and
+    `devCloudUrl`:
+    - `cloudUrl` is `null` everywhere for now. Lite and Pro get `https://api.kennelos.app`
+      at step 6.
+    - `devCloudUrl` is the staging Worker for shared, Lite and Pro, and applies **only when
+      served from localhost**. Demo has neither.
+  - **`cloudApi.js`:** the only network module. It has one function per Worker route,
+    bearer tokens, timeouts, and typed errors (Offline, which covers the 503 maintenance
+    answer, plus Auth, Conflict and Request with the server's code).
+  - **`cloudAuth.js`:** email + 6-digit code sign-in, sign out (revokes server-side), and
+    sign out other devices. The device keeps its own `cloudDeviceId` across sign-ins.
+  - **`cloudBackup.js`:**
+    - `pushIfDirty` uploads missing files first, then runs the two-step snapshot, and
+      skips a push whose cloud tier is unchanged;
+    - one push at a time across tabs (`navigator.locks`);
+    - a conflict, shrink or auth result pauses automatic pushes until the user acts;
+    - `enableBackup`/`disableBackup`, `restoreLatestAndTakeOver` and
+      `replaceCloudWithThisDevice` (the §3.4 choices);
+    - `listSnapshots`/`downloadSnapshot`/`previewRestore`/`restoreSnapshot`,
+      `deleteCloudData`, and `getBackupStatus` for the step-5 card;
+    - `startBackupScheduler()` (§2.2): five minutes from the first unpushed change, on
+      going to the background at most once a minute, at the first page of a browsing
+      session, and when the browser comes back online.
+  - **Reset App** now always turns backup off and forgets the backup position, so turning
+    it back on goes through the restore-or-replace choice. The sign-in is kept.
+  - **`tests/cloudClient.test.js` (20 tests)** drives all of this end to end against the
+    **real Worker code** in-process, using the cloud tests' node:sqlite D1 and in-memory R2.
+    It covers sign-in, push, unchanged/offline/maintenance/auth, the shrink guard, the
+    two-device 409 → restore → takeover → replace sequence, Reset App, "restore as of",
+    files, delete, turn off, and the scheduler.
+  - Headless Chromium on localhost: the modules load with no console errors and resolve the
+    staging URL. This environment's network policy blocks the staging host, so the live
+    call came back as a quiet `CloudOfflineError`. A live run against staging is still to
+    do, from a machine that can reach it.
+
+  Next: UI (step 5), then production (step 6 / §6.7 item 6).
 
 ## Build & deploy
 

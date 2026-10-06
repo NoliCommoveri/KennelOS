@@ -134,9 +134,18 @@ KennelOS/
     syncRegistry.js            Cloud-backup field allow-list + row rules (Cloud Phase 1
                                plan §5); unlisted = private. Pure functions, plus the
                                field overlay the 'cloud-merge' restore uses
-    cloud/cloudBackup.js       Cloud snapshot builder (sample rows dropped, registry
-                               projection, file bytes by sha256, key check), gzip, and
-                               the shrink guard. No network yet (plan §9 step 4)
+    cloud/                     Opt-in cloud backup (Cloud Phase 1 plan). Every module
+                               checks cloudConfig.isCloudAvailable() first, so an
+                               edition with cloudUrl null never makes a request.
+      cloudConfig.js           The API base URL from editionConfig (cloudUrl; devCloudUrl
+                               only on localhost), or null
+      cloudApi.js              The ONLY network module: fetch, bearer token, timeouts,
+                               typed errors (Offline / Auth / Conflict / Request)
+      cloudAuth.js             Email + 6-digit code sign-in; the session in settings.js
+      cloudBackup.js           Snapshot builder (sample rows dropped, registry
+                               projection, file bytes by sha256, key check), gzip, shrink
+                               guard; pushIfDirty, the one-backup-device choices, restore,
+                               and the scheduler. Not started by any page yet (step 5)
     dogRepo / contactRepo / kennelRepo / pairingRepo / litterRepo /
       saleRepo / contractRepo / studServiceRepo / eventRepo / expenseRepo /
       documentRepo   Entity repos
@@ -854,7 +863,19 @@ plain local backup/restore.
   seed-link generator's kennel-wide identity block — kennel name/tagline, breeder
   contact, breeder's vet, plus an auto-generated `breederKey` — §27, via
   `getFureverSettings`/`setFureverSettings`). `clearAllSettings()` drops them all (used
-  by Reset App).
+  by Reset App), including `cloudDirtyAt` and `cloudDirtySince` (the first unpushed change,
+  which the cloud scheduler's five-minute timer runs from).
+- **Cloud backup keys outside `KEYS`** (Cloud Phase 1 plan §3.3), so `clearAllSettings()`
+  doesn't touch them: `cloudSession` (`{ token, email, programId, deviceId }`; the email
+  stays on this device, the server keeps only a keyed hash), `cloudBackupState`
+  (`{ enabled, lastPushedAt, lastAttemptAt, lastSnapshotId, lastCounts, lastContentHash,
+  lastError }`), and `cloudDeviceId` (this browser's id on the cloud account, sent on every
+  sign-in so the backing device stays recognisable; separate from the license
+  `deviceId`). **Reset App** handles them explicitly in `appReset.stopCloudBackupAfterReset()`:
+  backup is always turned off, and the device forgets which snapshot it was in step with,
+  so turning backup back on meets the server's 409 and the restore-or-replace choice
+  instead of pushing an emptied program. The sign-in itself is kept; signing out is a
+  separate choice (`cloudAuth.signOut`).
 - **nudgeState.js** — a second, deliberately separate `localStorage` module (one key,
   `kennelOS.nudgeDismissals`): the derived-nudge dismissal ledger (§19). Kept out of
   `settings.js`/`clearAllSettings()` on purpose — `appReset.js` calls its own `clearAll()`

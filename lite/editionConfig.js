@@ -36,6 +36,12 @@ export const upgradeUrl = 'https://kennelos.app/upgrade';
 // build/README.md; swap if the domain changes. One-line change here.
 export const demoUrl = 'https://demo.kennelos.app/';
 
+// Cloud backup API (Cloud Phase 1 plan §7). Null until production is live (plan
+// §9 step 6), when it becomes 'https://api.kennelos.app'. `devCloudUrl` applies
+// only when served from localhost (the staging Worker); see data/cloud/cloudConfig.js.
+export const cloudUrl = null;
+export const devCloudUrl = 'https://kennelos-api-staging.admin-kennelos.workers.dev';
+
 // License gate config (data/license.js). Lite is free and never gates, but must
 // export this so license.js's named import resolves in the Lite build. The gate
 // stays off (editionFlags below carries no licenseGate:true).
