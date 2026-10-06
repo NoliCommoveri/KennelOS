@@ -1,0 +1,12 @@
+{
+  "name": "kennelos-cloud",
+  "private": true,
+  "type": "module",
+  "description": "The cloud backup Worker (docs/KennelOS_Cloud_Phase1_Plan.md §6). Deployed by Workers Builds from this directory; not part of any edition build.",
+  "devDependencies": {
+    "wrangler": "^4.42.0"
+  },
+  "scripts": {
+    "test": "node --test \"tests/**/*.test.js\""
+  }
+}
