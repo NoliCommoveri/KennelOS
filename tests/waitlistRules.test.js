@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import {
   waitlistConfig, WAITLIST_CONFIG_DEFAULTS, feeForEntry, isFeeWaived, feeDueDate, respondByDate,
   anchorDate, isMovedByBreeder, rankedList, overallPositions,
-  isPupAvailable, pupMatchesPrefs, prefColorTokens, isPaused, isListeningFor, eligiblePupsFor,
+  isPupAvailable, pupMatchesPrefs, prefColorTokens, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, isListeningFor, eligiblePupsFor,
   litterQueue, nextFamilyForLitter, hasOpenOffer, turnSpent,
   countsAsPass, passesUsed, shouldRemoveForPasses, canUndoRemoval, passToForgive,
   overdueOffers, overdueFees, deriveContactWaitlistStatus, contactMatches, entryName,
@@ -572,4 +572,27 @@ test('resolveBreed: the kennel\'s spelling for a case/space variant; null when u
   assert.equal(resolveBreed('Boston', breeds), null);
   assert.equal(resolveBreed('Bostin Terrier', breeds), null);
   assert.equal(resolveBreed('', breeds), '');
+});
+
+// --- Readiness hold (Spec §15.8) -----------------------------------------------------
+
+test('readiness hold: start of their range, from the fee date (or approval with no fee)', () => {
+  assert.equal(readyFromDate(entry({ ready_timing: 'immediately' })), null);
+  assert.equal(readyFromDate(entry({ ready_timing: undefined })), null, 'not answered = no hold');
+  assert.equal(readyFromDate(entry({ ready_timing: '1_3_months', fee_received_date: '2026-01-10' })), '2026-02-10');
+  assert.equal(readyFromDate(entry({ ready_timing: '3_6_months', fee_received_date: '2026-01-10' })), '2026-04-10');
+  assert.equal(readyFromDate(entry({ ready_timing: '6_plus_months', fee_received_date: '2026-01-10' })), '2026-07-10');
+  assert.equal(readyFromDate(entry({ ready_timing: '1_3_months', fee_received_date: null, approved_date: '2026-08-31' })), '2026-09-30', 'no fee → approval; month-end clamps');
+  assert.equal(readyFromDate(entry({ ready_timing: '1_3_months', fee_received_date: null, approved_date: null })), null);
+});
+
+test('readiness hold: paused (no offers, off the public list) until the ready date, then back', () => {
+  const held = entry({ ready_timing: '3_6_months', fee_received_date: '2026-08-01' }); // ready 2026-11-01
+  assert.equal(isReadyHeld(held, TODAY), true);
+  assert.equal(isPaused(held, TODAY), true);
+  assert.equal(isManuallyPaused(held, TODAY), false);
+  assert.equal(isReadyHeld(held, '2026-11-01'), false, 'back in contention on the ready date');
+  const l = litter();
+  assert.deepEqual(eligiblePupsFor(held, l, [pup()], [], { today: TODAY }), []);
+  assert.equal(eligiblePupsFor(held, l, [pup()], [], { today: '2026-11-01' }).length, 1);
 });

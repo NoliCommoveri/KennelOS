@@ -10,8 +10,8 @@
 //    a counter on the entry.
 //  - Eligibility (§6.2) is computed per litter / per pup at the moment it's needed.
 // The repos store; the pages call these functions to decide what to write.
-import { addDaysToYMD } from './dateUtils.js';
-import { WAITLIST_OPEN_STATUSES } from './vocab.js';
+import { addDaysToYMD, addMonthsToYMD } from './dateUtils.js';
+import { WAITLIST_OPEN_STATUSES, WAITLIST_READY_TIMING } from './vocab.js';
 
 // --- Config (Spec §4.6) -------------------------------------------------------
 
@@ -211,8 +211,32 @@ export function pupMatchesPrefs(entry, dog, config = WAITLIST_CONFIG_DEFAULTS) {
 
 // --- Eligibility (Spec §6.2, §6.3) ---------------------------------------------
 
-export function isPaused(entry, today) {
+// Her own pause (paused_until, inclusive).
+export function isManuallyPaused(entry, today) {
   return Boolean(entry.paused_until) && entry.paused_until >= today;
+}
+
+// The readiness hold (Spec §15.8): a family who said they won't be ready to buy
+// "immediately" isn't offered pups until `hold_months` after their fee was received
+// (or, with no fee, after approval). DERIVED, never stored: change their answer, or
+// record the fee, and the date follows. Returns the YYYY-MM-DD they're back in
+// contention, or null for no hold (immediately / not answered / no anchor date yet).
+export function readyFromDate(entry) {
+  const months = WAITLIST_READY_TIMING.find((t) => t.value === entry.ready_timing)?.hold_months || 0;
+  const anchor = entry.fee_received_date || entry.approved_date;
+  return months && anchor ? addMonthsToYMD(anchor, months) : null;
+}
+
+export function isReadyHeld(entry, today) {
+  const from = readyFromDate(entry);
+  return Boolean(from) && today < from;
+}
+
+// Paused for any reason: her own pause or the readiness hold. Both mean the same
+// thing everywhere (decided 2026-10-06): no offers, so no passes to use up; their
+// place is kept; and they're left off the public list with their number skipped.
+export function isPaused(entry, today) {
+  return isManuallyPaused(entry, today) || isReadyHeld(entry, today);
 }
 
 // Is the family listening for this litter? Everyone is, unless they've chosen
@@ -497,7 +521,7 @@ export function publicListText(rows, { kennelName = '', today = '', fmtDate = (d
   if (!rows.length) return `${head}\nNobody is on the list yet.`;
   const lines = rows.map((r) => `#${r.position} ${r.name} · ${PUBLIC_SEX[r.pref_sex] || 'Either'} · added ${fmtDate(r.added)}`);
   const gaps = rows.some((r, i) => r.position !== i + 1);
-  return [head, '', ...lines, ...(gaps ? ['', 'A skipped number is a family who has paused. They keep their place.'] : [])].join('\n');
+  return [head, '', ...lines, ...(gaps ? ['', 'A skipped number is a family who has paused or isn\'t ready to buy yet. They keep their place.'] : [])].join('\n');
 }
 
 // --- Telling her what an action did to offers -------------------------------------

@@ -180,6 +180,18 @@ export const WAITLIST_LISTEN_MODE = [
   { value: 'selected', label: 'Selected sires & dams only', badge: 'badge-blue' }
 ];
 
+// The application's locked "how soon could you buy?" answer (Waitlist Spec §15.8),
+// stored on WaitlistEntry.ready_timing. `hold_months` is the automatic readiness
+// hold: no offers until that many months after the fee was received (or approval,
+// if there's no fee) — the START of the range they gave, so a pup is never held
+// back from a family who said they might be ready by then.
+export const WAITLIST_READY_TIMING = [
+  { value: 'immediately',   label: 'Immediately', badge: 'badge-green', hold_months: 0 },
+  { value: '1_3_months',    label: '1-3 months',  badge: 'badge-blue',  hold_months: 1 },
+  { value: '3_6_months',    label: '3-6 months',  badge: 'badge-amber', hold_months: 3 },
+  { value: '6_plus_months', label: '6+ months',   badge: 'badge-gray',  hold_months: 6 }
+];
+
 // A family's sex preference: SEX plus "any" (the default).
 export const WAITLIST_PREF_SEX = [
   { value: 'any',    label: 'Either',  badge: 'badge-gray' },

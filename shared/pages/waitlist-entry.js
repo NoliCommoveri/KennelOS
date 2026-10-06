@@ -20,17 +20,17 @@ import { saleRepo } from '../data/saleRepo.js';
 import * as actions from '../data/waitlistActions.js';
 import {
   waitlistConfig, overallPositions, passesUsed, anchorDate, isMovedByBreeder, contactMatches,
-  entryName, canUndoRemoval, isPaused, rankedList, REMOVAL_UNDO_DAYS,
+  entryName, canUndoRemoval, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, rankedList, REMOVAL_UNDO_DAYS,
   eligiblePupsFor, nextFamilyForLitter, turnSpent, hasOpenOffer, isListeningFor, isPupAvailable,
   describeOfferChanges, isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker,
   kennelBreeds, resolveBreed
 } from '../data/waitlistRules.js';
 import {
-  formQuestions, entryQuestions, snapshotQuestions, answerText, isAnswerQuestion, missingRequired
+  formQuestions, entryQuestions, snapshotQuestions, answerText, isAnswerQuestion, missingRequired, formFaq, READY_TIMING_LABEL
 } from '../data/waitlistForm.js';
 import {
   WAITLIST_ENTRY_STATUS, WAITLIST_PREF_SEX, WAITLIST_LISTEN_MODE, WAITLIST_OFFER_OUTCOME,
-  WAITLIST_REMOVED_REASON, PLACEMENT_TYPE, FEE_CREDIT_POLICY, PAYMENT_METHODS, SEX, descriptor
+  WAITLIST_REMOVED_REASON, WAITLIST_READY_TIMING, PLACEMENT_TYPE, FEE_CREDIT_POLICY, PAYMENT_METHODS, SEX, descriptor
 } from '../data/vocab.js';
 import { addDaysToYMD } from '../data/dateUtils.js';
 import { esc, badge, fmtDate, fmtMoney, param, todayYMD, confirmModal, alertModal } from '../assets/ui.js';
@@ -131,7 +131,11 @@ function statusLines(e) {
     lines.push(`In line since ${esc(fmtDate(anchorDate(e)))}${isMovedByBreeder(e) ? ` <span class="badge badge-purple">Moved by you</span> <span class="faint">(fee received ${esc(fmtDate(e.fee_received_date))})</span>` : ''}.`);
     lines.push(`Passes used: ${passesUsed(e, ctx.offers)} of ${esc(ctx.config.max_passes)}.`);
     const flags = entryFlags(e, today);
-    if (flags) lines.push(flags + (isPaused(e, today) ? ' <span class="faint">Paused families keep their place; they just aren\'t offered pups.</span>' : ' <span class="faint">Only offered litters from the sires and dams they chose; they keep their place.</span>'));
+    const why = isReadyHeld(e, today)
+      ? `They said they won't be ready to buy until about ${esc(fmtDate(readyFromDate(e)))}, so they aren't offered pups (or charged passes) until then. They keep their place.`
+      : isPaused(e, today) ? 'Paused families keep their place; they just aren\'t offered pups.'
+        : 'Only offered litters from the sires and dams they chose; they keep their place.';
+    if (flags) lines.push(`${flags} <span class="faint">${why}</span>`);
   } else if (e.status === 'removed') {
     lines.push(`Removed ${esc(fmtDate(e.removed_date))}${e.removed_reason ? ` — ${esc(descriptor(WAITLIST_REMOVED_REASON, e.removed_reason).label.toLowerCase())}` : ''}.`);
     if (canUndoRemoval(e, today)) lines.push(`<span class="badge badge-amber">You can undo this until ${esc(fmtDate(addDaysToYMD(e.removed_date, REMOVAL_UNDO_DAYS)))}</span>`);
@@ -371,6 +375,17 @@ function listenSummary(e) {
   return `${esc(`Only: ${parts.join(' · ')}`)}<br><span class="faint">${esc(covers.length ? `Right now that's: ${covers.join(', ')}` : 'No current litter or upcoming pairing from these parents.')}</span>`;
 }
 
+// Their readiness answer, plus the hold it puts on them (Spec §15.8). Escaped HTML.
+function readySummary(e) {
+  if (!e.ready_timing) return '<span class="badge badge-amber" title="A required question. Edit to fill it in.">Not answered</span>';
+  const t = descriptor(WAITLIST_READY_TIMING, e.ready_timing);
+  const from = readyFromDate(e);
+  if (!from) return esc(t.label);
+  const base = e.fee_received_date ? 'the fee date' : 'approval';
+  const held = isReadyHeld(e, todayYMD());
+  return `${esc(t.label)} <span class="faint">— ${held ? 'no offers until' : 'hold ended'} ${esc(fmtDate(from))} (${esc(t.hold_months)} month${t.hold_months === 1 ? '' : 's'} from ${base})</span>`;
+}
+
 function renderView() {
   const e = ctx.entry;
   const app = e.application || {};
@@ -383,6 +398,7 @@ function renderView() {
       ${row('Contact', contactHtml)}
       ${row('Program', program ? esc(program.name) + (program.is_archived ? ' <span class="badge badge-gray">archived</span>' : '') : '')}
       ${row('Wants', prefsSummary(e) + (e.pref_breed && resolveBreed(e.pref_breed, ctx.breeds) === null ? ` <span class="badge badge-red" title="No pup will match this breed. Edit to pick one of your breeds.">Unknown breed</span>` : ''))}
+      ${row('Ready to buy', readySummary(e))}
       ${row('Listening for', LISTEN_STATUSES.includes(e.status) || (e.listen_mode || 'all') === 'selected' ? listenSummary(e) : '')}
       ${row('Paused until', e.paused_until ? esc(fmtDate(e.paused_until)) + (e.pause_reason ? ` <span class="faint">— ${esc(e.pause_reason)}</span>` : '') : '')}
       ${row('Fee', e.fee_amount != null ? esc(fmtMoney(e.fee_amount)) : '')}
@@ -457,6 +473,9 @@ function prefField(key, e, label) {
         <span class="field-hint">${ctx.breeds.length ? 'Only pups of this breed are offered to them.' : 'No breeds yet: give this kennel\'s dogs a breed, or add preferred breeds on the kennel page.'}${current && known === null ? ' <strong>Their current breed doesn\'t match any of your dogs\' breeds, so no pup will match it. Pick the right one.</strong>' : ''}</span></div>`;
     case 'pref_placement':
       return `<div class="field"><label>${esc(label || 'Placement')}</label><select id="f-pref_placement_type">${options(PLACEMENT_TYPE, e.pref_placement_type || '', 'Any')}</select></div>`;
+    case 'ready_timing':
+      return `<div class="field"><label>${esc(label || READY_TIMING_LABEL)} <span class="req">*</span></label><select id="f-ready_timing">${options(WAITLIST_READY_TIMING, e.ready_timing || '', '— Choose —')}</select>
+        <span class="field-hint">Anything but Immediately puts them on hold: no offers (so no passes used) until that many months after their fee is received, or approval if there's no fee (1-3 months → 1, 3-6 → 3, 6+ → 6).</span></div>`;
     case 'pref_colors':
       return `<div class="field"><label>${esc(label || 'Colors')}</label><input id="f-pref_colors" type="text" value="${esc((e.pref_colors || []).join(', '))}" placeholder="e.g. brindle, seal">
         <span class="field-hint">${ctx.config.color_matching ? 'Color matching is on: only pups with one of these colors are offered.' : 'Notes only. Color matching is off in your waitlist settings.'}</span></div>`;
@@ -509,8 +528,16 @@ function renderEdit() {
     return answerField(q, app[q.id]);
   }).join('');
 
+  // Her FAQ heads the application, as families will see it online (Spec §15.8).
+  const faq = formFaq(ctx.config);
+  const faqHtml = faq.length ? `<div class="field field-wide"><div class="card" style="margin:0;padding:10px 12px;">
+      <strong>Before you apply</strong>
+      ${faq.map((x) => `<details style="margin-top:6px;"><summary>${esc(x.question || 'Question')}</summary><p style="margin:6px 0 0;white-space:pre-line;">${esc(x.answer)}</p></details>`).join('')}
+      <span class="field-hint">Your FAQ, from the Application form page. Every applicant sees it first.</span></div></div>` : '';
+
   els.body.innerHTML = isNew ? `
     <div class="form-grid" style="margin-top:14px;">
+      ${faqHtml}
       ${newForm()}
       <div class="field field-wide"><h3 style="margin:8px 0 0;">For you</h3></div>
       ${programField}
@@ -520,7 +547,7 @@ function renderEdit() {
     </div>` : `
     <div class="form-grid" style="margin-top:14px;">
       <div class="field field-wide"><h3 style="margin:0;">Preferences</h3></div>
-      ${['pref_sex', 'pref_breed', 'pref_placement', 'pref_colors'].map((k) => prefField(k, e)).join('')}
+      ${['pref_sex', 'pref_breed', 'pref_placement', 'pref_colors', 'ready_timing'].map((k) => prefField(k, e, k === 'ready_timing' ? ctx.form.find((q) => q.key === 'ready_timing')?.label : undefined)).join('')}
       ${programField}
 
       ${canListen ? `<div class="field field-wide"><h3 style="margin:8px 0 0;">Which litters</h3></div>
@@ -569,6 +596,7 @@ function readForm() {
     pref_breed: val('f-pref_breed').trim(),
     pref_placement_type: val('f-pref_placement_type') || '',
     pref_colors: val('f-pref_colors').split(',').map((s) => s.trim()).filter(Boolean),
+    ready_timing: val('f-ready_timing') || null,
     waitlist_program_id: val('f-program') || null,
     application,
     application_questions: snapshotQuestions(questions),
@@ -592,7 +620,10 @@ function readForm() {
     });
   }
   const missing = ctx.draft.contact_id ? [] : missingRequired(questions, application);
-  if (missing.length) throw new Error(`Please fill in: ${missing.join(', ')}.`);
+  // Readiness is mandatory on a new application (it decides the hold). An older
+  // entry without one can still be edited; its page flags it as not answered.
+  if (ctx.mode === 'new' && !out.ready_timing) missing.push(ctx.form.find((q) => q.key === 'ready_timing')?.label || 'Ready to buy');
+  if (missing.length) throw new Error(`Please fill in: ${missing.map((m) => m.replace(/[?.!:]+$/, '')).join(', ')}.`);
   return out;
 }
 
@@ -622,7 +653,8 @@ function litterChoices(e) {
         const open = offers.find((o) => o.outcome === 'open' && !o.is_archived);
         blocked = open.entry_id === e.id ? 'They already have an open offer on this litter.' : `${familyNameById(open.entry_id)} has an open offer on this litter.`;
       } else if (turnSpent(offers, l.id, e.id)) blocked = 'They\'ve already had their turn on this litter.';
-      else if (isPaused(e, today)) blocked = 'They\'re paused.';
+      else if (isReadyHeld(e, today)) blocked = `They said they won't be ready to buy until about ${fmtDate(readyFromDate(e))}.`;
+      else if (isManuallyPaused(e, today)) blocked = 'They\'re paused.';
       else if (!isListeningFor(e, l)) blocked = 'They\'re only listening for litters from other sires/dams.';
       else if (!pups.some((d) => isPupAvailable(d, ctx.sales))) blocked = 'No pups available yet.';
       else if (!eligible.length) blocked = 'No available pup matches what they want.';
