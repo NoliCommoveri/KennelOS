@@ -392,8 +392,10 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   `OPS_TOKEN` with MCCE's migration runner (applied/pending/drifted/orphaned, Apply pending, health
   check). `0001_schema.sql` holds the §6.2 tables, including the `files` index. 20 tests run on
   node:sqlite (`cd cloud && npm test`; a bare `node --test` from the root also runs them), and it
-  was checked end to end in local `wrangler dev`. **Not yet deployed:** the staging D1
-  `database_id` is in `wrangler.toml`; Workers Builds and the secrets (plan §6.7) are pending. Next: step 3b (auth,
+  was checked end to end in local `wrangler dev`. **Staging is live** at
+  `kennelos-api-staging.admin-kennelos.workers.dev`, deployed by Workers Builds, with both
+  secrets set. `0001` was applied from `/ops` on 2026-10-06, and D1 and R2 report bound and
+  reachable. Next: step 3b (auth,
   snapshots, files, notice, retention cron, D1 export/import). No edition file changed, so there's
   no service-worker bump.
 
