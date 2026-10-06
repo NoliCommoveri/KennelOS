@@ -384,8 +384,21 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   Google Form timestamps understood). Received application fees are Financials income; a fee
   credited to the purchase nets off that family's Sale balance (ledger, Litter P&L, invoice
   line, Companion remaining balance). Service-worker cache rolled to `kennelos-shell-v33`
-  for all of W1. Next: W2 (online form + status page; needs the cloud Worker, vault and
-  server-side license link).
+  for all of W1.
+- **Waitlist, W1e — built & browser-verified** (Waitlist Spec §15 + §14 "W1e choices"; End-State
+  guide §24, §29; headless Chromium, no console errors, no horizontal scroll at phone width). Her
+  requests after trying W1, the local half: her own **application form** (new Pro page
+  `waitlist-form`: reword/retype/reorder/add/delete, locked questions for name, email, the four
+  preferences and the public-list notice; **import questions from her old form's CSV**, which the
+  application importer then reads), **offering from the waitlist** (Offer a litter… and outcome
+  buttons on the family's page, a Litters card with who's next on the Waitlist page),
+  **invoice/receipt PDFs** (vendored jsPDF; one document model for the page and the PDF; an
+  application-fee receipt source), and **Copy public list** (first name + last initial, sex
+  preference, date added; paused families hidden with their number skipped). Programs are hers
+  alone: `applicable_on_form` dropped. Tests: `waitlistForm.test.js`, `invoicePdf.test.js`. Still
+  W2: the public list page, PDFs on the status page, kennel-name (no-reply) email, and the
+  online form itself. Next: W2 (needs the cloud Worker, vault and server-side license link).
+  Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Cloud Phase 1, step 3a: the `cloud/` Worker skeleton is built**
   (`docs/KennelOS_Cloud_Phase1_Plan.md` §6, §6.6, §9). It has `wrangler.toml` (staging), CORS for
   `lite.`/`pro.kennelos.app` plus localhost, the 503 maintenance gate, `/health`, and `/ops` behind

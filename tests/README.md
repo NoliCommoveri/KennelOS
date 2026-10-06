@@ -32,6 +32,8 @@ serve-and-exercise verification in `CLAUDE.md` / the End-State guide.
 | `eventRepo.test.js` | `testTokensOf` — the health-test name derivation across the three test-bearing event types. |
 | `editionConfig.test.js` | The shared (Pro/Demo) config stays a no-op so no cap logic runs in those builds. |
 | `csvImport.test.js` | The match-or-create engine's `classify()` for all 8 entity mappings — natural-key formation (case-insensitive+trimmed names, exact dates), keyless/unresolved-relationship rows forced to review, and each mapping's quirks (Sale/StudService inline-contact auto-create, Event's title tiebreak, StudService's always-ambiguous repeat-arrangement rule, Expense's mileage/receipt-number/subject rules). Bypasses `loadExisting()` (real Dexie) by seeding each mapping's private `this._foo` caches directly and driving `buildIndex()`/`classify()`, the same DB-free seam `scopePredicates.test.js` uses. `buildPlan`/`commitPlan`/`stampKennelScope` stay out of scope (real repo writes). |
+| `waitlistForm.test.js` | Her application form (`data/waitlistForm.js`, Waitlist Spec §15.1): locked questions always restored and never retyped, no program question, answers keeping the wording they were given under, CSV question import (map / new / skip, type guessing, re-import maps everything), plus the public list (`waitlistRules.publicList`, §15.3): allow-listed fields only, real positions with paused families' numbers skipped. |
+| `invoicePdf.test.js` | The jsPDF renderer behind Download PDF (`assets/invoicePdf.js`, §15.2), run through the vendored UMD build itself: a real PDF carrying the document's text, page overflow, and text the standard fonts can't draw made safe. |
 
 ## Adding tests
 

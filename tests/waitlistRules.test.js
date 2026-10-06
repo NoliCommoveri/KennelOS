@@ -9,7 +9,7 @@ import {
   waitlistConfig, WAITLIST_CONFIG_DEFAULTS, feeForEntry, isFeeWaived, feeDueDate, respondByDate,
   anchorDate, isMovedByBreeder, rankedList, overallPositions,
   isPupAvailable, pupMatchesPrefs, prefColorTokens, isPaused, isListeningFor, eligiblePupsFor,
-  litterQueue, nextFamilyForLitter, hasOpenOffer,
+  litterQueue, nextFamilyForLitter, hasOpenOffer, turnSpent,
   countsAsPass, passesUsed, shouldRemoveForPasses, canUndoRemoval, passToForgive,
   overdueOffers, overdueFees, deriveContactWaitlistStatus, contactMatches, entryName,
 } from '../shared/data/waitlistRules.js';
@@ -362,4 +362,17 @@ test('expectedPricing: by the pup\'s sex from the litter; nulls when unknown or 
   assert.deepEqual(expectedPricing({ sex: 'female' }, litter), { price: 2800, deposit_amount: null });
   assert.deepEqual(expectedPricing({ sex: '' }, litter), { price: null, deposit_amount: null });
   assert.deepEqual(expectedPricing({ sex: 'male' }, null), { price: null, deposit_amount: null });
+});
+
+test('turnSpent: any offer but a voided one uses up the family\'s turn on that litter', () => {
+  const offers = [
+    offer({ entry_id: 'a', litter_id: 'L1', outcome: 'passed' }),
+    offer({ entry_id: 'b', litter_id: 'L1', outcome: 'voided' }),
+    offer({ entry_id: 'c', litter_id: 'L2', outcome: 'open' }),
+    offer({ entry_id: 'd', litter_id: 'L1', outcome: 'open', is_archived: true }),
+  ];
+  assert.equal(turnSpent(offers, 'L1', 'a'), true);
+  assert.equal(turnSpent(offers, 'L1', 'b'), false, 'a voided offer gives the turn back');
+  assert.equal(turnSpent(offers, 'L1', 'c'), false, 'another litter');
+  assert.equal(turnSpent(offers, 'L1', 'd'), false, 'archived offers are ignored');
 });
