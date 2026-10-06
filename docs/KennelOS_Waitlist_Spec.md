@@ -11,11 +11,11 @@
 > **Build status:** W1 is complete (W1a data layer, W1b intake + list, W1c offers, W1d
 > seed / CSV / Financials). W2 and W3 are not started. See §12 and §14.
 >
-> **Recorded 2026-10-06, not built:** four requests from her after trying W1 (custom
+> **W1e built 2026-10-06** (the local half of four requests from her after trying W1: custom
 > application questions, the waitlist as the main workflow with PDF invoices/receipts, a
 > public list, and emails sent in the kennel's name). They're in §15; her follow-up
 > answers settled Q19–Q24. The parts that work
-> without the server are slice **W1e**, to be done before W2. The rest is added to W2.
+> without the server are slice **W1e** (built, §14); the rest is added to W2.
 
 ## 0. Decisions taken at build start (2026-10-05)
 
@@ -208,8 +208,8 @@ Programs are **hers to define**, so this is a small table, not a fixed vocab lis
 |---|---|
 | `id`, `kennel_id`, timestamps, `is_archived` | |
 | `name` | e.g. "Cancer-treatment family", "Veteran", "Returning family" |
-| `public_description` | Shown on the application form if `applicable_on_form` |
-| `applicable_on_form` | Can applicants select it, or does only she assign it? |
+| `public_description` | Optional text about the program. Never on the application form |
+| ~~`applicable_on_form`~~ | **Dropped 2026-10-06: only she assigns programs.** Families never pick one, so no program appears on the form (§15.1). |
 | `fee_override` | `null` = normal fee; `0` = waived; or an amount |
 | `priority` | `standard` / `ahead` (§7) |
 | `pause_allowed` | Whether these families can pause without it counting against them (§7) |
@@ -279,8 +279,9 @@ defaults in `waitlistRules.waitlistConfig()`, so an old kennel with no config ju
   served by the Worker (§8). Its questions come from **her own question list**, set in
   the app and published to the server. The defaults are name, email, phone, city/state,
   household, other pets, experience, preferences (sex, placement type, color, timing),
-  program (if any are `applicable_on_form`), how they heard about her, and a free-text
-  "tell us about your family".
+  how they heard about her, a free-text "tell us about your family", and the public-list
+  notice (§15.3). Never a program: only she assigns those (decided 2026-10-06). Her own
+  questions replace these defaults as she edits the form (§15.1).
 - **No server yet (before W2, §12):** she types the application in on a "New application"
   screen, or imports a CSV from a Google Form (People → Contact import already matches or
   creates contacts and shows a preview first).
@@ -641,7 +642,7 @@ spending cap on the assistant routes (§10), whatever its edition.
 |---|---|---|
 | `waitlist_entries` | `kennel_id`, `contact_id`, `status`, `waitlist_program_id`, **every date field, including `fee_due_date` and `fee_received_date`** (the position anchor, §6.1), `position_anchor_date`, `pref_*`, `listen_*`, `paused_until`, `removed_reason`, `placed_sale_id` | `application`, `fee_amount`, `fee_payment_method`, `fee_payment_reference`, `fee_credit_policy`, `pause_reason` (it may name a medical situation), `notes` |
 | `waitlist_offers` | every field except → | `notes` |
-| `waitlist_programs` | `kennel_id`, `name`, `applicable_on_form`, `priority`, `pause_allowed`, `passes_count`, `respond_days_override`, `public_description` | `fee_override`, `notes` |
+| `waitlist_programs` | `kennel_id`, `name`, `priority`, `pause_allowed`, `passes_count`, `respond_days_override`, `public_description` | `fee_override`, `notes` |
 | `dogs` (existing entry) | gains `intended_placement` (§4.5) | |
 
 **Why the fee dates are cloud:** a date reveals nothing sensitive, but it *is* the list
@@ -734,7 +735,7 @@ API. It has three jobs.
 | Phase | Delivers | Needs the server? |
 |---|---|---|
 | **W1. The list, locally** (split into W1a–W1d, §14) | Tables, repos, rules engine + tests, Waitlist page (list, applications queue, entry page), programs, manual application entry + CSV import, approve / fee received / offers / passes / auto-removal with undo, Sale creation on accept, `waitlist_status` kept in step, Demo seed | No. Useful immediately; she runs it from her phone and messages families herself. |
-| **W1e. Her requests** (recorded 2026-10-06, §15; before W2) | Application form builder (her own questions, some locked) + import of questions from a CSV of her old form's responses; offering a litter or pup from the family's entry and a "who's next" view per litter; application-fee receipts and Sale invoices/receipts as downloadable PDFs; the public-list notice on manual entry; "Copy list for Facebook" as the public list's stand-in | No |
+| **W1e. Her requests** (recorded and built 2026-10-06, §15; before W2) | Application form builder (her own questions, some locked) + import of questions from a CSV of her old form's responses; offering a litter or pup from the family's entry and a "who's next" view per litter; application-fee receipts and Sale invoices/receipts as downloadable PDFs; the public-list notice on manual entry; "Copy public list" as the public list's stand-in | No |
 | **W2. Online** | Public form + encrypted inbox (with Rotate form key), status page with buttons, an encrypted message box and the optional "Message us on Facebook" button, no-reply fee/offer/decline/reminder emails from templates, family responses, server-side deadlines (§8.4), Pro entitlement + rate limits (§8.5). **Added 2026-10-06 (§15):** the public list page and its status-page tab, PDFs on the status page (link-key encrypted), emails sent in the kennel's name | Yes: after Phase 1's Worker and auth, **the private vault** (Proposal Phase 2b; §8.2), and **the server-side Pro license link** (Proposal Phase 5, brought forward for the waitlist routes only; §8.5) |
 | **W3. Assistant** | FAQ chat, check-ins, written messages | Yes |
 | **Later** | Pay links with automatic fee received, helpers working the list on their own devices (needs Proposal Phases 2–3), SMS and Messenger notifications (sent from her Page; needs Meta app review, and Meta's 24-hour messaging window limits check-ins and reminders) | Yes |
@@ -798,7 +799,37 @@ W1 is a full feature on its own and doesn't wait for the cloud work.
 | **W1b. Intake + list** | Waitlist page (applications queue, active list with positions, program and "moved by you" badges); entry page (new application, possible contact match, approve/decline, fee received, preferences including breed, listen-only/pause, notes, offer history); programs page; `waitlist_config` editor on the Kennel page; intended-placement field on the Dog form; contact page dropdown read-only when entries exist; nav, `proPages.js`, `PRECACHE_URLS`. Also: `data/waitlistActions.js`, an `editionFlags.waitlist` flag (off in Lite), dashboard tiles counting entries per kennel, a Waitlist panel on the contact page, and **Re-apply** on a closed entry. | **Built** |
 | **W1c. Offers** | "Open picks" panel on the Litter page (hidden in Lite); accept / pass / no response / void; Sale on accept (via the moved prefill helper); automatic second-pass removal plus undo; other open offers voided on accept; Today: new-applications badge and the suggested actions in §6.5. | **Built**, on the spec's leanings for the still-open Q4/Q8/Q9: the family picks a pup, one open offer per litter, colors off by default. |
 | **W1d. Extras** | Demo seed (a program family, a listen-only family, one with a pass, an open offer; the Lite seed stays empty); CSV import of applications through the existing preview flow; `application_fee` income component in Financials. | **Built.** Q5 is still open; Financials follows the leaning (received fees are income) and the `fee_credit_policy` setting, below. |
-| **W1e. Her requests** | §15: form builder + question import, offer from the entry + "who's next" per litter, fee receipt + invoice/receipt PDFs, public-list notice, "Copy list for Facebook". | **Recorded 2026-10-06, not built.** Q19–Q24 decided. |
+| **W1e. Her requests** | §15: form builder + question import, offer from the entry + "who's next" per litter, fee receipt + invoice/receipt PDFs, public-list notice, "Copy public list". | **Built** 2026-10-06. Q19–Q24 decided; programs are hers alone (no program question on the form, `applicable_on_form` dropped). See "W1e choices" below. |
+
+W1e choices worth knowing (built 2026-10-06):
+- **The form editor** is a new Pro page, `waitlist-form` (Waitlist page → **Application form**,
+  and the Kennel page's Waitlist settings card). Questions are stored as
+  `waitlist_config.form_questions`; the logic is the pure `data/waitlistForm.js`. "Required" is
+  saved now but enforced only by W2's online form; typing an application in only needs the
+  name. The editor has **Start over from the defaults**.
+- **Question import** reads the CSV's real headers as question wording, proposes map / new /
+  skip per column (timestamps and kennel/program/notes columns default to skip), and stamps
+  each mapped or new question with its column. The application importer then reads that
+  column, so the same file brings the families in afterwards (Waitlist → Import CSV).
+- **New applications** follow her form in her order and wording, with the public-list notice
+  shown as a reminder to tell the family. Editing an existing entry shows its own question
+  wording, then any questions added since.
+- **Offer a litter…** on an active family's page lists the kennel's live litters with the
+  pups available to them, or why not (another family's open offer, turn already used, paused,
+  listening for other litters, nothing matching). Offering opens picks if they weren't open.
+  Offering someone who isn't next asks her to confirm and notes who was next on the offer.
+  It's refused while another family holds an open offer on that litter (one at a time, §6.5).
+- **Outcomes** (Accepted… / Passed / No response / Void) can now be recorded on the family's
+  page as well as the Litter page.
+- **Waitlist page Litters card:** each live litter with pups to offer, its picks state, the
+  open offer, or "Next: <family>" with **Offer to them** (opens picks first if needed).
+- **Documents** on the family's page: the application fee receipt once a fee above 0 is
+  received; the puppy invoice and receipt once placed. Each has View (the invoice page) and
+  Download PDF. The invoice page also gained Download PDF for every document, so Financials'
+  generator gets real PDFs too. Partial payments and due dates stay in the Financials
+  generator.
+- **Copy public list** on the Waitlist page shows the exact text (her kennel name, the date,
+  `#N First L. · Sex · added <date>`, a note when numbers are skipped) and copies it.
 
 Known limit: "place them right after the Smiths" (§6.1) can only set the same anchor date
 as the Smiths, because the anchor is date-only. Ties then break by approval date and
@@ -833,11 +864,11 @@ Hard-delete note: the multi-entry `listen_litter_ids` / `listen_pairing_ids` reg
 entries mean an entry still listening for a litter or pairing (even a withdrawn one)
 blocks that record's hard delete. Archive is the normal way out, so this is intended.
 
-## 15. Her requests after W1 (recorded 2026-10-06, not built)
+## 15. Her requests after W1 (recorded 2026-10-06; W1e built)
 
 She tried W1 and asked for four things before W2. They're recorded here with the design
-leanings from the discussion. **Nothing is built yet.** The local parts are slice **W1e**
-(§12) and the server parts join W2. Q19–Q24 are decided (§13).
+from the discussion. The local parts are slice **W1e** (§12), **built 2026-10-06** (§14 has
+the choices made while building); the server parts join W2. Q19–Q24 are decided (§13).
 
 ### 15.1 Custom application questions
 
@@ -846,8 +877,8 @@ import her questions from her previous form or build them Google-Forms style.
 
 - **Locked questions.** The questions the rules (§6) and the automatic steps depend on
   are locked: name, email, the preferences (`pref_sex`, `pref_placement_type`,
-  `pref_breed`, `pref_colors`), program (if any are `applicable_on_form`), and the public
-  list notice (§15.3). She can reword them but can't delete them or change their answer
+  `pref_breed`, `pref_colors`), and the public list notice (§15.3). **No program
+  question:** only she assigns programs (decided 2026-10-06), at approval or on the entry. She can reword them but can't delete them or change their answer
   type.
 - **Everything else is hers.** She can add, delete, reorder, reword and set the answer
   type of every other question, the current defaults included (§5.1). Answer types: short
@@ -926,7 +957,7 @@ list"); both are marked there.
   uses, so a moved family shows up in the new place.
 - **Public link (W2):** one per kennel, e.g. `apply.kennelos.app/list/<kennel public_id>`.
   Her device publishes it as a projection (§8.1 row) and the server only displays it.
-- **Before W2:** a **"Copy list for Facebook"** button on the Waitlist page copies the
+- **Before W2:** a **"Copy public list"** button on the Waitlist page copies the
   same allow-listed list as text, ready to paste.
 - **Existing families:** none. Nobody is on her list yet, so every family will have seen
   the notice (Q22, moot).
