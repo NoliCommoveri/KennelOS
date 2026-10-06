@@ -419,11 +419,28 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   - The staging Worker has `RESEND_API_KEY`, `0002` is applied, and a test email from
     `signin@kennelos.app` arrived.
 
-  **The staging server side is complete.** Next: plan §9 steps 1–2 in `shared/`
-  (`syncRegistry.js` for field-by-field review, then snapshot building, `'cloud-merge'` restore,
-  shrink guard and the dirty signal). Then client cloud modules against staging (§9 step 4),
-  UI (step 5), and production (step 6 / §6.7 item 6) and plan §9 steps 1–2 (`syncRegistry.js`, snapshot building, `'cloud-merge'`
-  restore).
+  **The staging server side is complete.**
+- **Cloud Phase 1, §9 step 1: `shared/data/syncRegistry.js` is built, for field-by-field
+  review** (plan §5; Waitlist Spec §9 for the three waitlist tables). It is the per-table,
+  per-field cloud allow-list plus row rules, as pure data and pure functions. Nothing imports
+  it yet, so there is no behavior change.
+  - **Rule zero:** a field not listed as cloud is private. Each table also lists its known
+    `private` fields, and its `pending` ones (treated as private until decided).
+  - **Pure functions** for step 2 to build on: `filterCollectionsForCloud` (row rules, then a
+    by-name projection), `filterEventDetails` (derived from `vocab.js`: `textarea` and
+    undeclared keys are private), and `assertCloudRow`/`assertCloudCollections` (the positive
+    check before upload).
+  - **`tests/syncRegistry.test.js`** (10 tests) runs the **real** Thornfield seed through the
+    real repos against an in-memory table stand-in (`tests/support/memoryDb.js`). It fails on
+    any sample field that isn't classified, on any private key in the projection, and on a
+    `db.js` table with no entry.
+  - **Pending, private until decided:** `dogs.dob_is_estimated`, `dogs.recorded_coi`,
+    `kennels.waitlist_config`, `litters.picks_opened_date`, and
+    `litters.feeding_schedule_override`. Plan §5 doesn't classify them.
+
+  Next: §9 step 2 (snapshot building, `'cloud-merge'` restore, shrink guard and the dirty
+  signal). Then client cloud modules against staging (step 4), UI (step 5), and production
+  (step 6 / §6.7 item 6).
 
 ## Build & deploy
 

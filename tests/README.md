@@ -31,6 +31,7 @@ serve-and-exercise verification in `CLAUDE.md` / the End-State guide.
 | `showPoints.test.js` | The derived show-points engine (Show Tracking Spec §4) — per-show cap, majors under distinct judges, ignored events (not shown / wrong track / archived), string-point coercion, GCH counting only after CH (logged title or completed track) with `notCounted`, champion defeats, the completing-win date. |
 | `eventRepo.test.js` | `testTokensOf` — the health-test name derivation across the three test-bearing event types. |
 | `editionConfig.test.js` | The shared (Pro/Demo) config stays a no-op so no cap logic runs in those builds. |
+| `syncRegistry.test.js` | The cloud-backup allow-list (Cloud Phase 1 plan §5): every `db.js` table has an entry; each field sits in one bucket; **coverage**: every key the real Thornfield seed writes is classified; the cloud projection of that packet carries no private/pending key and passes `assertCloudRow`; the event-details filter matches `vocab.js`; documents/files/expenses row rules. Runs the real seed through the real repos against `support/memoryDb.js`, an in-memory stand-in for the Dexie tables (the one place IndexedDB is faked, so it's kept to the API slice the repos use). |
 | `csvImport.test.js` | The match-or-create engine's `classify()` for all 8 entity mappings — natural-key formation (case-insensitive+trimmed names, exact dates), keyless/unresolved-relationship rows forced to review, and each mapping's quirks (Sale/StudService inline-contact auto-create, Event's title tiebreak, StudService's always-ambiguous repeat-arrangement rule, Expense's mileage/receipt-number/subject rules). Bypasses `loadExisting()` (real Dexie) by seeding each mapping's private `this._foo` caches directly and driving `buildIndex()`/`classify()`, the same DB-free seam `scopePredicates.test.js` uses. `buildPlan`/`commitPlan`/`stampKennelScope` stay out of scope (real repo writes). |
 
 ## Adding tests
@@ -38,4 +39,6 @@ serve-and-exercise verification in `CLAUDE.md` / the End-State guide.
 Name files `*.test.js` under `tests/`. Import app modules by relative path
 (`../shared/data/<module>.js`). Keep them dependency-free and independent of
 IndexedDB/DOM — if a module only pulls those in lazily (inside functions), it's
-importable here; if it touches them at module top level, it isn't.
+importable here; if it touches them at module top level, it isn't. The one exception
+is `support/memoryDb.js`, which stands in for the Dexie tables when a test needs the
+real sample seed (`syncRegistry.test.js`).

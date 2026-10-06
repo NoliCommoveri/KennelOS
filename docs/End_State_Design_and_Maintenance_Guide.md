@@ -131,6 +131,8 @@ KennelOS/
     db.js                      Dexie schema — the only schema definition
     repoBase.js                makeRepo factory (shared repo surface)
     referenceRegistry.js       FK declarations + hard-delete guard
+    syncRegistry.js            Cloud-backup field allow-list + row rules (Cloud Phase 1
+                               plan §5); unlisted = private. Pure; not yet imported
     dogRepo / contactRepo / kennelRepo / pairingRepo / litterRepo /
       saleRepo / contractRepo / studServiceRepo / eventRepo / expenseRepo /
       documentRepo   Entity repos
@@ -1217,7 +1219,9 @@ Don't assume these exist; several are explicitly deferred "open doors":
    (go through a repo / `settings.js`).
 2. **One canonical direction:** you added a query for a reverse relationship, not a mirror
    field.
-3. **New FK ⇒ registry line** in `referenceRegistry.js`.
+3. **New FK ⇒ registry line** in `referenceRegistry.js`. **New field ⇒ classified** in
+   `syncRegistry.js` (cloud / private / pending); `tests/syncRegistry.test.js` fails on an
+   unclassified field the sample packet writes.
 4. **Escaping:** every user value in hand-built innerHTML is `esc()`'d; `listView` `cell`
    functions escape; `reportView` `value` functions return plain text.
 5. **New/renamed/removed/edited app file ⇒ update `sw.js` `PRECACHE_URLS` **and** bump

@@ -1,8 +1,10 @@
 # KennelOS Cloud — Phase 1 build plan: opt-in accounts + cloud backup (DRAFT)
 
 > Parent design: `docs/KennelOS_Cloud_Accounts_Proposal.md` (cited below as "Proposal §N").
-> Status: **plan for review, nothing built.** Decisions it relies on are recorded in Proposal
-> §10. The ones it raises are in §11 below.
+> Status: **in progress.** Built so far: §9 step 1 (`shared/data/syncRegistry.js`, awaiting
+> field-by-field review) and step 3 (the staging Worker). The README's build status is the
+> live record. Decisions it relies on are recorded in Proposal §10. The ones it raises are in
+> §11 below.
 
 ## 1. Scope
 
@@ -227,6 +229,22 @@ implicitly cloud.
 findings, temperament notes, `notes`/`note`) are private, and every other declared key is cloud.
 An **undeclared** key in `details` is private. So the rule is derived from the vocab that
 already drives the forms, and it can't drift.
+
+**As built (§9 step 1).** `shared/data/syncRegistry.js` follows the table above, and adds:
+- **The three waitlist tables**, classified as in `KennelOS_Waitlist_Spec.md` §9, plus
+  `dogs.intended_placement` (cloud). "Every field except" rows (`waitlist_offers`,
+  `breed_feeding_schedules`) are written out field by field, so a field added later still
+  starts private.
+- **A `pending` bucket per table** for fields this table doesn't classify. They are private
+  (rule zero) until moved: `dogs.dob_is_estimated`, `dogs.recorded_coi`,
+  `kennels.waitlist_config` (it holds the waitlist fee and payment instructions),
+  `litters.picks_opened_date`, `litters.feeding_schedule_override`.
+- **Readings of the table:** `litters.foster_comp_model` and `foster_split_basis` count as
+  foster-money fields (private). `documents.contract_id` is private, because it only appears
+  on contract-type documents, which never leave. `files.blob` is never in the snapshot JSON;
+  `sha256` is a declared *derived* key that the snapshot builder adds in its place (§4.1).
+- **Not in this table but present in data:** the sample packet's `heat_cycle` event still
+  writes the retired `details.cycle_start` key. It is undeclared, so it stays private.
 
 **Why `referred_by_contact_id` and `lead_source` are private:** they're sales-funnel
 information about other people, not kennel records, and nothing in Phase 1 needs them.

@@ -97,6 +97,7 @@ const PRECACHE_URLS = [
   'data/seedImport.js',
   'data/settings.js',
   'data/studServiceRepo.js',
+  'data/syncRegistry.js',
   'data/vocab.js',
   'data/waitlistActions.js',
   'data/waitlistEntryRepo.js',
