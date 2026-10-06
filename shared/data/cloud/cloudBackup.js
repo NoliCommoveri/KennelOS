@@ -16,7 +16,8 @@
 import { exportAll, restoreBackup, planCloudMerge } from '../importExport.js';
 import {
   getSampleDataManifest, getCloudDirtyAt, getCloudDirtySince, clearCloudDirty,
-  getCloudBackupState, updateCloudBackupState, CLOUD_DATA_CHANGED_EVENT
+  getCloudBackupState, updateCloudBackupState, CLOUD_DATA_CHANGED_EVENT,
+  getMyKennelId, setMyKennelId, markSampleDataCleared, setCloudRestoredAt
 } from '../settings.js';
 import { edition } from '../editionConfig.js';
 import { isCloudAvailable } from './cloudConfig.js';
@@ -192,11 +193,24 @@ function fail(status, error, extra = {}) {
 //   force       — push even when not dirty, and even when paused (a push the
 //                 user started: "Turn on", "Back up now", after a takeover)
 //   allowShrink — the user chose "Upload anyway" in the shrink dialog
-export function pushIfDirty({ force = false, allowShrink = false } = {}) {
-  return exclusive(() => pushNow({ force, allowShrink }));
+//   onProgress  — ({ phase: 'files'|'snapshot', done, total }) for the UI's
+//                 progress bar (the first backup with documents can take a minute)
+// Every attempt that gets past the quick skips dispatches CLOUD_BACKUP_EVENT on
+// the window with the result, so an open status line can refresh itself.
+export const CLOUD_BACKUP_EVENT = 'kennelos:cloudbackup';
+
+export function pushIfDirty({ force = false, allowShrink = false, onProgress = null } = {}) {
+  return exclusive(async () => {
+    const result = await pushNow({ force, allowShrink, onProgress });
+    if (result.status !== 'skipped') {
+      try { globalThis.dispatchEvent?.(new CustomEvent(CLOUD_BACKUP_EVENT, { detail: result })); } catch { /* no window */ }
+    }
+    return result;
+  });
 }
 
-async function pushNow({ force, allowShrink }) {
+async function pushNow({ force, allowShrink, onProgress }) {
+  const progress = (phase, done, total) => { try { onProgress?.({ phase, done, total }); } catch { /* UI only */ } };
   if (!isCloudAvailable()) return { status: 'skipped', reason: 'unavailable' };
   const state = getCloudBackupState();
   const token = sessionToken();
@@ -223,9 +237,11 @@ async function pushNow({ force, allowShrink }) {
 
     // Files first: the server refuses a snapshot that references a file it
     // doesn't have, and retention only spares files for a day (cloud/README).
-    for (const f of files) {
+    for (const [i, f] of files.entries()) {
+      progress('files', i, files.length);
       if (!(await api.hasFile(token, f.sha256))) await api.putFile(token, f.sha256, f.blob, f.mime);
     }
+    progress('snapshot', files.length, files.length);
     const gz = await gzipJson(envelope);
     const description = {
       base_snapshot_id: state.lastSnapshotId || null,
@@ -282,10 +298,10 @@ function failFromError(err) {
 // --- Turning it on / off (plan §2.1, §2.4) ------------------------------------
 // "Turn on": the first backup runs immediately. A program that already has a
 // backup from another device (or from before a reset) comes back 'conflict'.
-export async function enableBackup() {
+export async function enableBackup({ onProgress } = {}) {
   if (!isCloudAvailable()) return { status: 'skipped', reason: 'unavailable' };
   updateCloudBackupState({ enabled: true, lastError: null });
-  return pushIfDirty({ force: true });
+  return pushIfDirty({ force: true, onProgress });
 }
 
 // "Turn off backup on this device": stops pushing; the cloud copy stays.
@@ -357,7 +373,7 @@ export async function restoreLatestAndTakeOver({ onProgress } = {}) {
 
 // Choice 2: "Replace it with this device's records" (typed confirm in the UI).
 // The old backup stays in the 30-day history.
-export async function replaceCloudWithThisDevice() {
+export async function replaceCloudWithThisDevice({ onProgress } = {}) {
   if (!isCloudAvailable()) throw new api.CloudUnavailableError();
   const after = await api.takeOverBacking(requireToken());
   updateCloudBackupState({
@@ -367,7 +383,7 @@ export async function replaceCloudWithThisDevice() {
     lastContentHash: null,
     lastError: null
   });
-  return pushIfDirty({ force: true, allowShrink: true });
+  return pushIfDirty({ force: true, allowShrink: true, onProgress });
 }
 
 // --- Restoring (plan §2.3, §4.3) -------------------------------------------------
@@ -407,7 +423,41 @@ export async function restoreSnapshot(envelope, { overwrite = false, onProgress 
 
 // New phone (first-run "I already use KennelOS → sign in and restore", plan
 // §2.3): restore the latest snapshot, then this device backs up from here on.
-export const restoreOnNewDevice = restoreLatestAndTakeOver;
+// Also records the first-run choice (so the sample-data prompt never comes back)
+// and points the kennel-setup identity at the restored own kennel, which lives in
+// settings, not in the snapshot.
+export async function restoreOnNewDevice(opts = {}) {
+  const result = await restoreLatestAndTakeOver(opts);
+  markSampleDataCleared();
+  if (result.restored) {
+    setCloudRestoredAt(new Date().toISOString());
+    if (!getMyKennelId()) {
+      const own = (await exportAll({ encodeBlobs: false })).collections.kennels
+        ?.find((k) => k.is_own_kennel && !k.is_archived);
+      if (own) setMyKennelId(own.id);
+    }
+  }
+  return result;
+}
+
+// --- Service notices (plan §2.1, §6.1; Proposal §2a) ----------------------------
+// The in-app shutdown channel. Fetched only for a device signed in to cloud
+// backup (someone who never opted in makes no request to the server at all),
+// once per browsing session, and cached in sessionStorage so every page of the
+// session can show it. Never throws: no notices is the safe answer.
+const NOTICE_CACHE = 'kennelOS.cloudNotices';
+
+export async function getServiceNotices() {
+  if (!isCloudAvailable() || !currentAccount()) return [];
+  try {
+    const cached = globalThis.sessionStorage?.getItem(NOTICE_CACHE);
+    if (cached) return JSON.parse(cached);
+  } catch { /* fall through to a fetch */ }
+  let notices = [];
+  try { notices = await api.getNotices(); } catch { return []; }
+  try { globalThis.sessionStorage?.setItem(NOTICE_CACHE, JSON.stringify(notices)); } catch { /* fine */ }
+  return notices;
+}
 
 // --- The scheduler (plan §2.2) ---------------------------------------------------
 // Pushes only when something changed:

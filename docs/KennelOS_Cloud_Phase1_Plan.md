@@ -1,9 +1,9 @@
 # KennelOS Cloud — Phase 1 build plan: opt-in accounts + cloud backup (DRAFT)
 
 > Parent design: `docs/KennelOS_Cloud_Accounts_Proposal.md` (cited below as "Proposal §N").
-> Status: **in progress.** Built so far: §9 steps 1–4 (the registry; snapshot, `'cloud-merge'`
+> Status: **in progress.** Built so far: §9 steps 1–5 (the registry; snapshot, `'cloud-merge'`
 > restore and dirty signal; the staging Worker; the client cloud modules in
-> `shared/data/cloud/`). Next: step 5, the UI. The README's build status is the
+> `shared/data/cloud/`; the UI in `shared/assets/cloudBackupUI.js`). Next: step 6. The README's build status is the
 > live record. Decisions it relies on are recorded in Proposal §10. The ones it raises are in
 > §11 below.
 
@@ -269,6 +269,32 @@ field** on a device that has them. So we add a third mode, with one switch, `ove
 - **Tests** drive the client against the real Worker code in-process
   (`tests/cloudClient.test.js`). The fetch stand-in adds `Content-Length` as a browser
   does for a Blob body.
+
+### 4.6 As built (§9 step 5: the UI)
+- **Loading.** `cloudBackupUI.js` is imported dynamically, and only when
+  `isCloudAvailable()`, by `app.js` (`bootCloud`), `today.js`, `import-export.js` and the
+  first-run restore button. With `cloudUrl: null`, no cloud UI loads, renders, or makes a
+  request (browser-verified, §7's "no-server boot test").
+- **The post-setup offer** is armed when the first kennel is saved (`required` kennel-setup
+  save) and shown on the reload after it. It isn't shown with sample data loaded, to a
+  signed-in device, or while another modal is open. "Skip for now" also snoozes Today's
+  nudge for its 30 days.
+- **The Today nudge** only renders without sample data. "Not now" snoozes it for 30 days
+  (`nudgeState.dismissedAt`). The same slot shows "Cloud backup is paused" while a
+  conflict, shrink or expired sign-in is waiting.
+- **Service notices** are fetched only by a device signed in to cloud backup, once per
+  browsing session (cached in `sessionStorage`). Someone who never opted in sends the
+  server nothing at all. They render as a strip at the top of every page.
+- **Restore on a new device** also records the first-run choice and sets `myKennelId` to
+  the restored own kennel (settings aren't in the snapshot), so the kennel-setup gate
+  doesn't fire.
+- **Reset App's question** is a checkbox in the existing typed-RESET modal, ticked by
+  default (§3.3: the reset follows a typed confirmation).
+- **Restore as of…** labels a snapshot "Today 9:14" / "Yesterday …" / "Tue Sep 29 …". When
+  two backups fall in the same minute, they get seconds too.
+- **Deferred:** the per-record "private details aren't in cloud backup" hint (§2.3). For now
+  there is one hint on the Import/Export card after a cloud restore, pointing at a file
+  backup merge.
 
 ## 5. The classification (`syncRegistry.js`)
 

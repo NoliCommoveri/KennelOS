@@ -219,6 +219,10 @@ KennelOS/
                                page + kennelSetupUI's prefill section)
     importView.js              Shared CSV import dry-run/commit UI
     onboardingUI.js            First-run Welcome → tour-offer → backups/install cards (§11)
+    cloudBackupUI.js           Every cloud-backup screen: sign-in, the Import/Export card,
+                               the Today nudge, the 409/shrink dialogs, restore as of…,
+                               first-run restore, the post-setup offer, notices (§11).
+                               Loaded only when the edition has a cloud server
     sampleDataUI.js            Sample-data banner + Clear-sample-data flow
     kennelSetupUI.js           Kennel-setup prompt/wizard + seed prefill
     wizardUI.js                Guided-tour overlay/spotlight/cards + resume pill (§11)
@@ -864,7 +868,9 @@ plain local backup/restore.
   contact, breeder's vet, plus an auto-generated `breederKey` — §27, via
   `getFureverSettings`/`setFureverSettings`). `clearAllSettings()` drops them all (used
   by Reset App), including `cloudDirtyAt` and `cloudDirtySince` (the first unpushed change,
-  which the cloud scheduler's five-minute timer runs from).
+  which the cloud scheduler's five-minute timer runs from), `cloudOfferPending` (the
+  one-time post-setup cloud offer) and `cloudRestoredAt` (when this device was last
+  restored from the cloud, for the private-details hint).
 - **Cloud backup keys outside `KEYS`** (Cloud Phase 1 plan §3.3), so `clearAllSettings()`
   doesn't touch them: `cloudSession` (`{ token, email, programId, deviceId }`; the email
   stays on this device, the server keeps only a keyed hash), `cloudBackupState`
@@ -971,6 +977,39 @@ request durable storage once, then — on a genuinely fresh install (`shouldOffe
 - **"No thanks…"** → `declineSampleData()` (a blank kennel, no sample data ever), a
   **backups + install-as-app** card, then the **New Kennel** kennel-setup modal, in its
   `required` posture.
+- **"I already use KennelOS → sign in and restore"** (Cloud Phase 1 plan §2.3) — a third
+  button, shown **only when the edition has a cloud server** (`cloudConfig.isCloudAvailable()`).
+  It runs `cloudBackupUI.runSignInAndRestore()`: email + code, then
+  `cloudBackup.restoreOnNewDevice()`, which restores the latest snapshot, takes over as the
+  backing device, records the first-run choice (`markSampleDataCleared`), and points
+  `myKennelId` at the restored own kennel. Restoring **skips kennel setup**, since the
+  snapshot has the kennel. Backing out of sign-in returns to the choice. An account with no
+  backup yet carries on to kennel setup with backup already on.
+
+**Cloud backup in the shell** (only with a server; an edition with `cloudUrl: null` never
+loads any cloud UI, and the Welcome card keeps saying "no account, no cloud"):
+- `app.js`, after the first-run flow, dynamically imports `cloudBackupUI.bootCloud()`.
+  That starts the backup scheduler on every page, shows service notices for a signed-in
+  device, and runs the **one-time offer** "Protect your records: turn on free cloud backup".
+  The offer is armed by settings `cloudOfferPending` when the first kennel is saved in the
+  `required` kennel-setup modal, and shown on the reload after it. "Skip for now" also
+  snoozes Today's nudge.
+- **Today** has a `#today-cloud` slot. While backup is off it shows "turn on free cloud
+  backup", which "Not now" snoozes for 30 days via `nudgeState.dismissedAt`. While backup is
+  paused (another device, the shrink guard, an expired sign-in) it shows a Resolve link to
+  the Import/Export card. Nothing shows while sample data is loaded.
+- **Import/Export** has a **Cloud backup** card (`#cloud-backup`):
+  - turn on (sign in → "What gets backed up" → first backup with progress);
+  - a status line ("Backed up 4 minutes ago" / "Not backed up for 3 days: no internet?");
+  - Back up now, and Restore as of… (pick a snapshot → per-table preview → confirm → reload);
+  - turn off, sign out, sign out other devices, and delete my cloud data (typed DELETE);
+  - a one-time "private details aren't in cloud backup" hint after a cloud restore
+    (settings `cloudRestoredAt`).
+  The 409 dialog offers "Restore that backup here" or "Replace it…" (typed REPLACE); the
+  shrink dialog offers "Restore from backup instead" or "Upload anyway".
+- **Reset App** always turns cloud backup off (`appReset.stopCloudBackupAfterReset`). When
+  the device is signed in, its modal adds **"Also sign out of cloud backup on this
+  device"**, ticked by default.
 
 `showKennelSetupModal({ mode })` has two postures: **`required`** (no Skip, no Cancel, no
 backdrop close, no Escape — both ambient escapes are swallowed in the capture phase; used by
@@ -1124,6 +1163,10 @@ implementation lives in `data/dateUtils.js`.
 - **puppyForm.js**, **importView.js**, **onboardingUI.js**, **sampleDataUI.js**,
   **kennelSetupUI.js** — roster entry, the CSV dry-run/commit UI, the first-run onboarding
   card sequence, the sample-data banner, and the kennel-setup modal.
+- **cloudBackupUI.js** — every cloud-backup screen (§11's "Cloud backup in the shell").
+  Imported only dynamically and only when `cloudConfig.isCloudAvailable()`, by `app.js`,
+  `today.js`, `import-export.js` and `onboardingUI.js`. Every value it renders goes through
+  `esc()`.
 - **contactPicker.js** — `attachNewContactButton(selectEl, {onCreated})` decorates any
   contact `<select>` with a "＋ New" button: minimal inline-create modal (name required),
   creates via `contactRepo.create`, appends+selects the option, fires a native `change`

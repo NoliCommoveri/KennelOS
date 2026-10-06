@@ -505,7 +505,49 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     call came back as a quiet `CloudOfflineError`. A live run against staging is still to
     do, from a machine that can reach it.
 
-  Next: UI (step 5), then production (step 6 / §6.7 item 6).
+- **Cloud Phase 1, §9 step 5: the cloud backup UI is built and browser-verified** (plan §2,
+  §3.4, §3.5), in `shared/assets/cloudBackupUI.js`. It's loaded only when the edition has a
+  server, so an edition with `cloudUrl: null` shows nothing new and loads none of it.
+  - **First run:**
+    - a third choice, "I already use KennelOS → sign in and restore", which skips kennel
+      setup;
+    - after the first kennel is saved, a one-time, skippable "Protect your records: turn on
+      free cloud backup";
+    - the Welcome card's "no account, no cloud" line becomes "free cloud backup is optional,
+      and off unless you turn it on".
+  - **Sign-in:** email, then the 6-digit code ("We use your email to send your code. We
+    don't keep it."), with resend, a spam hint, and a name for this device. Then the "What
+    gets backed up" screen before the first backup, which shows progress.
+  - **Import/Export card:** status line, Back up now, Restore as of…, turn off, sign out,
+    sign out other devices, delete my cloud data, and a one-time "private details aren't in
+    cloud backup" hint after a restore.
+  - **Dialogs:**
+    - 409: "Backups for Oak Hill Kennels are coming from Laptop B (last backup just now)",
+      with Restore that backup here / Replace it (typed REPLACE) / Not now;
+    - shrink guard: Restore from backup instead / Upload anyway / Not now.
+    Either "Not now" leaves backup paused, which the card and Today both show, with a
+    Resolve.
+  - **Today:** a nudge while backup is off ("Not now" snoozes it for 30 days), or a
+    "paused" line.
+  - **Reset App:** "Also sign out of cloud backup on this device", ticked by default. Backup
+    is turned off either way.
+  - **Every page:** the backup scheduler, and service notices (fetched only for a signed-in
+    device).
+  - **Verified in headless Chromium**, against the real Worker code served locally on its
+    in-memory D1/R2 (the staging host is blocked from this environment). Two devices ran
+    first-run → kennel → offer → sign in → turn on → back up; then new device → sign in and
+    restore (dogs and contact names come back, emails and notes don't, no kennel-setup gate);
+    then the old device → 409 → paused on card and Today → Resolve → Replace; then restore as
+    of an earlier snapshot (status rolled back, private note kept); then Reset App (stays
+    signed in when unticked, backup off). The assembled Lite build ran too. No console
+    errors. With no server: no card, no offer, no nudge, the original welcome text, and zero
+    API requests.
+  - **Not done:** the per-record "private details aren't in cloud backup" hint on record
+    pages (plan §2.3). For now it's one hint on the Import/Export card after a restore.
+
+  Next: step 6. That's the docs (§8: CLAUDE.md, the Editions Plan, the End-State guide's
+  §29 section), the privacy policy page, the SW bump, and production. A live check against
+  staging from a machine that can reach it should come first.
 
 ## Build & deploy
 

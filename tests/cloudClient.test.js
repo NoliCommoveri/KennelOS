@@ -126,7 +126,7 @@ test('sign in by code: the session is stored, the device keeps its id across sig
   const again = await signIn();
   assert.equal(again.deviceId, deviceId, 'same device, same id');
   assert.equal(again.programId, first.programId);
-  assert.deepEqual(auth.currentAccount(), { email: 'breeder@example.com', programId: first.programId, deviceId, signedIn: true });
+  assert.deepEqual(auth.currentAccount(), { email: 'breeder@example.com', programId: first.programId, deviceId, deviceLabel: 'Phone A', signedIn: true });
 });
 
 test('a wrong code is a CloudRequestError with the server code', async () => {

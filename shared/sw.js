@@ -19,6 +19,7 @@ const PRECACHE_URLS = [
   'manifest.json',
   'assets/app.css',
   'assets/breedTestPicker.js',
+  'assets/cloudBackupUI.js',
   'assets/contactPicker.js',
   'assets/documentModal.js',
   'assets/dropboxConnectUI.js',

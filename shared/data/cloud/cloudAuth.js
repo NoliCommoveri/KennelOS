@@ -44,7 +44,7 @@ export async function verifySignIn(email, code, { deviceLabel = defaultDeviceLab
     // for the other program, so forget it.
     updateCloudBackupState({ enabled: false, lastSnapshotId: null, lastCounts: null, lastContentHash: null, lastError: null });
   }
-  return setCloudSession({ token: res.token, email: cleanEmail, programId: res.programId, deviceId: res.deviceId });
+  return setCloudSession({ token: res.token, email: cleanEmail, programId: res.programId, deviceId: res.deviceId, deviceLabel: deviceLabel || null });
 }
 
 // The session, or null. `signedIn` is false when the token was dropped after a
@@ -52,7 +52,10 @@ export async function verifySignIn(email, code, { deviceLabel = defaultDeviceLab
 export function currentAccount() {
   const s = getCloudSession();
   if (!s) return null;
-  return { email: s.email || null, programId: s.programId || null, deviceId: s.deviceId || null, signedIn: !!s.token };
+  return {
+    email: s.email || null, programId: s.programId || null, deviceId: s.deviceId || null,
+    deviceLabel: s.deviceLabel || null, signedIn: !!s.token
+  };
 }
 
 export function sessionToken() {

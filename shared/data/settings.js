@@ -21,7 +21,9 @@ const KEYS = {
   assistantFeedPushedAt: 'kennelOS.assistantFeedPushedAt',
   furever: 'kennelOS.furever',
   cloudDirtyAt: 'kennelOS.cloudDirtyAt',
-  cloudDirtySince: 'kennelOS.cloudDirtySince'
+  cloudDirtySince: 'kennelOS.cloudDirtySince',
+  cloudOfferPending: 'kennelOS.cloudOfferPending',
+  cloudRestoredAt: 'kennelOS.cloudRestoredAt'
 };
 
 export function getLastBackupDate() {
@@ -481,6 +483,28 @@ export function clearCloudDirty(ifAt) {
   } else if (current) {
     localStorage.setItem(KEYS.cloudDirtySince, current);
   }
+}
+
+// The one-time "Protect your records: turn on free cloud backup" offer (Cloud
+// Phase 1 plan §2.1), armed when the first kennel is saved and shown on the next
+// load (the save reloads the page). And when this device was last restored from
+// the cloud, for the "private details aren't in cloud backup" hint (§2.3).
+export function isCloudOfferPending() {
+  return localStorage.getItem(KEYS.cloudOfferPending) === '1';
+}
+
+export function setCloudOfferPending(on) {
+  if (on) localStorage.setItem(KEYS.cloudOfferPending, '1');
+  else localStorage.removeItem(KEYS.cloudOfferPending);
+}
+
+export function getCloudRestoredAt() {
+  return localStorage.getItem(KEYS.cloudRestoredAt);
+}
+
+export function setCloudRestoredAt(iso) {
+  if (iso) localStorage.setItem(KEYS.cloudRestoredAt, iso);
+  else localStorage.removeItem(KEYS.cloudRestoredAt);
 }
 
 // Full app reset (Reset App to Start): drop every key this app owns in
