@@ -14,7 +14,7 @@ import { healthCheck } from './health.js';
 import { activeNotices, addNotice, removeNotice, LEVELS } from './notice.js';
 import { runRetention } from './retention.js';
 import { exportAll, importAll } from './backup.js';
-import { mailMode } from './mail.js';
+import { mailMode, sendTestEmail } from './mail.js';
 import { hmacHex, timingSafeEqual } from './lib/crypto.js';
 import { readCookie } from './lib/http.js';
 import { escapeHtml as esc } from './lib/html.js';
@@ -161,7 +161,15 @@ ${results.length
     : '<p class="muted">None yet.</p>'}`;
   }
 
-  return `${outbox}
+  const testEmail = mailMode(env) === 'resend'
+    ? `<h2>Email</h2>
+<form method="post" action="/ops/test-email">
+  <p><label>Send a test email to<br><input type="email" name="email" autocomplete="email"></label></p>
+  <button type="submit">Send test email</button>
+</form>`
+    : '';
+
+  return `${outbox}${testEmail}
 <h2>Service notices</h2>
 ${noticeRows ? `<table>${noticeRows}</table>` : '<p class="muted">No active notices.</p>'}
 <form method="post" action="/ops/notices">
@@ -245,6 +253,11 @@ async function route(request, env) {
              .join('\n\n'))}</pre></details>`)
       .join('');
     return dashboard(env, flash + (halted ? '<p class="bad">Halted. Later migrations were not attempted.</p>' : ''));
+  }
+
+  if (url.pathname === '/ops/test-email' && request.method === 'POST') {
+    const r = await sendTestEmail(env, (await request.formData()).get('email'));
+    return dashboard(env, r.ok ? '<p class="ok">Sent. Check that inbox, and its spam folder.</p>' : `<p class="bad">${esc(r.reason)}</p>`);
   }
 
   if (url.pathname === '/ops/retention' && request.method === 'POST') {

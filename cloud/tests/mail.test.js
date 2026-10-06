@@ -50,3 +50,25 @@ test('a Resend failure is a 502, and the address is not logged', async () => {
   }
   assert.doesNotMatch(logged.join('\n'), /jen@example\.com/);
 });
+
+test('/ops can send a test email through Resend, and reports a refusal', async () => {
+  const { worker } = await import('./helpers/worker.js');
+  const env = await makeEnv({ RESEND_API_KEY: 're_test' });
+  const login = await worker.fetch(new Request('https://api.example/ops/login', { method: 'POST', body: new URLSearchParams({ token: 'ops' }) }), env);
+  const cookie = login.headers.get('set-cookie').split(';')[0];
+  const send = (email) => worker.fetch(new Request('https://api.example/ops/test-email', {
+    method: 'POST', headers: { Cookie: cookie }, body: new URLSearchParams({ email }),
+  }), env);
+
+  const dash = await (await worker.fetch(new Request('https://api.example/ops', { headers: { Cookie: cookie } }), env)).text();
+  assert.match(dash, /Send test email/);
+
+  const sent = captureFetch();
+  assert.match(await (await send('me@example.com')).text(), /Sent\. Check that inbox/);
+  assert.deepEqual(sent[0].body.to, ['me@example.com']);
+  assert.equal(sent[0].body.subject, 'KennelOS test email');
+
+  globalThis.fetch = async () => new Response(JSON.stringify({ message: 'The kennelos.app domain is not verified.' }), { status: 403 });
+  assert.match(await (await send('me@example.com')).text(), /Resend refused it \(403\): The kennelos\.app domain is not verified\./);
+  assert.match(await (await send('nope')).text(), /not an email address/);
+});

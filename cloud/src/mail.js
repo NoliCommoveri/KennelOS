@@ -35,6 +35,28 @@ export function codeMessage(code, minutes) {
   };
 }
 
+// /ops's "Send a test email": proves the domain, the key and delivery work
+// before any app screen exists. Resend only; there is nothing to test otherwise.
+export async function sendTestEmail(env, rawEmail) {
+  const email = String(rawEmail ?? '').trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, reason: 'That is not an email address.' };
+  if (mailMode(env) !== 'resend') return { ok: false, reason: 'RESEND_API_KEY is not set, so there is nothing to test.' };
+  const res = await fetch(RESEND_URL, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      from: env.MAIL_FROM || DEFAULT_FROM,
+      to: [email],
+      subject: 'KennelOS test email',
+      text: 'This is a test sent from KennelOS ops. Sign-in codes will come from this address.\n',
+    }),
+  });
+  if (res.ok) return { ok: true };
+  let detail = '';
+  try { detail = (await res.json()).message ?? ''; } catch { /* no body */ }
+  return { ok: false, reason: `Resend refused it (${res.status})${detail ? `: ${detail}` : ''}` };
+}
+
 export async function sendCode(env, { email, emailHash, code, minutes }) {
   const mode = mailMode(env);
 
