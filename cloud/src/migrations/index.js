@@ -12,7 +12,9 @@
 //   something references is rebuilt by moving the child table out first;
 // - keep LIKE/GLOB patterns under 50 characters (D1 caps them, unpublished).
 import schema from './0001_schema.sql';
+import backupApi from './0002_backup_api.sql';
 
 export const MIGRATIONS = [
   { id: '0001', name: 'schema', sql: schema },
+  { id: '0002', name: 'backup_api', sql: backupApi },
 ];

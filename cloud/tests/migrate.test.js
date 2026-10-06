@@ -5,14 +5,14 @@ import { makeDb } from './helpers/d1.js';
 
 const { applyPending, migrationStatus, schemaIsCurrent } = migrate;
 
-test('0001 applies to an empty database and creates every Phase 1 table', async () => {
+test('every migration applies to an empty database and creates every Phase 1 table', async () => {
   const db = makeDb();
   const { log, halted } = await applyPending(db);
   assert.equal(halted, false);
-  assert.deepEqual(log.map((l) => [l.id, l.ok]), [['0001', true]]);
+  assert.ok(log.length >= 2 && log.every((l) => l.ok));
 
   const tables = db.raw.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map((r) => r.name);
-  for (const t of ['users', 'login_codes', 'sessions', 'programs', 'snapshots', 'files', 'snapshot_files', '_migrations']) {
+  for (const t of ['users', 'login_codes', 'sessions', 'programs', 'snapshots', 'files', 'snapshot_files', 'rate_limits', 'dev_outbox', 'notices', '_migrations']) {
     assert.ok(tables.includes(t), `missing table ${t}`);
   }
   assert.equal(await schemaIsCurrent(db), true);

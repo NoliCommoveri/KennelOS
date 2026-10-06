@@ -280,16 +280,17 @@ a **Worker, not Cloudflare Pages**: Pages has no Cron Triggers, and §6.3's rete
 | `POST /auth/signout` | Revokes this token. |
 | `POST /auth/signout-others` | Revokes every other session on the account ("Sign out other devices" on the Import/Export card). |
 | `GET /program` | Program name, backing device (label + last push), latest snapshot meta. |
-| `HEAD /files/:sha256` · `PUT /files/:sha256` | Upload-if-missing, answered from D1's `files` table (§6.2), not by asking R2. `PUT` streams the body straight into R2 with `put(key, body, { sha256 })`, so **R2 verifies the hash** and rejects a mismatch. The Worker never buffers or re-hashes the file itself, which would blow the CPU and memory limits at 25 MB. On success it writes the `files` row. 25 MB cap per file, checked against `Content-Length` before streaming. |
-| `POST /snapshots` | Body: gzipped envelope (sent as `application/gzip`, not `Content-Encoding`) + `base_snapshot_id`, `device_id`. Returns 409 per §3.4. The server checks every referenced sha256 has a `files` row, in one query (§6.2). |
+| `HEAD /files/:sha256` · `PUT /files/:sha256` · `GET /files/:sha256` | Upload-if-missing, answered from D1's `files` table (§6.2), not by asking R2. `PUT` streams the body straight into R2 with `put(key, body, { sha256 })`, so **R2 verifies the hash** and rejects a mismatch. The Worker never buffers or re-hashes the file itself, which would blow the CPU and memory limits at 25 MB. On success it writes the `files` row. 25 MB cap per file, checked against `Content-Length` before streaming. `GET` is for restore. |
+| `POST /snapshots` | **Step one of two:** a small JSON description, `{base_snapshot_id, size, counts, files: [sha256…]}`. Refuses before any bytes move: a 409 per §3.4 (naming the backing device and its last push), or a 400 naming any referenced file the server doesn't have, checked in one query (§6.2). Returns `{snapshotId}`; the row is `pending`. |
+| `PUT /snapshots/:id/body` | **Step two:** the gzipped envelope (`Content-Length` must equal the described `size`), streamed to R2. Commits only if the §3.4 rule still holds at that moment (one conditional batch), so two devices racing can't both win; the loser's row and object are removed and it gets the 409. An upload abandoned between the steps is removed by retention after a day. |
 | `GET /snapshots` · `GET /snapshots/:id` | The history list and one snapshot. |
 | `POST /program/backing-device` | Takeover (§3.4). |
 | `DELETE /account` | Deletes the account's rows, snapshots and files, and revokes tokens. |
 | `GET /notice` | Service notices (`{ level, message, until }`) for the sunset path (Proposal §2a). Public and cacheable. |
-| `/ops/*` | The operator's page (§6.6). Same-origin HTML, behind `OPS_TOKEN`, never in the CORS allow-list. |
+| `/ops/*` | The operator's page (§6.6). Same-origin HTML, behind `OPS_TOKEN`, never in the CORS allow-list. Service notices are added and removed here. |
 
 **Maintenance answer.** While any migration is pending or drifted (§6.6), every API route
-except `/ops` and `/notice` returns **`503 {maintenance: true}`**. `cloudApi` treats it like
+except `/ops`, `/notice` and `/health` returns **`503 {maintenance: true}`**. `cloudApi` treats it like
 being offline: backup retries later and nothing is shown as an error. This covers the window
 between a deploy and **Apply pending**, when the code is newer than the database. Breeders'
 apps push in the background, so without this every sign-in or push in that window would
@@ -306,7 +307,19 @@ snapshots(id, program_id, device_id, created_at, size, counts_json, r2_key)
 snapshot_files(snapshot_id, sha256)        -- for GC
 files(program_id, sha256, size, created_at, PRIMARY KEY (program_id, sha256))
 _migrations(id, name, applied_at, checksum) -- the runner's own table (§6.6)
+-- 0002 adds:
+snapshots + status ('pending' | 'committed'), base_snapshot_id, device_label
+rate_limits(bucket, window_start, count)   -- per email hash / HMAC'd IP, per UTC hour
+dev_outbox(id, email_hash, code, created_at) -- staging only, while no email provider exists
+notices(id, level, message, until, created_at)
 ```
+- **Rate limits:** 5 codes an hour per address and 30 an hour per IP. The limit applies to
+  any address, so a 429 says nothing about whether an account exists. The IP is HMAC'd
+  like the email, never stored as-is.
+- **Codes on staging:** with no email provider connected, staging sets `DEV_OUTBOX = "1"`
+  and the code is shown on `/ops` instead of emailed, keyed by the email hash, never the
+  address. Production never sets it, and with no provider it refuses sign-in (503
+  `email_unavailable`) rather than pretending a code was sent.
 - **`files` is the R2 index.** Upload-if-missing, the snapshot's reference check and the
   retention GC all read it instead of calling R2 per file. One R2 call per file would exceed
   the free tier's 50 subrequests on a program with a real document library, and would be slow
@@ -334,7 +347,11 @@ _migrations(id, name, applied_at, checksum) -- the runner's own table (§6.6)
 - **Retention:** for the last 24 h, at most one snapshot per hour (the latest in each hour);
   then one per day to 30 days; then deleted. The newest snapshot is always kept, whatever
   its age. (Together with the §2.2 cadence that's at most ~53 snapshots per program; §4.2.)
-  A daily cron Worker prunes snapshots, then deletes files no retained snapshot references.
+  A daily cron (03:17 UTC) prunes snapshots, then deletes files no retained snapshot
+  references. A file gets a day's grace, so one uploaded just before its snapshot is
+  committed is never collected. The same run clears abandoned uploads, expired codes,
+  old rate-limit windows, outbox rows and dead sessions. D1 rows go before R2 objects, so a
+  failure leaves unreferenced objects, never rows pointing at nothing.
 - **The cron is a backstop, never the only path.** Cron Triggers run in UTC and are not
   retried if a run fails, so the prune is idempotent: it recomputes what to keep from the
   stored rows on every run, and a missed day just leaves more to delete next time. `/ops`
@@ -362,17 +379,18 @@ _migrations(id, name, applied_at, checksum) -- the runner's own table (§6.6)
 - **Privacy policy page** on `site/` before launch. It covers what's stored (§5's table in
   plain English), retention (30 days), how to delete, and what happens on shutdown.
 
-### 6.5 Email
-A transactional email provider is needed for the codes (Cloudflare Email Service, Resend,
-Postmark…). It's the one third-party dependency (see Q1). It sees the recipient address for
-each code it sends, so pick one whose logs can be set to short retention; the privacy policy
-names it. The sender domain is
-`kennelos.app`, with SPF/DKIM set up so codes don't land in spam.
-
-**Check before choosing Cloudflare's own:** the provider has to send to *any* address a
-breeder types. Cloudflare's older Email Routing `send_email` binding only sends to addresses
-verified in advance, which rules it out. Confirm the account's Email Service supports
-arbitrary recipients before picking it over Resend/Postmark.
+### 6.5 Email (decided: Resend)
+Sign-in codes are sent through **Resend**'s HTTP API from `signin@kennelos.app`, plain text,
+with no links or tracking. That's its only use. It's the one third-party dependency.
+- **Setup:** the `kennelos.app` domain is verified in Resend; its records (DKIM, plus SPF and
+  bounce MX on the `send.` subdomain) and a `_dmarc` TXT record live in Cloudflare DNS. The API
+  key is a Worker secret, `RESEND_API_KEY`, with sending access only, restricted to that domain.
+- **Privacy:** Resend sees each recipient address for the send it makes. The privacy policy names
+  it. Its log retention is checked and kept as short as the account allows.
+- **Failure:** a send Resend refuses is a `502 email_failed` to the app, and the log records
+  Resend's status code, never the address.
+- **Staging before the key:** `DEV_OUTBOX` puts codes on `/ops` (§6.2). Production has neither
+  the outbox nor, until the key is set, any way to send, so sign-in answers 503.
 
 ### 6.6 Operations from the browser (`/ops`)
 **Constraint:** no step in setup, migration, or recovery needs a terminal. This is the same
@@ -421,7 +439,8 @@ whose page is open to anyone until the first account exists.
    - `EMAIL_HMAC_KEY` (§6.2). A Cloudflare secret can't be read back after it's saved, so
      this one is generated first, stored in the password manager, then pasted in.
      Production's key is permanent.
-5. The email provider's API key (a third secret) and its DNS records.
+5. Resend: the domain verified (its DNS records added in Cloudflare), and its API key as a
+   third secret, `RESEND_API_KEY`.
 6. Production only: the `kennelos.app` zone on Cloudflare DNS (GitHub Pages records
    DNS-only), the `api.kennelos.app` Custom Domain on the Worker, and the Workers Paid plan.
 
@@ -458,7 +477,7 @@ whose page is open to anyone until the first account exists.
    with your sister; it *is* the privacy promise.
 2. **`buildCloudSnapshot` + `'cloud-merge'` restore + shrink guard + `markDataChanged` hooks +
    the direct-writer coverage test.** Still no network.
-3. **`cloud/` Worker**, in two PRs:
+3. **`cloud/` Worker**, in two PRs (both built; staging is live):
    - **3a, the skeleton:** `wrangler.toml`, the router, CORS, `/ops` with the ported
      migration runner, health check, and `0001` (§6.2).
    - **3b, the API:** auth, snapshots, files, notice, the 503 maintenance answer, the
@@ -494,8 +513,7 @@ whose page is open to anyone until the first account exists.
 | The operator can't recover without a terminal | Everything on `/ops`, with export/import beside every destructive control (§6.6) |
 
 ## 11. Questions this plan raises
-1. **Email provider:** is any preference? Cloudflare Email Service keeps it all on one bill;
-   Resend/Postmark have better deliverability tooling.
+1. **Email provider:** decided: Resend (§6.5).
 2. **API domain:** is `api.kennelos.app` okay? (The owning account is decided: a shared
    Cloudflare account under the KennelOS email address; see §6.)
 3. **Free-tier limits:** cap Lite cloud storage (e.g., 1 GB of documents)? Cost at Lite's

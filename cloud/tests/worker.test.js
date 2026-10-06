@@ -27,8 +27,8 @@ test('after Apply pending the gate opens without a redeploy', async () => {
 
   const health = await worker.fetch(req('/health'), env);
   assert.deepEqual(await health.json(), { ok: true, maintenance: false });
-  const unknown = await worker.fetch(req('/nope'), env);
-  assert.equal(unknown.status, 404);
+  const unauthenticated = await worker.fetch(req('/program'), env);
+  assert.equal(unauthenticated.status, 401);
 });
 
 test('a drifted migration closes the gate', async () => {

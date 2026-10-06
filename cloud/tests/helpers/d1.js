@@ -71,7 +71,47 @@ export function makeDb() {
   return new D1();
 }
 
-// An R2-shaped stand-in with just what step 3a reads.
+// An R2-shaped stand-in: put (with R2's sha256 check), get, list by prefix with
+// a key cursor, and delete of up to 1000 keys. Bodies are drained, because the
+// Worker hands R2 a stream.
+import { createHash } from 'node:crypto';
+
 export function makeBucket() {
-  return { async list() { return { objects: [], truncated: false }; } };
+  const store = new Map();
+  const object = (key, entry) => ({
+    key,
+    size: entry.bytes.length,
+    httpMetadata: entry.httpMetadata,
+    get body() { return new Response(entry.bytes).body; },
+    async arrayBuffer() { return entry.bytes.slice().buffer; },
+  });
+  return {
+    store,
+    async put(key, value, options = {}) {
+      const bytes = value instanceof Uint8Array ? value
+        : typeof value === 'string' ? new TextEncoder().encode(value)
+        : new Uint8Array(await new Response(value).arrayBuffer());
+      if (options.sha256 && createHash('sha256').update(bytes).digest('hex') !== options.sha256) {
+        throw new Error('put: The SHA-256 checksum you specified did not match what we received.');
+      }
+      store.set(key, { bytes, httpMetadata: options.httpMetadata ?? {} });
+      return object(key, store.get(key));
+    },
+    async get(key) {
+      const entry = store.get(key);
+      return entry ? object(key, entry) : null;
+    },
+    async list({ prefix = '', cursor, limit = 1000 } = {}) {
+      const all = [...store.keys()].filter((k) => k.startsWith(prefix)).sort();
+      const from = cursor ? all.findIndex((k) => k > cursor) : 0;
+      const start = from === -1 ? all.length : from;
+      const page = all.slice(start, start + limit);
+      return { objects: page.map((key) => ({ key })), truncated: start + page.length < all.length, cursor: page.at(-1) };
+    },
+    async delete(keys) {
+      const list = [].concat(keys);
+      if (list.length > 1000) throw new Error('R2 deletes at most 1000 keys per call');
+      for (const k of list) store.delete(k);
+    },
+  };
 }

@@ -31,3 +31,9 @@ test('wrangler.toml: binding names match what src/ reads', () => {
   assert.match(toml, /binding\s*=\s*"DB"/);
   assert.match(toml, /binding\s*=\s*"FILES"/);
 });
+
+test('wrangler.toml: a daily retention cron, and the staging outbox switch', () => {
+  assert.match(toml, /\[triggers\]\s*crons\s*=\s*\["[^"]+"\]/);
+  assert.match(toml, /DEV_OUTBOX\s*=\s*"1"/, 'staging shows codes on /ops; production must not set this');
+  assert.match(toml, /name\s*=\s*"kennelos-api-staging"/, 'DEV_OUTBOX may only ride along with the staging Worker');
+});
