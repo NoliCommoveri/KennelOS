@@ -21,6 +21,10 @@ furever/  KennelOS Furever — a SEPARATE family-facing pet-care app (its own or
           pages (derived care schedule with log-done). Deploys to
           NoliCommoveri/KennelOS-Furever at furever.kennelos.app (standalone build
           path). See furever/README.md.
+cloud/    The cloud backup API: one Cloudflare Worker + D1 + R2, deployed by
+          Workers Builds (root directory cloud/), NOT by deploy.yml and not part of
+          any edition build. The editions stay on GitHub Pages and call it
+          cross-origin. See cloud/README.md and docs/KennelOS_Cloud_Phase1_Plan.md.
 ```
 
 Each edition deploys to **its own origin** (a subdomain) so its IndexedDB stays
@@ -382,6 +386,16 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   line, Companion remaining balance). Service-worker cache rolled to `kennelos-shell-v33`
   for all of W1. Next: W2 (online form + status page; needs the cloud Worker, vault and
   server-side license link).
+- **Cloud Phase 1, step 3a: the `cloud/` Worker skeleton is built**
+  (`docs/KennelOS_Cloud_Phase1_Plan.md` §6, §6.6, §9). It has `wrangler.toml` (staging), CORS for
+  `lite.`/`pro.kennelos.app` plus localhost, the 503 maintenance gate, `/health`, and `/ops` behind
+  `OPS_TOKEN` with MCCE's migration runner (applied/pending/drifted/orphaned, Apply pending, health
+  check). `0001_schema.sql` holds the §6.2 tables, including the `files` index. 20 tests run on
+  node:sqlite (`cd cloud && npm test`; a bare `node --test` from the root also runs them), and it
+  was checked end to end in local `wrangler dev`. **Not yet deployed:** the staging D1
+  `database_id` is in `wrangler.toml`; Workers Builds and the secrets (plan §6.7) are pending. Next: step 3b (auth,
+  snapshots, files, notice, retention cron, D1 export/import). No edition file changed, so there's
+  no service-worker bump.
 
 ## Build & deploy
 

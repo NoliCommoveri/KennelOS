@@ -1,0 +1,39 @@
+# The KennelOS cloud backup API (docs/KennelOS_Cloud_Phase1_Plan.md §6).
+# The editions stay on GitHub Pages and call this Worker cross-origin; it is the
+# only thing that can reach D1 and R2. Deployed by Cloudflare Workers Builds with
+# its root directory set to `cloud/` — never by deploy.yml.
+#
+# This file is the STAGING Worker. Production gets its own D1, R2 and name at
+# plan §9 step 6.
+name = "kennelos-api-staging"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+# Worker logs are the only place the operator can see why something failed, and
+# they read them in the dashboard. Nothing in src/ may log an email address, a
+# code, a token or a request body (plan §6.4).
+[observability]
+enabled = true
+
+# No [assets] block, on purpose: this Worker serves no files. If one is ever
+# added, never set `not_found_handling = "404-page"` — it puts the asset layer in
+# front of the Worker and /ops stops reaching the router (MCCE architecture §2).
+
+[[d1_databases]]
+binding = "DB"
+database_name = "kennelos-api-staging"
+database_id = "03cbff8d-a86f-45fe-ad78-c3debd30d613"
+
+# Never public: every object is served through the Worker after an auth check.
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "kennelos-files-staging"
+
+# Migration .sql files are bundled as text so /ops can apply them. The glob must
+# be `**/*.sql`: wrangler matches it against the import string
+# ('./0001_schema.sql'), so `migrations/*.sql` would never match.
+[[rules]]
+type = "Text"
+globs = ["**/*.sql"]
+fallthrough = true
