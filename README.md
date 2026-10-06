@@ -398,7 +398,7 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   alone: `applicable_on_form` dropped. Tests: `waitlistForm.test.js`, `invoicePdf.test.js`. Still
   W2: the public list page, PDFs on the status page, kennel-name (no-reply) email, and the
   online form itself. Next: W2 (needs the cloud Worker, vault and server-side license link).
-  Service-worker `CACHE_NAME` not bumped yet (ask first).
+  Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Cloud Phase 1, step 3a: the `cloud/` Worker skeleton is built**
   (`docs/KennelOS_Cloud_Phase1_Plan.md` §6, §6.6, §9). It has `wrangler.toml` (staging), CORS for
   `lite.`/`pro.kennelos.app` plus localhost, the 503 maintenance gate, `/health`, and `/ops` behind
