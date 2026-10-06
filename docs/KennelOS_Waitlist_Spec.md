@@ -335,7 +335,9 @@ calls them. Nothing is stored except what §4 lists.
 - **Order**, among `active` entries for the kennel:
   1. **priority group:** `ahead` programs first (§7), then everyone else;
   2. **`position_anchor_date` if set, else `fee_received_date`** (earliest first);
-  3. **tie-break:** `approved_date`, then `created_at`.
+  3. **tie-break:** `fee_received_at` (the moment the fee was recorded, so two fees on the
+     same day stay in the order they were paid — fixed 2026-10-06, §15.6), then
+     `approved_date`, then `created_at`.
 - **Position is derived, never stored.** It's computed whenever it's needed. So when
   someone ahead of a family is placed or removed, everyone behind moves up with no
   updates to write.
@@ -1021,3 +1023,29 @@ picks open.
   short (not designed yet).
 - **W2:** the same notice goes to each family's status page and as a sent-for-her email
   (§15.4).
+
+### 15.6 Offer fixes from her testing (recorded and built 2026-10-06)
+
+1. **Order is by fee received, never by application.** Two fees recorded on the same day
+   used to fall back to approval/application order, so a family who paid later could sit
+   ahead of one who paid earlier. Each fee now records `fee_received_at` (when she marked
+   it), the first tie-break after the fee date (§6.1).
+2. **Accepting means picking AND paying.** The respond-by window is now "days to accept and
+   pay the deposit". The app never collects money. When a family picks a pup she records
+   the pick: a deposit-pending Sale holds the pup (so she can send its invoice), the offer
+   stays open, and the list does **not** move on. Only **Deposit received** makes the offer
+   accepted, places the family, and moves the turn on. No deposit by the deadline is
+   recorded as no response ("No deposit"): the Sale is cancelled and the pup is free again.
+   *Decided:* the Sale is created at the pick, not at the deposit.
+3. **Undo a pass.** A pass or no response can be undone, and the family is next in line
+   again: their offer reopens with a fresh deadline and the pass no longer counts (a
+   second-pass removal it caused is undone too, within the 7-day window). *Decided:* if
+   another family holds the litter's turn by then, their offer is voided (never a pass, and
+   they're next again after); the undo is refused if that family has already picked a pup.
+4. **Automatic offers are a setting**, `waitlist_config.auto_offer_next`. *Decided:* **off by
+   default**, so every offer comes from a button she presses (Open picks / Offer to them /
+   Offer a litter…). With it off, the app only says who's next.
+5. **Switch the pup.** A family who picked the wrong pup can be switched (Change pup…) while
+   the deposit is pending, and after the deposit as long as nobody else has been offered
+   that litter since. The same Sale moves to the new pup.
+

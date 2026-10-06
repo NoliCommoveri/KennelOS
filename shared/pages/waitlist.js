@@ -140,7 +140,8 @@ async function main() {
         if (open) {
           const e = entriesById.get(open.entry_id);
           const overdue = open.respond_by_date && open.respond_by_date < today;
-          turn = `Offered to ${e ? familyLink(e) : 'a family'} · respond by ${esc(fmtDate(open.respond_by_date))}${overdue ? ' <span class="badge badge-red">Deadline passed</span>' : ''}`;
+          const picked = open.chosen_dog_id ? ` · <span class="badge badge-purple">Picked ${esc(dogName(open.chosen_dog_id))}</span> deposit pending` : '';
+          turn = `Offered to ${e ? familyLink(e) : 'a family'}${picked} · pick and pay by ${esc(fmtDate(open.respond_by_date))}${overdue ? ' <span class="badge badge-red">Deadline passed</span>' : ''}`;
         } else if (next) {
           turn = `Next: ${familyLink(next.entry)} <button class="btn btn-sm btn-primary" data-offer-litter="${esc(l.id)}">Offer to them</button>`;
         } else turn = '<span class="faint">Nobody on the list is eligible</span>';
@@ -183,7 +184,7 @@ async function main() {
         const offer = l.picks_opened_date ? await actions.offerNext(l.id) : await actions.openPicks(l.id);
         if (offer) {
           const e = entriesById.get(offer.entry_id);
-          await alertModal({ title: 'Offer made', message: `It's ${e ? entryName(e, contactsById.get(e.contact_id)) : 'the next family'}'s turn. They have until ${fmtDate(offer.respond_by_date)} to respond. Let them know; nothing is sent automatically yet.` });
+          await alertModal({ title: 'Offer made', message: `It's ${e ? entryName(e, contactsById.get(e.contact_id)) : 'the next family'}'s turn. They have until ${fmtDate(offer.respond_by_date)} to pick a pup and send the deposit. Let them know; nothing is sent automatically yet.` });
         }
         await main();
       } catch (err) {
