@@ -235,10 +235,13 @@ already drives the forms, and it can't drift.
   `dogs.intended_placement` (cloud). "Every field except" rows (`waitlist_offers`,
   `breed_feeding_schedules`) are written out field by field, so a field added later still
   starts private.
-- **A `pending` bucket per table** for fields this table doesn't classify. They are private
-  (rule zero) until moved: `dogs.dob_is_estimated`, `dogs.recorded_coi`,
-  `kennels.waitlist_config` (it holds the waitlist fee and payment instructions),
-  `litters.picks_opened_date`, `litters.feeding_schedule_override`.
+- **A `pending` bucket per table** for fields not yet decided, private (rule zero) until moved.
+  It is empty now. Five fields this table didn't cover were **decided on 2026-10-06**:
+  - **cloud:** `dogs.dob_is_estimated` (it qualifies the birth date), `dogs.recorded_coi`
+    (genetic data, like the health tests), `litters.picks_opened_date` (a waitlist date;
+    the auto-offer flow needs it after a restore);
+  - **private:** `kennels.waitlist_config` (it holds the waitlist fee and payment
+    instructions), `litters.feeding_schedule_override` (free text).
 - **Readings of the table:** `litters.foster_comp_model` and `foster_split_basis` count as
   foster-money fields (private). `documents.contract_id` is private, because it only appears
   on contract-type documents, which never leave. `files.blob` is never in the snapshot JSON;

@@ -111,10 +111,11 @@ test('projection builds a NEW object by name (no spread, no shared reference)', 
   assert.deepEqual(sparse, { id: 'x', call_name: 'Rex' });
 });
 
-test('assertCloudRow throws on an injected private key, a pending key, and an unknown table', () => {
+test('assertCloudRow throws on an injected private key, an unclassified key, and an unknown table', () => {
   const dog = reg.projectRow('dogs', packet.dogs[0]);
   assert.throws(() => reg.assertCloudRow('dogs', { ...dog, notes: 'x' }), reg.CloudKeyError);
-  assert.throws(() => reg.assertCloudRow('dogs', { ...dog, recorded_coi: { value: 3 } }), reg.CloudKeyError);
+  assert.throws(() => reg.assertCloudRow('dogs', { ...dog, brand_new_field: 1 }), reg.CloudKeyError);
+  assert.throws(() => reg.assertCloudRow('kennels', { id: 'k', waitlist_config: {} }), /waitlist_config/);
   assert.throws(() => reg.assertCloudRow('sales', { id: 's', price: 1500 }), /price/);
   assert.throws(() => reg.assertCloudRow('expenses', { id: 'e', amount: 1 }), reg.CloudKeyError);
   assert.throws(() => reg.assertCloudRow('no_such_table', { id: 'z' }), reg.CloudKeyError);
@@ -196,4 +197,10 @@ test('the decided §5 privacy lines hold (field-by-field spot checks)', () => {
   for (const f of ['application', 'fee_amount', 'pause_reason']) assert.ok(!cloud('waitlist_entries', f), f);
   assert.ok(!cloud('waitlist_programs', 'fee_override'));
   assert.ok(cloud('kennels', 'location'));
+  // The five fields first left pending (decided 2026-10-06).
+  assert.ok(cloud('dogs', 'dob_is_estimated'));
+  assert.ok(cloud('dogs', 'recorded_coi'));
+  assert.ok(cloud('litters', 'picks_opened_date'));
+  assert.ok(!cloud('kennels', 'waitlist_config'));
+  assert.ok(!cloud('litters', 'feeding_schedule_override'));
 });

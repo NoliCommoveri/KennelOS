@@ -46,11 +46,11 @@ export const SYNC_REGISTRY = Object.freeze({
       'kennel_id', 'breeder_kennel_id', 'sire_id', 'dam_id', 'litter_id',
       'owner_contact_id', 'co_owner_contact_ids', 'date_of_birth', 'date_of_death',
       'color_markings', 'registry', 'registration_number', 'microchip_id', 'url',
-      'planned_tests', 'disposition',
+      'planned_tests', 'disposition', 'dob_is_estimated', 'recorded_coi',
       'intended_placement' // Waitlist Spec §9
     ],
     private: ['notes'],
-    pending: ['dob_is_estimated', 'recorded_coi']
+    pending: []
   },
 
   events: {
@@ -72,8 +72,9 @@ export const SYNC_REGISTRY = Object.freeze({
       'logo_data_url', 'preferred_tests', 'preferred_breeds', 'preferred_test_breeds',
       'promote_nudge_enabled', 'promote_age_male_months', 'promote_age_female_months'
     ],
-    private: [],
-    pending: ['waitlist_config']
+    // waitlist_config holds the waitlist fee and payment instructions.
+    private: ['waitlist_config'],
+    pending: []
   },
 
   contacts: {
@@ -100,16 +101,18 @@ export const SYNC_REGISTRY = Object.freeze({
       'whelp_date', 'accept_deposits_date', 'estimated_ready_date',
       'litter_registration_number', 'puppies_born_total', 'puppies_born_alive',
       'puppies_born_deceased', 'puppies_born_abnormalities', 'foster_direction',
-      'foster_partner_contact_id'
+      'foster_partner_contact_id',
+      'picks_opened_date' // a waitlist date: the auto-offer flow needs it after a restore
     ],
     // Plan §5: "every price/deposit/foster-money field" — the foster comp model
     // and split basis are the terms of that money, so they stay with it.
     private: [
       'expected_price_male', 'expected_price_female', 'expected_deposit_male',
       'expected_deposit_female', 'foster_comp_model', 'foster_our_share_pct',
-      'foster_split_basis', 'foster_flat_fee_per_pup', 'foster_split_notes', 'notes'
+      'foster_split_basis', 'foster_flat_fee_per_pup', 'foster_split_notes',
+      'feeding_schedule_override', 'notes'
     ],
-    pending: ['picks_opened_date', 'feeding_schedule_override']
+    pending: []
   },
 
   sales: {

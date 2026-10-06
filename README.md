@@ -434,9 +434,9 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     real repos against an in-memory table stand-in (`tests/support/memoryDb.js`). It fails on
     any sample field that isn't classified, on any private key in the projection, and on a
     `db.js` table with no entry.
-  - **Pending, private until decided:** `dogs.dob_is_estimated`, `dogs.recorded_coi`,
-    `kennels.waitlist_config`, `litters.picks_opened_date`, and
-    `litters.feeding_schedule_override`. Plan §5 doesn't classify them.
+  - **Five fields plan §5 didn't classify were decided on 2026-10-06:** `dogs.dob_is_estimated`,
+    `dogs.recorded_coi` and `litters.picks_opened_date` are cloud; `kennels.waitlist_config`
+    and `litters.feeding_schedule_override` are private. Nothing is pending now.
 
   Next: §9 step 2 (snapshot building, `'cloud-merge'` restore, shrink guard and the dirty
   signal). Then client cloud modules against staging (step 4), UI (step 5), and production
