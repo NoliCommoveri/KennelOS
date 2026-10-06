@@ -158,7 +158,8 @@ export async function renderWaitlistPicksPanel({ mount, litter, onChange = async
   mount.querySelector('[data-pk="soon"]')?.addEventListener('click', () => {
     openSoonNotice({
       kennel: d.kennel, config: d.config, rows: soon, contactsById: d.contactsById,
-      litterLabelOf: (r) => `#${r.soonPosition} in line · pups for them: ${r.eligibleDogs.map(pupLabel).join(', ')}`
+      litterLabelOf: (r) => `#${r.soonPosition} in line · pups for them: ${r.eligibleDogs.map(pupLabel).join(', ')}`,
+      litterIdsOf: () => [litter.id]
     });
   });
   on('close', async () => {

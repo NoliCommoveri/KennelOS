@@ -201,7 +201,8 @@ async function main() {
     const rows = soonFamiliesForKennel(entries, offers, live, dogs, sales, opts);
     openSoonNotice({
       kennel, config, rows, contactsById,
-      litterLabelOf: (r) => r.litters.map((x) => `${litterLabel(x.litter)}: #${x.soonPosition} in line`).join(' · ')
+      litterLabelOf: (r) => r.litters.map((x) => `${litterLabel(x.litter)}: #${x.soonPosition} in line`).join(' · '),
+      litterIdsOf: (r) => r.litters.map((x) => x.litter.id)
     });
   };
 

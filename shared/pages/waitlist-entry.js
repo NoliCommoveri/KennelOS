@@ -339,6 +339,11 @@ async function onMove() {
 
 // --- Details: view ----------------------------------------------------------------
 
+// The litters the family was last told "almost your turn" about (Spec §15.5).
+function soonLitters(e) {
+  return (e.soon_notified_litter_ids || []).map((id) => ctx.litters.find((l) => l.id === id)).filter(Boolean).map(litterLabel).join(', ');
+}
+
 function listenSummary(e) {
   if ((e.listen_mode || 'all') !== 'selected') return 'All litters';
   const litters = (e.listen_litter_ids || []).map((id) => ctx.litters.find((l) => l.id === id)).filter(Boolean).map(litterLabel);
@@ -365,6 +370,7 @@ function renderView() {
       ${row('Fee policy', e.fee_credit_policy ? esc(descriptor(FEE_CREDIT_POLICY, e.fee_credit_policy).label) : '')}
       ${row('Fee received', e.fee_received_date ? esc(fmtDate(e.fee_received_date)) + [e.fee_payment_method, e.fee_payment_reference].filter(Boolean).map((s) => ` <span class="faint">${esc(s)}</span>`).join('') : '')}
       ${row('Pay by', e.fee_due_date ? esc(fmtDate(e.fee_due_date)) : '')}
+      ${row('Told "almost your turn"', e.soon_notified_date ? esc(fmtDate(e.soon_notified_date)) + (soonLitters(e) ? ` <span class="faint">— ${esc(soonLitters(e))}</span>` : '') : '')}
       ${row('Notes', multiline(e.notes))}
     </dl>
     <h3 style="margin:18px 0 6px;">Application</h3>

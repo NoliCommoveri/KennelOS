@@ -1014,7 +1014,10 @@ picks open.
 
   `[Kennel Name]` is filled in. In an email the first line is the subject.
 - **W1:** the dialog lists the families and opens her own email app with all of them BCC'd,
-  or copies the addresses. Nothing is recorded, so sending again later can reach the same
-  not-yet-offered families twice.
+  or copies the addresses. Doing either records the date and the litters on each family
+  told (`soon_notified_date`, `soon_notified_litter_ids`; decided 2026-10-06). **Told
+  families are never skipped**: a later send shows them, ticked, with a "Told <date>" badge.
+  She may need them again, e.g. for a possible "sorry, next time" note if a litter falls
+  short (not designed yet).
 - **W2:** the same notice goes to each family's status page and as a sent-for-her email
   (§15.4).

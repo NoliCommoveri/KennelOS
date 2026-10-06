@@ -197,6 +197,16 @@ export async function setPositionAnchor(entryId, { date = null, afterEntryId = n
   return waitlistEntryRepo.update(entryId, { position_anchor_date: anchor });
 }
 
+// "It's almost your turn" was sent (Spec §15.5): stamp each family with the date
+// and the litters the notice was about. A record only — it never skips a family
+// next time (she may need them again, e.g. for a "sorry, next time" note if a
+// litter falls short). `litterIdsByEntry` maps entryId → litter ids.
+export async function markSoonNotified(litterIdsByEntry, { date = todayYMD() } = {}) {
+  for (const [entryId, litterIds] of litterIdsByEntry) {
+    await waitlistEntryRepo.update(entryId, { soon_notified_date: date, soon_notified_litter_ids: [...litterIds] });
+  }
+}
+
 // --- Offers (Spec §6.4–§6.5) ------------------------------------------------------
 
 // Everything the rules need to decide a litter's next offer.
