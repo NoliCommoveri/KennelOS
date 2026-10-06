@@ -12,6 +12,7 @@ import {
   litterQueue, nextFamilyForLitter, hasOpenOffer, turnSpent,
   countsAsPass, passesUsed, shouldRemoveForPasses, canUndoRemoval, passToForgive,
   overdueOffers, overdueFees, deriveContactWaitlistStatus, contactMatches, entryName,
+  soonFamiliesForLitter, soonFamiliesForKennel, soonNoticeText, SOON_NOTICE_DEFAULT, describeOfferChanges,
 } from '../shared/data/waitlistRules.js';
 
 const K = 'kennel-a';
@@ -375,4 +376,95 @@ test('turnSpent: any offer but a voided one uses up the family\'s turn on that l
   assert.equal(turnSpent(offers, 'L1', 'b'), false, 'a voided offer gives the turn back');
   assert.equal(turnSpent(offers, 'L1', 'c'), false, 'another litter');
   assert.equal(turnSpent(offers, 'L1', 'd'), false, 'archived offers are ignored');
+});
+
+// --- "It's almost your turn" (Spec §15.5) ---------------------------------------
+
+test('soon: one family per available pup, in line order, skipping ineligible families', () => {
+  const L = litter();
+  const pups = [pup(), pup()];
+  const a = entry({ fee_received_date: '2026-01-01' });
+  const paused = entry({ fee_received_date: '2026-01-02', paused_until: '2026-12-31' });
+  const b = entry({ fee_received_date: '2026-01-03' });
+  const c = entry({ fee_received_date: '2026-01-04' });
+  const rows = soonFamiliesForLitter([c, b, paused, a], [], L, pups, [], { today: TODAY });
+  assert.deepEqual(rows.map((r) => r.entry.id), [a.id, b.id], 'two pups → the first two eligible families');
+  assert.deepEqual(rows.map((r) => r.soonPosition), [1, 2]);
+  assert.ok(rows.every((r) => !r.inFlight));
+});
+
+test('soon: a family with an open offer anywhere counts toward the pups but is in flight', () => {
+  const L1 = litter({ id: 'L1' });
+  const pups = [pup(), pup()];
+  const a = entry({ fee_received_date: '2026-01-01' });
+  const b = entry({ fee_received_date: '2026-01-02' });
+  const c = entry({ fee_received_date: '2026-01-03' });
+  // `a` is mid-decision on ANOTHER litter.
+  const offers = [offer({ entry_id: a.id, litter_id: 'L2' })];
+  const rows = soonFamiliesForLitter([a, b, c], offers, L1, pups, [], { today: TODAY });
+  assert.deepEqual(rows.map((r) => [r.entry.id, r.inFlight]), [[a.id, true], [b.id, false]],
+    'a takes a pup\'s worth of room, so c is not reached');
+});
+
+test('soon: an open offer on this litter counts; a closed turn here frees the room', () => {
+  const L = litter();
+  const pups = [pup(), pup()];
+  const a = entry({ fee_received_date: '2026-01-01' });
+  const b = entry({ fee_received_date: '2026-01-02' });
+  const c = entry({ fee_received_date: '2026-01-03' });
+  const openHere = [offer({ entry_id: b.id })];
+  assert.deepEqual(soonFamiliesForLitter([a, b, c], openHere, L, pups, [], { today: TODAY }).map((r) => [r.entry.id, r.inFlight]),
+    [[a.id, false], [b.id, true]]);
+  const passedHere = [offer({ entry_id: a.id, outcome: 'passed' })];
+  assert.deepEqual(soonFamiliesForLitter([a, b, c], passedHere, L, pups, [], { today: TODAY }).map((r) => r.entry.id),
+    [b.id, c.id], 'a already passed on this litter, so they are not counted');
+  // The family holding this litter's open offer is now paused: still holds the turn.
+  const pausedHolder = entry({ fee_received_date: '2026-01-01', paused_until: '2026-12-31' });
+  assert.deepEqual(soonFamiliesForLitter([pausedHolder, b, c], [offer({ entry_id: pausedHolder.id })], L, pups, [], { today: TODAY })
+    .map((r) => r.entry.id), [b.id]);
+});
+
+test('soon: no available pups → nobody', () => {
+  const placed = pup({ disposition: 'placed' });
+  assert.deepEqual(soonFamiliesForLitter([entry()], [], litter(), [placed], [], { today: TODAY }), []);
+});
+
+test('soon across litters: one row per family, in list order; in-flight families flagged', () => {
+  const L1 = litter({ id: 'L1' });
+  const L2 = litter({ id: 'L2', pairing_id: 'P2' });
+  const pups = [pup({ litter_id: 'L1' }), pup({ litter_id: 'L2' }), pup({ litter_id: 'L2' })];
+  const a = entry({ fee_received_date: '2026-01-01' });
+  const b = entry({ fee_received_date: '2026-01-02' });
+  const c = entry({ fee_received_date: '2026-01-03' });
+  const offers = [offer({ entry_id: a.id, litter_id: 'L1' })];
+  const rows = soonFamiliesForKennel([c, b, a], offers, [L1, L2], pups, [], { today: TODAY });
+  assert.deepEqual(rows.map((r) => r.entry.id), [a.id, b.id]);
+  assert.equal(rows[0].inFlight, true, 'a holds an offer on L1');
+  assert.deepEqual(rows[0].litters.map((x) => x.litter.id), ['L1', 'L2']);
+  assert.deepEqual(rows[1].litters.map((x) => [x.litter.id, x.soonPosition]), [['L2', 2]]);
+});
+
+test('soonNoticeText: her default, [Kennel Name] filled in, first line is the subject', () => {
+  const n = soonNoticeText(waitlistConfig(null), 'Thornfield Kennels');
+  assert.equal(n.subject, "It's almost your turn!");
+  assert.ok(n.body.startsWith('Thornfield Kennels has puppies who will soon be searching'));
+  assert.ok(!n.text.includes('[Kennel Name]'));
+  assert.ok(SOON_NOTICE_DEFAULT.includes('[Kennel Name]'));
+  const custom = soonNoticeText({ soon_notice_text: 'Pups soon\nHi from [kennel name]!' }, 'Oak');
+  assert.deepEqual([custom.subject, custom.body], ['Pups soon', 'Hi from Oak!']);
+});
+
+test('describeOfferChanges: nothing changed → no lines; voids and new offers are named', () => {
+  const opts = { nameOf: (id) => `fam-${id}`, litterOf: (id) => `lit-${id}` };
+  assert.deepEqual(describeOfferChanges({}, opts), []);
+  const lines = describeOfferChanges({
+    next: offer({ entry_id: 'x', litter_id: 'A', respond_by_date: '2026-10-09' }),
+    voided: [offer({ litter_id: 'B' })],
+    offered: [offer({ entry_id: 'y', litter_id: 'B', respond_by_date: '2026-10-09' })],
+  }, opts);
+  assert.equal(lines.length, 3);
+  assert.match(lines[0], /lit-B was voided \(not a pass\)/);
+  assert.match(lines[1], /lit-A: now offered to fam-x/);
+  assert.match(lines[2], /lit-B: now offered to fam-y/);
+  assert.match(describeOfferChanges({ voided: [offer({ litter_id: 'B' })] }, opts).at(-1), /Nobody else/);
 });

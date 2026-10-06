@@ -449,7 +449,19 @@ A family is **eligible for a pup** when the above holds for that particular pup.
   herself.
 - **Picks open state:** **Open picks** stamps `Litter.picks_opened_date`. While it's set
   and the litter still has available pups, the next eligible family is offered whenever
-  an offer closes, and again when a new family becomes `active`.
+  an offer closes. ~~and again when a new family becomes `active`~~ **Changed 2026-10-06:**
+  a family joining or returning to the list (fee received, a fee-waived approval, an undo)
+  makes **no** offer by itself. Those writes were about one family but could make offers on
+  other litters without her seeing it, including on a litter where she had just voided an
+  offer on purpose. Her app now tells her which litters that family is next for, and she
+  offers them.
+- **A family leaving the list gives up its turns (decided 2026-10-06).** Withdrawing,
+  being removed (by her, or at the pass limit), being archived, or accepting a pup voids
+  every other open offer the family holds (never a pass), and each of those litters moves
+  on to its next family.
+- **Nothing is made silently (decided 2026-10-06).** Every offer made on her behalf (the
+  turn moving on) is shown to her with the family's name and respond-by date, because she
+  has to contact them herself in W1.
 
 ## 7. Programs (requirement 4)
 
@@ -978,3 +990,34 @@ Families should see mail from her kennel, not from KennelOS. Options:
   the message box there stays the only way families write to her (§8.3). No Reply-To to
   her own inbox.
 - Templates (§10.3) get her kennel name, logo and signature. W2.
+
+### 15.5 "It's almost your turn" (requested 2026-10-06; W1 groundwork built)
+
+She wants to tell families early when a litter's pups mean their turn is coming, before
+picks open.
+
+- **Who gets it:** for each litter, walk its queue in order (§6.2 eligibility), one family
+  per available pup. Families whose turn on that litter already closed (passed, no
+  response) are left out. **A family with an open offer on any litter is not told, but
+  still counts toward the pups** (decided 2026-10-06), so with two litters a few weeks
+  apart, families already mid-decision never get the notice again. From the Waitlist page
+  it covers every live litter at once (one notice per family); from the Litter page, that
+  litter.
+- **Wording (her default, decided 2026-10-06; editable in Waitlist settings,
+  `waitlist_config.soon_notice_text`, and per send):**
+
+  > It's almost your turn!
+  > [Kennel Name] has puppies who will soon be searching for their furever families. You've
+  > been patiently waiting; based on your current waitlist position,  we anticipate being
+  > able to match you to your new furbaby this litter. Please be on the lookout for a
+  > communication with details about how to make your selection within the next few weeks.
+
+  `[Kennel Name]` is filled in. In an email the first line is the subject.
+- **W1:** the dialog lists the families and opens her own email app with all of them BCC'd,
+  or copies the addresses. Doing either records the date and the litters on each family
+  told (`soon_notified_date`, `soon_notified_litter_ids`; decided 2026-10-06). **Told
+  families are never skipped**: a later send shows them, ticked, with a "Told <date>" badge.
+  She may need them again, e.g. for a possible "sorry, next time" note if a litter falls
+  short (not designed yet).
+- **W2:** the same notice goes to each family's status page and as a sent-for-her email
+  (§15.4).

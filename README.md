@@ -399,6 +399,16 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   W2: the public list page, PDFs on the status page, kennel-name (no-reply) email, and the
   online form itself. Next: W2 (needs the cloud Worker, vault and server-side license link).
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
+- **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
+  guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass
+  removal) voids its other open offers (never a pass) and those litters move on. Fee received, a
+  fee-waived approval and an undo no longer make offers; the family page says which litters
+  they're next for. Every offer made on her behalf is shown by name (family page, picks panel,
+  Today). **"Almost your turn…"** on the Waitlist page and picks panel: one family per available
+  pup in line order; families with an open offer anywhere count but aren't told; editable
+  wording (Waitlist settings, her default); opens her email with everyone BCC'd or copies the
+  addresses, and records `soon_notified_date` + litters (never used to skip a family).
+  Service-worker cache rolled to `kennelos-shell-v35`.
 - **Cloud Phase 1, step 3a: the `cloud/` Worker skeleton is built**
   (`docs/KennelOS_Cloud_Phase1_Plan.md` §6, §6.6, §9). It has `wrangler.toml` (staging), CORS for
   `lite.`/`pro.kennelos.app` plus localhost, the 503 maintenance gate, `/health`, and `/ops` behind
