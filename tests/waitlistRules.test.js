@@ -13,6 +13,7 @@ import {
   countsAsPass, passesUsed, shouldRemoveForPasses, canUndoRemoval, passToForgive,
   overdueOffers, overdueFees, deriveContactWaitlistStatus, contactMatches, entryName,
   soonFamiliesForLitter, soonFamiliesForKennel, soonNoticeText, SOON_NOTICE_DEFAULT, describeOfferChanges,
+  isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker, kennelBreeds, resolveBreed,
 } from '../shared/data/waitlistRules.js';
 
 const K = 'kennel-a';
@@ -54,6 +55,8 @@ test('waitlistConfig: no kennel / no config → defaults; blank values fall back
   assert.equal(c.fee_amount, 250);
   assert.equal(c.no_response_counts_as_pass, true, 'Q3 decided: no response counts by default');
   assert.equal(c.color_matching, false);
+  assert.equal(c.auto_offer_next, false, 'decided 2026-10-06: offers are made by her unless she turns this on');
+  assert.equal(waitlistConfig({ waitlist_config: { auto_offer_next: true } }).auto_offer_next, true);
 });
 
 test('fees: a program override wins, 0 means waived, and a blank override is the normal fee', () => {
@@ -467,4 +470,102 @@ test('describeOfferChanges: nothing changed → no lines; voids and new offers a
   assert.match(lines[1], /lit-A: now offered to fam-x/);
   assert.match(lines[2], /lit-B: now offered to fam-y/);
   assert.match(describeOfferChanges({ voided: [offer({ litter_id: 'B' })] }, opts).at(-1), /Nobody else/);
+});
+
+// --- Her fixes, 2026-10-06 ---------------------------------------------------------
+
+test('order: two fees on the same day stay in the order they were PAID, not the order they applied', () => {
+  // Applied/approved first, but paid second.
+  const early = entry({ id: 'early', approved_date: '2026-01-01', created_at: '2026-01-01T00:00:00.000Z', fee_received_date: '2026-02-01', fee_received_at: '2026-02-01T15:00:00.000Z' });
+  const late = entry({ id: 'late', approved_date: '2026-01-20', created_at: '2026-01-20T00:00:00.000Z', fee_received_date: '2026-02-01', fee_received_at: '2026-02-01T09:00:00.000Z' });
+  assert.deepEqual(rankedList([early, late], K).map((e) => e.id), ['late', 'early']);
+  // A different fee DATE still wins over the recorded time.
+  const backdated = entry({ id: 'back', fee_received_date: '2026-01-31', fee_received_at: '2026-02-02T09:00:00.000Z' });
+  assert.deepEqual(rankedList([early, late, backdated], K).map((e) => e.id), ['back', 'late', 'early']);
+});
+
+test('awaiting deposit: an open offer with a pick; never a closed one', () => {
+  assert.equal(isAwaitingDeposit(offer({ chosen_dog_id: 'd' })), true);
+  assert.equal(isAwaitingDeposit(offer()), false);
+  assert.equal(isAwaitingDeposit(offer({ outcome: 'accepted', chosen_dog_id: 'd' })), false);
+});
+
+test('a held pick keeps the litter\'s turn: nobody else is next while it waits on the deposit', () => {
+  const a = entry({ id: 'a', fee_received_date: '2026-01-01' });
+  const b = entry({ id: 'b', fee_received_date: '2026-02-01' });
+  const pups = [pup({ id: 'p1' }), pup({ id: 'p2' })];
+  const held = offer({ entry_id: 'a', chosen_dog_id: 'p1', sale_id: 's1' });
+  const sales = [{ id: 's1', dog_id: 'p1', status: 'deposit_pending', is_archived: false }];
+  assert.equal(nextFamilyForLitter([a, b], [held], litter(), pups, sales, { today: TODAY }), null);
+});
+
+test('switchable pups: this litter\'s available, matching pups other than the current pick', () => {
+  const fam = entry({ status: 'placed', pref_sex: 'female' });
+  const pups = [pup({ id: 'cur' }), pup({ id: 'f2' }), pup({ id: 'm1', sex: 'male' }), pup({ id: 'sold' }), pup({ id: 'other', litter_id: 'L2' })];
+  const sales = [{ dog_id: 'cur', status: 'deposit_pending', is_archived: false }, { dog_id: 'sold', status: 'deposit_paid', is_archived: false }];
+  assert.deepEqual(switchablePups(fam, litter(), pups, sales, { currentDogId: 'cur' }).map((d) => d.id), ['f2']);
+});
+
+test('an accepted pick can be switched until the next family is offered (a voided later offer doesn\'t count)', () => {
+  const acc = offer({ id: 'acc', outcome: 'accepted', chosen_dog_id: 'p1', created_at: '2026-09-01T10:00:00.000Z' });
+  assert.equal(canSwitchAcceptedPick(acc, [acc]), true);
+  const voidedLater = offer({ outcome: 'voided', created_at: '2026-09-02T10:00:00.000Z' });
+  assert.equal(canSwitchAcceptedPick(acc, [acc, voidedLater]), true);
+  const earlier = offer({ outcome: 'passed', created_at: '2026-08-01T10:00:00.000Z' });
+  assert.equal(canSwitchAcceptedPick(acc, [acc, earlier]), true);
+  const nextFam = offer({ outcome: 'open', created_at: '2026-09-03T10:00:00.000Z' });
+  assert.equal(canSwitchAcceptedPick(acc, [acc, nextFam]), false);
+  assert.equal(canSwitchAcceptedPick(offer({ outcome: 'passed' }), []), false);
+});
+
+test('undo a pass: only a pass / no response, for a family still on the list or removed by it within 7 days', () => {
+  const passed = offer({ outcome: 'passed' });
+  assert.equal(undoPassBlocker(passed, entry(), TODAY), '');
+  assert.equal(undoPassBlocker(offer({ outcome: 'no_response' }), entry(), TODAY), '');
+  assert.notEqual(undoPassBlocker(offer({ outcome: 'accepted' }), entry(), TODAY), '');
+  assert.notEqual(undoPassBlocker(offer({ outcome: 'voided' }), entry(), TODAY), '');
+  assert.equal(undoPassBlocker(passed, entry({ status: 'removed', removed_reason: 'second_pass', removed_date: '2026-10-01' }), TODAY), '');
+  assert.notEqual(undoPassBlocker(passed, entry({ status: 'removed', removed_reason: 'second_pass', removed_date: '2026-09-01' }), TODAY), '');
+  assert.notEqual(undoPassBlocker(passed, entry({ status: 'placed' }), TODAY), '');
+  assert.notEqual(undoPassBlocker(passed, entry({ status: 'removed', removed_reason: 'by_breeder', removed_date: TODAY }), TODAY), '');
+});
+
+test('undone pass: the reopened offer holds the turn, and the family is spent no longer once it is open again', () => {
+  const a = entry({ id: 'a', fee_received_date: '2026-01-01' });
+  const b = entry({ id: 'b', fee_received_date: '2026-02-01' });
+  const pups = [pup({ id: 'p1' })];
+  // After the undo: A's offer is open again, B's was voided.
+  const offers = [offer({ entry_id: 'a', outcome: 'open' }), offer({ entry_id: 'b', outcome: 'voided' })];
+  assert.equal(nextFamilyForLitter([a, b], offers, litter(), pups, [], { today: TODAY }), null);
+  // When A's turn settles (passes again), B — whose voided offer didn't spend the turn — is next.
+  offers[0].outcome = 'passed';
+  assert.equal(nextFamilyForLitter([a, b], offers, litter(), pups, [], { today: TODAY }).entry.id, 'b');
+});
+
+test('describeOfferChanges: with automatic offers off, who is next is named but not offered', () => {
+  const opts = { nameOf: (id) => `fam-${id}`, litterOf: (id) => `lit-${id}` };
+  const lines = describeOfferChanges({ waiting: [{ litter_id: 'A', entry_id: 'x' }] }, opts);
+  assert.equal(lines.length, 1);
+  assert.match(lines[0], /lit-A: fam-x is next in line\. No offer was made/);
+  const both = describeOfferChanges({ voided: [offer({ litter_id: 'B' })], waiting: [{ litter_id: 'B', entry_id: 'y' }] }, opts);
+  assert.ok(!both.some((l) => /Nobody else/.test(l)), 'a waiting family means somebody IS eligible');
+});
+
+test('kennel breeds: this kennel\'s live dogs\' breeds + its preferred breeds, deduped case-insensitively, sorted', () => {
+  const kennel = { id: K, preferred_breeds: ['french bulldog', 'Pug'] };
+  const dogs = [
+    { kennel_id: K, breed: 'Boston Terrier' }, { kennel_id: K, breed: ' boston terrier ' },
+    { kennel_id: K, breed: 'French Bulldog' }, { kennel_id: K, breed: '' },
+    { kennel_id: K, breed: 'Beagle', is_archived: true }, { kennel_id: 'other', breed: 'Poodle' },
+  ];
+  assert.deepEqual(kennelBreeds(kennel, dogs), ['Boston Terrier', 'French Bulldog', 'Pug']);
+  assert.deepEqual(kennelBreeds(null, dogs), []);
+});
+
+test('resolveBreed: the kennel\'s spelling for a case/space variant; null when unknown; blank = any', () => {
+  const breeds = ['Boston Terrier', 'French Bulldog'];
+  assert.equal(resolveBreed('  boston TERRIER ', breeds), 'Boston Terrier');
+  assert.equal(resolveBreed('Boston', breeds), null);
+  assert.equal(resolveBreed('Bostin Terrier', breeds), null);
+  assert.equal(resolveBreed('', breeds), '');
 });

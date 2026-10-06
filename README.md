@@ -409,6 +409,16 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   wording (Waitlist settings, her default); opens her email with everyone BCC'd or copies the
   addresses, and records `soon_notified_date` + litters (never used to skip a family).
   Service-worker cache rolled to `kennelos-shell-v35`.
+- **Waitlist fixes from her testing + sale invoicing — built & browser-verified** (Waitlist
+  Spec §15.6; End-State guide §24, §29). Same-day fees keep the order they were paid
+  (`fee_received_at`). Accepting is pick + deposit: a pick holds the pup with a deposit-pending
+  Sale and the list doesn't move until **Deposit received**; no deposit by the deadline = no
+  response (Sale cancelled). **Undo…** a pass / no response (that family is next again).
+  Automatic offers are a setting, **off** by default. **Change pup…** before the deposit, or
+  after it until the next family is offered. Breed preference is a dropdown of the kennel's
+  breeds. Invoices read the sale's due date live, and a Sale's page has its own **Invoice /
+  Receipt** button (`assets/invoiceGenerator.js`, Pro-only). Service-worker cache rolled to
+  `kennelos-shell-v36`.
 - **Cloud Phase 1, step 3a: the `cloud/` Worker skeleton is built**
   (`docs/KennelOS_Cloud_Phase1_Plan.md` §6, §6.6, §9). It has `wrangler.toml` (staging), CORS for
   `lite.`/`pro.kennelos.app` plus localhost, the 503 maintenance gate, `/health`, and `/ops` behind
