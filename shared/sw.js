@@ -42,6 +42,7 @@ const PRECACHE_URLS = [
   'assets/upgradeNudge.js',
   'assets/invoiceDoc.js',
   'assets/invoicePdf.js',
+  'assets/invoiceGenerator.js',
   'assets/waitlistPicksPanel.js',
   'assets/waitlistUI.js',
   'assets/wizardUI.js',

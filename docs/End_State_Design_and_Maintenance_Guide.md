@@ -226,6 +226,10 @@ KennelOS/
     invoicePdf.js              Draws that model as a real PDF with vendored jsPDF
                                (§24; Pro-only, PRO_ONLY_STANDALONE;
                                tests/invoicePdf.test.js)
+    invoiceGenerator.js        The Invoice / Receipt generator modal, opened from
+                               Financials and preselected from a Sale's page (§24;
+                               Pro-only, PRO_ONLY_STANDALONE; both import it
+                               dynamically only when editionFlags.invoicing is on)
     receiptCapture.js          Shared "attach a receipt" widget for both expense
                                forms — photo/screenshot (OCR + compress) or PDF (§26.1)
     dropboxConnectUI.js        The one Dropbox connect/disconnect control + the
@@ -1169,8 +1173,8 @@ editor + CSV question import).
 Placements/contracts: `sale`/`sales`, `stud-service`/`stud-services`, `contract`/`contracts`,
 `puppy-record` (print-only puppy record, §23 — not a nav entry, reached from `sale`/`sales`).
 Financials print docs: `invoice` (invoice/receipt view with Download PDF, §24 — not a nav
-entry, reached from the Financials hub's "Invoice / Receipt" generator modal and a waitlist
-family's Documents card).
+entry, reached from the "Invoice / Receipt" generator modal — on the Financials hub and on a
+Sale's page — and a waitlist family's Documents card).
 Documents: `documents` (filed dog documents — local file storage, in the "More" menu and
 via a "📄 Documents" button on the dog page, §26.1).
 Today cluster: `dashboard`, `reminders`, `upcoming`, `board`, `scheduled-placements`.
@@ -1915,9 +1919,13 @@ fee isn't persisted back (no `invoice_number`); the number is the default `RCT-/
   FK, table, or `referenceRegistry` entry — the fields are plain and the document is pure
   projection.
 
-The generator modal lives on the Financials hub (`financials.js`, the "Invoice / Receipt" button
-on every view), lists every income record (from `getIncomeRows`), and opens the print page in a new
-tab. Because the record is persisted (an `await`) before navigating, the tab is opened **blank and
+The generator modal (`assets/invoiceGenerator.js`, `openInvoiceGenerator({ preselect })`) opens
+from the Financials hub (the "Invoice / Receipt" button on every view) and from a **Sale's page**
+(an "Invoice / Receipt" header button that opens it already set to that sale, so a sale reached
+from the waitlist needs no trip to Financials). Both callers `import()` it only when
+`editionFlags.invoicing` is on, so Lite never requests the Pro-only module. It lists every income
+record (from `getIncomeRows`; a preselected archived/unbillable one is added), and opens the print
+page in a new tab. Because the record is persisted (an `await`) before navigating, the tab is opened **blank and
 synchronously within the click handler** and only navigated afterward — opening it *after* the
 await would let iOS Safari's pop-up blocker silently swallow it (the gesture is spent), so the
 invoice/receipt would never appear on iPhone. The document **never prints itself** — the owner
