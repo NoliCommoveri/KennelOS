@@ -384,8 +384,14 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   Google Form timestamps understood). Received application fees are Financials income; a fee
   credited to the purchase nets off that family's Sale balance (ledger, Litter P&L, invoice
   line, Companion remaining balance). Service-worker cache rolled to `kennelos-shell-v33`
-  for all of W1. Next: W2 (online form + status page; needs the cloud Worker, vault and
-  server-side license link).
+  for all of W1. Next: W1e, then W2 (online form + status page; needs the cloud Worker,
+  vault and server-side license link).
+- **Waitlist, W1e — recorded, not built** (Waitlist Spec §15, Q19–Q23). Her requests after
+  trying W1: her own application questions (form builder + import from an old form's CSV),
+  offering litters/pups from the waitlist with PDF invoices and receipts, a public list
+  (no opt-out; applicants told on the form), and emails sent in the kennel's name. The
+  local parts are W1e, before W2; the public list page, PDFs on the status page and
+  kennel-name email join W2.
 - **Cloud Phase 1, step 3a: the `cloud/` Worker skeleton is built**
   (`docs/KennelOS_Cloud_Phase1_Plan.md` §6, §6.6, §9). It has `wrangler.toml` (staging), CORS for
   `lite.`/`pro.kennelos.app` plus localhost, the 503 maintenance gate, `/health`, and `/ops` behind

@@ -10,6 +10,11 @@
 >
 > **Build status:** W1 is complete (W1a data layer, W1b intake + list, W1c offers, W1d
 > seed / CSV / Financials). W2 and W3 are not started. See §12 and §14.
+>
+> **Recorded 2026-10-06, not built:** four requests from her after trying W1 (custom
+> application questions, the waitlist as the main workflow with PDF invoices/receipts, a
+> public list, and emails sent in the kennel's name). They're in §15. The parts that work
+> without the server are slice **W1e**, to be done before W2. The rest is added to W2.
 
 ## 0. Decisions taken at build start (2026-10-05)
 
@@ -61,7 +66,11 @@ gathered here so they aren't re-litigated.
   her payment instructions and she taps **Fee received** (§5.3).
 - a replacement for Sales. Once a family accepts a pup, the existing **Sale** takes over
   (deposit, balance, invoice, contract, Furever). The waitlist only links to it.
-- a public listing. Nobody can browse the list. Each family sees only their own entry.
+- ~~a public listing. Nobody can browse the list. Each family sees only their own entry.~~
+  **Reversed 2026-10-06 (§15.3):** there is a public list showing a few allow-listed
+  fields per family (first name, last initial, sex preference, date added, position). It
+  never shows contact details. Every applicant is told about it on the form; there's no
+  opt-out.
 
 ## 2. Her requirements
 
@@ -474,6 +483,8 @@ readable form** (Proposal §6). Applicants are other people. The split:
 | Full application answers (phone, address, household, essay…) | **Encrypted** to her device's key; the server can't read it | Nothing automatic needs it |
 | Applicant **name + email** | **Readable** | Automatic messages have to go out while her phone is off. The applicant gave these **directly to this service**, under its privacy policy, which differs from buyers she typed in herself. |
 | Position, status, offers, deadlines, litter cards | Readable (no personal details) | The status page and reminders |
+| **Public list** projection: first name, last initial, sex preference, date added, position, for `active` entries (§15.3) | **Readable and public** | It's published on purpose. Applicants are told on the form before they apply. |
+| Invoice and receipt PDFs for a family (§15.2) | **Encrypted** with a key carried in the status-page link after `#`, which the server never receives | Only the family and her device can open them, so §8.1's "no payment details readable on the server" still holds |
 | Fee amount + her payment instructions, **for `approved` entries only** | **Readable, in that family's status-page projection only** | The status page shows what to pay and how (§5.3). Her device removes them from the projection once the fee is received, declined or expired. They never appear in an email. |
 | Fee payment records (received date aside, method, reference) | **Not on the server** | Stays private tier |
 | Outbound message bodies (fee request, offer, reminders, her questions) | **Readable** (messages log, §10.4) | The server sends them. They're written by her or from her templates, and carry no money details (§5.3). |
@@ -529,10 +540,13 @@ address.
   - **a message box** ("Send [her name] a message"), plus her earlier messages and
     questions to them. It's the only way a family writes to her through the service;
   - **optional "Message us on Facebook" button**, if she turns it on (below).
-- **Never shown:** other families, anyone's name, prices she hasn't published, private notes.
+- **Never shown:** other families' details beyond the public list's allow-listed fields
+  (§15.3; it appears as a tab on the status page), contact details, programs, prices she
+  hasn't published, private notes.
 - **The link exists from the moment they apply** (it's in the confirmation email), so an
   applicant can answer her questions before approval.
-- **Every email is no-reply.** Each one ends with "Reply or take action on your status
+- **Every email is no-reply** (until Q20 is answered: emails will be sent in the kennel's
+  name, §15.4, and replies might then go to her own inbox). Each one ends with "Reply or take action on your status
   page: <link>". A reply sent to the no-reply address gets one automatic answer pointing
   back to the status page, and is not stored or read.
 - **She finds out about new messages** when her app next syncs (a badge on Today and on the
@@ -719,7 +733,8 @@ API. It has three jobs.
 | Phase | Delivers | Needs the server? |
 |---|---|---|
 | **W1. The list, locally** (split into W1a–W1d, §14) | Tables, repos, rules engine + tests, Waitlist page (list, applications queue, entry page), programs, manual application entry + CSV import, approve / fee received / offers / passes / auto-removal with undo, Sale creation on accept, `waitlist_status` kept in step, Demo seed | No. Useful immediately; she runs it from her phone and messages families herself. |
-| **W2. Online** | Public form + encrypted inbox (with Rotate form key), status page with buttons, an encrypted message box and the optional "Message us on Facebook" button, no-reply fee/offer/decline/reminder emails from templates, family responses, server-side deadlines (§8.4), Pro entitlement + rate limits (§8.5) | Yes: after Phase 1's Worker and auth, **the private vault** (Proposal Phase 2b; §8.2), and **the server-side Pro license link** (Proposal Phase 5, brought forward for the waitlist routes only; §8.5) |
+| **W1e. Her requests** (recorded 2026-10-06, §15; before W2) | Application form builder (her own questions, some locked) + import of questions from a CSV of her old form's responses; offering a litter or pup from the family's entry and a "who's next" view per litter; application-fee receipts and Sale invoices/receipts as downloadable PDFs; the public-list notice on manual entry; "Copy list for Facebook" as the public list's stand-in | No |
+| **W2. Online** | Public form + encrypted inbox (with Rotate form key), status page with buttons, an encrypted message box and the optional "Message us on Facebook" button, no-reply fee/offer/decline/reminder emails from templates, family responses, server-side deadlines (§8.4), Pro entitlement + rate limits (§8.5). **Added 2026-10-06 (§15):** the public list page and its status-page tab, PDFs on the status page (link-key encrypted), emails sent in the kennel's name | Yes: after Phase 1's Worker and auth, **the private vault** (Proposal Phase 2b; §8.2), and **the server-side Pro license link** (Proposal Phase 5, brought forward for the waitlist routes only; §8.5) |
 | **W3. Assistant** | FAQ chat, check-ins, written messages | Yes |
 | **Later** | Pay links with automatic fee received, helpers working the list on their own devices (needs Proposal Phases 2–3), SMS and Messenger notifications (sent from her Page; needs Meta app review, and Meta's 24-hour messaging window limits check-ins and reminders) | Yes |
 
@@ -746,8 +761,8 @@ W1 is a full feature on its own and doesn't wait for the cloud work.
 11. **What's readable on the server** (§8.1): applicant name + email, the fee amount and
     her payment instructions on an unpaid family's status page, and the text of messages
     sent *to* families. (Messages *from* families are encrypted to her.) Acceptable?
-12. **Showing the exact overall number** to families, or only "in line for this litter",
-    or a band ("near the top")?
+12. ~~**Showing the exact overall number** to families, or only "in line for this litter",
+    or a band ("near the top")?~~ **Decided 2026-10-06: exact positions, publicly** (§15.3).
 13. **Server moves the turn on by itself** when a deadline passes and her phone is offline,
     limited to the list her device published (leaning yes, §8.4)? And how many families
     deep should that published list go?
@@ -759,6 +774,16 @@ W1 is a full feature on its own and doesn't wait for the cloud work.
 17. **Deposits vs. the application fee:** confirm that the deposit is still taken on the
     Sale after a family accepts a pup, separately from the application fee.
 18. **Response windows:** how many days for an offer, a fee and a check-in?
+19. **"Family page"** in her requests (§15.2, §15.3): is it the family's W2 status page
+    (assumed), not the family's entry page in her app?
+20. **Kennel-name emails** (§15.4): should replies go to her own email (Reply-To), or
+    stay no-reply with the status-page message box as the only way in?
+21. **PDFs** (§15.2): vendor jsPDF (about 350 KB, offline, Pro-only) or write a small
+    PDF generator ourselves?
+22. **Public list for families already on it** (§15.3): families added before the notice
+    existed never saw it. Does she tell them first, or does the list go up as is?
+23. **Public list details** (§15.3): her notice says "first name". Is it first name +
+    last initial (assumed), and does it show paused / listen-only families?
 
 ## 14. W1 build plan
 
@@ -768,6 +793,7 @@ W1 is a full feature on its own and doesn't wait for the cloud work.
 | **W1b. Intake + list** | Waitlist page (applications queue, active list with positions, program and "moved by you" badges); entry page (new application, possible contact match, approve/decline, fee received, preferences including breed, listen-only/pause, notes, offer history); programs page; `waitlist_config` editor on the Kennel page; intended-placement field on the Dog form; contact page dropdown read-only when entries exist; nav, `proPages.js`, `PRECACHE_URLS`. Also: `data/waitlistActions.js`, an `editionFlags.waitlist` flag (off in Lite), dashboard tiles counting entries per kennel, a Waitlist panel on the contact page, and **Re-apply** on a closed entry. | **Built** |
 | **W1c. Offers** | "Open picks" panel on the Litter page (hidden in Lite); accept / pass / no response / void; Sale on accept (via the moved prefill helper); automatic second-pass removal plus undo; other open offers voided on accept; Today: new-applications badge and the suggested actions in §6.5. | **Built**, on the spec's leanings for the still-open Q4/Q8/Q9: the family picks a pup, one open offer per litter, colors off by default. |
 | **W1d. Extras** | Demo seed (a program family, a listen-only family, one with a pass, an open offer; the Lite seed stays empty); CSV import of applications through the existing preview flow; `application_fee` income component in Financials. | **Built.** Q5 is still open; Financials follows the leaning (received fees are income) and the `fee_credit_policy` setting, below. |
+| **W1e. Her requests** | §15: form builder + question import, offer from the entry + "who's next" per litter, fee receipt + invoice/receipt PDFs, public-list notice, "Copy list for Facebook". | **Recorded 2026-10-06, not built.** Q19–Q23 open. |
 
 Known limit: "place them right after the Smiths" (§6.1) can only set the same anchor date
 as the Smiths, because the anchor is date-only. Ties then break by approval date and
@@ -801,3 +827,113 @@ set by her on the entry's Edit form; families can't change them until W2's statu
 Hard-delete note: the multi-entry `listen_litter_ids` / `listen_pairing_ids` registry
 entries mean an entry still listening for a litter or pairing (even a withdrawn one)
 blocks that record's hard delete. Archive is the normal way out, so this is intended.
+
+## 15. Her requests after W1 (recorded 2026-10-06, not built)
+
+She tried W1 and asked for four things before W2. They're recorded here with the design
+leanings from the discussion. **Nothing is built yet.** The local parts are slice **W1e**
+(§12) and the server parts join W2. Open points are Q19–Q23 in §13.
+
+### 15.1 Custom application questions
+
+Every breeder asks different questions, so the form is hers to build. She can either
+import her questions from her previous form or build them Google-Forms style.
+
+- **Locked questions.** The questions the rules (§6) and the automatic steps depend on
+  are locked: name, email, the preferences (`pref_sex`, `pref_placement_type`,
+  `pref_breed`, `pref_colors`), program (if any are `applicable_on_form`), and the public
+  list notice (§15.3). She can reword them but can't delete them or change their answer
+  type.
+- **Everything else is hers.** She can add, delete, reorder, reword and set the answer
+  type of every other question, the current defaults included (§5.1). Answer types: short
+  text, long text, single choice, checkboxes, yes/no, number, date. Each question can be
+  marked required and given help text.
+- **Where they live (leaning):** an ordered `form_questions` array on
+  `Kennel.waitlist_config` (§4.6), so it's per kennel and rides the backup. Each question
+  has a stable `id`, plus `key` for the locked ones. No new table.
+- **Answers keep their questions.** `waitlist_entries.application` stores answers by
+  question id along with a copy of the question wording at the time. Editing or deleting
+  a question later never scrambles or loses an old application.
+- **Import from her old form: from a CSV.** Google Forms (and Jotform, Typeform…) export
+  *responses* as a CSV whose column headers are the questions. Reading the form itself
+  would need a Google sign-in and app approval, so that's out. The import:
+  1. turns each header into a question and guesses its type from the answers (few
+     distinct values → single choice, dates → date, and so on);
+  2. has her match columns to the locked questions ("Your email" → email);
+  3. optionally brings the rows in as applications, through the W1d CSV import and its
+     preview, now driven by her own questions.
+- **Uses:** W1's manual "New application" screen renders her form, and W2's public form
+  renders the same list.
+
+### 15.2 The waitlist as the main workflow
+
+She wants to run placements from the waitlist, not hop between Litters and Sales.
+
+- **Offer from the family's entry:** an "Offer a litter" action on the entry page. It
+  lists litters with open picks (or opens picks) where the family is eligible, with the
+  eligible pups. It reuses the W1c offer logic and rules, so the order and passes still
+  apply. If the family isn't next for that litter, the dialog says who is and asks her to
+  confirm, the same as a manual move.
+- **"Who's next" per litter** on the Waitlist page, with the offer buttons, so she never
+  needs the Litter page for this.
+- **Invoices and receipts:** an application-fee receipt (new), and the Sale invoice plus
+  deposit/balance receipts (the invoice page exists already). All of them can be reached
+  from the family's entry.
+- **Downloadable PDFs:** today's invoice page prints through the browser, which doesn't
+  produce a file. Making real PDF files needs a PDF library or our own small generator
+  (Q21). Whichever it is goes in `shared/vendor/` or `shared/assets/`, is Pro-only
+  (`proPages.js`) and is precached.
+- **On the family's page (W2):** each PDF is encrypted on her device with a key carried in
+  the status-page link after `#`, which browsers never send to the server. The server
+  stores only scrambled files, so §8.1 still holds. The status page lists the files and
+  the family's browser opens them.
+- **Before W2:** she downloads the PDF and sends it herself. The Companion family page
+  could also carry it.
+
+### 15.3 The public list
+
+"Master overview." She wants anyone to be able to see the list, so families can see their
+position is honored. It's a tab on every family's status page, plus a public link she can
+post on Facebook or her website. **This reverses §1 and §8.3** ("nobody can browse the
+list"); both are marked there.
+
+- **No opt-in or opt-out (decided 2026-10-06).** Instead, every applicant is told before
+  they apply. This notice is a locked part of the form (§15.1) and of manual entry:
+
+  > Please note that to ensures transparency and give our applicants peace of mind that
+  > their position in line is being honored, our waitlist is publicly available for
+  > viewing by prospective and waiting families. Your contact information will never be
+  > displayed, but some data like first name and gender preference will appear on the
+  > public list once you are added.
+
+  (Her wording, kept as given. Default text; she can edit it but not remove it.)
+- **Shown (allow-list, leaning):** position, first name + last initial (Q23), sex
+  preference, date added (`fee_received_date`, or `position_anchor_date` if set), and
+  maybe a "paused" / "listening for specific litters" marker (Q23).
+- **Never shown:** contact details, city, program (a program can be health-related), notes,
+  money, other preferences, or applicants who aren't on the list yet (`applied` /
+  `approved`). Only `active` entries appear.
+- **Positions are exact** (settles Q12). The public order is the same §6.1 order the app
+  uses, so a moved family shows up in the new place.
+- **Public link (W2):** one per kennel, e.g. `apply.kennelos.app/list/<kennel public_id>`.
+  Her device publishes it as a projection (§8.1 row) and the server only displays it.
+- **Before W2:** a **"Copy list for Facebook"** button on the Waitlist page copies the
+  same allow-listed list as text, ready to paste.
+- **Existing families** never saw the notice (Q22).
+
+### 15.4 Emails in the kennel's name
+
+Families should see mail from her kennel, not from KennelOS. Options:
+
+- **(a) Kennel name on our address (leaning, the default):**
+  `Thornfield Kennels <thornfield@mail.kennelos.app>`. No setup, works for every account.
+- **(b) Her own domain, optional:** `hello@thornfieldkennels.com`, after she adds the DNS
+  records the email provider gives her (SPF/DKIM). This can't work for Gmail, Yahoo or
+  similar addresses: those providers block other services from sending as them.
+- **(c) Through her own Gmail account:** rejected. Google requires a paid security review
+  for apps that send mail as the user.
+- **Replies:** Q20. Today every email is no-reply and the status-page message box is the
+  only way in (§8.3). With a Reply-To of her own address, replies go straight to her inbox
+  and are never read by the server. That's simple, but conversations then split between
+  her email and the message box.
+- Templates (§10.3) get her kennel name, logo and signature. W2.
