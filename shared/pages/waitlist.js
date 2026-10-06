@@ -17,7 +17,7 @@ import { WAITLIST_ENTRY_STATUS, WAITLIST_PRIORITY, WAITLIST_REMOVED_REASON } fro
 import {
   waitlistConfig, rankedList, passesUsed, isMovedByBreeder, anchorDate, contactMatches, entryName,
   canUndoRemoval, overdueFees, nextFamilyForLitter, isPupAvailable, publicList, publicListText,
-  soonFamiliesForKennel
+  soonFamiliesForKennel, kennelBreeds, resolveBreed
 } from '../data/waitlistRules.js';
 import { esc, badge, fmtDate, fmtMoney, param, todayYMD, cardShell, alertModal } from '../assets/ui.js';
 import { resolveWaitlistKennel, mountKennelPicker, prefsSummary, entryFlags, formModal, openSoonNotice } from '../assets/waitlistUI.js';
@@ -68,6 +68,10 @@ async function main() {
     saleRepo.getAll({ includeArchived: true })
   ]);
   const config = waitlistConfig(kennel);
+  // A breed preference that isn't one of this kennel's breeds matches no pup: flag it.
+  const breeds = kennelBreeds(kennel, dogs);
+  const breedFlag = (e) => (e.pref_breed && resolveBreed(e.pref_breed, breeds) === null
+    ? ' <span class="badge badge-red" title="No pup will match this breed. Open the family to pick one of your breeds.">Unknown breed</span>' : '');
   const today = todayYMD();
   const contactsById = new Map(contacts.map((c) => [c.id, c]));
   const nameOf = (e) => esc(entryName(e, contactsById.get(e.contact_id)));
@@ -109,7 +113,7 @@ async function main() {
   const listHtml = ranked.length
     ? table(['#', 'Family', 'Wants', 'Passes', 'In line since'], ranked.map((e, i) => row(e, [
         `<strong>${i + 1}</strong>`,
-        `<strong>${nameOf(e)}</strong>${programBadge(e)} ${entryFlags(e, today)}`,
+        `<strong>${nameOf(e)}</strong>${programBadge(e)} ${entryFlags(e, today)}${breedFlag(e)}`,
         prefsSummary(e),
         `${passesUsed(e, offers)} of ${esc(config.max_passes)}`,
         `${esc(fmtDate(anchorDate(e)))}${isMovedByBreeder(e) ? ' <span class="badge badge-purple" title="You set this place by hand">Moved by you</span>' : ''}`

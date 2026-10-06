@@ -163,7 +163,7 @@ code. See Q1.
 | `pref_sex` | | `any` / `male` / `female` |
 | `pref_placement_type` | | From `PLACEMENT_TYPE` (pet / show / breeding_rights / co_own) |
 | `pref_colors` | | Free-text list. Used for eligibility only if she turns that on (Q4). |
-| `pref_breed` | | Free text; blank = any breed. Always offered (Decision §0); matched case-insensitively and trimmed against the pup's `Dog.breed` (§6.2) |
+| `pref_breed` | | One of the kennel's breeds, picked from a dropdown (the breeds of that kennel's dogs plus its preferred breeds), never free text: decided 2026-10-06 after misspellings and shorthand made families match no pup (§15.6). Blank = any breed. Always offered (Decision §0); matched case-insensitively and trimmed against the pup's `Dog.breed` (§6.2). CSV import maps a breed to the kennel's spelling and flags one it can't, leaving it blank. |
 | `listen_mode` | | `all` (default) or `selected` (§6.3) |
 | `listen_pairing_ids` | ✔ multi-entry FK → Pairing | Used when `listen_mode = 'selected'` |
 | `listen_litter_ids` | ✔ multi-entry FK → Litter | Same. Covers litters with no pairing record. |
@@ -1048,4 +1048,8 @@ picks open.
 5. **Switch the pup.** A family who picked the wrong pup can be switched (Change pup…) while
    the deposit is pending, and after the deposit as long as nobody else has been offered
    that litter since. The same Sale moves to the new pup.
+6. **Breed is a dropdown, not free text.** Misspellings and shorthand ("Bostin", "BT") made
+   families match no pup. The breed preference is now picked from the kennel's breeds (its
+   dogs' breeds plus its preferred breeds). An older value that isn't one of them is kept
+   but flagged **Unknown breed** on the Waitlist list and the family page so she can fix it.
 

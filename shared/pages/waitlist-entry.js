@@ -22,7 +22,8 @@ import {
   waitlistConfig, overallPositions, passesUsed, anchorDate, isMovedByBreeder, contactMatches,
   entryName, canUndoRemoval, isPaused, rankedList, REMOVAL_UNDO_DAYS,
   eligiblePupsFor, nextFamilyForLitter, turnSpent, hasOpenOffer, isListeningFor, isPupAvailable,
-  describeOfferChanges, isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker
+  describeOfferChanges, isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker,
+  kennelBreeds, resolveBreed
 } from '../data/waitlistRules.js';
 import {
   formQuestions, entryQuestions, snapshotQuestions, answerText, isAnswerQuestion, missingRequired
@@ -79,7 +80,7 @@ const programOptions = (current) => `<option value="">— none —</option>` + [
 // --- Loading ------------------------------------------------------------------
 
 async function loadKennelContext(kennelId) {
-  const [kennel, programs, kennelEntries, contacts, litters, pairings, dogs, breeds, kennelOffers, sales] = await Promise.all([
+  const [kennel, programs, kennelEntries, contacts, litters, pairings, dogs, kennelOffers, sales] = await Promise.all([
     kennelRepo.getById(kennelId),
     waitlistProgramRepo.getMapForKennel(kennelId),
     waitlistEntryRepo.getByKennel(kennelId),
@@ -87,7 +88,6 @@ async function loadKennelContext(kennelId) {
     litterRepo.getAll({ includeArchived: true }),
     pairingRepo.getAll({ includeArchived: true }),
     dogRepo.getAll({ includeArchived: true }),
-    kennelRepo.getBreedVocabulary(),
     waitlistOfferRepo.getByKennel(kennelId),
     saleRepo.getAll({ includeArchived: true })
   ]);
@@ -96,7 +96,8 @@ async function loadKennelContext(kennelId) {
     litters: litters.filter((l) => l.kennel_id === kennelId),
     pairings: pairings.filter((p) => p.kennel_id === kennelId),
     dogsById: new Map(dogs.map((d) => [d.id, d])),
-    breeds, kennelOffers, sales
+    // The breed dropdown's choices: this kennel's breeds only (never free text).
+    breeds: kennelBreeds(kennel, dogs), kennelOffers, sales
   });
 }
 
@@ -366,7 +367,7 @@ function renderView() {
     <dl class="dl-meta" style="margin-top:14px;">
       ${row('Contact', contactHtml)}
       ${row('Program', program ? esc(program.name) + (program.is_archived ? ' <span class="badge badge-gray">archived</span>' : '') : '')}
-      ${row('Wants', prefsSummary(e))}
+      ${row('Wants', prefsSummary(e) + (e.pref_breed && resolveBreed(e.pref_breed, ctx.breeds) === null ? ` <span class="badge badge-red" title="No pup will match this breed. Edit to pick one of your breeds.">Unknown breed</span>` : ''))}
       ${row('Listening for', esc(listenSummary(e)))}
       ${row('Paused until', e.paused_until ? esc(fmtDate(e.paused_until)) + (e.pause_reason ? ` <span class="faint">— ${esc(e.pause_reason)}</span>` : '') : '')}
       ${row('Fee', e.fee_amount != null ? esc(fmtMoney(e.fee_amount)) : '')}
@@ -426,13 +427,19 @@ function answerField(q, value) {
 // The four preference fields. Their answers live on the entry's pref_* fields, so
 // they keep fixed element ids; `label` is her wording on the new-application form.
 function prefField(key, e, label) {
-  const breedList = ctx.breeds.map((b) => `<option value="${esc(b)}"></option>`).join('');
+  // A stored breed that isn't one of the kennel's (typed before this was a
+  // dropdown, or imported) stays selectable, flagged, so saving never clears it.
+  const current = e.pref_breed || '';
+  const known = resolveBreed(current, ctx.breeds);
+  const breedOpts = `<option value="">Any breed</option>`
+    + ctx.breeds.map((b) => `<option value="${esc(b)}"${known && b === known ? ' selected' : ''}>${esc(b)}</option>`).join('')
+    + (current && known === null ? `<option value="${esc(current)}" selected>${esc(current)} (not one of your breeds)</option>` : '');
   switch (key) {
     case 'pref_sex':
       return `<div class="field"><label>${esc(label || 'Sex')}</label><select id="f-pref_sex">${options(WAITLIST_PREF_SEX, e.pref_sex || 'any')}</select></div>`;
     case 'pref_breed':
-      return `<div class="field"><label>${esc(label || 'Breed')}</label><input id="f-pref_breed" type="text" list="breed-list" value="${esc(e.pref_breed || '')}" placeholder="Any breed"><datalist id="breed-list">${breedList}</datalist>
-        <span class="field-hint">Only pups of this breed are offered to them. Leave blank for any.</span></div>`;
+      return `<div class="field"><label>${esc(label || 'Breed')}</label><select id="f-pref_breed">${breedOpts}</select>
+        <span class="field-hint">${ctx.breeds.length ? 'Only pups of this breed are offered to them.' : 'No breeds yet: give this kennel\'s dogs a breed, or add preferred breeds on the kennel page.'}${current && known === null ? ' <strong>Their current breed doesn\'t match any of your dogs\' breeds, so no pup will match it. Pick the right one.</strong>' : ''}</span></div>`;
     case 'pref_placement':
       return `<div class="field"><label>${esc(label || 'Placement')}</label><select id="f-pref_placement_type">${options(PLACEMENT_TYPE, e.pref_placement_type || '', 'Any')}</select></div>`;
     case 'pref_colors':

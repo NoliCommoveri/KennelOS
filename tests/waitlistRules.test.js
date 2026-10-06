@@ -13,7 +13,7 @@ import {
   countsAsPass, passesUsed, shouldRemoveForPasses, canUndoRemoval, passToForgive,
   overdueOffers, overdueFees, deriveContactWaitlistStatus, contactMatches, entryName,
   soonFamiliesForLitter, soonFamiliesForKennel, soonNoticeText, SOON_NOTICE_DEFAULT, describeOfferChanges,
-  isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker,
+  isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker, kennelBreeds, resolveBreed,
 } from '../shared/data/waitlistRules.js';
 
 const K = 'kennel-a';
@@ -549,4 +549,23 @@ test('describeOfferChanges: with automatic offers off, who is next is named but 
   assert.match(lines[0], /lit-A: fam-x is next in line\. No offer was made/);
   const both = describeOfferChanges({ voided: [offer({ litter_id: 'B' })], waiting: [{ litter_id: 'B', entry_id: 'y' }] }, opts);
   assert.ok(!both.some((l) => /Nobody else/.test(l)), 'a waiting family means somebody IS eligible');
+});
+
+test('kennel breeds: this kennel\'s live dogs\' breeds + its preferred breeds, deduped case-insensitively, sorted', () => {
+  const kennel = { id: K, preferred_breeds: ['french bulldog', 'Pug'] };
+  const dogs = [
+    { kennel_id: K, breed: 'Boston Terrier' }, { kennel_id: K, breed: ' boston terrier ' },
+    { kennel_id: K, breed: 'French Bulldog' }, { kennel_id: K, breed: '' },
+    { kennel_id: K, breed: 'Beagle', is_archived: true }, { kennel_id: 'other', breed: 'Poodle' },
+  ];
+  assert.deepEqual(kennelBreeds(kennel, dogs), ['Boston Terrier', 'French Bulldog', 'Pug']);
+  assert.deepEqual(kennelBreeds(null, dogs), []);
+});
+
+test('resolveBreed: the kennel\'s spelling for a case/space variant; null when unknown; blank = any', () => {
+  const breeds = ['Boston Terrier', 'French Bulldog'];
+  assert.equal(resolveBreed('  boston TERRIER ', breeds), 'Boston Terrier');
+  assert.equal(resolveBreed('Boston', breeds), null);
+  assert.equal(resolveBreed('Bostin Terrier', breeds), null);
+  assert.equal(resolveBreed('', breeds), '');
 });

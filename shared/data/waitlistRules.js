@@ -151,6 +151,31 @@ export function isPupAvailable(dog, sales = []) {
   return !sales.some((s) => s.dog_id === dog.id && !s.is_archived && !RELEASING_SALE_STATUSES.includes(s.status));
 }
 
+// The breeds a family can ask for on this kennel's list (decided 2026-10-06: a
+// dropdown, never free text, so a misspelling or shorthand can't make a family
+// match no pup). The breeds of the kennel's own non-archived dogs — what its pups
+// are actually recorded as — plus the kennel's preferred breeds, deduped
+// case-insensitively (a dog's spelling wins), sorted.
+export function kennelBreeds(kennel, dogs = []) {
+  if (!kennel) return [];
+  const seen = new Map();
+  const add = (raw) => {
+    const b = String(raw ?? '').trim();
+    if (b && !seen.has(key(b))) seen.set(key(b), b);
+  };
+  for (const d of dogs) if (!d.is_archived && d.kennel_id === kennel.id) add(d.breed);
+  for (const b of kennel.preferred_breeds || []) add(b);
+  return [...seen.values()].sort((a, b) => a.localeCompare(b));
+}
+
+// The kennel's own spelling of `value` (case-insensitive, trimmed), or null when
+// it isn't one of `breeds`. Blank → '' (any breed).
+export function resolveBreed(value, breeds) {
+  const k = key(value);
+  if (!k) return '';
+  return breeds.find((b) => key(b) === k) || null;
+}
+
 // The family's listed colors as an array of lowercase tokens. Stored as an array,
 // but tolerate a comma-separated string (CSV import / hand entry).
 export function prefColorTokens(entry) {
