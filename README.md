@@ -379,8 +379,9 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   removes it. CSV import of applications (`waitlist-import`, matched on email per kennel,
   Google Form timestamps understood). Received application fees are Financials income; a fee
   credited to the purchase nets off that family's Sale balance (ledger, Litter P&L, invoice
-  line, Companion remaining balance). Next: W2 (online form + status page; needs the cloud
-  Worker, vault and server-side license link).
+  line, Companion remaining balance). Service-worker cache rolled to `kennelos-shell-v33`
+  for all of W1. Next: W2 (online form + status page; needs the cloud Worker, vault and
+  server-side license link).
 
 ## Build & deploy
 
