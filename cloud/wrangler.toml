@@ -23,7 +23,7 @@ enabled = true
 [[d1_databases]]
 binding = "DB"
 database_name = "kennelos-api-staging"
-database_id = "REPLACE_WITH_STAGING_DATABASE_ID"
+database_id = "03cbff8d-a86f-45fe-ad78-c3debd30d613"
 
 # Never public: every object is served through the Worker after an auth check.
 [[r2_buckets]]
