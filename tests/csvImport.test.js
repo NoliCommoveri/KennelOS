@@ -82,7 +82,7 @@ test('getMapping throws on an unknown entity', () => {
 });
 
 test('getMapping returns the same mapping for every known entity', () => {
-  for (const entity of ['dog', 'contact', 'pairing', 'litter', 'sale', 'event', 'stud_service', 'expense']) {
+  for (const entity of ['dog', 'contact', 'pairing', 'litter', 'sale', 'event', 'stud_service', 'expense', 'waitlist']) {
     assert.equal(getMapping(entity).entity, entity);
   }
 });
@@ -874,4 +874,86 @@ test('expense: a receipt_number is an idempotent override key - it matches regar
   const r = expenseMapping.classify(validExpenseRow({ amount: '999', category: 'Supplies', expense_date: '2024-09-09', receipt_number: 'r-100' }), index, 0);
   assert.equal(r.status, 'update');
   assert.equal(r.match.id, 'ex1');
+});
+
+// ===========================================================================
+// Waitlist applications (Waitlist Spec §5.1, W1d) — natural key = email,
+// scoped to one kennel; contacts are never matched here.
+// ===========================================================================
+const wlMapping = getMapping('waitlist');
+
+function wlSetup(existing = [], { defaultKennelId = 'k1', programs = [], contacts = [] } = {}) {
+  wlMapping._own = [{ id: 'k1', kennel_name: 'Thornfield Kennels', is_own_kennel: true }, { id: 'k2', kennel_name: 'Second Kennel', is_own_kennel: true }];
+  wlMapping._programs = programs;
+  wlMapping._contactsById = new Map(contacts.map((c) => [c.id, c]));
+  wlMapping._defaultKennelId = defaultKennelId;
+  return wlMapping.buildIndex(existing);
+}
+
+test('waitlist: a new email creates an applied entry on the default kennel, Google Form timestamp → date', () => {
+  const idx = wlSetup();
+  const r = wlMapping.classify({ name: 'Leo Grant', email: 'Leo@Example.com', timestamp: '10/5/2026 14:33:00', sex: 'Boy', breed: 'Boxer', colors: 'red; fawn', household: 'Two adults' }, idx, 0);
+  assert.equal(r.status, 'create');
+  assert.equal(r.record.kennel_id, 'k1');
+  assert.equal(r.record.status, 'applied');
+  assert.equal(r.record.applied_date, '2026-10-05');
+  assert.equal(r.record.pref_sex, 'male');
+  assert.equal(r.record.pref_breed, 'Boxer');
+  assert.deepEqual(r.record.pref_colors, ['red', 'fawn']);
+  assert.equal(r.record.application.household, 'Two adults');
+  assert.equal(r.record.contact_id, undefined, 'contacts are matched at approval, never on import');
+});
+
+test('waitlist: no email or no name → needs review, default skip (keyless rows are never auto-created)', () => {
+  const idx = wlSetup();
+  const noEmail = wlMapping.classify({ name: 'Only Name' }, idx, 0);
+  assert.equal(noEmail.status, 'review');
+  assert.equal(noEmail.decision, 'skip');
+  const noName = wlMapping.classify({ email: 'x@example.com' }, idx, 1);
+  assert.equal(noName.status, 'review');
+});
+
+test('waitlist: an email matching a still-applied entry on that kennel updates its answers only', () => {
+  const existing = [{ id: 'e1', kennel_id: 'k1', status: 'applied', application: { name: 'Leo', email: 'leo@example.com', about: 'old' } }];
+  const idx = wlSetup(existing);
+  const r = wlMapping.classify({ name: 'Leo', email: ' LEO@example.com ', about: 'new answer' }, idx, 0);
+  assert.equal(r.status, 'update');
+  assert.equal(r.decisionTarget, 'e1');
+  assert.equal(r.changes.application.about, 'new answer');
+  assert.equal(r.changes.status, undefined, 'an update never touches status');
+  assert.equal(r.changes.kennel_id, undefined);
+});
+
+test('waitlist: a family already on the list (by application or contact email) → review, skipped', () => {
+  const existing = [{ id: 'e2', kennel_id: 'k1', status: 'active', contact_id: 'c1', application: { name: 'Ann' } }];
+  const idx = wlSetup(existing, { contacts: [{ id: 'c1', name: 'Ann', email: 'ann@example.com' }] });
+  const r = wlMapping.classify({ name: 'Ann', email: 'ann@example.com' }, idx, 0);
+  assert.equal(r.status, 'review');
+  assert.equal(r.decision, 'skip');
+  assert.match(r.reasons.join(' '), /on the list/);
+});
+
+test('waitlist: the same email on ANOTHER kennel is a new application (one list per kennel)', () => {
+  const existing = [{ id: 'e3', kennel_id: 'k1', status: 'active', application: { name: 'Ann', email: 'ann@example.com' } }];
+  const idx = wlSetup(existing);
+  const r = wlMapping.classify({ name: 'Ann', email: 'ann@example.com', kennel_name: 'second kennel' }, idx, 0);
+  assert.equal(r.status, 'create');
+  assert.equal(r.record.kennel_id, 'k2');
+});
+
+test('waitlist: no kennel resolvable → review; unknown kennel / program / placement are flagged, never invented', () => {
+  const none = wlSetup([], { defaultKennelId: null });
+  assert.equal(wlMapping.classify({ name: 'A', email: 'a@example.com' }, none, 0).status, 'review');
+  const idx = wlSetup([], { programs: [{ id: 'p1', kennel_id: 'k1', name: 'Treatment family' }] });
+  const ok = wlMapping.classify({ name: 'B', email: 'b@example.com', program: 'treatment FAMILY' }, idx, 1);
+  assert.equal(ok.record.waitlist_program_id, 'p1');
+  const bad = wlMapping.classify({ name: 'C', email: 'c@example.com', program: 'Nope', placement: 'zoo', kennel_name: 'Elsewhere' }, idx, 2);
+  assert.equal(bad.record.waitlist_program_id, undefined);
+  assert.equal(bad.record.pref_placement_type, undefined);
+  // Unknown kennel + unknown placement flagged, plus the "no kennel" review reason;
+  // the program can't be looked up without a kennel, so it's left blank silently.
+  assert.equal(bad.reasons.length, 3);
+  assert.match(bad.reasons.join(' '), /isn't one of your kennels/);
+  assert.match(bad.reasons.join(' '), /Unrecognized placement/);
+  assert.equal(bad.status, 'review');
 });

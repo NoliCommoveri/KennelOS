@@ -350,6 +350,38 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   live-testing window in which Pro shipped fully unlocked to any visitor. Lite and Demo declare
   no `licenseGate` at all and carry a null `licenseConfig` — they are structurally ungatable,
   not merely switched off (browser-verified: wall in Pro only).
+- **Waitlist, W1a — data layer built, no UI yet** (`docs/KennelOS_Waitlist_Spec.md` §0
+  decisions, §14 plan; End-State guide §29). Three per-kennel tables (`waitlist_entries`,
+  `waitlist_offers`, `waitlist_programs`), their repos (the entry repo keeps
+  `Contact.waitlist_status` in step), every FK registered, and the pure rules engine
+  `shared/data/waitlistRules.js` (position, eligibility including breed, passes, removal +
+  undo) with `tests/waitlistRules.test.js`. Repos exercised against a real IndexedDB in
+  headless Chromium.
+- **Waitlist, W1b — intake + list pages built & browser-verified** (headless Chromium, no
+  console errors; phone width without horizontal scroll). Pro-only `waitlist` /
+  `waitlist-entry` / `waitlist-programs` pages (absent from `dist/lite`, 404 there), the
+  `data/waitlistActions.js` step layer (approve with offered contact match, fee received,
+  withdraw, remove, undo, re-apply, move), the Kennel page's Waitlist settings card, Dog
+  `intended_placement`, the contact page's Waitlist panel (its waitlist dropdown goes
+  read-only once entries exist), and per-kennel dashboard tiles. New flag
+  `editionFlags.waitlist` (off in Lite).
+- **Waitlist, W1c — offers built & browser-verified** (headless Chromium, Pro and Lite, no
+  console errors). The Litter page's Pro-only **Waitlist picks** panel (open/close picks,
+  one open offer at a time in list order, Accepted… / Passed / No response / Void, next up,
+  the litter queue, offer history); accepting creates the Sale (prefilled via the new
+  shared `data/saleDefaults.js`) and places the family; a second counted pass removes them
+  with a 7-day undo; Today gains four waitlist nudges (new applications, offer deadline
+  passed, fee past due, undo a removal). The Lite litter page never requests the panel.
+- **Waitlist, W1d — W1 complete, browser-verified** (headless Chromium, Pro and Demo, no
+  console errors). A seven-family sample waitlist on Thornfield (program family paused, open
+  offer on the Autumn litter, a pass, listen-only, fee due, new application, a placed run) in
+  the shared seed — so Demo and the Pro tour show it (two new tour stops); clear-sample-data
+  removes it. CSV import of applications (`waitlist-import`, matched on email per kennel,
+  Google Form timestamps understood). Received application fees are Financials income; a fee
+  credited to the purchase nets off that family's Sale balance (ledger, Litter P&L, invoice
+  line, Companion remaining balance). Service-worker cache rolled to `kennelos-shell-v33`
+  for all of W1. Next: W2 (online form + status page; needs the cloud Worker, vault and
+  server-side license link).
 
 ## Build & deploy
 

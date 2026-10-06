@@ -91,6 +91,7 @@ export const editionFlags = {
   assistant: true,         // Dropbox sync + KennelAssistant helper (§26)
   feedingSchedule: true,   // Per-breed feeding schedules + a litter's override field
   shows: true,             // Show tracking: the `show` event type, Shows page, points card (Show Tracking Spec §7)
+  waitlist: true,         // Per-kennel waitlist (Waitlist Spec): its pages + in-page doors (Dog intended placement, dashboard tile, contact panel)
   // Multi-kennel scope (Multi-Kennel Scope Spec §12) — more than one own kennel,
   // with an active-kennel switcher that segments every list/hub/report. Pro-only:
   // Lite is single-kennel, so kennelScope.isScoped() is permanently false there and
