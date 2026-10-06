@@ -1876,7 +1876,8 @@ fee isn't persisted back (no `invoice_number`); the number is the default `RCT-/
 - **Line base amounts** come from `incomeView.incomeLineItems(source, record)` (§6/§21), so the
   document can never show a component the Income view wouldn't classify. The per-line **choices**
   ride the `cfg` param (a compact URL-encoded JSON the generator modal builds): each included line
-  carries `{ key, mode: 'full'|'partial', collected, dueDate }`.
+  carries `{ key, mode: 'full'|'partial', collected, dueDate? }`. **Nothing about an invoice is
+  stored** — the page and the PDF are rebuilt from the record on every view/download.
 - **Full vs Partial** (per line, owner's model): **Partial** prints "<Name> (partial)" with the
   entered `collected` as its amount; **Full** prints the record's full base amount, and
   `collected` is treated as *already collected* — on an **invoice** it is subtracted in the totals
@@ -1885,7 +1886,12 @@ fee isn't persisted back (no `invoice_number`); the number is the default `RCT-/
   **(balance)**". There is no payment ledger, so `collected` defaults to 0 for manual entry.
 - **Invoice specifics:** no Paid/Due status column; a per-line **Due by** date (the modal prefills
   the *soonest* of the sale's `balance_due_date` and any scheduled `placement` event date for the
-  puppy, still editable per line) — **except Deposit, whose Due by is always "Immediately"**, so
+  puppy — `invoiceDoc.saleDueDate` — still editable per line). That date is read **live**: a line
+  with no `dueDate` in `cfg` (every line of a plain `invoice.html?source=…&id=…` link, e.g. the
+  waitlist family's Documents card, and every generator line she left at the prefill) uses the
+  record's current date, so editing the Sale's balance due date or pickup changes the next
+  view/PDF; only a date she changed (or cleared) in the modal is written into `cfg`. A waitlist
+  fee invoice uses the entry's `fee_due_date` the same way — **except Deposit, whose Due by is always "Immediately"**, so
   the modal shows a static "Due immediately" note for that line instead of a date picker; footnote
   markers on **sale** invoices (`*` on Deposit, `**` on Remaining Purchase Price / Transport /
   Boarding — stud fees carry neither) render the two standing disclaimers (deposit

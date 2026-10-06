@@ -32,6 +32,7 @@ import { buildMileageFields, wireMileageMode } from '../assets/expensePanel.js';
 import { buildReceiptField, wireReceiptField } from '../assets/receiptCapture.js';
 import { editionFlags } from '../data/editionConfig.js';
 import { esc, badge, fmtDate, fmtMoney, todayYMD, param } from '../assets/ui.js';
+import { saleDueDate } from '../assets/invoiceDoc.js';
 import {
   EXPENSE_CATEGORIES, EXPENSE_SUBJECT_TYPES, INCOME_SOURCE_TYPES, INCOME_COMPONENTS,
   INCOME_STATES, SALE_STATUS, STUD_SERVICE_STATUS, BOARDING_FREQUENCY_OPTIONS,
@@ -628,19 +629,6 @@ async function initOverview() {
 // document number/notes/receipt-method persist on the record for next time.
 const PAYMENT_METHOD_LIST = PAYMENT_METHODS.map((m) => `<option value="${esc(m)}"></option>`).join('');
 
-// Soonest of the sale's balance-due date and any scheduled placement (drop-off)
-// date for the puppy — the per-line due-date prefill on an invoice.
-async function soonestDueFor(record) {
-  const dates = [];
-  if (record.balance_due_date) dates.push(record.balance_due_date);
-  if (record.dog_id) {
-    const evs = await eventRepo.getForSubject('dog', record.dog_id);
-    for (const e of evs) if (e.event_type === 'placement' && e.event_date) dates.push(e.event_date);
-  }
-  dates.sort();
-  return dates[0] || '';
-}
-
 async function openGenerateModal() {
   const rows = await getIncomeRows({ includeArchived: false });
   const rowByKey = new Map(rows.map((r) => [`${r.source_type}:${r.source_id}`, r]));
@@ -810,7 +798,8 @@ async function openGenerateModal() {
       ? await saleRepo.getById(row.source_id)
       : await studServiceRepo.getById(row.source_id);
     const items = incomeLineItems(row.source_type, record, { feeCredit: row.fee_credit || 0 });
-    const soonest = row.source_type === 'sale' ? await soonestDueFor(record) : '';
+    const soonest = row.source_type === 'sale' ? await saleDueDate(record) : '';
+    st.soonest = soonest;
     st.source = row.source_type;
     st.record = record;
     st.order = items.map((it) => it.component);
@@ -844,7 +833,13 @@ async function openGenerateModal() {
     const num = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 0; };
     const lines = st.order.filter((k) => st.lines[k].include).map((k) => {
       const ln = st.lines[k];
-      return { key: k, mode: ln.mode === 'partial' ? 'partial' : 'full', collected: num(ln.collected), dueDate: ln.dueDate || '' };
+      // A due date she left at the prefill isn't written into the link: the
+      // document reads the sale's own date live, so a later edit to the sale
+      // (balance due date, pickup) shows on the next view/PDF. Only a date she
+      // changed (or cleared) here is carried.
+      const line = { key: k, mode: ln.mode === 'partial' ? 'partial' : 'full', collected: num(ln.collected) };
+      if ((ln.dueDate || '') !== (st.soonest || '')) line.dueDate = ln.dueDate || '';
+      return line;
     });
     if (!lines.length) { errBox.innerHTML = `<div class="inline-error">Include at least one line item.</div>`; return; }
     const cfg = { number: st.number.trim(), notes: st.notes.trim(), lines };
