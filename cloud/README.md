@@ -12,7 +12,7 @@ src/index.js           router: /ops, preflights, /notice, /health, the 503 gate,
 src/api.js             the API's routes (plan §6.1)
 src/auth.js            sign-in codes, sessions, sign out
 src/ratelimit.js       5 codes/hour per address, 30/hour per IP (both HMAC'd)
-src/mail.js            sending a code; staging's DEV_OUTBOX puts it on /ops instead
+src/mail.js            sending a code through Resend; without a key, staging's DEV_OUTBOX shows it on /ops
 src/files.js           content-addressed files; R2 verifies the sha256
 src/snapshots.js       describe → upload body → commit, with the 409 rule at both steps
 src/program.js         program state, takeover, delete account
@@ -62,6 +62,6 @@ npx wrangler dev --local --test-scheduled  # /ops at http://localhost:8787/ops;
 
 The dashboard setup is plan §6.7. In short: the D1 database and R2 bucket named in
 `wrangler.toml`; the real `database_id` pasted into `wrangler.toml`; Workers Builds
-connected to this repo with root directory `cloud/`; and the secrets `OPS_TOKEN` and
-`EMAIL_HMAC_KEY`. Then open `/ops` on the Worker's address, sign in, and press
+connected to this repo with root directory `cloud/`; and the secrets `OPS_TOKEN`,
+`EMAIL_HMAC_KEY` and `RESEND_API_KEY`. Then open `/ops` on the Worker's address, sign in, and press
 **Apply pending**.

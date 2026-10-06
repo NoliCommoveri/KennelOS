@@ -131,6 +131,9 @@ ${migrations.some((m) => m.state === 'drifted' || m.state === 'orphaned')
   <tr><td>D1 bound / reachable</td><td>${yesNo(health.d1.bound)} / ${yesNo(health.d1.reachable)}</td></tr>
   <tr><td>R2 bound / reachable</td><td>${yesNo(health.r2.bound)} / ${yesNo(health.r2.reachable)}${health.r2.error ? ` <span class="muted">${esc(health.r2.error)}</span>` : ''}</td></tr>
   <tr><td>Secret <code>EMAIL_HMAC_KEY</code> set</td><td>${yesNo(health.secrets.EMAIL_HMAC_KEY)}</td></tr>
+  <tr><td>Email sending</td><td>${health.mail === 'resend' ? '<span class="ok">Resend</span>'
+    : health.mail === 'outbox' ? 'staging outbox (codes shown below, not emailed)'
+    : '<span class="bad">none: sign-in is refused until <code>RESEND_API_KEY</code> is set</span>'}</td></tr>
   <tr><td>Schema version</td><td>${esc(health.schema_version ?? 'none')}</td></tr>
 </table>
 ${countRows ? `<h2>Rows</h2><table>${countRows}</table>` : ''}

@@ -409,8 +409,9 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   - a daily retention cron, plus Run retention now, and D1 export/import, on `/ops`.
 
   65 tests, plus an end-to-end pass in local `wrangler dev`. **Deploying it needs Apply pending
-  on staging's `/ops`** for `0002`; the API answers 503 until then. Next: step 6 (domain + email
-  provider) and plan §9 steps 1–2 (`syncRegistry.js`, snapshot building, `'cloud-merge'`
+  on staging's `/ops`** for `0002`; the API answers 503 until then. Sign-in codes are sent through
+  **Resend** once the `RESEND_API_KEY` secret is set; until then staging shows them on `/ops`.
+  Next: step 6 (domain onto Cloudflare DNS, Resend domain + key) and plan §9 steps 1–2 (`syncRegistry.js`, snapshot building, `'cloud-merge'`
   restore).
 
 ## Build & deploy

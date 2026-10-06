@@ -38,9 +38,12 @@ type = "Text"
 globs = ["**/*.sql"]
 fallthrough = true
 
-# Staging only: with no email provider connected, sign-in codes are shown on
-# /ops instead of emailed (src/mail.js). Production must NOT set this.
+# MAIL_FROM: the sender for sign-in codes, on the domain verified in Resend.
+# DEV_OUTBOX: staging only. Until the RESEND_API_KEY secret is set, sign-in
+# codes are shown on /ops instead of emailed (src/mail.js). Production must NOT
+# set it. The Resend key itself is a secret, set in the dashboard, never here.
 [vars]
+MAIL_FROM = "KennelOS <signin@kennelos.app>"
 DEV_OUTBOX = "1"
 
 # Daily retention (src/retention.js), 03:17 UTC. Cron runs in UTC and is never

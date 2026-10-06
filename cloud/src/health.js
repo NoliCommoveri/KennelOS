@@ -1,5 +1,6 @@
 // What /ops shows about the bindings and the data. Counts only, never rows.
 import { migrationStatus } from './migrate.js';
+import { mailMode } from './mail.js';
 
 export const TABLES = ['users', 'login_codes', 'sessions', 'programs', 'snapshots', 'files', 'snapshot_files', 'notices'];
 
@@ -11,6 +12,7 @@ export async function healthCheck(env) {
       OPS_TOKEN: Boolean(env.OPS_TOKEN),
       EMAIL_HMAC_KEY: Boolean(env.EMAIL_HMAC_KEY),
     },
+    mail: mailMode(env),
     schema_version: null,
     counts: {},
   };

@@ -379,17 +379,18 @@ notices(id, level, message, until, created_at)
 - **Privacy policy page** on `site/` before launch. It covers what's stored (§5's table in
   plain English), retention (30 days), how to delete, and what happens on shutdown.
 
-### 6.5 Email
-A transactional email provider is needed for the codes (Cloudflare Email Service, Resend,
-Postmark…). It's the one third-party dependency (see Q1). It sees the recipient address for
-each code it sends, so pick one whose logs can be set to short retention; the privacy policy
-names it. The sender domain is
-`kennelos.app`, with SPF/DKIM set up so codes don't land in spam.
-
-**Check before choosing Cloudflare's own:** the provider has to send to *any* address a
-breeder types. Cloudflare's older Email Routing `send_email` binding only sends to addresses
-verified in advance, which rules it out. Confirm the account's Email Service supports
-arbitrary recipients before picking it over Resend/Postmark.
+### 6.5 Email (decided: Resend)
+Sign-in codes are sent through **Resend**'s HTTP API from `signin@kennelos.app`, plain text,
+with no links or tracking. That's its only use. It's the one third-party dependency.
+- **Setup:** the `kennelos.app` domain is verified in Resend; its records (DKIM, plus SPF and
+  bounce MX on the `send.` subdomain) and a `_dmarc` TXT record live in Cloudflare DNS. The API
+  key is a Worker secret, `RESEND_API_KEY`, with sending access only, restricted to that domain.
+- **Privacy:** Resend sees each recipient address for the send it makes. The privacy policy names
+  it. Its log retention is checked and kept as short as the account allows.
+- **Failure:** a send Resend refuses is a `502 email_failed` to the app, and the log records
+  Resend's status code, never the address.
+- **Staging before the key:** `DEV_OUTBOX` puts codes on `/ops` (§6.2). Production has neither
+  the outbox nor, until the key is set, any way to send, so sign-in answers 503.
 
 ### 6.6 Operations from the browser (`/ops`)
 **Constraint:** no step in setup, migration, or recovery needs a terminal. This is the same
@@ -438,7 +439,8 @@ whose page is open to anyone until the first account exists.
    - `EMAIL_HMAC_KEY` (§6.2). A Cloudflare secret can't be read back after it's saved, so
      this one is generated first, stored in the password manager, then pasted in.
      Production's key is permanent.
-5. The email provider's API key (a third secret) and its DNS records.
+5. Resend: the domain verified (its DNS records added in Cloudflare), and its API key as a
+   third secret, `RESEND_API_KEY`.
 6. Production only: the `kennelos.app` zone on Cloudflare DNS (GitHub Pages records
    DNS-only), the `api.kennelos.app` Custom Domain on the Worker, and the Workers Paid plan.
 
@@ -511,8 +513,7 @@ whose page is open to anyone until the first account exists.
 | The operator can't recover without a terminal | Everything on `/ops`, with export/import beside every destructive control (§6.6) |
 
 ## 11. Questions this plan raises
-1. **Email provider:** is any preference? Cloudflare Email Service keeps it all on one bill;
-   Resend/Postmark have better deliverability tooling.
+1. **Email provider:** decided: Resend (§6.5).
 2. **API domain:** is `api.kennelos.app` okay? (The owning account is decided: a shared
    Cloudflare account under the KennelOS email address; see §6.)
 3. **Free-tier limits:** cap Lite cloud storage (e.g., 1 GB of documents)? Cost at Lite's

@@ -43,7 +43,7 @@ export async function startSignIn(env, request, body) {
        attempts = 0, created_at = excluded.created_at`,
   ).bind(eh, await codeHash(env, eh, code), new Date(now + CODE_TTL_MS).toISOString(), new Date(now).toISOString()).run();
 
-  await sendCode(env, { email, emailHash: eh, code });
+  await sendCode(env, { email, emailHash: eh, code, minutes: CODE_TTL_MS / 60000 });
   return { ok: true };
 }
 
