@@ -6,10 +6,15 @@
 // everything and says how to set it: it never falls open. Breeder accounts have
 // no way in.
 //
-// Step 3a carries the migration table, Apply pending and the health check.
-// Run retention now and the D1 export/import arrive with step 3b.
+// While any migration is pending or drifted the page shows only the migration
+// table and Apply pending: every other section queries the schema this deploy
+// expects, and a page that errors is a page whose Apply pending can't be pressed.
 import { applyPending, migrationStatus } from './migrate.js';
 import { healthCheck } from './health.js';
+import { activeNotices, addNotice, removeNotice, LEVELS } from './notice.js';
+import { runRetention } from './retention.js';
+import { exportAll, importAll } from './backup.js';
+import { mailMode } from './mail.js';
 import { hmacHex, timingSafeEqual } from './lib/crypto.js';
 import { readCookie } from './lib/http.js';
 import { escapeHtml as esc } from './lib/html.js';
@@ -48,7 +53,7 @@ function page(title, body, status = 200) {
   code, pre { font-family: ui-monospace, monospace; font-size: .85em; }
   pre { overflow-x: auto; background: #8881; padding: .6rem; border-radius: 4px; }
   button { font: inherit; padding: .5rem .9rem; border-radius: 6px; border: 1px solid #8886; background: #8881; color: inherit; cursor: pointer; }
-  input { font: inherit; padding: .45rem; width: 100%; box-sizing: border-box; border-radius: 6px; border: 1px solid #8886; background: transparent; color: inherit; }
+  input, select { font: inherit; padding: .45rem; width: 100%; box-sizing: border-box; border-radius: 6px; border: 1px solid #8886; background: transparent; color: inherit; }
   form { margin: .5rem 0; }
   .muted { opacity: .65; }
   .bad { color: #d93025; font-weight: 600; }
@@ -128,7 +133,52 @@ ${migrations.some((m) => m.state === 'drifted' || m.state === 'orphaned')
   <tr><td>Secret <code>EMAIL_HMAC_KEY</code> set</td><td>${yesNo(health.secrets.EMAIL_HMAC_KEY)}</td></tr>
   <tr><td>Schema version</td><td>${esc(health.schema_version ?? 'none')}</td></tr>
 </table>
-${countRows ? `<h2>Rows</h2><table>${countRows}</table>` : ''}`);
+${countRows ? `<h2>Rows</h2><table>${countRows}</table>` : ''}
+${behind || !health.d1.reachable ? '<p class="muted">The sections below appear once every migration is applied.</p>' : await currentSections(env)}`);
+}
+
+async function currentSections(env) {
+  const notices = await activeNotices(env);
+  const noticeRows = notices
+    .map((n) => `<tr><td>${esc(n.level)}</td><td>${esc(n.message)}</td><td class="muted">${esc(n.until ?? 'until removed')}</td>
+      <td><form method="post" action="/ops/notices/remove"><input type="hidden" name="id" value="${esc(n.id)}"><button type="submit">Remove</button></form></td></tr>`)
+    .join('');
+
+  let outbox = '';
+  if (mailMode(env) === 'outbox') {
+    const { results } = await env.DB.prepare(
+      'SELECT code, email_hash, created_at FROM dev_outbox ORDER BY id DESC LIMIT 10',
+    ).all();
+    outbox = `<h2>Sign-in codes (staging outbox)</h2>
+<p class="muted">No email provider is connected, so codes land here instead. Kept for an hour.</p>
+${results.length
+    ? `<table><tr><th>code</th><th>email (hash)</th><th>sent</th></tr>${results
+      .map((r) => `<tr><td><code>${esc(r.code)}</code></td><td class="muted"><code>${esc(r.email_hash.slice(0, 10))}…</code></td><td class="muted">${esc(r.created_at)}</td></tr>`)
+      .join('')}</table>`
+    : '<p class="muted">None yet.</p>'}`;
+  }
+
+  return `${outbox}
+<h2>Service notices</h2>
+${noticeRows ? `<table>${noticeRows}</table>` : '<p class="muted">No active notices.</p>'}
+<form method="post" action="/ops/notices">
+  <p><label>Level<br><select name="level">${LEVELS.map((l) => `<option>${l}</option>`).join('')}</select></label></p>
+  <p><label>Message<br><input name="message" maxlength="1000"></label></p>
+  <p><label>Show until (optional)<br><input type="date" name="until"></label></p>
+  <button type="submit">Add notice</button>
+</form>
+
+<h2>Retention</h2>
+<p class="muted">Runs daily by itself. Keeps hourly snapshots for a day and daily ones for 30 days.</p>
+<form method="post" action="/ops/retention"><button type="submit">Run retention now</button></form>
+
+<h2>Backup of this database</h2>
+<p class="muted">D1 rows only. Snapshot and file bytes in R2 are not in the file.</p>
+<p><a href="/ops/export.json">Download export.json</a></p>
+<form method="post" action="/ops/import" enctype="multipart/form-data">
+  <p><label>Restore into an empty database<br><input type="file" name="file" accept="application/json"></label></p>
+  <button type="submit">Import</button>
+</form>`;
 }
 
 // ---------- routing ----------
@@ -192,6 +242,52 @@ async function route(request, env) {
              .join('\n\n'))}</pre></details>`)
       .join('');
     return dashboard(env, flash + (halted ? '<p class="bad">Halted. Later migrations were not attempted.</p>' : ''));
+  }
+
+  if (url.pathname === '/ops/retention' && request.method === 'POST') {
+    const r = await runRetention(env);
+    return dashboard(env, `<p class="ok">Retention done: ${esc(r.snapshotsDropped)} snapshots and ${esc(r.pendingDropped)} abandoned uploads removed, ${esc(r.filesDropped)} unreferenced files removed.</p>`);
+  }
+
+  if (url.pathname === '/ops/notices' && request.method === 'POST') {
+    const form = await request.formData();
+    try {
+      await addNotice(env, { level: form.get('level'), message: form.get('message'), until: form.get('until') });
+    } catch (err) {
+      return dashboard(env, `<p class="bad">${esc(err.message)}</p>`);
+    }
+    return dashboard(env, '<p class="ok">Notice added.</p>');
+  }
+
+  if (url.pathname === '/ops/notices/remove' && request.method === 'POST') {
+    await removeNotice(env, (await request.formData()).get('id'));
+    return dashboard(env, '<p class="ok">Notice removed.</p>');
+  }
+
+  if (url.pathname === '/ops/export.json' && request.method === 'GET') {
+    const data = await exportAll(env.DB);
+    return new Response(JSON.stringify(data), {
+      headers: {
+        'content-type': 'application/json; charset=utf-8',
+        'content-disposition': `attachment; filename="kennelos-cloud-${data.exported_at.slice(0, 10)}.json"`,
+        'cache-control': 'no-store',
+      },
+    });
+  }
+
+  if (url.pathname === '/ops/import' && request.method === 'POST') {
+    const file = (await request.formData()).get('file');
+    if (!file || typeof file.text !== 'function') return dashboard(env, '<p class="bad">Choose an export.json file first.</p>');
+    let data;
+    try {
+      data = JSON.parse(await file.text());
+    } catch {
+      return dashboard(env, '<p class="bad">That file is not JSON.</p>');
+    }
+    const result = await importAll(env.DB, data);
+    return dashboard(env, result.ok
+      ? `<p class="ok">Imported ${esc(result.rows)} rows.</p>`
+      : `<p class="bad">Nothing was imported. ${esc(result.reason)}</p>`);
   }
 
   return page('Not found', '<h1>Not found</h1><p><a href="/ops">Back to ops</a></p>', 404);

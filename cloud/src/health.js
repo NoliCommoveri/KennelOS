@@ -1,7 +1,7 @@
 // What /ops shows about the bindings and the data. Counts only, never rows.
 import { migrationStatus } from './migrate.js';
 
-export const TABLES = ['users', 'login_codes', 'sessions', 'programs', 'snapshots', 'files', 'snapshot_files'];
+export const TABLES = ['users', 'login_codes', 'sessions', 'programs', 'snapshots', 'files', 'snapshot_files', 'notices'];
 
 export async function healthCheck(env) {
   const out = {

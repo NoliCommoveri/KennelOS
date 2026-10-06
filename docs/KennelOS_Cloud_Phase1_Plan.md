@@ -280,16 +280,17 @@ a **Worker, not Cloudflare Pages**: Pages has no Cron Triggers, and §6.3's rete
 | `POST /auth/signout` | Revokes this token. |
 | `POST /auth/signout-others` | Revokes every other session on the account ("Sign out other devices" on the Import/Export card). |
 | `GET /program` | Program name, backing device (label + last push), latest snapshot meta. |
-| `HEAD /files/:sha256` · `PUT /files/:sha256` | Upload-if-missing, answered from D1's `files` table (§6.2), not by asking R2. `PUT` streams the body straight into R2 with `put(key, body, { sha256 })`, so **R2 verifies the hash** and rejects a mismatch. The Worker never buffers or re-hashes the file itself, which would blow the CPU and memory limits at 25 MB. On success it writes the `files` row. 25 MB cap per file, checked against `Content-Length` before streaming. |
-| `POST /snapshots` | Body: gzipped envelope (sent as `application/gzip`, not `Content-Encoding`) + `base_snapshot_id`, `device_id`. Returns 409 per §3.4. The server checks every referenced sha256 has a `files` row, in one query (§6.2). |
+| `HEAD /files/:sha256` · `PUT /files/:sha256` · `GET /files/:sha256` | Upload-if-missing, answered from D1's `files` table (§6.2), not by asking R2. `PUT` streams the body straight into R2 with `put(key, body, { sha256 })`, so **R2 verifies the hash** and rejects a mismatch. The Worker never buffers or re-hashes the file itself, which would blow the CPU and memory limits at 25 MB. On success it writes the `files` row. 25 MB cap per file, checked against `Content-Length` before streaming. `GET` is for restore. |
+| `POST /snapshots` | **Step one of two:** a small JSON description, `{base_snapshot_id, size, counts, files: [sha256…]}`. Refuses before any bytes move: a 409 per §3.4 (naming the backing device and its last push), or a 400 naming any referenced file the server doesn't have, checked in one query (§6.2). Returns `{snapshotId}`; the row is `pending`. |
+| `PUT /snapshots/:id/body` | **Step two:** the gzipped envelope (`Content-Length` must equal the described `size`), streamed to R2. Commits only if the §3.4 rule still holds at that moment (one conditional batch), so two devices racing can't both win; the loser's row and object are removed and it gets the 409. An upload abandoned between the steps is removed by retention after a day. |
 | `GET /snapshots` · `GET /snapshots/:id` | The history list and one snapshot. |
 | `POST /program/backing-device` | Takeover (§3.4). |
 | `DELETE /account` | Deletes the account's rows, snapshots and files, and revokes tokens. |
 | `GET /notice` | Service notices (`{ level, message, until }`) for the sunset path (Proposal §2a). Public and cacheable. |
-| `/ops/*` | The operator's page (§6.6). Same-origin HTML, behind `OPS_TOKEN`, never in the CORS allow-list. |
+| `/ops/*` | The operator's page (§6.6). Same-origin HTML, behind `OPS_TOKEN`, never in the CORS allow-list. Service notices are added and removed here. |
 
 **Maintenance answer.** While any migration is pending or drifted (§6.6), every API route
-except `/ops` and `/notice` returns **`503 {maintenance: true}`**. `cloudApi` treats it like
+except `/ops`, `/notice` and `/health` returns **`503 {maintenance: true}`**. `cloudApi` treats it like
 being offline: backup retries later and nothing is shown as an error. This covers the window
 between a deploy and **Apply pending**, when the code is newer than the database. Breeders'
 apps push in the background, so without this every sign-in or push in that window would
@@ -306,7 +307,19 @@ snapshots(id, program_id, device_id, created_at, size, counts_json, r2_key)
 snapshot_files(snapshot_id, sha256)        -- for GC
 files(program_id, sha256, size, created_at, PRIMARY KEY (program_id, sha256))
 _migrations(id, name, applied_at, checksum) -- the runner's own table (§6.6)
+-- 0002 adds:
+snapshots + status ('pending' | 'committed'), base_snapshot_id, device_label
+rate_limits(bucket, window_start, count)   -- per email hash / HMAC'd IP, per UTC hour
+dev_outbox(id, email_hash, code, created_at) -- staging only, while no email provider exists
+notices(id, level, message, until, created_at)
 ```
+- **Rate limits:** 5 codes an hour per address and 30 an hour per IP. The limit applies to
+  any address, so a 429 says nothing about whether an account exists. The IP is HMAC'd
+  like the email, never stored as-is.
+- **Codes on staging:** with no email provider connected, staging sets `DEV_OUTBOX = "1"`
+  and the code is shown on `/ops` instead of emailed, keyed by the email hash, never the
+  address. Production never sets it, and with no provider it refuses sign-in (503
+  `email_unavailable`) rather than pretending a code was sent.
 - **`files` is the R2 index.** Upload-if-missing, the snapshot's reference check and the
   retention GC all read it instead of calling R2 per file. One R2 call per file would exceed
   the free tier's 50 subrequests on a program with a real document library, and would be slow
@@ -334,7 +347,11 @@ _migrations(id, name, applied_at, checksum) -- the runner's own table (§6.6)
 - **Retention:** for the last 24 h, at most one snapshot per hour (the latest in each hour);
   then one per day to 30 days; then deleted. The newest snapshot is always kept, whatever
   its age. (Together with the §2.2 cadence that's at most ~53 snapshots per program; §4.2.)
-  A daily cron Worker prunes snapshots, then deletes files no retained snapshot references.
+  A daily cron (03:17 UTC) prunes snapshots, then deletes files no retained snapshot
+  references. A file gets a day's grace, so one uploaded just before its snapshot is
+  committed is never collected. The same run clears abandoned uploads, expired codes,
+  old rate-limit windows, outbox rows and dead sessions. D1 rows go before R2 objects, so a
+  failure leaves unreferenced objects, never rows pointing at nothing.
 - **The cron is a backstop, never the only path.** Cron Triggers run in UTC and are not
   retried if a run fails, so the prune is idempotent: it recomputes what to keep from the
   stored rows on every run, and a missed day just leaves more to delete next time. `/ops`
@@ -458,7 +475,7 @@ whose page is open to anyone until the first account exists.
    with your sister; it *is* the privacy promise.
 2. **`buildCloudSnapshot` + `'cloud-merge'` restore + shrink guard + `markDataChanged` hooks +
    the direct-writer coverage test.** Still no network.
-3. **`cloud/` Worker**, in two PRs:
+3. **`cloud/` Worker**, in two PRs (both built; staging is live):
    - **3a, the skeleton:** `wrangler.toml`, the router, CORS, `/ops` with the ported
      migration runner, health check, and `0001` (§6.2).
    - **3b, the API:** auth, snapshots, files, notice, the 503 maintenance answer, the

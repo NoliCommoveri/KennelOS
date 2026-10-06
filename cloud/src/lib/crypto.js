@@ -20,3 +20,19 @@ export function timingSafeEqual(a, b) {
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
 }
+
+export function randomHex(bytes = 32) {
+  const buf = new Uint8Array(bytes);
+  crypto.getRandomValues(buf);
+  return hex(buf);
+}
+
+// A uniformly random 6-digit code. Values at or above the largest multiple of
+// 10^6 below 2^32 are redrawn, so no code is likelier than another.
+export function randomCode() {
+  const buf = new Uint32Array(1);
+  for (;;) {
+    crypto.getRandomValues(buf);
+    if (buf[0] < 4294000000) return String(buf[0] % 1000000).padStart(6, '0');
+  }
+}

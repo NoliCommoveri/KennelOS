@@ -37,3 +37,13 @@ bucket_name = "kennelos-files-staging"
 type = "Text"
 globs = ["**/*.sql"]
 fallthrough = true
+
+# Staging only: with no email provider connected, sign-in codes are shown on
+# /ops instead of emailed (src/mail.js). Production must NOT set this.
+[vars]
+DEV_OUTBOX = "1"
+
+# Daily retention (src/retention.js), 03:17 UTC. Cron runs in UTC and is never
+# retried; retention is idempotent and /ops has "Run retention now".
+[triggers]
+crons = ["17 3 * * *"]

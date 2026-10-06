@@ -395,9 +395,23 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   was checked end to end in local `wrangler dev`. **Staging is live** at
   `kennelos-api-staging.admin-kennelos.workers.dev`, deployed by Workers Builds, with both
   secrets set. `0001` was applied from `/ops` on 2026-10-06, and D1 and R2 report bound and
-  reachable. Next: step 3b (auth,
-  snapshots, files, notice, retention cron, D1 export/import). No edition file changed, so there's
-  no service-worker bump.
+  reachable. No edition file changed, so there's no
+  service-worker bump.
+- **Cloud Phase 1, step 3b: the backup API is built** (plan §6.1–§6.6), in migration `0002` and
+  `cloud/src/`:
+  - sign-in by 6-digit code, rate-limited, with codes shown on `/ops` on staging (no email
+    provider yet);
+  - bearer sessions with 90-day sliding expiry, sign out, and sign out other devices;
+  - content-addressed file upload/HEAD/GET, with R2 verifying the hash;
+  - two-step snapshots (describe, then upload the body) with the one-backing-device 409 enforced
+    at both steps, plus list and download;
+  - takeover, account deletion, and public service notices set from `/ops`;
+  - a daily retention cron, plus Run retention now, and D1 export/import, on `/ops`.
+
+  65 tests, plus an end-to-end pass in local `wrangler dev`. **Deploying it needs Apply pending
+  on staging's `/ops`** for `0002`; the API answers 503 until then. Next: step 6 (domain + email
+  provider) and plan §9 steps 1–2 (`syncRegistry.js`, snapshot building, `'cloud-merge'`
+  restore).
 
 ## Build & deploy
 
