@@ -225,9 +225,6 @@ until the webhook is configured.
 - [ ] **Staging test purchase** with a test card, then sign in to staging with that email:
   `/ops` shows the purchase; `GET /account/entitlement` reads `pro: true`. Also check LS's
   retry schedule and whether its dashboard can resend a failed delivery (plan §9 decision 5).
-- [ ] **Privacy policy first:** `site/privacy.html` must say we keep a keyed hash of each Pro
-  buyer's email, the plan and whether it's active (plan §10 step 4) before production's
-  webhook goes live, since that's when the server starts holding it.
 - [ ] **Production:** the same webhook in live mode to
   `https://api.kennelos.app/webhooks/lemonsqueezy`, its own secret on the production Worker,
   the same ids under `[env.production.vars]` (`LS_TEST_MODE` stays `"false"`). Do it

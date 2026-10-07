@@ -19,7 +19,8 @@
   when. A `requirePro()` guard for W2's routes, and one read route so the app can show it.
 - **Linking a purchase made with another email** to the account, proven by a code sent to
   that email (the same machinery as sign-in).
-- `/ops` visibility, the export, tests, docs, and the privacy policy.
+- `/ops` visibility, the export, tests and docs. **No privacy-policy change** (the
+  owner's decision, 2026-10-07).
 
 **Not in (stays Proposal Phase 5 proper):** the license key following the account to a new
 device, any change to the browser's activation or grace logic, and any gate on the app
@@ -230,8 +231,8 @@ checkout links are on `site/pro.html` today, so this only covers the app's own b
 2. **Keep purchase rows for emails with no account (recommended).** Without them, a breeder
    who buys first and signs up later isn't Pro on the server until LS sends another event,
    which could be a year. The cost: the server holds a keyed hash, plan and status for every
-   Pro buyer, account or not. Aged out 90 days after access ends. The privacy policy has to
-   say so.
+   Pro buyer, account or not. Aged out 90 days after access ends. (The privacy policy is
+   not being changed for this: the owner's decision, 2026-10-07.)
 3. **Grace matches the app (recommended):** `past_due`/`unpaid` stay Pro for 7 days (yearly)
    or 3 (monthly), as `license.js` does, so W2's emails don't stop the day a card fails while
    her app still works.
@@ -289,10 +290,8 @@ checkout links are on `site/pro.html` today, so this only covers the app's own b
 3. **Client:** `cloudApi` additions, `cloudEntitlement.js`, the Account-section line and the
    link modal (Pro only); `PRECACHE_URLS`; browser-verified against the Worker in-process and
    then on staging.
-4. **Docs, privacy policy, production:** `cloud/README.md` (route, secret, vars, migration,
+4. **Docs, production:** `cloud/README.md` (route, secret, vars, migration,
    the no-key rule for webhooks), End-State guide §30, Proposal §4 and §9 (Phase 5: the link
    built, the rest still later), Waitlist Spec §8.5 and §12 (prerequisite met), README build
-   status, `LAUNCH_CHECKLIST.md` (§7 steps 3–4); `site/privacy.html` ("If you buy Pro, Lemon
-   Squeezy tells our server about the purchase: we keep a keyed hash of the purchase email,
-   the plan and whether it's active, never the address or your license key"); then §7 step 3
+   status, `LAUNCH_CHECKLIST.md` (§7 steps 3–4); then §7 step 3
    on production, and the `CACHE_NAME` bump (asked first).
