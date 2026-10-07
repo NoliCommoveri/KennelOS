@@ -1,8 +1,11 @@
 # KennelOS Cloud — Phase 1 build plan: opt-in accounts + cloud backup (DRAFT)
 
 > Parent design: `docs/KennelOS_Cloud_Accounts_Proposal.md` (cited below as "Proposal §N").
-> Status: **plan for review, nothing built.** Decisions it relies on are recorded in Proposal
-> §10. The ones it raises are in §11 below.
+> Status: **in progress.** Built so far: §9 steps 1–5 (the registry; snapshot, `'cloud-merge'`
+> restore and dirty signal; the staging Worker; the client cloud modules in
+> `shared/data/cloud/`; the UI in `shared/assets/cloudBackupUI.js`). Next: step 6. The README's build status is the
+> live record. Decisions it relies on are recorded in Proposal §10. The ones it raises are in
+> §11 below.
 
 ## 1. Scope
 
@@ -38,9 +41,12 @@ snapshots with record-level sync and keeps this plan's auth, server, and registr
   1. Enter email.
   2. Type the 6-digit code from the email.
   3. Read one plain screen: "What gets backed up: your dogs, litters, pairings, health
-     records, contacts' **names**. What stays only on this phone: contacts' phone, email and
-     address, prices and payments, Financials, contracts, receipts, and your private notes."
-     It links to the existing file backup for those.
+     records, contacts' **names**, and your waitlist (its order, settings, application form,
+     and each applicant's **name and email**). What stays only on this phone: contacts'
+     phone, email and address, prices and payments (including waitlist fees paid),
+     Financials, contracts, receipts, the rest of each application's answers, and your
+     private notes." It links to the existing file backup for those. (Waitlist wording
+     added by §5.1's decisions.)
   4. Tap "Turn on". The first backup runs immediately with a progress bar (files can take
      a minute).
 - **Why a typed code and not a magic link:** an iPhone home-screen PWA has *separate storage
@@ -200,6 +206,99 @@ field** on a device that has them. So we add a third mode, with one switch, `ove
   addition, a user archives the record by hand. A Phase 1 restore never removes records (it's deliberately conservative;
   revisit in Phase 2).
 
+### 4.4 As built (§9 step 2)
+- **Module split.** `buildCloudSnapshot`, gzip and the shrink guard are in
+  `data/cloud/cloudBackup.js` now. Its network half (`pushIfDirty`, `listSnapshots`,
+  `restoreSnapshot`, the scheduler) arrives in step 4. `buildCloudSnapshot` takes the
+  server-issued `deviceId` as an option and returns `{ envelope, files }`; `files` is one
+  `{ sha256, size, mime, blob }` per distinct content, for upload-if-missing (§6.1).
+- **`exportAll({ encodeBlobs: false })`** feeds it raw Blobs. The file backup's base64
+  markers would only be decoded again for hashing.
+- **`'cloud-merge'`** is `restoreBackup(snapshot, 'cloud-merge', { overwrite, fetchFile })`.
+  - **Files:** network stays out of `importExport.js`. Step 4 passes
+    `fetchFile(sha256) → Blob`, and a file it can't get is skipped and returned in
+    `missingFiles`. An existing local file row is never touched.
+  - **Preview:** `planCloudMerge()` returns the per-table
+    `{ inserted, updated, keptLocal, unchanged }` counts without writing. `updated` under
+    `overwrite: true` is the confirmation screen's "N records will be rolled back".
+  - **Absent fields:** a cloud field missing from a newer snapshot row is removed locally,
+    since the snapshot says it was absent at the source.
+  - **`events.details`** keeps the device's private keys and takes the snapshot's cloud
+    keys (`syncRegistry.overlayCloudFields`).
+- **Shrink guard reading.** "The last had ≥ 10" is applied to each measure separately:
+  the dog check runs when the last snapshot had at least 10 dogs, and the total check when
+  it had at least 10 records.
+- **Dirty signal.** `settings.markDataChanged()` / `getCloudDirtyAt()` /
+  `clearCloudDirty(ifAt)`. Exempt writers, pinned in `tests/cloudDirty.test.js`: clearing
+  sample data (those rows are never in a snapshot) and Reset App (plan §3.3).
+  - **Sample seed:** the seed writes through the repos, so seeding marks the flag even
+    though every seeded row is filtered out. The resulting push is harmless but empty.
+    Step 4's `pushIfDirty` can skip a snapshot identical to the last one.
+
+### 4.5 As built (§9 step 4: the client modules)
+- **URL wiring (§7).** Every edition config exports `cloudUrl` and `devCloudUrl`.
+  `cloudUrl` stays `null` in Lite and Pro until production is live (step 6), so a deploy
+  before then can't point at a server that doesn't exist. `devCloudUrl` is the staging
+  Worker in shared, Lite and Pro. `cloudConfig` uses it **only** when the page's host is
+  `localhost`/`127.0.0.1`. Demo has neither. `tests/editionConfig.test.js` pins this.
+- **Device identity.** The server accepts a client-supplied device id on `/auth/verify`.
+  The client mints `cloudDeviceId` once and sends it on every sign-in, so signing in again
+  on the backing device doesn't make it a stranger. It's a separate key from the license's
+  `deviceId`.
+- **Settings (§3.3).** `cloudSession`, `cloudBackupState` and `cloudDeviceId` sit outside
+  `clearAllSettings()`'s keys. Reset App calls `appReset.stopCloudBackupAfterReset()`:
+  backup off, and `lastSnapshotId`/`lastCounts` forgotten, so re-enabling meets a 409
+  (`ownDevice: true`) and goes through §3.4's choice. The sign-out question stays with the
+  UI (step 5).
+- **Push results** are a status, never a thrown error: `pushed`, `unchanged`, `skipped`,
+  `offline`, `conflict`, `shrink`, `auth` or `error`. `conflict`, `shrink` and `auth`
+  **pause** automatic pushes (`lastError`) until the user acts, so the scheduler doesn't
+  retry them every five minutes. A push the user starts (`force`) goes ahead.
+- **"Unchanged" skip.** A dirty push whose cloud-tier content hashes the same as the last
+  push sends nothing and clears the flag. That covers a private-only edit (a note, a price)
+  and the sample seed, which writes through the repos.
+- **One push at a time** across tabs via `navigator.locks`. The state is re-read inside
+  the lock, so a second tab sees the first tab's push and doesn't 409 against itself.
+- **Scheduler and the multi-page app.** Every navigation is a page load, so "at app start"
+  means the **first page of a browsing session** (a `sessionStorage` mark): it pushes
+  immediately if dirty. Later pages resume the five-minute timer from `cloudDirtySince`,
+  the first unpushed change. A push also never starts sooner than five minutes after the
+  last attempt. Background pushes (`visibilitychange` → hidden) are at most once a minute.
+  The scheduler also re-arms when the browser comes back online.
+- **The §3.4 choices.** `restoreLatestAndTakeOver()` restores the latest snapshot with
+  newer-wins, takes over, then pushes. It is also `restoreOnNewDevice` for first-run.
+  `replaceCloudWithThisDevice()` takes over and pushes with the shrink guard waived (the
+  user chose it). The UI supplies the typed confirmation.
+- **Tests** drive the client against the real Worker code in-process
+  (`tests/cloudClient.test.js`). The fetch stand-in adds `Content-Length` as a browser
+  does for a Blob body.
+
+### 4.6 As built (§9 step 5: the UI)
+- **Loading.** `cloudBackupUI.js` is imported dynamically, and only when
+  `isCloudAvailable()`, by `app.js` (`bootCloud`), `today.js`, `import-export.js` and the
+  first-run restore button. With `cloudUrl: null`, no cloud UI loads, renders, or makes a
+  request (browser-verified, §7's "no-server boot test").
+- **The post-setup offer** is armed when the first kennel is saved (`required` kennel-setup
+  save) and shown on the reload after it. It isn't shown with sample data loaded, to a
+  signed-in device, or while another modal is open. "Skip for now" also snoozes Today's
+  nudge for its 30 days.
+- **The Today nudge** only renders without sample data. "Not now" snoozes it for 30 days
+  (`nudgeState.dismissedAt`). The same slot shows "Cloud backup is paused" while a
+  conflict, shrink or expired sign-in is waiting.
+- **Service notices** are fetched only by a device signed in to cloud backup, once per
+  browsing session (cached in `sessionStorage`). Someone who never opted in sends the
+  server nothing at all. They render as a strip at the top of every page.
+- **Restore on a new device** also records the first-run choice and sets `myKennelId` to
+  the restored own kennel (settings aren't in the snapshot), so the kennel-setup gate
+  doesn't fire.
+- **Reset App's question** is a checkbox in the existing typed-RESET modal, ticked by
+  default (§3.3: the reset follows a typed confirmation).
+- **Restore as of…** labels a snapshot "Today 9:14" / "Yesterday …" / "Tue Sep 29 …". When
+  two backups fall in the same minute, they get seconds too.
+- **Deferred:** the per-record "private details aren't in cloud backup" hint (§2.3). For now
+  there is one hint on the Import/Export card after a cloud restore, pointing at a file
+  backup merge.
+
 ## 5. The classification (`syncRegistry.js`)
 
 **Rule zero:** a field not listed as cloud is private. The registry lists **cloud** fields, so
@@ -210,7 +309,8 @@ implicitly cloud.
 |---|---|---|---|
 | **dogs** | all | `call_name`, `registered_name`, `sex`, `breed`, `status`, `ownership_type`, `kennel_id`, `breeder_kennel_id`, `sire_id`, `dam_id`, `litter_id`, `owner_contact_id`, `co_owner_contact_ids`, `date_of_birth`, `date_of_death`, `color_markings`, `registry`, `registration_number`, `microchip_id`, `url`, `planned_tests`, `disposition` | `notes` |
 | **events** | all | `subject_type`, `subject_id`, `event_type`, `event_date`, `event_end_date`, `title`, `reminder_date`, `reminder_dismissed`, `related_dog_id`, `related_contact_id`, `details` **filtered** (below) | `notes`; `details` keys of type `textarea` |
-| **kennels** | all | `kennel_name`, `prefix`, `public_id`, `is_own_kennel`, `location` (**decided**), `website`, `logo_data_url`, `preferred_tests`, `preferred_breeds`, `preferred_test_breeds`, `promote_nudge_enabled`, `promote_age_male_months`, `promote_age_female_months` | none |
+| **kennels** | all | `kennel_name`, `prefix`, `public_id`, `is_own_kennel`, `location` (**decided**), `website`, `logo_data_url`, `preferred_tests`, `preferred_breeds`, `preferred_test_breeds`, `promote_nudge_enabled`, `promote_age_male_months`, `promote_age_female_months`, `waitlist_config` (**decided** 2026-10-07, §5.1) | none |
+| **waitlist_entries / _offers / _programs** | all | see `KennelOS_Waitlist_Spec.md` §9, as revised by §5.1: the order and running state, her form wording, and of each `application` **only `name` and `email`** | each family's fee money and payment details, the other application answers, `pause_reason`, notes, the change history |
 | **contacts** | all | `name` (**decided**), `contact_type`, `kennel_id`, `waitlist_status` | `email`, `phone`, `address`, `notes`, `companion_note`, `first_contact_source` |
 | **pairings** | all | `kennel_id`, `sire_id`, `dam_id`, `pairing_type`, `status`, `method`, `planned_date`, `last_observed_date`, `expected_due_date` | `notes` |
 | **litters** | all | `kennel_id`, `pairing_id`, `sire_id`, `dam_id`, `status`, `nickname`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date`, `litter_registration_number`, `puppies_born_*` counts, `foster_direction`, `foster_partner_contact_id` | every price/deposit/foster-money field, `foster_split_notes`, `notes` |
@@ -227,6 +327,98 @@ implicitly cloud.
 findings, temperament notes, `notes`/`note`) are private, and every other declared key is cloud.
 An **undeclared** key in `details` is private. So the rule is derived from the vocab that
 already drives the forms, and it can't drift.
+
+**As built (§9 step 1).** `shared/data/syncRegistry.js` follows the table above, and adds:
+- **The three waitlist tables**, classified as in `KennelOS_Waitlist_Spec.md` §9, plus
+  `dogs.intended_placement` (cloud). "Every field except" rows (`waitlist_offers`,
+  `breed_feeding_schedules`) are written out field by field, so a field added later still
+  starts private.
+- **A `pending` bucket per table** for fields not yet decided, private (rule zero) until moved.
+  It is empty now. Five fields this table didn't cover were **decided on 2026-10-06**:
+  - **cloud:** `dogs.dob_is_estimated` (it qualifies the birth date), `dogs.recorded_coi`
+    (genetic data, like the health tests), `litters.picks_opened_date` (a waitlist date;
+    the auto-offer flow needs it after a restore);
+  - **private:** `litters.feeding_schedule_override` (free text). `kennels.waitlist_config`
+    was private here at first; §5.1's decision 1 (2026-10-07) moved it to cloud.
+- **Readings of the table:** `litters.foster_comp_model` and `foster_split_basis` count as
+  foster-money fields (private). `documents.contract_id` is private, because it only appears
+  on contract-type documents, which never leave. `files.blob` is never in the snapshot JSON;
+  `sha256` is a declared *derived* key that the snapshot builder adds in its place (§4.1).
+- **Merging main's waitlist W1e work (2026-10-07):** the new waitlist fields follow
+  `KennelOS_Waitlist_Spec.md` §9 where it decides them:
+  - cloud: `listen_sire_ids`/`listen_dam_ids` (`listen_*`; the old pairing/litter lists are
+    gone), `soon_notified_date` and `fee_received_at` ("every date field"; the latter is the
+    same-day tie-breaker of the list order), and offers' `picked_date` and `sale_id`
+    ("every field except notes");
+  - private: `pref_change_log`/`pref_change_request` (§15.9: "private tier like
+    `application`").
+  `ready_timing` and `soon_notified_litter_ids` were pending at the merge, then decided cloud
+  by §5.1 (2026-10-07). The `pending` bucket is empty again.
+- **Not in this table but present in data:** the sample packet's `heat_cycle` event still
+  writes the retired `details.cycle_start` key. It is undeclared, so it stays private.
+
+### 5.1 Privacy vs. recoverability: decisions (2026-10-07)
+
+**The question.** Merging the waitlist work showed that, under §5 and the Waitlist Spec as
+first written, a cloud restore brought back a waitlist in the right order that couldn't be
+run. Her form, rules and fee settings were private, applicants who weren't approved yet came
+back nameless, and readiness holds were dropped. Holding less on the server protects other
+people's privacy. Holding more protects users from losing work they can't get back. The
+decisions below set where that line sits.
+
+**The principle: split by whose data it is, not by table.**
+- **Two harms, borne by different people.** A breach of readable personal data hurts *her
+  buyers and applicants*: people who never agreed to us holding their details, and the
+  exposure can't be undone. Data loss hurts *the breeder*, and only when several things fail
+  together: every device lost, no file backup, and (with the vault) no passkey *and* no
+  recovery code. So third-party personal details and money are held to the stricter
+  standard. The breeder's **own business setup** is not.
+- **Most "lost my data" anger comes from expectations**, not lost keys: people believing
+  "cloud backup" covered everything, or never turning on the vault. The fixes for that are
+  honest wording and an easy vault, not weaker encryption.
+
+**Decision 1: her own waitlist setup and the list's running state are cloud (readable).**
+`kennels.waitlist_config` goes to cloud: rules, application form questions, FAQ, the fee she
+charges, payment instructions, pass and response settings, and the notice wording. Those are
+her business settings, much of it shown publicly on the status page anyway. So are
+`waitlist_entries.ready_timing` (the readiness hold), `soon_notified_litter_ids` and
+`application_questions` (her form's wording, snapshotted per entry). Built in
+`syncRegistry.js` on 2026-10-07.
+
+**Decision 2: waitlist applicants' name and email are cloud (readable). Nothing else from
+an application is.** `waitlist_entries.application` is a *partial* cloud field: only `name`
+and `email` leave the device (the registry's `partial` rule, enforced by the pre-upload
+check). Phone, address, household and every other answer stay private. A restore merges by
+key, so a device that still has the full answers keeps them. Why this doesn't break the
+line: W2's server will hold applicants' name and email readable anyway, because they give
+them to the service directly under its privacy policy (Waitlist Spec §8.1). This decision
+only brings that forward for backup. Each family's **fee amount and payment details** stay
+private. Built 2026-10-07.
+
+**Decision 3: the private vault is scheduled right after Phase 1, with a second-device
+unlock.** It previously sat after Phases 2–4 (Proposal §9). It moves to directly after
+Phase 1, because the waitlist depends on it: W2 needs it, and until it exists the only copy
+of contact details, family fees and full applications is the device plus file backups. Its
+design gains a **third unlock path**: any of the owner's devices that's already unlocked can
+unlock a new one. That's alongside the passkey (which syncs through iCloud and Google, so a
+lost phone isn't a lost key) and the recovery code. Vault UX requirements, recorded with the
+design in Proposal §6.3:
+- It's offered inside "Turn on cloud backup", strongly suggested for anyone using the
+  waitlist, and **required before W2**.
+- The status card shows two lines: "Kennel records: backed up 4 minutes ago" and
+  "Private info: only on this device · last file backup 40 days ago" (or "encrypted backup,
+  4 minutes ago" once the vault is on).
+- After a restore without the vault, blank private fields are labelled and explained on
+  the record (the per-record hint deferred in §4.6).
+- Turning it on says plainly: "If you lose your passkey **and** this code, we can't open
+  your private backup. Your devices and file backups are unaffected."
+
+**Decision 4: no readable private data on our server stays the default.** Backing up
+private data readable (or encrypted with a key we hold) is still not offered. The fallback,
+**considered only if support requests show real users locked out despite passkey sync, the
+recovery code and second-device unlock**, is a per-user opt-in: "Let KennelOS help me recover
+my private info (less private)". It's recorded here so the trigger and the shape are decided
+in advance. It isn't planned.
 
 **Why `referred_by_contact_id` and `lead_source` are private:** they're sales-funnel
 information about other people, not kennel records, and nothing in Phase 1 needs them.
@@ -365,7 +557,10 @@ notices(id, level, message, until, created_at)
 
 ### 6.4 Security & privacy posture
 - **What the server holds** is the cloud tier only (§5), plus a keyed hash of the account
-  email (§6.2), not the address itself. There are no buyer phone numbers, addresses, or money. This posture is pinned on the client by
+  email (§6.2), not the address itself. There are no buyer phone numbers, addresses, or
+  payments. Since §5.1, it does hold the breeder's own waitlist settings (including the fee
+  she charges and her payment instructions) and waitlist applicants' **names and emails**,
+  and nothing else from their applications. This posture is pinned on the client by
   `assertSnapshotKeys`. The server doesn't parse record contents at all; it stores the blob.
 - **CORS:** only the origins that actually run Lite and Pro, per `build/README.md`'s deploy
   map: `https://lite.kennelos.app`, `https://pro.kennelos.app`, plus `localhost` for dev.

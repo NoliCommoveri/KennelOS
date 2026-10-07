@@ -2,7 +2,7 @@
 
 Zero-dependency regression tests using Node's built-in test runner (`node:test` +
 `node:assert`). No framework, no `npm install`, nothing vendored — the same spirit
-as the app itself. Requires Node ≥ 18 (CI uses 20).
+as the app itself. Requires Node ≥ 18, and Node ≥ 22 for anything that loads the cloud Worker (`node:sqlite`): `cloudClient.test.js` and `cloud/tests`.
 
 ```sh
 node --test      # or: npm test  (auto-discovers tests/*.test.js)
@@ -31,6 +31,10 @@ serve-and-exercise verification in `CLAUDE.md` / the End-State guide.
 | `showPoints.test.js` | The derived show-points engine (Show Tracking Spec §4) — per-show cap, majors under distinct judges, ignored events (not shown / wrong track / archived), string-point coercion, GCH counting only after CH (logged title or completed track) with `notCounted`, champion defeats, the completing-win date. |
 | `eventRepo.test.js` | `testTokensOf` — the health-test name derivation across the three test-bearing event types. |
 | `editionConfig.test.js` | The shared (Pro/Demo) config stays a no-op so no cap logic runs in those builds. |
+| `syncRegistry.test.js` | The cloud-backup allow-list (Cloud Phase 1 plan §5): every `db.js` table has an entry; each field sits in one bucket; **coverage**: every key the real Thornfield seed writes is classified; the cloud projection of that packet carries no private/pending key and passes `assertCloudRow`; the event-details filter matches `vocab.js`; documents/files/expenses row rules. Runs the real seed through the real repos against `support/memoryDb.js`, an in-memory stand-in for the Dexie tables (the one place IndexedDB is faked, so it's kept to the API slice the repos use). |
+| `cloudBackup.test.js` | Cloud Phase 1 §9 step 2: `buildCloudSnapshot` (sample rows dropped, cloud-tier projection, file bytes deduped by sha256 with the blob out of the JSON, the envelope), gzip round trip, the shrink-guard thresholds, and the `'cloud-merge'` restore (private fields survive, missing rows inserted, newer-wins vs `overwrite`, `events.details` merged by key, files fetched by sha256, never deletes, format check), plus the `cloudDirtyAt` signal. On `support/memoryDb.js`. |
+| `cloudDirty.test.js` | Every direct `db` write site in the app, counted per file: each writer calls `markDataChanged()` or is exempted with a reason (sample-data clear, Reset App). A new write site fails it. |
+| `cloudClient.test.js` | Cloud Phase 1 §9 step 4: the client modules (`data/cloud/cloudConfig`, `cloudApi`, `cloudAuth`, `cloudBackup`) end to end against the **real Worker code** (`cloud/src`) in-process, on the cloud tests' node:sqlite D1 + in-memory R2 (`cloud/tests/helpers`), with `fetch` routed to `worker.fetch`. Sign-in by code, push / unchanged / offline / maintenance / expired session, files uploaded once and first, the shrink guard, two simulated devices through the 409 → restore → takeover → replace sequence, Reset App, restore as of, delete, turn off, and the scheduler's timing. Also: no request at all when there's no server. Needs Node ≥ 22 (`node:sqlite`). |
 | `csvImport.test.js` | The match-or-create engine's `classify()` for all 8 entity mappings — natural-key formation (case-insensitive+trimmed names, exact dates), keyless/unresolved-relationship rows forced to review, and each mapping's quirks (Sale/StudService inline-contact auto-create, Event's title tiebreak, StudService's always-ambiguous repeat-arrangement rule, Expense's mileage/receipt-number/subject rules). Bypasses `loadExisting()` (real Dexie) by seeding each mapping's private `this._foo` caches directly and driving `buildIndex()`/`classify()`, the same DB-free seam `scopePredicates.test.js` uses. `buildPlan`/`commitPlan`/`stampKennelScope` stay out of scope (real repo writes). |
 | `waitlistForm.test.js` | Her application form (`data/waitlistForm.js`, Waitlist Spec §15.1): locked questions always restored and never retyped, no program question, answers keeping the wording they were given under, CSV question import (map / new / skip, type guessing, re-import maps everything), plus the public list (`waitlistRules.publicList`, §15.3): allow-listed fields only, real positions with paused families' numbers skipped. |
 | `invoicePdf.test.js` | The jsPDF renderer behind Download PDF (`assets/invoicePdf.js`, §15.2), run through the vendored UMD build itself: a real PDF carrying the document's text, page overflow, and text the standard fonts can't draw made safe. |
@@ -40,4 +44,6 @@ serve-and-exercise verification in `CLAUDE.md` / the End-State guide.
 Name files `*.test.js` under `tests/`. Import app modules by relative path
 (`../shared/data/<module>.js`). Keep them dependency-free and independent of
 IndexedDB/DOM — if a module only pulls those in lazily (inside functions), it's
-importable here; if it touches them at module top level, it isn't.
+importable here; if it touches them at module top level, it isn't. The one exception
+is `support/memoryDb.js`, which stands in for the Dexie tables when a test needs the
+real sample seed (`syncRegistry.test.js`, `cloudBackup.test.js`).

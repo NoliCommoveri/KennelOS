@@ -460,11 +460,157 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   - The staging Worker has `RESEND_API_KEY`, `0002` is applied, and a test email from
     `signin@kennelos.app` arrived.
 
-  **The staging server side is complete.** Next: plan §9 steps 1–2 in `shared/`
-  (`syncRegistry.js` for field-by-field review, then snapshot building, `'cloud-merge'` restore,
-  shrink guard and the dirty signal). Then client cloud modules against staging (§9 step 4),
-  UI (step 5), and production (step 6 / §6.7 item 6) and plan §9 steps 1–2 (`syncRegistry.js`, snapshot building, `'cloud-merge'`
-  restore).
+  **The staging server side is complete.**
+- **Cloud Phase 1, §9 step 1: `shared/data/syncRegistry.js` is built, for field-by-field
+  review** (plan §5; Waitlist Spec §9 for the three waitlist tables). It is the per-table,
+  per-field cloud allow-list plus row rules, as pure data and pure functions. Nothing imports
+  it yet, so there is no behavior change.
+  - **Rule zero:** a field not listed as cloud is private. Each table also lists its known
+    `private` fields, and its `pending` ones (treated as private until decided).
+  - **Pure functions** for step 2 to build on: `filterCollectionsForCloud` (row rules, then a
+    by-name projection), `filterEventDetails` (derived from `vocab.js`: `textarea` and
+    undeclared keys are private), and `assertCloudRow`/`assertCloudCollections` (the positive
+    check before upload).
+  - **`tests/syncRegistry.test.js`** (10 tests) runs the **real** Thornfield seed through the
+    real repos against an in-memory table stand-in (`tests/support/memoryDb.js`). It fails on
+    any sample field that isn't classified, on any private key in the projection, and on a
+    `db.js` table with no entry.
+  - **Five fields plan §5 didn't classify were decided on 2026-10-06:** `dogs.dob_is_estimated`,
+    `dogs.recorded_coi` and `litters.picks_opened_date` are cloud; `kennels.waitlist_config`
+    and `litters.feeding_schedule_override` are private.
+  - **Merging main's waitlist work (2026-10-07)** added waitlist fields, classified by the
+    Waitlist Spec where it says:
+    - cloud: `listen_sire_ids`/`listen_dam_ids` (renamed from the pairing/litter lists),
+      `soon_notified_date`, `fee_received_at` (the same-day tie-breaker of the list order),
+      and offers' `picked_date` and `sale_id`;
+    - private: `pref_change_log`/`pref_change_request` ("private tier like application").
+  - **Privacy vs. recoverability, decided 2026-10-07** (Cloud plan §5.1, Proposal §6/§9/§10,
+    Waitlist Spec §9):
+    - the line is drawn by whose data it is;
+    - her waitlist setup (`kennels.waitlist_config`: rules, form, FAQ, fee, payment
+      instructions) and the list's running state (`ready_timing`,
+      `soon_notified_litter_ids`, `application_questions`) are cloud;
+    - of each `application`, **only name and email** are cloud. That's enforced by a new
+      `partial` rule in `syncRegistry.js`, and a restore merges by key, so the device keeps
+      the full answers;
+    - family fees, payment details and every other answer stay private, for the vault;
+    - **the private vault moves to right after Phase 1**, with a second-device unlock, and is
+      required before the waitlist's W2;
+    - no readable private data on our server stays the default, with a per-user
+      opt-in recovery switch as a fallback only if lock-outs show up in support.
+
+    The "What gets backed up" screen says so. Nothing is pending.
+
+- **Cloud Phase 1, §9 step 2: snapshot, `'cloud-merge'` restore, shrink guard and the dirty
+  signal are built** (plan §3.2, §3.5, §4.1, §4.3). There's still no network and no UI.
+  Nothing calls the new paths yet, apart from the dirty flag, which every write now sets.
+  - **`shared/data/cloud/cloudBackup.js`:**
+    - `buildCloudSnapshot()` drops sample rows (by the manifest), projects through
+      `syncRegistry.js`, swaps each kept file's blob for its `sha256` (returning the bytes,
+      deduped, for a separate upload), runs the positive key check and builds the
+      envelope;
+    - `gzipJson`/`gunzipJson`;
+    - `checkShrink()`: fewer than half the dogs or total records, each measure only when
+      its previous count was at least 10.
+  - **`importExport.restoreBackup(snapshot, 'cloud-merge', { overwrite, fetchFile })`:**
+    - it overlays only cloud fields, so private fields on the device survive, and
+      `events.details` merges by key;
+    - newer-wins by default, or a rollback with `overwrite: true`; `planCloudMerge()`
+      previews the counts;
+    - missing rows are inserted, missing files are fetched by sha256, and nothing is
+      ever deleted;
+    - the Lite cap is checked against the merged dogs.
+  - **Dirty signal:** `settings.markDataChanged()` sets `kennelOS.cloudDirtyAt` from
+    `repoBase` and the direct writers (`fileRepo`, `expenseRepo`, `assistantSync`, every
+    restore). `clearCloudDirty(pushedValue)` keeps a change made mid-push.
+    `tests/cloudDirty.test.js` pins every direct `db` write site. Clearing sample data and
+    Reset App are exempt, with reasons.
+  - `exportAll({ encodeBlobs: false })` lets the snapshot hash raw file bytes.
+  - 18 new tests (`cloudBackup.test.js`, `cloudDirty.test.js`). Browser smoke test in
+    headless Chromium: a real write sets the flag, a snapshot builds and gzips in the page
+    with the contact's email stripped, and there are no console errors.
+
+- **Cloud Phase 1, §9 step 4: the client cloud modules are built** (plan §2–§4, §7), in
+  `shared/data/cloud/`. There is still no UI, and no page starts the scheduler (that's step
+  5), so nothing is user-visible.
+  - **`cloudConfig.js`:** the API base URL. Every edition config now exports `cloudUrl` and
+    `devCloudUrl`:
+    - `cloudUrl` is `null` everywhere for now. Lite and Pro get `https://api.kennelos.app`
+      at step 6.
+    - `devCloudUrl` is the staging Worker for shared, Lite and Pro, and applies **only when
+      served from localhost**. Demo has neither.
+  - **`cloudApi.js`:** the only network module. It has one function per Worker route,
+    bearer tokens, timeouts, and typed errors (Offline, which covers the 503 maintenance
+    answer, plus Auth, Conflict and Request with the server's code).
+  - **`cloudAuth.js`:** email + 6-digit code sign-in, sign out (revokes server-side), and
+    sign out other devices. The device keeps its own `cloudDeviceId` across sign-ins.
+  - **`cloudBackup.js`:**
+    - `pushIfDirty` uploads missing files first, then runs the two-step snapshot, and
+      skips a push whose cloud tier is unchanged;
+    - one push at a time across tabs (`navigator.locks`);
+    - a conflict, shrink or auth result pauses automatic pushes until the user acts;
+    - `enableBackup`/`disableBackup`, `restoreLatestAndTakeOver` and
+      `replaceCloudWithThisDevice` (the §3.4 choices);
+    - `listSnapshots`/`downloadSnapshot`/`previewRestore`/`restoreSnapshot`,
+      `deleteCloudData`, and `getBackupStatus` for the step-5 card;
+    - `startBackupScheduler()` (§2.2): five minutes from the first unpushed change, on
+      going to the background at most once a minute, at the first page of a browsing
+      session, and when the browser comes back online.
+  - **Reset App** now always turns backup off and forgets the backup position, so turning
+    it back on goes through the restore-or-replace choice. The sign-in is kept.
+  - **`tests/cloudClient.test.js` (20 tests)** drives all of this end to end against the
+    **real Worker code** in-process, using the cloud tests' node:sqlite D1 and in-memory R2.
+    It covers sign-in, push, unchanged/offline/maintenance/auth, the shrink guard, the
+    two-device 409 → restore → takeover → replace sequence, Reset App, "restore as of",
+    files, delete, turn off, and the scheduler.
+  - Headless Chromium on localhost: the modules load with no console errors and resolve the
+    staging URL. This environment's network policy blocks the staging host, so the live
+    call came back as a quiet `CloudOfflineError`. A live run against staging is still to
+    do, from a machine that can reach it.
+
+- **Cloud Phase 1, §9 step 5: the cloud backup UI is built and browser-verified** (plan §2,
+  §3.4, §3.5), in `shared/assets/cloudBackupUI.js`. It's loaded only when the edition has a
+  server, so an edition with `cloudUrl: null` shows nothing new and loads none of it.
+  - **First run:**
+    - a third choice, "I already use KennelOS → sign in and restore", which skips kennel
+      setup;
+    - after the first kennel is saved, a one-time, skippable "Protect your records: turn on
+      free cloud backup";
+    - the Welcome card's "no account, no cloud" line becomes "free cloud backup is optional,
+      and off unless you turn it on".
+  - **Sign-in:** email, then the 6-digit code ("We use your email to send your code. We
+    don't keep it."), with resend, a spam hint, and a name for this device. Then the "What
+    gets backed up" screen before the first backup, which shows progress.
+  - **Import/Export card:** status line, Back up now, Restore as of…, turn off, sign out,
+    sign out other devices, delete my cloud data, and a one-time "private details aren't in
+    cloud backup" hint after a restore.
+  - **Dialogs:**
+    - 409: "Backups for Oak Hill Kennels are coming from Laptop B (last backup just now)",
+      with Restore that backup here / Replace it (typed REPLACE) / Not now;
+    - shrink guard: Restore from backup instead / Upload anyway / Not now.
+    Either "Not now" leaves backup paused, which the card and Today both show, with a
+    Resolve.
+  - **Today:** a nudge while backup is off ("Not now" snoozes it for 30 days), or a
+    "paused" line.
+  - **Reset App:** "Also sign out of cloud backup on this device", ticked by default. Backup
+    is turned off either way.
+  - **Every page:** the backup scheduler, and service notices (fetched only for a signed-in
+    device).
+  - **Verified in headless Chromium**, against the real Worker code served locally on its
+    in-memory D1/R2 (the staging host is blocked from this environment). Two devices ran
+    first-run → kennel → offer → sign in → turn on → back up; then new device → sign in and
+    restore (dogs and contact names come back, emails and notes don't, no kennel-setup gate);
+    then the old device → 409 → paused on card and Today → Resolve → Replace; then restore as
+    of an earlier snapshot (status rolled back, private note kept); then Reset App (stays
+    signed in when unticked, backup off). The assembled Lite build ran too. No console
+    errors. With no server: no card, no offer, no nudge, the original welcome text, and zero
+    API requests.
+  - **Not done:** the per-record "private details aren't in cloud backup" hint on record
+    pages (plan §2.3). For now it's one hint on the Import/Export card after a restore.
+
+  Next: step 6. That's the docs (§8: CLAUDE.md, the Editions Plan, the End-State guide's
+  §29 section), the privacy policy page, the SW bump, and production. A live check against
+  staging from a machine that can reach it should come first.
 
 ## Build & deploy
 

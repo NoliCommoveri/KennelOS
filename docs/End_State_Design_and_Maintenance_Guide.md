@@ -133,6 +133,21 @@ KennelOS/
     db.js                      Dexie schema — the only schema definition
     repoBase.js                makeRepo factory (shared repo surface)
     referenceRegistry.js       FK declarations + hard-delete guard
+    syncRegistry.js            Cloud-backup field allow-list + row rules (Cloud Phase 1
+                               plan §5); unlisted = private. Pure functions, plus the
+                               field overlay the 'cloud-merge' restore uses
+    cloud/                     Opt-in cloud backup (Cloud Phase 1 plan). Every module
+                               checks cloudConfig.isCloudAvailable() first, so an
+                               edition with cloudUrl null never makes a request.
+      cloudConfig.js           The API base URL from editionConfig (cloudUrl; devCloudUrl
+                               only on localhost), or null
+      cloudApi.js              The ONLY network module: fetch, bearer token, timeouts,
+                               typed errors (Offline / Auth / Conflict / Request)
+      cloudAuth.js             Email + 6-digit code sign-in; the session in settings.js
+      cloudBackup.js           Snapshot builder (sample rows dropped, registry
+                               projection, file bytes by sha256, key check), gzip, shrink
+                               guard; pushIfDirty, the one-backup-device choices, restore,
+                               and the scheduler. Not started by any page yet (step 5)
     dogRepo / contactRepo / kennelRepo / pairingRepo / litterRepo /
       saleRepo / contractRepo / studServiceRepo / eventRepo / expenseRepo /
       documentRepo   Entity repos
@@ -210,6 +225,10 @@ KennelOS/
                                page + kennelSetupUI's prefill section)
     importView.js              Shared CSV import dry-run/commit UI
     onboardingUI.js            First-run Welcome → tour-offer → backups/install cards (§11)
+    cloudBackupUI.js           Every cloud-backup screen: sign-in, the Import/Export card,
+                               the Today nudge, the 409/shrink dialogs, restore as of…,
+                               first-run restore, the post-setup offer, notices (§11).
+                               Loaded only when the edition has a cloud server
     sampleDataUI.js            Sample-data banner + Clear-sample-data flow
     kennelSetupUI.js           Kennel-setup prompt/wizard + seed prefill
     wizardUI.js                Guided-tour overlay/spotlight/cards + resume pill (§11)
@@ -797,14 +816,26 @@ doing cross-table transaction work).
 
 - `exportAll()` iterates **whatever tables exist** (no hardcoded list) → `{ schema_version,
   format_version, exported_at, collections }`. `downloadBackup()` saves it and stamps
-  `lastBackupDate`.
+  `lastBackupDate`. `exportAll({ encodeBlobs: false })` leaves file blobs as real Blobs, for
+  the cloud snapshot builder, which hashes and uploads them itself.
 - `inspectBackup(obj)` validates shape and reports counts + unknown tables before any
   write.
 - `restoreBackup(obj, mode)`:
   - `'replace'` — clears **every** known table first, then loads the file's rows, so the
     result is exactly the backup (a table the file omits ends up empty).
   - `'merge'` — upserts the file's rows by id, leaving other records intact.
+  - `'cloud-merge'` (with `opts`: `overwrite`, `fetchFile`) — restores a **cloud snapshot**
+    (`data/cloud/cloudBackup.js`; Cloud Phase 1 plan §4.3). It overlays only the
+    `syncRegistry.js` cloud fields onto an existing row, so private fields already on the
+    device survive; `events.details` merges by key. With `overwrite: false` (new device,
+    takeover) a row is overlaid only when the snapshot's `updated_at` is newer. With
+    `overwrite: true` ("Restore as of…") it is overlaid regardless. A missing row is inserted;
+    a local row the snapshot lacks is left alone (it never deletes). A missing file is
+    fetched through `opts.fetchFile(sha256)`, or listed in `missingFiles`.
+    `planCloudMerge()` gives the same per-table counts without writing, for the
+    confirmation screen.
   - Unknown collections (tables not in this schema version) are skipped, not errors.
+  - Every restore calls `markDataChanged()` (§11), so the cloud backup sees it.
   - Before any write it awaits the edition hook `enforceImportDogCap({ incomingDogs, mode })`
     (`data/editionConfig.js`; classification math in `data/rosterCount.js`). The shared/Pro
     default is a no-op, so Pro/Demo restore is exactly as above; the Lite override rejects a
@@ -829,6 +860,11 @@ plain local backup/restore.
 
 - **settings.js** — the primary `localStorage` user. Pages never touch `localStorage`
   directly. Keys (all under `kennelOS.*`): `lastBackupDate`, `persistRequested`,
+  `cloudDirtyAt` (the cloud backup's dirty signal, Cloud Phase 1 plan §3.2: the time of the
+  latest data change, set by `markDataChanged()` from every write path — `repoBase`
+  create/update/hardDelete, `fileRepo`, `expenseRepo`'s cost migration, `assistantSync`,
+  every `restoreBackup` — and cleared by a push with `clearCloudDirty(pushedValue)`, so a
+  change made mid-push survives; `tests/cloudDirty.test.js` pins every direct writer),
   `sampleDataManifest`, `sampleDataCleared`, `myKennelId`, `myContactId`,
   `activeKennelId` (which own kennel the app is scoped to, or absent for "All
   kennels" — read/written only through `data/kennelScope.js`, never by a page),
@@ -849,7 +885,21 @@ plain local backup/restore.
   seed-link generator's kennel-wide identity block — kennel name/tagline, breeder
   contact, breeder's vet, plus an auto-generated `breederKey` — §27, via
   `getFureverSettings`/`setFureverSettings`). `clearAllSettings()` drops them all (used
-  by Reset App).
+  by Reset App), including `cloudDirtyAt` and `cloudDirtySince` (the first unpushed change,
+  which the cloud scheduler's five-minute timer runs from), `cloudOfferPending` (the
+  one-time post-setup cloud offer) and `cloudRestoredAt` (when this device was last
+  restored from the cloud, for the private-details hint).
+- **Cloud backup keys outside `KEYS`** (Cloud Phase 1 plan §3.3), so `clearAllSettings()`
+  doesn't touch them: `cloudSession` (`{ token, email, programId, deviceId }`; the email
+  stays on this device, the server keeps only a keyed hash), `cloudBackupState`
+  (`{ enabled, lastPushedAt, lastAttemptAt, lastSnapshotId, lastCounts, lastContentHash,
+  lastError }`), and `cloudDeviceId` (this browser's id on the cloud account, sent on every
+  sign-in so the backing device stays recognisable; separate from the license
+  `deviceId`). **Reset App** handles them explicitly in `appReset.stopCloudBackupAfterReset()`:
+  backup is always turned off, and the device forgets which snapshot it was in step with,
+  so turning backup back on meets the server's 409 and the restore-or-replace choice
+  instead of pushing an emptied program. The sign-in itself is kept; signing out is a
+  separate choice (`cloudAuth.signOut`).
 - **nudgeState.js** — a second, deliberately separate `localStorage` module (one key,
   `kennelOS.nudgeDismissals`): the derived-nudge dismissal ledger (§19). Kept out of
   `settings.js`/`clearAllSettings()` on purpose — `appReset.js` calls its own `clearAll()`
@@ -945,6 +995,39 @@ request durable storage once, then — on a genuinely fresh install (`shouldOffe
 - **"No thanks…"** → `declineSampleData()` (a blank kennel, no sample data ever), a
   **backups + install-as-app** card, then the **New Kennel** kennel-setup modal, in its
   `required` posture.
+- **"I already use KennelOS → sign in and restore"** (Cloud Phase 1 plan §2.3) — a third
+  button, shown **only when the edition has a cloud server** (`cloudConfig.isCloudAvailable()`).
+  It runs `cloudBackupUI.runSignInAndRestore()`: email + code, then
+  `cloudBackup.restoreOnNewDevice()`, which restores the latest snapshot, takes over as the
+  backing device, records the first-run choice (`markSampleDataCleared`), and points
+  `myKennelId` at the restored own kennel. Restoring **skips kennel setup**, since the
+  snapshot has the kennel. Backing out of sign-in returns to the choice. An account with no
+  backup yet carries on to kennel setup with backup already on.
+
+**Cloud backup in the shell** (only with a server; an edition with `cloudUrl: null` never
+loads any cloud UI, and the Welcome card keeps saying "no account, no cloud"):
+- `app.js`, after the first-run flow, dynamically imports `cloudBackupUI.bootCloud()`.
+  That starts the backup scheduler on every page, shows service notices for a signed-in
+  device, and runs the **one-time offer** "Protect your records: turn on free cloud backup".
+  The offer is armed by settings `cloudOfferPending` when the first kennel is saved in the
+  `required` kennel-setup modal, and shown on the reload after it. "Skip for now" also
+  snoozes Today's nudge.
+- **Today** has a `#today-cloud` slot. While backup is off it shows "turn on free cloud
+  backup", which "Not now" snoozes for 30 days via `nudgeState.dismissedAt`. While backup is
+  paused (another device, the shrink guard, an expired sign-in) it shows a Resolve link to
+  the Import/Export card. Nothing shows while sample data is loaded.
+- **Import/Export** has a **Cloud backup** card (`#cloud-backup`):
+  - turn on (sign in → "What gets backed up" → first backup with progress);
+  - a status line ("Backed up 4 minutes ago" / "Not backed up for 3 days: no internet?");
+  - Back up now, and Restore as of… (pick a snapshot → per-table preview → confirm → reload);
+  - turn off, sign out, sign out other devices, and delete my cloud data (typed DELETE);
+  - a one-time "private details aren't in cloud backup" hint after a cloud restore
+    (settings `cloudRestoredAt`).
+  The 409 dialog offers "Restore that backup here" or "Replace it…" (typed REPLACE); the
+  shrink dialog offers "Restore from backup instead" or "Upload anyway".
+- **Reset App** always turns cloud backup off (`appReset.stopCloudBackupAfterReset`). When
+  the device is signed in, its modal adds **"Also sign out of cloud backup on this
+  device"**, ticked by default.
 
 `showKennelSetupModal({ mode })` has two postures: **`required`** (no Skip, no Cancel, no
 backdrop close, no Escape — both ambient escapes are swallowed in the capture phase; used by
@@ -1098,6 +1181,10 @@ implementation lives in `data/dateUtils.js`.
 - **puppyForm.js**, **importView.js**, **onboardingUI.js**, **sampleDataUI.js**,
   **kennelSetupUI.js** — roster entry, the CSV dry-run/commit UI, the first-run onboarding
   card sequence, the sample-data banner, and the kennel-setup modal.
+- **cloudBackupUI.js** — every cloud-backup screen (§11's "Cloud backup in the shell").
+  Imported only dynamically and only when `cloudConfig.isCloudAvailable()`, by `app.js`,
+  `today.js`, `import-export.js` and `onboardingUI.js`. Every value it renders goes through
+  `esc()`.
 - **contactPicker.js** — `attachNewContactButton(selectEl, {onCreated})` decorates any
   contact `<select>` with a "＋ New" button: minimal inline-create modal (name required),
   creates via `contactRepo.create`, appends+selects the option, fires a native `change`
@@ -1238,7 +1325,11 @@ Don't assume these exist; several are explicitly deferred "open doors":
    (go through a repo / `settings.js`).
 2. **One canonical direction:** you added a query for a reverse relationship, not a mirror
    field.
-3. **New FK ⇒ registry line** in `referenceRegistry.js`.
+3. **New FK ⇒ registry line** in `referenceRegistry.js`. **New field ⇒ classified** in
+   `syncRegistry.js` (cloud / private / pending); `tests/syncRegistry.test.js` fails on an
+   unclassified field the sample packet writes. **New direct `db` write ⇒
+   `markDataChanged()`** beside it (or a reasoned exemption); `tests/cloudDirty.test.js`
+   pins every write site.
 4. **Escaping:** every user value in hand-built innerHTML is `esc()`'d; `listView` `cell`
    functions escape; `reportView` `value` functions return plain text.
 5. **New/renamed/removed/edited app file ⇒ update `sw.js` `PRECACHE_URLS` **and** bump

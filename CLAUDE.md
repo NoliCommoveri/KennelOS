@@ -116,6 +116,17 @@ one-bump-per-batch rule applies.
 - Hard delete is blocked if any reference exists — archive only. The blocking message is generated entirely from the registry, so it always matches whatever tables currently exist; no hand-maintained carve-out.
 - One canonical direction per relationship; the reverse is **always a derived query, never a stored back-pointer**. Need the reverse of X? Write a query — don't add a mirror field.
 
+## Cloud backup classification
+- `shared/data/syncRegistry.js` is the **second registry to keep current**, beside
+  `referenceRegistry.js`: the per-field cloud allow-list for cloud backup (Cloud Phase 1
+  plan §5). **A field not listed as cloud is private.** When you add a field, classify it
+  there as `cloud` or `private` (or `pending`, if the decision is open); otherwise
+  `tests/syncRegistry.test.js` fails once the sample packet writes it. Adding a field to
+  `cloud` sends it to the server, so it's a privacy decision: surface it, don't assume.
+- Every data write marks the cloud backup dirty via `settings.markDataChanged()`. Repo
+  writes already do it (`repoBase`); a **new direct `db` write** in the data layer must call
+  it too, or be added to the exemptions in `tests/cloudDirty.test.js` with a reason.
+
 ## CSV import
 - Match-or-create by natural key, never UUID. Every import is a dry-run preview (create/update/needs-review) before commit.
 - Keyless/partial-key rows → always "needs review," never auto-matched or silently created. Name match is case-insensitive + trimmed; dates exact. Relationship columns resolve against existing records only — an unresolved name is flagged, never invented.

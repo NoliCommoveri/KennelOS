@@ -22,6 +22,11 @@ export const upgradeUrl = null;
 // is false and nothing renders.
 export const demoUrl = null;
 
+// No cloud in Demo, ever (Cloud Phase 1 plan §7): no account, no backup, no
+// account wording. Both null, including the local-dev override.
+export const cloudUrl = null;
+export const devCloudUrl = null;
+
 // License gate config (data/license.js). Demo is a public read-only showcase and
 // must NEVER be walled, so the gate stays off (no licenseGate:true in editionFlags
 // below). Exported only so license.js's named import resolves in the Demo build.
