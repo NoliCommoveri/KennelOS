@@ -1167,7 +1167,7 @@ intro-card / pinned-top-card presentation postdate it).
 
 App-shell cache so the app installs and works offline after first load.
 
-- `CACHE_NAME` (currently `kennelos-shell-v44`) + a `PRECACHE_URLS` list of **every** app
+- `CACHE_NAME` (currently `kennelos-shell-v45`) + a `PRECACHE_URLS` list of **every** app
   file (html/js/css/icons/vendor/resources).
 - `install` precaches the list (**`cache.addAll` is atomic** — one missing/renamed file
   fails the whole install). Each file is requested with **`cache: 'reload'`**, past the

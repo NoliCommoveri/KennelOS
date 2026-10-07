@@ -509,7 +509,7 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
       staging until then, `LAUNCH_CHECKLIST.md` §3b). Passkeys (step 6) are next. Service-worker cache rolled to `kennelos-shell-v44` for this
       batch (the kennel-setup "Sign in to existing account" button, and `vaultCrypto.js` in
       the precache). Steps 3 and 5 add `cloudVault.js`, `vaultKeyStore.js` and
-      `cloudVaultUI.js` to the precache; their cache bump is still to be confirmed;
+      `cloudVaultUI.js` to the precache, rolled to `kennelos-shell-v45`;
     - no readable private data on our server stays the default, with a per-user
       opt-in recovery switch as a fallback only if lock-outs show up in support.
 
