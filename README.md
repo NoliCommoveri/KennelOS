@@ -655,7 +655,17 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   privacy policy page) is a separate change to merge once production's `/ops` shows no
   pending migration (checklist §3a).
 
-  Next: the operator's production setup (checklist §3a), then the go-live merge. That's the docs (§8: CLAUDE.md, the Editions Plan, the End-State guide's
+- **Cloud Phase 1 go-live change — built** (plan §9 step 6). Lite and Pro point at
+  `https://api.kennelos.app`; the marketing site no longer claims "no accounts, no cloud, no
+  server" (every footer now reads "No account needed", and Home, About, Compare, FAQ, Lite, Pro
+  and Upgrade describe the optional backup and what it never holds, including the one
+  exception: Pro waitlist applicants' name and email); the new privacy policy page
+  `site/privacy.html` (operator "KennelOS", admin.kennelos@gmail.com), linked from every
+  footer; the guided tour's backup step changes its wording when a server exists.
+  Service-worker cache rolled to `kennelos-shell-v42`. **Merge only after checklist §3a**,
+  since the merge deploys the editions and the site together.
+
+  Next: the operator's production setup (checklist §3a), then merging the go-live change. That's the docs (§8: CLAUDE.md, the Editions Plan, the End-State guide's
   §29 section), the privacy policy page, the SW bump, and production. A live check against
   staging from a machine that can reach it should come first.
 

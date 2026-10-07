@@ -23,6 +23,7 @@ demo.html         The read-only seeded demo
 furever.html      KennelOS Furever (the free family app) + the Pro hand-off link
 about.html        Who we are, what we believe, how it's funded, privacy
 faq.html          Data, devices, offline, the cap, upgrading, licensing, refunds
+privacy.html      Privacy policy: what cloud backup holds and never receives, retention, deletion
 upgrade/          Landing page for Lite's "Upgrade to Pro →" button (kennelos.app/upgrade)
 404.html          GitHub Pages 404 (uses root-absolute paths — it can be served from any depth)
 robots.txt        + sitemap.xml
@@ -32,7 +33,7 @@ assets/icons/     Copies of the app icons (favicon / apple-touch)
 ```
 
 Header and footer markup are **repeated inline on each page** rather than injected by
-JS — a marketing page should render (and be crawlable) with no script. Eight pages of
+JS — a marketing page should render (and be crawlable) with no script. A dozen pages of
 duplication is the cheaper trade; if it grows past that, template it at build time
 rather than at runtime.
 

@@ -1086,7 +1086,8 @@ table, no schema, no `referenceRegistry.js` entry. Three modules: **`data/wizard
 (the status/index state machine, `isTourAvailable()` gating the tour on the seed
 being active, `isIntroStep()`, and the `HIGHLIGHT_STEPS` list the "Step n of N" counter uses),
 **`data/wizardSteps.js`** (the static ordered full `WIZARD_STEPS` catalog — data only, like
-`vocab.js`), and **`assets/wizardUI.js`** (the box-shadow spotlight overlay, the cards, the
+`vocab.js`; a step may also carry `cloudBody`, shown instead of `body` when the edition has a
+cloud server, as the Import/Export step does), and **`assets/wizardUI.js`** (the box-shadow spotlight overlay, the cards, the
 nav "Take the tour" entry, and the free-navigation "Resume tour" pill). **Editions note:**
 `wizardState.js`/`wizardUI.js` import `WIZARD_STEPS`, and `onboardingUI.js`/`app.js` import the
 `seedSampleData` seed, from the **`data/editionTour.js`** injection point — not from

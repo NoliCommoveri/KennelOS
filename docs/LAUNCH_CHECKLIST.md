@@ -171,7 +171,7 @@ Pro ship with `cloudUrl: null` and no cloud UI appears. Do these in order.
   Send yourself a code from a real address and confirm it arrives (not in spam).
 - [ ] **D1 export:** download the first export from `/ops` and keep it with the password
   manager's KennelOS entries.
-- [ ] **Go live:** merge the go-live change. It sets `cloudUrl: 'https://api.kennelos.app'`
+- [ ] **Go live:** merge the go-live change (branch `ccr-70ea2ace-gqn0q5-golive`). It sets `cloudUrl: 'https://api.kennelos.app'`
   in `lite/` and `pro/editionConfig.js` and rewrites the marketing site's "no accounts, no
   cloud" claims, adding `kennelos.app/privacy.html`. That merge deploys the editions and the
   site together.
@@ -206,6 +206,8 @@ Pro ship with `cloudUrl: null` and no cloud UI appears. Do these in order.
   Upgrade button) and `kennelos.app/pro.html#pricing` lands on the pricing section (it's the
   target of Pro's activation and renewal walls); a bad URL shows the styled 404; and it does
   **not** offer to install as an app (no manifest/service worker — that's on purpose).
+  Once cloud backup is live: `kennelos.app/privacy.html` loads and every footer links to it,
+  and no page still says "no accounts", "no cloud" or "no server".
 
 ## 5. Recurring (every subsequent release)
 
