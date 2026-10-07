@@ -50,6 +50,10 @@ Inside "Turn on cloud backup", after the first backup succeeds, and on the card 
 5. The first encrypted backup runs immediately, with the same progress bar.
 
 ### 2.2 While it's on
+- **Nothing to do day to day.** An unlocked device keeps the vault key (§3.3) and encrypts
+  every push in the background, exactly as cloud backup runs now. The passkey, recovery code
+  or another device is needed only to unlock a device that doesn't have the key: a new
+  phone, or one whose key was cleared (Reset App, cleared site data, remote erase) (§2.3).
 - Status card: "Kennel records: backed up 4 minutes ago" / "Private info: encrypted backup,
   4 minutes ago". With it off: "Private info: only on this device · last file backup 40 days
   ago" plus "Turn on".
