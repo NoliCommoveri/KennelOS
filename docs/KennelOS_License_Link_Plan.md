@@ -5,8 +5,9 @@
 > Phase 5, **brought forward** for one job only.
 > Needed by: the waitlist's W2 (`KennelOS_Waitlist_Spec.md` §8.5, §12): every `/waitlist/*`
 > route for the breeder needs a signed-in account **the server knows is Pro**.
-> Status: **draft, not started.** The decisions it needs are in §9; nothing is built until
-> they're settled.
+> Status: **§10 step 1 (the server) built 2026-10-07**, with every §9 decision taken as
+> recommended. Next: the operator's staging setup (§7 steps 1–2), then the client (step 3).
+> §10's step 1 entry is the as-built record.
 
 ## 1. Scope
 
@@ -253,6 +254,35 @@ checkout links are on `site/pro.html` today, so this only covers the app's own b
    upsert, entitlement, `requirePro`, the link routes), the webhook route in `index.js`
    (behind the gate, no CORS headers), `/ops` counts + health shows the secret present, export, retention,
    account deletion, tests. Staging: set the secret and vars, Apply pending.
+   **Built 2026-10-07.** Where it differs from §3–§5 above, this wins:
+   - **Rows:** only subscriptions and **lifetime** orders are stored (a subscription's own
+     orders change nothing, so they're dropped). `access_until` is computed when the event
+     lands, grace included; an ended purchase (paused, expired, refunded) gets the earlier of
+     LS's `updated_at` and the Worker's clock, so it ends at once even when LS's clock runs
+     ahead.
+   - **Link codes** have their own table, `license_link_codes` (one per account, hashed with
+     the account and address, 10 minutes, 5 tries), so linking an address never disturbs a
+     sign-in to it. Start is rate-limited by the sign-in limits for that address and IP plus
+     10 an hour per account, answers `{ok:true}` for any well-formed address, and refuses the
+     account's own (`own_email`). The code email (`mail.linkCodeMessage`) says what it links.
+   - **`requirePro`** → `403 pro_required` with `{ lapsed, linkedEmails }` (`lapsed`: a
+     purchase exists but has ended), so W2 can say renew, link or buy. `GET
+     /account/entitlement` returns `{ pro, plan, until, source, lapsed, linkedEmails }`.
+     `DELETE /account/license-links` returns the entitlement after.
+   - **Config:** `LS_STORE_ID`, `LS_PRO_PRODUCT_IDS`, `LS_YEARLY_VARIANT_IDS`,
+     `LS_LIFETIME_VARIANT_IDS` (comma-separated) and `LS_TEST_MODE` (`"true"` on staging,
+     `"false"` on production) in `wrangler.toml`, empty until the store exists. Until the
+     secret, the store and a product are set, the webhook answers 503 and `/ops` Health says
+     which is missing.
+   - **`/ops`:** a Pro license link section with purchases by plan and active/ended, the time
+     of the last purchase update, accounts with a linked email, and emails linked to more than
+     one account. Health counts the three new tables.
+   - **Retention** deletes link codes once expired and purchases 90 days after
+     `access_until`. **Export** carries `pro_purchases` and `license_links`. **Account
+     deletion** removes the account's links and pending code; purchases stay.
+   - Tests: `cloud/tests/license.test.js`.
+   **Merging this to `main` puts production into maintenance** (503) until `0006` is applied
+   on production's `/ops`, as with every migration.
 2. **Operator, staging:** §7 steps 1–2 with a test-mode purchase.
 3. **Client:** `cloudApi` additions, `cloudEntitlement.js`, the Account-section line and the
    link modal (Pro only); `PRECACHE_URLS`; browser-verified against the Worker in-process and

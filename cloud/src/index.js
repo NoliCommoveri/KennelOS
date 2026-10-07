@@ -5,11 +5,14 @@
 // - preflights (OPTIONS) from the editions, answered from lib/cors.js;
 // - /notice and /health: public, and answered even in maintenance;
 // - the JSON API (api.js), behind the maintenance gate;
+// - Lemon Squeezy's webhook (license.js), behind the gate too, server to
+//   server: no CORS, no bearer token, an HMAC signature instead;
 // - the daily cron, which runs retention.
 import { handleOps } from './ops.js';
 import { handleApi } from './api.js';
 import { schemaReady } from './gate.js';
 import { activeNotices } from './notice.js';
+import { handleWebhook } from './license.js';
 import { runRetention } from './retention.js';
 import { corsHeaders, preflight } from './lib/cors.js';
 import { ApiError, json } from './lib/http.js';
@@ -46,6 +49,8 @@ export default {
       if (!ready) {
         return json({ maintenance: true }, 503, { ...cors, 'retry-after': '300' });
       }
+
+      if (url.pathname === '/webhooks/lemonsqueezy' && request.method === 'POST') return await handleWebhook(request, env);
 
       return await handleApi(request, env, url, cors);
     } catch (err) {

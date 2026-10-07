@@ -206,6 +206,33 @@ switch on. Production's migration `0005` is already applied.
 - [ ] **Release:** set `VAULT_RELEASED = true` (and update its pin in
   `tests/cloudClient.test.js`), bump `CACHE_NAME`, merge.
 
+## 3c. Pro license link (W2 prerequisite; `docs/KennelOS_License_Link_Plan.md`)
+
+The server half is merged: migration `0006`, `cloud/src/license.js`. It stores nothing
+until the webhook is configured.
+
+- [ ] **Apply pending (`0006`) on staging's and production's `/ops`** right after the merge
+  that carries it. Production answers 503 until then.
+- [ ] **Staging:** in the Lemon Squeezy store's **test mode**, add a webhook to
+  `https://kennelos-api-staging.admin-kennelos.workers.dev/webhooks/lemonsqueezy` with the
+  events `subscription_created`, `subscription_updated`, `subscription_cancelled`,
+  `subscription_resumed`, `subscription_expired`, `subscription_paused`,
+  `subscription_unpaused`, `order_created`, `order_refunded` (**not** the `license_key_*`
+  ones: they carry the full key). Set its signing secret as the Worker secret
+  `LEMONSQUEEZY_WEBHOOK_SECRET`, and fill `LS_STORE_ID`, `LS_PRO_PRODUCT_IDS`,
+  `LS_YEARLY_VARIANT_IDS`, `LS_LIFETIME_VARIANT_IDS` in `cloud/wrangler.toml` (staging
+  `[vars]`). `/ops` → Health should read "Pro license webhook: ready".
+- [ ] **Staging test purchase** with a test card, then sign in to staging with that email:
+  `/ops` shows the purchase; `GET /account/entitlement` reads `pro: true`. Also check LS's
+  retry schedule and whether its dashboard can resend a failed delivery (plan §9 decision 5).
+- [ ] **Privacy policy first:** `site/privacy.html` must say we keep a keyed hash of each Pro
+  buyer's email, the plan and whether it's active (plan §10 step 4) before production's
+  webhook goes live, since that's when the server starts holding it.
+- [ ] **Production:** the same webhook in live mode to
+  `https://api.kennelos.app/webhooks/lemonsqueezy`, its own secret on the production Worker,
+  the same ids under `[env.production.vars]` (`LS_TEST_MODE` stays `"false"`). Do it
+  **before the store opens**, so no purchase predates it (plan §9 decision 6).
+
 ## 4. Post-deploy smoke test (on the real origins)
 
 - [ ] **Lite** (`lite.kennelos.app`) — reduced nav; create dogs → the 7th is blocked with the

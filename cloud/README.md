@@ -22,6 +22,9 @@ src/vault.js           the private vault: wraps (recovery, passkeys), turn on/of
                        pairing (docs/KennelOS_Private_Vault_Plan.md §5, §6); stores only opaque
                        strings. A passkey wrap keeps its credential id and PRF salt; the server
                        never verifies a WebAuthn assertion
+src/license.js         the Pro license link (docs/KennelOS_License_Link_Plan.md): Lemon Squeezy's
+                       signed webhook, the account's entitlement, requirePro for W2's routes,
+                       linking another purchase email by code
 src/notice.js          service notices (public /notice; set on /ops)
 src/retention.js       the daily prune and GC; pickDrops is the pure rule
 src/backup.js          /ops export/import of the D1 rows (not R2)
@@ -49,6 +52,12 @@ tests/                 node --test against a node:sqlite stand-in for D1
   (or under a replaced key) while the program has a vault. The part is stored at
   `snapshots/<program>/<id>.vault`, and retention, discard and account deletion remove it
   with its snapshot.
+- **The Lemon Squeezy webhook keeps hashes, never addresses or keys.** `POST
+  /webhooks/lemonsqueezy` is verified by HMAC over the raw body before anything is parsed,
+  stores a purchase under the keyed hash of its email, and drops the address. The
+  `license_key_*` events carry the full license key: they are not subscribed, and ignored
+  if they arrive. Configured by the `LEMONSQUEEZY_WEBHOOK_SECRET` secret and the `LS_*`
+  vars in `wrangler.toml`; until they're set it answers 503 and `/ops` says what's missing.
 - **Upload a document before the snapshot that references it.** Retention gives a file a
   day's grace and then collects anything no snapshot references.
 - **No `IN (?, ?, …)` over a list.** D1 allows about 100 bound parameters and the test
@@ -74,5 +83,6 @@ npx wrangler dev --local --test-scheduled  # /ops at http://localhost:8787/ops;
 The dashboard setup is plan §6.7. In short: the D1 database and R2 bucket named in
 `wrangler.toml`; the real `database_id` pasted into `wrangler.toml`; Workers Builds
 connected to this repo with root directory `cloud/`; and the secrets `OPS_TOKEN`,
-`EMAIL_HMAC_KEY` and `RESEND_API_KEY`. Then open `/ops` on the Worker's address, sign in, and press
+`EMAIL_HMAC_KEY`, `RESEND_API_KEY` and (for the Pro license link) `LEMONSQUEEZY_WEBHOOK_SECRET`,
+with the Lemon Squeezy ids in the `LS_*` vars (License Link Plan §7). Then open `/ops` on the Worker's address, sign in, and press
 **Apply pending**.

@@ -55,6 +55,10 @@ export async function deleteAccount(env, auth, body) {
     env.DB.prepare('DELETE FROM programs WHERE id = ?').bind(p),
     env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(auth.userId),
     env.DB.prepare('DELETE FROM device_erasures WHERE user_id = ?').bind(auth.userId),
+    // Linked purchase emails go; pro_purchases stay (the store's facts about an
+    // email hash, not this account's data; License Link Plan §4).
+    env.DB.prepare('DELETE FROM license_links WHERE user_id = ?').bind(auth.userId),
+    env.DB.prepare('DELETE FROM license_link_codes WHERE user_id = ?').bind(auth.userId),
     env.DB.prepare('DELETE FROM login_codes WHERE email_hash = (SELECT email_hash FROM users WHERE id = ?)').bind(auth.userId),
     env.DB.prepare('DELETE FROM users WHERE id = ?').bind(auth.userId),
   ]);

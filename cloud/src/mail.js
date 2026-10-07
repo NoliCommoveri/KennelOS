@@ -35,6 +35,19 @@ export function codeMessage(code, minutes) {
   };
 }
 
+// The code that links a Pro purchase made with this address to a cloud
+// account (License Link Plan §5). Says what it's for, so a code nobody asked
+// for is noticed rather than typed in.
+export function linkCodeMessage(code, minutes) {
+  return {
+    subject: `Your KennelOS code: ${code}`,
+    text: `Your KennelOS code is ${code}\n\n`
+      + 'It links the KennelOS Pro purchase made with this email address to a KennelOS cloud backup account. '
+      + `Type it into the app within ${minutes} minutes.\n\n`
+      + 'If you did not ask for this, ignore this email: without the code nothing is linked.\n',
+  };
+}
+
 // /ops's "Send a test email": proves the domain, the key and delivery work
 // before any app screen exists. Resend only; there is nothing to test otherwise.
 export async function sendTestEmail(env, rawEmail) {
@@ -57,14 +70,16 @@ export async function sendTestEmail(env, rawEmail) {
   return { ok: false, reason: `Resend refused it (${res.status})${detail ? `: ${detail}` : ''}` };
 }
 
-export async function sendCode(env, { email, emailHash, code, minutes }) {
+// `message` overrides the sign-in wording (linkCodeMessage). The staging
+// outbox shows the code either way.
+export async function sendCode(env, { email, emailHash, code, minutes, message = null }) {
   const mode = mailMode(env);
 
   if (mode === 'resend') {
     const res = await fetch(RESEND_URL, {
       method: 'POST',
       headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ from: env.MAIL_FROM || DEFAULT_FROM, to: [email], ...codeMessage(code, minutes) }),
+      body: JSON.stringify({ from: env.MAIL_FROM || DEFAULT_FROM, to: [email], ...(message ?? codeMessage(code, minutes)) }),
     });
     if (!res.ok) {
       console.error('resend send failed', res.status);

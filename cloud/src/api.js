@@ -9,6 +9,7 @@ import {
   addWrap, approvePairing, createPairing, disableVault, enableVault, getVault, getWrap, listPairings, pollPairing,
   removeWrap, replaceRecoveryWrap,
 } from './vault.js';
+import { getEntitlement, removeLinks, startLink, verifyLink } from './license.js';
 import { fail, json, readJson } from './lib/http.js';
 
 const FILE = /^\/files\/([^/]+)$/;
@@ -56,6 +57,12 @@ export async function handleApi(request, env, url, cors) {
   if (released && m === 'POST') return json(await licenseReleased(env, auth, released[1]), 200, cors);
 
   if (p === '/account' && m === 'DELETE') return json(await deleteAccount(env, auth, await readJson(request)), 200, cors);
+
+  // The server-side Pro license link (License Link Plan §5).
+  if (p === '/account/entitlement' && m === 'GET') return json(await getEntitlement(env, auth), 200, cors);
+  if (p === '/account/license-links/start' && m === 'POST') return json(await startLink(env, auth, request, await readJson(request)), 200, cors);
+  if (p === '/account/license-links/verify' && m === 'POST') return json(await verifyLink(env, auth, await readJson(request)), 200, cors);
+  if (p === '/account/license-links' && m === 'DELETE') return json(await removeLinks(env, auth, await readJson(request)), 200, cors);
 
   // The private vault (Private Vault Plan §6.1).
   if (p === '/vault' && m === 'GET') return json(await getVault(env, auth), 200, cors);

@@ -11,7 +11,8 @@
 // snapshot references (after a day's grace, so a file uploaded just before its
 // snapshot is never collected), and expired codes, limits, outbox rows, sessions,
 // confirmed erasures and vault pairings. A snapshot's encrypted vault part
-// (Private Vault Plan §6.2) goes with it.
+// (Private Vault Plan §6.2) goes with it. A Pro purchase whose access ended
+// more than 90 days ago is deleted (License Link Plan §4).
 //
 // D1 rows go first, then R2 objects. If the R2 delete fails, the leftovers are
 // unreferenced objects (harmless), never rows pointing at nothing.
@@ -20,6 +21,7 @@ import { vaultKeyFor } from './snapshots.js';
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 export const KEEP_DAYS = 30;
+export const PURCHASE_KEEP_DAYS = 90;
 const MAX_PER_RUN = 1000; // R2 deletes at most 1000 keys per call
 
 // The bucket a snapshot competes in, or null once it's past the window.
@@ -111,6 +113,8 @@ export async function runRetention(env, now = new Date()) {
     ).bind(iso(nowMs), iso(nowMs - KEEP_DAYS * DAY)),
     env.DB.prepare('DELETE FROM device_erasures WHERE confirmed_at < ?').bind(iso(nowMs - KEEP_DAYS * DAY)),
     env.DB.prepare('DELETE FROM vault_pairings WHERE expires_at < ?').bind(iso(nowMs)),
+    env.DB.prepare('DELETE FROM license_link_codes WHERE expires_at < ?').bind(iso(nowMs)),
+    env.DB.prepare('DELETE FROM pro_purchases WHERE access_until < ?').bind(iso(nowMs - PURCHASE_KEEP_DAYS * DAY)),
   ]);
 
   return summary;
