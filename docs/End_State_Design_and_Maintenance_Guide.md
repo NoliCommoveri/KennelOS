@@ -2661,6 +2661,9 @@ Pure, pinned by `tests/waitlistForm.test.js`.
   `application`), `ready_timing` (required; type `preference`, answer on `entry.ready_timing`,
   fixed answers from `WAITLIST_READY_TIMING`; enforced when she types a new application in), and `public_notice` (her public-list wording, `PUBLIC_LIST_NOTICE`, shown to
   every applicant; editable text, never removable). She can reword them only.
+  **Matching notice** (`MATCHING_NOTICE`, her wording, fixed text): shown just above the first
+  preference question that filters offers (`matchingPrefKeys(config)`: sex, breed, placement,
+  plus colors when `color_matching` is on; readiness is a hold, not a match) on a new application.
   **FAQ** (`formFaq` / `validateFaq` / `newFaqItem`): her questions and answers, edited above the
   questions on the Application form page and shown at the top of a new application.
   `formQuestions(config)` returns the defaults for a kennel with no form, and always restores a

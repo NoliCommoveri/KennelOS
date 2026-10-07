@@ -26,7 +26,8 @@ import {
   kennelBreeds, resolveBreed
 } from '../data/waitlistRules.js';
 import {
-  formQuestions, entryQuestions, snapshotQuestions, answerText, isAnswerQuestion, missingRequired, formFaq, READY_TIMING_LABEL
+  formQuestions, entryQuestions, snapshotQuestions, answerText, isAnswerQuestion, missingRequired, formFaq, READY_TIMING_LABEL,
+  MATCHING_NOTICE, matchingPrefKeys
 } from '../data/waitlistForm.js';
 import {
   WAITLIST_ENTRY_STATUS, WAITLIST_PREF_SEX, WAITLIST_LISTEN_MODE, WAITLIST_OFFER_OUTCOME,
@@ -518,8 +519,13 @@ function renderEdit() {
   // A new application follows her form, in her order and wording, so typing one in
   // matches what families will see online. The public-list notice is shown so she
   // can tell the family.
+  // Her matching notice heads the first preference question that filters offers.
+  const matchKeys = matchingPrefKeys(ctx.config);
+  const firstMatch = ctx.form.find((q) => matchKeys.includes(q.key));
+  const matchNotice = `<div class="field field-wide"><div class="card" style="margin:0;padding:10px 12px;">
+      <strong>Matching you with a pup</strong><p style="margin:6px 0 0;">${esc(MATCHING_NOTICE)}</p></div></div>`;
   const newForm = () => ctx.form.map((q) => {
-    if (q.type === 'preference') return prefField(q.key, e, q.label);
+    if (q.type === 'preference') return (q === firstMatch ? matchNotice : '') + prefField(q.key, e, q.label);
     if (q.type === 'notice') {
       return `<div class="field field-wide"><div class="card" style="margin:0;padding:10px 12px;background:var(--surface-2, transparent);">
         <strong>${esc(q.label)}</strong><p style="margin:6px 0 0;white-space:pre-line;">${esc(q.help)}</p>

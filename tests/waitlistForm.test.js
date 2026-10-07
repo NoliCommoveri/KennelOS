@@ -9,7 +9,7 @@ import {
   DEFAULT_FORM_QUESTIONS, PUBLIC_LIST_NOTICE, formQuestions, validateQuestions, newQuestion,
   snapshotQuestions, entryQuestions, answerText, missingRequired, guessType,
   proposeQuestionImport, applyQuestionImport, columnsFor, normalizeHeader, isLocked,
-  READY_TIMING_LABEL, formFaq, validateFaq, newFaqItem
+  READY_TIMING_LABEL, formFaq, validateFaq, newFaqItem, matchingPrefKeys
 } from '../shared/data/waitlistForm.js';
 import { publicName, publicList, publicListText } from '../shared/data/waitlistRules.js';
 
@@ -218,4 +218,10 @@ test('FAQ: blank items dropped, half-filled items block saving', () => {
   assert.deepEqual(formFaq({}), []);
   assert.equal(validateFaq([{ question: 'Q', answer: '' }, { question: '', answer: '' }, { question: 'Q', answer: 'A' }]).length, 1);
   assert.ok(newFaqItem(() => 'x').id === 'faq_x');
+});
+
+test('matching notice covers the offer-filtering preferences; colors only with color matching on', () => {
+  assert.deepEqual(matchingPrefKeys({}), ['pref_sex', 'pref_breed', 'pref_placement']);
+  assert.deepEqual(matchingPrefKeys({ color_matching: true }), ['pref_sex', 'pref_breed', 'pref_placement', 'pref_colors']);
+  assert.ok(!matchingPrefKeys({ color_matching: true }).includes('ready_timing'));
 });
