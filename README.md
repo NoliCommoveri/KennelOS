@@ -500,7 +500,9 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
       vault's cryptography (`shared/data/cloud/vaultCrypto.js`, `tests/vaultCrypto.test.js`),
       and step 2, the server (`cloud/src/vault.js`, **cloud migration `0005`: Apply pending
       on staging's `/ops` after this deploys**; the API answers 503 until then), are built;
-      nothing user-visible yet;
+      nothing user-visible yet. Service-worker cache rolled to `kennelos-shell-v44` for this
+      batch (the kennel-setup "Sign in to existing account" button, and `vaultCrypto.js` in
+      the precache);
     - no readable private data on our server stays the default, with a per-user
       opt-in recovery switch as a fallback only if lock-outs show up in support.
 
