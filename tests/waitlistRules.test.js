@@ -576,18 +576,18 @@ test('resolveBreed: the kennel\'s spelling for a case/space variant; null when u
 
 // --- Readiness hold (Spec §15.8) -----------------------------------------------------
 
-test('readiness hold: start of their range, from the fee date (or approval with no fee)', () => {
-  assert.equal(readyFromDate(entry({ ready_timing: 'immediately' })), null);
+test('readiness hold: the soonest they can commit, from the fee date (or approval with no fee)', () => {
+  assert.equal(readyFromDate(entry({ ready_timing: 'asap' })), null);
   assert.equal(readyFromDate(entry({ ready_timing: undefined })), null, 'not answered = no hold');
-  assert.equal(readyFromDate(entry({ ready_timing: '1_3_months', fee_received_date: '2026-01-10' })), '2026-02-10');
-  assert.equal(readyFromDate(entry({ ready_timing: '3_6_months', fee_received_date: '2026-01-10' })), '2026-04-10');
+  assert.equal(readyFromDate(entry({ ready_timing: '1_month', fee_received_date: '2026-01-10' })), '2026-02-10');
+  assert.equal(readyFromDate(entry({ ready_timing: '3_months', fee_received_date: '2026-01-10' })), '2026-04-10');
   assert.equal(readyFromDate(entry({ ready_timing: '6_plus_months', fee_received_date: '2026-01-10' })), '2026-07-10');
-  assert.equal(readyFromDate(entry({ ready_timing: '1_3_months', fee_received_date: null, approved_date: '2026-08-31' })), '2026-09-30', 'no fee → approval; month-end clamps');
-  assert.equal(readyFromDate(entry({ ready_timing: '1_3_months', fee_received_date: null, approved_date: null })), null);
+  assert.equal(readyFromDate(entry({ ready_timing: '1_month', fee_received_date: null, approved_date: '2026-08-31' })), '2026-09-30', 'no fee → approval; month-end clamps');
+  assert.equal(readyFromDate(entry({ ready_timing: '1_month', fee_received_date: null, approved_date: null })), null);
 });
 
 test('readiness hold: paused (no offers, off the public list) until the ready date, then back', () => {
-  const held = entry({ ready_timing: '3_6_months', fee_received_date: '2026-08-01' }); // ready 2026-11-01
+  const held = entry({ ready_timing: '3_months', fee_received_date: '2026-08-01' }); // ready 2026-11-01
   assert.equal(isReadyHeld(held, TODAY), true);
   assert.equal(isPaused(held, TODAY), true);
   assert.equal(isManuallyPaused(held, TODAY), false);

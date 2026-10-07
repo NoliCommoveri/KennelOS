@@ -40,7 +40,7 @@ const LOCKED_TYPE_LABEL = {
   pref_breed: 'Breed · decides which pups they\'re offered',
   pref_placement: 'Pet / Show / Breeding rights / Co-own · decides which pups they\'re offered',
   pref_colors: 'Colors · notes, or matching if you turn color matching on',
-  ready_timing: 'Immediately / 1-3 / 3-6 / 6+ months · otherwise on hold 1, 3 or 6 months',
+  ready_timing: 'ASAP / 1 month / 3 months / 6+ months · anything but ASAP is on hold that long',
   public_notice: 'Shown to every applicant · no answer'
 };
 

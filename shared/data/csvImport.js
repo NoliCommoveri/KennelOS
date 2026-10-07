@@ -1384,7 +1384,7 @@ const EXPENSE_MAPPING = {
 const WAITLIST_MAPPING = {
   entity: 'waitlist',
   label: 'Waitlist applications',
-  templateHeaders: ['name', 'email', 'phone', 'location', 'applied_date', 'pref_sex', 'pref_breed', 'pref_placement', 'pref_colors', 'ready_timing', 'program', 'timing', 'heard_from', 'household', 'other_pets', 'experience', 'about', 'kennel_name', 'notes'],
+  templateHeaders: ['name', 'email', 'phone', 'location', 'applied_date', 'pref_sex', 'pref_breed', 'pref_placement', 'pref_colors', 'ready_timing', 'program', 'heard_from', 'household', 'other_pets', 'experience', 'about', 'kennel_name', 'notes'],
   requiredForCreate: ['name', 'email'],
 
   async loadExisting() {
@@ -1482,12 +1482,12 @@ const WAITLIST_MAPPING = {
       if (v) record.pref_placement_type = v;
       else reasons.push(`Unrecognized placement "${placementRaw}" (left as any).`);
     }
-    // How soon they could buy (the readiness hold, Spec §15.8). Dashes, "to" and a
-    // trailing "months" are tolerated; anything else is flagged and left blank.
+    // The soonest they can commit (the readiness hold, Spec §15.8). "1", "1 month",
+    // "3 months", "6+ months", "ASAP" all read; anything else is flagged and left blank.
     const readyRaw = col(row, ...colsFor('ready_timing'));
     if (readyRaw) {
-      const k = readyRaw.toLowerCase().replace(/[–—]/g, '-').replace(/\s*(-|to)\s*/g, '-').replace(/\s*months?\b/, '').replace(/\s+/g, '').trim();
-      const v = { immediately: 'immediately', now: 'immediately', asap: 'immediately', '1-3': '1_3_months', '3-6': '3_6_months', '6+': '6_plus_months', '6plus': '6_plus_months' }[k]
+      const k = readyRaw.toLowerCase().replace(/\s*months?\b/, '').replace(/\s+/g, '').trim();
+      const v = { asap: 'asap', immediately: 'asap', now: 'asap', '1': '1_month', '3': '3_months', '6': '6_plus_months', '6+': '6_plus_months', '6plus': '6_plus_months' }[k]
         || normEnum(WAITLIST_READY_TIMING, readyRaw);
       if (v) record.ready_timing = v;
       else reasons.push(`Unrecognized "ready to purchase" answer "${readyRaw}" (left blank). Pick it on their page.`);

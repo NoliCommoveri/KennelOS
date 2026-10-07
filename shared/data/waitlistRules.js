@@ -217,10 +217,10 @@ export function isManuallyPaused(entry, today) {
 }
 
 // The readiness hold (Spec §15.8): a family who said they won't be ready to buy
-// "immediately" isn't offered pups until `hold_months` after their fee was received
+// ASAP isn't offered pups until `hold_months` after their fee was received
 // (or, with no fee, after approval). DERIVED, never stored: change their answer, or
 // record the fee, and the date follows. Returns the YYYY-MM-DD they're back in
-// contention, or null for no hold (immediately / not answered / no anchor date yet).
+// contention, or null for no hold (ASAP / not answered / no anchor date yet).
 export function readyFromDate(entry) {
   const months = WAITLIST_READY_TIMING.find((t) => t.value === entry.ready_timing)?.hold_months || 0;
   const anchor = entry.fee_received_date || entry.approved_date;

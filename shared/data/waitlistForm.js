@@ -37,10 +37,11 @@ export const PREFERENCE_FIELDS = {
   ready_timing: 'ready_timing'
 };
 
-// Default wording for the locked readiness question (her wording, 2026-10-06). She
+// Default wording for the locked readiness question (her wording, kept as given,
+// 2026-10-07). She
 // can reword it; its answers are fixed (vocab WAITLIST_READY_TIMING) because they
 // decide the readiness hold.
-export const READY_TIMING_LABEL = 'How soon do you anticipate being ready to purchase should a puppy become available?';
+export const READY_TIMING_LABEL = 'What is the soonest are you able to commit to the purchase of a puppy, should one become available?';
 
 const q = (o) => Object.freeze({ required: false, help: '', options: [], ...o });
 
@@ -54,7 +55,6 @@ export const DEFAULT_FORM_QUESTIONS = Object.freeze([
   q({ id: 'pref_placement', key: 'pref_placement', label: 'Pet, show, or breeding?', type: 'preference' }),
   q({ id: 'pref_colors', key: 'pref_colors', label: 'Any color preferences?', type: 'preference' }),
   q({ id: 'ready_timing', key: 'ready_timing', label: READY_TIMING_LABEL, type: 'preference', required: true }),
-  q({ id: 'timing', label: 'When are you hoping to bring a puppy home?', type: 'short_text' }),
   q({ id: 'household', label: 'Tell us about your household', type: 'long_text' }),
   q({ id: 'other_pets', label: 'Other pets', type: 'long_text' }),
   q({ id: 'experience', label: 'Experience with the breed', type: 'long_text' }),
@@ -215,7 +215,6 @@ export const IMPORT_ALIASES = {
   email: ['email', 'email_address', 'your_email'],
   phone: ['phone', 'phone_number', 'telephone'],
   location: ['location', 'city_state', 'city', 'city_/_state', 'where_do_you_live'],
-  timing: ['timing', 'when', 'when_are_you_hoping_to_bring_a_puppy_home'],
   heard_from: ['heard_from', 'how_did_you_hear_about_us', 'referral', 'source'],
   household: ['household', 'household_members', 'tell_us_about_your_household'],
   other_pets: ['other_pets', 'pets', 'current_pets'],
@@ -225,8 +224,8 @@ export const IMPORT_ALIASES = {
   pref_breed: ['pref_breed', 'breed', 'preferred_breed'],
   pref_placement: ['pref_placement', 'pref_placement_type', 'placement', 'placement_type'],
   pref_colors: ['pref_colors', 'colors', 'color', 'preferred_color'],
-  ready_timing: ['ready_timing', 'ready', 'readiness', 'ready_to_purchase', 'how_soon',
-    'how_soon_do_you_anticipate_being_ready_to_purchase_should_a_puppy_become_available?']
+  ready_timing: ['ready_timing', 'ready', 'readiness', 'ready_to_purchase', 'how_soon', 'soonest', 'when_can_you_commit',
+    'what_is_the_soonest_are_you_able_to_commit_to_the_purchase_of_a_puppy,_should_one_become_available?']
 };
 
 // Headers that are the form tool's own bookkeeping, not a question.

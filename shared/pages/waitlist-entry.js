@@ -475,7 +475,7 @@ function prefField(key, e, label) {
       return `<div class="field"><label>${esc(label || 'Placement')}</label><select id="f-pref_placement_type">${options(PLACEMENT_TYPE, e.pref_placement_type || '', 'Any')}</select></div>`;
     case 'ready_timing':
       return `<div class="field"><label>${esc(label || READY_TIMING_LABEL)} <span class="req">*</span></label><select id="f-ready_timing">${options(WAITLIST_READY_TIMING, e.ready_timing || '', '— Choose —')}</select>
-        <span class="field-hint">Anything but Immediately puts them on hold: no offers (so no passes used) until that many months after their fee is received, or approval if there's no fee (1-3 months → 1, 3-6 → 3, 6+ → 6).</span></div>`;
+        <span class="field-hint">Anything but ASAP puts them on hold: no offers (so no passes used) until that many months after their fee is received, or approval if there's no fee (6+ months → 6).</span></div>`;
     case 'pref_colors':
       return `<div class="field"><label>${esc(label || 'Colors')}</label><input id="f-pref_colors" type="text" value="${esc((e.pref_colors || []).join(', '))}" placeholder="e.g. brindle, seal">
         <span class="field-hint">${ctx.config.color_matching ? 'Color matching is on: only pups with one of these colors are offered.' : 'Notes only. Color matching is off in your waitlist settings.'}</span></div>`;
