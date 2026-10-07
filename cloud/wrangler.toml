@@ -67,12 +67,11 @@ routes = [{ pattern = "api.kennelos.app", custom_domain = true }]
 [env.production.observability]
 enabled = true
 
-# database_id: paste the production D1 database's id here (dashboard step 2).
-# Until then a production deploy fails, which is the safe failure.
+# The production D1 database (dashboard step 2), created 2026-10-07.
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "kennelos-api"
-database_id = "PASTE-PRODUCTION-D1-DATABASE-ID"
+database_id = "d99863b5-6c0c-4ef3-a0da-bba83a686c00"
 
 [[env.production.r2_buckets]]
 binding = "FILES"

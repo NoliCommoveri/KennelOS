@@ -154,10 +154,9 @@ Pro ship with `cloudUrl: null` and no cloud UI appears. Do these in order.
 - [ ] **Cloudflare (dashboard, plan §6.7 step 6):** the `kennelos.app` zone on Cloudflare DNS
   (GitHub Pages records **DNS-only**, so Pages still serves the editions); the Workers
   Paid plan.
-- [ ] **Production D1 `kennelos-api` and R2 `kennelos-files`** created. **`[!]` Paste the D1
-  database id into `cloud/wrangler.toml` → `[[env.production.d1_databases]]` →
-  `database_id`** (it reads `PASTE-PRODUCTION-D1-DATABASE-ID` until then, so a production
-  deploy fails safely).
+- [x] **Production D1 `kennelos-api`** created; its id is in `cloud/wrangler.toml` →
+  `[[env.production.d1_databases]]` → `database_id`.
+- [ ] **Production R2 `kennelos-files`** created.
 - [ ] **Production Worker** via a second Workers Builds connection on this repo: root
   directory `cloud/`, deploy command `npx wrangler deploy --env production`. It creates the
   `kennelos-api` Worker and the **`api.kennelos.app`** custom domain from the config.
