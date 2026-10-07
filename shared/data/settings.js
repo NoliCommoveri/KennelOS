@@ -611,6 +611,22 @@ export function setCloudDeviceId(id) {
   localStorage.setItem(CLOUD_DEVICE_ID_KEY, id);
 }
 
+// --- Cloud test-server switch (data/cloud/cloudConfig.js) --------------------
+// '1' while this browser is pointed at the edition's staging server
+// (devCloudUrl) on a deployed origin, turned on by visiting any page with
+// ?cloud=staging and off with ?cloud=off. Outside KEYS so Reset App keeps it:
+// it says which server this browser talks to, not anything about the program.
+const CLOUD_TEST_SERVER_KEY = 'kennelOS.cloudTestServer';
+
+export function isCloudTestServerOn() {
+  return localStorage.getItem(CLOUD_TEST_SERVER_KEY) === '1';
+}
+
+export function setCloudTestServer(on) {
+  if (on) localStorage.setItem(CLOUD_TEST_SERVER_KEY, '1');
+  else localStorage.removeItem(CLOUD_TEST_SERVER_KEY);
+}
+
 // --- Device id (Pro license gate — data/license.js) --------------------------
 // A random id this browser mints for itself, used for exactly one thing: making
 // the name of this browser's activation ("instance") in the Lemon Squeezy

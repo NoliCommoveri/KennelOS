@@ -608,6 +608,14 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   - **Not done:** the per-record "private details aren't in cloud backup" hint on record
     pages (plan §2.3). For now it's one hint on the Import/Export card after a restore.
 
+- **Cloud backup test switch — built & browser-verified** (Cloud plan §4.5). Testing needs
+  only a browser: open the deployed Lite or Pro with **`?cloud=staging`** on any page (e.g.
+  `https://pro.kennelos.app/?cloud=staging`) and that browser backs up to the staging server.
+  A "Cloud backup: TEST SERVER" strip shows on every page with a Turn off link
+  (`?cloud=off`). Nobody else is affected; switching forgets the device's cloud sign-in.
+  Headless Chromium on a `lite.kennelos.app` hostname: strip and backup card appear, off
+  removes both, no console errors.
+
   Next: step 6. That's the docs (§8: CLAUDE.md, the Editions Plan, the End-State guide's
   §29 section), the privacy policy page, the SW bump, and production. A live check against
   staging from a machine that can reach it should come first.

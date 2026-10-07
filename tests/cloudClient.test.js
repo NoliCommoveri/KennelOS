@@ -114,6 +114,59 @@ test('localhost uses the staging override, without a trailing slash', () => {
   assert.equal(config.cloudBaseUrl(), 'https://kennelos-api-staging.admin-kennelos.workers.dev');
 });
 
+// --- the test-server switch (?cloud=staging / ?cloud=off) ------------------------
+
+const STAGING = 'https://kennelos-api-staging.admin-kennelos.workers.dev';
+function deployedPage(search) {
+  const href = `https://pro.kennelos.app/pages/today.html${search}#top`;
+  const loc = { hostname: 'pro.kennelos.app', href, search };
+  const replaced = [];
+  const hist = { state: null, replaceState: (_s, _t, url) => replaced.push(url) };
+  globalThis.location = loc;
+  return { loc, hist, replaced };
+}
+
+test('test switch: ?cloud=staging on a deployed origin points this browser at staging', () => {
+  const { loc, hist, replaced } = deployedPage('?cloud=staging&x=1');
+  settings.setCloudSession({ token: 'x'.repeat(64), email: 'a@b.co', programId: 'p', deviceId: 'd' });
+  settings.updateCloudBackupState({ enabled: true, lastSnapshotId: 's1' });
+  assert.equal(config.isCloudAvailable(), false, 'off until the switch is visited');
+  assert.equal(config.applyCloudTestSwitch(loc, hist), true);
+  assert.equal(config.cloudBaseUrl(), STAGING);
+  assert.equal(config.isUsingTestServer(), true);
+  assert.deepEqual(replaced, ['/pages/today.html?x=1#top'], 'the parameter leaves the address bar');
+  assert.equal(settings.getCloudSession(), null, 'a sign-in belongs to one server');
+  assert.equal(settings.getCloudBackupState().enabled, false);
+  assert.equal(settings.getCloudBackupState().lastSnapshotId, null);
+});
+
+test('test switch: visiting it again changes nothing; ?cloud=off turns it off', () => {
+  let page = deployedPage('?cloud=staging');
+  config.applyCloudTestSwitch(page.loc, page.hist);
+  settings.setCloudSession({ token: 'y'.repeat(64), email: 'a@b.co', programId: 'p', deviceId: 'd' });
+  page = deployedPage('?cloud=staging');
+  assert.equal(config.applyCloudTestSwitch(page.loc, page.hist), false);
+  assert.ok(settings.getCloudSession(), 'a repeat visit keeps the staging sign-in');
+  page = deployedPage('?cloud=off');
+  assert.equal(config.applyCloudTestSwitch(page.loc, page.hist), true);
+  assert.equal(config.isCloudAvailable(), false);
+  assert.equal(config.isUsingTestServer(), false);
+  assert.equal(settings.getCloudSession(), null);
+});
+
+test('test switch: other values and pages without it do nothing; localhost is never "test server"', () => {
+  for (const search of ['', '?cloud=prod', '?other=staging']) {
+    const page = deployedPage(search);
+    assert.equal(config.applyCloudTestSwitch(page.loc, page.hist), false);
+    assert.deepEqual(page.replaced, []);
+    assert.equal(config.isCloudAvailable(), false);
+  }
+  globalThis.location = { hostname: 'localhost' };
+  settings.setCloudTestServer(true);
+  assert.equal(config.isUsingTestServer(), false, 'no banner in local dev');
+  assert.equal(config.cloudBaseUrl(), STAGING);
+});
+
 // --- cloudAuth ------------------------------------------------------------------
 
 test('sign in by code: the session is stored, the device keeps its id across sign-ins', async () => {

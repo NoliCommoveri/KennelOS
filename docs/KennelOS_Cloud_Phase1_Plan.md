@@ -240,7 +240,16 @@ field** on a device that has them. So we add a third mode, with one switch, `ove
   `cloudUrl` stays `null` in Lite and Pro until production is live (step 6), so a deploy
   before then can't point at a server that doesn't exist. `devCloudUrl` is the staging
   Worker in shared, Lite and Pro. `cloudConfig` uses it **only** when the page's host is
-  `localhost`/`127.0.0.1`. Demo has neither. `tests/editionConfig.test.js` pins this.
+  `localhost`/`127.0.0.1`, or in a browser that has turned on the **test-server switch**
+  (below). Demo has neither. `tests/editionConfig.test.js` pins this.
+- **Test-server switch (added 2026-10-07).** So the owner can test with only a browser,
+  before production exists: visiting any page of the deployed Lite or Pro with
+  `?cloud=staging` points that browser at `devCloudUrl`, and `?cloud=off` turns it back.
+  It's a `settings.js` key (`cloudTestServer`), so it affects nobody who doesn't visit such
+  a link. Switching forgets this device's cloud sign-in and backup position (they belong to
+  one server), and every page shows a "Cloud backup: TEST SERVER" strip while it's on.
+  Staging already allows the `lite.`/`pro.` origins (§6.4). It stays after launch as a way
+  to check a server release from a real origin. Pinned in `tests/cloudClient.test.js`.
 - **Device identity.** The server accepts a client-supplied device id on `/auth/verify`.
   The client mints `cloudDeviceId` once and sends it on every sign-in, so signing in again
   on the backing device doesn't make it a stranger. It's a separate key from the license's

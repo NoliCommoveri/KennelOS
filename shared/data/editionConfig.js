@@ -29,9 +29,9 @@ export const demoUrl = null;
 
 // Cloud backup API (Cloud Phase 1 plan §7; data/cloud/cloudConfig.js). Null here:
 // the shared core stays inert, so every cloud module and cloud UI is off.
-// `devCloudUrl` is the local-dev override, used ONLY when the app is served from
-// localhost/127.0.0.1: it points a dev build at the staging Worker. It never
-// applies on a deployed origin.
+// `devCloudUrl` is the staging Worker. It's used when the app is served from
+// localhost/127.0.0.1, and on a deployed origin only in a browser that has
+// opted in with ?cloud=staging (the test-server switch in cloudConfig.js).
 export const cloudUrl = null;
 export const devCloudUrl = 'https://kennelos-api-staging.admin-kennelos.workers.dev';
 
