@@ -1137,10 +1137,13 @@ intro-card / pinned-top-card presentation postdate it).
 
 App-shell cache so the app installs and works offline after first load.
 
-- `CACHE_NAME` (currently `kennelos-shell-v5`) + a `PRECACHE_URLS` list of **every** app
+- `CACHE_NAME` (currently `kennelos-shell-v43`) + a `PRECACHE_URLS` list of **every** app
   file (html/js/css/icons/vendor/resources).
 - `install` precaches the list (**`cache.addAll` is atomic** — one missing/renamed file
-  fails the whole install). `activate` deletes old caches. Fetch is **cache-first** for
+  fails the whole install). Each file is requested with **`cache: 'reload'`**, past the
+  browser's HTTP cache, so a new version can never precache a stale copy of a file the
+  browser still held (it did once: the cloud go-live left a browser on the old
+  `editionConfig.js` until the next bump). `activate` deletes old caches. Fetch is **cache-first** for
   same-origin GETs, with runtime caching of anything new.
 
 **The discipline that matters:** whenever you add, rename, or remove an app file — or edit
