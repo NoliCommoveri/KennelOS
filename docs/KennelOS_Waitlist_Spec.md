@@ -1079,8 +1079,8 @@ Listening for specific pairings or litters was the wrong unit: families follow a
 ### 15.8 Readiness question, readiness hold, and an application FAQ (requested and built 2026-10-06)
 
 1. **A mandatory readiness question.** A new locked question (`key: ready_timing`, type
-   `preference`, required), default wording (her wording, kept as given, revised 2026-10-07)
-   *"What is the soonest are you able to commit to the purchase of a puppy, should one
+   `preference`, required), default wording (her wording, revised 2026-10-07)
+   *"What is the soonest you are able to commit to the purchase of a puppy, should one
    become available?"*. She can reword it; the answers are fixed (`WAITLIST_READY_TIMING`:
    ASAP, 1 month, 3 months, 6+ months; revised 2026-10-07 from ranges) because they drive
    the hold. Stored on `WaitlistEntry.ready_timing`. Required when she types in a new

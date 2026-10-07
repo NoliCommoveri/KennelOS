@@ -37,11 +37,11 @@ export const PREFERENCE_FIELDS = {
   ready_timing: 'ready_timing'
 };
 
-// Default wording for the locked readiness question (her wording, kept as given,
+// Default wording for the locked readiness question (her wording,
 // 2026-10-07). She
 // can reword it; its answers are fixed (vocab WAITLIST_READY_TIMING) because they
 // decide the readiness hold.
-export const READY_TIMING_LABEL = 'What is the soonest are you able to commit to the purchase of a puppy, should one become available?';
+export const READY_TIMING_LABEL = 'What is the soonest you are able to commit to the purchase of a puppy, should one become available?';
 
 const q = (o) => Object.freeze({ required: false, help: '', options: [], ...o });
 
@@ -225,7 +225,7 @@ export const IMPORT_ALIASES = {
   pref_placement: ['pref_placement', 'pref_placement_type', 'placement', 'placement_type'],
   pref_colors: ['pref_colors', 'colors', 'color', 'preferred_color'],
   ready_timing: ['ready_timing', 'ready', 'readiness', 'ready_to_purchase', 'how_soon', 'soonest', 'when_can_you_commit',
-    'what_is_the_soonest_are_you_able_to_commit_to_the_purchase_of_a_puppy,_should_one_become_available?']
+    'what_is_the_soonest_you_are_able_to_commit_to_the_purchase_of_a_puppy,_should_one_become_available?']
 };
 
 // Headers that are the form tool's own bookkeeping, not a question.
