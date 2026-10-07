@@ -13,12 +13,19 @@ import { worker } from '../cloud/tests/helpers/worker.js';
 
 let tables;
 let env;
-let cb; let auth; let api; let config; let settings; let appReset;
+let cb; let auth; let api; let config; let settings; let appReset; let dv; let edition;
 const calls = [];
+
+// Lemon Squeezy's License API, stubbed: every deactivate succeeds and is recorded.
+const lemon = [];
 
 // The browser sets Content-Length itself for a Blob/string body; Node's Request
 // doesn't, and the Worker requires it, so the stand-in adds it.
 async function workerFetch(url, init = {}) {
+  if (String(url).startsWith('https://api.lemonsqueezy.com/')) {
+    lemon.push({ path: new URL(url).pathname, params: Object.fromEntries(new URLSearchParams(String(init.body))) });
+    return new Response(JSON.stringify({ deactivated: true }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }
   const headers = { ...(init.headers || {}), origin: 'http://localhost:8000' };
   let body = init.body;
   if (body instanceof Blob) {
@@ -41,6 +48,8 @@ before(async () => {
   cb = await import('../shared/data/cloud/cloudBackup.js');
   settings = await import('../shared/data/settings.js');
   appReset = await import('../shared/data/appReset.js');
+  dv = await import('../shared/data/cloud/cloudDevices.js');
+  edition = await import('../shared/data/editionConfig.js');
 });
 
 beforeEach(async () => {
@@ -48,6 +57,10 @@ beforeEach(async () => {
   for (const t of Object.values(tables)) t.rows.clear();
   localStorage.clear();
   calls.length = 0;
+  lemon.length = 0;
+  devices.clear();
+  currentDevice = 'A';
+  edition.editionFlags.licenseGate = false;
   globalThis.fetch = workerFetch;
   globalThis.location = { hostname: 'localhost' };
 });
@@ -503,4 +516,202 @@ test('scheduler: the first page of a session pushes at once when dirty', async (
   assert.equal(settings.getCloudDirtyAt(), null, 'cold start pushed');
   assert.equal((await cb.listSnapshots()).length, 2);
   stop();
+});
+
+// --- A lost device: erase it, free its Pro license (plan §2.5) ---------------------
+
+const appKeys = () => {
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
+  return keys.filter((k) => k.startsWith('kennelOS.'));
+};
+
+async function until(check, what) {
+  for (let i = 0; i < 200; i++) {
+    if (check()) return;
+    await new Promise((r) => setTimeout(r, 2));
+  }
+  assert.fail(`timed out waiting for ${what}`);
+}
+
+// Phone A (signed in, with a program) and Laptop B, both on one account; ends on B.
+async function lostPhoneAndLaptop() {
+  putProgram();
+  await signIn('breeder@example.com', 'Phone A');
+  await cb.enableBackup();
+  const phoneId = auth.currentAccount().deviceId;
+  switchDevice('B');
+  await signIn('breeder@example.com', 'Laptop B');
+  return phoneId;
+}
+
+test('check-in: once per 15 minutes unless forced, and it carries the service notices', async () => {
+  await signIn();
+  env.DB.raw.prepare("INSERT INTO notices (id, level, message, until, created_at) VALUES ('n1', 'warning', 'Maintenance Sunday', NULL, '2026-01-01')").run();
+  calls.length = 0;
+  assert.deepEqual((await dv.checkIn()).notices.map((n) => n.message), ['Maintenance Sunday']);
+  assert.equal(await dv.checkIn(), null, 'throttled');
+  assert.deepEqual(await cb.getServiceNotices().then((n) => n.map((x) => x.message)), ['Maintenance Sunday']);
+  assert.deepEqual(calls, ['POST /devices/check-in', 'POST /devices/check-in'], 'notices come from the check-in, not GET /notice');
+  assert.ok(settings.getCloudBackupState().lastCheckInAt);
+});
+
+test('check-in: nothing without a sign-in or a server', async () => {
+  assert.equal(await dv.checkIn({ force: true }), null);
+  globalThis.location = { hostname: 'pro.kennelos.app' };
+  settings.setCloudSession({ token: 'x'.repeat(64), email: 'a@b.co', programId: 'p', deviceId: 'd' });
+  dv.bootDeviceCheck({ win: new EventTarget() });
+  assert.equal(await dv.checkIn({ force: true }), null);
+  assert.deepEqual(calls, []);
+});
+
+test('erase: the lost phone wipes everything at its next check-in, frees its own license and confirms', async () => {
+  const phoneId = await lostPhoneAndLaptop();
+  const listed = await dv.listDevices();
+  assert.deepEqual(listed.map((d) => [d.label, d.thisDevice, d.backing]), [['Laptop B', true, false], ['Phone A', false, true]]);
+  await dv.requestErase(phoneId);
+
+  switchDevice('A');
+  settings.setProLicense({ key: 'KEY-1', instanceId: 'inst-A', status: 'active' });
+  assert.ok(tables.dogs.rows.size > 0);
+  assert.deepEqual(await dv.checkIn({ force: true }), { erased: true });
+  for (const t of Object.values(tables)) assert.equal(t.rows.size, 0, t.name);
+  assert.deepEqual(appKeys(), [], 'no key of this app survives, not even the license or the cloud ids');
+  assert.deepEqual(lemon, [{ path: '/v1/licenses/deactivate', params: { license_key: 'KEY-1', instance_id: 'inst-A' } }]);
+
+  switchDevice('B');
+  const phone = (await dv.listDevices()).find((d) => d.id === phoneId);
+  assert.ok(phone.erase.confirmedAt);
+  assert.equal(phone.backing, false);
+});
+
+test('erase: any request the lost phone makes erases it, not only the check-in', async () => {
+  const phoneId = await lostPhoneAndLaptop();
+  await dv.requestErase(phoneId);
+  switchDevice('A');
+  putDog('d9');
+  settings.markDataChanged();
+  const result = await cb.pushIfDirty();
+  assert.equal(result.status, 'auth');
+  await until(() => tables.dogs.rows.size === 0 && appKeys().length === 0, 'the erase');
+  switchDevice('B');
+  await until(() => env.DB.raw.prepare('SELECT confirmed_at FROM device_erasures').get()?.confirmed_at, 'the ack');
+});
+
+test('erase: an ack that could not reach the server is retried later', async () => {
+  const phoneId = await lostPhoneAndLaptop();
+  await dv.requestErase(phoneId);
+  switchDevice('A');
+  globalThis.fetch = async (url, init) => (String(url).includes('/devices/erase-ack') ? Promise.reject(new Error('offline')) : workerFetch(url, init));
+  await dv.checkIn({ force: true });
+  assert.equal(tables.dogs.rows.size, 0);
+  assert.deepEqual(appKeys(), ['kennelOS.eraseAck'], 'only the dead token, until the server hears it');
+  assert.equal(env.DB.raw.prepare('SELECT confirmed_at FROM device_erasures').get().confirmed_at, null);
+
+  globalThis.fetch = workerFetch;
+  assert.equal(await dv.finishEraseAck(), true);
+  assert.deepEqual(appKeys(), []);
+  assert.ok(env.DB.raw.prepare('SELECT confirmed_at FROM device_erasures').get().confirmed_at);
+});
+
+test('erase needs a fresh sign-in: an older one is asked for a code', async () => {
+  const phoneId = await lostPhoneAndLaptop();
+  env.DB.raw.prepare("UPDATE sessions SET created_at = '2026-01-01T00:00:00.000Z' WHERE device_id = ?").run(auth.currentAccount().deviceId);
+  await assert.rejects(dv.requestErase(phoneId), (e) => e instanceof api.CloudRequestError && e.code === 'reauth_required');
+  await auth.startSignIn('breeder@example.com');
+  await dv.requestErase(phoneId, { email: 'breeder@example.com', code: lastCode(env) });
+  assert.ok((await dv.listDevices()).find((d) => d.id === phoneId).erase);
+});
+
+test('cancel: a found phone keeps its records and is asked to sign in again', async () => {
+  const phoneId = await lostPhoneAndLaptop();
+  await dv.requestErase(phoneId);
+  await dv.cancelErase(phoneId);
+  switchDevice('A');
+  assert.equal(await dv.checkIn({ force: true }), null);
+  assert.equal(tables.dogs.rows.size, 3);
+  assert.equal(auth.currentAccount().signedIn, false);
+});
+
+test('free its Pro license: the check-in reports the activation; the key goes to Lemon Squeezy only', async () => {
+  edition.editionFlags.licenseGate = true;
+  putProgram();
+  settings.setProLicense({ key: 'KEY-1', instanceId: 'inst-A', status: 'active' });
+  await signIn('breeder@example.com', 'Phone A');
+  await dv.checkIn({ force: true });
+  const phoneId = auth.currentAccount().deviceId;
+  switchDevice('B');
+  await signIn('breeder@example.com', 'Laptop B');
+
+  const phone = (await dv.listDevices()).find((d) => d.id === phoneId);
+  assert.equal(phone.licenseInstanceId, 'inst-A');
+  calls.length = 0;
+  assert.equal(await dv.releaseDeviceLicense(phone, ' KEY-1 '), true);
+  assert.deepEqual(lemon, [{ path: '/v1/licenses/deactivate', params: { license_key: 'KEY-1', instance_id: 'inst-A' } }]);
+  assert.ok(calls.every((c) => !c.includes('KEY')), 'the key never reaches our server');
+  assert.equal((await dv.listDevices()).find((d) => d.id === phoneId).licenseInstanceId, null);
+});
+
+test('free its Pro license: a refusal from Lemon Squeezy leaves it offered', async () => {
+  edition.editionFlags.licenseGate = true;
+  settings.setProLicense({ key: 'KEY-1', instanceId: 'inst-A', status: 'active' });
+  await signIn('breeder@example.com', 'Phone A');
+  await dv.checkIn({ force: true });
+  const phoneId = auth.currentAccount().deviceId;
+  switchDevice('B');
+  await signIn('breeder@example.com', 'Laptop B');
+  globalThis.fetch = async (url, init) => (String(url).startsWith('https://api.lemonsqueezy.com/')
+    ? new Response(JSON.stringify({ deactivated: false, error: 'license_key not found' }), { status: 404 })
+    : workerFetch(url, init));
+  const phone = (await dv.listDevices()).find((d) => d.id === phoneId);
+  assert.equal(await dv.releaseDeviceLicense(phone, 'WRONG'), false);
+  assert.equal((await dv.listDevices()).find((d) => d.id === phoneId).licenseInstanceId, 'inst-A');
+});
+
+test('check-in at boot: the first page of a browsing session checks in after a minute; later pages after fifteen', async () => {
+  await signIn();
+  const fakeWin = () => {
+    const win = new EventTarget();
+    const store = new Map();
+    win.sessionStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)) };
+    return win;
+  };
+  const twoMinutesAgo = () => settings.updateCloudBackupState({ lastCheckInAt: new Date(Date.now() - 2 * 60 * 1000).toISOString() });
+  const checkIns = () => calls.filter((c) => c === 'POST /devices/check-in').length;
+  const settle = () => new Promise((r) => setTimeout(r, 20));
+
+  twoMinutesAgo();
+  const win = fakeWin();
+  dv.bootDeviceCheck({ win });
+  await settle();
+  assert.equal(checkIns(), 1, 'first page of the session');
+
+  twoMinutesAgo();
+  dv.bootDeviceCheck({ win });
+  await settle();
+  assert.equal(checkIns(), 1, 'a later page in the same session waits fifteen minutes');
+
+  dv.bootDeviceCheck({ win: fakeWin() });
+  await settle();
+  assert.equal(checkIns(), 2, 'a new session after two minutes checks in');
+});
+
+test('sign out other devices and delete my cloud data need a code when the sign-in is old', async () => {
+  putProgram();
+  await signIn();
+  await cb.enableBackup();
+  env.DB.raw.prepare("UPDATE sessions SET created_at = '2026-01-01T00:00:00.000Z'").run();
+  const reauthRequired = (e) => e instanceof api.CloudRequestError && e.code === 'reauth_required';
+
+  await assert.rejects(auth.signOutOtherDevices(), reauthRequired);
+  await auth.startSignIn('breeder@example.com');
+  assert.equal(await auth.signOutOtherDevices({ email: 'breeder@example.com', code: lastCode(env) }), 0);
+
+  await assert.rejects(cb.deleteCloudData(), reauthRequired);
+  assert.ok(auth.currentAccount(), 'still signed in after the refusal');
+  assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM users').get().n, 1);
+  await auth.startSignIn('breeder@example.com');
+  await cb.deleteCloudData({ email: 'breeder@example.com', code: lastCode(env) });
+  assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM users').get().n, 0);
+  assert.equal(auth.currentAccount(), null);
 });

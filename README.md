@@ -628,8 +628,34 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   replies stubbed): dialog, card line, no Today nudge after turning off, and the upgrade note
   after the file download; no errors beyond the stubbed 409s.
   Service-worker cache rolled to `kennelos-shell-v40` for this and the test switch.
+- **A lost device: remote erase + free its Pro license — built & browser-verified** (Cloud
+  plan §2.5). Import/Export → Cloud backup → Account → **Your devices…** lists the account's
+  devices. **Erase…** (typed ERASE; needs a sign-in from the last 15 minutes or an emailed
+  code) wipes that device the next time it opens KennelOS online: every table, the
+  KennelAssistant database and every `kennelOS.*` key. **Free its Pro license** releases its
+  Lemon Squeezy activation from the owner's browser (the key never reaches our server), also
+  reachable from the activation wall ("Free a lost device's slot"). Signed-in devices now
+  check in (`POST /devices/check-in`, which also carries the service notices), started before
+  the license gate so a walled device still hears an erase. New module
+  `shared/data/cloud/cloudDevices.js`; **cloud migration `0004`: Apply pending on staging's
+  `/ops` after this deploys**. Tests: `cloud/tests/devices.test.js` and new
+  `tests/cloudClient.test.js` cases. Headless Chromium against the real Worker locally (Pro
+  and Lite builds, Lemon Squeezy stubbed): free a slot from the wall, erase from a laptop, the
+  walled phone wiped on reopening with the erase confirmed, the code prompt for an older
+  sign-in; no page errors. Only devices that had cloud backup on are covered. **Sign out
+  other devices** and **Delete my cloud data** now need the same fresh sign-in, so a stolen
+  phone that's still signed in can't use them (browser-verified in the Lite build).
+- **Cloud Phase 1, §9 step 6: the repo half is done** (plan §9 step 6). The §8 docs
+  (CLAUDE.md's cloud rules, the Editions Plan tier table, End-State guide §30), the
+  production Worker as `[env.production]` in `cloud/wrangler.toml` (`kennelos-api` on
+  `api.kennelos.app`, its own D1/R2, no `DEV_OUTBOX`), the operator's production steps in
+  `docs/LAUNCH_CHECKLIST.md` §3a, and the SW cache rolled to `kennelos-shell-v41` for the
+  lost-device work. **Not live yet:** Lite and Pro still ship `cloudUrl: null`. The go-live
+  change (set `cloudUrl`, rewrite the site's "no accounts, no cloud" claims, add the
+  privacy policy page) is a separate change to merge once production's `/ops` shows no
+  pending migration (checklist §3a).
 
-  Next: step 6. That's the docs (§8: CLAUDE.md, the Editions Plan, the End-State guide's
+  Next: the operator's production setup (checklist §3a), then the go-live merge. That's the docs (§8: CLAUDE.md, the Editions Plan, the End-State guide's
   §29 section), the privacy policy page, the SW bump, and production. A live check against
   staging from a machine that can reach it should come first.
 

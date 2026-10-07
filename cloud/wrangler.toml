@@ -3,8 +3,10 @@
 # only thing that can reach D1 and R2. Deployed by Cloudflare Workers Builds with
 # its root directory set to `cloud/` — never by deploy.yml.
 #
-# This file is the STAGING Worker. Production gets its own D1, R2 and name at
-# plan §9 step 6.
+# The top level is the STAGING Worker. [env.production] at the bottom is the
+# production one (plan §6.7, §9 step 6): its own name, D1, R2 and custom domain,
+# deployed by a second Workers Builds connection with the deploy command
+# `npx wrangler deploy --env production`.
 name = "kennelos-api-staging"
 main = "src/index.js"
 compatibility_date = "2026-09-01"
@@ -49,4 +51,35 @@ DEV_OUTBOX = "1"
 # Daily retention (src/retention.js), 03:17 UTC. Cron runs in UTC and is never
 # retried; retention is idempotent and /ops has "Run retention now".
 [triggers]
+crons = ["17 3 * * *"]
+
+# --- Production (plan §6.7 step 6) -------------------------------------------
+# Bindings, vars and triggers are not inherited by an environment, so each is
+# restated here. No DEV_OUTBOX: production emails codes through Resend, and
+# with no RESEND_API_KEY it refuses sign-in rather than pretending (src/mail.js).
+# The secrets (OPS_TOKEN, EMAIL_HMAC_KEY, RESEND_API_KEY) are set on this Worker
+# separately in the dashboard; production's EMAIL_HMAC_KEY is permanent.
+[env.production]
+name = "kennelos-api"
+workers_dev = false
+routes = [{ pattern = "api.kennelos.app", custom_domain = true }]
+
+[env.production.observability]
+enabled = true
+
+# database_id: paste the production D1 database's id here (dashboard step 2).
+# Until then a production deploy fails, which is the safe failure.
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "kennelos-api"
+database_id = "PASTE-PRODUCTION-D1-DATABASE-ID"
+
+[[env.production.r2_buckets]]
+binding = "FILES"
+bucket_name = "kennelos-files"
+
+[env.production.vars]
+MAIL_FROM = "KennelOS <signin@kennelos.app>"
+
+[env.production.triggers]
 crons = ["17 3 * * *"]

@@ -1,7 +1,9 @@
 # CLAUDE.md — KennelOS (Lite / Pro / Demo editions)
 
-Local-first, static, multi-page dog-breeding records app. No backend, no build step;
-GitHub Pages hosting; all data lives in the browser (IndexedDB via Dexie). **This repo
+Local-first, static, multi-page dog-breeding records app. No *required* backend, no build
+step; GitHub Pages hosting; all data lives in the browser (IndexedDB via Dexie). The one
+server is the **opt-in** cloud backup API in `cloud/` (a Cloudflare Worker, deployed apart
+from the editions; see `cloud/README.md`), and the app runs exactly the same without it. **This repo
 builds the app as three editions off one shared core** — Lite (free), Pro (paid), Demo
 (seeded read-only). See the top-level `README.md` for the layout and current build status.
 
@@ -116,7 +118,18 @@ one-bump-per-batch rule applies.
 - Hard delete is blocked if any reference exists — archive only. The blocking message is generated entirely from the registry, so it always matches whatever tables currently exist; no hand-maintained carve-out.
 - One canonical direction per relationship; the reverse is **always a derived query, never a stored back-pointer**. Need the reverse of X? Write a query — don't add a mirror field.
 
-## Cloud backup classification
+## Cloud backup (Cloud Phase 1 plan)
+- **Opt-in, always.** Nothing talks to the server until the user signs in to cloud backup;
+  someone who never does makes no request at all. Every cloud feature stays removable.
+- **`cloudUrl: null` must work.** It's how Demo ships, how the shared default ships, and
+  how a post-shutdown release would ship: no cloud module makes a request and no cloud UI
+  renders. Every cloud module and UI checks `cloudConfig.isCloudAvailable()` first, and the
+  cloud UI is imported dynamically only when it's true.
+- **Only `shared/data/cloud/cloudApi.js` touches the network** for the cloud; pages go
+  through `cloudBackup` / `cloudAuth` / `cloudDevices`, never `fetch` or `db` directly.
+- **Server changes** follow `cloud/README.md`'s rules: a new migration is a new `.sql` file
+  AND its line in `cloud/src/migrations/index.js`, applied files are never edited, and
+  nothing logs an email, code, token or request body. Run `cd cloud && npm test`.
 - `shared/data/syncRegistry.js` is the **second registry to keep current**, beside
   `referenceRegistry.js`: the per-field cloud allow-list for cloud backup (Cloud Phase 1
   plan §5). **A field not listed as cloud is private.** When you add a field, classify it
@@ -135,4 +148,11 @@ one-bump-per-batch rule applies.
 - Serve the repo root: `python3 -m http.server 8000` (or `npx serve`), never `file://`.
   The full app today is under `shared/` — open `http://localhost:8000/shared/`. (Edition
   front doors under `lite/`/`pro/`/`demo/` are not wired yet — see `README.md`.)
-- No build, test runner, or linter. Verification = `node --check <file>.js` on anything you touched, serving locally and exercising the flow in a browser, and the precache sanity check above. State resets via **Reset App to Start**; sample data via the first-run prompt or Import/Export.
+- No bundler or linter. Verification = `node --check <file>.js` on anything you touched,
+  `node --test` from the root (`tests/`, plus `cloud/tests`; zero dependencies, Node ≥ 22),
+  serving locally and exercising the flow in a browser, and the precache check (now
+  `tests/serviceWorker.test.js`). Edition builds: `node build/assemble.mjs` → `dist/`.
+  State resets via **Reset App to Start**; sample data via the first-run prompt or
+  Import/Export.
+- On `localhost` the cloud modules talk to the **staging** Worker (`devCloudUrl`), not
+  production. To run the Worker locally instead, see `cloud/README.md`.

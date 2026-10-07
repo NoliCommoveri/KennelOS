@@ -3,7 +3,9 @@
 > Parent design: `docs/KennelOS_Cloud_Accounts_Proposal.md` (cited below as "Proposal §N").
 > Status: **in progress.** Built so far: §9 steps 1–5 (the registry; snapshot, `'cloud-merge'`
 > restore and dirty signal; the staging Worker; the client cloud modules in
-> `shared/data/cloud/`; the UI in `shared/assets/cloudBackupUI.js`). Next: step 6. The README's build status is the
+> `shared/data/cloud/`; the UI in `shared/assets/cloudBackupUI.js`), plus the lost-device
+> erase and Pro-license release (§2.5, added 2026-10-07), and step 6's repo half (§9). What's
+> left is the operator's production setup and the go-live merge (§9 step 6). The README's build status is the
 > live record. Decisions it relies on are recorded in Proposal §10. The ones it raises are in
 > §11 below.
 
@@ -18,10 +20,13 @@
   phase reuses.
 - Shutdown readiness: `cloudUrl: null` behaves exactly like today, plus a server-sent
   service-notice channel.
+- **A lost device** (§2.5): erase it from another device, and free its Pro license slot.
 
 **Not in Phase 1:** the private vault (Phase 2b), live multi-device sync (Phase 2), teams,
 connections, transfers, `dogs.public_id`/`contacts.public_id`, and any licensing change.
-Phase 1 does nothing to the Lemon Squeezy gate.
+Phase 1 does nothing to the Lemon Squeezy gate itself. The one licensing touch is §2.5's
+"free a lost device's license": the server stores each Pro device's activation id (not a
+secret), and the owner's own browser releases it with the key, which never reaches our server.
 
 **Shape:** Phase 1 backs up **whole snapshots** (the existing `exportAll` shape, filtered),
 not per-record sync. That's deliberately simpler: there's no outbox and no conflict
@@ -93,6 +98,54 @@ snapshots with record-level sync and keeps this plan's auth, server, and registr
 - **Reset App** also stops backup on this device (§3.5), so a reset can't overwrite the cloud
   copy with an empty program.
 
+### 2.5 A lost device: erase it, free its Pro license (added 2026-10-07)
+For a lost or stolen phone, from any other signed-in device (a new phone, or a laptop
+browser): **Import/Export → Cloud backup → Account → Your devices…**
+- **The list** shows every device with a session the server still holds: its label, when it
+  was last used, "this device", and which one backs up the records. A device that signed
+  itself out shows "can't be erased from here" (it dropped its token, so it never asks the
+  server anything again). One signed out from elsewhere ("Sign out other devices") or whose
+  sign-in expired still holds its token, so an erase still reaches it.
+- **Erase…** (typed `ERASE`) signs that device out and flags it. The next time it opens
+  KennelOS online, it deletes everything: every table, KennelAssistant's separate database,
+  and every `kennelOS.*` key in both storages, including the ones Reset App deliberately
+  keeps (the license record, the cloud sign-in and ids). Then it releases its own Pro
+  activation (best effort), tells the server, and reloads onto first run. If it was the
+  backup device, it stops being one, so the owner's next device doesn't meet its 409.
+- **The honest limit, in the confirmation:** nothing happens until that device opens
+  KennelOS with an internet connection. A phone in a drawer, offline, or never reopened keeps
+  its records; the phone's own Find My / Find My Device is the real protection. And private
+  details aren't in cloud backup (§5), so if the lost device holds the only copy, erasing it
+  loses them unless a file backup has them.
+- **Found it?** "Found it: cancel the erase" works until the device has confirmed. The
+  device stays signed out (it signs in again with a code and keeps its records).
+- **A fresh sign-in is required to erase**, and also for **Sign out other devices** and
+  **Delete my cloud data** (decided 2026-10-07, §11 item 6): a session from the last 15
+  minutes, or a code emailed to the account just now (the existing `/auth/start` code).
+  Otherwise a stolen phone that's still signed in could erase its owner's other devices
+  (which hold the only copy of the private tier), sign the owner out everywhere, or delete
+  the cloud copy.
+- **Free its Pro license** (Pro only) releases the lost device's Lemon Squeezy activation, so
+  its slot comes back now, whether or not the lost device ever reopens. The device reported
+  its activation id at check-in; the owner's browser calls Lemon Squeezy's `deactivate` with
+  that id and the key (this device's own key, or typed). **The key never goes to our
+  server.** Erase does this too when the device has an activation. The lost device, once
+  released, walls on its next online license check (offline, it keeps its grace window), and
+  the erase still reaches it: the check-in runs before the license gate.
+- **From the activation wall.** A new Pro device whose key is out of slots can't reach
+  Import/Export, so the wall has "Lost a device? Free a lost device's slot": sign in to cloud
+  backup, then the same list, using the key typed on the wall.
+- **Only devices that had cloud backup on** (signed in, and checked in at least once since
+  this shipped) can be erased or have their license freed this way. Any other device still
+  needs the owner to contact support to release its slot.
+- **The check-in.** A signed-in device sends `POST /devices/check-in` whether or not it has
+  anything to back up: on the first page of a browsing session and when it comes back to the
+  foreground or online (each at most once a minute), and otherwise at most every 15 minutes
+  across page loads. `app.js` starts it **before** the license gate. It carries the service
+  notices, so a signed-in device still makes one request per browsing session for those
+  (§4.6). Any request that meets `401 device_erased`, not only the check-in, erases the
+  device (`cloudApi.setErasedHandler`).
+
 ## 3. Client design (`shared/`)
 
 ### 3.1 New modules
@@ -127,6 +180,8 @@ snapshots with record-level sync and keeps this plan's auth, server, and registr
 - `cloudSession` — `{ token, email, programId, deviceId }`.
 - `cloudBackupState` — `{ enabled, lastPushedAt, lastSnapshotId, lastError }`.
 - `cloudDirtyAt`.
+- `cloudBackupState.lastCheckInAt` (§2.5), and `eraseAck`: after a remote erase, the dead
+  token alone, kept until the server has heard the erase happened.
 - **Reset App:** `cloudBackupState.enabled` is always set to `false`. Reset App also asks
   **"Also sign out of cloud backup on this device?"**:
   - **yes** (the default when the reset follows the typed "erase" confirmation, i.e. the
@@ -305,7 +360,9 @@ field** on a device that has them. So we add a third mode, with one switch, `ove
   conflict, shrink or expired sign-in is waiting.
 - **Service notices** are fetched only by a device signed in to cloud backup, once per
   browsing session (cached in `sessionStorage`). Someone who never opted in sends the
-  server nothing at all. They render as a strip at the top of every page.
+  server nothing at all. They render as a strip at the top of every page. Since §2.5 they
+  ride the device check-in (`POST /devices/check-in`); a device whose sign-in expired still
+  reads the public `GET /notice`.
 - **Restore on a new device** also records the first-run choice and sets `myKennelId` to
   the restored own kennel (settings aren't in the snapshot), so the kennel-setup gate
   doesn't fire.
@@ -488,14 +545,20 @@ a **Worker, not Cloudflare Pages**: Pages has no Cron Triggers, and §6.3's rete
 | `POST /auth/start {email}` | Emails a 6-digit code (valid 10 min) to the address in the request, then discards the address; only its keyed hash is kept (§6.2). Rate-limited per email hash and per IP. Always returns 200, so it can't be used to test which emails have accounts. |
 | `POST /auth/verify {email, code, deviceLabel}` | Max 5 attempts per code. Looks the account up by email hash; creates the user + program on first sign-in. Returns `{token, programId, deviceId}`. |
 | `POST /auth/signout` | Revokes this token. |
-| `POST /auth/signout-others` | Revokes every other session on the account ("Sign out other devices" on the Import/Export card). |
+| `POST /auth/signout-others {email?, code?}` | Revokes every other session on the account ("Sign out other devices" on the Import/Export card). Needs a fresh sign-in (§2.5): a session under 15 minutes old, or `{email, code}` from `/auth/start`; else `403 reauth_required`. |
 | `GET /program` | Program name, backing device (label + last push), latest snapshot meta. |
 | `HEAD /files/:sha256` · `PUT /files/:sha256` · `GET /files/:sha256` | Upload-if-missing, answered from D1's `files` table (§6.2), not by asking R2. `PUT` streams the body straight into R2 with `put(key, body, { sha256 })`, so **R2 verifies the hash** and rejects a mismatch. The Worker never buffers or re-hashes the file itself, which would blow the CPU and memory limits at 25 MB. On success it writes the `files` row. 25 MB cap per file, checked against `Content-Length` before streaming. `GET` is for restore. |
 | `POST /snapshots` | **Step one of two:** a small JSON description, `{base_snapshot_id, size, counts, files: [sha256…], edition}` (`edition`, `lite` or `pro`, since migration `0003`; anything else is stored as null). Refuses before any bytes move: a 409 per §3.4 (naming the backing device and its last push), or a 400 naming any referenced file the server doesn't have, checked in one query (§6.2). Returns `{snapshotId}`; the row is `pending`. |
 | `PUT /snapshots/:id/body` | **Step two:** the gzipped envelope (`Content-Length` must equal the described `size`), streamed to R2. Commits only if the §3.4 rule still holds at that moment (one conditional batch), so two devices racing can't both win; the loser's row and object are removed and it gets the 409. An upload abandoned between the steps is removed by retention after a day. |
 | `GET /snapshots` · `GET /snapshots/:id` | The history list and one snapshot. |
 | `POST /program/backing-device` | Takeover (§3.4). |
-| `DELETE /account` | Deletes the account's rows, snapshots and files, and revokes tokens. |
+| `DELETE /account {confirm: "DELETE", email?, code?}` | Deletes the account's rows, snapshots and files, and revokes tokens. Needs a fresh sign-in, as `signout-others`. |
+| `POST /devices/check-in {licenseInstanceId}` | §2.5. Records this device's Pro activation id (or null) and refreshes `last_seen_at` and the sliding expiry. Returns `{ok, notices}`. |
+| `GET /devices` | §2.5. `{devices: [{id, label, lastSeenAt, status, licenseInstanceId, erase, thisDevice, backing}]}`; `status` is `signed-in`, `signed-out` or `signed-out-here`; `erase` is `null` or `{requestedAt, confirmedAt}`. |
+| `POST /devices/:id/erase {email?, code?}` | §2.5. Needs a session under 15 minutes old, or `{email, code}` from `/auth/start` (else `403 reauth_required`). Revokes that device's sessions (`revoked_reason = 'erase'`), records the erase, and clears the backing device if it was this one. `400 this_device` for the caller itself. |
+| `DELETE /devices/:id/erase` | §2.5. Cancels an erase the device hasn't confirmed (`409 not_pending` otherwise). |
+| `POST /devices/erase-ack {licenseReleased}` | §2.5. The one route an erased device's token may call. Marks the erase confirmed; `licenseReleased` clears its activation id. |
+| `POST /devices/:id/license-released` | §2.5. Bookkeeping after the owner's browser released that device's activation with Lemon Squeezy. |
 | `GET /notice` | Service notices (`{ level, message, until }`) for the sunset path (Proposal §2a). Public and cacheable. |
 | `/ops/*` | The operator's page (§6.6). Same-origin HTML, behind `OPS_TOKEN`, never in the CORS allow-list. Service notices are added and removed here. |
 
@@ -524,7 +587,14 @@ dev_outbox(id, email_hash, code, created_at) -- staging only, while no email pro
 notices(id, level, message, until, created_at)
 -- 0003 adds:
 snapshots + edition ('lite' | 'pro' | NULL)  -- named in a 409's backingDevice (Lite → Pro, §4.5)
+-- 0004 adds (§2.5):
+sessions + revoked_reason ('self' | 'others' | 'erase' | NULL), license_instance_id
+device_erasures(user_id, device_id, device_label, requested_at, confirmed_at, PRIMARY KEY (user_id, device_id))
 ```
+- **An erased device's token** answers `401 device_erased` on every route, checked before
+  revoked and expired (the erase revokes it, and a phone that stays away past its expiry
+  must still hear it). Retention keeps a device's sessions for as long as its erase is
+  pending, and drops a confirmed erase after 30 days.
 - **Rate limits:** 5 codes an hour per address and 30 an hour per IP. The limit applies to
   any address, so a 429 says nothing about whether an account exists. The IP is HMAC'd
   like the email, never stored as-is.
@@ -588,6 +658,10 @@ snapshots + edition ('lite' | 'pro' | NULL)  -- named in a 409's backingDevice (
   Demo is excluded (`cloudUrl: null`). The list is read from one shared editions-origins
   constant that the Worker and the build both use, so a domain change can't leave the API
   blocking an edition.
+- **Lost devices (§2.5).** The server holds each Pro device's Lemon Squeezy activation id.
+  It isn't a secret: releasing one also needs the license key, which never reaches the
+  server. Erasing a device, signing out the others and deleting the account need a fresh
+  sign-in, so a stolen phone that is still signed in can't do any of them.
 - **No request bodies in logs, and never an email address.** `[observability]` is on (it is
   the only place the operator can see why something failed), so the code never
   `console.log`s an email, a code, a token or a body. Cloudflare encrypts R2 and D1 at rest.
@@ -709,6 +783,16 @@ whose page is open to anyone until the first account exists.
 6. **Docs (§8), privacy policy page, `PRECACHE_URLS`, and the SW bump** (asked first). Then
    production: dashboard step 6 (§6.7), Apply pending on production's `/ops`, then the
    editions deploy with `cloudUrl` set.
+   **As built (2026-10-07):** the §8 docs (CLAUDE.md, the Editions Plan's tier table, the
+   End-State guide's §1, §2, §16 and new §30; the plan said "§29", which the waitlist took),
+   the production Worker as `[env.production]` in `cloud/wrangler.toml` (pinned by
+   `cloud/tests/config.test.js`), the operator's steps as `docs/LAUNCH_CHECKLIST.md` §3a, and
+   the SW bump to `kennelos-shell-v41`. Decided with the owner: the go-live is **one
+   separate change**, merged only after production's `/ops` shows no pending migration. It
+   sets `cloudUrl: 'https://api.kennelos.app'` in Lite and Pro, rewrites the marketing
+   site's "no accounts, no cloud, no server" claims, and adds the privacy policy page
+   (`site/privacy.html`, operator "KennelOS", contact admin.kennelos@gmail.com), so the
+   site never describes a service that isn't live.
 
 ## 10. Risks & mitigations
 
@@ -719,6 +803,8 @@ whose page is open to anyone until the first account exists.
 | A second device clobbers the first | One backing device, with 409 → explicit choice |
 | iPhone PWA / Safari storage split breaks sign-in | Typed code, not a link |
 | Email codes land in spam | SPF/DKIM on kennelos.app; "Didn't get it? Resend / check spam" |
+| A phone is lost or stolen with the app signed in | Erase it from another device (§2.5): lands when it next opens the app online; the phone's own Find My is the real protection |
+| A lost Pro device holds a license slot | Free its Pro license from another device or from the activation wall (§2.5) |
 | A breach exposes breeders' email addresses | Only a keyed hash is stored (§6.2); the address is used per send and discarded |
 | A user who stopped opening the app misses a shutdown notice | Their data is local and untouched; the notice shows the next time they open the app |
 | We stop hosting | `cloudUrl: null` release, local data untouched, file backups still there (Proposal §2a) |
@@ -729,10 +815,12 @@ whose page is open to anyone until the first account exists.
 
 ## 11. Questions this plan raises
 1. **Email provider:** decided: Resend (§6.5).
-2. **API domain:** is `api.kennelos.app` okay? (The owning account is decided: a shared
+2. **API domain:** decided 2026-10-07: `api.kennelos.app`. (The owning account: a shared
    Cloudflare account under the KennelOS email address; see §6.)
 3. **Free-tier limits:** cap Lite cloud storage (e.g., 1 GB of documents)? Cost at Lite's
    6-dog / 2-litter size is negligible, but a cap protects against abuse.
 4. **Retention:** is 30 days right? Longer costs little for the JSON; files dominate.
 5. **Who runs it:** still open (Proposal §10). Phase 1 is low-maintenance (no live sync),
    but somebody gets the email if the Worker errors.
+6. **A stolen phone that is still signed in:** decided 2026-10-07: **Sign out other
+   devices** and **Delete my cloud data** need a fresh sign-in, like Erase (§2.5).

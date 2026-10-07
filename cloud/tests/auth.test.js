@@ -116,7 +116,7 @@ test('sign out other devices keeps this one', async () => {
   const env = await makeEnv();
   const phone = await signIn(env);
   const laptop = await signIn(env);
-  const res = await call(env, 'POST', '/auth/signout-others', { token: laptop.token });
+  const res = await call(env, 'POST', '/auth/signout-others', { token: laptop.token, body: {} });
   assert.equal((await res.json()).revoked, 1);
   assert.equal((await call(env, 'GET', '/program', { token: phone.token })).status, 401);
   assert.equal((await call(env, 'GET', '/program', { token: laptop.token })).status, 200);

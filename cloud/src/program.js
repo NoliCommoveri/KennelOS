@@ -2,6 +2,7 @@
 // the account (plan §2.4, §3.4, §6.1).
 import { fail } from './lib/http.js';
 import { backingInfo } from './snapshots.js';
+import { requireFreshSignIn } from './auth.js';
 
 export async function getProgram(env, auth) {
   const program = await env.DB.prepare('SELECT id, backing_device_id, latest_snapshot_id FROM programs WHERE id = ?').bind(auth.programId).first();
@@ -33,10 +34,13 @@ async function deletePrefix(bucket, prefix) {
   return deleted;
 }
 
-// DELETE /account {confirm: "DELETE"}. Snapshots, files, sessions, the program
-// and the user all go. The device's own data is untouched.
+// DELETE /account {confirm: "DELETE", email?, code?}. Snapshots, files,
+// sessions, the program and the user all go. The device's own data is
+// untouched. Needs a fresh sign-in (auth.js), so a stolen phone can't take the
+// owner's cloud copy with it.
 export async function deleteAccount(env, auth, body) {
   if (body.confirm !== 'DELETE') fail(400, 'confirm_required');
+  await requireFreshSignIn(env, auth, body);
   const p = auth.programId;
   await deletePrefix(env.FILES, `snapshots/${p}/`);
   await deletePrefix(env.FILES, `files/${p}/`);
@@ -46,6 +50,7 @@ export async function deleteAccount(env, auth, body) {
     env.DB.prepare('DELETE FROM files WHERE program_id = ?').bind(p),
     env.DB.prepare('DELETE FROM programs WHERE id = ?').bind(p),
     env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(auth.userId),
+    env.DB.prepare('DELETE FROM device_erasures WHERE user_id = ?').bind(auth.userId),
     env.DB.prepare('DELETE FROM login_codes WHERE email_hash = (SELECT email_hash FROM users WHERE id = ?)').bind(auth.userId),
     env.DB.prepare('DELETE FROM users WHERE id = ?').bind(auth.userId),
   ]);

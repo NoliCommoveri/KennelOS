@@ -47,17 +47,12 @@ export async function startSignIn(env, request, body) {
   return { ok: true };
 }
 
-// POST /auth/verify. Creates the user and their program on first sign-in.
-export async function verifyCode(env, body) {
-  const email = normalizeEmail(body.email);
-  if (!email) fail(400, 'bad_email');
-  const code = String(body.code ?? '').replace(/\s/g, '');
-  if (!/^\d{6}$/.test(code)) fail(400, 'invalid_code');
-  const eh = await emailHash(env, email);
-
+// Checks a typed code for this email hash and burns it, so it works exactly
+// once. Throws 400 invalid_code / too_many_attempts otherwise. Shared by
+// sign-in and by the fresh-sign-in check in front of an erase (devices.js).
+export async function checkCode(env, eh, code) {
   const row = await env.DB.prepare('SELECT code_hash, expires_at, attempts FROM login_codes WHERE email_hash = ?').bind(eh).first();
-  const nowIso = new Date().toISOString();
-  if (!row || row.expires_at <= nowIso) fail(400, 'invalid_code');
+  if (!row || row.expires_at <= new Date().toISOString()) fail(400, 'invalid_code');
   if (row.attempts >= MAX_ATTEMPTS) fail(400, 'too_many_attempts');
 
   if (!timingSafeEqual(row.code_hash, await codeHash(env, eh, code))) {
@@ -68,7 +63,19 @@ export async function verifyCode(env, body) {
   // Burn the code before anything else, so it signs in exactly once.
   const burned = await env.DB.prepare('DELETE FROM login_codes WHERE email_hash = ? AND code_hash = ?').bind(eh, row.code_hash).run();
   if (burned.meta.changes !== 1) fail(400, 'invalid_code');
+}
 
+// POST /auth/verify. Creates the user and their program on first sign-in.
+export async function verifyCode(env, body) {
+  const email = normalizeEmail(body.email);
+  if (!email) fail(400, 'bad_email');
+  const code = String(body.code ?? '').replace(/\s/g, '');
+  if (!/^\d{6}$/.test(code)) fail(400, 'invalid_code');
+  const eh = await emailHash(env, email);
+
+  await checkCode(env, eh, code);
+
+  const nowIso = new Date().toISOString();
   let user = await env.DB.prepare('SELECT id FROM users WHERE email_hash = ?').bind(eh).first();
   if (!user) {
     const userId = crypto.randomUUID();
@@ -95,34 +102,72 @@ export async function verifyCode(env, body) {
 
 // Every authenticated route starts here. Sliding expiry: a request more than a
 // day after the last one pushes the expiry 90 days out again.
-export async function authenticate(env, request) {
+//
+// A device its owner asked to erase (plan §2.5) gets 401 device_erased, checked
+// BEFORE revoked and expired: the erase revokes its sessions, and a phone that
+// stayed away past its expiry must still hear it. Only the erase-ack route
+// passes `allowErased`.
+export async function authenticate(env, request, { allowErased = false } = {}) {
   const match = /^Bearer ([0-9a-f]{64})$/.exec(request.headers.get('authorization') ?? '');
   if (!match) fail(401, 'unauthorized');
   const tokenHash = await sha256Hex(match[1]);
   const row = await env.DB.prepare(
-    `SELECT s.user_id, s.device_id, s.device_label, s.last_seen_at, s.expires_at, s.revoked_at, p.id AS program_id
+    `SELECT s.user_id, s.device_id, s.device_label, s.created_at, s.last_seen_at, s.expires_at, s.revoked_at,
+            p.id AS program_id, e.requested_at AS erase_requested_at
        FROM sessions s JOIN programs p ON p.owner_user_id = s.user_id
+       LEFT JOIN device_erasures e ON e.user_id = s.user_id AND e.device_id = s.device_id
       WHERE s.token_hash = ?`,
   ).bind(tokenHash).first();
+  if (!row) fail(401, 'unauthorized');
+  const auth = {
+    tokenHash, userId: row.user_id, deviceId: row.device_id, deviceLabel: row.device_label,
+    programId: row.program_id, createdAt: row.created_at,
+  };
+  if (row.erase_requested_at) {
+    if (allowErased) return { ...auth, erased: true };
+    fail(401, 'device_erased');
+  }
   const now = Date.now();
-  if (!row || row.revoked_at || Date.parse(row.expires_at) <= now) fail(401, 'unauthorized');
+  if (row.revoked_at || Date.parse(row.expires_at) <= now) fail(401, 'unauthorized');
 
   if (now - Date.parse(row.last_seen_at) > SLIDE_AFTER_MS) {
     await env.DB.prepare('UPDATE sessions SET last_seen_at = ?, expires_at = ? WHERE token_hash = ?')
       .bind(new Date(now).toISOString(), new Date(now + SESSION_MS).toISOString(), tokenHash)
       .run();
   }
-  return { tokenHash, userId: row.user_id, deviceId: row.device_id, deviceLabel: row.device_label, programId: row.program_id };
+  return auth;
 }
 
 export async function signOut(env, auth) {
-  await env.DB.prepare('UPDATE sessions SET revoked_at = ? WHERE token_hash = ? AND revoked_at IS NULL')
+  await env.DB.prepare("UPDATE sessions SET revoked_at = ?, revoked_reason = 'self' WHERE token_hash = ? AND revoked_at IS NULL")
     .bind(new Date().toISOString(), auth.tokenHash).run();
   return { ok: true };
 }
 
-export async function signOutOthers(env, auth) {
-  const res = await env.DB.prepare('UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND token_hash <> ? AND revoked_at IS NULL')
+// POST /auth/signout-others {email?, code?}: needs a fresh sign-in.
+export async function signOutOthers(env, auth, body = {}) {
+  await requireFreshSignIn(env, auth, body);
+  const res = await env.DB.prepare("UPDATE sessions SET revoked_at = ?, revoked_reason = 'others' WHERE user_id = ? AND token_hash <> ? AND revoked_at IS NULL")
     .bind(new Date().toISOString(), auth.userId, auth.tokenHash).run();
   return { ok: true, revoked: res.meta.changes };
+}
+
+// The actions a stolen phone that is still signed in must not be able to take
+// (plan §2.5, §6.4): erasing another device, signing out the others, deleting
+// the account. They need a fresh sign-in: a session from the last 15 minutes
+// (so an owner who just signed in on their new phone isn't asked twice), or
+// {email, code} with a code just sent by /auth/start. Otherwise 403
+// reauth_required.
+export const FRESH_SIGN_IN_MS = 15 * 60 * 1000;
+
+export async function requireFreshSignIn(env, auth, body = {}) {
+  if (Date.now() - Date.parse(auth.createdAt) <= FRESH_SIGN_IN_MS) return;
+  const code = String(body.code ?? '').replace(/\s/g, '');
+  const email = normalizeEmail(body.email);
+  if (!code) fail(403, 'reauth_required');
+  if (!email || !/^\d{6}$/.test(code)) fail(400, 'invalid_code');
+  const eh = await emailHash(env, email);
+  const user = await env.DB.prepare('SELECT id FROM users WHERE id = ? AND email_hash = ?').bind(auth.userId, eh).first();
+  if (!user) fail(400, 'invalid_code');
+  await checkCode(env, eh, code);
 }

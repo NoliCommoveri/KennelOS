@@ -12,7 +12,7 @@
 import { migrationStatus } from './migrate.js';
 
 // Foreign-key order: parents before children.
-export const EXPORT_TABLES = ['users', 'programs', 'sessions', 'snapshots', 'files', 'snapshot_files', 'notices'];
+export const EXPORT_TABLES = ['users', 'programs', 'sessions', 'device_erasures', 'snapshots', 'files', 'snapshot_files', 'notices'];
 export const FORMAT = 'kennelos-cloud-d1';
 
 async function schemaVersion(db) {

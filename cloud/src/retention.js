@@ -9,7 +9,8 @@
 //   - nothing older.
 // Then: abandoned pending snapshots (no body after a day), files no surviving
 // snapshot references (after a day's grace, so a file uploaded just before its
-// snapshot is never collected), and expired codes, limits, outbox rows and sessions.
+// snapshot is never collected), and expired codes, limits, outbox rows, sessions and
+// confirmed erasures.
 //
 // D1 rows go first, then R2 objects. If the R2 delete fails, the leftovers are
 // unreferenced objects (harmless), never rows pointing at nothing.
@@ -96,7 +97,14 @@ export async function runRetention(env, now = new Date()) {
     env.DB.prepare('DELETE FROM login_codes WHERE expires_at < ?').bind(iso(nowMs)),
     env.DB.prepare('DELETE FROM rate_limits WHERE window_start < ?').bind(iso(nowMs - DAY)),
     env.DB.prepare('DELETE FROM dev_outbox WHERE created_at < ?').bind(iso(nowMs - HOUR)),
-    env.DB.prepare('DELETE FROM sessions WHERE expires_at < ? OR revoked_at < ?').bind(iso(nowMs), iso(nowMs - KEEP_DAYS * DAY)),
+    // A device with an erase still pending keeps its sessions, however old, so
+    // the erase lands whenever it turns up (plan §2.5).
+    env.DB.prepare(
+      `DELETE FROM sessions WHERE (expires_at < ? OR revoked_at < ?)
+         AND NOT EXISTS (SELECT 1 FROM device_erasures e
+                          WHERE e.user_id = sessions.user_id AND e.device_id = sessions.device_id AND e.confirmed_at IS NULL)`,
+    ).bind(iso(nowMs), iso(nowMs - KEEP_DAYS * DAY)),
+    env.DB.prepare('DELETE FROM device_erasures WHERE confirmed_at < ?').bind(iso(nowMs - KEEP_DAYS * DAY)),
   ]);
 
   return summary;
