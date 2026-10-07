@@ -2,14 +2,22 @@
 // maintenance gate in index.js, and every response carries the CORS headers.
 import { authenticate, signOut, signOutOthers, startSignIn, verifyCode } from './auth.js';
 import { getFile, headFile, putFile } from './files.js';
-import { createSnapshot, getSnapshot, listSnapshots, uploadSnapshotBody } from './snapshots.js';
+import { createSnapshot, getSnapshot, getSnapshotVault, listSnapshots, uploadSnapshotBody, uploadSnapshotVault } from './snapshots.js';
 import { deleteAccount, getProgram, takeOver } from './program.js';
 import { ackErase, cancelErase, checkIn, licenseReleased, listDevices, requestErase } from './devices.js';
+import {
+  addWrap, approvePairing, createPairing, disableVault, enableVault, getVault, getWrap, listPairings, pollPairing,
+  removeWrap, replaceRecoveryWrap,
+} from './vault.js';
 import { fail, json, readJson } from './lib/http.js';
 
 const FILE = /^\/files\/([^/]+)$/;
 const SNAPSHOT = /^\/snapshots\/([0-9a-f-]{36})$/;
 const SNAPSHOT_BODY = /^\/snapshots\/([0-9a-f-]{36})\/body$/;
+const SNAPSHOT_VAULT = /^\/snapshots\/([0-9a-f-]{36})\/vault$/;
+const VAULT_WRAP = /^\/vault\/wraps\/([0-9a-f-]{36})$/;
+const VAULT_PAIRING = /^\/vault\/pairings\/([0-9a-f-]{36})$/;
+const VAULT_APPROVE = /^\/vault\/pairings\/([0-9a-f-]{36})\/approve$/;
 const DEVICE_ERASE = /^\/devices\/([^/]+)\/erase$/;
 const DEVICE_LICENSE = /^\/devices\/([^/]+)\/license-released$/;
 
@@ -49,6 +57,22 @@ export async function handleApi(request, env, url, cors) {
 
   if (p === '/account' && m === 'DELETE') return json(await deleteAccount(env, auth, await readJson(request)), 200, cors);
 
+  // The private vault (Private Vault Plan §6.1).
+  if (p === '/vault' && m === 'GET') return json(await getVault(env, auth), 200, cors);
+  if (p === '/vault' && m === 'POST') return json(await enableVault(env, auth, await readJson(request)), 200, cors);
+  if (p === '/vault' && m === 'DELETE') return json(await disableVault(env, auth, await readJson(request)), 200, cors);
+  if (p === '/vault/wraps' && m === 'POST') return json(await addWrap(env, auth, await readJson(request)), 200, cors);
+  if (p === '/vault/wraps/recovery' && m === 'PUT') return json(await replaceRecoveryWrap(env, auth, await readJson(request)), 200, cors);
+  const wrap = VAULT_WRAP.exec(p);
+  if (wrap && m === 'GET') return json(await getWrap(env, auth, wrap[1]), 200, cors);
+  if (wrap && m === 'DELETE') return json(await removeWrap(env, auth, wrap[1], await readJson(request)), 200, cors);
+  if (p === '/vault/pairings' && m === 'POST') return json(await createPairing(env, auth, await readJson(request)), 200, cors);
+  if (p === '/vault/pairings' && m === 'GET') return json(await listPairings(env, auth), 200, cors);
+  const approve = VAULT_APPROVE.exec(p);
+  if (approve && m === 'POST') return json(await approvePairing(env, auth, approve[1], await readJson(request)), 200, cors);
+  const pairing = VAULT_PAIRING.exec(p);
+  if (pairing && m === 'GET') return json(await pollPairing(env, auth, pairing[1]), 200, cors);
+
   const file = FILE.exec(p);
   if (file) {
     if (m === 'HEAD') return new Response(null, { status: (await headFile(env, auth, file[1])) ? 200 : 404, headers: cors });
@@ -65,6 +89,14 @@ export async function handleApi(request, env, url, cors) {
 
   const body = SNAPSHOT_BODY.exec(p);
   if (body && m === 'PUT') return json(await uploadSnapshotBody(env, auth, body[1], request), 200, cors);
+
+  const vaultPart = SNAPSHOT_VAULT.exec(p);
+  if (vaultPart && m === 'PUT') return json(await uploadSnapshotVault(env, auth, vaultPart[1], request), 200, cors);
+  if (vaultPart && m === 'GET') {
+    const object = await getSnapshotVault(env, auth, vaultPart[1]);
+    if (!object) fail(404, 'not_found');
+    return stream(object, 'application/octet-stream', cors);
+  }
 
   const snap = SNAPSHOT.exec(p);
   if (snap && m === 'GET') {

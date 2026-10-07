@@ -5,8 +5,9 @@
 > §5.1 moved the vault to directly after Phase 1 and added the second-device unlock.
 > Needed by: the waitlist's W2 (`KennelOS_Waitlist_Spec.md` §8.2, §12).
 > Status: **in progress.** Decisions recorded in §10 (2026-10-07). Built so far: §9 step 1
-> (`shared/data/cloud/vaultCrypto.js` + `tests/vaultCrypto.test.js`). Step 2, the server, is
-> next. Nothing user-visible yet.
+> (`shared/data/cloud/vaultCrypto.js` + `tests/vaultCrypto.test.js`) and step 2, the server
+> (`cloud/src/vault.js`, migration `0005`, `cloud/tests/vault.test.js`; §6.4 is the as-built
+> record). Step 3, the client modules, is next. Nothing user-visible yet.
 
 ## 1. Scope
 
@@ -267,6 +268,27 @@ Everything the server holds about a vault is a wrap (needs a KEK it never sees),
 and credential id (public by design), an ECDH public key, or ciphertext. A full D1 + R2 dump
 opens nothing.
 
+### 6.4 As built (§9 step 2, 2026-10-07)
+Where the build differs from §6.1–§6.2 above, this wins:
+- **No `device` wraps.** A device unlocked by another device keeps the key locally, so the
+  pairing hands over a one-time wrap and nothing persists. `vault_wraps.kind` is
+  `recovery | passkey`: exactly one recovery wrap (replaced, never removed) and up to 10
+  passkeys. `POST /vault/wraps` adds passkeys only.
+- **Fresh sign-in** (the Phase 1 §2.5 rule: a session from the last 15 minutes, or a code
+  just sent) for `DELETE /vault`, `PUT /vault/wraps/recovery` and `DELETE /vault/wraps/:id`.
+  Turning the vault on and adding a passkey don't need it.
+- **Pairings:** `vault_pairings` also stores the asking `device_id` (only that device can
+  poll; it can't approve its own request), and the approver's `key_id`. At most five open
+  per program; they expire after 10 minutes; reading an approved answer deletes it.
+- **Limits** (per program, per UTC hour, in `rate_limits`): 30 wrap reads, 10 new pairings.
+- **Snapshots:** refusals are `vault_required` (400, carries the current `keyId`),
+  `vault_key_stale` (409, same), `no_vault` (400, a vault part with no vault),
+  `vault_missing` (400, body before vault part). The body PUT re-checks the vault at
+  commit and discards the half-snapshot if it was turned off or re-keyed meanwhile.
+  `GET /snapshots` gains `vaultKeyId`.
+- `/ops`: counts for `vaults`, `vault_wraps`, `vault_pairings`; the D1 export carries
+  `vaults` and `vault_wraps`.
+
 ## 7. Editions & docs
 - No edition differences: Lite and Pro both get it; Demo has `cloudUrl: null`.
 - `shared/sw.js` `PRECACHE_URLS` gains the new client files (none Pro-only); `CACHE_NAME`
@@ -300,6 +322,9 @@ opens nothing.
    failure is one `VaultLockedError`. Not imported by anything yet; in `PRECACHE_URLS`.
 2. **Server:** migration `0005`, the `/vault` routes, the snapshot `vault` part and the
    `vault_required` rule, retention/deletion/export, tests. Staging: Apply pending.
+   **Built 2026-10-07** (§6.4), pairing routes included, so step 4 is client-only.
+   **Operator: press Apply pending on staging's `/ops` after this deploys** (the API answers
+   503 until then).
 3. **Client modules:** `vaultKeyStore`, `cloudVault`, the push/restore changes in
    `cloudBackup`, the pause state. Against staging.
 4. **Second-device pairing** (client + the pairing routes, if split from step 2).

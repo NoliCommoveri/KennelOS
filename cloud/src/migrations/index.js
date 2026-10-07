@@ -15,10 +15,12 @@ import schema from './0001_schema.sql';
 import backupApi from './0002_backup_api.sql';
 import snapshotEdition from './0003_snapshot_edition.sql';
 import deviceErase from './0004_device_erase.sql';
+import vault from './0005_vault.sql';
 
 export const MIGRATIONS = [
   { id: '0001', name: 'schema', sql: schema },
   { id: '0002', name: 'backup_api', sql: backupApi },
   { id: '0003', name: 'snapshot_edition', sql: snapshotEdition },
   { id: '0004', name: 'device_erase', sql: deviceErase },
+  { id: '0005', name: 'vault', sql: vault },
 ];

@@ -14,9 +14,12 @@ src/auth.js            sign-in codes, sessions, sign out
 src/ratelimit.js       5 codes/hour per address, 30/hour per IP (both HMAC'd)
 src/mail.js            sending a code through Resend; without a key, staging's DEV_OUTBOX shows it on /ops
 src/files.js           content-addressed files; R2 verifies the sha256
-src/snapshots.js       describe → upload body → commit, with the 409 rule at both steps
+src/snapshots.js       describe → (vault part) → upload body → commit, with the 409 rule at both
+                       steps and, while the program has a vault, the vault_required rule
 src/program.js         program state, takeover, delete account
 src/devices.js         the device check-in and list, remote erase, Pro-license bookkeeping (plan §2.5)
+src/vault.js           the private vault: wraps, turn on/off, second-device pairing
+                       (docs/KennelOS_Private_Vault_Plan.md §5, §6); stores only opaque strings
 src/notice.js          service notices (public /notice; set on /ops)
 src/retention.js       the daily prune and GC; pickDrops is the pure rule
 src/backup.js          /ops export/import of the D1 rows (not R2)
@@ -39,6 +42,11 @@ tests/                 node --test against a node:sqlite stand-in for D1
   Apply pending on `/ops`.** That's deliberate (plan §6.1).
 - **Never log** an email address, a code, a token or a request body (plan §6.4).
 - **`DEV_OUTBOX = "1"` is staging-only.** The production Worker's config must not carry it.
+- **With a vault, a snapshot's vault part lands before its body.** `PUT /snapshots/:id/vault`
+  first, then the body PUT commits; the server refuses a snapshot without a vault part
+  (or under a replaced key) while the program has a vault. The part is stored at
+  `snapshots/<program>/<id>.vault`, and retention, discard and account deletion remove it
+  with its snapshot.
 - **Upload a document before the snapshot that references it.** Retention gives a file a
   day's grace and then collects anything no snapshot references.
 - **No `IN (?, ?, …)` over a list.** D1 allows about 100 bound parameters and the test
