@@ -496,8 +496,9 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     - family fees, payment details and every other answer stay private, for the vault;
     - **the private vault moves to right after Phase 1**, with a second-device unlock, and is
       required before the waitlist's W2. **Build plan drafted:**
-      `docs/KennelOS_Private_Vault_Plan.md` (Phase 2b; nothing built yet, its §10 questions
-      come first);
+      `docs/KennelOS_Private_Vault_Plan.md` (Phase 2b; decisions in its §10). Step 1, the
+      vault's cryptography (`shared/data/cloud/vaultCrypto.js`, `tests/vaultCrypto.test.js`),
+      is built; nothing user-visible yet;
     - no readable private data on our server stays the default, with a per-user
       opt-in recovery switch as a fallback only if lock-outs show up in support.
 

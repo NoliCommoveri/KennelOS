@@ -62,6 +62,7 @@ const PRECACHE_URLS = [
   'data/cloud/cloudBackup.js',
   'data/cloud/cloudConfig.js',
   'data/cloud/cloudDevices.js',
+  'data/cloud/vaultCrypto.js',
   'data/companionExport.js',
   'data/contactRepo.js',
   'data/contractRepo.js',

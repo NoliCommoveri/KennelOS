@@ -4,7 +4,9 @@
 > Builds on: `docs/KennelOS_Cloud_Phase1_Plan.md` (cited as "Phase 1 §N"), whose decisions in
 > §5.1 moved the vault to directly after Phase 1 and added the second-device unlock.
 > Needed by: the waitlist's W2 (`KennelOS_Waitlist_Spec.md` §8.2, §12).
-> Status: **draft, nothing built.** The questions in §10 need answers before step 1 (§9).
+> Status: **in progress.** Decisions recorded in §10 (2026-10-07). Built so far: §9 step 1
+> (`shared/data/cloud/vaultCrypto.js` + `tests/vaultCrypto.test.js`). Step 2, the server, is
+> next. Nothing user-visible yet.
 
 ## 1. Scope
 
@@ -21,7 +23,7 @@
   program, private details included.
 - The status card shows **two lines**: kennel records and private info (Phase 1 §5.1).
 
-**Not in v1:** picking categories (Proposal §6.3's "advanced option"; §10 Q2), sharing the
+**Not in v1:** picking categories (Proposal §6.3's "advanced option"; §10 decision 2), sharing the
 vault with Staff (Proposal §6.5), the "less private" recovery fallback (Phase 1 §5.1
 Decision 4: decided in advance, not planned), and the waitlist's form key itself (W2 puts it
 in the vault; this plan only makes the vault able to hold it).
@@ -124,7 +126,7 @@ Pages never touch storage, and `settings.js` is `localStorage`, which can't hold
 backups, the cloud snapshot, the sample-data manifest or Reset App's re-seed, and Reset App
 and remote erase clear it. Extractable, because approving another device has to wrap it;
 that adds no exposure, since the same IndexedDB already holds the private data in the clear.
-**Schema question: §10 Q4.**
+Added to the existing `db.version(1)` block (§10 decision 4).
 
 ### 3.4 Pushing safely
 - Vault **on and unlocked**: each push carries both tiers.
@@ -143,7 +145,7 @@ backup holds (sample data dropped, as for the cloud tier), JSON, gzipped, then e
 not just the private fields: the complement logic would have to track `syncRegistry.js`
 forever (partial fields, row rules, filtered `details`), and any drift silently loses data.
 The full rows can't drift, and restore is the existing file-backup merge. The cost is size
-(roughly the cloud tier again) and it's all encrypted. **§10 Q1.**
+(roughly the cloud tier again) and it's all encrypted. Decided: §10 decision 1.
 
 Envelope (encrypted body): `{ vault_format: 1, key_id, schema_version, created_at, collections }`.
 On the wire: `{ v: 1, key_id, iv, ciphertext }` as one binary blob; the server sees only its
@@ -202,8 +204,7 @@ includes a breached server):
    after 10 minutes.
 
 A server that swaps in its own public key gets a wrap it can open only by guessing the
-60-bit code offline against AES-GCM; that's impractical. (A 6-digit code would not be:
-**§10 Q3**.)
+60-bit code offline against AES-GCM; that's impractical. (A 6-digit code would not be; §10 decision 3.)
 
 ## 6. Server (`cloud/`)
 
@@ -291,6 +292,12 @@ opens nothing.
 
 ## 9. Build order (each a reviewable PR; nothing user-visible until step 5)
 1. **`vaultCrypto.js` + tests.** Pure, no network. Review the crypto choices here.
+   **Built 2026-10-07.** Codes (Crockford base32; recovery 24, pairing 12); the vault key
+   and its `keyId`; KEKs from the recovery code, PRF output and ECDH pairing (all HKDF-SHA256
+   to AES-GCM-256); wraps bound to their kind and `keyId`; one ciphertext layout for payloads
+   and files (`KVLT` | version | keyId | iv, the header as AES-GCM additional data);
+   deterministic private-file encryption under subkeys derived from the vault key. Every
+   failure is one `VaultLockedError`. Not imported by anything yet; in `PRECACHE_URLS`.
 2. **Server:** migration `0005`, the `/vault` routes, the snapshot `vault` part and the
    `vault_required` rule, retention/deletion/export, tests. Staging: Apply pending.
 3. **Client modules:** `vaultKeyStore`, `cloudVault`, the push/restore changes in
@@ -302,25 +309,17 @@ opens nothing.
 7. **Docs (§7), privacy policy, `PRECACHE_URLS`, SW bump (asked first).** Production: Apply
    pending on `/ops` before the editions deploy.
 
-## 10. Questions this plan raises
-1. **Vault payload = full records (§4.1)** rather than only the private fields. Recommended:
-   full records. Simpler, can't drift from the registry, costs only encrypted size.
-2. **Category picker:** Proposal §6.3 mentions an advanced option to choose categories
-   (contacts, financials, contracts & receipts, notes). Recommended: **not in v1**,
-   all-or-nothing. It multiplies the restore states ("some private fields back, others
-   blank") for little gain.
-3. **Second-device code length:** 12 characters (60 bits), typed on the approving device
-   (§5.3). Shorter is friendlier but a breached server could brute-force it. Recommended: 12.
-4. **`device_secrets` Dexie table (§3.3):** the schema is one `db.version(1)` block, editable
-   only "because nothing has shipped that needs migration". Cloud backup went live
-   2026-10-07, so real users now hold data. Recommended: add the table in a **new
-   `db.version(2)` block** (additive) rather than editing `version(1)`, and treat that as the
-   point where the schema rule flips to additive-only. That's a CLAUDE.md change; confirm.
-5. **Passkey RP ID `kennelos.app` (§5.2)** so one passkey serves Lite and Pro. Confirm the
-   editions stay on `*.kennelos.app` subdomains.
-6. **Required before W2:** the Waitlist Spec says W2 needs the vault. Does W2 require the
-   breeder to **turn it on** (a gate), or only that it exists? This plan assumes "exists, and
-   strongly suggested"; W2 decides.
-7. **Turning it off (§2.5):** delete the wraps immediately (old snapshots then unreadable,
-   aged out by retention), or also delete the encrypted snapshot parts at once? Recommended:
-   wraps now, parts by retention (no special-case deletion path).
+## 10. Decisions (2026-10-07)
+1. **Vault payload = full records (§4.1)**, not only the private fields. The readable kennel
+   tier stays too (restore without unlocking, and the server-side features that read it), so
+   record JSON is stored twice; files are not.
+2. **No category picker in v1.** All-or-nothing; Proposal §6.3's "advanced option" is
+   deferred.
+3. **Second-device code: 12 characters** (60 bits), typed on the approving device (§5.3).
+4. **`device_secrets` goes in the existing `db.version(1)` block.** There are no real users
+   yet, so the schema is still editable as CLAUDE.md says (reconcile with Reset App).
+5. **Passkey RP ID `kennelos.app`** (§5.2), one passkey for Lite and Pro.
+6. **W2 needs the vault to exist; turning it on is strongly suggested, not a gate.** W2 may
+   revisit.
+7. **Turning it off** deletes the wraps at once; the encrypted snapshot parts age out on
+   retention.
