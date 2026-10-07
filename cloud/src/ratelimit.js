@@ -25,3 +25,11 @@ export async function limitSignIn(env, request, emailHash, now = new Date()) {
   const [byEmail, byIp] = [await bump(env, `email:${emailHash}`, window), await bump(env, ipBucket, window)];
   if (byEmail > LIMITS.email || byIp > LIMITS.ip) fail(429, 'rate_limited', { retryAfterSeconds: 3600 });
 }
+
+// The vault's limits (Private Vault Plan §5.1, §5.3): per program, per UTC hour.
+// Guessing a 120-bit recovery code is pointless anyway; these stop hammering.
+export const VAULT_LIMITS = { wrapReads: 30, pairings: 10 };
+
+export async function limitBucket(env, bucket, max, now = new Date()) {
+  if ((await bump(env, bucket, hourWindow(now))) > max) fail(429, 'rate_limited', { retryAfterSeconds: 3600 });
+}

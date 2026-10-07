@@ -9,11 +9,13 @@
 //   - nothing older.
 // Then: abandoned pending snapshots (no body after a day), files no surviving
 // snapshot references (after a day's grace, so a file uploaded just before its
-// snapshot is never collected), and expired codes, limits, outbox rows, sessions and
-// confirmed erasures.
+// snapshot is never collected), and expired codes, limits, outbox rows, sessions,
+// confirmed erasures and vault pairings. A snapshot's encrypted vault part
+// (Private Vault Plan §6.2) goes with it.
 //
 // D1 rows go first, then R2 objects. If the R2 delete fails, the leftovers are
 // unreferenced objects (harmless), never rows pointing at nothing.
+import { vaultKeyFor } from './snapshots.js';
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -71,7 +73,10 @@ export async function runRetention(env, now = new Date()) {
       env.DB.prepare('DELETE FROM snapshot_files WHERE snapshot_id IN (SELECT value FROM json_each(?))').bind(ids),
       env.DB.prepare('DELETE FROM snapshots WHERE id IN (SELECT value FROM json_each(?))').bind(ids),
     ]);
-    await env.FILES.delete(gone.map((s) => s.r2_key));
+    // Body and vault part per snapshot; R2 deletes at most 1000 keys a call.
+    // Deleting a vault key that was never written is a no-op.
+    const keys = gone.flatMap((s) => [s.r2_key, vaultKeyFor(s.r2_key)]);
+    for (let i = 0; i < keys.length; i += MAX_PER_RUN) await env.FILES.delete(keys.slice(i, i + MAX_PER_RUN));
     summary.snapshotsDropped = drops.length;
     summary.pendingDropped = stalePart.length;
     summary.r2Deleted += gone.length;
@@ -105,6 +110,7 @@ export async function runRetention(env, now = new Date()) {
                           WHERE e.user_id = sessions.user_id AND e.device_id = sessions.device_id AND e.confirmed_at IS NULL)`,
     ).bind(iso(nowMs), iso(nowMs - KEEP_DAYS * DAY)),
     env.DB.prepare('DELETE FROM device_erasures WHERE confirmed_at < ?').bind(iso(nowMs - KEEP_DAYS * DAY)),
+    env.DB.prepare('DELETE FROM vault_pairings WHERE expires_at < ?').bind(iso(nowMs)),
   ]);
 
   return summary;

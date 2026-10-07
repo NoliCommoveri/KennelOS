@@ -2,7 +2,8 @@
 import { migrationStatus } from './migrate.js';
 import { mailMode } from './mail.js';
 
-export const TABLES = ['users', 'login_codes', 'sessions', 'programs', 'snapshots', 'files', 'snapshot_files', 'notices', 'device_erasures'];
+export const TABLES = ['users', 'login_codes', 'sessions', 'programs', 'snapshots', 'files', 'snapshot_files', 'notices', 'device_erasures',
+  'vaults', 'vault_wraps', 'vault_pairings'];
 
 export async function healthCheck(env) {
   const out = {

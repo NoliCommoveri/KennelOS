@@ -34,8 +34,9 @@ async function deletePrefix(bucket, prefix) {
   return deleted;
 }
 
-// DELETE /account {confirm: "DELETE", email?, code?}. Snapshots, files,
-// sessions, the program and the user all go. The device's own data is
+// DELETE /account {confirm: "DELETE", email?, code?}. Snapshots (with their
+// vault parts), files, the vault's wraps and pairings, sessions, the program
+// and the user all go. The device's own data is
 // untouched. Needs a fresh sign-in (auth.js), so a stolen phone can't take the
 // owner's cloud copy with it.
 export async function deleteAccount(env, auth, body) {
@@ -48,6 +49,9 @@ export async function deleteAccount(env, auth, body) {
     env.DB.prepare('DELETE FROM snapshot_files WHERE snapshot_id IN (SELECT id FROM snapshots WHERE program_id = ?)').bind(p),
     env.DB.prepare('DELETE FROM snapshots WHERE program_id = ?').bind(p),
     env.DB.prepare('DELETE FROM files WHERE program_id = ?').bind(p),
+    env.DB.prepare('DELETE FROM vault_wraps WHERE program_id = ?').bind(p),
+    env.DB.prepare('DELETE FROM vault_pairings WHERE program_id = ?').bind(p),
+    env.DB.prepare('DELETE FROM vaults WHERE program_id = ?').bind(p),
     env.DB.prepare('DELETE FROM programs WHERE id = ?').bind(p),
     env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(auth.userId),
     env.DB.prepare('DELETE FROM device_erasures WHERE user_id = ?').bind(auth.userId),

@@ -8,11 +8,12 @@
 // schema version differs, a table is unknown, a column is unknown, or any target
 // table already has rows. All rows go in one batch, so it lands whole or not at all.
 //
-// Ephemeral tables (codes, rate limits, the staging outbox) are not exported.
+// Ephemeral tables (codes, rate limits, the staging outbox, vault pairings) are
+// not exported.
 import { migrationStatus } from './migrate.js';
 
 // Foreign-key order: parents before children.
-export const EXPORT_TABLES = ['users', 'programs', 'sessions', 'device_erasures', 'snapshots', 'files', 'snapshot_files', 'notices'];
+export const EXPORT_TABLES = ['users', 'programs', 'sessions', 'device_erasures', 'snapshots', 'files', 'snapshot_files', 'notices', 'vaults', 'vault_wraps'];
 export const FORMAT = 'kennelos-cloud-d1';
 
 async function schemaVersion(db) {
