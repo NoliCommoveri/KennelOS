@@ -24,13 +24,14 @@ const MARKED = {
   'shared/data/fileRepo.js': 3,      // create / remove / putRaw
   'shared/data/expenseRepo.js': 2,   // migrateEventCosts
   'shared/data/assistantSync.js': 1, // KennelAssistant event import
-  'shared/data/importExport.js': 3   // restoreBackup replace/merge, cloud-merge
+  'shared/data/importExport.js': 4   // restoreBackup replace/merge, cloud-merge, vault-merge
 };
 
 // File → { sites, why }. Writers that deliberately don't mark the backup dirty.
 const EXEMPT = {
   'shared/data/sampleData.js': { sites: 13, why: 'clearing sample data: sample rows are never in a snapshot' },
-  'shared/data/appReset.js': { sites: 1, why: 'Reset App: an emptied program must never be pushed (plan §3.3, §3.5)' }
+  'shared/data/appReset.js': { sites: 1, why: 'Reset App: an emptied program must never be pushed (plan §3.3, §3.5)' },
+  'shared/data/cloud/vaultKeyStore.js': { sites: 2, why: 'the device-only vault key (device_secrets): not kennel data, never in a snapshot' }
 };
 
 function walk(dir) {

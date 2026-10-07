@@ -498,11 +498,15 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
       required before the waitlist's W2. **Build plan drafted:**
       `docs/KennelOS_Private_Vault_Plan.md` (Phase 2b; decisions in its §10). Step 1, the
       vault's cryptography (`shared/data/cloud/vaultCrypto.js`, `tests/vaultCrypto.test.js`),
-      and step 2, the server (`cloud/src/vault.js`, cloud migration `0005`,
-      applied on staging and production), are built;
+      step 2, the server (`cloud/src/vault.js`, cloud migration `0005`,
+      applied on staging and production), and step 3, the client modules
+      (`vaultKeyStore.js`, `cloudVault.js`, the vault half of `cloudBackup.js`, a new
+      `'vault-merge'` restore mode and the device-only `device_secrets` table;
+      `tests/cloudVault.test.js`), are built;
       nothing user-visible yet. Service-worker cache rolled to `kennelos-shell-v44` for this
       batch (the kennel-setup "Sign in to existing account" button, and `vaultCrypto.js` in
-      the precache);
+      the precache). Step 3 adds `cloudVault.js` and `vaultKeyStore.js` to the precache;
+      its cache bump is still to be confirmed;
     - no readable private data on our server stays the default, with a per-user
       opt-in recovery switch as a fallback only if lock-outs show up in support.
 

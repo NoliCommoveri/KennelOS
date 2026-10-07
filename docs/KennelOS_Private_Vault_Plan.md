@@ -7,7 +7,8 @@
 > Status: **in progress.** Decisions recorded in §10 (2026-10-07). Built so far: §9 step 1
 > (`shared/data/cloud/vaultCrypto.js` + `tests/vaultCrypto.test.js`) and step 2, the server
 > (`cloud/src/vault.js`, migration `0005`, `cloud/tests/vault.test.js`; §6.4 is the as-built
-> record). Step 3, the client modules, is next. Nothing user-visible yet.
+> record) and step 3, the client modules (§9 step 3 is the as-built record). Step 4,
+> second-device pairing, is next. Nothing user-visible yet.
 
 ## 1. Scope
 
@@ -327,6 +328,21 @@ Where the build differs from §6.1–§6.2 above, this wins:
    and answers 503 while a migration is pending, so it had to be applied there too).
 3. **Client modules:** `vaultKeyStore`, `cloudVault`, the push/restore changes in
    `cloudBackup`, the pause state. Against staging.
+   **Built 2026-10-07.** `device_secrets` in `db.version(1)` as a device-only table
+   (`db.dataTables()` leaves it out of exports and restores; Reset App and erase clear it);
+   the key row is tagged with its program. `cloudVault`: `startVaultSetup`/
+   `finishVaultSetup` (the last group typed back, then the first encrypted push),
+   `unlockWithRecoveryCode` (then merges the latest vault part unless `merge: false`),
+   `mergeLatestVault`, `startNewRecoveryCode`/`finishNewRecoveryCode`, `disableVault`,
+   `vaultStatus`. `cloudBackup`: `buildVaultPayload` + `sealVaultPayload` (the plaintext half
+   feeds the "unchanged" hash, so nothing is encrypted unless it pushes; files the cloud
+   tier already uploads are referenced, not stored twice); the `vault_locked` pause;
+   `no_vault` forgets the key and pushes again without it, `vault_key_stale` forgets it and
+   pauses; `restoreSnapshot` merges the same snapshot's vault part (`restoreSnapshotVault`).
+   Restore is a new `importExport` mode, `'vault-merge'`: newer wins, but a locally newer
+   row (edited while locked) keeps its edit and gets blank private fields filled from the
+   vault. Tested end to end against the Worker (`tests/cloudVault.test.js`). Passkey and
+   pairing flows are steps 4 and 6.
 4. **Second-device pairing** (client + the pairing routes, if split from step 2).
 5. **UI:** §2's screens, the two-line status, the restore unlock step, the blank-private-field
    hint. Browser-verified in Lite and Pro.
