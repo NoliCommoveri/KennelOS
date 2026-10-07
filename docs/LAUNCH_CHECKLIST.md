@@ -156,21 +156,21 @@ Pro ship with `cloudUrl: null` and no cloud UI appears. Do these in order.
   Paid plan.
 - [x] **Production D1 `kennelos-api`** created; its id is in `cloud/wrangler.toml` →
   `[[env.production.d1_databases]]` → `database_id`.
-- [ ] **Production R2 `kennelos-files`** created.
-- [ ] **Production Worker** via a second Workers Builds connection on this repo: root
+- [x] **Production R2 `kennelos-files`** created.
+- [x] **Production Worker** via a second Workers Builds connection on this repo: root
   directory `cloud/`, deploy command `npx wrangler deploy --env production`. It creates the
   `kennelos-api` Worker and the **`api.kennelos.app`** custom domain from the config.
-- [ ] **Secrets on the production Worker:** `OPS_TOKEN` (new, not staging's),
+- [x] **Secrets on the production Worker:** `OPS_TOKEN` (new, not staging's),
   `EMAIL_HMAC_KEY` (**generate a new one, store it in the password manager first, then
   paste; it is permanent**: rotating it orphans every account), `RESEND_API_KEY`.
-- [ ] **Resend:** `kennelos.app` verified (DKIM + SPF records in Cloudflare DNS), sender
+- [x] **Resend:** `kennelos.app` verified (DKIM + SPF records in Cloudflare DNS), sender
   `signin@kennelos.app`.
-- [ ] **`api.kennelos.app/ops`:** sign in with production's `OPS_TOKEN`, press **Apply
+- [x] **`api.kennelos.app/ops`:** sign in with production's `OPS_TOKEN`, press **Apply
   pending**, then Health shows every binding and secret present and no pending migration.
   Send yourself a code from a real address and confirm it arrives (not in spam).
 - [ ] **D1 export:** download the first export from `/ops` and keep it with the password
   manager's KennelOS entries.
-- [ ] **Go live:** merge the go-live change. It sets `cloudUrl: 'https://api.kennelos.app'`
+- [ ] **Go live:** merge the go-live change (branch `ccr-70ea2ace-gqn0q5-golive`). It sets `cloudUrl: 'https://api.kennelos.app'`
   in `lite/` and `pro/editionConfig.js` and rewrites the marketing site's "no accounts, no
   cloud" claims, adding `kennelos.app/privacy.html`. That merge deploys the editions and the
   site together.
@@ -205,6 +205,8 @@ Pro ship with `cloudUrl: null` and no cloud UI appears. Do these in order.
   Upgrade button) and `kennelos.app/pro.html#pricing` lands on the pricing section (it's the
   target of Pro's activation and renewal walls); a bad URL shows the styled 404; and it does
   **not** offer to install as an app (no manifest/service worker — that's on purpose).
+  Once cloud backup is live: `kennelos.app/privacy.html` loads and every footer links to it,
+  and no page still says "no accounts", "no cloud" or "no server".
 
 ## 5. Recurring (every subsequent release)
 

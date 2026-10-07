@@ -36,11 +36,12 @@ export const upgradeUrl = 'https://kennelos.app/upgrade';
 // build/README.md; swap if the domain changes. One-line change here.
 export const demoUrl = 'https://demo.kennelos.app/';
 
-// Cloud backup API (Cloud Phase 1 plan §7). Null until production is live (plan
-// §9 step 6), when it becomes 'https://api.kennelos.app'. `devCloudUrl` (the staging
-// Worker) applies when served from localhost, or in a browser that opted in with
-// ?cloud=staging (the test-server switch); see data/cloud/cloudConfig.js.
-export const cloudUrl = null;
+// Cloud backup API (Cloud Phase 1 plan §7): production, live since the go-live
+// change (plan §9 step 6). Back to null is how a shutdown release turns every
+// cloud feature off. `devCloudUrl` (the staging Worker) applies when served from
+// localhost, or in a browser that opted in with ?cloud=staging (the test-server
+// switch); see data/cloud/cloudConfig.js.
+export const cloudUrl = 'https://api.kennelos.app';
 export const devCloudUrl = 'https://kennelos-api-staging.admin-kennelos.workers.dev';
 
 // License gate config (data/license.js). Lite is free and never gates, but must

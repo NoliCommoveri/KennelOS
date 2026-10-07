@@ -4,8 +4,9 @@
 > Status: **in progress.** Built so far: §9 steps 1–5 (the registry; snapshot, `'cloud-merge'`
 > restore and dirty signal; the staging Worker; the client cloud modules in
 > `shared/data/cloud/`; the UI in `shared/assets/cloudBackupUI.js`), plus the lost-device
-> erase and Pro-license release (§2.5, added 2026-10-07), and step 6's repo half (§9). What's
-> left is the operator's production setup and the go-live merge (§9 step 6). The README's build status is the
+> erase and Pro-license release (§2.5, added 2026-10-07), and step 6 (§9): the repo half, then
+> the go-live change. **Live once the go-live change is merged** (after the operator's
+> production setup, `docs/LAUNCH_CHECKLIST.md` §3a). The README's build status is the
 > live record. Decisions it relies on are recorded in Proposal §10. The ones it raises are in
 > §11 below.
 
@@ -793,6 +794,13 @@ whose page is open to anyone until the first account exists.
    site's "no accounts, no cloud, no server" claims, and adds the privacy policy page
    (`site/privacy.html`, operator "KennelOS", contact admin.kennelos@gmail.com), so the
    site never describes a service that isn't live.
+   **The go-live change (2026-10-07):** `cloudUrl: 'https://api.kennelos.app'` in `lite/` and
+   `pro/editionConfig.js`; the marketing site rewritten ("No account needed" in every
+   footer; Home, About, Compare, FAQ, Lite, Pro and Upgrade describe the optional backup and
+   what it never holds; FAQ gains "What if my phone is lost or stolen?"); the new
+   `site/privacy.html` (linked from every footer and About, in the sitemap); the guided
+   tour's Import/Export step no longer says "there's no cloud storage" where there is one
+   (`cloudBody`, picked by `wizardUI`); SW cache `kennelos-shell-v42`.
 
 ## 10. Risks & mitigations
 

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FAQ — KennelOS</title>
-  <meta name="description" content="Answers about KennelOS: where your data lives, backups, using it on two devices, offline use, the Lite limit, upgrading to Pro, licensing and importing from a spreadsheet.">
+  <meta name="description" content="Answers about KennelOS: where your data lives, backups, cloud backup and lost devices, using it on two devices, offline use, the Lite limit, upgrading to Pro, licensing and importing from a spreadsheet.">
   <link rel="canonical" href="https://kennelos.app/faq.html">
   <meta property="og:title" content="FAQ — KennelOS">
   <meta property="og:description" content="Where your data lives, how backups work, the Lite limit, upgrading, licensing and imports.">
@@ -51,18 +51,26 @@
 
       <details open>
         <summary>Where is my data actually stored?</summary>
-        <p>In your browser's own database, on the device you entered it on. It is not uploaded, not synced anywhere by default, and not visible to us — we don't run a server that could hold it.</p>
+        <p>In your browser's own database, on the device you entered it on. Nothing is uploaded unless you turn on <strong>cloud backup</strong>, which is optional, free in Lite and Pro, and off until you switch it on.</p>
+        <p>With cloud backup on, we keep a copy of your <em>kennel records</em> (dogs, pedigrees, health tests, pairings, litters, puppies, contacts' names) so you can get them back on a new device. Your contacts' phone numbers, emails and addresses, prices, your Financials, contracts and private notes are never uploaded. One exception on Pro's waitlist: each applicant's name and email are backed up, so a restored waitlist can still be run. <a href="privacy.html">The full list →</a></p>
       </details>
 
       <details>
         <summary>So what happens if my laptop dies?</summary>
         <p>The same thing that happens to anything else stored only on that laptop. This is the honest cost of local-first, and the reason export is a first-class feature rather than a buried menu item.</p>
-        <p>Take a JSON backup regularly — it's one click and one file containing your whole program. Keep it wherever you keep other important files. Pro can also push and pull that backup to a folder in your own Dropbox, which makes "regularly" a lot easier to stick to.</p>
+        <p>Turn on <strong>cloud backup</strong> and your kennel records come back when you sign in on the new device with the same email. It backs up on its own a few minutes after each change and keeps 30 days of history.</p>
+        <p>Cloud backup leaves your private details on the device, so also take a JSON backup now and then — it's one click and one file containing your whole program. Keep it wherever you keep other important files. Pro can also push and pull that backup to a folder in your own Dropbox, which makes "regularly" a lot easier to stick to.</p>
+      </details>
+
+      <details>
+        <summary>What if my phone is lost or stolen?</summary>
+        <p>If it had cloud backup on, open KennelOS on another device, sign in, and go to <strong>Import / Export → Cloud backup → Your devices</strong>. <strong>Erase</strong> deletes everything KennelOS holds on the lost phone the next time it opens the app with an internet connection. On Pro, <strong>Free its Pro license</strong> gives you the phone's license slot back straight away.</p>
+        <p>The honest limit: the erase can't reach a phone that stays offline or never opens KennelOS again. Your phone's own Find My (iPhone) or Find My Device (Android) is the real protection, and a screen lock matters more than anything we can do.</p>
       </details>
 
       <details>
         <summary>Can I use it on my phone and my computer?</summary>
-        <p>Yes, but they're separate copies — there's no automatic sync, because there's no server in the middle. Move a backup between them with export/import (or via Dropbox on Pro) when you want them to match.</p>
+        <p>Yes, but they're separate copies — there's no live sync between them. Move a backup between them with export/import (or via Dropbox on Pro) when you want them to match. Cloud backup can bring your kennel records onto a second device, but one device at a time is the one that backs up.</p>
         <p>Most breeders end up with one main device for real record keeping and use the others for looking things up.</p>
       </details>
 
@@ -73,14 +81,14 @@
 
       <details>
         <summary>Do you see, sell, or train anything on my records?</summary>
-        <p>No. We never receive them. There's no account, no upload and no analytics in the apps — the privacy claim is a consequence of how it's built, not a promise we're asking you to trust.</p>
+        <p>No. Without cloud backup we never receive them: no account, no upload and no analytics in the apps. With cloud backup on, we hold your kennel records only to give them back to you. We don't read them, sell them, or train anything on them, and you can delete them any time from the app. The details, including what we never receive at all, are in our <a href="privacy.html">privacy policy</a>.</p>
       </details>
 
       <h2>Using the app</h2>
 
       <details>
         <summary>Do I need to be online?</summary>
-        <p>Only for the very first load of each app, and for the optional online extras (Dropbox backup, license checks on Pro). After that it works offline — genuinely, including creating and editing records.</p>
+        <p>Only for the very first load of each app, and for the optional online extras (cloud backup, Dropbox backup, license checks on Pro). After that it works offline — genuinely, including creating and editing records.</p>
       </details>
 
       <details>
@@ -128,7 +136,7 @@
 
       <details>
         <summary>Why does Pro use a license key instead of a login?</summary>
-        <p>Because a login needs a server holding accounts, and we don't have one. A key you paste in once per device does the same job without anyone standing between you and your records.</p>
+        <p>So that Pro never depends on an account. A key you paste in once per device does the job without anyone standing between you and your records. The cloud backup account is separate and optional; Pro works fully without it.</p>
       </details>
 
       <details>
@@ -186,6 +194,7 @@
         <ul>
           <li><a href="about.html">About us</a></li>
           <li><a href="faq.html">FAQ</a></li>
+          <li><a href="privacy.html">Privacy</a></li>
           <li><a href="furever.html">Furever app</a></li>
           <li><a href="upgrade/">Upgrade to Pro</a></li>
         </ul>
@@ -202,7 +211,7 @@
     </div>
     <div class="footer-bottom">
       <span>© <span id="year">2026</span> KennelOS</span>
-      <span>No accounts. No tracking. Works offline.</span>
+      <span>No account needed. No tracking. Works offline.</span>
     </div>
   </div>
 </footer>
