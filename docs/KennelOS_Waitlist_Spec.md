@@ -823,12 +823,9 @@ W1 is a full feature on its own and doesn't wait for the cloud work.
     approval is enough**; the history shows anyone flip-flopping.
 28. ~~**W1:** record a family's spoken/messaged request as a Today nudge, or just edit?~~
     **Decided 2026-10-07: she just edits** (§15.9).
-29. **Listen-only and passes (§15.7):** switching to listen-only just before a litter's offer
-    reaches them skips them there with no pass, and they can switch back after. Should a
-    family's own change on the status page (a) apply at once, (b) apply at once only when it
-    widens (more parents, or back to All litters) and otherwise wait for her one-tap approval
-    like §15.9, or (c) apply at once but never take them out of a litter that already has
-    picks open? Leaning (b), the same rule as the preferences.
+29. ~~**Listen-only and passes (§15.7):** how does a family's own listen-only change on the
+    status page apply?~~ **Decided 2026-10-07: wider changes apply at once; narrower ones wait
+    for her one-tap approval on Today, like §15.9.** Outside studs stay pickable.
 
 ## 14. W1 build plan
 
@@ -1086,7 +1083,8 @@ Listening for specific pairings or litters was the wrong unit: families follow a
 1. **They pick parent dogs.** `listen_pairing_ids` / `listen_litter_ids` are replaced by
    `listen_sire_ids` / `listen_dam_ids` (multi-entry FKs → Dog). The choices are this
    kennel's active breeding dogs of that sex, plus any parent of one of its live litters
-   or upcoming pairings (an outside stud included), plus anything already picked.
+   or upcoming pairings (an outside stud included; *confirmed 2026-10-07*), plus anything
+   already picked.
 2. **Litters and pairings are derived.** A litter (or pairing) counts when its `sire_id`
    is a picked sire **or** its `dam_id` is a picked dam: either side is enough
    (*decided*: OR, not AND). The family page shows what that covers right now.
@@ -1100,8 +1098,14 @@ Listening for specific pairings or litters was the wrong unit: families follow a
 5. **Families set it themselves on the status page (W2)** once they're `active`
    (*decided 2026-10-07*, settles the listen-only half of Q7): All litters / Only these
    parents, and the sire and dam checkboxes, with the same choices as her Edit form. Until
-   W2 they tell her and she sets it. **Open (Q29):** narrowing to listen-only can dodge an
-   offer just like narrowing a preference (§15.9).
+   W2 they tell her and she sets it.
+6. **A family's own change goes through her when it narrows** (*decided 2026-10-07*, Q29):
+   narrowing to listen-only can dodge an offer just like narrowing a preference. So on the
+   status page a **wider** change (picking more parents, or going back to All litters)
+   applies at once, and a **narrower** one (All litters → only these parents, or dropping a
+   parent) becomes a request she approves or declines with one tap on Today, exactly like
+   §15.9: nothing changes until she taps, an open offer stays open, and the change goes in
+   the family's answer history.
 
 ### 15.8 Readiness question, readiness hold, and an application FAQ (requested and built 2026-10-06)
 
