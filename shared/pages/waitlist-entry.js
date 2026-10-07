@@ -3,8 +3,11 @@
 // status card with the step-by-step actions (approve / decline / fee received /
 // withdraw / remove / undo / move / re-apply), the edit-in-place details card
 // (preferences incl. breed, listen-only, pause, fee, application answers), and the
-// offer history. Every multi-step write goes through data/waitlistActions.js.
-// Pro-only page (proPages.js).
+// offers (offer a litter from here, record how an offer ended — the waitlist as
+// the main workflow, Spec §15.2), and the family's documents (fee receipt, Sale
+// invoice/receipt, each viewable or downloadable as a PDF). Application answers
+// follow her own form (Spec §15.1, data/waitlistForm.js). Every multi-step write
+// goes through data/waitlistActions.js. Pro-only page (proPages.js).
 import { waitlistEntryRepo, ReferenceBlockedError } from '../data/waitlistEntryRepo.js';
 import { waitlistOfferRepo } from '../data/waitlistOfferRepo.js';
 import { waitlistProgramRepo } from '../data/waitlistProgramRepo.js';
@@ -13,18 +16,29 @@ import { kennelRepo } from '../data/kennelRepo.js';
 import { litterRepo } from '../data/litterRepo.js';
 import { pairingRepo } from '../data/pairingRepo.js';
 import { dogRepo } from '../data/dogRepo.js';
+import { saleRepo } from '../data/saleRepo.js';
 import * as actions from '../data/waitlistActions.js';
 import {
   waitlistConfig, overallPositions, passesUsed, anchorDate, isMovedByBreeder, contactMatches,
-  entryName, canUndoRemoval, isPaused, rankedList, REMOVAL_UNDO_DAYS
+  entryName, canUndoRemoval, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, rankedList, REMOVAL_UNDO_DAYS,
+  eligiblePupsFor, nextFamilyForLitter, turnSpent, hasOpenOffer, isListeningFor, isPupAvailable,
+  describeOfferChanges, isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker,
+  kennelBreeds, resolveBreed, prefChangeEffect
 } from '../data/waitlistRules.js';
 import {
+  formQuestions, entryQuestions, snapshotQuestions, answerText, isAnswerQuestion, missingRequired, formFaq, READY_TIMING_LABEL,
+  MATCHING_NOTICE, matchingPrefKeys
+} from '../data/waitlistForm.js';
+import {
   WAITLIST_ENTRY_STATUS, WAITLIST_PREF_SEX, WAITLIST_LISTEN_MODE, WAITLIST_OFFER_OUTCOME,
-  WAITLIST_REMOVED_REASON, PLACEMENT_TYPE, FEE_CREDIT_POLICY, PAYMENT_METHODS, descriptor
+  WAITLIST_REMOVED_REASON, WAITLIST_READY_TIMING, PLACEMENT_TYPE, FEE_CREDIT_POLICY, PAYMENT_METHODS, SEX, descriptor
 } from '../data/vocab.js';
 import { addDaysToYMD } from '../data/dateUtils.js';
-import { esc, badge, fmtDate, fmtMoney, param, todayYMD, confirmModal } from '../assets/ui.js';
-import { resolveWaitlistKennel, prefsSummary, entryFlags, formModal } from '../assets/waitlistUI.js';
+import { esc, badge, fmtDate, fmtMoney, param, todayYMD, confirmModal, alertModal } from '../assets/ui.js';
+import {
+  resolveWaitlistKennel, prefsSummary, entryFlags, formModal,
+  pickDialog, depositDialog, changePickDialog, undoPassDialog
+} from '../assets/waitlistUI.js';
 
 const els = {
   title: document.getElementById('entry-title'),
@@ -35,31 +49,22 @@ const els = {
   profileActions: document.getElementById('profile-actions'),
   body: document.getElementById('profile-body'),
   offers: document.getElementById('offers-section'),
+  docs: document.getElementById('docs-section'),
   error: document.getElementById('page-error')
 };
 
-// The application questions W1 records (Spec §5.1 defaults). Name/email/phone are
-// the applicant's own until approval links or creates their Contact.
-const APP_FIELDS = [
-  { key: 'name', label: 'Name', required: true },
-  { key: 'email', label: 'Email', type: 'email' },
-  { key: 'phone', label: 'Phone' },
-  { key: 'location', label: 'City / state' },
-  { key: 'timing', label: 'Timing' },
-  { key: 'heard_from', label: 'How they heard about you' },
-  { key: 'household', label: 'Household', wide: true, multiline: true },
-  { key: 'other_pets', label: 'Other pets', wide: true, multiline: true },
-  { key: 'experience', label: 'Experience with the breed', wide: true, multiline: true },
-  { key: 'about', label: 'About their family', wide: true, multiline: true }
-];
-
 const LIVE_PAIRING = ['planned', 'bred', 'confirmed_pregnant'];
 const LIVE_LITTER = ['expected', 'whelped', 'weaning', 'ready'];
+// A family picks which sires and dams they're listening for only once they're ON
+// the list: approved AND their fee received (or waived, which makes them active at
+// approval). Before that there's nothing to listen for, and after they leave the
+// list it no longer matters (their picks are kept, just not shown for editing).
+const LISTEN_STATUSES = ['active'];
 
 const ctx = {
   mode: 'view', entry: null, draft: null, kennel: null, config: null,
   contact: null, contacts: [], programs: new Map(), kennelEntries: [], offers: [],
-  litters: [], pairings: [], dogsById: new Map(), breeds: []
+  litters: [], pairings: [], dogsById: new Map(), breeds: [], form: [], kennelOffers: [], sales: []
 };
 
 const none = '<span class="faint">—</span>';
@@ -81,7 +86,7 @@ const programOptions = (current) => `<option value="">— none —</option>` + [
 // --- Loading ------------------------------------------------------------------
 
 async function loadKennelContext(kennelId) {
-  const [kennel, programs, kennelEntries, contacts, litters, pairings, dogs, breeds] = await Promise.all([
+  const [kennel, programs, kennelEntries, contacts, litters, pairings, dogs, kennelOffers, sales] = await Promise.all([
     kennelRepo.getById(kennelId),
     waitlistProgramRepo.getMapForKennel(kennelId),
     waitlistEntryRepo.getByKennel(kennelId),
@@ -89,14 +94,16 @@ async function loadKennelContext(kennelId) {
     litterRepo.getAll({ includeArchived: true }),
     pairingRepo.getAll({ includeArchived: true }),
     dogRepo.getAll({ includeArchived: true }),
-    kennelRepo.getBreedVocabulary()
+    waitlistOfferRepo.getByKennel(kennelId),
+    saleRepo.getAll({ includeArchived: true })
   ]);
   Object.assign(ctx, {
-    kennel, config: waitlistConfig(kennel), programs, kennelEntries, contacts,
+    kennel, config: waitlistConfig(kennel), form: formQuestions(waitlistConfig(kennel)), programs, kennelEntries, contacts,
     litters: litters.filter((l) => l.kennel_id === kennelId),
     pairings: pairings.filter((p) => p.kennel_id === kennelId),
     dogsById: new Map(dogs.map((d) => [d.id, d])),
-    breeds
+    // The breed dropdown's choices: this kennel's breeds only (never free text).
+    breeds: kennelBreeds(kennel, dogs), kennelOffers, sales
   });
 }
 
@@ -126,7 +133,11 @@ function statusLines(e) {
     lines.push(`In line since ${esc(fmtDate(anchorDate(e)))}${isMovedByBreeder(e) ? ` <span class="badge badge-purple">Moved by you</span> <span class="faint">(fee received ${esc(fmtDate(e.fee_received_date))})</span>` : ''}.`);
     lines.push(`Passes used: ${passesUsed(e, ctx.offers)} of ${esc(ctx.config.max_passes)}.`);
     const flags = entryFlags(e, today);
-    if (flags) lines.push(flags + (isPaused(e, today) ? ' <span class="faint">Paused families keep their place; they just aren\'t offered pups.</span>' : ' <span class="faint">Only offered the litters they chose; they keep their place.</span>'));
+    const why = isReadyHeld(e, today)
+      ? `They said they won't be ready to buy until about ${esc(fmtDate(readyFromDate(e)))}, so they aren't offered pups (or charged passes) until then. They keep their place.`
+      : isPaused(e, today) ? 'Paused families keep their place; they just aren\'t offered pups.'
+        : 'Only offered litters from the sires and dams they chose; they keep their place.';
+    if (flags) lines.push(`${flags} <span class="faint">${why}</span>`);
   } else if (e.status === 'removed') {
     lines.push(`Removed ${esc(fmtDate(e.removed_date))}${e.removed_reason ? ` — ${esc(descriptor(WAITLIST_REMOVED_REASON, e.removed_reason).label.toLowerCase())}` : ''}.`);
     if (canUndoRemoval(e, today)) lines.push(`<span class="badge badge-amber">You can undo this until ${esc(fmtDate(addDaysToYMD(e.removed_date, REMOVAL_UNDO_DAYS)))}</span>`);
@@ -150,7 +161,7 @@ function actionButtons(e) {
       const label = e.fee_amount == null ? 'Add to the list…' : 'Fee received…';
       return b('fee', label, 'btn-primary') + b('expire', 'Fee not received') + b('withdraw', 'Withdrew');
     }
-    case 'active': return b('move', 'Move place…') + b('withdraw', 'Withdrew') + b('remove', 'Remove from list', 'btn-danger');
+    case 'active': return b('offer', 'Offer a litter…', 'btn-primary') + b('move', 'Move place…') + b('withdraw', 'Withdrew') + b('remove', 'Remove from list', 'btn-danger');
     case 'removed': return (canUndoRemoval(e, todayYMD()) ? b('undo', 'Undo removal', 'btn-primary') : '') + b('reapply', 'Re-apply');
     default: return b('reapply', 'Re-apply');
   }
@@ -166,7 +177,7 @@ function renderStatus() {
       </div>
       <div class="pill-row">${actionButtons(e)}</div>
     </div>`;
-  const handlers = { approve: onApprove, decline: onDecline, withdraw: onWithdraw, fee: onFeeReceived, expire: onExpire, move: onMove, remove: onRemove, undo: onUndo, reapply: onReapply };
+  const handlers = { offer: onOfferLitter, approve: onApprove, decline: onDecline, withdraw: onWithdraw, fee: onFeeReceived, expire: onExpire, move: onMove, remove: onRemove, undo: onUndo, reapply: onReapply };
   els.status.querySelectorAll('[data-act]').forEach((btn) => {
     btn.addEventListener('click', () => handlers[btn.dataset.act]().catch((err) => showError(err.message || String(err))));
   });
@@ -176,6 +187,40 @@ async function afterAction() {
   clearError();
   await reload();
   renderAll();
+}
+
+// Plain-text lines for the offers an action voided or made (describeOfferChanges),
+// read against the freshly reloaded context.
+const offerChangeLines = (res) => describeOfferChanges(res || {}, {
+  nameOf: (entryId) => familyNameById(entryId),
+  litterOf: (litterId) => { const l = ctx.litters.find((x) => x.id === litterId); return l ? litterLabel(l) : 'A litter'; },
+  fmtDate
+});
+
+// After the family leaves the list: say which of their offers closed and who the
+// turn moved to, so she knows who to contact. Silent when they held none.
+async function reportLeaving(res) {
+  const lines = offerChangeLines(res);
+  if (lines.length) await alertModal({ title: 'Offers updated', message: lines.join('\n\n') });
+}
+
+// The open offers this family holds, for the leave-the-list confirmations.
+function openOfferWarning() {
+  const open = ctx.offers.filter((o) => o.outcome === 'open' && !o.is_archived);
+  if (!open.length) return '';
+  const names = open.map((o) => { const l = ctx.litters.find((x) => x.id === o.litter_id); return l ? litterLabel(l) : 'a litter'; });
+  return ` Their open offer on ${names.join(', ')} will be voided (not a pass) and offered to the next family.`;
+}
+
+// After a family joins (or rejoins) the list: no offer is made for them
+// automatically (waitlistActions header), so say where they're next in line now.
+async function reportNextInLine() {
+  if (ctx.entry.status !== 'active') return;
+  const mine = litterChoices(ctx.entry).filter((c) => !c.blocked && c.next && c.next.entry.id === ctx.entry.id);
+  if (!mine.length) return;
+  const name = entryName(ctx.entry, ctx.contact);
+  const list = mine.map((c) => `${litterLabel(c.litter)} (${c.litter.picks_opened_date ? 'picks open' : 'picks not open yet'})`).join(', ');
+  await alertModal({ title: `${name} is next in line`, message: `${name} is next for ${list}. No offer has been made. Use "Offer a litter…" when you're ready.` });
 }
 
 async function onApprove() {
@@ -205,7 +250,7 @@ async function onApprove() {
         contactId: picked ? picked.value || null : null
       });
     }
-  }) && afterAction();
+  }) && (await afterAction(), await reportNextInLine());
 }
 
 async function onDecline() {
@@ -217,9 +262,10 @@ async function onDecline() {
 
 async function onWithdraw() {
   const name = entryName(ctx.entry, ctx.contact);
-  if (!(await confirmModal({ title: `${name} left the list?`, message: 'Record that the family withdrew. Coming back means a new application, a new fee and a new place.', confirmLabel: 'They withdrew' }))) return;
-  await actions.withdraw(ctx.entry.id);
+  if (!(await confirmModal({ title: `${name} left the list?`, message: `Record that the family withdrew. Coming back means a new application, a new fee and a new place.${openOfferWarning()}`, confirmLabel: 'They withdrew' }))) return;
+  const res = await actions.withdraw(ctx.entry.id);
   await afterAction();
+  await reportLeaving(res);
 }
 
 async function onExpire() {
@@ -231,14 +277,16 @@ async function onExpire() {
 
 async function onRemove() {
   const name = entryName(ctx.entry, ctx.contact);
-  if (!(await confirmModal({ title: `Remove ${name} from the list?`, message: 'This is final. To come back they would re-apply, with a new fee and a new place.', confirmLabel: 'Remove', danger: true }))) return;
-  await actions.removeByBreeder(ctx.entry.id);
+  if (!(await confirmModal({ title: `Remove ${name} from the list?`, message: `This is final. To come back they would re-apply, with a new fee and a new place.${openOfferWarning()}`, confirmLabel: 'Remove', danger: true }))) return;
+  const res = await actions.removeByBreeder(ctx.entry.id);
   await afterAction();
+  await reportLeaving(res);
 }
 
 async function onUndo() {
   await actions.undoRemoval(ctx.entry.id);
   await afterAction();
+  await reportNextInLine();
 }
 
 async function onReapply() {
@@ -271,7 +319,7 @@ async function onFeeReceived() {
             reference: o.querySelector('#fr-ref').value.trim()
           });
     }
-  }) && afterAction();
+  }) && (await afterAction(), await reportNextInLine());
 }
 
 async function onMove() {
@@ -287,7 +335,7 @@ async function onMove() {
       <label class="check-inline" style="display:block;"><input type="radio" name="mv" value="date" checked> Place them as if they paid on
         <input id="mv-date" type="date" value="${esc(e.position_anchor_date || anchorDate(e))}"></label>
       ${others.length ? `<label class="check-inline" style="display:block;margin-top:8px;"><input type="radio" name="mv" value="after"> Place them with <select id="mv-after">${otherOpts}</select></label>
-      <p class="field-hint">Places are kept by date, so this gives them that family's date. Families on the same date are ordered by approval date, so they may land just before or after.</p>` : ''}
+      <p class="field-hint">Places are kept by date, so this gives them that family's date. Families on the same date are ordered by when their fee was recorded, so they may land just before or after.</p>` : ''}
       ${e.position_anchor_date ? '<label class="check-inline" style="display:block;margin-top:8px;"><input type="radio" name="mv" value="clear"> Undo the move (back to their fee date)</label>' : ''}
       <p class="field-hint">Programs that put families ahead still come first. The real fee date is kept.</p>`,
     onConfirm: async (o) => {
@@ -305,12 +353,61 @@ async function onMove() {
 
 // --- Details: view ----------------------------------------------------------------
 
+// The litters the family was last told "almost your turn" about (Spec §15.5).
+function soonLitters(e) {
+  return (e.soon_notified_litter_ids || []).map((id) => ctx.litters.find((l) => l.id === id)).filter(Boolean).map(litterLabel).join(', ');
+}
+
+// Listen-only families pick parent dogs; the litters and upcoming pairings that
+// covers are derived (a litter/pairing by one of their sires OR out of one of
+// their dams — waitlistRules.isListeningFor reads only sire_id/dam_id, which
+// pairings carry too).
 function listenSummary(e) {
-  if ((e.listen_mode || 'all') !== 'selected') return 'All litters';
-  const litters = (e.listen_litter_ids || []).map((id) => ctx.litters.find((l) => l.id === id)).filter(Boolean).map(litterLabel);
-  const pairings = (e.listen_pairing_ids || []).map((id) => ctx.pairings.find((p) => p.id === id)).filter(Boolean).map((p) => `${pairingLabel(p)} (pairing)`);
-  const all = [...pairings, ...litters];
-  return `Only: ${all.length ? all.join(', ') : 'nothing chosen yet'}`;
+  if ((e.listen_mode || 'all') !== 'selected') return esc('All litters');
+  const names = (ids) => (ids || []).map(dogName).join(', ');
+  const parts = [];
+  if ((e.listen_sire_ids || []).length) parts.push(`Sires: ${names(e.listen_sire_ids)}`);
+  if ((e.listen_dam_ids || []).length) parts.push(`Dams: ${names(e.listen_dam_ids)}`);
+  if (!parts.length) return esc('Only: no sires or dams chosen yet, so no litter is offered to them');
+  const covers = [
+    ...ctx.litters.filter((l) => !l.is_archived && LIVE_LITTER.includes(l.status) && isListeningFor(e, l)).map(litterLabel),
+    ...ctx.pairings.filter((p) => !p.is_archived && LIVE_PAIRING.includes(p.status) && isListeningFor(e, p)
+      && !ctx.litters.some((l) => l.pairing_id === p.id)).map((p) => `${pairingLabel(p)} (pairing)`)
+  ];
+  return `${esc(`Only: ${parts.join(' · ')}`)}<br><span class="faint">${esc(covers.length ? `Right now that's: ${covers.join(', ')}` : 'No current litter or upcoming pairing from these parents.')}</span>`;
+}
+
+// Their readiness answer, plus the hold it puts on them (Spec §15.8). Escaped HTML.
+function readySummary(e) {
+  if (!e.ready_timing) return '<span class="badge badge-amber" title="A required question. Edit to fill it in.">Not answered</span>';
+  const t = descriptor(WAITLIST_READY_TIMING, e.ready_timing);
+  const from = readyFromDate(e);
+  if (!from) return esc(t.label);
+  const base = e.fee_received_date ? 'the fee date' : 'approval';
+  const held = isReadyHeld(e, todayYMD());
+  return `${esc(t.label)} <span class="faint">— ${held ? 'no offers until' : 'hold ended'} ${esc(fmtDate(from))} (${esc(t.hold_months)} month${t.hold_months === 1 ? '' : 's'} from ${base})</span>`;
+}
+
+// Her changes to the matching answers (Spec §15.9), for the history and the
+// narrowing warning.
+const PREF_FIELD_LABEL = {
+  pref_sex: 'Sex', pref_breed: 'Breed', pref_placement_type: 'Placement', pref_colors: 'Colors', ready_timing: 'Ready to buy'
+};
+function prefValueText(field, v) {
+  switch (field) {
+    case 'pref_sex': return descriptor(WAITLIST_PREF_SEX, v || 'any').label;
+    case 'pref_breed': return v || 'Any breed';
+    case 'pref_placement_type': return v ? descriptor(PLACEMENT_TYPE, v).label : 'Any';
+    case 'pref_colors': return (Array.isArray(v) ? v : []).join(', ') || 'None';
+    case 'ready_timing': return v ? descriptor(WAITLIST_READY_TIMING, v).label : 'Not answered';
+    default: return String(v ?? '');
+  }
+}
+// Newest first, so changing an answer and back shows as neighbouring lines.
+function prefHistory(e) {
+  const log = e.pref_change_log || [];
+  if (!log.length) return '';
+  return [...log].reverse().map((x) => `${esc(fmtDate(x.date))} · ${esc(PREF_FIELD_LABEL[x.field] || x.field)}: ${esc(prefValueText(x.field, x.from))} → ${esc(prefValueText(x.field, x.to))}${x.by === 'request' ? ' <span class="faint">(they asked)</span>' : ''}`).join('<br>');
 }
 
 function renderView() {
@@ -324,19 +421,22 @@ function renderView() {
     <dl class="dl-meta" style="margin-top:14px;">
       ${row('Contact', contactHtml)}
       ${row('Program', program ? esc(program.name) + (program.is_archived ? ' <span class="badge badge-gray">archived</span>' : '') : '')}
-      ${row('Wants', prefsSummary(e))}
-      ${row('Listening for', esc(listenSummary(e)))}
+      ${row('Wants', prefsSummary(e) + (e.pref_breed && resolveBreed(e.pref_breed, ctx.breeds) === null ? ` <span class="badge badge-red" title="No pup will match this breed. Edit to pick one of your breeds.">Unknown breed</span>` : ''))}
+      ${row('Ready to buy', readySummary(e))}
+      ${row('Answer changes', prefHistory(e))}
+      ${row('Listening for', LISTEN_STATUSES.includes(e.status) || (e.listen_mode || 'all') === 'selected' ? listenSummary(e) : '')}
       ${row('Paused until', e.paused_until ? esc(fmtDate(e.paused_until)) + (e.pause_reason ? ` <span class="faint">— ${esc(e.pause_reason)}</span>` : '') : '')}
       ${row('Fee', e.fee_amount != null ? esc(fmtMoney(e.fee_amount)) : '')}
       ${row('Fee policy', e.fee_credit_policy ? esc(descriptor(FEE_CREDIT_POLICY, e.fee_credit_policy).label) : '')}
       ${row('Fee received', e.fee_received_date ? esc(fmtDate(e.fee_received_date)) + [e.fee_payment_method, e.fee_payment_reference].filter(Boolean).map((s) => ` <span class="faint">${esc(s)}</span>`).join('') : '')}
       ${row('Pay by', e.fee_due_date ? esc(fmtDate(e.fee_due_date)) : '')}
+      ${row('Told "almost your turn"', e.soon_notified_date ? esc(fmtDate(e.soon_notified_date)) + (soonLitters(e) ? ` <span class="faint">— ${esc(soonLitters(e))}</span>` : '') : '')}
       ${row('Notes', multiline(e.notes))}
     </dl>
     <h3 style="margin:18px 0 6px;">Application</h3>
     <dl class="dl-meta">
       ${row('Applied', e.applied_date ? esc(fmtDate(e.applied_date)) : '')}
-      ${APP_FIELDS.map((f) => row(f.label, multiline(app[f.key]))).join('')}
+      ${entryQuestions(e, ctx.form).map((q) => row(q.label, multiline(answerText(q, app[q.id])))).join('')}
     </dl>`;
 }
 
@@ -347,57 +447,158 @@ function checkList(items, selected, attr) {
   return items.map(({ id, label }) => `<label class="check-inline"><input type="checkbox" ${attr}="${esc(id)}"${selected.includes(id) ? ' checked' : ''}> ${esc(label)}</label>`).join('');
 }
 
+// One application answer as a form field, by her question's answer type (Spec
+// §15.1). Fields carry data-answer="<question id>" so readForm never depends on
+// element ids built from her question ids.
+function answerField(q, value) {
+  const req = q.key === 'name' ? ' <span class="req">*</span>' : '';
+  const help = q.help ? `<span class="field-hint">${esc(q.help)}</span>` : '';
+  const attr = `data-answer="${esc(q.id)}" aria-label="${esc(q.label)}"`;
+  const v = value ?? '';
+  let input;
+  let wide = false;
+  if (q.type === 'long_text') {
+    input = `<textarea ${attr}>${esc(v)}</textarea>`;
+    wide = true;
+  } else if (q.type === 'single_choice') {
+    const opts = [...(q.options || [])];
+    if (v && !opts.includes(v)) opts.push(v);
+    input = `<select ${attr}><option value="">—</option>${opts.map((o) => `<option${o === v ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+  } else if (q.type === 'checkboxes') {
+    const picked = Array.isArray(v) ? v : String(v).split(',').map((x) => x.trim()).filter(Boolean);
+    const opts = [...(q.options || [])];
+    for (const x of picked) if (!opts.includes(x)) opts.push(x);
+    input = `<div class="check-group">${opts.map((o) => `<label class="check-inline"><input type="checkbox" data-answer-cb="${esc(q.id)}" value="${esc(o)}"${picked.includes(o) ? ' checked' : ''}> ${esc(o)}</label>`).join('') || '<span class="faint">No options yet.</span>'}</div>`;
+    wide = true;
+  } else if (q.type === 'yes_no') {
+    const cur = answerText(q, v);
+    input = `<select ${attr}><option value="">—</option><option value="yes"${cur === 'Yes' ? ' selected' : ''}>Yes</option><option value="no"${cur === 'No' ? ' selected' : ''}>No</option></select>`;
+  } else {
+    const type = { number: 'number', date: 'date', email: 'email' }[q.type] || 'text';
+    input = `<input ${attr} type="${type}" value="${esc(v)}">`;
+  }
+  return `<div class="field${wide ? ' field-wide' : ''}"><label>${esc(q.label)}${req}</label>${input}${help}</div>`;
+}
+
+// The four preference fields. Their answers live on the entry's pref_* fields, so
+// they keep fixed element ids; `label` is her wording on the new-application form.
+function prefField(key, e, label) {
+  // A stored breed that isn't one of the kennel's (typed before this was a
+  // dropdown, or imported) stays selectable, flagged, so saving never clears it.
+  const current = e.pref_breed || '';
+  const known = resolveBreed(current, ctx.breeds);
+  const breedOpts = `<option value="">Any breed</option>`
+    + ctx.breeds.map((b) => `<option value="${esc(b)}"${known && b === known ? ' selected' : ''}>${esc(b)}</option>`).join('')
+    + (current && known === null ? `<option value="${esc(current)}" selected>${esc(current)} (not one of your breeds)</option>` : '');
+  switch (key) {
+    case 'pref_sex':
+      return `<div class="field"><label>${esc(label || 'Sex')}</label><select id="f-pref_sex">${options(WAITLIST_PREF_SEX, e.pref_sex || 'any')}</select></div>`;
+    case 'pref_breed':
+      return `<div class="field"><label>${esc(label || 'Breed')}</label><select id="f-pref_breed">${breedOpts}</select>
+        <span class="field-hint">${ctx.breeds.length ? 'Only pups of this breed are offered to them.' : 'No breeds yet: give this kennel\'s dogs a breed, or add preferred breeds on the kennel page.'}${current && known === null ? ' <strong>Their current breed doesn\'t match any of your dogs\' breeds, so no pup will match it. Pick the right one.</strong>' : ''}</span></div>`;
+    case 'pref_placement':
+      return `<div class="field"><label>${esc(label || 'Placement')}</label><select id="f-pref_placement_type">${options(PLACEMENT_TYPE, e.pref_placement_type || '', 'Any')}</select></div>`;
+    case 'ready_timing':
+      return `<div class="field"><label>${esc(label || READY_TIMING_LABEL)} <span class="req">*</span></label><select id="f-ready_timing">${options(WAITLIST_READY_TIMING, e.ready_timing || '', '— Choose —')}</select>
+        <span class="field-hint">Anything but ASAP puts them on hold: no offers (so no passes used) until that many months after their fee is received, or approval if there's no fee (6+ months → 6).</span></div>`;
+    case 'pref_colors':
+      return `<div class="field"><label>${esc(label || 'Colors')}</label><input id="f-pref_colors" type="text" value="${esc((e.pref_colors || []).join(', '))}" placeholder="e.g. brindle, seal">
+        <span class="field-hint">${ctx.config.color_matching ? 'Color matching is on: only pups with one of these colors are offered.' : 'Notes only. Color matching is off in your waitlist settings.'}</span></div>`;
+    default: return '';
+  }
+}
+
+// The questions a draft's answers are read from: her form for a new application,
+// else the entry's own questions (its saved wording plus anything added since).
+const draftQuestions = () => (ctx.mode === 'new' ? ctx.form.filter(isAnswerQuestion) : entryQuestions(ctx.draft, ctx.form));
+
 function renderEdit() {
   const e = ctx.draft;
   const app = e.application || {};
-  const selPairings = e.listen_pairing_ids || [];
-  const selLitters = e.listen_litter_ids || [];
-  // Upcoming pairings and live litters, plus anything already chosen (so a closed
-  // litter a family picked never silently drops off their list).
-  const pairings = ctx.pairings.filter((p) => (LIVE_PAIRING.includes(p.status) && !p.is_archived) || selPairings.includes(p.id))
-    .map((p) => ({ id: p.id, label: pairingLabel(p) }));
-  const litters = ctx.litters.filter((l) => (LIVE_LITTER.includes(l.status) && !l.is_archived) || selLitters.includes(l.id))
-    .map((l) => ({ id: l.id, label: litterLabel(l) }));
-  const appFields = APP_FIELDS.map((f) => {
-    const input = f.multiline
-      ? `<textarea id="a-${f.key}">${esc(app[f.key] || '')}</textarea>`
-      : `<input id="a-${f.key}" type="${f.type || 'text'}" value="${esc(app[f.key] || '')}">`;
-    return `<div class="field${f.wide ? ' field-wide' : ''}"><label>${esc(f.label)}${f.required && !e.contact_id ? ' <span class="req">*</span>' : ''}</label>${input}</div>`;
-  }).join('');
-  const breedList = ctx.breeds.map((b) => `<option value="${esc(b)}"></option>`).join('');
+  const selSires = e.listen_sire_ids || [];
+  const selDams = e.listen_dam_ids || [];
+  const canListen = LISTEN_STATUSES.includes(e.status);
+  // The parents a family can pick: this kennel's active breeding dogs, plus any dog
+  // that's a parent of one of its live litters or upcoming pairings (an outside
+  // stud included), plus anything already chosen (so a retired dog a family picked
+  // never silently drops off their list).
+  const liveParents = (side) => new Set([
+    ...ctx.litters.filter((l) => !l.is_archived && LIVE_LITTER.includes(l.status)).map((l) => l[side]),
+    ...ctx.pairings.filter((p) => !p.is_archived && LIVE_PAIRING.includes(p.status)).map((p) => p[side])
+  ].filter(Boolean));
+  const parentChoices = (sex, side, selected) => {
+    const live = liveParents(side);
+    return [...ctx.dogsById.values()]
+      .filter((d) => selected.includes(d.id) || (!d.is_archived && (live.has(d.id)
+        || (d.kennel_id === ctx.kennel.id && d.status === 'active_breeding' && d.sex === sex))))
+      .sort((a, b) => (a.call_name || '').localeCompare(b.call_name || ''))
+      .map((d) => ({ id: d.id, label: `${d.call_name || '(unnamed)'}${d.is_archived ? ' (archived)' : ''}` }));
+  };
+  const sires = parentChoices('male', 'sire_id', selSires);
+  const dams = parentChoices('female', 'dam_id', selDams);
   const isNew = ctx.mode === 'new';
+  const programField = `<div class="field"><label>Program</label><select id="f-program">${programOptions(e.waitlist_program_id)}</select>
+    <span class="field-hint">Only you assign programs. Families never pick one.</span></div>`;
 
-  els.body.innerHTML = `
+  // A new application follows her form, in her order and wording, so typing one in
+  // matches what families will see online. The public-list notice is shown so she
+  // can tell the family.
+  // Her matching notice heads the first preference question that filters offers.
+  const matchKeys = matchingPrefKeys(ctx.config);
+  const firstMatch = ctx.form.find((q) => matchKeys.includes(q.key));
+  const matchNotice = `<div class="field field-wide"><div class="card" style="margin:0;padding:10px 12px;">
+      <strong>Matching you with a pup</strong><p style="margin:6px 0 0;">${esc(MATCHING_NOTICE)}</p></div></div>`;
+  const newForm = () => ctx.form.map((q) => {
+    if (q.type === 'preference') return (q === firstMatch ? matchNotice : '') + prefField(q.key, e, q.label);
+    if (q.type === 'notice') {
+      return `<div class="field field-wide"><div class="card" style="margin:0;padding:10px 12px;background:var(--surface-2, transparent);">
+        <strong>${esc(q.label)}</strong><p style="margin:6px 0 0;white-space:pre-line;">${esc(q.help)}</p>
+        <span class="field-hint">Every applicant is told this. Make sure this family has heard it.</span></div></div>`;
+    }
+    return answerField(q, app[q.id]);
+  }).join('');
+
+  // Her FAQ heads the application, as families will see it online (Spec §15.8).
+  const faq = formFaq(ctx.config);
+  const faqHtml = faq.length ? `<div class="field field-wide"><div class="card" style="margin:0;padding:10px 12px;">
+      <strong>Before you apply</strong>
+      ${faq.map((x) => `<details style="margin-top:6px;"><summary>${esc(x.question || 'Question')}</summary><p style="margin:6px 0 0;white-space:pre-line;">${esc(x.answer)}</p></details>`).join('')}
+      <span class="field-hint">Your FAQ, from the Application form page. Every applicant sees it first.</span></div></div>` : '';
+
+  els.body.innerHTML = isNew ? `
+    <div class="form-grid" style="margin-top:14px;">
+      ${faqHtml}
+      ${newForm()}
+      <div class="field field-wide"><h3 style="margin:8px 0 0;">For you</h3></div>
+      ${programField}
+      <div class="field"><label>Applied</label><input id="f-applied_date" type="date" value="${esc(e.applied_date || todayYMD())}"></div>
+      <div class="field field-wide"><label>Your notes</label><textarea id="f-notes">${esc(e.notes || '')}</textarea></div>
+      <div class="field field-wide"><span class="field-hint">Change these questions on the <a href="waitlist-form.html?kennel=${encodeURIComponent(ctx.kennel.id)}">Application form</a> page.</span></div>
+    </div>` : `
     <div class="form-grid" style="margin-top:14px;">
       <div class="field field-wide"><h3 style="margin:0;">Preferences</h3></div>
-      <div class="field"><label>Sex</label><select id="f-pref_sex">${options(WAITLIST_PREF_SEX, e.pref_sex || 'any')}</select></div>
-      <div class="field"><label>Breed</label><input id="f-pref_breed" type="text" list="breed-list" value="${esc(e.pref_breed || '')}" placeholder="Any breed"><datalist id="breed-list">${breedList}</datalist>
-        <span class="field-hint">Only pups of this breed are offered to them. Leave blank for any.</span></div>
-      <div class="field"><label>Placement</label><select id="f-pref_placement_type">${options(PLACEMENT_TYPE, e.pref_placement_type || '', 'Any')}</select></div>
-      <div class="field"><label>Colors</label><input id="f-pref_colors" type="text" value="${esc((e.pref_colors || []).join(', '))}" placeholder="e.g. brindle, seal">
-        <span class="field-hint">${ctx.config.color_matching ? 'Color matching is on: only pups with one of these colors are offered.' : 'Notes only. Color matching is off in your waitlist settings.'}</span></div>
-      <div class="field"><label>Program</label><select id="f-program">${programOptions(e.waitlist_program_id)}</select></div>
-      ${isNew ? `<div class="field"><label>Applied</label><input id="f-applied_date" type="date" value="${esc(e.applied_date || todayYMD())}"></div>` : ''}
+      ${['pref_sex', 'pref_breed', 'pref_placement', 'pref_colors', 'ready_timing'].map((k) => prefField(k, e, k === 'ready_timing' ? ctx.form.find((q) => q.key === 'ready_timing')?.label : undefined)).join('')}
+      ${programField}
 
-      ${isNew ? '' : `
-      <div class="field field-wide"><h3 style="margin:8px 0 0;">Which litters</h3></div>
+      ${canListen ? `<div class="field field-wide"><h3 style="margin:8px 0 0;">Which litters</h3></div>
       <div class="field"><label>Listening for</label><select id="f-listen_mode">${options(WAITLIST_LISTEN_MODE, e.listen_mode || 'all')}</select>
-        <span class="field-hint">Listen-only families aren't offered other litters. That never costs them their place or counts as a pass.</span></div>
+        <span class="field-hint">Listen-only families are only offered litters by a sire or out of a dam they picked. That never costs them their place or counts as a pass.</span></div>
       <div class="field field-wide" id="listen-picks"${(e.listen_mode || 'all') === 'selected' ? '' : ' hidden'}>
-        <label>Pairings</label><div class="check-group">${checkList(pairings, selPairings, 'data-pairing')}</div>
-        <label style="margin-top:8px;">Litters</label><div class="check-group">${checkList(litters, selLitters, 'data-litter')}</div>
-      </div>
+        <label>Sires</label><div class="check-group">${checkList(sires, selSires, 'data-sire')}</div>
+        <label style="margin-top:8px;">Dams</label><div class="check-group">${checkList(dams, selDams, 'data-dam')}</div>
+        <span class="field-hint">Any litter or pairing with one of these parents counts: picking a sire and a dam means either one, not only the two together.</span>
+      </div>` : e.status === 'approved' ? `<div class="field field-wide"><span class="field-hint">Listening for certain sires and dams opens once they're on the list (fee received).</span></div>` : ''}
       <div class="field"><label>Paused until</label><input id="f-paused_until" type="date" value="${esc(e.paused_until || '')}">
-        <span class="field-hint">Not offered pups until after this date. They keep their place.</span></div>
+        <span class="field-hint">Not offered pups until after this date. They keep their place, but don't appear on the public list while paused.</span></div>
       <div class="field"><label>Pause reason</label><input id="f-pause_reason" type="text" value="${esc(e.pause_reason || '')}"></div>
 
       <div class="field field-wide"><h3 style="margin:8px 0 0;">Fee</h3></div>
       <div class="field"><label>Fee amount</label><input id="f-fee_amount" type="number" min="0" step="0.01" value="${esc(e.fee_amount ?? '')}"></div>
       <div class="field"><label>Pay by</label><input id="f-fee_due_date" type="date" value="${esc(e.fee_due_date || '')}"></div>
-      <div class="field"><label>Fee policy</label><select id="f-fee_credit_policy">${options(FEE_CREDIT_POLICY, e.fee_credit_policy || '', '—')}</select></div>`}
+      <div class="field"><label>Fee policy</label><select id="f-fee_credit_policy">${options(FEE_CREDIT_POLICY, e.fee_credit_policy || '', '—')}</select></div>
 
       <div class="field field-wide"><h3 style="margin:8px 0 0;">Application</h3>${e.contact_id ? '<span class="field-hint">Name, email and phone are what they applied with. The contact record holds the current ones.</span>' : ''}</div>
-      ${appFields}
+      ${draftQuestions().map((q) => answerField(q, app[q.id])).join('')}
       <div class="field field-wide"><label>Your notes</label><textarea id="f-notes">${esc(e.notes || '')}</textarea></div>
     </div>`;
 
@@ -409,22 +610,31 @@ function readForm() {
   const val = (id) => document.getElementById(id)?.value ?? '';
   const has = (id) => Boolean(document.getElementById(id));
   const application = { ...(ctx.draft.application || {}) };
-  for (const f of APP_FIELDS) application[f.key] = f.multiline ? val(`a-${f.key}`) : val(`a-${f.key}`).trim();
+  const questions = draftQuestions();
+  for (const q of questions) {
+    if (q.type === 'checkboxes') {
+      application[q.id] = [...els.body.querySelectorAll('input[data-answer-cb]')]
+        .filter((el) => el.dataset.answerCb === q.id && el.checked).map((el) => el.value);
+      continue;
+    }
+    const el = [...els.body.querySelectorAll('[data-answer]')].find((x) => x.dataset.answer === q.id);
+    if (!el) continue;
+    application[q.id] = q.type === 'long_text' ? el.value : el.value.trim();
+  }
   const out = {
     pref_sex: val('f-pref_sex') || 'any',
     pref_breed: val('f-pref_breed').trim(),
     pref_placement_type: val('f-pref_placement_type') || '',
     pref_colors: val('f-pref_colors').split(',').map((s) => s.trim()).filter(Boolean),
+    ready_timing: val('f-ready_timing') || null,
     waitlist_program_id: val('f-program') || null,
     application,
+    application_questions: snapshotQuestions(questions),
     notes: val('f-notes')
   };
   if (has('f-applied_date')) out.applied_date = val('f-applied_date') || todayYMD();
-  if (has('f-listen_mode')) {
+  if (has('f-paused_until')) {
     Object.assign(out, {
-      listen_mode: val('f-listen_mode') || 'all',
-      listen_pairing_ids: [...document.querySelectorAll('[data-pairing]:checked')].map((el) => el.dataset.pairing),
-      listen_litter_ids: [...document.querySelectorAll('[data-litter]:checked')].map((el) => el.dataset.litter),
       paused_until: val('f-paused_until') || null,
       pause_reason: val('f-pause_reason').trim(),
       fee_amount: val('f-fee_amount') === '' ? null : Number(val('f-fee_amount')),
@@ -432,26 +642,249 @@ function readForm() {
       fee_credit_policy: val('f-fee_credit_policy') || null
     });
   }
+  if (has('f-listen_mode')) {
+    Object.assign(out, {
+      listen_mode: val('f-listen_mode') || 'all',
+      listen_sire_ids: [...document.querySelectorAll('[data-sire]:checked')].map((el) => el.dataset.sire),
+      listen_dam_ids: [...document.querySelectorAll('[data-dam]:checked')].map((el) => el.dataset.dam)
+    });
+  }
+  const missing = ctx.draft.contact_id ? [] : missingRequired(questions, application);
+  // Readiness is mandatory on a new application (it decides the hold). An older
+  // entry without one can still be edited; its page flags it as not answered.
+  if (ctx.mode === 'new' && !out.ready_timing) missing.push(ctx.form.find((q) => q.key === 'ready_timing')?.label || 'Ready to buy');
+  if (missing.length) throw new Error(`Please fill in: ${missing.map((m) => m.replace(/[?.!:]+$/, '')).join(', ')}.`);
   return out;
 }
 
-// --- Offers (read-only in W1b; W1c adds the offer flow) --------------------------------
+// --- Offers: make one from here, record how it ended (Spec §15.2) --------------------
+
+const pupLabel = (d) => `${d.call_name}${d.sex ? ` (${SEX.find((s) => s.value === d.sex)?.label || d.sex})` : ''}`;
+const kennelLitterPups = (litter) => [...ctx.dogsById.values()].filter((d) => d.litter_id === litter.id);
+const familyNameById = (entryId) => {
+  const x = ctx.kennelEntries.find((k) => k.id === entryId);
+  return x ? entryName(x, ctx.contacts.find((c) => c.id === x.contact_id)) : 'another family';
+};
+
+// Every live litter of this kennel, with whether this family can be offered it now
+// and, if not, why. `next` is who the list says is next (null = nobody / an offer
+// is open).
+function litterChoices(e) {
+  const today = todayYMD();
+  const opts = { today, config: ctx.config, programsById: ctx.programs };
+  return ctx.litters
+    .filter((l) => !l.is_archived && LIVE_LITTER.includes(l.status))
+    .map((l) => {
+      const pups = kennelLitterPups(l);
+      const offers = ctx.kennelOffers.filter((o) => o.litter_id === l.id);
+      const eligible = eligiblePupsFor(e, l, pups, ctx.sales, opts);
+      let blocked = '';
+      if (hasOpenOffer(offers, l.id)) {
+        const open = offers.find((o) => o.outcome === 'open' && !o.is_archived);
+        blocked = open.entry_id === e.id ? 'They already have an open offer on this litter.' : `${familyNameById(open.entry_id)} has an open offer on this litter.`;
+      } else if (turnSpent(offers, l.id, e.id)) blocked = 'They\'ve already had their turn on this litter.';
+      else if (isReadyHeld(e, today)) blocked = `They said they won't be ready to buy until about ${fmtDate(readyFromDate(e))}.`;
+      else if (isManuallyPaused(e, today)) blocked = 'They\'re paused.';
+      else if (!isListeningFor(e, l)) blocked = 'They\'re only listening for litters from other sires/dams.';
+      else if (!pups.some((d) => isPupAvailable(d, ctx.sales))) blocked = 'No pups available yet.';
+      else if (!eligible.length) blocked = 'No available pup matches what they want.';
+      const next = blocked ? null : nextFamilyForLitter(ctx.kennelEntries, offers, l, pups, ctx.sales, opts);
+      return { litter: l, eligible, blocked, next };
+    });
+}
+
+async function onOfferLitter() {
+  const e = ctx.entry;
+  const choices = litterChoices(e);
+  const offerable = choices.filter((c) => !c.blocked);
+  const rowHtml = (c, i) => {
+    const l = c.litter;
+    const picks = l.picks_opened_date ? 'Picks open' : 'Picks not open yet (offering opens them)';
+    const order = c.blocked ? '' : (!c.next || c.next.entry.id === e.id
+      ? '<span class="badge badge-green">They\'re next</span>'
+      : `<span class="badge badge-amber">Next in line is ${esc(familyNameById(c.next.entry.id))}</span>`);
+    return `<label class="check-inline" style="display:block;margin:8px 0;${c.blocked ? 'opacity:.6;' : ''}">
+        <input type="radio" name="ol" value="${esc(l.id)}"${c.blocked ? ' disabled' : ''}${!c.blocked && i === choices.indexOf(offerable[0]) ? ' checked' : ''}>
+        <strong>${esc(litterLabel(l))}</strong> ${order}
+        <div class="faint" style="margin-left:22px;">${c.blocked ? esc(c.blocked) : `${esc(picks)} · pups for them: ${esc(c.eligible.map(pupLabel).join(', '))}`}</div>
+      </label>`;
+  };
+  const days = ctx.programs.get(e.waitlist_program_id)?.respond_days_override || ctx.config.respond_days;
+  await formModal({
+    title: `Offer ${entryName(e, ctx.contact)} a litter`,
+    confirmLabel: 'Make the offer',
+    bodyHtml: choices.length
+      ? `${choices.map(rowHtml).join('')}
+         <p class="field-hint">They get ${esc(days)} days to pick a pup and send the deposit. Offering someone who isn't next doesn't change anyone's place; the next family ${ctx.config.auto_offer_next ? 'is offered' : 'is up'} once this one is settled. Nothing is sent automatically, so tell them yourself.</p>`
+      : '<p class="muted">No upcoming or current litters on this kennel yet.</p>',
+    onConfirm: async (o) => {
+      const picked = o.querySelector('input[name="ol"]:checked');
+      if (!picked) throw new Error('Pick a litter.');
+      const c = choices.find((x) => x.litter.id === picked.value);
+      let note = '';
+      if (c.next && c.next.entry.id !== e.id) {
+        if (!(await confirmModal({ title: 'Offer out of turn?', message: `${familyNameById(c.next.entry.id)} is next in line for this litter. Offer it to ${entryName(e, ctx.contact)} anyway? Nobody's place changes, and ${familyNameById(c.next.entry.id)} still gets their turn afterwards.`, confirmLabel: 'Offer anyway' }))) {
+          throw new Error('Not offered. Pick another litter, or cancel.');
+        }
+        note = `Offered out of turn by you; ${familyNameById(c.next.entry.id)} was next in line.`;
+      }
+      await actions.offerTo(c.litter.id, e.id, { note });
+    }
+  }) && afterAction();
+}
+
+// The turn-moves-on sentence for the outcome prompts: with automatic offers off
+// (the default) nobody is offered; she's told who's next.
+const turnNote = () => (ctx.config.auto_offer_next
+  ? 'The turn moves to the next eligible family.'
+  : 'Nobody is offered automatically; you\'ll see who\'s next.');
+
+async function onOfferOutcome(offer, outcome) {
+  const e = ctx.entry;
+  const name = entryName(e, ctx.contact);
+  const litter = ctx.litters.find((l) => l.id === offer.litter_id);
+  const pups = litter ? kennelLitterPups(litter) : [];
+
+  if (outcome === 'pick') {
+    const live = litter ? eligiblePupsFor(e, litter, pups, ctx.sales, { today: todayYMD(), config: ctx.config }) : [];
+    if (!live.length) { await alertModal({ title: 'No pups available', message: 'None of the pups offered to them is still available.' }); return; }
+    const out = await pickDialog({ offer, name, pups: live, pupLabel });
+    if (!out) return;
+    await afterAction();
+    const saleId = out.res.sale.id;
+    const message = out.depositDone
+      ? [`${name} is placed.`, ...offerChangeLines(out.res)].join('\n\n')
+      : `${dogName(out.res.offer.chosen_dog_id)} is held for ${name} until ${fmtDate(offer.respond_by_date)}. Send them the deposit details (the sale's invoice is under Documents on this page). Record "Deposit received" when it arrives.`;
+    if (await confirmModal({ title: out.depositDone ? 'Deposit received' : 'Pick recorded', message: `${message}\n\nOpen the sale?`, confirmLabel: 'Open the sale', cancelLabel: 'Stay here' })) {
+      location.href = `sale.html?id=${encodeURIComponent(saleId)}`;
+    }
+    return;
+  }
+  if (outcome === 'deposit') {
+    const res = await depositDialog({ offer, name, pupName: dogName(offer.chosen_dog_id), sale: ctx.sales.find((x) => x.id === offer.sale_id) || null });
+    if (!res) return;
+    await afterAction();
+    await alertModal({ title: `${name} is placed`, message: [`Deposit recorded for ${dogName(offer.chosen_dog_id)}.`, ...offerChangeLines(res)].join('\n\n') });
+    return;
+  }
+  if (outcome === 'change') {
+    const options = litter ? switchablePups(e, litter, pups, ctx.sales, { currentDogId: offer.chosen_dog_id, config: ctx.config }) : [];
+    if (await changePickDialog({ offer, name, currentName: dogName(offer.chosen_dog_id), pups: options, pupLabel })) await afterAction();
+    return;
+  }
+  if (outcome === 'undo') {
+    const holder = ctx.kennelOffers.find((o) => o.litter_id === offer.litter_id && o.outcome === 'open' && !o.is_archived && o.id !== offer.id);
+    const res = await undoPassDialog({ offer, name, holderName: holder ? familyNameById(holder.entry_id) : null, removed: e.status === 'removed' });
+    if (!res) return;
+    await afterAction();
+    await alertModal({ title: 'Their turn is back', message: [`${name} is next for ${litter ? litterLabel(litter) : 'this litter'} again, with until ${fmtDate(res.offer.respond_by_date)} to pick and pay the deposit. Let them know; nothing is sent automatically.`, ...offerChangeLines(res)].join('\n\n') });
+    return;
+  }
+
+  const lapse = offer.chosen_dog_id ? ` Their pick lapses: the sale is cancelled and ${dogName(offer.chosen_dog_id)} is available again.` : '';
+  const prompts = {
+    passed: { title: `${name} passed on this litter?`, message: `${turnNote()}${lapse}`, confirmLabel: 'Record it' },
+    no_response: offer.chosen_dog_id
+      ? { title: `No deposit from ${name}?`, message: `Record that the deposit didn't arrive in time. It counts like no response. ${turnNote()}${lapse}`, confirmLabel: 'Record it' }
+      : { title: `${name} didn't respond in time?`, message: turnNote(), confirmLabel: 'Record it' },
+    voided: { title: 'Void this offer?', message: `Use this if the offer was a mistake or the litter fell through. It never counts as a pass for ${name}, and the turn isn't moved on automatically.${lapse}`, confirmLabel: 'Void it' }
+  };
+  if (!(await confirmModal(prompts[outcome]))) return;
+  const res = await actions.recordOutcome(offer.id, outcome);
+  await afterAction();
+  if (res.passes) {
+    const msg = !res.passes.counted ? 'This doesn\'t count as a pass.'
+      : res.removed ? `That was pass ${res.passes.used} of ${res.passes.max}, so they've been removed from the list. You can undo this for ${REMOVAL_UNDO_DAYS} days.`
+      : `This counts as pass ${res.passes.used} of ${res.passes.max}. They keep their place.`;
+    const changes = offerChangeLines(res);
+    await alertModal({ title: 'Recorded', message: [msg, ...changes].join('\n\n') });
+  }
+}
+
+// The buttons under one offer: what she can do with it now.
+function offerButtons(o, today) {
+  const btn = (oc, label, primary = false, title = '') => `<button class="btn ${primary ? 'btn-primary ' : ''}btn-sm" data-oc="${oc}" data-offer="${esc(o.id)}"${title ? ` title="${esc(title)}"` : ''}>${esc(label)}</button>`;
+  let list = [];
+  if (isAwaitingDeposit(o)) {
+    list = [btn('deposit', 'Deposit received…', true), btn('change', 'Change pup…'), btn('passed', 'Passed'), btn('no_response', 'No deposit'), btn('voided', 'Void')];
+  } else if (o.outcome === 'open') {
+    list = [btn('pick', 'Picked a pup…', true), btn('passed', 'Passed'), btn('no_response', 'No response'), btn('voided', 'Void')];
+  } else if (canSwitchAcceptedPick(o, ctx.kennelOffers)) {
+    list = [btn('change', 'Change pup…', false, 'Allowed until the next family is offered this litter')];
+  } else if (!undoPassBlocker(o, ctx.entry, today)) {
+    list = [btn('undo', 'Undo…', false, 'Erase this and give them their turn back')];
+  }
+  return list.length ? `<div class="pill-row" style="margin-top:6px;">${list.join('')}</div>` : '';
+}
 
 function renderOffers() {
   if (ctx.mode !== 'view' || !ctx.offers.length) { els.offers.innerHTML = ''; return; }
+  const today = todayYMD();
   const offers = [...ctx.offers].sort((a, b) => (b.offered_date || '').localeCompare(a.offered_date || ''));
   els.offers.innerHTML = `<section class="card" style="margin-top:16px;">
       <h2 style="margin-top:0;">Offers</h2>
-      <table class="data"><thead><tr><th>Litter</th><th>Offered</th><th>Respond by</th><th>Outcome</th><th>Pass?</th></tr></thead><tbody>${
+      <div style="overflow-x:auto;"><table class="data"><thead><tr><th>Litter</th><th>Offered</th><th>Respond by</th><th>Outcome</th><th>Pass?</th></tr></thead><tbody>${
         offers.map((o) => {
           const l = ctx.litters.find((x) => x.id === o.litter_id);
+          const overdue = o.outcome === 'open' && o.respond_by_date && o.respond_by_date < today;
+          const sale = o.sale_id && isAwaitingDeposit(o) ? ` · <a href="sale.html?id=${encodeURIComponent(o.sale_id)}">sale</a>` : '';
+          const status = isAwaitingDeposit(o)
+            ? `<span class="badge badge-purple">Picked ${esc(dogName(o.chosen_dog_id))}</span> <span class="faint">deposit pending${sale}</span>`
+            : `${badge(WAITLIST_OFFER_OUTCOME, o.outcome)}${o.chosen_dog_id ? ` ${esc(dogName(o.chosen_dog_id))}` : ''}`;
           return `<tr><td>${l ? `<a href="litter.html?id=${encodeURIComponent(l.id)}">${esc(litterLabel(l))}</a>` : none}</td>
-            <td>${esc(fmtDate(o.offered_date))}</td><td>${o.respond_by_date ? esc(fmtDate(o.respond_by_date)) : none}</td>
-            <td>${badge(WAITLIST_OFFER_OUTCOME, o.outcome)}${o.chosen_dog_id ? ` ${esc(dogName(o.chosen_dog_id))}` : ''}</td>
+            <td>${esc(fmtDate(o.offered_date))}</td><td>${o.respond_by_date ? esc(fmtDate(o.respond_by_date)) : none}${overdue ? ' <span class="badge badge-red">Deadline passed</span>' : ''}</td>
+            <td>${status}${offerButtons(o, today)}</td>
             <td>${o.counts_as_pass ? '<span class="badge badge-amber">Counts</span>' : none}${o.notes ? ` <span class="faint" title="${esc(o.notes)}">ⓘ</span>` : ''}</td></tr>`;
         }).join('')
-      }</tbody></table>
+      }</tbody></table></div>
+      <p class="field-hint" style="margin-bottom:0;">An offer is theirs to accept AND pay: a picked pup is held for them, but it's only theirs once the deposit arrives by the respond-by date.</p>
     </section>`;
+  els.offers.querySelectorAll('[data-oc]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const offer = ctx.offers.find((o) => o.id === btn.dataset.offer);
+      onOfferOutcome(offer, btn.dataset.oc).catch((err) => showError(err.message || String(err)));
+    });
+  });
+}
+
+// --- Documents: fee receipt, Sale invoice + receipt (Spec §15.2) ------------------------
+
+function renderDocs() {
+  const e = ctx.entry;
+  if (ctx.mode !== 'view') { els.docs.innerHTML = ''; return; }
+  const docs = [];
+  if (e.fee_received_date && Number(e.fee_amount) > 0) docs.push({ label: 'Application fee receipt', source: 'waitlist', id: e.id, doc: 'receipt' });
+  for (const o of ctx.offers.filter((x) => isAwaitingDeposit(x) && x.sale_id && !x.is_archived)) {
+    docs.push({ label: `Puppy invoice for ${dogName(o.chosen_dog_id)} (deposit pending)`, source: 'sale', id: o.sale_id, doc: 'invoice' });
+  }
+  if (e.placed_sale_id) {
+    docs.push({ label: 'Puppy invoice', source: 'sale', id: e.placed_sale_id, doc: 'invoice' });
+    docs.push({ label: 'Puppy receipt', source: 'sale', id: e.placed_sale_id, doc: 'receipt' });
+  }
+  if (!docs.length) { els.docs.innerHTML = ''; return; }
+  const href = (d) => `invoice.html?source=${encodeURIComponent(d.source)}&id=${encodeURIComponent(d.id)}&doc=${d.doc}`;
+  els.docs.innerHTML = `<section class="card" style="margin-top:16px;">
+      <h2 style="margin-top:0;">Documents</h2>
+      ${docs.map((d, i) => `<div class="row-between" style="padding:6px 0;border-top:${i ? '1px solid var(--border)' : '0'};">
+          <span>${esc(d.label)}</span>
+          <span class="pill-row"><a class="btn btn-sm" href="${esc(href(d))}">View</a><button class="btn btn-sm btn-primary" data-pdf="${i}">Download PDF</button></span>
+        </div>`).join('')}
+      <p class="field-hint" style="margin-bottom:0;">For partial payments, due dates or a custom number, use Invoice / Receipt in Financials.</p>
+    </section>`;
+  els.docs.querySelectorAll('[data-pdf]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      try {
+        const { downloadInvoicePdf } = await import('../assets/invoicePdf.js');
+        const d = docs[Number(btn.dataset.pdf)];
+        await downloadInvoicePdf({ source: d.source, id: d.id, doc: d.doc });
+      } catch (err) {
+        showError(err.message || String(err));
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
 }
 
 // --- Edit lifecycle -----------------------------------------------------------------
@@ -477,6 +910,27 @@ function renderProfileActions() {
   }
 }
 
+// Narrowing an answer while the family has an open offer, or is next for a litter,
+// is what a family could use to dodge a pass (Spec §15.9), so she confirms it.
+// Widening, or narrowing with nothing at stake, saves without asking.
+async function confirmNarrowing(changes) {
+  const e = ctx.entry;
+  const fx = prefChangeEffect(e, changes, {
+    litters: ctx.litters.filter((l) => !l.is_archived && LIVE_LITTER.includes(l.status)),
+    entries: ctx.kennelEntries, offers: ctx.kennelOffers, pups: [...ctx.dogsById.values()], sales: ctx.sales,
+    today: todayYMD(), config: ctx.config, programsById: ctx.programs
+  });
+  if (!fx.openOffers.length && !fx.skippedLitters.length) return true;
+  const lines = [`Narrower: ${fx.narrowed.map((f) => PREF_FIELD_LABEL[f]).join(', ')}.`];
+  for (const l of fx.skippedLitters) lines.push(`They're next for ${litterLabel(l)}. This skips them there, with no pass counted.`);
+  for (const o of fx.openOffers) {
+    const l = ctx.litters.find((x) => x.id === o.litter_id);
+    lines.push(`Their open offer on ${l ? litterLabel(l) : 'a litter'}${o.respond_by_date ? ` (until ${fmtDate(o.respond_by_date)})` : ''} stays open. Passing on it still counts as a pass.`);
+  }
+  lines.push('Make sure this is a real change and not a way around a pass. It goes in their answer history.');
+  return confirmModal({ title: `Narrow what ${entryName(e, ctx.contact)} asked for?`, message: lines.join('\n\n'), confirmLabel: 'Save anyway' });
+}
+
 async function save() {
   const btn = document.getElementById('btn-save');
   if (btn?.disabled) return;
@@ -489,6 +943,7 @@ async function save() {
       location.href = `waitlist-entry.html?id=${encodeURIComponent(saved.id)}`;
       return;
     }
+    if (!(await confirmNarrowing(changes))) return;
     await waitlistEntryRepo.update(ctx.entry.id, changes);
     ctx.mode = 'view';
     await reload();
@@ -513,10 +968,16 @@ async function renderHeaderActions() {
     <button class="btn btn-danger btn-sm" id="btn-delete"${blockers.length ? ' disabled' : ''} title="${esc(delTitle)}">Delete</button>`;
   document.getElementById('btn-archive').onclick = async () => {
     const verb = e.is_archived ? 'Unarchive' : 'Archive';
-    if (!(await confirmModal({ title: `${verb} this entry?`, message: e.is_archived ? '' : 'Archived entries are hidden from the waitlist and drop off the list.', confirmLabel: verb }))) return;
+    if (!(await confirmModal({ title: `${verb} this entry?`, message: e.is_archived ? '' : `Archived entries are hidden from the waitlist and drop off the list.${openOfferWarning()}`, confirmLabel: verb }))) return;
     try {
-      if (e.is_archived) await waitlistEntryRepo.unarchive(e.id); else await waitlistEntryRepo.archive(e.id);
-      await afterAction();
+      if (e.is_archived) {
+        await waitlistEntryRepo.unarchive(e.id);
+        await afterAction();
+      } else {
+        const res = await actions.archiveEntry(e.id);
+        await afterAction();
+        await reportLeaving(res);
+      }
     } catch (err) { showError(err.message || String(err)); }
   };
   if (!blockers.length) {
@@ -552,6 +1013,7 @@ function renderAll() {
   if (ctx.mode === 'view') { renderStatus(); renderView(); els.status.hidden = false; }
   else { els.status.hidden = true; renderEdit(); }
   renderOffers();
+  renderDocs();
 }
 
 async function main() {

@@ -6,7 +6,7 @@
 // never re-fetches a stale precached file on its own; only a CACHE_NAME change
 // (which changes these bytes, so the browser detects a new service worker,
 // installs it, and purges the old cache in `activate`) rolls it over.
-const CACHE_NAME = 'kennelos-shell-v33';
+const CACHE_NAME = 'kennelos-shell-v38';
 
 const PRECACHE_URLS = [
   './',
@@ -41,6 +41,9 @@ const PRECACHE_URLS = [
   'assets/licenseGate.js',
   'assets/ui.js',
   'assets/upgradeNudge.js',
+  'assets/invoiceDoc.js',
+  'assets/invoicePdf.js',
+  'assets/invoiceGenerator.js',
   'assets/waitlistPicksPanel.js',
   'assets/waitlistUI.js',
   'assets/wizardUI.js',
@@ -106,6 +109,7 @@ const PRECACHE_URLS = [
   'data/vocab.js',
   'data/waitlistActions.js',
   'data/waitlistEntryRepo.js',
+  'data/waitlistForm.js',
   'data/waitlistOfferRepo.js',
   'data/waitlistProgramRepo.js',
   'data/waitlistRules.js',
@@ -216,6 +220,8 @@ const PRECACHE_URLS = [
   'pages/upcoming.js',
   'pages/waitlist-entry.html',
   'pages/waitlist-entry.js',
+  'pages/waitlist-form.html',
+  'pages/waitlist-form.js',
   'pages/waitlist-import.html',
   'pages/waitlist-import.js',
   'pages/waitlist-programs.html',
@@ -224,6 +230,7 @@ const PRECACHE_URLS = [
   'pages/waitlist.js',
   'vendor/dexie.min.mjs',
   'vendor/gsi/client.js',
+  'vendor/jspdf.umd.min.js',
   'vendor/lz-string.min.mjs',
   'vendor/papaparse.min.mjs',
   'vendor/tesseract/eng.traineddata.gz',

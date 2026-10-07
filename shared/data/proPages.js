@@ -42,6 +42,8 @@ export const PRO_ONLY_PAGES = [
   'shows.html',
   // Waitlist (Waitlist Spec §11) — the list, one family, and programs
   'waitlist.html', 'waitlist-entry.html', 'waitlist-programs.html', 'waitlist-import.html',
+  // ...and her application form editor (Waitlist Spec §15.1)
+  'waitlist-form.html',
 ];
 
 // Standalone Pro files that live outside pages/ (no nav entry) — also excluded from
@@ -60,7 +62,14 @@ export const PRO_ONLY_STANDALONE = [
   'assets/waitlistUI.js',
   // The Litter page's waitlist picks panel — litter.js imports it dynamically only
   // when editionFlags.waitlist is on, so Lite never requests it.
-  'assets/waitlistPicksPanel.js'
+  'assets/waitlistPicksPanel.js',
+  // Invoice / receipt document model + its PDF renderer (Waitlist Spec §15.2),
+  // used only by the Pro invoice page and the waitlist family page, and the
+  // vendored jsPDF they load on demand.
+  'assets/invoiceDoc.js', 'assets/invoicePdf.js', 'vendor/jspdf.umd.min.js',
+  // The Invoice / Receipt generator modal, opened from Financials and a Sale's
+  // page — both import it dynamically only when editionFlags.invoicing is on.
+  'assets/invoiceGenerator.js'
 ];
 
 // True when a link target (an href like "contact-import.html" or with a query string)

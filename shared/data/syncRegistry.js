@@ -199,23 +199,29 @@ export const SYNC_REGISTRY = Object.freeze({
       // "every date field" (Waitlist Spec §9) — fee_received_date is the position anchor
       'applied_date', 'approved_date', 'declined_date', 'fee_due_date',
       'fee_received_date', 'position_anchor_date', 'paused_until', 'removed_date',
-      'withdrawn_date',
+      'withdrawn_date', 'soon_notified_date',
+      // the same-day tie-breaker of the list order (waitlistRules), so cloud for
+      // the reason fee_received_date is: a restore must not re-order the list
+      'fee_received_at',
       'pref_sex', 'pref_breed', 'pref_placement_type', 'pref_colors',
-      'listen_mode', 'listen_pairing_ids', 'listen_litter_ids',
+      'listen_mode', 'listen_sire_ids', 'listen_dam_ids',
       'removed_reason', 'placed_sale_id'
     ],
+    // pref_change_*: "private tier like application" (Waitlist Spec §15.9).
     private: [
       'application', 'fee_amount', 'fee_payment_method', 'fee_payment_reference',
-      'fee_credit_policy', 'pause_reason', 'notes'
+      'fee_credit_policy', 'pause_reason', 'notes', 'pref_change_log', 'pref_change_request'
     ],
-    pending: []
+    // Added on main after §9 was written; not classified by any doc yet.
+    pending: ['ready_timing', 'soon_notified_litter_ids']
   },
 
   waitlist_offers: {
     rows: ALL,
     cloud: [
       'entry_id', 'litter_id', 'kennel_id', 'offered_date', 'respond_by_date',
-      'eligible_dog_ids', 'outcome', 'outcome_date', 'chosen_dog_id', 'counts_as_pass'
+      'eligible_dog_ids', 'outcome', 'outcome_date', 'chosen_dog_id', 'counts_as_pass',
+      'picked_date', 'sale_id' // §9: "every field except notes"
     ],
     private: ['notes'],
     pending: []

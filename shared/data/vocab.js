@@ -177,7 +177,19 @@ export const WAITLIST_PRIORITY = [
 
 export const WAITLIST_LISTEN_MODE = [
   { value: 'all',      label: 'All litters',            badge: 'badge-gray' },
-  { value: 'selected', label: 'Selected litters only', badge: 'badge-blue' }
+  { value: 'selected', label: 'Selected sires & dams only', badge: 'badge-blue' }
+];
+
+// The application's locked "how soon could you buy?" answer (Waitlist Spec §15.8),
+// stored on WaitlistEntry.ready_timing. `hold_months` is the automatic readiness
+// hold: no offers until that many months after the fee was received (or approval,
+// if there's no fee) — the soonest they said they could commit, so a pup is never
+// held back from a family who could take it by then. Her answers (2026-10-07).
+export const WAITLIST_READY_TIMING = [
+  { value: 'asap',          label: 'ASAP',      badge: 'badge-green', hold_months: 0 },
+  { value: '1_month',       label: '1 month',   badge: 'badge-blue',  hold_months: 1 },
+  { value: '3_months',      label: '3 months',  badge: 'badge-amber', hold_months: 3 },
+  { value: '6_plus_months', label: '6+ months', badge: 'badge-gray',  hold_months: 6 }
 ];
 
 // A family's sex preference: SEX plus "any" (the default).
@@ -185,6 +197,19 @@ export const WAITLIST_PREF_SEX = [
   { value: 'any',    label: 'Either',  badge: 'badge-gray' },
   { value: 'male',   label: 'Male',    badge: 'badge-blue' },
   { value: 'female', label: 'Female',  badge: 'badge-purple' }
+];
+
+// Answer types for her own application questions (Waitlist Spec §15.1). The
+// locked questions use three more internal types (email, preference, notice)
+// that she can't pick, so they aren't listed here.
+export const WAITLIST_QUESTION_TYPE = [
+  { value: 'short_text',    label: 'Short answer' },
+  { value: 'long_text',     label: 'Paragraph' },
+  { value: 'single_choice', label: 'Multiple choice (pick one)' },
+  { value: 'checkboxes',    label: 'Checkboxes (pick any)' },
+  { value: 'yes_no',        label: 'Yes / no' },
+  { value: 'number',        label: 'Number' },
+  { value: 'date',          label: 'Date' }
 ];
 
 export const FEE_CREDIT_POLICY = [

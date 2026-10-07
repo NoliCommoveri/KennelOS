@@ -23,11 +23,13 @@ import { studServiceRepo } from './studServiceRepo.js';
 import { expenseRepo, mileageAmount } from './expenseRepo.js';
 import { waitlistEntryRepo } from './waitlistEntryRepo.js';
 import { waitlistProgramRepo } from './waitlistProgramRepo.js';
+import { formQuestions, isAnswerQuestion, snapshotQuestions, columnsFor, IMPORT_ALIASES } from './waitlistForm.js';
+import { waitlistConfig, kennelBreeds, resolveBreed } from './waitlistRules.js';
 import { getMyKennelId, getMileageDefaults } from './settings.js';
 import {
   SEX, OWNERSHIP_TYPE, DOG_STATUS, CONTACT_TYPE, PAIRING_TYPE, PAIRING_METHOD, PAIRING_STATUS,
   LITTER_STATUS, PLACEMENT_TYPE, SALE_STATUS, eventTypesFor, STUD_SERVICE_DIRECTION, FEE_STRUCTURE, STUD_SERVICE_STATUS,
-  EXPENSE_CATEGORIES, EXPENSE_SUBJECT_TYPES, WAITLIST_PREF_SEX, WAITLIST_OPEN_STATUSES
+  EXPENSE_CATEGORIES, EXPENSE_SUBJECT_TYPES, WAITLIST_PREF_SEX, WAITLIST_OPEN_STATUSES, WAITLIST_READY_TIMING
 } from './vocab.js';
 
 // --- Parsing --------------------------------------------------------------
@@ -1376,31 +1378,27 @@ const EXPENSE_MAPPING = {
 //    (they're already on the list; don't touch a live family from an old row).
 // Contacts are NOT matched here: approval offers the match (Spec §5.2), the same
 // "offered, never automatic" rule.
-const APP_COLUMNS = [
-  ['phone', 'phone', 'phone_number', 'telephone'],
-  ['location', 'location', 'city_state', 'city', 'city_/_state', 'where_do_you_live'],
-  ['timing', 'timing', 'when', 'when_are_you_hoping_to_bring_a_puppy_home'],
-  ['heard_from', 'heard_from', 'how_did_you_hear_about_us', 'referral', 'source'],
-  ['household', 'household', 'household_members', 'tell_us_about_your_household'],
-  ['other_pets', 'other_pets', 'pets', 'current_pets'],
-  ['experience', 'experience', 'breed_experience', 'dog_experience'],
-  ['about', 'about', 'about_your_family', 'tell_us_about_your_family', 'anything_else']
-];
-
+// The columns each question reads come from waitlistForm.js: her own form's
+// imported column (`source_header`, Spec §15.1) first, then the built-in aliases,
+// so a Google Form export lines up with the questions she imported from it.
 const WAITLIST_MAPPING = {
   entity: 'waitlist',
   label: 'Waitlist applications',
-  templateHeaders: ['name', 'email', 'phone', 'location', 'applied_date', 'pref_sex', 'pref_breed', 'pref_placement', 'pref_colors', 'program', 'timing', 'heard_from', 'household', 'other_pets', 'experience', 'about', 'kennel_name', 'notes'],
+  templateHeaders: ['name', 'email', 'phone', 'location', 'applied_date', 'pref_sex', 'pref_breed', 'pref_placement', 'pref_colors', 'ready_timing', 'program', 'heard_from', 'household', 'other_pets', 'experience', 'about', 'kennel_name', 'notes'],
   requiredForCreate: ['name', 'email'],
 
   async loadExisting() {
-    const [entries, own, programs, contacts] = await Promise.all([
+    const [entries, own, programs, contacts, dogs] = await Promise.all([
       waitlistEntryRepo.getAll(),
       ownKennels(),
       waitlistProgramRepo.getAll(),
-      contactRepo.getAll({ includeArchived: true })
+      contactRepo.getAll({ includeArchived: true }),
+      dogRepo.getAll()
     ]);
     this._own = own;
+    // Each kennel's breeds: a breed preference must be one of them (never free text).
+    this._breedsByKennel = new Map(own.map((k) => [k.id, kennelBreeds(k, dogs)]));
+    this._formByKennel = new Map(own.map((k) => [k.id, formQuestions(waitlistConfig(k))]));
     this._programs = programs;
     this._contactsById = new Map(contacts.map((c) => [c.id, c]));
     // The import page sets `preferredKennelId` from its kennel picker; otherwise
@@ -1426,18 +1424,10 @@ const WAITLIST_MAPPING = {
 
   classify(row, index, i) {
     const reasons = [];
-    const name = col(row, 'name', 'full_name', 'your_name', 'applicant_name');
-    const email = col(row, 'email', 'email_address', 'your_email');
-    const application = {};
-    if (name) application.name = name;
-    if (email) application.email = email;
-    for (const [key, ...aliases] of APP_COLUMNS) {
-      const v = col(row, ...aliases);
-      if (v) application[key] = v;
-    }
-    const record = { status: 'applied', application };
+    const record = { status: 'applied' };
 
-    // Kennel: a named own kennel, else the active/sole kennel.
+    // Kennel first (a named own kennel, else the active/sole kennel): its form
+    // decides which columns hold which answers.
     const kName = col(row, 'kennel_name', 'kennel');
     if (kName) {
       const hit = index.kennelByName.get(kName.toLowerCase());
@@ -1446,6 +1436,23 @@ const WAITLIST_MAPPING = {
     } else if (this._defaultKennelId) {
       record.kennel_id = this._defaultKennelId;
     }
+    const form = (this._formByKennel && this._formByKennel.get(record.kennel_id)) || formQuestions({});
+    const colsFor = (id) => {
+      const question = form.find((x) => x.id === id);
+      return question ? columnsFor(question) : (IMPORT_ALIASES[id] || [id]);
+    };
+
+    // Answers, keyed by question id, with the wording they were imported under.
+    const application = {};
+    for (const question of form.filter(isAnswerQuestion)) {
+      const v = col(row, ...columnsFor(question));
+      if (!v) continue;
+      application[question.id] = question.type === 'checkboxes' ? v.split(/,\s+|;\s*/).map((x) => x.trim()).filter(Boolean) : v;
+    }
+    const name = application.name || '';
+    const email = application.email || '';
+    record.application = application;
+    record.application_questions = snapshotQuestions(form);
 
     // Applied date: a Google Form "Timestamp" carries a time — keep the date part.
     const rawDate = col(row, 'applied_date', 'timestamp', 'date', 'submitted');
@@ -1455,21 +1462,37 @@ const WAITLIST_MAPPING = {
       else reasons.push(`Unrecognized applied_date "${rawDate}" (left blank).`);
     }
 
-    const sexRaw = col(row, 'pref_sex', 'sex', 'preferred_sex', 'male_or_female');
+    const sexRaw = col(row, ...colsFor('pref_sex'));
     if (sexRaw) {
       const v = normEnum(WAITLIST_PREF_SEX, sexRaw, { either: 'any', no_preference: 'any', none: 'any', boy: 'male', girl: 'female' });
       if (v) record.pref_sex = v;
       else reasons.push(`Unrecognized sex preference "${sexRaw}" (left as either).`);
     }
-    const breed = col(row, 'pref_breed', 'breed', 'preferred_breed');
-    if (breed) record.pref_breed = breed;
-    const placementRaw = col(row, 'pref_placement', 'pref_placement_type', 'placement', 'placement_type');
+    // Breed resolves against that kennel's breeds (case-insensitive) and takes the
+    // kennel's spelling; an unknown one is flagged and left as any, never invented.
+    const breed = col(row, ...colsFor('pref_breed'));
+    if (breed) {
+      const hit = resolveBreed(breed, (this._breedsByKennel && this._breedsByKennel.get(record.kennel_id)) || []);
+      if (hit) record.pref_breed = hit;
+      else reasons.push(`Breed "${breed}" isn't one of this kennel's breeds (left as any). Pick it on their page.`);
+    }
+    const placementRaw = col(row, ...colsFor('pref_placement'));
     if (placementRaw) {
       const v = normEnum(PLACEMENT_TYPE, placementRaw);
       if (v) record.pref_placement_type = v;
       else reasons.push(`Unrecognized placement "${placementRaw}" (left as any).`);
     }
-    const colors = splitList(col(row, 'pref_colors', 'colors', 'color', 'preferred_color'));
+    // The soonest they can commit (the readiness hold, Spec §15.8). "1", "1 month",
+    // "3 months", "6+ months", "ASAP" all read; anything else is flagged and left blank.
+    const readyRaw = col(row, ...colsFor('ready_timing'));
+    if (readyRaw) {
+      const k = readyRaw.toLowerCase().replace(/\s*months?\b/, '').replace(/\s+/g, '').trim();
+      const v = { asap: 'asap', immediately: 'asap', now: 'asap', '1': '1_month', '3': '3_months', '6': '6_plus_months', '6+': '6_plus_months', '6plus': '6_plus_months' }[k]
+        || normEnum(WAITLIST_READY_TIMING, readyRaw);
+      if (v) record.ready_timing = v;
+      else reasons.push(`Unrecognized "ready to purchase" answer "${readyRaw}" (left blank). Pick it on their page.`);
+    }
+    const colors = splitList(col(row, ...colsFor('pref_colors')));
     if (colors.length) record.pref_colors = colors;
     const notes = col(row, 'notes');
     if (notes) record.notes = notes;
@@ -1509,7 +1532,8 @@ const WAITLIST_MAPPING = {
     // still under review — never its kennel, status or dates.
     const changes = match ? {
       application: { ...(match.application || {}), ...application },
-      ...Object.fromEntries(['pref_sex', 'pref_breed', 'pref_placement_type', 'pref_colors', 'waitlist_program_id', 'notes']
+      application_questions: record.application_questions,
+      ...Object.fromEntries(['pref_sex', 'pref_breed', 'pref_placement_type', 'pref_colors', 'ready_timing', 'waitlist_program_id', 'notes']
         .filter((k) => record[k] !== undefined).map((k) => [k, record[k]]))
     } : { ...record };
 

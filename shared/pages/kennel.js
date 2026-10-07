@@ -22,7 +22,7 @@ import { getIncomeRows, summarize } from '../data/incomeView.js';
 import { getActiveKennelId, setActiveKennel } from '../data/kennelScope.js';
 import { DOG_STATUS, LITTER_STATUS, SALE_STATUS, FEE_CREDIT_POLICY } from '../data/vocab.js';
 import { editionFlags } from '../data/editionConfig.js';
-import { waitlistConfig } from '../data/waitlistRules.js';
+import { waitlistConfig, SOON_NOTICE_DEFAULT } from '../data/waitlistRules.js';
 import { esc, badge, fmtDate, fmtMoney, param } from '../assets/ui.js';
 import { renderExpensePanel } from '../assets/expensePanel.js';
 import { renderKennelCardSection } from '../assets/kennelCardUI.js';
@@ -357,21 +357,27 @@ function waitlistCard(k) {
   const policyOpts = FEE_CREDIT_POLICY.map((o) => `<option value="${esc(o.value)}"${o.value === c.fee_credit_policy ? ' selected' : ''}>${esc(o.label)}</option>`).join('');
   return `
     <section class="card" id="waitlist-settings">
-      <div class="row-between"><h2 style="margin:0;">Waitlist settings</h2><a class="btn btn-sm" href="waitlist.html?kennel=${encodeURIComponent(k.id)}">Open waitlist →</a></div>
+      <div class="row-between"><h2 style="margin:0;">Waitlist settings</h2><span class="pill-row"><a class="btn btn-sm" href="waitlist-form.html?kennel=${encodeURIComponent(k.id)}">Application form →</a><a class="btn btn-sm" href="waitlist.html?kennel=${encodeURIComponent(k.id)}">Open waitlist →</a></span></div>
       <p class="field-hint">How ${esc(k.kennel_name)}'s waitlist works. Programs can change the fee and response window for particular families.</p>
       <div class="form-grid">
         <div class="field"><label>Application fee</label><input id="wl-fee" type="number" min="0" step="0.01" value="${esc(c.fee_amount ?? '')}" placeholder="No fee"></div>
         <div class="field"><label>The fee is</label><select id="wl-policy">${policyOpts}</select></div>
         <div class="field"><label>Days to pay after approval</label><input id="wl-fee-days" type="number" min="1" step="1" value="${esc(c.fee_due_days ?? '')}" placeholder="No deadline">
           <span class="field-hint">Blank = no pay-by date, so nothing ever expires.</span></div>
-        <div class="field"><label>Days to respond to an offer</label><input id="wl-respond" type="number" min="1" step="1" value="${esc(c.respond_days)}"></div>
+        <div class="field"><label>Days to accept and pay the deposit</label><input id="wl-respond" type="number" min="1" step="1" value="${esc(c.respond_days)}">
+          <span class="field-hint">From the offer. A pup they pick is held until then; no deposit in time counts as no response.</span></div>
         <div class="field"><label>Passes before removal</label><input id="wl-passes" type="number" min="1" step="1" value="${esc(c.max_passes)}"></div>
         <div class="field field-wide"><label>Payment instructions</label><textarea id="wl-instructions" placeholder="Venmo @…, Zelle …, or a check to …">${esc(c.payment_instructions)}</textarea>
           <span class="field-hint">What you tell approved families about paying the fee.</span></div>
         <div class="field field-wide">
           <label class="check-inline"><input id="wl-noresp" type="checkbox"${c.no_response_counts_as_pass ? ' checked' : ''}> No response by the deadline counts as a pass</label>
           <label class="check-inline"><input id="wl-colors" type="checkbox"${c.color_matching ? ' checked' : ''}> Match on color (only offer pups in a color the family listed)</label>
+          <label class="check-inline"><input id="wl-auto" type="checkbox"${c.auto_offer_next ? ' checked' : ''}> Offer the next family automatically when an offer closes</label>
+          <span class="field-hint">Off: every offer is made by you, with "Offer to them" or "Offer a litter…"; the app just tells you who's next.</span>
         </div>
+        <div class="field field-wide"><label for="wl-soon-text">"Almost your turn" message</label>
+          <textarea id="wl-soon-text" style="min-height:130px;">${esc(c.soon_notice_text || SOON_NOTICE_DEFAULT)}</textarea>
+          <span class="field-hint">Sent from the Almost your turn… button to families whose turn is coming up. The first line is the email subject. [Kennel Name] becomes ${esc(k.kennel_name)}. Clear it to go back to the default.</span></div>
       </div>
       <div class="form-actions"><button class="btn btn-primary btn-sm" data-act="save-waitlist">Save</button></div>
     </section>`;
@@ -390,7 +396,10 @@ async function onSaveWaitlist() {
     max_passes: num('#wl-passes'),
     payment_instructions: q('#wl-instructions').value.trim(),
     no_response_counts_as_pass: q('#wl-noresp').checked,
-    color_matching: q('#wl-colors').checked
+    color_matching: q('#wl-colors').checked,
+    auto_offer_next: q('#wl-auto').checked,
+    // Stored only when she's changed it, so the default wording stays the default.
+    soon_notice_text: q('#wl-soon-text').value.trim() === SOON_NOTICE_DEFAULT.trim() ? '' : q('#wl-soon-text').value.trim()
   };
   if (waitlist_config.max_passes != null && waitlist_config.max_passes < 1) { showError('Passes before removal must be at least 1.'); return; }
   try {

@@ -882,7 +882,8 @@ test('expense: a receipt_number is an idempotent override key - it matches regar
 // ===========================================================================
 const wlMapping = getMapping('waitlist');
 
-function wlSetup(existing = [], { defaultKennelId = 'k1', programs = [], contacts = [] } = {}) {
+function wlSetup(existing = [], { defaultKennelId = 'k1', programs = [], contacts = [], breeds = ['Boxer', 'Boston Terrier'] } = {}) {
+  wlMapping._breedsByKennel = new Map([['k1', breeds], ['k2', breeds]]);
   wlMapping._own = [{ id: 'k1', kennel_name: 'Thornfield Kennels', is_own_kennel: true }, { id: 'k2', kennel_name: 'Second Kennel', is_own_kennel: true }];
   wlMapping._programs = programs;
   wlMapping._contactsById = new Map(contacts.map((c) => [c.id, c]));
@@ -892,7 +893,7 @@ function wlSetup(existing = [], { defaultKennelId = 'k1', programs = [], contact
 
 test('waitlist: a new email creates an applied entry on the default kennel, Google Form timestamp → date', () => {
   const idx = wlSetup();
-  const r = wlMapping.classify({ name: 'Leo Grant', email: 'Leo@Example.com', timestamp: '10/5/2026 14:33:00', sex: 'Boy', breed: 'Boxer', colors: 'red; fawn', household: 'Two adults' }, idx, 0);
+  const r = wlMapping.classify({ name: 'Leo Grant', email: 'Leo@Example.com', timestamp: '10/5/2026 14:33:00', sex: 'Boy', breed: ' boxer', colors: 'red; fawn', household: 'Two adults' }, idx, 0);
   assert.equal(r.status, 'create');
   assert.equal(r.record.kennel_id, 'k1');
   assert.equal(r.record.status, 'applied');
@@ -902,6 +903,14 @@ test('waitlist: a new email creates an applied entry on the default kennel, Goog
   assert.deepEqual(r.record.pref_colors, ['red', 'fawn']);
   assert.equal(r.record.application.household, 'Two adults');
   assert.equal(r.record.contact_id, undefined, 'contacts are matched at approval, never on import');
+});
+
+test('waitlist: a breed that isn\'t one of the kennel\'s breeds is flagged and left as any, never invented', () => {
+  const idx = wlSetup();
+  const r = wlMapping.classify({ name: 'Bo', email: 'bo@example.com', breed: 'Bostons' }, idx, 0);
+  assert.equal(r.status, 'create');
+  assert.equal(r.record.pref_breed, undefined);
+  assert.ok(r.reasons.some((x) => /Breed "Bostons" isn't one of this kennel's breeds/.test(x)));
 });
 
 test('waitlist: no email or no name → needs review, default skip (keyless rows are never auto-created)', () => {

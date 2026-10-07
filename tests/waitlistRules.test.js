@@ -8,10 +8,13 @@ import assert from 'node:assert/strict';
 import {
   waitlistConfig, WAITLIST_CONFIG_DEFAULTS, feeForEntry, isFeeWaived, feeDueDate, respondByDate,
   anchorDate, isMovedByBreeder, rankedList, overallPositions,
-  isPupAvailable, pupMatchesPrefs, prefColorTokens, isPaused, isListeningFor, eligiblePupsFor,
-  litterQueue, nextFamilyForLitter, hasOpenOffer,
+  isPupAvailable, pupMatchesPrefs, prefColorTokens, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, isListeningFor, eligiblePupsFor,
+  litterQueue, nextFamilyForLitter, hasOpenOffer, turnSpent,
   countsAsPass, passesUsed, shouldRemoveForPasses, canUndoRemoval, passToForgive,
   overdueOffers, overdueFees, deriveContactWaitlistStatus, contactMatches, entryName,
+  soonFamiliesForLitter, soonFamiliesForKennel, soonNoticeText, SOON_NOTICE_DEFAULT, describeOfferChanges,
+  isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker, kennelBreeds, resolveBreed,
+  prefChangeLines, narrowedPrefs, prefChangeEffect, PREF_CHANGE_FIELDS,
 } from '../shared/data/waitlistRules.js';
 
 const K = 'kennel-a';
@@ -25,8 +28,8 @@ const entry = (over = {}) => ({
   is_archived: false,
   listen_mode: 'all',
   pref_sex: 'any',
-  listen_pairing_ids: [],
-  listen_litter_ids: [],
+  listen_sire_ids: [],
+  listen_dam_ids: [],
   approved_date: '2026-01-01',
   fee_received_date: '2026-01-10',
   created_at: '2026-01-01T00:00:00.000Z',
@@ -53,6 +56,8 @@ test('waitlistConfig: no kennel / no config → defaults; blank values fall back
   assert.equal(c.fee_amount, 250);
   assert.equal(c.no_response_counts_as_pass, true, 'Q3 decided: no response counts by default');
   assert.equal(c.color_matching, false);
+  assert.equal(c.auto_offer_next, false, 'decided 2026-10-06: offers are made by her unless she turns this on');
+  assert.equal(waitlistConfig({ waitlist_config: { auto_offer_next: true } }).auto_offer_next, true);
 });
 
 test('fees: a program override wins, 0 means waived, and a blank override is the normal fee', () => {
@@ -188,13 +193,17 @@ test('pause: paused through paused_until inclusive, back in contention the day a
   assert.equal(isPaused(entry(), TODAY), false);
 });
 
-test('listen-only: considered only for chosen litters or pairings', () => {
-  const l = litter();
+test('listen-only: considered only for litters by a chosen sire OR out of a chosen dam', () => {
+  const l = litter({ sire_id: 'S1', dam_id: 'D1' });
+  const sel = (over) => entry({ listen_mode: 'selected', ...over });
   assert.equal(isListeningFor(entry(), l), true);
-  assert.equal(isListeningFor(entry({ listen_mode: 'selected' }), l), false);
-  assert.equal(isListeningFor(entry({ listen_mode: 'selected', listen_litter_ids: ['L1'] }), l), true);
-  assert.equal(isListeningFor(entry({ listen_mode: 'selected', listen_pairing_ids: ['P1'] }), l), true);
-  assert.equal(isListeningFor(entry({ listen_mode: 'selected', listen_pairing_ids: ['P1'] }), litter({ pairing_id: null })), false);
+  assert.equal(isListeningFor(sel(), l), false, 'nothing picked yet');
+  assert.equal(isListeningFor(sel({ listen_sire_ids: ['S1'] }), l), true);
+  assert.equal(isListeningFor(sel({ listen_dam_ids: ['D1'] }), l), true);
+  assert.equal(isListeningFor(sel({ listen_sire_ids: ['S1'], listen_dam_ids: ['D9'] }), l), true, 'either side is enough');
+  assert.equal(isListeningFor(sel({ listen_sire_ids: ['S9'], listen_dam_ids: ['D9'] }), l), false);
+  assert.equal(isListeningFor(sel({ listen_sire_ids: ['D1'] }), l), false, 'a dog picked as sire never matches the dam side');
+  assert.equal(isListeningFor(sel({ listen_sire_ids: ['S1'] }), litter({ sire_id: null, dam_id: 'D1' })), false, 'unknown sire');
 });
 
 test('eligible pups: only this litter, available, matching — and none for an ineligible family', () => {
@@ -362,4 +371,277 @@ test('expectedPricing: by the pup\'s sex from the litter; nulls when unknown or 
   assert.deepEqual(expectedPricing({ sex: 'female' }, litter), { price: 2800, deposit_amount: null });
   assert.deepEqual(expectedPricing({ sex: '' }, litter), { price: null, deposit_amount: null });
   assert.deepEqual(expectedPricing({ sex: 'male' }, null), { price: null, deposit_amount: null });
+});
+
+test('turnSpent: any offer but a voided one uses up the family\'s turn on that litter', () => {
+  const offers = [
+    offer({ entry_id: 'a', litter_id: 'L1', outcome: 'passed' }),
+    offer({ entry_id: 'b', litter_id: 'L1', outcome: 'voided' }),
+    offer({ entry_id: 'c', litter_id: 'L2', outcome: 'open' }),
+    offer({ entry_id: 'd', litter_id: 'L1', outcome: 'open', is_archived: true }),
+  ];
+  assert.equal(turnSpent(offers, 'L1', 'a'), true);
+  assert.equal(turnSpent(offers, 'L1', 'b'), false, 'a voided offer gives the turn back');
+  assert.equal(turnSpent(offers, 'L1', 'c'), false, 'another litter');
+  assert.equal(turnSpent(offers, 'L1', 'd'), false, 'archived offers are ignored');
+});
+
+// --- "It's almost your turn" (Spec §15.5) ---------------------------------------
+
+test('soon: one family per available pup, in line order, skipping ineligible families', () => {
+  const L = litter();
+  const pups = [pup(), pup()];
+  const a = entry({ fee_received_date: '2026-01-01' });
+  const paused = entry({ fee_received_date: '2026-01-02', paused_until: '2026-12-31' });
+  const b = entry({ fee_received_date: '2026-01-03' });
+  const c = entry({ fee_received_date: '2026-01-04' });
+  const rows = soonFamiliesForLitter([c, b, paused, a], [], L, pups, [], { today: TODAY });
+  assert.deepEqual(rows.map((r) => r.entry.id), [a.id, b.id], 'two pups → the first two eligible families');
+  assert.deepEqual(rows.map((r) => r.soonPosition), [1, 2]);
+  assert.ok(rows.every((r) => !r.inFlight));
+});
+
+test('soon: a family with an open offer anywhere counts toward the pups but is in flight', () => {
+  const L1 = litter({ id: 'L1' });
+  const pups = [pup(), pup()];
+  const a = entry({ fee_received_date: '2026-01-01' });
+  const b = entry({ fee_received_date: '2026-01-02' });
+  const c = entry({ fee_received_date: '2026-01-03' });
+  // `a` is mid-decision on ANOTHER litter.
+  const offers = [offer({ entry_id: a.id, litter_id: 'L2' })];
+  const rows = soonFamiliesForLitter([a, b, c], offers, L1, pups, [], { today: TODAY });
+  assert.deepEqual(rows.map((r) => [r.entry.id, r.inFlight]), [[a.id, true], [b.id, false]],
+    'a takes a pup\'s worth of room, so c is not reached');
+});
+
+test('soon: an open offer on this litter counts; a closed turn here frees the room', () => {
+  const L = litter();
+  const pups = [pup(), pup()];
+  const a = entry({ fee_received_date: '2026-01-01' });
+  const b = entry({ fee_received_date: '2026-01-02' });
+  const c = entry({ fee_received_date: '2026-01-03' });
+  const openHere = [offer({ entry_id: b.id })];
+  assert.deepEqual(soonFamiliesForLitter([a, b, c], openHere, L, pups, [], { today: TODAY }).map((r) => [r.entry.id, r.inFlight]),
+    [[a.id, false], [b.id, true]]);
+  const passedHere = [offer({ entry_id: a.id, outcome: 'passed' })];
+  assert.deepEqual(soonFamiliesForLitter([a, b, c], passedHere, L, pups, [], { today: TODAY }).map((r) => r.entry.id),
+    [b.id, c.id], 'a already passed on this litter, so they are not counted');
+  // The family holding this litter's open offer is now paused: still holds the turn.
+  const pausedHolder = entry({ fee_received_date: '2026-01-01', paused_until: '2026-12-31' });
+  assert.deepEqual(soonFamiliesForLitter([pausedHolder, b, c], [offer({ entry_id: pausedHolder.id })], L, pups, [], { today: TODAY })
+    .map((r) => r.entry.id), [b.id]);
+});
+
+test('soon: no available pups → nobody', () => {
+  const placed = pup({ disposition: 'placed' });
+  assert.deepEqual(soonFamiliesForLitter([entry()], [], litter(), [placed], [], { today: TODAY }), []);
+});
+
+test('soon across litters: one row per family, in list order; in-flight families flagged', () => {
+  const L1 = litter({ id: 'L1' });
+  const L2 = litter({ id: 'L2', pairing_id: 'P2' });
+  const pups = [pup({ litter_id: 'L1' }), pup({ litter_id: 'L2' }), pup({ litter_id: 'L2' })];
+  const a = entry({ fee_received_date: '2026-01-01' });
+  const b = entry({ fee_received_date: '2026-01-02' });
+  const c = entry({ fee_received_date: '2026-01-03' });
+  const offers = [offer({ entry_id: a.id, litter_id: 'L1' })];
+  const rows = soonFamiliesForKennel([c, b, a], offers, [L1, L2], pups, [], { today: TODAY });
+  assert.deepEqual(rows.map((r) => r.entry.id), [a.id, b.id]);
+  assert.equal(rows[0].inFlight, true, 'a holds an offer on L1');
+  assert.deepEqual(rows[0].litters.map((x) => x.litter.id), ['L1', 'L2']);
+  assert.deepEqual(rows[1].litters.map((x) => [x.litter.id, x.soonPosition]), [['L2', 2]]);
+});
+
+test('soonNoticeText: her default, [Kennel Name] filled in, first line is the subject', () => {
+  const n = soonNoticeText(waitlistConfig(null), 'Thornfield Kennels');
+  assert.equal(n.subject, "It's almost your turn!");
+  assert.ok(n.body.startsWith('Thornfield Kennels has puppies who will soon be searching'));
+  assert.ok(!n.text.includes('[Kennel Name]'));
+  assert.ok(SOON_NOTICE_DEFAULT.includes('[Kennel Name]'));
+  const custom = soonNoticeText({ soon_notice_text: 'Pups soon\nHi from [kennel name]!' }, 'Oak');
+  assert.deepEqual([custom.subject, custom.body], ['Pups soon', 'Hi from Oak!']);
+});
+
+test('describeOfferChanges: nothing changed → no lines; voids and new offers are named', () => {
+  const opts = { nameOf: (id) => `fam-${id}`, litterOf: (id) => `lit-${id}` };
+  assert.deepEqual(describeOfferChanges({}, opts), []);
+  const lines = describeOfferChanges({
+    next: offer({ entry_id: 'x', litter_id: 'A', respond_by_date: '2026-10-09' }),
+    voided: [offer({ litter_id: 'B' })],
+    offered: [offer({ entry_id: 'y', litter_id: 'B', respond_by_date: '2026-10-09' })],
+  }, opts);
+  assert.equal(lines.length, 3);
+  assert.match(lines[0], /lit-B was voided \(not a pass\)/);
+  assert.match(lines[1], /lit-A: now offered to fam-x/);
+  assert.match(lines[2], /lit-B: now offered to fam-y/);
+  assert.match(describeOfferChanges({ voided: [offer({ litter_id: 'B' })] }, opts).at(-1), /Nobody else/);
+});
+
+// --- Her fixes, 2026-10-06 ---------------------------------------------------------
+
+test('order: two fees on the same day stay in the order they were PAID, not the order they applied', () => {
+  // Applied/approved first, but paid second.
+  const early = entry({ id: 'early', approved_date: '2026-01-01', created_at: '2026-01-01T00:00:00.000Z', fee_received_date: '2026-02-01', fee_received_at: '2026-02-01T15:00:00.000Z' });
+  const late = entry({ id: 'late', approved_date: '2026-01-20', created_at: '2026-01-20T00:00:00.000Z', fee_received_date: '2026-02-01', fee_received_at: '2026-02-01T09:00:00.000Z' });
+  assert.deepEqual(rankedList([early, late], K).map((e) => e.id), ['late', 'early']);
+  // A different fee DATE still wins over the recorded time.
+  const backdated = entry({ id: 'back', fee_received_date: '2026-01-31', fee_received_at: '2026-02-02T09:00:00.000Z' });
+  assert.deepEqual(rankedList([early, late, backdated], K).map((e) => e.id), ['back', 'late', 'early']);
+});
+
+test('awaiting deposit: an open offer with a pick; never a closed one', () => {
+  assert.equal(isAwaitingDeposit(offer({ chosen_dog_id: 'd' })), true);
+  assert.equal(isAwaitingDeposit(offer()), false);
+  assert.equal(isAwaitingDeposit(offer({ outcome: 'accepted', chosen_dog_id: 'd' })), false);
+});
+
+test('a held pick keeps the litter\'s turn: nobody else is next while it waits on the deposit', () => {
+  const a = entry({ id: 'a', fee_received_date: '2026-01-01' });
+  const b = entry({ id: 'b', fee_received_date: '2026-02-01' });
+  const pups = [pup({ id: 'p1' }), pup({ id: 'p2' })];
+  const held = offer({ entry_id: 'a', chosen_dog_id: 'p1', sale_id: 's1' });
+  const sales = [{ id: 's1', dog_id: 'p1', status: 'deposit_pending', is_archived: false }];
+  assert.equal(nextFamilyForLitter([a, b], [held], litter(), pups, sales, { today: TODAY }), null);
+});
+
+test('switchable pups: this litter\'s available, matching pups other than the current pick', () => {
+  const fam = entry({ status: 'placed', pref_sex: 'female' });
+  const pups = [pup({ id: 'cur' }), pup({ id: 'f2' }), pup({ id: 'm1', sex: 'male' }), pup({ id: 'sold' }), pup({ id: 'other', litter_id: 'L2' })];
+  const sales = [{ dog_id: 'cur', status: 'deposit_pending', is_archived: false }, { dog_id: 'sold', status: 'deposit_paid', is_archived: false }];
+  assert.deepEqual(switchablePups(fam, litter(), pups, sales, { currentDogId: 'cur' }).map((d) => d.id), ['f2']);
+});
+
+test('an accepted pick can be switched until the next family is offered (a voided later offer doesn\'t count)', () => {
+  const acc = offer({ id: 'acc', outcome: 'accepted', chosen_dog_id: 'p1', created_at: '2026-09-01T10:00:00.000Z' });
+  assert.equal(canSwitchAcceptedPick(acc, [acc]), true);
+  const voidedLater = offer({ outcome: 'voided', created_at: '2026-09-02T10:00:00.000Z' });
+  assert.equal(canSwitchAcceptedPick(acc, [acc, voidedLater]), true);
+  const earlier = offer({ outcome: 'passed', created_at: '2026-08-01T10:00:00.000Z' });
+  assert.equal(canSwitchAcceptedPick(acc, [acc, earlier]), true);
+  const nextFam = offer({ outcome: 'open', created_at: '2026-09-03T10:00:00.000Z' });
+  assert.equal(canSwitchAcceptedPick(acc, [acc, nextFam]), false);
+  assert.equal(canSwitchAcceptedPick(offer({ outcome: 'passed' }), []), false);
+});
+
+test('undo a pass: only a pass / no response, for a family still on the list or removed by it within 7 days', () => {
+  const passed = offer({ outcome: 'passed' });
+  assert.equal(undoPassBlocker(passed, entry(), TODAY), '');
+  assert.equal(undoPassBlocker(offer({ outcome: 'no_response' }), entry(), TODAY), '');
+  assert.notEqual(undoPassBlocker(offer({ outcome: 'accepted' }), entry(), TODAY), '');
+  assert.notEqual(undoPassBlocker(offer({ outcome: 'voided' }), entry(), TODAY), '');
+  assert.equal(undoPassBlocker(passed, entry({ status: 'removed', removed_reason: 'second_pass', removed_date: '2026-10-01' }), TODAY), '');
+  assert.notEqual(undoPassBlocker(passed, entry({ status: 'removed', removed_reason: 'second_pass', removed_date: '2026-09-01' }), TODAY), '');
+  assert.notEqual(undoPassBlocker(passed, entry({ status: 'placed' }), TODAY), '');
+  assert.notEqual(undoPassBlocker(passed, entry({ status: 'removed', removed_reason: 'by_breeder', removed_date: TODAY }), TODAY), '');
+});
+
+test('undone pass: the reopened offer holds the turn, and the family is spent no longer once it is open again', () => {
+  const a = entry({ id: 'a', fee_received_date: '2026-01-01' });
+  const b = entry({ id: 'b', fee_received_date: '2026-02-01' });
+  const pups = [pup({ id: 'p1' })];
+  // After the undo: A's offer is open again, B's was voided.
+  const offers = [offer({ entry_id: 'a', outcome: 'open' }), offer({ entry_id: 'b', outcome: 'voided' })];
+  assert.equal(nextFamilyForLitter([a, b], offers, litter(), pups, [], { today: TODAY }), null);
+  // When A's turn settles (passes again), B — whose voided offer didn't spend the turn — is next.
+  offers[0].outcome = 'passed';
+  assert.equal(nextFamilyForLitter([a, b], offers, litter(), pups, [], { today: TODAY }).entry.id, 'b');
+});
+
+test('describeOfferChanges: with automatic offers off, who is next is named but not offered', () => {
+  const opts = { nameOf: (id) => `fam-${id}`, litterOf: (id) => `lit-${id}` };
+  const lines = describeOfferChanges({ waiting: [{ litter_id: 'A', entry_id: 'x' }] }, opts);
+  assert.equal(lines.length, 1);
+  assert.match(lines[0], /lit-A: fam-x is next in line\. No offer was made/);
+  const both = describeOfferChanges({ voided: [offer({ litter_id: 'B' })], waiting: [{ litter_id: 'B', entry_id: 'y' }] }, opts);
+  assert.ok(!both.some((l) => /Nobody else/.test(l)), 'a waiting family means somebody IS eligible');
+});
+
+test('kennel breeds: this kennel\'s live dogs\' breeds + its preferred breeds, deduped case-insensitively, sorted', () => {
+  const kennel = { id: K, preferred_breeds: ['french bulldog', 'Pug'] };
+  const dogs = [
+    { kennel_id: K, breed: 'Boston Terrier' }, { kennel_id: K, breed: ' boston terrier ' },
+    { kennel_id: K, breed: 'French Bulldog' }, { kennel_id: K, breed: '' },
+    { kennel_id: K, breed: 'Beagle', is_archived: true }, { kennel_id: 'other', breed: 'Poodle' },
+  ];
+  assert.deepEqual(kennelBreeds(kennel, dogs), ['Boston Terrier', 'French Bulldog', 'Pug']);
+  assert.deepEqual(kennelBreeds(null, dogs), []);
+});
+
+test('resolveBreed: the kennel\'s spelling for a case/space variant; null when unknown; blank = any', () => {
+  const breeds = ['Boston Terrier', 'French Bulldog'];
+  assert.equal(resolveBreed('  boston TERRIER ', breeds), 'Boston Terrier');
+  assert.equal(resolveBreed('Boston', breeds), null);
+  assert.equal(resolveBreed('Bostin Terrier', breeds), null);
+  assert.equal(resolveBreed('', breeds), '');
+});
+
+// --- Readiness hold (Spec §15.8) -----------------------------------------------------
+
+test('readiness hold: the soonest they can commit, from the fee date (or approval with no fee)', () => {
+  assert.equal(readyFromDate(entry({ ready_timing: 'asap' })), null);
+  assert.equal(readyFromDate(entry({ ready_timing: undefined })), null, 'not answered = no hold');
+  assert.equal(readyFromDate(entry({ ready_timing: '1_month', fee_received_date: '2026-01-10' })), '2026-02-10');
+  assert.equal(readyFromDate(entry({ ready_timing: '3_months', fee_received_date: '2026-01-10' })), '2026-04-10');
+  assert.equal(readyFromDate(entry({ ready_timing: '6_plus_months', fee_received_date: '2026-01-10' })), '2026-07-10');
+  assert.equal(readyFromDate(entry({ ready_timing: '1_month', fee_received_date: null, approved_date: '2026-08-31' })), '2026-09-30', 'no fee → approval; month-end clamps');
+  assert.equal(readyFromDate(entry({ ready_timing: '1_month', fee_received_date: null, approved_date: null })), null);
+});
+
+test('readiness hold: paused (no offers, off the public list) until the ready date, then back', () => {
+  const held = entry({ ready_timing: '3_months', fee_received_date: '2026-08-01' }); // ready 2026-11-01
+  assert.equal(isReadyHeld(held, TODAY), true);
+  assert.equal(isPaused(held, TODAY), true);
+  assert.equal(isManuallyPaused(held, TODAY), false);
+  assert.equal(isReadyHeld(held, '2026-11-01'), false, 'back in contention on the ready date');
+  const l = litter();
+  assert.deepEqual(eligiblePupsFor(held, l, [pup()], [], { today: TODAY }), []);
+  assert.equal(eligiblePupsFor(held, l, [pup()], [], { today: '2026-11-01' }).length, 1);
+});
+
+// --- Changes to the matching answers (Spec §15.9) -----------------------------------
+
+test('prefChangeLines: one line per tracked field that really changed', () => {
+  const before = entry({ pref_sex: 'male', pref_breed: 'Boston Terrier', pref_colors: ['Brindle', 'seal'], ready_timing: 'asap' });
+  const lines = prefChangeLines(before, {
+    pref_sex: 'any', pref_breed: 'boston terrier ', pref_colors: ['seal', 'brindle'], ready_timing: '3_months', notes: 'x'
+  }, { date: TODAY });
+  assert.deepEqual(lines, [
+    { date: TODAY, field: 'pref_sex', from: 'male', to: 'any', by: 'breeder' },
+    { date: TODAY, field: 'ready_timing', from: 'asap', to: '3_months', by: 'breeder' }
+  ], 'breed case and color order are not changes; untracked fields are ignored');
+  assert.deepEqual(prefChangeLines(entry({ pref_placement_type: '' }), { pref_placement_type: null }, { date: TODAY }), [], 'blank and null alike');
+  assert.equal(prefChangeLines(entry(), { pref_breed: 'Frenchie' }, { date: TODAY, by: 'request' })[0].by, 'request');
+  assert.deepEqual(PREF_CHANGE_FIELDS, ['pref_sex', 'pref_breed', 'pref_placement_type', 'pref_colors', 'ready_timing']);
+});
+
+test('narrowedPrefs: any → specific, specific → other, later readiness; colors only with matching on', () => {
+  const e = entry({ pref_sex: 'any', pref_breed: '', pref_placement_type: 'pet', pref_colors: ['seal'], ready_timing: '1_month' });
+  assert.deepEqual(narrowedPrefs(e, { pref_sex: 'female', pref_breed: 'Boston Terrier', pref_placement_type: 'show', ready_timing: '6_plus_months' }),
+    ['pref_sex', 'pref_breed', 'pref_placement_type', 'ready_timing']);
+  assert.deepEqual(narrowedPrefs(e, { pref_placement_type: '', ready_timing: 'asap', pref_sex: 'any' }), [], 'wider is never narrowing');
+  assert.deepEqual(narrowedPrefs(e, { pref_colors: ['brindle'] }), [], 'colors are notes while matching is off');
+  const on = { ...WAITLIST_CONFIG_DEFAULTS, color_matching: true };
+  assert.deepEqual(narrowedPrefs(e, { pref_colors: ['brindle'] }, on), ['pref_colors'], 'dropping a color narrows');
+  assert.deepEqual(narrowedPrefs(e, { pref_colors: ['seal', 'brindle'] }, on), [], 'adding a color widens');
+  assert.deepEqual(narrowedPrefs(e, { pref_colors: [] }, on), [], 'clearing colors widens to any');
+  assert.deepEqual(narrowedPrefs(entry({ pref_colors: [] }), { pref_colors: ['seal'] }, on), ['pref_colors']);
+});
+
+test('prefChangeEffect: next-for litters they would be skipped on, and open offers (which stay open)', () => {
+  const a = entry({ id: 'a', fee_received_date: '2026-01-01' });
+  const b = entry({ id: 'b', fee_received_date: '2026-02-01' });
+  const l = litter();
+  const pups = [pup({ sex: 'female' })];
+  const opts = { litters: [l], entries: [a, b], offers: [], pups, sales: [], today: TODAY };
+  const fx = prefChangeEffect(a, { pref_sex: 'male' }, opts);
+  assert.deepEqual(fx.narrowed, ['pref_sex']);
+  assert.deepEqual(fx.skippedLitters.map((x) => x.id), ['L1'], 'a is next; wanting a male skips them');
+  assert.deepEqual(prefChangeEffect(a, { pref_sex: 'female' }, opts).skippedLitters, [], 'still matches, still next');
+  assert.deepEqual(prefChangeEffect(b, { pref_sex: 'male' }, opts).skippedLitters, [], 'b is not next');
+  const o = offer({ entry_id: 'a' });
+  const withOffer = prefChangeEffect(a, { pref_sex: 'male' }, { ...opts, offers: [o] });
+  assert.deepEqual(withOffer.openOffers.map((x) => x.id), [o.id]);
+  assert.deepEqual(withOffer.skippedLitters, [], 'an offer is open, so nobody is "next"');
+  assert.deepEqual(prefChangeEffect(a, { pref_sex: 'any' }, { ...opts, offers: [o] }),
+    { narrowed: [], openOffers: [], skippedLitters: [] }, 'widening has nothing to warn about');
 });

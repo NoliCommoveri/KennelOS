@@ -384,8 +384,49 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   Google Form timestamps understood). Received application fees are Financials income; a fee
   credited to the purchase nets off that family's Sale balance (ledger, Litter P&L, invoice
   line, Companion remaining balance). Service-worker cache rolled to `kennelos-shell-v33`
-  for all of W1. Next: W2 (online form + status page; needs the cloud Worker, vault and
-  server-side license link).
+  for all of W1.
+- **Waitlist, W1e — built & browser-verified** (Waitlist Spec §15 + §14 "W1e choices"; End-State
+  guide §24, §29; headless Chromium, no console errors, no horizontal scroll at phone width). Her
+  requests after trying W1, the local half: her own **application form** (new Pro page
+  `waitlist-form`: reword/retype/reorder/add/delete, locked questions for name, email, the four
+  preferences and the public-list notice; **import questions from her old form's CSV**, which the
+  application importer then reads), **offering from the waitlist** (Offer a litter… and outcome
+  buttons on the family's page, a Litters card with who's next on the Waitlist page),
+  **invoice/receipt PDFs** (vendored jsPDF; one document model for the page and the PDF; an
+  application-fee receipt source), and **Copy public list** (first name + last initial, sex
+  preference, date added; paused families hidden with their number skipped). Programs are hers
+  alone: `applicable_on_form` dropped. Tests: `waitlistForm.test.js`, `invoicePdf.test.js`. Still
+  W2: the public list page, PDFs on the status page, kennel-name (no-reply) email, and the
+  online form itself. Next: W2 (needs the cloud Worker, vault and server-side license link).
+  Service-worker cache rolled to `kennelos-shell-v34` for W1e.
+- **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
+  guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass
+  removal) voids its other open offers (never a pass) and those litters move on. Fee received, a
+  fee-waived approval and an undo no longer make offers; the family page says which litters
+  they're next for. Every offer made on her behalf is shown by name (family page, picks panel,
+  Today). **"Almost your turn…"** on the Waitlist page and picks panel: one family per available
+  pup in line order; families with an open offer anywhere count but aren't told; editable
+  wording (Waitlist settings, her default); opens her email with everyone BCC'd or copies the
+  addresses, and records `soon_notified_date` + litters (never used to skip a family).
+  Service-worker cache rolled to `kennelos-shell-v35`.
+- **Waitlist fixes from her testing + sale invoicing — built & browser-verified** (Waitlist
+  Spec §15.6; End-State guide §24, §29). Same-day fees keep the order they were paid
+  (`fee_received_at`). Accepting is pick + deposit: a pick holds the pup with a deposit-pending
+  Sale and the list doesn't move until **Deposit received**; no deposit by the deadline = no
+  response (Sale cancelled). **Undo…** a pass / no response (that family is next again).
+  Automatic offers are a setting, **off** by default. **Change pup…** before the deposit, or
+  after it until the next family is offered. Breed preference is a dropdown of the kennel's
+  breeds. Invoices read the sale's due date live, and a Sale's page has its own **Invoice /
+  Receipt** button (`assets/invoiceGenerator.js`, Pro-only). Service-worker cache rolled to
+  `kennelos-shell-v36`.
+- **Waitlist: listen-only by sire/dam, readiness hold, application FAQ — built & browser-verified**
+  (Waitlist Spec §15.7–§15.8). Listen-only families pick sires and dams (either side
+  matches) once approved; the litters and pairings that covers are derived. A locked,
+  required readiness question ("What is the soonest you are able to commit…", ASAP / 1 / 3 /
+  6+ months) puts anything but ASAP on an automatic hold from the fee date (or approval):
+  no offers, no passes, off the public list. Her FAQ heads the application (edited on the
+  Application form page). The old "When are you hoping…" default question is gone.
+  Service-worker cache rolled to `kennelos-shell-v37`.
 - **Cloud Phase 1, step 3a: the `cloud/` Worker skeleton is built**
   (`docs/KennelOS_Cloud_Phase1_Plan.md` §6, §6.6, §9). It has `wrangler.toml` (staging), CORS for
   `lite.`/`pro.kennelos.app` plus localhost, the 503 maintenance gate, `/health`, and `/ops` behind
@@ -436,7 +477,15 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     `db.js` table with no entry.
   - **Five fields plan §5 didn't classify were decided on 2026-10-06:** `dogs.dob_is_estimated`,
     `dogs.recorded_coi` and `litters.picks_opened_date` are cloud; `kennels.waitlist_config`
-    and `litters.feeding_schedule_override` are private. Nothing is pending now.
+    and `litters.feeding_schedule_override` are private.
+  - **Merging main's waitlist work (2026-10-07)** added waitlist fields, classified by the
+    Waitlist Spec where it says:
+    - cloud: `listen_sire_ids`/`listen_dam_ids` (renamed from the pairing/litter lists),
+      `soon_notified_date`, `fee_received_at` (the same-day tie-breaker of the list order),
+      and offers' `picked_date` and `sale_id`;
+    - private: `pref_change_log`/`pref_change_request` ("private tier like application").
+    **Pending (private until decided):** `waitlist_entries.ready_timing` and
+    `waitlist_entries.soon_notified_litter_ids`.
 
 - **Cloud Phase 1, §9 step 2: snapshot, `'cloud-merge'` restore, shrink guard and the dirty
   signal are built** (plan §3.2, §3.5, §4.1, §4.3). There's still no network and no UI.

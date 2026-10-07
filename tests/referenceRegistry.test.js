@@ -78,10 +78,9 @@ test('every waitlist FK is guarded on its target, against an indexed field', () 
   const expect = {
     CONTACT_REFERENCES: ['waitlist_entries.contact_id'],
     KENNEL_REFERENCES: ['waitlist_entries.kennel_id', 'waitlist_offers.kennel_id', 'waitlist_programs.kennel_id'],
-    LITTER_REFERENCES: ['waitlist_offers.litter_id', 'waitlist_entries.listen_litter_ids'],
-    PAIRING_REFERENCES: ['waitlist_entries.listen_pairing_ids'],
+    LITTER_REFERENCES: ['waitlist_offers.litter_id'],
     SALE_REFERENCES: ['waitlist_entries.placed_sale_id'],
-    DOG_REFERENCES: ['waitlist_offers.chosen_dog_id'],
+    DOG_REFERENCES: ['waitlist_offers.chosen_dog_id', 'waitlist_entries.listen_sire_ids', 'waitlist_entries.listen_dam_ids'],
     WAITLIST_ENTRY_REFERENCES: ['waitlist_offers.entry_id'],
     WAITLIST_PROGRAM_REFERENCES: ['waitlist_entries.waitlist_program_id'],
   };

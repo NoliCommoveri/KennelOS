@@ -340,6 +340,16 @@ already drives the forms, and it can't drift.
   foster-money fields (private). `documents.contract_id` is private, because it only appears
   on contract-type documents, which never leave. `files.blob` is never in the snapshot JSON;
   `sha256` is a declared *derived* key that the snapshot builder adds in its place (§4.1).
+- **Merging main's waitlist W1e work (2026-10-07):** the new waitlist fields follow
+  `KennelOS_Waitlist_Spec.md` §9 where it decides them:
+  - cloud: `listen_sire_ids`/`listen_dam_ids` (`listen_*`; the old pairing/litter lists are
+    gone), `soon_notified_date` and `fee_received_at` ("every date field"; the latter is the
+    same-day tie-breaker of the list order), and offers' `picked_date` and `sale_id`
+    ("every field except notes");
+  - private: `pref_change_log`/`pref_change_request` (§15.9: "private tier like
+    `application`").
+  `ready_timing` and `soon_notified_litter_ids` aren't classified by any doc, so they are
+  **pending** (private) until decided.
 - **Not in this table but present in data:** the sample packet's `heat_cycle` event still
   writes the retired `details.cycle_start` key. It is undeclared, so it stays private.
 
