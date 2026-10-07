@@ -378,7 +378,8 @@ A family is **eligible for a pup** when the above holds for that particular pup.
 
 - **Listen-only** (`listen_mode = 'selected'`): the family is only considered for litters
   by a sire, or out of a dam, they chose (OR, not AND: Gunnar + Juniper means any Gunnar
-  litter and any Juniper litter). They pick parent dogs, set **once they're approved**;
+  litter and any Juniper litter). They pick parent dogs, set **once they're on the list** (approved and the fee
+  received or waived; by her in W1, by the family on their status page in W2);
   the litters and upcoming pairings that covers are derived (§15.7).
   - For every other litter they're simply **not eligible**. They aren't offered, so
     there's **nothing to pass**, and their position is unchanged because position is the
@@ -556,7 +557,8 @@ address.
   prospective bundle, which already does most of this:
   - their status, overall position (if she shows it, Q12) and per-litter position;
   - passes used ("0 of 2");
-  - their listen-only or pause settings, with buttons to change them (if allowed, Q7);
+  - their listen-only settings, which they can change themselves once they're on the list
+    (§15.7), and pause (if allowed, Q7);
   - upcoming litters (pairing, expected month), litters with pups available, and, for an
     open offer, **the pups eligible for them with the respond-by date**;
   - buttons: **Accept a pup**, **Pass**, **Still interested**, **Pause** (if allowed, Q7),
@@ -775,8 +777,9 @@ W1 is a full feature on its own and doesn't wait for the cloud work.
 5. **The fee:** credited toward the purchase price, non-refundable, or refundable? Does it
    show in Financials as income (leaning yes)?
 6. **Payments:** keep "mark fee received" by hand, or add pay links later?
-7. **Pausing:** can families pause and set listen-only themselves from the status page, or
-   do they ask her? Is there a limit on how long?
+7. **Pausing:** can families pause themselves from the status page, or do they ask her? Is
+   there a limit on how long? (*Listen-only decided 2026-10-07: families set it themselves
+   once they're on the list, §15.7.*)
 8. **When picks open:** when she taps **Open picks**, or automatically at a set age? And
    does a family pick a **specific pup** or is the pup **assigned** by her (some breeders
    match pups to families)? This changes what "pass" means.
@@ -820,6 +823,12 @@ W1 is a full feature on its own and doesn't wait for the cloud work.
     approval is enough**; the history shows anyone flip-flopping.
 28. ~~**W1:** record a family's spoken/messaged request as a Today nudge, or just edit?~~
     **Decided 2026-10-07: she just edits** (§15.9).
+29. **Listen-only and passes (§15.7):** switching to listen-only just before a litter's offer
+    reaches them skips them there with no pass, and they can switch back after. Should a
+    family's own change on the status page (a) apply at once, (b) apply at once only when it
+    widens (more parents, or back to All litters) and otherwise wait for her one-tap approval
+    like §15.9, or (c) apply at once but never take them out of a litter that already has
+    picks open? Leaning (b), the same rule as the preferences.
 
 ## 14. W1 build plan
 
@@ -1081,9 +1090,18 @@ Listening for specific pairings or litters was the wrong unit: families follow a
 2. **Litters and pairings are derived.** A litter (or pairing) counts when its `sire_id`
    is a picked sire **or** its `dam_id` is a picked dam: either side is enough
    (*decided*: OR, not AND). The family page shows what that covers right now.
-3. **Only after approval.** The Which litters section appears on the Edit form once the
-   entry is `approved` or `active`; a new or still-pending application never shows it.
-   Picks are kept, not cleared, when the family leaves the list.
+3. **Only once they're on the list** (*revised 2026-10-07*: approved **and** the fee
+   received, or waived — a waived approval makes them `active` at once). The Which litters
+   section appears on the Edit form only for an `active` entry; an approved family still
+   owing the fee gets a note saying it opens once the fee is in, and a new or pending
+   application never shows it. Picks are kept, not cleared, when the family leaves the list.
+4. **As many parents as they like** (*requested 2026-10-07*): sires and dams are each a
+   multi-select (checkboxes), any number, either side. Nothing caps it.
+5. **Families set it themselves on the status page (W2)** once they're `active`
+   (*decided 2026-10-07*, settles the listen-only half of Q7): All litters / Only these
+   parents, and the sire and dam checkboxes, with the same choices as her Edit form. Until
+   W2 they tell her and she sets it. **Open (Q29):** narrowing to listen-only can dodge an
+   offer just like narrowing a preference (§15.9).
 
 ### 15.8 Readiness question, readiness hold, and an application FAQ (requested and built 2026-10-06)
 

@@ -55,10 +55,11 @@ const els = {
 
 const LIVE_PAIRING = ['planned', 'bred', 'confirmed_pregnant'];
 const LIVE_LITTER = ['expected', 'whelped', 'weaning', 'ready'];
-// A family picks which sires and dams they're listening for only once they've been
-// approved: before that there's nothing to listen for, and after they leave the
+// A family picks which sires and dams they're listening for only once they're ON
+// the list: approved AND their fee received (or waived, which makes them active at
+// approval). Before that there's nothing to listen for, and after they leave the
 // list it no longer matters (their picks are kept, just not shown for editing).
-const LISTEN_STATUSES = ['approved', 'active'];
+const LISTEN_STATUSES = ['active'];
 
 const ctx = {
   mode: 'view', entry: null, draft: null, kennel: null, config: null,
@@ -586,7 +587,7 @@ function renderEdit() {
         <label>Sires</label><div class="check-group">${checkList(sires, selSires, 'data-sire')}</div>
         <label style="margin-top:8px;">Dams</label><div class="check-group">${checkList(dams, selDams, 'data-dam')}</div>
         <span class="field-hint">Any litter or pairing with one of these parents counts: picking a sire and a dam means either one, not only the two together.</span>
-      </div>` : ''}
+      </div>` : e.status === 'approved' ? `<div class="field field-wide"><span class="field-hint">Listening for certain sires and dams opens once they're on the list (fee received).</span></div>` : ''}
       <div class="field"><label>Paused until</label><input id="f-paused_until" type="date" value="${esc(e.paused_until || '')}">
         <span class="field-hint">Not offered pups until after this date. They keep their place, but don't appear on the public list while paused.</span></div>
       <div class="field"><label>Pause reason</label><input id="f-pause_reason" type="text" value="${esc(e.pause_reason || '')}"></div>
