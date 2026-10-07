@@ -285,6 +285,40 @@ just sequencing them around the purchase. The "Upgrade to Pro" button runs three
 So the whole move is export-in-Lite → import-in-Pro, bracketing the purchase — both halves the
 app already does, with no human in the loop.
 
+### With cloud backup (decided 2026-10-07)
+
+Cloud backup (`KennelOS_Cloud_Phase1_Plan.md`) makes the move easier, because a cloud account
+belongs to an **email, not an origin**. Lite and Pro back up to the same account, so Pro can
+restore a Lite program by signing in with the same email: first-run's **"I already use
+KennelOS → sign in and restore"**. No file to find, and it works across devices (Lite on a
+phone, Pro on a laptop).
+
+**Until the private vault, the file stays the complete path.** Cloud backup holds only the
+kennel-records tier (Cloud plan §5). A Lite program has private data too: sale prices and
+deposits, the Financials ledger, buyers' phone, email and address, and notes. A cloud-only
+upgrade would arrive without them. So:
+
+- **Now (built 2026-10-07).** The Upgrade button still downloads the backup file first. If
+  this Lite device is signed in to cloud backup, it then backs up any unsaved changes and
+  explains the second way in: in Pro, sign in and restore, then **Import / Export → Merge into
+  current data** with the file for the private details. (`runUpgradeBridge` in
+  `shared/assets/editionLinks.js`; the cap upgrade nudge runs the same bridge.)
+- **After the vault.** Signing in on Pro and unlocking the vault brings everything back. Cloud
+  becomes the main path and the file the fallback. Revisit the bridge's wording then.
+
+**The Lite device afterwards.** Restoring in Pro makes Pro the backing device (Cloud plan
+§3.4), so Lite's next backup gets the server's 409. Every snapshot now records the edition
+that made it (`edition`, cloud migration `0003`), and the 409 names the backing device's
+edition. A Lite device that finds its program backed up from Pro doesn't show the two-device
+conflict: it says **"Your records moved to KennelOS Pro"**, with **Turn off backup here**
+(remembered as `cloudBackupState.movedToEdition = 'pro'`, which also stops Today's "turn on
+cloud backup" nudge), **Other choices…** (the usual restore / replace, for an owner who really
+means to go back to Lite), and **Not now**. Turning backup on again clears it.
+
+Not changed: the store, the license key, and the order (buy, activate, then restore or import).
+The marketing site's `/upgrade` page can mention the cloud route once production cloud backup
+is live.
+
 ### The guided tour is per-edition
 
 The first-run **"Show me around!"** tour and its sample data are one system: the tour's step

@@ -140,7 +140,8 @@ KennelOS/
                                checks cloudConfig.isCloudAvailable() first, so an
                                edition with cloudUrl null never makes a request.
       cloudConfig.js           The API base URL from editionConfig (cloudUrl; devCloudUrl
-                               only on localhost), or null
+                               on localhost, or anywhere once ?cloud=staging has
+                               turned on the test-server switch), or null
       cloudApi.js              The ONLY network module: fetch, bearer token, timeouts,
                                typed errors (Offline / Auth / Conflict / Request)
       cloudAuth.js             Email + 6-digit code sign-in; the session in settings.js
@@ -893,13 +894,23 @@ plain local backup/restore.
   doesn't touch them: `cloudSession` (`{ token, email, programId, deviceId }`; the email
   stays on this device, the server keeps only a keyed hash), `cloudBackupState`
   (`{ enabled, lastPushedAt, lastAttemptAt, lastSnapshotId, lastCounts, lastContentHash,
-  lastError }`), and `cloudDeviceId` (this browser's id on the cloud account, sent on every
+  lastError, movedToEdition }`; `movedToEdition` is `'pro'` once a Lite device turned backup
+  off because its program moved to Pro, which keeps Today's turn-on nudge quiet until backup
+  is turned on again), and `cloudDeviceId` (this browser's id on the cloud account, sent on every
   sign-in so the backing device stays recognisable; separate from the license
   `deviceId`). **Reset App** handles them explicitly in `appReset.stopCloudBackupAfterReset()`:
   backup is always turned off, and the device forgets which snapshot it was in step with,
   so turning backup back on meets the server's 409 and the restore-or-replace choice
   instead of pushing an emptied program. The sign-in itself is kept; signing out is a
   separate choice (`cloudAuth.signOut`).
+- **`cloudTestServer`** (also outside `KEYS`, so Reset App keeps it): `'1'` while this
+  browser uses the edition's staging server (`devCloudUrl`) on a deployed origin. Any page
+  visited with `?cloud=staging` turns it on and `?cloud=off` turns it off
+  (`cloudConfig.applyCloudTestSwitch()`, run as that module loads). Changing it forgets
+  `cloudSession` and `cloudBackupState` on this device, because a sign-in and a backup
+  position belong to one server. It does nothing in an edition with no `devCloudUrl`
+  (Demo). While it's on, `app.js` shows a "Cloud backup: TEST SERVER" strip on every page
+  with a Turn off link.
 - **nudgeState.js** — a second, deliberately separate `localStorage` module (one key,
   `kennelOS.nudgeDismissals`): the derived-nudge dismissal ledger (§19). Kept out of
   `settings.js`/`clearAllSettings()` on purpose — `appReset.js` calls its own `clearAll()`

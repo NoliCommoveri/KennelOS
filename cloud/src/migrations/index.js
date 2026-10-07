@@ -13,8 +13,10 @@
 // - keep LIKE/GLOB patterns under 50 characters (D1 caps them, unpublished).
 import schema from './0001_schema.sql';
 import backupApi from './0002_backup_api.sql';
+import snapshotEdition from './0003_snapshot_edition.sql';
 
 export const MIGRATIONS = [
   { id: '0001', name: 'schema', sql: schema },
   { id: '0002', name: 'backup_api', sql: backupApi },
+  { id: '0003', name: 'snapshot_edition', sql: snapshotEdition },
 ];
