@@ -484,8 +484,22 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
       `soon_notified_date`, `fee_received_at` (the same-day tie-breaker of the list order),
       and offers' `picked_date` and `sale_id`;
     - private: `pref_change_log`/`pref_change_request` ("private tier like application").
-    **Pending (private until decided):** `waitlist_entries.ready_timing` and
-    `waitlist_entries.soon_notified_litter_ids`.
+  - **Privacy vs. recoverability, decided 2026-10-07** (Cloud plan §5.1, Proposal §6/§9/§10,
+    Waitlist Spec §9):
+    - the line is drawn by whose data it is;
+    - her waitlist setup (`kennels.waitlist_config`: rules, form, FAQ, fee, payment
+      instructions) and the list's running state (`ready_timing`,
+      `soon_notified_litter_ids`, `application_questions`) are cloud;
+    - of each `application`, **only name and email** are cloud. That's enforced by a new
+      `partial` rule in `syncRegistry.js`, and a restore merges by key, so the device keeps
+      the full answers;
+    - family fees, payment details and every other answer stay private, for the vault;
+    - **the private vault moves to right after Phase 1**, with a second-device unlock, and is
+      required before the waitlist's W2;
+    - no readable private data on our server stays the default, with a per-user
+      opt-in recovery switch as a fallback only if lock-outs show up in support.
+
+    The "What gets backed up" screen says so. Nothing is pending.
 
 - **Cloud Phase 1, §9 step 2: snapshot, `'cloud-merge'` restore, shrink guard and the dirty
   signal are built** (plan §3.2, §3.5, §4.1, §4.3). There's still no network and no UI.

@@ -41,9 +41,12 @@ snapshots with record-level sync and keeps this plan's auth, server, and registr
   1. Enter email.
   2. Type the 6-digit code from the email.
   3. Read one plain screen: "What gets backed up: your dogs, litters, pairings, health
-     records, contacts' **names**. What stays only on this phone: contacts' phone, email and
-     address, prices and payments, Financials, contracts, receipts, and your private notes."
-     It links to the existing file backup for those.
+     records, contacts' **names**, and your waitlist (its order, settings, application form,
+     and each applicant's **name and email**). What stays only on this phone: contacts'
+     phone, email and address, prices and payments (including waitlist fees paid),
+     Financials, contracts, receipts, the rest of each application's answers, and your
+     private notes." It links to the existing file backup for those. (Waitlist wording
+     added by §5.1's decisions.)
   4. Tap "Turn on". The first backup runs immediately with a progress bar (files can take
      a minute).
 - **Why a typed code and not a magic link:** an iPhone home-screen PWA has *separate storage
@@ -306,7 +309,8 @@ implicitly cloud.
 |---|---|---|---|
 | **dogs** | all | `call_name`, `registered_name`, `sex`, `breed`, `status`, `ownership_type`, `kennel_id`, `breeder_kennel_id`, `sire_id`, `dam_id`, `litter_id`, `owner_contact_id`, `co_owner_contact_ids`, `date_of_birth`, `date_of_death`, `color_markings`, `registry`, `registration_number`, `microchip_id`, `url`, `planned_tests`, `disposition` | `notes` |
 | **events** | all | `subject_type`, `subject_id`, `event_type`, `event_date`, `event_end_date`, `title`, `reminder_date`, `reminder_dismissed`, `related_dog_id`, `related_contact_id`, `details` **filtered** (below) | `notes`; `details` keys of type `textarea` |
-| **kennels** | all | `kennel_name`, `prefix`, `public_id`, `is_own_kennel`, `location` (**decided**), `website`, `logo_data_url`, `preferred_tests`, `preferred_breeds`, `preferred_test_breeds`, `promote_nudge_enabled`, `promote_age_male_months`, `promote_age_female_months` | none |
+| **kennels** | all | `kennel_name`, `prefix`, `public_id`, `is_own_kennel`, `location` (**decided**), `website`, `logo_data_url`, `preferred_tests`, `preferred_breeds`, `preferred_test_breeds`, `promote_nudge_enabled`, `promote_age_male_months`, `promote_age_female_months`, `waitlist_config` (**decided** 2026-10-07, §5.1) | none |
+| **waitlist_entries / _offers / _programs** | all | see `KennelOS_Waitlist_Spec.md` §9, as revised by §5.1: the order and running state, her form wording, and of each `application` **only `name` and `email`** | each family's fee money and payment details, the other application answers, `pause_reason`, notes, the change history |
 | **contacts** | all | `name` (**decided**), `contact_type`, `kennel_id`, `waitlist_status` | `email`, `phone`, `address`, `notes`, `companion_note`, `first_contact_source` |
 | **pairings** | all | `kennel_id`, `sire_id`, `dam_id`, `pairing_type`, `status`, `method`, `planned_date`, `last_observed_date`, `expected_due_date` | `notes` |
 | **litters** | all | `kennel_id`, `pairing_id`, `sire_id`, `dam_id`, `status`, `nickname`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date`, `litter_registration_number`, `puppies_born_*` counts, `foster_direction`, `foster_partner_contact_id` | every price/deposit/foster-money field, `foster_split_notes`, `notes` |
@@ -334,8 +338,8 @@ already drives the forms, and it can't drift.
   - **cloud:** `dogs.dob_is_estimated` (it qualifies the birth date), `dogs.recorded_coi`
     (genetic data, like the health tests), `litters.picks_opened_date` (a waitlist date;
     the auto-offer flow needs it after a restore);
-  - **private:** `kennels.waitlist_config` (it holds the waitlist fee and payment
-    instructions), `litters.feeding_schedule_override` (free text).
+  - **private:** `litters.feeding_schedule_override` (free text). `kennels.waitlist_config`
+    was private here at first; §5.1's decision 1 (2026-10-07) moved it to cloud.
 - **Readings of the table:** `litters.foster_comp_model` and `foster_split_basis` count as
   foster-money fields (private). `documents.contract_id` is private, because it only appears
   on contract-type documents, which never leave. `files.blob` is never in the snapshot JSON;
@@ -348,10 +352,73 @@ already drives the forms, and it can't drift.
     ("every field except notes");
   - private: `pref_change_log`/`pref_change_request` (§15.9: "private tier like
     `application`").
-  `ready_timing` and `soon_notified_litter_ids` aren't classified by any doc, so they are
-  **pending** (private) until decided.
+  `ready_timing` and `soon_notified_litter_ids` were pending at the merge, then decided cloud
+  by §5.1 (2026-10-07). The `pending` bucket is empty again.
 - **Not in this table but present in data:** the sample packet's `heat_cycle` event still
   writes the retired `details.cycle_start` key. It is undeclared, so it stays private.
+
+### 5.1 Privacy vs. recoverability: decisions (2026-10-07)
+
+**The question.** Merging the waitlist work showed that, under §5 and the Waitlist Spec as
+first written, a cloud restore brought back a waitlist in the right order that couldn't be
+run. Her form, rules and fee settings were private, applicants who weren't approved yet came
+back nameless, and readiness holds were dropped. Holding less on the server protects other
+people's privacy. Holding more protects users from losing work they can't get back. The
+decisions below set where that line sits.
+
+**The principle: split by whose data it is, not by table.**
+- **Two harms, borne by different people.** A breach of readable personal data hurts *her
+  buyers and applicants*: people who never agreed to us holding their details, and the
+  exposure can't be undone. Data loss hurts *the breeder*, and only when several things fail
+  together: every device lost, no file backup, and (with the vault) no passkey *and* no
+  recovery code. So third-party personal details and money are held to the stricter
+  standard. The breeder's **own business setup** is not.
+- **Most "lost my data" anger comes from expectations**, not lost keys: people believing
+  "cloud backup" covered everything, or never turning on the vault. The fixes for that are
+  honest wording and an easy vault, not weaker encryption.
+
+**Decision 1: her own waitlist setup and the list's running state are cloud (readable).**
+`kennels.waitlist_config` goes to cloud: rules, application form questions, FAQ, the fee she
+charges, payment instructions, pass and response settings, and the notice wording. Those are
+her business settings, much of it shown publicly on the status page anyway. So are
+`waitlist_entries.ready_timing` (the readiness hold), `soon_notified_litter_ids` and
+`application_questions` (her form's wording, snapshotted per entry). Built in
+`syncRegistry.js` on 2026-10-07.
+
+**Decision 2: waitlist applicants' name and email are cloud (readable). Nothing else from
+an application is.** `waitlist_entries.application` is a *partial* cloud field: only `name`
+and `email` leave the device (the registry's `partial` rule, enforced by the pre-upload
+check). Phone, address, household and every other answer stay private. A restore merges by
+key, so a device that still has the full answers keeps them. Why this doesn't break the
+line: W2's server will hold applicants' name and email readable anyway, because they give
+them to the service directly under its privacy policy (Waitlist Spec §8.1). This decision
+only brings that forward for backup. Each family's **fee amount and payment details** stay
+private. Built 2026-10-07.
+
+**Decision 3: the private vault is scheduled right after Phase 1, with a second-device
+unlock.** It previously sat after Phases 2–4 (Proposal §9). It moves to directly after
+Phase 1, because the waitlist depends on it: W2 needs it, and until it exists the only copy
+of contact details, family fees and full applications is the device plus file backups. Its
+design gains a **third unlock path**: any of the owner's devices that's already unlocked can
+unlock a new one. That's alongside the passkey (which syncs through iCloud and Google, so a
+lost phone isn't a lost key) and the recovery code. Vault UX requirements, recorded with the
+design in Proposal §6.3:
+- It's offered inside "Turn on cloud backup", strongly suggested for anyone using the
+  waitlist, and **required before W2**.
+- The status card shows two lines: "Kennel records: backed up 4 minutes ago" and
+  "Private info: only on this device · last file backup 40 days ago" (or "encrypted backup,
+  4 minutes ago" once the vault is on).
+- After a restore without the vault, blank private fields are labelled and explained on
+  the record (the per-record hint deferred in §4.6).
+- Turning it on says plainly: "If you lose your passkey **and** this code, we can't open
+  your private backup. Your devices and file backups are unaffected."
+
+**Decision 4: no readable private data on our server stays the default.** Backing up
+private data readable (or encrypted with a key we hold) is still not offered. The fallback,
+**considered only if support requests show real users locked out despite passkey sync, the
+recovery code and second-device unlock**, is a per-user opt-in: "Let KennelOS help me recover
+my private info (less private)". It's recorded here so the trigger and the shape are decided
+in advance. It isn't planned.
 
 **Why `referred_by_contact_id` and `lead_source` are private:** they're sales-funnel
 information about other people, not kennel records, and nothing in Phase 1 needs them.
@@ -490,7 +557,10 @@ notices(id, level, message, until, created_at)
 
 ### 6.4 Security & privacy posture
 - **What the server holds** is the cloud tier only (§5), plus a keyed hash of the account
-  email (§6.2), not the address itself. There are no buyer phone numbers, addresses, or money. This posture is pinned on the client by
+  email (§6.2), not the address itself. There are no buyer phone numbers, addresses, or
+  payments. Since §5.1, it does hold the breeder's own waitlist settings (including the fee
+  she charges and her payment instructions) and waitlist applicants' **names and emails**,
+  and nothing else from their applications. This posture is pinned on the client by
   `assertSnapshotKeys`. The server doesn't parse record contents at all; it stores the blob.
 - **CORS:** only the origins that actually run Lite and Pro, per `build/README.md`'s deploy
   map: `https://lite.kennelos.app`, `https://pro.kennelos.app`, plus `localhost` for dev.

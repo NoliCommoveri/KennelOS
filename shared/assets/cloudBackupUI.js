@@ -245,9 +245,11 @@ function whatGetsBackedUpModal() {
     const overlay = openModal(`
       <h2 style="margin-top:0;">What gets backed up</h2>
       <p><strong>Backed up to the cloud:</strong> your dogs, litters, pairings, health records and
-        test results, kennels, and contacts' <strong>names</strong>.</p>
+        test results, kennels, contacts' <strong>names</strong>, and your waitlist: its order, settings,
+        application form, and each applicant's <strong>name and email</strong>.</p>
       <p><strong>Stays only on this device:</strong> contacts' phone, email and address, prices and
-        payments, Financials, contracts, receipts, and your private notes.</p>
+        payments (including waitlist fees paid), Financials, contracts, receipts, the rest of each
+        application's answers, and your private notes.</p>
       <p class="muted">To keep a copy of those too, download a file backup now and then from
         <a href="import-export.html">Import / Export</a>.</p>
       <p class="field-hint">Backups run automatically after you make changes. The last 30 days are kept,

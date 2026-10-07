@@ -159,6 +159,14 @@ their sensitive data backed up too can turn on an encrypted vault.
 | **Kennel records** (non-sensitive) | The dogs and their history: identity, pedigree, health tests, litters, pairings, schedules | Synced to the cloud automatically, always on | The program's members. It's also the only tier a transfer can draw from. |
 | **Private** (sensitive) | Other people's personal details, money, contracts, receipts, free-text notes | **On the device by default.** Optionally backed up to the cloud **end-to-end encrypted** (the vault, §6.3) | The owner only. The server sees only scrambled bytes. |
 
+**Where the line sits (decided 2026-10-07; Phase 1 plan §5.1):** by **whose data it is**.
+Other people's personal details and money are private. The breeder's **own business setup**
+(her waitlist rules, application form, FAQ, the fee she charges, payment instructions) is
+kennel records, because she can't run her program after a restore without it. Waitlist
+applicants' **name and email** are the one third-party exception: W2's server holds them
+readable anyway (`KennelOS_Waitlist_Spec.md` §8.1), so backup carries the same two fields
+and nothing else from an application.
+
 **Why this is the low-risk split:** if our server is ever breached, misconfigured, or
 subpoenaed, what's exposed is pedigrees and whelping dates, not buyers' home addresses
 or what they paid. It also shrinks our obligations as an operator (§10 Q7). The
@@ -214,14 +222,27 @@ pick categories: contact details, financials, contracts & receipts, private note
      and Google Password Manager, so a lost phone isn't a lost key.
   2. **By a recovery code** shown once at setup, with a "print this / save to Files" step
      that's required before the switch turns on.
+  3. **By another of the owner's devices** that's already unlocked (decided 2026-10-07):
+     the new device shows a short code, and the unlocked one approves it and wraps the
+     vault key to the new device. This covers swapping phones while still having a laptop,
+     without the recovery code.
+- **How it's offered (decided 2026-10-07; Phase 1 plan §5.1):**
+  - inside "Turn on cloud backup", not hidden in settings;
+  - strongly suggested for anyone using the waitlist, and **required before the
+    waitlist's W2**;
+  - the backup status shows kennel records and private info as two separate lines, so
+    nobody mistakes cloud backup for "everything".
 - **The honest trade-off, said plainly in the UI:** if they lose their passkey *and* their
   recovery code, *we cannot open the vault*. That only costs data if they've **also** lost
   every device holding the local copy. The vault is a second copy, never the only one.
   This is why it's opt-in, and why it never applies to kennel records.
-- **Deliberately not offered:** backing up private info *unencrypted* to our server. It
-  would be easier to recover, but it puts us back to holding readable personal data, which
-  is the thing this design avoids. (Revisit only if support load shows the recovery code
-  failing real users.)
+- **Deliberately not offered (reaffirmed 2026-10-07):** backing up private info
+  *unencrypted*, or encrypted with a key *we* hold, to our server. It would be easier to
+  recover, but it puts us back to holding readable personal data, which is the thing this
+  design avoids. **The fallback, decided in advance:** if support requests show real users
+  locked out despite passkey sync, the recovery code *and* second-device unlock, the answer
+  is a per-user opt-in, "Let KennelOS help me recover my private info (less private)". It is
+  never a change to the default.
 
 ### 6.4 Protecting private data that *isn't* in the vault
 
@@ -393,10 +414,10 @@ switch, and what's shared appears in your connections' **Friends feed**.
 | Phase | Delivers | Risk |
 |---|---|---|
 | **1. Account + automatic cloud backup** (build plan: `KennelOS_Cloud_Phase1_Plan.md`) | **Opt-in** (§2a): turn on cloud backup, sign in by email. The app pushes a **cloud-tier** backup snapshot on change, and a new phone signs in and restores. Covers the bulk of the data-loss goal. | Low. It builds on `exportAll`/restore, filtered through `syncRegistry.js`. The classification has to land here, first, so private data never reaches the server even once. |
+| **2b. Private vault — moved up (decided 2026-10-07)** | §6.3. Passkey + recovery code + second-device unlock, encrypted private-tier backup. **Scheduled directly after Phase 1**, ahead of 2–4: the waitlist depends on it (its W2 keeps the application key in the vault, `KennelOS_Waitlist_Spec.md` §8.2), and until it exists the only copy of contact details, family fees and full applications is the device plus file backups (Phase 1 plan §5.1). | Medium. Crypto is standard WebCrypto, but the recovery UX must be tested on real non-technical users |
 | **2. Live multi-device sync** | Outbox, push/pull, websocket nudges. The same person's phone and laptop stay in step. | Medium. This is the core engineering. |
 | **3. Team members & roles** | Invites, Staff and Helper roles, server-enforced visibility. KennelAssistant retires. | Medium |
 | **4. Dog transfers** | §7 | Medium |
-| **2b. Private vault** | §6.3. Passkey + recovery code, encrypted private-tier backup. Also a prerequisite of the waitlist's W2, which keeps its application key in the vault (`KennelOS_Waitlist_Spec.md` §8.2). | Medium. Crypto is standard WebCrypto, but the recovery UX must be tested on real non-technical users |
 | **4b. Connections** | §8. Invite/QR/email connect, profile → auto kennel + contact, the feed, then "add to my records" linked dogs | Medium. Mostly allow-list builders plus a feed. Low data risk because everything shared is already cloud tier |
 | **5. Optional account-linked license** | Webhooks so a key follows a signed-in account; browser validation stays the base path (§2a). **The webhook → Worker link is brought forward** as a prerequisite of the waitlist's W2, used only to gate the server-side waitlist routes (`KennelOS_Waitlist_Spec.md` §8.5, §12). | Low |
 | **Later** | Two-way linked dogs and co-ownership, optional "people you may know", and Furever families on accounts | Higher |
@@ -411,8 +432,9 @@ switch, and what's shared appears in your connections' **Friends feed**.
 5. **Roles:** are Owner / Staff / Helper the right three?
 6. **Existing users:** turning on cloud backup uploads the current local data as the program
    (proposed default). (Keeping Dropbox and JSON: decided, they stay, §2a.)
-7. **Operator obligations:** with §6, the server holds contact *names* but not addresses,
-   phones, or money, the vault only as scrambled bytes, and account emails only as keyed
+7. **Operator obligations:** with §6, the server holds contact *names* (and waitlist
+   applicants' names and emails, which W2 holds anyway) but not addresses, phones, or
+   payments, the vault only as scrambled bytes, and account emails only as keyed
    hashes (§4). We'd still need a privacy
    policy and a delete-my-account path, but breach exposure is much smaller.
 8. **Who builds and runs the backend?** It's the first piece of this product that can go down
@@ -422,6 +444,14 @@ switch, and what's shared appears in your connections' **Friends feed**.
 - **Offline-first,** and **every cloud feature is opt-in and removable;** the app must run
   exactly like today with no server (§2a).
 - Contact names are in the cloud tier; kennel location is in the cloud tier.
+- **Privacy vs. recoverability (2026-10-07; Phase 1 plan §5.1):**
+  - the line is drawn by whose data it is;
+  - her waitlist setup and the list's running state are cloud;
+  - waitlist applicants' name and email are cloud, and nothing else from an application
+    is;
+  - the vault moves to right after Phase 1, with a second-device unlock;
+  - no readable private data on our server stays the default, with a per-user
+    opt-in recovery switch as a fallback only if lock-outs show up in support.
 - **Account emails are stored only as keyed hashes** (§4). Codes, transfer notices and invites
   go to an address typed in that request; nothing emails a user unprompted, and service
   notices are in-app only.

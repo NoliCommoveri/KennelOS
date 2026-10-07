@@ -84,9 +84,18 @@ test('the whole sample packet, treated as real, projects cleanly and fills the e
   assert.equal(envelope.edition, 'pro');
   assert.equal(envelope.counts.dogs, tables.dogs.rows.size);
   assert.equal(envelope.counts.expenses, 0);
-  const json = JSON.stringify(envelope);
-  for (const leaked of ['"price"', '"email"', '"phone"', '"notes"', '"fee_amount"', '"application"']) {
-    assert.ok(!json.includes(leaked), `${leaked} leaked into the snapshot`);
+  const c = envelope.collections;
+  for (const [table, rows] of Object.entries(c)) {
+    for (const r of rows) assert.ok(!('notes' in r), `${table}.notes leaked into the snapshot`);
+  }
+  for (const r of c.contacts) for (const f of ['email', 'phone', 'address']) assert.ok(!(f in r), `contacts.${f} leaked`);
+  for (const r of c.sales) for (const f of ['price', 'deposit_amount']) assert.ok(!(f in r), `sales.${f} leaked`);
+  // Waitlist (decided 2026-10-07): an application carries only name + email; the
+  // family's own fee and payment details stay on the device.
+  assert.ok(c.waitlist_entries.some((e) => e.application?.name), 'applicant names are backed up');
+  for (const e of c.waitlist_entries) {
+    for (const f of ['fee_amount', 'fee_payment_method', 'fee_payment_reference', 'pause_reason']) assert.ok(!(f in e), `waitlist_entries.${f} leaked`);
+    if (e.application) for (const k of Object.keys(e.application)) assert.ok(['name', 'email'].includes(k), `application.${k} leaked`);
   }
 });
 

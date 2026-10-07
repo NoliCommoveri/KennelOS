@@ -664,18 +664,33 @@ spending cap on the assistant routes (§10), whatever its edition.
 
 | Table | Cloud | Private |
 |---|---|---|
-| `waitlist_entries` | `kennel_id`, `contact_id`, `status`, `waitlist_program_id`, **every date field, including `fee_due_date` and `fee_received_date`** (the position anchor, §6.1), `position_anchor_date`, `pref_*`, `listen_*`, `paused_until`, `removed_reason`, `placed_sale_id` | `application`, `fee_amount`, `fee_payment_method`, `fee_payment_reference`, `fee_credit_policy`, `pause_reason` (it may name a medical situation), `notes` |
+| `waitlist_entries` | `kennel_id`, `contact_id`, `status`, `waitlist_program_id`, **every date field, including `fee_due_date` and `fee_received_date`** (the position anchor, §6.1), `position_anchor_date`, `pref_*`, `listen_*`, `paused_until`, `removed_reason`, `placed_sale_id`; **since 2026-10-07:** `ready_timing`, `soon_notified_litter_ids`, `application_questions`, and of `application` **only `name` and `email`** | the rest of `application`, `fee_amount`, `fee_payment_method`, `fee_payment_reference`, `fee_credit_policy`, `pause_reason` (it may name a medical situation), `notes`, `pref_change_log`, `pref_change_request` |
 | `waitlist_offers` | every field except → | `notes` |
 | `waitlist_programs` | `kennel_id`, `name`, `priority`, `pause_allowed`, `passes_count`, `respond_days_override`, `public_description` | `fee_override`, `notes` |
+| `kennels` (existing entry) | gains `waitlist_config` **(decided 2026-10-07)**: her rules, form questions, FAQ, fee and payment instructions | |
 | `dogs` (existing entry) | gains `intended_placement` (§4.5) | |
 
-**Fields added since this table (as classified in `syncRegistry.js`, 2026-10-07):**
-- cloud: `listen_sire_ids`/`listen_dam_ids` (under `listen_*`), `soon_notified_date` and
-  `fee_received_at` (date fields; `fee_received_at` is the same-day tie-breaker of the
-  order), and offers' `picked_date` and `sale_id`;
-- private: `pref_change_log`, `pref_change_request` (§15.9);
-- **pending, private until decided:** `ready_timing` (it drives the readiness hold, so a
-  restore without it would drop holds) and `soon_notified_litter_ids`.
+**Why the waitlist runs after a restore (decided 2026-10-07; Cloud Phase 1 plan §5.1).**
+The table first kept her waitlist settings and every application private. A cloud restore
+then brought back a list in the right order that couldn't be run: her form and rules fell
+back to defaults, applicants who weren't approved yet came back nameless, and readiness
+holds were dropped. The line is now drawn by **whose data it is**:
+- **Her own setup is cloud:** `waitlist_config` (rules, form, FAQ, the fee she charges,
+  payment instructions), and the list's running state: `ready_timing` (a restore without
+  it would drop holds and offer a family a pup early), `soon_notified_litter_ids`, and
+  `application_questions` (her form's wording).
+- **Applicants: name and email only.** §8.1 already has W2's server holding these two
+  readable, so backup carries the same two fields, and nothing else from an application.
+  The partial rule is enforced before upload. A restore merges by key, so a device that
+  still has the full answers keeps them.
+- **Still private:** each family's fee amount and payment details, every other
+  application answer, `pause_reason`, notes, and the change history. These are recovered
+  by the **private vault**, which is now scheduled right after Cloud Phase 1 (Proposal §9)
+  and required before W2. Until then, by file backups.
+- **Fields added after this table:** `listen_sire_ids`/`listen_dam_ids` (`listen_*`),
+  `soon_notified_date` and `fee_received_at` (date fields; `fee_received_at` is the
+  same-day tie-breaker of the order), and offers' `picked_date` and `sale_id` are cloud.
+  `pref_change_log` and `pref_change_request` are private (§15.9).
 
 **Why the fee dates are cloud:** a date reveals nothing sensitive, but it *is* the list
 order. With it private, a restore on a new phone would blank every family's anchor and
@@ -768,7 +783,7 @@ API. It has three jobs.
 |---|---|---|
 | **W1. The list, locally** (split into W1a–W1d, §14) | Tables, repos, rules engine + tests, Waitlist page (list, applications queue, entry page), programs, manual application entry + CSV import, approve / fee received / offers / passes / auto-removal with undo, Sale creation on accept, `waitlist_status` kept in step, Demo seed | No. Useful immediately; she runs it from her phone and messages families herself. |
 | **W1e. Her requests** (recorded and built 2026-10-06, §15; before W2) | Application form builder (her own questions, some locked) + import of questions from a CSV of her old form's responses; offering a litter or pup from the family's entry and a "who's next" view per litter; application-fee receipts and Sale invoices/receipts as downloadable PDFs; the public-list notice on manual entry; "Copy public list" as the public list's stand-in | No |
-| **W2. Online** | Public form + encrypted inbox (with Rotate form key), status page with buttons, an encrypted message box and the optional "Message us on Facebook" button, no-reply fee/offer/decline/reminder emails from templates, family responses, server-side deadlines (§8.4), Pro entitlement + rate limits (§8.5). **Added 2026-10-06 (§15):** the public list page and its status-page tab, PDFs on the status page (link-key encrypted), emails sent in the kennel's name | Yes: after Phase 1's Worker and auth, **the private vault** (Proposal Phase 2b; §8.2), and **the server-side Pro license link** (Proposal Phase 5, brought forward for the waitlist routes only; §8.5) |
+| **W2. Online** | Public form + encrypted inbox (with Rotate form key), status page with buttons, an encrypted message box and the optional "Message us on Facebook" button, no-reply fee/offer/decline/reminder emails from templates, family responses, server-side deadlines (§8.4), Pro entitlement + rate limits (§8.5). **Added 2026-10-06 (§15):** the public list page and its status-page tab, PDFs on the status page (link-key encrypted), emails sent in the kennel's name | Yes: after Phase 1's Worker and auth, **the private vault** (Proposal Phase 2b, scheduled directly after Phase 1 since 2026-10-07; §8.2), and **the server-side Pro license link** (Proposal Phase 5, brought forward for the waitlist routes only; §8.5) |
 | **W3. Assistant** | FAQ chat, check-ins, written messages | Yes |
 | **Later** | Pay links with automatic fee received, helpers working the list on their own devices (needs Proposal Phases 2–3), SMS and Messenger notifications (sent from her Page; needs Meta app review, and Meta's 24-hour messaging window limits check-ins and reminders) | Yes |
 

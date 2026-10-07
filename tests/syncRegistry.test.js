@@ -115,7 +115,10 @@ test('assertCloudRow throws on an injected private key, an unclassified key, and
   const dog = reg.projectRow('dogs', packet.dogs[0]);
   assert.throws(() => reg.assertCloudRow('dogs', { ...dog, notes: 'x' }), reg.CloudKeyError);
   assert.throws(() => reg.assertCloudRow('dogs', { ...dog, brand_new_field: 1 }), reg.CloudKeyError);
-  assert.throws(() => reg.assertCloudRow('kennels', { id: 'k', waitlist_config: {} }), /waitlist_config/);
+  assert.throws(() => reg.assertCloudRow('contacts', { id: 'c', name: 'Pat', email: 'p@x.co' }), /email/);
+  // A partial object field: only its listed keys may ride along.
+  reg.assertCloudRow('waitlist_entries', { id: 'w', application: { name: 'Sam', email: 's@x.co' } });
+  assert.throws(() => reg.assertCloudRow('waitlist_entries', { id: 'w', application: { name: 'Sam', phone: '555' } }), /application\.phone/);
   assert.throws(() => reg.assertCloudRow('sales', { id: 's', price: 1500 }), /price/);
   assert.throws(() => reg.assertCloudRow('expenses', { id: 'e', amount: 1 }), reg.CloudKeyError);
   assert.throws(() => reg.assertCloudRow('no_such_table', { id: 'z' }), reg.CloudKeyError);
@@ -192,15 +195,30 @@ test('the decided §5 privacy lines hold (field-by-field spot checks)', () => {
   for (const [table, entry] of Object.entries(reg.SYNC_REGISTRY)) {
     assert.ok(!entry.cloud.includes('notes'), `${table}.notes must not be cloud`);
   }
-  // Waitlist: the position anchor is cloud; the application and fee money aren't.
+  // Waitlist: the position anchor is cloud; the family's fee money isn't.
   assert.ok(cloud('waitlist_entries', 'fee_received_date'));
-  for (const f of ['application', 'fee_amount', 'pause_reason']) assert.ok(!cloud('waitlist_entries', f), f);
+  for (const f of ['fee_amount', 'fee_payment_method', 'pause_reason']) assert.ok(!cloud('waitlist_entries', f), f);
+  // Decided 2026-10-07 (Cloud plan §5.1): her waitlist setup and the running
+  // state are cloud; of an application, only the applicant's name + email.
+  for (const f of ['ready_timing', 'soon_notified_litter_ids', 'application_questions']) assert.ok(cloud('waitlist_entries', f), f);
+  assert.deepEqual(reg.projectRow('waitlist_entries', {
+    id: 'w', application: { name: 'Sam Lee', email: 's@x.co', phone: '555', household: 'two kids', about: 'long story' }
+  }).application, { name: 'Sam Lee', email: 's@x.co' });
   assert.ok(!cloud('waitlist_programs', 'fee_override'));
   assert.ok(cloud('kennels', 'location'));
   // The five fields first left pending (decided 2026-10-06).
   assert.ok(cloud('dogs', 'dob_is_estimated'));
   assert.ok(cloud('dogs', 'recorded_coi'));
   assert.ok(cloud('litters', 'picks_opened_date'));
-  assert.ok(!cloud('kennels', 'waitlist_config'));
+  assert.ok(cloud('kennels', 'waitlist_config'), 'her own waitlist setup (decided 2026-10-07)');
   assert.ok(!cloud('litters', 'feeding_schedule_override'));
+});
+
+test('restore keeps an applicant\'s private answers on the device and takes name + email from the snapshot', () => {
+  const local = { id: 'w', updated_at: 'a', application: { name: 'Old', email: 'old@x.co', phone: '555', household: 'two kids' } };
+  const snap = { id: 'w', updated_at: 'b', application: { name: 'Sam Lee', email: 's@x.co' } };
+  assert.deepEqual(reg.overlayCloudFields('waitlist_entries', local, snap).application,
+    { name: 'Sam Lee', email: 's@x.co', phone: '555', household: 'two kids' });
+  // A new device (no local row) gets just what the snapshot has.
+  assert.deepEqual(reg.snapshotRowToLocal('waitlist_entries', snap).application, { name: 'Sam Lee', email: 's@x.co' });
 });

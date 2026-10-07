@@ -20,6 +20,10 @@
 //             the coverage test passes while the open question stays visible.
 //   filtered (optional) — { field: fn(value, row) } for a cloud field whose
 //             CONTENTS are partly private (events.details).
+//   partial (optional) — { field: [keys] } for a cloud field holding an OBJECT
+//             of which only the listed keys are cloud (waitlist_entries.
+//             application: name + email). The rest of the object stays private,
+//             and a restore keeps the device's own copy of those keys.
 //   derived (optional) — keys the snapshot builder adds that the local row
 //             doesn't carry (files: `sha256`, in place of the blob, which is
 //             uploaded separately — plan §4.1 step 4).
@@ -70,10 +74,14 @@ export const SYNC_REGISTRY = Object.freeze({
     cloud: [
       'kennel_name', 'prefix', 'public_id', 'is_own_kennel', 'location', 'website',
       'logo_data_url', 'preferred_tests', 'preferred_breeds', 'preferred_test_breeds',
-      'promote_nudge_enabled', 'promote_age_male_months', 'promote_age_female_months'
+      'promote_nudge_enabled', 'promote_age_male_months', 'promote_age_female_months',
+      // Her own waitlist setup: rules, application form questions, FAQ, fee and
+      // payment instructions. Her business settings, not anyone else's personal
+      // data, so cloud, or a restore couldn't run her waitlist (decided 2026-10-07,
+      // Cloud plan §5.1 decision 1).
+      'waitlist_config'
     ],
-    // waitlist_config holds the waitlist fee and payment instructions.
-    private: ['waitlist_config'],
+    private: [],
     pending: []
   },
 
@@ -205,15 +213,21 @@ export const SYNC_REGISTRY = Object.freeze({
       'fee_received_at',
       'pref_sex', 'pref_breed', 'pref_placement_type', 'pref_colors',
       'listen_mode', 'listen_sire_ids', 'listen_dam_ids',
-      'removed_reason', 'placed_sale_id'
+      'removed_reason', 'placed_sale_id',
+      // Decided 2026-10-07 (Cloud plan §5.1, decisions 1 and 2): the readiness
+      // hold and the litters she told a family about are how the list RUNS; the
+      // question wording is her own form; and the applicant's name + email are
+      // what W2's server holds readable anyway (Waitlist Spec §8.1). Only those
+      // two keys of `application` go (see `partial`); every other answer stays private.
+      'ready_timing', 'soon_notified_litter_ids', 'application_questions', 'application'
     ],
+    partial: { application: ['name', 'email'] },
     // pref_change_*: "private tier like application" (Waitlist Spec §15.9).
     private: [
-      'application', 'fee_amount', 'fee_payment_method', 'fee_payment_reference',
+      'fee_amount', 'fee_payment_method', 'fee_payment_reference',
       'fee_credit_policy', 'pause_reason', 'notes', 'pref_change_log', 'pref_change_request'
     ],
-    // Added on main after §9 was written; not classified by any doc yet.
-    pending: ['ready_timing', 'soon_notified_litter_ids']
+    pending: []
   },
 
   waitlist_offers: {
@@ -298,17 +312,38 @@ export function keepsRow(table, row, ctx = {}) {
   return !!rows(row);
 }
 
+const isPlainObject = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
+
+// Only the allowed keys of an object, as a NEW object; null when not an object.
+function pickKeys(value, keys) {
+  if (!isPlainObject(value)) return null;
+  const out = {};
+  for (const k of keys) if (Object.prototype.hasOwnProperty.call(value, k)) out[k] = value[k];
+  return out;
+}
+
+// The cloud keys allowed inside a nested object field, or null when the field
+// isn't nested-filtered. events.details is derived from vocab per event type.
+function nestedCloudKeys(table, field, row) {
+  const entry = entryFor(table);
+  if (entry.partial && entry.partial[field]) return new Set(entry.partial[field]);
+  if (table === 'events' && field === 'details') return cloudDetailKeys(row.event_type);
+  return null;
+}
+
 // A NEW object built by name from the table's implicit + cloud fields. Keys the
 // source row doesn't have are omitted (not written as undefined). `filtered`
-// fields pass through their filter. Derived keys are NOT added here — the
-// snapshot builder adds them (files' sha256).
+// fields pass through their filter, and `partial` fields keep only their listed
+// keys. Derived keys are NOT added here — the snapshot builder adds them
+// (files' sha256).
 export function projectRow(table, row) {
   const entry = entryFor(table);
   const out = {};
   for (const field of [...IMPLICIT_CLOUD_FIELDS, ...entry.cloud]) {
     if (!Object.prototype.hasOwnProperty.call(row, field)) continue;
     const filter = entry.filtered && entry.filtered[field];
-    out[field] = filter ? filter(row[field], row) : row[field];
+    const partial = entry.partial && entry.partial[field];
+    out[field] = filter ? filter(row[field], row) : partial ? pickKeys(row[field], partial) : row[field];
   }
   return out;
 }
@@ -343,20 +378,18 @@ export class CloudKeyError extends Error {
 }
 
 // Throws CloudKeyError on the first key a snapshot row may not carry, including
-// inside events.details. An unknown table throws too.
+// inside a nested-filtered object (events.details, waitlist_entries.application).
+// An unknown table throws too.
 export function assertCloudRow(table, row) {
   if (!SYNC_REGISTRY[table]) throw new CloudKeyError(table, '(table)', row && row.id);
   const allowed = allowedSnapshotKeys(table);
   for (const key of Object.keys(row)) {
     if (!allowed.has(key)) throw new CloudKeyError(table, key, row.id);
-  }
-  if (table === 'events' && row.details != null) {
-    if (typeof row.details !== 'object' || Array.isArray(row.details)) {
-      throw new CloudKeyError(table, 'details', row.id);
-    }
-    const detailKeys = cloudDetailKeys(row.event_type);
-    for (const key of Object.keys(row.details)) {
-      if (!detailKeys.has(key)) throw new CloudKeyError(table, `details.${key}`, row.id);
+    const nested = nestedCloudKeys(table, key, row);
+    if (!nested || row[key] == null) continue;
+    if (!isPlainObject(row[key])) throw new CloudKeyError(table, key, row.id);
+    for (const k of Object.keys(row[key])) {
+      if (!nested.has(k)) throw new CloudKeyError(table, `${key}.${k}`, row.id);
     }
   }
 }
@@ -372,10 +405,11 @@ export function assertCloudCollections(collections) {
 // implicit + cloud field taken from `snapRow`, and every other (private) field
 // left exactly as it is locally. A cloud field the snapshot row doesn't carry
 // is REMOVED from the result, since the snapshot says it was absent at the
-// source. `details` (events) merges by key: the snapshot's cloud keys, plus the
-// local row's private keys (textarea / undeclared), so a restore never blanks a
-// treatment note that only this device has. Derived keys (files' sha256) are
-// never written to a local row.
+// source. Nested-filtered objects (events.details, waitlist_entries.
+// application) merge by key: the snapshot's cloud keys, plus the local row's
+// private keys, so a restore never blanks a treatment note or an applicant's
+// answers that only this device has. Derived keys (files' sha256) are never
+// written to a local row.
 export function overlayCloudFields(table, localRow, snapRow) {
   const entry = entryFor(table);
   const out = { ...localRow };
@@ -383,21 +417,16 @@ export function overlayCloudFields(table, localRow, snapRow) {
     if (Object.prototype.hasOwnProperty.call(snapRow, field)) out[field] = snapRow[field];
     else delete out[field];
   }
-  if (table === 'events') {
-    const eventType = out.event_type;
-    const cloudKeys = cloudDetailKeys(eventType);
-    const localDetails = (localRow.details && typeof localRow.details === 'object') ? localRow.details : null;
-    const snapDetails = (snapRow.details && typeof snapRow.details === 'object') ? snapRow.details : null;
-    if (localDetails || snapDetails) {
-      const merged = {};
-      if (localDetails) {
-        for (const [k, v] of Object.entries(localDetails)) if (!cloudKeys.has(k)) merged[k] = v;
-      }
-      if (snapDetails) {
-        for (const [k, v] of Object.entries(snapDetails)) if (cloudKeys.has(k)) merged[k] = v;
-      }
-      out.details = merged;
-    }
+  for (const field of entry.cloud) {
+    const cloudKeys = nestedCloudKeys(table, field, out);
+    if (!cloudKeys) continue;
+    const localObj = isPlainObject(localRow[field]) ? localRow[field] : null;
+    const snapObj = isPlainObject(snapRow[field]) ? snapRow[field] : null;
+    if (!localObj && !snapObj) continue;
+    const merged = {};
+    if (localObj) for (const [k, v] of Object.entries(localObj)) if (!cloudKeys.has(k)) merged[k] = v;
+    if (snapObj) for (const [k, v] of Object.entries(snapObj)) if (cloudKeys.has(k)) merged[k] = v;
+    out[field] = merged;
   }
   return out;
 }
