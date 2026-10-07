@@ -16,6 +16,7 @@ src/mail.js            sending a code through Resend; without a key, staging's D
 src/files.js           content-addressed files; R2 verifies the sha256
 src/snapshots.js       describe → upload body → commit, with the 409 rule at both steps
 src/program.js         program state, takeover, delete account
+src/devices.js         the device check-in and list, remote erase, Pro-license bookkeeping (plan §2.5)
 src/notice.js          service notices (public /notice; set on /ops)
 src/retention.js       the daily prune and GC; pickDrops is the pure rule
 src/backup.js          /ops export/import of the D1 rows (not R2)

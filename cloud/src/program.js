@@ -46,6 +46,7 @@ export async function deleteAccount(env, auth, body) {
     env.DB.prepare('DELETE FROM files WHERE program_id = ?').bind(p),
     env.DB.prepare('DELETE FROM programs WHERE id = ?').bind(p),
     env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(auth.userId),
+    env.DB.prepare('DELETE FROM device_erasures WHERE user_id = ?').bind(auth.userId),
     env.DB.prepare('DELETE FROM login_codes WHERE email_hash = (SELECT email_hash FROM users WHERE id = ?)').bind(auth.userId),
     env.DB.prepare('DELETE FROM users WHERE id = ?').bind(auth.userId),
   ]);

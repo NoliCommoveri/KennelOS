@@ -628,6 +628,21 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   replies stubbed): dialog, card line, no Today nudge after turning off, and the upgrade note
   after the file download; no errors beyond the stubbed 409s.
   Service-worker cache rolled to `kennelos-shell-v40` for this and the test switch.
+- **A lost device: remote erase + free its Pro license — built & browser-verified** (Cloud
+  plan §2.5). Import/Export → Cloud backup → Account → **Your devices…** lists the account's
+  devices. **Erase…** (typed ERASE; needs a sign-in from the last 15 minutes or an emailed
+  code) wipes that device the next time it opens KennelOS online: every table, the
+  KennelAssistant database and every `kennelOS.*` key. **Free its Pro license** releases its
+  Lemon Squeezy activation from the owner's browser (the key never reaches our server), also
+  reachable from the activation wall ("Free a lost device's slot"). Signed-in devices now
+  check in (`POST /devices/check-in`, which also carries the service notices), started before
+  the license gate so a walled device still hears an erase. New module
+  `shared/data/cloud/cloudDevices.js`; **cloud migration `0004`: Apply pending on staging's
+  `/ops` after this deploys**. Tests: `cloud/tests/devices.test.js` and new
+  `tests/cloudClient.test.js` cases. Headless Chromium against the real Worker locally (Pro
+  and Lite builds, Lemon Squeezy stubbed): free a slot from the wall, erase from a laptop, the
+  walled phone wiped on reopening with the erase confirmed, the code prompt for an older
+  sign-in; no page errors. Only devices that had cloud backup on are covered.
 
   Next: step 6. That's the docs (§8: CLAUDE.md, the Editions Plan, the End-State guide's
   §29 section), the privacy policy page, the SW bump, and production. A live check against

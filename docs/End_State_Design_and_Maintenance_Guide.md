@@ -143,12 +143,17 @@ KennelOS/
                                on localhost, or anywhere once ?cloud=staging has
                                turned on the test-server switch), or null
       cloudApi.js              The ONLY network module: fetch, bearer token, timeouts,
-                               typed errors (Offline / Auth / Conflict / Request)
+                               typed errors (Offline / Auth / Erased / Conflict / Request);
+                               a 401 device_erased calls the registered erase handler
       cloudAuth.js             Email + 6-digit code sign-in; the session in settings.js
       cloudBackup.js           Snapshot builder (sample rows dropped, registry
                                projection, file bytes by sha256, key check), gzip, shrink
                                guard; pushIfDirty, the one-backup-device choices, restore,
-                               and the scheduler. Not started by any page yet (step 5)
+                               and the scheduler (started by cloudBackupUI.bootCloud)
+      cloudDevices.js          A lost device (Cloud plan §2.5): the check-in (started by
+                               app.js before the license gate), the device list, remote
+                               erase + this device's self-wipe, freeing a device's Pro
+                               license with Lemon Squeezy (the key never goes to our server)
     dogRepo / contactRepo / kennelRepo / pairingRepo / litterRepo /
       saleRepo / contractRepo / studServiceRepo / eventRepo / expenseRepo /
       documentRepo   Entity repos
@@ -170,7 +175,8 @@ KennelOS/
     assistantSync.js           Owner-side Dropbox flows: backup push/pull,
                                assistant feed builder, outbox import (§26)
     assistantStore.js          KennelAssistant's OWN Dexie db + its data layer (§26)
-    appReset.js                Full "reset to first run" teardown
+    appReset.js                Full "reset to first run" teardown; eraseThisDevice() for
+                               a remote erase (also the license, cloud keys, Assistant db)
     sampleData.js              "Thornfield Kennels" demo seed + generic clear (§11)
     seedImport.js              Optional breed+test vocabulary seed
     kennelSetup.js             First-run "your kennel/owner" wizard logic (a mandatory gate)
@@ -228,7 +234,8 @@ KennelOS/
     onboardingUI.js            First-run Welcome → tour-offer → backups/install cards (§11)
     cloudBackupUI.js           Every cloud-backup screen: sign-in, the Import/Export card,
                                the Today nudge, the 409/shrink dialogs, restore as of…,
-                               first-run restore, the post-setup offer, notices (§11).
+                               first-run restore, the post-setup offer, notices, and
+                               "Your devices" (erase / free a Pro license) (§11).
                                Loaded only when the edition has a cloud server
     sampleDataUI.js            Sample-data banner + Clear-sample-data flow
     kennelSetupUI.js           Kennel-setup prompt/wizard + seed prefill
@@ -894,7 +901,8 @@ plain local backup/restore.
   doesn't touch them: `cloudSession` (`{ token, email, programId, deviceId }`; the email
   stays on this device, the server keeps only a keyed hash), `cloudBackupState`
   (`{ enabled, lastPushedAt, lastAttemptAt, lastSnapshotId, lastCounts, lastContentHash,
-  lastError, movedToEdition }`; `movedToEdition` is `'pro'` once a Lite device turned backup
+  lastError, movedToEdition, lastCheckInAt }`; `lastCheckInAt` is the last device check-in,
+  Cloud plan §2.5; `movedToEdition` is `'pro'` once a Lite device turned backup
   off because its program moved to Pro, which keeps Today's turn-on nudge quiet until backup
   is turned on again), and `cloudDeviceId` (this browser's id on the cloud account, sent on every
   sign-in so the backing device stays recognisable; separate from the license
@@ -903,6 +911,10 @@ plain local backup/restore.
   so turning backup back on meets the server's 409 and the restore-or-replace choice
   instead of pushing an emptied program. The sign-in itself is kept; signing out is a
   separate choice (`cloudAuth.signOut`).
+- **`eraseAck`** (outside `KEYS`): after a remote erase wiped this device, the dead cloud
+  token alone, kept until `POST /devices/erase-ack` lands (`cloudDevices.finishEraseAck`, on
+  every page load and when the browser comes back online). It opens nothing else on the
+  server.
 - **`cloudTestServer`** (also outside `KEYS`, so Reset App keeps it): `'1'` while this
   browser uses the edition's staging server (`devCloudUrl`) on a deployed origin. Any page
   visited with `?cloud=staging` turns it on and `?cloud=off` turns it off
@@ -994,7 +1006,9 @@ plain local backup/restore.
   `getContacts()` and the Kennel detail page's own-kennel views both depend on
   this link existing).
 - **appReset.js** — `resetApp()` clears every table + all settings → the exact blank slate
-  a never-visited browser sees.
+  a never-visited browser sees. `eraseThisDevice()` is the remote erase (Cloud plan §2.5):
+  `resetApp()`, plus KennelAssistant's database and every `kennelOS.*` key in both storages,
+  including the ones a reset deliberately keeps (`settings.clearAllAppStorage()`).
 
 First-run flow (`app.js` → `runFirstRunOnboarding()` in **`assets/onboardingUI.js`**):
 request durable storage once, then — on a genuinely fresh install (`shouldOfferFirstRunPrompt()`)
@@ -1017,6 +1031,11 @@ request durable storage once, then — on a genuinely fresh install (`shouldOffe
 
 **Cloud backup in the shell** (only with a server; an edition with `cloudUrl: null` never
 loads any cloud UI, and the Welcome card keeps saying "no account, no cloud"):
+- `app.js`, **first thing in `boot()`, before the Pro license gate**, dynamically imports
+  `cloudDevices.bootDeviceCheck()`: a signed-in device checks in (the first page of a
+  browsing session and on returning to the foreground or online, each at most once a
+  minute; other page loads at most every 15 minutes) so an erase sent from another device
+  reaches it even when it's walled (Cloud plan §2.5).
 - `app.js`, after the first-run flow, dynamically imports `cloudBackupUI.bootCloud()`.
   That starts the backup scheduler on every page, shows service notices for a signed-in
   device, and runs the **one-time offer** "Protect your records: turn on free cloud backup".
@@ -1032,6 +1051,10 @@ loads any cloud UI, and the Welcome card keeps saying "no account, no cloud"):
   - a status line ("Backed up 4 minutes ago" / "Not backed up for 3 days: no internet?");
   - Back up now, and Restore as of… (pick a snapshot → per-table preview → confirm → reload);
   - turn off, sign out, sign out other devices, and delete my cloud data (typed DELETE);
+  - **Your devices…** (Cloud plan §2.5): every device on the account; **Erase…** (typed
+    ERASE, and a fresh sign-in: one from the last 15 minutes or an emailed code), cancel a
+    pending erase, and in Pro **Free its Pro license**. The Pro activation wall links to the
+    same list ("Free a lost device's slot"), after a cloud sign-in;
   - a one-time "private details aren't in cloud backup" hint after a cloud restore
     (settings `cloudRestoredAt`).
   The 409 dialog offers "Restore that backup here" or "Replace it…" (typed REPLACE); the

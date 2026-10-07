@@ -23,6 +23,7 @@ import { edition } from '../editionConfig.js';
 import { isCloudAvailable } from './cloudConfig.js';
 import * as api from './cloudApi.js';
 import { currentAccount, sessionToken, markSessionExpired, signOut } from './cloudAuth.js';
+import { checkIn, cacheNotices, NOTICE_CACHE } from './cloudDevices.js';
 import {
   filterCollectionsForCloud, assertCloudCollections, REGISTRY_TABLES
 } from '../syncRegistry.js';
@@ -456,18 +457,21 @@ export async function restoreOnNewDevice(opts = {}) {
 // The in-app shutdown channel. Fetched only for a device signed in to cloud
 // backup (someone who never opted in makes no request to the server at all),
 // once per browsing session, and cached in sessionStorage so every page of the
-// session can show it. Never throws: no notices is the safe answer.
-const NOTICE_CACHE = 'kennelOS.cloudNotices';
-
+// session can show it. A signed-in device gets them from its check-in
+// (cloudDevices.js, plan §2.5), so that's still one request; one whose sign-in
+// expired asks the public route. Never throws: no notices is the safe answer.
 export async function getServiceNotices() {
   if (!isCloudAvailable() || !currentAccount()) return [];
   try {
     const cached = globalThis.sessionStorage?.getItem(NOTICE_CACHE);
     if (cached) return JSON.parse(cached);
   } catch { /* fall through to a fetch */ }
-  let notices = [];
-  try { notices = await api.getNotices(); } catch { return []; }
-  try { globalThis.sessionStorage?.setItem(NOTICE_CACHE, JSON.stringify(notices)); } catch { /* fine */ }
+  let notices = null;
+  if (sessionToken()) notices = (await checkIn({ force: true }))?.notices ?? null;
+  if (!notices) {
+    try { notices = await api.getNotices(); } catch { return []; }
+    cacheNotices(notices);
+  }
   return notices;
 }
 

@@ -230,6 +230,12 @@ like any other and the yearly grace window (below) applies before the wall.
     device's access *and* the slot.
   - **The renewal wall's "use a different key"** releases best-effort and clears regardless: an
     owner already stuck behind a wall must never be trapped there by a network failure.
+  - **A lost device** (added 2026-10-07; Cloud Phase 1 plan §2.5): when it had cloud backup on,
+    its slot is freed from any other device (Import/Export → Cloud backup → Your devices → Free
+    its Pro license) or from the activation wall ("Free a lost device's slot"). Each signed-in
+    Pro device reports its `instance_id` to the cloud server at check-in; the owner's browser
+    then calls `deactivate` with that id and the key, which never reaches our server. A lost
+    device that never had cloud backup on still needs the owner to contact support.
 
   Each activation is named `"<owner's label> · <8 chars of a random per-browser id>"`, the label
   taken from an optional field on the activation wall. That name is the only handle an owner has
