@@ -498,8 +498,8 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
       required before the waitlist's W2. **Build plan drafted:**
       `docs/KennelOS_Private_Vault_Plan.md` (Phase 2b; decisions in its §10). Step 1, the
       vault's cryptography (`shared/data/cloud/vaultCrypto.js`, `tests/vaultCrypto.test.js`),
-      and step 2, the server (`cloud/src/vault.js`, **cloud migration `0005`: Apply pending
-      on staging's `/ops` after this deploys**; the API answers 503 until then), are built;
+      and step 2, the server (`cloud/src/vault.js`, cloud migration `0005`,
+      applied on staging and production), are built;
       nothing user-visible yet. Service-worker cache rolled to `kennelos-shell-v44` for this
       batch (the kennel-setup "Sign in to existing account" button, and `vaultCrypto.js` in
       the precache);

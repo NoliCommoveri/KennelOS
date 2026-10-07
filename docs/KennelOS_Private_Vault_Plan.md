@@ -323,16 +323,16 @@ Where the build differs from §6.1–§6.2 above, this wins:
 2. **Server:** migration `0005`, the `/vault` routes, the snapshot `vault` part and the
    `vault_required` rule, retention/deletion/export, tests. Staging: Apply pending.
    **Built 2026-10-07** (§6.4), pairing routes included, so step 4 is client-only.
-   **Operator: press Apply pending on staging's `/ops` after this deploys** (the API answers
-   503 until then).
+   `0005` is applied on staging and production (production's Worker deploys from `main`
+   and answers 503 while a migration is pending, so it had to be applied there too).
 3. **Client modules:** `vaultKeyStore`, `cloudVault`, the push/restore changes in
    `cloudBackup`, the pause state. Against staging.
 4. **Second-device pairing** (client + the pairing routes, if split from step 2).
 5. **UI:** §2's screens, the two-line status, the restore unlock step, the blank-private-field
    hint. Browser-verified in Lite and Pro.
 6. **Passkey (PRF)** as its own step: it needs real-device testing and is optional for users.
-7. **Docs (§7), privacy policy, `PRECACHE_URLS`, SW bump (asked first).** Production: Apply
-   pending on `/ops` before the editions deploy.
+7. **Docs (§7), privacy policy, `PRECACHE_URLS`, SW bump (asked first).** (Production: Apply
+   pending on `/ops`, already done for `0005`.)
 
 ## 10. Decisions (2026-10-07)
 1. **Vault payload = full records (§4.1)**, not only the private fields. The readable kennel

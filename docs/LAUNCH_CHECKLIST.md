@@ -147,13 +147,15 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
 The cloud API is **not** deployed by `deploy.yml`. Until every box here is ticked, Lite and
 Pro ship with `cloudUrl: null` and no cloud UI appears. Do these in order.
 
-- [ ] **Staging is current:** staging's `/ops` (`kennelos-api-staging.admin-kennelos.workers.dev/ops`)
-  shows no pending or drifted migration (`0004_device_erase` is the newest), and a live
+- [x] **Staging is current:** staging's `/ops` (`kennelos-api-staging.admin-kennelos.workers.dev/ops`)
+  shows no pending or drifted migration (`0005_vault` is the newest), and a live
   check from a browser that can reach it (`?cloud=staging` on Lite and Pro) passes: sign
   in, back up, restore on a second browser, restore as of, a lost-device erase, and delete.
-- [ ] **Cloudflare (dashboard, plan §6.7 step 6):** the `kennelos.app` zone on Cloudflare DNS
-  (GitHub Pages records **DNS-only**, so Pages still serves the editions); the Workers
-  Paid plan.
+- [x] **Cloudflare (dashboard, plan §6.7 step 6):** the `kennelos.app` zone on Cloudflare DNS
+  (GitHub Pages records **DNS-only**, so Pages still serves the editions).
+- [ ] **`[!]` The Workers Paid plan** ($5/month; Workers & Pages → Plans). Needed before real
+  users: the free tier's 10 ms CPU and 50 subrequests per request are too small for 25 MB
+  file uploads and large backups (plan §6.1).
 - [x] **Production D1 `kennelos-api`** created; its id is in `cloud/wrangler.toml` →
   `[[env.production.d1_databases]]` → `database_id`.
 - [x] **Production R2 `kennelos-files`** created.
@@ -168,13 +170,13 @@ Pro ship with `cloudUrl: null` and no cloud UI appears. Do these in order.
 - [x] **`api.kennelos.app/ops`:** sign in with production's `OPS_TOKEN`, press **Apply
   pending**, then Health shows every binding and secret present and no pending migration.
   Send yourself a code from a real address and confirm it arrives (not in spam).
-- [ ] **D1 export:** download the first export from `/ops` and keep it with the password
+- [x] **D1 export:** download the first export from `/ops` and keep it with the password
   manager's KennelOS entries.
-- [ ] **Go live:** merge the go-live change (branch `ccr-70ea2ace-gqn0q5-golive`). It sets `cloudUrl: 'https://api.kennelos.app'`
+- [x] **Go live:** merge the go-live change (branch `ccr-70ea2ace-gqn0q5-golive`). It sets `cloudUrl: 'https://api.kennelos.app'`
   in `lite/` and `pro/editionConfig.js` and rewrites the marketing site's "no accounts, no
   cloud" claims, adding `kennelos.app/privacy.html`. That merge deploys the editions and the
   site together.
-- [ ] **Smoke test on the real origins:** in Lite and Pro, turn on cloud backup with a real
+- [x] **Smoke test on the real origins:** in Lite and Pro, turn on cloud backup with a real
   email; back up; open the other origin's app (or a second browser) and **sign in and
   restore**; Your devices lists both; erase one and reopen it (wiped); delete the cloud data.
   Demo shows no cloud wording and makes no request to `api.kennelos.app`.
