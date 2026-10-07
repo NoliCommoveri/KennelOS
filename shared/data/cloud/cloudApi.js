@@ -205,6 +205,19 @@ export const replaceRecoveryWrap = (token, { keyId, wrapped }, reauth = {}) =>
 export const removeVaultWrap = (token, wrapId, reauth = {}) =>
   getJson(`/vault/wraps/${encodeURIComponent(wrapId)}`, { method: 'DELETE', token, json: reauth });
 
+// Unlocking from another device (Private Vault Plan §5.3). The new device asks:
+// → { pairingId, expiresAt }. 429 'too_many_pairings' / 'rate_limited'.
+export const createPairing = (token, { publicKey, label = null }) =>
+  getJson('/vault/pairings', { method: 'POST', token, json: { publicKey, label } });
+// An unlocked device lists what it can approve:
+// → { pairings: [{ id, deviceLabel, publicKey, createdAt, expiresAt }] }
+export const listPairings = (token) => getJson('/vault/pairings', { token });
+export const approvePairing = (token, pairingId, { approverKey, wrapped, keyId }) =>
+  getJson(`/vault/pairings/${encodeURIComponent(pairingId)}/approve`, { method: 'POST', token, json: { approverKey, wrapped, keyId } });
+// The asking device polls: → { status: 'waiting', expiresAt } or
+// { status: 'approved', approverKey, wrapped, keyId } (once: the row goes as it's read).
+export const pollPairing = (token, pairingId) => getJson(`/vault/pairings/${encodeURIComponent(pairingId)}`, { token });
+
 // --- Public -------------------------------------------------------------------
 // Service notices (the shutdown channel). → [{ id, level, message, until }]
 export const getNotices = () => getJson('/notice').then((b) => b.notices || []);

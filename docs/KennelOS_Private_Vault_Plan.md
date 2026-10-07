@@ -7,8 +7,8 @@
 > Status: **in progress.** Decisions recorded in §10 (2026-10-07). Built so far: §9 step 1
 > (`shared/data/cloud/vaultCrypto.js` + `tests/vaultCrypto.test.js`) and step 2, the server
 > (`cloud/src/vault.js`, migration `0005`, `cloud/tests/vault.test.js`; §6.4 is the as-built
-> record) and step 3, the client modules (§9 step 3 is the as-built record). Step 4,
-> second-device pairing, is next. Nothing user-visible yet.
+> record), step 3, the client modules, and step 4, unlocking from another device (§9 is the
+> as-built record). Step 5, the UI, is next. Nothing user-visible yet.
 
 ## 1. Scope
 
@@ -344,6 +344,16 @@ Where the build differs from §6.1–§6.2 above, this wins:
    vault. Tested end to end against the Worker (`tests/cloudVault.test.js`). Passkey and
    pairing flows are steps 4 and 6.
 4. **Second-device pairing** (client + the pairing routes, if split from step 2).
+   **Built 2026-10-07** (client only; the routes came with step 2). `cloudVault`:
+   `requestDeviceUnlock` (new device: an ECDH key pair and a 12-character code; only the
+   public key is sent), `pendingDeviceUnlock`, `pollDeviceUnlock` / `waitForDeviceUnlock`
+   (every 3 s; derives the KEK and unwraps), `cancelDeviceUnlock`; on the unlocked device
+   `listUnlockRequests` and `approveDeviceUnlock` (an ephemeral key pair, the typed code as
+   the HKDF salt, a one-time `device` wrap). The open request (its non-extractable private
+   key and the code) is kept in `device_secrets`, so a reload or page change mid-wait doesn't
+   lose it. The approver can't check the code: a wrong one fails on the new device
+   (`VaultLockedError`), and since the server hands the answer out once, it asks again.
+   Tests: `tests/cloudVault.test.js`.
 5. **UI:** §2's screens, the two-line status, the restore unlock step, the blank-private-field
    hint. Browser-verified in Lite and Pro.
 6. **Passkey (PRF)** as its own step: it needs real-device testing and is optional for users.

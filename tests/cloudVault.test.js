@@ -347,3 +347,100 @@ test('the key is tagged with its program: another account never uses it', async 
   assert.equal(await keyStore.getVaultKey('another-program'), null);
   assert.ok(await keyStore.getVaultKey(programId));
 });
+
+// --- unlocking from another device (§2.4, §5.3) ---------------------------------------------
+
+// Device A has the vault on and unlocked; device B signs in, restores locked,
+// and asks to be unlocked. Returns B's request (B is the current device).
+async function bAsksToBeUnlocked() {
+  await turnOnWithVault();
+  await newDeviceRestores();
+  return vault.requestDeviceUnlock({ label: 'Laptop B' });
+}
+
+test('another device unlocks this one with the code shown here; the private tier merges in', async () => {
+  const req = await bAsksToBeUnlocked();
+  assert.match(req.code, /^[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}$/);
+  assert.deepEqual(await vault.pollDeviceUnlock(), { status: 'waiting', expiresAt: req.expiresAt });
+  assert.equal((await vault.pendingDeviceUnlock()).code, req.code, 'survives a page change');
+  assert.deepEqual(await vault.listUnlockRequests(), [], 'a device never sees its own request');
+
+  switchDevice('A');
+  const [open] = await vault.listUnlockRequests();
+  assert.equal(open.id, req.pairingId);
+  assert.equal(open.deviceLabel, 'Laptop B');
+  await assert.rejects(vault.approveDeviceUnlock(open, 'short'), { name: 'VaultLockedError' });
+  await vault.approveDeviceUnlock(open, req.code.toLowerCase());
+  assert.deepEqual(await vault.listUnlockRequests(), []);
+
+  switchDevice('B');
+  const r = await vault.pollDeviceUnlock();
+  assert.equal(r.status, 'unlocked');
+  assert.equal(r.merged.status, 'restored');
+  assert.equal(tables.dogs.rows.get('d1').notes, 'notes for d1');
+  assert.equal(await tables.files.rows.get('fc').blob.text(), '%PDF contract terms');
+  assert.equal(await vault.pendingDeviceUnlock(), null, 'the request is done');
+  assert.equal(cb.getBackupStatus().paused, false);
+  const push = await cb.pushIfDirty({ force: true });
+  assert.equal(push.status, 'pushed');
+  assert.equal(push.vault, true);
+});
+
+test('a wrong code typed on the approver: the new device can\'t open it and must ask again', async () => {
+  const req = await bAsksToBeUnlocked();
+  switchDevice('A');
+  const [open] = await vault.listUnlockRequests();
+  await vault.approveDeviceUnlock(open, 'ZZZZ-ZZZZ-ZZZZ');
+  switchDevice('B');
+  await assert.rejects(vault.pollDeviceUnlock(), { name: 'VaultLockedError' });
+  assert.equal(await keyStore.getVaultKey(auth.currentAccount().programId), null);
+  await assert.rejects(vault.pollDeviceUnlock(), { name: 'VaultSetupError', code: 'expired' }, 'one try per request');
+  assert.ok(req.code);
+});
+
+test('a request expires after ten minutes, on both sides', async () => {
+  await bAsksToBeUnlocked();
+  env.DB.raw.prepare("UPDATE vault_pairings SET expires_at = '2020-01-01T00:00:00.000Z'").run();
+  switchDevice('A');
+  assert.deepEqual(await vault.listUnlockRequests(), []);
+  switchDevice('B');
+  await assert.rejects(vault.pollDeviceUnlock(), { name: 'VaultSetupError', code: 'expired' });
+  assert.equal(await vault.pendingDeviceUnlock(), null);
+  // And locally, without asking the server, once its time has passed.
+  await vault.requestDeviceUnlock();
+  assert.equal(await vault.pendingDeviceUnlock({ now: Date.now() + 11 * 60 * 1000 }), null);
+});
+
+test('only an unlocked device can approve', async () => {
+  const req = await bAsksToBeUnlocked();
+  switchDevice('C');
+  await signIn('breeder@example.com', 'Tablet C');
+  const [open] = await vault.listUnlockRequests();
+  await assert.rejects(vault.approveDeviceUnlock(open, req.code), { name: 'VaultSetupError', code: 'locked' });
+});
+
+test('waiting: polls until approved, and stops when cancelled', async () => {
+  const req = await bAsksToBeUnlocked();
+  const controller = new AbortController();
+  let waits = 0;
+  const cancelled = await vault.waitForDeviceUnlock({ intervalMs: 1, signal: controller.signal, onWaiting: () => { if (++waits === 2) controller.abort(); } });
+  assert.deepEqual(cancelled, { status: 'cancelled' });
+  assert.equal(waits, 2);
+
+  // Approve from A between B's polls (the fetch stand-in switches devices).
+  let approved = false;
+  const r = await vault.waitForDeviceUnlock({
+    intervalMs: 1,
+    merge: false,
+    onWaiting: async () => {
+      if (approved) return;
+      approved = true;
+      switchDevice('A');
+      const [open] = await vault.listUnlockRequests();
+      await vault.approveDeviceUnlock(open, req.code);
+      switchDevice('B');
+    }
+  });
+  assert.equal(r.status, 'unlocked');
+  assert.equal(r.merged, null);
+});

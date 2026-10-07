@@ -502,7 +502,8 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
       applied on staging and production), and step 3, the client modules
       (`vaultKeyStore.js`, `cloudVault.js`, the vault half of `cloudBackup.js`, a new
       `'vault-merge'` restore mode and the device-only `device_secrets` table;
-      `tests/cloudVault.test.js`), are built;
+      `tests/cloudVault.test.js`), and step 4, unlocking from another device (client
+      flows in `cloudVault.js`), are built;
       nothing user-visible yet. Service-worker cache rolled to `kennelos-shell-v44` for this
       batch (the kennel-setup "Sign in to existing account" button, and `vaultCrypto.js` in
       the precache). Step 3 adds `cloudVault.js` and `vaultKeyStore.js` to the precache;

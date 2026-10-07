@@ -1,8 +1,8 @@
 // cloudVault.js — the private vault's flows (Private Vault Plan §2, §3, §5.1):
 // turning it on with a recovery code, unlocking a device with that code,
 // merging the private tier in after a "Not now" restore, a new recovery code,
-// and turning it off. Passkeys (§5.2) and unlocking from another device (§5.3)
-// come in their own build steps.
+// unlocking from another device (§2.4, §5.3), and turning it off. Passkeys
+// (§5.2) come in their own build step.
 //
 // The cryptography is vaultCrypto.js; the unlocked key lives in vaultKeyStore.js;
 // pushing and restoring the encrypted part is cloudBackup.js. Network only
@@ -10,17 +10,22 @@
 // `cloudUrl: null` never makes a request.
 //
 // Errors: the cloudApi errors, plus
-//   VaultLockedError (vaultCrypto) — that recovery code doesn't open the vault;
+//   VaultLockedError (vaultCrypto) — that recovery code (or the code typed on
+//     the approving device) doesn't open the vault;
 //   VaultSetupError — code 'confirm_mismatch' (the typed-back group is wrong),
 //     'no_vault' (nothing to unlock), 'locked' (this device has no key to
-//     re-wrap), 'program_changed' (a draft from another sign-in).
+//     re-wrap), 'program_changed' (a draft from another sign-in), 'expired'
+//     (an unlock request that timed out or was already answered).
 import * as api from './cloudApi.js';
 import { isCloudAvailable } from './cloudConfig.js';
 import { currentAccount, sessionToken } from './cloudAuth.js';
-import { getVaultKey, setVaultKey, clearVaultKey } from './vaultKeyStore.js';
+import {
+  getVaultKey, setVaultKey, clearVaultKey, getPendingPairing, setPendingPairing, clearPendingPairing
+} from './vaultKeyStore.js';
 import {
   generateVaultKey, newRecoveryCode, formatCode, normalizeRecoveryCode,
-  kekFromRecoveryCode, wrapVaultKey, unwrapVaultKey
+  kekFromRecoveryCode, wrapVaultKey, unwrapVaultKey,
+  newPairingCode, generatePairingKeyPair, exportPublicKey, kekFromPairing
 } from './vaultCrypto.js';
 import { pushIfDirty, restoreSnapshotVault } from './cloudBackup.js';
 import { getCloudBackupState, updateCloudBackupState } from '../settings.js';
@@ -148,6 +153,111 @@ export async function mergeLatestVault({ onProgress } = {}) {
   const program = await api.getProgram(token);
   if (!program.latestSnapshotId) return null;
   return restoreSnapshotVault(program.latestSnapshotId, { overwrite: false, onProgress });
+}
+
+// --- Unlocking from another device (§2.4, §5.3) --------------------------------------
+// The server relays but can't open what it relays: the new device sends only an
+// ECDH public key; the approver wraps the vault key under a KEK from ECDH and
+// the 12-character code the user reads off the new device and types on the
+// approver. The approver can't check the code; a wrong one shows up on the new
+// device as VaultLockedError, and it asks again.
+
+// New device, part 1: ask. Shows `code` (formatted) until answered or expired.
+// The request is kept in device_secrets, so a reload doesn't lose it
+// (pendingDeviceUnlock). → { pairingId, code, expiresAt }
+export async function requestDeviceUnlock({ label = null } = {}) {
+  const { token, programId } = requireSession();
+  const pair = await generatePairingKeyPair();
+  const code = newPairingCode();
+  const { pairingId, expiresAt } = await api.createPairing(token, { publicKey: await exportPublicKey(pair.publicKey), label });
+  await setPendingPairing(programId, { pairingId, privateKey: pair.privateKey, code, expiresAt });
+  return { pairingId, code: formatCode(code), expiresAt };
+}
+
+// The open request on this device, for a page that (re)opens mid-wait; null
+// when there is none or it has expired (and then it's forgotten).
+export async function pendingDeviceUnlock({ now = Date.now() } = {}) {
+  const { programId } = requireSession();
+  const p = await getPendingPairing(programId);
+  if (!p) return null;
+  if (Date.parse(p.expiresAt) <= now) { await clearPendingPairing(); return null; }
+  return { pairingId: p.pairingId, code: formatCode(p.code), expiresAt: p.expiresAt };
+}
+
+// New device, part 2: one poll. → { status: 'waiting', expiresAt } or
+// { status: 'unlocked', merged } (merged as for unlockWithRecoveryCode, unless
+// `merge: false`). Throws VaultSetupError 'expired' when the request is gone
+// (timed out, or none open), and VaultLockedError when the approver typed the
+// wrong code: either way the request is over, so ask again.
+export async function pollDeviceUnlock({ merge = true, onProgress } = {}) {
+  const { token, programId } = requireSession();
+  const p = await getPendingPairing(programId);
+  if (!p) throw new VaultSetupError('expired', 'That request has expired. Ask again.');
+  let answer;
+  try {
+    answer = await api.pollPairing(token, p.pairingId);
+  } catch (err) {
+    if (err instanceof api.CloudRequestError && err.status === 404) {
+      await clearPendingPairing();
+      throw new VaultSetupError('expired', 'That request has expired. Ask again.');
+    }
+    throw err;
+  }
+  if (answer.status !== 'approved') return { status: 'waiting', expiresAt: answer.expiresAt };
+  await clearPendingPairing(); // the server deleted it as it answered: one try
+  const kek = await kekFromPairing(p.privateKey, answer.approverKey, p.code);
+  const key = await unwrapVaultKey(answer.wrapped, kek, { keyId: answer.keyId, kind: 'device' });
+  await setVaultKey(programId, { key, keyId: answer.keyId });
+  recordVaultState('on');
+  return { status: 'unlocked', merged: merge ? await mergeLatestVault({ onProgress }) : null };
+}
+
+// New device: poll until unlocked, expired, or `signal` aborts (→ { status:
+// 'cancelled' }; the request stays open until it expires). `onWaiting` is
+// called (and awaited) after each waiting poll.
+export const POLL_INTERVAL_MS = 3000;
+export async function waitForDeviceUnlock({ intervalMs = POLL_INTERVAL_MS, signal = null, merge = true, onProgress, onWaiting } = {}) {
+  for (;;) {
+    if (signal?.aborted) return { status: 'cancelled' };
+    const r = await pollDeviceUnlock({ merge, onProgress });
+    if (r.status === 'unlocked') return r;
+    try { await onWaiting?.(r); } catch { /* UI only */ }
+    await new Promise((resolve) => {
+      const t = setTimeout(resolve, intervalMs);
+      signal?.addEventListener?.('abort', () => { clearTimeout(t); resolve(); }, { once: true });
+    });
+  }
+}
+
+// New device: give up on the open request here (it expires on the server).
+export async function cancelDeviceUnlock() {
+  await clearPendingPairing();
+}
+
+// Unlocked device, part 1: the requests waiting for approval (not this
+// device's own). → [{ id, deviceLabel, createdAt, expiresAt, publicKey }]
+export async function listUnlockRequests() {
+  const { token } = requireSession();
+  return (await api.listPairings(token)).pairings || [];
+}
+
+// Unlocked device, part 2: approve one with the code shown on the new device.
+// Throws VaultLockedError for a code of the wrong shape (before anything is
+// sent), VaultSetupError 'locked' when this device can't open the vault itself,
+// 'expired' when the request is gone, and CloudConflictError 'already_approved'.
+export async function approveDeviceUnlock(request, typedCode) {
+  const { token, programId } = requireSession();
+  const vault = await getVaultKey(programId);
+  if (!vault) throw new VaultSetupError('locked', 'Unlock your private info on this device first.');
+  const ephemeral = await generatePairingKeyPair();
+  const kek = await kekFromPairing(ephemeral.privateKey, request.publicKey, typedCode);
+  const wrapped = await wrapVaultKey(vault.key, kek, { keyId: vault.keyId, kind: 'device' });
+  try {
+    await api.approvePairing(token, request.id, { approverKey: await exportPublicKey(ephemeral.publicKey), wrapped, keyId: vault.keyId });
+  } catch (err) {
+    if (err instanceof api.CloudRequestError && err.status === 404) throw new VaultSetupError('expired', 'That request has expired.');
+    throw err;
+  }
 }
 
 // --- A new recovery code (§2.2) ---------------------------------------------------

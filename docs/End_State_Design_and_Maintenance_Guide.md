@@ -160,9 +160,11 @@ KennelOS/
                                license with Lemon Squeezy (the key never goes to our server)
       vaultCrypto.js           The private vault's WebCrypto (Private Vault Plan §3.2):
                                codes, the vault key, KEKs, wraps, payload/file ciphertext
-      vaultKeyStore.js         This device's unlocked vault key, in device_secrets (§30)
-      cloudVault.js            Vault flows: turn on with a recovery code, unlock, merge the
-                               private tier in, new recovery code, turn off
+      vaultKeyStore.js         This device's unlocked vault key, and its open request to be
+                               unlocked by another device, in device_secrets (§30)
+      cloudVault.js            Vault flows: turn on with a recovery code, unlock (with the
+                               code, or from another unlocked device), merge the private
+                               tier in, new recovery code, turn off
     dogRepo / contactRepo / kennelRepo / pairingRepo / litterRepo /
       saleRepo / contractRepo / studServiceRepo / eventRepo / expenseRepo /
       documentRepo   Entity repos
@@ -388,7 +390,8 @@ device_secrets:    id
 ```
 
 `device_secrets` is a **device-only table** (`db.DEVICE_ONLY_TABLES`): this device's
-unlocked private-vault key, stored as a `CryptoKey` (§30, Private Vault Plan §3.3). It is not
+unlocked private-vault key, stored as a `CryptoKey`, and any open request to be unlocked by
+another device (§30, Private Vault Plan §3.3). It is not
 kennel data, so it has no `syncRegistry`/`referenceRegistry` entry, and code that means "the
 records" iterates `db.dataTables()`: `exportAll`, every restore mode, and Reset App's counts
 leave it out. Reset App and remote erase still clear it.
@@ -3069,7 +3072,9 @@ shape of it as built, for orientation.
   an opt-in, end-to-end encrypted copy of the **complete** records beside the kennel tier.
   One AES-GCM key per program, held unlocked on each device in `device_secrets`
   (`vaultKeyStore.js`); the server keeps only wraps of it (a recovery code now; passkeys
-  and device pairing are later steps) and ciphertext. With it on and unlocked, every push
+  are a later step) and ciphertext. A device can also be unlocked by another, already
+  unlocked one: the server relays an ECDH exchange salted with a 12-character code the
+  user types on the approver, so it can't open what it relays. With it on and unlocked, every push
   also uploads the encrypted vault part (before the body) and the content hash covers the
   private rows, so private-only edits push. Files the cloud tier doesn't carry (contracts,
   "other" documents, receipts) go up encrypted deterministically, so they dedup. On but
