@@ -3090,6 +3090,9 @@ shape of it as built, for orientation.
   locked on a device, pushes **pause** (`lastError` `vault_locked`) until it is unlocked;
   the server refuses a vault-less snapshot anyway. A restore merges the same snapshot's
   vault part (`'vault-merge'`, §10) when the device is unlocked.
+  **Released behind a switch:** `cloudConfig.VAULT_RELEASED` (false for now) — until it's
+  true, `isVaultOffered()` shows the vault's screens only against staging (localhost, or
+  `?cloud=staging`); everyone else sees Phase 1's card and flows. The data layer ignores it.
   **UI:** offered right after the first backup in "Turn on cloud backup" and from the card;
   the recovery code is shown once (Print / Save to Files / Copy) and its last 4 characters
   typed back before anything is sent. The restore paths (first-run "sign in and restore",

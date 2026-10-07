@@ -181,6 +181,22 @@ Pro ship with `cloudUrl: null` and no cloud UI appears. Do these in order.
   restore**; Your devices lists both; erase one and reopen it (wiped); delete the cloud data.
   Demo shows no cloud wording and makes no request to `api.kennelos.app`.
 
+## 3b. Private backup (the vault) release (Private Vault Plan §9)
+
+Merged but **hidden** until `VAULT_RELEASED` in `shared/data/cloud/cloudConfig.js` is
+`true`: until then it's offered only on localhost and in a browser with the test-server
+switch on. Production's migration `0005` is already applied.
+
+- [ ] **Try it on staging, two real devices:** open `https://lite.kennelos.app/?cloud=staging`
+  (and `https://pro.kennelos.app/?cloud=staging`) on each. Turn on backup, then private
+  backup; save the recovery code. On the second device: sign in and restore, unlock with
+  **Use another device**, then on a third (or after Reset App) with the recovery code and
+  with **Not now** followed by Unlock. New recovery code; turn it off. `?cloud=off` to leave.
+- [ ] **Passkeys (step 6)** and the **privacy policy / docs (step 7)**, or decide to release
+  without passkeys.
+- [ ] **Release:** set `VAULT_RELEASED = true` (and update its pin in
+  `tests/cloudClient.test.js`), bump `CACHE_NAME`, merge.
+
 ## 4. Post-deploy smoke test (on the real origins)
 
 - [ ] **Lite** (`lite.kennelos.app`) — reduced nav; create dogs → the 7th is blocked with the

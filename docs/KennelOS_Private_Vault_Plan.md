@@ -372,6 +372,13 @@ Where the build differs from §6.1–§6.2 above, this wins:
    the private tier clears it. Browser-verified against the Worker code in-process (the
    staging API routed to it), Lite → Lite by device pairing, Lite → Pro with Not now then the
    recovery code, new code, turn off, and Demo making no cloud request.
+   **Release switch:** `cloudConfig.VAULT_RELEASED` (false). Until it's true the vault's
+   screens are offered only where cloud backup talks to staging (localhost, or
+   `?cloud=staging`), so this can merge and be tried on the real origins first; everyone
+   else sees Phase 1's card and flows unchanged (browser-checked as `lite.kennelos.app`
+   with and without the switch). The data layer ignores the switch, so a program that has a
+   vault is handled correctly anywhere. `LAUNCH_CHECKLIST.md` §3b is the release list.
+   The app root's redirect now keeps the query string, so `/?cloud=staging` works.
 6. **Passkey (PRF)** as its own step: it needs real-device testing and is optional for users.
 7. **Docs (§7), privacy policy, `PRECACHE_URLS`, SW bump (asked first).** (Production: Apply
    pending on `/ops`, already done for `0005`.)

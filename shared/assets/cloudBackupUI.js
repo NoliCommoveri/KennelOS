@@ -20,7 +20,7 @@
 //
 // Layering: talks to data/cloud/* only (never cloudApi's fetch directly, never db).
 import { esc, confirmModal, alertModal, selectModal, promptModal } from './ui.js';
-import { isCloudAvailable } from '../data/cloud/cloudConfig.js';
+import { isCloudAvailable, isVaultOffered } from '../data/cloud/cloudConfig.js';
 import {
   startSignIn, verifySignIn, currentAccount, signOut, signOutOtherDevices, defaultDeviceLabel
 } from '../data/cloud/cloudAuth.js';
@@ -282,8 +282,9 @@ function whatGetsBackedUpModal() {
       <p><strong>Stays only on this device:</strong> contacts' phone, email and address, prices and
         payments (including waitlist fees paid), Financials, contracts, receipts, the rest of each
         application's answers, and your private notes.</p>
-      <p class="muted">Next, you can also back those up <strong>encrypted</strong>, so only you can open them.
-        Or download a file backup now and then from <a href="import-export.html">Import / Export</a>.</p>
+      <p class="muted">${isVaultOffered()
+        ? 'Next, you can also back those up <strong>encrypted</strong>, so only you can open them. Or download a file backup now and then from <a href="import-export.html">Import / Export</a>.'
+        : 'To keep a copy of those too, download a file backup now and then from <a href="import-export.html">Import / Export</a>.'}</p>
       <p class="field-hint">Backups run automatically after you make changes. The last 30 days are kept,
         so you can roll back to an earlier day.</p>
       <div class="form-actions">
@@ -324,7 +325,7 @@ export async function turnOnFlow() {
   if (!(await whatGetsBackedUpModal())) return false;
   const result = await pushWithProgress((onProgress) => enableBackup({ onProgress }));
   // Private Vault Plan §2.1: offered after the first backup succeeds.
-  if (result?.status === 'pushed' && getBackupStatus().vault !== 'on') {
+  if (result?.status === 'pushed' && isVaultOffered() && getBackupStatus().vault !== 'on') {
     const ui = await vaultUI();
     if ((await ui.refreshVaultState()) === 'off') await ui.turnOnVaultFlow({ offer: true });
   }
@@ -438,7 +439,7 @@ async function movedToProDialog(result) {
 }
 
 async function restoreAndTakeOverFlow() {
-  await (await vaultUI()).unlockBeforeRestore();
+  if (isVaultOffered()) await (await vaultUI()).unlockBeforeRestore();
   const pg = progressModal('Restoring the backup…');
   try {
     const { restored, push } = await restoreLatestAndTakeOver({
@@ -555,13 +556,13 @@ export function mountCloudBackupCard(el) {
   render();
   // Learn the vault's state from the server once per visit (another device may
   // have turned it on or off); refreshVaultState re-renders through the event.
-  if (currentAccount()?.signedIn) vaultUI().then((ui) => ui.refreshVaultState()).catch(() => {});
+  if (isVaultOffered() && currentAccount()?.signedIn) vaultUI().then((ui) => ui.refreshVaultState()).catch(() => {});
   // Keep "Backed up 4 minutes ago" honest without re-rendering the card (which
   // would close an open <details> or drop focus).
   setInterval(() => {
     const status = getBackupStatus();
     const line = el.querySelector('[data-status-line]');
-    if (line) line.textContent = asTail(statusLine(status));
+    if (line) line.textContent = line.dataset.tail ? asTail(statusLine(status)) : statusLine(status);
     const priv = el.querySelector('[data-private-line]');
     if (priv) priv.textContent = privateLine(status, getLastBackupDate());
   }, MINUTE);
@@ -579,7 +580,7 @@ function renderCard(el) {
       <p class="muted">Back up your kennel records automatically, free. If this device is lost or replaced,
         sign in on the new one with your email and everything comes back.</p>
       <p class="field-hint">Contacts' phone, email and address, prices, Financials, contracts and your private notes
-        stay on this device, unless you also turn on <strong>private backup</strong>, which encrypts them so only you can open them.</p>
+        stay on this device${isVaultOffered() ? ', unless you also turn on <strong>private backup</strong>, which encrypts them so only you can open them' : '. Keep a file backup for those'}.</p>
       <div class="form-actions"><button class="btn btn-primary" data-act="on">☁️ Turn on cloud backup</button>
         <button class="btn" data-act="restore-new">I already have a backup: sign in and restore</button></div>`;
   } else if (!account.signedIn) {
@@ -591,12 +592,14 @@ function renderCard(el) {
   } else {
     const line = statusLine(status);
     const priv = privateLine(status, getLastBackupDate());
+    // Two lines once the vault is offered (or this program has one); Phase 1's single line otherwise.
+    const twoLines = isVaultOffered() || status.vault === 'on' || status.vault === 'locked';
     const privAction = status.vault === 'locked' && status.lastError?.code !== 'vault_locked' // the pause line has its own Unlock
       ? '<button class="btn btn-sm" data-act="vault-unlock" style="margin-left:6px;">Unlock</button>'
       : status.vault === 'off' && status.enabled ? '<button class="btn btn-sm" data-act="vault-on" style="margin-left:6px;">Turn on</button>' : '';
     main = `
-      <p style="margin-bottom:4px;">Kennel records: <strong data-status-line>${esc(asTail(line))}</strong>${status.enabled && status.dirty && !paused ? ' <span class="faint">Recent changes will back up shortly.</span>' : ''}</p>
-      <p>Private info: <strong data-private-line>${esc(priv)}</strong>${privAction}</p>
+      <p${twoLines ? ' style="margin-bottom:4px;"' : ''}>${twoLines ? 'Kennel records: ' : ''}<strong data-status-line data-tail="${twoLines ? '1' : ''}">${esc(twoLines ? asTail(line) : line)}</strong>${status.enabled && status.dirty && !paused ? ' <span class="faint">Recent changes will back up shortly.</span>' : ''}</p>
+      ${twoLines ? `<p>Private info: <strong data-private-line>${esc(priv)}</strong>${privAction}</p>` : ''}
       ${paused ? `<div class="inline-warn">Backup is paused: ${esc(paused)} <button class="btn btn-sm" data-act="resolve" style="margin-left:6px;">${status.lastError?.code === 'vault_locked' ? 'Unlock…' : 'Resolve…'}</button></div>` : ''}
       <p class="field-hint">Signed in as ${esc(account.email || '')}${account.deviceLabel ? ` · this device: ${esc(account.deviceLabel)}` : ''}</p>
       <div class="form-actions">
@@ -897,7 +900,7 @@ export async function runSignInAndRestore({ fromCard = false } = {}) {
   });
   if (!account) return false;
   // Private Vault Plan §2.3: the unlock step, when the program has a vault.
-  await (await vaultUI()).unlockBeforeRestore();
+  if (isVaultOffered()) await (await vaultUI()).unlockBeforeRestore();
   const pg = progressModal('Restoring your records…');
   try {
     const { restored } = await restoreOnNewDevice({

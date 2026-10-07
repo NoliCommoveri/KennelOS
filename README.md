@@ -505,7 +505,8 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
       `tests/cloudVault.test.js`), step 4, unlocking from another device (client
       flows in `cloudVault.js`), and step 5, the UI (`shared/assets/cloudVaultUI.js`,
       the card's two lines, the restore unlock step, the record-page hint), are built.
-      Passkeys (step 6) are next. Service-worker cache rolled to `kennelos-shell-v44` for this
+      Hidden until released (`VAULT_RELEASED` in `cloudConfig.js`; offered only against
+      staging until then, `LAUNCH_CHECKLIST.md` §3b). Passkeys (step 6) are next. Service-worker cache rolled to `kennelos-shell-v44` for this
       batch (the kennel-setup "Sign in to existing account" button, and `vaultCrypto.js` in
       the precache). Steps 3 and 5 add `cloudVault.js`, `vaultKeyStore.js` and
       `cloudVaultUI.js` to the precache; their cache bump is still to be confirmed;
