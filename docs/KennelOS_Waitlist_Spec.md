@@ -173,6 +173,7 @@ code. See Q1.
 | `removed_date`, `removed_reason` | | `second_pass` / `no_checkin_response` / `by_breeder` / `fee_expired` |
 | `withdrawn_date` | | When the family withdrew (added at W1b) |
 | `placed_sale_id` | ✔ FK → Sale, nullable | Set when an offer is accepted |
+| `pref_change_log` | | Array `{ date, field, from, to, by }`: every change to the matching answers and readiness once past review (§15.9). |
 | `application` | | Object: the decrypted application answers (§8.2). Private tier. |
 | `notes` | | Her private notes |
 
@@ -811,15 +812,14 @@ W1 is a full feature on its own and doesn't wait for the cloud work.
     listen-only families shown?~~ **Decided 2026-10-06: skip the number** (#1, #2, #4), so
     nobody's public position shifts when a pause ends; **listen-only families show**, with
     no marker (§15.3).
-25. **Changing matching answers (§15.9):** is readiness included alongside sex, breed,
-    placement and colors (leaning yes: moving to a later answer avoids offers too)?
-26. **Wider changes** (e.g. Female → Either): still wait for her tap, or apply at once,
-    since being eligible for more can't dodge an offer? Leaning: still her tap, kept simple,
-    with the nudge saying it's wider.
-27. **A limit on change requests** (e.g. one every 3 months), or is her approval enough?
-    Leaning: her approval is enough; the history in the nudge shows anyone flip-flopping.
-28. **W1:** should she be able to record a family's spoken/messaged request so it waits as
-    a Today nudge, or does she just edit the entry? Leaning: she just edits (§15.9).
+25. ~~**Changing matching answers (§15.9):** is readiness included alongside sex, breed,
+    placement and colors?~~ **Decided 2026-10-07: yes.**
+26. ~~**Wider changes** (e.g. Female → Either): still wait for her tap, or apply at once?~~
+    **Decided 2026-10-07: still her tap**, with the nudge saying it's wider.
+27. ~~**A limit on change requests**, or is her approval enough?~~ **Decided 2026-10-07: her
+    approval is enough**; the history shows anyone flip-flopping.
+28. ~~**W1:** record a family's spoken/messaged request as a Today nudge, or just edit?~~
+    **Decided 2026-10-07: she just edits** (§15.9).
 
 ## 14. W1 build plan
 
@@ -1113,7 +1113,7 @@ Listening for specific pairings or litters was the wrong unit: families follow a
    to bring a puppy home?" overlapped the readiness question. Forms she already saved keep
    it until she deletes it; older answers to it still show on the family page.
 
-### 15.9 Families ask to change their matching answers; she approves (requested 2026-10-07; PLAN, not built)
+### 15.9 Families ask to change their matching answers; she approves (requested 2026-10-07; W1 part built 2026-10-07, W2 part planned)
 
 **Her request.** Families can't change the answers that decide which pups they're offered.
 Otherwise a family could narrow an answer just before a litter's offer reaches them, get
@@ -1124,7 +1124,7 @@ it**, and she approves with **one tap** from a **Today nudge**.
 - the matching preferences in `waitlistForm.matchingPrefKeys(config)`: sex, breed,
   placement, and colors **only while color matching is on**;
 - **readiness** (`ready_timing`). It's a hold, not a match, but moving from ASAP to 6+
-  months avoids offers just as well (§15.8). **Leaning: included** (Q25).
+  months avoids offers just as well (§15.8). **Decided: included** (Q25).
 - Not included: colors while color matching is off (notes only, nothing to game; the family
   can change it freely), listen-only and pause (Q7, their own rules), and the other
   application answers (nothing depends on them).
@@ -1189,9 +1189,15 @@ shows the result and the family gets the usual no-reply email (§15.4).
   shown on the entry page), and on the entry page a warning when she narrows an answer while
   the family has an open offer or is next for a litter ("They're next for Juniper × Ash.
   Narrowing this skips them there"). Optionally she can **record a request** on the entry
-  ("They asked for…") so it waits as a Today nudge until she decides. Leaning: skip that; she
-  just edits.
+  ("They asked for…") so it waits as a Today nudge until she decides. **Decided: skip that;
+  she just edits** (Q28).
+  **Built:** `pref_change_log` is written by `waitlistEntryRepo.update` for every change to
+  these fields once the family is past review (`applied` is just filling the form in), her
+  edits and CSV updates alike, and shown as **Answer changes** on the family page, newest
+  first. Saving a narrower answer (`waitlistRules.narrowedPrefs`) asks her to confirm when
+  `prefChangeEffect` finds an open offer or a live litter they're next for that it would skip
+  them on. Widening never asks. All pinned in `tests/waitlistRules.test.js`.
 - **W2 (status page).** Ask to change on the status page, the pending event (§8.4), the
   Today nudge with Approve / Decline, and the result shown to the family.
 
-See open questions Q25–Q28 (§13).
+Q25–Q28 (§13) are decided: the leanings above all stand.

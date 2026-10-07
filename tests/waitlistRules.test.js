@@ -14,6 +14,7 @@ import {
   overdueOffers, overdueFees, deriveContactWaitlistStatus, contactMatches, entryName,
   soonFamiliesForLitter, soonFamiliesForKennel, soonNoticeText, SOON_NOTICE_DEFAULT, describeOfferChanges,
   isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker, kennelBreeds, resolveBreed,
+  prefChangeLines, narrowedPrefs, prefChangeEffect, PREF_CHANGE_FIELDS,
 } from '../shared/data/waitlistRules.js';
 
 const K = 'kennel-a';
@@ -595,4 +596,52 @@ test('readiness hold: paused (no offers, off the public list) until the ready da
   const l = litter();
   assert.deepEqual(eligiblePupsFor(held, l, [pup()], [], { today: TODAY }), []);
   assert.equal(eligiblePupsFor(held, l, [pup()], [], { today: '2026-11-01' }).length, 1);
+});
+
+// --- Changes to the matching answers (Spec §15.9) -----------------------------------
+
+test('prefChangeLines: one line per tracked field that really changed', () => {
+  const before = entry({ pref_sex: 'male', pref_breed: 'Boston Terrier', pref_colors: ['Brindle', 'seal'], ready_timing: 'asap' });
+  const lines = prefChangeLines(before, {
+    pref_sex: 'any', pref_breed: 'boston terrier ', pref_colors: ['seal', 'brindle'], ready_timing: '3_months', notes: 'x'
+  }, { date: TODAY });
+  assert.deepEqual(lines, [
+    { date: TODAY, field: 'pref_sex', from: 'male', to: 'any', by: 'breeder' },
+    { date: TODAY, field: 'ready_timing', from: 'asap', to: '3_months', by: 'breeder' }
+  ], 'breed case and color order are not changes; untracked fields are ignored');
+  assert.deepEqual(prefChangeLines(entry({ pref_placement_type: '' }), { pref_placement_type: null }, { date: TODAY }), [], 'blank and null alike');
+  assert.equal(prefChangeLines(entry(), { pref_breed: 'Frenchie' }, { date: TODAY, by: 'request' })[0].by, 'request');
+  assert.deepEqual(PREF_CHANGE_FIELDS, ['pref_sex', 'pref_breed', 'pref_placement_type', 'pref_colors', 'ready_timing']);
+});
+
+test('narrowedPrefs: any → specific, specific → other, later readiness; colors only with matching on', () => {
+  const e = entry({ pref_sex: 'any', pref_breed: '', pref_placement_type: 'pet', pref_colors: ['seal'], ready_timing: '1_month' });
+  assert.deepEqual(narrowedPrefs(e, { pref_sex: 'female', pref_breed: 'Boston Terrier', pref_placement_type: 'show', ready_timing: '6_plus_months' }),
+    ['pref_sex', 'pref_breed', 'pref_placement_type', 'ready_timing']);
+  assert.deepEqual(narrowedPrefs(e, { pref_placement_type: '', ready_timing: 'asap', pref_sex: 'any' }), [], 'wider is never narrowing');
+  assert.deepEqual(narrowedPrefs(e, { pref_colors: ['brindle'] }), [], 'colors are notes while matching is off');
+  const on = { ...WAITLIST_CONFIG_DEFAULTS, color_matching: true };
+  assert.deepEqual(narrowedPrefs(e, { pref_colors: ['brindle'] }, on), ['pref_colors'], 'dropping a color narrows');
+  assert.deepEqual(narrowedPrefs(e, { pref_colors: ['seal', 'brindle'] }, on), [], 'adding a color widens');
+  assert.deepEqual(narrowedPrefs(e, { pref_colors: [] }, on), [], 'clearing colors widens to any');
+  assert.deepEqual(narrowedPrefs(entry({ pref_colors: [] }), { pref_colors: ['seal'] }, on), ['pref_colors']);
+});
+
+test('prefChangeEffect: next-for litters they would be skipped on, and open offers (which stay open)', () => {
+  const a = entry({ id: 'a', fee_received_date: '2026-01-01' });
+  const b = entry({ id: 'b', fee_received_date: '2026-02-01' });
+  const l = litter();
+  const pups = [pup({ sex: 'female' })];
+  const opts = { litters: [l], entries: [a, b], offers: [], pups, sales: [], today: TODAY };
+  const fx = prefChangeEffect(a, { pref_sex: 'male' }, opts);
+  assert.deepEqual(fx.narrowed, ['pref_sex']);
+  assert.deepEqual(fx.skippedLitters.map((x) => x.id), ['L1'], 'a is next; wanting a male skips them');
+  assert.deepEqual(prefChangeEffect(a, { pref_sex: 'female' }, opts).skippedLitters, [], 'still matches, still next');
+  assert.deepEqual(prefChangeEffect(b, { pref_sex: 'male' }, opts).skippedLitters, [], 'b is not next');
+  const o = offer({ entry_id: 'a' });
+  const withOffer = prefChangeEffect(a, { pref_sex: 'male' }, { ...opts, offers: [o] });
+  assert.deepEqual(withOffer.openOffers.map((x) => x.id), [o.id]);
+  assert.deepEqual(withOffer.skippedLitters, [], 'an offer is open, so nobody is "next"');
+  assert.deepEqual(prefChangeEffect(a, { pref_sex: 'any' }, { ...opts, offers: [o] }),
+    { narrowed: [], openOffers: [], skippedLitters: [] }, 'widening has nothing to warn about');
 });
