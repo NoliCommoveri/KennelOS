@@ -398,9 +398,11 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   alone: `applicable_on_form` dropped. Tests: `waitlistForm.test.js`, `invoicePdf.test.js`. Still
   W2: the public list page, PDFs on the status page, kennel-name (no-reply) email, and the
   online form itself. Next: W2 (needs the cloud Worker, vault and server-side license link;
-  the link's plan is `docs/KennelOS_License_Link_Plan.md`: its server step is built
-  (cloud migration `0006`, `cloud/src/license.js`; operator setup in `LAUNCH_CHECKLIST.md`
-  §3c), the client step is next).
+  the link's plan is `docs/KennelOS_License_Link_Plan.md`: server and client are built
+  (cloud migration `0006`, `cloud/src/license.js`; `shared/data/cloud/cloudEntitlement.js`
+  and Pro's "Pro on this account" line and **Link a Pro purchase email…** in the cloud
+  card's Account section; `cloudEntitlement.js` added to the precache, cache bump pending);
+  operator setup, including the owner's own license backfill, in `LAUNCH_CHECKLIST.md` §3c).
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass

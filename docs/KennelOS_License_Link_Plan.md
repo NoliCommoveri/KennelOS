@@ -5,9 +5,11 @@
 > Phase 5, **brought forward** for one job only.
 > Needed by: the waitlist's W2 (`KennelOS_Waitlist_Spec.md` §8.5, §12): every `/waitlist/*`
 > route for the breeder needs a signed-in account **the server knows is Pro**.
-> Status: **§10 step 1 (the server) built 2026-10-07**, with every §9 decision taken as
-> recommended. Next: the operator's staging setup (§7 steps 1–2), then the client (step 3).
-> §10's step 1 entry is the as-built record.
+> Status: **§10 steps 1 (the server) and 3 (the client) built 2026-10-07**, with every §9
+> decision taken as recommended (decision 8, the checkout prefill, skipped; the privacy
+> policy unchanged, the owner's decision). Next: the operator's setup (§7,
+> `LAUNCH_CHECKLIST.md` §3c), including backfilling the owner's own production license.
+> §10's step entries are the as-built record.
 
 ## 1. Scope
 
@@ -290,6 +292,19 @@ checkout links are on `site/pro.html` today, so this only covers the app's own b
 3. **Client:** `cloudApi` additions, `cloudEntitlement.js`, the Account-section line and the
    link modal (Pro only); `PRECACHE_URLS`; browser-verified against the Worker in-process and
    then on staging.
+   **Built 2026-10-07.** `cloudApi`: `getEntitlement`, `startLicenseLink`,
+   `verifyLicenseLink`, `removeLicenseLinks`. `data/cloud/cloudEntitlement.js`:
+   `entitlement({ fresh })` (cached five minutes per sign-in token), `cachedEntitlement()`,
+   `startPurchaseLink` / `finishPurchaseLink`, `unlinkPurchaseEmails` (fresh sign-in); the
+   link and unlink calls refresh the cache. `assets/cloudBackupUI.js`, where
+   `isLicenseGated()` (Pro): a line in the card's Account section ("Pro on this account
+   (yearly).", "…through a linked purchase email", "…has ended", "isn't linked to a Pro
+   purchase yet"), **Link a Pro purchase email…** (email → code, as sign-in) while it isn't
+   Pro, and **Unlink purchase emails** while one is linked. Lite and Demo render none of it
+   and make no request. Tests: `tests/cloudEntitlement.test.js`. Browser-verified in the
+   assembled Pro build (license validation stubbed) against the Worker in-process: not
+   linked → the own-email refusal → link by code → "Pro on this account (yearly), through a
+   linked purchase email" → unlink; and in Lite, nothing. Staging is §7 step 2.
 4. **Docs, production:** `cloud/README.md` (route, secret, vars, migration,
    the no-key rule for webhooks), End-State guide §30, Proposal §4 and §9 (Phase 5: the link
    built, the rest still later), Waitlist Spec §8.5 and §12 (prerequisite met), README build

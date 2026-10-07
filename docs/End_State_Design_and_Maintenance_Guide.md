@@ -158,6 +158,10 @@ KennelOS/
                                app.js before the license gate), the device list, remote
                                erase + this device's self-wipe, freeing a device's Pro
                                license with Lemon Squeezy (the key never goes to our server)
+      cloudEntitlement.js      Is this cloud account Pro on the server? (License Link Plan):
+                               the entitlement (cached), linking another purchase email by
+                               code. Gates only server features (W2); the app stays gated
+                               by license.js
       vaultCrypto.js           The private vault's WebCrypto (Private Vault Plan §3.2):
                                codes, the vault key, KEKs, wraps, payload/file ciphertext
       vaultKeyStore.js         This device's unlocked vault key, and its open request to be
@@ -3109,12 +3113,20 @@ shape of it as built, for orientation.
   the record pages that hold them show a hint pointing at Unlock (or a file backup); an
   unlock that merges the private tier clears it.
 
+- **The Pro license link** (`docs/KennelOS_License_Link_Plan.md`): the server learns of Pro
+  purchases from Lemon Squeezy's webhook, by the keyed hash of the purchase email, and
+  answers `GET /account/entitlement`. In Pro only (`isLicenseGated()`), the card's Account
+  section shows whether this account is Pro on the server, with **Link a Pro purchase
+  email…** (a code to that address) and **Unlink purchase emails**
+  (`cloudEntitlement.js`). It gates the server's own features (the waitlist's W2), never the
+  app: `license.js` still decides that, with or without a server.
+
 ### Where it lives
 - **Server:** `cloud/` (one Cloudflare Worker + D1 + R2; staging and production are the
   top level and `[env.production]` of `cloud/wrangler.toml`). Deployed by Workers Builds,
   never by `deploy.yml`, and not part of any edition. Operated from its `/ops` page.
 - **Client:** `data/cloud/` (`cloudConfig`, `cloudApi`, `cloudAuth`, `cloudBackup`,
-  `cloudDevices`, and the vault's `vaultCrypto`, `vaultKeyStore`, `vaultPasskey`, `cloudVault`; §3) and `assets/cloudBackupUI.js` +
+  `cloudDevices`, `cloudEntitlement`, and the vault's `vaultCrypto`, `vaultKeyStore`, `vaultPasskey`, `cloudVault`; §3) and `assets/cloudBackupUI.js` +
   `assets/cloudVaultUI.js` (§3, §11). `editionConfig` supplies
   `cloudUrl` (production) and `devCloudUrl` (staging, for localhost and the
   `?cloud=staging` test switch).
