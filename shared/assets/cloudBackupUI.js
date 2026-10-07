@@ -613,6 +613,7 @@ function renderCard(el) {
       ${status.vault === 'on' ? `<details style="margin-top:10px;"><summary class="muted">Private backup</summary>
         <div class="form-actions">
           <button class="btn btn-sm" data-act="vault-approve">Unlock another device…</button>
+          <button class="btn btn-sm" data-act="vault-passkeys">Passkeys…</button>
           <button class="btn btn-sm" data-act="vault-code">New recovery code…</button>
           <button class="btn btn-sm btn-danger" data-act="vault-off">Turn off private backup…</button>
         </div>
@@ -657,6 +658,7 @@ function renderCard(el) {
   act('vault-unlock', async () => { await (await vaultUI()).unlockModal({ merge: true }); });
   act('vault-on', async () => { await (await vaultUI()).turnOnVaultFlow(); });
   act('vault-approve', async () => { await (await vaultUI()).approveDevicesModal(); });
+  act('vault-passkeys', async () => { await (await vaultUI()).passkeysModal(); });
   act('vault-code', async () => { await (await vaultUI()).newRecoveryCodeFlow(); });
   act('vault-off', async () => { await (await vaultUI()).turnOffVaultFlow(); });
   act('now', () => pushWithProgress((onProgress) => pushIfDirty({ force: true, onProgress })));

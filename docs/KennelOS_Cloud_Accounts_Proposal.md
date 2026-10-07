@@ -209,6 +209,11 @@ Proposed starting classification (to be reviewed field by field):
 
 ### 6.3 The private vault (opt-in, end-to-end encrypted)
 
+> **Built 2026-10-07** as Phase 2b: `docs/KennelOS_Private_Vault_Plan.md` is the build plan
+> and as-built record (all three unlock paths; no category picker in v1, its §10 decision 2;
+> the vault holds full records, decision 1). Hidden behind `VAULT_RELEASED` until the
+> `LAUNCH_CHECKLIST.md` §3b release.
+
 An **"Also back up my private info"** switch, off by default, with an advanced option to
 pick categories: contact details, financials, contracts & receipts, private notes.
 
@@ -414,7 +419,7 @@ switch, and what's shared appears in your connections' **Friends feed**.
 | Phase | Delivers | Risk |
 |---|---|---|
 | **1. Account + automatic cloud backup** (build plan: `KennelOS_Cloud_Phase1_Plan.md`) | **Opt-in** (§2a): turn on cloud backup, sign in by email. The app pushes a **cloud-tier** backup snapshot on change, and a new phone signs in and restores. Covers the bulk of the data-loss goal. | Low. It builds on `exportAll`/restore, filtered through `syncRegistry.js`. The classification has to land here, first, so private data never reaches the server even once. |
-| **2b. Private vault — moved up (decided 2026-10-07)** | §6.3. Passkey + recovery code + second-device unlock, encrypted private-tier backup. **Scheduled directly after Phase 1**, ahead of 2–4: the waitlist depends on it (its W2 keeps the application key in the vault, `KennelOS_Waitlist_Spec.md` §8.2), and until it exists the only copy of contact details, family fees and full applications is the device plus file backups (Phase 1 plan §5.1). | Medium. Crypto is standard WebCrypto, but the recovery UX must be tested on real non-technical users |
+| **2b. Private vault — moved up (decided 2026-10-07); built 2026-10-07** | §6.3. Passkey + recovery code + second-device unlock, encrypted private-tier backup (`KennelOS_Private_Vault_Plan.md`; released behind `VAULT_RELEASED`). **Scheduled directly after Phase 1**, ahead of 2–4: the waitlist depends on it (its W2 keeps the application key in the vault, `KennelOS_Waitlist_Spec.md` §8.2), and until it exists the only copy of contact details, family fees and full applications is the device plus file backups (Phase 1 plan §5.1). | Medium. Crypto is standard WebCrypto, but the recovery UX must be tested on real non-technical users |
 | **2. Live multi-device sync** | Outbox, push/pull, websocket nudges. The same person's phone and laptop stay in step. | Medium. This is the core engineering. |
 | **3. Team members & roles** | Invites, Staff and Helper roles, server-enforced visibility. KennelAssistant retires. | Medium |
 | **4. Dog transfers** | §7 | Medium |
@@ -477,7 +482,8 @@ switch, and what's shared appears in your connections' **Friends feed**.
   `repoBase.js` and the few direct writers listed in §2.
 - `shared/data/syncRegistry.js`, the per-field cloud allow-list plus the per-row rules (§6.2),
   with a coverage test.
-- `shared/data/vault.js` for vault encryption and key wrapping (§6.3).
+- The vault (§6.3), as built: `shared/data/cloud/vaultCrypto.js`, `vaultKeyStore.js`,
+  `vaultPasskey.js` and `cloudVault.js` (Private Vault Plan §3.1).
 - `dogs.public_id` (§7) and `contacts.public_id` (§8.5).
 - `shared/data/connectionProfile.js` and `sharedItems.js`: the allow-list builders for §8.
 - CLAUDE.md, the README, the Editions Plan (§Licensing), and the End-State guide (§2, §10,

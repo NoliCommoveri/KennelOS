@@ -192,8 +192,17 @@ switch on. Production's migration `0005` is already applied.
   backup; save the recovery code. On the second device: sign in and restore, unlock with
   **Use another device**, then on a third (or after Reset App) with the recovery code and
   with **Not now** followed by Unlock. New recovery code; turn it off. `?cloud=off` to leave.
-- [ ] **Passkeys (step 6)** and the **privacy policy / docs (step 7)**, or decide to release
-  without passkeys.
+- [x] **Passkeys (step 6)** and the **privacy policy / docs (step 7)**: built 2026-10-07
+  (Private Vault Plan §9).
+- [ ] **Passkeys on real phones, on staging:** on an iPhone (Safari, iCloud Keychain) and an
+  Android phone (Chrome, Google Password Manager): after turning private backup on, **Add a
+  passkey** at the offer; then Reset App (or a second phone on the same Apple / Google
+  account), sign in and restore, **Use passkey**, and check a contact's phone number came back.
+  Also try Lite → Pro: a passkey made on `lite.` should unlock on `pro.` (RP ID
+  `kennelos.app`). Where a phone's passkeys can't do PRF, the offer should say so and save
+  nothing.
+- [ ] **Privacy policy goes live with the release:** `site/privacy.html` now describes
+  private backup. Deploy it with (not long before) the release, or hold that change back.
 - [ ] **Release:** set `VAULT_RELEASED = true` (and update its pin in
   `tests/cloudClient.test.js`), bump `CACHE_NAME`, merge.
 

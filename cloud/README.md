@@ -18,8 +18,10 @@ src/snapshots.js       describe → (vault part) → upload body → commit, wit
                        steps and, while the program has a vault, the vault_required rule
 src/program.js         program state, takeover, delete account
 src/devices.js         the device check-in and list, remote erase, Pro-license bookkeeping (plan §2.5)
-src/vault.js           the private vault: wraps, turn on/off, second-device pairing
-                       (docs/KennelOS_Private_Vault_Plan.md §5, §6); stores only opaque strings
+src/vault.js           the private vault: wraps (recovery, passkeys), turn on/off, second-device
+                       pairing (docs/KennelOS_Private_Vault_Plan.md §5, §6); stores only opaque
+                       strings. A passkey wrap keeps its credential id and PRF salt; the server
+                       never verifies a WebAuthn assertion
 src/notice.js          service notices (public /notice; set on /ops)
 src/retention.js       the daily prune and GC; pickDrops is the pure rule
 src/backup.js          /ops export/import of the D1 rows (not R2)

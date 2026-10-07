@@ -1,14 +1,13 @@
-# KennelOS Cloud — Phase 2b build plan: the private vault (DRAFT)
+# KennelOS Cloud — Phase 2b build plan: the private vault
 
 > Parent design: `docs/KennelOS_Cloud_Accounts_Proposal.md` §6.3 (cited as "Proposal §N").
 > Builds on: `docs/KennelOS_Cloud_Phase1_Plan.md` (cited as "Phase 1 §N"), whose decisions in
 > §5.1 moved the vault to directly after Phase 1 and added the second-device unlock.
 > Needed by: the waitlist's W2 (`KennelOS_Waitlist_Spec.md` §8.2, §12).
-> Status: **in progress.** Decisions recorded in §10 (2026-10-07). Built so far: §9 step 1
-> (`shared/data/cloud/vaultCrypto.js` + `tests/vaultCrypto.test.js`) and step 2, the server
-> (`cloud/src/vault.js`, migration `0005`, `cloud/tests/vault.test.js`; §6.4 is the as-built
-> record), step 3, the client modules, step 4, unlocking from another device, and step 5, the
-> UI (§9 is the as-built record). Step 6, passkeys, is next.
+> Status: **built (§9 steps 1–7, 2026-10-07); not yet released.** Decisions recorded in §10.
+> §6.4 is the server's as-built record and §9 the client's. The vault is merged but hidden
+> behind `cloudConfig.VAULT_RELEASED` (offered only against staging) until the release in
+> `docs/LAUNCH_CHECKLIST.md` §3b, which still needs a real-phone passkey test.
 
 ## 1. Scope
 
@@ -52,6 +51,11 @@ Inside "Turn on cloud backup", after the first backup succeeds, and on the card 
    passkey **and** this code, we can't open your private backup. Your devices and file backups
    are unaffected."
 5. The first encrypted backup runs immediately, with the same progress bar.
+
+As built (§9 step 6), the passkey is offered **after** the first encrypted backup rather
+than before it: the vault is on and its key is on this device by then, so a skipped or
+failed passkey changes nothing. The honest line on the code screen covers both: "If you
+lose this code and any passkey you add, we can't open your private backup."
 
 ### 2.2 While it's on
 - **Nothing to do day to day.** An unlocked device keeps the vault key (§3.3) and encrypts
@@ -193,6 +197,19 @@ pointless; the limit is against hammering.
   older security keys don't). The flow feature-detects (`getClientExtensionResults().prf`)
   and simply doesn't offer the passkey where it can't work. **The recovery code is always
   required**, so no user depends on PRF.
+- **As built (§9 step 6):** `data/cloud/vaultPasskey.js` is the only WebAuthn caller (no db,
+  no network). Support = WebAuthn present, a secure context, and
+  `PublicKeyCredential.getClientCapabilities()` not saying `extension:prf: false`; a browser
+  that can't tell is offered it and finds out at creation, where a passkey reporting no PRF
+  is refused and **nothing is saved** (the browser is told to drop it,
+  `signalUnknownCredential`, where supported). Creation asks for PRF with `eval`; an
+  authenticator that only reports `enabled` gets one more touch (a `get`) for the output.
+  Unlock is one `get` with every vault passkey in `allowCredentials` and its salt in
+  `evalByCredential`; the returned credential id picks the wrap. User verification is
+  required; the user handle is the program id, and the vault's existing passkeys go in
+  `excludeCredentials`, so a password manager that already holds one says so instead of
+  making a duplicate. The RP ID is `kennelos.app` on that domain and its subdomains, else the
+  page's own host (`localhost`).
 
 ### 5.3 Another device
 The server relays, but must not be able to open what it relays (Proposal §6.3's threat model
@@ -380,8 +397,28 @@ Where the build differs from §6.1–§6.2 above, this wins:
    vault is handled correctly anywhere. `LAUNCH_CHECKLIST.md` §3b is the release list.
    The app root's redirect now keeps the query string, so `/?cloud=staging` works.
 6. **Passkey (PRF)** as its own step: it needs real-device testing and is optional for users.
+   **Built 2026-10-07** (client only; the server's passkey wraps came with step 2).
+   `vaultPasskey.js` (§5.2's as-built note); `cloudVault`: `addPasskey` (needs this device
+   unlocked), `unlockWithPasskey` (then merges, as the recovery code does), `removePasskey`
+   (fresh sign-in), and `vaultStatus()` gains `passkeySupported`. UI: the offer after turning
+   it on (§2.1), **Use passkey** first in the unlock modal when the vault has one and the
+   browser can try, and **Passkeys…** in the card's Private backup section (list, add,
+   remove). Tests: `tests/vaultPasskey.test.js`, and passkey cases in
+   `tests/cloudVault.test.js` through a fake PRF authenticator
+   (`tests/support/fakePasskeys.js`). Browser-verified in headless Chromium with a virtual
+   CTAP2 authenticator (PRF on, then off) against the Worker in-process, in the shared (Pro)
+   build and assembled Lite: add, list, remove, unlock after the key was cleared (the blanked
+   private field came back), and a no-PRF authenticator saving nothing; no console errors.
+   **Still to do on real hardware** (`LAUNCH_CHECKLIST.md` §3b): an iPhone (iCloud Keychain)
+   and an Android phone, on staging.
 7. **Docs (§7), privacy policy, `PRECACHE_URLS`, SW bump (asked first).** (Production: Apply
    pending on `/ops`, already done for `0005`.)
+   **Done 2026-10-07:** README; Phase 1 plan §2.3 and §5.1 Decision 3; Proposal §6.3, §9 and
+   the module list; Editions Plan (tier table, "After the vault"; the Upgrade bridge's
+   wording is left for the release, noted there); End-State guide §3, §30; `cloud/README.md`;
+   `site/privacy.html` (the encrypted tier, the recovery code, passkeys, device unlock, turning
+   it off); the Waitlist Spec's W2 prerequisite; `tests/README.md`. `vaultPasskey.js` added to
+   `PRECACHE_URLS`.
 
 ## 10. Decisions (2026-10-07)
 1. **Vault payload = full records (§4.1)**, not only the private fields. The readable kennel
