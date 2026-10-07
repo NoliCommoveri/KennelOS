@@ -8,7 +8,8 @@ import assert from 'node:assert/strict';
 import {
   DEFAULT_FORM_QUESTIONS, PUBLIC_LIST_NOTICE, formQuestions, validateQuestions, newQuestion,
   snapshotQuestions, entryQuestions, answerText, missingRequired, guessType,
-  proposeQuestionImport, applyQuestionImport, columnsFor, normalizeHeader, isLocked
+  proposeQuestionImport, applyQuestionImport, columnsFor, normalizeHeader, isLocked,
+  READY_TIMING_LABEL, formFaq, validateFaq, newFaqItem
 } from '../shared/data/waitlistForm.js';
 import { publicName, publicList, publicListText } from '../shared/data/waitlistRules.js';
 
@@ -19,7 +20,7 @@ const makeId = () => `t${++seq}`;
 test('no stored form → the defaults, including every locked question and the notice', () => {
   const qs = formQuestions({});
   assert.deepEqual(ids(qs), ids(DEFAULT_FORM_QUESTIONS));
-  for (const key of ['name', 'email', 'pref_sex', 'pref_breed', 'pref_placement', 'pref_colors', 'public_notice']) {
+  for (const key of ['name', 'email', 'pref_sex', 'pref_breed', 'pref_placement', 'pref_colors', 'ready_timing', 'public_notice']) {
     assert.ok(qs.some((x) => x.key === key), key);
   }
   assert.equal(qs.find((x) => x.key === 'public_notice').help, PUBLIC_LIST_NOTICE);
@@ -165,7 +166,7 @@ test('public list: real positions, paused families hidden with their number skip
     e('Ann Avery', '2026-01-01'),
     e('Bob Burns', '2026-02-01', { pref_sex: 'male' }),
     e('Cat Cole', '2026-03-01', { paused_until: '2026-12-01', pause_reason: 'Chemo' }),
-    e('Dee Dunn', '2026-04-01', { listen_mode: 'selected', listen_litter_ids: ['L1'] }),
+    e('Dee Dunn', '2026-04-01', { listen_mode: 'selected', listen_dam_ids: ['D1'] }),
     e('Eve Ely', '2026-05-01', { status: 'applied' }),
     e('Fay Fox', '2026-06-01', { kennel_id: 'other' })
   ];
@@ -185,4 +186,36 @@ test('public list: real positions, paused families hidden with their number skip
   assert.match(text, /skipped number/);
   assert.ok(!/Chemo|Cat/.test(text));
   assert.match(publicListText([], {}), /Nobody is on the list yet/);
+});
+
+test('readiness is a locked, required question her older stored forms get back', () => {
+  const stored = DEFAULT_FORM_QUESTIONS.filter((x) => x.key !== 'ready_timing');
+  const qs = formQuestions({ form_questions: [...stored.map((x) => ({ ...x })), ] });
+  const ready = qs.find((x) => x.key === 'ready_timing');
+  assert.ok(ready, 'put back');
+  assert.equal(qs[qs.indexOf(ready) - 1].key, 'pref_colors', 'right after the colors question');
+  assert.equal(ready.label, READY_TIMING_LABEL);
+  assert.equal(ready.required, true);
+  assert.equal(ready.type, 'preference');
+  const reworded = formQuestions({ form_questions: [{ id: 'ready_timing', key: 'ready_timing', label: 'When could you buy?', type: 'short_text', required: false }] })
+    .find((x) => x.key === 'ready_timing');
+  assert.equal(reworded.label, 'When could you buy?');
+  assert.equal(reworded.type, 'preference');
+  assert.equal(reworded.required, true);
+});
+
+test('FAQ: blank items dropped, half-filled items block saving', () => {
+  const faq = formFaq({ application_faq: [
+    { id: 'a', question: ' Price? ', answer: '$2,500 ' },
+    { id: 'b', question: '', answer: '' },
+    null,
+    { question: 'How it works', answer: 'In order.' }
+  ] });
+  assert.deepEqual(faq, [
+    { id: 'a', question: 'Price?', answer: '$2,500' },
+    { id: 'faq_3', question: 'How it works', answer: 'In order.' }
+  ]);
+  assert.deepEqual(formFaq({}), []);
+  assert.equal(validateFaq([{ question: 'Q', answer: '' }, { question: '', answer: '' }, { question: 'Q', answer: 'A' }]).length, 1);
+  assert.ok(newFaqItem(() => 'x').id === 'faq_x');
 });

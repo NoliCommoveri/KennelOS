@@ -419,6 +419,14 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   breeds. Invoices read the sale's due date live, and a Sale's page has its own **Invoice /
   Receipt** button (`assets/invoiceGenerator.js`, Pro-only). Service-worker cache rolled to
   `kennelos-shell-v36`.
+- **Waitlist: listen-only by sire/dam, readiness hold, application FAQ — built & browser-verified**
+  (Waitlist Spec §15.7–§15.8). Listen-only families pick sires and dams (either side
+  matches) once approved; the litters and pairings that covers are derived. A locked,
+  required readiness question ("What is the soonest you are able to commit…", ASAP / 1 / 3 /
+  6+ months) puts anything but ASAP on an automatic hold from the fee date (or approval):
+  no offers, no passes, off the public list. Her FAQ heads the application (edited on the
+  Application form page). The old "When are you hoping…" default question is gone.
+  Service-worker cache rolled to `kennelos-shell-v37`.
 - **Cloud Phase 1, step 3a: the `cloud/` Worker skeleton is built**
   (`docs/KennelOS_Cloud_Phase1_Plan.md` §6, §6.6, §9). It has `wrangler.toml` (staging), CORS for
   `lite.`/`pro.kennelos.app` plus localhost, the 503 maintenance gate, `/health`, and `/ops` behind
