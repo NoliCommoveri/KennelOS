@@ -156,16 +156,16 @@ Pro ship with `cloudUrl: null` and no cloud UI appears. Do these in order.
   Paid plan.
 - [x] **Production D1 `kennelos-api`** created; its id is in `cloud/wrangler.toml` →
   `[[env.production.d1_databases]]` → `database_id`.
-- [ ] **Production R2 `kennelos-files`** created.
-- [ ] **Production Worker** via a second Workers Builds connection on this repo: root
+- [x] **Production R2 `kennelos-files`** created.
+- [x] **Production Worker** via a second Workers Builds connection on this repo: root
   directory `cloud/`, deploy command `npx wrangler deploy --env production`. It creates the
   `kennelos-api` Worker and the **`api.kennelos.app`** custom domain from the config.
-- [ ] **Secrets on the production Worker:** `OPS_TOKEN` (new, not staging's),
+- [x] **Secrets on the production Worker:** `OPS_TOKEN` (new, not staging's),
   `EMAIL_HMAC_KEY` (**generate a new one, store it in the password manager first, then
   paste; it is permanent**: rotating it orphans every account), `RESEND_API_KEY`.
-- [ ] **Resend:** `kennelos.app` verified (DKIM + SPF records in Cloudflare DNS), sender
+- [x] **Resend:** `kennelos.app` verified (DKIM + SPF records in Cloudflare DNS), sender
   `signin@kennelos.app`.
-- [ ] **`api.kennelos.app/ops`:** sign in with production's `OPS_TOKEN`, press **Apply
+- [x] **`api.kennelos.app/ops`:** sign in with production's `OPS_TOKEN`, press **Apply
   pending**, then Health shows every binding and secret present and no pending migration.
   Send yourself a code from a real address and confirm it arrives (not in spam).
 - [ ] **D1 export:** download the first export from `/ops` and keep it with the password

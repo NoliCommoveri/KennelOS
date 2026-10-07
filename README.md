@@ -665,7 +665,11 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   Service-worker cache rolled to `kennelos-shell-v42`. **Merge only after checklist §3a**,
   since the merge deploys the editions and the site together.
 
-  Next: the operator's production setup (checklist §3a), then merging the go-live change. That's the docs (§8: CLAUDE.md, the Editions Plan, the End-State guide's
+  Production was set up on 2026-10-07 (checklist §3a): `kennelos-api` deployed on
+  `api.kennelos.app`, migrations through `0004` applied, D1/R2 reachable, the secrets set,
+  and a test sign-in email delivered through Resend.
+
+  Next: merging the go-live change, then the smoke test on the real origins (checklist §3a). That's the docs (§8: CLAUDE.md, the Editions Plan, the End-State guide's
   §29 section), the privacy policy page, the SW bump, and production. A live check against
   staging from a machine that can reach it should come first.
 
