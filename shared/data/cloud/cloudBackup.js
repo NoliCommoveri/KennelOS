@@ -323,11 +323,13 @@ export function disableBackup({ movedToEdition = null } = {}) {
 
 // "Delete my cloud data": snapshots, files and the account, server-side. Local
 // data is untouched; this device is signed out.
-export async function deleteCloudData() {
+// Throws CloudRequestError 'reauth_required' when this sign-in is more than 15
+// minutes old: send a code (cloudAuth.startSignIn) and pass { email, code }.
+export async function deleteCloudData(reauth = {}) {
   if (!isCloudAvailable()) throw new api.CloudUnavailableError();
   const token = sessionToken();
   if (!token) throw new api.CloudAuthError({ status: 401, code: 'unauthorized' });
-  await api.deleteAccount(token);
+  await api.deleteAccount(token, reauth);
   await signOut();
 }
 

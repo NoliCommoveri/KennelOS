@@ -6,12 +6,9 @@
 // that every later request from that device meets as 401 device_erased
 // (auth.js), and the device wipes itself and acknowledges.
 import { activeNotices } from './notice.js';
-import { SESSION_MS, checkCode, emailHash, normalizeEmail } from './auth.js';
+import { SESSION_MS, requireFreshSignIn } from './auth.js';
 import { fail } from './lib/http.js';
 
-// A session this young counts as a fresh sign-in, so an owner who just signed
-// in on their new phone can erase the old one without typing a second code.
-export const FRESH_SIGN_IN_MS = 15 * 60 * 1000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const INSTANCE_ID = /^[A-Za-z0-9-]{1,100}$/;
 
@@ -89,21 +86,6 @@ async function requireOwnDevice(env, auth, deviceId) {
   ).bind(auth.userId, deviceId).first();
   if (!known) fail(404, 'not_found');
   return known;
-}
-
-// Erasing a device needs a fresh sign-in on this one: a session created in the
-// last 15 minutes, or a code just emailed to the account. Otherwise a stolen
-// phone that is still signed in could erase its owner's other devices.
-async function requireFreshSignIn(env, auth, body) {
-  if (Date.now() - Date.parse(auth.createdAt) <= FRESH_SIGN_IN_MS) return;
-  const code = String(body.code ?? '').replace(/\s/g, '');
-  const email = normalizeEmail(body.email);
-  if (!code) fail(403, 'reauth_required');
-  if (!email || !/^\d{6}$/.test(code)) fail(400, 'invalid_code');
-  const eh = await emailHash(env, email);
-  const user = await env.DB.prepare('SELECT id FROM users WHERE id = ? AND email_hash = ?').bind(auth.userId, eh).first();
-  if (!user) fail(400, 'invalid_code');
-  await checkCode(env, eh, code);
 }
 
 // POST /devices/:id/erase {email?, code?}: signs that device out and flags it

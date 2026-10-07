@@ -642,7 +642,9 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   `tests/cloudClient.test.js` cases. Headless Chromium against the real Worker locally (Pro
   and Lite builds, Lemon Squeezy stubbed): free a slot from the wall, erase from a laptop, the
   walled phone wiped on reopening with the erase confirmed, the code prompt for an older
-  sign-in; no page errors. Only devices that had cloud backup on are covered.
+  sign-in; no page errors. Only devices that had cloud backup on are covered. **Sign out
+  other devices** and **Delete my cloud data** now need the same fresh sign-in, so a stolen
+  phone that's still signed in can't use them (browser-verified in the Lite build).
 
   Next: step 6. That's the docs (§8: CLAUDE.md, the Editions Plan, the End-State guide's
   §29 section), the privacy policy page, the SW bump, and production. A live check against

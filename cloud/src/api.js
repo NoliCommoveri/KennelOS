@@ -35,7 +35,7 @@ export async function handleApi(request, env, url, cors) {
   const auth = await authenticate(env, request);
 
   if (p === '/auth/signout' && m === 'POST') return json(await signOut(env, auth), 200, cors);
-  if (p === '/auth/signout-others' && m === 'POST') return json(await signOutOthers(env, auth), 200, cors);
+  if (p === '/auth/signout-others' && m === 'POST') return json(await signOutOthers(env, auth, await readJson(request)), 200, cors);
 
   if (p === '/program' && m === 'GET') return json(await getProgram(env, auth), 200, cors);
   if (p === '/program/backing-device' && m === 'POST') return json(await takeOver(env, auth), 200, cors);

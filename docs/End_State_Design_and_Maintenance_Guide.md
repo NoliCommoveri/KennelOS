@@ -1051,6 +1051,8 @@ loads any cloud UI, and the Welcome card keeps saying "no account, no cloud"):
   - a status line ("Backed up 4 minutes ago" / "Not backed up for 3 days: no internet?");
   - Back up now, and Restore as of… (pick a snapshot → per-table preview → confirm → reload);
   - turn off, sign out, sign out other devices, and delete my cloud data (typed DELETE);
+    the last two, like Erase below, need a fresh sign-in (one from the last 15 minutes, or a
+    code emailed now: `withFreshSignIn` in `cloudBackupUI.js`);
   - **Your devices…** (Cloud plan §2.5): every device on the account; **Erase…** (typed
     ERASE, and a fresh sign-in: one from the last 15 minutes or an emailed code), cancel a
     pending erase, and in Pro **Free its Pro license**. The Pro activation wall links to the

@@ -187,3 +187,26 @@ test('delete account removes its erasures too', async () => {
   assert.equal((await call(env, 'DELETE', '/account', { token: laptop.token, body: { confirm: 'DELETE' } })).status, 200);
   assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM device_erasures').get().n, 0);
 });
+
+test('sign out other devices and delete account also need a fresh sign-in', async () => {
+  const env = await makeEnv();
+  const { phone, laptop } = await twoDevices(env);
+  ageSessions(env, PHONE);
+
+  // The old phone (think: stolen, still signed in) can do neither without a code.
+  const others = await call(env, 'POST', '/auth/signout-others', { token: phone.token, body: {} });
+  assert.equal(others.status, 403);
+  assert.equal((await others.json()).error, 'reauth_required');
+  const del = await call(env, 'DELETE', '/account', { token: phone.token, body: { confirm: 'DELETE' } });
+  assert.equal(del.status, 403);
+  assert.equal((await call(env, 'GET', '/program', { token: laptop.token })).status, 200, 'the laptop is still signed in');
+  assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM users').get().n, 1, 'the account is still there');
+
+  // With a code sent to the account's email, they go ahead.
+  await call(env, 'POST', '/auth/start', { body: { email: EMAIL } });
+  const ok = await call(env, 'POST', '/auth/signout-others', { token: phone.token, body: { email: EMAIL, code: lastCode(env) } });
+  assert.equal((await ok.json()).revoked, 1);
+  await call(env, 'POST', '/auth/start', { body: { email: EMAIL } });
+  assert.equal((await call(env, 'DELETE', '/account', { token: phone.token, body: { confirm: 'DELETE', email: EMAIL, code: lastCode(env) } })).status, 200);
+  assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM users').get().n, 0);
+});

@@ -695,3 +695,23 @@ test('check-in at boot: the first page of a browsing session checks in after a m
   await settle();
   assert.equal(checkIns(), 2, 'a new session after two minutes checks in');
 });
+
+test('sign out other devices and delete my cloud data need a code when the sign-in is old', async () => {
+  putProgram();
+  await signIn();
+  await cb.enableBackup();
+  env.DB.raw.prepare("UPDATE sessions SET created_at = '2026-01-01T00:00:00.000Z'").run();
+  const reauthRequired = (e) => e instanceof api.CloudRequestError && e.code === 'reauth_required';
+
+  await assert.rejects(auth.signOutOtherDevices(), reauthRequired);
+  await auth.startSignIn('breeder@example.com');
+  assert.equal(await auth.signOutOtherDevices({ email: 'breeder@example.com', code: lastCode(env) }), 0);
+
+  await assert.rejects(cb.deleteCloudData(), reauthRequired);
+  assert.ok(auth.currentAccount(), 'still signed in after the refusal');
+  assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM users').get().n, 1);
+  await auth.startSignIn('breeder@example.com');
+  await cb.deleteCloudData({ email: 'breeder@example.com', code: lastCode(env) });
+  assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM users').get().n, 0);
+  assert.equal(auth.currentAccount(), null);
+});

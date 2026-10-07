@@ -118,10 +118,12 @@ browser): **Import/Export → Cloud backup → Account → Your devices…**
   loses them unless a file backup has them.
 - **Found it?** "Found it: cancel the erase" works until the device has confirmed. The
   device stays signed out (it signs in again with a code and keeps its records).
-- **A fresh sign-in is required to erase.** A session from the last 15 minutes, or a code
-  emailed to the account just now (the existing `/auth/start` code). Otherwise a stolen phone
-  that's still signed in could erase its owner's other devices, which hold the only copy of
-  the private tier.
+- **A fresh sign-in is required to erase**, and also for **Sign out other devices** and
+  **Delete my cloud data** (decided 2026-10-07, §11 item 6): a session from the last 15
+  minutes, or a code emailed to the account just now (the existing `/auth/start` code).
+  Otherwise a stolen phone that's still signed in could erase its owner's other devices
+  (which hold the only copy of the private tier), sign the owner out everywhere, or delete
+  the cloud copy.
 - **Free its Pro license** (Pro only) releases the lost device's Lemon Squeezy activation, so
   its slot comes back now, whether or not the lost device ever reopens. The device reported
   its activation id at check-in; the owner's browser calls Lemon Squeezy's `deactivate` with
@@ -542,14 +544,14 @@ a **Worker, not Cloudflare Pages**: Pages has no Cron Triggers, and §6.3's rete
 | `POST /auth/start {email}` | Emails a 6-digit code (valid 10 min) to the address in the request, then discards the address; only its keyed hash is kept (§6.2). Rate-limited per email hash and per IP. Always returns 200, so it can't be used to test which emails have accounts. |
 | `POST /auth/verify {email, code, deviceLabel}` | Max 5 attempts per code. Looks the account up by email hash; creates the user + program on first sign-in. Returns `{token, programId, deviceId}`. |
 | `POST /auth/signout` | Revokes this token. |
-| `POST /auth/signout-others` | Revokes every other session on the account ("Sign out other devices" on the Import/Export card). |
+| `POST /auth/signout-others {email?, code?}` | Revokes every other session on the account ("Sign out other devices" on the Import/Export card). Needs a fresh sign-in (§2.5): a session under 15 minutes old, or `{email, code}` from `/auth/start`; else `403 reauth_required`. |
 | `GET /program` | Program name, backing device (label + last push), latest snapshot meta. |
 | `HEAD /files/:sha256` · `PUT /files/:sha256` · `GET /files/:sha256` | Upload-if-missing, answered from D1's `files` table (§6.2), not by asking R2. `PUT` streams the body straight into R2 with `put(key, body, { sha256 })`, so **R2 verifies the hash** and rejects a mismatch. The Worker never buffers or re-hashes the file itself, which would blow the CPU and memory limits at 25 MB. On success it writes the `files` row. 25 MB cap per file, checked against `Content-Length` before streaming. `GET` is for restore. |
 | `POST /snapshots` | **Step one of two:** a small JSON description, `{base_snapshot_id, size, counts, files: [sha256…], edition}` (`edition`, `lite` or `pro`, since migration `0003`; anything else is stored as null). Refuses before any bytes move: a 409 per §3.4 (naming the backing device and its last push), or a 400 naming any referenced file the server doesn't have, checked in one query (§6.2). Returns `{snapshotId}`; the row is `pending`. |
 | `PUT /snapshots/:id/body` | **Step two:** the gzipped envelope (`Content-Length` must equal the described `size`), streamed to R2. Commits only if the §3.4 rule still holds at that moment (one conditional batch), so two devices racing can't both win; the loser's row and object are removed and it gets the 409. An upload abandoned between the steps is removed by retention after a day. |
 | `GET /snapshots` · `GET /snapshots/:id` | The history list and one snapshot. |
 | `POST /program/backing-device` | Takeover (§3.4). |
-| `DELETE /account` | Deletes the account's rows, snapshots and files, and revokes tokens. |
+| `DELETE /account {confirm: "DELETE", email?, code?}` | Deletes the account's rows, snapshots and files, and revokes tokens. Needs a fresh sign-in, as `signout-others`. |
 | `POST /devices/check-in {licenseInstanceId}` | §2.5. Records this device's Pro activation id (or null) and refreshes `last_seen_at` and the sliding expiry. Returns `{ok, notices}`. |
 | `GET /devices` | §2.5. `{devices: [{id, label, lastSeenAt, status, licenseInstanceId, erase, thisDevice, backing}]}`; `status` is `signed-in`, `signed-out` or `signed-out-here`; `erase` is `null` or `{requestedAt, confirmedAt}`. |
 | `POST /devices/:id/erase {email?, code?}` | §2.5. Needs a session under 15 minutes old, or `{email, code}` from `/auth/start` (else `403 reauth_required`). Revokes that device's sessions (`revoked_reason = 'erase'`), records the erase, and clears the backing device if it was this one. `400 this_device` for the caller itself. |
@@ -657,9 +659,8 @@ device_erasures(user_id, device_id, device_label, requested_at, confirmed_at, PR
   blocking an edition.
 - **Lost devices (§2.5).** The server holds each Pro device's Lemon Squeezy activation id.
   It isn't a secret: releasing one also needs the license key, which never reaches the
-  server. Erasing a device needs a fresh sign-in, so a stolen phone can't erase the owner's
-  other devices. (A stolen phone that is still signed in can still **Sign out other devices**
-  or **Delete my cloud data**, as before this change; §11 item 6.)
+  server. Erasing a device, signing out the others and deleting the account need a fresh
+  sign-in, so a stolen phone that is still signed in can't do any of them.
 - **No request bodies in logs, and never an email address.** `[observability]` is on (it is
   the only place the operator can see why something failed), so the code never
   `console.log`s an email, a code, a token or a body. Cloudflare encrypts R2 and D1 at rest.
@@ -810,7 +811,5 @@ whose page is open to anyone until the first account exists.
 4. **Retention:** is 30 days right? Longer costs little for the JSON; files dominate.
 5. **Who runs it:** still open (Proposal §10). Phase 1 is low-maintenance (no live sync),
    but somebody gets the email if the Worker errors.
-6. **A stolen phone that is still signed in** can use **Sign out other devices** and
-   **Delete my cloud data** without a fresh sign-in. Erase (§2.5) requires one; should those
-   two as well? Delete is the more serious: it removes the owner's cloud copy. (Raised
-   2026-10-07 with §2.5; not yet decided.)
+6. **A stolen phone that is still signed in:** decided 2026-10-07: **Sign out other
+   devices** and **Delete my cloud data** need a fresh sign-in, like Erase (§2.5).

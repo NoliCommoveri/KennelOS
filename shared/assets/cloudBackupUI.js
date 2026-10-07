@@ -596,7 +596,8 @@ function renderCard(el) {
   act('devices', () => devicesModal());
   act('others', async () => {
     if (!(await confirmModal({ title: 'Sign out other devices?', message: 'Every other device signed in to this account is signed out. They keep their records but stop backing up until they sign in again.\n\nLost a device? Use Your devices → Erase instead, which also deletes the records on it.', confirmLabel: 'Sign them out' }))) return;
-    const n = await signOutOtherDevices();
+    const n = await withFreshSignIn((reauth) => signOutOtherDevices(reauth), { purpose: 'sign out your other devices', confirmLabel: 'Sign them out' });
+    if (n === null) return;
     await alertModal({ title: 'Done', message: n ? `Signed out ${n} other device(s).` : 'No other devices were signed in.' });
   });
   act('signout', async () => {
@@ -610,7 +611,7 @@ function renderCard(el) {
       confirmLabel: 'Delete cloud data'
     });
     if (!ok) return;
-    await deleteCloudData();
+    if ((await withFreshSignIn((reauth) => deleteCloudData(reauth).then(() => true), { purpose: 'delete your cloud data', confirmLabel: 'Delete cloud data' })) === null) return;
     await alertModal({ title: 'Cloud data deleted', message: 'Your cloud backups and account are gone. Everything on this device is still here.' });
   });
   act('hide-restored', () => setCloudRestoredAt(null));
@@ -742,21 +743,28 @@ async function eraseDeviceFlow(d) {
     confirmLabel: `Erase ${name}`
   });
   if (!ok) return false;
-  try {
-    await requestErase(d.id);
-  } catch (e) {
-    if (!(e instanceof CloudRequestError && e.code === 'reauth_required')) throw e;
-    const reauth = await confirmCodeModal();
-    if (!reauth) return false;
-    await requestErase(d.id, reauth);
-  }
-  return true;
+  return withFreshSignIn((reauth) => requestErase(d.id, reauth), { purpose: 'erase the device', confirmLabel: 'Erase it' })
+    .then((r) => r !== null);
 }
 
-// Erasing needs a fresh sign-in: one in the last 15 minutes, or a code just
-// emailed to the account, so a stolen phone that is still signed in can't erase
-// its owner's other devices. Resolves { email, code }, or null on cancel.
-function confirmCodeModal() {
+// Erasing a device, signing out the others and deleting the cloud data need a
+// fresh sign-in: one in the last 15 minutes, or a code just emailed to the
+// account, so a stolen phone that is still signed in can't do them (plan
+// §2.5). Runs `fn` as is; on reauth_required, asks for a code and runs it
+// again with { email, code }. Resolves fn's result, or null on cancel.
+async function withFreshSignIn(fn, { purpose, confirmLabel }) {
+  try {
+    return await fn({});
+  } catch (e) {
+    if (!(e instanceof CloudRequestError && e.code === 'reauth_required')) throw e;
+  }
+  const reauth = await confirmCodeModal({ purpose, confirmLabel });
+  if (!reauth) return null;
+  return fn(reauth);
+}
+
+// Resolves { email, code }, or null on cancel.
+function confirmCodeModal({ purpose, confirmLabel }) {
   const email = currentAccount()?.email || '';
   return new Promise((resolve) => {
     const overlay = openModal('<div id="cc-body"></div>');
@@ -765,14 +773,14 @@ function confirmCodeModal() {
     const show = (errorMsg = '', note = '') => {
       body.innerHTML = `
         <h2 style="margin-top:0;">Confirm it's you</h2>
-        <p class="muted">We sent a 6-digit code to <strong>${esc(email)}</strong>. Type it here within 10 minutes to erase the device.</p>
+        <p class="muted">We sent a 6-digit code to <strong>${esc(email)}</strong>. Type it here within 10 minutes to ${esc(purpose)}.</p>
         <div class="field"><label for="cc-code">Code</label>
           <input id="cc-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="123456" style="font-size:20px;letter-spacing:4px;max-width:180px;"></div>
         ${note ? `<p class="field-hint">${esc(note)}</p>` : ''}
         ${errorMsg ? `<div class="inline-error">${esc(errorMsg)}</div>` : ''}
         <p class="field-hint">Didn't get it? Check your spam folder, or <a href="#" id="cc-resend">send a new code</a>.</p>
         <div class="form-actions">
-          <button class="btn btn-danger" id="cc-ok">Erase it</button>
+          <button class="btn btn-danger" id="cc-ok">${esc(confirmLabel)}</button>
           <button class="btn" id="cc-cancel">Cancel</button>
         </div>`;
       const input = body.querySelector('#cc-code');

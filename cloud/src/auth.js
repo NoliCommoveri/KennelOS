@@ -144,8 +144,30 @@ export async function signOut(env, auth) {
   return { ok: true };
 }
 
-export async function signOutOthers(env, auth) {
+// POST /auth/signout-others {email?, code?}: needs a fresh sign-in.
+export async function signOutOthers(env, auth, body = {}) {
+  await requireFreshSignIn(env, auth, body);
   const res = await env.DB.prepare("UPDATE sessions SET revoked_at = ?, revoked_reason = 'others' WHERE user_id = ? AND token_hash <> ? AND revoked_at IS NULL")
     .bind(new Date().toISOString(), auth.userId, auth.tokenHash).run();
   return { ok: true, revoked: res.meta.changes };
+}
+
+// The actions a stolen phone that is still signed in must not be able to take
+// (plan §2.5, §6.4): erasing another device, signing out the others, deleting
+// the account. They need a fresh sign-in: a session from the last 15 minutes
+// (so an owner who just signed in on their new phone isn't asked twice), or
+// {email, code} with a code just sent by /auth/start. Otherwise 403
+// reauth_required.
+export const FRESH_SIGN_IN_MS = 15 * 60 * 1000;
+
+export async function requireFreshSignIn(env, auth, body = {}) {
+  if (Date.now() - Date.parse(auth.createdAt) <= FRESH_SIGN_IN_MS) return;
+  const code = String(body.code ?? '').replace(/\s/g, '');
+  const email = normalizeEmail(body.email);
+  if (!code) fail(403, 'reauth_required');
+  if (!email || !/^\d{6}$/.test(code)) fail(400, 'invalid_code');
+  const eh = await emailHash(env, email);
+  const user = await env.DB.prepare('SELECT id FROM users WHERE id = ? AND email_hash = ?').bind(auth.userId, eh).first();
+  if (!user) fail(400, 'invalid_code');
+  await checkCode(env, eh, code);
 }

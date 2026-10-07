@@ -121,13 +121,14 @@ export const verifyCode = ({ email, code, deviceId, deviceLabel }) =>
 
 // --- Auth (token) --------------------------------------------------------------
 export const signOut = (token) => getJson('/auth/signout', { method: 'POST', token, json: {} });
-export const signOutOthers = (token) => getJson('/auth/signout-others', { method: 'POST', token, json: {} });
+// `reauth` = { email, code } when this sign-in is older than 15 minutes (plan §2.5).
+export const signOutOthers = (token, reauth = {}) => getJson('/auth/signout-others', { method: 'POST', token, json: reauth });
 
 // --- Program -------------------------------------------------------------------
 // → { programId, thisDeviceId, backingDevice: {id,label,lastPushAt}|null, latestSnapshotId, latestSnapshot }
 export const getProgram = (token) => getJson('/program', { token });
 export const takeOverBacking = (token) => getJson('/program/backing-device', { method: 'POST', token, json: {} });
-export const deleteAccount = (token) => getJson('/account', { method: 'DELETE', token, json: { confirm: 'DELETE' } });
+export const deleteAccount = (token, reauth = {}) => getJson('/account', { method: 'DELETE', token, json: { ...reauth, confirm: 'DELETE' } });
 
 // --- Devices (plan §2.5) ------------------------------------------------------
 // → { ok, notices: [{ id, level, message, until }] }
