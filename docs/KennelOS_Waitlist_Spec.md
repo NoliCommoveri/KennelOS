@@ -661,7 +661,8 @@ every time zone. A daily job purges acknowledged inbox blobs after 30 days and t
 **Pro entitlement on the server.** Every `/waitlist/*` route for her (not the public form
 or status page) requires a signed-in account with a server-known Pro license. That needs
 the Lemon Squeezy webhook → Worker link from Proposal Phase 5, brought forward for these
-routes only (§12). The webhook is matched to her account by email hash (Proposal §4). The browser-side license check stays the base path for the app itself
+routes only (§12). The webhook is matched to her account by email hash (Proposal §4).
+Build plan (draft): `docs/KennelOS_License_Link_Plan.md`. The browser-side license check stays the base path for the app itself
 (Proposal §2a). On top of that, every account has per-route rate limits and a monthly
 spending cap on the assistant routes (§10), whatever its edition.
 

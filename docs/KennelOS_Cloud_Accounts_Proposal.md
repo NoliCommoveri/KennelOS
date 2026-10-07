@@ -424,7 +424,7 @@ switch, and what's shared appears in your connections' **Friends feed**.
 | **3. Team members & roles** | Invites, Staff and Helper roles, server-enforced visibility. KennelAssistant retires. | Medium |
 | **4. Dog transfers** | §7 | Medium |
 | **4b. Connections** | §8. Invite/QR/email connect, profile → auto kennel + contact, the feed, then "add to my records" linked dogs | Medium. Mostly allow-list builders plus a feed. Low data risk because everything shared is already cloud tier |
-| **5. Optional account-linked license** | Webhooks so a key follows a signed-in account; browser validation stays the base path (§2a). **The webhook → Worker link is brought forward** as a prerequisite of the waitlist's W2, used only to gate the server-side waitlist routes (`KennelOS_Waitlist_Spec.md` §8.5, §12). | Low |
+| **5. Optional account-linked license** | Webhooks so a key follows a signed-in account; browser validation stays the base path (§2a). **The webhook → Worker link is brought forward** as a prerequisite of the waitlist's W2, used only to gate the server-side waitlist routes (`KennelOS_Waitlist_Spec.md` §8.5, §12); build plan (draft): `KennelOS_License_Link_Plan.md`. | Low |
 | **Later** | Two-way linked dogs and co-ownership, optional "people you may know", and Furever families on accounts | Higher |
 
 ## 10. Open questions (need answers before Phase 1)
