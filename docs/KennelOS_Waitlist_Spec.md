@@ -811,6 +811,15 @@ W1 is a full feature on its own and doesn't wait for the cloud work.
     listen-only families shown?~~ **Decided 2026-10-06: skip the number** (#1, #2, #4), so
     nobody's public position shifts when a pause ends; **listen-only families show**, with
     no marker (§15.3).
+25. **Changing matching answers (§15.9):** is readiness included alongside sex, breed,
+    placement and colors (leaning yes: moving to a later answer avoids offers too)?
+26. **Wider changes** (e.g. Female → Either): still wait for her tap, or apply at once,
+    since being eligible for more can't dodge an offer? Leaning: still her tap, kept simple,
+    with the nudge saying it's wider.
+27. **A limit on change requests** (e.g. one every 3 months), or is her approval enough?
+    Leaning: her approval is enough; the history in the nudge shows anyone flip-flopping.
+28. **W1:** should she be able to record a family's spoken/messaged request so it waits as
+    a Today nudge, or does she just edit the entry? Leaning: she just edits (§15.9).
 
 ## 14. W1 build plan
 
@@ -1103,3 +1112,86 @@ Listening for specific pairings or litters was the wrong unit: families follow a
 4. **The old timing question is gone from the defaults** (2026-10-07): "When are you hoping
    to bring a puppy home?" overlapped the readiness question. Forms she already saved keep
    it until she deletes it; older answers to it still show on the family page.
+
+### 15.9 Families ask to change their matching answers; she approves (requested 2026-10-07; PLAN, not built)
+
+**Her request.** Families can't change the answers that decide which pups they're offered.
+Otherwise a family could narrow an answer just before a litter's offer reaches them, get
+skipped with no pass counted (§6.4), then change it back. Instead they **ask her to change
+it**, and she approves with **one tap** from a **Today nudge**.
+
+**Which answers.** The ones that keep a family from being offered a pup:
+- the matching preferences in `waitlistForm.matchingPrefKeys(config)`: sex, breed,
+  placement, and colors **only while color matching is on**;
+- **readiness** (`ready_timing`). It's a hold, not a match, but moving from ASAP to 6+
+  months avoids offers just as well (§15.8). **Leaning: included** (Q25).
+- Not included: colors while color matching is off (notes only, nothing to game; the family
+  can change it freely), listen-only and pause (Q7, their own rules), and the other
+  application answers (nothing depends on them).
+
+**What the family sees (W2 status page, §8.3).** Each of these answers is shown read-only,
+with **Ask to change**. That opens the same question with its fixed choices (the breed
+dropdown, the readiness answers…) and an optional note ("We've decided a female suits us
+better"). Sending it shows **Requested: Female, waiting for [her name]** under the current
+answer. **Until she approves, nothing changes**: their offers, holds and public-list line
+all follow the current answer. Sending another request replaces the pending one (one
+pending request per family), so a request can also be withdrawn. Once she decides, the page
+shows the result and the family gets the usual no-reply email (§15.4).
+
+**What she sees (Today nudge).** One nudge per pending request, in the waitlist nudges
+(`nudges.js` `waitlistNudges`):
+- **Title:** "The Lees asked to change their breed: Any breed → French Bulldog".
+- **Detail**, so she can spot someone working the system:
+  - what it does right now: "Narrower: they'd stop being eligible for Juniper × Ash, where
+    they're next" / "Wider: they'd become eligible for 2 more litters" (worked out with
+    `pupMatchesPrefs` against the litters and pairings she has now);
+  - an **open offer stays open**: "They have an open offer on Juniper × Ash until Mar 14.
+    This change doesn't close it; passing still counts as a pass";
+  - their history of these answers: "3rd change since joining. Last changed Male → Any on
+    Feb 2";
+  - their note, if they left one.
+- **Buttons:** **Approve** (one tap: applies the change, records it in the history, clears
+  the request) and **Decline** (one tap: clears the request, keeps the answer). **Dismiss**
+  only hides the nudge; the request stays on the entry page with the same two buttons, so
+  dismissing never loses it.
+- After approving, Today reports what changed, like the other waitlist actions do: "Now
+  eligible for Juniper × Ash; they're next" (she still offers it herself, §6.5), or "No
+  longer eligible for Pip × Ash".
+
+**Rules that close the loophole.**
+1. **Families never write these answers.** Only her device does, on her tap. On the server
+   (§8.4) a request is just a pending family event her device turns into a request on the
+   entry; the server never applies it.
+2. **An open offer is never closed by a change** (narrowing or not). It ends the usual way:
+   accepted, passed, no response, or voided by her. So asking to change can't dodge an offer
+   that has already been made.
+3. **The history is kept and shown**, so changing back and forth is visible every time she
+   decides.
+4. **Her own edits stay free.** She can still change any answer on the entry page (she's
+   the one being protected). Those edits go into the same history, marked "by you".
+
+**Data (`waitlist_entries`, all plain, unindexed, private tier like `application`).**
+- `pref_change_request`: nullable `{ requested_date, changes: { [field]: value }, note }`.
+  Fields are the entry's `pref_*` / `ready_timing` names. One pending request at a time.
+- `pref_change_log[]`: `{ date, field, from, to, by: 'request' | 'breeder' }`, appended on
+  every approved request and every edit she makes to these fields. Declined requests are
+  logged too (`to` = what they asked for, plus `declined: true`), so the history shows those.
+- No new table and no FK, so no `referenceRegistry` change. Both ride the backup. The End-State
+  guide's `waitlist_entries` row and §29 gain the two fields when this is built.
+- **Pure rules** (`waitlistRules.js`, unit-tested): `prefChangeEffect(entry, changes,
+  litters, …)` → `{ narrower, wider, losesLitters[], gainsLitters[], openOffers[] }`;
+  `applyPrefChange(entry, today)` / `declinePrefChange(entry, today)` return the patched
+  entry with the log line. Actions in `waitlistActions.js` like the other one-tap outcomes.
+
+**Phasing.**
+- **W1 (now, no server).** Families can't edit anything yet; they message her and she edits
+  the entry. Buildable now: the change history (`pref_change_log`, written by her edits and
+  shown on the entry page), and on the entry page a warning when she narrows an answer while
+  the family has an open offer or is next for a litter ("They're next for Juniper × Ash.
+  Narrowing this skips them there"). Optionally she can **record a request** on the entry
+  ("They asked for…") so it waits as a Today nudge until she decides. Leaning: skip that; she
+  just edits.
+- **W2 (status page).** Ask to change on the status page, the pending event (§8.4), the
+  Today nudge with Approve / Decline, and the result shown to the family.
+
+See open questions Q25–Q28 (§13).
