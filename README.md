@@ -669,7 +669,15 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   `api.kennelos.app`, migrations through `0004` applied, D1/R2 reachable, the secrets set,
   and a test sign-in email delivered through Resend.
 
-  Next: merging the go-live change, then the smoke test on the real origins (checklist §3a). That's the docs (§8: CLAUDE.md, the Editions Plan, the End-State guide's
+- **Go-live follow-up: service worker installs fetch fresh.** After the go-live merge, a
+  phone that already had Lite installed kept the old `editionConfig.js` (no cloud backup
+  card) while a fresh browser showed it. `shared/sw.js`'s install now requests every
+  precached file with `cache: 'reload'`, so a new version can't save a stale copy from
+  the browser's HTTP cache. Service-worker cache rolled to `kennelos-shell-v43`, which
+  also replaces any stale v42 copy. Browser-checked: Lite's v43 cache holds all 160 files,
+  with the production `cloudUrl`.
+
+  Next: the smoke test on the real origins (checklist §3a). That's the docs (§8: CLAUDE.md, the Editions Plan, the End-State guide's
   §29 section), the privacy policy page, the SW bump, and production. A live check against
   staging from a machine that can reach it should come first.
 
