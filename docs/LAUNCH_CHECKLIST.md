@@ -231,7 +231,9 @@ until the webhook is configured.
 - [ ] **Production:** the same webhook in live mode to
   `https://api.kennelos.app/webhooks/lemonsqueezy`, its own secret on the production Worker,
   the same ids under `[env.production.vars]` (`LS_TEST_MODE` stays `"false"`). Do it
-  **before the store opens**, so no purchase predates it (plan §9 decision 6).
+  **before anyone else buys**, so no other purchase predates it (plan §9 decision 6). The
+  owner's own production license already does: backfill it (plan §9 decision 6) and check
+  that `GET /account/entitlement` reads `pro: true` for her account.
 
 ## 4. Post-deploy smoke test (on the real origins)
 

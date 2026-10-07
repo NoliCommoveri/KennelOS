@@ -199,7 +199,9 @@ checkout links are on `site/pro.html` today, so this only covers the app's own b
    secret on the production Worker, `LS_TEST_MODE = "false"` under `[env.production.vars]`.
    Apply pending (`0006`) on both `/ops` pages.
 4. **Backfill:** only if Pro has been sold before the production webhook exists (§9 decision
-   6). `LAUNCH_CHECKLIST.md` still shows the store as not live, so the likely answer is none.
+   6). **One exists (noted 2026-10-07):** the owner's own production Pro license, bought
+   before the webhook. The store is live, but she's the only user and holds only test data.
+   That one purchase needs backfilling (decision 6).
 
 ## 8. Testing
 
