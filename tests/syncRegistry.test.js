@@ -27,6 +27,7 @@ before(async () => {
   const { seedSampleData } = await import('../shared/data/sampleData.js');
   await seedSampleData();
   packet = snapshotTables(tables);
+  delete packet.device_secrets; // device-only, never kennel data (db.js)
 });
 
 // Mirror of db.version(1).stores (data/db.js) — a deliberate change-detector, as
@@ -37,9 +38,11 @@ const KNOWN_TABLES = [
   'breed_feeding_schedules', 'waitlist_entries', 'waitlist_offers', 'waitlist_programs'
 ];
 
-test('every db.js table has a registry entry, and nothing else does', async () => {
-  const { db } = await import('../shared/data/db.js');
-  const dbTables = db.tables.map((t) => t.name).sort();
+test('every db.js data table has a registry entry, and nothing else does', async () => {
+  const { dataTables, DEVICE_ONLY_TABLES } = await import('../shared/data/db.js');
+  const dbTables = dataTables().map((t) => t.name).sort();
+  // Device-only tables (the vault key) are never kennel data, so never in a snapshot.
+  for (const t of DEVICE_ONLY_TABLES) assert.ok(!(t in reg.SYNC_REGISTRY), t);
   assert.deepEqual(dbTables, [...KNOWN_TABLES].sort(), 'db.js tables changed: update KNOWN_TABLES and syncRegistry.js');
   assert.deepEqual([...reg.REGISTRY_TABLES].sort(), dbTables);
 });

@@ -158,6 +158,13 @@ KennelOS/
                                app.js before the license gate), the device list, remote
                                erase + this device's self-wipe, freeing a device's Pro
                                license with Lemon Squeezy (the key never goes to our server)
+      vaultCrypto.js           The private vault's WebCrypto (Private Vault Plan §3.2):
+                               codes, the vault key, KEKs, wraps, payload/file ciphertext
+      vaultKeyStore.js         This device's unlocked vault key, and its open request to be
+                               unlocked by another device, in device_secrets (§30)
+      cloudVault.js            Vault flows: turn on with a recovery code, unlock (with the
+                               code, or from another unlocked device), merge the private
+                               tier in, new recovery code, turn off
     dogRepo / contactRepo / kennelRepo / pairingRepo / litterRepo /
       saleRepo / contractRepo / studServiceRepo / eventRepo / expenseRepo /
       documentRepo   Entity repos
@@ -239,8 +246,13 @@ KennelOS/
     cloudBackupUI.js           Every cloud-backup screen: sign-in, the Import/Export card,
                                the Today nudge, the 409/shrink dialogs, restore as of…,
                                first-run restore, the post-setup offer, notices, and
-                               "Your devices" (erase / free a Pro license) (§11).
+                               "Your devices" (erase / free a Pro license) (§11), and the
+                               record pages' "private details are blank here" hint.
                                Loaded only when the edition has a cloud server
+    cloudVaultUI.js            The private vault's screens (§30): turn on + recovery code,
+                               unlock (code / another device / not now), approve another
+                               device, new recovery code, turn off. Loaded by
+                               cloudBackupUI.js only, on first use
     sampleDataUI.js            Sample-data banner + Clear-sample-data flow
     kennelSetupUI.js           Kennel-setup prompt/wizard + seed prefill
     wizardUI.js                Guided-tour overlay/spotlight/cards + resume pill (§11)
@@ -379,7 +391,15 @@ waitlist_entries:  id, kennel_id, contact_id, status, waitlist_program_id,
                    *listen_sire_ids, *listen_dam_ids, placed_sale_id, is_archived
 waitlist_offers:   id, entry_id, litter_id, kennel_id, chosen_dog_id, sale_id, outcome, is_archived
 waitlist_programs: id, kennel_id, is_archived
+device_secrets:    id
 ```
+
+`device_secrets` is a **device-only table** (`db.DEVICE_ONLY_TABLES`): this device's
+unlocked private-vault key, stored as a `CryptoKey`, and any open request to be unlocked by
+another device (§30, Private Vault Plan §3.3). It is not
+kennel data, so it has no `syncRegistry`/`referenceRegistry` entry, and code that means "the
+records" iterates `db.dataTables()`: `exportAll`, every restore mode, and Reset App's counts
+leave it out. Reset App and remote erase still clear it.
 
 Index notes:
 - **`kennel_id` on `pairings`/`litters`/`sales`/`stud_services`/`contracts`/
@@ -832,7 +852,8 @@ doing cross-table transaction work).
   the cloud snapshot builder, which hashes and uploads them itself.
 - `inspectBackup(obj)` validates shape and reports counts + unknown tables before any
   write.
-- `restoreBackup(obj, mode)`:
+- `restoreBackup(obj, mode)` (all modes see only `db.dataTables()`, never the device-only
+  `device_secrets`):
   - `'replace'` — clears **every** known table first, then loads the file's rows, so the
     result is exactly the backup (a table the file omits ends up empty).
   - `'merge'` — upserts the file's rows by id, leaving other records intact.
@@ -846,6 +867,15 @@ doing cross-table transaction work).
     fetched through `opts.fetchFile(sha256)`, or listed in `missingFiles`.
     `planCloudMerge()` gives the same per-table counts without writing, for the
     confirmation screen.
+  - `'vault-merge'` (same `opts`) — restores a decrypted **private-vault payload** (§30;
+    Private Vault Plan §4.4), which holds complete rows. A missing row is inserted; a vault
+    row as new as the local one or newer (or any row, with `overwrite: true`) replaces it
+    whole; a **locally newer** row is kept but its blank private fields, and the missing
+    keys of its object fields, are filled from the vault row (cloud fields stay local). So a
+    record edited while the device was locked keeps the edit and gets its private details
+    back. `files` rows carry `vault_file` `{ sha256, plain_sha256, encrypted }` in place of
+    the blob, fetched through `opts.fetchFile(vaultFile, row)`. `planVaultMerge()` counts
+    without writing.
   - Unknown collections (tables not in this schema version) are skipped, not errors.
   - Every restore calls `markDataChanged()` (§11), so the cloud backup sees it.
   - Before any write it awaits the edition hook `enforceImportDogCap({ incomingDogs, mode })`
@@ -1137,7 +1167,7 @@ intro-card / pinned-top-card presentation postdate it).
 
 App-shell cache so the app installs and works offline after first load.
 
-- `CACHE_NAME` (currently `kennelos-shell-v44`) + a `PRECACHE_URLS` list of **every** app
+- `CACHE_NAME` (currently `kennelos-shell-v45`) + a `PRECACHE_URLS` list of **every** app
   file (html/js/css/icons/vendor/resources).
 - `install` precaches the list (**`cache.addAll` is atomic** — one missing/renamed file
   fails the whole install). Each file is requested with **`cache: 'reload'`**, past the
@@ -1229,6 +1259,10 @@ implementation lives in `data/dateUtils.js`.
   Imported only dynamically and only when `cloudConfig.isCloudAvailable()`, by `app.js`,
   `today.js`, `import-export.js` and `onboardingUI.js`. Every value it renders goes through
   `esc()`.
+- **cloudVaultUI.js** — the private vault's screens (§30). Imported only dynamically, and
+  only by `cloudBackupUI.js` (so `cloudUrl: null` never loads it). The card's second line
+  ("Private info: encrypted backup, 4 minutes ago" / "locked on this device" / "only on this
+  device · last file backup …") is rendered by `cloudBackupUI.privateLine`.
 - **contactPicker.js** — `attachNewContactButton(selectEl, {onCreated})` decorates any
   contact `<select>` with a "＋ New" button: minimal inline-create modal (name required),
   creates via `contactRepo.create`, appends+selects the option, fires a native `change`
@@ -3043,13 +3077,37 @@ shape of it as built, for orientation.
   looks like a half-empty device; Reset App turns backup off.
 - **A lost device** (plan §2.5): from another signed-in device, erase it (it wipes itself
   the next time it opens the app online) and, in Pro, free its license slot.
+- **The private vault** (`docs/KennelOS_Private_Vault_Plan.md`; built except passkeys):
+  an opt-in, end-to-end encrypted copy of the **complete** records beside the kennel tier.
+  One AES-GCM key per program, held unlocked on each device in `device_secrets`
+  (`vaultKeyStore.js`); the server keeps only wraps of it (a recovery code now; passkeys
+  are a later step) and ciphertext. A device can also be unlocked by another, already
+  unlocked one: the server relays an ECDH exchange salted with a 12-character code the
+  user types on the approver, so it can't open what it relays. With it on and unlocked, every push
+  also uploads the encrypted vault part (before the body) and the content hash covers the
+  private rows, so private-only edits push. Files the cloud tier doesn't carry (contracts,
+  "other" documents, receipts) go up encrypted deterministically, so they dedup. On but
+  locked on a device, pushes **pause** (`lastError` `vault_locked`) until it is unlocked;
+  the server refuses a vault-less snapshot anyway. A restore merges the same snapshot's
+  vault part (`'vault-merge'`, §10) when the device is unlocked.
+  **Released behind a switch:** `cloudConfig.VAULT_RELEASED` (false for now) — until it's
+  true, `isVaultOffered()` shows the vault's screens only against staging (localhost, or
+  `?cloud=staging`); everyone else sees Phase 1's card and flows. The data layer ignores it.
+  **UI:** offered right after the first backup in "Turn on cloud backup" and from the card;
+  the recovery code is shown once (Print / Save to Files / Copy) and its last 4 characters
+  typed back before anything is sent. The restore paths (first-run "sign in and restore",
+  and the 409's "restore that backup here") ask to unlock first: recovery code, another
+  device, or Not now. After a restore that left private details blank (`cloudRestoredAt`),
+  the record pages that hold them show a hint pointing at Unlock (or a file backup); an
+  unlock that merges the private tier clears it.
 
 ### Where it lives
 - **Server:** `cloud/` (one Cloudflare Worker + D1 + R2; staging and production are the
   top level and `[env.production]` of `cloud/wrangler.toml`). Deployed by Workers Builds,
   never by `deploy.yml`, and not part of any edition. Operated from its `/ops` page.
 - **Client:** `data/cloud/` (`cloudConfig`, `cloudApi`, `cloudAuth`, `cloudBackup`,
-  `cloudDevices`; §3) and `assets/cloudBackupUI.js` (§3, §11). `editionConfig` supplies
+  `cloudDevices`, and the vault's `vaultCrypto`, `vaultKeyStore`, `cloudVault`; §3) and `assets/cloudBackupUI.js` +
+  `assets/cloudVaultUI.js` (§3, §11). `editionConfig` supplies
   `cloudUrl` (production) and `devCloudUrl` (staging, for localhost and the
   `?cloud=staging` test switch).
 - **Boot** (§11): `app.js` starts the device check-in before the license gate, and

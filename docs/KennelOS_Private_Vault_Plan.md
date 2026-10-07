@@ -7,7 +7,8 @@
 > Status: **in progress.** Decisions recorded in §10 (2026-10-07). Built so far: §9 step 1
 > (`shared/data/cloud/vaultCrypto.js` + `tests/vaultCrypto.test.js`) and step 2, the server
 > (`cloud/src/vault.js`, migration `0005`, `cloud/tests/vault.test.js`; §6.4 is the as-built
-> record). Step 3, the client modules, is next. Nothing user-visible yet.
+> record), step 3, the client modules, step 4, unlocking from another device, and step 5, the
+> UI (§9 is the as-built record). Step 6, passkeys, is next.
 
 ## 1. Scope
 
@@ -323,16 +324,64 @@ Where the build differs from §6.1–§6.2 above, this wins:
 2. **Server:** migration `0005`, the `/vault` routes, the snapshot `vault` part and the
    `vault_required` rule, retention/deletion/export, tests. Staging: Apply pending.
    **Built 2026-10-07** (§6.4), pairing routes included, so step 4 is client-only.
-   **Operator: press Apply pending on staging's `/ops` after this deploys** (the API answers
-   503 until then).
+   `0005` is applied on staging and production (production's Worker deploys from `main`
+   and answers 503 while a migration is pending, so it had to be applied there too).
 3. **Client modules:** `vaultKeyStore`, `cloudVault`, the push/restore changes in
    `cloudBackup`, the pause state. Against staging.
+   **Built 2026-10-07.** `device_secrets` in `db.version(1)` as a device-only table
+   (`db.dataTables()` leaves it out of exports and restores; Reset App and erase clear it);
+   the key row is tagged with its program. `cloudVault`: `startVaultSetup`/
+   `finishVaultSetup` (the last group typed back, then the first encrypted push),
+   `unlockWithRecoveryCode` (then merges the latest vault part unless `merge: false`),
+   `mergeLatestVault`, `startNewRecoveryCode`/`finishNewRecoveryCode`, `disableVault`,
+   `vaultStatus`. `cloudBackup`: `buildVaultPayload` + `sealVaultPayload` (the plaintext half
+   feeds the "unchanged" hash, so nothing is encrypted unless it pushes; files the cloud
+   tier already uploads are referenced, not stored twice); the `vault_locked` pause;
+   `no_vault` forgets the key and pushes again without it, `vault_key_stale` forgets it and
+   pauses; `restoreSnapshot` merges the same snapshot's vault part (`restoreSnapshotVault`).
+   Restore is a new `importExport` mode, `'vault-merge'`: newer wins, but a locally newer
+   row (edited while locked) keeps its edit and gets blank private fields filled from the
+   vault. Tested end to end against the Worker (`tests/cloudVault.test.js`). Passkey and
+   pairing flows are steps 4 and 6.
 4. **Second-device pairing** (client + the pairing routes, if split from step 2).
+   **Built 2026-10-07** (client only; the routes came with step 2). `cloudVault`:
+   `requestDeviceUnlock` (new device: an ECDH key pair and a 12-character code; only the
+   public key is sent), `pendingDeviceUnlock`, `pollDeviceUnlock` / `waitForDeviceUnlock`
+   (every 3 s; derives the KEK and unwraps), `cancelDeviceUnlock`; on the unlocked device
+   `listUnlockRequests` and `approveDeviceUnlock` (an ephemeral key pair, the typed code as
+   the HKDF salt, a one-time `device` wrap). The open request (its non-extractable private
+   key and the code) is kept in `device_secrets`, so a reload or page change mid-wait doesn't
+   lose it. The approver can't check the code: a wrong one fails on the new device
+   (`VaultLockedError`), and since the server hands the answer out once, it asks again.
+   Tests: `tests/cloudVault.test.js`.
 5. **UI:** §2's screens, the two-line status, the restore unlock step, the blank-private-field
    hint. Browser-verified in Lite and Pro.
+   **Built 2026-10-07.** `assets/cloudVaultUI.js` (imported only by `cloudBackupUI.js`):
+   the intro, the recovery-code screen (Print through a hidden frame, Save to Files as
+   `KennelOS-recovery-code.txt`, Copy; the confirm button waits for the last 4 characters),
+   the unlock modal (recovery code · another device, showing its code and waiting · not
+   now), approving another device, a new recovery code and turning it off (both behind the
+   fresh-sign-in step; turning off is a typed `TURN OFF`). `cloudBackupUI.js`: the vault is
+   offered after the first backup in "Turn on cloud backup"; the card's two lines
+   (`privateLine`) and a "Private backup" section; the `vault_locked` pause (card, Today,
+   and its Unlock); the unlock step before both restore paths; restore messages and "Restore
+   as of…" wording that say whether private info came back. **The blank-private-field hint
+   is per page, not per field:** a strip on the pages that hold private details (contacts,
+   dogs, sales, contracts, stud services, litters, Financials, waitlist entries, documents)
+   while `cloudRestoredAt` is set, pointing at Unlock (or a file backup). An unlock that merges
+   the private tier clears it. Browser-verified against the Worker code in-process (the
+   staging API routed to it), Lite → Lite by device pairing, Lite → Pro with Not now then the
+   recovery code, new code, turn off, and Demo making no cloud request.
+   **Release switch:** `cloudConfig.VAULT_RELEASED` (false). Until it's true the vault's
+   screens are offered only where cloud backup talks to staging (localhost, or
+   `?cloud=staging`), so this can merge and be tried on the real origins first; everyone
+   else sees Phase 1's card and flows unchanged (browser-checked as `lite.kennelos.app`
+   with and without the switch). The data layer ignores the switch, so a program that has a
+   vault is handled correctly anywhere. `LAUNCH_CHECKLIST.md` §3b is the release list.
+   The app root's redirect now keeps the query string, so `/?cloud=staging` works.
 6. **Passkey (PRF)** as its own step: it needs real-device testing and is optional for users.
-7. **Docs (§7), privacy policy, `PRECACHE_URLS`, SW bump (asked first).** Production: Apply
-   pending on `/ops` before the editions deploy.
+7. **Docs (§7), privacy policy, `PRECACHE_URLS`, SW bump (asked first).** (Production: Apply
+   pending on `/ops`, already done for `0005`.)
 
 ## 10. Decisions (2026-10-07)
 1. **Vault payload = full records (§4.1)**, not only the private fields. The readable kennel
