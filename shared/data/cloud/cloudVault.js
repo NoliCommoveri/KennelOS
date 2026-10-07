@@ -28,7 +28,7 @@ import {
   newPairingCode, generatePairingKeyPair, exportPublicKey, kekFromPairing
 } from './vaultCrypto.js';
 import { pushIfDirty, restoreSnapshotVault } from './cloudBackup.js';
-import { getCloudBackupState, updateCloudBackupState } from '../settings.js';
+import { getCloudBackupState, updateCloudBackupState, setCloudRestoredAt } from '../settings.js';
 
 export class VaultSetupError extends Error {
   constructor(code, message) {
@@ -152,7 +152,9 @@ export async function mergeLatestVault({ onProgress } = {}) {
   const { token } = requireSession();
   const program = await api.getProgram(token);
   if (!program.latestSnapshotId) return null;
-  return restoreSnapshotVault(program.latestSnapshotId, { overwrite: false, onProgress });
+  const r = await restoreSnapshotVault(program.latestSnapshotId, { overwrite: false, onProgress });
+  if (r.status === 'restored') setCloudRestoredAt(null); // private details are back: no "blank here" hint
+  return r;
 }
 
 // --- Unlocking from another device (§2.4, §5.3) --------------------------------------

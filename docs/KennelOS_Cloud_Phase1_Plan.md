@@ -371,9 +371,9 @@ field** on a device that has them. So we add a third mode, with one switch, `ove
   default (§3.3: the reset follows a typed confirmation).
 - **Restore as of…** labels a snapshot "Today 9:14" / "Yesterday …" / "Tue Sep 29 …". When
   two backups fall in the same minute, they get seconds too.
-- **Deferred:** the per-record "private details aren't in cloud backup" hint (§2.3). For now
-  there is one hint on the Import/Export card after a cloud restore, pointing at a file
-  backup merge.
+- **Deferred, then built with the vault UI** (Private Vault Plan §9 step 5): the "private
+  details aren't in cloud backup" hint (§2.3) is a strip on the record pages that hold
+  private details, beside the one on the Import/Export card.
 
 ## 5. The classification (`syncRegistry.js`)
 

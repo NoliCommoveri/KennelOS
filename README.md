@@ -499,15 +499,16 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
       `docs/KennelOS_Private_Vault_Plan.md` (Phase 2b; decisions in its §10). Step 1, the
       vault's cryptography (`shared/data/cloud/vaultCrypto.js`, `tests/vaultCrypto.test.js`),
       step 2, the server (`cloud/src/vault.js`, cloud migration `0005`,
-      applied on staging and production), and step 3, the client modules
+      applied on staging and production), step 3, the client modules
       (`vaultKeyStore.js`, `cloudVault.js`, the vault half of `cloudBackup.js`, a new
       `'vault-merge'` restore mode and the device-only `device_secrets` table;
-      `tests/cloudVault.test.js`), and step 4, unlocking from another device (client
-      flows in `cloudVault.js`), are built;
-      nothing user-visible yet. Service-worker cache rolled to `kennelos-shell-v44` for this
+      `tests/cloudVault.test.js`), step 4, unlocking from another device (client
+      flows in `cloudVault.js`), and step 5, the UI (`shared/assets/cloudVaultUI.js`,
+      the card's two lines, the restore unlock step, the record-page hint), are built.
+      Passkeys (step 6) are next. Service-worker cache rolled to `kennelos-shell-v44` for this
       batch (the kennel-setup "Sign in to existing account" button, and `vaultCrypto.js` in
-      the precache). Step 3 adds `cloudVault.js` and `vaultKeyStore.js` to the precache;
-      its cache bump is still to be confirmed;
+      the precache). Steps 3 and 5 add `cloudVault.js`, `vaultKeyStore.js` and
+      `cloudVaultUI.js` to the precache; their cache bump is still to be confirmed;
     - no readable private data on our server stays the default, with a per-user
       opt-in recovery switch as a fallback only if lock-outs show up in support.
 

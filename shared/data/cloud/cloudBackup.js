@@ -644,7 +644,9 @@ export async function restoreOnNewDevice(opts = {}) {
   const result = await restoreLatestAndTakeOver(opts);
   markSampleDataCleared();
   if (result.restored) {
-    setCloudRestoredAt(new Date().toISOString());
+    // "Private details are blank here" (the card and record-page hint), unless
+    // the private vault came back too. An unlock later clears it (cloudVault).
+    setCloudRestoredAt(result.restored.vault?.status === 'restored' ? null : new Date().toISOString());
     if (!getMyKennelId()) {
       const own = (await exportAll({ encodeBlobs: false })).collections.kennels
         ?.find((k) => k.is_own_kennel && !k.is_archived);

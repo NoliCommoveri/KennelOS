@@ -246,8 +246,13 @@ KennelOS/
     cloudBackupUI.js           Every cloud-backup screen: sign-in, the Import/Export card,
                                the Today nudge, the 409/shrink dialogs, restore as of…,
                                first-run restore, the post-setup offer, notices, and
-                               "Your devices" (erase / free a Pro license) (§11).
+                               "Your devices" (erase / free a Pro license) (§11), and the
+                               record pages' "private details are blank here" hint.
                                Loaded only when the edition has a cloud server
+    cloudVaultUI.js            The private vault's screens (§30): turn on + recovery code,
+                               unlock (code / another device / not now), approve another
+                               device, new recovery code, turn off. Loaded by
+                               cloudBackupUI.js only, on first use
     sampleDataUI.js            Sample-data banner + Clear-sample-data flow
     kennelSetupUI.js           Kennel-setup prompt/wizard + seed prefill
     wizardUI.js                Guided-tour overlay/spotlight/cards + resume pill (§11)
@@ -1254,6 +1259,10 @@ implementation lives in `data/dateUtils.js`.
   Imported only dynamically and only when `cloudConfig.isCloudAvailable()`, by `app.js`,
   `today.js`, `import-export.js` and `onboardingUI.js`. Every value it renders goes through
   `esc()`.
+- **cloudVaultUI.js** — the private vault's screens (§30). Imported only dynamically, and
+  only by `cloudBackupUI.js` (so `cloudUrl: null` never loads it). The card's second line
+  ("Private info: encrypted backup, 4 minutes ago" / "locked on this device" / "only on this
+  device · last file backup …") is rendered by `cloudBackupUI.privateLine`.
 - **contactPicker.js** — `attachNewContactButton(selectEl, {onCreated})` decorates any
   contact `<select>` with a "＋ New" button: minimal inline-create modal (name required),
   creates via `contactRepo.create`, appends+selects the option, fires a native `change`
@@ -3068,7 +3077,7 @@ shape of it as built, for orientation.
   looks like a half-empty device; Reset App turns backup off.
 - **A lost device** (plan §2.5): from another signed-in device, erase it (it wipes itself
   the next time it opens the app online) and, in Pro, free its license slot.
-- **The private vault** (`docs/KennelOS_Private_Vault_Plan.md`; in progress, no UI yet):
+- **The private vault** (`docs/KennelOS_Private_Vault_Plan.md`; built except passkeys):
   an opt-in, end-to-end encrypted copy of the **complete** records beside the kennel tier.
   One AES-GCM key per program, held unlocked on each device in `device_secrets`
   (`vaultKeyStore.js`); the server keeps only wraps of it (a recovery code now; passkeys
@@ -3081,13 +3090,21 @@ shape of it as built, for orientation.
   locked on a device, pushes **pause** (`lastError` `vault_locked`) until it is unlocked;
   the server refuses a vault-less snapshot anyway. A restore merges the same snapshot's
   vault part (`'vault-merge'`, §10) when the device is unlocked.
+  **UI:** offered right after the first backup in "Turn on cloud backup" and from the card;
+  the recovery code is shown once (Print / Save to Files / Copy) and its last 4 characters
+  typed back before anything is sent. The restore paths (first-run "sign in and restore",
+  and the 409's "restore that backup here") ask to unlock first: recovery code, another
+  device, or Not now. After a restore that left private details blank (`cloudRestoredAt`),
+  the record pages that hold them show a hint pointing at Unlock (or a file backup); an
+  unlock that merges the private tier clears it.
 
 ### Where it lives
 - **Server:** `cloud/` (one Cloudflare Worker + D1 + R2; staging and production are the
   top level and `[env.production]` of `cloud/wrangler.toml`). Deployed by Workers Builds,
   never by `deploy.yml`, and not part of any edition. Operated from its `/ops` page.
 - **Client:** `data/cloud/` (`cloudConfig`, `cloudApi`, `cloudAuth`, `cloudBackup`,
-  `cloudDevices`, and the vault's `vaultCrypto`, `vaultKeyStore`, `cloudVault`; §3) and `assets/cloudBackupUI.js` (§3, §11). `editionConfig` supplies
+  `cloudDevices`, and the vault's `vaultCrypto`, `vaultKeyStore`, `cloudVault`; §3) and `assets/cloudBackupUI.js` +
+  `assets/cloudVaultUI.js` (§3, §11). `editionConfig` supplies
   `cloudUrl` (production) and `devCloudUrl` (staging, for localhost and the
   `?cloud=staging` test switch).
 - **Boot** (§11): `app.js` starts the device check-in before the license gate, and

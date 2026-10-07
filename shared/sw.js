@@ -20,6 +20,7 @@ const PRECACHE_URLS = [
   'assets/app.css',
   'assets/breedTestPicker.js',
   'assets/cloudBackupUI.js',
+  'assets/cloudVaultUI.js',
   'assets/contactPicker.js',
   'assets/documentModal.js',
   'assets/dropboxConnectUI.js',

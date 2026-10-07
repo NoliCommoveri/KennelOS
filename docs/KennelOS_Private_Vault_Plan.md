@@ -7,8 +7,8 @@
 > Status: **in progress.** Decisions recorded in §10 (2026-10-07). Built so far: §9 step 1
 > (`shared/data/cloud/vaultCrypto.js` + `tests/vaultCrypto.test.js`) and step 2, the server
 > (`cloud/src/vault.js`, migration `0005`, `cloud/tests/vault.test.js`; §6.4 is the as-built
-> record), step 3, the client modules, and step 4, unlocking from another device (§9 is the
-> as-built record). Step 5, the UI, is next. Nothing user-visible yet.
+> record), step 3, the client modules, step 4, unlocking from another device, and step 5, the
+> UI (§9 is the as-built record). Step 6, passkeys, is next.
 
 ## 1. Scope
 
@@ -356,6 +356,22 @@ Where the build differs from §6.1–§6.2 above, this wins:
    Tests: `tests/cloudVault.test.js`.
 5. **UI:** §2's screens, the two-line status, the restore unlock step, the blank-private-field
    hint. Browser-verified in Lite and Pro.
+   **Built 2026-10-07.** `assets/cloudVaultUI.js` (imported only by `cloudBackupUI.js`):
+   the intro, the recovery-code screen (Print through a hidden frame, Save to Files as
+   `KennelOS-recovery-code.txt`, Copy; the confirm button waits for the last 4 characters),
+   the unlock modal (recovery code · another device, showing its code and waiting · not
+   now), approving another device, a new recovery code and turning it off (both behind the
+   fresh-sign-in step; turning off is a typed `TURN OFF`). `cloudBackupUI.js`: the vault is
+   offered after the first backup in "Turn on cloud backup"; the card's two lines
+   (`privateLine`) and a "Private backup" section; the `vault_locked` pause (card, Today,
+   and its Unlock); the unlock step before both restore paths; restore messages and "Restore
+   as of…" wording that say whether private info came back. **The blank-private-field hint
+   is per page, not per field:** a strip on the pages that hold private details (contacts,
+   dogs, sales, contracts, stud services, litters, Financials, waitlist entries, documents)
+   while `cloudRestoredAt` is set, pointing at Unlock (or a file backup). An unlock that merges
+   the private tier clears it. Browser-verified against the Worker code in-process (the
+   staging API routed to it), Lite → Lite by device pairing, Lite → Pro with Not now then the
+   recovery code, new code, turn off, and Demo making no cloud request.
 6. **Passkey (PRF)** as its own step: it needs real-device testing and is optional for users.
 7. **Docs (§7), privacy policy, `PRECACHE_URLS`, SW bump (asked first).** (Production: Apply
    pending on `/ops`, already done for `0005`.)
