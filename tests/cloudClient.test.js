@@ -426,6 +426,43 @@ test('turn off: no pushes, the cloud copy stays', async () => {
   assert.equal((await cb.listSnapshots()).length, 1);
 });
 
+// --- Lite → Pro (Editions Plan, "Converting Lite → Pro") ------------------------------
+
+test('each push names its edition, and a 409 passes the backing device\'s edition on', async () => {
+  putProgram();
+  await signIn('breeder@example.com', 'Phone A');
+  await cb.enableBackup();
+  assert.equal((await cb.listSnapshots())[0].edition, 'pro', 'the shared config is the Pro default');
+
+  switchDevice('B');
+  await signIn('breeder@example.com', 'Laptop B');
+  const r = await cb.enableBackup();
+  assert.equal(r.status, 'conflict');
+  assert.equal(r.backingDevice.edition, 'pro');
+  assert.equal(r.movedToEdition, null, 'Pro meeting Pro is an ordinary second device');
+});
+
+test('movedToEdition: only a Lite device whose program is backed up from Pro', () => {
+  const pro = { id: 'x', edition: 'pro' };
+  assert.equal(cb.movedToEdition(pro, false, 'lite'), 'pro');
+  assert.equal(cb.movedToEdition(pro, true, 'lite'), null, 'this device before a reset is not an upgrade');
+  assert.equal(cb.movedToEdition({ id: 'x', edition: 'lite' }, false, 'lite'), null);
+  assert.equal(cb.movedToEdition({ id: 'x', edition: null }, false, 'lite'), null, 'a snapshot from before editions were recorded');
+  assert.equal(cb.movedToEdition(pro, false, 'pro'), null);
+  assert.equal(cb.movedToEdition(null, false, 'lite'), null);
+});
+
+test('turning off after a move to Pro is remembered until backup is turned back on', async () => {
+  putProgram();
+  await signIn();
+  await cb.enableBackup();
+  cb.disableBackup({ movedToEdition: 'pro' });
+  assert.equal(cb.getBackupStatus().movedToEdition, 'pro');
+  assert.equal(cb.getBackupStatus().enabled, false);
+  await cb.enableBackup();
+  assert.equal(cb.getBackupStatus().movedToEdition, null);
+});
+
 // --- scheduler ----------------------------------------------------------------------
 
 test('scheduler timing: five minutes from the first unpushed change, never sooner than five after the last attempt', () => {

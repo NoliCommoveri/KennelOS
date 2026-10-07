@@ -894,7 +894,9 @@ plain local backup/restore.
   doesn't touch them: `cloudSession` (`{ token, email, programId, deviceId }`; the email
   stays on this device, the server keeps only a keyed hash), `cloudBackupState`
   (`{ enabled, lastPushedAt, lastAttemptAt, lastSnapshotId, lastCounts, lastContentHash,
-  lastError }`), and `cloudDeviceId` (this browser's id on the cloud account, sent on every
+  lastError, movedToEdition }`; `movedToEdition` is `'pro'` once a Lite device turned backup
+  off because its program moved to Pro, which keeps Today's turn-on nudge quiet until backup
+  is turned on again), and `cloudDeviceId` (this browser's id on the cloud account, sent on every
   sign-in so the backing device stays recognisable; separate from the license
   `deviceId`). **Reset App** handles them explicitly in `appReset.stopCloudBackupAfterReset()`:
   backup is always turned off, and the device forgets which snapshot it was in step with,

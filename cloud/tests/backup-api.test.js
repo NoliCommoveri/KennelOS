@@ -124,6 +124,33 @@ test('snapshots: a second device gets 409 naming the backing device, until it ta
   assert.equal((await push(env, phone, { base: took.latestSnapshotId })).status, 409, 'the phone is now the stranger');
 });
 
+test('snapshots: the 409 names the backing device\'s edition (Lite → Pro upgrade)', async () => {
+  const env = await makeEnv();
+  const lite = await signIn(env, 'a@b.co', { deviceLabel: 'Lite phone' });
+  const first = await (await push(env, lite, { edition: 'lite' })).json();
+  const pro = await signIn(env, 'a@b.co', { deviceLabel: 'Pro laptop' });
+  const took = await (await call(env, 'POST', '/program/backing-device', { token: pro.token })).json();
+  assert.equal(took.latestSnapshotId, first.snapshotId);
+  assert.equal((await push(env, pro, { base: first.snapshotId, edition: 'pro' })).status, 200);
+
+  const refused = await push(env, lite, { base: first.snapshotId, edition: 'lite' });
+  assert.equal(refused.status, 409);
+  const info = await refused.json();
+  assert.equal(info.backingDevice.label, 'Pro laptop');
+  assert.equal(info.backingDevice.edition, 'pro');
+  const list = await (await call(env, 'GET', '/snapshots', { token: pro.token })).json();
+  assert.deepEqual(list.snapshots.map((x) => x.edition), ['pro', 'lite']);
+});
+
+test('snapshots: an unknown or missing edition is stored as null', async () => {
+  const env = await makeEnv();
+  const s = await signIn(env);
+  const a = await (await push(env, s, { edition: 'demo' })).json();
+  await push(env, s, { base: a.snapshotId });
+  const list = await (await call(env, 'GET', '/snapshots', { token: s.token })).json();
+  assert.deepEqual(list.snapshots.map((x) => x.edition), [null, null]);
+});
+
 test('snapshots: a takeover between describe and upload loses the race cleanly', async () => {
   const env = await makeEnv();
   const phone = await signIn(env, 'a@b.co');

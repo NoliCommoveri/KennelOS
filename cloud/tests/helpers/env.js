@@ -40,12 +40,12 @@ export const sha = (bytes) => createHash('sha256').update(bytes).digest('hex');
 export const bytes = (text) => new TextEncoder().encode(text);
 
 // A whole backup: upload files, describe the snapshot, upload its body.
-export async function push(env, session, { base = null, files = [], payload = 'snapshot-bytes' } = {}) {
+export async function push(env, session, { base = null, files = [], payload = 'snapshot-bytes', edition } = {}) {
   for (const f of files) await call(env, 'PUT', `/files/${sha(f)}`, { token: session.token, body: f });
   const body = bytes(payload);
   const created = await call(env, 'POST', '/snapshots', {
     token: session.token,
-    body: { base_snapshot_id: base, size: body.length, counts: { dogs: 3 }, files: files.map(sha) },
+    body: { base_snapshot_id: base, size: body.length, counts: { dogs: 3 }, files: files.map(sha), ...(edition !== undefined ? { edition } : {}) },
   });
   if (created.status !== 200) return created;
   const { snapshotId } = await created.json();

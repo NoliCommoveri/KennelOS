@@ -250,6 +250,15 @@ field** on a device that has them. So we add a third mode, with one switch, `ove
   one server), and every page shows a "Cloud backup: TEST SERVER" strip while it's on.
   Staging already allows the `lite.`/`pro.` origins (§6.4). It stays after launch as a way
   to check a server release from a real origin. Pinned in `tests/cloudClient.test.js`.
+- **Lite → Pro (added 2026-10-07; Editions Plan, "Converting Lite → Pro").** Each push sends
+  its `edition`, and a 409's `backingDevice` carries the edition of the backing device's
+  latest snapshot. When a **Lite** device finds its program backed up from **Pro**, the push
+  result carries `movedToEdition: 'pro'` and the UI says "Your records moved to KennelOS Pro"
+  instead of the two-device conflict. Turning backup off there records
+  `cloudBackupState.movedToEdition`, which keeps Today's turn-on nudge quiet until backup is
+  turned on again. The Upgrade button also explains the sign-in-and-restore route when the
+  Lite device is signed in. Pinned in `tests/cloudClient.test.js` and
+  `cloud/tests/backup-api.test.js`.
 - **Device identity.** The server accepts a client-supplied device id on `/auth/verify`.
   The client mints `cloudDeviceId` once and sends it on every sign-in, so signing in again
   on the backing device doesn't make it a stranger. It's a separate key from the license's
@@ -482,7 +491,7 @@ a **Worker, not Cloudflare Pages**: Pages has no Cron Triggers, and §6.3's rete
 | `POST /auth/signout-others` | Revokes every other session on the account ("Sign out other devices" on the Import/Export card). |
 | `GET /program` | Program name, backing device (label + last push), latest snapshot meta. |
 | `HEAD /files/:sha256` · `PUT /files/:sha256` · `GET /files/:sha256` | Upload-if-missing, answered from D1's `files` table (§6.2), not by asking R2. `PUT` streams the body straight into R2 with `put(key, body, { sha256 })`, so **R2 verifies the hash** and rejects a mismatch. The Worker never buffers or re-hashes the file itself, which would blow the CPU and memory limits at 25 MB. On success it writes the `files` row. 25 MB cap per file, checked against `Content-Length` before streaming. `GET` is for restore. |
-| `POST /snapshots` | **Step one of two:** a small JSON description, `{base_snapshot_id, size, counts, files: [sha256…]}`. Refuses before any bytes move: a 409 per §3.4 (naming the backing device and its last push), or a 400 naming any referenced file the server doesn't have, checked in one query (§6.2). Returns `{snapshotId}`; the row is `pending`. |
+| `POST /snapshots` | **Step one of two:** a small JSON description, `{base_snapshot_id, size, counts, files: [sha256…], edition}` (`edition`, `lite` or `pro`, since migration `0003`; anything else is stored as null). Refuses before any bytes move: a 409 per §3.4 (naming the backing device and its last push), or a 400 naming any referenced file the server doesn't have, checked in one query (§6.2). Returns `{snapshotId}`; the row is `pending`. |
 | `PUT /snapshots/:id/body` | **Step two:** the gzipped envelope (`Content-Length` must equal the described `size`), streamed to R2. Commits only if the §3.4 rule still holds at that moment (one conditional batch), so two devices racing can't both win; the loser's row and object are removed and it gets the 409. An upload abandoned between the steps is removed by retention after a day. |
 | `GET /snapshots` · `GET /snapshots/:id` | The history list and one snapshot. |
 | `POST /program/backing-device` | Takeover (§3.4). |
@@ -513,6 +522,8 @@ snapshots + status ('pending' | 'committed'), base_snapshot_id, device_label
 rate_limits(bucket, window_start, count)   -- per email hash / HMAC'd IP, per UTC hour
 dev_outbox(id, email_hash, code, created_at) -- staging only, while no email provider exists
 notices(id, level, message, until, created_at)
+-- 0003 adds:
+snapshots + edition ('lite' | 'pro' | NULL)  -- named in a 409's backingDevice (Lite → Pro, §4.5)
 ```
 - **Rate limits:** 5 codes an hour per address and 30 an hour per IP. The limit applies to
   any address, so a 429 says nothing about whether an account exists. The IP is HMAC'd

@@ -1,7 +1,7 @@
 // Snapshots: the gzipped, filtered backup of one program (plan §3.4, §4, §6.1).
 //
 // Two requests per backup:
-//   POST /snapshots          {base_snapshot_id, size, counts, files}  → {snapshotId}
+//   POST /snapshots          {base_snapshot_id, size, counts, files, edition?}  → {snapshotId}
 //   PUT  /snapshots/:id/body gzipped bytes, Content-Length = size     → committed
 // The first refuses a stale or foreign device (409) and a missing file (400)
 // before any megabytes move. The second re-checks the 409 rule at the moment of
@@ -19,15 +19,18 @@ async function loadProgram(env, programId) {
   return env.DB.prepare('SELECT id, backing_device_id, latest_snapshot_id FROM programs WHERE id = ?').bind(programId).first();
 }
 
-// What a 409 tells the client: who is backing up, and when they last did.
+// What a 409 tells the client: who is backing up, when they last did, and from
+// which edition (so Lite can tell an upgrade to Pro from a second device).
 export async function backingInfo(env, program) {
   let label = null;
   let lastPushAt = null;
+  let edition = null;
   if (program.latest_snapshot_id) {
-    const latest = await env.DB.prepare('SELECT device_id, device_label, created_at FROM snapshots WHERE id = ?').bind(program.latest_snapshot_id).first();
+    const latest = await env.DB.prepare('SELECT device_id, device_label, created_at, edition FROM snapshots WHERE id = ?').bind(program.latest_snapshot_id).first();
     if (latest && latest.device_id === program.backing_device_id) {
       label = latest.device_label;
       lastPushAt = latest.created_at;
+      edition = latest.edition ?? null;
     }
   }
   if (program.backing_device_id && !label) {
@@ -36,7 +39,7 @@ export async function backingInfo(env, program) {
     label = s?.device_label ?? null;
   }
   return {
-    backingDevice: program.backing_device_id ? { id: program.backing_device_id, label, lastPushAt } : null,
+    backingDevice: program.backing_device_id ? { id: program.backing_device_id, label, lastPushAt, edition } : null,
     latestSnapshotId: program.latest_snapshot_id ?? null,
   };
 }
@@ -45,6 +48,9 @@ function canPush(program, deviceId, base) {
   const deviceOk = !program.backing_device_id || program.backing_device_id === deviceId;
   return deviceOk && (program.latest_snapshot_id ?? null) === (base ?? null);
 }
+
+// The editions that back up (Demo has no cloud). Anything else is stored as NULL.
+const EDITIONS = new Set(['lite', 'pro']);
 
 function validCounts(counts) {
   if (!counts || typeof counts !== 'object' || Array.isArray(counts)) return false;
@@ -59,6 +65,7 @@ export async function createSnapshot(env, auth, body) {
   if (!validCounts(body.counts)) fail(400, 'bad_counts');
   const files = Array.isArray(body.files) ? [...new Set(body.files)] : null;
   if (!files || files.length > MAX_FILE_REFS || !files.every((f) => typeof f === 'string' && SHA256.test(f))) fail(400, 'bad_files');
+  const edition = EDITIONS.has(body.edition) ? body.edition : null;
 
   const program = await loadProgram(env, auth.programId);
   if (!canPush(program, auth.deviceId, base)) fail(409, 'not_backing_device', await backingInfo(env, program));
@@ -74,10 +81,10 @@ export async function createSnapshot(env, auth, body) {
   const id = crypto.randomUUID();
   await env.DB.batch([
     env.DB.prepare(
-      `INSERT INTO snapshots (id, program_id, device_id, device_label, created_at, size, counts_json, r2_key, status, base_snapshot_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+      `INSERT INTO snapshots (id, program_id, device_id, device_label, created_at, size, counts_json, r2_key, status, base_snapshot_id, edition)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
     ).bind(id, auth.programId, auth.deviceId, auth.deviceLabel, new Date().toISOString(), body.size,
-      JSON.stringify(body.counts), snapshotKey(auth.programId, id), base),
+      JSON.stringify(body.counts), snapshotKey(auth.programId, id), base, edition),
     env.DB.prepare('INSERT INTO snapshot_files (snapshot_id, sha256) SELECT ?, value FROM json_each(?)').bind(id, filesJson),
   ]);
   return { snapshotId: id };
@@ -121,13 +128,13 @@ export async function uploadSnapshotBody(env, auth, id, request) {
 
 export async function listSnapshots(env, auth) {
   const { results } = await env.DB.prepare(
-    `SELECT id, created_at, size, counts_json, device_id, device_label FROM snapshots
+    `SELECT id, created_at, size, counts_json, device_id, device_label, edition FROM snapshots
       WHERE program_id = ? AND status = 'committed' ORDER BY created_at DESC LIMIT 200`,
   ).bind(auth.programId).all();
   return {
     snapshots: results.map((r) => ({
       id: r.id, createdAt: r.created_at, size: r.size, counts: JSON.parse(r.counts_json),
-      deviceId: r.device_id, deviceLabel: r.device_label,
+      deviceId: r.device_id, deviceLabel: r.device_label, edition: r.edition ?? null,
     })),
   };
 }

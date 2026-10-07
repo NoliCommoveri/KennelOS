@@ -616,6 +616,19 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   Headless Chromium on a `lite.kennelos.app` hostname: strip and backup card appear, off
   removes both, no console errors.
 
+- **Lite → Pro with cloud backup — built & browser-verified** (Editions Plan, "Converting
+  Lite → Pro" › "With cloud backup"). Pro can restore a Lite program by signing in with the
+  same email. Until the private vault, the file is still the complete path, so the Upgrade
+  button still downloads it; when the Lite device is signed in, it also backs up unsaved
+  changes and explains the sign-in-and-restore route plus merging the file for private
+  details. Snapshots now record their edition (**cloud migration `0003`: Apply pending on
+  staging's `/ops` after this deploys**; the API answers 503 until then), so a Lite device
+  whose program is backed up from Pro says "Your records moved to KennelOS Pro" with Turn off
+  backup here, instead of the two-device conflict. Headless Chromium (Lite build, server
+  replies stubbed): dialog, card line, no Today nudge after turning off, and the upgrade note
+  after the file download; no errors beyond the stubbed 409s.
+  Service-worker cache rolled to `kennelos-shell-v40` for this and the test switch.
+
   Next: step 6. That's the docs (§8: CLAUDE.md, the Editions Plan, the End-State guide's
   §29 section), the privacy policy page, the SW bump, and production. A live check against
   staging from a machine that can reach it should come first.

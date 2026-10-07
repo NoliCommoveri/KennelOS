@@ -550,7 +550,9 @@ export function clearProLicense() {
 //   cloudSession     { token, email, programId, deviceId } — email stays on this
 //                    device only; the server keeps a keyed hash (plan §2.1)
 //   cloudBackupState { enabled, lastPushedAt, lastAttemptAt, lastSnapshotId,
-//                      lastCounts, lastContentHash, lastError }
+//                      lastCounts, lastContentHash, lastError, movedToEdition }
+//                    (movedToEdition: 'pro' once a Lite device stopped backing
+//                    up because the program moved to Pro)
 //   cloudDeviceId    this browser's id on the cloud account, minted here and sent
 //                    on every sign-in so signing in again doesn't make the
 //                    backing device a stranger. Separate from the license's
@@ -561,7 +563,7 @@ const CLOUD_DEVICE_ID_KEY = 'kennelOS.cloudDeviceId';
 
 const CLOUD_BACKUP_STATE_DEFAULTS = {
   enabled: false, lastPushedAt: null, lastAttemptAt: null, lastSnapshotId: null,
-  lastCounts: null, lastContentHash: null, lastError: null
+  lastCounts: null, lastContentHash: null, lastError: null, movedToEdition: null
 };
 
 function readJsonKey(key) {
