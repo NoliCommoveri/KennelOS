@@ -4,7 +4,8 @@
 > Status: **in progress.** Built so far: §9 steps 1–5 (the registry; snapshot, `'cloud-merge'`
 > restore and dirty signal; the staging Worker; the client cloud modules in
 > `shared/data/cloud/`; the UI in `shared/assets/cloudBackupUI.js`), plus the lost-device
-> erase and Pro-license release (§2.5, added 2026-10-07). Next: step 6. The README's build status is the
+> erase and Pro-license release (§2.5, added 2026-10-07), and step 6's repo half (§9). What's
+> left is the operator's production setup and the go-live merge (§9 step 6). The README's build status is the
 > live record. Decisions it relies on are recorded in Proposal §10. The ones it raises are in
 > §11 below.
 
@@ -782,6 +783,16 @@ whose page is open to anyone until the first account exists.
 6. **Docs (§8), privacy policy page, `PRECACHE_URLS`, and the SW bump** (asked first). Then
    production: dashboard step 6 (§6.7), Apply pending on production's `/ops`, then the
    editions deploy with `cloudUrl` set.
+   **As built (2026-10-07):** the §8 docs (CLAUDE.md, the Editions Plan's tier table, the
+   End-State guide's §1, §2, §16 and new §30; the plan said "§29", which the waitlist took),
+   the production Worker as `[env.production]` in `cloud/wrangler.toml` (pinned by
+   `cloud/tests/config.test.js`), the operator's steps as `docs/LAUNCH_CHECKLIST.md` §3a, and
+   the SW bump to `kennelos-shell-v41`. Decided with the owner: the go-live is **one
+   separate change**, merged only after production's `/ops` shows no pending migration. It
+   sets `cloudUrl: 'https://api.kennelos.app'` in Lite and Pro, rewrites the marketing
+   site's "no accounts, no cloud, no server" claims, and adds the privacy policy page
+   (`site/privacy.html`, operator "KennelOS", contact admin.kennelos@gmail.com), so the
+   site never describes a service that isn't live.
 
 ## 10. Risks & mitigations
 
@@ -804,7 +815,7 @@ whose page is open to anyone until the first account exists.
 
 ## 11. Questions this plan raises
 1. **Email provider:** decided: Resend (§6.5).
-2. **API domain:** is `api.kennelos.app` okay? (The owning account is decided: a shared
+2. **API domain:** decided 2026-10-07: `api.kennelos.app`. (The owning account: a shared
    Cloudflare account under the KennelOS email address; see §6.)
 3. **Free-tier limits:** cap Lite cloud storage (e.g., 1 GB of documents)? Cost at Lite's
    6-dog / 2-litter size is negligible, but a cap protects against abuse.

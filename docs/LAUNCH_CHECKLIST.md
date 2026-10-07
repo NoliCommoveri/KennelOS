@@ -142,6 +142,44 @@ all three → publish to `kennelos-{lite,pro,demo}`); see `build/README.md`.
   **Enforce HTTPS on**.
 - [ ] Merge to `main` → `deploy.yml` assembles (`--release`) and force-publishes all three.
 
+## 3a. Cloud backup production (Cloud Phase 1 plan §6.7, §9 step 6)
+
+The cloud API is **not** deployed by `deploy.yml`. Until every box here is ticked, Lite and
+Pro ship with `cloudUrl: null` and no cloud UI appears. Do these in order.
+
+- [ ] **Staging is current:** staging's `/ops` (`kennelos-api-staging.admin-kennelos.workers.dev/ops`)
+  shows no pending or drifted migration (`0004_device_erase` is the newest), and a live
+  check from a browser that can reach it (`?cloud=staging` on Lite and Pro) passes: sign
+  in, back up, restore on a second browser, restore as of, a lost-device erase, and delete.
+- [ ] **Cloudflare (dashboard, plan §6.7 step 6):** the `kennelos.app` zone on Cloudflare DNS
+  (GitHub Pages records **DNS-only**, so Pages still serves the editions); the Workers
+  Paid plan.
+- [ ] **Production D1 `kennelos-api` and R2 `kennelos-files`** created. **`[!]` Paste the D1
+  database id into `cloud/wrangler.toml` → `[[env.production.d1_databases]]` →
+  `database_id`** (it reads `PASTE-PRODUCTION-D1-DATABASE-ID` until then, so a production
+  deploy fails safely).
+- [ ] **Production Worker** via a second Workers Builds connection on this repo: root
+  directory `cloud/`, deploy command `npx wrangler deploy --env production`. It creates the
+  `kennelos-api` Worker and the **`api.kennelos.app`** custom domain from the config.
+- [ ] **Secrets on the production Worker:** `OPS_TOKEN` (new, not staging's),
+  `EMAIL_HMAC_KEY` (**generate a new one, store it in the password manager first, then
+  paste; it is permanent**: rotating it orphans every account), `RESEND_API_KEY`.
+- [ ] **Resend:** `kennelos.app` verified (DKIM + SPF records in Cloudflare DNS), sender
+  `signin@kennelos.app`.
+- [ ] **`api.kennelos.app/ops`:** sign in with production's `OPS_TOKEN`, press **Apply
+  pending**, then Health shows every binding and secret present and no pending migration.
+  Send yourself a code from a real address and confirm it arrives (not in spam).
+- [ ] **D1 export:** download the first export from `/ops` and keep it with the password
+  manager's KennelOS entries.
+- [ ] **Go live:** merge the go-live change. It sets `cloudUrl: 'https://api.kennelos.app'`
+  in `lite/` and `pro/editionConfig.js` and rewrites the marketing site's "no accounts, no
+  cloud" claims, adding `kennelos.app/privacy.html`. That merge deploys the editions and the
+  site together.
+- [ ] **Smoke test on the real origins:** in Lite and Pro, turn on cloud backup with a real
+  email; back up; open the other origin's app (or a second browser) and **sign in and
+  restore**; Your devices lists both; erase one and reopen it (wiped); delete the cloud data.
+  Demo shows no cloud wording and makes no request to `api.kennelos.app`.
+
 ## 4. Post-deploy smoke test (on the real origins)
 
 - [ ] **Lite** (`lite.kennelos.app`) — reduced nav; create dogs → the 7th is blocked with the

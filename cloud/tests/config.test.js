@@ -32,8 +32,22 @@ test('wrangler.toml: binding names match what src/ reads', () => {
   assert.match(toml, /binding\s*=\s*"FILES"/);
 });
 
+const [stagingToml, productionToml = ''] = toml.split(/^\[env\.production\]$/m);
+
 test('wrangler.toml: a daily retention cron, and the staging outbox switch', () => {
   assert.match(toml, /\[triggers\]\s*crons\s*=\s*\["[^"]+"\]/);
   assert.match(toml, /DEV_OUTBOX\s*=\s*"1"/, 'staging shows codes on /ops; production must not set this');
   assert.match(toml, /name\s*=\s*"kennelos-api-staging"/, 'DEV_OUTBOX may only ride along with the staging Worker');
+});
+
+test('wrangler.toml: production is its own Worker on api.kennelos.app, with no staging outbox', () => {
+  assert.ok(productionToml, 'an [env.production] section');
+  assert.doesNotMatch(productionToml, /DEV_OUTBOX/, 'production must never show codes on /ops');
+  assert.match(stagingToml, /DEV_OUTBOX\s*=\s*"1"/);
+  assert.match(productionToml, /^name\s*=\s*"kennelos-api"$/m);
+  assert.match(productionToml, /pattern\s*=\s*"api\.kennelos\.app",\s*custom_domain\s*=\s*true/);
+  assert.match(productionToml, /\[\[env\.production\.d1_databases\]\]\s*binding\s*=\s*"DB"\s*database_name\s*=\s*"kennelos-api"/);
+  assert.match(productionToml, /\[\[env\.production\.r2_buckets\]\]\s*binding\s*=\s*"FILES"\s*bucket_name\s*=\s*"kennelos-files"/);
+  assert.match(productionToml, /\[env\.production\.triggers\]\s*crons\s*=\s*\["[^"]+"\]/);
+  assert.match(productionToml, /MAIL_FROM\s*=/);
 });

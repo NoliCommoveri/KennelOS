@@ -84,9 +84,18 @@ without a server, and good enough.
 | Assistant app | ❌ | ✅ |
 | Receipts & file storage | ❌ | ✅ |
 | Show tracking (show history, championship points, upcoming shows) | ❌ | ✅ |
+| Cloud backup (optional free account: email + code) | ✅ | ✅ |
+| Erase a lost device remotely | ✅ | ✅ (+ free its license slot) |
+| Private vault (planned, Cloud Proposal §6.3) | ✅ | ✅ |
 
 The through-line: **Lite = keep good basic records; Pro = run it as a business.** The paid
 value is *features*, not "more of the same."
+
+**Protecting data is never an upsell** (decided 2026-10-07, Cloud Accounts Proposal §10):
+Lite gets the same optional account, cloud backup, lost-device erase and (when it exists)
+private vault as Pro. The account is optional in both; with it off, both run exactly as
+before, entirely on the device. Demo has none of it. Pro's later cloud additions (live
+multi-device sync, team members, transfers, linked dogs) are the paid part.
 
 Two consequences of "External dogs ❌": in Lite the dog **ownership picker offers only `owned`
 and `co_owned`** (external and leased ownership are Pro), and a dog that **leaves the program**
