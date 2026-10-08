@@ -232,6 +232,50 @@ export function placeHidden(entry, offers = [], litters = [], pups = [], sales =
   return spent.size ? { reason: 'passed', offers: [...spent.values()] } : null;
 }
 
+// "A litter you match was born" / "Review your preferences" (Spec §16.6, Q30, Q34).
+// For a born litter whose picks aren't open yet, with pups available: each active
+// family on its kennel's list, not paused or held, gets `match` when they're
+// eligible now, else `review` when they'd be eligible with All litters and open
+// answers, with `why`: what narrows them ('listen', then the matching answers that
+// rule out some of these pups: 'sex', 'breed', 'placement', 'colors'). Derived,
+// nothing stored. → [{ entry, kind: 'match' | 'review', why: [] }]
+export const WHELP_NOTE_FIELDS = Object.freeze([
+  { why: 'sex', open: { pref_sex: 'any' } },
+  { why: 'breed', open: { pref_breed: '' } },
+  { why: 'placement', open: { pref_placement_type: '' } },
+  { why: 'colors', open: { pref_colors: [] } }
+]);
+export function isWhelpNoteLitter(litter) {
+  return Boolean(litter) && !litter.is_archived && ['whelped', 'weaning', 'ready'].includes(litter.status) && !litter.picks_opened_date;
+}
+export function whelpNotes(entries, litter, pups, sales = [], { today, config = WAITLIST_CONFIG_DEFAULTS } = {}) {
+  if (!isWhelpNoteLitter(litter)) return [];
+  const available = pups.filter((d) => d.litter_id === litter.id && isPupAvailable(d, sales));
+  if (!available.length) return [];
+  const out = [];
+  for (const entry of entries) {
+    if (entry.is_archived || entry.status !== 'active' || entry.kennel_id !== litter.kennel_id || isPaused(entry, today)) continue;
+    if (eligiblePupsFor(entry, litter, available, sales, { today, config }).length) {
+      out.push({ entry, kind: 'match', why: [] });
+      continue;
+    }
+    const why = [];
+    if (!isListeningFor(entry, litter)) why.push('listen');
+    for (const f of WHELP_NOTE_FIELDS) {
+      const narrowed = available.some((d) => !pupMatchesPrefs(entry, d, config) && pupMatchesPrefs({ ...entry, ...f.open }, d, config));
+      if (narrowed) why.push(f.why);
+    }
+    // No one answer rules a pup out by itself (two together do): name each answer
+    // that, on its own, rules out at least one of these pups.
+    if (!why.length) {
+      const only = (f) => Object.assign({ ...entry }, ...WHELP_NOTE_FIELDS.filter((g) => g !== f).map((g) => g.open));
+      for (const f of WHELP_NOTE_FIELDS) if (available.some((d) => !pupMatchesPrefs(only(f), d, config))) why.push(f.why);
+    }
+    if (why.length) out.push({ entry, kind: 'review', why });
+  }
+  return out;
+}
+
 // The breeds a family can ask for on this kennel's list (decided 2026-10-06: a
 // dropdown, never free text, so a misspelling or shorthand can't make a family
 // match no pup). The breeds of the kennel's own non-archived dogs — what its pups

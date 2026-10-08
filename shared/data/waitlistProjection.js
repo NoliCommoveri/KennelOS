@@ -22,7 +22,7 @@
 import {
   waitlistConfig, entryName, publicList, overallPositions, litterQueue, isPupAvailable, passesUsed,
   isManuallyPaused, readyFromDate, isReadyHeld, feeForEntry, kennelBreeds, listenParentChoices,
-  rankedList, turnLittersFor, turnIdOf, passReasons, splitPrepassed, upcomingItems, showUpcoming, isListeningFor, placeHidden
+  rankedList, turnLittersFor, turnIdOf, passReasons, splitPrepassed, upcomingItems, showUpcoming, isListeningFor, placeHidden, whelpNotes
 } from './waitlistRules.js';
 import { addDaysToYMD } from './dateUtils.js';
 import { WAITLIST_OPEN_STATUSES } from './vocab.js';
@@ -121,6 +121,8 @@ function entryView(entry, ctx) {
       waiting: isListeningFor(entry, u),
       ...(u.kind === 'early_litter' ? { match: Boolean(ctx.matches.get(entry.id)?.has(u.litter_id)) } : {})
     }])) : {},
+    // Born litters, picks not open yet: they match it, or what to review (§16.6).
+    whelp_notes: ctx.notes.get(entry.id) || [],
     // The live litters whose available pups they match now (a yes/no, never a place).
     matching_litter_ids: [...(ctx.matches.get(entry.id) || [])].sort(),
     offers: ctx.offers
@@ -246,6 +248,7 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
   // sees only that they match, never their place in it (decided 2026-10-08).
   const matches = new Map();
   const litterLabels = new Map();
+  const notes = new Map();
   const litterViews = {};
   for (const litter of litters.filter((l) => l.kennel_id === kennel.id && !l.is_archived && LIVE_LITTER.includes(l.status)).sort(byId)) {
     const pups = dogs.filter((d) => d.litter_id === litter.id);
@@ -255,6 +258,12 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
       matches.get(q.entry.id).add(litter.id);
     }
     litterLabels.set(litter.id, litterLabel(litter, dogsById));
+    // "A litter you match was born" / "Review your preferences" (§16.6): shown
+    // whatever her early-litters switch says (Q34).
+    for (const n of whelpNotes(live, litter, pups, sales, opts)) {
+      if (!notes.has(n.entry.id)) notes.set(n.entry.id, []);
+      notes.get(n.entry.id).push({ litter_id: litter.id, pairing_id: orNull(litter.pairing_id), label: litterLabel(litter, dogsById), kind: n.kind, why: n.why });
+    }
     const open = kennelOffers.find((o) => o.litter_id === litter.id && o.outcome === 'open') || null;
     litterViews[litter.id] = {
       label: litterLabel(litter, dogsById),
@@ -291,7 +300,7 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
   const upcoming = upcomingSection(kennel, config, { litters, pairings, dogsById, titles: titlesByDog(events) });
   const ctx = {
     config, contactsById, programsById, offers: kennelOffers, today, upcoming,
-    positions: overallPositions(live, kennel.id, programsById), matches, litterLabels, hidden
+    positions: overallPositions(live, kennel.id, programsById), matches, litterLabels, hidden, notes
   };
   const entryViews = {};
   for (const e of [...live].sort(byId)) entryViews[e.id] = entryView(e, ctx);

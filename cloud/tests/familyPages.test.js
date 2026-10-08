@@ -152,6 +152,9 @@ test('statusView and listView are allow-lists over the projection', () => {
   p.entries.bo.place_hidden = { reason: 'passed', litters: [{ label: 'Juniper × Ash', outcome: 'passed' }] };
   assert.deepEqual(statusView(p, 'bo').family.place_hidden, p.entries.bo.place_hidden);
   assert.equal(statusView(p, 'bo').family.position, null);
+  // "A litter you match was born" / "Review your preferences" (§16.6): as published.
+  p.entries.bo.whelp_notes = [{ litter_id: 'l1', pairing_id: null, label: 'Juniper × Ash', kind: 'review', why: ['sex'] }];
+  assert.deepEqual(statusView(p, 'bo').family.whelp_notes, p.entries.bo.whelp_notes);
 });
 
 test('pairings and early litters (Spec §16.4): each where she shows it; a litter before picks open only that way', () => {

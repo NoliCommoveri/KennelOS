@@ -582,6 +582,17 @@ means no fee reminder ever.
       status page shows a card with **Review your preferences** opening the listen-only and
       Ask-to-change editors (changes go through the usual rules; Q26). The email half joins
       "It's almost your turn" in step 6. Shown whatever the early-litters switch says (Q34).
+      **Built 2026-10-08 (status page).** As planned, with: `whelpNotes(entries, litter, pups,
+      sales, { today, config })` covers a litter `whelped` / `weaning` / `ready`, picks not
+      open, a pup available (`isWhelpNoteLitter`); `why` lists what narrows them, `listen`
+      first, then each answer that on its own rules out one of these pups (if none does
+      alone, each answer that rules one out with the rest left open). Projection: per entry
+      `whelp_notes: [{ litter_id, pairing_id, label, kind, why }]`; server `statusView` passes
+      it through. Status page: a **Review your preferences** card (or **A litter was born**
+      when they match every one) after Your place, with **Change which litters you wait for**
+      and **Ask to change your answers**, each opening that editor; a litter they said "Not
+      this litter" to gets no note. Her app shows nothing new. Tests: `waitlistRules`,
+      `waitlistProjection`, `cloud/tests/familyPages`.
    6. **"Ready now?" (§16.7).** `waitlist_config.ready_no_answer` (`keep_paused` default |
       `unpause` | `remove_after`) and `ready_answer_days` (14), cloud.
       `waitlist_entries.ready_check` (`{ answer: 'yes' | 'no', answered_date, until, reason }`,

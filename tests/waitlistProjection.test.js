@@ -84,7 +84,7 @@ test("a family on the list sees its place, prefs, passes and offers; nothing els
   const p = buildProjection(fixture());
   const e1 = p.entries.e1;
   assert.deepEqual(keysOf(e1), ['applied_date', 'approved_date', 'email', 'fee_due', 'fee_received_date', 'listen',
-    'matching_litter_ids', 'name', 'offers', 'passes', 'paused_until', 'place_hidden', 'position', 'prefs', 'prepasses', 'ready_from', 'requests', 'status', 'upcoming']);
+    'matching_litter_ids', 'name', 'offers', 'passes', 'paused_until', 'place_hidden', 'position', 'prefs', 'prepasses', 'ready_from', 'requests', 'status', 'upcoming', 'whelp_notes']);
   assert.deepEqual(e1.prepasses, []);
   assert.deepEqual(e1.requests, { pause: null, pref_change: null, listen: null });
   assert.equal(e1.name, 'Family e1 Lee');
@@ -286,4 +286,14 @@ test('titlesByDog: logged title_earned abbreviations, oldest first, once each, n
   const t = titlesByDog(upcomingFixture(null).events);
   assert.deepEqual(t.get('dam'), ['CGC']);
   assert.deepEqual(t.get('sire'), ['JH']);
+});
+
+test('whelp notes (Spec §16.6): per family, for a born litter before picks open, whatever her switches say (Q34)', () => {
+  const p = buildProjection(upcomingFixture(null));
+  // Spring litter (born, picks not open, one female pup): e1 skips Willow's litters; e2 wants a female.
+  assert.deepEqual(p.entries.e1.whelp_notes, [{ litter_id: 'spring', pairing_id: 'pr-spring', label: 'Spring litter', kind: 'review', why: ['listen'] }]);
+  assert.deepEqual(p.entries.e2.whelp_notes, [{ litter_id: 'spring', pairing_id: 'pr-spring', label: 'Spring litter', kind: 'match', why: [] }]);
+  assert.deepEqual(p.entries.e3.whelp_notes, [], 'paused');
+  assert.deepEqual(p.entries.e4.whelp_notes, [], 'not on the list yet');
+  assert.deepEqual(p.upcoming, [], 'shown though her early-litters switch is off');
 });

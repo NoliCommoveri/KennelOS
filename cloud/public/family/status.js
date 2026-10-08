@@ -349,6 +349,43 @@ function placeHiddenHtml(h) {
     <p class="small muted">Your number shows again once ${names.length > 1 ? 'those litters close' : 'that litter closes'}.</p>`;
 }
 
+// --- A litter was born (Spec §16.6) ---------------------------------------------
+// For a born litter whose picks aren't open yet: "A litter you match was born", or,
+// when their listen-only choice or answers keep them out, what does and a way to
+// review it. Changes go through the usual rules: a wider listen-only change applies
+// at once, any change to an answer waits for her OK (Q26).
+
+const WHY_TEXT = {
+  listen: 'which litters you wait for', sex: 'the sex you asked for', breed: 'the breed you asked for',
+  placement: 'the placement you asked for', colors: 'the colors you asked for'
+};
+
+function whelpNotesHtml(f) {
+  const notes = (f.whelp_notes || []).filter((n) => !prepassedNow({ litter_id: n.litter_id, pairing_id: n.pairing_id }));
+  if (!notes.length) return '';
+  const kennel = state.v.kennel.name;
+  const match = notes.filter((n) => n.kind === 'match');
+  const review = notes.filter((n) => n.kind === 'review');
+  const parts = match.map((n) => `<p class="mt0">A litter you match was born: <strong>${esc(n.label)}</strong>.</p>`);
+  if (review.length) {
+    const why = new Set(review.flatMap((n) => n.why || []));
+    parts.push(...review.map((n) => `<p class="mt0"><strong>${esc(n.label)}</strong> was born. You're not lined up for it because of ${esc(listText((n.why || []).map((w) => WHY_TEXT[w]).filter(Boolean)))}.</p>`));
+    const buttons = [];
+    const parents = state.v.kennel.parents || { sires: [], dams: [] };
+    if (canAct() && why.has('listen') && parents.sires.length + parents.dams.length) {
+      buttons.push('<button type="button" class="secondary" data-act="open" data-what="listen" data-scroll="1">Change which litters you wait for</button>');
+    }
+    if (canAct() && [...why].some((w) => w !== 'listen') && editableFields().length) {
+      buttons.push('<button type="button" class="secondary" data-act="open" data-what="pref_change" data-scroll="1">Ask to change your answers</button>');
+    }
+    parts.push(`<p class="small muted">If you'd like to be considered for it, review your choices. A change to your answers needs ${esc(possessive(kennel))} OK; nothing counts against you either way.</p>`);
+    if (buttons.length) parts.push(`<div class="actions">${buttons.join('')}</div>`);
+  }
+  return card(review.length ? 'Review your preferences' : 'A litter was born', parts.join(''));
+}
+
+const listText = (xs) => (xs.length <= 1 ? (xs[0] || 'your choices') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+
 // --- Which litters (listen-only, Spec §15.7) --------------------------------------
 
 function listenHtml(f) {
@@ -456,6 +493,7 @@ function mineHtml() {
         ${f.passes ? `<dt>Passes used</dt><dd>${esc(f.passes.used)} of ${esc(f.passes.max)}</dd>` : ''}
       </dl>
       ${placeActions(f)}`));
+    parts.push(whelpNotesHtml(f));
 
     if (v.litters.length) {
       const items = v.litters.map((l) => `<li><div class="row"><strong>${esc(l.label)}</strong>
@@ -521,7 +559,10 @@ async function onClick(ev) {
   if (!b || b.disabled) return;
   const kennel = state.v.kennel.name;
   switch (b.dataset.act) {
-    case 'open': state.open = b.dataset.what; state.flash = ''; render(); return;
+    case 'open':
+      state.open = b.dataset.what; state.flash = ''; render();
+      if (b.dataset.scroll) document.querySelector(`form[data-form="${state.open}"]`)?.scrollIntoView({ block: 'center' });
+      return;
     case 'close': state.open = null; render(); return;
     case 'pick': {
       const offer = state.v.offers.find((o) => o.id === b.dataset.offer);

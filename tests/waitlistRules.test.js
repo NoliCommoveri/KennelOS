@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import {
   waitlistConfig, WAITLIST_CONFIG_DEFAULTS, autoOffers, autoOfferSummary, closingTrigger, feeForEntry, isFeeWaived, feeDueDate, respondByDate,
   anchorDate, isMovedByBreeder, rankedList, overallPositions,
-  isPupAvailable, pupMatchesPrefs, prefColorTokens, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, isListeningFor, isListenOnly, eligiblePupsFor, showUpcoming, upcomingItems, depositsDueLitters, placeHidden,
+  isPupAvailable, pupMatchesPrefs, prefColorTokens, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, isListeningFor, isListenOnly, eligiblePupsFor, showUpcoming, upcomingItems, depositsDueLitters, placeHidden, whelpNotes,
   litterQueue, nextFamilyForLitter, hasOpenOffer, turnSpent,
   countsAsPass, passesUsed, shouldRemoveForPasses, canUndoRemoval, passToForgive,
   overdueOffers, overdueFees, deriveContactWaitlistStatus, contactMatches, entryName,
@@ -840,4 +840,31 @@ test('placeHidden (decided 2026-10-08): no number during their turn, or after a 
   // A row voided (they picked from the other litter) or another family's pass never hides it.
   assert.equal(placeHidden(e, [row({ litter_id: 'L1', outcome: 'voided' })], [open], pups, []), null);
   assert.equal(placeHidden(e, [{ ...passed[0], entry_id: 'someone' }], [open], pups, []), null);
+});
+
+test('whelpNotes (Spec §16.6): match, or what to review, for a born litter before picks open', () => {
+  const l = litter({ id: 'L1', status: 'whelped', sire_id: 'S1', dam_id: 'D1' });
+  const pups = [pup({ id: 'boy', litter_id: 'L1', sex: 'male', breed: 'Poodle' })];
+  const fam = (id, over = {}) => entry({ id, ...over });
+  const notes = whelpNotes([
+    fam('any'),
+    fam('girl', { pref_sex: 'female' }),
+    fam('listen', { listen_mode: 'selected', listen_dam_ids: ['D9'] }),
+    fam('both', { pref_sex: 'female', listen_mode: 'except', listen_sire_ids: ['S1'] }),
+    fam('paused', { pref_sex: 'female', paused_until: '2026-12-01' }),
+    fam('approved', { status: 'approved' }),
+    fam('elsewhere', { kennel_id: 'other' })
+  ], l, pups, [], { today: TODAY });
+  assert.deepEqual(notes.map((n) => [n.entry.id, n.kind, n.why]), [
+    ['any', 'match', []],
+    ['girl', 'review', ['sex']],
+    ['listen', 'review', ['listen']],
+    ['both', 'review', ['listen', 'sex']]
+  ], 'paused, not yet on the list, or another kennel: nothing');
+  assert.deepEqual(whelpNotes([fam('any')], { ...l, picks_opened_date: '2026-10-01' }, pups, [], { today: TODAY }), [], 'picks open: their turn says it');
+  assert.deepEqual(whelpNotes([fam('any')], { ...l, status: 'expected' }, pups, [], { today: TODAY }), [], 'not born yet');
+  assert.deepEqual(whelpNotes([fam('any')], l, [{ ...pups[0], disposition: 'keeping' }], [], { today: TODAY }), [], 'no pup available');
+  // Two answers that only rule the pups out together: both named.
+  const two = [pup({ id: 'b', litter_id: 'L1', sex: 'male', breed: 'Poodle' }), pup({ id: 'g', litter_id: 'L1', sex: 'female', breed: 'Boxer' })];
+  assert.deepEqual(whelpNotes([fam('mix', { pref_sex: 'female', pref_breed: 'Poodle' })], l, two, [], { today: TODAY })[0].why, ['sex', 'breed']);
 });

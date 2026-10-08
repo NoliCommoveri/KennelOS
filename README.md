@@ -463,8 +463,11 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   switchable for the public list and family pages (all off); Today suggests Open picks when a
   litter's deposits date comes. **What number a family sees (§16.9) is built:** only their
   overall place, hidden during their turn and after a pass until that litter closes (and off
-  the public list meanwhile); no per-litter numbers. Next: step 5c parts 5–6, then step 6,
-  email.
+  the public list meanwhile); no per-litter numbers. **Part 5, "Review your preferences"
+  (§16.6), is built on the status page:** when a litter is born, families who match it are
+  told, and families kept out by their listen-only choice or answers are told why, with
+  buttons to change them (the email half comes with step 6). Next: step 5c part 6, then
+  step 6, email.
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass

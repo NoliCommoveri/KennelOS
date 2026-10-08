@@ -1448,7 +1448,7 @@ default**.
 - Stored with the pass (the reason's id and its label at the time), **private tier**: a reason
   can be sensitive (finances, health).
 
-### 16.6 "Review your preferences" when a litter is born (requested 2026-10-08)
+### 16.6 "Review your preferences" when a litter is born (requested 2026-10-08; built 2026-10-08, the status-page half)
 
 Her worry: families passed over without knowing it, e.g. listening only for dam A when she
 added dam B later, or a sex preference that no longer fits.

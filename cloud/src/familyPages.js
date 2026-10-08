@@ -124,7 +124,7 @@ export function statusView(projection, entryId) {
   const family = { name: e.name ?? '', status: e.status };
   if (!OPEN_STATUSES.includes(e.status)) return { kennel, as_of: projection.as_of ?? null, family, offers: [], litters: [], upcoming: [], public_list: [] };
 
-  for (const k of ['applied_date', 'approved_date', 'position', 'prefs', 'paused_until', 'ready_from', 'listen', 'passes', 'fee_received_date', 'fee_due', 'requests', 'prepasses', 'place_hidden']) {
+  for (const k of ['applied_date', 'approved_date', 'position', 'prefs', 'paused_until', 'ready_from', 'listen', 'passes', 'fee_received_date', 'fee_due', 'requests', 'prepasses', 'place_hidden', 'whelp_notes']) {
     family[k] = e[k] ?? null;
   }
   // What the page's editors offer: her parent dogs (listen-only) and her breeds.

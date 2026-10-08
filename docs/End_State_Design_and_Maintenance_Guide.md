@@ -3117,6 +3117,11 @@ shown (`describeOfferChanges`).
   every pup spoken for, or sold/closed). Then `position` is null and `place_hidden` says
   why (with each litter's id, label and outcome), and `publicList({ hidden })` leaves them
   off the public list with their number skipped, online and in her **Copy public list**.
+- **A litter was born** (Waitlist Spec §16.6): `waitlistRules.whelpNotes` gives each active
+  family not paused or held a `match` or a `review` (with `why`: `listen`, `sex`, `breed`,
+  `placement`, `colors`) for a born litter before picks open with a pup available,
+  published per entry as `whelp_notes` whatever her `show_upcoming` switches say; the status
+  page's **Review your preferences** card opens the listen-only and Ask-to-change editors.
 - **Publishing** (`data/cloud/cloudWaitlist.js`): for each own kennel with
   `waitlist_config.online` and a `public_id`, the projection is hashed and `PUT` when it
   changed; a kennel taken offline is `DELETE`d. 20 s after the last data change
