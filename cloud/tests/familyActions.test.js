@@ -203,3 +203,19 @@ test('"Not this litter" before picks open: only on what she shows on family page
   assert.equal(await err(await act(env, bo, tok('b'), 'prepass', { pairing_id: 'pair2', reason_id: 'timing' })), 'not_listed', 'shown publicly only');
   assert.equal((await act(env, bo, tok('b'), 'prepass', { pairing_id: 'pair1', reason_id: 'timing' })).status, 200);
 });
+
+test('"Ready now?" (Spec §16.7): only while she asks it, once; not yet needs a date and a reason', async () => {
+  const { env, ann, bo, publish } = await setup();
+  assert.equal(await err(await act(env, ann, tok('a'), 'ready', { answer: 'yes' })), 'not_asked');
+  const p = projection();
+  p.entries.bo.ready_check = { asked: today(), answer_by: null, answer: null };
+  await publish(p);
+  assert.equal(await err(await act(env, bo, tok('b'), 'ready', { answer: 'maybe' })), 'bad_request');
+  assert.equal(await err(await act(env, bo, tok('b'), 'ready', { answer: 'no', until: plusDays(30) })), 'reason_required');
+  assert.equal(await err(await act(env, bo, tok('b'), 'ready', { answer: 'no', until: today(), reason: 'x' })), 'bad_date');
+  assert.equal((await act(env, bo, tok('b'), 'ready', { answer: 'no', until: plusDays(30), reason: 'Moving house' })).status, 200);
+  assert.equal(await err(await act(env, bo, tok('b'), 'ready', { answer: 'yes' })), 'already_answered');
+  const last = events(env).at(-1);
+  assert.equal(last.kind, 'ready');
+  assert.deepEqual(last.payload, { answer: 'no', until: plusDays(30), reason: 'Moving house' });
+});

@@ -25,7 +25,7 @@ import { WAITLIST_OPEN_STATUSES } from './vocab.js';
 import { isPupAvailable, isListenOnly, listenChangeKind, prefChangeLines, PREF_CHANGE_FIELDS, turnIdOf, turnSpent, passReasonOf } from './waitlistRules.js';
 import { arrivalDate } from './waitlistInbox.js';
 
-export const FAMILY_EVENT_KINDS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change', 'prepass', 'unprepass'];
+export const FAMILY_EVENT_KINDS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change', 'prepass', 'unprepass', 'ready'];
 export const NOTE_MAX = 500;
 
 const clean = (v) => String(v ?? '').trim().slice(0, NOTE_MAX);
@@ -51,6 +51,7 @@ export const activityId = (event) => `event-${event.seq}`;
 //   op 'pref_request'   { request }  → entry.pref_change_request
 //   op 'prepass'        { prepass }  → "Not this litter" on the entry (§16.2)
 //   op 'unprepass'      { target }   → taken back
+//   op 'ready'          { answer, until, reason } → "Ready now?" answered (§16.7)
 // `date` is the day the family acted, in the kennel's time zone; `activity` the
 // line for their entry's activity ({ id, at, body }), or null.
 export function planFamilyEvent(event, ctx) {
@@ -124,6 +125,14 @@ export function planFamilyEvent(event, ctx) {
       if (!open) return skip('not_on_list');
       const why = clean(p.note);
       return { op: 'withdraw', date, activity: line(`Left the list on their status page.${why ? ` They said: "${why}"` : ''}`) };
+    }
+    case 'ready': {
+      if (!active) return note(`Answered "Ready now?", but ${gone}.`);
+      if (p.answer === 'yes') return { op: 'ready', answer: 'yes', date, activity: line('Said they\'re ready now, on their status page.') };
+      const reason = clean(p.reason);
+      if (p.answer !== 'no' || !/^\d{4}-\d{2}-\d{2}$/.test(String(p.until ?? '')) || !reason) return skip('bad_payload');
+      // Their "not yet" is a pause request (the request is what she sees and decides).
+      return { op: 'ready', answer: 'no', until: p.until, reason, date, activity: null };
     }
     case 'pause_request': {
       if (!active) return note(`Asked to pause their place until ${p.until}, but ${gone}.`);

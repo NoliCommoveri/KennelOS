@@ -20,7 +20,7 @@ import { saleRepo } from '../data/saleRepo.js';
 import * as actions from '../data/waitlistActions.js';
 import {
   waitlistConfig, overallPositions, passesUsed, anchorDate, isMovedByBreeder, contactMatches,
-  entryName, canUndoRemoval, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, rankedList, REMOVAL_UNDO_DAYS,
+  entryName, canUndoRemoval, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, readyCheck, rankedList, REMOVAL_UNDO_DAYS,
   eligiblePupsFor, nextFamilyForLitter, turnSpent, openTurns, turnOffers, turnIdOf, isListeningFor, isListenOnly, isPupAvailable,
   describeOfferChanges, isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker,
   kennelBreeds, resolveBreed, prefChangeEffect, autoOffers, closingTrigger, listenParentChoices,
@@ -37,7 +37,7 @@ import {
 import { addDaysToYMD } from '../data/dateUtils.js';
 import { esc, badge, fmtDate, fmtMoney, param, todayYMD, confirmModal, alertModal } from '../assets/ui.js';
 import {
-  resolveWaitlistKennel, prefsSummary, entryFlags, formModal,
+  resolveWaitlistKennel, prefsSummary, entryFlags, readyHoldText, formModal,
   pickDialog, depositDialog, changePickDialog, undoPassDialog, statusLinkFor, copyLink
 } from '../assets/waitlistUI.js';
 
@@ -134,9 +134,9 @@ function statusLines(e) {
     lines.push(`<strong style="font-size:1.3em;">#${esc(pos)}</strong> of ${esc(total)} on the list.`);
     lines.push(`In line since ${esc(fmtDate(anchorDate(e)))}${isMovedByBreeder(e) ? ` <span class="badge badge-purple">Moved by you</span> <span class="faint">(fee received ${esc(fmtDate(e.fee_received_date))})</span>` : ''}.`);
     lines.push(`Passes used: ${passesUsed(e, ctx.offers)} of ${esc(ctx.config.max_passes)}.`);
-    const flags = entryFlags(e, today);
-    const why = isReadyHeld(e, today)
-      ? `They said they won't be ready to buy until about ${esc(fmtDate(readyFromDate(e)))}, so they aren't offered pups (or charged passes) until then. They keep their place.`
+    const flags = entryFlags(e, today, ctx.config);
+    const why = isReadyHeld(e, today, ctx.config)
+      ? `${esc(readyHoldText(e, today, ctx.config))} They aren't offered pups (or charged passes) until then, and keep their place.`
       : isPaused(e, today) ? 'Paused families keep their place; they just aren\'t offered pups.'
         : e.listen_mode === 'except' ? 'Not offered litters from the sires and dams they listed; they keep their place.'
           : 'Only offered litters from the sires and dams they chose; they keep their place.';
@@ -482,8 +482,16 @@ function readySummary(e) {
   const from = readyFromDate(e);
   if (!from) return esc(t.label);
   const base = e.fee_received_date ? 'the fee date' : 'approval';
-  const held = isReadyHeld(e, todayYMD());
-  return `${esc(t.label)} <span class="faint">— ${held ? 'no offers until' : 'hold ended'} ${esc(fmtDate(from))} (${esc(t.hold_months)} month${t.hold_months === 1 ? '' : 's'} from ${base})</span>`;
+  const today = todayYMD();
+  const held = today < from;
+  const base0 = `${esc(t.label)} <span class="faint">— ${held ? 'no offers until' : 'hold ended'} ${esc(fmtDate(from))} (${esc(t.hold_months)} month${t.hold_months === 1 ? '' : 's'} from ${base})</span>`;
+  // "Ready now?" (Spec §16.7): their answer, or a button for when they told her.
+  const rc = e.status === 'active' ? readyCheck(e, today, ctx.config) : null;
+  if (!rc) return base0;
+  if (rc.answer === 'yes') return `${base0}<br><span class="faint">Ready now? Yes, ${esc(fmtDate(e.ready_check.answered_date))}${e.ready_check.by === 'breeder' ? ' (you recorded it)' : ''}.</span>`;
+  if (rc.answer === 'no') return `${base0}<br><span class="faint">Ready now? Not yet: until ${esc(fmtDate(e.ready_check.until))}. "${esc(e.ready_check.reason)}"</span>`;
+  return `${base0}<br><span class="badge badge-amber">Ready now? No answer yet</span> <span class="faint">${esc(readyHoldText(e, today, ctx.config))}</span>
+    <button class="btn btn-sm" data-ready="yes" style="margin-top:4px;">They told me they're ready</button>`;
 }
 
 // Her changes to the matching answers (Spec §15.9), for the history and the
@@ -535,6 +543,9 @@ function renderView() {
       ${row('Applied', e.applied_date ? esc(fmtDate(e.applied_date)) : '')}
       ${entryQuestions(e, ctx.form).map((q) => row(q.label, multiline(answerText(q, app[q.id])))).join('')}
     </dl>`;
+  // "Ready now?" answered for them (they told her by phone or message).
+  els.body.querySelector('[data-ready="yes"]')?.addEventListener('click', () => actions.recordReadyAnswer(e.id, { answer: 'yes', by: 'breeder' })
+    .then(afterAction).catch((err) => showError(err.message || String(err))));
 }
 
 // --- Details: edit / new ------------------------------------------------------------
@@ -774,7 +785,7 @@ function litterChoices(e) {
       if (held) {
         blocked = held.entry_id === e.id ? 'They hold the turn now.' : `${familyNameById(held.entry_id)} holds the turn now; one family at a time.`;
       } else if (turnSpent(offers, l.id, e.id)) blocked = 'They\'ve already had their turn on this litter.';
-      else if (isReadyHeld(e, today)) blocked = `They said they won't be ready to buy until about ${fmtDate(readyFromDate(e))}.`;
+      else if (isReadyHeld(e, today, ctx.config)) blocked = readyHoldText(e, today, ctx.config);
       else if (isManuallyPaused(e, today)) blocked = 'They\'re paused.';
       else if (!isListeningFor(e, l)) blocked = e.listen_mode === 'except' ? 'They asked to skip litters from this sire or dam.' : 'They\'re only listening for litters from other sires/dams.';
       else if (!pups.some((d) => isPupAvailable(d, ctx.sales))) blocked = 'No pups available yet.';

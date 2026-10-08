@@ -349,6 +349,35 @@ function placeHiddenHtml(h) {
     <p class="small muted">Your number shows again once ${names.length > 1 ? 'those litters close' : 'that litter closes'}.</p>`;
 }
 
+// --- Ready now? (Spec §16.7) -----------------------------------------------------
+// When their readiness hold ends (while the list is online), they're asked. Yes ends
+// the hold. Not yet: a new date and a reason, which ask the breeder for a pause.
+
+function readyHtml(f) {
+  const rc = f.ready_check;
+  if (!rc || f.status !== 'active') return '';
+  const kennel = state.v.kennel.name;
+  const sent = pendingOf('ready');
+  if (sent.length || rc.answer) {
+    const answer = sent.length ? sent[sent.length - 1].payload.answer : rc.answer;
+    return answer === 'yes' ? '' : card('Ready now?', `<p class="mt0">You said you're not ready yet. Your pause request is with ${esc(kennel)}; until they decide, you won't be offered a pup.</p>`);
+  }
+  const deadline = rc.answer_by ? `<p class="small"><strong>Please answer by ${esc(fmtDate(rc.answer_by))}, or you'll be removed from the waitlist.</strong></p>` : '';
+  if (!canAct()) {
+    return card('Ready now?', `<p class="mt0">When you applied you said you'd be ready to buy about now. Sign in on the waitlist page to answer.</p>${deadline}`);
+  }
+  if (state.open === 'ready_no') {
+    return card('Ready now?', `<form data-form="ready_no">
+        <label class="q">When do you expect to be ready? <span class="req">*</span><input type="date" name="until" required></label>
+        <label class="q mt8">Why not yet? <span class="req">*</span><textarea name="reason" maxlength="500" required></textarea></label>
+        <p class="small muted">${esc(kennel)} sees your reason and decides on pausing your place until then. You keep your place.</p>
+        <div class="actions"><button class="primary" type="submit">Send</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
+      </form>${deadline}`);
+  }
+  return card('Ready now?', `<p class="mt0">When you applied you said you'd be ready to buy about now. Are you ready to be offered a pup?</p>${deadline}
+    <div class="actions"><button type="button" class="primary" data-act="ready_yes">Yes, I'm ready</button><button type="button" class="secondary" data-act="open" data-what="ready_no">Not yet</button></div>`);
+}
+
 // --- A litter was born (Spec §16.6) ---------------------------------------------
 // For a born litter whose picks aren't open yet: "A litter you match was born", or,
 // when their listen-only choice or answers keep them out, what does and a way to
@@ -478,6 +507,7 @@ function mineHtml() {
   }
 
   for (const rows of turnsOf(v.offers)) parts.push(turnHtml(rows));
+  parts.push(readyHtml(f));
 
   if (f.status === 'active') {
     const notices = [];
@@ -525,6 +555,8 @@ const ERRORS = {
   in_your_turn: "That litter is in your turn now: choose a pup or pass on the turn instead.",
   not_listed: "That litter isn't on the list any more.",
   not_prepassed: 'That was already taken back.',
+  not_asked: 'That question has already been answered.',
+  already_answered: "You've already answered. The breeder will see it at their next update.",
   not_on_list: "You can't do that right now; the page now shows where things stand.",
   bad_date: 'Please pick a date after today, within two years.',
   no_parents: 'Pick at least one sire or dam, or choose All litters.',
@@ -575,6 +607,10 @@ async function onClick(ev) {
       b.disabled = true;
       await act('unprepass', b.dataset.litter ? { litter_id: b.dataset.litter } : { pairing_id: b.dataset.pairing }, 'Done. That litter is back in your turn when it comes.');
       return;
+    case 'ready_yes':
+      b.disabled = true;
+      await act('ready', { answer: 'yes' }, `Thanks! ${kennel} will see that you're ready at their next update.`);
+      return;
     case 'still_interested':
       b.disabled = true;
       await act('still_interested', {}, `Thanks! ${kennel} will see that you're still interested.`);
@@ -605,6 +641,12 @@ async function onSubmit(ev) {
       const target = form.dataset.form === 'pass' ? { turn_id: data.get('turn_id') }
         : data.get('pairing_id') ? { pairing_id: data.get('pairing_id') } : { litter_id: data.get('litter_id') };
       await act(form.dataset.form, { ...target, reason_id: reasonId, reason_text: text }, reasonMessage(reasonId));
+      return;
+    }
+    case 'ready_no': {
+      const reason = String(data.get('reason') || '').trim();
+      if (!reason) { state.flash = 'Please tell us why not yet.'; button.disabled = false; render(); return; }
+      await act('ready', { answer: 'no', until: data.get('until'), reason }, `Thanks for letting us know. ${kennel} decides on pausing your place; until then you won't be offered a pup.`);
       return;
     }
     case 'pause':

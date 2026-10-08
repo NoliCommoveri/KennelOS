@@ -33,7 +33,10 @@ export const WAITLIST_CONFIG_DEFAULTS = Object.freeze({
   soon_notice_text: '', // blank = SOON_NOTICE_DEFAULT
   pass_reasons: null, // her reasons for a pass (Spec §16.5); null = DEFAULT_PASS_REASONS
   pass_other: true, // also offer "Other" with a short text box (Q33)
-  show_upcoming: null // pairings and early litters online (Spec §16.4); null = all off, see showUpcoming
+  show_upcoming: null, // pairings and early litters online (Spec §16.4); null = all off, see showUpcoming
+  online_since: null, // the day her list last went online (set by the Online list card); the ready check starts there
+  ready_no_answer: 'keep_paused', // "Ready now?" unanswered (Spec §16.7): WAITLIST_READY_NO_ANSWER
+  ready_answer_days: 14 // remove_after: days to answer; keep_paused: when Today flags them
 });
 
 // The three stages she can show before picks open (Spec §16.4), each on the public
@@ -254,7 +257,7 @@ export function whelpNotes(entries, litter, pups, sales = [], { today, config = 
   if (!available.length) return [];
   const out = [];
   for (const entry of entries) {
-    if (entry.is_archived || entry.status !== 'active' || entry.kennel_id !== litter.kennel_id || isPaused(entry, today)) continue;
+    if (entry.is_archived || entry.status !== 'active' || entry.kennel_id !== litter.kennel_id || isPaused(entry, today, config)) continue;
     if (eligiblePupsFor(entry, litter, available, sales, { today, config }).length) {
       out.push({ entry, kind: 'match', why: [] });
       continue;
@@ -352,16 +355,59 @@ export function readyFromDate(entry) {
   return months && anchor ? addMonthsToYMD(anchor, months) : null;
 }
 
-export function isReadyHeld(entry, today) {
+// "Ready now?" (Spec §16.7): when a readiness hold ends, the family is asked. It
+// applies only to a list that's online, and only to holds ending while it is (both
+// decided 2026-10-08), so an offline list, and a hold that ended before she put the
+// list online, keep the plain rule: the hold ends on its date. `ready_check` on the
+// entry (private) holds their answer, or `ask_from` when she undid a removal for no
+// answer (the window starts again). Pure: entry + config + today.
+// → null | { asked, answer_by, answer: 'yes' | 'no' | null }
+export function readyCheck(entry, today, config) {
+  if (!config || config.online !== true || !config.online_since) return null;
   const from = readyFromDate(entry);
-  return Boolean(from) && today < from;
+  if (!from || today < from || from < config.online_since) return null;
+  const rc = entry.ready_check || {};
+  const asked = rc.ask_from && rc.ask_from > from ? rc.ask_from : from;
+  const days = Math.max(1, Number(config.ready_answer_days) || WAITLIST_CONFIG_DEFAULTS.ready_answer_days);
+  return {
+    asked,
+    answer_by: config.ready_no_answer === 'remove_after' ? addDaysToYMD(asked, days) : null,
+    answer: rc.answer === 'yes' || rc.answer === 'no' ? rc.answer : null
+  };
+}
+
+// Unanswered past her window under remove_after: her device removes them
+// (removed_reason 'no_ready_answer', with the 7-day undo).
+export function readyCheckLapsed(entry, today, config) {
+  const rc = entry.status === 'active' && readyCheck(entry, today, config);
+  return Boolean(rc && !rc.answer && rc.answer_by && today > rc.answer_by);
+}
+
+// Unanswered for longer than ready_answer_days under keep_paused: Today lists them.
+export function readyCheckOverdue(entry, today, config) {
+  const rc = entry.status === 'active' && readyCheck(entry, today, config);
+  if (!rc || rc.answer || config.ready_no_answer !== 'keep_paused') return false;
+  return today > addDaysToYMD(rc.asked, Math.max(1, Number(config.ready_answer_days) || WAITLIST_CONFIG_DEFAULTS.ready_answer_days));
+}
+
+// The readiness hold: before readyFromDate, and after it while "Ready now?" is
+// unanswered (unless she chose to unpause as normal), or answered No with their
+// pause request still waiting for her. Without `config` (or offline), the plain rule.
+export function isReadyHeld(entry, today, config = null) {
+  const from = readyFromDate(entry);
+  if (!from) return false;
+  if (today < from) return true;
+  const rc = readyCheck(entry, today, config);
+  if (!rc || rc.answer === 'yes') return false;
+  if (rc.answer === 'no') return Boolean(entry.pause_request && !entry.pause_request.decided);
+  return config.ready_no_answer !== 'unpause';
 }
 
 // Paused for any reason: her own pause or the readiness hold. Both mean the same
 // thing everywhere (decided 2026-10-06): no offers, so no passes to use up; their
 // place is kept; and they're left off the public list with their number skipped.
-export function isPaused(entry, today) {
-  return isManuallyPaused(entry, today) || isReadyHeld(entry, today);
+export function isPaused(entry, today, config = null) {
+  return isManuallyPaused(entry, today) || isReadyHeld(entry, today, config);
 }
 
 // Is the family listening for this litter? Everyone is, unless they've chosen
@@ -466,7 +512,7 @@ export function listenChangeKind(entry, next) {
 // isn't eligible at all. `pups` may be every dog — only this litter's are used.
 export function eligiblePupsFor(entry, litter, pups, sales, { today, config = WAITLIST_CONFIG_DEFAULTS } = {}) {
   if (!isOnList(entry) || entry.kennel_id !== litter.kennel_id) return [];
-  if (isPaused(entry, today)) return [];
+  if (isPaused(entry, today, config)) return [];
   if (!isListeningFor(entry, litter)) return [];
   return pups.filter((d) => d.litter_id === litter.id && isPupAvailable(d, sales) && pupMatchesPrefs(entry, d, config));
 }
@@ -871,7 +917,7 @@ export const REMOVAL_UNDO_DAYS = 7;
 // The 7-day undo on an automatic second-pass removal, worked out from removed_date
 // (nothing extra stored).
 export function canUndoRemoval(entry, today) {
-  if (!entry || entry.status !== 'removed' || entry.removed_reason !== 'second_pass' || !entry.removed_date) return false;
+  if (!entry || entry.status !== 'removed' || !['second_pass', 'no_ready_answer'].includes(entry.removed_reason) || !entry.removed_date) return false;
   return today <= addDaysToYMD(entry.removed_date, REMOVAL_UNDO_DAYS);
 }
 
@@ -951,10 +997,10 @@ export function publicName(fullName) {
 // `nameOf(entry)` returns the family's full name.
 // `hidden(entry)`: also leave out a family whose place is hidden from them
 // (placeHidden), so their own page and the public list never disagree.
-export function publicList(entries, kennelId, programsById = new Map(), { today, nameOf = (e) => entryName(e, null), hidden = () => false } = {}) {
+export function publicList(entries, kennelId, programsById = new Map(), { today, nameOf = (e) => entryName(e, null), hidden = () => false, config = null } = {}) {
   return rankedList(entries, kennelId, programsById)
     .map((e, i) => ({ entry: e, position: i + 1 }))
-    .filter(({ entry }) => !isPaused(entry, today) && !hidden(entry))
+    .filter(({ entry }) => !isPaused(entry, today, config) && !hidden(entry))
     .map(({ entry, position }) => ({
       position,
       name: publicName(nameOf(entry)),

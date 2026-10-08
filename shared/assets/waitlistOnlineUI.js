@@ -2,7 +2,7 @@
 // §9). Imported dynamically by pages/kennel.js, only where the waitlist online is
 // offered (Pro, cloud available, its release switch or staging). Saving goes
 // through kennelRepo; publishing through data/cloud/cloudWaitlist.js.
-import { esc, confirmModal, alertModal } from './ui.js';
+import { esc, confirmModal, alertModal, todayYMD } from './ui.js';
 import { kennelRepo } from '../data/kennelRepo.js';
 import { waitlistConfig } from '../data/waitlistRules.js';
 import { syncWaitlistOnline, waitlistOnlineStatus, rotateFormKey, WAITLIST_ONLINE_EVENT } from '../data/cloud/cloudWaitlist.js';
@@ -104,7 +104,9 @@ export function mountWaitlistOnline(root, kennel, { onSaved } = {}) {
     const online = root.querySelector('#wlo-online').checked;
     const onlineForm = online && root.querySelector('#wlo-form').checked;
     const timeZone = root.querySelector('#wlo-tz').value || null;
-    const config = { ...(kennel.waitlist_config || {}), online, online_form: onlineForm };
+    const before = kennel.waitlist_config || {};
+    // The day the list (last) went online: "Ready now?" covers holds ending from then (§16.7).
+    const config = { ...before, online, online_form: onlineForm, ...(online && before.online !== true ? { online_since: todayYMD() } : {}) };
     kennel = await kennelRepo.update(kennel.id, { waitlist_config: config, time_zone: timeZone });
     if (online && !kennel.public_id) {
       await kennelRepo.ensurePublicId(kennel.id);

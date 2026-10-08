@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import {
   waitlistConfig, WAITLIST_CONFIG_DEFAULTS, autoOffers, autoOfferSummary, closingTrigger, feeForEntry, isFeeWaived, feeDueDate, respondByDate,
   anchorDate, isMovedByBreeder, rankedList, overallPositions,
-  isPupAvailable, pupMatchesPrefs, prefColorTokens, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, isListeningFor, isListenOnly, eligiblePupsFor, showUpcoming, upcomingItems, depositsDueLitters, placeHidden, whelpNotes,
+  isPupAvailable, pupMatchesPrefs, prefColorTokens, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, isListeningFor, isListenOnly, eligiblePupsFor, showUpcoming, upcomingItems, depositsDueLitters, placeHidden, whelpNotes, readyCheck, readyCheckLapsed, readyCheckOverdue, canUndoRemoval as canUndo,
   litterQueue, nextFamilyForLitter, hasOpenOffer, turnSpent,
   countsAsPass, passesUsed, shouldRemoveForPasses, canUndoRemoval, passToForgive,
   overdueOffers, overdueFees, deriveContactWaitlistStatus, contactMatches, entryName,
@@ -867,4 +867,37 @@ test('whelpNotes (Spec §16.6): match, or what to review, for a born litter befo
   // Two answers that only rule the pups out together: both named.
   const two = [pup({ id: 'b', litter_id: 'L1', sex: 'male', breed: 'Poodle' }), pup({ id: 'g', litter_id: 'L1', sex: 'female', breed: 'Boxer' })];
   assert.deepEqual(whelpNotes([fam('mix', { pref_sex: 'female', pref_breed: 'Poodle' })], l, two, [], { today: TODAY })[0].why, ['sex', 'breed']);
+});
+
+test('"Ready now?" (Spec §16.7): only on an online list, only for holds ending while it is', () => {
+  const cfg = (over = {}) => waitlistConfig({ waitlist_config: { online: true, online_since: '2026-08-01', ...over } });
+  // 3 months from a June 1 fee: the hold ends Sep 1.
+  const e = (over = {}) => entry({ ready_timing: '3_months', fee_received_date: '2026-06-01', ...over });
+  assert.equal(isReadyHeld(e(), '2026-08-31', cfg()), true, 'before the date: held as always');
+  assert.deepEqual(readyCheck(e(), TODAY, cfg()), { asked: '2026-09-01', answer_by: null, answer: null });
+  assert.equal(isReadyHeld(e(), TODAY, cfg()), true, 'keep_paused (default): held until they answer');
+  assert.equal(isPaused(e(), TODAY, cfg()), true);
+  assert.equal(isReadyHeld(e(), TODAY), false, 'no config: the plain rule');
+  assert.equal(readyCheck(e(), TODAY, cfg({ online: false })), null, 'offline list: no check');
+  assert.equal(readyCheck(e(), TODAY, cfg({ online_since: '2026-09-15' })), null, 'a hold that ended before the list went online');
+  assert.equal(isReadyHeld(e(), TODAY, cfg({ ready_no_answer: 'unpause' })), false, 'unpause: the hold ends on the date');
+  assert.equal(isReadyHeld(e({ ready_check: { answer: 'yes', answered_date: '2026-09-02' } }), TODAY, cfg()), false);
+  const no = e({ ready_check: { answer: 'no', until: '2026-12-01', reason: 'Moving' }, pause_request: { requested_date: '2026-09-02', until: '2026-12-01' } });
+  assert.equal(isReadyHeld(no, TODAY, cfg()), true, 'not yet: held while their pause request waits for her');
+  assert.equal(isReadyHeld({ ...no, pause_request: { ...no.pause_request, decided: 'declined' } }, TODAY, cfg()), false, 'she declined: back in contention');
+});
+
+test('"Ready now?" unanswered: removed after her window, or flagged on Today', () => {
+  const e = entry({ ready_timing: '3_months', fee_received_date: '2026-06-01' });
+  const remove = waitlistConfig({ waitlist_config: { online: true, online_since: '2026-08-01', ready_no_answer: 'remove_after', ready_answer_days: 14 } });
+  assert.equal(readyCheck(e, '2026-09-10', remove).answer_by, '2026-09-15');
+  assert.equal(readyCheckLapsed(e, '2026-09-15', remove), false, 'the last day to answer');
+  assert.equal(readyCheckLapsed(e, '2026-09-16', remove), true);
+  assert.equal(readyCheckLapsed({ ...e, ready_check: { answer: 'yes' } }, '2026-09-16', remove), false);
+  assert.equal(readyCheckLapsed({ ...e, ready_check: { ask_from: '2026-09-20' } }, '2026-09-30', remove), false, 'an undone removal asks again from that day');
+  const keep = waitlistConfig({ waitlist_config: { online: true, online_since: '2026-08-01', ready_answer_days: 14 } });
+  assert.equal(readyCheckOverdue(e, '2026-09-15', keep), false);
+  assert.equal(readyCheckOverdue(e, '2026-09-16', keep), true);
+  assert.equal(readyCheckOverdue(e, '2026-09-16', remove), false, 'remove_after removes instead');
+  assert.equal(canUndo({ ...e, status: 'removed', removed_reason: 'no_ready_answer', removed_date: '2026-09-16' }, '2026-09-20'), true, 'the same 7-day undo');
 });

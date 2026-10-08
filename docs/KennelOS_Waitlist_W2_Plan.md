@@ -603,6 +603,22 @@ means no fee reminder ever.
       family when the window passes (`removed_reason: 'no_ready_answer'`, new vocab value,
       7-day undo like a second-pass removal) and Today reports it; Today also lists families
       unanswered for more than `ready_answer_days` under `keep_paused`.
+      **Built 2026-10-08 (status page).** As planned, with (her answers, 2026-10-08): online
+      lists only, and only holds ending from `waitlist_config.online_since` (set when the
+      list goes online; backfilled to the sync's day for a list already online). Rules:
+      `readyCheck` → `{ asked, answer_by, answer }`, `readyCheckLapsed`, `readyCheckOverdue`;
+      `isReadyHeld(entry, today, config)` / `isPaused(…, config)` (config optional; every
+      eligibility call passes it). A No holds them while its pause request waits for her.
+      Actions: `recordReadyAnswer` (`by: 'family' | 'breeder'`), `removeForNoReadyAnswer`;
+      `undoRemoval` of one sets `ready_check: { ask_from: today }`. Device:
+      `cloudWaitlist.sweepReadyChecks` after the family events (backing device only). Server:
+      `ready` action (`409 not_asked` / `already_answered`, `400 bad_date` /
+      `reason_required`). Projection: `ready_check` per active entry (never the reason).
+      Status page: a **Ready now?** card with **Yes, I'm ready** / **Not yet** (date and
+      reason), and the answer-by warning under `remove_after`. Her app: settings (rule +
+      days, where online is offered), the list badge, the family page's line and **They
+      told me they're ready**, Today. Tests: `waitlistRules`, `waitlistEvents`,
+      `cloudWaitlist`, `waitlistProjection`, `cloud/tests/familyActions`.
    Each part: `node --check`, `node --test` and `cd cloud && npm test`, the precache check,
    syncRegistry entries for every new field, the End-State guide in the same change, and the
    flow in headless Chromium at phone width.

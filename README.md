@@ -466,8 +466,10 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   the public list meanwhile); no per-litter numbers. **Part 5, "Review your preferences"
   (§16.6), is built on the status page:** when a litter is born, families who match it are
   told, and families kept out by their listen-only choice or answers are told why, with
-  buttons to change them (the email half comes with step 6). Next: step 5c part 6, then
-  step 6, email.
+  buttons to change them (the email half comes with step 6). **Part 6, "Ready now?" (§16.7), is built:** when a readiness hold ends on
+  an online list, the family is asked on their status page; Not yet sends her a pause request
+  with their reason; no answer follows her setting (keep paused, unpause, or remove after N
+  days with a 7-day undo). Step 5c is complete; next is step 6, email.
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass

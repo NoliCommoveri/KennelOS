@@ -113,7 +113,7 @@ async function main() {
   const listHtml = ranked.length
     ? table(['#', 'Family', 'Wants', 'Passes', 'In line since'], ranked.map((e, i) => row(e, [
         `<strong>${i + 1}</strong>`,
-        `<strong>${nameOf(e)}</strong>${programBadge(e)} ${entryFlags(e, today)}${breedFlag(e)}`,
+        `<strong>${nameOf(e)}</strong>${programBadge(e)} ${entryFlags(e, today, config)}${breedFlag(e)}`,
         prefsSummary(e),
         `${passesUsed(e, offers)} of ${esc(config.max_passes)}`,
         `${esc(fmtDate(anchorDate(e)))}${isMovedByBreeder(e) ? ' <span class="badge badge-purple" title="You set this place by hand">Moved by you</span>' : ''}`
@@ -237,7 +237,7 @@ async function main() {
   // families left out with their numbers skipped.
   document.getElementById('wl-copy-public').onclick = async () => {
     const rows = publicList(entries, kennel.id, programs, {
-      today, nameOf: (e) => entryName(e, contactsById.get(e.contact_id)),
+      today, config, nameOf: (e) => entryName(e, contactsById.get(e.contact_id)),
       // Same as online: a family in their turn, or after passing until those litters close.
       hidden: (e) => Boolean(placeHidden(e, offers, litters, dogs, sales))
     });

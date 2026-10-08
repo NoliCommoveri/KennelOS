@@ -43,10 +43,11 @@ import { contactRepo } from './contactRepo.js';
 import { waitlistProgramRepo } from './waitlistProgramRepo.js';
 import {
   overdueTurns, overdueFees, canUndoRemoval, entryName, describeOfferChanges, waitlistConfig, autoOffers, closingTrigger,
-  prefChangeSummary, prefChangeEffect, PREF_FIELD_LABEL, depositsDueLitters
+  prefChangeSummary, prefChangeEffect, PREF_FIELD_LABEL, depositsDueLitters,
+  readyCheck, readyCheckOverdue
 } from './waitlistRules.js';
 import {
-  recordOutcome, markFeeExpired, openPicks, undoRemoval, hasPendingRequest, markMessagesRead,
+  recordOutcome, markFeeExpired, openPicks, recordReadyAnswer, undoRemoval, hasPendingRequest, markMessagesRead,
   approvePauseRequest, declinePauseRequest, approvePrefChange, declinePrefChange, approveListenChange, declineListenChange
 } from './waitlistActions.js';
 
@@ -441,10 +442,13 @@ async function waitlistNudges(today, litters, dogsById, { dogs = [], sales = [] 
   }
 
   for (const e of entries.filter((x) => canUndoRemoval(x, today))) {
+    const noAnswer = e.removed_reason === 'no_ready_answer';
     out.push({
       key: `waitlist-removed:${e.id}:${e.removed_date}`,
-      title: `Removed ${name(e)} from the waitlist after their second pass`,
-      detail: `You can undo this until ${addDaysToYMD(e.removed_date, 7)}. Undoing forgives that pass and puts them back in their old place.`,
+      title: noAnswer ? `Removed ${name(e)} from the waitlist: no answer to "Ready now?"` : `Removed ${name(e)} from the waitlist after their second pass`,
+      detail: `You can undo this until ${addDaysToYMD(e.removed_date, 7)}. ${noAnswer
+        ? 'Undoing puts them back in their old place and asks "Ready now?" again from today.'
+        : 'Undoing forgives that pass and puts them back in their old place.'}`,
       subjectHref: `waitlist-entry.html?id=${encodeURIComponent(e.id)}`,
       actions: [{
         label: 'Undo',
@@ -455,6 +459,19 @@ async function waitlistNudges(today, litters, dogsById, { dogs = [], sales = [] 
       }]
     });
   }
+  // "Ready now?" unanswered for longer than her days, under "keep paused" (§16.7):
+  // they stay held, so nobody waits forever unnoticed.
+  for (const e of entries.filter((x) => readyCheckOverdue(x, today, waitlistConfig(kennelsById.get(x.kennel_id))))) {
+    const rc = readyCheck(e, today, waitlistConfig(kennelsById.get(e.kennel_id)));
+    out.push({
+      key: `waitlist-ready-overdue:${e.id}:${rc.asked}`,
+      title: `${name(e)} hasn't answered "Ready now?"`,
+      detail: `Asked ${rc.asked}, when the readiness hold from their application ended. They stay paused until they answer (your setting). Contact them, or record their answer if they've told you.`,
+      subjectHref: `waitlist-entry.html?id=${encodeURIComponent(e.id)}`,
+      actions: [{ label: 'They\'re ready', run: async () => { await recordReadyAnswer(e.id, { answer: 'yes', date: today, by: 'breeder' }); } }]
+    });
+  }
+
   // Deposits were planned to open today (Spec §16.8): suggest Open picks, which
   // starts the next turn (§16.1). Only for a kennel with families on its list.
   const listed = new Set(entries.filter((e) => e.status === 'active').map((e) => e.kennel_id));

@@ -18,7 +18,7 @@ import { STATUS_TOKEN } from './waitlist.js';
 import { fail, json, readJson } from './lib/http.js';
 
 export const ACTION_LIMITS = { perHourPerSession: 60, messagesPerHourPerSession: 10, messageBytes: 32 * 1024, noteChars: 500, maxPauseDays: 731 };
-export const FAMILY_ACTIONS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change', 'prepass', 'unprepass'];
+export const FAMILY_ACTIONS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change', 'prepass', 'unprepass', 'ready'];
 
 const OPEN_STATUSES = ['applied', 'approved', 'active'];
 // Copies of the app's vocab (shared/data/vocab.js); tests/familyPages.test.js in
@@ -153,6 +153,19 @@ export function checkAction(action, body, { entry, projection, pending, now = ne
     }
     case 'leave':
       return { note: cleanNote(body.note) };
+    case 'ready': {
+      // "Ready now?" (Spec §16.7): only while her device asks it, once.
+      if (entry.status !== 'active' || !entry.ready_check || entry.ready_check.answer) fail(409, 'not_asked');
+      if (already('ready', () => true)) fail(409, 'already_answered');
+      if (body.answer === 'yes') return { answer: 'yes' };
+      if (body.answer !== 'no') fail(400, 'bad_request');
+      const until = String(body.until ?? '');
+      const today = todayUtc(now);
+      if (!YMD.test(until) || until <= today || until > addDays(today, ACTION_LIMITS.maxPauseDays)) fail(400, 'bad_date');
+      const reason = cleanNote(body.reason);
+      if (!reason) fail(400, 'reason_required');
+      return { answer: 'no', until, reason };
+    }
     case 'listen': {
       if (entry.status !== 'active') fail(409, 'not_on_list');
       const mode = ['all', 'selected', 'except'].includes(body.mode) ? body.mode : fail(400, 'bad_request');

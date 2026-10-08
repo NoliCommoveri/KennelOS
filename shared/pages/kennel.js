@@ -20,7 +20,7 @@ import { contactRepo } from '../data/contactRepo.js';
 import { expenseRepo } from '../data/expenseRepo.js';
 import { getIncomeRows, summarize } from '../data/incomeView.js';
 import { getActiveKennelId, setActiveKennel } from '../data/kennelScope.js';
-import { DOG_STATUS, LITTER_STATUS, SALE_STATUS, FEE_CREDIT_POLICY, WAITLIST_AUTO_OFFER_TRIGGER } from '../data/vocab.js';
+import { DOG_STATUS, LITTER_STATUS, SALE_STATUS, FEE_CREDIT_POLICY, WAITLIST_AUTO_OFFER_TRIGGER, WAITLIST_READY_NO_ANSWER } from '../data/vocab.js';
 import { editionFlags } from '../data/editionConfig.js';
 import { isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
 import { waitlistConfig, SOON_NOTICE_DEFAULT, passReasons, showUpcoming, UPCOMING_STAGES } from '../data/waitlistRules.js';
@@ -389,7 +389,7 @@ function waitlistCard(k) {
           <div class="pill-row" style="margin-top:6px;"><button type="button" class="btn btn-sm" data-act="add-reason">Add a reason</button></div>
           <label class="check-inline" style="margin-top:6px;"><input id="wl-pass-other" type="checkbox"${c.pass_other !== false ? ' checked' : ''}> Also offer "Other", with a box for their own words</label>
         </div>
-        ${isWaitlistOnlineOffered() ? upcomingSwitches(c) : ''}
+        ${isWaitlistOnlineOffered() ? readySettings(c) + upcomingSwitches(c) : ''}
       </div>
       <div class="form-actions"><button class="btn btn-primary btn-sm" data-act="save-waitlist">Save</button></div>
     </section>`;
@@ -398,6 +398,15 @@ function waitlistCard(k) {
 // What shows online before picks open (Waitlist Spec §16.4): three stages, each
 // on the public list and on family pages, all off until she ticks one. Shown
 // with the parents' call names and titles and her dates.
+// "Ready now?" unanswered (Waitlist Spec §16.7): her rule, and the days.
+function readySettings(c) {
+  const opts = WAITLIST_READY_NO_ANSWER.map((o) => `<option value="${esc(o.value)}"${o.value === c.ready_no_answer ? ' selected' : ''}>${esc(o.label)}</option>`).join('');
+  return `<div class="field"><label>When a family doesn't answer "Ready now?"</label><select id="wl-ready-rule">${opts}</select>
+      <span class="field-hint">Asked on their status page when the readiness hold from their application ends (online lists only). Not yet = a new date and a reason, sent to you as a pause request.</span></div>
+    <div class="field"><label>Days to answer</label><input id="wl-ready-days" type="number" min="1" step="1" value="${esc(c.ready_answer_days)}">
+      <span class="field-hint">"Wait, then remove": removed after this many days, with a 7-day undo. "Keep paused": Today lists them after this many days.</span></div>`;
+}
+
 function upcomingSwitches(c) {
   const show = showUpcoming(c);
   const box = (stage, where) => `<label class="check-inline"><input type="checkbox" data-wl-show="${esc(stage)}:${where}"${show[stage][where] ? ' checked' : ''}> ${where === 'public' ? 'Public list' : 'Family pages'}</label>`;
@@ -443,6 +452,11 @@ async function onSaveWaitlist() {
     })).filter((r) => r.label),
     pass_other: q('#wl-pass-other').checked
   };
+  if (q('#wl-ready-rule')) {
+    waitlist_config.ready_no_answer = q('#wl-ready-rule').value;
+    waitlist_config.ready_answer_days = num('#wl-ready-days');
+    if (waitlist_config.ready_answer_days != null && waitlist_config.ready_answer_days < 1) { showError('Days to answer must be at least 1.'); return; }
+  }
   if (els.config.querySelector('[data-wl-show]')) {
     const show = showUpcoming({});
     for (const b of els.config.querySelectorAll('[data-wl-show]')) {

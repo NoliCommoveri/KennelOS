@@ -168,3 +168,14 @@ test('pass reasons and "Not this litter": checked against her list; pending unti
   const split = splitPrepassed(entry({ prepasses: [{ pairing_id: 'pr1' }] }), [{ litter: { id: 'l9', pairing_id: 'pr1' }, eligibleDogs: [] }, { litter: { id: 'l1' }, eligibleDogs: [] }]);
   assert.deepEqual([split.offer.map((x) => x.litter.id), split.prepassed.map((x) => x.litter.id)], [['l1'], ['l9']], 'a pass on a pairing carries over to the litter born of it');
 });
+
+test('"Ready now?" from the status page (Spec §16.7): yes is recorded; not yet carries a date and a reason', () => {
+  const yes = planFamilyEvent(ev('ready', { answer: 'yes' }), ctx());
+  assert.equal(yes.op, 'ready');
+  assert.equal(yes.answer, 'yes');
+  assert.match(yes.activity.body, /ready now/);
+  const no = planFamilyEvent(ev('ready', { answer: 'no', until: '2026-12-01', reason: ' Moving house ' }), ctx());
+  assert.deepEqual([no.op, no.answer, no.until, no.reason, no.activity], ['ready', 'no', '2026-12-01', 'Moving house', null], 'the pause request is what she sees');
+  assert.equal(planFamilyEvent(ev('ready', { answer: 'no', until: '2026-12-01' }), ctx()).reason, 'bad_payload', 'a reason is required');
+  assert.equal(planFamilyEvent(ev('ready', { answer: 'yes' }), ctx({ entry: entry({ status: 'withdrawn' }) })).op, 'note');
+});

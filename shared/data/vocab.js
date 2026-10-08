@@ -180,7 +180,15 @@ export const WAITLIST_REMOVED_REASON = [
   { value: 'second_pass',         label: 'Second pass',             badge: 'badge-red' },
   { value: 'no_checkin_response', label: 'No check-in response',    badge: 'badge-red' },
   { value: 'by_breeder',          label: 'Removed by you',          badge: 'badge-gray' },
-  { value: 'fee_expired',         label: 'Fee not received in time', badge: 'badge-gray' }
+  { value: 'fee_expired',         label: 'Fee not received in time', badge: 'badge-gray' },
+  { value: 'no_ready_answer',     label: 'No answer to the ready check', badge: 'badge-red' }
+];
+
+// What happens when a family doesn't answer "Ready now?" (Waitlist Spec §16.7).
+export const WAITLIST_READY_NO_ANSWER = [
+  { value: 'keep_paused',  label: 'Keep them paused until they answer' },
+  { value: 'unpause',      label: 'Unpause them as normal on the date' },
+  { value: 'remove_after', label: 'Wait, then remove them from the list' }
 ];
 
 export const WAITLIST_PRIORITY = [

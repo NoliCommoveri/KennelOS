@@ -22,7 +22,7 @@
 import {
   waitlistConfig, entryName, publicList, overallPositions, litterQueue, isPupAvailable, passesUsed,
   isManuallyPaused, readyFromDate, isReadyHeld, feeForEntry, kennelBreeds, listenParentChoices,
-  rankedList, turnLittersFor, turnIdOf, passReasons, splitPrepassed, upcomingItems, showUpcoming, isListeningFor, placeHidden, whelpNotes
+  rankedList, turnLittersFor, turnIdOf, passReasons, splitPrepassed, upcomingItems, showUpcoming, isListeningFor, placeHidden, whelpNotes, readyCheck
 } from './waitlistRules.js';
 import { addDaysToYMD } from './dateUtils.js';
 import { WAITLIST_OPEN_STATUSES } from './vocab.js';
@@ -99,6 +99,9 @@ function entryView(entry, ctx) {
     },
     paused_until: isManuallyPaused(entry, ctx.today) ? entry.paused_until : null,
     ready_from: isReadyHeld(entry, ctx.today) ? readyFromDate(entry) : null,
+    // "Ready now?" (§16.7): asked when their hold ended while the list is online;
+    // `answer_by` only under her remove_after setting. Never their reason.
+    ready_check: entry.status === 'active' ? readyCheckView(readyCheck(entry, ctx.today, ctx.config)) : null,
     listen: {
       mode: entry.listen_mode || 'all',
       sire_ids: [...(entry.listen_sire_ids || [])],
@@ -220,6 +223,8 @@ const toUpcomingView = (u) => ({
   picks_expected_date: u.picks_expected_date, public: u.public, family: u.family
 });
 
+const readyCheckView = (rc) => (rc ? { asked: rc.asked, answer_by: rc.answer_by, answer: rc.answer } : null);
+
 // Why their number is hidden, as their page says it: their turn, or the litters
 // they passed on (or let lapse) that are still being offered to others.
 function placeHiddenView(h, labels) {
@@ -324,7 +329,7 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
       ...(config.online_form && formKey ? { form: formSection(kennel, config, formKey, dogs) } : {})
     },
     public_list: publicList(live, kennel.id, programsById, {
-      today, nameOf: (e) => entryName(e, contactsById.get(e.contact_id)), hidden: (e) => Boolean(hidden.get(e.id))
+      today, nameOf: (e) => entryName(e, contactsById.get(e.contact_id)), hidden: (e) => Boolean(hidden.get(e.id)), config
     }),
     entries: entryViews,
     litters: litterViews,

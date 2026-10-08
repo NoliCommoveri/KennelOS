@@ -1465,7 +1465,13 @@ added dam B later, or a sex preference that no longer fits.
   is off** (decided, Q34), like "It's almost your turn", which she sends whatever the switch
   says.
 
-### 16.7 "Ready now?" when a readiness hold ends (decided 2026-10-08)
+### 16.7 "Ready now?" when a readiness hold ends (decided 2026-10-08; built 2026-10-08, the status-page half)
+
+**Decided 2026-10-08 while building:** it applies **only to a list that's online** (an offline
+list keeps the plain rule: the hold ends on its date), and **only to holds that end while
+the list is online** (from the day she puts it online), so no family already past their
+hold is suddenly paused by the update. She can record a Yes herself ("They told me they're
+ready") on the family's page or from Today.
 
 When a family's readiness hold (§15.8) reaches its date, they're asked **Ready now?**: on the
 status page, and by email once emails exist.
