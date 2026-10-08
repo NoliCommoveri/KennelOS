@@ -477,6 +477,12 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   the entry (`waitlist_entries.companion_request`, private) as a Today nudge and a card on the
   family's page; she sends the link from the Companion page as before and taps **Mark sent**
   (or **Decline**), which their page then shows. The link never goes through the server.
+  **Waitlist online is released (2026-10-08), ahead of steps 6 and 7:**
+  `WAITLIST_ONLINE_RELEASED = true`, so the Online list card, status / public list / form
+  links and family actions are offered wherever cloud backup is. Production has migrations
+  `0007`–`0009`, `apply.kennelos.app` and Turnstile. Not yet: emails to families (step 6), the
+  server's deadlines and automatic offers while her phone is offline (step 7), and the privacy
+  policy's waitlist-online section (step 8). Service-worker cache rolled to `kennelos-shell-v50`.
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass

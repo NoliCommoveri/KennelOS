@@ -242,11 +242,15 @@ imported.
 
 ## 3d. Waitlist online, W2 (`docs/KennelOS_Waitlist_W2_Plan.md`)
 
-Nothing families can see until the release flag (plan §9). The server tables come first.
+Released 2026-10-08 (`WAITLIST_ONLINE_RELEASED = true`, cache `kennelos-shell-v50`), ahead of
+plan steps 6 (email) and 7 (server deadlines and automatic offers). Still open: those steps,
+the privacy policy's waitlist-online section, the Workers Paid plan and Email Routing.
 
-- [ ] **Apply pending (`0007`, `0008`, `0009`) on staging's and production's `/ops`** right after the
+- [x] **Apply pending (`0007`, `0008`, `0009`) on staging's and production's `/ops`** right after the
   merge that carries them. The whole API answers 503 until then.
-- [ ] **Turnstile before the online form is used on production:** the form answers `503
+- [x] **`apply.kennelos.app`** as a custom domain on the production Worker (added in the
+  dashboard; every status, list and form link production copies points there).
+- [x] **Turnstile before the online form is used on production:** the form answers `503
   form_unavailable` there until `TURNSTILE_SECRET` (secret) and `TURNSTILE_SITE_KEY`
   (`[env.production.vars]`) are set. Staging works without it.
 - [ ] Operator setup in the plan's §12 (Workers Paid plan, `apply.kennelos.app`, Resend's
