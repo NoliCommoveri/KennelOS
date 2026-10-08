@@ -3220,6 +3220,11 @@ shown (`describeOfferChanges`).
   Sections that ask them to act stay open (their turn, Ready now?, Review your preferences,
   the fee, Thank you for applying); every other titled section folds away and starts folded,
   and one they opened stays open while they use it (`state.opened`).
+  Their turn's card reads **The wait is over!** / "Below are the puppies available for
+  selection.", one button per pup (its name, sex and color), one **Pass on turn** button in
+  the warning tint with "N of M passes used" under it (a turn is passed once, whatever
+  litters it covers), and at the bottom "Deadline: Saturday, 10/10/2026 @11:59 pm CDT"
+  (`common.deadlineText`, the kennel's zone abbreviation for that day).
 - **Message on your public list (2026-10-08):** `waitlist_config.public_intro_text` (blank =
   `waitlistRules.PUBLIC_INTRO_DEFAULT`), edited on the Publish list page; `publicIntroText`
   fills in `[Kennel Name]`, the projection publishes it as `kennel.intro`, and `/f/list`

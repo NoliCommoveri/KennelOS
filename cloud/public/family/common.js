@@ -26,6 +26,23 @@ export function fmtDate(ymd, { weekday = false } = {}) {
   });
 }
 
+// An offer's deadline (Spec §6.5: end of day in the kennel's time zone):
+// "Deadline: Saturday, 10/10/2026 @11:59 pm CDT". The zone's short name is the
+// one in effect that day; without a zone, none is shown.
+export function deadlineText(ymd, timeZone = null) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(ymd ?? ''))) return '';
+  const [y, m, d] = ymd.split('-').map(Number);
+  const day = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long' });
+  let zone = '';
+  if (timeZone) {
+    try {
+      zone = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'short' })
+        .formatToParts(new Date(Date.UTC(y, m - 1, d, 17))).find((p) => p.type === 'timeZoneName')?.value || '';
+    } catch { zone = ''; }
+  }
+  return `Deadline: ${day}, ${String(m).padStart(2, '0')}/${String(d).padStart(2, '0')}/${y} @11:59\u00a0pm${zone ? `\u00a0${zone}` : ''}`;
+}
+
 // "Thornfield Kennels'" / "Juniper's": the kennel's name as an owner.
 export function possessive(name) {
   const n = String(name ?? '').trim();

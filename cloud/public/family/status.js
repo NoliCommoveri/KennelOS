@@ -12,7 +12,7 @@
 // Messages are sealed here, in this browser, to her key (seal.js); the server
 // can't read them.
 import {
-  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingDetails,
+  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingDetails, deadlineText,
   SEX_LABEL, READY_LABEL, PLACEMENT_LABEL, CREDIT_LABEL
 } from './common.js';
 import { rememberedFamily, forgetFamily } from './session.js';
@@ -178,7 +178,7 @@ function reasonForm(form, intro, submitLabel, hidden = {}) {
         ${reasons.map((r, i) => `<label class="choice"><input type="radio" name="reason_id" value="${esc(r.id)}"${i === 0 ? ' required' : ''}> ${esc(r.label)}</label>`).join('')}
       </div></fieldset>
       ${reasons.some((r) => r.id === 'other') ? '<label class="q mt8">If other, please tell us more<input type="text" name="reason_text" maxlength="200"></label>' : ''}
-      <div class="actions mt8"><button class="primary" type="submit">${esc(submitLabel)}</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
+      <div class="actions mt8"><button class="${form === 'pass' ? 'pass' : 'primary'}" type="submit">${esc(submitLabel)}</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
     </form>`;
 }
 
@@ -194,7 +194,6 @@ function reasonMessage(id) {
 function turnHtml(rows) {
   const v = state.v;
   const kennel = v.kennel.name;
-  const zone = v.kennel.time_zone ? ` (${esc(v.kennel.time_zone.replace(/_/g, ' '))} time)` : '';
   const turnId = rows[0].turn_id || rows[0].id;
   const ids = new Set(rows.map((o) => o.id));
   const mine = (p) => p.turn_id === turnId || ids.has(p.offer_id);
@@ -209,28 +208,31 @@ function turnHtml(rows) {
       const label = `${esc(d.call_name)} · ${esc(SEX_LABEL[d.sex] || '')}${d.color ? ` · ${esc(d.color)}` : ''}`;
       const yours = d.id === chosen ? ' <span class="badge">Your pick</span>' : '';
       return actOn
-        ? `<button type="button" class="pup secondary" data-act="pick" data-offer="${esc(o.id)}" data-dog="${esc(d.id)}" data-name="${esc(d.call_name)}">Choose ${label}</button>`
+        ? `<button type="button" class="pup secondary" data-act="pick" data-offer="${esc(o.id)}" data-dog="${esc(d.id)}" data-name="${esc(d.call_name)}">${label}</button>`
         : `<span class="pup">${label}${yours}</span>`;
     }).join('')}</div>`
     : '<p class="small muted mt0">No pups left in this litter for you.</p>');
   const chosenName = rows.flatMap((o) => o.pups).find((d) => d.id === chosen)?.call_name || 'a pup';
   let next;
   if (sentPass) next = `<p>You passed on ${several ? 'all of these' : 'this litter'}. ${waiting(kennel)}</p>`;
-  else if (sentPick && !picked) next = `<p>You chose ${esc(chosenName)}. ${waiting(kennel)} Send your deposit by the date above to keep them.</p>`;
-  else if (picked) next = '<p>You picked a pup. Send your deposit by the date above to keep them.</p>';
+  else if (sentPick && !picked) next = `<p>You chose ${esc(chosenName)}. ${waiting(kennel)} Send your deposit by the deadline to keep them.</p>`;
+  else if (picked) next = '<p>You picked a pup. Send your deposit by the deadline to keep them.</p>';
   else if (actOn && state.open === `pass:${turnId}`) {
     const p = v.family.passes;
-    next = reasonForm('pass', `Pass on ${several ? 'all of these litters' : 'this litter'}?${p ? ` You've used ${esc(p.used)} of ${esc(p.max)} passes; this may count as one.` : ''}`,
-      several ? 'Pass on all of these' : 'Pass on this litter', { turn_id: turnId });
+    next = reasonForm('pass', `Pass on this turn?${p ? ` You've used ${esc(p.used)} of ${esc(p.max)} passes; this may count as one.` : ''}`,
+      'Pass on turn', { turn_id: turnId });
   } else if (actOn) {
-    next = `<p class="small muted">Tap a pup to choose them${several ? ' from any of these litters' : ''}, or pass.${several ? ' Only passing on all of them counts as a pass.' : ''}</p>
-      <div class="actions"><button type="button" class="secondary" data-act="open" data-what="pass:${esc(turnId)}">${several ? 'Pass on all of these' : 'Pass on this litter'}</button></div>`;
+    // One pass per turn, whatever litters it covers (Spec §16.1).
+    const p = v.family.passes;
+    next = `<div class="actions mt8"><button type="button" class="pass" data-act="open" data-what="pass:${esc(turnId)}">Pass on turn</button></div>
+      ${p ? `<p class="small muted mt0">${esc(p.used)} of ${esc(p.max)} passes used</p>` : ''}`;
   } else next = signedIn() ? '' : `<p>Sign in on this device to choose a pup or pass (below), or contact ${esc(kennel)}.</p>`;
   const respondBy = rows.map((o) => o.respond_by_date || '').sort().reverse()[0];
-  return openCard("It's your turn!", `
-    <p class="mt0">Please respond by <strong>11:59 pm on ${esc(fmtDate(respondBy, { weekday: true }))}</strong>${zone}.</p>
+  return openCard('The wait is over!', `
+    <p class="mt0">Below are the puppies available for selection.</p>
     ${rows.map((o) => `<p class="mt8"><strong>${esc(o.litter)}</strong></p>${pupsOf(o)}`).join('')}
-    ${next}`, 'turn');
+    ${next}
+    ${respondBy ? `<p class="deadline"><strong>${esc(deadlineText(respondBy, v.kennel.time_zone))}</strong></p>` : ''}`, 'turn');
 }
 
 // The family's offers as turns, oldest first.
@@ -352,7 +354,7 @@ function placeActions(f) {
 // they passed on or let lapse, until those litters close. They keep their place.
 function placeHiddenHtml(h) {
   if (!h) return '';
-  if (h.reason === 'turn') return '<p class="mt0"><strong>It\'s your turn!</strong> Choose a pup above, or pass.</p>';
+  if (h.reason === 'turn') return '<p class="mt0"><strong>The wait is over!</strong> Pick a pup above, or pass on your turn.</p>';
   const names = (h.litters || []).map((l) => l.label).filter(Boolean);
   const lapsed = (h.litters || []).every((l) => l.outcome === 'no_response');
   const what = names.length ? names.join(' and ') : 'that litter';
