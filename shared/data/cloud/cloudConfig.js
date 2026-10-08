@@ -56,6 +56,15 @@ export function isVaultOffered() {
   return isCloudAvailable() && (VAULT_RELEASED || isLocalDev() || testServerOn());
 }
 
+// The waitlist online's release switch (Waitlist W2 Plan §9, D7). Until its last
+// step it stays false: "Put the list online" and the publishing behind it are
+// offered only where cloud backup talks to STAGING (localhost, or ?cloud=staging).
+export const WAITLIST_ONLINE_RELEASED = false;
+
+export function isWaitlistOnlineOffered() {
+  return isCloudAvailable() && (WAITLIST_ONLINE_RELEASED || isLocalDev() || testServerOn());
+}
+
 // Reads ?cloud=staging / ?cloud=off from `loc` and applies it. A sign-in and
 // the backup position belong to one server, so switching server forgets both
 // on this device (local only; nothing on either server is touched, and the

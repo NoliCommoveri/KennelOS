@@ -22,6 +22,7 @@ import { getIncomeRows, summarize } from '../data/incomeView.js';
 import { getActiveKennelId, setActiveKennel } from '../data/kennelScope.js';
 import { DOG_STATUS, LITTER_STATUS, SALE_STATUS, FEE_CREDIT_POLICY, WAITLIST_AUTO_OFFER_TRIGGER } from '../data/vocab.js';
 import { editionFlags } from '../data/editionConfig.js';
+import { isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
 import { waitlistConfig, SOON_NOTICE_DEFAULT } from '../data/waitlistRules.js';
 import { esc, badge, fmtDate, fmtMoney, param } from '../assets/ui.js';
 import { renderExpensePanel } from '../assets/expensePanel.js';
@@ -342,7 +343,9 @@ async function renderOverview() {
 // same gating both panels carried on the old Kennels-list rows.
 function renderConfig() {
   if (!kennel.is_own_kennel) { els.config.innerHTML = ''; return; }
-  els.config.innerHTML = nudgeCard(kennel) + testsCard(kennel) + feedingScheduleCard() + waitlistCard(kennel);
+  els.config.innerHTML = nudgeCard(kennel) + testsCard(kennel) + feedingScheduleCard() + waitlistCard(kennel)
+    // The waitlist online (W2 Plan §9): its UI is imported only where it's offered.
+    + (editionFlags.waitlist && isWaitlistOnlineOffered() ? '<section class="card" id="waitlist-online"></section>' : '');
   wireConfig();
   // Deep link from the Waitlist page's "Settings" button.
   if (location.hash === '#waitlist-settings') document.getElementById('waitlist-settings')?.scrollIntoView();
@@ -528,6 +531,12 @@ function wireConfig() {
   if (saveNudges) saveNudges.addEventListener('click', onSaveNudges);
   const saveWaitlist = els.config.querySelector('[data-act="save-waitlist"]');
   if (saveWaitlist) saveWaitlist.addEventListener('click', onSaveWaitlist);
+  const online = els.config.querySelector('#waitlist-online');
+  if (online) {
+    import('../assets/waitlistOnlineUI.js')
+      .then((m) => m.mountWaitlistOnline(online, kennel, { onSaved: async () => { await reloadKennel(); renderConfig(); } }))
+      .catch((err) => { online.innerHTML = `<p class="field-hint">The online list couldn't load: ${esc(err.message || String(err))}</p>`; });
+  }
 
   els.config.querySelectorAll('[data-remove-test]').forEach((cb) => {
     cb.addEventListener('change', async (e) => {

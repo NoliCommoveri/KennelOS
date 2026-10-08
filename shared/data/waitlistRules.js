@@ -24,6 +24,7 @@ export const WAITLIST_CONFIG_DEFAULTS = Object.freeze({
   payment_instructions: '',
   max_passes: 2,
   respond_days: 3, // days to accept AND send the deposit (§6.5)
+  online: false, // her list is published online (W2 Plan §5; only where isWaitlistOnlineOffered)
   auto_offer_on: [], // which closings offer the next family by themselves (WAITLIST_AUTO_OFFER_TRIGGER); none = she offers
   no_response_counts_as_pass: true,
   color_matching: false,

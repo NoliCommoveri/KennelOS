@@ -418,7 +418,13 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   application's server copy stays until a private backup made after her phone took it in
   exists, and a reset phone can fetch it again), with
   `cloud/tests/waitlist.test.js`. Apply `0007` on staging and production after the merge
-  (`LAUNCH_CHECKLIST.md` §3d).
+  (`LAUNCH_CHECKLIST.md` §3d). **W2 step 2, publishing from her device, is built &
+  browser-verified** (behind `WAITLIST_ONLINE_RELEASED = false`, so only against staging):
+  `data/waitlistProjection.js` (the allow-listed online view), `data/cloud/cloudWaitlist.js`
+  (publish when it changes, from the backing device), `Kennel.time_zone`,
+  `waitlist_config.online`, and the Kennel page's **Online list** card. Tests:
+  `waitlistProjection.test.js`, `cloudWaitlist.test.js`. Rides the pending
+  `kennelos-shell-v48`.
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass

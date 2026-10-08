@@ -231,4 +231,10 @@ export const pollPairing = (token, pairingId) => getJson(`/vault/pairings/${enco
 
 // --- Public -------------------------------------------------------------------
 // Service notices (the shutdown channel). → [{ id, level, message, until }]
+// --- The waitlist online, her side (Waitlist W2 Plan §5) -------------------------------
+export const publishWaitlist = (token, publicId, projection) =>
+  getJson(`/waitlist/projection/${encodeURIComponent(publicId)}`, { method: 'PUT', token, json: { projection } });
+export const unpublishWaitlist = (token, publicId) =>
+  getJson(`/waitlist/projection/${encodeURIComponent(publicId)}`, { method: 'DELETE', token });
+
 export const getNotices = () => getJson('/notice').then((b) => b.notices || []);

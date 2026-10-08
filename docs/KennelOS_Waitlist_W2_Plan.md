@@ -296,6 +296,19 @@ means no fee reminder ever.
 2. **Device: publishing.** `Kennel.time_zone`, `waitlistProjection.js` + tests, the
    debounced publish from the backing device, `cloudWaitlist.js`, the settings card's
    "Put the list online" (behind the flag). Registries, schema, End-State guide.
+   **Built 2026-10-08.** As built:
+   - `shared/data/waitlistProjection.js` (pure; `tests/waitlistProjection.test.js` pins the
+     allow-list and that it agrees with the rules engine). A family whose time on the list
+     ended keeps only `{ name, email, status }` (and its token), so an old link still says
+     what happened. Every eligible family per live litter, however many.
+   - `shared/data/cloud/cloudWaitlist.js`: hash-compare and publish per online kennel,
+     unpublish when taken offline; 20 s debounce on data changes, on load, on reconnect.
+     Started by `cloudBackupUI.bootCloud()` (Pro, offered only). Settings key
+     `kennelOS.waitlistOnline`. `tests/cloudWaitlist.test.js` runs it against the real Worker.
+   - `waitlist_config.online` and `Kennel.time_zone` (cloud tier). The **Online list** card on
+     the Kennel page (`assets/waitlistOnlineUI.js`, Pro-only) with a **Preview** badge.
+   - `cloudConfig.WAITLIST_ONLINE_RELEASED = false`: offered on localhost and with
+     `?cloud=staging` only.
 3. **The public list and status page, read-only.** `cloud/public/` pages, `apply.kennelos.app`
    on staging, "Email me my link" (6-digit code), the search box, phone-width checks.
    `status_token` on entries, **Copy status link** / **New link** (§8, §9).
