@@ -396,7 +396,7 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   application-fee receipt source), and **Copy public list** (first name + last initial, sex
   preference, date added; paused families hidden with their number skipped). Programs are hers
   alone: `applicable_on_form` dropped. Tests: `waitlistForm.test.js`, `invoicePdf.test.js`. Still
-  W2: the public list page, PDFs on the status page, kennel-name (no-reply) email, and the
+  W2: the public list page, kennel-name (no-reply) email, and the
   online form itself. Next: W2 (needs the cloud Worker, vault and server-side license link;
   the link's plan is `docs/KennelOS_License_Link_Plan.md`: server and client are built
   (cloud migration `0006`, `cloud/src/license.js`; `shared/data/cloud/cloudEntitlement.js`

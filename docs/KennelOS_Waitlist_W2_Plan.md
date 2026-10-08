@@ -21,8 +21,6 @@
   **message box**; the optional **Message us on Facebook** button; "Fee received".
 - **The public list page** (Spec §15.3): every family on the list, however many, with a
   search box; also a tab on the status page.
-- **Invoices and receipts on the status page** (Spec §15.2), encrypted so the server can't
-  read them.
 - **Emails in the kennel's name**, no-reply (Spec §15.4): approval / fee request, fee
   received, offer, reminders, deadline passed, decline, "almost your turn" (Spec §15.5),
   request decisions, and the status-page link.
@@ -35,7 +33,9 @@
 **Out:** the assistant (W3: FAQ chat, check-ins, phrasing messages); payment collection
 (Q6: fee received stays her tap); SMS / Messenger notifications; helpers on their own
 devices (Proposal Phases 2–3); Lite and Demo (Spec §11: the waitlist is Pro-only, and Demo
-has `cloudUrl: null`).
+has `cloudUrl: null`); **invoices and receipts on the status page** (Spec §15.2; dropped
+2026-10-08, her decision: she downloads the PDFs and sends them herself, so no document
+ever reaches the server).
 
 ## 2. How it fits together
 
@@ -99,8 +99,6 @@ too widely; the old link stops working at the next publish.
 | `wl_events` | `seq`, kind, `entry_id`, payload (button pressed, pick, pause-until date, requested answers), `based_on_version`, made by (`family` / `server`) | Yes; no free text (messages go to the inbox) |
 | `wl_holds` | a pup held by a family's **Accept a pup** until her device creates the Sale | Yes |
 | `wl_messages` | queued and sent emails: to, kind, subject, body, `send_after`, sent / failed | Yes (Q11: outbound text is readable) |
-| `wl_documents` | encrypted invoice/receipt PDFs per entry (§7), in R2 under `wl/<program>/<id>` | No |
-| `wl_browser_keys` | per-browser public keys a family's status page registered (§7) | Public keys only |
 
 Retention (the daily cron, `retention.js`): acknowledged inbox blobs purged after 30 days,
 `wl_events` older than 90 days trimmed, sent `wl_messages` bodies dropped after 90 days
@@ -124,7 +122,7 @@ document per own kennel with the waitlist in use:
   readiness, pause (and a pending pause request), pending answer-change request, open offers
   with respond-by date and the pups eligible to them (call name, sex, color, photo if she
   shares one), fee amount + payment instructions **while approved and unpaid only**, fee
-  received + date (Q11), document list, her outbound messages log, the family's **email +
+  received + date (Q11), her outbound messages log, the family's **email +
   name** (for the server's emails; Q11).
 - **`litters[litter_id]`:** label, expected/whelp month, picks open, and **every eligible
   family in order, however many** (Q13), with the pups each is eligible for. This is the list
@@ -186,14 +184,6 @@ means no fee reminder ever.
   open. If private backup is off, the setup screen says plainly that losing this phone loses
   unread applications (the Vault Plan's decision 6: strongly suggested, not a gate).
 - **Family messages:** encrypted to the same key by the status page, into `wl_inbox`.
-- **Documents (Spec §15.2, D2 — a change):** the spec put a PDF key in the link after `#`.
-  That breaks as soon as the link goes out in an email the **server** sends, because the
-  server would see the key. Instead: each browser that opens a status page makes its own
-  key pair, keeps the private half in that browser, and registers the public half
-  (`wl_browser_keys`). Her device encrypts each PDF once with a random key and wraps that
-  key to every registered browser of that family on its next sync. A new browser shows
-  "Documents appear after [kennel] next opens the app". The server only ever holds
-  ciphertext and public keys.
 
 ## 8. Email
 
@@ -243,7 +233,7 @@ means no fee reminder ever.
 - **Today:** new applications from the inbox, family messages, pause requests, answer-change
   requests, server moves needing a look, and "the online list is paused" when publishing
   can't run.
-- **Release flag:** `WAITLIST_ONLINE_RELEASED` in `cloudConfig.js`, false until step 9, like
+- **Release flag:** `WAITLIST_ONLINE_RELEASED` in `cloudConfig.js`, false until step 8, like
   `VAULT_RELEASED`; staging can turn it on with the test switch.
 
 ## 10. Decisions (all taken as recommended, 2026-10-08)
@@ -251,9 +241,9 @@ means no fee reminder ever.
 1. **D1, hosting:** the family pages on the same Worker at `apply.kennelos.app`
    (recommended: one deploy, same-origin JSON, no new CORS) or a separate static site on
    GitHub Pages calling the API cross-origin.
-2. **D2, documents:** per-browser keys (recommended, §7) instead of the `#` link key in Spec
-   §15.2, which the server would see in its own emails. Cost: a new browser waits for her
-   next sync to see documents.
+2. **D2, documents: dropped from W2** (her decision, 2026-10-08). She sends invoices and
+   receipts herself; the status page has no documents list, so neither the `#` link key of
+   Spec §15.2 nor per-browser keys are built.
 3. **D3, the form key:** a private `waitlist_form_keys` table riding the vault (recommended)
    or the device-only `device_secrets` table (then a new phone can't read the inbox).
 4. **D4, server-sent emails use her templates with plain placeholder substitution**
@@ -262,7 +252,7 @@ means no fee reminder ever.
    (recommended), so a retried fetch can't create the same family twice.
 6. **D6, the outbound message log** is a new private table on her device (recommended)
    rather than kept only on the server.
-7. **D7, release** behind `WAITLIST_ONLINE_RELEASED` (recommended), so steps 1–8 merge with
+7. **D7, release** behind `WAITLIST_ONLINE_RELEASED` (recommended), so steps 1–7 merge with
    nothing visible.
 8. **D8, the no-reply auto-answer:** build it last (recommended), or drop it and let replies
    bounce.
@@ -293,8 +283,7 @@ means no fee reminder ever.
    every kind in §8, the messages log on the entry, "almost your turn" sent for her.
 7. **Deadlines and automatic offers.** Cutoff instants, reminders, the `auto_offer_on` moves
    (§6), version checks and Today suggestions on her device.
-8. **Documents.** Per-browser keys, PDF upload and wrapping, the status page's documents list.
-9. **Release.** Facebook button, privacy policy (`site/privacy.html`: what the server reads,
+8. **Release.** Facebook button, privacy policy (`site/privacy.html`: what the server reads,
    Q11; applicants' data; the public list), `README.md`, Spec §12 status,
    `LAUNCH_CHECKLIST.md` section, real-phone checks, then `WAITLIST_ONLINE_RELEASED = true`
    and the `CACHE_NAME` bump (asked first). D8's auto-answer here or after.
@@ -305,7 +294,7 @@ test`, the precache check, and the flow in headless Chromium at phone width.
 ## 12. Operator setup (dashboard, not code)
 
 - **Workers Paid plan** before families use it (`LAUNCH_CHECKLIST.md` §3a): hourly cron,
-  public form traffic, document uploads.
+  public form traffic.
 - **`apply.kennelos.app`** as a custom domain on the production Worker.
 - **Resend:** verify `mail.kennelos.app` (DKIM + SPF in Cloudflare DNS).
 - **Turnstile:** a site for `apply.kennelos.app` (and staging); its secret as the Worker

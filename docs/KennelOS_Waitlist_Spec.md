@@ -527,7 +527,7 @@ readable form** (Proposal §6). Applicants are other people. The split:
 | Applicant **name + email** | **Readable** | Automatic messages have to go out while her phone is off. The applicant gave these **directly to this service**, under its privacy policy, which differs from buyers she typed in herself. |
 | Position, status, offers, deadlines, litter cards | Readable (no personal details) | The status page and reminders |
 | **Public list** projection: first name, last initial, sex preference, date added, position, for `active` entries that aren't paused (§15.3) | **Readable and public** | It's published on purpose. Applicants are told on the form before they apply. |
-| Invoice and receipt PDFs for a family (§15.2) | **Encrypted** with a key carried in the status-page link after `#`, which the server never receives | Only the family and her device can open them, so §8.1's "no payment details readable on the server" still holds |
+| Invoice and receipt PDFs for a family (§15.2) | **Not on the server** (dropped from W2, 2026-10-08) | She sends them herself |
 | Fee amount + her payment instructions, **for `approved` entries only** | **Readable, in that family's status-page projection only** | The status page shows what to pay and how (§5.3). Her device removes them from the projection once the fee is received, declined or expired. They never appear in an email. |
 | **Fee received** (that it was received, and the date) | **Readable**, in that family's projection | The status page shows "Fee received" and their place in line (Q11, decided 2026-10-08) |
 | Fee payment records (method, reference) | **Not on the server** | Stays private tier |
@@ -817,7 +817,7 @@ API. It has three jobs.
 |---|---|---|
 | **W1. The list, locally** (split into W1a–W1d, §14) | Tables, repos, rules engine + tests, Waitlist page (list, applications queue, entry page), programs, manual application entry + CSV import, approve / fee received / offers / passes / auto-removal with undo, Sale creation on accept, `waitlist_status` kept in step, Demo seed | No. Useful immediately; she runs it from her phone and messages families herself. |
 | **W1e. Her requests** (recorded and built 2026-10-06, §15; before W2) | Application form builder (her own questions, some locked) + import of questions from a CSV of her old form's responses; offering a litter or pup from the family's entry and a "who's next" view per litter; application-fee receipts and Sale invoices/receipts as downloadable PDFs; the public-list notice on manual entry; "Copy public list" as the public list's stand-in | No |
-| **W2. Online** | Public form + encrypted inbox (with Rotate form key), status page with buttons, an encrypted message box and the optional "Message us on Facebook" button, no-reply fee/offer/decline/reminder emails from templates, family responses, server-side deadlines (§8.4), Pro entitlement + rate limits (§8.5). **Added 2026-10-06 (§15):** the public list page and its status-page tab, PDFs on the status page (link-key encrypted), emails sent in the kennel's name | Yes: after Phase 1's Worker and auth, **the private vault** (Proposal Phase 2b, scheduled directly after Phase 1 since 2026-10-07; §8.2), and **the server-side Pro license link** (Proposal Phase 5, brought forward for the waitlist routes only; §8.5). **All three live as of 2026-10-08.** |
+| **W2. Online** | Public form + encrypted inbox (with Rotate form key), status page with buttons, an encrypted message box and the optional "Message us on Facebook" button, no-reply fee/offer/decline/reminder emails from templates, family responses, server-side deadlines (§8.4), Pro entitlement + rate limits (§8.5). **Added 2026-10-06 (§15):** the public list page and its status-page tab, ~~PDFs on the status page (link-key encrypted)~~ (dropped 2026-10-08: she sends PDFs herself), emails sent in the kennel's name | Yes: after Phase 1's Worker and auth, **the private vault** (Proposal Phase 2b, scheduled directly after Phase 1 since 2026-10-07; §8.2), and **the server-side Pro license link** (Proposal Phase 5, brought forward for the waitlist routes only; §8.5). **All three live as of 2026-10-08.** |
 | **W3. Assistant** | FAQ chat, check-ins, written messages | Yes |
 | **Later** | Pay links with automatic fee received, helpers working the list on their own devices (needs Proposal Phases 2–3), SMS and Messenger notifications (sent from her Page; needs Meta app review, and Meta's 24-hour messaging window limits check-ins and reminders) | Yes |
 
@@ -1022,11 +1022,12 @@ She wants to run placements from the waitlist, not hop between Litters and Sales
   (Q21). **Decided 2026-10-06: vendor jsPDF** (about 350 KB) into `shared/vendor/`, loaded
   by relative path, Pro-only (`proPages.js`, so Lite doesn't download it) and in
   `PRECACHE_URLS`.
-- **On the family's page (W2):** each PDF is encrypted on her device with a key carried in
+- ~~**On the family's page (W2):** each PDF is encrypted on her device with a key carried in
   the status-page link after `#`, which browsers never send to the server. The server
   stores only scrambled files, so §8.1 still holds. The status page lists the files and
-  the family's browser opens them.
-- **Before W2:** she downloads the PDF and sends it herself. The Companion family page
+  the family's browser opens them.~~ **Dropped 2026-10-08 (her decision):** it needed
+  encryption the server couldn't read, for little gain.
+- **She downloads the PDF and sends it herself**, in W2 too. The Companion family page
   could also carry it.
 
 ### 15.3 The public list
