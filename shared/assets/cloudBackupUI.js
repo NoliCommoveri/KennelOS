@@ -663,7 +663,6 @@ function renderPane(el, mode, rerender) {
       <p class="muted">Backs up your kennel records automatically after you make changes, free. If this device is lost or replaced, sign in on the new one with your email and everything comes back.</p>
       ${signedIn ? lastBackup : ''}
       ${pausedWarn}
-      ${ready ? '' : '<div class="inline-warn" style="margin-bottom:10px;">Cloud backup is off on this device. Turn it on at the bottom of this card.</div>'}
       <button class="btn btn-primary" data-act="now"${ready ? '' : ' disabled'}>⬆ Back up now</button>
       ${signedIn ? sensitiveField(status) : ''}`;
   }
