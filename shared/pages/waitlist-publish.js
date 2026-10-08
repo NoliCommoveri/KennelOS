@@ -60,10 +60,12 @@ async function renderText(kennel) {
   });
   const text = publicListText(rows, { kennelName: kennel.kennel_name, today, fmtDate });
   els.text.innerHTML = `
-    <h2 style="margin-top:0;">Copy the list as text</h2>
+    <div class="row-between" style="gap:8px;flex-wrap:wrap;">
+      <h2 style="margin:0;">Copy the list as text</h2>
+      <span class="pill-row"><span class="field-hint" id="pub-copied"></span><button class="btn btn-primary btn-sm" id="pub-copy">Copy</button></span>
+    </div>
     <p class="field-hint">Paste this on Facebook or your website. It shows first names with a last initial, sex preference and the date each family was added. Contact details and programs are left out, and so are paused families and families between turns (holding a turn, or after passing until that litter closes). It's a snapshot: copy it again after the list changes.</p>
-    <textarea id="pub-text-body" readonly style="width:100%;min-height:220px;font-family:inherit;">${esc(text)}</textarea>
-    <div class="form-actions"><button class="btn btn-primary btn-sm" id="pub-copy">Copy</button><span class="field-hint" id="pub-copied"></span></div>`;
+    <textarea id="pub-text-body" readonly style="width:100%;min-height:220px;font-family:inherit;">${esc(text)}</textarea>`;
   els.text.querySelector('#pub-copy').addEventListener('click', async () => {
     const ta = els.text.querySelector('#pub-text-body');
     const note = els.text.querySelector('#pub-copied');

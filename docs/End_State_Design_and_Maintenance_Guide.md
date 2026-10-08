@@ -3196,8 +3196,10 @@ shown (`describeOfferChanges`).
   card. Nothing is sent where it isn't offered (`isWaitlistOnlineOffered()`).
 - **The card:** Waitlist → Manage → **Publish list** → **Online list**
   (`assets/waitlistOnlineUI.js`; on the Kennel page until 2026-10-08): put this
-  kennel's list online, its time zone, the status line, **Publish now** and **Copy public
-  list link**.
+  kennel's list online, its time zone, the status line, **Publish now**, **Copy public
+  list link** and **Copy application form link**. The buttons always show; one that can't
+  work yet is greyed out with a line saying why (not online yet / not published yet / the
+  form isn't open).
 - **Status links:** every entry of an online kennel gets `status_token` (64 hex, minted by
   `cloudWaitlist.ensureStatusTokens` before a publish; cloud tier). The family's page has
   **Copy status link** and **New link** (`replaceStatusToken`: the old link stops working at
