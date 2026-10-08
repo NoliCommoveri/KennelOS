@@ -529,8 +529,8 @@ address.
 - **The vault is a prerequisite.** W2 doesn't ship until the private vault (Proposal §6.3,
   Phase 2b) does (§12). Without it the private key would live only on her phone, and losing
   or resetting the phone would make every application encrypted to it unreadable for good.
-  **Prerequisite built 2026-10-07** (`KennelOS_Private_Vault_Plan.md`; released behind
-  `VAULT_RELEASED`). What the vault carries is the full `exportAll` rows, encrypted (its §4.1),
+  **Prerequisite built 2026-10-07, released 2026-10-08**
+  (`KennelOS_Private_Vault_Plan.md`). What the vault carries is the full `exportAll` rows, encrypted (its §4.1),
   so a form key kept in a data table (classified `private` in `syncRegistry.js`) rides it with
   no vault change; one kept in the device-only `device_secrets` table would not. Where the key
   lives is W2's decision.

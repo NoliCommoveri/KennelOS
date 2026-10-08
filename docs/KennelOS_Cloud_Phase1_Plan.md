@@ -476,7 +476,7 @@ private. Built 2026-10-07.
 
 **Decision 3: the private vault is scheduled right after Phase 1, with a second-device
 unlock.** **Built 2026-10-07** (`KennelOS_Private_Vault_Plan.md` §9 steps 1–7: recovery code,
-second-device unlock and passkeys; released behind `VAULT_RELEASED`, `LAUNCH_CHECKLIST.md` §3b). It previously sat after Phases 2–4 (Proposal §9). It moves to directly after
+second-device unlock and passkeys; released 2026-10-08). It previously sat after Phases 2–4 (Proposal §9). It moves to directly after
 Phase 1, because the waitlist depends on it: W2 needs it, and until it exists the only copy
 of contact details, family fees and full applications is the device plus file backups. Its
 design gains a **third unlock path**: any of the owner's devices that's already unlocked can
