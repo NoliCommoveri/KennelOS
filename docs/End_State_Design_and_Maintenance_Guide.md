@@ -37,7 +37,7 @@
 > - **Activations are a countable, releasable resource.** Lemon Squeezy counts
 >   *activations* ("instances") against the variant's activation limit — it knows nothing
 >   about the machine, and neither do we. Three rules make that counter survivable:
->   `deactivate()` hands a slot back (`releaseThisDevice()` from Import/Export → *This
+>   `deactivate()` hands a slot back (`releaseThisDevice()` from Settings → *This
 >   device's license*, which clears the local record **only** if the release succeeded;
 >   `resetLicense()` on the renewal wall, which is best-effort so a walled owner is never
 >   trapped); each activation is named `"<owner's label> · <8 chars of kennelOS.deviceId>"`
@@ -262,7 +262,8 @@ KennelOS/
                                page + kennelSetupUI's prefill section)
     importView.js              Shared CSV import dry-run/commit UI
     onboardingUI.js            First-run Welcome → tour-offer → backups/install cards (§11)
-    cloudBackupUI.js           Every cloud-backup screen: sign-in, the Import/Export card,
+    cloudBackupUI.js           Every cloud-backup screen: sign-in, Import/Export's Cloud
+                               destination pane, the Settings Account card,
                                the Today nudge, the 409/shrink dialogs, restore as of…,
                                first-run restore, the post-setup offer, notices, and
                                "Your devices" (erase / free a Pro license) (§11), and the
@@ -1345,7 +1346,8 @@ Lite and before the first own kennel exists — the CSS layout rules are keyed o
 Hubs & landing: `today`, `dogs`, `breeding`, `contacts`, `sales`, `financials` (the
 Financials hub — Overview / Income / Expenses toggle, §21), `reports`, `companion` (the
 Companion Messaging console, §20), `furever` (the Furever seed-link console, §27),
-`import-export`, `assistant` (the KennelAssistant owner console, §26 — distinct from the
+`import-export`, `settings` (Account, Your kennel, Guided tour, This device's license; split
+out of `import-export` 2026-10-08), `assistant` (the KennelAssistant owner console, §26 — distinct from the
 root-level `assistant.html` the helper opens), plus root `index.html`.
 Dogs: `dog` (detail — includes the Pro-only **Show Record** card, gated on
 `editionFlags.shows` and rendered only once the dog has a non-archived `show` event:
@@ -3220,6 +3222,24 @@ shown (`describeOfferChanges`).
   family in line (not when she moved them herself: `position_anchor_date` still wins), and it
   moves the end of a readiness hold and the day the fee counts as income. It can be changed
   but not blanked there; `fee_received_at` (the same-day tie-break) is left as recorded.
+- **Import/Export split, and a Settings page (2026-10-08):** `import-export.html` keeps
+  **Backup & restore**, **CSV import** and the **Danger zone**. `settings.html` /
+  `pages/settings.js` (More menu, after Import/Export; in the precache; excluded from Demo
+  with `import-export.html`) holds **Account** (`cloudBackupUI.mountCloudAccountCard`: the
+  cloud sign-in, Pro on this account, Your devices, sign out, delete cloud data), **Your
+  kennel**, **Guided tour** and **This device's license**.
+  The Backup & restore card's destinations are **Cloud | This device | Dropbox** on both the
+  Back up and Restore sides (Cloud first and the default when the edition has a cloud server;
+  Dropbox Pro only; with neither, the row goes). The Cloud pane (`#br-cloud`,
+  `cloudBackupUI.mountCloudPane`) follows the other destinations' shape: a blurb, **Last
+  backup**, **Back up now** or, on the Restore side, the cloud backups as a dropdown on the
+  page (choosing one loads it and asks before rolling back), and a strip at the foot (Cloud
+  backup on/off, with Turn on / Turn off / Sign in again / Sign in and restore). Each
+  destination's strip shows only with that destination. The encrypted tier is called
+  **Sensitive records** in every screen (formerly "private backup" / "private info"; code
+  names keep `vault`/`private`): one dropdown reading Off, Locked or On, whose other entries
+  (Turn on…, Unlock…, Unlock another device…, Passkeys…, New recovery code…, Turn off…) open
+  their dialog as soon as they're chosen. Links into the card use `#backup-restore`.
 - **Contacts page layout (2026-10-08):** **+ Add Contact** comes before **Manage kennels**,
   and the bucket row (Clients / Network / Care team / Other / All, `#contacts-group-tabs`) is
   moved by `contacts.js` to sit under the list's search bar and filters, apart from the

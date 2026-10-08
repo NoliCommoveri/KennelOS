@@ -149,7 +149,7 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     `boot()` before the app renders.
   - **Activation slots are releasable.** Lemon Squeezy counts *activations* against the
     variant's activation limit — a plain counter, not device detection; nothing anywhere reads
-    the machine. `deactivate()` hands a slot back, surfaced two ways: **Import/Export → "This
+    the machine. `deactivate()` hands a slot back, surfaced two ways: **Settings → "This
     device's license"** (`releaseThisDevice()`, the deliberate "I'm done with this device"
     action — clears the local record **only** if the release succeeded, so a failed call never
     costs the owner both the device and the slot), and the renewal wall's *use a different key*
@@ -688,9 +688,12 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   - **Sign-in:** email, then the 6-digit code ("We use your email to send your code. We
     don't keep it."), with resend, a spam hint, and a name for this device. Then the "What
     gets backed up" screen before the first backup, which shows progress.
-  - **Import/Export card:** status line, Back up now, Restore as of…, turn off, sign out,
-    sign out other devices, delete my cloud data, and a one-time "private details aren't in
-    cloud backup" hint after a restore.
+  - **Import/Export card (reworked 2026-10-08):** Cloud is the first destination on the
+    Backup & restore card, on both the Back up and Restore sides: Last backup, Back up now,
+    the backups to roll back to as a dropdown on the page, the **Sensitive records** dropdown
+    (the encrypted tier, formerly "private backup"), and an on/off strip at the foot. Sign
+    out, sign out other devices, Your devices and delete my cloud data are on **Settings →
+    Account**. A one-time "sensitive records aren't in cloud backup" hint shows after a restore.
   - **Dialogs:**
     - 409: "Backups for Oak Hill Kennels are coming from Laptop B (last backup just now)",
       with Restore that backup here / Replace it (typed REPLACE) / Not now;
@@ -736,7 +739,7 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   after the file download; no errors beyond the stubbed 409s.
   Service-worker cache rolled to `kennelos-shell-v40` for this and the test switch.
 - **A lost device: remote erase + free its Pro license — built & browser-verified** (Cloud
-  plan §2.5). Import/Export → Cloud backup → Account → **Your devices…** lists the account's
+  plan §2.5). Settings → Account → **Your devices…** lists the account's
   devices. **Erase…** (typed ERASE; needs a sign-in from the last 15 minutes or an emailed
   code) wipes that device the next time it opens KennelOS online: every table, the
   KennelAssistant database and every `kennelOS.*` key. **Free its Pro license** releases its
