@@ -181,7 +181,7 @@ test('the inbox gives unacknowledged items oldest first; the backing device ackn
   const inbox = await (await call(env, 'GET', '/waitlist/inbox', { token: s.token })).json();
   assert.deepEqual(inbox.items.map((i) => i.id), ['i1', 'i2']);
   assert.equal(inbox.more, false);
-  assert.deepEqual(Object.keys(inbox.items[0]).sort(), ['blob', 'createdAt', 'email', 'entryId', 'id', 'keyId', 'kind', 'name', 'publicId']);
+  assert.deepEqual(Object.keys(inbox.items[0]).sort(), ['acked', 'blob', 'createdAt', 'email', 'entryId', 'id', 'keyId', 'kind', 'name', 'publicId']);
 
   const ack = await (await call(env, 'POST', '/waitlist/inbox/ack', { token: s.token, body: { ids: ['i1', 'x1', 'nope'] } })).json();
   assert.equal(ack.acked, 1, "another account's item is never touched");
@@ -229,13 +229,69 @@ test('the waitlist routes are rate-limited per program', async () => {
   assert.equal(res.status, 429);
 });
 
-test('retention purges acknowledged inbox items, old events and old email bodies', async () => {
+function snapshot(env, s, created, { vault = true } = {}) {
+  env.DB.raw.prepare(
+    `INSERT INTO snapshots (id, program_id, device_id, created_at, size, counts_json, r2_key, status, vault_size, vault_key_id, vault_landed)
+     VALUES (?, ?, 'phone', ?, 1, '{}', ?, 'committed', ?, ?, ?)`,
+  ).run(`snap-${created}-${vault}`, s.programId, created, `snapshots/${s.programId}/${created}.json.gz`,
+    vault ? 1 : null, vault ? 'vk1' : null, vault ? 1 : 0);
+}
+
+test("an application stays on the server until it's safe in a private backup made after her device took it in", async () => {
   const env = await makeEnv();
   const s = await breeder(env);
   const now = Date.now();
-  inboxItem(env, s, 'old-acked', { acked: iso(now - 31 * DAY) });
-  inboxItem(env, s, 'new-acked', { acked: iso(now - 2 * DAY) });
-  inboxItem(env, s, 'old-unread', { created: iso(now - 200 * DAY) });
+  inboxItem(env, s, 'unread', { created: iso(now - 400 * DAY) });
+  inboxItem(env, s, 'acked-recently', { acked: iso(now - 2 * DAY) });
+  inboxItem(env, s, 'acked-long-ago', { acked: iso(now - 60 * DAY) });
+
+  await runRetention(env, new Date(now));
+  assert.equal(count(env, 'wl_inbox'), 3, 'no backup since: everything stays');
+
+  snapshot(env, s, iso(now - 50 * DAY), { vault: false });
+  await runRetention(env, new Date(now));
+  assert.equal(count(env, 'wl_inbox'), 3, 'a backup without the private part holds only name and email: still kept');
+
+  snapshot(env, s, iso(now - 70 * DAY));
+  await runRetention(env, new Date(now));
+  assert.equal(count(env, 'wl_inbox'), 3, 'a private backup from BEFORE the ack never had it');
+
+  snapshot(env, s, iso(now - DAY));
+  await runRetention(env, new Date(now));
+  assert.deepEqual(env.DB.raw.prepare('SELECT id FROM wl_inbox ORDER BY id').all().map((r) => r.id), ['acked-recently', 'unread'],
+    'only an item acknowledged 30+ days ago and private-backed-up since goes; an unread one never does');
+});
+
+test('a reset or new phone can fetch again what was acknowledged but is still on the server', async () => {
+  const env = await makeEnv();
+  const s = await breeder(env);
+  const now = Date.now();
+  for (let i = 0; i < WAITLIST_LIMITS.inboxPage + 5; i++) {
+    inboxItem(env, s, `i${String(i).padStart(3, '0')}`, { created: iso(now - 1000 * (200 - i)), acked: i % 2 ? iso(now) : null });
+  }
+  const unread = await (await call(env, 'GET', '/waitlist/inbox', { token: s.token })).json();
+  assert.equal(unread.items.length, 53);
+  assert.equal(unread.more, false);
+  assert.ok(unread.items.every((i) => !i.acked));
+
+  const first = await (await call(env, 'GET', '/waitlist/inbox?all=1', { token: s.token })).json();
+  assert.equal(first.items.length, WAITLIST_LIMITS.inboxPage);
+  assert.equal(first.more, true);
+  const second = await (await call(env, 'GET', `/waitlist/inbox?all=1&after=${encodeURIComponent(first.next)}`, { token: s.token })).json();
+  assert.equal(second.items.length, 5);
+  assert.equal(second.more, false);
+  assert.equal(second.next, null);
+  const ids = [...first.items, ...second.items].map((i) => i.id);
+  assert.equal(new Set(ids).size, WAITLIST_LIMITS.inboxPage + 5, 'every item once, in order');
+  assert.deepEqual(ids, [...ids].sort());
+  assert.equal(first.items[1].acked, true);
+  assert.equal((await call(env, 'GET', '/waitlist/inbox?after=nonsense', { token: s.token })).status, 400);
+});
+
+test('retention trims old events and old email bodies', async () => {
+  const env = await makeEnv();
+  const s = await breeder(env);
+  const now = Date.now();
   event(env, s, 'pass', { created: iso(now - 91 * DAY) });
   event(env, s, 'pass', { created: iso(now - 5 * DAY) });
   for (const [id, sentAt] of [['m-old', iso(now - 91 * DAY)], ['m-new', iso(now - DAY)]]) {
@@ -245,8 +301,6 @@ test('retention purges acknowledged inbox items, old events and old email bodies
     ).run(id, s.programId, KENNEL, sentAt, sentAt, sentAt);
   }
   await runRetention(env, new Date(now));
-  assert.deepEqual(env.DB.raw.prepare('SELECT id FROM wl_inbox ORDER BY id').all().map((r) => r.id), ['new-acked', 'old-unread'],
-    'an unread application is never purged');
   assert.equal(count(env, 'wl_events'), 1);
   const msgs = env.DB.raw.prepare('SELECT id, subject, body FROM wl_messages ORDER BY id').all().map((r) => ({ ...r }));
   assert.deepEqual(msgs, [{ id: 'm-new', subject: 'Your turn', body: 'Hello' }, { id: 'm-old', subject: 'Your turn', body: null }]);

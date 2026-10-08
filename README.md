@@ -414,7 +414,9 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   decision as recommended; invoice/receipt PDFs dropped, she sends them herself). **W2 step 1,
   the server foundation, is built:** cloud migration `0007` (every W2 table) and
   `cloud/src/waitlist.js` (publish / read / take offline a kennel's projection, status-page
-  tokens, the encrypted inbox, the events stream; Pro and backing device only), with
+  tokens, the encrypted inbox, the events stream; Pro and backing device only; an
+  application's server copy stays until a private backup made after her phone took it in
+  exists, and a reset phone can fetch it again), with
   `cloud/tests/waitlist.test.js`. Apply `0007` on staging and production after the merge
   (`LAUNCH_CHECKLIST.md` §3d).
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.

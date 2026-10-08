@@ -100,7 +100,13 @@ too widely; the old link stops working at the next publish.
 | `wl_holds` | a pup held by a family's **Accept a pup** until her device creates the Sale | Yes |
 | `wl_messages` | queued and sent emails: to, kind, subject, body, `send_after`, sent / failed | Yes (Q11: outbound text is readable) |
 
-Retention (the daily cron, `retention.js`): acknowledged inbox blobs purged after 30 days,
+Retention (the daily cron, `retention.js`): an inbox item is only the server's delivery
+copy; the application itself lives on her device for as long as the family is on the list.
+The copy is purged once her device has it **and** it's safe in a private backup: acknowledged
+30+ days ago and a committed snapshot with a vault part made after the acknowledgement
+(her request, 2026-10-08). Without private backup it stays; an unread item never goes. A
+reset or replacement phone can fetch acknowledged items again (`GET /waitlist/inbox?all=1`).
+Then:
 `wl_events` older than 90 days trimmed, sent `wl_messages` bodies dropped after 90 days
 (subject and date kept for her log), tokens of entries no longer in any projection expired.
 Account deletion removes all of it. `/ops` gains counts (never contents) and export.
@@ -278,6 +284,9 @@ means no fee reminder ever.
      share one, and a token another program holds is refused (`409 token_taken`), never
      repointed. A `public_id` belongs to the first program to publish it (`409 kennel_taken`).
    - **Size:** a projection is capped at 1.5 MB (D1's row limit is 2 MB).
+   - **The inbox is a mailbox, not storage (2026-10-08):** an acknowledged item stays until a
+     private backup made after the ack exists (and at least 30 days); `?all=1` re-fetches
+     acknowledged items still held, paged with `after`/`next`, each item carrying `acked`.
    - **Taking a list offline** removes its projection, tokens and holds; the inbox and events
      stay until her device reads them.
    - **Deferred:** `POST /waitlist/messages` moves to step 6 (nothing sends yet) and the hourly

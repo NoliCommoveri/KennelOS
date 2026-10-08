@@ -89,7 +89,7 @@ export async function handleApi(request, env, url, cors) {
   }
   if (projection && m === 'GET') return json(await readProjection(env, auth, projection[1]), 200, cors);
   if (projection && m === 'DELETE') return json(await unpublishProjection(env, auth, projection[1]), 200, cors);
-  if (p === '/waitlist/inbox' && m === 'GET') return json(await readInbox(env, auth), 200, cors);
+  if (p === '/waitlist/inbox' && m === 'GET') return json(await readInbox(env, auth, url), 200, cors);
   if (p === '/waitlist/inbox/ack' && m === 'POST') return json(await ackInbox(env, auth, await readJson(request)), 200, cors);
   if (p === '/waitlist/events' && m === 'GET') return json(await readEvents(env, auth, url), 200, cors);
 

@@ -133,17 +133,36 @@ export async function unpublishProjection(env, auth, publicId) {
 }
 
 // GET /waitlist/inbox: unacknowledged applications and messages, oldest first.
-export async function readInbox(env, auth) {
+// `?all=1` also returns ones already acknowledged that the server still keeps
+// (retention keeps them until a private backup made after the ack exists), so a
+// reset or replacement phone can fetch again what its predecessor took in but
+// never backed up. Her device creates an entry with the item's id as the entry
+// id (plan D5), so fetching an item twice never makes two families. Paged with
+// `after` = the previous page's `next`.
+export async function readInbox(env, auth, url) {
   await herSide(env, auth);
+  const all = url?.searchParams.get('all') === '1';
+  const after = url?.searchParams.get('after') ?? '';
+  let afterAt = '';
+  let afterId = '';
+  if (after) {
+    const m = /^([0-9T:.Z-]{20,30})\|([^|]{1,64})$/.exec(after);
+    if (!m) fail(400, 'bad_after');
+    [, afterAt, afterId] = m;
+  }
   const { results } = await env.DB.prepare(
-    `SELECT id, public_id, kind, entry_id, name, email, key_id, blob, created_at FROM wl_inbox
-      WHERE program_id = ? AND acked_at IS NULL ORDER BY created_at, id LIMIT ${WAITLIST_LIMITS.inboxPage + 1}`,
-  ).bind(auth.programId).all();
-  const items = results.slice(0, WAITLIST_LIMITS.inboxPage).map((r) => ({
+    `SELECT id, public_id, kind, entry_id, name, email, key_id, blob, created_at, acked_at FROM wl_inbox
+      WHERE program_id = ? AND (? = 1 OR acked_at IS NULL) AND (created_at > ? OR (created_at = ? AND id > ?))
+      ORDER BY created_at, id LIMIT ${WAITLIST_LIMITS.inboxPage + 1}`,
+  ).bind(auth.programId, all ? 1 : 0, afterAt, afterAt, afterId).all();
+  const page = results.slice(0, WAITLIST_LIMITS.inboxPage);
+  const items = page.map((r) => ({
     id: r.id, publicId: r.public_id, kind: r.kind, entryId: r.entry_id, name: r.name, email: r.email,
-    keyId: r.key_id, blob: r.blob, createdAt: r.created_at,
+    keyId: r.key_id, blob: r.blob, createdAt: r.created_at, acked: r.acked_at !== null,
   }));
-  return { items, more: results.length > WAITLIST_LIMITS.inboxPage };
+  const more = results.length > WAITLIST_LIMITS.inboxPage;
+  const last = page[page.length - 1];
+  return { items, more, next: more ? `${last.created_at}|${last.id}` : null };
 }
 
 // POST /waitlist/inbox/ack {ids}: the backing device has turned these into

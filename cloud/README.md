@@ -68,6 +68,9 @@ tests/                 node --test against a node:sqlite stand-in for D1
   so one application never becomes two families. A projection is stored without its
   `status_token`s: they move to `wl_tokens`, and one missing from a later publish is revoked.
   A kennel's `public_id` belongs to the first program that publishes it (`409 kennel_taken`).
+- **An inbox item outlives its ack.** Retention removes an application or family message only
+  when it was acknowledged 30+ days ago AND a committed snapshot with a vault part was made
+  after the ack; an unacknowledged one never. `GET /waitlist/inbox?all=1` re-fetches them.
 - **Upload a document before the snapshot that references it.** Retention gives a file a
   day's grace and then collects anything no snapshot references.
 - **No `IN (?, ?, …)` over a list.** D1 allows about 100 bound parameters and the test

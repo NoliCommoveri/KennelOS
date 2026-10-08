@@ -13,8 +13,13 @@
 // confirmed erasures and vault pairings. A snapshot's encrypted vault part
 // (Private Vault Plan §6.2) goes with it. A Pro purchase whose access ended
 // more than 90 days ago is deleted (License Link Plan §4). The waitlist online
-// (Waitlist W2 Plan §4): acknowledged inbox items go after 30 days, events after
-// 90, and a sent email's body after 90 (its subject and date stay for her log).
+// (Waitlist W2 Plan §4): an inbox item (an application or family message) is the
+// server's delivery copy, kept until her device has it AND it's safe in a private
+// backup: acknowledged at least 30 days ago and a committed snapshot WITH a vault
+// part made after the acknowledgement. Without private backup it stays (her
+// device's copy is then the only other one), and an unacknowledged item is never
+// purged. Events go after 90 days, and a sent email's body after 90 (its subject
+// and date stay for her log).
 //
 // D1 rows go first, then R2 objects. If the R2 delete fails, the leftovers are
 // unreferenced objects (harmless), never rows pointing at nothing.
@@ -119,7 +124,12 @@ export async function runRetention(env, now = new Date()) {
     env.DB.prepare('DELETE FROM vault_pairings WHERE expires_at < ?').bind(iso(nowMs)),
     env.DB.prepare('DELETE FROM license_link_codes WHERE expires_at < ?').bind(iso(nowMs)),
     env.DB.prepare('DELETE FROM pro_purchases WHERE access_until < ?').bind(iso(nowMs - PURCHASE_KEEP_DAYS * DAY)),
-    env.DB.prepare('DELETE FROM wl_inbox WHERE acked_at < ?').bind(iso(nowMs - WL_INBOX_KEEP_DAYS * DAY)),
+    env.DB.prepare(
+      `DELETE FROM wl_inbox WHERE acked_at < ?
+         AND EXISTS (SELECT 1 FROM snapshots s
+                      WHERE s.program_id = wl_inbox.program_id AND s.status = 'committed'
+                        AND s.vault_key_id IS NOT NULL AND s.created_at > wl_inbox.acked_at)`,
+    ).bind(iso(nowMs - WL_INBOX_KEEP_DAYS * DAY)),
     env.DB.prepare('DELETE FROM wl_events WHERE created_at < ?').bind(iso(nowMs - WL_EVENTS_KEEP_DAYS * DAY)),
     env.DB.prepare(`UPDATE wl_messages SET body = NULL WHERE status = 'sent' AND body IS NOT NULL AND sent_at < ?`).bind(iso(nowMs - WL_EVENTS_KEEP_DAYS * DAY)),
   ]);
