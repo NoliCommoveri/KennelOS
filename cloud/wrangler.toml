@@ -85,7 +85,11 @@ crons = ["17 3 * * *"]
 [env.production]
 name = "kennelos-api"
 workers_dev = false
-routes = [{ pattern = "api.kennelos.app", custom_domain = true }]
+# apply.kennelos.app: the waitlist's family pages (Waitlist W2 Plan §3), same Worker.
+routes = [
+  { pattern = "api.kennelos.app", custom_domain = true },
+  { pattern = "apply.kennelos.app", custom_domain = true },
+]
 
 [env.production.observability]
 enabled = true
