@@ -233,3 +233,20 @@ test('See Your Details: sending codes is rate-limited per address, honest when e
   assert.equal(count(env, 'wl_family_sessions'), 0);
   assert.equal((await call(env, 'POST', '/f/session', { body: { session } })).status, 401);
 });
+
+test('See Your Details: a family can be signed in on several devices at once (one code per sign-in)', async () => {
+  const { env } = await published();
+  const signInDevice = async (ip) => {
+    await call(env, 'POST', '/f/code', { body: { public_id: KENNEL, email: 'ann@example.com' }, ip });
+    return (await (await call(env, 'POST', '/f/verify', { body: { public_id: KENNEL, code: lastCodeSent(env) }, ip })).json()).session;
+  };
+  const herPhone = await signInDevice('192.0.2.10');
+  const hisPhone = await signInDevice('192.0.2.11');
+  await call(env, 'POST', '/f/code', { body: { public_id: KENNEL, email: 'ann@example.com' }, ip: '192.0.2.12' });
+  for (const session of [herPhone, hisPhone]) {
+    const res = await call(env, 'POST', '/f/session', { body: { session } });
+    assert.equal(res.status, 200, 'still signed in after another device signs in and after a new code is sent');
+    assert.equal((await res.json()).status_token, tok('a'));
+  }
+  assert.equal(count(env, 'wl_family_sessions'), 2);
+});

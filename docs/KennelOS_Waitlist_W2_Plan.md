@@ -332,7 +332,9 @@ means no fee reminder ever.
      names the family (unique among the kennel's live codes), lasts 15 minutes, works once,
      and a new one replaces the old. `POST /f/verify {public_id, code}` → the family's status
      link and a **family session** (64 hex, stored hashed, 90 days); guessing is cut off at 10
-     tries an hour per IP and 300 per kennel. The page keeps the session in that browser
+     tries an hour per IP and 300 per kennel. **Every device signs in on its own and stays
+     signed in** (a family session per browser; a new code never ends one), so two people in
+     a family can both follow it. The page keeps the session in that browser
      (`public/family/session.js`) and next time shows **Open my page** / **Sign out**;
      `POST /f/session` turns it into the current link (it survives New link). Status links
      still open the page directly, read-only; **step 5's buttons will need a family
