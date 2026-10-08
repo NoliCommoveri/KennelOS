@@ -269,6 +269,13 @@ means no fee reminder ever.
 
 ## 11. Build order (each a reviewable PR)
 
+> **Before step 6 (2026-10-08):** her requests in Spec §16 change the offer model (one turn
+> per family across every open litter, §16.1, which settles Q9) and add to the status page
+> (passing ahead of time, listen-only "except", pass reasons, early litters, "Review your
+> preferences", "Ready now?"). They rework W1c's offers and step 5's offer handling, and steps
+> 6–7 build on the result, so they're planned and built first, as **step 5c**. Its plan is
+> written here once Q30–Q33 are answered.
+
 1. **Server foundation.** Migration `0007` (+ its `index.js` line), `cloud/src/waitlist.js`
    (projection PUT/GET with `requirePro`, events read, inbox fetch/ack, messages queue),
    rate limits (`limitBucket`), retention, `/ops` counts + export, account deletion, the
