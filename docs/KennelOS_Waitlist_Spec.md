@@ -52,9 +52,10 @@ gathered here so they aren't re-litigated.
 - **Picks get an explicit open state:** a nullable `Litter.picks_opened_date` (§4.5).
 - **No server in W1, so no silent automatic writes.** Past-due offers and expired fee
   windows show up as one-tap **suggested actions** on Today (§6.5). She confirms them.
-- **An "available" pup** is one whose `disposition` isn't `keeping` or `placed` (unset
-  and `undecided` count as available), that isn't deceased or archived, and that has no
-  live Sale (any non-archived Sale whose status isn't `returned`/`cancelled`).
+- **An "available" pup** is one whose `disposition` isn't `keeping`, `placed` or
+  `health_hold` (unset and `undecided` count as available), that isn't deceased, gone home
+  (`pet_home` / `external_reference`) or archived, and that has no
+  live Sale (any non-archived Sale whose status isn't `returned`/`cancelled`/`voided`).
 - **Contact.waitlist_status is kept in step (Q1)** by `waitlistEntryRepo`. The
   contact page's manual dropdown becomes read-only once a contact has entries (W1b).
 - **The Sale price/deposit prefill** moves out of `pages/sale.js` into a data helper, so
@@ -284,7 +285,7 @@ defaults in `waitlistRules.waitlistConfig()`, so an old kennel with no config ju
 | `no_response_counts_as_pass` | `true` | Q3, decided yes |
 | `color_matching` | `false` | Q4. Off: colors are notes only. |
 | `checkin_months` | `6` | W3 check-ins (§10.2) |
-| `auto_offer_on` | `[]` (none) | **Which moments offer the next family by themselves** (`vocab.WAITLIST_AUTO_OFFER_TRIGGER`): `accepted` (deposit received), `passed`, `no_response` (deadline passed without a pick), `no_deposit` (they picked a pup but the deposit didn't arrive by the deadline; recorded as `no_response`, told apart by `waitlistRules.closingTrigger`, added 2026-10-08 at her request), `left` (a family holding a turn left the list). Unticked moments return who's next and she offers. Replaced the all-or-nothing `auto_offer_next` on 2026-10-08 (a kennel still storing `auto_offer_next: true` reads as all five, `waitlistRules.waitlistConfig`). **W2 (Q13):** the server advances while her device is offline only for the moments ticked here (§8.4). |
+| `auto_offer_on` | `[]` (none) | **Which moments offer the next family by themselves** (`vocab.WAITLIST_AUTO_OFFER_TRIGGER`): `accepted` (deposit received), `passed`, `no_response` (deadline passed without a pick), `no_deposit` (they picked a pup but the deposit didn't arrive by the deadline; recorded as `no_response`, told apart by `waitlistRules.closingTrigger`, added 2026-10-08 at her request), `left` (a family holding a turn left the list), `restored` (a family put back in line after a lost pup, §16.11, added 2026-10-08). Unticked moments return who's next and she offers. Replaced the all-or-nothing `auto_offer_next` on 2026-10-08 (a kennel still storing `auto_offer_next: true` reads as all of them, `waitlistRules.waitlistConfig`). **W2 (Q13):** the server advances while her device is offline only for the moments ticked here (§8.4). |
 
 **Every window is hers (Q18, decided 2026-10-08):** the offer window (`respond_days`, or a
 program's `respond_days_override`), the fee window (`fee_due_days`) and, in W3, the
@@ -1542,7 +1543,7 @@ unless sealed with a key the server never sees).
    still applies), then taps Mark sent. Nothing about the link goes through the server.
 2. **Sales only.** The button shows only for a family whose contact has an open sale (the
    Companion "Current families" rule, `isOpenSale`: from a pick held by a deposit-pending
-   sale until the sale is delivered, returned or cancelled), **placed or still on the
+   sale until the sale is delivered, returned, cancelled or voided), **placed or still on the
    list**. A placed family can sign in and use it too. Her device publishes
    `entries[id].companion = { available, request }` only for such a family; the server refuses
    the action without it (`409 no_sale`) and allows one open request at a time (`409
@@ -1554,3 +1555,53 @@ unless sealed with a key the server never sees).
 4. **What the family sees:** Requested (until she acts), then "[kennel] sent your link on
    [date]" or "didn't send a link" for 30 days, like other requests.
 
+### 16.11 A lost pup puts the family back in line (decided and built 2026-10-08)
+
+Asked: a pup sold through the waitlist dies before going home, or fails a health check in a
+way that can't be fixed, or comes back within the 3-day health guarantee. The family should
+get their place back and be offered the next pup.
+
+**Decided:**
+1. **A new sale status, Voided,** distinct from Cancelled. Cancelled is the *buyer* backing
+   out (a deposit they paid stays earned). Voided is the sale falling through on *her* side,
+   through no fault of the buyer. A voided or returned sale needs a **reason**
+   (`Sale.end_reason`): voided = *Pup died* / *Failed a health check (can't be sold)* / *Other*;
+   returned = *Health problem (within the guarantee)* / *Buyer's choice* / *Other*; plus an
+   optional note. Cancelled has no reason (unchanged).
+2. **A lost sale** is one voided, or returned for a health problem. Nothing on it counts as
+   income: what was paid is refunded or carried to another pup.
+3. **The pup is settled first,** as she saves the sale: *Pup died* offers to record the death;
+   a health reason offers the new disposition **Health hold** (not sellable, never offered;
+   she changes it if the pup recovers); a returned pup marked Pet home or External is offered
+   back as a puppy. A dead, held or gone-home pup is never offered to anyone.
+4. **Then she's asked "Put them back in line?"** — never for a cancelled sale or a
+   buyer's-choice return. Yes puts the family back in their **original place** (their own fee
+   date; passes unchanged). Their accepted offer is voided (not a pass), so that litter can
+   be offered to them again. If they'd only picked (deposit pending), their turn is given back
+   with a new respond-by date to pick another pup. "Not now" leaves a **Put back in line…**
+   button on their page.
+5. **Money already paid: she's asked each time** — carry it to their next pup (it becomes the
+   deposit on their next pick, `WaitlistEntry.carried_payment`) or refund it. A credited
+   application fee stays credited toward their next pup either way.
+6. **No new offer by itself unless she turned it on:** a new automatic-offer moment,
+   `restored`, off by default. With it on and nobody holding a turn, the next turn is offered
+   at once (to them, when they're next). A family holding a turn keeps it; the restored family
+   is next after them by their place.
+
+
+### 16.12 Where the waitlist lives in the app (decided and built 2026-10-08)
+
+Asked: the waitlist is many breeders' main workflow, but it was a button on the People page,
+its page had seven buttons in a row, and its online publishing sat on the Kennel page.
+
+**Decided:**
+1. **People has two top tabs, Contacts | Waitlist,** like Sales | Stud Services | Other
+   contracts on Placements & Contracts. The contact groups are a smaller tab row under
+   Contacts.
+2. **The Waitlist page has one primary button, + New application.** Everything else is under
+   **Manage ▾**: Almost your turn…, Application form, Programs, Publish list, Settings (the
+   Kennel page's Waitlist settings). Import CSV left the page; it's on Import/Export.
+3. **Publish list** is its own page (`waitlist-publish`): the Online list card (moved off the
+   Kennel page) and, under it, the list as text to copy (the old "Copy public list").
+4. **The Kennel page is "Kennel Overview and Settings":** no Profile card; every other card is
+   chosen from an alphabetical **Section** dropdown and only that one shows.

@@ -26,6 +26,30 @@ export function fmtDate(ymd, { weekday = false } = {}) {
   });
 }
 
+// An offer's deadline (Spec §6.5: end of day in the kennel's time zone):
+// "Deadline: Saturday, 10/10/2026 @11:59 pm CDT". The zone's short name is the
+// one in effect that day; without a zone, none is shown.
+// "10/26/2026".
+export function fmtShortDate(ymd) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(ymd ?? ''))) return '';
+  const [y, m, d] = ymd.split('-');
+  return `${m}/${d}/${y}`;
+}
+
+export function deadlineText(ymd, timeZone = null) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(ymd ?? ''))) return '';
+  const [y, m, d] = ymd.split('-').map(Number);
+  const day = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long' });
+  let zone = '';
+  if (timeZone) {
+    try {
+      zone = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'short' })
+        .formatToParts(new Date(Date.UTC(y, m - 1, d, 17))).find((p) => p.type === 'timeZoneName')?.value || '';
+    } catch { zone = ''; }
+  }
+  return `Deadline: ${day}, ${fmtShortDate(ymd)} @11:59\u00a0pm${zone ? `\u00a0${zone}` : ''}`;
+}
+
 // "Thornfield Kennels'" / "Juniper's": the kennel's name as an owner.
 export function possessive(name) {
   const n = String(name ?? '').trim();
@@ -88,22 +112,42 @@ export function publicListHtml(rows, query = '', mine = null) {
       <td class="small">${esc(fmtDate(r.added))}</td></tr>`).join('');
   const gaps = rows.some((r, i) => r.position !== i + 1);
   return `<table class="list"><thead><tr><th>#</th><th>Name</th><th>Wants</th><th>Added</th></tr></thead><tbody>${body}</tbody></table>
-    ${gaps ? '<p class="small muted">A missing number is a family who is paused for now, or between turns. They keep their place.</p>' : ''}`;
+    ${gaps ? '<p class="small muted">Note: in special circumstances, some applicant names may not be displayed above. Their place is being held, but they are not currently eligible for available pups.</p>' : ''}`;
 }
 
 // A pairing or litter before picks open (Waitlist Spec §16.4): its parents with
 // their titles, and her dates. Used by the public list and the status page.
 const parentText = (d) => [d?.name || '', ...(d?.titles || [])].filter(Boolean).join(' ');
-export function upcomingDetails(u) {
-  const when = u.kind === 'early_litter'
-    ? [u.whelp_date ? `Born ${fmtDate(u.whelp_date)}` : 'Born', u.picks_expected_date ? `picks expected to open ${fmtDate(u.picks_expected_date)}` : ''].filter(Boolean).join(' · ')
-    : u.kind === 'planned_pairing' ? 'Planned pairing'
-      : u.expected_whelp_date ? `Expected about ${fmtDate(u.expected_whelp_date)}` : 'Expected';
-  return `<div class="small">Dam: ${esc(parentText(u.dam))} · Sire: ${esc(parentText(u.sire))}</div><div class="small muted">${esc(when)}</div>`;
+
+// "Dam: Juniper · Sire: Ash CH": a litter's parents, the same on every card.
+export function parentsLine(dam, sire) {
+  if (!dam?.name && !sire?.name) return '';
+  return `<div class="small">Dam: ${esc(parentText(dam))} · Sire: ${esc(parentText(sire))}</div>`;
+}
+
+// One litter (or pairing) the same way everywhere a family sees one (decided
+// 2026-10-08): the breed, its name, its parents, its dates, then any extra lines.
+export function litterHtml({ breed = null, name = '', dam = null, sire = null, when = '', extra = '' }) {
+  return `${breed ? `<div class="small muted">${esc(breed)}</div>` : ''}<div><strong>${esc(name)}</strong></div>
+    ${parentsLine(dam, sire)}${when ? `<div class="small muted">${esc(when)}</div>` : ''}${extra}`;
+}
+
+// A Coming up item's dates: "Born 09/20/2026 · Planned offering 11/01/2026",
+// "Expected 01/10/2027", or "Planned pairing".
+export function upcomingWhen(u) {
+  if (u.kind === 'early_litter') {
+    return [u.whelp_date ? `Born ${fmtShortDate(u.whelp_date)}` : 'Born', u.picks_expected_date ? `Planned offering ${fmtShortDate(u.picks_expected_date)}` : ''].filter(Boolean).join(' · ');
+  }
+  if (u.kind === 'planned_pairing') return 'Planned pairing';
+  return u.expected_whelp_date ? `Expected ${fmtShortDate(u.expected_whelp_date)}` : 'Expected';
+}
+
+export function upcomingItemHtml(u, extra = '') {
+  return litterHtml({ breed: u.breed, name: u.label, dam: u.dam, sire: u.sire, when: upcomingWhen(u), extra });
 }
 
 export function upcomingListHtml(rows) {
   if (!rows.length) return '';
-  return `<ul class="plain">${rows.map((u) => `<li><strong>${esc(u.label)}</strong>${upcomingDetails(u)}</li>`).join('')}</ul>
+  return `<ul class="plain">${rows.map((u) => `<li>${upcomingItemHtml(u)}</li>`).join('')}</ul>
     <p class="small muted">Plans can change.</p>`;
 }

@@ -39,7 +39,7 @@ test('dates, possessives and escaping', () => {
   assert.equal(esc('<b>"x"</b>'), '&lt;b&gt;&quot;x&quot;&lt;/b&gt;');
   const html = publicListHtml([{ position: 1, name: '<img src=x>', pref_sex: 'any', added: '2026-01-01' }, { position: 3, name: 'Bo K.', pref_sex: 'male', added: '2026-01-02' }], '', 3);
   assert.equal(html.includes('<img'), false, 'names are escaped');
-  assert.match(html, /paused/, 'a skipped number is explained');
+  assert.match(html, /Their place is being held/, 'a skipped number is explained');
   assert.match(html, /class="mine"/);
 });
 

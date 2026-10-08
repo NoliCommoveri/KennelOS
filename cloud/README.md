@@ -34,7 +34,9 @@ src/familyPages.js     the waitlist's family pages: serves public/family/ for /l
                        list, one family's status view, See Your Details: a code by email, then
                        a 90-day family session for that browser, and the online application
                        form: its JSON, and a sealed application held until the applicant
-                       types the emailed code)
+                       types the emailed code). /list and /apply carry link-preview tags
+                       (Open Graph) with the kennel's name, written in at the page's
+                       <!--preview…--> marker; the card image is public/family/share.png
 src/familyActions.js   what a signed-in family does on their status page (POST /f/act, /f/message):
                        each action checked against her published list and recorded as an
                        event; a picked pup held (wl_holds) until her device's next publish says

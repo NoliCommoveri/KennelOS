@@ -94,7 +94,7 @@ test('the public list shows only her published rows', async () => {
   const { env } = await published();
   const res = await get(env, `/f/list/${KENNEL}`);
   assert.equal(res.status, 200);
-  assert.deepEqual(await res.json(), { kennel: { name: 'Thornfield Kennels' }, as_of: '2026-10-08', rows: projection().public_list, upcoming: [] });
+  assert.deepEqual(await res.json(), { kennel: { name: 'Thornfield Kennels', intro: '', apply_open: false }, as_of: '2026-10-08', rows: projection().public_list, upcoming: [] });
   assert.equal((await get(env, '/f/list/kos1_99999999-2222-4333-8444-555555555555')).status, 404);
   assert.equal((await get(env, '/f/list/thornfield')).status, 404);
 });
@@ -113,7 +113,7 @@ test("a family's status page shows their own place and offers, never anyone else
   assert.deepEqual(v.offers, [{ id: 'o1', turn_id: 'o1', litter_id: 'l1', litter: 'Juniper × Ash', offered_date: '2026-10-07', respond_by_date: '2026-10-10', picked_dog_id: null,
     pups: [{ id: 'p2', call_name: 'Poppy', sex: 'female', color: 'black' }] }]);
   assert.deepEqual(v.litters, [{ id: 'l1', label: 'Juniper × Ash', status: 'whelped', whelp_date: '2026-09-01', ready_date: '2026-10-27',
-    picks_open: true, pairing_id: null, pups_available: 2, match: true }]);
+    picks_open: true, pairing_id: null, pups_available: 2, pups_female: 1, pups_male: 1, nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] }, match: true }]);
   const text = JSON.stringify(v);
   for (const other of ['Bo Kim', 'bo@example.com', '"bo"', 'Cy Day', 'Dee Fox', 'Venmo', tok('b'), 'queue', 'open_offer_entry_id']) {
     assert.equal(text.includes(other), false, other);
@@ -169,11 +169,11 @@ test('pairings and early litters (Spec §16.4): each where she shows it; a litte
   ];
   p.entries.ann.upcoming = { l2: { waiting: true, match: true } };
   const list = listView(p);
-  assert.deepEqual(list.upcoming, [{ id: 'pr3', kind: 'planned_pairing', label: 'Juniper × Ash', sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Juniper', titles: ['CGC'] },
+  assert.deepEqual(list.upcoming, [{ id: 'pr3', kind: 'planned_pairing', label: 'Juniper × Ash', breed: null, sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Juniper', titles: ['CGC'] },
     expected_whelp_date: null, whelp_date: null, picks_expected_date: null }]);
   const v = statusView(p, 'ann');
   assert.deepEqual(v.litters.map((l) => l.id), ['l1'], 'the early litter is not in the Litters list');
-  assert.deepEqual(v.upcoming, [{ id: 'l2', kind: 'early_litter', label: 'Spring litter', sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Willow', titles: [] },
+  assert.deepEqual(v.upcoming, [{ id: 'l2', kind: 'early_litter', label: 'Spring litter', breed: null, sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Willow', titles: [] },
     expected_whelp_date: null, whelp_date: '2026-09-20', picks_expected_date: '2026-10-20', pairing_id: 'pr2', litter_id: 'l2', waiting: true, match: true }]);
   assert.equal(JSON.stringify(v).includes('secret-sire'), false);
   assert.deepEqual(statusView(p, 'dee').upcoming, [], 'not on the list yet: nothing coming up');
@@ -284,4 +284,69 @@ test('See Your Details: a family can be signed in on several devices at once (on
     assert.equal((await res.json()).status_token, tok('a'));
   }
   assert.equal(count(env, 'wl_family_sessions'), 2);
+});
+
+// Link previews: the real page files, so the marker and the <title> are the ones served.
+import { readFile } from 'node:fs/promises';
+const realAssets = {
+  async fetch(req) {
+    const path = new URL(req.url).pathname;
+    try {
+      const body = await readFile(new URL(`../public${path}`, import.meta.url));
+      return new Response(body, { headers: { 'content-type': path.endsWith('.html') ? 'text/html' : 'image/png' } });
+    } catch { return new Response('not found', { status: 404 }); }
+  },
+};
+
+test('a shared /list or /apply link previews with the kennel\'s name; anything else gets the generic card', async () => {
+  const { env } = await published({ ASSETS: realAssets });
+  const list = await (await get(env, `/list/${KENNEL}?fbclid=x`)).text();
+  assert.match(list, /<title>Thornfield Kennels Waitlist<\/title>/);
+  assert.match(list, /<meta property="og:title" content="Thornfield Kennels Waitlist">/);
+  assert.match(list, /<meta property="og:description" content="See the Thornfield Kennels puppy waitlist, and check your place in line.">/);
+  assert.match(list, new RegExp(`<meta property="og:url" content="[^"]*/list/${KENNEL}">`), 'no query string');
+  assert.match(list, /<meta property="og:image" content="https?:\/\/[^"]+\/family\/share.png">/);
+  assert.doesNotMatch(list, /<!--preview/);
+  assert.doesNotMatch(list, /Ann|Lee|example\.com/, 'nothing but the kennel name');
+  const apply = await (await get(env, `/apply/${KENNEL}`)).text();
+  assert.match(apply, /<meta property="og:title" content="Apply to the Thornfield Kennels Waitlist">/);
+  const unknown = await (await get(env, '/list/kos1_99999999-2222-4333-8444-555555555555')).text();
+  assert.match(unknown, /<meta property="og:title" content="Puppy Waitlist">/);
+  const image = await get(env, '/family/share.png');
+  assert.equal(image.status, 200);
+});
+
+test('a kennel name is escaped in the preview', async () => {
+  const { previewTags, previewText } = await import('../src/familyPages.js');
+  const tags = previewTags({ ...previewText('list', 'Bad "<script>" Kennel'), url: 'https://x/list/a', image: 'https://x/i.png' });
+  assert.doesNotMatch(tags, /<script>/);
+  assert.match(tags, /Bad &quot;&lt;script&gt;&quot; Kennel Waitlist/);
+});
+
+test('the public list links to her application form only while she takes applications online', () => {
+  const p = projection();
+  assert.equal(listView(p).kennel.apply_open, false);
+  p.kennel.form = { open: true, key_id: 'k1', public_key: 'pk', questions: [] };
+  assert.equal(listView(p).kennel.apply_open, true);
+  p.kennel.form.open = false;
+  assert.equal(listView(p).kennel.apply_open, false);
+});
+
+test('the public list carries her message under the heading', () => {
+  const p = projection();
+  p.kennel.intro = 'Our waitlist is a rolling list of approved applicants for Thornfield Kennels puppies.';
+  assert.equal(listView(p).kennel.intro, p.kennel.intro);
+  delete p.kennel.intro;
+  assert.equal(listView(p).kennel.intro, '');
+});
+
+test('Coming up on the public list holds only what she switched on for the public', () => {
+  const p = projection();
+  p.upcoming = [
+    { id: 'u1', kind: 'pairing', label: 'Juniper × Ash', public: true, family: true },
+    { id: 'u2', kind: 'early_litter', label: 'Willow × Ash', public: false, family: true }
+  ];
+  assert.deepEqual(listView(p).upcoming.map((u) => u.id), ['u1']);
+  p.upcoming = [{ id: 'u2', kind: 'early_litter', label: 'Willow × Ash', public: false, family: true }];
+  assert.deepEqual(listView(p).upcoming, [], 'nothing public: the page leaves the section out');
 });

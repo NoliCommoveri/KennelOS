@@ -12,7 +12,7 @@
 // Messages are sealed here, in this browser, to her key (seal.js); the server
 // can't read them.
 import {
-  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingDetails,
+  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingItemHtml, litterHtml, deadlineText, fmtShortDate,
   SEX_LABEL, READY_LABEL, PLACEMENT_LABEL, CREDIT_LABEL
 } from './common.js';
 import { rememberedFamily, forgetFamily } from './session.js';
@@ -35,34 +35,43 @@ const STATUS = {
 
 // The page's state: the view the server sent, the browser's family session (or
 // null), and which editor is open.
-const state = { v: null, session: null, open: null, flash: '' };
+const state = { v: null, session: null, open: null, flash: '', opened: new Set() };
 
-// One line about a litter: "Expected", "Born Sep 1, 2026 · ready about Oct 27", …
-function litterLine(l) {
+// "Born 09/01/2026 · Ready 10/27/2026" (Available Puppies).
+function litterDates(l) {
   const bits = [];
-  if (l.status === 'expected' || !l.whelp_date) bits.push('Expected');
-  else bits.push(`Born ${fmtDate(l.whelp_date)}`);
-  if (l.status === 'ready') bits.push('ready to go home');
-  else if (l.ready_date) bits.push(`ready about ${fmtDate(l.ready_date)}`);
-  if (l.picks_open) bits.push('picks are open');
+  if (l.whelp_date) bits.push(`Born ${fmtShortDate(l.whelp_date)}`);
+  else if (l.status === 'expected') bits.push('Expected');
+  if (l.status === 'ready') bits.push('Ready to go home');
+  else if (l.ready_date) bits.push(`Ready ${fmtShortDate(l.ready_date)}`);
   return bits.join(' · ');
+}
+
+// "2 females and 1 male remaining".
+function pupsRemaining(l) {
+  const f = Number(l.pups_female) || 0;
+  const m = Number(l.pups_male) || 0;
+  const other = Math.max((Number(l.pups_available) || 0) - f - m, 0);
+  const part = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  const bits = [f && part(f, 'female', 'females'), m && part(m, 'male', 'males'), other && part(other, 'puppy', 'puppies')].filter(Boolean);
+  if (!bits.length) return 'No puppies remaining';
+  return `${bits.length > 1 ? `${bits.slice(0, -1).join(', ')} and ${bits[bits.length - 1]}` : bits[0]} remaining`;
 }
 
 // A litter they passed on (or let their turn lapse on) that's still being offered.
 const spentOn = (id) => (state.v.family.place_hidden?.litters || []).find((x) => x.litter_id === id) || null;
 
-function litterBadge(l) {
-  // A litter in their open turn says so, whatever its line says: an approved change
-  // to their answers never closes an offer (Spec §15.9), so they can hold a turn on a
-  // litter they'd no longer be lined up for.
-  if ((state.v.offers || []).some((o) => o.litter_id === l.id)) return '<span class="badge">Your turn</span>';
-  const spent = spentOn(l.id);
-  if (spent) return `<span class="badge plain">${spent.outcome === 'no_response' ? 'Your turn ended' : 'You passed'}</span>`;
-  if (!l.pups_available) return `<span class="badge plain">${l.status === 'expected' ? 'No pups yet' : 'No pups available'}</span>`;
-  return l.match ? '<span class="badge">A match for you</span>' : '<span class="badge plain">Not a match for you</span>';
+// A section of the page. Titled sections fold away and start folded (decided
+// 2026-10-08), except the ones asking the family to do something now (openCard).
+// Which ones they've opened is kept across re-renders (state.opened), so a
+// section stays open while they use a button in it.
+function card(title, body, cls = '') {
+  if (!title) return openCard(title, body, cls);
+  const key = String(title).replace(/<[^>]*>/g, '');
+  return `<details class="card collapsible ${cls}" data-key="${esc(key)}"${state.opened.has(key) ? ' open' : ''}><summary><h2>${title}</h2></summary>${body}</details>`;
 }
 
-function card(title, body, cls = '') {
+function openCard(title, body, cls = '') {
   return `<div class="card ${cls}">${title ? `<h2>${title}</h2>` : ''}${body}</div>`;
 }
 
@@ -124,6 +133,7 @@ function prefEditor(prefs) {
   };
   return `<form data-form="pref_change" class="mt8">
       ${editableFields().map((f) => `<label class="q mt8">${esc(f.label)}${control(f)}</label>`).join('')}
+      ${canChooseParents() ? parentsFields(state.v.family) : ''}
       <label class="q mt8">Anything you'd like to add? <span class="muted small">(optional)</span><textarea name="note" maxlength="500"></textarea></label>
       <p class="small muted">${esc(state.v.kennel.name)} decides on a change like this. Until then, nothing changes: your offers and your place stay as they are.</p>
       <div class="actions"><button class="primary" type="submit">Send my request</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
@@ -135,7 +145,8 @@ function prefsHtml(f) {
   if (!prefs) return '';
   const kennel = state.v.kennel.name;
   const rows = PREF_FIELDS.filter((x) => x.key !== 'pref_breed' || prefs.breed || (state.v.kennel.breeds || []).length)
-    .map((x) => `<dt>${esc(x.label)}</dt><dd>${esc(x.text(prefs[x.prefs]))}</dd>`).join('');
+    .map((x) => `<dt>${esc(x.label)}</dt><dd>${esc(x.text(prefs[x.prefs]))}</dd>`).join('')
+    + (f.status === 'active' ? `<dt>Parents</dt><dd>${esc(parentsText(f.listen))}</dd>` : '');
   const req = f.requests?.pref_change;
   const sent = pendingOf('pref_change');
   let status = '';
@@ -146,8 +157,9 @@ function prefsHtml(f) {
   } else {
     status = decidedLine(req, 'your requested change', kennel);
   }
+  if (f.status === 'active') status += listenStatus(f);
   let action = '<p class="small muted">To change any of these, contact the breeder.</p>';
-  if (canAct() && editableFields().length) {
+  if (canAct() && (editableFields().length || canChooseParents())) {
     action = state.open === 'pref_change' ? prefEditor(prefs)
       : `<p class="small muted">The answers that decide which pups you're offered change only with ${esc(possessive(kennel))} OK.</p>
          <div class="actions"><button class="secondary" type="button" data-act="open" data-what="pref_change">Ask to change</button></div>`;
@@ -168,7 +180,7 @@ function reasonForm(form, intro, submitLabel, hidden = {}) {
         ${reasons.map((r, i) => `<label class="choice"><input type="radio" name="reason_id" value="${esc(r.id)}"${i === 0 ? ' required' : ''}> ${esc(r.label)}</label>`).join('')}
       </div></fieldset>
       ${reasons.some((r) => r.id === 'other') ? '<label class="q mt8">If other, please tell us more<input type="text" name="reason_text" maxlength="200"></label>' : ''}
-      <div class="actions mt8"><button class="primary" type="submit">${esc(submitLabel)}</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
+      <div class="actions mt8"><button class="${form === 'pass' ? 'pass' : 'primary'}" type="submit">${esc(submitLabel)}</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
     </form>`;
 }
 
@@ -184,7 +196,6 @@ function reasonMessage(id) {
 function turnHtml(rows) {
   const v = state.v;
   const kennel = v.kennel.name;
-  const zone = v.kennel.time_zone ? ` (${esc(v.kennel.time_zone.replace(/_/g, ' '))} time)` : '';
   const turnId = rows[0].turn_id || rows[0].id;
   const ids = new Set(rows.map((o) => o.id));
   const mine = (p) => p.turn_id === turnId || ids.has(p.offer_id);
@@ -199,28 +210,31 @@ function turnHtml(rows) {
       const label = `${esc(d.call_name)} · ${esc(SEX_LABEL[d.sex] || '')}${d.color ? ` · ${esc(d.color)}` : ''}`;
       const yours = d.id === chosen ? ' <span class="badge">Your pick</span>' : '';
       return actOn
-        ? `<button type="button" class="pup secondary" data-act="pick" data-offer="${esc(o.id)}" data-dog="${esc(d.id)}" data-name="${esc(d.call_name)}">Choose ${label}</button>`
+        ? `<button type="button" class="pup secondary" data-act="pick" data-offer="${esc(o.id)}" data-dog="${esc(d.id)}" data-name="${esc(d.call_name)}">${label}</button>`
         : `<span class="pup">${label}${yours}</span>`;
     }).join('')}</div>`
     : '<p class="small muted mt0">No pups left in this litter for you.</p>');
   const chosenName = rows.flatMap((o) => o.pups).find((d) => d.id === chosen)?.call_name || 'a pup';
   let next;
   if (sentPass) next = `<p>You passed on ${several ? 'all of these' : 'this litter'}. ${waiting(kennel)}</p>`;
-  else if (sentPick && !picked) next = `<p>You chose ${esc(chosenName)}. ${waiting(kennel)} Send your deposit by the date above to keep them.</p>`;
-  else if (picked) next = '<p>You picked a pup. Send your deposit by the date above to keep them.</p>';
+  else if (sentPick && !picked) next = `<p>You chose ${esc(chosenName)}. ${waiting(kennel)} Send your deposit by the deadline to keep them.</p>`;
+  else if (picked) next = '<p>You picked a pup. Send your deposit by the deadline to keep them.</p>';
   else if (actOn && state.open === `pass:${turnId}`) {
     const p = v.family.passes;
-    next = reasonForm('pass', `Pass on ${several ? 'all of these litters' : 'this litter'}?${p ? ` You've used ${esc(p.used)} of ${esc(p.max)} passes; this may count as one.` : ''}`,
-      several ? 'Pass on all of these' : 'Pass on this litter', { turn_id: turnId });
+    next = reasonForm('pass', `Pass on this turn?${p ? ` You've used ${esc(p.used)} of ${esc(p.max)} passes; this may count as one.` : ''}`,
+      'Pass on turn', { turn_id: turnId });
   } else if (actOn) {
-    next = `<p class="small muted">Tap a pup to choose them${several ? ' from any of these litters' : ''}, or pass.${several ? ' Only passing on all of them counts as a pass.' : ''}</p>
-      <div class="actions"><button type="button" class="secondary" data-act="open" data-what="pass:${esc(turnId)}">${several ? 'Pass on all of these' : 'Pass on this litter'}</button></div>`;
-  } else next = signedIn() ? '' : `<p>Sign in on this device to choose a pup or pass (below), or contact ${esc(kennel)}.</p>`;
+    // One pass per turn, whatever litters it covers (Spec §16.1).
+    const p = v.family.passes;
+    next = `<div class="actions mt8"><button type="button" class="pass" data-act="open" data-what="pass:${esc(turnId)}">Pass on turn</button></div>
+      ${p ? `<p class="small muted mt0">${esc(p.used)} of ${esc(p.max)} passes used</p>` : ''}`;
+  } else next = signedIn() ? '' : `<p>Sign in at the top of the page to choose a pup or pass, or contact ${esc(kennel)}.</p>`;
   const respondBy = rows.map((o) => o.respond_by_date || '').sort().reverse()[0];
-  return card("It's your turn!", `
-    <p class="mt0">Please respond by <strong>11:59 pm on ${esc(fmtDate(respondBy, { weekday: true }))}</strong>${zone}.</p>
+  return openCard('The wait is over!', `
+    <p class="mt0">Below are the puppies available for selection.</p>
     ${rows.map((o) => `<p class="mt8"><strong>${esc(o.litter)}</strong></p>${pupsOf(o)}`).join('')}
-    ${next}`, 'turn');
+    ${next}
+    ${respondBy ? `<p class="deadline"><strong>${esc(deadlineText(respondBy, v.kennel.time_zone))}</strong></p>` : ''}`, 'turn');
 }
 
 // The family's offers as turns, oldest first.
@@ -281,19 +295,10 @@ function notThisLitter(t) {
 // Pairings and litters before picks open, as she shows them on family pages
 // (Spec §16.4): what's coming, whether it's one they're waiting for, and for a
 // whelped litter their place in it now. A pairing has no pups, so no place.
-function upcomingBadge(u) {
-  if (u.kind === 'early_litter') {
-    if (!u.waiting) return '<span class="badge plain">Not one you\'re waiting for</span>';
-    return u.match ? '<span class="badge">A match for you</span>' : '<span class="badge plain">Not a match for you</span>';
-  }
-  return u.waiting ? '<span class="badge info">You\'re waiting for this</span>' : '<span class="badge plain">Not one you\'re waiting for</span>';
-}
-
 function upcomingCard(v) {
   if (!(v.upcoming || []).length) return '';
-  const items = v.upcoming.map((u) => `<li><div class="row"><strong>${esc(u.label)}</strong>
-      <span class="small">${upcomingBadge(u)}</span></div>
-    ${upcomingDetails(u)}${u.waiting ? notThisLitter(upcomingTarget(u)) : ''}</li>`).join('');
+  // Laid out like Available Puppies; no badges (decided 2026-10-08).
+  const items = v.upcoming.map((u) => `<li>${upcomingItemHtml(u, u.waiting ? notThisLitter(upcomingTarget(u)) : '')}</li>`).join('');
   return card('Coming up', `<ul class="plain">${items}</ul>
     <p class="small muted">Plans can change.</p>`);
 }
@@ -342,7 +347,7 @@ function placeActions(f) {
 // they passed on or let lapse, until those litters close. They keep their place.
 function placeHiddenHtml(h) {
   if (!h) return '';
-  if (h.reason === 'turn') return '<p class="mt0"><strong>It\'s your turn!</strong> Choose a pup above, or pass.</p>';
+  if (h.reason === 'turn') return '<p class="mt0"><strong>The wait is over!</strong> Pick a pup above, or pass on your turn.</p>';
   const names = (h.litters || []).map((l) => l.label).filter(Boolean);
   const lapsed = (h.litters || []).every((l) => l.outcome === 'no_response');
   const what = names.length ? names.join(' and ') : 'that litter';
@@ -354,6 +359,9 @@ function placeHiddenHtml(h) {
 // When their readiness hold ends (while the list is online), they're asked. Yes ends
 // the hold. Not yet: a new date and a reason, which ask the breeder for a pause.
 
+const READY_TITLE = 'Alert: Pause Ending';
+const READY_TEXT = 'Your scheduled pause is ending. Please confirm that you are now ready to receive offers for upcoming puppies.';
+
 function readyHtml(f) {
   const rc = f.ready_check;
   if (!rc || f.status !== 'active') return '';
@@ -361,22 +369,27 @@ function readyHtml(f) {
   const sent = pendingOf('ready');
   if (sent.length || rc.answer) {
     const answer = sent.length ? sent[sent.length - 1].payload.answer : rc.answer;
-    return answer === 'yes' ? '' : card('Ready now?', `<p class="mt0">You said you're not ready yet. Your pause request is with ${esc(kennel)}; until they decide, you won't be offered a pup.</p>`);
+    return answer === 'yes' ? '' : openCard(READY_TITLE, `<p class="mt0">You said you're not ready yet. Your pause request is with ${esc(kennel)}; until they decide, you won't be offered a pup.</p>`);
   }
-  const deadline = rc.answer_by ? `<p class="small"><strong>Please answer by ${esc(fmtDate(rc.answer_by))}, or you'll be removed from the waitlist.</strong></p>` : '';
+  // At the bottom: the deadline, and what not answering means. Only when there is
+  // a deadline (her rule removes families who don't answer); otherwise they just
+  // stay paused, so there's nothing to warn about.
+  const deadline = rc.answer_by ? `<div class="deadline"><p class="mt0"><strong>Deadline for response: ${esc(fmtShortDate(rc.answer_by))}</strong></p>
+    <p class="small muted mt0">Failure to respond may result in removal from the waitlist; if removed, you will need to re-apply in order to be considered again in the future.</p></div>` : '';
   if (!canAct()) {
-    return card('Ready now?', `<p class="mt0">When you applied you said you'd be ready to buy about now. Sign in on the waitlist page to answer.</p>${deadline}`);
+    return openCard(READY_TITLE, `<p class="mt0">${READY_TEXT}</p><p class="small muted">Sign in on the waitlist page to answer.</p>${deadline}`, 'alert');
   }
   if (state.open === 'ready_no') {
-    return card('Ready now?', `<form data-form="ready_no">
+    return openCard(READY_TITLE, `<form data-form="ready_no">
         <label class="q">When do you expect to be ready? <span class="req">*</span><input type="date" name="until" required></label>
         <label class="q mt8">Why not yet? <span class="req">*</span><textarea name="reason" maxlength="500" required></textarea></label>
         <p class="small muted">${esc(kennel)} sees your reason and decides on pausing your place until then. You keep your place.</p>
         <div class="actions"><button class="primary" type="submit">Send</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
-      </form>${deadline}`);
+      </form>${deadline}`, 'alert');
   }
-  return card('Ready now?', `<p class="mt0">When you applied you said you'd be ready to buy about now. Are you ready to be offered a pup?</p>${deadline}
-    <div class="actions"><button type="button" class="primary" data-act="ready_yes">Yes, I'm ready</button><button type="button" class="secondary" data-act="open" data-what="ready_no">Not yet</button></div>`);
+  return openCard(READY_TITLE, `<p class="mt0">${READY_TEXT}</p>
+    <div class="actions"><button type="button" class="primary" data-act="ready_yes">Yes, I'm ready</button><button type="button" class="secondary" data-act="open" data-what="ready_no">Not yet</button></div>
+    ${deadline}`, 'alert');
 }
 
 // --- A litter was born (Spec §16.6) ---------------------------------------------
@@ -385,76 +398,58 @@ function readyHtml(f) {
 // review it. Changes go through the usual rules: a wider listen-only change applies
 // at once, any change to an answer waits for her OK (Q26).
 
-const WHY_TEXT = {
-  listen: 'which litters you wait for', sex: 'the sex you asked for', breed: 'the breed you asked for',
-  placement: 'the placement you asked for', colors: 'the colors you asked for'
-};
-
+// New pups on the way or born (Spec §16.6): which litters match their answers and
+// which don't, so they can check them. Changes are asked for in "What you asked
+// for" further down (decided 2026-10-08: no buttons here).
 function whelpNotesHtml(f) {
   const notes = (f.whelp_notes || []).filter((n) => !prepassedNow({ litter_id: n.litter_id, pairing_id: n.pairing_id }));
   if (!notes.length) return '';
-  const kennel = state.v.kennel.name;
+  const list = (ns) => `<ul class="plain names">${ns.map((n) => `<li>${litterHtml({ breed: n.breed, name: n.label, dam: n.dam, sire: n.sire })}</li>`).join('')}</ul>`;
   const match = notes.filter((n) => n.kind === 'match');
   const review = notes.filter((n) => n.kind === 'review');
-  const parts = match.map((n) => `<p class="mt0">A litter you match was born: <strong>${esc(n.label)}</strong>.</p>`);
-  if (review.length) {
-    const why = new Set(review.flatMap((n) => n.why || []));
-    parts.push(...review.map((n) => `<p class="mt0"><strong>${esc(n.label)}</strong> was born. You're not lined up for it because of ${esc(listText((n.why || []).map((w) => WHY_TEXT[w]).filter(Boolean)))}.</p>`));
-    const buttons = [];
-    const parents = state.v.kennel.parents || { sires: [], dams: [] };
-    if (canAct() && why.has('listen') && parents.sires.length + parents.dams.length) {
-      buttons.push('<button type="button" class="secondary" data-act="open" data-what="listen" data-scroll="1">Change which litters you wait for</button>');
-    }
-    if (canAct() && [...why].some((w) => w !== 'listen') && editableFields().length) {
-      buttons.push('<button type="button" class="secondary" data-act="open" data-what="pref_change" data-scroll="1">Ask to change your answers</button>');
-    }
-    parts.push(`<p class="small muted">If you'd like to be considered for it, review your choices. A change to your answers needs ${esc(possessive(kennel))} OK; nothing counts against you either way.</p>`);
-    if (buttons.length) parts.push(`<div class="actions">${buttons.join('')}</div>`);
-  }
-  return card(review.length ? 'Review your preferences' : 'A litter was born', parts.join(''));
+  return openCard('Review Your Preferences', `
+    <p class="mt0">With new pups upcoming, please take a moment to confirm your preferences.</p>
+    ${match.length ? `<p class="mt8"><strong>Litters matching preferences:</strong></p>${list(match)}` : ''}
+    ${review.length ? `<p class="mt8"><strong>Litters not matching preferences:</strong></p>${list(review)}` : ''}`);
 }
-
-const listText = (xs) => (xs.length <= 1 ? (xs[0] || 'your choices') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 
 // --- Which litters (listen-only, Spec §15.7) --------------------------------------
 
-function listenHtml(f) {
-  const k = state.v.kennel;
-  const parents = k.parents || { sires: [], dams: [] };
-  const name = (id) => [...parents.sires, ...parents.dams].find((d) => d.id === id)?.name || 'a parent no longer listed';
-  const describe = (l) => {
-    const mode = l?.mode || 'all';
-    const parents = [l?.sire_ids?.length ? `Sires: ${l.sire_ids.map(name).join(', ')}` : '', l?.dam_ids?.length ? `Dams: ${l.dam_ids.map(name).join(', ')}` : ''].filter(Boolean).join(' · ');
-    if (mode === 'all' || (mode === 'except' && !parents)) return 'All litters';
-    return mode === 'except' ? `All litters except: ${parents}` : `Only: ${parents || 'no parents chosen yet'}`;
-  };
-  const sent = pendingOf('listen');
-  const req = f.requests?.listen;
-  let status = '';
-  if (sent.length) status = `<p class="small"><span class="badge warn">Change sent</span> ${waiting(k.name)}</p>`;
-  else if (req && !req.decided) status = `<p class="small"><span class="badge warn">Requested</span> ${esc(describe(req))}. Waiting for ${esc(k.name)} to decide.</p>`;
-  else status = decidedLine(req, 'your change to which litters you wait for', k.name);
+// Which litters they wait for (listen-only, Spec §15.7, §16.3) is the "Parents"
+// line of What you asked for (decided 2026-10-08): "Any", "Ash, Juniper only", or
+// "Not Willow". It's changed with the rest of their answers (Ask to change).
+const parentList = () => { const p = state.v.kennel.parents || { sires: [], dams: [] }; return [...p.sires, ...p.dams]; };
+const canChooseParents = () => state.v.family.status === 'active' && parentList().length > 0;
 
-  let body = `<p class="mt0">${esc(describe(f.listen))}</p>`;
-  if (!canAct() || !(parents.sires.length + parents.dams.length)) return card('Which litters you wait for', body + status);
-  if (state.open !== 'listen') {
-    return card('Which litters you wait for', `${body}${status}
-      <div class="actions"><button type="button" class="secondary" data-act="open" data-what="listen">Change</button></div>`);
-  }
+function parentsText(l) {
+  const name = (id) => parentList().find((d) => d.id === id)?.name || 'a parent no longer listed';
+  const names = [...(l?.sire_ids || []), ...(l?.dam_ids || [])].map(name);
+  if (!l || l.mode === 'all' || !names.length) return 'Any';
+  return l.mode === 'except' ? `Not ${names.join(', ')}` : `${names.join(', ')} only`;
+}
+
+function listenStatus(f) {
+  const k = state.v.kennel;
+  const req = f.requests?.listen;
+  if (pendingOf('listen').length) return `<p class="small"><span class="badge warn">Parents change sent</span> ${waiting(k.name)}</p>`;
+  if (req && !req.decided) return `<p class="small"><span class="badge warn">Requested</span> Parents: ${esc(parentsText(req))}. Waiting for ${esc(k.name)} to decide.</p>`;
+  return decidedLine(req, 'your change to the parents you wait for', k.name);
+}
+
+function parentsFields(f) {
+  const p = state.v.kennel.parents || { sires: [], dams: [] };
   const mode = ['selected', 'except'].includes(f.listen?.mode) ? f.listen.mode : 'all';
   const box = (side, d, ids) => `<label class="choice"><input type="checkbox" name="${side}" value="${esc(d.id)}"${(ids || []).includes(d.id) ? ' checked' : ''}> ${esc(d.name)}</label>`;
-  body = `<form data-form="listen">
+  return `<fieldset class="field mt8"><legend class="q">Parents</legend>
       <div class="choices">
-        <label class="choice"><input type="radio" name="mode" value="all"${mode === 'all' ? ' checked' : ''}> All litters</label>
-        <label class="choice"><input type="radio" name="mode" value="selected"${mode === 'selected' ? ' checked' : ''}> Only litters from these parents</label>
-        <label class="choice"><input type="radio" name="mode" value="except"${mode === 'except' ? ' checked' : ''}> All litters except these parents</label>
+        <label class="choice"><input type="radio" name="mode" value="all"${mode === 'all' ? ' checked' : ''}> Any</label>
+        <label class="choice"><input type="radio" name="mode" value="selected"${mode === 'selected' ? ' checked' : ''}> Only these parents</label>
+        <label class="choice"><input type="radio" name="mode" value="except"${mode === 'except' ? ' checked' : ''}> Not these parents</label>
       </div>
-      ${parents.sires.length ? `<p class="small muted mt8">Sires</p><div class="choices">${parents.sires.map((d) => box('sire', d, f.listen?.sire_ids)).join('')}</div>` : ''}
-      ${parents.dams.length ? `<p class="small muted mt8">Dams</p><div class="choices">${parents.dams.map((d) => box('dam', d, f.listen?.dam_ids)).join('')}</div>` : ''}
-      <p class="small muted">A litter counts if its sire OR its dam is one you picked (with "except", that litter is skipped). You keep your place either way. Waiting for more litters (or all of them) happens at ${esc(possessive(k.name))} next update; waiting for fewer, or switching between "only" and "except", needs their OK.</p>
-      <div class="actions"><button class="primary" type="submit">Save</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
-    </form>`;
-  return card('Which litters you wait for', body + status);
+      ${p.sires.length ? `<p class="small muted mt8">Sires</p><div class="choices">${p.sires.map((d) => box('sire', d, f.listen?.sire_ids)).join('')}</div>` : ''}
+      ${p.dams.length ? `<p class="small muted mt8">Dams</p><div class="choices">${p.dams.map((d) => box('dam', d, f.listen?.dam_ids)).join('')}</div>` : ''}
+      <p class="small muted">A litter counts if its sire OR its dam is one you picked. You keep your place either way. Waiting for more litters happens at ${esc(possessive(state.v.kennel.name))} next update; fewer needs their OK.</p>
+    </fieldset>`;
 }
 
 // --- Their Companion link (Spec §8.3) ---------------------------------------------
@@ -475,7 +470,7 @@ function companionHtml(f) {
   else if (req?.decided === 'sent') parts.push(`<p class="small">${esc(kennel)} sent your link on ${esc(fmtDate(req.decided_date))}. Check your texts and email.</p>`);
   else if (req?.decided === 'declined') parts.push(`<p class="small">${esc(kennel)} didn't send a link (${esc(fmtDate(req.decided_date))}). Contact them if you have questions.</p>`);
   if (!signedIn()) {
-    // Still on the list: the sign-in card further down covers it. Placed: it's here.
+    // Still on the list: the Sign In button at the top covers it. Placed: it's here.
     const onList = ['applied', 'approved', 'active'].includes(f.status);
     parts.push(`<p class="small muted">To ask for it, sign in on this device with a code sent to the email on your application.</p>
       ${!onList && state.v.kennel.public_id ? `<div class="actions"><a class="button secondary" href="/list/${encodeURIComponent(state.v.kennel.public_id)}">Sign in with a code</a></div>` : ''}`);
@@ -504,13 +499,12 @@ function messageHtml() {
     </form>`);
 }
 
-// A browser that only has the link: how to sign in to respond.
-function signInHtml() {
+// A browser that only has the link: one Sign In button at the top of the page
+// (decided 2026-10-08), to the public list with its sign-in opened (#signin).
+function signInButton() {
   const v = state.v;
   if (signedIn() || !['applied', 'approved', 'active'].includes(v.family.status) || !v.kennel.public_id) return '';
-  return card('Respond on this page', `
-    <p class="mt0 small">To choose a pup, pass, ask for a pause, or message ${esc(v.kennel.name)}, sign in on this device with a code sent to the email on your application.</p>
-    <div class="actions"><a class="button secondary" href="/list/${encodeURIComponent(v.kennel.public_id)}">Sign in with a code</a></div>`);
+  return `<div class="actions signin-top"><a class="button primary" href="/list/${encodeURIComponent(v.kennel.public_id)}#signin">Sign In</a></div>`;
 }
 
 function mineHtml() {
@@ -518,7 +512,8 @@ function mineHtml() {
   const f = v.family;
   const kennel = v.kennel.name;
   const st = STATUS[f.status] || { badge: 'plain', label: f.status };
-  const parts = [`<p><span class="badge ${st.badge}">${esc(st.label)}</span></p>`];
+  // No badge for a family on the list: being on it is why they're here.
+  const parts = f.status === 'active' ? [] : [`<p><span class="badge ${st.badge}">${esc(st.label)}</span></p>`];
   if (state.flash) parts.push(`<p class="card notice-card small" role="status">${esc(state.flash)}</p>`);
 
   if (!['applied', 'approved', 'active'].includes(f.status)) {
@@ -528,12 +523,12 @@ function mineHtml() {
   }
 
   if (f.status === 'applied') {
-    parts.push(card('Thank you for applying', `<p class="mt0">${esc(kennel)} will review your application. This page will show their decision.</p>`));
+    parts.push(openCard('Thank you for applying', `<p class="mt0">${esc(kennel)} will review your application. This page will show their decision.</p>`));
   }
 
   if (f.fee_due) {
     const fee = f.fee_due;
-    parts.push(card('Your application fee', `
+    parts.push(openCard('Your application fee', `
       <p class="big mt0">${esc(money(fee.amount))}</p>
       ${fee.due_date ? `<p>Please pay by <strong>${esc(fmtDate(fee.due_date))}</strong>.</p>` : ''}
       ${fee.credit_policy ? `<p class="small muted">${esc(CREDIT_LABEL[fee.credit_policy] || '')}</p>` : ''}
@@ -551,31 +546,32 @@ function mineHtml() {
     if (f.ready_from) notices.push(`You said you'd be ready to buy later, so you won't be offered a pup before ${esc(fmtDate(f.ready_from))}. You keep your place.`);
     if (f.listen?.mode === 'selected') notices.push('You\'re only waiting for litters from the parents you chose. You keep your place for everything else.');
     else if (f.listen?.mode === 'except' && (f.listen.sire_ids?.length || f.listen.dam_ids?.length)) notices.push('You\'re skipping litters from the parents you chose. You keep your place for everything else.');
-    parts.push(card('Your place', `
-      ${f.position ? `<p class="big mt0">#${esc(f.position)}</p><p class="muted mt0">on ${esc(possessive(kennel))} waitlist</p>` : placeHiddenHtml(f.place_hidden)}
+    parts.push(openCard('Current Position', `
+      ${f.position ? `<p class="big mt0">#${esc(f.position)}</p><p class="muted mt0">${esc(kennel)}</p>` : placeHiddenHtml(f.place_hidden)}
       ${notices.map((n) => `<p class="small">${n}</p>`).join('')}
       <dl class="facts">
-        ${f.fee_received_date ? `<dt>On the list since</dt><dd>${esc(fmtDate(f.fee_received_date))}</dd>` : ''}
-        ${f.passes ? `<dt>Passes used</dt><dd>${esc(f.passes.used)} of ${esc(f.passes.max)}</dd>` : ''}
+        ${f.fee_received_date ? `<dt>Added</dt><dd>${esc(fmtShortDate(f.fee_received_date))}</dd>` : ''}
+        ${f.passes ? `<dt>Passes</dt><dd>${esc(f.passes.used)} of ${esc(f.passes.max)} used</dd>` : ''}
       </dl>
       ${placeActions(f)}`));
     parts.push(whelpNotesHtml(f));
 
     if (v.litters.length) {
-      const items = v.litters.map((l) => `<li><div class="row"><strong>${esc(l.label)}</strong>
-          <span class="small">${litterBadge(l)}</span></div>
-        <div class="small muted">${esc(litterLine(l))}</div>${notThisLitter(litterTarget(l))}</li>`).join('');
-      parts.push(card('Litters', `<ul class="plain">${items}</ul>`));
+      // Litters with open picks (decided 2026-10-08): breed, her nickname, sire ×
+      // dam, the dates, and the pups still available by sex.
+      const items = v.litters.map((l) => `<li>${litterHtml({
+        breed: l.breed, name: l.nickname || l.label, dam: l.dam, sire: l.sire, when: litterDates(l),
+        extra: `<div class="small">${esc(pupsRemaining(l))}</div>${notThisLitter(litterTarget(l))}`
+      })}</li>`).join('');
+      parts.push(card('Available Puppies', `<ul class="plain">${items}</ul>`));
     }
     parts.push(upcomingCard(v));
-    parts.push(listenHtml(f));
   } else if (canAct()) {
     parts.push(card('', placeActions(f)));
   }
 
   parts.push(card('What you asked for', prefsHtml(f)));
   parts.push(messageHtml());
-  parts.push(signInHtml());
   return parts.join('');
 }
 
@@ -696,12 +692,6 @@ async function onSubmit(ev) {
     case 'leave':
       await act('leave', { note: data.get('note') }, `${kennel} will see that you're leaving at their next update.`);
       return;
-    case 'listen': {
-      const mode = ['selected', 'except'].includes(data.get('mode')) ? data.get('mode') : 'all';
-      await act('listen', { mode, sire_ids: mode !== 'all' ? data.getAll('sire') : [], dam_ids: mode !== 'all' ? data.getAll('dam') : [] },
-        `Saved. ${kennel} will see it at their next update.`);
-      return;
-    }
     case 'pref_change': {
       const prefs = state.v.family.prefs;
       const changes = {};
@@ -715,8 +705,21 @@ async function onSubmit(ev) {
           if (value !== now) changes[f.key] = value;
         }
       }
-      if (!Object.keys(changes).length) { state.flash = ERRORS.nothing_to_change; button.disabled = false; render(); return; }
-      await act('pref_change', { changes, note: data.get('note') }, `Your request is on its way. ${kennel} decides; until then nothing changes.`);
+      // Parents (listen-only) ride the same form but are their own action.
+      let listen = null;
+      if (canChooseParents()) {
+        const mode = ['selected', 'except'].includes(data.get('mode')) ? data.get('mode') : 'all';
+        const next = { mode, sire_ids: mode !== 'all' ? data.getAll('sire') : [], dam_ids: mode !== 'all' ? data.getAll('dam') : [] };
+        const cur = state.v.family.listen || { mode: 'all', sire_ids: [], dam_ids: [] };
+        const same = (a, b) => [...(a || [])].sort().join() === [...(b || [])].sort().join();
+        const curMode = ['selected', 'except'].includes(cur.mode) ? cur.mode : 'all';
+        if (next.mode !== curMode || (next.mode !== 'all' && (!same(next.sire_ids, cur.sire_ids) || !same(next.dam_ids, cur.dam_ids)))) listen = next;
+      }
+      if (!Object.keys(changes).length && !listen) { state.flash = ERRORS.nothing_to_change; button.disabled = false; render(); return; }
+      const done = `Your request is on its way. ${kennel} decides; until then nothing changes.`;
+      if (listen && !Object.keys(changes).length) { await act('listen', listen, `Saved. ${kennel} will see it at their next update.`); return; }
+      if (listen && !(await send('/f/act', { action: 'listen', ...listen }))) { await load(); return; }
+      await act('pref_change', { changes, note: data.get('note') }, done);
       return;
     }
     case 'message': {
@@ -749,7 +752,12 @@ function selectTab(which) {
 }
 
 function render() {
+  // Keep the sections they opened open (card()).
+  for (const d of $('mine').querySelectorAll('details[data-key]')) {
+    if (d.open) state.opened.add(d.dataset.key); else state.opened.delete(d.dataset.key);
+  }
   $('mine').innerHTML = mineHtml();
+  $('signin-slot').innerHTML = signInButton();
   $('mine').hidden = $('tab-list').getAttribute('aria-selected') === 'true';
 }
 
@@ -768,9 +776,9 @@ async function load() {
   // THIS family's is the server's call (other_family): a New link changes the
   // token but keeps the session, so the saved token isn't compared here.
   state.session = v.kennel.public_id ? rememberedFamily(v.kennel.public_id) : null;
-  document.title = `${v.kennel.name} waitlist`;
-  $('title').textContent = v.family.name ? `Hi, ${v.family.name.split(/\s+/)[0]}` : `${v.kennel.name} waitlist`;
-  $('updated').textContent = `${v.kennel.name} waitlist${v.as_of ? ` · updated ${fmtDate(v.as_of)}` : ''}`;
+  document.title = `${v.kennel.name} Waitlist`;
+  $('title').textContent = v.family.name ? `Hi, ${v.family.name.split(/\s+/)[0]}` : `${v.kennel.name} Waitlist`;
+  $('updated').textContent = `${v.kennel.name} Waitlist${v.as_of ? ` · updated ${fmtDate(v.as_of)}` : ''}`;
   render();
 
   if (!wired) {

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <title>Waitlist</title>
+<!--preview: the Worker puts the kennel's link-preview tags here (familyPages.withPreview)-->
 <link rel="stylesheet" href="/family/family.css">
 <script type="module" src="/family/list.js"></script>
 </head>
@@ -13,11 +14,13 @@
   <header class="page">
     <h1 id="title">Waitlist</h1>
     <p class="muted small" id="updated"></p>
+    <p class="intro" id="intro" hidden></p>
+    <div class="actions" id="apply" hidden><a class="button primary" id="apply-link" href="#">Apply to join the waitlist</a></div>
   </header>
   <p id="error" class="card notice" hidden></p>
   <section id="content" hidden>
-    <div class="card" id="details">
-      <h2>See Your Details</h2>
+    <details class="card collapsible" id="details">
+      <summary><h2>Current Applicants: See Your Details</h2></summary>
       <div id="remembered" hidden>
         <p class="mt0">You're signed in on this device.</p>
         <div class="actions">
@@ -38,16 +41,17 @@
         </form>
         <p class="small" id="email-result" role="status"></p>
       </div>
-    </div>
+    </details>
+    <!-- Pairings and early litters: only what she switched on for the public list (Spec §16.4). -->
+    <details class="card collapsible" id="upcoming" hidden></details>
     <div class="card">
       <label for="search" class="small muted">Find yourself on the list</label>
       <input id="search" type="search" placeholder="Search by name or number" autocomplete="off">
       <p class="small muted mt8" id="count"></p>
     </div>
     <div class="card" id="list"></div>
-    <div class="card" id="upcoming" hidden></div>
   </section>
-  <footer class="page">Positions are kept by the breeder's own records. Contact details are never shown here.</footer>
+  <footer class="page" id="footer">For questions or concerns, please contact the breeder.</footer>
 </main>
 </body>
 </html>

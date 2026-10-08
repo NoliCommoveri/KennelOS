@@ -70,6 +70,66 @@ async function fromAssets(env, request, path, extra = {}) {
   return new Response(res.body, { status: 200, headers });
 }
 
+// --- Link previews ------------------------------------------------------------------
+// A /list or /apply link pasted into Facebook (or a text, Slack, …) shows a card
+// built from the page's Open Graph tags; the crawler doesn't run the page's script,
+// so the Worker writes them into the HTML, at the page's <!--preview…--> marker,
+// with the kennel's name. That name is already public on her list; nothing else of
+// the projection is read. An unknown or unpublished kennel gets the generic card.
+const PREVIEW_MARK = /<!--preview:[^>]*-->/;
+const PREVIEW_IMAGE = '/family/share.png';
+
+const escHtml = (v) => String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+export function previewText(kind, kennelName) {
+  const name = String(kennelName || '').trim().slice(0, 120);
+  if (kind === 'apply') {
+    return name
+      ? { title: `Apply to the ${name} Waitlist`, description: `Apply to join the ${name} puppy waitlist.` }
+      : { title: 'Waitlist Application', description: 'Apply to join this kennel\'s puppy waitlist.' };
+  }
+  return name
+    ? { title: `${name} Waitlist`, description: `See the ${name} puppy waitlist, and check your place in line.` }
+    : { title: 'Puppy Waitlist', description: 'See this kennel\'s puppy waitlist, and check your place in line.' };
+}
+
+export function previewTags({ title, description, url, image }) {
+  const meta = (attr, key, value) => `<meta ${attr}="${key}" content="${escHtml(value)}">`;
+  return [
+    meta('property', 'og:type', 'website'),
+    meta('property', 'og:title', title),
+    meta('property', 'og:description', description),
+    meta('property', 'og:url', url),
+    meta('property', 'og:image', image),
+    meta('property', 'og:image:width', '1200'),
+    meta('property', 'og:image:height', '630'),
+    meta('name', 'description', description),
+    meta('name', 'twitter:card', 'summary_large_image'),
+  ].join('\n');
+}
+
+async function kennelNameOf(env, publicId) {
+  if (!env.DB || !PUBLIC_ID.test(publicId)) return '';
+  try {
+    const row = await env.DB.prepare("SELECT json_extract(body, '$.kennel.name') AS name FROM wl_projection WHERE public_id = ?").bind(publicId).first();
+    return typeof row?.name === 'string' ? row.name : '';
+  } catch {
+    return ''; // schema not there yet (503 gate): the generic card
+  }
+}
+
+async function withPreview(res, env, url, kind, publicId) {
+  if (!res) return res;
+  const html = await res.text();
+  if (!PREVIEW_MARK.test(html)) return new Response(html, { status: res.status, headers: res.headers });
+  const { title, description } = previewText(kind, await kennelNameOf(env, publicId));
+  const tags = previewTags({ title, description, url: url.origin + url.pathname, image: url.origin + PREVIEW_IMAGE });
+  const out = html.replace(/<title>[^<]*<\/title>/, `<title>${escHtml(title)}</title>`).replace(PREVIEW_MARK, tags);
+  const headers = new Headers(res.headers);
+  headers.delete('content-length');
+  return new Response(out, { status: res.status, headers });
+}
+
 // A family page or one of its files, or null when the path isn't one. Served
 // whatever state the schema is in: the page then shows the API's answer.
 export async function serveFamilyPage(request, env, url) {
@@ -77,9 +137,9 @@ export async function serveFamilyPage(request, env, url) {
   const p = url.pathname;
   // Browsers ask for this on every page; nothing to show.
   if (p === '/favicon.ico') return new Response(null, { status: 204, headers: { 'cache-control': 'public, max-age=86400' } });
-  if (LIST_PAGE.test(p)) return fromAssets(env, request, '/family/list.html', { 'cache-control': 'public, max-age=300' });
+  if (LIST_PAGE.test(p)) return withPreview(await fromAssets(env, request, '/family/list.html', { 'cache-control': 'public, max-age=300' }), env, url, 'list', p.match(LIST_PAGE)[1]);
   if (STATUS_PAGE.test(p)) return fromAssets(env, request, '/family/status.html', { 'cache-control': 'no-store' });
-  if (APPLY_PAGE.test(p)) return fromAssets(env, request, '/family/apply.html', { 'cache-control': 'public, max-age=300', 'content-security-policy': APPLY_CSP });
+  if (APPLY_PAGE.test(p)) return withPreview(await fromAssets(env, request, '/family/apply.html', { 'cache-control': 'public, max-age=300', 'content-security-policy': APPLY_CSP }), env, url, 'apply', p.match(APPLY_PAGE)[1]);
   if (ASSET.test(p)) return fromAssets(env, request, p, { 'cache-control': 'public, max-age=300' });
   return null;
 }
@@ -88,10 +148,13 @@ export async function serveFamilyPage(request, env, url) {
 
 // A pairing or early litter as a page shows it (Spec §16.4): parents' call names
 // and titles, and her dates. Never where it shows or which dogs.
+// A parent as a page shows one: call name and titles.
+const parentOf = (d) => ({ name: d?.name ?? '', titles: Array.isArray(d?.titles) ? d.titles : [] });
+
 function upcomingRow(u) {
-  const parent = (d) => ({ name: d?.name ?? '', titles: Array.isArray(d?.titles) ? d.titles : [] });
+  const parent = parentOf;
   return {
-    id: u.id, kind: u.kind, label: u.label ?? '', sire: parent(u.sire), dam: parent(u.dam),
+    id: u.id, kind: u.kind, label: u.label ?? '', breed: u.breed ?? null, sire: parent(u.sire), dam: parent(u.dam),
     expected_whelp_date: u.expected_whelp_date ?? null, whelp_date: u.whelp_date ?? null,
     picks_expected_date: u.picks_expected_date ?? null,
   };
@@ -102,7 +165,9 @@ const upcomingOf = (projection, where) => (Array.isArray(projection.upcoming) ? 
 // pairings and early litters she shows publicly.
 export function listView(projection) {
   return {
-    kennel: { name: projection.kennel?.name ?? '' },
+    // apply_open: she takes applications online, so the list links to her form.
+    // intro: her message under the page's heading, as her device rendered it.
+    kennel: { name: projection.kennel?.name ?? '', intro: typeof projection.kennel?.intro === 'string' ? projection.kennel.intro.slice(0, 2000) : '', apply_open: Boolean(formView(projection)) },
     as_of: projection.as_of ?? null,
     rows: Array.isArray(projection.public_list) ? projection.public_list : [],
     upcoming: upcomingOf(projection, 'public').map(upcomingRow),
@@ -168,6 +233,12 @@ export function statusView(projection, entryId) {
     picks_open: Boolean(l.picks_open),
     pairing_id: l.pairing_id ?? null,
     pups_available: (l.pups || []).length,
+    pups_female: (l.pups || []).filter((d) => d.sex === 'female').length,
+    pups_male: (l.pups || []).filter((d) => d.sex === 'male').length,
+    nickname: l.nickname ?? null,
+    breed: l.breed ?? null,
+    sire: parentOf(l.sire),
+    dam: parentOf(l.dam),
     match: matching.has(id),
   }));
   const mine = e.upcoming || {};
