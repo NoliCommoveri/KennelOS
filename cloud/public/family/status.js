@@ -133,6 +133,7 @@ function prefEditor(prefs) {
   };
   return `<form data-form="pref_change" class="mt8">
       ${editableFields().map((f) => `<label class="q mt8">${esc(f.label)}${control(f)}</label>`).join('')}
+      ${canChooseParents() ? parentsFields(state.v.family) : ''}
       <label class="q mt8">Anything you'd like to add? <span class="muted small">(optional)</span><textarea name="note" maxlength="500"></textarea></label>
       <p class="small muted">${esc(state.v.kennel.name)} decides on a change like this. Until then, nothing changes: your offers and your place stay as they are.</p>
       <div class="actions"><button class="primary" type="submit">Send my request</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
@@ -144,7 +145,8 @@ function prefsHtml(f) {
   if (!prefs) return '';
   const kennel = state.v.kennel.name;
   const rows = PREF_FIELDS.filter((x) => x.key !== 'pref_breed' || prefs.breed || (state.v.kennel.breeds || []).length)
-    .map((x) => `<dt>${esc(x.label)}</dt><dd>${esc(x.text(prefs[x.prefs]))}</dd>`).join('');
+    .map((x) => `<dt>${esc(x.label)}</dt><dd>${esc(x.text(prefs[x.prefs]))}</dd>`).join('')
+    + (f.status === 'active' ? `<dt>Parents</dt><dd>${esc(parentsText(f.listen))}</dd>` : '');
   const req = f.requests?.pref_change;
   const sent = pendingOf('pref_change');
   let status = '';
@@ -155,8 +157,9 @@ function prefsHtml(f) {
   } else {
     status = decidedLine(req, 'your requested change', kennel);
   }
+  if (f.status === 'active') status += listenStatus(f);
   let action = '<p class="small muted">To change any of these, contact the breeder.</p>';
-  if (canAct() && editableFields().length) {
+  if (canAct() && (editableFields().length || canChooseParents())) {
     action = state.open === 'pref_change' ? prefEditor(prefs)
       : `<p class="small muted">The answers that decide which pups you're offered change only with ${esc(possessive(kennel))} OK.</p>
          <div class="actions"><button class="secondary" type="button" data-act="open" data-what="pref_change">Ask to change</button></div>`;
@@ -412,43 +415,41 @@ function whelpNotesHtml(f) {
 
 // --- Which litters (listen-only, Spec §15.7) --------------------------------------
 
-function listenHtml(f) {
-  const k = state.v.kennel;
-  const parents = k.parents || { sires: [], dams: [] };
-  const name = (id) => [...parents.sires, ...parents.dams].find((d) => d.id === id)?.name || 'a parent no longer listed';
-  const describe = (l) => {
-    const mode = l?.mode || 'all';
-    const parents = [l?.sire_ids?.length ? `Sires: ${l.sire_ids.map(name).join(', ')}` : '', l?.dam_ids?.length ? `Dams: ${l.dam_ids.map(name).join(', ')}` : ''].filter(Boolean).join(' · ');
-    if (mode === 'all' || (mode === 'except' && !parents)) return 'All litters';
-    return mode === 'except' ? `All litters except: ${parents}` : `Only: ${parents || 'no parents chosen yet'}`;
-  };
-  const sent = pendingOf('listen');
-  const req = f.requests?.listen;
-  let status = '';
-  if (sent.length) status = `<p class="small"><span class="badge warn">Change sent</span> ${waiting(k.name)}</p>`;
-  else if (req && !req.decided) status = `<p class="small"><span class="badge warn">Requested</span> ${esc(describe(req))}. Waiting for ${esc(k.name)} to decide.</p>`;
-  else status = decidedLine(req, 'your change to which litters you wait for', k.name);
+// Which litters they wait for (listen-only, Spec §15.7, §16.3) is the "Parents"
+// line of What you asked for (decided 2026-10-08): "Any", "Ash, Juniper only", or
+// "Not Willow". It's changed with the rest of their answers (Ask to change).
+const parentList = () => { const p = state.v.kennel.parents || { sires: [], dams: [] }; return [...p.sires, ...p.dams]; };
+const canChooseParents = () => state.v.family.status === 'active' && parentList().length > 0;
 
-  let body = `<p class="mt0">${esc(describe(f.listen))}</p>`;
-  if (!canAct() || !(parents.sires.length + parents.dams.length)) return card('Which litters you wait for', body + status);
-  if (state.open !== 'listen') {
-    return card('Which litters you wait for', `${body}${status}
-      <div class="actions"><button type="button" class="secondary" data-act="open" data-what="listen">Change</button></div>`);
-  }
+function parentsText(l) {
+  const name = (id) => parentList().find((d) => d.id === id)?.name || 'a parent no longer listed';
+  const names = [...(l?.sire_ids || []), ...(l?.dam_ids || [])].map(name);
+  if (!l || l.mode === 'all' || !names.length) return 'Any';
+  return l.mode === 'except' ? `Not ${names.join(', ')}` : `${names.join(', ')} only`;
+}
+
+function listenStatus(f) {
+  const k = state.v.kennel;
+  const req = f.requests?.listen;
+  if (pendingOf('listen').length) return `<p class="small"><span class="badge warn">Parents change sent</span> ${waiting(k.name)}</p>`;
+  if (req && !req.decided) return `<p class="small"><span class="badge warn">Requested</span> Parents: ${esc(parentsText(req))}. Waiting for ${esc(k.name)} to decide.</p>`;
+  return decidedLine(req, 'your change to the parents you wait for', k.name);
+}
+
+function parentsFields(f) {
+  const p = state.v.kennel.parents || { sires: [], dams: [] };
   const mode = ['selected', 'except'].includes(f.listen?.mode) ? f.listen.mode : 'all';
   const box = (side, d, ids) => `<label class="choice"><input type="checkbox" name="${side}" value="${esc(d.id)}"${(ids || []).includes(d.id) ? ' checked' : ''}> ${esc(d.name)}</label>`;
-  body = `<form data-form="listen">
+  return `<fieldset class="field mt8"><legend class="q">Parents</legend>
       <div class="choices">
-        <label class="choice"><input type="radio" name="mode" value="all"${mode === 'all' ? ' checked' : ''}> All litters</label>
-        <label class="choice"><input type="radio" name="mode" value="selected"${mode === 'selected' ? ' checked' : ''}> Only litters from these parents</label>
-        <label class="choice"><input type="radio" name="mode" value="except"${mode === 'except' ? ' checked' : ''}> All litters except these parents</label>
+        <label class="choice"><input type="radio" name="mode" value="all"${mode === 'all' ? ' checked' : ''}> Any</label>
+        <label class="choice"><input type="radio" name="mode" value="selected"${mode === 'selected' ? ' checked' : ''}> Only these parents</label>
+        <label class="choice"><input type="radio" name="mode" value="except"${mode === 'except' ? ' checked' : ''}> Not these parents</label>
       </div>
-      ${parents.sires.length ? `<p class="small muted mt8">Sires</p><div class="choices">${parents.sires.map((d) => box('sire', d, f.listen?.sire_ids)).join('')}</div>` : ''}
-      ${parents.dams.length ? `<p class="small muted mt8">Dams</p><div class="choices">${parents.dams.map((d) => box('dam', d, f.listen?.dam_ids)).join('')}</div>` : ''}
-      <p class="small muted">A litter counts if its sire OR its dam is one you picked (with "except", that litter is skipped). You keep your place either way. Waiting for more litters (or all of them) happens at ${esc(possessive(k.name))} next update; waiting for fewer, or switching between "only" and "except", needs their OK.</p>
-      <div class="actions"><button class="primary" type="submit">Save</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
-    </form>`;
-  return card('Which litters you wait for', body + status);
+      ${p.sires.length ? `<p class="small muted mt8">Sires</p><div class="choices">${p.sires.map((d) => box('sire', d, f.listen?.sire_ids)).join('')}</div>` : ''}
+      ${p.dams.length ? `<p class="small muted mt8">Dams</p><div class="choices">${p.dams.map((d) => box('dam', d, f.listen?.dam_ids)).join('')}</div>` : ''}
+      <p class="small muted">A litter counts if its sire OR its dam is one you picked. You keep your place either way. Waiting for more litters happens at ${esc(possessive(state.v.kennel.name))} next update; fewer needs their OK.</p>
+    </fieldset>`;
 }
 
 // --- Their Companion link (Spec §8.3) ---------------------------------------------
@@ -566,7 +567,6 @@ function mineHtml() {
       parts.push(card('Available Puppies', `<ul class="plain">${items}</ul>`));
     }
     parts.push(upcomingCard(v));
-    parts.push(listenHtml(f));
   } else if (canAct()) {
     parts.push(card('', placeActions(f)));
   }
@@ -694,12 +694,6 @@ async function onSubmit(ev) {
     case 'leave':
       await act('leave', { note: data.get('note') }, `${kennel} will see that you're leaving at their next update.`);
       return;
-    case 'listen': {
-      const mode = ['selected', 'except'].includes(data.get('mode')) ? data.get('mode') : 'all';
-      await act('listen', { mode, sire_ids: mode !== 'all' ? data.getAll('sire') : [], dam_ids: mode !== 'all' ? data.getAll('dam') : [] },
-        `Saved. ${kennel} will see it at their next update.`);
-      return;
-    }
     case 'pref_change': {
       const prefs = state.v.family.prefs;
       const changes = {};
@@ -713,8 +707,21 @@ async function onSubmit(ev) {
           if (value !== now) changes[f.key] = value;
         }
       }
-      if (!Object.keys(changes).length) { state.flash = ERRORS.nothing_to_change; button.disabled = false; render(); return; }
-      await act('pref_change', { changes, note: data.get('note') }, `Your request is on its way. ${kennel} decides; until then nothing changes.`);
+      // Parents (listen-only) ride the same form but are their own action.
+      let listen = null;
+      if (canChooseParents()) {
+        const mode = ['selected', 'except'].includes(data.get('mode')) ? data.get('mode') : 'all';
+        const next = { mode, sire_ids: mode !== 'all' ? data.getAll('sire') : [], dam_ids: mode !== 'all' ? data.getAll('dam') : [] };
+        const cur = state.v.family.listen || { mode: 'all', sire_ids: [], dam_ids: [] };
+        const same = (a, b) => [...(a || [])].sort().join() === [...(b || [])].sort().join();
+        const curMode = ['selected', 'except'].includes(cur.mode) ? cur.mode : 'all';
+        if (next.mode !== curMode || (next.mode !== 'all' && (!same(next.sire_ids, cur.sire_ids) || !same(next.dam_ids, cur.dam_ids)))) listen = next;
+      }
+      if (!Object.keys(changes).length && !listen) { state.flash = ERRORS.nothing_to_change; button.disabled = false; render(); return; }
+      const done = `Your request is on its way. ${kennel} decides; until then nothing changes.`;
+      if (listen && !Object.keys(changes).length) { await act('listen', listen, `Saved. ${kennel} will see it at their next update.`); return; }
+      if (listen && !(await send('/f/act', { action: 'listen', ...listen }))) { await load(); return; }
+      await act('pref_change', { changes, note: data.get('note') }, done);
       return;
     }
     case 'message': {

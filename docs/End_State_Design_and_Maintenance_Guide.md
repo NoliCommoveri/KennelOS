@@ -3240,6 +3240,11 @@ shown (`describeOfferChanges`).
   and upcoming items carry `breed` (the dam's, else the sire's) and `sire` / `dam` as
   `{ name, titles }`; `/f/status` adds `pups_female` / `pups_male`. Current Position shows
   "Added 03/07/2026" and "Passes 1 of 2 used".
+  Which litters they wait for (listen-only) has no card of its own: it's the **Parents** line
+  of What you asked for ("Any", "Ash, Juniper only", "Not Willow"), and its choices sit at
+  the bottom of the Ask to change form; one Send sends a `listen` action and/or a
+  `pref_change`, whichever changed (a wider listen change still applies at her next update;
+  a narrower one still waits for her OK).
 - **Message on your public list (2026-10-08):** `waitlist_config.public_intro_text` (blank =
   `waitlistRules.PUBLIC_INTRO_DEFAULT`), edited on the Publish list page; `publicIntroText`
   fills in `[Kennel Name]`, the projection publishes it as `kennel.intro`, and `/f/list`
