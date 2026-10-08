@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Waitlist</title>
+<link rel="stylesheet" href="/family/family.css">
+<script type="module" src="/family/list.js"></script>
+</head>
+<body>
+<main>
+  <header class="page">
+    <h1 id="title">Waitlist</h1>
+    <p class="muted small" id="updated"></p>
+  </header>
+  <p id="error" class="card notice" hidden></p>
+  <section id="content" hidden>
+    <div class="card">
+      <label for="search" class="small muted">Find yourself on the list</label>
+      <input id="search" type="search" placeholder="Search by name or number" autocomplete="off">
+      <p class="small muted mt8" id="count"></p>
+    </div>
+    <div class="card" id="list"></div>
+    <div class="card">
+      <h2>Lost your link?</h2>
+      <p class="small muted mt0">Families on the list have their own page. Enter the email you applied with and we'll send your link to it.</p>
+      <form class="inline" id="link-form">
+        <input id="link-email" type="email" required autocomplete="email" placeholder="you@example.com" aria-label="Your email">
+        <button class="primary" type="submit">Email me my link</button>
+      </form>
+      <p class="small" id="link-result" role="status"></p>
+    </div>
+  </section>
+  <footer class="page">Positions are kept by the breeder's own records. Contact details are never shown here.</footer>
+</main>
+</body>
+</html>

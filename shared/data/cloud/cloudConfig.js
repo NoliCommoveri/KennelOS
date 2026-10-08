@@ -65,6 +65,27 @@ export function isWaitlistOnlineOffered() {
   return isCloudAvailable() && (WAITLIST_ONLINE_RELEASED || isLocalDev() || testServerOn());
 }
 
+// Where families open their pages (W2 Plan §3): apply.kennelos.app for the
+// production server; staging serves the same pages from its own address. No
+// network: these only build links.
+export const FAMILY_PAGES_URL = 'https://apply.kennelos.app';
+
+export function familyPagesUrl() {
+  const base = cloudBaseUrl();
+  if (!base) return null;
+  return cloudUrl && base === String(cloudUrl).replace(/\/+$/, '') ? FAMILY_PAGES_URL : base;
+}
+
+export function statusPageLink(token) {
+  const base = familyPagesUrl();
+  return base && token ? `${base}/s/${token}` : null;
+}
+
+export function publicListLink(publicId) {
+  const base = familyPagesUrl();
+  return base && publicId ? `${base}/list/${publicId}` : null;
+}
+
 // Reads ?cloud=staging / ?cloud=off from `loc` and applies it. A sign-in and
 // the backup position belong to one server, so switching server forgets both
 // on this device (local only; nothing on either server is touched, and the

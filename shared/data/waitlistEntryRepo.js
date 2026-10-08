@@ -15,6 +15,13 @@ import { deriveContactWaitlistStatus, prefChangeLines } from './waitlistRules.js
 import { todayYMD } from './dateUtils.js';
 import { WAITLIST_ENTRY_STATUS, WAITLIST_LISTEN_MODE, WAITLIST_PREF_SEX } from './vocab.js';
 
+// A family's status-page link token (W2 Plan §4): 256 random bits, hex. Minted by
+// cloudWaitlist when the list goes online, and again by "New link".
+export function newStatusToken() {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 const base = makeRepo('waitlist_entries', WAITLIST_ENTRY_REFERENCES);
 
 const STATUSES = WAITLIST_ENTRY_STATUS.map((s) => s.value);

@@ -7,12 +7,16 @@
 // - the JSON API (api.js), behind the maintenance gate;
 // - Lemon Squeezy's webhook (license.js), behind the gate too, server to
 //   server: no CORS, no bearer token, an HMAC signature instead;
+// - the waitlist's family pages (familyPages.js): static pages from ASSETS,
+//   served whatever the schema state, and their same-origin JSON under /f/,
+//   behind the gate;
 // - the daily cron, which runs retention.
 import { handleOps } from './ops.js';
 import { handleApi } from './api.js';
 import { schemaReady } from './gate.js';
 import { activeNotices } from './notice.js';
 import { handleWebhook } from './license.js';
+import { handleFamilyApi, serveFamilyPage } from './familyPages.js';
 import { runRetention } from './retention.js';
 import { corsHeaders, preflight } from './lib/cors.js';
 import { ApiError, json } from './lib/http.js';
@@ -24,6 +28,9 @@ export default {
     if (url.pathname === '/ops' || url.pathname.startsWith('/ops/')) {
       return handleOps(request, env);
     }
+
+    const page = await serveFamilyPage(request, env, url);
+    if (page) return page;
 
     if (request.method === 'OPTIONS') return preflight(request);
 
@@ -51,6 +58,7 @@ export default {
       }
 
       if (url.pathname === '/webhooks/lemonsqueezy' && request.method === 'POST') return await handleWebhook(request, env);
+      if (url.pathname.startsWith('/f/')) return await handleFamilyApi(request, env, url);
 
       return await handleApi(request, env, url, cors);
     } catch (err) {

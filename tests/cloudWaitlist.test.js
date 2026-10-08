@@ -152,3 +152,34 @@ test('an account the server does not know is Pro: told so', async () => {
   assert.deepEqual([res.status, res.reason], ['error', 'pro-required']);
   assert.deepEqual(raw('SELECT * FROM wl_projection'), []);
 });
+
+test("every family on an online list gets a status link, and New link replaces only theirs", async () => {
+  await breeder();
+  const k = await putOnline();
+  await cw.syncWaitlistOnline();
+  const entries = (await waitlistEntryRepo.getByKennel(k.id));
+  assert.ok(entries.length > 0);
+  assert.ok(entries.every((e) => /^[0-9a-f]{64}$/.test(e.status_token)), 'minted for everyone');
+  assert.equal(new Set(entries.map((e) => e.status_token)).size, entries.length, 'all different');
+  assert.deepEqual(raw('SELECT token FROM wl_tokens ORDER BY token').map((r) => r.token), entries.map((e) => e.status_token).sort());
+
+  const [first, second] = entries;
+  await cw.replaceStatusToken(first.id);
+  const after = await waitlistEntryRepo.getById(first.id);
+  assert.notEqual(after.status_token, first.status_token);
+  const tokens = raw('SELECT token FROM wl_tokens').map((r) => r.token);
+  assert.ok(!tokens.includes(first.status_token), 'the old link stops working');
+  assert.ok(tokens.includes(after.status_token));
+  assert.ok(tokens.includes(second.status_token), "everyone else's link is untouched");
+});
+
+test('links point at the family pages: staging serves them itself, production at apply.kennelos.app', async () => {
+  const cfg = await import('../shared/data/cloud/cloudConfig.js');
+  const { devCloudUrl } = await import('../shared/data/editionConfig.js');
+  globalThis.location = { hostname: 'localhost' };
+  assert.equal(cfg.familyPagesUrl(), devCloudUrl);
+  assert.equal(cfg.statusPageLink('a'.repeat(64)), `${devCloudUrl}/s/${'a'.repeat(64)}`);
+  assert.equal(cfg.publicListLink('kos1_x'), `${devCloudUrl}/list/kos1_x`);
+  assert.equal(cfg.statusPageLink(null), null);
+  assert.equal(cfg.FAMILY_PAGES_URL, 'https://apply.kennelos.app');
+});

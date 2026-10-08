@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<title>Your waitlist page</title>
+<link rel="stylesheet" href="/family/family.css">
+<script type="module" src="/family/status.js"></script>
+</head>
+<body>
+<main>
+  <header class="page">
+    <h1 id="title">Your waitlist page</h1>
+    <p class="muted small" id="updated"></p>
+  </header>
+  <p id="error" class="card notice" hidden></p>
+  <div class="tabs" role="tablist" id="tabs" hidden>
+    <button type="button" role="tab" id="tab-mine" aria-selected="true" aria-controls="mine">My page</button>
+    <button type="button" role="tab" id="tab-list" aria-selected="false" aria-controls="public">Public list</button>
+  </div>
+  <section id="mine" role="tabpanel" aria-labelledby="tab-mine" hidden></section>
+  <section id="public" role="tabpanel" aria-labelledby="tab-list" hidden>
+    <div class="card">
+      <label for="search" class="small muted">Search the list</label>
+      <input id="search" type="search" placeholder="Search by name or number" autocomplete="off">
+    </div>
+    <div class="card" id="list"></div>
+  </section>
+  <footer class="page">This page is just for you: anyone with its link can see it, so please don't share it.</footer>
+</main>
+</body>
+</html>

@@ -37,7 +37,7 @@ import { addDaysToYMD } from '../data/dateUtils.js';
 import { esc, badge, fmtDate, fmtMoney, param, todayYMD, confirmModal, alertModal } from '../assets/ui.js';
 import {
   resolveWaitlistKennel, prefsSummary, entryFlags, formModal,
-  pickDialog, depositDialog, changePickDialog, undoPassDialog
+  pickDialog, depositDialog, changePickDialog, undoPassDialog, statusLinkFor, copyLink
 } from '../assets/waitlistUI.js';
 
 const els = {
@@ -167,6 +167,25 @@ function actionButtons(e) {
   }
 }
 
+// Her request (W2 Plan §8): the family's status-page link, to send by Messenger
+// or text, and "New link" if it went somewhere it shouldn't. Only while the list
+// is online.
+function statusLinkHtml(e) {
+  if (!statusLinkFor(e, ctx.kennel)) return '';
+  return `<div class="row-between" style="gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+      <span class="muted">Their status page: their place, offers and the fee due.</span>
+      <span class="pill-row"><button class="btn btn-sm" data-link="copy">Copy status link</button><button class="btn btn-sm" data-link="new" title="Make a new link; the old one stops working">New link</button></span>
+    </div>`;
+}
+
+async function onNewLink() {
+  if (!(await confirmModal({ title: 'Make a new link?', message: 'Their current link stops working as soon as the new one is published. Send them the new link.', confirmLabel: 'Make a new link' }))) return;
+  const { replaceStatusToken } = await import('../data/cloud/cloudWaitlist.js');
+  await replaceStatusToken(ctx.entry.id);
+  await afterAction();
+  await copyLink(statusLinkFor(ctx.entry, ctx.kennel), null, { title: 'Their new status page link' });
+}
+
 function renderStatus() {
   const e = ctx.entry;
   els.status.innerHTML = `
@@ -176,7 +195,9 @@ function renderStatus() {
         ${statusLines(e).map((l) => `<p style="margin:4px 0;">${l}</p>`).join('')}
       </div>
       <div class="pill-row">${actionButtons(e)}</div>
-    </div>`;
+    </div>${statusLinkHtml(e)}`;
+  els.status.querySelector('[data-link="copy"]')?.addEventListener('click', (ev) => copyLink(statusLinkFor(e, ctx.kennel), ev.currentTarget, { title: 'Their status page' }));
+  els.status.querySelector('[data-link="new"]')?.addEventListener('click', () => onNewLink().catch((err) => showError(err.message || String(err))));
   const handlers = { offer: onOfferLitter, approve: onApprove, decline: onDecline, withdraw: onWithdraw, fee: onFeeReceived, expire: onExpire, move: onMove, remove: onRemove, undo: onUndo, reapply: onReapply };
   els.status.querySelectorAll('[data-act]').forEach((btn) => {
     btn.addEventListener('click', () => handlers[btn.dataset.act]().catch((err) => showError(err.message || String(err))));

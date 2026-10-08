@@ -21,7 +21,7 @@ import {
 } from '../data/waitlistRules.js';
 import { WAITLIST_OFFER_OUTCOME, SEX } from '../data/vocab.js';
 import { esc, badge, fmtDate, todayYMD, confirmModal, alertModal } from './ui.js';
-import { openSoonNotice, pickDialog, depositDialog, changePickDialog, undoPassDialog } from './waitlistUI.js';
+import { openSoonNotice, pickDialog, depositDialog, changePickDialog, undoPassDialog, statusLinkFor, copyLink } from './waitlistUI.js';
 
 const none = '<span class="faint">—</span>';
 const QUEUE_PREVIEW = 5;
@@ -83,6 +83,9 @@ export async function renderWaitlistPicksPanel({ mount, litter, onChange = async
     const live = entry ? eligiblePupsFor(entry, litter, d.pups, d.sales, opts) : [];
     const overdue = open.respond_by_date && open.respond_by_date < today;
     const picked = isAwaitingDeposit(open) ? pupsById.get(open.chosen_dog_id) : null;
+    // Her request (W2 Plan §8): the family's status-page link, to send by Messenger.
+    const copyBtn = entry && statusLinkFor(entry, d.kennel)
+      ? '<button class="btn btn-sm" data-pk="copy-link" title="Their status page, to send by Messenger or text">Copy status link</button>' : '';
     openHtml = `
       <div class="card" style="margin:12px 0 0;background:var(--surface-2, transparent);">
         <p style="margin:0 0 6px;"><strong>Offered to ${entry ? familyLink(entry) : 'a family'}</strong> on ${esc(fmtDate(open.offered_date))}
@@ -95,6 +98,7 @@ export async function renderWaitlistPicksPanel({ mount, litter, onChange = async
           <button class="btn btn-sm" data-pk="passed">Passed</button>
           <button class="btn btn-sm" data-pk="no_response" title="The deposit didn't arrive in time (counts like no response)">No deposit</button>
           <button class="btn btn-sm" data-pk="voided" title="Cancel this offer (never counts as a pass)">Void</button>
+          ${copyBtn}
         </div>`
           : `<p class="muted" style="margin:0 0 10px;">Pups available to them: ${live.length ? esc(live.map(pupLabel).join(', ')) : 'none right now'}</p>
         <div class="pill-row">
@@ -102,6 +106,7 @@ export async function renderWaitlistPicksPanel({ mount, litter, onChange = async
           <button class="btn btn-sm" data-pk="passed">Passed</button>
           <button class="btn btn-sm" data-pk="no_response">No response</button>
           <button class="btn btn-sm" data-pk="voided" title="Cancel this offer (never counts as a pass)">Void</button>
+          ${copyBtn}
         </div>`}
       </div>`;
   }
@@ -194,6 +199,9 @@ export async function renderWaitlistPicksPanel({ mount, litter, onChange = async
     const entry = entriesById.get(open.entry_id);
     const name = entry ? familyName(entry) : 'this family';
     const pickedName = open.chosen_dog_id ? (pupsById.get(open.chosen_dog_id)?.call_name || 'their pup') : '';
+    // Not wrapped in run(): copying writes nothing.
+    const link = entry ? statusLinkFor(entry, d.kennel) : null;
+    mount.querySelector('[data-pk="copy-link"]')?.addEventListener('click', (ev) => { if (link) copyLink(link, ev.currentTarget, { title: `${name}'s status page` }); });
     on('accept', async () => {
       const live = eligiblePupsFor(entry, litter, d.pups, d.sales, opts);
       const out = await pickDialog({ offer: open, name, pups: live, pupLabel });

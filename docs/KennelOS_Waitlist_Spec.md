@@ -576,8 +576,10 @@ address.
 ### 8.3 The family's status page
 
 - **Address:** `apply.kennelos.app/s/<token>`, a long random token sent by email. No
-  account or password. "Email me my link" re-sends it, using the 6-digit code pattern
-  from Phase 1 §2.1.
+  account or password. "Email me my link" re-sends it to the address on file (built
+  2026-10-08 as a plain email to that address, no code: only the inbox owner receives
+  anything; W2 Plan step 3). She can also copy any family's link to send by Messenger
+  (**Copy status link**).
 - **What it shows**, built field by field from allow-lists like `companionExport.js`'s
   prospective bundle, which already does most of this:
   - their status, overall position (if she shows it, Q12) and per-litter position;

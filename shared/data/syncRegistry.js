@@ -222,7 +222,12 @@ export const SYNC_REGISTRY = Object.freeze({
       // question wording is her own form; and the applicant's name + email are
       // what W2's server holds readable anyway (Waitlist Spec §8.1). Only those
       // two keys of `application` go (see `partial`); every other answer stays private.
-      'ready_timing', 'soon_notified_litter_ids', 'application_questions', 'application'
+      'ready_timing', 'soon_notified_litter_ids', 'application_questions', 'application',
+      // The family's status-page link token (Waitlist W2 Plan §4, decided 2026-10-08).
+      // The waitlist server already holds every token readable (it serves the page
+      // and puts the link in emails), so cloud backup tells it nothing new; private,
+      // a restore without private backup would change every family's link.
+      'status_token'
     ],
     partial: { application: ['name', 'email'] },
     // pref_change_*: "private tier like application" (Waitlist Spec §15.9).

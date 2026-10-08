@@ -6,6 +6,8 @@ import { esc } from './ui.js';
 import { kennelRepo } from '../data/kennelRepo.js';
 import { waitlistConfig } from '../data/waitlistRules.js';
 import { syncWaitlistOnline, waitlistOnlineStatus, WAITLIST_ONLINE_EVENT } from '../data/cloud/cloudWaitlist.js';
+import { publicListLink } from '../data/cloud/cloudConfig.js';
+import { copyLink } from './waitlistUI.js';
 
 // Every IANA zone the browser knows, with the device's own and any saved one.
 export function timeZoneOptions(saved) {
@@ -66,9 +68,11 @@ export function mountWaitlistOnline(root, kennel, { onSaved } = {}) {
       <div class="form-actions">
         <button class="btn btn-primary btn-sm" data-wlo="save">Save</button>
         ${st.online ? '<button class="btn btn-sm" data-wlo="now">Publish now</button>' : ''}
+        ${st.online && st.published ? '<button class="btn btn-sm" data-wlo="list" title="The public list, for Facebook or your website">Copy public list link</button>' : ''}
       </div>`;
     root.querySelector('[data-wlo="save"]').addEventListener('click', save);
     root.querySelector('[data-wlo="now"]')?.addEventListener('click', publishNow);
+    root.querySelector('[data-wlo="list"]')?.addEventListener('click', (ev) => copyLink(publicListLink(kennel.public_id), ev.currentTarget, { title: 'Your public list' }));
   };
 
   const publishNow = async () => {

@@ -312,6 +312,39 @@ means no fee reminder ever.
 3. **The public list and status page, read-only.** `cloud/public/` pages, `apply.kennelos.app`
    on staging, "Email me my link" (6-digit code), the search box, phone-width checks.
    `status_token` on entries, **Copy status link** / **New link** (§8, §9).
+   **Built 2026-10-08.** As built:
+   - **Server** (`cloud/src/familyPages.js`): `/list/<public_id>` and `/s/<token>` serve
+     `public/family/list.html` / `status.html` through the `ASSETS` binding (`[assets]` in
+     `wrangler.toml` with `run_worker_first` and `html_handling = "none"`, inherited by
+     production; checked with `wrangler deploy --dry-run` for both); `/family/*` serves their
+     files. Pages get `no-referrer`, `noindex` and a strict CSP (no inline script or style,
+     nothing from elsewhere). JSON is same-origin: `GET /f/list/:publicId`,
+     `GET /f/status/:token` (`statusView`: the family's own entry minus their email, their
+     offers with the pups each lists, every live litter with only THEIR place, the public
+     list), `POST /f/link`. 600 reads an hour per IP.
+   - **"Email me my link" emails the link to the address on file**, no code (a code only
+     matters when the page itself must trust the person typing; here only the inbox owner
+     gets anything). Always `{ok:true}`; 3 an hour per address, 20 per IP; `503` before any
+     lookup when email is down. Sent with `mail.sendFamilyMessage` from `MAIL_FROM` until
+     step 6, recorded in `wl_messages` (staging's outbox mode records without delivering).
+   - **Pages** (`cloud/public/family/`): the public list with a search box (a number finds
+     that position; anything else the name, any case or accent, or the date), the gap note,
+     "Email me my link"; the status page with My page / Public list tabs (their own row
+     highlighted), the offer card with the respond-by time in the kennel's zone, the fee
+     card while unpaid, their place, litters ("#2 in line" / "Not a match for you" / "No pups
+     yet"), what they asked for; light and dark. The copied vocab labels are pinned to
+     `vocab.js` by `tests/familyPages.test.js`.
+   - **Device:** `waitlist_entries.status_token` is **cloud tier** (the server already holds
+     every token, so backup tells it nothing new, and a restore without private backup must
+     not change every family's link). `cloudWaitlist.ensureStatusTokens` mints one per entry
+     of an online kennel before each publish; `replaceStatusToken` is **New link**.
+     `cloudConfig.familyPagesUrl()` / `statusPageLink()` / `publicListLink()`: production →
+     `https://apply.kennelos.app`, staging → its own address. **Copy status link** + **New
+     link** on the family's page, **Copy status link** beside an open offer on the picks
+     panel, **Copy public list link** on the Online list card (`waitlistUI.copyLink`; falls
+     back to showing the link where the clipboard is blocked).
+   - `cloud/tests/helpers/serve.mjs` runs the real Worker locally on the test database with
+     the pages, to look at them in a browser.
 4. **The online form and inbox.** Form key table + Rotate, the form page (her questions,
    FAQ, notice, Turnstile), encryption, confirmation email, the inbox → `applied` entries on
    the backing device.

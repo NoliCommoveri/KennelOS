@@ -18,7 +18,7 @@ import {
 } from '../settings.js';
 import { editionFlags } from '../editionConfig.js';
 import { kennelRepo } from '../kennelRepo.js';
-import { waitlistEntryRepo } from '../waitlistEntryRepo.js';
+import { waitlistEntryRepo, newStatusToken } from '../waitlistEntryRepo.js';
 import { waitlistOfferRepo } from '../waitlistOfferRepo.js';
 import { waitlistProgramRepo } from '../waitlistProgramRepo.js';
 import { litterRepo } from '../litterRepo.js';
@@ -52,6 +52,25 @@ export function isOnline(kennel) {
 async function sha256(text) {
   const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Every family on an online list gets its status-page link token, once (W2 Plan
+// §4). Written through the repo like any edit, so it rides backup.
+export async function ensureStatusTokens(kennel) {
+  let minted = 0;
+  for (const e of await waitlistEntryRepo.getByKennel(kennel.id)) {
+    if (e.status_token) continue;
+    await waitlistEntryRepo.update(e.id, { status_token: newStatusToken() });
+    minted++;
+  }
+  return minted;
+}
+
+// "New link": the old link stops working at the next publish (now).
+export async function replaceStatusToken(entryId) {
+  const entry = await waitlistEntryRepo.update(entryId, { status_token: newStatusToken() });
+  await syncWaitlistOnline().catch(() => {});
+  return entry;
 }
 
 // The projection for one kennel, from the database.
@@ -124,6 +143,7 @@ async function syncNow({ force }) {
       unpublished.push(kennelId);
     }
     for (const kennel of wanted) {
+      await ensureStatusTokens(kennel);
       const projection = await projectionFor(kennel);
       const hash = await sha256(JSON.stringify(projection));
       const prev = getWaitlistOnlineState().kennels[kennel.id];

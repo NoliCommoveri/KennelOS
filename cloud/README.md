@@ -29,6 +29,9 @@ src/waitlist.js        the waitlist online, her side (docs/KennelOS_Waitlist_W2_
                        read / take offline a kennel's projection (status-page tokens move to
                        wl_tokens), the encrypted inbox and its ack, the events stream. Pro only
                        (requirePro); writes from the backing device only
+src/familyPages.js     the waitlist's family pages: serves public/family/ for /list/<public_id> and
+                       /s/<token> (ASSETS binding), their same-origin JSON under /f/ (the public
+                       list, one family's status view, "Email me my link")
 src/notice.js          service notices (public /notice; set on /ops)
 src/retention.js       the daily prune and GC; pickDrops is the pure rule
 src/backup.js          /ops export/import of the D1 rows (not R2)
@@ -39,7 +42,10 @@ src/health.js          bindings, secrets present, schema version, row counts
 src/lib/cors.js        the allowed origins (Lite, Pro, localhost)
 src/lib/sql.js         statement splitter (ported verbatim from MCCE)
 src/migrations/        NNNN_name.sql files + index.js, the ordered list the runner reads
-tests/                 node --test against a node:sqlite stand-in for D1
+public/family/         the family pages' static files (no build step; strict CSP, so no inline
+                       script or style); tests/familyPages.test.js in the repo root pins their labels
+tests/                 node --test against a node:sqlite stand-in for D1;
+                       tests/helpers/serve.mjs runs the Worker locally to look at the pages
 ```
 
 ## Rules that bite
@@ -76,7 +82,9 @@ tests/                 node --test against a node:sqlite stand-in for D1
 - **No `IN (?, ?, …)` over a list.** D1 allows about 100 bound parameters and the test
   stand-in doesn't enforce that. Pass the list as one JSON parameter through
   `json_each(?)` (plan §6.2).
-- **Never add `not_found_handling`** if this Worker ever gets an `[assets]` block.
+- **The `[assets]` block serves files only through the Worker** (`run_worker_first`), so /ops and
+  the API are never shadowed. Never add `not_found_handling`, and keep `html_handling = "none"`.
+  A family page carries a bearer token in its address: keep `no-referrer` on it and its JSON.
 - Not part of any edition: no `shared/sw.js` precache entries, and `deploy.yml`
   never touches it.
 
