@@ -1,11 +1,25 @@
-// A family's own status page: /s/<token> (Waitlist Spec §8.3; W2 Plan §5).
-// Read-only for now: their place, their offers and the pups in them, the fee
-// while it's unpaid, the litters and their place in each, and the public list.
-// The buttons (accept, pass, pause request…) come with W2 step 5.
-import { esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, SEX_LABEL, READY_LABEL, PLACEMENT_LABEL, CREDIT_LABEL } from './common.js';
+// A family's own status page: /s/<token> (Waitlist Spec §8.3; W2 Plan §5, step 5).
+// Their place, their offers and the pups in them, the fee while it's unpaid, the
+// litters and their place in each, and the public list. From a SIGNED-IN browser
+// (See Your Details) it also lets them respond: choose a pup or pass, say they're
+// still interested, ask for a pause, change which litters they wait for, ask to
+// change a matching answer, leave the list, and message the breeder. Anyone with
+// only the link can look but not act: the server needs the family session.
+//
+// Every action is recorded on the server for the breeder's device, which decides
+// (W2 Plan §6): the page says what's waiting for her until her next update.
+// Messages are sealed here, in this browser, to her key (seal.js); the server
+// can't read them.
+import {
+  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive,
+  SEX_LABEL, READY_LABEL, PLACEMENT_LABEL, CREDIT_LABEL
+} from './common.js';
+import { rememberedFamily, forgetFamily } from './session.js';
+import { seal } from './seal.js';
 
 const $ = (id) => document.getElementById(id);
 const token = location.pathname.split('/')[2] || '';
+const MESSAGE_MAX = 5000;
 
 const STATUS = {
   applied: { badge: 'info', label: 'Application received' },
@@ -17,6 +31,10 @@ const STATUS = {
   removed: { badge: 'plain', label: 'No longer on the list' },
   expired: { badge: 'plain', label: 'Fee window closed' },
 };
+
+// The page's state: the view the server sent, the browser's family session (or
+// null), and which editor is open.
+const state = { v: null, session: null, open: null, flash: '' };
 
 // One line about a litter: "Expected", "Born Sep 1, 2026 · ready about Oct 27", …
 function litterLine(l) {
@@ -50,39 +68,223 @@ function closedText(status, kennel) {
   }
 }
 
-function prefsHtml(prefs) {
-  if (!prefs) return '';
-  const rows = [
-    ['Sex', SEX_LABEL[prefs.sex] || 'Either'],
-    ['Breed', prefs.breed || 'Any'],
-    ['Placement', PLACEMENT_LABEL[prefs.placement] || 'Any'],
-    ['Colors', prefs.colors?.length ? prefs.colors.join(', ') : 'Any'],
-    ['Ready to buy', READY_LABEL[prefs.ready_timing] || 'Not answered'],
-  ];
-  return `<dl class="facts">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
-    <p class="small muted">To change any of these, contact the breeder.</p>`;
+// --- What's waiting for the breeder ------------------------------------------------
+
+const pendingOf = (kind, test = () => true) => (state.v.pending || []).filter((p) => p.kind === kind && test(p.payload || {}));
+const waiting = (kennel) => `Waiting for ${esc(kennel)} to update the list.`;
+const signedIn = () => Boolean(state.session);
+const canAct = () => signedIn() && ['applied', 'approved', 'active'].includes(state.v.family.status);
+
+function decidedLine(req, what, kennel) {
+  if (!req || !req.decided) return '';
+  return req.decided === 'approved'
+    ? `<p class="small">${esc(kennel)} approved ${what} on ${esc(fmtDate(req.decided_date))}.</p>`
+    : `<p class="small">${esc(kennel)} didn't approve ${what} (${esc(fmtDate(req.decided_date))}). Contact them if you have questions.</p>`;
 }
 
-function offerHtml(o, kennel, timeZone) {
-  const zone = timeZone ? ` (${esc(timeZone.replace(/_/g, ' '))} time)` : '';
+// --- Matching answers (Spec §15.9: they ask, she approves) -----------------------
+
+const PREF_FIELDS = [
+  { key: 'pref_sex', prefs: 'sex', label: 'Sex', text: (v) => SEX_LABEL[v] || 'Either' },
+  { key: 'pref_breed', prefs: 'breed', label: 'Breed', text: (v) => v || 'Any' },
+  { key: 'pref_placement_type', prefs: 'placement', label: 'Placement', text: (v) => PLACEMENT_LABEL[v] || 'Any' },
+  { key: 'pref_colors', prefs: 'colors', label: 'Colors', text: (v) => (Array.isArray(v) && v.length ? v.join(', ') : 'Any') },
+  { key: 'ready_timing', prefs: 'ready_timing', label: 'Ready to buy', text: (v) => READY_LABEL[v] || 'Not answered' },
+];
+
+// The answers a family asks to change: colors only while she matches on color
+// (otherwise they're notes), breed only when she has breeds to choose from.
+function editableFields() {
+  const k = state.v.kennel;
+  return PREF_FIELDS.filter((f) => (f.key !== 'pref_colors' || k.color_matching) && (f.key !== 'pref_breed' || (k.breeds || []).length));
+}
+
+function prefEditor(prefs) {
+  const k = state.v.kennel;
+  const opts = (pairs, current) => pairs.map(([v, label]) => `<option value="${esc(v)}"${v === (current ?? '') ? ' selected' : ''}>${esc(label)}</option>`).join('');
+  const control = (f) => {
+    const cur = prefs[f.prefs];
+    switch (f.key) {
+      case 'pref_sex': return `<select name="pref_sex">${opts(Object.entries(SEX_LABEL), cur || 'any')}</select>`;
+      case 'pref_breed': return `<select name="pref_breed">${opts([['', 'Any'], ...(k.breeds || []).map((b) => [b, b])], cur || '')}</select>`;
+      case 'pref_placement_type': return `<select name="pref_placement_type">${opts([['', 'Any'], ...Object.entries(PLACEMENT_LABEL)], cur || '')}</select>`;
+      case 'pref_colors': return `<input type="text" name="pref_colors" value="${esc((cur || []).join(', '))}" placeholder="Separate colors with commas">`;
+      case 'ready_timing': return `<select name="ready_timing">${opts([['', 'Not answered'], ...Object.entries(READY_LABEL)], cur || '')}</select>`;
+      default: return '';
+    }
+  };
+  return `<form data-form="pref_change" class="mt8">
+      ${editableFields().map((f) => `<label class="q mt8">${esc(f.label)}${control(f)}</label>`).join('')}
+      <label class="q mt8">Anything you'd like to add? <span class="muted small">(optional)</span><textarea name="note" maxlength="500"></textarea></label>
+      <p class="small muted">${esc(state.v.kennel.name)} decides on a change like this. Until then, nothing changes: your offers and your place stay as they are.</p>
+      <div class="actions"><button class="primary" type="submit">Send my request</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
+    </form>`;
+}
+
+function prefsHtml(f) {
+  const prefs = f.prefs;
+  if (!prefs) return '';
+  const kennel = state.v.kennel.name;
+  const rows = PREF_FIELDS.filter((x) => x.key !== 'pref_breed' || prefs.breed || (state.v.kennel.breeds || []).length)
+    .map((x) => `<dt>${esc(x.label)}</dt><dd>${esc(x.text(prefs[x.prefs]))}</dd>`).join('');
+  const req = f.requests?.pref_change;
+  const sent = pendingOf('pref_change');
+  let status = '';
+  if (sent.length || (req && !req.decided)) {
+    const changes = sent.length ? sent[sent.length - 1].payload.changes : req.changes;
+    const asked = PREF_FIELDS.filter((x) => changes && changes[x.key] !== undefined).map((x) => `${x.label}: ${x.text(changes[x.key])}`).join(', ');
+    status = `<p class="small"><span class="badge warn">Requested</span> ${esc(asked)}. Waiting for ${esc(kennel)}.</p>`;
+  } else {
+    status = decidedLine(req, 'your requested change', kennel);
+  }
+  let action = '<p class="small muted">To change any of these, contact the breeder.</p>';
+  if (canAct() && editableFields().length) {
+    action = state.open === 'pref_change' ? prefEditor(prefs)
+      : `<p class="small muted">The answers that decide which pups you're offered change only with ${esc(possessive(kennel))} OK.</p>
+         <div class="actions"><button class="secondary" type="button" data-act="open" data-what="pref_change">Ask to change</button></div>`;
+  }
+  return `<dl class="facts">${rows}</dl>${status}${action}`;
+}
+
+// --- Offers ----------------------------------------------------------------------
+
+function offerHtml(o) {
+  const v = state.v;
+  const kennel = v.kennel.name;
+  const zone = v.kennel.time_zone ? ` (${esc(v.kennel.time_zone.replace(/_/g, ' '))} time)` : '';
+  const sentPick = pendingOf('pick', (p) => p.offer_id === o.id)[0];
+  const sentPass = pendingOf('pass', (p) => p.offer_id === o.id)[0];
+  const chosen = o.picked_dog_id || sentPick?.payload.dog_id || null;
+  const actOn = canAct() && !chosen && !sentPass;
   const pups = o.pups.length
-    ? `<div class="pups">${o.pups.map((d) => `<span class="pup">${esc(d.call_name)} · ${esc(SEX_LABEL[d.sex] || '')}${d.color ? ` · ${esc(d.color)}` : ''}${d.id === o.picked_dog_id ? ' <span class="badge">Your pick</span>' : ''}</span>`).join('')}</div>`
+    ? `<div class="pups">${o.pups.map((d) => {
+      const label = `${esc(d.call_name)} · ${esc(SEX_LABEL[d.sex] || '')}${d.color ? ` · ${esc(d.color)}` : ''}`;
+      const mine = d.id === chosen ? ' <span class="badge">Your pick</span>' : '';
+      return actOn
+        ? `<button type="button" class="pup secondary" data-act="pick" data-offer="${esc(o.id)}" data-dog="${esc(d.id)}" data-name="${esc(d.call_name)}">Choose ${label}</button>`
+        : `<span class="pup">${label}${mine}</span>`;
+    }).join('')}</div>`
     : '';
-  const picked = o.picked_dog_id
-    ? '<p>You picked a pup. Send your deposit by the date above to keep them.</p>'
-    : `<p>Contact ${esc(kennel)} to choose a pup or to pass on this litter.</p>`;
+  let next;
+  if (sentPass) next = `<p>You passed on this litter. ${waiting(kennel)}</p>`;
+  else if (sentPick && !o.picked_dog_id) next = `<p>You chose ${esc(o.pups.find((d) => d.id === chosen)?.call_name || 'a pup')}. ${waiting(kennel)} Send your deposit by the date above to keep them.</p>`;
+  else if (o.picked_dog_id) next = '<p>You picked a pup. Send your deposit by the date above to keep them.</p>';
+  else if (actOn) next = `<p class="small muted">Tap a pup to choose them, or pass on this litter.</p>
+      <div class="actions"><button type="button" class="secondary" data-act="pass" data-offer="${esc(o.id)}">Pass on this litter</button></div>`;
+  else next = signedIn() ? '' : `<p>Sign in on this device to choose a pup or pass (below), or contact ${esc(kennel)}.</p>`;
   return card("It's your turn!", `
     <p class="mt0"><strong>${esc(o.litter)}</strong></p>
     <p>Please respond by <strong>11:59 pm on ${esc(fmtDate(o.respond_by_date, { weekday: true }))}</strong>${zone}.</p>
     ${pups ? `<p class="small muted mt0">Pups available to you:</p>${pups}` : ''}
-    ${picked}`, 'turn');
+    ${next}`, 'turn');
 }
 
-function mineHtml(v) {
+// --- Your place: still interested, pause, leave ----------------------------------
+
+function placeActions(f) {
+  if (!canAct()) return '';
+  const kennel = state.v.kennel.name;
+  const parts = [];
+  if (pendingOf('still_interested').length) parts.push(`<p class="small">Thanks! ${esc(kennel)} will see that you're still interested.</p>`);
+
+  const pauseSent = pendingOf('pause_request');
+  const pauseReq = f.requests?.pause;
+  if (pauseSent.length) parts.push(`<p class="small"><span class="badge warn">Pause requested</span> until ${esc(fmtDate(pauseSent[pauseSent.length - 1].payload.until))}. ${waiting(kennel)}</p>`);
+  else if (pauseReq && !pauseReq.decided) parts.push(`<p class="small"><span class="badge warn">Pause requested</span> until ${esc(fmtDate(pauseReq.until))}. Waiting for ${esc(kennel)} to decide.</p>`);
+  else parts.push(decidedLine(pauseReq, 'your pause', kennel));
+
+  if (state.open === 'pause') {
+    const min = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    parts.push(`<form data-form="pause" class="mt8">
+        <label class="q">Pause my place until<input type="date" name="until" min="${min}" required></label>
+        <label class="q mt8">Why? <span class="muted small">(optional; only ${esc(kennel)} sees this)</span><textarea name="note" maxlength="500"></textarea></label>
+        <p class="small muted">While paused you keep your place, you aren't offered pups, and it never counts as a pass. ${esc(kennel)} approves each pause.</p>
+        <div class="actions"><button class="primary" type="submit">Ask for a pause</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
+      </form>`);
+  } else if (state.open === 'leave') {
+    parts.push(`<form data-form="leave" class="mt8">
+        <p class="mt0"><strong>Leave ${esc(possessive(kennel))} waitlist?</strong> You'd lose your place. Coming back later means applying again.</p>
+        <label class="q">Anything you'd like to tell ${esc(kennel)}? <span class="muted small">(optional)</span><textarea name="note" maxlength="500"></textarea></label>
+        <div class="actions"><button class="primary danger" type="submit">Leave the list</button><button class="secondary" type="button" data-act="close">Keep my place</button></div>
+      </form>`);
+  } else if (pendingOf('leave').length) {
+    parts.push(`<p class="small">You asked to leave the list. ${waiting(kennel)}</p>`);
+  } else {
+    const buttons = [];
+    if (f.status === 'active') buttons.push('<button type="button" class="secondary" data-act="still_interested">Still interested</button>');
+    if (f.status === 'active' && !pauseSent.length && !(pauseReq && !pauseReq.decided)) buttons.push('<button type="button" class="secondary" data-act="open" data-what="pause">Request a pause</button>');
+    buttons.push('<button type="button" class="secondary" data-act="open" data-what="leave">Leave the list</button>');
+    parts.push(`<div class="actions mt8">${buttons.join('')}</div>`);
+  }
+  return parts.join('');
+}
+
+// --- Which litters (listen-only, Spec §15.7) --------------------------------------
+
+function listenHtml(f) {
+  const k = state.v.kennel;
+  const parents = k.parents || { sires: [], dams: [] };
+  const name = (id) => [...parents.sires, ...parents.dams].find((d) => d.id === id)?.name || 'a parent no longer listed';
+  const describe = (l) => ((l?.mode || 'all') !== 'selected' ? 'All litters'
+    : [l.sire_ids?.length ? `Sires: ${l.sire_ids.map(name).join(', ')}` : '', l.dam_ids?.length ? `Dams: ${l.dam_ids.map(name).join(', ')}` : ''].filter(Boolean).join(' · '));
+  const sent = pendingOf('listen');
+  const req = f.requests?.listen;
+  let status = '';
+  if (sent.length) status = `<p class="small"><span class="badge warn">Change sent</span> ${waiting(k.name)}</p>`;
+  else if (req && !req.decided) status = `<p class="small"><span class="badge warn">Requested</span> ${esc(describe(req))}. Waiting for ${esc(k.name)} to decide.</p>`;
+  else status = decidedLine(req, 'your change to which litters you wait for', k.name);
+
+  let body = `<p class="mt0">${esc(describe(f.listen))}</p>`;
+  if (!canAct() || !(parents.sires.length + parents.dams.length)) return card('Which litters you wait for', body + status);
+  if (state.open !== 'listen') {
+    return card('Which litters you wait for', `${body}${status}
+      <div class="actions"><button type="button" class="secondary" data-act="open" data-what="listen">Change</button></div>`);
+  }
+  const selected = f.listen?.mode === 'selected';
+  const box = (side, d, ids) => `<label class="choice"><input type="checkbox" name="${side}" value="${esc(d.id)}"${(ids || []).includes(d.id) ? ' checked' : ''}> ${esc(d.name)}</label>`;
+  body = `<form data-form="listen">
+      <div class="choices">
+        <label class="choice"><input type="radio" name="mode" value="all"${selected ? '' : ' checked'}> All litters</label>
+        <label class="choice"><input type="radio" name="mode" value="selected"${selected ? ' checked' : ''}> Only litters from these parents</label>
+      </div>
+      ${parents.sires.length ? `<p class="small muted mt8">Sires</p><div class="choices">${parents.sires.map((d) => box('sire', d, f.listen?.sire_ids)).join('')}</div>` : ''}
+      ${parents.dams.length ? `<p class="small muted mt8">Dams</p><div class="choices">${parents.dams.map((d) => box('dam', d, f.listen?.dam_ids)).join('')}</div>` : ''}
+      <p class="small muted">A litter counts if its sire OR its dam is one you picked. You keep your place either way. Adding parents, or going back to all litters, happens at ${esc(possessive(k.name))} next update; waiting for fewer litters needs their OK.</p>
+      <div class="actions"><button class="primary" type="submit">Save</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
+    </form>`;
+  return card('Which litters you wait for', body + status);
+}
+
+// --- Messages ----------------------------------------------------------------------
+
+function messageHtml() {
+  const k = state.v.kennel;
+  if (!k.message_key || !['applied', 'approved', 'active'].includes(state.v.family.status)) return '';
+  if (!signedIn()) return '';
+  return card(`Send ${esc(k.name)} a message`, `
+    <form data-form="message">
+      <textarea name="body" maxlength="${MESSAGE_MAX}" required aria-label="Your message"></textarea>
+      <p class="small muted">Only ${esc(k.name)} can read this: it's sealed on this device before it's sent.</p>
+      <div class="actions"><button class="primary" type="submit">Send</button></div>
+    </form>`);
+}
+
+// A browser that only has the link: how to sign in to respond.
+function signInHtml() {
+  const v = state.v;
+  if (signedIn() || !['applied', 'approved', 'active'].includes(v.family.status) || !v.kennel.public_id) return '';
+  return card('Respond on this page', `
+    <p class="mt0 small">To choose a pup, pass, ask for a pause, or message ${esc(v.kennel.name)}, sign in on this device with a code sent to the email on your application.</p>
+    <div class="actions"><a class="button secondary" href="/list/${encodeURIComponent(v.kennel.public_id)}">Sign in with a code</a></div>`);
+}
+
+function mineHtml() {
+  const v = state.v;
   const f = v.family;
   const kennel = v.kennel.name;
   const st = STATUS[f.status] || { badge: 'plain', label: f.status };
   const parts = [`<p><span class="badge ${st.badge}">${esc(st.label)}</span></p>`];
+  if (state.flash) parts.push(`<p class="card notice-card small" role="status">${esc(state.flash)}</p>`);
 
   if (!['applied', 'approved', 'active'].includes(f.status)) {
     parts.push(card('', `<p class="mt0">${closedText(f.status, kennel)}</p>`));
@@ -103,7 +305,7 @@ function mineHtml(v) {
       <p class="small muted">Your place on the list is set from the day ${esc(kennel)} receives your fee.</p>`));
   }
 
-  for (const o of v.offers) parts.push(offerHtml(o, kennel, v.kennel.time_zone));
+  for (const o of v.offers) parts.push(offerHtml(o));
 
   if (f.status === 'active') {
     const notices = [];
@@ -116,7 +318,8 @@ function mineHtml(v) {
       <dl class="facts">
         ${f.fee_received_date ? `<dt>On the list since</dt><dd>${esc(fmtDate(f.fee_received_date))}</dd>` : ''}
         ${f.passes ? `<dt>Passes used</dt><dd>${esc(f.passes.used)} of ${esc(f.passes.max)}</dd>` : ''}
-      </dl>`));
+      </dl>
+      ${placeActions(f)}`));
 
     if (v.litters.length) {
       const items = v.litters.map((l) => `<li><div class="row"><strong>${esc(l.label)}</strong>
@@ -125,11 +328,142 @@ function mineHtml(v) {
       parts.push(card('Litters', `<ul class="plain">${items}</ul>
         <p class="small muted">"In line" counts only families who match that litter's pups.</p>`));
     }
+    parts.push(listenHtml(f));
+  } else if (canAct()) {
+    parts.push(card('', placeActions(f)));
   }
 
-  parts.push(card('What you asked for', prefsHtml(f.prefs)));
+  parts.push(card('What you asked for', prefsHtml(f)));
+  parts.push(messageHtml());
+  parts.push(signInHtml());
   return parts.join('');
 }
+
+// --- Acting ------------------------------------------------------------------------
+
+const ERRORS = {
+  offer_closed: 'That offer has closed. The page now shows where things stand.',
+  already_picked: 'You already chose a pup for this litter.',
+  already_passed: 'You already passed on this litter.',
+  pup_taken: 'Another family just chose that pup. Please pick another.',
+  pup_not_offered: "That pup isn't one offered to you.",
+  not_on_list: "You can't do that right now; the page now shows where things stand.",
+  bad_date: 'Please pick a date after today, within two years.',
+  no_parents: 'Pick at least one sire or dam, or choose All litters.',
+  nothing_to_change: "That's the same as your answers now.",
+  not_yet: "The breeder hasn't added your application to their list yet. Try again later.",
+  messages_off: "Messages aren't switched on for this waitlist.",
+  form_changed: 'This page was out of date. It has been refreshed; please send your message again.',
+  other_family: 'This device is signed in as a different family. Sign out on the waitlist page and sign in again.',
+};
+
+async function send(path, body) {
+  const r = await fetchJson(path, { method: 'POST', json: { session: state.session.session, status_token: token, ...body } });
+  if (r.ok) return true;
+  const code = r.body?.error;
+  if (r.status === 401) {
+    forgetFamily(state.v.kennel.public_id);
+    state.session = null;
+    state.flash = 'You were signed out on this device. Sign in again with a code to respond.';
+  } else {
+    state.flash = ERRORS[code] || loadError(r, { notFound: 'Something went wrong. Please try again.' });
+  }
+  return false;
+}
+
+async function act(action, extra, done) {
+  if (await send('/f/act', { action, ...extra })) { state.open = null; state.flash = done; }
+  await load();
+}
+
+async function onClick(ev) {
+  const b = ev.target.closest('button[data-act]');
+  if (!b || b.disabled) return;
+  const kennel = state.v.kennel.name;
+  switch (b.dataset.act) {
+    case 'open': state.open = b.dataset.what; state.flash = ''; render(); return;
+    case 'close': state.open = null; render(); return;
+    case 'pick': {
+      const offer = state.v.offers.find((o) => o.id === b.dataset.offer);
+      if (!window.confirm(`Choose ${b.dataset.name}? Send your deposit by ${fmtDate(offer?.respond_by_date)} to keep them.`)) return;
+      b.disabled = true;
+      await act('pick', { offer_id: b.dataset.offer, dog_id: b.dataset.dog }, `You chose ${b.dataset.name}. ${kennel} will confirm, and holds them for you meanwhile.`);
+      return;
+    }
+    case 'pass': {
+      const p = state.v.family.passes;
+      const note = p ? ` You've used ${p.used} of ${p.max} passes; passing may count as one.` : '';
+      if (!window.confirm(`Pass on this litter?${note}`)) return;
+      b.disabled = true;
+      await act('pass', { offer_id: b.dataset.offer }, `You passed on this litter. ${kennel} will see it at their next update.`);
+      return;
+    }
+    case 'still_interested':
+      b.disabled = true;
+      await act('still_interested', {}, `Thanks! ${kennel} will see that you're still interested.`);
+      return;
+    default:
+  }
+}
+
+async function onSubmit(ev) {
+  const form = ev.target.closest('form[data-form]');
+  if (!form) return;
+  ev.preventDefault();
+  const button = form.querySelector('button[type="submit"]');
+  button.disabled = true;
+  const data = new FormData(form);
+  const kennel = state.v.kennel.name;
+  switch (form.dataset.form) {
+    case 'pause':
+      await act('pause_request', { until: data.get('until'), note: data.get('note') }, `Your pause request is on its way. ${kennel} decides; until then nothing changes.`);
+      return;
+    case 'leave':
+      await act('leave', { note: data.get('note') }, `${kennel} will see that you're leaving at their next update.`);
+      return;
+    case 'listen': {
+      const mode = data.get('mode') === 'selected' ? 'selected' : 'all';
+      await act('listen', { mode, sire_ids: mode === 'selected' ? data.getAll('sire') : [], dam_ids: mode === 'selected' ? data.getAll('dam') : [] },
+        `Saved. ${kennel} will see it at their next update.`);
+      return;
+    }
+    case 'pref_change': {
+      const prefs = state.v.family.prefs;
+      const changes = {};
+      for (const f of editableFields()) {
+        if (f.key === 'pref_colors') {
+          const colors = String(data.get('pref_colors') || '').split(',').map((c) => c.trim()).filter(Boolean);
+          if (colors.join(',').toLowerCase() !== (prefs.colors || []).join(',').toLowerCase()) changes.pref_colors = colors;
+        } else {
+          const value = String(data.get(f.key) ?? '');
+          const now = f.key === 'pref_sex' ? (prefs.sex || 'any') : (prefs[f.prefs] || '');
+          if (value !== now) changes[f.key] = value;
+        }
+      }
+      if (!Object.keys(changes).length) { state.flash = ERRORS.nothing_to_change; button.disabled = false; render(); return; }
+      await act('pref_change', { changes, note: data.get('note') }, `Your request is on its way. ${kennel} decides; until then nothing changes.`);
+      return;
+    }
+    case 'message': {
+      const body = String(data.get('body') || '').trim().slice(0, MESSAGE_MAX);
+      if (!body) { button.disabled = false; return; }
+      const key = state.v.kennel.message_key;
+      let sealed;
+      try { sealed = await seal(key.public_key, key.key_id, { body }); } catch {
+        state.flash = "This browser couldn't seal your message. Please try another browser.";
+        render();
+        return;
+      }
+      const ok = await send('/f/message', { key_id: key.key_id, sealed });
+      if (ok) state.flash = `Sent. ${kennel} will see it next time they open KennelOS.`;
+      await load();
+      return;
+    }
+    default:
+  }
+}
+
+// --- Loading -----------------------------------------------------------------------
 
 function selectTab(which) {
   const mine = which === 'mine';
@@ -139,27 +473,43 @@ function selectTab(which) {
   $('public').hidden = mine;
 }
 
+function render() {
+  $('mine').innerHTML = mineHtml();
+  $('mine').hidden = $('tab-list').getAttribute('aria-selected') === 'true';
+}
+
+let wired = false;
 async function load() {
   const res = await fetchJson(`/f/status/${encodeURIComponent(token)}`);
   if (!res.ok) {
     $('error').textContent = loadError(res, { notFound: "This link doesn't work any more. The breeder may have sent you a newer one, or you can ask them for it." });
     $('error').hidden = false;
+    $('mine').hidden = true;
     return;
   }
   const v = res.body;
+  state.v = v;
+  // This browser's family session for this kennel, if it signed in. Whether it's
+  // THIS family's is the server's call (other_family): a New link changes the
+  // token but keeps the session, so the saved token isn't compared here.
+  state.session = v.kennel.public_id ? rememberedFamily(v.kennel.public_id) : null;
   document.title = `${v.kennel.name} waitlist`;
   $('title').textContent = v.family.name ? `Hi, ${v.family.name.split(/\s+/)[0]}` : `${v.kennel.name} waitlist`;
   $('updated').textContent = `${v.kennel.name} waitlist${v.as_of ? ` · updated ${fmtDate(v.as_of)}` : ''}`;
-  $('mine').innerHTML = mineHtml(v);
-  $('mine').hidden = false;
+  render();
 
-  if (v.public_list.length) {
-    $('tabs').hidden = false;
-    const render = () => { $('list').innerHTML = publicListHtml(v.public_list, $('search').value, v.family.position || null); };
-    $('search').addEventListener('input', render);
-    render();
-    $('tab-mine').addEventListener('click', () => selectTab('mine'));
-    $('tab-list').addEventListener('click', () => selectTab('list'));
+  if (!wired) {
+    wired = true;
+    $('mine').addEventListener('click', (ev) => { onClick(ev).catch(() => {}); });
+    $('mine').addEventListener('submit', (ev) => { onSubmit(ev).catch(() => {}); });
+    if (v.public_list.length) {
+      $('tabs').hidden = false;
+      const renderList = () => { $('list').innerHTML = publicListHtml(state.v.public_list, $('search').value, state.v.family.position || null); };
+      $('search').addEventListener('input', renderList);
+      renderList();
+      $('tab-mine').addEventListener('click', () => selectTab('mine'));
+      $('tab-list').addEventListener('click', () => selectTab('list'));
+    }
   }
 }
 

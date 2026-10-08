@@ -405,6 +405,53 @@ means no fee reminder ever.
    - Families' own messages (also sealed to this key) are step 5.
 5. **Family actions.** Buttons → events, holds, `waitlistEvents.js` + tests, Today
    requests (pause, answer changes, listen-only narrowing), the encrypted message box.
+   **Built 2026-10-08.** As built (where it differs from §4, §6, §8 and §9, this wins):
+   - **Server** (`cloud/src/familyActions.js`): `POST /f/act {session, status_token, action,
+     …}` for `pick`, `pass`, `still_interested`, `pause_request {until, note}`, `leave {note}`,
+     `listen {mode, sire_ids, dam_ids}`, `pref_change {changes, note}`. Every one needs a
+     **family session** for that same family (`401 signed_out`, `403 other_family`), is
+     checked against the published projection and the family's actions not yet applied, and
+     is written as one `wl_events` row (`made_by: 'family'`); 60 an hour per family. A pick
+     also writes a `wl_holds` row (`409 pup_taken` for another family; the pup drops off their
+     offer at once). `POST /f/message {session, status_token, key_id, sealed}` (10 an hour,
+     32 KB) puts a message sealed to `kennel.message_key` into `wl_inbox` as `kind: 'message'`.
+     `GET /f/status` adds `pending` (the family's actions her device hasn't applied) and the
+     editors' choices. A publish carries `events_through`; holds for picks up to there go.
+   - **Projection:** `kennel.message_key` (the current form key's public half; **every online
+     kennel now gets a form key**, not only one taking applications), `kennel.parents` (the
+     listen-only choices, `waitlistRules.listenParentChoices`, the same as her Edit form plus
+     any parent a family already picked; call names only), `kennel.breeds`,
+     `kennel.color_matching`, each open entry's `requests` (`pause` / `pref_change` / `listen`:
+     what was asked and her decision, shown 30 days after she decides; never the family's
+     note), and `events_through`.
+   - **The status page** (`cloud/public/family/status.js`): signed in, the offer's pups become
+     **Choose …** buttons with **Pass on this litter**; **Your place** has **Still interested**,
+     **Request a pause** (a date, an optional note) and **Leave the list**; **Which litters you
+     wait for** (All / these sires and dams); **Ask to change** under What you asked for (sex,
+     breed, placement, readiness, and colors only while color matching is on); **Send … a
+     message** (sealed in the browser). What's waiting for her shows until her device applies
+     it. With the link alone, a **Respond on this page** card points to See Your Details.
+   - **Her device** (`data/waitlistEvents.js`, pure; `cloudWaitlist.applyFamilyEvents`;
+     `waitlistActions.applyFamilyPlan`): after taking in the inbox and before publishing, the
+     **backing device** (checked with `GET /program` before any write) reads the events after
+     its cursor (`waitlistOnline.eventsCursor` in settings; a device without one starts at the
+     highest published `events_through`, so nothing is applied twice) and checks each against
+     her records now: pick → `recordPick`; pass → `recordOutcome(…, 'passed')`; leave →
+     `withdraw`; a wider listen-only change → applied; a pause, a narrower listen-only change or
+     an answer change → `pause_request` / `listen_change_request` / `pref_change_request` on the
+     entry. An action that no longer fits (the offer closed, the pup was sold) is never forced:
+     it becomes a line for her. Server moves (step 7) are skipped until step 7 exists.
+   - **Messages and activity live on the entry, not in a table:** `waitlist_entries.messages`
+     (`{ id, at, from, kind: 'message' | 'action', body, read }`, the newest 500), **private**,
+     like step 4's form keys, so no schema change. Step 6 adds her outbound emails to the same
+     list (`from: 'breeder'`) instead of §8's `waitlist_messages` table.
+   - **Her decisions:** Today (`nudges.js`) shows each pending request with **Approve** /
+     **Decline** (an answer change with what narrowing would skip, its open offers, the change
+     history and their note) and unread messages with **Open** / **Mark read**; the family's page
+     has a **From their status page** card with the same buttons. A decision is kept on the
+     request (`decided`, `decided_date`); an approved or declined answer change is logged
+     `by: 'request'` (declined with `declined: true`). Nothing is sent to the family yet
+     (step 6).
 6. **Email.** `mail.kennelos.app`, templates + Waitlist settings editor, kennel-name sender,
    every kind in §8, the messages log on the entry, "almost your turn" sent for her.
 7. **Deadlines and automatic offers.** Cutoff instants, reminders, the `auto_offer_on` moves

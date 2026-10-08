@@ -23,7 +23,8 @@ import {
   entryName, canUndoRemoval, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, rankedList, REMOVAL_UNDO_DAYS,
   eligiblePupsFor, nextFamilyForLitter, turnSpent, hasOpenOffer, isListeningFor, isPupAvailable,
   describeOfferChanges, isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker,
-  kennelBreeds, resolveBreed, prefChangeEffect, autoOffers, closingTrigger
+  kennelBreeds, resolveBreed, prefChangeEffect, autoOffers, closingTrigger, listenParentChoices,
+  PREF_FIELD_LABEL, prefValueText, prefChangeSummary
 } from '../data/waitlistRules.js';
 import {
   formQuestions, entryQuestions, snapshotQuestions, answerText, isAnswerQuestion, missingRequired, formFaq, READY_TIMING_LABEL,
@@ -46,6 +47,7 @@ const els = {
   back: document.getElementById('back-link'),
   headerActions: document.getElementById('header-actions'),
   status: document.getElementById('status-section'),
+  online: document.getElementById('online-section'),
   profileActions: document.getElementById('profile-actions'),
   body: document.getElementById('profile-body'),
   offers: document.getElementById('offers-section'),
@@ -202,6 +204,69 @@ function renderStatus() {
   els.status.querySelectorAll('[data-act]').forEach((btn) => {
     btn.addEventListener('click', () => handlers[btn.dataset.act]().catch((err) => showError(err.message || String(err))));
   });
+}
+
+// --- From their status page (W2 step 5) ------------------------------------------
+// What the family asked for on their status page (a pause, a narrower listen-only
+// choice, a change to a matching answer: each waits for her Approve / Decline,
+// the same buttons as on Today) and their messages and activity, newest first.
+// Hidden for a family who never used it.
+
+function listenText(r) {
+  if ((r.listen_mode || 'all') !== 'selected') return 'All litters';
+  const names = (list) => (list || []).map(dogName).join(', ');
+  return [r.listen_sire_ids?.length ? `Sires: ${names(r.listen_sire_ids)}` : '', r.listen_dam_ids?.length ? `Dams: ${names(r.listen_dam_ids)}` : '']
+    .filter(Boolean).join(' · ') || 'no parents';
+}
+
+function pendingRequests(e) {
+  const out = [];
+  if (actions.hasPendingRequest(e, 'pause_request')) {
+    const r = e.pause_request;
+    out.push({ kind: 'pause', text: `Asked ${esc(fmtDate(r.requested_date))} to pause their place until <strong>${esc(fmtDate(r.until))}</strong>.`, note: r.note,
+      hint: 'They keep their place and aren\'t offered pups until then. A pause never counts as a pass.' });
+  }
+  if (actions.hasPendingRequest(e, 'pref_change_request')) {
+    const r = e.pref_change_request;
+    out.push({ kind: 'pref', text: `Asked ${esc(fmtDate(r.requested_date))} to change: <strong>${esc(prefChangeSummary(e, r.changes)) || 'nothing that differs now'}</strong>.`, note: r.note,
+      hint: 'An open offer stays open either way.' });
+  }
+  if (actions.hasPendingRequest(e, 'listen_change_request')) {
+    const r = e.listen_change_request;
+    out.push({ kind: 'listen', text: `Asked ${esc(fmtDate(r.requested_date))} to wait only for: <strong>${esc(listenText(r))}</strong> <span class="faint">(now: ${esc(listenText(e))})</span>.`, note: '',
+      hint: 'Narrower, so it needs you: they wouldn\'t be offered other litters. An open offer stays open.' });
+  }
+  return out;
+}
+
+function renderOnline() {
+  const e = ctx.entry;
+  const requests = pendingRequests(e);
+  const messages = [...(e.messages || [])].reverse();
+  if (!requests.length && !messages.length) { els.online.hidden = true; els.online.innerHTML = ''; return; }
+  const unread = messages.filter((m) => !m.read).length;
+  const reqHtml = requests.map((r) => `<div class="row-between" style="gap:8px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--border);">
+      <div><p style="margin:0;">${r.text}</p>${r.note ? `<p class="faint" style="margin:2px 0 0;">They said: "${esc(r.note)}"</p>` : ''}<p class="field-hint" style="margin:2px 0 0;">${esc(r.hint)}</p></div>
+      <span class="pill-row"><button class="btn btn-sm btn-primary" data-req="${r.kind}:approve">Approve</button><button class="btn btn-sm" data-req="${r.kind}:decline">Decline</button></span>
+    </div>`).join('');
+  const msgHtml = messages.slice(0, 50).map((m) => `<li style="padding:6px 0;border-top:1px solid var(--border);">
+      <div class="faint" style="font-size:0.85em;">${esc(fmtDate(String(m.at).slice(0, 10)))} · ${m.kind === 'message' ? 'Message' : 'On their status page'}${m.read ? '' : ' <span class="badge badge-blue">New</span>'}</div>
+      <div>${multiline(m.body)}</div></li>`).join('');
+  els.online.hidden = false;
+  els.online.innerHTML = `
+    <div class="row-between" style="gap:8px;flex-wrap:wrap;"><h3 style="margin:0;">From their status page</h3>
+      ${unread ? '<button class="btn btn-sm" data-msgs="read">Mark read</button>' : ''}</div>
+    ${requests.length ? `<div style="margin-top:8px;">${reqHtml}</div>` : ''}
+    ${messages.length ? `<ul style="list-style:none;margin:8px 0 0;padding:0;">${msgHtml}</ul>${messages.length > 50 ? `<p class="faint">Showing the newest 50 of ${messages.length}.</p>` : ''}` : ''}
+    <p class="field-hint" style="margin-top:8px;">Nothing is sent to the family from here yet; reply by email, text or Messenger.</p>`;
+  const run = (fn) => fn().then(afterAction).catch((err) => showError(err.message || String(err)));
+  els.online.querySelector('[data-msgs="read"]')?.addEventListener('click', () => run(() => actions.markMessagesRead(e.id)));
+  const handlers = {
+    'pause:approve': () => actions.approvePauseRequest(e.id), 'pause:decline': () => actions.declinePauseRequest(e.id),
+    'pref:approve': () => actions.approvePrefChange(e.id), 'pref:decline': () => actions.declinePrefChange(e.id),
+    'listen:approve': () => actions.approveListenChange(e.id), 'listen:decline': () => actions.declineListenChange(e.id)
+  };
+  els.online.querySelectorAll('[data-req]').forEach((btn) => btn.addEventListener('click', () => run(handlers[btn.dataset.req])));
 }
 
 async function afterAction() {
@@ -410,25 +475,12 @@ function readySummary(e) {
 }
 
 // Her changes to the matching answers (Spec §15.9), for the history and the
-// narrowing warning.
-const PREF_FIELD_LABEL = {
-  pref_sex: 'Sex', pref_breed: 'Breed', pref_placement_type: 'Placement', pref_colors: 'Colors', ready_timing: 'Ready to buy'
-};
-function prefValueText(field, v) {
-  switch (field) {
-    case 'pref_sex': return descriptor(WAITLIST_PREF_SEX, v || 'any').label;
-    case 'pref_breed': return v || 'Any breed';
-    case 'pref_placement_type': return v ? descriptor(PLACEMENT_TYPE, v).label : 'Any';
-    case 'pref_colors': return (Array.isArray(v) ? v : []).join(', ') || 'None';
-    case 'ready_timing': return v ? descriptor(WAITLIST_READY_TIMING, v).label : 'Not answered';
-    default: return String(v ?? '');
-  }
-}
+// narrowing warning (PREF_FIELD_LABEL / prefValueText from waitlistRules).
 // Newest first, so changing an answer and back shows as neighbouring lines.
 function prefHistory(e) {
   const log = e.pref_change_log || [];
   if (!log.length) return '';
-  return [...log].reverse().map((x) => `${esc(fmtDate(x.date))} · ${esc(PREF_FIELD_LABEL[x.field] || x.field)}: ${esc(prefValueText(x.field, x.from))} → ${esc(prefValueText(x.field, x.to))}${x.by === 'request' ? ' <span class="faint">(they asked)</span>' : ''}`).join('<br>');
+  return [...log].reverse().map((x) => `${esc(fmtDate(x.date))} · ${esc(PREF_FIELD_LABEL[x.field] || x.field)}: ${esc(prefValueText(x.field, x.from))} → ${esc(prefValueText(x.field, x.to))}${x.declined ? ' <span class="faint">(they asked; you declined)</span>' : x.by === 'request' ? ' <span class="faint">(they asked)</span>' : ''}`).join('<br>');
 }
 
 function renderView() {
@@ -543,20 +595,13 @@ function renderEdit() {
   // that's a parent of one of its live litters or upcoming pairings (an outside
   // stud included), plus anything already chosen (so a retired dog a family picked
   // never silently drops off their list).
-  const liveParents = (side) => new Set([
-    ...ctx.litters.filter((l) => !l.is_archived && LIVE_LITTER.includes(l.status)).map((l) => l[side]),
-    ...ctx.pairings.filter((p) => !p.is_archived && LIVE_PAIRING.includes(p.status)).map((p) => p[side])
-  ].filter(Boolean));
-  const parentChoices = (sex, side, selected) => {
-    const live = liveParents(side);
-    return [...ctx.dogsById.values()]
-      .filter((d) => selected.includes(d.id) || (!d.is_archived && (live.has(d.id)
-        || (d.kennel_id === ctx.kennel.id && d.status === 'active_breeding' && d.sex === sex))))
-      .sort((a, b) => (a.call_name || '').localeCompare(b.call_name || ''))
-      .map((d) => ({ id: d.id, label: `${d.call_name || '(unnamed)'}${d.is_archived ? ' (archived)' : ''}` }));
-  };
-  const sires = parentChoices('male', 'sire_id', selSires);
-  const dams = parentChoices('female', 'dam_id', selDams);
+  // (waitlistRules.listenParentChoices; the status page offers the same ones.)
+  const choices = listenParentChoices(ctx.kennel, {
+    dogs: [...ctx.dogsById.values()], litters: ctx.litters, pairings: ctx.pairings, selectedSires: selSires, selectedDams: selDams
+  });
+  const asOption = (d) => ({ id: d.id, label: `${d.call_name || '(unnamed)'}${d.is_archived ? ' (archived)' : ''}` });
+  const sires = choices.sires.map(asOption);
+  const dams = choices.dams.map(asOption);
   const isNew = ctx.mode === 'new';
   const programField = `<div class="field"><label>Program</label><select id="f-program">${programOptions(e.waitlist_program_id)}</select>
     <span class="field-hint">Only you assign programs. Families never pick one.</span></div>`;
@@ -1031,8 +1076,8 @@ function renderAll() {
   renderTitle();
   renderProfileActions();
   renderHeaderActions();
-  if (ctx.mode === 'view') { renderStatus(); renderView(); els.status.hidden = false; }
-  else { els.status.hidden = true; renderEdit(); }
+  if (ctx.mode === 'view') { renderStatus(); renderOnline(); renderView(); els.status.hidden = false; }
+  else { els.status.hidden = true; els.online.hidden = true; renderEdit(); }
   renderOffers();
   renderDocs();
 }

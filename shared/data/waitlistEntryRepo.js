@@ -102,7 +102,9 @@ export const waitlistEntryRepo = {
     // Every change to the matching answers once the family is past review goes in
     // their history (Spec §15.9), so changing one and back is visible to her.
     // While an application is still under review it's just being filled in.
-    const lines = existing.status === 'applied' ? [] : prefChangeLines(existing, changes, { date: todayYMD() });
+    // A caller that writes the log itself (approving a family's request, which logs
+    // `by: 'request'`) passes `pref_change_log` and is trusted with it.
+    const lines = existing.status === 'applied' || changes.pref_change_log !== undefined ? [] : prefChangeLines(existing, changes, { date: todayYMD() });
     if (lines.length) changes = { ...changes, pref_change_log: [...(existing.pref_change_log || []), ...lines] };
     const saved = await base.update(id, changes);
     // archive()/unarchive() route through here too, so is_archived changes resync.

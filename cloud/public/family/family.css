@@ -123,6 +123,9 @@ button.secondary, a.button.secondary {
   color: var(--text);
   cursor: pointer;
 }
+button.danger { background: var(--danger); color: var(--on-accent); }
+button.pup { text-align: left; }
+.notice-card.small { margin: 8px 0; }
 a.button { display: inline-block; text-decoration: none; text-align: center; }
 a.button.primary { font-weight: 600; padding: 10px 16px; border-radius: var(--radius); background: var(--accent); color: var(--on-accent); }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }

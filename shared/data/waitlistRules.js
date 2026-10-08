@@ -11,7 +11,7 @@
 //  - Eligibility (§6.2) is computed per litter / per pup at the moment it's needed.
 // The repos store; the pages call these functions to decide what to write.
 import { addDaysToYMD, addMonthsToYMD } from './dateUtils.js';
-import { WAITLIST_OPEN_STATUSES, WAITLIST_READY_TIMING, WAITLIST_AUTO_OFFER_TRIGGER } from './vocab.js';
+import { WAITLIST_OPEN_STATUSES, WAITLIST_READY_TIMING, WAITLIST_AUTO_OFFER_TRIGGER, WAITLIST_PREF_SEX, PLACEMENT_TYPE, descriptor } from './vocab.js';
 
 // --- Config (Spec §4.6) -------------------------------------------------------
 
@@ -280,6 +280,47 @@ export function isListeningFor(entry, litter) {
     || (Boolean(litter.dam_id) && (entry.listen_dam_ids || []).includes(litter.dam_id));
 }
 
+// The litter and pairing statuses whose parents count as "live" for listen-only.
+export const LISTEN_LIVE_LITTER = ['expected', 'whelped', 'weaning', 'ready'];
+export const LISTEN_LIVE_PAIRING = ['planned', 'bred', 'confirmed_pregnant'];
+
+// The parent dogs a family can pick for listen-only (Spec §15.7 item 1): this
+// kennel's active breeding dogs of that sex, plus any parent of one of its live
+// litters or upcoming pairings (an outside stud included), plus anything already
+// in `selected` (so a retired dog a family picked never silently drops off).
+// Her Edit form and the status page (W2 step 5) offer exactly these.
+// → { sires: [dog], dams: [dog] }, each sorted by call name.
+export function listenParentChoices(kennel, { dogs = [], litters = [], pairings = [], selectedSires = [], selectedDams = [] } = {}) {
+  const live = (side) => new Set([
+    ...litters.filter((l) => !l.is_archived && l.kennel_id === kennel.id && LISTEN_LIVE_LITTER.includes(l.status)).map((l) => l[side]),
+    ...pairings.filter((p) => !p.is_archived && p.kennel_id === kennel.id && LISTEN_LIVE_PAIRING.includes(p.status)).map((p) => p[side])
+  ].filter(Boolean));
+  const pick = (sex, side, selected) => {
+    const parents = live(side);
+    return dogs
+      .filter((d) => selected.includes(d.id) || (!d.is_archived && (parents.has(d.id)
+        || (d.kennel_id === kennel.id && d.status === 'active_breeding' && d.sex === sex))))
+      .sort((a, b) => (a.call_name || '').localeCompare(b.call_name || '') || String(a.id).localeCompare(String(b.id)));
+  };
+  return { sires: pick('male', 'sire_id', selectedSires), dams: pick('female', 'dam_id', selectedDams) };
+}
+
+// Is a family's own listen-only change wider or narrower (Spec §15.7 item 6)?
+// Wider (more parents, or back to All litters) applies at once; narrower (All →
+// only these parents, or dropping a parent) is a request she approves.
+// `next` is { listen_mode, listen_sire_ids, listen_dam_ids }. → 'same' | 'wider' | 'narrower'
+export function listenChangeKind(entry, next) {
+  const mode = (x) => (x.listen_mode || 'all');
+  const ids = (x) => new Set([...(x.listen_sire_ids || []).map((id) => `s:${id}`), ...(x.listen_dam_ids || []).map((id) => `d:${id}`)]);
+  const [a, b] = [mode(entry), mode(next)];
+  if (b === 'all') return a === 'all' ? 'same' : 'wider';
+  if (a === 'all') return 'narrower';
+  const before = ids(entry);
+  const after = ids(next);
+  if ([...before].some((x) => !after.has(x))) return 'narrower';
+  return [...after].some((x) => !before.has(x)) ? 'wider' : 'same';
+}
+
 // The pups in `litter` this family could be offered right now: [] when the family
 // isn't eligible at all. `pups` may be every dog — only this litter's are used.
 export function eligiblePupsFor(entry, litter, pups, sales, { today, config = WAITLIST_CONFIG_DEFAULTS } = {}) {
@@ -448,6 +489,28 @@ function prefLogValue(field, v) {
   if (field === 'pref_colors') return (Array.isArray(v) ? v : String(v ?? '').split(',')).map((c) => String(c).trim()).filter(Boolean);
   if (field === 'pref_sex') return String(v ?? '').trim() || 'any';
   return String(v ?? '').trim();
+}
+
+// The matching answers in words, for her history, the family-page warning and a
+// family's request on Today (Spec §15.9). Plain text.
+export const PREF_FIELD_LABEL = {
+  pref_sex: 'Sex', pref_breed: 'Breed', pref_placement_type: 'Placement', pref_colors: 'Colors', ready_timing: 'Ready to buy'
+};
+export function prefValueText(field, v) {
+  switch (field) {
+    case 'pref_sex': return descriptor(WAITLIST_PREF_SEX, v || 'any').label;
+    case 'pref_breed': return v || 'Any breed';
+    case 'pref_placement_type': return v ? descriptor(PLACEMENT_TYPE, v).label : 'Any';
+    case 'pref_colors': return (Array.isArray(v) ? v : []).join(', ') || 'None';
+    case 'ready_timing': return v ? descriptor(WAITLIST_READY_TIMING, v).label : 'Not answered';
+    default: return String(v ?? '');
+  }
+}
+// "Sex: Either → Female; Breed: Any breed → French Bulldog": only what changes.
+export function prefChangeSummary(entry, changes) {
+  return prefChangeLines(entry, changes || {}, { date: '' })
+    .map((l) => `${PREF_FIELD_LABEL[l.field] || l.field}: ${prefValueText(l.field, l.from)} → ${prefValueText(l.field, l.to)}`)
+    .join('; ');
 }
 
 // The log lines for `changes` written over `before`: one per tracked field present

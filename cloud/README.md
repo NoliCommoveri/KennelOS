@@ -35,6 +35,11 @@ src/familyPages.js     the waitlist's family pages: serves public/family/ for /l
                        a 90-day family session for that browser, and the online application
                        form: its JSON, and a sealed application held until the applicant
                        types the emailed code)
+src/familyActions.js   what a signed-in family does on their status page (POST /f/act, /f/message):
+                       each action checked against her published list and recorded as an
+                       event; a picked pup held (wl_holds) until her device's next publish says
+                       it applied the pick (events_through); messages sealed to her key, into
+                       the inbox
 src/notice.js          service notices (public /notice; set on /ops)
 src/retention.js       the daily prune and GC; pickDrops is the pure rule
 src/backup.js          /ops export/import of the D1 rows (not R2)

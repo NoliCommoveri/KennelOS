@@ -22,6 +22,7 @@ import { waitlistEntryRepo, newStatusToken } from '../waitlistEntryRepo.js';
 import { waitlistOfferRepo } from '../waitlistOfferRepo.js';
 import { waitlistProgramRepo } from '../waitlistProgramRepo.js';
 import { litterRepo } from '../litterRepo.js';
+import { pairingRepo } from '../pairingRepo.js';
 import { dogRepo } from '../dogRepo.js';
 import { saleRepo } from '../saleRepo.js';
 import { contactRepo } from '../contactRepo.js';
@@ -31,6 +32,8 @@ import { buildProjection } from '../waitlistProjection.js';
 import { formQuestions } from '../waitlistForm.js';
 import { generateFormKey, currentFormKey, rotateFormKeys, openSealed } from '../waitlistCrypto.js';
 import { applicationToEntry } from '../waitlistInbox.js';
+import { planFamilyEvent, activityId } from '../waitlistEvents.js';
+import { applyFamilyPlan, addFamilyActivity, MESSAGE_MAX } from '../waitlistActions.js';
 
 export const WAITLIST_ONLINE_EVENT = 'kennelos:waitlistonline';
 // After a change, wait this long for more before publishing (one publish per burst).
@@ -78,10 +81,11 @@ export async function replaceStatusToken(entryId) {
   return entry;
 }
 
-// A kennel taking applications online needs a form key (W2 Plan §7). Made once,
-// on this device, and kept on the kennel (a private field). → the kennel as saved.
+// An online kennel needs a form key (W2 Plan §7): applications and, from step 5,
+// families' messages are sealed to it. Made once, on this device, and kept on the
+// kennel (a private field). → the kennel as saved.
 export async function ensureFormKey(kennel) {
-  if (!waitlistConfig(kennel).online_form || currentFormKey(kennel.waitlist_form_keys)) return kennel;
+  if (!isOnline(kennel) || currentFormKey(kennel.waitlist_form_keys)) return kennel;
   const keys = [...(kennel.waitlist_form_keys || []), await generateFormKey()];
   return kennelRepo.update(kennel.id, { waitlist_form_keys: keys });
 }
@@ -111,14 +115,22 @@ export async function takeInApplications(token, kennels) {
   let taken = 0;
   let filled = 0;
   let unopened = 0;
+  let messages = 0;
   let after = null;
   let dogs = null;
   do {
     const page = await api.readWaitlistInbox(token, { all, after });
     for (const item of page.items) {
-      if (item.kind !== 'application') continue; // family messages: step 5
       const kennel = byPublicId.get(item.publicId);
       if (!kennel) continue;
+      if (item.kind === 'message') {
+        const r = await takeInMessage(item, kennel);
+        if (r === 'unopened') unopened++;
+        if (r === 'taken') messages++;
+        if (r !== 'unopened' && r !== 'waiting' && !item.acked) done.push(item.id);
+        continue;
+      }
+      if (item.kind !== 'application') continue;
       const existing = await waitlistEntryRepo.getById(item.id);
       // Already here with its answers: just tell the server.
       if (existing && Object.keys(existing.application || {}).length > 2) { if (!item.acked) done.push(item.id); continue; }
@@ -139,21 +151,135 @@ export async function takeInApplications(token, kennels) {
   } while (after);
   for (let i = 0; i < done.length; i += 100) await api.ackWaitlistInbox(token, done.slice(i, i + 100));
   updateWaitlistOnlineState({ inboxFetchedAll: true, inboxUnopened: unopened, ...(taken ? { lastTakenInAt: new Date().toISOString() } : {}) });
-  return { taken, filled, unopened };
+  return { taken, filled, unopened, messages };
+}
+
+// A family's message (W2 step 5), sealed on their status page to this kennel's
+// form key: opened here and added to their entry's activity, by the inbox item's
+// id, so taking it in twice never shows it twice. → 'taken' | 'had' | 'unopened'
+// | 'waiting' (their entry isn't on this device yet; it stays in the inbox).
+async function takeInMessage(item, kennel) {
+  const entry = item.entryId ? await waitlistEntryRepo.getById(item.entryId) : null;
+  if (!entry || entry.kennel_id !== kennel.id) return 'waiting';
+  if ((entry.messages || []).some((m) => m.id === item.id)) return 'had';
+  let opened;
+  try { opened = await openSealed(kennel.waitlist_form_keys, item.blob); } catch { return 'unopened'; }
+  const body = typeof opened?.body === 'string' ? opened.body.trim().slice(0, MESSAGE_MAX) : '';
+  if (!body) return 'had';
+  await addFamilyActivity(entry.id, [{ id: item.id, at: item.createdAt, kind: 'message', body }]);
+  return 'taken';
+}
+
+// Where a device that never applied events starts: wherever the device before it
+// got to, as its published projections say (events_through), so a new backing
+// device never applies an action twice.
+async function startingCursor(token, kennels) {
+  let cursor = 0;
+  for (const k of kennels.filter((x) => x.public_id)) {
+    try {
+      const res = await api.readWaitlistProjection(token, k.public_id);
+      cursor = Math.max(cursor, Number(res.projection?.events_through) || 0);
+    } catch (err) {
+      if (err?.code !== 'not_found') throw err;
+    }
+  }
+  return cursor;
+}
+
+// The records one family event touches, for waitlistEvents.planFamilyEvent.
+async function eventContext(event, kennel, cache) {
+  const entry = await waitlistEntryRepo.getById(event.entryId);
+  if (!entry || entry.kennel_id !== kennel.id) return { entry: null };
+  cache.dogs ??= new Map((await dogRepo.getAll({ includeArchived: true })).map((d) => [d.id, d]));
+  cache.litters ??= new Map((await litterRepo.getAll({ includeArchived: true })).map((l) => [l.id, l]));
+  const offers = await waitlistOfferRepo.getByEntry(entry.id);
+  const litterIds = new Set(offers.map((o) => o.litter_id));
+  const pups = [...cache.dogs.values()].filter((d) => litterIds.has(d.litter_id));
+  const name = (id) => cache.dogs.get(id)?.call_name || 'a pup';
+  const litterLabel = (id) => {
+    const l = cache.litters.get(id);
+    if (!l) return 'the litter';
+    return l.nickname || `${cache.dogs.get(l.dam_id)?.call_name || 'Unknown'} × ${cache.dogs.get(l.sire_id)?.call_name || 'Unknown'}`;
+  };
+  return { entry, offers, pups, sales: await saleRepo.getAll({ includeArchived: true }), pupName: name, litterLabel, timeZone: kennel.time_zone || null };
+}
+
+// What families did on their status pages (W2 step 5): each event after this
+// device's cursor is planned (waitlistEvents.js) and carried out
+// (waitlistActions.applyFamilyPlan), and the cursor moves past it. Only the
+// BACKING device applies events, so two devices never make two Sales for one
+// pick: this checks before it writes anything. The next publish carries the
+// cursor as `events_through`, which lets the server drop the holds it kept for
+// picks applied here. → { applied, noted, skipped }
+export async function applyFamilyEvents(token, kennels) {
+  const online = kennels.filter(isOnline);
+  const byPublicId = new Map(kennels.filter((k) => k.public_id).map((k) => [k.public_id, k]));
+  let cursor = getWaitlistOnlineState().eventsCursor;
+  if (!Number.isInteger(cursor)) {
+    cursor = await startingCursor(token, online);
+    updateWaitlistOnlineState({ eventsCursor: cursor });
+  }
+  const counts = { applied: 0, noted: 0, skipped: 0 };
+  const cache = {};
+  let backingChecked = false;
+  for (;;) {
+    const page = await api.readWaitlistEvents(token, cursor);
+    if (!page.events.length) break;
+    if (!backingChecked) {
+      const program = await api.getProgram(token);
+      if (!program.backingDevice || program.backingDevice.id !== program.thisDeviceId) {
+        throw Object.assign(new Error('Only the backing device applies family actions.'), { code: 'not_backing_device' });
+      }
+      backingChecked = true;
+    }
+    for (const event of page.events) {
+      const kennel = byPublicId.get(event.publicId);
+      if (kennel) {
+        const plan = planFamilyEvent(event, await eventContext(event, kennel, cache));
+        if (plan.op === 'skip') counts.skipped++;
+        else {
+          try {
+            await applyFamilyPlan(event.entryId, plan);
+            if (plan.op === 'note') counts.noted++; else counts.applied++;
+          } catch (err) {
+            // A write her records refuse must not stop every later event (and the
+            // publish after them): it becomes a line for her, and the cursor moves on.
+            await addFamilyActivity(event.entryId, [{
+              id: activityId(event), at: event.createdAt,
+              body: `Something they did on their status page (${event.kind.replace(/_/g, ' ')}) couldn't be recorded: ${err.message}`
+            }]).catch(() => {});
+            counts.noted++;
+          }
+          cache.dogs = null; // a pick or a withdrawal can change pups and sales
+        }
+      } else {
+        counts.skipped++;
+      }
+      cursor = event.seq;
+      updateWaitlistOnlineState({ eventsCursor: cursor });
+    }
+    if (!page.more) break;
+  }
+  if (counts.applied || counts.noted) updateWaitlistOnlineState({ lastEventAt: new Date().toISOString() });
+  return counts;
 }
 
 // The projection for one kennel, from the database.
 export async function projectionFor(kennel, { today = todayYMD() } = {}) {
-  const [entries, offers, programsById, litters, dogs, sales, contacts] = await Promise.all([
+  const [entries, offers, programsById, litters, pairings, dogs, sales, contacts] = await Promise.all([
     waitlistEntryRepo.getByKennel(kennel.id),
     waitlistOfferRepo.getByKennel(kennel.id),
     waitlistProgramRepo.getMapForKennel(kennel.id),
     litterRepo.getAll(),
+    pairingRepo.getAll(),
     dogRepo.getAll({ includeArchived: true }),
     saleRepo.getAll({ includeArchived: true }),
     contactRepo.getAll({ includeArchived: true })
   ]);
-  return buildProjection({ kennel, entries, offers, programsById, litters, dogs, sales, contacts, today, formKey: currentFormKey(kennel.waitlist_form_keys) });
+  return buildProjection({
+    kennel, entries, offers, programsById, litters, pairings, dogs, sales, contacts, today,
+    formKey: currentFormKey(kennel.waitlist_form_keys), eventsThrough: getWaitlistOnlineState().eventsCursor || 0
+  });
 }
 
 let chain = Promise.resolve();
@@ -203,10 +329,13 @@ async function syncNow({ force }) {
   const published = [];
   const unpublished = [];
   let inbox = null;
+  let events = null;
   updateWaitlistOnlineState({ lastAttemptAt: new Date().toISOString() });
   try {
-    // New applications first, so the projection that follows includes them.
+    // New applications and messages first, then what families did on their
+    // pages, so the projection that follows includes all of it.
     if (wanted.length) inbox = await takeInApplications(token, wanted);
+    if (wanted.length) events = await applyFamilyEvents(token, kennels);
     for (const [kennelId, s] of stale) {
       await api.unpublishWaitlist(token, s.publicId);
       const kennelsState = { ...getWaitlistOnlineState().kennels };
@@ -230,10 +359,10 @@ async function syncNow({ force }) {
   } catch (err) {
     const code = errorCode(err);
     updateWaitlistOnlineState({ lastError: { code, at: new Date().toISOString() } });
-    return { status: 'error', reason: code, published, unpublished, inbox };
+    return { status: 'error', reason: code, published, unpublished, inbox, events };
   }
   updateWaitlistOnlineState({ lastError: null });
-  return { status: 'ok', published, unpublished, inbox };
+  return { status: 'ok', published, unpublished, inbox, events };
 }
 
 // What the settings card shows for one kennel.

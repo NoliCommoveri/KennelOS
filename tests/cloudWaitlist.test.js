@@ -87,7 +87,8 @@ test('online publishes the projection once, then only after a change', async () 
   const first = await cw.syncWaitlistOnline();
   assert.equal(first.status, 'ok');
   assert.deepEqual(first.published, [k.id]);
-  assert.deepEqual(calls, ['GET /waitlist/inbox', `PUT /waitlist/projection/${k.public_id}`], 'new applications first, then the list');
+  assert.deepEqual(calls, ['GET /waitlist/inbox', `GET /waitlist/projection/${k.public_id}`, 'GET /waitlist/events', `PUT /waitlist/projection/${k.public_id}`],
+    'new applications first, then (from where any earlier device got to) what families did, then the list');
 
   const [row] = raw('SELECT public_id, version, body FROM wl_projection');
   assert.equal(row.public_id, k.public_id);
@@ -100,7 +101,7 @@ test('online publishes the projection once, then only after a change', async () 
 
   calls.length = 0;
   assert.equal((await cw.syncWaitlistOnline()).published.length, 0, 'unchanged: nothing sent');
-  assert.deepEqual(calls, ['GET /waitlist/inbox'], 'only the look for new applications');
+  assert.deepEqual(calls, ['GET /waitlist/inbox', 'GET /waitlist/events'], 'only the looks for new applications and family actions');
 
   const e = (await waitlistEntryRepo.getAll()).find((x) => x.kennel_id === k.id && x.status === 'active');
   await waitlistEntryRepo.update(e.id, { paused_until: '2099-01-01' });
@@ -268,4 +269,174 @@ test('rotating the form key: the new key is published, old applications still op
   assert.ok(after.waitlist_form_keys[0].retired_at);
   const published = JSON.parse(raw('SELECT body FROM wl_projection')[0].body);
   assert.equal(published.kennel.form.key_id, after.waitlist_form_keys[1].id);
+});
+
+// A family on the list, signed in on their own phone through the real Worker
+// routes (See Your Details). → { session, statusToken, call }
+async function familySignIn(publicId, email) {
+  const call = async (path, body) => worker.fetch(new Request(`https://api.example${path}`, {
+    method: 'POST', body: JSON.stringify(body), headers: { 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.30' },
+  }), env);
+  assert.equal((await call('/f/code', { public_id: publicId, email })).status, 200);
+  const code = /(\d{6})/.exec(env.DB.raw.prepare('SELECT subject FROM wl_messages ORDER BY rowid DESC LIMIT 1').get().subject)[1];
+  const v = await (await call('/f/verify', { public_id: publicId, code })).json();
+  return { session: v.session, statusToken: v.status_token, call };
+}
+
+test('what a family does on their page reaches her device: a pick makes the Sale, a pause waits for her, a message lands on the entry', async () => {
+  const { contactRepo } = await import('../shared/data/contactRepo.js');
+  const { waitlistOfferRepo } = await import('../shared/data/waitlistOfferRepo.js');
+  const { saleRepo } = await import('../shared/data/saleRepo.js');
+  const { litterRepo } = await import('../shared/data/litterRepo.js');
+  const { dogRepo } = await import('../shared/data/dogRepo.js');
+  const actions = await import('../shared/data/waitlistActions.js');
+  await breeder();
+  const k = await putOnline();
+
+  // A family with an email and an open offer on a litter with a pup for them.
+  let offer = (await waitlistOfferRepo.getByKennel(k.id)).find((o) => o.outcome === 'open' && !o.chosen_dog_id);
+  if (!offer) {
+    for (const l of (await litterRepo.getAll()).filter((x) => x.kennel_id === k.id)) {
+      for (const e of (await waitlistEntryRepo.getByKennel(k.id)).filter((x) => x.status === 'active')) {
+        try { offer = await actions.offerTo(l.id, e.id); break; } catch { /* not eligible here */ }
+      }
+      if (offer) break;
+    }
+  }
+  assert.ok(offer, 'the sample data has a family who can be offered a litter');
+  const entry = await waitlistEntryRepo.getById(offer.entry_id);
+  const email = `family-${entry.id.slice(0, 6)}@example.com`;
+  await contactRepo.update(entry.contact_id, { email });
+  await cw.syncWaitlistOnline();
+  const published = JSON.parse(raw('SELECT body FROM wl_projection')[0].body);
+  assert.ok(published.kennel.message_key?.public_key, 'an online list has a key for families\' messages');
+
+  const fam = await familySignIn(k.public_id, email);
+  const act = (action, extra = {}) => fam.call('/f/act', { session: fam.session, status_token: fam.statusToken, action, ...extra });
+  const dogId = offer.eligible_dog_ids[0];
+  assert.equal((await act('pick', { offer_id: offer.id, dog_id: dogId })).status, 200);
+  const until = new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10);
+  assert.equal((await act('pause_request', { until, note: 'Moving house' })).status, 200);
+  assert.equal((await act('still_interested')).status, 200);
+  const { seal } = await import('../cloud/public/family/seal.js');
+  const key = published.kennel.message_key;
+  const sealed = await seal(key.public_key, key.key_id, { body: 'Can we visit on Saturday?' });
+  assert.equal((await fam.call('/f/message', { session: fam.session, status_token: fam.statusToken, key_id: key.key_id, sealed })).status, 200);
+  assert.equal(raw('SELECT COUNT(*) AS n FROM wl_holds')[0].n, 1, 'the server holds the pup until her device catches up');
+
+  const res = await cw.syncWaitlistOnline();
+  assert.equal(res.status, 'ok');
+  assert.deepEqual(res.events, { applied: 2, noted: 1, skipped: 0 });
+  assert.equal(res.inbox.messages, 1);
+
+  const savedOffer = await waitlistOfferRepo.getById(offer.id);
+  assert.equal(savedOffer.chosen_dog_id, dogId, 'the pick is recorded');
+  const sale = await saleRepo.getById(savedOffer.sale_id);
+  assert.equal(sale.status, 'deposit_pending', 'a Sale holds the pup; the deposit stays her tap');
+  assert.equal((await dogRepo.getById(dogId)).id, dogId);
+  const saved = await waitlistEntryRepo.getById(entry.id);
+  assert.equal(saved.paused_until ?? null, entry.paused_until ?? null, 'a pause waits for her approval');
+  assert.equal(saved.pause_request.until, until);
+  assert.equal(saved.pause_request.note, 'Moving house');
+  assert.ok(saved.messages.some((m) => m.kind === 'message' && m.body === 'Can we visit on Saturday?' && !m.read));
+  assert.ok(saved.messages.some((m) => m.kind === 'action' && /still interested/.test(m.body)));
+  assert.ok(saved.messages.some((m) => m.kind === 'action' && /picked/.test(m.body)));
+  assert.equal(raw('SELECT COUNT(*) AS n FROM wl_holds')[0].n, 0, 'the publish told the server, which let go of the hold');
+  const after = JSON.parse(raw('SELECT body FROM wl_projection')[0].body);
+  assert.equal(after.events_through, settings.getWaitlistOnlineState().eventsCursor);
+  assert.equal(after.entries[entry.id].requests.pause.until, until);
+  assert.equal(JSON.stringify(after).includes('Moving house'), false, "the family's note stays on her device");
+  assert.equal(JSON.stringify(after).includes('Saturday'), false);
+
+  const again = await cw.syncWaitlistOnline();
+  assert.deepEqual(again.events, { applied: 0, noted: 0, skipped: 0 }, 'each action is applied once');
+  assert.equal((await waitlistEntryRepo.getById(entry.id)).messages.length, saved.messages.length);
+
+  // Today asks her about the pause and shows the message; neither changes anything by itself.
+  const { computeNudges } = await import('../shared/data/nudges.js');
+  const nudges = await computeNudges();
+  const pauseNudge = nudges.find((n) => n.key.startsWith(`waitlist-pause-request:${entry.id}:`));
+  assert.ok(pauseNudge, 'a pause request is a Today nudge');
+  assert.deepEqual(pauseNudge.actions.map((a) => a.label), ['Approve', 'Decline']);
+  assert.match(pauseNudge.detail, /Moving house/);
+  const msgNudge = nudges.find((n) => n.key.startsWith(`waitlist-messages:${entry.id}:`));
+  assert.match(msgNudge.title, /A message from/);
+  assert.match(msgNudge.detail, /Saturday/);
+  await msgNudge.actions.find((a) => a.label === 'Mark read').run();
+  assert.equal((await waitlistEntryRepo.getById(entry.id)).messages.some((m) => !m.read), false);
+
+  await pauseNudge.actions.find((a) => a.label === 'Approve').run();
+  const approved = await waitlistEntryRepo.getById(entry.id);
+  assert.equal(approved.paused_until, until);
+  assert.equal(approved.pause_request.decided, 'approved');
+});
+
+test('only the backing device applies family actions; a new backing device starts where the last one got to', async () => {
+  await breeder();
+  const k = await putOnline();
+  const entry = (await waitlistEntryRepo.getByKennel(k.id)).find((e) => e.status === 'active' && e.contact_id);
+  const { contactRepo } = await import('../shared/data/contactRepo.js');
+  await contactRepo.update(entry.contact_id, { email: 'still@example.com' });
+  await cw.syncWaitlistOnline();
+  const fam = await familySignIn(k.public_id, 'still@example.com');
+  assert.equal((await fam.call('/f/act', { session: fam.session, status_token: fam.statusToken, action: 'still_interested' })).status, 200);
+  await cw.syncWaitlistOnline();
+  const cursor = settings.getWaitlistOnlineState().eventsCursor;
+  assert.ok(cursor > 0);
+
+  settings.updateWaitlistOnlineState({ eventsCursor: null }); // a device that never applied any
+  await cw.syncWaitlistOnline();
+  assert.equal(settings.getWaitlistOnlineState().eventsCursor, cursor, 'picked up from events_through, nothing applied twice');
+  assert.equal((await waitlistEntryRepo.getById(entry.id)).messages.filter((m) => /still interested/.test(m.body)).length, 1);
+
+  // Another device took over backing up: this one must not apply anything.
+  assert.equal((await fam.call('/f/act', { session: fam.session, status_token: fam.statusToken, action: 'still_interested' })).status, 200);
+  env.DB.raw.prepare("UPDATE programs SET backing_device_id = 'someone-else'").run();
+  const res = await cw.syncWaitlistOnline();
+  assert.equal(res.status, 'error');
+  assert.equal(res.reason, 'not-backing');
+  assert.equal(settings.getWaitlistOnlineState().eventsCursor, cursor, 'the event waits for the backing device');
+});
+
+test("her decisions on families' requests: an answer change is applied and logged as theirs; a decline changes nothing but is logged; listen-only too", async () => {
+  const actions = await import('../shared/data/waitlistActions.js');
+  const k = await thornfield();
+  const e = (await waitlistEntryRepo.getByKennel(k.id)).find((x) => x.status === 'active' && x.pref_sex === 'any' && (x.listen_mode || 'all') === 'all');
+  assert.ok(e);
+  await waitlistEntryRepo.update(e.id, { pref_change_request: { requested_date: '2026-10-08', changes: { pref_sex: 'female' }, note: '' } });
+  await actions.declinePrefChange(e.id, { date: '2026-10-09' });
+  let saved = await waitlistEntryRepo.getById(e.id);
+  assert.equal(saved.pref_sex, 'any');
+  assert.equal(saved.pref_change_request.decided, 'declined');
+  assert.deepEqual(saved.pref_change_log.at(-1), { date: '2026-10-09', field: 'pref_sex', from: 'any', to: 'female', by: 'request', declined: true });
+  await assert.rejects(actions.approvePrefChange(e.id), /no answer-change request/);
+
+  await waitlistEntryRepo.update(e.id, { pref_change_request: { requested_date: '2026-10-10', changes: { pref_sex: 'female' }, note: '' } });
+  await actions.approvePrefChange(e.id, { date: '2026-10-10' });
+  saved = await waitlistEntryRepo.getById(e.id);
+  assert.equal(saved.pref_sex, 'female');
+  assert.equal(saved.pref_change_log.filter((l) => l.date === '2026-10-10').length, 1, 'logged once, as theirs, not also as her edit');
+  assert.equal(saved.pref_change_log.at(-1).by, 'request');
+
+  const sire = (await (await import('../shared/data/dogRepo.js')).dogRepo.getAll()).find((d) => d.sex === 'male');
+  await waitlistEntryRepo.update(e.id, { listen_change_request: { requested_date: '2026-10-10', listen_mode: 'selected', listen_sire_ids: [sire.id], listen_dam_ids: [] } });
+  await actions.approveListenChange(e.id, { date: '2026-10-10' });
+  saved = await waitlistEntryRepo.getById(e.id);
+  assert.equal(saved.listen_mode, 'selected');
+  assert.deepEqual(saved.listen_sire_ids, [sire.id]);
+  await waitlistEntryRepo.update(e.id, { pref_sex: 'any', listen_mode: 'all', listen_sire_ids: [], pref_change_request: null, listen_change_request: null });
+});
+
+test('a family action her records refuse at the last moment becomes a line for her, not an error', async () => {
+  const actions = await import('../shared/data/waitlistActions.js');
+  const k = await thornfield();
+  const e = (await waitlistEntryRepo.getByKennel(k.id)).find((x) => x.status === 'active');
+  const res = await actions.applyFamilyPlan(e.id, {
+    op: 'pick', offerId: 'no-such-offer', dogId: 'x', date: '2026-10-08',
+    activity: { id: 'event-999999', at: '2026-10-08T12:00:00.000Z', body: 'They picked Pip from Juniper × Ash on their status page. Their pick is held by a sale with the deposit pending.' }
+  });
+  assert.equal(res.result, null);
+  const line = (await waitlistEntryRepo.getById(e.id)).messages.find((m) => m.id === 'event-999999');
+  assert.match(line.body, /couldn't be recorded: That offer no longer exists/);
+  assert.equal(line.body.includes('is held'), false);
 });

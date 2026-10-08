@@ -235,9 +235,14 @@ export const SYNC_REGISTRY = Object.freeze({
     ],
     partial: { application: ['name', 'email'] },
     // pref_change_*: "private tier like application" (Waitlist Spec §15.9).
+    // The status page's requests and the family's activity and messages (W2 step
+    // 5): private like pref_change_request (W2 Plan §9). Their messages were
+    // sealed so the server can't read them, and a pause request's note may name a
+    // medical situation, like pause_reason.
     private: [
       'fee_amount', 'fee_payment_method', 'fee_payment_reference',
-      'fee_credit_policy', 'pause_reason', 'notes', 'pref_change_log', 'pref_change_request'
+      'fee_credit_policy', 'pause_reason', 'notes', 'pref_change_log', 'pref_change_request',
+      'pause_request', 'listen_change_request', 'messages'
     ],
     pending: []
   },

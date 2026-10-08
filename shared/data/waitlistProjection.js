@@ -16,12 +16,14 @@
 // phone, address, programs, notes, payment details, prices she hasn't published.
 //
 // Later W2 steps add their parts (the form and FAQ in step 4, the listen-only
-// choices and requests in step 5, email templates in step 6) here, in the same
-// allow-listed way.
+// choices, requests and message key in step 5, email templates in step 6) here,
+// in the same allow-listed way. A family's own notes on a request and every
+// message stay on her device: the page shows what was asked, never the note.
 import {
   waitlistConfig, entryName, publicList, overallPositions, litterQueue, isPupAvailable, passesUsed,
-  isManuallyPaused, readyFromDate, isReadyHeld, feeForEntry, kennelBreeds
+  isManuallyPaused, readyFromDate, isReadyHeld, feeForEntry, kennelBreeds, listenParentChoices
 } from './waitlistRules.js';
+import { addDaysToYMD } from './dateUtils.js';
 import { WAITLIST_OPEN_STATUSES } from './vocab.js';
 import { formQuestions, formFaq, matchingPrefKeys, MATCHING_NOTICE } from './waitlistForm.js';
 
@@ -43,6 +45,27 @@ function litterLabel(litter, dogsById) {
   if (litter.nickname) return litter.nickname;
   const name = (id) => dogsById.get(id)?.call_name || 'Unknown';
   return `${name(litter.dam_id)} × ${name(litter.sire_id)}`;
+}
+
+// A request the family made on their status page (W2 step 5), as their page shows
+// it: what they asked, when, and once she decided, what she decided. A decision
+// shows for REQUEST_SHOWN_DAYS, then the request drops off the page. Never the
+// family's note.
+export const REQUEST_SHOWN_DAYS = 30;
+function requestView(req, today, fields) {
+  if (!req || !req.requested_date) return null;
+  if (req.decided && (!req.decided_date || addDaysToYMD(req.decided_date, REQUEST_SHOWN_DAYS) < today)) return null;
+  return { ...fields(req), requested_date: req.requested_date, decided: req.decided || null, decided_date: orNull(req.decided_date) };
+}
+
+function requestsView(entry, today) {
+  return {
+    pause: requestView(entry.pause_request, today, (r) => ({ until: r.until })),
+    pref_change: requestView(entry.pref_change_request, today, (r) => ({ changes: { ...(r.changes || {}) } })),
+    listen: requestView(entry.listen_change_request, today, (r) => ({
+      mode: r.listen_mode || 'all', sire_ids: [...(r.listen_sire_ids || [])], dam_ids: [...(r.listen_dam_ids || [])]
+    }))
+  };
 }
 
 // A pup as a family may see it: call name, sex, color. Nothing else.
@@ -78,6 +101,7 @@ function entryView(entry, ctx) {
       dam_ids: [...(entry.listen_dam_ids || [])]
     },
     passes: { used: passesUsed(entry, ctx.offers), max: Number(ctx.config.max_passes) },
+    requests: requestsView(entry, ctx.today),
     fee_received_date: orNull(entry.fee_received_date),
     // What to pay and how: only while approved and unpaid (Spec §5.3, §8.1).
     fee_due: entry.status === 'approved' && !entry.fee_received_date && fee !== null && fee > 0
@@ -119,10 +143,26 @@ function formSection(kennel, config, formKey, dogs) {
   };
 }
 
+// The parent dogs the status page's listen-only editor offers (Spec §15.7): the
+// same choices as her Edit form, plus every parent a family on this list already
+// picked. A family sees a dog's call name only.
+function parentsSection(kennel, live, { dogs, litters, pairings }) {
+  const choices = listenParentChoices(kennel, {
+    dogs, litters, pairings,
+    selectedSires: live.flatMap((e) => e.listen_sire_ids || []),
+    selectedDams: live.flatMap((e) => e.listen_dam_ids || [])
+  });
+  const named = (d) => ({ id: d.id, name: d.call_name || '' });
+  return { sires: choices.sires.map(named), dams: choices.dams.map(named) };
+}
+
 // The projection for ONE own kennel. Callers pass that kennel's entries, offers
-// and programs (a Map), and every litter, dog, sale and contact (each is filtered
-// here). `today` is YYYY-MM-DD.
-export function buildProjection({ kennel, entries = [], offers = [], programsById = new Map(), litters = [], dogs = [], sales = [], contacts = [], today, formKey = null }) {
+// and programs (a Map), and every litter, pairing, dog, sale and contact (each is
+// filtered here). `today` is YYYY-MM-DD. `formKey` is her current form key (its
+// PUBLIC half seals applications and family messages); `eventsThrough` the last
+// family event her device has applied (the server lets go of picked pups' holds
+// up to there, W2 step 5).
+export function buildProjection({ kennel, entries = [], offers = [], programsById = new Map(), litters = [], pairings = [], dogs = [], sales = [], contacts = [], today, formKey = null, eventsThrough = 0 }) {
   if (!kennel || !kennel.public_id) throw new Error('This kennel has no public identity yet.');
   if (!today) throw new Error('buildProjection needs today.');
   const config = waitlistConfig(kennel);
@@ -172,12 +212,17 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
       respond_days: Number(config.respond_days),
       max_passes: Number(config.max_passes),
       auto_offer_on: [...config.auto_offer_on],
+      breeds: kennelBreeds(kennel, dogs),
+      color_matching: Boolean(config.color_matching),
+      parents: parentsSection(kennel, live, { dogs, litters, pairings }),
+      ...(formKey ? { message_key: { key_id: formKey.id, public_key: formKey.public_key } } : {}),
       ...(config.online_form && formKey ? { form: formSection(kennel, config, formKey, dogs) } : {})
     },
     public_list: publicList(live, kennel.id, programsById, {
       today, nameOf: (e) => entryName(e, contactsById.get(e.contact_id))
     }),
     entries: entryViews,
-    litters: litterViews
+    litters: litterViews,
+    events_through: Number.isInteger(eventsThrough) && eventsThrough > 0 ? eventsThrough : 0
   };
 }

@@ -61,11 +61,14 @@ const keysOf = (o) => Object.keys(o).sort();
 test('the projection has exactly its allow-listed parts', () => {
   const p = buildProjection(fixture());
   assert.equal(p.format, PROJECTION_FORMAT);
-  assert.deepEqual(keysOf(p), ['as_of', 'entries', 'format', 'kennel', 'litters', 'public_list']);
+  assert.deepEqual(keysOf(p), ['as_of', 'entries', 'events_through', 'format', 'kennel', 'litters', 'public_list']);
   assert.deepEqual(p.kennel, {
     public_id: kennel.public_id, name: 'Thornfield Kennels', time_zone: 'America/Chicago',
-    respond_days: 3, max_passes: 2, auto_offer_on: ['no_response']
+    respond_days: 3, max_passes: 2, auto_offer_on: ['no_response'],
+    breeds: [], color_matching: false,
+    parents: { sires: [{ id: 'sire', name: 'Ash' }], dams: [{ id: 'dam', name: 'Juniper' }] }
   });
+  assert.equal(p.events_through, 0);
 });
 
 test('nothing private ever reaches the projection', () => {
@@ -80,7 +83,8 @@ test("a family on the list sees its place, prefs, passes and offers; nothing els
   const p = buildProjection(fixture());
   const e1 = p.entries.e1;
   assert.deepEqual(keysOf(e1), ['applied_date', 'approved_date', 'email', 'fee_due', 'fee_received_date', 'listen',
-    'litter_positions', 'name', 'offers', 'passes', 'paused_until', 'position', 'prefs', 'ready_from', 'status']);
+    'litter_positions', 'name', 'offers', 'passes', 'paused_until', 'position', 'prefs', 'ready_from', 'requests', 'status']);
+  assert.deepEqual(e1.requests, { pause: null, pref_change: null, listen: null });
   assert.equal(e1.name, 'Family e1 Lee');
   assert.equal(e1.email, 'c-e1@example.com', "the contact's address wins over the application's");
   assert.equal(e1.fee_due, null, 'paid: no amount or instructions');
@@ -166,4 +170,37 @@ test('status-page tokens ride along when an entry has one, and a kennel needs it
   assert.throws(() => buildProjection({ ...f, kennel: { ...kennel, public_id: '' } }), /public identity/);
   assert.throws(() => buildProjection({ ...f, today: '' }), /today/);
   assert.equal(entryEmail({ application: {} }, null), null);
+});
+
+test("a family's requests show what they asked and her decision, never their note, and drop off after a while", () => {
+  const f = fixture();
+  Object.assign(f.entries[0], {
+    pause_request: { requested_date: '2026-10-07', until: '2026-12-31', note: 'SECRET-PAUSE-NOTE' },
+    pref_change_request: { requested_date: '2026-10-01', changes: { pref_sex: 'female' }, note: 'SECRET-PREF-NOTE', decided: 'declined', decided_date: '2026-10-02' },
+    listen_change_request: { requested_date: '2026-08-01', listen_mode: 'selected', listen_sire_ids: ['sire'], listen_dam_ids: [], decided: 'approved', decided_date: '2026-08-02' }
+  });
+  const p = buildProjection(f);
+  assert.deepEqual(p.entries.e1.requests, {
+    pause: { until: '2026-12-31', requested_date: '2026-10-07', decided: null, decided_date: null },
+    pref_change: { changes: { pref_sex: 'female' }, requested_date: '2026-10-01', decided: 'declined', decided_date: '2026-10-02' },
+    listen: null
+  }, 'a decision older than REQUEST_SHOWN_DAYS is gone');
+  assert.equal(JSON.stringify(p).includes('SECRET-'), false, 'notes stay on her device');
+});
+
+test('the listen-only choices, the message key and how far her device got through the events', () => {
+  const f = fixture();
+  f.dogs.push({ id: 'retired', call_name: 'Old Boy', sex: 'male', kennel_id: K, is_archived: true, microchip: 'CHIP-SECRET' });
+  f.dogs.push({ id: 'stud', call_name: 'Outside Stud', sex: 'male', kennel_id: 'elsewhere' });
+  f.entries[0].listen_mode = 'selected';
+  f.entries[0].listen_sire_ids = ['retired'];
+  const pairings = [{ id: 'pr1', kennel_id: K, status: 'planned', sire_id: 'stud', dam_id: 'dam' }];
+  const p = buildProjection({ ...f, pairings, formKey: { id: 'fk_1', public_key: 'PUB', private_key: { d: 'PRIVATE-SECRET' } }, eventsThrough: 42 });
+  assert.deepEqual(p.kennel.parents.sires.map((d) => d.name), ['Ash', 'Old Boy', 'Outside Stud'],
+    "her breeding sires, an upcoming pairing's outside stud, and one a family already picked");
+  assert.deepEqual(p.kennel.message_key, { key_id: 'fk_1', public_key: 'PUB' });
+  assert.equal(p.kennel.form, undefined, 'the form only while she takes applications online');
+  assert.equal(JSON.stringify(p).includes('PRIVATE-SECRET'), false);
+  assert.equal(JSON.stringify(p).includes('CHIP-SECRET'), false);
+  assert.equal(p.events_through, 42);
 });

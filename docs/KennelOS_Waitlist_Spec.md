@@ -1215,7 +1215,7 @@ Listening for specific pairings or litters was the wrong unit: families follow a
    to bring a puppy home?" overlapped the readiness question. Forms she already saved keep
    it until she deletes it; older answers to it still show on the family page.
 
-### 15.9 Families ask to change their matching answers; she approves (requested 2026-10-07; W1 part built 2026-10-07, W2 part planned)
+### 15.9 Families ask to change their matching answers; she approves (requested 2026-10-07; W1 part built 2026-10-07, W2 part built 2026-10-08)
 
 **Her request.** Families can't change the answers that decide which pups they're offered.
 Otherwise a family could narrow an answer just before a litter's offer reaches them, get
@@ -1301,5 +1301,10 @@ shows the result and the family gets the usual no-reply email (§15.4).
   them on. Widening never asks. All pinned in `tests/waitlistRules.test.js`.
 - **W2 (status page).** Ask to change on the status page, the pending event (§8.4), the
   Today nudge with Approve / Decline, and the result shown to the family.
+  **Built (W2 step 5, 2026-10-08):** as above, with one difference: Approve and Decline
+  don't clear `pref_change_request`, they mark it `decided` + `decided_date`, so the family's
+  page can show the outcome (for 30 days); a new request replaces it. Pause and narrower
+  listen-only requests work the same way (`pause_request`, `listen_change_request`). Emails
+  about decisions come with step 6. See W2 Plan step 5.
 
 Q25–Q28 (§13) are decided: the leanings above all stand.

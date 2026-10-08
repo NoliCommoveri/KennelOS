@@ -37,7 +37,8 @@ import { todayYMD } from './dateUtils.js';
 import {
   waitlistConfig, feeForEntry, feeDueDate, anchorDate, canUndoRemoval, passToForgive,
   nextFamilyForLitter, respondByDate, countsAsPass, shouldRemoveForPasses, passesUsed, isPupAvailable,
-  hasOpenOffer, turnSpent, eligiblePupsFor, isAwaitingDeposit, canSwitchAcceptedPick, undoPassBlocker, autoOffers, closingTrigger
+  hasOpenOffer, turnSpent, eligiblePupsFor, isAwaitingDeposit, canSwitchAcceptedPick, undoPassBlocker, autoOffers, closingTrigger,
+  prefChangeLines
 } from './waitlistRules.js';
 
 const nowISO = () => new Date().toISOString();
@@ -581,4 +582,131 @@ export async function recordOutcome(offerId, outcome, { date = todayYMD(), chose
   }
 
   return finishTurn(result, offer.litter_id, date, closingTrigger(offer, outcome));
+}
+
+// --- The status page (W2 step 5): family actions, requests, messages -------------
+//
+// A family's actions arrive as events (data/waitlistEvents.js plans each one); a
+// request (a pause, a narrower listen-only change, a change to a matching answer)
+// waits on the entry until she taps Approve or Decline here, and is then kept,
+// marked with her decision, so their page can show it (waitlistProjection).
+// `messages` on the entry is the family's activity and their messages to her,
+// newest last: { id, at, from: 'family', kind: 'message' | 'action', body, read }.
+// Unread ones are a Today nudge.
+
+export const MESSAGES_KEPT = 500;
+export const MESSAGE_MAX = 10000;
+
+// Add lines to a family's activity (by id, so the same line is never added twice).
+// → the entry, or null when there was nothing new.
+export async function addFamilyActivity(entryId, items) {
+  const entry = await load(entryId);
+  const have = new Set((entry.messages || []).map((m) => m.id));
+  const fresh = items.filter((m) => m && m.id && !have.has(m.id)).map((m) => ({
+    id: String(m.id), at: m.at || nowISO(), from: 'family', kind: m.kind === 'message' ? 'message' : 'action',
+    body: String(m.body ?? '').slice(0, MESSAGE_MAX), read: false
+  }));
+  if (!fresh.length) return null;
+  const messages = [...(entry.messages || []), ...fresh]
+    .sort((a, b) => String(a.at).localeCompare(String(b.at)))
+    .slice(-MESSAGES_KEPT);
+  return waitlistEntryRepo.update(entryId, { messages });
+}
+
+export async function markMessagesRead(entryId) {
+  const entry = await load(entryId);
+  if (!(entry.messages || []).some((m) => !m.read)) return entry;
+  return waitlistEntryRepo.update(entryId, { messages: entry.messages.map((m) => ({ ...m, read: true })) });
+}
+
+const decided = (req, decision, date) => ({ ...req, decided: decision, decided_date: date });
+const pending = (req) => Boolean(req && req.requested_date && !req.decided);
+export const hasPendingRequest = (entry, field) => pending(entry && entry[field]);
+
+function loadPending(entry, field, what) {
+  if (!pending(entry[field])) throw new Error(`There's no ${what} request waiting for this family.`);
+  return entry[field];
+}
+
+// Carry out one plan from waitlistEvents.planFamilyEvent. A pick or pass that
+// her records refuse after all (the pup was sold a moment ago…) becomes an
+// activity line instead, never an error that stops the other events.
+// → { done: op, result?, activity: entry | null }
+export async function applyFamilyPlan(entryId, plan) {
+  const { date } = plan;
+  let result = null;
+  let activity = plan.activity;
+  try {
+    switch (plan.op) {
+      case 'pick': result = await recordPick(plan.offerId, { chosenDogId: plan.dogId, date }); break;
+      case 'pass': result = await recordOutcome(plan.offerId, 'passed', { date }); break;
+      case 'withdraw': result = await withdraw(entryId, { date }); break;
+      case 'pause_request': await waitlistEntryRepo.update(entryId, { pause_request: plan.request }); break;
+      case 'listen_request': await waitlistEntryRepo.update(entryId, { listen_change_request: plan.request }); break;
+      case 'pref_request': await waitlistEntryRepo.update(entryId, { pref_change_request: plan.request }); break;
+      case 'listen_apply': await waitlistEntryRepo.update(entryId, plan.changes); break;
+      case 'note': case 'skip': break;
+      default: throw new Error(`Unknown plan "${plan.op}".`);
+    }
+  } catch (err) {
+    if (!activity) throw err;
+    activity = { ...activity, body: `${activity.body.replace(/\. Their pick is held.*$/, '.')} It couldn't be recorded: ${err.message}` };
+    result = null;
+  }
+  return { done: plan.op, result, activity: activity ? await addFamilyActivity(entryId, [activity]) : null };
+}
+
+// A pause they asked for (Spec §6.3, Q7): approving sets paused_until to their
+// date (their note, if any, becomes the pause reason); declining changes nothing.
+export async function approvePauseRequest(entryId, { date = todayYMD() } = {}) {
+  const entry = await load(entryId);
+  const req = loadPending(entry, 'pause_request', 'pause');
+  return waitlistEntryRepo.update(entryId, {
+    paused_until: req.until, pause_reason: req.note || entry.pause_reason || '', pause_request: decided(req, 'approved', date)
+  });
+}
+
+export async function declinePauseRequest(entryId, { date = todayYMD() } = {}) {
+  const entry = await load(entryId);
+  return waitlistEntryRepo.update(entryId, { pause_request: decided(loadPending(entry, 'pause_request', 'pause'), 'declined', date) });
+}
+
+// A change to their matching answers (Spec §15.9). Approving applies it and logs
+// it `by: 'request'`; declining logs what they asked for with `declined: true`.
+// Neither closes an open offer.
+export async function approvePrefChange(entryId, { date = todayYMD() } = {}) {
+  const entry = await load(entryId);
+  const req = loadPending(entry, 'pref_change_request', 'answer-change');
+  const lines = prefChangeLines(entry, req.changes || {}, { date, by: 'request' });
+  return waitlistEntryRepo.update(entryId, {
+    ...(req.changes || {}),
+    pref_change_log: [...(entry.pref_change_log || []), ...lines],
+    pref_change_request: decided(req, 'approved', date)
+  });
+}
+
+export async function declinePrefChange(entryId, { date = todayYMD() } = {}) {
+  const entry = await load(entryId);
+  const req = loadPending(entry, 'pref_change_request', 'answer-change');
+  const lines = prefChangeLines(entry, req.changes || {}, { date, by: 'request' }).map((l) => ({ ...l, declined: true }));
+  return waitlistEntryRepo.update(entryId, {
+    pref_change_log: [...(entry.pref_change_log || []), ...lines],
+    pref_change_request: decided(req, 'declined', date)
+  });
+}
+
+// A narrower listen-only change they asked for (Spec §15.7 item 6).
+export async function approveListenChange(entryId, { date = todayYMD() } = {}) {
+  const entry = await load(entryId);
+  const req = loadPending(entry, 'listen_change_request', 'listen-only');
+  return waitlistEntryRepo.update(entryId, {
+    listen_mode: req.listen_mode || 'all',
+    ...(req.listen_mode === 'selected' ? { listen_sire_ids: [...(req.listen_sire_ids || [])], listen_dam_ids: [...(req.listen_dam_ids || [])] } : {}),
+    listen_change_request: decided(req, 'approved', date)
+  });
+}
+
+export async function declineListenChange(entryId, { date = todayYMD() } = {}) {
+  const entry = await load(entryId);
+  return waitlistEntryRepo.update(entryId, { listen_change_request: decided(loadPending(entry, 'listen_change_request', 'listen-only'), 'declined', date) });
 }

@@ -438,6 +438,17 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   application (`data/waitlistInbox.js`, `source: 'online_form'`). Rotate form key, Copy
   application form link. Migration `0009`; Turnstile needed on production. Tests:
   `waitlistCrypto`, `waitlistInbox`, `cloudWaitlist`, `cloud/tests/application`.
+  **W2 step 5, family actions, is built & browser-verified:** signed in on their status page
+  (See Your Details), a family can choose a pup, pass, say they're still interested, ask for a
+  pause, change which litters they wait for, ask to change a matching answer, leave the list,
+  and send a sealed message (`cloud/src/familyActions.js`, `cloud/public/family/status.js`).
+  Her backing device applies each action (`data/waitlistEvents.js`,
+  `cloudWaitlist.applyFamilyEvents`): a pick makes the deposit-pending Sale, a pass or leave
+  is recorded, and a pause, a narrower listen-only change or an answer change waits for her
+  **Approve** / **Decline** on Today or the family's page, where their messages and activity
+  show too (`waitlist_entries.pause_request` / `listen_change_request` / `messages`, private).
+  Tests: `waitlistEvents`, `waitlistProjection`, `cloudWaitlist`, `cloud/tests/familyActions`.
+  Next: step 6, email.
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass

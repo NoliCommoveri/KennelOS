@@ -237,6 +237,10 @@ export const publishWaitlist = (token, publicId, projection) =>
 export const readWaitlistInbox = (token, { all = false, after = null } = {}) =>
   getJson(`/waitlist/inbox${all || after ? `?${new URLSearchParams({ ...(all ? { all: '1' } : {}), ...(after ? { after } : {}) })}` : ''}`, { token });
 export const ackWaitlistInbox = (token, ids) => getJson('/waitlist/inbox/ack', { method: 'POST', token, json: { ids } });
+// → { events: [{ seq, publicId, entryId, kind, payload, basedOnVersion, madeBy, createdAt }], last, more }
+export const readWaitlistEvents = (token, since = 0) => getJson(`/waitlist/events?since=${encodeURIComponent(since)}`, { token });
+export const readWaitlistProjection = (token, publicId) =>
+  getJson(`/waitlist/projection/${encodeURIComponent(publicId)}`, { token });
 export const unpublishWaitlist = (token, publicId) =>
   getJson(`/waitlist/projection/${encodeURIComponent(publicId)}`, { method: 'DELETE', token });
 
