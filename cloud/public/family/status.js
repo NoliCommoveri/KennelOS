@@ -228,7 +228,7 @@ function turnHtml(rows) {
     const p = v.family.passes;
     next = `<div class="actions mt8"><button type="button" class="pass" data-act="open" data-what="pass:${esc(turnId)}">Pass on turn</button></div>
       ${p ? `<p class="small muted mt0">${esc(p.used)} of ${esc(p.max)} passes used</p>` : ''}`;
-  } else next = signedIn() ? '' : `<p>Sign in on this device to choose a pup or pass (below), or contact ${esc(kennel)}.</p>`;
+  } else next = signedIn() ? '' : `<p>Sign in at the top of the page to choose a pup or pass, or contact ${esc(kennel)}.</p>`;
   const respondBy = rows.map((o) => o.respond_by_date || '').sort().reverse()[0];
   return openCard('The wait is over!', `
     <p class="mt0">Below are the puppies available for selection.</p>
@@ -470,7 +470,7 @@ function companionHtml(f) {
   else if (req?.decided === 'sent') parts.push(`<p class="small">${esc(kennel)} sent your link on ${esc(fmtDate(req.decided_date))}. Check your texts and email.</p>`);
   else if (req?.decided === 'declined') parts.push(`<p class="small">${esc(kennel)} didn't send a link (${esc(fmtDate(req.decided_date))}). Contact them if you have questions.</p>`);
   if (!signedIn()) {
-    // Still on the list: the sign-in card further down covers it. Placed: it's here.
+    // Still on the list: the Sign In button at the top covers it. Placed: it's here.
     const onList = ['applied', 'approved', 'active'].includes(f.status);
     parts.push(`<p class="small muted">To ask for it, sign in on this device with a code sent to the email on your application.</p>
       ${!onList && state.v.kennel.public_id ? `<div class="actions"><a class="button secondary" href="/list/${encodeURIComponent(state.v.kennel.public_id)}">Sign in with a code</a></div>` : ''}`);
@@ -499,13 +499,12 @@ function messageHtml() {
     </form>`);
 }
 
-// A browser that only has the link: how to sign in to respond.
-function signInHtml() {
+// A browser that only has the link: one Sign In button at the top of the page
+// (decided 2026-10-08), to the public list with its sign-in opened (#signin).
+function signInButton() {
   const v = state.v;
   if (signedIn() || !['applied', 'approved', 'active'].includes(v.family.status) || !v.kennel.public_id) return '';
-  return card('Respond on this page', `
-    <p class="mt0 small">To choose a pup, pass, ask for a pause, or message ${esc(v.kennel.name)}, sign in on this device with a code sent to the email on your application.</p>
-    <div class="actions"><a class="button secondary" href="/list/${encodeURIComponent(v.kennel.public_id)}">Sign in with a code</a></div>`);
+  return `<div class="actions signin-top"><a class="button primary" href="/list/${encodeURIComponent(v.kennel.public_id)}#signin">Sign In</a></div>`;
 }
 
 function mineHtml() {
@@ -573,7 +572,6 @@ function mineHtml() {
 
   parts.push(card('What you asked for', prefsHtml(f)));
   parts.push(messageHtml());
-  parts.push(signInHtml());
   return parts.join('');
 }
 
@@ -759,6 +757,7 @@ function render() {
     if (d.open) state.opened.add(d.dataset.key); else state.opened.delete(d.dataset.key);
   }
   $('mine').innerHTML = mineHtml();
+  $('signin-slot').innerHTML = signInButton();
   $('mine').hidden = $('tab-list').getAttribute('aria-selected') === 'true';
 }
 

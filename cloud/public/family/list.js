@@ -108,6 +108,12 @@ async function load() {
   render();
   wireSignIn(kennel);
   await showRemembered();
+  // From a status page's Sign In button: open the sign-in and bring it into view.
+  if (location.hash === '#signin') {
+    $('details').open = true;
+    $('details').scrollIntoView({ block: 'start' });
+    $('code')?.focus({ preventScroll: true });
+  }
 }
 
 load();

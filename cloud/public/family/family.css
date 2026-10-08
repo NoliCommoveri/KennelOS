@@ -165,6 +165,7 @@ details.card.collapsible[open] > summary { margin-bottom: 10px; }
 @media (max-width: 389px) { details.card.collapsible > summary h2 { font-size: 15.5px; } }
 /* A family's status page: everything centered (decided 2026-10-08). */
 main.centered { text-align: center; }
+.signin-top { margin: 10px 0 4px; }
 /* Passing on a turn: set apart from the pup buttons, in the warning tint. */
 button.pass { font: inherit; font-weight: 600; padding: 10px 16px; border-radius: var(--radius); border: 1px solid #e3cfa6; background: var(--warn-soft); color: var(--warn); cursor: pointer; }
 button.pass:hover { background: #efe0c4; }

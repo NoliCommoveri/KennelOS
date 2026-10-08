@@ -3245,6 +3245,9 @@ shown (`describeOfferChanges`).
   the bottom of the Ask to change form; one Send sends a `listen` action and/or a
   `pref_change`, whichever changed (a wider listen change still applies at her next update;
   a narrower one still waits for her OK).
+  A family who opened their link without signing in gets one **Sign In** button in the
+  page header (no card), to `/list/<public_id>#signin`, where the list page opens its
+  sign-in and focuses the code box.
 - **Message on your public list (2026-10-08):** `waitlist_config.public_intro_text` (blank =
   `waitlistRules.PUBLIC_INTRO_DEFAULT`), edited on the Publish list page; `publicIntroText`
   fills in `[Kennel Name]`, the projection publishes it as `kennel.intro`, and `/f/list`
