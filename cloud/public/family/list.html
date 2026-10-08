@@ -18,8 +18,8 @@
   </header>
   <p id="error" class="card notice" hidden></p>
   <section id="content" hidden>
-    <div class="card" id="details">
-      <h2>See Your Details</h2>
+    <details class="card collapsible" id="details">
+      <summary><h2>See Your Details</h2></summary>
       <div id="remembered" hidden>
         <p class="mt0">You're signed in on this device.</p>
         <div class="actions">
@@ -40,7 +40,7 @@
         </form>
         <p class="small" id="email-result" role="status"></p>
       </div>
-    </div>
+    </details>
     <div class="card">
       <label for="search" class="small muted">Find yourself on the list</label>
       <input id="search" type="search" placeholder="Search by name or number" autocomplete="off">

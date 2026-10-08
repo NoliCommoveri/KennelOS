@@ -155,6 +155,11 @@ label.choice input { width: 20px; height: 20px; margin: 0; accent-color: var(--a
 details { border-top: 1px solid var(--border); padding: 10px 0; }
 details:first-child { border-top: 0; padding-top: 0; }
 summary { cursor: pointer; font-weight: 600; }
+/* A card that opens and closes (the public list's See Your Details): the heading
+   is the summary, with the browser's own expand arrow in front of it. */
+details.card.collapsible { border-top: 1px solid var(--border); padding: 16px; }
+details.card.collapsible > summary h2 { display: inline; margin: 0; }
+details.card.collapsible[open] > summary { margin-bottom: 10px; }
 button.linkish { font: inherit; background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; }
 #app-form .actions { margin: 16px 0 8px; }
 .mt8 { margin: 8px 0 0; }

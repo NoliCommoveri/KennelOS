@@ -38,7 +38,7 @@ import { addDaysToYMD } from '../data/dateUtils.js';
 import { esc, badge, fmtDate, fmtMoney, param, todayYMD, confirmModal, alertModal } from '../assets/ui.js';
 import {
   resolveWaitlistKennel, prefsSummary, entryFlags, readyHoldText, formModal,
-  pickDialog, depositDialog, changePickDialog, undoPassDialog, restoreLostPupDialog, statusLinkFor, copyLink
+  pickDialog, depositDialog, changePickDialog, undoPassDialog, restoreLostPupDialog, textFamilyDialog, statusLinkFor, copyLink
 } from '../assets/waitlistUI.js';
 
 const els = {
@@ -176,7 +176,44 @@ function statusLines(e) {
 function actionButtons(e) {
   const b = (act, label, cls = '') => `<button class="btn btn-sm ${cls}" data-act="${act}">${esc(label)}</button>`;
   const lost = lostSale(e) ? b('restore', e.status === 'placed' ? 'Put back in line…' : 'Give their turn back…', 'btn-primary') : '';
-  return lost + actionButtonsFor(e);
+  return lost + actionButtonsFor(e) + b('text', 'Text them…');
+}
+
+// --- Texting them (waitlistUI.textFamilyDialog) ---------------------------------------
+
+// What a text to this family would say now, for her to edit: their turn (or the pup
+// they're holding), a fee that's due, or where they are on the list — plus their
+// status page link when the list is online.
+function suggestedText(e) {
+  const first = String(entryName(e, ctx.contact)).trim().split(/\s+/)[0] || 'there';
+  const kennel = ctx.kennel.kennel_name;
+  const link = statusLinkFor(e, ctx.kennel);
+  const linkLine = link ? `\n\nYour waitlist page: ${link}` : '';
+  const open = ctx.kennelOffers.filter((o) => o.entry_id === e.id && o.outcome === 'open' && !o.is_archived);
+  if (open.length) {
+    const by = open.map((o) => o.respond_by_date).filter(Boolean).sort().pop();
+    const picked = open.find((o) => o.chosen_dog_id);
+    if (picked) {
+      return `Hi ${first}, this is ${kennel}. We're holding ${dogName(picked.chosen_dog_id)} for you! Please send your deposit${by ? ` by ${fmtDate(by)}` : ''} to confirm.${ctx.config.payment_instructions ? `\n\n${ctx.config.payment_instructions}` : ''}${linkLine}`;
+    }
+    const names = open.map((o) => { const l = ctx.litters.find((x) => x.id === o.litter_id); return l ? litterLabel(l) : 'a litter'; }).join(', ');
+    return `Hi ${first}, this is ${kennel}. Good news: it's your turn on our waitlist! You can pick a pup from ${names}. Please let us know your pick and send your deposit${by ? ` by ${fmtDate(by)}` : ''}, or tell us if you'd like to pass this time.${linkLine}`;
+  }
+  if (e.status === 'approved') {
+    const fee = e.fee_amount != null ? fmtMoney(e.fee_amount) : '';
+    return `Hi ${first}, this is ${kennel}. You're approved for our waitlist!${fee ? ` Your application fee of ${fee} is due${e.fee_due_date ? ` by ${fmtDate(e.fee_due_date)}` : ''}, and you join the list as soon as it's received.` : ''}${ctx.config.payment_instructions ? `\n\n${ctx.config.payment_instructions}` : ''}${linkLine}`;
+  }
+  if (e.status === 'active') {
+    const pos = overallPositions(ctx.kennelEntries, ctx.kennel.id, ctx.programs).get(e.id);
+    return `Hi ${first}, this is ${kennel} with a waitlist update: you're #${pos} on our list.${linkLine}`;
+  }
+  return `Hi ${first}, this is ${kennel}. ${linkLine}`.trim();
+}
+
+async function onText() {
+  const e = ctx.entry;
+  const phone = ctx.contact?.phone || e.application?.phone || '';
+  await textFamilyDialog({ name: entryName(e, ctx.contact), phone, message: suggestedText(e) });
 }
 
 function actionButtonsFor(e) {
@@ -224,7 +261,7 @@ function renderStatus() {
     </div>${statusLinkHtml(e)}`;
   els.status.querySelector('[data-link="copy"]')?.addEventListener('click', (ev) => copyLink(statusLinkFor(e, ctx.kennel), ev.currentTarget, { title: 'Their status page' }));
   els.status.querySelector('[data-link="new"]')?.addEventListener('click', () => onNewLink().catch((err) => showError(err.message || String(err))));
-  const handlers = { offer: onOfferLitter, approve: onApprove, decline: onDecline, withdraw: onWithdraw, fee: onFeeReceived, expire: onExpire, move: onMove, remove: onRemove, undo: onUndo, reapply: onReapply, restore: onRestore };
+  const handlers = { offer: onOfferLitter, approve: onApprove, decline: onDecline, withdraw: onWithdraw, fee: onFeeReceived, expire: onExpire, move: onMove, remove: onRemove, undo: onUndo, reapply: onReapply, restore: onRestore, text: onText };
   els.status.querySelectorAll('[data-act]').forEach((btn) => {
     btn.addEventListener('click', () => handlers[btn.dataset.act]().catch((err) => showError(err.message || String(err))));
   });

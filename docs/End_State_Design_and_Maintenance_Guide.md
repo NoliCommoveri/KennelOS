@@ -3206,6 +3206,14 @@ shown (`describeOfferChanges`).
   Kennels waitlist") into `/list` and `/apply`, read from the published projection's
   `kennel.name` only, and a generic image (`cloud/public/family/share.png`). Status pages
   get none (they're private).
+- **Text them… (2026-10-08):** the family page's status card has **Text them…**
+  (`waitlistUI.textFamilyDialog`): a suggested message from where they stand (their turn
+  and its respond-by date, a pup held for their deposit, a fee due with her payment
+  instructions, or their place), plus their status link when online, editable; then
+  **Share…** (the phone's share sheet, to pick Google Voice), **Copy message**, **Copy & open
+  Google Voice**, or **Texting app** (an `sms:` link, which always opens the phone's default
+  texting app). The phone is the contact's, else the application's. KennelOS sends nothing.
+- **See Your Details** on the public list page is a collapsed `<details>` card (2026-10-08).
 - **Apply from the public list (2026-10-08):** while she takes applications online, the
   public list page shows **Apply to join the waitlist** under its heading, linking to
   `/apply/<public_id>`; `/f/list` says so with `kennel.apply_open` (= `formView` would serve
