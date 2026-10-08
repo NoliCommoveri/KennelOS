@@ -469,7 +469,8 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   buttons to change them (the email half comes with step 6). **Part 6, "Ready now?" (§16.7), is built:** when a readiness hold ends on
   an online list, the family is asked on their status page; Not yet sends her a pause request
   with their reason; no answer follows her setting (keep paused, unpause, or remove after N
-  days with a 7-day undo). Step 5c is complete; next is step 6, email.
+  days with a 7-day undo). Step 5c is complete; next is step 6, email. Service-worker cache
+  rolled to `kennelos-shell-v49` for step 5c (parts 3–6 and §16.9).
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass
