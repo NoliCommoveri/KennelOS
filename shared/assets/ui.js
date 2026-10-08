@@ -234,3 +234,17 @@ document.addEventListener('click', (e) => {
   btn.setAttribute('aria-expanded', String(!wasOpen));
   btn.setAttribute('aria-label', wasOpen ? 'Expand card' : 'Collapse card');
 });
+
+// A "Manage ▾"-style menu (app.css .action-menu): `root` holds the toggle button
+// and its .action-menu-list. Opens on click, closes on an item, an outside click
+// or Escape.
+export function wireActionMenu(root) {
+  const btn = root?.querySelector('button[aria-haspopup]');
+  const list = root?.querySelector('.action-menu-list');
+  if (!btn || !list) return;
+  const set = (open) => { list.hidden = !open; btn.setAttribute('aria-expanded', String(open)); };
+  btn.addEventListener('click', (ev) => { ev.stopPropagation(); set(list.hidden); });
+  list.addEventListener('click', () => set(false));
+  document.addEventListener('click', (ev) => { if (!root.contains(ev.target)) set(false); });
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') set(false); });
+}

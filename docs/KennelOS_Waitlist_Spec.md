@@ -1588,3 +1588,20 @@ get their place back and be offered the next pup.
    at once (to them, when they're next). A family holding a turn keeps it; the restored family
    is next after them by their place.
 
+
+### 16.12 Where the waitlist lives in the app (decided and built 2026-10-08)
+
+Asked: the waitlist is many breeders' main workflow, but it was a button on the People page,
+its page had seven buttons in a row, and its online publishing sat on the Kennel page.
+
+**Decided:**
+1. **People has two top tabs, Contacts | Waitlist,** like Sales | Stud Services | Other
+   contracts on Placements & Contracts. The contact groups are a smaller tab row under
+   Contacts.
+2. **The Waitlist page has one primary button, + New application.** Everything else is under
+   **Manage ▾**: Almost your turn…, Application form, Programs, Publish list, Settings (the
+   Kennel page's Waitlist settings). Import CSV left the page; it's on Import/Export.
+3. **Publish list** is its own page (`waitlist-publish`): the Online list card (moved off the
+   Kennel page) and, under it, the list as text to copy (the old "Copy public list").
+4. **The Kennel page is "Kennel Overview and Settings":** no Profile card; every other card is
+   chosen from an alphabetical **Section** dropdown and only that one shows.

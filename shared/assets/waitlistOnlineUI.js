@@ -1,5 +1,6 @@
-// waitlistOnlineUI.js — the Kennel page's "Online list" card (Waitlist W2 Plan
-// §9). Imported dynamically by pages/kennel.js, only where the waitlist online is
+// waitlistOnlineUI.js — the "Online list" card on the waitlist's Publish list page
+// (Waitlist W2 Plan §9; it lived on the Kennel page until 2026-10-08). Imported
+// dynamically by pages/waitlist-publish.js, only where the waitlist online is
 // offered (Pro, cloud available, its release switch or staging). Saving goes
 // through kennelRepo; publishing through data/cloud/cloudWaitlist.js.
 import { esc, confirmModal, alertModal, todayYMD } from './ui.js';
