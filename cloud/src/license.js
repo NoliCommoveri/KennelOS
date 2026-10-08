@@ -83,14 +83,20 @@ export async function handleWebhook(request, env, now = new Date()) {
   if (data.type === 'subscriptions' && event.startsWith('subscription_')) row = subscriptionRow(cfg, data, a, now);
   else if (data.type === 'orders' && (event === 'order_created' || event === 'order_refunded')) row = orderRow(cfg, data, a, now);
   if (!row) return ok(); // not a Pro purchase, another store, the wrong mode, or an event we don't use
+  await storePurchase(env, row, a.user_email, now);
+  return ok();
+}
 
-  const email = normalizeEmail(a.user_email);
+// Upserts one purchase row under the hash of `rawEmail`, which is then
+// dropped. An older update (LS retries arrive out of order) never overwrites
+// a newer one. → true when stored.
+async function storePurchase(env, row, rawEmail, now) {
+  const email = normalizeEmail(rawEmail);
   if (!email) {
     console.error('webhook: no usable email');
-    return ok();
+    return false;
   }
   const eh = await emailHash(env, email);
-  // An older event (LS retries arrive out of order) never overwrites a newer one.
   await env.DB.prepare(
     `INSERT INTO pro_purchases (id, email_hash, kind, plan, status, access_until, source_updated_at, received_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -99,7 +105,50 @@ export async function handleWebhook(request, env, now = new Date()) {
        source_updated_at = excluded.source_updated_at, received_at = excluded.received_at
      WHERE excluded.source_updated_at >= pro_purchases.source_updated_at`,
   ).bind(row.id, eh, row.kind, row.plan, row.status, row.accessUntil, row.updatedAt, now.toISOString()).run();
-  return ok();
+  return true;
+}
+
+// --- The one-off backfill (plan §9 decision 6) ----------------------------------------
+// For purchases made before the webhook existed (a lifetime order sends no
+// later event). /ops takes a short-lived LS API key, pages through the store's
+// subscriptions and orders, and stores them exactly as their webhooks would
+// have. The key is used for these requests only: never stored, never logged,
+// and sent nowhere but api.lemonsqueezy.com. License-key objects (which carry
+// the full key) are never requested.
+export const LS_API = 'https://api.lemonsqueezy.com/v1';
+const MAX_PAGES = 50;
+
+export async function importFromLemonSqueezy(env, rawApiKey, { fetchImpl = globalThis.fetch, now = new Date() } = {}) {
+  const cfg = licenseConfig(env);
+  if (!cfg.storeId || !cfg.productIds.size) return { ok: false, reason: 'Set LS_STORE_ID and LS_PRO_PRODUCT_IDS first.' };
+  const apiKey = String(rawApiKey ?? '').trim();
+  if (!apiKey) return { ok: false, reason: 'Paste a Lemon Squeezy API key.' };
+  const summary = { ok: true, subscriptions: 0, orders: 0, stored: 0 };
+
+  for (const [type, counter] of [['subscriptions', 'subscriptions'], ['orders', 'orders']]) {
+    let url = `${LS_API}/${type}?filter[store_id]=${encodeURIComponent(cfg.storeId)}&page[size]=100`;
+    for (let pageNo = 0; url && pageNo < MAX_PAGES; pageNo++) {
+      if (!url.startsWith(`${LS_API}/`)) return { ok: false, reason: 'Lemon Squeezy answered with an unexpected next page; stopped.' };
+      let res;
+      try {
+        res = await fetchImpl(url, { headers: { accept: 'application/vnd.api+json', authorization: `Bearer ${apiKey}` } });
+      } catch {
+        return { ok: false, reason: "Couldn't reach Lemon Squeezy. Nothing after this point was imported." };
+      }
+      if (res.status === 401 || res.status === 403) return { ok: false, reason: 'Lemon Squeezy refused that API key.' };
+      if (!res.ok) return { ok: false, reason: `Lemon Squeezy answered ${res.status}. Nothing after this point was imported.` };
+      const body = await res.json();
+      for (const data of body.data ?? []) {
+        const a = data?.attributes;
+        if (!a) continue;
+        summary[counter]++;
+        const row = type === 'subscriptions' ? subscriptionRow(cfg, data, a, now) : orderRow(cfg, data, a, now);
+        if (row && (await storePurchase(env, row, a.user_email, now))) summary.stored++;
+      }
+      url = body.links?.next ?? null;
+    }
+  }
+  return summary;
 }
 
 const iso = (v) => {

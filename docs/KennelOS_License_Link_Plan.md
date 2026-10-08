@@ -204,7 +204,8 @@ checkout links are on `site/pro.html` today, so this only covers the app's own b
 4. **Backfill:** only if Pro has been sold before the production webhook exists (§9 decision
    6). **One exists (noted 2026-10-07):** the owner's own production Pro license, bought
    before the webhook. The store is live, but the owner is the only user and holds only test data.
-   That one purchase needs backfilling (decision 6).
+   That one purchase (a **lifetime** license) needs backfilling (decision 6): built as the
+   `/ops` import below.
 
 ## 8. Testing
 
@@ -285,6 +286,14 @@ checkout links are on `site/pro.html` today, so this only covers the app's own b
    - **Retention** deletes link codes once expired and purchases 90 days after
      `access_until`. **Export** carries `pro_purchases` and `license_links`. **Account
      deletion** removes the account's links and pending code; purchases stay.
+   - **Backfill** (decision 6, built 2026-10-08 for the owner's lifetime license): `/ops` →
+     Pro license link → **Import from Lemon Squeezy** takes a short-lived LS API key, pages
+     through the store's `/v1/subscriptions` and `/v1/orders` (`filter[store_id]`), and stores
+     each through the same row rules and upsert as the webhook (`importFromLemonSqueezy`).
+     The key is used for those requests only (never stored, logged or echoed), is only ever
+     sent to `https://api.lemonsqueezy.com/v1/` (a `links.next` anywhere else stops it), and
+     license-key objects are never requested. Re-running it changes nothing. Use a key made
+     in the same mode as the Worker (live for production), then delete it.
    - Tests: `cloud/tests/license.test.js`.
    **Merging this to `main` puts production into maintenance** (503) until `0006` is applied
    on production's `/ops`, as with every migration.

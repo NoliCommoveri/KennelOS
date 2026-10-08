@@ -58,6 +58,8 @@ tests/                 node --test against a node:sqlite stand-in for D1
   `license_key_*` events carry the full license key: they are not subscribed, and ignored
   if they arrive. Configured by the `LEMONSQUEEZY_WEBHOOK_SECRET` secret and the `LS_*`
   vars in `wrangler.toml`; until they're set it answers 503 and `/ops` says what's missing.
+  `/ops`'s one-off **Import from Lemon Squeezy** backfills purchases made before the webhook,
+  with a short-lived LS API key that is sent only to `api.lemonsqueezy.com` and never kept.
 - **Upload a document before the snapshot that references it.** Retention gives a file a
   day's grace and then collects anything no snapshot references.
 - **No `IN (?, ?, …)` over a list.** D1 allows about 100 bound parameters and the test

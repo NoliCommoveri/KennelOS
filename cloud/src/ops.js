@@ -18,6 +18,7 @@ import { mailMode, sendTestEmail } from './mail.js';
 import { hmacHex, timingSafeEqual } from './lib/crypto.js';
 import { readCookie } from './lib/http.js';
 import { escapeHtml as esc } from './lib/html.js';
+import { importFromLemonSqueezy } from './license.js';
 
 const COOKIE = 'ops_session';
 const SESSION_SECONDS = 12 * 60 * 60;
@@ -192,7 +193,15 @@ ${purchases.length
   <tr><td>Last purchase update received</td><td class="muted">${esc(lastWebhook ?? 'never')}</td></tr>
   <tr><td>Accounts with a linked purchase email</td><td>${esc(linkedAccounts)}</td></tr>
   <tr><td>Purchase emails linked to more than one account</td><td>${esc(sharedLinks)}</td></tr>
-</table>`;
+</table>
+<h3>Import from Lemon Squeezy</h3>
+<p class="muted">One-off, for purchases made before the webhook existed. Make a new API key in Lemon Squeezy
+  (Settings → API), paste it here, then delete the key there. It is used for this import only and not kept.
+  Purchases already recorded are left as they are unless Lemon Squeezy's copy is newer.</p>
+<form method="post" action="/ops/license-import">
+  <p><label>Lemon Squeezy API key<br><input type="password" name="api_key" autocomplete="off"></label></p>
+  <button type="submit">Import purchases</button>
+</form>`;
 
   return `${outbox}${testEmail}${license}
 <h2>Service notices</h2>
@@ -283,6 +292,13 @@ async function route(request, env) {
   if (url.pathname === '/ops/test-email' && request.method === 'POST') {
     const r = await sendTestEmail(env, (await request.formData()).get('email'));
     return dashboard(env, r.ok ? '<p class="ok">Sent. Check that inbox, and its spam folder.</p>' : `<p class="bad">${esc(r.reason)}</p>`);
+  }
+
+  if (url.pathname === '/ops/license-import' && request.method === 'POST') {
+    const r = await importFromLemonSqueezy(env, (await request.formData()).get('api_key'));
+    return dashboard(env, r.ok
+      ? `<p class="ok">Imported from Lemon Squeezy: read ${esc(r.subscriptions)} subscriptions and ${esc(r.orders)} orders; ${esc(r.stored)} Pro purchase(s) recorded. Now delete that API key in Lemon Squeezy.</p>`
+      : `<p class="bad">${esc(r.reason)}</p>`);
   }
 
   if (url.pathname === '/ops/retention' && request.method === 'POST') {

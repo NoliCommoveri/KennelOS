@@ -323,3 +323,82 @@ test('nothing in license.js logs a body, an email or a key', () => {
   for (const line of logs) assert.match(line, /^console\.\w+\('[^']*'\)$/, `only fixed strings: ${line}`);
   assert.ok(readdirSync(new URL('../src/migrations/', import.meta.url)).includes('0006_license_link.sql'));
 });
+
+// --- the one-off backfill from Lemon Squeezy's API (plan §9 decision 6) -----------------------
+const { importFromLemonSqueezy, LS_API } = await import('../src/license.js');
+
+// Lemon Squeezy's list endpoints, faked: `pages` maps a URL to its JSON:API body.
+function fakeLs(pages, { status = 200 } = {}) {
+  const seen = [];
+  const fetchImpl = async (url, init) => {
+    seen.push({ url, auth: init.headers.authorization });
+    if (status !== 200) return new Response('{}', { status });
+    const body = pages[url] ?? { data: [], links: {} };
+    return new Response(JSON.stringify(body), { status: 200 });
+  };
+  return { fetchImpl, seen };
+}
+const subsUrl = `${LS_API}/subscriptions?filter[store_id]=100&page[size]=100`;
+const ordersUrl = `${LS_API}/orders?filter[store_id]=100&page[size]=100`;
+
+test('import: pages through orders and subscriptions, records a pre-webhook lifetime purchase, skips the rest', async () => {
+  const env = await env0();
+  const { fetchImpl, seen } = fakeLs({
+    [subsUrl]: { data: [subscription(7, { user_email: 'other@example.com' }).data], links: {} },
+    [ordersUrl]: { data: [order(1, { user_email: 'owner@example.com' }).data], links: { next: `${ordersUrl}&page[number]=2` } },
+    [`${ordersUrl}&page[number]=2`]: { data: [
+      order(2, { first_order_item: { product_id: 999, variant_id: LIFETIME } }).data,
+      order(3, { first_order_item: { product_id: 200, variant_id: MONTHLY } }).data,
+      order(4, { user_email: 'refunded@example.com', status: 'refunded', refunded: true }).data,
+    ], links: { next: null } },
+  });
+  const r = await importFromLemonSqueezy(env, ' key-123 ', { fetchImpl });
+  assert.deepEqual(r, { ok: true, subscriptions: 1, orders: 4, stored: 3 });
+  assert.ok(seen.every((s) => s.auth === 'Bearer key-123' && s.url.startsWith(`${LS_API}/`)));
+  assert.ok(!seen.some((s) => /license-key/.test(s.url)), 'license keys are never requested');
+
+  const owner = await signIn(env, 'owner@example.com');
+  assert.deepEqual(await entitlement(env, owner), { pro: true, plan: 'lifetime', until: null, source: 'email', lapsed: false, linkedEmails: 0 });
+  assert.equal((await entitlement(env, await signIn(env, 'refunded@example.com'))).pro, false);
+  const dump = JSON.stringify(env.DB.raw.prepare('SELECT * FROM pro_purchases').all()) + JSON.stringify(env.DB.raw.prepare('SELECT * FROM rate_limits').all());
+  assert.ok(!dump.includes('key-123') && !dump.includes('owner@example.com'));
+
+  // Running it again changes nothing.
+  assert.equal((await importFromLemonSqueezy(env, 'key-123', { fetchImpl })).stored, 3);
+  assert.equal(count(env, 'pro_purchases'), 3);
+});
+
+test('import: a refused key, no config, and a next page off Lemon Squeezy\'s API all stop it', async () => {
+  const env = await env0();
+  assert.deepEqual(await importFromLemonSqueezy(env, 'k', fakeLs({}, { status: 401 })), { ok: false, reason: 'Lemon Squeezy refused that API key.' });
+  assert.equal((await importFromLemonSqueezy(env, '', fakeLs({}))).ok, false);
+  const bare = await makeEnv({ ...LS, LS_STORE_ID: '' });
+  assert.equal((await importFromLemonSqueezy(bare, 'k', fakeLs({}))).reason, 'Set LS_STORE_ID and LS_PRO_PRODUCT_IDS first.');
+
+  const { fetchImpl, seen } = fakeLs({ [subsUrl]: { data: [], links: { next: 'https://evil.example/steal' } } });
+  const r = await importFromLemonSqueezy(env, 'k', { fetchImpl });
+  assert.equal(r.ok, false);
+  assert.ok(!seen.some((s) => s.url.startsWith('https://evil.example')), 'the key is never sent anywhere else');
+});
+
+test('import from /ops: the form, then the result; the key is not echoed back', async () => {
+  const env = await env0();
+  const real = globalThis.fetch;
+  globalThis.fetch = fakeLs({ [ordersUrl]: { data: [order(1, { user_email: 'owner@example.com' }).data], links: {} } }).fetchImpl;
+  try {
+    const login = await worker.fetch(new Request('https://api.example/ops/login', { method: 'POST', body: new URLSearchParams({ token: env.OPS_TOKEN }) }), env);
+    const cookie = login.headers.get('set-cookie').split(';')[0];
+    const page = await (await worker.fetch(new Request('https://api.example/ops', { headers: { Cookie: cookie } }), env)).text();
+    assert.match(page, /Import from Lemon Squeezy/);
+    const res = await worker.fetch(new Request('https://api.example/ops/license-import', {
+      method: 'POST', headers: { Cookie: cookie }, body: new URLSearchParams({ api_key: 'secret-api-key' }),
+    }), env);
+    const html = await res.text();
+    assert.match(html, /1 Pro purchase\(s\) recorded/);
+    assert.ok(!html.includes('secret-api-key'));
+    const noCookie = await worker.fetch(new Request('https://api.example/ops/license-import', { method: 'POST', body: new URLSearchParams({ api_key: 'x' }) }), env);
+    assert.doesNotMatch(await noCookie.text(), /recorded/, 'ops sign-in first');
+  } finally {
+    globalThis.fetch = real;
+  }
+});
