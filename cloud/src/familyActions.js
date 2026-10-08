@@ -1,6 +1,7 @@
 // What a family does on their status page (docs/KennelOS_Waitlist_W2_Plan.md §6,
 // step 5): accept a pup (a pick), pass, still interested, request a pause, leave
-// the list, change listen-only, ask to change a matching answer, and send her a
+// the list, change listen-only, ask to change a matching answer, ask for their
+// Companion link (a family with an open sale, placed or not), and send her a
 // message.
 //
 // Every one needs a FAMILY SESSION (See Your Details: a code typed in that
@@ -18,7 +19,7 @@ import { STATUS_TOKEN } from './waitlist.js';
 import { fail, json, readJson } from './lib/http.js';
 
 export const ACTION_LIMITS = { perHourPerSession: 60, messagesPerHourPerSession: 10, messageBytes: 32 * 1024, noteChars: 500, maxPauseDays: 731 };
-export const FAMILY_ACTIONS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change', 'prepass', 'unprepass', 'ready'];
+export const FAMILY_ACTIONS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change', 'prepass', 'unprepass', 'ready', 'companion_request'];
 
 const OPEN_STATUSES = ['applied', 'approved', 'active'];
 // Copies of the app's vocab (shared/data/vocab.js); tests/familyPages.test.js in
@@ -99,6 +100,15 @@ function checkTarget(body, projection) {
 // → the event payload, or throws (via fail) with the reason.
 export function checkAction(action, body, { entry, projection, pending, now = new Date() }) {
   if (!FAMILY_ACTIONS.includes(action)) fail(400, 'bad_action');
+  const already = (kind, test = () => true) => pending.some((p) => p.kind === kind && test(p.payload));
+  // Their Companion link (Spec §8.3): only while her device says they have an open
+  // sale, whatever their list status (a placed family too), and one at a time. Her
+  // device builds and sends the link; the server only passes the request on.
+  if (action === 'companion_request') {
+    if (!entry.companion?.available) fail(409, 'no_sale');
+    if ((entry.companion.request && !entry.companion.request.decided) || already('companion_request')) fail(409, 'already_requested');
+    return { note: cleanNote(body.note) };
+  }
   if (!OPEN_STATUSES.includes(entry.status)) fail(409, 'not_on_list');
   // A family's turn (Waitlist Spec §16.1) is one offer row per litter sharing a
   // turn_id (an offer from before turns is its own turn). They pick ONE pup from
@@ -107,7 +117,6 @@ export function checkAction(action, body, { entry, projection, pending, now = ne
   const offer = (id) => offers.find((o) => o.id === id) || fail(409, 'offer_closed');
   const turnOf = (o) => o.turn_id || o.id;
   const rowsOf = (turnId) => offers.filter((o) => turnOf(o) === turnId);
-  const already = (kind, test = () => true) => pending.some((p) => p.kind === kind && test(p.payload));
   const inTurn = (turnId) => (p) => p.turn_id === turnId || rowsOf(turnId).some((o) => o.id === p.offer_id);
   const settled = (turnId) => {
     if (rowsOf(turnId).some((o) => o.picked_dog_id) || already('pick', inTurn(turnId))) fail(409, 'already_picked');

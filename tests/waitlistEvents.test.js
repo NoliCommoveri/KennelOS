@@ -179,3 +179,17 @@ test('"Ready now?" from the status page (Spec §16.7): yes is recorded; not yet 
   assert.equal(planFamilyEvent(ev('ready', { answer: 'no', until: '2026-12-01' }), ctx()).reason, 'bad_payload', 'a reason is required');
   assert.equal(planFamilyEvent(ev('ready', { answer: 'yes' }), ctx({ entry: entry({ status: 'withdrawn' }) })).op, 'note');
 });
+
+test('a Companion link request waits on the entry while they have an open sale; otherwise a line for her', () => {
+  const ask = ev('companion_request', { note: ' Please text it ' });
+  const withSale = ctx({ entry: entry({ status: 'placed', contact_id: 'c1' }), sales: [{ buyer_contact_id: 'c1', status: 'deposit_paid' }] });
+  assert.deepEqual(planFamilyEvent(ask, withSale), {
+    op: 'companion_request', date: '2026-10-08', activity: null, request: { requested_date: '2026-10-08', note: 'Please text it' }
+  });
+  for (const sales of [[], [{ buyer_contact_id: 'c1', status: 'delivered' }], [{ buyer_contact_id: 'c1', status: 'paid_in_full', is_archived: true }], [{ buyer_contact_id: 'c2', status: 'deposit_paid' }]]) {
+    const plan = planFamilyEvent(ask, ctx({ entry: entry({ contact_id: 'c1' }), sales }));
+    assert.equal(plan.op, 'note');
+    assert.match(plan.activity.body, /no open sale now.*They said: "Please text it"/);
+  }
+  assert.equal(planFamilyEvent(ask, ctx({ entry: entry({ contact_id: null }), sales: [{ buyer_contact_id: null, status: 'deposit_paid' }] })).op, 'note');
+});

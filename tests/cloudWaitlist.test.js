@@ -371,6 +371,62 @@ test('what a family does on their page reaches her device: a pick makes the Sale
   assert.equal(approved.pause_request.decided, 'approved');
 });
 
+test('a Companion link request (Spec §8.3): a family with a sale asks, her Today asks her, Mark sent shows on their page; their note stays on her device', async () => {
+  const { contactRepo } = await import('../shared/data/contactRepo.js');
+  const { saleRepo } = await import('../shared/data/saleRepo.js');
+  const { dogRepo } = await import('../shared/data/dogRepo.js');
+  const actions = await import('../shared/data/waitlistActions.js');
+  await breeder();
+  const k = await putOnline();
+
+  // A family on the list whose contact has no open sale yet.
+  const sales = await saleRepo.getAll({ includeArchived: true });
+  const entry = (await waitlistEntryRepo.getByKennel(k.id)).find((e) => e.status === 'active' && e.contact_id
+    && !sales.some((x) => x.buyer_contact_id === e.contact_id && saleRepo.isOpenSale(x)));
+  assert.ok(entry, 'the sample data has a family on the list without a sale');
+  const email = `companion-${entry.id.slice(0, 6)}@example.com`;
+  await contactRepo.update(entry.contact_id, { email });
+  await cw.syncWaitlistOnline();
+  const fam = await familySignIn(k.public_id, email);
+  const act = (action, extra = {}) => fam.call('/f/act', { session: fam.session, status_token: fam.statusToken, action, ...extra });
+  const page = async () => (await (await worker.fetch(new Request(`http://localhost/f/status/${fam.statusToken}`), env)).json()).family;
+
+  // Before their pick there's no sale: nothing to ask for.
+  const before = await page();
+  assert.equal('companion' in before, false);
+  assert.equal((await act('companion_request')).status, 409);
+
+  // A sale for them (deposit pending); her next sync offers the Companion link.
+  const dog = (await dogRepo.getAll()).find((d) => d.kennel_id === k.id);
+  await saleRepo.create({ kennel_id: k.id, dog_id: dog.id, buyer_contact_id: entry.contact_id, placement_type: 'pet', status: 'deposit_pending' });
+  await cw.syncWaitlistOnline();
+  assert.deepEqual((await page()).companion, { available: true, request: null });
+
+  assert.equal((await act('companion_request', { note: 'Text it to my wife please' })).status, 200);
+  const res = await cw.syncWaitlistOnline();
+  assert.deepEqual(res.events, { applied: 1, noted: 0, skipped: 0 });
+  const saved = await waitlistEntryRepo.getById(entry.id);
+  assert.equal(saved.companion_request.note, 'Text it to my wife please');
+  assert.equal(actions.hasPendingRequest(saved, 'companion_request'), true);
+  const published = raw('SELECT body FROM wl_projection')[0].body;
+  assert.equal(published.includes('my wife'), false, "the family's note stays on her device");
+  assert.equal((await page()).companion.request.decided, null);
+  assert.equal((await act('companion_request')).status, 409, 'one at a time');
+
+  const { computeNudges } = await import('../shared/data/nudges.js');
+  const nudge = (await computeNudges()).find((n) => n.key.startsWith(`waitlist-companion-request:${entry.id}:`));
+  assert.ok(nudge, 'a Companion link request is a Today nudge');
+  assert.deepEqual(nudge.actions.map((a) => a.label), ['Open Companion', 'Mark sent', 'Decline']);
+  assert.match(nudge.detail, /my wife/);
+  await nudge.actions.find((a) => a.label === 'Mark sent').run();
+  assert.equal((await waitlistEntryRepo.getById(entry.id)).companion_request.decided, 'sent');
+  await assert.rejects(actions.markCompanionLinkSent(entry.id), /no Companion link request/);
+
+  await cw.syncWaitlistOnline();
+  assert.equal((await page()).companion.request.decided, 'sent');
+  assert.equal((await act('companion_request')).status, 200, 'after she sent it they can ask again');
+});
+
 test('only the backing device applies family actions; a new backing device starts where the last one got to', async () => {
   await breeder();
   const k = await putOnline();
