@@ -5,9 +5,8 @@
 > Builds on the Phase 1 Worker (`docs/KennelOS_Cloud_Phase1_Plan.md`, "Phase 1 §N"), the
 > private vault (`docs/KennelOS_Private_Vault_Plan.md`) and the Pro license link
 > (`docs/KennelOS_License_Link_Plan.md`).
-> **Status: draft for review (2026-10-08), nothing built.** All three prerequisites are live.
-> §10 lists the decisions this plan needs before building; each has a recommendation.
-> §11 is the build order, one reviewable PR per step.
+> **Status: approved 2026-10-08, every §10 decision as recommended; building.** All three
+> prerequisites are live. §11 is the build order, one reviewable PR per step.
 
 ## 1. Scope
 
@@ -88,6 +87,14 @@ kennel's `public_id`. One program can have several own kennels, each with its ow
 | `wl_kennels` | `program_id`, `public_id`, form state (open/closed), current form public key + key id, Turnstile on, the kennel's IANA time zone | Yes (no personal data) |
 | `wl_projection` | one row per kennel: `version`, the projection JSON (§5), `published_at` | Yes; it's allow-listed by her device |
 | `wl_tokens` | status-page token → (`program_id`, `public_id`, `entry_id`), created / last used | Token is a bearer secret for one family's page |
+
+**Where a token comes from.** Her device needs every family's link (Copy status link, §8), so
+the token is stored on the entry, `waitlist_entries.status_token` (private tier: it opens that
+family's page). An online application gets its token from the server at submission (the
+confirmation email carries the link) and the inbox item hands it to her device with the
+application. A family she typed in gets one minted on her device (256 random bits) and
+published with the projection. **New link** on the entry replaces a token that was shared
+too widely; the old link stops working at the next publish.
 | `wl_inbox` | applications and family messages: encrypted blob, key id, and for applications the readable **name + email**; `acked_at` | Blob no; name + email yes (Q11) |
 | `wl_events` | `seq`, kind, `entry_id`, payload (button pressed, pick, pause-until date, requested answers), `based_on_version`, made by (`family` / `server`) | Yes; no free text (messages go to the inbox) |
 | `wl_holds` | a pup held by a family's **Accept a pup** until her device creates the Sale | Yes |
@@ -204,6 +211,11 @@ means no fee reminder ever.
 - **Status link:** every email ends with "Reply or take action on your status page:
   <link>". Families she typed in by hand get their link with the first email she sends them,
   or from **Send status link** on their entry.
+- **Copy status link (her request, 2026-10-08):** wherever a family has an open offer (the
+  family's entry page and the Litter page's picks panel), and on the entry page generally,
+  **Copy status link** puts the family's status-page link on the clipboard so she can send
+  it through Messenger or a text herself. For this her device always knows each family's
+  link: see the token below.
 - **No-reply auto-answer (D8):** a reply gets one automatic answer pointing back to the
   status page and is neither stored nor read. Needs Cloudflare Email Routing on
   `mail.kennelos.app` into the Worker's `email` handler; last step, optional at launch.
@@ -219,18 +231,22 @@ means no fee reminder ever.
 - **New fields and tables:** `Kennel.time_zone` (IANA; defaults to the device's zone the
   first time the list goes online; cloud); `waitlist_form_keys` and `waitlist_messages`
   (private, each with its FK in `referenceRegistry.js`); `waitlist_entries.pause_request`
-  (private, like `pref_change_request`). `waitlist_config` gains `email_templates` and
+  (private, like `pref_change_request`); `waitlist_entries.status_token` (private, §4).
+  `waitlist_config` gains `email_templates` and
   `online_form_open`. Each lands in `syncRegistry.js`, `db.js` and the End-State guide in the
   same change (CLAUDE.md).
 - **Waitlist settings:** **Put the list online** (form open/closed, the three links to copy,
   time zone, Rotate form key), email templates, the Facebook switch.
+- **Copy status link** and **New link** on the family's entry page, and **Copy status
+  link** beside an open offer on the Litter page's picks panel (§8). Hidden until the list
+  is online.
 - **Today:** new applications from the inbox, family messages, pause requests, answer-change
   requests, server moves needing a look, and "the online list is paused" when publishing
   can't run.
 - **Release flag:** `WAITLIST_ONLINE_RELEASED` in `cloudConfig.js`, false until step 9, like
   `VAULT_RELEASED`; staging can turn it on with the test switch.
 
-## 10. Decisions needed before building
+## 10. Decisions (all taken as recommended, 2026-10-08)
 
 1. **D1, hosting:** the family pages on the same Worker at `apply.kennelos.app`
    (recommended: one deploy, same-origin JSON, no new CORS) or a separate static site on
@@ -267,6 +283,7 @@ means no fee reminder ever.
    "Put the list online" (behind the flag). Registries, schema, End-State guide.
 3. **The public list and status page, read-only.** `cloud/public/` pages, `apply.kennelos.app`
    on staging, "Email me my link" (6-digit code), the search box, phone-width checks.
+   `status_token` on entries, **Copy status link** / **New link** (§8, §9).
 4. **The online form and inbox.** Form key table + Rotate, the form page (her questions,
    FAQ, notice, Turnstile), encryption, confirmation email, the inbox → `applied` entries on
    the backing device.
