@@ -77,6 +77,7 @@ async function load() {
   const { kennel, as_of: asOf, rows, upcoming = [] } = res.body;
   document.title = `${kennel.name} Waitlist`;
   $('title').textContent = `${kennel.name} Waitlist`;
+  if (kennel.name) $('footer').textContent = `For questions or concerns, please contact ${kennel.name}.`;
   // Her message under the heading (plain text; line breaks kept by the CSS).
   if (kennel.intro) {
     $('intro').textContent = kennel.intro;
