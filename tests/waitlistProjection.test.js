@@ -297,3 +297,26 @@ test('whelp notes (Spec §16.6): per family, for a born litter before picks open
   assert.deepEqual(p.entries.e4.whelp_notes, [], 'not on the list yet');
   assert.deepEqual(p.upcoming, [], 'shown though her early-litters switch is off');
 });
+
+test('the Companion link block (Spec §8.3): only for a family with an open sale, placed or not; never their note', () => {
+  const f = fixture();
+  f.sales = [
+    { id: 's1', dog_id: 'p9', buyer_contact_id: 'c-e6', status: 'paid_in_full', price: 2500, notes: 'sale note' },
+    { id: 's2', dog_id: 'p1', buyer_contact_id: 'c-e1', status: 'deposit_pending' },
+    { id: 's3', dog_id: 'p8', buyer_contact_id: 'c-e7', status: 'delivered' },
+    { id: 's4', dog_id: 'p7', buyer_contact_id: 'c-e3', status: 'cancelled' }
+  ];
+  f.entries[5].companion_request = { requested_date: '2026-10-07', note: 'NOTE-SECRET' };
+  const p = buildProjection(f);
+  assert.deepEqual(p.entries.e6, {
+    name: 'Family e6 Lee', email: 'c-e6@example.com', status: 'placed',
+    companion: { available: true, request: { requested_date: '2026-10-07', decided: null, decided_date: null } }
+  });
+  assert.deepEqual(p.entries.e1.companion, { available: true, request: null }, 'a pick held by a deposit-pending sale counts');
+  for (const id of ['e2', 'e3', 'e5', 'e7']) assert.equal('companion' in p.entries[id], false, id);
+  const text = JSON.stringify(p);
+  for (const secret of ['NOTE-SECRET', '2500', 'sale note']) assert.equal(text.includes(secret), false, secret);
+
+  f.entries[5].companion_request = { requested_date: '2026-09-01', note: '', decided: 'sent', decided_date: '2026-09-02' };
+  assert.equal(buildProjection(f).entries.e6.companion.request, null, 'an old decision drops off after 30 days');
+});

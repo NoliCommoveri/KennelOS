@@ -619,6 +619,18 @@ means no fee reminder ever.
       days, where online is offered), the list badge, the family page's line and **They
       told me they're ready**, Today. Tests: `waitlistRules`, `waitlistEvents`,
       `cloudWaitlist`, `waitlistProjection`, `cloud/tests/familyActions`.
+5d. **Companion link requests (Spec §16.10). Built 2026-10-08.** No schema change. Event kind
+   `companion_request {note}` (server: `checkAction` before the open-status check, since a
+   placed family may ask; `409 no_sale` without `entry.companion.available`, `409
+   already_requested` while one waits). Projection: `entries[id].companion = { available:
+   true, request }` only for a family whose contact has an open sale (`vocab.isOpenSale`, now
+   shared by `saleRepo.isOpenSale`); `statusView` passes it through for every status.
+   Device: `planFamilyEvent` → op `companion_request` (a note instead when the sale has
+   closed since); `waitlist_entries.companion_request` (private); `markCompanionLinkSent` /
+   `declineCompanionRequest` (`decided: 'sent' | 'declined'`); Today nudge and the family
+   page's card (**Open Companion**, **Mark sent**, **Decline**). Status page: a **Your
+   Companion page** card (placed families included) with the request form and its state.
+   Tests: `waitlistEvents`, `waitlistProjection`, `cloudWaitlist`, `cloud/tests/familyActions`.
    Each part: `node --check`, `node --test` and `cd cloud && npm test`, the precache check,
    syncRegistry entries for every new field, the End-State guide in the same change, and the
    flow in headless Chromium at phone width.

@@ -603,6 +603,7 @@ address.
     open offer, **the pups eligible for them with the respond-by date**;
   - buttons: **Accept a pup**, **Pass**, **Still interested**, **Request a pause** (asks
     for the date; she approves, §6.3), **Leave the list**;
+  - **Request my Companion link**, for a family with an open sale, placed or not (§16.10);
   - **a message box** ("Send [her name] a message"), plus her earlier messages and
     questions to them. It's the only way a family writes to her through the service;
   - **optional "Message us on Facebook" button**, if she turns it on (below).
@@ -1522,4 +1523,34 @@ families ahead who are paused, not ready or not a match are skipped (§6.3).
 7. **The public list leaves them out while their number is hidden**, number skipped, like a
    paused family, so their page and the list never disagree. (The gap note says "paused for
    now, or between turns".)
+
+### 16.10 Families ask for their Companion link (decided and built 2026-10-08)
+
+Asked: could the status page request a Companion link automatically? A Companion link
+carries its data inside the URL and is built on her device from records only her device has
+(`companionExport.js`), so the server can't build one. Two ways were weighed: the family asks
+and she sends it with one tap, or her device publishes the link to the status page by itself
+(which would put the family's sale, balance and health history on the server, against §8.1,
+unless sealed with a key the server never sees).
+
+**Decided:**
+1. **The family asks; she sends it.** A **Request my Companion link** button on the status
+   page (signed in, like every action) records a `companion_request` event. Her backing device
+   puts it on the entry as a request (`companion_request: { requested_date, note }`), shown as
+   a Today nudge and on the family's page with **Open Companion**, **Mark sent** and
+   **Decline**. She sends the link from the Companion page as before (her personal note
+   still applies), then taps Mark sent. Nothing about the link goes through the server.
+2. **Sales only.** The button shows only for a family whose contact has an open sale (the
+   Companion "Current families" rule, `isOpenSale`: from a pick held by a deposit-pending
+   sale until the sale is delivered, returned or cancelled), **placed or still on the
+   list**. A placed family can sign in and use it too. Her device publishes
+   `entries[id].companion = { available, request }` only for such a family; the server refuses
+   the action without it (`409 no_sale`) and allows one open request at a time (`409
+   already_requested`). Once she has marked it sent or declined, they can ask again (for a
+   fresh link).
+3. **An optional note** ("Anything [kennel] should know?", 500 characters), stored on the
+   request like a pause request's note. Like that note, the projection never carries it, but
+   it rides the family event (`wl_events`) as plain text until her device applies it.
+4. **What the family sees:** Requested (until she acts), then "[kennel] sent your link on
+   [date]" or "didn't send a link" for 30 days, like other requests.
 

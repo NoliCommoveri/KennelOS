@@ -57,7 +57,7 @@ async function setup() {
     const code = /(\d{6})/.exec(env.DB.raw.prepare('SELECT subject FROM wl_messages ORDER BY rowid DESC LIMIT 1').get().subject)[1];
     return (await (await call(env, 'POST', '/f/verify', { body: { public_id: KENNEL, code }, ip: at })).json()).session;
   };
-  return { env, s, publish, ann: await familySession('ann@example.com'), bo: await familySession('bo@example.com') };
+  return { env, s, publish, familySession, ann: await familySession('ann@example.com'), bo: await familySession('bo@example.com') };
 }
 
 const act = (env, session, token, action, extra = {}) => call(env, 'POST', '/f/act', { body: { session, status_token: token, action, ...extra } });
@@ -218,4 +218,31 @@ test('"Ready now?" (Spec §16.7): only while she asks it, once; not yet needs a 
   const last = events(env).at(-1);
   assert.equal(last.kind, 'ready');
   assert.deepEqual(last.payload, { answer: 'no', until: plusDays(30), reason: 'Moving house' });
+});
+
+test('a Companion link request (Spec §8.3): only with an open sale, placed families too; one at a time; with an optional note', async () => {
+  const { env, ann, publish, familySession } = await setup();
+  assert.equal(await err(await act(env, ann, tok('a'), 'companion_request')), 'no_sale', 'no open sale: nothing to send');
+  const p = projection();
+  p.entries.cy.companion = { available: true, request: null };
+  await publish(p);
+  const cy = await familySession('cy@example.com');
+  const page = await (await call(env, 'GET', `/f/status/${tok('c')}`)).json();
+  assert.deepEqual(page.family.companion, { available: true, request: null }, 'a placed family sees it');
+  assert.equal((await act(env, cy, tok('c'), 'companion_request', { note: `  Can it go to my partner too?${'x'.repeat(600)}` })).status, 200);
+  const last = events(env).at(-1);
+  assert.equal(last.kind, 'companion_request');
+  assert.equal(last.payload.note.length, ACTION_LIMITS.noteChars, 'the note is trimmed and capped');
+  assert.ok(last.payload.note.startsWith('Can it go to my partner too?'));
+  assert.equal(await err(await act(env, cy, tok('c'), 'companion_request')), 'already_requested', 'sent, not applied yet');
+  // Her device applied it and published: still waiting on her. Once she marks it sent, they can ask again.
+  const seq = env.DB.raw.prepare("SELECT seq FROM wl_events WHERE kind = 'companion_request'").get().seq;
+  p.events_through = seq;
+  p.entries.cy.companion = { available: true, request: { requested_date: today(), decided: null, decided_date: null } };
+  await publish(p);
+  assert.equal(await err(await act(env, cy, tok('c'), 'companion_request')), 'already_requested');
+  p.entries.cy.companion.request = { requested_date: today(), decided: 'sent', decided_date: today() };
+  await publish(p);
+  assert.equal((await act(env, cy, tok('c'), 'companion_request')).status, 200);
+  assert.deepEqual(events(env).at(-1).payload, { note: '' });
 });

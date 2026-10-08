@@ -3,7 +3,8 @@
 // litters and their place in each, and the public list. From a SIGNED-IN browser
 // (See Your Details) it also lets them respond: choose a pup or pass, say they're
 // still interested, ask for a pause, change which litters they wait for, ask to
-// change a matching answer, leave the list, and message the breeder. Anyone with
+// change a matching answer, leave the list, message the breeder, and (once they
+// have a puppy on the way, placed or not) ask for their Companion link. Anyone with
 // only the link can look but not act: the server needs the family session.
 //
 // Every action is recorded on the server for the breeder's device, which decides
@@ -456,6 +457,39 @@ function listenHtml(f) {
   return card('Which litters you wait for', body + status);
 }
 
+// --- Their Companion link (Spec §8.3) ---------------------------------------------
+// Only for a family with an open sale (her device says so). They ask; she sends the
+// link herself, by text or email, and marks it sent. Any time after she's dealt with
+// a request they can ask again (for a fresh link).
+
+function companionHtml(f) {
+  const c = f.companion;
+  if (!c?.available) return '';
+  const kennel = state.v.kennel.name;
+  const req = c.request;
+  const parts = [`<p class="mt0 small">A private page with your puppy's details and updates, which ${esc(kennel)} sends you by text or email.</p>`];
+  const sent = pendingOf('companion_request').length;
+  const open = sent || (req && !req.decided);
+  if (sent) parts.push(`<p class="small"><span class="badge warn">Requested</span> ${esc(kennel)} will see it at their next update, then send it by text or email.</p>`);
+  else if (req && !req.decided) parts.push(`<p class="small"><span class="badge warn">Requested</span> on ${esc(fmtDate(req.requested_date))}. ${esc(kennel)} will send it by text or email.</p>`);
+  else if (req?.decided === 'sent') parts.push(`<p class="small">${esc(kennel)} sent your link on ${esc(fmtDate(req.decided_date))}. Check your texts and email.</p>`);
+  else if (req?.decided === 'declined') parts.push(`<p class="small">${esc(kennel)} didn't send a link (${esc(fmtDate(req.decided_date))}). Contact them if you have questions.</p>`);
+  if (!signedIn()) {
+    // Still on the list: the sign-in card further down covers it. Placed: it's here.
+    const onList = ['applied', 'approved', 'active'].includes(f.status);
+    parts.push(`<p class="small muted">To ask for it, sign in on this device with a code sent to the email on your application.</p>
+      ${!onList && state.v.kennel.public_id ? `<div class="actions"><a class="button secondary" href="/list/${encodeURIComponent(state.v.kennel.public_id)}">Sign in with a code</a></div>` : ''}`);
+  } else if (state.open === 'companion') {
+    parts.push(`<form data-form="companion" class="mt8">
+        <label class="q">Anything ${esc(kennel)} should know? <span class="muted small">(optional; only ${esc(kennel)} sees this)</span><textarea name="note" maxlength="500"></textarea></label>
+        <div class="actions"><button class="primary" type="submit">Ask for my link</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
+      </form>`);
+  } else if (!open) {
+    parts.push(`<div class="actions mt8"><button type="button" class="secondary" data-act="open" data-what="companion">${req ? 'Ask for a new link' : 'Request my Companion link'}</button></div>`);
+  }
+  return card('Your Companion page', parts.join(''));
+}
+
 // --- Messages ----------------------------------------------------------------------
 
 function messageHtml() {
@@ -489,6 +523,7 @@ function mineHtml() {
 
   if (!['applied', 'approved', 'active'].includes(f.status)) {
     parts.push(card('', `<p class="mt0">${closedText(f.status, kennel)}</p>`));
+    parts.push(companionHtml(f));
     return parts.join('');
   }
 
@@ -507,6 +542,7 @@ function mineHtml() {
   }
 
   for (const rows of turnsOf(v.offers)) parts.push(turnHtml(rows));
+  parts.push(companionHtml(f));
   parts.push(readyHtml(f));
 
   if (f.status === 'active') {
@@ -564,6 +600,8 @@ const ERRORS = {
   not_yet: "The breeder hasn't added your application to their list yet. Try again later.",
   messages_off: "Messages aren't switched on for this waitlist.",
   form_changed: 'This page was out of date. It has been refreshed; please send your message again.',
+  no_sale: "There's no puppy sale on record for you right now, so there's no Companion link to send. Contact the breeder with any questions.",
+  already_requested: "You've already asked. The breeder will send your link by text or email.",
   other_family: 'This device is signed in as a different family. Sign out on the waitlist page and sign in again.',
 };
 
@@ -651,6 +689,9 @@ async function onSubmit(ev) {
     }
     case 'pause':
       await act('pause_request', { until: data.get('until'), note: data.get('note') }, `Your pause request is on its way. ${kennel} decides; until then nothing changes.`);
+      return;
+    case 'companion':
+      await act('companion_request', { note: data.get('note') }, `Your request is on its way. ${kennel} will send your Companion link by text or email.`);
       return;
     case 'leave':
       await act('leave', { note: data.get('note') }, `${kennel} will see that you're leaving at their next update.`);

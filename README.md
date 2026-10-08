@@ -471,6 +471,12 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   with their reason; no answer follows her setting (keep paused, unpause, or remove after N
   days with a 7-day undo). Step 5c is complete; next is step 6, email. Service-worker cache
   rolled to `kennelos-shell-v49` for step 5c (parts 3–6 and §16.9).
+  **Companion link requests (§16.10) are built & browser-verified:** a family with an open
+  sale (from a pick held by a deposit-pending sale until the pup goes home), placed or not,
+  can ask for their Companion link on their status page, with an optional note. It waits on
+  the entry (`waitlist_entries.companion_request`, private) as a Today nudge and a card on the
+  family's page; she sends the link from the Companion page as before and taps **Mark sent**
+  (or **Decline**), which their page then shows. The link never goes through the server.
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass

@@ -122,6 +122,8 @@ export function statusView(projection, entryId) {
     public_id: projection.kennel?.public_id ?? null, can_message: Boolean(projection.kennel?.message_key),
   };
   const family = { name: e.name ?? '', status: e.status };
+  // Their Companion link request: only with an open sale, placed families too.
+  if (e.companion) family.companion = e.companion;
   if (!OPEN_STATUSES.includes(e.status)) return { kennel, as_of: projection.as_of ?? null, family, offers: [], litters: [], upcoming: [], public_list: [] };
 
   for (const k of ['applied_date', 'approved_date', 'position', 'prefs', 'paused_until', 'ready_from', 'listen', 'passes', 'fee_received_date', 'fee_due', 'requests', 'prepasses', 'place_hidden', 'whelp_notes', 'ready_check']) {
