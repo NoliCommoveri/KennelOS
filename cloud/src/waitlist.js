@@ -117,7 +117,7 @@ export async function readProjection(env, auth, publicId) {
 }
 
 // DELETE /waitlist/projection/:publicId: take this kennel's list offline. The
-// public list, every status link and every hold go; the inbox and events stay
+// public list, every status link, signed-in browser and hold go; the inbox and events stay
 // until her device has read them.
 export async function unpublishProjection(env, auth, publicId) {
   await herSide(env, auth);
@@ -128,6 +128,8 @@ export async function unpublishProjection(env, auth, publicId) {
     env.DB.prepare('DELETE FROM wl_projection WHERE public_id = ? AND program_id = ?').bind(publicId, auth.programId),
     env.DB.prepare('DELETE FROM wl_tokens WHERE public_id = ? AND program_id = ?').bind(publicId, auth.programId),
     env.DB.prepare('DELETE FROM wl_holds WHERE public_id = ? AND program_id = ?').bind(publicId, auth.programId),
+    env.DB.prepare('DELETE FROM wl_family_codes WHERE public_id = ? AND program_id = ?').bind(publicId, auth.programId),
+    env.DB.prepare('DELETE FROM wl_family_sessions WHERE public_id = ? AND program_id = ?').bind(publicId, auth.programId),
   ]);
   return { ok: true };
 }
@@ -203,5 +205,5 @@ export async function readEvents(env, auth, url) {
 
 // Account deletion (program.js) removes every waitlist row of the program.
 export const deleteWaitlistStatements = (env, programId) => [
-  'wl_projection', 'wl_tokens', 'wl_inbox', 'wl_events', 'wl_holds', 'wl_messages',
+  'wl_projection', 'wl_tokens', 'wl_inbox', 'wl_events', 'wl_holds', 'wl_messages', 'wl_family_codes', 'wl_family_sessions',
 ].map((t) => env.DB.prepare(`DELETE FROM ${t} WHERE program_id = ?`).bind(programId));

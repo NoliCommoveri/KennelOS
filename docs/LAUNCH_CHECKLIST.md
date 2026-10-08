@@ -244,8 +244,8 @@ imported.
 
 Nothing families can see until the release flag (plan §9). The server tables come first.
 
-- [ ] **Apply pending (`0007`) on staging's and production's `/ops`** right after the merge
-  that carries it. The whole API answers 503 until then.
+- [ ] **Apply pending (`0007`, `0008`) on staging's and production's `/ops`** right after the
+  merge that carries them. The whole API answers 503 until then.
 - [ ] Operator setup in the plan's §12 (Workers Paid plan, `apply.kennelos.app`, Resend's
   `mail.kennelos.app`, Turnstile, Email Routing for the auto-answer) as those steps land.
 

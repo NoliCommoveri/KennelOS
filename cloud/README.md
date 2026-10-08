@@ -31,7 +31,8 @@ src/waitlist.js        the waitlist online, her side (docs/KennelOS_Waitlist_W2_
                        (requirePro); writes from the backing device only
 src/familyPages.js     the waitlist's family pages: serves public/family/ for /list/<public_id> and
                        /s/<token> (ASSETS binding), their same-origin JSON under /f/ (the public
-                       list, one family's status view, "Email me my link")
+                       list, one family's status view, See Your Details: a code by email, then
+                       a 90-day family session for that browser)
 src/notice.js          service notices (public /notice; set on /ops)
 src/retention.js       the daily prune and GC; pickDrops is the pure rule
 src/backup.js          /ops export/import of the D1 rows (not R2)

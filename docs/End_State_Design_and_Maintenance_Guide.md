@@ -3100,7 +3100,9 @@ shown (`describeOfferChanges`).
   production, staging's own address otherwise); `waitlistUI.statusLinkFor` hides them while
   the list isn't online.
 - **The family pages** themselves are the Worker's (`cloud/public/family/`, `cloud/README.md`):
-  the public list with search and "Email me my link", and the read-only status page.
+  the public list with search and **See Your Details** (a family signs in with a code
+  emailed to their application address; the browser stays signed in 90 days), and the
+  read-only status page.
 
 ### Editions
 Pro-only *surfaces* (pages in `PRO_ONLY_PAGES`, `assets/waitlistUI.js` in

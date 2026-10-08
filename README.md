@@ -425,7 +425,8 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   `waitlist_config.online`, and the Kennel page's **Online list** card. Tests:
   `waitlistProjection.test.js`, `cloudWaitlist.test.js`. Rides the pending
   `kennelos-shell-v48`. **W2 step 3, the family pages, is built & browser-verified:** the
-  Worker serves the public list (with search and "Email me my link") and each family's
+  Worker serves the public list (with search and **See Your Details**: sign in with a code
+  emailed to the application address, remembered 90 days; migration `0008`) and each family's
   read-only status page (`cloud/src/familyPages.js`, `cloud/public/family/`), and the app
   has **Copy status link** / **New link** on the family's page, **Copy status link** beside an
   open offer, and **Copy public list link** (`waitlist_entries.status_token`, cloud tier).

@@ -1,6 +1,6 @@
 // The waitlist's family pages (docs/KennelOS_Waitlist_W2_Plan.md §3, §5, §8):
 // serving the static pages, the public list and a family's status page cut from
-// her published projection, and "Email me my link".
+// her published projection, and See Your Details (sign in with an emailed code).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeEnv, call, signIn } from './helpers/env.js';
@@ -147,38 +147,89 @@ test('statusView and listView are allow-lists over the projection', () => {
   assert.deepEqual(Object.keys(listView(p)).sort(), ['as_of', 'kennel', 'rows']);
 });
 
-test('"Email me my link" sends the link only to an address on that list, and always answers the same', async () => {
+// The code in the newest verification email (staging's outbox records it).
+const lastCodeSent = (env) => /is (\d{6})\n/.exec(env.DB.raw.prepare("SELECT body FROM wl_messages WHERE kind = 'verification_code' ORDER BY created_at DESC, rowid DESC LIMIT 1").get()?.body || '')?.[1];
+
+test('See Your Details: a code goes only to an address on that list, and the answer is always the same', async () => {
   const { env } = await published();
-  const ask = (email, publicId = KENNEL, ip) => call(env, 'POST', '/f/link', { body: { public_id: publicId, email }, ip });
+  const ask = (email, publicId = KENNEL) => call(env, 'POST', '/f/code', { body: { public_id: publicId, email } });
 
   const unknown = await ask('stranger@example.com');
   assert.equal(unknown.status, 200);
   assert.deepEqual(await unknown.json(), { ok: true });
   assert.equal(count(env, 'wl_messages'), 0);
-
-  assert.deepEqual(await (await ask('dee@example.com')).json(), { ok: true }, 'no link yet: same answer');
+  assert.deepEqual(await (await ask('dee@example.com')).json(), { ok: true }, 'on the list but no link yet: same answer, nothing sent');
   assert.equal(count(env, 'wl_messages'), 0);
 
   assert.deepEqual(await (await ask('  ANN@example.com ')).json(), { ok: true });
-  const msg = env.DB.raw.prepare('SELECT kind, to_email, subject, body, status, entry_id FROM wl_messages').get();
-  assert.equal(msg.kind, 'status_link');
+  const msg = env.DB.raw.prepare('SELECT kind, to_email, subject, body, entry_id FROM wl_messages').get();
+  assert.equal(msg.kind, 'verification_code');
   assert.equal(msg.to_email, 'ann@example.com');
   assert.equal(msg.entry_id, 'ann');
-  assert.match(msg.subject, /Thornfield Kennels/);
-  assert.ok(msg.body.includes(`https://api.example/s/${tok('a')}`));
-  assert.equal(msg.status, 'sent');
+  assert.match(msg.subject, /Thornfield Kennels waitlist code: \d{6}/);
+  assert.equal(msg.body.includes(tok('a')), false, 'the email carries a code, not the link');
+  assert.equal(count(env, 'wl_family_codes'), 1);
 
-  assert.equal((await call(env, 'POST', '/f/link', { body: { public_id: KENNEL, email: 'nope' } })).status, 400);
-  assert.equal((await call(env, 'POST', '/f/link', { body: { public_id: 'x', email: 'ann@example.com' } })).status, 400);
+  assert.equal((await ask('nope')).status, 400);
+  assert.equal((await ask('ann@example.com', 'x')).status, 400);
 });
 
-test('"Email me my link" is rate-limited per address and per caller, and honest when email is down', async () => {
+test('See Your Details: the code opens their page once, and remembers this browser', async () => {
   const { env } = await published();
-  const ask = (email, ip) => call(env, 'POST', '/f/link', { body: { public_id: KENNEL, email }, ip });
-  for (let i = 0; i < FAMILY_LIMITS.linkPerHourPerEmail; i++) assert.equal((await ask('bo@example.com', `198.51.100.${i}`)).status, 200);
+  await call(env, 'POST', '/f/code', { body: { public_id: KENNEL, email: 'ann@example.com' } });
+  const code = lastCodeSent(env);
+  const verify = (c, ip) => call(env, 'POST', '/f/verify', { body: { public_id: KENNEL, code: c }, ip });
+
+  const ok = await verify(code.replace(/(\d{3})/, '$1 '));
+  assert.equal(ok.status, 200, 'a space typed in the middle is fine');
+  const body = await ok.json();
+  assert.equal(body.status_token, tok('a'));
+  assert.match(body.session, /^[0-9a-f]{64}$/);
+  assert.ok(Date.parse(body.expires_at) > Date.now() + 89 * 24 * 3600 * 1000);
+  assert.equal(env.DB.raw.prepare('SELECT token_hash FROM wl_family_sessions').get().token_hash === body.session, false, 'stored hashed');
+
+  const again = await verify(code, '198.51.100.7');
+  assert.equal(again.status, 400, 'a code works once');
+  assert.equal((await again.json()).error, 'invalid_code');
+
+  const remembered = await call(env, 'POST', '/f/session', { body: { session: body.session } });
+  assert.deepEqual(await remembered.json(), { public_id: KENNEL, status_token: tok('a') });
+  assert.equal((await call(env, 'POST', '/f/session', { body: { session: 'f'.repeat(64) } })).status, 401);
+  assert.equal((await call(env, 'POST', '/f/session', { body: {} })).status, 401);
+});
+
+test('See Your Details: a new code replaces the old one; codes expire; wrong codes are rate-limited', async () => {
+  const { env } = await published();
+  const send = () => call(env, 'POST', '/f/code', { body: { public_id: KENNEL, email: 'ann@example.com' } });
+  await send();
+  const first = lastCodeSent(env);
+  await send();
+  const second = lastCodeSent(env);
+  assert.equal(count(env, 'wl_family_codes'), 1, 'one live code per family');
+  const verify = (c, ip = '203.0.113.9') => call(env, 'POST', '/f/verify', { body: { public_id: KENNEL, code: c }, ip });
+  if (first !== second) assert.equal((await verify(first)).status, 400, 'the older code stops working');
+
+  env.DB.raw.prepare('UPDATE wl_family_codes SET expires_at = ?').run(new Date(Date.now() - 1000).toISOString());
+  assert.equal((await verify(second)).status, 400, 'an expired code fails');
+
+  assert.equal((await verify('12345')).status, 400);
+  for (let i = 0; i < FAMILY_LIMITS.verifyPerHourPerIp; i++) assert.equal((await verify('000000', '203.0.113.50')).status, 400);
+  assert.equal((await verify('000000', '203.0.113.50')).status, 429, 'guessing is cut off per connection');
+});
+
+test('See Your Details: sending codes is rate-limited per address, honest when email is down, and taking the list offline signs families out', async () => {
+  const { env, s } = await published();
+  const ask = (email, ip) => call(env, 'POST', '/f/code', { body: { public_id: KENNEL, email }, ip });
+  for (let i = 0; i < FAMILY_LIMITS.codesPerHourPerEmail; i++) assert.equal((await ask('bo@example.com', `198.51.100.${i}`)).status, 200);
   assert.equal((await ask('bo@example.com', '198.51.100.99')).status, 429, 'per address, whatever the IP');
 
   const noMail = await makeEnv({ ASSETS: assets, DEV_OUTBOX: '0' });
-  const res = await call(noMail, 'POST', '/f/link', { body: { public_id: KENNEL, email: 'stranger@example.com' } });
-  assert.equal(res.status, 503, 'said before any lookup, so it reveals nothing about the address');
+  assert.equal((await call(noMail, 'POST', '/f/code', { body: { public_id: KENNEL, email: 'stranger@example.com' } })).status, 503,
+    'said before any lookup, so it reveals nothing about the address');
+
+  await call(env, 'POST', '/f/code', { body: { public_id: KENNEL, email: 'ann@example.com' }, ip: '192.0.2.1' });
+  const { session } = await (await call(env, 'POST', '/f/verify', { body: { public_id: KENNEL, code: lastCodeSent(env) }, ip: '192.0.2.1' })).json();
+  assert.equal((await call(env, 'DELETE', `/waitlist/projection/${KENNEL}`, { token: s.token })).status, 200);
+  assert.equal(count(env, 'wl_family_sessions'), 0);
+  assert.equal((await call(env, 'POST', '/f/session', { body: { session } })).status, 401);
 });

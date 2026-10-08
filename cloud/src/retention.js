@@ -131,6 +131,8 @@ export async function runRetention(env, now = new Date()) {
                         AND s.vault_key_id IS NOT NULL AND s.created_at > wl_inbox.acked_at)`,
     ).bind(iso(nowMs - WL_INBOX_KEEP_DAYS * DAY)),
     env.DB.prepare('DELETE FROM wl_events WHERE created_at < ?').bind(iso(nowMs - WL_EVENTS_KEEP_DAYS * DAY)),
+    env.DB.prepare('DELETE FROM wl_family_codes WHERE expires_at < ?').bind(iso(nowMs)),
+    env.DB.prepare('DELETE FROM wl_family_sessions WHERE expires_at < ?').bind(iso(nowMs)),
     env.DB.prepare(`UPDATE wl_messages SET body = NULL WHERE status = 'sent' AND body IS NOT NULL AND sent_at < ?`).bind(iso(nowMs - WL_EVENTS_KEEP_DAYS * DAY)),
   ]);
 

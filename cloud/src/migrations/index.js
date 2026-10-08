@@ -18,6 +18,7 @@ import deviceErase from './0004_device_erase.sql';
 import vault from './0005_vault.sql';
 import licenseLink from './0006_license_link.sql';
 import waitlist from './0007_waitlist.sql';
+import familyAccess from './0008_family_access.sql';
 
 export const MIGRATIONS = [
   { id: '0001', name: 'schema', sql: schema },
@@ -27,4 +28,5 @@ export const MIGRATIONS = [
   { id: '0005', name: 'vault', sql: vault },
   { id: '0006', name: 'license_link', sql: licenseLink },
   { id: '0007', name: 'waitlist', sql: waitlist },
+  { id: '0008', name: 'family_access', sql: familyAccess },
 ];

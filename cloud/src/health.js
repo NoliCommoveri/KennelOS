@@ -5,7 +5,8 @@ import { licenseConfig } from './license.js';
 
 export const TABLES = ['users', 'login_codes', 'sessions', 'programs', 'snapshots', 'files', 'snapshot_files', 'notices', 'device_erasures',
   'vaults', 'vault_wraps', 'vault_pairings', 'pro_purchases', 'license_links', 'license_link_codes',
-  'wl_projection', 'wl_tokens', 'wl_inbox', 'wl_events', 'wl_holds', 'wl_messages'];
+  'wl_projection', 'wl_tokens', 'wl_inbox', 'wl_events', 'wl_holds', 'wl_messages',
+  'wl_family_codes', 'wl_family_sessions'];
 
 export async function healthCheck(env) {
   const out = {

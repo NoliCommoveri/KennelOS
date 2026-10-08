@@ -32,6 +32,14 @@ env.DB.raw.prepare(`INSERT INTO pro_purchases (id, email_hash, kind, plan, statu
 await call(env, 'POST', '/program/backing-device', { token: s.token });
 
 createServer(async (req, res) => {
+  // Local only: the newest emails this server "sent" (staging's outbox mode
+  // delivers nothing), so a browser test can read a verification code.
+  if (req.url === '/__dev/messages') {
+    const rows = env.DB.raw.prepare('SELECT kind, to_email, subject, body FROM wl_messages ORDER BY rowid DESC LIMIT 5').all();
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify(rows));
+    return;
+  }
   const chunks = [];
   for await (const c of req) chunks.push(c);
   const body = chunks.length ? Buffer.concat(chunks) : undefined;

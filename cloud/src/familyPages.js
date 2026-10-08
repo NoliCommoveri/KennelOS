@@ -6,18 +6,34 @@
 // styles. Their JSON is same-origin under /f/, so no CORS is opened:
 //   GET  /f/list/<public_id>   the public list (her allow-list, Spec §15.3)
 //   GET  /f/status/<token>     one family's own view, cut from the projection
-//   POST /f/link               "Email me my link": {public_id, email}
+//   POST /f/code               "See Your Details", part 1: {public_id, email} → a
+//                              6-digit code to that address, if it's on the list
+//   POST /f/verify             part 2: {public_id, code} → their status link and a
+//                              session that remembers this browser for 90 days
+//   POST /f/session            {session}: a remembered browser's current status link
 //
 // Everything a family sees is cut from what her device published, field by field
 // (statusView, listView). The server never computes a position or an offer.
 // Never logged: a token, an email, a request body (plan §6.4).
 import { limitBucket, ipKey } from './ratelimit.js';
 import { normalizeEmail, emailHash } from './auth.js';
+import { hmacHex, sha256Hex, randomCode, randomHex } from './lib/crypto.js';
 import { assertMailAvailable, sendFamilyMessage } from './mail.js';
 import { PUBLIC_ID, STATUS_TOKEN } from './waitlist.js';
 import { fail, json, readJson } from './lib/http.js';
 
-export const FAMILY_LIMITS = { readsPerHourPerIp: 600, linkPerHourPerIp: 20, linkPerHourPerEmail: 3 };
+export const FAMILY_LIMITS = {
+  readsPerHourPerIp: 600,
+  codesPerHourPerIp: 20, codesPerHourPerEmail: 3,
+  // Guessing a live code: 10 tries an hour from one connection, 300 an hour at one
+  // kennel from everywhere. Against a handful of live 6-digit codes that each last
+  // 15 minutes and work once, that's hopeless. (A wrong guess matches no code, so
+  // these limits, not a per-code count, are what stop guessing.)
+  verifyPerHourPerIp: 10, verifyPerHourPerKennel: 300,
+};
+export const FAMILY_CODE_MS = 15 * 60 * 1000;
+export const FAMILY_SESSION_MS = 90 * 24 * 60 * 60 * 1000;
+const SESSION_TOKEN = /^[0-9a-f]{64}$/;
 
 const LIST_PAGE = /^\/list\/([^/]+)$/;
 const STATUS_PAGE = /^\/s\/([^/]+)$/;
@@ -119,7 +135,26 @@ async function projectionOf(env, publicId) {
   return row ? { programId: row.program_id, projection: JSON.parse(row.body) } : null;
 }
 
-const linkFor = (url, token) => `${url.origin}/s/${token}`;
+const familyCodeHash = (env, publicId, code) => hmacHex(env.EMAIL_HMAC_KEY, `family-code:${publicId}:${code}`);
+
+// Which of a kennel's families an email belongs to: one still on the list (or on
+// its way) first, else the latest. null when it isn't on this kennel's list.
+export function entryForEmail(projection, email) {
+  const ids = Object.entries(projection.entries || {})
+    .filter(([, e]) => normalizeEmail(e.email) === email)
+    .sort(([a, x], [b, y]) => (OPEN_STATUSES.includes(y.status) - OPEN_STATUSES.includes(x.status)) || a.localeCompare(b))
+    .map(([id]) => id);
+  return ids[0] ?? null;
+}
+
+async function statusTokenOf(env, publicId, entryId) {
+  return (await env.DB.prepare('SELECT token FROM wl_tokens WHERE public_id = ? AND entry_id = ?').bind(publicId, entryId).first())?.token ?? null;
+}
+
+function readKennelBody(body) {
+  if (typeof body.public_id !== 'string' || !PUBLIC_ID.test(body.public_id)) fail(400, 'bad_request');
+  return body.public_id;
+}
 
 export async function handleFamilyApi(request, env, url) {
   const p = url.pathname;
@@ -146,35 +181,88 @@ export async function handleFamilyApi(request, env, url) {
     return json(view, 200, { 'referrer-policy': 'no-referrer' });
   }
 
-  // Always {ok: true} for a well-formed request, whether or not that address is on
-  // that list, so it can't be used to find out who is.
-  if (p === '/f/link' && m === 'POST') {
+  // "See Your Details", part 1. Always {ok: true} for a well-formed request,
+  // whether or not that address is on the list, so it can't be used to find out
+  // who is. A new code replaces that family's earlier ones.
+  if (p === '/f/code' && m === 'POST') {
     const body = await readJson(request, 4 * 1024);
+    const publicId = readKennelBody(body);
     const email = normalizeEmail(body.email);
-    if (!email || typeof body.public_id !== 'string' || !PUBLIC_ID.test(body.public_id)) fail(400, 'bad_request');
+    if (!email) fail(400, 'bad_email');
     assertMailAvailable(env); // before any lookup, so a 503 says nothing about the address
-    await limitBucket(env, `wl-link-ip:${await ipKey(env, request)}`, FAMILY_LIMITS.linkPerHourPerIp);
-    await limitBucket(env, `wl-link-email:${await emailHash(env, email)}`, FAMILY_LIMITS.linkPerHourPerEmail);
-    const found = await projectionOf(env, body.public_id);
-    if (!found) return json({ ok: true });
-    const entryIds = Object.entries(found.projection.entries || {})
-      .filter(([, e]) => normalizeEmail(e.email) === email)
-      .map(([id]) => id);
-    if (!entryIds.length) return json({ ok: true });
-    const { results: tokens } = await env.DB.prepare(
-      'SELECT token, entry_id FROM wl_tokens WHERE public_id = ? AND entry_id IN (SELECT value FROM json_each(?))',
-    ).bind(body.public_id, JSON.stringify(entryIds)).all();
-    const kennelName = found.projection.kennel?.name || 'the kennel';
-    for (const t of tokens) {
-      await sendFamilyMessage(env, {
-        programId: found.programId, publicId: body.public_id, entryId: t.entry_id, kind: 'status_link', to: email,
-        subject: `Your ${kennelName} waitlist page`,
-        text: `Here is the link to your page on ${kennelName}'s waitlist:\n\n${linkFor(url, t.token)}\n\n`
-          + 'It shows your place on the list and any puppy offered to you. Keep it to yourself: anyone with the link can see your page.\n\n'
-          + 'If you did not ask for this, you can ignore this email.\n',
-      });
+    await limitBucket(env, `wl-code-ip:${await ipKey(env, request)}`, FAMILY_LIMITS.codesPerHourPerIp);
+    await limitBucket(env, `wl-code-email:${await emailHash(env, email)}`, FAMILY_LIMITS.codesPerHourPerEmail);
+    const found = await projectionOf(env, publicId);
+    const entryId = found && entryForEmail(found.projection, email);
+    if (!entryId || !(await statusTokenOf(env, publicId, entryId))) return json({ ok: true });
+
+    const now = Date.now();
+    // Unique among this kennel's live codes, so the code alone names the family.
+    let code;
+    let hash;
+    for (let i = 0; i < 20; i++) {
+      code = randomCode();
+      hash = await familyCodeHash(env, publicId, code);
+      const taken = await env.DB.prepare('SELECT 1 FROM wl_family_codes WHERE public_id = ? AND code_hash = ? AND expires_at > ?')
+        .bind(publicId, hash, new Date(now).toISOString()).first();
+      if (!taken) break;
     }
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM wl_family_codes WHERE public_id = ? AND (entry_id = ? OR code_hash = ?)').bind(publicId, entryId, hash),
+      env.DB.prepare(
+        'INSERT INTO wl_family_codes (public_id, code_hash, program_id, entry_id, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      ).bind(publicId, hash, found.programId, entryId, new Date(now + FAMILY_CODE_MS).toISOString(), new Date(now).toISOString()),
+    ]);
+    const kennelName = found.projection.kennel?.name || 'the kennel';
+    await sendFamilyMessage(env, {
+      programId: found.programId, publicId, entryId, kind: 'verification_code', to: email,
+      subject: `Your ${kennelName} waitlist code: ${code}`,
+      text: `Your verification code for ${kennelName}'s waitlist is ${code}\n\n`
+        + 'Enter it on the waitlist page within 15 minutes to see your details.\n\n'
+        + 'If you did not ask for this code, you can ignore this email.\n',
+    });
     return json({ ok: true });
+  }
+
+  // "See Your Details", part 2: the code → their status link, and a session that
+  // remembers this browser. A wrong code says nothing about which codes exist.
+  if (p === '/f/verify' && m === 'POST') {
+    const body = await readJson(request, 4 * 1024);
+    const publicId = readKennelBody(body);
+    const code = String(body.code ?? '').replace(/\s/g, '');
+    if (!/^\d{6}$/.test(code)) fail(400, 'bad_code');
+    await limitBucket(env, `wl-verify-ip:${await ipKey(env, request)}`, FAMILY_LIMITS.verifyPerHourPerIp);
+    await limitBucket(env, `wl-verify-kennel:${publicId}`, FAMILY_LIMITS.verifyPerHourPerKennel);
+    const now = new Date();
+    const hash = await familyCodeHash(env, publicId, code);
+    const row = await env.DB.prepare(
+      'SELECT program_id, entry_id, expires_at FROM wl_family_codes WHERE public_id = ? AND code_hash = ?',
+    ).bind(publicId, hash).first();
+    if (!row || row.expires_at <= now.toISOString()) fail(400, 'invalid_code');
+    const statusToken = await statusTokenOf(env, publicId, row.entry_id);
+    if (!statusToken) fail(400, 'invalid_code');
+    const session = randomHex(32);
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM wl_family_codes WHERE public_id = ? AND code_hash = ?').bind(publicId, hash),
+      env.DB.prepare(
+        'INSERT INTO wl_family_sessions (token_hash, program_id, public_id, entry_id, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
+      ).bind(await sha256Hex(session), row.program_id, publicId, row.entry_id, now.toISOString(), new Date(now.getTime() + FAMILY_SESSION_MS).toISOString()),
+    ]);
+    return json({ status_token: statusToken, session, expires_at: new Date(now.getTime() + FAMILY_SESSION_MS).toISOString() });
+  }
+
+  // A remembered browser: its family's current status link (it changes with New
+  // link; the session doesn't). 401 once the session is gone or expired.
+  if (p === '/f/session' && m === 'POST') {
+    const body = await readJson(request, 4 * 1024);
+    await readsLimit(env, request);
+    if (typeof body.session !== 'string' || !SESSION_TOKEN.test(body.session)) fail(401, 'signed_out');
+    const row = await env.DB.prepare('SELECT public_id, entry_id, expires_at FROM wl_family_sessions WHERE token_hash = ?')
+      .bind(await sha256Hex(body.session)).first();
+    if (!row || row.expires_at <= new Date().toISOString()) fail(401, 'signed_out');
+    const statusToken = await statusTokenOf(env, row.public_id, row.entry_id);
+    if (!statusToken) fail(401, 'signed_out');
+    return json({ public_id: row.public_id, status_token: statusToken });
   }
 
   fail(404, 'not_found');
