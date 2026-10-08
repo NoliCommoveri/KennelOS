@@ -268,6 +268,22 @@ means no fee reminder ever.
    rate limits (`limitBucket`), retention, `/ops` counts + export, account deletion, the
    hourly cron entry beside the daily one, tests (`cloud/tests/waitlist.test.js`). Staging:
    Apply pending.
+   **Built 2026-10-08.** Where it differs from the above, this wins:
+   - **Routes:** `PUT` / `GET` / `DELETE /waitlist/projection/:publicId`, `GET /waitlist/inbox`,
+     `POST /waitlist/inbox/ack {ids}`, `GET /waitlist/events?since=`. Every one runs
+     `requirePro` and a per-program limit (600 calls an hour); publish, take offline and ack
+     need the backing device (`409 not_backing_device`, with `backingInfo`).
+   - **Tokens:** each `entries[id].status_token` (64 hex) is stripped from the stored body into
+     `wl_tokens`; a token missing from a later publish is revoked (New link). Two entries can't
+     share one, and a token another program holds is refused (`409 token_taken`), never
+     repointed. A `public_id` belongs to the first program to publish it (`409 kennel_taken`).
+   - **Size:** a projection is capped at 1.5 MB (D1's row limit is 2 MB).
+   - **Taking a list offline** removes its projection, tokens and holds; the inbox and events
+     stay until her device reads them.
+   - **Deferred:** `POST /waitlist/messages` moves to step 6 (nothing sends yet) and the hourly
+     cron to step 7 (nothing to run yet). Migration `0007` already holds every W2 table
+     (`wl_projection`, `wl_tokens`, `wl_inbox`, `wl_events`, `wl_holds`, `wl_messages`), so
+     W2 needs no further migration as planned.
 2. **Device: publishing.** `Kennel.time_zone`, `waitlistProjection.js` + tests, the
    debounced publish from the backing device, `cloudWaitlist.js`, the settings card's
    "Put the list online" (behind the flag). Registries, schema, End-State guide.

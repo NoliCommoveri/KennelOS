@@ -240,6 +240,15 @@ imported.
   should then show one lifetime purchase. If it was bought with another email than the
   cloud-backup one, use **Link a Pro purchase email…** in Pro's cloud card.
 
+## 3d. Waitlist online, W2 (`docs/KennelOS_Waitlist_W2_Plan.md`)
+
+Nothing families can see until the release flag (plan §9). The server tables come first.
+
+- [ ] **Apply pending (`0007`) on staging's and production's `/ops`** right after the merge
+  that carries it. The whole API answers 503 until then.
+- [ ] Operator setup in the plan's §12 (Workers Paid plan, `apply.kennelos.app`, Resend's
+  `mail.kennelos.app`, Turnstile, Email Routing for the auto-answer) as those steps land.
+
 ## 4. Post-deploy smoke test (on the real origins)
 
 - [ ] **Lite** (`lite.kennelos.app`) — reduced nav; create dogs → the 7th is blocked with the

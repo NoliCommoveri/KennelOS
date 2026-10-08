@@ -410,8 +410,13 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   left the list, none by default; replaces `auto_offer_next`, whose old "on" still reads as all five), which
   the W2 server will follow while she's offline. Browser-verified (Kennel page settings
   save; only ticked moments offer). Service-worker cache rolled to `kennelos-shell-v48` for
-  this batch. **W2 build plan drafted:** `docs/KennelOS_Waitlist_W2_Plan.md` (decisions in
-  its §10 to settle before building).
+  this batch. **W2 build plan approved:** `docs/KennelOS_Waitlist_W2_Plan.md` (every §10
+  decision as recommended; invoice/receipt PDFs dropped, she sends them herself). **W2 step 1,
+  the server foundation, is built:** cloud migration `0007` (every W2 table) and
+  `cloud/src/waitlist.js` (publish / read / take offline a kennel's projection, status-page
+  tokens, the encrypted inbox, the events stream; Pro and backing device only), with
+  `cloud/tests/waitlist.test.js`. Apply `0007` on staging and production after the merge
+  (`LAUNCH_CHECKLIST.md` §3d).
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass

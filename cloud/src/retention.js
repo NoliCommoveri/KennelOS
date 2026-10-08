@@ -12,7 +12,9 @@
 // snapshot is never collected), and expired codes, limits, outbox rows, sessions,
 // confirmed erasures and vault pairings. A snapshot's encrypted vault part
 // (Private Vault Plan §6.2) goes with it. A Pro purchase whose access ended
-// more than 90 days ago is deleted (License Link Plan §4).
+// more than 90 days ago is deleted (License Link Plan §4). The waitlist online
+// (Waitlist W2 Plan §4): acknowledged inbox items go after 30 days, events after
+// 90, and a sent email's body after 90 (its subject and date stay for her log).
 //
 // D1 rows go first, then R2 objects. If the R2 delete fails, the leftovers are
 // unreferenced objects (harmless), never rows pointing at nothing.
@@ -22,6 +24,8 @@ const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 export const KEEP_DAYS = 30;
 export const PURCHASE_KEEP_DAYS = 90;
+export const WL_INBOX_KEEP_DAYS = 30;
+export const WL_EVENTS_KEEP_DAYS = 90;
 const MAX_PER_RUN = 1000; // R2 deletes at most 1000 keys per call
 
 // The bucket a snapshot competes in, or null once it's past the window.
@@ -115,6 +119,9 @@ export async function runRetention(env, now = new Date()) {
     env.DB.prepare('DELETE FROM vault_pairings WHERE expires_at < ?').bind(iso(nowMs)),
     env.DB.prepare('DELETE FROM license_link_codes WHERE expires_at < ?').bind(iso(nowMs)),
     env.DB.prepare('DELETE FROM pro_purchases WHERE access_until < ?').bind(iso(nowMs - PURCHASE_KEEP_DAYS * DAY)),
+    env.DB.prepare('DELETE FROM wl_inbox WHERE acked_at < ?').bind(iso(nowMs - WL_INBOX_KEEP_DAYS * DAY)),
+    env.DB.prepare('DELETE FROM wl_events WHERE created_at < ?').bind(iso(nowMs - WL_EVENTS_KEEP_DAYS * DAY)),
+    env.DB.prepare(`UPDATE wl_messages SET body = NULL WHERE status = 'sent' AND body IS NOT NULL AND sent_at < ?`).bind(iso(nowMs - WL_EVENTS_KEEP_DAYS * DAY)),
   ]);
 
   return summary;
