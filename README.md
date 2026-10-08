@@ -461,7 +461,10 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   **Part 4, pairings and early litters online and the deposits nudge (§16.4, §16.8), is
   built:** three stages (planned pairings, pairings, born litters before picks open), each
   switchable for the public list and family pages (all off); Today suggests Open picks when a
-  litter's deposits date comes. Next: step 5c parts 5–6, then step 6, email.
+  litter's deposits date comes. **What number a family sees (§16.9) is built:** only their
+  overall place, hidden during their turn and after a pass until that litter closes (and off
+  the public list meanwhile); no per-litter numbers. Next: step 5c parts 5–6, then step 6,
+  email.
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass

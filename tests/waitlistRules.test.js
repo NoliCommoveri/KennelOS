@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import {
   waitlistConfig, WAITLIST_CONFIG_DEFAULTS, autoOffers, autoOfferSummary, closingTrigger, feeForEntry, isFeeWaived, feeDueDate, respondByDate,
   anchorDate, isMovedByBreeder, rankedList, overallPositions,
-  isPupAvailable, pupMatchesPrefs, prefColorTokens, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, isListeningFor, isListenOnly, eligiblePupsFor, showUpcoming, upcomingItems, depositsDueLitters,
+  isPupAvailable, pupMatchesPrefs, prefColorTokens, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, isListeningFor, isListenOnly, eligiblePupsFor, showUpcoming, upcomingItems, depositsDueLitters, placeHidden,
   litterQueue, nextFamilyForLitter, hasOpenOffer, turnSpent,
   countsAsPass, passesUsed, shouldRemoveForPasses, canUndoRemoval, passToForgive,
   overdueOffers, overdueFees, deriveContactWaitlistStatus, contactMatches, entryName,
@@ -817,4 +817,27 @@ test('depositsDueLitters (Spec §16.8): born, deposits date come, picks not open
   assert.deepEqual(depositsDueLitters([l({ id: 'L2' })], pups, [], TODAY), [], 'no pup available');
   assert.deepEqual(depositsDueLitters([l({ accept_deposits_date: null })], pups, [], TODAY), [], 'no date planned');
   assert.deepEqual(depositsDueLitters([l({ status: 'expected' })], pups, [], TODAY), []);
+});
+
+test('placeHidden (decided 2026-10-08): no number during their turn, or after a pass until that litter closes', () => {
+  const e = entry({ id: 'fam' });
+  const open = litter({ id: 'L1', status: 'whelped', picks_opened_date: '2026-10-01' });
+  const other = litter({ id: 'L2', status: 'whelped', picks_opened_date: '2026-10-01' });
+  const pups = [pup({ id: 'a', litter_id: 'L1' }), pup({ id: 'b', litter_id: 'L2' })];
+  const row = (over) => ({ id: `o-${over.litter_id}-${over.outcome}`, entry_id: 'fam', kennel_id: K, ...over });
+  assert.equal(placeHidden(e, [], [open], pups, []), null, 'waiting: their number shows');
+  assert.deepEqual(placeHidden(e, [row({ litter_id: 'L1', outcome: 'open' })], [open], pups, []), { reason: 'turn' });
+  const passed = [row({ litter_id: 'L1', outcome: 'passed' })];
+  assert.equal(placeHidden(e, passed, [open], pups, []).reason, 'passed');
+  assert.equal(placeHidden(e, [row({ litter_id: 'L1', outcome: 'no_response' })], [open], pups, []).reason, 'passed', 'a lapsed turn too');
+  // The litter closes: picks stopped, every pup spoken for, or sold/closed.
+  assert.equal(placeHidden(e, passed, [{ ...open, picks_opened_date: null }], pups, []), null);
+  assert.equal(placeHidden(e, passed, [open], pups, [{ id: 's', dog_id: 'a', status: 'deposit_pending' }]), null);
+  assert.equal(placeHidden(e, passed, [{ ...open, status: 'sold' }], pups, []), null);
+  // A turn over two litters: hidden until both have closed.
+  const both = [...passed, row({ litter_id: 'L2', outcome: 'passed' })];
+  assert.equal(placeHidden(e, both, [{ ...open, picks_opened_date: null }, other], pups, []).offers.length, 1);
+  // A row voided (they picked from the other litter) or another family's pass never hides it.
+  assert.equal(placeHidden(e, [row({ litter_id: 'L1', outcome: 'voided' })], [open], pups, []), null);
+  assert.equal(placeHidden(e, [{ ...passed[0], entry_id: 'someone' }], [open], pups, []), null);
 });

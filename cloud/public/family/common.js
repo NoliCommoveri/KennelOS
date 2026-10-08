@@ -88,7 +88,7 @@ export function publicListHtml(rows, query = '', mine = null) {
       <td class="small">${esc(fmtDate(r.added))}</td></tr>`).join('');
   const gaps = rows.some((r, i) => r.position !== i + 1);
   return `<table class="list"><thead><tr><th>#</th><th>Name</th><th>Wants</th><th>Added</th></tr></thead><tbody>${body}</tbody></table>
-    ${gaps ? '<p class="small muted">A missing number is a family who is paused for now. They keep their place.</p>' : ''}`;
+    ${gaps ? '<p class="small muted">A missing number is a family who is paused for now, or between turns. They keep their place.</p>' : ''}`;
 }
 
 // A pairing or litter before picks open (Waitlist Spec §16.4): its parents with

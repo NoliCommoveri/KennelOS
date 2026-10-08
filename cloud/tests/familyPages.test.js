@@ -42,10 +42,10 @@ const projection = () => ({
       prefs: { sex: 'female', breed: null, placement: null, colors: [], ready_timing: 'asap' },
       paused_until: null, ready_from: null, listen: { mode: 'all', sire_ids: [], dam_ids: [] },
       passes: { used: 0, max: 2 }, fee_received_date: '2026-02-01', fee_due: null,
-      litter_positions: { l1: 1 },
+      matching_litter_ids: ['l1'],
       offers: [{ id: 'o1', litter_id: 'l1', offered_date: '2026-10-07', respond_by_date: '2026-10-10', eligible_dog_ids: ['p2'], picked_dog_id: null }],
     },
-    bo: { name: 'Bo Kim', email: 'bo@example.com', status: 'active', status_token: tok('b'), position: 3, litter_positions: { l1: 2 }, offers: [] },
+    bo: { name: 'Bo Kim', email: 'bo@example.com', status: 'active', status_token: tok('b'), position: 3, matching_litter_ids: ['l1'], offers: [] },
     cy: { name: 'Cy Day', email: 'cy@example.com', status: 'placed', status_token: tok('c') },
     dee: { name: 'Dee Fox', email: 'dee@example.com', status: 'approved', position: null, offers: [],
       fee_due: { amount: 300, due_date: '2026-10-20', instructions: 'Venmo @thornfield', credit_policy: 'credited_to_purchase' } },
@@ -113,7 +113,7 @@ test("a family's status page shows their own place and offers, never anyone else
   assert.deepEqual(v.offers, [{ id: 'o1', turn_id: 'o1', litter_id: 'l1', litter: 'Juniper × Ash', offered_date: '2026-10-07', respond_by_date: '2026-10-10', picked_dog_id: null,
     pups: [{ id: 'p2', call_name: 'Poppy', sex: 'female', color: 'black' }] }]);
   assert.deepEqual(v.litters, [{ id: 'l1', label: 'Juniper × Ash', status: 'whelped', whelp_date: '2026-09-01', ready_date: '2026-10-27',
-    picks_open: true, pairing_id: null, pups_available: 2, your_position: 1 }]);
+    picks_open: true, pairing_id: null, pups_available: 2, match: true }]);
   const text = JSON.stringify(v);
   for (const other of ['Bo Kim', 'bo@example.com', '"bo"', 'Cy Day', 'Dee Fox', 'Venmo', tok('b'), 'queue', 'open_offer_entry_id']) {
     assert.equal(text.includes(other), false, other);
@@ -147,6 +147,11 @@ test('statusView and listView are allow-lists over the projection', () => {
   p.kennel.private = 'y';
   assert.equal(JSON.stringify(statusView(p, 'ann')).includes('"x"'), false, 'an unknown field is never passed through');
   assert.deepEqual(Object.keys(listView(p)).sort(), ['as_of', 'kennel', 'rows', 'upcoming']);
+  // Why there's no number (decided 2026-10-08): passed through as published.
+  p.entries.bo.position = null;
+  p.entries.bo.place_hidden = { reason: 'passed', litters: [{ label: 'Juniper × Ash', outcome: 'passed' }] };
+  assert.deepEqual(statusView(p, 'bo').family.place_hidden, p.entries.bo.place_hidden);
+  assert.equal(statusView(p, 'bo').family.position, null);
 });
 
 test('pairings and early litters (Spec §16.4): each where she shows it; a litter before picks open only that way', () => {
@@ -159,14 +164,14 @@ test('pairings and early litters (Spec §16.4): each where she shows it; a litte
     { id: 'pr3', kind: 'planned_pairing', label: 'Juniper × Ash', pairing_id: 'pr3', litter_id: null, sire: parent('Ash', ['JH']), dam: parent('Juniper', ['CGC']),
       expected_whelp_date: null, whelp_date: null, picks_expected_date: null, public: true, family: false },
   ];
-  p.entries.ann.upcoming = { l2: { waiting: true, position: 2 } };
+  p.entries.ann.upcoming = { l2: { waiting: true, match: true } };
   const list = listView(p);
   assert.deepEqual(list.upcoming, [{ id: 'pr3', kind: 'planned_pairing', label: 'Juniper × Ash', sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Juniper', titles: ['CGC'] },
     expected_whelp_date: null, whelp_date: null, picks_expected_date: null }]);
   const v = statusView(p, 'ann');
   assert.deepEqual(v.litters.map((l) => l.id), ['l1'], 'the early litter is not in the Litters list');
   assert.deepEqual(v.upcoming, [{ id: 'l2', kind: 'early_litter', label: 'Spring litter', sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Willow', titles: [] },
-    expected_whelp_date: null, whelp_date: '2026-09-20', picks_expected_date: '2026-10-20', pairing_id: 'pr2', litter_id: 'l2', waiting: true, your_position: 2 }]);
+    expected_whelp_date: null, whelp_date: '2026-09-20', picks_expected_date: '2026-10-20', pairing_id: 'pr2', litter_id: 'l2', waiting: true, match: true }]);
   assert.equal(JSON.stringify(v).includes('secret-sire'), false);
   assert.deepEqual(statusView(p, 'dee').upcoming, [], 'not on the list yet: nothing coming up');
   // A litter in their turn shows even if her picks were stopped.

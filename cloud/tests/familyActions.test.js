@@ -23,7 +23,7 @@ const projection = (extra = {}) => ({
   },
   public_list: [],
   entries: {
-    ann: { name: 'Ann Lee', email: 'ann@example.com', status: 'active', status_token: tok('a'), position: 1, litter_positions: { l1: 1 },
+    ann: { name: 'Ann Lee', email: 'ann@example.com', status: 'active', status_token: tok('a'), position: 1, matching_litter_ids: ['l1'],
       offers: [{ id: 'o1', litter_id: 'l1', respond_by_date: plusDays(3), eligible_dog_ids: ['p1', 'p2'], picked_dog_id: null }] },
     bo: { name: 'Bo Kim', email: 'bo@example.com', status: 'active', status_token: tok('b'), position: 2,
       offers: [{ id: 'o2', litter_id: 'l2', respond_by_date: plusDays(3), eligible_dog_ids: ['p2', 'p3'], picked_dog_id: null }] },

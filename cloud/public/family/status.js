@@ -47,14 +47,18 @@ function litterLine(l) {
   return bits.join(' · ');
 }
 
+// A litter they passed on (or let their turn lapse on) that's still being offered.
+const spentOn = (id) => (state.v.family.place_hidden?.litters || []).find((x) => x.litter_id === id) || null;
+
 function litterBadge(l) {
   // A litter in their open turn says so, whatever its line says: an approved change
   // to their answers never closes an offer (Spec §15.9), so they can hold a turn on a
   // litter they'd no longer be lined up for.
   if ((state.v.offers || []).some((o) => o.litter_id === l.id)) return '<span class="badge">Your turn</span>';
-  if (l.your_position) return `<span class="badge">#${esc(l.your_position)} in line</span>`;
+  const spent = spentOn(l.id);
+  if (spent) return `<span class="badge plain">${spent.outcome === 'no_response' ? 'Your turn ended' : 'You passed'}</span>`;
   if (!l.pups_available) return `<span class="badge plain">${l.status === 'expected' ? 'No pups yet' : 'No pups available'}</span>`;
-  return '<span class="badge plain">Not a match for you</span>';
+  return l.match ? '<span class="badge">A match for you</span>' : '<span class="badge plain">Not a match for you</span>';
 }
 
 function card(title, body, cls = '') {
@@ -259,7 +263,7 @@ function prepassedNow(t) {
 
 function notThisLitter(t) {
   if (!canAct() || state.v.family.status !== 'active') return '';
-  if (t.litter_id && (state.v.offers || []).some((o) => o.litter_id === t.litter_id)) return '';
+  if (t.litter_id && ((state.v.offers || []).some((o) => o.litter_id === t.litter_id) || spentOn(t.litter_id))) return '';
   const done = prepassedNow(t);
   if (done) {
     const attr = done.litter_id ? `data-litter="${esc(done.litter_id)}"` : `data-pairing="${esc(done.pairing_id)}"`;
@@ -278,8 +282,8 @@ function notThisLitter(t) {
 // whelped litter their place in it now. A pairing has no pups, so no place.
 function upcomingBadge(u) {
   if (u.kind === 'early_litter') {
-    if (u.your_position) return `<span class="badge">#${esc(u.your_position)} in line</span>`;
-    return `<span class="badge plain">${u.waiting ? 'Not a match for you' : "Not one you're waiting for"}</span>`;
+    if (!u.waiting) return '<span class="badge plain">Not one you\'re waiting for</span>';
+    return u.match ? '<span class="badge">A match for you</span>' : '<span class="badge plain">Not a match for you</span>';
   }
   return u.waiting ? '<span class="badge info">You\'re waiting for this</span>' : '<span class="badge plain">Not one you\'re waiting for</span>';
 }
@@ -290,7 +294,7 @@ function upcomingCard(v) {
       <span class="small">${upcomingBadge(u)}</span></div>
     ${upcomingDetails(u)}${u.waiting ? notThisLitter(upcomingTarget(u)) : ''}</li>`).join('');
   return card('Coming up', `<ul class="plain">${items}</ul>
-    <p class="small muted">Plans can change. "In line" counts only families who match that litter's pups, and can change until picks open.</p>`);
+    <p class="small muted">Plans can change.</p>`);
 }
 
 // --- Your place: still interested, pause, leave ----------------------------------
@@ -331,6 +335,18 @@ function placeActions(f) {
     parts.push(`<div class="actions mt8">${buttons.join('')}</div>`);
   }
   return parts.join('');
+}
+
+// Why there's no number (decided 2026-10-08): during their turn, and after a turn
+// they passed on or let lapse, until those litters close. They keep their place.
+function placeHiddenHtml(h) {
+  if (!h) return '';
+  if (h.reason === 'turn') return '<p class="mt0"><strong>It\'s your turn!</strong> Choose a pup above, or pass.</p>';
+  const names = (h.litters || []).map((l) => l.label).filter(Boolean);
+  const lapsed = (h.litters || []).every((l) => l.outcome === 'no_response');
+  const what = names.length ? names.join(' and ') : 'that litter';
+  return `<p class="mt0">${lapsed ? `Your turn on ${esc(what)} ended.` : `You passed on ${esc(what)}.`} You keep your place for future litters.</p>
+    <p class="small muted">Your number shows again once ${names.length > 1 ? 'those litters close' : 'that litter closes'}.</p>`;
 }
 
 // --- Which litters (listen-only, Spec §15.7) --------------------------------------
@@ -433,7 +449,7 @@ function mineHtml() {
     if (f.listen?.mode === 'selected') notices.push('You\'re only waiting for litters from the parents you chose. You keep your place for everything else.');
     else if (f.listen?.mode === 'except' && (f.listen.sire_ids?.length || f.listen.dam_ids?.length)) notices.push('You\'re skipping litters from the parents you chose. You keep your place for everything else.');
     parts.push(card('Your place', `
-      ${f.position ? `<p class="big mt0">#${esc(f.position)}</p><p class="muted mt0">on ${esc(possessive(kennel))} waitlist</p>` : ''}
+      ${f.position ? `<p class="big mt0">#${esc(f.position)}</p><p class="muted mt0">on ${esc(possessive(kennel))} waitlist</p>` : placeHiddenHtml(f.place_hidden)}
       ${notices.map((n) => `<p class="small">${n}</p>`).join('')}
       <dl class="facts">
         ${f.fee_received_date ? `<dt>On the list since</dt><dd>${esc(fmtDate(f.fee_received_date))}</dd>` : ''}
@@ -445,8 +461,7 @@ function mineHtml() {
       const items = v.litters.map((l) => `<li><div class="row"><strong>${esc(l.label)}</strong>
           <span class="small">${litterBadge(l)}</span></div>
         <div class="small muted">${esc(litterLine(l))}</div>${notThisLitter(litterTarget(l))}</li>`).join('');
-      parts.push(card('Litters', `<ul class="plain">${items}</ul>
-        <p class="small muted">"In line" counts only families who match that litter's pups.</p>`));
+      parts.push(card('Litters', `<ul class="plain">${items}</ul>`));
     }
     parts.push(upcomingCard(v));
     parts.push(listenHtml(f));

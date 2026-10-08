@@ -564,6 +564,16 @@ means no fee reminder ever.
       the public-list warning. The nudge (`depositsDueLitters`) shows only for a kennel with
       families on its list. Tests: `waitlistRules`, `waitlistProjection`, `cloudWaitlist`,
       `cloud/tests/familyPages`, `cloud/tests/familyActions`.
+   4b. **What number a family sees (§16.9, decided 2026-10-08).** **Built 2026-10-08.**
+      `waitlistRules.placeHidden` (pure, tested); the projection drops `litter_positions` (and
+      the early-litter place) for `matching_litter_ids` and `upcoming[id].match`, and sets
+      `position: null` + `place_hidden` (`{ reason: 'turn' }` or `{ reason: 'passed', litters:
+      [{ litter_id, label, outcome }] }`); `publicList({ hidden })` leaves those families off
+      the public list (online and her Copy public list). Server `statusView` passes
+      `place_hidden` through and gives each litter `match` instead of `your_position`. Status
+      page: no "#n in line" anywhere; "Your place" says why there's no number; a passed
+      litter says "You passed" with no "Not this litter". Tests: `waitlistRules`,
+      `waitlistProjection`, `cloud/tests/familyPages`.
    5. **"Review your preferences" and "A litter you match was born" (§16.6).** Pure rule
       `whelpNotes(entries, litter, pups, …)`: for each active, not paused or held family, `match`
       if eligible, else `review` with why (`listen`, `sex`, `breed`, `placement`, `colors`)

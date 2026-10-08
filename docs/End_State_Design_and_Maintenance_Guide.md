@@ -3103,12 +3103,20 @@ shown (`describeOfferChanges`).
 - **Her device is the source of truth.** `data/waitlistProjection.js` builds one kennel's
   online view from the same rules-engine calls the pages use, field by field from
   allow-lists: the public list; per family (by entry id) name, email, status, place, prefs,
-  pause / readiness hold, listen-only, passes, open offers, per-litter positions, the unpaid
+  pause / readiness hold, listen-only, passes, open offers, which live litters they match
+  (`matching_litter_ids`, a yes/no, never a place in a litter's line), the unpaid
   fee and her payment instructions (approved and unpaid only), and the fee-received date; a
   family whose time on the list ended gets only its outcome; per live litter its label,
   available pups (call name, sex, color) and **every** eligible family in order. Never:
   other answers, phone, address, programs, notes, payment details. `as_of` is today, so it
   republishes at least daily (pauses and holds end by date).
+- **What number a family sees** (Waitlist Spec §16.9, decided 2026-10-08): only their
+  overall place, and not even that while it would mislead. `waitlistRules.placeHidden` →
+  `{ reason: 'turn' }` while they hold a turn, or `{ reason: 'passed', offers }` after a
+  turn they passed on or let lapse, until each of those litters closes (picks stopped,
+  every pup spoken for, or sold/closed). Then `position` is null and `place_hidden` says
+  why (with each litter's id, label and outcome), and `publicList({ hidden })` leaves them
+  off the public list with their number skipped, online and in her **Copy public list**.
 - **Publishing** (`data/cloud/cloudWaitlist.js`): for each own kennel with
   `waitlist_config.online` and a `public_id`, the projection is hashed and `PUT` when it
   changed; a kennel taken offline is `DELETE`d. 20 s after the last data change
@@ -3172,7 +3180,7 @@ shown (`describeOfferChanges`).
   picks not open as `early_litter`), each with its parents' call names and titles
   (`waitlistProjection.titlesByDog`, from logged `title_earned` events), her dates and
   `public` / `family`; each active entry's `upcoming` says whether they're waiting for it
-  (listen-only) and their place in a born one. The server's `listView` shows the public ones,
+  (listen-only) and, for a born one, whether they match it (never a place). The server's `listView` shows the public ones,
   `statusView` the family ones; a family's Litters card lists only litters with open picks
   (or in their turn), so with every switch off a family sees a litter only once picks open.
   "Not this litter" works on what's shown (`checkTarget`). Today suggests **Open picks** for

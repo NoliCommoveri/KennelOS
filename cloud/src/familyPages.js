@@ -124,7 +124,7 @@ export function statusView(projection, entryId) {
   const family = { name: e.name ?? '', status: e.status };
   if (!OPEN_STATUSES.includes(e.status)) return { kennel, as_of: projection.as_of ?? null, family, offers: [], litters: [], upcoming: [], public_list: [] };
 
-  for (const k of ['applied_date', 'approved_date', 'position', 'prefs', 'paused_until', 'ready_from', 'listen', 'passes', 'fee_received_date', 'fee_due', 'requests', 'prepasses']) {
+  for (const k of ['applied_date', 'approved_date', 'position', 'prefs', 'paused_until', 'ready_from', 'listen', 'passes', 'fee_received_date', 'fee_due', 'requests', 'prepasses', 'place_hidden']) {
     family[k] = e[k] ?? null;
   }
   // What the page's editors offer: her parent dogs (listen-only) and her breeds.
@@ -150,7 +150,9 @@ export function statusView(projection, entryId) {
       pups: (l.pups || []).filter((d) => eligible.has(d.id) || d.id === o.picked_dog_id),
     };
   });
-  const positions = e.litter_positions || {};
+  // Whether they match a litter's available pups now: a yes/no, never a place in
+  // its line (decided 2026-10-08: a family sees only its overall place).
+  const matching = new Set(Array.isArray(e.matching_litter_ids) ? e.matching_litter_ids : []);
   // Litters with open picks, and any in their turn. Before picks open a litter
   // shows only as one of her `upcoming` items, when she switched that stage on
   // for family pages (Spec §16.4; all off by default).
@@ -164,12 +166,12 @@ export function statusView(projection, entryId) {
     picks_open: Boolean(l.picks_open),
     pairing_id: l.pairing_id ?? null,
     pups_available: (l.pups || []).length,
-    your_position: positions[id] ?? null,
+    match: matching.has(id),
   }));
   const mine = e.upcoming || {};
   const upcoming = e.status === 'active' ? upcomingOf(projection, 'family').map((u) => ({
     ...upcomingRow(u), pairing_id: u.pairing_id ?? null, litter_id: u.litter_id ?? null,
-    waiting: mine[u.id]?.waiting !== false, your_position: mine[u.id]?.position ?? null,
+    waiting: mine[u.id]?.waiting !== false, ...(u.kind === 'early_litter' ? { match: mine[u.id]?.match === true } : {}),
   })) : [];
   return { kennel, as_of: projection.as_of ?? null, family, offers, litters: litterList, upcoming, public_list: listView(projection).rows };
 }

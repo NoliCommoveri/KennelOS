@@ -211,6 +211,27 @@ export function depositsDueLitters(litters, pups, sales, today) {
     && pups.some((d) => d.litter_id === l.id && isPupAvailable(d, sales)));
 }
 
+// Is a family's place number hidden from them (decided 2026-10-08)? A family sees
+// only its overall place, never a per-litter one, and not even that while it would
+// mislead: during their turn ("It's your turn!" instead), and after a turn they
+// passed on or let lapse, until every litter of it has closed (picks stopped, every
+// pup spoken for, or the litter sold or closed), since families below them are
+// being offered those litters meanwhile. A "Not this litter" counts once their turn
+// records it as passed. The public list leaves them out the same way, number skipped.
+// → null | { reason: 'turn' } | { reason: 'passed', offers: [the closed rows, one per litter] }
+export function placeHidden(entry, offers = [], litters = [], pups = [], sales = []) {
+  const mine = offers.filter((o) => o.entry_id === entry.id && !o.is_archived);
+  if (mine.some((o) => o.outcome === 'open')) return { reason: 'turn' };
+  const littersById = new Map(litters.map((l) => [l.id, l]));
+  const picking = (l) => Boolean(l && !l.is_archived && l.picks_opened_date && !['sold', 'closed'].includes(l.status)
+    && pups.some((d) => d.litter_id === l.id && isPupAvailable(d, sales)));
+  const spent = new Map();
+  for (const o of mine) {
+    if ((o.outcome === 'passed' || o.outcome === 'no_response') && picking(littersById.get(o.litter_id))) spent.set(o.litter_id, o);
+  }
+  return spent.size ? { reason: 'passed', offers: [...spent.values()] } : null;
+}
+
 // The breeds a family can ask for on this kennel's list (decided 2026-10-06: a
 // dropdown, never free text, so a misspelling or shorthand can't make a family
 // match no pup). The breeds of the kennel's own non-archived dogs — what its pups
@@ -884,10 +905,12 @@ export function publicName(fullName) {
 // so nobody's public number shifts when a pause ends (decided 2026-10-06).
 // Listen-only families show, with no marker. Programs, notes and money never do.
 // `nameOf(entry)` returns the family's full name.
-export function publicList(entries, kennelId, programsById = new Map(), { today, nameOf = (e) => entryName(e, null) } = {}) {
+// `hidden(entry)`: also leave out a family whose place is hidden from them
+// (placeHidden), so their own page and the public list never disagree.
+export function publicList(entries, kennelId, programsById = new Map(), { today, nameOf = (e) => entryName(e, null), hidden = () => false } = {}) {
   return rankedList(entries, kennelId, programsById)
     .map((e, i) => ({ entry: e, position: i + 1 }))
-    .filter(({ entry }) => !isPaused(entry, today))
+    .filter(({ entry }) => !isPaused(entry, today) && !hidden(entry))
     .map(({ entry, position }) => ({
       position,
       name: publicName(nameOf(entry)),
@@ -905,7 +928,7 @@ export function publicListText(rows, { kennelName = '', today = '', fmtDate = (d
   if (!rows.length) return `${head}\nNobody is on the list yet.`;
   const lines = rows.map((r) => `#${r.position} ${r.name} · ${PUBLIC_SEX[r.pref_sex] || 'Either'} · added ${fmtDate(r.added)}`);
   const gaps = rows.some((r, i) => r.position !== i + 1);
-  return [head, '', ...lines, ...(gaps ? ['', 'A skipped number is a family who has paused or isn\'t ready to buy yet. They keep their place.'] : [])].join('\n');
+  return [head, '', ...lines, ...(gaps ? ['', 'A skipped number is a family who is paused, not ready to buy yet, or between turns. They keep their place.'] : [])].join('\n');
 }
 
 // --- Telling her what an action did to offers -------------------------------------

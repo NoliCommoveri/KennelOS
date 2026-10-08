@@ -84,7 +84,7 @@ test("a family on the list sees its place, prefs, passes and offers; nothing els
   const p = buildProjection(fixture());
   const e1 = p.entries.e1;
   assert.deepEqual(keysOf(e1), ['applied_date', 'approved_date', 'email', 'fee_due', 'fee_received_date', 'listen',
-    'litter_positions', 'name', 'offers', 'passes', 'paused_until', 'position', 'prefs', 'prepasses', 'ready_from', 'requests', 'status', 'upcoming']);
+    'matching_litter_ids', 'name', 'offers', 'passes', 'paused_until', 'place_hidden', 'position', 'prefs', 'prepasses', 'ready_from', 'requests', 'status', 'upcoming']);
   assert.deepEqual(e1.prepasses, []);
   assert.deepEqual(e1.requests, { pause: null, pref_change: null, listen: null });
   assert.equal(e1.name, 'Family e1 Lee');
@@ -122,17 +122,23 @@ test('positions, litter queues and the public list come straight from the rules 
   const p = buildProjection(f);
   const live = f.entries.filter((e) => !e.is_archived && e.kennel_id === K);
   const positions = overallPositions(live, K, f.programsById);
-  for (const [id, pos] of positions) assert.equal(p.entries[id].position, pos, id);
-  assert.equal(p.entries.e2.position, 1, 'her ahead program puts them first');
+  // e1 holds a turn and e2 passed on a litter still being offered: no number for either.
+  for (const [id, pos] of positions) assert.equal(p.entries[id].position, ['e1', 'e2'].includes(id) ? null : pos, id);
+  assert.equal(positions.get('e2'), 1, 'her ahead program puts them first');
+  assert.deepEqual(p.entries.e1.place_hidden, { reason: 'turn' });
+  assert.deepEqual(p.entries.e2.place_hidden, { reason: 'passed', litters: [{ litter_id: 'lit-1', label: 'Juniper × Ash', outcome: 'passed' }] });
+  assert.equal(p.entries.e4.place_hidden, null);
 
   const queue = litterQueue(live, litter, f.dogs.filter((d) => d.litter_id === 'lit-1'), [], { today: TODAY, config: waitlistConfig(kennel), programsById: f.programsById });
-  for (const q of queue) assert.equal(p.entries[q.entry.id].litter_positions['lit-1'], q.litterPosition);
+  for (const q of queue) assert.deepEqual(p.entries[q.entry.id].matching_litter_ids, ['lit-1'], 'a match, never a place in its line');
+  assert.equal(JSON.stringify(p).includes('litter_positions'), false);
   // The turn queue: the same order, minus families whose turn on it is open (e1) or spent (e2 passed).
   assert.deepEqual(p.turn_queue.map((q) => q.entry_id), queue.map((q) => q.entry.id).filter((id) => !['e1', 'e2'].includes(id)));
-  assert.equal(p.entries.e3.litter_positions['lit-1'], undefined, 'paused: not in any queue');
+  assert.deepEqual(p.entries.e3.matching_litter_ids, [], 'paused: not in any queue');
 
-  const rows = publicList(live, K, f.programsById, { today: TODAY, nameOf: (e) => entryName(e, f.contacts.find((c) => c.id === e.contact_id)) });
+  const rows = publicList(live, K, f.programsById, { today: TODAY, nameOf: (e) => entryName(e, f.contacts.find((c) => c.id === e.contact_id)), hidden: (e) => ['e1', 'e2'].includes(e.id) });
   assert.deepEqual(p.public_list, rows);
+  assert.ok(!p.public_list.some((r) => r.position === 1 || r.name.startsWith('Family e1')), 'between turns: off the public list, number skipped');
   assert.ok(!p.public_list.some((r) => r.name.startsWith('Family e3')), 'a paused family is off the public list');
 });
 
@@ -271,9 +277,8 @@ test('upcoming: each stage where she shows it, with call names, titles and her d
   const text = JSON.stringify(p.upcoming);
   for (const secret of ['pairing note', 'litter note', 'sire_id', 'dam_id', '"willow"']) assert.equal(text.includes(secret), false, secret);
   // Per family: only the family-page items; waiting (listen-only) and their place for a born litter.
-  assert.deepEqual(p.entries.e1.upcoming, { spring: { waiting: false, position: null }, 'pr-winter': { waiting: true, position: null } });
-  assert.deepEqual(p.entries.e2.upcoming.spring, { waiting: true, position: p.entries.e2.litter_positions.spring ?? null });
-  assert.ok(p.entries.e2.upcoming.spring.position, 'a family who matches the born litter sees their place in it');
+  assert.deepEqual(p.entries.e1.upcoming, { spring: { waiting: false, match: false }, 'pr-winter': { waiting: true } });
+  assert.deepEqual(p.entries.e2.upcoming.spring, { waiting: true, match: true }, 'whether they match the born litter, never their place in it');
   assert.deepEqual(p.entries.e4.upcoming, {}, 'not on the list yet');
 });
 

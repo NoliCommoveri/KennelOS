@@ -22,7 +22,7 @@
 import {
   waitlistConfig, entryName, publicList, overallPositions, litterQueue, isPupAvailable, passesUsed,
   isManuallyPaused, readyFromDate, isReadyHeld, feeForEntry, kennelBreeds, listenParentChoices,
-  rankedList, turnLittersFor, turnIdOf, passReasons, splitPrepassed, upcomingItems, showUpcoming, isListeningFor
+  rankedList, turnLittersFor, turnIdOf, passReasons, splitPrepassed, upcomingItems, showUpcoming, isListeningFor, placeHidden
 } from './waitlistRules.js';
 import { addDaysToYMD } from './dateUtils.js';
 import { WAITLIST_OPEN_STATUSES } from './vocab.js';
@@ -86,7 +86,10 @@ function entryView(entry, ctx) {
   Object.assign(view, {
     applied_date: orNull(entry.applied_date),
     approved_date: orNull(entry.approved_date),
-    position: ctx.positions.get(entry.id) ?? null,
+    // Their overall place only, never a per-litter one; hidden during their turn and
+    // after a turn they passed on until those litters close (placeHidden).
+    position: ctx.hidden.get(entry.id) ? null : ctx.positions.get(entry.id) ?? null,
+    place_hidden: placeHiddenView(ctx.hidden.get(entry.id), ctx.litterLabels),
     prefs: {
       sex: entry.pref_sex || 'any',
       breed: orNull(entry.pref_breed),
@@ -112,13 +115,14 @@ function entryView(entry, ctx) {
     fee_due: entry.status === 'approved' && !entry.fee_received_date && fee !== null && fee > 0
       ? { amount: fee, due_date: orNull(entry.fee_due_date), instructions: ctx.config.payment_instructions || '', credit_policy: ctx.config.fee_credit_policy }
       : null,
-    litter_positions: ctx.litterPositions.get(entry.id) || {},
     // Each item she shows on family pages (§16.4): whether they're waiting for it
-    // (listen-only) and, for a whelped litter, their place in it now.
+    // (listen-only) and, for a born litter, whether they match its available pups.
     upcoming: entry.status === 'active' ? Object.fromEntries(ctx.upcoming.filter((u) => u.family).map((u) => [u.id, {
       waiting: isListeningFor(entry, u),
-      position: u.kind === 'early_litter' ? (ctx.litterPositions.get(entry.id) || {})[u.litter_id] ?? null : null
+      ...(u.kind === 'early_litter' ? { match: Boolean(ctx.matches.get(entry.id)?.has(u.litter_id)) } : {})
     }])) : {},
+    // The live litters whose available pups they match now (a yes/no, never a place).
+    matching_litter_ids: [...(ctx.matches.get(entry.id) || [])].sort(),
     offers: ctx.offers
       .filter((o) => o.entry_id === entry.id && o.outcome === 'open' && !o.is_archived)
       .sort(byId)
@@ -214,6 +218,14 @@ const toUpcomingView = (u) => ({
   picks_expected_date: u.picks_expected_date, public: u.public, family: u.family
 });
 
+// Why their number is hidden, as their page says it: their turn, or the litters
+// they passed on (or let lapse) that are still being offered to others.
+function placeHiddenView(h, labels) {
+  if (!h) return null;
+  if (h.reason === 'turn') return { reason: 'turn' };
+  return { reason: 'passed', litters: h.offers.sort(byId).map((o) => ({ litter_id: o.litter_id, label: labels.get(o.litter_id) || '', outcome: o.outcome })) };
+}
+
 // The projection for ONE own kennel. Callers pass that kennel's entries, offers
 // and programs (a Map), and every litter, pairing, dog, sale and contact (each is
 // filtered here). `today` is YYYY-MM-DD. `formKey` is her current form key (its
@@ -230,16 +242,19 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
   const kennelOffers = offers.filter((o) => !o.is_archived && o.kennel_id === kennel.id);
   const opts = { today, config, programsById };
 
-  // Each live litter's queue: every eligible family in order, however many (Q13).
-  const litterPositions = new Map();
+  // Each live litter's queue tells which families match it now (Q13); a family
+  // sees only that they match, never their place in it (decided 2026-10-08).
+  const matches = new Map();
+  const litterLabels = new Map();
   const litterViews = {};
   for (const litter of litters.filter((l) => l.kennel_id === kennel.id && !l.is_archived && LIVE_LITTER.includes(l.status)).sort(byId)) {
     const pups = dogs.filter((d) => d.litter_id === litter.id);
     const queue = litterQueue(live, litter, pups, sales, opts);
     for (const q of queue) {
-      if (!litterPositions.has(q.entry.id)) litterPositions.set(q.entry.id, {});
-      litterPositions.get(q.entry.id)[litter.id] = q.litterPosition;
+      if (!matches.has(q.entry.id)) matches.set(q.entry.id, new Set());
+      matches.get(q.entry.id).add(litter.id);
     }
+    litterLabels.set(litter.id, litterLabel(litter, dogsById));
     const open = kennelOffers.find((o) => o.litter_id === litter.id && o.outcome === 'open') || null;
     litterViews[litter.id] = {
       label: litterLabel(litter, dogsById),
@@ -272,10 +287,11 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
     });
   }
 
+  const hidden = new Map(live.map((e) => [e.id, placeHidden(e, kennelOffers, litters, dogs, sales)]));
   const upcoming = upcomingSection(kennel, config, { litters, pairings, dogsById, titles: titlesByDog(events) });
   const ctx = {
     config, contactsById, programsById, offers: kennelOffers, today, upcoming,
-    positions: overallPositions(live, kennel.id, programsById), litterPositions
+    positions: overallPositions(live, kennel.id, programsById), matches, litterLabels, hidden
   };
   const entryViews = {};
   for (const e of [...live].sort(byId)) entryViews[e.id] = entryView(e, ctx);
@@ -299,7 +315,7 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
       ...(config.online_form && formKey ? { form: formSection(kennel, config, formKey, dogs) } : {})
     },
     public_list: publicList(live, kennel.id, programsById, {
-      today, nameOf: (e) => entryName(e, contactsById.get(e.contact_id))
+      today, nameOf: (e) => entryName(e, contactsById.get(e.contact_id)), hidden: (e) => Boolean(hidden.get(e.id))
     }),
     entries: entryViews,
     litters: litterViews,

@@ -1079,7 +1079,7 @@ list"); both are marked there.
   (Her wording, kept as given. Default text; she can edit it but not remove it.)
 - **Shown (allow-list, decided 2026-10-06):** position, first name + last initial, sex
   preference, and date added (`fee_received_date`, or `position_anchor_date` if set).
-- **Paused families don't appear** (decided 2026-10-06). They keep their real place
+- **Paused families don't appear** (decided 2026-10-06), nor families between turns (§16.9, decided 2026-10-08). They keep their real place
   (§6.3) and reappear when the pause ends. **Their number is skipped** (#1, #2, #4; decided
   2026-10-06, Q24): public positions are the real §6.1 positions, so nobody's number
   shifts when a pause ends. **Listen-only families appear**, with no marker (decided).
@@ -1331,7 +1331,7 @@ shows the result and the family gets the usual no-reply email (§15.4).
 
 Q25–Q28 (§13) are decided: the leanings above all stand.
 
-## 16. Her requests after W2 step 5 (recorded 2026-10-08; nothing built)
+## 16. Her requests after W2 step 5 (recorded 2026-10-08)
 
 Seven requests from a review after W2 step 5, with her answers the same day. They change the
 offer model built in W1c and the status page built in W2 step 5, so they're settled here
@@ -1490,3 +1490,30 @@ When a whelped litter reaches its `accept_deposits_date` with picks not open yet
 still available, Today suggests **Open picks** ("Juniper × Ash: you planned to start taking
 deposits today. Open picks?"). One tap opens picks, which starts the next turn (§16.1).
 Dismissing hides it; nothing opens by itself.
+
+### 16.9 What number a family sees (decided and built 2026-10-08)
+
+Her concern: a per-litter number ("#3 in line" for one litter) is lower than their place on
+the list and moves whenever families ahead pause, come back or change their answers, so it
+reads as a promise it can't keep. And a family can be next without ever seeing #1, because
+families ahead who are paused, not ready or not a match are skipped (§6.3).
+
+**Decided:**
+1. **Families see only their overall place** (§6.1), never a per-litter one. A litter says
+   **Your turn**, **A match for you** or **Not a match for you**; a litter they passed on
+   says **You passed** (or **Your turn ended**). Her own app keeps the per-litter queues.
+2. **During their turn there's no number:** they go straight from "#5" to "It's your turn!".
+3. **After a turn they passed on there's no number** ("You passed on Juniper × Ash. You keep
+   your place for future litters."), **until every litter of that turn has closed**: picks
+   stopped, every pup spoken for, or the litter sold or closed. Families below them are
+   being offered those litters meanwhile, so a number would look like they were skipped.
+4. **A missed deadline counts the same** ("Your turn on … ended"), whether or not it counts
+   as a pass (§6.4).
+5. **A new litter while the number is hidden:** if they match it, their turn comes as usual;
+   otherwise the number stays hidden until the old litter closes (simple rule kept).
+6. **"Not this litter"** said ahead of time changes nothing until their turn records it as
+   passed; then it hides the number like any pass.
+7. **The public list leaves them out while their number is hidden**, number skipped, like a
+   paused family, so their page and the list never disagree. (The gap note says "paused for
+   now, or between turns".)
+
