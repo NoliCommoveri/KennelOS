@@ -176,8 +176,8 @@ code. See Q1.
 | `pref_placement_type` | | From `PLACEMENT_TYPE` (pet / show / breeding_rights / co_own) |
 | `pref_colors` | | Free-text list. Used for eligibility only if she turns that on (Q4). |
 | `pref_breed` | | One of the kennel's breeds, picked from a dropdown (the breeds of that kennel's dogs plus its preferred breeds), never free text: decided 2026-10-06 after misspellings and shorthand made families match no pup (§15.6). Blank = any breed. Always offered (Decision §0); matched case-insensitively and trimmed against the pup's `Dog.breed` (§6.2). CSV import maps a breed to the kennel's spelling and flags one it can't, leaving it blank. |
-| `listen_mode` | | `all` (default) or `selected` (§6.3) |
-| `listen_sire_ids` | ✔ multi-entry FK → Dog | Used when `listen_mode = 'selected'`: the sires they're listening for (§6.3, §15.7) |
+| `listen_mode` | | `all` (default), `selected` (§6.3) or `except` (§16.3) |
+| `listen_sire_ids` | ✔ multi-entry FK → Dog | Used when `listen_mode` is `selected` (the sires they're listening for, §6.3, §15.7) or `except` (the sires they skip, §16.3) |
 | `listen_dam_ids` | ✔ multi-entry FK → Dog | Same, for dams. Which litters/pairings that covers is derived from their `sire_id`/`dam_id`, never stored. |
 | `ready_timing` | | `asap` / `1_month` / `3_months` / `6_plus_months`: the locked, required "soonest you can commit" answer. Anything but ASAP is a derived readiness hold (§6.3, §15.8). |
 | `paused_until` | | Optional `YYYY-MM-DD`. Paused families aren't offered; position kept (§6.3). |
@@ -407,6 +407,8 @@ A family is **eligible for a pup** when the above holds for that particular pup.
   - They see this on their status page: "You're listening for: Juniper × Ash (expected
     March). You keep your place on the list."
   - Switching back to `all` puts them straight back in contention at their original place.
+- **Listen-only, the other way** (`listen_mode = 'except'`, §16.3): every litter except one
+  by a sire, or out of a dam, they listed. The same rules otherwise.
 - **Pause** (`paused_until`): the same effect for every litter until a date, e.g. during
   treatment or a move. It never counts as a pass. **Families request it; she approves (Q7,
   decided 2026-10-08).** On the status page a family taps **Request a pause** and must give
@@ -1077,7 +1079,7 @@ list"); both are marked there.
   (Her wording, kept as given. Default text; she can edit it but not remove it.)
 - **Shown (allow-list, decided 2026-10-06):** position, first name + last initial, sex
   preference, and date added (`fee_received_date`, or `position_anchor_date` if set).
-- **Paused families don't appear** (decided 2026-10-06). They keep their real place
+- **Paused families don't appear** (decided 2026-10-06), nor families between turns (§16.9, decided 2026-10-08). They keep their real place
   (§6.3) and reappear when the pause ends. **Their number is skipped** (#1, #2, #4; decided
   2026-10-06, Q24): public positions are the real §6.1 positions, so nobody's number
   shifts when a pause ends. **Listen-only families appear**, with no marker (decided).
@@ -1329,7 +1331,7 @@ shows the result and the family gets the usual no-reply email (§15.4).
 
 Q25–Q28 (§13) are decided: the leanings above all stand.
 
-## 16. Her requests after W2 step 5 (recorded 2026-10-08; nothing built)
+## 16. Her requests after W2 step 5 (recorded 2026-10-08)
 
 Seven requests from a review after W2 step 5, with her answers the same day. They change the
 offer model built in W1c and the status page built in W2 step 5, so they're settled here
@@ -1393,7 +1395,7 @@ the whole respond window.
   makes automatic offers (step 7).
 - "Still interested" is unrelated: a general check-in (§10.2).
 
-### 16.3 Listen-only both ways (decided 2026-10-08)
+### 16.3 Listen-only both ways (decided 2026-10-08; built 2026-10-08)
 
 `listen_mode` gains a third value, **`except`**: **All litters except these parents**.
 - A litter (or upcoming pairing) is skipped when **either** its sire or its dam is on the
@@ -1406,7 +1408,12 @@ the whole respond window.
 - Same fields (`listen_sire_ids` / `listen_dam_ids`), so no schema or registry change beyond
   the vocab and the registry labels' wording ("listening for" → "listen-only choice").
 
-### 16.4 Showing pairings and litters before picks open (requested 2026-10-08)
+### 16.4 Showing pairings and litters before picks open (requested 2026-10-08; built 2026-10-08)
+
+**Decided 2026-10-08 while building:** the switches govern family pages too: with them off
+(the default), a family's page lists a litter only once its picks open (or while it's in
+their turn), not every live litter as before. An `expected` litter (not born yet) counts as
+an actual pairing, shown once, with its pairing's expected whelp date.
 
 New settings in her Waitlist settings: three stages, each with two switches, **all off by
 default**.
@@ -1441,7 +1448,7 @@ default**.
 - Stored with the pass (the reason's id and its label at the time), **private tier**: a reason
   can be sensitive (finances, health).
 
-### 16.6 "Review your preferences" when a litter is born (requested 2026-10-08)
+### 16.6 "Review your preferences" when a litter is born (requested 2026-10-08; built 2026-10-08, the status-page half)
 
 Her worry: families passed over without knowing it, e.g. listening only for dam A when she
 added dam B later, or a sex preference that no longer fits.
@@ -1458,7 +1465,13 @@ added dam B later, or a sex preference that no longer fits.
   is off** (decided, Q34), like "It's almost your turn", which she sends whatever the switch
   says.
 
-### 16.7 "Ready now?" when a readiness hold ends (decided 2026-10-08)
+### 16.7 "Ready now?" when a readiness hold ends (decided 2026-10-08; built 2026-10-08, the status-page half)
+
+**Decided 2026-10-08 while building:** it applies **only to a list that's online** (an offline
+list keeps the plain rule: the hold ends on its date), and **only to holds that end while
+the list is online** (from the day she puts it online), so no family already past their
+hold is suddenly paused by the update. She can record a Yes herself ("They told me they're
+ready") on the family's page or from Today.
 
 When a family's readiness hold (§15.8) reaches its date, they're asked **Ready now?**: on the
 status page, and by email once emails exist.
@@ -1477,9 +1490,36 @@ status page, and by email once emails exist.
      7-day undo as a second-pass removal (§6.4). Her device makes the move, not the server.
 - Needs a stored ready-check state on the entry (the hold itself stays derived), private tier.
 
-### 16.8 A nudge when deposits open (requested 2026-10-08)
+### 16.8 A nudge when deposits open (requested 2026-10-08; built 2026-10-08)
 
 When a whelped litter reaches its `accept_deposits_date` with picks not open yet and pups
 still available, Today suggests **Open picks** ("Juniper × Ash: you planned to start taking
 deposits today. Open picks?"). One tap opens picks, which starts the next turn (§16.1).
 Dismissing hides it; nothing opens by itself.
+
+### 16.9 What number a family sees (decided and built 2026-10-08)
+
+Her concern: a per-litter number ("#3 in line" for one litter) is lower than their place on
+the list and moves whenever families ahead pause, come back or change their answers, so it
+reads as a promise it can't keep. And a family can be next without ever seeing #1, because
+families ahead who are paused, not ready or not a match are skipped (§6.3).
+
+**Decided:**
+1. **Families see only their overall place** (§6.1), never a per-litter one. A litter says
+   **Your turn**, **A match for you** or **Not a match for you**; a litter they passed on
+   says **You passed** (or **Your turn ended**). Her own app keeps the per-litter queues.
+2. **During their turn there's no number:** they go straight from "#5" to "It's your turn!".
+3. **After a turn they passed on there's no number** ("You passed on Juniper × Ash. You keep
+   your place for future litters."), **until every litter of that turn has closed**: picks
+   stopped, every pup spoken for, or the litter sold or closed. Families below them are
+   being offered those litters meanwhile, so a number would look like they were skipped.
+4. **A missed deadline counts the same** ("Your turn on … ended"), whether or not it counts
+   as a pass (§6.4).
+5. **A new litter while the number is hidden:** if they match it, their turn comes as usual;
+   otherwise the number stays hidden until the old litter closes (simple rule kept).
+6. **"Not this litter"** said ahead of time changes nothing until their turn records it as
+   passed; then it hides the number like any pass.
+7. **The public list leaves them out while their number is hidden**, number skipped, like a
+   paused family, so their page and the list never disagree. (The gap note says "paused for
+   now, or between turns".)
+

@@ -424,6 +424,11 @@ test("her decisions on families' requests: an answer change is applied and logge
   saved = await waitlistEntryRepo.getById(e.id);
   assert.equal(saved.listen_mode, 'selected');
   assert.deepEqual(saved.listen_sire_ids, [sire.id]);
+  await waitlistEntryRepo.update(e.id, { listen_change_request: { requested_date: '2026-10-11', listen_mode: 'except', listen_sire_ids: [sire.id], listen_dam_ids: [] } });
+  await actions.approveListenChange(e.id, { date: '2026-10-11' });
+  saved = await waitlistEntryRepo.getById(e.id);
+  assert.equal(saved.listen_mode, 'except', 'All except these parents (Spec §16.3)');
+  assert.deepEqual(saved.listen_sire_ids, [sire.id]);
   await waitlistEntryRepo.update(e.id, { pref_sex: 'any', listen_mode: 'all', listen_sire_ids: [], pref_change_request: null, listen_change_request: null });
 });
 
@@ -460,6 +465,10 @@ test('a pass with a reason and a "Not this litter" from the status page reach he
   assert.ok(turn);
   const entry = await waitlistEntryRepo.getById(turn.entry_id);
   await contactRepo.update(entry.contact_id, { email: 'reasons@example.com' });
+  // "Not this litter" before picks open works on what she shows on family pages (§16.4).
+  const { kennelRepo } = await import('../shared/data/kennelRepo.js');
+  const on = { public: false, family: true };
+  await kennelRepo.update(k.id, { waitlist_config: { ...(await kennelRepo.getById(k.id)).waitlist_config, show_upcoming: { planned_pairings: on, pairings: on, early_litters: on } } });
   await cw.syncWaitlistOnline();
   const published = JSON.parse(raw('SELECT body FROM wl_projection')[0].body);
   assert.deepEqual(published.kennel.pass_reasons.map((r) => r.id), ['timing', 'finances', 'fit', 'other']);
@@ -483,4 +492,45 @@ test('a pass with a reason and a "Not this litter" from the status page reach he
     assert.deepEqual(after.entries[entry.id].prepasses.map((p) => p.litter_id), [other]);
     assert.equal(JSON.stringify(after).includes('Too far to drive'), false, 'the reason stays on her device');
   }
+});
+
+test('"Ready now?" (Spec §16.7): asked online, answered on the status page, applied on her device; no answer past her window removes', async () => {
+  const { contactRepo } = await import('../shared/data/contactRepo.js');
+  const { todayYMD, addDaysToYMD } = await import('../shared/data/dateUtils.js');
+  const actions = await import('../shared/data/waitlistActions.js');
+  await breeder();
+  const k0 = await putOnline();
+  const today = todayYMD();
+  // A one-month hold that ended ten days ago, after the list went online.
+  const k = await kennelRepo.update(k0.id, { waitlist_config: { ...k0.waitlist_config, online_since: addDaysToYMD(today, -60), ready_no_answer: 'remove_after', ready_answer_days: 30 } });
+  const actives = (await waitlistEntryRepo.getByKennel(k.id)).filter((x) => x.status === 'active');
+  const [asked, lapsed] = actives;
+  const feeDate = (daysAgo) => { const d = new Date(`${addDaysToYMD(today, -daysAgo)}T00:00:00Z`); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 10); };
+  await waitlistEntryRepo.update(asked.id, { ready_timing: '1_month', fee_received_date: feeDate(10), ready_check: null, paused_until: null });
+  await waitlistEntryRepo.update(lapsed.id, { ready_timing: '1_month', fee_received_date: feeDate(40), ready_check: null, paused_until: null });
+  await contactRepo.update(asked.contact_id, { email: 'ready@example.com' });
+
+  await cw.syncWaitlistOnline();
+  assert.equal((await waitlistEntryRepo.getById(lapsed.id)).removed_reason, 'no_ready_answer', 'forty days unanswered: removed by the sweep');
+  const published = JSON.parse(raw('SELECT body FROM wl_projection')[0].body);
+  assert.equal(published.entries[asked.id].ready_check.answer, null);
+  assert.ok(published.entries[asked.id].ready_check.answer_by, 'remove_after: they see the date');
+
+  const fam = await familySignIn(k.public_id, 'ready@example.com');
+  const res = await fam.call('/f/act', { session: fam.session, status_token: fam.statusToken, action: 'ready', answer: 'no', until: addDaysToYMD(today, 45), reason: 'Moving house' });
+  assert.equal(res.status, 200);
+  await cw.syncWaitlistOnline();
+  const saved = await waitlistEntryRepo.getById(asked.id);
+  assert.equal(saved.ready_check.answer, 'no');
+  assert.equal(saved.ready_check.reason, 'Moving house');
+  assert.equal(saved.pause_request.until, addDaysToYMD(today, 45), 'not yet: a pause request for her');
+  assert.equal(saved.status, 'active');
+
+  // Undo the removal: back, and asked again from today (so the sweep leaves them).
+  await actions.undoRemoval(lapsed.id, { today });
+  await cw.syncWaitlistOnline();
+  const back = await waitlistEntryRepo.getById(lapsed.id);
+  assert.equal(back.status, 'active');
+  assert.equal(back.ready_check.ask_from, today);
+  await waitlistEntryRepo.update(asked.id, { ready_check: null, pause_request: null });
 });

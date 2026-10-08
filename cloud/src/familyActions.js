@@ -18,7 +18,7 @@ import { STATUS_TOKEN } from './waitlist.js';
 import { fail, json, readJson } from './lib/http.js';
 
 export const ACTION_LIMITS = { perHourPerSession: 60, messagesPerHourPerSession: 10, messageBytes: 32 * 1024, noteChars: 500, maxPauseDays: 731 };
-export const FAMILY_ACTIONS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change', 'prepass', 'unprepass'];
+export const FAMILY_ACTIONS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change', 'prepass', 'unprepass', 'ready'];
 
 const OPEN_STATUSES = ['applied', 'approved', 'active'];
 // Copies of the app's vocab (shared/data/vocab.js); tests/familyPages.test.js in
@@ -84,10 +84,14 @@ function checkReason(body, projection) {
 
 // A litter (or an upcoming pairing) a family may say "Not this litter" to: one she
 // published to them. → { litter_id } | { pairing_id }
+// "Not this litter" works on what the family's page shows them: a litter with
+// open picks, or a pairing or early litter she shows on family pages (§16.4).
 function checkTarget(body, projection) {
-  if (typeof body.litter_id === 'string' && body.litter_id && projection.litters?.[body.litter_id]) return { litter_id: body.litter_id };
+  const shown = (projection.upcoming || []).filter((u) => u && u.family === true);
+  if (typeof body.litter_id === 'string' && body.litter_id && projection.litters?.[body.litter_id]
+    && (projection.litters[body.litter_id].picks_open || shown.some((u) => u.litter_id === body.litter_id))) return { litter_id: body.litter_id };
   if (typeof body.pairing_id === 'string' && body.pairing_id
-    && (projection.upcoming || []).some((u) => u && u.id === body.pairing_id && u.kind !== 'early_litter')) return { pairing_id: body.pairing_id };
+    && shown.some((u) => u.id === body.pairing_id && u.kind !== 'early_litter')) return { pairing_id: body.pairing_id };
   return fail(409, 'not_listed');
 }
 
@@ -149,9 +153,22 @@ export function checkAction(action, body, { entry, projection, pending, now = ne
     }
     case 'leave':
       return { note: cleanNote(body.note) };
+    case 'ready': {
+      // "Ready now?" (Spec §16.7): only while her device asks it, once.
+      if (entry.status !== 'active' || !entry.ready_check || entry.ready_check.answer) fail(409, 'not_asked');
+      if (already('ready', () => true)) fail(409, 'already_answered');
+      if (body.answer === 'yes') return { answer: 'yes' };
+      if (body.answer !== 'no') fail(400, 'bad_request');
+      const until = String(body.until ?? '');
+      const today = todayUtc(now);
+      if (!YMD.test(until) || until <= today || until > addDays(today, ACTION_LIMITS.maxPauseDays)) fail(400, 'bad_date');
+      const reason = cleanNote(body.reason);
+      if (!reason) fail(400, 'reason_required');
+      return { answer: 'no', until, reason };
+    }
     case 'listen': {
       if (entry.status !== 'active') fail(409, 'not_on_list');
-      const mode = body.mode === 'selected' ? 'selected' : body.mode === 'all' ? 'all' : fail(400, 'bad_request');
+      const mode = ['all', 'selected', 'except'].includes(body.mode) ? body.mode : fail(400, 'bad_request');
       const parents = projection.kennel?.parents || { sires: [], dams: [] };
       const pick = (ids, list) => {
         const allowed = new Set((list || []).map((d) => d.id));
@@ -159,9 +176,9 @@ export function checkAction(action, body, { entry, projection, pending, now = ne
         if (out.some((id) => !allowed.has(id))) fail(400, 'bad_parent');
         return out;
       };
-      const sireIds = mode === 'selected' ? pick(body.sire_ids, parents.sires) : [];
-      const damIds = mode === 'selected' ? pick(body.dam_ids, parents.dams) : [];
-      if (mode === 'selected' && !sireIds.length && !damIds.length) fail(400, 'no_parents');
+      const sireIds = mode !== 'all' ? pick(body.sire_ids, parents.sires) : [];
+      const damIds = mode !== 'all' ? pick(body.dam_ids, parents.dams) : [];
+      if (mode !== 'all' && !sireIds.length && !damIds.length) fail(400, 'no_parents');
       return { mode, sire_ids: sireIds, dam_ids: damIds };
     }
     case 'pref_change': {

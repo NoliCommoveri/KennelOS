@@ -524,6 +524,17 @@ means no fee reminder ever.
       `listenChangeKind` treats more parents (or All → except) as narrower, fewer (or → All)
       as wider, and `selected` ↔ `except` as narrower. Edit form, status page editor, server
       `checkAction('listen')`, the projection and the registry labels' wording.
+      **Built 2026-10-08.** As planned, with: an `except` with nobody listed skips nothing, so
+      it counts as All litters (`waitlistRules.isListenOnly`; `listenChangeKind` treats it so);
+      the server refuses it like an empty `selected` (`400 no_parents`). The projection
+      already carried `listen.mode` as-is. Her app: the Edit form's third option, the family
+      page's summary ("All except …", with the litters and pairings it skips right now), the
+      list badge "Skips some litters", Today's and the family page's request wording, and the
+      Offer button's reason. Registry labels: "sire/dam in a waitlist family's listen-only
+      choice". Fixed on the way: the Edit form's parent picks never hid on "All litters"
+      (`.field`'s `display: flex` beat `[hidden]`; `app.css` now has `.field[hidden]`, which
+      also hides the sale's owner field as intended). Tests: `waitlistRules`,
+      `waitlistEvents`, `cloudWaitlist`, `cloud/tests/familyActions`.
    4. **Pairings and early litters online, and the deposits nudge (§16.4, §16.8).**
       - `waitlist_config.show_upcoming` (`{ planned_pairings, pairings, early_litters }`, each
         `{ public, family }`, all false; cloud). The settings card warns that the public list
@@ -537,6 +548,32 @@ means no fee reminder ever.
         ones, with **Not this litter** (part 2).
       - Today (`nudges.js`): a whelped litter whose `accept_deposits_date` has come, picks not
         open, pups available → **Open picks**.
+      **Built 2026-10-08.** As planned, with (her answers, 2026-10-08): the switches govern
+      family pages too, so the status page's Litters card lists only litters with open picks
+      (or in their turn) and everything earlier is in a **Coming up** card when she shows it;
+      an `expected` litter is a `pairing` item keyed by its pairing (so "Not this litter" on it
+      carries over). Items: `waitlistRules.upcomingItems` (all stages) filtered by
+      `showUpcoming`; each `{ id, kind, label, pairing_id, litter_id, sire, dam,
+      expected_whelp_date (= Pairing.expected_due_date), whelp_date, picks_expected_date,
+      public, family }`, parents as `{ name, titles }` (`titlesByDog`, the oldest title
+      first); `litters[]` gain `pairing_id`; per entry `upcoming: { [id]: { waiting, position
+      } }`. Server: `listView.upcoming` (public ones, without where they show), `statusView`
+      (family ones, merged with the entry's flags); `prepass` only on a litter with open picks
+      or a shown item (`not_listed` otherwise). Public list page: a **Coming up** card. The
+      settings live in Waitlist settings, shown where the waitlist online is offered, with
+      the public-list warning. The nudge (`depositsDueLitters`) shows only for a kennel with
+      families on its list. Tests: `waitlistRules`, `waitlistProjection`, `cloudWaitlist`,
+      `cloud/tests/familyPages`, `cloud/tests/familyActions`.
+   4b. **What number a family sees (§16.9, decided 2026-10-08).** **Built 2026-10-08.**
+      `waitlistRules.placeHidden` (pure, tested); the projection drops `litter_positions` (and
+      the early-litter place) for `matching_litter_ids` and `upcoming[id].match`, and sets
+      `position: null` + `place_hidden` (`{ reason: 'turn' }` or `{ reason: 'passed', litters:
+      [{ litter_id, label, outcome }] }`); `publicList({ hidden })` leaves those families off
+      the public list (online and her Copy public list). Server `statusView` passes
+      `place_hidden` through and gives each litter `match` instead of `your_position`. Status
+      page: no "#n in line" anywhere; "Your place" says why there's no number; a passed
+      litter says "You passed" with no "Not this litter". Tests: `waitlistRules`,
+      `waitlistProjection`, `cloud/tests/familyPages`.
    5. **"Review your preferences" and "A litter you match was born" (§16.6).** Pure rule
       `whelpNotes(entries, litter, pups, …)`: for each active, not paused or held family, `match`
       if eligible, else `review` with why (`listen`, `sex`, `breed`, `placement`, `colors`)
@@ -545,6 +582,17 @@ means no fee reminder ever.
       status page shows a card with **Review your preferences** opening the listen-only and
       Ask-to-change editors (changes go through the usual rules; Q26). The email half joins
       "It's almost your turn" in step 6. Shown whatever the early-litters switch says (Q34).
+      **Built 2026-10-08 (status page).** As planned, with: `whelpNotes(entries, litter, pups,
+      sales, { today, config })` covers a litter `whelped` / `weaning` / `ready`, picks not
+      open, a pup available (`isWhelpNoteLitter`); `why` lists what narrows them, `listen`
+      first, then each answer that on its own rules out one of these pups (if none does
+      alone, each answer that rules one out with the rest left open). Projection: per entry
+      `whelp_notes: [{ litter_id, pairing_id, label, kind, why }]`; server `statusView` passes
+      it through. Status page: a **Review your preferences** card (or **A litter was born**
+      when they match every one) after Your place, with **Change which litters you wait for**
+      and **Ask to change your answers**, each opening that editor; a litter they said "Not
+      this litter" to gets no note. Her app shows nothing new. Tests: `waitlistRules`,
+      `waitlistProjection`, `cloud/tests/familyPages`.
    6. **"Ready now?" (§16.7).** `waitlist_config.ready_no_answer` (`keep_paused` default |
       `unpause` | `remove_after`) and `ready_answer_days` (14), cloud.
       `waitlist_entries.ready_check` (`{ answer: 'yes' | 'no', answered_date, until, reason }`,
@@ -555,6 +603,22 @@ means no fee reminder ever.
       family when the window passes (`removed_reason: 'no_ready_answer'`, new vocab value,
       7-day undo like a second-pass removal) and Today reports it; Today also lists families
       unanswered for more than `ready_answer_days` under `keep_paused`.
+      **Built 2026-10-08 (status page).** As planned, with (her answers, 2026-10-08): online
+      lists only, and only holds ending from `waitlist_config.online_since` (set when the
+      list goes online; backfilled to the sync's day for a list already online). Rules:
+      `readyCheck` → `{ asked, answer_by, answer }`, `readyCheckLapsed`, `readyCheckOverdue`;
+      `isReadyHeld(entry, today, config)` / `isPaused(…, config)` (config optional; every
+      eligibility call passes it). A No holds them while its pause request waits for her.
+      Actions: `recordReadyAnswer` (`by: 'family' | 'breeder'`), `removeForNoReadyAnswer`;
+      `undoRemoval` of one sets `ready_check: { ask_from: today }`. Device:
+      `cloudWaitlist.sweepReadyChecks` after the family events (backing device only). Server:
+      `ready` action (`409 not_asked` / `already_answered`, `400 bad_date` /
+      `reason_required`). Projection: `ready_check` per active entry (never the reason).
+      Status page: a **Ready now?** card with **Yes, I'm ready** / **Not yet** (date and
+      reason), and the answer-by warning under `remove_after`. Her app: settings (rule +
+      days, where online is offered), the list badge, the family page's line and **They
+      told me they're ready**, Today. Tests: `waitlistRules`, `waitlistEvents`,
+      `cloudWaitlist`, `waitlistProjection`, `cloud/tests/familyActions`.
    Each part: `node --check`, `node --test` and `cd cloud && npm test`, the precache check,
    syncRegistry entries for every new field, the End-State guide in the same change, and the
    flow in headless Chromium at phone width.

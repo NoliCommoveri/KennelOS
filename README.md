@@ -455,7 +455,22 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   reasons and "Not this litter" (§16.2, §16.5), is built & browser-verified:** her reasons
   (each with its message) in Waitlist settings; every pass a family makes needs one; "Not this
   litter" waits until their turn, leaves that litter out of it, and a turn of nothing else is
-  passed at once. Next: step 5c parts 3–6, then step 6, email.
+  passed at once. **Part 3, listen-only "except" (§16.3), is built:** a family can wait for
+  every litter except those from parents they list; removing a parent (or going back to All)
+  applies at once, adding one or switching between "only" and "except" waits for her OK.
+  **Part 4, pairings and early litters online and the deposits nudge (§16.4, §16.8), is
+  built:** three stages (planned pairings, pairings, born litters before picks open), each
+  switchable for the public list and family pages (all off); Today suggests Open picks when a
+  litter's deposits date comes. **What number a family sees (§16.9) is built:** only their
+  overall place, hidden during their turn and after a pass until that litter closes (and off
+  the public list meanwhile); no per-litter numbers. **Part 5, "Review your preferences"
+  (§16.6), is built on the status page:** when a litter is born, families who match it are
+  told, and families kept out by their listen-only choice or answers are told why, with
+  buttons to change them (the email half comes with step 6). **Part 6, "Ready now?" (§16.7), is built:** when a readiness hold ends on
+  an online list, the family is asked on their status page; Not yet sends her a pause request
+  with their reason; no answer follows her setting (keep paused, unpause, or remove after N
+  days with a 7-day undo). Step 5c is complete; next is step 6, email. Service-worker cache
+  rolled to `kennelos-shell-v49` for step 5c (parts 3–6 and §16.9).
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass

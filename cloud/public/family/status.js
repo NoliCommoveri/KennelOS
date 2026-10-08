@@ -11,7 +11,7 @@
 // Messages are sealed here, in this browser, to her key (seal.js); the server
 // can't read them.
 import {
-  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive,
+  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingDetails,
   SEX_LABEL, READY_LABEL, PLACEMENT_LABEL, CREDIT_LABEL
 } from './common.js';
 import { rememberedFamily, forgetFamily } from './session.js';
@@ -47,14 +47,18 @@ function litterLine(l) {
   return bits.join(' · ');
 }
 
+// A litter they passed on (or let their turn lapse on) that's still being offered.
+const spentOn = (id) => (state.v.family.place_hidden?.litters || []).find((x) => x.litter_id === id) || null;
+
 function litterBadge(l) {
   // A litter in their open turn says so, whatever its line says: an approved change
   // to their answers never closes an offer (Spec §15.9), so they can hold a turn on a
   // litter they'd no longer be lined up for.
   if ((state.v.offers || []).some((o) => o.litter_id === l.id)) return '<span class="badge">Your turn</span>';
-  if (l.your_position) return `<span class="badge">#${esc(l.your_position)} in line</span>`;
+  const spent = spentOn(l.id);
+  if (spent) return `<span class="badge plain">${spent.outcome === 'no_response' ? 'Your turn ended' : 'You passed'}</span>`;
   if (!l.pups_available) return `<span class="badge plain">${l.status === 'expected' ? 'No pups yet' : 'No pups available'}</span>`;
-  return '<span class="badge plain">Not a match for you</span>';
+  return l.match ? '<span class="badge">A match for you</span>' : '<span class="badge plain">Not a match for you</span>';
 }
 
 function card(title, body, cls = '') {
@@ -234,24 +238,63 @@ function turnsOf(offers) {
 // reason. Nothing counts unless their turn comes; then that litter is left out of
 // it (and a turn of nothing else is passed at once). They can take it back.
 
-function prepassedNow(litterId) {
-  const pend = (state.v.pending || []).filter((p) => p.payload?.litter_id === litterId && (p.kind === 'prepass' || p.kind === 'unprepass'));
-  if (pend.length) return pend[pend.length - 1].kind === 'prepass';
-  return (state.v.family.prepasses || []).some((p) => p.litter_id === litterId);
+// What "Not this litter" acts on. A litter with open picks or an early litter is
+// its litter; a pairing (or a litter not yet born) is its pairing when it has one,
+// so the choice carries over to the litter born of it (§16.2).
+const litterTarget = (l) => ({ key: `l:${l.id}`, label: l.label, send: { litter_id: l.id }, litter_id: l.id, pairing_id: l.pairing_id || null });
+const upcomingTarget = (u) => ({
+  key: `u:${u.id}`, label: u.label,
+  send: u.kind !== 'early_litter' && u.pairing_id ? { pairing_id: u.pairing_id } : { litter_id: u.litter_id },
+  litter_id: u.litter_id || null, pairing_id: u.pairing_id || null
+});
+const matches = (x, t) => Boolean((x.litter_id && x.litter_id === t.litter_id) || (x.pairing_id && x.pairing_id === t.pairing_id));
+
+// The prepass in force for this target, as { litter_id } or { pairing_id } (what
+// Undo sends), or null. Their own unanswered actions count first.
+function prepassedNow(t) {
+  const pend = (state.v.pending || []).filter((p) => (p.kind === 'prepass' || p.kind === 'unprepass') && matches(p.payload || {}, t));
+  if (pend.length) {
+    const last = pend[pend.length - 1];
+    return last.kind === 'prepass' ? (last.payload.litter_id ? { litter_id: last.payload.litter_id } : { pairing_id: last.payload.pairing_id }) : null;
+  }
+  const p = (state.v.family.prepasses || []).find((x) => matches(x, t));
+  return p ? (p.litter_id ? { litter_id: p.litter_id } : { pairing_id: p.pairing_id }) : null;
 }
 
-function notThisLitter(l) {
+function notThisLitter(t) {
   if (!canAct() || state.v.family.status !== 'active') return '';
-  if ((state.v.offers || []).some((o) => o.litter_id === l.id)) return '';
-  if (prepassedNow(l.id)) {
+  if (t.litter_id && ((state.v.offers || []).some((o) => o.litter_id === t.litter_id) || spentOn(t.litter_id))) return '';
+  const done = prepassedNow(t);
+  if (done) {
+    const attr = done.litter_id ? `data-litter="${esc(done.litter_id)}"` : `data-pairing="${esc(done.pairing_id)}"`;
     return `<div class="row mt8"><span class="small"><span class="badge plain">Not this litter</span> We'll leave it out of your turn. Only if it's the only litter in your turn does that count as a pass.</span>
-      <button type="button" class="linkish small" data-act="unprepass" data-litter="${esc(l.id)}">Undo</button></div>`;
+      <button type="button" class="linkish small" data-act="unprepass" ${attr}>Undo</button></div>`;
   }
-  if (state.open === `prepass:${l.id}`) {
-    return reasonForm('prepass', `Not interested in ${esc(l.label)}? We'll leave it out of your turn when it comes. Nothing counts now; only if it's the only litter in your turn does that count as a pass. You keep your place for every other litter.`,
-      'Not this litter', { litter_id: l.id });
+  if (state.open === `prepass:${t.key}`) {
+    return reasonForm('prepass', `Not interested in ${esc(t.label)}? We'll leave it out of your turn when it comes. Nothing counts now; only if it's the only litter in your turn does that count as a pass. You keep your place for every other litter.`,
+      'Not this litter', t.send);
   }
-  return `<div class="actions mt8"><button type="button" class="secondary small" data-act="open" data-what="prepass:${esc(l.id)}">Not this litter</button></div>`;
+  return `<div class="actions mt8"><button type="button" class="secondary small" data-act="open" data-what="prepass:${esc(t.key)}">Not this litter</button></div>`;
+}
+
+// Pairings and litters before picks open, as she shows them on family pages
+// (Spec §16.4): what's coming, whether it's one they're waiting for, and for a
+// whelped litter their place in it now. A pairing has no pups, so no place.
+function upcomingBadge(u) {
+  if (u.kind === 'early_litter') {
+    if (!u.waiting) return '<span class="badge plain">Not one you\'re waiting for</span>';
+    return u.match ? '<span class="badge">A match for you</span>' : '<span class="badge plain">Not a match for you</span>';
+  }
+  return u.waiting ? '<span class="badge info">You\'re waiting for this</span>' : '<span class="badge plain">Not one you\'re waiting for</span>';
+}
+
+function upcomingCard(v) {
+  if (!(v.upcoming || []).length) return '';
+  const items = v.upcoming.map((u) => `<li><div class="row"><strong>${esc(u.label)}</strong>
+      <span class="small">${upcomingBadge(u)}</span></div>
+    ${upcomingDetails(u)}${u.waiting ? notThisLitter(upcomingTarget(u)) : ''}</li>`).join('');
+  return card('Coming up', `<ul class="plain">${items}</ul>
+    <p class="small muted">Plans can change.</p>`);
 }
 
 // --- Your place: still interested, pause, leave ----------------------------------
@@ -294,14 +337,96 @@ function placeActions(f) {
   return parts.join('');
 }
 
+// Why there's no number (decided 2026-10-08): during their turn, and after a turn
+// they passed on or let lapse, until those litters close. They keep their place.
+function placeHiddenHtml(h) {
+  if (!h) return '';
+  if (h.reason === 'turn') return '<p class="mt0"><strong>It\'s your turn!</strong> Choose a pup above, or pass.</p>';
+  const names = (h.litters || []).map((l) => l.label).filter(Boolean);
+  const lapsed = (h.litters || []).every((l) => l.outcome === 'no_response');
+  const what = names.length ? names.join(' and ') : 'that litter';
+  return `<p class="mt0">${lapsed ? `Your turn on ${esc(what)} ended.` : `You passed on ${esc(what)}.`} You keep your place for future litters.</p>
+    <p class="small muted">Your number shows again once ${names.length > 1 ? 'those litters close' : 'that litter closes'}.</p>`;
+}
+
+// --- Ready now? (Spec §16.7) -----------------------------------------------------
+// When their readiness hold ends (while the list is online), they're asked. Yes ends
+// the hold. Not yet: a new date and a reason, which ask the breeder for a pause.
+
+function readyHtml(f) {
+  const rc = f.ready_check;
+  if (!rc || f.status !== 'active') return '';
+  const kennel = state.v.kennel.name;
+  const sent = pendingOf('ready');
+  if (sent.length || rc.answer) {
+    const answer = sent.length ? sent[sent.length - 1].payload.answer : rc.answer;
+    return answer === 'yes' ? '' : card('Ready now?', `<p class="mt0">You said you're not ready yet. Your pause request is with ${esc(kennel)}; until they decide, you won't be offered a pup.</p>`);
+  }
+  const deadline = rc.answer_by ? `<p class="small"><strong>Please answer by ${esc(fmtDate(rc.answer_by))}, or you'll be removed from the waitlist.</strong></p>` : '';
+  if (!canAct()) {
+    return card('Ready now?', `<p class="mt0">When you applied you said you'd be ready to buy about now. Sign in on the waitlist page to answer.</p>${deadline}`);
+  }
+  if (state.open === 'ready_no') {
+    return card('Ready now?', `<form data-form="ready_no">
+        <label class="q">When do you expect to be ready? <span class="req">*</span><input type="date" name="until" required></label>
+        <label class="q mt8">Why not yet? <span class="req">*</span><textarea name="reason" maxlength="500" required></textarea></label>
+        <p class="small muted">${esc(kennel)} sees your reason and decides on pausing your place until then. You keep your place.</p>
+        <div class="actions"><button class="primary" type="submit">Send</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
+      </form>${deadline}`);
+  }
+  return card('Ready now?', `<p class="mt0">When you applied you said you'd be ready to buy about now. Are you ready to be offered a pup?</p>${deadline}
+    <div class="actions"><button type="button" class="primary" data-act="ready_yes">Yes, I'm ready</button><button type="button" class="secondary" data-act="open" data-what="ready_no">Not yet</button></div>`);
+}
+
+// --- A litter was born (Spec §16.6) ---------------------------------------------
+// For a born litter whose picks aren't open yet: "A litter you match was born", or,
+// when their listen-only choice or answers keep them out, what does and a way to
+// review it. Changes go through the usual rules: a wider listen-only change applies
+// at once, any change to an answer waits for her OK (Q26).
+
+const WHY_TEXT = {
+  listen: 'which litters you wait for', sex: 'the sex you asked for', breed: 'the breed you asked for',
+  placement: 'the placement you asked for', colors: 'the colors you asked for'
+};
+
+function whelpNotesHtml(f) {
+  const notes = (f.whelp_notes || []).filter((n) => !prepassedNow({ litter_id: n.litter_id, pairing_id: n.pairing_id }));
+  if (!notes.length) return '';
+  const kennel = state.v.kennel.name;
+  const match = notes.filter((n) => n.kind === 'match');
+  const review = notes.filter((n) => n.kind === 'review');
+  const parts = match.map((n) => `<p class="mt0">A litter you match was born: <strong>${esc(n.label)}</strong>.</p>`);
+  if (review.length) {
+    const why = new Set(review.flatMap((n) => n.why || []));
+    parts.push(...review.map((n) => `<p class="mt0"><strong>${esc(n.label)}</strong> was born. You're not lined up for it because of ${esc(listText((n.why || []).map((w) => WHY_TEXT[w]).filter(Boolean)))}.</p>`));
+    const buttons = [];
+    const parents = state.v.kennel.parents || { sires: [], dams: [] };
+    if (canAct() && why.has('listen') && parents.sires.length + parents.dams.length) {
+      buttons.push('<button type="button" class="secondary" data-act="open" data-what="listen" data-scroll="1">Change which litters you wait for</button>');
+    }
+    if (canAct() && [...why].some((w) => w !== 'listen') && editableFields().length) {
+      buttons.push('<button type="button" class="secondary" data-act="open" data-what="pref_change" data-scroll="1">Ask to change your answers</button>');
+    }
+    parts.push(`<p class="small muted">If you'd like to be considered for it, review your choices. A change to your answers needs ${esc(possessive(kennel))} OK; nothing counts against you either way.</p>`);
+    if (buttons.length) parts.push(`<div class="actions">${buttons.join('')}</div>`);
+  }
+  return card(review.length ? 'Review your preferences' : 'A litter was born', parts.join(''));
+}
+
+const listText = (xs) => (xs.length <= 1 ? (xs[0] || 'your choices') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+
 // --- Which litters (listen-only, Spec §15.7) --------------------------------------
 
 function listenHtml(f) {
   const k = state.v.kennel;
   const parents = k.parents || { sires: [], dams: [] };
   const name = (id) => [...parents.sires, ...parents.dams].find((d) => d.id === id)?.name || 'a parent no longer listed';
-  const describe = (l) => ((l?.mode || 'all') !== 'selected' ? 'All litters'
-    : [l.sire_ids?.length ? `Sires: ${l.sire_ids.map(name).join(', ')}` : '', l.dam_ids?.length ? `Dams: ${l.dam_ids.map(name).join(', ')}` : ''].filter(Boolean).join(' · '));
+  const describe = (l) => {
+    const mode = l?.mode || 'all';
+    const parents = [l?.sire_ids?.length ? `Sires: ${l.sire_ids.map(name).join(', ')}` : '', l?.dam_ids?.length ? `Dams: ${l.dam_ids.map(name).join(', ')}` : ''].filter(Boolean).join(' · ');
+    if (mode === 'all' || (mode === 'except' && !parents)) return 'All litters';
+    return mode === 'except' ? `All litters except: ${parents}` : `Only: ${parents || 'no parents chosen yet'}`;
+  };
   const sent = pendingOf('listen');
   const req = f.requests?.listen;
   let status = '';
@@ -315,16 +440,17 @@ function listenHtml(f) {
     return card('Which litters you wait for', `${body}${status}
       <div class="actions"><button type="button" class="secondary" data-act="open" data-what="listen">Change</button></div>`);
   }
-  const selected = f.listen?.mode === 'selected';
+  const mode = ['selected', 'except'].includes(f.listen?.mode) ? f.listen.mode : 'all';
   const box = (side, d, ids) => `<label class="choice"><input type="checkbox" name="${side}" value="${esc(d.id)}"${(ids || []).includes(d.id) ? ' checked' : ''}> ${esc(d.name)}</label>`;
   body = `<form data-form="listen">
       <div class="choices">
-        <label class="choice"><input type="radio" name="mode" value="all"${selected ? '' : ' checked'}> All litters</label>
-        <label class="choice"><input type="radio" name="mode" value="selected"${selected ? ' checked' : ''}> Only litters from these parents</label>
+        <label class="choice"><input type="radio" name="mode" value="all"${mode === 'all' ? ' checked' : ''}> All litters</label>
+        <label class="choice"><input type="radio" name="mode" value="selected"${mode === 'selected' ? ' checked' : ''}> Only litters from these parents</label>
+        <label class="choice"><input type="radio" name="mode" value="except"${mode === 'except' ? ' checked' : ''}> All litters except these parents</label>
       </div>
       ${parents.sires.length ? `<p class="small muted mt8">Sires</p><div class="choices">${parents.sires.map((d) => box('sire', d, f.listen?.sire_ids)).join('')}</div>` : ''}
       ${parents.dams.length ? `<p class="small muted mt8">Dams</p><div class="choices">${parents.dams.map((d) => box('dam', d, f.listen?.dam_ids)).join('')}</div>` : ''}
-      <p class="small muted">A litter counts if its sire OR its dam is one you picked. You keep your place either way. Adding parents, or going back to all litters, happens at ${esc(possessive(k.name))} next update; waiting for fewer litters needs their OK.</p>
+      <p class="small muted">A litter counts if its sire OR its dam is one you picked (with "except", that litter is skipped). You keep your place either way. Waiting for more litters (or all of them) happens at ${esc(possessive(k.name))} next update; waiting for fewer, or switching between "only" and "except", needs their OK.</p>
       <div class="actions"><button class="primary" type="submit">Save</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
     </form>`;
   return card('Which litters you wait for', body + status);
@@ -381,28 +507,31 @@ function mineHtml() {
   }
 
   for (const rows of turnsOf(v.offers)) parts.push(turnHtml(rows));
+  parts.push(readyHtml(f));
 
   if (f.status === 'active') {
     const notices = [];
     if (f.paused_until) notices.push(`Your place is paused until ${esc(fmtDate(f.paused_until))}. You keep your place; you won't be offered a pup until then.`);
     if (f.ready_from) notices.push(`You said you'd be ready to buy later, so you won't be offered a pup before ${esc(fmtDate(f.ready_from))}. You keep your place.`);
     if (f.listen?.mode === 'selected') notices.push('You\'re only waiting for litters from the parents you chose. You keep your place for everything else.');
+    else if (f.listen?.mode === 'except' && (f.listen.sire_ids?.length || f.listen.dam_ids?.length)) notices.push('You\'re skipping litters from the parents you chose. You keep your place for everything else.');
     parts.push(card('Your place', `
-      ${f.position ? `<p class="big mt0">#${esc(f.position)}</p><p class="muted mt0">on ${esc(possessive(kennel))} waitlist</p>` : ''}
+      ${f.position ? `<p class="big mt0">#${esc(f.position)}</p><p class="muted mt0">on ${esc(possessive(kennel))} waitlist</p>` : placeHiddenHtml(f.place_hidden)}
       ${notices.map((n) => `<p class="small">${n}</p>`).join('')}
       <dl class="facts">
         ${f.fee_received_date ? `<dt>On the list since</dt><dd>${esc(fmtDate(f.fee_received_date))}</dd>` : ''}
         ${f.passes ? `<dt>Passes used</dt><dd>${esc(f.passes.used)} of ${esc(f.passes.max)}</dd>` : ''}
       </dl>
       ${placeActions(f)}`));
+    parts.push(whelpNotesHtml(f));
 
     if (v.litters.length) {
       const items = v.litters.map((l) => `<li><div class="row"><strong>${esc(l.label)}</strong>
           <span class="small">${litterBadge(l)}</span></div>
-        <div class="small muted">${esc(litterLine(l))}</div>${notThisLitter(l)}</li>`).join('');
-      parts.push(card('Litters', `<ul class="plain">${items}</ul>
-        <p class="small muted">"In line" counts only families who match that litter's pups.</p>`));
+        <div class="small muted">${esc(litterLine(l))}</div>${notThisLitter(litterTarget(l))}</li>`).join('');
+      parts.push(card('Litters', `<ul class="plain">${items}</ul>`));
     }
+    parts.push(upcomingCard(v));
     parts.push(listenHtml(f));
   } else if (canAct()) {
     parts.push(card('', placeActions(f)));
@@ -426,6 +555,8 @@ const ERRORS = {
   in_your_turn: "That litter is in your turn now: choose a pup or pass on the turn instead.",
   not_listed: "That litter isn't on the list any more.",
   not_prepassed: 'That was already taken back.',
+  not_asked: 'That question has already been answered.',
+  already_answered: "You've already answered. The breeder will see it at their next update.",
   not_on_list: "You can't do that right now; the page now shows where things stand.",
   bad_date: 'Please pick a date after today, within two years.',
   no_parents: 'Pick at least one sire or dam, or choose All litters.',
@@ -460,7 +591,10 @@ async function onClick(ev) {
   if (!b || b.disabled) return;
   const kennel = state.v.kennel.name;
   switch (b.dataset.act) {
-    case 'open': state.open = b.dataset.what; state.flash = ''; render(); return;
+    case 'open':
+      state.open = b.dataset.what; state.flash = ''; render();
+      if (b.dataset.scroll) document.querySelector(`form[data-form="${state.open}"]`)?.scrollIntoView({ block: 'center' });
+      return;
     case 'close': state.open = null; render(); return;
     case 'pick': {
       const offer = state.v.offers.find((o) => o.id === b.dataset.offer);
@@ -471,7 +605,11 @@ async function onClick(ev) {
     }
     case 'unprepass':
       b.disabled = true;
-      await act('unprepass', { litter_id: b.dataset.litter }, 'Done. That litter is back in your turn when it comes.');
+      await act('unprepass', b.dataset.litter ? { litter_id: b.dataset.litter } : { pairing_id: b.dataset.pairing }, 'Done. That litter is back in your turn when it comes.');
+      return;
+    case 'ready_yes':
+      b.disabled = true;
+      await act('ready', { answer: 'yes' }, `Thanks! ${kennel} will see that you're ready at their next update.`);
       return;
     case 'still_interested':
       b.disabled = true;
@@ -500,8 +638,15 @@ async function onSubmit(ev) {
         render();
         return;
       }
-      const target = form.dataset.form === 'pass' ? { turn_id: data.get('turn_id') } : { litter_id: data.get('litter_id') };
+      const target = form.dataset.form === 'pass' ? { turn_id: data.get('turn_id') }
+        : data.get('pairing_id') ? { pairing_id: data.get('pairing_id') } : { litter_id: data.get('litter_id') };
       await act(form.dataset.form, { ...target, reason_id: reasonId, reason_text: text }, reasonMessage(reasonId));
+      return;
+    }
+    case 'ready_no': {
+      const reason = String(data.get('reason') || '').trim();
+      if (!reason) { state.flash = 'Please tell us why not yet.'; button.disabled = false; render(); return; }
+      await act('ready', { answer: 'no', until: data.get('until'), reason }, `Thanks for letting us know. ${kennel} decides on pausing your place; until then you won't be offered a pup.`);
       return;
     }
     case 'pause':
@@ -511,8 +656,8 @@ async function onSubmit(ev) {
       await act('leave', { note: data.get('note') }, `${kennel} will see that you're leaving at their next update.`);
       return;
     case 'listen': {
-      const mode = data.get('mode') === 'selected' ? 'selected' : 'all';
-      await act('listen', { mode, sire_ids: mode === 'selected' ? data.getAll('sire') : [], dam_ids: mode === 'selected' ? data.getAll('dam') : [] },
+      const mode = ['selected', 'except'].includes(data.get('mode')) ? data.get('mode') : 'all';
+      await act('listen', { mode, sire_ids: mode !== 'all' ? data.getAll('sire') : [], dam_ids: mode !== 'all' ? data.getAll('dam') : [] },
         `Saved. ${kennel} will see it at their next update.`);
       return;
     }

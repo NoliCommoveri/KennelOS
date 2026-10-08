@@ -23,16 +23,21 @@ const projection = (extra = {}) => ({
   },
   public_list: [],
   entries: {
-    ann: { name: 'Ann Lee', email: 'ann@example.com', status: 'active', status_token: tok('a'), position: 1, litter_positions: { l1: 1 },
+    ann: { name: 'Ann Lee', email: 'ann@example.com', status: 'active', status_token: tok('a'), position: 1, matching_litter_ids: ['l1'],
       offers: [{ id: 'o1', litter_id: 'l1', respond_by_date: plusDays(3), eligible_dog_ids: ['p1', 'p2'], picked_dog_id: null }] },
     bo: { name: 'Bo Kim', email: 'bo@example.com', status: 'active', status_token: tok('b'), position: 2,
       offers: [{ id: 'o2', litter_id: 'l2', respond_by_date: plusDays(3), eligible_dog_ids: ['p2', 'p3'], picked_dog_id: null }] },
     cy: { name: 'Cy Day', email: 'cy@example.com', status: 'placed', status_token: tok('c') },
   },
   litters: {
-    l1: { label: 'Juniper × Ash', pups: [{ id: 'p1', call_name: 'Pip' }, { id: 'p2', call_name: 'Poppy' }] },
-    l2: { label: 'Willow × Ash', pups: [{ id: 'p2', call_name: 'Poppy' }, { id: 'p3', call_name: 'Pearl' }] },
+    l1: { label: 'Juniper × Ash', picks_open: true, pups: [{ id: 'p1', call_name: 'Pip' }, { id: 'p2', call_name: 'Poppy' }] },
+    l2: { label: 'Willow × Ash', picks_open: true, pups: [{ id: 'p2', call_name: 'Poppy' }, { id: 'p3', call_name: 'Pearl' }] },
+    l3: { label: 'Spring litter', picks_open: false, pups: [{ id: 'p4', call_name: 'Pansy' }] },
   },
+  upcoming: [
+    { id: 'pair1', kind: 'pairing', pairing_id: 'pair1', litter_id: null, public: false, family: true },
+    { id: 'pair2', kind: 'planned_pairing', pairing_id: 'pair2', litter_id: null, public: true, family: false },
+  ],
   ...extra,
 });
 
@@ -118,6 +123,9 @@ test('a pause request needs a date in the future (within two years); listen-only
   assert.equal(await err(await act(env, ann, tok('a'), 'listen', { mode: 'selected', sire_ids: ['someone-else'] })), 'bad_parent');
   assert.equal(await err(await act(env, ann, tok('a'), 'listen', { mode: 'selected', sire_ids: [], dam_ids: [] })), 'no_parents');
   assert.equal((await act(env, ann, tok('a'), 'listen', { mode: 'selected', dam_ids: ['dam1'] })).status, 200);
+  assert.equal(await err(await act(env, ann, tok('a'), 'listen', { mode: 'except', sire_ids: [], dam_ids: [] })), 'no_parents');
+  assert.equal(await err(await act(env, ann, tok('a'), 'listen', { mode: 'except', dam_ids: ['someone-else'] })), 'bad_parent');
+  assert.equal(await err(await act(env, ann, tok('a'), 'listen', { mode: 'never' })), 'bad_request');
 
   assert.equal(await err(await act(env, ann, tok('a'), 'pref_change', { changes: { pref_breed: 'Poodle' } })), 'bad_value');
   assert.equal(await err(await act(env, ann, tok('a'), 'pref_change', { changes: { pref_sex: 'puppy' } })), 'bad_value');
@@ -187,4 +195,27 @@ test('"Not this litter" (Spec §16.2): a reason, a litter she listed, never one 
   assert.deepEqual((await res.json()).pending.map((p) => [p.kind, p.payload]), [['prepass', { litter_id: 'l1', reason: { id: 'timing', text: '' } }]]);
   assert.equal(await err(await act(env, bo, tok('b'), 'unprepass', { litter_id: 'l2' })), 'not_prepassed');
   assert.equal((await act(env, bo, tok('b'), 'unprepass', { litter_id: 'l1' })).status, 200);
+});
+
+test('"Not this litter" before picks open: only on what she shows on family pages (Spec §16.4)', async () => {
+  const { env, bo } = await setup();
+  assert.equal(await err(await act(env, bo, tok('b'), 'prepass', { litter_id: 'l3', reason_id: 'timing' })), 'not_listed', 'picks not open and not shown');
+  assert.equal(await err(await act(env, bo, tok('b'), 'prepass', { pairing_id: 'pair2', reason_id: 'timing' })), 'not_listed', 'shown publicly only');
+  assert.equal((await act(env, bo, tok('b'), 'prepass', { pairing_id: 'pair1', reason_id: 'timing' })).status, 200);
+});
+
+test('"Ready now?" (Spec §16.7): only while she asks it, once; not yet needs a date and a reason', async () => {
+  const { env, ann, bo, publish } = await setup();
+  assert.equal(await err(await act(env, ann, tok('a'), 'ready', { answer: 'yes' })), 'not_asked');
+  const p = projection();
+  p.entries.bo.ready_check = { asked: today(), answer_by: null, answer: null };
+  await publish(p);
+  assert.equal(await err(await act(env, bo, tok('b'), 'ready', { answer: 'maybe' })), 'bad_request');
+  assert.equal(await err(await act(env, bo, tok('b'), 'ready', { answer: 'no', until: plusDays(30) })), 'reason_required');
+  assert.equal(await err(await act(env, bo, tok('b'), 'ready', { answer: 'no', until: today(), reason: 'x' })), 'bad_date');
+  assert.equal((await act(env, bo, tok('b'), 'ready', { answer: 'no', until: plusDays(30), reason: 'Moving house' })).status, 200);
+  assert.equal(await err(await act(env, bo, tok('b'), 'ready', { answer: 'yes' })), 'already_answered');
+  const last = events(env).at(-1);
+  assert.equal(last.kind, 'ready');
+  assert.deepEqual(last.payload, { answer: 'no', until: plusDays(30), reason: 'Moving house' });
 });
