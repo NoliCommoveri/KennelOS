@@ -253,8 +253,17 @@ export const SALE_STATUS = [
   { value: 'paid_in_full',  label: 'Paid in full',  badge: 'badge-green' },
   { value: 'delivered',     label: 'Delivered',     badge: 'badge-green' },
   { value: 'returned',      label: 'Returned',      badge: 'badge-red' },
-  { value: 'cancelled',     label: 'Cancelled',     badge: 'badge-gray' }
+  { value: 'cancelled',     label: 'Cancelled',     badge: 'badge-gray' },
+  { value: 'voided',        label: 'Voided',        badge: 'badge-neutral' }
 ];
+
+// A sale that ended without the pup going home. `cancelled` is the BUYER backing
+// out (a deposit they paid stays earned, Financials §21); `voided` is the sale
+// falling through on the kennel's side, through no fault of the buyer (the pup
+// died or can't go home): nothing on it counts as income, since any deposit is
+// refunded or carried to another pup. `returned` came back after going home.
+// Every one frees the pup (waitlistRules.isPupAvailable).
+export const RELEASED_SALE_STATUSES = ['returned', 'cancelled', 'voided'];
 
 // Statuses that close a sale out. A closed sale no longer makes its buyer a
 // current "family": not in the Companion family package (companion.js), not in
@@ -262,7 +271,7 @@ export const SALE_STATUS = [
 // status page (waitlistProjection.js). All of them go through isOpenSale (via
 // saleRepo.isOpenSale in the app) so they can't drift. Here, not in saleRepo,
 // so the pure waitlist modules can use it without Dexie.
-export const TERMINAL_SALE_STATUSES = ['delivered', 'returned', 'cancelled'];
+export const TERMINAL_SALE_STATUSES = ['delivered', ...RELEASED_SALE_STATUSES];
 export const isOpenSale = (s) => !!s && !s.is_archived && !!s.status && !TERMINAL_SALE_STATUSES.includes(s.status);
 
 export const CONTRACT_TYPE = [

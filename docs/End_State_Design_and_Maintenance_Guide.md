@@ -531,10 +531,17 @@ Notable repo specifics:
   visited-set); `addPlannedTests` (additive, dedupe-on-write); `getBreeds`.
 - **eventRepo** (exported as both `HistoryEvent` and `eventRepo`): see §8.
 - **saleRepo.isOpenSale(sale)**: true when a sale is non-archived and its status is not
-  in `{delivered, returned, cancelled}`. Drives family-companion membership (§20) and
+  in `{delivered, returned, cancelled, voided}`. Drives family-companion membership (§20) and
   the "open sale" filter. The predicate and `TERMINAL_SALE_STATUSES` live in `vocab.js`
   (`isOpenSale`), so the pure waitlist modules (projection, family events) use the same rule
   for Companion link requests (Waitlist Spec §16.10); `saleRepo` re-exports them.
+  `vocab.RELEASED_SALE_STATUSES` (`returned`/`cancelled`/`voided`) is the subset that ends a
+  sale **without** the pup staying placed: each frees the pup for the waitlist
+  (`isPupAvailable`), and editing a sale into one offers to set the pup's disposition back.
+  **`cancelled` vs `voided`:** cancelled is the *buyer* backing out (a paid deposit stays
+  earned, §21); voided is the sale falling through on the *kennel's* side through no fault
+  of the buyer — the pup died or can't go home — so nothing on it is income (decided
+  2026-10-08).
 - **contractRepo.governingContract(contracts)**: derived "live contract" = most recent
   `signed` by `signed_date` (fallback `created_at`), or null. Never stored.
   **contractRepo.isLivePartnerContract(c, today)**: non-archived, counterparty set, not
@@ -1642,7 +1649,7 @@ single-user/offline/all-local; this adds *recipients*.
   prospect — **no per-recipient private data**.
 - **`family`** — a current family (a buyer with an **open** sale per `saleRepo.isOpenSale`):
   **one rich card per placed pup** (`pups[]`, from `saleRepo.getByBuyer` filtered by
-  `isOpenSale` → dog — terminal sales `delivered`/`returned`/`cancelled` never appear,
+  `isOpenSale` → dog — terminal sales `delivered`/`returned`/`cancelled`/`voided` never appear,
   matching membership). Each pup carries `callName`, `sex`, `photosUrl` (`Dog.url`),
   `litterNickname` (when set), `sire`/`dam` (call + registered name), a **computed `age`
   `{ageWeeks, ageDays}`** as-of the generation date (**never the raw DOB**), a `placement`
@@ -1928,7 +1935,9 @@ Classification (owner decisions):
   **earned** once its paid-date is recorded (`deposit_date` / `balance_paid_date`) or the status
   has advanced past it (`deposit_paid`/`paid_in_full`/`delivered`), else **anticipated**. On a
   **returned/cancelled** sale only amounts already recorded as paid survive (as earned); the
-  unpaid remainder is dropped, never anticipated. A part-paid open sale therefore appears in
+  unpaid remainder is dropped, never anticipated. A **voided** sale (the kennel's side fell
+  through, e.g. the pup died before going home) drops **everything**, paid or not — the
+  deposit is refunded or carried to another pup's sale, so it is never this sale's income. A part-paid open sale therefore appears in
   **both** the Earned and Anticipated boxes, each with its own portion.
 - **StudService (outgoing only** — incoming is money *we* pay, an expense). `fee_amount` is
   **earned** when `completed`, **anticipated** while `arranged`/`in_progress`, dropped when
@@ -2902,7 +2911,7 @@ Pure functions, no Dexie, no clock (callers pass `today`); pinned by
   `approved_date` → `created_at` → `id`.
 - **Available pup**: not archived, not deceased, `disposition` not `keeping`/`placed`
   (unset/`undecided` count as available), and no non-archived Sale whose status isn't
-  `returned`/`cancelled`.
+  `returned`/`cancelled`/`voided` (`vocab.RELEASED_SALE_STATUSES`).
 - **Preference match**: sex (unless `any`), **breed** (unless blank; case-insensitive,
   trimmed, against `Dog.breed`), placement (vs `Dog.intended_placement`), and color only
   when `waitlist_config.color_matching` is on. An unset fact on either side matches.

@@ -54,7 +54,7 @@ gathered here so they aren't re-litigated.
   windows show up as one-tap **suggested actions** on Today (§6.5). She confirms them.
 - **An "available" pup** is one whose `disposition` isn't `keeping` or `placed` (unset
   and `undecided` count as available), that isn't deceased or archived, and that has no
-  live Sale (any non-archived Sale whose status isn't `returned`/`cancelled`).
+  live Sale (any non-archived Sale whose status isn't `returned`/`cancelled`/`voided`).
 - **Contact.waitlist_status is kept in step (Q1)** by `waitlistEntryRepo`. The
   contact page's manual dropdown becomes read-only once a contact has entries (W1b).
 - **The Sale price/deposit prefill** moves out of `pages/sale.js` into a data helper, so
@@ -1542,7 +1542,7 @@ unless sealed with a key the server never sees).
    still applies), then taps Mark sent. Nothing about the link goes through the server.
 2. **Sales only.** The button shows only for a family whose contact has an open sale (the
    Companion "Current families" rule, `isOpenSale`: from a pick held by a deposit-pending
-   sale until the sale is delivered, returned or cancelled), **placed or still on the
+   sale until the sale is delivered, returned, cancelled or voided), **placed or still on the
    list**. A placed family can sign in and use it too. Her device publishes
    `entries[id].companion = { available, request }` only for such a family; the server refuses
    the action without it (`409 no_sale`) and allows one open request at a time (`409

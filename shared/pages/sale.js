@@ -7,7 +7,7 @@ import { contractRepo } from '../data/contractRepo.js';
 import { dogRepo } from '../data/dogRepo.js';
 import { contactRepo } from '../data/contactRepo.js';
 import { litterRepo } from '../data/litterRepo.js';
-import { PLACEMENT_TYPE, SALE_STATUS, DISPOSITION, CONTRACT_TYPE, CONTRACT_STATUS, BOARDING_FREQUENCY_OPTIONS, descriptor } from '../data/vocab.js';
+import { PLACEMENT_TYPE, SALE_STATUS, RELEASED_SALE_STATUSES, DISPOSITION, CONTRACT_TYPE, CONTRACT_STATUS, BOARDING_FREQUENCY_OPTIONS, descriptor } from '../data/vocab.js';
 import { esc, badge, fmtDate, todayYMD, param, confirmModal, selectModal, dogRefHtml } from '../assets/ui.js';
 import { openEventForm } from '../assets/eventForm.js';
 import { attachNewContactButton } from '../assets/contactPicker.js';
@@ -530,9 +530,9 @@ async function doSave() {
       });
     }
 
-    // Editing a sale into Returned/Cancelled → offer to set disposition back,
-    // defaulting to Available (the dog is available again).
-    if (!isNew && ['returned', 'cancelled'].includes(saved.status) && prevStatus !== saved.status) {
+    // Editing a sale into Returned/Cancelled/Voided → offer to set disposition
+    // back, defaulting to Available (the dog is available again).
+    if (!isNew && RELEASED_SALE_STATUSES.includes(saved.status) && prevStatus !== saved.status) {
       await promptDisposition(saved, {
         title: 'Update this dog’s disposition?',
         message: `This sale is now "${descriptor(SALE_STATUS, saved.status).label}" — update the dog's disposition back?`,

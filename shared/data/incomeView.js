@@ -23,7 +23,7 @@ import { contactRepo } from './contactRepo.js';
 import { waitlistEntryRepo } from './waitlistEntryRepo.js';
 import { inScopeOnly } from './kennelScope.js';
 import { editionFlags } from './editionConfig.js';
-import { INCOME_COMPONENTS, descriptor } from './vocab.js';
+import { INCOME_COMPONENTS, RELEASED_SALE_STATUSES, descriptor } from './vocab.js';
 
 const num = (v) => (v == null || v === '' ? 0 : Number(v)) || 0;
 
@@ -51,12 +51,16 @@ function balancePaid(s) {
 // deposit portion and a balance portion; transport + deferred boarding ride with
 // the balance (collected at pickup). On a returned/cancelled sale, only what was
 // actually recorded as paid survives (as earned) — the rest is dropped, never
-// anticipated (§21). On any other status, an unpaid component is anticipated.
+// anticipated (§21). A voided sale drops everything, paid or not: it fell through
+// on the kennel's side, so a deposit is refunded or carried to another pup's sale
+// (vocab RELEASED_SALE_STATUSES). On any other status, an unpaid component is
+// anticipated.
 // `feeCredit` is a credited waitlist application fee already received for this
 // sale (Waitlist Spec §5.3) — it was paid toward the price, so it comes off the
 // balance (never below 0).
 function saleComponents(s, feeCredit = 0) {
-  const dead = ['returned', 'cancelled'].includes(s.status);
+  if (s.status === 'voided') return [];
+  const dead = RELEASED_SALE_STATUSES.includes(s.status);
   const price = num(s.price);
   const deposit = num(s.deposit_amount);
   const balance = Math.max(price - deposit - num(feeCredit), 0);

@@ -37,6 +37,7 @@ import { dogRepo } from './dogRepo.js';
 import { saleRepo } from './saleRepo.js';
 import { expectedPricing } from './saleDefaults.js';
 import { todayYMD } from './dateUtils.js';
+import { RELEASED_SALE_STATUSES } from './vocab.js';
 import {
   waitlistConfig, feeForEntry, feeDueDate, anchorDate, canUndoRemoval, passToForgive,
   respondByDate, countsAsPass, shouldRemoveForPasses, passesUsed, isPupAvailable,
@@ -536,7 +537,7 @@ async function releasePick(offer, { date, why, strict = true }) {
   const sale = await heldSale(offer);
   if (!sale || sale.is_archived) return;
   if (sale.status !== 'deposit_pending') {
-    if (strict && !['cancelled', 'returned'].includes(sale.status)) {
+    if (strict && !RELEASED_SALE_STATUSES.includes(sale.status)) {
       throw new Error('Their sale already shows the deposit as received. Record it with "Deposit received" instead.');
     }
     return;
@@ -648,7 +649,7 @@ export async function confirmDeposit(offerId, { date = todayYMD(), amount } = {}
   if (!isAwaitingDeposit(offer) || !offer.sale_id) throw new Error('Record which pup they picked first.');
   const entry = await load(offer.entry_id);
   const sale = await heldSale(offer);
-  if (!sale || sale.is_archived || ['cancelled', 'returned'].includes(sale.status)) {
+  if (!sale || sale.is_archived || RELEASED_SALE_STATUSES.includes(sale.status)) {
     throw new Error('The sale holding their pick was cancelled or archived. Void this offer, or open the sale and fix it first.');
   }
   const saleChanges = { deposit_date: date };

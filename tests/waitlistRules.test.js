@@ -153,6 +153,7 @@ test('a pup is available unless kept back, placed, deceased, archived, or spoken
   assert.equal(isPupAvailable(d, [{ dog_id: 'dx', status: 'delivered', is_archived: false }]), false);
   assert.equal(isPupAvailable(d, [{ dog_id: 'dx', status: 'cancelled', is_archived: false }]), true, 'a cancelled sale frees the pup');
   assert.equal(isPupAvailable(d, [{ dog_id: 'dx', status: 'returned', is_archived: false }]), true);
+  assert.equal(isPupAvailable(d, [{ dog_id: 'dx', status: 'voided', is_archived: false }]), true, 'a voided sale frees the pup');
   assert.equal(isPupAvailable(d, [{ dog_id: 'dx', status: 'deposit_paid', is_archived: true }]), true, 'an archived sale is ignored');
 });
 

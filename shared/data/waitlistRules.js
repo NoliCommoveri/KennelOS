@@ -11,7 +11,7 @@
 //  - Eligibility (§6.2) is computed per litter / per pup at the moment it's needed.
 // The repos store; the pages call these functions to decide what to write.
 import { addDaysToYMD, addMonthsToYMD } from './dateUtils.js';
-import { WAITLIST_OPEN_STATUSES, WAITLIST_READY_TIMING, WAITLIST_AUTO_OFFER_TRIGGER, WAITLIST_PREF_SEX, PLACEMENT_TYPE, descriptor } from './vocab.js';
+import { WAITLIST_OPEN_STATUSES, WAITLIST_READY_TIMING, WAITLIST_AUTO_OFFER_TRIGGER, WAITLIST_PREF_SEX, PLACEMENT_TYPE, RELEASED_SALE_STATUSES, descriptor } from './vocab.js';
 
 // --- Config (Spec §4.6) -------------------------------------------------------
 
@@ -192,7 +192,6 @@ export function overallPositions(entries, kennelId, programsById = new Map()) {
 
 // Sale statuses that free a pup back up. Any other non-archived sale (open OR
 // delivered) means the pup is spoken for.
-const RELEASING_SALE_STATUSES = ['returned', 'cancelled'];
 
 // Is this pup still available to offer? Kept-back (`keeping`), already placed,
 // deceased, archived, or carrying a live Sale → no. Unset/`undecided`/`available`
@@ -201,7 +200,7 @@ export function isPupAvailable(dog, sales = []) {
   if (!dog || dog.is_archived) return false;
   if (dog.status === 'deceased') return false;
   if (dog.disposition === 'keeping' || dog.disposition === 'placed') return false;
-  return !sales.some((s) => s.dog_id === dog.id && !s.is_archived && !RELEASING_SALE_STATUSES.includes(s.status));
+  return !sales.some((s) => s.dog_id === dog.id && !s.is_archived && !RELEASED_SALE_STATUSES.includes(s.status));
 }
 
 // Litters whose deposits were planned to open by `today` (Spec §16.8): born
