@@ -9,6 +9,7 @@ import {
   SEX_LABEL, READY_LABEL, PLACEMENT_LABEL, CREDIT_LABEL, rowMatches, fmtDate, possessive, publicListHtml, esc
 } from '../cloud/public/family/common.js';
 import { WAITLIST_PREF_SEX, WAITLIST_READY_TIMING, PLACEMENT_TYPE, FEE_CREDIT_POLICY } from '../shared/data/vocab.js';
+import { ACTION_VOCAB } from '../cloud/src/familyActions.js';
 
 const asMap = (vocab) => Object.fromEntries(vocab.map((v) => [v.value, v.label]));
 
@@ -17,6 +18,10 @@ test("the family pages' labels match vocab.js", () => {
   assert.deepEqual(READY_LABEL, asMap(WAITLIST_READY_TIMING));
   assert.deepEqual(PLACEMENT_LABEL, asMap(PLACEMENT_TYPE));
   assert.deepEqual(CREDIT_LABEL, asMap(FEE_CREDIT_POLICY));
+  // And the server's checks of what a family may ask for (cloud/src/familyActions.js).
+  assert.deepEqual([...ACTION_VOCAB.SEX].sort(), WAITLIST_PREF_SEX.map((v) => v.value).sort());
+  assert.deepEqual([...ACTION_VOCAB.READY].sort(), WAITLIST_READY_TIMING.map((v) => v.value).sort());
+  assert.deepEqual([...ACTION_VOCAB.PLACEMENT].sort(), ['', ...PLACEMENT_TYPE.map((v) => v.value)].sort());
 });
 
 test('search finds a family by name (any case, any accents), number or date added', () => {

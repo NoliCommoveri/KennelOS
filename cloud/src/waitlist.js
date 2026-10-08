@@ -91,6 +91,9 @@ export async function publishProjection(env, auth, publicId, payload, now = new 
 
   const version = (existing?.version ?? 0) + 1;
   const at = now.toISOString();
+  // Picked pups are held only until her device has applied the pick (Plan §6): it
+  // says how far through the events it got, and holds up to there are released.
+  const eventsThrough = Number.isInteger(projection.events_through) && projection.events_through >= 0 ? projection.events_through : 0;
   await env.DB.batch([
     env.DB.prepare(
       `INSERT INTO wl_projection (public_id, program_id, version, body, device_id, published_at) VALUES (?, ?, ?, ?, ?, ?)
@@ -103,6 +106,11 @@ export async function publishProjection(env, auth, publicId, payload, now = new 
       `DELETE FROM wl_tokens WHERE public_id = ? AND token NOT IN (SELECT value FROM json_each(?))
          AND entry_id NOT IN (SELECT id FROM wl_inbox WHERE public_id = ? AND kind = 'application' AND acked_at IS NULL)`,
     ).bind(publicId, JSON.stringify(tokens.map((t) => t.token)), publicId),
+    env.DB.prepare(
+      `DELETE FROM wl_holds WHERE public_id = ? AND EXISTS (
+         SELECT 1 FROM wl_events e WHERE e.public_id = wl_holds.public_id AND e.entry_id = wl_holds.entry_id
+            AND e.kind = 'pick' AND json_extract(e.payload, '$.dog_id') = wl_holds.dog_id AND e.seq <= ?)`,
+    ).bind(publicId, eventsThrough),
     ...tokens.map((t) => env.DB.prepare(
       `INSERT INTO wl_tokens (token, program_id, public_id, entry_id, created_at) VALUES (?, ?, ?, ?, ?)
        ON CONFLICT (token) DO UPDATE SET entry_id = excluded.entry_id`,

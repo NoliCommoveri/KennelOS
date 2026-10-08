@@ -14,6 +14,7 @@
 //   GET  /f/form/<public_id>   her application form, if she accepts applications online
 //   POST /f/apply/<public_id>  a sealed application; held until the applicant types
 //                              the code emailed to them (then it reaches her inbox)
+//   POST /f/act, /f/message    what a signed-in family does on their page (familyActions.js)
 //
 // Everything a family sees is cut from what her device published, field by field
 // (statusView, listView). The server never computes a position or an offer.
@@ -23,6 +24,7 @@ import { normalizeEmail, emailHash } from './auth.js';
 import { hmacHex, sha256Hex, randomCode, randomHex } from './lib/crypto.js';
 import { assertMailAvailable, sendFamilyMessage } from './mail.js';
 import { PUBLIC_ID, STATUS_TOKEN } from './waitlist.js';
+import { handleAct, handleMessage, pendingFor, heldByOthers } from './familyActions.js';
 import { fail, json, readJson } from './lib/http.js';
 
 export const FAMILY_LIMITS = {
@@ -101,13 +103,23 @@ export function listView(projection) {
 export function statusView(projection, entryId) {
   const e = projection.entries?.[entryId];
   if (!e) return null;
-  const kennel = { name: projection.kennel?.name ?? '', time_zone: projection.kennel?.time_zone ?? null };
+  const kennel = {
+    name: projection.kennel?.name ?? '', time_zone: projection.kennel?.time_zone ?? null,
+    public_id: projection.kennel?.public_id ?? null, can_message: Boolean(projection.kennel?.message_key),
+  };
   const family = { name: e.name ?? '', status: e.status };
   if (!OPEN_STATUSES.includes(e.status)) return { kennel, as_of: projection.as_of ?? null, family, offers: [], litters: [], public_list: [] };
 
-  for (const k of ['applied_date', 'approved_date', 'position', 'prefs', 'paused_until', 'ready_from', 'listen', 'passes', 'fee_received_date', 'fee_due']) {
+  for (const k of ['applied_date', 'approved_date', 'position', 'prefs', 'paused_until', 'ready_from', 'listen', 'passes', 'fee_received_date', 'fee_due', 'requests']) {
     family[k] = e[k] ?? null;
   }
+  // What the page's editors offer: her parent dogs (listen-only) and her breeds.
+  if (e.status === 'active') {
+    kennel.parents = projection.kennel?.parents ?? { sires: [], dams: [] };
+  }
+  kennel.breeds = projection.kennel?.breeds ?? [];
+  kennel.color_matching = Boolean(projection.kennel?.color_matching);
+  kennel.message_key = projection.kennel?.message_key ?? null;
   const litters = projection.litters || {};
   const offers = (e.offers || []).map((o) => {
     const l = litters[o.litter_id] || {};
@@ -173,8 +185,8 @@ async function readsLimit(env, request) {
 }
 
 async function projectionOf(env, publicId) {
-  const row = await env.DB.prepare('SELECT program_id, body FROM wl_projection WHERE public_id = ?').bind(publicId).first();
-  return row ? { programId: row.program_id, projection: JSON.parse(row.body) } : null;
+  const row = await env.DB.prepare('SELECT program_id, version, body FROM wl_projection WHERE public_id = ?').bind(publicId).first();
+  return row ? { programId: row.program_id, version: row.version, projection: JSON.parse(row.body) } : null;
 }
 
 const familyCodeHash = (env, publicId, code) => hmacHex(env.EMAIL_HMAC_KEY, `family-code:${publicId}:${code}`);
@@ -274,6 +286,15 @@ export async function handleFamilyApi(request, env, url) {
       if (pending) view = pendingView(found.projection, pending);
     }
     if (!view) fail(404, 'not_found');
+    // What they've sent that her device hasn't answered yet, and pups another
+    // family picked in the meantime (no longer offered to them).
+    if (found.projection.entries?.[t.entry_id]) {
+      view.pending = await pendingFor(env, t.public_id, t.entry_id, found.projection.events_through);
+      const held = await heldByOthers(env, t.public_id, t.entry_id);
+      for (const o of view.offers) o.pups = o.pups.filter((d) => !held.has(d.id) || d.id === o.picked_dog_id);
+    } else {
+      view.pending = [];
+    }
     await env.DB.prepare('UPDATE wl_tokens SET last_used_at = ? WHERE token = ?').bind(new Date().toISOString(), status[1]).run();
     return json(view, 200, { 'referrer-policy': 'no-referrer' });
   }
@@ -400,6 +421,9 @@ export async function handleFamilyApi(request, env, url) {
     await issueCode(env, { publicId, programId: found.programId, entryId: id, email, kennelName: view.kennel.name || 'the kennel', forApplication: true });
     return json({ ok: true });
   }
+
+  if (p === '/f/act' && m === 'POST') return handleAct(env, request);
+  if (p === '/f/message' && m === 'POST') return handleMessage(env, request);
 
   fail(404, 'not_found');
 }

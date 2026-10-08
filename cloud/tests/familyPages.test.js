@@ -104,7 +104,9 @@ test("a family's status page shows their own place and offers, never anyone else
   const res = await get(env, `/f/status/${tok('a')}`);
   assert.equal(res.status, 200);
   const v = await res.json();
-  assert.deepEqual(Object.keys(v).sort(), ['as_of', 'family', 'kennel', 'litters', 'offers', 'public_list']);
+  assert.deepEqual(Object.keys(v).sort(), ['as_of', 'family', 'kennel', 'litters', 'offers', 'pending', 'public_list']);
+  assert.equal(v.kennel.public_id, KENNEL, 'so the page can find this browser\'s sign-in');
+  assert.deepEqual(v.pending, []);
   assert.equal(v.family.name, 'Ann Lee');
   assert.equal(v.family.position, 1);
   assert.equal('email' in v.family, false, 'their email is not on the page');
@@ -122,8 +124,8 @@ test("a family's status page shows their own place and offers, never anyone else
 test('a placed family sees only that; an unknown, malformed or replaced link finds nothing', async () => {
   const { env, s } = await published();
   const placed = await (await get(env, `/f/status/${tok('c')}`)).json();
-  assert.deepEqual(placed, { kennel: { name: 'Thornfield Kennels', time_zone: 'America/Chicago' }, as_of: '2026-10-08',
-    family: { name: 'Cy Day', status: 'placed' }, offers: [], litters: [], public_list: [] });
+  assert.deepEqual(placed, { kennel: { name: 'Thornfield Kennels', time_zone: 'America/Chicago', public_id: KENNEL, can_message: false }, as_of: '2026-10-08',
+    family: { name: 'Cy Day', status: 'placed' }, offers: [], litters: [], public_list: [], pending: [] });
   assert.equal((await get(env, `/f/status/${tok('d')}`)).status, 404);
   assert.equal((await get(env, '/f/status/nope')).status, 404);
 
