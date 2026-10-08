@@ -48,6 +48,10 @@ function litterLine(l) {
 }
 
 function litterBadge(l) {
+  // A litter in their open turn says so, whatever its line says: an approved change
+  // to their answers never closes an offer (Spec §15.9), so they can hold a turn on a
+  // litter they'd no longer be lined up for.
+  if ((state.v.offers || []).some((o) => o.litter_id === l.id)) return '<span class="badge">Your turn</span>';
   if (l.your_position) return `<span class="badge">#${esc(l.your_position)} in line</span>`;
   if (!l.pups_available) return `<span class="badge plain">${l.status === 'expected' ? 'No pups yet' : 'No pups available'}</span>`;
   return '<span class="badge plain">Not a match for you</span>';

@@ -110,7 +110,7 @@ test("a family's status page shows their own place and offers, never anyone else
   assert.equal(v.family.name, 'Ann Lee');
   assert.equal(v.family.position, 1);
   assert.equal('email' in v.family, false, 'their email is not on the page');
-  assert.deepEqual(v.offers, [{ id: 'o1', turn_id: 'o1', litter: 'Juniper × Ash', offered_date: '2026-10-07', respond_by_date: '2026-10-10', picked_dog_id: null,
+  assert.deepEqual(v.offers, [{ id: 'o1', turn_id: 'o1', litter_id: 'l1', litter: 'Juniper × Ash', offered_date: '2026-10-07', respond_by_date: '2026-10-10', picked_dog_id: null,
     pups: [{ id: 'p2', call_name: 'Poppy', sex: 'female', color: 'black' }] }]);
   assert.deepEqual(v.litters, [{ id: 'l1', label: 'Juniper × Ash', status: 'whelped', whelp_date: '2026-09-01', ready_date: '2026-10-27',
     picks_open: true, pups_available: 2, your_position: 1 }]);

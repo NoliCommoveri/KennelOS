@@ -127,6 +127,7 @@ export function statusView(projection, entryId) {
     return {
       id: o.id,
       turn_id: o.turn_id ?? o.id,
+      litter_id: o.litter_id ?? null,
       litter: l.label ?? '',
       offered_date: o.offered_date ?? null,
       respond_by_date: o.respond_by_date ?? null,
