@@ -56,7 +56,7 @@ export function mountWaitlistOnline(root, kennel, { onSaved } = {}) {
     const zones = timeZoneOptions(kennel.time_zone).map((z) => `<option value="${esc(z)}"${z === zone ? ' selected' : ''}>${esc(z.replace(/_/g, ' '))}</option>`).join('');
     root.innerHTML = `
       <div class="row-between"><h2 style="margin:0;">Online list</h2><span class="badge badge-purple" title="Only on the test server until it's released">Preview</span></div>
-      <p class="field-hint">Publishes ${esc(kennel.kennel_name)}'s waitlist to the server: the public list (position, first name and last initial, sex preference, date added) and each family's own status page (their name and email, their place and offers, the fee while it's unpaid, and whether it was received). Their other answers, phone, address, programs, notes and payment details stay on your devices. Updated by itself after each change.</p>
+      <p class="field-hint">Publishes ${esc(kennel.kennel_name)}'s waitlist to the server: the public list (position, first name and last initial, sex preference, date added) and each family's own status page (their name and email, their place and offers, the fee while it's unpaid, and whether it was received), plus any pairings and litters you chose to show before picks open (Waitlist settings). Their other answers, phone, address, programs, notes and payment details stay on your devices. Updated by itself after each change.</p>
       <div class="form-grid">
         <div class="field field-wide">
           <label class="check-inline"><input id="wlo-online" type="checkbox"${waitlistConfig(kennel).online ? ' checked' : ''}> Put ${esc(kennel.kennel_name)}'s waitlist online</label>

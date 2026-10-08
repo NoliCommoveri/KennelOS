@@ -84,10 +84,14 @@ function checkReason(body, projection) {
 
 // A litter (or an upcoming pairing) a family may say "Not this litter" to: one she
 // published to them. → { litter_id } | { pairing_id }
+// "Not this litter" works on what the family's page shows them: a litter with
+// open picks, or a pairing or early litter she shows on family pages (§16.4).
 function checkTarget(body, projection) {
-  if (typeof body.litter_id === 'string' && body.litter_id && projection.litters?.[body.litter_id]) return { litter_id: body.litter_id };
+  const shown = (projection.upcoming || []).filter((u) => u && u.family === true);
+  if (typeof body.litter_id === 'string' && body.litter_id && projection.litters?.[body.litter_id]
+    && (projection.litters[body.litter_id].picks_open || shown.some((u) => u.litter_id === body.litter_id))) return { litter_id: body.litter_id };
   if (typeof body.pairing_id === 'string' && body.pairing_id
-    && (projection.upcoming || []).some((u) => u && u.id === body.pairing_id && u.kind !== 'early_litter')) return { pairing_id: body.pairing_id };
+    && shown.some((u) => u.id === body.pairing_id && u.kind !== 'early_litter')) return { pairing_id: body.pairing_id };
   return fail(409, 'not_listed');
 }
 

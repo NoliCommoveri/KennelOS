@@ -458,7 +458,10 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   passed at once. **Part 3, listen-only "except" (§16.3), is built:** a family can wait for
   every litter except those from parents they list; removing a parent (or going back to All)
   applies at once, adding one or switching between "only" and "except" waits for her OK.
-  Next: step 5c parts 4–6, then step 6, email.
+  **Part 4, pairings and early litters online and the deposits nudge (§16.4, §16.8), is
+  built:** three stages (planned pairings, pairings, born litters before picks open), each
+  switchable for the public list and family pages (all off); Today suggests Open picks when a
+  litter's deposits date comes. Next: step 5c parts 5–6, then step 6, email.
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass

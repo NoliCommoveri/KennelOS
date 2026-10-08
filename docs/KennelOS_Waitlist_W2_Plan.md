@@ -548,6 +548,22 @@ means no fee reminder ever.
         ones, with **Not this litter** (part 2).
       - Today (`nudges.js`): a whelped litter whose `accept_deposits_date` has come, picks not
         open, pups available → **Open picks**.
+      **Built 2026-10-08.** As planned, with (her answers, 2026-10-08): the switches govern
+      family pages too, so the status page's Litters card lists only litters with open picks
+      (or in their turn) and everything earlier is in a **Coming up** card when she shows it;
+      an `expected` litter is a `pairing` item keyed by its pairing (so "Not this litter" on it
+      carries over). Items: `waitlistRules.upcomingItems` (all stages) filtered by
+      `showUpcoming`; each `{ id, kind, label, pairing_id, litter_id, sire, dam,
+      expected_whelp_date (= Pairing.expected_due_date), whelp_date, picks_expected_date,
+      public, family }`, parents as `{ name, titles }` (`titlesByDog`, the oldest title
+      first); `litters[]` gain `pairing_id`; per entry `upcoming: { [id]: { waiting, position
+      } }`. Server: `listView.upcoming` (public ones, without where they show), `statusView`
+      (family ones, merged with the entry's flags); `prepass` only on a litter with open picks
+      or a shown item (`not_listed` otherwise). Public list page: a **Coming up** card. The
+      settings live in Waitlist settings, shown where the waitlist online is offered, with
+      the public-list warning. The nudge (`depositsDueLitters`) shows only for a kennel with
+      families on its list. Tests: `waitlistRules`, `waitlistProjection`, `cloudWaitlist`,
+      `cloud/tests/familyPages`, `cloud/tests/familyActions`.
    5. **"Review your preferences" and "A litter you match was born" (§16.6).** Pure rule
       `whelpNotes(entries, litter, pups, …)`: for each active, not paused or held family, `match`
       if eligible, else `review` with why (`listen`, `sex`, `breed`, `placement`, `colors`)

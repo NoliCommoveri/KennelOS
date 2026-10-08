@@ -11,7 +11,7 @@
 // Messages are sealed here, in this browser, to her key (seal.js); the server
 // can't read them.
 import {
-  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive,
+  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingDetails,
   SEX_LABEL, READY_LABEL, PLACEMENT_LABEL, CREDIT_LABEL
 } from './common.js';
 import { rememberedFamily, forgetFamily } from './session.js';
@@ -234,24 +234,63 @@ function turnsOf(offers) {
 // reason. Nothing counts unless their turn comes; then that litter is left out of
 // it (and a turn of nothing else is passed at once). They can take it back.
 
-function prepassedNow(litterId) {
-  const pend = (state.v.pending || []).filter((p) => p.payload?.litter_id === litterId && (p.kind === 'prepass' || p.kind === 'unprepass'));
-  if (pend.length) return pend[pend.length - 1].kind === 'prepass';
-  return (state.v.family.prepasses || []).some((p) => p.litter_id === litterId);
+// What "Not this litter" acts on. A litter with open picks or an early litter is
+// its litter; a pairing (or a litter not yet born) is its pairing when it has one,
+// so the choice carries over to the litter born of it (§16.2).
+const litterTarget = (l) => ({ key: `l:${l.id}`, label: l.label, send: { litter_id: l.id }, litter_id: l.id, pairing_id: l.pairing_id || null });
+const upcomingTarget = (u) => ({
+  key: `u:${u.id}`, label: u.label,
+  send: u.kind !== 'early_litter' && u.pairing_id ? { pairing_id: u.pairing_id } : { litter_id: u.litter_id },
+  litter_id: u.litter_id || null, pairing_id: u.pairing_id || null
+});
+const matches = (x, t) => Boolean((x.litter_id && x.litter_id === t.litter_id) || (x.pairing_id && x.pairing_id === t.pairing_id));
+
+// The prepass in force for this target, as { litter_id } or { pairing_id } (what
+// Undo sends), or null. Their own unanswered actions count first.
+function prepassedNow(t) {
+  const pend = (state.v.pending || []).filter((p) => (p.kind === 'prepass' || p.kind === 'unprepass') && matches(p.payload || {}, t));
+  if (pend.length) {
+    const last = pend[pend.length - 1];
+    return last.kind === 'prepass' ? (last.payload.litter_id ? { litter_id: last.payload.litter_id } : { pairing_id: last.payload.pairing_id }) : null;
+  }
+  const p = (state.v.family.prepasses || []).find((x) => matches(x, t));
+  return p ? (p.litter_id ? { litter_id: p.litter_id } : { pairing_id: p.pairing_id }) : null;
 }
 
-function notThisLitter(l) {
+function notThisLitter(t) {
   if (!canAct() || state.v.family.status !== 'active') return '';
-  if ((state.v.offers || []).some((o) => o.litter_id === l.id)) return '';
-  if (prepassedNow(l.id)) {
+  if (t.litter_id && (state.v.offers || []).some((o) => o.litter_id === t.litter_id)) return '';
+  const done = prepassedNow(t);
+  if (done) {
+    const attr = done.litter_id ? `data-litter="${esc(done.litter_id)}"` : `data-pairing="${esc(done.pairing_id)}"`;
     return `<div class="row mt8"><span class="small"><span class="badge plain">Not this litter</span> We'll leave it out of your turn. Only if it's the only litter in your turn does that count as a pass.</span>
-      <button type="button" class="linkish small" data-act="unprepass" data-litter="${esc(l.id)}">Undo</button></div>`;
+      <button type="button" class="linkish small" data-act="unprepass" ${attr}>Undo</button></div>`;
   }
-  if (state.open === `prepass:${l.id}`) {
-    return reasonForm('prepass', `Not interested in ${esc(l.label)}? We'll leave it out of your turn when it comes. Nothing counts now; only if it's the only litter in your turn does that count as a pass. You keep your place for every other litter.`,
-      'Not this litter', { litter_id: l.id });
+  if (state.open === `prepass:${t.key}`) {
+    return reasonForm('prepass', `Not interested in ${esc(t.label)}? We'll leave it out of your turn when it comes. Nothing counts now; only if it's the only litter in your turn does that count as a pass. You keep your place for every other litter.`,
+      'Not this litter', t.send);
   }
-  return `<div class="actions mt8"><button type="button" class="secondary small" data-act="open" data-what="prepass:${esc(l.id)}">Not this litter</button></div>`;
+  return `<div class="actions mt8"><button type="button" class="secondary small" data-act="open" data-what="prepass:${esc(t.key)}">Not this litter</button></div>`;
+}
+
+// Pairings and litters before picks open, as she shows them on family pages
+// (Spec §16.4): what's coming, whether it's one they're waiting for, and for a
+// whelped litter their place in it now. A pairing has no pups, so no place.
+function upcomingBadge(u) {
+  if (u.kind === 'early_litter') {
+    if (u.your_position) return `<span class="badge">#${esc(u.your_position)} in line</span>`;
+    return `<span class="badge plain">${u.waiting ? 'Not a match for you' : "Not one you're waiting for"}</span>`;
+  }
+  return u.waiting ? '<span class="badge info">You\'re waiting for this</span>' : '<span class="badge plain">Not one you\'re waiting for</span>';
+}
+
+function upcomingCard(v) {
+  if (!(v.upcoming || []).length) return '';
+  const items = v.upcoming.map((u) => `<li><div class="row"><strong>${esc(u.label)}</strong>
+      <span class="small">${upcomingBadge(u)}</span></div>
+    ${upcomingDetails(u)}${u.waiting ? notThisLitter(upcomingTarget(u)) : ''}</li>`).join('');
+  return card('Coming up', `<ul class="plain">${items}</ul>
+    <p class="small muted">Plans can change. "In line" counts only families who match that litter's pups, and can change until picks open.</p>`);
 }
 
 // --- Your place: still interested, pause, leave ----------------------------------
@@ -405,10 +444,11 @@ function mineHtml() {
     if (v.litters.length) {
       const items = v.litters.map((l) => `<li><div class="row"><strong>${esc(l.label)}</strong>
           <span class="small">${litterBadge(l)}</span></div>
-        <div class="small muted">${esc(litterLine(l))}</div>${notThisLitter(l)}</li>`).join('');
+        <div class="small muted">${esc(litterLine(l))}</div>${notThisLitter(litterTarget(l))}</li>`).join('');
       parts.push(card('Litters', `<ul class="plain">${items}</ul>
         <p class="small muted">"In line" counts only families who match that litter's pups.</p>`));
     }
+    parts.push(upcomingCard(v));
     parts.push(listenHtml(f));
   } else if (canAct()) {
     parts.push(card('', placeActions(f)));
@@ -477,7 +517,7 @@ async function onClick(ev) {
     }
     case 'unprepass':
       b.disabled = true;
-      await act('unprepass', { litter_id: b.dataset.litter }, 'Done. That litter is back in your turn when it comes.');
+      await act('unprepass', b.dataset.litter ? { litter_id: b.dataset.litter } : { pairing_id: b.dataset.pairing }, 'Done. That litter is back in your turn when it comes.');
       return;
     case 'still_interested':
       b.disabled = true;
@@ -506,7 +546,8 @@ async function onSubmit(ev) {
         render();
         return;
       }
-      const target = form.dataset.form === 'pass' ? { turn_id: data.get('turn_id') } : { litter_id: data.get('litter_id') };
+      const target = form.dataset.form === 'pass' ? { turn_id: data.get('turn_id') }
+        : data.get('pairing_id') ? { pairing_id: data.get('pairing_id') } : { litter_id: data.get('litter_id') };
       await act(form.dataset.form, { ...target, reason_id: reasonId, reason_text: text }, reasonMessage(reasonId));
       return;
     }

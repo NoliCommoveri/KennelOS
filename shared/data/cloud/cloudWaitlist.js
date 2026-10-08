@@ -26,6 +26,7 @@ import { pairingRepo } from '../pairingRepo.js';
 import { dogRepo } from '../dogRepo.js';
 import { saleRepo } from '../saleRepo.js';
 import { contactRepo } from '../contactRepo.js';
+import { eventRepo } from '../eventRepo.js';
 import { todayYMD } from '../dateUtils.js';
 import { waitlistConfig, kennelBreeds } from '../waitlistRules.js';
 import { buildProjection } from '../waitlistProjection.js';
@@ -269,7 +270,7 @@ export async function applyFamilyEvents(token, kennels) {
 
 // The projection for one kennel, from the database.
 export async function projectionFor(kennel, { today = todayYMD() } = {}) {
-  const [entries, offers, programsById, litters, pairings, dogs, sales, contacts] = await Promise.all([
+  const [entries, offers, programsById, litters, pairings, dogs, sales, contacts, events] = await Promise.all([
     waitlistEntryRepo.getByKennel(kennel.id),
     waitlistOfferRepo.getByKennel(kennel.id),
     waitlistProgramRepo.getMapForKennel(kennel.id),
@@ -277,10 +278,12 @@ export async function projectionFor(kennel, { today = todayYMD() } = {}) {
     pairingRepo.getAll(),
     dogRepo.getAll({ includeArchived: true }),
     saleRepo.getAll({ includeArchived: true }),
-    contactRepo.getAll({ includeArchived: true })
+    contactRepo.getAll({ includeArchived: true }),
+    // Parents' earned titles, for the pairings and early litters she shows (§16.4).
+    eventRepo.getByType('title_earned')
   ]);
   return buildProjection({
-    kennel, entries, offers, programsById, litters, pairings, dogs, sales, contacts, today,
+    kennel, entries, offers, programsById, litters, pairings, dogs, sales, contacts, events, today,
     formKey: currentFormKey(kennel.waitlist_form_keys), eventsThrough: getWaitlistOnlineState().eventsCursor || 0
   });
 }

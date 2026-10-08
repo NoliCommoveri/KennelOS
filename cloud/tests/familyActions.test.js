@@ -30,9 +30,14 @@ const projection = (extra = {}) => ({
     cy: { name: 'Cy Day', email: 'cy@example.com', status: 'placed', status_token: tok('c') },
   },
   litters: {
-    l1: { label: 'Juniper × Ash', pups: [{ id: 'p1', call_name: 'Pip' }, { id: 'p2', call_name: 'Poppy' }] },
-    l2: { label: 'Willow × Ash', pups: [{ id: 'p2', call_name: 'Poppy' }, { id: 'p3', call_name: 'Pearl' }] },
+    l1: { label: 'Juniper × Ash', picks_open: true, pups: [{ id: 'p1', call_name: 'Pip' }, { id: 'p2', call_name: 'Poppy' }] },
+    l2: { label: 'Willow × Ash', picks_open: true, pups: [{ id: 'p2', call_name: 'Poppy' }, { id: 'p3', call_name: 'Pearl' }] },
+    l3: { label: 'Spring litter', picks_open: false, pups: [{ id: 'p4', call_name: 'Pansy' }] },
   },
+  upcoming: [
+    { id: 'pair1', kind: 'pairing', pairing_id: 'pair1', litter_id: null, public: false, family: true },
+    { id: 'pair2', kind: 'planned_pairing', pairing_id: 'pair2', litter_id: null, public: true, family: false },
+  ],
   ...extra,
 });
 
@@ -190,4 +195,11 @@ test('"Not this litter" (Spec §16.2): a reason, a litter she listed, never one 
   assert.deepEqual((await res.json()).pending.map((p) => [p.kind, p.payload]), [['prepass', { litter_id: 'l1', reason: { id: 'timing', text: '' } }]]);
   assert.equal(await err(await act(env, bo, tok('b'), 'unprepass', { litter_id: 'l2' })), 'not_prepassed');
   assert.equal((await act(env, bo, tok('b'), 'unprepass', { litter_id: 'l1' })).status, 200);
+});
+
+test('"Not this litter" before picks open: only on what she shows on family pages (Spec §16.4)', async () => {
+  const { env, bo } = await setup();
+  assert.equal(await err(await act(env, bo, tok('b'), 'prepass', { litter_id: 'l3', reason_id: 'timing' })), 'not_listed', 'picks not open and not shown');
+  assert.equal(await err(await act(env, bo, tok('b'), 'prepass', { pairing_id: 'pair2', reason_id: 'timing' })), 'not_listed', 'shown publicly only');
+  assert.equal((await act(env, bo, tok('b'), 'prepass', { pairing_id: 'pair1', reason_id: 'timing' })).status, 200);
 });

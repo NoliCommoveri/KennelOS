@@ -86,12 +86,26 @@ export async function serveFamilyPage(request, env, url) {
 
 // --- What a family sees (pure) ------------------------------------------------------
 
-// The public list: the kennel's name and the rows her device published.
+// A pairing or early litter as a page shows it (Spec §16.4): parents' call names
+// and titles, and her dates. Never where it shows or which dogs.
+function upcomingRow(u) {
+  const parent = (d) => ({ name: d?.name ?? '', titles: Array.isArray(d?.titles) ? d.titles : [] });
+  return {
+    id: u.id, kind: u.kind, label: u.label ?? '', sire: parent(u.sire), dam: parent(u.dam),
+    expected_whelp_date: u.expected_whelp_date ?? null, whelp_date: u.whelp_date ?? null,
+    picks_expected_date: u.picks_expected_date ?? null,
+  };
+}
+const upcomingOf = (projection, where) => (Array.isArray(projection.upcoming) ? projection.upcoming : []).filter((u) => u && u[where] === true);
+
+// The public list: the kennel's name, the rows her device published, and the
+// pairings and early litters she shows publicly.
 export function listView(projection) {
   return {
     kennel: { name: projection.kennel?.name ?? '' },
     as_of: projection.as_of ?? null,
     rows: Array.isArray(projection.public_list) ? projection.public_list : [],
+    upcoming: upcomingOf(projection, 'public').map(upcomingRow),
   };
 }
 
@@ -108,7 +122,7 @@ export function statusView(projection, entryId) {
     public_id: projection.kennel?.public_id ?? null, can_message: Boolean(projection.kennel?.message_key),
   };
   const family = { name: e.name ?? '', status: e.status };
-  if (!OPEN_STATUSES.includes(e.status)) return { kennel, as_of: projection.as_of ?? null, family, offers: [], litters: [], public_list: [] };
+  if (!OPEN_STATUSES.includes(e.status)) return { kennel, as_of: projection.as_of ?? null, family, offers: [], litters: [], upcoming: [], public_list: [] };
 
   for (const k of ['applied_date', 'approved_date', 'position', 'prefs', 'paused_until', 'ready_from', 'listen', 'passes', 'fee_received_date', 'fee_due', 'requests', 'prepasses']) {
     family[k] = e[k] ?? null;
@@ -137,17 +151,27 @@ export function statusView(projection, entryId) {
     };
   });
   const positions = e.litter_positions || {};
-  const litterList = Object.entries(litters).map(([id, l]) => ({
+  // Litters with open picks, and any in their turn. Before picks open a litter
+  // shows only as one of her `upcoming` items, when she switched that stage on
+  // for family pages (Spec §16.4; all off by default).
+  const inTurn = new Set(offers.map((o) => o.litter_id));
+  const litterList = Object.entries(litters).filter(([id, l]) => l.picks_open || inTurn.has(id)).map(([id, l]) => ({
     id,
     label: l.label ?? '',
     status: l.status ?? null,
     whelp_date: l.whelp_date ?? null,
     ready_date: l.ready_date ?? null,
     picks_open: Boolean(l.picks_open),
+    pairing_id: l.pairing_id ?? null,
     pups_available: (l.pups || []).length,
     your_position: positions[id] ?? null,
   }));
-  return { kennel, as_of: projection.as_of ?? null, family, offers, litters: litterList, public_list: listView(projection).rows };
+  const mine = e.upcoming || {};
+  const upcoming = e.status === 'active' ? upcomingOf(projection, 'family').map((u) => ({
+    ...upcomingRow(u), pairing_id: u.pairing_id ?? null, litter_id: u.litter_id ?? null,
+    waiting: mine[u.id]?.waiting !== false, your_position: mine[u.id]?.position ?? null,
+  })) : [];
+  return { kennel, as_of: projection.as_of ?? null, family, offers, litters: litterList, upcoming, public_list: listView(projection).rows };
 }
 
 // Her application form as the form page needs it, or null when she isn't taking
@@ -177,7 +201,7 @@ export function pendingView(projection, row) {
     kennel: { name: projection.kennel?.name ?? '', time_zone: projection.kennel?.time_zone ?? null },
     as_of: projection.as_of ?? null,
     family: { name: row.name ?? '', status: 'applied' },
-    offers: [], litters: [], public_list: [],
+    offers: [], litters: [], upcoming: [], public_list: [],
   };
 }
 

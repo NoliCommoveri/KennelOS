@@ -32,8 +32,25 @@ export const WAITLIST_CONFIG_DEFAULTS = Object.freeze({
   checkin_months: 6,
   soon_notice_text: '', // blank = SOON_NOTICE_DEFAULT
   pass_reasons: null, // her reasons for a pass (Spec §16.5); null = DEFAULT_PASS_REASONS
-  pass_other: true // also offer "Other" with a short text box (Q33)
+  pass_other: true, // also offer "Other" with a short text box (Q33)
+  show_upcoming: null // pairings and early litters online (Spec §16.4); null = all off, see showUpcoming
 });
+
+// The three stages she can show before picks open (Spec §16.4), each on the public
+// list and on family pages separately. All off unless she switches one on.
+export const UPCOMING_STAGES = Object.freeze([
+  { value: 'planned_pairings', label: 'Planned pairings' },
+  { value: 'pairings', label: 'Pairings (bred or confirmed pregnant)' },
+  { value: 'early_litters', label: 'Whelped litters, picks not open yet' }
+]);
+
+// → { planned_pairings: { public, family }, pairings: {…}, early_litters: {…} }, all booleans.
+export function showUpcoming(config) {
+  const stored = config && typeof config.show_upcoming === 'object' && config.show_upcoming ? config.show_upcoming : {};
+  return Object.fromEntries(UPCOMING_STAGES.map(({ value }) => [value, {
+    public: stored[value]?.public === true, family: stored[value]?.family === true
+  }]));
+}
 
 // The effective config for a kennel record (or null/undefined → all defaults).
 // A null/blank stored value counts as "not set" so the default applies.
@@ -184,6 +201,16 @@ export function isPupAvailable(dog, sales = []) {
   return !sales.some((s) => s.dog_id === dog.id && !s.is_archived && !RELEASING_SALE_STATUSES.includes(s.status));
 }
 
+// Litters whose deposits were planned to open by `today` (Spec §16.8): born
+// (not expected, sold or closed), `accept_deposits_date` on or before today,
+// picks not open, at least one pup available. Today suggests Open picks for each;
+// nothing opens by itself.
+export function depositsDueLitters(litters, pups, sales, today) {
+  return litters.filter((l) => !l.is_archived && ['whelped', 'weaning', 'ready'].includes(l.status)
+    && l.accept_deposits_date && l.accept_deposits_date <= today && !l.picks_opened_date
+    && pups.some((d) => d.litter_id === l.id && isPupAvailable(d, sales)));
+}
+
 // The breeds a family can ask for on this kennel's list (decided 2026-10-06: a
 // dropdown, never free text, so a misspelling or shorthand can't make a family
 // match no pup). The breeds of the kennel's own non-archived dogs — what its pups
@@ -296,6 +323,39 @@ export function isListenOnly(entry) {
 // The litter and pairing statuses whose parents count as "live" for listen-only.
 export const LISTEN_LIVE_LITTER = ['expected', 'whelped', 'weaning', 'ready'];
 export const LISTEN_LIVE_PAIRING = ['planned', 'bred', 'confirmed_pregnant'];
+
+// What a kennel has coming before picks open (Spec §16.4), one item per future
+// litter: a pairing with no litter yet, an `expected` litter (shown with its
+// pairing, decided 2026-10-08), or a whelped litter whose picks aren't open.
+// Every stage, unfiltered: the projection applies her switches (showUpcoming).
+// → [{ id, kind: 'planned_pairing' | 'pairing' | 'early_litter', stage, pairing,
+//      litter, pairing_id, litter_id, sire_id, dam_id }]. `id` is the pairing's id
+// when there is one (so "Not this litter" on it carries over to its litter),
+// else the litter's; an early litter is always its litter's id.
+export function upcomingItems(kennel, { litters = [], pairings = [] } = {}) {
+  const own = (x) => !x.is_archived && x.kennel_id === kennel.id;
+  const pairingsById = new Map(pairings.map((p) => [p.id, p]));
+  const hasLitter = new Set(litters.filter((l) => !l.is_archived && l.pairing_id).map((l) => l.pairing_id));
+  const out = [];
+  for (const l of litters.filter((x) => own(x) && LISTEN_LIVE_LITTER.includes(x.status) && !x.picks_opened_date)) {
+    const pairing = (l.pairing_id && pairingsById.get(l.pairing_id)) || null;
+    const early = l.status !== 'expected';
+    out.push({
+      id: early ? l.id : (l.pairing_id || l.id), kind: early ? 'early_litter' : 'pairing', stage: early ? 'early_litters' : 'pairings',
+      pairing, litter: l, pairing_id: l.pairing_id || null, litter_id: l.id, sire_id: l.sire_id || null, dam_id: l.dam_id || null
+    });
+  }
+  for (const p of pairings.filter((x) => own(x) && LISTEN_LIVE_PAIRING.includes(x.status) && !hasLitter.has(x.id))) {
+    const planned = p.status === 'planned';
+    out.push({
+      id: p.id, kind: planned ? 'planned_pairing' : 'pairing', stage: planned ? 'planned_pairings' : 'pairings',
+      pairing: p, litter: null, pairing_id: p.id, litter_id: null, sire_id: p.sire_id || null, dam_id: p.dam_id || null
+    });
+  }
+  const order = { early_litter: 0, pairing: 1, planned_pairing: 2 };
+  const when = (x) => x.litter?.whelp_date || x.pairing?.expected_due_date || x.pairing?.planned_date || '9999';
+  return out.sort((a, b) => order[a.kind] - order[b.kind] || when(a).localeCompare(when(b)) || String(a.id).localeCompare(String(b.id)));
+}
 
 // The parent dogs a family can pick for listen-only (Spec §15.7 item 1): this
 // kennel's active breeding dogs of that sex, plus any parent of one of its live

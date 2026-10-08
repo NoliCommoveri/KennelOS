@@ -465,6 +465,10 @@ test('a pass with a reason and a "Not this litter" from the status page reach he
   assert.ok(turn);
   const entry = await waitlistEntryRepo.getById(turn.entry_id);
   await contactRepo.update(entry.contact_id, { email: 'reasons@example.com' });
+  // "Not this litter" before picks open works on what she shows on family pages (§16.4).
+  const { kennelRepo } = await import('../shared/data/kennelRepo.js');
+  const on = { public: false, family: true };
+  await kennelRepo.update(k.id, { waitlist_config: { ...(await kennelRepo.getById(k.id)).waitlist_config, show_upcoming: { planned_pairings: on, pairings: on, early_litters: on } } });
   await cw.syncWaitlistOnline();
   const published = JSON.parse(raw('SELECT body FROM wl_projection')[0].body);
   assert.deepEqual(published.kennel.pass_reasons.map((r) => r.id), ['timing', 'finances', 'fit', 'other']);

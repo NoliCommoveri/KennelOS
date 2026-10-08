@@ -23,7 +23,7 @@ import { getActiveKennelId, setActiveKennel } from '../data/kennelScope.js';
 import { DOG_STATUS, LITTER_STATUS, SALE_STATUS, FEE_CREDIT_POLICY, WAITLIST_AUTO_OFFER_TRIGGER } from '../data/vocab.js';
 import { editionFlags } from '../data/editionConfig.js';
 import { isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
-import { waitlistConfig, SOON_NOTICE_DEFAULT, passReasons } from '../data/waitlistRules.js';
+import { waitlistConfig, SOON_NOTICE_DEFAULT, passReasons, showUpcoming, UPCOMING_STAGES } from '../data/waitlistRules.js';
 import { esc, badge, fmtDate, fmtMoney, param } from '../assets/ui.js';
 import { renderExpensePanel } from '../assets/expensePanel.js';
 import { renderKennelCardSection } from '../assets/kennelCardUI.js';
@@ -389,9 +389,23 @@ function waitlistCard(k) {
           <div class="pill-row" style="margin-top:6px;"><button type="button" class="btn btn-sm" data-act="add-reason">Add a reason</button></div>
           <label class="check-inline" style="margin-top:6px;"><input id="wl-pass-other" type="checkbox"${c.pass_other !== false ? ' checked' : ''}> Also offer "Other", with a box for their own words</label>
         </div>
+        ${isWaitlistOnlineOffered() ? upcomingSwitches(c) : ''}
       </div>
       <div class="form-actions"><button class="btn btn-primary btn-sm" data-act="save-waitlist">Save</button></div>
     </section>`;
+}
+
+// What shows online before picks open (Waitlist Spec §16.4): three stages, each
+// on the public list and on family pages, all off until she ticks one. Shown
+// with the parents' call names and titles and her dates.
+function upcomingSwitches(c) {
+  const show = showUpcoming(c);
+  const box = (stage, where) => `<label class="check-inline"><input type="checkbox" data-wl-show="${esc(stage)}:${where}"${show[stage][where] ? ' checked' : ''}> ${where === 'public' ? 'Public list' : 'Family pages'}</label>`;
+  return `<div class="field field-wide"><label>Show online before picks open</label>
+      <span class="field-hint">Each with the parents' call names and titles, and your dates: a pairing's expected whelp date; a litter's whelp date and "Picks expected to open" (its accept-deposits date). Family pages also show whether it's one they're waiting for, their place for a born litter, and "Not this litter".</span>
+      ${UPCOMING_STAGES.map((st) => `<div style="margin-top:6px;"><strong style="font-size:0.95em;">${esc(st.label)}</strong><div class="pill-row">${box(st.value, 'public')}${box(st.value, 'family')}</div></div>`).join('')}
+      <div class="inline-warn"><strong>The public list is open to anyone with its link:</strong> ticking "Public list" makes those breeding plans public.</div>
+    </div>`;
 }
 
 // One editable pass reason: its label and the message the family sees.
@@ -429,6 +443,14 @@ async function onSaveWaitlist() {
     })).filter((r) => r.label),
     pass_other: q('#wl-pass-other').checked
   };
+  if (els.config.querySelector('[data-wl-show]')) {
+    const show = showUpcoming({});
+    for (const b of els.config.querySelectorAll('[data-wl-show]')) {
+      const [stage, where] = b.dataset.wlShow.split(':');
+      show[stage][where] = b.checked;
+    }
+    waitlist_config.show_upcoming = show;
+  }
   if (!waitlist_config.pass_reasons.length && !waitlist_config.pass_other) { showError('Keep at least one reason for passing, or tick "Other".'); return; }
   delete waitlist_config.auto_offer_next; // replaced by auto_offer_on (2026-10-08)
   if (waitlist_config.max_passes != null && waitlist_config.max_passes < 1) { showError('Passes before removal must be at least 1.'); return; }

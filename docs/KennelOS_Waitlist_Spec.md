@@ -1408,7 +1408,12 @@ the whole respond window.
 - Same fields (`listen_sire_ids` / `listen_dam_ids`), so no schema or registry change beyond
   the vocab and the registry labels' wording ("listening for" → "listen-only choice").
 
-### 16.4 Showing pairings and litters before picks open (requested 2026-10-08)
+### 16.4 Showing pairings and litters before picks open (requested 2026-10-08; built 2026-10-08)
+
+**Decided 2026-10-08 while building:** the switches govern family pages too: with them off
+(the default), a family's page lists a litter only once its picks open (or while it's in
+their turn), not every live litter as before. An `expected` litter (not born yet) counts as
+an actual pairing, shown once, with its pairing's expected whelp date.
 
 New settings in her Waitlist settings: three stages, each with two switches, **all off by
 default**.
@@ -1479,7 +1484,7 @@ status page, and by email once emails exist.
      7-day undo as a second-pass removal (§6.4). Her device makes the move, not the server.
 - Needs a stored ready-check state on the entry (the hold itself stays derived), private tier.
 
-### 16.8 A nudge when deposits open (requested 2026-10-08)
+### 16.8 A nudge when deposits open (requested 2026-10-08; built 2026-10-08)
 
 When a whelped litter reaches its `accept_deposits_date` with picks not open yet and pups
 still available, Today suggests **Open picks** ("Juniper × Ash: you planned to start taking

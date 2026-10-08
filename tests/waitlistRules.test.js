@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import {
   waitlistConfig, WAITLIST_CONFIG_DEFAULTS, autoOffers, autoOfferSummary, closingTrigger, feeForEntry, isFeeWaived, feeDueDate, respondByDate,
   anchorDate, isMovedByBreeder, rankedList, overallPositions,
-  isPupAvailable, pupMatchesPrefs, prefColorTokens, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, isListeningFor, isListenOnly, eligiblePupsFor,
+  isPupAvailable, pupMatchesPrefs, prefColorTokens, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, isListeningFor, isListenOnly, eligiblePupsFor, showUpcoming, upcomingItems, depositsDueLitters,
   litterQueue, nextFamilyForLitter, hasOpenOffer, turnSpent,
   countsAsPass, passesUsed, shouldRemoveForPasses, canUndoRemoval, passToForgive,
   overdueOffers, overdueFees, deriveContactWaitlistStatus, contactMatches, entryName,
@@ -773,4 +773,48 @@ test('canSwitchAcceptedPick: blocked once another family has been offered a turn
   assert.equal(canSwitchAcceptedPick(acc, [acc, sibling]), true);
   const later = offer({ id: 'later', litter_id: 'B', turn_id: 't2', outcome: 'open', created_at: '2026-10-02T00:00:00Z' });
   assert.equal(canSwitchAcceptedPick(acc, [acc, sibling, later]), false, 'a later turn on ANOTHER litter still blocks it');
+});
+
+test('showUpcoming (Spec §16.4): every stage off unless switched on, each place apart', () => {
+  const off = { public: false, family: false };
+  assert.deepEqual(showUpcoming(waitlistConfig({})), { planned_pairings: off, pairings: off, early_litters: off });
+  assert.deepEqual(showUpcoming({ show_upcoming: { pairings: { family: true, public: 'yes' } } }).pairings, { public: false, family: true });
+});
+
+test('upcomingItems: pairings without a litter, expected litters with their pairing, born litters before picks open', () => {
+  const k = { id: K };
+  const litters = [
+    litter({ id: 'born', status: 'weaning', pairing_id: 'p-born', sire_id: 'S1', dam_id: 'D1', whelp_date: '2026-09-01' }),
+    litter({ id: 'open', status: 'whelped', picks_opened_date: '2026-10-01' }),
+    litter({ id: 'exp', status: 'expected', pairing_id: 'p-exp' }),
+    litter({ id: 'exp-alone', status: 'expected', pairing_id: null }),
+    litter({ id: 'sold', status: 'sold' }),
+    litter({ id: 'other', kennel_id: 'elsewhere', status: 'whelped' })
+  ];
+  const pairings = [
+    { id: 'p-born', kennel_id: K, status: 'whelped' },
+    { id: 'p-exp', kennel_id: K, status: 'confirmed_pregnant', expected_due_date: '2026-12-01' },
+    { id: 'p-bred', kennel_id: K, status: 'bred', expected_due_date: '2026-11-15' },
+    { id: 'p-plan', kennel_id: K, status: 'planned' },
+    { id: 'p-off', kennel_id: K, status: 'cancelled' }
+  ];
+  const items = upcomingItems(k, { litters, pairings });
+  assert.deepEqual(items.map((u) => [u.id, u.kind, u.litter_id]), [
+    ['born', 'early_litter', 'born'],
+    ['p-bred', 'pairing', null],
+    ['p-exp', 'pairing', 'exp'],
+    ['exp-alone', 'pairing', 'exp-alone'],
+    ['p-plan', 'planned_pairing', null]
+  ]);
+});
+
+test('depositsDueLitters (Spec §16.8): born, deposits date come, picks not open, a pup available', () => {
+  const l = (over) => litter({ status: 'whelped', accept_deposits_date: '2026-10-05', ...over });
+  const pups = [pup({ id: 'a', litter_id: 'L1' }), pup({ id: 'b', litter_id: 'L2', disposition: 'keeping' })];
+  assert.deepEqual(depositsDueLitters([l()], pups, [], TODAY).map((x) => x.id), ['L1']);
+  assert.deepEqual(depositsDueLitters([l({ accept_deposits_date: '2026-10-06' })], pups, [], TODAY), [], 'not yet');
+  assert.deepEqual(depositsDueLitters([l({ picks_opened_date: '2026-10-05' })], pups, [], TODAY), [], 'already open');
+  assert.deepEqual(depositsDueLitters([l({ id: 'L2' })], pups, [], TODAY), [], 'no pup available');
+  assert.deepEqual(depositsDueLitters([l({ accept_deposits_date: null })], pups, [], TODAY), [], 'no date planned');
+  assert.deepEqual(depositsDueLitters([l({ status: 'expected' })], pups, [], TODAY), []);
 });

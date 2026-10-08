@@ -3,7 +3,7 @@
 // browser (nothing typed is sent anywhere), and "See Your Details": a family
 // signs in with a code emailed to the address on their application, and this
 // browser remembers them for 90 days.
-import { esc, fetchJson, fmtDate, loadError, publicListHtml, rowMatches, possessive } from './common.js';
+import { esc, fetchJson, fmtDate, loadError, publicListHtml, rowMatches, possessive, upcomingListHtml } from './common.js';
 import { rememberFamily, rememberedFamily, forgetFamily } from './session.js';
 
 const $ = (id) => document.getElementById(id);
@@ -74,11 +74,16 @@ async function load() {
     showError(loadError(res, { notFound: "This waitlist isn't online. The breeder may have taken it down, or the link is incomplete." }));
     return;
   }
-  const { kennel, as_of: asOf, rows } = res.body;
+  const { kennel, as_of: asOf, rows, upcoming = [] } = res.body;
   document.title = `${kennel.name} waitlist`;
   $('title').textContent = `${kennel.name} waitlist`;
   $('updated').textContent = asOf ? `Updated ${fmtDate(asOf)}` : '';
   $('content').hidden = false;
+  // Pairings and litters she shows publicly before picks open (Spec §16.4).
+  if (upcoming.length) {
+    $('upcoming').innerHTML = `<h2>Coming up</h2>${upcomingListHtml(upcoming)}`;
+    $('upcoming').hidden = false;
+  }
 
   const render = () => {
     const q = $('search').value;

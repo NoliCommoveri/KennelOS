@@ -22,7 +22,7 @@
 import {
   waitlistConfig, entryName, publicList, overallPositions, litterQueue, isPupAvailable, passesUsed,
   isManuallyPaused, readyFromDate, isReadyHeld, feeForEntry, kennelBreeds, listenParentChoices,
-  rankedList, turnLittersFor, turnIdOf, passReasons, splitPrepassed
+  rankedList, turnLittersFor, turnIdOf, passReasons, splitPrepassed, upcomingItems, showUpcoming, isListeningFor
 } from './waitlistRules.js';
 import { addDaysToYMD } from './dateUtils.js';
 import { WAITLIST_OPEN_STATUSES } from './vocab.js';
@@ -113,6 +113,12 @@ function entryView(entry, ctx) {
       ? { amount: fee, due_date: orNull(entry.fee_due_date), instructions: ctx.config.payment_instructions || '', credit_policy: ctx.config.fee_credit_policy }
       : null,
     litter_positions: ctx.litterPositions.get(entry.id) || {},
+    // Each item she shows on family pages (§16.4): whether they're waiting for it
+    // (listen-only) and, for a whelped litter, their place in it now.
+    upcoming: entry.status === 'active' ? Object.fromEntries(ctx.upcoming.filter((u) => u.family).map((u) => [u.id, {
+      waiting: isListeningFor(entry, u),
+      position: u.kind === 'early_litter' ? (ctx.litterPositions.get(entry.id) || {})[u.litter_id] ?? null : null
+    }])) : {},
     offers: ctx.offers
       .filter((o) => o.entry_id === entry.id && o.outcome === 'open' && !o.is_archived)
       .sort(byId)
@@ -162,13 +168,59 @@ function parentsSection(kennel, live, { dogs, litters, pairings }) {
   return { sires: choices.sires.map(named), dams: choices.dams.map(named) };
 }
 
+// Each dog's earned titles (her logged `title_earned` events' abbreviations), in
+// the order earned, for the pairings and early litters she shows (§16.4, Q32).
+export function titlesByDog(events = []) {
+  const out = new Map();
+  const earned = events
+    .filter((ev) => ev.event_type === 'title_earned' && ev.subject_type === 'dog' && !ev.is_archived && String(ev.details?.title_abbreviation ?? '').trim())
+    .sort((a, b) => String(a.event_date || '').localeCompare(String(b.event_date || '')) || String(a.id).localeCompare(String(b.id)));
+  for (const ev of earned) {
+    const list = out.get(ev.subject_id) || [];
+    const t = String(ev.details.title_abbreviation).trim();
+    if (!list.includes(t)) list.push(t);
+    out.set(ev.subject_id, list);
+  }
+  return out;
+}
+
+// Pairings and litters before picks open (Spec §16.4), only the stages she
+// switched on, each saying where it shows (`public`, `family`). A parent is its
+// call name and titles, nothing else; dates are hers to publish (Q32): a pairing's
+// expected whelp date, a whelped litter's whelp date and "picks expected to open"
+// (its accept-deposits date). Internal `sire_id`/`dam_id`/`litter_id` are kept
+// for the per-family view and stripped by toUpcomingView.
+function upcomingSection(kennel, config, { litters, pairings, dogsById, titles }) {
+  const show = showUpcoming(config);
+  const parent = (id) => ({ name: dogsById.get(id)?.call_name || 'Unknown', titles: [...(titles.get(id) || [])] });
+  return upcomingItems(kennel, { litters, pairings })
+    .filter((u) => show[u.stage].public || show[u.stage].family)
+    .map((u) => ({
+      ...u,
+      label: u.litter?.nickname || `${parent(u.dam_id).name} × ${parent(u.sire_id).name}`,
+      sire: parent(u.sire_id),
+      dam: parent(u.dam_id),
+      expected_whelp_date: u.kind === 'early_litter' ? null : orNull(u.pairing?.expected_due_date),
+      whelp_date: u.kind === 'early_litter' ? orNull(u.litter.whelp_date) : null,
+      picks_expected_date: u.kind === 'early_litter' ? orNull(u.litter.accept_deposits_date) : null,
+      public: show[u.stage].public,
+      family: show[u.stage].family
+    }));
+}
+
+const toUpcomingView = (u) => ({
+  id: u.id, kind: u.kind, label: u.label, pairing_id: u.pairing_id, litter_id: u.litter_id,
+  sire: u.sire, dam: u.dam, expected_whelp_date: u.expected_whelp_date, whelp_date: u.whelp_date,
+  picks_expected_date: u.picks_expected_date, public: u.public, family: u.family
+});
+
 // The projection for ONE own kennel. Callers pass that kennel's entries, offers
 // and programs (a Map), and every litter, pairing, dog, sale and contact (each is
 // filtered here). `today` is YYYY-MM-DD. `formKey` is her current form key (its
 // PUBLIC half seals applications and family messages); `eventsThrough` the last
 // family event her device has applied (the server lets go of picked pups' holds
 // up to there, W2 step 5).
-export function buildProjection({ kennel, entries = [], offers = [], programsById = new Map(), litters = [], pairings = [], dogs = [], sales = [], contacts = [], today, formKey = null, eventsThrough = 0 }) {
+export function buildProjection({ kennel, entries = [], offers = [], programsById = new Map(), litters = [], pairings = [], dogs = [], sales = [], contacts = [], events = [], today, formKey = null, eventsThrough = 0 }) {
   if (!kennel || !kennel.public_id) throw new Error('This kennel has no public identity yet.');
   if (!today) throw new Error('buildProjection needs today.');
   const config = waitlistConfig(kennel);
@@ -195,6 +247,7 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
       whelp_date: orNull(litter.whelp_date),
       ready_date: orNull(litter.estimated_ready_date),
       picks_open: Boolean(litter.picks_opened_date),
+      pairing_id: orNull(litter.pairing_id),
       pups: pups.filter((d) => isPupAvailable(d, sales)).sort(byId).map(publicPup),
       open_offer_entry_id: open ? open.entry_id : null
     };
@@ -219,8 +272,9 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
     });
   }
 
+  const upcoming = upcomingSection(kennel, config, { litters, pairings, dogsById, titles: titlesByDog(events) });
   const ctx = {
-    config, contactsById, programsById, offers: kennelOffers, today,
+    config, contactsById, programsById, offers: kennelOffers, today, upcoming,
     positions: overallPositions(live, kennel.id, programsById), litterPositions
   };
   const entryViews = {};
@@ -249,6 +303,7 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
     }),
     entries: entryViews,
     litters: litterViews,
+    upcoming: upcoming.map(toUpcomingView),
     turn_queue: turnQueue,
     events_through: Number.isInteger(eventsThrough) && eventsThrough > 0 ? eventsThrough : 0
   };

@@ -90,3 +90,20 @@ export function publicListHtml(rows, query = '', mine = null) {
   return `<table class="list"><thead><tr><th>#</th><th>Name</th><th>Wants</th><th>Added</th></tr></thead><tbody>${body}</tbody></table>
     ${gaps ? '<p class="small muted">A missing number is a family who is paused for now. They keep their place.</p>' : ''}`;
 }
+
+// A pairing or litter before picks open (Waitlist Spec §16.4): its parents with
+// their titles, and her dates. Used by the public list and the status page.
+const parentText = (d) => [d?.name || '', ...(d?.titles || [])].filter(Boolean).join(' ');
+export function upcomingDetails(u) {
+  const when = u.kind === 'early_litter'
+    ? [u.whelp_date ? `Born ${fmtDate(u.whelp_date)}` : 'Born', u.picks_expected_date ? `picks expected to open ${fmtDate(u.picks_expected_date)}` : ''].filter(Boolean).join(' · ')
+    : u.kind === 'planned_pairing' ? 'Planned pairing'
+      : u.expected_whelp_date ? `Expected about ${fmtDate(u.expected_whelp_date)}` : 'Expected';
+  return `<div class="small">Dam: ${esc(parentText(u.dam))} · Sire: ${esc(parentText(u.sire))}</div><div class="small muted">${esc(when)}</div>`;
+}
+
+export function upcomingListHtml(rows) {
+  if (!rows.length) return '';
+  return `<ul class="plain">${rows.map((u) => `<li><strong>${esc(u.label)}</strong>${upcomingDetails(u)}</li>`).join('')}</ul>
+    <p class="small muted">Plans can change.</p>`;
+}

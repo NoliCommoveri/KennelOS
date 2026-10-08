@@ -94,7 +94,7 @@ test('the public list shows only her published rows', async () => {
   const { env } = await published();
   const res = await get(env, `/f/list/${KENNEL}`);
   assert.equal(res.status, 200);
-  assert.deepEqual(await res.json(), { kennel: { name: 'Thornfield Kennels' }, as_of: '2026-10-08', rows: projection().public_list });
+  assert.deepEqual(await res.json(), { kennel: { name: 'Thornfield Kennels' }, as_of: '2026-10-08', rows: projection().public_list, upcoming: [] });
   assert.equal((await get(env, '/f/list/kos1_99999999-2222-4333-8444-555555555555')).status, 404);
   assert.equal((await get(env, '/f/list/thornfield')).status, 404);
 });
@@ -104,7 +104,7 @@ test("a family's status page shows their own place and offers, never anyone else
   const res = await get(env, `/f/status/${tok('a')}`);
   assert.equal(res.status, 200);
   const v = await res.json();
-  assert.deepEqual(Object.keys(v).sort(), ['as_of', 'family', 'kennel', 'litters', 'offers', 'pending', 'public_list']);
+  assert.deepEqual(Object.keys(v).sort(), ['as_of', 'family', 'kennel', 'litters', 'offers', 'pending', 'public_list', 'upcoming']);
   assert.equal(v.kennel.public_id, KENNEL, 'so the page can find this browser\'s sign-in');
   assert.deepEqual(v.pending, []);
   assert.equal(v.family.name, 'Ann Lee');
@@ -113,7 +113,7 @@ test("a family's status page shows their own place and offers, never anyone else
   assert.deepEqual(v.offers, [{ id: 'o1', turn_id: 'o1', litter_id: 'l1', litter: 'Juniper × Ash', offered_date: '2026-10-07', respond_by_date: '2026-10-10', picked_dog_id: null,
     pups: [{ id: 'p2', call_name: 'Poppy', sex: 'female', color: 'black' }] }]);
   assert.deepEqual(v.litters, [{ id: 'l1', label: 'Juniper × Ash', status: 'whelped', whelp_date: '2026-09-01', ready_date: '2026-10-27',
-    picks_open: true, pups_available: 2, your_position: 1 }]);
+    picks_open: true, pairing_id: null, pups_available: 2, your_position: 1 }]);
   const text = JSON.stringify(v);
   for (const other of ['Bo Kim', 'bo@example.com', '"bo"', 'Cy Day', 'Dee Fox', 'Venmo', tok('b'), 'queue', 'open_offer_entry_id']) {
     assert.equal(text.includes(other), false, other);
@@ -125,7 +125,7 @@ test('a placed family sees only that; an unknown, malformed or replaced link fin
   const { env, s } = await published();
   const placed = await (await get(env, `/f/status/${tok('c')}`)).json();
   assert.deepEqual(placed, { kennel: { name: 'Thornfield Kennels', time_zone: 'America/Chicago', public_id: KENNEL, can_message: false }, as_of: '2026-10-08',
-    family: { name: 'Cy Day', status: 'placed' }, offers: [], litters: [], public_list: [], pending: [] });
+    family: { name: 'Cy Day', status: 'placed' }, offers: [], litters: [], upcoming: [], public_list: [], pending: [] });
   assert.equal((await get(env, `/f/status/${tok('d')}`)).status, 404);
   assert.equal((await get(env, '/f/status/nope')).status, 404);
 
@@ -146,7 +146,32 @@ test('statusView and listView are allow-lists over the projection', () => {
   p.entries.ann.secret = 'x';
   p.kennel.private = 'y';
   assert.equal(JSON.stringify(statusView(p, 'ann')).includes('"x"'), false, 'an unknown field is never passed through');
-  assert.deepEqual(Object.keys(listView(p)).sort(), ['as_of', 'kennel', 'rows']);
+  assert.deepEqual(Object.keys(listView(p)).sort(), ['as_of', 'kennel', 'rows', 'upcoming']);
+});
+
+test('pairings and early litters (Spec §16.4): each where she shows it; a litter before picks open only that way', () => {
+  const p = projection();
+  const parent = (name, titles = []) => ({ name, titles, id: 'never-shown' });
+  p.litters.l2 = { label: 'Spring litter', status: 'whelped', whelp_date: '2026-09-20', picks_open: false, pups: [{ id: 'p9' }] };
+  p.upcoming = [
+    { id: 'l2', kind: 'early_litter', label: 'Spring litter', pairing_id: 'pr2', litter_id: 'l2', sire: parent('Ash', ['JH']), dam: parent('Willow'),
+      expected_whelp_date: null, whelp_date: '2026-09-20', picks_expected_date: '2026-10-20', public: false, family: true, sire_id: 'secret-sire' },
+    { id: 'pr3', kind: 'planned_pairing', label: 'Juniper × Ash', pairing_id: 'pr3', litter_id: null, sire: parent('Ash', ['JH']), dam: parent('Juniper', ['CGC']),
+      expected_whelp_date: null, whelp_date: null, picks_expected_date: null, public: true, family: false },
+  ];
+  p.entries.ann.upcoming = { l2: { waiting: true, position: 2 } };
+  const list = listView(p);
+  assert.deepEqual(list.upcoming, [{ id: 'pr3', kind: 'planned_pairing', label: 'Juniper × Ash', sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Juniper', titles: ['CGC'] },
+    expected_whelp_date: null, whelp_date: null, picks_expected_date: null }]);
+  const v = statusView(p, 'ann');
+  assert.deepEqual(v.litters.map((l) => l.id), ['l1'], 'the early litter is not in the Litters list');
+  assert.deepEqual(v.upcoming, [{ id: 'l2', kind: 'early_litter', label: 'Spring litter', sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Willow', titles: [] },
+    expected_whelp_date: null, whelp_date: '2026-09-20', picks_expected_date: '2026-10-20', pairing_id: 'pr2', litter_id: 'l2', waiting: true, your_position: 2 }]);
+  assert.equal(JSON.stringify(v).includes('secret-sire'), false);
+  assert.deepEqual(statusView(p, 'dee').upcoming, [], 'not on the list yet: nothing coming up');
+  // A litter in their turn shows even if her picks were stopped.
+  p.litters.l1.picks_open = false;
+  assert.deepEqual(statusView(p, 'ann').litters.map((l) => l.id), ['l1']);
 });
 
 // The code in the newest verification email (staging's outbox records it).
