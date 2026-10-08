@@ -25,6 +25,21 @@ src/vault.js           the private vault: wraps (recovery, passkeys), turn on/of
 src/license.js         the Pro license link (docs/KennelOS_License_Link_Plan.md): Lemon Squeezy's
                        signed webhook, the account's entitlement, requirePro for W2's routes,
                        linking another purchase email by code
+src/waitlist.js        the waitlist online, her side (docs/KennelOS_Waitlist_W2_Plan.md): publish /
+                       read / take offline a kennel's projection (status-page tokens move to
+                       wl_tokens), the encrypted inbox and its ack, the events stream. Pro only
+                       (requirePro); writes from the backing device only
+src/familyPages.js     the waitlist's family pages: serves public/family/ for /list/<public_id> and
+                       /s/<token> (ASSETS binding), their same-origin JSON under /f/ (the public
+                       list, one family's status view, See Your Details: a code by email, then
+                       a 90-day family session for that browser, and the online application
+                       form: its JSON, and a sealed application held until the applicant
+                       types the emailed code)
+src/familyActions.js   what a signed-in family does on their status page (POST /f/act, /f/message):
+                       each action checked against her published list and recorded as an
+                       event; a picked pup held (wl_holds) until her device's next publish says
+                       it applied the pick (events_through); messages sealed to her key, into
+                       the inbox
 src/notice.js          service notices (public /notice; set on /ops)
 src/retention.js       the daily prune and GC; pickDrops is the pure rule
 src/backup.js          /ops export/import of the D1 rows (not R2)
@@ -35,7 +50,10 @@ src/health.js          bindings, secrets present, schema version, row counts
 src/lib/cors.js        the allowed origins (Lite, Pro, localhost)
 src/lib/sql.js         statement splitter (ported verbatim from MCCE)
 src/migrations/        NNNN_name.sql files + index.js, the ordered list the runner reads
-tests/                 node --test against a node:sqlite stand-in for D1
+public/family/         the family pages' static files (no build step; strict CSP, so no inline
+                       script or style); tests/familyPages.test.js in the repo root pins their labels
+tests/                 node --test against a node:sqlite stand-in for D1;
+                       tests/helpers/serve.mjs runs the Worker locally to look at the pages
 ```
 
 ## Rules that bite
@@ -60,12 +78,26 @@ tests/                 node --test against a node:sqlite stand-in for D1
   vars in `wrangler.toml`; until they're set it answers 503 and `/ops` says what's missing.
   `/ops`'s one-off **Import from Lemon Squeezy** backfills purchases made before the webhook,
   with a short-lived LS API key that is sent only to `api.lemonsqueezy.com` and never kept.
+- **Waitlist writes come from the backing device only** (publish, take offline, inbox ack),
+  so one application never becomes two families. A projection is stored without its
+  `status_token`s: they move to `wl_tokens`, and one missing from a later publish is revoked.
+  A kennel's `public_id` belongs to the first program that publishes it (`409 kennel_taken`).
+- **An application reaches her only once confirmed.** `/f/apply` stores it with
+  `confirmed_at` NULL; the inbox never returns it until the applicant types the emailed code,
+  and retention drops it (and its token) after two days. A publish never deletes the token of
+  an application her device hasn't taken in. Production needs `TURNSTILE_SECRET` and
+  `TURNSTILE_SITE_KEY` before the form opens there (`503 form_unavailable` until then).
+- **An inbox item outlives its ack.** Retention removes an application or family message only
+  when it was acknowledged 30+ days ago AND a committed snapshot with a vault part was made
+  after the ack; an unacknowledged one never. `GET /waitlist/inbox?all=1` re-fetches them.
 - **Upload a document before the snapshot that references it.** Retention gives a file a
   day's grace and then collects anything no snapshot references.
 - **No `IN (?, ?, …)` over a list.** D1 allows about 100 bound parameters and the test
   stand-in doesn't enforce that. Pass the list as one JSON parameter through
   `json_each(?)` (plan §6.2).
-- **Never add `not_found_handling`** if this Worker ever gets an `[assets]` block.
+- **The `[assets]` block serves files only through the Worker** (`run_worker_first`), so /ops and
+  the API are never shadowed. Never add `not_found_handling`, and keep `html_handling = "none"`.
+  A family page carries a bearer token in its address: keep `no-referrer` on it and its JSON.
 - Not part of any edition: no `shared/sw.js` precache entries, and `deploy.yml`
   never touches it.
 

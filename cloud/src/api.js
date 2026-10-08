@@ -10,6 +10,7 @@ import {
   removeWrap, replaceRecoveryWrap,
 } from './vault.js';
 import { getEntitlement, removeLinks, startLink, verifyLink } from './license.js';
+import { ackInbox, publishProjection, readEvents, readInbox, readProjection, unpublishProjection, PROJECTION_MAX_BYTES } from './waitlist.js';
 import { fail, json, readJson } from './lib/http.js';
 
 const FILE = /^\/files\/([^/]+)$/;
@@ -21,6 +22,7 @@ const VAULT_PAIRING = /^\/vault\/pairings\/([0-9a-f-]{36})$/;
 const VAULT_APPROVE = /^\/vault\/pairings\/([0-9a-f-]{36})\/approve$/;
 const DEVICE_ERASE = /^\/devices\/([^/]+)\/erase$/;
 const DEVICE_LICENSE = /^\/devices\/([^/]+)\/license-released$/;
+const WL_PROJECTION = /^\/waitlist\/projection\/([^/]+)$/;
 
 function stream(object, contentType, cors) {
   return new Response(object.body, {
@@ -79,6 +81,17 @@ export async function handleApi(request, env, url, cors) {
   if (approve && m === 'POST') return json(await approvePairing(env, auth, approve[1], await readJson(request)), 200, cors);
   const pairing = VAULT_PAIRING.exec(p);
   if (pairing && m === 'GET') return json(await pollPairing(env, auth, pairing[1]), 200, cors);
+
+  // The waitlist online, her side (Waitlist W2 Plan §2, §4–§6). Pro only.
+  const projection = WL_PROJECTION.exec(p);
+  if (projection && m === 'PUT') {
+    return json(await publishProjection(env, auth, projection[1], await readJson(request, PROJECTION_MAX_BYTES + 64 * 1024)), 200, cors);
+  }
+  if (projection && m === 'GET') return json(await readProjection(env, auth, projection[1]), 200, cors);
+  if (projection && m === 'DELETE') return json(await unpublishProjection(env, auth, projection[1]), 200, cors);
+  if (p === '/waitlist/inbox' && m === 'GET') return json(await readInbox(env, auth, url), 200, cors);
+  if (p === '/waitlist/inbox/ack' && m === 'POST') return json(await ackInbox(env, auth, await readJson(request)), 200, cors);
+  if (p === '/waitlist/events' && m === 'GET') return json(await readEvents(env, auth, url), 200, cors);
 
   const file = FILE.exec(p);
   if (file) {

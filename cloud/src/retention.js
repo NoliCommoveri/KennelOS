@@ -12,7 +12,14 @@
 // snapshot is never collected), and expired codes, limits, outbox rows, sessions,
 // confirmed erasures and vault pairings. A snapshot's encrypted vault part
 // (Private Vault Plan §6.2) goes with it. A Pro purchase whose access ended
-// more than 90 days ago is deleted (License Link Plan §4).
+// more than 90 days ago is deleted (License Link Plan §4). The waitlist online
+// (Waitlist W2 Plan §4): an inbox item (an application or family message) is the
+// server's delivery copy, kept until her device has it AND it's safe in a private
+// backup: acknowledged at least 30 days ago and a committed snapshot WITH a vault
+// part made after the acknowledgement. Without private backup it stays (her
+// device's copy is then the only other one), and an unacknowledged item is never
+// purged. Events go after 90 days, and a sent email's body after 90 (its subject
+// and date stay for her log).
 //
 // D1 rows go first, then R2 objects. If the R2 delete fails, the leftovers are
 // unreferenced objects (harmless), never rows pointing at nothing.
@@ -22,6 +29,8 @@ const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 export const KEEP_DAYS = 30;
 export const PURCHASE_KEEP_DAYS = 90;
+export const WL_INBOX_KEEP_DAYS = 30;
+export const WL_EVENTS_KEEP_DAYS = 90;
 const MAX_PER_RUN = 1000; // R2 deletes at most 1000 keys per call
 
 // The bucket a snapshot competes in, or null once it's past the window.
@@ -115,6 +124,21 @@ export async function runRetention(env, now = new Date()) {
     env.DB.prepare('DELETE FROM vault_pairings WHERE expires_at < ?').bind(iso(nowMs)),
     env.DB.prepare('DELETE FROM license_link_codes WHERE expires_at < ?').bind(iso(nowMs)),
     env.DB.prepare('DELETE FROM pro_purchases WHERE access_until < ?').bind(iso(nowMs - PURCHASE_KEEP_DAYS * DAY)),
+    env.DB.prepare(
+      `DELETE FROM wl_inbox WHERE acked_at < ?
+         AND EXISTS (SELECT 1 FROM snapshots s
+                      WHERE s.program_id = wl_inbox.program_id AND s.status = 'committed'
+                        AND s.vault_key_id IS NOT NULL AND s.created_at > wl_inbox.acked_at)`,
+    ).bind(iso(nowMs - WL_INBOX_KEEP_DAYS * DAY)),
+    env.DB.prepare('DELETE FROM wl_events WHERE created_at < ?').bind(iso(nowMs - WL_EVENTS_KEEP_DAYS * DAY)),
+    env.DB.prepare('DELETE FROM wl_family_codes WHERE expires_at < ?').bind(iso(nowMs)),
+    // An application never confirmed by its emailed code goes after two days, with its link.
+    env.DB.prepare(
+      `DELETE FROM wl_tokens WHERE entry_id IN (SELECT id FROM wl_inbox WHERE kind = 'application' AND confirmed_at IS NULL AND created_at < ?)`,
+    ).bind(iso(nowMs - 2 * DAY)),
+    env.DB.prepare(`DELETE FROM wl_inbox WHERE kind = 'application' AND confirmed_at IS NULL AND created_at < ?`).bind(iso(nowMs - 2 * DAY)),
+    env.DB.prepare('DELETE FROM wl_family_sessions WHERE expires_at < ?').bind(iso(nowMs)),
+    env.DB.prepare(`UPDATE wl_messages SET body = NULL WHERE status = 'sent' AND body IS NOT NULL AND sent_at < ?`).bind(iso(nowMs - WL_EVENTS_KEEP_DAYS * DAY)),
   ]);
 
   return summary;

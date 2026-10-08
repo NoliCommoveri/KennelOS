@@ -7,8 +7,9 @@
 > route for the breeder needs a signed-in account **the server knows is Pro**.
 > Status: **§10 steps 1 (the server) and 3 (the client) built 2026-10-07**, with every §9
 > decision taken as recommended (decision 8, the checkout prefill, skipped; the privacy
-> policy unchanged, the owner's decision). Next: the operator's setup (§7,
-> `LAUNCH_CHECKLIST.md` §3c), including backfilling the owner's own production license.
+> policy unchanged, the owner's decision). The operator's setup (§7,
+> `LAUNCH_CHECKLIST.md` §3c), including backfilling the owner's own production license, is
+> **done (2026-10-08)**, so W2's routes can rely on `requirePro`.
 > §10's step entries are the as-built record.
 
 ## 1. Scope

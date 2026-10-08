@@ -70,6 +70,34 @@ export async function sendTestEmail(env, rawEmail) {
   return { ok: false, reason: `Resend refused it (${res.status})${detail ? `: ${detail}` : ''}` };
 }
 
+// A plain-text email to a family (Waitlist W2 Plan §8), recorded in wl_messages
+// either way. Without Resend (staging's outbox mode) nothing is delivered: the
+// row is kept as `sent` with no delivery, and the breeder's Copy status link is
+// the way to reach a family there. → 'sent' | 'failed'. The address is used only
+// for the send and the wl_messages row; never logged.
+export async function sendFamilyMessage(env, { programId, publicId, entryId = null, kind, to, subject, text }, now = new Date()) {
+  const mode = mailMode(env);
+  if (!mode) fail(503, 'email_unavailable');
+  let status = 'sent';
+  if (mode === 'resend') {
+    const res = await fetch(RESEND_URL, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ from: env.MAIL_FROM || DEFAULT_FROM, to: [to], subject, text }),
+    });
+    if (!res.ok) {
+      console.error('resend send failed', res.status);
+      status = 'failed';
+    }
+  }
+  const at = now.toISOString();
+  await env.DB.prepare(
+    `INSERT INTO wl_messages (id, program_id, public_id, entry_id, kind, to_email, subject, body, send_after, status, sent_at, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).bind(crypto.randomUUID(), programId, publicId, entryId, kind, to, subject, text, at, status, status === 'sent' ? at : null, at).run();
+  return status;
+}
+
 // `message` overrides the sign-in wording (linkCodeMessage). The staging
 // outbox shows the code either way.
 export async function sendCode(env, { email, emailHash, code, minutes, message = null }) {

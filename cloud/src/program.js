@@ -3,6 +3,7 @@
 import { fail } from './lib/http.js';
 import { backingInfo } from './snapshots.js';
 import { requireFreshSignIn } from './auth.js';
+import { deleteWaitlistStatements } from './waitlist.js';
 
 export async function getProgram(env, auth) {
   const program = await env.DB.prepare('SELECT id, backing_device_id, latest_snapshot_id FROM programs WHERE id = ?').bind(auth.programId).first();
@@ -35,7 +36,8 @@ async function deletePrefix(bucket, prefix) {
 }
 
 // DELETE /account {confirm: "DELETE", email?, code?}. Snapshots (with their
-// vault parts), files, the vault's wraps and pairings, sessions, the program
+// vault parts), files, the vault's wraps and pairings, everything of the waitlist
+// online (published lists, status links, inbox, events, holds, emails), sessions, the program
 // and the user all go. The device's own data is
 // untouched. Needs a fresh sign-in (auth.js), so a stolen phone can't take the
 // owner's cloud copy with it.
@@ -52,6 +54,7 @@ export async function deleteAccount(env, auth, body) {
     env.DB.prepare('DELETE FROM vault_wraps WHERE program_id = ?').bind(p),
     env.DB.prepare('DELETE FROM vault_pairings WHERE program_id = ?').bind(p),
     env.DB.prepare('DELETE FROM vaults WHERE program_id = ?').bind(p),
+    ...deleteWaitlistStatements(env, p),
     env.DB.prepare('DELETE FROM programs WHERE id = ?').bind(p),
     env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(auth.userId),
     env.DB.prepare('DELETE FROM device_erasures WHERE user_id = ?').bind(auth.userId),

@@ -18,9 +18,18 @@ workers_dev = true
 [observability]
 enabled = true
 
-# No [assets] block, on purpose: this Worker serves no files. If one is ever
-# added, never set `not_found_handling = "404-page"` — it puts the asset layer in
-# front of the Worker and /ops stops reaching the router (MCCE architecture §2).
+# The waitlist's family pages (docs/KennelOS_Waitlist_W2_Plan.md §3): static files
+# in public/family/, served BY the Worker (src/familyPages.js), never in front of
+# it. run_worker_first keeps every request going to the router first, so /ops and
+# the API are never shadowed by a file. Never set `not_found_handling = "404-page"`
+# (it puts the asset layer in front of the Worker and /ops stops reaching the
+# router; MCCE architecture §2). html_handling "none": a file is served at exactly
+# its name. Inherited by [env.production].
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
+html_handling = "none"
 
 [[d1_databases]]
 binding = "DB"

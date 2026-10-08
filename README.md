@@ -396,13 +396,66 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   application-fee receipt source), and **Copy public list** (first name + last initial, sex
   preference, date added; paused families hidden with their number skipped). Programs are hers
   alone: `applicable_on_form` dropped. Tests: `waitlistForm.test.js`, `invoicePdf.test.js`. Still
-  W2: the public list page, PDFs on the status page, kennel-name (no-reply) email, and the
+  W2: the public list page, kennel-name (no-reply) email, and the
   online form itself. Next: W2 (needs the cloud Worker, vault and server-side license link;
   the link's plan is `docs/KennelOS_License_Link_Plan.md`: server and client are built
   (cloud migration `0006`, `cloud/src/license.js`; `shared/data/cloud/cloudEntitlement.js`
   and Pro's "Pro on this account" line and **Link a Pro purchase email…** in the cloud
   card's Account section; `cloudEntitlement.js` added to the precache, cache rolled to `kennelos-shell-v46`);
-  operator setup, including the owner's own license backfill, in `LAUNCH_CHECKLIST.md` §3c).
+  operator setup, including the owner's own license backfill, in `LAUNCH_CHECKLIST.md` §3c,
+  **done 2026-10-08**). **All three W2 prerequisites are now live**, and her answers to
+  Waitlist Spec Q5–Q7, Q11, Q13, Q18 are recorded (the server advances only for her automatic-offer moments, pause
+  requests she approves, the full public list with search). **Automatic offers are now per
+  moment** (`waitlist_config.auto_offer_on`: accepted / passed / no response / picked but no deposit /
+  left the list, none by default; replaces `auto_offer_next`, whose old "on" still reads as all five), which
+  the W2 server will follow while she's offline. Browser-verified (Kennel page settings
+  save; only ticked moments offer). Service-worker cache rolled to `kennelos-shell-v48` for
+  this batch. **W2 build plan approved:** `docs/KennelOS_Waitlist_W2_Plan.md` (every §10
+  decision as recommended; invoice/receipt PDFs dropped, she sends them herself). **W2 step 1,
+  the server foundation, is built:** cloud migration `0007` (every W2 table) and
+  `cloud/src/waitlist.js` (publish / read / take offline a kennel's projection, status-page
+  tokens, the encrypted inbox, the events stream; Pro and backing device only; an
+  application's server copy stays until a private backup made after her phone took it in
+  exists, and a reset phone can fetch it again), with
+  `cloud/tests/waitlist.test.js`. Apply `0007` on staging and production after the merge
+  (`LAUNCH_CHECKLIST.md` §3d). **W2 step 2, publishing from her device, is built &
+  browser-verified** (behind `WAITLIST_ONLINE_RELEASED = false`, so only against staging):
+  `data/waitlistProjection.js` (the allow-listed online view), `data/cloud/cloudWaitlist.js`
+  (publish when it changes, from the backing device), `Kennel.time_zone`,
+  `waitlist_config.online`, and the Kennel page's **Online list** card. Tests:
+  `waitlistProjection.test.js`, `cloudWaitlist.test.js`. Rides the pending
+  `kennelos-shell-v48`. **W2 step 3, the family pages, is built & browser-verified:** the
+  Worker serves the public list (with search and **See Your Details**: sign in with a code
+  emailed to the application address, remembered 90 days; migration `0008`) and each family's
+  read-only status page (`cloud/src/familyPages.js`, `cloud/public/family/`), and the app
+  has **Copy status link** / **New link** on the family's page, **Copy status link** beside an
+  open offer, and **Copy public list link** (`waitlist_entries.status_token`, cloud tier).
+  **W2 step 4, the online application form, is built & verified end to end in the browser:**
+  **Take applications online** publishes her form with a form key made on her device
+  (`Kennel.waitlist_form_keys`, private); applicants fill it in at `/apply/<public_id>`, their
+  answers sealed in their browser (`cloud/public/family/seal.js`); it reaches her once they
+  type the code we email; her device opens it (`data/waitlistCrypto.js`) and adds it as a new
+  application (`data/waitlistInbox.js`, `source: 'online_form'`). Rotate form key, Copy
+  application form link. Migration `0009`; Turnstile needed on production. Tests:
+  `waitlistCrypto`, `waitlistInbox`, `cloudWaitlist`, `cloud/tests/application`.
+  **W2 step 5, family actions, is built & browser-verified:** signed in on their status page
+  (See Your Details), a family can choose a pup, pass, say they're still interested, ask for a
+  pause, change which litters they wait for, ask to change a matching answer, leave the list,
+  and send a sealed message (`cloud/src/familyActions.js`, `cloud/public/family/status.js`).
+  Her backing device applies each action (`data/waitlistEvents.js`,
+  `cloudWaitlist.applyFamilyEvents`): a pick makes the deposit-pending Sale, a pass or leave
+  is recorded, and a pause, a narrower listen-only change or an answer change waits for her
+  **Approve** / **Decline** on Today or the family's page, where their messages and activity
+  show too (`waitlist_entries.pause_request` / `listen_change_request` / `messages`, private).
+  Tests: `waitlistEvents`, `waitlistProjection`, `cloudWaitlist`, `cloud/tests/familyActions`.
+  **Step 5c part 1, one turn per family across open litters (Waitlist Spec §16.1), is built &
+  browser-verified:** one family holds a turn at a time across the kennel's open litters,
+  seeing every pup they match in every open litter; only passing on all of it counts, once
+  (`waitlist_offers.turn_id`; `waitlistRules.nextTurn`; tests `waitlistTurns`). **Part 2, pass
+  reasons and "Not this litter" (§16.2, §16.5), is built & browser-verified:** her reasons
+  (each with its message) in Waitlist settings; every pass a family makes needs one; "Not this
+  litter" waits until their turn, leaves that litter out of it, and a turn of nothing else is
+  passed at once. Next: step 5c parts 3–6, then step 6, email.
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass

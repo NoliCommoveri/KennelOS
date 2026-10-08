@@ -11,6 +11,18 @@
 > **Build status:** W1 is complete (W1a data layer, W1b intake + list, W1c offers, W1d
 > seed / CSV / Financials). W2 and W3 are not started. See §12 and §14.
 >
+> **W2 is unblocked (2026-10-08):** all three prerequisites are live (Phase 1's Worker, the
+> private vault, the Pro license link with its operator setup done), and her answers to
+> Q5–Q7, Q11, Q13 and Q18 are recorded in §13 and the sections they change. Automatic
+> offers became per moment (`auto_offer_on`, §4.6, built), which is also what lets the W2
+> server advance a list while she's offline. **W2 build plan drafted:**
+> `docs/KennelOS_Waitlist_W2_Plan.md` (its §10 decisions are open).
+>
+> **Her requests of 2026-10-08 (§16):** one turn per family across every open litter (settles
+> Q9), passing ahead of time, listen-only "except", showing pairings and early litters, pass
+> reasons, "Review your preferences" at whelping, and "Ready now?" at a hold's end. Decided,
+> not built; Q30–Q34 decided the same day. Build plan: W2 Plan step 5c.
+>
 > **W1e built 2026-10-06** (the local half of four requests from her after trying W1: custom
 > application questions, the waitlist as the main workflow with PDF invoices/receipts, a
 > public list, and emails sent in the kennel's name). They're in §15; her follow-up
@@ -272,6 +284,12 @@ defaults in `waitlistRules.waitlistConfig()`, so an old kennel with no config ju
 | `no_response_counts_as_pass` | `true` | Q3, decided yes |
 | `color_matching` | `false` | Q4. Off: colors are notes only. |
 | `checkin_months` | `6` | W3 check-ins (§10.2) |
+| `auto_offer_on` | `[]` (none) | **Which moments offer the next family by themselves** (`vocab.WAITLIST_AUTO_OFFER_TRIGGER`): `accepted` (deposit received), `passed`, `no_response` (deadline passed without a pick), `no_deposit` (they picked a pup but the deposit didn't arrive by the deadline; recorded as `no_response`, told apart by `waitlistRules.closingTrigger`, added 2026-10-08 at her request), `left` (a family holding a turn left the list). Unticked moments return who's next and she offers. Replaced the all-or-nothing `auto_offer_next` on 2026-10-08 (a kennel still storing `auto_offer_next: true` reads as all five, `waitlistRules.waitlistConfig`). **W2 (Q13):** the server advances while her device is offline only for the moments ticked here (§8.4). |
+
+**Every window is hers (Q18, decided 2026-10-08):** the offer window (`respond_days`, or a
+program's `respond_days_override`), the fee window (`fee_due_days`) and, in W3, the
+check-in reply window are her settings, and the server honors exactly what she set. It has
+no windows of its own.
 
 ## 5. Getting onto the list
 
@@ -321,11 +339,13 @@ defaults in `waitlistRules.waitlistConfig()`, so an old kennel with no config ju
   `active`, using the approval date as its anchor.
 - **Expiry:** if a pay-by date is set and passes, the entry becomes `expired`. She gets a
   nudge first ("2 families haven't paid; their fee window closes Friday").
-- **Financials:** the fee is real income. **Leaning:** show received fees in Financials as
-  a new income component, `application_fee`, beside the Sale components. If the fee is
-  credited toward the purchase price, the Sale's invoice shows the credit line. See Q5.
-- **Later:** a pay link through her own processor (Stripe/Square payment link) whose
-  webhook marks the fee received automatically. That's out of scope here (Q6).
+- **Financials:** the fee is real income. Received fees show in Financials as income
+  (built in W1d, `incomeView.js`), and how the fee is treated (credited, non-refundable,
+  refundable) is her `fee_credit_policy` setting. If the fee is credited toward the
+  purchase price, the Sale's invoice shows the credit line. (Q5, decided 2026-10-08.)
+- **Fee received stays a tap by her, in W2 too (Q6, decided 2026-10-08).** KennelOS
+  collects no payments. A pay link through her own processor, whose webhook marks the fee
+  received automatically, stays under **Later** (§12).
 
 ## 6. The list rules (`waitlistRules.js`)
 
@@ -388,8 +408,11 @@ A family is **eligible for a pup** when the above holds for that particular pup.
     March). You keep your place on the list."
   - Switching back to `all` puts them straight back in contention at their original place.
 - **Pause** (`paused_until`): the same effect for every litter until a date, e.g. during
-  treatment or a move. It never counts as a pass. Whether families can pause themselves
-  from the status page, or only through her, is Q7.
+  treatment or a move. It never counts as a pass. **Families request it; she approves (Q7,
+  decided 2026-10-08).** On the status page a family taps **Request a pause** and must give
+  the date they want it to last until. That arrives as a pending event (§8.4), and she
+  approves it with one tap (setting `paused_until` to their date) or declines it. Nothing
+  changes until she approves. There's no limit on length; she decides each request.
 - **Readiness hold** (`ready_timing`, §15.8): a family who said they can't commit ASAP is
   treated as paused, automatically, until 1, 3 or 6 months (the soonest they said they
   could commit) after their fee was received, or approval if there's no fee.
@@ -509,14 +532,16 @@ readable form** (Proposal §6). Applicants are other people. The split:
 | Applicant **name + email** | **Readable** | Automatic messages have to go out while her phone is off. The applicant gave these **directly to this service**, under its privacy policy, which differs from buyers she typed in herself. |
 | Position, status, offers, deadlines, litter cards | Readable (no personal details) | The status page and reminders |
 | **Public list** projection: first name, last initial, sex preference, date added, position, for `active` entries that aren't paused (§15.3) | **Readable and public** | It's published on purpose. Applicants are told on the form before they apply. |
-| Invoice and receipt PDFs for a family (§15.2) | **Encrypted** with a key carried in the status-page link after `#`, which the server never receives | Only the family and her device can open them, so §8.1's "no payment details readable on the server" still holds |
+| Invoice and receipt PDFs for a family (§15.2) | **Not on the server** (dropped from W2, 2026-10-08) | She sends them herself |
 | Fee amount + her payment instructions, **for `approved` entries only** | **Readable, in that family's status-page projection only** | The status page shows what to pay and how (§5.3). Her device removes them from the projection once the fee is received, declined or expired. They never appear in an email. |
-| Fee payment records (received date aside, method, reference) | **Not on the server** | Stays private tier |
+| **Fee received** (that it was received, and the date) | **Readable**, in that family's projection | The status page shows "Fee received" and their place in line (Q11, decided 2026-10-08) |
+| Fee payment records (method, reference) | **Not on the server** | Stays private tier |
 | Outbound message bodies (fee request, offer, reminders, her questions) | **Readable** (messages log, §10.4) | The server sends them. They're written by her or from her templates, and carry no money details (§5.3). |
 | **Family messages** (the status page's message box, §8.3) | **Encrypted** to her device's key, like applications; the server and the assistant can't read them | Nothing automatic needs the text. Families pick actions with buttons, so no message ever has to be interpreted by the server. |
 
 These are the deliberate exceptions to Proposal §6 (applicant name + email, the unpaid
-fee details, and outbound message text). They're flagged for her decision: **Q11**.
+fee details, whether the fee was received, and outbound message text). **She accepted
+them (Q11, decided 2026-10-08)**; the privacy policy has to say so when W2 ships.
 
 **Why applicant emails are readable when account emails aren't:** the cloud account stores
 only a hash of the breeder's own email, because the server only ever emails her in reply to
@@ -549,6 +574,10 @@ address.
   becomes an `applied` entry with `application` filled in. As with events (§8.4), only
   the backup device turns inbox items into entries, so two devices never create the same
   application twice.
+- **As built (W2 step 4, 2026-10-08):** the keys live on the kennel (`waitlist_form_keys`,
+  private tier, so they ride the vault); the applicant confirms with a 6-digit code typed on
+  the form page rather than a link (the same code then signs their browser in, See Your
+  Details). W2 Plan step 4 has the details.
 - **Spam protection:** Cloudflare Turnstile on the form, rate limits per IP and per email,
   and a confirmation email to the applicant (the application only reaches her inbox once
   they click it).
@@ -556,18 +585,22 @@ address.
 ### 8.3 The family's status page
 
 - **Address:** `apply.kennelos.app/s/<token>`, a long random token sent by email. No
-  account or password. "Email me my link" re-sends it, using the 6-digit code pattern
-  from Phase 1 §2.1.
+  account or password. **See Your Details** (her wording, decided 2026-10-08) on the public
+  list page: the family enters a verification code; a new one is emailed to the address on
+  their application. The code opens their page and that browser stays signed in for 90
+  days; the status page's buttons (step 5) need a signed-in browser, so a forwarded link
+  can look but not act (W2 Plan step 3). She can also copy any family's link to send by
+  Messenger (**Copy status link**).
 - **What it shows**, built field by field from allow-lists like `companionExport.js`'s
   prospective bundle, which already does most of this:
   - their status, overall position (if she shows it, Q12) and per-litter position;
   - passes used ("0 of 2");
   - their listen-only settings, which they can change themselves once they're on the list
-    (§15.7), and pause (if allowed, Q7);
+    (§15.7), and a pause: requested by them with an end date, approved by her (§6.3, Q7);
   - upcoming litters (pairing, expected month), litters with pups available, and, for an
     open offer, **the pups eligible for them with the respond-by date**;
-  - buttons: **Accept a pup**, **Pass**, **Still interested**, **Pause** (if allowed, Q7),
-    **Leave the list**;
+  - buttons: **Accept a pup**, **Pass**, **Still interested**, **Request a pause** (asks
+    for the date; she approves, §6.3), **Leave the list**;
   - **a message box** ("Send [her name] a message"), plus her earlier messages and
     questions to them. It's the only way a family writes to her through the service;
   - **optional "Message us on Facebook" button**, if she turns it on (below).
@@ -605,7 +638,7 @@ address.
 Families act on the status page while she's away, so the server needs **a small, well-defined
 set of actions it can take on its own**:
 
-- record a family's response (accept / pass / still interested / pause / leave) as a
+- record a family's response (accept / pass / still interested / pause request / leave) as a
   **pending event** her device applies the next time it syncs. (Messages aren't events;
   they go to the encrypted inbox, §8.2.);
 - **an accept holds the pup immediately** on the server copy, so no second family can take
@@ -613,16 +646,23 @@ set of actions it can take on its own**:
 - send scheduled reminders and deadline messages (§10).
 
 **Deadlines and turn-passing need care.** If a deadline expires while her device is
-offline, should the server move the turn on by itself? **Leaning: yes**, but only within a
-narrow, explicit role, so her device stays the single source of truth (Q13):
+offline, should the server move the turn on by itself? **Decided 2026-10-08 (Q13): the
+server follows her existing automatic-offers setting, `auto_offer_on` (§4.6), moment by
+moment.** It's off for every moment by default. For a moment she hasn't ticked (a deadline
+passing, a family tapping Pass or Leave the list on the status page), the server sends the
+deadline's reminders and records the family's response as a pending event, but offers
+nobody; the turn waits for her device (a past-due offer as a suggested action, §6.5). For a
+ticked moment, the server moves the turn within a narrow, explicit role, so her device
+stays the single source of truth:
 
 - **Her device makes every decision; the server only walks a list she published.** With
-  each projection, her device publishes, per litter with open picks, the **next few
-  eligible families in order** (with the pups each is eligible for), computed by
+  each projection, her device publishes, per litter with open picks, **every eligible
+  family in order, however many** (with the pups each is eligible for), computed by
   `waitlistRules.js` on her device. The server never re-runs the rules over its own data.
-- **The server may do exactly two things on its own:** expire an offer whose deadline has
-  passed (recording `no_response`), and offer the turn to the next family on that
-  published list. If the list runs out, it stops and waits for her device.
+- **The server may do exactly two things on its own, and only for ticked moments:** expire
+  an offer whose deadline has passed (recording `no_response`, when `no_response` is
+  ticked, or `no_deposit` for a family who had picked), and offer the turn to the next family on that published list (after any ticked
+  moment). If the list runs out, it stops and waits for her device.
 - **Every server move carries the projection version it was based on.** On sync, her
   device applies a server move automatically only if nothing it touches (that entry, that
   litter's offers, those pups) has changed locally since that version. Otherwise the move
@@ -790,7 +830,7 @@ API. It has three jobs.
 |---|---|---|
 | **W1. The list, locally** (split into W1a–W1d, §14) | Tables, repos, rules engine + tests, Waitlist page (list, applications queue, entry page), programs, manual application entry + CSV import, approve / fee received / offers / passes / auto-removal with undo, Sale creation on accept, `waitlist_status` kept in step, Demo seed | No. Useful immediately; she runs it from her phone and messages families herself. |
 | **W1e. Her requests** (recorded and built 2026-10-06, §15; before W2) | Application form builder (her own questions, some locked) + import of questions from a CSV of her old form's responses; offering a litter or pup from the family's entry and a "who's next" view per litter; application-fee receipts and Sale invoices/receipts as downloadable PDFs; the public-list notice on manual entry; "Copy public list" as the public list's stand-in | No |
-| **W2. Online** | Public form + encrypted inbox (with Rotate form key), status page with buttons, an encrypted message box and the optional "Message us on Facebook" button, no-reply fee/offer/decline/reminder emails from templates, family responses, server-side deadlines (§8.4), Pro entitlement + rate limits (§8.5). **Added 2026-10-06 (§15):** the public list page and its status-page tab, PDFs on the status page (link-key encrypted), emails sent in the kennel's name | Yes: after Phase 1's Worker and auth, **the private vault** (Proposal Phase 2b, scheduled directly after Phase 1 since 2026-10-07; §8.2), and **the server-side Pro license link** (Proposal Phase 5, brought forward for the waitlist routes only; §8.5) |
+| **W2. Online** | Public form + encrypted inbox (with Rotate form key), status page with buttons, an encrypted message box and the optional "Message us on Facebook" button, no-reply fee/offer/decline/reminder emails from templates, family responses, server-side deadlines (§8.4), Pro entitlement + rate limits (§8.5). **Added 2026-10-06 (§15):** the public list page and its status-page tab, ~~PDFs on the status page (link-key encrypted)~~ (dropped 2026-10-08: she sends PDFs herself), emails sent in the kennel's name | Yes: after Phase 1's Worker and auth, **the private vault** (Proposal Phase 2b, scheduled directly after Phase 1 since 2026-10-07; §8.2), and **the server-side Pro license link** (Proposal Phase 5, brought forward for the waitlist routes only; §8.5). **All three live as of 2026-10-08.** |
 | **W3. Assistant** | FAQ chat, check-ins, written messages | Yes |
 | **Later** | Pay links with automatic fee received, helpers working the list on their own devices (needs Proposal Phases 2–3), SMS and Messenger notifications (sent from her Page; needs Meta app review, and Meta's 24-hour messaging window limits check-ins and reminders) | Yes |
 
@@ -804,25 +844,35 @@ W1 is a full feature on its own and doesn't wait for the cloud work.
 4. **Color preferences:** do they decide eligibility, or are they just notes she reads?
    (If a family only wants a chocolate and none are born, is that "no matching pup" (no
    pass), or would she expect them to consider other colors?)
-5. **The fee:** credited toward the purchase price, non-refundable, or refundable? Does it
-   show in Financials as income (leaning yes)?
-6. **Payments:** keep "mark fee received" by hand, or add pay links later?
-7. **Pausing:** can families pause themselves from the status page, or do they ask her? Is
+5. ~~**The fee:** credited toward the purchase price, non-refundable, or refundable? Does it
+   show in Financials as income (leaning yes)?~~ **Decided 2026-10-08: her
+   `fee_credit_policy` setting; yes, income** (§5.3).
+6. ~~**Payments:** keep "mark fee received" by hand, or add pay links later?~~ **Decided
+   2026-10-08: by hand.** No payment collection is being built (§5.3).
+7. ~~**Pausing:** can families pause themselves from the status page, or do they ask her? Is
    there a limit on how long? (*Listen-only decided 2026-10-07: families set it themselves
-   once they're on the list, §15.7.*)
+   once they're on the list, §15.7.*)~~ **Decided 2026-10-08: they request a pause with an
+   end date on the status page; she approves with one tap. No set limit** (§6.3).
 8. **When picks open:** when she taps **Open picks**, or automatically at a set age? And
    does a family pick a **specific pup** or is the pup **assigned** by her (some breeders
    match pups to families)? This changes what "pass" means.
-9. **Sequential offers** (one family at a time, leaning) or several at once in pick order?
+9. ~~**Sequential offers** (one family at a time, leaning) or several at once in pick order?~~
+   **Decided 2026-10-08: one turn at a time, kennel-wide, each turn showing every pup the
+   family matches in every open litter; only passing on all of them counts as a pass** (§16.1).
 10. **Her current programs:** what is each one, and which adjustments in §7 does it get?
-11. **What's readable on the server** (§8.1): applicant name + email, the fee amount and
+11. ~~**What's readable on the server** (§8.1): applicant name + email, the fee amount and
     her payment instructions on an unpaid family's status page, and the text of messages
-    sent *to* families. (Messages *from* families are encrypted to her.) Acceptable?
+    sent *to* families. (Messages *from* families are encrypted to her.) Acceptable?~~
+    **Decided 2026-10-08: yes, plus whether (and when) the fee was received** (§8.1).
 12. ~~**Showing the exact overall number** to families, or only "in line for this litter",
     or a band ("near the top")?~~ **Decided 2026-10-06: exact positions, publicly** (§15.3).
-13. **Server moves the turn on by itself** when a deadline passes and her phone is offline,
+13. ~~**Server moves the turn on by itself** when a deadline passes and her phone is offline,
     limited to the list her device published (leaning yes, §8.4)? And how many families
-    deep should that published list go?
+    deep should that published list go?~~ **Decided 2026-10-08: only for the moments ticked
+    in her automatic-offers setting, `auto_offer_on`** (§4.6, §8.4; none by default); for
+    the rest, nothing advances while she's offline.
+    **The published list is every eligible family, however many.** The public list page
+    likewise shows everyone, with a search box so families can find themselves (§15.3).
 14. **Program link in cloud backup**, or private?
 15. **No reply to a check-in:** pause, count as a pass, or remove? After how many?
 16. **Assistant:** happy for an LLM provider to process what families type into the FAQ
@@ -830,7 +880,8 @@ W1 is a full feature on its own and doesn't wait for the cloud work.
     status-page messages.
 17. **Deposits vs. the application fee:** confirm that the deposit is still taken on the
     Sale after a family accepts a pup, separately from the application fee.
-18. **Response windows:** how many days for an offer, a fee and a check-in?
+18. ~~**Response windows:** how many days for an offer, a fee and a check-in?~~ **Decided
+    2026-10-08: all her settings, honored exactly as she sets them** (§4.6).
 19. ~~**"Family page"** in her requests: the status page or the entry page in her app?~~
     **Decided 2026-10-06: the family's W2 status page.**
 20. ~~**Kennel-name emails:** replies to her own email, or no-reply?~~ **Decided
@@ -856,6 +907,19 @@ W1 is a full feature on its own and doesn't wait for the cloud work.
 29. ~~**Listen-only and passes (§15.7):** how does a family's own listen-only change on the
     status page apply?~~ **Decided 2026-10-07: wider changes apply at once; narrower ones wait
     for her one-tap approval on Today, like §15.9.** Outside studs stay pickable.
+30. ~~**"Review your preferences" (§16.6):** should families who ARE eligible for a newly
+    whelped litter also get a plain "a litter you match was born" note?~~ **Decided 2026-10-08:
+    yes.**
+31. ~~**Passing ahead of time (§16.2):** the same reason list as a turn pass (§16.5), or its
+    own?~~ **Decided 2026-10-08: the same list.**
+32. ~~**Pairings and early litters online (§16.4):** what shows?~~ **Decided 2026-10-08: the
+    parents' call names with any titles; a pairing's expected whelp date; a whelped litter's
+    whelp date, with its accept-deposits date as "Picks expected to open".**
+33. ~~**Pass reasons (§16.5):** an "Other" choice with a short text box?~~ **Decided
+    2026-10-08: yes.**
+34. ~~**"Review your preferences" and the hidden-litters switch (§16.6):** show the prompt and
+    the match note even when early litters are hidden from family pages?~~ **Decided
+    2026-10-08: yes.**
 
 ## 14. W1 build plan
 
@@ -986,11 +1050,12 @@ She wants to run placements from the waitlist, not hop between Litters and Sales
   (Q21). **Decided 2026-10-06: vendor jsPDF** (about 350 KB) into `shared/vendor/`, loaded
   by relative path, Pro-only (`proPages.js`, so Lite doesn't download it) and in
   `PRECACHE_URLS`.
-- **On the family's page (W2):** each PDF is encrypted on her device with a key carried in
+- ~~**On the family's page (W2):** each PDF is encrypted on her device with a key carried in
   the status-page link after `#`, which browsers never send to the server. The server
   stores only scrambled files, so §8.1 still holds. The status page lists the files and
-  the family's browser opens them.
-- **Before W2:** she downloads the PDF and sends it herself. The Companion family page
+  the family's browser opens them.~~ **Dropped 2026-10-08 (her decision):** it needed
+  encryption the server couldn't read, for little gain.
+- **She downloads the PDF and sends it herself**, in W2 too. The Companion family page
   could also carry it.
 
 ### 15.3 The public list
@@ -1023,6 +1088,9 @@ list"); both are marked there.
   uses, so a moved family shows up in the new place.
 - **Public link (W2):** one per kennel, e.g. `apply.kennelos.app/list/<kennel public_id>`.
   Her device publishes it as a projection (§8.1 row) and the server only displays it.
+  **It shows every family on the list, however many, with a search box** so a family can
+  find themselves by name (decided 2026-10-08). The search runs in the page over the
+  already-public rows; it sends nothing to the server.
 - **Before W2:** a **"Copy public list"** button on the Waitlist page copies the
   same allow-listed list as text, ready to paste.
 - **Existing families:** none. Nobody is on her list yet, so every family will have seen
@@ -1096,7 +1164,9 @@ picks open.
    they're next again after); the undo is refused if that family has already picked a pup.
 4. **Automatic offers are a setting**, `waitlist_config.auto_offer_next`. *Decided:* **off by
    default**, so every offer comes from a button she presses (Open picks / Offer to them /
-   Offer a litter…). With it off, the app only says who's next.
+   Offer a litter…). With it off, the app only says who's next. **Changed 2026-10-08:** now
+   per moment, `auto_offer_on` (§4.6): she ticks which closings (accepted, passed, no
+   response, a pick with no deposit, left the list) offer the next family by themselves. Still none by default.
 5. **Switch the pup.** A family who picked the wrong pup can be switched (Change pup…) while
    the deposit is pending, and after the deposit as long as nobody else has been offered
    that litter since. The same Sale moves to the new pup.
@@ -1165,7 +1235,7 @@ Listening for specific pairings or litters was the wrong unit: families follow a
    to bring a puppy home?" overlapped the readiness question. Forms she already saved keep
    it until she deletes it; older answers to it still show on the family page.
 
-### 15.9 Families ask to change their matching answers; she approves (requested 2026-10-07; W1 part built 2026-10-07, W2 part planned)
+### 15.9 Families ask to change their matching answers; she approves (requested 2026-10-07; W1 part built 2026-10-07, W2 part built 2026-10-08)
 
 **Her request.** Families can't change the answers that decide which pups they're offered.
 Otherwise a family could narrow an answer just before a litter's offer reaches them, get
@@ -1251,5 +1321,165 @@ shows the result and the family gets the usual no-reply email (§15.4).
   them on. Widening never asks. All pinned in `tests/waitlistRules.test.js`.
 - **W2 (status page).** Ask to change on the status page, the pending event (§8.4), the
   Today nudge with Approve / Decline, and the result shown to the family.
+  **Built (W2 step 5, 2026-10-08):** as above, with one difference: Approve and Decline
+  don't clear `pref_change_request`, they mark it `decided` + `decided_date`, so the family's
+  page can show the outcome (for 30 days); a new request replaces it. Pause and narrower
+  listen-only requests work the same way (`pause_request`, `listen_change_request`). Emails
+  about decisions come with step 6. See W2 Plan step 5.
 
 Q25–Q28 (§13) are decided: the leanings above all stand.
+
+## 16. Her requests after W2 step 5 (recorded 2026-10-08; nothing built)
+
+Seven requests from a review after W2 step 5, with her answers the same day. They change the
+offer model built in W1c and the status page built in W2 step 5, so they're settled here
+before W2 steps 6 (email) and 7 (deadlines, automatic offers) build on the current model.
+The W2 Plan carries the build order (step 5c). Q30–Q34 (§13) were answered the same day.
+
+### 16.1 One turn per family across every open litter (settles Q9)
+
+**Built 2026-10-08** (W2 Plan step 5c part 1).
+
+**The problem with one open offer per litter (as built in W1c).** With two litters open,
+each walks its own line, so two families can hold offers at once: the Lees on Juniper × Ash,
+and the Kims on Willow × Ash because the Lees don't match Willow's pups. But the Kims may want
+a Juniper pup, and they'd have to decide on Willow before knowing which Juniper pups the Lees
+leave. And the other way round: when litter B opens three weeks after litter A, the families
+skipped on A because they didn't match it must get their shot at B first.
+
+**Decided 2026-10-08: one turn at a time, kennel-wide; a turn shows every pup the family
+matches in every open litter.**
+1. **One family holds a turn at a time** across the kennel's open litters (the walking list).
+2. **Their offer lists every available pup they're eligible for in every litter with open
+   picks** (minus litters they passed on ahead of time, §16.2). They pick one pup, or pass.
+3. **Who's next** is always the highest-ranked family (§6.1) with at least one eligible,
+   available pup in an open litter they haven't used their turn on. It's recalculated every
+   time a turn closes, never a pointer moving down the list.
+4. **Skipped is never spent** (unchanged, §6.3). A family who matched nothing in litter A keeps
+   their place, so when litter B opens they come before everyone below them, even if A's walk
+   is already further down.
+5. **A litter opening during someone's turn** joins that turn (its pups added, the respond-by
+   date restarted) only when nobody ranked above the holder is eligible for it. Otherwise it
+   waits, and the next turn goes to the higher-ranked family who matches it.
+6. **What counts as a pass (decided 2026-10-08): only passing on every pup offered in the
+   turn.** Picking a pup from litter B while passing on litter A is not a pass. A turn passed in
+   full counts once, however many litters it covered, and spends the family's turn on those
+   litters only; they stay in line for any litter that opens later. No response follows
+   `no_response_counts_as_pass`, also once per turn.
+7. Accepting still places the family and ends their time on the list (§6.5); the deposit
+   stays her tap; one pick per family per turn.
+
+**Leaning for the data:** keep one `waitlist_offers` row per litter, grouped by a new
+`turn_id` (and `respond_by_date` shared across the group), so the Litter page's picks panel,
+the FKs and `referenceRegistry` stay as they are. `counts_as_pass` is set on one row of a
+fully passed turn. The W2 Plan works out the details. Automatic offers (`auto_offer_on`) and the
+server's moves (§8.4) work per turn, not per litter.
+
+### 16.2 "Not this litter": passing ahead of time (decided 2026-10-08; built 2026-10-08)
+
+Any family on the list can say **Not this litter** on a litter shown to them (§16.4) before
+it's offered or before picks open, so a family who already knows doesn't hold the line for
+the whole respond window.
+- **It's a pending state, not a pass.** Nothing counts until their turn actually comes. If
+  pups run out before their turn, **no pass is ever recorded**. They can take it back any time
+  before their turn.
+- **At their turn:** litters they passed on ahead of time are left out of their offer. If every
+  litter in the turn was one of them, the turn is recorded as passed at once (counting once,
+  §16.1 rule 6) and the next family is offered, with no wait.
+- **A reason is required** (§16.5), from the same list as a turn pass (decided, Q31),
+  collected when they tap it.
+- Stored on the entry as a list of litter ids with their reasons (private tier, like
+  `pause_request`), and published in the projection so the server can skip them when it
+  makes automatic offers (step 7).
+- "Still interested" is unrelated: a general check-in (§10.2).
+
+### 16.3 Listen-only both ways (decided 2026-10-08)
+
+`listen_mode` gains a third value, **`except`**: **All litters except these parents**.
+- A litter (or upcoming pairing) is skipped when **either** its sire or its dam is on the
+  family's except list (decided). `selected` is unchanged: offered when either parent is on the
+  list (§15.7).
+- The family sets it on the status page like the other two. Wider (removing a parent from the
+  except list, or going back to All) applies at once; narrower (adding one, or All → except)
+  waits for her approval (§15.7 item 6). Switching between `selected` and `except` counts as
+  narrower.
+- Same fields (`listen_sire_ids` / `listen_dam_ids`), so no schema or registry change beyond
+  the vocab and the registry labels' wording ("listening for" → "listen-only choice").
+
+### 16.4 Showing pairings and litters before picks open (requested 2026-10-08)
+
+New settings in her Waitlist settings: three stages, each with two switches, **all off by
+default**.
+
+| Stage | Public list | Family pages (signed in / status page) |
+|---|---|---|
+| Planned pairings | off | off |
+| Actual pairings (bred / confirmed pregnant) | off | off |
+| Whelped litters, picks not open yet | off | off |
+
+- **What shows (decided, Q32):** the parents' call names with any titles they've earned
+  (their logged `title_earned` events); for a pairing, its expected whelp date
+  (`Pairing.expected_due_date`); for a whelped litter, its whelp date and **"Picks expected to
+  open"** = the litter's `accept_deposits_date` (blank: not shown). On a family's page also:
+  whether it's one they're waiting for (listen-only), their place for a whelped litter, and
+  **Not this litter** (§16.2).
+- A pairing has no pups yet, so no place in line can be counted for it; the page says only
+  whether the family is waiting for it.
+- The settings screen warns that the public list makes her breeding plans public.
+- Stored in `waitlist_config` (cloud tier, like the rest of it).
+
+### 16.5 A reason for every pass (decided 2026-10-08; built 2026-10-08)
+
+- **Her list of reasons** in Waitlist settings, each with **its own message** shown to the
+  family when they submit (e.g. "Financial reasons" → "We appreciate your feedback. Please
+  contact us if you'd like to discuss payment plans for your next turn."). Plus an **Other**
+  choice with a short text box (decided, Q33).
+- **Required for every pass a family makes on their status page**: a turn passed in full and
+  a pass ahead of time (§16.2).
+- **Not required when she records a pass herself** (decided). **No response has no reason**
+  (decided).
+- Stored with the pass (the reason's id and its label at the time), **private tier**: a reason
+  can be sensitive (finances, health).
+
+### 16.6 "Review your preferences" when a litter is born (requested 2026-10-08)
+
+Her worry: families passed over without knowing it, e.g. listening only for dam A when she
+added dam B later, or a sex preference that no longer fits.
+- **When a litter is whelped**, families on the list who are **not eligible for it only
+  because of their listen-only choice or their matching answers** (not paused, not held) get
+  a **Review your preferences** prompt: on their status page now, and in the "It's almost your
+  turn" email once emails exist (W2 step 6, §15.5).
+- From the prompt they change their choices in the usual way: a wider listen-only change
+  applies at once (§15.7); **a change to a matching answer still waits for her tap, wider or
+  not** (Q26).
+- **Families who are eligible get a note too (decided, Q30):** "A litter you match was born:
+  Juniper × Ash."
+- **They show even when her "whelped litters, picks not open" switch for family pages (§16.4)
+  is off** (decided, Q34), like "It's almost your turn", which she sends whatever the switch
+  says.
+
+### 16.7 "Ready now?" when a readiness hold ends (decided 2026-10-08)
+
+When a family's readiness hold (§15.8) reaches its date, they're asked **Ready now?**: on the
+status page, and by email once emails exist.
+- **Yes:** nothing else to do; the hold has ended.
+- **No:** they give a new date **and a required reason** (so she can judge whether they
+  should stay on the list). It becomes a pause request she approves or declines (§6.3, Q7);
+  the reason stays private on her device, like `pause_reason`.
+- **No answer: her setting**, per kennel:
+  1. **Keep them paused** until they answer (default). Today lists families who haven't
+     answered after a while, so nobody waits forever unnoticed.
+  2. **Unpause as normal**: the hold ends on the date regardless; the question stays on their
+     page.
+  3. **Wait X days, then remove them** (X hers, 14 suggested). They stay paused during the
+     window, and the question says "Please answer by [date], or you'll be removed from the
+     waitlist." A removal has a new reason, **No answer to the ready check**, with the same
+     7-day undo as a second-pass removal (§6.4). Her device makes the move, not the server.
+- Needs a stored ready-check state on the entry (the hold itself stays derived), private tier.
+
+### 16.8 A nudge when deposits open (requested 2026-10-08)
+
+When a whelped litter reaches its `accept_deposits_date` with picks not open yet and pups
+still available, Today suggests **Open picks** ("Juniper × Ash: you planned to start taking
+deposits today. Open picks?"). One tap opens picks, which starts the next turn (§16.1).
+Dismissing hides it; nothing opens by itself.

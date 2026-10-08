@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  waitlistConfig, WAITLIST_CONFIG_DEFAULTS, feeForEntry, isFeeWaived, feeDueDate, respondByDate,
+  waitlistConfig, WAITLIST_CONFIG_DEFAULTS, autoOffers, autoOfferSummary, closingTrigger, feeForEntry, isFeeWaived, feeDueDate, respondByDate,
   anchorDate, isMovedByBreeder, rankedList, overallPositions,
   isPupAvailable, pupMatchesPrefs, prefColorTokens, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, isListeningFor, eligiblePupsFor,
   litterQueue, nextFamilyForLitter, hasOpenOffer, turnSpent,
@@ -15,6 +15,7 @@ import {
   soonFamiliesForLitter, soonFamiliesForKennel, soonNoticeText, SOON_NOTICE_DEFAULT, describeOfferChanges,
   isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker, kennelBreeds, resolveBreed,
   prefChangeLines, narrowedPrefs, prefChangeEffect, PREF_CHANGE_FIELDS,
+  turnIdOf, turnOffers, openTurns, turnLittersFor, nextTurn, joinsOpenTurn, overdueTurns,
 } from '../shared/data/waitlistRules.js';
 
 const K = 'kennel-a';
@@ -56,8 +57,8 @@ test('waitlistConfig: no kennel / no config → defaults; blank values fall back
   assert.equal(c.fee_amount, 250);
   assert.equal(c.no_response_counts_as_pass, true, 'Q3 decided: no response counts by default');
   assert.equal(c.color_matching, false);
-  assert.equal(c.auto_offer_next, false, 'decided 2026-10-06: offers are made by her unless she turns this on');
-  assert.equal(waitlistConfig({ waitlist_config: { auto_offer_next: true } }).auto_offer_next, true);
+  assert.deepEqual(c.auto_offer_on, [], 'decided 2026-10-06: offers are made by her unless she turns this on');
+  assert.equal('auto_offer_next' in c, false, 'replaced by auto_offer_on (2026-10-08)');
 });
 
 test('fees: a program override wins, 0 means waived, and a blank override is the normal fee', () => {
@@ -472,8 +473,9 @@ test('describeOfferChanges: nothing changed → no lines; voids and new offers a
   }, opts);
   assert.equal(lines.length, 3);
   assert.match(lines[0], /lit-B was voided \(not a pass\)/);
-  assert.match(lines[1], /lit-A: now offered to fam-x/);
-  assert.match(lines[2], /lit-B: now offered to fam-y/);
+  assert.match(lines[1], /lit-A: now fam-x's turn/);
+  assert.match(lines[2], /lit-B: now fam-y's turn/);
+  assert.match(describeOfferChanges({ next: { entry_id: 'x', litter_ids: ['A', 'B'], respond_by_date: '2026-10-09' } }, opts)[0], /lit-A, lit-B: now fam-x's turn/, 'a turn names every litter it covers');
   assert.match(describeOfferChanges({ voided: [offer({ litter_id: 'B' })] }, opts).at(-1), /Nobody else/);
 });
 
@@ -551,7 +553,7 @@ test('describeOfferChanges: with automatic offers off, who is next is named but 
   const opts = { nameOf: (id) => `fam-${id}`, litterOf: (id) => `lit-${id}` };
   const lines = describeOfferChanges({ waiting: [{ litter_id: 'A', entry_id: 'x' }] }, opts);
   assert.equal(lines.length, 1);
-  assert.match(lines[0], /lit-A: fam-x is next in line\. No offer was made/);
+  assert.match(lines[0], /lit-A: fam-x is next\. No turn was offered/);
   const both = describeOfferChanges({ voided: [offer({ litter_id: 'B' })], waiting: [{ litter_id: 'B', entry_id: 'y' }] }, opts);
   assert.ok(!both.some((l) => /Nobody else/.test(l)), 'a waiting family means somebody IS eligible');
 });
@@ -644,4 +646,112 @@ test('prefChangeEffect: next-for litters they would be skipped on, and open offe
   assert.deepEqual(withOffer.skippedLitters, [], 'an offer is open, so nobody is "next"');
   assert.deepEqual(prefChangeEffect(a, { pref_sex: 'any' }, { ...opts, offers: [o] }),
     { narrowed: [], openOffers: [], skippedLitters: [] }, 'widening has nothing to warn about');
+});
+
+test('automatic offers are per moment; the old all-or-nothing switch still means every moment (Spec §4.6)', () => {
+  const none = waitlistConfig({ waitlist_config: {} });
+  const all = ['accepted', 'passed', 'no_response', 'no_deposit', 'left'];
+  for (const t of all) assert.equal(autoOffers(none, t), false, t);
+  const legacy = waitlistConfig({ waitlist_config: { auto_offer_next: true } });
+  for (const t of all) assert.equal(autoOffers(legacy, t), true, t);
+  assert.equal(autoOffers(waitlistConfig({ waitlist_config: { auto_offer_next: false } }), 'passed'), false);
+  const some = waitlistConfig({ waitlist_config: { auto_offer_next: true, auto_offer_on: ['accepted', 'no_response'] } });
+  assert.equal(autoOffers(some, 'accepted'), true);
+  assert.equal(autoOffers(some, 'no_response'), true);
+  assert.equal(autoOffers(some, 'passed'), false, 'the new list wins over the old switch');
+  assert.equal(autoOffers(some, 'left'), false);
+  assert.equal(autoOffers(some, 'no_deposit'), false, 'a missed deposit is its own moment');
+  assert.equal(autoOffers(some, undefined), false);
+  assert.match(autoOfferSummary(some), /accepts a pup or lets the deadline pass/);
+  assert.match(autoOfferSummary(none), /you offer the next family/);
+  assert.match(autoOfferSummary(legacy), /offered automatically\.$/);
+});
+
+test('a no response on an offer with a pick is the missed deposit (closingTrigger)', () => {
+  assert.equal(closingTrigger({ chosen_dog_id: 'd1' }, 'no_response'), 'no_deposit');
+  assert.equal(closingTrigger({ chosen_dog_id: null }, 'no_response'), 'no_response');
+  assert.equal(closingTrigger({ chosen_dog_id: 'd1' }, 'passed'), 'passed');
+  assert.equal(closingTrigger({ chosen_dog_id: 'd1' }, 'accepted'), 'accepted');
+});
+
+// --- Turns (Spec §16.1, decided 2026-10-08) -------------------------------------------
+
+function turnWorld() {
+  const A = litter({ id: 'A', picks_opened_date: '2026-10-01' });
+  const B = litter({ id: 'B', picks_opened_date: '2026-10-01' });
+  const pups = [
+    pup({ id: 'a-m', litter_id: 'A', sex: 'male' }), pup({ id: 'a-f', litter_id: 'A', sex: 'female' }),
+    pup({ id: 'b-f', litter_id: 'B', sex: 'female' }),
+  ];
+  const lee = entry({ id: 'lee', fee_received_date: '2026-01-01', pref_sex: 'male' }); // only A has a male
+  const kim = entry({ id: 'kim', fee_received_date: '2026-01-02' }); // anything
+  const ng = entry({ id: 'ng', fee_received_date: '2026-01-03', pref_sex: 'female' });
+  return { A, B, pups, entries: [lee, kim, ng], opts: { today: TODAY, kennelId: K } };
+}
+
+test('a turn lists every open litter the family matches, one family at a time kennel-wide', () => {
+  const w = turnWorld();
+  const next = nextTurn(w.entries, [], [w.A, w.B], w.pups, [], w.opts);
+  assert.equal(next.entry.id, 'lee');
+  assert.deepEqual(next.litters.map((x) => [x.litter.id, x.eligibleDogs.map((d) => d.id)]), [['A', ['a-m']]]);
+  // Lee holds the turn: nobody else is offered anything, on either litter.
+  const held = [offer({ id: 'o1', entry_id: 'lee', litter_id: 'A', turn_id: 't1' })];
+  assert.equal(nextTurn(w.entries, held, [w.A, w.B], w.pups, [], w.opts), null);
+  // Lee passed: the Kims' turn shows BOTH litters, so they choose knowing what's left of each.
+  const passed = [offer({ id: 'o1', entry_id: 'lee', litter_id: 'A', turn_id: 't1', outcome: 'passed' })];
+  const kim = nextTurn(w.entries, passed, [w.A, w.B], w.pups, [], w.opts);
+  assert.equal(kim.entry.id, 'kim');
+  assert.deepEqual(kim.litters.map((x) => x.litter.id), ['A', 'B']);
+});
+
+test('skipped is never spent: a family who matched nothing in A is first for B when B opens later', () => {
+  const w = turnWorld();
+  const Bclosed = { ...w.B, picks_opened_date: null };
+  const offers = [
+    offer({ id: 'o1', entry_id: 'kim', litter_id: 'A', turn_id: 't2', outcome: 'passed' }),
+    offer({ id: 'o2', entry_id: 'ng', litter_id: 'A', turn_id: 't3', outcome: 'passed' }),
+  ];
+  // Lee (male only) was first for A anyway; make A female-only so Lee is skipped on A.
+  const pups = w.pups.filter((d) => d.id !== 'a-m').concat(pup({ id: 'b-m', litter_id: 'B', sex: 'male' }));
+  assert.equal(nextTurn(w.entries, offers, [w.A, Bclosed], pups, [], w.opts), null, 'A walked past Lee (no male) to the end');
+  const t = nextTurn(w.entries, offers, [w.A, w.B], pups, [], w.opts);
+  assert.equal(t.entry.id, 'lee', 'B opens: Lee, skipped on A, comes first');
+  assert.deepEqual(t.litters.map((x) => x.litter.id), ['B']);
+});
+
+test('a litter opening mid-turn joins it only when the holder is the highest-ranked family it fits', () => {
+  const w = turnWorld();
+  const kimTurn = { id: 't2', entry_id: 'kim' };
+  const held = [
+    offer({ id: 'o0', entry_id: 'lee', litter_id: 'A', turn_id: 't1', outcome: 'passed' }),
+    offer({ id: 'o1', entry_id: 'kim', litter_id: 'A', turn_id: 't2' }),
+  ];
+  // B fits Kim (anything) and Lee doesn't match B (no male): B joins Kim's turn.
+  assert.deepEqual(joinsOpenTurn(kimTurn, w.B, w.entries, held, w.pups, [], { today: TODAY }).map((d) => d.id), ['b-f']);
+  // With a male in B, Lee (ranked above Kim) fits it: B waits for the next turn.
+  const pups = [...w.pups, pup({ id: 'b-m', litter_id: 'B', sex: 'male' })];
+  assert.deepEqual(joinsOpenTurn(kimTurn, w.B, w.entries, held, pups, [], { today: TODAY }), []);
+});
+
+test('turn bookkeeping: ids, rows, open turns and overdue turns (one per turn)', () => {
+  const rows = [
+    offer({ id: 'o1', entry_id: 'kim', litter_id: 'A', turn_id: 't', respond_by_date: '2026-10-03' }),
+    offer({ id: 'o2', entry_id: 'kim', litter_id: 'B', turn_id: 't', respond_by_date: '2026-10-03' }),
+    offer({ id: 'legacy', entry_id: 'ng', litter_id: 'C', respond_by_date: '2026-10-09' }),
+  ];
+  assert.equal(turnIdOf(rows[2]), 'legacy', 'an offer from before turns is its own turn');
+  assert.deepEqual(turnOffers(rows, 't').map((o) => o.id), ['o1', 'o2']);
+  assert.deepEqual(openTurns(rows, K).map((t) => [t.id, t.offers.length]), [['t', 2], ['legacy', 1]]);
+  assert.deepEqual(overdueTurns(rows, TODAY).map((t) => t.id), ['t']);
+  const w = turnWorld();
+  assert.deepEqual(turnLittersFor(w.entries[1], [offer({ entry_id: 'kim', litter_id: 'A', outcome: 'no_response' })], [w.A, w.B], w.pups, [], { today: TODAY })
+    .map((x) => x.litter.id), ['B'], 'a turn already spent on A leaves only B');
+});
+
+test('canSwitchAcceptedPick: blocked once another family has been offered a turn anywhere in the kennel', () => {
+  const acc = offer({ id: 'acc', litter_id: 'A', turn_id: 't1', outcome: 'accepted', chosen_dog_id: 'a-f', created_at: '2026-10-01T00:00:00Z' });
+  const sibling = offer({ id: 'sib', litter_id: 'B', turn_id: 't1', outcome: 'voided', created_at: '2026-10-01T00:00:00Z' });
+  assert.equal(canSwitchAcceptedPick(acc, [acc, sibling]), true);
+  const later = offer({ id: 'later', litter_id: 'B', turn_id: 't2', outcome: 'open', created_at: '2026-10-02T00:00:00Z' });
+  assert.equal(canSwitchAcceptedPick(acc, [acc, sibling, later]), false, 'a later turn on ANOTHER litter still blocks it');
 });

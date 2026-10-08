@@ -20,10 +20,15 @@ async function bump(env, bucket, window) {
 // account exists.
 export async function limitSignIn(env, request, emailHash, now = new Date()) {
   const window = hourWindow(now);
-  const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
-  const ipBucket = `ip:${await hmacHex(env.EMAIL_HMAC_KEY, `ip:${ip}`)}`;
+  const ipBucket = `ip:${await ipKey(env, request)}`;
   const [byEmail, byIp] = [await bump(env, `email:${emailHash}`, window), await bump(env, ipBucket, window)];
   if (byEmail > LIMITS.email || byIp > LIMITS.ip) fail(429, 'rate_limited', { retryAfterSeconds: 3600 });
+}
+
+// The caller's IP, HMAC'd like an email: what a per-IP bucket is keyed by.
+export async function ipKey(env, request) {
+  const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
+  return hmacHex(env.EMAIL_HMAC_KEY, `ip:${ip}`);
 }
 
 // The vault's limits (Private Vault Plan §5.1, §5.3): per program, per UTC hour.

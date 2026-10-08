@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Waitlist application</title>
+<link rel="stylesheet" href="/family/family.css">
+<script type="module" src="/family/apply.js"></script>
+</head>
+<body>
+<main>
+  <header class="page">
+    <h1 id="title">Waitlist application</h1>
+    <p class="muted small" id="subtitle"></p>
+  </header>
+  <p id="error" class="card notice" hidden></p>
+
+  <section id="faq" class="card" hidden>
+    <h2>Before you apply</h2>
+    <div id="faq-items"></div>
+  </section>
+
+  <form id="app-form" novalidate hidden>
+    <div id="questions"></div>
+    <div class="card" id="turnstile-card" hidden><div id="turnstile"></div></div>
+    <p class="card notice" id="form-problems" role="alert" hidden></p>
+    <div class="actions"><button class="primary" type="submit" id="submit">Send my application</button></div>
+    <p class="small muted">Your answers are locked in this browser before they're sent, so only the breeder can read them. You'll get an email with a code to confirm it's you.</p>
+  </form>
+
+  <section id="confirm" class="card" hidden>
+    <h2>Check your email</h2>
+    <p class="mt0">We sent a 6-digit code to <strong id="confirm-email"></strong>. Enter it here to send your application. It works for 15 minutes.</p>
+    <form class="inline" id="confirm-form">
+      <input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="6-digit code" aria-label="Verification code" required>
+      <button class="primary" type="submit">Confirm</button>
+    </form>
+    <p class="small" id="confirm-result" role="status"></p>
+    <p class="small muted">No email after a few minutes? Check your spam folder, or <button type="button" class="linkish" id="resend">send a new code</button>.</p>
+  </section>
+
+  <footer class="page">Your application goes only to this breeder.</footer>
+</main>
+</body>
+</html>
