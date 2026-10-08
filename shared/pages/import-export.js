@@ -8,7 +8,7 @@ import { esc, confirmModal } from '../assets/ui.js';
 import { editionFlags, edition } from '../data/editionConfig.js';
 import { isProOnlyPage } from '../data/proPages.js';
 import { isDropboxConnected } from '../data/dropbox.js';
-import { mountDropboxConnect, dropboxRequiredNotice } from '../assets/dropboxConnectUI.js';
+import { mountDropboxConnect } from '../assets/dropboxConnectUI.js';
 import { pushToDropbox, fetchDropboxBackup } from '../data/assistantSync.js';
 import { isCloudAvailable } from '../data/cloud/cloudConfig.js';
 
@@ -52,7 +52,6 @@ const fileInput = document.getElementById('restore-file');
 const fetchBtn = document.getElementById('btn-dbx-fetch');
 const backupBtn = document.getElementById('btn-backup');
 const preview = document.getElementById('restore-preview');
-const destWarn = document.getElementById('dest-warn');
 let pendingBackup = null;
 const cloudPane = document.getElementById('br-cloud');
 const dropboxConnect = document.getElementById('dropbox-connect');
@@ -94,7 +93,6 @@ function renderBackupRestore() {
   // Each destination's connection strip shows only with that destination.
   if (dropboxConnect) dropboxConnect.hidden = dest !== 'dropbox';
   if (isCloud) {
-    destWarn.innerHTML = '';
     renderCloudPane();
     return;
   }
@@ -107,12 +105,11 @@ function renderBackupRestore() {
 
   // Everything below is the Dropbox axis, which Lite deletes outright (see the
   // edition branch at the foot of this file) — so it exists only when enabled.
-  if (!dropboxEnabled) { destWarn.innerHTML = ''; return; }
+  if (!dropboxEnabled) return;
   fetchBtn.hidden = dest !== 'dropbox';
   fetchBtn.disabled = needsConnect;
-  // The connect control is mounted at the foot of this same card, so the notice
-  // can point straight at it.
-  destWarn.innerHTML = needsConnect ? dropboxRequiredNotice('at the bottom of this card') : '';
+  // No separate "connect first" notice: the strip at the foot of the card says
+  // Dropbox isn't connected, right under the disabled button.
 }
 
 // The single dry-run preview, whatever the backup came from. Nothing is written
