@@ -70,6 +70,66 @@ async function fromAssets(env, request, path, extra = {}) {
   return new Response(res.body, { status: 200, headers });
 }
 
+// --- Link previews ------------------------------------------------------------------
+// A /list or /apply link pasted into Facebook (or a text, Slack, …) shows a card
+// built from the page's Open Graph tags; the crawler doesn't run the page's script,
+// so the Worker writes them into the HTML, at the page's <!--preview…--> marker,
+// with the kennel's name. That name is already public on her list; nothing else of
+// the projection is read. An unknown or unpublished kennel gets the generic card.
+const PREVIEW_MARK = /<!--preview:[^>]*-->/;
+const PREVIEW_IMAGE = '/family/share.png';
+
+const escHtml = (v) => String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+export function previewText(kind, kennelName) {
+  const name = String(kennelName || '').trim().slice(0, 120);
+  if (kind === 'apply') {
+    return name
+      ? { title: `Apply to ${name}'s waitlist`, description: `Apply to join ${name}'s puppy waitlist.` }
+      : { title: 'Waitlist application', description: 'Apply to join this kennel\'s puppy waitlist.' };
+  }
+  return name
+    ? { title: `${name} waitlist`, description: `See ${name}'s puppy waitlist, and check your place in line.` }
+    : { title: 'Puppy waitlist', description: 'See this kennel\'s puppy waitlist, and check your place in line.' };
+}
+
+export function previewTags({ title, description, url, image }) {
+  const meta = (attr, key, value) => `<meta ${attr}="${key}" content="${escHtml(value)}">`;
+  return [
+    meta('property', 'og:type', 'website'),
+    meta('property', 'og:title', title),
+    meta('property', 'og:description', description),
+    meta('property', 'og:url', url),
+    meta('property', 'og:image', image),
+    meta('property', 'og:image:width', '1200'),
+    meta('property', 'og:image:height', '630'),
+    meta('name', 'description', description),
+    meta('name', 'twitter:card', 'summary_large_image'),
+  ].join('\n');
+}
+
+async function kennelNameOf(env, publicId) {
+  if (!env.DB || !PUBLIC_ID.test(publicId)) return '';
+  try {
+    const row = await env.DB.prepare("SELECT json_extract(body, '$.kennel.name') AS name FROM wl_projection WHERE public_id = ?").bind(publicId).first();
+    return typeof row?.name === 'string' ? row.name : '';
+  } catch {
+    return ''; // schema not there yet (503 gate): the generic card
+  }
+}
+
+async function withPreview(res, env, url, kind, publicId) {
+  if (!res) return res;
+  const html = await res.text();
+  if (!PREVIEW_MARK.test(html)) return new Response(html, { status: res.status, headers: res.headers });
+  const { title, description } = previewText(kind, await kennelNameOf(env, publicId));
+  const tags = previewTags({ title, description, url: url.origin + url.pathname, image: url.origin + PREVIEW_IMAGE });
+  const out = html.replace(/<title>[^<]*<\/title>/, `<title>${escHtml(title)}</title>`).replace(PREVIEW_MARK, tags);
+  const headers = new Headers(res.headers);
+  headers.delete('content-length');
+  return new Response(out, { status: res.status, headers });
+}
+
 // A family page or one of its files, or null when the path isn't one. Served
 // whatever state the schema is in: the page then shows the API's answer.
 export async function serveFamilyPage(request, env, url) {
@@ -77,9 +137,9 @@ export async function serveFamilyPage(request, env, url) {
   const p = url.pathname;
   // Browsers ask for this on every page; nothing to show.
   if (p === '/favicon.ico') return new Response(null, { status: 204, headers: { 'cache-control': 'public, max-age=86400' } });
-  if (LIST_PAGE.test(p)) return fromAssets(env, request, '/family/list.html', { 'cache-control': 'public, max-age=300' });
+  if (LIST_PAGE.test(p)) return withPreview(await fromAssets(env, request, '/family/list.html', { 'cache-control': 'public, max-age=300' }), env, url, 'list', p.match(LIST_PAGE)[1]);
   if (STATUS_PAGE.test(p)) return fromAssets(env, request, '/family/status.html', { 'cache-control': 'no-store' });
-  if (APPLY_PAGE.test(p)) return fromAssets(env, request, '/family/apply.html', { 'cache-control': 'public, max-age=300', 'content-security-policy': APPLY_CSP });
+  if (APPLY_PAGE.test(p)) return withPreview(await fromAssets(env, request, '/family/apply.html', { 'cache-control': 'public, max-age=300', 'content-security-policy': APPLY_CSP }), env, url, 'apply', p.match(APPLY_PAGE)[1]);
   if (ASSET.test(p)) return fromAssets(env, request, p, { 'cache-control': 'public, max-age=300' });
   return null;
 }

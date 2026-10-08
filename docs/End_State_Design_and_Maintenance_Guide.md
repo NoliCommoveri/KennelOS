@@ -3200,6 +3200,12 @@ shown (`describeOfferChanges`).
   list link** and **Copy application form link**. The buttons always show; one that can't
   work yet is greyed out with a line saying why (not online yet / not published yet / the
   form isn't open).
+- **Link previews (2026-10-08):** a shared public list or application link shows a card on
+  Facebook and in texts: the Worker (`cloud/src/familyPages.js` `withPreview`) writes Open
+  Graph tags with the kennel's name ("Thornfield Kennels waitlist" / "Apply to Thornfield
+  Kennels's waitlist") into `/list` and `/apply`, read from the published projection's
+  `kennel.name` only, and a generic image (`cloud/public/family/share.png`). Status pages
+  get none (they're private).
 - **Status links:** every entry of an online kennel gets `status_token` (64 hex, minted by
   `cloudWaitlist.ensureStatusTokens` before a publish; cloud tier). The family's page has
   **Copy status link** and **New link** (`replaceStatusToken`: the old link stops working at

@@ -285,3 +285,40 @@ test('See Your Details: a family can be signed in on several devices at once (on
   }
   assert.equal(count(env, 'wl_family_sessions'), 2);
 });
+
+// Link previews: the real page files, so the marker and the <title> are the ones served.
+import { readFile } from 'node:fs/promises';
+const realAssets = {
+  async fetch(req) {
+    const path = new URL(req.url).pathname;
+    try {
+      const body = await readFile(new URL(`../public${path}`, import.meta.url));
+      return new Response(body, { headers: { 'content-type': path.endsWith('.html') ? 'text/html' : 'image/png' } });
+    } catch { return new Response('not found', { status: 404 }); }
+  },
+};
+
+test('a shared /list or /apply link previews with the kennel\'s name; anything else gets the generic card', async () => {
+  const { env } = await published({ ASSETS: realAssets });
+  const list = await (await get(env, `/list/${KENNEL}?fbclid=x`)).text();
+  assert.match(list, /<title>Thornfield Kennels waitlist<\/title>/);
+  assert.match(list, /<meta property="og:title" content="Thornfield Kennels waitlist">/);
+  assert.match(list, /<meta property="og:description" content="See Thornfield Kennels&#39;s puppy waitlist, and check your place in line.">/);
+  assert.match(list, new RegExp(`<meta property="og:url" content="[^"]*/list/${KENNEL}">`), 'no query string');
+  assert.match(list, /<meta property="og:image" content="https?:\/\/[^"]+\/family\/share.png">/);
+  assert.doesNotMatch(list, /<!--preview/);
+  assert.doesNotMatch(list, /Ann|Lee|example\.com/, 'nothing but the kennel name');
+  const apply = await (await get(env, `/apply/${KENNEL}`)).text();
+  assert.match(apply, /<meta property="og:title" content="Apply to Thornfield Kennels&#39;s waitlist">/);
+  const unknown = await (await get(env, '/list/kos1_99999999-2222-4333-8444-555555555555')).text();
+  assert.match(unknown, /<meta property="og:title" content="Puppy waitlist">/);
+  const image = await get(env, '/family/share.png');
+  assert.equal(image.status, 200);
+});
+
+test('a kennel name is escaped in the preview', async () => {
+  const { previewTags, previewText } = await import('../src/familyPages.js');
+  const tags = previewTags({ ...previewText('list', 'Bad "<script>" Kennel'), url: 'https://x/list/a', image: 'https://x/i.png' });
+  assert.doesNotMatch(tags, /<script>/);
+  assert.match(tags, /Bad &quot;&lt;script&gt;&quot; Kennel waitlist/);
+});
