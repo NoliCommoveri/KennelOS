@@ -110,7 +110,7 @@ export function statusView(projection, entryId) {
   const family = { name: e.name ?? '', status: e.status };
   if (!OPEN_STATUSES.includes(e.status)) return { kennel, as_of: projection.as_of ?? null, family, offers: [], litters: [], public_list: [] };
 
-  for (const k of ['applied_date', 'approved_date', 'position', 'prefs', 'paused_until', 'ready_from', 'listen', 'passes', 'fee_received_date', 'fee_due', 'requests']) {
+  for (const k of ['applied_date', 'approved_date', 'position', 'prefs', 'paused_until', 'ready_from', 'listen', 'passes', 'fee_received_date', 'fee_due', 'requests', 'prepasses']) {
     family[k] = e[k] ?? null;
   }
   // What the page's editors offer: her parent dogs (listen-only) and her breeds.
@@ -120,6 +120,7 @@ export function statusView(projection, entryId) {
   kennel.breeds = projection.kennel?.breeds ?? [];
   kennel.color_matching = Boolean(projection.kennel?.color_matching);
   kennel.message_key = projection.kennel?.message_key ?? null;
+  kennel.pass_reasons = projection.kennel?.pass_reasons ?? [];
   const litters = projection.litters || {};
   const offers = (e.offers || []).map((o) => {
     const l = litters[o.litter_id] || {};

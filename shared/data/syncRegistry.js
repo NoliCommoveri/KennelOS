@@ -242,7 +242,9 @@ export const SYNC_REGISTRY = Object.freeze({
     private: [
       'fee_amount', 'fee_payment_method', 'fee_payment_reference',
       'fee_credit_policy', 'pause_reason', 'notes', 'pref_change_log', 'pref_change_request',
-      'pause_request', 'listen_change_request', 'messages'
+      'pause_request', 'listen_change_request', 'messages',
+      // "Not this litter" with the family's reason (Spec §16.2): private like a pass reason.
+      'prepasses'
     ],
     pending: []
   },
@@ -255,7 +257,9 @@ export const SYNC_REGISTRY = Object.freeze({
       'picked_date', 'sale_id', // §9: "every field except notes"
       'turn_id' // the turn the row belongs to (Spec §16.1): how the list ran, like outcome
     ],
-    private: ['notes'],
+    // pass_reason: the family's own reason for a pass (Spec §16.5, decided private:
+    // it can name money or health).
+    private: ['notes', 'pass_reason'],
     pending: []
   },
 

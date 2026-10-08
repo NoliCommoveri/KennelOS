@@ -1375,7 +1375,7 @@ the FKs and `referenceRegistry` stay as they are. `counts_as_pass` is set on one
 fully passed turn. The W2 Plan works out the details. Automatic offers (`auto_offer_on`) and the
 server's moves (§8.4) work per turn, not per litter.
 
-### 16.2 "Not this litter": passing ahead of time (decided 2026-10-08)
+### 16.2 "Not this litter": passing ahead of time (decided 2026-10-08; built 2026-10-08)
 
 Any family on the list can say **Not this litter** on a litter shown to them (§16.4) before
 it's offered or before picks open, so a family who already knows doesn't hold the line for
@@ -1428,7 +1428,7 @@ default**.
 - The settings screen warns that the public list makes her breeding plans public.
 - Stored in `waitlist_config` (cloud tier, like the rest of it).
 
-### 16.5 A reason for every pass (decided 2026-10-08)
+### 16.5 A reason for every pass (decided 2026-10-08; built 2026-10-08)
 
 - **Her list of reasons** in Waitlist settings, each with **its own message** shown to the
   family when they submit (e.g. "Financial reasons" → "We appreciate your feedback. Please

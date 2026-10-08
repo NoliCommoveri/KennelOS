@@ -22,10 +22,10 @@
 // Events the server makes itself (deadlines and automatic offers, step 7) are
 // not handled yet: they're skipped here, and no server writes any before step 7.
 import { WAITLIST_OPEN_STATUSES } from './vocab.js';
-import { isPupAvailable, listenChangeKind, prefChangeLines, PREF_CHANGE_FIELDS, turnIdOf } from './waitlistRules.js';
+import { isPupAvailable, listenChangeKind, prefChangeLines, PREF_CHANGE_FIELDS, turnIdOf, turnSpent, passReasonOf } from './waitlistRules.js';
 import { arrivalDate } from './waitlistInbox.js';
 
-export const FAMILY_EVENT_KINDS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change'];
+export const FAMILY_EVENT_KINDS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change', 'prepass', 'unprepass'];
 export const NOTE_MAX = 500;
 
 const clean = (v) => String(v ?? '').trim().slice(0, NOTE_MAX);
@@ -49,10 +49,15 @@ export const activityId = (event) => `event-${event.seq}`;
 //   op 'listen_apply'   { changes }  → the entry's listen fields
 //   op 'listen_request' { request }  → entry.listen_change_request
 //   op 'pref_request'   { request }  → entry.pref_change_request
+//   op 'prepass'        { prepass }  → "Not this litter" on the entry (§16.2)
+//   op 'unprepass'      { target }   → taken back
 // `date` is the day the family acted, in the kennel's time zone; `activity` the
 // line for their entry's activity ({ id, at, body }), or null.
 export function planFamilyEvent(event, ctx) {
-  const { entry = null, offers = [], pups = [], sales = [], litterLabel = () => 'the litter', pupName = () => 'a pup', timeZone = null } = ctx;
+  const { entry = null, offers = [], pups = [], sales = [], litterLabel = () => 'the litter', pupName = () => 'a pup', timeZone = null, config = null } = ctx;
+  // Their reason (§16.5), checked against her list as it is now: { id, label, text } or null.
+  const reasonOf = (r) => passReasonOf(config, r);
+  const said = (r) => (r ? ` Their reason: ${r.label}${r.text ? `: "${r.text}"` : ''}.` : '');
   const date = arrivalDate(event.createdAt, timeZone) || String(event.createdAt || '').slice(0, 10);
   const skip = (reason) => ({ op: 'skip', reason, date, activity: null });
   if (event.madeBy !== 'family') return skip('server_move');
@@ -89,8 +94,29 @@ export function planFamilyEvent(event, ctx) {
       const open = rows.filter((o) => o.outcome === 'open');
       const litters = (p.litter_ids || rows.map((o) => o.litter_id)).map(litterLabel).join(', ') || litterLabel(p.litter_id);
       const what = `They passed on ${litters} on their status page`;
-      if (!open.length) return note(`${what}, but that turn had already closed, so nothing was recorded.`);
-      return { op: 'pass', offerId: open[0].id, date, activity: line(`${what}.`) };
+      const reason = reasonOf(p.reason);
+      if (!open.length) return note(`${what}, but that turn had already closed, so nothing was recorded.${said(reason)}`);
+      return { op: 'pass', offerId: open[0].id, reason, date, activity: line(`${what}.${said(reason)}`) };
+    }
+    case 'prepass': {
+      const target = p.litter_id ? { litter_id: String(p.litter_id) } : p.pairing_id ? { pairing_id: String(p.pairing_id) } : null;
+      if (!target) return skip('bad_payload');
+      const name = target.litter_id ? litterLabel(target.litter_id) : 'an upcoming pairing';
+      const reason = reasonOf(p.reason);
+      const what = `Said "Not this litter" to ${name} on their status page.${said(reason)}`;
+      if (!active) return note(`${what} But ${gone}.`);
+      if (target.litter_id && offers.some((o) => o.litter_id === target.litter_id && o.outcome === 'open' && !o.is_archived)) {
+        return note(`${what} But it's in their open turn now, so nothing was recorded; they can pass on the turn.`);
+      }
+      if (target.litter_id && turnSpent(offers, target.litter_id, entry.id)) return note(`${what} They'd already had their turn on it, so nothing changes.`);
+      return { op: 'prepass', date, prepass: { ...target, reason, date }, activity: line(`${what} Nothing counts unless their turn comes; then it's recorded as a pass.`) };
+    }
+    case 'unprepass': {
+      const target = p.litter_id ? { litter_id: String(p.litter_id) } : p.pairing_id ? { pairing_id: String(p.pairing_id) } : null;
+      if (!target) return skip('bad_payload');
+      const had = (entry.prepasses || []).some((x) => (target.litter_id ? x.litter_id === target.litter_id : x.pairing_id === target.pairing_id));
+      if (!had) return skip('no_change');
+      return { op: 'unprepass', date, target, activity: line(`Took back their "Not this litter" on ${target.litter_id ? litterLabel(target.litter_id) : 'an upcoming pairing'}.`) };
     }
     case 'still_interested':
       return note('Said they\'re still interested, on their status page.');

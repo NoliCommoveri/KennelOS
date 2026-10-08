@@ -23,7 +23,7 @@ import { getActiveKennelId, setActiveKennel } from '../data/kennelScope.js';
 import { DOG_STATUS, LITTER_STATUS, SALE_STATUS, FEE_CREDIT_POLICY, WAITLIST_AUTO_OFFER_TRIGGER } from '../data/vocab.js';
 import { editionFlags } from '../data/editionConfig.js';
 import { isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
-import { waitlistConfig, SOON_NOTICE_DEFAULT } from '../data/waitlistRules.js';
+import { waitlistConfig, SOON_NOTICE_DEFAULT, passReasons } from '../data/waitlistRules.js';
 import { esc, badge, fmtDate, fmtMoney, param } from '../assets/ui.js';
 import { renderExpensePanel } from '../assets/expensePanel.js';
 import { renderKennelCardSection } from '../assets/kennelCardUI.js';
@@ -383,9 +383,26 @@ function waitlistCard(k) {
         <div class="field field-wide"><label for="wl-soon-text">"Almost your turn" message</label>
           <textarea id="wl-soon-text" style="min-height:130px;">${esc(c.soon_notice_text || SOON_NOTICE_DEFAULT)}</textarea>
           <span class="field-hint">Sent from the Almost your turn… button to families whose turn is coming up. The first line is the email subject. [Kennel Name] becomes ${esc(k.kennel_name)}. Clear it to go back to the default.</span></div>
+        <div class="field field-wide"><label>Reasons for passing</label>
+          <span class="field-hint">A family passing on their status page (on their turn, or "Not this litter" ahead of time) picks one of these, and sees its message when they send it. Passes you record yourself need no reason.</span>
+          <div id="wl-reasons">${passReasons({ ...c, pass_other: false }).map(reasonRow).join('')}</div>
+          <div class="pill-row" style="margin-top:6px;"><button type="button" class="btn btn-sm" data-act="add-reason">Add a reason</button></div>
+          <label class="check-inline" style="margin-top:6px;"><input id="wl-pass-other" type="checkbox"${c.pass_other !== false ? ' checked' : ''}> Also offer "Other", with a box for their own words</label>
+        </div>
       </div>
       <div class="form-actions"><button class="btn btn-primary btn-sm" data-act="save-waitlist">Save</button></div>
     </section>`;
+}
+
+// One editable pass reason: its label and the message the family sees.
+function reasonRow(r = { id: '', label: '', message: '' }) {
+  return `<div class="card" data-reason-id="${esc(r.id)}" style="margin:6px 0;padding:10px 12px;">
+      <div class="form-grid">
+        <div class="field field-wide"><label>Reason</label><input type="text" data-reason="label" maxlength="120" value="${esc(r.label)}" placeholder="e.g. Financial reasons"></div>
+        <div class="field field-wide"><label>Message shown when they pass</label><textarea data-reason="message" maxlength="500" placeholder="e.g. We appreciate your feedback…">${esc(r.message)}</textarea></div>
+      </div>
+      <button type="button" class="btn btn-sm" data-act="remove-reason">Remove</button>
+    </div>`;
 }
 
 async function onSaveWaitlist() {
@@ -404,8 +421,15 @@ async function onSaveWaitlist() {
     color_matching: q('#wl-colors').checked,
     auto_offer_on: [...els.config.querySelectorAll('[data-wl-auto]:checked')].map((b) => b.dataset.wlAuto),
     // Stored only when she's changed it, so the default wording stays the default.
-    soon_notice_text: q('#wl-soon-text').value.trim() === SOON_NOTICE_DEFAULT.trim() ? '' : q('#wl-soon-text').value.trim()
+    soon_notice_text: q('#wl-soon-text').value.trim() === SOON_NOTICE_DEFAULT.trim() ? '' : q('#wl-soon-text').value.trim(),
+    pass_reasons: [...els.config.querySelectorAll('[data-reason-id]')].map((row) => ({
+      id: row.dataset.reasonId || crypto.randomUUID().slice(0, 8),
+      label: row.querySelector('[data-reason="label"]').value.trim(),
+      message: row.querySelector('[data-reason="message"]').value.trim()
+    })).filter((r) => r.label),
+    pass_other: q('#wl-pass-other').checked
   };
+  if (!waitlist_config.pass_reasons.length && !waitlist_config.pass_other) { showError('Keep at least one reason for passing, or tick "Other".'); return; }
   delete waitlist_config.auto_offer_next; // replaced by auto_offer_on (2026-10-08)
   if (waitlist_config.max_passes != null && waitlist_config.max_passes < 1) { showError('Passes before removal must be at least 1.'); return; }
   try {
@@ -531,6 +555,12 @@ function wireConfig() {
   if (saveNudges) saveNudges.addEventListener('click', onSaveNudges);
   const saveWaitlist = els.config.querySelector('[data-act="save-waitlist"]');
   if (saveWaitlist) saveWaitlist.addEventListener('click', onSaveWaitlist);
+  els.config.querySelector('[data-act="add-reason"]')?.addEventListener('click', () => {
+    els.config.querySelector('#wl-reasons').insertAdjacentHTML('beforeend', reasonRow());
+  });
+  els.config.querySelector('#wl-reasons')?.addEventListener('click', (ev) => {
+    if (ev.target.closest('[data-act="remove-reason"]')) ev.target.closest('[data-reason-id]').remove();
+  });
   const online = els.config.querySelector('#waitlist-online');
   if (online) {
     import('../assets/waitlistOnlineUI.js')

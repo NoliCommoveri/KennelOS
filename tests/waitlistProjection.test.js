@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildProjection, entryEmail, PROJECTION_FORMAT } from '../shared/data/waitlistProjection.js';
-import { litterQueue, publicList, overallPositions, waitlistConfig, entryName } from '../shared/data/waitlistRules.js';
+import { litterQueue, publicList, overallPositions, waitlistConfig, entryName, passReasons } from '../shared/data/waitlistRules.js';
 
 const TODAY = '2026-10-08';
 const K = 'kennel-1';
@@ -66,6 +66,7 @@ test('the projection has exactly its allow-listed parts', () => {
     public_id: kennel.public_id, name: 'Thornfield Kennels', time_zone: 'America/Chicago',
     respond_days: 3, max_passes: 2, auto_offer_on: ['no_response'],
     breeds: [], color_matching: false,
+    pass_reasons: passReasons({}),
     parents: { sires: [{ id: 'sire', name: 'Ash' }], dams: [{ id: 'dam', name: 'Juniper' }] }
   });
   assert.equal(p.events_through, 0);
@@ -83,7 +84,8 @@ test("a family on the list sees its place, prefs, passes and offers; nothing els
   const p = buildProjection(fixture());
   const e1 = p.entries.e1;
   assert.deepEqual(keysOf(e1), ['applied_date', 'approved_date', 'email', 'fee_due', 'fee_received_date', 'listen',
-    'litter_positions', 'name', 'offers', 'passes', 'paused_until', 'position', 'prefs', 'ready_from', 'requests', 'status']);
+    'litter_positions', 'name', 'offers', 'passes', 'paused_until', 'position', 'prefs', 'prepasses', 'ready_from', 'requests', 'status']);
+  assert.deepEqual(e1.prepasses, []);
   assert.deepEqual(e1.requests, { pause: null, pref_change: null, listen: null });
   assert.equal(e1.name, 'Family e1 Lee');
   assert.equal(e1.email, 'c-e1@example.com', "the contact's address wins over the application's");
@@ -205,4 +207,15 @@ test('the listen-only choices, the message key and how far her device got throug
   assert.equal(JSON.stringify(p).includes('PRIVATE-SECRET'), false);
   assert.equal(JSON.stringify(p).includes('CHIP-SECRET'), false);
   assert.equal(p.events_through, 42);
+});
+
+test('"Not this litter": which and when, never the reason; the turn queue lists those litters apart', () => {
+  const f = fixture();
+  f.entries[1].prepasses = [{ litter_id: 'lit-1', date: '2026-10-07', reason: { id: 'finances', label: 'Financial reasons', text: 'SECRET-REASON' } }];
+  f.offers = f.offers.filter((o) => o.entry_id !== 'e2');
+  const p = buildProjection(f);
+  assert.deepEqual(p.entries.e2.prepasses, [{ litter_id: 'lit-1', date: '2026-10-07' }]);
+  assert.deepEqual(p.turn_queue.find((q) => q.entry_id === 'e2'), { entry_id: 'e2', litters: {}, prepassed: ['lit-1'] });
+  assert.equal(JSON.stringify(p).includes('SECRET-REASON'), false);
+  assert.deepEqual(p.kennel.pass_reasons.at(-1).id, 'other');
 });

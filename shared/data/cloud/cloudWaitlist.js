@@ -201,7 +201,10 @@ async function eventContext(event, kennel, cache) {
     if (!l) return 'the litter';
     return l.nickname || `${cache.dogs.get(l.dam_id)?.call_name || 'Unknown'} × ${cache.dogs.get(l.sire_id)?.call_name || 'Unknown'}`;
   };
-  return { entry, offers, pups, sales: await saleRepo.getAll({ includeArchived: true }), pupName: name, litterLabel, timeZone: kennel.time_zone || null };
+  return {
+    entry, offers, pups, sales: await saleRepo.getAll({ includeArchived: true }), pupName: name, litterLabel,
+    timeZone: kennel.time_zone || null, config: waitlistConfig(kennel)
+  };
 }
 
 // What families did on their status pages (W2 step 5): each event after this

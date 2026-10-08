@@ -510,6 +510,15 @@ means no fee reminder ever.
         prepass reason) and goes on to the next family. Consumed prepasses are removed.
       - Server: `pass` and `prepass` require a published reason id (or `other` + text ≤ 200);
         the page shows that reason's message after submitting.
+      **Built 2026-10-08.** As planned, with: the default reasons are timing, finances and
+      "not the right fit" (plus Other); a pending "Not this litter" on a litter is recorded,
+      when the turn comes, as a passed row of that turn (never counted by itself), so the
+      turn's history shows it; her app lists them on the family's page ("Not this litter",
+      with the reason) and the pass reason beside each passed offer. Server: `pass`,
+      `prepass` take `reason_id` (+ `reason_text` for `other`; `400 reason_required`);
+      `prepass` refuses a litter in their open turn (`in_your_turn`) or not published
+      (`not_listed`); `unprepass` (`not_prepassed`). Tests: `waitlistTurns`, `waitlistEvents`,
+      `waitlistProjection`, `cloudWaitlist`, `cloud/tests/familyActions`.
    3. **Listen-only "except" (§16.3).** `WAITLIST_LISTEN_MODE` gains `except`;
       `isListeningFor` skips a litter or pairing when either parent is listed;
       `listenChangeKind` treats more parents (or All → except) as narrower, fewer (or → All)

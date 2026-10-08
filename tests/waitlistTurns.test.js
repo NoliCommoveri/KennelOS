@@ -145,3 +145,57 @@ test('leaving the list with a turn open voids every litter of it and the kennel 
   assert.equal(res.voided.length, 2);
   assert.deepEqual(res.waiting.map((w) => w.entry_id), [ids.lee], 'one "who is next" for the kennel, not one per litter');
 });
+
+// --- "Not this litter" and pass reasons (Spec §16.2, §16.5) -------------------------
+
+const reason = { id: 'finances', label: 'Financial reasons', text: '' };
+
+test('"Not this litter" counts for nothing until the turn comes, and then the rest of the turn is offered', async () => {
+  await actions.addPrepass(ids.kim, { litter_id: A.id, reason, date: DAY });
+  await litterRepo.update(B.id, { picks_opened_date: DAY });
+  const t = await actions.offerTo(B.id, ids.kim, { today: DAY });
+  assert.deepEqual(t.litter_ids, [B.id], 'A is left out of the offer');
+  await litterRepo.update(A.id, { picks_opened_date: DAY });
+  const rows = await waitlistOfferRepo.getByEntry(ids.kim);
+  const aRow = rows.find((o) => o.litter_id === A.id);
+  assert.equal(aRow, undefined, 'A wasn\'t open when the turn was made: nothing recorded for it');
+  assert.equal((await waitlistEntryRepo.getById(ids.kim)).prepasses.length, 1, 'still pending');
+});
+
+test('a turn made only of "Not this litter" litters is passed at once, counting once, and the list moves on', async () => {
+  await actions.addPrepass(ids.lee, { litter_id: A.id, reason, date: DAY });
+  const t = await actions.openPicks(A.id, { date: DAY }); // Lee (first) passed on A ahead of time
+  assert.equal(t.entry_id, ids.kim, 'the turn went straight to the Kims');
+  assert.deepEqual(t.auto_passed.map((x) => x.entry_id), [ids.lee]);
+  const lee = await waitlistOfferRepo.getByEntry(ids.lee);
+  assert.deepEqual(lee.map((o) => [o.outcome, o.counts_as_pass, o.pass_reason?.id]), [['passed', true, 'finances']]);
+  const entry = await waitlistEntryRepo.getById(ids.lee);
+  assert.deepEqual(entry.prepasses, [], 'used up');
+  assert.match(entry.messages.at(-1).body, /recorded as a pass \(pass 1 of 2\)/);
+});
+
+test('a mixed turn: the "Not this litter" litter is recorded as passed (not counted), the rest is offered', async () => {
+  await actions.addPrepass(ids.kim, { litter_id: A.id, reason, date: DAY });
+  await litterRepo.update(B.id, { picks_opened_date: DAY });
+  await litterRepo.update(A.id, { picks_opened_date: DAY });
+  await actions.recordOutcome((await actions.offerTo(A.id, ids.lee, { today: DAY })).offers[0].id, 'passed', { date: DAY });
+  const t = await actions.offerNext(A.id, { date: DAY });
+  assert.equal(t.entry_id, ids.kim);
+  assert.deepEqual(t.litter_ids, [B.id]);
+  const rows = await waitlistOfferRepo.getByEntry(ids.kim);
+  assert.deepEqual(rows.map((o) => [o.litter_id === A.id ? 'A' : 'B', o.outcome, Boolean(o.counts_as_pass)]).sort(), [['A', 'passed', false], ['B', 'open', false]]);
+  assert.equal(new Set(rows.map((o) => o.turn_id)).size, 1, 'one turn');
+  // Passing the rest on their status page, with a reason: the whole turn counts once.
+  const res = await actions.recordOutcome(t.offers[0].id, 'passed', { date: DAY, passReason: { id: 'timing', label: 'The timing', text: '' } });
+  assert.equal(res.passes.used, 1);
+  assert.equal((await waitlistOfferRepo.getById(t.offers[0].id)).pass_reason.id, 'timing');
+});
+
+test('her own pass carries no reason; taking a "Not this litter" back leaves nothing behind', async () => {
+  const t = await actions.offerTo(A.id, ids.lee, { today: DAY });
+  await actions.recordOutcome(t.offers[0].id, 'passed', { date: DAY });
+  assert.equal((await waitlistOfferRepo.getById(t.offers[0].id)).pass_reason, undefined);
+  await actions.addPrepass(ids.kim, { litter_id: C.id, reason, date: DAY });
+  await actions.removePrepass(ids.kim, { litter_id: C.id });
+  assert.deepEqual((await waitlistEntryRepo.getById(ids.kim)).prepasses, []);
+});

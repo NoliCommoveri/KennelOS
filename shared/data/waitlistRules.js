@@ -30,7 +30,9 @@ export const WAITLIST_CONFIG_DEFAULTS = Object.freeze({
   no_response_counts_as_pass: true,
   color_matching: false,
   checkin_months: 6,
-  soon_notice_text: '' // blank = SOON_NOTICE_DEFAULT
+  soon_notice_text: '', // blank = SOON_NOTICE_DEFAULT
+  pass_reasons: null, // her reasons for a pass (Spec §16.5); null = DEFAULT_PASS_REASONS
+  pass_other: true // also offer "Other" with a short text box (Q33)
 });
 
 // The effective config for a kennel record (or null/undefined → all defaults).
@@ -405,6 +407,62 @@ export function nextFamilyForLitter(entries, offers, litter, pups, sales, opts =
     offers.filter((o) => !o.is_archived && o.litter_id === litter.id && SPENT_OUTCOMES.includes(o.outcome)).map((o) => o.entry_id)
   );
   return litterQueue(entries, litter, pups, sales, opts).find((q) => !spent.has(q.entry.id)) || null;
+}
+
+// --- Pass reasons and "Not this litter" (Spec §16.2, §16.5) ----------------------
+// A family passing on their status page (a whole turn, or a litter ahead of time)
+// picks one of her reasons, and is shown that reason's message. Her own recorded
+// passes and no response carry none (decided 2026-10-08).
+
+export const PASS_REASON_TEXT_MAX = 200;
+export const DEFAULT_PASS_REASONS = Object.freeze([
+  { id: 'timing', label: 'The timing isn\'t right for us', message: 'Thank you for letting us know. You keep your place for future litters.' },
+  { id: 'finances', label: 'Financial reasons', message: 'We appreciate your feedback. Please contact us if you\'d like to discuss options for payment plans on your next turn.' },
+  { id: 'fit', label: 'These pups aren\'t the right fit for us', message: 'Thank you for letting us know. You keep your place for future litters.' }
+]);
+export const OTHER_PASS_REASON = Object.freeze({ id: 'other', label: 'Other', message: 'Thank you for letting us know. You keep your place for future litters.' });
+
+// Her reasons, as families see them: [{ id, label, message }] (stored ones that
+// have a label, else the defaults), plus Other when it's on.
+export function passReasons(config) {
+  const stored = Array.isArray(config?.pass_reasons) ? config.pass_reasons : null;
+  const list = (stored || DEFAULT_PASS_REASONS)
+    .filter((r) => r && r.id && String(r.label || '').trim() && r.id !== 'other')
+    .map((r) => ({ id: String(r.id), label: String(r.label).trim(), message: String(r.message || '').trim() }));
+  return config?.pass_other === false ? list : [...list, { ...OTHER_PASS_REASON }];
+}
+
+// A family's chosen reason, checked against her list: { id, label, text } or null.
+// "Other" needs its text.
+export function passReasonOf(config, choice) {
+  if (!choice || typeof choice !== 'object') return null;
+  const r = passReasons(config).find((x) => x.id === choice.id);
+  if (!r) return null;
+  const text = String(choice.text ?? '').trim().slice(0, PASS_REASON_TEXT_MAX);
+  if (r.id === 'other' && !text) return null;
+  return { id: r.id, label: r.label, text: r.id === 'other' ? text : '' };
+}
+
+// The family's "Not this litter" for this litter (or for the pairing it was born
+// of: a pass made on an upcoming pairing carries over, §16.4), or null.
+export function prepassFor(entry, litter) {
+  return (entry.prepasses || []).find((p) => (p.litter_id && p.litter_id === litter.id)
+    || (p.pairing_id && litter.pairing_id && p.pairing_id === litter.pairing_id)) || null;
+}
+
+// Split a turn's litters ([{ litter, eligibleDogs }]) into the ones to offer and
+// the ones the family already passed on ahead of time (each with its prepass).
+// Nothing counts until the turn comes (§16.2): the caller records the prepassed
+// ones as passed then, and when NOTHING is left to offer the whole turn is passed
+// at once, counting once (§16.1 rule 6).
+export function splitPrepassed(entry, ls) {
+  const offer = [];
+  const prepassed = [];
+  for (const x of ls) {
+    const p = prepassFor(entry, x.litter);
+    if (p) prepassed.push({ ...x, prepass: p }); else offer.push(x);
+  }
+  return { offer, prepassed };
 }
 
 // --- Turns (Spec §16.1, decided 2026-10-08; settles Q9) -------------------------

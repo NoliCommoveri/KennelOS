@@ -117,3 +117,26 @@ test('turns: a pass closes the whole turn through any open row; one pick per tur
   assert.equal(pick.op, 'note');
   assert.match(pick.activity.body, /already recorded Pip/);
 });
+
+test('pass reasons and "Not this litter": checked against her list; pending until the turn comes', async () => {
+  const { passReasons, passReasonOf, splitPrepassed, DEFAULT_PASS_REASONS } = await import('../shared/data/waitlistRules.js');
+  const config = { pass_reasons: [{ id: 'money', label: 'Money', message: 'Ask us about payment plans.' }], pass_other: true };
+  assert.deepEqual(passReasons(config).map((r) => r.id), ['money', 'other']);
+  assert.deepEqual(passReasons({ pass_other: false }).map((r) => r.id), DEFAULT_PASS_REASONS.map((r) => r.id));
+  assert.deepEqual(passReasonOf(config, { id: 'money' }), { id: 'money', label: 'Money', text: '' });
+  assert.equal(passReasonOf(config, { id: 'other', text: '  ' }), null, 'Other needs its words');
+  assert.equal(passReasonOf(config, { id: 'nope' }), null);
+
+  const pass = planFamilyEvent(ev('pass', { turn_id: 'o1', reason: { id: 'money' } }), ctx({ config }));
+  assert.deepEqual(pass.reason, { id: 'money', label: 'Money', text: '' });
+  assert.match(pass.activity.body, /Their reason: Money/);
+  const pre = planFamilyEvent(ev('prepass', { litter_id: 'l2', reason: { id: 'other', text: 'Too far away' } }), ctx({ config }));
+  assert.equal(pre.op, 'prepass');
+  assert.deepEqual(pre.prepass, { litter_id: 'l2', reason: { id: 'other', label: 'Other', text: 'Too far away' }, date: '2026-10-08' });
+  assert.equal(planFamilyEvent(ev('prepass', { litter_id: 'l1', reason: { id: 'money' } }), ctx({ config })).op, 'note', 'in their open turn: pass the turn instead');
+  assert.equal(planFamilyEvent(ev('unprepass', { litter_id: 'l2' }), ctx({ entry: entry({ prepasses: [{ litter_id: 'l2' }] }) })).op, 'unprepass');
+  assert.equal(planFamilyEvent(ev('unprepass', { litter_id: 'l2' }), ctx()).op, 'skip');
+
+  const split = splitPrepassed(entry({ prepasses: [{ pairing_id: 'pr1' }] }), [{ litter: { id: 'l9', pairing_id: 'pr1' }, eligibleDogs: [] }, { litter: { id: 'l1' }, eligibleDogs: [] }]);
+  assert.deepEqual([split.offer.map((x) => x.litter.id), split.prepassed.map((x) => x.litter.id)], [['l1'], ['l9']], 'a pass on a pairing carries over to the litter born of it');
+});

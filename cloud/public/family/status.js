@@ -152,6 +152,27 @@ function prefsHtml(f) {
 
 // --- Offers ----------------------------------------------------------------------
 
+// Her reasons for a pass (Waitlist Spec §16.5), as radio buttons; "Other" has a
+// short text box. Used for passing on a turn and for "Not this litter".
+function reasonForm(form, intro, submitLabel, hidden = {}) {
+  const reasons = state.v.kennel.pass_reasons || [];
+  return `<form data-form="${form}" class="mt8">
+      ${Object.entries(hidden).map(([k, v]) => `<input type="hidden" name="${esc(k)}" value="${esc(v)}">`).join('')}
+      <p class="mt0 small">${intro}</p>
+      <fieldset class="field"><legend class="q">Why? <span class="req">*</span></legend><div class="choices">
+        ${reasons.map((r, i) => `<label class="choice"><input type="radio" name="reason_id" value="${esc(r.id)}"${i === 0 ? ' required' : ''}> ${esc(r.label)}</label>`).join('')}
+      </div></fieldset>
+      ${reasons.some((r) => r.id === 'other') ? '<label class="q mt8">If other, please tell us more<input type="text" name="reason_text" maxlength="200"></label>' : ''}
+      <div class="actions mt8"><button class="primary" type="submit">${esc(submitLabel)}</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
+    </form>`;
+}
+
+// The message she wrote for a reason, shown once they've sent it.
+function reasonMessage(id) {
+  const r = (state.v.kennel.pass_reasons || []).find((x) => x.id === id);
+  return r?.message || 'Thank you for letting us know.';
+}
+
 // A family's turn (Waitlist Spec §16.1): every litter it covers, in one card. They
 // choose ONE pup from any of them, or pass on all of them (only that counts as a
 // pass, and once). `rows` are the turn's offers, each one litter.
@@ -182,9 +203,13 @@ function turnHtml(rows) {
   if (sentPass) next = `<p>You passed on ${several ? 'all of these' : 'this litter'}. ${waiting(kennel)}</p>`;
   else if (sentPick && !picked) next = `<p>You chose ${esc(chosenName)}. ${waiting(kennel)} Send your deposit by the date above to keep them.</p>`;
   else if (picked) next = '<p>You picked a pup. Send your deposit by the date above to keep them.</p>';
-  else if (actOn) {
+  else if (actOn && state.open === `pass:${turnId}`) {
+    const p = v.family.passes;
+    next = reasonForm('pass', `Pass on ${several ? 'all of these litters' : 'this litter'}?${p ? ` You've used ${esc(p.used)} of ${esc(p.max)} passes; this may count as one.` : ''}`,
+      several ? 'Pass on all of these' : 'Pass on this litter', { turn_id: turnId });
+  } else if (actOn) {
     next = `<p class="small muted">Tap a pup to choose them${several ? ' from any of these litters' : ''}, or pass.${several ? ' Only passing on all of them counts as a pass.' : ''}</p>
-      <div class="actions"><button type="button" class="secondary" data-act="pass" data-turn="${esc(turnId)}" data-several="${several ? '1' : ''}">${several ? 'Pass on all of these' : 'Pass on this litter'}</button></div>`;
+      <div class="actions"><button type="button" class="secondary" data-act="open" data-what="pass:${esc(turnId)}">${several ? 'Pass on all of these' : 'Pass on this litter'}</button></div>`;
   } else next = signedIn() ? '' : `<p>Sign in on this device to choose a pup or pass (below), or contact ${esc(kennel)}.</p>`;
   const respondBy = rows.map((o) => o.respond_by_date || '').sort().reverse()[0];
   return card("It's your turn!", `
@@ -202,6 +227,31 @@ function turnsOf(offers) {
     groups.get(id).push(o);
   }
   return [...groups.values()];
+}
+
+// --- "Not this litter" (Spec §16.2) ----------------------------------------------
+// A family who already knows a litter isn't for them says so ahead of time, with a
+// reason. Nothing counts unless their turn comes; then that litter is left out of
+// it (and a turn of nothing else is passed at once). They can take it back.
+
+function prepassedNow(litterId) {
+  const pend = (state.v.pending || []).filter((p) => p.payload?.litter_id === litterId && (p.kind === 'prepass' || p.kind === 'unprepass'));
+  if (pend.length) return pend[pend.length - 1].kind === 'prepass';
+  return (state.v.family.prepasses || []).some((p) => p.litter_id === litterId);
+}
+
+function notThisLitter(l) {
+  if (!canAct() || state.v.family.status !== 'active') return '';
+  if ((state.v.offers || []).some((o) => o.litter_id === l.id)) return '';
+  if (prepassedNow(l.id)) {
+    return `<div class="row mt8"><span class="small"><span class="badge plain">Not this litter</span> We'll leave it out of your turn. Only if it's the only litter in your turn does that count as a pass.</span>
+      <button type="button" class="linkish small" data-act="unprepass" data-litter="${esc(l.id)}">Undo</button></div>`;
+  }
+  if (state.open === `prepass:${l.id}`) {
+    return reasonForm('prepass', `Not interested in ${esc(l.label)}? We'll leave it out of your turn when it comes. Nothing counts now; only if it's the only litter in your turn does that count as a pass. You keep your place for every other litter.`,
+      'Not this litter', { litter_id: l.id });
+  }
+  return `<div class="actions mt8"><button type="button" class="secondary small" data-act="open" data-what="prepass:${esc(l.id)}">Not this litter</button></div>`;
 }
 
 // --- Your place: still interested, pause, leave ----------------------------------
@@ -349,7 +399,7 @@ function mineHtml() {
     if (v.litters.length) {
       const items = v.litters.map((l) => `<li><div class="row"><strong>${esc(l.label)}</strong>
           <span class="small">${litterBadge(l)}</span></div>
-        <div class="small muted">${esc(litterLine(l))}</div></li>`).join('');
+        <div class="small muted">${esc(litterLine(l))}</div>${notThisLitter(l)}</li>`).join('');
       parts.push(card('Litters', `<ul class="plain">${items}</ul>
         <p class="small muted">"In line" counts only families who match that litter's pups.</p>`));
     }
@@ -372,6 +422,10 @@ const ERRORS = {
   already_passed: 'You already passed on this litter.',
   pup_taken: 'Another family just chose that pup. Please pick another.',
   pup_not_offered: "That pup isn't one offered to you.",
+  reason_required: 'Please choose a reason (and for "Other", a few words).',
+  in_your_turn: "That litter is in your turn now: choose a pup or pass on the turn instead.",
+  not_listed: "That litter isn't on the list any more.",
+  not_prepassed: 'That was already taken back.',
   not_on_list: "You can't do that right now; the page now shows where things stand.",
   bad_date: 'Please pick a date after today, within two years.',
   no_parents: 'Pick at least one sire or dam, or choose All litters.',
@@ -415,15 +469,10 @@ async function onClick(ev) {
       await act('pick', { offer_id: b.dataset.offer, dog_id: b.dataset.dog }, `You chose ${b.dataset.name}. ${kennel} will confirm, and holds them for you meanwhile.`);
       return;
     }
-    case 'pass': {
-      const p = state.v.family.passes;
-      const note = p ? ` You've used ${p.used} of ${p.max} passes; passing may count as one.` : '';
-      const what = b.dataset.several ? 'all of these litters' : 'this litter';
-      if (!window.confirm(`Pass on ${what}?${note}`)) return;
+    case 'unprepass':
       b.disabled = true;
-      await act('pass', { turn_id: b.dataset.turn }, `You passed on ${what}. ${kennel} will see it at their next update.`);
+      await act('unprepass', { litter_id: b.dataset.litter }, 'Done. That litter is back in your turn when it comes.');
       return;
-    }
     case 'still_interested':
       b.disabled = true;
       await act('still_interested', {}, `Thanks! ${kennel} will see that you're still interested.`);
@@ -441,6 +490,20 @@ async function onSubmit(ev) {
   const data = new FormData(form);
   const kennel = state.v.kennel.name;
   switch (form.dataset.form) {
+    case 'pass':
+    case 'prepass': {
+      const reasonId = String(data.get('reason_id') || '');
+      const text = String(data.get('reason_text') || '').trim();
+      if (!reasonId || (reasonId === 'other' && !text)) {
+        state.flash = reasonId ? 'Please tell us a little more under "Other".' : 'Please choose a reason.';
+        button.disabled = false;
+        render();
+        return;
+      }
+      const target = form.dataset.form === 'pass' ? { turn_id: data.get('turn_id') } : { litter_id: data.get('litter_id') };
+      await act(form.dataset.form, { ...target, reason_id: reasonId, reason_text: text }, reasonMessage(reasonId));
+      return;
+    }
     case 'pause':
       await act('pause_request', { until: data.get('until'), note: data.get('note') }, `Your pause request is on its way. ${kennel} decides; until then nothing changes.`);
       return;

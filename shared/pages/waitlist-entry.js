@@ -483,6 +483,17 @@ function prefHistory(e) {
   return [...log].reverse().map((x) => `${esc(fmtDate(x.date))} · ${esc(PREF_FIELD_LABEL[x.field] || x.field)}: ${esc(prefValueText(x.field, x.from))} → ${esc(prefValueText(x.field, x.to))}${x.declined ? ' <span class="faint">(they asked; you declined)</span>' : x.by === 'request' ? ' <span class="faint">(they asked)</span>' : ''}`).join('<br>');
 }
 
+// "Not this litter" (Spec §16.2): litters the family passed on ahead of time on
+// their status page, with their reason. Nothing counts until their turn comes.
+const reasonText = (r) => (r ? `${r.label}${r.text ? `: "${r.text}"` : ''}` : '');
+function notThisLitterHtml(e) {
+  return (e.prepasses || []).map((p) => {
+    const l = p.litter_id ? ctx.litters.find((x) => x.id === p.litter_id) : null;
+    const name = l ? litterLabel(l) : p.pairing_id ? 'an upcoming pairing' : 'a litter';
+    return `${esc(name)}${p.reason ? ` <span class="faint">— ${esc(reasonText(p.reason))}${p.date ? `, ${esc(fmtDate(p.date))}` : ''}</span>` : ''}`;
+  }).join('<br>') + ((e.prepasses || []).length ? '<br><span class="faint">Left out of their turn when it comes, and it counts as a pass only then.</span>' : '');
+}
+
 function renderView() {
   const e = ctx.entry;
   const app = e.application || {};
@@ -498,6 +509,7 @@ function renderView() {
       ${row('Ready to buy', readySummary(e))}
       ${row('Answer changes', prefHistory(e))}
       ${row('Listening for', LISTEN_STATUSES.includes(e.status) || (e.listen_mode || 'all') === 'selected' ? listenSummary(e) : '')}
+      ${row('Not this litter', notThisLitterHtml(e))}
       ${row('Paused until', e.paused_until ? esc(fmtDate(e.paused_until)) + (e.pause_reason ? ` <span class="faint">— ${esc(e.pause_reason)}</span>` : '') : '')}
       ${row('Fee', e.fee_amount != null ? esc(fmtMoney(e.fee_amount)) : '')}
       ${row('Fee policy', e.fee_credit_policy ? esc(descriptor(FEE_CREDIT_POLICY, e.fee_credit_policy).label) : '')}
@@ -902,7 +914,7 @@ function renderOffers() {
           const sale = o.sale_id && isAwaitingDeposit(o) ? ` · <a href="sale.html?id=${encodeURIComponent(o.sale_id)}">sale</a>` : '';
           const status = isAwaitingDeposit(o)
             ? `<span class="badge badge-purple">Picked ${esc(dogName(o.chosen_dog_id))}</span> <span class="faint">deposit pending${sale}</span>`
-            : `${badge(WAITLIST_OFFER_OUTCOME, o.outcome)}${o.chosen_dog_id ? ` ${esc(dogName(o.chosen_dog_id))}` : ''}`;
+            : `${badge(WAITLIST_OFFER_OUTCOME, o.outcome)}${o.chosen_dog_id ? ` ${esc(dogName(o.chosen_dog_id))}` : ''}${o.pass_reason ? ` <span class="faint">${esc(reasonText(o.pass_reason))}</span>` : ''}`;
           return `<tr><td>${l ? `<a href="litter.html?id=${encodeURIComponent(l.id)}">${esc(litterLabel(l))}</a>` : none}</td>
             <td>${esc(fmtDate(o.offered_date))}</td><td>${o.respond_by_date ? esc(fmtDate(o.respond_by_date)) : none}${overdue ? ' <span class="badge badge-red">Deadline passed</span>' : ''}</td>
             <td>${status}${offerButtons(o, today)}</td>

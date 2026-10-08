@@ -440,3 +440,47 @@ test('a family action her records refuse at the last moment becomes a line for h
   assert.match(line.body, /couldn't be recorded: That offer no longer exists/);
   assert.equal(line.body.includes('is held'), false);
 });
+
+test('a pass with a reason and a "Not this litter" from the status page reach her device', async () => {
+  const { contactRepo } = await import('../shared/data/contactRepo.js');
+  const { waitlistOfferRepo } = await import('../shared/data/waitlistOfferRepo.js');
+  const { litterRepo } = await import('../shared/data/litterRepo.js');
+  const actions = await import('../shared/data/waitlistActions.js');
+  await breeder();
+  const k = await putOnline();
+  // Start clean: no open turns, so one can be offered.
+  for (const o of (await waitlistOfferRepo.getByKennel(k.id)).filter((x) => x.outcome === 'open')) await waitlistOfferRepo.update(o.id, { outcome: 'voided' });
+  let turn = null;
+  for (const l of (await litterRepo.getAll()).filter((x) => x.kennel_id === k.id)) {
+    for (const e of (await waitlistEntryRepo.getByKennel(k.id)).filter((x) => x.status === 'active')) {
+      try { turn = await actions.offerTo(l.id, e.id); break; } catch { /* not eligible */ }
+    }
+    if (turn) break;
+  }
+  assert.ok(turn);
+  const entry = await waitlistEntryRepo.getById(turn.entry_id);
+  await contactRepo.update(entry.contact_id, { email: 'reasons@example.com' });
+  await cw.syncWaitlistOnline();
+  const published = JSON.parse(raw('SELECT body FROM wl_projection')[0].body);
+  assert.deepEqual(published.kennel.pass_reasons.map((r) => r.id), ['timing', 'finances', 'fit', 'other']);
+  const other = Object.keys(published.litters).find((id) => !turn.litter_ids.includes(id));
+  const fam = await familySignIn(k.public_id, 'reasons@example.com');
+  const act = (action, extra) => fam.call('/f/act', { session: fam.session, status_token: fam.statusToken, action, ...extra });
+  if (other) assert.equal((await act('prepass', { litter_id: other, reason_id: 'other', reason_text: 'Too far to drive' })).status, 200);
+  assert.equal((await act('pass', { turn_id: turn.id, reason_id: 'finances' })).status, 200);
+
+  const res = await cw.syncWaitlistOnline();
+  assert.equal(res.status, 'ok');
+  const rows = await waitlistOfferRepo.getByEntry(entry.id);
+  const passed = rows.filter((o) => o.turn_id === turn.id);
+  assert.ok(passed.every((o) => o.outcome === 'passed'));
+  assert.equal(passed.filter((o) => o.counts_as_pass).length, 1);
+  assert.deepEqual(passed.find((o) => o.counts_as_pass).pass_reason, { id: 'finances', label: 'Financial reasons', text: '' });
+  const saved = await waitlistEntryRepo.getById(entry.id);
+  if (other) {
+    assert.deepEqual(saved.prepasses.map((p) => [p.litter_id, p.reason.text]), [[other, 'Too far to drive']]);
+    const after = JSON.parse(raw('SELECT body FROM wl_projection')[0].body);
+    assert.deepEqual(after.entries[entry.id].prepasses.map((p) => p.litter_id), [other]);
+    assert.equal(JSON.stringify(after).includes('Too far to drive'), false, 'the reason stays on her device');
+  }
+});

@@ -18,7 +18,7 @@ import { STATUS_TOKEN } from './waitlist.js';
 import { fail, json, readJson } from './lib/http.js';
 
 export const ACTION_LIMITS = { perHourPerSession: 60, messagesPerHourPerSession: 10, messageBytes: 32 * 1024, noteChars: 500, maxPauseDays: 731 };
-export const FAMILY_ACTIONS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change'];
+export const FAMILY_ACTIONS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change', 'prepass', 'unprepass'];
 
 const OPEN_STATUSES = ['applied', 'approved', 'active'];
 // Copies of the app's vocab (shared/data/vocab.js); tests/familyPages.test.js in
@@ -69,6 +69,27 @@ export async function heldByOthers(env, publicId, entryId) {
 }
 
 const cleanNote = (v) => String(v ?? '').trim().slice(0, ACTION_LIMITS.noteChars);
+const REASON_TEXT_MAX = 200;
+
+// A pass needs one of her reasons (Waitlist Spec §16.5), from the list she
+// published; "other" needs a few words. → { id, text }
+function checkReason(body, projection) {
+  const list = Array.isArray(projection.kennel?.pass_reasons) ? projection.kennel.pass_reasons : [];
+  const id = String(body.reason_id ?? '');
+  if (!list.some((r) => r && r.id === id)) fail(400, 'reason_required');
+  const text = String(body.reason_text ?? '').trim().slice(0, REASON_TEXT_MAX);
+  if (id === 'other' && !text) fail(400, 'reason_required');
+  return { id, text: id === 'other' ? text : '' };
+}
+
+// A litter (or an upcoming pairing) a family may say "Not this litter" to: one she
+// published to them. → { litter_id } | { pairing_id }
+function checkTarget(body, projection) {
+  if (typeof body.litter_id === 'string' && body.litter_id && projection.litters?.[body.litter_id]) return { litter_id: body.litter_id };
+  if (typeof body.pairing_id === 'string' && body.pairing_id
+    && (projection.upcoming || []).some((u) => u && u.id === body.pairing_id && u.kind !== 'early_litter')) return { pairing_id: body.pairing_id };
+  return fail(409, 'not_listed');
+}
 
 // Pure: is `body` a valid `action` for this family, given what she published?
 // → the event payload, or throws (via fail) with the reason.
@@ -101,7 +122,21 @@ export function checkAction(action, body, { entry, projection, pending, now = ne
         : turnOf(offer(body.offer_id));
       settled(turnId);
       const rows = rowsOf(turnId);
-      return { turn_id: turnId, offer_ids: rows.map((o) => o.id), litter_ids: rows.map((o) => o.litter_id) };
+      return { turn_id: turnId, offer_ids: rows.map((o) => o.id), litter_ids: rows.map((o) => o.litter_id), reason: checkReason(body, projection) };
+    }
+    case 'prepass': {
+      // "Not this litter" (Spec §16.2): pending until their turn comes; never on a
+      // litter in their open turn (they pass on the turn instead).
+      if (entry.status !== 'active') fail(409, 'not_on_list');
+      const target = checkTarget(body, projection);
+      if (target.litter_id && offers.some((o) => o.litter_id === target.litter_id)) fail(409, 'in_your_turn');
+      return { ...target, reason: checkReason(body, projection) };
+    }
+    case 'unprepass': {
+      const target = body.litter_id ? { litter_id: String(body.litter_id) } : body.pairing_id ? { pairing_id: String(body.pairing_id) } : fail(400, 'bad_request');
+      const key = (x) => (target.litter_id ? x.litter_id === target.litter_id : x.pairing_id === target.pairing_id);
+      if (!(entry.prepasses || []).some(key) && !already('prepass', key)) fail(409, 'not_prepassed');
+      return target;
     }
     case 'still_interested':
       return {};

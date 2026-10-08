@@ -22,7 +22,7 @@
 import {
   waitlistConfig, entryName, publicList, overallPositions, litterQueue, isPupAvailable, passesUsed,
   isManuallyPaused, readyFromDate, isReadyHeld, feeForEntry, kennelBreeds, listenParentChoices,
-  rankedList, turnLittersFor, turnIdOf
+  rankedList, turnLittersFor, turnIdOf, passReasons, splitPrepassed
 } from './waitlistRules.js';
 import { addDaysToYMD } from './dateUtils.js';
 import { WAITLIST_OPEN_STATUSES } from './vocab.js';
@@ -103,6 +103,10 @@ function entryView(entry, ctx) {
     },
     passes: { used: passesUsed(entry, ctx.offers), max: Number(ctx.config.max_passes) },
     requests: requestsView(entry, ctx.today),
+    // "Not this litter" (§16.2): which, and when; never their reason.
+    prepasses: (entry.prepasses || []).map((p) => ({
+      ...(p.litter_id ? { litter_id: p.litter_id } : { pairing_id: p.pairing_id }), date: orNull(p.date)
+    })),
     fee_received_date: orNull(entry.fee_received_date),
     // What to pay and how: only while approved and unpaid (Spec §5.3, §8.1).
     fee_due: entry.status === 'approved' && !entry.fee_received_date && fee !== null && fee > 0
@@ -204,7 +208,15 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
   const turnQueue = [];
   for (const e of rankedList(live, kennel.id, programsById)) {
     const ls = turnLittersFor(e, kennelOffers, openLitters, dogs, sales, opts);
-    if (ls.length) turnQueue.push({ entry_id: e.id, litters: Object.fromEntries(ls.map((x) => [x.litter.id, x.eligibleDogs.map((d) => d.id).sort()])) });
+    if (!ls.length) continue;
+    // Litters they said "Not this litter" to are listed apart: their turn leaves them
+    // out, and a turn of nothing else is passed at once (§16.2).
+    const { offer, prepassed } = splitPrepassed(e, ls);
+    turnQueue.push({
+      entry_id: e.id,
+      litters: Object.fromEntries(offer.map((x) => [x.litter.id, x.eligibleDogs.map((d) => d.id).sort()])),
+      prepassed: prepassed.map((x) => x.litter.id)
+    });
   }
 
   const ctx = {
@@ -225,6 +237,8 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
       max_passes: Number(config.max_passes),
       auto_offer_on: [...config.auto_offer_on],
       breeds: kennelBreeds(kennel, dogs),
+      // Her pass reasons and the message each shows the family (§16.5).
+      pass_reasons: passReasons(config),
       color_matching: Boolean(config.color_matching),
       parents: parentsSection(kennel, live, { dogs, litters, pairings }),
       ...(formKey ? { message_key: { key_id: formKey.id, public_key: formKey.public_key } } : {}),

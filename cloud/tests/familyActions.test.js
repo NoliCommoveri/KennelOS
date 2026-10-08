@@ -19,6 +19,7 @@ const projection = (extra = {}) => ({
     public_id: KENNEL, name: 'Thornfield Kennels', time_zone: 'America/Chicago',
     parents: { sires: [{ id: 'sire1', name: 'Ash' }], dams: [{ id: 'dam1', name: 'Juniper' }] },
     breeds: ['Boston Terrier'], message_key: { key_id: 'fk_1', public_key: 'PUB' },
+    pass_reasons: [{ id: 'timing', label: 'Timing', message: 'Thanks!' }, { id: 'other', label: 'Other', message: 'Thanks.' }],
   },
   public_list: [],
   entries: {
@@ -100,8 +101,10 @@ test('only what her list allows: a closed offer, a pup not offered, a family no 
   assert.equal(await err(await act(env, ann, tok('a'), 'pick', { offer_id: 'o9', dog_id: 'p1' })), 'offer_closed');
   assert.equal(await err(await act(env, ann, tok('a'), 'pick', { offer_id: 'o1', dog_id: 'p3' })), 'pup_not_offered');
   assert.equal(await err(await act(env, ann, tok('a'), 'fly')), 'bad_action');
-  assert.equal((await act(env, ann, tok('a'), 'pass', { offer_id: 'o1' })).status, 200);
-  assert.equal(await err(await act(env, ann, tok('a'), 'pass', { offer_id: 'o1' })), 'already_passed');
+  assert.equal(await err(await act(env, ann, tok('a'), 'pass', { offer_id: 'o1' })), 'reason_required', 'a pass needs one of her reasons');
+  assert.equal(await err(await act(env, ann, tok('a'), 'pass', { offer_id: 'o1', reason_id: 'other' })), 'reason_required', 'Other needs its words');
+  assert.equal((await act(env, ann, tok('a'), 'pass', { offer_id: 'o1', reason_id: 'timing' })).status, 200);
+  assert.equal(await err(await act(env, ann, tok('a'), 'pass', { offer_id: 'o1', reason_id: 'timing' })), 'already_passed');
   assert.throws(() => checkAction('leave', {}, { entry: { status: 'placed' }, projection: projection(), pending: [] }), /not_on_list/);
 });
 
@@ -169,6 +172,19 @@ test('turns (Spec §16.1): a pass covers every litter of the turn; one pick per 
   assert.equal(await err(await act(env, ann, tok('a'), 'pick', { offer_id: 'o3', dog_id: 'p3' })), 'already_picked', 'one pick per turn');
   assert.equal(await err(await act(env, ann, tok('a'), 'pass', { turn_id: 't1' })), 'already_picked');
   const pending = { entry: p.entries.ann, projection: p, pending: [] };
-  assert.deepEqual(checkAction('pass', { turn_id: 't1' }, pending), { turn_id: 't1', offer_ids: ['o1', 'o3'], litter_ids: ['l1', 'l2'] });
-  assert.deepEqual(checkAction('pass', { offer_id: 'o3' }, pending).turn_id, 't1', 'by any row of the turn, too');
+  assert.deepEqual(checkAction('pass', { turn_id: 't1', reason_id: 'other', reason_text: ' Moving ' }, pending),
+    { turn_id: 't1', offer_ids: ['o1', 'o3'], litter_ids: ['l1', 'l2'], reason: { id: 'other', text: 'Moving' } });
+  assert.deepEqual(checkAction('pass', { offer_id: 'o3', reason_id: 'timing' }, pending).turn_id, 't1', 'by any row of the turn, too');
+});
+
+test('"Not this litter" (Spec §16.2): a reason, a litter she listed, never one in their open turn; and taken back', async () => {
+  const { env, bo } = await setup();
+  assert.equal(await err(await act(env, bo, tok('b'), 'prepass', { litter_id: 'l1' })), 'reason_required');
+  assert.equal(await err(await act(env, bo, tok('b'), 'prepass', { litter_id: 'l2', reason_id: 'timing' })), 'in_your_turn');
+  assert.equal(await err(await act(env, bo, tok('b'), 'prepass', { litter_id: 'nope', reason_id: 'timing' })), 'not_listed');
+  const res = await act(env, bo, tok('b'), 'prepass', { litter_id: 'l1', reason_id: 'timing' });
+  assert.equal(res.status, 200);
+  assert.deepEqual((await res.json()).pending.map((p) => [p.kind, p.payload]), [['prepass', { litter_id: 'l1', reason: { id: 'timing', text: '' } }]]);
+  assert.equal(await err(await act(env, bo, tok('b'), 'unprepass', { litter_id: 'l2' })), 'not_prepassed');
+  assert.equal((await act(env, bo, tok('b'), 'unprepass', { litter_id: 'l1' })).status, 200);
 });

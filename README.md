@@ -451,8 +451,11 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   **Step 5c part 1, one turn per family across open litters (Waitlist Spec §16.1), is built &
   browser-verified:** one family holds a turn at a time across the kennel's open litters,
   seeing every pup they match in every open litter; only passing on all of it counts, once
-  (`waitlist_offers.turn_id`; `waitlistRules.nextTurn`; tests `waitlistTurns`). Next: step 5c
-  parts 2–6 (Spec §16), then step 6, email.
+  (`waitlist_offers.turn_id`; `waitlistRules.nextTurn`; tests `waitlistTurns`). **Part 2, pass
+  reasons and "Not this litter" (§16.2, §16.5), is built & browser-verified:** her reasons
+  (each with its message) in Waitlist settings; every pass a family makes needs one; "Not this
+  litter" waits until their turn, leaves that litter out of it, and a turn of nothing else is
+  passed at once. Next: step 5c parts 3–6, then step 6, email.
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass
