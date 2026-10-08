@@ -327,15 +327,15 @@ export async function changePickDialog({ offer, name, currentName, pups, pupLabe
   return ok ? res : null;
 }
 
-// Undo a pass / no response: the family is next in line for this litter again.
-// `holderName` names the family holding the litter's turn now (their offer is
-// voided), or null.
+// Undo a pass / no response: the family's turn is back (every litter of it they
+// still match, Spec §16.1). `holderName` names the family holding the kennel's turn
+// now (their turn is voided), or null.
 export async function undoPassDialog({ offer, name, holderName = null, removed = false }) {
   const what = offer.outcome === 'passed' ? 'pass' : 'no response';
   const lines = [
-    `${name}'s ${what} is erased and doesn't count. Their offer reopens with a new respond-by date, so they're next in line for this litter again.`,
+    `${name}'s ${what} is erased and doesn't count. Their turn reopens with a new respond-by date, on every litter of it they still match.`,
     removed ? 'That pass had removed them from the list, so they go back on it in their old place.' : '',
-    holderName ? `${holderName} holds this litter's turn now. Their offer will be voided (not a pass), and they're next again after ${name}. Let them know.` : ''
+    holderName ? `${holderName} holds the turn now. Their turn will be voided (not a pass), and they're next again after ${name}. Let them know.` : ''
   ].filter(Boolean);
   if (!(await confirmModal({ title: `Undo ${name}'s ${what}?`, message: lines.join('\n\n'), confirmLabel: 'Undo it' }))) return null;
   return undoPass(offer.id);

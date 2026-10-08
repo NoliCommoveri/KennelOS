@@ -106,3 +106,14 @@ test('listenParentChoices: breeding dogs, live parents (an outside stud too), an
   assert.deepEqual(c.sires.map((d) => d.id), ['ash', 'old', 'stud']);
   assert.deepEqual(c.dams.map((d) => d.id), ['jun']);
 });
+
+test('turns: a pass closes the whole turn through any open row; one pick per turn', () => {
+  const rows = [offer({ id: 'o1', turn_id: 't' }), offer({ id: 'o2', turn_id: 't', litter_id: 'l2', eligible_dog_ids: ['p3'] })];
+  const pass = planFamilyEvent(ev('pass', { turn_id: 't', offer_ids: ['o1', 'o2'], litter_ids: ['l1', 'l2'] }), ctx({ offers: rows }));
+  assert.equal(pass.op, 'pass');
+  assert.equal(pass.offerId, 'o1');
+  const picked = [offer({ id: 'o1', turn_id: 't', chosen_dog_id: 'p1' }), rows[1]];
+  const pick = planFamilyEvent(ev('pick', { offer_id: 'o2', dog_id: 'p3' }), ctx({ offers: picked, pups: [...pups, { id: 'p3', litter_id: 'l2', call_name: 'Pearl' }] }));
+  assert.equal(pick.op, 'note');
+  assert.match(pick.activity.body, /already recorded Pip/);
+});

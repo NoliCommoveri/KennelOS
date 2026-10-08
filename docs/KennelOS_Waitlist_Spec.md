@@ -21,7 +21,7 @@
 > **Her requests of 2026-10-08 (§16):** one turn per family across every open litter (settles
 > Q9), passing ahead of time, listen-only "except", showing pairings and early litters, pass
 > reasons, "Review your preferences" at whelping, and "Ready now?" at a hold's end. Decided,
-> not built; Q30–Q33 decided the same day, Q34 open. Build plan: W2 Plan step 5c.
+> not built; Q30–Q34 decided the same day. Build plan: W2 Plan step 5c.
 >
 > **W1e built 2026-10-06** (the local half of four requests from her after trying W1: custom
 > application questions, the waitlist as the main workflow with PDF invoices/receipts, a
@@ -917,8 +917,9 @@ W1 is a full feature on its own and doesn't wait for the cloud work.
     whelp date, with its accept-deposits date as "Picks expected to open".**
 33. ~~**Pass reasons (§16.5):** an "Other" choice with a short text box?~~ **Decided
     2026-10-08: yes.**
-34. **"Review your preferences" and the hidden-litters switch (§16.6):** show the prompt and
-    the match note even when early litters are hidden from family pages (leaning: yes)?
+34. ~~**"Review your preferences" and the hidden-litters switch (§16.6):** show the prompt and
+    the match note even when early litters are hidden from family pages?~~ **Decided
+    2026-10-08: yes.**
 
 ## 14. W1 build plan
 
@@ -1333,10 +1334,11 @@ Q25–Q28 (§13) are decided: the leanings above all stand.
 Seven requests from a review after W2 step 5, with her answers the same day. They change the
 offer model built in W1c and the status page built in W2 step 5, so they're settled here
 before W2 steps 6 (email) and 7 (deadlines, automatic offers) build on the current model.
-The W2 Plan carries the build order (step 5c). Q30–Q33 (§13) were answered the same day; Q34
-is open.
+The W2 Plan carries the build order (step 5c). Q30–Q34 (§13) were answered the same day.
 
 ### 16.1 One turn per family across every open litter (settles Q9)
+
+**Built 2026-10-08** (W2 Plan step 5c part 1).
 
 **The problem with one open offer per litter (as built in W1c).** With two litters open,
 each walks its own line, so two families can hold offers at once: the Lees on Juniper × Ash,
@@ -1452,9 +1454,9 @@ added dam B later, or a sex preference that no longer fits.
   not** (Q26).
 - **Families who are eligible get a note too (decided, Q30):** "A litter you match was born:
   Juniper × Ash."
-- Q34: the prompt and the note name the litter. Do they show even when her "whelped litters,
-  picks not open" switch for family pages (§16.4) is off? Leaning: yes, like "It's almost your
-  turn", which she sends whatever the switch says.
+- **They show even when her "whelped litters, picks not open" switch for family pages (§16.4)
+  is off** (decided, Q34), like "It's almost your turn", which she sends whatever the switch
+  says.
 
 ### 16.7 "Ready now?" when a readiness hold ends (decided 2026-10-08)
 

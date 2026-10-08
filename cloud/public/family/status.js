@@ -148,35 +148,56 @@ function prefsHtml(f) {
 
 // --- Offers ----------------------------------------------------------------------
 
-function offerHtml(o) {
+// A family's turn (Waitlist Spec §16.1): every litter it covers, in one card. They
+// choose ONE pup from any of them, or pass on all of them (only that counts as a
+// pass, and once). `rows` are the turn's offers, each one litter.
+function turnHtml(rows) {
   const v = state.v;
   const kennel = v.kennel.name;
   const zone = v.kennel.time_zone ? ` (${esc(v.kennel.time_zone.replace(/_/g, ' '))} time)` : '';
-  const sentPick = pendingOf('pick', (p) => p.offer_id === o.id)[0];
-  const sentPass = pendingOf('pass', (p) => p.offer_id === o.id)[0];
-  const chosen = o.picked_dog_id || sentPick?.payload.dog_id || null;
+  const turnId = rows[0].turn_id || rows[0].id;
+  const ids = new Set(rows.map((o) => o.id));
+  const mine = (p) => p.turn_id === turnId || ids.has(p.offer_id);
+  const sentPick = pendingOf('pick', mine)[0];
+  const sentPass = pendingOf('pass', mine)[0];
+  const picked = rows.find((o) => o.picked_dog_id);
+  const chosen = picked?.picked_dog_id || sentPick?.payload.dog_id || null;
   const actOn = canAct() && !chosen && !sentPass;
-  const pups = o.pups.length
+  const several = rows.length > 1;
+  const pupsOf = (o) => (o.pups.length
     ? `<div class="pups">${o.pups.map((d) => {
       const label = `${esc(d.call_name)} · ${esc(SEX_LABEL[d.sex] || '')}${d.color ? ` · ${esc(d.color)}` : ''}`;
-      const mine = d.id === chosen ? ' <span class="badge">Your pick</span>' : '';
+      const yours = d.id === chosen ? ' <span class="badge">Your pick</span>' : '';
       return actOn
         ? `<button type="button" class="pup secondary" data-act="pick" data-offer="${esc(o.id)}" data-dog="${esc(d.id)}" data-name="${esc(d.call_name)}">Choose ${label}</button>`
-        : `<span class="pup">${label}${mine}</span>`;
+        : `<span class="pup">${label}${yours}</span>`;
     }).join('')}</div>`
-    : '';
+    : '<p class="small muted mt0">No pups left in this litter for you.</p>');
+  const chosenName = rows.flatMap((o) => o.pups).find((d) => d.id === chosen)?.call_name || 'a pup';
   let next;
-  if (sentPass) next = `<p>You passed on this litter. ${waiting(kennel)}</p>`;
-  else if (sentPick && !o.picked_dog_id) next = `<p>You chose ${esc(o.pups.find((d) => d.id === chosen)?.call_name || 'a pup')}. ${waiting(kennel)} Send your deposit by the date above to keep them.</p>`;
-  else if (o.picked_dog_id) next = '<p>You picked a pup. Send your deposit by the date above to keep them.</p>';
-  else if (actOn) next = `<p class="small muted">Tap a pup to choose them, or pass on this litter.</p>
-      <div class="actions"><button type="button" class="secondary" data-act="pass" data-offer="${esc(o.id)}">Pass on this litter</button></div>`;
-  else next = signedIn() ? '' : `<p>Sign in on this device to choose a pup or pass (below), or contact ${esc(kennel)}.</p>`;
+  if (sentPass) next = `<p>You passed on ${several ? 'all of these' : 'this litter'}. ${waiting(kennel)}</p>`;
+  else if (sentPick && !picked) next = `<p>You chose ${esc(chosenName)}. ${waiting(kennel)} Send your deposit by the date above to keep them.</p>`;
+  else if (picked) next = '<p>You picked a pup. Send your deposit by the date above to keep them.</p>';
+  else if (actOn) {
+    next = `<p class="small muted">Tap a pup to choose them${several ? ' from any of these litters' : ''}, or pass.${several ? ' Only passing on all of them counts as a pass.' : ''}</p>
+      <div class="actions"><button type="button" class="secondary" data-act="pass" data-turn="${esc(turnId)}" data-several="${several ? '1' : ''}">${several ? 'Pass on all of these' : 'Pass on this litter'}</button></div>`;
+  } else next = signedIn() ? '' : `<p>Sign in on this device to choose a pup or pass (below), or contact ${esc(kennel)}.</p>`;
+  const respondBy = rows.map((o) => o.respond_by_date || '').sort().reverse()[0];
   return card("It's your turn!", `
-    <p class="mt0"><strong>${esc(o.litter)}</strong></p>
-    <p>Please respond by <strong>11:59 pm on ${esc(fmtDate(o.respond_by_date, { weekday: true }))}</strong>${zone}.</p>
-    ${pups ? `<p class="small muted mt0">Pups available to you:</p>${pups}` : ''}
+    <p class="mt0">Please respond by <strong>11:59 pm on ${esc(fmtDate(respondBy, { weekday: true }))}</strong>${zone}.</p>
+    ${rows.map((o) => `<p class="mt8"><strong>${esc(o.litter)}</strong></p>${pupsOf(o)}`).join('')}
     ${next}`, 'turn');
+}
+
+// The family's offers as turns, oldest first.
+function turnsOf(offers) {
+  const groups = new Map();
+  for (const o of offers) {
+    const id = o.turn_id || o.id;
+    if (!groups.has(id)) groups.set(id, []);
+    groups.get(id).push(o);
+  }
+  return [...groups.values()];
 }
 
 // --- Your place: still interested, pause, leave ----------------------------------
@@ -305,7 +326,7 @@ function mineHtml() {
       <p class="small muted">Your place on the list is set from the day ${esc(kennel)} receives your fee.</p>`));
   }
 
-  for (const o of v.offers) parts.push(offerHtml(o));
+  for (const rows of turnsOf(v.offers)) parts.push(turnHtml(rows));
 
   if (f.status === 'active') {
     const notices = [];
@@ -393,9 +414,10 @@ async function onClick(ev) {
     case 'pass': {
       const p = state.v.family.passes;
       const note = p ? ` You've used ${p.used} of ${p.max} passes; passing may count as one.` : '';
-      if (!window.confirm(`Pass on this litter?${note}`)) return;
+      const what = b.dataset.several ? 'all of these litters' : 'this litter';
+      if (!window.confirm(`Pass on ${what}?${note}`)) return;
       b.disabled = true;
-      await act('pass', { offer_id: b.dataset.offer }, `You passed on this litter. ${kennel} will see it at their next update.`);
+      await act('pass', { turn_id: b.dataset.turn }, `You passed on ${what}. ${kennel} will see it at their next update.`);
       return;
     }
     case 'still_interested':

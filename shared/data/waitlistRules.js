@@ -365,11 +365,13 @@ export function switchablePups(entry, litter, pups, sales, { currentDogId = null
 }
 
 // An ACCEPTED offer's pup can still be switched while nobody else has been offered
-// on that litter since (Spec §6.5). An offer made later and then voided doesn't
-// count — the turn never really moved on.
-export function canSwitchAcceptedPick(offer, litterOffers) {
+// a turn since (Spec §6.5; kennel-wide since turns, §16.1, because a later turn may
+// have listed this litter's pups). An offer made later and then voided doesn't
+// count — the turn never really moved on. `offers` are the kennel's.
+export function canSwitchAcceptedPick(offer, offers) {
   if (!offer || offer.outcome !== 'accepted' || !offer.chosen_dog_id) return false;
-  return !litterOffers.some((o) => o.id !== offer.id && !o.is_archived && o.litter_id === offer.litter_id
+  return !offers.some((o) => o.id !== offer.id && !o.is_archived && turnIdOf(o) !== turnIdOf(offer)
+    && (o.kennel_id ? o.kennel_id === offer.kennel_id : o.litter_id === offer.litter_id)
     && o.outcome !== 'voided' && (o.created_at || '') > (offer.created_at || ''));
 }
 
@@ -403,6 +405,89 @@ export function nextFamilyForLitter(entries, offers, litter, pups, sales, opts =
     offers.filter((o) => !o.is_archived && o.litter_id === litter.id && SPENT_OUTCOMES.includes(o.outcome)).map((o) => o.entry_id)
   );
   return litterQueue(entries, litter, pups, sales, opts).find((q) => !spent.has(q.entry.id)) || null;
+}
+
+// --- Turns (Spec §16.1, decided 2026-10-08; settles Q9) -------------------------
+// One family holds a TURN at a time across the kennel's open litters, and the turn
+// lists every pup they're eligible for in every litter with open picks. A turn is
+// stored as one waitlist_offers row per litter, sharing `turn_id` and
+// `respond_by_date`; an offer made before turns existed has no turn_id and is its
+// own turn. Turns are spent per litter as before (turnSpent): passing a whole turn
+// spends it on the litters it covered, and the family stays in line for any litter
+// that opens later.
+
+export const turnIdOf = (offer) => (offer && (offer.turn_id || offer.id)) || null;
+
+// The rows of one turn.
+export function turnOffers(offers, turnId) {
+  return offers.filter((o) => !o.is_archived && turnIdOf(o) === turnId);
+}
+
+// The open turns in a kennel, oldest first: [{ id, entry_id, offers, respond_by_date }].
+// After 5c there is at most one; offers made before it (one per litter) can leave
+// several, which still close the usual way.
+export function openTurns(offers, kennelId) {
+  const groups = new Map();
+  for (const o of offers) {
+    if (o.is_archived || o.outcome !== 'open' || (kennelId && o.kennel_id !== kennelId)) continue;
+    const id = turnIdOf(o);
+    if (!groups.has(id)) groups.set(id, []);
+    groups.get(id).push(o);
+  }
+  return [...groups.entries()].map(([id, rows]) => ({
+    id, entry_id: rows[0].entry_id, offers: rows,
+    offered_date: rows.map((o) => o.offered_date || '').sort()[0] || null,
+    respond_by_date: rows.map((o) => o.respond_by_date || '').sort().reverse()[0] || null
+  })).sort((a, b) => String(a.offered_date).localeCompare(String(b.offered_date)));
+}
+
+// The litters a family could be offered in a turn now: each open-picks litter (not
+// archived) where they're eligible for an available pup and haven't spent their
+// turn. → [{ litter, eligibleDogs }] in litter-id order.
+export function turnLittersFor(entry, offers, litters, pups, sales, { today, config = WAITLIST_CONFIG_DEFAULTS } = {}) {
+  return litters
+    .filter((l) => !l.is_archived && l.picks_opened_date && l.kennel_id === entry.kennel_id)
+    .filter((l) => !turnSpent(offers, l.id, entry.id))
+    .map((litter) => ({ litter, eligibleDogs: eligiblePupsFor(entry, litter, pups, sales, { today, config }) }))
+    .filter((x) => x.eligibleDogs.length)
+    .sort((a, b) => String(a.litter.id).localeCompare(String(b.litter.id)));
+}
+
+// Who gets the next turn (§16.1 rule 3): the highest-ranked family (§6.1) with at
+// least one eligible, available pup in an open-picks litter they haven't spent a
+// turn on. Recalculated each time, never a pointer down the list, so a family
+// skipped on litter A (no match) comes first for litter B when B opens. Null while
+// a turn is open in the kennel (one at a time) or when nobody is left.
+// `litters` / `pups` may be every litter and dog; offers must be the kennel's.
+// → { entry, litters: [{ litter, eligibleDogs }] }
+export function nextTurn(entries, offers, litters, pups, sales, { today, config = WAITLIST_CONFIG_DEFAULTS, programsById = new Map(), kennelId = null } = {}) {
+  const kid = kennelId || litters.find((l) => l.picks_opened_date)?.kennel_id || null;
+  if (!kid || openTurns(offers, kid).length) return null;
+  for (const entry of rankedList(entries, kid, programsById)) {
+    const ls = turnLittersFor(entry, offers, litters.filter((l) => l.kennel_id === kid), pups, sales, { today, config });
+    if (ls.length) return { entry, litters: ls };
+  }
+  return null;
+}
+
+// A litter whose picks open while a turn is open (§16.1 rule 5) joins that turn
+// only when its holder is eligible for it and nobody ranked above them is (and
+// hasn't spent a turn on it). Otherwise it waits for the next turn.
+// → the holder's eligible pups in it ([] = it doesn't join).
+export function joinsOpenTurn(turn, litter, entries, offers, pups, sales, { today, config = WAITLIST_CONFIG_DEFAULTS, programsById = new Map() } = {}) {
+  if (!turn || turnOffers(offers, turn.id).some((o) => o.litter_id === litter.id)) return [];
+  for (const entry of rankedList(entries, litter.kennel_id, programsById)) {
+    if (turnSpent(offers, litter.id, entry.id) && entry.id !== turn.entry_id) continue;
+    const eligible = eligiblePupsFor(entry, litter, pups, sales, { today, config });
+    if (!eligible.length) continue;
+    return entry.id === turn.entry_id ? eligible : [];
+  }
+  return [];
+}
+
+// Open turns whose respond-by date has passed: one per turn.
+export function overdueTurns(offers, today) {
+  return openTurns(offers, null).filter((t) => t.respond_by_date && t.respond_by_date < today);
 }
 
 // --- "Pups available soon" (Spec §15.5) -----------------------------------------
@@ -707,11 +792,13 @@ export function describeOfferChanges({ next = null, voided = [], offered = [], w
   if (voided.length) {
     lines.push(`Their open offer${voided.length === 1 ? '' : 's'} on ${voided.map((o) => litterOf(o.litter_id)).join(', ')} ${voided.length === 1 ? 'was' : 'were'} voided (not a pass).`);
   }
+  // A turn (§16.1) names every litter it covers: { entry_id, litter_ids, respond_by_date }.
+  const litters = (o) => (o.litter_ids || [o.litter_id]).map(litterOf).join(', ');
   for (const o of [next, ...offered].filter(Boolean)) {
-    lines.push(`${litterOf(o.litter_id)}: now offered to ${nameOf(o.entry_id)}, respond by ${fmtDate(o.respond_by_date)}. Let them know; nothing is sent automatically.`);
+    lines.push(`${litters(o)}: now ${nameOf(o.entry_id)}'s turn, respond by ${fmtDate(o.respond_by_date)}. Let them know; nothing is sent automatically.`);
   }
   for (const w of waiting) {
-    lines.push(`${litterOf(w.litter_id)}: ${nameOf(w.entry_id)} is next in line. No offer was made (automatic offers are off); offer it when you're ready.`);
+    lines.push(`${litters(w)}: ${nameOf(w.entry_id)} is next. No turn was offered (automatic offers are off); offer it when you're ready.`);
   }
   if (voided.length && !offered.length && !waiting.length) lines.push('Nobody else on the list is eligible for those litters right now.');
   return lines;

@@ -21,7 +21,8 @@
 // message stay on her device: the page shows what was asked, never the note.
 import {
   waitlistConfig, entryName, publicList, overallPositions, litterQueue, isPupAvailable, passesUsed,
-  isManuallyPaused, readyFromDate, isReadyHeld, feeForEntry, kennelBreeds, listenParentChoices
+  isManuallyPaused, readyFromDate, isReadyHeld, feeForEntry, kennelBreeds, listenParentChoices,
+  rankedList, turnLittersFor, turnIdOf
 } from './waitlistRules.js';
 import { addDaysToYMD } from './dateUtils.js';
 import { WAITLIST_OPEN_STATUSES } from './vocab.js';
@@ -113,6 +114,7 @@ function entryView(entry, ctx) {
       .sort(byId)
       .map((o) => ({
         id: o.id,
+        turn_id: turnIdOf(o),
         litter_id: o.litter_id,
         offered_date: orNull(o.offered_date),
         respond_by_date: orNull(o.respond_by_date),
@@ -190,9 +192,19 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
       ready_date: orNull(litter.estimated_ready_date),
       picks_open: Boolean(litter.picks_opened_date),
       pups: pups.filter((d) => isPupAvailable(d, sales)).sort(byId).map(publicPup),
-      open_offer_entry_id: open ? open.entry_id : null,
-      queue: queue.map((q) => ({ entry_id: q.entry.id, dog_ids: q.eligibleDogs.map((d) => d.id).sort() }))
+      open_offer_entry_id: open ? open.entry_id : null
     };
+  }
+
+  // Who gets the turns, in order (Spec §16.1): every family with an eligible pup
+  // in a litter with open picks they haven't spent a turn on, however many (Q13),
+  // each with those pups per litter. The list the server walks for automatic
+  // offers (W2 step 7); her device decides every entry of it.
+  const openLitters = litters.filter((l) => l.kennel_id === kennel.id && !l.is_archived && l.picks_opened_date);
+  const turnQueue = [];
+  for (const e of rankedList(live, kennel.id, programsById)) {
+    const ls = turnLittersFor(e, kennelOffers, openLitters, dogs, sales, opts);
+    if (ls.length) turnQueue.push({ entry_id: e.id, litters: Object.fromEntries(ls.map((x) => [x.litter.id, x.eligibleDogs.map((d) => d.id).sort()])) });
   }
 
   const ctx = {
@@ -223,6 +235,7 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
     }),
     entries: entryViews,
     litters: litterViews,
+    turn_queue: turnQueue,
     events_through: Number.isInteger(eventsThrough) && eventsThrough > 0 ? eventsThrough : 0
   };
 }

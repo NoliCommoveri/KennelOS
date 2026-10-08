@@ -42,7 +42,7 @@ import { waitlistOfferRepo } from './waitlistOfferRepo.js';
 import { contactRepo } from './contactRepo.js';
 import { waitlistProgramRepo } from './waitlistProgramRepo.js';
 import {
-  overdueOffers, overdueFees, canUndoRemoval, entryName, describeOfferChanges, waitlistConfig, autoOffers, closingTrigger,
+  overdueTurns, overdueFees, canUndoRemoval, entryName, describeOfferChanges, waitlistConfig, autoOffers, closingTrigger,
   prefChangeSummary, prefChangeEffect, PREF_FIELD_LABEL
 } from './waitlistRules.js';
 import {
@@ -395,16 +395,18 @@ async function waitlistNudges(today, litters, dogsById) {
     });
   }
 
-  for (const o of overdueOffers(offers, today)) {
-    const e = entriesById.get(o.entry_id);
+  // One per TURN (Spec §16.1): a turn covering two litters is one deadline.
+  for (const t of overdueTurns(offers, today)) {
+    const e = entriesById.get(t.entry_id);
     if (!e) continue;
-    const l = littersById.get(o.litter_id);
+    const o = t.offers.find((x) => x.chosen_dog_id) || t.offers[0];
+    const covers = t.offers.map((x) => (littersById.get(x.litter_id) ? litterLabel(littersById.get(x.litter_id), dogsById) : 'Litter')).join(', ');
     out.push({
-      key: `waitlist-offer-overdue:${o.id}`,
+      key: `waitlist-offer-overdue:${t.id}`,
       // A family that picked a pup but never sent the deposit: same outcome (their
       // pick lapses and the held Sale is cancelled), worded for the deposit.
       title: o.chosen_dog_id ? `${name(e)}'s deposit didn't arrive in time` : `${name(e)}'s offer deadline passed`,
-      detail: `${l ? litterLabel(l, dogsById) : 'Litter'} — they had until ${o.respond_by_date}${o.chosen_dog_id ? ' to send the deposit for their pick. Recording no deposit frees the pup' : '. Recording no response closes their turn'}${autoOffers(waitlistConfig(kennelsById.get(o.kennel_id)), closingTrigger(o, 'no_response')) ? ' and offers the next family' : ''}.`,
+      detail: `${covers} — they had until ${t.respond_by_date}${o.chosen_dog_id ? ' to send the deposit for their pick. Recording no deposit frees the pup' : '. Recording no response closes their turn'}${autoOffers(waitlistConfig(kennelsById.get(o.kennel_id)), closingTrigger(o, 'no_response')) ? ' and offers the next family' : ''}.`,
       subjectHref: `litter.html?id=${encodeURIComponent(o.litter_id)}`,
       actions: [{
         label: o.chosen_dog_id ? 'Record no deposit' : 'Record no response',
@@ -421,7 +423,7 @@ async function waitlistNudges(today, litters, dogsById) {
             nameOf: (id) => (fresh.get(id) ? name(fresh.get(id)) : 'the next family'),
             litterOf: (id) => (littersById.get(id) ? litterLabel(littersById.get(id), dogsById) : 'A litter')
           }));
-          if (!res.next && !res.waiting.length) lines.push('Nobody else on the list is eligible for this litter right now.');
+          if (!res.next && !res.waiting.length) lines.push('Nobody else on the list is eligible for your open litters right now.');
           return { title: 'Recorded', message: lines.join('\n\n') };
         }
       }]

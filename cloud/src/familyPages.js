@@ -126,6 +126,7 @@ export function statusView(projection, entryId) {
     const eligible = new Set(o.eligible_dog_ids || []);
     return {
       id: o.id,
+      turn_id: o.turn_id ?? o.id,
       litter: l.label ?? '',
       offered_date: o.offered_date ?? null,
       respond_by_date: o.respond_by_date ?? null,

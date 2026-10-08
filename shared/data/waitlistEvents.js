@@ -22,7 +22,7 @@
 // Events the server makes itself (deadlines and automatic offers, step 7) are
 // not handled yet: they're skipped here, and no server writes any before step 7.
 import { WAITLIST_OPEN_STATUSES } from './vocab.js';
-import { isPupAvailable, listenChangeKind, prefChangeLines, PREF_CHANGE_FIELDS } from './waitlistRules.js';
+import { isPupAvailable, listenChangeKind, prefChangeLines, PREF_CHANGE_FIELDS, turnIdOf } from './waitlistRules.js';
 import { arrivalDate } from './waitlistInbox.js';
 
 export const FAMILY_EVENT_KINDS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change'];
@@ -72,17 +72,25 @@ export function planFamilyEvent(event, ctx) {
       if (!offer || offer.is_archived) return note(`${what}, but that offer no longer exists, so nothing was recorded.`);
       if (offer.outcome !== 'open') return note(`${what}, but that offer had already closed (${offer.outcome.replace(/_/g, ' ')}), so nothing was recorded.`);
       if (offer.chosen_dog_id === p.dog_id) return skip('already_picked');
-      if (offer.chosen_dog_id) return note(`${what}, but you'd already recorded ${pupName(offer.chosen_dog_id)} as their pick. Use "Change pup" on the offer if they meant to switch.`);
+      // One pick per turn (Spec §16.1): a pick she already recorded on any litter of it wins.
+      const recorded = offers.find((o) => turnIdOf(o) === turnIdOf(offer) && o.outcome === 'open' && o.chosen_dog_id);
+      if (recorded) return note(`${what}, but you'd already recorded ${pupName(recorded.chosen_dog_id)} as their pick. Change it on the offer if they meant to switch.`);
       if (!(offer.eligible_dog_ids || []).includes(p.dog_id)) return note(`${what}, but that pup wasn't one offered to them, so nothing was recorded.`);
       const dog = pups.find((d) => d.id === p.dog_id);
       if (!dog || !isPupAvailable(dog, sales)) return note(`${what}, but that pup is no longer available, so nothing was recorded. Let them know.`);
       return { op: 'pick', offerId: offer.id, dogId: dog.id, date, activity: line(`${what}. Their pick is held by a sale with the deposit pending.`) };
     }
     case 'pass': {
-      const offer = offers.find((o) => o.id === p.offer_id);
-      const what = `They passed on ${litterLabel(p.litter_id || offer?.litter_id)} on their status page`;
-      if (!offer || offer.is_archived || offer.outcome !== 'open') return note(`${what}, but that offer had already closed, so nothing was recorded.`);
-      return { op: 'pass', offerId: offer.id, date, activity: line(`${what}.`) };
+      // A pass covers their whole turn (Spec §16.1): every litter in it, counted once.
+      // Older events name one offer; its turn is the same thing.
+      const named = offers.find((o) => o.id === p.offer_id || (p.offer_ids || []).includes(o.id));
+      const turnId = p.turn_id || turnIdOf(named);
+      const rows = offers.filter((o) => !o.is_archived && turnIdOf(o) === turnId);
+      const open = rows.filter((o) => o.outcome === 'open');
+      const litters = (p.litter_ids || rows.map((o) => o.litter_id)).map(litterLabel).join(', ') || litterLabel(p.litter_id);
+      const what = `They passed on ${litters} on their status page`;
+      if (!open.length) return note(`${what}, but that turn had already closed, so nothing was recorded.`);
+      return { op: 'pass', offerId: open[0].id, date, activity: line(`${what}.`) };
     }
     case 'still_interested':
       return note('Said they\'re still interested, on their status page.');

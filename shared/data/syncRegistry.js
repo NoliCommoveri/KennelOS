@@ -252,7 +252,8 @@ export const SYNC_REGISTRY = Object.freeze({
     cloud: [
       'entry_id', 'litter_id', 'kennel_id', 'offered_date', 'respond_by_date',
       'eligible_dog_ids', 'outcome', 'outcome_date', 'chosen_dog_id', 'counts_as_pass',
-      'picked_date', 'sale_id' // §9: "every field except notes"
+      'picked_date', 'sale_id', // §9: "every field except notes"
+      'turn_id' // the turn the row belongs to (Spec §16.1): how the list ran, like outcome
     ],
     private: ['notes'],
     pending: []

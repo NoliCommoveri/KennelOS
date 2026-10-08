@@ -75,21 +75,33 @@ const cleanNote = (v) => String(v ?? '').trim().slice(0, ACTION_LIMITS.noteChars
 export function checkAction(action, body, { entry, projection, pending, now = new Date() }) {
   if (!FAMILY_ACTIONS.includes(action)) fail(400, 'bad_action');
   if (!OPEN_STATUSES.includes(entry.status)) fail(409, 'not_on_list');
-  const offer = (id) => (entry.offers || []).find((o) => o.id === id) || fail(409, 'offer_closed');
+  // A family's turn (Waitlist Spec §16.1) is one offer row per litter sharing a
+  // turn_id (an offer from before turns is its own turn). They pick ONE pup from
+  // any litter of it, or pass on ALL of it.
+  const offers = entry.offers || [];
+  const offer = (id) => offers.find((o) => o.id === id) || fail(409, 'offer_closed');
+  const turnOf = (o) => o.turn_id || o.id;
+  const rowsOf = (turnId) => offers.filter((o) => turnOf(o) === turnId);
   const already = (kind, test = () => true) => pending.some((p) => p.kind === kind && test(p.payload));
+  const inTurn = (turnId) => (p) => p.turn_id === turnId || rowsOf(turnId).some((o) => o.id === p.offer_id);
+  const settled = (turnId) => {
+    if (rowsOf(turnId).some((o) => o.picked_dog_id) || already('pick', inTurn(turnId))) fail(409, 'already_picked');
+    if (already('pass', inTurn(turnId))) fail(409, 'already_passed');
+  };
   switch (action) {
     case 'pick': {
       const o = offer(body.offer_id);
-      if (o.picked_dog_id || already('pick', (p) => p.offer_id === o.id)) fail(409, 'already_picked');
-      if (already('pass', (p) => p.offer_id === o.id)) fail(409, 'already_passed');
+      settled(turnOf(o));
       if (!(o.eligible_dog_ids || []).includes(body.dog_id)) fail(409, 'pup_not_offered');
-      return { offer_id: o.id, litter_id: o.litter_id, dog_id: body.dog_id };
+      return { offer_id: o.id, turn_id: turnOf(o), litter_id: o.litter_id, dog_id: body.dog_id };
     }
     case 'pass': {
-      const o = offer(body.offer_id);
-      if (o.picked_dog_id || already('pick', (p) => p.offer_id === o.id)) fail(409, 'already_picked');
-      if (already('pass', (p) => p.offer_id === o.id)) fail(409, 'already_passed');
-      return { offer_id: o.id, litter_id: o.litter_id };
+      // By turn (`turn_id`), or by any one of its rows (`offer_id`, as before turns).
+      const turnId = typeof body.turn_id === 'string' && offers.some((o) => turnOf(o) === body.turn_id) ? body.turn_id
+        : turnOf(offer(body.offer_id));
+      settled(turnId);
+      const rows = rowsOf(turnId);
+      return { turn_id: turnId, offer_ids: rows.map((o) => o.id), litter_ids: rows.map((o) => o.litter_id) };
     }
     case 'still_interested':
       return {};

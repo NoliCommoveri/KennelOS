@@ -448,7 +448,11 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   **Approve** / **Decline** on Today or the family's page, where their messages and activity
   show too (`waitlist_entries.pause_request` / `listen_change_request` / `messages`, private).
   Tests: `waitlistEvents`, `waitlistProjection`, `cloudWaitlist`, `cloud/tests/familyActions`.
-  Next: step 6, email.
+  **Step 5c part 1, one turn per family across open litters (Waitlist Spec §16.1), is built &
+  browser-verified:** one family holds a turn at a time across the kennel's open litters,
+  seeing every pup they match in every open litter; only passing on all of it counts, once
+  (`waitlist_offers.turn_id`; `waitlistRules.nextTurn`; tests `waitlistTurns`). Next: step 5c
+  parts 2–6 (Spec §16), then step 6, email.
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass

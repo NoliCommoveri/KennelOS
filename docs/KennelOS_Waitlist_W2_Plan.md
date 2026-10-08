@@ -274,7 +274,7 @@ means no fee reminder ever.
 > (passing ahead of time, listen-only "except", pass reasons, early litters, "Review your
 > preferences", "Ready now?"). They rework W1c's offers and step 5's offer handling, and steps
 > 6–7 build on the result, so they're planned and built first, as **step 5c** (below, between
-> steps 5 and 6). Q30–Q33 answered 2026-10-08; Q34 open, not blocking 5c-1 to 5c-4.
+> steps 5 and 6). Q30–Q34 answered 2026-10-08.
 
 1. **Server foundation.** Migration `0007` (+ its `index.js` line), `cloud/src/waitlist.js`
    (projection PUT/GET with `requirePro`, events read, inbox fetch/ack, messages queue),
@@ -488,6 +488,13 @@ means no fee reminder ever.
         walks. Server `checkAction`: `pass` takes `{ turn_id, reason }` and passes every row;
         `pick` is unchanged (a row and a pup). The status page shows one "It's your turn!" card
         listing every litter's pups, with one **Pass on all of these**.
+      **Built 2026-10-08.** As planned, with: `litters[].queue` is gone from the projection
+      (`turn_queue` replaces it: `[{ entry_id, litters: { [litter_id]: dog_ids } }]`); a family
+      can pick once per turn online (switching litters goes through her); the server's `pass`
+      takes `{ turn_id }` (or any one row's `offer_id`) and records `{ turn_id, offer_ids,
+      litter_ids }`; the status view's offers carry `turn_id` and the page groups them into one
+      card. Tests: `waitlistTurns` (the actions on the in-memory database), `waitlistRules`,
+      `waitlistProjection`, `waitlistEvents`, `cloud/tests/familyActions`.
    2. **Pass reasons and passing ahead of time (§16.2, §16.5).**
       - `waitlist_config.pass_reasons` (`[{ id, label, message }]`, cloud; default four:
         timing, finances, not the right pup, other) and `pass_other` (bool, default on), edited
@@ -528,7 +535,7 @@ means no fee reminder ever.
       stored) while the litter is whelped and picks aren't open; published per entry; the
       status page shows a card with **Review your preferences** opening the listen-only and
       Ask-to-change editors (changes go through the usual rules; Q26). The email half joins
-      "It's almost your turn" in step 6. Q34 decides whether the early-litters switch hides it.
+      "It's almost your turn" in step 6. Shown whatever the early-litters switch says (Q34).
    6. **"Ready now?" (§16.7).** `waitlist_config.ready_no_answer` (`keep_paused` default |
       `unpause` | `remove_after`) and `ready_answer_days` (14), cloud.
       `waitlist_entries.ready_check` (`{ answer: 'yes' | 'no', answered_date, until, reason }`,

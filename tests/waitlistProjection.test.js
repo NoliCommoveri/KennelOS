@@ -61,7 +61,7 @@ const keysOf = (o) => Object.keys(o).sort();
 test('the projection has exactly its allow-listed parts', () => {
   const p = buildProjection(fixture());
   assert.equal(p.format, PROJECTION_FORMAT);
-  assert.deepEqual(keysOf(p), ['as_of', 'entries', 'events_through', 'format', 'kennel', 'litters', 'public_list']);
+  assert.deepEqual(keysOf(p), ['as_of', 'entries', 'events_through', 'format', 'kennel', 'litters', 'public_list', 'turn_queue']);
   assert.deepEqual(p.kennel, {
     public_id: kennel.public_id, name: 'Thornfield Kennels', time_zone: 'America/Chicago',
     respond_days: 3, max_passes: 2, auto_offer_on: ['no_response'],
@@ -89,7 +89,7 @@ test("a family on the list sees its place, prefs, passes and offers; nothing els
   assert.equal(e1.email, 'c-e1@example.com', "the contact's address wins over the application's");
   assert.equal(e1.fee_due, null, 'paid: no amount or instructions');
   assert.equal(e1.fee_received_date, '2026-02-11', 'fee received is readable (Q11)');
-  assert.deepEqual(e1.offers, [{ id: 'o1', litter_id: 'lit-1', offered_date: '2026-10-07', respond_by_date: '2026-10-10', eligible_dog_ids: ['p1', 'p2'], picked_dog_id: null }]);
+  assert.deepEqual(e1.offers, [{ id: 'o1', turn_id: 'o1', litter_id: 'lit-1', offered_date: '2026-10-07', respond_by_date: '2026-10-10', eligible_dog_ids: ['p1', 'p2'], picked_dog_id: null }]);
   assert.deepEqual(p.entries.e2.passes, { used: 1, max: 2 });
   assert.equal(p.entries.e3.paused_until, '2026-12-01');
 });
@@ -124,8 +124,9 @@ test('positions, litter queues and the public list come straight from the rules 
   assert.equal(p.entries.e2.position, 1, 'her ahead program puts them first');
 
   const queue = litterQueue(live, litter, f.dogs.filter((d) => d.litter_id === 'lit-1'), [], { today: TODAY, config: waitlistConfig(kennel), programsById: f.programsById });
-  assert.deepEqual(p.litters['lit-1'].queue.map((q) => q.entry_id), queue.map((q) => q.entry.id));
   for (const q of queue) assert.equal(p.entries[q.entry.id].litter_positions['lit-1'], q.litterPosition);
+  // The turn queue: the same order, minus families whose turn on it is open (e1) or spent (e2 passed).
+  assert.deepEqual(p.turn_queue.map((q) => q.entry_id), queue.map((q) => q.entry.id).filter((id) => !['e1', 'e2'].includes(id)));
   assert.equal(p.entries.e3.litter_positions['lit-1'], undefined, 'paused: not in any queue');
 
   const rows = publicList(live, K, f.programsById, { today: TODAY, nameOf: (e) => entryName(e, f.contacts.find((c) => c.id === e.contact_id)) });
@@ -140,14 +141,15 @@ test('a litter shows its available pups as a family may see them, and every elig
   }
   const p = buildProjection(f);
   const l = p.litters['lit-1'];
-  assert.deepEqual(keysOf(l), ['label', 'open_offer_entry_id', 'picks_open', 'pups', 'queue', 'ready_date', 'status', 'whelp_date']);
+  assert.deepEqual(keysOf(l), ['label', 'open_offer_entry_id', 'picks_open', 'pups', 'ready_date', 'status', 'whelp_date']);
   assert.equal(l.label, 'Juniper × Ash');
   assert.equal(l.picks_open, true);
   assert.equal(l.open_offer_entry_id, 'e1');
   assert.deepEqual(l.pups, [{ id: 'p1', call_name: 'p1', sex: 'male', color: 'black' }, { id: 'p2', call_name: 'p2', sex: 'female', color: 'black' }],
     'a pup she is keeping is not shown');
-  assert.equal(l.queue.length, 62, 'every eligible family (60 + e1 + e2; e3 is paused), not just the next few (Q13)');
-  assert.deepEqual(l.queue.find((q) => q.entry_id === 'e2').dog_ids, ['p2'], 'only the pups that match them');
+  assert.equal(p.turn_queue.length, 60, 'every eligible family still to have a turn (e1 holds it, e2 passed, e3 is paused), not just the next few (Q13)');
+  f.entries.find((e) => e.id === 'm0').pref_sex = 'female';
+  assert.deepEqual(buildProjection(f).turn_queue.find((q) => q.entry_id === 'm0').litters, { 'lit-1': ['p2'] }, 'only the pups that match them, per litter');
 });
 
 test('the same records always make the same projection, in any order', () => {

@@ -155,3 +155,20 @@ test('a family message is sealed to her key and lands in her inbox, already conf
   await publish(p);
   assert.equal(await err(await send()), 'messages_off');
 });
+
+test('turns (Spec §16.1): a pass covers every litter of the turn; one pick per turn', async () => {
+  const p = projection();
+  p.entries.ann.offers = [
+    { id: 'o1', turn_id: 't1', litter_id: 'l1', respond_by_date: plusDays(3), eligible_dog_ids: ['p1'], picked_dog_id: null },
+    { id: 'o3', turn_id: 't1', litter_id: 'l2', respond_by_date: plusDays(3), eligible_dog_ids: ['p3'], picked_dog_id: null },
+  ];
+  const { env, ann, publish } = await setup();
+  await publish(p);
+  const res = await act(env, ann, tok('a'), 'pick', { offer_id: 'o1', dog_id: 'p1' });
+  assert.equal(res.status, 200);
+  assert.equal(await err(await act(env, ann, tok('a'), 'pick', { offer_id: 'o3', dog_id: 'p3' })), 'already_picked', 'one pick per turn');
+  assert.equal(await err(await act(env, ann, tok('a'), 'pass', { turn_id: 't1' })), 'already_picked');
+  const pending = { entry: p.entries.ann, projection: p, pending: [] };
+  assert.deepEqual(checkAction('pass', { turn_id: 't1' }, pending), { turn_id: 't1', offer_ids: ['o1', 'o3'], litter_ids: ['l1', 'l2'] });
+  assert.deepEqual(checkAction('pass', { offer_id: 'o3' }, pending).turn_id, 't1', 'by any row of the turn, too');
+});

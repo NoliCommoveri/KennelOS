@@ -21,7 +21,7 @@ import * as actions from '../data/waitlistActions.js';
 import {
   waitlistConfig, overallPositions, passesUsed, anchorDate, isMovedByBreeder, contactMatches,
   entryName, canUndoRemoval, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, rankedList, REMOVAL_UNDO_DAYS,
-  eligiblePupsFor, nextFamilyForLitter, turnSpent, hasOpenOffer, isListeningFor, isPupAvailable,
+  eligiblePupsFor, nextFamilyForLitter, turnSpent, openTurns, turnOffers, turnIdOf, isListeningFor, isPupAvailable,
   describeOfferChanges, isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker,
   kennelBreeds, resolveBreed, prefChangeEffect, autoOffers, closingTrigger, listenParentChoices,
   PREF_FIELD_LABEL, prefValueText, prefChangeSummary
@@ -732,12 +732,14 @@ const familyNameById = (entryId) => {
   return x ? entryName(x, ctx.contacts.find((c) => c.id === x.contact_id)) : 'another family';
 };
 
-// Every live litter of this kennel, with whether this family can be offered it now
-// and, if not, why. `next` is who the list says is next (null = nobody / an offer
-// is open).
+// Every live litter of this kennel, with whether this family can be offered a turn
+// starting from it now and, if not, why. `next` is who's first in line for that
+// litter (null = nobody). One family holds a turn at a time across the kennel
+// (Spec §16.1), so while anyone holds one, nothing can be offered.
 function litterChoices(e) {
   const today = todayYMD();
   const opts = { today, config: ctx.config, programsById: ctx.programs };
+  const [held] = openTurns(ctx.kennelOffers, ctx.kennel.id);
   return ctx.litters
     .filter((l) => !l.is_archived && LIVE_LITTER.includes(l.status))
     .map((l) => {
@@ -745,9 +747,8 @@ function litterChoices(e) {
       const offers = ctx.kennelOffers.filter((o) => o.litter_id === l.id);
       const eligible = eligiblePupsFor(e, l, pups, ctx.sales, opts);
       let blocked = '';
-      if (hasOpenOffer(offers, l.id)) {
-        const open = offers.find((o) => o.outcome === 'open' && !o.is_archived);
-        blocked = open.entry_id === e.id ? 'They already have an open offer on this litter.' : `${familyNameById(open.entry_id)} has an open offer on this litter.`;
+      if (held) {
+        blocked = held.entry_id === e.id ? 'They hold the turn now.' : `${familyNameById(held.entry_id)} holds the turn now; one family at a time.`;
       } else if (turnSpent(offers, l.id, e.id)) blocked = 'They\'ve already had their turn on this litter.';
       else if (isReadyHeld(e, today)) blocked = `They said they won't be ready to buy until about ${fmtDate(readyFromDate(e))}.`;
       else if (isManuallyPaused(e, today)) blocked = 'They\'re paused.';
@@ -777,11 +778,11 @@ async function onOfferLitter() {
   };
   const days = ctx.programs.get(e.waitlist_program_id)?.respond_days_override || ctx.config.respond_days;
   await formModal({
-    title: `Offer ${entryName(e, ctx.contact)} a litter`,
-    confirmLabel: 'Make the offer',
+    title: `Offer ${entryName(e, ctx.contact)} their turn`,
+    confirmLabel: 'Offer the turn',
     bodyHtml: choices.length
       ? `${choices.map(rowHtml).join('')}
-         <p class="field-hint">They get ${esc(days)} days to pick a pup and send the deposit. Offering someone who isn't next doesn't change anyone's place; the next family ${ctx.config.auto_offer_on.length ? 'is up (offered automatically if you chose that in Waitlist settings)' : 'is up'} once this one is settled. Nothing is sent automatically, so tell them yourself.</p>`
+         <p class="field-hint">Their turn covers this litter and every other open litter they match; they pick one pup from any of them, or pass on all of them. They get ${esc(days)} days to pick a pup and send the deposit. Offering someone who isn't next doesn't change anyone's place; the next family ${ctx.config.auto_offer_on.length ? 'is up (offered automatically if you chose that in Waitlist settings)' : 'is up'} once this one is settled. Nothing is sent automatically, so tell them yourself.</p>`
       : '<p class="muted">No upcoming or current litters on this kennel yet.</p>',
     onConfirm: async (o) => {
       const picked = o.querySelector('input[name="ol"]:checked');
@@ -839,21 +840,26 @@ async function onOfferOutcome(offer, outcome) {
     return;
   }
   if (outcome === 'undo') {
-    const holder = ctx.kennelOffers.find((o) => o.litter_id === offer.litter_id && o.outcome === 'open' && !o.is_archived && o.id !== offer.id);
+    const holder = openTurns(ctx.kennelOffers, ctx.kennel.id).find((t) => t.id !== turnIdOf(offer));
     const res = await undoPassDialog({ offer, name, holderName: holder ? familyNameById(holder.entry_id) : null, removed: e.status === 'removed' });
     if (!res) return;
     await afterAction();
-    await alertModal({ title: 'Their turn is back', message: [`${name} is next for ${litter ? litterLabel(litter) : 'this litter'} again, with until ${fmtDate(res.offer.respond_by_date)} to pick and pay the deposit. Let them know; nothing is sent automatically.`, ...offerChangeLines(res)].join('\n\n') });
+    const back = res.offers.map((x) => ctx.litters.find((l) => l.id === x.litter_id)).filter(Boolean).map(litterLabel).join(', ');
+    await alertModal({ title: 'Their turn is back', message: [`${name}'s turn is back (${back || 'this litter'}), with until ${fmtDate(res.offer.respond_by_date)} to pick and pay the deposit. Let them know; nothing is sent automatically.`, ...offerChangeLines(res)].join('\n\n') });
     return;
   }
 
   const lapse = offer.chosen_dog_id ? ` Their pick lapses: the sale is cancelled and ${dogName(offer.chosen_dog_id)} is available again.` : '';
+  // A turn covers every open litter they matched (Spec §16.1): outcomes close all of it.
+  const also = turnOffers(ctx.kennelOffers, turnIdOf(offer)).filter((o) => o.outcome === 'open' && o.id !== offer.id)
+    .map((o) => ctx.litters.find((l) => l.id === o.litter_id)).filter(Boolean).map(litterLabel);
+  const whole = also.length ? ` This closes their whole turn, including ${also.join(', ')}, and counts once.` : '';
   const prompts = {
-    passed: { title: `${name} passed on this litter?`, message: `${turnNote('passed')}${lapse}`, confirmLabel: 'Record it' },
+    passed: { title: also.length ? `${name} passed on their whole turn?` : `${name} passed on this litter?`, message: `${turnNote('passed')}${whole}${lapse}`, confirmLabel: 'Record it' },
     no_response: offer.chosen_dog_id
       ? { title: `No deposit from ${name}?`, message: `Record that the deposit didn't arrive in time. It counts like no response. ${turnNote(closingTrigger(offer, 'no_response'))}${lapse}`, confirmLabel: 'Record it' }
-      : { title: `${name} didn't respond in time?`, message: turnNote('no_response'), confirmLabel: 'Record it' },
-    voided: { title: 'Void this offer?', message: `Use this if the offer was a mistake or the litter fell through. It never counts as a pass for ${name}, and the turn isn't moved on automatically.${lapse}`, confirmLabel: 'Void it' }
+      : { title: `${name} didn't respond in time?`, message: `${turnNote('no_response')}${whole}`, confirmLabel: 'Record it' },
+    voided: { title: 'Void this turn?', message: `Use this if the offer was a mistake or the litter fell through. It never counts as a pass for ${name}, and the turn isn't moved on automatically.${also.length ? ` It voids their whole turn, including ${also.join(', ')}.` : ''}${lapse}`, confirmLabel: 'Void it' }
   };
   if (!(await confirmModal(prompts[outcome]))) return;
   const res = await actions.recordOutcome(offer.id, outcome);
@@ -876,7 +882,7 @@ function offerButtons(o, today) {
   } else if (o.outcome === 'open') {
     list = [btn('pick', 'Picked a pup…', true), btn('passed', 'Passed'), btn('no_response', 'No response'), btn('voided', 'Void')];
   } else if (canSwitchAcceptedPick(o, ctx.kennelOffers)) {
-    list = [btn('change', 'Change pup…', false, 'Allowed until the next family is offered this litter')];
+    list = [btn('change', 'Change pup…', false, 'Allowed until the next family is offered a turn')];
   } else if (!undoPassBlocker(o, ctx.entry, today)) {
     list = [btn('undo', 'Undo…', false, 'Erase this and give them their turn back')];
   }
