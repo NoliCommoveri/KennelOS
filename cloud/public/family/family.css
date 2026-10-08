@@ -163,6 +163,11 @@ details.card.collapsible > summary h2 { display: inline; margin: 0; }
 details.card.collapsible[open] > summary { margin-bottom: 10px; }
 /* "Current Applicants: See Your Details" stays on one line on 360–389px phones. */
 @media (max-width: 389px) { details.card.collapsible > summary h2 { font-size: 15.5px; } }
+/* A family's status page: everything centered (decided 2026-10-08). */
+main.centered { text-align: center; }
+main.centered .row, main.centered .actions, main.centered form.inline, main.centered .tabs { justify-content: center; }
+main.centered dl.facts { display: inline-grid; text-align: left; margin: 6px auto 0; }
+main.centered details.card.collapsible > summary { list-style-position: inside; }
 button.linkish { font: inherit; background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; }
 #app-form .actions { margin: 16px 0 8px; }
 .mt8 { margin: 8px 0 0; }

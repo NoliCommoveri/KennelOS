@@ -3215,6 +3215,11 @@ shown (`describeOfferChanges`).
   texting app). The phone is the contact's, else the application's. KennelOS sends nothing.
 - **Current Applicants: See Your Details** (so visitors who haven't applied can skip it) and **Coming up** (pairings and early litters) on the public list page
   are collapsed `<details>` cards, and its title reads "<Kennel> Waitlist" (2026-10-08).
+- **A family's status page (2026-10-08):** everything centered; no badge for a family on the
+  list; **Current Position** (the number, then the kennel's name, **Added** and passes used).
+  Sections that ask them to act stay open (their turn, Ready now?, Review your preferences,
+  the fee, Thank you for applying); every other titled section folds away and starts folded,
+  and one they opened stays open while they use it (`state.opened`).
 - **Message on your public list (2026-10-08):** `waitlist_config.public_intro_text` (blank =
   `waitlistRules.PUBLIC_INTRO_DEFAULT`), edited on the Publish list page; `publicIntroText`
   fills in `[Kennel Name]`, the projection publishes it as `kennel.intro`, and `/f/list`

@@ -35,7 +35,7 @@ const STATUS = {
 
 // The page's state: the view the server sent, the browser's family session (or
 // null), and which editor is open.
-const state = { v: null, session: null, open: null, flash: '' };
+const state = { v: null, session: null, open: null, flash: '', opened: new Set() };
 
 // One line about a litter: "Expected", "Born Sep 1, 2026 · ready about Oct 27", …
 function litterLine(l) {
@@ -62,7 +62,17 @@ function litterBadge(l) {
   return l.match ? '<span class="badge">A match for you</span>' : '<span class="badge plain">Not a match for you</span>';
 }
 
+// A section of the page. Titled sections fold away and start folded (decided
+// 2026-10-08), except the ones asking the family to do something now (openCard).
+// Which ones they've opened is kept across re-renders (state.opened), so a
+// section stays open while they use a button in it.
 function card(title, body, cls = '') {
+  if (!title) return openCard(title, body, cls);
+  const key = String(title).replace(/<[^>]*>/g, '');
+  return `<details class="card collapsible ${cls}" data-key="${esc(key)}"${state.opened.has(key) ? ' open' : ''}><summary><h2>${title}</h2></summary>${body}</details>`;
+}
+
+function openCard(title, body, cls = '') {
   return `<div class="card ${cls}">${title ? `<h2>${title}</h2>` : ''}${body}</div>`;
 }
 
@@ -217,7 +227,7 @@ function turnHtml(rows) {
       <div class="actions"><button type="button" class="secondary" data-act="open" data-what="pass:${esc(turnId)}">${several ? 'Pass on all of these' : 'Pass on this litter'}</button></div>`;
   } else next = signedIn() ? '' : `<p>Sign in on this device to choose a pup or pass (below), or contact ${esc(kennel)}.</p>`;
   const respondBy = rows.map((o) => o.respond_by_date || '').sort().reverse()[0];
-  return card("It's your turn!", `
+  return openCard("It's your turn!", `
     <p class="mt0">Please respond by <strong>11:59 pm on ${esc(fmtDate(respondBy, { weekday: true }))}</strong>${zone}.</p>
     ${rows.map((o) => `<p class="mt8"><strong>${esc(o.litter)}</strong></p>${pupsOf(o)}`).join('')}
     ${next}`, 'turn');
@@ -361,21 +371,21 @@ function readyHtml(f) {
   const sent = pendingOf('ready');
   if (sent.length || rc.answer) {
     const answer = sent.length ? sent[sent.length - 1].payload.answer : rc.answer;
-    return answer === 'yes' ? '' : card('Ready now?', `<p class="mt0">You said you're not ready yet. Your pause request is with ${esc(kennel)}; until they decide, you won't be offered a pup.</p>`);
+    return answer === 'yes' ? '' : openCard('Ready now?', `<p class="mt0">You said you're not ready yet. Your pause request is with ${esc(kennel)}; until they decide, you won't be offered a pup.</p>`);
   }
   const deadline = rc.answer_by ? `<p class="small"><strong>Please answer by ${esc(fmtDate(rc.answer_by))}, or you'll be removed from the waitlist.</strong></p>` : '';
   if (!canAct()) {
-    return card('Ready now?', `<p class="mt0">When you applied you said you'd be ready to buy about now. Sign in on the waitlist page to answer.</p>${deadline}`);
+    return openCard('Ready now?', `<p class="mt0">When you applied you said you'd be ready to buy about now. Sign in on the waitlist page to answer.</p>${deadline}`);
   }
   if (state.open === 'ready_no') {
-    return card('Ready now?', `<form data-form="ready_no">
+    return openCard('Ready now?', `<form data-form="ready_no">
         <label class="q">When do you expect to be ready? <span class="req">*</span><input type="date" name="until" required></label>
         <label class="q mt8">Why not yet? <span class="req">*</span><textarea name="reason" maxlength="500" required></textarea></label>
         <p class="small muted">${esc(kennel)} sees your reason and decides on pausing your place until then. You keep your place.</p>
         <div class="actions"><button class="primary" type="submit">Send</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
       </form>${deadline}`);
   }
-  return card('Ready now?', `<p class="mt0">When you applied you said you'd be ready to buy about now. Are you ready to be offered a pup?</p>${deadline}
+  return openCard('Ready now?', `<p class="mt0">When you applied you said you'd be ready to buy about now. Are you ready to be offered a pup?</p>${deadline}
     <div class="actions"><button type="button" class="primary" data-act="ready_yes">Yes, I'm ready</button><button type="button" class="secondary" data-act="open" data-what="ready_no">Not yet</button></div>`);
 }
 
@@ -411,7 +421,7 @@ function whelpNotesHtml(f) {
     parts.push(`<p class="small muted">If you'd like to be considered for it, review your choices. A change to your answers needs ${esc(possessive(kennel))} OK; nothing counts against you either way.</p>`);
     if (buttons.length) parts.push(`<div class="actions">${buttons.join('')}</div>`);
   }
-  return card(review.length ? 'Review your preferences' : 'A litter was born', parts.join(''));
+  return openCard(review.length ? 'Review your preferences' : 'A litter was born', parts.join(''));
 }
 
 const listText = (xs) => (xs.length <= 1 ? (xs[0] || 'your choices') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
@@ -518,7 +528,8 @@ function mineHtml() {
   const f = v.family;
   const kennel = v.kennel.name;
   const st = STATUS[f.status] || { badge: 'plain', label: f.status };
-  const parts = [`<p><span class="badge ${st.badge}">${esc(st.label)}</span></p>`];
+  // No badge for a family on the list: being on it is why they're here.
+  const parts = f.status === 'active' ? [] : [`<p><span class="badge ${st.badge}">${esc(st.label)}</span></p>`];
   if (state.flash) parts.push(`<p class="card notice-card small" role="status">${esc(state.flash)}</p>`);
 
   if (!['applied', 'approved', 'active'].includes(f.status)) {
@@ -528,12 +539,12 @@ function mineHtml() {
   }
 
   if (f.status === 'applied') {
-    parts.push(card('Thank you for applying', `<p class="mt0">${esc(kennel)} will review your application. This page will show their decision.</p>`));
+    parts.push(openCard('Thank you for applying', `<p class="mt0">${esc(kennel)} will review your application. This page will show their decision.</p>`));
   }
 
   if (f.fee_due) {
     const fee = f.fee_due;
-    parts.push(card('Your application fee', `
+    parts.push(openCard('Your application fee', `
       <p class="big mt0">${esc(money(fee.amount))}</p>
       ${fee.due_date ? `<p>Please pay by <strong>${esc(fmtDate(fee.due_date))}</strong>.</p>` : ''}
       ${fee.credit_policy ? `<p class="small muted">${esc(CREDIT_LABEL[fee.credit_policy] || '')}</p>` : ''}
@@ -551,11 +562,11 @@ function mineHtml() {
     if (f.ready_from) notices.push(`You said you'd be ready to buy later, so you won't be offered a pup before ${esc(fmtDate(f.ready_from))}. You keep your place.`);
     if (f.listen?.mode === 'selected') notices.push('You\'re only waiting for litters from the parents you chose. You keep your place for everything else.');
     else if (f.listen?.mode === 'except' && (f.listen.sire_ids?.length || f.listen.dam_ids?.length)) notices.push('You\'re skipping litters from the parents you chose. You keep your place for everything else.');
-    parts.push(card('Your place', `
-      ${f.position ? `<p class="big mt0">#${esc(f.position)}</p><p class="muted mt0">on ${esc(possessive(kennel))} waitlist</p>` : placeHiddenHtml(f.place_hidden)}
+    parts.push(openCard('Current Position', `
+      ${f.position ? `<p class="big mt0">#${esc(f.position)}</p><p class="muted mt0">${esc(kennel)}</p>` : placeHiddenHtml(f.place_hidden)}
       ${notices.map((n) => `<p class="small">${n}</p>`).join('')}
       <dl class="facts">
-        ${f.fee_received_date ? `<dt>On the list since</dt><dd>${esc(fmtDate(f.fee_received_date))}</dd>` : ''}
+        ${f.fee_received_date ? `<dt>Added</dt><dd>${esc(fmtDate(f.fee_received_date))}</dd>` : ''}
         ${f.passes ? `<dt>Passes used</dt><dd>${esc(f.passes.used)} of ${esc(f.passes.max)}</dd>` : ''}
       </dl>
       ${placeActions(f)}`));
@@ -749,6 +760,10 @@ function selectTab(which) {
 }
 
 function render() {
+  // Keep the sections they opened open (card()).
+  for (const d of $('mine').querySelectorAll('details[data-key]')) {
+    if (d.open) state.opened.add(d.dataset.key); else state.opened.delete(d.dataset.key);
+  }
   $('mine').innerHTML = mineHtml();
   $('mine').hidden = $('tab-list').getAttribute('aria-selected') === 'true';
 }
@@ -770,7 +785,7 @@ async function load() {
   state.session = v.kennel.public_id ? rememberedFamily(v.kennel.public_id) : null;
   document.title = `${v.kennel.name} Waitlist`;
   $('title').textContent = v.family.name ? `Hi, ${v.family.name.split(/\s+/)[0]}` : `${v.kennel.name} Waitlist`;
-  $('updated').textContent = `${v.kennel.name} waitlist${v.as_of ? ` · updated ${fmtDate(v.as_of)}` : ''}`;
+  $('updated').textContent = `${v.kennel.name} Waitlist${v.as_of ? ` · updated ${fmtDate(v.as_of)}` : ''}`;
   render();
 
   if (!wired) {
