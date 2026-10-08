@@ -78,6 +78,11 @@ async function load() {
   document.title = `${kennel.name} waitlist`;
   $('title').textContent = `${kennel.name} waitlist`;
   $('updated').textContent = asOf ? `Updated ${fmtDate(asOf)}` : '';
+  // Her online application form, when she takes applications online.
+  if (kennel.apply_open) {
+    $('apply-link').href = `/apply/${encodeURIComponent(publicId)}`;
+    $('apply').hidden = false;
+  }
   $('content').hidden = false;
   // Pairings and litters she shows publicly before picks open (Spec §16.4).
   if (upcoming.length) {

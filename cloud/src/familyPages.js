@@ -162,7 +162,8 @@ const upcomingOf = (projection, where) => (Array.isArray(projection.upcoming) ? 
 // pairings and early litters she shows publicly.
 export function listView(projection) {
   return {
-    kennel: { name: projection.kennel?.name ?? '' },
+    // apply_open: she takes applications online, so the list links to her form.
+    kennel: { name: projection.kennel?.name ?? '', apply_open: Boolean(formView(projection)) },
     as_of: projection.as_of ?? null,
     rows: Array.isArray(projection.public_list) ? projection.public_list : [],
     upcoming: upcomingOf(projection, 'public').map(upcomingRow),

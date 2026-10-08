@@ -94,7 +94,7 @@ test('the public list shows only her published rows', async () => {
   const { env } = await published();
   const res = await get(env, `/f/list/${KENNEL}`);
   assert.equal(res.status, 200);
-  assert.deepEqual(await res.json(), { kennel: { name: 'Thornfield Kennels' }, as_of: '2026-10-08', rows: projection().public_list, upcoming: [] });
+  assert.deepEqual(await res.json(), { kennel: { name: 'Thornfield Kennels', apply_open: false }, as_of: '2026-10-08', rows: projection().public_list, upcoming: [] });
   assert.equal((await get(env, '/f/list/kos1_99999999-2222-4333-8444-555555555555')).status, 404);
   assert.equal((await get(env, '/f/list/thornfield')).status, 404);
 });
@@ -321,4 +321,13 @@ test('a kennel name is escaped in the preview', async () => {
   const tags = previewTags({ ...previewText('list', 'Bad "<script>" Kennel'), url: 'https://x/list/a', image: 'https://x/i.png' });
   assert.doesNotMatch(tags, /<script>/);
   assert.match(tags, /Bad &quot;&lt;script&gt;&quot; Kennel waitlist/);
+});
+
+test('the public list links to her application form only while she takes applications online', () => {
+  const p = projection();
+  assert.equal(listView(p).kennel.apply_open, false);
+  p.kennel.form = { open: true, key_id: 'k1', public_key: 'pk', questions: [] };
+  assert.equal(listView(p).kennel.apply_open, true);
+  p.kennel.form.open = false;
+  assert.equal(listView(p).kennel.apply_open, false);
 });

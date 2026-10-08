@@ -21,9 +21,7 @@ import {
   soonFamiliesForKennel, kennelBreeds, resolveBreed
 } from '../data/waitlistRules.js';
 import { esc, badge, fmtDate, fmtMoney, param, todayYMD, cardShell, alertModal, wireActionMenu } from '../assets/ui.js';
-import { resolveWaitlistKennel, mountKennelPicker, prefsSummary, entryFlags, openSoonNotice, copyLink } from '../assets/waitlistUI.js';
-import { editionFlags } from '../data/editionConfig.js';
-import { isWaitlistOnlineOffered, applyFormLink } from '../data/cloud/cloudConfig.js';
+import { resolveWaitlistKennel, mountKennelPicker, prefsSummary, entryFlags, openSoonNotice } from '../assets/waitlistUI.js';
 
 const els = {
   title: document.getElementById('wl-title'),
@@ -54,11 +52,6 @@ async function main() {
   els.title.textContent = own.length > 1 ? `Waitlist — ${kennel.kennel_name}` : 'Waitlist';
   // One primary action; everything else lives under Manage. (CSV import is on the
   // Import/Export page.)
-  // Her application form's link, when she takes applications online, to paste
-  // anywhere (a family reply, Facebook): right where she works.
-  const c0 = waitlistConfig(kennel);
-  const applyLink = editionFlags.waitlist && isWaitlistOnlineOffered() && c0.online && c0.online_form && kennel.public_id
-    ? applyFormLink(kennel.public_id) : null;
   els.actions.innerHTML = `
     <a class="btn btn-primary" href="waitlist-entry.html?new=1&${kq}">+ New application</a>
     <div class="action-menu" id="wl-manage">
@@ -71,10 +64,8 @@ async function main() {
         <a role="menuitem" href="waitlist-publish.html?${kq}">Publish list</a>
         <a role="menuitem" href="kennel.html?id=${encodeURIComponent(kennel.id)}#waitlist-settings">Settings</a>
       </div>
-    </div>
-    ${applyLink ? '<button class="btn" type="button" id="wl-apply-link" title="Your online application form, to send to a family or post">Copy application link</button>' : ''}`;
+    </div>`;
   wireActionMenu(document.getElementById('wl-manage'));
-  document.getElementById('wl-apply-link')?.addEventListener('click', (ev) => copyLink(applyLink, ev.currentTarget, { title: 'Your application form' }));
 
   const [entries, offers, programs, contacts, litters, dogs, sales] = await Promise.all([
     waitlistEntryRepo.getByKennel(kennel.id),
