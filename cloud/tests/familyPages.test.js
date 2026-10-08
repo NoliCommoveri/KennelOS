@@ -113,7 +113,7 @@ test("a family's status page shows their own place and offers, never anyone else
   assert.deepEqual(v.offers, [{ id: 'o1', turn_id: 'o1', litter_id: 'l1', litter: 'Juniper × Ash', offered_date: '2026-10-07', respond_by_date: '2026-10-10', picked_dog_id: null,
     pups: [{ id: 'p2', call_name: 'Poppy', sex: 'female', color: 'black' }] }]);
   assert.deepEqual(v.litters, [{ id: 'l1', label: 'Juniper × Ash', status: 'whelped', whelp_date: '2026-09-01', ready_date: '2026-10-27',
-    picks_open: true, pairing_id: null, pups_available: 2, pups_female: 1, pups_male: 1, nickname: null, breed: null, sire_name: null, dam_name: null, match: true }]);
+    picks_open: true, pairing_id: null, pups_available: 2, pups_female: 1, pups_male: 1, nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] }, match: true }]);
   const text = JSON.stringify(v);
   for (const other of ['Bo Kim', 'bo@example.com', '"bo"', 'Cy Day', 'Dee Fox', 'Venmo', tok('b'), 'queue', 'open_offer_entry_id']) {
     assert.equal(text.includes(other), false, other);
@@ -169,11 +169,11 @@ test('pairings and early litters (Spec §16.4): each where she shows it; a litte
   ];
   p.entries.ann.upcoming = { l2: { waiting: true, match: true } };
   const list = listView(p);
-  assert.deepEqual(list.upcoming, [{ id: 'pr3', kind: 'planned_pairing', label: 'Juniper × Ash', sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Juniper', titles: ['CGC'] },
+  assert.deepEqual(list.upcoming, [{ id: 'pr3', kind: 'planned_pairing', label: 'Juniper × Ash', breed: null, sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Juniper', titles: ['CGC'] },
     expected_whelp_date: null, whelp_date: null, picks_expected_date: null }]);
   const v = statusView(p, 'ann');
   assert.deepEqual(v.litters.map((l) => l.id), ['l1'], 'the early litter is not in the Litters list');
-  assert.deepEqual(v.upcoming, [{ id: 'l2', kind: 'early_litter', label: 'Spring litter', sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Willow', titles: [] },
+  assert.deepEqual(v.upcoming, [{ id: 'l2', kind: 'early_litter', label: 'Spring litter', breed: null, sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Willow', titles: [] },
     expected_whelp_date: null, whelp_date: '2026-09-20', picks_expected_date: '2026-10-20', pairing_id: 'pr2', litter_id: 'l2', waiting: true, match: true }]);
   assert.equal(JSON.stringify(v).includes('secret-sire'), false);
   assert.deepEqual(statusView(p, 'dee').upcoming, [], 'not on the list yet: nothing coming up');

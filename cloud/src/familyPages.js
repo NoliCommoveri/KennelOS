@@ -148,10 +148,13 @@ export async function serveFamilyPage(request, env, url) {
 
 // A pairing or early litter as a page shows it (Spec §16.4): parents' call names
 // and titles, and her dates. Never where it shows or which dogs.
+// A parent as a page shows one: call name and titles.
+const parentOf = (d) => ({ name: d?.name ?? '', titles: Array.isArray(d?.titles) ? d.titles : [] });
+
 function upcomingRow(u) {
-  const parent = (d) => ({ name: d?.name ?? '', titles: Array.isArray(d?.titles) ? d.titles : [] });
+  const parent = parentOf;
   return {
-    id: u.id, kind: u.kind, label: u.label ?? '', sire: parent(u.sire), dam: parent(u.dam),
+    id: u.id, kind: u.kind, label: u.label ?? '', breed: u.breed ?? null, sire: parent(u.sire), dam: parent(u.dam),
     expected_whelp_date: u.expected_whelp_date ?? null, whelp_date: u.whelp_date ?? null,
     picks_expected_date: u.picks_expected_date ?? null,
   };
@@ -234,8 +237,8 @@ export function statusView(projection, entryId) {
     pups_male: (l.pups || []).filter((d) => d.sex === 'male').length,
     nickname: l.nickname ?? null,
     breed: l.breed ?? null,
-    sire_name: l.sire_name ?? null,
-    dam_name: l.dam_name ?? null,
+    sire: parentOf(l.sire),
+    dam: parentOf(l.dam),
     match: matching.has(id),
   }));
   const mine = e.upcoming || {};

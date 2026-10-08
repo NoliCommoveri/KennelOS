@@ -3232,10 +3232,14 @@ shown (`describeOfferChanges`).
   **Review Your Preferences** (§16.6): "With new pups upcoming, please take a moment to
   confirm your preferences." and two lists, litters matching and not matching their
   answers; no buttons (they ask for changes under What you asked for). **Available
-  Puppies** (was Litters: litters with open picks, or in their turn): breed, nickname,
-  sire × dam, born/ready as MM/DD/YYYY, and "2 females and 1 male remaining". The
-  projection's litters carry `nickname`, `breed` (the dam's, else the sire's), `sire_name`,
-  `dam_name`; `/f/status` adds `pups_female` / `pups_male`.
+  Puppies** (was Litters: litters with open picks, or in their turn) and **Coming up** (no
+  badges) lay every litter out the same way (`common.litterHtml`): breed, its name, "Dam:
+  Juniper CGC · Sire: Ash CH", dates as MM/DD/YYYY ("Planned offering" for picks expected to
+  open), and for Available Puppies "2 females and 1 male remaining". Review Your Preferences
+  lists its litters the same way, without dates. The projection's open litters, whelp notes
+  and upcoming items carry `breed` (the dam's, else the sire's) and `sire` / `dam` as
+  `{ name, titles }`; `/f/status` adds `pups_female` / `pups_male`. Current Position shows
+  "Added 03/07/2026" and "Passes 1 of 2 used".
 - **Message on your public list (2026-10-08):** `waitlist_config.public_intro_text` (blank =
   `waitlistRules.PUBLIC_INTRO_DEFAULT`), edited on the Publish list page; `publicIntroText`
   fills in `[Kennel Name]`, the projection publishes it as `kennel.intro`, and `/f/list`

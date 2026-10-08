@@ -149,10 +149,10 @@ test('a litter shows its available pups as a family may see them, and every elig
   }
   const p = buildProjection(f);
   const l = p.litters['lit-1'];
-  assert.deepEqual(keysOf(l), ['breed', 'dam_name', 'label', 'nickname', 'open_offer_entry_id', 'pairing_id', 'picks_open', 'pups', 'ready_date', 'sire_name', 'status', 'whelp_date']);
+  assert.deepEqual(keysOf(l), ['breed', 'dam', 'label', 'nickname', 'open_offer_entry_id', 'pairing_id', 'picks_open', 'pups', 'ready_date', 'sire', 'status', 'whelp_date']);
   assert.equal(l.label, 'Juniper × Ash');
-  assert.equal(l.sire_name, 'Ash');
-  assert.equal(l.dam_name, 'Juniper');
+  assert.deepEqual(l.sire, { name: 'Ash', titles: [] });
+  assert.deepEqual(l.dam, { name: 'Juniper', titles: [] });
   assert.equal(l.picks_open, true);
   assert.equal(l.open_offer_entry_id, 'e1');
   assert.deepEqual(l.pups, [{ id: 'p1', call_name: 'p1', sex: 'male', color: 'black' }, { id: 'p2', call_name: 'p2', sex: 'female', color: 'black' }],
@@ -267,13 +267,13 @@ test('upcoming: each stage where she shows it, with call names, titles and her d
   }));
   assert.deepEqual(p.upcoming, [
     { id: 'spring', kind: 'early_litter', label: 'Spring litter', pairing_id: 'pr-spring', litter_id: 'spring',
-      sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Willow', titles: [] },
+      sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Willow', titles: [] }, breed: null,
       expected_whelp_date: null, whelp_date: '2026-09-20', picks_expected_date: '2026-10-20', public: true, family: true },
     { id: 'pr-winter', kind: 'pairing', label: 'Winter litter', pairing_id: 'pr-winter', litter_id: 'winter',
-      sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Juniper', titles: ['CGC'] },
+      sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Juniper', titles: ['CGC'] }, breed: null,
       expected_whelp_date: '2026-12-01', whelp_date: null, picks_expected_date: null, public: false, family: true },
     { id: 'pr-plan', kind: 'planned_pairing', label: 'Willow × Ash', pairing_id: 'pr-plan', litter_id: null,
-      sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Willow', titles: [] },
+      sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Willow', titles: [] }, breed: null,
       expected_whelp_date: '2027-04-05', whelp_date: null, picks_expected_date: null, public: true, family: false }
   ], 'an expected litter shows once, with its pairing; a litter with open picks and a cancelled pairing not at all');
   const text = JSON.stringify(p.upcoming);
@@ -293,8 +293,8 @@ test('titlesByDog: logged title_earned abbreviations, oldest first, once each, n
 test('whelp notes (Spec §16.6): per family, for a born litter before picks open, whatever her switches say (Q34)', () => {
   const p = buildProjection(upcomingFixture(null));
   // Spring litter (born, picks not open, one female pup): e1 skips Willow's litters; e2 wants a female.
-  assert.deepEqual(p.entries.e1.whelp_notes, [{ litter_id: 'spring', pairing_id: 'pr-spring', label: 'Spring litter', kind: 'review', why: ['listen'] }]);
-  assert.deepEqual(p.entries.e2.whelp_notes, [{ litter_id: 'spring', pairing_id: 'pr-spring', label: 'Spring litter', kind: 'match', why: [] }]);
+  assert.deepEqual(p.entries.e1.whelp_notes, [{ litter_id: 'spring', pairing_id: 'pr-spring', label: 'Spring litter', kind: 'review', why: ['listen'], breed: null, sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Willow', titles: [] } }]);
+  assert.deepEqual(p.entries.e2.whelp_notes, [{ litter_id: 'spring', pairing_id: 'pr-spring', label: 'Spring litter', kind: 'match', why: [], breed: null, sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Willow', titles: [] } }]);
   assert.deepEqual(p.entries.e3.whelp_notes, [], 'paused');
   assert.deepEqual(p.entries.e4.whelp_notes, [], 'not on the list yet');
   assert.deepEqual(p.upcoming, [], 'shown though her early-litters switch is off');

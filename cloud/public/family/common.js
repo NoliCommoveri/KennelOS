@@ -118,16 +118,36 @@ export function publicListHtml(rows, query = '', mine = null) {
 // A pairing or litter before picks open (Waitlist Spec §16.4): its parents with
 // their titles, and her dates. Used by the public list and the status page.
 const parentText = (d) => [d?.name || '', ...(d?.titles || [])].filter(Boolean).join(' ');
-export function upcomingDetails(u) {
-  const when = u.kind === 'early_litter'
-    ? [u.whelp_date ? `Born ${fmtDate(u.whelp_date)}` : 'Born', u.picks_expected_date ? `picks expected to open ${fmtDate(u.picks_expected_date)}` : ''].filter(Boolean).join(' · ')
-    : u.kind === 'planned_pairing' ? 'Planned pairing'
-      : u.expected_whelp_date ? `Expected about ${fmtDate(u.expected_whelp_date)}` : 'Expected';
-  return `<div class="small">Dam: ${esc(parentText(u.dam))} · Sire: ${esc(parentText(u.sire))}</div><div class="small muted">${esc(when)}</div>`;
+
+// "Dam: Juniper · Sire: Ash CH": a litter's parents, the same on every card.
+export function parentsLine(dam, sire) {
+  if (!dam?.name && !sire?.name) return '';
+  return `<div class="small">Dam: ${esc(parentText(dam))} · Sire: ${esc(parentText(sire))}</div>`;
+}
+
+// One litter (or pairing) the same way everywhere a family sees one (decided
+// 2026-10-08): the breed, its name, its parents, its dates, then any extra lines.
+export function litterHtml({ breed = null, name = '', dam = null, sire = null, when = '', extra = '' }) {
+  return `${breed ? `<div class="small muted">${esc(breed)}</div>` : ''}<div><strong>${esc(name)}</strong></div>
+    ${parentsLine(dam, sire)}${when ? `<div class="small muted">${esc(when)}</div>` : ''}${extra}`;
+}
+
+// A Coming up item's dates: "Born 09/20/2026 · Planned offering 11/01/2026",
+// "Expected 01/10/2027", or "Planned pairing".
+export function upcomingWhen(u) {
+  if (u.kind === 'early_litter') {
+    return [u.whelp_date ? `Born ${fmtShortDate(u.whelp_date)}` : 'Born', u.picks_expected_date ? `Planned offering ${fmtShortDate(u.picks_expected_date)}` : ''].filter(Boolean).join(' · ');
+  }
+  if (u.kind === 'planned_pairing') return 'Planned pairing';
+  return u.expected_whelp_date ? `Expected ${fmtShortDate(u.expected_whelp_date)}` : 'Expected';
+}
+
+export function upcomingItemHtml(u, extra = '') {
+  return litterHtml({ breed: u.breed, name: u.label, dam: u.dam, sire: u.sire, when: upcomingWhen(u), extra });
 }
 
 export function upcomingListHtml(rows) {
   if (!rows.length) return '';
-  return `<ul class="plain">${rows.map((u) => `<li><strong>${esc(u.label)}</strong>${upcomingDetails(u)}</li>`).join('')}</ul>
+  return `<ul class="plain">${rows.map((u) => `<li>${upcomingItemHtml(u)}</li>`).join('')}</ul>
     <p class="small muted">Plans can change.</p>`;
 }

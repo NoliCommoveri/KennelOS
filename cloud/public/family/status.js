@@ -12,7 +12,7 @@
 // Messages are sealed here, in this browser, to her key (seal.js); the server
 // can't read them.
 import {
-  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingDetails, deadlineText, fmtShortDate,
+  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingItemHtml, litterHtml, deadlineText, fmtShortDate,
   SEX_LABEL, READY_LABEL, PLACEMENT_LABEL, CREDIT_LABEL
 } from './common.js';
 import { rememberedFamily, forgetFamily } from './session.js';
@@ -292,19 +292,10 @@ function notThisLitter(t) {
 // Pairings and litters before picks open, as she shows them on family pages
 // (Spec §16.4): what's coming, whether it's one they're waiting for, and for a
 // whelped litter their place in it now. A pairing has no pups, so no place.
-function upcomingBadge(u) {
-  if (u.kind === 'early_litter') {
-    if (!u.waiting) return '<span class="badge plain">Not one you\'re waiting for</span>';
-    return u.match ? '<span class="badge">A match for you</span>' : '<span class="badge plain">Not a match for you</span>';
-  }
-  return u.waiting ? '<span class="badge info">You\'re waiting for this</span>' : '<span class="badge plain">Not one you\'re waiting for</span>';
-}
-
 function upcomingCard(v) {
   if (!(v.upcoming || []).length) return '';
-  const items = v.upcoming.map((u) => `<li><div class="row"><strong>${esc(u.label)}</strong>
-      <span class="small">${upcomingBadge(u)}</span></div>
-    ${upcomingDetails(u)}${u.waiting ? notThisLitter(upcomingTarget(u)) : ''}</li>`).join('');
+  // Laid out like Available Puppies; no badges (decided 2026-10-08).
+  const items = v.upcoming.map((u) => `<li>${upcomingItemHtml(u, u.waiting ? notThisLitter(upcomingTarget(u)) : '')}</li>`).join('');
   return card('Coming up', `<ul class="plain">${items}</ul>
     <p class="small muted">Plans can change.</p>`);
 }
@@ -410,7 +401,7 @@ function readyHtml(f) {
 function whelpNotesHtml(f) {
   const notes = (f.whelp_notes || []).filter((n) => !prepassedNow({ litter_id: n.litter_id, pairing_id: n.pairing_id }));
   if (!notes.length) return '';
-  const list = (ns) => `<ul class="plain names">${ns.map((n) => `<li>${esc(n.label)}</li>`).join('')}</ul>`;
+  const list = (ns) => `<ul class="plain names">${ns.map((n) => `<li>${litterHtml({ breed: n.breed, name: n.label, dam: n.dam, sire: n.sire })}</li>`).join('')}</ul>`;
   const match = notes.filter((n) => n.kind === 'match');
   const review = notes.filter((n) => n.kind === 'review');
   return openCard('Review Your Preferences', `
@@ -559,8 +550,8 @@ function mineHtml() {
       ${f.position ? `<p class="big mt0">#${esc(f.position)}</p><p class="muted mt0">${esc(kennel)}</p>` : placeHiddenHtml(f.place_hidden)}
       ${notices.map((n) => `<p class="small">${n}</p>`).join('')}
       <dl class="facts">
-        ${f.fee_received_date ? `<dt>Added</dt><dd>${esc(fmtDate(f.fee_received_date))}</dd>` : ''}
-        ${f.passes ? `<dt>Passes used</dt><dd>${esc(f.passes.used)} of ${esc(f.passes.max)}</dd>` : ''}
+        ${f.fee_received_date ? `<dt>Added</dt><dd>${esc(fmtShortDate(f.fee_received_date))}</dd>` : ''}
+        ${f.passes ? `<dt>Passes</dt><dd>${esc(f.passes.used)} of ${esc(f.passes.max)} used</dd>` : ''}
       </dl>
       ${placeActions(f)}`));
     parts.push(whelpNotesHtml(f));
@@ -568,12 +559,10 @@ function mineHtml() {
     if (v.litters.length) {
       // Litters with open picks (decided 2026-10-08): breed, her nickname, sire ×
       // dam, the dates, and the pups still available by sex.
-      const items = v.litters.map((l) => `<li>
-          ${l.breed ? `<div class="small muted">${esc(l.breed)}</div>` : ''}
-          <div><strong>${esc(l.nickname || l.label)}</strong></div>
-          ${l.sire_name && l.dam_name ? `<div class="small">${esc(l.sire_name)} × ${esc(l.dam_name)}</div>` : ''}
-          <div class="small muted">${esc(litterDates(l))}</div>
-          <div class="small">${esc(pupsRemaining(l))}</div>${notThisLitter(litterTarget(l))}</li>`).join('');
+      const items = v.litters.map((l) => `<li>${litterHtml({
+        breed: l.breed, name: l.nickname || l.label, dam: l.dam, sire: l.sire, when: litterDates(l),
+        extra: `<div class="small">${esc(pupsRemaining(l))}</div>${notThisLitter(litterTarget(l))}`
+      })}</li>`).join('');
       parts.push(card('Available Puppies', `<ul class="plain">${items}</ul>`));
     }
     parts.push(upcomingCard(v));
