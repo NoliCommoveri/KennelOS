@@ -54,11 +54,13 @@ fallthrough = true
 [vars]
 MAIL_FROM = "KennelOS <signin@kennelos.app>"
 DEV_OUTBOX = "1"
+# The ids below are the LIVE store's. Lemon Squeezy's test-mode products can
+# carry their own ids: replace these if a staging webhook is ever set up.
 LS_TEST_MODE = "true"
-LS_STORE_ID = ""
-LS_PRO_PRODUCT_IDS = ""
-LS_YEARLY_VARIANT_IDS = ""
-LS_LIFETIME_VARIANT_IDS = ""
+LS_STORE_ID = "437121"
+LS_PRO_PRODUCT_IDS = "1244595"
+LS_YEARLY_VARIANT_IDS = "1945410"
+LS_LIFETIME_VARIANT_IDS = "1945407"
 
 # Daily retention (src/retention.js), 03:17 UTC. Cron runs in UTC and is never
 # retried; retention is idempotent and /ops has "Run retention now".
@@ -92,10 +94,10 @@ bucket_name = "kennelos-files"
 [env.production.vars]
 MAIL_FROM = "KennelOS <signin@kennelos.app>"
 LS_TEST_MODE = "false"
-LS_STORE_ID = ""
-LS_PRO_PRODUCT_IDS = ""
-LS_YEARLY_VARIANT_IDS = ""
-LS_LIFETIME_VARIANT_IDS = ""
+LS_STORE_ID = "437121"
+LS_PRO_PRODUCT_IDS = "1244595"
+LS_YEARLY_VARIANT_IDS = "1945410"
+LS_LIFETIME_VARIANT_IDS = "1945407"
 
 [env.production.triggers]
 crons = ["17 3 * * *"]
