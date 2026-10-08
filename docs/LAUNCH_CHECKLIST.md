@@ -210,12 +210,14 @@ checks below; they stay listed as worth doing. Production's migration `0005` is 
 
 ## 3c. Pro license link (W2 prerequisite; `docs/KennelOS_License_Link_Plan.md`)
 
-The server half is merged: migration `0006`, `cloud/src/license.js`. It stores nothing
-until the webhook is configured.
+The server half is merged: migration `0006`, `cloud/src/license.js`. **Operator setup done
+2026-10-08** (the owner's report): `0006` applied on both, webhooks live on staging (test
+mode, test purchase made) and production (live mode), and the owner's lifetime license
+imported.
 
-- [ ] **Apply pending (`0006`) on staging's and production's `/ops`** right after the merge
+- [x] **Apply pending (`0006`) on staging's and production's `/ops`** right after the merge
   that carries it. Production answers 503 until then.
-- [ ] **Staging:** in the Lemon Squeezy store's **test mode**, add a webhook to
+- [x] **Staging:** in the Lemon Squeezy store's **test mode**, add a webhook to
   `https://kennelos-api-staging.admin-kennelos.workers.dev/webhooks/lemonsqueezy` with the
   events `subscription_created`, `subscription_updated`, `subscription_cancelled`,
   `subscription_resumed`, `subscription_expired`, `subscription_paused`,
@@ -224,10 +226,10 @@ until the webhook is configured.
   `LEMONSQUEEZY_WEBHOOK_SECRET`, and fill `LS_STORE_ID`, `LS_PRO_PRODUCT_IDS`,
   `LS_YEARLY_VARIANT_IDS`, `LS_LIFETIME_VARIANT_IDS` in `cloud/wrangler.toml` (staging
   `[vars]`). `/ops` → Health should read "Pro license webhook: ready".
-- [ ] **Staging test purchase** with a test card, then sign in to staging with that email:
+- [x] **Staging test purchase** with a test card, then sign in to staging with that email:
   `/ops` shows the purchase; `GET /account/entitlement` reads `pro: true`. Also check LS's
   retry schedule and whether its dashboard can resend a failed delivery (plan §9 decision 5).
-- [ ] **Production:** the same webhook in live mode to
+- [x] **Production:** the same webhook in live mode to
   `https://api.kennelos.app/webhooks/lemonsqueezy`, its own secret on the production Worker,
   the same ids under `[env.production.vars]` (`LS_TEST_MODE` stays `"false"`). Do it
   **before anyone else buys**, so no other purchase predates it (plan §9 decision 6). The

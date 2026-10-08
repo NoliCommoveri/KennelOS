@@ -402,7 +402,10 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   (cloud migration `0006`, `cloud/src/license.js`; `shared/data/cloud/cloudEntitlement.js`
   and Pro's "Pro on this account" line and **Link a Pro purchase email…** in the cloud
   card's Account section; `cloudEntitlement.js` added to the precache, cache rolled to `kennelos-shell-v46`);
-  operator setup, including the owner's own license backfill, in `LAUNCH_CHECKLIST.md` §3c).
+  operator setup, including the owner's own license backfill, in `LAUNCH_CHECKLIST.md` §3c,
+  **done 2026-10-08**). **All three W2 prerequisites are now live**, and her answers to
+  Waitlist Spec Q5–Q7, Q11, Q13, Q18 are recorded (a new `auto_advance` setting, pause
+  requests she approves, the full public list with search). Next: a W2 build plan.
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass
