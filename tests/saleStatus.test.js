@@ -1,7 +1,8 @@
 // saleStatus.test.js — the `voided` sale status (a sale that fell through on the
 // kennel's side, e.g. the pup died before going home) beside `cancelled` (the buyer
 // backed out): both close the sale and free the pup, but only a cancelled sale
-// keeps a paid deposit as earned income (Financials §21).
+// keeps a paid deposit as earned income (Financials §21). A return for a health
+// problem counts nothing too (vocab.isLostSale).
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { installMemoryDb } from './support/memoryDb.js';
@@ -30,4 +31,11 @@ test('a cancelled sale keeps its paid deposit as earned; a voided one counts not
     [['deposit', 500, 'earned']], 'the buyer backed out: the deposit stays, the unpaid balance is dropped');
   assert.deepEqual(incomeLineItems('sale', sale({ status: 'voided' })), [], 'the kennel voided it: nothing is income');
   assert.deepEqual(incomeLineItems('sale', sale({ status: 'voided', balance_paid_date: '2026-09-20' })), []);
+});
+
+test('a return for a health problem counts nothing either (refunded or carried); a buyer\'s-choice return keeps what was paid', () => {
+  const paid = { status: 'returned', balance_paid_date: '2026-09-20' };
+  assert.deepEqual(incomeLineItems('sale', sale({ ...paid, end_reason: 'health_problem' })), []);
+  assert.equal(incomeLineItems('sale', sale({ ...paid, end_reason: 'buyer_choice' })).reduce((n, c) => n + c.amount, 0), 2000);
+  assert.equal(incomeLineItems('sale', sale(paid)).reduce((n, c) => n + c.amount, 0), 2000, 'an older return with no reason is unchanged');
 });

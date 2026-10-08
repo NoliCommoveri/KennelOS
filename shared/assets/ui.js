@@ -122,14 +122,14 @@ export function alertModal({ title, message = '', okLabel = 'OK' }) {
 
 // Single-line text prompt. Resolves the trimmed string on confirm, or null on
 // cancel/backdrop/empty.
-export function promptModal({ title, message = '', label = '', placeholder = '', defaultValue = '', confirmLabel = 'OK', cancelLabel = 'Cancel' }) {
+export function promptModal({ title, message = '', label = '', placeholder = '', defaultValue = '', confirmLabel = 'OK', cancelLabel = 'Cancel', type = 'text' }) {
   return new Promise((resolve) => {
     const overlay = mountModal(`
       <h2 style="margin-top:0;">${esc(title)}</h2>
       ${modalMessage(message)}
       <div class="field">
         ${label ? `<label>${esc(label)}</label>` : ''}
-        <input id="pm-value" type="text" value="${esc(defaultValue)}" placeholder="${esc(placeholder)}">
+        <input id="pm-value" type="${esc(type)}" value="${esc(defaultValue)}" placeholder="${esc(placeholder)}">
       </div>
       <div class="form-actions">
         <button class="btn btn-primary" id="pm-confirm">${esc(confirmLabel)}</button>
