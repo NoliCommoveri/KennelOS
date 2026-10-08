@@ -23,7 +23,7 @@ import {
   entryName, canUndoRemoval, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, rankedList, REMOVAL_UNDO_DAYS,
   eligiblePupsFor, nextFamilyForLitter, turnSpent, hasOpenOffer, isListeningFor, isPupAvailable,
   describeOfferChanges, isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker,
-  kennelBreeds, resolveBreed, prefChangeEffect, autoOffers
+  kennelBreeds, resolveBreed, prefChangeEffect, autoOffers, closingTrigger
 } from '../data/waitlistRules.js';
 import {
   formQuestions, entryQuestions, snapshotQuestions, answerText, isAnswerQuestion, missingRequired, formFaq, READY_TIMING_LABEL,
@@ -785,7 +785,7 @@ async function onOfferOutcome(offer, outcome) {
   const prompts = {
     passed: { title: `${name} passed on this litter?`, message: `${turnNote('passed')}${lapse}`, confirmLabel: 'Record it' },
     no_response: offer.chosen_dog_id
-      ? { title: `No deposit from ${name}?`, message: `Record that the deposit didn't arrive in time. It counts like no response. ${turnNote('no_response')}${lapse}`, confirmLabel: 'Record it' }
+      ? { title: `No deposit from ${name}?`, message: `Record that the deposit didn't arrive in time. It counts like no response. ${turnNote(closingTrigger(offer, 'no_response'))}${lapse}`, confirmLabel: 'Record it' }
       : { title: `${name} didn't respond in time?`, message: turnNote('no_response'), confirmLabel: 'Record it' },
     voided: { title: 'Void this offer?', message: `Use this if the offer was a mistake or the litter fell through. It never counts as a pass for ${name}, and the turn isn't moved on automatically.${lapse}`, confirmLabel: 'Void it' }
   };

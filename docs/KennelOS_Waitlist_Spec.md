@@ -278,7 +278,7 @@ defaults in `waitlistRules.waitlistConfig()`, so an old kennel with no config ju
 | `no_response_counts_as_pass` | `true` | Q3, decided yes |
 | `color_matching` | `false` | Q4. Off: colors are notes only. |
 | `checkin_months` | `6` | W3 check-ins (§10.2) |
-| `auto_offer_on` | `[]` (none) | **Which moments offer the next family by themselves** (`vocab.WAITLIST_AUTO_OFFER_TRIGGER`): `accepted` (deposit received), `passed`, `no_response` (deadline passed), `left` (a family holding a turn left the list). Unticked moments return who's next and she offers. Replaced the all-or-nothing `auto_offer_next` on 2026-10-08 (a kennel still storing `auto_offer_next: true` reads as all four, `waitlistRules.waitlistConfig`). **W2 (Q13):** the server advances while her device is offline only for the moments ticked here (§8.4). |
+| `auto_offer_on` | `[]` (none) | **Which moments offer the next family by themselves** (`vocab.WAITLIST_AUTO_OFFER_TRIGGER`): `accepted` (deposit received), `passed`, `no_response` (deadline passed without a pick), `no_deposit` (they picked a pup but the deposit didn't arrive by the deadline; recorded as `no_response`, told apart by `waitlistRules.closingTrigger`, added 2026-10-08 at her request), `left` (a family holding a turn left the list). Unticked moments return who's next and she offers. Replaced the all-or-nothing `auto_offer_next` on 2026-10-08 (a kennel still storing `auto_offer_next: true` reads as all five, `waitlistRules.waitlistConfig`). **W2 (Q13):** the server advances while her device is offline only for the moments ticked here (§8.4). |
 
 **Every window is hers (Q18, decided 2026-10-08):** the offer window (`respond_days`, or a
 program's `respond_days_override`), the fee window (`fee_due_days`) and, in W3, the
@@ -647,7 +647,7 @@ stays the single source of truth:
   `waitlistRules.js` on her device. The server never re-runs the rules over its own data.
 - **The server may do exactly two things on its own, and only for ticked moments:** expire
   an offer whose deadline has passed (recording `no_response`, when `no_response` is
-  ticked), and offer the turn to the next family on that published list (after any ticked
+  ticked, or `no_deposit` for a family who had picked), and offer the turn to the next family on that published list (after any ticked
   moment). If the list runs out, it stops and waits for her device.
 - **Every server move carries the projection version it was based on.** On sync, her
   device applies a server move automatically only if nothing it touches (that entry, that
@@ -1136,7 +1136,7 @@ picks open.
    default**, so every offer comes from a button she presses (Open picks / Offer to them /
    Offer a litter…). With it off, the app only says who's next. **Changed 2026-10-08:** now
    per moment, `auto_offer_on` (§4.6): she ticks which closings (accepted, passed, no
-   response, left the list) offer the next family by themselves. Still none by default.
+   response, a pick with no deposit, left the list) offer the next family by themselves. Still none by default.
 5. **Switch the pup.** A family who picked the wrong pup can be switched (Change pup…) while
    the deposit is pending, and after the deposit as long as nobody else has been offered
    that litter since. The same Sale moves to the new pup.

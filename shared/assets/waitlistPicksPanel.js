@@ -17,7 +17,7 @@ import * as actions from '../data/waitlistActions.js';
 import {
   waitlistConfig, litterQueue, nextFamilyForLitter, eligiblePupsFor, isPupAvailable,
   overallPositions, entryName, describeOfferChanges, soonFamiliesForLitter,
-  isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker, autoOffers, autoOfferSummary
+  isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker, autoOffers, autoOfferSummary, closingTrigger
 } from '../data/waitlistRules.js';
 import { WAITLIST_OFFER_OUTCOME, SEX } from '../data/vocab.js';
 import { esc, badge, fmtDate, todayYMD, confirmModal, alertModal } from './ui.js';
@@ -221,7 +221,7 @@ export async function renderWaitlistPicksPanel({ mount, litter, onChange = async
       on(outcome, async () => {
         const title = outcome === 'passed' ? `${name} passed on this litter?`
           : open.chosen_dog_id ? `No deposit from ${name}?` : `${name} didn't respond in time?`;
-        if (!(await confirmModal({ title, message: `${turnNote(outcome)}${lapse}`, confirmLabel: 'Record it' }))) return;
+        if (!(await confirmModal({ title, message: `${turnNote(closingTrigger(open, outcome))}${lapse}`, confirmLabel: 'Record it' }))) return;
         const res = await actions.recordOutcome(open.id, outcome);
         await alertModal(await outcomeMessage(name, res, await freshEntries(litter), familyName));
       });

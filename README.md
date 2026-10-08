@@ -406,8 +406,8 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   **done 2026-10-08**). **All three W2 prerequisites are now live**, and her answers to
   Waitlist Spec Q5–Q7, Q11, Q13, Q18 are recorded (the server advances only for her automatic-offer moments, pause
   requests she approves, the full public list with search). **Automatic offers are now per
-  moment** (`waitlist_config.auto_offer_on`: accepted / passed / no response / left the list,
-  none by default; replaces `auto_offer_next`, whose old "on" still reads as all four), which
+  moment** (`waitlist_config.auto_offer_on`: accepted / passed / no response / picked but no deposit /
+  left the list, none by default; replaces `auto_offer_next`, whose old "on" still reads as all five), which
   the W2 server will follow while she's offline. Browser-verified (Kennel page settings
   save; only ticked moments offer). Next: a W2 build plan.
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.

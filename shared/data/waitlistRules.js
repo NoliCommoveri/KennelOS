@@ -53,13 +53,19 @@ export function autoOfferSummary(config) {
   const on = WAITLIST_AUTO_OFFER_TRIGGER.filter((t) => autoOffers(config, t.value));
   if (!on.length) return 'When an offer closes, you offer the next family with "Offer to them".';
   if (on.length === WAITLIST_AUTO_OFFER_TRIGGER.length) return 'When an offer closes, the next family is offered automatically.';
-  const words = { accepted: 'accepts a pup', passed: 'passes', no_response: 'lets the deadline pass', left: 'leaves the list' };
+  const words = { accepted: 'accepts a pup', passed: 'passes', no_response: 'lets the deadline pass', no_deposit: 'picks a pup but misses the deposit deadline', left: 'leaves the list' };
   const list = on.map((t) => words[t.value]);
   const joined = list.length === 1 ? list[0] : `${list.slice(0, -1).join(', ')} or ${list[list.length - 1]}`;
   return `The next family is offered automatically when the family holding the turn ${joined}; otherwise you offer them with "Offer to them".`;
 }
 
-// Does this closing (`accepted` / `passed` / `no_response` / `left`) offer the next
+// How an offer closing with `outcome` counts for automatic offers: a no response on
+// an offer whose family had picked a pup is the missed deposit, `no_deposit`.
+export function closingTrigger(offer, outcome) {
+  return outcome === 'no_response' && offer && offer.chosen_dog_id ? 'no_deposit' : outcome;
+}
+
+// Does this closing (`accepted` / `passed` / `no_response` / `no_deposit` / `left`) offer the next
 // family by itself? Off for every moment unless she turned it on (§4.6).
 export function autoOffers(config, trigger) {
   return Boolean(config && Array.isArray(config.auto_offer_on) && config.auto_offer_on.includes(trigger));

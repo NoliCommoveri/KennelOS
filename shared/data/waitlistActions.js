@@ -37,7 +37,7 @@ import { todayYMD } from './dateUtils.js';
 import {
   waitlistConfig, feeForEntry, feeDueDate, anchorDate, canUndoRemoval, passToForgive,
   nextFamilyForLitter, respondByDate, countsAsPass, shouldRemoveForPasses, passesUsed, isPupAvailable,
-  hasOpenOffer, turnSpent, eligiblePupsFor, isAwaitingDeposit, canSwitchAcceptedPick, undoPassBlocker, autoOffers
+  hasOpenOffer, turnSpent, eligiblePupsFor, isAwaitingDeposit, canSwitchAcceptedPick, undoPassBlocker, autoOffers, closingTrigger
 } from './waitlistRules.js';
 
 const nowISO = () => new Date().toISOString();
@@ -322,7 +322,7 @@ async function releaseOpenOffers(entryId, { date = todayYMD(), why, exceptOfferI
 }
 
 // The turn on this litter moved on (an offer closed, or its family left the list).
-// `trigger` is how it closed: accepted / passed / no_response / left. With automatic
+// `trigger` is how it closed: accepted / passed / no_response / no_deposit / left. With automatic
 // offers on for that moment, the next family is offered now (picks must be open);
 // otherwise (the default) nobody is offered and the family who's next is returned
 // so the page can tell her. Returns { next, waiting } — at most one set.
@@ -580,5 +580,5 @@ export async function recordOutcome(offerId, outcome, { date = todayYMD(), chose
     throw new Error(`Unknown outcome "${outcome}".`);
   }
 
-  return finishTurn(result, offer.litter_id, date, outcome);
+  return finishTurn(result, offer.litter_id, date, closingTrigger(offer, outcome));
 }
