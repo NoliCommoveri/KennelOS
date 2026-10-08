@@ -401,7 +401,7 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   the link's plan is `docs/KennelOS_License_Link_Plan.md`: server and client are built
   (cloud migration `0006`, `cloud/src/license.js`; `shared/data/cloud/cloudEntitlement.js`
   and Pro's "Pro on this account" line and **Link a Pro purchase email…** in the cloud
-  card's Account section; `cloudEntitlement.js` added to the precache, cache bump pending);
+  card's Account section; `cloudEntitlement.js` added to the precache, cache rolled to `kennelos-shell-v46`);
   operator setup, including the owner's own license backfill, in `LAUNCH_CHECKLIST.md` §3c).
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
@@ -521,7 +521,8 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
       batch (the kennel-setup "Sign in to existing account" button, and `vaultCrypto.js` in
       the precache). Steps 3 and 5 add `cloudVault.js`, `vaultKeyStore.js` and
       `cloudVaultUI.js` to the precache, rolled to `kennelos-shell-v45`; step 6 adds
-      `vaultPasskey.js` (cache bump pending, asked first);
+      `vaultPasskey.js`, and the license link's client `cloudEntitlement.js`; rolled to
+      `kennelos-shell-v46` for that batch;
     - no readable private data on our server stays the default, with a per-user
       opt-in recovery switch as a fallback only if lock-outs show up in support.
 
