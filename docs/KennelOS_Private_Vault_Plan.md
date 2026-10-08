@@ -4,7 +4,9 @@
 > Builds on: `docs/KennelOS_Cloud_Phase1_Plan.md` (cited as "Phase 1 §N"), whose decisions in
 > §5.1 moved the vault to directly after Phase 1 and added the second-device unlock.
 > Needed by: the waitlist's W2 (`KennelOS_Waitlist_Spec.md` §8.2, §12).
-> Status: **built (§9 steps 1–7, 2026-10-07); not yet released.** Decisions recorded in §10.
+> Status: **built (§9 steps 1–7, 2026-10-07); released 2026-10-08** (`VAULT_RELEASED = true`,
+> cache `kennelos-shell-v47`), without the staging and real-phone checks of
+> `LAUNCH_CHECKLIST.md` §3b, by the owner's choice. Decisions recorded in §10.
 > §6.4 is the server's as-built record and §9 the client's. The vault is merged but hidden
 > behind `cloudConfig.VAULT_RELEASED` (offered only against staging) until the release in
 > `docs/LAUNCH_CHECKLIST.md` §3b, which still needs a real-phone passkey test.

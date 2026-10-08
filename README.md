@@ -515,9 +515,9 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
       under Private backup → Passkeys…; `tests/vaultPasskey.test.js` and passkey cases in
       `tests/cloudVault.test.js`; browser-verified with Chromium's virtual PRF authenticator
       in Pro and Lite), and step 7, the docs and the privacy policy (`site/privacy.html`: the
-      encrypted tier), are built. Hidden until released (`VAULT_RELEASED` in
-      `cloudConfig.js`; offered only against staging until then); the release, including a
-      passkey test on a real iPhone and Android phone, is `LAUNCH_CHECKLIST.md` §3b. Service-worker cache rolled to `kennelos-shell-v44` for this
+      encrypted tier), are built. **Released 2026-10-08** (`VAULT_RELEASED = true` in
+      `cloudConfig.js`; cache rolled to `kennelos-shell-v47`), without the real-phone checks
+      in `LAUNCH_CHECKLIST.md` §3b. Service-worker cache rolled to `kennelos-shell-v44` for this
       batch (the kennel-setup "Sign in to existing account" button, and `vaultCrypto.js` in
       the precache). Steps 3 and 5 add `cloudVault.js`, `vaultKeyStore.js` and
       `cloudVaultUI.js` to the precache, rolled to `kennelos-shell-v45`; step 6 adds

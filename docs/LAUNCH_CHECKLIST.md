@@ -183,9 +183,9 @@ Pro ship with `cloudUrl: null` and no cloud UI appears. Do these in order.
 
 ## 3b. Private backup (the vault) release (Private Vault Plan §9)
 
-Merged but **hidden** until `VAULT_RELEASED` in `shared/data/cloud/cloudConfig.js` is
-`true`: until then it's offered only on localhost and in a browser with the test-server
-switch on. Production's migration `0005` is already applied.
+**Released 2026-10-08** (`VAULT_RELEASED = true` in `shared/data/cloud/cloudConfig.js`,
+cache `kennelos-shell-v47`). The owner chose to release without the staging and real-phone
+checks below; they stay listed as worth doing. Production's migration `0005` is applied.
 
 - [ ] **Try it on staging, two real devices:** open `https://lite.kennelos.app/?cloud=staging`
   (and `https://pro.kennelos.app/?cloud=staging`) on each. Turn on backup, then private
@@ -201,10 +201,12 @@ switch on. Production's migration `0005` is already applied.
   Also try Lite → Pro: a passkey made on `lite.` should unlock on `pro.` (RP ID
   `kennelos.app`). Where a phone's passkeys can't do PRF, the offer should say so and save
   nothing.
-- [ ] **Privacy policy goes live with the release:** `site/privacy.html` now describes
-  private backup. Deploy it with (not long before) the release, or hold that change back.
-- [ ] **Release:** set `VAULT_RELEASED = true` (and update its pin in
-  `tests/cloudClient.test.js`), bump `CACHE_NAME`, merge.
+- [x] **Privacy policy:** `site/privacy.html` describes private backup (merged in #80).
+- [x] **Release:** `VAULT_RELEASED = true` (its pin in `tests/cloudClient.test.js` updated),
+  `CACHE_NAME` → `kennelos-shell-v47`.
+- [ ] **Lite → Pro Upgrade wording** (Editions Plan, "After the vault"): the bridge still
+  downloads the file first and says the file is needed for private details. With private
+  backup on, it isn't. Revise `runUpgradeBridge` when convenient.
 
 ## 3c. Pro license link (W2 prerequisite; `docs/KennelOS_License_Link_Plan.md`)
 

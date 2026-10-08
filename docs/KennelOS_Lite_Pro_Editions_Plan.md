@@ -86,7 +86,7 @@ without a server, and good enough.
 | Show tracking (show history, championship points, upcoming shows) | ❌ | ✅ |
 | Cloud backup (optional free account: email + code) | ✅ | ✅ |
 | Erase a lost device remotely | ✅ | ✅ (+ free its license slot) |
-| Private vault (Cloud Proposal §6.3; built, released behind `VAULT_RELEASED`) | ✅ | ✅ |
+| Private vault (Cloud Proposal §6.3; built, released 2026-10-08) | ✅ | ✅ |
 
 The through-line: **Lite = keep good basic records; Pro = run it as a business.** The paid
 value is *features*, not "more of the same."
@@ -318,12 +318,12 @@ upgrade would arrive without them. So:
   explains the second way in: in Pro, sign in and restore, then **Import / Export → Merge into
   current data** with the file for the private details. (`runUpgradeBridge` in
   `shared/assets/editionLinks.js`; the cap upgrade nudge runs the same bridge.)
-- **After the vault (built 2026-10-07, Private Vault Plan; released behind `VAULT_RELEASED`).**
+- **After the vault (built 2026-10-07, Private Vault Plan; released 2026-10-08).**
   With private backup on, signing in on Pro and unlocking (passkey, recovery code or the Lite
   device) brings everything back, so the file isn't needed: cloud is the main path and the
   file the fallback. The passkey's RP ID is `kennelos.app`, so one made in Lite works in Pro.
   **Open:** the bridge still downloads the file first and its wording still says the file is
-  needed for private details; revise it (`runUpgradeBridge`) when the vault is released.
+  needed for private details; revise it (`runUpgradeBridge`); the vault is released (2026-10-08), so this is now due.
 
 **The Lite device afterwards.** Restoring in Pro makes Pro the backing device (Cloud plan
 §3.4), so Lite's next backup gets the server's 409. Every snapshot now records the edition

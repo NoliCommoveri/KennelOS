@@ -153,11 +153,13 @@ test('test switch: ?cloud=staging on a deployed origin points this browser at st
   assert.equal(settings.getCloudBackupState().lastSnapshotId, null);
 });
 
-test('private backup is offered only against staging until it is released', () => {
-  assert.equal(config.VAULT_RELEASED, false, 'releasing it is a deliberate one-line change: update this test with it');
+test('private backup is released: offered wherever cloud backup is, and nowhere it is not', () => {
+  assert.equal(config.VAULT_RELEASED, true, 'released 2026-10-08 (Private Vault Plan §9); turning it back off is a deliberate change: update this test with it');
   assert.equal(config.isVaultOffered(), true, 'localhost talks to staging');
   deployedPage('');
-  assert.equal(config.isVaultOffered(), false, 'a deployed origin without the switch');
+  // This test runs the shared editionConfig (cloudUrl null): no server, so no vault.
+  assert.equal(config.isCloudAvailable(), false);
+  assert.equal(config.isVaultOffered(), false, 'no cloud, no vault');
   const { loc, hist } = deployedPage('?cloud=staging');
   config.applyCloudTestSwitch(loc, hist);
   assert.equal(config.isVaultOffered(), true, 'the test-server switch');

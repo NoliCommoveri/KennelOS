@@ -3100,9 +3100,9 @@ shape of it as built, for orientation.
   locked on a device, pushes **pause** (`lastError` `vault_locked`) until it is unlocked;
   the server refuses a vault-less snapshot anyway. A restore merges the same snapshot's
   vault part (`'vault-merge'`, §10) when the device is unlocked.
-  **Released behind a switch:** `cloudConfig.VAULT_RELEASED` (false for now) — until it's
-  true, `isVaultOffered()` shows the vault's screens only against staging (localhost, or
-  `?cloud=staging`); everyone else sees Phase 1's card and flows. The data layer ignores it.
+  **Release switch:** `cloudConfig.VAULT_RELEASED`, **true since 2026-10-08**, so
+  `isVaultOffered()` shows the vault's screens wherever cloud backup is. Set false, they're
+  offered only against staging (localhost, or `?cloud=staging`). The data layer ignores it.
   **UI:** offered right after the first backup in "Turn on cloud backup" and from the card;
   the recovery code is shown once (Print / Save to Files / Copy) and its last 4 characters
   typed back before anything is sent; then, where passkeys can work, "Unlock with a passkey
