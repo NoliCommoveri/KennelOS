@@ -149,8 +149,10 @@ test('a litter shows its available pups as a family may see them, and every elig
   }
   const p = buildProjection(f);
   const l = p.litters['lit-1'];
-  assert.deepEqual(keysOf(l), ['label', 'open_offer_entry_id', 'pairing_id', 'picks_open', 'pups', 'ready_date', 'status', 'whelp_date']);
+  assert.deepEqual(keysOf(l), ['breed', 'dam_name', 'label', 'nickname', 'open_offer_entry_id', 'pairing_id', 'picks_open', 'pups', 'ready_date', 'sire_name', 'status', 'whelp_date']);
   assert.equal(l.label, 'Juniper × Ash');
+  assert.equal(l.sire_name, 'Ash');
+  assert.equal(l.dam_name, 'Juniper');
   assert.equal(l.picks_open, true);
   assert.equal(l.open_offer_entry_id, 'e1');
   assert.deepEqual(l.pups, [{ id: 'p1', call_name: 'p1', sex: 'male', color: 'black' }, { id: 'p2', call_name: 'p2', sex: 'female', color: 'black' }],

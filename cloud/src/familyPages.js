@@ -230,6 +230,12 @@ export function statusView(projection, entryId) {
     picks_open: Boolean(l.picks_open),
     pairing_id: l.pairing_id ?? null,
     pups_available: (l.pups || []).length,
+    pups_female: (l.pups || []).filter((d) => d.sex === 'female').length,
+    pups_male: (l.pups || []).filter((d) => d.sex === 'male').length,
+    nickname: l.nickname ?? null,
+    breed: l.breed ?? null,
+    sire_name: l.sire_name ?? null,
+    dam_name: l.dam_name ?? null,
     match: matching.has(id),
   }));
   const mine = e.upcoming || {};

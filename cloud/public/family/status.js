@@ -37,30 +37,29 @@ const STATUS = {
 // null), and which editor is open.
 const state = { v: null, session: null, open: null, flash: '', opened: new Set() };
 
-// One line about a litter: "Expected", "Born Sep 1, 2026 · ready about Oct 27", …
-function litterLine(l) {
+// "Born 09/01/2026 · Ready 10/27/2026" (Available Puppies).
+function litterDates(l) {
   const bits = [];
-  if (l.status === 'expected' || !l.whelp_date) bits.push('Expected');
-  else bits.push(`Born ${fmtDate(l.whelp_date)}`);
-  if (l.status === 'ready') bits.push('ready to go home');
-  else if (l.ready_date) bits.push(`ready about ${fmtDate(l.ready_date)}`);
-  if (l.picks_open) bits.push('picks are open');
+  if (l.whelp_date) bits.push(`Born ${fmtShortDate(l.whelp_date)}`);
+  else if (l.status === 'expected') bits.push('Expected');
+  if (l.status === 'ready') bits.push('Ready to go home');
+  else if (l.ready_date) bits.push(`Ready ${fmtShortDate(l.ready_date)}`);
   return bits.join(' · ');
+}
+
+// "2 females and 1 male remaining".
+function pupsRemaining(l) {
+  const f = Number(l.pups_female) || 0;
+  const m = Number(l.pups_male) || 0;
+  const other = Math.max((Number(l.pups_available) || 0) - f - m, 0);
+  const part = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  const bits = [f && part(f, 'female', 'females'), m && part(m, 'male', 'males'), other && part(other, 'puppy', 'puppies')].filter(Boolean);
+  if (!bits.length) return 'No puppies remaining';
+  return `${bits.length > 1 ? `${bits.slice(0, -1).join(', ')} and ${bits[bits.length - 1]}` : bits[0]} remaining`;
 }
 
 // A litter they passed on (or let their turn lapse on) that's still being offered.
 const spentOn = (id) => (state.v.family.place_hidden?.litters || []).find((x) => x.litter_id === id) || null;
-
-function litterBadge(l) {
-  // A litter in their open turn says so, whatever its line says: an approved change
-  // to their answers never closes an offer (Spec §15.9), so they can hold a turn on a
-  // litter they'd no longer be lined up for.
-  if ((state.v.offers || []).some((o) => o.litter_id === l.id)) return '<span class="badge">Your turn</span>';
-  const spent = spentOn(l.id);
-  if (spent) return `<span class="badge plain">${spent.outcome === 'no_response' ? 'Your turn ended' : 'You passed'}</span>`;
-  if (!l.pups_available) return `<span class="badge plain">${l.status === 'expected' ? 'No pups yet' : 'No pups available'}</span>`;
-  return l.match ? '<span class="badge">A match for you</span>' : '<span class="badge plain">Not a match for you</span>';
-}
 
 // A section of the page. Titled sections fold away and start folded (decided
 // 2026-10-08), except the ones asking the family to do something now (openCard).
@@ -405,36 +404,20 @@ function readyHtml(f) {
 // review it. Changes go through the usual rules: a wider listen-only change applies
 // at once, any change to an answer waits for her OK (Q26).
 
-const WHY_TEXT = {
-  listen: 'which litters you wait for', sex: 'the sex you asked for', breed: 'the breed you asked for',
-  placement: 'the placement you asked for', colors: 'the colors you asked for'
-};
-
+// New pups on the way or born (Spec §16.6): which litters match their answers and
+// which don't, so they can check them. Changes are asked for in "What you asked
+// for" further down (decided 2026-10-08: no buttons here).
 function whelpNotesHtml(f) {
   const notes = (f.whelp_notes || []).filter((n) => !prepassedNow({ litter_id: n.litter_id, pairing_id: n.pairing_id }));
   if (!notes.length) return '';
-  const kennel = state.v.kennel.name;
+  const list = (ns) => `<ul class="plain names">${ns.map((n) => `<li>${esc(n.label)}</li>`).join('')}</ul>`;
   const match = notes.filter((n) => n.kind === 'match');
   const review = notes.filter((n) => n.kind === 'review');
-  const parts = match.map((n) => `<p class="mt0">A litter you match was born: <strong>${esc(n.label)}</strong>.</p>`);
-  if (review.length) {
-    const why = new Set(review.flatMap((n) => n.why || []));
-    parts.push(...review.map((n) => `<p class="mt0"><strong>${esc(n.label)}</strong> was born. You're not lined up for it because of ${esc(listText((n.why || []).map((w) => WHY_TEXT[w]).filter(Boolean)))}.</p>`));
-    const buttons = [];
-    const parents = state.v.kennel.parents || { sires: [], dams: [] };
-    if (canAct() && why.has('listen') && parents.sires.length + parents.dams.length) {
-      buttons.push('<button type="button" class="secondary" data-act="open" data-what="listen" data-scroll="1">Change which litters you wait for</button>');
-    }
-    if (canAct() && [...why].some((w) => w !== 'listen') && editableFields().length) {
-      buttons.push('<button type="button" class="secondary" data-act="open" data-what="pref_change" data-scroll="1">Ask to change your answers</button>');
-    }
-    parts.push(`<p class="small muted">If you'd like to be considered for it, review your choices. A change to your answers needs ${esc(possessive(kennel))} OK; nothing counts against you either way.</p>`);
-    if (buttons.length) parts.push(`<div class="actions">${buttons.join('')}</div>`);
-  }
-  return openCard(review.length ? 'Review your preferences' : 'A litter was born', parts.join(''));
+  return openCard('Review Your Preferences', `
+    <p class="mt0">With new pups upcoming, please take a moment to confirm your preferences.</p>
+    ${match.length ? `<p class="mt8"><strong>Litters matching preferences:</strong></p>${list(match)}` : ''}
+    ${review.length ? `<p class="mt8"><strong>Litters not matching preferences:</strong></p>${list(review)}` : ''}`);
 }
-
-const listText = (xs) => (xs.length <= 1 ? (xs[0] || 'your choices') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 
 // --- Which litters (listen-only, Spec §15.7) --------------------------------------
 
@@ -583,10 +566,15 @@ function mineHtml() {
     parts.push(whelpNotesHtml(f));
 
     if (v.litters.length) {
-      const items = v.litters.map((l) => `<li><div class="row"><strong>${esc(l.label)}</strong>
-          <span class="small">${litterBadge(l)}</span></div>
-        <div class="small muted">${esc(litterLine(l))}</div>${notThisLitter(litterTarget(l))}</li>`).join('');
-      parts.push(card('Litters', `<ul class="plain">${items}</ul>`));
+      // Litters with open picks (decided 2026-10-08): breed, her nickname, sire ×
+      // dam, the dates, and the pups still available by sex.
+      const items = v.litters.map((l) => `<li>
+          ${l.breed ? `<div class="small muted">${esc(l.breed)}</div>` : ''}
+          <div><strong>${esc(l.nickname || l.label)}</strong></div>
+          ${l.sire_name && l.dam_name ? `<div class="small">${esc(l.sire_name)} × ${esc(l.dam_name)}</div>` : ''}
+          <div class="small muted">${esc(litterDates(l))}</div>
+          <div class="small">${esc(pupsRemaining(l))}</div>${notThisLitter(litterTarget(l))}</li>`).join('');
+      parts.push(card('Available Puppies', `<ul class="plain">${items}</ul>`));
     }
     parts.push(upcomingCard(v));
     parts.push(listenHtml(f));

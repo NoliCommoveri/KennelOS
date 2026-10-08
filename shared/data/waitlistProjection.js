@@ -283,8 +283,16 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
       notes.get(n.entry.id).push({ litter_id: litter.id, pairing_id: orNull(litter.pairing_id), label: litterLabel(litter, dogsById), kind: n.kind, why: n.why });
     }
     const open = kennelOffers.find((o) => o.litter_id === litter.id && o.outcome === 'open') || null;
+    const sire = dogsById.get(litter.sire_id);
+    const dam = dogsById.get(litter.dam_id);
     litterViews[litter.id] = {
       label: litterLabel(litter, dogsById),
+      // What a family's Available Puppies card shows (decided 2026-10-08): her
+      // nickname, the breed (the dam's, else the sire's) and the parents' call names.
+      nickname: orNull(litter.nickname),
+      breed: orNull((dam && dam.breed) || (sire && sire.breed)),
+      sire_name: orNull(sire && sire.call_name),
+      dam_name: orNull(dam && dam.call_name),
       status: litter.status,
       whelp_date: orNull(litter.whelp_date),
       ready_date: orNull(litter.estimated_ready_date),

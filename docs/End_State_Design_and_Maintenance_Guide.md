@@ -3229,6 +3229,13 @@ shown (`describeOfferChanges`).
   Please confirm that you are now ready to receive offers for upcoming puppies.", with Yes /
   Not yet, and, when her rule removes families who don't answer, at the bottom "Deadline for
   response: 10/26/2026" and the removal warning.
+  **Review Your Preferences** (§16.6): "With new pups upcoming, please take a moment to
+  confirm your preferences." and two lists, litters matching and not matching their
+  answers; no buttons (they ask for changes under What you asked for). **Available
+  Puppies** (was Litters: litters with open picks, or in their turn): breed, nickname,
+  sire × dam, born/ready as MM/DD/YYYY, and "2 females and 1 male remaining". The
+  projection's litters carry `nickname`, `breed` (the dam's, else the sire's), `sire_name`,
+  `dam_name`; `/f/status` adds `pups_female` / `pups_male`.
 - **Message on your public list (2026-10-08):** `waitlist_config.public_intro_text` (blank =
   `waitlistRules.PUBLIC_INTRO_DEFAULT`), edited on the Publish list page; `publicIntroText`
   fills in `[Kennel Name]`, the projection publishes it as `kennel.intro`, and `/f/list`
