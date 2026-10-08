@@ -339,3 +339,14 @@ test('the public list carries her message under the heading', () => {
   delete p.kennel.intro;
   assert.equal(listView(p).kennel.intro, '');
 });
+
+test('Coming up on the public list holds only what she switched on for the public', () => {
+  const p = projection();
+  p.upcoming = [
+    { id: 'u1', kind: 'pairing', label: 'Juniper × Ash', public: true, family: true },
+    { id: 'u2', kind: 'early_litter', label: 'Willow × Ash', public: false, family: true }
+  ];
+  assert.deepEqual(listView(p).upcoming.map((u) => u.id), ['u1']);
+  p.upcoming = [{ id: 'u2', kind: 'early_litter', label: 'Willow × Ash', public: false, family: true }];
+  assert.deepEqual(listView(p).upcoming, [], 'nothing public: the page leaves the section out');
+});
