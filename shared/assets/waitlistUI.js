@@ -10,7 +10,7 @@ import { waitlistEntryRepo } from '../data/waitlistEntryRepo.js';
 import { WAITLIST_OPEN_STATUSES } from '../data/vocab.js';
 import { esc, fmtDate, fmtMoney, todayYMD, confirmModal, alertModal, promptModal } from './ui.js';
 import { PLACEMENT_TYPE, descriptor } from '../data/vocab.js';
-import { isManuallyPaused, isReadyHeld, readyFromDate, soonNoticeText, entryName, waitlistConfig } from '../data/waitlistRules.js';
+import { isManuallyPaused, isReadyHeld, isListenOnly, readyFromDate, soonNoticeText, entryName, waitlistConfig } from '../data/waitlistRules.js';
 import { isWaitlistOnlineOffered, statusPageLink } from '../data/cloud/cloudConfig.js';
 import { editionFlags } from '../data/editionConfig.js';
 import { markSoonNotified, recordPick, recordOutcome, confirmDeposit, changePick, undoPass } from '../data/waitlistActions.js';
@@ -96,7 +96,7 @@ export function entryFlags(entry, today) {
   const out = [];
   if (isManuallyPaused(entry, today)) out.push(`<span class="badge badge-amber" title="${esc(entry.pause_reason || '')}">Paused to ${esc(entry.paused_until)}</span>`);
   if (isReadyHeld(entry, today)) out.push(`<span class="badge badge-amber" title="They said they won't be ready to buy yet, so they aren't offered pups until then.">Not ready until ${esc(readyFromDate(entry))}</span>`);
-  if ((entry.listen_mode || 'all') === 'selected') out.push('<span class="badge badge-blue">Listen-only</span>');
+  if (isListenOnly(entry)) out.push(`<span class="badge badge-blue">${entry.listen_mode === 'except' ? 'Skips some litters' : 'Listen-only'}</span>`);
   return out.join(' ');
 }
 

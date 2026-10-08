@@ -118,6 +118,9 @@ test('a pause request needs a date in the future (within two years); listen-only
   assert.equal(await err(await act(env, ann, tok('a'), 'listen', { mode: 'selected', sire_ids: ['someone-else'] })), 'bad_parent');
   assert.equal(await err(await act(env, ann, tok('a'), 'listen', { mode: 'selected', sire_ids: [], dam_ids: [] })), 'no_parents');
   assert.equal((await act(env, ann, tok('a'), 'listen', { mode: 'selected', dam_ids: ['dam1'] })).status, 200);
+  assert.equal(await err(await act(env, ann, tok('a'), 'listen', { mode: 'except', sire_ids: [], dam_ids: [] })), 'no_parents');
+  assert.equal(await err(await act(env, ann, tok('a'), 'listen', { mode: 'except', dam_ids: ['someone-else'] })), 'bad_parent');
+  assert.equal(await err(await act(env, ann, tok('a'), 'listen', { mode: 'never' })), 'bad_request');
 
   assert.equal(await err(await act(env, ann, tok('a'), 'pref_change', { changes: { pref_breed: 'Poodle' } })), 'bad_value');
   assert.equal(await err(await act(env, ann, tok('a'), 'pref_change', { changes: { pref_sex: 'puppy' } })), 'bad_value');

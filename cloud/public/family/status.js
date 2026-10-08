@@ -300,8 +300,12 @@ function listenHtml(f) {
   const k = state.v.kennel;
   const parents = k.parents || { sires: [], dams: [] };
   const name = (id) => [...parents.sires, ...parents.dams].find((d) => d.id === id)?.name || 'a parent no longer listed';
-  const describe = (l) => ((l?.mode || 'all') !== 'selected' ? 'All litters'
-    : [l.sire_ids?.length ? `Sires: ${l.sire_ids.map(name).join(', ')}` : '', l.dam_ids?.length ? `Dams: ${l.dam_ids.map(name).join(', ')}` : ''].filter(Boolean).join(' · '));
+  const describe = (l) => {
+    const mode = l?.mode || 'all';
+    const parents = [l?.sire_ids?.length ? `Sires: ${l.sire_ids.map(name).join(', ')}` : '', l?.dam_ids?.length ? `Dams: ${l.dam_ids.map(name).join(', ')}` : ''].filter(Boolean).join(' · ');
+    if (mode === 'all' || (mode === 'except' && !parents)) return 'All litters';
+    return mode === 'except' ? `All litters except: ${parents}` : `Only: ${parents || 'no parents chosen yet'}`;
+  };
   const sent = pendingOf('listen');
   const req = f.requests?.listen;
   let status = '';
@@ -315,16 +319,17 @@ function listenHtml(f) {
     return card('Which litters you wait for', `${body}${status}
       <div class="actions"><button type="button" class="secondary" data-act="open" data-what="listen">Change</button></div>`);
   }
-  const selected = f.listen?.mode === 'selected';
+  const mode = ['selected', 'except'].includes(f.listen?.mode) ? f.listen.mode : 'all';
   const box = (side, d, ids) => `<label class="choice"><input type="checkbox" name="${side}" value="${esc(d.id)}"${(ids || []).includes(d.id) ? ' checked' : ''}> ${esc(d.name)}</label>`;
   body = `<form data-form="listen">
       <div class="choices">
-        <label class="choice"><input type="radio" name="mode" value="all"${selected ? '' : ' checked'}> All litters</label>
-        <label class="choice"><input type="radio" name="mode" value="selected"${selected ? ' checked' : ''}> Only litters from these parents</label>
+        <label class="choice"><input type="radio" name="mode" value="all"${mode === 'all' ? ' checked' : ''}> All litters</label>
+        <label class="choice"><input type="radio" name="mode" value="selected"${mode === 'selected' ? ' checked' : ''}> Only litters from these parents</label>
+        <label class="choice"><input type="radio" name="mode" value="except"${mode === 'except' ? ' checked' : ''}> All litters except these parents</label>
       </div>
       ${parents.sires.length ? `<p class="small muted mt8">Sires</p><div class="choices">${parents.sires.map((d) => box('sire', d, f.listen?.sire_ids)).join('')}</div>` : ''}
       ${parents.dams.length ? `<p class="small muted mt8">Dams</p><div class="choices">${parents.dams.map((d) => box('dam', d, f.listen?.dam_ids)).join('')}</div>` : ''}
-      <p class="small muted">A litter counts if its sire OR its dam is one you picked. You keep your place either way. Adding parents, or going back to all litters, happens at ${esc(possessive(k.name))} next update; waiting for fewer litters needs their OK.</p>
+      <p class="small muted">A litter counts if its sire OR its dam is one you picked (with "except", that litter is skipped). You keep your place either way. Waiting for more litters (or all of them) happens at ${esc(possessive(k.name))} next update; waiting for fewer, or switching between "only" and "except", needs their OK.</p>
       <div class="actions"><button class="primary" type="submit">Save</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
     </form>`;
   return card('Which litters you wait for', body + status);
@@ -387,6 +392,7 @@ function mineHtml() {
     if (f.paused_until) notices.push(`Your place is paused until ${esc(fmtDate(f.paused_until))}. You keep your place; you won't be offered a pup until then.`);
     if (f.ready_from) notices.push(`You said you'd be ready to buy later, so you won't be offered a pup before ${esc(fmtDate(f.ready_from))}. You keep your place.`);
     if (f.listen?.mode === 'selected') notices.push('You\'re only waiting for litters from the parents you chose. You keep your place for everything else.');
+    else if (f.listen?.mode === 'except' && (f.listen.sire_ids?.length || f.listen.dam_ids?.length)) notices.push('You\'re skipping litters from the parents you chose. You keep your place for everything else.');
     parts.push(card('Your place', `
       ${f.position ? `<p class="big mt0">#${esc(f.position)}</p><p class="muted mt0">on ${esc(possessive(kennel))} waitlist</p>` : ''}
       ${notices.map((n) => `<p class="small">${n}</p>`).join('')}
@@ -511,8 +517,8 @@ async function onSubmit(ev) {
       await act('leave', { note: data.get('note') }, `${kennel} will see that you're leaving at their next update.`);
       return;
     case 'listen': {
-      const mode = data.get('mode') === 'selected' ? 'selected' : 'all';
-      await act('listen', { mode, sire_ids: mode === 'selected' ? data.getAll('sire') : [], dam_ids: mode === 'selected' ? data.getAll('dam') : [] },
+      const mode = ['selected', 'except'].includes(data.get('mode')) ? data.get('mode') : 'all';
+      await act('listen', { mode, sire_ids: mode !== 'all' ? data.getAll('sire') : [], dam_ids: mode !== 'all' ? data.getAll('dam') : [] },
         `Saved. ${kennel} will see it at their next update.`);
       return;
     }

@@ -455,7 +455,10 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   reasons and "Not this litter" (§16.2, §16.5), is built & browser-verified:** her reasons
   (each with its message) in Waitlist settings; every pass a family makes needs one; "Not this
   litter" waits until their turn, leaves that litter out of it, and a turn of nothing else is
-  passed at once. Next: step 5c parts 3–6, then step 6, email.
+  passed at once. **Part 3, listen-only "except" (§16.3), is built:** a family can wait for
+  every litter except those from parents they list; removing a parent (or going back to All)
+  applies at once, adding one or switching between "only" and "except" waits for her OK.
+  Next: step 5c parts 4–6, then step 6, email.
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass

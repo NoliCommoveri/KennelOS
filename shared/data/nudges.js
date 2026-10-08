@@ -524,11 +524,13 @@ async function statusPageNudges(entries, offers, { today, litters, dogsById, ken
       const parents = [...(r.listen_sire_ids || []), ...(r.listen_dam_ids || [])].map(dogName).join(', ');
       out.push({
         key: `waitlist-listen-request:${e.id}:${r.requested_date}`,
-        title: r.listen_mode === 'selected' ? `${name(e)} asked to wait only for litters from ${parents || 'no parents'}` : `${name(e)} asked to change which litters they wait for`,
-        detail: `Narrower, so it needs you: they wouldn't be offered other litters, and nothing is counted as a pass for those.${openNote}`,
+        title: r.listen_mode === 'selected' ? `${name(e)} asked to wait only for litters from ${parents || 'no parents'}`
+          : r.listen_mode === 'except' ? `${name(e)} asked to skip litters from ${parents || 'no parents'}`
+            : `${name(e)} asked to change which litters they wait for`,
+        detail: `Narrower, so it needs you: they wouldn't be offered ${r.listen_mode === 'except' ? 'those' : 'other'} litters, and nothing is counted as a pass for those.${openNote}`,
         subjectHref: href(e),
         actions: decide(() => approveListenChange(e.id, { date: today }), () => declineListenChange(e.id, { date: today }),
-          `${name(e)} now waits only for those litters. Let them know.`)
+          `${name(e)} now ${r.listen_mode === 'except' ? 'skips' : 'waits only for'} those litters. Let them know.`)
       });
     }
     const unread = (e.messages || []).filter((m) => !m.read);

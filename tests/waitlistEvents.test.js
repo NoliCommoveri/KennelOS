@@ -92,6 +92,34 @@ test('listenChangeKind: dropping any parent or leaving All is narrower; adding o
   assert.equal(listenChangeKind({}, { listen_mode: 'all' }), 'same');
 });
 
+test('listenChangeKind with "except" (Spec §16.3): adding a parent or leaving All is narrower; removing one or All is wider; switching modes is narrower', () => {
+  const ex = (s, d) => ({ listen_mode: 'except', listen_sire_ids: s, listen_dam_ids: d });
+  const sel = (s, d) => ({ listen_mode: 'selected', listen_sire_ids: s, listen_dam_ids: d });
+  assert.equal(listenChangeKind({ listen_mode: 'all' }, ex(['a'], [])), 'narrower');
+  assert.equal(listenChangeKind(ex(['a'], []), { listen_mode: 'all' }), 'wider');
+  assert.equal(listenChangeKind(ex(['a'], []), ex(['a'], ['b'])), 'narrower');
+  assert.equal(listenChangeKind(ex(['a'], ['b']), ex(['a'], [])), 'wider');
+  assert.equal(listenChangeKind(ex(['a'], []), ex(['c'], [])), 'narrower', 'a swap adds a parent');
+  assert.equal(listenChangeKind(ex(['a'], []), ex(['a'], [])), 'same');
+  assert.equal(listenChangeKind(sel(['a'], []), ex(['a'], [])), 'narrower');
+  assert.equal(listenChangeKind(ex(['a'], []), sel(['a'], [])), 'narrower');
+  assert.equal(listenChangeKind({ listen_mode: 'all' }, ex([], [])), 'same', 'an empty except is All litters');
+  assert.equal(listenChangeKind(ex(['a'], []), ex([], [])), 'wider');
+});
+
+test('listen-only "except" from the status page: removing a parent applies; adding one waits for her', () => {
+  const except = entry({ listen_mode: 'except', listen_sire_ids: ['ash'], listen_dam_ids: ['juniper'] });
+  const wider = planFamilyEvent(ev('listen', { mode: 'except', sire_ids: ['ash'], dam_ids: [] }), ctx({ entry: except }));
+  assert.equal(wider.op, 'listen_apply');
+  assert.deepEqual(wider.changes, { listen_mode: 'except', listen_sire_ids: ['ash'], listen_dam_ids: [] });
+  assert.match(wider.activity.body, /Took parents off/);
+  const narrower = planFamilyEvent(ev('listen', { mode: 'except', sire_ids: ['ash'], dam_ids: [] }), ctx());
+  assert.equal(narrower.op, 'listen_request');
+  assert.deepEqual(narrower.request, { requested_date: '2026-10-08', listen_mode: 'except', listen_sire_ids: ['ash'], listen_dam_ids: [] });
+  const swap = planFamilyEvent(ev('listen', { mode: 'selected', sire_ids: ['ash'], dam_ids: ['juniper'] }), ctx({ entry: except }));
+  assert.equal(swap.op, 'listen_request', 'except → selected is narrower');
+});
+
 test('listenParentChoices: breeding dogs, live parents (an outside stud too), and anything already picked', () => {
   const kennel = { id: 'k' };
   const dogs = [

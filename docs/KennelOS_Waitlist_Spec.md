@@ -176,8 +176,8 @@ code. See Q1.
 | `pref_placement_type` | | From `PLACEMENT_TYPE` (pet / show / breeding_rights / co_own) |
 | `pref_colors` | | Free-text list. Used for eligibility only if she turns that on (Q4). |
 | `pref_breed` | | One of the kennel's breeds, picked from a dropdown (the breeds of that kennel's dogs plus its preferred breeds), never free text: decided 2026-10-06 after misspellings and shorthand made families match no pup (§15.6). Blank = any breed. Always offered (Decision §0); matched case-insensitively and trimmed against the pup's `Dog.breed` (§6.2). CSV import maps a breed to the kennel's spelling and flags one it can't, leaving it blank. |
-| `listen_mode` | | `all` (default) or `selected` (§6.3) |
-| `listen_sire_ids` | ✔ multi-entry FK → Dog | Used when `listen_mode = 'selected'`: the sires they're listening for (§6.3, §15.7) |
+| `listen_mode` | | `all` (default), `selected` (§6.3) or `except` (§16.3) |
+| `listen_sire_ids` | ✔ multi-entry FK → Dog | Used when `listen_mode` is `selected` (the sires they're listening for, §6.3, §15.7) or `except` (the sires they skip, §16.3) |
 | `listen_dam_ids` | ✔ multi-entry FK → Dog | Same, for dams. Which litters/pairings that covers is derived from their `sire_id`/`dam_id`, never stored. |
 | `ready_timing` | | `asap` / `1_month` / `3_months` / `6_plus_months`: the locked, required "soonest you can commit" answer. Anything but ASAP is a derived readiness hold (§6.3, §15.8). |
 | `paused_until` | | Optional `YYYY-MM-DD`. Paused families aren't offered; position kept (§6.3). |
@@ -407,6 +407,8 @@ A family is **eligible for a pup** when the above holds for that particular pup.
   - They see this on their status page: "You're listening for: Juniper × Ash (expected
     March). You keep your place on the list."
   - Switching back to `all` puts them straight back in contention at their original place.
+- **Listen-only, the other way** (`listen_mode = 'except'`, §16.3): every litter except one
+  by a sire, or out of a dam, they listed. The same rules otherwise.
 - **Pause** (`paused_until`): the same effect for every litter until a date, e.g. during
   treatment or a move. It never counts as a pass. **Families request it; she approves (Q7,
   decided 2026-10-08).** On the status page a family taps **Request a pause** and must give
@@ -1393,7 +1395,7 @@ the whole respond window.
   makes automatic offers (step 7).
 - "Still interested" is unrelated: a general check-in (§10.2).
 
-### 16.3 Listen-only both ways (decided 2026-10-08)
+### 16.3 Listen-only both ways (decided 2026-10-08; built 2026-10-08)
 
 `listen_mode` gains a third value, **`except`**: **All litters except these parents**.
 - A litter (or upcoming pairing) is skipped when **either** its sire or its dam is on the

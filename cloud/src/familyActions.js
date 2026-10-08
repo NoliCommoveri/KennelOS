@@ -151,7 +151,7 @@ export function checkAction(action, body, { entry, projection, pending, now = ne
       return { note: cleanNote(body.note) };
     case 'listen': {
       if (entry.status !== 'active') fail(409, 'not_on_list');
-      const mode = body.mode === 'selected' ? 'selected' : body.mode === 'all' ? 'all' : fail(400, 'bad_request');
+      const mode = ['all', 'selected', 'except'].includes(body.mode) ? body.mode : fail(400, 'bad_request');
       const parents = projection.kennel?.parents || { sires: [], dams: [] };
       const pick = (ids, list) => {
         const allowed = new Set((list || []).map((d) => d.id));
@@ -159,9 +159,9 @@ export function checkAction(action, body, { entry, projection, pending, now = ne
         if (out.some((id) => !allowed.has(id))) fail(400, 'bad_parent');
         return out;
       };
-      const sireIds = mode === 'selected' ? pick(body.sire_ids, parents.sires) : [];
-      const damIds = mode === 'selected' ? pick(body.dam_ids, parents.dams) : [];
-      if (mode === 'selected' && !sireIds.length && !damIds.length) fail(400, 'no_parents');
+      const sireIds = mode !== 'all' ? pick(body.sire_ids, parents.sires) : [];
+      const damIds = mode !== 'all' ? pick(body.dam_ids, parents.dams) : [];
+      if (mode !== 'all' && !sireIds.length && !damIds.length) fail(400, 'no_parents');
       return { mode, sire_ids: sireIds, dam_ids: damIds };
     }
     case 'pref_change': {

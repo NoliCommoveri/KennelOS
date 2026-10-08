@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import {
   waitlistConfig, WAITLIST_CONFIG_DEFAULTS, autoOffers, autoOfferSummary, closingTrigger, feeForEntry, isFeeWaived, feeDueDate, respondByDate,
   anchorDate, isMovedByBreeder, rankedList, overallPositions,
-  isPupAvailable, pupMatchesPrefs, prefColorTokens, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, isListeningFor, eligiblePupsFor,
+  isPupAvailable, pupMatchesPrefs, prefColorTokens, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, isListeningFor, isListenOnly, eligiblePupsFor,
   litterQueue, nextFamilyForLitter, hasOpenOffer, turnSpent,
   countsAsPass, passesUsed, shouldRemoveForPasses, canUndoRemoval, passToForgive,
   overdueOffers, overdueFees, deriveContactWaitlistStatus, contactMatches, entryName,
@@ -205,6 +205,25 @@ test('listen-only: considered only for litters by a chosen sire OR out of a chos
   assert.equal(isListeningFor(sel({ listen_sire_ids: ['S9'], listen_dam_ids: ['D9'] }), l), false);
   assert.equal(isListeningFor(sel({ listen_sire_ids: ['D1'] }), l), false, 'a dog picked as sire never matches the dam side');
   assert.equal(isListeningFor(sel({ listen_sire_ids: ['S1'] }), litter({ sire_id: null, dam_id: 'D1' })), false, 'unknown sire');
+});
+
+test('listen-only "except" (Spec §16.3): every litter but one by a listed sire OR out of a listed dam', () => {
+  const l = litter({ sire_id: 'S1', dam_id: 'D1' });
+  const ex = (over) => entry({ listen_mode: 'except', ...over });
+  assert.equal(isListeningFor(ex(), l), true, 'nobody listed skips nothing');
+  assert.equal(isListeningFor(ex({ listen_sire_ids: ['S1'] }), l), false);
+  assert.equal(isListeningFor(ex({ listen_dam_ids: ['D1'] }), l), false);
+  assert.equal(isListeningFor(ex({ listen_sire_ids: ['S9'], listen_dam_ids: ['D1'] }), l), false, 'either side is enough to skip');
+  assert.equal(isListeningFor(ex({ listen_sire_ids: ['S9'], listen_dam_ids: ['D9'] }), l), true);
+  assert.equal(isListeningFor(ex({ listen_sire_ids: ['D1'] }), l), true, 'a dog listed as sire never matches the dam side');
+  assert.equal(isListeningFor(ex({ listen_sire_ids: ['S1'] }), litter({ sire_id: null, dam_id: 'D1' })), true, 'unknown sire');
+  const pups = [pup({ litter_id: l.id })];
+  assert.equal(eligiblePupsFor(ex({ listen_dam_ids: ['D9'] }), l, pups, [], { today: TODAY }).length, 1);
+  assert.deepEqual(eligiblePupsFor(ex({ listen_dam_ids: ['D1'] }), l, pups, [], { today: TODAY }), [], 'no offer from a skipped litter');
+  assert.equal(isListenOnly(entry()), false);
+  assert.equal(isListenOnly(ex()), false, 'an empty except is All litters');
+  assert.equal(isListenOnly(ex({ listen_dam_ids: ['D1'] })), true);
+  assert.equal(isListenOnly(entry({ listen_mode: 'selected' })), true);
 });
 
 test('eligible pups: only this litter, available, matching — and none for an ineligible family', () => {

@@ -872,7 +872,7 @@ export async function approveListenChange(entryId, { date = todayYMD() } = {}) {
   const req = loadPending(entry, 'listen_change_request', 'listen-only');
   return waitlistEntryRepo.update(entryId, {
     listen_mode: req.listen_mode || 'all',
-    ...(req.listen_mode === 'selected' ? { listen_sire_ids: [...(req.listen_sire_ids || [])], listen_dam_ids: [...(req.listen_dam_ids || [])] } : {}),
+    ...((req.listen_mode || 'all') !== 'all' ? { listen_sire_ids: [...(req.listen_sire_ids || [])], listen_dam_ids: [...(req.listen_dam_ids || [])] } : {}),
     listen_change_request: decided(req, 'approved', date)
   });
 }

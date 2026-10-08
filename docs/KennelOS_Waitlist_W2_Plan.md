@@ -524,6 +524,17 @@ means no fee reminder ever.
       `listenChangeKind` treats more parents (or All → except) as narrower, fewer (or → All)
       as wider, and `selected` ↔ `except` as narrower. Edit form, status page editor, server
       `checkAction('listen')`, the projection and the registry labels' wording.
+      **Built 2026-10-08.** As planned, with: an `except` with nobody listed skips nothing, so
+      it counts as All litters (`waitlistRules.isListenOnly`; `listenChangeKind` treats it so);
+      the server refuses it like an empty `selected` (`400 no_parents`). The projection
+      already carried `listen.mode` as-is. Her app: the Edit form's third option, the family
+      page's summary ("All except …", with the litters and pairings it skips right now), the
+      list badge "Skips some litters", Today's and the family page's request wording, and the
+      Offer button's reason. Registry labels: "sire/dam in a waitlist family's listen-only
+      choice". Fixed on the way: the Edit form's parent picks never hid on "All litters"
+      (`.field`'s `display: flex` beat `[hidden]`; `app.css` now has `.field[hidden]`, which
+      also hides the sale's owner field as intended). Tests: `waitlistRules`,
+      `waitlistEvents`, `cloudWaitlist`, `cloud/tests/familyActions`.
    4. **Pairings and early litters online, and the deposits nudge (§16.4, §16.8).**
       - `waitlist_config.show_upcoming` (`{ planned_pairings, pairings, early_litters }`, each
         `{ public, family }`, all false; cloud). The settings card warns that the public list

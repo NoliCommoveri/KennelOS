@@ -190,7 +190,8 @@ export const WAITLIST_PRIORITY = [
 
 export const WAITLIST_LISTEN_MODE = [
   { value: 'all',      label: 'All litters',            badge: 'badge-gray' },
-  { value: 'selected', label: 'Selected sires & dams only', badge: 'badge-blue' }
+  { value: 'selected', label: 'Selected sires & dams only', badge: 'badge-blue' },
+  { value: 'except',   label: 'All except these sires & dams', badge: 'badge-blue' }
 ];
 
 // The application's locked "how soon could you buy?" answer (Waitlist Spec §15.8),

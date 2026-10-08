@@ -273,13 +273,24 @@ export function isPaused(entry, today) {
 }
 
 // Is the family listening for this litter? Everyone is, unless they've chosen
-// listen-only (`selected`) — then only for litters by a sire OR out of a dam they
-// picked. They pick parent dogs, never litters or pairings: which litters (and
+// listen-only. `selected`: only litters by a sire OR out of a dam they picked.
+// `except` (Spec §16.3): every litter but one by a sire OR out of a dam they
+// listed. They pick parent dogs, never litters or pairings: which litters (and
 // upcoming pairings) that covers is derived from the litter's own sire_id/dam_id.
 export function isListeningFor(entry, litter) {
-  if ((entry.listen_mode || 'all') !== 'selected') return true;
-  return (Boolean(litter.sire_id) && (entry.listen_sire_ids || []).includes(litter.sire_id))
+  const mode = entry.listen_mode || 'all';
+  if (mode === 'all') return true;
+  const hit = (Boolean(litter.sire_id) && (entry.listen_sire_ids || []).includes(litter.sire_id))
     || (Boolean(litter.dam_id) && (entry.listen_dam_ids || []).includes(litter.dam_id));
+  return mode === 'except' ? !hit : hit;
+}
+
+// Is this a listen-only choice (anything but All litters)? An `except` with no
+// parents listed skips nothing, so it counts as All.
+export function isListenOnly(entry) {
+  const mode = entry.listen_mode || 'all';
+  if (mode === 'except') return Boolean((entry.listen_sire_ids || []).length || (entry.listen_dam_ids || []).length);
+  return mode !== 'all';
 }
 
 // The litter and pairing statuses whose parents count as "live" for listen-only.
@@ -307,20 +318,23 @@ export function listenParentChoices(kennel, { dogs = [], litters = [], pairings 
   return { sires: pick('male', 'sire_id', selectedSires), dams: pick('female', 'dam_id', selectedDams) };
 }
 
-// Is a family's own listen-only change wider or narrower (Spec §15.7 item 6)?
-// Wider (more parents, or back to All litters) applies at once; narrower (All →
-// only these parents, or dropping a parent) is a request she approves.
+// Is a family's own listen-only change wider or narrower (Spec §15.7 item 6,
+// §16.3)? Wider (more `selected` parents, fewer `except` parents, or back to All
+// litters) applies at once; narrower (leaving All, dropping a `selected` parent,
+// adding an `except` one, or switching between `selected` and `except`) is a
+// request she approves. An `except` with nobody listed is All.
 // `next` is { listen_mode, listen_sire_ids, listen_dam_ids }. → 'same' | 'wider' | 'narrower'
 export function listenChangeKind(entry, next) {
-  const mode = (x) => (x.listen_mode || 'all');
+  const mode = (x) => (isListenOnly(x) ? x.listen_mode : 'all');
   const ids = (x) => new Set([...(x.listen_sire_ids || []).map((id) => `s:${id}`), ...(x.listen_dam_ids || []).map((id) => `d:${id}`)]);
   const [a, b] = [mode(entry), mode(next)];
   if (b === 'all') return a === 'all' ? 'same' : 'wider';
-  if (a === 'all') return 'narrower';
-  const before = ids(entry);
-  const after = ids(next);
-  if ([...before].some((x) => !after.has(x))) return 'narrower';
-  return [...after].some((x) => !before.has(x)) ? 'wider' : 'same';
+  if (a !== b) return 'narrower';
+  const [before, after] = [ids(entry), ids(next)];
+  const lost = [...before].some((x) => !after.has(x));
+  const gained = [...after].some((x) => !before.has(x));
+  if (b === 'except') return gained ? 'narrower' : lost ? 'wider' : 'same';
+  return lost ? 'narrower' : gained ? 'wider' : 'same';
 }
 
 // The pups in `litter` this family could be offered right now: [] when the family

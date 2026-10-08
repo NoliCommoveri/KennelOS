@@ -424,6 +424,11 @@ test("her decisions on families' requests: an answer change is applied and logge
   saved = await waitlistEntryRepo.getById(e.id);
   assert.equal(saved.listen_mode, 'selected');
   assert.deepEqual(saved.listen_sire_ids, [sire.id]);
+  await waitlistEntryRepo.update(e.id, { listen_change_request: { requested_date: '2026-10-11', listen_mode: 'except', listen_sire_ids: [sire.id], listen_dam_ids: [] } });
+  await actions.approveListenChange(e.id, { date: '2026-10-11' });
+  saved = await waitlistEntryRepo.getById(e.id);
+  assert.equal(saved.listen_mode, 'except', 'All except these parents (Spec §16.3)');
+  assert.deepEqual(saved.listen_sire_ids, [sire.id]);
   await waitlistEntryRepo.update(e.id, { pref_sex: 'any', listen_mode: 'all', listen_sire_ids: [], pref_change_request: null, listen_change_request: null });
 });
 
