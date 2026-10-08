@@ -21,7 +21,7 @@
 > **Her requests of 2026-10-08 (§16):** one turn per family across every open litter (settles
 > Q9), passing ahead of time, listen-only "except", showing pairings and early litters, pass
 > reasons, "Review your preferences" at whelping, and "Ready now?" at a hold's end. Decided,
-> not built; Q30–Q33 are open.
+> not built; Q30–Q33 decided the same day, Q34 open. Build plan: W2 Plan step 5c.
 >
 > **W1e built 2026-10-06** (the local half of four requests from her after trying W1: custom
 > application questions, the waitlist as the main workflow with PDF invoices/receipts, a
@@ -907,12 +907,18 @@ W1 is a full feature on its own and doesn't wait for the cloud work.
 29. ~~**Listen-only and passes (§15.7):** how does a family's own listen-only change on the
     status page apply?~~ **Decided 2026-10-07: wider changes apply at once; narrower ones wait
     for her one-tap approval on Today, like §15.9.** Outside studs stay pickable.
-30. **"Review your preferences" (§16.6):** should families who ARE eligible for a newly
-    whelped litter also get a plain "a litter you match was born" note?
-31. **Passing ahead of time (§16.2):** the same reason list as a turn pass (§16.5), or its own?
-32. **Pairings and early litters online (§16.4):** what shows: parents' names, stage and month
-    (leaning), or more (photos, expected pup count)?
-33. **Pass reasons (§16.5):** include an "Other" choice with a short text box (leaning)?
+30. ~~**"Review your preferences" (§16.6):** should families who ARE eligible for a newly
+    whelped litter also get a plain "a litter you match was born" note?~~ **Decided 2026-10-08:
+    yes.**
+31. ~~**Passing ahead of time (§16.2):** the same reason list as a turn pass (§16.5), or its
+    own?~~ **Decided 2026-10-08: the same list.**
+32. ~~**Pairings and early litters online (§16.4):** what shows?~~ **Decided 2026-10-08: the
+    parents' call names with any titles; a pairing's expected whelp date; a whelped litter's
+    whelp date, with its accept-deposits date as "Picks expected to open".**
+33. ~~**Pass reasons (§16.5):** an "Other" choice with a short text box?~~ **Decided
+    2026-10-08: yes.**
+34. **"Review your preferences" and the hidden-litters switch (§16.6):** show the prompt and
+    the match note even when early litters are hidden from family pages (leaning: yes)?
 
 ## 14. W1 build plan
 
@@ -1327,7 +1333,8 @@ Q25–Q28 (§13) are decided: the leanings above all stand.
 Seven requests from a review after W2 step 5, with her answers the same day. They change the
 offer model built in W1c and the status page built in W2 step 5, so they're settled here
 before W2 steps 6 (email) and 7 (deadlines, automatic offers) build on the current model.
-The W2 Plan carries the build order. Open questions are Q30–Q33 (§13).
+The W2 Plan carries the build order (step 5c). Q30–Q33 (§13) were answered the same day; Q34
+is open.
 
 ### 16.1 One turn per family across every open litter (settles Q9)
 
@@ -1377,7 +1384,8 @@ the whole respond window.
 - **At their turn:** litters they passed on ahead of time are left out of their offer. If every
   litter in the turn was one of them, the turn is recorded as passed at once (counting once,
   §16.1 rule 6) and the next family is offered, with no wait.
-- **A reason is required** (§16.5), collected when they tap it.
+- **A reason is required** (§16.5), from the same list as a turn pass (decided, Q31),
+  collected when they tap it.
 - Stored on the entry as a list of litter ids with their reasons (private tier, like
   `pause_request`), and published in the projection so the server can skip them when it
   makes automatic offers (step 7).
@@ -1407,9 +1415,12 @@ default**.
 | Actual pairings (bred / confirmed pregnant) | off | off |
 | Whelped litters, picks not open yet | off | off |
 
-- **What shows** (leaning, Q32): parents' call names, the stage, and the expected or whelp
-  month. On a family's page: whether it's one they're waiting for (listen-only), their place
-  for a whelped litter, and **Not this litter** (§16.2).
+- **What shows (decided, Q32):** the parents' call names with any titles they've earned
+  (their logged `title_earned` events); for a pairing, its expected whelp date
+  (`Pairing.expected_due_date`); for a whelped litter, its whelp date and **"Picks expected to
+  open"** = the litter's `accept_deposits_date` (blank: not shown). On a family's page also:
+  whether it's one they're waiting for (listen-only), their place for a whelped litter, and
+  **Not this litter** (§16.2).
 - A pairing has no pups yet, so no place in line can be counted for it; the page says only
   whether the family is waiting for it.
 - The settings screen warns that the public list makes her breeding plans public.
@@ -1419,8 +1430,8 @@ default**.
 
 - **Her list of reasons** in Waitlist settings, each with **its own message** shown to the
   family when they submit (e.g. "Financial reasons" → "We appreciate your feedback. Please
-  contact us if you'd like to discuss payment plans for your next turn."). Leaning (Q33): an
-  **Other** choice with a short text box.
+  contact us if you'd like to discuss payment plans for your next turn."). Plus an **Other**
+  choice with a short text box (decided, Q33).
 - **Required for every pass a family makes on their status page**: a turn passed in full and
   a pass ahead of time (§16.2).
 - **Not required when she records a pass herself** (decided). **No response has no reason**
@@ -1439,8 +1450,11 @@ added dam B later, or a sex preference that no longer fits.
 - From the prompt they change their choices in the usual way: a wider listen-only change
   applies at once (§15.7); **a change to a matching answer still waits for her tap, wider or
   not** (Q26).
-- Q30: should families who **are** eligible also get a plain "a litter you match was born"
-  note?
+- **Families who are eligible get a note too (decided, Q30):** "A litter you match was born:
+  Juniper × Ash."
+- Q34: the prompt and the note name the litter. Do they show even when her "whelped litters,
+  picks not open" switch for family pages (§16.4) is off? Leaning: yes, like "It's almost your
+  turn", which she sends whatever the switch says.
 
 ### 16.7 "Ready now?" when a readiness hold ends (decided 2026-10-08)
 
@@ -1460,3 +1474,10 @@ status page, and by email once emails exist.
      waitlist." A removal has a new reason, **No answer to the ready check**, with the same
      7-day undo as a second-pass removal (§6.4). Her device makes the move, not the server.
 - Needs a stored ready-check state on the entry (the hold itself stays derived), private tier.
+
+### 16.8 A nudge when deposits open (requested 2026-10-08)
+
+When a whelped litter reaches its `accept_deposits_date` with picks not open yet and pups
+still available, Today suggests **Open picks** ("Juniper × Ash: you planned to start taking
+deposits today. Open picks?"). One tap opens picks, which starts the next turn (§16.1).
+Dismissing hides it; nothing opens by itself.

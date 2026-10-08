@@ -273,8 +273,8 @@ means no fee reminder ever.
 > per family across every open litter, §16.1, which settles Q9) and add to the status page
 > (passing ahead of time, listen-only "except", pass reasons, early litters, "Review your
 > preferences", "Ready now?"). They rework W1c's offers and step 5's offer handling, and steps
-> 6–7 build on the result, so they're planned and built first, as **step 5c**. Its plan is
-> written here once Q30–Q33 are answered.
+> 6–7 build on the result, so they're planned and built first, as **step 5c** (below, between
+> steps 5 and 6). Q30–Q33 answered 2026-10-08; Q34 open, not blocking 5c-1 to 5c-4.
 
 1. **Server foundation.** Migration `0007` (+ its `index.js` line), `cloud/src/waitlist.js`
    (projection PUT/GET with `requirePro`, events read, inbox fetch/ack, messages queue),
@@ -459,6 +459,89 @@ means no fee reminder ever.
      request (`decided`, `decided_date`); an approved or declined answer change is logged
      `by: 'request'` (declined with `declined: true`). Nothing is sent to the family yet
      (step 6).
+5c. **Her 2026-10-08 requests (Spec §16)**, in six reviewable parts. **No schema or index
+   change:** every new field is plain and unindexed, and no FK is added (the referenceRegistry
+   is untouched apart from label wording). No server migration: events carry new kinds and
+   payloads in the existing JSON columns.
+   1. **One turn per family across open litters (§16.1).** The largest part: W1c's offer flow
+      and step 5's offer handling are reworked; the rest of 5c builds on it.
+      - **Data:** `waitlist_offers.turn_id` (plain, cloud): one row per litter in the turn,
+        sharing `turn_id` and `respond_by_date`. An offer without one (made before 5c) is its
+        own turn (`turn_id ?? id`), so nothing is migrated.
+      - **Rules** (`waitlistRules.js`, pure, tested): `openTurn(offers, kennelId)`;
+        `nextTurn(entries, offers, litters, pups, sales, opts)` → `{ entry, litters: [{ litter,
+        eligibleDogs, prepassed }] }`: the highest-ranked family with an eligible, available
+        pup in an open-picks litter they haven't spent a turn on (spent stays per litter, as
+        `turnSpent` today); `joinsOpenTurn(…)` for a litter opening mid-turn (rule 5);
+        `passesUsed` unchanged (one row of a passed turn carries `counts_as_pass`).
+      - **Actions** (`waitlistActions.js`): `offerNext` / `openPicks` / `offerTo` make a turn
+        (all its rows at once; `offerTo` still allows out-of-order with her confirmation, and
+        refuses while another turn is open); `recordPick` / `changePick` / `confirmDeposit` per
+        row, and confirming closes the turn's other rows as `voided` (never a pass);
+        `recordTurnOutcome(turnId, 'passed' | 'no_response')` closes every row, counting once;
+        `undoPass` restores the whole turn; automatic offers (`auto_offer_on`) move per turn.
+      - **Pages:** the Litter page's picks panel shows that litter's row with the family's whole
+        turn summarized ("also offered: Willow × Ash"); the family page and Today's overdue
+        nudge act on the turn.
+      - **Online:** the projection's `offers` gain `turn_id`; `litters[].queue` becomes one
+        kennel-wide `turn_queue` (each family with its eligible pups per litter), which step 7
+        walks. Server `checkAction`: `pass` takes `{ turn_id, reason }` and passes every row;
+        `pick` is unchanged (a row and a pup). The status page shows one "It's your turn!" card
+        listing every litter's pups, with one **Pass on all of these**.
+   2. **Pass reasons and passing ahead of time (§16.2, §16.5).**
+      - `waitlist_config.pass_reasons` (`[{ id, label, message }]`, cloud; default four:
+        timing, finances, not the right pup, other) and `pass_other` (bool, default on), edited
+        in Waitlist settings; published in the projection (labels and messages only).
+      - `waitlist_offers.pass_reason` (`{ id, label, text }`, **private**): on a family's pass;
+        none when she records one; none for no response.
+      - `waitlist_entries.prepasses` (`[{ litter_id | pairing_id, reason, date }]`,
+        **private**; the projection publishes the ids only, for step 7). Status page **Not this
+        litter** / **Undo**, both requiring a reason; new event kinds `prepass` / `unprepass`.
+        A pairing's prepass carries over to the litter born of it (`Litter.pairing_id`).
+      - `nextTurn` leaves prepassed litters out of the offer; when every litter in a turn is
+        prepassed, the action records the turn `passed` at once (counting once, with the
+        prepass reason) and goes on to the next family. Consumed prepasses are removed.
+      - Server: `pass` and `prepass` require a published reason id (or `other` + text ≤ 200);
+        the page shows that reason's message after submitting.
+   3. **Listen-only "except" (§16.3).** `WAITLIST_LISTEN_MODE` gains `except`;
+      `isListeningFor` skips a litter or pairing when either parent is listed;
+      `listenChangeKind` treats more parents (or All → except) as narrower, fewer (or → All)
+      as wider, and `selected` ↔ `except` as narrower. Edit form, status page editor, server
+      `checkAction('listen')`, the projection and the registry labels' wording.
+   4. **Pairings and early litters online, and the deposits nudge (§16.4, §16.8).**
+      - `waitlist_config.show_upcoming` (`{ planned_pairings, pairings, early_litters }`, each
+        `{ public, family }`, all false; cloud). The settings card warns that the public list
+        shows her breeding plans.
+      - Projection `upcoming[]`: `{ id, kind: 'planned_pairing' | 'pairing' | 'early_litter',
+        sire, dam }` with each parent's call name and titles (her logged `title_earned`
+        abbreviations, via `eventRepo`), `expected_whelp_date` for a pairing, `whelp_date` and
+        `picks_expected_date` (= `accept_deposits_date`) for an early litter; plus `public` /
+        `family` flags. Per entry: whether they're waiting for each one (listen-only) and their
+        place for an early litter. `listView` serves the public ones; `statusView` the family
+        ones, with **Not this litter** (part 2).
+      - Today (`nudges.js`): a whelped litter whose `accept_deposits_date` has come, picks not
+        open, pups available → **Open picks**.
+   5. **"Review your preferences" and "A litter you match was born" (§16.6).** Pure rule
+      `whelpNotes(entries, litter, pups, …)`: for each active, not paused or held family, `match`
+      if eligible, else `review` with why (`listen`, `sex`, `breed`, `placement`, `colors`)
+      when the family would be eligible with All litters and open answers. Derived (nothing
+      stored) while the litter is whelped and picks aren't open; published per entry; the
+      status page shows a card with **Review your preferences** opening the listen-only and
+      Ask-to-change editors (changes go through the usual rules; Q26). The email half joins
+      "It's almost your turn" in step 6. Q34 decides whether the early-litters switch hides it.
+   6. **"Ready now?" (§16.7).** `waitlist_config.ready_no_answer` (`keep_paused` default |
+      `unpause` | `remove_after`) and `ready_answer_days` (14), cloud.
+      `waitlist_entries.ready_check` (`{ answer: 'yes' | 'no', answered_date, until, reason }`,
+      **private**). `isReadyHeld` extends the hold past `readyFromDate` while unanswered under
+      `keep_paused` / `remove_after` (still pure: entry + config + today). Status page: **Ready
+      now?** with Yes / No (No: a date and a required reason, which becomes a `pause_request`
+      carrying the reason); event kind `ready`. Under `remove_after`, her device removes the
+      family when the window passes (`removed_reason: 'no_ready_answer'`, new vocab value,
+      7-day undo like a second-pass removal) and Today reports it; Today also lists families
+      unanswered for more than `ready_answer_days` under `keep_paused`.
+   Each part: `node --check`, `node --test` and `cd cloud && npm test`, the precache check,
+   syncRegistry entries for every new field, the End-State guide in the same change, and the
+   flow in headless Chromium at phone width.
 6. **Email.** `mail.kennelos.app`, templates + Waitlist settings editor, kennel-name sender,
    every kind in §8, the messages log on the entry, "almost your turn" sent for her.
 7. **Deadlines and automatic offers.** Cutoff instants, reminders, the `auto_offer_on` moves
