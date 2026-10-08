@@ -85,11 +85,11 @@ export function previewText(kind, kennelName) {
   const name = String(kennelName || '').trim().slice(0, 120);
   if (kind === 'apply') {
     return name
-      ? { title: `Apply to ${name}'s waitlist`, description: `Apply to join ${name}'s puppy waitlist.` }
+      ? { title: `Apply to the ${name} waitlist`, description: `Apply to join the ${name} puppy waitlist.` }
       : { title: 'Waitlist application', description: 'Apply to join this kennel\'s puppy waitlist.' };
   }
   return name
-    ? { title: `${name} waitlist`, description: `See ${name}'s puppy waitlist, and check your place in line.` }
+    ? { title: `${name} waitlist`, description: `See the ${name} puppy waitlist, and check your place in line.` }
     : { title: 'Puppy waitlist', description: 'See this kennel\'s puppy waitlist, and check your place in line.' };
 }
 

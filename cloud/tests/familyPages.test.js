@@ -303,13 +303,13 @@ test('a shared /list or /apply link previews with the kennel\'s name; anything e
   const list = await (await get(env, `/list/${KENNEL}?fbclid=x`)).text();
   assert.match(list, /<title>Thornfield Kennels waitlist<\/title>/);
   assert.match(list, /<meta property="og:title" content="Thornfield Kennels waitlist">/);
-  assert.match(list, /<meta property="og:description" content="See Thornfield Kennels&#39;s puppy waitlist, and check your place in line.">/);
+  assert.match(list, /<meta property="og:description" content="See the Thornfield Kennels puppy waitlist, and check your place in line.">/);
   assert.match(list, new RegExp(`<meta property="og:url" content="[^"]*/list/${KENNEL}">`), 'no query string');
   assert.match(list, /<meta property="og:image" content="https?:\/\/[^"]+\/family\/share.png">/);
   assert.doesNotMatch(list, /<!--preview/);
   assert.doesNotMatch(list, /Ann|Lee|example\.com/, 'nothing but the kennel name');
   const apply = await (await get(env, `/apply/${KENNEL}`)).text();
-  assert.match(apply, /<meta property="og:title" content="Apply to Thornfield Kennels&#39;s waitlist">/);
+  assert.match(apply, /<meta property="og:title" content="Apply to the Thornfield Kennels waitlist">/);
   const unknown = await (await get(env, '/list/kos1_99999999-2222-4333-8444-555555555555')).text();
   assert.match(unknown, /<meta property="og:title" content="Puppy waitlist">/);
   const image = await get(env, '/family/share.png');

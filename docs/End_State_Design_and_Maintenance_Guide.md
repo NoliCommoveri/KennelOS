@@ -1379,7 +1379,7 @@ are a second, smaller tab row under Contacts, and the Waitlist tab goes when
 kennel's list — New applications, Fee due, the ranked **On the list** table with derived `#`,
 Litters, and Closed; one primary button, **+ New application**, and everything else under
 **Manage ▾** (`ui.wireActionMenu`, `.action-menu`): Almost your turn…, Application form,
-Programs, Publish list, Settings; CSV import is on Import/Export only), `waitlist-entry` (one
+Programs, Publish list, Settings; CSV import is on Import/Export only; and, at the far right while she takes applications online, **Copy application link**), `waitlist-entry` (one
 family: `?new=1` application entry, or `?id=` with the status card + step actions,
 edit-in-place details, offers with their outcome buttons, and Documents),
 `waitlist-programs`, `waitlist-import`, `waitlist-form` (her application form editor + CSV
@@ -3202,8 +3202,8 @@ shown (`describeOfferChanges`).
   form isn't open).
 - **Link previews (2026-10-08):** a shared public list or application link shows a card on
   Facebook and in texts: the Worker (`cloud/src/familyPages.js` `withPreview`) writes Open
-  Graph tags with the kennel's name ("Thornfield Kennels waitlist" / "Apply to Thornfield
-  Kennels's waitlist") into `/list` and `/apply`, read from the published projection's
+  Graph tags with the kennel's name ("Thornfield Kennels waitlist" / "Apply to the Thornfield
+  Kennels waitlist") into `/list` and `/apply`, read from the published projection's
   `kennel.name` only, and a generic image (`cloud/public/family/share.png`). Status pages
   get none (they're private).
 - **Status links:** every entry of an online kennel gets `status_token` (64 hex, minted by
