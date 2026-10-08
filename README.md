@@ -409,7 +409,9 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   moment** (`waitlist_config.auto_offer_on`: accepted / passed / no response / picked but no deposit /
   left the list, none by default; replaces `auto_offer_next`, whose old "on" still reads as all five), which
   the W2 server will follow while she's offline. Browser-verified (Kennel page settings
-  save; only ticked moments offer). Next: a W2 build plan.
+  save; only ticked moments offer). Service-worker cache rolled to `kennelos-shell-v48` for
+  this batch. **W2 build plan drafted:** `docs/KennelOS_Waitlist_W2_Plan.md` (decisions in
+  its §10 to settle before building).
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass

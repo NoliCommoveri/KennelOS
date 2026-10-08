@@ -15,7 +15,8 @@
 > private vault, the Pro license link with its operator setup done), and her answers to
 > Q5–Q7, Q11, Q13 and Q18 are recorded in §13 and the sections they change. Automatic
 > offers became per moment (`auto_offer_on`, §4.6, built), which is also what lets the W2
-> server advance a list while she's offline. Next: a W2 build plan.
+> server advance a list while she's offline. **W2 build plan drafted:**
+> `docs/KennelOS_Waitlist_W2_Plan.md` (its §10 decisions are open).
 >
 > **W1e built 2026-10-06** (the local half of four requests from her after trying W1: custom
 > application questions, the waitlist as the main workflow with PDF invoices/receipts, a
