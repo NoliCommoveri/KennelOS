@@ -12,7 +12,7 @@ import { litterRepo } from '../data/litterRepo.js';
 import { dogRepo } from '../data/dogRepo.js';
 import { saleRepo } from '../data/saleRepo.js';
 import { kennelRepo } from '../data/kennelRepo.js';
-import { waitlistConfig, entryName, publicList, publicListText, placeHidden } from '../data/waitlistRules.js';
+import { waitlistConfig, entryName, publicList, publicListText, placeHidden, PUBLIC_INTRO_DEFAULT, PUBLIC_INTRO_MAX } from '../data/waitlistRules.js';
 import { editionFlags } from '../data/editionConfig.js';
 import { isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
 import { esc, fmtDate, param, todayYMD } from '../assets/ui.js';
@@ -23,6 +23,7 @@ const els = {
   back: document.getElementById('back-link'),
   picker: document.getElementById('pub-kennel-picker'),
   online: document.getElementById('pub-online'),
+  intro: document.getElementById('pub-intro'),
   text: document.getElementById('pub-text'),
   error: document.getElementById('page-error')
 };
@@ -38,6 +39,37 @@ function mountOnline(kennel) {
       onSaved: async () => { mountOnline(await kennelRepo.getById(kennel.id)); await renderText(kennel); }
     }))
     .catch((err) => { els.online.innerHTML = `<p class="field-hint">The online list couldn't load: ${esc(err.message || String(err))}</p>`; });
+}
+
+// The message under the heading of her public list page (waitlistRules
+// publicIntroText): her own words, or the default. [Kennel Name] is filled in when
+// it's shown. Saved on the kennel's waitlist_config, so it publishes with the list.
+function mountIntro(kennel) {
+  if (!editionFlags.waitlist || !isWaitlistOnlineOffered()) return;
+  const saved = waitlistConfig(kennel).public_intro_text || '';
+  els.intro.hidden = false;
+  els.intro.innerHTML = `
+    <h2 style="margin-top:0;">Message on your public list</h2>
+    <p class="field-hint">Shown under the heading of your online list page. Write [Kennel Name] where you want your kennel's name.</p>
+    <textarea id="pub-intro-text" maxlength="${PUBLIC_INTRO_MAX}" style="width:100%;min-height:150px;font-family:inherit;">${esc(saved || PUBLIC_INTRO_DEFAULT)}</textarea>
+    <div class="form-actions">
+      <button class="btn btn-primary btn-sm" id="pub-intro-save">Save</button>
+      <button class="btn btn-sm" id="pub-intro-reset">Use the default</button>
+      <span class="field-hint" id="pub-intro-note" role="status"></span>
+    </div>`;
+  const note = (t) => { els.intro.querySelector('#pub-intro-note').textContent = t; };
+  const save = async (text) => {
+    const fresh = await kennelRepo.getById(kennel.id);
+    // The default is stored as blank, so a later change to the default reaches her.
+    const value = text.trim() === PUBLIC_INTRO_DEFAULT ? '' : text.trim();
+    await kennelRepo.update(kennel.id, { waitlist_config: { ...(fresh.waitlist_config || {}), public_intro_text: value } });
+    note('Saved. Your online list updates by itself shortly.');
+  };
+  els.intro.querySelector('#pub-intro-save').addEventListener('click', () => save(els.intro.querySelector('#pub-intro-text').value).catch((e) => showError(e.message || String(e))));
+  els.intro.querySelector('#pub-intro-reset').addEventListener('click', () => {
+    els.intro.querySelector('#pub-intro-text').value = PUBLIC_INTRO_DEFAULT;
+    save(PUBLIC_INTRO_DEFAULT).catch((e) => showError(e.message || String(e)));
+  });
 }
 
 // The public list as text (Spec §15.3), the same families and fields as online.
@@ -89,6 +121,7 @@ async function main() {
   els.back.href = `waitlist.html?kennel=${encodeURIComponent(kennel.id)}`;
   if (own.length > 1) els.title.textContent = `Publish ${kennel.kennel_name}'s list`;
   mountOnline(kennel);
+  mountIntro(kennel);
   await renderText(kennel);
 }
 

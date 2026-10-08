@@ -22,7 +22,7 @@
 import {
   waitlistConfig, entryName, publicList, overallPositions, litterQueue, isPupAvailable, passesUsed,
   isManuallyPaused, readyFromDate, isReadyHeld, feeForEntry, kennelBreeds, listenParentChoices,
-  rankedList, turnLittersFor, turnIdOf, passReasons, splitPrepassed, upcomingItems, showUpcoming, isListeningFor, placeHidden, whelpNotes, readyCheck
+  rankedList, turnLittersFor, turnIdOf, passReasons, splitPrepassed, upcomingItems, showUpcoming, isListeningFor, placeHidden, whelpNotes, readyCheck, publicIntroText
 } from './waitlistRules.js';
 import { addDaysToYMD } from './dateUtils.js';
 import { WAITLIST_OPEN_STATUSES, isOpenSale } from './vocab.js';
@@ -330,6 +330,8 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
     kennel: {
       public_id: kennel.public_id,
       name: kennel.kennel_name || '',
+      // The message under her public list's heading (publicIntroText).
+      intro: publicIntroText(config, kennel.kennel_name || ''),
       time_zone: orNull(kennel.time_zone),
       respond_days: Number(config.respond_days),
       max_passes: Number(config.max_passes),

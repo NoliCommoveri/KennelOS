@@ -181,7 +181,7 @@ test('public list: real positions, paused families hidden with their number skip
   assert.deepEqual(later.map((r) => `${r.position} ${r.name}`), ['1 Ann A.', '2 Bob B.', '3 Cat C.', '4 Dee D.']);
 
   const text = publicListText(rows, { kennelName: 'Thornfield', today: TODAY });
-  assert.match(text, /^Thornfield waitlist \(updated 2026-10-06\)/);
+  assert.match(text, /^Thornfield Waitlist \(updated 2026-10-06\)/);
   assert.match(text, /#4 Dee D\. · Either · added 2026-04-01/);
   assert.match(text, /skipped number/);
   assert.ok(!/Chemo|Cat/.test(text));

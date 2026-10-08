@@ -85,12 +85,12 @@ export function previewText(kind, kennelName) {
   const name = String(kennelName || '').trim().slice(0, 120);
   if (kind === 'apply') {
     return name
-      ? { title: `Apply to the ${name} waitlist`, description: `Apply to join the ${name} puppy waitlist.` }
-      : { title: 'Waitlist application', description: 'Apply to join this kennel\'s puppy waitlist.' };
+      ? { title: `Apply to the ${name} Waitlist`, description: `Apply to join the ${name} puppy waitlist.` }
+      : { title: 'Waitlist Application', description: 'Apply to join this kennel\'s puppy waitlist.' };
   }
   return name
-    ? { title: `${name} waitlist`, description: `See the ${name} puppy waitlist, and check your place in line.` }
-    : { title: 'Puppy waitlist', description: 'See this kennel\'s puppy waitlist, and check your place in line.' };
+    ? { title: `${name} Waitlist`, description: `See the ${name} puppy waitlist, and check your place in line.` }
+    : { title: 'Puppy Waitlist', description: 'See this kennel\'s puppy waitlist, and check your place in line.' };
 }
 
 export function previewTags({ title, description, url, image }) {
@@ -163,7 +163,8 @@ const upcomingOf = (projection, where) => (Array.isArray(projection.upcoming) ? 
 export function listView(projection) {
   return {
     // apply_open: she takes applications online, so the list links to her form.
-    kennel: { name: projection.kennel?.name ?? '', apply_open: Boolean(formView(projection)) },
+    // intro: her message under the page's heading, as her device rendered it.
+    kennel: { name: projection.kennel?.name ?? '', intro: typeof projection.kennel?.intro === 'string' ? projection.kennel.intro.slice(0, 2000) : '', apply_open: Boolean(formView(projection)) },
     as_of: projection.as_of ?? null,
     rows: Array.isArray(projection.public_list) ? projection.public_list : [],
     upcoming: upcomingOf(projection, 'public').map(upcomingRow),

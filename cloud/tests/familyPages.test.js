@@ -94,7 +94,7 @@ test('the public list shows only her published rows', async () => {
   const { env } = await published();
   const res = await get(env, `/f/list/${KENNEL}`);
   assert.equal(res.status, 200);
-  assert.deepEqual(await res.json(), { kennel: { name: 'Thornfield Kennels', apply_open: false }, as_of: '2026-10-08', rows: projection().public_list, upcoming: [] });
+  assert.deepEqual(await res.json(), { kennel: { name: 'Thornfield Kennels', intro: '', apply_open: false }, as_of: '2026-10-08', rows: projection().public_list, upcoming: [] });
   assert.equal((await get(env, '/f/list/kos1_99999999-2222-4333-8444-555555555555')).status, 404);
   assert.equal((await get(env, '/f/list/thornfield')).status, 404);
 });
@@ -301,17 +301,17 @@ const realAssets = {
 test('a shared /list or /apply link previews with the kennel\'s name; anything else gets the generic card', async () => {
   const { env } = await published({ ASSETS: realAssets });
   const list = await (await get(env, `/list/${KENNEL}?fbclid=x`)).text();
-  assert.match(list, /<title>Thornfield Kennels waitlist<\/title>/);
-  assert.match(list, /<meta property="og:title" content="Thornfield Kennels waitlist">/);
+  assert.match(list, /<title>Thornfield Kennels Waitlist<\/title>/);
+  assert.match(list, /<meta property="og:title" content="Thornfield Kennels Waitlist">/);
   assert.match(list, /<meta property="og:description" content="See the Thornfield Kennels puppy waitlist, and check your place in line.">/);
   assert.match(list, new RegExp(`<meta property="og:url" content="[^"]*/list/${KENNEL}">`), 'no query string');
   assert.match(list, /<meta property="og:image" content="https?:\/\/[^"]+\/family\/share.png">/);
   assert.doesNotMatch(list, /<!--preview/);
   assert.doesNotMatch(list, /Ann|Lee|example\.com/, 'nothing but the kennel name');
   const apply = await (await get(env, `/apply/${KENNEL}`)).text();
-  assert.match(apply, /<meta property="og:title" content="Apply to the Thornfield Kennels waitlist">/);
+  assert.match(apply, /<meta property="og:title" content="Apply to the Thornfield Kennels Waitlist">/);
   const unknown = await (await get(env, '/list/kos1_99999999-2222-4333-8444-555555555555')).text();
-  assert.match(unknown, /<meta property="og:title" content="Puppy waitlist">/);
+  assert.match(unknown, /<meta property="og:title" content="Puppy Waitlist">/);
   const image = await get(env, '/family/share.png');
   assert.equal(image.status, 200);
 });
@@ -320,7 +320,7 @@ test('a kennel name is escaped in the preview', async () => {
   const { previewTags, previewText } = await import('../src/familyPages.js');
   const tags = previewTags({ ...previewText('list', 'Bad "<script>" Kennel'), url: 'https://x/list/a', image: 'https://x/i.png' });
   assert.doesNotMatch(tags, /<script>/);
-  assert.match(tags, /Bad &quot;&lt;script&gt;&quot; Kennel waitlist/);
+  assert.match(tags, /Bad &quot;&lt;script&gt;&quot; Kennel Waitlist/);
 });
 
 test('the public list links to her application form only while she takes applications online', () => {
@@ -330,4 +330,12 @@ test('the public list links to her application form only while she takes applica
   assert.equal(listView(p).kennel.apply_open, true);
   p.kennel.form.open = false;
   assert.equal(listView(p).kennel.apply_open, false);
+});
+
+test('the public list carries her message under the heading', () => {
+  const p = projection();
+  p.kennel.intro = 'Our waitlist is a rolling list of approved applicants for Thornfield Kennels puppies.';
+  assert.equal(listView(p).kennel.intro, p.kennel.intro);
+  delete p.kennel.intro;
+  assert.equal(listView(p).kennel.intro, '');
 });

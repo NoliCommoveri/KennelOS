@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildProjection, entryEmail, titlesByDog, PROJECTION_FORMAT } from '../shared/data/waitlistProjection.js';
-import { litterQueue, publicList, overallPositions, waitlistConfig, entryName, passReasons } from '../shared/data/waitlistRules.js';
+import { litterQueue, publicList, overallPositions, waitlistConfig, entryName, passReasons, publicIntroText, PUBLIC_INTRO_DEFAULT } from '../shared/data/waitlistRules.js';
 
 const TODAY = '2026-10-08';
 const K = 'kennel-1';
@@ -63,7 +63,7 @@ test('the projection has exactly its allow-listed parts', () => {
   assert.equal(p.format, PROJECTION_FORMAT);
   assert.deepEqual(keysOf(p), ['as_of', 'entries', 'events_through', 'format', 'kennel', 'litters', 'public_list', 'turn_queue', 'upcoming']);
   assert.deepEqual(p.kennel, {
-    public_id: kennel.public_id, name: 'Thornfield Kennels', time_zone: 'America/Chicago',
+    public_id: kennel.public_id, name: 'Thornfield Kennels', intro: publicIntroText({}, 'Thornfield Kennels'), time_zone: 'America/Chicago',
     respond_days: 3, max_passes: 2, auto_offer_on: ['no_response'],
     breeds: [], color_matching: false,
     pass_reasons: passReasons({}),
@@ -319,4 +319,12 @@ test('the Companion link block (Spec §8.3): only for a family with an open sale
 
   f.entries[5].companion_request = { requested_date: '2026-09-01', note: '', decided: 'sent', decided_date: '2026-09-02' };
   assert.equal(buildProjection(f).entries.e6.companion.request, null, 'an old decision drops off after 30 days');
+});
+
+test('the message under her public list heading: her own text, else the default, with the kennel name filled in', () => {
+  const def = publicIntroText({}, 'Thornfield Kennels');
+  assert.match(def, /^Our waitlist is a rolling list of approved applicants for Thornfield Kennels puppies\. When puppies are ready for selection, applicants/);
+  assert.doesNotMatch(def, /\[kennel name\]|,,/i);
+  assert.ok(PUBLIC_INTRO_DEFAULT.includes('[Kennel Name]'));
+  assert.equal(publicIntroText({ public_intro_text: 'Hi from [kennel name]!' }, 'Briar Hollow'), 'Hi from Briar Hollow!');
 });

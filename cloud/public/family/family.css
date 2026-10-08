@@ -47,6 +47,7 @@ main { max-width: 640px; margin: 0 auto; padding: 16px 16px 48px; }
 header.page { padding: 8px 0 4px; }
 header.page h1 { font-size: 1.45rem; line-height: 1.25; margin: 0 0 2px; overflow-wrap: anywhere; }
 header.page .actions { margin-top: 10px; }
+header.page .intro { margin: 10px 0 0; white-space: pre-line; line-height: 1.5; }
 .muted { color: var(--text-muted); }
 .small { font-size: 0.875rem; }
 .card {

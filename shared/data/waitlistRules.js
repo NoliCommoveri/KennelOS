@@ -31,6 +31,7 @@ export const WAITLIST_CONFIG_DEFAULTS = Object.freeze({
   color_matching: false,
   checkin_months: 6,
   soon_notice_text: '', // blank = SOON_NOTICE_DEFAULT
+  public_intro_text: '', // blank = PUBLIC_INTRO_DEFAULT (the message under her public list's heading)
   pass_reasons: null, // her reasons for a pass (Spec §16.5); null = DEFAULT_PASS_REASONS
   pass_other: true, // also offer "Other" with a short text box (Q33)
   show_upcoming: null, // pairings and early litters online (Spec §16.4); null = all off, see showUpcoming
@@ -786,6 +787,18 @@ export function soonNoticeText(config, kennelName = '') {
   return { subject: first.trim(), body: rest.join('\n').trim(), text };
 }
 
+// The message under the heading of her public list page (decided 2026-10-08), with
+// [Kennel Name] filled in. She edits it on the Publish list page
+// (waitlist_config.public_intro_text; blank = this default); it's published with
+// the list (waitlistProjection kennel.intro).
+export const PUBLIC_INTRO_DEFAULT = 'Our waitlist is a rolling list of approved applicants for [Kennel Name] puppies. When puppies are ready for selection, applicants whose preferences match an available pup will be contacted by [Kennel Name] through one of the following methods: email, SMS, and/or the messaging platform used to communicate with the applicant previously. Once contacted, you will have a limited time to respond before we move on to the next waiting family, so we encourage you to check back regularly to see your place in line.';
+export const PUBLIC_INTRO_MAX = 2000;
+
+export function publicIntroText(config, kennelName = '') {
+  return String((config && config.public_intro_text) || PUBLIC_INTRO_DEFAULT)
+    .replace(/\[kennel name\]/gi, kennelName || 'our kennel').trim().slice(0, PUBLIC_INTRO_MAX);
+}
+
 const openOfferEntryIds = (offers) =>
   new Set(offers.filter((o) => !o.is_archived && o.outcome === 'open').map((o) => o.entry_id));
 
@@ -1050,7 +1063,7 @@ const PUBLIC_SEX = { male: 'Male', female: 'Female', any: 'Either' };
 // The public list as plain text for a Facebook post or website (the W1 stand-in
 // for the public link). `fmtDate` formats a YYYY-MM-DD for display.
 export function publicListText(rows, { kennelName = '', today = '', fmtDate = (d) => d } = {}) {
-  const head = `${kennelName ? `${kennelName} waitlist` : 'Waitlist'}${today ? ` (updated ${fmtDate(today)})` : ''}`;
+  const head = `${kennelName ? `${kennelName} Waitlist` : 'Waitlist'}${today ? ` (updated ${fmtDate(today)})` : ''}`;
   if (!rows.length) return `${head}\nNobody is on the list yet.`;
   const lines = rows.map((r) => `#${r.position} ${r.name} · ${PUBLIC_SEX[r.pref_sex] || 'Either'} · added ${fmtDate(r.added)}`);
   const gaps = rows.some((r, i) => r.position !== i + 1);

@@ -75,8 +75,13 @@ async function load() {
     return;
   }
   const { kennel, as_of: asOf, rows, upcoming = [] } = res.body;
-  document.title = `${kennel.name} waitlist`;
-  $('title').textContent = `${kennel.name} waitlist`;
+  document.title = `${kennel.name} Waitlist`;
+  $('title').textContent = `${kennel.name} Waitlist`;
+  // Her message under the heading (plain text; line breaks kept by the CSS).
+  if (kennel.intro) {
+    $('intro').textContent = kennel.intro;
+    $('intro').hidden = false;
+  }
   $('updated').textContent = asOf ? `Updated ${fmtDate(asOf)}` : '';
   // Her online application form, when she takes applications online.
   if (kennel.apply_open) {
@@ -86,7 +91,7 @@ async function load() {
   $('content').hidden = false;
   // Pairings and litters she shows publicly before picks open (Spec §16.4).
   if (upcoming.length) {
-    $('upcoming').innerHTML = `<h2>Coming up</h2>${upcomingListHtml(upcoming)}`;
+    $('upcoming').innerHTML = `<summary><h2>Coming up</h2></summary>${upcomingListHtml(upcoming)}`;
     $('upcoming').hidden = false;
   }
 

@@ -186,8 +186,8 @@ async function load() {
   }
   const view = res.body;
   const kennelName = view.kennel.name;
-  document.title = `Apply to ${possessive(kennelName)} waitlist`;
-  $('title').textContent = `Apply to ${possessive(kennelName)} waitlist`;
+  document.title = `Apply to ${possessive(kennelName)} Waitlist`;
+  $('title').textContent = `Apply to ${possessive(kennelName)} Waitlist`;
   $('subtitle').textContent = 'Fields marked * are required.';
   if (view.form.faq.length) {
     $('faq-items').innerHTML = view.form.faq.map((x) => `<details><summary>${esc(x.question || 'Question')}</summary><p class="pre">${esc(x.answer)}</p></details>`).join('');

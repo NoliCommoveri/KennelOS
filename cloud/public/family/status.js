@@ -768,8 +768,8 @@ async function load() {
   // THIS family's is the server's call (other_family): a New link changes the
   // token but keeps the session, so the saved token isn't compared here.
   state.session = v.kennel.public_id ? rememberedFamily(v.kennel.public_id) : null;
-  document.title = `${v.kennel.name} waitlist`;
-  $('title').textContent = v.family.name ? `Hi, ${v.family.name.split(/\s+/)[0]}` : `${v.kennel.name} waitlist`;
+  document.title = `${v.kennel.name} Waitlist`;
+  $('title').textContent = v.family.name ? `Hi, ${v.family.name.split(/\s+/)[0]}` : `${v.kennel.name} Waitlist`;
   $('updated').textContent = `${v.kennel.name} waitlist${v.as_of ? ` · updated ${fmtDate(v.as_of)}` : ''}`;
   render();
 
