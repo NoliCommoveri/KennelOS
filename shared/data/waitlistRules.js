@@ -1067,7 +1067,7 @@ export function publicListText(rows, { kennelName = '', today = '', fmtDate = (d
   if (!rows.length) return `${head}\nNobody is on the list yet.`;
   const lines = rows.map((r) => `#${r.position} ${r.name} · ${PUBLIC_SEX[r.pref_sex] || 'Either'} · added ${fmtDate(r.added)}`);
   const gaps = rows.some((r, i) => r.position !== i + 1);
-  return [head, '', ...lines, ...(gaps ? ['', 'A skipped number is a family who is paused, not ready to buy yet, or between turns. They keep their place.'] : [])].join('\n');
+  return [head, '', ...lines, ...(gaps ? ['', 'Note: in special circumstances, some applicant names may not be displayed above. Their place is being held, but they are not currently eligible for available pups.'] : [])].join('\n');
 }
 
 // --- Telling her what an action did to offers -------------------------------------

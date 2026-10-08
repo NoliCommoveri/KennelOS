@@ -183,7 +183,7 @@ test('public list: real positions, paused families hidden with their number skip
   const text = publicListText(rows, { kennelName: 'Thornfield', today: TODAY });
   assert.match(text, /^Thornfield Waitlist \(updated 2026-10-06\)/);
   assert.match(text, /#4 Dee D\. · Either · added 2026-04-01/);
-  assert.match(text, /skipped number/);
+  assert.match(text, /Their place is being held/);
   assert.ok(!/Chemo|Cat/.test(text));
   assert.match(publicListText([], {}), /Nobody is on the list yet/);
 });
