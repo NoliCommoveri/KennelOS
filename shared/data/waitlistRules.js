@@ -11,7 +11,7 @@
 //  - Eligibility (§6.2) is computed per litter / per pup at the moment it's needed.
 // The repos store; the pages call these functions to decide what to write.
 import { addDaysToYMD, addMonthsToYMD } from './dateUtils.js';
-import { WAITLIST_OPEN_STATUSES, WAITLIST_READY_TIMING } from './vocab.js';
+import { WAITLIST_OPEN_STATUSES, WAITLIST_READY_TIMING, WAITLIST_AUTO_OFFER_TRIGGER } from './vocab.js';
 
 // --- Config (Spec §4.6) -------------------------------------------------------
 
@@ -24,7 +24,7 @@ export const WAITLIST_CONFIG_DEFAULTS = Object.freeze({
   payment_instructions: '',
   max_passes: 2,
   respond_days: 3, // days to accept AND send the deposit (§6.5)
-  auto_offer_next: false, // offer the next family by itself when an offer closes
+  auto_offer_on: [], // which closings offer the next family by themselves (WAITLIST_AUTO_OFFER_TRIGGER); none = she offers
   no_response_counts_as_pass: true,
   color_matching: false,
   checkin_months: 6,
@@ -39,7 +39,30 @@ export function waitlistConfig(kennel) {
   for (const [k, v] of Object.entries(stored)) {
     if (v !== null && v !== undefined && v !== '') out[k] = v;
   }
+  // auto_offer_on replaced the all-or-nothing auto_offer_next (2026-10-08). A kennel
+  // saved with it on and never re-saved keeps every moment on.
+  if (!Array.isArray(stored.auto_offer_on)) {
+    out.auto_offer_on = stored.auto_offer_next === true ? WAITLIST_AUTO_OFFER_TRIGGER.map((t) => t.value) : [];
+  }
+  delete out.auto_offer_next;
   return out;
+}
+
+// One sentence for the pages: when the next family is offered by itself.
+export function autoOfferSummary(config) {
+  const on = WAITLIST_AUTO_OFFER_TRIGGER.filter((t) => autoOffers(config, t.value));
+  if (!on.length) return 'When an offer closes, you offer the next family with "Offer to them".';
+  if (on.length === WAITLIST_AUTO_OFFER_TRIGGER.length) return 'When an offer closes, the next family is offered automatically.';
+  const words = { accepted: 'accepts a pup', passed: 'passes', no_response: 'lets the deadline pass', left: 'leaves the list' };
+  const list = on.map((t) => words[t.value]);
+  const joined = list.length === 1 ? list[0] : `${list.slice(0, -1).join(', ')} or ${list[list.length - 1]}`;
+  return `The next family is offered automatically when the family holding the turn ${joined}; otherwise you offer them with "Offer to them".`;
+}
+
+// Does this closing (`accepted` / `passed` / `no_response` / `left`) offer the next
+// family by itself? Off for every moment unless she turned it on (§4.6).
+export function autoOffers(config, trigger) {
+  return Boolean(config && Array.isArray(config.auto_offer_on) && config.auto_offer_on.includes(trigger));
 }
 
 // --- Small helpers -------------------------------------------------------------

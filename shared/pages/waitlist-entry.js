@@ -23,7 +23,7 @@ import {
   entryName, canUndoRemoval, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, rankedList, REMOVAL_UNDO_DAYS,
   eligiblePupsFor, nextFamilyForLitter, turnSpent, hasOpenOffer, isListeningFor, isPupAvailable,
   describeOfferChanges, isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker,
-  kennelBreeds, resolveBreed, prefChangeEffect
+  kennelBreeds, resolveBreed, prefChangeEffect, autoOffers
 } from '../data/waitlistRules.js';
 import {
   formQuestions, entryQuestions, snapshotQuestions, answerText, isAnswerQuestion, missingRequired, formFaq, READY_TIMING_LABEL,
@@ -715,7 +715,7 @@ async function onOfferLitter() {
     confirmLabel: 'Make the offer',
     bodyHtml: choices.length
       ? `${choices.map(rowHtml).join('')}
-         <p class="field-hint">They get ${esc(days)} days to pick a pup and send the deposit. Offering someone who isn't next doesn't change anyone's place; the next family ${ctx.config.auto_offer_next ? 'is offered' : 'is up'} once this one is settled. Nothing is sent automatically, so tell them yourself.</p>`
+         <p class="field-hint">They get ${esc(days)} days to pick a pup and send the deposit. Offering someone who isn't next doesn't change anyone's place; the next family ${ctx.config.auto_offer_on.length ? 'is up (offered automatically if you chose that in Waitlist settings)' : 'is up'} once this one is settled. Nothing is sent automatically, so tell them yourself.</p>`
       : '<p class="muted">No upcoming or current litters on this kennel yet.</p>',
     onConfirm: async (o) => {
       const picked = o.querySelector('input[name="ol"]:checked');
@@ -733,9 +733,9 @@ async function onOfferLitter() {
   }) && afterAction();
 }
 
-// The turn-moves-on sentence for the outcome prompts: with automatic offers off
-// (the default) nobody is offered; she's told who's next.
-const turnNote = () => (ctx.config.auto_offer_next
+// The turn-moves-on sentence for an outcome prompt: with automatic offers off for
+// that moment (the default) nobody is offered; she's told who's next.
+const turnNote = (outcome) => (autoOffers(ctx.config, outcome)
   ? 'The turn moves to the next eligible family.'
   : 'Nobody is offered automatically; you\'ll see who\'s next.');
 
@@ -783,10 +783,10 @@ async function onOfferOutcome(offer, outcome) {
 
   const lapse = offer.chosen_dog_id ? ` Their pick lapses: the sale is cancelled and ${dogName(offer.chosen_dog_id)} is available again.` : '';
   const prompts = {
-    passed: { title: `${name} passed on this litter?`, message: `${turnNote()}${lapse}`, confirmLabel: 'Record it' },
+    passed: { title: `${name} passed on this litter?`, message: `${turnNote('passed')}${lapse}`, confirmLabel: 'Record it' },
     no_response: offer.chosen_dog_id
-      ? { title: `No deposit from ${name}?`, message: `Record that the deposit didn't arrive in time. It counts like no response. ${turnNote()}${lapse}`, confirmLabel: 'Record it' }
-      : { title: `${name} didn't respond in time?`, message: turnNote(), confirmLabel: 'Record it' },
+      ? { title: `No deposit from ${name}?`, message: `Record that the deposit didn't arrive in time. It counts like no response. ${turnNote('no_response')}${lapse}`, confirmLabel: 'Record it' }
+      : { title: `${name} didn't respond in time?`, message: turnNote('no_response'), confirmLabel: 'Record it' },
     voided: { title: 'Void this offer?', message: `Use this if the offer was a mistake or the litter fell through. It never counts as a pass for ${name}, and the turn isn't moved on automatically.${lapse}`, confirmLabel: 'Void it' }
   };
   if (!(await confirmModal(prompts[outcome]))) return;

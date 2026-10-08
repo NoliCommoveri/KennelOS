@@ -13,8 +13,9 @@
 >
 > **W2 is unblocked (2026-10-08):** all three prerequisites are live (Phase 1's Worker, the
 > private vault, the Pro license link with its operator setup done), and her answers to
-> Q5–Q7, Q11, Q13 and Q18 are recorded in §13 and the sections they change. Next: a W2
-> build plan.
+> Q5–Q7, Q11, Q13 and Q18 are recorded in §13 and the sections they change. Automatic
+> offers became per moment (`auto_offer_on`, §4.6, built), which is also what lets the W2
+> server advance a list while she's offline. Next: a W2 build plan.
 >
 > **W1e built 2026-10-06** (the local half of four requests from her after trying W1: custom
 > application questions, the waitlist as the main workflow with PDF invoices/receipts, a
@@ -277,7 +278,7 @@ defaults in `waitlistRules.waitlistConfig()`, so an old kennel with no config ju
 | `no_response_counts_as_pass` | `true` | Q3, decided yes |
 | `color_matching` | `false` | Q4. Off: colors are notes only. |
 | `checkin_months` | `6` | W3 check-ins (§10.2) |
-| `auto_advance` | *to confirm* | **W2, new (Q13, decided 2026-10-08).** On: when an offer's deadline passes while her device is offline, the server records the outcome and offers the turn to the next family (§8.4). Off: nothing moves until her device does. Not in `WAITLIST_CONFIG_DEFAULTS` yet. |
+| `auto_offer_on` | `[]` (none) | **Which moments offer the next family by themselves** (`vocab.WAITLIST_AUTO_OFFER_TRIGGER`): `accepted` (deposit received), `passed`, `no_response` (deadline passed), `left` (a family holding a turn left the list). Unticked moments return who's next and she offers. Replaced the all-or-nothing `auto_offer_next` on 2026-10-08 (a kennel still storing `auto_offer_next: true` reads as all four, `waitlistRules.waitlistConfig`). **W2 (Q13):** the server advances while her device is offline only for the moments ticked here (§8.4). |
 
 **Every window is hers (Q18, decided 2026-10-08):** the offer window (`respond_days`, or a
 program's `respond_days_override`), the fee window (`fee_due_days`) and, in W3, the
@@ -631,19 +632,23 @@ set of actions it can take on its own**:
 - send scheduled reminders and deadline messages (§10).
 
 **Deadlines and turn-passing need care.** If a deadline expires while her device is
-offline, should the server move the turn on by itself? **Decided 2026-10-08 (Q13): only if
-her `auto_advance` setting is on** (§4.6). Off, the server sends the deadline's reminders
-but records nothing and offers nothing; the past-due offer waits for her device (as a
-suggested action, §6.5). On, the server moves the turn within a narrow, explicit role, so
-her device stays the single source of truth:
+offline, should the server move the turn on by itself? **Decided 2026-10-08 (Q13): the
+server follows her existing automatic-offers setting, `auto_offer_on` (§4.6), moment by
+moment.** It's off for every moment by default. For a moment she hasn't ticked (a deadline
+passing, a family tapping Pass or Leave the list on the status page), the server sends the
+deadline's reminders and records the family's response as a pending event, but offers
+nobody; the turn waits for her device (a past-due offer as a suggested action, §6.5). For a
+ticked moment, the server moves the turn within a narrow, explicit role, so her device
+stays the single source of truth:
 
 - **Her device makes every decision; the server only walks a list she published.** With
   each projection, her device publishes, per litter with open picks, **every eligible
   family in order, however many** (with the pups each is eligible for), computed by
   `waitlistRules.js` on her device. The server never re-runs the rules over its own data.
-- **The server may do exactly two things on its own:** expire an offer whose deadline has
-  passed (recording `no_response`), and offer the turn to the next family on that
-  published list. If the list runs out, it stops and waits for her device.
+- **The server may do exactly two things on its own, and only for ticked moments:** expire
+  an offer whose deadline has passed (recording `no_response`, when `no_response` is
+  ticked), and offer the turn to the next family on that published list (after any ticked
+  moment). If the list runs out, it stops and waits for her device.
 - **Every server move carries the projection version it was based on.** On sync, her
   device applies a server move automatically only if nothing it touches (that entry, that
   litter's offers, those pups) has changed locally since that version. Otherwise the move
@@ -847,8 +852,9 @@ W1 is a full feature on its own and doesn't wait for the cloud work.
     or a band ("near the top")?~~ **Decided 2026-10-06: exact positions, publicly** (§15.3).
 13. ~~**Server moves the turn on by itself** when a deadline passes and her phone is offline,
     limited to the list her device published (leaning yes, §8.4)? And how many families
-    deep should that published list go?~~ **Decided 2026-10-08: only when her
-    `auto_advance` setting is on** (§4.6, §8.4); off, nothing advances while she's offline.
+    deep should that published list go?~~ **Decided 2026-10-08: only for the moments ticked
+    in her automatic-offers setting, `auto_offer_on`** (§4.6, §8.4; none by default); for
+    the rest, nothing advances while she's offline.
     **The published list is every eligible family, however many.** The public list page
     likewise shows everyone, with a search box so families can find themselves (§15.3).
 14. **Program link in cloud backup**, or private?
@@ -1128,7 +1134,9 @@ picks open.
    they're next again after); the undo is refused if that family has already picked a pup.
 4. **Automatic offers are a setting**, `waitlist_config.auto_offer_next`. *Decided:* **off by
    default**, so every offer comes from a button she presses (Open picks / Offer to them /
-   Offer a litter…). With it off, the app only says who's next.
+   Offer a litter…). With it off, the app only says who's next. **Changed 2026-10-08:** now
+   per moment, `auto_offer_on` (§4.6): she ticks which closings (accepted, passed, no
+   response, left the list) offer the next family by themselves. Still none by default.
 5. **Switch the pup.** A family who picked the wrong pup can be switched (Change pup…) while
    the deposit is pending, and after the deposit as long as nobody else has been offered
    that litter since. The same Sale moves to the new pup.

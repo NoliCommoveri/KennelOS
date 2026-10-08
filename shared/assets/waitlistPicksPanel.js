@@ -17,7 +17,7 @@ import * as actions from '../data/waitlistActions.js';
 import {
   waitlistConfig, litterQueue, nextFamilyForLitter, eligiblePupsFor, isPupAvailable,
   overallPositions, entryName, describeOfferChanges, soonFamiliesForLitter,
-  isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker
+  isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker, autoOffers, autoOfferSummary
 } from '../data/waitlistRules.js';
 import { WAITLIST_OFFER_OUTCOME, SEX } from '../data/vocab.js';
 import { esc, badge, fmtDate, todayYMD, confirmModal, alertModal } from './ui.js';
@@ -149,7 +149,7 @@ export async function renderWaitlistPicksPanel({ mount, litter, onChange = async
           : `<button class="btn btn-primary btn-sm" data-pk="open"${available.length ? '' : ' disabled title="No pups available to offer."'}>Open picks</button>`}</div>
       </div>
       <p class="field-hint" style="margin:6px 0 0;">${picksOpen
-        ? `Picks opened ${esc(fmtDate(litter.picks_opened_date))}. One family at a time, in list order; families with no matching pup, paused, or listening only for other sires or dams are skipped and nothing is held against them. A pup is only theirs once the deposit is in. ${d.config.auto_offer_next ? 'When an offer closes, the next family is offered automatically.' : 'When an offer closes, you offer the next family with "Offer to them".'} Nothing is sent automatically, so tell each family yourself.`
+        ? `Picks opened ${esc(fmtDate(litter.picks_opened_date))}. One family at a time, in list order; families with no matching pup, paused, or listening only for other sires or dams are skipped and nothing is held against them. A pup is only theirs once the deposit is in. ${autoOfferSummary(d.config)} Nothing is sent automatically, so tell each family yourself.`
         : `${available.length} pup${available.length === 1 ? '' : 's'} available. Opening picks offers the first eligible family their turn (${esc(d.config.respond_days)} days to pick and pay the deposit).`}</p>
       ${openHtml}
       ${nextHtml}
@@ -186,9 +186,9 @@ export async function renderWaitlistPicksPanel({ mount, litter, onChange = async
     if (offer) await alertModal(offeredMessage(offer, await freshEntries(litter), familyName));
   });
 
-  const turnNote = d.config.auto_offer_next
+  const turnNote = (outcome) => (autoOffers(d.config, outcome)
     ? 'The turn moves to the next eligible family.'
-    : 'Nobody is offered automatically; you\'ll see who\'s next.';
+    : 'Nobody is offered automatically; you\'ll see who\'s next.');
 
   if (open) {
     const entry = entriesById.get(open.entry_id);
@@ -221,7 +221,7 @@ export async function renderWaitlistPicksPanel({ mount, litter, onChange = async
       on(outcome, async () => {
         const title = outcome === 'passed' ? `${name} passed on this litter?`
           : open.chosen_dog_id ? `No deposit from ${name}?` : `${name} didn't respond in time?`;
-        if (!(await confirmModal({ title, message: `${turnNote}${lapse}`, confirmLabel: 'Record it' }))) return;
+        if (!(await confirmModal({ title, message: `${turnNote(outcome)}${lapse}`, confirmLabel: 'Record it' }))) return;
         const res = await actions.recordOutcome(open.id, outcome);
         await alertModal(await outcomeMessage(name, res, await freshEntries(litter), familyName));
       });

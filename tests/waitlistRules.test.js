@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  waitlistConfig, WAITLIST_CONFIG_DEFAULTS, feeForEntry, isFeeWaived, feeDueDate, respondByDate,
+  waitlistConfig, WAITLIST_CONFIG_DEFAULTS, autoOffers, autoOfferSummary, feeForEntry, isFeeWaived, feeDueDate, respondByDate,
   anchorDate, isMovedByBreeder, rankedList, overallPositions,
   isPupAvailable, pupMatchesPrefs, prefColorTokens, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, isListeningFor, eligiblePupsFor,
   litterQueue, nextFamilyForLitter, hasOpenOffer, turnSpent,
@@ -56,8 +56,8 @@ test('waitlistConfig: no kennel / no config → defaults; blank values fall back
   assert.equal(c.fee_amount, 250);
   assert.equal(c.no_response_counts_as_pass, true, 'Q3 decided: no response counts by default');
   assert.equal(c.color_matching, false);
-  assert.equal(c.auto_offer_next, false, 'decided 2026-10-06: offers are made by her unless she turns this on');
-  assert.equal(waitlistConfig({ waitlist_config: { auto_offer_next: true } }).auto_offer_next, true);
+  assert.deepEqual(c.auto_offer_on, [], 'decided 2026-10-06: offers are made by her unless she turns this on');
+  assert.equal('auto_offer_next' in c, false, 'replaced by auto_offer_on (2026-10-08)');
 });
 
 test('fees: a program override wins, 0 means waived, and a blank override is the normal fee', () => {
@@ -644,4 +644,21 @@ test('prefChangeEffect: next-for litters they would be skipped on, and open offe
   assert.deepEqual(withOffer.skippedLitters, [], 'an offer is open, so nobody is "next"');
   assert.deepEqual(prefChangeEffect(a, { pref_sex: 'any' }, { ...opts, offers: [o] }),
     { narrowed: [], openOffers: [], skippedLitters: [] }, 'widening has nothing to warn about');
+});
+
+test('automatic offers are per moment; the old all-or-nothing switch still means every moment (Spec §4.6)', () => {
+  const none = waitlistConfig({ waitlist_config: {} });
+  for (const t of ['accepted', 'passed', 'no_response', 'left']) assert.equal(autoOffers(none, t), false, t);
+  const legacy = waitlistConfig({ waitlist_config: { auto_offer_next: true } });
+  for (const t of ['accepted', 'passed', 'no_response', 'left']) assert.equal(autoOffers(legacy, t), true, t);
+  assert.equal(autoOffers(waitlistConfig({ waitlist_config: { auto_offer_next: false } }), 'passed'), false);
+  const some = waitlistConfig({ waitlist_config: { auto_offer_next: true, auto_offer_on: ['accepted', 'no_response'] } });
+  assert.equal(autoOffers(some, 'accepted'), true);
+  assert.equal(autoOffers(some, 'no_response'), true);
+  assert.equal(autoOffers(some, 'passed'), false, 'the new list wins over the old switch');
+  assert.equal(autoOffers(some, 'left'), false);
+  assert.equal(autoOffers(some, undefined), false);
+  assert.match(autoOfferSummary(some), /accepts a pup or lets the deadline pass/);
+  assert.match(autoOfferSummary(none), /you offer the next family/);
+  assert.match(autoOfferSummary(legacy), /offered automatically\.$/);
 });

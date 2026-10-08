@@ -8,10 +8,11 @@
 // W1 sends nothing: no emails, no status page. She messages families herself.
 // Nothing here runs on page load: every write follows a tap (Spec §0).
 //
-// When are offers made without her picking the family? Only when she has turned on
-// automatic offers (waitlist_config.auto_offer_next — OFF by default, decided
-// 2026-10-06) and an offer on that same litter closes (deposit received / passed /
-// no response, or the family left the list while holding it) — the turn moves on,
+// When are offers made without her picking the family? Only when an offer on that
+// same litter closes (deposit received / passed / no response, or the family left
+// the list while holding it) AND she has turned automatic offers on for that moment
+// (waitlist_config.auto_offer_on — none by default, decided 2026-10-06; per moment
+// since 2026-10-08, waitlistRules.autoOffers) — the turn moves on,
 // and every such offer is RETURNED so the page can tell her who to contact. With
 // automatic offers off, the same moments return who is next (`waiting`) and offer
 // nobody. Actions on one family (fee received, a fee-waived approval, an undo)
@@ -36,7 +37,7 @@ import { todayYMD } from './dateUtils.js';
 import {
   waitlistConfig, feeForEntry, feeDueDate, anchorDate, canUndoRemoval, passToForgive,
   nextFamilyForLitter, respondByDate, countsAsPass, shouldRemoveForPasses, passesUsed, isPupAvailable,
-  hasOpenOffer, turnSpent, eligiblePupsFor, isAwaitingDeposit, canSwitchAcceptedPick, undoPassBlocker
+  hasOpenOffer, turnSpent, eligiblePupsFor, isAwaitingDeposit, canSwitchAcceptedPick, undoPassBlocker, autoOffers
 } from './waitlistRules.js';
 
 const nowISO = () => new Date().toISOString();
@@ -313,7 +314,7 @@ async function releaseOpenOffers(entryId, { date = todayYMD(), why, exceptOfferI
       outcome: 'voided', outcome_date: date, counts_as_pass: false,
       notes: appendNote(o.notes, `Voided automatically: ${why}.`)
     }));
-    const moved = await moveTurnOn(o.litter_id, { today: date });
+    const moved = await moveTurnOn(o.litter_id, { today: date, trigger: 'left' });
     if (moved.next) offered.push(moved.next);
     if (moved.waiting) waiting.push(moved.waiting);
   }
@@ -321,12 +322,13 @@ async function releaseOpenOffers(entryId, { date = todayYMD(), why, exceptOfferI
 }
 
 // The turn on this litter moved on (an offer closed, or its family left the list).
-// With automatic offers on, the next family is offered now (picks must be open);
-// with them off (the default), nobody is offered and the family who's next is
-// returned so the page can tell her. Returns { next, waiting } — at most one set.
-async function moveTurnOn(litterId, { today = todayYMD() } = {}) {
+// `trigger` is how it closed: accepted / passed / no_response / left. With automatic
+// offers on for that moment, the next family is offered now (picks must be open);
+// otherwise (the default) nobody is offered and the family who's next is returned
+// so the page can tell her. Returns { next, waiting } — at most one set.
+async function moveTurnOn(litterId, { today = todayYMD(), trigger } = {}) {
   const c = await litterContext(litterId);
-  if (c.config.auto_offer_next) return { next: await offerNext(litterId, { today }), waiting: null };
+  if (autoOffers(c.config, trigger)) return { next: await offerNext(litterId, { today }), waiting: null };
   if (c.litter.is_archived) return { next: null, waiting: null };
   const n = nextFamilyForLitter(c.entries, c.offers, c.litter, c.pups, c.sales, {
     today, config: c.config, programsById: c.programsById
@@ -335,8 +337,8 @@ async function moveTurnOn(litterId, { today = todayYMD() } = {}) {
 }
 
 // Fold moveTurnOn's answer into an action's result.
-async function finishTurn(result, litterId, today) {
-  const moved = await moveTurnOn(litterId, { today });
+async function finishTurn(result, litterId, today, trigger) {
+  const moved = await moveTurnOn(litterId, { today, trigger });
   result.next = moved.next;
   if (moved.waiting) result.waiting = [...(result.waiting || []), moved.waiting];
   return result;
@@ -467,7 +469,7 @@ export async function confirmDeposit(offerId, { date = todayYMD(), amount } = {}
   await waitlistEntryRepo.update(entry.id, { status: 'placed', placed_sale_id: sale.id });
   // Their other open offers end too — never a pass (Spec §6.4 leaning).
   Object.assign(result, await releaseOpenOffers(entry.id, { date, why: 'the family accepted a pup from another litter', exceptOfferId: offerId }));
-  return finishTurn(result, offer.litter_id, date);
+  return finishTurn(result, offer.litter_id, date, 'accepted');
 }
 
 // Undo a pass or no response (Spec §6.4): the family is next in line for this
@@ -578,5 +580,5 @@ export async function recordOutcome(offerId, outcome, { date = todayYMD(), chose
     throw new Error(`Unknown outcome "${outcome}".`);
   }
 
-  return finishTurn(result, offer.litter_id, date);
+  return finishTurn(result, offer.litter_id, date, outcome);
 }

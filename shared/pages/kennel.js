@@ -20,7 +20,7 @@ import { contactRepo } from '../data/contactRepo.js';
 import { expenseRepo } from '../data/expenseRepo.js';
 import { getIncomeRows, summarize } from '../data/incomeView.js';
 import { getActiveKennelId, setActiveKennel } from '../data/kennelScope.js';
-import { DOG_STATUS, LITTER_STATUS, SALE_STATUS, FEE_CREDIT_POLICY } from '../data/vocab.js';
+import { DOG_STATUS, LITTER_STATUS, SALE_STATUS, FEE_CREDIT_POLICY, WAITLIST_AUTO_OFFER_TRIGGER } from '../data/vocab.js';
 import { editionFlags } from '../data/editionConfig.js';
 import { waitlistConfig, SOON_NOTICE_DEFAULT } from '../data/waitlistRules.js';
 import { esc, badge, fmtDate, fmtMoney, param } from '../assets/ui.js';
@@ -372,8 +372,10 @@ function waitlistCard(k) {
         <div class="field field-wide">
           <label class="check-inline"><input id="wl-noresp" type="checkbox"${c.no_response_counts_as_pass ? ' checked' : ''}> No response by the deadline counts as a pass</label>
           <label class="check-inline"><input id="wl-colors" type="checkbox"${c.color_matching ? ' checked' : ''}> Match on color (only offer pups in a color the family listed)</label>
-          <label class="check-inline"><input id="wl-auto" type="checkbox"${c.auto_offer_next ? ' checked' : ''}> Offer the next family automatically when an offer closes</label>
-          <span class="field-hint">Off: every offer is made by you, with "Offer to them" or "Offer a litter…"; the app just tells you who's next.</span>
+        </div>
+        <div class="field field-wide"><label>Offer the next family automatically when…</label>
+          ${WAITLIST_AUTO_OFFER_TRIGGER.map((t) => `<label class="check-inline"><input type="checkbox" data-wl-auto="${esc(t.value)}"${c.auto_offer_on.includes(t.value) ? ' checked' : ''}> ${esc(t.label)}</label>`).join('')}
+          <span class="field-hint">Unticked: you make that offer yourself, with "Offer to them" or "Offer a litter…"; the app just tells you who's next.</span>
         </div>
         <div class="field field-wide"><label for="wl-soon-text">"Almost your turn" message</label>
           <textarea id="wl-soon-text" style="min-height:130px;">${esc(c.soon_notice_text || SOON_NOTICE_DEFAULT)}</textarea>
@@ -397,10 +399,11 @@ async function onSaveWaitlist() {
     payment_instructions: q('#wl-instructions').value.trim(),
     no_response_counts_as_pass: q('#wl-noresp').checked,
     color_matching: q('#wl-colors').checked,
-    auto_offer_next: q('#wl-auto').checked,
+    auto_offer_on: [...els.config.querySelectorAll('[data-wl-auto]:checked')].map((b) => b.dataset.wlAuto),
     // Stored only when she's changed it, so the default wording stays the default.
     soon_notice_text: q('#wl-soon-text').value.trim() === SOON_NOTICE_DEFAULT.trim() ? '' : q('#wl-soon-text').value.trim()
   };
+  delete waitlist_config.auto_offer_next; // replaced by auto_offer_on (2026-10-08)
   if (waitlist_config.max_passes != null && waitlist_config.max_passes < 1) { showError('Passes before removal must be at least 1.'); return; }
   try {
     await kennelRepo.update(kennel.id, { waitlist_config });

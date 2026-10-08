@@ -37,7 +37,7 @@ import { showRecordFrom } from './showPoints.js';
 import { waitlistEntryRepo } from './waitlistEntryRepo.js';
 import { waitlistOfferRepo } from './waitlistOfferRepo.js';
 import { contactRepo } from './contactRepo.js';
-import { overdueOffers, overdueFees, canUndoRemoval, entryName, describeOfferChanges, waitlistConfig } from './waitlistRules.js';
+import { overdueOffers, overdueFees, canUndoRemoval, entryName, describeOfferChanges, waitlistConfig, autoOffers } from './waitlistRules.js';
 import { recordOutcome, markFeeExpired, undoRemoval } from './waitlistActions.js';
 
 const TERMINAL_PAIRING_STATUSES = ['cancelled', 'failed'];
@@ -394,7 +394,7 @@ async function waitlistNudges(today, litters, dogsById) {
       // A family that picked a pup but never sent the deposit: same outcome (their
       // pick lapses and the held Sale is cancelled), worded for the deposit.
       title: o.chosen_dog_id ? `${name(e)}'s deposit didn't arrive in time` : `${name(e)}'s offer deadline passed`,
-      detail: `${l ? litterLabel(l, dogsById) : 'Litter'} — they had until ${o.respond_by_date}${o.chosen_dog_id ? ' to send the deposit for their pick. Recording no deposit frees the pup' : '. Recording no response closes their turn'}${waitlistConfig(kennelsById.get(o.kennel_id)).auto_offer_next ? ' and offers the next family' : ''}.`,
+      detail: `${l ? litterLabel(l, dogsById) : 'Litter'} — they had until ${o.respond_by_date}${o.chosen_dog_id ? ' to send the deposit for their pick. Recording no deposit frees the pup' : '. Recording no response closes their turn'}${autoOffers(waitlistConfig(kennelsById.get(o.kennel_id)), 'no_response') ? ' and offers the next family' : ''}.`,
       subjectHref: `litter.html?id=${encodeURIComponent(o.litter_id)}`,
       actions: [{
         label: o.chosen_dog_id ? 'Record no deposit' : 'Record no response',
