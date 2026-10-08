@@ -529,6 +529,11 @@ address.
 - **The vault is a prerequisite.** W2 doesn't ship until the private vault (Proposal §6.3,
   Phase 2b) does (§12). Without it the private key would live only on her phone, and losing
   or resetting the phone would make every application encrypted to it unreadable for good.
+  **Prerequisite built 2026-10-07** (`KennelOS_Private_Vault_Plan.md`; released behind
+  `VAULT_RELEASED`). What the vault carries is the full `exportAll` rows, encrypted (its §4.1),
+  so a form key kept in a data table (classified `private` in `syncRegistry.js`) rides it with
+  no vault change; one kept in the device-only `device_secrets` table would not. Where the key
+  lives is W2's decision.
 - **At setup** her device creates a key pair. The private key is wrapped into the vault
   immediately, so a new phone that opens the vault can read the inbox. The public key is
   published with her form.
@@ -656,7 +661,9 @@ every time zone. A daily job purges acknowledged inbox blobs after 30 days and t
 **Pro entitlement on the server.** Every `/waitlist/*` route for her (not the public form
 or status page) requires a signed-in account with a server-known Pro license. That needs
 the Lemon Squeezy webhook → Worker link from Proposal Phase 5, brought forward for these
-routes only (§12). The webhook is matched to her account by email hash (Proposal §4). The browser-side license check stays the base path for the app itself
+routes only (§12). The webhook is matched to her account by email hash (Proposal §4).
+Plan: `docs/KennelOS_License_Link_Plan.md`; its server half (`requirePro`, which W2's routes
+call) is built. The browser-side license check stays the base path for the app itself
 (Proposal §2a). On top of that, every account has per-route rate limits and a monthly
 spending cap on the assistant routes (§10), whatever its edition.
 
@@ -685,8 +692,8 @@ holds were dropped. The line is now drawn by **whose data it is**:
   still has the full answers keeps them.
 - **Still private:** each family's fee amount and payment details, every other
   application answer, `pause_reason`, notes, and the change history. These are recovered
-  by the **private vault**, which is now scheduled right after Cloud Phase 1 (Proposal §9)
-  and required before W2. Until then, by file backups.
+  by the **private vault** (built 2026-10-07, required before W2) when it's on; otherwise by
+  file backups.
 - **Fields added after this table:** `listen_sire_ids`/`listen_dam_ids` (`listen_*`),
   `soon_notified_date` and `fee_received_at` (date fields; `fee_received_at` is the
   same-day tie-breaker of the order), and offers' `picked_date` and `sale_id` are cloud.

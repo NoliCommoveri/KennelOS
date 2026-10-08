@@ -158,13 +158,19 @@ KennelOS/
                                app.js before the license gate), the device list, remote
                                erase + this device's self-wipe, freeing a device's Pro
                                license with Lemon Squeezy (the key never goes to our server)
+      cloudEntitlement.js      Is this cloud account Pro on the server? (License Link Plan):
+                               the entitlement (cached), linking another purchase email by
+                               code. Gates only server features (W2); the app stays gated
+                               by license.js
       vaultCrypto.js           The private vault's WebCrypto (Private Vault Plan §3.2):
                                codes, the vault key, KEKs, wraps, payload/file ciphertext
       vaultKeyStore.js         This device's unlocked vault key, and its open request to be
                                unlocked by another device, in device_secrets (§30)
+      vaultPasskey.js          WebAuthn + PRF for passkey unlock (no db, no network): the
+                               RP ID, support check, make a passkey / get its PRF output
       cloudVault.js            Vault flows: turn on with a recovery code, unlock (with the
-                               code, or from another unlocked device), merge the private
-                               tier in, new recovery code, turn off
+                               code, a passkey, or from another unlocked device), merge the
+                               private tier in, add/remove passkeys, new recovery code, turn off
     dogRepo / contactRepo / kennelRepo / pairingRepo / litterRepo /
       saleRepo / contractRepo / studServiceRepo / eventRepo / expenseRepo /
       documentRepo   Entity repos
@@ -249,9 +255,10 @@ KennelOS/
                                "Your devices" (erase / free a Pro license) (§11), and the
                                record pages' "private details are blank here" hint.
                                Loaded only when the edition has a cloud server
-    cloudVaultUI.js            The private vault's screens (§30): turn on + recovery code,
-                               unlock (code / another device / not now), approve another
-                               device, new recovery code, turn off. Loaded by
+    cloudVaultUI.js            The private vault's screens (§30): turn on + recovery code
+                               (+ the passkey offer), unlock (passkey / code / another
+                               device / not now), approve another device, passkeys, new
+                               recovery code, turn off. Loaded by
                                cloudBackupUI.js only, on first use
     sampleDataUI.js            Sample-data banner + Clear-sample-data flow
     kennelSetupUI.js           Kennel-setup prompt/wizard + seed prefill
@@ -3077,11 +3084,14 @@ shape of it as built, for orientation.
   looks like a half-empty device; Reset App turns backup off.
 - **A lost device** (plan §2.5): from another signed-in device, erase it (it wipes itself
   the next time it opens the app online) and, in Pro, free its license slot.
-- **The private vault** (`docs/KennelOS_Private_Vault_Plan.md`; built except passkeys):
+- **The private vault** (`docs/KennelOS_Private_Vault_Plan.md`; built):
   an opt-in, end-to-end encrypted copy of the **complete** records beside the kennel tier.
   One AES-GCM key per program, held unlocked on each device in `device_secrets`
-  (`vaultKeyStore.js`); the server keeps only wraps of it (a recovery code now; passkeys
-  are a later step) and ciphertext. A device can also be unlocked by another, already
+  (`vaultKeyStore.js`); the server keeps only wraps of it (one under the recovery code, one
+  per passkey) and ciphertext. A **passkey** (`vaultPasskey.js`, WebAuthn PRF, RP ID
+  `kennelos.app` so Lite and Pro share it) never signs in and is never verified by the
+  server: its PRF output for a stored random salt is the key that opens its own wrap. Offered
+  only where the browser can do PRF; the recovery code stays required. A device can also be unlocked by another, already
   unlocked one: the server relays an ECDH exchange salted with a 12-character code the
   user types on the approver, so it can't open what it relays. With it on and unlocked, every push
   also uploads the encrypted vault part (before the body) and the content hash covers the
@@ -3095,18 +3105,28 @@ shape of it as built, for orientation.
   `?cloud=staging`); everyone else sees Phase 1's card and flows. The data layer ignores it.
   **UI:** offered right after the first backup in "Turn on cloud backup" and from the card;
   the recovery code is shown once (Print / Save to Files / Copy) and its last 4 characters
-  typed back before anything is sent. The restore paths (first-run "sign in and restore",
-  and the 409's "restore that backup here") ask to unlock first: recovery code, another
-  device, or Not now. After a restore that left private details blank (`cloudRestoredAt`),
+  typed back before anything is sent; then, where passkeys can work, "Unlock with a passkey
+  next time?" (skippable). The card's Private backup section has Passkeys… (list, add on an
+  unlocked device, remove with a fresh sign-in). The restore paths (first-run "sign in and restore",
+  and the 409's "restore that backup here") ask to unlock first: passkey (when the vault
+  has one and the browser can try), recovery code, another device, or Not now. After a restore that left private details blank (`cloudRestoredAt`),
   the record pages that hold them show a hint pointing at Unlock (or a file backup); an
   unlock that merges the private tier clears it.
+
+- **The Pro license link** (`docs/KennelOS_License_Link_Plan.md`): the server learns of Pro
+  purchases from Lemon Squeezy's webhook, by the keyed hash of the purchase email, and
+  answers `GET /account/entitlement`. In Pro only (`isLicenseGated()`), the card's Account
+  section shows whether this account is Pro on the server, with **Link a Pro purchase
+  email…** (a code to that address) and **Unlink purchase emails**
+  (`cloudEntitlement.js`). It gates the server's own features (the waitlist's W2), never the
+  app: `license.js` still decides that, with or without a server.
 
 ### Where it lives
 - **Server:** `cloud/` (one Cloudflare Worker + D1 + R2; staging and production are the
   top level and `[env.production]` of `cloud/wrangler.toml`). Deployed by Workers Builds,
   never by `deploy.yml`, and not part of any edition. Operated from its `/ops` page.
 - **Client:** `data/cloud/` (`cloudConfig`, `cloudApi`, `cloudAuth`, `cloudBackup`,
-  `cloudDevices`, and the vault's `vaultCrypto`, `vaultKeyStore`, `cloudVault`; §3) and `assets/cloudBackupUI.js` +
+  `cloudDevices`, `cloudEntitlement`, and the vault's `vaultCrypto`, `vaultKeyStore`, `vaultPasskey`, `cloudVault`; §3) and `assets/cloudBackupUI.js` +
   `assets/cloudVaultUI.js` (§3, §11). `editionConfig` supplies
   `cloudUrl` (production) and `devCloudUrl` (staging, for localhost and the
   `?cloud=staging` test switch).

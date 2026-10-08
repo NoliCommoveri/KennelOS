@@ -18,6 +18,7 @@ import { mailMode, sendTestEmail } from './mail.js';
 import { hmacHex, timingSafeEqual } from './lib/crypto.js';
 import { readCookie } from './lib/http.js';
 import { escapeHtml as esc } from './lib/html.js';
+import { importFromLemonSqueezy } from './license.js';
 
 const COOKIE = 'ops_session';
 const SESSION_SECONDS = 12 * 60 * 60;
@@ -135,6 +136,9 @@ ${migrations.some((m) => m.state === 'drifted' || m.state === 'orphaned')
     : health.mail === 'outbox' ? 'staging outbox (codes shown below, not emailed)'
     : '<span class="bad">none: sign-in is refused until <code>RESEND_API_KEY</code> is set</span>'}</td></tr>
   <tr><td>Schema version</td><td>${esc(health.schema_version ?? 'none')}</td></tr>
+  <tr><td>Pro license webhook</td><td>${health.license.ready
+    ? `<span class="ok">ready</span> <span class="muted">(${health.license.testMode ? 'test-mode purchases' : 'live purchases'}, ${esc(health.license.products)} product(s))</span>`
+    : `<span class="bad">not configured</span> <span class="muted">secret <code>LEMONSQUEEZY_WEBHOOK_SECRET</code> ${health.secrets.LEMONSQUEEZY_WEBHOOK_SECRET ? 'set' : 'missing'}, <code>LS_STORE_ID</code> ${health.license.storeSet ? 'set' : 'missing'}, <code>LS_PRO_PRODUCT_IDS</code> ${health.license.products ? 'set' : 'missing'}; webhooks answer 503</span>`}</td></tr>
 </table>
 ${countRows ? `<h2>Rows</h2><table>${countRows}</table>` : ''}
 ${behind || !health.d1.reachable ? '<p class="muted">The sections below appear once every migration is applied.</p>' : await currentSections(env)}`);
@@ -169,7 +173,37 @@ ${results.length
 </form>`
     : '';
 
-  return `${outbox}${testEmail}
+  // The Pro license link (License Link Plan §4): counts and a time, never a row.
+  const { results: purchases } = await env.DB.prepare(
+    `SELECT plan, CASE WHEN access_until IS NULL OR access_until > ? THEN 'active' ELSE 'ended' END AS state, COUNT(*) AS n
+       FROM pro_purchases GROUP BY plan, state ORDER BY plan, state`,
+  ).bind(new Date().toISOString()).all();
+  const lastWebhook = await env.DB.prepare('SELECT MAX(received_at) AS t FROM pro_purchases').first('t');
+  const linkedAccounts = await env.DB.prepare('SELECT COUNT(DISTINCT user_id) AS n FROM license_links').first('n');
+  const sharedLinks = await env.DB.prepare(
+    'SELECT COUNT(*) AS n FROM (SELECT email_hash FROM license_links GROUP BY email_hash HAVING COUNT(*) > 1)',
+  ).first('n');
+  const license = `<h2>Pro license link</h2>
+<p class="muted">Pro purchases Lemon Squeezy has told us about, by email hash. Counts only.</p>
+${purchases.length
+    ? `<table><tr><th>plan</th><th>access</th><th>purchases</th></tr>${purchases
+      .map((r) => `<tr><td>${esc(r.plan)}</td><td>${esc(r.state)}</td><td>${esc(r.n)}</td></tr>`).join('')}</table>`
+    : '<p class="muted">None yet.</p>'}
+<table>
+  <tr><td>Last purchase update received</td><td class="muted">${esc(lastWebhook ?? 'never')}</td></tr>
+  <tr><td>Accounts with a linked purchase email</td><td>${esc(linkedAccounts)}</td></tr>
+  <tr><td>Purchase emails linked to more than one account</td><td>${esc(sharedLinks)}</td></tr>
+</table>
+<h3>Import from Lemon Squeezy</h3>
+<p class="muted">One-off, for purchases made before the webhook existed. Make a new API key in Lemon Squeezy
+  (Settings → API), paste it here, then delete the key there. It is used for this import only and not kept.
+  Purchases already recorded are left as they are unless Lemon Squeezy's copy is newer.</p>
+<form method="post" action="/ops/license-import">
+  <p><label>Lemon Squeezy API key<br><input type="password" name="api_key" autocomplete="off"></label></p>
+  <button type="submit">Import purchases</button>
+</form>`;
+
+  return `${outbox}${testEmail}${license}
 <h2>Service notices</h2>
 ${noticeRows ? `<table>${noticeRows}</table>` : '<p class="muted">No active notices.</p>'}
 <form method="post" action="/ops/notices">
@@ -258,6 +292,13 @@ async function route(request, env) {
   if (url.pathname === '/ops/test-email' && request.method === 'POST') {
     const r = await sendTestEmail(env, (await request.formData()).get('email'));
     return dashboard(env, r.ok ? '<p class="ok">Sent. Check that inbox, and its spam folder.</p>' : `<p class="bad">${esc(r.reason)}</p>`);
+  }
+
+  if (url.pathname === '/ops/license-import' && request.method === 'POST') {
+    const r = await importFromLemonSqueezy(env, (await request.formData()).get('api_key'));
+    return dashboard(env, r.ok
+      ? `<p class="ok">Imported from Lemon Squeezy: read ${esc(r.subscriptions)} subscriptions and ${esc(r.orders)} orders; ${esc(r.stored)} Pro purchase(s) recorded. Now delete that API key in Lemon Squeezy.</p>`
+      : `<p class="bad">${esc(r.reason)}</p>`);
   }
 
   if (url.pathname === '/ops/retention' && request.method === 'POST') {

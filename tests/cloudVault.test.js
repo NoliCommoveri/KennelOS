@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import { installMemoryDb } from './support/memoryDb.js';
 import { makeEnv, lastCode } from '../cloud/tests/helpers/env.js';
 import { worker } from '../cloud/tests/helpers/worker.js';
+import { installFakePasskeys, uninstallFakePasskeys } from './support/fakePasskeys.js';
 
 let tables;
 let env;
@@ -55,6 +56,7 @@ beforeEach(async () => {
   devices.clear();
   currentDevice = 'A';
   globalThis.fetch = workerFetch;
+  uninstallFakePasskeys();
 });
 
 // --- helpers -----------------------------------------------------------------
@@ -443,4 +445,89 @@ test('waiting: polls until approved, and stops when cancelled', async () => {
   });
   assert.equal(r.status, 'unlocked');
   assert.equal(r.merged, null);
+});
+
+// --- passkeys (§5.2) ---------------------------------------------------------------------------
+// The fake authenticator stands for a synced password manager: a passkey made
+// on A is there on B too.
+
+test('a passkey added on one device unlocks another; the private tier merges in', async () => {
+  const pk = installFakePasskeys();
+  await turnOnWithVault();
+  const before = await vault.vaultStatus();
+  assert.equal(before.passkeySupported, true);
+  assert.deepEqual(before.passkeys, []);
+  const { id } = await vault.addPasskey({ label: 'Made on Phone A' });
+  assert.equal(pk.creates[0].rp.id, 'localhost');
+  const st = await vault.vaultStatus();
+  assert.deepEqual(st.passkeys.map((p) => [p.id, p.label]), [[id, 'Made on Phone A']]);
+  assert.ok(!('credentialId' in st.passkeys[0]));
+
+  // The server holds the credential id and salt, never the PRF output.
+  const w = await api.getVaultWrap(auth.sessionToken(), id);
+  assert.equal(w.kind, 'passkey');
+  assert.ok(pk.store.has(w.credentialId));
+
+  await newDeviceRestores();
+  assert.equal(cb.getBackupStatus().vault, 'locked');
+  const { merged } = await vault.unlockWithPasskey();
+  assert.equal(merged.status, 'restored');
+  assert.equal(tables.contacts.rows.get('c1').phone, '555-0101');
+  assert.equal(await tables.files.rows.get('fc').blob.text(), '%PDF contract terms');
+  assert.equal(cb.getBackupStatus().vault, 'on');
+  const push = await cb.pushIfDirty({ force: true });
+  assert.equal(push.status, 'pushed');
+  assert.equal(push.vault, true);
+});
+
+test('passkeys: a duplicate is refused, one without PRF saves nothing, a locked device can\'t add', async () => {
+  const pk = installFakePasskeys();
+  await turnOnWithVault();
+  await vault.addPasskey();
+  await assert.rejects(vault.addPasskey(), { name: 'PasskeyError', code: 'exists' }, 'the same password manager');
+  assert.equal(pk.creates[1].excludeCredentials.length, 1);
+
+  pk.prfSupported = false;
+  pk.store.clear(); // a different authenticator, one without PRF
+  await assert.rejects(vault.addPasskey(), { name: 'PasskeyError', code: 'unsupported' });
+  assert.equal((await vault.vaultStatus()).passkeys.length, 1, 'nothing saved');
+
+  await newDeviceRestores();
+  pk.prfSupported = true;
+  await assert.rejects(vault.addPasskey(), { name: 'VaultSetupError', code: 'locked' });
+  await assert.rejects(vault.unlockWithPasskey(), { name: 'PasskeyError', code: 'cancelled' }, 'its passkey is not on this device');
+  assert.equal(cb.getBackupStatus().vault, 'locked');
+});
+
+test('passkeys: none set up; a removed one stops working; a new recovery code keeps them', async () => {
+  const pk = installFakePasskeys();
+  const code = await turnOnWithVault();
+  await assert.rejects(vault.unlockWithPasskey(), { name: 'VaultSetupError', code: 'no_passkey' });
+  const { id: first } = await vault.addPasskey({ label: 'one' });
+  const keep = new Map(pk.store);
+  pk.store.clear(); // a second password manager
+  await vault.addPasskey({ label: 'two' });
+  for (const [k, v] of keep) pk.store.set(k, v);
+
+  const d = vault.startNewRecoveryCode();
+  await vault.finishNewRecoveryCode(d, { confirmation: d.lastGroup });
+
+  switchDevice('B');
+  await signIn('breeder@example.com', 'Laptop B');
+  await vault.unlockWithPasskey({ merge: false });
+  assert.equal((await vault.vaultStatus()).unlocked, true, 'the passkey survived the new recovery code');
+  await vault.removePasskey(first);
+  assert.deepEqual((await vault.vaultStatus()).passkeys.map((p) => p.label), ['two']);
+
+  // C has only the first passkey's password manager: it can't unlock any more.
+  switchDevice('C');
+  await signIn('breeder@example.com', 'Tablet C');
+  for (const k of [...pk.store.keys()]) if (!keep.has(k)) pk.store.delete(k);
+  await assert.rejects(vault.unlockWithPasskey({ merge: false }), { name: 'PasskeyError', code: 'cancelled' });
+  await assert.rejects(vault.unlockWithRecoveryCode(code, { merge: false }), { name: 'VaultLockedError' });
+  await vault.unlockWithRecoveryCode(d.recoveryCode, { merge: false });
+
+  // Turning it off removes every passkey wrap with the rest.
+  await vault.disableVault();
+  assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM vault_wraps').get().n, 0);
 });

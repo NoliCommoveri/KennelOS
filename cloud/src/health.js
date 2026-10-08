@@ -1,9 +1,10 @@
 // What /ops shows about the bindings and the data. Counts only, never rows.
 import { migrationStatus } from './migrate.js';
 import { mailMode } from './mail.js';
+import { licenseConfig } from './license.js';
 
 export const TABLES = ['users', 'login_codes', 'sessions', 'programs', 'snapshots', 'files', 'snapshot_files', 'notices', 'device_erasures',
-  'vaults', 'vault_wraps', 'vault_pairings'];
+  'vaults', 'vault_wraps', 'vault_pairings', 'pro_purchases', 'license_links', 'license_link_codes'];
 
 export async function healthCheck(env) {
   const out = {
@@ -12,7 +13,9 @@ export async function healthCheck(env) {
     secrets: {
       OPS_TOKEN: Boolean(env.OPS_TOKEN),
       EMAIL_HMAC_KEY: Boolean(env.EMAIL_HMAC_KEY),
+      LEMONSQUEEZY_WEBHOOK_SECRET: Boolean(env.LEMONSQUEEZY_WEBHOOK_SECRET),
     },
+    license: (({ ready, storeId, productIds, testMode }) => ({ ready, storeSet: Boolean(storeId), products: productIds.size, testMode }))(licenseConfig(env)),
     mail: mailMode(env),
     schema_version: null,
     counts: {},

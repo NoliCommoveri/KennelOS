@@ -397,7 +397,12 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   preference, date added; paused families hidden with their number skipped). Programs are hers
   alone: `applicable_on_form` dropped. Tests: `waitlistForm.test.js`, `invoicePdf.test.js`. Still
   W2: the public list page, PDFs on the status page, kennel-name (no-reply) email, and the
-  online form itself. Next: W2 (needs the cloud Worker, vault and server-side license link).
+  online form itself. Next: W2 (needs the cloud Worker, vault and server-side license link;
+  the link's plan is `docs/KennelOS_License_Link_Plan.md`: server and client are built
+  (cloud migration `0006`, `cloud/src/license.js`; `shared/data/cloud/cloudEntitlement.js`
+  and Pro's "Pro on this account" line and **Link a Pro purchase email…** in the cloud
+  card's Account section; `cloudEntitlement.js` added to the precache, cache rolled to `kennelos-shell-v46`);
+  operator setup, including the owner's own license backfill, in `LAUNCH_CHECKLIST.md` §3c).
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass
@@ -495,7 +500,7 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
       the full answers;
     - family fees, payment details and every other answer stay private, for the vault;
     - **the private vault moves to right after Phase 1**, with a second-device unlock, and is
-      required before the waitlist's W2. **Build plan drafted:**
+      required before the waitlist's W2. **Built (all 7 steps), not yet released:**
       `docs/KennelOS_Private_Vault_Plan.md` (Phase 2b; decisions in its §10). Step 1, the
       vault's cryptography (`shared/data/cloud/vaultCrypto.js`, `tests/vaultCrypto.test.js`),
       step 2, the server (`cloud/src/vault.js`, cloud migration `0005`,
@@ -503,13 +508,21 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
       (`vaultKeyStore.js`, `cloudVault.js`, the vault half of `cloudBackup.js`, a new
       `'vault-merge'` restore mode and the device-only `device_secrets` table;
       `tests/cloudVault.test.js`), step 4, unlocking from another device (client
-      flows in `cloudVault.js`), and step 5, the UI (`shared/assets/cloudVaultUI.js`,
-      the card's two lines, the restore unlock step, the record-page hint), are built.
-      Hidden until released (`VAULT_RELEASED` in `cloudConfig.js`; offered only against
-      staging until then, `LAUNCH_CHECKLIST.md` §3b). Passkeys (step 6) are next. Service-worker cache rolled to `kennelos-shell-v44` for this
+      flows in `cloudVault.js`), step 5, the UI (`shared/assets/cloudVaultUI.js`,
+      the card's two lines, the restore unlock step, the record-page hint), step 6,
+      **passkeys** (WebAuthn PRF in `shared/data/cloud/vaultPasskey.js`; add / unlock /
+      remove in `cloudVault.js`; offered after turning it on, first in the unlock modal, and
+      under Private backup → Passkeys…; `tests/vaultPasskey.test.js` and passkey cases in
+      `tests/cloudVault.test.js`; browser-verified with Chromium's virtual PRF authenticator
+      in Pro and Lite), and step 7, the docs and the privacy policy (`site/privacy.html`: the
+      encrypted tier), are built. Hidden until released (`VAULT_RELEASED` in
+      `cloudConfig.js`; offered only against staging until then); the release, including a
+      passkey test on a real iPhone and Android phone, is `LAUNCH_CHECKLIST.md` §3b. Service-worker cache rolled to `kennelos-shell-v44` for this
       batch (the kennel-setup "Sign in to existing account" button, and `vaultCrypto.js` in
       the precache). Steps 3 and 5 add `cloudVault.js`, `vaultKeyStore.js` and
-      `cloudVaultUI.js` to the precache, rolled to `kennelos-shell-v45`;
+      `cloudVaultUI.js` to the precache, rolled to `kennelos-shell-v45`; step 6 adds
+      `vaultPasskey.js`, and the license link's client `cloudEntitlement.js`; rolled to
+      `kennelos-shell-v46` for that batch;
     - no readable private data on our server stays the default, with a per-user
       opt-in recovery switch as a fallback only if lock-outs show up in support.
 

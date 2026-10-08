@@ -72,6 +72,9 @@ snapshots with record-level sync and keeps this plan's auth, server, and registr
 ### 2.2 While it's on
 - **A status line** on the Import/Export card: "Backed up 4 minutes ago". If it's falling
   behind: "Not backed up for 3 days: no internet?"
+  With the private vault offered (Private Vault Plan §2.2, built), the card shows two lines:
+  "Kennel records: backed up 4 minutes ago" and "Private info: encrypted backup, 4 minutes
+  ago" (or "only on this device · last file backup …", or "locked on this device").
 - **When backups run** (only if something changed since the last push):
   - after a change, **at most once every 5 minutes** (the first change starts a 5-minute
     timer; more changes ride the same push);
@@ -89,8 +92,8 @@ snapshots with record-level sync and keeps this plan's auth, server, and registr
   "Yesterday", "Tue Sep 29"…). Choosing one asks for confirmation, then does a **field-merge
   restore** (§4.3), so private data on this device is never wiped by a cloud restore.
 - **Private fields after a new-phone restore** are blank. Records show a quiet "private
-  details aren't in cloud backup" hint, pointing at the file backup. The vault (Phase 2b)
-  removes this gap later.
+  details aren't in cloud backup" hint, pointing at the file backup. The vault (Phase 2b,
+  built 2026-10-07: `KennelOS_Private_Vault_Plan.md`) closes this gap once it's turned on.
 
 ### 2.4 Turning it off / leaving
 - **"Turn off backup on this device"** stops pushing; the cloud copy stays.
@@ -472,7 +475,8 @@ only brings that forward for backup. Each family's **fee amount and payment deta
 private. Built 2026-10-07.
 
 **Decision 3: the private vault is scheduled right after Phase 1, with a second-device
-unlock.** It previously sat after Phases 2–4 (Proposal §9). It moves to directly after
+unlock.** **Built 2026-10-07** (`KennelOS_Private_Vault_Plan.md` §9 steps 1–7: recovery code,
+second-device unlock and passkeys; released behind `VAULT_RELEASED`, `LAUNCH_CHECKLIST.md` §3b). It previously sat after Phases 2–4 (Proposal §9). It moves to directly after
 Phase 1, because the waitlist depends on it: W2 needs it, and until it exists the only copy
 of contact details, family fees and full applications is the device plus file backups. Its
 design gains a **third unlock path**: any of the owner's devices that's already unlocked can

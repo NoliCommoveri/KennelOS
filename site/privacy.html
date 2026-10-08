@@ -55,7 +55,7 @@
       <h2>The short version</h2>
       <ul class="checks">
         <li>The apps keep your records in your own browser, on your own device. Without cloud backup, we receive none of them.</li>
-        <li>Cloud backup is optional, free, and off until you turn it on. It copies your <strong>kennel records</strong> so you can get them back on a new device. Your contacts' phone numbers, emails and addresses, prices, Financials, contracts and private notes never leave your device.</li>
+        <li>Cloud backup is optional, free, and off until you turn it on. It copies your <strong>kennel records</strong> so you can get them back on a new device. Your contacts' phone numbers, emails and addresses, prices, Financials, contracts and private notes never leave your device, unless you also turn on <strong>private backup</strong>, which encrypts them on your device first so that we can't read them.</li>
         <li>We don't keep your email address, only a scrambled (keyed-hash) form of it, so we can recognise you when you sign in.</li>
         <li>No analytics, no tracking, no advertising, on this website or in the apps. We never sell anything about you.</li>
         <li>You can delete everything we hold, from inside the app, at any time.</li>
@@ -77,16 +77,31 @@
         <li><strong>Documents:</strong> health-test results, pedigrees and registration papers you've attached to dogs. Receipts, contracts and other documents stay on your device.</li>
         <li><strong>Pro's waitlist:</strong> your waitlist settings (including the fee you charge and your payment instructions), the list's order and status, and each applicant's <strong>name and email</strong>. Nothing else from an application, and no family's fee or payment details.</li>
       </ul>
-      <h3>What never leaves your device</h3>
+      <h3>What we can never read</h3>
       <p>Your contacts' phone numbers, email addresses and postal addresses; the prices,
         deposits, fees and payments on your sales, stud services and litters, and each waitlist
         family's fee and payments; your Financials (income and expenses) and receipts; contracts
-        and their terms; and every free-text note, on any record. Backup or not, we never
-        receive them. (Your own waitlist settings, listed above, are the one place a fee amount
-        is kept: the one you charge.)</p>
+        and their terms; and every free-text note, on any record. Without private backup they
+        never leave your device. With it, they reach us only encrypted (below). (Your own
+        waitlist settings, listed above, are the one place a fee amount is kept readable: the one
+        you charge.)</p>
+      <h3>Private backup (optional, encrypted)</h3>
+      <p>Off unless you turn it on, separately from cloud backup. With it on, each backup also
+        carries a copy of all your records, private details, receipts and contracts included,
+        <strong>encrypted on your device before it's uploaded</strong>, with a key that only your
+        devices hold. We store that copy, its size, and when it was made. We can't open it, and
+        neither can anyone who gets into our servers.</p>
+      <ul>
+        <li><strong>Your recovery code</strong> is shown once, on your device. We never receive it. We keep the vault key locked under it, which is useless without the code.</li>
+        <li><strong>A passkey</strong>, if you add one, unlocks private backup on a new device with Face ID, a fingerprint or the device PIN. It lives in your device's password manager (for example iCloud Keychain or Google Password Manager). Your fingerprint or face never leaves your device; we keep only the passkey's id, a random value it needs, the vault key locked under it, and the name you see in the list. A passkey here never signs you in.</li>
+        <li><strong>Unlocking from another device</strong> passes the key between your two devices through our server, locked with the code you type on the other device. We delete the request when it's answered or after 10 minutes.</li>
+      </ul>
+      <p>If you lose your recovery code and every passkey, and have no other unlocked device, we
+        can't unlock your private backup for you. Your devices and file backups are unaffected.</p>
       <h3>How long we keep it</h3>
       <ul>
-        <li>Backups: the newest one always, plus one per hour for the last day and one per day for 30 days. Older ones are deleted automatically, and so are documents no remaining backup uses.</li>
+        <li>Backups: the newest one always, plus one per hour for the last day and one per day for 30 days. Older ones are deleted automatically, and so are documents no remaining backup uses. A backup's encrypted private copy goes with it.</li>
+        <li><strong>Turn off private backup</strong> (Import/Export → Cloud backup → Private backup) deletes its locked keys at once, so nobody can unlock it again; the encrypted copies already made are deleted within 30 days.</li>
         <li>Sign-in codes expire after 10 minutes. A signed-out device's record is deleted after 30 days.</li>
         <li>To limit abuse, we count sign-in requests per email (hashed) and per network address (also hashed, never stored as-is), counted per hour and deleted after a day.</li>
         <li><strong>Delete my cloud data</strong> (Import/Export → Cloud backup → Account) deletes your backups, documents, devices and account immediately. Your records on your devices are not touched.</li>

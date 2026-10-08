@@ -12,6 +12,13 @@ export async function hmacHex(secret, message) {
   return hex(await crypto.subtle.sign('HMAC', key, enc.encode(message)));
 }
 
+// HMAC-SHA256 over raw bytes (a webhook body is verified as received, before
+// it is decoded).
+export async function hmacHexBytes(secret, bytes) {
+  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return hex(await crypto.subtle.sign('HMAC', key, bytes));
+}
+
 // Constant-time string comparison. Length is not secret here; content is.
 export function timingSafeEqual(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string') return false;

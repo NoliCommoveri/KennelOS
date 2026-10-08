@@ -44,9 +44,21 @@ fallthrough = true
 # DEV_OUTBOX: staging only. Until the RESEND_API_KEY secret is set, sign-in
 # codes are shown on /ops instead of emailed (src/mail.js). Production must NOT
 # set it. The Resend key itself is a secret, set in the dashboard, never here.
+#
+# LS_*: the Pro license webhook (src/license.js; docs/KennelOS_License_Link_Plan.md
+# §7). Ids from the Lemon Squeezy dashboard, comma-separated where there can be
+# several. Variants not listed as yearly or lifetime count as monthly. Staging
+# takes TEST-MODE purchases only, production live ones. Until LS_STORE_ID, a
+# product id and the LEMONSQUEEZY_WEBHOOK_SECRET secret are set, the webhook
+# answers 503 and /ops says what's missing.
 [vars]
 MAIL_FROM = "KennelOS <signin@kennelos.app>"
 DEV_OUTBOX = "1"
+LS_TEST_MODE = "true"
+LS_STORE_ID = ""
+LS_PRO_PRODUCT_IDS = ""
+LS_YEARLY_VARIANT_IDS = ""
+LS_LIFETIME_VARIANT_IDS = ""
 
 # Daily retention (src/retention.js), 03:17 UTC. Cron runs in UTC and is never
 # retried; retention is idempotent and /ops has "Run retention now".
@@ -57,7 +69,7 @@ crons = ["17 3 * * *"]
 # Bindings, vars and triggers are not inherited by an environment, so each is
 # restated here. No DEV_OUTBOX: production emails codes through Resend, and
 # with no RESEND_API_KEY it refuses sign-in rather than pretending (src/mail.js).
-# The secrets (OPS_TOKEN, EMAIL_HMAC_KEY, RESEND_API_KEY) are set on this Worker
+# The secrets (OPS_TOKEN, EMAIL_HMAC_KEY, RESEND_API_KEY, LEMONSQUEEZY_WEBHOOK_SECRET) are set on this Worker
 # separately in the dashboard; production's EMAIL_HMAC_KEY is permanent.
 [env.production]
 name = "kennelos-api"
@@ -79,6 +91,11 @@ bucket_name = "kennelos-files"
 
 [env.production.vars]
 MAIL_FROM = "KennelOS <signin@kennelos.app>"
+LS_TEST_MODE = "false"
+LS_STORE_ID = ""
+LS_PRO_PRODUCT_IDS = ""
+LS_YEARLY_VARIANT_IDS = ""
+LS_LIFETIME_VARIANT_IDS = ""
 
 [env.production.triggers]
 crons = ["17 3 * * *"]
