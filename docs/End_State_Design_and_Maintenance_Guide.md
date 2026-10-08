@@ -3225,6 +3225,10 @@ shown (`describeOfferChanges`).
   the warning tint with "N of M passes used" under it (a turn is passed once, whatever
   litters it covers), and at the bottom "Deadline: Saturday, 10/10/2026 @11:59 pm CDT"
   (`common.deadlineText`, the kennel's zone abbreviation for that day).
+  "Ready now?" (§16.7) reads **Alert: Pause Ending** / "Your scheduled pause is ending.
+  Please confirm that you are now ready to receive offers for upcoming puppies.", with Yes /
+  Not yet, and, when her rule removes families who don't answer, at the bottom "Deadline for
+  response: 10/26/2026" and the removal warning.
 - **Message on your public list (2026-10-08):** `waitlist_config.public_intro_text` (blank =
   `waitlistRules.PUBLIC_INTRO_DEFAULT`), edited on the Publish list page; `publicIntroText`
   fills in `[Kennel Name]`, the projection publishes it as `kennel.intro`, and `/f/list`

@@ -12,7 +12,7 @@
 // Messages are sealed here, in this browser, to her key (seal.js); the server
 // can't read them.
 import {
-  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingDetails, deadlineText,
+  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingDetails, deadlineText, fmtShortDate,
   SEX_LABEL, READY_LABEL, PLACEMENT_LABEL, CREDIT_LABEL
 } from './common.js';
 import { rememberedFamily, forgetFamily } from './session.js';
@@ -366,6 +366,9 @@ function placeHiddenHtml(h) {
 // When their readiness hold ends (while the list is online), they're asked. Yes ends
 // the hold. Not yet: a new date and a reason, which ask the breeder for a pause.
 
+const READY_TITLE = 'Alert: Pause Ending';
+const READY_TEXT = 'Your scheduled pause is ending. Please confirm that you are now ready to receive offers for upcoming puppies.';
+
 function readyHtml(f) {
   const rc = f.ready_check;
   if (!rc || f.status !== 'active') return '';
@@ -373,22 +376,27 @@ function readyHtml(f) {
   const sent = pendingOf('ready');
   if (sent.length || rc.answer) {
     const answer = sent.length ? sent[sent.length - 1].payload.answer : rc.answer;
-    return answer === 'yes' ? '' : openCard('Ready now?', `<p class="mt0">You said you're not ready yet. Your pause request is with ${esc(kennel)}; until they decide, you won't be offered a pup.</p>`);
+    return answer === 'yes' ? '' : openCard(READY_TITLE, `<p class="mt0">You said you're not ready yet. Your pause request is with ${esc(kennel)}; until they decide, you won't be offered a pup.</p>`);
   }
-  const deadline = rc.answer_by ? `<p class="small"><strong>Please answer by ${esc(fmtDate(rc.answer_by))}, or you'll be removed from the waitlist.</strong></p>` : '';
+  // At the bottom: the deadline, and what not answering means. Only when there is
+  // a deadline (her rule removes families who don't answer); otherwise they just
+  // stay paused, so there's nothing to warn about.
+  const deadline = rc.answer_by ? `<div class="deadline"><p class="mt0"><strong>Deadline for response: ${esc(fmtShortDate(rc.answer_by))}</strong></p>
+    <p class="small muted mt0">Failure to respond may result in removal from the waitlist; if removed, you will need to re-apply in order to be considered again in the future.</p></div>` : '';
   if (!canAct()) {
-    return openCard('Ready now?', `<p class="mt0">When you applied you said you'd be ready to buy about now. Sign in on the waitlist page to answer.</p>${deadline}`);
+    return openCard(READY_TITLE, `<p class="mt0">${READY_TEXT}</p><p class="small muted">Sign in on the waitlist page to answer.</p>${deadline}`, 'alert');
   }
   if (state.open === 'ready_no') {
-    return openCard('Ready now?', `<form data-form="ready_no">
+    return openCard(READY_TITLE, `<form data-form="ready_no">
         <label class="q">When do you expect to be ready? <span class="req">*</span><input type="date" name="until" required></label>
         <label class="q mt8">Why not yet? <span class="req">*</span><textarea name="reason" maxlength="500" required></textarea></label>
         <p class="small muted">${esc(kennel)} sees your reason and decides on pausing your place until then. You keep your place.</p>
         <div class="actions"><button class="primary" type="submit">Send</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
-      </form>${deadline}`);
+      </form>${deadline}`, 'alert');
   }
-  return openCard('Ready now?', `<p class="mt0">When you applied you said you'd be ready to buy about now. Are you ready to be offered a pup?</p>${deadline}
-    <div class="actions"><button type="button" class="primary" data-act="ready_yes">Yes, I'm ready</button><button type="button" class="secondary" data-act="open" data-what="ready_no">Not yet</button></div>`);
+  return openCard(READY_TITLE, `<p class="mt0">${READY_TEXT}</p>
+    <div class="actions"><button type="button" class="primary" data-act="ready_yes">Yes, I'm ready</button><button type="button" class="secondary" data-act="open" data-what="ready_no">Not yet</button></div>
+    ${deadline}`, 'alert');
 }
 
 // --- A litter was born (Spec §16.6) ---------------------------------------------

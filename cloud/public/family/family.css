@@ -168,7 +168,8 @@ main.centered { text-align: center; }
 /* Passing on a turn: set apart from the pup buttons, in the warning tint. */
 button.pass { font: inherit; font-weight: 600; padding: 10px 16px; border-radius: var(--radius); border: 1px solid #e3cfa6; background: var(--warn-soft); color: var(--warn); cursor: pointer; }
 button.pass:hover { background: #efe0c4; }
-.card.turn .deadline { margin: 14px 0 0; padding-top: 10px; border-top: 1px solid var(--border); }
+.card.turn .deadline, .card.alert .deadline { margin: 14px 0 0; padding-top: 10px; border-top: 1px solid var(--border); }
+.card.alert { border-color: #e3cfa6; }
 main.centered .row, main.centered .actions, main.centered form.inline, main.centered .tabs, main.centered .pups { justify-content: center; }
 main.centered dl.facts { display: inline-grid; text-align: left; margin: 6px auto 0; }
 main.centered details.card.collapsible > summary { list-style-position: inside; }
