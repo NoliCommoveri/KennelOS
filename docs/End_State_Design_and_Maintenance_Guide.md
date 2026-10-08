@@ -3213,6 +3213,17 @@ shown (`describeOfferChanges`).
   **Share…** (the phone's share sheet, to pick Google Voice), **Copy message**, **Copy & open
   Google Voice**, or **Texting app** (an `sms:` link, which always opens the phone's default
   texting app). The phone is the contact's, else the application's. KennelOS sends nothing.
+  The message box grows to fit its text, so the status link (its last line) is always in view.
+- **Editing a family's dates (2026-10-08):** the family page's Edit form has **Applied**
+  (`applied_date`, any status) and, once a fee date exists, **Fee received**
+  (`fee_received_date`). The fee date is the position anchor, so correcting it can move the
+  family in line (not when she moved them herself: `position_anchor_date` still wins), and it
+  moves the end of a readiness hold and the day the fee counts as income. It can be changed
+  but not blanked there; `fee_received_at` (the same-day tie-break) is left as recorded.
+- **Contacts page layout (2026-10-08):** **+ Add Contact** comes before **Manage kennels**,
+  and the bucket row (Clients / Network / Care team / Other / All, `#contacts-group-tabs`) is
+  moved by `contacts.js` to sit under the list's search bar and filters, apart from the
+  People hub's Contacts | Waitlist tabs.
 - **Current Applicants: See Your Details** (so visitors who haven't applied can skip it) and **Coming up** (pairings and early litters) on the public list page
   are collapsed `<details>` cards, and its title reads "<Kennel> Waitlist" (2026-10-08).
 - **A family's status page (2026-10-08):** everything centered; no badge for a family on the
