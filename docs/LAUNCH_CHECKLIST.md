@@ -229,7 +229,8 @@ until the webhook is configured.
   `https://api.kennelos.app/webhooks/lemonsqueezy`, its own secret on the production Worker,
   the same ids under `[env.production.vars]` (`LS_TEST_MODE` stays `"false"`). Do it
   **before anyone else buys**, so no other purchase predates it (plan §9 decision 6). The
-  owner's own production license (lifetime) already does: once the `LS_*` ids are set,
+  owner's own production license (lifetime) already does: the `LS_*` ids are set (store
+  437121, product 1244595, yearly variant 1945410, lifetime 1945407); after that merge,
   make a **live-mode** API key in Lemon Squeezy (Settings → API), paste it into production's
   `/ops` → Pro license link → **Import from Lemon Squeezy**, then delete the key. `/ops`
   should then show one lifetime purchase. If it was bought with another email than the
