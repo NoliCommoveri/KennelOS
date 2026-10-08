@@ -87,7 +87,7 @@ test('online publishes the projection once, then only after a change', async () 
   const first = await cw.syncWaitlistOnline();
   assert.equal(first.status, 'ok');
   assert.deepEqual(first.published, [k.id]);
-  assert.deepEqual(calls, [`PUT /waitlist/projection/${k.public_id}`]);
+  assert.deepEqual(calls, ['GET /waitlist/inbox', `PUT /waitlist/projection/${k.public_id}`], 'new applications first, then the list');
 
   const [row] = raw('SELECT public_id, version, body FROM wl_projection');
   assert.equal(row.public_id, k.public_id);
@@ -100,7 +100,7 @@ test('online publishes the projection once, then only after a change', async () 
 
   calls.length = 0;
   assert.equal((await cw.syncWaitlistOnline()).published.length, 0, 'unchanged: nothing sent');
-  assert.deepEqual(calls, []);
+  assert.deepEqual(calls, ['GET /waitlist/inbox'], 'only the look for new applications');
 
   const e = (await waitlistEntryRepo.getAll()).find((x) => x.kennel_id === k.id && x.status === 'active');
   await waitlistEntryRepo.update(e.id, { paused_until: '2099-01-01' });
@@ -182,4 +182,90 @@ test('links point at the family pages: staging serves them itself, production at
   assert.equal(cfg.publicListLink('kos1_x'), `${devCloudUrl}/list/kos1_x`);
   assert.equal(cfg.statusPageLink(null), null);
   assert.equal(cfg.FAMILY_PAGES_URL, 'https://apply.kennelos.app');
+});
+
+// An applicant, through the real Worker routes: seal with the published key, send,
+// type the emailed code. → the status token they end up with.
+async function applyOnline(publicId, { name = 'Nina Applicant', email = 'nina@example.com', answers = {}, prefs = {} } = {}) {
+  const { seal } = await import('../cloud/public/family/seal.js');
+  const call = async (path, init) => worker.fetch(new Request(`https://api.example${path}`, {
+    ...init, headers: { 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.20', ...(init?.headers || {}) },
+  }), env);
+  const formRes = await call(`/f/form/${publicId}`, { method: 'GET' });
+  assert.equal(formRes.status, 200);
+  const { form } = await formRes.json();
+  const sealed = await seal(form.public_key, form.key_id, { answers: { name, email, ...answers }, prefs });
+  const res = await call(`/f/apply/${publicId}`, { method: 'POST', body: JSON.stringify({ key_id: form.key_id, sealed, name, email }) });
+  assert.equal(res.status, 200);
+  const code = /(\d{6})/.exec(env.DB.raw.prepare("SELECT subject FROM wl_messages WHERE kind = 'application_code' ORDER BY rowid DESC LIMIT 1").get().subject)[1];
+  const v = await call('/f/verify', { method: 'POST', body: JSON.stringify({ public_id: publicId, code }) });
+  assert.equal(v.status, 200);
+  return (await v.json()).status_token;
+}
+
+test('taking applications online: the form is published with its key, and a confirmed application becomes an applied family', async () => {
+  await breeder();
+  const k0 = await putOnline();
+  await kennelRepo.update(k0.id, { waitlist_config: { ...k0.waitlist_config, online_form: true } });
+  await cw.syncWaitlistOnline();
+  const k = await thornfield();
+  assert.equal(k.waitlist_form_keys.length, 1, 'a form key was made on this device');
+  const published = JSON.parse(raw('SELECT body FROM wl_projection')[0].body);
+  assert.equal(published.kennel.form.key_id, k.waitlist_form_keys[0].id);
+  assert.equal(published.kennel.form.public_key, k.waitlist_form_keys[0].public_key);
+  assert.equal(JSON.stringify(published).includes('"d"'), false, 'the private half never leaves the device');
+  assert.ok(published.kennel.form.questions.some((q) => q.key === 'ready_timing'));
+
+  const token = await applyOnline(k.public_id, {
+    answers: { phone: '555-0142', about: 'Two kids, big yard' },
+    prefs: { pref_sex: 'female', pref_breed: 'Boston Terrier', ready_timing: 'asap' }
+  });
+  const result = await cw.syncWaitlistOnline();
+  assert.equal(result.inbox.taken, 1);
+  const entry = (await waitlistEntryRepo.getByKennel(k.id)).find((e) => e.application?.email === 'nina@example.com');
+  assert.ok(entry, 'the family is on her Waitlist page as a new application');
+  assert.equal(entry.status, 'applied');
+  assert.equal(entry.source, 'online_form');
+  assert.equal(entry.status_token, token, 'the link the applicant already has keeps working');
+  assert.equal(entry.application.phone, '555-0142');
+  assert.equal(entry.application.about, 'Two kids, big yard');
+  assert.equal(entry.pref_sex, 'female');
+  assert.equal(entry.ready_timing, 'asap');
+  assert.deepEqual(raw('SELECT acked_at FROM wl_inbox').map((r) => Boolean(r.acked_at)), [true]);
+  const after = JSON.parse(raw('SELECT body FROM wl_projection')[0].body);
+  assert.equal(after.entries[entry.id].status, 'applied');
+  assert.equal(raw('SELECT token FROM wl_tokens WHERE entry_id = ?', entry.id)[0].token, token);
+
+  assert.equal((await cw.syncWaitlistOnline()).inbox.taken, 0, 'taken in once');
+});
+
+test('a reset phone fetches what the server still holds and fills in answers a backup without private backup lost', async () => {
+  await breeder();
+  const k0 = await putOnline();
+  await kennelRepo.update(k0.id, { waitlist_config: { ...k0.waitlist_config, online_form: true } });
+  await cw.syncWaitlistOnline();
+  const k = await thornfield();
+  await applyOnline(k.public_id, { name: 'Omar Reset', email: 'omar@example.com', answers: { about: 'Kept safe' } });
+  await cw.syncWaitlistOnline();
+  const entry = (await waitlistEntryRepo.getByKennel(k.id)).find((e) => e.application?.email === 'omar@example.com');
+  // A restore from cloud backup alone brings back only name and email.
+  await waitlistEntryRepo.update(entry.id, { application: { name: 'Omar Reset', email: 'omar@example.com' } });
+  settings.updateWaitlistOnlineState({ inboxFetchedAll: false }); // as on a fresh device
+  const res = await cw.syncWaitlistOnline();
+  assert.equal(res.inbox.filled, 1);
+  assert.equal((await waitlistEntryRepo.getById(entry.id)).application.about, 'Kept safe');
+});
+
+test('rotating the form key: the new key is published, old applications still open', async () => {
+  await breeder();
+  const k0 = await putOnline();
+  await kennelRepo.update(k0.id, { waitlist_config: { ...k0.waitlist_config, online_form: true } });
+  await cw.syncWaitlistOnline();
+  const before = await thornfield();
+  await cw.rotateFormKey(before.id);
+  const after = await thornfield();
+  assert.equal(after.waitlist_form_keys.length, 2);
+  assert.ok(after.waitlist_form_keys[0].retired_at);
+  const published = JSON.parse(raw('SELECT body FROM wl_projection')[0].body);
+  assert.equal(published.kennel.form.key_id, after.waitlist_form_keys[1].id);
 });

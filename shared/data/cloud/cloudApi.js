@@ -234,6 +234,9 @@ export const pollPairing = (token, pairingId) => getJson(`/vault/pairings/${enco
 // --- The waitlist online, her side (Waitlist W2 Plan §5) -------------------------------
 export const publishWaitlist = (token, publicId, projection) =>
   getJson(`/waitlist/projection/${encodeURIComponent(publicId)}`, { method: 'PUT', token, json: { projection } });
+export const readWaitlistInbox = (token, { all = false, after = null } = {}) =>
+  getJson(`/waitlist/inbox${all || after ? `?${new URLSearchParams({ ...(all ? { all: '1' } : {}), ...(after ? { after } : {}) })}` : ''}`, { token });
+export const ackWaitlistInbox = (token, ids) => getJson('/waitlist/inbox/ack', { method: 'POST', token, json: { ids } });
 export const unpublishWaitlist = (token, publicId) =>
   getJson(`/waitlist/projection/${encodeURIComponent(publicId)}`, { method: 'DELETE', token });
 

@@ -32,7 +32,9 @@ src/waitlist.js        the waitlist online, her side (docs/KennelOS_Waitlist_W2_
 src/familyPages.js     the waitlist's family pages: serves public/family/ for /list/<public_id> and
                        /s/<token> (ASSETS binding), their same-origin JSON under /f/ (the public
                        list, one family's status view, See Your Details: a code by email, then
-                       a 90-day family session for that browser)
+                       a 90-day family session for that browser, and the online application
+                       form: its JSON, and a sealed application held until the applicant
+                       types the emailed code)
 src/notice.js          service notices (public /notice; set on /ops)
 src/retention.js       the daily prune and GC; pickDrops is the pure rule
 src/backup.js          /ops export/import of the D1 rows (not R2)
@@ -75,6 +77,11 @@ tests/                 node --test against a node:sqlite stand-in for D1;
   so one application never becomes two families. A projection is stored without its
   `status_token`s: they move to `wl_tokens`, and one missing from a later publish is revoked.
   A kennel's `public_id` belongs to the first program that publishes it (`409 kennel_taken`).
+- **An application reaches her only once confirmed.** `/f/apply` stores it with
+  `confirmed_at` NULL; the inbox never returns it until the applicant types the emailed code,
+  and retention drops it (and its token) after two days. A publish never deletes the token of
+  an application her device hasn't taken in. Production needs `TURNSTILE_SECRET` and
+  `TURNSTILE_SITE_KEY` before the form opens there (`503 form_unavailable` until then).
 - **An inbox item outlives its ack.** Retention removes an application or family message only
   when it was acknowledged 30+ days ago AND a committed snapshot with a vault part was made
   after the ack; an unacknowledged one never. `GET /waitlist/inbox?all=1` re-fetches them.

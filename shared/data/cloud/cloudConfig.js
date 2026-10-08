@@ -81,6 +81,11 @@ export function statusPageLink(token) {
   return base && token ? `${base}/s/${token}` : null;
 }
 
+export function applyFormLink(publicId) {
+  const base = familyPagesUrl();
+  return base && publicId ? `${base}/apply/${publicId}` : null;
+}
+
 export function publicListLink(publicId) {
   const base = familyPagesUrl();
   return base && publicId ? `${base}/list/${publicId}` : null;

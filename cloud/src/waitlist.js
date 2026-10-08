@@ -97,8 +97,12 @@ export async function publishProjection(env, auth, publicId, payload, now = new 
        ON CONFLICT (public_id) DO UPDATE SET version = excluded.version, body = excluded.body,
          device_id = excluded.device_id, published_at = excluded.published_at`,
     ).bind(publicId, auth.programId, version, text, auth.deviceId, at),
-    env.DB.prepare('DELETE FROM wl_tokens WHERE public_id = ? AND token NOT IN (SELECT value FROM json_each(?))')
-      .bind(publicId, JSON.stringify(tokens.map((t) => t.token))),
+    // A new application's link isn't in her projection until her device has read
+    // it from the inbox, so its token stays until then.
+    env.DB.prepare(
+      `DELETE FROM wl_tokens WHERE public_id = ? AND token NOT IN (SELECT value FROM json_each(?))
+         AND entry_id NOT IN (SELECT id FROM wl_inbox WHERE public_id = ? AND kind = 'application' AND acked_at IS NULL)`,
+    ).bind(publicId, JSON.stringify(tokens.map((t) => t.token)), publicId),
     ...tokens.map((t) => env.DB.prepare(
       `INSERT INTO wl_tokens (token, program_id, public_id, entry_id, created_at) VALUES (?, ?, ?, ?, ?)
        ON CONFLICT (token) DO UPDATE SET entry_id = excluded.entry_id`,
@@ -135,6 +139,9 @@ export async function unpublishProjection(env, auth, publicId) {
 }
 
 // GET /waitlist/inbox: unacknowledged applications and messages, oldest first.
+// Only CONFIRMED applications (the applicant typed the emailed code, step 4) are
+// ever returned. An application carries its status-page token, so her device's
+// entry keeps the link the applicant already has.
 // `?all=1` also returns ones already acknowledged that the server still keeps
 // (retention keeps them until a private backup made after the ack exists), so a
 // reset or replacement phone can fetch again what its predecessor took in but
@@ -153,14 +160,17 @@ export async function readInbox(env, auth, url) {
     [, afterAt, afterId] = m;
   }
   const { results } = await env.DB.prepare(
-    `SELECT id, public_id, kind, entry_id, name, email, key_id, blob, created_at, acked_at FROM wl_inbox
-      WHERE program_id = ? AND (? = 1 OR acked_at IS NULL) AND (created_at > ? OR (created_at = ? AND id > ?))
-      ORDER BY created_at, id LIMIT ${WAITLIST_LIMITS.inboxPage + 1}`,
+    `SELECT i.id, i.public_id, i.kind, i.entry_id, i.name, i.email, i.key_id, i.blob, i.created_at, i.acked_at,
+            (SELECT t.token FROM wl_tokens t WHERE t.public_id = i.public_id AND t.entry_id = i.id) AS status_token
+       FROM wl_inbox i
+      WHERE i.program_id = ? AND (? = 1 OR i.acked_at IS NULL) AND i.confirmed_at IS NOT NULL
+        AND (i.created_at > ? OR (i.created_at = ? AND i.id > ?))
+      ORDER BY i.created_at, i.id LIMIT ${WAITLIST_LIMITS.inboxPage + 1}`,
   ).bind(auth.programId, all ? 1 : 0, afterAt, afterAt, afterId).all();
   const page = results.slice(0, WAITLIST_LIMITS.inboxPage);
   const items = page.map((r) => ({
     id: r.id, publicId: r.public_id, kind: r.kind, entryId: r.entry_id, name: r.name, email: r.email,
-    keyId: r.key_id, blob: r.blob, createdAt: r.created_at, acked: r.acked_at !== null,
+    keyId: r.key_id, blob: r.blob, createdAt: r.created_at, acked: r.acked_at !== null, statusToken: r.status_token ?? null,
   }));
   const more = results.length > WAITLIST_LIMITS.inboxPage;
   const last = page[page.length - 1];

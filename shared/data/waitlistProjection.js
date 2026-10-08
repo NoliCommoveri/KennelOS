@@ -20,9 +20,10 @@
 // allow-listed way.
 import {
   waitlistConfig, entryName, publicList, overallPositions, litterQueue, isPupAvailable, passesUsed,
-  isManuallyPaused, readyFromDate, isReadyHeld, feeForEntry
+  isManuallyPaused, readyFromDate, isReadyHeld, feeForEntry, kennelBreeds
 } from './waitlistRules.js';
 import { WAITLIST_OPEN_STATUSES } from './vocab.js';
+import { formQuestions, formFaq, matchingPrefKeys, MATCHING_NOTICE } from './waitlistForm.js';
 
 export const PROJECTION_FORMAT = 1;
 
@@ -98,10 +99,30 @@ function entryView(entry, ctx) {
   return view;
 }
 
+// Her application form as the online form page renders it (W2 Plan step 4): her
+// questions in her order and wording, her FAQ and notices, her breeds, and the
+// PUBLIC half of the current form key. Only while she takes applications online.
+function formSection(kennel, config, formKey, dogs) {
+  return {
+    open: true,
+    key_id: formKey.id,
+    public_key: formKey.public_key,
+    questions: formQuestions(config).map((q) => ({
+      id: q.id, ...(q.key ? { key: q.key } : {}), label: q.label, type: q.type, required: Boolean(q.required),
+      help: q.help || '', options: [...(q.options || [])]
+    })),
+    faq: formFaq(config).map((x) => ({ id: x.id, question: x.question, answer: x.answer })),
+    breeds: kennelBreeds(kennel, dogs),
+    matching_keys: matchingPrefKeys(config),
+    matching_notice: MATCHING_NOTICE,
+    color_matching: Boolean(config.color_matching)
+  };
+}
+
 // The projection for ONE own kennel. Callers pass that kennel's entries, offers
 // and programs (a Map), and every litter, dog, sale and contact (each is filtered
 // here). `today` is YYYY-MM-DD.
-export function buildProjection({ kennel, entries = [], offers = [], programsById = new Map(), litters = [], dogs = [], sales = [], contacts = [], today }) {
+export function buildProjection({ kennel, entries = [], offers = [], programsById = new Map(), litters = [], dogs = [], sales = [], contacts = [], today, formKey = null }) {
   if (!kennel || !kennel.public_id) throw new Error('This kennel has no public identity yet.');
   if (!today) throw new Error('buildProjection needs today.');
   const config = waitlistConfig(kennel);
@@ -150,7 +171,8 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
       time_zone: orNull(kennel.time_zone),
       respond_days: Number(config.respond_days),
       max_passes: Number(config.max_passes),
-      auto_offer_on: [...config.auto_offer_on]
+      auto_offer_on: [...config.auto_offer_on],
+      ...(config.online_form && formKey ? { form: formSection(kennel, config, formKey, dogs) } : {})
     },
     public_list: publicList(live, kennel.id, programsById, {
       today, nameOf: (e) => entryName(e, contactsById.get(e.contact_id))

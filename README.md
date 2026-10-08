@@ -430,6 +430,14 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   read-only status page (`cloud/src/familyPages.js`, `cloud/public/family/`), and the app
   has **Copy status link** / **New link** on the family's page, **Copy status link** beside an
   open offer, and **Copy public list link** (`waitlist_entries.status_token`, cloud tier).
+  **W2 step 4, the online application form, is built & verified end to end in the browser:**
+  **Take applications online** publishes her form with a form key made on her device
+  (`Kennel.waitlist_form_keys`, private); applicants fill it in at `/apply/<public_id>`, their
+  answers sealed in their browser (`cloud/public/family/seal.js`); it reaches her once they
+  type the code we email; her device opens it (`data/waitlistCrypto.js`) and adds it as a new
+  application (`data/waitlistInbox.js`, `source: 'online_form'`). Rotate form key, Copy
+  application form link. Migration `0009`; Turnstile needed on production. Tests:
+  `waitlistCrypto`, `waitlistInbox`, `cloudWaitlist`, `cloud/tests/application`.
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass

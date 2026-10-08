@@ -44,11 +44,11 @@ const projection = (entries = {}) => ({
 
 const publish = (env, s, body, kennel = KENNEL) => call(env, 'PUT', `/waitlist/projection/${kennel}`, { token: s.token, body });
 
-function inboxItem(env, s, id, { acked = null, kind = 'application', created = iso(Date.now()) } = {}) {
+function inboxItem(env, s, id, { acked = null, kind = 'application', created = iso(Date.now()), confirmed = true } = {}) {
   env.DB.raw.prepare(
-    `INSERT INTO wl_inbox (id, program_id, public_id, kind, entry_id, name, email, key_id, blob, created_at, acked_at)
-     VALUES (?, ?, ?, ?, NULL, 'Ann Lee', 'ann@example.com', 'k1', 'ciphertext', ?, ?)`,
-  ).run(id, s.programId, KENNEL, kind, created, acked);
+    `INSERT INTO wl_inbox (id, program_id, public_id, kind, entry_id, name, email, key_id, blob, created_at, acked_at, confirmed_at)
+     VALUES (?, ?, ?, ?, NULL, 'Ann Lee', 'ann@example.com', 'k1', 'ciphertext', ?, ?, ?)`,
+  ).run(id, s.programId, KENNEL, kind, created, acked, confirmed ? created : null);
 }
 
 function event(env, s, kind, { created = iso(Date.now()), entry = 'e1' } = {}) {
@@ -181,7 +181,7 @@ test('the inbox gives unacknowledged items oldest first; the backing device ackn
   const inbox = await (await call(env, 'GET', '/waitlist/inbox', { token: s.token })).json();
   assert.deepEqual(inbox.items.map((i) => i.id), ['i1', 'i2']);
   assert.equal(inbox.more, false);
-  assert.deepEqual(Object.keys(inbox.items[0]).sort(), ['acked', 'blob', 'createdAt', 'email', 'entryId', 'id', 'keyId', 'kind', 'name', 'publicId']);
+  assert.deepEqual(Object.keys(inbox.items[0]).sort(), ['acked', 'blob', 'createdAt', 'email', 'entryId', 'id', 'keyId', 'kind', 'name', 'publicId', 'statusToken']);
 
   const ack = await (await call(env, 'POST', '/waitlist/inbox/ack', { token: s.token, body: { ids: ['i1', 'x1', 'nope'] } })).json();
   assert.equal(ack.acked, 1, "another account's item is never touched");

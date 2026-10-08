@@ -2,11 +2,11 @@
 // §9). Imported dynamically by pages/kennel.js, only where the waitlist online is
 // offered (Pro, cloud available, its release switch or staging). Saving goes
 // through kennelRepo; publishing through data/cloud/cloudWaitlist.js.
-import { esc } from './ui.js';
+import { esc, confirmModal, alertModal } from './ui.js';
 import { kennelRepo } from '../data/kennelRepo.js';
 import { waitlistConfig } from '../data/waitlistRules.js';
-import { syncWaitlistOnline, waitlistOnlineStatus, WAITLIST_ONLINE_EVENT } from '../data/cloud/cloudWaitlist.js';
-import { publicListLink } from '../data/cloud/cloudConfig.js';
+import { syncWaitlistOnline, waitlistOnlineStatus, rotateFormKey, WAITLIST_ONLINE_EVENT } from '../data/cloud/cloudWaitlist.js';
+import { publicListLink, applyFormLink } from '../data/cloud/cloudConfig.js';
 import { copyLink } from './waitlistUI.js';
 
 // Every IANA zone the browser knows, with the device's own and any saved one.
@@ -61,6 +61,10 @@ export function mountWaitlistOnline(root, kennel, { onSaved } = {}) {
         <div class="field field-wide">
           <label class="check-inline"><input id="wlo-online" type="checkbox"${waitlistConfig(kennel).online ? ' checked' : ''}> Put ${esc(kennel.kennel_name)}'s waitlist online</label>
         </div>
+        <div class="field field-wide">
+          <label class="check-inline"><input id="wlo-form" type="checkbox"${waitlistConfig(kennel).online_form ? ' checked' : ''}> Take applications online</label>
+          <span class="field-hint">Families fill in your <a href="waitlist-form.html?kennel=${encodeURIComponent(kennel.id)}">application form</a> on a web page. Their answers are locked in their browser with a key only your devices hold; the server reads only their name and email. An application reaches you once they've typed the code we email them. It arrives here as a new application for you to review.${st.inboxUnopened ? ` <strong>${esc(st.inboxUnopened)} application${st.inboxUnopened === 1 ? '' : 's'} couldn't be opened on this device: it doesn't have that form key. Turn on private backup on the device that made it, or open the app there.</strong>` : ''}</span>
+        </div>
         <div class="field"><label for="wlo-tz">Time zone</label><select id="wlo-tz">${zones}</select>
           <span class="field-hint">Offer deadlines end at 11:59 pm here.</span></div>
       </div>
@@ -69,10 +73,14 @@ export function mountWaitlistOnline(root, kennel, { onSaved } = {}) {
         <button class="btn btn-primary btn-sm" data-wlo="save">Save</button>
         ${st.online ? '<button class="btn btn-sm" data-wlo="now">Publish now</button>' : ''}
         ${st.online && st.published ? '<button class="btn btn-sm" data-wlo="list" title="The public list, for Facebook or your website">Copy public list link</button>' : ''}
+        ${st.formOpen && st.published ? '<button class="btn btn-sm" data-wlo="form" title="Your application form, for Facebook or your website">Copy application form link</button>' : ''}
+        ${st.formOpen && st.published ? '<button class="btn btn-sm" data-wlo="rotate" title="Make a new form key (if a device holding it was lost)">Rotate form key…</button>' : ''}
       </div>`;
     root.querySelector('[data-wlo="save"]').addEventListener('click', save);
     root.querySelector('[data-wlo="now"]')?.addEventListener('click', publishNow);
     root.querySelector('[data-wlo="list"]')?.addEventListener('click', (ev) => copyLink(publicListLink(kennel.public_id), ev.currentTarget, { title: 'Your public list' }));
+    root.querySelector('[data-wlo="form"]')?.addEventListener('click', (ev) => copyLink(applyFormLink(kennel.public_id), ev.currentTarget, { title: 'Your application form' }));
+    root.querySelector('[data-wlo="rotate"]')?.addEventListener('click', rotate);
   };
 
   const publishNow = async () => {
@@ -81,10 +89,22 @@ export function mountWaitlistOnline(root, kennel, { onSaved } = {}) {
     render();
   };
 
+  const rotate = async () => {
+    if (!(await confirmModal({
+      title: 'Rotate the form key?',
+      message: 'New applications will be locked with a new key. Applications you already have, and any waiting to arrive, still open with the old one, which is kept. Do this if a device that held your waitlist was lost or sold. Anyone filling in the form right now will be asked to reload it.',
+      confirmLabel: 'Rotate key'
+    }))) return;
+    kennel = await rotateFormKey(kennel.id);
+    await alertModal({ title: 'Form key rotated', message: 'New applications now use the new key.' });
+    render();
+  };
+
   const save = async () => {
     const online = root.querySelector('#wlo-online').checked;
+    const onlineForm = online && root.querySelector('#wlo-form').checked;
     const timeZone = root.querySelector('#wlo-tz').value || null;
-    const config = { ...(kennel.waitlist_config || {}), online };
+    const config = { ...(kennel.waitlist_config || {}), online, online_form: onlineForm };
     kennel = await kennelRepo.update(kennel.id, { waitlist_config: config, time_zone: timeZone });
     if (online && !kennel.public_id) {
       await kennelRepo.ensurePublicId(kennel.id);

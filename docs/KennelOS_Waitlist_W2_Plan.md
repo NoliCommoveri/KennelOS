@@ -364,6 +364,45 @@ means no fee reminder ever.
 4. **The online form and inbox.** Form key table + Rotate, the form page (her questions,
    FAQ, notice, Turnstile), encryption, confirmation email, the inbox → `applied` entries on
    the backing device.
+   **Built 2026-10-08.** As built (where it differs from §4, §7 and §9, this wins):
+   - **Form keys live on the kennel, not in a table:** `Kennel.waitlist_form_keys`
+     (`[{ id, public_key, private_key (JWK), created_at, retired_at }]`), **private** in
+     `syncRegistry.js` (vault and file backups only), so no schema change. Made on the
+     backing device the first time **Take applications online** (`waitlist_config.online_form`)
+     is on (`cloudWaitlist.ensureFormKey`); **Rotate form key…** adds one and retires the
+     rest (`rotateFormKey`); old keys stay so earlier applications open.
+   - **Crypto:** `shared/data/waitlistCrypto.js` opens, `cloud/public/family/seal.js` seals
+     (ECDH P-256, a fresh key pair per application, HKDF-SHA-256, AES-GCM-256 with the key id
+     bound in). `tests/waitlistCrypto.test.js` seals with one and opens with the other.
+   - **Projection:** `kennel.form` (only while online_form is on): her questions as
+     `formQuestions` gives them, FAQ, breeds, matching keys and notice, color matching, and the
+     PUBLIC key.
+   - **Server:** `GET /f/form/:publicId`; `POST /f/apply/:publicId {key_id, sealed, name,
+     email, turnstile}` (96 KB; 5 an hour per IP, 3 per address per kennel; `409
+     form_changed` after a rotation; Turnstile when `TURNSTILE_SECRET` is set, skipped on
+     staging's outbox, and `503 form_unavailable` on production without it). The application
+     is stored **unconfirmed** with its status-page token and the applicant is emailed a code;
+     typing it (`/f/verify`) confirms it and signs that browser in. Unconfirmed applications
+     never reach her and go after two days (migration `0009`: `wl_inbox.confirmed_at`). A new
+     try from the same address replaces an unconfirmed one; See Your Details also finds an
+     application not yet taken in. A publish keeps the token of an application her device
+     hasn't taken in. The applicant's page says "Application received" until then.
+   - **Taking it in** (`cloudWaitlist.takeInApplications`, before each publish, and every 5
+     minutes while the app is open and in front): each confirmed application is opened and
+     becomes an `applied` entry with the inbox id as its id, the applicant's status token and
+     `source: 'online_form'`, through `shared/data/waitlistInbox.js` (pure; nothing
+     unchecked: only her questions, her choices, the vocab and her breeds, cut to size;
+     `tests/waitlistInbox.test.js`). A device that never fetched before asks for everything
+     the server still holds (`?all=1`) and fills in answers a restore without private backup
+     left out. One it can't open (a key it doesn't have) stays in the inbox and the card says
+     so.
+   - **The form page** (`/apply/<public_id>`, `cloud/public/family/apply.*`): her FAQ, her
+     questions in order (choices for the preferences, her breeds, the readiness question
+     required), the matching notice before the first matching question, the public-list
+     notice with **I understand**, required-field checks, Turnstile when configured, then
+     "Check your email" with the code box and **send a new code**; the code opens their status
+     page. Copy application form link is on the Online list card.
+   - Families' own messages (also sealed to this key) are step 5.
 5. **Family actions.** Buttons → events, holds, `waitlistEvents.js` + tests, Today
    requests (pause, answer changes, listen-only narrowing), the encrypted message box.
 6. **Email.** `mail.kennelos.app`, templates + Waitlist settings editor, kennel-name sender,
@@ -387,5 +426,5 @@ test`, the precache check, and the flow in headless Chromium at phone width.
 - **Turnstile:** a site for `apply.kennelos.app` (and staging); its secret as the Worker
   secret `TURNSTILE_SECRET`, site key in `[vars]`.
 - **Email Routing** on `mail.kennelos.app` into the Worker (only for D8's auto-answer).
-- **Apply pending** (`0007`, `0008`) on staging's and production's `/ops` after each merge
+- **Apply pending** (`0007`, `0008`, `0009`) on staging's and production's `/ops` after each merge
   that carries a migration.

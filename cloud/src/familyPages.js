@@ -11,6 +11,9 @@
 //   POST /f/verify             part 2: {public_id, code} → their status link and a
 //                              session that remembers this browser for 90 days
 //   POST /f/session            {session}: a remembered browser's current status link
+//   GET  /f/form/<public_id>   her application form, if she accepts applications online
+//   POST /f/apply/<public_id>  a sealed application; held until the applicant types
+//                              the code emailed to them (then it reaches her inbox)
 //
 // Everything a family sees is cut from what her device published, field by field
 // (statusView, listView). The server never computes a position or an offer.
@@ -30,6 +33,8 @@ export const FAMILY_LIMITS = {
   // 15 minutes and work once, that's hopeless. (A wrong guess matches no code, so
   // these limits, not a per-code count, are what stop guessing.)
   verifyPerHourPerIp: 10, verifyPerHourPerKennel: 300,
+  applicationsPerHourPerIp: 5, applicationsPerHourPerEmail: 3,
+  applicationBytes: 96 * 1024,
 };
 export const FAMILY_CODE_MS = 15 * 60 * 1000;
 export const FAMILY_SESSION_MS = 90 * 24 * 60 * 60 * 1000;
@@ -37,6 +42,7 @@ const SESSION_TOKEN = /^[0-9a-f]{64}$/;
 
 const LIST_PAGE = /^\/list\/([^/]+)$/;
 const STATUS_PAGE = /^\/s\/([^/]+)$/;
+const APPLY_PAGE = /^\/apply\/([^/]+)$/;
 const ASSET = /^\/family\/[A-Za-z0-9_-]+\.(js|css|svg|png)$/;
 const OPEN_STATUSES = ['applied', 'approved', 'active'];
 
@@ -48,6 +54,10 @@ const PAGE_HEADERS = {
   'x-content-type-options': 'nosniff',
   'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
 };
+
+// The form page also loads Cloudflare Turnstile (its spam check) when it's set up.
+const TURNSTILE_ORIGIN = 'https://challenges.cloudflare.com';
+const APPLY_CSP = `default-src 'none'; script-src 'self' ${TURNSTILE_ORIGIN}; frame-src ${TURNSTILE_ORIGIN}; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`;
 
 async function fromAssets(env, request, path, extra = {}) {
   if (!env.ASSETS) return null;
@@ -67,6 +77,7 @@ export async function serveFamilyPage(request, env, url) {
   if (p === '/favicon.ico') return new Response(null, { status: 204, headers: { 'cache-control': 'public, max-age=86400' } });
   if (LIST_PAGE.test(p)) return fromAssets(env, request, '/family/list.html', { 'cache-control': 'public, max-age=300' });
   if (STATUS_PAGE.test(p)) return fromAssets(env, request, '/family/status.html', { 'cache-control': 'no-store' });
+  if (APPLY_PAGE.test(p)) return fromAssets(env, request, '/family/apply.html', { 'cache-control': 'public, max-age=300', 'content-security-policy': APPLY_CSP });
   if (ASSET.test(p)) return fromAssets(env, request, p, { 'cache-control': 'public, max-age=300' });
   return null;
 }
@@ -124,6 +135,37 @@ export function statusView(projection, entryId) {
   return { kennel, as_of: projection.as_of ?? null, family, offers, litters: litterList, public_list: listView(projection).rows };
 }
 
+// Her application form as the form page needs it, or null when she isn't taking
+// applications online. Everything here is hers to publish: questions, FAQ, notices,
+// her breeds, and the PUBLIC half of the form key.
+export function formView(projection) {
+  const f = projection.kennel?.form;
+  if (!f || !f.open || !f.key_id || !f.public_key) return null;
+  return {
+    kennel: { name: projection.kennel?.name ?? '' },
+    form: {
+      key_id: f.key_id, public_key: f.public_key,
+      questions: Array.isArray(f.questions) ? f.questions : [],
+      faq: Array.isArray(f.faq) ? f.faq : [],
+      breeds: Array.isArray(f.breeds) ? f.breeds : [],
+      matching_keys: Array.isArray(f.matching_keys) ? f.matching_keys : [],
+      matching_notice: f.matching_notice ?? '',
+      color_matching: Boolean(f.color_matching),
+    },
+  };
+}
+
+// A new application her device hasn't taken in yet: the applicant's page says it
+// arrived (once confirmed) and nothing else.
+export function pendingView(projection, row) {
+  return {
+    kennel: { name: projection.kennel?.name ?? '', time_zone: projection.kennel?.time_zone ?? null },
+    as_of: projection.as_of ?? null,
+    family: { name: row.name ?? '', status: 'applied' },
+    offers: [], litters: [], public_list: [],
+  };
+}
+
 // --- Routes ------------------------------------------------------------------------
 
 async function readsLimit(env, request) {
@@ -151,6 +193,55 @@ async function statusTokenOf(env, publicId, entryId) {
   return (await env.DB.prepare('SELECT token FROM wl_tokens WHERE public_id = ? AND entry_id = ?').bind(publicId, entryId).first())?.token ?? null;
 }
 
+// A fresh code for one family, emailed. Unique among the kennel's live codes, so
+// the code alone names the family; replaces that family's earlier codes.
+async function issueCode(env, { publicId, programId, entryId, email, kennelName, forApplication = false }) {
+  const now = Date.now();
+  let code;
+  let hash;
+  for (let i = 0; i < 20; i++) {
+    code = randomCode();
+    hash = await familyCodeHash(env, publicId, code);
+    const taken = await env.DB.prepare('SELECT 1 FROM wl_family_codes WHERE public_id = ? AND code_hash = ? AND expires_at > ?')
+      .bind(publicId, hash, new Date(now).toISOString()).first();
+    if (!taken) break;
+  }
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM wl_family_codes WHERE public_id = ? AND (entry_id = ? OR code_hash = ?)').bind(publicId, entryId, hash),
+    env.DB.prepare(
+      'INSERT INTO wl_family_codes (public_id, code_hash, program_id, entry_id, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    ).bind(publicId, hash, programId, entryId, new Date(now + FAMILY_CODE_MS).toISOString(), new Date(now).toISOString()),
+  ]);
+  await sendFamilyMessage(env, forApplication ? {
+    programId, publicId, entryId, kind: 'application_code', to: email,
+    subject: `Confirm your application to ${kennelName}: ${code}`,
+    text: `Thank you for applying to ${kennelName}'s waitlist. To send your application, enter this code on the application page:\n\n${code}\n\n`
+      + 'It works for 15 minutes. Your application reaches the breeder only once the code is entered.\n\n'
+      + 'If you did not apply, you can ignore this email: nothing will be sent.\n',
+  } : {
+    programId, publicId, entryId, kind: 'verification_code', to: email,
+    subject: `Your ${kennelName} waitlist code: ${code}`,
+    text: `Your verification code for ${kennelName}'s waitlist is ${code}\n\n`
+      + 'Enter it on the waitlist page within 15 minutes to see your details.\n\n'
+      + 'If you did not ask for this code, you can ignore this email.\n',
+  });
+}
+
+// Is this request a person? Cloudflare Turnstile when it's set up; on staging
+// (the outbox) without it, yes; on production without it the form is closed.
+async function turnstileOk(env, token, request) {
+  if (!env.TURNSTILE_SECRET) {
+    if (env.DEV_OUTBOX === '1') return true;
+    fail(503, 'form_unavailable');
+  }
+  if (typeof token !== 'string' || !token || token.length > 4096) return false;
+  const res = await fetch(`${TURNSTILE_ORIGIN}/turnstile/v0/siteverify`, {
+    method: 'POST',
+    body: new URLSearchParams({ secret: env.TURNSTILE_SECRET, response: token, remoteip: request.headers.get('cf-connecting-ip') ?? '' }),
+  });
+  try { return (await res.json()).success === true; } catch { return false; }
+}
+
 function readKennelBody(body) {
   if (typeof body.public_id !== 'string' || !PUBLIC_ID.test(body.public_id)) fail(400, 'bad_request');
   return body.public_id;
@@ -175,7 +266,13 @@ export async function handleFamilyApi(request, env, url) {
     if (!STATUS_TOKEN.test(status[1])) fail(404, 'not_found');
     const t = await env.DB.prepare('SELECT public_id, entry_id FROM wl_tokens WHERE token = ?').bind(status[1]).first();
     const found = t && await projectionOf(env, t.public_id);
-    const view = found && statusView(found.projection, t.entry_id);
+    let view = found && statusView(found.projection, t.entry_id);
+    if (found && !view) {
+      const pending = await env.DB.prepare(
+        "SELECT name FROM wl_inbox WHERE id = ? AND public_id = ? AND kind = 'application' AND confirmed_at IS NOT NULL",
+      ).bind(t.entry_id, t.public_id).first();
+      if (pending) view = pendingView(found.projection, pending);
+    }
     if (!view) fail(404, 'not_found');
     await env.DB.prepare('UPDATE wl_tokens SET last_used_at = ? WHERE token = ?').bind(new Date().toISOString(), status[1]).run();
     return json(view, 200, { 'referrer-policy': 'no-referrer' });
@@ -193,34 +290,17 @@ export async function handleFamilyApi(request, env, url) {
     await limitBucket(env, `wl-code-ip:${await ipKey(env, request)}`, FAMILY_LIMITS.codesPerHourPerIp);
     await limitBucket(env, `wl-code-email:${await emailHash(env, email)}`, FAMILY_LIMITS.codesPerHourPerEmail);
     const found = await projectionOf(env, publicId);
-    const entryId = found && entryForEmail(found.projection, email);
-    if (!entryId || !(await statusTokenOf(env, publicId, entryId))) return json({ ok: true });
-
-    const now = Date.now();
-    // Unique among this kennel's live codes, so the code alone names the family.
-    let code;
-    let hash;
-    for (let i = 0; i < 20; i++) {
-      code = randomCode();
-      hash = await familyCodeHash(env, publicId, code);
-      const taken = await env.DB.prepare('SELECT 1 FROM wl_family_codes WHERE public_id = ? AND code_hash = ? AND expires_at > ?')
-        .bind(publicId, hash, new Date(now).toISOString()).first();
-      if (!taken) break;
+    if (!found) return json({ ok: true });
+    // A family on her list, or an application she hasn't taken in yet (so an
+    // applicant who lost their code can still finish).
+    let entryId = entryForEmail(found.projection, email);
+    if (!entryId) {
+      entryId = (await env.DB.prepare(
+        "SELECT id FROM wl_inbox WHERE public_id = ? AND kind = 'application' AND acked_at IS NULL AND lower(email) = ? ORDER BY created_at DESC LIMIT 1",
+      ).bind(publicId, email).first())?.id ?? null;
     }
-    await env.DB.batch([
-      env.DB.prepare('DELETE FROM wl_family_codes WHERE public_id = ? AND (entry_id = ? OR code_hash = ?)').bind(publicId, entryId, hash),
-      env.DB.prepare(
-        'INSERT INTO wl_family_codes (public_id, code_hash, program_id, entry_id, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-      ).bind(publicId, hash, found.programId, entryId, new Date(now + FAMILY_CODE_MS).toISOString(), new Date(now).toISOString()),
-    ]);
-    const kennelName = found.projection.kennel?.name || 'the kennel';
-    await sendFamilyMessage(env, {
-      programId: found.programId, publicId, entryId, kind: 'verification_code', to: email,
-      subject: `Your ${kennelName} waitlist code: ${code}`,
-      text: `Your verification code for ${kennelName}'s waitlist is ${code}\n\n`
-        + 'Enter it on the waitlist page within 15 minutes to see your details.\n\n'
-        + 'If you did not ask for this code, you can ignore this email.\n',
-    });
+    if (!entryId || !(await statusTokenOf(env, publicId, entryId))) return json({ ok: true });
+    await issueCode(env, { publicId, programId: found.programId, entryId, email, kennelName: found.projection.kennel?.name || 'the kennel' });
     return json({ ok: true });
   }
 
@@ -244,6 +324,10 @@ export async function handleFamilyApi(request, env, url) {
     const session = randomHex(32);
     await env.DB.batch([
       env.DB.prepare('DELETE FROM wl_family_codes WHERE public_id = ? AND code_hash = ?').bind(publicId, hash),
+      // The code an applicant typed confirms their application: now it reaches her.
+      env.DB.prepare(
+        "UPDATE wl_inbox SET confirmed_at = ? WHERE id = ? AND public_id = ? AND kind = 'application' AND confirmed_at IS NULL",
+      ).bind(now.toISOString(), row.entry_id, publicId),
       env.DB.prepare(
         'INSERT INTO wl_family_sessions (token_hash, program_id, public_id, entry_id, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
       ).bind(await sha256Hex(session), row.program_id, publicId, row.entry_id, now.toISOString(), new Date(now.getTime() + FAMILY_SESSION_MS).toISOString()),
@@ -263,6 +347,58 @@ export async function handleFamilyApi(request, env, url) {
     const statusToken = await statusTokenOf(env, row.public_id, row.entry_id);
     if (!statusToken) fail(401, 'signed_out');
     return json({ public_id: row.public_id, status_token: statusToken });
+  }
+
+  const form = /^\/f\/form\/([^/]+)$/.exec(p);
+  if (form && m === 'GET') {
+    await readsLimit(env, request);
+    if (!PUBLIC_ID.test(form[1])) fail(404, 'not_found');
+    const found = await projectionOf(env, form[1]);
+    const view = found && formView(found.projection);
+    if (!view) fail(404, 'not_found');
+    return json({ ...view, turnstile_site_key: env.TURNSTILE_SITE_KEY || null }, 200, { 'cache-control': 'no-store' });
+  }
+
+  // A sealed application. Held unconfirmed (her device never sees it) until the
+  // applicant types the code emailed to the address they gave; retention drops it
+  // after two days otherwise. The server reads only name and email (Spec §8.1).
+  const apply = /^\/f\/apply\/([^/]+)$/.exec(p);
+  if (apply && m === 'POST') {
+    const publicId = apply[1];
+    if (!PUBLIC_ID.test(publicId)) fail(404, 'not_found');
+    const body = await readJson(request, FAMILY_LIMITS.applicationBytes + 8 * 1024);
+    const email = normalizeEmail(body.email);
+    const name = String(body.name ?? '').trim();
+    if (!email) fail(400, 'bad_email');
+    if (!name || name.length > 200) fail(400, 'bad_name');
+    if (typeof body.sealed !== 'string' || !body.sealed || body.sealed.length > FAMILY_LIMITS.applicationBytes) fail(400, 'bad_application');
+    assertMailAvailable(env);
+    await limitBucket(env, `wl-apply-ip:${await ipKey(env, request)}`, FAMILY_LIMITS.applicationsPerHourPerIp);
+    await limitBucket(env, `wl-apply-email:${publicId}:${await emailHash(env, email)}`, FAMILY_LIMITS.applicationsPerHourPerEmail);
+    const found = await projectionOf(env, publicId);
+    const view = found && formView(found.projection);
+    if (!view) fail(404, 'form_closed');
+    if (body.key_id !== view.form.key_id) fail(409, 'form_changed'); // she rotated her key: reload the form
+    if (!(await turnstileOk(env, body.turnstile, request))) fail(400, 'not_verified');
+
+    const id = crypto.randomUUID();
+    const token = randomHex(32);
+    const at = new Date().toISOString();
+    await env.DB.batch([
+      // A second try from the same address replaces an earlier unconfirmed one.
+      env.DB.prepare(
+        "DELETE FROM wl_tokens WHERE entry_id IN (SELECT id FROM wl_inbox WHERE public_id = ? AND kind = 'application' AND confirmed_at IS NULL AND lower(email) = ?)",
+      ).bind(publicId, email),
+      env.DB.prepare("DELETE FROM wl_inbox WHERE public_id = ? AND kind = 'application' AND confirmed_at IS NULL AND lower(email) = ?").bind(publicId, email),
+      env.DB.prepare(
+        `INSERT INTO wl_inbox (id, program_id, public_id, kind, entry_id, name, email, key_id, blob, created_at, acked_at, confirmed_at)
+         VALUES (?, ?, ?, 'application', ?, ?, ?, ?, ?, ?, NULL, NULL)`,
+      ).bind(id, found.programId, publicId, id, name, email, body.key_id, body.sealed, at),
+      env.DB.prepare('INSERT INTO wl_tokens (token, program_id, public_id, entry_id, created_at) VALUES (?, ?, ?, ?, ?)')
+        .bind(token, found.programId, publicId, id, at),
+    ]);
+    await issueCode(env, { publicId, programId: found.programId, entryId: id, email, kennelName: view.kennel.name || 'the kennel', forApplication: true });
+    return json({ ok: true });
   }
 
   fail(404, 'not_found');

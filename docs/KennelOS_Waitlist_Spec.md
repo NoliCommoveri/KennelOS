@@ -569,6 +569,10 @@ address.
   becomes an `applied` entry with `application` filled in. As with events (§8.4), only
   the backup device turns inbox items into entries, so two devices never create the same
   application twice.
+- **As built (W2 step 4, 2026-10-08):** the keys live on the kennel (`waitlist_form_keys`,
+  private tier, so they ride the vault); the applicant confirms with a 6-digit code typed on
+  the form page rather than a link (the same code then signs their browser in, See Your
+  Details). W2 Plan step 4 has the details.
 - **Spam protection:** Cloudflare Turnstile on the form, rate limits per IP and per email,
   and a confirmation email to the applicant (the application only reaches her inbox once
   they click it).

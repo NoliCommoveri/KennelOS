@@ -132,6 +132,11 @@ export async function runRetention(env, now = new Date()) {
     ).bind(iso(nowMs - WL_INBOX_KEEP_DAYS * DAY)),
     env.DB.prepare('DELETE FROM wl_events WHERE created_at < ?').bind(iso(nowMs - WL_EVENTS_KEEP_DAYS * DAY)),
     env.DB.prepare('DELETE FROM wl_family_codes WHERE expires_at < ?').bind(iso(nowMs)),
+    // An application never confirmed by its emailed code goes after two days, with its link.
+    env.DB.prepare(
+      `DELETE FROM wl_tokens WHERE entry_id IN (SELECT id FROM wl_inbox WHERE kind = 'application' AND confirmed_at IS NULL AND created_at < ?)`,
+    ).bind(iso(nowMs - 2 * DAY)),
+    env.DB.prepare(`DELETE FROM wl_inbox WHERE kind = 'application' AND confirmed_at IS NULL AND created_at < ?`).bind(iso(nowMs - 2 * DAY)),
     env.DB.prepare('DELETE FROM wl_family_sessions WHERE expires_at < ?').bind(iso(nowMs)),
     env.DB.prepare(`UPDATE wl_messages SET body = NULL WHERE status = 'sent' AND body IS NOT NULL AND sent_at < ?`).bind(iso(nowMs - WL_EVENTS_KEEP_DAYS * DAY)),
   ]);

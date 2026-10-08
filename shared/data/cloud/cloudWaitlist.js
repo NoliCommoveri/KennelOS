@@ -26,12 +26,17 @@ import { dogRepo } from '../dogRepo.js';
 import { saleRepo } from '../saleRepo.js';
 import { contactRepo } from '../contactRepo.js';
 import { todayYMD } from '../dateUtils.js';
-import { waitlistConfig } from '../waitlistRules.js';
+import { waitlistConfig, kennelBreeds } from '../waitlistRules.js';
 import { buildProjection } from '../waitlistProjection.js';
+import { formQuestions } from '../waitlistForm.js';
+import { generateFormKey, currentFormKey, rotateFormKeys, openSealed } from '../waitlistCrypto.js';
+import { applicationToEntry } from '../waitlistInbox.js';
 
 export const WAITLIST_ONLINE_EVENT = 'kennelos:waitlistonline';
 // After a change, wait this long for more before publishing (one publish per burst).
 export const PUBLISH_DELAY_MS = 20 * 1000;
+// How often an open app looks for new applications.
+export const INBOX_POLL_MS = 5 * 60 * 1000;
 const LOCK_NAME = 'kennelos-waitlist-publish';
 
 // Why publishing isn't happening, for the settings card. null = fine.
@@ -73,6 +78,70 @@ export async function replaceStatusToken(entryId) {
   return entry;
 }
 
+// A kennel taking applications online needs a form key (W2 Plan §7). Made once,
+// on this device, and kept on the kennel (a private field). → the kennel as saved.
+export async function ensureFormKey(kennel) {
+  if (!waitlistConfig(kennel).online_form || currentFormKey(kennel.waitlist_form_keys)) return kennel;
+  const keys = [...(kennel.waitlist_form_keys || []), await generateFormKey()];
+  return kennelRepo.update(kennel.id, { waitlist_form_keys: keys });
+}
+
+// Rotate form key: new applications use a new key; older ones still open with the
+// old keys, which are kept. A family midway through the form is asked to reload it.
+export async function rotateFormKey(kennelId) {
+  const kennel = await kennelRepo.getById(kennelId);
+  const saved = await kennelRepo.update(kennelId, { waitlist_form_keys: await rotateFormKeys(kennel.waitlist_form_keys) });
+  await syncWaitlistOnline().catch(() => {});
+  return saved;
+}
+
+// Take in new applications (W2 Plan step 4): each confirmed application in the
+// inbox for an own kennel is opened with that kennel's form keys and becomes an
+// `applied` entry whose id is the inbox item's id (D5), so taking one in twice
+// never makes two families; then the server is told. A device that has never
+// done this (new or reset) first asks for everything the server still holds,
+// and fills in answers a restore without private backup left out. One that
+// can't be opened (a form key this device doesn't have) stays in the inbox.
+// → { taken, filled, unopened }
+export async function takeInApplications(token, kennels) {
+  const byPublicId = new Map(kennels.filter((k) => k.public_id).map((k) => [k.public_id, k]));
+  const state = getWaitlistOnlineState();
+  const all = !state.inboxFetchedAll;
+  const done = [];
+  let taken = 0;
+  let filled = 0;
+  let unopened = 0;
+  let after = null;
+  let dogs = null;
+  do {
+    const page = await api.readWaitlistInbox(token, { all, after });
+    for (const item of page.items) {
+      if (item.kind !== 'application') continue; // family messages: step 5
+      const kennel = byPublicId.get(item.publicId);
+      if (!kennel) continue;
+      const existing = await waitlistEntryRepo.getById(item.id);
+      // Already here with its answers: just tell the server.
+      if (existing && Object.keys(existing.application || {}).length > 2) { if (!item.acked) done.push(item.id); continue; }
+      let opened;
+      try { opened = await openSealed(kennel.waitlist_form_keys, item.blob); } catch { unopened++; continue; }
+      dogs ??= await dogRepo.getAll();
+      const fresh = applicationToEntry(item, opened, { kennel, form: formQuestions(waitlistConfig(kennel)), breeds: kennelBreeds(kennel, dogs) });
+      if (existing) {
+        await waitlistEntryRepo.update(existing.id, { application: { ...fresh.application, ...existing.application }, application_questions: existing.application_questions || fresh.application_questions });
+        filled++;
+      } else {
+        await waitlistEntryRepo.create(fresh);
+        taken++;
+      }
+      if (!item.acked) done.push(item.id);
+    }
+    after = page.next;
+  } while (after);
+  for (let i = 0; i < done.length; i += 100) await api.ackWaitlistInbox(token, done.slice(i, i + 100));
+  updateWaitlistOnlineState({ inboxFetchedAll: true, inboxUnopened: unopened, ...(taken ? { lastTakenInAt: new Date().toISOString() } : {}) });
+  return { taken, filled, unopened };
+}
+
 // The projection for one kennel, from the database.
 export async function projectionFor(kennel, { today = todayYMD() } = {}) {
   const [entries, offers, programsById, litters, dogs, sales, contacts] = await Promise.all([
@@ -84,7 +153,7 @@ export async function projectionFor(kennel, { today = todayYMD() } = {}) {
     saleRepo.getAll({ includeArchived: true }),
     contactRepo.getAll({ includeArchived: true })
   ]);
-  return buildProjection({ kennel, entries, offers, programsById, litters, dogs, sales, contacts, today });
+  return buildProjection({ kennel, entries, offers, programsById, litters, dogs, sales, contacts, today, formKey: currentFormKey(kennel.waitlist_form_keys) });
 }
 
 let chain = Promise.resolve();
@@ -133,8 +202,11 @@ async function syncNow({ force }) {
 
   const published = [];
   const unpublished = [];
+  let inbox = null;
   updateWaitlistOnlineState({ lastAttemptAt: new Date().toISOString() });
   try {
+    // New applications first, so the projection that follows includes them.
+    if (wanted.length) inbox = await takeInApplications(token, wanted);
     for (const [kennelId, s] of stale) {
       await api.unpublishWaitlist(token, s.publicId);
       const kennelsState = { ...getWaitlistOnlineState().kennels };
@@ -142,7 +214,8 @@ async function syncNow({ force }) {
       updateWaitlistOnlineState({ kennels: kennelsState });
       unpublished.push(kennelId);
     }
-    for (const kennel of wanted) {
+    for (const listed of wanted) {
+      const kennel = await ensureFormKey(listed);
       await ensureStatusTokens(kennel);
       const projection = await projectionFor(kennel);
       const hash = await sha256(JSON.stringify(projection));
@@ -157,10 +230,10 @@ async function syncNow({ force }) {
   } catch (err) {
     const code = errorCode(err);
     updateWaitlistOnlineState({ lastError: { code, at: new Date().toISOString() } });
-    return { status: 'error', reason: code, published, unpublished };
+    return { status: 'error', reason: code, published, unpublished, inbox };
   }
   updateWaitlistOnlineState({ lastError: null });
-  return { status: 'ok', published, unpublished };
+  return { status: 'ok', published, unpublished, inbox };
 }
 
 // What the settings card shows for one kennel.
@@ -172,13 +245,16 @@ export function waitlistOnlineStatus(kennel) {
     published: state.kennels[kennel.id] || null,
     lastError: state.lastError,
     signedIn: Boolean(sessionToken()),
+    formOpen: isOnline(kennel) && waitlistConfig(kennel).online_form,
+    inboxUnopened: state.inboxUnopened || 0,
     backupOn: getCloudBackupState().enabled
   };
 }
 
 // Started once per page (cloudBackupUI.bootCloud). Publishes shortly after
 // load (catching changes made while signed out or offline: the hash decides),
-// then PUBLISH_DELAY_MS after the last data change, and when back online.
+// then PUBLISH_DELAY_MS after the last data change, and when back online; and
+// takes in new applications every INBOX_POLL_MS while the app is in front.
 export function startWaitlistScheduler({ win = globalThis } = {}) {
   if (!isWaitlistOnlineOffered() || !editionFlags.waitlist) return () => {};
   let timer = null;
@@ -189,12 +265,20 @@ export function startWaitlistScheduler({ win = globalThis } = {}) {
   };
   const onChange = () => schedule();
   const onOnline = () => schedule(1000);
+  // New applications arrive on the server, not from a change here: look every few
+  // minutes while the app is open and in front, and when she comes back to it.
+  const visible = () => win.document?.visibilityState !== 'hidden';
+  const poll = win.setInterval?.(() => { if (visible() && !timer) run(); }, INBOX_POLL_MS);
+  const onVisible = () => { if (visible()) schedule(1000); };
   win.addEventListener?.(CLOUD_DATA_CHANGED_EVENT, onChange);
   win.addEventListener?.('online', onOnline);
+  win.document?.addEventListener?.('visibilitychange', onVisible);
   schedule(2000);
   return () => {
     if (timer) clearTimeout(timer);
+    if (poll) win.clearInterval?.(poll);
     win.removeEventListener?.(CLOUD_DATA_CHANGED_EVENT, onChange);
     win.removeEventListener?.('online', onOnline);
+    win.document?.removeEventListener?.('visibilitychange', onVisible);
   };
 }

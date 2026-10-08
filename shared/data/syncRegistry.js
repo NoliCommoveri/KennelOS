@@ -84,7 +84,9 @@ export const SYNC_REGISTRY = Object.freeze({
       // Spec §6.5, W2 Plan §9). A setting, not personal data.
       'time_zone'
     ],
-    private: [],
+    // Her application form's key pairs (W2 Plan §7): the private halves open every
+    // online application, so they ride the private vault and file backups only.
+    private: ['waitlist_form_keys'],
     pending: []
   },
 
@@ -227,7 +229,9 @@ export const SYNC_REGISTRY = Object.freeze({
       // The waitlist server already holds every token readable (it serves the page
       // and puts the link in emails), so cloud backup tells it nothing new; private,
       // a restore without private backup would change every family's link.
-      'status_token'
+      'status_token',
+      // 'online_form' when the application came through her online form (W2 step 4).
+      'source'
     ],
     partial: { application: ['name', 'email'] },
     // pref_change_*: "private tier like application" (Waitlist Spec §15.9).

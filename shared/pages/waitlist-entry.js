@@ -120,7 +120,7 @@ function statusLines(e) {
   const today = todayYMD();
   const lines = [];
   if (e.status === 'applied') {
-    lines.push(`Applied ${e.applied_date ? esc(fmtDate(e.applied_date)) : ''}. Waiting for your review.`);
+    lines.push(`Applied ${e.applied_date ? esc(fmtDate(e.applied_date)) : ''}${e.source === 'online_form' ? ' through your online form' : ''}. Waiting for your review.`);
   } else if (e.status === 'approved') {
     const fee = e.fee_amount != null ? esc(fmtMoney(e.fee_amount)) : 'no fee set';
     lines.push(`Approved ${esc(fmtDate(e.approved_date))}. Fee due: <strong>${fee}</strong>${e.fee_due_date ? ` by ${esc(fmtDate(e.fee_due_date))}` : ''}.`);

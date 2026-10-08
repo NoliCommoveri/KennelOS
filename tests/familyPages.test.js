@@ -43,7 +43,11 @@ test('the pages carry no inline script or style (the CSP forbids them) and load 
   for (const f of readdirSync(dir)) {
     const text = readFileSync(new URL(f, dir), 'utf8');
     assert.equal(/style="/.test(text), false, `${f}: inline style`);
-    assert.equal(/https?:\/\//.test(text.replace(/http:\/\/www\.w3\.org[^"']*/g, '')), false, `${f}: an outside URL`);
+    // The one exception: the application form loads Cloudflare Turnstile, its spam
+    // check, and only that page's CSP allows it.
+    const outside = text.replace(/http:\/\/www\.w3\.org[^"']*/g, '')
+      .replace(f === 'apply.js' ? /https:\/\/challenges\.cloudflare\.com\/turnstile\/v0\/api\.js\?render=explicit/g : /$^/g, '');
+    assert.equal(/https?:\/\//.test(outside), false, `${f}: an outside URL`);
     if (f.endsWith('.html')) assert.equal(/<script(?![^>]*\bsrc=)[^>]*>/.test(text), false, `${f}: inline script`);
   }
 });
