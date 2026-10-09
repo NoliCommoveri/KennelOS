@@ -37,6 +37,12 @@ function eventTypeLabel(type) {
 // One curated detail line per health event type, built from its own
 // details{} fields (mirrors timeline.js's detailsSummary, scoped to what's
 // worth printing).
+// Contact names by id, for a vet visit's or surgery's linked vet (filled in
+// render, before any eventDetail call). A typed `details.vet` name is the
+// fallback when no contact is linked.
+let contactNames = new Map();
+const vetName = (ev) => (ev.related_contact_id && contactNames.get(ev.related_contact_id)) || ev.details?.vet;
+
 function eventDetail(ev) {
   const d = ev.details || {};
   switch (ev.event_type) {
@@ -56,9 +62,9 @@ function eventDetail(ev) {
     case 'medication':
       return [d.drug, d.dose, d.frequency].filter(Boolean).join(' — ');
     case 'surgery':
-      return [d.procedure, d.vet, d.outcome].filter(Boolean).join(' — ');
+      return [d.procedure, vetName(ev), d.outcome].filter(Boolean).join(' — ');
     case 'vet_visit':
-      return [d.reason, d.vet, d.findings].filter(Boolean).join(' — ');
+      return [d.reason, vetName(ev), d.findings].filter(Boolean).join(' — ');
     case 'injury':
       return [d.description, d.severity].filter(Boolean).join(' — ');
     case 'abnormalities':
@@ -242,15 +248,17 @@ async function main() {
   }
   document.getElementById('pr-back').href = `sale.html?id=${encodeURIComponent(sale.id)}`;
 
-  const [buyer, sire, dam, litter, events, kennels, activeKennel] = await Promise.all([
+  const [buyer, sire, dam, litter, events, kennels, activeKennel, contacts] = await Promise.all([
     sale.buyer_contact_id ? contactRepo.getById(sale.buyer_contact_id) : null,
     dog.sire_id ? dogRepo.getById(dog.sire_id) : null,
     dog.dam_id ? dogRepo.getById(dog.dam_id) : null,
     dog.litter_id ? litterRepo.getById(dog.litter_id) : null,
     eventRepo.getForSubject('dog', dog.id),
     kennelRepo.getAll({ includeArchived: true }),
-    getActiveKennel()
+    getActiveKennel(),
+    contactRepo.getAll({ includeArchived: true })
   ]);
+  contactNames = new Map(contacts.map((c) => [c.id, c.name]));
   // The puppy's own kennel when it's one of the user's own; otherwise the
   // active kennel scope, then the sole own kennel on record as a last resort
   // (Lite, or "All kennels" with just one) — Multi-Kennel Scope Spec §10.

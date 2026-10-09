@@ -623,7 +623,8 @@ the normal remove and never cascades**.
   per entry and returns human-readable `{label, count}` blockers; `hardDelete` throws
   `ReferenceBlockedError` if any exist.
 - `CONTACT_REFERENCES` covers owner/co-owner of a dog, buyer + referrer on a sale,
-  partner + referrer on a stud service, contact on a boarding, placement, or show event, the
+  partner + referrer on a stud service, contact on a boarding, placement, show, vet visit, or
+  surgery event (the vet), the
   lease/co_own/foster/other contract counterparty, and the **foster partner on a
   litter** (`litters.foster_partner_contact_id`, §25) — so a contact documented anywhere
   can't be hard-deleted out from under it.
@@ -707,10 +708,19 @@ One polymorphic table for all dated history. `subject_type ∈ {dog, pairing, li
   field may carry `default`, applied only when *creating* an event whose draft has no
   value for that key (a prefill wins).
 - `relatedContact: true` — surfaces the top-level `related_contact_id` FK (boarding,
-  placement, show). Contacts on events are the canonical FK, never a `details` value. A
-  **string** value is the picker's label (`show` → "Handler"). `eventForm.js`'s
-  `RELATED_CONTACT_ROLE` tags the saved contact with a role via `contactRepo.ensureType`
-  (`show` → `handler`), whether picked or created inline.
+  placement, show, vet_visit, surgery). Contacts on events are the canonical FK, never a
+  `details` value. A **string** value is the picker's label (`show` → "Handler",
+  `vet_visit`/`surgery` → "Vet"). `eventForm.js`'s `RELATED_CONTACT_ROLE` tags the saved
+  contact with a role via `contactRepo.ensureType` (`show` → `handler`, `vet_visit`/`surgery`
+  → `vet`), whether picked or created inline; with a role, the picker lists contacts that
+  already carry it first and the "＋ New" contact defaults to it.
+- `contactFallback: true` (on a field) — the related contact's plain-text **name**, kept
+  only where no contact is linked: `details.vet` on `vet_visit`/`surgery`, written by
+  KennelAssistant's log form (no pickers there) and by events logged before the vet
+  link. The main event form hides the field, preselects a contact whose name matches
+  (case-insensitive, trimmed; never auto-creates one), prefills "＋ New" with the name, and
+  drops the key on save once a contact is linked. Timeline/Puppy Record show the linked
+  contact's name, falling back to the typed one.
 - `titleFrom` (optional) — a `details` key that auto-fills the title (`show` →
   `show_name`): while the title is empty, the type label, or the last auto-filled value,
   typing in that field rewrites it; a hand-edited title is left alone.
@@ -1338,13 +1348,15 @@ implementation lives in `data/dateUtils.js`.
   only by `cloudBackupUI.js` (so `cloudUrl: null` never loads it). The card's second line
   ("Private info: encrypted backup, 4 minutes ago" / "locked on this device" / "only on this
   device · last file backup …") is rendered by `cloudBackupUI.privateLine`.
-- **contactPicker.js** — `attachNewContactButton(selectEl, {onCreated})` decorates any
-  contact `<select>` with a "＋ New" button: minimal inline-create modal (name required),
+- **contactPicker.js** — `attachNewContactButton(selectEl, {onCreated, defaultType,
+  defaultName})` decorates any contact `<select>` with a "＋ New" button: minimal
+  inline-create modal (name required; `defaultType` preselects the contact type — and adds
+  it to Lite's Buyer-only list — `defaultName` prefills the name),
   creates via `contactRepo.create`, appends+selects the option, fires a native `change`
   event. `onCreated` runs **before** that dispatch so a caller that re-renders the select
   from its own in-memory contact list (e.g. `sale.js`) sees the new contact already there.
-  Wired into sale (buyer), stud-service (partner), and `eventForm.js` (boarding/placement
-  related contact).
+  Wired into sale (buyer), stud-service (partner), and `eventForm.js` (the related contact
+  on boarding/placement/show/vet visit/surgery).
 - **expensePanel.js** — the reusable per-subject expense ledger panel (§21).
 - **kennelScopeUI.js** — all three pieces of active-kennel UI, reading only
   `data/kennelScope.js`: `renderKennelSwitcher(host)` (the nav's indicator + switcher),

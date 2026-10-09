@@ -791,8 +791,8 @@ export async function seedSampleData() {
       details: { location: 'Sam Okafor’s (co-owner)', boarding_reason: 'Co-owner rotation', notes: 'Routine time with his co-owner.' } },
     // Percy — future-dated vet_visit with a DUE-SOON reminder (within 30 days).
     { subject_id: percy.id, event_type: 'vet_visit', event_date: '2026-08-15', title: 'Annual checkup',
-      reminder_date: daysFromToday(14),
-      details: { reason: 'Annual checkup', vet: 'Dr. Patricia Nguyen' } },
+      reminder_date: daysFromToday(14), related_contact_id: patricia.id,
+      details: { reason: 'Annual checkup' } },
     // Fern
     { subject_id: fern.id, event_type: 'milestone', event_date: '2025-10-15', title: 'Eyes open',
       details: { description: 'Eyes open' } },
@@ -857,11 +857,11 @@ export async function seedSampleData() {
     { subject_id: daisy.id, event_type: 'preventative', event_date: '2026-04-20', title: 'Deworming',
       details: { product: 'Panacur', dose: '2 mL' } },
     { subject_id: daisy.id, event_type: 'vet_visit', event_date: '2026-04-25', title: 'Puppy wellness exam',
-      details: { reason: 'Wellness check', vet: 'Dr. Patricia Nguyen', findings: 'Healthy, on growth curve.' } },
+      related_contact_id: patricia.id, details: { reason: 'Wellness check', findings: 'Healthy, on growth curve.' } },
     { subject_id: daisy.id, event_type: 'weight_check', event_date: '2026-05-01', title: 'Weight check',
       details: { weight_lbs: 6, weight_oz: 4, time_of_day: 'AM' } },
     { subject_id: daisy.id, event_type: 'surgery', event_date: '2026-05-10', title: 'Spay',
-      details: { procedure: 'Ovariohysterectomy', vet: 'Dr. Patricia Nguyen', outcome: 'Uncomplicated, recovered well.' } }
+      related_contact_id: patricia.id, details: { procedure: 'Ovariohysterectomy', outcome: 'Uncomplicated, recovered well.' } }
   ];
 
   const pairingEvents = [
@@ -940,8 +940,8 @@ export async function seedSampleData() {
   // demonstrate the 🔗 tag; a fresh vet_visit event is created to hang it on.
   const vetVisit = await HistoryEvent.create({
     subject_type: 'dog', subject_id: juniper.id, event_type: 'vet_visit',
-    event_date: daysFromToday(-20), title: 'Sick visit',
-    details: { reason: 'Ear infection', vet: 'Dr. Patricia Nguyen' }
+    event_date: daysFromToday(-20), title: 'Sick visit', related_contact_id: patricia.id,
+    details: { reason: 'Ear infection' }
   });
   manifest.events.push(vetVisit.id);
 
