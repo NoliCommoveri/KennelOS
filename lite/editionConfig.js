@@ -165,4 +165,5 @@ export const navItems = [
 
 export const moreItems = [
   { label: 'Import/Export', path: 'pages/import-export.html' },
+  { label: 'Settings',      path: 'pages/settings.html' },
 ];

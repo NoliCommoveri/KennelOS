@@ -87,7 +87,9 @@ function stemJs(htmlBasename) {
 // job is pushing your records out to a real Dropbox account, which is the
 // opposite of a sealed read-only showcase. The helper app at the root still
 // ships — that decision is open, see LAUNCH_CHECKLIST's Dropbox item.
-const DEMO_EXCLUDED_PAGES = ['import-export.html', 'assistant.html'];
+// `settings.html` (account, kennel setup, the tour restart, the device license)
+// came out of import-export.html, so it stays out of Demo with it.
+const DEMO_EXCLUDED_PAGES = ['import-export.html', 'settings.html', 'assistant.html'];
 
 // Files excluded from an edition. Lite drops the Pro-only pages; Demo drops the
 // save/export page; Pro ships everything.
