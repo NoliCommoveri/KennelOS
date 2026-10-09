@@ -802,6 +802,8 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   and Demand vs Supply; **phase 3** Expenses by Category, Receivables, Pricing,
   Breeding-Dog Return, Heat Cycles, Health-Testing Gaps, Lead Sources & Referrers, Returns
   & Voids, Show Record and Stud Results — the plan is complete.
+  Service-worker cache rolled to `kennelos-shell-v53` (this batch plus the registration /
+  purposes / Full-surcharge / puppy-form changes before it).
 
 ## Build & deploy
 
