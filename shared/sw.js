@@ -106,6 +106,7 @@ const PRECACHE_URLS = [
   'data/pairingRepo.js',
   'data/pdfBuild.js',
   'data/proPages.js',
+  'data/puppyRecordFields.js',
   'data/referenceRegistry.js',
   'data/repoBase.js',
   'data/reportCatalog.js',
