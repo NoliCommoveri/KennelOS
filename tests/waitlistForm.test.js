@@ -20,7 +20,7 @@ const makeId = () => `t${++seq}`;
 test('no stored form → the defaults, including every locked question and the notice', () => {
   const qs = formQuestions({});
   assert.deepEqual(ids(qs), ids(DEFAULT_FORM_QUESTIONS));
-  for (const key of ['name', 'email', 'pref_sex', 'pref_breed', 'pref_placement', 'pref_colors', 'ready_timing', 'public_notice']) {
+  for (const key of ['name', 'email', 'pref_sex', 'pref_breed', 'pref_purposes', 'pref_colors', 'ready_timing', 'public_notice']) {
     assert.ok(qs.some((x) => x.key === key), key);
   }
   assert.equal(qs.find((x) => x.key === 'public_notice').help, PUBLIC_LIST_NOTICE);
@@ -32,6 +32,16 @@ test('a deleted locked question comes back, near its old neighbours', () => {
   const qs = formQuestions({ form_questions: stored });
   assert.equal(qs[1].key, 'email');
   assert.equal(qs[qs.length - 1].key, 'public_notice');
+});
+
+test('a form saved with the old placement question reads it as the purposes question', () => {
+  const kept = formQuestions({ form_questions: [{ id: 'pref_placement', key: 'pref_placement', label: 'Pet or show home?', type: 'preference' }] });
+  const q = kept.filter((x) => x.key === 'pref_purposes');
+  assert.equal(q.length, 1);
+  assert.equal(q[0].label, 'Pet or show home?', 'her own wording stays');
+  assert.equal(kept.some((x) => x.key === 'pref_placement'), false);
+  const old = formQuestions({ form_questions: [{ id: 'pref_placement', key: 'pref_placement', label: 'Pet, show, or breeding?', type: 'preference' }] });
+  assert.equal(old.find((x) => x.key === 'pref_purposes').label, DEFAULT_FORM_QUESTIONS.find((x) => x.key === 'pref_purposes').label, 'the old default wording is replaced');
 });
 
 test('locked questions can be reworded but keep their type, required flag and key', () => {
@@ -221,7 +231,7 @@ test('FAQ: blank items dropped, half-filled items block saving', () => {
 });
 
 test('matching notice covers the offer-filtering preferences; colors only with color matching on', () => {
-  assert.deepEqual(matchingPrefKeys({}), ['pref_sex', 'pref_breed', 'pref_placement']);
-  assert.deepEqual(matchingPrefKeys({ color_matching: true }), ['pref_sex', 'pref_breed', 'pref_placement', 'pref_colors']);
+  assert.deepEqual(matchingPrefKeys({}), ['pref_sex', 'pref_breed', 'pref_purposes']);
+  assert.deepEqual(matchingPrefKeys({ color_matching: true }), ['pref_sex', 'pref_breed', 'pref_purposes', 'pref_colors']);
   assert.ok(!matchingPrefKeys({ color_matching: true }).includes('ready_timing'));
 });

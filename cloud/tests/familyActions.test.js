@@ -130,13 +130,16 @@ test('a pause request needs a date in the future (within two years); listen-only
   assert.equal(await err(await act(env, ann, tok('a'), 'pref_change', { changes: { pref_breed: 'Poodle' } })), 'bad_value');
   assert.equal(await err(await act(env, ann, tok('a'), 'pref_change', { changes: { pref_sex: 'puppy' } })), 'bad_value');
   assert.equal(await err(await act(env, ann, tok('a'), 'pref_change', { changes: {} })), 'nothing_to_change');
-  assert.equal((await act(env, ann, tok('a'), 'pref_change', { changes: { pref_sex: 'male', ready_timing: '3_months' }, note: 'x'.repeat(900) })).status, 200);
+  assert.equal(await err(await act(env, ann, tok('a'), 'pref_change', { changes: { pref_purposes: ['pet', 'zoo'] } })), 'bad_value');
+  assert.equal(await err(await act(env, ann, tok('a'), 'pref_change', { changes: { pref_purposes: 'pet' } })), 'bad_value');
+  assert.equal((await act(env, ann, tok('a'), 'pref_change', { changes: { pref_sex: 'male', ready_timing: '3_months', pref_purposes: ['show', 'pet', 'show'] }, note: 'x'.repeat(900) })).status, 200);
 
   const ev = events(env);
   assert.deepEqual(ev.map((e) => e.kind), ['pause_request', 'listen', 'pref_change']);
   assert.equal(ev[0].payload.until, plusDays(60));
   assert.deepEqual(ev[1].payload, { mode: 'selected', sire_ids: [], dam_ids: ['dam1'] });
   assert.equal(ev[2].payload.note.length, ACTION_LIMITS.noteChars);
+  assert.deepEqual(ev[2].payload.changes.pref_purposes, ['pet', 'show'], 'deduped, in vocab order');
   assert.ok(ev.every((e) => e.based_on_version === 1));
 });
 

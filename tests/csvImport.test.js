@@ -472,7 +472,7 @@ function saleIndex({ sales = [], dogs = [], contacts = [], kennels = [] } = {}) 
 
 const validSaleRow = (over = {}) => ({
   dog_registered_name: 'Rex Von Trapp', buyer_name: 'John Smith', sale_date: '2024-06-01',
-  placement_type: 'Pet', status: 'Deposit Paid', ...over
+  registration_type: 'Limited', status: 'Deposit Paid', ...over
 });
 
 test('sale: dog + buyer_name + sale_date all required for a natural key', () => {
@@ -950,7 +950,7 @@ test('waitlist: the same email on ANOTHER kennel is a new application (one list 
   assert.equal(r.record.kennel_id, 'k2');
 });
 
-test('waitlist: no kennel resolvable → review; unknown kennel / program / placement are flagged, never invented', () => {
+test('waitlist: no kennel resolvable → review; unknown kennel / program / purpose are flagged, never invented', () => {
   const none = wlSetup([], { defaultKennelId: null });
   assert.equal(wlMapping.classify({ name: 'A', email: 'a@example.com' }, none, 0).status, 'review');
   const idx = wlSetup([], { programs: [{ id: 'p1', kennel_id: 'k1', name: 'Treatment family' }] });
@@ -958,11 +958,11 @@ test('waitlist: no kennel resolvable → review; unknown kennel / program / plac
   assert.equal(ok.record.waitlist_program_id, 'p1');
   const bad = wlMapping.classify({ name: 'C', email: 'c@example.com', program: 'Nope', placement: 'zoo', kennel_name: 'Elsewhere' }, idx, 2);
   assert.equal(bad.record.waitlist_program_id, undefined);
-  assert.equal(bad.record.pref_placement_type, undefined);
-  // Unknown kennel + unknown placement flagged, plus the "no kennel" review reason;
+  assert.equal(bad.record.pref_purposes, undefined);
+  // Unknown kennel + unknown purpose flagged, plus the "no kennel" review reason;
   // the program can't be looked up without a kennel, so it's left blank silently.
   assert.equal(bad.reasons.length, 3);
   assert.match(bad.reasons.join(' '), /isn't one of your kennels/);
-  assert.match(bad.reasons.join(' '), /Unrecognized placement/);
+  assert.match(bad.reasons.join(' '), /Unrecognized purpose "zoo"/);
   assert.equal(bad.status, 'review');
 });

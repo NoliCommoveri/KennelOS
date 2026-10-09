@@ -174,7 +174,7 @@ code. See Q1.
 | `fee_credit_policy` | | `credited_to_purchase` / `non_refundable` / `refundable`, copied from `waitlist_config` when the entry is approved (Q5) |
 | `position_anchor_date` | | Optional manual override (§6.1), rarely used. Replaces `fee_received_date` for ordering only. |
 | `pref_sex` | | `any` / `male` / `female` |
-| `pref_placement_type` | | From `PLACEMENT_TYPE` (pet / show / breeding_rights / co_own) |
+| `pref_purposes` | | **Amended 2026-10-09** (was `pref_placement_type`, one `PLACEMENT_TYPE` value). Any number of `PLACEMENT_PURPOSE` values: pet / performance / show / breeding / co_own. Each maps to the registrations it fits (pet & performance → Limited or None, show → Full, breeding → Full or None, co-own → Co-own); the family accepts the union. Empty = any. Show and breeding overlapped as placements; as purposes they simply both map to Full. |
 | `pref_colors` | | Free-text list. Used for eligibility only if she turns that on (Q4). |
 | `pref_breed` | | One of the kennel's breeds, picked from a dropdown (the breeds of that kennel's dogs plus its preferred breeds), never free text: decided 2026-10-06 after misspellings and shorthand made families match no pup (§15.6). Blank = any breed. Always offered (Decision §0); matched case-insensitively and trimmed against the pup's `Dog.breed` (§6.2). CSV import maps a breed to the kennel's spelling and flags one it can't, leaving it blank. |
 | `listen_mode` | | `all` (default), `selected` (§6.3) or `except` (§16.3) |
@@ -253,6 +253,11 @@ waitlist_programs: 'id, kennel_id, is_archived'
     `WAITLIST_PROGRAM_REFERENCES` (`waitlist_entries.waitlist_program_id`).
 - **Kennel gains `waitlist_config`** (§4.6), and **Litter gains `picks_opened_date`**
   (nullable `YYYY-MM-DD`, plain unindexed field, set by **Open picks**, §6.5).
+- **Amended 2026-10-09:** the field is now `intended_registration`, values from
+  `REGISTRATION_TYPE` (Limited / Full / Co-own / None), and Sale's `placement_type` became
+  `registration_type` from the same vocab; families give purposes instead of one placement
+  (§4.1 `pref_purposes`). The litter gained `full_reg_surcharge_male`/`_female`, added to a
+  prefilled sale price when the registration is Full. As first written:
 - **One new field on Dog:** `intended_placement`, nullable, values from `PLACEMENT_TYPE`
   (pet / show / breeding_rights / co_own). It's the per-pup placement §6.2 matches
   against. Plain unindexed field, same posture as `disposition`; unset means "any
@@ -388,9 +393,10 @@ A family is **eligible** for a litter when all of the following hold:
 - at least one pup in the litter is **available** (no live Sale, `disposition` not
   `keeping`/`placed`, not deceased or archived; §0), **and matches their preferences**:
   sex (unless `any`); **breed** (unless blank; case-insensitive and trimmed against
-  `Dog.breed`, and a pup with no breed recorded matches any); placement type, checked
-  against the pup's `intended_placement` (§4.5; a pup with it unset matches any
-  placement); color, only if she has turned on color matching (Q4; it's off by default,
+  `Dog.breed`, and a pup with no breed recorded matches any); purposes, checked
+  against the pup's `intended_registration` (§4.5, amended 2026-10-09: the pup's
+  registration must be one the family's purposes map to; a pup with it unset, or a
+  family with no purpose ticked, matches any); color, only if she has turned on color matching (Q4; it's off by default,
   and when on, any listed color must appear in the pup's `color_markings`).
 
 A family is **eligible for a pup** when the above holds for that particular pup.
@@ -1010,7 +1016,7 @@ Every breeder asks different questions, so the form is hers to build. She can ei
 import her questions from her previous form or build them Google-Forms style.
 
 - **Locked questions.** The questions the rules (§6) and the automatic steps depend on
-  are locked: name, email, the preferences (`pref_sex`, `pref_placement_type`,
+  are locked: name, email, the preferences (`pref_sex`, `pref_purposes`,
   `pref_breed`, `pref_colors`), and the public list notice (§15.3). **No program
   question:** only she assigns programs (decided 2026-10-06), at approval or on the entry. She can reword them but can't delete them or change their answer
   type.

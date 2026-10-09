@@ -5,7 +5,7 @@
 // this browser to her form key (seal.js) before they're sent; the applicant then
 // types the code emailed to them, which sends the application to her and signs
 // this browser in (See Your Details).
-import { esc, fetchJson, loadError, possessive, SEX_LABEL, READY_LABEL, PLACEMENT_LABEL } from './common.js';
+import { esc, fetchJson, loadError, possessive, SEX_LABEL, READY_LABEL, PURPOSE_LABEL } from './common.js';
 import { seal } from './seal.js';
 import { rememberFamily } from './session.js';
 
@@ -68,9 +68,9 @@ function prefHtml(q, form) {
       if (!form.breeds.length) return '';
       return `<div class="field"><label class="q" for="pref_breed">${esc(q.label)}</label>
         <select id="pref_breed" data-pref="pref_breed"><option value="">Any breed</option>${form.breeds.map((b) => `<option>${esc(b)}</option>`).join('')}</select></div>`;
-    case 'pref_placement':
-      return `<div class="field"><label class="q" for="pref_placement_type">${esc(q.label)}</label>
-        <select id="pref_placement_type" data-pref="pref_placement_type"><option value="">Any</option>${Object.entries(PLACEMENT_LABEL).map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</select></div>`;
+    case 'pref_purposes':
+      return `<fieldset class="field" data-pref="pref_purposes">${legend}<p class="small muted mt0">Leave all unticked if any is fine.</p>
+        <div class="choices">${Object.entries(PURPOSE_LABEL).map(([v, l]) => `<label class="choice"><input type="checkbox" value="${esc(v)}"> ${esc(l)}</label>`).join('')}</div></fieldset>`;
     case 'pref_colors':
       return `<div class="field"><label class="q" for="pref_colors">${esc(q.label)}</label>
         <input id="pref_colors" data-pref="pref_colors" type="text" maxlength="300" placeholder="Leave blank for any">
@@ -118,7 +118,7 @@ function readForm(view) {
   const prefs = {
     pref_sex: radioValue('pref_sex') || 'any',
     pref_breed: document.querySelector('[data-pref="pref_breed"]')?.value || '',
-    pref_placement_type: document.querySelector('[data-pref="pref_placement_type"]')?.value || '',
+    pref_purposes: [...document.querySelectorAll('[data-pref="pref_purposes"] input:checked')].map((el) => el.value),
     pref_colors: (document.querySelector('[data-pref="pref_colors"]')?.value || '').split(',').map((s) => s.trim()).filter(Boolean),
     ready_timing: radioValue('ready_timing') || null,
   };
