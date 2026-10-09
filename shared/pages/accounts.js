@@ -1,12 +1,15 @@
 // accounts.js — the Accounts page (Pro-only): one card per business account
 // (AKC, Good Dog, Chewy…) with her own login details and the referral
 // link/code she shares, each with a Copy button. The password stays masked
-// until "Show". Add/Edit is a modal; archive/delete like any entity (an
-// account is a leaf, so delete is never blocked). Reads/writes only through
-// accountRepo.
+// until "Show". Each card also totals the expenses paid through the account
+// (expenses.account_id) and links to them in Financials. Add/Edit is a modal;
+// archive/delete like any entity — delete is blocked while an expense names the
+// account (ACCOUNT_REFERENCES), so archive it then. Reads/writes only through
+// accountRepo / expenseRepo.
 import { accountRepo } from '../data/accountRepo.js';
+import { expenseRepo } from '../data/expenseRepo.js';
 import { ACCOUNT_TYPE } from '../data/vocab.js';
-import { esc, badge, confirmModal } from '../assets/ui.js';
+import { esc, badge, fmtMoney, confirmModal, alertModal } from '../assets/ui.js';
 
 const els = {
   msg: document.getElementById('page-msg'),
@@ -18,6 +21,7 @@ const els = {
 };
 
 let accounts = [];
+let spendByAccount = new Map(); // account id -> { total, count } over active expenses
 const revealed = new Set(); // account ids whose password is showing
 
 function showError(msg) { els.msg.innerHTML = `<div class="inline-error">${esc(msg)}</div>`; }
@@ -86,12 +90,22 @@ function cardHtml(a) {
     ${referral || a.referral_instructions ? `<div class="acct-section"><div class="acct-section-title">Referral — to share</div>${referral}
       ${a.referral_instructions ? `<div class="acct-instructions">${esc(a.referral_instructions)}</div>` : ''}</div>` : ''}
     ${a.notes ? `<div class="acct-section"><div class="acct-instructions">${esc(a.notes)}</div></div>` : ''}
+    ${spendHtml(a)}
     <div class="pill-row acct-actions">
       <button class="btn btn-sm" data-act="edit" data-id="${esc(a.id)}">Edit</button>
       <button class="btn btn-sm" data-act="${a.is_archived ? 'unarchive' : 'archive'}" data-id="${esc(a.id)}">${a.is_archived ? 'Unarchive' : 'Archive'}</button>
       <button class="btn btn-danger btn-sm" data-act="delete" data-id="${esc(a.id)}">Delete</button>
     </div>
   </article>`;
+}
+
+function spendHtml(a) {
+  const s = spendByAccount.get(a.id);
+  if (!s) return '';
+  return `<div class="acct-section acct-row">
+    <span class="acct-v"><strong>${esc(fmtMoney(s.total))}</strong> <span class="muted">spent · ${s.count} expense${s.count === 1 ? '' : 's'}</span></span>
+    <a class="btn btn-sm" href="financials.html?view=expenses&account=${encodeURIComponent(a.id)}">View expenses →</a>
+  </div>`;
 }
 
 function render() {
@@ -109,7 +123,19 @@ function render() {
 }
 
 async function load() {
-  accounts = await accountRepo.getAll({ includeArchived: true });
+  const [rows, expenses] = await Promise.all([
+    accountRepo.getAll({ includeArchived: true }),
+    expenseRepo.getAll()
+  ]);
+  accounts = rows;
+  spendByAccount = new Map();
+  for (const x of expenses) {
+    if (!x.account_id) continue;
+    const s = spendByAccount.get(x.account_id) || { total: 0, count: 0 };
+    s.total += Number(x.amount) || 0;
+    s.count += 1;
+    spendByAccount.set(x.account_id, s);
+  }
   render();
 }
 
@@ -130,6 +156,14 @@ els.list.addEventListener('click', async (e) => {
       case 'archive': await accountRepo.archive(a.id); break;
       case 'unarchive': await accountRepo.unarchive(a.id); break;
       case 'delete': {
+        const blockers = await accountRepo.getDeleteBlockers(a.id);
+        if (blockers.length) {
+          await alertModal({
+            title: `${a.name} can't be deleted`,
+            message: `It's still in use (${blockers.map((b) => `${b.label} × ${b.count}`).join(', ')}). Archive it instead — it keeps the expense history and drops out of the expense form's list.`
+          });
+          return;
+        }
         const ok = await confirmModal({
           title: `Delete ${a.name}?`,
           message: 'This removes the account and everything saved on it. Archive it instead to keep it out of the way.',

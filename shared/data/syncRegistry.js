@@ -200,7 +200,7 @@ export const SYNC_REGISTRY = Object.freeze({
     private: [
       'subject_type', 'subject_id', 'amount', 'category', 'expense_date', 'event_id',
       'miles', 'mileage_rate', 'vendor', 'receipt_number', 'receipt_file_id',
-      'reimbursable', 'reimbursed_date', 'notes'
+      'reimbursable', 'reimbursed_date', 'notes', 'account_id'
     ],
     pending: []
   },

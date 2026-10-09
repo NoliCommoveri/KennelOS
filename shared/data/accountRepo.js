@@ -3,7 +3,8 @@
 // password, customer/member ID — private tier in syncRegistry.js, so they reach
 // the cloud only inside the encrypted vault) and a shareable referral link
 // and/or code, with free-text instructions for the people she'll share it with.
-// Program-wide (not kennel-scoped) and a leaf: no FKs in or out.
+// Program-wide (not kennel-scoped). An expense may point at the account it was
+// paid through (expenses.account_id), so hard delete is blocked while one does.
 import { db } from './db.js';
 import { makeRepo } from './repoBase.js';
 import { ACCOUNT_REFERENCES } from './referenceRegistry.js';

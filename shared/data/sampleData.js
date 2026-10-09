@@ -31,7 +31,7 @@ import { editionFlags } from './editionConfig.js';
 import { monthsFromToday, daysFromToday } from './dateUtils.js';
 import {
   findBlockingReferences, DOG_REFERENCES, PAIRING_REFERENCES, LITTER_REFERENCES,
-  SALE_REFERENCES, STUD_SERVICE_REFERENCES, KENNEL_REFERENCES
+  SALE_REFERENCES, STUD_SERVICE_REFERENCES, KENNEL_REFERENCES, ACCOUNT_REFERENCES
 } from './referenceRegistry.js';
 import {
   getSampleDataManifest,
@@ -947,6 +947,27 @@ export async function seedSampleData() {
   });
   manifest.events.push(vetVisit.id);
 
+  // Accounts (Pro-only page, editionFlags.accounts): a registry, a marketplace and
+  // a store, so the page shows a login, a hidden password and a referral to share.
+  // Obviously-fake credentials — the Demo is public. Seeded before the expenses
+  // so the Chewy and AKC costs below can name their account (expenses.account_id).
+  const accountIds = new Map(); // name -> id
+  if (editionFlags.accounts) {
+    for (const data of [
+      { name: 'AKC', account_type: 'registry', website: 'akc.org', username: 'thornfield.kennels@example.com',
+        password: 'sample-password', customer_id: 'Breeder #A123456', notes: 'Breeder of Merit renewal each January.' },
+      { name: 'Good Dog', account_type: 'marketplace', website: 'gooddog.com', username: 'thornfield.kennels@example.com',
+        password: 'sample-password', referral_link: 'https://www.gooddog.com/breeders/thornfield-kennels-example',
+        referral_instructions: 'Apply for a Thornfield puppy through our Good Dog page — your deposit is protected by Good Dog.' },
+      { name: 'Chewy', account_type: 'supplier', website: 'chewy.com', username: 'thornfield.kennels@example.com',
+        password: 'sample-password', customer_id: '0000-SAMPLE', referral_link: 'https://www.chewy.com/refer/thornfield-example',
+        referral_code: 'THORNPUP', referral_instructions: 'Use code THORNPUP at checkout for 30% off your first Autoship order of the food your puppy is already eating.' }
+    ]) {
+      const saved = await accountRepo.create(data);
+      manifest.accounts.push(saved.id);
+      accountIds.set(saved.name, saved.id);
+    }
+
   const expenses = [
     // Kennel-wide overhead (subject_type='kennel') — the whole point of the table.
     { subject_type: 'kennel', subject_id: thornfield.id, amount: 1200, category: 'facility', expense_date: daysFromToday(-45), vendor: 'Whelping barn lease', notes: 'Quarterly' },
@@ -977,7 +998,8 @@ export async function seedSampleData() {
     { subject_type: 'litter', subject_id: fosterLitter.id, amount: 130, category: 'food', expense_date: daysFromToday(-25), vendor: 'Chewy', reimbursable: true, notes: 'Puppy food — awaiting owner reimbursement' }
   ];
   for (const x of expenses) {
-    const saved = await expenseRepo.create(x);
+    // A cost whose vendor is a seeded account is paid through it.
+    const saved = await expenseRepo.create({ ...x, account_id: accountIds.get(x.vendor) || null });
     manifest.expenses.push(saved.id);
   }
 
@@ -993,22 +1015,6 @@ export async function seedSampleData() {
     await seedWaitlist(manifest, { thornfield, owen, priya, hazelSale, litter, autumnLitter, expectedLitter, fern, wrenPup, asterPup });
   }
 
-  // Accounts (Pro-only page, editionFlags.accounts): a registry, a marketplace and
-  // a store, so the page shows a login, a hidden password and a referral to share.
-  // Obviously-fake credentials — the Demo is public.
-  if (editionFlags.accounts) {
-    for (const data of [
-      { name: 'AKC', account_type: 'registry', website: 'akc.org', username: 'thornfield.kennels@example.com',
-        password: 'sample-password', customer_id: 'Breeder #A123456', notes: 'Breeder of Merit renewal each January.' },
-      { name: 'Good Dog', account_type: 'marketplace', website: 'gooddog.com', username: 'thornfield.kennels@example.com',
-        password: 'sample-password', referral_link: 'https://www.gooddog.com/breeders/thornfield-kennels-example',
-        referral_instructions: 'Apply for a Thornfield puppy through our Good Dog page — your deposit is protected by Good Dog.' },
-      { name: 'Chewy', account_type: 'supplier', website: 'chewy.com', username: 'thornfield.kennels@example.com',
-        password: 'sample-password', customer_id: '0000-SAMPLE', referral_link: 'https://www.chewy.com/refer/thornfield-example',
-        referral_code: 'THORNPUP', referral_instructions: 'Use code THORNPUP at checkout for 30% off your first Autoship order of the food your puppy is already eating.' }
-    ]) {
-      manifest.accounts.push((await accountRepo.create(data)).id);
-    }
   }
 
   // Named ids (Wizard Runtime Spec v1 §3.2) — the guided tour's step catalog is a
@@ -1186,12 +1192,12 @@ function resetCompanionSettings() {
 // instead of deleting it, so the real dog's kennel_id keeps resolving.
 const ENTITY_REPOS = {
   dog: dogRepo, pairing: pairingRepo, litter: litterRepo,
-  sale: saleRepo, stud_service: studServiceRepo, kennel: kennelRepo
+  sale: saleRepo, stud_service: studServiceRepo, kennel: kennelRepo, account: accountRepo
 };
 const ENTITY_REGISTRIES = {
   dog: DOG_REFERENCES, pairing: PAIRING_REFERENCES, litter: LITTER_REFERENCES,
   sale: SALE_REFERENCES, stud_service: STUD_SERVICE_REFERENCES,
-  kennel: KENNEL_REFERENCES
+  kennel: KENNEL_REFERENCES, account: ACCOUNT_REFERENCES
 };
 
 // Human-readable label for a conflict message. Dogs already have a name; a
@@ -1211,6 +1217,10 @@ async function labelFor(entityType, id) {
   if (entityType === 'kennel') {
     const k = await db.kennels.get(id);
     return k ? (k.kennel_name || id) : id;
+  }
+  if (entityType === 'account') {
+    const a = await db.accounts.get(id);
+    return a ? `Account (${a.name})` : id;
   }
   if (entityType === 'stud_service') {
     const s = await db.stud_services.get(id);
@@ -1262,7 +1272,7 @@ async function findContaminatingReferences(manifest) {
   for (const [entityType, ids] of [
     ['dog', manifest.dogs], ['pairing', manifest.pairings || []], ['litter', manifest.litters || []],
     ['sale', manifest.sales || []], ['stud_service', manifest.stud_services || []],
-    ['kennel', manifest.kennels || []]
+    ['kennel', manifest.kennels || []], ['account', manifest.accounts || []]
   ]) {
     const registry = ENTITY_REGISTRIES[entityType];
     for (const id of ids) {
@@ -1318,7 +1328,7 @@ export async function clearSampleData({ archiveConflicting = false } = {}) {
 
   // Archive conflicting records (grouped by entity type), tracking which ids
   // to exclude from the bulk delete below.
-  const archivedIds = { dog: [], pairing: [], litter: [], sale: [], stud_service: [], kennel: [] };
+  const archivedIds = { dog: [], pairing: [], litter: [], sale: [], stud_service: [], kennel: [], account: [] };
   if (conflicts.size > 0) {
     for (const { entityType, id } of conflicts.values()) {
       await ENTITY_REPOS[entityType].archive(id);
@@ -1345,9 +1355,10 @@ export async function clearSampleData({ archiveConflicting = false } = {}) {
     contacts: manifest.contacts.length,
     kennels: kennelIdsToDelete.length,
     waitlist_entries: manifest.waitlist_entries.length,
-    accounts: manifest.accounts.length,
+    accounts: manifest.accounts.length - archivedIds.account.length,
     archived: archivedIds.dog.length + archivedIds.pairing.length + archivedIds.litter.length
       + archivedIds.sale.length + archivedIds.stud_service.length + archivedIds.kennel.length
+      + archivedIds.account.length
   };
 
   // Dependency order: events -> contracts -> litters -> stud_services ->
@@ -1360,8 +1371,10 @@ export async function clearSampleData({ archiveConflicting = false } = {}) {
   // exists to protect one record at a time, not to bulk-clear a whole known
   // set — brief §5).
   await db.transaction('rw', [db.expenses, db.events, db.contracts, db.litters, db.stud_services, db.pairings, db.sales, db.dogs, db.contacts, db.kennels, db.waitlist_offers, db.waitlist_entries, db.waitlist_programs, db.accounts], async () => {
-    // Accounts are leaves with no FKs — nothing to order around.
-    if (manifest.accounts.length) await db.accounts.bulkDelete(manifest.accounts);
+    // Sample accounts: the sample expenses naming them go in this same transaction;
+    // a real expense naming one archived it instead (findContaminatingReferences).
+    const accountIdsToDelete = manifest.accounts.filter((id) => !archivedIds.account.includes(id));
+    if (accountIdsToDelete.length) await db.accounts.bulkDelete(accountIdsToDelete);
     // Waitlist rows first: offers point at entries/litters/pups, entries at
     // contacts/sales/litters/programs, programs at the kennel.
     if (manifest.waitlist_offers.length) await db.waitlist_offers.bulkDelete(manifest.waitlist_offers);

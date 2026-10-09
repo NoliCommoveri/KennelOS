@@ -842,7 +842,8 @@ selections), **Financials — the expense ledger + sales→income** ✅.
 - People / Contacts section, full Kennel management, Stud services, Contracts.
 - Companion share-out, the Furever seed-link generator, Feeding Schedules
   (per-breed feeding grids fed into the Furever seed packet), Assistant,
-  Documents + file storage, **Accounts** (business logins + referral links/codes).
+  Documents + file storage, **Accounts** (business logins + referral links/codes, and which
+  account an expense was paid through).
 - External / leased dogs (Lite ownership picker = `owned` / `co_owned` only).
 - **All Reports** (Reports hub + every report page).
 - **Invoice / receipt generation** — the `pages/invoice.html` print doc.
@@ -852,7 +853,7 @@ selections), **Financials — the expense ledger + sales→income** ✅.
 - **Financials (`financials.js`)** — kept for expense tracking, but the **"Invoice /
   Receipt" generator button is hidden** in Lite.
 - **Expense form** — kept, but the **"attach a receipt photo" widget is hidden**
-  (receipts & file storage are Pro).
+  (receipts & file storage are Pro), and so is the **Account** picker (Accounts is Pro).
 - **Dog Status picker** — reduced to Puppy / Active breeding / Retired breeding / Deceased;
   Pet home, For Sale, and External reference are Pro-only (cap spec §1a).
 - **New Dog page** — shows a "Creating x/6 available dogs" counter under the title
