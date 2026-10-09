@@ -55,8 +55,13 @@
     .pr-row .pr-k { flex: 0 0 auto; white-space: nowrap; color: var(--text-muted); }
     .pr-row .pr-v { flex: 1; }
 
-    /* Health History: three cards across (owner call, 2026-10-09), on paper too. */
-    .pr-health-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    /* Health History: three columns (owner call, 2026-10-09), on paper too.
+       puppy-record.js deals the cards into three independent stacks (each into
+       the shortest so far), so a card is only as tall as its own entries and a
+       short card stacks under another rather than stretching to match a long
+       one beside it, as a grid row would. */
+    .pr-health-grid { display: flex; gap: 8px; align-items: flex-start; }
+    .pr-health-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
     .pr-health-card {
       background: var(--surface); border: 1px solid var(--border);
       border-radius: var(--radius); padding: 6px 12px; break-inside: avoid;
@@ -76,6 +81,8 @@
       #app-nav, .no-print { display: none !important; }
       body { background: #fff; }
       .pr-card, .pr-parent, .pr-health-card { break-inside: avoid; }
+      /* A short section's heading stays on the same page as its card. */
+      .pr-keep { break-inside: avoid; }
     }
 
     /* On a narrow phone, two side-by-side parent cards squeeze each
@@ -88,7 +95,8 @@
     /* Three across is too tight to read on a phone SCREEN; stack them there.
        Printing (even from a phone) lays out at paper width and keeps three. */
     @media screen and (max-width: 640px) {
-      .pr-health-grid { grid-template-columns: 1fr; }
+      .pr-health-grid { flex-direction: column; }
+      .pr-health-col { width: 100%; }
     }
   </style>
 </head>

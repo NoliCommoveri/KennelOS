@@ -156,26 +156,44 @@ function puppyInfoCard(dog, litter) {
   return `<section class="pr-card">${columnedRows(rows)}</section>`;
 }
 
+// Deals the Health History cards into HEALTH_COLUMNS stacks, each card onto
+// whichever stack is shortest so far (by line count, which holds at any page
+// width — on screen or on paper). Ties go left, so the cards still read in
+// HEALTH_EVENT_TYPES order across the top row.
+const HEALTH_COLUMNS = 3;
+
+function healthCardLines(events) {
+  return 1 + events.reduce((n, ev) => n + 1 + (eventDetail(ev) ? 1 : 0) + (ev.notes && shows('healthNotes') ? 1 : 0), 0);
+}
+
 function healthCardsHtml(byType) {
-  const cards = HEALTH_EVENT_TYPES
+  const groups = HEALTH_EVENT_TYPES
     .filter((type) => shows(healthKey(type)))
     .map((type) => ({ type, events: byType.get(type) || [] }))
-    .filter((g) => g.events.length)
-    .map((g) => {
-      const items = g.events.map((ev) => {
-        const detail = eventDetail(ev);
-        return `<li>
-          <span class="pr-hdate">${esc(fmtDateMDY(ev.event_date))}</span>${ev.title ? esc(ev.title) : ''}
-          ${detail ? `<div>${esc(detail)}</div>` : ''}
-          ${ev.notes && shows('healthNotes') ? `<div class="pr-hnotes">${esc(ev.notes)}</div>` : ''}
-        </li>`;
-      }).join('');
-      return `<div class="pr-health-card">
-        <h3>${esc(eventTypeLabel(g.type))}</h3>
-        <ul class="pr-health-list">${items}</ul>
-      </div>`;
-    }).join('');
-  return cards ? `<div class="pr-health-grid">${cards}</div>` : '<p class="pr-empty">No health events to show.</p>';
+    .filter((g) => g.events.length);
+  if (!groups.length) return '<p class="pr-empty">No health events to show.</p>';
+  const cols = Array.from({ length: HEALTH_COLUMNS }, () => ({ lines: 0, cards: [] }));
+  for (const g of groups) {
+    const col = cols.reduce((min, c) => (c.lines < min.lines ? c : min));
+    col.cards.push(healthCardHtml(g));
+    col.lines += healthCardLines(g.events);
+  }
+  return `<div class="pr-health-grid">${cols.map((c) => `<div class="pr-health-col">${c.cards.join('')}</div>`).join('')}</div>`;
+}
+
+function healthCardHtml(g) {
+  const items = g.events.map((ev) => {
+    const detail = eventDetail(ev);
+    return `<li>
+      <span class="pr-hdate">${esc(fmtDateMDY(ev.event_date))}</span>${ev.title ? esc(ev.title) : ''}
+      ${detail ? `<div>${esc(detail)}</div>` : ''}
+      ${ev.notes && shows('healthNotes') ? `<div class="pr-hnotes">${esc(ev.notes)}</div>` : ''}
+    </li>`;
+  }).join('');
+  return `<div class="pr-health-card">
+    <h3>${esc(eventTypeLabel(g.type))}</h3>
+    <ul class="pr-health-list">${items}</ul>
+  </div>`;
 }
 
 function buyerCardHtml(contact) {
@@ -267,7 +285,7 @@ async function main() {
 
     ${healthOn ? sectionLabel('Health History') + healthCardsHtml(byType) : ''}
 
-    ${buyerHtml ? sectionLabel('Buyer') + buyerHtml : ''}
+    ${buyerHtml ? `<div class="pr-keep">${sectionLabel('Buyer')}${buyerHtml}</div>` : ''}
   `;
 
   // Launched from the Sales hub's "Print Puppy Record" modal (?autoprint=1) —
