@@ -1,6 +1,7 @@
 // puppy-record.js — Puppy Record print/PDF view (?sale=<id>). Resolves the
 // puppy, its sire/dam (with genetic + breed-specific test results), its
-// health-history events, and the buyer contact off the Sale, then renders a
+// health-history events (a vet visit's or surgery's with its vet's contact
+// details), and the buyer contact off the Sale, then renders a
 // print-ready record — "download" is the browser's own Print → Save as PDF,
 // so this needs no vendored PDF library (CLAUDE.md's no-CDN/vendor-everything
 // rule would otherwise apply to a PDF-generation dependency).
@@ -37,11 +38,25 @@ function eventTypeLabel(type) {
 // One curated detail line per health event type, built from its own
 // details{} fields (mirrors timeline.js's detailsSummary, scoped to what's
 // worth printing).
-// Contact names by id, for a vet visit's or surgery's linked vet (filled in
-// render, before any eventDetail call). A typed `details.vet` name is the
-// fallback when no contact is linked.
-let contactNames = new Map();
-const vetName = (ev) => (ev.related_contact_id && contactNames.get(ev.related_contact_id)) || ev.details?.vet;
+// Contacts by id, for a vet visit's or surgery's linked vet (filled in main,
+// before any health entry renders).
+let contactsById = new Map();
+
+// The vet line(s) under a Vet visit / Surgery entry: "Vet: name · phone", then
+// the address on one line. A linked contact gives all three; a vet only typed
+// as text (`details.vet` — KennelAssistant, or logged before the link) gives
+// the name alone. Empty for every other type, or when nothing's ticked.
+const VET_EVENT_TYPES = ['vet_visit', 'surgery'];
+function vetLines(ev) {
+  if (!VET_EVENT_TYPES.includes(ev.event_type)) return [];
+  const contact = ev.related_contact_id ? contactsById.get(ev.related_contact_id) : null;
+  const name = (contact?.name || ev.details?.vet || '').trim();
+  const head = [shows('vetName') && name, shows('vetPhone') && (contact?.phone || '').trim()].filter(Boolean).join(' · ');
+  const address = shows('vetAddress')
+    ? (contact?.address || '').split('\n').map((l) => l.trim()).filter(Boolean).join(', ')
+    : '';
+  return [head && `Vet: ${head}`, address].filter(Boolean);
+}
 
 function eventDetail(ev) {
   const d = ev.details || {};
@@ -62,9 +77,9 @@ function eventDetail(ev) {
     case 'medication':
       return [d.drug, d.dose, d.frequency].filter(Boolean).join(' — ');
     case 'surgery':
-      return [d.procedure, vetName(ev), d.outcome].filter(Boolean).join(' — ');
+      return [d.procedure, d.outcome].filter(Boolean).join(' — ');
     case 'vet_visit':
-      return [d.reason, vetName(ev), d.findings].filter(Boolean).join(' — ');
+      return [d.reason, d.findings].filter(Boolean).join(' — ');
     case 'injury':
       return [d.description, d.severity].filter(Boolean).join(' — ');
     case 'abnormalities':
@@ -169,12 +184,13 @@ function puppyInfoCard(dog, litter) {
 const HEALTH_COLUMNS = 3;
 
 function healthCardLines(events) {
-  return 1 + healthItems(events).reduce((n, it) => n + 2 + (it.notes ? 1 : 0), 0);
+  return 1 + healthItems(events).reduce((n, it) => n + 2 + it.vet.length + (it.notes ? 1 : 0), 0);
 }
 
 // One line per distinct item rather than per entry (owner call, 2026-10-09): every
 // entry with the same title, details and notes — five days of Panacur — folds into
-// one line, its dates listed newest first as a comma-separated string. Entries
+// one line, its dates listed newest first as a comma-separated string (a vet
+// visit also needs the same vet to fold). Entries
 // come newest first (eventRepo.getForSubject), so the lines are ordered by each
 // item's latest date. A title that only repeats the card's heading ("Preventative"
 // under Preventative) is left off.
@@ -184,8 +200,9 @@ function healthItems(events) {
     const title = ev.title && ev.title.trim().toLowerCase() !== eventTypeLabel(ev.event_type).toLowerCase() ? ev.title.trim() : '';
     const label = [title, eventDetail(ev)].filter(Boolean).join(' — ') || eventTypeLabel(ev.event_type);
     const notes = shows('healthNotes') ? (ev.notes || '').trim() : '';
-    const key = `${label}\u0000${notes}`;
-    if (!items.has(key)) items.set(key, { label, notes, dates: [] });
+    const vet = vetLines(ev);
+    const key = `${label}\u0000${vet.join('\n')}\u0000${notes}`;
+    if (!items.has(key)) items.set(key, { label, vet, notes, dates: [] });
     items.get(key).dates.push(fmtDateMDY(ev.event_date));
   }
   return [...items.values()];
@@ -209,6 +226,7 @@ function healthCardsHtml(byType) {
 function healthCardHtml(g) {
   const items = healthItems(g.events).map((it) => `<li>
       <div>${esc(it.label)}</div>
+      ${it.vet.map((l) => `<div class="pr-hvet">${esc(l)}</div>`).join('')}
       <div class="pr-hdate">${esc(it.dates.join(', '))}</div>
       ${it.notes ? `<div class="pr-hnotes">${esc(it.notes)}</div>` : ''}
     </li>`).join('');
@@ -258,7 +276,7 @@ async function main() {
     getActiveKennel(),
     contactRepo.getAll({ includeArchived: true })
   ]);
-  contactNames = new Map(contacts.map((c) => [c.id, c.name]));
+  contactsById = new Map(contacts.map((c) => [c.id, c]));
   // The puppy's own kennel when it's one of the user's own; otherwise the
   // active kennel scope, then the sole own kennel on record as a last resort
   // (Lite, or "All kennels" with just one) — Multi-Kennel Scope Spec §10.

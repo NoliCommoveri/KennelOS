@@ -2113,8 +2113,11 @@ independent column stacks (on paper too; one column on a phone screen): `healthC
 each card onto the shortest stack so far by line count, so a card is only as tall as its own
 entries instead of stretching to match a grid-row neighbour; inside a card, entries with the
 same title, details and notes fold into one line with their dates comma-separated, newest first
-(`healthItems`) — and the buyer's contact
-info off the Sale. Every row is omitted (not shown as a blank/"—") when its field is empty. Reads
+(`healthItems`; a vet visit/surgery also needs the same vet to fold) — and the buyer's contact
+info off the Sale. Each `vet_visit`/`surgery` entry prints its vet under the detail line
+(`vetLines`): "Vet: name · phone", then the address on one line, from the linked contact
+(`related_contact_id`); a vet only typed as text (`details.vet`, the `contactFallback`, §8)
+prints its name alone. Every row is omitted (not shown as a blank/"—") when its field is empty. Reads
 only, through `saleRepo`/`dogRepo`/`contactRepo`/`litterRepo`/`eventRepo` (layering rule, §2) — no
 new repo or table.
 
@@ -2133,8 +2136,8 @@ when one is set.
 page's **Puppy Record fields** card (`#puppy-record`), saved as `Kennel.puppy_record_fields`.
 `data/puppyRecordFields.js` is the one list: `PUPPY_RECORD_FIELD_GROUPS` (Header: logo, generated
 date; Puppy Information's ten rows; Parents' four rows + test-results line; Health History — one
-key per type in `PUPPY_RECORD_HEALTH_TYPES`, `health_<type>`, plus each entry's notes; Buyer's four
-rows), each section but Header with its own on/off. `puppyRecordShows(kennel)` is the read rule
+key per type in `PUPPY_RECORD_HEALTH_TYPES`, `health_<type>`, plus each entry's notes and the vet's name, phone,
+address on vet visits/surgeries; Buyer's four rows), each section but Header with its own on/off. `puppyRecordShows(kennel)` is the read rule
 (a field shows only when it and its section are on; anything not stored shows, so a field added
 to the list later starts out shown). The record reads the picks of the **resolving own kennel**
 (below); a section with nothing left to show is dropped, heading and all. A no-print **Choose

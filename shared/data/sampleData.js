@@ -101,7 +101,8 @@ export async function seedSampleData() {
 
   // Contacts
   const patricia = await contactRepo.create({
-    name: 'Dr. Patricia Nguyen', contact_type: ['vet'], phone: '555-0101'
+    name: 'Dr. Patricia Nguyen', contact_type: ['vet'], phone: '555-0101',
+    address: 'Valley Animal Hospital\n42 Elm Street, Concord, NH 03301'
   });
   const dana = await contactRepo.create({
     name: 'Dana Ruiz', contact_type: ['breeder'], kennel_id: meadowRidge.id, phone: '555-0102',
