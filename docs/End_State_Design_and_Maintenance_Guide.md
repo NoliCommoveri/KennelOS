@@ -1103,6 +1103,15 @@ plain local backup/restore.
   kennel, so it must never come out of the wizard unlinked (a Kennel's
   `getContacts()` and the Kennel detail page's own-kennel views both depend on
   this link existing).
+  `resolveMyKennelId()` repairs a missing or stale `myKennelId` (a backup restored
+  before the restore itself set it, cleared storage): when exactly one own,
+  non-archived kennel exists, it adopts that one; with several it guesses nothing,
+  and never while sample data is loaded (the tour kennel must not become the
+  user's identity). `getMyKennelName()`, the wizard's prefill and
+  `completeKennelSetup()` all go through it, so reopening the wizard edits her
+  kennel instead of creating a second one of the same name. With no `myContactId`,
+  the wizard reuses a contact already linked to that kennel whose name matches the
+  owner name (trimmed, case-insensitive) rather than creating a duplicate.
 - **appReset.js** — `resetApp()` clears every table + all settings → the exact blank slate
   a never-visited browser sees. `eraseThisDevice()` is the remote erase (Cloud plan §2.5):
   `resetApp()`, plus KennelAssistant's database and every `kennelOS.*` key in both storages,
