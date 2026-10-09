@@ -34,12 +34,24 @@ export const REPORTS = [
     blurb: 'Every litter by whelp date, with litters and puppies born per month or year.' },
   { href: 'live-births.html', icon: '📈', title: 'Live-Birth Summary', group: 'breeding',
     blurb: 'Per-litter born / alive / deceased and the live percentage.' },
+  { href: 'production-report.html', icon: '🐕', title: 'Dam & Sire Production', group: 'breeding',
+    blurb: 'Litters, puppies, live %, average litter and age at each litter per dam and sire; back-to-back litters flagged.' },
+  { href: 'pairing-success-report.html', icon: '💞', title: 'Pairing Success', group: 'breeding',
+    blurb: 'How often breedings took, by method and by sire, with progesterone at breeding.' },
   { href: 'health-tests-report.html', icon: '🔬', title: 'Health-Test Events', group: 'breeding',
     blurb: 'Recorded genetic, OFA/PennHIP and breed-specific results across all dogs.' },
+
+  // Puppies
+  { href: 'puppy-growth-report.html', icon: '⚖️', title: 'Puppy Growth', group: 'puppies',
+    blurb: 'Weight by age for each pup in a litter, with any pup falling behind its littermates flagged.' },
 
   // Sales & Waitlist
   { href: 'placements-report.html', icon: '🏡', title: 'Placements', group: 'sales',
     blurb: 'Sales by registration, status and date, with sale value and average price.' },
+  { href: 'waitlist-funnel-report.html', icon: '🪜', title: 'Waitlist Funnel', group: 'sales',
+    blurb: 'Applied → approved → on the list → offered → placed, why families leave, how offers end.' },
+  { href: 'demand-supply-report.html', icon: '🧮', title: 'Demand vs Supply', group: 'sales',
+    blurb: 'Families on the list who would take each kind of pup, against the pups you have available.' },
   { href: 'scheduled-placements.html', icon: '📅', title: 'Scheduled Placements', group: 'sales',
     blurb: 'Every future-dated puppy drop-off.' },
 

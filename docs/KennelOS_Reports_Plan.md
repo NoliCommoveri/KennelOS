@@ -1,6 +1,6 @@
 # KennelOS — Reports & Analytics Plan
 
-Status: **Phase 1 built** (2026-10-09). Phases 2–3 are planned below. The code map is the
+Status: **Phases 1–2 built** (2026-10-09). Phase 3 is planned below. The code map is the
 End-State guide §31; this doc is the plan and the decisions behind it.
 
 ## Decided (2026-10-09)
@@ -30,7 +30,11 @@ End-State guide §31; this doc is the plan and the decisions behind it.
 - New: **Profit & Loss by Month**, **Year in Review**.
 - Hub regrouped.
 
-## Phase 2 — next
+## Phase 2 — done
+
+The Puppy Growth sample data gained weekly weigh-ins for the Autumn litter (Cedar runs
+small, so the flag shows).
+
 
 1. **Dam & Sire Production** (Breeding) — per breeding dog: litters, average litter size,
    live %, sex ratio, age at each litter; flags back-to-back litters and lifetime litter

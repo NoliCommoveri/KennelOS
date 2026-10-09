@@ -821,6 +821,15 @@ export async function seedSampleData() {
       details: { description: 'Eyes open' } },
     { subject_id: wrenPup.id, event_type: 'weight_check', event_date: daysFromToday(-7), title: 'Weight check',
       details: { weight_lbs: 3, weight_oz: 8, time_of_day: 'AM' } },
+    // Weekly weigh-ins for the Autumn litter (born 63 days ago), birth to 7 weeks (Wren
+    // also has the day-56 check above): the Puppy Growth report's curves. Cedar runs
+    // small, so the report flags him.
+    ...[['wren', [6, 12, 20, 28, 36, 44, 50, 53]], ['aster', [7, 13, 21, 30, 38, 46, 54, 60]], ['cedar', [5, 9, 14, 19, 25, 31, 37, 42]]]
+      .flatMap(([who, ounces]) => ounces.map((oz, week) => ({
+        subject_id: { wren: wrenPup.id, aster: asterPup.id, cedar: cedarPup.id }[who], event_type: 'weight_check',
+        event_date: daysFromToday(-63 + week * 7), title: 'Weight check',
+        details: { weight_lbs: Math.floor(oz / 16), weight_oz: oz % 16, time_of_day: 'AM' }
+      }))),
     // Cedar (Autumn, placed) — a SCHEDULED PICKUP placement event next week, with
     // the buyer as related_contact and NO stored Sale link (§D1). Drives Today's
     // "Due outs & upcoming".

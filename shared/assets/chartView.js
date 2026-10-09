@@ -191,7 +191,7 @@ export function renderBarChart(spec, width = 640) {
 // spec: { title?, subtitle?, categories?: [{ key, label, short? }] (category x) OR
 // numeric x when absent, series: [{ name, points: [{ x, y }], color? }] (x = a
 // category key, or a number), xFormat?, format?, axisFormat?, height?, money?,
-// xLabel? (axis caption for numeric x) }
+// xLabel? (axis caption for numeric x), xMin? (numeric x: start the axis here) }
 export function renderLineChart(spec, width = 640) {
   const series = (spec.series || []).filter((s) => s && (s.points || []).length);
   if (!series.length) return emptyChart(spec);
@@ -216,7 +216,8 @@ export function renderLineChart(spec, width = 640) {
     xTicks = cats.map((c, i) => (i % step === 0 ? { at: xPos(c.key), text: c.short || c.label } : null)).filter(Boolean);
   } else {
     const xs = series.flatMap((s) => s.points.map((p) => Number(p.x)));
-    const xMin = Math.min(...xs);
+    // spec.xMin pins the axis start (growth: day 0, birth) below the data.
+    const xMin = spec.xMin != null ? Math.min(Number(spec.xMin), ...xs) : Math.min(...xs);
     const xMax = Math.max(...xs);
     const span = xMax - xMin || 1;
     xPos = (x) => pad.left + ((Number(x) - xMin) / span) * plotW;
@@ -278,9 +279,12 @@ export function renderLineChart(spec, width = 640) {
 // --- Ranked horizontal bars -------------------------------------------------------------
 
 // spec: { title?, subtitle?, rows: [{ label, value, note? }], format?, color?, emptyText?,
-// max? (rows shown; the rest fold into "Other") }
+// max? (rows shown; the rest fold into "Other"), sort? (false keeps the given order —
+// a funnel's stages), showZero? (keep 0 rows — a 0% rate is an answer, not a blank) }
 export function renderHbarChart(spec, width = 640) {
-  let rows = (spec.rows || []).filter((r) => Number(r.value) > 0).sort((a, b) => b.value - a.value);
+  let rows = (spec.rows || []).filter((r) => Number(r.value) > 0 || (spec.showZero && r.value != null));
+  if (spec.sort !== false) rows = rows.sort((a, b) => b.value - a.value);
+  if (!rows.some((r) => Number(r.value) > 0) && !(spec.showZero && rows.length)) rows = [];
   if (!rows.length) return emptyChart(spec);
   const limit = spec.max || 10;
   if (rows.length > limit) {
@@ -296,7 +300,7 @@ export function renderHbarChart(spec, width = 640) {
   const left = labelW;
   const right = W - valueW;
   const H = rows.length * rowH + 4;
-  const top = Math.max(...rows.map((r) => Number(r.value)));
+  const top = Math.max(...rows.map((r) => Number(r.value)), 1e-9);
   const x = (v) => left + (Number(v) / top) * (right - left);
   const color = spec.color || SERIES_COLORS[0];
   const body = rows.map((r, i) => {

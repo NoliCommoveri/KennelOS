@@ -190,6 +190,8 @@ KennelOS/
     yearReview.js              Pure Year in Review summary (§31)
     reportMath.js              Pure report math: date ranges, period buckets, axis ticks (§31)
     reportCatalog.js           The Reports hub's grouped catalog (§31)
+    breedingReports.js         Pure production / pairing success / puppy growth math (§31)
+    waitlistReports.js         Pure waitlist funnel / demand-vs-supply math (§31)
     dateUtils.js               todayYMD / date helpers (single "what is today")
     vocab.js                   Controlled vocabularies + event-type catalog
     csvImport.js               Generic CSV match-or-create engine + mappings
@@ -3504,9 +3506,37 @@ Net; non-cash pick value is never money in.
 
 **Reports today**
 - Money: **Profit & Loss by Month** (`pl-report`), **Litter P&L**, Financials (link).
-- Breeding: **Litters Over Time**, **Live-Birth Summary**, **Health-Test Events**.
+- Breeding: **Litters Over Time**, **Live-Birth Summary**, **Health-Test Events**;
+  **Dam & Sire Production** (`production-report`, `breedingReports.productionRows`): one row
+  per dog that parented a whelped litter in scope (the LITTER's kennel scopes it, so an
+  outside stud shows for litters he sired here) — litters, born, alive, live %, average
+  litter, the sex split of the puppies on record, first/last whelp, age at each litter;
+  dams flagged for litters whelped under `BACK_TO_BACK_DAYS` (240) apart and at
+  `LIFETIME_LITTERS_FLAG` (6) lifetime litters — prompts to look, nothing enforced. Totals
+  count each litter once. **Pairing Success** (`pairing-success-report`): one row per
+  pairing that was bred; outcome `success` (confirmed pregnant, whelped, or a litter's
+  `pairing_id` points at it) / `failed` (not pregnant, failed) / `pending` (bred) — never-bred
+  (planned, cancelled) pairings are left out; rate = success ÷ (success + failed), by method
+  and by sire; the dam's last `progesterone_test` reading on or within 7 days before
+  `planned_date`.
+- Puppies: **Puppy Growth** (`puppy-growth-report`, `?litter=`): pick a litter; each pup's
+  `weight_check` events (lbs + oz/16) by age in days from its DOB (else the whelp date), one
+  line per pup (past eight pups the rest draw in gray); a pup under 85% of the median of its
+  littermates' weights within ±2 days of its latest weigh-in is flagged
+  (`growthFlags`, needs two littermates weighed then).
 - Sales & Waitlist: **Placements** (price column + total; placements by month stacked by
-  registration; average price by registration), **Scheduled Placements**.
+  registration; average price by registration), **Scheduled Placements**;
+  **Waitlist Funnel** (`waitlist-funnel-report`, `waitlistReports`): one row per entry, by
+  applied date; furthest stage of applied → approved → on the list (fee in, active, or
+  removed after listing) → offered (any offer) → placed; why families left (declined,
+  withdrew, fee expired, each removal reason), how offers ended, pass reasons (a pass with no
+  family reason is "Recorded by you"), median days applied → placement sale date.
+  **Demand vs Supply** (`demand-supply-report`): families = entries `active` on the list,
+  counted by `waitlistRules.pupMatchesPrefs` against a stand-in pup of each kind (breed × sex
+  × intended registration; listen-only parent choices aren't applied); pups =
+  `isPupAvailable` puppies. A kind shows only when it has pups or a family ticked a purpose
+  that maps to its registration, and a breed only when it has pups or a family named it, so a
+  no-preference family (which counts everywhere) doesn't list every combination.
 - Shows & Stud: **Stud Services** (sent date, fee; by month by direction).
 - Dogs & Operations: **Active Roster**, **Dashboard** (link).
 - Featured: **Year in Review** (`year-review`, `data/yearReview.js`): one calendar year —

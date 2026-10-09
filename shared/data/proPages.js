@@ -22,6 +22,8 @@ export const PRO_ONLY_PAGES = [
   'reports.html', 'health-tests-report.html', 'litters-report.html',
   'litter-finances-report.html', 'placements-report.html', 'stud-services-report.html',
   'pl-report.html', 'year-review.html',
+  'production-report.html', 'pairing-success-report.html', 'puppy-growth-report.html',
+  'waitlist-funnel-report.html', 'demand-supply-report.html',
   // Companion share-out
   'companion.html',
   // KennelAssistant owner console (the helper's own app is the root-level

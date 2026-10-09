@@ -798,8 +798,8 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   **Print / PDF** button with a print-only letterhead (`assets/printView.js`; the browser's
   Save as PDF makes the file). Existing reports upgraded; new **Profit & Loss by Month**
   and **Year in Review**; the hub is grouped into segment tabs (`data/reportCatalog.js`).
-  Phases 2–3 (production, pairing success, puppy growth, waitlist funnel, demand vs
-  supply, …) are listed in the plan.
+  **Phase 2** added Dam & Sire Production, Pairing Success, Puppy Growth, Waitlist Funnel
+  and Demand vs Supply. Phase 3 is listed in the plan.
 
 ## Build & deploy
 
