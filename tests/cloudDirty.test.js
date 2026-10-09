@@ -29,7 +29,7 @@ const MARKED = {
 
 // File → { sites, why }. Writers that deliberately don't mark the backup dirty.
 const EXEMPT = {
-  'shared/data/sampleData.js': { sites: 13, why: 'clearing sample data: sample rows are never in a snapshot' },
+  'shared/data/sampleData.js': { sites: 14, why: 'clearing sample data: sample rows are never in a snapshot' },
   'shared/data/appReset.js': { sites: 1, why: 'Reset App: an emptied program must never be pushed (plan §3.3, §3.5)' },
   'shared/data/cloud/vaultKeyStore.js': { sites: 4, why: 'the device-only vault key (device_secrets): not kennel data, never in a snapshot' }
 };

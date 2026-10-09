@@ -71,6 +71,7 @@ export const editionFlags = {
   externalOwnership: true,
   assistant: true,
   feedingSchedule: true,
+  accounts: true,
   shows: true,             // Show tracking (Show Tracking Spec §7)
   waitlist: true,         // Per-kennel waitlist (Waitlist Spec)
   // Multi-kennel scope — on, since Demo showcases the whole Pro app.
@@ -85,6 +86,7 @@ export const navItems = [
   { label: 'People',   path: 'pages/contacts.html' },
   { label: 'Placements & Contracts', path: 'pages/sales.html' },
   { label: 'Financials', path: 'pages/financials.html' },
+  { label: 'Storage',    path: 'pages/documents.html' }, // documents + shows + accounts, seg-tabbed
 ];
 
 // Import/Export is omitted — the demo strips the save/export paths (editions plan
@@ -92,8 +94,6 @@ export const navItems = [
 // direct URL 404s just like a Pro-only page does in Lite.
 export const moreItems = [
   { label: 'Reports',       path: 'pages/reports.html' },
-  { label: 'Shows',         path: 'pages/shows.html' },
-  { label: 'Documents',     path: 'pages/documents.html' },
   { label: 'Companion',     path: 'pages/companion.html' },
   { label: 'Furever',       path: 'pages/furever.html' },
 ];

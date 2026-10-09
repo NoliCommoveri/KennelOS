@@ -15,7 +15,7 @@ import * as registry from '../shared/data/referenceRegistry.js';
 const KNOWN_TABLES = new Set([
   'dogs', 'events', 'expenses', 'contacts', 'kennels', 'pairings',
   'litters', 'sales', 'contracts', 'stud_services', 'documents', 'files',
-  'waitlist_entries', 'waitlist_offers', 'waitlist_programs',
+  'waitlist_entries', 'waitlist_offers', 'waitlist_programs', 'accounts',
 ]);
 
 const SUBJECT_TYPES = new Set(['dog', 'pairing', 'litter', 'kennel']);
@@ -26,7 +26,7 @@ const registries = Object.entries(registry).filter(([name]) => name.endsWith('_R
 test('the module exports the expected registry arrays', () => {
   const names = registries.map(([n]) => n).sort();
   assert.deepEqual(names, [
-    'BREED_FEEDING_SCHEDULE_REFERENCES',
+    'ACCOUNT_REFERENCES', 'BREED_FEEDING_SCHEDULE_REFERENCES',
     'CONTACT_REFERENCES', 'CONTRACT_REFERENCES', 'DOCUMENT_REFERENCES',
     'DOG_REFERENCES', 'EVENT_REFERENCES', 'EXPENSE_REFERENCES',
     'KENNEL_REFERENCES', 'LITTER_REFERENCES', 'PAIRING_REFERENCES',

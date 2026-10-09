@@ -141,6 +141,7 @@ export const editionFlags = {
   externalOwnership: false,
   assistant: false,
   feedingSchedule: false,
+  accounts: false,         // Accounts page is Pro-only (absent from Lite)
   shows: false,            // Show tracking (Show Tracking Spec §7) — no `show` event type anywhere in Lite
   waitlist: false,        // Waitlist (Waitlist Spec §11) — Pro-only; its pages are absent from Lite
   // Single-kennel (Multi-Kennel Scope Spec §12). Lite has exactly one own kennel:

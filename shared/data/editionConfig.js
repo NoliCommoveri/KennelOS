@@ -98,6 +98,7 @@ export const editionFlags = {
   externalOwnership: true, // external / leased dog ownership types
   assistant: true,         // Dropbox sync + KennelAssistant helper (§26)
   feedingSchedule: true,   // Per-breed feeding schedules + a litter's override field
+  accounts: true,         // Accounts page: business logins + referral links/codes (pages/accounts.html)
   shows: true,             // Show tracking: the `show` event type, Shows page, points card (Show Tracking Spec §7)
   waitlist: true,         // Per-kennel waitlist (Waitlist Spec): its pages + in-page doors (Dog intended placement, dashboard tile, contact panel)
   // Multi-kennel scope (Multi-Kennel Scope Spec §12) — more than one own kennel,
@@ -119,13 +120,12 @@ export const navItems = [
   { label: 'People',   path: 'pages/contacts.html' }, // contacts + waitlist / buyers
   { label: 'Placements & Contracts', path: 'pages/sales.html' }, // sales + stud services + contracts
   { label: 'Financials', path: 'pages/financials.html' }, // the expense ledger — where the money lives
+  { label: 'Storage',    path: 'pages/documents.html' }, // documents + shows + accounts, seg-tabbed
   { label: 'Sharing',    path: 'pages/companion.html' }, // Companion + Furever + Assistant, seg-tabbed
 ];
 
 export const moreItems = [
   { label: 'Reports',       path: 'pages/reports.html' },
-  { label: 'Shows',         path: 'pages/shows.html' },
-  { label: 'Documents',     path: 'pages/documents.html' },
   { label: 'Import/Export', path: 'pages/import-export.html' },
   { label: 'Settings',      path: 'pages/settings.html' },
 ];
