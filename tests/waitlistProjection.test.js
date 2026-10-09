@@ -4,6 +4,7 @@
 // a family's name, email, place, offers, the unpaid fee and whether it was
 // received; never other answers, contact details, programs, notes or payment
 // details. And it must agree with the rules engine the app itself uses.
+import { serverEmailTemplates } from '../shared/data/waitlistEmails.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildProjection, entryEmail, titlesByDog, PROJECTION_FORMAT } from '../shared/data/waitlistProjection.js';
@@ -67,8 +68,13 @@ test('the projection has exactly its allow-listed parts', () => {
     respond_days: 3, max_passes: 2, auto_offer_on: ['no_response'],
     breeds: [], color_matching: false,
     pass_reasons: passReasons({}),
-    parents: { sires: [{ id: 'sire', name: 'Ash' }], dams: [{ id: 'dam', name: 'Juniper' }] }
+    parents: { sires: [{ id: 'sire', name: 'Ash' }], dams: [{ id: 'dam', name: 'Juniper' }] },
+    // What the server sends by itself (W2 step 7): her wording, defaults here.
+    email_templates: serverEmailTemplates({}), reminders: true
   });
+  assert.deepEqual(Object.keys(p.kennel.email_templates).sort(), ['deadline_passed', 'fee_reminder', 'offer', 'offer_reminder', 'ready_check']);
+  for (const q of p.turn_queue) assert.equal(q.respond_days, 3, 'the window the server gives them');
+  assert.equal(buildProjection({ ...fixture(), kennel: { ...kennel, waitlist_config: { ...kennel.waitlist_config, email_reminders: false } } }).kennel.reminders, false);
   assert.equal(p.events_through, 0);
 });
 
@@ -223,7 +229,7 @@ test('"Not this litter": which and when, never the reason; the turn queue lists 
   f.offers = f.offers.filter((o) => o.entry_id !== 'e2');
   const p = buildProjection(f);
   assert.deepEqual(p.entries.e2.prepasses, [{ litter_id: 'lit-1', date: '2026-10-07' }]);
-  assert.deepEqual(p.turn_queue.find((q) => q.entry_id === 'e2'), { entry_id: 'e2', litters: {}, prepassed: ['lit-1'] });
+  assert.deepEqual(p.turn_queue.find((q) => q.entry_id === 'e2'), { entry_id: 'e2', respond_days: 3, litters: {}, prepassed: ['lit-1'] });
   assert.equal(JSON.stringify(p).includes('SECRET-REASON'), false);
   assert.deepEqual(p.kennel.pass_reasons.at(-1).id, 'other');
 });

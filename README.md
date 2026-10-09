@@ -492,6 +492,15 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   (`mail.kennelos.app`, verified in Resend), with their status-page link; the family page
   and the status page both list it. New cloud migration `0010_family_email`: **Apply
   pending on staging and production after the merge.**
+  **Step 7, deadlines and automatic offers while her phone is off, is built (2026-10-09;
+  W2 Plan step 7):** an hourly server run closes a turn whose last day has passed and offers
+  the next family (and a family's pass or leave moves the turn on at once), only for the
+  moments she ticked under "Offer the next family automatically when…", emailing both; it
+  also sends reminders (halfway through a turn and its last morning, the day before a fee is
+  due, "Ready now?"), each once, unless she switches them off. Her phone applies each move at
+  its next sync, or notes it on the family's page if her records moved on. No migration;
+  the hourly cron deploys with the Worker. Not yet: step 8 (the privacy policy's
+  waitlist-online section).
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass

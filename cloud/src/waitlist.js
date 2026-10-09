@@ -83,6 +83,13 @@ export async function publishProjection(env, auth, publicId, payload, now = new 
   if (text.length > PROJECTION_MAX_BYTES) fail(413, 'too_large');
 
   const existing = await ownedProjection(env, auth, publicId);
+  // The server moved on while her phone was off (step 7): her device applies those
+  // moves first, so a publish never undoes one it hasn't seen.
+  const eventsThroughIn = Number.isInteger(projection.events_through) && projection.events_through >= 0 ? projection.events_through : 0;
+  const unseen = await env.DB.prepare(
+    "SELECT seq FROM wl_events WHERE public_id = ? AND program_id = ? AND made_by = 'server' AND seq > ? LIMIT 1",
+  ).bind(publicId, auth.programId, eventsThroughIn).first();
+  if (unseen) fail(409, 'events_pending');
   // A token another program already holds (vanishingly unlikely, 256 bits) is refused,
   // never repointed.
   const { results: clash } = await env.DB.prepare(
@@ -232,7 +239,9 @@ export async function readEvents(env, auth, url) {
 // family's status-page link. `id` is the device's, so a retry never sends twice:
 // a message already sent answers with its first result; a failed one is tried again.
 export const EMAIL_KINDS = ['approved', 'on_list', 'declined', 'offer', 'pass_recorded', 'deadline_passed', 'almost_turn',
-  'review_prefs', 'litter_born', 'request_approved', 'request_declined', 'status_link', 'note'];
+  'review_prefs', 'litter_born', 'request_approved', 'request_declined', 'status_link', 'note',
+  // Sent by the server itself (serverMoves.js, step 7), from the templates she publishes.
+  'offer_reminder', 'fee_reminder', 'ready_check'];
 export const MESSAGE_LIMITS = { perHour: 300, subjectMax: 200, bodyMax: 8000 };
 const MESSAGE_ID = /^[A-Za-z0-9_-]{8,64}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

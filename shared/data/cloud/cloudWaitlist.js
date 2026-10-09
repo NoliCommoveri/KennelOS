@@ -203,8 +203,17 @@ async function eventContext(event, kennel, cache) {
     if (!l) return 'the litter';
     return l.nickname || `${cache.dogs.get(l.dam_id)?.call_name || 'Unknown'} × ${cache.dogs.get(l.sire_id)?.call_name || 'Unknown'}`;
   };
+  // A server move (W2 step 7) checks the whole kennel: one turn at a time, and the
+  // pups of any litter it offered.
+  let kennelOffers = offers;
+  let movePups = pups;
+  if (event.madeBy === 'server') {
+    kennelOffers = await waitlistOfferRepo.getByKennel(kennel.id);
+    const moveLitters = new Set((event.payload?.rows || []).map((r) => r.litter_id));
+    movePups = [...cache.dogs.values()].filter((d) => litterIds.has(d.litter_id) || moveLitters.has(d.litter_id));
+  }
   return {
-    entry, offers, pups, sales: await saleRepo.getAll({ includeArchived: true }), pupName: name, litterLabel,
+    entry, offers, kennelOffers, pups: movePups, litters: cache.litters, sales: await saleRepo.getAll({ includeArchived: true }), pupName: name, litterLabel,
     timeZone: kennel.time_zone || null, config: waitlistConfig(kennel)
   };
 }
@@ -237,10 +246,15 @@ export async function applyFamilyEvents(token, kennels) {
       }
       backingChecked = true;
     }
+    // Where the server already moved the turn on after an event (a family's pass or
+    // leave, or its own deadline close), her device doesn't move it on again.
+    const movedOnAfter = new Set(page.events.filter((e) => e.madeBy === 'server' && e.kind === 'server_offer')
+      .map((e) => e.payload?.cause_seq).filter(Number.isInteger));
     for (const event of page.events) {
       const kennel = byPublicId.get(event.publicId);
       if (kennel) {
         const plan = planFamilyEvent(event, await eventContext(event, kennel, cache));
+        if (movedOnAfter.has(event.seq)) plan.moveOn = false;
         if (plan.op === 'skip') counts.skipped++;
         else {
           try {
@@ -256,6 +270,7 @@ export async function applyFamilyEvents(token, kennels) {
             counts.noted++;
           }
           cache.dogs = null; // a pick or a withdrawal can change pups and sales
+          cache.litters = null;
         }
       } else {
         counts.skipped++;
@@ -418,11 +433,22 @@ async function syncNow({ force }) {
     for (const listed of wanted) {
       const kennel = await ensureFormKey(listed);
       await ensureStatusTokens(kennel);
-      const projection = await projectionFor(kennel);
-      const hash = await sha256(JSON.stringify(projection));
+      let projection = await projectionFor(kennel);
+      let hash = await sha256(JSON.stringify(projection));
       const prev = getWaitlistOnlineState().kennels[kennel.id];
       if (!force && prev && prev.hash === hash && prev.publicId === kennel.public_id) continue;
-      const res = await api.publishWaitlist(token, kennel.public_id, projection);
+      let res;
+      try {
+        res = await api.publishWaitlist(token, kennel.public_id, projection);
+      } catch (err) {
+        // The server moved on while this device was away (W2 step 7): apply its
+        // moves first, then publish what that makes.
+        if (err?.code !== 'events_pending') throw err;
+        events = await applyFamilyEvents(token, kennels);
+        projection = await projectionFor(kennel);
+        hash = await sha256(JSON.stringify(projection));
+        res = await api.publishWaitlist(token, kennel.public_id, projection);
+      }
       updateWaitlistOnlineState({
         kennels: { ...getWaitlistOnlineState().kennels, [kennel.id]: { publicId: kennel.public_id, hash, version: res.version, publishedAt: res.publishedAt } }
       });

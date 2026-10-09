@@ -15,8 +15,15 @@
 // the two lists together).
 export const EMAIL_KINDS = Object.freeze([
   'approved', 'on_list', 'declined', 'offer', 'pass_recorded', 'deadline_passed', 'almost_turn', 'review_prefs', 'litter_born',
-  'request_approved', 'request_declined', 'status_link', 'note'
+  'request_approved', 'request_declined', 'status_link', 'note',
+  // Sent by the server itself while her phone is off (W2 step 7).
+  'offer_reminder', 'fee_reminder', 'ready_check'
 ]);
+
+// The templates her device publishes for the server (kennel.email_templates in the
+// projection, W2 step 7): what it sends by itself. Only [Kennel Name], [Family],
+// [Litter], [Respond by] and [Pay by] are filled in there.
+export const SERVER_EMAIL_KINDS = Object.freeze(['offer', 'deadline_passed', 'offer_reminder', 'fee_reminder', 'ready_check']);
 
 export const EMAIL_SUBJECT_MAX = 200;
 export const EMAIL_BODY_MAX = 8000;
@@ -44,7 +51,10 @@ export const EMAIL_TEMPLATE_KINDS = Object.freeze([
   { kind: 'litter_born', label: 'A litter you match was born' },
   { kind: 'request_approved', label: 'Their request approved' },
   { kind: 'request_declined', label: 'Their request declined' },
-  { kind: 'status_link', label: 'Their status page link' }
+  { kind: 'status_link', label: 'Their status page link' },
+  { kind: 'offer_reminder', label: 'Reminder: their turn ends soon (sent by KennelOS)' },
+  { kind: 'fee_reminder', label: 'Reminder: the fee is due tomorrow (sent by KennelOS)' },
+  { kind: 'ready_check', label: '"Ready now?" (sent by KennelOS)' }
 ]);
 
 export const DEFAULT_EMAIL_TEMPLATES = Object.freeze({
@@ -91,6 +101,18 @@ export const DEFAULT_EMAIL_TEMPLATES = Object.freeze({
   status_link: {
     subject: 'Your waitlist status page at [Kennel Name]',
     body: 'Hi [Family],\n\nHere is your own status page for [Kennel Name]\'s waitlist. It shows your place in line, our upcoming litters, and anything waiting for your reply. Please keep the link to yourself: it opens your page.\n\n[Kennel Name]'
+  },
+  offer_reminder: {
+    subject: 'Reminder: your turn for [Litter] ends [Respond by]',
+    body: 'Hi [Family],\n\nA reminder that your turn to choose a puppy from [Litter] ends on [Respond by]. If you haven\'t yet, please choose your puppy and send your deposit, or let us know on your status page if you\'d like to pass.\n\n[Kennel Name]'
+  },
+  fee_reminder: {
+    subject: 'Your application fee for [Kennel Name] is due tomorrow',
+    body: 'Hi [Family],\n\nA reminder that your application fee is due[Pay by]. The amount and how to pay are on your status page. Your place in line is set by the day we receive it.\n\n[Kennel Name]'
+  },
+  ready_check: {
+    subject: 'Are you ready for a puppy? [Kennel Name]',
+    body: 'Hi [Family],\n\nWhen you joined our waitlist you told us you\'d be ready a little later. That time has come: are you ready to be offered a puppy now? Please answer "Ready now?" on your status page, either way.\n\n[Kennel Name]'
   },
   note: {
     subject: 'A message from [Kennel Name]',
@@ -165,6 +187,12 @@ export function requestPhrase(field, request) {
   if (field === 'listen_change_request') return 'to change which litters you wait for';
   if (field === 'pref_change_request') return 'to change your preferences';
   return '';
+}
+
+// The projection's kennel.email_templates: her wording (or the default) for each
+// email the server sends by itself.
+export function serverEmailTemplates(config) {
+  return Object.fromEntries(SERVER_EMAIL_KINDS.map((kind) => [kind, emailTemplate(config, kind)]));
 }
 
 // Is an edited email sendable? → '' or the reason it isn't.

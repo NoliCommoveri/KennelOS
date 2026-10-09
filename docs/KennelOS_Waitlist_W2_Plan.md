@@ -677,6 +677,54 @@ means no fee reminder ever.
      email cases in `tests/cloudWaitlist.test.js`.
 7. **Deadlines and automatic offers.** Cutoff instants, reminders, the `auto_offer_on` moves
    (§6), version checks and Today suggestions on her device.
+   **Built 2026-10-09.** As built (where it differs from §6 and §8, this wins):
+   - **Server** (`cloud/src/serverMoves.js`), on a new hourly cron (`7 * * * *` beside the
+     daily `17 3 * * *`; `index.js` tells them apart by `DAILY_CRON`) over every published
+     kennel, and for one kennel right after a family's **Pass** or **Leave the list**
+     (`familyActions.js`):
+     - **A deadline:** a turn whose respond-by date is before today in the kennel's time zone
+       (so it ends at midnight after its last day) is closed only when she ticked that moment
+       (`no_response`, or `no_deposit` when the family had picked): event `server_close {
+       turn_id, offer_ids, litter_ids, respond_by_date, trigger, picked_dog_id }`, the
+       family's holds released, their `deadline_passed` email.
+     - **Moving on:** after such a close, or a family's pass / leave with `passed` / `left`
+       ticked, the first family in her published `turn_queue` who is active, holds no turn,
+       has nothing of theirs waiting on her device (a pick, pass or leave) and still has an
+       available, unheld pup in a litter with open picks is offered a turn: event
+       `server_offer { turn_id, offered_date, respond_by_date, rows: [{ offer_id, litter_id,
+       dog_ids }], cause: 'deadline' | 'passed' | 'left', cause_seq }`, with their own window
+       (`turn_queue[].respond_days`, a program's override included) and the `offer` email.
+       One turn at a time, as on her device; nobody if the queue runs out.
+     - **The stored projection is updated** (`closeTurn`, `giveTurn`), so the status pages
+       show it at once and the new family can pick; its version goes up, unless her device
+       published in between.
+     - **Reminders**, when `kennel.reminders` is on, each once (the email id is the key),
+       from 8 am kennel time: halfway through a turn of two days or more and on its last day
+       (`offer_reminder`); the day before an unpaid fee is due (`fee_reminder`; none without
+       a due date); "Ready now?" once her device has asked it (`ready_check`).
+     - **The publish guard:** `PUT /waitlist/projection` answers `409 events_pending` while
+       a server move after its `events_through` exists, so a publish never undoes a move
+       her device hasn't seen. Her device then applies the events and publishes again.
+     - Emails use the templates she publishes (`kennel.email_templates`); the server only
+       fills `[Kennel Name]`, `[Family]`, `[Litter]`, `[Respond by]`, `[Pay by]`
+       (`fillTemplate`, pinned to her device's filling by `tests/waitlistEmails.test.js`).
+       No server migration: events and messages use the existing tables.
+   - **Device:** `waitlistEvents.planServerEvent` checks each move against her records now:
+     `server_close` → `recordOutcome(…, 'no_response')`; `server_offer` →
+     `waitlistActions.applyServerOffer` (the server's ids, the pups still available) when no
+     other turn is open and the family is still on the list. A move that no longer fits (she
+     recorded the outcome herself, another turn is open, the pups were sold) becomes a line
+     on the family's entry (`from: 'server'`, "KennelOS, while your phone was off"), which
+     Today's unread nudge shows. When a `server_offer` names an event as its `cause_seq`,
+     that event is applied with `moveOn: false` (`recordOutcome`, `withdraw`), so her device
+     never offers a second family. The projection gains `kennel.email_templates` (her
+     wording for the five server kinds), `kennel.reminders`
+     (`waitlist_config.email_reminders`, default on, a switch under **Emails to families**)
+     and `turn_queue[].respond_days`. **Left as is:** a family's passes count is updated by
+     her device, not the server; a Today suggestion is the activity line, not a new nudge.
+   - Tests: `cloud/tests/serverMoves.test.js`, `tests/waitlistEvents.test.js` (server
+     moves), `tests/cloudWaitlist.test.js` (the server's close and offer applied once, with
+     no second offer), `tests/waitlistProjection.test.js`.
 8. **Release.** Facebook button, privacy policy (`site/privacy.html`: what the server reads,
    Q11; applicants' data; the public list), `README.md`, Spec §12 status,
    `LAUNCH_CHECKLIST.md` section, real-phone checks, then `WAITLIST_ONLINE_RELEASED = true`

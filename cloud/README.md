@@ -8,7 +8,8 @@ This file is the map.
 ```
 wrangler.toml          the STAGING Worker: bindings DB (D1) and FILES (R2), the .sql text rule
 package.json           wrangler (dev only) and the test script; read by Workers Builds
-src/index.js           router: /ops, preflights, /notice, /health, the 503 gate, the API; and the cron
+src/index.js           router: /ops, preflights, /notice, /health, the 503 gate, the API; and the crons
+                       (daily: retention; hourly: serverMoves)
 src/api.js             the API's routes (plan §6.1)
 src/auth.js            sign-in codes, sessions, sign out
 src/ratelimit.js       5 codes/hour per address, 30/hour per IP (both HMAC'd)
@@ -46,6 +47,11 @@ src/familyActions.js   what a signed-in family does on their status page (POST /
                        event; a picked pup held (wl_holds) until her device's next publish says
                        it applied the pick (events_through); messages sealed to her key, into
                        the inbox
+src/serverMoves.js     the waitlist's own moves while her phone is off (W2 step 7): the hourly cron
+                       and a family's pass/leave close turns past their last day and offer the next
+                       family, only for moments she ticked; reminders once each. Events made_by
+                       'server'; the stored projection updated; a publish that hasn't seen them is
+                       refused (409 events_pending)
 src/notice.js          service notices (public /notice; set on /ops)
 src/retention.js       the daily prune and GC; pickDrops is the pure rule
 src/backup.js          /ops export/import of the D1 rows (not R2)

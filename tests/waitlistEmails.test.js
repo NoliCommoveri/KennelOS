@@ -73,3 +73,16 @@ test('request phrases, and what makes an edited email unsendable', () => {
   assert.match(emailProblem({ subject: ' ', body: 'Text' }), /subject is empty/);
   assert.match(emailProblem({ subject: 'Hi', body: '' }), /message is empty/);
 });
+
+test("the server fills her published templates exactly as her device does (W2 step 7)", async () => {
+  const { fillTemplate } = await import('../cloud/src/serverMoves.js');
+  const { serverEmailTemplates, SERVER_EMAIL_KINDS } = await import('../shared/data/waitlistEmails.js');
+  const config = { email_templates: { offer: { subject: '[Family], pick from [Litter]!' } } };
+  const published = serverEmailTemplates(config);
+  assert.deepEqual(Object.keys(published), [...SERVER_EMAIL_KINDS]);
+  const facts = { kennelName: 'Thornfield', family: 'Ann Lee', litters: ['Juniper × Ash', 'Willow × Oak'], respondBy: '2026-10-20', payBy: '2026-10-21' };
+  for (const kind of SERVER_EMAIL_KINDS) {
+    const device = draftEmail(kind, facts, config);
+    assert.deepEqual(fillTemplate(published[kind], facts), { subject: device.subject, body: device.body }, kind);
+  }
+});

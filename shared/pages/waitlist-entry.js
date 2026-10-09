@@ -336,7 +336,7 @@ function renderOnline() {
       <span class="pill-row">${r.buttons || `<button class="btn btn-sm btn-primary" data-req="${r.kind}:approve">Approve</button><button class="btn btn-sm" data-req="${r.kind}:decline">Decline</button>`}</span>
     </div>`).join('');
   const msgHtml = messages.slice(0, 50).map((m) => (m.from === 'breeder' ? emailItemHtml(m) : `<li style="padding:6px 0;border-top:1px solid var(--border);">
-      <div class="faint" style="font-size:0.85em;">${esc(fmtDate(String(m.at).slice(0, 10)))} · ${m.kind === 'message' ? 'Message' : 'On their status page'}${m.read ? '' : ' <span class="badge badge-blue">New</span>'}</div>
+      <div class="faint" style="font-size:0.85em;">${esc(fmtDate(String(m.at).slice(0, 10)))} · ${m.kind === 'message' ? 'Message' : m.from === 'server' ? 'KennelOS, while your phone was off' : 'On their status page'}${m.read ? '' : ' <span class="badge badge-blue">New</span>'}</div>
       <div>${multiline(m.body)}</div></li>`)).join('');
   els.online.hidden = false;
   els.online.innerHTML = `

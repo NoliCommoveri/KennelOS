@@ -35,7 +35,7 @@ test('wrangler.toml: binding names match what src/ reads', () => {
 const [stagingToml, productionToml = ''] = toml.split(/^\[env\.production\]$/m);
 
 test('wrangler.toml: a daily retention cron, and the staging outbox switch', () => {
-  assert.match(toml, /\[triggers\]\s*crons\s*=\s*\["[^"]+"\]/);
+  assert.match(toml, /\[triggers\]\s*crons\s*=\s*\["17 3 \* \* \*", "7 \* \* \* \*"\]/);
   assert.match(toml, /DEV_OUTBOX\s*=\s*"1"/, 'staging shows codes on /ops; production must not set this');
   assert.match(toml, /name\s*=\s*"kennelos-api-staging"/, 'DEV_OUTBOX may only ride along with the staging Worker');
 });
@@ -48,10 +48,13 @@ test('wrangler.toml: production is its own Worker on api.kennelos.app, with no s
   assert.match(productionToml, /pattern\s*=\s*"api\.kennelos\.app",\s*custom_domain\s*=\s*true/);
   assert.match(productionToml, /\[\[env\.production\.d1_databases\]\]\s*binding\s*=\s*"DB"\s*database_name\s*=\s*"kennelos-api"/);
   assert.match(productionToml, /\[\[env\.production\.r2_buckets\]\]\s*binding\s*=\s*"FILES"\s*bucket_name\s*=\s*"kennelos-files"/);
-  assert.match(productionToml, /\[env\.production\.triggers\]\s*crons\s*=\s*\["[^"]+"\]/);
+  assert.match(productionToml, /\[env\.production\.triggers\]\s*crons\s*=\s*\["17 3 \* \* \*", "7 \* \* \* \*"\]/);
   assert.match(productionToml, /MAIL_FROM\s*=/);
   // Waitlist emails (W2 step 6): the kennel-name sender domain, and links to apply.kennelos.app.
   assert.match(productionToml, /MAIL_FAMILY_DOMAIN\s*=\s*"mail\.kennelos\.app"/);
   assert.match(productionToml, /FAMILY_PAGES_ORIGIN\s*=\s*"https:\/\/apply\.kennelos\.app"/);
   assert.match(stagingToml, /MAIL_FAMILY_DOMAIN\s*=\s*"mail\.kennelos\.app"/);
+  assert.match(stagingToml, /FAMILY_PAGES_ORIGIN\s*=\s*"https:\/\/kennelos-api-staging\.[^"]+"/);
+  // The daily cron is retention; index.js tells it from the hourly one by this string.
+  assert.match(stagingToml, /crons\s*=\s*\["17 3 \* \* \*", "7 \* \* \* \*"\]/);
 });

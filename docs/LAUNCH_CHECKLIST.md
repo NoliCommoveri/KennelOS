@@ -243,8 +243,8 @@ imported.
 ## 3d. Waitlist online, W2 (`docs/KennelOS_Waitlist_W2_Plan.md`)
 
 Released 2026-10-08 (`WAITLIST_ONLINE_RELEASED = true`, cache `kennelos-shell-v50`), ahead of
-plan steps 6 (email) and 7 (server deadlines and automatic offers). Step 6 is built
-(2026-10-09). Still open: step 7, the privacy policy's waitlist-online section, the Workers
+plan steps 6 (email) and 7 (server deadlines and automatic offers). Steps 6 and 7 are built
+(2026-10-09). Still open: the privacy policy's waitlist-online section (step 8), the Workers
 Paid plan and Email Routing.
 
 - [x] **Apply pending (`0007`, `0008`, `0009`) on staging's and production's `/ops`** right after the
@@ -262,6 +262,10 @@ Paid plan and Email Routing.
   **Email them…** from their page; it should arrive from
   `"<Your Kennel>" <…@mail.kennelos.app>` (not in spam), and show under **Emails from …**
   on their status page.
+- [ ] **Step 7's hourly cron** (`7 * * * *`) deploys with the Worker; nothing to set. After
+  the deploy, Workers & Pages → `kennelos-api` → Settings → Triggers should list both
+  crons. With families on a list online, the hourly run reads every published list, which
+  is what the Workers Paid plan's CPU allowance is for.
 - [ ] Operator setup in the plan's §12 (Workers Paid plan, `apply.kennelos.app`, Resend's
   `mail.kennelos.app`, Turnstile, Email Routing for the auto-answer) as those steps land.
 

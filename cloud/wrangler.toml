@@ -53,8 +53,8 @@ fallthrough = true
 # MAIL_FAMILY_DOMAIN: emails to waitlist families go out in the kennel's name
 # from this domain (`"Thornfield Kennels" <thornfield-kennels@mail.kennelos.app>`;
 # src/mail.js familySender), a second sending domain verified in Resend.
-# FAMILY_PAGES_ORIGIN: where the status-page links in those emails point.
-# Unset (staging), the API's own origin, which serves the family pages there.
+# FAMILY_PAGES_ORIGIN: where the status-page links in those emails point (the
+# hourly cron has no request to take an origin from, so both set it).
 # DEV_OUTBOX: staging only. Until the RESEND_API_KEY secret is set, sign-in
 # codes are shown on /ops instead of emailed (src/mail.js). Production must NOT
 # set it. The Resend key itself is a secret, set in the dashboard, never here.
@@ -68,6 +68,7 @@ fallthrough = true
 [vars]
 MAIL_FROM = "KennelOS <signin@kennelos.app>"
 MAIL_FAMILY_DOMAIN = "mail.kennelos.app"
+FAMILY_PAGES_ORIGIN = "https://kennelos-api-staging.admin-kennelos.workers.dev"
 DEV_OUTBOX = "1"
 # The ids below are the LIVE store's. Lemon Squeezy's test-mode products can
 # carry their own ids: replace these if a staging webhook is ever set up.
@@ -77,10 +78,12 @@ LS_PRO_PRODUCT_IDS = "1244595"
 LS_YEARLY_VARIANT_IDS = "1945410"
 LS_LIFETIME_VARIANT_IDS = "1945407"
 
-# Daily retention (src/retention.js), 03:17 UTC. Cron runs in UTC and is never
-# retried; retention is idempotent and /ops has "Run retention now".
+# Daily retention (src/retention.js), 03:17 UTC, and hourly at :07 the waitlist's
+# own moves (src/serverMoves.js: deadlines, automatic offers, reminders). Cron runs
+# in UTC and is never retried; both are safe to run again. index.js tells them apart
+# by DAILY_CRON, which must match the first entry here.
 [triggers]
-crons = ["17 3 * * *"]
+crons = ["17 3 * * *", "7 * * * *"]
 
 # --- Production (plan §6.7 step 6) -------------------------------------------
 # Bindings, vars and triggers are not inherited by an environment, so each is
@@ -121,4 +124,4 @@ LS_YEARLY_VARIANT_IDS = "1945410"
 LS_LIFETIME_VARIANT_IDS = "1945407"
 
 [env.production.triggers]
-crons = ["17 3 * * *"]
+crons = ["17 3 * * *", "7 * * * *"]

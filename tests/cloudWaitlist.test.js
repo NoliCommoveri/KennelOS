@@ -657,3 +657,57 @@ test('no email is drafted where the list is not online', async () => {
   const e = (await waitlistEntryRepo.getByKennel(k.id)).find((x) => x.status === 'active');
   assert.equal(await outbox.draftFor(e.id, 'on_list'), null);
 });
+
+test('step 7: a deadline the server closed and the turn it offered reach her device once, with no second offer of her own', async () => {
+  await breeder();
+  const k = await putOnline();
+  const { waitlistOfferRepo } = await import('../shared/data/waitlistOfferRepo.js');
+  await kennelRepo.update(k.id, { waitlist_config: { ...(await thornfield()).waitlist_config, auto_offer_on: ['no_response', 'no_deposit'] } });
+  const actions = await import('../shared/data/waitlistActions.js');
+  const { litterRepo } = await import('../shared/data/litterRepo.js');
+  // Earlier tests used the sample's turn: give the next family one (opening picks where needed).
+  if (!(await waitlistOfferRepo.getByKennel(k.id)).some((o) => o.outcome === 'open')) {
+    let turn = await actions.offerNextTurn(k.id);
+    for (const l of (await litterRepo.getAll()).filter((x) => x.kennel_id === k.id && ['whelped', 'weaning', 'ready'].includes(x.status))) {
+      if (turn) break;
+      turn = await actions.openPicks(l.id);
+    }
+  }
+  const [open] = (await waitlistOfferRepo.getByKennel(k.id)).filter((o) => o.outcome === 'open');
+  assert.ok(open, 'a turn is open');
+  for (const o of (await waitlistOfferRepo.getByKennel(k.id)).filter((x) => x.outcome === 'open')) {
+    await waitlistOfferRepo.update(o.id, { respond_by_date: '2026-01-02' });
+  }
+  assert.equal((await cw.syncWaitlistOnline()).status, 'ok');
+
+  const { runWaitlistMoves } = await import('../cloud/src/serverMoves.js');
+  const totals = await runWaitlistMoves(env, { now: new Date() });
+  assert.equal(totals.closed, 1);
+  const serverEvents = raw("SELECT kind, entry_id, payload FROM wl_events WHERE made_by = 'server' ORDER BY seq");
+  assert.equal(serverEvents[0].kind, 'server_close');
+  assert.equal(serverEvents[0].entry_id, open.entry_id);
+
+  // Her device catches up: the close applied, the server's offer (if any) made with its ids, nothing more.
+  const res = await cw.syncWaitlistOnline();
+  assert.equal(res.status, 'ok');
+  const closed = await waitlistOfferRepo.getById(open.id);
+  assert.equal(closed.outcome, 'no_response');
+  const nowOpen = (await waitlistOfferRepo.getByKennel(k.id)).filter((o) => o.outcome === 'open');
+  const offered = serverEvents.find((e) => e.kind === 'server_offer');
+  if (offered) {
+    const p = JSON.parse(offered.payload);
+    assert.deepEqual(nowOpen.map((o) => o.id).sort(), p.rows.map((r) => r.offer_id).sort(), 'exactly the server\'s turn');
+    assert.ok(nowOpen.every((o) => o.turn_id === p.turn_id && o.entry_id === offered.entry_id));
+  } else {
+    assert.equal(nowOpen.length, 0, 'nobody else was eligible, and her device offered nobody either');
+  }
+  const e = await waitlistEntryRepo.getById(open.entry_id);
+  assert.ok((e.messages || []).some((m) => m.from === 'server' && /while your phone was off/.test(m.body)));
+
+  // Her publish now carries the cursor past the server's moves.
+  const published = JSON.parse(raw('SELECT body FROM wl_projection')[0].body);
+  assert.ok(published.events_through >= Math.max(...raw("SELECT seq FROM wl_events WHERE made_by = 'server'").map((r) => r.seq)));
+
+  // A second hourly run finds nothing new.
+  assert.deepEqual(await runWaitlistMoves(env, { now: new Date() }), { kennels: 1, closed: 0, offered: 0, reminders: 0, failed: 0 });
+});

@@ -74,8 +74,9 @@ test('listen-only: wider applies at once, narrower waits for her', () => {
   assert.equal(planFamilyEvent(ev('listen', { mode: 'all' }), ctx()).op, 'skip');
 });
 
-test("server moves (step 7), unknown kinds and families she no longer has are skipped", () => {
-  assert.equal(planFamilyEvent(ev('no_response', {}, { madeBy: 'server' }), ctx()).reason, 'server_move');
+test("unknown server moves, unknown kinds and families she no longer has are skipped", () => {
+  assert.equal(planFamilyEvent(ev('no_response', {}, { madeBy: 'server' }), ctx()).reason, 'unknown_kind');
+  assert.equal(planFamilyEvent(ev('pick', {}, { madeBy: 'someone' }), ctx()).reason, 'unknown_maker');
   assert.equal(planFamilyEvent(ev('dance'), ctx()).reason, 'unknown_kind');
   assert.equal(planFamilyEvent(ev('still_interested'), ctx({ entry: null })).reason, 'no_entry');
   assert.equal(planFamilyEvent(ev('still_interested'), ctx({ entry: entry({ is_archived: true }) })).reason, 'no_entry');
@@ -192,4 +193,36 @@ test('a Companion link request waits on the entry while they have an open sale; 
     assert.match(plan.activity.body, /no open sale now.*They said: "Please text it"/);
   }
   assert.equal(planFamilyEvent(ask, ctx({ entry: entry({ contact_id: null }), sales: [{ buyer_contact_id: null, status: 'deposit_paid' }] })).op, 'note');
+});
+
+
+// --- What KennelOS did while her phone was off (W2 step 7) ---------------------------
+
+const litters = new Map([['l1', { id: 'l1', picks_opened_date: '2026-10-01' }], ['l2', { id: 'l2', picks_opened_date: null }]]);
+const sctx = (extra = {}) => ctx({ kennelOffers: [], litters, ...extra });
+
+test('a deadline the server closed: recorded as no response on that turn, unless she already recorded it', () => {
+  const close = ev('server_close', { turn_id: 'o1', offer_ids: ['o1'], litter_ids: ['l1'], respond_by_date: '2026-10-11', trigger: 'no_response', picked_dog_id: null }, { madeBy: 'server' });
+  const plan = planFamilyEvent(close, sctx());
+  assert.equal(plan.op, 'server_close');
+  assert.equal(plan.offerId, 'o1');
+  assert.equal(plan.activity.from, 'server');
+  assert.match(plan.activity.body, /while your phone was off.*no response/);
+  assert.match(planFamilyEvent(close, sctx({ offers: [offer({ outcome: 'passed' })] })).activity.body, /already recorded how it ended/);
+  assert.match(planFamilyEvent(close, sctx({ offers: [offer({ chosen_dog_id: 'p1' })] })).activity.body, /recorded Pip as their pick/,
+    'a pick only her device knew about: she decides');
+});
+
+test('a turn the server offered: made with its ids where it still fits, else a line for her', () => {
+  const offerEv = (rows = [{ offer_id: 'x1', litter_id: 'l1', dog_ids: ['p1', 'p2'] }]) => ev('server_offer',
+    { turn_id: 'tx', offered_date: '2026-10-12', respond_by_date: '2026-10-15', rows, cause: 'deadline', cause_seq: 6 }, { madeBy: 'server' });
+  const fresh = sctx({ offers: [] });
+  const plan = planFamilyEvent(offerEv(), fresh);
+  assert.equal(plan.op, 'server_offer');
+  assert.deepEqual(plan.turn, { turn_id: 'tx', offered_date: '2026-10-12', respond_by_date: '2026-10-15', rows: [{ offer_id: 'x1', litter_id: 'l1', dog_ids: ['p1', 'p2'] }] });
+  assert.deepEqual(planFamilyEvent(offerEv(), sctx({ offers: [], sales: [{ dog_id: 'p1', status: 'deposit_paid' }] })).turn.rows[0].dog_ids, ['p2'], 'a sold pup is left out');
+  assert.equal(planFamilyEvent(offerEv(), sctx({ offers: [offer({ turn_id: 'tx' })] })).reason, 'already_applied');
+  assert.match(planFamilyEvent(offerEv(), sctx({ offers: [], kennelOffers: [offer({ entry_id: 'e9' })] })).activity.body, /another turn is open/);
+  assert.match(planFamilyEvent(offerEv(), sctx({ offers: [], entry: entry({ status: 'withdrawn' }) })).activity.body, /no longer on the list/);
+  assert.match(planFamilyEvent(offerEv([{ offer_id: 'x2', litter_id: 'l2', dog_ids: ['p1'] }]), fresh).activity.body, /none of those pups is still available with picks open/);
 });
