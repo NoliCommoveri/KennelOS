@@ -55,7 +55,8 @@
     .pr-row .pr-k { flex: 0 0 auto; white-space: nowrap; color: var(--text-muted); }
     .pr-row .pr-v { flex: 1; }
 
-    .pr-health-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; }
+    /* Health History: three cards across (owner call, 2026-10-09), on paper too. */
+    .pr-health-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
     .pr-health-card {
       background: var(--surface); border: 1px solid var(--border);
       border-radius: var(--radius); padding: 6px 12px; break-inside: avoid;
@@ -83,6 +84,11 @@
        — same content, one column, no horizontal overflow. */
     @media (max-width: 640px) {
       .pr-parents { flex-direction: column; }
+    }
+    /* Three across is too tight to read on a phone SCREEN; stack them there.
+       Printing (even from a phone) lays out at paper width and keeps three. */
+    @media screen and (max-width: 640px) {
+      .pr-health-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
