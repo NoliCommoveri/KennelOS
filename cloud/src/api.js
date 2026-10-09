@@ -10,7 +10,7 @@ import {
   removeWrap, replaceRecoveryWrap,
 } from './vault.js';
 import { getEntitlement, removeLinks, startLink, verifyLink } from './license.js';
-import { ackInbox, publishProjection, readEvents, readInbox, readProjection, unpublishProjection, PROJECTION_MAX_BYTES } from './waitlist.js';
+import { ackInbox, publishProjection, readEvents, readInbox, readProjection, sendMessage, unpublishProjection, PROJECTION_MAX_BYTES } from './waitlist.js';
 import { fail, json, readJson } from './lib/http.js';
 
 const FILE = /^\/files\/([^/]+)$/;
@@ -92,6 +92,12 @@ export async function handleApi(request, env, url, cors) {
   if (p === '/waitlist/inbox' && m === 'GET') return json(await readInbox(env, auth, url), 200, cors);
   if (p === '/waitlist/inbox/ack' && m === 'POST') return json(await ackInbox(env, auth, await readJson(request)), 200, cors);
   if (p === '/waitlist/events' && m === 'GET') return json(await readEvents(env, auth, url), 200, cors);
+  if (p === '/waitlist/messages' && m === 'POST') {
+    // Links in the email open the family pages: apply.kennelos.app on production,
+    // the same origin on staging.
+    const origin = env.FAMILY_PAGES_ORIGIN || url.origin;
+    return json(await sendMessage(env, auth, await readJson(request, 16 * 1024), { origin }), 200, cors);
+  }
 
   const file = FILE.exec(p);
   if (file) {

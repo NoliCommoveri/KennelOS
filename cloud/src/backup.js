@@ -14,7 +14,7 @@ import { migrationStatus } from './migrate.js';
 
 // Foreign-key order: parents before children.
 export const EXPORT_TABLES = ['users', 'programs', 'sessions', 'device_erasures', 'snapshots', 'files', 'snapshot_files', 'notices', 'vaults', 'vault_wraps',
-  'pro_purchases', 'license_links', 'wl_projection', 'wl_tokens', 'wl_inbox', 'wl_events', 'wl_holds', 'wl_messages', 'wl_family_sessions'];
+  'pro_purchases', 'license_links', 'wl_projection', 'wl_tokens', 'wl_inbox', 'wl_events', 'wl_holds', 'wl_messages', 'wl_family_sessions', 'wl_senders'];
 export const FORMAT = 'kennelos-cloud-d1';
 
 async function schemaVersion(db) {

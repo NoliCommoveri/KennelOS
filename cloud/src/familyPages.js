@@ -15,6 +15,7 @@
 //   POST /f/apply/<public_id>  a sealed application; held until the applicant types
 //                              the code emailed to them (then it reaches her inbox)
 //   POST /f/act, /f/message    what a signed-in family does on their page (familyActions.js)
+// A status view also lists the emails she sent that family (`emails`, step 6).
 //
 // Everything a family sees is cut from what her device published, field by field
 // (statusView, listView). The server never computes a position or an offer.
@@ -22,8 +23,8 @@
 import { limitBucket, ipKey } from './ratelimit.js';
 import { normalizeEmail, emailHash } from './auth.js';
 import { hmacHex, sha256Hex, randomCode, randomHex } from './lib/crypto.js';
-import { assertMailAvailable, sendFamilyMessage } from './mail.js';
-import { PUBLIC_ID, STATUS_TOKEN } from './waitlist.js';
+import { assertMailAvailable, familySender, sendFamilyMessage } from './mail.js';
+import { PUBLIC_ID, STATUS_TOKEN, sentEmailsFor } from './waitlist.js';
 import { handleAct, handleMessage, pendingFor, heldByOthers } from './familyActions.js';
 import { fail, json, readJson } from './lib/http.js';
 
@@ -326,14 +327,16 @@ async function issueCode(env, { publicId, programId, entryId, email, kennelName,
       'INSERT INTO wl_family_codes (public_id, code_hash, program_id, entry_id, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)',
     ).bind(publicId, hash, programId, entryId, new Date(now + FAMILY_CODE_MS).toISOString(), new Date(now).toISOString()),
   ]);
+  // In the kennel's name, like every email to a family (step 6).
+  const from = await familySender(env, { programId, publicId, kennelName });
   await sendFamilyMessage(env, forApplication ? {
-    programId, publicId, entryId, kind: 'application_code', to: email,
+    from, programId, publicId, entryId, kind: 'application_code', to: email,
     subject: `Confirm your application to ${kennelName}: ${code}`,
     text: `Thank you for applying to ${kennelName}'s waitlist. To send your application, enter this code on the application page:\n\n${code}\n\n`
       + 'It works for 15 minutes. Your application reaches the breeder only once the code is entered.\n\n'
       + 'If you did not apply, you can ignore this email: nothing will be sent.\n',
   } : {
-    programId, publicId, entryId, kind: 'verification_code', to: email,
+    from, programId, publicId, entryId, kind: 'verification_code', to: email,
     subject: `Your ${kennelName} waitlist code: ${code}`,
     text: `Your verification code for ${kennelName}'s waitlist is ${code}\n\n`
       + 'Enter it on the waitlist page within 15 minutes to see your details.\n\n'
@@ -394,8 +397,11 @@ export async function handleFamilyApi(request, env, url) {
       view.pending = await pendingFor(env, t.public_id, t.entry_id, found.projection.events_through);
       const held = await heldByOthers(env, t.public_id, t.entry_id);
       for (const o of view.offers) o.pups = o.pups.filter((d) => !held.has(d.id) || d.id === o.picked_dog_id);
+      // The emails she sent them (step 6), so one lost to spam is still read here.
+      view.emails = await sentEmailsFor(env, t.public_id, t.entry_id);
     } else {
       view.pending = [];
+      view.emails = [];
     }
     await env.DB.prepare('UPDATE wl_tokens SET last_used_at = ? WHERE token = ?').bind(new Date().toISOString(), status[1]).run();
     return json(view, 200, { 'referrer-policy': 'no-referrer' });

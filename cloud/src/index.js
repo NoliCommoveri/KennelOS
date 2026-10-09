@@ -10,7 +10,8 @@
 // - the waitlist's family pages (familyPages.js): static pages from ASSETS,
 //   served whatever the schema state, and their same-origin JSON under /f/,
 //   behind the gate;
-// - the daily cron, which runs retention.
+// - the crons: the daily one runs retention, the hourly one the waitlist's
+//   own moves (serverMoves.js: deadlines, automatic offers, reminders).
 import { handleOps } from './ops.js';
 import { handleApi } from './api.js';
 import { schemaReady } from './gate.js';
@@ -18,8 +19,12 @@ import { activeNotices } from './notice.js';
 import { handleWebhook } from './license.js';
 import { handleFamilyApi, serveFamilyPage } from './familyPages.js';
 import { runRetention } from './retention.js';
+import { runWaitlistMoves } from './serverMoves.js';
 import { corsHeaders, preflight } from './lib/cors.js';
 import { ApiError, json } from './lib/http.js';
+
+// Must match the daily entry of `crons` in wrangler.toml (both environments).
+export const DAILY_CRON = '17 3 * * *';
 
 export default {
   async fetch(request, env) {
@@ -73,15 +78,17 @@ export default {
     }
   },
 
-  // The daily retention run ([triggers] in wrangler.toml). Cron runs in UTC and
-  // is never retried; retention is idempotent, and /ops can run it by hand.
+  // The crons ([triggers] in wrangler.toml), in UTC, never retried. The daily one
+  // (DAILY_CRON) runs retention, which is idempotent and /ops can run by hand; the
+  // hourly one runs the waitlist's moves, each of which happens once whenever it runs.
   async scheduled(event, env, ctx) {
     ctx.waitUntil((async () => {
       if (!(await schemaReady(env.DB))) {
-        console.log('retention skipped: migrations pending');
+        console.log('cron skipped: migrations pending');
         return;
       }
-      console.log('retention', JSON.stringify(await runRetention(env)));
+      if (event.cron === DAILY_CRON) console.log('retention', JSON.stringify(await runRetention(env)));
+      else console.log('waitlist moves', JSON.stringify(await runWaitlistMoves(env)));
     })());
   },
 };

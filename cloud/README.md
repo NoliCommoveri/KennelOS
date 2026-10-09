@@ -8,11 +8,14 @@ This file is the map.
 ```
 wrangler.toml          the STAGING Worker: bindings DB (D1) and FILES (R2), the .sql text rule
 package.json           wrangler (dev only) and the test script; read by Workers Builds
-src/index.js           router: /ops, preflights, /notice, /health, the 503 gate, the API; and the cron
+src/index.js           router: /ops, preflights, /notice, /health, the 503 gate, the API; and the crons
+                       (daily: retention; hourly: serverMoves)
 src/api.js             the API's routes (plan §6.1)
 src/auth.js            sign-in codes, sessions, sign out
 src/ratelimit.js       5 codes/hour per address, 30/hour per IP (both HMAC'd)
-src/mail.js            sending a code through Resend; without a key, staging's DEV_OUTBOX shows it on /ops
+src/mail.js            sending a code through Resend; without a key, staging's DEV_OUTBOX shows it on /ops.
+                       Emails to waitlist families go out in the kennel's name from
+                       MAIL_FAMILY_DOMAIN (each kennel's address claimed in wl_senders), no Reply-To
 src/files.js           content-addressed files; R2 verifies the sha256
 src/snapshots.js       describe → (vault part) → upload body → commit, with the 409 rule at both
                        steps and, while the program has a vault, the vault_required rule
@@ -27,8 +30,10 @@ src/license.js         the Pro license link (docs/KennelOS_License_Link_Plan.md)
                        linking another purchase email by code
 src/waitlist.js        the waitlist online, her side (docs/KennelOS_Waitlist_W2_Plan.md): publish /
                        read / take offline a kennel's projection (status-page tokens move to
-                       wl_tokens), the encrypted inbox and its ack, the events stream. Pro only
-                       (requirePro); writes from the backing device only
+                       wl_tokens), the encrypted inbox and its ack, the events stream, and
+                       POST /waitlist/messages: an email her device wrote, sent to the address
+                       in her published projection with the status-link footer (W2 step 6).
+                       Pro only (requirePro); writes from the backing device only
 src/familyPages.js     the waitlist's family pages: serves public/family/ for /list/<public_id> and
                        /s/<token> (ASSETS binding), their same-origin JSON under /f/ (the public
                        list, one family's status view, See Your Details: a code by email, then
@@ -42,6 +47,11 @@ src/familyActions.js   what a signed-in family does on their status page (POST /
                        event; a picked pup held (wl_holds) until her device's next publish says
                        it applied the pick (events_through); messages sealed to her key, into
                        the inbox
+src/serverMoves.js     the waitlist's own moves while her phone is off (W2 step 7): the hourly cron
+                       and a family's pass/leave close turns past their last day and offer the next
+                       family, only for moments she ticked; reminders once each. Events made_by
+                       'server'; the stored projection updated; a publish that hasn't seen them is
+                       refused (409 events_pending)
 src/notice.js          service notices (public /notice; set on /ops)
 src/retention.js       the daily prune and GC; pickDrops is the pure rule
 src/backup.js          /ops export/import of the D1 rows (not R2)
@@ -120,5 +130,9 @@ The dashboard setup is plan §6.7. In short: the D1 database and R2 bucket named
 `wrangler.toml`; the real `database_id` pasted into `wrangler.toml`; Workers Builds
 connected to this repo with root directory `cloud/`; and the secrets `OPS_TOKEN`,
 `EMAIL_HMAC_KEY`, `RESEND_API_KEY` and (for the Pro license link) `LEMONSQUEEZY_WEBHOOK_SECRET`,
-with the Lemon Squeezy ids in the `LS_*` vars (License Link Plan §7). Then open `/ops` on the Worker's address, sign in, and press
+with the Lemon Squeezy ids in the `LS_*` vars (License Link Plan §7). Waitlist emails go out
+from `MAIL_FAMILY_DOMAIN` (`mail.kennelos.app`, its own sending domain verified in Resend;
+the same `RESEND_API_KEY` must be allowed to send from it), with links to
+`FAMILY_PAGES_ORIGIN` (production: `https://apply.kennelos.app`; unset on staging, which
+serves the family pages itself). Then open `/ops` on the Worker's address, sign in, and press
 **Apply pending**.

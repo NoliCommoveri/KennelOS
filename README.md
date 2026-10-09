@@ -481,9 +481,27 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   **Waitlist online is released (2026-10-08), ahead of steps 6 and 7:**
   `WAITLIST_ONLINE_RELEASED = true`, so the Online list card, status / public list / form
   links and family actions are offered wherever cloud backup is. Production has migrations
-  `0007`–`0009`, `apply.kennelos.app` and Turnstile. Not yet: emails to families (step 6), the
-  server's deadlines and automatic offers while her phone is offline (step 7), and the privacy
-  policy's waitlist-online section (step 8). Service-worker cache rolled to `kennelos-shell-v50`.
+  `0007`–`0009`, `apply.kennelos.app` and Turnstile. Not yet: the server's deadlines and
+  automatic offers while her phone is offline (step 7), and the privacy policy's
+  waitlist-online section (step 8). Service-worker cache rolled to `kennelos-shell-v50`.
+  **Step 6, emails to families, is built (2026-10-09; W2 Plan step 6, End-State guide §29):**
+  after each action a family should hear about (approve, decline, fee received, every turn
+  offered, a pass or no response, her decision on a request, Send status link, Email them…,
+  Almost your turn's **Send from KennelOS**, and the new-litter emails) she sees the email
+  from her templates (**Emails to families** in Waitlist settings) and sends, edits or skips
+  it. It's queued on the entry and sent after the next publish from the kennel's name
+  (`mail.kennelos.app`, verified in Resend), with their status-page link; the family page
+  and the status page both list it. New cloud migration `0010_family_email`: **Apply
+  pending on staging and production after the merge.**
+  **Step 7, deadlines and automatic offers while her phone is off, is built (2026-10-09;
+  W2 Plan step 7):** an hourly server run closes a turn whose last day has passed and offers
+  the next family (and a family's pass or leave moves the turn on at once), only for the
+  moments she ticked under "Offer the next family automatically when…", emailing both; it
+  also sends reminders (halfway through a turn and its last morning, the day before a fee is
+  due, "Ready now?"), each once, unless she switches them off. Her phone applies each move at
+  its next sync, or notes it on the family's page if her records moved on. No migration;
+  the hourly cron deploys with the Worker. Not yet: step 8 (the privacy policy's
+  waitlist-online section). Service-worker cache rolled to `kennelos-shell-v54` for steps 6 and 7 (v53 went to the reports work merged first).
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass

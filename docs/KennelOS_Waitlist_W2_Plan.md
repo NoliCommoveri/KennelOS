@@ -636,8 +636,95 @@ means no fee reminder ever.
    flow in headless Chromium at phone width.
 6. **Email.** `mail.kennelos.app`, templates + Waitlist settings editor, kennel-name sender,
    every kind in §8, the messages log on the entry, "almost your turn" sent for her.
+   **Built 2026-10-09.** Decided with her the same day (all as recommended): the sender is the
+   kennel's name made into an address; every email shows her a preview first, ticked; the
+   status page lists the emails sent; Spec §5.2's "Ask a question" stays out (Email them…
+   and the message box cover it). As built (where it differs from §4, §8 and §9, this wins):
+   - **Server:** `POST /waitlist/messages {id, public_id, entry_id, kind, subject, body}`
+     (`cloud/src/waitlist.js` `sendMessage`): Pro, backing device, 300 an hour per program,
+     subject ≤ 200 on one line, body ≤ 8,000. The address is the family's `email` in the
+     published projection (`409 not_published` / `no_email` otherwise), never the device's.
+     The server adds the footer (their status-page link on `FAMILY_PAGES_ORIGIN`, else the
+     request's own origin; "This address doesn't receive replies…") and records the row in
+     `wl_messages` with the device's id as its id, so a retry never sends twice (a sent one
+     answers from the row; a failed one is tried again). `kind` is one of `EMAIL_KINDS`:
+     `approved`, `on_list`, `declined`, `offer`, `pass_recorded`, `deadline_passed`,
+     `almost_turn`, `review_prefs`, `litter_born`, `request_approved`, `request_declined`,
+     `status_link`, `note`.
+   - **Sender** (`mail.familySender`): `"<Kennel Name>" <<base>@mail.kennelos.app>`, base from
+     the name (`thornfield-kennels`); the first kennel to use a base keeps it, another gets
+     4, 8 or 12 characters of its public id added; reserved names (support, admin, …) are
+     never handed out; a renamed kennel gets a new address. Claimed in a new table,
+     **`wl_senders`**, migration **`0010_family_email`** (which also indexes `wl_messages`
+     by family for the status page), so step 6 does need **Apply pending**. The family
+     sign-in and application codes now come from the kennel's address too. No Reply-To.
+   - **Status page:** `GET /f/status` adds `emails` (sent ones, newest 20: date, subject,
+     body; a body retention dropped shows the subject only), shown as **Emails from …**.
+   - **Device:** `data/waitlistEmails.js` (pure: kinds, default templates, placeholders
+     `[Kennel Name]` `[Family]` `[Litter]` `[Respond by]` `[Position]` `[Pay by]` `[Request]`,
+     `draftEmail`; `tests/waitlistEmails.test.js` pins the kinds and limits to the server's
+     and no money in any default), `data/waitlistOutbox.js` (draft from her records, queue,
+     retry; only where `kennelEmailsOn`), `assets/waitlistEmailUI.js` (the preview), and
+     `cloudWaitlist.sendQueuedEmails` after each publish. Outbound emails live in the entry's
+     `messages` (`from: 'breeder'`), as step 5 said, not a `waitlist_messages` table. Her
+     templates: `waitlist_config.email_templates` (cloud, like `soon_notice_text`), edited
+     under **Emails to families** in Waitlist settings. Where each email is offered: End-State
+     guide §29, "Emails to families". `[Pups]` from §8 isn't a placeholder: the status page
+     lists the pups.
+   - **Left for step 7:** reminders, "deadline passed" from the server's own moves, the
+     "Ready now?" email, and the server's templates (her wording travels in her projection
+     then). Tests: `cloud/tests/waitlistMessages.test.js`, `tests/waitlistEmails.test.js`,
+     email cases in `tests/cloudWaitlist.test.js`.
 7. **Deadlines and automatic offers.** Cutoff instants, reminders, the `auto_offer_on` moves
    (§6), version checks and Today suggestions on her device.
+   **Built 2026-10-09.** As built (where it differs from §6 and §8, this wins):
+   - **Server** (`cloud/src/serverMoves.js`), on a new hourly cron (`7 * * * *` beside the
+     daily `17 3 * * *`; `index.js` tells them apart by `DAILY_CRON`) over every published
+     kennel, and for one kennel right after a family's **Pass** or **Leave the list**
+     (`familyActions.js`):
+     - **A deadline:** a turn whose respond-by date is before today in the kennel's time zone
+       (so it ends at midnight after its last day) is closed only when she ticked that moment
+       (`no_response`, or `no_deposit` when the family had picked): event `server_close {
+       turn_id, offer_ids, litter_ids, respond_by_date, trigger, picked_dog_id }`, the
+       family's holds released, their `deadline_passed` email.
+     - **Moving on:** after such a close, or a family's pass / leave with `passed` / `left`
+       ticked, the first family in her published `turn_queue` who is active, holds no turn,
+       has nothing of theirs waiting on her device (a pick, pass or leave) and still has an
+       available, unheld pup in a litter with open picks is offered a turn: event
+       `server_offer { turn_id, offered_date, respond_by_date, rows: [{ offer_id, litter_id,
+       dog_ids }], cause: 'deadline' | 'passed' | 'left', cause_seq }`, with their own window
+       (`turn_queue[].respond_days`, a program's override included) and the `offer` email.
+       One turn at a time, as on her device; nobody if the queue runs out.
+     - **The stored projection is updated** (`closeTurn`, `giveTurn`), so the status pages
+       show it at once and the new family can pick; its version goes up, unless her device
+       published in between.
+     - **Reminders**, when `kennel.reminders` is on, each once (the email id is the key),
+       from 8 am kennel time: halfway through a turn of two days or more and on its last day
+       (`offer_reminder`); the day before an unpaid fee is due (`fee_reminder`; none without
+       a due date); "Ready now?" once her device has asked it (`ready_check`).
+     - **The publish guard:** `PUT /waitlist/projection` answers `409 events_pending` while
+       a server move after its `events_through` exists, so a publish never undoes a move
+       her device hasn't seen. Her device then applies the events and publishes again.
+     - Emails use the templates she publishes (`kennel.email_templates`); the server only
+       fills `[Kennel Name]`, `[Family]`, `[Litter]`, `[Respond by]`, `[Pay by]`
+       (`fillTemplate`, pinned to her device's filling by `tests/waitlistEmails.test.js`).
+       No server migration: events and messages use the existing tables.
+   - **Device:** `waitlistEvents.planServerEvent` checks each move against her records now:
+     `server_close` → `recordOutcome(…, 'no_response')`; `server_offer` →
+     `waitlistActions.applyServerOffer` (the server's ids, the pups still available) when no
+     other turn is open and the family is still on the list. A move that no longer fits (she
+     recorded the outcome herself, another turn is open, the pups were sold) becomes a line
+     on the family's entry (`from: 'server'`, "KennelOS, while your phone was off"), which
+     Today's unread nudge shows. When a `server_offer` names an event as its `cause_seq`,
+     that event is applied with `moveOn: false` (`recordOutcome`, `withdraw`), so her device
+     never offers a second family. The projection gains `kennel.email_templates` (her
+     wording for the five server kinds), `kennel.reminders`
+     (`waitlist_config.email_reminders`, default on, a switch under **Emails to families**)
+     and `turn_queue[].respond_days`. **Left as is:** a family's passes count is updated by
+     her device, not the server; a Today suggestion is the activity line, not a new nudge.
+   - Tests: `cloud/tests/serverMoves.test.js`, `tests/waitlistEvents.test.js` (server
+     moves), `tests/cloudWaitlist.test.js` (the server's close and offer applied once, with
+     no second offer), `tests/waitlistProjection.test.js`.
 8. **Release.** Facebook button, privacy policy (`site/privacy.html`: what the server reads,
    Q11; applicants' data; the public list), `README.md`, Spec §12 status,
    `LAUNCH_CHECKLIST.md` section, real-phone checks, then `WAITLIST_ONLINE_RELEASED = true`

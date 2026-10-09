@@ -13,6 +13,7 @@
 // her form key and go to the encrypted inbox, never into an event.
 //
 // Never logged: a session, a token, a message, a request body (plan §6.4).
+import { runKennelNow } from './serverMoves.js';
 import { limitBucket } from './ratelimit.js';
 import { sha256Hex } from './lib/crypto.js';
 import { STATUS_TOKEN } from './waitlist.js';
@@ -236,6 +237,9 @@ export async function handleAct(env, request) {
      VALUES (?, ?, ?, ?, ?, ?, 'family', ?)`,
   ).bind(fam.program_id, fam.public_id, fam.entry_id, action, JSON.stringify(payload), fam.version, at));
   await env.DB.batch(statements);
+  // A pass or leaving the list may move the turn on now, if she ticked that moment
+  // (serverMoves.js; W2 step 7). The family sees their own action either way.
+  if (action === 'pass' || action === 'leave') await runKennelNow(env, fam.public_id, { origin: new URL(request.url).origin });
   return json({ ok: true, pending: await pendingFor(env, fam.public_id, fam.entry_id, fam.eventsThrough) });
 }
 
