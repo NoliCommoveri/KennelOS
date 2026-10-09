@@ -243,8 +243,9 @@ imported.
 ## 3d. Waitlist online, W2 (`docs/KennelOS_Waitlist_W2_Plan.md`)
 
 Released 2026-10-08 (`WAITLIST_ONLINE_RELEASED = true`, cache `kennelos-shell-v50`), ahead of
-plan steps 6 (email) and 7 (server deadlines and automatic offers). Still open: those steps,
-the privacy policy's waitlist-online section, the Workers Paid plan and Email Routing.
+plan steps 6 (email) and 7 (server deadlines and automatic offers). Step 6 is built
+(2026-10-09). Still open: step 7, the privacy policy's waitlist-online section, the Workers
+Paid plan and Email Routing.
 
 - [x] **Apply pending (`0007`, `0008`, `0009`) on staging's and production's `/ops`** right after the
   merge that carries them. The whole API answers 503 until then.
@@ -253,6 +254,14 @@ the privacy policy's waitlist-online section, the Workers Paid plan and Email Ro
 - [x] **Turnstile before the online form is used on production:** the form answers `503
   form_unavailable` there until `TURNSTILE_SECRET` (secret) and `TURNSTILE_SITE_KEY`
   (`[env.production.vars]`) are set. Staging works without it.
+- [x] **Resend: `mail.kennelos.app`** verified (2026-10-09, Cloudflare auto-configure), and
+  the production `RESEND_API_KEY` is Sending access for **All domains**, so it can send from it.
+- [ ] **Apply pending (`0010`) on staging's and production's `/ops`** right after the merge
+  that carries step 6 (waitlist emails). The whole API answers 503 until then.
+- [ ] **Try a waitlist email on production:** with a family whose address is yours, send
+  **Email them…** from their page; it should arrive from
+  `"<Your Kennel>" <…@mail.kennelos.app>` (not in spam), and show under **Emails from …**
+  on their status page.
 - [ ] Operator setup in the plan's §12 (Workers Paid plan, `apply.kennelos.app`, Resend's
   `mail.kennelos.app`, Turnstile, Email Routing for the auto-answer) as those steps land.
 

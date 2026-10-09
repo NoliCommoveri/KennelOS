@@ -13,6 +13,7 @@
 import { requirePro } from './license.js';
 import { limitBucket } from './ratelimit.js';
 import { backingInfo } from './snapshots.js';
+import { assertMailAvailable, familyFooter, familySender, sendFamilyMessage } from './mail.js';
 import { fail } from './lib/http.js';
 
 // A kennel's portable public identity, as shared/data/kennelRepo.js mints it.
@@ -221,7 +222,73 @@ export async function readEvents(env, auth, url) {
   };
 }
 
+// --- Emails to families (W2 Plan §8, step 6) ---------------------------------------
+//
+// POST /waitlist/messages {id, public_id, entry_id, kind, subject, body}: her
+// device wrote the email (from her templates, every fact from her records) and
+// the server sends it in the kennel's name. The ADDRESS is never the device's to
+// choose: it's the family's email in the projection already published, so this
+// can't mail anyone who isn't on her list. The server adds the footer with the
+// family's status-page link. `id` is the device's, so a retry never sends twice:
+// a message already sent answers with its first result; a failed one is tried again.
+export const EMAIL_KINDS = ['approved', 'on_list', 'declined', 'offer', 'pass_recorded', 'deadline_passed', 'almost_turn',
+  'review_prefs', 'litter_born', 'request_approved', 'request_declined', 'status_link', 'note'];
+export const MESSAGE_LIMITS = { perHour: 300, subjectMax: 200, bodyMax: 8000 };
+const MESSAGE_ID = /^[A-Za-z0-9_-]{8,64}$/;
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export async function sendMessage(env, auth, payload, { origin }, now = new Date()) {
+  await herSide(env, auth);
+  const { id, public_id: publicId, entry_id: entryId, kind, subject, body } = payload || {};
+  checkPublicId(publicId);
+  if (typeof id !== 'string' || !MESSAGE_ID.test(id)) fail(400, 'bad_message');
+  if (typeof entryId !== 'string' || !ENTRY_ID.test(entryId)) fail(400, 'bad_message');
+  if (!EMAIL_KINDS.includes(kind)) fail(400, 'bad_message');
+  if (typeof subject !== 'string' || !subject.trim() || subject.length > MESSAGE_LIMITS.subjectMax || /[\r\n]/.test(subject)) fail(400, 'bad_message');
+  if (typeof body !== 'string' || !body.trim() || body.length > MESSAGE_LIMITS.bodyMax) fail(400, 'bad_message');
+  await requireBacking(env, auth);
+
+  const before = await env.DB.prepare('SELECT program_id, status, sent_at FROM wl_messages WHERE id = ?').bind(id).first();
+  if (before && before.program_id !== auth.programId) fail(409, 'id_taken');
+  if (before && before.status === 'sent') return { status: 'sent', sentAt: before.sent_at };
+  await limitBucket(env, `wl-mail:${auth.programId}`, MESSAGE_LIMITS.perHour);
+  assertMailAvailable(env);
+
+  // Only this family's part of the projection is read (entry ids are [A-Za-z0-9_-]).
+  const row = await env.DB.prepare(
+    "SELECT program_id, json_extract(body, ?) AS entry, json_extract(body, '$.kennel.name') AS kennel_name FROM wl_projection WHERE public_id = ?",
+  ).bind(`$.entries."${entryId}"`, publicId).first();
+  if (row && row.program_id !== auth.programId) fail(409, 'kennel_taken');
+  if (!row || !row.entry) fail(409, 'not_published');
+  let to = null;
+  try { to = JSON.parse(row.entry).email; } catch { /* not an object */ }
+  to = typeof to === 'string' ? to.trim() : '';
+  if (!EMAIL.test(to)) fail(409, 'no_email');
+
+  const token = await env.DB.prepare('SELECT token FROM wl_tokens WHERE public_id = ? AND entry_id = ?').bind(publicId, entryId).first();
+  const link = token ? `${origin}/s/${token.token}` : `${origin}/list/${publicId}`;
+  const kennelName = typeof row.kennel_name === 'string' ? row.kennel_name : '';
+  const status = await sendFamilyMessage(env, {
+    id, programId: auth.programId, publicId, entryId, kind, to,
+    subject: subject.trim(), text: body.replace(/\s+$/, ''),
+    from: await familySender(env, { programId: auth.programId, publicId, kennelName }, now),
+    footer: familyFooter(link, kennelName || 'the kennel'),
+  }, now);
+  return { status, sentAt: status === 'sent' ? now.toISOString() : null };
+}
+
+// The emails a family's status page lists (newest first), sent ones only. A body
+// retention has dropped (90 days) shows as its subject alone.
+export async function sentEmailsFor(env, publicId, entryId, limit = 20) {
+  const { results } = await env.DB.prepare(
+    `SELECT subject, body, sent_at FROM wl_messages
+      WHERE public_id = ? AND entry_id = ? AND status = 'sent' AND kind IN (SELECT value FROM json_each(?))
+      ORDER BY sent_at DESC LIMIT ?`,
+  ).bind(publicId, entryId, JSON.stringify(EMAIL_KINDS), limit).all();
+  return results.map((r) => ({ at: r.sent_at, subject: r.subject, body: r.body ?? null }));
+}
+
 // Account deletion (program.js) removes every waitlist row of the program.
 export const deleteWaitlistStatements = (env, programId) => [
-  'wl_projection', 'wl_tokens', 'wl_inbox', 'wl_events', 'wl_holds', 'wl_messages', 'wl_family_codes', 'wl_family_sessions',
+  'wl_projection', 'wl_tokens', 'wl_inbox', 'wl_events', 'wl_holds', 'wl_messages', 'wl_family_codes', 'wl_family_sessions', 'wl_senders',
 ].map((t) => env.DB.prepare(`DELETE FROM ${t} WHERE program_id = ?`).bind(programId));

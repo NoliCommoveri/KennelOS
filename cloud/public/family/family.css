@@ -173,6 +173,9 @@ button.pass:hover { background: #efe0c4; }
 .card.alert { border-color: #e3cfa6; }
 main.centered .row, main.centered .actions, main.centered form.inline, main.centered .tabs, main.centered .pups { justify-content: center; }
 main.centered dl.facts { display: inline-grid; text-align: left; margin: 6px auto 0; }
+/* The kennel's emails read like letters (W2 step 6). */
+main.centered ul.emails { text-align: left; }
+ul.emails li + li { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; }
 main.centered details.card.collapsible > summary { list-style-position: inside; }
 button.linkish { font: inherit; background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; }
 #app-form .actions { margin: 16px 0 8px; }

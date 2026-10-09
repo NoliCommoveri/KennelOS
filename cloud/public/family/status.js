@@ -487,6 +487,19 @@ function companionHtml(f) {
 
 // --- Messages ----------------------------------------------------------------------
 
+// The emails the kennel sent them (W2 step 6), newest first, so one lost to spam
+// is still read here. An old one (90 days) shows its subject only.
+function emailsHtml() {
+  const list = state.v.emails || [];
+  if (!list.length) return '';
+  const items = list.map((m) => `<li>
+      <p class="small muted mt0">${esc(fmtDate(String(m.at).slice(0, 10)))}</p>
+      <p class="mt0"><strong>${esc(m.subject)}</strong></p>
+      ${m.body ? `<p class="pre small mt0">${esc(m.body)}</p>` : ''}
+    </li>`).join('');
+  return card(`Emails from ${esc(state.v.kennel.name)}`, `<ul class="plain emails">${items}</ul>`);
+}
+
 function messageHtml() {
   const k = state.v.kennel;
   if (!k.message_key || !['applied', 'approved', 'active'].includes(state.v.family.status)) return '';
@@ -519,6 +532,7 @@ function mineHtml() {
   if (!['applied', 'approved', 'active'].includes(f.status)) {
     parts.push(card('', `<p class="mt0">${closedText(f.status, kennel)}</p>`));
     parts.push(companionHtml(f));
+    parts.push(emailsHtml());
     return parts.join('');
   }
 
@@ -571,6 +585,7 @@ function mineHtml() {
   }
 
   parts.push(card('What you asked for', prefsHtml(f)));
+  parts.push(emailsHtml());
   parts.push(messageHtml());
   return parts.join('');
 }

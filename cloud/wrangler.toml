@@ -50,6 +50,11 @@ globs = ["**/*.sql"]
 fallthrough = true
 
 # MAIL_FROM: the sender for sign-in codes, on the domain verified in Resend.
+# MAIL_FAMILY_DOMAIN: emails to waitlist families go out in the kennel's name
+# from this domain (`"Thornfield Kennels" <thornfield-kennels@mail.kennelos.app>`;
+# src/mail.js familySender), a second sending domain verified in Resend.
+# FAMILY_PAGES_ORIGIN: where the status-page links in those emails point.
+# Unset (staging), the API's own origin, which serves the family pages there.
 # DEV_OUTBOX: staging only. Until the RESEND_API_KEY secret is set, sign-in
 # codes are shown on /ops instead of emailed (src/mail.js). Production must NOT
 # set it. The Resend key itself is a secret, set in the dashboard, never here.
@@ -62,6 +67,7 @@ fallthrough = true
 # answers 503 and /ops says what's missing.
 [vars]
 MAIL_FROM = "KennelOS <signin@kennelos.app>"
+MAIL_FAMILY_DOMAIN = "mail.kennelos.app"
 DEV_OUTBOX = "1"
 # The ids below are the LIVE store's. Lemon Squeezy's test-mode products can
 # carry their own ids: replace these if a staging webhook is ever set up.
@@ -106,6 +112,8 @@ bucket_name = "kennelos-files"
 
 [env.production.vars]
 MAIL_FROM = "KennelOS <signin@kennelos.app>"
+MAIL_FAMILY_DOMAIN = "mail.kennelos.app"
+FAMILY_PAGES_ORIGIN = "https://apply.kennelos.app"
 LS_TEST_MODE = "false"
 LS_STORE_ID = "437121"
 LS_PRO_PRODUCT_IDS = "1244595"

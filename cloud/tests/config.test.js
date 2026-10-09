@@ -50,4 +50,8 @@ test('wrangler.toml: production is its own Worker on api.kennelos.app, with no s
   assert.match(productionToml, /\[\[env\.production\.r2_buckets\]\]\s*binding\s*=\s*"FILES"\s*bucket_name\s*=\s*"kennelos-files"/);
   assert.match(productionToml, /\[env\.production\.triggers\]\s*crons\s*=\s*\["[^"]+"\]/);
   assert.match(productionToml, /MAIL_FROM\s*=/);
+  // Waitlist emails (W2 step 6): the kennel-name sender domain, and links to apply.kennelos.app.
+  assert.match(productionToml, /MAIL_FAMILY_DOMAIN\s*=\s*"mail\.kennelos\.app"/);
+  assert.match(productionToml, /FAMILY_PAGES_ORIGIN\s*=\s*"https:\/\/apply\.kennelos\.app"/);
+  assert.match(stagingToml, /MAIL_FAMILY_DOMAIN\s*=\s*"mail\.kennelos\.app"/);
 });
