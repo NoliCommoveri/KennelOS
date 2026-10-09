@@ -74,7 +74,7 @@ export function renderNav(targetId = 'app-nav') {
 
   host.innerHTML = `
     <nav class="nav-inner">
-      <a class="nav-brand" href="${prefix}index.html"><span class="paw">🐾</span> KennelOS${editionTag}</a>
+      <a class="nav-brand" href="${prefix}index.html"><span class="paw">🐾</span><span class="nav-brand-text"><span class="nav-brand-name">KennelOS${editionTag}</span></span></a>
       <button type="button" class="nav-toggle" aria-label="Menu" aria-expanded="false">☰</button>
       <div class="nav-links">
         ${links}

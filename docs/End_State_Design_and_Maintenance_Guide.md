@@ -1395,6 +1395,11 @@ should light up (`pages/companion.html` → `furever.html`/`assistant.html`, sam
 `accounts.html`). Links are stored app-root-relative and prefixed at
 render time so they resolve from `index.html` or `/pages/` and any GitHub Pages sub-path.
 
+The brand is "🐾 KennelOS [edition]" with the user's kennel name (`kennelSetupUI.
+renderKennelBanner`, once a kennel is set up) as a smaller **second line underneath**, not
+beside it — a long name used to crowd the phone menu button. On phones the brand takes the
+row's spare width and the name wraps; on wide screens the brand is capped at 210px.
+
 The bar also carries the **active-kennel switcher** in a `#nav-kennel-scope` slot before
 the "More" menu (Multi-Kennel Scope Spec §8). `nav.js` stays edition-agnostic: it renders
 the empty slot and hands it to `renderKennelSwitcher`, which returns without touching it in
