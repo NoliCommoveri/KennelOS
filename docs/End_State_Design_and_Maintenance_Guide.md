@@ -2091,8 +2091,9 @@ indexed FK.
 ## 23. Puppy Record (print-only PDF)
 
 `pages/puppy-record.html`/`.js` (`?sale=<id>`) is a printable, one-page-style record for a puppy
-being sold: puppy info, sire/dam (with their genetic + breed-specific test results as a
-pipe-separated line), a **Health History** grid — one card per health-relevant event type
+being sold: puppy info, sire/dam side by side on one line (with their genetic + breed-specific
+test results as a pipe-separated line; on paper too, stacked only on a phone screen — iOS
+prints at the phone's width, so the stacking rule is `screen`-only), a **Health History** grid — one card per health-relevant event type
 (`vaccination`, `preventative`, `genetic_test`, `ofa_pennhip`, `breed_specific_test`, `illness`,
 `medication`, `surgery`, `vet_visit`, `injury`, `abnormalities`, `weight_check` — deliberately
 excludes admin/lifecycle types like `milestone`/`placement`/`note`), laid out in three
