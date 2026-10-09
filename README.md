@@ -500,7 +500,7 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   due, "Ready now?"), each once, unless she switches them off. Her phone applies each move at
   its next sync, or notes it on the family's page if her records moved on. No migration;
   the hourly cron deploys with the Worker. Not yet: step 8 (the privacy policy's
-  waitlist-online section).
+  waitlist-online section). Service-worker cache rolled to `kennelos-shell-v53` for steps 6 and 7.
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass
