@@ -186,6 +186,10 @@ KennelOS/
                                amount/date/vendor/receipt # on the expense form (§26.1)
     incomeView.js              Derived income aggregator (Sale + outgoing StudService)
     litterFinances.js          Derived per-litter P&L (income vs cost)
+    moneyReport.js             Money in/out by period (P&L by Month, Year in Review; §31)
+    yearReview.js              Pure Year in Review summary (§31)
+    reportMath.js              Pure report math: date ranges, period buckets, axis ticks (§31)
+    reportCatalog.js           The Reports hub's grouped catalog (§31)
     dateUtils.js               todayYMD / date helpers (single "what is today")
     vocab.js                   Controlled vocabularies + event-type catalog
     csvImport.js               Generic CSV match-or-create engine + mappings
@@ -251,7 +255,10 @@ KennelOS/
     app.css                    All styles
     ui.js                      esc(), badge(), fmtDate(), param(), fillSelect()…
     listView.js                Reusable list screen (cells return HTML)
-    reportView.js              Reusable report screen (values return text)
+    reportView.js              Reusable report screen (values return text; date range,
+                               KPI tiles, totals row, charts, print — §31)
+    chartView.js               Own SVG charts: bar / line / ranked bar + tooltip (§31)
+    printView.js               Print / Save-as-PDF letterhead + button (§31)
     timeline.js                Subject health/history timeline
     pedigree.js                Ancestor-tree + offspring renderer
     eventForm.js               Add/edit event modal
@@ -1246,7 +1253,9 @@ This distinction is the single easiest thing to get wrong. Learn it:
   `tone:(r)=>badgeClass|null` wraps that row's (escaped) value in a badge of a class the
   page code picks (the Shows page's amber/red "entries close"); an optional view-level
   `groupBy:(r)=>string` inserts a full-width header row whenever consecutive rows change
-  group (rows keep the caller's `load()` order; CSV is unaffected).
+  group (rows keep the caller's `load()` order; CSV is unaffected). Report extras (§31):
+  `dateRange`, `kpis`, `charts`, a column's `total:(rows)=>string`, and the always-on
+  **Print / PDF** button — all computed from the visible rows, so they follow every filter.
 - **`assets/listView.js`** — columns provide `cell:(r)=>htmlString` returning **HTML**; the
   framework injects it **raw**. **The caller must `esc()` every user-controlled value inside
   `cell`.** Columns can be marked `sortable: true` with a `sortFn:(a,b)=>number` comparator
@@ -1521,8 +1530,11 @@ The event form, timeline, badges, and (for dog-subject types) the event importer
 automatically.
 
 **Add a report** — build a page that loads records and calls `createReportView` with
-`columns` (`value` returns text), `filters`, `search`, and `csvFilename`; link it from
-`pages/reports.html`. Add the new page to `sw.js` (recipe §16.5).
+`columns` (`value` returns text), `filters`, `search`, and `csvFilename`, plus whichever of
+`dateRange` / `kpis` / `charts` / column `total`s it needs (§31); put any pure math in a
+`data/` module with a test. List it in `data/reportCatalog.js` under its group (that's the
+hub link), in `data/proPages.js` (reports are Pro-only), and in `sw.js` (recipe §16.5);
+`tests/reports.test.js` fails if a catalog page is missing, unprecached, or not Pro-only.
 
 **Add a new entity** — new `db.js` table (new version block if post-release), new
 `<entity>Repo.js` via `makeRepo` with a validator, a `referenceRegistry.js` array (and lines
@@ -3437,4 +3449,72 @@ shape of it as built, for orientation.
   one, the API answers 503 until **Apply pending** on `/ops`. Nothing logs an email, code,
   token or body.
 - Erasing a device, signing out the others and deleting the account need a fresh sign-in.
+
+## 31. Reports — `docs/KennelOS_Reports_Plan.md`
+
+The Reports hub (`pages/reports.html` + `reports.js`, Pro-only) lists every report from
+`data/reportCatalog.js`, bucketed into **Money / Breeding / Puppies / Sales & Waitlist /
+Shows & Stud / Dogs & Operations**. Each bucket is a segment tab (the Financials hub's pill
+toggle); the chosen one rides the URL (`?group=money`) and each report's "← All reports"
+link returns to its own bucket. A bucket with no reports yet has no tab. **Year in Review**
+is featured above the tabs.
+
+**Every report is derived** — computed on load from the existing tables, nothing stored, no
+schema of its own. Totals, rates and chart series are figures for what's on screen, never
+persisted aggregates.
+
+**The report screen (`assets/reportView.js`)** adds, when a page asks:
+- `dateRange: { label, date:(r)=>YMD, initial? }` — a preset menu (All time / This year /
+  Last year / Last 12 months / Custom From–To; `data/reportMath.js` `rangeFor`/`inRange`).
+  An undated row is only in "All time".
+- `kpis:(rows, ctx)=>[{ label, value, hint? }]` — a stat strip above the table.
+- `charts:(rows, ctx)=>[chartSpec]` — charts above the table, redrawn from the same visible
+  rows (so they follow every filter); `ctx` = `{ range, preset, records }`.
+- a column's `total:(rows)=>string` — a Total row under the table, over the visible rows.
+- always: **🖨 Print / PDF** and a letterhead that only prints (below).
+
+**Charts (`assets/chartView.js`)** are the app's own SVG — no vendored library, so they
+work offline and print crisp. `renderBarChart` (one, grouped, stacked, or a signed
+`diverging` series — blue above zero, red below), `renderLineChart` (category or numeric x;
+2px lines, a ringed end dot, direct end labels up to four series), `renderHbarChart`
+(ranked; past `max` rows the rest fold into "Other"). Render functions are pure (spec +
+width → HTML; `tests/reports.test.js`); `mountChart` draws at the container's width, redraws
+on resize and for print, and wires the hover tooltip. Rules: categorical colors come from
+`SERIES_COLORS` in **fixed order** (validated for colour-vision deficiency on white; a
+series keeps its slot even when it has nothing to show, and a chart that colors by a vocab —
+registration, stud direction — passes each value its vocab-index slot so the color follows
+the entity); two or more series always get a legend; count axes never show fractional
+ticks; every user string is escaped; the table under each chart is its accessible view.
+
+**Print / PDF (`assets/printView.js`)** goes through the browser's own print dialog ("Save
+as PDF" makes the file). The print stylesheet (`app.css`, `@media print`) hides the nav,
+banners, toolbar and page header **only on pages with a letterhead**, so printing any other
+page is unchanged; it keeps charts and table rows whole across pages. The letterhead shows
+the active kennel's logo + name (or the only own kennel's), the report title, the date range,
+filters and search in effect, and the date generated.
+
+**Money by period (`data/moneyReport.js`)** — `loadMoney()` reads the same scoped income
+rows and expenses as the Financials Overview, so the reports always agree with it.
+Cash basis: every income component carries `when` (`incomeView.saleComponentDate`: a
+deposit on `deposit_date`, the balance and what rides with it on `balance_paid_date`,
+unpaid money on `balance_due_date`, each falling back to the sale's own date; stud fees on
+`returned_date`/`sent_date`; application fees on `fee_received_date`). `plByPeriod` files
+earned income and expenses into months; anticipated income is shown when due and never in
+Net; non-cash pick value is never money in.
+
+**Reports today**
+- Money: **Profit & Loss by Month** (`pl-report`), **Litter P&L**, Financials (link).
+- Breeding: **Litters Over Time**, **Live-Birth Summary**, **Health-Test Events**.
+- Sales & Waitlist: **Placements** (price column + total; placements by month stacked by
+  registration; average price by registration), **Scheduled Placements**.
+- Shows & Stud: **Stud Services** (sent date, fee; by month by direction).
+- Dogs & Operations: **Active Roster**, **Dashboard** (link).
+- Featured: **Year in Review** (`year-review`, `data/yearReview.js`): one calendar year —
+  litters whelped (expected ones left out), puppies born/alive, placements (released sales
+  counted apart), money in/out/net (= P&L by Month), titles earned, waitlist applied / on
+  the list now — with four charts and the year's litters and titles; laid out to print on
+  one page.
+
+Lite keeps Active Roster and Live-Birth Summary (shared pages), so it gets their tiles,
+charts and Print button too; every other report is Pro-only.
 

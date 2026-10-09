@@ -792,6 +792,15 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   §29 section), the privacy policy page, the SW bump, and production. A live check against
   staging from a machine that can reach it should come first.
 
+- **Reports & analytics, phase 1 — done & browser-verified** (`docs/KennelOS_Reports_Plan.md`,
+  End-State guide §31). The shared report screen gained a date range, KPI tiles, a totals
+  row, charts drawn from the visible rows (our own SVG, `assets/chartView.js`) and a
+  **Print / PDF** button with a print-only letterhead (`assets/printView.js`; the browser's
+  Save as PDF makes the file). Existing reports upgraded; new **Profit & Loss by Month**
+  and **Year in Review**; the hub is grouped into segment tabs (`data/reportCatalog.js`).
+  Phases 2–3 (production, pairing success, puppy growth, waitlist funnel, demand vs
+  supply, …) are listed in the plan.
+
 ## Build & deploy
 
 `node build/assemble.mjs` → `dist/{lite,pro,demo}/`, each a servable/deployable tree

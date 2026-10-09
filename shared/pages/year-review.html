@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Litters Over Time — KennelOS</title>
+  <title>Year in Review — KennelOS</title>
   <link rel="stylesheet" href="../assets/app.css">
   <link rel="manifest" href="../manifest.json">
   <link rel="icon" href="../assets/icons/favicon-32.png" sizes="32x32">
@@ -18,17 +18,19 @@
   <main>
     <div class="page-header">
       <div>
-        <a class="muted" href="reports.html?group=breeding">← All reports</a>
-        <h1>Litters Over Time</h1>
-        <p class="page-subtitle">Every litter by whelp date and year. Filter, and export the visible rows to CSV.</p>
+        <a class="muted" href="reports.html?group=money">← All reports</a>
+        <h1>Year in Review</h1>
+        <p class="page-subtitle">One calendar year of your program on one page — litters, puppies, placements, money in and out, titles and the waitlist. Print it, or save it as a PDF.</p>
       </div>
+      <div class="row-actions no-print" id="yr-controls"></div>
     </div>
     <section class="card">
-      <div id="report-mount"></div>
+      <div class="print-header" id="yr-print-header"></div>
+      <div id="yr-body"><p class="muted">Loading…</p></div>
     </section>
   </main>
 
   <script type="module" src="../app.js"></script>
-  <script type="module" src="./litters-report.js"></script>
+  <script type="module" src="./year-review.js"></script>
 </body>
 </html>
