@@ -13,7 +13,7 @@
 // can't read them.
 import {
   esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingItemHtml, litterHtml, deadlineText, fmtShortDate,
-  SEX_LABEL, READY_LABEL, PLACEMENT_LABEL, CREDIT_LABEL
+  SEX_LABEL, READY_LABEL, PURPOSE_LABEL, purposesText, CREDIT_LABEL
 } from './common.js';
 import { rememberedFamily, forgetFamily } from './session.js';
 import { seal } from './seal.js';
@@ -105,7 +105,7 @@ function decidedLine(req, what, kennel) {
 const PREF_FIELDS = [
   { key: 'pref_sex', prefs: 'sex', label: 'Sex', text: (v) => SEX_LABEL[v] || 'Either' },
   { key: 'pref_breed', prefs: 'breed', label: 'Breed', text: (v) => v || 'Any' },
-  { key: 'pref_placement_type', prefs: 'placement', label: 'Placement', text: (v) => PLACEMENT_LABEL[v] || 'Any' },
+  { key: 'pref_purposes', prefs: 'purposes', label: 'Looking for', text: purposesText },
   { key: 'pref_colors', prefs: 'colors', label: 'Colors', text: (v) => (Array.isArray(v) && v.length ? v.join(', ') : 'Any') },
   { key: 'ready_timing', prefs: 'ready_timing', label: 'Ready to buy', text: (v) => READY_LABEL[v] || 'Not answered' },
 ];
@@ -125,7 +125,7 @@ function prefEditor(prefs) {
     switch (f.key) {
       case 'pref_sex': return `<select name="pref_sex">${opts(Object.entries(SEX_LABEL), cur || 'any')}</select>`;
       case 'pref_breed': return `<select name="pref_breed">${opts([['', 'Any'], ...(k.breeds || []).map((b) => [b, b])], cur || '')}</select>`;
-      case 'pref_placement_type': return `<select name="pref_placement_type">${opts([['', 'Any'], ...Object.entries(PLACEMENT_LABEL)], cur || '')}</select>`;
+      case 'pref_purposes': return `<span class="choices">${Object.entries(PURPOSE_LABEL).map(([v, l]) => `<label class="choice"><input type="checkbox" name="pref_purposes" value="${esc(v)}"${(cur || []).includes(v) ? ' checked' : ''}> ${esc(l)}</label>`).join('')}</span>`;
       case 'pref_colors': return `<input type="text" name="pref_colors" value="${esc((cur || []).join(', '))}" placeholder="Separate colors with commas">`;
       case 'ready_timing': return `<select name="ready_timing">${opts([['', 'Not answered'], ...Object.entries(READY_LABEL)], cur || '')}</select>`;
       default: return '';
@@ -696,7 +696,10 @@ async function onSubmit(ev) {
       const prefs = state.v.family.prefs;
       const changes = {};
       for (const f of editableFields()) {
-        if (f.key === 'pref_colors') {
+        if (f.key === 'pref_purposes') {
+          const picked = Object.keys(PURPOSE_LABEL).filter((k) => data.getAll('pref_purposes').includes(k));
+          if (picked.join() !== Object.keys(PURPOSE_LABEL).filter((k) => (prefs.purposes || []).includes(k)).join()) changes.pref_purposes = picked;
+        } else if (f.key === 'pref_colors') {
           const colors = String(data.get('pref_colors') || '').split(',').map((c) => c.trim()).filter(Boolean);
           if (colors.join(',').toLowerCase() !== (prefs.colors || []).join(',').toLowerCase()) changes.pref_colors = colors;
         } else {

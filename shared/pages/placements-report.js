@@ -1,5 +1,5 @@
 // placements-report.js — "Placements" analytics (Stage 5, Build Brief §5): Sales
-// by status / placement_type / period. Derived read over Sale; buyer resolves to
+// by status / registration_type / period. Derived read over Sale; buyer resolves to
 // a Contact (there is no Buyer table). Reuses the reporting framework; no new
 // schema, no stored aggregate.
 import { saleRepo } from '../data/saleRepo.js';
@@ -8,7 +8,7 @@ import { contactRepo } from '../data/contactRepo.js';
 import { createReportView } from '../assets/reportView.js';
 import { inScope } from '../data/kennelScope.js';
 import { fmtDate } from '../assets/ui.js';
-import { PLACEMENT_TYPE, SALE_STATUS, descriptor } from '../data/vocab.js';
+import { REGISTRATION_TYPE, SALE_STATUS, descriptor } from '../data/vocab.js';
 
 async function init() {
   const [sales, dogs, contacts] = await Promise.all([
@@ -34,7 +34,7 @@ async function init() {
     csvFilename: `placements-${new Date().toISOString().slice(0, 10)}.csv`,
     search: { placeholder: 'Search dog or buyer…', text: (s) => `${dogName(s)} ${buyerName(s)}` },
     filters: [
-      { id: 'placement_type', label: 'Type', options: PLACEMENT_TYPE, match: (s, v) => s.placement_type === v },
+      { id: 'registration_type', label: 'Registration', options: REGISTRATION_TYPE, match: (s, v) => s.registration_type === v },
       { id: 'status', label: 'Status', options: SALE_STATUS, match: (s, v) => s.status === v },
       { id: 'year', label: 'Year', options: years.map((y) => ({ value: y, label: y })), match: (s, v) => year(s) === v }
     ],
@@ -42,7 +42,7 @@ async function init() {
       { header: 'Sale date', value: (s) => (s.sale_date ? fmtDate(s.sale_date) : ''), csv: (s) => s.sale_date || '' },
       { header: 'Dog', value: dogName },
       { header: 'Buyer', value: buyerName },
-      { header: 'Type', value: (s) => s.placement_type || '', badge: PLACEMENT_TYPE, csv: (s) => s.placement_type ? descriptor(PLACEMENT_TYPE, s.placement_type).label : '' },
+      { header: 'Registration', value: (s) => s.registration_type || '', badge: REGISTRATION_TYPE, csv: (s) => s.registration_type ? descriptor(REGISTRATION_TYPE, s.registration_type).label : '' },
       { header: 'Status', value: (s) => s.status || '', badge: SALE_STATUS, csv: (s) => s.status ? descriptor(SALE_STATUS, s.status).label : '' }
     ],
     onRowClick: (s) => { location.href = `sale.html?id=${encodeURIComponent(s.id)}`; },

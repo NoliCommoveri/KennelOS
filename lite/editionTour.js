@@ -214,7 +214,7 @@ export async function seedSampleData() {
     kennel_id: thornfield.id,
     dog_id: hazel.id, buyer_contact_id: nora.id, sale_date: '2024-01-15',
     price: 2500, deposit_amount: 500, deposit_date: '2023-11-01', balance_paid_date: '2024-01-15',
-    placement_type: 'pet', status: 'delivered', lead_source: 'Website',
+    registration_type: 'limited', status: 'delivered', lead_source: 'Website',
     notes: 'Went home with a family in Burlington, VT — regular updates from the family.'
   });
   const cedarSale = await saleRepo.create({
@@ -222,7 +222,7 @@ export async function seedSampleData() {
     dog_id: cedar.id, buyer_contact_id: jamal.id, sale_date: daysFromToday(-20),
     price: 2800, deposit_amount: 500, deposit_date: daysFromToday(-20), balance_due_date: daysFromToday(21),
     transport_fee: 250,
-    placement_type: 'pet', status: 'deposit_paid', lead_source: 'Referral',
+    registration_type: 'limited', status: 'deposit_paid', lead_source: 'Referral',
     notes: 'Reserved from the Autumn litter; balance due at pickup.'
   });
   manifest.sales.push(hazelSale.id, cedarSale.id);

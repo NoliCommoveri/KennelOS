@@ -17,6 +17,7 @@ import {
   prefChangeLines, narrowedPrefs, prefChangeEffect, PREF_CHANGE_FIELDS,
   turnIdOf, turnOffers, openTurns, turnLittersFor, nextTurn, joinsOpenTurn, overdueTurns,
 } from '../shared/data/waitlistRules.js';
+import { registrationsForPurposes, cleanPurposes } from '../shared/data/vocab.js';
 
 const K = 'kennel-a';
 const TODAY = '2026-10-05';
@@ -170,11 +171,26 @@ test('breed preference decides eligibility: case-insensitive, trimmed; blank = a
   assert.equal(pupMatchesPrefs(entry({ pref_breed: 'Boxer' }), pup({ breed: '' })), true, 'a pup with no breed recorded matches any');
 });
 
-test('placement preference checks the pup\'s intended placement; unset on either side matches', () => {
-  assert.equal(pupMatchesPrefs(entry({ pref_placement_type: 'show' }), pup({ intended_placement: 'pet' })), false);
-  assert.equal(pupMatchesPrefs(entry({ pref_placement_type: 'show' }), pup({ intended_placement: 'show' })), true);
-  assert.equal(pupMatchesPrefs(entry({ pref_placement_type: 'show' }), pup()), true);
-  assert.equal(pupMatchesPrefs(entry(), pup({ intended_placement: 'show' })), true);
+test('purposes map to registrations and check the pup\'s intended registration; unset on either side matches', () => {
+  assert.equal(pupMatchesPrefs(entry({ pref_purposes: ['show'] }), pup({ intended_registration: 'limited' })), false);
+  assert.equal(pupMatchesPrefs(entry({ pref_purposes: ['show'] }), pup({ intended_registration: 'full' })), true);
+  assert.equal(pupMatchesPrefs(entry({ pref_purposes: ['breeding'] }), pup({ intended_registration: 'full' })), true, 'show and breeding overlap on Full');
+  assert.equal(pupMatchesPrefs(entry({ pref_purposes: ['pet'] }), pup({ intended_registration: 'full' })), false);
+  assert.equal(pupMatchesPrefs(entry({ pref_purposes: ['pet', 'show'] }), pup({ intended_registration: 'limited' })), true, 'any purpose fits');
+  assert.equal(pupMatchesPrefs(entry({ pref_purposes: ['performance'] }), pup({ intended_registration: 'none' })), true);
+  assert.equal(pupMatchesPrefs(entry({ pref_purposes: ['show'] }), pup({ intended_registration: 'none' })), false, 'showing needs papers');
+  assert.equal(pupMatchesPrefs(entry({ pref_purposes: ['co_own'] }), pup({ intended_registration: 'full' })), false);
+  assert.equal(pupMatchesPrefs(entry({ pref_purposes: ['show'] }), pup()), true);
+  assert.equal(pupMatchesPrefs(entry({ pref_purposes: [] }), pup({ intended_registration: 'full' })), true);
+  assert.equal(pupMatchesPrefs(entry(), pup({ intended_registration: 'full' })), true);
+});
+
+test('registrationsForPurposes / cleanPurposes: vocab order, unknowns dropped, none picked = any', () => {
+  assert.deepEqual(registrationsForPurposes(['show', 'pet']), ['limited', 'full', 'none']);
+  assert.deepEqual(registrationsForPurposes(['co_own']), ['co_own']);
+  assert.equal(registrationsForPurposes([]), null);
+  assert.equal(registrationsForPurposes(['zoo']), null);
+  assert.deepEqual(cleanPurposes('breeding, pet ,zoo'), ['pet', 'breeding']);
 });
 
 test('color preference is a note unless color matching is on', () => {
@@ -392,6 +408,17 @@ test('expectedPricing: by the pup\'s sex from the litter; nulls when unknown or 
   assert.deepEqual(expectedPricing({ sex: 'female' }, litter), { price: 2800, deposit_amount: null });
   assert.deepEqual(expectedPricing({ sex: '' }, litter), { price: null, deposit_amount: null });
   assert.deepEqual(expectedPricing({ sex: 'male' }, null), { price: null, deposit_amount: null });
+});
+
+test('expectedPricing: Full registration adds the litter\'s surcharge for the pup\'s sex', () => {
+  const litter = { expected_price_male: 2500, expected_price_female: 2800, expected_deposit_male: 500, full_reg_surcharge_male: 1000, full_reg_surcharge_female: '' };
+  assert.equal(expectedPricing({ sex: 'male', intended_registration: 'full' }, litter).price, 3500, 'from the pup\'s intended registration');
+  assert.equal(expectedPricing({ sex: 'male', intended_registration: 'full' }, litter, 'limited').price, 2500, 'an explicit registration wins');
+  assert.equal(expectedPricing({ sex: 'male' }, litter, 'full').price, 3500);
+  assert.equal(expectedPricing({ sex: 'male' }, litter, 'co_own').price, 2500, 'only Full is surcharged');
+  assert.equal(expectedPricing({ sex: 'female' }, litter, 'full').price, 2800, 'no surcharge set for her sex');
+  assert.equal(expectedPricing({ sex: 'male' }, { full_reg_surcharge_male: 1000 }, 'full').price, null, 'no base price, no price');
+  assert.equal(expectedPricing({ sex: 'male' }, litter, 'full').deposit_amount, 500, 'deposit is never surcharged');
 });
 
 test('turnSpent: any offer but a voided one uses up the family\'s turn on that litter', () => {
@@ -631,16 +658,21 @@ test('prefChangeLines: one line per tracked field that really changed', () => {
     { date: TODAY, field: 'pref_sex', from: 'male', to: 'any', by: 'breeder' },
     { date: TODAY, field: 'ready_timing', from: 'asap', to: '3_months', by: 'breeder' }
   ], 'breed case and color order are not changes; untracked fields are ignored');
-  assert.deepEqual(prefChangeLines(entry({ pref_placement_type: '' }), { pref_placement_type: null }, { date: TODAY }), [], 'blank and null alike');
+  assert.deepEqual(prefChangeLines(entry({ pref_purposes: [] }), { pref_purposes: null }, { date: TODAY }), [], 'blank and null alike');
+  assert.deepEqual(prefChangeLines(entry({ pref_purposes: ['show', 'pet'] }), { pref_purposes: ['pet', 'show'] }, { date: TODAY }), [], 'purpose order is not a change');
+  assert.deepEqual(prefChangeLines(entry({ pref_purposes: ['pet'] }), { pref_purposes: ['pet', 'show'] }, { date: TODAY }),
+    [{ date: TODAY, field: 'pref_purposes', from: ['pet'], to: ['pet', 'show'], by: 'breeder' }]);
   assert.equal(prefChangeLines(entry(), { pref_breed: 'Frenchie' }, { date: TODAY, by: 'request' })[0].by, 'request');
-  assert.deepEqual(PREF_CHANGE_FIELDS, ['pref_sex', 'pref_breed', 'pref_placement_type', 'pref_colors', 'ready_timing']);
+  assert.deepEqual(PREF_CHANGE_FIELDS, ['pref_sex', 'pref_breed', 'pref_purposes', 'pref_colors', 'ready_timing']);
 });
 
 test('narrowedPrefs: any → specific, specific → other, later readiness; colors only with matching on', () => {
-  const e = entry({ pref_sex: 'any', pref_breed: '', pref_placement_type: 'pet', pref_colors: ['seal'], ready_timing: '1_month' });
-  assert.deepEqual(narrowedPrefs(e, { pref_sex: 'female', pref_breed: 'Boston Terrier', pref_placement_type: 'show', ready_timing: '6_plus_months' }),
-    ['pref_sex', 'pref_breed', 'pref_placement_type', 'ready_timing']);
-  assert.deepEqual(narrowedPrefs(e, { pref_placement_type: '', ready_timing: 'asap', pref_sex: 'any' }), [], 'wider is never narrowing');
+  const e = entry({ pref_sex: 'any', pref_breed: '', pref_purposes: ['pet'], pref_colors: ['seal'], ready_timing: '1_month' });
+  assert.deepEqual(narrowedPrefs(e, { pref_sex: 'female', pref_breed: 'Boston Terrier', pref_purposes: ['show'], ready_timing: '6_plus_months' }),
+    ['pref_sex', 'pref_breed', 'pref_purposes', 'ready_timing']);
+  assert.deepEqual(narrowedPrefs(e, { pref_purposes: [], ready_timing: 'asap', pref_sex: 'any' }), [], 'wider is never narrowing');
+  assert.deepEqual(narrowedPrefs(e, { pref_purposes: ['pet', 'show'] }), [], 'adding a purpose widens');
+  assert.deepEqual(narrowedPrefs(e, { pref_purposes: ['performance'] }), [], 'same registrations is not narrower');
   assert.deepEqual(narrowedPrefs(e, { pref_colors: ['brindle'] }), [], 'colors are notes while matching is off');
   const on = { ...WAITLIST_CONFIG_DEFAULTS, color_matching: true };
   assert.deepEqual(narrowedPrefs(e, { pref_colors: ['brindle'] }, on), ['pref_colors'], 'dropping a color narrows');

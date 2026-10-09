@@ -22,7 +22,7 @@ const item = { id: 'inbox-1', name: 'Ann Lee', email: 'Ann@Example.com', created
 test('a clean application becomes an applied entry with its link, answers and preferences', () => {
   const e = applicationToEntry(item, {
     answers: { name: 'Ann Lee', email: 'ann@example.com', phone: '555-0100', about: 'We love Bostons', q_yard: 'yes', q_size: 'House', q_pets: ['Dog'], q_kids: '2', q_move: '2026-12-01' },
-    prefs: { pref_sex: 'female', pref_breed: 'boston terrier', pref_placement_type: 'pet', pref_colors: ['Brindle'], ready_timing: '3_months' }
+    prefs: { pref_sex: 'female', pref_breed: 'boston terrier', pref_purposes: ['show', 'pet', 'zoo'], pref_colors: ['Brindle'], ready_timing: '3_months' }
   }, { kennel, form, breeds: ['Boston Terrier'] });
   assert.equal(e.id, 'inbox-1');
   assert.equal(e.kennel_id, 'k1');
@@ -36,7 +36,7 @@ test('a clean application becomes an applied entry with its link, answers and pr
   });
   assert.equal(e.pref_sex, 'female');
   assert.equal(e.pref_breed, 'Boston Terrier', 'her spelling');
-  assert.equal(e.pref_placement_type, 'pet');
+  assert.deepEqual(e.pref_purposes, ['pet', 'show'], 'known purposes only, in vocab order');
   assert.deepEqual(e.pref_colors, ['Brindle']);
   assert.equal(e.ready_timing, '3_months');
   assert.ok(e.application_questions.some((q) => q.id === 'q_size'));
@@ -48,7 +48,7 @@ test('anything off-form, off-choice, oversized or not in the vocab is dropped', 
       email: 'evil@example.com', notes: 'sneaky', status: 'active', q_size: 'Castle', q_pets: ['Dog', 'Lion', 7],
       q_yard: 'maybe', q_kids: 'lots', q_move: 'soon', about: 'x'.repeat(ANSWER_LIMITS.long + 50), phone: { a: 1 }
     },
-    prefs: { pref_sex: 'puppy', pref_breed: 'Poodle', pref_placement_type: 'zoo', ready_timing: 'never', pref_colors: 'red', listen_mode: 'selected' },
+    prefs: { pref_sex: 'puppy', pref_breed: 'Poodle', pref_purposes: 'pet', ready_timing: 'never', pref_colors: 'red', listen_mode: 'selected' },
     status: 'active', contact_id: 'c1'
   }, { kennel, form, breeds: ['Boston Terrier'] });
   assert.equal(e.application.email, 'ann@example.com', 'the address the server checked, not the sealed one');
@@ -65,7 +65,7 @@ test('anything off-form, off-choice, oversized or not in the vocab is dropped', 
   assert.equal('contact_id' in e, false);
   assert.equal(e.pref_sex, 'any');
   assert.equal(e.pref_breed, '', 'a breed she doesn\'t have matches nothing, so it\'s left blank');
-  assert.equal(e.pref_placement_type, '');
+  assert.deepEqual(e.pref_purposes, []);
   assert.equal(e.ready_timing, null);
   assert.deepEqual(e.pref_colors, []);
   assert.equal(e.listen_mode, 'all');

@@ -366,7 +366,8 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   `waitlist-entry` / `waitlist-programs` pages (absent from `dist/lite`, 404 there), the
   `data/waitlistActions.js` step layer (approve with offered contact match, fee received,
   withdraw, remove, undo, re-apply, move), the Kennel page's Waitlist settings card, Dog
-  `intended_placement`, the contact page's Waitlist panel (its waitlist dropdown goes
+  `intended_placement` (since replaced by `intended_registration`: Limited / Full / Co-own /
+  None, matched against the family's `pref_purposes`), the contact page's Waitlist panel (its waitlist dropdown goes
   read-only once entries exist), and per-kennel dashboard tiles. New flag
   `editionFlags.waitlist` (off in Lite).
 - **Waitlist, W1c — offers built & browser-verified** (headless Chromium, Pro and Lite, no

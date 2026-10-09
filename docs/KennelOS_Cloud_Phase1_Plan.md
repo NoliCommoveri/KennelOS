@@ -393,7 +393,7 @@ implicitly cloud.
 | **contacts** | all | `name` (**decided**), `contact_type`, `kennel_id`, `waitlist_status` | `email`, `phone`, `address`, `notes`, `companion_note`, `first_contact_source` |
 | **pairings** | all | `kennel_id`, `sire_id`, `dam_id`, `pairing_type`, `status`, `method`, `planned_date`, `last_observed_date`, `expected_due_date` | `notes` |
 | **litters** | all | `kennel_id`, `pairing_id`, `sire_id`, `dam_id`, `status`, `nickname`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date`, `litter_registration_number`, `puppies_born_*` counts, `foster_direction`, `foster_partner_contact_id` | every price/deposit/foster-money field, `foster_split_notes`, `notes` |
-| **sales** | all | `kennel_id`, `dog_id`, `buyer_contact_id`, `status`, `placement_type`, `sale_date`, `deposit_date`, `balance_due_date`, `balance_paid_date` | `price`, `deposit_amount`, `transport_fee`, `deferred_boarding_*`, `invoice_*`, `payment_*`, `lead_source`, `referred_by_contact_id`, `notes` |
+| **sales** | all | `kennel_id`, `dog_id`, `buyer_contact_id`, `status`, `registration_type`, `sale_date`, `deposit_date`, `balance_due_date`, `balance_paid_date` | `price`, `deposit_amount`, `transport_fee`, `deferred_boarding_*`, `invoice_*`, `payment_*`, `lead_source`, `referred_by_contact_id`, `notes` |
 | **stud_services** | all | `kennel_id`, `direction`, `type`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `pairing_id`, `status`, `fee_structure`, `pick_status`, `sent_date`, `returned_date` | `fee_amount`, `pick_value_amount`, `result_notes`, `invoice_*`, `payment_*`, `referred_by_contact_id` |
 | **contracts** | all | `kennel_id`, `contract_type`, `status`, `title`, `related_sale_id`, `related_stud_service_id`, `related_dog_id`, `related_contact_id`, `signed_date`, `lease_start_date`, `lease_end_date` | `document_url`, `terms_summary`, `notes` |
 | **documents** | `doc_type` ∈ {`health_test`, `pedigree`, `registration`} | `kennel_id`, `dog_id`, `doc_type`, `file_id`, `title`, `doc_date`, `issuer_or_lab`, `result`, `registry`, `registration_number` | `notes`; whole rows of type `contract`/`other` |
@@ -409,7 +409,9 @@ already drives the forms, and it can't drift.
 
 **As built (§9 step 1).** `shared/data/syncRegistry.js` follows the table above, and adds:
 - **The three waitlist tables**, classified as in `KennelOS_Waitlist_Spec.md` §9, plus
-  `dogs.intended_placement` (cloud). "Every field except" rows (`waitlist_offers`,
+  `dogs.intended_registration` (cloud; was `intended_placement`). The waitlist preference
+  `pref_placement_type` became `pref_purposes[]` (cloud), and the litter's
+  `full_reg_surcharge_male`/`_female` ride with its other price fields (private). "Every field except" rows (`waitlist_offers`,
   `breed_feeding_schedules`) are written out field by field, so a field added later still
   starts private.
 - **A `pending` bucket per table** for fields not yet decided, private (rule zero) until moved.

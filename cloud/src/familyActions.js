@@ -25,9 +25,9 @@ const OPEN_STATUSES = ['applied', 'approved', 'active'];
 // Copies of the app's vocab (shared/data/vocab.js); tests/familyPages.test.js in
 // the repo root fails if they drift.
 const SEX = ['any', 'male', 'female'];
-const PLACEMENT = ['', 'pet', 'show', 'breeding_rights', 'co_own'];
+const PURPOSE = ['pet', 'performance', 'show', 'breeding', 'co_own'];
 const READY = ['asap', '1_month', '3_months', '6_plus_months'];
-export const ACTION_VOCAB = Object.freeze({ SEX, PLACEMENT, READY });
+export const ACTION_VOCAB = Object.freeze({ SEX, PURPOSE, READY });
 const SESSION = /^[0-9a-f]{64}$/;
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -196,7 +196,10 @@ export function checkAction(action, body, { entry, projection, pending, now = ne
       const out = {};
       if (c.pref_sex !== undefined) out.pref_sex = SEX.includes(c.pref_sex) ? c.pref_sex : fail(400, 'bad_value');
       if (c.pref_breed !== undefined) out.pref_breed = c.pref_breed === '' || breeds.includes(c.pref_breed) ? c.pref_breed : fail(400, 'bad_value');
-      if (c.pref_placement_type !== undefined) out.pref_placement_type = PLACEMENT.includes(c.pref_placement_type) ? c.pref_placement_type : fail(400, 'bad_value');
+      if (c.pref_purposes !== undefined) {
+        if (!Array.isArray(c.pref_purposes) || c.pref_purposes.some((p) => !PURPOSE.includes(p))) fail(400, 'bad_value');
+        out.pref_purposes = PURPOSE.filter((p) => c.pref_purposes.includes(p));
+      }
       if (c.ready_timing !== undefined) out.ready_timing = READY.includes(c.ready_timing) ? c.ready_timing : fail(400, 'bad_value');
       if (c.pref_colors !== undefined) {
         if (!Array.isArray(c.pref_colors)) fail(400, 'bad_value');
