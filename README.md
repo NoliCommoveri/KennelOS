@@ -799,7 +799,9 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   Save as PDF makes the file). Existing reports upgraded; new **Profit & Loss by Month**
   and **Year in Review**; the hub is grouped into segment tabs (`data/reportCatalog.js`).
   **Phase 2** added Dam & Sire Production, Pairing Success, Puppy Growth, Waitlist Funnel
-  and Demand vs Supply. Phase 3 is listed in the plan.
+  and Demand vs Supply; **phase 3** Expenses by Category, Receivables, Pricing,
+  Breeding-Dog Return, Heat Cycles, Health-Testing Gaps, Lead Sources & Referrers, Returns
+  & Voids, Show Record and Stud Results — the plan is complete.
 
 ## Build & deploy
 

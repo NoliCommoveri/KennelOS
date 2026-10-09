@@ -139,3 +139,42 @@ test('demand vs supply: families counted by the waitlist matching rule; pups by 
   assert.equal(availableCount, 2);
   assert.equal(unsexed, 1);
 });
+
+// --- Phase 3 ---------------------------------------------------------------------------
+import { heatRows, testGapRows, studResultRows } from '../shared/data/breedingReports.js';
+
+test('heatRows: interval from her own history; prediction and due-soon / overdue', () => {
+  const heat = (id, d) => ({ subject_id: id, event_type: 'heat_cycle', event_date: d });
+  const rows = heatRows([{ id: 'a' }, { id: 'b' }, { id: 'c' }], [
+    heat('a', '2026-01-01'), heat('a', '2026-07-01'), heat('a', '2026-07-01'),
+    heat('b', '2025-06-01'), heat('b', '2025-12-01'),
+    heat('c', '2026-03-01')
+  ], '2026-12-15');
+  const a = rows.find((r) => r.dog.id === 'a');
+  assert.equal(a.heats, 2, 'the same start logged twice is one heat');
+  assert.equal(a.avgInterval, 181);
+  assert.equal(a.next, '2026-12-29');
+  assert.equal(a.status, 'due_soon');
+  assert.equal(rows.find((r) => r.dog.id === 'b').status, 'overdue');
+  const c = rows.find((r) => r.dog.id === 'c');
+  assert.deepEqual([c.avgInterval, c.next, c.status], [null, null, null], 'one heat: no prediction');
+  assert.equal(rows[rows.length - 1].dog.id, 'c', 'unpredicted last');
+});
+
+test('testGapRows: planned vs logged by name token, case-insensitive', () => {
+  const tokens = (e) => (e.details?.panel_name ? [e.details.panel_name] : []);
+  const rows = testGapRows(
+    [{ id: 'd', planned_tests: ['Embark Panel', ' OFA Hips ', 'CAER'] }, { id: 'e' }],
+    [{ subject_type: 'dog', subject_id: 'd', details: { panel_name: 'embark panel' } }, { subject_type: 'dog', subject_id: 'd', details: { panel_name: 'Extra' } }],
+    tokens
+  );
+  assert.deepEqual(rows[0].done, ['Embark Panel']);
+  assert.deepEqual(rows[0].missing, ['OFA Hips', 'CAER']);
+  assert.equal(rows[0].extra, 1, 'a result not on the plan');
+  assert.deepEqual([rows[1].planned, rows[1].missing], [[], []]);
+});
+
+test('studResultRows: the litter its pairing produced', () => {
+  const rows = studResultRows([{ id: 's1', pairing_id: 'p1' }, { id: 's2', pairing_id: 'p2' }, { id: 's3' }], [{ id: 'L', pairing_id: 'p1', puppies_born_total: '6' }]);
+  assert.deepEqual(rows.map((r) => [r.service.id, r.litter?.id || null, r.born]), [['s1', 'L', 6], ['s2', null, null], ['s3', null, null]]);
+});

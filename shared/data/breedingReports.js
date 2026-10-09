@@ -165,3 +165,71 @@ export function growthFlags(series, ratio = 0.85) {
   }
   return out;
 }
+
+// --- Heat cycles (Reports plan, phase 3) ---------------------------------------------------
+
+// Per female with heat_cycle events: heats on record, the last one's start, the
+// average days between starts, and a predicted next start (last + average, needs
+// two heats). `status`: 'due_soon' (within `soonDays`), 'overdue' (predicted date
+// passed with no new heat logged), 'ok', or null without a prediction. PURE.
+export function heatRows(females, events, today, soonDays = 30) {
+  const out = [];
+  for (const dog of females) {
+    const starts = [...new Set(events.filter((e) => e.subject_id === dog.id && e.event_type === 'heat_cycle' && e.event_date).map((e) => e.event_date))].sort();
+    if (!starts.length) continue;
+    const gaps = starts.slice(1).map((d, i) => daysBetween(starts[i], d));
+    const avg = gaps.length ? Math.round(gaps.reduce((t, g) => t + g, 0) / gaps.length) : null;
+    const last = starts[starts.length - 1];
+    let next = null;
+    if (avg) {
+      const t = ymdMs(last) + avg * DAY;
+      const d = new Date(t);
+      next = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    }
+    const until = next ? daysBetween(today, next) : null;
+    out.push({
+      dog, heats: starts.length, first: starts[0], last, avgInterval: avg,
+      shortest: gaps.length ? Math.min(...gaps) : null, longest: gaps.length ? Math.max(...gaps) : null,
+      next, until,
+      status: until == null ? null : until < 0 ? 'overdue' : until <= soonDays ? 'due_soon' : 'ok'
+    });
+  }
+  return out.sort((a, b) => (a.next || '9999').localeCompare(b.next || '9999'));
+}
+
+// --- Health-testing gaps -----------------------------------------------------------------
+
+// Per dog: its planned tests (Dog.planned_tests) split into logged and missing,
+// matched the way the dog page matches them — each test event's name token(s)
+// (eventRepo.testTokensOf), case-insensitive and trimmed. Advisory, like that page:
+// a name typed differently reads as missing. `tokensOf(event)` is injected. PURE.
+export function testGapRows(dogs, events, tokensOf) {
+  const logged = new Map();
+  for (const e of events) {
+    if (e.subject_type !== 'dog') continue;
+    for (const t of tokensOf(e)) {
+      const set = logged.get(e.subject_id) || new Set();
+      set.add(String(t).trim().toLowerCase());
+      logged.set(e.subject_id, set);
+    }
+  }
+  return dogs.map((dog) => {
+    const planned = (dog.planned_tests || []).map((t) => String(t).trim()).filter(Boolean);
+    const have = logged.get(dog.id) || new Set();
+    const done = planned.filter((t) => have.has(t.toLowerCase()));
+    const missing = planned.filter((t) => !have.has(t.toLowerCase()));
+    return { dog, planned, done, missing, extra: have.size - done.length };
+  });
+}
+
+// --- Stud results --------------------------------------------------------------------------
+
+// Per stud service: the litter it produced (a litter whose pairing_id is the
+// service's pairing), and its puppies born. PURE.
+export function studResultRows(services, litters) {
+  const byPairing = new Map(litters.filter((l) => l.pairing_id).map((l) => [l.pairing_id, l]));
+  return services.map((s) => {
+    const litter = s.pairing_id ? byPairing.get(s.pairing_id) || null : null;
+    return { service: s, litter, born: litter && n(litter.puppies_born_total) != null ? n(litter.puppies_born_total) : null };
+  });
+}

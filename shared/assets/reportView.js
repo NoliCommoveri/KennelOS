@@ -28,6 +28,7 @@
 //               table from the same visible rows, so charts follow the filters too.
 //   ctx is { range: { from, to }, preset, records } — `records` the scoped set
 //   before filters, for a chart that needs the whole span.
+//   rowsFor   — (records, ctx)=>rows: a summary report; see the option below.
 // And always: a "Print / PDF" button and a letterhead that only shows on paper
 // (assets/printView.js), listing the date range, filters and search in effect.
 import Papa from '../vendor/papaparse.min.mjs';
@@ -72,7 +73,12 @@ export function createReportView(opts) {
     dateRange = null,             // { label, date:(r)=>YMD, initial? }
     kpis = null,                  // (rows, ctx) => [{ label, value, hint? }]
     charts = null,                // (rows, ctx) => [chartSpec]
-    title = null                  // the printed title; defaults to the page's <h1>
+    title = null,                 // the printed title; defaults to the page's <h1>
+    rowsFor = null                // (records, ctx) => displayRows: a SUMMARY report
+                                  // (one row per category, source…) — the filters,
+                                  // search and date range pick the records, then this
+                                  // groups them; table, totals and CSV show its rows,
+                                  // while kpis/charts still get the records
   } = opts;
 
   let all = [];
@@ -228,8 +234,13 @@ export function createReportView(opts) {
     return v ? esc(v) : '<span class="faint">—</span>';
   }
 
+  const summaryCtx = () => ({ range: dateRange ? currentRange() : { from: null, to: null }, preset: state.preset, records: scope ? all.filter(scope) : all });
+  // The rows the table shows (and CSV exports): the visible records, or rowsFor's
+  // summary of them.
+  const displayRows = (records) => (rowsFor ? rowsFor(records, summaryCtx()) : records);
+
   function renderSummary(rows) {
-    const ctx = { range: dateRange ? currentRange() : { from: null, to: null }, preset: state.preset, records: scope ? all.filter(scope) : all };
+    const ctx = summaryCtx();
     if (kpis) {
       const tiles = kpis(rows, ctx) || [];
       kpiWrap.innerHTML = tiles.map((t) => `<div class="stat"><div class="stat-num">${esc(t.value)}</div><div class="stat-label">${esc(t.label)}</div>${t.hint ? `<div class="stat-hint">${esc(t.hint)}</div>` : ''}</div>`).join('');
@@ -259,10 +270,11 @@ export function createReportView(opts) {
   }
 
   function render() {
-    const rows = visibleRecords();
-    countEl.textContent = `${rows.length} of ${all.length}`;
+    const records = visibleRecords();
+    renderSummary(records);
+    const rows = displayRows(records);
+    countEl.textContent = rowsFor ? `${records.length} of ${all.length} records` : `${rows.length} of ${all.length}`;
     exportBtn.disabled = rows.length === 0;
-    renderSummary(rows);
     if (!rows.length) {
       tableWrap.innerHTML = `<div class="card empty-state">${esc(emptyText)}</div>`;
       return;
@@ -289,7 +301,7 @@ export function createReportView(opts) {
   }
 
   function exportVisible() {
-    const rows = visibleRecords();
+    const rows = displayRows(visibleRecords());
     const data = rows.map((r) => {
       const o = {};
       for (const c of columns) o[c.header] = c.csv ? c.csv(r) : c.value(r);

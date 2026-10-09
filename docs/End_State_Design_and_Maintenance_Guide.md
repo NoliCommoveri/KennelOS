@@ -3473,6 +3473,10 @@ persisted aggregates.
 - `charts:(rows, ctx)=>[chartSpec]` — charts above the table, redrawn from the same visible
   rows (so they follow every filter); `ctx` = `{ range, preset, records }`.
 - a column's `total:(rows)=>string` — a Total row under the table, over the visible rows.
+- `rowsFor:(records, ctx)=>rows` — a **summary** report: the filters, search and range pick
+  records, then this groups them (one row per category, source…); the table, totals and CSV
+  show its rows while `kpis`/`charts` still get the records (Expenses by Category, Lead
+  Sources).
 - always: **🖨 Print / PDF** and a letterhead that only prints (below).
 
 **Charts (`assets/chartView.js`)** are the app's own SVG — no vendored library, so they
@@ -3500,7 +3504,9 @@ rows and expenses as the Financials Overview, so the reports always agree with i
 Cash basis: every income component carries `when` (`incomeView.saleComponentDate`: a
 deposit on `deposit_date`, the balance and what rides with it on `balance_paid_date`,
 unpaid money on `balance_due_date`, each falling back to the sale's own date; stud fees on
-`returned_date`/`sent_date`; application fees on `fee_received_date`). `plByPeriod` files
+`returned_date`/`sent_date`; application fees on `fee_received_date`) and `due` — only a due
+date she set (an unpaid balance's `balance_due_date`, else blank), which Receivables ages by
+so nothing is called overdue off a fallback date. `plByPeriod` files
 earned income and expenses into months; anticipated income is shown when due and never in
 Net; non-cash pick value is never money in.
 
@@ -3537,7 +3543,29 @@ Net; non-cash pick value is never money in.
   `isPupAvailable` puppies. A kind shows only when it has pups or a family ticked a purpose
   that maps to its registration, and a breed only when it has pups or a family named it, so a
   no-preference family (which counts everywhere) doesn't list every combination.
-- Shows & Stud: **Stud Services** (sent date, fee; by month by direction).
+- Money, phase 3: **Expenses by Category** (`expenses-report`, summary by category, This
+  year by default — the tax-time page); **Receivables** (`receivables-report`,
+  `moneyReport.receivableRows`: every anticipated component + foster costs owed back
+  (`litterFinances.reimbursablePending`), aged Not due / 1–30 / 31–60 / 61–90 / 90+ / No due
+  date); **Pricing** (`pricing-report`: placed priced sales against
+  `expectedPricing(dog, litter, sale.registration_type)`, averages by sex × registration,
+  "Full over Limited"); **Breeding-Dog Return** (`dog-return-report`,
+  `moneyReport.dogReturnRows`: per parent, earned income on its litters' rows + its own stud
+  fees − expenses on the dog; a litter counts for both parents, so no Total row).
+- Breeding, phase 3: **Heat Cycles** (`heat-cycles-report`, `breedingReports.heatRows`:
+  distinct `heat_cycle` start dates per female, average interval, predicted next = last +
+  average (two heats needed), due soon ≤ 30 days / overdue); **Health-Testing Gaps**
+  (`health-gaps-report`, `testGapRows`: adult dogs' `planned_tests` vs their test events'
+  `testTokensOf` names, the dog page's advisory match).
+- Sales, phase 3: **Lead Sources & Referrers** (`lead-sources-report`, summary of placed
+  sales by `lead_source`, grouped case-insensitively; top `referred_by_contact_id`s);
+  **Returns & Voids** (`returns-report`: released sales by `end_reason`, share of all sales
+  in range).
+- Shows & Stud: **Stud Services** (sent date, fee; by month by direction); **Stud Results**
+  (`stud-results-report`, `studResultRows`: the litter whose `pairing_id` is the service's,
+  puppies born, fee, terms); **Show Record** (`show-record-report`: `show` events with
+  `entry_status: 'shown'`, points by `showPoints.eventPoints`, judges grouped by
+  `normalizeJudge`, majors = 3+ points, titles = `title_earned` events in range).
 - Dogs & Operations: **Active Roster**, **Dashboard** (link).
 - Featured: **Year in Review** (`year-review`, `data/yearReview.js`): one calendar year —
   litters whelped (expected ones left out), puppies born/alive, placements (released sales

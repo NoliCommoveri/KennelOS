@@ -222,3 +222,56 @@ test('every report on the hub exists, is precached, and (but Lite-kept pages) is
   assert.equal(REPORTS.filter((r) => r.featured).length, 1);
   assert.ok(groupsInUse().length >= 4);
 });
+
+// --- Phase 3 money -------------------------------------------------------------------
+import { ageBucket, daysOverdue, receivableRows, pricingRows, averageBy, dogReturnRows } from '../shared/data/moneyReport.js';
+
+test('receivables: anticipated money aged from today; foster owed back undated', () => {
+  assert.equal(daysOverdue('2026-10-01', '2026-10-09'), 8);
+  assert.equal(ageBucket('2026-10-20', '2026-10-09'), 'not_due');
+  assert.equal(ageBucket('2026-10-09', '2026-10-09'), 'not_due', 'due today is not overdue');
+  assert.equal(ageBucket('2026-09-01', '2026-10-09'), 'd60');
+  assert.equal(ageBucket('2026-01-01', '2026-10-09'), 'd90plus');
+  assert.equal(ageBucket('', '2026-10-09'), 'undated');
+  const row = { counterparty: 'Jo', dog: 'Wren', href: 'sale.html?id=1' };
+  const rows = receivableRows([
+    { state: 'anticipated', amount: 2000, component: 'balance', date: '2026-09-20', due: '2026-09-20', row, source_type: 'sale' },
+    { state: 'anticipated', amount: 300, component: 'balance', date: '2026-01-02', due: '', row, source_type: 'sale' },
+    { state: 'earned', amount: 500, component: 'deposit', date: '2026-09-01', row, source_type: 'sale' },
+    { state: 'anticipated', amount: 0, component: 'transport', date: '2026-09-20', row, source_type: 'sale' }
+  ], '2026-10-09', [{ litter: { id: 'L' }, amount: 130, label: 'Meadow Ridge' }, { litter: { id: 'M' }, amount: 0, label: 'x' }]);
+  assert.deepEqual(rows.map((r) => [r.component, r.amount, r.bucket]), [['balance', 2000, 'd30'], ['balance', 300, 'undated'], ['foster_reimbursable', 130, 'undated']],
+    'no due date set: never aged from the sale date');
+});
+
+test('pricingRows / averageBy: placed priced sales against the expected price', () => {
+  const dogsById = new Map([['p', { id: 'p', sex: 'male' }]]);
+  const rows = pricingRows([
+    { id: 1, dog_id: 'p', price: 3500, status: 'delivered', sale_date: '2026-01-01' },
+    { id: 2, dog_id: 'p', price: '', status: 'delivered' },
+    { id: 3, dog_id: 'p', price: 2000, status: 'voided' },
+    { id: 4, dog_id: 'x', price: 2500, status: 'deposit_paid', sale_date: '2026-02-01' }
+  ], { dogsById, isPlaced: (s) => s.status !== 'voided', expectedFor: (s) => (s.dog_id === 'p' ? 3000 : null) });
+  assert.deepEqual(rows.map((r) => [r.sale.id, r.diff]), [[4, null], [1, 500]]);
+  assert.deepEqual(averageBy(rows, () => 'all', (r) => r.price), [{ key: 'all', avg: 3000, count: 2 }]);
+});
+
+test('dogReturnRows: pups’ income per parent, stud fees, own costs, net', () => {
+  const dogs = [{ id: 'dam', sex: 'female' }, { id: 'sire', sex: 'male' }, { id: 'pup', sex: 'male', litter_id: 'L' }];
+  const rows = dogReturnRows({
+    dogs,
+    litters: [{ id: 'L', dam_id: 'dam', sire_id: 'sire', status: 'sold' }],
+    incomeRows: [
+      { source_type: 'sale', litter_id: 'L', dog_id: 'pup', earned: 2500, anticipated: 500 },
+      { source_type: 'stud', dog_id: 'sire', litter_id: null, earned: 800, anticipated: 0 }
+    ],
+    expenses: [{ subject_type: 'dog', subject_id: 'dam', amount: 1200 }, { subject_type: 'litter', subject_id: 'L', amount: 300 }],
+    sales: [{ dog_id: 'pup', status: 'delivered' }],
+    isPlaced: () => true
+  });
+  const dam = rows.find((r) => r.dog.id === 'dam');
+  const sire = rows.find((r) => r.dog.id === 'sire');
+  assert.deepEqual([dam.earned, dam.studFees, dam.costs, dam.net, dam.pupsSold, dam.anticipated], [2500, 0, 1200, 1300, 1, 500]);
+  assert.deepEqual([sire.earned, sire.studFees, sire.net], [2500, 800, 3300], 'the litter counts for both parents');
+  assert.ok(!rows.some((r) => r.dog.id === 'pup'));
+});

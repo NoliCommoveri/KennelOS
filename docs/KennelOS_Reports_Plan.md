@@ -1,6 +1,6 @@
 # KennelOS — Reports & Analytics Plan
 
-Status: **Phases 1–2 built** (2026-10-09). Phase 3 is planned below. The code map is the
+Status: **Phases 1–3 built** (2026-10-09) — every report in this plan exists. The code map is the
 End-State guide §31; this doc is the plan and the decisions behind it.
 
 ## Decided (2026-10-09)
@@ -35,7 +35,6 @@ End-State guide §31; this doc is the plan and the decisions behind it.
 The Puppy Growth sample data gained weekly weigh-ins for the Autumn litter (Cedar runs
 small, so the flag shows).
 
-
 1. **Dam & Sire Production** (Breeding) — per breeding dog: litters, average litter size,
    live %, sex ratio, age at each litter; flags back-to-back litters and lifetime litter
    count (a welfare check).
@@ -48,7 +47,12 @@ small, so the flag shows).
 5. **Demand vs Supply** (Sales & Waitlist) — what waiting families want (sex, breed,
    purposes → registration) against pups available or expected.
 
-## Phase 3
+## Phase 3 — done
+
+The report screen gained `rowsFor` for summary reports (Expenses by Category, Lead
+Sources): the filters pick records, then rows group them. Receivables ages only a due
+date she set (`balance_due_date`); anything without one is "No due date".
+
 
 6. **Expenses by Category** (Money) — year × category, a printable tax-time summary.
 7. **Receivables** (Money) — balances due, pending deposits, stud fees owed, foster

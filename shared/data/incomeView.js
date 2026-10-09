@@ -207,7 +207,11 @@ export async function getIncomeRows({ includeArchived = false, kennelId = null }
   // dog's), and both are pass-throughs when unscoped.
   for (const s of scopeTo(sales)) {
     const feeCredit = creditBySale.get(s.id) || 0;
-    const components = saleComponents(s, feeCredit).map((c) => ({ ...c, when: saleComponentDate(s, c) }));
+    // `due` is only a due date she actually set (the balance's), for Receivables'
+    // aging; `when` always has a date, for filing by month.
+    const components = saleComponents(s, feeCredit).map((c) => ({
+      ...c, when: saleComponentDate(s, c), due: c.state === 'anticipated' && c.component !== 'deposit' ? s.balance_due_date || '' : ''
+    }));
     if (!components.length) continue; // no money on this sale — nothing to show
     rows.push({
       source_type: 'sale',
