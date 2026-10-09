@@ -936,6 +936,12 @@ doing cross-table transaction work).
     without writing.
   - Unknown collections (tables not in this schema version) are skipped, not errors.
   - Every restore calls `markDataChanged()` (§11), so the cloud backup sees it.
+  - A `'replace'`/`'merge'` file restore then points the `myKennelId` setting (the nav
+    banner's "My kennel") at the restored own, non-archived kennel when the setting is
+    unset or no longer names one. The setting lives in `localStorage`, not the backup, so
+    a file restored in a new browser would otherwise leave the app with no kennel name.
+    A setting that still resolves is left alone (`restoreOnNewDevice` does the same for a
+    cloud restore).
   - Before any write it awaits the edition hook `enforceImportDogCap({ incomingDogs, mode })`
     (`data/editionConfig.js`; classification math in `data/rosterCount.js`). The shared/Pro
     default is a no-op, so Pro/Demo restore is exactly as above; the Lite override rejects a
