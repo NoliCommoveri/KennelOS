@@ -117,14 +117,12 @@ export const navItems = [
   { label: 'People',   path: 'pages/contacts.html' },
   { label: 'Placements & Contracts', path: 'pages/sales.html' },
   { label: 'Financials', path: 'pages/financials.html' },
+  { label: 'Storage',    path: 'pages/documents.html' }, // documents + shows + accounts, seg-tabbed
   { label: 'Sharing',    path: 'pages/companion.html' }, // Companion + Furever + Assistant, seg-tabbed
 ];
 
 export const moreItems = [
   { label: 'Reports',       path: 'pages/reports.html' },
-  { label: 'Shows',         path: 'pages/shows.html' },
-  { label: 'Documents',     path: 'pages/documents.html' },
-  { label: 'Accounts',      path: 'pages/accounts.html' },
   { label: 'Import/Export', path: 'pages/import-export.html' },
   { label: 'Settings',      path: 'pages/settings.html' },
 ];

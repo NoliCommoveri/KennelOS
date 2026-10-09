@@ -114,7 +114,7 @@ export function buildAccountField(p, accounts, currentId) {
     .join('');
   return `<div class="field"><label>Account</label>
     <select id="${p}-account"><option value="">— none —</option>${opts}</select>
-    <span class="field-hint">${accounts.length ? 'Which of your accounts this was paid through.' : 'Add your vendor accounts on the Accounts page (More menu).'}</span></div>`;
+    <span class="field-hint">${accounts.length ? 'Which of your accounts this was paid through.' : 'Add your vendor accounts under Storage → Accounts.'}</span></div>`;
 }
 
 // Picking an account fills an empty Vendor with its name. Returns the payload

@@ -317,7 +317,7 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     tallies + gaps, row edit and timeline archive both refresh it, no card on a dog without
     shows, none in the Lite build.
   - **Phase 3 — Shows page.** `shared/pages/shows.html` + `shows.js` (Pro-only via
-    `PRO_ONLY_PAGES`; "Shows" in the More menu for shared/Pro/Demo, not Lite). **Upcoming**
+    `PRO_ONLY_PAGES`; a tab of the Storage hub for shared/Pro/Demo, not Lite). **Upcoming**
     tab grouped by show day with entries-close flags (amber ≤ 7 days, red when past and still
     planned); **Results** tab with Dog / Organization / Period / Track filters + CSV export;
     rows open the event's edit modal. **+ Add entries** creates one show event per dog per

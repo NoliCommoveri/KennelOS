@@ -86,6 +86,7 @@ export const navItems = [
   { label: 'People',   path: 'pages/contacts.html' },
   { label: 'Placements & Contracts', path: 'pages/sales.html' },
   { label: 'Financials', path: 'pages/financials.html' },
+  { label: 'Storage',    path: 'pages/documents.html' }, // documents + shows + accounts, seg-tabbed
 ];
 
 // Import/Export is omitted — the demo strips the save/export paths (editions plan
@@ -93,9 +94,6 @@ export const navItems = [
 // direct URL 404s just like a Pro-only page does in Lite.
 export const moreItems = [
   { label: 'Reports',       path: 'pages/reports.html' },
-  { label: 'Shows',         path: 'pages/shows.html' },
-  { label: 'Documents',     path: 'pages/documents.html' },
-  { label: 'Accounts',      path: 'pages/accounts.html' },
   { label: 'Companion',     path: 'pages/companion.html' },
   { label: 'Furever',       path: 'pages/furever.html' },
 ];

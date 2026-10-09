@@ -1376,17 +1376,23 @@ implementation lives in `data/dateUtils.js`.
 
 ### Navigation (`nav.js`)
 
-Organized **by job, not by table**: seven workflow hubs in the main bar — **Today / Dogs /
-Breeding / People / Placements & Contracts / Financials / Sharing** — plus a "More" corner
-menu for **Reports**, **Documents**, and **Import/Export**. Financials is a first-class hub,
+Organized **by job, not by table**: eight workflow hubs in the main bar — **Today / Dogs /
+Breeding / People / Placements & Contracts / Financials / Storage / Sharing** — plus a "More"
+corner menu for **Reports**, **Import/Export** and **Settings**. Financials is a first-class hub,
 not a report (money is operational; Reports are analytics queries). **Sharing** is the same
 Sales/Stud-Services/Contracts trick applied to a second trio: its nav path is
 `pages/companion.html` (the Companion Messaging console, §20), which carries a `seg-tabs`
 row to its siblings `furever.html` (§27) and `assistant.html` (the owner console, §26) — all
 three are otherwise unrelated tools, just reached through one top-level tab instead of three.
+**Storage** (2026-10-09) is the same trick a third time: its nav path is
+`pages/documents.html`, and `documents`/`shows`/`accounts` each carry a static
+`seg-tabs` row (`aria-label="Storage"`) to the other two — the kennel's filed records,
+show entries and business accounts. All three are Pro-only, so Lite has no Storage hub at
+all (and no per-tab edition gating is needed, unlike Sales' Lite-hidden siblings).
 Detail/edit/import pages are not nav entries; `HUB_CHILDREN` maps them to the hub tab that
 should light up (`pages/companion.html` → `furever.html`/`assistant.html`, same as
-`pages/sales.html` → its two siblings). Links are stored app-root-relative and prefixed at
+`pages/sales.html` → its two siblings, and `pages/documents.html` → `shows.html`/
+`accounts.html`). Links are stored app-root-relative and prefixed at
 render time so they resolve from `index.html` or `/pages/` and any GitHub Pages sub-path.
 
 The bar also carries the **active-kennel switcher** in a `#nav-kennel-scope` slot before
@@ -1448,11 +1454,11 @@ Placements/contracts: `sale`/`sales`, `stud-service`/`stud-services`, `contract`
 Financials print docs: `invoice` (invoice/receipt view with Download PDF, §24 — not a nav
 entry, reached from the "Invoice / Receipt" generator modal — on the Financials hub and on a
 Sale's page — and a waitlist family's Documents card).
-Documents: `documents` (filed dog documents — local file storage, in the "More" menu and
-via a "📄 Documents" button on the dog page, §26.1).
+Documents: `documents` (filed dog documents — local file storage, the **Storage** hub's
+landing tab, plus a "📄 Documents" button on the dog page, §26.1).
 Today cluster: `dashboard`, `reminders`, `upcoming`, `board`, `scheduled-placements`.
-Shows: `shows` (Pro-only — `PRO_ONLY_PAGES`, a "More" menu entry in the shared/Pro/Demo
-`moreItems`, never Lite's; Show Tracking Spec §5.2). Two link-style seg-tabs
+Shows: `shows` (Pro-only — `PRO_ONLY_PAGES`, the **Storage** hub's second tab in
+shared/Pro/Demo, never in Lite; Show Tracking Spec §5.2). Under the Storage strip, two link-style seg-tabs
 (`?tab=upcoming|results`) over `eventRepo.getByType('show')`, both `reportView`s scoped
 with `subjectInScope` through the event's dog: **Upcoming** (`event_date >= today`, not
 `scratched`, grouped by date; entries close = `reminder_date`, amber within 7 days, red when
@@ -1471,8 +1477,8 @@ Import pages: `dog-import`, `contact-import`, `pairing-import`, `litter-import`,
 `waitlist-import` (Pro-only, §9/§29).
 `breed-feeding-schedules` (Feeding Schedules — per-breed feeding grids, §27.2 — Pro-only,
 reached from the Kennel detail page, not a nav entry).
-`accounts` (Accounts — business logins + referral links/codes, §32 — Pro-only, in the
-**More** menu).
+`accounts` (Accounts — business logins + referral links/codes, §32 — Pro-only, the
+**Storage** hub's third tab).
 
 ---
 
@@ -2478,8 +2484,8 @@ a sealed read-only showcase. The helper app at the root still ships to Demo.
 Real, **local** file storage, entirely offline — no external app, no Dropbox connection.
 Two surfaces share one storage stack:
 
-- **Documents** — a "Documents" page (`pages/documents.html` + `pages/documents.js`, in the
-  **More** menu, plus a "📄 Documents" button on the dog page) where you file a document
+- **Documents** — a "Documents" page (`pages/documents.html` + `pages/documents.js`, the
+  **Storage** hub's landing tab, plus a "📄 Documents" button on the dog page) where you file a document
   against a dog (pedigree / health test / registration / contract / other), grouped by dog,
   with a type filter and search. Full CRUD, all local.
 - **Contract documents** — the Contract detail page (`pages/contract.js`) files the signed
@@ -3685,8 +3691,8 @@ charts and Print button too; every other report is Pro-only.
 
 ## 32. Accounts (business logins & referral codes)
 
-`pages/accounts.html`/`.js` (Pro-only: `proPages.js`, `editionFlags.accounts`, a **More** menu
-entry in the shared/Pro/Demo `moreItems`) keeps the breeder's own accounts with registries,
+`pages/accounts.html`/`.js` (Pro-only: `proPages.js`, `editionFlags.accounts`; the **Storage**
+hub's third tab, beside Documents and Shows) keeps the breeder's own accounts with registries,
 vendors and services — AKC, Good Dog, Chewy, Embark… — in the `accounts` table through
 `data/accountRepo.js` (`makeRepo` + a required `name`; `getAll` sorts by name). Decided
 2026-10-09: a new table, not Contacts (these are businesses she has a login with, not
