@@ -366,7 +366,8 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   `waitlist-entry` / `waitlist-programs` pages (absent from `dist/lite`, 404 there), the
   `data/waitlistActions.js` step layer (approve with offered contact match, fee received,
   withdraw, remove, undo, re-apply, move), the Kennel page's Waitlist settings card, Dog
-  `intended_placement`, the contact page's Waitlist panel (its waitlist dropdown goes
+  `intended_placement` (since replaced by `intended_registration`: Limited / Full / Co-own /
+  None, matched against the family's `pref_purposes`), the contact page's Waitlist panel (its waitlist dropdown goes
   read-only once entries exist), and per-kennel dashboard tiles. New flag
   `editionFlags.waitlist` (off in Lite).
 - **Waitlist, W1c — offers built & browser-verified** (headless Chromium, Pro and Lite, no
@@ -500,7 +501,7 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   due, "Ready now?"), each once, unless she switches them off. Her phone applies each move at
   its next sync, or notes it on the family's page if her records moved on. No migration;
   the hourly cron deploys with the Worker. Not yet: step 8 (the privacy policy's
-  waitlist-online section). Service-worker cache rolled to `kennelos-shell-v53` for steps 6 and 7.
+  waitlist-online section). Service-worker cache rolled to `kennelos-shell-v54` for steps 6 and 7 (v53 went to the reports work merged first).
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass
@@ -808,6 +809,19 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   Next: the smoke test on the real origins (checklist §3a). That's the docs (§8: CLAUDE.md, the Editions Plan, the End-State guide's
   §29 section), the privacy policy page, the SW bump, and production. A live check against
   staging from a machine that can reach it should come first.
+
+- **Reports & analytics, phase 1 — done & browser-verified** (`docs/KennelOS_Reports_Plan.md`,
+  End-State guide §31). The shared report screen gained a date range, KPI tiles, a totals
+  row, charts drawn from the visible rows (our own SVG, `assets/chartView.js`) and a
+  **Print / PDF** button with a print-only letterhead (`assets/printView.js`; the browser's
+  Save as PDF makes the file). Existing reports upgraded; new **Profit & Loss by Month**
+  and **Year in Review**; the hub is grouped into segment tabs (`data/reportCatalog.js`).
+  **Phase 2** added Dam & Sire Production, Pairing Success, Puppy Growth, Waitlist Funnel
+  and Demand vs Supply; **phase 3** Expenses by Category, Receivables, Pricing,
+  Breeding-Dog Return, Heat Cycles, Health-Testing Gaps, Lead Sources & Referrers, Returns
+  & Voids, Show Record and Stud Results — the plan is complete.
+  Service-worker cache rolled to `kennelos-shell-v53` (this batch plus the registration /
+  purposes / Full-surcharge / puppy-form changes before it).
 
 ## Build & deploy
 

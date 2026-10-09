@@ -398,7 +398,7 @@ test('a Companion link request (Spec §8.3): a family with a sale asks, her Toda
 
   // A sale for them (deposit pending); her next sync offers the Companion link.
   const dog = (await dogRepo.getAll()).find((d) => d.kennel_id === k.id);
-  await saleRepo.create({ kennel_id: k.id, dog_id: dog.id, buyer_contact_id: entry.contact_id, placement_type: 'pet', status: 'deposit_pending' });
+  await saleRepo.create({ kennel_id: k.id, dog_id: dog.id, buyer_contact_id: entry.contact_id, registration_type: 'limited', status: 'deposit_pending' });
   await cw.syncWaitlistOnline();
   assert.deepEqual((await page()).companion, { available: true, request: null });
 

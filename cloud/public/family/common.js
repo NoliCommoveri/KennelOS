@@ -6,7 +6,14 @@
 // fails if they drift.
 export const SEX_LABEL = { any: 'Either', male: 'Male', female: 'Female' };
 export const READY_LABEL = { asap: 'ASAP', '1_month': '1 month', '3_months': '3 months', '6_plus_months': '6+ months' };
-export const PLACEMENT_LABEL = { pet: 'Pet', show: 'Show', breeding_rights: 'Breeding rights', co_own: 'Co-own' };
+export const PURPOSE_LABEL = {
+  pet: 'Pet / companion', performance: 'Performance sports (agility, obedience…)', show: 'Show', breeding: 'Breeding', co_own: 'Co-own',
+};
+// "Pet / companion, Show": a family's purposes in words, in vocab order; 'Any' when none.
+export function purposesText(v) {
+  const picked = Array.isArray(v) ? v : [];
+  return Object.keys(PURPOSE_LABEL).filter((k) => picked.includes(k)).map((k) => PURPOSE_LABEL[k]).join(', ') || 'Any';
+}
 export const CREDIT_LABEL = {
   credited_to_purchase: 'Credited to purchase price',
   non_refundable: 'Non-refundable',

@@ -45,7 +45,7 @@ function putProgram() {
   put('contacts', { ...base('c1'), name: 'Pat Buyer', email: 'pat@example.com', phone: '555-0100', address: '1 Elm St', notes: 'n' });
   put('dogs', { ...base('d1'), call_name: 'Maple', sex: 'female', breed: 'Boxer', status: 'active_breeding', ownership_type: 'owned', kennel_id: 'k1', notes: 'private dog note' });
   put('dogs', { ...base('d2'), call_name: 'Juniper', sex: 'male', breed: 'Boxer', status: 'puppy', ownership_type: 'owned', kennel_id: 'k1', notes: 'pup note' });
-  put('sales', { ...base('s1'), kennel_id: 'k1', dog_id: 'd2', buyer_contact_id: 'c1', status: 'reserved', placement_type: 'pet', price: 2500, deposit_amount: 500, notes: 'x' });
+  put('sales', { ...base('s1'), kennel_id: 'k1', dog_id: 'd2', buyer_contact_id: 'c1', status: 'reserved', registration_type: 'limited', price: 2500, deposit_amount: 500, notes: 'x' });
   put('events', {
     ...base('e1'), subject_type: 'dog', subject_id: 'd1', event_type: 'illness', event_date: '2026-01-10', title: 'Sick',
     details: { diagnosis: 'Giardia', treatment: 'Metronidazole' }, notes: 'vet said'
