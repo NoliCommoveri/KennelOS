@@ -214,6 +214,7 @@ test('the decided §5 privacy lines hold (field-by-field spot checks)', () => {
   assert.ok(cloud('dogs', 'recorded_coi'));
   assert.ok(cloud('litters', 'picks_opened_date'));
   assert.ok(cloud('kennels', 'waitlist_config'), 'her own waitlist setup (decided 2026-10-07)');
+  assert.ok(cloud('kennels', 'puppy_record_fields'), 'a print setting (2026-10-09)');
   assert.ok(!cloud('litters', 'feeding_schedule_override'));
 });
 
