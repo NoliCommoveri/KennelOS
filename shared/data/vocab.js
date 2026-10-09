@@ -115,6 +115,18 @@ export const LITTER_STATUS = [
   { value: 'closed',   label: 'Closed',   badge: 'badge-gray' }
 ];
 
+// Account (accounts table) — what kind of business account it is. Badge + filter
+// only; nothing branches on it.
+export const ACCOUNT_TYPE = [
+  { value: 'registry',    label: 'Registry / club',     badge: 'badge-purple' },
+  { value: 'marketplace', label: 'Puppy marketplace',   badge: 'badge-green' },
+  { value: 'supplier',    label: 'Supplier / store',    badge: 'badge-blue' },
+  { value: 'health',      label: 'Health / testing lab', badge: 'badge-red' },
+  { value: 'insurance',   label: 'Insurance',           badge: 'badge-amber' },
+  { value: 'software',    label: 'Software / service',  badge: 'badge-neutral' },
+  { value: 'other',       label: 'Other',               badge: 'badge-gray' }
+];
+
 export const CONTACT_TYPE = [
   { value: 'breeder',        label: 'Breeder',        badge: 'badge-green' },
   { value: 'vet',            label: 'Vet',            badge: 'badge-blue' },

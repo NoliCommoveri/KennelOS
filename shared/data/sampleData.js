@@ -26,6 +26,7 @@ import { expenseRepo } from './expenseRepo.js';
 import { waitlistEntryRepo } from './waitlistEntryRepo.js';
 import { waitlistOfferRepo } from './waitlistOfferRepo.js';
 import { waitlistProgramRepo } from './waitlistProgramRepo.js';
+import { accountRepo } from './accountRepo.js';
 import { editionFlags } from './editionConfig.js';
 import { monthsFromToday, daysFromToday } from './dateUtils.js';
 import {
@@ -73,7 +74,7 @@ export async function seedSampleData() {
     seededAt: new Date().toISOString(),
     dogs: [], events: [], contacts: [], kennels: [], pairings: [], litters: [],
     sales: [], contracts: [], stud_services: [], expenses: [],
-    waitlist_programs: [], waitlist_entries: [], waitlist_offers: []
+    waitlist_programs: [], waitlist_entries: [], waitlist_offers: [], accounts: []
   };
 
   const BREED = 'Boston Terrier';
@@ -992,6 +993,24 @@ export async function seedSampleData() {
     await seedWaitlist(manifest, { thornfield, owen, priya, hazelSale, litter, autumnLitter, expectedLitter, fern, wrenPup, asterPup });
   }
 
+  // Accounts (Pro-only page, editionFlags.accounts): a registry, a marketplace and
+  // a store, so the page shows a login, a hidden password and a referral to share.
+  // Obviously-fake credentials — the Demo is public.
+  if (editionFlags.accounts) {
+    for (const data of [
+      { name: 'AKC', account_type: 'registry', website: 'akc.org', username: 'thornfield.kennels@example.com',
+        password: 'sample-password', customer_id: 'Breeder #A123456', notes: 'Breeder of Merit renewal each January.' },
+      { name: 'Good Dog', account_type: 'marketplace', website: 'gooddog.com', username: 'thornfield.kennels@example.com',
+        password: 'sample-password', referral_link: 'https://www.gooddog.com/breeders/thornfield-kennels-example',
+        referral_instructions: 'Apply for a Thornfield puppy through our Good Dog page — your deposit is protected by Good Dog.' },
+      { name: 'Chewy', account_type: 'supplier', website: 'chewy.com', username: 'thornfield.kennels@example.com',
+        password: 'sample-password', customer_id: '0000-SAMPLE', referral_link: 'https://www.chewy.com/refer/thornfield-example',
+        referral_code: 'THORNPUP', referral_instructions: 'Use code THORNPUP at checkout for 30% off your first Autoship order of the food your puppy is already eating.' }
+    ]) {
+      manifest.accounts.push((await accountRepo.create(data)).id);
+    }
+  }
+
   // Named ids (Wizard Runtime Spec v1 §3.2) — the guided tour's step catalog is a
   // static import (data/wizardSteps.js) that hard-names anchor records in its copy
   // ("Juniper", "the Autumn litter", …) but still needs the *current* seed's real
@@ -1284,6 +1303,7 @@ export async function clearSampleData({ archiveConflicting = false } = {}) {
   manifest.waitlist_entries = manifest.waitlist_entries || [];
   manifest.waitlist_offers = manifest.waitlist_offers || [];
   manifest.waitlist_programs = manifest.waitlist_programs || [];
+  manifest.accounts = manifest.accounts || [];
 
   const conflicts = await findContaminatingReferences(manifest);
 
@@ -1325,6 +1345,7 @@ export async function clearSampleData({ archiveConflicting = false } = {}) {
     contacts: manifest.contacts.length,
     kennels: kennelIdsToDelete.length,
     waitlist_entries: manifest.waitlist_entries.length,
+    accounts: manifest.accounts.length,
     archived: archivedIds.dog.length + archivedIds.pairing.length + archivedIds.litter.length
       + archivedIds.sale.length + archivedIds.stud_service.length + archivedIds.kennel.length
   };
@@ -1338,7 +1359,9 @@ export async function clearSampleData({ archiveConflicting = false } = {}) {
   // unreferenced set, so it bypasses the single-record hardDelete guard (which
   // exists to protect one record at a time, not to bulk-clear a whole known
   // set — brief §5).
-  await db.transaction('rw', [db.expenses, db.events, db.contracts, db.litters, db.stud_services, db.pairings, db.sales, db.dogs, db.contacts, db.kennels, db.waitlist_offers, db.waitlist_entries, db.waitlist_programs], async () => {
+  await db.transaction('rw', [db.expenses, db.events, db.contracts, db.litters, db.stud_services, db.pairings, db.sales, db.dogs, db.contacts, db.kennels, db.waitlist_offers, db.waitlist_entries, db.waitlist_programs, db.accounts], async () => {
+    // Accounts are leaves with no FKs — nothing to order around.
+    if (manifest.accounts.length) await db.accounts.bulkDelete(manifest.accounts);
     // Waitlist rows first: offers point at entries/litters/pups, entries at
     // contacts/sales/litters/programs, programs at the kennel.
     if (manifest.waitlist_offers.length) await db.waitlist_offers.bulkDelete(manifest.waitlist_offers);

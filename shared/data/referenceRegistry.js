@@ -168,6 +168,10 @@ export const EXPENSE_REFERENCES = [];
 // no reverse reference to guard.
 export const BREED_FEEDING_SCHEDULE_REFERENCES = [];
 
+// --- Account: a leaf entity with no FKs at all — a business account (AKC, Chewy…)
+// is program-wide and points at nothing, and nothing points at it.
+export const ACCOUNT_REFERENCES = [];
+
 // --- Document: a leaf entity — nothing points at a Document. Its own FK
 // (dog_id) points OUTWARD and is guarded on Dog above (DOG_REFERENCES). Its
 // file_id is not a referenceRegistry entry — a file is owned by exactly one

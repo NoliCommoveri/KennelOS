@@ -212,6 +212,16 @@ export const SYNC_REGISTRY = Object.freeze({
     pending: []
   },
 
+  // Decided 2026-10-09: the login details are hers alone — private tier (the
+  // encrypted vault and local backup files only, never plain cloud). The
+  // referral link/code/instructions exist to be handed out, so they're cloud.
+  accounts: {
+    rows: ALL,
+    cloud: ['name', 'account_type', 'website', 'referral_link', 'referral_code', 'referral_instructions'],
+    private: ['username', 'password', 'customer_id', 'notes'],
+    pending: []
+  },
+
   waitlist_entries: {
     rows: ALL,
     cloud: [

@@ -842,7 +842,7 @@ selections), **Financials — the expense ledger + sales→income** ✅.
 - People / Contacts section, full Kennel management, Stud services, Contracts.
 - Companion share-out, the Furever seed-link generator, Feeding Schedules
   (per-breed feeding grids fed into the Furever seed packet), Assistant,
-  Documents + file storage.
+  Documents + file storage, **Accounts** (business logins + referral links/codes).
 - External / leased dogs (Lite ownership picker = `owned` / `co_owned` only).
 - **All Reports** (Reports hub + every report page).
 - **Invoice / receipt generation** — the `pages/invoice.html` print doc.

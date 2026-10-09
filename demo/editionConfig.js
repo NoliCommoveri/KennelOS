@@ -71,6 +71,7 @@ export const editionFlags = {
   externalOwnership: true,
   assistant: true,
   feedingSchedule: true,
+  accounts: true,
   shows: true,             // Show tracking (Show Tracking Spec §7)
   waitlist: true,         // Per-kennel waitlist (Waitlist Spec)
   // Multi-kennel scope — on, since Demo showcases the whole Pro app.
@@ -94,6 +95,7 @@ export const moreItems = [
   { label: 'Reports',       path: 'pages/reports.html' },
   { label: 'Shows',         path: 'pages/shows.html' },
   { label: 'Documents',     path: 'pages/documents.html' },
+  { label: 'Accounts',      path: 'pages/accounts.html' },
   { label: 'Companion',     path: 'pages/companion.html' },
   { label: 'Furever',       path: 'pages/furever.html' },
 ];

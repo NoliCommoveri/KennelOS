@@ -101,6 +101,7 @@ export const editionFlags = {
   externalOwnership: true,
   assistant: true,
   feedingSchedule: true,
+  accounts: true,
   shows: true,             // Show tracking (Show Tracking Spec §7)
   waitlist: true,         // Per-kennel waitlist (Waitlist Spec)
   // Multi-kennel scope (Multi-Kennel Scope Spec §12) — Pro is the edition that
@@ -123,6 +124,7 @@ export const moreItems = [
   { label: 'Reports',       path: 'pages/reports.html' },
   { label: 'Shows',         path: 'pages/shows.html' },
   { label: 'Documents',     path: 'pages/documents.html' },
+  { label: 'Accounts',      path: 'pages/accounts.html' },
   { label: 'Import/Export', path: 'pages/import-export.html' },
   { label: 'Settings',      path: 'pages/settings.html' },
 ];
