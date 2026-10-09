@@ -2098,7 +2098,9 @@ pipe-separated line), a **Health History** grid — one card per health-relevant
 excludes admin/lifecycle types like `milestone`/`placement`/`note`), laid out in three
 independent column stacks (on paper too; one column on a phone screen): `healthCardsHtml` deals
 each card onto the shortest stack so far by line count, so a card is only as tall as its own
-entries instead of stretching to match a grid-row neighbour — and the buyer's contact
+entries instead of stretching to match a grid-row neighbour; inside a card, entries with the
+same title, details and notes fold into one line with their dates comma-separated, newest first
+(`healthItems`) — and the buyer's contact
 info off the Sale. Every row is omitted (not shown as a blank/"—") when its field is empty. Reads
 only, through `saleRepo`/`dogRepo`/`contactRepo`/`litterRepo`/`eventRepo` (layering rule, §2) — no
 new repo or table.

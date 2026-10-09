@@ -163,7 +163,26 @@ function puppyInfoCard(dog, litter) {
 const HEALTH_COLUMNS = 3;
 
 function healthCardLines(events) {
-  return 1 + events.reduce((n, ev) => n + 1 + (eventDetail(ev) ? 1 : 0) + (ev.notes && shows('healthNotes') ? 1 : 0), 0);
+  return 1 + healthItems(events).reduce((n, it) => n + 2 + (it.notes ? 1 : 0), 0);
+}
+
+// One line per distinct item rather than per entry (owner call, 2026-10-09): every
+// entry with the same title, details and notes — five days of Panacur — folds into
+// one line, its dates listed newest first as a comma-separated string. Entries
+// come newest first (eventRepo.getForSubject), so the lines are ordered by each
+// item's latest date. A title that only repeats the card's heading ("Preventative"
+// under Preventative) is left off.
+function healthItems(events) {
+  const items = new Map();
+  for (const ev of events) {
+    const title = ev.title && ev.title.trim().toLowerCase() !== eventTypeLabel(ev.event_type).toLowerCase() ? ev.title.trim() : '';
+    const label = [title, eventDetail(ev)].filter(Boolean).join(' — ') || eventTypeLabel(ev.event_type);
+    const notes = shows('healthNotes') ? (ev.notes || '').trim() : '';
+    const key = `${label}\u0000${notes}`;
+    if (!items.has(key)) items.set(key, { label, notes, dates: [] });
+    items.get(key).dates.push(fmtDateMDY(ev.event_date));
+  }
+  return [...items.values()];
 }
 
 function healthCardsHtml(byType) {
@@ -182,14 +201,11 @@ function healthCardsHtml(byType) {
 }
 
 function healthCardHtml(g) {
-  const items = g.events.map((ev) => {
-    const detail = eventDetail(ev);
-    return `<li>
-      <span class="pr-hdate">${esc(fmtDateMDY(ev.event_date))}</span>${ev.title ? esc(ev.title) : ''}
-      ${detail ? `<div>${esc(detail)}</div>` : ''}
-      ${ev.notes && shows('healthNotes') ? `<div class="pr-hnotes">${esc(ev.notes)}</div>` : ''}
-    </li>`;
-  }).join('');
+  const items = healthItems(g.events).map((it) => `<li>
+      <div>${esc(it.label)}</div>
+      <div class="pr-hdate">${esc(it.dates.join(', '))}</div>
+      ${it.notes ? `<div class="pr-hnotes">${esc(it.notes)}</div>` : ''}
+    </li>`).join('');
   return `<div class="pr-health-card">
     <h3>${esc(eventTypeLabel(g.type))}</h3>
     <ul class="pr-health-list">${items}</ul>
