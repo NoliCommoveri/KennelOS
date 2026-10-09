@@ -73,6 +73,7 @@ without a server, and good enough.
 | Litters | Up to the cap | Unlimited |
 | Pairings | Unlimited | Unlimited |
 | Events / history log | Unlimited | Unlimited |
+| Calendar (month grid of events + reminders, Add to Google Calendar link) | ✅ | ✅ |
 | Sales → income | ✅ log sales on their pups | ✅ |
 | Buyers on a sale | ✅ self + inline "add buyer" | ✅ full Contacts section |
 | Contacts section (browse/manage all) | ❌ | ✅ |

@@ -194,6 +194,8 @@ KennelOS/
     breedingReports.js         Pure production / pairing success / puppy growth math (§31)
     waitlistReports.js         Pure waitlist funnel / demand-vs-supply math (§31)
     dateUtils.js               todayYMD / date helpers (single "what is today")
+    calendarMath.js            Pure Calendar page math: month grid, event day spans,
+                               the "Add to Google Calendar" link
     vocab.js                   Controlled vocabularies + event-type catalog
     csvImport.js               Generic CSV match-or-create engine + mappings
     importExport.js            JSON backup / restore
@@ -803,6 +805,9 @@ later-in-the-day PM.
 - `getUpcoming()` — instant-duration events at/after today, any subject ("Upcoming
   Deliverables").
 - `getScheduledPlacements()` — future `placement` events only.
+- `getInRange(from, to)` — every non-archived event whose dates touch `[from, to]`
+  (starts on/before `to`, and starts or ends on/after `from`), past and future, any type.
+  The Calendar page's read, one month at a time.
 - `getByType(type, {includeArchived})` — every event of one type across all subjects,
   oldest first (one `event_type` index probe). The Shows page's read (`show`).
 - `getReminders()` / `getDismissedReminders()` — events with a non-null `reminder_date`,
@@ -1461,7 +1466,23 @@ entry, reached from the "Invoice / Receipt" generator modal — on the Financial
 Sale's page — and a waitlist family's Documents card).
 Documents: `documents` (filed dog documents — local file storage, the **Storage** hub's
 landing tab, plus a "📄 Documents" button on the dog page, §26.1).
-Today cluster: `dashboard`, `reminders`, `upcoming`, `board`, `scheduled-placements`.
+Today cluster: `dashboard`, `reminders`, `upcoming`, `board`, `scheduled-placements`,
+`calendar`.
+Calendar: `calendar` (shared — Lite and Pro; reached from a "📅 Calendar" button on Today's
+header, not a nav entry). A Sunday-first month grid (`?m=YYYY-MM`, default this month) over
+`eventRepo.getInRange` for the month plus `eventRepo.getReminders()` placed on their
+`reminder_date`, scoped with `subjectInScope`. Each event is a chip in its type's vocab
+badge color; a reminder is a dashed amber "⏰" chip. A closed span (`event_end_date` set)
+fills every day it covers, clipped to the month; an **open-ended** span is drawn on its
+start day only (`calendarMath.eventSpan`), so an unclosed old record never smears across
+later months. Up to 3 chips a day then "+N more"; at phone width chips collapse to colored
+dots. A key under the grid lists only the types present. Tapping a day opens a modal with
+each item's subject (dog links via `dogRefHtml`, so Lite's departed dogs stay plain text),
+title, dates, and an **Add to Google Calendar ↗** link — `calendarMath.googleCalendarUrl`,
+Google's `calendar/render?action=TEMPLATE` prefill as an **all-day** event (event times are
+free text, never parsed; Google's end date is exclusive, so +1 day). The link carries only
+subject, type label, title, dates and `details.location` — never notes. It is a plain
+outbound link, so nothing leaves the device until the user clicks it; no OAuth, no feed.
 Shows: `shows` (Pro-only — `PRO_ONLY_PAGES`, the **Storage** hub's second tab in
 shared/Pro/Demo, never in Lite; Show Tracking Spec §5.2). Under the Storage strip, two link-style seg-tabs
 (`?tab=upcoming|results`) over `eventRepo.getByType('show')`, both `reportView`s scoped
