@@ -80,7 +80,14 @@
     @media print {
       #app-nav, .no-print { display: none !important; }
       body { background: #fff; }
-      .pr-card, .pr-parent, .pr-health-card { break-inside: avoid; }
+      .pr-card, .pr-parent, .pr-health-card { break-inside: avoid; page-break-inside: avoid; }
+      /* iPhone/iPad (WebKit) prints in "economy" color mode unless each element
+         opts out, which can wash the light card borders out entirely — and iOS
+         also shrinks the page to fit the paper, thinning a 1px line further. So
+         on paper: opt every element out, and draw the boxes in a darker gray. */
+      .pr-wrap, .pr-wrap * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .pr-card, .pr-parent, .pr-health-card { border: 1px solid #9aa3ae; }
+      .pr-tests, .pr-health-list li { border-top-color: #c3cad3; }
       /* A short section's heading stays on the same page as its card. */
       .pr-keep { break-inside: avoid; }
     }
