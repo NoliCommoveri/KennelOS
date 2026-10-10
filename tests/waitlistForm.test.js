@@ -218,11 +218,11 @@ test('public list: real positions, paused families hidden with their number skip
   assert.match(publicListText([], {}), /No families to show right now/);
 
   // The family holding a turn (decided 2026-10-10): their row stays at their number,
-  // highlighted online, with nothing of them but "Currently deciding".
+  // highlighted online, with their sex and date but "Currently deciding" for the name.
   const turn = publicList(entries, K, new Map(), { today: TODAY, nameOf: (x) => x.application.name, deciding: (x) => x.application.name === 'Bob Burns' });
-  assert.deepEqual(turn[1], { position: 2, name: 'Currently deciding', pref_sex: null, added: null, deciding: true });
+  assert.deepEqual(turn[1], { position: 2, name: 'Currently deciding', pref_sex: 'male', added: '2026-02-01', deciding: true });
   const turnText = publicListText(turn, {});
-  assert.match(turnText, /^#2 Currently deciding$/m);
+  assert.match(turnText, /^#2 Currently deciding · Male · added 2026-02-01$/m);
   assert.ok(!/Bob/.test(turnText));
 });
 

@@ -1530,7 +1530,7 @@ Dismissing hides it; nothing opens by itself.
 > is to stop anxious families below from pressing the one deciding. A pass or a lapsed turn
 > hides nothing: their page shows their number and the public list shows their row. On the
 > public list the turn holder's row stays at its number, highlighted, and reads
-> **Currently deciding** (no name, sex preference or date). The list shows **no family
+> **Currently deciding** in place of the name; their sex preference and date added still show. The list shows **no family
 > count** (paused families are left off, so a count is never right), and gains an
 > **Available Puppies** section like Coming up: each litter with open picks, its pups
 > remaining by sex. And the status page shows, under the overall number, **their place for

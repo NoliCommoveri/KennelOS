@@ -96,8 +96,8 @@ test('the public list shows only her published rows, the family holding a turn a
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), {
     kennel: { name: 'Thornfield Kennels', intro: '', apply_open: false }, as_of: '2026-10-08',
-    // Ann (#1) holds a turn: her row keeps its number, nothing else of her shows.
-    rows: [{ position: 1, name: 'Currently deciding', pref_sex: null, added: null, deciding: true }, projection().public_list[1]],
+    // Ann (#1) holds a turn: her row keeps its number, sex and date; not her name.
+    rows: [{ ...projection().public_list[0], name: 'Currently deciding', deciding: true }, projection().public_list[1]],
     // Litters with open picks (decided 2026-10-10): counts by sex, never a pup's name.
     available: [{ id: 'l1', label: 'Juniper × Ash', status: 'whelped', whelp_date: '2026-09-01', ready_date: '2026-10-27',
       picks_open: true, pups_available: 2, pups_female: 1, pups_male: 1, nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] } }],

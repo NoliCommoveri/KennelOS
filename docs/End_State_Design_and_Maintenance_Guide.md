@@ -3182,8 +3182,8 @@ Pure, pinned by `tests/waitlistForm.test.js`.
 ### The public list (W1e, Spec §15.3)
 `waitlistRules.publicList(entries, kennelId, programsById, { today, nameOf, deciding })` returns only
 `{ position, name, pref_sex, added }` (a row for which `deciding(entry)` is true, the family
-holding a turn, is `{ position, name: DECIDING_LABEL ("Currently deciding"), pref_sex: null,
-added: null, deciding: true }`, decided 2026-10-10): the real §6.1 position, `publicName` (first word + last
+holding a turn, has `name: DECIDING_LABEL` ("Currently deciding") and `deciding: true`, its
+sex preference and date kept, decided 2026-10-10): the real §6.1 position, `publicName` (first word + last
 word's initial; for an entry with `private_listing`, `privateName` instead: "A***** K", one
 asterisk per hidden letter, via `listedName`; she answers the applicant's `private_request` in
 the Approve dialog, 2026-10-10), sex preference, and the anchor date. **Paused families are left out and their
@@ -3452,7 +3452,7 @@ shown (`describeOfferChanges`).
   `waitlistRules.placeHidden(entry, offers)` → `{ reason: 'turn' }` while they hold one (their
   page says "The wait is over!" instead), else null. A pass or a lapsed turn hides nothing.
   On the public list the turn holder's row keeps its number and reads **Currently deciding**,
-  highlighted, with no sex preference or date, so the family next in line can't tell whom to
+  highlighted, with its sex preference and date added (only the name is replaced), so the family next in line can't tell whom to
   press. Her device publishes the rows unmasked; `cloud/src/familyPages.js` `listView`
   masks the row whose `position` belongs to an active entry holding offers at the moment it
   serves the page, so a turn the server opens or closes (serverMoves) shows at once. Her
