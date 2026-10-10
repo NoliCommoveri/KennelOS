@@ -217,6 +217,8 @@ KennelOS/
     sampleData.js              "Thornfield Kennels" demo seed + generic clear (§11)
     seedImport.js              Optional breed+test vocabulary seed
     kennelSetup.js             First-run "your kennel/owner" wizard logic (a mandatory gate)
+    kennelTree.js              Pure: whole-kennel family-tree layout (families, generation
+                               rows, sire × dam unions, lanes for long edges)
     kennelScope.js             Active-kennel scope: which own kennel the app is
                                narrowed to, the inScope()/dogInScope()/subjectInScope()
                                read predicates bound to it, and the
@@ -280,6 +282,7 @@ KennelOS/
     printView.js               Print / Save-as-PDF letterhead + button (§31)
     timeline.js                Subject health/history timeline
     pedigree.js                Ancestor-tree + offspring renderer
+    kennelTree.js              Whole-kennel family-tree renderer (layout: data/kennelTree.js)
     eventForm.js               Add/edit event modal
     puppyForm.js               Litter → puppy roster entry (Add Puppy: name, sex, disposition,
                                registration; Add several: males + females counts, disposition and
@@ -376,7 +379,7 @@ in `docs/KennelOS_Multi_Kennel_Scope_Spec.md`; the scope itself is resolved thro
 On the READ side every list, hub, and report filters by that stamp. What is
 deliberately **not** filtered is as load-bearing as what is, and each exception
 carries a comment at its call site: **pedigree/lineage** (`assets/pedigree.js`,
-`pages/pedigree.js`, `dogRepo`'s ancestor/offspring walks — ancestry crosses kennels
+`pages/pedigree.js`, `data/kennelTree.js` + `assets/kennelTree.js`, `dogRepo`'s ancestor/offspring walks — ancestry crosses kennels
 by definition), **detail pages reached by id** (a direct link must always resolve;
 an out-of-scope record renders in full above a "belongs to <kennel>" banner),
 **external/leased dogs** (scope-transparent: their `kennel_id` names somebody
@@ -1372,6 +1375,25 @@ implementation lives in `data/dateUtils.js`.
   cycle-safe regardless of data. Below the tree it renders a derived **Offspring** section —
   dogs whose `sire_id`/`dam_id` is the root — grouped by litter, sorted, with per-pup sex
   indicators.
+- **kennelTree.js** — the Pedigree page's **Whole kennel** view (`pedigree.html?view=kennel`;
+  also the Dogs header's "Family tree" button): every dog drawn at once, connected to its
+  sire and dam. Layout is the pure `data/kennelTree.js` `buildKennelTree(dogs,
+  { includePedigreeOnly })`, also derived only from `sire_id`/`dam_id`: dogs split into
+  **families** (connected components over parent links, largest first); dogs with no
+  parent or child among those shown list under "No recorded relatives". Within a family,
+  generation = longest path from a founder, then each founder with offspring drops to just
+  above its earliest offspring (so a bought-in stud sits beside his mate). Each distinct
+  included sire × dam pair is a **union** (one parent only → a single-parent union) drawn as
+  a bracket under the parents meeting at a junction dot that branches down a bus to that
+  pairing's offspring, colour-cycled per union. A parent more than one row above its
+  litter gets a **waypoint** in every row between — a slot reserved like a dog's — so its
+  line runs down its own lane, never behind another dog's card. Row order is barycenter
+  sweeps, then a least-squares placement (`placeRow`, pool-adjacent-violators) keeping one
+  slot between neighbours. Archived dogs are always included (lineage), with the same Lite
+  rule as the ancestor tree (static name, no badge/↗, not in the Find-dog picker);
+  pedigree-only ancestors are off by default (a checkbox includes them — they can join two
+  otherwise separate families). A name opens the One dog view on that dog. Cycle-safe.
+  Not kennel-scoped, like the ancestor tree.
 - **eventForm.js** — add/edit-event modal; renders the type's `fields` into `details`,
   handles spans/reminders, persists empty optional dates as `null` (keeps them out of the
   reminder index). Supports applying one payload to multiple subjects. Also exports
@@ -1460,7 +1482,7 @@ root-level `assistant.html` the helper opens), plus root `index.html`.
 Dogs: `dog` (detail — includes the Pro-only **Show Record** card, gated on
 `editionFlags.shows` and rendered only once the dog has a non-archived `show` event:
 per-track progress from `showPoints.js` plus a clickable show history; its "+ Add Show"
-opens the event form pre-set to `show`), `roster`, `pedigree`, `pedigree-import`.
+opens the event form pre-set to `show`), `roster`, `pedigree` (One dog / Whole kennel views), `pedigree-import`.
 Pedigree import: `pedigree-import` (shared — Lite and Pro; an "Import pedigrees" button on
 the Dogs header and on the Pedigree page). One or more PDFs (or images) are read in the
 browser — nothing is uploaded. **Reading** (`data/pedigreeReader.js`): page 1's PDF.js text
