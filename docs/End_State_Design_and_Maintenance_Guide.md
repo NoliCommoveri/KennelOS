@@ -3456,7 +3456,7 @@ shown (`describeOfferChanges`).
   **Backup & restore**, **CSV import** and the **Danger zone**. `settings.html` /
   `pages/settings.js` (More menu, after Import/Export; in the precache; excluded from Demo
   with `import-export.html`) holds **Account** (`cloudBackupUI.mountCloudAccountCard`: the
-  cloud sign-in, Pro on this account, Your devices, sign out, delete cloud data), **Your
+  cloud sign-in, **Change email…** (Cloud Phase 1 plan §2.6: at once with the old inbox, else after a day with Cancel on every device), Pro on this account, Your devices, sign out, delete cloud data), **Your
   kennel**, **Guided tour** and **This device's license**.
   The Backup & restore card's destinations are **Cloud | This device | Dropbox** on both the
   Back up and Restore sides (Cloud first and the default when the edition has a cloud server;

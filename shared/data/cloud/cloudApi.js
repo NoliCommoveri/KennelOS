@@ -257,3 +257,11 @@ export const sendWaitlistEmail = (token, { id, publicId, entryId, kind, subject,
   getJson('/waitlist/messages', { method: 'POST', token, json: { id, public_id: publicId, entry_id: entryId, kind, subject, body } });
 
 export const getNotices = () => getJson('/notice').then((b) => b.notices || []);
+
+// --- Changing the account's email (Phase 1 plan §2.6) ---------------------------
+// → { pending: {requestedAt, effectiveAt, deviceLabel} | null, changedAt }
+export const getEmailChange = (token) => getJson('/account/email', { token });
+// {email, code, oldEmail?, oldCode?} → { status: 'changed' } | { status: 'pending', effectiveAt }.
+// 409 'email_taken'; 400 'same_email', 'invalid_code', 'invalid_old_code'.
+export const changeEmail = (token, body) => getJson('/account/email', { method: 'POST', token, json: body });
+export const cancelEmailChange = (token) => getJson('/account/email', { method: 'DELETE', token });

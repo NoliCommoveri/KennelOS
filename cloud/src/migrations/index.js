@@ -22,6 +22,7 @@ import familyAccess from './0008_family_access.sql';
 import applicationConfirm from './0009_application_confirm.sql';
 import familyEmail from './0010_family_email.sql';
 import vaultHandoff from './0011_vault_handoff.sql';
+import emailChange from './0012_email_change.sql';
 
 export const MIGRATIONS = [
   { id: '0001', name: 'schema', sql: schema },
@@ -35,4 +36,5 @@ export const MIGRATIONS = [
   { id: '0009', name: 'application_confirm', sql: applicationConfirm },
   { id: '0010', name: 'family_email', sql: familyEmail },
   { id: '0011', name: 'vault_handoff', sql: vaultHandoff },
+  { id: '0012', name: 'email_change', sql: emailChange },
 ];

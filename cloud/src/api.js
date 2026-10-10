@@ -10,6 +10,7 @@ import {
   pollPairing, redeemHandoff, removeWrap, replaceRecoveryWrap,
 } from './vault.js';
 import { getEntitlement, removeLinks, startLink, verifyLink } from './license.js';
+import { cancelEmailChange, getEmailChange, requestEmailChange } from './emailChange.js';
 import { ackInbox, publishProjection, readEvents, readInbox, readProjection, sendMessage, unpublishProjection, PROJECTION_MAX_BYTES } from './waitlist.js';
 import { fail, json, readJson } from './lib/http.js';
 
@@ -59,6 +60,11 @@ export async function handleApi(request, env, url, cors) {
   if (released && m === 'POST') return json(await licenseReleased(env, auth, released[1]), 200, cors);
 
   if (p === '/account' && m === 'DELETE') return json(await deleteAccount(env, auth, await readJson(request)), 200, cors);
+
+  // Changing the account's email (Phase 1 plan §2.6).
+  if (p === '/account/email' && m === 'GET') return json(await getEmailChange(env, auth), 200, cors);
+  if (p === '/account/email' && m === 'POST') return json(await requestEmailChange(env, auth, await readJson(request)), 200, cors);
+  if (p === '/account/email' && m === 'DELETE') return json(await cancelEmailChange(env, auth), 200, cors);
 
   // The server-side Pro license link (License Link Plan §5).
   if (p === '/account/entitlement' && m === 'GET') return json(await getEntitlement(env, auth), 200, cors);

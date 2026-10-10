@@ -496,6 +496,8 @@ export function getBackupStatus() {
     // null (not known yet; cloudVault.vaultStatus() asks the server).
     vault: state.vault || null,
     vaultPushedAt: state.vaultPushedAt || null,
+    // A pending change of the account's email (plan §2.6), from the last check-in.
+    emailChange: state.emailChange || null,
     paused: isBackupBlocked(state),
     dirty: !!getCloudDirtyAt()
   };

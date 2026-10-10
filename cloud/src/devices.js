@@ -8,6 +8,7 @@
 import { activeNotices } from './notice.js';
 import { SESSION_MS, requireFreshSignIn } from './auth.js';
 import { fail } from './lib/http.js';
+import { emailChangeState } from './emailChange.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const INSTANCE_ID = /^[A-Za-z0-9-]{1,100}$/;
@@ -27,7 +28,7 @@ export async function checkIn(env, auth, body) {
       .bind(new Date(now).toISOString(), new Date(now + SESSION_MS).toISOString(), auth.tokenHash),
     env.DB.prepare('UPDATE sessions SET license_instance_id = ? WHERE user_id = ? AND device_id = ?').bind(instanceId, auth.userId, auth.deviceId),
   ]);
-  return { ok: true, notices: await activeNotices(env) };
+  return { ok: true, notices: await activeNotices(env), emailChange: await emailChangeState(env, auth) };
 }
 
 // GET /devices: every device with a session the server still holds, plus any

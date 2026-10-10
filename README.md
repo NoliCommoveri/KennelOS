@@ -863,6 +863,16 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   device, and "What gets backed up" is a link, not a step. Dialog buttons wrap instead of
   overflowing. Tests: `tests/cloudVault.test.js` (passkey first).
 
+- **Changing the account's email — built & browser-verified (2026-10-10;** Cloud Phase 1
+  plan §2.6). **Change email…** on the Account card: the new address and its code, then
+  "Can you still get email at <current>?" Yes → a code there too, changed at once. No → it
+  waits 1 day, shown on every signed-in device (Account card and Today) with **Cancel it**.
+  The old address stays a linked purchase email, so Pro purchases made with it still count.
+  **New cloud migration `0012_email_change`: Apply pending on staging and production after the
+  merge.** Not yet: recovering with no signed-in device (the recovery code; case 2).
+  Service-worker cache rolled to `kennelos-shell-v65` for this batch (the Lite → Pro bridge,
+  vault handoff codes, the simpler way in, dialog button wrapping and changing the email).
+
 - **Cloud Phase 2, live multi-device sync — planned, not built** (`docs/KennelOS_Cloud_Phase2_Sync_Plan.md`,
   draft 2026-10-10). Pro only: both tiers per record (cloud fields readable as today, the
   whole row sealed with the vault key), a change scan instead of an outbox, server-order

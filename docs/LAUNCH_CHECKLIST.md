@@ -263,6 +263,10 @@ and Email Routing.
 - [ ] **Apply pending (`0011`) on staging's and production's `/ops`** right after the merge
   that carries the vault handoff codes (Private Vault Plan §5.4). The whole API answers 503
   until then.
+- [ ] **Apply pending (`0012`) on staging's and production's `/ops`** right after the merge
+  that carries changing the account's email (Phase 1 plan §2.6).
+- [ ] **Try changing an email on staging**, both ways: with the old inbox (changes at once)
+  and without (pending a day, shown with Cancel on a second signed-in device).
 - [ ] **Try the handoff on a real phone** (staging, then production): in Lite with Sensitive
   records on, **Upgrade to Pro →** shows a code; in Pro on the same phone, sign in, choose
   **Use another device**, paste it, and the sensitive records come back. Pasting it again

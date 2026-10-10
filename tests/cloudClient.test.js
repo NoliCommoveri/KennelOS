@@ -727,3 +727,46 @@ test('sign out other devices and delete my cloud data need a code when the sign-
   assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM users').get().n, 0);
   assert.equal(auth.currentAccount(), null);
 });
+
+// --- Changing the account's email (plan §2.6) -------------------------------------
+
+test('email change: at once on a fresh sign-in; this device shows the new address', async () => {
+  await signIn('breeder@example.com');
+  await auth.startSignIn('new@example.com');
+  const res = await auth.changeAccountEmail({ email: 'new@example.com', code: lastCode(env) });
+  assert.deepEqual(res, { status: 'changed' });
+  assert.equal(auth.currentAccount().email, 'new@example.com');
+});
+
+test('email change without the old inbox: pending on every device; the other device forgets the old address once it applies', async () => {
+  await signIn('breeder@example.com', 'Phone A');
+  switchDevice('B');
+  await signIn('breeder@example.com', 'Laptop B');
+  env.DB.raw.prepare("UPDATE sessions SET created_at = '2026-01-01T00:00:00.000Z'").run();
+  await auth.startSignIn('new@example.com');
+  const res = await auth.changeAccountEmail({ email: 'new@example.com', code: lastCode(env) });
+  assert.equal(res.status, 'pending');
+
+  switchDevice('A');
+  await dv.checkIn({ force: true });
+  assert.equal(settings.getCloudBackupState().emailChange.deviceLabel, 'Laptop B');
+  env.DB.raw.prepare("UPDATE email_changes SET effective_at = '2020-01-01T00:00:00.000Z'").run();
+  await dv.checkIn({ force: true });
+  assert.equal(settings.getCloudBackupState().emailChange, null);
+  assert.equal(auth.currentAccount().email, null, 'the server only knows a hash: the old address is forgotten');
+  assert.equal(auth.currentAccount().signedIn, true);
+});
+
+test('email change: cancelled from another device', async () => {
+  await signIn('breeder@example.com', 'Phone A');
+  env.DB.raw.prepare("UPDATE sessions SET created_at = '2026-01-01T00:00:00.000Z'").run();
+  await auth.startSignIn('new@example.com');
+  await auth.changeAccountEmail({ email: 'new@example.com', code: lastCode(env) });
+  switchDevice('B');
+  await signIn('breeder@example.com', 'Laptop B');
+  await auth.cancelAccountEmailChange();
+  switchDevice('A');
+  await dv.checkIn({ force: true });
+  assert.equal(settings.getCloudBackupState().emailChange, null);
+  assert.equal(auth.currentAccount().email, 'breeder@example.com');
+});

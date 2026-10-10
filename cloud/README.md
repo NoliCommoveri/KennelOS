@@ -26,6 +26,8 @@ src/vault.js           the private vault: wraps (recovery, passkeys), turn on/of
                        (docs/KennelOS_Private_Vault_Plan.md §5, §6); stores only opaque
                        strings. A passkey wrap keeps its credential id and PRF salt; the server
                        never verifies a WebAuthn assertion
+src/emailChange.js     changing the account's email: at once with the old inbox, else after a day,
+                       cancellable from any signed-in device (migration 0012; plan §2.6)
 src/license.js         the Pro license link (docs/KennelOS_License_Link_Plan.md): Lemon Squeezy's
                        signed webhook, the account's entitlement, requirePro for W2's routes,
                        linking another purchase email by code
