@@ -31,7 +31,8 @@ const MARKED = {
 const EXEMPT = {
   'shared/data/sampleData.js': { sites: 14, why: 'clearing sample data: sample rows are never in a snapshot' },
   'shared/data/appReset.js': { sites: 1, why: 'Reset App: an emptied program must never be pushed (plan §3.3, §3.5)' },
-  'shared/data/cloud/vaultKeyStore.js': { sites: 6, why: 'the device-only vault key, pairing request and unsaved recovery code (device_secrets): not kennel data, never in a snapshot' }
+  'shared/data/cloud/vaultKeyStore.js': { sites: 6, why: 'the device-only vault key, pairing request and unsaved recovery code (device_secrets): not kennel data, never in a snapshot' },
+  'shared/data/cloud/syncState.js': { sites: 3, why: 'the device-only sync_meta table (Cloud Phase 2 plan §3.4): what this device has synced, not kennel data, never in a snapshot' }
 };
 
 function walk(dir) {

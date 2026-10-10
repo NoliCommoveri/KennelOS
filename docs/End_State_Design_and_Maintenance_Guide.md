@@ -173,6 +173,11 @@ KennelOS/
                                codes, the vault key, KEKs, wraps, payload/file ciphertext
       vaultKeyStore.js         This device's unlocked vault key, and its open request to be
                                unlocked by another device, in device_secrets (§30)
+      syncRecords.js           Live sync's wire format (Cloud Phase 2 plan §4; pure): a
+                               record's cloud part (syncRegistry) and sealed whole row,
+                               file references, canonical JSON and the row hash
+      syncState.js             The only reader/writer of sync_meta; the scan that finds
+                               changed and deleted rows by hash (plan §3.3)
       vaultPasskey.js          WebAuthn + PRF for passkey unlock (no db, no network): the
                                RP ID, support check, make a passkey / get its PRF output
       cloudVault.js            Vault flows: turn on with a recovery code, unlock (with the
@@ -421,8 +426,9 @@ When you need "the reverse of X," write a query. Do not add a mirror field.
 
 ## 5. Dexie schema (`data/db.js`)
 
-DB name: `KennelOSBreedingApp`. All sixteen tables live in a **single collapsed
-`version(1)` block**. Indexes:
+DB name: `KennelOSBreedingApp`. Every kennel table lives in the **`version(1)` block,
+frozen since 2026-10-10** (real records in production); `version(2)` adds the device-only
+`sync_meta`. Indexes:
 
 ```
 dogs:          id, sire_id, dam_id, litter_id, breeder_kennel_id,
@@ -452,6 +458,8 @@ waitlist_offers:   id, entry_id, litter_id, kennel_id, chosen_dog_id, sale_id, o
 waitlist_programs: id, kennel_id, is_archived
 accounts:          id, is_archived
 device_secrets:    id
+-- version(2) --
+sync_meta:         id, tbl
 ```
 
 `device_secrets` is a **device-only table** (`db.DEVICE_ONLY_TABLES`): this device's
@@ -460,6 +468,12 @@ another device (§30, Private Vault Plan §3.3). It is not
 kennel data, so it has no `syncRegistry`/`referenceRegistry` entry, and code that means "the
 records" iterates `db.dataTables()`: `exportAll`, every restore mode, and Reset App's counts
 leave it out. Reset App and remote erase still clear it.
+
+`sync_meta` (version 2, Cloud Phase 2 plan §3.4) is device-only for the same reasons: one row
+per record this device has synced, `{ id: '<table>:<row id>', tbl, row_id, seq, hash }` (the
+server's seq for the version it last pushed or pulled, and `syncRecords.rowHash` of the row
+then). `data/cloud/syncState.js` is its only reader/writer; the live-sync scan compares every
+syncing row's hash with it, so no write path needs a sync hook.
 
 Index notes:
 - **`kennel_id` on `pairings`/`litters`/`sales`/`stud_services`/`contracts`/
@@ -522,16 +536,21 @@ Index notes:
   `kennel_id` is the kennel scope (one list per kennel). `Dog.intended_registration`,
   `Litter.picks_opened_date` and `Kennel.waitlist_config` are plain and unindexed.
 
-Everything lives in that one `version(1)` block, including later additions like
+Every kennel table lives in that one `version(1)` block, including later additions like
 `litters.foster_partner_contact_id` (§25, the referential guard for a foster partner
 Contact) and the `documents`/`files` tables (§26.1) — `foster_direction`, the foster split
 fields, and every other non-indexed field are plain unindexed and so are not in the strings.
 
 ### The versioning rule
 
-The `version(1)` block is edited **in place**: add or change a table or index right in that
-block, then reconcile the change with **Reset App to Start** + re-seed — schema and seed data
-move together, and there is no separate migration path.
+**`version(1)` is frozen (2026-10-10).** It was edited in place while nothing had shipped;
+production has held real records since 2026-10-07, so Reset App can no longer reconcile a
+change. From now on a new table or index goes in a new `db.version(N).stores({...})` block that
+lists only what it adds (Dexie 4 carries the rest forward), and a shipped block is never
+edited. A new plain field needs no block. **JSON backups stay backward compatible:** a file,
+snapshot or vault payload from any earlier release still restores (new fields optional, nothing
+a shipped file carries is renamed or removed, unknown tables and fields skipped; see
+`CLAUDE.md`).
 
 ---
 
@@ -1682,8 +1701,8 @@ Don't assume these exist; several are explicitly deferred "open doors":
    print("listed but absent   :", [u for u in urls if u!='./' and not os.path.exists(u)] or "OK")
    PY
    ```
-6. **Schema:** pre-first-release you may edit `version(1)`; after real data ships, additive
-   `version(N)` blocks only, never edit a shipped block.
+6. **Schema:** `version(1)` is frozen (2026-10-10); additive `version(N)` blocks only, never
+   edit a shipped block, and keep JSON backups backward compatible (§5).
 7. **Encoding:** source files are clean UTF-8, no BOM (matters most for files with
    user-facing strings like `csvImport.js`).
 8. `node --check <file>.js` parses everything you touched (no bundler to catch it).

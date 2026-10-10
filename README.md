@@ -896,11 +896,14 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   migration (`waitlist_config` is already cloud tier). Tests: `tests/waitlistProjection.test.js`,
   `cloud/tests/familyPages.test.js`.
 
-- **Cloud Phase 2, live multi-device sync — planned, not built** (`docs/KennelOS_Cloud_Phase2_Sync_Plan.md`,
-  draft 2026-10-10). Pro only: both tiers per record (cloud fields readable as today, the
-  whole row sealed with the vault key), a change scan instead of an outbox, server-order
-  wins per record, D1 for the records, snapshots from any caught-up device, and a lease for
-  the waitlist's server work. Waiting on the seven decisions in its §12.
+- **Cloud Phase 2, live multi-device sync — being built** (`docs/KennelOS_Cloud_Phase2_Sync_Plan.md`;
+  every §12 decision taken as recommended, 2026-10-10). Pro only: both tiers per record (cloud
+  fields readable as today, the whole row sealed with the vault key), a change scan instead of
+  an outbox, server-order wins per record, D1 for the records, snapshots from any caught-up
+  device, and a lease for the waitlist's server work. **Step 1 (record format and change
+  detection) is built:** `data/cloud/syncRecords.js`, `data/cloud/syncState.js`, and the
+  device-only `sync_meta` in **`db.version(2)`, the first block after `version(1)`, which is
+  frozen from now on** (`CLAUDE.md`, End-State guide §5). Nothing is visible yet.
 
 ## Build & deploy
 

@@ -6,8 +6,10 @@
 > (`docs/KennelOS_Private_Vault_Plan.md`, "Vault §N"), the Pro license link
 > (`docs/KennelOS_License_Link_Plan.md`) and the waitlist online (`docs/KennelOS_Waitlist_W2_Plan.md`,
 > "W2 §N").
-> **Status: draft for review, nothing built.** §12 lists the decisions it needs, each with a
-> recommendation. Nothing here is built until they're answered.
+> **Status: being built.** The §12 decisions were all taken as recommended (2026-10-10), and
+> JSON backups stay backward compatible throughout (`CLAUDE.md`). Progress is under §8.
+> The server migration is **`0014_sync`**, not `0012` as first drafted (`0012` and `0013`
+> went to changing and recovering the account's email).
 
 ## 1. Scope
 
@@ -286,7 +288,7 @@ apply leaves the cursor where it was, so the next pull retries it. When: on star
 when they differ) and drops any record that carries another key in `cloud`, so a buggy or old
 client can't widen what the server holds.
 
-### 6.2 Migration `0012_sync.sql` (additive; its line in `cloud/src/migrations/index.js`)
+### 6.2 Migration `0014_sync.sql` (additive; its line in `cloud/src/migrations/index.js`)
 ```sql
 ALTER TABLE programs ADD COLUMN sync_enabled_at TEXT;
 ALTER TABLE programs ADD COLUMN sync_seq INTEGER NOT NULL DEFAULT 0;
@@ -370,13 +372,25 @@ application twice or answer the same family event twice. So:
 
 ## 8. Build order (each a reviewable PR; nothing visible until step 6)
 
-1. **Record format and change detection** (client, pure). `syncRecords.js` (wire form,
+1. **Built 2026-10-10.** As built: `sync_meta` is `'id, tbl'` with `id = '<table>:<row id>'`
+   (one string key, so the Node test shim needs nothing new) in `db.version(2)`, the first
+   block after the frozen `version(1)`; a real upgrade of a v1 database keeps its records, and
+   a page still on v1 code opens the upgraded database (headless Chromium). `syncRecords.js`
+   (`buildPutRecord`, `buildDeleteRecord`, `readRecord`, `rowHash`, `prepareFileRow`,
+   `sealFileRow`, `cloudFileIds`, `APPLY_ORDER`), `syncState.js` (`readSyncRows`,
+   `diffSyncRows`, `scanLocalChanges`, the sync_meta read/write). A record's sealed body is
+   `{ f: 1, t: table, r: row }`, so a record can't be replayed as another row. Tests:
+   `tests/syncRecords.test.js`. **The logo check found a problem:** a 480 px PNG photo logo
+   can be about 1.2 MB as a data URL and an SVG has no cap, and the record carries it twice
+   (cloud + sealed) against D1's ~2 MB row; a decision for the owner before step 2 sets the
+   server's record limit.
+   Originally: **Record format and change detection** (client, pure). `syncRecords.js` (wire form,
    `rowHash`, derived file classification), `sync_meta` in `db.version(2)` (§12 decision 4),
    `syncState.js`, the scan. Tests: `tests/syncRecords.test.js` (round trip, no private key
    in `cloud`, sealed opens only with the key, the scan finds puts and deletes and ignores
    sample rows), and the `cloudDirty` / `syncRegistry` exemptions for the device-only
    table. Check the logo size ceiling (§4.1).
-2. **Server.** Migration `0012` (+ its `index.js` line), `cloud/src/sync.js` (§6.1),
+2. **Server.** Migration `0014` (+ its `index.js` line), `cloud/src/sync.js` (§6.1),
    `cloudFields.js` and its drift test, `canPush`'s caught-up rule (§6.4), retention, account
    deletion, `/ops` counts, rate limits. Tests: `cloud/tests/sync.test.js` (seq order under
    concurrent batches, superseded reporting, tombstones and the horizon, `vault_required`,
@@ -414,9 +428,9 @@ test`, the precache check, and the docs in the same change (§9).
   `db.version(2)` and the frozen `version(1)`.
 - **Editions Plan:** live sync under Pro's additions; the Lite device on a syncing program.
 - **Phase 1 plan §3.4** and **W2 plan §11** step 1: a pointer to §6.4 and §7 here.
-- **`cloud/README.md`:** the new routes, migration `0012`, and the `cloudFields.js` drift
+- **`cloud/README.md`:** the new routes, migration `0014`, and the `cloudFields.js` drift
   test.
-- **`README.md`** build status, and **`LAUNCH_CHECKLIST.md`**: Apply pending for `0012`, the
+- **`README.md`** build status, and **`LAUNCH_CHECKLIST.md`**: Apply pending for `0014`, the
   two-device checks.
 
 ## 10. Testing
@@ -445,7 +459,7 @@ test`, the precache check, and the docs in the same change (§9).
 | Safari kills a backgrounded tab before its push | Nothing is lost: the scan finds anything without an acknowledged seq on the next open. |
 | D1 write contention with many kennels syncing at once | Writes are small batches; D1 serializes them per database. If it ever shows, the record store moves into a Durable Object per program (Proposal §3's original shape) behind the same routes. |
 
-## 12. Decisions needed (each with a recommendation)
+## 12. Decisions (all taken as recommended, 2026-10-10)
 
 1. **Does sync require Sensitive records (the vault)?** *Recommended: yes.* Without it,
    private fields (prices, contacts' details, Financials, notes) stay on the device that
