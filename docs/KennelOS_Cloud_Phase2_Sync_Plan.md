@@ -382,8 +382,11 @@ application twice or answer the same family event twice. So:
    `{ f: 1, t: table, r: row }`, so a record can't be replayed as another row. Tests:
    `tests/syncRecords.test.js`. **The logo check found a problem:** a 480 px PNG photo logo
    can be about 1.2 MB as a data URL and an SVG has no cap, and the record carries it twice
-   (cloud + sealed) against D1's ~2 MB row; a decision for the owner before step 2 sets the
-   server's record limit.
+   (cloud + sealed) against D1's ~2 MB row. **Decided 2026-10-10:** logo uploads are capped
+   at about 300 KB (PNG redrawn smaller until it fits, an oversized SVG refused); a 1200 px
+   noise photo stores at 244 KB (headless Chromium). Step 2 keeps the 1 MB record limit; a
+   kennel still holding an older, larger logo is the one record that can hit it, shown by
+   name as §11 says, until the logo is replaced.
    Originally: **Record format and change detection** (client, pure). `syncRecords.js` (wire form,
    `rowHash`, derived file classification), `sync_meta` in `db.version(2)` (§12 decision 4),
    `syncState.js`, the scan. Tests: `tests/syncRecords.test.js` (round trip, no private key

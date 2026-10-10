@@ -55,6 +55,14 @@ const RECENT_PLACEMENTS = 5;
 // Keeps the backup-riding string small; a program logo needs no more resolution
 // than this on a printed one-page document.
 const LOGO_MAX_EDGE = 480;
+// A stored logo stays under about 300 KB (decided 2026-10-10): live sync carries
+// it twice in one record (readable + sealed) against the server's ~2 MB row
+// (Cloud Phase 2 plan §4.1). A PNG over it is redrawn at smaller sizes; an SVG
+// (kept as markup) over it is refused. Upload only: an older, larger logo already
+// on a kennel or in a backup still restores.
+const LOGO_MAX_CHARS = 300_000;
+const LOGO_STEP_EDGES = [LOGO_MAX_EDGE, 360, 240, 160];
+const LOGO_TOO_LARGE = 'That logo is too large. Try a smaller image.';
 
 let kennel = null;      // the kennel being viewed
 let allDogs = [];        // loaded once, for the "Apply to dogs" picker
@@ -137,7 +145,8 @@ window.addEventListener('hashchange', () => { if (kennel) renderSectionPicker(ke
 // The logo is a plain (unindexed) data-URL string on the Kennel record, so it
 // rides JSON backups and needs no schema/index change. Uploads are downscaled
 // on a canvas to LOGO_MAX_EDGE and re-encoded as PNG (preserves transparency)
-// before storing, so an oversized photo never bloats the record. The invoice /
+// before storing, then stepped down further until under LOGO_MAX_CHARS, so an
+// oversized photo never bloats the record. The invoice /
 // receipt generator and the puppy record read this field back verbatim.
 function renderLogo() {
   const k = kennel;
@@ -178,18 +187,25 @@ function fileToLogoDataUrl(file) {
     reader.onerror = () => reject(new Error('Could not read that file.'));
     reader.onload = () => {
       const dataUrl = String(reader.result);
-      if (file.type === 'image/svg+xml') { resolve(dataUrl); return; }
+      if (file.type === 'image/svg+xml') {
+        if (dataUrl.length > LOGO_MAX_CHARS) reject(new Error(LOGO_TOO_LARGE)); else resolve(dataUrl);
+        return;
+      }
       const img = new Image();
       img.onerror = () => reject(new Error('That image could not be loaded.'));
       img.onload = () => {
-        const scale = Math.min(1, LOGO_MAX_EDGE / Math.max(img.width, img.height));
-        const w = Math.max(1, Math.round(img.width * scale));
-        const h = Math.max(1, Math.round(img.height * scale));
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/png'));
+        for (const edge of LOGO_STEP_EDGES) {
+          const scale = Math.min(1, edge / Math.max(img.width, img.height));
+          const w = Math.max(1, Math.round(img.width * scale));
+          const h = Math.max(1, Math.round(img.height * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          const png = canvas.toDataURL('image/png');
+          if (png.length <= LOGO_MAX_CHARS) { resolve(png); return; }
+        }
+        reject(new Error(LOGO_TOO_LARGE));
       };
       img.src = dataUrl;
     };

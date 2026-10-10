@@ -896,6 +896,18 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   migration (`waitlist_config` is already cloud tier). Tests: `tests/waitlistProjection.test.js`,
   `cloud/tests/familyPages.test.js`.
 
+- **"Not this litter" on the next turn is said out loud (fix, 2026-10-10).** A family who
+  had said "Not this litter" to every litter of their coming turn showed as "Next turn" with
+  no hint, and "Offer to them" quietly recorded their pass and offered the next family. Now
+  the "Next turn" line (Waitlist page and the Litter page's picks panel) carries a **Not this
+  litter** note saying "Offer to them" records a pass (pass N of M), and every result message
+  names each family passed that way, including when nobody was left to offer (that case
+  used to drop them silently). Tests: `tests/waitlistTurns.test.js`.
+
+- **Logo uploads capped at about 300 KB (2026-10-10).** A photo is redrawn smaller until it
+  fits; an oversized SVG gets "That logo is too large. Try a smaller image." For live sync's
+  record size (Cloud Phase 2 plan §4.1). Older larger logos still restore.
+
 - **Cloud Phase 2, live multi-device sync — being built** (`docs/KennelOS_Cloud_Phase2_Sync_Plan.md`;
   every §12 decision taken as recommended, 2026-10-10). Pro only: both tiers per record (cloud
   fields readable as today, the whole row sealed with the vault key), a change scan instead of
