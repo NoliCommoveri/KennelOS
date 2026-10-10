@@ -23,7 +23,7 @@ import {
   waitlistConfig, entryName, publicList, overallPositions, litterQueue, isPupAvailable, passesUsed,
   isManuallyPaused, readyFromDate, isReadyHeld, feeForEntry, kennelBreeds, listenParentChoices,
   rankedList, turnLittersFor, turnIdOf, passReasons, splitPrepassed, upcomingItems, showUpcoming, isListeningFor, placeHidden, prefPlaces, whelpNotes, readyCheck, publicIntroText,
-  messengerLink
+  messengerLink, embedOrigins
 } from './waitlistRules.js';
 import { addDaysToYMD } from './dateUtils.js';
 import { WAITLIST_OPEN_STATUSES, isOpenSale } from './vocab.js';
@@ -383,7 +383,10 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
       ...(config.facebook_button && messengerLink(config.facebook_page) ? { messenger: messengerLink(config.facebook_page) } : {}),
       parents: parentsSection(kennel, live, { dogs, litters, pairings }),
       ...(formKey ? { message_key: { key_id: formKey.id, public_key: formKey.public_key } } : {}),
-      ...(config.online_form && formKey ? { form: formSection(kennel, config, formKey, dogs) } : {})
+      ...(config.online_form && formKey ? { form: formSection(kennel, config, formKey, dogs) } : {}),
+      // Her own website may show the form and list in a frame (Integrations plan
+      // §1): only while she has it on; no sites listed = any site.
+      ...(config.embed ? { embed: { origins: embedOrigins(config) } } : {})
     },
     // Unmasked: the server shows "Currently deciding" for whoever holds a turn when
     // the page is served (publicList, familyPages.listView).

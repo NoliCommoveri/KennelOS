@@ -113,6 +113,18 @@ property.
 6. **Light theming (optional):** `data-accent="#3a6"` passed through as a query param the page
    applies as one CSS variable. Nothing else is configurable, which keeps the page ours.
 
+**As built (step 2, 2026-10-10).** As above, with these changes:
+- **No migration.** There's no `wl_kennels` table in the real schema, because per-kennel
+  settings already travel in the projection. The switch is `waitlist_config.embed` +
+  `embed_origins`, published as `kennel.embed: { origins }`, and the Worker reads it when
+  serving `/apply` and `/list` (`familyPages.frameAncestors`).
+- **Theme:** `data-theme` defaults to **light**, so a light website doesn't get a dark form on
+  a visitor's dark-mode phone. `dark` and `auto` are there on request. A custom accent gets
+  white or black text by its lightness.
+- **Where the snippets are:** under **On your website** on the Online list card, with their
+  own Save. The plain button snippet works without the switch.
+- **Not built:** per-builder screenshots. The notes are text.
+
 **Size:** one PR, mostly the Worker + `cloud/public/`. It needs a `wl_kennels` column (additive
 migration) and an "embed" toggle in the projection's `kennel` block. No `shared/sw.js` change:
 family pages aren't an edition.
@@ -393,7 +405,7 @@ Each step is one reviewable PR, ordered by value ÷ effort and by dependency.
 | # | Step | Server? | Size |
 |---|---|---|---|
 | 1 | **Processing fees** (§5): Account fee fields, Sale channel + fee snapshot, gross-up helper, `processing_fee` income component, guide + registries. **Built 2026-10-10** (End-State guide §21.1) | No | M |
-| 2 | **Waitlist embed** (§1): CSP opt-in, `?embed=1`, `embed.js`, "Add to your website" card | Worker (small) | S |
+| 2 | **Waitlist embed** (§1): CSP opt-in, `?embed=1`, `embed.js`, "Add to your website" card. **Built 2026-10-10** (End-State guide §29, "On your website") | Worker (small) | S |
 | 3 | **Referral share-out** (§3.1) + go-home thank-you reminder (§3.2) | No (projection only) | S |
 | 4 | **Level 0 links**: stored payment link (§4) + Jotform prefilled contract form (§2.1) | No | S–M |
 | 5 | **Integration plumbing** (§0): `int_connections`, `int_events`, hooks routes, `integrationEvents.js` reducer | Worker | M |

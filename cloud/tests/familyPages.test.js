@@ -376,3 +376,50 @@ test('the Messenger link reaches a family on the list only as an m.me link (Wait
   p.kennel.messenger = 'javascript:alert(1)';
   assert.equal('messenger' in statusView(p, 'ann').kennel, false);
 });
+
+// --- On her own website (docs/KennelOS_Integrations_Plan.md §1) -----------------------
+
+const { frameAncestors } = await import('../src/familyPages.js');
+const ancestors = (res) => res.headers.get('content-security-policy').match(/frame-ancestors ([^;]+)/)[1];
+
+async function publishedWith(kennelExtra) {
+  const env = await makeEnv({ ASSETS: assets });
+  const s = await breeder(env);
+  const p = projection();
+  p.kennel = { ...p.kennel, ...kennelExtra };
+  assert.equal((await call(env, 'PUT', `/waitlist/projection/${KENNEL}`, { token: s.token, body: { projection: p } })).status, 200);
+  return env;
+}
+
+test('the form and list can be framed only while she has embedding on, and only by the sites she listed', async () => {
+  const off = await publishedWith({});
+  assert.equal(ancestors(await get(off, `/apply/${KENNEL}`)), "'none'", 'off by default');
+  assert.equal(ancestors(await get(off, `/list/${KENNEL}`)), "'none'");
+
+  const anySite = await publishedWith({ embed: { origins: [] } });
+  assert.equal(ancestors(await get(anySite, `/apply/${KENNEL}`)), '*', 'on with no sites listed: any site');
+  assert.equal(ancestors(await get(anySite, `/list/${KENNEL}`)), '*');
+  assert.equal(ancestors(await get(anySite, `/s/${tok('a')}`)), "'none'", "a family's own page is never framed");
+  assert.match((await get(anySite, `/apply/${KENNEL}`)).headers.get('content-security-policy'), /script-src 'self' https:\/\/challenges\.cloudflare\.com/, 'the form keeps its spam check');
+
+  const listed = await publishedWith({ embed: { origins: ['https://thornfield.com', 'https://www.thornfield.com'] } });
+  assert.equal(ancestors(await get(listed, `/apply/${KENNEL}`)), 'https://thornfield.com https://www.thornfield.com');
+
+  assert.equal(ancestors(await get(off, '/apply/kos1_99999999-2222-4333-8444-555555555555')), "'none'", 'an unknown kennel');
+});
+
+test('only plain site addresses reach the header; a list of nothing valid stays closed', () => {
+  assert.equal(frameAncestors(undefined), "'none'");
+  assert.equal(frameAncestors(true), "'none'");
+  assert.equal(frameAncestors([]), "'none'");
+  assert.equal(frameAncestors({}), '*');
+  assert.equal(frameAncestors({ origins: ["https://a.com; script-src *", 'https://b.com/path', 'javascript:x', 'https://ok.com:8443'] }), 'https://ok.com:8443');
+  assert.equal(frameAncestors({ origins: ['https://a.com; frame-ancestors *'] }), "'none'", 'all invalid: closed, not open to every site');
+  assert.equal(frameAncestors({ origins: Array.from({ length: 15 }, (_, i) => `https://s${i}.com`) }).split(' ').length, 10);
+});
+
+test('the embed script and the in-frame helper are served like the pages\' other files', async () => {
+  const { env } = await published();
+  assert.equal(await (await get(env, '/family/embed.js')).text(), 'file:/family/embed.js');
+  assert.equal(await (await get(env, '/family/embedded.js')).text(), 'file:/family/embedded.js');
+});
