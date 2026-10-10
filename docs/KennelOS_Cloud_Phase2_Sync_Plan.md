@@ -286,7 +286,7 @@ apply leaves the cursor where it was, so the next pull retries it. When: on star
 when they differ) and drops any record that carries another key in `cloud`, so a buggy or old
 client can't widen what the server holds.
 
-### 6.2 Migration `0011_sync.sql` (additive; its line in `cloud/src/migrations/index.js`)
+### 6.2 Migration `0012_sync.sql` (additive; its line in `cloud/src/migrations/index.js`)
 ```sql
 ALTER TABLE programs ADD COLUMN sync_enabled_at TEXT;
 ALTER TABLE programs ADD COLUMN sync_seq INTEGER NOT NULL DEFAULT 0;
@@ -376,7 +376,7 @@ application twice or answer the same family event twice. So:
    in `cloud`, sealed opens only with the key, the scan finds puts and deletes and ignores
    sample rows), and the `cloudDirty` / `syncRegistry` exemptions for the device-only
    table. Check the logo size ceiling (§4.1).
-2. **Server.** Migration `0011` (+ its `index.js` line), `cloud/src/sync.js` (§6.1),
+2. **Server.** Migration `0012` (+ its `index.js` line), `cloud/src/sync.js` (§6.1),
    `cloudFields.js` and its drift test, `canPush`'s caught-up rule (§6.4), retention, account
    deletion, `/ops` counts, rate limits. Tests: `cloud/tests/sync.test.js` (seq order under
    concurrent batches, superseded reporting, tombstones and the horizon, `vault_required`,
@@ -414,9 +414,9 @@ test`, the precache check, and the docs in the same change (§9).
   `db.version(2)` and the frozen `version(1)`.
 - **Editions Plan:** live sync under Pro's additions; the Lite device on a syncing program.
 - **Phase 1 plan §3.4** and **W2 plan §11** step 1: a pointer to §6.4 and §7 here.
-- **`cloud/README.md`:** the new routes, migration `0011`, and the `cloudFields.js` drift
+- **`cloud/README.md`:** the new routes, migration `0012`, and the `cloudFields.js` drift
   test.
-- **`README.md`** build status, and **`LAUNCH_CHECKLIST.md`**: Apply pending for `0011`, the
+- **`README.md`** build status, and **`LAUNCH_CHECKLIST.md`**: Apply pending for `0012`, the
   two-device checks.
 
 ## 10. Testing

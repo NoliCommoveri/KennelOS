@@ -7,7 +7,8 @@
 //                                last group back) → the first encrypted backup
 //   unlockModal({ merge })       §2.3: passkey · recovery code · another device · not now
 //   unlockBeforeRestore()        the restore paths' unlock step (§2.3)
-//   approveDevicesModal()        §2.4: unlock another device from this one
+//   approveDevicesModal()        §2.4: unlock another device from this one, or
+//                                make a one-hour code to paste into it (§5.4)
 //   passkeysModal()              §2.2, §5.2: the vault's passkeys; add / remove
 //   newRecoveryCodeFlow()        §2.2
 //   turnOffVaultFlow()           §2.5
@@ -18,7 +19,7 @@ import {
   openModal, progressModal, errorText, withFreshSignIn, typedConfirm, notify, handlePushResult
 } from './cloudBackupUI.js';
 import {
-  vaultStatus, startVaultSetup, finishVaultSetup, unlockWithRecoveryCode,
+  vaultStatus, startVaultSetup, finishVaultSetup, unlockWithRecoveryCode, unlockWithHandoffCode, createHandoffCode,
   requestDeviceUnlock, pendingDeviceUnlock, waitForDeviceUnlock, cancelDeviceUnlock,
   listUnlockRequests, approveDeviceUnlock, startNewRecoveryCode, finishNewRecoveryCode,
   disableVault, addPasskey, unlockWithPasskey, removePasskey, VaultSetupError
@@ -53,6 +54,7 @@ function vaultErrorText(e) {
   if (e?.name === 'CloudConflictError' && e.code === 'vault_exists') return 'Sensitive records backup was just turned on from another device. Unlock it here with that device\'s recovery code.';
   if (e?.name === 'CloudConflictError' && e.code === 'already_approved') return 'Another device already answered that request.';
   if (e?.name === 'CloudRequestError' && e.code === 'too_many_pairings') return 'Too many open requests. Wait ten minutes, then ask again.';
+  if (e?.name === 'CloudRequestError' && e.code === 'too_many_handoffs') return 'Too many unlock codes are open. Wait an hour, or use one you already made.';
   return errorText(e);
 }
 
@@ -327,7 +329,12 @@ export function unlockModal({ merge = true, intro = '' } = {}) {
       }
       body.innerHTML = `
         <h2 style="margin-top:0;">Use another device</h2>
-        <p class="muted">On a device where your sensitive records are already unlocked, open KennelOS, then
+        <p class="muted">Have an unlock code from KennelOS Lite or another device? Paste it here:</p>
+        <div class="field field-wide"><label for="ul-handoff">Unlock code</label>
+          <input id="ul-handoff" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" style="font-family:ui-monospace,monospace;"></div>
+        <div class="inline-error" id="ul-handoff-error" hidden></div>
+        <div class="form-actions" style="margin-top:0;"><button class="btn btn-primary" id="ul-handoff-ok">Unlock</button></div>
+        <p class="muted" style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">Or, on a device where your sensitive records are already unlocked, open KennelOS, then
           <strong>Import / Export → Cloud → Sensitive records → Unlock another device</strong>, and type this code:</p>
         <p style="font-family:ui-monospace,monospace;font-size:24px;letter-spacing:2px;text-align:center;padding:12px;border:1px solid var(--border);border-radius:8px;">${esc(req.code)}</p>
         <p class="field-hint" id="ul-wait">Waiting for the other device… This code works for 10 minutes.</p>
@@ -336,6 +343,27 @@ export function unlockModal({ merge = true, intro = '' } = {}) {
       controller = new AbortController();
       const mine = controller;
       body.querySelector('#ul-back').addEventListener('click', () => { mine.abort(); showChoices(); });
+      const handoffInput = body.querySelector('#ul-handoff');
+      const handoffError = body.querySelector('#ul-handoff-error');
+      const redeem = async () => {
+        const btn = body.querySelector('#ul-handoff-ok');
+        btn.disabled = true; btn.textContent = 'Unlocking…';
+        handoffError.hidden = true;
+        try {
+          const { merged } = await unlockWithHandoffCode(handoffInput.value, { merge });
+          mine.abort();
+          cancelDeviceUnlock().catch(() => {});
+          await unlocked(merged);
+        } catch (e) {
+          btn.disabled = false; btn.textContent = 'Unlock';
+          handoffError.hidden = false;
+          handoffError.textContent = e?.name === 'VaultLockedError'
+            ? "That code didn't work. Codes work once, for an hour: make a new one on the other device if it's used or old."
+            : vaultErrorText(e);
+        }
+      };
+      body.querySelector('#ul-handoff-ok').addEventListener('click', redeem);
+      handoffInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') redeem(); });
       try {
         const r = await waitForDeviceUnlock({ signal: mine.signal, merge });
         if (r.status === 'unlocked') await unlocked(r.merged);
@@ -368,6 +396,26 @@ export async function unlockBeforeRestore() {
   return unlockModal({ merge: false });
 }
 
+// A handoff code (§5.4) on screen, with Copy. Shared by the approve modal here
+// and Lite's upgrade dialog (editionLinks.js).
+export function handoffCodeHtml(code) {
+  return `<div class="handoff-code" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0;">
+      <code style="font-family:ui-monospace,monospace;font-size:15px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;user-select:all;white-space:nowrap;max-width:100%;overflow-x:auto;">${esc(code)}</code>
+      <button type="button" class="btn btn-sm" data-copy-handoff>Copy code</button>
+    </div>`;
+}
+
+export async function copyHandoffCode(code) {
+  try { await navigator.clipboard.writeText(code); return true; } catch { return false; }
+}
+
+export function wireHandoffCopy(scope, code) {
+  const btn = scope.querySelector('[data-copy-handoff]');
+  btn?.addEventListener('click', async () => {
+    btn.textContent = (await copyHandoffCode(code)) ? 'Copied ✓' : 'Select it and copy';
+  });
+}
+
 // --- Unlock another device, from this one (§2.4) ---------------------------------------
 export function approveDevicesModal() {
   return new Promise((resolve) => {
@@ -393,11 +441,33 @@ export function approveDevicesModal() {
           </li>`).join('')}</ul>` : '<p class="field-hint">No device is waiting yet.</p>'}
         <div class="form-actions">
           <button class="btn" id="ap-refresh">Check again</button>
+          <button class="btn" id="ap-handoff">Make an unlock code instead</button>
           <button class="btn" id="ap-close">Close</button>
         </div>`;
       body.querySelector('#ap-refresh').addEventListener('click', () => showList());
+      body.querySelector('#ap-handoff').addEventListener('click', () => showHandoff());
       body.querySelector('#ap-close').addEventListener('click', finish);
       body.querySelectorAll('[data-id]').forEach((b) => b.addEventListener('click', () => showCode(requests.find((r) => r.id === b.dataset.id))));
+    };
+
+    // A code to paste into the other device (§5.4), e.g. KennelOS Pro on this phone.
+    const showHandoff = async () => {
+      body.innerHTML = '<p class="muted">Making a code…</p>';
+      let made;
+      try { made = await createHandoffCode(); } catch (e) {
+        body.innerHTML = `<h2 style="margin-top:0;">Unlock code</h2><div class="inline-error">${esc(vaultErrorText(e))}</div>
+          <div class="form-actions"><button class="btn" id="ap-back">Back</button></div>`;
+        body.querySelector('#ap-back').addEventListener('click', () => showList());
+        return;
+      }
+      body.innerHTML = `
+        <h2 style="margin-top:0;">Unlock code</h2>
+        <p class="muted">On the other device (KennelOS Pro, a new phone…), sign in with the same email, choose
+          <strong>Unlock your sensitive records → Use another device</strong>, and paste this code. It works once, for 1 hour.</p>
+        ${handoffCodeHtml(made.code)}
+        <div class="form-actions"><button class="btn btn-primary" id="ap-close">Done</button></div>`;
+      wireHandoffCopy(body, made.code);
+      body.querySelector('#ap-close').addEventListener('click', finish);
     };
 
     const showCode = (req, errorMsg = '') => {

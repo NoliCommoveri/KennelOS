@@ -3461,7 +3461,10 @@ shown (`describeOfferChanges`).
   **Sensitive records** in every screen (formerly "private backup" / "private info"; code
   names keep `vault`/`private`): one dropdown reading Off, Locked or On, whose other entries
   (Turn on…, Unlock…, Unlock another device…, Passkeys…, New recovery code…, Turn off…) open
-  their dialog as soon as they're chosen. Links into the card use `#backup-restore`.
+  their dialog as soon as they're chosen. **Unlock another device…** also offers **Make an
+  unlock code instead**: a one-hour, single-use code to paste into the other device's **Use
+  another device** screen (`cloudVault.createHandoffCode` / `unlockWithHandoffCode`; Private
+  Vault Plan §5.4). Lite's upgrade dialog makes one as it opens. Links into the card use `#backup-restore`.
 - **Contacts page layout (2026-10-08):** **+ Add Contact** comes before **Manage kennels**,
   and the bucket row (Clients / Network / Care team / Other / All, `#contacts-group-tabs`) is
   moved by `contacts.js` to sit under the list's search bar and filters, apart from the

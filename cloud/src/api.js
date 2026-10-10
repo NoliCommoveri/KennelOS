@@ -6,8 +6,8 @@ import { createSnapshot, getSnapshot, getSnapshotVault, listSnapshots, uploadSna
 import { deleteAccount, getProgram, takeOver } from './program.js';
 import { ackErase, cancelErase, checkIn, licenseReleased, listDevices, requestErase } from './devices.js';
 import {
-  addWrap, approvePairing, createPairing, disableVault, enableVault, getVault, getWrap, listPairings, pollPairing,
-  removeWrap, replaceRecoveryWrap,
+  addWrap, approvePairing, createHandoff, createPairing, disableVault, enableVault, getVault, getWrap, listPairings,
+  pollPairing, redeemHandoff, removeWrap, replaceRecoveryWrap,
 } from './vault.js';
 import { getEntitlement, removeLinks, startLink, verifyLink } from './license.js';
 import { ackInbox, publishProjection, readEvents, readInbox, readProjection, sendMessage, unpublishProjection, PROJECTION_MAX_BYTES } from './waitlist.js';
@@ -81,6 +81,8 @@ export async function handleApi(request, env, url, cors) {
   if (approve && m === 'POST') return json(await approvePairing(env, auth, approve[1], await readJson(request)), 200, cors);
   const pairing = VAULT_PAIRING.exec(p);
   if (pairing && m === 'GET') return json(await pollPairing(env, auth, pairing[1]), 200, cors);
+  if (p === '/vault/handoffs' && m === 'POST') return json(await createHandoff(env, auth, await readJson(request)), 200, cors);
+  if (p === '/vault/handoffs/redeem' && m === 'POST') return json(await redeemHandoff(env, auth, await readJson(request)), 200, cors);
 
   // The waitlist online, her side (Waitlist W2 Plan §2, §4–§6). Pro only.
   const projection = WL_PROJECTION.exec(p);

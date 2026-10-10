@@ -93,6 +93,10 @@ async function cloudUpgradeReadiness() {
 // Cloud first: Continue to Pro (primary), Save a backup file too (secondary;
 // downloads and stays open), Not now. Resolves 'continue' | 'cancel'. The
 // backdrop does nothing, so a stray tap neither buys nor cancels.
+// It also makes a one-hour unlock code (Private Vault Plan §5.4) for Pro's
+// "Use another device", shown with Copy and copied again on Continue, since
+// checkout replaces this page. Without a code (offline, an error) Pro still
+// unlocks with the passkey or recovery code, and the dialog says so.
 function cloudUpgradeDialog({ email }) {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
@@ -100,8 +104,9 @@ function cloudUpgradeDialog({ email }) {
     overlay.innerHTML = `<div class="modal" role="dialog" aria-modal="true">
       <h2 style="margin-top:0;">Switch Products Seamlessly</h2>
       <p class="muted" style="white-space:pre-wrap;">${esc(
-        `Since you're using cloud backup, switching is easy! Once you've purchased your Pro license, select "I already use KennelOS" and log in using the email ${email}.\n\n`
-        + `Optionally, you can also save a backup file below before switching.`)}</p>
+        `Since you're using cloud backup, switching is easy! Once you've purchased your Pro license, select "I already use KennelOS" and log in using the email ${email}.`)}</p>
+      <div class="upgrade-handoff"><p class="muted">Making your unlock code…</p></div>
+      <p class="muted">Optionally, you can also save a backup file below before switching.</p>
       <p class="muted upgrade-file-note" role="status" hidden></p>
       <div class="form-actions">
         <button class="btn btn-primary" id="ug-continue">Continue to Pro</button>
@@ -111,6 +116,22 @@ function cloudUpgradeDialog({ email }) {
     </div>`;
     document.body.appendChild(overlay);
     const done = (val) => { overlay.remove(); resolve(val); };
+    let handoff = null; // { code, copy }
+    const slot = overlay.querySelector('.upgrade-handoff');
+    (async () => {
+      try {
+        const [{ createHandoffCode }, ui] = await Promise.all([
+          import('../data/cloud/cloudVault.js'), import('./cloudVaultUI.js')
+        ]);
+        const { code } = await createHandoffCode();
+        handoff = { code, copy: ui.copyHandoffCode };
+        slot.innerHTML = `<p class="muted">When Pro asks you to unlock your sensitive records, choose "Use another device" and paste this code. It works once, for 1 hour:</p>
+          ${ui.handoffCodeHtml(code)}`;
+        ui.wireHandoffCopy(slot, code);
+      } catch {
+        slot.innerHTML = `<p class="muted">When Pro asks you to unlock your sensitive records, use your passkey or recovery code.</p>`;
+      }
+    })();
     const fileBtn = overlay.querySelector('#ug-file');
     const fileNote = overlay.querySelector('.upgrade-file-note');
     fileBtn.addEventListener('click', async () => {
@@ -127,7 +148,10 @@ function cloudUpgradeDialog({ email }) {
         fileNote.textContent = `Couldn't save the file (${e.message || e}). Your cloud backup still has everything.`;
       }
     });
-    overlay.querySelector('#ug-continue').addEventListener('click', () => done('continue'));
+    overlay.querySelector('#ug-continue').addEventListener('click', async () => {
+      if (handoff) await handoff.copy(handoff.code); // on the clipboard for Pro
+      done('continue');
+    });
     overlay.querySelector('#ug-cancel').addEventListener('click', () => done('cancel'));
   });
 }

@@ -845,6 +845,15 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   turning on Sensitive records. Test: `tests/upgradeBridge.test.js`. Headless Chromium
   (Lite, cloud API mocked, phone width): all three paths reach checkout, no console errors.
 
+- **Vault handoff codes — built & browser-verified (2026-10-10;** Private Vault Plan §5.4).
+  Lite's upgrade dialog makes a one-hour, single-use unlock code (Copy, and copied again on
+  Continue to Pro); Pro's **Use another device** screen has a box to paste it (the recovery
+  code works there too). Any unlocked device can make one from **Unlock another device… →
+  Make an unlock code instead**. The server stores the vault key wrapped under the code and a
+  hash of a second value derived from it, never the code. **New cloud migration
+  `0011_vault_handoff`: Apply pending on staging and production after the merge.** Tests:
+  `cloud/tests/vault.test.js`, `tests/vaultCrypto.test.js`, `tests/cloudVault.test.js`.
+
 - **Cloud Phase 2, live multi-device sync — planned, not built** (`docs/KennelOS_Cloud_Phase2_Sync_Plan.md`,
   draft 2026-10-10). Pro only: both tiers per record (cloud fields readable as today, the
   whole row sealed with the vault key), a change scan instead of an outbox, server-order

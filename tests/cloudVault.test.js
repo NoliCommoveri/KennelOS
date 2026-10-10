@@ -531,3 +531,36 @@ test('passkeys: none set up; a removed one stops working; a new recovery code ke
   await vault.disableVault();
   assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM vault_wraps').get().n, 0);
 });
+
+// --- handoff codes (§5.4) ------------------------------------------------------------
+
+test('handoff code: the unlocked device makes it, the new one pastes it once and gets everything', async () => {
+  await turnOnWithVault();
+  const { code, expiresAt } = await vault.createHandoffCode();
+  assert.match(code, /^([0-9A-Z]{4}-){5}[0-9A-Z]{4}$/);
+  assert.ok(Date.parse(expiresAt) > Date.now() + 59 * 60 * 1000);
+
+  switchDevice('B');
+  await signIn('breeder@example.com', 'Pro on the same phone');
+  await assert.rejects(vault.createHandoffCode(), { name: 'VaultSetupError', code: 'locked' });
+  await assert.rejects(vault.unlockWithHandoffCode('0000-0000-0000-0000-0000-0000'), { name: 'VaultLockedError' });
+  await assert.rejects(vault.unlockWithHandoffCode('short'), { name: 'VaultLockedError' });
+
+  const { merged } = await vault.unlockWithHandoffCode(` ${code.toLowerCase()} `);
+  assert.equal(merged.status, 'restored');
+  assert.equal(tables.contacts.rows.get('c1').phone, '555-0101');
+  assert.equal(await tables.files.rows.get('fc').blob.text(), '%PDF contract terms');
+  assert.equal((await vault.vaultStatus()).unlocked, true);
+
+  // Used up: pasting it again (after forgetting the key) doesn't open anything.
+  await keyStore.clearVaultKey();
+  await assert.rejects(vault.unlockWithHandoffCode(code, { merge: false }), { name: 'VaultLockedError' });
+});
+
+test('handoff box: the recovery code works there too', async () => {
+  const recovery = await turnOnWithVault();
+  switchDevice('B');
+  await signIn('breeder@example.com', 'Laptop B');
+  await vault.unlockWithHandoffCode(recovery, { merge: false });
+  assert.equal((await vault.vaultStatus()).unlocked, true);
+});

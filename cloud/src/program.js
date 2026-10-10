@@ -53,6 +53,7 @@ export async function deleteAccount(env, auth, body) {
     env.DB.prepare('DELETE FROM files WHERE program_id = ?').bind(p),
     env.DB.prepare('DELETE FROM vault_wraps WHERE program_id = ?').bind(p),
     env.DB.prepare('DELETE FROM vault_pairings WHERE program_id = ?').bind(p),
+    env.DB.prepare('DELETE FROM vault_handoffs WHERE program_id = ?').bind(p),
     env.DB.prepare('DELETE FROM vaults WHERE program_id = ?').bind(p),
     ...deleteWaitlistStatements(env, p),
     env.DB.prepare('DELETE FROM programs WHERE id = ?').bind(p),

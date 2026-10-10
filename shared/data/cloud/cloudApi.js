@@ -229,6 +229,15 @@ export const approvePairing = (token, pairingId, { approverKey, wrapped, keyId }
 // { status: 'approved', approverKey, wrapped, keyId } (once: the row goes as it's read).
 export const pollPairing = (token, pairingId) => getJson(`/vault/pairings/${encodeURIComponent(pairingId)}`, { token });
 
+// Handoff codes (Private Vault Plan §5.4): an unlocked device leaves a one-hour
+// wrap; another device signed in to the account shows the code's proof and gets
+// it, once. → { handoffId, expiresAt } / { keyId, wrapped }; 404 'not_found' for
+// a wrong, used or expired code.
+export const createHandoff = (token, { keyId, wrapped, proof }) =>
+  getJson('/vault/handoffs', { method: 'POST', token, json: { keyId, wrapped, proof } });
+export const redeemHandoff = (token, proof) =>
+  getJson('/vault/handoffs/redeem', { method: 'POST', token, json: { proof } });
+
 // --- Public -------------------------------------------------------------------
 // Service notices (the shutdown channel). → [{ id, level, message, until }]
 // --- The waitlist online, her side (Waitlist W2 Plan §5) -------------------------------

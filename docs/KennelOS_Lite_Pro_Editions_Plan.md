@@ -330,6 +330,11 @@ upgrade would arrive without them. So:
   unlock in Pro, with **Continue to Pro**, **Save a backup file too** (secondary; the file is
   the fallback) and **Not now**. Anything else keeps the file-first flow above, and its note
   suggests turning on Sensitive records so the file isn't needed next time.
+  **Unlocking in Pro (2026-10-10):** the dialog also makes a one-hour, single-use **unlock
+  code** (Private Vault Plan §5.4), shown with Copy and copied again on Continue. In Pro, after
+  signing in, **Use another device** has a box to paste it. This matters most when Lite and
+  Pro are on the same phone: the two are separate devices to the server, so Lite unlocks Pro
+  without the owner having to switch back and forth.
 
 **The Lite device afterwards.** Restoring in Pro makes Pro the backing device (Cloud plan
 §3.4), so Lite's next backup gets the server's 409. Every snapshot now records the edition

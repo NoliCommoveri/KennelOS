@@ -260,6 +260,13 @@ and Email Routing.
   the production `RESEND_API_KEY` is Sending access for **All domains**, so it can send from it.
 - [ ] **Apply pending (`0010`) on staging's and production's `/ops`** right after the merge
   that carries step 6 (waitlist emails). The whole API answers 503 until then.
+- [ ] **Apply pending (`0011`) on staging's and production's `/ops`** right after the merge
+  that carries the vault handoff codes (Private Vault Plan §5.4). The whole API answers 503
+  until then.
+- [ ] **Try the handoff on a real phone** (staging, then production): in Lite with Sensitive
+  records on, **Upgrade to Pro →** shows a code; in Pro on the same phone, sign in, choose
+  **Use another device**, paste it, and the sensitive records come back. Pasting it again
+  should fail.
 - [ ] **Try a waitlist email on production:** with a family whose address is yours, send
   **Email them…** from their page; it should arrive from
   `"<Your Kennel>" <…@mail.kennelos.app>` (not in spam), and show under **Emails from …**

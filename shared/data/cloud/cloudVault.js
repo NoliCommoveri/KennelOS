@@ -28,7 +28,7 @@ import {
   generateVaultKey, newRecoveryCode, formatCode, normalizeRecoveryCode,
   kekFromRecoveryCode, wrapVaultKey, unwrapVaultKey,
   newPairingCode, generatePairingKeyPair, exportPublicKey, kekFromPairing,
-  kekFromPrf, newPrfSalt
+  kekFromPrf, newPrfSalt, newHandoffCode, kekFromHandoffCode, handoffProof, VaultLockedError
 } from './vaultCrypto.js';
 import { createPasskey, getPrfOutput, forgetPasskey, passkeySupported } from './vaultPasskey.js';
 import { pushIfDirty, restoreSnapshotVault } from './cloudBackup.js';
@@ -160,6 +160,45 @@ export async function mergeLatestVault({ onProgress } = {}) {
   const r = await restoreSnapshotVault(program.latestSnapshotId, { overwrite: false, onProgress });
   if (r.status === 'restored') setCloudRestoredAt(null); // private details are back: no "blank here" hint
   return r;
+}
+
+// --- Handoff codes (§5.4) ------------------------------------------------------------
+// The reverse of a device unlock, for a device that's being left behind (Lite,
+// upgrading to Pro on the same phone or another): this unlocked device makes a
+// code that works once, for an hour, and the owner pastes it into the other
+// device after signing in there. A new code replaces this device's last one.
+// → { code: 'XXXX-XXXX-…', expiresAt }. VaultSetupError 'locked' when this
+// device can't open the vault itself.
+export async function createHandoffCode() {
+  const { token, programId } = requireSession();
+  const vault = await getVaultKey(programId);
+  if (!vault) throw new VaultSetupError('locked');
+  const code = newHandoffCode();
+  const wrapped = await wrapVaultKey(vault.key, await kekFromHandoffCode(code), { keyId: vault.keyId, kind: 'handoff' });
+  const { expiresAt } = await api.createHandoff(token, { keyId: vault.keyId, wrapped, proof: await handoffProof(code) });
+  return { code: formatCode(code), expiresAt };
+}
+
+// Unlock this device with a handoff code. A 24-character code that isn't a
+// live handoff is tried as the recovery code (same length), so whichever one
+// the owner pastes works. Throws VaultLockedError when neither opens it.
+// → { merged } as for unlockWithRecoveryCode.
+export async function unlockWithHandoffCode(rawCode, { merge = true, onProgress } = {}) {
+  const { token, programId } = requireSession();
+  const code = normalizeRecoveryCode(rawCode);
+  if (!code) throw new VaultLockedError('That code is not the right length.');
+  let h;
+  try {
+    h = await api.redeemHandoff(token, await handoffProof(code));
+  } catch (err) {
+    if (err instanceof api.CloudRequestError && err.code === 'not_found') return unlockWithRecoveryCode(code, { merge, onProgress });
+    if (err instanceof api.CloudRequestError && err.code === 'no_vault') throw new VaultSetupError('no_vault');
+    throw err;
+  }
+  const key = await unwrapVaultKey(h.wrapped, await kekFromHandoffCode(code), { keyId: h.keyId, kind: 'handoff' });
+  await setVaultKey(programId, { key, keyId: h.keyId });
+  recordVaultState('on');
+  return { merged: merge ? await mergeLatestVault({ onProgress }) : null };
 }
 
 // --- Unlocking from another device (§2.4, §5.3) --------------------------------------
