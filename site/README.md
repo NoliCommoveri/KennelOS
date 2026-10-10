@@ -16,7 +16,7 @@ this folder** — the CLAUDE.md service-worker rule doesn't apply to files under
 
 ```
 index.html        Home — what KennelOS is, features, the three editions, how to start
-editions.html     The full Lite / Pro / Demo comparison table
+editions.html     The Lite / Pro comparison table (the Demo is a card above it, not a column); "Upgrading from Lite to Pro" opens a dialog (site.js, data-dialog)
 lite.html         Lite: what's included, the limits stated plainly, what's not in it
 pro.html          Pro: the added feature set, pricing tiers, how licensing works
 demo.html         The read-only seeded demo
