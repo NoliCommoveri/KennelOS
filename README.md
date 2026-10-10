@@ -175,6 +175,16 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   deploy workflow publishes it to `NoliCommoveri/kennelos-site` at `kennelos.app`.
   Content placeholders still to fill (checkout URLs, support email, the "who we are"
   story) are listed in `site/README.md`.
+- **Marketing site: official privacy policy + terms of use — built (2026-10-10).**
+  `site/privacy.html` is rewritten as a full policy covering the whole backend as built: the
+  apps, cloud backup, private backup, Pro purchases (the Lemon Squeezy webhook's hashed
+  purchase email), the online waitlist for breeders and for applicants/families (W2 Plan
+  step 8), the emails we send, providers, retention, security, rights, transfers, children.
+  New `site/terms.html` (data ownership and backups, the cloud service, the waitlist, Pro
+  licenses / payment / refunds, acceptable use, disclaimers, liability, governing law), linked
+  from every footer, the sitemap and next to the checkout buttons. The other pages now
+  describe private backup and Pro's online waitlist. Two `LAUNCH PLACEHOLDER`s remain (legal
+  name, governing law): see `site/README.md`. Site only, so no `CACHE_NAME` bump.
 - **Multi-kennel scope, Phase 1 — done & browser-verified (headless Chromium, all three
   editions, no console errors).** Kennel becomes a real scope rather than a lookup. Design +
   the remaining phases: `docs/KennelOS_Multi_Kennel_Scope_Spec.md`.
@@ -500,8 +510,8 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   also sends reminders (halfway through a turn and its last morning, the day before a fee is
   due, "Ready now?"), each once, unless she switches them off. Her phone applies each move at
   its next sync, or notes it on the family's page if her records moved on. No migration;
-  the hourly cron deploys with the Worker. Not yet: step 8 (the privacy policy's
-  waitlist-online section). Service-worker cache rolled to `kennelos-shell-v54` for steps 6 and 7 (v53 went to the reports work merged first).
+  the hourly cron deploys with the Worker. Step 8's privacy-policy section is written (see
+  "Marketing site: official privacy policy + terms of use" below). Service-worker cache rolled to `kennelos-shell-v54` for steps 6 and 7 (v53 went to the reports work merged first).
   Service-worker cache rolled to `kennelos-shell-v34` for W1e.
 - **Waitlist, W1e follow-up — built & browser-verified** (Waitlist Spec §6.5, §15.5; End-State
   guide §29). A family leaving the list (withdrew, removed, archived, accepted, second-pass
