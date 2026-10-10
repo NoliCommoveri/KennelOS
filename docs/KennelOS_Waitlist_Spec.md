@@ -9,7 +9,10 @@
 > question is collected in §13.
 >
 > **Build status:** W1 is complete (W1a data layer, W1b intake + list, W1c offers, W1d
-> seed / CSV / Financials). W2 and W3 are not started. See §12 and §14.
+> seed / CSV / Financials). **W2 is built and released** (online 2026-10-08; every step of
+> `docs/KennelOS_Waitlist_W2_Plan.md` §11 done by 2026-10-10, the "Message us on Facebook"
+> button last; only the optional no-reply auto-answer, D8, is left). W3 is not started.
+> See §12 and §14.
 >
 > **W2 is unblocked (2026-10-08):** all three prerequisites are live (Phase 1's Worker, the
 > private vault, the Pro license link with its operator setup done), and her answers to

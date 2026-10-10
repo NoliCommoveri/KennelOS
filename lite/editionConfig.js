@@ -150,6 +150,8 @@ export const editionFlags = {
   // falls through to "the sole own kennel"), and isScoped() stays false so every
   // read path behaves exactly as it did before scope existed.
   multiKennel: false,
+  // Live sync is Pro's (Cloud Phase 2 plan §1); Lite keeps Phase 1 backup.
+  liveSync: false,
 };
 
 // --- Navigation (Lite — reduced) -------------------------------------------

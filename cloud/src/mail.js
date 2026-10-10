@@ -195,3 +195,28 @@ export async function sendCode(env, { email, emailHash, code, minutes, message =
 
   fail(503, 'email_unavailable');
 }
+
+// A plain notice to the account's address (no code in it), such as the warning
+// that a recovery code asked to change the email (recovery.js). Staging's
+// outbox records it as 'notice' so /ops shows that one went out.
+export async function sendNotice(env, { email, emailHash, message }) {
+  const mode = mailMode(env);
+  if (mode === 'resend') {
+    const res = await fetch(RESEND_URL, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ from: env.MAIL_FROM || DEFAULT_FROM, to: [email], ...message }),
+    });
+    if (!res.ok) {
+      console.error('resend send failed', res.status);
+      fail(502, 'email_failed');
+    }
+    return;
+  }
+  if (mode === 'outbox') {
+    await env.DB.prepare('INSERT INTO dev_outbox (email_hash, code, created_at) VALUES (?, ?, ?)')
+      .bind(emailHash, 'notice', new Date().toISOString()).run();
+    return;
+  }
+  fail(503, 'email_unavailable');
+}

@@ -524,6 +524,16 @@ function messageHtml() {
     </form>`);
 }
 
+// "Message us on Facebook" (Waitlist Spec §11), when she switched it on: a link
+// to her own Page in Messenger. Nothing about it comes back here.
+function messengerHtml() {
+  const k = state.v.kennel;
+  if (!k.messenger || !['applied', 'approved', 'active'].includes(state.v.family.status)) return '';
+  return card('', `
+    <div class="actions"><a class="button secondary" href="${esc(k.messenger)}" target="_blank" rel="noopener noreferrer">Message us on Facebook</a></div>
+    <p class="small muted">To answer an offer or a check-in, use the buttons on this page. Messenger is for questions.</p>`);
+}
+
 // A browser that only has the link: one Sign In button at the top of the page
 // (decided 2026-10-08), to the public list with its sign-in opened (#signin).
 function signInButton() {
@@ -599,6 +609,7 @@ function mineHtml() {
   parts.push(card('What you asked for', prefsHtml(f) + privateNameHtml(f)));
   parts.push(emailsHtml());
   parts.push(messageHtml());
+  parts.push(messengerHtml());
   return parts.join('');
 }
 

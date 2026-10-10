@@ -203,6 +203,9 @@ export function statusView(projection, entryId) {
   kennel.color_matching = Boolean(projection.kennel?.color_matching);
   kennel.message_key = projection.kennel?.message_key ?? null;
   kennel.pass_reasons = projection.kennel?.pass_reasons ?? [];
+  // "Message us on Facebook" (Waitlist Spec §11): a Messenger link to her own Page, nothing else.
+  const messenger = projection.kennel?.messenger;
+  if (typeof messenger === 'string' && /^https:\/\/m\.me\/[A-Za-z0-9._-]{1,100}$/.test(messenger)) kennel.messenger = messenger;
   const litters = projection.litters || {};
   const offers = (e.offers || []).map((o) => {
     const l = litters[o.litter_id] || {};

@@ -76,6 +76,8 @@ export const editionFlags = {
   waitlist: true,         // Per-kennel waitlist (Waitlist Spec)
   // Multi-kennel scope — on, since Demo showcases the whole Pro app.
   multiKennel: true,
+  // Demo has no cloud at all.
+  liveSync: false,
 };
 
 // Full nav bar (Demo shows the whole Pro app, read-only).

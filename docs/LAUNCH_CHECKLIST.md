@@ -260,18 +260,27 @@ and Email Routing.
   the production `RESEND_API_KEY` is Sending access for **All domains**, so it can send from it.
 - [ ] **Apply pending (`0010`) on staging's and production's `/ops`** right after the merge
   that carries step 6 (waitlist emails). The whole API answers 503 until then.
-- [ ] **Apply pending (`0011`) on staging's and production's `/ops`** right after the merge
+- [x] **Apply pending (`0011`) on staging's and production's `/ops`** right after the merge
   that carries the vault handoff codes (Private Vault Plan §5.4). The whole API answers 503
   until then.
-- [ ] **Apply pending (`0012`) on staging's and production's `/ops`** right after the merge
+- [x] **Apply pending (`0012`) on staging's and production's `/ops`** right after the merge
   that carries changing the account's email (Phase 1 plan §2.6).
-- [ ] **Try changing an email on staging**, both ways: with the old inbox (changes at once)
+- [ ] **Apply pending (`0014`) on staging's and production's `/ops`** right after the merge
+  that carries live sync's server (Cloud Phase 2 plan §8 step 2). Nothing calls it until the
+  app's sync ships, but the API answers 503 until it's applied.
+- [ ] **Apply pending (`0013`) on staging's and production's `/ops`** right after the merge
+  that carries account recovery (Phase 1 plan §2.7).
+- [ ] **Try recovering an account on staging** with a test account that has Sensitive records
+  on: sign out everywhere, then **Lost access to your email?** with the recovery code and a new
+  address; the old inbox should get the notice, and after the day (or by setting
+  `effective_at` back on staging) the new address signs in to the same backups.
+- [x] **Try changing an email on staging**, both ways: with the old inbox (changes at once)
   and without (pending a day, shown with Cancel on a second signed-in device).
 - [ ] **Try the handoff on a real phone** (staging, then production): in Lite with Sensitive
   records on, **Upgrade to Pro →** shows a code; in Pro on the same phone, sign in, choose
   **Use another device**, paste it, and the sensitive records come back. Pasting it again
   should fail.
-- [ ] **Try a waitlist email on production:** with a family whose address is yours, send
+- [x] **Try a waitlist email on production:** with a family whose address is yours, send
   **Email them…** from their page; it should arrive from
   `"<Your Kennel>" <…@mail.kennelos.app>` (not in spam), and show under **Emails from …**
   on their status page.

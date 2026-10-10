@@ -23,6 +23,7 @@
 //
 // D1 rows go first, then R2 objects. If the R2 delete fails, the leftovers are
 // unreferenced objects (harmless), never rows pointing at nothing.
+import { syncRetentionStatements } from './sync.js';
 import { vaultKeyFor } from './snapshots.js';
 
 const HOUR = 60 * 60 * 1000;
@@ -98,6 +99,9 @@ export async function runRetention(env, now = new Date()) {
       WHERE f.created_at < ?
         AND NOT EXISTS (SELECT 1 FROM snapshot_files sf JOIN snapshots s ON s.id = sf.snapshot_id
                          WHERE s.program_id = f.program_id AND sf.sha256 = f.sha256)
+        -- A synced document's bytes stay while its record does (Phase 2 plan §4.1).
+        AND NOT EXISTS (SELECT 1 FROM sync_records r
+                         WHERE r.program_id = f.program_id AND r.file_sha256 = f.sha256 AND r.deleted = 0)
       LIMIT ${MAX_PER_RUN}`,
   ).bind(iso(nowMs - DAY)).all();
   if (orphans.length) {
@@ -139,6 +143,8 @@ export async function runRetention(env, now = new Date()) {
     ).bind(iso(nowMs - 2 * DAY)),
     env.DB.prepare(`DELETE FROM wl_inbox WHERE kind = 'application' AND confirmed_at IS NULL AND created_at < ?`).bind(iso(nowMs - 2 * DAY)),
     env.DB.prepare('DELETE FROM wl_family_sessions WHERE expires_at < ?').bind(iso(nowMs)),
+    // Live sync (Phase 2 plan §6.3): old tombstones, and records of sync turned off a while ago.
+    ...syncRetentionStatements(env, nowMs),
     env.DB.prepare(`UPDATE wl_messages SET body = NULL WHERE status = 'sent' AND body IS NOT NULL AND sent_at < ?`).bind(iso(nowMs - WL_EVENTS_KEEP_DAYS * DAY)),
   ]);
 

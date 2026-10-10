@@ -26,7 +26,7 @@ export const snapshotKey = (programId, id) => `snapshots/${programId}/${id}.json
 export const vaultKeyFor = (r2Key) => r2Key.replace(/\.json\.gz$/, '.vault');
 
 async function loadProgram(env, programId) {
-  return env.DB.prepare('SELECT id, backing_device_id, latest_snapshot_id FROM programs WHERE id = ?').bind(programId).first();
+  return env.DB.prepare('SELECT id, backing_device_id, latest_snapshot_id, sync_enabled_at, sync_seq FROM programs WHERE id = ?').bind(programId).first();
 }
 
 // What a 409 tells the client: who is backing up, when they last did, and from
@@ -51,12 +51,20 @@ export async function backingInfo(env, program) {
   return {
     backingDevice: program.backing_device_id ? { id: program.backing_device_id, label, lastPushAt, edition } : null,
     latestSnapshotId: program.latest_snapshot_id ?? null,
+    // A syncing program has no backing device (Cloud Phase 2 plan §6.4): any of
+    // its devices that's caught up pushes, so a refused device is told the seq.
+    ...(program.sync_enabled_at ? { syncing: true, syncSeq: program.sync_seq } : {}),
   };
 }
 
-function canPush(program, deviceId, base) {
+// Phase 1: the backing device, on the latest snapshot. A syncing program
+// (Phase 2 plan §6.4): any device, on the latest snapshot, that says it has
+// applied every record (its `sync_seq` is the program's).
+function canPush(program, deviceId, base, syncSeq = null) {
+  const baseOk = (program.latest_snapshot_id ?? null) === (base ?? null);
+  if (program.sync_enabled_at) return baseOk && syncSeq === program.sync_seq;
   const deviceOk = !program.backing_device_id || program.backing_device_id === deviceId;
-  return deviceOk && (program.latest_snapshot_id ?? null) === (base ?? null);
+  return deviceOk && baseOk;
 }
 
 // The editions that back up (Demo has no cloud). Anything else is stored as NULL.
@@ -76,9 +84,13 @@ export async function createSnapshot(env, auth, body) {
   const files = Array.isArray(body.files) ? [...new Set(body.files)] : null;
   if (!files || files.length > MAX_FILE_REFS || !files.every((f) => typeof f === 'string' && SHA256.test(f))) fail(400, 'bad_files');
   const edition = EDITIONS.has(body.edition) ? body.edition : null;
+  const syncSeq = body.sync_seq ?? null;
+  if (syncSeq !== null && (!Number.isInteger(syncSeq) || syncSeq < 0)) fail(400, 'bad_sync_seq');
 
   const program = await loadProgram(env, auth.programId);
-  if (!canPush(program, auth.deviceId, base)) fail(409, 'not_backing_device', await backingInfo(env, program));
+  if (!canPush(program, auth.deviceId, base, syncSeq)) {
+    fail(409, program.sync_enabled_at && syncSeq !== null ? 'not_caught_up' : 'not_backing_device', await backingInfo(env, program));
+  }
   const vaultPart = await checkVaultPart(env, auth.programId, body.vault);
 
   // One bound parameter for the whole list (D1 allows ~100 per query, plan §6.2).
@@ -93,11 +105,11 @@ export async function createSnapshot(env, auth, body) {
   await env.DB.batch([
     env.DB.prepare(
       `INSERT INTO snapshots (id, program_id, device_id, device_label, created_at, size, counts_json, r2_key, status, base_snapshot_id, edition,
-                              vault_size, vault_key_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)`,
+                              vault_size, vault_key_id, sync_seq)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)`,
     ).bind(id, auth.programId, auth.deviceId, auth.deviceLabel, new Date().toISOString(), body.size,
       JSON.stringify(body.counts), snapshotKey(auth.programId, id), base, edition,
-      vaultPart?.size ?? null, vaultPart?.keyId ?? null),
+      vaultPart?.size ?? null, vaultPart?.keyId ?? null, program.sync_enabled_at ? syncSeq : null),
     env.DB.prepare('INSERT INTO snapshot_files (snapshot_id, sha256) SELECT ?, value FROM json_each(?)').bind(id, filesJson),
   ]);
   return { snapshotId: id };
@@ -157,12 +169,19 @@ export async function uploadSnapshotBody(env, auth, id, request) {
   await env.FILES.put(row.r2_key, request.body, { httpMetadata: { contentType: 'application/gzip' } });
 
   // Commit only if this device may still push on that base. The second
-  // statement is conditional on the first having happened, in one batch.
+  // statement is conditional on the first having happened, in one batch. A
+  // syncing program's snapshot (sync_seq set) commits only while no record
+  // arrived since it was described, and leaves backing_device_id alone.
   const [moved] = await env.DB.batch([
-    env.DB.prepare(
-      `UPDATE programs SET latest_snapshot_id = ?, backing_device_id = ?
-        WHERE id = ? AND (backing_device_id IS NULL OR backing_device_id = ?) AND latest_snapshot_id IS ?`,
-    ).bind(id, auth.deviceId, auth.programId, auth.deviceId, row.base_snapshot_id),
+    row.sync_seq !== null && row.sync_seq !== undefined
+      ? env.DB.prepare(
+        `UPDATE programs SET latest_snapshot_id = ?
+          WHERE id = ? AND sync_enabled_at IS NOT NULL AND sync_seq = ? AND latest_snapshot_id IS ?`,
+      ).bind(id, auth.programId, row.sync_seq, row.base_snapshot_id)
+      : env.DB.prepare(
+        `UPDATE programs SET latest_snapshot_id = ?, backing_device_id = ?
+          WHERE id = ? AND sync_enabled_at IS NULL AND (backing_device_id IS NULL OR backing_device_id = ?) AND latest_snapshot_id IS ?`,
+      ).bind(id, auth.deviceId, auth.programId, auth.deviceId, row.base_snapshot_id),
     env.DB.prepare(
       `UPDATE snapshots SET status = 'committed'
         WHERE id = ? AND EXISTS (SELECT 1 FROM programs WHERE id = ? AND latest_snapshot_id = ?)`,
@@ -170,7 +189,8 @@ export async function uploadSnapshotBody(env, auth, id, request) {
   ]);
   if (moved.meta.changes !== 1) {
     await discard(env, row);
-    fail(409, 'not_backing_device', await backingInfo(env, await loadProgram(env, auth.programId)));
+    fail(409, row.sync_seq !== null && row.sync_seq !== undefined ? 'not_caught_up' : 'not_backing_device',
+      await backingInfo(env, await loadProgram(env, auth.programId)));
   }
   return { ok: true, snapshotId: id };
 }

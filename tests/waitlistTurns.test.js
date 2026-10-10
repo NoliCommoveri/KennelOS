@@ -199,3 +199,33 @@ test('her own pass carries no reason; taking a "Not this litter" back leaves not
   await actions.removePrepass(ids.kim, { litter_id: C.id });
   assert.deepEqual((await waitlistEntryRepo.getById(ids.kim)).prepasses, []);
 });
+
+// Reported 2026-10-10: "Next turn" showed a family who had said "Not this litter" to
+// every open litter, and "Offer to them" quietly passed them and moved on.
+test('the next turn line says when the family said "Not this litter" to all of it, before she taps', async () => {
+  const { nextTurnPrepassNote, nextTurn, waitlistConfig } = await import('../shared/data/waitlistRules.js');
+  await actions.addPrepass(ids.lee, { litter_id: A.id, reason, date: DAY });
+  await litterRepo.update(A.id, { picks_opened_date: DAY });
+  const entries = await waitlistEntryRepo.getByKennel(K.id);
+  const offers = await waitlistOfferRepo.getByKennel(K.id);
+  const litters = await litterRepo.getAll();
+  const dogs = await dogRepo.getAll();
+  const config = waitlistConfig(await kennelRepo.getById(K.id));
+  const n = nextTurn(entries, offers, litters, dogs, [], { today: DAY, config, programsById: new Map(), kennelId: K.id });
+  assert.equal(n.entry.id, ids.lee);
+  const note = nextTurnPrepassNote(n.entry, n.litters, { offers, config, litterOf: (l) => l.nickname });
+  assert.match(note, /They said "Not this litter" to Litter A\. "Offer to them" records their turn as a pass \(pass 1 of 2\) and offers the next family\./);
+});
+
+test('passes recorded on the way are reported, even when nobody is left to offer', async () => {
+  const { describeOfferChanges } = await import('../shared/data/waitlistRules.js');
+  for (const id of [ids.lee, ids.kim, ids.ng]) await actions.addPrepass(id, { litter_id: A.id, reason, date: DAY });
+  await litterRepo.update(A.id, { picks_opened_date: DAY });
+  const r = await actions.offerNext(A.id, { today: DAY });
+  assert.equal(r.none, true);
+  assert.deepEqual(r.auto_passed.map((x) => x.entry_id), [ids.lee, ids.kim, ids.ng]);
+  assert.deepEqual(r.auto_passed.map((x) => [x.counted, x.used, x.max]), [[true, 1, 2], [true, 1, 2], [true, 1, 2]]);
+  const lines = describeOfferChanges({ auto_passed: r.auto_passed }, { nameOf: (id) => (id === ids.lee ? 'Lee' : 'other'), litterOf: () => 'A' });
+  assert.equal(lines[0], 'Lee had said "Not this litter" to A, so their turn was recorded as a pass (pass 1 of 2) and the list moved on.');
+  assert.equal(await actions.offerNext(A.id, { today: DAY }), null, 'nothing more happens');
+});

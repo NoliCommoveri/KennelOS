@@ -57,7 +57,15 @@ class D1 {
     this.raw.exec('BEGIN');
     try {
       const out = [];
-      for (const s of statements) out.push(await s.run());
+      // Like D1: a statement that reads (SELECT, or RETURNING) gives its rows.
+      for (const s of statements) {
+        if (/^\s*select\b|\breturning\b/i.test(s.sql)) {
+          const r = await s.all();
+          out.push({ ...r, meta: { changes: 0 } });
+        } else {
+          out.push({ ...(await s.run()), results: [] });
+        }
+      }
       this.raw.exec('COMMIT');
       return out;
     } catch (err) {
