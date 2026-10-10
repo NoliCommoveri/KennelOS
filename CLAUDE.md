@@ -141,6 +141,9 @@ one-bump-per-batch rule applies.
   there as `cloud` or `private` (or `pending`, if the decision is open); otherwise
   `tests/syncRegistry.test.js` fails once the sample packet writes it. Adding a field to
   `cloud` sends it to the server, so it's a privacy decision: surface it, don't assume.
+  **Any change to the registry's cloud fields also regenerates the server's copy**
+  (live sync drops records carrying anything else): `node cloud/scripts/cloud-fields.mjs >
+  cloud/src/lib/cloudFields.js`. `cloud/tests/cloudFields.test.js` fails until you do.
 - Every data write marks the cloud backup dirty via `settings.markDataChanged()`. Repo
   writes already do it (`repoBase`); a **new direct `db` write** in the data layer must call
   it too, or be added to the exemptions in `tests/cloudDirty.test.js` with a reason.

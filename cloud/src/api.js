@@ -10,6 +10,7 @@ import {
   pollPairing, redeemHandoff, removeWrap, replaceRecoveryWrap, saveRecoveryCheck,
 } from './vault.js';
 import { checkRecovery, recoveryWrap, requestRecoveryEmail } from './recovery.js';
+import { disableSync, enableSync, pullRecords, pushRecords, recordCursor, syncHead, MAX_PUSH_BYTES } from './sync.js';
 import { getEntitlement, removeLinks, startLink, verifyLink } from './license.js';
 import { cancelEmailChange, getEmailChange, requestEmailChange } from './emailChange.js';
 import { ackInbox, publishProjection, readEvents, readInbox, readProjection, sendMessage, unpublishProjection, PROJECTION_MAX_BYTES } from './waitlist.js';
@@ -95,6 +96,14 @@ export async function handleApi(request, env, url, cors) {
   const pairing = VAULT_PAIRING.exec(p);
   if (pairing && m === 'GET') return json(await pollPairing(env, auth, pairing[1]), 200, cors);
   if (p === '/vault/handoffs' && m === 'POST') return json(await createHandoff(env, auth, await readJson(request)), 200, cors);
+  // Live sync (Cloud Phase 2 plan §6.1). Pro only, checked in sync.js.
+  if (p === '/sync/enable' && m === 'POST') return json(await enableSync(env, auth), 200, cors);
+  if (p === '/sync' && m === 'DELETE') return json(await disableSync(env, auth, await readJson(request)), 200, cors);
+  if (p === '/sync/head' && m === 'GET') return json(await syncHead(env, auth), 200, cors);
+  if (p === '/sync/push' && m === 'POST') return json(await pushRecords(env, auth, await readJson(request, MAX_PUSH_BYTES)), 200, cors);
+  if (p === '/sync/pull' && m === 'GET') return json(await pullRecords(env, auth, url), 200, cors);
+  if (p === '/sync/cursor' && m === 'POST') return json(await recordCursor(env, auth, await readJson(request)), 200, cors);
+
   if (p === '/vault/check' && m === 'PUT') return json(await saveRecoveryCheck(env, auth, await readJson(request)), 200, cors);
   if (p === '/vault/handoffs/redeem' && m === 'POST') return json(await redeemHandoff(env, auth, await readJson(request)), 200, cors);
 

@@ -915,7 +915,12 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   device, and a lease for the waitlist's server work. **Step 1 (record format and change
   detection) is built:** `data/cloud/syncRecords.js`, `data/cloud/syncState.js`, and the
   device-only `sync_meta` in **`db.version(2)`, the first block after `version(1)`, which is
-  frozen from now on** (`CLAUDE.md`, End-State guide §5). Nothing is visible yet.
+  frozen from now on** (`CLAUDE.md`, End-State guide §5). **Step 2 (the server) is built:**
+  `cloud/src/sync.js` (enable / off / head / push / pull / cursor), the snapshot rule for a
+  syncing program (any caught-up device), retention (tombstones 90 days, synced documents'
+  bytes kept), `/ops` counts, and the generated server allow-list
+  `cloud/src/lib/cloudFields.js`. **New cloud migration `0014_sync`: Apply pending on staging
+  and production after the merge.** Nothing is visible yet.
 
 ## Build & deploy
 

@@ -265,6 +265,9 @@ and Email Routing.
   until then.
 - [x] **Apply pending (`0012`) on staging's and production's `/ops`** right after the merge
   that carries changing the account's email (Phase 1 plan §2.6).
+- [ ] **Apply pending (`0014`) on staging's and production's `/ops`** right after the merge
+  that carries live sync's server (Cloud Phase 2 plan §8 step 2). Nothing calls it until the
+  app's sync ships, but the API answers 503 until it's applied.
 - [ ] **Apply pending (`0013`) on staging's and production's `/ops`** right after the merge
   that carries account recovery (Phase 1 plan §2.7).
 - [ ] **Try recovering an account on staging** with a test account that has Sensitive records

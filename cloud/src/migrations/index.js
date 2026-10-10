@@ -24,6 +24,7 @@ import familyEmail from './0010_family_email.sql';
 import vaultHandoff from './0011_vault_handoff.sql';
 import emailChange from './0012_email_change.sql';
 import accountRecovery from './0013_account_recovery.sql';
+import sync from './0014_sync.sql';
 
 export const MIGRATIONS = [
   { id: '0001', name: 'schema', sql: schema },
@@ -39,4 +40,5 @@ export const MIGRATIONS = [
   { id: '0011', name: 'vault_handoff', sql: vaultHandoff },
   { id: '0012', name: 'email_change', sql: emailChange },
   { id: '0013', name: 'account_recovery', sql: accountRecovery },
+  { id: '0014', name: 'sync', sql: sync },
 ];

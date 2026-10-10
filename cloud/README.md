@@ -29,6 +29,13 @@ src/vault.js           the private vault: wraps (recovery, passkeys), turn on/of
                        never verifies a WebAuthn assertion
 src/emailChange.js     changing the account's email: at once with the old inbox, else after a day,
                        cancellable from any signed-in device (migration 0012; plan §2.6)
+src/sync.js            live sync (docs/KennelOS_Cloud_Phase2_Sync_Plan.md §6): /sync/enable, DELETE
+                       /sync, /sync/head, /sync/push, /sync/pull, /sync/cursor. One row per record
+                       (sync_records), numbered from programs.sync_seq in one batch; the cloud part
+                       checked against src/lib/cloudFields.js; tombstones 90 days; Pro only
+                       (migration 0014)
+src/lib/cloudFields.js GENERATED from shared/data/syncRegistry.js by scripts/cloud-fields.mjs; never
+                       edit by hand (tests/cloudFields.test.js fails when it drifts)
 src/recovery.js        recovering the account with no signed-in device: the recovery code proves it
                        through the vault's account-recovery check, then the new email waits a day
                        (migration 0013; plan §2.7). No token; never says whether an address has

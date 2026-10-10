@@ -11,7 +11,7 @@
 //             assertCloudRow), or null when the row rule keeps nothing;
 //     sealed: the WHOLE row as JSON, encrypted with the vault key (base64 of a
 //             vaultCrypto payload envelope), or null for a delete;
-//     key_id, updated_at }
+//     key_id, updated_at, and for `files` file: the /files id of its bytes }
 //
 // Files: a `files` row never carries its blob on the wire. Before anything else
 // it becomes a "sync row" (prepareFileRow): the blob is replaced by
@@ -119,7 +119,10 @@ export async function buildPutRecord(table, syncRow, vault, { baseSeq = 0, keptF
   const bytes = await encryptPayload(vault.key, vault.keyId, enc.encode(JSON.stringify({ f: RECORD_FORMAT, t: table, r: syncRow })));
   return {
     tbl: table, id: syncRow.id, op: 'put', base_seq: baseSeq,
-    cloud, sealed: toBase64(bytes), key_id: vault.keyId, updated_at: syncRow.updated_at ?? null
+    cloud, sealed: toBase64(bytes), key_id: vault.keyId, updated_at: syncRow.updated_at ?? null,
+    // A files record names the /files id its bytes are under (a hash of ciphertext
+    // for a private file), so the server keeps them while the record lives.
+    ...(table === 'files' ? { file: syncRow.vault_file?.sha256 ?? null } : {})
   };
 }
 

@@ -155,3 +155,12 @@ test('a file becoming cloud (a pedigree now points at it) is re-sent', async () 
   assert.equal(scan.puts.find((p) => p.tbl === 'files').cloudFile, true);
   await state.clearSyncMeta();
 });
+
+test('a files record names its /files id (the server keeps those bytes while the record lives)', async () => {
+  const blob = new Blob(['x']);
+  const syncRow = rec.prepareFileRow({ id: 'f9', blob, created_at: 'c' }, 'b'.repeat(64));
+  const sealedFile = await rec.sealFileRow(syncRow, blob, vault);
+  const record = await rec.buildPutRecord('files', sealedFile.row, vault);
+  assert.equal(record.file, sealedFile.upload.sha256);
+  assert.equal('file' in (await rec.buildPutRecord('dogs', seeded.dogs[0], vault)), false);
+});
