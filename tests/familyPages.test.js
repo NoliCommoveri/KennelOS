@@ -30,9 +30,9 @@ test("the family pages' labels match vocab.js", () => {
   assert.equal(SERVER_DECIDING, DECIDING_LABEL);
 });
 
-test('the turn holder\'s row: highlighted, nothing of them but "Currently deciding"', () => {
-  const html = publicListHtml([{ position: 1, name: 'Currently deciding', pref_sex: null, added: null, deciding: true }, { position: 2, name: 'Bo K.', pref_sex: 'male', added: '2026-01-02' }], '', 2);
-  assert.match(html, /<tr class="deciding">\s*<td class="num">#1<\/td>\s*<td><em>Currently deciding<\/em><\/td>\s*<td><\/td>/);
+test('the turn holder\'s row: highlighted, "Currently deciding" for the name, sex and date kept', () => {
+  const html = publicListHtml([{ position: 1, name: 'Currently deciding', pref_sex: 'female', added: '2026-01-01', deciding: true }, { position: 2, name: 'Bo K.', pref_sex: 'male', added: '2026-01-02' }], '', 2);
+  assert.match(html, /<tr class="deciding">\s*<td class="num">#1<\/td>\s*<td><em>Currently deciding<\/em><\/td>\s*<td>Female<\/td>\s*<td class="small">Jan 1, 2026<\/td>/);
   assert.match(html, /<tr class="mine">/);
   assert.match(publicListHtml([]), /No families to show right now/);
 });

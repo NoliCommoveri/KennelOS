@@ -163,8 +163,8 @@ function upcomingRow(u) {
 const upcomingOf = (projection, where) => (Array.isArray(projection.upcoming) ? projection.upcoming : []).filter((u) => u && u[where] === true);
 
 // Who holds a turn shows on the public list as "Currently deciding" (Waitlist Spec
-// §16.9, decided 2026-10-10): their row keeps its number, and the name, sex
-// preference and date are blanked. Her device publishes the rows unmasked; the
+// §16.9, decided 2026-10-10): their row keeps its number, sex preference and date
+// added; only the name is replaced. Her device publishes the rows unmasked; the
 // mask is worked out here, from who holds a turn now, so a turn the server opens
 // or closes while her phone is off shows at once. Copied from
 // shared/data/waitlistRules.js (DECIDING_LABEL); tests/familyPages.test.js in the
@@ -177,7 +177,7 @@ function publicRows(projection) {
     .filter((e) => e && e.status === 'active' && (e.offers || []).length && Number.isInteger(e.position))
     .map((e) => e.position));
   return rows.map((r) => (deciding.has(r.position) || r.deciding
-    ? { position: r.position, name: DECIDING_LABEL, pref_sex: null, added: null, deciding: true }
+    ? { ...r, name: DECIDING_LABEL, deciding: true }
     : r));
 }
 

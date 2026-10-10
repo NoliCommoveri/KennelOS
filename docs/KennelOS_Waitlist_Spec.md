@@ -957,7 +957,7 @@ W1e choices worth knowing (built 2026-10-06):
 - **New applications** follow her form in her order and wording, with the public-list notice
   shown as a reminder to tell the family. Editing an existing entry shows its own question
   wording, then any questions added since.
-- **Offer a litter…** on an active family's page lists the kennel's live litters with the
+- **Offer pups…** (renamed from Offer a litter…, 2026-10-10) on an active family's page lists the kennel's live litters with the
   pups available to them, or why not (another family's open offer, turn already used, paused,
   listening for other litters, nothing matching). Offering opens picks if they weren't open.
   Offering someone who isn't next asks her to confirm and notes who was next on the offer.
@@ -1530,7 +1530,7 @@ Dismissing hides it; nothing opens by itself.
 > is to stop anxious families below from pressing the one deciding. A pass or a lapsed turn
 > hides nothing: their page shows their number and the public list shows their row. On the
 > public list the turn holder's row stays at its number, highlighted, and reads
-> **Currently deciding** (no name, sex preference or date). The list shows **no family
+> **Currently deciding** in place of the name; their sex preference and date added still show. The list shows **no family
 > count** (paused families are left off, so a count is never right), and gains an
 > **Available Puppies** section like Coming up: each litter with open picks, its pups
 > remaining by sex. And the status page shows, under the overall number, **their place for
