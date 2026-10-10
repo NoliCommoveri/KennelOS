@@ -52,6 +52,19 @@ async function fileSha(row) {
   return fileShaCache.get(key);
 }
 
+// One row as it syncs and its hash: the ONE place that says how a local row is
+// hashed, used by the scan and by syncApply (so a pulled row's sync_meta hash is
+// exactly what the next scan computes). `plainSha256` overrides the file hash
+// (syncApply knows it from the record); otherwise it's read from the blob.
+export async function syncRowFor(table, row, keptFileIds, { plainSha256 } = {}) {
+  if (table !== 'files') return { syncRow: row, blob: null, cloudFile: false, hash: await rowHash(table, row, null) };
+  const blob = row.blob instanceof Blob ? row.blob : null;
+  const sha = plainSha256 !== undefined ? plainSha256 : await fileSha(row);
+  const syncRow = prepareFileRow(row, blob ? sha : null);
+  const cloudFile = keptFileIds.has(row.id);
+  return { syncRow, blob, cloudFile, hash: await rowHash(table, syncRow, { cloud: cloudFile }) };
+}
+
 // Every syncing row on this device as it syncs, sample rows left out:
 // → { rows: Map(metaId → { tbl, row_id, syncRow, blob, cloudFile, hash }),
 //     keptFileIds }. `backup` reuses an exportAll({ encodeBlobs: false }).
@@ -63,18 +76,7 @@ export async function readSyncRows({ backup = null, manifest = getSampleDataMani
     const list = withoutSample(backup.collections[table], manifest?.[table]);
     for (const row of list) {
       if (!row || !row.id) continue;
-      let syncRow = row;
-      let blob = null;
-      let extra = null;
-      if (table === 'files') {
-        blob = row.blob instanceof Blob ? row.blob : null;
-        syncRow = prepareFileRow(row, await fileSha(row));
-        extra = { cloud: keptFileIds.has(row.id) };
-      }
-      rows.set(metaId(table, row.id), {
-        tbl: table, row_id: row.id, syncRow, blob, cloudFile: Boolean(extra?.cloud),
-        hash: await rowHash(table, syncRow, extra)
-      });
+      rows.set(metaId(table, row.id), { tbl: table, row_id: row.id, ...(await syncRowFor(table, row, keptFileIds)) });
     }
   }
   return { rows, keptFileIds };

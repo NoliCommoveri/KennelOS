@@ -91,7 +91,10 @@ These are load-bearing. Changing any of them is a design decision, not a routine
 1. **Multi-page static, no SPA router.** One `.html` per screen, each pulling in shared
    JS. Navigation is real links between pages.
 2. **Strict layering: pages → repos → Dexie.** Pages never import `db.js` and never
-   call `db.*`. Only the repo modules in `data/` touch Dexie.
+   call `db.*`. Only the repo modules in `data/` touch Dexie. Two data-layer modules write
+   every table directly, by design: `importExport.js` (restores) and `syncApply.js` (rows
+   pulled by live sync, which keep their own timestamps and must not be marked as local
+   edits; Cloud Phase 2 plan §5.3).
 3. **ES modules over HTTP.** Must be served (`python3 -m http.server`, `npx serve`, or
    GitHub Pages) — never opened as `file://`, which CORS-blocks module imports.
 4. **No CDN / no network deps.** Everything third-party is vendored under
@@ -177,7 +180,13 @@ KennelOS/
                                record's cloud part (syncRegistry) and sealed whole row,
                                file references, canonical JSON and the row hash
       syncState.js             The only reader/writer of sync_meta; the scan that finds
-                               changed and deleted rows by hash (plan §3.3)
+                               changed and deleted rows by hash (plan §3.3); syncRowFor,
+                               the one place a local row's sync hash is computed
+      cloudSync.js             Live sync's loop: push (scan → records → /sync/push in
+                               pages, file bytes first, the shrink guard, dropped records
+                               not resent unchanged), pull (cursor → syncApply), syncNow
+                               (one at a time across tabs), the scheduler, the pauses and
+                               the activity list (plan §5); only where liveSync is on
       vaultPasskey.js          WebAuthn + PRF for passkey unlock (no db, no network): the
                                RP ID, support check, make a passkey / get its PRF output
       cloudVault.js            Vault flows: turn on with a recovery code, unlock (with the
@@ -212,6 +221,11 @@ KennelOS/
     vocab.js                   Controlled vocabularies + event-type catalog
     csvImport.js               Generic CSV match-or-create engine + mappings
     importExport.js            JSON backup / restore
+    syncApply.js               Live sync: writes pulled records in one transaction per
+                               page (echo skip, server wins over an unpushed local edit,
+                               a delete still referenced here becomes an archive, files
+                               fetched and opened), then SYNC_APPLIED_EVENT (Cloud Phase 2
+                               plan §5.3, §5.4)
     companionExport.js         Companion allow-list bundle builder (§20)
     dropbox.js                 Dropbox API client — PKCE OAuth + JSON up/download (§26)
     assistantSync.js           Owner-side Dropbox flows: backup push/pull,

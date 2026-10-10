@@ -920,7 +920,11 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   syncing program (any caught-up device), retention (tombstones 90 days, synced documents'
   bytes kept), `/ops` counts, and the generated server allow-list
   `cloud/src/lib/cloudFields.js`. **New cloud migration `0014_sync`: Apply pending on staging
-  and production after the merge.** Nothing is visible yet.
+  and production after the merge.** **Step 3 (the app's loop) is built:**
+  `data/cloud/cloudSync.js` (push, pull, the lock, the scheduler, pauses and the activity
+  list) and `data/syncApply.js` (pulled records in one transaction per page), gated by the
+  new `editionFlags.liveSync` (Pro). Tested with two simulated devices against the real
+  Worker. Nothing is visible yet: the scheduler starts nowhere until step 6.
 
 ## Build & deploy
 

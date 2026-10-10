@@ -419,7 +419,23 @@ application twice or answer the same family event twice. So:
    deletion, `/ops` counts, rate limits. Tests: `cloud/tests/sync.test.js` (seq order under
    concurrent batches, superseded reporting, tombstones and the horizon, `vault_required`,
    `key_id` checks, `pro_required`, the allow-list drop). Staging: Apply pending.
-3. **Client sync loop.** `cloudSync.js` (push, pull, scheduler, locks), `syncApply.js`
+3. **Built 2026-10-10.** As built: `data/cloud/cloudSync.js` (`pushChanges`, `pullChanges`,
+   `syncNow`, `pullIfBehind`, `syncStatus`, `startSyncScheduler`, lock
+   `kennelos-cloud-sync`), `data/syncApply.js` (`applyPulledRecords`,
+   `SYNC_APPLIED_EVENT`), `syncState.syncRowFor` (the one hashing path, so a pulled row's
+   meta matches the next scan), `cloudApi`'s `/sync/*` calls, `editionFlags.liveSync`, and
+   `settings.getCloudSyncState` (`kennelOS.cloudSyncState`: enabled, cursor, times, lastError,
+   `rejected`, `activity`; Reset App clears it). As decided here: a record the server drops
+   is remembered by hash and not resent until it changes; a pulled file whose bytes can't
+   be fetched lands without them (`missing_file` in the activity list) with a meta hash that
+   won't push it back blobless; the shrink guard runs on the scan; the scheduler isn't
+   started anywhere yet (step 6). Tests: `tests/cloudSync.test.js` (two devices against the
+   real Worker: full round trip with private fields, edits and deletes both ways, both
+   editing one record, a delete racing a new reference, private and cloud files, a dropped
+   record, the shrink guard, every pause, its own echo vs a newer local edit; the echo
+   test was checked by breaking the skip). The page transaction was checked in real
+   IndexedDB (headless Chromium).
+   Originally: **Client sync loop.** `cloudSync.js` (push, pull, scheduler, locks), `syncApply.js`
    (transactional pages, echo skip, delete-to-archive, `SYNC_APPLIED_EVENT`),
    `cloudApi`'s `/sync/*` calls, `editionFlags.liveSync`. Tests: `tests/cloudSync.test.js`
    against a fake server (two simulated devices editing, offline then reconnecting, the same
