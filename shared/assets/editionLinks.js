@@ -104,7 +104,8 @@ function cloudUpgradeDialog({ email }) {
     overlay.innerHTML = `<div class="modal" role="dialog" aria-modal="true">
       <h2 style="margin-top:0;">Switch Products Seamlessly</h2>
       <p class="muted" style="white-space:pre-wrap;">${esc(
-        `Since you're using cloud backup, switching is easy! Once you've purchased your Pro license, select "I already use KennelOS" and log in using the email ${email}.`)}</p>
+        `Since you're using cloud backup, switching is easy! Once you've purchased your Pro license, select "I already use KennelOS" and log in using the email ${email}.\n\n`
+        + `Use the same email (${email}) when you buy Pro, so your Pro features online are ready right away.`)}</p>
       <div class="upgrade-handoff"><p class="muted">Making your unlock code…</p></div>
       <p class="muted">Optionally, you can also save a backup file below before switching.</p>
       <p class="muted upgrade-file-note" role="status" hidden></p>
@@ -164,6 +165,7 @@ async function fileUpgradeNote({ email }) {
   await alertModal({
     title: 'Your backup file is downloading',
     message: `You also use cloud backup (${email}), so there's an easier way in.\n\n`
+      + `Use the same email (${email}) when you buy Pro, so your Pro features online are ready right away.\n\n`
       + `After you buy Pro, open KennelOS Pro, choose "I already use KennelOS → sign in and restore", and sign in with the same email. Your dogs, litters, pairings, health records and contact names come straight back.\n\n`
       + `Then, in Pro, go to Import / Export, choose this file and "Merge into current data" to add what cloud backup doesn't hold: prices and payments, Financials, contacts' phone, email and address, and your notes.\n\n`
       + `Tip: with Sensitive records on and unlocked (Import / Export → Cloud), cloud backup holds those too, and you won't need the file.`,
