@@ -86,10 +86,10 @@ on you:
 - **The "Who we are" section** in `about.html` — a generic placeholder story, flagged
   with an HTML comment. Write the real one; it's the page people read before trusting
   you with a decade of pedigrees.
-- **The legal pages** — `terms.html` names no business and shows `[governing jurisdiction]`
-  in §18; `privacy.html` §1 and `terms.html` §1 have a slot for the operating business's legal
-  name (and an address, if required). Fill both, and have the two pages read by someone
-  qualified in the law where KennelOS is run: they were written from the code, not by a lawyer.
+- **The legal pages** — filled in (2026-10-10): the operator is "KennelOS" and the terms are
+  governed by United States law (`terms.html` §18). If a US state is chosen later, name it
+  in §18 (most US contracts name a state's law and courts). Have both pages read by someone
+  qualified in US law: they were written from the code, not by a lawyer.
 - **Furever's status** — `furever.html` says "in active development" and links to
   `furever.kennelos.app`. Drop that line once the origin is live.
 

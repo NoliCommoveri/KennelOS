@@ -298,9 +298,8 @@ and Email Routing.
   **not** offer to install as an app (no manifest/service worker — that's on purpose).
   Once cloud backup is live: `kennelos.app/privacy.html` and `kennelos.app/terms.html` load
   and every footer links to both, and no page still says "no accounts", "no cloud" or "no
-  server". Before launch, fill the two `LAUNCH PLACEHOLDER`s in `terms.html` / `privacy.html`
-  (the operating business's legal name, and the governing law and courts), and have both
-  pages read by someone qualified in the law where KennelOS is run.
+  server". The operator ("KennelOS") and governing law (United States) are filled in; have both
+  pages read by someone qualified in US law before launch.
 
 ## 5. Recurring (every subsequent release)
 

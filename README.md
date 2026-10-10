@@ -183,8 +183,8 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   New `site/terms.html` (data ownership and backups, the cloud service, the waitlist, Pro
   licenses / payment / refunds, acceptable use, disclaimers, liability, governing law), linked
   from every footer, the sitemap and next to the checkout buttons. The other pages now
-  describe private backup and Pro's online waitlist. Two `LAUNCH PLACEHOLDER`s remain (legal
-  name, governing law): see `site/README.md`. Site only, so no `CACHE_NAME` bump.
+  describe private backup and Pro's online waitlist. Operator "KennelOS", governed by United
+  States law (`terms.html` §18). Site only, so no `CACHE_NAME` bump.
 - **Multi-kennel scope, Phase 1 — done & browser-verified (headless Chromium, all three
   editions, no console errors).** Kennel becomes a real scope rather than a lookup. Design +
   the remaining phases: `docs/KennelOS_Multi_Kennel_Scope_Spec.md`.
