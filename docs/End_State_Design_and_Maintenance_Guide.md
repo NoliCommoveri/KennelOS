@@ -127,7 +127,10 @@ KennelOS/
   vendor/                      Vendored deps: dexie.min.mjs, papaparse.min.mjs,
                                lz-string.min.mjs, jspdf.umd.min.js (the self-
                                contained UMD build of jsPDF, Pro-only, loaded on
-                               demand by assets/invoicePdf.js, §24), tesseract/
+                               demand by assets/invoicePdf.js, §24), tesseract/,
+                               pdfjs/ (PDF.js 4.10.38, Apache-2.0: pdf.min.mjs +
+                               pdf.worker.min.mjs, loaded on demand by
+                               data/pedigreeReader.js for pedigree import)
   resources/
     common_tests_by_breed_seed.csv   Optional breed→test seed data. Columns:
                                `Breed Group,breed,test_name` (col A is for the
@@ -184,7 +187,12 @@ KennelOS/
                                (JPEG via DCTDecode); the compress step for a
                                camera/screenshot upload (§26.1)
     ocr.js                     Offline receipt OCR (vendored Tesseract) — pre-fills
-                               amount/date/vendor/receipt # on the expense form (§26.1)
+                               amount/date/vendor/receipt # on the expense form (§26.1);
+                               recognizeWords() returns positioned words (pedigree import)
+    pedigreeReader.js          Pedigree file → positioned words: PDF.js text layer, or
+                               render + OCR for a picture/image (browser-only)
+    pedigreeParse.js           Pure: positioned words → the chart's dogs by path
+    pedigreeImport.js          Pedigree import plan (match/merge/review, pure) + commit
     incomeView.js              Derived income aggregator (Sale + outgoing StudService)
     litterFinances.js          Derived per-litter P&L (income vs cost)
     moneyReport.js             Money in/out by period (P&L by Month, Year in Review; §31)
@@ -1448,7 +1456,45 @@ root-level `assistant.html` the helper opens), plus root `index.html`.
 Dogs: `dog` (detail — includes the Pro-only **Show Record** card, gated on
 `editionFlags.shows` and rendered only once the dog has a non-archived `show` event:
 per-track progress from `showPoints.js` plus a clickable show history; its "+ Add Show"
-opens the event form pre-set to `show`), `roster`, `pedigree`.
+opens the event form pre-set to `show`), `roster`, `pedigree`, `pedigree-import`.
+Pedigree import: `pedigree-import` (shared — Lite and Pro; an "Import pedigrees" button on
+the Dogs header and on the Pedigree page). One or more PDFs (or images) are read in the
+browser — nothing is uploaded. **Reading** (`data/pedigreeReader.js`): page 1's PDF.js text
+layer when it has one (≥ 20 text items — an AKC PDF or pedigree software), otherwise the
+page is rendered at 2048 px and run through `ocr.recognizeWords` (best-effort; the file card
+says "Read from an image — check names"). **Layout** (`data/pedigreeParse.js`, pure): words
+→ narrow line segments; header lines (Name/AKC #/Breed/Sex/Birth Date/Colors/Breeder) are
+read for the dog and dropped from the chart by what they say; generation columns are
+clusters of left edges that hold at least one registration number; within a column an
+entry is a name line (wrapped lines joined) plus detail lines (registration — AKC
+`XX000000/00` with OCR letter-for-digit swaps mapped back, or a foreign code like `MET
+BOST.T.915/19`; a color-only line; `AKC DNA …`, `CHIC…`, `(Country)` → notes). Each entry's
+child is the nearest entry one column left; above it = sire, below = dam. Ancestors are
+addressed by path (`''` the dog, `s`, `d`, `sd`…), and a path's last letter is the sex.
+Titles (`CH`, `GCH`…) come off the front of a name into notes. If the leftmost numbered
+column has 2+ boxes the dog's own box went unread and the dog comes from the header.
+Overfull columns and unplaceable boxes become one warning each. **Matching**
+(`data/pedigreeImport.js` `planImport`, pure — the CSV import's rules): a registration
+number (whitespace-stripped, upper-cased) is the natural key and merges automatically —
+within a chart (line-breeding), across charts, and against every existing dog
+(`getAll({ includeArchived, includePedigreeOnly })`); a name alone (case-insensitive,
+trimmed, curly quotes folded) never matches — a numberless dog sharing a name with an
+existing or batch dog, or a numbered dog sharing one with a numberless existing dog, is
+**review** (same as …/a separate dog). Parents come from paths; two charts naming
+different parents for one dog block until chosen per dog, or in bulk with a file's "Use
+this pedigree's answers where pedigrees disagree". An existing dog keeps any parent it
+already has. Every row's name, number and color are editable (applied to all of that dog's
+source boxes, then re-planned). Import is enabled only when nothing blocks and every new
+dog has a breed (per file, prefilled from the header). **Commit** (`commitImport`): one
+Dexie transaction over dogs/kennels/documents/files, parents first; new dogs are
+`pedigree_only`, `external`, `external_reference`, `call_name = registered_name`; an
+existing dog (a kennel dog included) is only **filled where blank** (registered name,
+number, registry, color, DOB, sire, dam) and never made pedigree-only. The PDFs are dropped
+afterwards unless a file's **Save this PDF to … Documents** box is ticked (Pro —
+`editionFlags.documents`): it's filed as a `pedigree` document on that chart's dog, after
+the dogs are saved, under the dog's kennel, else the active/sole own kennel, else the
+"File under" kennel the page asks for (a pedigree-only dog lends none); a failure there is
+reported and leaves the dogs.
 Breeding: `pairings`/`pairing`, `litters`/`litter`, `active-breeding`, `live-births`.
 People: `contact`, `kennels` (two screens in one page: on top the **portfolio** — one card
 per own kennel with live counts (roster / active litters / placements this year) and the

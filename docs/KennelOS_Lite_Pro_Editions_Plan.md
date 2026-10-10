@@ -74,7 +74,7 @@ without a server, and good enough.
 | Pairings | Unlimited | Unlimited |
 | Events / history log | Unlimited | Unlimited |
 | Calendar (month grid of events + reminders, Add to Google Calendar link) | ✅ | ✅ |
-| Pedigree-only dogs (ancestors kept for lineage; never counted toward the cap) | ✅ | ✅ |
+| Pedigree import from PDF + pedigree-only dogs (ancestors kept for lineage; never counted toward the cap) | ✅ | ✅ (+ keep the PDF in Documents) |
 | Sales → income | ✅ log sales on their pups | ✅ |
 | Buyers on a sale | ✅ self + inline "add buyer" | ✅ full Contacts section |
 | Contacts section (browse/manage all) | ❌ | ✅ |

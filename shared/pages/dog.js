@@ -240,7 +240,7 @@ function dogOptions(current, excludeId, sex) {
   const opts = ctx.allDogs
     .filter((d) => d.id !== excludeId && (ctx.pickerArchived || !d.is_archived))
     .filter((d) => !sex || d.id === current || d.sex === sex || d.sex === 'unknown')
-    .map((d) => `<option value="${esc(d.id)}"${d.id === current ? ' selected' : ''}>${esc(d.call_name)}${d.registered_name ? ' — ' + esc(d.registered_name) : ''}${d.pedigree_only ? ' (pedigree only)' : ''}${d.is_archived ? ' (archived)' : ''}</option>`)
+    .map((d) => `<option value="${esc(d.id)}"${d.id === current ? ' selected' : ''}>${esc(d.call_name)}${d.registered_name && d.registered_name !== d.call_name ? ' — ' + esc(d.registered_name) : ''}${d.pedigree_only ? ' (pedigree only)' : ''}${d.is_archived ? ' (archived)' : ''}</option>`)
     .join('');
   return `<option value="">— none —</option>` + opts;
 }

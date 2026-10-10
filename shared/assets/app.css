@@ -708,6 +708,23 @@ button.cal-cell:hover { border-color: var(--accent); }
   .cal-more-word { display: none; }
 }
 
+/* --- Pedigree import (pages/pedigree-import.html) ------------------------ */
+.ped-drop { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; padding: 22px 16px;
+  border: 2px dashed var(--border-strong); border-radius: var(--radius); cursor: pointer; }
+.ped-drop:hover, .ped-drop-over { border-color: var(--accent); background: var(--accent-soft); }
+.ped-file { border-top: 1px solid var(--border); padding: 12px 0; }
+.ped-file:first-child { margin-top: 12px; }
+.ped-file .badge { margin-left: 4px; }
+.ped-file-opts { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-top: 8px; }
+.ped-file-opts .field input { min-width: 14em; }
+.ped-warn { margin: 6px 0 0; padding-left: 18px; color: var(--warn); font-size: 13px; }
+.ped-issue { color: var(--warn); font-size: 12px; margin-top: 2px; }
+.ped-needs { border-color: var(--warn) !important; background: var(--warn-soft); }
+.ped-table-wrap { overflow-x: auto; margin-top: 12px; }
+.ped-table td { vertical-align: top; padding: 8px 10px; }
+.ped-table input[type="text"] { width: 100%; min-width: 12em; }
+.ped-table select { max-width: 16em; }
+
 /* --- Pedigree ----------------------------------------------------------- */
 .ped-scroll { overflow-x: auto; overflow-y: hidden; padding: 4px; }
 .ped-canvas { position: relative; }
