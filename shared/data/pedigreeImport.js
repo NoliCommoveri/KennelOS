@@ -9,9 +9,9 @@
 //     name of every dog in the app (current kennel dogs included, titles in front
 //     ignored), never a call name.
 //   - A name alone never matches anything automatically. A dog with no number
-//     whose name equals another dog's (in the batch or already in the app), or a
-//     numbered dog whose name equals an existing dog that has no number, goes to
-//     review: same dog, or a separate one.
+//     whose name equals another dog's in the batch, or any dog whose name equals
+//     a dog already in the app (numbered or not — a number typed differently is
+//     the likelier story), goes to review: same dog, or a separate one.
 //   - Two sources that disagree on a dog's sire or dam go to review too; a parent
 //     already recorded on an existing dog is never overwritten.
 // New dogs are created pedigree-only (dogRepo `pedigree_only`) with the chart's
@@ -22,13 +22,16 @@
 // planImport is pure (tests/pedigreeImport.test.js); commitImport writes through
 // the repos inside one Dexie transaction, so a failed save leaves nothing behind.
 import { db } from './db.js';
-import { dogRepo } from './dogRepo.js';
+import { dogRepo, dogName } from './dogRepo.js';
 import { documentRepo } from './documentRepo.js';
 import { fileRepo } from './fileRepo.js';
 import { resolveKennelIdForWrite } from './kennelScope.js';
 import { splitTitles } from './pedigreeParse.js';
 
-export const normReg = (r) => String(r || '').toUpperCase().replace(/\s+/g, '');
+// A registration number's key: upper-cased, an "AKC" in front dropped, and only
+// letters and digits kept — "NP165114/01", "np 165114-01", "AKC NP16511401" are
+// one number however they were typed.
+export const normReg = (r) => String(r || '').toUpperCase().replace(/^\s*AKC\b[\s#:.-]*/, '').replace(/[^A-Z0-9]/g, '');
 export const normName = (n) => String(n || '').replace(/[’‘`´]/g, "'").replace(/[“”]/g, '"')
   .trim().replace(/\s+/g, ' ').toLowerCase();
 
@@ -164,7 +167,13 @@ export function planImport({ files, existing = [], edits = {}, decisions = {} })
       row.action = 'existing';
       row.existingId = regMatch.id;
     } else {
-      const sameName = (byName.get(nm) || []).filter((d) => !c.reg || !d.registration_number);
+      // Every dog in the app with this registered name is offered — one whose
+      // number differs too, since a number typed or read differently is far more
+      // likely than two dogs with one registered name. Never silently a new dog.
+      const sameName = byName.get(nm) || [];
+      for (const d of sameName) {
+        if (c.reg && d.registration_number) row.issues.push(`Same registered name as your ${dogName(d)}, but the registration numbers differ (this chart: ${c.fields.registration_number}; yours: ${d.registration_number}).`);
+      }
       const batchSame = (candsByName.get(nm) || []).filter((o) => o !== c && (!c.reg || !o.reg));
       if (nm && (sameName.length || batchSame.length)) {
         row.choices = [

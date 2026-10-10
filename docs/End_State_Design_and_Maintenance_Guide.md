@@ -1479,15 +1479,17 @@ Titles (`CH`, `GCH`…) come off the front of a name into notes. If the leftmost
 column has 2+ boxes the dog's own box went unread and the dog comes from the header.
 Overfull columns and unplaceable boxes become one warning each. **Matching**
 (`data/pedigreeImport.js` `planImport`, pure — the CSV import's rules): a registration
-number (whitespace-stripped, upper-cased) is the natural key and merges automatically —
+number (`normReg`: upper-cased, a leading `AKC` dropped, letters and digits only — so
+`NP165114/01`, `np 165114-01` and `AKC NP16511401` are one) is the natural key and merges automatically —
 within a chart (line-breeding), across charts, and against every existing dog
-(`getAll({ includeArchived, includePedigreeOnly })`); a name alone (case-insensitive,
+(`getAll({ includeArchived, includePedigreeOnly })`, re-read for each file read); a name alone (case-insensitive,
 trimmed, curly quotes folded) never matches, and a chart's names are registered names, so
 they're compared with the `registered_name` of every dog in the app (the kennel's current
 dogs included, titles in front such as `GCH` ignored on both sides via
-`pedigreeParse.splitTitles`), never `call_name` — a numberless dog sharing a name with an
-existing or batch dog, or a numbered dog sharing one with a numberless existing dog, is
-**review** (same as …/a separate dog). Parents come from paths; two charts naming
+`pedigreeParse.splitTitles`), never `call_name` — any dog sharing a name with an existing
+dog (numbered or not: when both have numbers that differ, the row also notes the two
+numbers), or a numberless dog sharing one with a batch dog, is **review** (same as …/a
+separate dog), never silently a new dog. Parents come from paths; two charts naming
 different parents for one dog block until chosen per dog, or in bulk with a file's "Use
 this pedigree's answers where pedigrees disagree". An existing dog keeps any parent it
 already has. Every row's name, number and color are editable (applied to all of that dog's

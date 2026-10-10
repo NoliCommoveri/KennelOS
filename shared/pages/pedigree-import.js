@@ -59,7 +59,7 @@ async function read(f) {
     f.status = 'failed';
     f.error = e?.message || String(e);
   }
-  state.existing = await existingReady;
+  state.existing = await loadExisting();
   replan();
 }
 
@@ -279,7 +279,7 @@ els.commit.addEventListener('click', async () => {
     state.edits = {};
     state.decisions = {};
     state.view = null;
-    state.existing = await dogRepo.getAll({ includeArchived: true, includePedigreeOnly: true });
+    state.existing = await loadExisting();
     replan();
     els.done.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (e) {
@@ -300,7 +300,11 @@ els.drop.addEventListener('drop', (e) => {
 });
 
 // Every dog already in the app — archived and pedigree-only too — for matching.
-const existingReady = dogRepo.getAll({ includeArchived: true, includePedigreeOnly: true })
-  .catch((e) => { showError(e?.message || String(e)); return []; });
+// Re-read for each file, so a dog added or edited in another tab since this page
+// opened is matched too.
+function loadExisting() {
+  return dogRepo.getAll({ includeArchived: true, includePedigreeOnly: true })
+    .catch((e) => { showError(e?.message || String(e)); return state.existing; });
+}
 // Own kennels, for filing a kept PDF when there's more than one and none is active.
 if (editionFlags.documents) ownKennels().then((ks) => { state.kennels = ks; }).catch(() => {});
