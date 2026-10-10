@@ -75,10 +75,10 @@ test('two charts that disagree on a sire need a choice', () => {
   let plan = planImport({ files });
   const pup = plan.rows.find((r) => r.name === 'Pup');
   assert.ok(pup.sireConflict);
-  assert.deepEqual(pup.sireFrom['r:NP000002/01'], ['A']);
+  assert.deepEqual(pup.sireFrom['r:NP00000201'], ['A']);
   assert.ok(!plan.ready);
-  plan = planImport({ files, decisions: { [`sire:${pup.key}`]: 'r:NP000003/01' } });
-  assert.equal(plan.rows.find((r) => r.name === 'Pup').sireKey, 'r:NP000003/01');
+  plan = planImport({ files, decisions: { [`sire:${pup.key}`]: 'r:NP00000301' } });
+  assert.equal(plan.rows.find((r) => r.name === 'Pup').sireKey, 'r:NP00000301');
   assert.ok(plan.ready);
 });
 
@@ -114,6 +114,8 @@ test('commit: new dogs are pedigree-only and linked; an existing dog is only fil
   assert.ok(!bella.pedigree_only, 'an existing dog is never made pedigree-only');
   const sire = await dogRepo.getById(bella.sire_id);
   assert.equal(sire.registered_name, 'Sire');
+  assert.equal(sire.call_name, '', 'a chart gives registered names, not call names');
+  assert.equal(bella.call_name, 'Bella', 'an existing call name is untouched');
   assert.equal(sire.pedigree_only, true);
   assert.equal(sire.sex, 'male');
   assert.equal((await dogRepo.getById(sire.sire_id)).registered_name, 'Grand Sire');
@@ -145,4 +147,52 @@ test('without a kennel to file under, the dogs still save and the PDF is reporte
   assert.equal(res.created, 1);
   assert.equal(res.fileErrors.length, 1);
   assert.equal(tables.documents.rows.size, 0);
+});
+
+test('a chart name is a registered name: it never matches an existing call name', () => {
+  const existing = [{ id: 'x1', call_name: 'Bella', registered_name: '' },
+    { id: 'x2', call_name: 'Bee', registered_name: 'Bella' }];
+  const plan = planImport({ existing, files: [file('A', [dog('', 'Bella', '')])] });
+  const row = plan.rows[0];
+  assert.equal(row.action, 'review');
+  assert.deepEqual(row.choices.map((c) => c.value), ['existing:x2', 'new'], 'only the registered-name match is offered');
+});
+
+test('a chart name is checked against the registered names of the kennel’s current dogs, titles ignored', () => {
+  const existing = [
+    { id: 'own', call_name: 'Bella', registered_name: 'GCH A-K Bella’s Star', ownership_type: 'owned', status: 'active_breeding', is_archived: false },
+    { id: 'other', call_name: 'A-K Bella’s Star', registered_name: '', ownership_type: 'owned', status: 'active_breeding', is_archived: false }
+  ];
+  const plan = planImport({ existing, files: [file('A', [dog('', "A-K Bella's Star", '')])] });
+  const row = plan.rows[0];
+  assert.equal(row.action, 'review', 'a name alone still never matches automatically');
+  assert.deepEqual(row.choices.map((c) => c.value), ['existing:own', 'new'], 'the current dog is offered by its registered name; a call name never is');
+  assert.match(row.choices[0].label, /GCH A-K Bella’s Star “Bella”/);
+});
+
+test('a numbered chart dog is offered a current dog with the same registered name and no number', () => {
+  const existing = [{ id: 'own', call_name: 'Max', registered_name: 'CH Dark Knight', is_archived: false }];
+  const plan = planImport({ existing, files: [file('A', [dog('', 'Dark Knight', 'NP000001/01')])] });
+  assert.deepEqual(plan.rows[0].choices.map((c) => c.value), ['existing:own', 'new']);
+});
+
+test('a registration number matches however it was typed', () => {
+  for (const stored of ['NP165114/01', 'np 165114-01', 'NP16511401', 'AKC NP165114/01', 'AKC# NP165114.01']) {
+    const existing = [{ id: 'own', call_name: 'Bella', registered_name: 'Somebody Else', registration_number: stored }];
+    const plan = planImport({ existing, files: [file('A', [dog('', 'A-K Bella', 'NP165114/01')])] });
+    assert.equal(plan.rows[0].action, 'existing', stored);
+    assert.equal(plan.rows[0].existingId, 'own', stored);
+  }
+});
+
+test('your dog with the same registered name but a different number is offered, never silently duplicated', () => {
+  const existing = [{ id: 'own', call_name: 'Bella', registered_name: 'A-K Bella', registration_number: 'NP165114/1' }];
+  const plan = planImport({ existing, files: [file('A', [dog('', 'A-K Bella', 'NP165114/01')])] });
+  const row = plan.rows[0];
+  assert.equal(row.action, 'review');
+  assert.ok(!plan.ready);
+  assert.deepEqual(row.choices.map((c) => c.value), ['existing:own', 'new']);
+  assert.ok(row.issues.some((i) => /registration numbers differ/.test(i)));
+  const chosen = planImport({ existing, files: [file('A', [dog('', 'A-K Bella', 'NP165114/01')])], decisions: { [row.key]: 'existing:own' } });
+  assert.equal(chosen.rows[0].action, 'existing');
 });
