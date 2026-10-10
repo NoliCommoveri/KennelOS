@@ -8,7 +8,7 @@ import { makeEnv, call, signIn, lastCode, bytes } from './helpers/env.js';
 
 const { runRetention } = await import('../src/retention.js');
 const { exportAll } = await import('../src/backup.js');
-const { MAX_PASSKEYS, PAIRING_MS } = await import('../src/vault.js');
+const { MAX_PASSKEYS, PAIRING_MS, HANDOFF_MS } = await import('../src/vault.js');
 const { VAULT_LIMITS } = await import('../src/ratelimit.js');
 
 const PHONE = '11111111-1111-4111-8111-111111111111';
@@ -334,4 +334,86 @@ test('the /ops export carries the vault and its wraps, not pairings', async () =
   assert.equal(out.tables.vaults.length, 1);
   assert.equal(out.tables.vault_wraps.length, 1);
   assert.equal(out.tables.vault_pairings, undefined);
+});
+
+// --- Handoff codes (§5.4) ------------------------------------------------------------
+const proof = () => Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('hex');
+const makeHandoff = (env, s, body = {}) =>
+  call(env, 'POST', '/vault/handoffs', { token: s.token, body: { keyId: KEY_ID, wrapped: wrap(), proof: proof(), ...body } });
+const redeem = (env, s, p) => call(env, 'POST', '/vault/handoffs/redeem', { token: s.token, body: { proof: p } });
+
+test('handoff: one device makes a code, another redeems it once, within an hour', async () => {
+  const env = await makeEnv();
+  const { phone, laptop } = await twoDevices(env);
+  assert.equal((await makeHandoff(env, laptop)).status, 404, 'no vault yet');
+  await enable(env, laptop);
+
+  assert.equal((await makeHandoff(env, laptop, { keyId: OTHER_KEY_ID })).status, 409);
+  assert.equal((await makeHandoff(env, laptop, { proof: 'short' })).status, 400);
+  assert.equal((await makeHandoff(env, laptop, { wrapped: 'not base64!' })).status, 400);
+
+  const p = proof(); const w = wrap();
+  const made = await makeHandoff(env, laptop, { proof: p, wrapped: w });
+  assert.equal(made.status, 200);
+  const { expiresAt } = await made.json();
+  assert.ok(Math.abs(Date.parse(expiresAt) - Date.now() - HANDOFF_MS) < 5000);
+  const row = env.DB.raw.prepare('SELECT proof_hash FROM vault_handoffs').get();
+  assert.notEqual(row.proof_hash, p, 'only a hash of the proof is stored');
+
+  assert.equal((await redeem(env, phone, proof())).status, 404, 'a wrong code gets nothing');
+  const got = await redeem(env, phone, p);
+  assert.equal(got.status, 200);
+  assert.deepEqual(await got.json(), { keyId: KEY_ID, wrapped: w });
+  assert.equal((await redeem(env, phone, p)).status, 404, 'used up');
+  assert.equal(count(env, 'vault_handoffs'), 0);
+});
+
+test('handoff: a new code replaces the device\'s last; expired codes fail and retention drops them', async () => {
+  const env = await makeEnv();
+  const { phone, laptop } = await twoDevices(env);
+  await enable(env, laptop);
+  const first = proof(); const second = proof();
+  await makeHandoff(env, laptop, { proof: first });
+  await makeHandoff(env, laptop, { proof: second });
+  assert.equal(count(env, 'vault_handoffs'), 1);
+  assert.equal((await redeem(env, phone, first)).status, 404);
+
+  env.DB.raw.prepare("UPDATE vault_handoffs SET expires_at = '2020-01-01T00:00:00.000Z'").run();
+  assert.equal((await redeem(env, phone, second)).status, 404);
+  await runRetention(env);
+  assert.equal(count(env, 'vault_handoffs'), 0);
+});
+
+test('handoff: another account can\'t redeem it; turning the vault off or deleting the account removes it', async () => {
+  const env = await makeEnv();
+  const { phone, laptop } = await twoDevices(env);
+  await enable(env, laptop);
+  const p = proof();
+  await makeHandoff(env, laptop, { proof: p });
+  const stranger = await signIn(env, 'someone@else.co');
+  await enable(env, stranger);
+  assert.equal((await redeem(env, stranger, p)).status, 404);
+
+  assert.equal((await call(env, 'DELETE', '/vault', { token: laptop.token, body: {} })).status, 200);
+  assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM vault_handoffs WHERE program_id = ?').get(laptop.programId).n, 0);
+
+  await enable(env, phone);
+  await makeHandoff(env, phone);
+  assert.equal((await call(env, 'DELETE', '/account', { token: phone.token, body: { confirm: 'DELETE' } })).status, 200);
+  assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM vault_handoffs WHERE program_id = ?').get(phone.programId).n, 0);
+});
+
+test('handoff: at most five open codes per program, and the export leaves them out', async () => {
+  const env = await makeEnv();
+  const s = await signIn(env);
+  await enable(env, s);
+  // Five other devices' open codes (signing five more in would hit the code limit).
+  const later = new Date(Date.now() + HANDOFF_MS).toISOString();
+  for (let i = 0; i < 5; i++) {
+    env.DB.raw.prepare(`INSERT INTO vault_handoffs (id, program_id, device_id, key_id, wrapped, proof_hash, created_at, expires_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(crypto.randomUUID(), s.programId, `other-${i}`, KEY_ID, wrap(), proof(), new Date().toISOString(), later);
+  }
+  assert.equal((await (await makeHandoff(env, s)).json()).error, 'too_many_handoffs');
+  const out = await exportAll(env.DB);
+  assert.equal(out.tables.vault_handoffs, undefined);
 });

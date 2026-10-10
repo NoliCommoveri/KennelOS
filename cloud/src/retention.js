@@ -122,6 +122,7 @@ export async function runRetention(env, now = new Date()) {
     ).bind(iso(nowMs), iso(nowMs - KEEP_DAYS * DAY)),
     env.DB.prepare('DELETE FROM device_erasures WHERE confirmed_at < ?').bind(iso(nowMs - KEEP_DAYS * DAY)),
     env.DB.prepare('DELETE FROM vault_pairings WHERE expires_at < ?').bind(iso(nowMs)),
+    env.DB.prepare('DELETE FROM vault_handoffs WHERE expires_at < ?').bind(iso(nowMs)),
     env.DB.prepare('DELETE FROM license_link_codes WHERE expires_at < ?').bind(iso(nowMs)),
     env.DB.prepare('DELETE FROM pro_purchases WHERE access_until < ?').bind(iso(nowMs - PURCHASE_KEEP_DAYS * DAY)),
     env.DB.prepare(

@@ -6,10 +6,11 @@ import { createSnapshot, getSnapshot, getSnapshotVault, listSnapshots, uploadSna
 import { deleteAccount, getProgram, takeOver } from './program.js';
 import { ackErase, cancelErase, checkIn, licenseReleased, listDevices, requestErase } from './devices.js';
 import {
-  addWrap, approvePairing, createPairing, disableVault, enableVault, getVault, getWrap, listPairings, pollPairing,
-  removeWrap, replaceRecoveryWrap,
+  addWrap, approvePairing, createHandoff, createPairing, disableVault, enableVault, getVault, getWrap, listPairings,
+  pollPairing, redeemHandoff, removeWrap, replaceRecoveryWrap,
 } from './vault.js';
 import { getEntitlement, removeLinks, startLink, verifyLink } from './license.js';
+import { cancelEmailChange, getEmailChange, requestEmailChange } from './emailChange.js';
 import { ackInbox, publishProjection, readEvents, readInbox, readProjection, sendMessage, unpublishProjection, PROJECTION_MAX_BYTES } from './waitlist.js';
 import { fail, json, readJson } from './lib/http.js';
 
@@ -60,6 +61,11 @@ export async function handleApi(request, env, url, cors) {
 
   if (p === '/account' && m === 'DELETE') return json(await deleteAccount(env, auth, await readJson(request)), 200, cors);
 
+  // Changing the account's email (Phase 1 plan §2.6).
+  if (p === '/account/email' && m === 'GET') return json(await getEmailChange(env, auth), 200, cors);
+  if (p === '/account/email' && m === 'POST') return json(await requestEmailChange(env, auth, await readJson(request)), 200, cors);
+  if (p === '/account/email' && m === 'DELETE') return json(await cancelEmailChange(env, auth), 200, cors);
+
   // The server-side Pro license link (License Link Plan §5).
   if (p === '/account/entitlement' && m === 'GET') return json(await getEntitlement(env, auth), 200, cors);
   if (p === '/account/license-links/start' && m === 'POST') return json(await startLink(env, auth, request, await readJson(request)), 200, cors);
@@ -81,6 +87,8 @@ export async function handleApi(request, env, url, cors) {
   if (approve && m === 'POST') return json(await approvePairing(env, auth, approve[1], await readJson(request)), 200, cors);
   const pairing = VAULT_PAIRING.exec(p);
   if (pairing && m === 'GET') return json(await pollPairing(env, auth, pairing[1]), 200, cors);
+  if (p === '/vault/handoffs' && m === 'POST') return json(await createHandoff(env, auth, await readJson(request)), 200, cors);
+  if (p === '/vault/handoffs/redeem' && m === 'POST') return json(await redeemHandoff(env, auth, await readJson(request)), 200, cors);
 
   // The waitlist online, her side (Waitlist W2 Plan §2, §4–§6). Pro only.
   const projection = WL_PROJECTION.exec(p);

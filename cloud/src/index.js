@@ -20,6 +20,7 @@ import { handleWebhook } from './license.js';
 import { handleFamilyApi, serveFamilyPage } from './familyPages.js';
 import { runRetention } from './retention.js';
 import { runWaitlistMoves } from './serverMoves.js';
+import { applyDueEmailChanges } from './emailChange.js';
 import { corsHeaders, preflight } from './lib/cors.js';
 import { ApiError, json } from './lib/http.js';
 
@@ -88,7 +89,10 @@ export default {
         return;
       }
       if (event.cron === DAILY_CRON) console.log('retention', JSON.stringify(await runRetention(env)));
-      else console.log('waitlist moves', JSON.stringify(await runWaitlistMoves(env)));
+      else {
+        console.log('waitlist moves', JSON.stringify(await runWaitlistMoves(env)));
+        console.log('email changes', JSON.stringify(await applyDueEmailChanges(env)));
+      }
     })());
   },
 };

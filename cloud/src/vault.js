@@ -16,6 +16,8 @@
 //   GET    /vault/pairings                open requests, for an unlocked device to approve
 //   POST   /vault/pairings/:id/approve    {approverKey, wrapped, keyId}
 //   GET    /vault/pairings/:id            the asking device polls; an approved read deletes it
+//   POST   /vault/handoffs                an unlocked device makes a one-hour code {keyId, wrapped, proof}
+//   POST   /vault/handoffs/redeem         another device shows the code's proof; the wrap, once
 //
 // Nothing here logs a wrap, a key or a request body (cloud/README.md).
 import { fail } from './lib/http.js';
@@ -34,6 +36,9 @@ const P256_PUBLIC = /^[A-Za-z0-9+/]{86}[AEIMQUYcgkosw048]=$/;
 export const MAX_PASSKEYS = 10;
 export const PAIRING_MS = 10 * 60 * 1000;
 const MAX_OPEN_PAIRINGS = 5;
+export const HANDOFF_MS = 60 * 60 * 1000;
+const MAX_OPEN_HANDOFFS = 5;
+const PROOF = /^[0-9a-f]{64}$/;
 
 const nowIso = () => new Date().toISOString();
 
@@ -112,6 +117,7 @@ export async function disableVault(env, auth, body) {
   await env.DB.batch([
     env.DB.prepare('DELETE FROM vault_wraps WHERE program_id = ?').bind(auth.programId),
     env.DB.prepare('DELETE FROM vault_pairings WHERE program_id = ?').bind(auth.programId),
+    env.DB.prepare('DELETE FROM vault_handoffs WHERE program_id = ?').bind(auth.programId),
     env.DB.prepare('DELETE FROM vaults WHERE program_id = ?').bind(auth.programId),
   ]);
   return { ok: true };
@@ -247,4 +253,59 @@ export async function pollPairing(env, auth, id) {
   }
   await env.DB.prepare('DELETE FROM vault_pairings WHERE id = ?').bind(id).run();
   return { status: 'approved', approverKey: p.approver_key, wrapped: p.wrapped, keyId: p.key_id };
+}
+
+// --- Handoff codes (§5.4) ------------------------------------------------------------
+// The reverse of pairing, for a device that's about to be left (Lite, upgrading
+// to Pro): the unlocked device makes the code, the owner pastes it into the
+// other one. The code is 120 bits, so the stored wrap and proof hash can't be
+// guessed from; the redeeming device must also be signed in to this account.
+
+async function sha256Hex(text) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function proofOf(value) {
+  if (typeof value !== 'string' || !PROOF.test(value)) fail(400, 'bad_proof');
+  return value;
+}
+
+// POST /vault/handoffs {keyId, wrapped, proof}. A device's new code replaces
+// its open one, so only the code it last showed works.
+export async function createHandoff(env, auth, body) {
+  const vault = await requireVault(env, auth);
+  checkKeyMatches(vault, body.keyId);
+  const wrapped = wrapString(body.wrapped);
+  const proofHash = await sha256Hex(proofOf(body.proof));
+  await limitBucket(env, `vault-handoff:${auth.programId}`, VAULT_LIMITS.handoffs);
+  const at = Date.now();
+  const now = new Date(at).toISOString();
+  await env.DB.prepare('DELETE FROM vault_handoffs WHERE program_id = ? AND (device_id = ? OR expires_at <= ?)')
+    .bind(auth.programId, auth.deviceId, now).run();
+  const open = await env.DB.prepare('SELECT COUNT(*) AS n FROM vault_handoffs WHERE program_id = ?')
+    .bind(auth.programId).first('n');
+  if (open >= MAX_OPEN_HANDOFFS) fail(429, 'too_many_handoffs');
+  const id = crypto.randomUUID();
+  const expiresAt = new Date(at + HANDOFF_MS).toISOString();
+  await env.DB.prepare(
+    `INSERT INTO vault_handoffs (id, program_id, device_id, key_id, wrapped, proof_hash, created_at, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).bind(id, auth.programId, auth.deviceId, vault.key_id, wrapped, proofHash, now, expiresAt).run();
+  return { handoffId: id, expiresAt };
+}
+
+// POST /vault/handoffs/redeem {proof} → {keyId, wrapped}, and the code is used
+// up (deleted in the same statement, so two devices can't both redeem it).
+export async function redeemHandoff(env, auth, body) {
+  const vault = await requireVault(env, auth);
+  const proofHash = await sha256Hex(proofOf(body.proof));
+  await limitBucket(env, `vault-wrap:${auth.programId}`, VAULT_LIMITS.wrapReads);
+  const h = await env.DB.prepare(
+    `DELETE FROM vault_handoffs WHERE program_id = ? AND proof_hash = ? AND expires_at > ?
+      RETURNING key_id, wrapped`,
+  ).bind(auth.programId, proofHash, nowIso()).first();
+  if (!h) fail(404, 'not_found');
+  if (h.key_id !== vault.key_id) fail(409, 'vault_key_stale', { keyId: vault.key_id });
+  return { keyId: h.key_id, wrapped: h.wrapped };
 }

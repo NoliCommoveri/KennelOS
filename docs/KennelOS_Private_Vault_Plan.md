@@ -39,6 +39,18 @@ offered").
 ## 2. What the user sees
 
 ### 2.1 Turning it on
+> **Passkey first (decided 2026-10-10, replacing the code-first gate below where passkeys
+> can try).** One card, "Protect your sensitive records too?", whose main button is **Turn on
+> with passkey**: the passkey sheet turns the vault on (`cloudVault.quickVaultSetup`: the
+> passkey is made first, inside the tap, then the recovery and passkey wraps are sent). The
+> recovery code is still made and its wrap stored, so it always works, but it's shown
+> afterwards: kept on the device as unsaved (`device_secrets` row `vault-recovery-unsaved`)
+> and Today shows **"Save your recovery code"** until the owner saves it by typing its last
+> 4 (`saveRecoveryCodeFlow`). **Use a recovery code instead**, or a passkey that can't do
+> PRF, runs the code-first steps below unchanged. The "is on" alert is gone. The trade-off,
+> accepted: someone can skip saving the code; losing the passkey too then loses the
+> encrypted backup (passkeys sync through iCloud / Google, so that's rare).
+
 Inside "Turn on cloud backup", after the first backup succeeds, and on the card any time later:
 
 1. **"Also back up your private info?"** One paragraph: contacts' details, prices, Financials,
@@ -227,6 +239,32 @@ includes a breached server):
 A server that swaps in its own public key gets a wrap it can open only by guessing the
 60-bit code offline against AES-GCM; that's impractical. (A 6-digit code would not be; §10 decision 3.)
 
+### 5.4 A handoff code (added 2026-10-10)
+The reverse of §5.3, for a device that's about to be left behind: Lite, when the owner
+upgrades to Pro (on the same phone, where Lite and Pro are two separate devices to the
+server, or another one). Lite starts the move, so Lite makes the code, and the owner pastes it
+into Pro.
+1. **The unlocked device** (Lite's upgrade dialog makes one as it opens; any unlocked device
+   can from **Unlock another device… → Make an unlock code instead**) makes a random
+   **24-character code** (120 bits, the recovery code's length), and derives two independent
+   HKDF outputs from it: a KEK (`kennelos-vault/handoff/v1`), which wraps the vault key
+   (wrap kind `handoff`), and a **proof** (`kennelos-vault/handoff-proof/v1`). It posts the
+   wrap and the proof: `POST /vault/handoffs` → `{handoffId, expiresAt}`. The server keeps
+   only the SHA-256 of the proof. A device's new code replaces its last one.
+2. **The other device**, signed in to the same account, gets **Use another device → Have an
+   unlock code? Paste it here**. It derives the proof and posts it:
+   `POST /vault/handoffs/redeem` → `{keyId, wrapped}`, deleting the row in the same statement,
+   so a code works **once**. It derives the KEK and unwraps. A 24-character code that isn't a
+   live handoff is tried as the recovery code, so either one works in that box.
+3. **It expires after 1 hour**; retention removes expired rows, and turning the vault off or
+   deleting the account removes them at once. At most five open codes per program.
+
+The server holds a wrap under a KEK from a 120-bit secret it never sees, and a hash of a
+second output of that secret: it can't open the wrap, and it can't guess the code. Someone who
+sees the code must still sign in to the account (the emailed code) within the hour. Lite's
+dialog shows the code with **Copy code** and copies it again on **Continue to Pro**, since
+checkout replaces the page.
+
 ## 6. Server (`cloud/`)
 
 ### 6.1 API (bearer token; all behind the maintenance gate)
@@ -241,6 +279,7 @@ A server that swaps in its own public key gets a wrap it can open only by guessi
 | `DELETE /vault/wraps/:id` | Remove a passkey |
 | `DELETE /vault` | Turn off (fresh sign-in): deletes every wrap |
 | `POST /vault/pairings`, `GET /vault/pairings`, `POST /vault/pairings/:id/approve`, `GET /vault/pairings/:id` | §5.3 |
+| `POST /vault/handoffs`, `POST /vault/handoffs/redeem` | §5.4 (migration `0011_vault_handoff`: the `vault_handoffs` table; not in the `/ops` export) |
 | `POST /snapshots` | Gains `vault: {size, keyId}`. **Refused (`vault_required`) when the program has a vault and it's missing**, or when `keyId` is stale |
 | `PUT /snapshots/:id/vault` | The encrypted payload; must land **before** the body PUT that commits |
 | `GET /snapshots/:id/vault` | The encrypted payload |

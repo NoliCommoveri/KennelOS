@@ -102,6 +102,25 @@ test('device pairing: both sides derive the same KEK; a wrong code or swapped ke
   await assert.rejects(v.kekFromPairing(newDevice.privateKey, approverPub, 'short'), v.VaultLockedError);
 });
 
+test('handoff code: wrap and unwrap; the proof is stable, separate from the KEK, and code-specific', async () => {
+  const { key, keyId } = await v.generateVaultKey();
+  const code = v.newHandoffCode();
+  assert.equal(code.length, v.RECOVERY_CODE_LENGTH);
+  const wrapped = await v.wrapVaultKey(key, await v.kekFromHandoffCode(code), { keyId, kind: 'handoff' });
+  const typed = v.formatCode(code).toLowerCase(); // pasted with dashes, any case
+  const back = await v.unwrapVaultKey(wrapped, await v.kekFromHandoffCode(typed), { keyId, kind: 'handoff' });
+  assert.deepEqual(new Uint8Array(await crypto.subtle.exportKey('raw', back)), new Uint8Array(await crypto.subtle.exportKey('raw', key)));
+
+  const proof = await v.handoffProof(code);
+  assert.match(proof, /^[0-9a-f]{64}$/);
+  assert.equal(await v.handoffProof(typed), proof);
+  assert.notEqual(await v.handoffProof(v.newHandoffCode()), proof);
+  // Not interchangeable with a recovery wrap of the same code.
+  await assert.rejects(v.unwrapVaultKey(wrapped, await v.kekFromRecoveryCode(code), { keyId, kind: 'handoff' }), v.VaultLockedError);
+  await assert.rejects(v.unwrapVaultKey(wrapped, await v.kekFromHandoffCode(code), { keyId, kind: 'recovery' }), v.VaultLockedError);
+  await assert.rejects(v.kekFromHandoffCode('short'), v.VaultLockedError);
+});
+
 test('payload: round-trips, fresh IV each time, header readable', async () => {
   const { key, keyId } = await v.generateVaultKey();
   const plain = bytes(JSON.stringify({ contacts: [{ id: 'c1', phone: '555-0100' }] }));

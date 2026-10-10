@@ -38,15 +38,16 @@ snapshots with record-level sync and keeps this plan's auth, server, and registr
 
 ### 2.1 Turning it on
 - **Where it's offered:**
-  - a card in **first-run** after kennel setup ("Protect your records: turn on free cloud
-    backup"), skippable;
+  - **first-run's kennel setup screen:** an optional "Email for free cloud backup" field
+    (since 2026-10-10; it replaced a separate "Protect your records" card after setup);
   - a **Cloud backup** card on Import/Export (shared, not Pro-gated; Proposal §10);
   - a gentle **Today nudge** while it's off, which can be dismissed for 30 days using the
     existing `nudgeState`.
 - **Flow:**
   1. Enter email.
   2. Type the 6-digit code from the email.
-  3. Read one plain screen: "What gets backed up: your dogs, litters, pairings, health
+  3. *(Since 2026-10-10 this is a "What's backed up?" link on the sign-in screen, not a
+     step, and the device is named automatically.)* Read one plain screen: "What gets backed up: your dogs, litters, pairings, health
      records, contacts' **names**, and your waitlist (its order, settings, application form,
      and each applicant's **name and email**). What stays only on this phone: contacts'
      phone, email and address, prices and payments (including waitlist fees paid),
@@ -149,6 +150,32 @@ browser): **Import/Export → Cloud backup → Account → Your devices…**
   notices, so a signed-in device still makes one request per browsing session for those
   (§4.6). Any request that meets `401 device_erased`, not only the check-in, erases the
   device (`cloudApi.setErasedHandler`).
+
+### 2.6 Changing the account's email (added 2026-10-10)
+The account is its email's keyed hash (§6.2), and the server never holds the address, so
+nothing can be checked by email except "type the code we just sent". **Change email…** on
+the Account card (`cloudBackupUI.changeEmailModal`, `cloudAuth.changeAccountEmail`):
+1. The new address, and the code sent to it (`/auth/start`).
+2. **"Can you still get email at <current>?"**
+   - **Yes:** a code to the current address too; the change happens **at once**. A sign-in
+     under 15 minutes old counts as the same proof (it took a code there).
+   - **No:** the change **waits 1 day** (`email_changes`), and every signed-in device shows
+     "Your account's email is changing… Not you? **Cancel it**" (Account card and Today, from
+     the check-in), so a borrowed, unlocked phone can't quietly take the account.
+3. Applied: `users.email_hash` becomes the new hash, `email_changed_at` is set, and the old
+   address is kept as a **linked purchase email** (`license_links`), so a Pro purchase made
+   with it still counts. A device that didn't make the change can't learn the new address
+   (only its hash exists): at its next check-in it forgets the old one and says "the
+   account's email was changed on another device" until it signs in with the new one.
+- **Routes:** `GET /account/email` → `{pending, changedAt}`; `POST /account/email {email,
+  code, oldEmail?, oldCode?}` → `{status: 'changed'}` | `{status: 'pending', effectiveAt}`
+  (409 `email_taken`, 400 `same_email` / `invalid_code` / `invalid_old_code`); `DELETE
+  /account/email` cancels. Check-in answers `emailChange` too. A due change applies on the
+  account's next read or the hourly cron; one whose new address got its own account in the
+  meantime is dropped. Migration `0012_email_change`. Tests: `cloud/tests/emailChange.test.js`,
+  `tests/cloudClient.test.js`.
+- **Not yet (case 2):** no signed-in device at all. The planned way is the recovery code
+  proving the account ("Lost access to your email?" on the sign-in screen).
 
 ## 3. Client design (`shared/`)
 

@@ -204,9 +204,10 @@ checks below; they stay listed as worth doing. Production's migration `0005` is 
 - [x] **Privacy policy:** `site/privacy.html` describes private backup (merged in #80).
 - [x] **Release:** `VAULT_RELEASED = true` (its pin in `tests/cloudClient.test.js` updated),
   `CACHE_NAME` → `kennelos-shell-v47`.
-- [ ] **Lite → Pro Upgrade wording** (Editions Plan, "After the vault"): the bridge still
-  downloads the file first and says the file is needed for private details. With private
-  backup on, it isn't. Revise `runUpgradeBridge` when convenient.
+- [x] **Lite → Pro Upgrade wording** (Editions Plan, "After the vault"): with Sensitive
+  records on and unlocked, the bridge skips the file (cloud first, file as the secondary
+  button); built 2026-10-10. Try it on a real phone with the next release: Upgrade in Lite,
+  then sign in and unlock in Pro.
 
 ## 3c. Pro license link (W2 prerequisite; `docs/KennelOS_License_Link_Plan.md`)
 
@@ -259,6 +260,17 @@ and Email Routing.
   the production `RESEND_API_KEY` is Sending access for **All domains**, so it can send from it.
 - [ ] **Apply pending (`0010`) on staging's and production's `/ops`** right after the merge
   that carries step 6 (waitlist emails). The whole API answers 503 until then.
+- [ ] **Apply pending (`0011`) on staging's and production's `/ops`** right after the merge
+  that carries the vault handoff codes (Private Vault Plan §5.4). The whole API answers 503
+  until then.
+- [ ] **Apply pending (`0012`) on staging's and production's `/ops`** right after the merge
+  that carries changing the account's email (Phase 1 plan §2.6).
+- [ ] **Try changing an email on staging**, both ways: with the old inbox (changes at once)
+  and without (pending a day, shown with Cancel on a second signed-in device).
+- [ ] **Try the handoff on a real phone** (staging, then production): in Lite with Sensitive
+  records on, **Upgrade to Pro →** shows a code; in Pro on the same phone, sign in, choose
+  **Use another device**, paste it, and the sensitive records come back. Pasting it again
+  should fail.
 - [ ] **Try a waitlist email on production:** with a family whose address is yours, send
   **Email them…** from their page; it should arrive from
   `"<Your Kennel>" <…@mail.kennelos.app>` (not in spam), and show under **Emails from …**

@@ -89,8 +89,9 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     spots**: the nav "More" menu (every page) and a footer on Today. Driven entirely by
     `demoUrl`/`upgradeUrl` in `editionConfig` — both `null` in Pro/Demo, so nothing
     renders there (`hasEditionLinks()` false). The Upgrade CTA runs the shared
-    export-first bridge (`runUpgradeBridge`, now shared with the cap upgrade nudge):
-    export the JSON backup, then head to checkout. `demoUrl` (Lite) points at the Demo
+    bridge (`runUpgradeBridge`, now shared with the cap upgrade nudge): export the JSON
+    backup, then head to checkout (or, since the vault, cloud first; see "Lite → Pro
+    bridge, cloud first" below). `demoUrl` (Lite) points at the Demo
     origin — placeholder until the domain is live.
 - **Step 5 — Demo mode (read-only, seeded showcase), done & browser-verified (headless
   Chromium, all three editions, no console errors).**
@@ -833,6 +834,50 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   & Voids, Show Record and Stud Results — the plan is complete.
   Service-worker cache rolled to `kennelos-shell-v53` (this batch plus the registration /
   purposes / Full-surcharge / puppy-form changes before it).
+
+- **Lite → Pro bridge, cloud first — built & browser-verified (2026-10-10;** Editions Plan,
+  "After the vault"). When this Lite device is signed in to cloud backup with Sensitive
+  records on and unlocked, and a last push leaves nothing unsaved
+  (`cloudBackup.holdsEverything`), **Upgrade to Pro →** (and the cap nudge) skips the file
+  and says how to sign in and unlock in Pro, with **Save a backup file too** as the
+  secondary button and **Not now**. Anything else (no cloud, backup off or paused, Sensitive
+  records off or locked, offline) keeps the file-first flow, whose note now suggests
+  turning on Sensitive records. Test: `tests/upgradeBridge.test.js`. Headless Chromium
+  (Lite, cloud API mocked, phone width): all three paths reach checkout, no console errors.
+
+- **Vault handoff codes — built & browser-verified (2026-10-10;** Private Vault Plan §5.4).
+  Lite's upgrade dialog makes a one-hour, single-use unlock code (Copy, and copied again on
+  Continue to Pro); Pro's **Use another device** screen has a box to paste it (the recovery
+  code works there too). Any unlocked device can make one from **Unlock another device… →
+  Make an unlock code instead**. The server stores the vault key wrapped under the code and a
+  hash of a second value derived from it, never the code. **New cloud migration
+  `0011_vault_handoff`: Apply pending on staging and production after the merge.** Tests:
+  `cloud/tests/vault.test.js`, `tests/vaultCrypto.test.js`, `tests/cloudVault.test.js`.
+
+- **Simpler way in — built & browser-verified (2026-10-10).** First run is one Welcome card
+  (**Start my kennel** / **Take the tour** / **I already use KennelOS**); the backups note card
+  is gone and "install as an app" is a dismissible Today card. Kennel setup has an optional
+  **Email for free cloud backup** (the opt-in), so turning backup on is: code → first backup →
+  **Protect your sensitive records too?** with **Turn on with passkey** (Face ID; the recovery
+  code then waits on a Today card until saved). The sign-in screen no longer asks to name the
+  device, and "What gets backed up" is a link, not a step. Dialog buttons wrap instead of
+  overflowing. Tests: `tests/cloudVault.test.js` (passkey first).
+
+- **Changing the account's email — built & browser-verified (2026-10-10;** Cloud Phase 1
+  plan §2.6). **Change email…** on the Account card: the new address and its code, then
+  "Can you still get email at <current>?" Yes → a code there too, changed at once. No → it
+  waits 1 day, shown on every signed-in device (Account card and Today) with **Cancel it**.
+  The old address stays a linked purchase email, so Pro purchases made with it still count.
+  **New cloud migration `0012_email_change`: Apply pending on staging and production after the
+  merge.** Not yet: recovering with no signed-in device (the recovery code; case 2).
+  Service-worker cache rolled to `kennelos-shell-v65` for this batch (the Lite → Pro bridge,
+  vault handoff codes, the simpler way in, dialog button wrapping and changing the email).
+
+- **Cloud Phase 2, live multi-device sync — planned, not built** (`docs/KennelOS_Cloud_Phase2_Sync_Plan.md`,
+  draft 2026-10-10). Pro only: both tiers per record (cloud fields readable as today, the
+  whole row sealed with the vault key), a change scan instead of an outbox, server-order
+  wins per record, D1 for the records, snapshots from any caught-up device, and a lease for
+  the waitlist's server work. Waiting on the seven decisions in its §12.
 
 ## Build & deploy
 

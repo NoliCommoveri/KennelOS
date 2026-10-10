@@ -324,8 +324,17 @@ upgrade would arrive without them. So:
   With private backup on, signing in on Pro and unlocking (passkey, recovery code or the Lite
   device) brings everything back, so the file isn't needed: cloud is the main path and the
   file the fallback. The passkey's RP ID is `kennelos.app`, so one made in Lite works in Pro.
-  **Open:** the bridge still downloads the file first and its wording still says the file is
-  needed for private details; revise it (`runUpgradeBridge`); the vault is released (2026-10-08), so this is now due.
+  **Built (2026-10-10):** `runUpgradeBridge` checks first. Signed in, backup on and not
+  paused, a last push leaving nothing unsaved, and Sensitive records on, unlocked here and
+  backed up (`cloudBackup.holdsEverything`) → no download: a dialog says how to sign in and
+  unlock in Pro, with **Continue to Pro**, **Save a backup file too** (secondary; the file is
+  the fallback) and **Not now**. Anything else keeps the file-first flow above, and its note
+  suggests turning on Sensitive records so the file isn't needed next time.
+  **Unlocking in Pro (2026-10-10):** the dialog also makes a one-hour, single-use **unlock
+  code** (Private Vault Plan §5.4), shown with Copy and copied again on Continue. In Pro, after
+  signing in, **Use another device** has a box to paste it. This matters most when Lite and
+  Pro are on the same phone: the two are separate devices to the server, so Lite unlocks Pro
+  without the owner having to switch back and forth.
 
 **The Lite device afterwards.** Restoring in Pro makes Pro the backing device (Cloud plan
 §3.4), so Lite's next backup gets the server's 409. Every snapshot now records the edition

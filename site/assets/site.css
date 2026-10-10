@@ -270,6 +270,7 @@ table.compare th, table.compare td { padding: 12px 16px; text-align: left; borde
 table.compare thead th { background: var(--surface-2); font-size: 13px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); white-space: nowrap; }
 table.compare tbody th { font-weight: 500; width: 46%; }
 table.compare td { text-align: center; width: 18%; }
+table.compare thead th + th { text-align: center; }
 table.compare tr.group th {
   background: var(--accent-soft);
   color: var(--accent-dark);
@@ -282,6 +283,24 @@ table.compare tr:last-child th, table.compare tr:last-child td { border-bottom: 
 .yes { color: var(--accent); font-weight: 700; }
 .no { color: var(--text-faint); font-weight: 700; }
 .qual { color: var(--text-muted); font-size: 14px; }
+table.compare .note { display: block; color: var(--text-muted); font-size: 13px; font-weight: 400; margin-top: 2px; }
+/* Phones: the three columns fit without sideways scrolling; labels wrap. */
+@media (max-width: 560px) {
+  table.compare { min-width: 0; font-size: 14px; }
+  table.compare th, table.compare td { padding: 10px 8px; }
+  table.compare thead th { font-size: 12px; letter-spacing: 0.3px; }
+  table.compare tbody th { width: auto; overflow-wrap: anywhere; }
+  table.compare td { width: 24%; }
+  table.compare tr.group th { font-size: 12px; letter-spacing: 0.3px; }
+  .qual { font-size: 13px; }
+}
+
+/* --- Dialog (native <dialog>, opened by site.js from a [data-dialog] link) --- */
+.site-dialog { border: 0; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); padding: 0; width: min(480px, calc(100vw - 32px)); color: var(--text); }
+.site-dialog-body { padding: 24px; }
+.site-dialog::backdrop { background: rgba(20, 30, 45, 0.45); }
+.site-dialog h2 { margin-top: 0; }
+.site-dialog .btn-row { margin-top: 20px; }
 
 /* --- Pricing ------------------------------------------------------------- */
 .price-card { text-align: center; }
