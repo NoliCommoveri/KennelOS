@@ -28,11 +28,12 @@ mechanism is hidden so it can't be reverse-engineered into a bypass.*
 
 ```js
 const CAP_DOGS    = 6;   // locked for launch — counting dogs
-const CAP_LITTERS = 2;   // locked for launch — litters
+const CAP_LITTERS = 10;  // litters — raised from 2 on 2026-10-10
 ```
 
-Kept as named constants so they're a one-line change later, but **6 / 2 is decided** — no open
-knobs remain. The rest of this spec is locked.
+Kept as named constants so they're a one-line change later. **6 / 10 is decided** — no open
+knobs remain. (The litter cap launched at 2 and was raised to 10 on 2026-10-10: Pro now carries
+enough Pro-only features to sell on its own, so Lite stays open on litters.) The rest of this spec is locked.
 
 ---
 
@@ -263,6 +264,8 @@ Two bulk paths reach Dexie outside the interactive dog form; **both are cap-gate
   interactive guard (§3) already applies: at the cap, the 7th+ counting row fails with the cap
   message and lands in the import's failed list while the rest still import. Enforcement is per row,
   so a partial import is possible.
+  Litter CSV rows likewise go through `litterRepo.create`, so the 11th+ litter fails the same way
+  (the litter cap lives only in `CAP_LITTERS`; the import code carries no number of its own).
 - **JSON restore** (`importExport.restoreBackup`) writes straight to Dexie via `bulkPut`, bypassing
   the per-row guard, so the shared restore path calls the edition hook
   `enforceImportDogCap({ incomingDogs, mode })` **before any write**. Lite counts the active-roster
@@ -307,5 +310,5 @@ unaffected — it exports **from** Lite and imports **into** Pro, which is uncap
 
 ## 11. Open items to confirm before build
 
-None. Cap numbers are locked at **6 / 2** (§0); sold puppies **are** archived on departure (§5);
+None. Cap numbers are set at **6 / 10** (§0); sold puppies **are** archived on departure (§5);
 every archive action is confirm-gated (§5). This spec is build-ready.

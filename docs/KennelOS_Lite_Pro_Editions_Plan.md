@@ -123,7 +123,7 @@ records).
 
 ### The one wrinkle: a kept puppy growing up (decided — no grandfather)
 
-Your 2 free litters make puppies. Puppies don't count *as puppies* — good. But when a breeder
+Your 10 free litters make puppies. Puppies don't count *as puppies* — good. But when a breeder
 **keeps** one and it matures, the app changes its life stage on the same record, and it would
 now count. An earlier draft floated *grandfathering* home-grown dogs (let a maturing puppy push
 you past the cap). **We're not doing that.** By the time a kept puppy matures it's roughly a
@@ -349,7 +349,7 @@ point — **`shared/data/editionTour.js`** (a sibling of `editionConfig.js`; `bu
 overlays each edition's copy). Pro/Demo use the shared default (the full Thornfield packet + full
 catalog). **Lite ships its own**: the shared packet would trip Lite's cap *mid-seed* (leaving
 orphan records the user can't clear) and then navigate to Pro-only pages that 404, so Lite gets a
-smaller packet sized to exactly the **6-dog / 2-litter cap** — which doubles as a selling point
+smaller packet sized to exactly the **6-dog cap** (with 2 of the 10 allowed litters) — which doubles as a selling point
 (the demo kennel reads as "at the limit") — and a step catalog that visits only Lite's pages and
 weaves in **Pro-promo cards** pitching what Pro unlocks. (The Demo edition never runs the tour —
 its boot returns before the wizard hooks — so this is a Lite-vs-Pro split.)
@@ -462,7 +462,8 @@ see "Hosting, editions, and origin isolation."
 - **Demo hardening (#8)** — **strip** the save/export paths from the demo build; an unlocked copy
   is a dead end.
 - **In-Lite links** — Lite links out to Demo and Pro directly; no manual email step.
-- **Cap numbers** — **6** counting dogs, **2** litters. `co_owned` **counts**; `deceased` and
+- **Cap numbers** — **6** counting dogs, **10** litters (raised from 2 on 2026-10-10: with enough
+  Pro-only features now, Lite stays open on litters and Pro sells on features). `co_owned` **counts**; `deceased` and
   archived/departed dogs **don't**. Full rules in `KennelOS_Lite_Cap_Enforcement_Spec.md`.
 - **Exit = archive-on-departure** — sold/rehomed/placed dogs *and sold puppies* are archived and
   hidden; every archive action is gated by a **"this is permanent" confirm** the user must accept.

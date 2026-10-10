@@ -1257,7 +1257,7 @@ nav "Take the tour" entry, and the free-navigation "Resume tour" pill). **Editio
 `seedSampleData` seed, from the **`data/editionTour.js`** injection point — not from
 `wizardSteps.js`/`sampleData.js` directly — so the tour and its seed vary together per edition.
 The shared copy re-exports the full catalog + Thornfield seed (Pro/Demo); Lite overlays its own
-`editionTour.js` (a smaller packet sized to the 6-dog/2-litter cap, no Pro-only entities, and a
+`editionTour.js` (a smaller packet sized to the 6-dog cap with 2 of the 10 allowed litters, no Pro-only entities, and a
 step catalog scoped to Lite's pages with `pro-promo` upsell cards). `clearSampleData()` /
 `hasSampleData()` stay in `sampleData.js` — manifest-driven and generic, so one copy clears
 whichever packet was seeded. The tour can also be

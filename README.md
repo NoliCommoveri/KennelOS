@@ -61,7 +61,7 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   no console errors).** The full `KennelOS_Lite_Cap_Enforcement_Spec.md` is now
   implemented:
   - **Real cap** in `lite/editionConfig.js` — `enforceDogCap`/`enforceLitterCap` with the
-    6/2 caps and the `countsTowardDogCap` predicate (owned/co-owned live adults;
+    6/10 caps and the `countsTowardDogCap` predicate (owned/co-owned live adults;
     `is_archived` counts as departed). Block rule is transition-in only (create or a
     ✗→✓ maturing pup); editing a counting dog and departing one are never blocked.
     `CapExceededError` lives in `shared/data/repoBase.js` beside `ReferenceBlockedError`.
@@ -116,7 +116,8 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     repos tripped the cap mid-seed (`litterRepo.create` threw on the 3rd litter) *before* the
     manifest was written — leaving orphan dogs with no "Clear Sample Data" banner — and the
     shared tour then walked to Pro-only pages that 404 in Lite.
-  - **`lite/editionTour.js`** — a smaller packet sized to exactly the 6-dog / 2-litter cap (so
+  - **`lite/editionTour.js`** — a smaller packet sized to exactly the 6-dog cap, with 2 litters
+    (under the litter cap, which was 2 at the time and is now 10) (so
     the seed completes *and* the kennel reads as "at the cap", teeing up the upgrade pitch), no
     Pro-only entities, plus a Lite step catalog that visits only Lite's pages and folds in
     `pro-promo` upsell cards (a new centered step kind, Lite-only). Finishing still clears the
@@ -880,7 +881,7 @@ selections), **Financials — the expense ledger + sales→income** ✅.
 - **Dashboard "Archived (any status)" tile** is hidden in Lite — archive counts are
   part of the hidden archive machinery (cap spec §7), not just the toggles/links.
 
-(The cap itself — 6 counting dogs, 2 litters — and archive-on-departure are separate
+(The cap itself — 6 counting dogs, 10 litters — and archive-on-departure are separate
 from this page partition; see the cap spec.)
 
 ## Resuming in a new session
