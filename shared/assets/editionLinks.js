@@ -98,10 +98,10 @@ function cloudUpgradeDialog({ email }) {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `<div class="modal" role="dialog" aria-modal="true">
-      <h2 style="margin-top:0;">Everything is backed up</h2>
+      <h2 style="margin-top:0;">Switch Products Seamlessly</h2>
       <p class="muted" style="white-space:pre-wrap;">${esc(
-        `Your records and your sensitive records are backed up to ${email}, so you don't need a backup file.\n\n`
-        + `After you buy Pro, open KennelOS Pro, choose "I already use KennelOS → sign in and restore", sign in with the same email, and unlock your sensitive records (passkey, recovery code, or this device). Everything comes back: dogs, litters, contacts, prices, Financials and notes.`)}</p>
+        `Since you're using cloud backup, switching is easy! Once you've purchased your Pro license, select "I already use KennelOS" and log in using the email ${email}.\n\n`
+        + `Optionally, you can also save a backup file below before switching.`)}</p>
       <p class="muted upgrade-file-note" role="status" hidden></p>
       <div class="form-actions">
         <button class="btn btn-primary" id="ug-continue">Continue to Pro</button>
