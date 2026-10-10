@@ -3180,13 +3180,18 @@ Pure, pinned by `tests/waitlistForm.test.js`.
   imports the families' answers into those questions.
 
 ### The public list (W1e, Spec §15.3)
-`waitlistRules.publicList(entries, kennelId, programsById, { today, nameOf })` returns only
-`{ position, name, pref_sex, added }`: the real §6.1 position, `publicName` (first word + last
+`waitlistRules.publicList(entries, kennelId, programsById, { today, nameOf, deciding })` returns only
+`{ position, name, pref_sex, added }` (a row for which `deciding(entry)` is true, the family
+holding a turn, is `{ position, name: DECIDING_LABEL ("Currently deciding"), pref_sex: null,
+added: null, deciding: true }`, decided 2026-10-10): the real §6.1 position, `publicName` (first word + last
 word's initial; for an entry with `private_listing`, `privateName` instead: "A***** K", one
 asterisk per hidden letter, via `listedName`; she answers the applicant's `private_request` in
 the Approve dialog, 2026-10-10), sex preference, and the anchor date. **Paused families are left out and their
 numbers skipped** (#1, #2, #4), so no public number moves when a pause ends; listen-only
-families show with no marker; programs, contact details, notes and money never appear. No opt-out
+families show with no marker; a family who passed or let a turn lapse shows as usual;
+programs, contact details, notes and money never appear. **No family count** is shown, online
+or in the text (decided 2026-10-10): paused families are left off, so a row count never says
+how many are on the list. No opt-out
 — every applicant is told by the locked notice — but they can ask to list privately (above). `publicListText` is the text the
 Publish list page's **Copy the list as text** produces for Facebook/her website (the W1 stand-in for
 W2's public link).
@@ -3431,7 +3436,10 @@ shown (`describeOfferChanges`).
 ### Online (W2, `docs/KennelOS_Waitlist_W2_Plan.md`)
 - **Her device is the source of truth.** `data/waitlistProjection.js` builds one kennel's
   online view from the same rules-engine calls the pages use, field by field from
-  allow-lists: the public list; per family (by entry id) name, email, status, place, prefs,
+  allow-lists: the public list (unmasked: the server masks the turn holder, below); per family (by entry id) name, email, status, place
+  (`position`, published during a turn too), their place for what they want (`pref_places`,
+  below), the litters with open picks whose turn they passed on or let lapse
+  (`spent_litter_ids`, so their page offers no "Not this litter" there), prefs,
   pause / readiness hold, listen-only, passes, open offers, which live litters they match
   (`matching_litter_ids`, a yes/no, never a place in a litter's line), the unpaid
   fee and her payment instructions (approved and unpaid only), and the fee-received date; a
@@ -3439,13 +3447,26 @@ shown (`describeOfferChanges`).
   available pups (call name, sex, color) and **every** eligible family in order. Never:
   other answers, phone, address, programs, notes, payment details. `as_of` is today, so it
   republishes at least daily (pauses and holds end by date).
-- **What number a family sees** (Waitlist Spec §16.9, decided 2026-10-08): only their
-  overall place, and not even that while it would mislead. `waitlistRules.placeHidden` →
-  `{ reason: 'turn' }` while they hold a turn, or `{ reason: 'passed', offers }` after a
-  turn they passed on or let lapse, until each of those litters closes (picks stopped,
-  every pup spoken for, or sold/closed). Then `position` is null and `place_hidden` says
-  why (with each litter's id, label and outcome), and `publicList({ hidden })` leaves them
-  off the public list with their number skipped, online and in her **Copy public list**.
+- **What number a family sees** (Waitlist Spec §16.9, decided 2026-10-08, revised
+  2026-10-10): their overall place, never a per-litter one, except during their turn:
+  `waitlistRules.placeHidden(entry, offers)` → `{ reason: 'turn' }` while they hold one (their
+  page says "The wait is over!" instead), else null. A pass or a lapsed turn hides nothing.
+  On the public list the turn holder's row keeps its number and reads **Currently deciding**,
+  highlighted, with no sex preference or date, so the family next in line can't tell whom to
+  press. Her device publishes the rows unmasked; `cloud/src/familyPages.js` `listView`
+  masks the row whose `position` belongs to an active entry holding offers at the moment it
+  serves the page, so a turn the server opens or closes (serverMoves) shows at once. Her
+  **Copy public list** masks the same way (`publicList({ deciding })`). `DECIDING_LABEL` is
+  copied in `familyPages.js`; `tests/familyPages.test.js` pins the two equal.
+- **Place for what they want** (decided 2026-10-10): under the overall number, the status
+  page shows `pref_places` from `waitlistRules.prefPlaces`: for each matching answer the
+  family narrowed (`narrowedPrefFields`: sex, breed, purposes, and colors only with
+  color matching on), their place counting only the families ahead who want the same or
+  wider on it (`prefCovers`), and `all` (every narrowed answer at once) when they narrowed
+  two or more. All open → `{}`; the page skips any number already shown above it.
+- **Available Puppies on the public list** (decided 2026-10-10): `listView.available` is
+  every litter with open picks, as the status page shows it (label, nickname, breed,
+  parents, dates, pups remaining by sex; never a pup's name).
 - **Ready now?** (Waitlist Spec §16.7; online lists only, and only holds ending while the
   list is online, decided 2026-10-08): `waitlistRules.readyCheck(entry, today, config)`;
   `isReadyHeld` / `isPaused` take the config as a third argument and, with it, keep a

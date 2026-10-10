@@ -564,7 +564,12 @@ means no fee reminder ever.
       the public-list warning. The nudge (`depositsDueLitters`) shows only for a kennel with
       families on its list. Tests: `waitlistRules`, `waitlistProjection`, `cloudWaitlist`,
       `cloud/tests/familyPages`, `cloud/tests/familyActions`.
-   4b. **What number a family sees (§16.9, decided 2026-10-08).** **Built 2026-10-08.**
+   4b. **What number a family sees (§16.9, decided 2026-10-08).** **Built 2026-10-08;
+      revised 2026-10-10** (see §16.9's note: only a turn hides a number; the public list keeps
+      the turn holder's row as "Currently deciding", masked server-side in `listView`; no
+      family count; Available Puppies on the public list; `pref_places` and
+      `spent_litter_ids` per family; `placeHidden(entry, offers)` returns only `turn`). The
+      original build, for the record:
       `waitlistRules.placeHidden` (pure, tested); the projection drops `litter_positions` (and
       the early-litter place) for `matching_litter_ids` and `upcoming[id].match`, and sets
       `position: null` + `place_hidden` (`{ reason: 'turn' }` or `{ reason: 'passed', litters:

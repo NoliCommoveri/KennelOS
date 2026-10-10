@@ -90,11 +90,19 @@ test('the pages and their files are served by the Worker, with headers that keep
   assert.notEqual((await get(noAssets, `/s/${tok('a')}`)).status, 200, 'no binding: not served');
 });
 
-test('the public list shows only her published rows', async () => {
+test('the public list shows only her published rows, the family holding a turn as "Currently deciding"', async () => {
   const { env } = await published();
   const res = await get(env, `/f/list/${KENNEL}`);
   assert.equal(res.status, 200);
-  assert.deepEqual(await res.json(), { kennel: { name: 'Thornfield Kennels', intro: '', apply_open: false }, as_of: '2026-10-08', rows: projection().public_list, upcoming: [] });
+  assert.deepEqual(await res.json(), {
+    kennel: { name: 'Thornfield Kennels', intro: '', apply_open: false }, as_of: '2026-10-08',
+    // Ann (#1) holds a turn: her row keeps its number, nothing else of her shows.
+    rows: [{ position: 1, name: 'Currently deciding', pref_sex: null, added: null, deciding: true }, projection().public_list[1]],
+    // Litters with open picks (decided 2026-10-10): counts by sex, never a pup's name.
+    available: [{ id: 'l1', label: 'Juniper × Ash', status: 'whelped', whelp_date: '2026-09-01', ready_date: '2026-10-27',
+      picks_open: true, pups_available: 2, pups_female: 1, pups_male: 1, nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] } }],
+    upcoming: []
+  });
   assert.equal((await get(env, '/f/list/kos1_99999999-2222-4333-8444-555555555555')).status, 404);
   assert.equal((await get(env, '/f/list/thornfield')).status, 404);
 });
@@ -147,12 +155,19 @@ test('statusView and listView are allow-lists over the projection', () => {
   p.entries.ann.secret = 'x';
   p.kennel.private = 'y';
   assert.equal(JSON.stringify(statusView(p, 'ann')).includes('"x"'), false, 'an unknown field is never passed through');
-  assert.deepEqual(Object.keys(listView(p)).sort(), ['as_of', 'kennel', 'rows', 'upcoming']);
-  // Why there's no number (decided 2026-10-08): passed through as published.
-  p.entries.bo.position = null;
-  p.entries.bo.place_hidden = { reason: 'passed', litters: [{ label: 'Juniper × Ash', outcome: 'passed' }] };
-  assert.deepEqual(statusView(p, 'bo').family.place_hidden, p.entries.bo.place_hidden);
-  assert.equal(statusView(p, 'bo').family.position, null);
+  assert.deepEqual(Object.keys(listView(p)).sort(), ['as_of', 'available', 'kennel', 'rows', 'upcoming']);
+  assert.equal(JSON.stringify(listView(p)).includes('Poppy'), false, "a pup's name never reaches the public list");
+  assert.equal(JSON.stringify(listView(p)).includes('Ann L.'), false, 'the family holding a turn is masked');
+  // Their turn closed (by the server, say): their name is back at once.
+  p.entries.ann.offers = [];
+  assert.equal(listView(p).rows[0].name, 'Ann L.');
+  // Their turn, their place for what they want, the litters they passed on: as published.
+  p.entries.bo.place_hidden = { reason: 'turn' };
+  p.entries.bo.pref_places = { all: 2, sex: 3 };
+  p.entries.bo.spent_litter_ids = ['l1'];
+  assert.deepEqual(statusView(p, 'bo').family.place_hidden, { reason: 'turn' });
+  assert.deepEqual(statusView(p, 'bo').family.pref_places, { all: 2, sex: 3 });
+  assert.deepEqual(statusView(p, 'bo').family.spent_litter_ids, ['l1']);
   // "A litter you match was born" / "Review your preferences" (§16.6): as published.
   p.entries.bo.whelp_notes = [{ litter_id: 'l1', pairing_id: null, label: 'Juniper × Ash', kind: 'review', why: ['sex'] }];
   assert.deepEqual(statusView(p, 'bo').family.whelp_notes, p.entries.bo.whelp_notes);

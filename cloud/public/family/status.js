@@ -12,7 +12,7 @@
 // Messages are sealed here, in this browser, to her key (seal.js); the server
 // can't read them.
 import {
-  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingItemHtml, litterHtml, deadlineText, fmtShortDate,
+  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingItemHtml, litterHtml, availableItemHtml, deadlineText, fmtShortDate,
   SEX_LABEL, READY_LABEL, PURPOSE_LABEL, purposesText, CREDIT_LABEL
 } from './common.js';
 import { rememberedFamily, forgetFamily } from './session.js';
@@ -37,29 +37,8 @@ const STATUS = {
 // null), and which editor is open.
 const state = { v: null, session: null, open: null, flash: '', opened: new Set() };
 
-// "Born 09/01/2026 · Ready 10/27/2026" (Available Puppies).
-function litterDates(l) {
-  const bits = [];
-  if (l.whelp_date) bits.push(`Born ${fmtShortDate(l.whelp_date)}`);
-  else if (l.status === 'expected') bits.push('Expected');
-  if (l.status === 'ready') bits.push('Ready to go home');
-  else if (l.ready_date) bits.push(`Ready ${fmtShortDate(l.ready_date)}`);
-  return bits.join(' · ');
-}
-
-// "2 females and 1 male remaining".
-function pupsRemaining(l) {
-  const f = Number(l.pups_female) || 0;
-  const m = Number(l.pups_male) || 0;
-  const other = Math.max((Number(l.pups_available) || 0) - f - m, 0);
-  const part = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-  const bits = [f && part(f, 'female', 'females'), m && part(m, 'male', 'males'), other && part(other, 'puppy', 'puppies')].filter(Boolean);
-  if (!bits.length) return 'No puppies remaining';
-  return `${bits.length > 1 ? `${bits.slice(0, -1).join(', ')} and ${bits[bits.length - 1]}` : bits[0]} remaining`;
-}
-
 // A litter they passed on (or let their turn lapse on) that's still being offered.
-const spentOn = (id) => (state.v.family.place_hidden?.litters || []).find((x) => x.litter_id === id) || null;
+const spentOn = (id) => (state.v.family.spent_litter_ids || []).includes(id);
 
 // A section of the page. Titled sections fold away and start folded (decided
 // 2026-10-08), except the ones asking the family to do something now (openCard).
@@ -357,14 +336,35 @@ function placeActions(f) {
 
 // Why there's no number (decided 2026-10-08): during their turn, and after a turn
 // they passed on or let lapse, until those litters close. They keep their place.
-function placeHiddenHtml(h) {
-  if (!h) return '';
-  if (h.reason === 'turn') return '<p class="mt0"><strong>The wait is over!</strong> Pick a pup above, or pass on your turn.</p>';
-  const names = (h.litters || []).map((l) => l.label).filter(Boolean);
-  const lapsed = (h.litters || []).every((l) => l.outcome === 'no_response');
-  const what = names.length ? names.join(' and ') : 'that litter';
-  return `<p class="mt0">${lapsed ? `Your turn on ${esc(what)} ended.` : `You passed on ${esc(what)}.`} You keep your place for future litters.</p>
-    <p class="small muted">Your number shows again once ${names.length > 1 ? 'those litters close' : 'that litter closes'}.</p>`;
+// During their turn: no number, "The wait is over!" instead (Spec §16.9).
+function turnPlaceHtml() {
+  return '<p class="mt0"><strong>The wait is over!</strong> Pick a pup above, or pass on your turn.</p>';
+}
+
+// Their place for what they want, under their overall number (decided 2026-10-10):
+// for all the answers they narrowed together, then for each one ("#30 for Male").
+// A number already shown above isn't repeated; a family whose answers are all open
+// sees only their overall place.
+function prefPlaceLabel(field, prefs) {
+  if (field === 'all') return 'for your preferences';
+  if (field === 'sex') return `for ${SEX_LABEL[prefs.sex] || prefs.sex}`;
+  if (field === 'breed') return `for ${prefs.breed}`;
+  if (field === 'purposes') return `for ${purposesText(prefs.purposes)}`;
+  return `for ${(prefs.colors || []).join(', ')}`;
+}
+function prefPlacesHtml(f) {
+  const places = f.pref_places || {};
+  const seen = new Set([f.position]);
+  const items = [];
+  for (const k of ['all', 'sex', 'breed', 'purposes', 'colors']) {
+    const n = places[k];
+    if (!Number.isInteger(n) || seen.has(n)) continue;
+    seen.add(n);
+    items.push(`<li><strong>#${esc(n)}</strong> ${esc(prefPlaceLabel(k, f.prefs || {}))}</li>`);
+  }
+  if (!items.length) return '';
+  return `<ul class="places">${items.join('')}</ul>
+    <p class="small muted mt0">Counting only the families ahead of you who'd also take a puppy you want.</p>`;
 }
 
 // --- Ready now? (Spec §16.7) -----------------------------------------------------
@@ -583,7 +583,8 @@ function mineHtml() {
     if (f.listen?.mode === 'selected') notices.push('You\'re only waiting for litters from the parents you chose. You keep your place for everything else.');
     else if (f.listen?.mode === 'except' && (f.listen.sire_ids?.length || f.listen.dam_ids?.length)) notices.push('You\'re skipping litters from the parents you chose. You keep your place for everything else.');
     parts.push(openCard('Current Position', `
-      ${f.position ? `<p class="big mt0">#${esc(f.position)}</p><p class="muted mt0">${esc(kennel)}</p>` : placeHiddenHtml(f.place_hidden)}
+      ${f.place_hidden?.reason === 'turn' ? turnPlaceHtml()
+        : f.position ? `<p class="big mt0">#${esc(f.position)}</p><p class="muted mt0">overall</p>${prefPlacesHtml(f)}` : ''}
       ${notices.map((n) => `<p class="small">${n}</p>`).join('')}
       <dl class="facts">
         ${f.fee_received_date ? `<dt>Added</dt><dd>${esc(fmtShortDate(f.fee_received_date))}</dd>` : ''}
@@ -595,10 +596,7 @@ function mineHtml() {
     if (v.litters.length) {
       // Litters with open picks (decided 2026-10-08): breed, her nickname, sire ×
       // dam, the dates, and the pups still available by sex.
-      const items = v.litters.map((l) => `<li>${litterHtml({
-        breed: l.breed, name: l.nickname || l.label, dam: l.dam, sire: l.sire, when: litterDates(l),
-        extra: `<div class="small">${esc(pupsRemaining(l))}</div>${notThisLitter(litterTarget(l))}`
-      })}</li>`).join('');
+      const items = v.litters.map((l) => `<li>${availableItemHtml(l, notThisLitter(litterTarget(l)))}</li>`).join('');
       parts.push(card('Available Puppies', `<ul class="plain">${items}</ul>`));
     }
     parts.push(upcomingCard(v));

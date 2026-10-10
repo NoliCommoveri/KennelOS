@@ -114,6 +114,7 @@ test("a deadline she lets the server close: closed, the next family offered, bot
 
   const p = stored(env);
   assert.deepEqual(p.entries.ann.offers, []);
+  assert.equal(p.entries.ann.place_hidden ?? null, null, 'turn closed: their number shows again');
   assert.equal(p.entries.bo.offers.length, 1);
   assert.deepEqual(p.entries.bo.offers[0].eligible_dog_ids, ['p1', 'p2']);
   assert.equal(p.entries.bo.place_hidden.reason, 'turn');

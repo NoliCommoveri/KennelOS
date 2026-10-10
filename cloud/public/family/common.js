@@ -108,15 +108,18 @@ export function rowMatches(row, query) {
 
 // The public list as a table body, filtered by `query`. `mine` is the position to
 // highlight (the family's own row on their status page), or null.
+// A family holding a turn (`deciding`, masked by the server) shows as "Currently
+// deciding", highlighted, with no sex preference or date (decided 2026-10-10).
 export function publicListHtml(rows, query = '', mine = null) {
   const shown = rows.filter((r) => rowMatches(r, query));
-  if (!rows.length) return '<p class="muted">Nobody is on the list yet.</p>';
+  if (!rows.length) return '<p class="muted">No families to show right now.</p>';
   if (!shown.length) return `<p class="muted">No one on the list matches "${esc(query)}".</p>`;
-  const body = shown.map((r) => `<tr${r.position === mine ? ' class="mine"' : ''}>
+  const rowClass = (r) => [r.position === mine && 'mine', r.deciding && 'deciding'].filter(Boolean).join(' ');
+  const body = shown.map((r) => `<tr${rowClass(r) ? ` class="${rowClass(r)}"` : ''}>
       <td class="num">#${esc(r.position)}</td>
-      <td>${esc(r.name)}${r.position === mine ? ' <span class="badge">You</span>' : ''}</td>
-      <td>${esc(SEX_LABEL[r.pref_sex] || 'Either')}</td>
-      <td class="small">${esc(fmtDate(r.added))}</td></tr>`).join('');
+      <td>${r.deciding ? `<em>${esc(r.name)}</em>` : esc(r.name)}${r.position === mine ? ' <span class="badge">You</span>' : ''}</td>
+      <td>${r.deciding ? '' : esc(SEX_LABEL[r.pref_sex] || 'Either')}</td>
+      <td class="small">${r.deciding ? '' : esc(fmtDate(r.added))}</td></tr>`).join('');
   const gaps = rows.some((r, i) => r.position !== i + 1);
   return `<table class="list"><thead><tr><th>#</th><th>Name</th><th>Wants</th><th>Added</th></tr></thead><tbody>${body}</tbody></table>
     ${gaps ? '<p class="small muted">Note: in special circumstances, some applicant names may not be displayed above. Their place is being held, but they are not currently eligible for available pups.</p>' : ''}`;
@@ -151,6 +154,33 @@ export function upcomingWhen(u) {
 
 export function upcomingItemHtml(u, extra = '') {
   return litterHtml({ breed: u.breed, name: u.label, dam: u.dam, sire: u.sire, when: upcomingWhen(u), extra });
+}
+
+// "Born 09/01/2026 · Ready 10/27/2026" (Available Puppies).
+export function litterDates(l) {
+  const bits = [];
+  if (l.whelp_date) bits.push(`Born ${fmtShortDate(l.whelp_date)}`);
+  else if (l.status === 'expected') bits.push('Expected');
+  if (l.status === 'ready') bits.push('Ready to go home');
+  else if (l.ready_date) bits.push(`Ready ${fmtShortDate(l.ready_date)}`);
+  return bits.join(' · ');
+}
+
+// "2 females and 1 male remaining".
+export function pupsRemaining(l) {
+  const f = Number(l.pups_female) || 0;
+  const m = Number(l.pups_male) || 0;
+  const other = Math.max((Number(l.pups_available) || 0) - f - m, 0);
+  const part = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  const bits = [f && part(f, 'female', 'females'), m && part(m, 'male', 'males'), other && part(other, 'puppy', 'puppies')].filter(Boolean);
+  if (!bits.length) return 'No puppies remaining';
+  return `${bits.length > 1 ? `${bits.slice(0, -1).join(', ')} and ${bits[bits.length - 1]}` : bits[0]} remaining`;
+}
+
+// One litter with open picks (Available Puppies), the same on the public list and a
+// family's page; `extra` adds lines under it.
+export function availableItemHtml(l, extra = '') {
+  return litterHtml({ breed: l.breed, name: l.nickname || l.label, dam: l.dam, sire: l.sire, when: litterDates(l), extra: `<div class="small">${esc(pupsRemaining(l))}</div>${extra}` });
 }
 
 export function upcomingListHtml(rows) {

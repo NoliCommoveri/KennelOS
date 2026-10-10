@@ -100,6 +100,8 @@ export function closeTurn(projection, entryId, turnId) {
   const e = projection.entries?.[entryId];
   if (!e) return projection;
   e.offers = (e.offers || []).filter((o) => (o.turn_id || o.id) !== turnId);
+  // No turn left: their number shows again (§16.9), and their public row is theirs.
+  if (!e.offers.length && e.place_hidden?.reason === 'turn') e.place_hidden = null;
   for (const l of Object.values(projection.litters || {})) if (l.open_offer_entry_id === entryId) l.open_offer_entry_id = null;
   return projection;
 }
@@ -134,8 +136,9 @@ export function giveTurn(projection, entryId, turn) {
     id: r.offer_id, turn_id: turn.turn_id, litter_id: r.litter_id, offered_date: turn.offered_date,
     respond_by_date: turn.respond_by_date, eligible_dog_ids: [...r.dog_ids], picked_dog_id: null,
   }));
-  // During their turn a family sees no number (§16.9), as her device publishes it.
-  e.position = null;
+  // During their turn a family sees "It's your turn!" for their number (§16.9), and
+  // the public list shows their row as "Currently deciding" (familyPages.listView,
+  // by their position), as her device publishes it.
   e.place_hidden = { reason: 'turn' };
   for (const r of turn.rows) if (projection.litters?.[r.litter_id]) projection.litters[r.litter_id].open_offer_entry_id = entryId;
   projection.turn_queue = (projection.turn_queue || []).filter((q) => q.entry_id !== entryId);

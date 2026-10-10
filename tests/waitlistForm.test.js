@@ -215,7 +215,15 @@ test('public list: real positions, paused families hidden with their number skip
   assert.match(text, /#4 Dee D\. · Either · added 2026-04-01/);
   assert.match(text, /Their place is being held/);
   assert.ok(!/Chemo|Cat/.test(text));
-  assert.match(publicListText([], {}), /Nobody is on the list yet/);
+  assert.match(publicListText([], {}), /No families to show right now/);
+
+  // The family holding a turn (decided 2026-10-10): their row stays at their number,
+  // highlighted online, with nothing of them but "Currently deciding".
+  const turn = publicList(entries, K, new Map(), { today: TODAY, nameOf: (x) => x.application.name, deciding: (x) => x.application.name === 'Bob Burns' });
+  assert.deepEqual(turn[1], { position: 2, name: 'Currently deciding', pref_sex: null, added: null, deciding: true });
+  const turnText = publicListText(turn, {});
+  assert.match(turnText, /^#2 Currently deciding$/m);
+  assert.ok(!/Bob/.test(turnText));
 });
 
 test('readiness is a locked, required question her older stored forms get back', () => {

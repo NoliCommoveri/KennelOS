@@ -1523,7 +1523,22 @@ still available, Today suggests **Open picks** ("Juniper × Ash: you planned to 
 deposits today. Open picks?"). One tap opens picks, which starts the next turn (§16.1).
 Dismissing hides it; nothing opens by itself.
 
-### 16.9 What number a family sees (decided and built 2026-10-08)
+### 16.9 What number a family sees (decided and built 2026-10-08; revised 2026-10-10)
+
+> **Revised 2026-10-10 (her test mid-litter left the public list empty):** items 3, 4, 6
+> and 7 below are replaced. Only a family **holding a turn** loses its number; the reason
+> is to stop anxious families below from pressing the one deciding. A pass or a lapsed turn
+> hides nothing: their page shows their number and the public list shows their row. On the
+> public list the turn holder's row stays at its number, highlighted, and reads
+> **Currently deciding** (no name, sex preference or date). The list shows **no family
+> count** (paused families are left off, so a count is never right), and gains an
+> **Available Puppies** section like Coming up: each litter with open picks, its pups
+> remaining by sex. And the status page shows, under the overall number, **their place for
+> what they want**: for each matching answer they narrowed, their place among the families
+> ahead who want the same or wider on it ("#30 for Male", "#12 for Pet / companion"), and
+> when they narrowed two or more, their place for all of them together ("#25 for your
+> preferences"). A family whose answers are all open sees only the overall number; a number
+> already shown isn't repeated.
 
 Her concern: a per-litter number ("#3 in line" for one litter) is lower than their place on
 the list and moves whenever families ahead pause, come back or change their answers, so it

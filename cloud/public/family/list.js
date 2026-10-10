@@ -3,7 +3,7 @@
 // browser (nothing typed is sent anywhere), and "See Your Details": a family
 // signs in with a code emailed to the address on their application, and this
 // browser remembers them for 90 days.
-import { esc, fetchJson, fmtDate, loadError, publicListHtml, rowMatches, possessive, upcomingListHtml } from './common.js';
+import { esc, fetchJson, fmtDate, loadError, publicListHtml, possessive, upcomingListHtml, availableItemHtml } from './common.js';
 import { rememberFamily, rememberedFamily, forgetFamily } from './session.js';
 
 const $ = (id) => document.getElementById(id);
@@ -74,7 +74,7 @@ async function load() {
     showError(loadError(res, { notFound: "This waitlist isn't online. The breeder may have taken it down, or the link is incomplete." }));
     return;
   }
-  const { kennel, as_of: asOf, rows, upcoming = [] } = res.body;
+  const { kennel, as_of: asOf, rows, available = [], upcoming = [] } = res.body;
   document.title = `${kennel.name} Waitlist`;
   $('title').textContent = `${kennel.name} Waitlist`;
   if (kennel.name) $('footer').textContent = `For questions or concerns, please contact ${kennel.name}.`;
@@ -90,20 +90,20 @@ async function load() {
     $('apply').hidden = false;
   }
   $('content').hidden = false;
+  // Litters with open picks, as on a family's own page (decided 2026-10-10).
+  if (available.length) {
+    $('available').innerHTML = `<summary><h2>Available Puppies</h2></summary><ul class="plain">${available.map((l) => `<li>${availableItemHtml(l)}</li>`).join('')}</ul>`;
+    $('available').hidden = false;
+  }
   // Pairings and litters she shows publicly before picks open (Spec §16.4).
   if (upcoming.length) {
     $('upcoming').innerHTML = `<summary><h2>Coming up</h2></summary>${upcomingListHtml(upcoming)}`;
     $('upcoming').hidden = false;
   }
 
-  const render = () => {
-    const q = $('search').value;
-    $('list').innerHTML = publicListHtml(rows, q);
-    const n = rows.filter((r) => rowMatches(r, q)).length;
-    $('count').textContent = q.trim()
-      ? `${n} of ${rows.length} ${rows.length === 1 ? 'family' : 'families'}`
-      : `${rows.length} ${rows.length === 1 ? 'family' : 'families'} on the list`;
-  };
+  // No family count (decided 2026-10-10): paused families are left off the list,
+  // so a count of rows is never how many are on it.
+  const render = () => { $('list').innerHTML = publicListHtml(rows, $('search').value); };
   $('search').addEventListener('input', render);
   render();
   wireSignIn(kennel);
