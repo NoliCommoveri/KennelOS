@@ -28,6 +28,16 @@ test('a pedigree-only dog saves with no owner contact', async () => {
   assert.equal(d.pedigree_only, true);
 });
 
+test('a pedigree-only dog needs no call name when it has a registered name', async () => {
+  const d = await dogRepo.create(ancestor({ call_name: '' }));
+  assert.equal(d.call_name, '');
+  const { dogName } = await import('../shared/data/dogRepo.js');
+  assert.equal(dogName(d), 'CH Old Sire', 'shown by its registered name');
+  await assert.rejects(dogRepo.create(ancestor({ call_name: '', registered_name: '' })), /"call_name" is required/);
+  await assert.rejects(dogRepo.create(ancestor({ call_name: '', pedigree_only: false, owner_contact_id: 'c' })), /"call_name" is required/,
+    'a kennel dog still needs one');
+});
+
 test('an ordinary external dog still needs an owner', async () => {
   await assert.rejects(dogRepo.create(ancestor({ pedigree_only: false })), /owner_contact_id is required/);
 });

@@ -114,6 +114,8 @@ test('commit: new dogs are pedigree-only and linked; an existing dog is only fil
   assert.ok(!bella.pedigree_only, 'an existing dog is never made pedigree-only');
   const sire = await dogRepo.getById(bella.sire_id);
   assert.equal(sire.registered_name, 'Sire');
+  assert.equal(sire.call_name, '', 'a chart gives registered names, not call names');
+  assert.equal(bella.call_name, 'Bella', 'an existing call name is untouched');
   assert.equal(sire.pedigree_only, true);
   assert.equal(sire.sex, 'male');
   assert.equal((await dogRepo.getById(sire.sire_id)).registered_name, 'Grand Sire');
@@ -145,4 +147,13 @@ test('without a kennel to file under, the dogs still save and the PDF is reporte
   assert.equal(res.created, 1);
   assert.equal(res.fileErrors.length, 1);
   assert.equal(tables.documents.rows.size, 0);
+});
+
+test('a chart name is a registered name: it never matches an existing call name', () => {
+  const existing = [{ id: 'x1', call_name: 'Bella', registered_name: '' },
+    { id: 'x2', call_name: 'Bee', registered_name: 'Bella' }];
+  const plan = planImport({ existing, files: [file('A', [dog('', 'Bella', '')])] });
+  const row = plan.rows[0];
+  assert.equal(row.action, 'review');
+  assert.deepEqual(row.choices.map((c) => c.value), ['existing:x2', 'new'], 'only the registered-name match is offered');
 });

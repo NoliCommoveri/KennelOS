@@ -5,13 +5,16 @@
 //   - A registration number is the natural key. The same number anywhere — twice
 //     in one chart (line-breeding), across charts, or already in the app — is one
 //     dog, matched automatically.
+//   - A chart's names are registered names: they're compared with existing dogs'
+//     registered names only, never their call names.
 //   - A name alone never matches anything automatically. A dog with no number
 //     whose name equals another dog's (in the batch or already in the app), or a
 //     numbered dog whose name equals an existing dog that has no number, goes to
 //     review: same dog, or a separate one.
 //   - Two sources that disagree on a dog's sire or dam go to review too; a parent
 //     already recorded on an existing dog is never overwritten.
-// New dogs are created pedigree-only (dogRepo `pedigree_only`); an existing dog —
+// New dogs are created pedigree-only (dogRepo `pedigree_only`) with the chart's
+// name as their registered name and no call name (a chart doesn't give one); an existing dog —
 // one of the kennel's own included — is only filled in where it's blank, never
 // overwritten, and never made pedigree-only.
 //
@@ -113,11 +116,13 @@ export function planImport({ files, existing = [], edits = {}, decisions = {} })
   const byName = new Map();
   for (const d of existing) {
     if (d.registration_number) byReg.set(normReg(d.registration_number), d);
-    for (const nm of new Set([normName(d.registered_name), normName(d.call_name)])) {
-      if (!nm) continue;
-      if (!byName.has(nm)) byName.set(nm, []);
-      byName.get(nm).push(d);
-    }
+    // A chart's names are registered names, so they're compared with registered
+    // names only — never a call name ("Bella" the call name is not "Bella" the
+    // registered name).
+    const nm = normName(d.registered_name);
+    if (!nm) continue;
+    if (!byName.has(nm)) byName.set(nm, []);
+    byName.get(nm).push(d);
   }
   const candsByName = new Map();
   for (const c of cands.values()) {
@@ -155,7 +160,7 @@ export function planImport({ files, existing = [], edits = {}, decisions = {} })
       const batchSame = (candsByName.get(nm) || []).filter((o) => o !== c && (!c.reg || !o.reg));
       if (nm && (sameName.length || batchSame.length)) {
         row.choices = [
-          ...sameName.map((d) => ({ value: `existing:${d.id}`, label: `Same as your existing ${d.call_name}${d.registration_number ? ` (${d.registration_number})` : ''}` })),
+          ...sameName.map((d) => ({ value: `existing:${d.id}`, label: `Same as your existing ${d.registered_name}${d.call_name && d.call_name !== d.registered_name ? ` “${d.call_name}”` : ''}${d.registration_number ? ` (${d.registration_number})` : ''}` })),
           ...batchSame.map((o) => ({ value: `same:${o.key}`, label: `Same as ${o.fields.registered_name}${o.reg ? ` (${o.fields.registration_number})` : ''} from another chart` })),
           { value: 'new', label: 'A separate dog' }
         ];
@@ -245,7 +250,7 @@ export async function commitImport(plan, { storeFiles = [] } = {}) {
         idOf.set(r.key, ex.id);
       } else {
         const d = await dogRepo.create({
-          call_name: r.name, registered_name: r.name, sex: r.sex || 'unknown', breed: r.breed,
+          call_name: '', registered_name: r.name, sex: r.sex || 'unknown', breed: r.breed,
           ownership_type: 'external', status: 'external_reference', pedigree_only: true,
           registration_number: r.registration_number, registry: r.registry, color_markings: r.color_markings,
           date_of_birth: r.date_of_birth || '', notes: r.notes.join('\n'), sire_id, dam_id

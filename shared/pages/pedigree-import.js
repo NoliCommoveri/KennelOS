@@ -4,7 +4,7 @@
 // matching and saving are data/pedigreeImport.js. Nothing is written until
 // Import, and the PDFs themselves are dropped afterwards unless a file's
 // "Save to Documents" box is ticked (Pro — Lite has no document storage).
-import { dogRepo } from '../data/dogRepo.js';
+import { dogRepo, dogName } from '../data/dogRepo.js';
 import { editionFlags } from '../data/editionConfig.js';
 import { readPedigreeFile } from '../data/pedigreeReader.js';
 import { wordsToSegments, parsePedigree } from '../data/pedigreeParse.js';
@@ -188,7 +188,7 @@ function statusCell(r) {
   }
   if (r.action === 'existing') {
     const d = state.existing.find((x) => x.id === r.existingId);
-    return `<span class="badge badge-blue">Matches</span> <a href="dog.html?id=${encodeURIComponent(r.existingId)}" target="_blank" rel="noopener">${esc(d?.call_name || 'your dog')}</a>`;
+    return `<span class="badge badge-blue">Matches</span> <a href="dog.html?id=${encodeURIComponent(r.existingId)}" target="_blank" rel="noopener">${esc(dogName(d) || 'your dog')}</a>`;
   }
   return '<span class="badge badge-neutral">New · pedigree only</span>';
 }
