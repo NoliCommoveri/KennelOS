@@ -1,10 +1,13 @@
-# KennelOS Integrations — research & plan (DRAFT, for discussion)
+# KennelOS Integrations — research & plan
 
-> **Status: DRAFT 2026-10-10. Nothing here is approved or built.** It covers five asks: (1) the
+> **Status: approved 2026-10-10, every §8 decision as recommended, and every design choice in
+> §0–§7 as written. Nothing is built yet; §6 is the build order, one reviewable PR per step.**
+> It covers five asks: (1) the
 > waitlist embedded on breeders' own websites, (2) Jotform / DocuSign contracts, (3) referral-use
 > notifications + thank-yous, (4) payment links through the breeder's own Stripe / Square, and
-> (5) processing fees on sales (e.g. Good Dog's 6.25%). §8 lists the decisions to take; until
-> they are taken, every recommendation below is only a proposal.
+> (5) processing fees on sales (e.g. Good Dog's 6.25%). §8 records the decisions taken.
+> Still open inside a step: DocuSign's own-key vs Partner Program route (only if D5 ever
+> brings DocuSign in), and confirming Stripe / Square live-animal terms before step 6 (D8).
 >
 > Builds on: the Worker (`cloud/`, `docs/KennelOS_Cloud_Phase1_Plan.md`), the online waitlist
 > (`docs/KennelOS_Waitlist_W2_Plan.md`, "W2 §N"), Accounts (End-State guide §32), Financials
@@ -407,9 +410,9 @@ every new FK lands in `referenceRegistry.js` + the guide; every Worker table is 
 
 ---
 
-## 8. Decisions for you
+## 8. Decisions (all taken as recommended, 2026-10-10)
 
-| # | Question | Recommendation |
+| # | Question | Decision |
 |---|---|---|
 | D1 | OK for the Worker to hold OAuth tokens / API keys that act on her Stripe / Square / e-sign accounts (encrypted, minimal scope)? | Yes, with the plain-language setup notice |
 | D2 | Waitlist embed: let any site frame it when she turns it on, or require her to list her site's address? | Optional list; `*` when blank, since there's no logged-in state to clickjack |
