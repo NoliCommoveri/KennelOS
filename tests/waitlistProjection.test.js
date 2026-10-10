@@ -90,8 +90,9 @@ test("a family on the list sees its place, prefs, passes and offers; nothing els
   const p = buildProjection(fixture());
   const e1 = p.entries.e1;
   assert.deepEqual(keysOf(e1), ['applied_date', 'approved_date', 'email', 'fee_due', 'fee_received_date', 'listen',
-    'matching_litter_ids', 'name', 'offers', 'passes', 'paused_until', 'place_hidden', 'position', 'prefs', 'prepasses', 'ready_check', 'ready_from', 'requests', 'status', 'upcoming', 'whelp_notes']);
+    'matching_litter_ids', 'name', 'offers', 'passes', 'paused_until', 'place_hidden', 'position', 'prefs', 'prepasses', 'private_name', 'ready_check', 'ready_from', 'requests', 'status', 'upcoming', 'whelp_notes']);
   assert.deepEqual(e1.prepasses, []);
+  assert.deepEqual(e1.private_name, { on: false, request: null });
   assert.deepEqual(e1.requests, { pause: null, pref_change: null, listen: null });
   assert.equal(e1.name, 'Family e1 Lee');
   assert.equal(e1.email, 'c-e1@example.com', "the contact's address wins over the application's");
@@ -204,6 +205,16 @@ test("a family's requests show what they asked and her decision, never their not
     listen: null
   }, 'a decision older than REQUEST_SHOWN_DAYS is gone');
   assert.equal(JSON.stringify(p).includes('SECRET-'), false, 'notes stay on her device');
+});
+
+test('listing privately: masked on the public list, and their own page says how it went', () => {
+  const f = fixture();
+  Object.assign(f.entries[2], { paused_until: null, private_listing: true, private_request: { requested_date: '2026-01-02', decided: 'approved', decided_date: '2026-01-03', note: 'SECRET-PRIVATE' } });
+  const p = buildProjection(f);
+  assert.deepEqual(p.entries.e3.private_name, { on: true, request: { requested_date: '2026-01-02', decided: 'approved', decided_date: '2026-01-03' } }, 'no expiry, no extra keys');
+  assert.deepEqual(p.public_list.map((r) => r.name), ['F***** L'], 'e1 and e2 are between turns');
+  assert.equal(JSON.stringify(p.public_list).includes('Family e3'), false);
+  assert.equal(JSON.stringify(p).includes('SECRET-'), false);
 });
 
 test('the listen-only choices, the message key and how far her device got through the events', () => {

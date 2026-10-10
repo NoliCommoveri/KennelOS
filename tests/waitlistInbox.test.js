@@ -42,6 +42,16 @@ test('a clean application becomes an applied entry with its link, answers and pr
   assert.ok(e.application_questions.some((q) => q.id === 'q_size'));
 });
 
+test('asking to list privately becomes a request she decides, never the listing itself', () => {
+  const asked = applicationToEntry(item, { answers: { name: 'Ann Lee' }, prefs: {}, private_request: true }, { kennel, form });
+  assert.deepEqual(asked.private_request, { requested_date: '2026-10-08' });
+  assert.equal(asked.private_listing, undefined);
+  for (const junk of [false, 'yes', 1, undefined]) {
+    const e = applicationToEntry(item, { answers: {}, prefs: {}, private_request: junk }, { kennel, form });
+    assert.equal(e.private_request, undefined);
+  }
+});
+
 test('anything off-form, off-choice, oversized or not in the vocab is dropped', () => {
   const e = applicationToEntry(item, {
     answers: {

@@ -11,7 +11,7 @@ import {
   proposeQuestionImport, applyQuestionImport, columnsFor, normalizeHeader, isLocked,
   READY_TIMING_LABEL, formFaq, validateFaq, newFaqItem, matchingPrefKeys
 } from '../shared/data/waitlistForm.js';
-import { publicName, publicList, publicListText } from '../shared/data/waitlistRules.js';
+import { publicName, privateName, publicList, publicListText } from '../shared/data/waitlistRules.js';
 
 const ids = (qs) => qs.map((x) => x.id);
 let seq = 0;
@@ -169,6 +169,26 @@ test('public names: first name + last initial, never more', () => {
   assert.equal(publicName('Cher'), 'Cher');
   assert.equal(publicName(''), 'Family');
   assert.equal(publicName('Jane & Tom Smith'), 'Jane S.');
+});
+
+test('private names: first letter, an asterisk per hidden letter, last initial', () => {
+  assert.equal(privateName('Andrea Kim'), 'A***** K');
+  assert.equal(privateName('  jane  van der berg '), 'J*** B');
+  assert.equal(privateName('Cher'), 'C***');
+  assert.equal(privateName('Al'), 'A*');
+  assert.equal(privateName(''), 'Family');
+  assert.equal(privateName('Zoë Smith'), 'Z** S', 'counts letters, not bytes');
+});
+
+test('public list: a family she let list privately shows masked, same place', () => {
+  const entries = [
+    e('Ann Avery', '2026-01-01'),
+    e('Andrea Kim', '2026-02-01', { private_listing: true }),
+    e('Bob Burns', '2026-03-01', { private_request: { requested_date: '2026-02-01' } })
+  ];
+  const rows = publicList(entries, K, new Map(), { today: TODAY, nameOf: (x) => x.application.name });
+  assert.deepEqual(rows.map((r) => `${r.position} ${r.name}`), ['1 Ann A.', '2 A***** K', '3 Bob B.'], 'a request alone changes nothing');
+  assert.ok(!/Andrea|Kim/.test(publicListText(rows, {})));
 });
 
 test('public list: real positions, paused families hidden with their number skipped', () => {

@@ -1075,7 +1075,9 @@ position is honored. It's a tab on every family's status page, plus a public lin
 post on Facebook or her website. **This reverses §1 and §8.3** ("nobody can browse the
 list"); both are marked there.
 
-- **No opt-in or opt-out (decided 2026-10-06).** Instead, every applicant is told before
+- ~~**No opt-in or opt-out (decided 2026-10-06).**~~ **Partly reversed 2026-10-10: an
+  applicant can ask to list privately** (see "Listing privately" below); nobody can opt
+  out of the list itself. Every applicant is told before
   they apply. This notice is a locked part of the form (§15.1) and of manual entry:
 
   > Please note that to ensures transparency and give our applicants peace of mind that
@@ -1085,8 +1087,21 @@ list"); both are marked there.
   > public list once you are added.
 
   (Her wording, kept as given. Default text; she can edit it but not remove it.)
-- **Shown (allow-list, decided 2026-10-06):** position, first name + last initial, sex
+- **Shown (allow-list, decided 2026-10-06):** position, first name + last initial (or the
+  private form of it, below), sex
   preference, and date added (`fee_received_date`, or `position_anchor_date` if set).
+- **Listing privately (decided 2026-10-10).** Under the notice, the online form offers
+  *"Please show my name privately on the public list"*. Ticked, the entry arrives with
+  `private_request` (`{ requested_date }`), and she answers it **in the Approve dialog**:
+  *"Applicant requests to not display their full name on the waitlist"*, Approve or
+  Decline, required before Approve goes through. Approved sets `private_listing`, and
+  their row shows as the first letter of the first name, **one asterisk per hidden
+  letter**, then the last initial, no period: Andrea Kim → `A***** K`
+  (`waitlistRules.privateName`). Declined, they show as `Andrea K.` like everyone. Same
+  place in line either way. She can change `private_listing` any time on the Edit form
+  (and set it on manual entry, where there's no request). Their status page says how
+  it went; the public list's name search can't find a private row by name (the number
+  still finds it).
 - **Paused families don't appear** (decided 2026-10-06), nor families between turns (§16.9, decided 2026-10-08). They keep their real place
   (§6.3) and reappear when the pause ends. **Their number is skipped** (#1, #2, #4; decided
   2026-10-06, Q24): public positions are the real §6.1 positions, so nobody's number
