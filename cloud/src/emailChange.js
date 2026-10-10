@@ -10,7 +10,8 @@
 // account. The old address stays a linked purchase email, so a Pro purchase
 // made with it still counts.
 //
-//   GET    /account/email   { pending: {requestedAt, effectiveAt, deviceLabel} | null, changedAt }
+//   GET    /account/email   { pending: {requestedAt, effectiveAt, deviceLabel, via} | null, changedAt }
+//                            (via: 'device', or 'recovery' when a recovery code asked, recovery.js)
 //   POST   /account/email   {email, code, oldEmail?, oldCode?} → {status: 'changed'} | {status: 'pending', effectiveAt}
 //   DELETE /account/email   cancel a pending change (any signed-in device)
 //
@@ -62,11 +63,13 @@ export async function applyDueEmailChanges(env) {
 export async function emailChangeState(env, auth) {
   await applyDueEmailChange(env, auth.userId);
   const row = await env.DB.prepare(
-    `SELECT u.email_changed_at, c.requested_at, c.effective_at, c.device_label
+    `SELECT u.email_changed_at, c.requested_at, c.effective_at, c.device_label, c.via
        FROM users u LEFT JOIN email_changes c ON c.user_id = u.id WHERE u.id = ?`,
   ).bind(auth.userId).first();
   return {
-    pending: row?.requested_at ? { requestedAt: row.requested_at, effectiveAt: row.effective_at, deviceLabel: row.device_label } : null,
+    pending: row?.requested_at
+      ? { requestedAt: row.requested_at, effectiveAt: row.effective_at, deviceLabel: row.device_label, via: row.via ?? 'device' }
+      : null,
     changedAt: row?.email_changed_at ?? null,
   };
 }
@@ -111,10 +114,11 @@ export async function requestEmailChange(env, auth, body) {
   }
   const effectiveAt = new Date(Date.now() + EMAIL_CHANGE_WAIT_MS).toISOString();
   await env.DB.prepare(
-    `INSERT INTO email_changes (user_id, new_email_hash, device_id, device_label, requested_at, effective_at)
-     VALUES (?, ?, ?, ?, ?, ?)
+    `INSERT INTO email_changes (user_id, new_email_hash, device_id, device_label, requested_at, effective_at, via)
+     VALUES (?, ?, ?, ?, ?, ?, 'device')
      ON CONFLICT (user_id) DO UPDATE SET new_email_hash = excluded.new_email_hash, device_id = excluded.device_id,
-       device_label = excluded.device_label, requested_at = excluded.requested_at, effective_at = excluded.effective_at`,
+       device_label = excluded.device_label, requested_at = excluded.requested_at, effective_at = excluded.effective_at,
+       via = excluded.via`,
   ).bind(auth.userId, newHash, auth.deviceId, auth.deviceLabel, at, effectiveAt).run();
   return { status: 'pending', effectiveAt };
 }

@@ -179,3 +179,14 @@ test('base64 round-trips large buffers', () => {
   const big = new Uint8Array(100000).map((_, i) => (i * 7919) & 255); // past the 0x8000 chunk
   assert.deepEqual(v.fromBase64(v.toBase64(big)), big);
 });
+
+test('accountCheck: fixed for one key and keyId, different for another key or keyId (Phase 1 plan §2.7)', async () => {
+  const c = await import('../shared/data/cloud/vaultCrypto.js');
+  const a = await c.generateVaultKey();
+  const b = await c.generateVaultKey();
+  const one = await c.accountCheck(a.key, a.keyId);
+  assert.match(one, /^[0-9a-f]{64}$/);
+  assert.equal(await c.accountCheck(a.key, a.keyId), one);
+  assert.notEqual(await c.accountCheck(b.key, a.keyId), one);
+  assert.notEqual(await c.accountCheck(a.key, b.keyId), one);
+});

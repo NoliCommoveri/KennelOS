@@ -238,6 +238,17 @@ export const createHandoff = (token, { keyId, wrapped, proof }) =>
 export const redeemHandoff = (token, proof) =>
   getJson('/vault/handoffs/redeem', { method: 'POST', token, json: { proof } });
 
+// The account-recovery check (Cloud Phase 1 plan §2.7): an unlocked device saves
+// it once; with no device signed in, the recovery code proves the account. The
+// three /recover routes take no token. 400 'no_match' when the check isn't the
+// account's (or it has none saved yet).
+export const saveRecoveryCheck = (token, { keyId, check }) =>
+  getJson('/vault/check', { method: 'PUT', token, json: { keyId, check } });
+export const getRecoveryWrap = (email) => getJson('/recover/wrap', { method: 'POST', json: { email } });
+export const checkRecovery = (email, check) => getJson('/recover/check', { method: 'POST', json: { email, check } });
+export const requestRecoveryEmail = ({ email, check, newEmail, code }) =>
+  getJson('/recover/email', { method: 'POST', json: { email, check, newEmail, code } });
+
 // --- Public -------------------------------------------------------------------
 // Service notices (the shutdown channel). → [{ id, level, message, until }]
 // --- The waitlist online, her side (Waitlist W2 Plan §5) -------------------------------

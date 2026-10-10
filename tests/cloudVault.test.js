@@ -612,3 +612,38 @@ test('passkey first: no PRF or a cancel leaves the vault off; turning it off for
   await vault.disableVault();
   assert.equal(await vault.unsavedRecoveryCode(), null);
 });
+
+// --- Recovering the account with no signed-in device (Cloud Phase 1 plan §2.7) -----
+test('recovery: setup saves the check; the recovery code proves the account and asks for a new email', async () => {
+  const code = await turnOnWithVault();
+  assert.equal((await api.getVault(auth.sessionToken())).recoveryCheck, true);
+
+  switchDevice('C'); // a new phone, signed in to nothing
+  await assert.rejects(vault.startAccountRecovery('breeder@example.com', 'ZZZZ-ZZZZ-ZZZZ-ZZZZ-ZZZZ-ZZZZ'), { name: 'RecoveryError', code: 'no_match' });
+  await assert.rejects(vault.startAccountRecovery('nobody@example.com', code), { name: 'RecoveryError', code: 'no_match' });
+  const proven = await vault.startAccountRecovery('Breeder@Example.com ', code);
+  await auth.startSignIn('new@example.com');
+  const res = await vault.finishAccountRecovery(proven, { newEmail: 'new@example.com', code: lastCode(env) });
+  assert.equal(res.status, 'pending');
+  assert.equal(auth.sessionToken(), null, 'recovery signs nothing in');
+
+  // Device A, still signed in, hears it at check-in, with who asked.
+  switchDevice('A');
+  const { checkIn } = await import('../shared/data/cloud/cloudDevices.js');
+  await checkIn({ force: true });
+  assert.equal(settings.getCloudBackupState().emailChange.via, 'recovery');
+});
+
+test('recovery: a vault from before the check gets one at the next check-in of an unlocked device', async () => {
+  const code = await turnOnWithVault();
+  env.DB.raw.prepare('UPDATE vaults SET recovery_check_hash = NULL').run();
+  switchDevice('C');
+  await assert.rejects(vault.startAccountRecovery('breeder@example.com', code), { name: 'RecoveryError', code: 'not_ready' });
+
+  switchDevice('A');
+  const { checkIn } = await import('../shared/data/cloud/cloudDevices.js');
+  await checkIn({ force: true });
+  assert.ok(env.DB.raw.prepare('SELECT recovery_check_hash FROM vaults').get().recovery_check_hash);
+  switchDevice('C');
+  assert.equal((await vault.startAccountRecovery('breeder@example.com', code)).email, 'breeder@example.com');
+});

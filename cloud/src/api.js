@@ -7,8 +7,9 @@ import { deleteAccount, getProgram, takeOver } from './program.js';
 import { ackErase, cancelErase, checkIn, licenseReleased, listDevices, requestErase } from './devices.js';
 import {
   addWrap, approvePairing, createHandoff, createPairing, disableVault, enableVault, getVault, getWrap, listPairings,
-  pollPairing, redeemHandoff, removeWrap, replaceRecoveryWrap,
+  pollPairing, redeemHandoff, removeWrap, replaceRecoveryWrap, saveRecoveryCheck,
 } from './vault.js';
+import { checkRecovery, recoveryWrap, requestRecoveryEmail } from './recovery.js';
 import { getEntitlement, removeLinks, startLink, verifyLink } from './license.js';
 import { cancelEmailChange, getEmailChange, requestEmailChange } from './emailChange.js';
 import { ackInbox, publishProjection, readEvents, readInbox, readProjection, sendMessage, unpublishProjection, PROJECTION_MAX_BYTES } from './waitlist.js';
@@ -37,6 +38,12 @@ export async function handleApi(request, env, url, cors) {
 
   if (p === '/auth/start' && m === 'POST') return json(await startSignIn(env, request, await readJson(request)), 200, cors);
   if (p === '/auth/verify' && m === 'POST') return json(await verifyCode(env, await readJson(request)), 200, cors);
+
+  // Recovering an account with no signed-in device (Phase 1 plan §2.7): the
+  // recovery code is the proof, so these take no bearer token.
+  if (p === '/recover/wrap' && m === 'POST') return json(await recoveryWrap(env, request, await readJson(request)), 200, cors);
+  if (p === '/recover/check' && m === 'POST') return json(await checkRecovery(env, request, await readJson(request)), 200, cors);
+  if (p === '/recover/email' && m === 'POST') return json(await requestRecoveryEmail(env, request, await readJson(request)), 200, cors);
 
   // The one route an erased device may still call (plan §2.5).
   if (p === '/devices/erase-ack' && m === 'POST') {
@@ -88,6 +95,7 @@ export async function handleApi(request, env, url, cors) {
   const pairing = VAULT_PAIRING.exec(p);
   if (pairing && m === 'GET') return json(await pollPairing(env, auth, pairing[1]), 200, cors);
   if (p === '/vault/handoffs' && m === 'POST') return json(await createHandoff(env, auth, await readJson(request)), 200, cors);
+  if (p === '/vault/check' && m === 'PUT') return json(await saveRecoveryCheck(env, auth, await readJson(request)), 200, cors);
   if (p === '/vault/handoffs/redeem' && m === 'POST') return json(await redeemHandoff(env, auth, await readJson(request)), 200, cors);
 
   // The waitlist online, her side (Waitlist W2 Plan §2, §4–§6). Pro only.

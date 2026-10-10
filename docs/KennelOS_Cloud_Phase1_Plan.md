@@ -174,8 +174,39 @@ the Account card (`cloudBackupUI.changeEmailModal`, `cloudAuth.changeAccountEmai
   account's next read or the hourly cron; one whose new address got its own account in the
   meantime is dropped. Migration `0012_email_change`. Tests: `cloud/tests/emailChange.test.js`,
   `tests/cloudClient.test.js`.
-- **Not yet (case 2):** no signed-in device at all. The planned way is the recovery code
-  proving the account ("Lost access to your email?" on the sign-in screen).
+- **Case 2, no signed-in device at all:** the recovery code proves the account (§2.7).
+
+### 2.7 Recovering the account with no signed-in device (added 2026-10-10)
+Lost the account's email **and** no device still signed in. Nothing can be checked by email,
+so the vault's recovery code is the proof (`cloudVault.startAccountRecovery` /
+`finishAccountRecovery`, `cloudBackupUI` "Lost access to your email?" under the sign-in email
+box, shown where the vault is offered; `cloud/src/recovery.js`):
+- **The check.** The server can't test a recovery code (it holds only the vault key wrapped
+  under it). So every device holding the vault key saves `SHA-256(accountCheck)`, where
+  `accountCheck = HKDF(vault key, info "kennelos-vault/account-check/v1/<keyId>")`
+  (`vaultCrypto.accountCheck`), in `vaults.recovery_check_hash` (`PUT /vault/check`; saved
+  once per vault key, never replaced). Setup saves it at once; an existing vault gets it at
+  the next check-in of any unlocked device (check-in answers `recoveryCheckNeeded`), so no
+  owner has to make a new code. The server can't learn the key or the code from it.
+- **Screen 1:** the account's email + the recovery code. `POST /recover/wrap {email}` returns
+  the recovery wrap; the device opens it, derives the check and sends it
+  (`POST /recover/check`). No account enumeration: an address with no account or no vault
+  gets a stand-in wrap (HMAC of its hash, the same each time) that no code opens, and every
+  failed check is `no_match`. So a code that doesn't open the wrap says "doesn't match", and
+  only a code that **does** open it can see "not set up yet" (`RecoveryError 'not_ready'`,
+  the vault has no check saved yet). Rate-limited per address (20/hour) and per caller (60).
+- **Screens 2–3:** the new address and its code (`/auth/start`, then `POST /recover/email
+  {email, check, newEmail, code}`, which checks the proof again). The change **waits 1 day**
+  in `email_changes` with `via = 'recovery'` (decided 2026-10-10), exactly like a change asked
+  for without the old inbox: any device still signed in shows it with **Cancel it**
+  ("Requested with your recovery code"), and the old address gets a notice email with the date
+  (`recoveryNoticeMessage`). Nothing is signed in or kept on the recovering device; when the
+  wait is over the owner signs in with the new address and restores as usual.
+- **Without Sensitive records there is no recovery code**, so such an account can't use this
+  (decided 2026-10-10: support couldn't prove ownership either).
+- Migration `0013_account_recovery` (`vaults.recovery_check_hash`, `email_changes.via`).
+  Tests: `cloud/tests/recovery.test.js`, `tests/cloudVault.test.js` (recovery),
+  `tests/vaultCrypto.test.js` (`accountCheck`).
 
 ## 3. Client design (`shared/`)
 

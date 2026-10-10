@@ -265,6 +265,13 @@ sees the code must still sign in to the account (the emailed code) within the ho
 dialog shows the code with **Copy code** and copies it again on **Continue to Pro**, since
 checkout replaces the page.
 
+### 5.5 The account-recovery check (added 2026-10-10)
+The recovery code also proves the **account** when no device is signed in (Cloud Phase 1
+plan §2.7): unlocked devices save the SHA-256 of a value derived from the vault key
+(`vaultCrypto.accountCheck`, `PUT /vault/check`), and a recovering device that opens the
+recovery wrap derives the same value. It is a second output of the key, so it says nothing
+about the key or the code.
+
 ## 6. Server (`cloud/`)
 
 ### 6.1 API (bearer token; all behind the maintenance gate)

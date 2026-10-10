@@ -493,9 +493,10 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   **Waitlist online is released (2026-10-08), ahead of steps 6 and 7:**
   `WAITLIST_ONLINE_RELEASED = true`, so the Online list card, status / public list / form
   links and family actions are offered wherever cloud backup is. Production has migrations
-  `0007`–`0009`, `apply.kennelos.app` and Turnstile. Not yet: the server's deadlines and
-  automatic offers while her phone is offline (step 7), and the privacy policy's
-  waitlist-online section (step 8). Service-worker cache rolled to `kennelos-shell-v50`.
+  `0007`–`0009`, `apply.kennelos.app` and Turnstile. Since then step 7 (the server's
+  deadlines and automatic offers while her phone is off, 2026-10-09), the privacy policy's
+  waitlist-online section and the "Message us on Facebook" button (step 8, 2026-10-10) are
+  built; only D8, the no-reply auto-answer, is left. Service-worker cache rolled to `kennelos-shell-v50`.
   **Step 6, emails to families, is built (2026-10-09; W2 Plan step 6, End-State guide §29):**
   after each action a family should hear about (approve, decline, fee received, every turn
   offered, a pass or no response, her decision on a request, Send status link, Email them…,
@@ -869,9 +870,31 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   waits 1 day, shown on every signed-in device (Account card and Today) with **Cancel it**.
   The old address stays a linked purchase email, so Pro purchases made with it still count.
   **New cloud migration `0012_email_change`: Apply pending on staging and production after the
-  merge.** Not yet: recovering with no signed-in device (the recovery code; case 2).
+  merge.** Recovering with no signed-in device (case 2) followed; see below.
   Service-worker cache rolled to `kennelos-shell-v65` for this batch (the Lite → Pro bridge,
   vault handoff codes, the simpler way in, dialog button wrapping and changing the email).
+
+- **Recovering the account with no signed-in device — built & browser-verified (2026-10-10;**
+  Cloud Phase 1 plan §2.7). **Lost access to your email?** under the sign-in email box: the
+  account's email + the recovery code (it opens the vault's recovery wrap, and a check value
+  derived from the vault key, which every unlocked device now saves, proves the account), then
+  a new address and its code. The change waits 1 day, shown on any device still signed in with
+  **Cancel it** ("Requested with your recovery code"), and the old address gets a notice. No
+  account enumeration: an unknown address gets a stand-in wrap that no code opens. Accounts
+  without Sensitive records have no recovery code and can't use it. **New cloud migration
+  `0013_account_recovery`: Apply pending on staging and production after the merge.** Tests:
+  `cloud/tests/recovery.test.js`, `tests/cloudVault.test.js`, `tests/vaultCrypto.test.js`.
+  Also fixed: a taken address in **Change email…** said "Another device is backing up this
+  program." instead of its own message.
+
+- **"Message us on Facebook" — built & browser-verified (2026-10-10;** Waitlist Spec §11, W2
+  step 8). At the bottom of Waitlist settings (where the list can go online): **Show "Message us
+  on Facebook" on status pages** and **Your Facebook Page link** (facebook.com or m.me; the
+  switch needs a link). Status pages of families on the list then show the button, opening
+  `m.me/<page>`, with "To answer an offer or a check-in, use the buttons on this page.
+  Messenger is for questions." Nothing about the conversation comes back to KennelOS. No
+  migration (`waitlist_config` is already cloud tier). Tests: `tests/waitlistProjection.test.js`,
+  `cloud/tests/familyPages.test.js`.
 
 - **Cloud Phase 2, live multi-device sync — planned, not built** (`docs/KennelOS_Cloud_Phase2_Sync_Plan.md`,
   draft 2026-10-10). Pro only: both tiers per record (cloud fields readable as today, the

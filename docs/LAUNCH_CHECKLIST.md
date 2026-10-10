@@ -265,6 +265,12 @@ and Email Routing.
   until then.
 - [ ] **Apply pending (`0012`) on staging's and production's `/ops`** right after the merge
   that carries changing the account's email (Phase 1 plan §2.6).
+- [ ] **Apply pending (`0013`) on staging's and production's `/ops`** right after the merge
+  that carries account recovery (Phase 1 plan §2.7).
+- [ ] **Try recovering an account on staging** with a test account that has Sensitive records
+  on: sign out everywhere, then **Lost access to your email?** with the recovery code and a new
+  address; the old inbox should get the notice, and after the day (or by setting
+  `effective_at` back on staging) the new address signs in to the same backups.
 - [ ] **Try changing an email on staging**, both ways: with the old inbox (changes at once)
   and without (pending a day, shown with Cancel on a second signed-in device).
 - [ ] **Try the handoff on a real phone** (staging, then production): in Lite with Sensitive

@@ -39,8 +39,33 @@ export const WAITLIST_CONFIG_DEFAULTS = Object.freeze({
   show_upcoming: null, // pairings and early litters online (Spec §16.4); null = all off, see showUpcoming
   online_since: null, // the day her list last went online (set by the Online list card); the ready check starts there
   ready_no_answer: 'keep_paused', // "Ready now?" unanswered (Spec §16.7): WAITLIST_READY_NO_ANSWER
-  ready_answer_days: 14 // remove_after: days to answer; keep_paused: when Today flags them
+  ready_answer_days: 14, // remove_after: days to answer; keep_paused: when Today flags them
+  facebook_button: false, // "Message us on Facebook" on status pages (Spec §11, W2 step 8); needs facebook_page
+  facebook_page: '' // her Facebook Page link, as she typed it (facebook.com/… or m.me/…)
 });
+
+// Her Facebook Page link → the Messenger link the status page's button opens
+// (https://m.me/<page>), or null when it isn't a facebook.com or m.me address
+// naming a Page. A profile.php?id= link uses the id.
+const FACEBOOK_NOT_A_PAGE = new Set([
+  'groups', 'events', 'share', 'sharer', 'sharer.php', 'watch', 'marketplace', 'gaming', 'login', 'login.php',
+  'home.php', 'search', 'photo', 'photo.php', 'story.php', 'permalink.php', 'messages', 'help', 'policies', 'pages'
+]);
+export function messengerLink(raw) {
+  let text = String(raw ?? '').trim();
+  if (!text) return null;
+  if (!/^https?:\/\//i.test(text)) text = `https://${text}`;
+  let url;
+  try { url = new URL(text); } catch { return null; }
+  let host = url.hostname.toLowerCase();
+  if (/^(www|m|web|business)\.facebook\.com$/.test(host)) host = 'facebook.com';
+  else if (host === 'www.m.me') host = 'm.me';
+  if (host !== 'facebook.com' && host !== 'm.me') return null;
+  let page = url.pathname.split('/').filter(Boolean)[0] || '';
+  if (host === 'facebook.com' && page.toLowerCase() === 'profile.php') page = url.searchParams.get('id') || '';
+  if (!/^[A-Za-z0-9._-]{1,100}$/.test(page) || FACEBOOK_NOT_A_PAGE.has(page.toLowerCase())) return null;
+  return `https://m.me/${page}`;
+}
 
 // The three stages she can show before picks open (Spec §16.4), each on the public
 // list and on family pages separately. All off unless she switches one on.

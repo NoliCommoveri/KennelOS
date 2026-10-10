@@ -28,7 +28,7 @@ import { getActiveKennelId, setActiveKennel } from '../data/kennelScope.js';
 import { DOG_STATUS, LITTER_STATUS, SALE_STATUS, FEE_CREDIT_POLICY, WAITLIST_AUTO_OFFER_TRIGGER, WAITLIST_READY_NO_ANSWER } from '../data/vocab.js';
 import { editionFlags } from '../data/editionConfig.js';
 import { isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
-import { waitlistConfig, SOON_NOTICE_DEFAULT, passReasons, showUpcoming, UPCOMING_STAGES } from '../data/waitlistRules.js';
+import { waitlistConfig, SOON_NOTICE_DEFAULT, passReasons, showUpcoming, UPCOMING_STAGES, messengerLink } from '../data/waitlistRules.js';
 import { PUPPY_RECORD_FIELD_GROUPS, PUPPY_RECORD_FIELD_KEYS, puppyRecordFieldsValue } from '../data/puppyRecordFields.js';
 import { EMAIL_TEMPLATE_KINDS, EMAIL_PLACEHOLDERS, DEFAULT_EMAIL_TEMPLATES, emailTemplate } from '../data/waitlistEmails.js';
 import { esc, badge, fmtDate, fmtMoney, param } from '../assets/ui.js';
@@ -442,7 +442,7 @@ function waitlistCard(k) {
           <div class="pill-row" style="margin-top:6px;"><button type="button" class="btn btn-sm" data-act="add-reason">Add a reason</button></div>
           <label class="check-inline" style="margin-top:6px;"><input id="wl-pass-other" type="checkbox"${c.pass_other !== false ? ' checked' : ''}> Also offer "Other", with a box for their own words</label>
         </div>
-        ${isWaitlistOnlineOffered() ? readySettings(c) + upcomingSwitches(c) + emailTemplateSettings(c) : ''}
+        ${isWaitlistOnlineOffered() ? readySettings(c) + upcomingSwitches(c) + emailTemplateSettings(c) + facebookSettings(c) : ''}
       </div>
       <div class="form-actions"><button class="btn btn-primary btn-sm" data-act="save-waitlist">Save</button></div>
     </section>`;
@@ -468,6 +468,18 @@ function emailTemplateSettings(c) {
       <label class="check-inline" style="margin-top:6px;"><input id="wl-reminders" type="checkbox"${c.email_reminders !== false ? ' checked' : ''}> Send reminders by themselves: halfway through a turn and on its last morning, the day before a fee is due, and "Ready now?" when a family's hold ends</label>
       <span class="field-hint">KennelOS sends these while your phone is off, once each, after 8 am in your kennel's time zone. Turns that end are closed, and the next family offered, only for the moments ticked under "Offer the next family automatically when…".</span>
       ${EMAIL_TEMPLATE_KINDS.map(block).join('')}
+    </div>`;
+}
+
+// "Message us on Facebook" on status pages (Waitlist Spec §11): off by default,
+// and only with a facebook.com or m.me link (messengerLink).
+function facebookSettings(c) {
+  return `<div class="field field-wide">
+      <label class="check-inline"><input id="wl-fb-on" type="checkbox"${c.facebook_button ? ' checked' : ''}> Show "Message us on Facebook" on status pages</label>
+      <label for="wl-fb-page" style="margin-top:6px;">Your Facebook Page link</label>
+      <input id="wl-fb-page" type="url" inputmode="url" autocomplete="url" value="${esc(c.facebook_page || '')}" placeholder="facebook.com/yourkennel">
+      <span class="field-hint">A facebook.com or m.me address.</span>
+      <span class="field-hint">Messages sent there stay in Messenger. They aren't added to the family's entry, and they don't count as a reply to an offer.</span>
     </div>`;
 }
 
@@ -536,6 +548,14 @@ async function onSaveWaitlist() {
     }
     waitlist_config.email_templates = Object.keys(templates).length ? templates : null;
     waitlist_config.email_reminders = q('#wl-reminders').checked;
+  }
+  if (q('#wl-fb-on')) {
+    const page = q('#wl-fb-page').value.trim();
+    const on = q('#wl-fb-on').checked;
+    if (on && !page) { showError('Add your Page link first.'); return; }
+    if (page && !messengerLink(page)) { showError('That link isn\'t a Facebook Page. Use a facebook.com or m.me address.'); return; }
+    waitlist_config.facebook_button = on;
+    waitlist_config.facebook_page = page;
   }
   if (q('#wl-ready-rule')) {
     waitlist_config.ready_no_answer = q('#wl-ready-rule').value;
