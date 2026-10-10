@@ -501,6 +501,16 @@ export function getBackupStatus() {
   };
 }
 
+// True when a restore elsewhere would bring everything back (Lite → Pro bridge,
+// Editions Plan "After the vault"): backup on, not paused, nothing unsaved, a
+// push on record, and Sensitive records on, unlocked here and backed up.
+// `status` is getBackupStatus(); `vault` is cloudVault.vaultStatus() (or null
+// when it couldn't be asked).
+export function holdsEverything(status, vault) {
+  return !!(status?.enabled && !status.paused && !status.dirty && status.lastPushedAt
+    && vault?.enabled && vault.unlocked && status.vault === 'on' && status.vaultPushedAt);
+}
+
 // The server's view: who backs up, and the latest snapshot.
 export async function getProgramStatus() {
   if (!isCloudAvailable()) throw new api.CloudUnavailableError();

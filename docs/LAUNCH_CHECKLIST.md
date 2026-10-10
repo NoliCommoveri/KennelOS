@@ -204,9 +204,10 @@ checks below; they stay listed as worth doing. Production's migration `0005` is 
 - [x] **Privacy policy:** `site/privacy.html` describes private backup (merged in #80).
 - [x] **Release:** `VAULT_RELEASED = true` (its pin in `tests/cloudClient.test.js` updated),
   `CACHE_NAME` → `kennelos-shell-v47`.
-- [ ] **Lite → Pro Upgrade wording** (Editions Plan, "After the vault"): the bridge still
-  downloads the file first and says the file is needed for private details. With private
-  backup on, it isn't. Revise `runUpgradeBridge` when convenient.
+- [x] **Lite → Pro Upgrade wording** (Editions Plan, "After the vault"): with Sensitive
+  records on and unlocked, the bridge skips the file (cloud first, file as the secondary
+  button); built 2026-10-10. Try it on a real phone with the next release: Upgrade in Lite,
+  then sign in and unlock in Pro.
 
 ## 3c. Pro license link (W2 prerequisite; `docs/KennelOS_License_Link_Plan.md`)
 

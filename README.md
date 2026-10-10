@@ -89,8 +89,9 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
     spots**: the nav "More" menu (every page) and a footer on Today. Driven entirely by
     `demoUrl`/`upgradeUrl` in `editionConfig` — both `null` in Pro/Demo, so nothing
     renders there (`hasEditionLinks()` false). The Upgrade CTA runs the shared
-    export-first bridge (`runUpgradeBridge`, now shared with the cap upgrade nudge):
-    export the JSON backup, then head to checkout. `demoUrl` (Lite) points at the Demo
+    bridge (`runUpgradeBridge`, now shared with the cap upgrade nudge): export the JSON
+    backup, then head to checkout (or, since the vault, cloud first; see "Lite → Pro
+    bridge, cloud first" below). `demoUrl` (Lite) points at the Demo
     origin — placeholder until the domain is live.
 - **Step 5 — Demo mode (read-only, seeded showcase), done & browser-verified (headless
   Chromium, all three editions, no console errors).**
@@ -833,6 +834,16 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   & Voids, Show Record and Stud Results — the plan is complete.
   Service-worker cache rolled to `kennelos-shell-v53` (this batch plus the registration /
   purposes / Full-surcharge / puppy-form changes before it).
+
+- **Lite → Pro bridge, cloud first — built & browser-verified (2026-10-10;** Editions Plan,
+  "After the vault"). When this Lite device is signed in to cloud backup with Sensitive
+  records on and unlocked, and a last push leaves nothing unsaved
+  (`cloudBackup.holdsEverything`), **Upgrade to Pro →** (and the cap nudge) skips the file
+  and says how to sign in and unlock in Pro, with **Save a backup file too** as the
+  secondary button and **Not now**. Anything else (no cloud, backup off or paused, Sensitive
+  records off or locked, offline) keeps the file-first flow, whose note now suggests
+  turning on Sensitive records. Test: `tests/upgradeBridge.test.js`. Headless Chromium
+  (Lite, cloud API mocked, phone width): all three paths reach checkout, no console errors.
 
 ## Build & deploy
 
