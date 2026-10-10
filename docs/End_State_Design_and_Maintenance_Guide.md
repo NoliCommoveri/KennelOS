@@ -127,7 +127,10 @@ KennelOS/
   vendor/                      Vendored deps: dexie.min.mjs, papaparse.min.mjs,
                                lz-string.min.mjs, jspdf.umd.min.js (the self-
                                contained UMD build of jsPDF, Pro-only, loaded on
-                               demand by assets/invoicePdf.js, §24), tesseract/
+                               demand by assets/invoicePdf.js, §24), tesseract/,
+                               pdfjs/ (PDF.js 4.10.38, Apache-2.0: pdf.min.mjs +
+                               pdf.worker.min.mjs, loaded on demand by
+                               data/pedigreeReader.js for pedigree import)
   resources/
     common_tests_by_breed_seed.csv   Optional breed→test seed data. Columns:
                                `Breed Group,breed,test_name` (col A is for the
@@ -184,7 +187,12 @@ KennelOS/
                                (JPEG via DCTDecode); the compress step for a
                                camera/screenshot upload (§26.1)
     ocr.js                     Offline receipt OCR (vendored Tesseract) — pre-fills
-                               amount/date/vendor/receipt # on the expense form (§26.1)
+                               amount/date/vendor/receipt # on the expense form (§26.1);
+                               recognizeWords() returns positioned words (pedigree import)
+    pedigreeReader.js          Pedigree file → positioned words: PDF.js text layer, or
+                               render + OCR for a picture/image (browser-only)
+    pedigreeParse.js           Pure: positioned words → the chart's dogs by path
+    pedigreeImport.js          Pedigree import plan (match/merge/review, pure) + commit
     incomeView.js              Derived income aggregator (Sale + outgoing StudService)
     litterFinances.js          Derived per-litter P&L (income vs cost)
     moneyReport.js             Money in/out by period (P&L by Month, Year in Review; §31)
@@ -194,6 +202,8 @@ KennelOS/
     breedingReports.js         Pure production / pairing success / puppy growth math (§31)
     waitlistReports.js         Pure waitlist funnel / demand-vs-supply math (§31)
     dateUtils.js               todayYMD / date helpers (single "what is today")
+    calendarMath.js            Pure Calendar page math: month grid, event day spans,
+                               the "Add to Google Calendar" link
     vocab.js                   Controlled vocabularies + event-type catalog
     csvImport.js               Generic CSV match-or-create engine + mappings
     importExport.js            JSON backup / restore
@@ -339,7 +349,7 @@ commonly blank at entry time.
 
 | Entity | Required | Notable other fields |
 |---|---|---|
-| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`, plus `kennel_id` **when `ownership_type` is `owned`/`co_owned`** (the kennel scope — must be one of your own kennels; optional and free to name an outside kennel for `external`/`leased_in`) | `registered_name`, `date_of_birth`, `date_of_death`, `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (the kennel that *produced* this dog — own or an outside contact's; distinct from `kennel_id`, the kennel it belongs to *now* — the user's own for a dog they own, or an outside kennel for an external/leased dog (the form's Kennel picker offers every kennel, not just own ones); auto-prefilled from the litter's dam's own `kennel_id` when that dam is owned/co-owned), `owner_contact_id`, `co_owner_contact_ids[]`, `kennel_id`, `color_markings`, `registry`, `registration_number`, `microchip_id`, `url` (plain, unindexed — a link for this dog, e.g. a registry page or listing), `planned_tests[]`, `recorded_coi{value,method,source,as_of_date}`, `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold` — breeder intent; `health_hold` = not sellable for a health reason, never offered by the waitlist, the default when a sale is voided for a failed health check or returned for a health problem; **puppy-only**, valid only while `status='puppy'` and forced null otherwise. Enforced in `dogRepo` create/update and mirrored in the UI: the dog form shows it only for a puppy, `sale.js` won't set one on a non-puppy, the profile hides the row otherwise. Feeds the Today "Active litters" card, the promote-lifecycle nudge, and the litter-lifecycle nudges, §19), `intended_registration` (plain, unindexed — nullable `REGISTRATION_TYPE` value (`limited` / `full` / `co_own` / `none` = unregistered): the registration rights this pup is planned for. Prefills a new Sale's `registration_type` (and through it the Full-registration surcharge, `saleDefaults.expectedPricing`), and the waitlist offers the pup only to families whose `pref_purposes` map to it (`waitlistRules.pupMatchesPrefs`, §29); unset = not decided, matches any family. Set from the Add Puppy / Add several puppies forms (applied to all on the bulk one) and the Dog form, which shows it for a puppy in every edition and only writes it when that field rendered, so a status change never clears it; it is not cleared when the dog grows up — the Sale carries what was actually sold), `notes`. Owner required when `ownership_type ∈ {external, leased_in}`. |
+| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`, plus `kennel_id` **when `ownership_type` is `owned`/`co_owned`** (the kennel scope — must be one of your own kennels; optional and free to name an outside kennel for `external`/`leased_in`) | `registered_name`, `date_of_birth`, `date_of_death`, `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (the kennel that *produced* this dog — own or an outside contact's; distinct from `kennel_id`, the kennel it belongs to *now* — the user's own for a dog they own, or an outside kennel for an external/leased dog (the form's Kennel picker offers every kennel, not just own ones); auto-prefilled from the litter's dam's own `kennel_id` when that dam is owned/co-owned), `owner_contact_id`, `co_owner_contact_ids[]`, `kennel_id`, `color_markings`, `registry`, `registration_number`, `microchip_id`, `url` (plain, unindexed — a link for this dog, e.g. a registry page or listing), `planned_tests[]`, `recorded_coi{value,method,source,as_of_date}`, `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold` — breeder intent; `health_hold` = not sellable for a health reason, never offered by the waitlist, the default when a sale is voided for a failed health check or returned for a health problem; **puppy-only**, valid only while `status='puppy'` and forced null otherwise. Enforced in `dogRepo` create/update and mirrored in the UI: the dog form shows it only for a puppy, `sale.js` won't set one on a non-puppy, the profile hides the row otherwise. Feeds the Today "Active litters" card, the promote-lifecycle nudge, and the litter-lifecycle nudges, §19), `intended_registration` (plain, unindexed — nullable `REGISTRATION_TYPE` value (`limited` / `full` / `co_own` / `none` = unregistered): the registration rights this pup is planned for. Prefills a new Sale's `registration_type` (and through it the Full-registration surcharge, `saleDefaults.expectedPricing`), and the waitlist offers the pup only to families whose `pref_purposes` map to it (`waitlistRules.pupMatchesPrefs`, §29); unset = not decided, matches any family. Set from the Add Puppy / Add several puppies forms (applied to all on the bulk one) and the Dog form, which shows it for a puppy in every edition and only writes it when that field rendered, so a status change never clears it; it is not cleared when the dog grows up — the Sale carries what was actually sold), `notes`, `pedigree_only` (plain, unindexed bool — a dog kept **only for lineage**: an ancestor brought in to build a pedigree, never run as part of the kennel. See "Pedigree-only dogs" below). Owner required when `ownership_type ∈ {external, leased_in}` — except on a pedigree-only dog. |
 | **Contact** | `name` | `contact_type[]` (multi), `email`, `phone`, `address`, `kennel_id`, `waitlist_status`, `first_contact_source`, `notes`, `companion_note` (plain, unindexed — a per-recipient message **meant for the recipient's eyes**, shown on their companion share page; deliberately distinct from the private `notes`; §20). Buyers are Contacts — **there is no Buyer table**. `address` also resolves an in-person stud service's away-board location (§19). |
 | **Kennel** | `kennel_name` | `public_id` (**indexed** — the kennel's portable PUBLIC IDENTITY, `kos1_<uuid>`; minted once for an **own** kennel and immutable thereafter, so the same real-world kennel keeps one identifier across a backup/restore, the Lite→Pro bridge, a Dropbox sync, and every kennel card it issues. An **outside** kennel never has one minted locally — it can only ever be *received* from a card its owner issued, so a blank value there means “I typed this kennel in myself”, not missing data. Not a foreign key: nothing points at it, so it carries **no** `referenceRegistry` entry. See §28), `is_own_kennel`, `prefix`, `location`, `website` (plain, unindexed — a link for this kennel, mirrors `Dog.url`), `waitlist_form_keys` (plain, unindexed — her application form's key pairs `[{ id, public_key, private_key, created_at, retired_at }]`, W2 step 4, §29; **private tier**: the private halves open every online application, so they ride the private vault and file backups only), `time_zone` (plain, unindexed — IANA name, e.g. `America/Chicago`; set on the **Online list** card (Waitlist → Manage → Publish list), defaulting to the device's zone; the waitlist online's offer deadlines end at 11:59 pm there, Waitlist Spec §6.5; cloud tier), `logo_data_url` (plain, unindexed — a downscaled PNG/SVG **data URL** for the kennel's logo, uploaded/removed on the kennel detail page, rendered on its invoices/receipts (§24) and puppy records (§23); rides the JSON backup), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds` (plain, unindexed — `{ [testKey]: breed[] }`; which breed(s) tagged each preferred test via the breed-seed import, keyed lowercase-trimmed; a test added by typing directly into the kennel's own "Add a test" field has no entry and stays breed-agnostic. Never edited directly — written by `kennelRepo.addPreferredTest`'s third arg, read via `testBreedsFor`/`testsForBreed`), `promote_nudge_enabled` (bool, default off), `promote_age_male_months`/`promote_age_female_months` (the promote-lifecycle nudge's per-kennel thresholds, §19), `puppy_record_fields` (plain, unindexed object — which fields this kennel's printed Puppy Records show, picked on the Kennel page's **Puppy Record fields** card; stores only what's turned off, `{ [key]: false }`, null = everything shown; keys and the read rule live in `data/puppyRecordFields.js`, §23; cloud tier — a print setting), `waitlist_config` (plain, unindexed object — this kennel's waitlist settings: fee, credit policy, fee window, payment instructions, max passes, response days (`respond_days` — the days to accept AND pay the deposit), whether no response counts as a pass, color matching, `auto_offer_on` (which closings offer the next family by themselves: `accepted` / `passed` / `no_response` / `no_deposit` / `left` / `restored` (a family back in line after a lost pup, Waitlist Spec §16.11), from `vocab.WAITLIST_AUTO_OFFER_TRIGGER`; `no_deposit` is a no response on an offer whose family had picked a pup, per `waitlistRules.closingTrigger`; default **none**; replaced the boolean `auto_offer_next` 2026-10-08, and a stored `auto_offer_next: true` still reads as all of them via `waitlistConfig`), check-in months, `online` (bool, default off — her list is published online, W2, §29; only acted on where the waitlist online is offered), `online_form` (bool, default off — she takes applications through the online form, W2 step 4), `pass_reasons` (`[{ id, label, message }]` — her reasons for a family's pass and the message each shows them, Waitlist Spec §16.5; null = `waitlistRules.DEFAULT_PASS_REASONS`; read through `passReasons`) and `pass_other` (bool, default on — also offer "Other" with a text box), `online_since` (the day the list last went online, set by the Online list card or backfilled by the sync; "Ready now?" covers holds ending from then), `ready_no_answer` (`keep_paused` default / `unpause` / `remove_after`, `vocab.WAITLIST_READY_NO_ANSWER`) and `ready_answer_days` (14), `show_upcoming` (`{ planned_pairings, pairings, early_litters }`, each `{ public, family }`, all false by default — what shows online before picks open, Waitlist Spec §16.4; read through `waitlistRules.showUpcoming`), `soon_notice_text` (her "It's almost your turn" wording; blank = `waitlistRules.SOON_NOTICE_DEFAULT`, §29), `email_templates` (`{ [kind]: { subject?, body? } }` — her wording for the emails to families, W2 step 6; only what differs from `waitlistEmails.DEFAULT_EMAIL_TEMPLATES` is stored, null = all defaults; read through `waitlistEmails.emailTemplate`; edited under **Emails to families** in Waitlist settings, shown where the waitlist online is offered, §29), `email_reminders` (bool, default on — the server's reminder and "Ready now?" emails while the list is online, W2 step 7), `public_intro_text` (the message under her public list's heading; blank = `waitlistRules.PUBLIC_INTRO_DEFAULT`, `[Kennel Name]` filled in by `publicIntroText`; edited on the Publish list page, §29), `form_questions[]`, her application form (§29; read through `waitlistForm.formQuestions`, which supplies the defaults and restores the locked questions), and `application_faq[]` (`{ id, question, answer }`, her FAQ shown at the top of the application; read through `waitlistForm.formFaq`). Kept on the kennel, not in `settings.js`, so it rides the JSON backup/Dropbox sync; missing keys fall back to `waitlistRules.WAITLIST_CONFIG_DEFAULTS`; edited on the Kennel page's **Waitlist settings** card, §29). Lightweight; added inline from the Contact form. |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date` (shown as "Planned first date" — the first planned/tie date), `last_observed_date` (plain, unindexed — a subsequent observed tie/breeding date), `expected_due_date` (prefilled on the detail page as 63 days after `planned_date` when still empty, never clobbering a deliberate edit), `notes`. Sire ≠ dam (hard block). |
@@ -554,6 +564,32 @@ Conventions each entity repo follows:
 Notable repo specifics:
 - **dogRepo**: pedigree cycle prevention in `validateDog` (walks ancestors with a
   visited-set); `addPlannedTests` (additive, dedupe-on-write); `getBreeds`.
+  `getAll({ includeArchived, includePedigreeOnly = false })` overrides the base read and
+  drops pedigree-only dogs unless asked (below).
+
+**Pedigree-only dogs** (`dogs.pedigree_only = true`). Ancestors kept for lineage only. They
+are always `ownership_type: 'external'` (`validateDog` refuses any other ownership while the
+flag is set) and are exempt from the external owner-contact requirement; status is
+`external_reference` by convention. **Isolation is one choke point:** `dogRepo.getAll()`
+leaves them out by default, so they never reach a roster, list, picker, report, Today, the
+waitlist, Companion/Furever, or the Lite cap (`rosterCount.isActiveRosterDog` also refuses
+them, belt and braces, since the cap reads `db.dogs` directly). `getById` is unaffected, so
+links resolve. The callers that opt in with `includePedigreeOnly: true` are pedigree
+building only: `assets/pedigree.js` (the tree), `pages/pedigree.js` (the root picker offers
+only the one being viewed, so hundreds of ancestors don't flood it), `pages/dog.js` (sire/dam
+names and the Sire/Dam pickers, labelled "(pedigree only)"), and the dog CSV mapping's
+`loadExisting` (match-or-create and sire/dam name resolution land on them instead of
+duplicating). `assistantSync.buildAssistantFeed` filters them out of the helper's dog list.
+On the dog page a pedigree-only dog shows a "Pedigree only" badge, its profile without the
+ownership/status rows, Recorded COI and Pedigree — the kennel sections (planned/health
+tests, show record, timeline, expenses, pairings, sales, stud services, contracts, litters)
+are `hidden`. A plain Edit hides the ownership/status/owner/kennel fields and keeps their
+values. **Bring into use** (header button) opens the edit form with ownership and status
+cleared; saving clears `pedigree_only` on the same record (the one-Dog-table rule — never a
+new row), resolves the kennel like a new dog, and runs the full validation and the Lite cap
+(a block shows the upgrade nudge). `pedigree_only` is a **cloud** field (syncRegistry):
+without it a cloud restore would turn every ancestor into an ordinary, ownerless external
+dog.
 - **eventRepo** (exported as both `HistoryEvent` and `eventRepo`): see §8.
 - **saleRepo.isOpenSale(sale)**: true when a sale is non-archived and its status is not
   in `{delivered, returned, cancelled, voided}`. Drives family-companion membership (§20) and
@@ -803,6 +839,9 @@ later-in-the-day PM.
 - `getUpcoming()` — instant-duration events at/after today, any subject ("Upcoming
   Deliverables").
 - `getScheduledPlacements()` — future `placement` events only.
+- `getInRange(from, to)` — every non-archived event whose dates touch `[from, to]`
+  (starts on/before `to`, and starts or ends on/after `from`), past and future, any type.
+  The Calendar page's read, one month at a time.
 - `getByType(type, {includeArchived})` — every event of one type across all subjects,
   oldest first (one `event_type` index probe). The Shows page's read (`show`).
 - `getReminders()` / `getDismissedReminders()` — events with a non-null `reminder_date`,
@@ -1417,7 +1456,45 @@ root-level `assistant.html` the helper opens), plus root `index.html`.
 Dogs: `dog` (detail — includes the Pro-only **Show Record** card, gated on
 `editionFlags.shows` and rendered only once the dog has a non-archived `show` event:
 per-track progress from `showPoints.js` plus a clickable show history; its "+ Add Show"
-opens the event form pre-set to `show`), `roster`, `pedigree`.
+opens the event form pre-set to `show`), `roster`, `pedigree`, `pedigree-import`.
+Pedigree import: `pedigree-import` (shared — Lite and Pro; an "Import pedigrees" button on
+the Dogs header and on the Pedigree page). One or more PDFs (or images) are read in the
+browser — nothing is uploaded. **Reading** (`data/pedigreeReader.js`): page 1's PDF.js text
+layer when it has one (≥ 20 text items — an AKC PDF or pedigree software), otherwise the
+page is rendered at 2048 px and run through `ocr.recognizeWords` (best-effort; the file card
+says "Read from an image — check names"). **Layout** (`data/pedigreeParse.js`, pure): words
+→ narrow line segments; header lines (Name/AKC #/Breed/Sex/Birth Date/Colors/Breeder) are
+read for the dog and dropped from the chart by what they say; generation columns are
+clusters of left edges that hold at least one registration number; within a column an
+entry is a name line (wrapped lines joined) plus detail lines (registration — AKC
+`XX000000/00` with OCR letter-for-digit swaps mapped back, or a foreign code like `MET
+BOST.T.915/19`; a color-only line; `AKC DNA …`, `CHIC…`, `(Country)` → notes). Each entry's
+child is the nearest entry one column left; above it = sire, below = dam. Ancestors are
+addressed by path (`''` the dog, `s`, `d`, `sd`…), and a path's last letter is the sex.
+Titles (`CH`, `GCH`…) come off the front of a name into notes. If the leftmost numbered
+column has 2+ boxes the dog's own box went unread and the dog comes from the header.
+Overfull columns and unplaceable boxes become one warning each. **Matching**
+(`data/pedigreeImport.js` `planImport`, pure — the CSV import's rules): a registration
+number (whitespace-stripped, upper-cased) is the natural key and merges automatically —
+within a chart (line-breeding), across charts, and against every existing dog
+(`getAll({ includeArchived, includePedigreeOnly })`); a name alone (case-insensitive,
+trimmed, curly quotes folded) never matches — a numberless dog sharing a name with an
+existing or batch dog, or a numbered dog sharing one with a numberless existing dog, is
+**review** (same as …/a separate dog). Parents come from paths; two charts naming
+different parents for one dog block until chosen per dog, or in bulk with a file's "Use
+this pedigree's answers where pedigrees disagree". An existing dog keeps any parent it
+already has. Every row's name, number and color are editable (applied to all of that dog's
+source boxes, then re-planned). Import is enabled only when nothing blocks and every new
+dog has a breed (per file, prefilled from the header). **Commit** (`commitImport`): one
+Dexie transaction over dogs/kennels/documents/files, parents first; new dogs are
+`pedigree_only`, `external`, `external_reference`, `call_name = registered_name`; an
+existing dog (a kennel dog included) is only **filled where blank** (registered name,
+number, registry, color, DOB, sire, dam) and never made pedigree-only. The PDFs are dropped
+afterwards unless a file's **Save this PDF to … Documents** box is ticked (Pro —
+`editionFlags.documents`): it's filed as a `pedigree` document on that chart's dog, after
+the dogs are saved, under the dog's kennel, else the active/sole own kennel, else the
+"File under" kennel the page asks for (a pedigree-only dog lends none); a failure there is
+reported and leaves the dogs.
 Breeding: `pairings`/`pairing`, `litters`/`litter`, `active-breeding`, `live-births`.
 People: `contact`, `kennels` (two screens in one page: on top the **portfolio** — one card
 per own kennel with live counts (roster / active litters / placements this year) and the
@@ -1461,7 +1538,23 @@ entry, reached from the "Invoice / Receipt" generator modal — on the Financial
 Sale's page — and a waitlist family's Documents card).
 Documents: `documents` (filed dog documents — local file storage, the **Storage** hub's
 landing tab, plus a "📄 Documents" button on the dog page, §26.1).
-Today cluster: `dashboard`, `reminders`, `upcoming`, `board`, `scheduled-placements`.
+Today cluster: `dashboard`, `reminders`, `upcoming`, `board`, `scheduled-placements`,
+`calendar`.
+Calendar: `calendar` (shared — Lite and Pro; reached from a "📅 Calendar" button on Today's
+header, not a nav entry). A Sunday-first month grid (`?m=YYYY-MM`, default this month) over
+`eventRepo.getInRange` for the month plus `eventRepo.getReminders()` placed on their
+`reminder_date`, scoped with `subjectInScope`. Each event is a chip in its type's vocab
+badge color; a reminder is a dashed amber "⏰" chip. A closed span (`event_end_date` set)
+fills every day it covers, clipped to the month; an **open-ended** span is drawn on its
+start day only (`calendarMath.eventSpan`), so an unclosed old record never smears across
+later months. Up to 3 chips a day then "+N more"; at phone width chips collapse to colored
+dots. A key under the grid lists only the types present. Tapping a day opens a modal with
+each item's subject (dog links via `dogRefHtml`, so Lite's departed dogs stay plain text),
+title, dates, and an **Add to Google Calendar ↗** link — `calendarMath.googleCalendarUrl`,
+Google's `calendar/render?action=TEMPLATE` prefill as an **all-day** event (event times are
+free text, never parsed; Google's end date is exclusive, so +1 day). The link carries only
+subject, type label, title, dates and `details.location` — never notes. It is a plain
+outbound link, so nothing leaves the device until the user clicks it; no OAuth, no feed.
 Shows: `shows` (Pro-only — `PRO_ONLY_PAGES`, the **Storage** hub's second tab in
 shared/Pro/Demo, never in Lite; Show Tracking Spec §5.2). Under the Storage strip, two link-style seg-tabs
 (`?tab=upcoming|results`) over `eventRepo.getByType('show')`, both `reportView`s scoped
