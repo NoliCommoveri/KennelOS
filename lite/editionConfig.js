@@ -6,7 +6,7 @@
 // its siblings in the assembled artifact.
 //
 // It carries Lite's real cap enforcement (KennelOS_Lite_Cap_Enforcement_Spec.md):
-// the 6/2 caps, the counting predicate, the transition-in block rule, and the
+// the 6/10 caps, the counting predicate, the transition-in block rule, and the
 // UI flags that strip the archive machinery so the cap can't be reverse-
 // engineered into a bypass. Pro/Demo ship the shared no-op copy instead, so no
 // cap logic lands in the Pro download.
@@ -14,9 +14,9 @@ import { db } from './db.js';
 import { CapExceededError } from './repoBase.js';
 import { isActiveRosterDog, countActiveRosterDogs, dogsAfterImport } from './rosterCount.js';
 
-// --- The two numbers (cap spec §0) — locked for launch ---------------------
+// --- The two numbers (cap spec §0) — litters raised 2 → 10 (2026-10-10) ------
 const CAP_DOGS = 6; // counting dogs
-const CAP_LITTERS = 2; // litters
+const CAP_LITTERS = 10; // litters
 
 export const edition = 'lite';
 

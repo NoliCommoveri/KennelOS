@@ -12,8 +12,9 @@
 // the seed aborts PART-WAY — before the manifest is written — leaving orphan dogs
 // with no "Clear Sample Data" banner. And the shared tour then navigates to
 // Pro-only pages that 404 in the Lite build. So Lite gets:
-//   • a smaller packet: exactly 6 counting dogs + 2 litters (i.e. AT the cap, which
-//     also sets up the "upgrade for unlimited" pitch), no Pro-only entities;
+//   • a smaller packet: exactly 6 counting dogs (i.e. AT the dog cap, which also
+//     sets up the "upgrade for unlimited" pitch) + 2 litters (well under the
+//     10-litter cap), no Pro-only entities;
 //   • a tour that visits only Lite's pages and folds in Pro-promo cards.
 import { db } from './db.js';
 import { dogRepo } from './dogRepo.js';
@@ -33,7 +34,8 @@ const BREED = 'Boston Terrier';
 // Seeded through the same repos real data uses (so it honours the same
 // validation), tracked in a manifest for clean clear/reset. Ordering matters: the
 // six counting dogs are created interleaved so the count never momentarily exceeds
-// 6, and the two litters never exceed 2 — the packet sits exactly AT Lite's cap.
+// 6 — the packet sits exactly AT Lite's dog cap. Its two litters sit well under
+// the 10-litter cap.
 export async function seedSampleData() {
   const manifest = {
     seededAt: new Date().toISOString(),
@@ -524,6 +526,6 @@ export const WIZARD_STEPS = [
   {
     id: 'promo-final', kind: 'pro-promo', button: 'Finish',
     title: 'Ready for more? Meet KennelOS Pro',
-    body: 'That’s Lite — free, private, and yours forever, for up to 6 dogs and 2 litters. When your program grows, Pro lifts those limits entirely and unlocks Contacts, Kennels, stud services, contracts, documents, Companion share-outs, invoices and every report. Your data comes with you: “Upgrade to Pro” exports a backup first, then picks up right where you left off. You’ll find it — and a live “See the full app” demo — in the More menu.'
+    body: 'That’s Lite — free, private, and yours forever, for up to 6 dogs and 10 litters. When your program grows, Pro lifts those limits entirely and unlocks Contacts, Kennels, stud services, contracts, documents, Companion share-outs, invoices and every report. Your data comes with you: “Upgrade to Pro” exports a backup first, then picks up right where you left off. You’ll find it — and a live “See the full app” demo — in the More menu.'
   }
 ];

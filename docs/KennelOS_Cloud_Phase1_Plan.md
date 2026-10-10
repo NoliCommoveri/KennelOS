@@ -832,7 +832,7 @@ whose page is open to anyone until the first account exists.
 2. **API domain:** decided 2026-10-07: `api.kennelos.app`. (The owning account: a shared
    Cloudflare account under the KennelOS email address; see §6.)
 3. **Free-tier limits:** cap Lite cloud storage (e.g., 1 GB of documents)? Cost at Lite's
-   6-dog / 2-litter size is negligible, but a cap protects against abuse.
+   6-dog / 10-litter size is negligible, but a cap protects against abuse.
 4. **Retention:** is 30 days right? Longer costs little for the JSON; files dominate.
 5. **Who runs it:** still open (Proposal §10). Phase 1 is low-maintenance (no live sync),
    but somebody gets the email if the Worker errors.

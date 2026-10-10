@@ -1,7 +1,7 @@
 # lite/ — KennelOS Lite (free edition)
 
 Lite is the free front door. It ships **only the shared pages** (Dogs, Breeding,
-Sales, Today, …) plus a soft cap (6 counting dogs, 2 litters) and the
+Sales, Today, …) plus a soft cap (6 counting dogs, 10 litters) and the
 archive-on-departure exit. Pro-only sections (Contacts, Stud services, Contracts,
 Companion, Assistant, Documents/receipts) are **physically absent** — they live in
 `pro/`, so there's nothing to unlock here.
