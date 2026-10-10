@@ -303,6 +303,18 @@ function upcomingCard(v) {
     <p class="small muted">Plans can change.</p>`);
 }
 
+// --- Your name on the public list (Spec §15.3) -----------------------------------
+
+function privateNameHtml(f) {
+  const p = f.private_name;
+  if (!p) return '';
+  const kennel = state.v.kennel.name;
+  const req = p.request;
+  if (req && !req.decided) return `<p class="small"><span class="badge warn">Requested</span> Show your name privately on the public list. Waiting for ${esc(kennel)} to decide; until then it shows as your first name and last initial.</p>`;
+  if (p.on) return '<p class="small">Your name shows privately on the public list: the first letter of your first name, an asterisk for each letter after it, then your last initial.</p>';
+  return req ? decidedLine(req, 'showing your name privately on the public list', kennel) : '';
+}
+
 // --- Your place: still interested, pause, leave ----------------------------------
 
 function placeActions(f) {
@@ -594,7 +606,7 @@ function mineHtml() {
     parts.push(card('', placeActions(f)));
   }
 
-  parts.push(card('What you asked for', prefsHtml(f)));
+  parts.push(card('What you asked for', prefsHtml(f) + privateNameHtml(f)));
   parts.push(emailsHtml());
   parts.push(messageHtml());
   parts.push(messengerHtml());

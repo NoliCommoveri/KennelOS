@@ -36,7 +36,9 @@ function fieldHtml(q, form) {
   switch (q.type) {
     case 'notice':
       return `<div class="card notice-card"><h2>${esc(q.label)}</h2><p class="pre">${esc(q.help)}</p>
-        <label class="choice"><input type="checkbox" id="${esc(id)}" data-notice required> I understand</label></div>`;
+        <label class="choice"><input type="checkbox" id="${esc(id)}" data-notice required> I understand</label>
+        <label class="choice"><input type="checkbox" id="private_request"> Please show my name privately on the public list</label>
+        <p class="small muted mt0">Your first name shows as its first letter and an asterisk for each letter after it, then your last initial (Andrea Kim shows as A***** K). The breeder decides whether to allow it; your place in line is the same either way.</p></div>`;
     case 'preference':
       return prefHtml(q, form);
     case 'long_text':
@@ -126,7 +128,8 @@ function readForm(view) {
   if (readyQ && !prefs.ready_timing) missing.push(readyQ.label);
   const email = String(answers.email || '').trim();
   const badEmail = email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  return { answers, prefs, missing, badEmail };
+  const privateRequest = Boolean(document.getElementById('private_request')?.checked);
+  return { answers, prefs, privateRequest, missing, badEmail };
 }
 
 const short = (label) => label.replace(/[?.!:]+$/, '');
@@ -199,7 +202,7 @@ async function load() {
 
   $('app-form').addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    const { answers, prefs, missing, badEmail } = readForm(view);
+    const { answers, prefs, privateRequest, missing, badEmail } = readForm(view);
     const problems = [];
     if (missing.length) problems.push(`Please answer: ${missing.map(short).join('; ')}.`);
     if (badEmail) problems.push("Your email address doesn't look right.");
@@ -212,7 +215,7 @@ async function load() {
     button.disabled = true;
     button.textContent = 'Sending…';
     try {
-      const sealed = await seal(view.form.public_key, view.form.key_id, { answers, prefs, sent_at: new Date().toISOString() });
+      const sealed = await seal(view.form.public_key, view.form.key_id, { answers, prefs, ...(privateRequest ? { private_request: true } : {}), sent_at: new Date().toISOString() });
       const r = await fetchJson(`/f/apply/${encodeURIComponent(publicId)}`, {
         method: 'POST',
         json: { key_id: view.form.key_id, sealed, name: String(answers.name || '').trim(), email: String(answers.email || '').trim(), turnstile: turnstileToken },

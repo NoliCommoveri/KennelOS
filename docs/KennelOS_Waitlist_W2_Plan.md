@@ -121,7 +121,7 @@ document per own kennel with the waitlist in use:
   wording), fee policy wording, Facebook Page link if switched on, `auto_offer_on`, email
   templates (§8).
 - **`public_list`:** exactly `waitlistRules.publicList` (Spec §15.3): position, first name +
-  last initial, sex preference, date added; paused and readiness-held families left out,
+  last initial (or "A***** K" for a family she let list privately), sex preference, date added; paused and readiness-held families left out,
   numbers skipped.
 - **`entries[entry_id]`:** what that family's status page shows: status, overall and
   per-litter position, passes used / max, listen-only choice and the parents she offers,
