@@ -90,7 +90,7 @@ test("a family on the list sees its place, prefs, passes and offers; nothing els
   const p = buildProjection(fixture());
   const e1 = p.entries.e1;
   assert.deepEqual(keysOf(e1), ['applied_date', 'approved_date', 'email', 'fee_due', 'fee_received_date', 'listen',
-    'matching_litter_ids', 'name', 'offers', 'passes', 'paused_until', 'place_hidden', 'position', 'prefs', 'prepasses', 'private_name', 'ready_check', 'ready_from', 'requests', 'status', 'upcoming', 'whelp_notes']);
+    'matching_litter_ids', 'name', 'offers', 'passes', 'paused_until', 'place_hidden', 'position', 'pref_places', 'prefs', 'prepasses', 'private_name', 'ready_check', 'ready_from', 'requests', 'spent_litter_ids', 'status', 'upcoming', 'whelp_notes']);
   assert.deepEqual(e1.prepasses, []);
   assert.deepEqual(e1.private_name, { on: false, request: null });
   assert.deepEqual(e1.requests, { pause: null, pref_change: null, listen: null });
@@ -129,11 +129,15 @@ test('positions, litter queues and the public list come straight from the rules 
   const p = buildProjection(f);
   const live = f.entries.filter((e) => !e.is_archived && e.kennel_id === K);
   const positions = overallPositions(live, K, f.programsById);
-  // e1 holds a turn and e2 passed on a litter still being offered: no number for either.
-  for (const [id, pos] of positions) assert.equal(p.entries[id].position, ['e1', 'e2'].includes(id) ? null : pos, id);
+  // Every number is published, the turn holder's too (their page shows "It's your
+  // turn!" instead; the server masks their public row by it). A pass hides nothing
+  // since 2026-10-10: e2 passed on a litter still being offered and keeps theirs.
+  for (const [id, pos] of positions) assert.equal(p.entries[id].position, pos, id);
   assert.equal(positions.get('e2'), 1, 'her ahead program puts them first');
   assert.deepEqual(p.entries.e1.place_hidden, { reason: 'turn' });
-  assert.deepEqual(p.entries.e2.place_hidden, { reason: 'passed', litters: [{ litter_id: 'lit-1', label: 'Juniper × Ash', outcome: 'passed' }] });
+  assert.equal(p.entries.e2.place_hidden, null);
+  assert.deepEqual(p.entries.e2.spent_litter_ids, ['lit-1'], 'the litter they passed on, still being offered');
+  assert.deepEqual(p.entries.e1.spent_litter_ids, []);
   assert.equal(p.entries.e4.place_hidden, null);
 
   const queue = litterQueue(live, litter, f.dogs.filter((d) => d.litter_id === 'lit-1'), [], { today: TODAY, config: waitlistConfig(kennel), programsById: f.programsById });
@@ -143,9 +147,11 @@ test('positions, litter queues and the public list come straight from the rules 
   assert.deepEqual(p.turn_queue.map((q) => q.entry_id), queue.map((q) => q.entry.id).filter((id) => !['e1', 'e2'].includes(id)));
   assert.deepEqual(p.entries.e3.matching_litter_ids, [], 'paused: not in any queue');
 
-  const rows = publicList(live, K, f.programsById, { today: TODAY, nameOf: (e) => entryName(e, f.contacts.find((c) => c.id === e.contact_id)), hidden: (e) => ['e1', 'e2'].includes(e.id) });
+  const rows = publicList(live, K, f.programsById, { today: TODAY, nameOf: (e) => entryName(e, f.contacts.find((c) => c.id === e.contact_id)) });
   assert.deepEqual(p.public_list, rows);
-  assert.ok(!p.public_list.some((r) => r.position === 1 || r.name.startsWith('Family e1')), 'between turns: off the public list, number skipped');
+  assert.ok(p.public_list.some((r) => r.position === 1), 'a family who passed stays on the public list');
+  assert.ok(p.public_list.some((r) => r.position === positions.get('e1') && !r.deciding),
+    'the turn holder is published unmasked, at their number: the server masks it as it serves the page');
   assert.ok(!p.public_list.some((r) => r.name.startsWith('Family e3')), 'a paused family is off the public list');
 });
 
@@ -212,7 +218,7 @@ test('listing privately: masked on the public list, and their own page says how 
   Object.assign(f.entries[2], { paused_until: null, private_listing: true, private_request: { requested_date: '2026-01-02', decided: 'approved', decided_date: '2026-01-03', note: 'SECRET-PRIVATE' } });
   const p = buildProjection(f);
   assert.deepEqual(p.entries.e3.private_name, { on: true, request: { requested_date: '2026-01-02', decided: 'approved', decided_date: '2026-01-03' } }, 'no expiry, no extra keys');
-  assert.deepEqual(p.public_list.map((r) => r.name), ['F***** L'], 'e1 and e2 are between turns');
+  assert.ok(p.public_list.map((r) => r.name).includes('F***** L'));
   assert.equal(JSON.stringify(p.public_list).includes('Family e3'), false);
   assert.equal(JSON.stringify(p).includes('SECRET-'), false);
 });

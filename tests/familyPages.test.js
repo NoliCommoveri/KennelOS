@@ -10,6 +10,8 @@ import {
 } from '../cloud/public/family/common.js';
 import { WAITLIST_PREF_SEX, WAITLIST_READY_TIMING, PLACEMENT_PURPOSE, FEE_CREDIT_POLICY } from '../shared/data/vocab.js';
 import { ACTION_VOCAB } from '../cloud/src/familyActions.js';
+import { DECIDING_LABEL as SERVER_DECIDING } from '../cloud/src/familyPages.js';
+import { DECIDING_LABEL } from '../shared/data/waitlistRules.js';
 
 const asMap = (vocab) => Object.fromEntries(vocab.map((v) => [v.value, v.label]));
 
@@ -24,6 +26,15 @@ test("the family pages' labels match vocab.js", () => {
   assert.deepEqual([...ACTION_VOCAB.SEX].sort(), WAITLIST_PREF_SEX.map((v) => v.value).sort());
   assert.deepEqual([...ACTION_VOCAB.READY].sort(), WAITLIST_READY_TIMING.map((v) => v.value).sort());
   assert.deepEqual([...ACTION_VOCAB.PURPOSE], PLACEMENT_PURPOSE.map((v) => v.value));
+  // The turn holder's public row reads the same online and in her Copy public list.
+  assert.equal(SERVER_DECIDING, DECIDING_LABEL);
+});
+
+test('the turn holder\'s row: highlighted, nothing of them but "Currently deciding"', () => {
+  const html = publicListHtml([{ position: 1, name: 'Currently deciding', pref_sex: null, added: null, deciding: true }, { position: 2, name: 'Bo K.', pref_sex: 'male', added: '2026-01-02' }], '', 2);
+  assert.match(html, /<tr class="deciding">\s*<td class="num">#1<\/td>\s*<td><em>Currently deciding<\/em><\/td>\s*<td><\/td>/);
+  assert.match(html, /<tr class="mine">/);
+  assert.match(publicListHtml([]), /No families to show right now/);
 });
 
 test('search finds a family by name (any case, any accents), number or date added', () => {

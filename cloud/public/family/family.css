@@ -140,6 +140,10 @@ table.list th, table.list td { text-align: left; padding: 9px 6px; border-top: 1
 table.list th { border-top: 0; font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
 table.list td.num { font-weight: 700; white-space: nowrap; width: 3.2em; }
 table.list tr.mine td { background: var(--accent-soft); }
+table.list tr.deciding td { background: var(--warn-soft); }
+table.list tr.deciding td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
+ul.places { list-style: none; padding: 0; margin: 8px 0 4px; }
+ul.places li { margin: 2px 0; }
 .pups { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .pup { border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 10px; }
 footer.page { margin-top: 28px; font-size: 0.85rem; color: var(--text-muted); }

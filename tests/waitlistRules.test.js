@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import {
   waitlistConfig, WAITLIST_CONFIG_DEFAULTS, autoOffers, autoOfferSummary, closingTrigger, feeForEntry, isFeeWaived, feeDueDate, respondByDate,
   anchorDate, isMovedByBreeder, rankedList, overallPositions,
-  isPupAvailable, pupMatchesPrefs, prefColorTokens, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, isListeningFor, isListenOnly, eligiblePupsFor, showUpcoming, upcomingItems, depositsDueLitters, placeHidden, whelpNotes, readyCheck, readyCheckLapsed, readyCheckOverdue, canUndoRemoval as canUndo,
+  isPupAvailable, pupMatchesPrefs, prefColorTokens, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, isListeningFor, isListenOnly, eligiblePupsFor, showUpcoming, upcomingItems, depositsDueLitters, placeHidden, prefPlaces, prefCovers, narrowedPrefFields, whelpNotes, readyCheck, readyCheckLapsed, readyCheckOverdue, canUndoRemoval as canUndo,
   litterQueue, nextFamilyForLitter, hasOpenOffer, turnSpent,
   countsAsPass, passesUsed, shouldRemoveForPasses, canUndoRemoval, passToForgive,
   overdueOffers, overdueFees, deriveContactWaitlistStatus, contactMatches, entryName,
@@ -852,27 +852,43 @@ test('depositsDueLitters (Spec §16.8): born, deposits date come, picks not open
   assert.deepEqual(depositsDueLitters([l({ status: 'expected' })], pups, [], TODAY), []);
 });
 
-test('placeHidden (decided 2026-10-08): no number during their turn, or after a pass until that litter closes', () => {
+test('placeHidden: no number only during their turn; a pass hides nothing (decided 2026-10-10)', () => {
   const e = entry({ id: 'fam' });
-  const open = litter({ id: 'L1', status: 'whelped', picks_opened_date: '2026-10-01' });
-  const other = litter({ id: 'L2', status: 'whelped', picks_opened_date: '2026-10-01' });
-  const pups = [pup({ id: 'a', litter_id: 'L1' }), pup({ id: 'b', litter_id: 'L2' })];
   const row = (over) => ({ id: `o-${over.litter_id}-${over.outcome}`, entry_id: 'fam', kennel_id: K, ...over });
-  assert.equal(placeHidden(e, [], [open], pups, []), null, 'waiting: their number shows');
-  assert.deepEqual(placeHidden(e, [row({ litter_id: 'L1', outcome: 'open' })], [open], pups, []), { reason: 'turn' });
-  const passed = [row({ litter_id: 'L1', outcome: 'passed' })];
-  assert.equal(placeHidden(e, passed, [open], pups, []).reason, 'passed');
-  assert.equal(placeHidden(e, [row({ litter_id: 'L1', outcome: 'no_response' })], [open], pups, []).reason, 'passed', 'a lapsed turn too');
-  // The litter closes: picks stopped, every pup spoken for, or sold/closed.
-  assert.equal(placeHidden(e, passed, [{ ...open, picks_opened_date: null }], pups, []), null);
-  assert.equal(placeHidden(e, passed, [open], pups, [{ id: 's', dog_id: 'a', status: 'deposit_pending' }]), null);
-  assert.equal(placeHidden(e, passed, [{ ...open, status: 'sold' }], pups, []), null);
-  // A turn over two litters: hidden until both have closed.
-  const both = [...passed, row({ litter_id: 'L2', outcome: 'passed' })];
-  assert.equal(placeHidden(e, both, [{ ...open, picks_opened_date: null }, other], pups, []).offers.length, 1);
-  // A row voided (they picked from the other litter) or another family's pass never hides it.
-  assert.equal(placeHidden(e, [row({ litter_id: 'L1', outcome: 'voided' })], [open], pups, []), null);
-  assert.equal(placeHidden(e, [{ ...passed[0], entry_id: 'someone' }], [open], pups, []), null);
+  assert.equal(placeHidden(e, []), null, 'waiting: their number shows');
+  assert.deepEqual(placeHidden(e, [row({ litter_id: 'L1', outcome: 'open' })]), { reason: 'turn' });
+  assert.equal(placeHidden(e, [row({ litter_id: 'L1', outcome: 'passed' })]), null, 'after a pass their number shows');
+  assert.equal(placeHidden(e, [row({ litter_id: 'L1', outcome: 'no_response' })]), null, 'a lapsed turn too');
+  assert.equal(placeHidden(e, [{ ...row({ litter_id: 'L1', outcome: 'open' }), is_archived: true }]), null);
+  assert.equal(placeHidden(e, [{ ...row({ litter_id: 'L1', outcome: 'open' }), entry_id: 'someone' }]), null, "another family's turn");
+});
+
+test('prefPlaces (decided 2026-10-10): their place for each answer they narrowed, and for all of them', () => {
+  let n = 0;
+  const fam = (over) => entry({ id: `f${++n}`, fee_received_date: `2026-01-${String(n).padStart(2, '0')}`, ...over });
+  const list = [
+    fam({ pref_sex: 'female' }),                                // wants only females
+    fam({ pref_sex: 'any' }),                                   // takes anything
+    fam({ pref_sex: 'male', pref_purposes: ['show'] }),         // males, show only
+    fam({ pref_sex: 'any', pref_purposes: ['pet'] }),           // pets, either sex
+    fam({ pref_sex: 'male', pref_purposes: ['pet'] }),          // the family we look at
+    fam({})                                                     // all open
+  ];
+  const places = prefPlaces(list, K);
+  // f5: #5 overall. Male: f2, f3, f4 would take a male → #4. Pet: f1 and f2 (purposes
+  // open) and f4 → #4 (f3 wants show only). Both: f2 and f4 → #3.
+  assert.deepEqual(places.get('f5'), { all: 3, sex: 4, purposes: 4 });
+  assert.deepEqual(places.get('f6'), {}, 'answers all open: their overall place says it');
+  assert.deepEqual(places.get('f1'), { sex: 1 }, 'one narrowed answer: no separate "all"');
+  assert.deepEqual(narrowedPrefFields(list[4]), ['sex', 'purposes']);
+  // Colors count only while she matches on color.
+  const c = [fam({ pref_colors: ['black', 'red'] }), fam({ pref_colors: ['black'] })];
+  assert.deepEqual(prefPlaces(c, K).get(c[1].id), {});
+  assert.deepEqual(prefPlaces(c, K, new Map(), { ...WAITLIST_CONFIG_DEFAULTS, color_matching: true }).get(c[1].id), { colors: 2 }, 'black and red covers black');
+  assert.equal(prefCovers('colors', c[1], c[0]), false, 'black alone does not cover black and red');
+  assert.equal(prefCovers('breed', entry({ pref_breed: '' }), entry({ pref_breed: 'Poodle' })), true);
+  assert.equal(prefCovers('breed', entry({ pref_breed: 'poodle ' }), entry({ pref_breed: 'Poodle' })), true);
+  assert.equal(prefCovers('breed', entry({ pref_breed: 'Poodle' }), entry({ pref_breed: '' })), false);
 });
 
 test('whelpNotes (Spec §16.6): match, or what to review, for a born litter before picks open', () => {

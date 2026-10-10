@@ -162,7 +162,49 @@ function upcomingRow(u) {
 }
 const upcomingOf = (projection, where) => (Array.isArray(projection.upcoming) ? projection.upcoming : []).filter((u) => u && u[where] === true);
 
-// The public list: the kennel's name, the rows her device published, and the
+// Who holds a turn shows on the public list as "Currently deciding" (Waitlist Spec
+// §16.9, decided 2026-10-10): their row keeps its number, and the name, sex
+// preference and date are blanked. Her device publishes the rows unmasked; the
+// mask is worked out here, from who holds a turn now, so a turn the server opens
+// or closes while her phone is off shows at once. Copied from
+// shared/data/waitlistRules.js (DECIDING_LABEL); tests/familyPages.test.js in the
+// repo root fails if they drift.
+export const DECIDING_LABEL = 'Currently deciding';
+
+function publicRows(projection) {
+  const rows = Array.isArray(projection.public_list) ? projection.public_list : [];
+  const deciding = new Set(Object.values(projection.entries || {})
+    .filter((e) => e && e.status === 'active' && (e.offers || []).length && Number.isInteger(e.position))
+    .map((e) => e.position));
+  return rows.map((r) => (deciding.has(r.position) || r.deciding
+    ? { position: r.position, name: DECIDING_LABEL, pref_sex: null, added: null, deciding: true }
+    : r));
+}
+
+// A litter with open picks as the pages show it (Available Puppies): her nickname,
+// breed, parents, dates, and how many pups are still available by sex.
+function litterCard(id, l) {
+  const pups = l.pups || [];
+  return {
+    id,
+    label: l.label ?? '',
+    status: l.status ?? null,
+    whelp_date: l.whelp_date ?? null,
+    ready_date: l.ready_date ?? null,
+    picks_open: Boolean(l.picks_open),
+    pups_available: pups.length,
+    pups_female: pups.filter((d) => d.sex === 'female').length,
+    pups_male: pups.filter((d) => d.sex === 'male').length,
+    nickname: l.nickname ?? null,
+    breed: l.breed ?? null,
+    sire: parentOf(l.sire),
+    dam: parentOf(l.dam),
+  };
+}
+
+// The public list: the kennel's name, the rows her device published (the one
+// holding a turn masked), the litters with open picks (Available Puppies, as on a
+// family's page: counts by sex, never a pup's name; decided 2026-10-10), and the
 // pairings and early litters she shows publicly.
 export function listView(projection) {
   return {
@@ -170,7 +212,8 @@ export function listView(projection) {
     // intro: her message under the page's heading, as her device rendered it.
     kennel: { name: projection.kennel?.name ?? '', intro: typeof projection.kennel?.intro === 'string' ? projection.kennel.intro.slice(0, 2000) : '', apply_open: Boolean(formView(projection)) },
     as_of: projection.as_of ?? null,
-    rows: Array.isArray(projection.public_list) ? projection.public_list : [],
+    rows: publicRows(projection),
+    available: Object.entries(projection.litters || {}).filter(([, l]) => l && l.picks_open).map(([id, l]) => litterCard(id, l)),
     upcoming: upcomingOf(projection, 'public').map(upcomingRow),
   };
 }
@@ -192,7 +235,7 @@ export function statusView(projection, entryId) {
   if (e.companion) family.companion = e.companion;
   if (!OPEN_STATUSES.includes(e.status)) return { kennel, as_of: projection.as_of ?? null, family, offers: [], litters: [], upcoming: [], public_list: [] };
 
-  for (const k of ['applied_date', 'approved_date', 'position', 'prefs', 'paused_until', 'ready_from', 'listen', 'passes', 'fee_received_date', 'fee_due', 'requests', 'prepasses', 'place_hidden', 'whelp_notes', 'ready_check', 'private_name']) {
+  for (const k of ['applied_date', 'approved_date', 'position', 'prefs', 'paused_until', 'ready_from', 'listen', 'passes', 'fee_received_date', 'fee_due', 'requests', 'prepasses', 'place_hidden', 'pref_places', 'spent_litter_ids', 'whelp_notes', 'ready_check', 'private_name']) {
     family[k] = e[k] ?? null;
   }
   // What the page's editors offer: her parent dogs (listen-only) and her breeds.
@@ -229,21 +272,7 @@ export function statusView(projection, entryId) {
   // for family pages (Spec §16.4; all off by default).
   const inTurn = new Set(offers.map((o) => o.litter_id));
   const litterList = Object.entries(litters).filter(([id, l]) => l.picks_open || inTurn.has(id)).map(([id, l]) => ({
-    id,
-    label: l.label ?? '',
-    status: l.status ?? null,
-    whelp_date: l.whelp_date ?? null,
-    ready_date: l.ready_date ?? null,
-    picks_open: Boolean(l.picks_open),
-    pairing_id: l.pairing_id ?? null,
-    pups_available: (l.pups || []).length,
-    pups_female: (l.pups || []).filter((d) => d.sex === 'female').length,
-    pups_male: (l.pups || []).filter((d) => d.sex === 'male').length,
-    nickname: l.nickname ?? null,
-    breed: l.breed ?? null,
-    sire: parentOf(l.sire),
-    dam: parentOf(l.dam),
-    match: matching.has(id),
+    ...litterCard(id, l), pairing_id: l.pairing_id ?? null, match: matching.has(id),
   }));
   const mine = e.upcoming || {};
   const upcoming = e.status === 'active' ? upcomingOf(projection, 'family').map((u) => ({
