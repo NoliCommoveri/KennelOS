@@ -5,8 +5,9 @@
 //   - A registration number is the natural key. The same number anywhere — twice
 //     in one chart (line-breeding), across charts, or already in the app — is one
 //     dog, matched automatically.
-//   - A chart's names are registered names: they're compared with existing dogs'
-//     registered names only, never their call names.
+//   - A chart's names are registered names: they're compared with the registered
+//     name of every dog in the app (current kennel dogs included, titles in front
+//     ignored), never a call name.
 //   - A name alone never matches anything automatically. A dog with no number
 //     whose name equals another dog's (in the batch or already in the app), or a
 //     numbered dog whose name equals an existing dog that has no number, goes to
@@ -25,10 +26,16 @@ import { dogRepo } from './dogRepo.js';
 import { documentRepo } from './documentRepo.js';
 import { fileRepo } from './fileRepo.js';
 import { resolveKennelIdForWrite } from './kennelScope.js';
+import { splitTitles } from './pedigreeParse.js';
 
 export const normReg = (r) => String(r || '').toUpperCase().replace(/\s+/g, '');
 export const normName = (n) => String(n || '').replace(/[’‘`´]/g, "'").replace(/[“”]/g, '"')
   .trim().replace(/\s+/g, ' ').toLowerCase();
+
+// The key two registered names are compared by: normName without the titles in
+// front. A chart's titles go to notes when it's read, but the same dog already in
+// the app is often saved as "GCH A-K Bella", so its titles come off too.
+const nameKey = (n) => normName(splitTitles(String(n || '')).name);
 
 const srcId = (fileId, path) => `${fileId}:${path}`;
 
@@ -116,17 +123,18 @@ export function planImport({ files, existing = [], edits = {}, decisions = {} })
   const byName = new Map();
   for (const d of existing) {
     if (d.registration_number) byReg.set(normReg(d.registration_number), d);
-    // A chart's names are registered names, so they're compared with registered
-    // names only — never a call name ("Bella" the call name is not "Bella" the
-    // registered name).
-    const nm = normName(d.registered_name);
+    // A chart's names are registered names, so they're compared with the
+    // registered name of every dog in the app — the kennel's own current dogs as
+    // well as archived and pedigree-only ones — never a call name ("Bella" the
+    // call name is not "Bella" the registered name).
+    const nm = nameKey(d.registered_name);
     if (!nm) continue;
     if (!byName.has(nm)) byName.set(nm, []);
     byName.get(nm).push(d);
   }
   const candsByName = new Map();
   for (const c of cands.values()) {
-    const nm = normName(c.fields.registered_name);
+    const nm = nameKey(c.fields.registered_name);
     if (!nm) continue;
     if (!candsByName.has(nm)) candsByName.set(nm, []);
     candsByName.get(nm).push(c);
@@ -135,7 +143,7 @@ export function planImport({ files, existing = [], edits = {}, decisions = {} })
   const rows = [];
   for (const c of cands.values()) {
     const name = c.fields.registered_name || '';
-    const nm = normName(name);
+    const nm = nameKey(name);
     const row = {
       key: c.key, name, registration_number: c.fields.registration_number || '', registry: c.fields.registry || '',
       color_markings: c.fields.color_markings || '', date_of_birth: c.fields.date_of_birth || '',

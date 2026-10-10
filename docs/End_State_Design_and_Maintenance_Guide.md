@@ -1483,7 +1483,9 @@ number (whitespace-stripped, upper-cased) is the natural key and merges automati
 within a chart (line-breeding), across charts, and against every existing dog
 (`getAll({ includeArchived, includePedigreeOnly })`); a name alone (case-insensitive,
 trimmed, curly quotes folded) never matches, and a chart's names are registered names, so
-they're compared with existing dogs' `registered_name` only, never `call_name` — a numberless dog sharing a name with an
+they're compared with the `registered_name` of every dog in the app (the kennel's current
+dogs included, titles in front such as `GCH` ignored on both sides via
+`pedigreeParse.splitTitles`), never `call_name` — a numberless dog sharing a name with an
 existing or batch dog, or a numbered dog sharing one with a numberless existing dog, is
 **review** (same as …/a separate dog). Parents come from paths; two charts naming
 different parents for one dog block until chosen per dog, or in bulk with a file's "Use

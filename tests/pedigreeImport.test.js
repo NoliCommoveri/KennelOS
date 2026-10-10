@@ -157,3 +157,21 @@ test('a chart name is a registered name: it never matches an existing call name'
   assert.equal(row.action, 'review');
   assert.deepEqual(row.choices.map((c) => c.value), ['existing:x2', 'new'], 'only the registered-name match is offered');
 });
+
+test('a chart name is checked against the registered names of the kennel’s current dogs, titles ignored', () => {
+  const existing = [
+    { id: 'own', call_name: 'Bella', registered_name: 'GCH A-K Bella’s Star', ownership_type: 'owned', status: 'active_breeding', is_archived: false },
+    { id: 'other', call_name: 'A-K Bella’s Star', registered_name: '', ownership_type: 'owned', status: 'active_breeding', is_archived: false }
+  ];
+  const plan = planImport({ existing, files: [file('A', [dog('', "A-K Bella's Star", '')])] });
+  const row = plan.rows[0];
+  assert.equal(row.action, 'review', 'a name alone still never matches automatically');
+  assert.deepEqual(row.choices.map((c) => c.value), ['existing:own', 'new'], 'the current dog is offered by its registered name; a call name never is');
+  assert.match(row.choices[0].label, /GCH A-K Bella’s Star “Bella”/);
+});
+
+test('a numbered chart dog is offered a current dog with the same registered name and no number', () => {
+  const existing = [{ id: 'own', call_name: 'Max', registered_name: 'CH Dark Knight', is_archived: false }];
+  const plan = planImport({ existing, files: [file('A', [dog('', 'Dark Knight', 'NP000001/01')])] });
+  assert.deepEqual(plan.rows[0].choices.map((c) => c.value), ['existing:own', 'new']);
+});
