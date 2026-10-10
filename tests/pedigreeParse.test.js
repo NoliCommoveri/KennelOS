@@ -45,7 +45,7 @@ test('every box lands on its path, with sex from position', () => {
   for (const [path, d] of r.dogs) {
     if (path) assert.equal(d.registered_name, `Dog ${path.toUpperCase()}`, path);
     if (path) assert.equal(d.sex, path.endsWith('s') ? 'male' : 'female');
-    assert.match(d.registration_number, /^NP\d{6}\/\d{2}$/);
+    assert.match(d.registration_number, /^NP\d{6}\/\d{2} 01-20$/, 'the four digits after the number are kept');
     assert.equal(d.registry, 'AKC');
     assert.equal(d.color_markings, 'Black & White');
   }
@@ -100,14 +100,16 @@ test('line classifiers', () => {
 
 test('details: registration, color, DNA and country', () => {
   const d = parseDetails(['NP165114/01 08-08 (Canada)', 'Black Brindle & White', 'AKC DNA V516516']);
-  assert.equal(d.registration_number, 'NP165114/01');
+  assert.equal(d.registration_number, 'NP165114/01 08-08');
   assert.equal(d.registry, 'AKC');
   assert.equal(d.color_markings, 'Black Brindle & White');
   assert.deepEqual(d.notes, ['Registered in Canada', 'AKC DNA V516516']);
   const f = parseDetails(['MET BOST.T.915/19']);
   assert.equal(f.registry, 'MET');
   assert.equal(f.registration_number, 'MET BOST.T.915/19');
-  assert.equal(parseDetails(['NPS60004/04 02-21']).registration_number, 'NP560004/04');
+  assert.equal(parseDetails(['NPS60004/04 02-21']).registration_number, 'NP560004/04 02-21');
+  assert.equal(parseDetails(['NP888072/07 03/25']).registration_number, 'NP888072/07 03/25', 'kept as printed');
+  assert.equal(parseDetails(['NP165114/01']).registration_number, 'NP165114/01');
 });
 
 test('titles come off the front of a name', () => {

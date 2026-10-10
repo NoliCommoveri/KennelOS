@@ -1471,7 +1471,8 @@ says "Read from an image — check names"). **Layout** (`data/pedigreeParse.js`,
 read for the dog and dropped from the chart by what they say; generation columns are
 clusters of left edges that hold at least one registration number; within a column an
 entry is a name line (wrapped lines joined) plus detail lines (registration — AKC
-`XX000000/00` with OCR letter-for-digit swaps mapped back, or a foreign code like `MET
+`XX000000/00` with OCR letter-for-digit swaps mapped back, plus the four digits printed
+after it (`NP888072/07 03-25`, kept as printed — the header's `AKC #` too), or a foreign code like `MET
 BOST.T.915/19`; a color-only line; `AKC DNA …`, `CHIC…`, `(Country)` → notes). Each entry's
 child is the nearest entry one column left; above it = sire, below = dam. Ancestors are
 addressed by path (`''` the dog, `s`, `d`, `sd`…), and a path's last letter is the sex.
@@ -1480,7 +1481,8 @@ column has 2+ boxes the dog's own box went unread and the dog comes from the hea
 Overfull columns and unplaceable boxes become one warning each. **Matching**
 (`data/pedigreeImport.js` `planImport`, pure — the CSV import's rules): a registration
 number (`normReg`: upper-cased, a leading `AKC` dropped, letters and digits only — so
-`NP165114/01`, `np 165114-01` and `AKC NP16511401` are one) is the natural key and merges automatically —
+`NP165114/01`, `np 165114-01` and `AKC NP16511401` are one; an AKC number keys on its two
+letters and eight digits, so it matches with or without the four digits printed after it) is the natural key and merges automatically —
 within a chart (line-breeding), across charts, and against every existing dog
 (`getAll({ includeArchived, includePedigreeOnly })`, re-read for each file read); a name alone (case-insensitive,
 trimmed, curly quotes folded) never matches, and a chart's names are registered names, so

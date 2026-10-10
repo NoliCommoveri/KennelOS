@@ -6,11 +6,11 @@ import { test, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { installMemoryDb } from './support/memoryDb.js';
 
-let tables, planImport, commitImport, dogRepo;
+let tables, planImport, commitImport, normReg, dogRepo;
 
 before(async () => {
   ({ tables } = await installMemoryDb());
-  ({ planImport, commitImport } = await import('../shared/data/pedigreeImport.js'));
+  ({ planImport, commitImport, normReg } = await import('../shared/data/pedigreeImport.js'));
   ({ dogRepo } = await import('../shared/data/dogRepo.js'));
 });
 
@@ -195,4 +195,14 @@ test('your dog with the same registered name but a different number is offered, 
   assert.ok(row.issues.some((i) => /registration numbers differ/.test(i)));
   const chosen = planImport({ existing, files: [file('A', [dog('', 'A-K Bella', 'NP165114/01')])], decisions: { [row.key]: 'existing:own' } });
   assert.equal(chosen.rows[0].action, 'existing');
+});
+
+test('an AKC number matches with or without the four digits printed after it', () => {
+  for (const stored of ['NP888072/07 03-25', 'NP888072/07 03/25', 'NP888072/07', 'NP8880720703 25']) {
+    const existing = [{ id: 'own', call_name: 'Bella', registered_name: 'A-K Bella', registration_number: stored }];
+    const plan = planImport({ existing, files: [file('A', [dog('', 'A-K Bella', 'NP888072/07 03-25')])] });
+    assert.equal(plan.rows[0].action, 'existing', stored);
+  }
+  assert.equal(normReg('NP888072/07 03-25'), normReg('NP888072/07'));
+  assert.notEqual(normReg('NP888072/07'), normReg('NP888072/08'));
 });
