@@ -292,7 +292,7 @@ KennelOS/
                                by both seed-import wizards (kennel-tests-import
                                page + kennelSetupUI's prefill section)
     importView.js              Shared CSV import dry-run/commit UI
-    onboardingUI.js            First-run Welcome → tour-offer → backups/install cards (§11)
+    onboardingUI.js            First-run Welcome card: Start my kennel / Take the tour / I already use KennelOS (§11)
     cloudBackupUI.js           Every cloud-backup screen: sign-in, Import/Export's Cloud
                                destination pane, the Settings Account card,
                                the Today nudge, the 409/shrink dialogs, restore as of…,
@@ -1180,15 +1180,20 @@ plain local backup/restore.
 
 First-run flow (`app.js` → `runFirstRunOnboarding()` in **`assets/onboardingUI.js`**):
 request durable storage once, then — on a genuinely fresh install (`shouldOfferFirstRunPrompt()`)
-— show a short card sequence: a **non-dismissible Welcome** card (what the app is), then a
-**tour offer** ("Show me around!" / "No thanks, I'll explore"). The two branches:
-- **"Show me around!"** → seed the Thornfield sample data, `startWizard()`, and reload so the
+— show **one non-dismissible Welcome card** (what the app is) with the ways in (2026-10-10;
+it replaced Welcome → tour offer → a backups/install card):
+- **"Start my kennel"** → `declineSampleData()` (a blank kennel, no sample data ever), then
+  the **New Kennel** kennel-setup modal, in its `required` posture. With a cloud server and
+  no sign-in yet, that modal has an optional **"Email for free cloud backup"** field: filling
+  it in is the opt-in. The kennel is saved first, then `cloudBackupUI.turnOnFlow({ email })`
+  sends the code at once, runs the first backup and shows the Sensitive records card; backing
+  out still keeps the kennel.
+- **"Take the tour"** → seed the Thornfield sample data, `startWizard()`, and reload so the
   destination page's `runWizardStep()` picks the tour up. Sample data is seeded **only** on
   this path.
-- **"No thanks…"** → `declineSampleData()` (a blank kennel, no sample data ever), a
-  **backups + install-as-app** card, then the **New Kennel** kennel-setup modal, in its
-  `required` posture.
-- **"I already use KennelOS → sign in and restore"** (Cloud Phase 1 plan §2.3) — a third
+- **Install as an app** is a dismissible card on Today (`#today-install`, nudge key
+  `install-tip`), hidden when the app already runs installed (`display-mode: standalone`).
+- **"I already use KennelOS"** (Cloud Phase 1 plan §2.3) — a third
   button, shown **only when the edition has a cloud server** (`cloudConfig.isCloudAvailable()`).
   It runs `cloudBackupUI.runSignInAndRestore()`: email + code, then
   `cloudBackup.restoreOnNewDevice()`, which restores the latest snapshot, takes over as the
@@ -1206,16 +1211,19 @@ loads any cloud UI, and the Welcome card keeps saying "no account, no cloud"):
   reaches it even when it's walled (Cloud plan §2.5).
 - `app.js`, after the first-run flow, dynamically imports `cloudBackupUI.bootCloud()`.
   That starts the backup scheduler on every page, shows service notices for a signed-in
-  device, and runs the **one-time offer** "Protect your records: turn on free cloud backup".
-  The offer is armed by settings `cloudOfferPending` when the first kennel is saved in the
-  `required` kennel-setup modal, and shown on the reload after it. "Skip for now" also
-  snoozes Today's nudge.
+  device. (The one-time "Protect your records" offer after kennel setup is gone since
+  2026-10-10: the kennel setup modal's optional email replaced it. The `cloudOfferPending`
+  setting is no longer set.)
 - **Today** has a `#today-cloud` slot. While backup is off it shows "turn on free cloud
   backup", which "Not now" snoozes for 30 days via `nudgeState.dismissedAt`. While backup is
   paused (another device, the shrink guard, an expired sign-in) it shows a Resolve link to
-  the Import/Export card. Nothing shows while sample data is loaded.
+  the Import/Export card. After a passkey-first Sensitive records setup it shows **"Save your
+  recovery code"** (Show code → Print / Save / Copy, type the last 4) until it's saved
+  (`cloudVault.unsavedRecoveryCode` / `markRecoveryCodeSaved`; Private Vault Plan §2.1).
+  Nothing shows while sample data is loaded.
 - **Import/Export** has a **Cloud backup** card (`#cloud-backup`):
-  - turn on (sign in → "What gets backed up" → first backup with progress);
+  - turn on (sign in, with a "What's backed up?" link → first backup with progress → the
+    Sensitive records card; the device is named automatically, renamed under Your devices);
   - a status line ("Backed up 4 minutes ago" / "Not backed up for 3 days: no internet?");
   - Back up now, and Restore as of… (pick a snapshot → per-table preview → confirm → reload);
   - turn off, sign out, sign out other devices, and delete my cloud data (typed DELETE);

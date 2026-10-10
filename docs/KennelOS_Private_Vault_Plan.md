@@ -39,6 +39,18 @@ offered").
 ## 2. What the user sees
 
 ### 2.1 Turning it on
+> **Passkey first (decided 2026-10-10, replacing the code-first gate below where passkeys
+> can try).** One card, "Protect your sensitive records too?", whose main button is **Turn on
+> with passkey**: the passkey sheet turns the vault on (`cloudVault.quickVaultSetup`: the
+> passkey is made first, inside the tap, then the recovery and passkey wraps are sent). The
+> recovery code is still made and its wrap stored, so it always works, but it's shown
+> afterwards: kept on the device as unsaved (`device_secrets` row `vault-recovery-unsaved`)
+> and Today shows **"Save your recovery code"** until the owner saves it by typing its last
+> 4 (`saveRecoveryCodeFlow`). **Use a recovery code instead**, or a passkey that can't do
+> PRF, runs the code-first steps below unchanged. The "is on" alert is gone. The trade-off,
+> accepted: someone can skip saving the code; losing the passkey too then loses the
+> encrypted backup (passkeys sync through iCloud / Google, so that's rare).
+
 Inside "Turn on cloud backup", after the first backup succeeds, and on the card any time later:
 
 1. **"Also back up your private info?"** One paragraph: contacts' details, prices, Financials,

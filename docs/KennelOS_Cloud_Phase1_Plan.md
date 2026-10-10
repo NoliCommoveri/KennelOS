@@ -38,15 +38,16 @@ snapshots with record-level sync and keeps this plan's auth, server, and registr
 
 ### 2.1 Turning it on
 - **Where it's offered:**
-  - a card in **first-run** after kennel setup ("Protect your records: turn on free cloud
-    backup"), skippable;
+  - **first-run's kennel setup screen:** an optional "Email for free cloud backup" field
+    (since 2026-10-10; it replaced a separate "Protect your records" card after setup);
   - a **Cloud backup** card on Import/Export (shared, not Pro-gated; Proposal §10);
   - a gentle **Today nudge** while it's off, which can be dismissed for 30 days using the
     existing `nudgeState`.
 - **Flow:**
   1. Enter email.
   2. Type the 6-digit code from the email.
-  3. Read one plain screen: "What gets backed up: your dogs, litters, pairings, health
+  3. *(Since 2026-10-10 this is a "What's backed up?" link on the sign-in screen, not a
+     step, and the device is named automatically.)* Read one plain screen: "What gets backed up: your dogs, litters, pairings, health
      records, contacts' **names**, and your waitlist (its order, settings, application form,
      and each applicant's **name and email**). What stays only on this phone: contacts'
      phone, email and address, prices and payments (including waitlist fees paid),

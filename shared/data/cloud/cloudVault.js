@@ -22,7 +22,8 @@ import * as api from './cloudApi.js';
 import { isCloudAvailable } from './cloudConfig.js';
 import { currentAccount, sessionToken } from './cloudAuth.js';
 import {
-  getVaultKey, setVaultKey, clearVaultKey, getPendingPairing, setPendingPairing, clearPendingPairing
+  getVaultKey, setVaultKey, clearVaultKey, getPendingPairing, setPendingPairing, clearPendingPairing,
+  getUnsavedRecoveryCode, setUnsavedRecoveryCode, clearUnsavedRecoveryCode
 } from './vaultKeyStore.js';
 import {
   generateVaultKey, newRecoveryCode, formatCode, normalizeRecoveryCode,
@@ -126,6 +127,60 @@ export async function finishVaultSetup(setup, { confirmation, onProgress } = {})
   recordVaultState('on');
   if (!getCloudBackupState().enabled) return { status: 'skipped', reason: 'off' };
   return pushIfDirty({ force: true, onProgress });
+}
+
+// --- Turning it on with a passkey first (§2.1, decided 2026-10-10) ----------------
+// One tap: the passkey prompt turns the vault on. The recovery code is made at
+// the same time (the server requires its wrap, so it always exists) but shown
+// afterwards: it's kept on this device as "unsaved" until the owner saves it
+// (unsavedRecoveryCode / markRecoveryCodeSaved), and Today keeps asking.
+// The passkey is made FIRST, before any request, because browsers only allow
+// the prompt straight after the tap that started it. Throws PasskeyError
+// ('unsupported' → use turnOnVaultFlow's recovery-code screen instead;
+// 'cancelled'), and 409 'vault_exists' (CloudConflictError) when another device
+// turned it on first. → the push result, as finishVaultSetup.
+export async function quickVaultSetup({ label = null, onProgress } = {}) {
+  const { token, programId } = requireSession();
+  const { key, keyId } = await generateVaultKey();
+  const code = newRecoveryCode();
+  const prfSalt = newPrfSalt();
+  const account = currentAccount();
+  const { credentialId, prfOutput } = await createPasskey({ userId: programId, userName: account?.email, prfSalt });
+  try {
+    const passkeyWrap = await wrapVaultKey(key, await kekFromPrf(prfOutput), { keyId, kind: 'passkey' });
+    const recoveryWrap = await wrapVaultKey(key, await kekFromRecoveryCode(code), { keyId, kind: 'recovery' });
+    await api.enableVault(token, { keyId, recoveryWrap });
+    await setVaultKey(programId, { key, keyId });
+    await setUnsavedRecoveryCode(programId, { code, keyId });
+    recordVaultState('on');
+    await api.addVaultWrap(token, { kind: 'passkey', keyId, wrapped: passkeyWrap, credentialId, prfSalt, label });
+  } catch (err) {
+    forgetPasskey(credentialId);
+    throw err;
+  }
+  if (!getCloudBackupState().enabled) return { status: 'skipped', reason: 'off' };
+  return pushIfDirty({ force: true, onProgress });
+}
+
+// The recovery code a passkey-first setup made and the owner hasn't saved yet,
+// formatted, or null. A code for a vault this device no longer holds is dropped.
+export async function unsavedRecoveryCode() {
+  const programId = currentAccount()?.programId;
+  const row = await getUnsavedRecoveryCode(programId);
+  if (!row) return null;
+  const vault = await getVaultKey(programId);
+  if (!vault || vault.keyId !== row.keyId) { await clearUnsavedRecoveryCode(); return null; }
+  return formatCode(row.code);
+}
+
+// `typed` is its last group, typed back (as when turning the vault on with the
+// code first). Throws VaultSetupError 'confirm_mismatch'.
+export async function markRecoveryCodeSaved(typed) {
+  const programId = currentAccount()?.programId;
+  const row = await getUnsavedRecoveryCode(programId);
+  if (!row) return;
+  checkConfirmation({ code: row.code, lastGroup: row.code.slice(-4) }, typed);
+  await clearUnsavedRecoveryCode();
 }
 
 // --- Unlocking this device (§2.3, §5.1) -------------------------------------------
@@ -387,6 +442,7 @@ export async function finishNewRecoveryCode(d, { confirmation, reauth = {} } = {
   const kek = await kekFromRecoveryCode(d.code);
   const wrapped = await wrapVaultKey(vault.key, kek, { keyId: vault.keyId, kind: 'recovery' });
   await api.replaceRecoveryWrap(token, { keyId: vault.keyId, wrapped }, reauth);
+  await clearUnsavedRecoveryCode(); // the new code replaces any unsaved one
 }
 
 // --- Turning it off (§2.5) ----------------------------------------------------------
@@ -397,5 +453,6 @@ export async function disableVault({ reauth = {} } = {}) {
   const { token } = requireSession();
   await api.disableVault(token, reauth);
   await clearVaultKey();
+  await clearUnsavedRecoveryCode();
   recordVaultState('off');
 }

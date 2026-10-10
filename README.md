@@ -854,6 +854,15 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   `0011_vault_handoff`: Apply pending on staging and production after the merge.** Tests:
   `cloud/tests/vault.test.js`, `tests/vaultCrypto.test.js`, `tests/cloudVault.test.js`.
 
+- **Simpler way in — built & browser-verified (2026-10-10).** First run is one Welcome card
+  (**Start my kennel** / **Take the tour** / **I already use KennelOS**); the backups note card
+  is gone and "install as an app" is a dismissible Today card. Kennel setup has an optional
+  **Email for free cloud backup** (the opt-in), so turning backup on is: code → first backup →
+  **Protect your sensitive records too?** with **Turn on with passkey** (Face ID; the recovery
+  code then waits on a Today card until saved). The sign-in screen no longer asks to name the
+  device, and "What gets backed up" is a link, not a step. Dialog buttons wrap instead of
+  overflowing. Tests: `tests/cloudVault.test.js` (passkey first).
+
 - **Cloud Phase 2, live multi-device sync — planned, not built** (`docs/KennelOS_Cloud_Phase2_Sync_Plan.md`,
   draft 2026-10-10). Pro only: both tiers per record (cloud fields readable as today, the
   whole row sealed with the vault key), a change scan instead of an outbox, server-order

@@ -2,9 +2,10 @@
 // Imported dynamically, and only by cloudBackupUI.js, so an edition with
 // `cloudUrl: null` never loads it. Shared, not Pro-gated (Lite and Pro alike).
 //
-//   turnOnVaultFlow({ offer })   §2.1: "Also back up your private info?" → the
-//                                recovery code (print / save / copy, then type the
-//                                last group back) → the first encrypted backup
+//   turnOnVaultFlow({ offer })   §2.1: one card; the passkey turns it on (the
+//                                recovery code waits on Today), or the recovery code
+//                                first (print / save / copy, type the last group back)
+//   saveRecoveryCodeFlow()       Today's "Save your recovery code" after a passkey setup
 //   unlockModal({ merge })       §2.3: passkey · recovery code · another device · not now
 //   unlockBeforeRestore()        the restore paths' unlock step (§2.3)
 //   approveDevicesModal()        §2.4: unlock another device from this one, or
@@ -20,6 +21,7 @@ import {
 } from './cloudBackupUI.js';
 import {
   vaultStatus, startVaultSetup, finishVaultSetup, unlockWithRecoveryCode, unlockWithHandoffCode, createHandoffCode,
+  quickVaultSetup, unsavedRecoveryCode, markRecoveryCodeSaved,
   requestDeviceUnlock, pendingDeviceUnlock, waitForDeviceUnlock, cancelDeviceUnlock,
   listUnlockRequests, approveDeviceUnlock, startNewRecoveryCode, finishNewRecoveryCode,
   disableVault, addPasskey, unlockWithPasskey, removePasskey, VaultSetupError
@@ -62,19 +64,24 @@ const done = (overlay, resolve, v) => { overlay.remove(); resolve(v); };
 const buttons = (overlay, resolve) => overlay.querySelectorAll('[data-v]').forEach((b) =>
   b.addEventListener('click', () => done(overlay, resolve, b.dataset.v)));
 
-// --- Turning it on (§2.1) ----------------------------------------------------------
-function introModal({ offer }) {
+// --- Turning it on (§2.1; passkey first, decided 2026-10-10) ---------------------------
+// One card. Where passkeys can try, its main button is the passkey: the prompt
+// turns it on, and the recovery code waits on Today (saveRecoveryCodeFlow).
+// Otherwise, or by choice, the recovery code comes first, as before.
+// Resolves 'passkey' | 'code' | 'no'.
+function introModal({ offer, canPasskey, errorMsg = '' }) {
   return new Promise((resolve) => {
     const overlay = openModal(`
-      <h2 style="margin-top:0;">${offer ? 'Also back up your sensitive records?' : 'Back up your sensitive records'}</h2>
-      <p>Contacts' phone, email and address, prices and payments, Financials, contracts, receipts and your
-        private notes can be backed up too, <strong>encrypted on this device before upload</strong>. We can't read
-        them, and neither can anyone who gets into our server.</p>
-      <p class="muted">You'll get a recovery code to keep somewhere safe. On a new phone, you unlock your private
-        info with that code, or from another of your devices that's already unlocked.</p>
-      <p class="field-hint">Strongly suggested if you use the waitlist: applicants' answers and fees are private.</p>
+      <h2 style="margin-top:0;">${offer ? 'Protect your sensitive records too?' : 'Back up your sensitive records'}</h2>
+      <p>Contacts' phone, email and address, prices, Financials, contracts and your notes, <strong>encrypted on
+        this device before upload</strong>. We can't read them, and neither can anyone who gets into our server.</p>
+      ${canPasskey
+        ? '<p class="muted">Turn it on with Face ID, your fingerprint or your device PIN. You\'ll also get a recovery code to save afterwards.</p>'
+        : '<p class="muted">You\'ll get a recovery code to keep somewhere safe. On a new phone, you unlock with that code, or from another of your devices.</p>'}
+      ${errorMsg ? `<div class="inline-error">${esc(errorMsg)}</div>` : ''}
       <div class="form-actions">
-        <button class="btn btn-primary" data-v="on">Continue</button>
+        ${canPasskey ? '<button class="btn btn-primary" data-v="passkey">Turn on with passkey</button>' : '<button class="btn btn-primary" data-v="code">Continue</button>'}
+        ${canPasskey ? '<button class="btn" data-v="code">Use a recovery code instead</button>' : ''}
         <button class="btn" data-v="no">Not now</button>
       </div>`, { width: 520 });
     buttons(overlay, resolve);
@@ -172,10 +179,41 @@ function printText(text) {
   setTimeout(() => frame.remove(), 60 * 1000);
 }
 
-// `offer: true` is the step inside "Turn on cloud backup" (its intro has "Not
-// now"). Resolves true when it's on.
+// `offer: true` is the step inside "Turn on cloud backup" (its card says "too").
+// Resolves true when it's on.
 export async function turnOnVaultFlow({ offer = false } = {}) {
-  if ((await introModal({ offer })) !== 'on') return false;
+  const canPasskey = await passkeySupported();
+  let errorMsg = '';
+  for (;;) {
+    const choice = await introModal({ offer, canPasskey, errorMsg });
+    if (choice === 'no') return false;
+    if (choice === 'code') return codeFirstVaultFlow({ offerPasskey: canPasskey });
+    const pg = progressModal('Turning on sensitive records backup…');
+    let push;
+    try {
+      push = await quickVaultSetup({
+        label: currentAccount()?.deviceLabel,
+        onProgress: (p) => {
+          if (p.phase === 'files' && p.total) pg.update(`Uploading documents: ${p.done + 1} of ${p.total}…`, p.done, p.total);
+          else pg.update('Uploading your encrypted records…');
+        }
+      });
+    } catch (e) {
+      pg.close();
+      // A passkey that can't do PRF: the recovery code is the way, as before.
+      if (e?.name === 'PasskeyError' && e.code === 'unsupported') return codeFirstVaultFlow({ offerPasskey: false });
+      errorMsg = vaultErrorText(e);
+      continue;
+    }
+    pg.close();
+    notify();
+    if (push && !['pushed', 'unchanged', 'skipped'].includes(push.status)) await handlePushResult(push);
+    return true;
+  }
+}
+
+// The recovery code first (no passkey here, or the owner chose it).
+async function codeFirstVaultFlow({ offerPasskey }) {
   let setup;
   try { setup = await startVaultSetup(); } catch (e) { await alertModal({ title: "That didn't work", message: vaultErrorText(e) }); return false; }
   let push = null;
@@ -196,9 +234,22 @@ export async function turnOnVaultFlow({ offer = false } = {}) {
   if (!ok) return false;
   notify();
   if (push && push.status !== 'pushed' && push.status !== 'unchanged' && push.status !== 'skipped') await handlePushResult(push);
-  else await alertModal({ title: 'Sensitive records backup is on', message: 'Your sensitive records are now backed up, encrypted, with every backup. Keep your recovery code safe.' });
-  if (await passkeySupported()) await offerPasskeyModal();
+  if (offerPasskey) await offerPasskeyModal();
   return true;
+}
+
+// Today's "Save your recovery code" (passkey-first setup): the code with Print /
+// Save / Copy, and its last group typed back. Resolves true once saved.
+export async function saveRecoveryCodeFlow() {
+  const code = await unsavedRecoveryCode();
+  if (!code) return true;
+  const ok = await recoveryCodeModal({ recoveryCode: code }, {
+    title: 'Save your recovery code',
+    confirmLabel: "I've saved it",
+    onConfirm: (typed) => markRecoveryCodeSaved(typed)
+  });
+  if (ok) notify();
+  return ok;
 }
 
 // §2.1 step 3: "Unlock with Face ID / fingerprint next time?" Skippable; the

@@ -564,3 +564,51 @@ test('handoff box: the recovery code works there too', async () => {
   await vault.unlockWithHandoffCode(recovery, { merge: false });
   assert.equal((await vault.vaultStatus()).unlocked, true);
 });
+
+// --- passkey first (§2.1, decided 2026-10-10) ------------------------------------------
+
+test('passkey first: one prompt turns it on; the recovery code waits, works, and is saved by its last group', async () => {
+  installFakePasskeys();
+  putProgram();
+  await signIn();
+  assert.equal((await cb.enableBackup()).status, 'pushed');
+  const push = await vault.quickVaultSetup({ label: 'Phone A' });
+  assert.equal(push.status, 'pushed');
+  assert.equal(push.vault, true);
+  const st = await vault.vaultStatus();
+  assert.equal(st.unlocked, true);
+  assert.deepEqual(st.passkeys.map((p) => p.label), ['Phone A']);
+
+  const code = await vault.unsavedRecoveryCode();
+  assert.match(code, /^([0-9A-Z]{4}-){5}[0-9A-Z]{4}$/);
+  await assert.rejects(vault.markRecoveryCodeSaved('ZZZZ'), { name: 'VaultSetupError', code: 'confirm_mismatch' });
+  assert.equal(await vault.unsavedRecoveryCode(), code);
+
+  // The waiting code really opens the vault on a new device.
+  switchDevice('B');
+  await signIn('breeder@example.com', 'Laptop B');
+  await vault.unlockWithRecoveryCode(code, { merge: false });
+  assert.equal((await vault.vaultStatus()).unlocked, true);
+  assert.equal(await vault.unsavedRecoveryCode(), null, 'only the device that made it shows it');
+
+  switchDevice('A');
+  await vault.markRecoveryCodeSaved(code.slice(-4).toLowerCase());
+  assert.equal(await vault.unsavedRecoveryCode(), null);
+});
+
+test('passkey first: no PRF or a cancel leaves the vault off; turning it off forgets the unsaved code', async () => {
+  const pk = installFakePasskeys({ prf: false });
+  putProgram();
+  await signIn();
+  await cb.enableBackup();
+  await assert.rejects(vault.quickVaultSetup(), { name: 'PasskeyError', code: 'unsupported' });
+  pk.prfSupported = true;
+  pk.cancelNext = true;
+  await assert.rejects(vault.quickVaultSetup(), { name: 'PasskeyError', code: 'cancelled' });
+  assert.equal((await vault.vaultStatus()).enabled, false);
+
+  await vault.quickVaultSetup();
+  assert.ok(await vault.unsavedRecoveryCode());
+  await vault.disableVault();
+  assert.equal(await vault.unsavedRecoveryCode(), null);
+});
