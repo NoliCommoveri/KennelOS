@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Privacy policy — KennelOS</title>
-  <meta name="description" content="What KennelOS holds about you and your kennel, what it never receives, how long it keeps anything, and how to delete it. Written in plain English.">
+  <meta name="description" content="The KennelOS privacy policy: what the apps, cloud backup, private backup and the online waitlist hold, what we never receive, who else is involved, how long we keep anything, and how to delete it.">
   <link rel="canonical" href="https://kennelos.app/privacy.html">
   <meta property="og:title" content="Privacy policy — KennelOS">
   <meta property="og:description" content="What KennelOS holds, what it never receives, how long it keeps anything, and how to delete it.">
@@ -40,52 +40,121 @@
     <div class="wrap">
       <p class="eyebrow">Privacy policy</p>
       <h1>What we hold, what we never receive, and how to delete it</h1>
-      <p>Plain English, and specific. Last updated October 2026.</p>
+      <p>Effective 10 October 2026. Last updated 10 October 2026.</p>
     </div>
   </section>
 
   <section>
-    <div class="wrap-narrow prose">
+    <div class="wrap-narrow prose legal">
 
-      <h2>Who we are</h2>
-      <p>KennelOS makes the KennelOS apps (Lite, Pro, the demo and Furever) and this website.
-        Questions about this policy, or about anything we hold: email
-        <a href="mailto:admin.kennelos@gmail.com">admin.kennelos@gmail.com</a>.</p>
+      <nav class="toc" aria-label="On this page">
+        <p class="toc-title">On this page</p>
+        <ol>
+          <li><a href="#who">Who we are, and what this covers</a></li>
+          <li><a href="#short">The short version</a></li>
+          <li><a href="#roles">Your records, and other people's details in them</a></li>
+          <li><a href="#local">Using the apps without cloud backup</a></li>
+          <li><a href="#website">This website</a></li>
+          <li><a href="#cloud">Cloud backup</a></li>
+          <li><a href="#vault">Private backup (encrypted)</a></li>
+          <li><a href="#purchases">Buying Pro</a></li>
+          <li><a href="#waitlist">The online waitlist (Pro)</a></li>
+          <li><a href="#families">If you applied to a kennel's waitlist</a></li>
+          <li><a href="#email">Emails we send</a></li>
+          <li><a href="#providers">Who else is involved</a></li>
+          <li><a href="#retention">How long we keep things</a></li>
+          <li><a href="#security">Security</a></li>
+          <li><a href="#rights">Your choices and rights</a></li>
+          <li><a href="#transfers">Where your data is processed</a></li>
+          <li><a href="#device">A lost or stolen device</a></li>
+          <li><a href="#stop">If we ever stop running the online service</a></li>
+          <li><a href="#children">Children</a></li>
+          <li><a href="#changes">Changes to this policy</a></li>
+          <li><a href="#contact">Contact us</a></li>
+        </ol>
+      </nav>
 
-      <h2>The short version</h2>
+      <h2 id="who">1. Who we are, and what this covers</h2>
+      <p>KennelOS ("KennelOS", "we", "us") makes the KennelOS apps and runs the services behind
+        them. This policy covers:</p>
+      <ul>
+        <li>this website, <strong>kennelos.app</strong>;</li>
+        <li>the apps: <strong>KennelOS Lite</strong> (lite.kennelos.app), <strong>KennelOS Pro</strong>
+          (pro.kennelos.app), the <strong>demo</strong> (demo.kennelos.app) and <strong>KennelOS
+          Furever</strong> (furever.kennelos.app);</li>
+        <li>our online service at <strong>api.kennelos.app</strong>, which runs cloud backup,
+          private backup and the online waitlist;</li>
+        <li>the waitlist pages families use, at <strong>apply.kennelos.app</strong>, and the emails
+          sent from <strong>mail.kennelos.app</strong>.</li>
+      </ul>
+      <p>Questions about this policy, or about anything we hold: email
+        <a href="mailto:admin.kennelos@gmail.com">admin.kennelos@gmail.com</a>. Use of KennelOS is
+        also governed by our <a href="terms.html">terms of use</a>.</p>
+
+      <h2 id="short">2. The short version</h2>
       <ul class="checks">
-        <li>The apps keep your records in your own browser, on your own device. Without cloud backup, we receive none of them.</li>
-        <li>Cloud backup is optional, free, and off until you turn it on. It copies your <strong>kennel records</strong> so you can get them back on a new device. Your contacts' phone numbers, emails and addresses, prices, Financials, contracts and private notes never leave your device, unless you also turn on <strong>private backup</strong>, which encrypts them on your device first so that we can't read them.</li>
+        <li>The apps keep your records in your own browser, on your own device. If you never sign in to cloud backup, we receive none of them.</li>
+        <li>Cloud backup is optional, free, and off until you turn it on. It copies your <strong>kennel records</strong> so you can get them back on a new device. Your contacts' phone numbers, emails and addresses, prices, Financials, contracts and private notes are never sent readable. With <strong>private backup</strong> on, they're encrypted on your device first, with a key we don't have.</li>
         <li>We don't keep your email address, only a scrambled (keyed-hash) form of it, so we can recognise you when you sign in.</li>
-        <li>No analytics, no tracking, no advertising, on this website or in the apps. We never sell anything about you.</li>
+        <li>The online waitlist, if a breeder turns it on, shows families their own place and offers. We can read each family's name and email so we can email them; their application answers and messages are encrypted to the breeder.</li>
+        <li>No analytics, no tracking, no advertising and no cookies, on this website or in the apps. We never sell or share anything about you for advertising.</li>
         <li>You can delete everything we hold, from inside the app, at any time.</li>
       </ul>
 
-      <h2>Without cloud backup</h2>
-      <p>Everything you type is stored in your browser's own storage on that device. It is not
-        sent to us. The apps contact other services only when you use a feature that needs them:</p>
-      <ul>
-        <li><strong>Pro's license key</strong> is checked with <strong>Lemon Squeezy</strong>, our payment provider. They hold your billing details and the key; we never see a card number.</li>
-        <li><strong>Dropbox</strong> (Pro), if you connect it: your backup file goes to a folder in your own Dropbox account.</li>
-      </ul>
+      <h2 id="roles">3. Your records, and other people's details in them</h2>
+      <p>KennelOS is a record keeper. Your records will include details about other people: buyers,
+        co-owners, vets, waitlist families. You decide what goes in, why, and who it's shared
+        with, so for those details <strong>you are responsible for them</strong> (in data-protection
+        terms, the controller). Where our service stores or sends any of them, we do it only on your
+        instructions and only to provide the service to you: we don't read them, use them for
+        anything of our own, or contact those people except to send the emails you ask for.</p>
+      <p>For your own account with us (your hashed email, devices, purchases), and for this
+        website, we are responsible.</p>
 
-      <h2>With cloud backup on</h2>
+      <h2 id="local">4. Using the apps without cloud backup</h2>
+      <p>Everything you type is stored in your browser's own storage on that device. It is not sent
+        to us. The apps contact other services only when you use a feature that needs them:</p>
+      <ul>
+        <li><strong>Pro's license key</strong> is checked with <strong>Lemon Squeezy</strong>, our
+          payment provider. The app sends them your key and the name of this device (the name you
+          give it, plus a short random id), so you can tell your activations apart. We never receive
+          your key.</li>
+        <li><strong>Dropbox</strong> (Pro), if you connect it: your backup file goes to a folder in
+          your own Dropbox account, under Dropbox's own terms. We never see it.</li>
+        <li><strong>Companion</strong> and <strong>Furever</strong> links (Pro) carry what you chose
+          to share in the link itself. They don't pass through our servers.</li>
+      </ul>
+      <p>The demo never contacts our online service at all, and nothing you do in it is saved.</p>
+
+      <h2 id="website">5. This website</h2>
+      <p>This website and the apps are served by <strong>GitHub Pages</strong>. Like any web host,
+        GitHub receives the network (IP) address of each visit and may keep it in its own logs for
+        security; we don't receive those logs. The website sets no cookies and runs no analytics,
+        tracking pixels or third-party scripts. The checkout buttons take you to Lemon Squeezy's
+        site, where their privacy policy applies.</p>
+
+      <h2 id="cloud">6. Cloud backup</h2>
+      <p>Off unless you turn it on. You sign in with your email address and a code we email you.</p>
       <h3>What we keep</h3>
       <ul>
         <li><strong>Your account:</strong> a keyed hash of your email address (not the address), when you joined, and for each device you sign in on: the name you gave it, when it was last used, and on Pro, the id of that device's license activation (so you can free it if the device is lost; it's useless without your license key, which we never receive).</li>
         <li><strong>Your kennel records:</strong> dogs (names, registrations, pedigree links, dates, microchip numbers, health-test plans), your kennels (including location, website and logo), pairings, litters, puppies, health and history events (without free-text notes), sales and stud services without their money, contract dates and types, feeding schedules, and your contacts' <strong>names</strong> and types.</li>
-        <li><strong>Documents:</strong> health-test results, pedigrees and registration papers you've attached to dogs. Receipts, contracts and other documents stay on your device.</li>
-        <li><strong>Pro's waitlist:</strong> your waitlist settings (including the fee you charge and your payment instructions), the list's order and status, and each applicant's <strong>name and email</strong>. Nothing else from an application, and no family's fee or payment details.</li>
+        <li><strong>Documents:</strong> health-test results, pedigrees and registration papers you've attached to dogs. Receipts, contracts and other documents stay on your device unless private backup is on.</li>
+        <li><strong>Pro's waitlist:</strong> your waitlist settings (including the fee you charge and your payment instructions), the list's order and status, each family's status-page link, and each applicant's <strong>name and email</strong>. Nothing else from an application, and no family's payments.</li>
       </ul>
       <h3>What we can never read</h3>
-      <p>Your contacts' phone numbers, email addresses and postal addresses; the prices,
-        deposits, fees and payments on your sales, stud services and litters, and each waitlist
-        family's fee and payments; your Financials (income and expenses) and receipts; contracts
-        and their terms; and every free-text note, on any record. Without private backup they
-        never leave your device. With it, they reach us only encrypted (below). (Your own
-        waitlist settings, listed above, are the one place a fee amount is kept readable: the one
-        you charge.)</p>
-      <h3>Private backup (optional, encrypted)</h3>
+      <p>Your contacts' phone numbers, email addresses and postal addresses; the prices, deposits,
+        fees and payments on your sales, stud services and litters, and each waitlist family's
+        payments; your Financials (income and expenses) and receipts; contracts and their terms;
+        application answers other than name and email; and every free-text note, on any record.
+        Without private backup they never leave your device. With it, they reach us only
+        encrypted (<a href="#vault">section 7</a>).</p>
+      <h3>What we use it for</h3>
+      <p>Only to keep your backup, give it back to you on your devices, and run the features you
+        turn on. We don't read your records, sell them, use them for advertising, or use them to
+        train AI models.</p>
+
+      <h2 id="vault">7. Private backup (optional, encrypted)</h2>
       <p>Off unless you turn it on, separately from cloud backup. With it on, each backup also
         carries a copy of all your records, private details, receipts and contracts included,
         <strong>encrypted on your device before it's uploaded</strong>, with a key that only your
@@ -98,38 +167,148 @@
       </ul>
       <p>If you lose your recovery code and every passkey, and have no other unlocked device, we
         can't unlock your private backup for you. Your devices and file backups are unaffected.</p>
-      <h3>How long we keep it</h3>
-      <ul>
-        <li>Backups: the newest one always, plus one per hour for the last day and one per day for 30 days. Older ones are deleted automatically, and so are documents no remaining backup uses. A backup's encrypted private copy goes with it.</li>
-        <li><strong>Turn off private backup</strong> (Import/Export → Cloud backup → Private backup) deletes its locked keys at once, so nobody can unlock it again; the encrypted copies already made are deleted within 30 days.</li>
-        <li>Sign-in codes expire after 10 minutes. A signed-out device's record is deleted after 30 days.</li>
-        <li>To limit abuse, we count sign-in requests per email (hashed) and per network address (also hashed, never stored as-is), counted per hour and deleted after a day.</li>
-        <li><strong>Delete my cloud data</strong> (Import/Export → Cloud backup → Account) deletes your backups, documents, devices and account immediately. Your records on your devices are not touched.</li>
-      </ul>
-      <h3>Who else is involved</h3>
-      <ul>
-        <li><strong>Cloudflare</strong> runs our backup service and stores the backups, encrypted at rest. Like any web host, it handles the network address your app connects from.</li>
-        <li><strong>Resend</strong> sends your sign-in codes. It sees the address each code is sent to; we keep its log retention as short as it allows. The email is plain text, with no links or tracking.</li>
-      </ul>
-      <p>We don't log the contents of anything you send: never an email address, a code or a record.</p>
 
-      <h2>A lost or stolen device</h2>
+      <h2 id="purchases">8. Buying Pro</h2>
+      <p>Pro is sold through <strong>Lemon Squeezy</strong>, who act as the merchant of record: they
+        take your payment and billing details, handle tax and receipts, and email you your license
+        key, under their own privacy policy. We never see a card number.</p>
+      <p>When you buy, renew, cancel or are refunded, Lemon Squeezy tells our service. We keep a
+        <strong>keyed hash</strong> of the purchase email (never the address), which plan
+        (monthly, yearly or lifetime), its status, and until when it gives you Pro. We never receive
+        or keep your license key. This is how our service knows a signed-in account is Pro, which
+        the online waitlist needs. If you bought with a different email from the one you sign in
+        with, <strong>Link a Pro purchase email</strong> sends a code to that address, and typing it
+        adds that address's hash to your account. If you never sign in to cloud backup, the hash is
+        never matched to anything.</p>
+
+      <h2 id="waitlist">9. The online waitlist (Pro)</h2>
+      <p>If you turn on <strong>Online list</strong> for a kennel, your device publishes a view of
+        that waitlist to our service, so families can see their status and respond, and so the
+        service can send your emails and make the moves you allow while your phone is off. It holds,
+        readable:</p>
+      <ul>
+        <li><strong>About your kennel:</strong> its name, logo and time zone; your application form's questions, FAQ and notices; your fee wording and payment instructions; your email templates; and your Facebook Page link, if you add one.</li>
+        <li><strong>The public list</strong>, if you share it: each family's first name and last initial, sex preference and the date they were added.</li>
+        <li><strong>For each family:</strong> name, email, status and place on the list; offers and the pups eligible for them (call name, sex and colour); the fee amount and your payment instructions <em>only while their fee is due</em>, and whether and when you received it; their requests and your decisions; and the emails sent to them.</li>
+        <li><strong>Litters and pairings</strong> you choose to show: the parents' call names and titles, and the dates you publish.</li>
+      </ul>
+      <p>It never holds a family's phone number, address, other application answers, notes or
+        payment details, or any price you haven't published. Taking the list offline removes the
+        published view and every family's link and sign-in; <strong>Delete my cloud data</strong>
+        removes everything.</p>
+      <p>You are responsible for having families' agreement to this, for the wording of what you
+        send them, and for answering their requests about their information. The emails we send on
+        your behalf go out in your kennel's name.</p>
+
+      <h2 id="families">10. If you applied to a kennel's waitlist</h2>
+      <p>The kennel you applied to decides how your application is used; please contact them first
+        with any question about it. Our part:</p>
+      <ul>
+        <li><strong>Your application</strong> is encrypted in your browser to the kennel's key before
+          it's sent. We can read only your <strong>name and email</strong>, which we need to send you a
+          confirmation code and the kennel's emails. Cloudflare Turnstile may check that you're not a
+          bot. An application whose code isn't typed is deleted after two days.</li>
+        <li><strong>Our copy</strong> is a delivery copy. Once the kennel's device has received it and
+          it is safely in their own encrypted backup, we delete it after 30 days. If they don't use
+          that backup, it stays until they delete their data or stop using the online list.</li>
+        <li><strong>Your status page</strong> opens with a private link or a code emailed to you. If
+          you sign in, your browser remembers it for 90 days, in its own storage on that device; it
+          isn't a cookie and isn't used for anything else.</li>
+        <li><strong>What you do there</strong> (choosing a pup, passing, asking for a pause, leaving
+          the list) is recorded for the kennel's device to apply, and deleted after 90 days.
+          <strong>Messages</strong> you send are encrypted to the kennel, like your application.</li>
+        <li><strong>Emails</strong> from the kennel come from an address at mail.kennelos.app. We keep
+          each email's text so it can show on your status page; the text is deleted 90 days after
+          it's sent, and the subject and date are kept for the kennel's records.</li>
+        <li><strong>The public list</strong>, if the kennel shows one, shows your first name and last
+          initial, the sex you prefer and when you joined. Nothing else.</li>
+      </ul>
+      <p>You can leave a list at any time from your status page. To have your details removed,
+        ask the kennel, or email us and we'll pass the request on and help.</p>
+
+      <h2 id="email">11. Emails we send</h2>
+      <p>Sign-in codes, codes to link a purchase email, application codes, and the waitlist emails
+        a kennel sends. They're plain text with no tracking pixels or tracked links. We never send
+        marketing email or newsletters, and we never email you unprompted about the service: notices
+        appear inside the app. If you email us, we keep the conversation to answer you.</p>
+
+      <h2 id="providers">12. Who else is involved</h2>
+      <p>We use a small number of service providers, each only for the job listed:</p>
+      <div class="table-scroll">
+        <table class="legal-table">
+          <thead><tr><th scope="col">Provider</th><th scope="col">What for</th><th scope="col">What they handle</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Cloudflare</th><td>Runs our online service and stores backups (encrypted at rest); Turnstile on application forms</td><td>Everything in sections 6–10, and the network address your device connects from</td></tr>
+            <tr><th scope="row">Resend</th><td>Sends our emails</td><td>Each recipient's address and the email; we keep its log retention as short as it allows</td></tr>
+            <tr><th scope="row">Lemon Squeezy</th><td>Sells Pro and checks license keys</td><td>Your billing details, purchase email, license key and device names</td></tr>
+            <tr><th scope="row">GitHub</th><td>Hosts this website and the apps</td><td>The network address of each visit</td></tr>
+            <tr><th scope="row">Dropbox</th><td>Pro's Dropbox backup, only if you connect it</td><td>Your backup file, in your own account</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>We don't sell personal information, and we don't share it for advertising. We'd disclose
+        it only if the law required us to, and we'd tell you unless we were forbidden to.</p>
+
+      <h2 id="retention">13. How long we keep things</h2>
+      <ul>
+        <li><strong>Backups:</strong> the newest one always, plus one per hour for the last day and one per day for 30 days. Older ones are deleted automatically, and so are documents no remaining backup uses. A backup's encrypted private copy goes with it.</li>
+        <li><strong>Turning off private backup</strong> (Import/Export → Cloud backup → Private backup) deletes its locked keys at once, so nobody can unlock it again; the encrypted copies already made are deleted within 30 days.</li>
+        <li><strong>Codes:</strong> sign-in and link codes expire after 10 minutes, family sign-in codes after 15. A signed-out device's record is deleted after 30 days.</li>
+        <li><strong>Pro purchases:</strong> deleted 90 days after the purchase stops giving you Pro.</li>
+        <li><strong>Waitlist:</strong> as in <a href="#families">section 10</a>: unconfirmed applications 2 days; delivered applications and messages 30 days after they're safely backed up; family actions 90 days; email text 90 days after sending.</li>
+        <li><strong>Abuse limits:</strong> we count requests per email (hashed) and per network address (also hashed, never stored as-is), per hour, and delete the counts after a day.</li>
+        <li><strong>Delete my cloud data</strong> (Import/Export → Cloud backup → Account) deletes your backups, documents, devices, waitlist data and account immediately. Your records on your devices are not touched.</li>
+      </ul>
+
+      <h2 id="security">14. Security</h2>
+      <p>Everything travels over HTTPS and is stored encrypted at rest. Private details are
+        encrypted on your device before they leave it. We don't log the contents of anything you
+        send: never an email address, a code, a token or a record. Erasing a device, signing out
+        your other devices and deleting your cloud data each ask you to confirm with a fresh sign-in.
+        No system is perfectly secure. If a breach ever affected your information, we'd say so in
+        the app and tell the relevant authorities as the law requires.</p>
+
+      <h2 id="rights">15. Your choices and rights</h2>
+      <p>Wherever you live, you can:</p>
+      <ul>
+        <li><strong>See and take your data:</strong> everything is in the app, and Import/Export saves all of it as a file. Email us for a copy of what our service holds about your account.</li>
+        <li><strong>Correct it:</strong> edit it in the app; the next backup replaces the old copy.</li>
+        <li><strong>Delete it:</strong> use Delete my cloud data, or email us.</li>
+        <li><strong>Stop it:</strong> turn off cloud backup, private backup or the online list at any time.</li>
+        <li><strong>Complain:</strong> to us first, if you like, or to your local data-protection authority.</li>
+      </ul>
+      <p>We answer requests within 30 days. Because we don't keep your email address, we may ask
+        you to confirm a code sent to it, so we know a request is yours. Where a data-protection law
+        asks for a legal basis, ours is providing the service you asked for, and our legitimate
+        interest in keeping it secure and free of abuse.</p>
+
+      <h2 id="transfers">16. Where your data is processed</h2>
+      <p>Our providers run worldwide networks, so your information may be processed in the United
+        States and other countries with different data-protection laws from yours. We rely on each
+        provider's own data-protection commitments for those transfers.</p>
+
+      <h2 id="device">17. A lost or stolen device</h2>
       <p>If a device had cloud backup on, you can erase KennelOS on it from another device
         (Import/Export → Cloud backup → Your devices). The erase happens the next time that device
-        opens KennelOS with an internet connection; it can't reach a device that stays offline.
-        Erasing a device, signing out your other devices and deleting your cloud data each ask you
-        to confirm with a fresh sign-in, so someone holding your old phone can't do them.</p>
+        opens KennelOS with an internet connection; it can't reach a device that stays offline.</p>
 
-      <h2>If we ever stop running cloud backup</h2>
-      <p>We'll say so inside the app well ahead of time. The apps keep working without it, and
-        your records on your devices are untouched. We never email you unprompted, so the notice
-        appears in the app.</p>
+      <h2 id="stop">18. If we ever stop running the online service</h2>
+      <p>We'll say so inside the app well ahead of time. The apps keep working without it, and your
+        records on your devices are untouched.</p>
 
-      <h2>Children</h2>
-      <p>KennelOS is made for breeders and isn't directed at children.</p>
+      <h2 id="children">19. Children</h2>
+      <p>KennelOS is made for breeders and isn't directed at children. We don't knowingly collect
+        information from anyone under 16. If you think a child has used our online service, email us
+        and we'll delete what it holds.</p>
 
-      <h2>Changes to this policy</h2>
-      <p>If what we hold changes, we update this page first and change the date at the top.</p>
+      <h2 id="changes">20. Changes to this policy</h2>
+      <p>If what we hold or how we use it changes, we update this page first and change the dates at
+        the top. If a change matters to how your data is handled, we'll also say so in the app before
+        it takes effect.</p>
+
+      <h2 id="contact">21. Contact us</h2>
+      <p>Email <a href="mailto:admin.kennelos@gmail.com">admin.kennelos@gmail.com</a>. We read every
+        message.</p>
 
     </div>
   </section>
@@ -158,6 +337,7 @@
           <li><a href="about.html">About us</a></li>
           <li><a href="faq.html">FAQ</a></li>
           <li><a href="privacy.html">Privacy</a></li>
+          <li><a href="terms.html">Terms</a></li>
           <li><a href="furever.html">Furever app</a></li>
           <li><a href="upgrade/">Upgrade to Pro</a></li>
         </ul>

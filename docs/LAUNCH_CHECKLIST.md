@@ -244,8 +244,9 @@ imported.
 
 Released 2026-10-08 (`WAITLIST_ONLINE_RELEASED = true`, cache `kennelos-shell-v50`), ahead of
 plan steps 6 (email) and 7 (server deadlines and automatic offers). Steps 6 and 7 are built
-(2026-10-09). Still open: the privacy policy's waitlist-online section (step 8), the Workers
-Paid plan and Email Routing.
+(2026-10-09). The privacy policy's waitlist-online section (step 8) is written (2026-10-10:
+`site/privacy.html` §9–§10, with the new `site/terms.html`). Still open: the Workers Paid plan
+and Email Routing.
 
 - [x] **Apply pending (`0007`, `0008`, `0009`) on staging's and production's `/ops`** right after the
   merge that carries them. The whole API answers 503 until then.
@@ -295,8 +296,10 @@ Paid plan and Email Routing.
   Upgrade button) and `kennelos.app/pro.html#pricing` lands on the pricing section (it's the
   target of Pro's activation and renewal walls); a bad URL shows the styled 404; and it does
   **not** offer to install as an app (no manifest/service worker — that's on purpose).
-  Once cloud backup is live: `kennelos.app/privacy.html` loads and every footer links to it,
-  and no page still says "no accounts", "no cloud" or "no server".
+  Once cloud backup is live: `kennelos.app/privacy.html` and `kennelos.app/terms.html` load
+  and every footer links to both, and no page still says "no accounts", "no cloud" or "no
+  server". The operator ("KennelOS") and governing law (United States) are filled in; have both
+  pages read by someone qualified in US law before launch.
 
 ## 5. Recurring (every subsequent release)
 

@@ -23,7 +23,10 @@ demo.html         The read-only seeded demo
 furever.html      KennelOS Furever (the free family app) + the Pro hand-off link
 about.html        Who we are, what we believe, how it's funded, privacy
 faq.html          Data, devices, offline, the cap, upgrading, licensing, refunds
-privacy.html      Privacy policy: what cloud backup holds and never receives, retention, deletion
+privacy.html      Privacy policy: the apps, cloud + private backup, Pro purchases, the online
+                  waitlist (breeders and families), providers, retention, rights, deletion
+terms.html        Terms of use: data ownership + backups, cloud service, waitlist, Pro licenses,
+                  payment + refunds, acceptable use, disclaimers, liability, governing law
 upgrade/          Landing page for Lite's "Upgrade to Pro →" button (kennelos.app/upgrade)
 404.html          GitHub Pages 404 (uses root-absolute paths — it can be served from any depth)
 robots.txt        + sitemap.xml
@@ -83,6 +86,10 @@ on you:
 - **The "Who we are" section** in `about.html` — a generic placeholder story, flagged
   with an HTML comment. Write the real one; it's the page people read before trusting
   you with a decade of pedigrees.
+- **The legal pages** — filled in (2026-10-10): the operator is "KennelOS" and the terms are
+  governed by United States law (`terms.html` §18). If a US state is chosen later, name it
+  in §18 (most US contracts name a state's law and courts). Have both pages read by someone
+  qualified in US law: they were written from the code, not by a lawyer.
 - **Furever's status** — `furever.html` says "in active development" and links to
   `furever.kennelos.app`. Drop that line once the origin is live.
 
@@ -95,4 +102,11 @@ prices, the grace windows. When any of those change in the app, they change here
 - Pro-only page list (`shared/data/proPages.js`) → the comparison table in
   `editions.html` and the "not in Lite" list in `lite.html`.
 - Prices / tiers / grace windows (`docs/KennelOS_Lite_Pro_Editions_Plan.md`
-  §Licensing) → `pro.html`, `upgrade/index.html`, `editions.html`, `faq.html`.
+  §Licensing) → `pro.html`, `upgrade/index.html`, `editions.html`, `faq.html`, and the
+  grace windows in `terms.html` §9.
+- **What the server holds** → `privacy.html`. It's written from the code: a new cloud
+  migration (`cloud/src/migrations/`), a field moved to `cloud` in
+  `shared/data/syncRegistry.js`, a field added to `shared/data/waitlistProjection.js`, a
+  retention change (`cloud/src/retention.js`) or a new provider each means a privacy-policy
+  edit in the same change, with the dates at the top bumped. A change to what users may do,
+  or to licensing or refunds, means the same for `terms.html`.
