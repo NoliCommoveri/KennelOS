@@ -115,6 +115,7 @@ const PRECACHE_URLS = [
   'data/pedigreeParse.js',
   'data/pedigreeReader.js',
   'data/pdfBuild.js',
+  'data/processingFees.js',
   'data/proPages.js',
   'data/puppyRecordFields.js',
   'data/referenceRegistry.js',

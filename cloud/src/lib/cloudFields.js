@@ -148,11 +148,13 @@ export const CLOUD_FIELDS = {
         "created_at",
         "deposit_date",
         "dog_id",
+        "fee_passed_to_buyer",
         "id",
         "is_archived",
         "kennel_id",
         "registration_type",
         "sale_date",
+        "sales_channel_account_id",
         "status",
         "updated_at"
       ],
@@ -258,6 +260,9 @@ export const CLOUD_FIELDS = {
       "keys": [
         "account_type",
         "created_at",
+        "fee_fixed",
+        "fee_passed_to_buyer_default",
+        "fee_percent",
         "id",
         "is_archived",
         "name",

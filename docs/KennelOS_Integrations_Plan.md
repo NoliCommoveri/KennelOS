@@ -368,6 +368,22 @@ $200.00 marketplace / processing fee", off by default (D11). It never shows her 
 **Edition:** fees are pure local data, no server → **Lite too?** (D4). In Lite there's no
 Accounts page today (Pro-only), so Lite would need the fee fields on the Sale alone.
 
+**As built (step 1, 2026-10-10).** As above, with these details settled in the build
+(End-State guide §21.1):
+- The fee is computed on the sale **price** only (transport and boarding aren't in the base),
+  and is always editable to what was actually charged.
+- In Income, the fee is split across the sale's cash components in proportion to their size.
+  Each share is earned, anticipated or dropped with the payment it came out of: a cancelled
+  sale keeps only the paid share's fee, a lost sale none. Each share is filed under that
+  payment's date in the P&L.
+- The fee stays out of `saleComponents`, so invoices, receipts, `paidOnSale` and Receivables
+  show the buyer's full amounts.
+- The invoice "includes $X fee" line (D11, off by default) is **not built**. Nothing shows the
+  fee on a buyer-facing document.
+- Lite: no channel picker. The helper takes a typed rate.
+- `db.version(3)` adds the `sales.sales_channel_account_id` index (D10), so a backup's
+  `schema_version` now reads 3; older files still restore.
+
 ---
 
 ## 6. Suggested build order
@@ -376,7 +392,7 @@ Each step is one reviewable PR, ordered by value ÷ effort and by dependency.
 
 | # | Step | Server? | Size |
 |---|---|---|---|
-| 1 | **Processing fees** (§5): Account fee fields, Sale channel + fee snapshot, gross-up helper, `processing_fee` income component, guide + registries | No | M |
+| 1 | **Processing fees** (§5): Account fee fields, Sale channel + fee snapshot, gross-up helper, `processing_fee` income component, guide + registries. **Built 2026-10-10** (End-State guide §21.1) | No | M |
 | 2 | **Waitlist embed** (§1): CSP opt-in, `?embed=1`, `embed.js`, "Add to your website" card | Worker (small) | S |
 | 3 | **Referral share-out** (§3.1) + go-home thank-you reminder (§3.2) | No (projection only) | S |
 | 4 | **Level 0 links**: stored payment link (§4) + Jotform prefilled contract form (§2.1) | No | S–M |

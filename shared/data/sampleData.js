@@ -958,7 +958,11 @@ export async function seedSampleData() {
         password: 'sample-password', customer_id: 'Breeder #A123456', notes: 'Breeder of Merit renewal each January.' },
       { name: 'Good Dog', account_type: 'marketplace', website: 'gooddog.com', username: 'thornfield.kennels@example.com',
         password: 'sample-password', referral_link: 'https://www.gooddog.com/breeders/thornfield-kennels-example',
-        referral_instructions: 'Apply for a Thornfield puppy through our Good Dog page — your deposit is protected by Good Dog.' },
+        referral_instructions: 'Apply for a Thornfield puppy through our Good Dog page — your deposit is protected by Good Dog.',
+        // A sales channel's fee, percentage + fixed (Integrations plan §5). Sample
+        // numbers, not Good Dog's real terms.
+        fee_percent: 6.25, fee_fixed: 5, fee_passed_to_buyer_default: true,
+        fee_note: 'Sample rate — check your own Good Dog agreement for yours.' },
       { name: 'Chewy', account_type: 'supplier', website: 'chewy.com', username: 'thornfield.kennels@example.com',
         password: 'sample-password', customer_id: '0000-SAMPLE', referral_link: 'https://www.chewy.com/refer/thornfield-example',
         referral_code: 'THORNPUP', referral_instructions: 'Use code THORNPUP at checkout for 30% off your first Autoship order of the food your puppy is already eating.' }
@@ -967,6 +971,12 @@ export async function seedSampleData() {
       manifest.accounts.push(saved.id);
       accountIds.set(saved.name, saved.id);
     }
+    // Cedar's sale went through Good Dog, its fee passed on in the price: the
+    // Sale page shows the fee and what's netted, and Financials' earned income
+    // drops by the deposit's share of it.
+    await saleRepo.update(cedarSale.id, {
+      sales_channel_account_id: accountIds.get('Good Dog'), processing_fee_amount: 180, fee_passed_to_buyer: true
+    });
 
   const expenses = [
     // Kennel-wide overhead (subject_type='kennel') — the whole point of the table.

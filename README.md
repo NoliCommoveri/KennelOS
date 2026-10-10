@@ -908,12 +908,15 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   fits; an oversized SVG gets "That logo is too large. Try a smaller image." For live sync's
   record size (Cloud Phase 2 plan §4.1). Older larger logos still restore.
 
-- **Integrations — plan approved, not built** (`docs/KennelOS_Integrations_Plan.md`; every §8
+- **Integrations — plan approved, being built** (`docs/KennelOS_Integrations_Plan.md`; every §8
   decision taken as recommended, 2026-10-10). Waitlist embed on breeders' own sites, contracts
   out for signature (Jotform first, then SignWell / BoldSign), referral share-out + go-home
   thank-yous, payment links through her own Stripe / Square, and processing fees on sales
-  (gross-up pricing, net income). Build order is the plan's §6; step 1 (processing fees) needs
-  no server.
+  (gross-up pricing, net income). Build order is the plan's §6. **Step 1 (processing fees)
+  is built:** a fee rate (percent + fixed) on each Account, the channel, fee and passed-on
+  flag on each Sale, a "price that nets you $X" helper, and the fee netted out of earned
+  income (End-State guide §21.1, `data/processingFees.js`). Lite records the fee with no
+  channel. `db.version(3)` indexes `sales.sales_channel_account_id`.
 
 - **Cloud Phase 2, live multi-device sync — being built** (`docs/KennelOS_Cloud_Phase2_Sync_Plan.md`;
   every §12 decision taken as recommended, 2026-10-10). Pro only: both tiers per record (cloud
