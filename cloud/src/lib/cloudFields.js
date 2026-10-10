@@ -294,6 +294,7 @@ export const CLOUD_FIELDS = {
         "pref_colors",
         "pref_purposes",
         "pref_sex",
+        "private_listing",
         "ready_timing",
         "removed_date",
         "removed_reason",
