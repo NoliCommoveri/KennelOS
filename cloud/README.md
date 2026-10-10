@@ -22,12 +22,24 @@ src/snapshots.js       describe → (vault part) → upload body → commit, wit
 src/program.js         program state, takeover, delete account
 src/devices.js         the device check-in and list, remote erase, Pro-license bookkeeping (plan §2.5)
 src/vault.js           the private vault: wraps (recovery, passkeys), turn on/off, second-device
-                       pairing, one-hour handoff codes (migration 0011)
+                       pairing, one-hour handoff codes (migration 0011), the account-recovery check
+                       (migration 0013)
                        (docs/KennelOS_Private_Vault_Plan.md §5, §6); stores only opaque
                        strings. A passkey wrap keeps its credential id and PRF salt; the server
                        never verifies a WebAuthn assertion
 src/emailChange.js     changing the account's email: at once with the old inbox, else after a day,
                        cancellable from any signed-in device (migration 0012; plan §2.6)
+src/sync.js            live sync (docs/KennelOS_Cloud_Phase2_Sync_Plan.md §6): /sync/enable, DELETE
+                       /sync, /sync/head, /sync/push, /sync/pull, /sync/cursor. One row per record
+                       (sync_records), numbered from programs.sync_seq in one batch; the cloud part
+                       checked against src/lib/cloudFields.js; tombstones 90 days; Pro only
+                       (migration 0014)
+src/lib/cloudFields.js GENERATED from shared/data/syncRegistry.js by scripts/cloud-fields.mjs; never
+                       edit by hand (tests/cloudFields.test.js fails when it drifts)
+src/recovery.js        recovering the account with no signed-in device: the recovery code proves it
+                       through the vault's account-recovery check, then the new email waits a day
+                       (migration 0013; plan §2.7). No token; never says whether an address has
+                       an account
 src/license.js         the Pro license link (docs/KennelOS_License_Link_Plan.md): Lemon Squeezy's
                        signed webhook, the account's entitlement, requirePro for W2's routes,
                        linking another purchase email by code

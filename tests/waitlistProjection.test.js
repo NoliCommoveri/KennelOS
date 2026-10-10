@@ -336,3 +336,18 @@ test('the message under her public list heading: her own text, else the default,
   assert.ok(PUBLIC_INTRO_DEFAULT.includes('[Kennel Name]'));
   assert.equal(publicIntroText({ public_intro_text: 'Hi from [kennel name]!' }, 'Briar Hollow'), 'Hi from Briar Hollow!');
 });
+
+test('"Message us on Facebook": a Messenger link only while it is switched on with a Page link (Spec §11)', async () => {
+  const { messengerLink } = await import('../shared/data/waitlistRules.js');
+  assert.equal(messengerLink('facebook.com/ThornfieldKennels'), 'https://m.me/ThornfieldKennels');
+  assert.equal(messengerLink('https://www.facebook.com/thornfield.kennels/?ref=page'), 'https://m.me/thornfield.kennels');
+  assert.equal(messengerLink('https://m.me/thornfield'), 'https://m.me/thornfield');
+  assert.equal(messengerLink('https://www.facebook.com/profile.php?id=1000123'), 'https://m.me/1000123');
+  for (const bad of ['', 'thornfield', 'https://instagram.com/thornfield', 'facebook.com/', 'facebook.com/groups/123', 'https://evil.com/facebook.com/x', 'javascript:alert(1)']) {
+    assert.equal(messengerLink(bad), null, bad);
+  }
+  const withConfig = (extra) => buildProjection({ ...fixture(), kennel: { ...kennel, waitlist_config: { ...kennel.waitlist_config, ...extra } } }).kennel;
+  assert.equal(withConfig({ facebook_button: true, facebook_page: 'facebook.com/thornfield' }).messenger, 'https://m.me/thornfield');
+  assert.equal('messenger' in withConfig({ facebook_button: false, facebook_page: 'facebook.com/thornfield' }), false);
+  assert.equal('messenger' in withConfig({ facebook_button: true, facebook_page: 'nope' }), false);
+});

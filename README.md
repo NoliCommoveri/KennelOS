@@ -493,9 +493,10 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   **Waitlist online is released (2026-10-08), ahead of steps 6 and 7:**
   `WAITLIST_ONLINE_RELEASED = true`, so the Online list card, status / public list / form
   links and family actions are offered wherever cloud backup is. Production has migrations
-  `0007`–`0009`, `apply.kennelos.app` and Turnstile. Not yet: the server's deadlines and
-  automatic offers while her phone is offline (step 7), and the privacy policy's
-  waitlist-online section (step 8). Service-worker cache rolled to `kennelos-shell-v50`.
+  `0007`–`0009`, `apply.kennelos.app` and Turnstile. Since then step 7 (the server's
+  deadlines and automatic offers while her phone is off, 2026-10-09), the privacy policy's
+  waitlist-online section and the "Message us on Facebook" button (step 8, 2026-10-10) are
+  built; only D8, the no-reply auto-answer, is left. Service-worker cache rolled to `kennelos-shell-v50`.
   **Step 6, emails to families, is built (2026-10-09; W2 Plan step 6, End-State guide §29):**
   after each action a family should hear about (approve, decline, fee received, every turn
   offered, a pass or no response, her decision on a request, Send status link, Email them…,
@@ -869,15 +870,61 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   waits 1 day, shown on every signed-in device (Account card and Today) with **Cancel it**.
   The old address stays a linked purchase email, so Pro purchases made with it still count.
   **New cloud migration `0012_email_change`: Apply pending on staging and production after the
-  merge.** Not yet: recovering with no signed-in device (the recovery code; case 2).
+  merge.** Recovering with no signed-in device (case 2) followed; see below.
   Service-worker cache rolled to `kennelos-shell-v65` for this batch (the Lite → Pro bridge,
   vault handoff codes, the simpler way in, dialog button wrapping and changing the email).
 
-- **Cloud Phase 2, live multi-device sync — planned, not built** (`docs/KennelOS_Cloud_Phase2_Sync_Plan.md`,
-  draft 2026-10-10). Pro only: both tiers per record (cloud fields readable as today, the
-  whole row sealed with the vault key), a change scan instead of an outbox, server-order
-  wins per record, D1 for the records, snapshots from any caught-up device, and a lease for
-  the waitlist's server work. Waiting on the seven decisions in its §12.
+- **Recovering the account with no signed-in device — built & browser-verified (2026-10-10;**
+  Cloud Phase 1 plan §2.7). **Lost access to your email?** under the sign-in email box: the
+  account's email + the recovery code (it opens the vault's recovery wrap, and a check value
+  derived from the vault key, which every unlocked device now saves, proves the account), then
+  a new address and its code. The change waits 1 day, shown on any device still signed in with
+  **Cancel it** ("Requested with your recovery code"), and the old address gets a notice. No
+  account enumeration: an unknown address gets a stand-in wrap that no code opens. Accounts
+  without Sensitive records have no recovery code and can't use it. **New cloud migration
+  `0013_account_recovery`: Apply pending on staging and production after the merge.** Tests:
+  `cloud/tests/recovery.test.js`, `tests/cloudVault.test.js`, `tests/vaultCrypto.test.js`.
+  Also fixed: a taken address in **Change email…** said "Another device is backing up this
+  program." instead of its own message.
+
+- **"Message us on Facebook" — built & browser-verified (2026-10-10;** Waitlist Spec §11, W2
+  step 8). At the bottom of Waitlist settings (where the list can go online): **Show "Message us
+  on Facebook" on status pages** and **Your Facebook Page link** (facebook.com or m.me; the
+  switch needs a link). Status pages of families on the list then show the button, opening
+  `m.me/<page>`, with "To answer an offer or a check-in, use the buttons on this page.
+  Messenger is for questions." Nothing about the conversation comes back to KennelOS. No
+  migration (`waitlist_config` is already cloud tier). Tests: `tests/waitlistProjection.test.js`,
+  `cloud/tests/familyPages.test.js`.
+
+- **"Not this litter" on the next turn is said out loud (fix, 2026-10-10).** A family who
+  had said "Not this litter" to every litter of their coming turn showed as "Next turn" with
+  no hint, and "Offer to them" quietly recorded their pass and offered the next family. Now
+  the "Next turn" line (Waitlist page and the Litter page's picks panel) carries a **Not this
+  litter** note saying "Offer to them" records a pass (pass N of M), and every result message
+  names each family passed that way, including when nobody was left to offer (that case
+  used to drop them silently). Tests: `tests/waitlistTurns.test.js`.
+
+- **Logo uploads capped at about 300 KB (2026-10-10).** A photo is redrawn smaller until it
+  fits; an oversized SVG gets "That logo is too large. Try a smaller image." For live sync's
+  record size (Cloud Phase 2 plan §4.1). Older larger logos still restore.
+
+- **Cloud Phase 2, live multi-device sync — being built** (`docs/KennelOS_Cloud_Phase2_Sync_Plan.md`;
+  every §12 decision taken as recommended, 2026-10-10). Pro only: both tiers per record (cloud
+  fields readable as today, the whole row sealed with the vault key), a change scan instead of
+  an outbox, server-order wins per record, D1 for the records, snapshots from any caught-up
+  device, and a lease for the waitlist's server work. **Step 1 (record format and change
+  detection) is built:** `data/cloud/syncRecords.js`, `data/cloud/syncState.js`, and the
+  device-only `sync_meta` in **`db.version(2)`, the first block after `version(1)`, which is
+  frozen from now on** (`CLAUDE.md`, End-State guide §5). **Step 2 (the server) is built:**
+  `cloud/src/sync.js` (enable / off / head / push / pull / cursor), the snapshot rule for a
+  syncing program (any caught-up device), retention (tombstones 90 days, synced documents'
+  bytes kept), `/ops` counts, and the generated server allow-list
+  `cloud/src/lib/cloudFields.js`. **New cloud migration `0014_sync`: Apply pending on staging
+  and production after the merge.** **Step 3 (the app's loop) is built:**
+  `data/cloud/cloudSync.js` (push, pull, the lock, the scheduler, pauses and the activity
+  list) and `data/syncApply.js` (pulled records in one transaction per page), gated by the
+  new `editionFlags.liveSync` (Pro). Tested with two simulated devices against the real
+  Worker. Nothing is visible yet: the scheduler starts nowhere until step 6.
 
 ## Build & deploy
 

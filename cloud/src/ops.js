@@ -9,6 +9,7 @@
 // While any migration is pending or drifted the page shows only the migration
 // table and Apply pending: every other section queries the schema this deploy
 // expects, and a page that errors is a page whose Apply pending can't be pressed.
+import { syncCounts } from './sync.js';
 import { applyPending, migrationStatus } from './migrate.js';
 import { healthCheck } from './health.js';
 import { activeNotices, addNotice, removeNotice, LEVELS } from './notice.js';
@@ -203,7 +204,16 @@ ${purchases.length
   <button type="submit">Import purchases</button>
 </form>`;
 
-  return `${outbox}${testEmail}${license}
+  // Live sync (Phase 2 plan §6.3): counts only, never a record or a payload.
+  const sc = await syncCounts(env);
+  const sync = `<h2>Live sync</h2>
+<table>
+  <tr><td>Programs syncing</td><td>${esc(sc.programs)}</td></tr>
+  <tr><td>Records held</td><td>${esc(sc.records)}</td></tr>
+  <tr><td>Record versions received in the last hour</td><td>${esc(sc.recentVersions)}</td></tr>
+</table>`;
+
+  return `${outbox}${testEmail}${license}${sync}
 <h2>Service notices</h2>
 ${noticeRows ? `<table>${noticeRows}</table>` : '<p class="muted">No active notices.</p>'}
 <form method="post" action="/ops/notices">

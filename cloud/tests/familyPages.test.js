@@ -351,3 +351,13 @@ test('Coming up on the public list holds only what she switched on for the publi
   p.upcoming = [{ id: 'u2', kind: 'early_litter', label: 'Willow × Ash', public: false, family: true }];
   assert.deepEqual(listView(p).upcoming, [], 'nothing public: the page leaves the section out');
 });
+
+test('the Messenger link reaches a family on the list only as an m.me link (Waitlist Spec §11)', () => {
+  const p = projection();
+  assert.equal('messenger' in statusView(p, 'ann').kennel, false);
+  p.kennel.messenger = 'https://m.me/thornfield';
+  assert.equal(statusView(p, 'ann').kennel.messenger, 'https://m.me/thornfield');
+  assert.equal('messenger' in statusView(p, 'cy').kennel, false, 'not for a placed family');
+  p.kennel.messenger = 'javascript:alert(1)';
+  assert.equal('messenger' in statusView(p, 'ann').kennel, false);
+});

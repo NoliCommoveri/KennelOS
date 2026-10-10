@@ -18,6 +18,7 @@
 //   GET    /vault/pairings/:id            the asking device polls; an approved read deletes it
 //   POST   /vault/handoffs                an unlocked device makes a one-hour code {keyId, wrapped, proof}
 //   POST   /vault/handoffs/redeem         another device shows the code's proof; the wrap, once
+//   PUT    /vault/check                   an unlocked device saves the account-recovery check {keyId, check}
 //
 // Nothing here logs a wrap, a key or a request body (cloud/README.md).
 import { fail } from './lib/http.js';
@@ -55,7 +56,7 @@ function keyIdOf(value) {
 const label = (raw) => String(raw ?? '').trim().slice(0, 60) || null;
 
 export async function loadVault(env, programId) {
-  return env.DB.prepare('SELECT key_id, created_at FROM vaults WHERE program_id = ?').bind(programId).first();
+  return env.DB.prepare('SELECT key_id, created_at, recovery_check_hash FROM vaults WHERE program_id = ?').bind(programId).first();
 }
 
 async function requireVault(env, auth) {
@@ -80,6 +81,7 @@ export async function getVault(env, auth) {
     enabled: true,
     keyId: vault.key_id,
     createdAt: vault.created_at,
+    recoveryCheck: Boolean(vault.recovery_check_hash),
     wraps: results.map((w) => ({
       id: w.id, kind: w.kind, label: w.label, createdAt: w.created_at,
       ...(w.kind === 'passkey' ? { credentialId: w.credential_id, prfSalt: w.prf_salt } : {}),
@@ -261,12 +263,12 @@ export async function pollPairing(env, auth, id) {
 // other one. The code is 120 bits, so the stored wrap and proof hash can't be
 // guessed from; the redeeming device must also be signed in to this account.
 
-async function sha256Hex(text) {
+export async function sha256Hex(text) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-function proofOf(value) {
+export function proofOf(value) {
   if (typeof value !== 'string' || !PROOF.test(value)) fail(400, 'bad_proof');
   return value;
 }
@@ -308,4 +310,18 @@ export async function redeemHandoff(env, auth, body) {
   if (!h) fail(404, 'not_found');
   if (h.key_id !== vault.key_id) fail(409, 'vault_key_stale', { keyId: vault.key_id });
   return { keyId: h.key_id, wrapped: h.wrapped };
+}
+
+// --- The account-recovery check (Phase 1 plan §2.7) -------------------------------------
+// PUT /vault/check {keyId, check}: a hash of a value derived from the vault key,
+// so the recovery code (which opens the key) can prove the account when no
+// device is signed in. The value is fixed for a vault key, so it's saved once
+// and never replaced: a device can't swap in a check of its own.
+export async function saveRecoveryCheck(env, auth, body) {
+  const vault = await requireVault(env, auth);
+  checkKeyMatches(vault, body.keyId);
+  const checkHash = await sha256Hex(proofOf(body.check));
+  await env.DB.prepare('UPDATE vaults SET recovery_check_hash = ? WHERE program_id = ? AND key_id = ? AND recovery_check_hash IS NULL')
+    .bind(checkHash, auth.programId, vault.key_id).run();
+  return { ok: true };
 }

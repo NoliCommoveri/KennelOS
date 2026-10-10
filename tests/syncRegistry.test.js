@@ -28,6 +28,7 @@ before(async () => {
   await seedSampleData();
   packet = snapshotTables(tables);
   delete packet.device_secrets; // device-only, never kennel data (db.js)
+  delete packet.sync_meta;
 });
 
 // Mirror of db.version(1).stores (data/db.js) — a deliberate change-detector, as

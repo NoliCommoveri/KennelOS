@@ -108,6 +108,9 @@ export const editionFlags = {
   // first-run kennel setup is NOT gated on this — both editions need a kennel to
   // stamp dogs into.
   multiKennel: true,
+  // Live sync between the owner's devices (Cloud Phase 2 plan §3.2). Pro only; the
+  // server checks Pro itself too. Lite and Demo: false.
+  liveSync: true,
 };
 
 // --- Navigation ------------------------------------------------------------

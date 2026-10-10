@@ -725,7 +725,11 @@ means no fee reminder ever.
    - Tests: `cloud/tests/serverMoves.test.js`, `tests/waitlistEvents.test.js` (server
      moves), `tests/cloudWaitlist.test.js` (the server's close and offer applied once, with
      no second offer), `tests/waitlistProjection.test.js`.
-8. **Release.** Facebook button, privacy policy (`site/privacy.html`: what the server reads,
+8. **Release.** **Facebook button built 2026-10-10** (`waitlist_config.facebook_button` /
+   `facebook_page`, `waitlistRules.messengerLink`, projection `kennel.messenger`, status page
+   `messengerHtml`; tests `waitlistProjection`, `cloud/tests/familyPages`). Privacy policy
+   written 2026-10-10 (`site/privacy.html` §9–§10). Released 2026-10-08. Left: D8's
+   auto-answer (needs Email Routing). Originally: Facebook button, privacy policy (`site/privacy.html`: what the server reads,
    Q11; applicants' data; the public list), `README.md`, Spec §12 status,
    `LAUNCH_CHECKLIST.md` section, real-phone checks, then `WAITLIST_ONLINE_RELEASED = true`
    and the `CACHE_NAME` bump (asked first). D8's auto-answer here or after.

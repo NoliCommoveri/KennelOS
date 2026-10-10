@@ -28,7 +28,13 @@ export async function checkIn(env, auth, body) {
       .bind(new Date(now).toISOString(), new Date(now + SESSION_MS).toISOString(), auth.tokenHash),
     env.DB.prepare('UPDATE sessions SET license_instance_id = ? WHERE user_id = ? AND device_id = ?').bind(instanceId, auth.userId, auth.deviceId),
   ]);
-  return { ok: true, notices: await activeNotices(env), emailChange: await emailChangeState(env, auth) };
+  // A vault with no account-recovery check yet: an unlocked device saves one
+  // (Phase 1 plan §2.7), so existing vaults gain it with no step for the owner.
+  const vault = await env.DB.prepare('SELECT key_id, recovery_check_hash FROM vaults WHERE program_id = ?').bind(auth.programId).first();
+  return {
+    ok: true, notices: await activeNotices(env), emailChange: await emailChangeState(env, auth),
+    recoveryCheckNeeded: Boolean(vault && !vault.recovery_check_hash),
+  };
 }
 
 // GET /devices: every device with a session the server still holds, plus any
