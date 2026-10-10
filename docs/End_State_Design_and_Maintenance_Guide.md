@@ -1600,8 +1600,18 @@ kennel's list — New applications, Fee due, the ranked **On the list** table wi
 Litters, and Closed; one primary button, **+ New application**, and everything else under
 **Manage ▾** (`ui.wireActionMenu`, `.action-menu`): Almost your turn…, Application form,
 Programs, Publish list, Settings; CSV import is on Import/Export only), `waitlist-entry` (one
-family: `?new=1` application entry, or `?id=` with the status card + step actions,
-edit-in-place details, offers with their outcome buttons, and Documents),
+family: `?new=1` application entry, or `?id=` in three segment tabs, decided 2026-10-10:
+**Details** (status and place, incl. their place for what they want, their answers and
+application, **Edit**, and one leave button: **Remove from list…** = they withdrew / you
+remove them, **Close application…** = decline / withdrew / fee not received);
+**Interact** (their status-page requests, a turn they hold or an offer still actionable, a
+lost pup, then the status's main action — Offer pups… + Move place…, Approve…, Fee
+received…, Undo removal / Re-apply — and **Communicate…**); **History** (messages and
+emails with Mark read / Retry, every offer, a Timeline of key dates and answer changes,
+Documents). Interact and History carry count badges; the page opens on Interact when
+something waits there, else History for an unread message, else Details; `#details` /
+`#interact` / `#history` picks one. Archive, Delete and **New status link…** sit in the
+header's ⋯ menu),
 `waitlist-programs`, `waitlist-import`, `waitlist-form` (her application form editor + CSV
 question import), `waitlist-publish` (**Publish list**: the **Online list** card where the
 waitlist online is offered, and under it **Copy the list as text** — `publicListText` in a
@@ -3302,19 +3312,19 @@ settings section). `moveTurnOn(litterId, { trigger })` calls **offerNext** only 
 `recordOutcome` `closingTrigger(offer, outcome)`, `releaseOpenOffers` `left`, `restoreAfterLostSale` `restored`); otherwise nothing is offered and the family who's next is returned in `waiting`
 (`[{ litter_id, entry_id }]`), which `describeOfferChanges` turns into "X is next in line.
 No offer was made…". Every offer is then made by her (**Open picks**, **Offer to them**,
-**Offer a litter…**). (Unarchive goes straight to the repo and makes no offers.)
+**Offer pups…**). (Unarchive goes straight to the repo and makes no offers.)
 
 **Which writes make offers (decided 2026-10-06):** only an offer on that same litter closing
 (deposit received / passed / no response, or the family leaving as above) moves the turn on
 by itself, and only for a moment ticked in `auto_offer_on`. Actions on one family — **approve** (fee-waived), **feeReceived**, **undoRemoval** —
 make **no** offers; the family page then says which litters they're next for, and she offers
-from **Offer a litter…** / **Offer to them**. Every offer made on her behalf is returned and
+from **Offer pups…** / **Offer to them**. Every offer made on her behalf is returned and
 shown (`describeOfferChanges`).
 
 **The offer flow (W1c):**
 - **openPicks** stamps `Litter.picks_opened_date` and calls **offerNext**; **closePicks** clears
   it (an open offer stays open until resolved).
-- **offerTo(litterId, entryId, { note })** (W1e) — the family's page's **Offer a litter…**:
+- **offerTo(litterId, entryId, { note })** (W1e) — the family's page's **Offer pups…** (Interact tab):
   opens picks if needed, then offers that family the litter even if they aren't next. Refused
   when another offer is open on the litter, the family's turn on it is spent (`turnSpent`), or
   no available pup matches them. Out of turn, the page confirms first and `note` records who
@@ -3384,7 +3394,7 @@ shown (`describeOfferChanges`).
   **Litters** card (each live litter with pups to offer: picks state, the open offer or
   "Next: <family>" with **Offer to them**, which opens picks first if needed), **Application
   form** and **Copy public list** buttons (since 2026-10-08 under Manage, the copy on the
-  Publish list page). The family page gains **Offer a litter…** on an
+  Publish list page). The family page gains **Offer pups…** on an
   active entry, outcome buttons on an open offer in its Offers card (Picked a pup… / Passed /
   No response / Void; once picked: Deposit received… / Change pup… / Passed / No deposit /
   Void), **Change pup…** on an accepted offer until the next family is offered, **Undo…** on a
@@ -3502,14 +3512,20 @@ shown (`describeOfferChanges`).
   Kennels waitlist") into `/list` and `/apply`, read from the published projection's
   `kennel.name` only, and a generic image (`cloud/public/family/share.png`). Status pages
   get none (they're private).
-- **Text them… (2026-10-08):** the family page's status card has **Text them…**
-  (`waitlistUI.textFamilyDialog`): a suggested message from where they stand (their turn
-  and its respond-by date, a pup held for their deposit, a fee due with her payment
-  instructions, or their place), plus their status link when online, editable; then
-  **Share…** (the phone's share sheet, to pick Google Voice), **Copy message**, **Copy & open
-  Google Voice**, or **Texting app** (an `sms:` link, which always opens the phone's default
-  texting app). The phone is the contact's, else the application's. KennelOS sends nothing.
-  The message box grows to fit its text, so the status link (its last line) is always in view.
+- **Communicate… (2026-10-10, replaced Text them…, Send status link and Email them…):** on
+  the family page's Interact tab (`waitlistEmailUI.communicateDialog`). A **How** dropdown:
+  **Send email** (only where `kennelEmailsOn` and they have an address) lists the emails that
+  fit now — their status page link, a note from you, the fee request while approved, "on the
+  list" once on it, "It's your turn" again during an open turn — with the drafted email
+  (`waitlistOutbox.draftFor`, her templates) below to edit before Send; emails tied to a
+  moment (a pass, a decision, a closed turn) still come up right after that action.
+  **Message via…** (`waitlistUI.messageViaHtml` / `wireMessageVia`): a suggested message
+  from where they stand (their turn and its respond-by date, a pup held for their deposit,
+  a fee due with her payment instructions, or their place) plus their status link when
+  online, editable, with **Share…** (the phone's share sheet: Google Voice, Messenger, any
+  app), **Copy message** and **Copy number**. The Google Voice and `sms:` buttons are gone.
+  The phone is the contact's, else the application's. KennelOS sends nothing. The message
+  box grows to fit its text, so the status link (its last line) is always in view.
 - **Editing a family's dates (2026-10-08):** the family page's Edit form has **Applied**
   (`applied_date`, any status) and, once a fee date exists, **Fee received**
   (`fee_received_date`). The fee date is the position anchor, so correcting it can move the
@@ -3636,7 +3652,7 @@ shown (`describeOfferChanges`).
   (`data/waitlistEmails.js`; every name, date, litter and place filled in from her records,
   never by the server; no money in any default), ticked, for her to edit, untick or skip.
   Where: approve (`approved`, or `on_list` when the fee is waived), decline, fee received
-  (`on_list` with their place), every turn offered (`offer`: Offer a litter…, Offer to them,
+  (`on_list` with their place), every turn offered (`offer`: Offer pups…, Offer to them,
   Open picks, an undone pass, and each turn an outcome moved on, via
   `waitlistOutbox.offerSpecs`), a pass and a no-response she records (`pass_recorded`,
   `deadline_passed`; a void sends nothing), her decision on a request (`request_approved` /

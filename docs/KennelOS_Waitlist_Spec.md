@@ -957,7 +957,7 @@ W1e choices worth knowing (built 2026-10-06):
 - **New applications** follow her form in her order and wording, with the public-list notice
   shown as a reminder to tell the family. Editing an existing entry shows its own question
   wording, then any questions added since.
-- **Offer a litter…** on an active family's page lists the kennel's live litters with the
+- **Offer pups…** (renamed from Offer a litter…, 2026-10-10) on an active family's page lists the kennel's live litters with the
   pups available to them, or why not (another family's open offer, turn already used, paused,
   listening for other litters, nothing matching). Offering opens picks if they weren't open.
   Offering someone who isn't next asks her to confirm and notes who was next on the offer.
