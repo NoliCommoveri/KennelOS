@@ -211,6 +211,7 @@ export const CLOUD_FIELDS = {
         "doc_type",
         "dog_id",
         "file_id",
+        "furever_shareable",
         "id",
         "is_archived",
         "issuer_or_lab",

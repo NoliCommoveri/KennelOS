@@ -1619,6 +1619,10 @@ get their place back and be offered the next pup.
    be offered to them again. If they'd only picked (deposit pending), their turn is given back
    with a new respond-by date to pick another pup. "Not now" leaves a **Put back in line…**
    button on their page.
+   The family's page also has **End the sale…** (decided 2026-10-11): the shortcut for
+   changing the sale's status on the Sale page (Voided for a pup that died or failed a health
+   check, Cancelled if a placed family backed out, Returned if it was delivered), followed by
+   the same steps 3–5.
 5. **Money already paid: she's asked each time** — carry it to their next pup (it becomes the
    deposit on their next pick, `WaitlistEntry.carried_payment`) or refund it. A credited
    application fee stays credited toward their next pup either way.

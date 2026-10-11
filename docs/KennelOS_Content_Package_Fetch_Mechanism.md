@@ -252,6 +252,11 @@ litter page / console). With a live token:
      typically carries buyer PII (a signed `contract`) is **unchecked by default** and, if ticked,
      requires an explicit "this will be publicly readable by link" confirmation before it's
      included. The publish summary restates what's about to become public.
+   - **Shareable documents only** (decided 2026-10-11): a document can be ticked only once the
+     breeder has marked it "Can be shared to FurEver" (`Document.furever_shareable`, set on the
+     Documents page). Others are listed greyed out. A document already published before the
+     setting existed stays shareable until she sets it either way, so no published pack changes
+     by itself.
 3. **Upload** each chosen file's bytes to the scope's folder (`files.create` multipart);
    capture `fileId` (+ `resourceKey` from the response). Skip files already uploaded at the
    same content (track by `drive_file_id`), so republish is incremental.
