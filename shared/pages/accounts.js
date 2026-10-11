@@ -9,6 +9,9 @@
 // account (ACCOUNT_REFERENCES), so archive it then. Her contract forms (Jotform,
 // Integrations plan §2.1a) live on a Form service account (that type only): a type, her label and the
 // form's link per row, which the Contract page's "Send for signature" offers.
+// Any account can hold her own payment link and/or payment instructions
+// (Integrations plan §4, Level 0), which "Send payment link" on a Sale or Invoice
+// sends, starting from the sale's Sold / paid through account.
 // Reads/writes only through accountRepo / expenseRepo.
 import { accountRepo } from '../data/accountRepo.js';
 import { expenseRepo } from '../data/expenseRepo.js';
@@ -16,6 +19,7 @@ import { ACCOUNT_TYPE, CONTRACT_FORM_TYPE } from '../data/vocab.js';
 import { cleanForms, formLink, PREFILL_FIELDS } from '../data/contractForms.js';
 import { feeRate, rateLabel } from '../data/processingFees.js';
 import { sharedReferrals } from '../data/referralShare.js';
+import { paymentLink } from '../data/paymentLinks.js';
 import { esc, badge, fmtMoney, confirmModal, alertModal } from '../assets/ui.js';
 
 const els = {
@@ -57,7 +61,7 @@ async function copy(text, btn) {
 
 function matches(a, q) {
   if (!q) return true;
-  return [a.name, a.website, a.username, a.customer_id, a.referral_code, a.referral_link, a.notes]
+  return [a.name, a.website, a.username, a.customer_id, a.referral_code, a.referral_link, a.payment_link, a.notes]
     .some((v) => String(v || '').toLowerCase().includes(q));
 }
 
@@ -97,6 +101,7 @@ function cardHtml(a) {
     ${referral || a.referral_instructions ? `<div class="acct-section"><div class="acct-section-title">Referral — to share${sharedReferrals([a]).length ? ' <span class="badge badge-green">Shown to families</span>' : ''}</div>${referral}
       ${a.referral_instructions ? `<div class="acct-instructions">${esc(a.referral_instructions)}</div>` : ''}</div>` : ''}
     ${a.notes ? `<div class="acct-section"><div class="acct-instructions">${esc(a.notes)}</div></div>` : ''}
+    ${payHtml(a)}
     ${formsHtml(a)}
     ${feeHtml(a)}
     ${spendHtml(a)}
@@ -106,6 +111,15 @@ function cardHtml(a) {
       <button class="btn btn-danger btn-sm" data-act="delete" data-id="${esc(a.id)}">Delete</button>
     </div>
   </article>`;
+}
+
+// Her payment link / instructions on this account (plan §4), to send buyers.
+function payHtml(a) {
+  if (!a.payment_link && !a.payment_instructions) return '';
+  return `<div class="acct-section"><div class="acct-section-title">Payment link — to send buyers</div>
+    ${copyRow('Link', a.payment_link, { field: 'payment_link', id: a.id })}
+    ${a.payment_instructions ? `<div class="acct-instructions">${esc(a.payment_instructions)}</div>` : ''}
+  </div>`;
 }
 
 // Her contract forms on this account: type, label, and a link to open the form.
@@ -282,6 +296,12 @@ function openForm(existing = null) {
       <div class="field field-wide"><label class="check-inline"><input id="af-ref-share" type="checkbox"${a.share_with_families ? ' checked' : ''}> Share with families</label>
         <span class="field-hint">Shows the link, code and instructions as "Recommended for your puppy" on a family's Companion page and their waitlist status page, and in the follow-up note a week after a pup goes home.</span></div>
     </div>
+    <h3 style="font-size:15px; margin:14px 0 4px;">Payment link — if buyers pay you through it</h3>
+    <p class="field-hint" style="margin-top:0;">Your own payment link (a Stripe or Square payment link, PayPal.me, Venmo…), instructions (Zelle, check…), or both. <strong>Send payment link</strong> on a sale sends them with the amount owed, starting from the account the sale is sold / paid through.</p>
+    <div class="form-grid">
+      ${field('Payment link', `<input id="af-pay-link" type="url" value="${esc(a.payment_link)}" placeholder="https://buy.stripe.com/…">`, { wide: true })}
+      ${field('Payment instructions', `<textarea id="af-pay-instructions" placeholder="e.g. Zelle to payments@yourkennel.com, with your puppy's name in the memo.">${esc(a.payment_instructions)}</textarea>`, { wide: true, hint: 'Written for the buyer: they go in the message.' })}
+    </div>
     <h3 style="font-size:15px; margin:14px 0 4px;">Processing fee — if you sell or take payments through it</h3>
     <p class="field-hint" style="margin-top:0;">What it keeps of each sale: a percentage, a fixed amount, or both (e.g. 6.25% + $5). A sale sold through this account suggests its fee from this.</p>
     <div class="form-grid">
@@ -362,12 +382,19 @@ function openForm(existing = null) {
       fee_percent: numberOrNull($('#af-fee-percent').value),
       fee_fixed: numberOrNull($('#af-fee-fixed').value),
       fee_passed_to_buyer_default: $('#af-fee-passed').checked,
-      fee_note: val('#af-fee-note')
+      fee_note: val('#af-fee-note'),
+      payment_link: val('#af-pay-link'),
+      payment_instructions: $('#af-pay-instructions').value.trim()
     };
     if (!data.name) {
       $('#af-error').innerHTML = `<div class="inline-error">Name is required.</div>`;
       return;
     }
+    if (data.payment_link && !paymentLink(data.payment_link)) {
+      $('#af-error').innerHTML = `<div class="inline-error">Paste the payment link as a web address, starting https://.</div>`;
+      return;
+    }
+    if (data.payment_link) data.payment_link = paymentLink(data.payment_link);
     // Another type leaves any saved forms as they are (hidden, never offered), so
     // switching the type back brings them back.
     if (isFormService()) {

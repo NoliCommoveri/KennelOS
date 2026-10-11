@@ -1,7 +1,7 @@
 # KennelOS Integrations — research & plan
 
 > **Status: approved 2026-10-10, every §8 decision as recommended, and every design choice in
-> §0–§7 as written. Nothing is built yet; §6 is the build order, one reviewable PR per step.**
+> §0–§7 as written. Steps 1–4 and 4c are built (2026-10-11); §6 is the build order, one reviewable PR per step.**
 > It covers five asks: (1) the
 > waitlist embedded on breeders' own websites, (2) Jotform / DocuSign contracts, (3) referral-use
 > notifications + thank-yous, (4) payment links through the breeder's own Stripe / Square, and
@@ -283,7 +283,7 @@ above, with these details settled in the build:
 - **A Form service account type** (`ACCOUNT_TYPE` `form_service`, asked for 2026-10-11): the
   Contract forms section shows only on an account of that type, right under its type, and only
   those accounts' forms are offered on a Contract.
-- Not built yet: the stored payment link half of step 4 (§4 Level 0).
+- The stored payment link half of step 4 is built too: §4, "As built".
 
 ### 2.1b Connect Jotform: pick forms and match fields from the API (optional layer, after step 4)
 
@@ -583,6 +583,24 @@ out of money-transmitter territory.
 - **Refunds stay in her Stripe / Square dashboard.** We'd only record a refund event as a note
   (and suggest the Sale status), never issue one.
 
+**As built (step 4, payment link half, Level 0, 2026-10-11)** (End-State guide §32,
+"Payment link"). Pro only (D4). Settled in the build, on the go-ahead (2026-10-11):
+- **The link lives on any Account, and reuses the sale's Sold / paid through account.** No
+  new account type: `payment_link` (a web address) and `payment_instructions` (text for the
+  buyer, e.g. Zelle) on the Account, both cloud tier (D9). So the account a buyer pays
+  through and the account whose fee the sale carries (§5) are the same one.
+- **Send payment link** on an open Sale and on a sale's Invoice (`assets/paymentRequestUI.js`,
+  pure `data/paymentLinks.js`): she picks the account (the sale's channel first, when it has a
+  link or instructions) and what for (the unpaid deposit, the rest, or everything owed, from
+  the invoice lines), and the message opens in the composer (Email / Text / Copy).
+- **Picking an account on a sale with no channel fills Sold / paid through** (decided
+  2026-10-11), with its passed-on default and, when the fee is empty, the fee suggested from
+  its rate. A different account than the sale's asks first; **Keep** sends without changing
+  the sale.
+- **Review sale & send** (§2.6) puts the step-1 channel's link and instructions in the
+  message, before her waitlist payment text.
+- No Sale fields: the Level 1 fields below come with step 6. Nothing is recorded as paid.
+
 ### Data model (additive)
 On **Sale**: `payment_link_url`, `payment_link_ref`, `payment_link_component`
 (`deposit`/`balance`), `payment_link_created_at`, all plain. The paid event writes existing
@@ -675,7 +693,7 @@ Each step is one reviewable PR, ordered by value ÷ effort and by dependency.
 | 1 | **Processing fees** (§5): Account fee fields, Sale channel + fee snapshot, gross-up helper, `processing_fee` income component, guide + registries. **Built 2026-10-10** (End-State guide §21.1) | No | M |
 | 2 | **Waitlist embed** (§1): CSP opt-in, `?embed=1`, `embed.js`, "Add to your website" card. **Built 2026-10-10** (End-State guide §29, "On your website") | Worker (small) | S |
 | 3 | **Referral share-out** (§3.1) + go-home thank-you reminder (§3.2). **Built 2026-10-11** (End-State guide §32, §19, §20) | No (projection only) | S |
-| 4 | **Level 0 links**: stored payment link (§4) + Jotform contract forms list and prefilled send (§2.1, §2.1a) | No | S–M |
+| 4 | **Level 0 links**: stored payment link (§4) + Jotform contract forms list and prefilled send (§2.1, §2.1a). **Built 2026-10-11** (End-State guide §32, "Contract forms" and "Payment link") | No | S–M |
 | 4b | **Connect Jotform** (§2.1b): form picker + field matching from her API key; key on device or Worker per D16 | No, or Worker after 5 | S |
 | 4c | **Pick to send** (§2.6): from a waitlist pick, edit the sale in a modal, make the contract, send invoice + contract link (+ payment link after 6) in one message. **Built 2026-10-11** (End-State guide §29), except D19 | No (D19 email: Worker) | M |
 | 5 | **Integration plumbing** (§0): `int_connections`, `int_events`, hooks routes, `integrationEvents.js` reducer | Worker | M |

@@ -237,7 +237,10 @@ export const SYNC_REGISTRY = Object.freeze({
       'share_with_families',
       // Her contract forms (Integrations plan §2.1a, D15): type, her label and the
       // form's public share link. Nothing about anyone else.
-      'contract_forms'
+      'contract_forms',
+      // Her own payment link and payment instructions (Integrations plan §4,
+      // Level 0; D9: payment-link refs are cloud): written to be sent to buyers.
+      'payment_link', 'payment_instructions'
     ],
     private: ['username', 'password', 'customer_id', 'notes', 'fee_note'],
     pending: []
