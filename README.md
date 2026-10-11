@@ -924,7 +924,15 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   families" on Accounts shows those links and codes on the family Companion page and every
   waitlist status page; a Today nudge a week after a pup goes home opens a thank-you note,
   and a Contact has "Send a thank-you". Both open `assets/messageComposer.js`
-  (`data/referralShare.js`).
+  (`data/referralShare.js`). **Step 4, Jotform half, is built (2026-10-11):** contract forms
+  on Accounts (type from `CONTRACT_FORM_TYPE`, her label, the link; as many as she likes) and
+  (only on an account of the new **Form service** type), and **Send for signature** on a Contract, which offers the matching forms and builds the link
+  with the details prefilled on her device (`data/contractForms.js`, plan §2.1a). The stored
+  payment link half is next (Pro only). **Step 4c (waitlist pick → send) is built:**
+  **Review sale & send…** on a family's turn edits the pick's sale in a modal, picks the
+  contract form, and builds one message (deposit, payment instructions, contract link) that
+  goes out with the invoice PDF through the share sheet, or by email + download
+  (`assets/pickToSend.js`, `data/contractSend.js`, `data/depositRequest.js`, plan §2.6).
 
 - **Cloud Phase 2, live multi-device sync — being built** (`docs/KennelOS_Cloud_Phase2_Sync_Plan.md`;
   every §12 decision taken as recommended, 2026-10-10). Pro only: both tiers per record (cloud
