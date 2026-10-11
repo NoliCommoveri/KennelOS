@@ -163,3 +163,16 @@ export function matchWarnings(formType, questions, map = {}) {
   if (!map.contractRef) out.push('Nothing is matched to the contract reference. Add a hidden field for it if you want signed forms to be matched to their contract automatically later.');
   return out;
 }
+
+// A first guess at a form's contract type from its title ("Pet Home Contract",
+// "Stud Service Agreement"…), or '' to make her pick.
+export function guessFormType(title) {
+  const t = norm(title);
+  const rules = [
+    ['co_own', /\bco ?own/], ['stud_service', /\bstud\b/], ['lease', /\blease\b/],
+    ['foster', /\b(foster|guardian)\b/], ['breeding_rights', /\b(breeding rights|full registration|breeding)\b/],
+    ['deposit', /\b(deposit|reservation|reserve)\b/], ['pet_home', /\b(pet|companion|limited|puppy)\b/]
+  ];
+  for (const [type, re] of rules) if (re.test(t)) return type;
+  return '';
+}

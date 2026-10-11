@@ -1,14 +1,14 @@
 # KennelOS Integrations — research & plan
 
 > **Status: approved 2026-10-10, every §8 decision as recommended, and every design choice in
-> §0–§7 as written. Steps 1–4 and 4c are built (2026-10-11); §6 is the build order, one reviewable PR per step.**
+> §0–§7 as written. Steps 1–4, 4b and 4c are built (2026-10-11); §6 is the build order, one reviewable PR per step.**
 > It covers five asks: (1) the
 > waitlist embedded on breeders' own websites, (2) Jotform / DocuSign contracts, (3) referral-use
 > notifications + thank-yous, (4) payment links through the breeder's own Stripe / Square, and
 > (5) processing fees on sales (e.g. Good Dog's 6.25%). §8 records the decisions taken.
 > §2.1a (Jotform contract forms, as the breeder sees them) was added 2026-10-11, with the
 > optional **Connect Jotform** API layer (§2.1b). D12–D15 were taken as recommended on the
-> go-ahead to build step 4; D16 (where a Jotform API key lives) stays open until §2.1b is built.
+> go-ahead to build step 4; D16 was decided 2026-10-11: the Jotform API key stays on her device.
 > Still open inside a step: DocuSign's own-key vs Partner Program route (only if D5 ever
 > brings DocuSign in), and confirming Stripe / Square live-animal terms before step 6 (D8).
 >
@@ -324,6 +324,27 @@ for her:
 
 **Recommendation:** ship §2.1a first (step 4), then a one-call browser test of `GET /user/forms`
 from a real page decides D16: device if it works, Worker if not.
+
+**As built (step 4b, 2026-10-11)** (End-State guide §32, "Connect Jotform"). **D16 decided:
+on the device**, to be proven in a real flow (this build environment can't reach
+jotform.com). Settled in the build:
+- The key lives in `device_secrets` (`jotform:<account id>`, `data/jotformKeyStore.js`):
+  never in a backup, sync or the cloud; each device connects on its own; Disconnect and
+  deleting the account forget it. Setup asks for a **Read Access** key and says any key
+  reads all her submissions (the D1 notice).
+- `data/jotformApi.js` is the only module that calls Jotform. The key goes as the `apiKey`
+  query parameter, not a header, so each call is a plain GET with no CORS preflight. Region
+  is picked at Connect (standard / EU / HIPAA), not tried in turn.
+- Fields are read with Full Name / Address fields as their parts (`name[first]`,
+  `name[last]`, `name[addr_line1]`; *Jotform's prefill naming, check it in the real
+  flow*).
+- **A matched form's link carries only the facts she matched**, renamed to her fields. That
+  replaces "facts with no map entry fall back to the fixed names" above: a form read from
+  the API is known, so sending anything else would only put buyer details in a link her
+  form ignores. Pasted forms (no `field_map`) keep the fixed names.
+- `form_id` and `field_map` ride `contract_forms` (cloud tier, D15: her own field names).
+- If the real flow shows Jotform blocks browser calls, D16 falls back to the Worker after
+  step 5, and the rest of this stays.
 
 ### 2.2 DocuSign: what the research says
 - The eSignature REST API does exactly what she wants: **create an envelope from a template,
@@ -694,11 +715,11 @@ Each step is one reviewable PR, ordered by value ÷ effort and by dependency.
 | 2 | **Waitlist embed** (§1): CSP opt-in, `?embed=1`, `embed.js`, "Add to your website" card. **Built 2026-10-10** (End-State guide §29, "On your website") | Worker (small) | S |
 | 3 | **Referral share-out** (§3.1) + go-home thank-you reminder (§3.2). **Built 2026-10-11** (End-State guide §32, §19, §20) | No (projection only) | S |
 | 4 | **Level 0 links**: stored payment link (§4) + Jotform contract forms list and prefilled send (§2.1, §2.1a). **Built 2026-10-11** (End-State guide §32, "Contract forms" and "Payment link") | No | S–M |
-| 4b | **Connect Jotform** (§2.1b): form picker + field matching from her API key; key on device or Worker per D16 | No, or Worker after 5 | S |
+| 4b | **Connect Jotform** (§2.1b): form picker + field matching from her API key; key on the device (D16). **Built 2026-10-11** (End-State guide §32, "Connect Jotform"); to be proven against a real Jotform account | No | S |
 | 4c | **Pick to send** (§2.6): from a waitlist pick, edit the sale in a modal, make the contract, send invoice + contract link (+ payment link after 6) in one message. **Built 2026-10-11** (End-State guide §29), except D19 | No (D19 email: Worker) | M |
 | 5 | **Integration plumbing** (§0): `int_connections`, `int_events`, hooks routes, `integrationEvents.js` reducer | Worker | M |
 | 6 | **Stripe Connect + Square** payment links with paid webhooks (§4), auto fee capture into §5 | Worker | L |
-| 7 | **Jotform Level 1** webhook → Contract signed (§2.1) | Worker | S (after 5) |
+| 7 | **Jotform signed → Contract signed** (§2.1). **Revised 2026-10-11: her device checks first.** With the key on the device (4b), opening KennelOS reads recent submissions of her mapped forms (`GET /form/{id}/submissions`), matches each by its `contractRef`, and marks the Contract `signed` with the date: no server, read-only key, buyer data only Jotform → her device. A Worker webhook (Level 1) only if she wants word while the app is closed; it would carry the whole submission through the Worker, so it must keep only the reference and date | No (webhook later: Worker after 5) | S |
 | 8 | **E-sign API provider**: SignWell / BoldSign first, or DocuSign if D5 says so (§2.2–2.3) | Worker | L |
 | 9 | Referral payouts in Financials (§3.3); network postbacks only on demand (§3.4) | Optional | S–M |
 
@@ -755,7 +776,7 @@ every new FK lands in `referenceRegistry.js` + the guide; every Worker table is 
 | D19 | **Open again (§2.6 as built).** Tell her when a family picks: an email from the Worker linking to their page (reopens W2's "no notifications") | Wanted, but the server holds no readable email for her account: needs her to give a notify-me address the server may keep. Decide that first |
 | D20 | **Taken as recommended (2026-10-11).** Where "deposit request sent" is recorded | On the offer (`deposit_request_sent_date`, plain, cloud) + the message in the entry's `messages[]` |
 | D21 | **Taken as recommended (2026-10-11).** Payment instructions in the message before §4: the waitlist config's fee payment text, or a new "deposit instructions" text? | Reuse her payment text, editable in the message |
-| D16 | **Open.** Where a Jotform API key lives (§2.1b): on her device (`device_secrets`) or on the Worker (`int_connections`)? | Device if a browser call to the API works (CORS), else Worker; decide with one test call before step 4b |
+| D16 | **Decided 2026-10-11: on her device** (`device_secrets`). Where a Jotform API key lives (§2.1b): on her device or on the Worker (`int_connections`)? | Device: no central store of every breeder's key; proven in a real flow, Worker after step 5 only if Jotform blocks browser calls |
 
 ---
 

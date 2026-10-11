@@ -936,8 +936,13 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   contract form, and builds one message (deposit, payment instructions, contract link) that
   goes out with the invoice PDF through the share sheet, or by email + download
   (`assets/pickToSend.js`, `data/contractSend.js`, `data/depositRequest.js`, plan §2.6); the
-  message carries the paid-through account's payment link. **Next: step 4b (Connect
-  Jotform)**, which waits on D16 (where her Jotform API key lives).
+  message carries the paid-through account's payment link. **Step 4b (Connect Jotform)
+  is built:** on a Form service account she connects a Jotform API key kept on that device
+  only (`device_secrets`, D16), picks forms from her Jotform account and confirms which of
+  her fields each detail fills (`field_map`; `data/jotformMatch.js`, `data/jotformApi.js`,
+  `data/jotformConnect.js`). Still to prove against a real Jotform account (Jotform must
+  answer browser calls). **Next: step 7, revised:** her device checks Jotform for signed
+  submissions and marks the contract signed; step 5's server plumbing comes after.
 
 - **Cloud Phase 2, live multi-device sync — being built** (`docs/KennelOS_Cloud_Phase2_Sync_Plan.md`;
   every §12 decision taken as recommended, 2026-10-10). Pro only: both tiers per record (cloud

@@ -12,6 +12,10 @@
 // Any account can hold her own payment link and/or payment instructions
 // (Integrations plan §4, Level 0), which "Send payment link" on a Sale or Invoice
 // sends, starting from the sale's Sold / paid through account.
+// Connect Jotform (plan §2.1b): on a saved Form service account, her Jotform API
+// key is kept on this device only (jotformConnect / jotformKeyStore), and she
+// adds forms by picking them from her Jotform account, each with the field
+// matches she confirms (field_map) instead of renaming her fields.
 // Reads/writes only through accountRepo / expenseRepo.
 import { accountRepo } from '../data/accountRepo.js';
 import { expenseRepo } from '../data/expenseRepo.js';
@@ -20,6 +24,9 @@ import { cleanForms, formLink, PREFILL_FIELDS } from '../data/contractForms.js';
 import { feeRate, rateLabel } from '../data/processingFees.js';
 import { sharedReferrals } from '../data/referralShare.js';
 import { paymentLink } from '../data/paymentLinks.js';
+import { JOTFORM_REGIONS, jotformConnection, connectJotform, disconnectJotform, listJotformForms, matchJotformForm } from '../data/jotformConnect.js';
+import { factsFor, guessFormType, matchWarnings } from '../data/jotformMatch.js';
+import { isDemo } from '../data/demoMode.js';
 import { esc, badge, fmtMoney, confirmModal, alertModal } from '../assets/ui.js';
 
 const els = {
@@ -130,7 +137,7 @@ function formsHtml(a) {
   return `<div class="acct-section"><div class="acct-section-title">Contract forms</div>
     ${forms.map((f) => `<div class="acct-row">
       <span class="acct-k acct-k-wide">${badge(CONTRACT_FORM_TYPE, f.form_type)}</span>
-      <span class="acct-v">${esc(f.label)}</span>
+      <span class="acct-v">${esc(f.label)}${f.field_map ? ` <span class="muted">· ${Object.keys(f.field_map).length} fields matched</span>` : ''}</span>
       <a class="btn btn-sm" href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">Open</a>
     </div>`).join('')}
   </div>`;
@@ -149,15 +156,105 @@ function fieldNamesHtml() {
   </details>`;
 }
 
+// What a form picked from Jotform shows under its row.
+const matchedNote = (map) => `Picked from Jotform · ${Object.keys(map || {}).length} fields matched`;
+
 function formRowHtml(f = {}) {
   const typeOptions = CONTRACT_FORM_TYPE
     .map((t) => `<option value="${esc(t.value)}"${t.value === f.form_type ? ' selected' : ''}>${esc(t.label)}</option>`).join('');
-  return `<div class="cf-row" data-id="${esc(f.id || '')}">
+  const jf = f.form_id
+    ? ` data-form-id="${esc(f.form_id)}" data-field-map="${esc(JSON.stringify(f.field_map || {}))}"` : '';
+  const meta = f.form_id
+    ? `<div class="cf-meta field-hint"><span class="cf-meta-text">${esc(matchedNote(f.field_map))}</span> <button type="button" class="btn btn-sm" data-cf-fields>Fields…</button></div>` : '';
+  return `<div class="cf-row" data-id="${esc(f.id || '')}"${jf}>
     <select class="cf-type" aria-label="Contract form type"><option value="">Type…</option>${typeOptions}</select>
     <input class="cf-label" type="text" aria-label="Label" value="${esc(f.label || '')}" placeholder="Label, e.g. Pet home – in state">
     <input class="cf-url" type="url" aria-label="Form link" value="${esc(f.url || '')}" placeholder="https://form.jotform.com/…">
     <button type="button" class="btn btn-sm" data-cf-remove aria-label="Remove this form">✕</button>
+    ${meta}
   </div>`;
+}
+
+// --- Connect Jotform (plan §2.1b) ------------------------------------------
+
+// A modal stacked on the account form; Escape closes only the top one.
+function stackedModal(html, maxWidth = 640) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal" role="dialog" aria-modal="true" style="max-width:${maxWidth}px;">${html}</div>`;
+  document.body.appendChild(overlay);
+  return overlay;
+}
+const isTopModal = (overlay) => [...document.querySelectorAll('.modal-overlay')].pop() === overlay;
+
+// Her field for each fact this form type fills, starting from `fieldMap`.
+// → Promise<field_map | null> (null = cancelled).
+function fieldMapModal({ title, formType, fields, fieldMap, questions }) {
+  return new Promise((resolve) => {
+    const facts = factsFor(formType);
+    const known = new Set(fields.map((f) => f.param));
+    const options = (fact) => {
+      const cur = fieldMap[fact] || '';
+      const gone = cur && !known.has(cur) ? `<option value="${esc(cur)}" selected>${esc(cur)} (not on the form now)</option>` : '';
+      return `<option value="">— leave out —</option>${gone}${fields.map((f) => `<option value="${esc(f.param)}"${f.param === cur ? ' selected' : ''}>${esc(f.label)}</option>`).join('')}`;
+    };
+    const overlay = stackedModal(`<h2 style="margin-top:0;">Match fields: ${esc(title)}</h2>
+      <p class="field-hint" style="margin-top:0;">Which of your form's fields each detail fills. These are suggestions from your field labels: check them, and change any that are wrong. Details left out aren't put in the link.</p>
+      <div id="fm-warn"></div>
+      <div class="fm-grid">${facts.map(([k, what]) => `<label for="fm-${esc(k)}">${esc(what)}</label><select id="fm-${esc(k)}" data-fact="${esc(k)}">${options(k)}</select>`).join('')}</div>
+      <div class="form-actions"><button class="btn btn-primary" id="fm-save">Use these matches</button><button class="btn" id="fm-cancel">Cancel</button></div>`, 680);
+    const read = () => {
+      const map = {};
+      overlay.querySelectorAll('select[data-fact]').forEach((sel) => { if (sel.value) map[sel.dataset.fact] = sel.value; });
+      return map;
+    };
+    const warn = () => {
+      const w = matchWarnings(formType, questions, read());
+      overlay.querySelector('#fm-warn').innerHTML = w.length ? `<div class="inline-warn">${w.map(esc).join('<br>')}</div>` : '';
+    };
+    warn();
+    overlay.addEventListener('change', warn);
+    const done = (v) => { overlay.remove(); document.removeEventListener('keydown', onKey); resolve(v); };
+    function onKey(e) { if (e.key === 'Escape' && isTopModal(overlay)) done(null); }
+    document.addEventListener('keydown', onKey);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) done(null); });
+    overlay.querySelector('#fm-cancel').addEventListener('click', () => done(null));
+    overlay.querySelector('#fm-save').addEventListener('click', () => done(read()));
+  });
+}
+
+// Pick one of her Jotform forms and its type. → Promise<{ form, form_type } | null>.
+function pickJotformModal(accountId, takenIds) {
+  return new Promise((resolve) => {
+    const overlay = stackedModal(`<h2 style="margin-top:0;">Add a form from Jotform</h2>
+      <div id="pj-body"><p class="muted">Loading your forms…</p></div>
+      <div id="pj-error"></div>
+      <div class="form-actions"><button class="btn" id="pj-cancel">Cancel</button></div>`);
+    const done = (v) => { overlay.remove(); document.removeEventListener('keydown', onKey); resolve(v); };
+    function onKey(e) { if (e.key === 'Escape' && isTopModal(overlay)) done(null); }
+    document.addEventListener('keydown', onKey);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) done(null); });
+    overlay.querySelector('#pj-cancel').addEventListener('click', () => done(null));
+    const typeSelect = (id, guess) => `<select data-pj-type="${esc(id)}" aria-label="Contract form type"><option value="">Type…</option>${CONTRACT_FORM_TYPE
+      .map((t) => `<option value="${esc(t.value)}"${t.value === guess ? ' selected' : ''}>${esc(t.label)}</option>`).join('')}</select>`;
+    listJotformForms(accountId).then((forms) => {
+      overlay.querySelector('#pj-body').innerHTML = forms.length
+        ? `<p class="field-hint" style="margin-top:0;">Pick what kind of contract each form is, then <strong>Add</strong>. Next you'll check which field each detail fills.</p>
+           ${forms.map((f) => `<div class="pj-row"><span class="pj-title">${esc(f.title)}${f.status && f.status !== 'ENABLED' ? ` <span class="badge badge-gray">${esc(f.status.toLowerCase())}</span>` : ''}${takenIds.has(f.id) ? ' <span class="badge badge-green">added</span>' : ''}</span>
+             ${typeSelect(f.id, guessFormType(f.title))}
+             <button type="button" class="btn btn-sm" data-pj-add="${esc(f.id)}">Add</button></div>`).join('')}`
+        : '<p class="muted">No forms on this Jotform account yet.</p>';
+      overlay.querySelectorAll('[data-pj-add]').forEach((btn) => btn.addEventListener('click', () => {
+        const id = btn.dataset.pjAdd;
+        const type = overlay.querySelector(`[data-pj-type="${CSS.escape(id)}"]`).value;
+        if (!type) { overlay.querySelector('#pj-error').innerHTML = '<div class="inline-error">Pick what kind of contract it is first.</div>'; return; }
+        done({ form: forms.find((f) => f.id === id), form_type: type });
+      }));
+    }).catch((err) => {
+      overlay.querySelector('#pj-body').innerHTML = '';
+      overlay.querySelector('#pj-error').innerHTML = `<div class="inline-error">${esc(err.message || String(err))}</div>`;
+    });
+  });
 }
 
 // A sales channel's fee (Good Dog, Stripe…): the rate, whether she usually passes
@@ -243,6 +340,7 @@ els.list.addEventListener('click', async (e) => {
         });
         if (!ok) return;
         await accountRepo.hardDelete(a.id);
+        await disconnectJotform(a.id); // its Jotform key on this device, if any
         break;
       }
       default: return;
@@ -277,6 +375,7 @@ function openForm(existing = null) {
     <div id="af-forms-section"${a.account_type === 'form_service' ? '' : ' hidden'}>
     <h3 style="font-size:15px; margin:14px 0 4px;">Contract forms</h3>
     <p class="field-hint" style="margin-top:0;">Your own signable forms on this service: pick what kind of contract each one is, give it a label, and paste its link. A contract's <strong>Send for signature</strong> offers the matching ones, with the details filled in.</p>
+    <div id="af-jf"></div>
     <div id="af-forms">${cleanForms(a.contract_forms).map(formRowHtml).join('')}</div>
     <button type="button" class="btn btn-sm" id="af-form-add">+ Add ${cleanForms(a.contract_forms).length ? 'another ' : 'a '}contract form</button>
     ${fieldNamesHtml()}
@@ -322,7 +421,7 @@ function openForm(existing = null) {
   document.body.appendChild(overlay);
   const $ = (sel) => overlay.querySelector(sel);
   function close() { overlay.remove(); document.removeEventListener('keydown', onKey); }
-  function onKey(e) { if (e.key === 'Escape') close(); }
+  function onKey(e) { if (e.key === 'Escape' && isTopModal(overlay)) close(); }
   document.addEventListener('keydown', onKey);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
   $('#af-cancel').addEventListener('click', close);
@@ -340,11 +439,75 @@ function openForm(existing = null) {
     e.currentTarget.textContent = '+ Add another contract form';
     formsBox.lastElementChild.querySelector('.cf-type').focus();
   });
+  // Connect Jotform: only on a saved account (the key is kept by its id), never in the Demo.
+  const accountId = existing?.id || null;
+  const jfBox = $('#af-jf');
+  const jfError = (err) => { const m = $('#af-jf-msg'); if (m) m.innerHTML = `<span class="inline-error">${esc(err.message || String(err))}</span>`; };
+  async function drawJotform() {
+    if (isDemo()) { jfBox.innerHTML = ''; return; }
+    if (!accountId) {
+      jfBox.innerHTML = '<p class="field-hint">On Jotform? Save this account, then Edit it to <strong>Connect Jotform</strong>: pick your forms from your Jotform account and match their fields, instead of pasting links and renaming fields.</p>';
+      return;
+    }
+    const jf = await jotformConnection(accountId);
+    jfBox.innerHTML = jf
+      ? `<div class="jf-box"><span>Jotform is connected on this device${jf.username ? ` as <strong>${esc(jf.username)}</strong>` : ''}.</span>
+          <button type="button" class="btn btn-sm btn-primary" id="af-jf-add">+ Add from Jotform</button>
+          <button type="button" class="btn btn-sm" id="af-jf-off">Disconnect</button>
+          <div id="af-jf-msg" class="field-hint" role="status"></div></div>`
+      : `<details class="jf-box"><summary><strong>Connect Jotform</strong> (optional): pick your forms and match their fields for you</summary>
+          <p class="field-hint">In Jotform, open <strong>Settings → API</strong>, create a new key with <strong>Read Access</strong>, and paste it here (the menus may differ a little). The key stays <strong>on this device only</strong>: never in a backup, a sync or KennelOS's cloud, so connect each device you use. Any Jotform key can read all your form submissions, so keep this device locked.</p>
+          <div class="form-grid">
+            ${field('API key', '<input id="af-jf-key" type="password" autocomplete="off" spellcheck="false">')}
+            ${field('Your Jotform account', `<select id="af-jf-region">${JOTFORM_REGIONS.map((r) => `<option value="${esc(r.value)}">${esc(r.label)}</option>`).join('')}</select>`)}
+          </div>
+          <button type="button" class="btn btn-sm btn-primary" id="af-jf-connect">Connect</button>
+          <div id="af-jf-msg" class="field-hint" role="status"></div></details>`;
+  }
+  drawJotform().catch(() => { jfBox.innerHTML = ''; });
+  const rowMeta = (row, map) => {
+    row.dataset.fieldMap = JSON.stringify(map);
+    row.querySelector('.cf-meta-text').textContent = matchedNote(map);
+  };
   overlay.addEventListener('click', async (e) => {
     const rm = e.target.closest('[data-cf-remove]');
     if (rm) { rm.closest('.cf-row').remove(); return; }
     const cp = e.target.closest('[data-copy-name]');
-    if (cp) await copy(cp.dataset.copyName, cp);
+    if (cp) { await copy(cp.dataset.copyName, cp); return; }
+    const btn = e.target.closest('#af-jf-connect, #af-jf-off, #af-jf-add, [data-cf-fields]');
+    if (!btn || btn.disabled) return;
+    btn.disabled = true;
+    try {
+      if (btn.id === 'af-jf-connect') {
+        $('#af-jf-msg').textContent = 'Checking the key with Jotform…';
+        await connectJotform(accountId, $('#af-jf-key').value, $('#af-jf-region').value);
+        await drawJotform();
+      } else if (btn.id === 'af-jf-off') {
+        const ok = await confirmModal({ title: 'Disconnect Jotform on this device?', message: 'KennelOS forgets the API key on this device. Your contract forms and their field matches stay, and sending them keeps working.', confirmLabel: 'Disconnect' });
+        if (ok) { await disconnectJotform(accountId); await drawJotform(); }
+      } else if (btn.id === 'af-jf-add') {
+        const taken = new Set([...formsBox.querySelectorAll('.cf-row[data-form-id]')].map((r) => r.dataset.formId));
+        const picked = await pickJotformModal(accountId, taken);
+        if (!picked) return;
+        const m = await matchJotformForm(accountId, picked.form.id, picked.form_type);
+        const map = await fieldMapModal({ title: picked.form.title, formType: picked.form_type, fields: m.fields, fieldMap: m.field_map, questions: m.questions });
+        if (!map) return;
+        formsBox.insertAdjacentHTML('beforeend', formRowHtml({ form_type: picked.form_type, label: picked.form.title, url: picked.form.url, form_id: picked.form.id, field_map: map }));
+        $('#af-form-add').textContent = '+ Add another contract form';
+      } else {
+        const row = btn.closest('.cf-row');
+        const type = row.querySelector('.cf-type').value;
+        if (!type) throw new Error('Pick the form\'s type first.');
+        if (!await jotformConnection(accountId)) throw new Error('Connect Jotform on this device to match this form\'s fields.');
+        let current = null;
+        try { current = JSON.parse(row.dataset.fieldMap || 'null'); } catch { current = null; }
+        const m = await matchJotformForm(accountId, row.dataset.formId, type, current && Object.keys(current).length ? current : null);
+        const map = await fieldMapModal({ title: row.querySelector('.cf-label').value || 'Contract form', formType: type, fields: m.fields, fieldMap: m.field_map, questions: m.questions });
+        if (map) rowMeta(row, map);
+      }
+    } catch (err) {
+      if ($('#af-jf-msg')) jfError(err); else $('#af-error').innerHTML = `<div class="inline-error">${esc(err.message || String(err))}</div>`;
+    } finally { btn.disabled = false; }
   });
   // The rows as typed; a row left wholly blank is dropped, a half-filled one is an error.
   function readForms() {
@@ -356,6 +519,11 @@ function openForm(existing = null) {
         label: row.querySelector('.cf-label').value.trim(),
         url: row.querySelector('.cf-url').value.trim()
       };
+      // Picked from Jotform: its form id and her confirmed field matches.
+      if (row.dataset.formId) {
+        f.form_id = row.dataset.formId;
+        try { f.field_map = JSON.parse(row.dataset.fieldMap || '{}'); } catch { f.field_map = {}; }
+      }
       if (!f.form_type && !f.label && !f.url) return;
       if (!f.form_type) problems.push(`Contract form ${i + 1}: pick its type.`);
       if (!formLink(f.url)) problems.push(`Contract form ${i + 1}: paste the form's link (starting https://).`);
