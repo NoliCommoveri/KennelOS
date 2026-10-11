@@ -927,12 +927,22 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   (`data/referralShare.js`). **Step 4, Jotform half, is built (2026-10-11):** contract forms
   on Accounts (type from `CONTRACT_FORM_TYPE`, her label, the link; as many as she likes) and
   (only on an account of the new **Form service** type), and **Send for signature** on a Contract, which offers the matching forms and builds the link
-  with the details prefilled on her device (`data/contractForms.js`, plan §2.1a). The stored
-  payment link half is next (Pro only). **Step 4c (waitlist pick → send) is built:**
+  with the details prefilled on her device (`data/contractForms.js`, plan §2.1a). **The
+  payment link half is built too (Pro only):** any Account can hold her own payment link and
+  instructions, and **Send payment link** on a Sale or its Invoice sends them with the amount
+  owed, starting from the sale's Sold / paid through account; picking an account on a sale
+  with none fills it in (`data/paymentLinks.js`, `assets/paymentRequestUI.js`, plan §4). **Step 4c (waitlist pick → send) is built:**
   **Review sale & send…** on a family's turn edits the pick's sale in a modal, picks the
   contract form, and builds one message (deposit, payment instructions, contract link) that
   goes out with the invoice PDF through the share sheet, or by email + download
-  (`assets/pickToSend.js`, `data/contractSend.js`, `data/depositRequest.js`, plan §2.6).
+  (`assets/pickToSend.js`, `data/contractSend.js`, `data/depositRequest.js`, plan §2.6); the
+  message carries the paid-through account's payment link. **Step 4b (Connect Jotform)
+  is built:** on a Form service account she connects a Jotform API key kept on that device
+  only (`device_secrets`, D16), picks forms from her Jotform account and confirms which of
+  her fields each detail fills (`field_map`; `data/jotformMatch.js`, `data/jotformApi.js`,
+  `data/jotformConnect.js`). Still to prove against a real Jotform account (Jotform must
+  answer browser calls). **Next: step 7, revised:** her device checks Jotform for signed
+  submissions and marks the contract signed; step 5's server plumbing comes after.
 
 - **Cloud Phase 2, live multi-device sync — being built** (`docs/KennelOS_Cloud_Phase2_Sync_Plan.md`;
   every §12 decision taken as recommended, 2026-10-10). Pro only: both tiers per record (cloud

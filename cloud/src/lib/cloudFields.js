@@ -270,6 +270,8 @@ export const CLOUD_FIELDS = {
         "id",
         "is_archived",
         "name",
+        "payment_instructions",
+        "payment_link",
         "referral_code",
         "referral_instructions",
         "referral_link",
