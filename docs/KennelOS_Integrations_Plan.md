@@ -6,6 +6,8 @@
 > waitlist embedded on breeders' own websites, (2) Jotform / DocuSign contracts, (3) referral-use
 > notifications + thank-yous, (4) payment links through the breeder's own Stripe / Square, and
 > (5) processing fees on sales (e.g. Good Dog's 6.25%). §8 records the decisions taken.
+> §2.1a (Jotform contract forms, as the breeder sees them) was added 2026-10-11 and is
+> **proposed, not yet approved**: its decisions D12–D15 are open in §8.
 > Still open inside a step: DocuSign's own-key vs Partner Program route (only if D5 ever
 > brings DocuSign in), and confirming Stripe / Square live-animal terms before step 6 (D8).
 >
@@ -169,6 +171,94 @@ vocab is needed beyond the provider fields in §2.4.
   facts. A prefilled field the buyer can edit should be **read-only** in her form; that's a
   Jotform form setting, and our setup notes say so.
 
+### 2.1a Contract forms, as the breeder sees them (proposed 2026-10-11, D12–D15)
+
+**The goal, in her words:** keep links to *several* Jotform forms (a pet home contract, a
+breeding rights contract, a stud contract, a co-own contract…), none of them built in; and when
+she makes a contract, pick the right one and send the buyer a link with the details already
+filled in.
+
+**Setting them up (once).** On her Jotform **Account** (D6; the Accounts page, Pro), a new
+**Contract forms** section, empty to start:
+
+```
+Contract forms
+┌───────────────────────────────┬──────────────────────────────┬─────────────────────────────┐
+│ Type  [Pet home contract   ▾] │ Label [Pet home – in state ] │ Link [https://form.jotform…] │ ✕
+│ Type  [Breeding rights     ▾] │ Label [Breeding rights     ] │ Link [https://form.jotform…] │ ✕
+└───────────────────────────────┴──────────────────────────────┴─────────────────────────────┘
++ Add another contract form
+```
+
+- **Type** is picked from a fixed list (below), so every form is tied to one of our contract
+  kinds. **Label** is hers, free text, so two forms of the same type (in-state / out-of-state,
+  2026 / 2027 wording) can sit side by side. **Link** is the form's ordinary share URL.
+- Nothing is hard-coded: she adds as many rows as she likes, of any type, in any order, and
+  removes or relabels them freely. Saving checks only that the link is a web address.
+- A **Field names** help panel lists the field names KennelOS fills, per type, each with Copy,
+  and says where they go in Jotform (each field's **Unique Name**, under the field's
+  Advanced settings; *check the current Jotform UI*). Fields she doesn't add to her form are
+  simply left out of the link. This is the "field map" of §2.4, done by convention so she never
+  maps anything (D14).
+
+**The fixed list of contract form types** (new `vocab.CONTRACT_FORM_TYPE`, each mapping to one
+internal `CONTRACT_TYPE`, plus a hint that ranks it first for the right sale):
+
+| Form type | Label | Internal `contract_type` | Ranked first when |
+|---|---|---|---|
+| `pet_home` | Pet home contract | `sale` | the linked Sale's `registration_type` is `limited` / `none` / unset |
+| `breeding_rights` | Breeding rights contract | `sale` | … is `full` |
+| `deposit` | Deposit / reservation agreement | `sale` | the Sale is still `deposit_pending` |
+| `co_own` | Co-ownership contract | `co_own` (and `sale` with `registration_type = co_own`) | always, for those |
+| `stud_service` | Stud service contract | `stud_service` | always |
+| `lease` | Lease agreement | `lease` | always |
+| `foster` | Foster / guardian home | `foster` | always |
+| `other` | Other | `other` | always |
+
+Pet home vs breeding rights is the one place our `CONTRACT_TYPE` is coarser than her paperwork:
+both are `sale` contracts, told apart by the Sale's registration. So the form type carries that
+distinction and the Contract itself stays `sale`; no `CONTRACT_TYPE` change (D13).
+
+**Sending one (at contract creation, or any time it's `draft`).** On the Contract page:
+
+1. She makes the Contract as today (type, sale / stud service / dog / counterparty).
+2. **Send for signature** shows a picker of her contract forms whose type maps to this
+   contract's type, the ranked one first ("Pet home – in state" for a limited-registration
+   sale), with **Show all forms** to pick any. Picking one shows the filled-in facts as a
+   short list before anything leaves the device. On a new contract the button reads
+   **Save & send for signature**, because the link must carry the contract's id.
+3. The device builds the prefilled URL (pure `shared/data/esignFields.js`): the facts the
+   Contract reaches through its Sale / Stud service / Contact / Dog / Kennel, plus the hidden
+   `contractRef` (the Contract's UUID) and `saleRef` where there is one.
+4. It opens the existing message composer (`assets/messageComposer.js`) with a short message
+   and the link: **Email** (`mailto:` to the buyer's address), **Text** (`sms:`), or **Copy**.
+5. The Contract becomes `sent`, with `esign_provider = 'jotform'`, `esign_url` (the link sent),
+   `esign_sent_at`, and `esign_form_label` (a snapshot of the label, so renaming or deleting
+   the form later never changes what the contract says was sent). **Copy link again** stays on
+   the contract while it's `sent`.
+6. She marks it **Signed** herself (Level 0), or step 7's webhook does it (Level 1).
+
+**No forms set up yet** → the button still shows, and opens "Add your Jotform contract forms
+on the Accounts page →". **No form of a matching type** → the picker opens on all forms. In
+**Lite** there's no Accounts page and Jotform is Pro (D4), so none of this renders.
+
+**Facts each type fills** (short ones only; never private-tier notes or end reasons, §2.1):
+- **Every type:** `contractRef`, `kennelName`, `breederName`, `breederEmail`, `breederPhone`,
+  `contractDate`.
+- **Sale types** (`pet_home`, `breeding_rights`, `deposit`, sale `co_own`): `saleRef`,
+  `buyerFirstName`, `buyerLastName`, `buyerEmail`, `buyerPhone`, `buyerAddress`, `puppyName`,
+  `puppySex`, `puppyColor`, `puppyDob`, `puppyMicrochip`, `sireName`, `damName`, `breed`,
+  `registrationType`, `price`, `depositAmount`, `balanceDue`.
+- **Stud service:** `studName`, `damName`, `damOwnerName`, `damOwnerEmail`, `studFee`,
+  `serviceType`.
+- **Co-own / lease / foster / other:** `dogName`, `dogRegisteredName`, `dogMicrochip`,
+  `counterpartyFirstName`, `counterpartyLastName`, `counterpartyEmail`, `counterpartyPhone`,
+  plus `leaseStart` / `leaseEnd` for a lease.
+
+(The exact list is settled in the build; it's what the pure builder's allow-list holds, tested
+the way `companionExport.js`'s is. Names are split first / last because Jotform's Full Name
+field prefills as two parts, *unverified*.)
+
 ### 2.2 DocuSign: what the research says
 - The eSignature REST API does exactly what she wants: **create an envelope from a template,
   prefill tabs by data label, send (status `sent`)**, then either **email signing** (DocuSign
@@ -203,13 +293,19 @@ likely the better first e-sign provider**, and DocuSign can be a second adapter 
 On **Contract** (plain fields, no index needed, no new block; classify in `syncRegistry.js`, D9):
 - `esign_provider` (`jotform`/`docusign`/`signwell`/…), `esign_ref` (the provider's envelope /
   submission id), `esign_url` (the buyer's signing URL, when the provider gives a durable one),
-  `esign_sent_at`.
+  `esign_sent_at`, and `esign_form_label` (snapshot of the form's label at send time, §2.1a).
 - `document_url` (exists) receives the signed PDF link; `signed_date` (exists) the completion
   date.
 
 The **contract form / template map** (provider, template or form id, field → KennelOS fact) would
 live on the **Account** for that vendor (§32 already lists vendors she has logins with) or in a
-small settings record (D6). It would map only facts the Contract already reaches through its Sale
+small settings record (D6). **Proposed shape (§2.1a, D12):** one plain array field on the
+Account, `contract_forms: [{ id, form_type, label, url }]` (`id` a UUID so a row can be edited
+in place; `form_type` from `CONTRACT_FORM_TYPE`; the provider is read from the URL's host).
+It's a list of values *on* the Account, not a new entity, so no table, no index, no
+`db.version` block and no `referenceRegistry.js` line; the Contract keeps a snapshot
+(`esign_form_label` + `esign_url`), not a pointer into the list, so deleting a form never
+orphans a contract. A missing `contract_forms` reads as `[]`, so older backups restore. It would map only facts the Contract already reaches through its Sale
 / Contact / Dog. A **pure** builder (`shared/data/esignFields.js`) would make the values, so it
 can be unit-tested the same way `companionExport.js`'s allow-list is.
 
@@ -418,7 +514,7 @@ Each step is one reviewable PR, ordered by value ÷ effort and by dependency.
 | 1 | **Processing fees** (§5): Account fee fields, Sale channel + fee snapshot, gross-up helper, `processing_fee` income component, guide + registries. **Built 2026-10-10** (End-State guide §21.1) | No | M |
 | 2 | **Waitlist embed** (§1): CSP opt-in, `?embed=1`, `embed.js`, "Add to your website" card. **Built 2026-10-10** (End-State guide §29, "On your website") | Worker (small) | S |
 | 3 | **Referral share-out** (§3.1) + go-home thank-you reminder (§3.2). **Built 2026-10-11** (End-State guide §32, §19, §20) | No (projection only) | S |
-| 4 | **Level 0 links**: stored payment link (§4) + Jotform prefilled contract form (§2.1) | No | S–M |
+| 4 | **Level 0 links**: stored payment link (§4) + Jotform contract forms list and prefilled send (§2.1, §2.1a) | No | S–M |
 | 5 | **Integration plumbing** (§0): `int_connections`, `int_events`, hooks routes, `integrationEvents.js` reducer | Worker | M |
 | 6 | **Stripe Connect + Square** payment links with paid webhooks (§4), auto fee capture into §5 | Worker | L |
 | 7 | **Jotform Level 1** webhook → Contract signed (§2.1) | Worker | S (after 5) |
@@ -464,6 +560,15 @@ every new FK lands in `referenceRegistry.js` + the guide; every Worker table is 
 | D9 | Cloud vs private tier for the new fields (fee %, fee amount, channel, e-sign refs, payment-link refs) Follow the existing split (`syncRegistry.js`: `sales.price` / `deposit_amount` are private, `status` / dates are cloud). So `processing_fee_amount` is **private**, like `price`. `sales_channel_account_id`, `fee_passed_to_buyer`, and the Account's `fee_percent` / `fee_fixed` (a vendor's public rate) are **cloud**. E-sign / payment-link refs are **cloud**, so any device can match an incoming event; `payment_link_url` is cloud too |
 | D10 | Index `Sale.sales_channel_account_id` (filter Financials by channel) or keep it plain? | Index it (a "Good Dog sales" filter is likely wanted); additive `version(N)` block |
 | D11 | Fee as a negative income component (recommended) or an Expense row? Show "includes fee" on the invoice? | Income component; invoice line off by default |
+
+**Open, proposed 2026-10-11 (§2.1a, Jotform contract forms):**
+
+| # | Question | Recommendation |
+|---|---|---|
+| D12 | Store her contract forms as an array on the Jotform Account, or as a new `contract_forms` table (own repo, FK → Account)? | Array on the Account: it's a short list of values belonging to one vendor, and the Contract snapshots what it sent instead of pointing at a row |
+| D13 | Is the form-type list right (pet home, breeding rights, deposit, co-own, stud, lease, foster, other)? Pet home vs breeding rights both map to a `sale` contract, told apart by the Sale's registration, rather than splitting `CONTRACT_TYPE` | Yes; keep `CONTRACT_TYPE` as is |
+| D14 | Fields by **fixed names** she copies into Jotform's Unique Name, or a per-form **field map** she fills in? | Fixed names now (nothing to map; a missing field is just skipped); add an optional per-form rename later only if breeders ask |
+| D15 | Cloud tier for `contract_forms` and `esign_form_label` | Cloud: her form links are already public URLs and the label is hers (matches D9 for e-sign refs) |
 
 ---
 
