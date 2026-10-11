@@ -193,3 +193,43 @@ test('matchJotformForm: a suggestion, or her saved map kept as it is', async () 
   await connect.disconnectJotform('acc3');
   await assert.rejects(connect.listJotformForms('acc3'), /isn't connected/);
 });
+
+// --- Her own details (the contact linked to the kennel) ---------------------------
+
+test('a Seller field gets her details; a bare Name / Email field stays the buyer\'s', () => {
+  const q = {
+    1: { order: '1', type: 'control_fullname', name: 'sellerName', text: 'Seller Name' },
+    2: { order: '2', type: 'control_email', name: 'sellerEmail1', text: 'Seller Email' },
+    3: { order: '3', type: 'control_phone', name: 'sellerPhone1', text: 'Seller Phone' },
+    4: { order: '4', type: 'control_fullname', name: 'name', text: 'Name' },
+    5: { order: '5', type: 'control_email', name: 'email', text: 'Email' },
+    6: { order: '6', type: 'control_textbox', name: 'kennel', text: 'Kennel Name' }
+  };
+  const { field_map } = suggestFieldMap('pet_home', q);
+  assert.equal(field_map.breederFirstName, 'sellerName[first]');
+  assert.equal(field_map.breederLastName, 'sellerName[last]');
+  assert.equal(field_map.breederEmail, 'sellerEmail1');
+  assert.equal(field_map.breederPhone, 'sellerPhone1');
+  assert.equal(field_map.buyerFirstName, 'name[first]');
+  assert.equal(field_map.buyerEmail, 'email');
+  assert.equal(field_map.kennelName, 'kennel');
+});
+
+test('breeder facts come from the contact linked to the contract\'s kennel', async () => {
+  const { contactRepo } = await import('../shared/data/contactRepo.js');
+  const { kennelRepo } = await import('../shared/data/kennelRepo.js');
+  const send = await import('../shared/data/contractSend.js');
+  const { prefillValues } = await import('../shared/data/contractForms.js');
+  const k = await kennelRepo.create({ kennel_name: 'Test Boston', is_own_kennel: true });
+  assert.equal(await send.breederFor(k.id), null);
+  await contactRepo.create({ name: 'Ann Buyer', email: 'ann@example.com' });
+  await contactRepo.create({ name: 'Pat Helper', kennel_id: k.id });
+  const me = await contactRepo.create({ name: 'Lyra Carson', kennel_id: k.id, contact_type: ['breeder'], email: 'lyra@example.com', phone: '555-0101' });
+  assert.equal((await send.breederFor(k.id)).id, me.id, 'a contact typed Breeder first');
+  const facts = await send.gatherContractFacts({ id: 'c9', contract_type: 'sale', kennel_id: k.id });
+  const v = Object.fromEntries(prefillValues('pet_home', facts));
+  assert.equal(v.breederName, 'Lyra Carson');
+  assert.equal(v.breederFirstName, 'Lyra');
+  assert.equal(v.breederEmail, 'lyra@example.com');
+  assert.equal(v.breederPhone, '555-0101');
+});

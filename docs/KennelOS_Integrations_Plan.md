@@ -270,8 +270,14 @@ above, with these details settled in the build:
   `studRegisteredName`, `damRegisteredName` and `partnerName` / `partnerFirstName` /
   `partnerLastName` / `partnerEmail` / `partnerPhone` / `partnerAddress` for the other party
   (whichever direction); co-own / lease / foster / other use the same `partner…` names plus
-  `dogSex` / `dogDob`. `kennelLocation` / `kennelWebsite` replace breeder name / email / phone,
-  which the kennel record doesn't hold.
+  `dogSex` / `dogDob`. `kennelLocation` / `kennelWebsite` are the kennel's own; her own name,
+  email, phone and address (`breederName` / `breederFirstName` / `breederLastName` /
+  `breederEmail` / `breederPhone` / `breederAddress`, every type, added 2026-10-11) come from
+  the contact whose **Kennel** is the contract's kennel (`Contact.kennel_id`, an affiliation:
+  buyers have none), looked up on the device by `contractSend.breederFor` (a contact typed
+  Breeder first, then the oldest). No contact linked → left out, and Send for signature says
+  how to link one. Connect Jotform's matcher gives them only to fields whose label says
+  Seller / Breeder / Kennel.
 - **`esign_sent_date`**, not `esign_sent_at`: a date-only field, like every date the app keeps.
 - **`esign_url` is private tier**, an exception to D9 ("e-sign refs cloud"): a Jotform link
   carries the buyer's name, email, phone, address and price in it. `esign_provider`,
