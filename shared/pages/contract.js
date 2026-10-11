@@ -510,7 +510,7 @@ async function sendForSignature(c) {
     if (!forms.length) {
       await alertModal({
         title: 'No contract forms yet',
-        message: 'Add your contract forms (for example your Jotform pet home and breeding rights contracts) to an account on the Accounts page (Storage → Accounts), then come back here to send one.'
+        message: 'On the Accounts page (Storage → Accounts), add your form service (for example Jotform) as an account of type Form service, add your contract forms to it (for example your pet home and breeding rights contracts), then come back here to send one.'
       });
       return;
     }

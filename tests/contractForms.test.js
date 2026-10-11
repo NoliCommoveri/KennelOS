@@ -47,11 +47,12 @@ test('cleanForms keeps known types with a usable link, and labels a blank one', 
   assert.ok(cleanForms([{ form_type: 'other', url: 'https://x.test/f' }])[0].id, 'a row without an id gets one');
 });
 
-test('allForms skips archived accounts and names the account', () => {
+test('allForms reads Form service accounts only, skips archived ones, and names the account', () => {
   const out = allForms([
-    { id: 'j', name: 'Jotform', contract_forms: [form('a', 'pet_home', 'Pet')] },
-    { id: 'old', name: 'Old', is_archived: true, contract_forms: [form('b', 'pet_home', 'Old pet')] },
-    { id: 'n', name: 'No forms' }
+    { id: 'j', name: 'Jotform', account_type: 'form_service', contract_forms: [form('a', 'pet_home', 'Pet')] },
+    { id: 'old', name: 'Old', account_type: 'form_service', is_archived: true, contract_forms: [form('b', 'pet_home', 'Old pet')] },
+    { id: 'sw', name: 'Was a form service', account_type: 'software', contract_forms: [form('c', 'pet_home', 'Hidden')] },
+    { id: 'n', name: 'No forms', account_type: 'form_service' }
   ]);
   assert.deepEqual(out.map((f) => [f.id, f.account_id, f.account_name]), [['a', 'j', 'Jotform']]);
 });

@@ -7,7 +7,7 @@
 // the Sale form suggests a sale's processing fee from it). Add/Edit is a modal;
 // archive/delete like any entity — delete is blocked while an expense names the
 // account (ACCOUNT_REFERENCES), so archive it then. Her contract forms (Jotform,
-// Integrations plan §2.1a) live on an account too: a type, her label and the
+// Integrations plan §2.1a) live on a Form service account (that type only): a type, her label and the
 // form's link per row, which the Contract page's "Send for signature" offers.
 // Reads/writes only through accountRepo / expenseRepo.
 import { accountRepo } from '../data/accountRepo.js';
@@ -110,6 +110,7 @@ function cardHtml(a) {
 
 // Her contract forms on this account: type, label, and a link to open the form.
 function formsHtml(a) {
+  if (a.account_type !== 'form_service') return '';
   const forms = cleanForms(a.contract_forms);
   if (!forms.length) return '';
   return `<div class="acct-section"><div class="acct-section-title">Contract forms</div>
@@ -259,6 +260,13 @@ function openForm(existing = null) {
       ${field('Type', `<select id="af-type">${typeOptions}</select>`)}
       ${field('Website', `<input id="af-website" type="text" value="${esc(a.website)}" placeholder="e.g. chewy.com">`, { wide: true })}
     </div>
+    <div id="af-forms-section"${a.account_type === 'form_service' ? '' : ' hidden'}>
+    <h3 style="font-size:15px; margin:14px 0 4px;">Contract forms</h3>
+    <p class="field-hint" style="margin-top:0;">Your own signable forms on this service: pick what kind of contract each one is, give it a label, and paste its link. A contract's <strong>Send for signature</strong> offers the matching ones, with the details filled in.</p>
+    <div id="af-forms">${cleanForms(a.contract_forms).map(formRowHtml).join('')}</div>
+    <button type="button" class="btn btn-sm" id="af-form-add">+ Add ${cleanForms(a.contract_forms).length ? 'another ' : 'a '}contract form</button>
+    ${fieldNamesHtml()}
+    </div>
     <h3 style="font-size:15px; margin:14px 0 4px;">Your login</h3>
     <p class="field-hint" style="margin-top:0;">Just for you. These never go to cloud backup unencrypted — only inside your private vault, if you've turned it on.</p>
     <div class="form-grid">
@@ -282,11 +290,6 @@ function openForm(existing = null) {
       <div class="field field-wide"><label class="check-inline"><input id="af-fee-passed" type="checkbox"${a.fee_passed_to_buyer_default ? ' checked' : ''}> I usually pass this fee on to the buyer in a higher price</label></div>
       ${field('About the fee', `<input id="af-fee-note" type="text" value="${esc(a.fee_note)}" placeholder="e.g. card payments only; bank transfer is free">`, { wide: true, hint: 'Private — just for you.' })}
     </div>
-    <h3 style="font-size:15px; margin:14px 0 4px;">Contract forms — if you send contracts through it</h3>
-    <p class="field-hint" style="margin-top:0;">Your own signable forms, e.g. on Jotform: pick what kind of contract each one is, give it a label, and paste its link. A contract's <strong>Send for signature</strong> offers the matching ones, with the details filled in.</p>
-    <div id="af-forms">${cleanForms(a.contract_forms).map(formRowHtml).join('')}</div>
-    <button type="button" class="btn btn-sm" id="af-form-add">+ Add ${cleanForms(a.contract_forms).length ? 'another ' : 'a '}contract form</button>
-    ${fieldNamesHtml()}
     <div class="form-grid" style="margin-top:14px;">
       ${field('Notes', `<textarea id="af-notes">${esc(a.notes)}</textarea>`, { wide: true, hint: 'Private — just for you.' })}
     </div>
@@ -309,6 +312,9 @@ function openForm(existing = null) {
     e.currentTarget.textContent = pw.type === 'password' ? 'Show' : 'Hide';
   });
   const formsBox = $('#af-forms');
+  // Contract forms belong to a Form service account only (Jotform…).
+  const isFormService = () => $('#af-type').value === 'form_service';
+  $('#af-type').addEventListener('change', () => { $('#af-forms-section').hidden = !isFormService(); });
   $('#af-form-add').addEventListener('click', (e) => {
     formsBox.insertAdjacentHTML('beforeend', formRowHtml());
     e.currentTarget.textContent = '+ Add another contract form';
@@ -362,12 +368,16 @@ function openForm(existing = null) {
       $('#af-error').innerHTML = `<div class="inline-error">Name is required.</div>`;
       return;
     }
-    const { forms, problems } = readForms();
-    if (problems.length) {
-      $('#af-error').innerHTML = `<div class="inline-error">${problems.map(esc).join('<br>')}</div>`;
-      return;
+    // Another type leaves any saved forms as they are (hidden, never offered), so
+    // switching the type back brings them back.
+    if (isFormService()) {
+      const { forms, problems } = readForms();
+      if (problems.length) {
+        $('#af-error').innerHTML = `<div class="inline-error">${problems.map(esc).join('<br>')}</div>`;
+        return;
+      }
+      data.contract_forms = forms;
     }
-    data.contract_forms = forms;
     btn.disabled = true;
     try {
       if (existing) await accountRepo.update(existing.id, data);

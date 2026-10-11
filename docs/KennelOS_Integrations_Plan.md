@@ -179,8 +179,8 @@ breeding rights contract, a stud contract, a co-own contract…), none of them b
 she makes a contract, pick the right one and send the buyer a link with the details already
 filled in.
 
-**Setting them up (once).** On her Jotform **Account** (D6; the Accounts page, Pro), a new
-**Contract forms** section, empty to start:
+**Setting them up (once).** On her Jotform **Account** (D6; the Accounts page, Pro), of type
+**Form service**, a new **Contract forms** section, empty to start:
 
 ```
 Contract forms
@@ -280,6 +280,9 @@ above, with these details settled in the build:
 - The provider is read from the link's host: `jotform` for jotform.com, else `link` (any form
   that takes URL parameters works the same way).
 - Sending only marks the contract `sent` once she used Email, Text or Copy in the composer.
+- **A Form service account type** (`ACCOUNT_TYPE` `form_service`, asked for 2026-10-11): the
+  Contract forms section shows only on an account of that type, right under its type, and only
+  those accounts' forms are offered on a Contract.
 - Not built yet: the stored payment link half of step 4 (§4 Level 0).
 
 ### 2.1b Connect Jotform: pick forms and match fields from the API (optional layer, after step 4)

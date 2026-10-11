@@ -1,7 +1,7 @@
 // contractForms.js — her contract forms (Jotform, Integrations plan §2.1a) and
 // the prefilled link that sends one out for signature.
 //
-// She keeps the forms on an Account (`contract_forms`: [{ id, form_type, label,
+// She keeps the forms on a Form service Account (`contract_forms`: [{ id, form_type, label,
 // url }], D6 / D12), each tagged with a CONTRACT_FORM_TYPE so the Contract page
 // can offer the right one. "Send for signature" builds the form's URL with the
 // contract's facts as query parameters — Jotform's documented prefill — on her
@@ -48,11 +48,12 @@ export function cleanForms(list) {
     }));
 }
 
-// Every saved form across her accounts (archived accounts left out), each with
-// its account's id and name.
+// Every saved form across her Form service accounts (archived ones, and forms
+// left on an account whose type was changed, left out), each with its account's
+// id and name.
 export function allForms(accounts) {
   return (accounts || [])
-    .filter((a) => a && !a.is_archived)
+    .filter((a) => a && !a.is_archived && a.account_type === 'form_service')
     .flatMap((a) => cleanForms(a.contract_forms).map((f) => ({ ...f, account_id: a.id, account_name: text(a.name) })));
 }
 

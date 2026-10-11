@@ -926,7 +926,7 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   and a Contact has "Send a thank-you". Both open `assets/messageComposer.js`
   (`data/referralShare.js`). **Step 4, Jotform half, is built (2026-10-11):** contract forms
   on Accounts (type from `CONTRACT_FORM_TYPE`, her label, the link; as many as she likes) and
-  **Send for signature** on a Contract, which offers the matching forms and builds the link
+  (only on an account of the new **Form service** type), and **Send for signature** on a Contract, which offers the matching forms and builds the link
   with the details prefilled on her device (`data/contractForms.js`, plan §2.1a). The stored
   payment link half is next.
 

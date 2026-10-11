@@ -124,6 +124,9 @@ export const ACCOUNT_TYPE = [
   { value: 'health',      label: 'Health / testing lab', badge: 'badge-red' },
   { value: 'insurance',   label: 'Insurance',           badge: 'badge-amber' },
   { value: 'software',    label: 'Software / service',  badge: 'badge-neutral' },
+  // Jotform and the like: the only type that holds contract forms (contract_forms,
+  // Integrations plan §2.1a), so it's the only one whose form shows that section.
+  { value: 'form_service', label: 'Form service',       badge: 'badge-blue' },
   { value: 'other',       label: 'Other',               badge: 'badge-gray' }
 ];
 
