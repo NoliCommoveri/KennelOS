@@ -389,7 +389,7 @@ backing device ◀── GET /integrations/events ── Contract = signed, sign
 
 ---
 
-## 2.6 Waitlist pick → sale, contract and deposit request on one screen (proposed 2026-10-11, D17–D21)
+## 2.6 Waitlist pick → sale, contract and deposit request on one screen (2026-10-11, D17–D21)
 
 **Her flow, as asked:** a family gets an offer and picks a pup on their status page; she's
 told and lands on the family's waitlist page; there she adjusts the sale (registration,
@@ -464,6 +464,24 @@ today's buttons.
 (`data/depositRequest.js`, tested), small changes to the family page's turn card and to
 `contract.html` to share §2.1a's picker. No schema change: the offer and entry carry what the
 send needs in plain fields (D20, D21 below).
+
+**As built (step 4c, 2026-10-11)** (End-State guide §29, "Review sale & send"). D17, D18,
+D20 and D21 as recommended. Details settled in the build:
+- **Deposit due date is read-only** in step 1: it's the turn's `respond_by_date`, which also
+  closes the turn (and the server's deadline moves), so changing it stays a waitlist action.
+  The balance due date is editable. The sales channel / processing fee stay on the full Sale.
+- `data/contractSend.js` now holds the contract-facts lookup, the link and "mark sent" for both
+  the Contract page and this modal; `data/depositRequest.js` is the pure message.
+- The message names the contract by its **type** ("your pet home contract"), not her label.
+- Leaving step 2 creates the contract (draft) if the sale had none, so a cancelled send leaves
+  a draft contract, which the next send reuses.
+- A message she sent herself is logged on the entry with `via: 'own'` and `status: 'sent'`,
+  so `sendQueuedEmails` never sends it.
+- **D19 not built: the Worker can't email her.** It keeps no readable address for an account
+  (only `email_hash`, for sign-in codes; `0001_schema.sql`). Telling her by email means storing
+  an address she chooses on the server (e.g. a "notify me at" address in her waitlist settings,
+  published in the projection, which the server already holds in plain text) — a privacy
+  decision to take first. Until then the pick shows on Today, which links to the family page.
 
 ## 3. Referral-use notifications + thank-you messages
 
@@ -658,7 +676,7 @@ Each step is one reviewable PR, ordered by value ÷ effort and by dependency.
 | 3 | **Referral share-out** (§3.1) + go-home thank-you reminder (§3.2). **Built 2026-10-11** (End-State guide §32, §19, §20) | No (projection only) | S |
 | 4 | **Level 0 links**: stored payment link (§4) + Jotform contract forms list and prefilled send (§2.1, §2.1a) | No | S–M |
 | 4b | **Connect Jotform** (§2.1b): form picker + field matching from her API key; key on device or Worker per D16 | No, or Worker after 5 | S |
-| 4c | **Pick to send** (§2.6): from a waitlist pick, edit the sale in a modal, make the contract, send invoice + contract link (+ payment link after 6) in one message | No (D19 email: Worker) | M |
+| 4c | **Pick to send** (§2.6): from a waitlist pick, edit the sale in a modal, make the contract, send invoice + contract link (+ payment link after 6) in one message. **Built 2026-10-11** (End-State guide §29), except D19 | No (D19 email: Worker) | M |
 | 5 | **Integration plumbing** (§0): `int_connections`, `int_events`, hooks routes, `integrationEvents.js` reducer | Worker | M |
 | 6 | **Stripe Connect + Square** payment links with paid webhooks (§4), auto fee capture into §5 | Worker | L |
 | 7 | **Jotform Level 1** webhook → Contract signed (§2.1) | Worker | S (after 5) |
@@ -713,11 +731,11 @@ every new FK lands in `referenceRegistry.js` + the guide; every Worker table is 
 | D13 | Is the form-type list right (pet home, breeding rights, deposit, co-own, stud, lease, foster, other)? Pet home vs breeding rights both map to a `sale` contract, told apart by the Sale's registration, rather than splitting `CONTRACT_TYPE` | Yes; keep `CONTRACT_TYPE` as is |
 | D14 | Fields by **fixed names** she copies into Jotform's Unique Name, or a per-form **field map** she fills in? | Fixed names in step 4 (nothing to map; a missing field is just skipped); step 4b adds a per-form `field_map` filled by automatic matching from the API, falling back to the fixed names |
 | D15 | Cloud tier for `contract_forms` and `esign_form_label` | Cloud: her form links are already public URLs and the label is hers (matches D9 for e-sign refs) |
-| D17 | **Open (§2.6).** "Approve sale": a new stored state, or is saving the sale step her approval? | No new state, unless the family's status page should show "paperwork sent" |
-| D18 | **Open (§2.6).** How the invoice PDF goes with the message | Share sheet with the PDF attached where supported; else Download + Copy; never through our mailer |
-| D19 | **Open (§2.6).** Tell her when a family picks: an email from the Worker linking to their page (reopens W2's "no notifications") | Yes, opt-in, a one-line email with no details; web push later if ever |
-| D20 | **Open (§2.6).** Where "deposit request sent" is recorded | On the offer (`deposit_request_sent_date`, plain, cloud) + the message in the entry's `messages[]` |
-| D21 | **Open (§2.6).** Payment instructions in the message before §4: the waitlist config's fee payment text, or a new "deposit instructions" text? | Reuse her payment text, editable in the message |
+| D17 | **Taken as recommended (2026-10-11).** "Approve sale": a new stored state, or is saving the sale step her approval? | No new state, unless the family's status page should show "paperwork sent" |
+| D18 | **Taken as recommended (2026-10-11).** How the invoice PDF goes with the message | Share sheet with the PDF attached where supported; else Download + Copy; never through our mailer |
+| D19 | **Open again (§2.6 as built).** Tell her when a family picks: an email from the Worker linking to their page (reopens W2's "no notifications") | Wanted, but the server holds no readable email for her account: needs her to give a notify-me address the server may keep. Decide that first |
+| D20 | **Taken as recommended (2026-10-11).** Where "deposit request sent" is recorded | On the offer (`deposit_request_sent_date`, plain, cloud) + the message in the entry's `messages[]` |
+| D21 | **Taken as recommended (2026-10-11).** Payment instructions in the message before §4: the waitlist config's fee payment text, or a new "deposit instructions" text? | Reuse her payment text, editable in the message |
 | D16 | **Open.** Where a Jotform API key lives (§2.1b): on her device (`device_secrets`) or on the Worker (`int_connections`)? | Device if a browser call to the API works (CORS), else Worker; decide with one test call before step 4b |
 
 ---

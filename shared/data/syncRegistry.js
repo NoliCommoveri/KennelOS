@@ -308,7 +308,10 @@ export const SYNC_REGISTRY = Object.freeze({
       'entry_id', 'litter_id', 'kennel_id', 'offered_date', 'respond_by_date',
       'eligible_dog_ids', 'outcome', 'outcome_date', 'chosen_dog_id', 'counts_as_pass',
       'picked_date', 'sale_id', // §9: "every field except notes"
-      'turn_id' // the turn the row belongs to (Spec §16.1): how the list ran, like outcome
+      'turn_id', // the turn the row belongs to (Spec §16.1): how the list ran, like outcome
+      // When she sent the family their deposit request (Integrations plan §2.6, D20):
+      // a date, like picked_date.
+      'deposit_request_sent_date'
     ],
     // pass_reason: the family's own reason for a pass (Spec §16.5, decided private:
     // it can name money or health).

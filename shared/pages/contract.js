@@ -12,11 +12,8 @@ import { studServiceRepo } from '../data/studServiceRepo.js';
 import { dogRepo } from '../data/dogRepo.js';
 import { contactRepo } from '../data/contactRepo.js';
 import { documentRepo } from '../data/documentRepo.js';
-import { kennelRepo } from '../data/kennelRepo.js';
-import { accountRepo } from '../data/accountRepo.js';
-import { allForms, rankForms, prefillValues, prefillUrl, formProvider, splitName, signatureMessage } from '../data/contractForms.js';
-import { incomeLineItems, paidOnSale, getSaleFeeCredit } from '../data/incomeView.js';
-import { todayYMD } from '../data/dateUtils.js';
+import { rankForms, splitName, signatureMessage } from '../data/contractForms.js';
+import { SENDABLE_STATUSES, loadContractForms, gatherContractFacts, buildSignatureLink, markContractSent } from '../data/contractSend.js';
 import { editionFlags } from '../data/editionConfig.js';
 import { CONTRACT_TYPE, CONTRACT_STATUS, CONTRACT_FORM_TYPE, SEX, descriptor } from '../data/vocab.js';
 import { esc, badge, fmtDate, param, confirmModal, alertModal } from '../assets/ui.js';
@@ -297,7 +294,6 @@ function readForm() {
 
 // --- Actions -------------------------------------------------------------
 // Contract forms live on Accounts, so they're offered wherever Accounts is.
-const SENDABLE_STATUSES = ['draft', 'sent', 'declined'];
 const canSend = (c) => editionFlags.accounts && SENDABLE_STATUSES.includes(c?.status || 'draft');
 
 function renderProfileActions() {
@@ -422,38 +418,6 @@ async function doDelete() {
 
 // --- Send for signature (Integrations plan §2.1a) -----------------------------
 
-// The records a contract reaches, for its prefilled link.
-async function gatherFacts(c) {
-  const sale = ctx.allSales.find((s) => s.id === c.related_sale_id) || null;
-  const ss = ctx.allStudServices.find((s) => s.id === c.related_stud_service_id) || null;
-  const puppy = sale ? ctx.dogsById.get(sale.dog_id) : null;
-  let balanceDue = null;
-  if (sale) {
-    const feeCredit = await getSaleFeeCredit(sale.id);
-    const total = incomeLineItems('sale', sale, { feeCredit }).reduce((t, x) => t + x.amount, 0);
-    balanceDue = Math.max(0, total - paidOnSale(sale, { feeCredit }));
-  }
-  // Outgoing: our dog is the stud. Incoming: our dog is the dam.
-  const ours = ss ? ctx.dogsById.get(ss.our_dog_id) : null;
-  const theirs = ss ? ctx.dogsById.get(ss.partner_dog_id) : null;
-  const incoming = ss?.direction === 'incoming';
-  const partnerId = ss ? ss.partner_contact_id : c.related_contact_id;
-  return {
-    contract: c,
-    kennel: c.kennel_id ? await kennelRepo.getById(c.kennel_id) : null,
-    today: todayYMD(),
-    sale, puppy, balanceDue,
-    buyer: sale ? ctx.contactsById.get(sale.buyer_contact_id) : null,
-    sire: puppy?.sire_id ? ctx.dogsById.get(puppy.sire_id) : null,
-    dam: puppy?.dam_id ? ctx.dogsById.get(puppy.dam_id) : null,
-    studService: ss,
-    studDog: incoming ? theirs : ours,
-    studDam: incoming ? ours : theirs,
-    partner: partnerId ? ctx.contactsById.get(partnerId) : null,
-    dog: c.related_dog_id ? ctx.dogsById.get(c.related_dog_id) : null
-  };
-}
-
 // Pick a form, see what it fills. → Promise<form | null>.
 function pickForm(c, ranked, facts) {
   return new Promise((resolve) => {
@@ -469,8 +433,7 @@ function pickForm(c, ranked, facts) {
       <input type="radio" name="cf-pick" value="${esc(f.id)}"${f === picked ? ' checked' : ''}>
       <span>${esc(f.label)} ${badge(CONTRACT_FORM_TYPE, f.form_type)}${f.account_name ? ` <span class="muted" style="font-size:13px;">· ${esc(f.account_name)}</span>` : ''}</span></label>`;
     const draw = () => {
-      const values = prefillValues(picked.form_type, facts);
-      const url = prefillUrl(picked.url, values);
+      const { values, url } = buildSignatureLink(picked, facts);
       overlay.innerHTML = `<div class="modal" role="dialog" aria-modal="true" style="max-width:620px;">
         <h2 style="margin-top:0;">Send for signature</h2>
         <p class="field-hint" style="margin-top:0;">Pick the form to send. The details below go into it, in the link itself.</p>
@@ -506,7 +469,7 @@ function pickForm(c, ranked, facts) {
 async function sendForSignature(c) {
   clearError();
   try {
-    const forms = allForms(await accountRepo.getAll());
+    const forms = await loadContractForms();
     if (!forms.length) {
       await alertModal({
         title: 'No contract forms yet',
@@ -514,7 +477,7 @@ async function sendForSignature(c) {
       });
       return;
     }
-    const facts = await gatherFacts(c);
+    const facts = await gatherContractFacts(c);
     const sale = facts.sale;
     const choice = await pickForm(c, rankForms(forms, c, sale), facts);
     if (!choice) return;
@@ -535,13 +498,7 @@ async function sendForSignature(c) {
       hint: 'Once you\'ve sent it, the contract is marked Sent. Mark it Signed when it comes back.'
     });
     if (!used) return;
-    ctx.original = await contractRepo.update(c.id, {
-      status: c.status === 'draft' || c.status === 'declined' ? 'sent' : c.status,
-      esign_provider: formProvider(choice.form.url),
-      esign_url: choice.url,
-      esign_sent_date: todayYMD(),
-      esign_form_label: choice.form.label
-    });
+    ctx.original = await markContractSent(c, choice.form, choice.url);
     renderAll();
   } catch (e) {
     showError(e.message || String(e));

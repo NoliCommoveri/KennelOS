@@ -329,6 +329,7 @@ export const CLOUD_FIELDS = {
         "chosen_dog_id",
         "counts_as_pass",
         "created_at",
+        "deposit_request_sent_date",
         "eligible_dog_ids",
         "entry_id",
         "id",
