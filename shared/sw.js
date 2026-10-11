@@ -106,6 +106,7 @@ const PRECACHE_URLS = [
   'data/importExport.js',
   'data/license.js',
   'data/incomeView.js',
+  'data/jotformMatch.js',
   'data/kennelCard.js',
   'data/kennelRepo.js',
   'data/kennelScope.js',
