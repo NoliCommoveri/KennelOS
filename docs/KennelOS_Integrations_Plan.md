@@ -6,8 +6,9 @@
 > waitlist embedded on breeders' own websites, (2) Jotform / DocuSign contracts, (3) referral-use
 > notifications + thank-yous, (4) payment links through the breeder's own Stripe / Square, and
 > (5) processing fees on sales (e.g. Good Dog's 6.25%). §8 records the decisions taken.
-> §2.1a (Jotform contract forms, as the breeder sees them) was added 2026-10-11 and is
-> **proposed, not yet approved**: its decisions D12–D15 are open in §8.
+> §2.1a (Jotform contract forms, as the breeder sees them) was added 2026-10-11, with the
+> optional **Connect Jotform** API layer (§2.1b). D12–D15 were taken as recommended on the
+> go-ahead to build step 4; D16 (where a Jotform API key lives) stays open until §2.1b is built.
 > Still open inside a step: DocuSign's own-key vs Partner Program route (only if D5 ever
 > brings DocuSign in), and confirming Stripe / Square live-animal terms before step 6 (D8).
 >
@@ -171,7 +172,7 @@ vocab is needed beyond the provider fields in §2.4.
   facts. A prefilled field the buyer can edit should be **read-only** in her form; that's a
   Jotform form setting, and our setup notes say so.
 
-### 2.1a Contract forms, as the breeder sees them (proposed 2026-10-11, D12–D15)
+### 2.1a Contract forms, as the breeder sees them (2026-10-11, D12–D15)
 
 **The goal, in her words:** keep links to *several* Jotform forms (a pet home contract, a
 breeding rights contract, a stud contract, a co-own contract…), none of them built in; and when
@@ -258,6 +259,46 @@ on the Accounts page →". **No form of a matching type** → the picker opens o
 (The exact list is settled in the build; it's what the pure builder's allow-list holds, tested
 the way `companionExport.js`'s is. Names are split first / last because Jotform's Full Name
 field prefills as two parts, *unverified*.)
+
+### 2.1b Connect Jotform: pick forms and match fields from the API (optional layer, after step 4)
+
+Jotform's REST API (*unverified from this build environment, which can't reach jotform.com;
+re-check the docs and run one test call before building*) can do the two fiddly parts of §2.1a
+for her:
+
+- **Auth:** an API key she makes in her Jotform settings, **read-only** or **full access**,
+  sent as a header or query parameter. EU and HIPAA accounts use their own base URLs
+  (`eu-api.jotform.com`, `hipaa-api.jotform.com`), so setup asks which (or tries each).
+- **`GET /user/forms`:** her forms (id, title, status, URL).
+- **`GET /form/{id}/questions`:** each field's label, type (text, email, full name, signature…)
+  and **unique name**, which is what a prefill URL uses.
+- **`/form/{id}/webhooks`:** registering one needs a full-access key; that's step 7's Level 1.
+- Daily call limits depend on her plan; a forms refresh is a handful of calls.
+- **Jotform Sign** still has no send API, so nothing changes there.
+
+**What it changes for her:**
+1. **Pick instead of paste.** **Connect Jotform** (paste the key once) turns **+ Add another
+   contract form** into a list of her real forms; she still chooses the form type, and the
+   label defaults to the form's title. Pasted rows (§2.1a) and picked rows share the list.
+2. **Automatic field matching (instead of renaming fields, D14).** We read the form's fields
+   and suggest a match per KennelOS fact by type and label ("Buyer email → *Email*", "Puppy
+   name → *Puppy's Name*"); she confirms or corrects it once per form. The row gains an optional
+   `field_map: { <our fact>: <her unique name> }`; facts with no map entry fall back to the fixed
+   names, so pasted rows keep working. We can also warn when a form has no signature field or
+   no buyer email.
+3. **One-tap webhook** at Level 1 (step 7), with a full-access key.
+
+**Trade-offs (D16):**
+- **Where the key lives.** On her device (`device_secrets`, never in a backup or snapshot)
+  needs no server, but only works if Jotform's API answers browser calls (CORS; its old
+  JavaScript SDK ran in the browser, which suggests yes, *unverified*). On the Worker
+  (`int_connections`, step 5) always works, but makes this Pro + cloud and waits for step 5.
+- **What the key can see.** Even a read-only key reads **all her form submissions**, other
+  people's personal data. Setup says so plainly (the D1 notice).
+- **Paste stays.** Breeders who won't hand over a key keep the §2.1a paste-a-link path.
+
+**Recommendation:** ship §2.1a first (step 4), then a one-call browser test of `GET /user/forms`
+from a real page decides D16: device if it works, Worker if not.
 
 ### 2.2 DocuSign: what the research says
 - The eSignature REST API does exactly what she wants: **create an envelope from a template,
@@ -515,6 +556,7 @@ Each step is one reviewable PR, ordered by value ÷ effort and by dependency.
 | 2 | **Waitlist embed** (§1): CSP opt-in, `?embed=1`, `embed.js`, "Add to your website" card. **Built 2026-10-10** (End-State guide §29, "On your website") | Worker (small) | S |
 | 3 | **Referral share-out** (§3.1) + go-home thank-you reminder (§3.2). **Built 2026-10-11** (End-State guide §32, §19, §20) | No (projection only) | S |
 | 4 | **Level 0 links**: stored payment link (§4) + Jotform contract forms list and prefilled send (§2.1, §2.1a) | No | S–M |
+| 4b | **Connect Jotform** (§2.1b): form picker + field matching from her API key; key on device or Worker per D16 | No, or Worker after 5 | S |
 | 5 | **Integration plumbing** (§0): `int_connections`, `int_events`, hooks routes, `integrationEvents.js` reducer | Worker | M |
 | 6 | **Stripe Connect + Square** payment links with paid webhooks (§4), auto fee capture into §5 | Worker | L |
 | 7 | **Jotform Level 1** webhook → Contract signed (§2.1) | Worker | S (after 5) |
@@ -561,14 +603,15 @@ every new FK lands in `referenceRegistry.js` + the guide; every Worker table is 
 | D10 | Index `Sale.sales_channel_account_id` (filter Financials by channel) or keep it plain? | Index it (a "Good Dog sales" filter is likely wanted); additive `version(N)` block |
 | D11 | Fee as a negative income component (recommended) or an Expense row? Show "includes fee" on the invoice? | Income component; invoice line off by default |
 
-**Open, proposed 2026-10-11 (§2.1a, Jotform contract forms):**
+**Jotform contract forms (§2.1a / §2.1b), proposed 2026-10-11; D12–D15 taken as recommended on the go-ahead to build step 4:**
 
 | # | Question | Recommendation |
 |---|---|---|
 | D12 | Store her contract forms as an array on the Jotform Account, or as a new `contract_forms` table (own repo, FK → Account)? | Array on the Account: it's a short list of values belonging to one vendor, and the Contract snapshots what it sent instead of pointing at a row |
 | D13 | Is the form-type list right (pet home, breeding rights, deposit, co-own, stud, lease, foster, other)? Pet home vs breeding rights both map to a `sale` contract, told apart by the Sale's registration, rather than splitting `CONTRACT_TYPE` | Yes; keep `CONTRACT_TYPE` as is |
-| D14 | Fields by **fixed names** she copies into Jotform's Unique Name, or a per-form **field map** she fills in? | Fixed names now (nothing to map; a missing field is just skipped); add an optional per-form rename later only if breeders ask |
+| D14 | Fields by **fixed names** she copies into Jotform's Unique Name, or a per-form **field map** she fills in? | Fixed names in step 4 (nothing to map; a missing field is just skipped); step 4b adds a per-form `field_map` filled by automatic matching from the API, falling back to the fixed names |
 | D15 | Cloud tier for `contract_forms` and `esign_form_label` | Cloud: her form links are already public URLs and the label is hers (matches D9 for e-sign refs) |
+| D16 | **Open.** Where a Jotform API key lives (§2.1b): on her device (`device_secrets`) or on the Worker (`int_connections`)? | Device if a browser call to the API works (CORS), else Worker; decide with one test call before step 4b |
 
 ---
 
