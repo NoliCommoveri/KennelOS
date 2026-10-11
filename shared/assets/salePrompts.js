@@ -1,12 +1,12 @@
-// saleRelease.js — settling the pup when a sale ends without it staying placed
+// salePrompts.js — settling the pup when a sale ends without it staying placed
 // (Returned / Cancelled / Voided): record its death, put it on Health hold, set its
 // disposition back, or bring a returned pup back as a puppy. Each step is an
 // optional prompt. Shared by the Sale page (as she edits the status) and the
 // waitlist family's page ("End the sale…", waitlistUI.endSaleDialog), so the two
 // always do the same thing. The Sale page also uses promptDisposition on a new sale.
 import { dogRepo } from '../data/dogRepo.js';
-import { SALE_STATUS, DISPOSITION, DOG_STATUS, descriptor } from '../data/vocab.js';
-import { todayYMD, selectModal, promptModal } from './ui.js';
+import { SALE_STATUS, DISPOSITION, DOG_STATUS, REGISTRATION_TYPE, descriptor } from '../data/vocab.js';
+import { todayYMD, fmtMoney, selectModal, promptModal, confirmModal } from './ui.js';
 
 // Offer to set the sold dog's disposition (breeder intent). `defaultValue` seeds
 // the dropdown (Placed on a new sale; Available when a sale falls through). Skips
@@ -82,4 +82,21 @@ async function promptBackAsPuppy(sale, health, onError) {
     onError(`${dog.call_name} wasn't updated: ${e.message || e} Change it on the dog's page.`);
   }
   return true;
+}
+
+// A sale's registration changed (decided 2026-10-11): ask whether its price follows.
+// `change` is saleDefaults.priceForRegistrationChange's result. Resolves the new
+// price, or null to keep the price as it is. A sale with no price yet just takes
+// the new expected price, no question asked.
+export async function askRegistrationPrice(change, fromReg, toReg) {
+  if (!change) return null;
+  if (change.from == null) return change.to;
+  if (change.from === change.to) return null;
+  const label = (r) => (r ? descriptor(REGISTRATION_TYPE, r).label : 'No registration');
+  const ok = await confirmModal({
+    title: 'Update the price?',
+    message: `${label(fromReg)} → ${label(toReg)} ${change.delta > 0 ? 'adds' : 'takes off'} ${fmtMoney(Math.abs(change.delta))} on this litter's expected prices (its Full-registration surcharge). Change the price from ${fmtMoney(change.from)} to ${fmtMoney(change.to)}?`,
+    confirmLabel: `Make it ${fmtMoney(change.to)}`, cancelLabel: `Keep ${fmtMoney(change.from)}`
+  });
+  return ok ? change.to : null;
 }

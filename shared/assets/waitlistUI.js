@@ -19,7 +19,7 @@ import { markSoonNotified, recordPick, recordOutcome, confirmDeposit, changePick
 import { kennelRepo } from '../data/kennelRepo.js';
 import { saleRepo } from '../data/saleRepo.js';
 import { SALE_STATUS, saleEndReasonsFor } from '../data/vocab.js';
-import { promptReleasedPup } from './saleRelease.js';
+import { promptReleasedPup } from './salePrompts.js';
 import { contactRepo } from '../data/contactRepo.js';
 import { dogRepo } from '../data/dogRepo.js';
 import { litterRepo } from '../data/litterRepo.js';
@@ -500,7 +500,7 @@ export async function restoreLostPupDialog({ saleId, asStatus = null }) {
 // editing the sale's status on the Sale page, and it does what that does next.
 // The sale becomes Voided (the pup died, failed a health check, or another reason
 // on your side) or, for a placed family, Cancelled (they backed out); a delivered
-// sale becomes Returned instead. Then the pup is settled (saleRelease: record its
+// sale becomes Returned instead. Then the pup is settled (salePrompts: record its
 // death, Health hold, …) and, for a lost pup, she's asked whether to put the family
 // back in line (restoreLostPupDialog). `onError(message)` shows a dog update that
 // failed. Resolves true once the sale is ended, false when she cancels.

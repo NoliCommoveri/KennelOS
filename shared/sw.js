@@ -43,7 +43,7 @@ const PRECACHE_URLS = [
   'assets/reportView.js',
   'assets/chartView.js',
   'assets/printView.js',
-  'assets/saleRelease.js',
+  'assets/salePrompts.js',
   'assets/sampleDataUI.js',
   'assets/timeline.js',
   'assets/licenseGate.js',

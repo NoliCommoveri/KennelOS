@@ -2,7 +2,7 @@
 // (contracts.related_sale_id = this sale — canonical on Contract, never a
 // Sale.contract_id, Stage4 Revision v2 §5). Buyer is a Contact (no Buyer table).
 import { saleRepo, ReferenceBlockedError } from '../data/saleRepo.js';
-import { expectedPricing } from '../data/saleDefaults.js';
+import { expectedPricing, priceForRegistrationChange } from '../data/saleDefaults.js';
 import { contractRepo } from '../data/contractRepo.js';
 import { dogRepo } from '../data/dogRepo.js';
 import { contactRepo } from '../data/contactRepo.js';
@@ -11,7 +11,7 @@ import { accountRepo } from '../data/accountRepo.js';
 import { feeRate, isUsableRate, processingFee, priceToNet, netOf, rateLabel } from '../data/processingFees.js';
 import { isOpenSale, REGISTRATION_TYPE, SALE_STATUS, RELEASED_SALE_STATUSES, SALE_END_REASON, saleEndReasonsFor, CONTRACT_TYPE, CONTRACT_STATUS, BOARDING_FREQUENCY_OPTIONS, descriptor } from '../data/vocab.js';
 import { restoresFamily } from '../data/waitlistRules.js';
-import { promptDisposition, promptReleasedPup } from '../assets/saleRelease.js';
+import { promptDisposition, promptReleasedPup, askRegistrationPrice } from '../assets/salePrompts.js';
 import { esc, badge, fmtDate, fmtMoney, todayYMD, param, confirmModal, dogRefHtml } from '../assets/ui.js';
 import { openEventForm } from '../assets/eventForm.js';
 import { attachNewContactButton } from '../assets/contactPicker.js';
@@ -386,17 +386,18 @@ function renderEdit() {
     applySuggestedFee();
     renderEdit();
   });
-  // A registration change moves a price still at its prefilled amount to the
-  // new registration's (the Full surcharge comes or goes); a price she typed stays.
-  document.getElementById('f-registration_type').addEventListener('change', () => {
+  // A registration change asks whether the price follows (decided 2026-10-11):
+  // the Full surcharge comes or goes on top of the price as it stands, so a
+  // discount she gave stays (saleDefaults.priceForRegistrationChange).
+  document.getElementById('f-registration_type').addEventListener('change', async () => {
     const was = ctx.draft.registration_type;
     ctx.draft = readForm();
     const dog = ctx.dogsById.get(ctx.draft.dog_id);
     const litter = dog && dog.litter_id ? ctx.littersById.get(dog.litter_id) : null;
     if (litter) {
-      const before = expectedPricing(dog, litter, was).price;
-      const after = expectedPricing(dog, litter, ctx.draft.registration_type).price;
-      if (before != null && Number(ctx.draft.price) === Number(before)) ctx.draft.price = after;
+      const change = priceForRegistrationChange(dog, litter, ctx.draft.price, was, ctx.draft.registration_type);
+      const price = await askRegistrationPrice(change, was, ctx.draft.registration_type);
+      if (price != null) ctx.draft.price = price;
     }
     applySuggestedFee();
     renderEdit();
