@@ -82,6 +82,7 @@ const PRECACHE_URLS = [
   'data/companionExport.js',
   'data/contactRepo.js',
   'data/contractRepo.js',
+  'data/contractForms.js',
   'data/csvImport.js',
   'data/calendarMath.js',
   'data/dateUtils.js',

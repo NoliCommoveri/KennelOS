@@ -234,7 +234,7 @@ distinction and the Contract itself stays `sale`; no `CONTRACT_TYPE` change (D13
 4. It opens the existing message composer (`assets/messageComposer.js`) with a short message
    and the link: **Email** (`mailto:` to the buyer's address), **Text** (`sms:`), or **Copy**.
 5. The Contract becomes `sent`, with `esign_provider = 'jotform'`, `esign_url` (the link sent),
-   `esign_sent_at`, and `esign_form_label` (a snapshot of the label, so renaming or deleting
+   `esign_sent_date`, and `esign_form_label` (a snapshot of the label, so renaming or deleting
    the form later never changes what the contract says was sent). **Copy link again** stays on
    the contract while it's `sent`.
 6. She marks it **Signed** herself (Level 0), or step 7's webhook does it (Level 1).
@@ -259,6 +259,28 @@ on the Accounts page →". **No form of a matching type** → the picker opens o
 (The exact list is settled in the build; it's what the pure builder's allow-list holds, tested
 the way `companionExport.js`'s is. Names are split first / last because Jotform's Full Name
 field prefills as two parts, *unverified*.)
+
+**As built (step 4, Jotform part, 2026-10-11)** (End-State guide §32, "Contract forms"). As
+above, with these details settled in the build:
+- `contractForms.js` is the pure builder (`cleanForms`, `allForms`, `rankForms`,
+  `prefillValues`, `prefillUrl`, `signatureMessage`); `PREFILL_FIELDS` is the allow-list and
+  the Accounts page's field-name panel.
+- **Field names differ a little from the list above:** sale forms also get `buyerName`,
+  `puppyRegisteredName` and `contractTitle`; stud forms use `studServiceRef`,
+  `studRegisteredName`, `damRegisteredName` and `partnerName` / `partnerFirstName` /
+  `partnerLastName` / `partnerEmail` / `partnerPhone` / `partnerAddress` for the other party
+  (whichever direction); co-own / lease / foster / other use the same `partner…` names plus
+  `dogSex` / `dogDob`. `kennelLocation` / `kennelWebsite` replace breeder name / email / phone,
+  which the kennel record doesn't hold.
+- **`esign_sent_date`**, not `esign_sent_at`: a date-only field, like every date the app keeps.
+- **`esign_url` is private tier**, an exception to D9 ("e-sign refs cloud"): a Jotform link
+  carries the buyer's name, email, phone, address and price in it. `esign_provider`,
+  `esign_form_label` and `esign_sent_date` are cloud; so is `contract_forms` (D15). Step 7's
+  webhook matches by the `contractRef` in the submission, so it never needs the URL.
+- The provider is read from the link's host: `jotform` for jotform.com, else `link` (any form
+  that takes URL parameters works the same way).
+- Sending only marks the contract `sent` once she used Email, Text or Copy in the composer.
+- Not built yet: the stored payment link half of step 4 (§4 Level 0).
 
 ### 2.1b Connect Jotform: pick forms and match fields from the API (optional layer, after step 4)
 

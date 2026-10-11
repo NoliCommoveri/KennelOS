@@ -185,6 +185,9 @@ export const CLOUD_FIELDS = {
       "keys": [
         "contract_type",
         "created_at",
+        "esign_form_label",
+        "esign_provider",
+        "esign_sent_date",
         "id",
         "is_archived",
         "kennel_id",
@@ -259,6 +262,7 @@ export const CLOUD_FIELDS = {
     "accounts": {
       "keys": [
         "account_type",
+        "contract_forms",
         "created_at",
         "fee_fixed",
         "fee_passed_to_buyer_default",
