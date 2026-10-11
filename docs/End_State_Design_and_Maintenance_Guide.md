@@ -348,6 +348,7 @@ KennelOS/
                                device / not now), approve another device, passkeys, new
                                recovery code, turn off. Loaded by
                                cloudBackupUI.js only, on first use
+    saleRelease.js             Settle the pup when a sale ends (death / disposition / back as puppy)
     sampleDataUI.js            Sample-data banner + Clear-sample-data flow
     kennelSetupUI.js           Kennel-setup prompt/wizard + seed prefill
     wizardUI.js                Guided-tour overlay/spotlight/cards + resume pill (§11)
@@ -3470,7 +3471,14 @@ shown (`describeOfferChanges`).
   record the death for `pup_died`, Health hold for a health reason, or bring a returned
   Pet-home/External pup back as a puppy), via `waitlistUI.restoreLostPupDialog`, imported
   dynamically only when `editionFlags.waitlist`; the family's page shows **Pup lost** with
-  **Put back in line…** / **Give their turn back…** until she does.
+  **Put back in line…** / **Give their turn back…** until she does. The pup-settling prompts
+  live in `assets/saleRelease.js` (`promptReleasedPup`, `promptDisposition`), shared by
+  **sale.js** and the family's page: its **End the sale…** button (decided 2026-10-11; shown
+  for the sale they're placed with, or the sale holding their open-turn pick, while it hasn't
+  ended) runs `waitlistUI.endSaleDialog` — the sale becomes Voided with a reason (Pup died /
+  Failed a health check / Other), Cancelled ("they backed out", placed families only), or
+  Returned with a reason when it was delivered — then the same settle-the-pup prompts and
+  `restoreLostPupDialog` the Sale page asks.
 
 ### Surfaces (W1b)
 - **W1e (the waitlist as the main workflow, Spec §15.2):** the Waitlist page gains a
