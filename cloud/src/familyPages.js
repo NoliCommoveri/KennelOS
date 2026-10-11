@@ -17,6 +17,12 @@
 //   POST /f/act, /f/message    what a signed-in family does on their page (familyActions.js)
 // A status view also lists the emails she sent that family (`emails`, step 6).
 //
+// Embedding (docs/KennelOS_Integrations_Plan.md §1): /apply and /list may be shown
+// inside her own website, in a frame, only while her projection carries
+// `kennel.embed` (she switched it on). `frame-ancestors` then names the site
+// addresses she listed, or any site when she listed none. The status page never
+// can be framed: it holds one family's private details.
+//
 // Everything a family sees is cut from what her device published, field by field
 // (statusView, listView). The server never computes a position or an offer.
 // Never logged: a token, an email, a request body (plan §6.4).
@@ -51,16 +57,32 @@ const OPEN_STATUSES = ['applied', 'approved', 'active'];
 
 // Pages carry a bearer token in their address: no referrer, no indexing, nothing
 // but this origin's own files.
+const pageCsp = (frameAncestors = "'none'") => `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors ${frameAncestors}`;
 const PAGE_HEADERS = {
   'referrer-policy': 'no-referrer',
   'x-robots-tag': 'noindex, nofollow',
   'x-content-type-options': 'nosniff',
-  'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  'content-security-policy': pageCsp(),
 };
 
 // The form page also loads Cloudflare Turnstile (its spam check) when it's set up.
 const TURNSTILE_ORIGIN = 'https://challenges.cloudflare.com';
-const APPLY_CSP = `default-src 'none'; script-src 'self' ${TURNSTILE_ORIGIN}; frame-src ${TURNSTILE_ORIGIN}; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`;
+const applyCsp = (frameAncestors = "'none'") => `default-src 'none'; script-src 'self' ${TURNSTILE_ORIGIN}; frame-src ${TURNSTILE_ORIGIN}; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors ${frameAncestors}`;
+
+// Who may show a kennel's /apply and /list pages in a frame: `'none'` unless her
+// projection switched embedding on (`kennel.embed`), then the site addresses she
+// listed, or any site when she listed none. Each address is checked here, since it
+// goes into a header: a scheme and host (and port), nothing else. A list with no
+// valid address at all stays `'none'` rather than opening to every site.
+export const EMBED_ORIGINS_MAX = 10;
+const EMBED_ORIGIN = /^https?:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*(:\d{1,5})?$/;
+export function frameAncestors(embed) {
+  if (!embed || typeof embed !== 'object' || Array.isArray(embed)) return "'none'";
+  const listed = Array.isArray(embed.origins) ? embed.origins : [];
+  const valid = [...new Set(listed.filter((o) => typeof o === 'string' && EMBED_ORIGIN.test(o)))].slice(0, EMBED_ORIGINS_MAX);
+  if (valid.length) return valid.join(' ');
+  return listed.length ? "'none'" : '*';
+}
 
 async function fromAssets(env, request, path, extra = {}) {
   if (!env.ASSETS) return null;
@@ -109,21 +131,26 @@ export function previewTags({ title, description, url, image }) {
   ].join('\n');
 }
 
-async function kennelNameOf(env, publicId) {
-  if (!env.DB || !PUBLIC_ID.test(publicId)) return '';
+// What a /list or /apply page needs from her projection before it's served: the
+// kennel's name (for the link preview) and whether, and where, it may be framed.
+async function kennelPageInfo(env, publicId) {
+  const none = { name: '', embed: null };
+  if (!env.DB || !PUBLIC_ID.test(publicId)) return none;
   try {
-    const row = await env.DB.prepare("SELECT json_extract(body, '$.kennel.name') AS name FROM wl_projection WHERE public_id = ?").bind(publicId).first();
-    return typeof row?.name === 'string' ? row.name : '';
+    const row = await env.DB.prepare("SELECT json_extract(body, '$.kennel.name') AS name, json_extract(body, '$.kennel.embed') AS embed FROM wl_projection WHERE public_id = ?").bind(publicId).first();
+    let embed = null;
+    try { embed = row?.embed ? JSON.parse(row.embed) : null; } catch { embed = null; }
+    return { name: typeof row?.name === 'string' ? row.name : '', embed };
   } catch {
-    return ''; // schema not there yet (503 gate): the generic card
+    return none; // schema not there yet (503 gate): the generic card, never framed
   }
 }
 
-async function withPreview(res, env, url, kind, publicId) {
+async function withPreview(res, url, kind, kennelName) {
   if (!res) return res;
   const html = await res.text();
   if (!PREVIEW_MARK.test(html)) return new Response(html, { status: res.status, headers: res.headers });
-  const { title, description } = previewText(kind, await kennelNameOf(env, publicId));
+  const { title, description } = previewText(kind, kennelName);
   const tags = previewTags({ title, description, url: url.origin + url.pathname, image: url.origin + PREVIEW_IMAGE });
   const out = html.replace(/<title>[^<]*<\/title>/, `<title>${escHtml(title)}</title>`).replace(PREVIEW_MARK, tags);
   const headers = new Headers(res.headers);
@@ -138,9 +165,15 @@ export async function serveFamilyPage(request, env, url) {
   const p = url.pathname;
   // Browsers ask for this on every page; nothing to show.
   if (p === '/favicon.ico') return new Response(null, { status: 204, headers: { 'cache-control': 'public, max-age=86400' } });
-  if (LIST_PAGE.test(p)) return withPreview(await fromAssets(env, request, '/family/list.html', { 'cache-control': 'public, max-age=300' }), env, url, 'list', p.match(LIST_PAGE)[1]);
+  if (LIST_PAGE.test(p)) {
+    const info = await kennelPageInfo(env, p.match(LIST_PAGE)[1]);
+    return withPreview(await fromAssets(env, request, '/family/list.html', { 'cache-control': 'public, max-age=300', 'content-security-policy': pageCsp(frameAncestors(info.embed)) }), url, 'list', info.name);
+  }
   if (STATUS_PAGE.test(p)) return fromAssets(env, request, '/family/status.html', { 'cache-control': 'no-store' });
-  if (APPLY_PAGE.test(p)) return withPreview(await fromAssets(env, request, '/family/apply.html', { 'cache-control': 'public, max-age=300', 'content-security-policy': APPLY_CSP }), env, url, 'apply', p.match(APPLY_PAGE)[1]);
+  if (APPLY_PAGE.test(p)) {
+    const info = await kennelPageInfo(env, p.match(APPLY_PAGE)[1]);
+    return withPreview(await fromAssets(env, request, '/family/apply.html', { 'cache-control': 'public, max-age=300', 'content-security-policy': applyCsp(frameAncestors(info.embed)) }), url, 'apply', info.name);
+  }
   if (ASSET.test(p)) return fromAssets(env, request, p, { 'cache-control': 'public, max-age=300' });
   return null;
 }
@@ -223,6 +256,20 @@ export function listView(projection) {
 // pups each lists, every live litter with their place in it (never anyone
 // else's), and the public list for its tab. A family whose time on the list ended
 // sees only that.
+// Her referral links and codes she shares with families, as her device published
+// them: each field a short string, a link only when it's a web address; at most 20.
+const REC_LINK = /^https?:\/\/[^\s"'<>]{1,500}$/i;
+export function recommendedOf(projection) {
+  const list = Array.isArray(projection.kennel?.recommended) ? projection.kennel.recommended : [];
+  const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+  return list.slice(0, 20).map((r) => ({
+    name: str(r?.name, 120),
+    link: typeof r?.link === 'string' && REC_LINK.test(r.link) ? r.link : '',
+    code: str(r?.code, 80),
+    instructions: str(r?.instructions, 1000),
+  })).filter((r) => r.name && (r.link || r.code));
+}
+
 export function statusView(projection, entryId) {
   const e = projection.entries?.[entryId];
   if (!e) return null;
@@ -231,6 +278,10 @@ export function statusView(projection, entryId) {
     public_id: projection.kennel?.public_id ?? null, can_message: Boolean(projection.kennel?.message_key),
   };
   const family = { name: e.name ?? '', status: e.status };
+  // Her recommended products (Integrations plan §3): for every family, placed ones
+  // too (they're who it's for).
+  const recommended = recommendedOf(projection);
+  if (recommended.length) kennel.recommended = recommended;
   // Their Companion link request: only with an open sale, placed families too.
   if (e.companion) family.companion = e.companion;
   if (!OPEN_STATUSES.includes(e.status)) return { kennel, as_of: projection.as_of ?? null, family, offers: [], litters: [], upcoming: [], public_list: [] };

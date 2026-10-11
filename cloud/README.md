@@ -56,7 +56,10 @@ src/familyPages.js     the waitlist's family pages: serves public/family/ for /l
                        form: its JSON, and a sealed application held until the applicant
                        types the emailed code). /list and /apply carry link-preview tags
                        (Open Graph) with the kennel's name, written in at the page's
-                       <!--preview…--> marker; the card image is public/family/share.png
+                       <!--preview…--> marker; the card image is public/family/share.png.
+                       They can be framed by her own website only while her projection has
+                       kennel.embed (frameAncestors; docs/KennelOS_Integrations_Plan.md §1);
+                       public/family/embed.js is the script she pastes there
 src/familyActions.js   what a signed-in family does on their status page (POST /f/act, /f/message):
                        each action checked against her published list and recorded as an
                        event; a picked pup held (wl_holds) until her device's next publish says

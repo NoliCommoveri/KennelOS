@@ -186,3 +186,25 @@ button.linkish { font: inherit; background: none; border: 0; padding: 0; color: 
 .mt8 { margin: 8px 0 0; }
 [hidden] { display: none !important; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Embed mode (embedded.js; docs/KennelOS_Integrations_Plan.md §1): the page inside
+   her own website. Her page has its own heading and background, so ours go; the
+   cards stay. Light by default (a light site gets a light form whatever the
+   visitor's setting), `theme=dark` or `theme=auto` on request. These selectors
+   outrank the prefers-color-scheme block above. */
+html.embedded body { background: transparent; }
+html.embedded main { max-width: none; padding: 2px 2px 8px; }
+html.embedded header.page h1,
+html.embedded footer.page { display: none; }
+html.embedded.theme-light {
+  color-scheme: light;
+  --bg: #f6f7f9; --surface: #ffffff; --border: #d9dee5; --text: #1c2430; --text-muted: #5c6773;
+  --accent: #2f6f4f; --accent-soft: #e5f0ea; --warn: #8a5f17; --warn-soft: #f6eddc; --danger: #b23b3b;
+  --info: #2d5b8a; --info-soft: #e3edf7; --on-accent: #ffffff;
+}
+html.embedded.theme-dark {
+  color-scheme: dark;
+  --bg: #12161b; --surface: #1b2128; --border: #2e3741; --text: #e6eaef; --text-muted: #a3adb8;
+  --accent: #6fbf94; --accent-soft: #1f3529; --warn: #e0b56a; --warn-soft: #3a2f1b; --danger: #ef8f8f;
+  --info: #8db8e6; --info-soft: #1e2d3d; --on-accent: #0f1a14;
+}

@@ -2,9 +2,11 @@
 // Everyone on the list, however many, with a search box that filters in this
 // browser (nothing typed is sent anywhere), and "See Your Details": a family
 // signs in with a code emailed to the address on their application, and this
-// browser remembers them for 90 days.
+// browser remembers them for 90 days. Inside her own website (embedded.js), the
+// form and a family's status page open in a new tab instead.
 import { esc, fetchJson, fmtDate, loadError, publicListHtml, possessive, upcomingListHtml, availableItemHtml } from './common.js';
 import { rememberFamily, rememberedFamily, forgetFamily } from './session.js';
+import { EMBEDDED, setupEmbed, outward } from './embedded.js';
 
 const $ = (id) => document.getElementById(id);
 const publicId = decodeURIComponent(location.pathname.split('/')[2] || '');
@@ -23,11 +25,16 @@ async function showRemembered() {
   if (!saved) return false;
   const r = await fetchJson('/f/session', { method: 'POST', json: { session: saved.session } });
   if (r.status === 401) { forgetFamily(publicId); return false; }
-  const token = r.ok ? r.body.status_token : saved.statusToken;
+  showSignedIn(r.ok ? r.body.status_token : saved.statusToken);
+  return true;
+}
+
+// "You're signed in" with the button to their page.
+function showSignedIn(token) {
   $('open-mine').href = statusPath(token);
+  outward($('open-mine'));
   $('remembered').hidden = false;
   $('signin').hidden = true;
-  return true;
 }
 
 function wireSignIn(kennel) {
@@ -39,6 +46,9 @@ function wireSignIn(kennel) {
     button.disabled = false;
     if (r.ok) {
       rememberFamily(publicId, { session: r.body.session, statusToken: r.body.status_token, expiresAt: r.body.expires_at });
+      // Framed: her private page opens in its own tab, from the "Open my page" button.
+      // (Not read back from storage: a framed page's storage may be blocked.)
+      if (EMBEDDED) { showSignedIn(r.body.status_token); return; }
       location.assign(statusPath(r.body.status_token));
       return;
     }
@@ -87,6 +97,7 @@ async function load() {
   // Her online application form, when she takes applications online.
   if (kennel.apply_open) {
     $('apply-link').href = `/apply/${encodeURIComponent(publicId)}`;
+    outward($('apply-link'));
     $('apply').hidden = false;
   }
   $('content').hidden = false;
@@ -116,4 +127,5 @@ async function load() {
   }
 }
 
+setupEmbed();
 load();

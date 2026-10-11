@@ -4,10 +4,12 @@
 // offered, and the public-list notice to acknowledge. The answers are sealed in
 // this browser to her form key (seal.js) before they're sent; the applicant then
 // types the code emailed to them, which sends the application to her and signs
-// this browser in (See Your Details).
+// this browser in (See Your Details). Inside her own website (embedded.js), the
+// status page opens in a new tab instead.
 import { esc, fetchJson, loadError, possessive, SEX_LABEL, READY_LABEL, PURPOSE_LABEL } from './common.js';
 import { seal } from './seal.js';
 import { rememberFamily } from './session.js';
+import { EMBEDDED, setupEmbed, toTop, outward } from './embedded.js';
 
 const $ = (id) => document.getElementById(id);
 const publicId = decodeURIComponent(location.pathname.split('/')[2] || '');
@@ -153,7 +155,7 @@ function showConfirm(email, kennelName) {
   $('confirm').hidden = false;
   $('confirm-email').textContent = email;
   $('code').focus();
-  window.scrollTo(0, 0);
+  toTop();
 
   $('confirm-form').addEventListener('submit', async (ev) => {
     ev.preventDefault();
@@ -163,7 +165,9 @@ function showConfirm(email, kennelName) {
     button.disabled = false;
     if (r.ok) {
       rememberFamily(publicId, { session: r.body.session, statusToken: r.body.status_token, expiresAt: r.body.expires_at });
-      location.assign(`/s/${encodeURIComponent(r.body.status_token)}`);
+      const statusPath = `/s/${encodeURIComponent(r.body.status_token)}`;
+      if (EMBEDDED) { showSent(statusPath, kennelName); return; }
+      location.assign(statusPath);
       return;
     }
     const code = r.body?.error;
@@ -179,6 +183,16 @@ function showConfirm(email, kennelName) {
       : loadError(r, { notFound: 'Please try again.' });
   });
   document.title = `Confirm your application to ${kennelName}`;
+}
+
+// Embedded: the application is in. Her status page is one family's private page,
+// so it opens in its own tab, never inside the breeder's website.
+function showSent(statusPath, kennelName) {
+  $('confirm').innerHTML = `<h2>Your application is in</h2>
+    <p class="mt0">${esc(kennelName)} will review it. Your own status page shows your place in line and anything waiting for you. Bookmark it to come back.</p>
+    <div class="actions"><a class="button primary" id="open-status" href="${esc(statusPath)}">Open my status page</a></div>`;
+  outward($('open-status'));
+  toTop();
 }
 
 async function load() {
@@ -237,4 +251,5 @@ async function load() {
   });
 }
 
+setupEmbed();
 load();
