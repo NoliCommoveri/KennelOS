@@ -3471,8 +3471,11 @@ shown (`describeOfferChanges`).
   for its deposit (`editionFlags.contracts` + `invoicing`), the first button opens
   `assets/pickToSend.js`: **1. Sale** (registration, which moves a price still at its
   `expectedPricing` amount, price, deposit with its due date = the offer's
-  `respond_by_date`, read-only, transport fee, balance due date, notes; **Open the full
-  sale** for the rest), saved through `saleRepo`; **2. Contract** (her contract forms ranked
+  `respond_by_date`, read-only, transport fee, **Sold / paid through** (any account, with its
+  rate) + **Processing fee** (suggested from the channel's rate and following the price
+  until she types her own, §21.1's rule) + "passed to the buyer" (defaults from the account)
+  + "You net …" + **Price that nets you $…** (`processingFees.priceToNet`), balance due date,
+  notes; **Open the full sale** for the rest), saved through `saleRepo`; **2. Contract** (her contract forms ranked
   for the sale, or "No contract in this message"; reuses the sale's newest sendable contract,
   `contractSend.openContractForSale`, else creates a `sale` contract titled "<form label>:
   <pup>"); **3. Send** (`depositRequest.depositRequestMessage`, editable: deposit and due

@@ -1,7 +1,8 @@
 // pickToSend.js — "Review sale & send" on a waitlist family's page (Integrations
 // plan §2.6): once a family has picked a pup (its Sale is waiting for the
 // deposit), one modal takes her through
-//   1. Sale: registration, price, deposit, transport, balance due date, notes;
+//   1. Sale: registration, price, deposit, transport, sold through (Good Dog…)
+//      with its processing fee (plan §5), balance due date, notes;
 //   2. Contract: one of her contract forms (§2.1a), its link prefilled;
 //   3. Send: one message with the deposit, how to pay, the contract link and the
 //      invoice PDF, which she sends herself: the share sheet (PDF attached, where
@@ -11,6 +12,8 @@
 // goes to a server: the PDF and the link are made on her device.
 // Pro-only (proPages.PRO_ONLY_STANDALONE): only the waitlist family page opens it.
 import { saleRepo } from '../data/saleRepo.js';
+import { accountRepo } from '../data/accountRepo.js';
+import { feeRate, rateLabel, processingFee, priceToNet, netOf } from '../data/processingFees.js';
 import { dogRepo } from '../data/dogRepo.js';
 import { litterRepo } from '../data/litterRepo.js';
 import { contractRepo } from '../data/contractRepo.js';
@@ -41,6 +44,8 @@ export async function openPickToSend({ offer, entry, contact, litterLabel = '', 
   const dog = await dogRepo.getById(sale.dog_id);
   const litter = dog?.litter_id ? await litterRepo.getById(dog.litter_id) : null;
   const forms = await loadContractForms();
+  const accounts = await accountRepo.getAll({ includeArchived: true });
+  const accountsById = new Map(accounts.map((a) => [a.id, a]));
   const pupName = dog?.call_name || 'their pup';
   const who = contact ? splitName(contact.name)[0] : '';
 
@@ -79,35 +84,100 @@ export async function openPickToSend({ offer, entry, contact, litterLabel = '', 
     const field = (label, inner, hint = '') => `<div class="field"><label>${esc(label)}</label>${inner}${hint ? `<span class="field-hint">${esc(hint)}</span>` : ''}</div>`;
 
     // --- 1. Sale ---------------------------------------------------------------
+    // The channel's rate only SUGGESTS the fee (the Sale page's rule): it fills an
+    // empty fee, or one still at the amount suggested last, and follows the price.
+    let suggestedFee = null;
+    let resuggest = false; // a channel change: suggest its fee once the step redraws
+    const rateOf = (id) => feeRate(accountsById.get(id));
     function drawSale() {
       const s = sale;
+      const channelOptions = '<option value="">— sold directly —</option>' + accounts
+        .filter((a) => !a.is_archived || a.id === s.sales_channel_account_id)
+        .map((a) => { const r = feeRate(a); return `<option value="${esc(a.id)}"${a.id === s.sales_channel_account_id ? ' selected' : ''}>${esc(a.name)}${r ? ` (${esc(rateLabel(r))})` : ''}${a.is_archived ? ' (archived)' : ''}</option>`; }).join('');
+      const rate = rateOf(s.sales_channel_account_id);
       shell(`<div class="form-grid">
           ${field('Registration', `<select id="ps-reg">${REGISTRATION_TYPE.map((r) => `<option value="${esc(r.value)}"${r.value === s.registration_type ? ' selected' : ''}>${esc(r.label)}</option>`).join('')}</select>`, 'Full adds the litter\'s Full-registration surcharge to a price still at its suggested amount.')}
           ${field('Price', `<input id="ps-price" type="number" min="0" step="0.01" value="${esc(s.price ?? '')}">`)}
           ${field('Deposit', `<input id="ps-deposit" type="number" min="0" step="0.01" value="${esc(s.deposit_amount ?? '')}">`, offer.respond_by_date ? `Due by ${fmtDate(offer.respond_by_date)}, the end of their turn.` : '')}
           ${field('Transport fee', `<input id="ps-transport" type="number" min="0" step="0.01" value="${esc(s.transport_fee ?? '')}">`)}
+          ${field('Sold / paid through', `<select id="ps-channel">${channelOptions}</select>`, 'A marketplace or payment service that keeps a fee (Good Dog, Stripe…). Set its fee on the Accounts page.')}
+          ${field('Processing fee', `<input id="ps-fee" type="number" min="0" step="0.01" value="${esc(s.processing_fee_amount ?? '')}">`, rate ? `Suggested from ${rateLabel(rate)} of the price. Change it to what was actually charged.` : 'What the marketplace or payment service keeps of this sale.')}
+          <div class="field field-wide">
+            <label class="check-inline"><input id="ps-passed" type="checkbox"${s.fee_passed_to_buyer ? ' checked' : ''}> The fee is passed to the buyer in the price</label>
+            <span class="field-hint" id="ps-net"></span>
+            ${rate ? `<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px;">
+              <span class="faint">Price that nets you $</span>
+              <input id="ps-net-want" type="number" min="0" step="0.01" placeholder="e.g. 3000" style="flex:1; min-width:90px; max-width:160px;">
+              <button type="button" class="btn btn-sm" id="ps-net-apply">Set price</button>
+            </div>` : ''}
+          </div>
           ${field('Balance due date', `<input id="ps-balance-due" type="date" value="${esc(s.balance_due_date || '')}">`)}
           <div class="field field-wide"><label>Notes</label><textarea id="ps-notes">${esc(s.notes || '')}</textarea><span class="field-hint">Private: never in the message or the contract.</span></div>
         </div>
-        <p class="field-hint"><a href="sale.html?id=${encodeURIComponent(s.id)}">Open the full sale</a> for anything else (sold through, processing fee, boarding…).</p>`,
+        <p class="field-hint"><a href="sale.html?id=${encodeURIComponent(s.id)}">Open the full sale</a> for anything else (boarding, payment details…).</p>`,
       `<button class="btn btn-primary" id="ps-next">Save &amp; continue</button><button class="btn" id="ps-cancel">Cancel</button>`);
+      const priceEl = $('#ps-price'); const feeEl = $('#ps-fee');
+      const netLine = () => {
+        $('#ps-net').textContent = priceEl.value !== '' && feeEl.value !== '' && Number(feeEl.value) > 0
+          ? `You net ${fmtMoney(netOf(priceEl.value, feeEl.value))} of the ${fmtMoney(priceEl.value)} price.` : '';
+      };
+      const suggest = () => {
+        const r = rateOf($('#ps-channel').value);
+        if (feeEl.value !== '' && Number(feeEl.value) !== suggestedFee) return;
+        const next = r ? processingFee(priceEl.value, r) : null;
+        feeEl.value = next ?? '';
+        suggestedFee = next;
+      };
+      // What's on screen, kept when the step redraws (a channel change).
+      const snapshot = () => ({
+        ...sale,
+        registration_type: $('#ps-reg').value,
+        price: numOrNull(priceEl.value),
+        deposit_amount: numOrNull($('#ps-deposit').value),
+        transport_fee: numOrNull($('#ps-transport').value),
+        sales_channel_account_id: $('#ps-channel').value || null,
+        processing_fee_amount: numOrNull(feeEl.value),
+        fee_passed_to_buyer: $('#ps-passed').checked,
+        balance_due_date: $('#ps-balance-due').value || null,
+        notes: $('#ps-notes').value
+      });
       // A registration change moves a price still at its suggested amount (saleDefaults rule).
       $('#ps-reg').addEventListener('change', (e) => {
         if (!litter) return;
         const before = expectedPricing(dog, litter, sale.registration_type).price;
         const after = expectedPricing(dog, litter, e.target.value).price;
-        if (before != null && Number($('#ps-price').value) === Number(before) && after != null) $('#ps-price').value = after;
+        if (before != null && Number(priceEl.value) === Number(before) && after != null) { priceEl.value = after; suggest(); netLine(); }
       });
+      priceEl.addEventListener('input', () => { suggest(); netLine(); });
+      feeEl.addEventListener('input', netLine);
+      $('#ps-channel').addEventListener('change', (e) => {
+        const account = accountsById.get(e.target.value);
+        sale = snapshot();
+        if (account) sale.fee_passed_to_buyer = !!account.fee_passed_to_buyer_default;
+        resuggest = true;
+        drawSale();
+      });
+      $('#ps-net-apply')?.addEventListener('click', () => {
+        const r = rateOf($('#ps-channel').value);
+        const price = r ? priceToNet($('#ps-net-want').value, r) : null;
+        if (price == null) return;
+        priceEl.value = price;
+        feeEl.value = processingFee(price, r);
+        suggestedFee = Number(feeEl.value);
+        $('#ps-passed').checked = true;
+        netLine();
+      });
+      if (resuggest) { resuggest = false; suggest(); }
+      netLine();
       $('#ps-next').addEventListener('click', async (e) => {
         e.currentTarget.disabled = true;
         try {
+          const d = snapshot();
           sale = await saleRepo.update(sale.id, {
-            registration_type: $('#ps-reg').value,
-            price: numOrNull($('#ps-price').value),
-            deposit_amount: numOrNull($('#ps-deposit').value),
-            transport_fee: numOrNull($('#ps-transport').value),
-            balance_due_date: $('#ps-balance-due').value || null,
-            notes: $('#ps-notes').value
+            registration_type: d.registration_type, price: d.price, deposit_amount: d.deposit_amount,
+            transport_fee: d.transport_fee, sales_channel_account_id: d.sales_channel_account_id,
+            processing_fee_amount: d.processing_fee_amount, fee_passed_to_buyer: d.fee_passed_to_buyer,
+            balance_due_date: d.balance_due_date, notes: d.notes
           });
           changed = true;
           contract = await openContractForSale(sale.id);

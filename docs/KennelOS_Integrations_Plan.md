@@ -469,7 +469,8 @@ send needs in plain fields (D20, D21 below).
 D20 and D21 as recommended. Details settled in the build:
 - **Deposit due date is read-only** in step 1: it's the turn's `respond_by_date`, which also
   closes the turn (and the server's deadline moves), so changing it stays a waitlist action.
-  The balance due date is editable. The sales channel / processing fee stay on the full Sale.
+  The balance due date is editable. **Sold / paid through** (Good Dog…) and its processing fee
+  are in step 1 too, with the Sale page's suggestion rule and a "price that nets you $X" helper.
 - `data/contractSend.js` now holds the contract-facts lookup, the link and "mark sent" for both
   the Contract page and this modal; `data/depositRequest.js` is the pure message.
 - The message names the contract by its **type** ("your pet home contract"), not her label.
