@@ -26,9 +26,16 @@ lost or replaced phone.
 - **Cloud is opt-in, and nothing touches it until the family asks** (decided 2026-10-11). A
   family that never turns on cloud backup uses Furever exactly as today: all on the device,
   and **no request ever reaches our servers or Google's sign-in.** Concretely:
-  - No account, row, file or log line exists for a family until they tap **Turn on cloud
-    backup** and finish signing in. Opening the app, installing it, or a breeder sending a
-    seed link creates nothing on the server.
+  - **No account is ever made for a family ahead of time**, and none sits waiting to be
+    claimed. The server creates the account at the moment the family's own sign-in
+    succeeds (they tapped **Turn on cloud backup**, then signed in with Google or with the
+    code from their email), never before. Opening the app, installing it, or a breeder
+    sending a seed link creates nothing on the server, and neither the breeder nor KennelOS
+    can make an account for someone.
+  - The one thing held before an account exists: with email sign-in, the pending 6-digit code
+    (hashed, with a hash of the address) between "send me a code" and typing it in. It's
+    deleted when used or after 10 minutes, and creates no account if they never finish.
+    Google sign-in has no such step.
   - The cloud code (`furever/data/cloud/*`) and Google's sign-in library are **loaded only
     when the family taps that button**, never on app start, so a local-only family's phone
     doesn't even download them. No health check, ping, analytics or "is cloud up?" call runs
