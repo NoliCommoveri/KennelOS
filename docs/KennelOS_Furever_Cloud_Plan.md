@@ -85,11 +85,25 @@ lost or replaced phone.
 - **Delete account** deletes every backup and file at once.
 
 ### Server
-- **Same Cloudflare Worker** as the breeder cloud, under its own `/furever/*` routes and its own
-  tables (migration `0015_furever.sql`): `fv_accounts`, `fv_identities` (google / email),
-  `fv_sessions`, `fv_snapshots`, `fv_files`. Nothing joins to the breeder tables. Its own CORS
-  origin (`furever.kennelos.app`). `cloud/README.md`'s rules apply: no logging of emails,
-  tokens or bodies; rate limits on sign-in.
+- **Its own Worker, D1 database and R2 bucket** (decided 2026-10-11), in the same Cloudflare
+  account as the breeder cloud but sharing nothing with it: family records never sit in the
+  breeder database or bucket, either can be moved, deleted or restored without touching the
+  other, and a fault in one can't reach the other's data.
+  - Source in a new top-level `furever-cloud/` folder (beside `cloud/`), with its own
+    `wrangler.toml`, `package.json`, migrations (starting at `0001_schema.sql`), tests and
+    README. Deployed as its own Workers Builds project; staging and production each get their
+    own Worker + D1 + R2, the same split the breeder cloud uses.
+  - Names (proposed): Worker `furever-api` / `furever-api-staging`, D1 `furever` /
+    `furever-staging`, R2 `furever-files` / `furever-files-staging`, served at
+    `api.furever.kennelos.app` (staging on its `workers.dev` address).
+  - Tables: `accounts`, `identities` (google / email), `sessions`, `snapshots`, `files`.
+  - Small helpers it needs that already exist in `cloud/src/lib/` (hashing, JSON responses,
+    rate limiting, sending mail through Resend) are **copied** into `furever-cloud/src/lib/`
+    rather than imported across, so each Worker builds and deploys on its own. Resend can use
+    the same account with a Furever sending address and its own API key.
+  - CORS allows only `furever.kennelos.app` (and localhost for dev). `cloud/README.md`'s rules
+    carry over: a new migration is a new `.sql` file, applied files are never edited, nothing
+    logs an email, code, token or request body, rate limits on sign-in.
 - **Cost**: R2 storage is about $0.015 per GB per month. 1,000 families at 200 MB each is
   200 GB, about $3/month, plus D1 rows. A per-account cap (open question 4) keeps one family
   from running it up.
@@ -111,8 +125,8 @@ until they delete the account or it's inactive for N years (open question 5).
 ## Build order
 
 1. Part 1 (installable app + backup reminder). Ships on its own.
-2. Server: migration, Google sign-in, sessions, snapshot + file endpoints, retention job,
-   tests (`cd cloud && npm test`).
+2. Server: the `furever-cloud/` Worker with its own D1 + R2, Google sign-in, sessions,
+   snapshot + file endpoints, retention job, tests (`cd furever-cloud && npm test`).
 3. Client: sign-in, automatic backup, restore, the Family & Settings card.
 4. Email sign-in, privacy page, delete account.
 
@@ -120,8 +134,8 @@ until they delete the account or it's inactive for N years (open question 5).
 
 1. **Email sign-in: password, or an emailed 6-digit code?** A password is what the owner asked
    for and what families expect, but it means storing password hashes and building "forgot
-   password" (an emailed reset link). An emailed code needs neither and the Worker already
-   has it (`cloud/src/auth.js`), so it's less to build and nothing to leak. Recommendation:
+   password" (an emailed reset link). An emailed code needs neither, and the breeder Worker
+   has one (`cloud/src/auth.js`) to copy, so it's less to build and nothing to leak. Recommendation:
    the emailed code, since Google covers most families.
 2. **Sign in with Apple** too? Many iPhone families expect it; it's optional for a web app.
    Recommendation: later, if families ask.

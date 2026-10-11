@@ -561,5 +561,7 @@ second-priority — mechanism doc §7 decision 1), and the **service worker / PW
 precache** (offline + install) for Furever itself. The app runs online today; the
 offline layer is deferred until the page set settles. The deploy pipeline is ready
 to ship whatever `furever/` contains.
+The installable app and optional cloud backup (its own Worker, D1 and R2) are planned in
+`docs/KennelOS_Furever_Cloud_Plan.md` (draft, 2026-10-11).
 The installable app and optional cloud backup are planned in
 `docs/KennelOS_Furever_Cloud_Plan.md` (draft, 2026-10-11).
