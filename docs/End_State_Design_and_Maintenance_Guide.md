@@ -4133,7 +4133,10 @@ the forms with **Open**.
   match), shows every prefilled value, offers **Preview form**, and warns past 2,000
   characters. `prefillValues` (the allow-list: never notes, terms or end reasons) reads the
   contract's sale + buyer + pup + sire/dam + balance due, or stud service (stud and dam by
-  `direction`) + partner, or dog + counterparty, plus the kennel; `prefillUrl` adds them as
+  `direction`) + partner, or dog + counterparty, plus the kennel and her own name / email /
+  phone / address as `breeder…` (the contact whose `kennel_id` is the contract's kennel,
+  `contractSend.breederFor`: a contact typed Breeder first, then the oldest; none → left out,
+  with a note in the send dialog to set her contact's Kennel); `prefillUrl` adds them as
   query parameters (Jotform's URL prefill — no API call, no server). It opens the composer
   (`signatureMessage`) to Email / Text / Copy; once used, the contract becomes `sent` (a
   `sent` one stays `sent`) with `esign_provider`, `esign_url`, `esign_sent_date`,
@@ -4157,7 +4160,9 @@ the forms with **Open**.
   /form/{id}/questions`; a Full Name field as `name[first]` / `name[last]`, an Address
   field as `name[addr_line1]`, *Jotform's prefill naming, unverified*) and opens **Match
   fields**: one row per fact the type fills (`factsFor`), preset by `suggestFieldMap`
-  (our fixed name, then field type, then label words; each of her fields fills one fact),
+  (our fixed name, then field type, then label words; each of her fields fills one fact;
+  her own `breeder…` details only go to a field whose label says Seller / Breeder / Kennel,
+  and a bare Name / Email field stays the buyer's),
   with warnings for no signature field, no email or no contract reference
   (`matchWarnings`). Her confirmed matches become the row's `field_map`; the row shows
   "Picked from Jotform · N fields matched" with **Fields…** to match again. A mapped
