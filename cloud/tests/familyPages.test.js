@@ -423,3 +423,23 @@ test('the embed script and the in-frame helper are served like the pages\' other
   assert.equal(await (await get(env, '/family/embed.js')).text(), 'file:/family/embed.js');
   assert.equal(await (await get(env, '/family/embedded.js')).text(), 'file:/family/embedded.js');
 });
+
+// --- Her recommended products (docs/KennelOS_Integrations_Plan.md §3) --------------------
+
+test("every family's status page shows the products she shares, placed families too, cleaned", async () => {
+  const env = await publishedWith({ recommended: [
+    { name: 'Chewy', link: 'https://www.chewy.com/refer/x', code: 'THORNPUP', instructions: 'Use code THORNPUP for 30% off.' },
+    { name: 'Sneaky', link: 'javascript:alert(1)', code: '' },
+    { name: 'Embark', link: 'javascript:alert(1)', code: 'EMB10', extra: 'dropped' },
+  ] });
+  const ann = await (await get(env, `/f/status/${tok('a')}`)).json();
+  assert.deepEqual(ann.kennel.recommended, [
+    { name: 'Chewy', link: 'https://www.chewy.com/refer/x', code: 'THORNPUP', instructions: 'Use code THORNPUP for 30% off.' },
+    { name: 'Embark', link: '', code: 'EMB10', instructions: '' },
+  ], 'a non-web link is dropped (and a product with nothing left goes), unknown fields never pass');
+  const cy = await (await get(env, `/f/status/${tok('c')}`)).json();
+  assert.equal(cy.family.status, 'placed');
+  assert.equal(cy.kennel.recommended.length, 2, 'a placed family sees them too');
+  const none = await (await get(await publishedWith({}), `/f/status/${tok('a')}`)).json();
+  assert.equal('recommended' in none.kennel, false);
+});

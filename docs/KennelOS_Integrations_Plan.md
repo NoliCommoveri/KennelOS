@@ -259,6 +259,17 @@ its terms. What *is* achievable:
    (a reminder N days after `delivered`), or as a one-tap **Thank** on a Contact when the
    buyer tells her or she sees a sale in her portal. It goes out through her own email (mailto /
    copy text) at Level 0, or the W2 kennel-name mailer at Level 1 (D7).
+**As built (step 3, 2026-10-11):** points 1 and 2.
+- **The switch:** "Share with families" on each Account.
+- **Where families see it:** the family Companion bundle (`recommended[]`, include flag on by
+  default) and every waitlist status page, placed families too, through the projection's
+  `kennel.recommended`, re-checked by the Worker.
+- **The follow-up:** a Today nudge 7 to 60 days after a delivered pup went home (its
+  placement event, else the balance-paid date), opening a note with the shared products.
+- **Send a thank-you** on a Contact.
+- **Sending:** both notes open in a composer that builds `mailto:` / `sms:` links or copies
+  the text (D7). The 7-day mark and the 60-day window are constants for now.
+
 3. **Referral income in Financials.** A program payout (Embark quarterly, Chewy monthly) is
    logged against the Account. Proposal: an **income** row type `referral` (a new small table,
    `referral_payouts`: `account_id` FK → Accounts in `ACCOUNT_REFERENCES`, date, amount, note),
@@ -406,7 +417,7 @@ Each step is one reviewable PR, ordered by value ÷ effort and by dependency.
 |---|---|---|---|
 | 1 | **Processing fees** (§5): Account fee fields, Sale channel + fee snapshot, gross-up helper, `processing_fee` income component, guide + registries. **Built 2026-10-10** (End-State guide §21.1) | No | M |
 | 2 | **Waitlist embed** (§1): CSP opt-in, `?embed=1`, `embed.js`, "Add to your website" card. **Built 2026-10-10** (End-State guide §29, "On your website") | Worker (small) | S |
-| 3 | **Referral share-out** (§3.1) + go-home thank-you reminder (§3.2) | No (projection only) | S |
+| 3 | **Referral share-out** (§3.1) + go-home thank-you reminder (§3.2). **Built 2026-10-11** (End-State guide §32, §19, §20) | No (projection only) | S |
 | 4 | **Level 0 links**: stored payment link (§4) + Jotform prefilled contract form (§2.1) | No | S–M |
 | 5 | **Integration plumbing** (§0): `int_connections`, `int_events`, hooks routes, `integrationEvents.js` reducer | Worker | M |
 | 6 | **Stripe Connect + Square** payment links with paid webhooks (§4), auto fee capture into §5 | Worker | L |

@@ -920,7 +920,11 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   her own website) is built:** "On your website" on the Online list card (a switch, her
   site addresses, the script and button to paste), `cloud/public/family/embed.js` and the
   frame mode in `embedded.js`, and the Worker's per-kennel `frame-ancestors` from the
-  projection's `kennel.embed`. No migration.
+  projection's `kennel.embed`. No migration. **Step 3 (referrals) is built:** "Share with
+  families" on Accounts shows those links and codes on the family Companion page and every
+  waitlist status page; a Today nudge a week after a pup goes home opens a thank-you note,
+  and a Contact has "Send a thank-you". Both open `assets/messageComposer.js`
+  (`data/referralShare.js`).
 
 - **Cloud Phase 2, live multi-device sync — being built** (`docs/KennelOS_Cloud_Phase2_Sync_Plan.md`;
   every §12 decision taken as recommended, 2026-10-10). Pro only: both tiers per record (cloud

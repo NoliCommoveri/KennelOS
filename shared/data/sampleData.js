@@ -965,7 +965,10 @@ export async function seedSampleData() {
         fee_note: 'Sample rate — check your own Good Dog agreement for yours.' },
       { name: 'Chewy', account_type: 'supplier', website: 'chewy.com', username: 'thornfield.kennels@example.com',
         password: 'sample-password', customer_id: '0000-SAMPLE', referral_link: 'https://www.chewy.com/refer/thornfield-example',
-        referral_code: 'THORNPUP', referral_instructions: 'Use code THORNPUP at checkout for 30% off your first Autoship order of the food your puppy is already eating.' }
+        referral_code: 'THORNPUP', referral_instructions: 'Use code THORNPUP at checkout for 30% off your first Autoship order of the food your puppy is already eating.',
+        // Shown to families as "Recommended for your puppy" (Integrations plan §3);
+        // with Maple's sale delivered a month ago, Today's follow-up note carries it.
+        share_with_families: true }
     ]) {
       const saved = await accountRepo.create(data);
       manifest.accounts.push(saved.id);

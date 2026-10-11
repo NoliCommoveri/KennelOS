@@ -12,6 +12,7 @@ import { accountRepo } from '../data/accountRepo.js';
 import { expenseRepo } from '../data/expenseRepo.js';
 import { ACCOUNT_TYPE } from '../data/vocab.js';
 import { feeRate, rateLabel } from '../data/processingFees.js';
+import { sharedReferrals } from '../data/referralShare.js';
 import { esc, badge, fmtMoney, confirmModal, alertModal } from '../assets/ui.js';
 
 const els = {
@@ -90,7 +91,7 @@ function cardHtml(a) {
       ${a.account_type ? badge(ACCOUNT_TYPE, a.account_type) : ''}
     </div>
     ${login ? `<div class="acct-section"><div class="acct-section-title">Your login</div>${login}</div>` : ''}
-    ${referral || a.referral_instructions ? `<div class="acct-section"><div class="acct-section-title">Referral — to share</div>${referral}
+    ${referral || a.referral_instructions ? `<div class="acct-section"><div class="acct-section-title">Referral — to share${sharedReferrals([a]).length ? ' <span class="badge badge-green">Shown to families</span>' : ''}</div>${referral}
       ${a.referral_instructions ? `<div class="acct-instructions">${esc(a.referral_instructions)}</div>` : ''}</div>` : ''}
     ${a.notes ? `<div class="acct-section"><div class="acct-instructions">${esc(a.notes)}</div></div>` : ''}
     ${feeHtml(a)}
@@ -229,6 +230,8 @@ function openForm(existing = null) {
       ${field('Referral link', `<input id="af-ref-link" type="text" value="${esc(a.referral_link)}" placeholder="https://…">`, { wide: true })}
       ${field('Referral code', `<input id="af-ref-code" type="text" value="${esc(a.referral_code)}">`)}
       ${field('Instructions for whoever uses it', `<textarea id="af-ref-instructions" placeholder="e.g. Use code at checkout for 30% off your first Autoship order.">${esc(a.referral_instructions)}</textarea>`, { wide: true, hint: 'Written for the families you\'ll share this with.' })}
+      <div class="field field-wide"><label class="check-inline"><input id="af-ref-share" type="checkbox"${a.share_with_families ? ' checked' : ''}> Share with families</label>
+        <span class="field-hint">Shows the link, code and instructions as "Recommended for your puppy" on a family's Companion page and their waitlist status page, and in the follow-up note a week after a pup goes home.</span></div>
     </div>
     <h3 style="font-size:15px; margin:14px 0 4px;">Processing fee — if you sell or take payments through it</h3>
     <p class="field-hint" style="margin-top:0;">What it keeps of each sale: a percentage, a fixed amount, or both (e.g. 6.25% + $5). A sale sold through this account suggests its fee from this.</p>
@@ -273,6 +276,7 @@ function openForm(existing = null) {
       referral_link: val('#af-ref-link'),
       referral_code: val('#af-ref-code'),
       referral_instructions: $('#af-ref-instructions').value.trim(),
+      share_with_families: $('#af-ref-share').checked,
       notes: $('#af-notes').value.trim(),
       fee_percent: numberOrNull($('#af-fee-percent').value),
       fee_fixed: numberOrNull($('#af-fee-fixed').value),

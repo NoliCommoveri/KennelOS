@@ -256,6 +256,20 @@ export function listView(projection) {
 // pups each lists, every live litter with their place in it (never anyone
 // else's), and the public list for its tab. A family whose time on the list ended
 // sees only that.
+// Her referral links and codes she shares with families, as her device published
+// them: each field a short string, a link only when it's a web address; at most 20.
+const REC_LINK = /^https?:\/\/[^\s"'<>]{1,500}$/i;
+export function recommendedOf(projection) {
+  const list = Array.isArray(projection.kennel?.recommended) ? projection.kennel.recommended : [];
+  const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+  return list.slice(0, 20).map((r) => ({
+    name: str(r?.name, 120),
+    link: typeof r?.link === 'string' && REC_LINK.test(r.link) ? r.link : '',
+    code: str(r?.code, 80),
+    instructions: str(r?.instructions, 1000),
+  })).filter((r) => r.name && (r.link || r.code));
+}
+
 export function statusView(projection, entryId) {
   const e = projection.entries?.[entryId];
   if (!e) return null;
@@ -264,6 +278,10 @@ export function statusView(projection, entryId) {
     public_id: projection.kennel?.public_id ?? null, can_message: Boolean(projection.kennel?.message_key),
   };
   const family = { name: e.name ?? '', status: e.status };
+  // Her recommended products (Integrations plan §3): for every family, placed ones
+  // too (they're who it's for).
+  const recommended = recommendedOf(projection);
+  if (recommended.length) kennel.recommended = recommended;
   // Their Companion link request: only with an open sale, placed families too.
   if (e.companion) family.companion = e.companion;
   if (!OPEN_STATUSES.includes(e.status)) return { kennel, as_of: projection.as_of ?? null, family, offers: [], litters: [], upcoming: [], public_list: [] };

@@ -524,6 +524,20 @@ function messageHtml() {
     </form>`);
 }
 
+// Her recommended products (Integrations plan §3): the referral links and codes
+// she shares with families, with a Copy button for a code.
+function recommendedHtml() {
+  const recs = state.v.kennel.recommended || [];
+  if (!recs.length) return '';
+  const items = recs.map((r) => `<li class="mt8">
+      <div><strong>${esc(r.name)}</strong></div>
+      ${r.code ? `<div class="small">Code: <strong>${esc(r.code)}</strong> <button type="button" class="linkish" data-copy="${esc(r.code)}">Copy</button></div>` : ''}
+      ${r.instructions ? `<p class="small mt0 pre">${esc(r.instructions)}</p>` : ''}
+      ${r.link ? `<div class="small"><a href="${esc(r.link)}" target="_blank" rel="noopener noreferrer">Shop through our link</a></div>` : ''}
+    </li>`).join('');
+  return card('Recommended for your puppy', `<ul class="plain">${items}</ul>`);
+}
+
 // "Message us on Facebook" (Waitlist Spec §11), when she switched it on: a link
 // to her own Page in Messenger. Nothing about it comes back here.
 function messengerHtml() {
@@ -554,6 +568,7 @@ function mineHtml() {
   if (!['applied', 'approved', 'active'].includes(f.status)) {
     parts.push(card('', `<p class="mt0">${closedText(f.status, kennel)}</p>`));
     parts.push(companionHtml(f));
+    parts.push(recommendedHtml());
     parts.push(emailsHtml());
     return parts.join('');
   }
@@ -608,6 +623,7 @@ function mineHtml() {
   parts.push(emailsHtml());
   parts.push(messageHtml());
   parts.push(messengerHtml());
+  parts.push(recommendedHtml());
   return parts.join('');
 }
 
@@ -657,6 +673,17 @@ async function act(action, extra, done) {
 }
 
 async function onClick(ev) {
+  // A recommended product's code (recommendedHtml).
+  const copy = ev.target.closest('button[data-copy]');
+  if (copy) {
+    try {
+      await navigator.clipboard.writeText(copy.dataset.copy);
+      copy.textContent = 'Copied';
+    } catch {
+      copy.textContent = 'Select the code to copy it';
+    }
+    return;
+  }
   const b = ev.target.closest('button[data-act]');
   if (!b || b.disabled) return;
   const kennel = state.v.kennel.name;

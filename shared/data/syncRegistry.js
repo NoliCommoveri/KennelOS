@@ -226,7 +226,10 @@ export const SYNC_REGISTRY = Object.freeze({
       'name', 'account_type', 'website', 'referral_link', 'referral_code', 'referral_instructions',
       // The channel's published fee rate (Integrations plan §5, D9): a vendor's
       // public price, not hers. Her own note on it stays private like `notes`.
-      'fee_percent', 'fee_fixed', 'fee_passed_to_buyer_default'
+      'fee_percent', 'fee_fixed', 'fee_passed_to_buyer_default',
+      // Whether her referral link/code shows to families (Integrations plan §3):
+      // the referral fields are already cloud, made to be handed out.
+      'share_with_families'
     ],
     private: ['username', 'password', 'customer_id', 'notes', 'fee_note'],
     pending: []
