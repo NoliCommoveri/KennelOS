@@ -389,6 +389,82 @@ backing device ◀── GET /integrations/events ── Contract = signed, sign
 
 ---
 
+## 2.6 Waitlist pick → sale, contract and deposit request on one screen (proposed 2026-10-11, D17–D21)
+
+**Her flow, as asked:** a family gets an offer and picks a pup on their status page; she's
+told and lands on the family's waitlist page; there she adjusts the sale (registration,
+price, deposit, due dates) in a **modal**, approves it, makes the contract and sends its link,
+and puts the **invoice PDF, the payment link and the contract link in one message**, without
+going to the Sale, Contract or Financials pages.
+
+**What exists today:**
+- A pick (hers, or the family's from their status page, applied by `waitlistEvents`) already
+  calls `waitlistActions.recordPick`, which **creates a `deposit_pending` Sale** with the pup's
+  intended registration and `expectedPricing`. The family's pick shows on Today (the unread
+  activity nudge) and links to `waitlist-entry.html`. Nothing is pushed to her phone or email.
+- The family page's turn card has **Deposit received… / Change pup… / Passed / No deposit /
+  Void**, and its Documents list already offers the deposit-pending sale's **invoice** (PDF
+  made on her device by `invoicePdf.js`). Adjusting the sale means leaving for `sale.html`.
+- §2.1a's **Send for signature** lives on `contract.html`, and needs a Contract to exist.
+
+**Proposed: a "Pick to send" panel on the family page.** When their turn has a pick awaiting
+a deposit, the turn card's first button is **Review sale & send…**, a modal in three steps:
+
+1. **Sale.** The fields that matter now, on the pick's own Sale: registration, price, deposit,
+   transport, the deposit-due date (the offer's `respond_by_date`, which the invoice and the
+   offer already use), balance-due date, a processing-fee channel (§5), notes; **Open full
+   sale** for anything else. Same validation as the Sale page (`saleRepo`). Changing the
+   registration re-suggests the price from `expectedPricing` only where she hasn't edited it
+   (the `saleDefaults` rule).
+2. **Contract.** The contract form ranked first for this sale (§2.1a `rankForms`), with the
+   same picker. On **Continue** it creates the Contract (type `sale`, `related_sale_id`, a title
+   like "Pet home contract: Maple") if this sale has none, else uses its open one, and builds
+   the prefilled link.
+3. **Send.** One message to the family with everything:
+   - the deposit amount and due date, and her payment instructions (the waitlist fee's
+     payment text already lives in `waitlist_config`), or **the payment link** once §4 lands;
+   - **the contract link**;
+   - **the invoice PDF**, attached (below).
+
+   **Send** marks the Contract `sent` (§2.1a), stamps the offer that the deposit request went
+   out, and logs the message on the entry (`messages[]`, kind `email`, like her other emails),
+   so the family page shows "Deposit request sent Oct 11" with **Send again**.
+
+**"Approve" (D17).** Recommendation: **no new sale state.** Saving step 1 *is* her approval, and
+the send is the visible record; a family never sees a sale until she sends it. A stored
+`approved_date` only earns its place if the family's **status page** should change on it
+("Your breeder is preparing your paperwork" → "Paperwork sent"), which is a projection change.
+
+**Attaching the PDF (D18).** A `mailto:` link **can't carry an attachment**: that's the real
+limit, not the server. Options, best first:
+- **Share sheet** (`navigator.share({ files: [pdf], title, text })`, Web Share level 2): on
+  iPhone, iPad, Android and Safari on Mac it opens her Mail / Gmail / Messages with the PDF
+  attached and the message filled in. The PDF is made on her device (`invoicePdf.js`), so **no
+  server ever sees it**. Check support with `navigator.canShare({ files })`.
+- **Fallback where file sharing isn't supported** (most desktop browsers on Windows / Linux,
+  *verify current support*): **Download invoice** + **Copy message** (+ the mailto Email
+  button for the text); she attaches the downloaded PDF herself.
+- **Not recommended: the KennelOS mailer sending the attachment.** The server wouldn't need to
+  read the PDF, only relay it, but it would carry the buyer's name, address and price through
+  our mailer and its email provider in plain text: private-tier data on the server, past the
+  privacy line in §0. A link to a hosted invoice has the same problem unless the invoice is
+  encrypted to the family, which is a much bigger build.
+
+**Being told when they pick (D19).** Today she learns from the Today nudge. A real
+"tap the notification and land on their page" needs a push or an email **to her**: an email
+from the Worker ("The Smiths picked Maple. Open KennelOS →", no other details, linking to
+the family page) is the small version; web push is larger and unreliable on iPhone unless the
+app is installed. W2 left notifications out; this would reopen it.
+
+**Edition:** Pro (waitlist online + contract forms + invoicing are Pro). Lite's waitlist keeps
+today's buttons.
+
+**Build:** after step 4, as its own step (**4c** in §6). One new asset
+(`assets/pickToSend.js`, in `PRECACHE_URLS` and Pro-only), one pure builder for the message
+(`data/depositRequest.js`, tested), small changes to the family page's turn card and to
+`contract.html` to share §2.1a's picker. No schema change: the offer and entry carry what the
+send needs in plain fields (D20, D21 below).
+
 ## 3. Referral-use notifications + thank-you messages
 
 ### What the research says
@@ -471,7 +547,7 @@ out of money-transmitter territory.
   are a real risk for her; the deposit link page should show her refund / deposit policy text.
 
 ### Proposed levels
-- **Level 0 (no server, could be Lite, D4):** an Account (type `software`/new `payments`) can
+- **Level 0 (no server, Pro only: D4 revised 2026-10-11):** an Account (type `software`/new `payments`) can
   hold her **own static payment link** (Stripe / Square / PayPal / Venmo / Zelle instructions).
   The Sale page and the Invoice get **"Send payment link"**: copy the link + amount + a message.
   She still taps **Deposit received** herself, as today.
@@ -582,6 +658,7 @@ Each step is one reviewable PR, ordered by value ÷ effort and by dependency.
 | 3 | **Referral share-out** (§3.1) + go-home thank-you reminder (§3.2). **Built 2026-10-11** (End-State guide §32, §19, §20) | No (projection only) | S |
 | 4 | **Level 0 links**: stored payment link (§4) + Jotform contract forms list and prefilled send (§2.1, §2.1a) | No | S–M |
 | 4b | **Connect Jotform** (§2.1b): form picker + field matching from her API key; key on device or Worker per D16 | No, or Worker after 5 | S |
+| 4c | **Pick to send** (§2.6): from a waitlist pick, edit the sale in a modal, make the contract, send invoice + contract link (+ payment link after 6) in one message | No (D19 email: Worker) | M |
 | 5 | **Integration plumbing** (§0): `int_connections`, `int_events`, hooks routes, `integrationEvents.js` reducer | Worker | M |
 | 6 | **Stripe Connect + Square** payment links with paid webhooks (§4), auto fee capture into §5 | Worker | L |
 | 7 | **Jotform Level 1** webhook → Contract signed (§2.1) | Worker | S (after 5) |
@@ -619,7 +696,7 @@ every new FK lands in `referenceRegistry.js` + the guide; every Worker table is 
 | D1 | OK for the Worker to hold OAuth tokens / API keys that act on her Stripe / Square / e-sign accounts (encrypted, minimal scope)? | Yes, with the plain-language setup notice |
 | D2 | Waitlist embed: let any site frame it when she turns it on, or require her to list her site's address? | Optional list; `*` when blank, since there's no logged-in state to clickjack |
 | D3 | Embed the public list too, or only the application form? | Both (same mechanism, `data-view`) |
-| D4 | Do the no-server Level 0 features (stored payment link, prefilled Jotform link, fees) ship in **Lite** too? | Fees + payment link: yes (small, local, no cap impact); Jotform: Pro |
+| D4 | Do the no-server Level 0 features (stored payment link, prefilled Jotform link, fees) ship in **Lite** too? | Fees: yes (small, local, no cap impact). Jotform: Pro. **Payment link: Pro only** (revised 2026-10-11; Lite has no Accounts page to hold it) |
 | D5 | First e-sign provider: Jotform form (L0 → L1) only, add **SignWell/BoldSign**, or go for **DocuSign** (Partner Program + her API plan)? | Jotform now; SignWell or BoldSign next; DocuSign only if paying customers already have API plans |
 | D6 | Where the contract template / field map lives: on the vendor's Account, or a settings record? | On the Account (it's per vendor, and Accounts already holds vendor facts) |
 | D7 | Thank-you messages: her own email (copy / mailto) or the KennelOS kennel-name mailer? | Copy / mailto first; mailer when W2's mailer is live for her |
@@ -636,6 +713,11 @@ every new FK lands in `referenceRegistry.js` + the guide; every Worker table is 
 | D13 | Is the form-type list right (pet home, breeding rights, deposit, co-own, stud, lease, foster, other)? Pet home vs breeding rights both map to a `sale` contract, told apart by the Sale's registration, rather than splitting `CONTRACT_TYPE` | Yes; keep `CONTRACT_TYPE` as is |
 | D14 | Fields by **fixed names** she copies into Jotform's Unique Name, or a per-form **field map** she fills in? | Fixed names in step 4 (nothing to map; a missing field is just skipped); step 4b adds a per-form `field_map` filled by automatic matching from the API, falling back to the fixed names |
 | D15 | Cloud tier for `contract_forms` and `esign_form_label` | Cloud: her form links are already public URLs and the label is hers (matches D9 for e-sign refs) |
+| D17 | **Open (§2.6).** "Approve sale": a new stored state, or is saving the sale step her approval? | No new state, unless the family's status page should show "paperwork sent" |
+| D18 | **Open (§2.6).** How the invoice PDF goes with the message | Share sheet with the PDF attached where supported; else Download + Copy; never through our mailer |
+| D19 | **Open (§2.6).** Tell her when a family picks: an email from the Worker linking to their page (reopens W2's "no notifications") | Yes, opt-in, a one-line email with no details; web push later if ever |
+| D20 | **Open (§2.6).** Where "deposit request sent" is recorded | On the offer (`deposit_request_sent_date`, plain, cloud) + the message in the entry's `messages[]` |
+| D21 | **Open (§2.6).** Payment instructions in the message before §4: the waitlist config's fee payment text, or a new "deposit instructions" text? | Reuse her payment text, editable in the message |
 | D16 | **Open.** Where a Jotform API key lives (§2.1b): on her device (`device_secrets`) or on the Worker (`int_connections`)? | Device if a browser call to the API works (CORS), else Worker; decide with one test call before step 4b |
 
 ---
