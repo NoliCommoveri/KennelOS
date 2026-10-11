@@ -23,8 +23,20 @@ lost or replaced phone.
   no end-to-end encryption, no "the server never sees it." The server stores the family's
   backup readable, like thousands of other apps, encrypted at rest by the provider
   (Cloudflare D1/R2). That's said plainly in the privacy policy.
-- **Cloud is optional.** A family that never signs in uses Furever exactly as today, all on
-  the device, and makes no request to the server.
+- **Cloud is opt-in, and nothing touches it until the family asks** (decided 2026-10-11). A
+  family that never turns on cloud backup uses Furever exactly as today: all on the device,
+  and **no request ever reaches our servers or Google's sign-in.** Concretely:
+  - No account, row, file or log line exists for a family until they tap **Turn on cloud
+    backup** and finish signing in. Opening the app, installing it, or a breeder sending a
+    seed link creates nothing on the server.
+  - The cloud code (`furever/data/cloud/*`) and Google's sign-in library are **loaded only
+    when the family taps that button**, never on app start, so a local-only family's phone
+    doesn't even download them. No health check, ping, analytics or "is cloud up?" call runs
+    in the background.
+  - The installable-app work (Part 1) adds no server at all: the app files come from the same
+    static host as today.
+  - Turning cloud off again (Sign out, or Delete my cloud account) returns the app to
+    local-only: no more requests, and Delete removes everything the server held.
 - **Sign in with Google is the main way in**, with email for families without a Google
   account (see open question 1 for password vs. emailed code).
 - **The breeder never sees a family's data.** A family's cloud backup belongs to the family's
@@ -70,7 +82,7 @@ lost or replaced phone.
 - **Snapshot = the backup file's JSON without the file bytes**, plus each photo/document file
   uploaded once to R2 by its sha256 (only new files upload; photos are already downscaled
   to ~1600px JPEGs). The breeder Worker's `files.js` does exactly this.
-- **Automatic**: after a change, the app backs up within a few minutes while it's open, and
+- **Automatic, once they've signed in**: after a change, the app backs up within a few minutes while it's open, and
   when it's put in the background. A "Back up now" button and "Last backed up: …" sit on
   Family & Settings.
 - **Kept**: the latest backup plus one per day for the last 7 days and one per week for
@@ -113,8 +125,12 @@ lost or replaced phone.
   (`cloudApi.js`), the rest go through it (`cloudAuth.js`, `cloudBackup.js`). Pages never
   `fetch` directly. `cloudUrl: null` (local dev without a Worker, or a shutdown) hides all
   cloud UI and makes no request.
-- Family & Settings gets a **Cloud backup** card: Sign in with Google / with email, then
-  "Backed up <time>", Back up now, Restore, Sign out, Delete my cloud account.
+- Family & Settings gets a **Cloud backup** card. Until the family opts in it's plain local
+  text and one **Turn on cloud backup** button: no cloud code loaded, no request made. The
+  button loads the cloud modules and offers Sign in with Google / with email; once signed in
+  the card shows "Backed up <time>", Back up now, Restore, Sign out, Delete my cloud account.
+- `cloudBackup.js` only ever runs on a phone with a signed-in session; app start checks the
+  device's own stored session (no request) and, without one, loads nothing cloud.
 
 ### Privacy policy and terms
 A short Furever page: what's stored (everything in the app, including any contract or vet
