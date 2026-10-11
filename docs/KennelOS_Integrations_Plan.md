@@ -11,6 +11,11 @@
 > go-ahead to build step 4; D16 was decided 2026-10-11: the Jotform API key stays on her device.
 > Still open inside a step: DocuSign's own-key vs Partner Program route (only if D5 ever
 > brings DocuSign in), and confirming Stripe / Square live-animal terms before step 6 (D8).
+> **Added 2026-10-11:** a Jotform link's prefilled values can be edited by the buyer (§2.1,
+> "Prefill isn't a lock"), so step 7 now checks what comes back; and **eSignatures.com** (§2.3a)
+> replaces SignWell / BoldSign as the first e-sign API provider (D5 revised), because its filled
+> values are contract text the buyer can't edit. Open: D22 (where its token lives, settled by a
+> browser test) and D23 (tier of the sent-values snapshot).
 >
 > Builds on: the Worker (`cloud/`, `docs/KennelOS_Cloud_Phase1_Plan.md`), the online waitlist
 > (`docs/KennelOS_Waitlist_W2_Plan.md`, "W2 §N"), Accounts (End-State guide §32), Financials
@@ -171,6 +176,21 @@ vocab is needed beyond the provider fields in §2.4.
   private-tier fields** (notes, end reasons). A URL also has a length limit, so prefill only short
   facts. A prefilled field the buyer can edit should be **read-only** in her form; that's a
   Jotform form setting, and our setup notes say so.
+- **Prefill isn't a lock (added 2026-10-11).** Read-only in Jotform only stops typing in the
+  field: the values ride in the link, so a buyer can change `price=2500` to `price=25` in the
+  address bar and get a read-only field showing $25, and nothing checks that she set the fields
+  read-only at all. So a Jotform contract form can't guarantee its prefilled facts. Two
+  mitigations, both in step 7:
+  1. **Check what comes back (the real protection).** When step 7 reads a submission, it compares
+     every field KennelOS prefilled with what was sent. All equal → Contract `signed`. Anything
+     different → **not** marked signed; the Contract shows "Signed, but the buyer changed: Price
+     $2,500 → $25" and she accepts it or resends. Comparing against the sale as it is now would
+     false-alarm after a legitimate edit, so the send stores a snapshot of the values it sent on
+     the Contract (`esign_sent_values`, plain field; its tier is **D23**).
+  2. **Warn at setup.** Connect Jotform (§2.1b) already reads her form's questions; it flags any
+     field KennelOS fills that isn't read-only ("Price can be changed by the buyer: set it to
+     Read-only in Jotform"). *Unverified:* that the questions API reports the read-only setting.
+  A true lock needs a provider that puts the values into the document itself (§2.3a).
 
 ### 2.1a Contract forms, as the breeder sees them (2026-10-11, D12–D15)
 
@@ -382,9 +402,51 @@ Same flow as DocuSign (template → prefill → link or email → signed webhook
 If she just wants "contracts signed and tracked", **one of these behind the same adapter is
 likely the better first e-sign provider**, and DocuSign can be a second adapter later (D5).
 
+### 2.3a eSignatures.com (researched 2026-10-11): the recommended first e-sign API
+
+*Researched from the vendor's own MCP server source on GitHub, which mirrors its API (this
+environment's network policy blocked esignatures.com itself); pricing from a web search of the
+vendor's page. Re-check against `esignatures.com/docs/api` before building.*
+
+- **Filled values are contract text, not form fields.** She writes her template once in
+  eSignatures with markers like `{{puppy_name}}`, `{{price}}`, `{{deposit}}`. KennelOS creates
+  the contract (`POST /api/contracts`, `template_id`) and fills each marker through
+  `placeholder_fields` (`placeholder_key` + `replace_with_text`). The buyer reads them as part of
+  the contract and has no way to edit them: **this solves "the buyer can edit the prefilled
+  fields" (§2.1).** Placeholder values can still be updated by her (the sender) any time before
+  signing, so she can fix a price without resending.
+- **Fields the buyer completes** are `signer_fields` (`signer_field_id` + `default_value`):
+  their address, a spay/neuter acknowledgement checkbox. These *are* editable by the signer, so
+  facts the buyer mustn't change always go in placeholders, never here.
+- **Matching:** `metadata` (free text, returned with the contract and in webhooks) carries our
+  `contractRef`. `custom_webhook_url` sets the webhook per contract (retries 6 times, 1 h apart,
+  20 s timeout). The contract query returns its status, signer events and the **final PDF url**
+  (→ `document_url`).
+- **Delivery:** it emails or texts the buyer (`signature_request_delivery_methods`, `email` /
+  `sms`) under her name and logo (`custom_branding`), with a `redirect_url` after signing, or
+  (*unverified field name*) gives a signing page URL she sends herself.
+- **`test: "yes"`** makes free demo contracts (DEMO stamp, no reminders): a real end-to-end test
+  costs nothing.
+- **No template at all (later option):** `markdown` creates a contract from text alone, so
+  KennelOS could keep her contract wording itself and she'd set up nothing in eSignatures.
+- **Price:** the vendor states **$0.99 per contract, no subscription or setup fee**; third-party
+  listings say from $0.49, falling with volume (*unverified*). Comparable to SignWell / BoldSign,
+  with no monthly plan, which suits a breeder sending a few contracts a month.
+- **Concerns:**
+  1. **One secret token with full account access** (HTTP Basic auth, token as user name). There
+     is no read-only or send-only scope, unlike Jotform's read-only key: wherever it's kept can
+     send contracts as her. Stronger than D1 assumed.
+  2. **Browser calls unconfirmed.** If its API answers CORS from her browser, the token can stay
+     on her device like the Jotform key (D16) and sending needs no Worker, so this step needn't
+     wait for step 5. **D22**, settled by a one-call browser test with a test-mode contract.
+  3. **Webhook authenticity unconfirmed.** If webhooks aren't signed, a webhook is only a prompt:
+     re-read the contract by id with her token and trust that status, never the payload.
+     Without the Worker (D22 = device), her device polls her open `sent` contracts on open,
+     like step 7 does for Jotform, and the webhook comes later.
+
 ### 2.4 Data model (additive)
 On **Contract** (plain fields, no index needed, no new block; classify in `syncRegistry.js`, D9):
-- `esign_provider` (`jotform`/`docusign`/`signwell`/…), `esign_ref` (the provider's envelope /
+- `esign_provider` (`jotform`/`esignatures`/`docusign`/`signwell`/…), `esign_ref` (the provider's envelope /
   submission id), `esign_url` (the buyer's signing URL, when the provider gives a durable one),
   `esign_sent_at`, and `esign_form_label` (snapshot of the form's label at send time, §2.1a).
 - `document_url` (exists) receives the signed PDF link; `signed_date` (exists) the completion
@@ -407,6 +469,7 @@ can be unit-tested the same way `companionExport.js`'s allow-list is.
 Contract (draft) ── Send for signature ──▶ device builds fields (pure)
    │                                            │
    │  Jotform: prefilled URL on device ─────────┤ (no server call)
+   │  eSignatures.com: device ──▶ provider directly, if D22 = device (her token)
    │  DocuSign/SignWell: POST /integrations/esign/send ──▶ Worker ──▶ provider (her token)
    ▼                                                           ◀── envelope id / signing URL
 Contract = sent, esign_ref, esign_url ──▶ she sends URL (or provider emails buyer)
@@ -725,8 +788,8 @@ Each step is one reviewable PR, ordered by value ÷ effort and by dependency.
 | 4c | **Pick to send** (§2.6): from a waitlist pick, edit the sale in a modal, make the contract, send invoice + contract link (+ payment link after 6) in one message. **Built 2026-10-11** (End-State guide §29), except D19 | No (D19 email: Worker) | M |
 | 5 | **Integration plumbing** (§0): `int_connections`, `int_events`, hooks routes, `integrationEvents.js` reducer | Worker | M |
 | 6 | **Stripe Connect + Square** payment links with paid webhooks (§4), auto fee capture into §5 | Worker | L |
-| 7 | **Jotform signed → Contract signed** (§2.1). **Revised 2026-10-11: her device checks first.** With the key on the device (4b), opening KennelOS reads recent submissions of her mapped forms (`GET /form/{id}/submissions`), matches each by its `contractRef`, and marks the Contract `signed` with the date: no server, read-only key, buyer data only Jotform → her device. A Worker webhook (Level 1) only if she wants word while the app is closed; it would carry the whole submission through the Worker, so it must keep only the reference and date | No (webhook later: Worker after 5) | S |
-| 8 | **E-sign API provider**: SignWell / BoldSign first, or DocuSign if D5 says so (§2.2–2.3) | Worker | L |
+| 7 | **Jotform signed → Contract signed** (§2.1). **Revised 2026-10-11: her device checks first.** With the key on the device (4b), opening KennelOS reads recent submissions of her mapped forms (`GET /form/{id}/submissions`), matches each by its `contractRef`, **compares the prefilled fields with the `esign_sent_values` snapshot** (§2.1, "Prefill isn't a lock"; a change shows for her review instead of marking signed), and marks the Contract `signed` with the date: no server, read-only key, buyer data only Jotform → her device. A Worker webhook (Level 1) only if she wants word while the app is closed; it would carry the whole submission through the Worker, so it must keep only the reference and date | No (webhook later: Worker after 5) | S |
+| 8 | **E-sign API provider: eSignatures.com first** (§2.3a, D5 revised 2026-10-11): template + `placeholder_fields` from the same pure builder, `metadata` = `contractRef`, signed status → Contract `signed` + `document_url`. Starts with the D22 browser test; if the API answers browser calls, the token stays on her device and this needs no Worker, so it can come before step 5. SignWell / BoldSign / DocuSign later as further adapters | Device if D22 allows; else Worker after 5 | M–L |
 | 9 | Referral payouts in Financials (§3.3); network postbacks only on demand (§3.4) | Optional | S–M |
 
 Every step that adds a file updates `shared/sw.js` `PRECACHE_URLS` (Pro-only files also into
@@ -743,6 +806,9 @@ every new FK lands in `referenceRegistry.js` + the guide; every Worker table is 
   with a Worker secret, keep scopes minimal (Stripe: create payment links + read charges; no
   payouts), never log, revoke on disconnect / account deletion / lapsed license, and make
   `/ops` show counts only.
+- **eSignatures.com token** (§2.3a) has full account access with no narrower scope: on the
+  device it lives in `device_secrets` like the Jotform key; on the Worker it's the highest-value
+  token we'd hold. Prefer the device (D22).
 - **Webhook spoofing**: verify signatures; for unsigned Jotform, a per-connection secret path +
   only accept a `contractRef` that's an open `sent` contract on her account.
 - **Vendor drift**: each adapter is a small module behind one interface
@@ -761,7 +827,7 @@ every new FK lands in `referenceRegistry.js` + the guide; every Worker table is 
 | D2 | Waitlist embed: let any site frame it when she turns it on, or require her to list her site's address? | Optional list; `*` when blank, since there's no logged-in state to clickjack |
 | D3 | Embed the public list too, or only the application form? | Both (same mechanism, `data-view`) |
 | D4 | Do the no-server Level 0 features (stored payment link, prefilled Jotform link, fees) ship in **Lite** too? | Fees: yes (small, local, no cap impact). Jotform: Pro. **Payment link: Pro only** (revised 2026-10-11; Lite has no Accounts page to hold it) |
-| D5 | First e-sign provider: Jotform form (L0 → L1) only, add **SignWell/BoldSign**, or go for **DocuSign** (Partner Program + her API plan)? | Jotform now; SignWell or BoldSign next; DocuSign only if paying customers already have API plans |
+| D5 | First e-sign provider: Jotform form (L0 → L1) only, add **SignWell/BoldSign**, or go for **DocuSign** (Partner Program + her API plan)? | Jotform now; SignWell or BoldSign next; DocuSign only if paying customers already have API plans. **Revised 2026-10-11: eSignatures.com next** (§2.3a), ahead of SignWell / BoldSign: filled values are locked contract text, $0.99 per contract, no monthly plan |
 | D6 | Where the contract template / field map lives: on the vendor's Account, or a settings record? | On the Account (it's per vendor, and Accounts already holds vendor facts) |
 | D7 | Thank-you messages: her own email (copy / mailto) or the KennelOS kennel-name mailer? | Copy / mailto first; mailer when W2's mailer is live for her |
 | D8 | Payments: verify Stripe / Square live-animal terms before building? Allow pay-online for the **waitlist application fee** (reopens W2 Q6)? | Verify first; app fee online = yes, opt-in |
@@ -782,6 +848,8 @@ every new FK lands in `referenceRegistry.js` + the guide; every Worker table is 
 | D19 | **Open again (§2.6 as built).** Tell her when a family picks: an email from the Worker linking to their page (reopens W2's "no notifications") | Wanted, but the server holds no readable email for her account: needs her to give a notify-me address the server may keep. Decide that first |
 | D20 | **Taken as recommended (2026-10-11).** Where "deposit request sent" is recorded | On the offer (`deposit_request_sent_date`, plain, cloud) + the message in the entry's `messages[]` |
 | D21 | **Taken as recommended (2026-10-11).** Payment instructions in the message before §4: the waitlist config's fee payment text, or a new "deposit instructions" text? | Reuse her payment text, editable in the message |
+| D22 | **Open (2026-10-11).** Where her eSignatures.com token lives (§2.3a): on her device (`device_secrets`, like D16) or on the Worker? | Device, if its API answers browser calls (test first); Worker after step 5 only if not |
+| D23 | **Open (2026-10-11).** Tier of `esign_sent_values`, the snapshot of what a Jotform link prefilled (§2.1) | Private, like `sales.price`: only the sending device can run the check. Cloud would let any device check, but sends the price to the server |
 | D16 | **Decided 2026-10-11: on her device** (`device_secrets`). Where a Jotform API key lives (§2.1b): on her device or on the Worker (`int_connections`)? | Device: no central store of every breeder's key; proven in a real flow, Worker after step 5 only if Jotform blocks browser calls |
 
 ---
@@ -791,6 +859,7 @@ every new FK lands in `referenceRegistry.js` + the guide; every Worker table is 
 - Jotform prefill and webhooks: [prefill via URL parameters](https://eu.jotform.com/fr/answers/13973971-prepopulating-form-via-url-parameters), [webhook from prefill](https://jotform.com/answers/3778846-form-prefill-prefilling-a-form-from-a-webhook-request), [webhook guide (Rollout)](https://rollout.com/integration-guides/jotform/quick-guide-to-implementing-webhooks-in-jotform), [webhook security](https://www.jotform.com/answers/2598619-webhook-security)
 - Jotform Sign API: [sending via API](https://www.jotform.com/answers/26822631-sending-signature-requests-via-api), [create via API](https://www.jotform.com/answers/35218401-create-a-sign-document-via-api), [API support](https://www.jotform.com/answers/22471091-jotform-sign-api-support), [tracking via API](https://www.jotform.com/answers/4871361-track-jotform-sign-documents-via-api)
 - DocuSign: [Envelopes:create](https://developers.docusign.com/docs/esign-rest-api/reference/envelopes/envelopes/create/), [templates](https://developers.docusign.com/docs/esign-rest-api/esign101/concepts/templates/creating/), [embedded signing view](https://www.docusign.com/blog/developers/deep-dive-the-embedded-signing-recipient-view), [embedded reminders](https://community.docusign.com/esignature-api-63/automated-reminders-for-hybrid-embedded-recipients-27579), [Go-Live](https://developers.docusign.com/platform/go-live/), [public integration / own-account](https://community.docusign.com/go-live-70/go-live-for-a-public-integration-when-every-customer-uses-their-own-docusign-account-27596), [developer pricing](https://ecom.docusign.com/plans-and-pricing/developer), [API pricing (Signeasy)](https://signeasy.com/blog/business/docusign-api-pricing), [Connect HMAC](https://www.esign.ai/blog/docusign-connect-securing-webhooks-hmac-signature-verification-code)
+- eSignatures.com (researched 2026-10-11): [API docs](https://esignatures.com/docs/api), [getting started](https://esignatures.com/docs/getting_started), [create-contract schema in the vendor's MCP server](https://github.com/esignaturescom/mcp-server-esignatures/blob/main/src/mcp_server_esignatures/input_schema_contracts.py), [pricing (ColdIQ)](https://coldiq.com/tools/esignature), [e-sign API roundup (Geekflare)](https://geekflare.com/guides/best-esignature-apis/)
 - Other e-sign APIs: [SignWell pricing (Verdocs)](https://verdocs.com/blog/signwell-pricing), [BoldSign vs Dropbox Sign](https://boldsign.com/alternatives/hellosign-dropbox-sign-api/), [Dropbox Sign API (SignWell)](https://www.signwell.com/resources/dropbox-sign-api/)
 - Stripe: [restricted businesses](https://stripe.com/legal/restricted-businesses), [direct charges](https://stripe.com/docs/connect/direct-charges), [PaymentLink object](https://www.rubydoc.info/github/stripe/stripe-ruby/Stripe/PaymentLink), [fees (NerdWallet)](https://www.nerdwallet.com/business/software/learn/stripe-fees)
 - Square: [Checkout API](https://developer.squareup.com/docs/checkout-api-overview), [CreatePaymentLink](https://developer.squareup.com/reference/square/checkout-api/create-payment-link), [payment link webhooks](https://developer.squareup.com/forums/t/which-webhook-event-will-use-after-payment-received-for-payment-link/22282), [sandbox webhook fields](https://developer.squareup.com/forums/t/checkout-create-payment-link-the-sandbox-environment-webhook-is-missing-parameters/19182), [Payment Links fees](https://Square.com/us/en/payment-links), [fees (NerdWallet)](https://www.nerdwallet.com/business/software/learn/square-fees)

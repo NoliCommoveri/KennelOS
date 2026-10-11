@@ -942,7 +942,11 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   her fields each detail fills (`field_map`; `data/jotformMatch.js`, `data/jotformApi.js`,
   `data/jotformConnect.js`). Still to prove against a real Jotform account (Jotform must
   answer browser calls). **Next: step 7, revised:** her device checks Jotform for signed
-  submissions and marks the contract signed; step 5's server plumbing comes after.
+  submissions and marks the contract signed, after comparing the prefilled fields with what was
+  sent (a buyer can edit a Jotform link's values; plan §2.1). The first e-sign API provider is
+  now **eSignatures.com** (plan §2.3a, D5 revised; step 8), whose filled values are locked
+  contract text; a browser test decides whether its token can stay on her device (D22). Step
+  5's server plumbing comes after.
 
 - **Cloud Phase 2, live multi-device sync — being built** (`docs/KennelOS_Cloud_Phase2_Sync_Plan.md`;
   every §12 decision taken as recommended, 2026-10-10). Pro only: both tiers per record (cloud
