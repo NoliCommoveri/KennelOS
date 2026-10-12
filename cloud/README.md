@@ -49,6 +49,13 @@ src/waitlist.js        the waitlist online, her side (docs/KennelOS_Waitlist_W2_
                        POST /waitlist/messages: an email her device wrote, sent to the address
                        in her published projection with the status-link footer (W2 step 6).
                        Pro only (requirePro); writes from the backing device only
+src/integrations.js    vendor integrations' plumbing (docs/KennelOS_Integrations_Plan.md §0, migration
+                       0015): her connections (token sealed with INT_TOKEN_KEY, never sent back; only
+                       the webhook secret's hash kept), GET /integrations/connections, DELETE
+                       /integrations/connections/:id (revokes at the vendor), GET /integrations/events,
+                       and POST /hooks/<provider>/<secret> (the adapter checks the vendor's signature
+                       over the raw bytes; the event is cut to EVENT_KINDS' allow-list; a retry is
+                       kept once). Providers are adapters registered by later steps; none yet. Pro
 src/familyPages.js     the waitlist's family pages: serves public/family/ for /list/<public_id> and
                        /s/<token> (ASSETS binding), their same-origin JSON under /f/ (the public
                        list, one family's status view, See Your Details: a code by email, then
@@ -120,6 +127,12 @@ tests/                 node --test against a node:sqlite stand-in for D1;
 - **An inbox item outlives its ack.** Retention removes an application or family message only
   when it was acknowledged 30+ days ago AND a committed snapshot with a vault part was made
   after the ack; an unacknowledged one never. `GET /waitlist/inbox?all=1` re-fetches them.
+- **A vendor webhook keeps an allow-listed event, never the body.** `POST /hooks/<provider>/<secret>`
+  is found by the secret's hash, verified by the provider's adapter over the raw bytes before
+  anything is parsed, and reduced to `integrations.EVENT_KINDS`' fields (a record id, status,
+  amount, fee, date: no names, emails or documents). Vendor tokens are sealed with
+  `INT_TOKEN_KEY` (set it before any provider can connect: `integrations_not_configured`
+  until then); changing that secret makes every stored token unreadable, so don't.
 - **Upload a document before the snapshot that references it.** Retention gives a file a
   day's grace and then collects anything no snapshot references.
 - **No `IN (?, ?, …)` over a list.** D1 allows about 100 bound parameters and the test
@@ -147,7 +160,8 @@ npx wrangler dev --local --test-scheduled  # /ops at http://localhost:8787/ops;
 The dashboard setup is plan §6.7. In short: the D1 database and R2 bucket named in
 `wrangler.toml`; the real `database_id` pasted into `wrangler.toml`; Workers Builds
 connected to this repo with root directory `cloud/`; and the secrets `OPS_TOKEN`,
-`EMAIL_HMAC_KEY`, `RESEND_API_KEY` and (for the Pro license link) `LEMONSQUEEZY_WEBHOOK_SECRET`,
+`EMAIL_HMAC_KEY`, `RESEND_API_KEY`, (for the Pro license link) `LEMONSQUEEZY_WEBHOOK_SECRET`, and
+(for vendor integrations, Integrations plan §0) `INT_TOKEN_KEY`, a long random string,
 with the Lemon Squeezy ids in the `LS_*` vars (License Link Plan §7). Waitlist emails go out
 from `MAIL_FAMILY_DOMAIN` (`mail.kennelos.app`, its own sending domain verified in Resend;
 the same `RESEND_API_KEY` must be allowed to send from it), with links to

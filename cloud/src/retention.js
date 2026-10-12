@@ -136,6 +136,8 @@ export async function runRetention(env, now = new Date()) {
                         AND s.vault_key_id IS NOT NULL AND s.created_at > wl_inbox.acked_at)`,
     ).bind(iso(nowMs - WL_INBOX_KEEP_DAYS * DAY)),
     env.DB.prepare('DELETE FROM wl_events WHERE created_at < ?').bind(iso(nowMs - WL_EVENTS_KEEP_DAYS * DAY)),
+    // Integration events, like the waitlist's: 90 days (Integrations plan §0).
+    env.DB.prepare('DELETE FROM int_events WHERE created_at < ?').bind(iso(nowMs - WL_EVENTS_KEEP_DAYS * DAY)),
     env.DB.prepare('DELETE FROM wl_family_codes WHERE expires_at < ?').bind(iso(nowMs)),
     // An application never confirmed by its emailed code goes after two days, with its link.
     env.DB.prepare(

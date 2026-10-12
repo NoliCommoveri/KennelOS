@@ -941,7 +941,13 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   only (`device_secrets`, D16), picks forms from her Jotform account and confirms which of
   her fields each detail fills (`field_map`; `data/jotformMatch.js`, `data/jotformApi.js`,
   `data/jotformConnect.js`). Still to prove against a real Jotform account (Jotform must
-  answer browser calls). **Next: step 7, revised:** her device checks Jotform for signed
+  answer browser calls). **Step 5 (integration plumbing) is built (2026-10-12):** the
+  Worker's vendor connections (tokens sealed with the new `INT_TOKEN_KEY` secret), the
+  allow-listed event stream and `/hooks/<provider>/<secret>` webhooks
+  (`cloud/src/integrations.js`, migration `0015`), and on the device
+  `data/integrationEvents.js` + `data/cloud/cloudIntegrations.js`: the backing device
+  applies a vendor's "signed" / "paid" to the contract or sale, or leaves a review on Today.
+  No provider is registered yet (step 6 adds Stripe / Square). **Next: step 7, revised:** her device checks Jotform for signed
   submissions and marks the contract signed; step 5's server plumbing comes after.
 
 - **Cloud Phase 2, live multi-device sync — being built** (`docs/KennelOS_Cloud_Phase2_Sync_Plan.md`;

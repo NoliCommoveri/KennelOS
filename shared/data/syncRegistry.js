@@ -150,7 +150,10 @@ export const SYNC_REGISTRY = Object.freeze({
       // Why a voided/returned sale ended, and her note on it (decided 2026-10-08):
       // health information about the pup, so private like notes.
       'end_reason', 'end_note',
-      'processing_fee_amount'
+      'processing_fee_amount',
+      // What a connected vendor reported that her device didn't apply by itself
+      // (Integrations plan §0): amounts and references, private like the rest.
+      'integration_reviews'
     ],
     pending: []
   },
@@ -181,7 +184,9 @@ export const SYNC_REGISTRY = Object.freeze({
     ],
     // The link sent carries the prefilled facts in it (buyer's name, email, phone,
     // address, price), so it's private like those fields.
-    private: ['document_url', 'terms_summary', 'notes', 'esign_url'],
+    private: ['document_url', 'terms_summary', 'notes', 'esign_url',
+      // What a connected e-sign service reported that wasn't applied (plan §0).
+      'integration_reviews'],
     pending: []
   },
 

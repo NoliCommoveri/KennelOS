@@ -14,6 +14,7 @@ import { disableSync, enableSync, pullRecords, pushRecords, recordCursor, syncHe
 import { getEntitlement, removeLinks, startLink, verifyLink } from './license.js';
 import { cancelEmailChange, getEmailChange, requestEmailChange } from './emailChange.js';
 import { ackInbox, publishProjection, readEvents, readInbox, readProjection, sendMessage, unpublishProjection, PROJECTION_MAX_BYTES } from './waitlist.js';
+import { deleteConnection, listConnections, readIntegrationEvents } from './integrations.js';
 import { fail, json, readJson } from './lib/http.js';
 
 const FILE = /^\/files\/([^/]+)$/;
@@ -26,6 +27,7 @@ const VAULT_APPROVE = /^\/vault\/pairings\/([0-9a-f-]{36})\/approve$/;
 const DEVICE_ERASE = /^\/devices\/([^/]+)\/erase$/;
 const DEVICE_LICENSE = /^\/devices\/([^/]+)\/license-released$/;
 const WL_PROJECTION = /^\/waitlist\/projection\/([^/]+)$/;
+const INT_CONNECTION = /^\/integrations\/connections\/([0-9a-f-]{36})$/;
 
 function stream(object, contentType, cors) {
   return new Response(object.body, {
@@ -58,6 +60,13 @@ export async function handleApi(request, env, url, cors) {
   if (p === '/auth/signout-others' && m === 'POST') return json(await signOutOthers(env, auth, await readJson(request)), 200, cors);
 
   if (p === '/program' && m === 'GET') return json(await getProgram(env, auth), 200, cors);
+
+  // Integrations (docs/KennelOS_Integrations_Plan.md §0): her vendor connections
+  // and what they reported. Pro only.
+  if (p === '/integrations/connections' && m === 'GET') return json(await listConnections(env, auth), 200, cors);
+  if (p === '/integrations/events' && m === 'GET') return json(await readIntegrationEvents(env, auth, url), 200, cors);
+  const intConn = INT_CONNECTION.exec(p);
+  if (intConn && m === 'DELETE') return json(await deleteConnection(env, auth, intConn[1]), 200, cors);
   if (p === '/program/backing-device' && m === 'POST') return json(await takeOver(env, auth), 200, cors);
   if (p === '/devices/check-in' && m === 'POST') return json(await checkIn(env, auth, await readJson(request)), 200, cors);
   if (p === '/devices' && m === 'GET') return json(await listDevices(env, auth), 200, cors);

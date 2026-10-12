@@ -1,7 +1,7 @@
 # KennelOS Integrations — research & plan
 
 > **Status: approved 2026-10-10, every §8 decision as recommended, and every design choice in
-> §0–§7 as written. Steps 1–4, 4b and 4c are built (2026-10-11); §6 is the build order, one reviewable PR per step.**
+> §0–§7 as written. Steps 1–5 (with 4b and 4c) are built (2026-10-12); §6 is the build order, one reviewable PR per step.**
 > It covers five asks: (1) the
 > waitlist embedded on breeders' own websites, (2) Jotform / DocuSign contracts, (3) referral-use
 > notifications + thank-yous, (4) payment links through the breeder's own Stripe / Square, and
@@ -60,6 +60,40 @@ stays the source of truth, the Worker only relays, and changes come back to her 
   provider hands it back in its webhook, so no matching by name or email is ever needed.
 - **`cloudUrl: null` still works.** With no cloud, none of this renders. The no-server "Level 0"
   options below (paste your own link) still work, because they're just stored URLs.
+
+**As built (step 5, 2026-10-12)** (`cloud/src/integrations.js`, migration `0015_integrations`;
+on the device `data/integrationEvents.js` + `data/cloud/cloudIntegrations.js`; End-State guide
+§19 and the Sale / Contract rows). As above, with these details settled in the build:
+- **Adapters.** A provider is an adapter registered in `integrations.js`: `{ provider,
+  verify(request, raw, connection, env), toEvents(payload, connection), revoke? }`. Step 5
+  registers none, so every `/hooks/` call is 404 and nothing can be connected yet; steps 6
+  and 8 add theirs, each with its own connect flow calling `createConnection`.
+- **`int_connections`**: `id, program_id, provider, account_ref, token_sealed, scopes,
+  hook_hash, connected_at`. The token is sealed with AES-GCM under the new Worker secret
+  **`INT_TOKEN_KEY`** (key = SHA-256 of it), bound to program + connection + provider, as
+  `v1.<iv>.<ct>`; it's never sent to a device. The webhook path `/hooks/<provider>/<secret>`
+  is handed out once at connect; only the secret's SHA-256 (`hook_hash`) is kept. Disconnect
+  (`DELETE /integrations/connections/:id`, any of her signed-in devices) revokes at the
+  vendor (best effort) and deletes the row; no `revoked_at`.
+- **`int_events`**: `seq, program_id, connection_id, provider, provider_event_id, kind,
+  record_type, record_id, payload, created_at`, `UNIQUE (connection_id, provider_event_id)`,
+  so a retried webhook is kept once (the first version). Kinds and their payload allow-list
+  (`EVENT_KINDS`): `contract.signed` / `contract.declined` `{ date }`, `payment.paid`
+  `{ component: deposit | balance, amount, fee, currency, date, method, reference }`,
+  `payment.refunded` `{ amount, currency, date, reference }`; anything else in a vendor's
+  event is dropped before it's stored. Read with `GET /integrations/events?since=` (Pro);
+  trimmed after 90 days with `wl_events`; account deletion revokes every token, then removes
+  both tables' rows; the `/ops` export carries them.
+- **"Changed since" is read from the record's state**, not a version: an event applies while
+  the contract is still draft / sent, or the sale still waits for that payment; anything else
+  (and every refund, and a deposit on a waitlist pick, which belongs to the family's page)
+  becomes an entry in the record's `integration_reviews` (private tier), shown on Today until
+  she taps Done. An event already applied is skipped, so a re-read changes nothing.
+- **The backing device applies**, checked before its first write; the cursor is on the device.
+  A device asks nothing until the account has a connection (`settings` integrations state,
+  set by a connect flow or `refreshConnections`), so a breeder without one makes no request.
+- **Not yet:** the payment's processing fee into the sale (§4 → §5) is step 6's; the
+  connections list and Disconnect have no screen until a provider can be connected (step 6).
 
 **The privacy line, to agree on (D1).** Making a payment link or contract envelope **sends buyer
 data (name, email, price, pup) to her vendor account**. That is her choice and her account,
@@ -723,7 +757,7 @@ Each step is one reviewable PR, ordered by value ÷ effort and by dependency.
 | 4 | **Level 0 links**: stored payment link (§4) + Jotform contract forms list and prefilled send (§2.1, §2.1a). **Built 2026-10-11** (End-State guide §32, "Contract forms" and "Payment link") | No | S–M |
 | 4b | **Connect Jotform** (§2.1b): form picker + field matching from her API key; key on the device (D16). **Built 2026-10-11** (End-State guide §32, "Connect Jotform"); to be proven against a real Jotform account | No | S |
 | 4c | **Pick to send** (§2.6): from a waitlist pick, edit the sale in a modal, make the contract, send invoice + contract link (+ payment link after 6) in one message. **Built 2026-10-11** (End-State guide §29), except D19 | No (D19 email: Worker) | M |
-| 5 | **Integration plumbing** (§0): `int_connections`, `int_events`, hooks routes, `integrationEvents.js` reducer | Worker | M |
+| 5 | **Integration plumbing** (§0): `int_connections`, `int_events`, hooks routes, `integrationEvents.js` reducer. **Built 2026-10-12** (§0 "As built"); needs the `INT_TOKEN_KEY` secret before a provider can connect | Worker | M |
 | 6 | **Stripe Connect + Square** payment links with paid webhooks (§4), auto fee capture into §5 | Worker | L |
 | 7 | **Jotform signed → Contract signed** (§2.1). **Revised 2026-10-11: her device checks first.** With the key on the device (4b), opening KennelOS reads recent submissions of her mapped forms (`GET /form/{id}/submissions`), matches each by its `contractRef`, and marks the Contract `signed` with the date: no server, read-only key, buyer data only Jotform → her device. A Worker webhook (Level 1) only if she wants word while the app is closed; it would carry the whole submission through the Worker, so it must keep only the reference and date | No (webhook later: Worker after 5) | S |
 | 8 | **E-sign API provider**: SignWell / BoldSign first, or DocuSign if D5 says so (§2.2–2.3) | Worker | L |
