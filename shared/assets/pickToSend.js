@@ -26,6 +26,7 @@ import { rankForms, splitName } from '../data/contractForms.js';
 import { loadContractForms, openContractForSale, gatherContractFacts, buildSignatureLink, markContractSent, balanceDueOn } from '../data/contractSend.js';
 import { depositRequestMessage } from '../data/depositRequest.js';
 import { saleChannelPayAccount } from '../data/paymentLinks.js';
+import { stripeConnection, makeSaleLink } from '../data/stripeLinks.js';
 import { logOwnMessage } from '../data/waitlistOutbox.js';
 import { todayYMD } from '../data/dateUtils.js';
 import { esc, badge, fmtDate, fmtMoney } from './ui.js';
@@ -246,15 +247,37 @@ export async function openPickToSend({ offer, entry, contact, litterLabel = '', 
       return pdfFile;
     }
 
+    // The payment part of the message: the step-1 channel's link and instructions,
+    // or, with her Stripe key for that account on this device, a one-time link for
+    // exactly the deposit (plan §4, step 6), kept on the sale and reused while open.
+    let payAccount = null;
+    let stripeNote = '';
+    async function paymentAccount() {
+      const channel = accountsById.get(sale.sales_channel_account_id) || null;
+      const deposit = Number(sale.deposit_amount) || 0;
+      if (channel && deposit > 0 && await stripeConnection(channel.id)) {
+        try {
+          const open = sale.payment_link_ref && sale.payment_link_component === 'deposit' && Number(sale.payment_link_amount) === deposit;
+          if (!open) { sale = await makeSaleLink({ sale, account: channel, component: 'deposit', amount: deposit, pupName: dog?.call_name || '' }); changed = true; }
+          stripeNote = 'The deposit link is a one-time Stripe link for exactly the deposit. When they pay, Today tells you; then tap Deposit received on this page.';
+          return { ...channel, payment_link: sale.payment_link_url };
+        } catch (err) {
+          stripeNote = `No Stripe link: ${err.message}`;
+        }
+      }
+      return saleChannelPayAccount(sale, accounts);
+    }
+
     async function drawSend() {
       if (!message) {
+        payAccount = await paymentAccount();
         const balance = await balanceDueOn(sale);
         const rest = Math.max(0, balance - (Number(sale.deposit_amount) || 0));
         message = depositRequestMessage({
           who, pupName: dog?.call_name || '', litterLabel,
           deposit: sale.deposit_amount != null ? fmtMoney(sale.deposit_amount) : '',
           depositDue: offer.respond_by_date ? fmtDate(offer.respond_by_date) : '',
-          payAccount: saleChannelPayAccount(sale, accounts), paymentText,
+          payAccount, paymentText,
           contractLabel: chosen ? descriptor(CONTRACT_FORM_TYPE, chosen.form.form_type).label.toLowerCase() : '', contractLink: chosen?.url || '',
           invoice: true,
           balance: rest > 0 ? fmtMoney(rest) : '', balanceDue: sale.balance_due_date ? fmtDate(sale.balance_due_date) : '',
@@ -267,7 +290,8 @@ export async function openPickToSend({ offer, entry, contact, litterLabel = '', 
       const sentLine = offer.deposit_request_sent_date ? `<p class="field-hint">You sent them a deposit request on ${esc(fmtDate(offer.deposit_request_sent_date))}.</p>` : '';
       shell(`<p class="field-hint" style="margin-top:0;">To ${esc(contact?.name || 'them')}${email ? ` · ${esc(email)}` : ' (no email on their contact)'}. Edit anything before it goes.</p>
         ${sentLine}
-        ${saleChannelPayAccount(sale, accounts) ? '' : '<p class="field-hint">To put a payment link in the message, set <strong>Sold / paid through</strong> in step 1 (Back) to an account with a payment link (Accounts page).</p>'}
+        ${stripeNote ? `<p class="field-hint">${esc(stripeNote)}</p>` : ''}
+        ${payAccount ? '' : '<p class="field-hint">To put a payment link in the message, set <strong>Sold / paid through</strong> in step 1 (Back) to an account with a payment link (Accounts page).</p>'}
         <div class="field"><label for="ps-subject">Subject</label><input id="ps-subject" type="text" value="${esc(message.subject)}"></div>
         <div class="field"><label for="ps-body">Message</label><textarea id="ps-body" rows="14" style="width:100%; font-family:inherit;">${esc(message.body)}</textarea></div>
         <p class="field-hint">${share

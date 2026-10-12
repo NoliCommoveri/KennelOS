@@ -10,13 +10,19 @@
 // write over something she did. Already-applied events are skipped, so reading
 // one twice (or on a second device) changes nothing.
 //
-// Not here yet: the processing fee a payment carries (plan §4 → §5) is step 6's.
+// A payment's processing fee (plan §4 → §5) is kept per payment on the sale
+// (`processing_fee_reports`, once per payment reference) and fills the sale's
+// `processing_fee_amount` with their total, unless she typed her own fee: then
+// the payment is still applied, and the fee difference waits on Today.
 
 // → { op: 'update', changes } | { op: 'review', review } | { op: 'skip', reason }
 //   event:   { seq, provider, kind, recordType, recordId, payload, createdAt }
 //   record:  the contract or sale it names, or null
 //   ctx:     { waitlistPick: true when the sale is a waitlist pick (its deposit
-//              is recorded on the family's page, where it places the family) }
+//              is recorded on the family's page, where it places the family),
+//              suggestedFee: the fee the sale's channel rate suggests (a fee still
+//              at it isn't one she typed) }
+// An 'update' may carry a `review` too (applied, but something to check).
 export function planIntegrationEvent(event, record, ctx = {}) {
   if (!record || record.is_archived) return { op: 'skip', reason: 'not_found' };
   const p = event.payload || {};
@@ -47,18 +53,38 @@ function planPayment(sale, p, date, ctx, review) {
     if (sale.deposit_date === date && status !== 'deposit_pending') return { op: 'skip', reason: 'already' };
     if (status !== 'deposit_pending') return review(`The sale is already past its deposit (${status}).`);
     if (ctx.waitlistPick) return review('This sale is a waitlist pick: record the deposit on the family\'s page, where it places them.');
-    return { op: 'update', changes: { status: 'deposit_paid', deposit_date: date, ...paidBy(sale, p) } };
+    return withFee(sale, p, date, ctx, { status: 'deposit_paid', deposit_date: date, ...paidBy(sale, p) });
   }
   if (p.component === 'balance') {
     if (sale.balance_paid_date === date && ['paid_in_full', 'delivered'].includes(status)) return { op: 'skip', reason: 'already' };
     if (!['deposit_pending', 'deposit_paid'].includes(status)) return review(`The sale is ${status}.`);
     if (status === 'deposit_pending' && ctx.waitlistPick) return review('This sale is a waitlist pick: record the deposit on the family\'s page first.');
-    return {
-      op: 'update',
-      changes: { status: 'paid_in_full', balance_paid_date: date, ...(sale.deposit_date ? {} : { deposit_date: date }), ...paidBy(sale, p) }
-    };
+    return withFee(sale, p, date, ctx,
+      { status: 'paid_in_full', balance_paid_date: date, ...(sale.deposit_date ? {} : { deposit_date: date }), ...paidBy(sale, p) });
   }
   return review('A payment for an unknown part of the sale.');
+}
+
+const cents = (n) => Math.round(n * 100) / 100;
+const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
+
+// The payment's update with its fee: recorded once per payment reference, and the
+// sale's fee set to the total reported, unless she typed a fee of her own.
+function withFee(sale, p, date, ctx, changes) {
+  const plan = { op: 'update', changes };
+  if (typeof p.fee !== 'number') return plan;
+  const reports = Array.isArray(sale.processing_fee_reports) ? sale.processing_fee_reports : [];
+  const ref = p.reference || `${p.component}:${date}`;
+  if (reports.some((r) => r && r.ref === ref)) return plan;
+  const before = cents(reports.reduce((t, r) => t + (Number(r?.fee) || 0), 0));
+  const total = cents(before + p.fee);
+  changes.processing_fee_reports = [...reports, { ref, fee: p.fee, date, component: p.component }];
+  const current = num(sale.processing_fee_amount);
+  const untouched = current === null || current === 0
+    || (reports.length ? current === before : (ctx.suggestedFee != null && current === Number(ctx.suggestedFee)));
+  if (untouched) changes.processing_fee_amount = total;
+  else plan.review = { reason: `The processing fee reported comes to $${total.toFixed(2)} in all; the sale says $${current.toFixed(2)}, which you entered. Change it if it should match.` };
+  return plan;
 }
 
 // How it was paid, only into fields she left empty.
@@ -69,9 +95,9 @@ function paidBy(sale, p) {
   return out;
 }
 
-function reviewOf(event, reason) {
+export function reviewOf(event, reason) {
   return {
-    id: `int-${event.seq}`, seq: event.seq, provider: event.provider, kind: event.kind,
+    id: event.id || `int-${event.seq}`, seq: event.seq ?? null, provider: event.provider, kind: event.kind,
     payload: event.payload || {}, at: event.createdAt, reason
   };
 }

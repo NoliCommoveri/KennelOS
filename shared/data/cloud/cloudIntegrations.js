@@ -16,14 +16,9 @@ import { isCloudAvailable } from './cloudConfig.js';
 import { sessionToken } from './cloudAuth.js';
 import { getIntegrationsState, updateIntegrationsState } from '../settings.js';
 import { editionFlags } from '../editionConfig.js';
-import { contractRepo } from '../contractRepo.js';
-import { saleRepo } from '../saleRepo.js';
-import { waitlistOfferRepo } from '../waitlistOfferRepo.js';
-import { planIntegrationEvent, addReview } from '../integrationEvents.js';
+import { applyIntegrationEvent } from '../integrationApply.js';
 
 export const INTEGRATIONS_POLL_MS = 5 * 60 * 1000;
-
-const REPOS = { contract: contractRepo, sale: saleRepo };
 
 const offered = () => isCloudAvailable() && Boolean(editionFlags.accounts);
 
@@ -46,28 +41,9 @@ export async function refreshConnections() {
   return connections;
 }
 
-async function isWaitlistPick(saleId) {
-  if (!editionFlags.waitlist) return false;
-  return (await waitlistOfferRepo.getAll()).some((o) => o.sale_id === saleId && o.outcome === 'open');
-}
-
-// Apply one event's plan. → 'applied' | 'review' | 'skipped'
-export async function applyIntegrationEvent(event) {
-  const repo = REPOS[event.recordType];
-  if (!repo) return 'skipped';
-  const record = await repo.getById(event.recordId);
-  const ctx = event.recordType === 'sale' && record ? { waitlistPick: await isWaitlistPick(record.id) } : {};
-  const plan = planIntegrationEvent(event, record, ctx);
-  if (plan.op === 'update') {
-    await repo.update(record.id, plan.changes);
-    return 'applied';
-  }
-  if (plan.op === 'review') {
-    await repo.update(record.id, { integration_reviews: addReview(record.integration_reviews, plan.review) });
-    return 'review';
-  }
-  return 'skipped';
-}
+// One event applied through the repos (integrationApply.js, shared with the
+// device's own Stripe check).
+export { applyIntegrationEvent };
 
 let running = null;
 

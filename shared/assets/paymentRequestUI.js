@@ -6,7 +6,12 @@
 // amount, the link and the account's instructions. Picking an account on a sale
 // with no channel fills Sold / paid through with it (and suggests its fee, the
 // Sale page's rule); picking a different one than the sale's asks first.
-// Nothing is recorded as paid: she still taps Deposit received as today.
+// With her Stripe key on this device (plan §4, step 6), the account offers a
+// one-time Stripe link for exactly that amount instead (stripeLinks.makeSaleLink):
+// it's kept on the sale, and her device marks the sale paid when Stripe says so.
+// A one-time link always comes from the sale's own Sold / paid through account,
+// the one whose key checks it. Otherwise nothing is recorded as paid: she taps
+// Deposit received as today.
 // Pro-only (proPages.PRO_ONLY_STANDALONE): the Sale page imports it only when
 // editionFlags.accounts is on, and the Invoice page is Pro.
 import { saleRepo } from '../data/saleRepo.js';
@@ -20,6 +25,7 @@ import { splitName } from '../data/contractForms.js';
 import { paymentAccounts, saleChannelPayAccount, paymentOptions, paymentLink, paymentRequestMessage } from '../data/paymentLinks.js';
 import { esc, fmtDate, fmtMoney, confirmModal } from './ui.js';
 import { openComposer } from './messageComposer.js';
+import { stripeConnection, makeSaleLink } from '../data/stripeLinks.js';
 
 // The sale's fields after paying through `account`: an empty channel takes it,
 // with its fee suggested when the fee is empty; a changed channel moves a fee
@@ -53,7 +59,7 @@ function noAccountsModal() {
 }
 
 // Pick the account and what for. → Promise<{ account, option } | null>.
-function chooseModal({ title, accounts, defaultId, channelName, channelPays, options }) {
+function chooseModal({ title, accounts, defaultId, channelName, channelPays, options, stripeIds }) {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
@@ -63,7 +69,7 @@ function chooseModal({ title, accounts, defaultId, channelName, channelPays, opt
       <h2 style="margin-top:0;">${esc(title)}</h2>
       <h3 style="font-size:15px; margin:4px 0;">Paid through</h3>
       ${accounts.map((a) => radio('pr-acct', a.id, a.id === defaultId,
-        `${esc(a.name)} <span class="muted">${esc(paymentLink(a.payment_link) ? 'payment link' : 'instructions')}</span>`)).join('')}
+        `${esc(a.name)} <span class="muted">${esc(stripeIds.has(a.id) ? 'Stripe' : paymentLink(a.payment_link) ? 'payment link' : 'instructions')}</span>`)).join('')}
       <p class="field-hint">${channelName
         ? `This sale is sold / paid through ${esc(channelName)}.${channelPays ? '' : ' It has no payment link: add one on the Accounts page, or pick another account (it asks before changing the sale).'}`
         : 'This sale has no Sold / paid through account yet: the one you pick becomes it, and its processing fee is suggested.'}</p>
@@ -71,6 +77,8 @@ function chooseModal({ title, accounts, defaultId, channelName, channelPays, opt
       ${options.length
         ? options.map((o, i) => radio('pr-what', o.key, i === 0, `${esc(o.label)} <strong>${esc(fmtMoney(o.amount))}</strong>`)).join('')
         : '<p class="muted" style="margin:0;">Nothing is owed on this sale. The message leaves the amount out; add it yourself.</p>'}
+      <label class="check-inline" id="pr-stripe-row" style="display:flex; gap:8px; align-items:flex-start; margin-top:10px;">
+        <input type="checkbox" id="pr-stripe" checked> <span>Make a one-time Stripe link for exactly this amount. KennelOS marks the sale paid, with Stripe's fee, when they pay.</span></label>
       <div class="form-actions">
         <button class="btn btn-primary" id="pr-next">Write the message</button>
         <button class="btn" id="pr-cancel">Cancel</button>
@@ -82,12 +90,20 @@ function chooseModal({ title, accounts, defaultId, channelName, channelPays, opt
     document.addEventListener('keydown', onKey);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) done(null); });
     overlay.querySelector('#pr-cancel').addEventListener('click', () => done(null));
+    // The Stripe choice shows only for a Stripe-connected account and an amount.
+    const stripeRow = () => {
+      const id = overlay.querySelector('input[name="pr-acct"]:checked')?.value;
+      overlay.querySelector('#pr-stripe-row').hidden = !(stripeIds.has(id) && options.length);
+    };
+    stripeRow();
+    overlay.addEventListener('change', stripeRow);
     overlay.querySelector('#pr-next').addEventListener('click', () => {
       const id = overlay.querySelector('input[name="pr-acct"]:checked')?.value;
       const key = overlay.querySelector('input[name="pr-what"]:checked')?.value;
       const account = accounts.find((a) => a.id === id);
       if (!account) return;
-      done({ account, option: options.find((o) => o.key === key) || null });
+      const stripe = !overlay.querySelector('#pr-stripe-row').hidden && overlay.querySelector('#pr-stripe').checked;
+      done({ account, option: options.find((o) => o.key === key) || null, stripe });
     });
   });
 }
@@ -99,8 +115,12 @@ export async function openPaymentRequest({ saleId }) {
   const all = await accountRepo.getAll({ includeArchived: true });
   const accountsById = new Map(all.map((a) => [a.id, a]));
   const channel = accountsById.get(sale.sales_channel_account_id) || null;
-  const fromChannel = saleChannelPayAccount(sale, all);
+  // Accounts with her Stripe key on this device take payments too.
+  const stripeIds = new Set();
+  for (const a of all) if ((!a.is_archived || a.id === channel?.id) && await stripeConnection(a.id)) stripeIds.add(a.id);
+  const fromChannel = saleChannelPayAccount(sale, all) || (channel && stripeIds.has(channel.id) ? channel : null);
   const accounts = paymentAccounts(all);
+  for (const a of all) if (stripeIds.has(a.id) && !accounts.some((x) => x.id === a.id)) accounts.push(a);
   if (fromChannel && !accounts.some((a) => a.id === fromChannel.id)) accounts.unshift(fromChannel);
   if (!accounts.length) return noAccountsModal();
 
@@ -117,7 +137,7 @@ export async function openPaymentRequest({ saleId }) {
     accounts,
     defaultId: fromChannel?.id || accounts[0].id,
     channelName: channel?.name || '', channelPays: !!fromChannel,
-    options
+    options, stripeIds
   });
   if (!picked) return false;
 
@@ -132,7 +152,23 @@ export async function openPaymentRequest({ saleId }) {
     if (ok) { await saleRepo.update(sale.id, changes); changed = true; }
   }
 
-  const { option, account } = picked;
+  const { option } = picked;
+  let { account } = picked;
+  let hint = 'When they pay, record it on the sale (Deposit received, or the balance paid date) as usual.';
+  if (picked.stripe && option) {
+    const fresh = await saleRepo.getById(sale.id);
+    if (fresh.sales_channel_account_id !== account.id) {
+      hint = `No Stripe link: a one-time link comes from the sale's Sold / paid through account, which is still ${channel?.name || 'another account'}.`;
+    } else {
+      const part = option.key === 'deposit' ? 'deposit' : 'balance';
+      // The open link for this same payment is sent again, not replaced.
+      const reuse = fresh.payment_link_ref && fresh.payment_link_component === part && Number(fresh.payment_link_amount) === option.amount;
+      const linked = reuse ? fresh : await makeSaleLink({ sale: fresh, account, component: option.key, amount: option.amount, pupName });
+      account = { ...account, payment_link: linked.payment_link_url };
+      changed = true;
+      hint = 'A one-time Stripe link for exactly this amount. When they pay, KennelOS marks the sale paid (it checks Stripe when you open the app).';
+    }
+  }
   const due = option && option.key !== 'deposit' && sale.balance_due_date ? fmtDate(sale.balance_due_date) : '';
   const msg = paymentRequestMessage({
     who: buyer ? splitName(buyer.name)[0] : '',
@@ -147,7 +183,7 @@ export async function openPaymentRequest({ saleId }) {
     title: 'Send payment link',
     name: buyer?.name || '', email: buyer?.email || '', phone: buyer?.phone || '',
     subject: msg.subject, body: msg.body,
-    hint: 'When they pay, record it on the sale (Deposit received, or the balance paid date) as usual.'
+    hint
   });
   return changed;
 }

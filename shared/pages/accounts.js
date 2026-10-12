@@ -27,6 +27,7 @@ import { paymentLink } from '../data/paymentLinks.js';
 import { JOTFORM_REGIONS, jotformConnection, connectJotform, disconnectJotform, listJotformForms, matchJotformForm } from '../data/jotformConnect.js';
 import { factsFor, guessFormType, matchWarnings } from '../data/jotformMatch.js';
 import { isDemo } from '../data/demoMode.js';
+import { STRIPE_CURRENCIES, stripeConnection, connectStripe, disconnectStripe } from '../data/stripeLinks.js';
 import { esc, badge, fmtMoney, confirmModal, alertModal } from '../assets/ui.js';
 
 const els = {
@@ -341,6 +342,7 @@ els.list.addEventListener('click', async (e) => {
         if (!ok) return;
         await accountRepo.hardDelete(a.id);
         await disconnectJotform(a.id); // its Jotform key on this device, if any
+        await disconnectStripe(a.id);  // and its Stripe key
         break;
       }
       default: return;
@@ -401,6 +403,7 @@ function openForm(existing = null) {
       ${field('Payment link', `<input id="af-pay-link" type="url" value="${esc(a.payment_link)}" placeholder="https://buy.stripe.com/…">`, { wide: true })}
       ${field('Payment instructions', `<textarea id="af-pay-instructions" placeholder="e.g. Zelle to payments@yourkennel.com, with your puppy's name in the memo.">${esc(a.payment_instructions)}</textarea>`, { wide: true, hint: 'Written for the buyer: they go in the message.' })}
     </div>
+    <div id="af-stripe"></div>
     <h3 style="font-size:15px; margin:14px 0 4px;">Processing fee — if you sell or take payments through it</h3>
     <p class="field-hint" style="margin-top:0;">What it keeps of each sale: a percentage, a fixed amount, or both (e.g. 6.25% + $5). A sale sold through this account suggests its fee from this.</p>
     <div class="form-grid">
@@ -465,6 +468,31 @@ function openForm(existing = null) {
           <div id="af-jf-msg" class="field-hint" role="status"></div></details>`;
   }
   drawJotform().catch(() => { jfBox.innerHTML = ''; });
+
+  // One-time Stripe links (plan §4): her own restricted key, on this device only.
+  const stBox = $('#af-stripe');
+  async function drawStripe() {
+    if (isDemo()) { stBox.innerHTML = ''; return; }
+    if (!accountId) {
+      stBox.innerHTML = '<p class="field-hint">On Stripe? Save this account, then Edit it to connect Stripe for one-time links for the exact amount owed, which KennelOS marks paid when they pay.</p>';
+      return;
+    }
+    const st = await stripeConnection(accountId);
+    stBox.innerHTML = st
+      ? `<div class="jf-box"><span>Stripe one-time links are on for this device${st.testMode ? ' (<strong>test mode</strong>)' : ''}, in ${esc(st.currency.toUpperCase())}.</span>
+          <button type="button" class="btn btn-sm" id="af-st-off">Disconnect</button>
+          <div id="af-st-msg" class="field-hint" role="status"></div></div>`
+      : `<details class="jf-box"><summary><strong>Connect Stripe</strong> (optional): one-time links for the exact amount, marked paid by themselves</summary>
+          <p class="field-hint">In your Stripe Dashboard, open <strong>Developers → API keys</strong> and create a <strong>restricted key</strong> named KennelOS with only these permissions: Products <em>Write</em>, Prices <em>Write</em>, Payment Links <em>Write</em>, Checkout Sessions <em>Read</em>, PaymentIntents <em>Read</em>, Charges <em>Read</em>, Balance <em>Read</em> (the names may differ a little). Paste it here: it starts <code>rk_</code>. Never paste your full secret key (<code>sk_</code>).</p>
+          <p class="field-hint">The key stays <strong>on this device only</strong>: never in a backup, a sync or KennelOS's cloud, so connect each device you use. Payments go straight to your Stripe account. KennelOS checks Stripe for paid links when you open it.</p>
+          <div class="form-grid">
+            ${field('Restricted key', '<input id="af-st-key" type="password" autocomplete="off" spellcheck="false" placeholder="rk_live_…">')}
+            ${field('Currency', `<select id="af-st-currency">${STRIPE_CURRENCIES.map((c) => `<option value="${esc(c.value)}">${esc(c.label)}</option>`).join('')}</select>`)}
+          </div>
+          <button type="button" class="btn btn-sm btn-primary" id="af-st-connect">Connect</button>
+          <div id="af-st-msg" class="field-hint" role="status"></div></details>`;
+  }
+  drawStripe().catch(() => { stBox.innerHTML = ''; });
   const rowMeta = (row, map) => {
     row.dataset.fieldMap = JSON.stringify(map);
     row.querySelector('.cf-meta-text').textContent = matchedNote(map);
@@ -474,6 +502,24 @@ function openForm(existing = null) {
     if (rm) { rm.closest('.cf-row').remove(); return; }
     const cp = e.target.closest('[data-copy-name]');
     if (cp) { await copy(cp.dataset.copyName, cp); return; }
+    const st = e.target.closest('#af-st-connect, #af-st-off');
+    if (st && !st.disabled) {
+      st.disabled = true;
+      try {
+        if (st.id === 'af-st-connect') {
+          $('#af-st-msg').textContent = 'Checking the key with Stripe…';
+          await connectStripe(accountId, $('#af-st-key').value, $('#af-st-currency').value);
+        } else {
+          const ok = await confirmModal({ title: 'Disconnect Stripe on this device?', message: 'KennelOS forgets the key on this device. Links already sent still work, but this device stops checking whether they were paid.', confirmLabel: 'Disconnect' });
+          if (!ok) return;
+          await disconnectStripe(accountId);
+        }
+        await drawStripe();
+      } catch (err) {
+        const m = $('#af-st-msg'); if (m) m.innerHTML = `<span class="inline-error">${esc(err.message || String(err))}</span>`;
+      } finally { st.disabled = false; }
+      return;
+    }
     const btn = e.target.closest('#af-jf-connect, #af-jf-off, #af-jf-add, [data-cf-fields]');
     if (!btn || btn.disabled) return;
     btn.disabled = true;

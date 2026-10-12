@@ -140,7 +140,11 @@ export const SYNC_REGISTRY = Object.freeze({
       'sale_date', 'deposit_date', 'balance_due_date', 'balance_paid_date',
       // Which channel it went through, and whether its fee was passed on
       // (Integrations plan §5, D9). The fee itself is money, private like price.
-      'sales_channel_account_id', 'fee_passed_to_buyer'
+      'sales_channel_account_id', 'fee_passed_to_buyer',
+      // Her open one-use Stripe link (Integrations plan §4, D9: payment-link refs are
+      // cloud, so any device can match a payment): the link, Stripe's id for it,
+      // which payment it's for and when it was made. Its amount is private.
+      'payment_link_url', 'payment_link_ref', 'payment_link_component', 'payment_link_date'
     ],
     private: [
       'price', 'deposit_amount', 'transport_fee', 'deferred_boarding_amount',
@@ -153,7 +157,10 @@ export const SYNC_REGISTRY = Object.freeze({
       'processing_fee_amount',
       // What a connected vendor reported that her device didn't apply by itself
       // (Integrations plan §0): amounts and references, private like the rest.
-      'integration_reviews'
+      'integration_reviews',
+      // The open link's amount, and each payment's fee as the vendor reported it
+      // (plan §4 → §5): money, private like price and processing_fee_amount.
+      'payment_link_amount', 'processing_fee_reports'
     ],
     pending: []
   },

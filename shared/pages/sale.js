@@ -285,6 +285,9 @@ function renderView() {
       ${s.end_note ? row('About it', esc(s.end_note).replace(/\n/g, '<br>')) : ''}
       ${row('Price', esc(money(s.price)))}
       ${editionFlags.accounts && s.sales_channel_account_id ? row('Sold / paid through', esc(ctx.accountsById.get(s.sales_channel_account_id)?.name || '—')) : ''}
+      ${editionFlags.accounts && s.payment_link_url ? row('Payment link', `<a href="${esc(s.payment_link_url)}" target="_blank" rel="noopener noreferrer">One-time Stripe link</a>
+        <span class="muted">· ${esc(s.payment_link_component === 'deposit' ? 'deposit' : 'balance')}${s.payment_link_amount != null ? ` ${esc(fmtMoney(s.payment_link_amount))}` : ''}${s.payment_link_date ? ` · made ${esc(fmtDate(s.payment_link_date))}` : ''} · not paid yet</span>
+        <button type="button" class="btn btn-sm" data-pl-copy>Copy</button> <button type="button" class="btn btn-sm" data-pl-check>Check now</button>`) : ''}
       ${s.processing_fee_amount != null && s.processing_fee_amount !== '' ? row('Processing fee', `${esc(money(s.processing_fee_amount))}${s.fee_passed_to_buyer ? ' <span class="muted">(passed to the buyer in the price)</span>' : ''}`) : ''}
       ${s.processing_fee_amount != null && s.processing_fee_amount !== '' && s.price != null && s.price !== '' ? row('You net', esc(money(netOf(s.price, s.processing_fee_amount)))) : ''}
       ${row('Deposit amount', esc(money(s.deposit_amount)))}
@@ -908,5 +911,27 @@ async function main() {
   renderScopeNotice(document.getElementById('scope-notice'), s, { kind: 'sale' });
   renderAll();
 }
+
+// The open one-time Stripe link on the view (Integrations plan §4): Copy, and
+// Check now (asks Stripe about this sale, whatever the 15-minute wait).
+els.body.addEventListener('click', async (e) => {
+  const copyBtn = e.target.closest('[data-pl-copy]');
+  const checkBtn = e.target.closest('[data-pl-check]');
+  if ((!copyBtn && !checkBtn) || !ctx.original) return;
+  clearError();
+  if (copyBtn) {
+    try { await navigator.clipboard.writeText(ctx.original.payment_link_url); copyBtn.textContent = 'Copied ✓'; } catch { showError('Couldn\'t copy: open the link and copy its address.'); }
+    return;
+  }
+  checkBtn.disabled = true;
+  try {
+    const { checkStripePayments } = await import('../data/stripeLinks.js');
+    const res = await checkStripePayments({ force: true, saleIds: [ctx.original.id] });
+    if (!res || !res.checked) showError('This device can\'t check: connect Stripe on the Sold / paid through account (Accounts page).');
+    ctx.original = await saleRepo.getById(ctx.original.id);
+    if (ctx.mode === 'view') renderAll();
+    if (res && res.checked && !(res.applied || res.review)) showError('Not paid yet.');
+  } catch (err) { showError(err.message || String(err)); } finally { checkBtn.disabled = false; }
+});
 
 main();
