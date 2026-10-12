@@ -541,6 +541,17 @@ kennels:       id, public_id, waitlist_fee_account_id, is_archived
 for the `ACCOUNT_REFERENCES` delete guard; a backup's `schema_version` now reads 4, and older
 files still restore.
 
+**A version bump needs every other open copy to let go.** IndexedDB installs a new
+`version(N)` only once every other connection on the device closes. A live tab does so by
+itself (Dexie closes on `versionchange`), but a copy the phone has frozen in the background
+(an old tab, the installed app in Recents) can't, and the upgrade then waits without an
+error: every read hangs, so pages sit on "Loading…" or show no table (the `version(4)`
+rollout, 2026-10-12). `db.js` announces both sides as window events, `DB_BLOCKED_EVENT` /
+`DB_READY_EVENT` (with `isDbUpgradeBlocked()` for a late reader) and
+`DB_VERSIONCHANGE_EVENT`; `app.js` shows "close every other KennelOS tab or window" while
+blocked (gone once the upgrade goes through), and "updated in another tab, reload" on a copy
+that was closed. Expect the first notice on some devices after any shipped version bump.
+
 `device_secrets` is a **device-only table** (`db.DEVICE_ONLY_TABLES`): this device's
 unlocked private-vault key, stored as a `CryptoKey`, and any open request to be unlocked by
 another device (§30, Private Vault Plan §3.3; `cloud/vaultKeyStore.js`), and her **Jotform
