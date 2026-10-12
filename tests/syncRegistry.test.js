@@ -189,7 +189,7 @@ test('the decided §5 privacy lines hold (field-by-field spot checks)', () => {
   const cloud = (t, f) => reg.isCloudField(t, f);
   // Contacts: name is cloud; how to reach them is not.
   assert.ok(cloud('contacts', 'name'));
-  for (const f of ['email', 'phone', 'address', 'notes', 'companion_note']) assert.ok(!cloud('contacts', f), f);
+  for (const f of ['email', 'phone', 'facebook_profile', 'address', 'notes', 'companion_note']) assert.ok(!cloud('contacts', f), f);
   // Money never leaves.
   for (const f of ['price', 'deposit_amount', 'transport_fee', 'payment_method', 'invoice_number', 'lead_source', 'referred_by_contact_id']) {
     assert.ok(!cloud('sales', f), `sales.${f}`);
