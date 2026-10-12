@@ -114,6 +114,7 @@ const PRECACHE_URLS = [
   'data/jotformConnect.js',
   'data/jotformKeyStore.js',
   'data/jotformMatch.js',
+  'data/jotformSigned.js',
   'data/kennelCard.js',
   'data/kennelRepo.js',
   'data/kennelScope.js',

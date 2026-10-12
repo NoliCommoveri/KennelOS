@@ -271,7 +271,7 @@ distinction and the Contract itself stays `sale`; no `CONTRACT_TYPE` change (D13
    `esign_sent_date`, and `esign_form_label` (a snapshot of the label, so renaming or deleting
    the form later never changes what the contract says was sent). **Copy link again** stays on
    the contract while it's `sent`.
-6. She marks it **Signed** herself (Level 0), or step 7's webhook does it (Level 1).
+6. She marks it **Signed** herself (Level 0), or her device does once it finds the signed submission (step 7, built 2026-10-12: `data/jotformSigned.js`, with Connect Jotform on that device).
 
 **No forms set up yet** → the button still shows, and opens "Add your Jotform contract forms
 on the Accounts page →". **No form of a matching type** → the picker opens on all forms. In
@@ -787,9 +787,9 @@ Each step is one reviewable PR, ordered by value ÷ effort and by dependency.
 | 4 | **Level 0 links**: stored payment link (§4) + Jotform contract forms list and prefilled send (§2.1, §2.1a). **Built 2026-10-11** (End-State guide §32, "Contract forms" and "Payment link") | No | S–M |
 | 4b | **Connect Jotform** (§2.1b): form picker + field matching from her API key; key on the device (D16). **Built 2026-10-11** (End-State guide §32, "Connect Jotform"); to be proven against a real Jotform account | No | S |
 | 4c | **Pick to send** (§2.6): from a waitlist pick, edit the sale in a modal, make the contract, send invoice + contract link (+ payment link after 6) in one message. **Built 2026-10-11** (End-State guide §29), except D19 | No (D19 email: Worker) | M |
-| 5 | **Integration plumbing** (§0): `int_connections`, `int_events`, hooks routes, `integrationEvents.js` reducer. **Built 2026-10-12** (§0 "As built"); needs the `INT_TOKEN_KEY` secret before a provider can connect | Worker | M |
+| 5 | **Integration plumbing** (§0): `int_connections`, `int_events`, hooks routes, `integrationEvents.js` reducer. **Built 2026-10-12** (§0 "As built"); the `INT_TOKEN_KEY` secret is set (2026-10-12) | Worker | M |
 | 6 | **Stripe** one-use payment links from her own restricted key, checked from her device, with the fee captured into §5; Payment service accounts and per-payment paid-via; the waitlist application fee online. **Built 2026-10-12** (§4 "As built", D22–D24). Square: not built | No (device ↔ Stripe) | L |
-| 7 | **Jotform signed → Contract signed** (§2.1). **Revised 2026-10-11: her device checks first.** With the key on the device (4b), opening KennelOS reads recent submissions of her mapped forms (`GET /form/{id}/submissions`), matches each by its `contractRef`, and marks the Contract `signed` with the date: no server, read-only key, buyer data only Jotform → her device. A Worker webhook (Level 1) only if she wants word while the app is closed; it would carry the whole submission through the Worker, so it must keep only the reference and date | No (webhook later: Worker after 5) | S |
+| 7 | **Jotform signed → Contract signed** (§2.1). **Built 2026-10-12** (End-State guide §32, "Signed forms come back"; `data/jotformSigned.js`), webhook not built. **Revised 2026-10-11: her device checks first.** With the key on the device (4b), opening KennelOS reads recent submissions of her mapped forms (`GET /form/{id}/submissions`), matches each by its `contractRef`, and marks the Contract `signed` with the date: no server, read-only key, buyer data only Jotform → her device. A Worker webhook (Level 1) only if she wants word while the app is closed; it would carry the whole submission through the Worker, so it must keep only the reference and date | No (webhook later: Worker after 5) | S |
 | 8 | **E-sign API provider**: SignWell / BoldSign first, or DocuSign if D5 says so (§2.2–2.3) | Worker | L |
 | 9 | Referral payouts in Financials (§3.3); network postbacks only on demand (§3.4) | Optional | S–M |
 

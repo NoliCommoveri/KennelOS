@@ -947,7 +947,7 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   (`cloud/src/integrations.js`, migration `0015`), and on the device
   `data/integrationEvents.js` + `data/cloud/cloudIntegrations.js`: the backing device
   applies a vendor's "signed" / "paid" to the contract or sale, or leaves a review on Today.
-  No provider is registered on the Worker yet. **Step 6 (Stripe) is built (2026-10-12), with
+  The `INT_TOKEN_KEY` secret is set (2026-10-12); no provider is registered on the Worker yet. **Step 6 (Stripe) is built (2026-10-12), with
   her own restricted key on her device, no KennelOS Stripe platform:** a new **Payment
   service** account type holds payment links and the Stripe key; a sale's deposit and balance
   each name the account they're paid via (`db.version(4)`), and the fee is estimated and,
@@ -955,8 +955,12 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   sale & send, checked from her device when the app opens (`data/stripeApi.js`,
   `data/stripeLinks.js`); and the **waitlist application fee online**: the kennel's fee
   account, a Pay button at the end of the application or once approved, recorded when Stripe
-  says it's paid (`data/waitlistFeePay.js`, `data/waitlistFeeLinks.js`). **Next: step 7, revised:** her device checks Jotform for signed
-  submissions and marks the contract signed; step 5's server plumbing comes after.
+  says it's paid (`data/waitlistFeePay.js`, `data/waitlistFeeLinks.js`). **Step 7 (Jotform signed → Contract signed) is built (2026-10-12), from
+  her device:** a Sent contract's form submission carrying its `contractRef` marks it Signed
+  on the submission's date, checked when the app opens (at most every 15 minutes) and by
+  **Check for signature** on the contract (`data/jotformSigned.js`); a contract she changed
+  meanwhile gets a Today review. Still to prove against a real Jotform account, like 4b.
+  **Next: step 8**, an e-sign API provider (SignWell / BoldSign).
 
 - **Cloud Phase 2, live multi-device sync — being built** (`docs/KennelOS_Cloud_Phase2_Sync_Plan.md`;
   every §12 decision taken as recommended, 2026-10-10). Pro only: both tiers per record (cloud

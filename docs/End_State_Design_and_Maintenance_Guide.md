@@ -306,7 +306,11 @@ KennelOS/
                                the suggested field_map, warnings, a type guess from the
                                title (pure, §32; tests/jotformConnect.test.js)
     jotformApi.js              the only module that calls Jotform's API (her forms, a
-                               form's fields; key as a query parameter, §32)
+                               form's fields, a form's submissions; key as a query
+                               parameter, §32)
+    jotformSigned.js           step 7: a Sent contract's form submission found by its
+                               contractRef marks it Signed, from her device (§32;
+                               tests/jotformSigned.test.js)
     jotformConnect.js          connect / disconnect a Jotform key on this device, list
                                forms, match a form (what accounts.js calls, §32)
     jotformKeyStore.js         her Jotform API keys in device_secrets (device only, §32)
@@ -4256,6 +4260,25 @@ the forms with **Open**.
   form's link carries **only** the matched facts, under her field names
   (`contractForms.mapValues`, used by `contractSend.buildSignatureLink`); a pasted form
   keeps the fixed names. The card shows the matched count.
+- **Signed forms come back (2026-10-12, plan §6 step 7; `data/jotformSigned.js`).** A
+  contract that is **Sent** on a Jotform form (`esign_provider = 'jotform'`) is marked
+  **Signed** by her device once the form's submission carrying its reference turns up. When
+  the app opens (at most every 15 minutes, `bootJotformCheck` from `app.js`, Pro), or when
+  she taps **Check for signature** beside **Copy link again** on the contract, the device
+  finds the form each Sent contract went out on (the saved form whose link, without its
+  query, matches `esign_url`), and, when that form's Form service account is connected on
+  this device, reads its submissions since a day before the earliest sent date (`GET
+  /form/{id}/submissions` with a `created_at:gt` filter, `jotformApi.jotformSubmissions`).
+  The form's id is its `form_id`, else the number its link ends in; the reference is read
+  from the `contractRef` field (a pasted form) or the field matched to `contractRef` (a
+  matched form; matched with none → it can't be found). The oldest submission for a
+  contract is applied as a `contract.signed` event (`jotform-<submission id>`) through
+  `integrationApply`, so a Sent contract becomes `signed` with `signed_date` = the
+  submission's date, an already-signed one is skipped, and one she changed meanwhile gets a
+  Today review. Nothing else from the submission is kept (the buyer's answers stay in
+  Jotform); no KennelOS server is involved. Not connected on this device → nothing is
+  asked, and the button says to connect or mark it Signed by hand. The check's last time is
+  `jotformCheckedAt` in `settings.getIntegrationsState()`.
 
 **Payment services (Integrations plan §4–§5; 2026-10-11, revised 2026-10-12).** An account of
 type **Payment service** (`ACCOUNT_TYPE` `payment_service`: Stripe, Square, PayPal, Venmo,
