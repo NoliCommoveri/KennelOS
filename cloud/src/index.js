@@ -17,6 +17,7 @@ import { handleApi } from './api.js';
 import { schemaReady } from './gate.js';
 import { activeNotices } from './notice.js';
 import { handleWebhook } from './license.js';
+import { handleHook } from './integrations.js';
 import { handleFamilyApi, serveFamilyPage } from './familyPages.js';
 import { runRetention } from './retention.js';
 import { runWaitlistMoves } from './serverMoves.js';
@@ -64,6 +65,7 @@ export default {
       }
 
       if (url.pathname === '/webhooks/lemonsqueezy' && request.method === 'POST') return await handleWebhook(request, env);
+      if (url.pathname.startsWith('/hooks/') && request.method === 'POST') return await handleHook(request, env, url);
       if (url.pathname.startsWith('/f/')) return await handleFamilyApi(request, env, url);
 
       return await handleApi(request, env, url, cors);

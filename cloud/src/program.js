@@ -4,6 +4,7 @@ import { fail } from './lib/http.js';
 import { backingInfo } from './snapshots.js';
 import { requireFreshSignIn } from './auth.js';
 import { deleteWaitlistStatements } from './waitlist.js';
+import { deleteIntegrationStatements, revokeAllConnections } from './integrations.js';
 
 export async function getProgram(env, auth) {
   const program = await env.DB.prepare('SELECT id, backing_device_id, latest_snapshot_id FROM programs WHERE id = ?').bind(auth.programId).first();
@@ -37,7 +38,8 @@ async function deletePrefix(bucket, prefix) {
 
 // DELETE /account {confirm: "DELETE", email?, code?}. Snapshots (with their
 // vault parts), files, the vault's wraps and pairings, everything of the waitlist
-// online (published lists, status links, inbox, events, holds, emails), sessions, the program
+// online (published lists, status links, inbox, events, holds, emails), her vendor
+// connections (revoked at each vendor first) and their events, sessions, the program
 // and the user all go. The device's own data is
 // untouched. Needs a fresh sign-in (auth.js), so a stolen phone can't take the
 // owner's cloud copy with it.
@@ -45,6 +47,7 @@ export async function deleteAccount(env, auth, body) {
   if (body.confirm !== 'DELETE') fail(400, 'confirm_required');
   await requireFreshSignIn(env, auth, body);
   const p = auth.programId;
+  await revokeAllConnections(env, p); // her vendor tokens, at each vendor (best effort)
   await deletePrefix(env.FILES, `snapshots/${p}/`);
   await deletePrefix(env.FILES, `files/${p}/`);
   await env.DB.batch([
@@ -59,6 +62,7 @@ export async function deleteAccount(env, auth, body) {
     env.DB.prepare('DELETE FROM sync_records WHERE program_id = ?').bind(p),
     env.DB.prepare('DELETE FROM sync_devices WHERE program_id = ?').bind(p),
     ...deleteWaitlistStatements(env, p),
+    ...deleteIntegrationStatements(env, p),
     env.DB.prepare('DELETE FROM programs WHERE id = ?').bind(p),
     env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(auth.userId),
     env.DB.prepare('DELETE FROM device_erasures WHERE user_id = ?').bind(auth.userId),

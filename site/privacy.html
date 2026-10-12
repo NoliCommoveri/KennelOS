@@ -40,7 +40,7 @@
     <div class="wrap">
       <p class="eyebrow">Privacy policy</p>
       <h1>What we hold, what we never receive, and how to delete it</h1>
-      <p>Effective 10 October 2026. Last updated 11 October 2026.</p>
+      <p>Effective 10 October 2026. Last updated 12 October 2026.</p>
     </div>
   </section>
 
@@ -124,6 +124,10 @@
         <li><strong>Jotform</strong> (Pro), if you connect it: your Jotform API key stays on that
           device only, and the app asks Jotform, straight from your browser, for your list of forms
           and their fields. We never see the key or your forms.</li>
+        <li><strong>Stripe</strong> (Pro), if you connect it: your Stripe restricted key stays on
+          that device only, and the app asks Stripe, straight from your browser, to make payment
+          links and whether they were paid. Payments go to your own Stripe account. We never see
+          the key, the payments or your buyers' card details.</li>
         <li><strong>Companion</strong> and <strong>Furever</strong> links (Pro) carry what you chose
           to share in the link itself. They don't pass through our servers.</li>
       </ul>
@@ -225,6 +229,10 @@
           it's sent, and the subject and date are kept for the kennel's records.</li>
         <li><strong>The public list</strong>, if the kennel shows one, shows your first name and last
           initial, the sex you prefer and when you joined. Nothing else.</li>
+        <li><strong>Paying the application fee online</strong>, if the kennel offers it: the Pay button
+          takes you to the kennel's own payment service (for example Stripe), under its terms. Your
+          card details go only to that service. With Stripe, the link carries a reference to your
+          application so the kennel's device can tell that you paid; we don't receive your payment.</li>
       </ul>
       <p>You can leave a list at any time from your status page. To have your details removed,
         ask the kennel, or email us and we'll pass the request on and help.</p>
@@ -246,6 +254,7 @@
             <tr><th scope="row">Lemon Squeezy</th><td>Sells Pro and checks license keys</td><td>Your billing details, purchase email, license key and device names</td></tr>
             <tr><th scope="row">GitHub</th><td>Hosts this website and the apps</td><td>The network address of each visit</td></tr>
             <tr><th scope="row">Dropbox</th><td>Pro's Dropbox backup, only if you connect it</td><td>Your backup file, in your own account</td></tr>
+            <tr><th scope="row">Stripe</th><td>Pro's payment links, only if you connect it</td><td>Your restricted key and your payments, in your own account; contacted from your browser, never by us</td></tr>
             <tr><th scope="row">Jotform</th><td>Pro's contract forms, only if you connect it</td><td>Your API key and your forms, in your own account; contacted from your browser, never by us</td></tr>
           </tbody>
         </table>

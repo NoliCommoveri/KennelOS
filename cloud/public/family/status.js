@@ -575,6 +575,17 @@ function mineHtml() {
 
   if (f.status === 'applied') {
     parts.push(openCard('Thank you for applying', `<p class="mt0">${esc(kennel)} will review your application. This page will show their decision.</p>`));
+    // Her application fee, asked for with the application (Integrations plan §4).
+    if (f.fee_paid_online) {
+      parts.push(openCard('Your application fee', `<p class="mt0">Thank you: your payment on ${esc(fmtDate(f.fee_paid_online))} was received. If ${esc(kennel)} approves your application, you join the list from that day.</p>`));
+    } else if (f.fee_pay) {
+      const pay = f.fee_pay;
+      parts.push(openCard('Your application fee', `
+        ${pay.amount ? `<p class="big mt0">${esc(money(pay.amount))}</p>` : ''}
+        <p class="mt0">Paying now means that if ${esc(kennel)} approves your application, your place on the list counts from the day you paid.</p>
+        <div class="actions"><a class="button primary" href="${esc(pay.url)}" target="_blank" rel="noopener noreferrer">Pay the application fee</a></div>
+        ${pay.instructions ? `<p class="small muted">Or pay another way:</p><p class="pre mt0 small">${esc(pay.instructions)}</p>` : ''}`));
+    }
   }
 
   if (f.fee_due) {
@@ -583,7 +594,8 @@ function mineHtml() {
       <p class="big mt0">${esc(money(fee.amount))}</p>
       ${fee.due_date ? `<p>Please pay by <strong>${esc(fmtDate(fee.due_date))}</strong>.</p>` : ''}
       ${fee.credit_policy ? `<p class="small muted">${esc(CREDIT_LABEL[fee.credit_policy] || '')}</p>` : ''}
-      ${fee.instructions ? `<p class="small muted mt0">How to pay:</p><p class="pre mt0">${esc(fee.instructions)}</p>` : ''}
+      ${fee.pay_url ? `<div class="actions"><a class="button primary" href="${esc(fee.pay_url)}" target="_blank" rel="noopener noreferrer">Pay ${esc(money(fee.pay_amount || fee.amount))} now</a></div>` : ''}
+      ${fee.instructions ? `<p class="small muted mt0">${fee.pay_url ? 'Or pay another way' : 'How to pay'}:</p><p class="pre mt0">${esc(fee.instructions)}</p>` : ''}
       <p class="small muted">Your place on the list is set from the day ${esc(kennel)} receives your fee.</p>`));
   }
 
