@@ -114,9 +114,13 @@ export async function enableVault(env, auth, body) {
 
 // DELETE /vault {email?, code?}: nobody can unlock it again. The encrypted
 // snapshot parts age out on retention (§10 decision 7); they can't be opened.
+// Live sync needs the vault, so it ends with it, for every device (Cloud Phase 2
+// plan §4.3): the records are kept 30 days as when it's turned off (sync.js).
 export async function disableVault(env, auth, body) {
   await requireFreshSignIn(env, auth, body);
   await env.DB.batch([
+    env.DB.prepare('UPDATE programs SET sync_enabled_at = NULL, sync_disabled_at = ? WHERE id = ? AND sync_enabled_at IS NOT NULL')
+      .bind(new Date().toISOString(), auth.programId),
     env.DB.prepare('DELETE FROM vault_wraps WHERE program_id = ?').bind(auth.programId),
     env.DB.prepare('DELETE FROM vault_pairings WHERE program_id = ?').bind(auth.programId),
     env.DB.prepare('DELETE FROM vault_handoffs WHERE program_id = ?').bind(auth.programId),

@@ -978,7 +978,12 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   `data/cloud/cloudSync.js` (push, pull, the lock, the scheduler, pauses and the activity
   list) and `data/syncApply.js` (pulled records in one transaction per page), gated by the
   new `editionFlags.liveSync` (Pro). Tested with two simulated devices against the real
-  Worker. Nothing is visible yet: the scheduler starts nowhere until step 6.
+  Worker. Nothing is visible yet: the scheduler starts nowhere until step 6. **Step 4 (join
+  and leave) is built (2026-10-12):** turning it on (the first device uploads everything),
+  joining (newer `updated_at` wins, nothing deleted, resumable), off here / for every device,
+  the vault off ending it, and backups on a syncing program (a caught-up device states its
+  `sync_seq`; a lapsed license backs up the Phase 1 way, a server change in `snapshots.js`).
+  **Next: step 5, the waitlist lease.**
 
 ## Build & deploy
 

@@ -191,7 +191,10 @@ KennelOS/
                                pages, file bytes first, the shrink guard, dropped records
                                not resent unchanged), pull (cursor → syncApply), syncNow
                                (one at a time across tabs), the scheduler, the pauses and
-                               the activity list (plan §5); only where liveSync is on
+                               the activity list (plan §5); turning it on, joining (a
+                               resumable full pull where the newer updated_at wins, then a
+                               push; nothing deleted), off here / for every device, and
+                               syncReadiness (plan §2.1, §2.4, §5.5); only where liveSync is on
       vaultPasskey.js          WebAuthn + PRF for passkey unlock (no db, no network): the
                                RP ID, support check, make a passkey / get its PRF output
       cloudVault.js            Vault flows: turn on with a recovery code, unlock (with the
@@ -234,7 +237,8 @@ KennelOS/
                                page (echo skip, server wins over an unpushed local edit,
                                a delete still referenced here becomes an archive, files
                                fetched and opened), then SYNC_APPLIED_EVENT (Cloud Phase 2
-                               plan §5.3, §5.4)
+                               plan §5.3, §5.4); `merge` for a join: newer updated_at
+                               wins, a kept local row is pushed, tombstones delete nothing
     companionExport.js         Companion allow-list bundle builder (§20)
     dropbox.js                 Dropbox API client — PKCE OAuth + JSON up/download (§26)
     assistantSync.js           Owner-side Dropbox flows: backup push/pull,
@@ -572,7 +576,17 @@ leave it out. Reset App and remote erase still clear it.
 per record this device has synced, `{ id: '<table>:<row id>', tbl, row_id, seq, hash }` (the
 server's seq for the version it last pushed or pulled, and `syncRecords.rowHash` of the row
 then). `data/cloud/syncState.js` is its only reader/writer; the live-sync scan compares every
-syncing row's hash with it, so no write path needs a sync hook.
+syncing row's hash with it, so no write path needs a sync hook. Joining a syncing program
+(`cloudSync.joinSync`, or `enableSync` on the first device) starts it over empty; turning sync
+off on this device (here, for every device, or by turning the vault off) clears it.
+
+**Backups on a syncing program** (Cloud Phase 2 plan §6.4): a syncing device's snapshot states
+the seq it has applied (`sync_seq`, `cloudBackup.snapshotSyncSeq`) and goes only while it's
+caught up (nothing to push, no join under way, sync not paused); otherwise the push is
+skipped as `sync_behind` and stays dirty, never a conflict. A device that doesn't sync here
+sends none and gets the Phase 1 refusal. While the owner's Pro has lapsed (sync paused
+`pro_required`), snapshots go by the Phase 1 backing-device rule (server `snapshots.js`,
+plan §12 decision 6).
 
 Index notes:
 - **`kennel_id` on `pairings`/`litters`/`sales`/`stud_services`/`contracts`/
