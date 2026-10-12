@@ -22,7 +22,7 @@ jobs:
             repo: NoliCommoveri/kennelos-lite
             domain: lite.kennelos.app
           - edition: pro
-            repo: NoliCommoveri/kennelos-pro
+            repo: NoliCommoveri/KennelOS-pro
             domain: pro.kennelos.app
           - edition: demo
             repo: NoliCommoveri/kennelos-demo

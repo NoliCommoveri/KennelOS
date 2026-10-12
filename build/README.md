@@ -80,7 +80,7 @@ isolated (editions plan). Live at:
 Hosting is GitHub Pages, one app per repo (GitHub Pages allows exactly one custom
 domain per repo, so each subdomain needs its own repo):
 [`kennelos-lite`](https://github.com/NoliCommoveri/kennelos-lite),
-[`kennelos-pro`](https://github.com/NoliCommoveri/kennelos-pro),
+[`KennelOS-pro`](https://github.com/NoliCommoveri/KennelOS-pro),
 [`kennelos-demo`](https://github.com/NoliCommoveri/kennelos-demo),
 [`KennelOS-Furever`](https://github.com/NoliCommoveri/KennelOS-Furever), and
 `kennelos-site` (the apex marketing site — apex domains need GitHub's `A`/`AAAA`
