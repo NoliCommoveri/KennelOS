@@ -177,3 +177,22 @@ test('another device reads but never applies, and keeps its cursor', async () =>
   assert.equal(settings.getIntegrationsState().eventsCursor, 0);
   assert.equal((await contractRepo.getById(records.contract.id)).status, 'sent');
 });
+
+test('a syncing program: the lease holder applies; with another device holding it, nothing is applied here', async () => {
+  const programId = await breeder({ backing: false });
+  env.DB.raw.prepare("UPDATE programs SET sync_enabled_at = '2026-10-12T00:00:00.000Z'").run();
+  settings.updateCloudSyncState({ enabled: true });
+  await vendorSays(programId, [
+    { providerEventId: 'e1', kind: 'contract.signed', recordType: 'contract', recordId: records.contract.id, data: { date: '2026-10-12' } }
+  ]);
+  settings.updateIntegrationsState({ connections: 1 });
+  env.DB.raw.prepare('INSERT INTO wl_leases (program_id, device_id, device_label, until) VALUES (?, ?, ?, ?)')
+    .run(programId, 'laptop-1', 'Laptop', new Date(Date.now() + 60000).toISOString());
+  await assert.rejects(ci.syncIntegrationEvents(), (e) => e.code === 'lease_held');
+  assert.equal(settings.getIntegrationsState().lastError, 'lease-held');
+  assert.equal((await contractRepo.getById(records.contract.id)).status, 'sent');
+
+  env.DB.raw.prepare('DELETE FROM wl_leases').run(); // the laptop closed
+  assert.deepEqual(await ci.syncIntegrationEvents(), { applied: 1, review: 0, skipped: 0 });
+  assert.equal((await contractRepo.getById(records.contract.id)).status, 'signed');
+});

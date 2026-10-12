@@ -18,7 +18,9 @@ src/mail.js            sending a code through Resend; without a key, staging's D
                        MAIL_FAMILY_DOMAIN (each kennel's address claimed in wl_senders), no Reply-To
 src/files.js           content-addressed files; R2 verifies the sha256
 src/snapshots.js       describe → (vault part) → upload body → commit, with the 409 rule at both
-                       steps and, while the program has a vault, the vault_required rule
+                       steps and, while the program has a vault, the vault_required rule; a
+                       syncing program: any caught-up device (sync_seq), or the Phase 1 rule
+                       while the owner's Pro has lapsed
 src/program.js         program state, takeover, delete account
 src/devices.js         the device check-in and list, remote erase, Pro-license bookkeeping (plan §2.5)
 src/vault.js           the private vault: wraps (recovery, passkeys), turn on/off, second-device
@@ -33,7 +35,7 @@ src/sync.js            live sync (docs/KennelOS_Cloud_Phase2_Sync_Plan.md §6): 
                        /sync, /sync/head, /sync/push, /sync/pull, /sync/cursor. One row per record
                        (sync_records), numbered from programs.sync_seq in one batch; the cloud part
                        checked against src/lib/cloudFields.js; tombstones 90 days; Pro only
-                       (migration 0014)
+                       (migration 0014). Turning the vault off (src/vault.js) turns it off too
 src/lib/cloudFields.js GENERATED from shared/data/syncRegistry.js by scripts/cloud-fields.mjs; never
                        edit by hand (tests/cloudFields.test.js fails when it drifts)
 src/recovery.js        recovering the account with no signed-in device: the recovery code proves it
@@ -48,6 +50,8 @@ src/waitlist.js        the waitlist online, her side (docs/KennelOS_Waitlist_W2_
                        wl_tokens), the encrypted inbox and its ack, the events stream, and
                        POST /waitlist/messages: an email her device wrote, sent to the address
                        in her published projection with the status-link footer (W2 step 6).
+                       Writes: the backing device, or on a syncing program the holder of the
+                       two-minute lease (POST / DELETE /waitlist/lease, migration 0016)
                        Pro only (requirePro); writes from the backing device only
 src/integrations.js    vendor integrations' plumbing (docs/KennelOS_Integrations_Plan.md §0, migration
                        0015): her connections (token sealed with INT_TOKEN_KEY, never sent back; only

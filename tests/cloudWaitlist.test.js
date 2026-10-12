@@ -87,8 +87,9 @@ test('online publishes the projection once, then only after a change', async () 
   const first = await cw.syncWaitlistOnline();
   assert.equal(first.status, 'ok');
   assert.deepEqual(first.published, [k.id]);
-  assert.deepEqual(calls, ['GET /waitlist/inbox', `GET /waitlist/projection/${k.public_id}`, 'GET /waitlist/events', `PUT /waitlist/projection/${k.public_id}`],
-    'new applications first, then (from where any earlier device got to) what families did, then the list');
+  assert.deepEqual(calls, ['GET /waitlist/inbox', `GET /waitlist/projection/${k.public_id}`, 'GET /waitlist/events',
+    'POST /waitlist/lease', 'GET /program', `PUT /waitlist/projection/${k.public_id}`],
+    'new applications first, then (from where any earlier device got to) what families did, then who does the server work (a program that doesn\'t sync: the backing device), then the list');
 
   const [row] = raw('SELECT public_id, version, body FROM wl_projection');
   assert.equal(row.public_id, k.public_id);
@@ -710,4 +711,96 @@ test('step 7: a deadline the server closed and the turn it offered reach her dev
 
   // A second hourly run finds nothing new.
   assert.deepEqual(await runWaitlistMoves(env, { now: new Date() }), { kennels: 1, closed: 0, offered: 0, reminders: 0, failed: 0 });
+});
+
+// --- A syncing program: the lease (Cloud Phase 2 plan §7, build step 5) ---------------
+function syncingProgram({ here = true } = {}) {
+  raw("UPDATE programs SET sync_enabled_at = '2026-10-12T00:00:00.000Z'");
+  if (here) settings.updateCloudSyncState({ enabled: true });
+}
+const programId = () => raw('SELECT id FROM programs')[0].id;
+
+test('a syncing device takes the lease to publish, with no backing device', async () => {
+  await breeder({ backing: false });
+  const k = await putOnline();
+  syncingProgram();
+  const res = await cw.syncWaitlistOnline();
+  assert.equal(res.status, 'ok');
+  assert.deepEqual(res.published, [k.id]);
+  assert.ok(calls.includes('POST /waitlist/lease'));
+  assert.ok(!calls.includes('GET /program'), 'a lease, not the backing-device check');
+  assert.equal(raw('SELECT device_label FROM wl_leases')[0].device_label, 'Phone');
+  assert.ok(cw.waitlistOnlineStatus(k).leaseUntil, 'the card can say this device handles it');
+});
+
+test('another device holds the lease: nothing is written here, and the card can say who', async () => {
+  await breeder({ backing: false });
+  const k = await putOnline();
+  syncingProgram();
+  const until = new Date(Date.now() + 60 * 1000).toISOString();
+  env.DB.raw.prepare('INSERT INTO wl_leases (program_id, device_id, device_label, until) VALUES (?, ?, ?, ?)').run(programId(), 'laptop-1', "Jen's laptop", until);
+  const res = await cw.syncWaitlistOnline();
+  assert.equal(res.reason, 'lease-held');
+  assert.ok(!calls.some((c) => c.startsWith('PUT ')), 'nothing published');
+  const st = cw.waitlistOnlineStatus(k);
+  assert.deepEqual(st.lastError.holder, { label: "Jen's laptop", until });
+  assert.equal(st.leaseUntil, null);
+});
+
+test('a device that doesn\'t sync, on a program that does, leaves the work to the ones that do', async () => {
+  await breeder();
+  await putOnline();
+  syncingProgram({ here: false });
+  const res = await cw.syncWaitlistOnline();
+  assert.equal(res.reason, 'not-syncing');
+  assert.ok(!calls.some((c) => c.startsWith('PUT ')));
+  assert.equal(raw('SELECT COUNT(*) AS n FROM wl_leases')[0].n, 1, 'the server granted it, but this device does nothing with it');
+});
+
+test('a syncing device in a background tab asks nothing', async () => {
+  await breeder({ backing: false });
+  await putOnline();
+  syncingProgram();
+  globalThis.document = { visibilityState: 'hidden' };
+  try {
+    assert.deepEqual(await cw.syncWaitlistOnline(), { status: 'skipped', reason: 'background' });
+    assert.deepEqual(calls, []);
+  } finally {
+    delete globalThis.document;
+  }
+});
+
+test('taking the lease over from another device restarts the events cursor from the last publish', async () => {
+  await breeder({ backing: false });
+  await putOnline();
+  syncingProgram();
+  await cw.syncWaitlistOnline(); // publishes, events_through = 0
+  settings.updateWaitlistOnlineState({ eventsCursor: 99, leaseUntil: null }); // as if it had lapsed long ago
+  raw('DELETE FROM wl_leases');
+  await cw.syncWaitlistOnline({ force: true });
+  assert.notEqual(settings.getWaitlistOnlineState().eventsCursor, 99, 'not the stale cursor of a device that lost it');
+});
+
+test('a device taking the lease over never re-reads events the last publisher already applied', async () => {
+  await breeder({ backing: false });
+  const k = await putOnline();
+  syncingProgram();
+  await cw.syncWaitlistOnline();
+  const ev = (entry) => env.DB.raw.prepare(
+    `INSERT INTO wl_events (program_id, public_id, entry_id, kind, payload, based_on_version, made_by, created_at)
+     VALUES (?, ?, ?, 'message_read', '{}', 1, 'family', ?)`,
+  ).run(programId(), k.public_id, entry, new Date().toISOString());
+  ev('nobody-1');
+  ev('nobody-2');
+  const first = await cw.syncWaitlistOnline({ force: true });
+  assert.equal(first.events.skipped, 2, 'the holder went through both');
+  const through = settings.getWaitlistOnlineState().eventsCursor;
+  assert.ok(through >= 2);
+
+  // Another device, whose own cursor is far behind, takes the work over.
+  settings.updateWaitlistOnlineState({ eventsCursor: 0, leaseUntil: null });
+  raw('DELETE FROM wl_leases');
+  const next = await cw.syncWaitlistOnline({ force: true });
+  assert.equal(next.events.skipped + next.events.applied + next.events.noted, 0, 'nothing read twice');
+  assert.equal(settings.getWaitlistOnlineState().eventsCursor, through);
 });

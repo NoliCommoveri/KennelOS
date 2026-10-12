@@ -325,3 +325,55 @@ test('the /ops export carries the waitlist tables, and deleting the account remo
   assert.deepEqual(env.DB.raw.prepare('SELECT public_id FROM wl_projection').all().map((r) => r.public_id), [OTHER_KENNEL]);
   assert.deepEqual(env.DB.raw.prepare('SELECT token FROM wl_tokens').all().map((r) => r.token), [tok('f')]);
 });
+
+// --- The lease, on a syncing program (Cloud Phase 2 plan §7, build step 5) -----------
+const SYNC_KEY = 'a'.repeat(32);
+async function syncingBreeder(env) {
+  const phone = await signIn(env, 'breeder@example.com', { deviceId: 'phone-1', deviceLabel: "Jen's iPhone" });
+  const laptop = await signIn(env, 'breeder@example.com', { deviceId: 'laptop-1', deviceLabel: 'Laptop' });
+  makePro(env, phone);
+  await call(env, 'POST', '/vault', { token: phone.token, body: { keyId: SYNC_KEY, recoveryWrap: Buffer.from(new Uint8Array(60).fill(7)).toString('base64') } });
+  assert.equal((await call(env, 'POST', '/sync/enable', { token: phone.token })).status, 200);
+  return { phone, laptop };
+}
+
+test('a program that doesn\'t sync: the lease route says so, and the backing device writes as before', async () => {
+  const env = await makeEnv();
+  const s = await breeder(env);
+  assert.deepEqual(await (await call(env, 'POST', '/waitlist/lease', { token: s.token })).json(), { mode: 'backing' });
+  assert.equal((await publish(env, s, { projection: projection() })).status, 200);
+  assert.equal(count(env, 'wl_leases'), 0);
+});
+
+test('a syncing program: one device at a time holds the lease, renewed by its writes, lapsing after two minutes', async () => {
+  const { LEASE_MS } = await import('../src/waitlist.js');
+  const env = await makeEnv();
+  const { phone, laptop } = await syncingBreeder(env);
+  const taken = await (await call(env, 'POST', '/waitlist/lease', { token: phone.token })).json();
+  assert.equal(taken.mode, 'lease');
+  assert.ok(Date.parse(taken.until) > Date.now() + LEASE_MS - 5000);
+
+  const refused = await call(env, 'POST', '/waitlist/lease', { token: laptop.token });
+  assert.equal(refused.status, 409);
+  const body = await refused.json();
+  assert.equal(body.error, 'lease_held');
+  assert.equal(body.holder.label, "Jen's iPhone");
+  assert.equal((await (await publish(env, laptop, { projection: projection() })).json()).error, 'lease_held', 'every write needs it');
+  assert.equal((await publish(env, phone, { projection: projection() })).status, 200, 'no backing device needed');
+  assert.equal((await call(env, 'POST', '/waitlist/inbox/ack', { token: phone.token, body: { ids: [] } })).status, 200);
+
+  // The phone goes quiet: past two minutes the laptop takes it, by a write too.
+  env.DB.raw.prepare('UPDATE wl_leases SET until = ?').run(iso(Date.now() - 1000));
+  assert.equal((await publish(env, laptop, { projection: projection() })).status, 200);
+  assert.equal((await (await call(env, 'POST', '/waitlist/lease', { token: phone.token })).json()).error, 'lease_held');
+
+  // Letting go: only the holder's release counts; then the phone takes it at once.
+  await call(env, 'DELETE', '/waitlist/lease', { token: phone.token });
+  assert.equal(count(env, 'wl_leases'), 1, 'the phone can\'t release the laptop\'s lease');
+  await call(env, 'DELETE', '/waitlist/lease', { token: laptop.token });
+  assert.equal((await (await call(env, 'POST', '/waitlist/lease', { token: phone.token })).json()).mode, 'lease');
+
+  assert.ok(!('wl_leases' in (await exportAll(env.DB)).tables), 'ephemeral: not in the export');
+  assert.equal((await call(env, 'DELETE', '/account', { token: phone.token, body: { confirm: 'DELETE' } })).status, 200);
+  assert.equal(count(env, 'wl_leases'), 0);
+});

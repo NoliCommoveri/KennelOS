@@ -284,3 +284,154 @@ test('its own echo never overwrites a newer local edit', async () => {
   assert.equal(get('dogs', 'd1').notes, 'edited again, not pushed yet');
   assert.equal((await sync.pushChanges()).pushed, 1, 'and it still goes up');
 });
+
+// --- Step 4: turning it on, joining, turning it off (plan §2.1, §2.4, §5.5) -------------
+// A: records, Pro, the vault on, backup on, sync NOT on. B: signed in and unlocked,
+// backup on, with records of its own. Returns to A.
+async function beforeSync() {
+  put('kennels', row('k1', { kennel_name: 'Oak Hill', is_own_kennel: true }));
+  put('dogs', dog('d1'));
+  put('dogs', dog('d2'));
+  await signIn('Phone A');
+  makePro();
+  const setup = await vault.startVaultSetup();
+  await vault.finishVaultSetup(setup, { confirmation: setup.lastGroup });
+  settings.updateCloudBackupState({ enabled: true });
+  switchDevice('B');
+  await signIn('Laptop B');
+  await vault.unlockWithRecoveryCode(setup.recoveryCode, { merge: false });
+  settings.updateCloudBackupState({ enabled: true });
+  switchDevice('A');
+  return setup.recoveryCode;
+}
+
+test('turning it on: what\'s missing is named; then the first device uploads everything', async () => {
+  put('dogs', dog('d1'));
+  await signIn('Phone A');
+  assert.deepEqual(await sync.syncReadiness(), ['backup_off', 'vault_off']);
+  settings.updateCloudBackupState({ enabled: true });
+  assert.deepEqual(await sync.enableSync(), { status: 'not_ready', missing: ['vault_off'] });
+  const setup = await vault.startVaultSetup();
+  await vault.finishVaultSetup(setup, { confirmation: setup.lastGroup });
+  assert.deepEqual(await sync.syncReadiness(), []);
+  assert.deepEqual(await sync.enableSync(), { status: 'refused', code: 'pro_required' }, 'Pro is the server\'s to say');
+  assert.equal(settings.getCloudSyncState().enabled, false);
+
+  makePro();
+  const steps = [];
+  const on = await sync.enableSync({ onProgress: (p) => steps.push(p) });
+  assert.deepEqual(on, { status: 'on', pulled: 0, keptOurs: 0, pushed: 1 });
+  assert.deepEqual(steps.filter((s) => s.phase === 'push').at(-1), { phase: 'push', done: 1, total: 1 });
+  const s = settings.getCloudSyncState();
+  assert.equal(s.enabled, true);
+  assert.equal(s.joining, false);
+  assert.equal(s.cursor, 1);
+});
+
+test('joining: the newer updated_at wins each record, both sides\' new records meet, nothing is deleted', async () => {
+  await beforeSync();
+  assert.equal((await sync.enableSync()).status, 'on');
+  tables.dogs.rows.delete('d2');
+  await sync.syncNow(); // A deletes d2: a tombstone on the server
+
+  switchDevice('B');
+  put('dogs', dog('d1', { notes: 'older on B', updated_at: '2025-12-01T00:00:00.000Z' }));
+  put('dogs', dog('d2', { notes: 'B still has it' }));
+  put('dogs', dog('d3', { notes: 'only on B' }));
+  put('kennels', row('k1', { kennel_name: 'Oak Hill Kennels', is_own_kennel: true, updated_at: '2026-03-01T00:00:00.000Z' }));
+  const joined = await sync.joinSync();
+  assert.equal(joined.status, 'on');
+  assert.equal(joined.keptOurs, 1, 'B\'s newer kennel is kept');
+  assert.equal(get('dogs', 'd1').notes, 'notes for d1', 'A\'s newer d1 wins');
+  assert.equal(get('kennels', 'k1').kennel_name, 'Oak Hill Kennels');
+  assert.equal(get('dogs', 'd2').notes, 'B still has it', 'a join deletes nothing');
+  assert.equal((await sync.syncNow()).push.status, 'nothing', 'everything B kept is on the server now');
+
+  switchDevice('A');
+  await sync.syncNow();
+  assert.equal(get('kennels', 'k1').kennel_name, 'Oak Hill Kennels');
+  assert.equal(get('dogs', 'd3').notes, 'only on B');
+  assert.equal(get('dogs', 'd2').notes, 'B still has it', 'B\'s copy came back as a record of its own');
+});
+
+test('an interrupted join resumes as a join, never as a plain pull', async () => {
+  await beforeSync();
+  await sync.enableSync();
+  switchDevice('B');
+  put('kennels', row('k1', { kennel_name: 'Newer on B', is_own_kennel: true, updated_at: '2026-03-01T00:00:00.000Z' }));
+  const realFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async (url, init) => {
+    if (String(url).includes('/sync/push') && ++calls === 1) throw new TypeError('Failed to fetch');
+    return realFetch(url, init);
+  };
+  try {
+    assert.equal((await sync.joinSync()).status, 'offline');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.equal(settings.getCloudSyncState().joining, true);
+  assert.equal(sync.syncStatus().joining, true);
+  const again = await sync.syncNow();
+  assert.equal(again.join.status, 'on');
+  assert.equal(get('kennels', 'k1').kennel_name, 'Newer on B');
+  switchDevice('A');
+  await sync.syncNow();
+  assert.equal(get('kennels', 'k1').kennel_name, 'Newer on B');
+});
+
+test('turning it off here, then for every device: the others stop and say so', async () => {
+  await beforeSync();
+  await sync.enableSync();
+  switchDevice('B');
+  await sync.joinSync();
+  assert.deepEqual(await sync.disableSyncHere(), { status: 'off' });
+  assert.equal(settings.getCloudSyncState().enabled, false);
+  assert.equal(tables.sync_meta.rows.size, 0, 'what it synced is forgotten here');
+  assert.equal(tables.dogs.rows.size, 2, 'its records stay');
+  assert.equal((await sync.programSyncs()).enabled, true, 'the program still syncs');
+  await sync.joinSync();
+
+  assert.deepEqual(await sync.disableSyncEverywhere({}), { status: 'off' });
+  assert.equal((await sync.programSyncs()).enabled, false);
+  switchDevice('A');
+  assert.deepEqual(await sync.pullIfBehind(), { status: 'paused', code: 'sync_off' });
+  assert.equal(settings.getCloudSyncState().enabled, false);
+  assert.equal(sync.syncStatus().paused, 'sync_off', 'it says why');
+});
+
+test('turning the vault off ends sync for every device', async () => {
+  await beforeSync();
+  await sync.enableSync();
+  switchDevice('B');
+  await sync.joinSync();
+  await vault.disableVault({});
+  assert.equal(settings.getCloudSyncState().enabled, false);
+  switchDevice('A');
+  assert.equal((await sync.pullIfBehind()).code, 'sync_off');
+});
+
+test('backups on a syncing program: a caught-up device states its seq; one behind waits; a lapsed one goes by Phase 1', async () => {
+  const backup = await import('../shared/data/cloud/cloudBackup.js');
+  await beforeSync();
+  await sync.enableSync();
+  settings.markDataChanged();
+  const pushed = await backup.pushIfDirty({ force: true });
+  assert.equal(pushed.status, 'pushed');
+  assert.equal(env.DB.raw.prepare('SELECT sync_seq FROM snapshots WHERE id = ?').get(pushed.snapshotId).sync_seq, 3, 'the kennel and two dogs');
+
+  put('dogs', dog('d5')); // not pushed to sync yet
+  assert.deepEqual(await backup.pushIfDirty({ force: true }), { status: 'skipped', reason: 'sync_behind' });
+  await sync.syncNow();
+  assert.equal((await backup.pushIfDirty({ force: true })).status, 'pushed');
+
+  switchDevice('B'); // never joined: not syncing here, so the Phase 1 rule; the program syncs, so it's refused
+  assert.equal((await backup.pushIfDirty({ force: true })).status, 'conflict');
+  switchDevice('A');
+  env.DB.raw.prepare('DELETE FROM pro_purchases').run();
+  put('dogs', dog('d6'));
+  assert.equal((await sync.syncNow()).push.code, 'pro_required');
+  const lapsed = await backup.pushIfDirty({ force: true });
+  assert.equal(lapsed.status, 'pushed', 'a lapsed license backs up the Phase 1 way (decision 6)');
+  assert.equal(env.DB.raw.prepare('SELECT sync_seq FROM snapshots WHERE id = ?').get(lapsed.snapshotId).sync_seq, null);
+});

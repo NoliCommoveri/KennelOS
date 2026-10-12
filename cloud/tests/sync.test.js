@@ -265,3 +265,42 @@ test('a lapsed license can still turn sync off', async () => {
   env.DB.raw.prepare('DELETE FROM pro_purchases').run();
   assert.equal((await call(env, 'DELETE', '/sync', { token: phone.token, body: {} })).status, 200);
 });
+
+test('a lapsed license: snapshots go by the Phase 1 backing-device rule until it\'s renewed (decision 6)', async () => {
+  const env = await makeEnv();
+  const { phone, laptop } = await program(env);
+  await pushRecs(env, phone, [put('dogs', 'd1')]);
+  env.DB.raw.prepare('DELETE FROM pro_purchases').run();
+  const snap = async (s, base, syncSeq) => {
+    const body = bytes('abc');
+    const created = await call(env, 'POST', '/snapshots', {
+      token: s.token, body: { base_snapshot_id: base, size: body.length, counts: { dogs: 1 }, files: [], vault: { size: 3, keyId: KEY_ID }, ...(syncSeq === undefined ? {} : { sync_seq: syncSeq }) },
+    });
+    if (created.status !== 200) return created;
+    const { snapshotId } = await created.json();
+    await call(env, 'PUT', `/snapshots/${snapshotId}/vault`, { token: s.token, body: bytes('vlt') });
+    return call(env, 'PUT', `/snapshots/${snapshotId}/body`, { token: s.token, body });
+  };
+  // The laptop is behind (it never pulled), and lapsed: it backs up all the same, and becomes the backing device.
+  assert.equal((await snap(laptop, null)).status, 200);
+  const prog = env.DB.raw.prepare('SELECT latest_snapshot_id, backing_device_id FROM programs').get();
+  assert.equal(prog.backing_device_id, LAPTOP);
+  assert.equal(env.DB.raw.prepare('SELECT sync_seq FROM snapshots WHERE id = ?').get(prog.latest_snapshot_id).sync_seq, null);
+  const second = await snap(phone, prog.latest_snapshot_id);
+  assert.equal((await second.json()).error, 'not_backing_device', 'one backing device, as in Phase 1');
+
+  makePro(env, phone);
+  const renewed = await snap(phone, prog.latest_snapshot_id, 0);
+  assert.equal((await renewed.json()).error, 'not_caught_up', 'renewed: the caught-up rule again');
+  assert.equal((await snap(phone, prog.latest_snapshot_id, 1)).status, 200);
+});
+
+test('turning the vault off turns sync off for every device', async () => {
+  const env = await makeEnv();
+  const { phone, laptop } = await program(env);
+  await pushRecs(env, phone, [put('dogs', 'd1')]);
+  assert.equal((await call(env, 'DELETE', '/vault', { token: phone.token, body: {} })).status, 200);
+  assert.equal((await (await call(env, 'GET', '/sync/head', { token: laptop.token })).json()).enabled, false);
+  assert.equal((await pull(env, laptop, 0)).body.error, 'sync_off');
+  assert.ok(env.DB.raw.prepare('SELECT sync_disabled_at FROM programs').get().sync_disabled_at, 'the records are kept 30 days, as when it\'s turned off');
+});

@@ -174,9 +174,14 @@ KennelOS/
                                (started by bootCloud)
       cloudIntegrations.js     Vendor integrations (Integrations plan §0): read the
                                events the Worker kept (a contract signed, a payment made)
-                               and apply each through the repos, backing device only;
-                               asks nothing until the account has a connection; its
-                               scheduler (started by bootCloud)
+                               and apply each through the repos, by the device doing the
+                               server work only (serverWork.js); asks nothing until the
+                               account has a connection; its scheduler (started by bootCloud)
+      serverWork.js            Which device does the program's server work (waitlist
+                               intake, family and vendor events, publishing, emails):
+                               the backing device, or on a syncing program the holder of
+                               the two-minute lease (POST /waitlist/lease), which only a
+                               syncing device in front of her takes (Cloud Phase 2 plan §7)
       vaultCrypto.js           The private vault's WebCrypto (Private Vault Plan §3.2):
                                codes, the vault key, KEKs, wraps, payload/file ciphertext
       vaultKeyStore.js         This device's unlocked vault key, and its open request to be
@@ -191,7 +196,10 @@ KennelOS/
                                pages, file bytes first, the shrink guard, dropped records
                                not resent unchanged), pull (cursor → syncApply), syncNow
                                (one at a time across tabs), the scheduler, the pauses and
-                               the activity list (plan §5); only where liveSync is on
+                               the activity list (plan §5); turning it on, joining (a
+                               resumable full pull where the newer updated_at wins, then a
+                               push; nothing deleted), off here / for every device, and
+                               syncReadiness (plan §2.1, §2.4, §5.5); only where liveSync is on
       vaultPasskey.js          WebAuthn + PRF for passkey unlock (no db, no network): the
                                RP ID, support check, make a passkey / get its PRF output
       cloudVault.js            Vault flows: turn on with a recovery code, unlock (with the
@@ -234,7 +242,8 @@ KennelOS/
                                page (echo skip, server wins over an unpushed local edit,
                                a delete still referenced here becomes an archive, files
                                fetched and opened), then SYNC_APPLIED_EVENT (Cloud Phase 2
-                               plan §5.3, §5.4)
+                               plan §5.3, §5.4); `merge` for a join: newer updated_at
+                               wins, a kept local row is pushed, tombstones delete nothing
     companionExport.js         Companion allow-list bundle builder (§20)
     dropbox.js                 Dropbox API client — PKCE OAuth + JSON up/download (§26)
     assistantSync.js           Owner-side Dropbox flows: backup push/pull,
@@ -306,7 +315,11 @@ KennelOS/
                                the suggested field_map, warnings, a type guess from the
                                title (pure, §32; tests/jotformConnect.test.js)
     jotformApi.js              the only module that calls Jotform's API (her forms, a
-                               form's fields; key as a query parameter, §32)
+                               form's fields, a form's submissions; key as a query
+                               parameter, §32)
+    jotformSigned.js           step 7: a Sent contract's form submission found by its
+                               contractRef marks it Signed, from her device (§32;
+                               tests/jotformSigned.test.js)
     jotformConnect.js          connect / disconnect a Jotform key on this device, list
                                forms, match a form (what accounts.js calls, §32)
     jotformKeyStore.js         her Jotform API keys in device_secrets (device only, §32)
@@ -422,7 +435,7 @@ commonly blank at entry time.
 | Entity | Required | Notable other fields |
 |---|---|---|
 | **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`, plus `kennel_id` **when `ownership_type` is `owned`/`co_owned`** (the kennel scope — must be one of your own kennels; optional and free to name an outside kennel for `external`/`leased_in`) | `registered_name`, `date_of_birth`, `date_of_death`, `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (the kennel that *produced* this dog — own or an outside contact's; distinct from `kennel_id`, the kennel it belongs to *now* — the user's own for a dog they own, or an outside kennel for an external/leased dog (the form's Kennel picker offers every kennel, not just own ones); auto-prefilled from the litter's dam's own `kennel_id` when that dam is owned/co-owned), `owner_contact_id`, `co_owner_contact_ids[]`, `kennel_id`, `color_markings`, `registry`, `registration_number`, `microchip_id`, `url` (plain, unindexed — a link for this dog, e.g. a registry page or listing), `planned_tests[]`, `recorded_coi{value,method,source,as_of_date}`, `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold` — breeder intent; `health_hold` = not sellable for a health reason, never offered by the waitlist, the default when a sale is voided for a failed health check or returned for a health problem; **puppy-only**, valid only while `status='puppy'` and forced null otherwise. Enforced in `dogRepo` create/update and mirrored in the UI: the dog form shows it only for a puppy, `sale.js` won't set one on a non-puppy, the profile hides the row otherwise. Feeds the Today "Active litters" card, the promote-lifecycle nudge, and the litter-lifecycle nudges, §19), `intended_registration` (plain, unindexed — nullable `REGISTRATION_TYPE` value (`limited` / `full` / `co_own` / `none` = unregistered): the registration rights this pup is planned for. Prefills a new Sale's `registration_type` (and through it the Full-registration surcharge, `saleDefaults.expectedPricing`), and the waitlist offers the pup only to families whose `pref_purposes` map to it (`waitlistRules.pupMatchesPrefs`, §29); unset = not decided, matches any family. Set from the Add Puppy / Add several puppies forms (applied to all on the bulk one) and the Dog form, which shows it for a puppy in every edition and only writes it when that field rendered, so a status change never clears it; it is not cleared when the dog grows up — the Sale carries what was actually sold), `notes`, `pedigree_only` (plain, unindexed bool — a dog kept **only for lineage**: an ancestor brought in to build a pedigree, never run as part of the kennel. See "Pedigree-only dogs" below). Owner required when `ownership_type ∈ {external, leased_in}` — except on a pedigree-only dog. `call_name` may be blank on a pedigree-only dog that has a `registered_name` (a pedigree gives registered names, not call names); `dogRepo.dogName(d)` (call name, else registered name) is what pedigree-facing screens show. |
-| **Contact** | `name` | `contact_type[]` (multi), `email`, `phone`, `address`, `kennel_id`, `waitlist_status`, `first_contact_source`, `notes`, `companion_note` (plain, unindexed — a per-recipient message **meant for the recipient's eyes**, shown on their companion share page; deliberately distinct from the private `notes`; §20). Buyers are Contacts — **there is no Buyer table**. `address` also resolves an in-person stud service's away-board location (§19). |
+| **Contact** | `name` | `contact_type[]` (multi), `email`, `phone`, `facebook_profile` (plain, unindexed — their Facebook profile as typed, **FB Profile** on the form; shown as a link when it's a web address, a bare `facebook.com/…` getting `https://`; CSV column `facebook_profile` (or `facebook` / `fb_profile`); **private tier**, like `email`/`phone`), `address`, `kennel_id`, `waitlist_status`, `first_contact_source`, `notes`, `companion_note` (plain, unindexed — a per-recipient message **meant for the recipient's eyes**, shown on their companion share page; deliberately distinct from the private `notes`; §20). Buyers are Contacts — **there is no Buyer table**. `address` also resolves an in-person stud service's away-board location (§19). |
 | **Kennel** | `kennel_name` | `public_id` (**indexed** — the kennel's portable PUBLIC IDENTITY, `kos1_<uuid>`; minted once for an **own** kennel and immutable thereafter, so the same real-world kennel keeps one identifier across a backup/restore, the Lite→Pro bridge, a Dropbox sync, and every kennel card it issues. An **outside** kennel never has one minted locally — it can only ever be *received* from a card its owner issued, so a blank value there means “I typed this kennel in myself”, not missing data. Not a foreign key: nothing points at it, so it carries **no** `referenceRegistry` entry. See §28), `is_own_kennel`, `prefix`, `location`, `website` (plain, unindexed — a link for this kennel, mirrors `Dog.url`), `waitlist_form_keys` (plain, unindexed — her application form's key pairs `[{ id, public_key, private_key, created_at, retired_at }]`, W2 step 4, §29; **private tier**: the private halves open every online application, so they ride the private vault and file backups only), `time_zone` (plain, unindexed — IANA name, e.g. `America/Chicago`; set on the **Online list** card (Waitlist → Manage → Publish list), defaulting to the device's zone; the waitlist online's offer deadlines end at 11:59 pm there, Waitlist Spec §6.5; cloud tier), `logo_data_url` (plain, unindexed — a downscaled PNG/SVG **data URL** for the kennel's logo, uploaded/removed on the kennel detail page; an upload is kept under about 300 KB (`LOGO_MAX_CHARS` in `pages/kennel.js`: a PNG is redrawn at 480 / 360 / 240 / 160 px until it fits, an SVG over it is refused with "That logo is too large. Try a smaller image."), because live sync carries it twice in one record (Cloud Phase 2 plan §4.1); upload only, so an older larger logo still restores, rendered on its invoices/receipts (§24) and puppy records (§23); rides the JSON backup), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds` (plain, unindexed — `{ [testKey]: breed[] }`; which breed(s) tagged each preferred test via the breed-seed import, keyed lowercase-trimmed; a test added by typing directly into the kennel's own "Add a test" field has no entry and stays breed-agnostic. Never edited directly — written by `kennelRepo.addPreferredTest`'s third arg, read via `testBreedsFor`/`testsForBreed`), `promote_nudge_enabled` (bool, default off), `promote_age_male_months`/`promote_age_female_months` (the promote-lifecycle nudge's per-kennel thresholds, §19), `puppy_record_fields` (plain, unindexed object — which fields this kennel's printed Puppy Records show, picked on the Kennel page's **Puppy Record fields** card; stores only what's turned off, `{ [key]: false }`, null = everything shown; keys and the read rule live in `data/puppyRecordFields.js`, §23; cloud tier — a print setting), `waitlist_fee_account_id` (optional **indexed** FK → a `payment_service` Account, `version(4)` — the account its waitlist application fee is paid online through, set under **Fee paid online via** in Waitlist settings; guarded by `ACCOUNT_REFERENCES`; cloud tier; Integrations plan §4, §29), `waitlist_config` (plain, unindexed object — this kennel's waitlist settings: fee, credit policy, fee window, payment instructions, `fee_link_when` (`apply` default — the Pay button at the end of the online application — or `approved`) and `fee_links` (`[{ account_id, amount, charge, url, ref }]`, the reusable Stripe links made on a device holding the fee account's key, one per fee amount; `charge` is what the family pays, the fee plus a card fee when the account passes it on; `waitlistFeeLinks.ensureFeeLinks`), max passes, response days (`respond_days` — the days to accept AND pay the deposit), whether no response counts as a pass, color matching, `auto_offer_on` (which closings offer the next family by themselves: `accepted` / `passed` / `no_response` / `no_deposit` / `left` / `restored` (a family back in line after a lost pup, Waitlist Spec §16.11), from `vocab.WAITLIST_AUTO_OFFER_TRIGGER`; `no_deposit` is a no response on an offer whose family had picked a pup, per `waitlistRules.closingTrigger`; default **none**; replaced the boolean `auto_offer_next` 2026-10-08, and a stored `auto_offer_next: true` still reads as all of them via `waitlistConfig`), check-in months, `online` (bool, default off — her list is published online, W2, §29; only acted on where the waitlist online is offered), `online_form` (bool, default off — she takes applications through the online form, W2 step 4), `pass_reasons` (`[{ id, label, message }]` — her reasons for a family's pass and the message each shows them, Waitlist Spec §16.5; null = `waitlistRules.DEFAULT_PASS_REASONS`; read through `passReasons`) and `pass_other` (bool, default on — also offer "Other" with a text box), `online_since` (the day the list last went online, set by the Online list card or backfilled by the sync; "Ready now?" covers holds ending from then), `ready_no_answer` (`keep_paused` default / `unpause` / `remove_after`, `vocab.WAITLIST_READY_NO_ANSWER`) and `ready_answer_days` (14), `show_upcoming` (`{ planned_pairings, pairings, early_litters }`, each `{ public, family }`, all false by default — what shows online before picks open, Waitlist Spec §16.4; read through `waitlistRules.showUpcoming`), `soon_notice_text` (her "It's almost your turn" wording; blank = `waitlistRules.SOON_NOTICE_DEFAULT`, §29), `email_templates` (`{ [kind]: { subject?, body? } }` — her wording for the emails to families, W2 step 6; only what differs from `waitlistEmails.DEFAULT_EMAIL_TEMPLATES` is stored, null = all defaults; read through `waitlistEmails.emailTemplate`; edited under **Emails to families** in Waitlist settings, shown where the waitlist online is offered, §29), `email_reminders` (bool, default on — the server's reminder and "Ready now?" emails while the list is online, W2 step 7), `facebook_button` (bool, default off) + `facebook_page` (her Facebook Page link as typed) — **Message us on Facebook** on status pages (Waitlist Spec §11, W2 step 8): the switch saves only with a link `waitlistRules.messengerLink` accepts (a facebook.com or m.me address naming a Page), and the projection then carries `kennel.messenger` (`https://m.me/<page>`), which the status page shows to a family on the list as a button with a caption pointing back to its own buttons; edited at the bottom of Waitlist settings where the waitlist online is offered, §29; `public_intro_text` (the message under her public list's heading; blank = `waitlistRules.PUBLIC_INTRO_DEFAULT`, `[Kennel Name]` filled in by `publicIntroText`; edited on the Publish list page, §29), `embed` (bool, default off) + `embed_origins` (her website addresses, cleaned to origins by `waitlistRules.embedOrigin`, at most `EMBED_ORIGINS_MAX` = 10; none = any site) — her own website may show the form and list in a frame (Integrations plan §1); the projection then carries `kennel.embed: { origins }`; edited under **On your website** on the Online list card, §29, `form_questions[]`, her application form (§29; read through `waitlistForm.formQuestions`, which supplies the defaults and restores the locked questions), and `application_faq[]` (`{ id, question, answer }`, her FAQ shown at the top of the application; read through `waitlistForm.formFaq`). Kept on the kennel, not in `settings.js`, so it rides the JSON backup/Dropbox sync; missing keys fall back to `waitlistRules.WAITLIST_CONFIG_DEFAULTS`; edited on the Kennel page's **Waitlist settings** card, §29). Lightweight; added inline from the Contact form. |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date` (shown as "Planned first date" — the first planned/tie date), `last_observed_date` (plain, unindexed — a subsequent observed tie/breeding date), `expected_due_date` (prefilled on the detail page as 63 days after `planned_date` when still empty, never clobbering a deliberate edit), `notes`. Sire ≠ dam (hard block). |
 | **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname` (plain, unindexed — optional friendly label, e.g. "Party of Five"; when set it leads the detail-page title and shows as its own column on the Litters list and report, searchable across all three; falls back to `dam × sire` when blank), `pairing_id`, `whelp_date`, `accept_deposits_date` (plain, unindexed — when the breeder begins accepting deposits; on the detail page it sits between `whelp_date` and `estimated_ready_date`, and surfaces in the **prospective** companion bundle between "Born" and "Estimated ready" when set, §20), `estimated_ready_date` (plain, unindexed — prefilled as 8 weeks/56 days after `whelp_date` when still empty, never clobbering a deliberate edit), `litter_registration_number`, `picks_opened_date` (plain, unindexed — nullable `YYYY-MM-DD` set by the waitlist's **Open picks**; while set and pups remain, the next eligible family is offered as each offer closes — only for the closings ticked in the kennel's `waitlist_config.auto_offer_on`, §29), `puppies_born_total/alive/deceased/abnormalities` (the last a count, not mutually exclusive with alive/deceased), `expected_price_male`/`expected_price_female`/`expected_deposit_male`/`expected_deposit_female`/`full_reg_surcharge_male`/`full_reg_surcharge_female` (plain, unindexed, **private tier** — per-litter defaults, grouped by sex on the detail page; `sale.js` prefills a new Sale's `price` and `deposit_amount` from the matching-sex pair by the puppy's `sex`, only into fields still empty, and when the sale's registration is `full` the price adds that sex's Full-registration surcharge (no base price → no price; co-own and the deposit are never surcharged); the rule lives in `data/saleDefaults.js` `expectedPricing(dog, litter, registration = dog.intended_registration)`, shared with the waitlist's accept flow (§29) and the Companion prospective bundle's per-pup price, which also shows the pup's registration beside it), `foster_direction` (plain, unindexed — nullable `foster_in`/`foster_out`; null = an ordinary litter. **Foster is a per-litter fact** (guide §25): the same dam can have foster and non-foster litters, so it can't live on the Dog. A foster puppy is distinguished from a plain "external" dog purely by DERIVATION of its litter's `foster_direction` — it stays a normal `status='puppy'` Dog we manage and sell), `foster_partner_contact_id` (**indexed FK → Contact**; the counterparty — the dam's owner for foster-in, the caretaker for foster-out — guarded in `CONTACT_REFERENCES`; its `kennel_id` is the owner/caretaker kennel a companion share can reveal), `foster_comp_model` (plain, unindexed — `income_split`/`flat_per_pup`; how the partner is paid), `foster_our_share_pct`/`foster_split_basis` (the income-split terms), `foster_flat_fee_per_pup` (the per-pup flat fee), `foster_split_notes` (all plain, unindexed — documentation of the terms for either model; the actual payout to the other party is a real `foster_split` ("Foster compensation") Expense, never a stored derived number), `notes`. The litter's own sire/dam are authoritative. Puppy roster is **derived** (`Dog WHERE litter_id`). |
@@ -541,6 +554,17 @@ kennels:       id, public_id, waitlist_fee_account_id, is_archived
 for the `ACCOUNT_REFERENCES` delete guard; a backup's `schema_version` now reads 4, and older
 files still restore.
 
+**A version bump needs every other open copy to let go.** IndexedDB installs a new
+`version(N)` only once every other connection on the device closes. A live tab does so by
+itself (Dexie closes on `versionchange`), but a copy the phone has frozen in the background
+(an old tab, the installed app in Recents) can't, and the upgrade then waits without an
+error: every read hangs, so pages sit on "Loading…" or show no table (the `version(4)`
+rollout, 2026-10-12). `db.js` announces both sides as window events, `DB_BLOCKED_EVENT` /
+`DB_READY_EVENT` (with `isDbUpgradeBlocked()` for a late reader) and
+`DB_VERSIONCHANGE_EVENT`; `app.js` shows "close every other KennelOS tab or window" while
+blocked (gone once the upgrade goes through), and "updated in another tab, reload" on a copy
+that was closed. Expect the first notice on some devices after any shipped version bump.
+
 `device_secrets` is a **device-only table** (`db.DEVICE_ONLY_TABLES`): this device's
 unlocked private-vault key, stored as a `CryptoKey`, and any open request to be unlocked by
 another device (§30, Private Vault Plan §3.3; `cloud/vaultKeyStore.js`), and her **Jotform
@@ -557,7 +581,17 @@ leave it out. Reset App and remote erase still clear it.
 per record this device has synced, `{ id: '<table>:<row id>', tbl, row_id, seq, hash }` (the
 server's seq for the version it last pushed or pulled, and `syncRecords.rowHash` of the row
 then). `data/cloud/syncState.js` is its only reader/writer; the live-sync scan compares every
-syncing row's hash with it, so no write path needs a sync hook.
+syncing row's hash with it, so no write path needs a sync hook. Joining a syncing program
+(`cloudSync.joinSync`, or `enableSync` on the first device) starts it over empty; turning sync
+off on this device (here, for every device, or by turning the vault off) clears it.
+
+**Backups on a syncing program** (Cloud Phase 2 plan §6.4): a syncing device's snapshot states
+the seq it has applied (`sync_seq`, `cloudBackup.snapshotSyncSeq`) and goes only while it's
+caught up (nothing to push, no join under way, sync not paused); otherwise the push is
+skipped as `sync_behind` and stays dirty, never a conflict. A device that doesn't sync here
+sends none and gets the Phase 1 refusal. While the owner's Pro has lapsed (sync paused
+`pro_required`), snapshots go by the Phase 1 backing-device rule (server `snapshots.js`,
+plan §12 decision 6).
 
 Index notes:
 - **`kennel_id` on `pairings`/`litters`/`sales`/`stud_services`/`contracts`/
@@ -3678,10 +3712,25 @@ shown (`describeOfferChanges`).
   `waitlist_config.online` and a `public_id`, the projection is hashed and `PUT` when it
   changed; a kennel taken offline is `DELETE`d. 20 s after the last data change
   (`CLOUD_DATA_CHANGED_EVENT`), on load and when back online. It needs a session and cloud
-  backup on; the server also needs the **backing device** and a server-known Pro account,
-  and the reason it stopped (`signed-out`, `backup-off`, `not-backing`, `pro-required`,
+  backup on; the server also needs the **backing device** (on a syncing program, the
+  **lease holder**: below) and a server-known Pro account,
+  and the reason it stopped (`signed-out`, `backup-off`, `not-backing`, `lease-held` with
+  the holder's label and expiry, `not-syncing`, `pro-required`,
   `kennel-taken`, `offline`, `failed`) is kept in the `waitlistOnline` settings key for the
-  card. Nothing is sent where it isn't offered (`isWaitlistOnlineOffered()`).
+  card.
+- **On a syncing program (Cloud Phase 2 plan §7, 2026-10-12):** there's no backing device,
+  so the server work goes to one device at a time by a **lease** (`wl_leases`, migration
+  `0016`): two minutes, taken or renewed by `POST /waitlist/lease` and by every waitlist
+  write; another device gets `409 lease_held { holder: { label, until } }`. The device claims
+  it once per run, lazily, right before its first write (`data/cloud/serverWork.js`
+  `claimServerWork`; an idle poll asks nothing more), and only a device that syncs
+  (`not-syncing` otherwise: its writes would stay on that device) and is in front of her (a
+  syncing device in a hidden tab skips the run, `background`); a closing page lets go
+  (`DELETE /waitlist/lease`). A device that takes it over from another first pulls sync and
+  restarts its events cursor from the published `events_through`, so no family event is
+  applied twice. The card says "This device is handling your online list" while it holds
+  it, or "Handled by Jen's laptop (open now)". Vendor events (`cloudIntegrations.js`) follow
+  the same rule. Nothing is sent where it isn't offered (`isWaitlistOnlineOffered()`).
 - **The card:** Waitlist → Manage → **Publish list** → **Online list**
   (`assets/waitlistOnlineUI.js`; on the Kennel page until 2026-10-08): put this
   kennel's list online, its time zone, the status line, **Publish now**, **Copy public
@@ -3842,7 +3891,7 @@ shown (`describeOfferChanges`).
   kennel-wide `turn_queue`: every family still to have a turn, in order, with their eligible
   pups per open litter, which W2 step 7 walks). The server records each action as
   an event; on the **backing device only** (checked with `GET /program` before anything is
-  written), `cloudWaitlist.applyFamilyEvents` reads the events after its cursor
+  written; on a syncing program, the lease holder, `serverWork.js`), `cloudWaitlist.applyFamilyEvents` reads the events after its cursor
   (`waitlistOnline.eventsCursor`; a device with none starts at the published
   `events_through`), plans each with `data/waitlistEvents.js` against her records **now**
   and carries it out with `waitlistActions.applyFamilyPlan`: a pick → `recordPick` (the
@@ -4245,6 +4294,25 @@ the forms with **Open**.
   form's link carries **only** the matched facts, under her field names
   (`contractForms.mapValues`, used by `contractSend.buildSignatureLink`); a pasted form
   keeps the fixed names. The card shows the matched count.
+- **Signed forms come back (2026-10-12, plan §6 step 7; `data/jotformSigned.js`).** A
+  contract that is **Sent** on a Jotform form (`esign_provider = 'jotform'`) is marked
+  **Signed** by her device once the form's submission carrying its reference turns up. When
+  the app opens (at most every 15 minutes, `bootJotformCheck` from `app.js`, Pro), or when
+  she taps **Check for signature** beside **Copy link again** on the contract, the device
+  finds the form each Sent contract went out on (the saved form whose link, without its
+  query, matches `esign_url`), and, when that form's Form service account is connected on
+  this device, reads its submissions since a day before the earliest sent date (`GET
+  /form/{id}/submissions` with a `created_at:gt` filter, `jotformApi.jotformSubmissions`).
+  The form's id is its `form_id`, else the number its link ends in; the reference is read
+  from the `contractRef` field (a pasted form) or the field matched to `contractRef` (a
+  matched form; matched with none → it can't be found). The oldest submission for a
+  contract is applied as a `contract.signed` event (`jotform-<submission id>`) through
+  `integrationApply`, so a Sent contract becomes `signed` with `signed_date` = the
+  submission's date, an already-signed one is skipped, and one she changed meanwhile gets a
+  Today review. Nothing else from the submission is kept (the buyer's answers stay in
+  Jotform); no KennelOS server is involved. Not connected on this device → nothing is
+  asked, and the button says to connect or mark it Signed by hand. The check's last time is
+  `jotformCheckedAt` in `settings.getIntegrationsState()`.
 
 **Payment services (Integrations plan §4–§5; 2026-10-11, revised 2026-10-12).** An account of
 type **Payment service** (`ACCOUNT_TYPE` `payment_service`: Stripe, Square, PayPal, Venmo,

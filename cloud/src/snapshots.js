@@ -17,6 +17,7 @@
 import { contentLength, fail } from './lib/http.js';
 import { SHA256 } from './files.js';
 import { KEY_ID, loadVault } from './vault.js';
+import { entitlementFor } from './license.js';
 
 export const MAX_SNAPSHOT_BYTES = 50 * 1024 * 1024;
 const MAX_FILE_REFS = 20000;
@@ -59,12 +60,20 @@ export async function backingInfo(env, program) {
 
 // Phase 1: the backing device, on the latest snapshot. A syncing program
 // (Phase 2 plan §6.4): any device, on the latest snapshot, that says it has
-// applied every record (its `sync_seq` is the program's).
-function canPush(program, deviceId, base, syncSeq = null) {
+// applied every record (its `sync_seq` is the program's). A syncing program
+// whose Pro license lapsed (`lapsed`) can't sync, so its devices back up the
+// Phase 1 way until it's renewed (plan §12 decision 6).
+function canPush(program, deviceId, base, syncSeq = null, lapsed = false) {
   const baseOk = (program.latest_snapshot_id ?? null) === (base ?? null);
-  if (program.sync_enabled_at) return baseOk && syncSeq === program.sync_seq;
+  if (program.sync_enabled_at && !lapsed) return baseOk && syncSeq === program.sync_seq;
   const deviceOk = !program.backing_device_id || program.backing_device_id === deviceId;
   return deviceOk && baseOk;
+}
+
+// A syncing program whose owner's Pro has lapsed: snapshots go by Phase 1.
+async function syncLapsed(env, auth, program) {
+  if (!program?.sync_enabled_at) return false;
+  return !(await entitlementFor(env, auth.userId)).pro;
 }
 
 // The editions that back up (Demo has no cloud). Anything else is stored as NULL.
@@ -88,8 +97,10 @@ export async function createSnapshot(env, auth, body) {
   if (syncSeq !== null && (!Number.isInteger(syncSeq) || syncSeq < 0)) fail(400, 'bad_sync_seq');
 
   const program = await loadProgram(env, auth.programId);
-  if (!canPush(program, auth.deviceId, base, syncSeq)) {
-    fail(409, program.sync_enabled_at && syncSeq !== null ? 'not_caught_up' : 'not_backing_device', await backingInfo(env, program));
+  const lapsed = await syncLapsed(env, auth, program);
+  const bySync = Boolean(program.sync_enabled_at) && !lapsed;
+  if (!canPush(program, auth.deviceId, base, syncSeq, lapsed)) {
+    fail(409, bySync && syncSeq !== null ? 'not_caught_up' : 'not_backing_device', await backingInfo(env, program));
   }
   const vaultPart = await checkVaultPart(env, auth.programId, body.vault);
 
@@ -109,7 +120,7 @@ export async function createSnapshot(env, auth, body) {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)`,
     ).bind(id, auth.programId, auth.deviceId, auth.deviceLabel, new Date().toISOString(), body.size,
       JSON.stringify(body.counts), snapshotKey(auth.programId, id), base, edition,
-      vaultPart?.size ?? null, vaultPart?.keyId ?? null, program.sync_enabled_at ? syncSeq : null),
+      vaultPart?.size ?? null, vaultPart?.keyId ?? null, bySync ? syncSeq : null),
     env.DB.prepare('INSERT INTO snapshot_files (snapshot_id, sha256) SELECT ?, value FROM json_each(?)').bind(id, filesJson),
   ]);
   return { snapshotId: id };
@@ -171,17 +182,20 @@ export async function uploadSnapshotBody(env, auth, id, request) {
   // Commit only if this device may still push on that base. The second
   // statement is conditional on the first having happened, in one batch. A
   // syncing program's snapshot (sync_seq set) commits only while no record
-  // arrived since it was described, and leaves backing_device_id alone.
+  // arrived since it was described, and leaves backing_device_id alone. A
+  // Phase 1 one commits on a program that doesn't sync, or whose license lapsed.
+  const bySync = row.sync_seq !== null && row.sync_seq !== undefined;
+  const lapsed = bySync ? false : await syncLapsed(env, auth, await loadProgram(env, auth.programId));
   const [moved] = await env.DB.batch([
-    row.sync_seq !== null && row.sync_seq !== undefined
+    bySync
       ? env.DB.prepare(
         `UPDATE programs SET latest_snapshot_id = ?
           WHERE id = ? AND sync_enabled_at IS NOT NULL AND sync_seq = ? AND latest_snapshot_id IS ?`,
       ).bind(id, auth.programId, row.sync_seq, row.base_snapshot_id)
       : env.DB.prepare(
         `UPDATE programs SET latest_snapshot_id = ?, backing_device_id = ?
-          WHERE id = ? AND sync_enabled_at IS NULL AND (backing_device_id IS NULL OR backing_device_id = ?) AND latest_snapshot_id IS ?`,
-      ).bind(id, auth.deviceId, auth.programId, auth.deviceId, row.base_snapshot_id),
+          WHERE id = ? AND (sync_enabled_at IS NULL OR ? = 1) AND (backing_device_id IS NULL OR backing_device_id = ?) AND latest_snapshot_id IS ?`,
+      ).bind(id, auth.deviceId, auth.programId, lapsed ? 1 : 0, auth.deviceId, row.base_snapshot_id),
     env.DB.prepare(
       `UPDATE snapshots SET status = 'committed'
         WHERE id = ? AND EXISTS (SELECT 1 FROM programs WHERE id = ? AND latest_snapshot_id = ?)`,
@@ -189,7 +203,7 @@ export async function uploadSnapshotBody(env, auth, id, request) {
   ]);
   if (moved.meta.changes !== 1) {
     await discard(env, row);
-    fail(409, row.sync_seq !== null && row.sync_seq !== undefined ? 'not_caught_up' : 'not_backing_device',
+    fail(409, bySync ? 'not_caught_up' : 'not_backing_device',
       await backingInfo(env, await loadProgram(env, auth.programId)));
   }
   return { ok: true, snapshotId: id };

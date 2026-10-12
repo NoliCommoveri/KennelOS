@@ -440,10 +440,72 @@ application twice or answer the same family event twice. So:
    `cloudApi`'s `/sync/*` calls, `editionFlags.liveSync`. Tests: `tests/cloudSync.test.js`
    against a fake server (two simulated devices editing, offline then reconnecting, the same
    record edited on both, a delete racing a new reference, a re-keyed vault, resync).
-4. **Join and leave.** Enable, join with the `updated_at` merge, turn off here / for every
+4. **Built 2026-10-12.** As built: `cloudSync.js` gains `syncReadiness` (signed_out /
+   backup_off / backup_paused / vault_off / vault_locked; Pro is the server's to say, so
+   `enableSync` answers `refused: pro_required`), `enableSync` (`POST /sync/enable`, then a
+   join: on the first device it pulls nothing and pushes everything, with a `push` progress
+   phase), `joinSync` (§5.5: `sync_meta` cleared, a full pull with `syncApply`'s `merge`
+   rule, then a push of what's left, then an ordinary pull), `programSyncs` (for the join
+   offer), `disableSyncHere`, `disableSyncEverywhere(reauth)`. Settled in the build:
+   - **A join is resumable:** `joining` stays set in the sync state until it finishes, and
+     any sync run that finds it set resumes the join, so an interrupted join never becomes a
+     plain pull that drops this device's newer records.
+   - **The merge:** a row this device has keeps the version with the newer `updated_at`; a
+     kept local row is remembered with the server version's hash, so the scan pushes it as a
+     newer version; a tombstone deletes nothing here (the local row goes up as a record of
+     its own); files take the server's version.
+   - **Turned off elsewhere** (for every device, or by the vault): the other devices stop on
+     their next head check or push (`enabled: false`, `lastError: sync_off`), keeping their
+     records. **Turning the vault off** turns sync off for the program on the server
+     (`vault.js`) and here (`cloudVault.disableVault`); its confirm says so when this device
+     syncs.
+   - **Backups (§6.4):** a syncing device's snapshot states its `sync_seq`, only while caught
+     up (else skipped as `sync_behind`, still dirty; a `not_caught_up` 409 is the same, never
+     a conflict). **The lapsed license (decision 6)** needed a server change: while the
+     owner's Pro has lapsed, a syncing program's snapshots go by the Phase 1 backing-device
+     rule (`snapshots.js` `syncLapsed`, at the description and the commit); the device sends
+     no `sync_seq` while paused `pro_required`. Renewed, the caught-up rule is back.
+   - **Too far behind** (`resync_required`): re-joining is `joinSync`, which deletes nothing;
+     §5.5's "delete local rows the server never had, after a confirm" is not built.
+   - Nothing starts by itself yet: the UI and the scheduler start are step 6.
+   Tests: `tests/cloudSync.test.js` (readiness, the first device, a join with records on both
+   sides and a tombstone, an interrupted join resumed, off here and for every device, the
+   vault off, backups caught up / behind / lapsed; the merge and the resume were checked by
+   breaking them), `cloud/tests/sync.test.js` (the lapsed snapshot rule, the vault off).
+   Originally: **Join and leave.** Enable, join with the `updated_at` merge, turn off here / for every
    device, the lapsed-license pause (§12 decision 6), the locked-vault pause, the vault-off
    confirm.
-5. **Waitlist lease.** `POST /waitlist/lease`, the route check in `waitlist.js`, the client's
+5. **Built 2026-10-12.** As built: migration `0016_waitlist_lease` (`wl_leases`, one row per
+   program, ephemeral: not in the export; deleted with the account), `POST /waitlist/lease`
+   (→ `{ mode: 'lease', until }`, `409 lease_held { holder: { label, until } }`, or `{ mode:
+   'backing' }` on a program that doesn't sync) and `DELETE /waitlist/lease` (the holder lets
+   go), and `waitlist.js`'s write check: on a syncing program every write takes or renews the
+   lease in one statement. Client: `data/cloud/serverWork.js` (`claimServerWork`,
+   `inBackground`, `releaseServerWork`). Settled in the build:
+   - **Lazy, once per run:** the claim happens right before a run's first write (taking in an
+     application, the inbox ack, applying events, the ready-check sweep, publish, unpublish,
+     an email), so an idle 5-minute poll asks nothing more than before. With a 2-minute lease
+     and a 5-minute poll, the lease is "whoever is doing the work right now", which is the
+     point (§7: never two devices at once); it isn't held between runs.
+   - **Only a syncing device takes it:** on a syncing program a device that doesn't sync
+     stops with `not-syncing`, since what it applied would stay on that device.
+   - **A device in a background tab** that syncs skips the run (`background`); `pagehide`
+     releases the lease.
+   - **Taking it over:** a device that takes the lease when it didn't hold it first pulls
+     sync (`pullIfBehind`) and restarts its events cursor from the published
+     `events_through`, re-reading from there, so it never re-applies a family event the last
+     publisher applied (tested by breaking it).
+   - **Vendor events too:** `cloudIntegrations.js` (Integrations step 5, built after this
+     plan) used the backing-device check, which a syncing program can't pass; it uses
+     `claimServerWork` as well.
+   - **Card wording:** "Handled by Jen's laptop (open now)…" / "This device is handling your
+     online list." / `not-syncing`: turn on "Keep this device in step".
+   Tests: `cloud/tests/waitlist.test.js` (2: not syncing; one holder, renewed by writes,
+   lapsing, released), `tests/cloudWaitlist.test.js` (6: the lease publishes without a
+   backing device, held elsewhere, a non-syncing device, a background tab, the cursor
+   restart, no event read twice), `tests/cloudIntegrations.test.js` (1).
+   **New cloud migration `0016_waitlist_lease`: Apply pending on staging and production.**
+   Originally: **Waitlist lease.** `POST /waitlist/lease`, the route check in `waitlist.js`, the client's
    lease handling in `cloudWaitlist.js`, the settings card wording. Tests in
    `cloud/tests/waitlist.test.js` and `tests/cloudWaitlist.test.js`.
 6. **UI and release.** `cloudSyncUI.js` (§2), the device list's "last synced", the "updated

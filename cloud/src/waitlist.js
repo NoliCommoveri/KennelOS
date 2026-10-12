@@ -3,11 +3,15 @@
 // (license.js requirePro), and is rate-limited per program.
 //
 // Her device is the single source of truth: it publishes an allow-listed
-// projection per own kennel, and the server only stores and serves it. Only the
-// BACKING device (Phase 1 §3.4) writes: it publishes, takes a list offline and
-// acknowledges the inbox, so two devices never turn one application into two
-// families. Any of her devices may read the inbox and the events (each keeps its
-// own events cursor; nothing is consumed by a read).
+// projection per own kennel, and the server only stores and serves it. Only ONE
+// device writes: it publishes, takes a list offline, acknowledges the inbox and
+// sends her emails, so two devices never turn one application into two families.
+// That's the BACKING device (Phase 1 §3.4), or on a syncing program, which has
+// none, the device holding the waitlist LEASE (Cloud Phase 2 plan §7): two
+// minutes, taken or renewed by every write and by POST /waitlist/lease, so the
+// device in front of her keeps it and one left in the background lets it lapse.
+// Any of her devices may read the inbox and the events (each keeps its own
+// events cursor; nothing is consumed by a read).
 //
 // Never logged: a projection, a token, an inbox item, an email (plan §6.4).
 import { requirePro } from './license.js';
@@ -31,10 +35,52 @@ async function herSide(env, auth) {
   await limitBucket(env, `wl:${auth.programId}`, WAITLIST_LIMITS.callsPerHour);
 }
 
-async function requireBacking(env, auth) {
-  const program = await env.DB.prepare('SELECT id, backing_device_id, latest_snapshot_id FROM programs WHERE id = ?')
+export const LEASE_MS = 2 * 60 * 1000;
+
+// Take or renew the program's waitlist lease for this device, in one statement:
+// it's ours when nobody holds it, it lapsed, or we already do. → the row after.
+async function takeLease(env, auth, now) {
+  const until = new Date(now.getTime() + LEASE_MS).toISOString();
+  await env.DB.prepare(
+    `INSERT INTO wl_leases (program_id, device_id, device_label, until) VALUES (?, ?, ?, ?)
+     ON CONFLICT(program_id) DO UPDATE SET device_id = excluded.device_id, device_label = excluded.device_label, until = excluded.until
+      WHERE wl_leases.device_id = excluded.device_id OR wl_leases.until <= ?`,
+  ).bind(auth.programId, auth.deviceId, auth.deviceLabel ?? null, until, now.toISOString()).run();
+  return env.DB.prepare('SELECT device_id, device_label, until FROM wl_leases WHERE program_id = ?').bind(auth.programId).first();
+}
+
+const leaseHeld = (row) => fail(409, 'lease_held', { holder: { label: row.device_label ?? null, until: row.until } });
+
+// Every waitlist write: the backing device, or on a syncing program the lease
+// holder (taken or renewed here).
+async function requireBacking(env, auth, now = new Date()) {
+  const program = await env.DB.prepare('SELECT id, backing_device_id, latest_snapshot_id, sync_enabled_at FROM programs WHERE id = ?')
     .bind(auth.programId).first();
+  if (program.sync_enabled_at) {
+    const lease = await takeLease(env, auth, now);
+    if (lease.device_id !== auth.deviceId) leaseHeld(lease);
+    return;
+  }
   if (program.backing_device_id !== auth.deviceId) fail(409, 'not_backing_device', await backingInfo(env, program));
+}
+
+// POST /waitlist/lease: take or renew it (a syncing program). → { mode: 'lease',
+// until } or 409 lease_held { holder: { label, until } }; a program that doesn't
+// sync → { mode: 'backing' } (the backing-device rule decides, as before).
+export async function claimLease(env, auth, now = new Date()) {
+  await herSide(env, auth);
+  const program = await env.DB.prepare('SELECT sync_enabled_at FROM programs WHERE id = ?').bind(auth.programId).first();
+  if (!program?.sync_enabled_at) return { mode: 'backing' };
+  const lease = await takeLease(env, auth, now);
+  if (lease.device_id !== auth.deviceId) leaseHeld(lease);
+  return { mode: 'lease', until: lease.until };
+}
+
+// DELETE /waitlist/lease: this device is closing; let another take it at once.
+// No Pro check, like turning sync off: letting go is always allowed.
+export async function releaseLease(env, auth) {
+  await env.DB.prepare('DELETE FROM wl_leases WHERE program_id = ? AND device_id = ?').bind(auth.programId, auth.deviceId).run();
+  return { ok: true };
 }
 
 function checkPublicId(publicId) {
@@ -300,4 +346,5 @@ export async function sentEmailsFor(env, publicId, entryId, limit = 20) {
 // Account deletion (program.js) removes every waitlist row of the program.
 export const deleteWaitlistStatements = (env, programId) => [
   'wl_projection', 'wl_tokens', 'wl_inbox', 'wl_events', 'wl_holds', 'wl_messages', 'wl_family_codes', 'wl_family_sessions', 'wl_senders',
+  'wl_leases',
 ].map((t) => env.DB.prepare(`DELETE FROM ${t} WHERE program_id = ?`).bind(programId));

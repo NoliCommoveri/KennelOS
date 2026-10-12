@@ -13,7 +13,7 @@ import { checkRecovery, recoveryWrap, requestRecoveryEmail } from './recovery.js
 import { disableSync, enableSync, pullRecords, pushRecords, recordCursor, syncHead, MAX_PUSH_BYTES } from './sync.js';
 import { getEntitlement, removeLinks, startLink, verifyLink } from './license.js';
 import { cancelEmailChange, getEmailChange, requestEmailChange } from './emailChange.js';
-import { ackInbox, publishProjection, readEvents, readInbox, readProjection, sendMessage, unpublishProjection, PROJECTION_MAX_BYTES } from './waitlist.js';
+import { ackInbox, claimLease, releaseLease, publishProjection, readEvents, readInbox, readProjection, sendMessage, unpublishProjection, PROJECTION_MAX_BYTES } from './waitlist.js';
 import { deleteConnection, listConnections, readIntegrationEvents } from './integrations.js';
 import { fail, json, readJson } from './lib/http.js';
 
@@ -123,6 +123,8 @@ export async function handleApi(request, env, url, cors) {
   }
   if (projection && m === 'GET') return json(await readProjection(env, auth, projection[1]), 200, cors);
   if (projection && m === 'DELETE') return json(await unpublishProjection(env, auth, projection[1]), 200, cors);
+  if (p === '/waitlist/lease' && m === 'POST') return json(await claimLease(env, auth), 200, cors);
+  if (p === '/waitlist/lease' && m === 'DELETE') return json(await releaseLease(env, auth), 200, cors);
   if (p === '/waitlist/inbox' && m === 'GET') return json(await readInbox(env, auth, url), 200, cors);
   if (p === '/waitlist/inbox/ack' && m === 'POST') return json(await ackInbox(env, auth, await readJson(request)), 200, cors);
   if (p === '/waitlist/events' && m === 'GET') return json(await readEvents(env, auth, url), 200, cors);

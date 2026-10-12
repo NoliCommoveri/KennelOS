@@ -947,7 +947,7 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   (`cloud/src/integrations.js`, migration `0015`), and on the device
   `data/integrationEvents.js` + `data/cloud/cloudIntegrations.js`: the backing device
   applies a vendor's "signed" / "paid" to the contract or sale, or leaves a review on Today.
-  No provider is registered on the Worker yet. **Step 6 (Stripe) is built (2026-10-12), with
+  The `INT_TOKEN_KEY` secret is set (2026-10-12); no provider is registered on the Worker yet. **Step 6 (Stripe) is built (2026-10-12), with
   her own restricted key on her device, no KennelOS Stripe platform:** a new **Payment
   service** account type holds payment links and the Stripe key; a sale's deposit and balance
   each name the account they're paid via (`db.version(4)`), and the fee is estimated and,
@@ -955,8 +955,12 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   sale & send, checked from her device when the app opens (`data/stripeApi.js`,
   `data/stripeLinks.js`); and the **waitlist application fee online**: the kennel's fee
   account, a Pay button at the end of the application or once approved, recorded when Stripe
-  says it's paid (`data/waitlistFeePay.js`, `data/waitlistFeeLinks.js`). **Next: step 7, revised:** her device checks Jotform for signed
-  submissions and marks the contract signed; step 5's server plumbing comes after.
+  says it's paid (`data/waitlistFeePay.js`, `data/waitlistFeeLinks.js`). **Step 7 (Jotform signed → Contract signed) is built (2026-10-12), from
+  her device:** a Sent contract's form submission carrying its `contractRef` marks it Signed
+  on the submission's date, checked when the app opens (at most every 15 minutes) and by
+  **Check for signature** on the contract (`data/jotformSigned.js`); a contract she changed
+  meanwhile gets a Today review. Still to prove against a real Jotform account, like 4b.
+  **Next: step 8**, an e-sign API provider (SignWell / BoldSign).
 
 - **Cloud Phase 2, live multi-device sync — being built** (`docs/KennelOS_Cloud_Phase2_Sync_Plan.md`;
   every §12 decision taken as recommended, 2026-10-10). Pro only: both tiers per record (cloud
@@ -974,7 +978,17 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   `data/cloud/cloudSync.js` (push, pull, the lock, the scheduler, pauses and the activity
   list) and `data/syncApply.js` (pulled records in one transaction per page), gated by the
   new `editionFlags.liveSync` (Pro). Tested with two simulated devices against the real
-  Worker. Nothing is visible yet: the scheduler starts nowhere until step 6.
+  Worker. Nothing is visible yet: the scheduler starts nowhere until step 6. **Step 4 (join
+  and leave) is built (2026-10-12):** turning it on (the first device uploads everything),
+  joining (newer `updated_at` wins, nothing deleted, resumable), off here / for every device,
+  the vault off ending it, and backups on a syncing program (a caught-up device states its
+  `sync_seq`; a lapsed license backs up the Phase 1 way, a server change in `snapshots.js`).
+  **Step 5 (the waitlist lease) is built (2026-10-12):** on a syncing program one device at a
+  time does the server work (waitlist intake, family and vendor events, publishing, emails)
+  by a two-minute lease, taken only by a syncing device in front of her
+  (`data/cloud/serverWork.js`, `cloud/src/waitlist.js`). **New cloud migration
+  `0016_waitlist_lease`: Apply pending on staging and production after the merge.** **Next:
+  step 6, the UI and release.**
 
 ## Build & deploy
 
