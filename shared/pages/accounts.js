@@ -9,9 +9,11 @@
 // account (ACCOUNT_REFERENCES), so archive it then. Her contract forms (Jotform,
 // Integrations plan §2.1a) live on a Form service account (that type only): a type, her label and the
 // form's link per row, which the Contract page's "Send for signature" offers.
-// Any account can hold her own payment link and/or payment instructions
-// (Integrations plan §4, Level 0), which "Send payment link" on a Sale or Invoice
-// sends, starting from the sale's Sold / paid through account.
+// A Payment service account (that type only, 2026-10-12) holds her own payment
+// link and/or payment instructions and, on this device, her Stripe key
+// (Integrations plan §4), which "Send payment link" on a Sale or Invoice and the
+// online application fee use; with another type the section is hidden and what's
+// stored is left alone.
 // Connect Jotform (plan §2.1b): on a saved Form service account, her Jotform API
 // key is kept on this device only (jotformConnect / jotformKeyStore), and she
 // adds forms by picking them from her Jotform account, each with the field
@@ -123,7 +125,7 @@ function cardHtml(a) {
 
 // Her payment link / instructions on this account (plan §4), to send buyers.
 function payHtml(a) {
-  if (!a.payment_link && !a.payment_instructions) return '';
+  if (a.account_type !== 'payment_service' || (!a.payment_link && !a.payment_instructions)) return '';
   return `<div class="acct-section"><div class="acct-section-title">Payment link — to send buyers</div>
     ${copyRow('Link', a.payment_link, { field: 'payment_link', id: a.id })}
     ${a.payment_instructions ? `<div class="acct-instructions">${esc(a.payment_instructions)}</div>` : ''}
@@ -397,6 +399,7 @@ function openForm(existing = null) {
       <div class="field field-wide"><label class="check-inline"><input id="af-ref-share" type="checkbox"${a.share_with_families ? ' checked' : ''}> Share with families</label>
         <span class="field-hint">Shows the link, code and instructions as "Recommended for your puppy" on a family's Companion page and their waitlist status page, and in the follow-up note a week after a pup goes home.</span></div>
     </div>
+    <div id="af-pay-section"${a.account_type === 'payment_service' ? '' : ' hidden'}>
     <h3 style="font-size:15px; margin:14px 0 4px;">Payment link — if buyers pay you through it</h3>
     <p class="field-hint" style="margin-top:0;">Your own payment link (a Stripe or Square payment link, PayPal.me, Venmo…), instructions (Zelle, check…), or both. <strong>Send payment link</strong> on a sale sends them with the amount owed, starting from the account the sale is sold / paid through.</p>
     <div class="form-grid">
@@ -404,6 +407,7 @@ function openForm(existing = null) {
       ${field('Payment instructions', `<textarea id="af-pay-instructions" placeholder="e.g. Zelle to payments@yourkennel.com, with your puppy's name in the memo.">${esc(a.payment_instructions)}</textarea>`, { wide: true, hint: 'Written for the buyer: they go in the message.' })}
     </div>
     <div id="af-stripe"></div>
+    </div>
     <h3 style="font-size:15px; margin:14px 0 4px;">Processing fee — if you sell or take payments through it</h3>
     <p class="field-hint" style="margin-top:0;">What it keeps of each sale: a percentage, a fixed amount, or both (e.g. 6.25% + $5). A sale sold through this account suggests its fee from this.</p>
     <div class="form-grid">
@@ -436,7 +440,11 @@ function openForm(existing = null) {
   const formsBox = $('#af-forms');
   // Contract forms belong to a Form service account only (Jotform…).
   const isFormService = () => $('#af-type').value === 'form_service';
-  $('#af-type').addEventListener('change', () => { $('#af-forms-section').hidden = !isFormService(); });
+  const isPaymentService = () => $('#af-type').value === 'payment_service';
+  $('#af-type').addEventListener('change', () => {
+    $('#af-forms-section').hidden = !isFormService();
+    $('#af-pay-section').hidden = !isPaymentService();
+  });
   $('#af-form-add').addEventListener('click', (e) => {
     formsBox.insertAdjacentHTML('beforeend', formRowHtml());
     e.currentTarget.textContent = '+ Add another contract form';
@@ -596,10 +604,13 @@ function openForm(existing = null) {
       fee_percent: numberOrNull($('#af-fee-percent').value),
       fee_fixed: numberOrNull($('#af-fee-fixed').value),
       fee_passed_to_buyer_default: $('#af-fee-passed').checked,
-      fee_note: val('#af-fee-note'),
-      payment_link: val('#af-pay-link'),
-      payment_instructions: $('#af-pay-instructions').value.trim()
+      fee_note: val('#af-fee-note')
     };
+    // The payment link belongs to a Payment service only; another type leaves it stored.
+    if (isPaymentService()) {
+      data.payment_link = val('#af-pay-link');
+      data.payment_instructions = $('#af-pay-instructions').value.trim();
+    }
     if (!data.name) {
       $('#af-error').innerHTML = `<div class="inline-error">Name is required.</div>`;
       return;

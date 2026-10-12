@@ -79,18 +79,23 @@ export async function stripeCheckKey(conn) {
   await call(conn, 'GET', '/payment_links', { limit: 1 });
 }
 
-// Pure: the two calls that make a one-use link for exactly `amount`.
-//   name: what the buyer sees ("Deposit: Maple"); saleId + component go in the
-//   metadata, so a paid session names its sale.
-export function linkParams({ amount, currency = 'usd', name, saleId, component }) {
-  const metadata = { kennelos_sale_id: saleId, kennelos_component: component };
+// Pure: the two calls that make a link for exactly `amount`.
+//   name: what the buyer sees ("Deposit: Maple").
+//   A sale's link is one-use, with saleId + component in the metadata, so a paid
+//   session names its sale. A waitlist fee link (feeFor: the kennel's public_id)
+//   is reusable: each family's checkout names them by the client_reference_id
+//   their page adds to the link.
+export function linkParams({ amount, currency = 'usd', name, saleId, component, feeFor = null }) {
+  const metadata = feeFor
+    ? { kennelos_purpose: 'waitlist_fee', kennelos_kennel: feeFor }
+    : { kennelos_sale_id: saleId, kennelos_component: component };
   return {
     price: { currency, unit_amount: toCents(amount), product_data: { name: String(name).slice(0, 200) } },
     link: (priceId) => ({
       line_items: { 0: { price: priceId, quantity: 1 } },
       metadata,
       payment_intent_data: { metadata, description: String(name).slice(0, 200) },
-      restrictions: { completed_sessions: { limit: 1 } }
+      ...(feeFor ? {} : { restrictions: { completed_sessions: { limit: 1 } } })
     })
   };
 }
@@ -109,11 +114,21 @@ export async function deactivatePaymentLink(conn, id) {
 }
 
 // The completed, paid checkout sessions of one link, with the fee expanded.
-export async function paidSessions(conn, linkId) {
+export async function paidSessions(conn, linkId, limit = 10) {
   const page = await call(conn, 'GET', '/checkout/sessions', {
-    payment_link: linkId, limit: 10, expand: { 0: 'data.payment_intent.latest_charge.balance_transaction' }
+    payment_link: linkId, limit, expand: { 0: 'data.payment_intent.latest_charge.balance_transaction' }
   });
   return (page.data || []).filter((s) => s && s.status === 'complete' && s.payment_status === 'paid');
+}
+
+// Pure: one paid waitlist-fee session → { entryId, sessionId, payload } (the
+// family by the client_reference_id their page put on the link), or null.
+export function feeSessionPayment(session, { timeZoneDate = (sec) => new Date(sec * 1000).toISOString().slice(0, 10) } = {}) {
+  if (session?.metadata?.kennelos_purpose !== 'waitlist_fee') return null;
+  const entryId = String(session.client_reference_id || '');
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(entryId)) return null;
+  const p = sessionPayment({ ...session, metadata: { kennelos_sale_id: 'x', kennelos_component: 'deposit' } }, { timeZoneDate });
+  return { entryId, sessionId: String(session.id), payload: { ...p.payload, component: 'application_fee' } };
 }
 
 // Pure: one paid session as the payload of a 'payment.paid' event (step 5's

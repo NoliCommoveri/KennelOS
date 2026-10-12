@@ -270,6 +270,38 @@ export function recommendedOf(projection) {
   })).filter((r) => r.name && (r.link || r.code));
 }
 
+// Her application fee paid online (docs/KennelOS_Integrations_Plan.md §4): the
+// Pay link her device published, a web address only, with this family's id added
+// as Stripe's client_reference_id when it's a Stripe link (so her device can tell
+// who paid). → { url, amount, instructions } or null.
+const STRIPE_HOST = /(^|\.)stripe\.com$/;
+export function feePayFor(projection, entryId) {
+  const f = projection.kennel?.fee_pay;
+  if (!f || typeof f.url !== 'string' || !REC_LINK.test(f.url)) return null;
+  let url = f.url;
+  try {
+    const u = new URL(f.url);
+    if (f.ref_param && STRIPE_HOST.test(u.hostname) && /^[A-Za-z0-9_-]{1,64}$/.test(entryId)) {
+      u.searchParams.set('client_reference_id', entryId);
+      url = u.href;
+    }
+  } catch { return null; }
+  const amount = Number(f.amount);
+  return {
+    url,
+    amount: Number.isFinite(amount) && amount > 0 ? amount : null,
+    instructions: typeof f.instructions === 'string' ? f.instructions.slice(0, 1000) : '',
+  };
+}
+
+// A fee_due as published, its Pay link kept only when it's a web address.
+function feeDueOf(d) {
+  if (!d || typeof d !== 'object') return null;
+  const out = { ...d };
+  if (typeof out.pay_url !== 'string' || !REC_LINK.test(out.pay_url)) { delete out.pay_url; delete out.pay_amount; }
+  return out;
+}
+
 export function statusView(projection, entryId) {
   const e = projection.entries?.[entryId];
   if (!e) return null;
@@ -286,8 +318,14 @@ export function statusView(projection, entryId) {
   if (e.companion) family.companion = e.companion;
   if (!OPEN_STATUSES.includes(e.status)) return { kennel, as_of: projection.as_of ?? null, family, offers: [], litters: [], upcoming: [], public_list: [] };
 
-  for (const k of ['applied_date', 'approved_date', 'position', 'prefs', 'paused_until', 'ready_from', 'listen', 'passes', 'fee_received_date', 'fee_due', 'requests', 'prepasses', 'place_hidden', 'pref_places', 'spent_litter_ids', 'whelp_notes', 'ready_check', 'private_name']) {
+  for (const k of ['applied_date', 'approved_date', 'position', 'prefs', 'paused_until', 'ready_from', 'listen', 'passes', 'fee_received_date', 'fee_paid_online', 'fee_due', 'requests', 'prepasses', 'place_hidden', 'pref_places', 'spent_litter_ids', 'whelp_notes', 'ready_check', 'private_name']) {
     family[k] = e[k] ?? null;
+  }
+  family.fee_due = feeDueOf(family.fee_due);
+  // Asked for at the end of the application: their Pay button until they've paid.
+  if (e.status === 'applied' && !e.fee_paid_online) {
+    const pay = feePayFor(projection, entryId);
+    if (pay) family.fee_pay = pay;
   }
   // What the page's editors offer: her parent dogs (listen-only) and her breeds.
   if (e.status === 'active') {
@@ -355,11 +393,13 @@ export function formView(projection) {
 
 // A new application her device hasn't taken in yet: the applicant's page says it
 // arrived (once confirmed) and nothing else.
-export function pendingView(projection, row) {
+// With her fee asked for at the end of the application, its Pay button too.
+export function pendingView(projection, row, entryId = null) {
+  const pay = entryId ? feePayFor(projection, entryId) : null;
   return {
     kennel: { name: projection.kennel?.name ?? '', time_zone: projection.kennel?.time_zone ?? null },
     as_of: projection.as_of ?? null,
-    family: { name: row.name ?? '', status: 'applied' },
+    family: { name: row.name ?? '', status: 'applied', ...(pay ? { fee_pay: pay } : {}) },
     offers: [], litters: [], upcoming: [], public_list: [],
   };
 }
@@ -471,7 +511,7 @@ export async function handleFamilyApi(request, env, url) {
       const pending = await env.DB.prepare(
         "SELECT name FROM wl_inbox WHERE id = ? AND public_id = ? AND kind = 'application' AND confirmed_at IS NOT NULL",
       ).bind(t.entry_id, t.public_id).first();
-      if (pending) view = pendingView(found.projection, pending);
+      if (pending) view = pendingView(found.projection, pending, t.entry_id);
     }
     if (!view) fail(404, 'not_found');
     // What they've sent that her device hasn't answered yet, and pups another

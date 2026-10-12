@@ -50,9 +50,9 @@ function localDate(sec) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// A one-use link on her Stripe account (account = the Account holding the key)
-// for exactly `amount`, recorded on the sale. 'all' (everything owed) is paid as
-// the balance. → the saved sale.
+// A one-use link on her Stripe account (account = the Payment service Account
+// holding the key, the one that part is paid via) for exactly `amount`, recorded
+// on the sale. 'all' (everything owed) is paid as the balance. → the saved sale.
 export async function makeSaleLink({ sale, account, component, amount, pupName = '' }) {
   const conn = await getStripeKey(account.id);
   if (!conn) throw new StripeError('auth', 'Stripe isn\'t connected on this device.');
@@ -68,19 +68,23 @@ export async function makeSaleLink({ sale, account, component, amount, pupName =
 
 const CLEARED = { payment_link_url: null, payment_link_ref: null, payment_link_component: null, payment_link_amount: null, payment_link_date: null };
 
-// Ask Stripe about every sale's open link and apply what was paid.
-// → { applied, review, skipped, checked } or null (not due / nothing to check).
+// Ask Stripe about every sale's open link and every waitlist fee link made on
+// this device, and apply what was paid. → { applied, review, skipped, checked,
+// feesReceived, feesPrepaid } or null (not due yet).
 export async function checkStripePayments({ force = false, saleIds = null } = {}) {
   if (!editionFlags.accounts) return null;
   const last = Date.parse(getIntegrationsState().stripeCheckedAt || '') || 0;
   if (!force && Date.now() - last < CHECK_EVERY_MS) return null;
-  const sales = (await saleRepo.getAll())
-    .filter((s) => /^plink_/.test(s.payment_link_ref || '') && s.sales_channel_account_id && (!saleIds || saleIds.includes(s.id)));
-  if (!sales.length) return null;
   updateIntegrationsState({ stripeCheckedAt: new Date().toISOString() });
-  const counts = { applied: 0, review: 0, skipped: 0, checked: 0 };
+  const counts = { applied: 0, review: 0, skipped: 0, checked: 0, feesReceived: 0, feesPrepaid: 0 };
+  const sales = (await saleRepo.getAll())
+    .filter((s) => /^plink_/.test(s.payment_link_ref || '') && (!saleIds || saleIds.includes(s.id)));
   for (const sale of sales) {
-    const conn = await getStripeKey(sale.sales_channel_account_id);
+    // The key of the account the link's part is paid via (the balance falls back
+    // to the deposit's, as salePaidVia does).
+    const via = sale.payment_link_component === 'deposit' ? sale.deposit_paid_via_account_id
+      : (sale.balance_paid_via_account_id || sale.deposit_paid_via_account_id);
+    const conn = via ? await getStripeKey(via) : null;
     if (!conn) continue; // connected on another device, or not at all
     counts.checked++;
     let paid = false;
@@ -94,6 +98,13 @@ export async function checkStripePayments({ force = false, saleIds = null } = {}
       })]++;
     }
     if (paid) await saleRepo.update(sale.id, CLEARED);
+  }
+  // Waitlist application fees paid online (waitlistFeeLinks.js).
+  if (!saleIds && editionFlags.waitlist) {
+    const { checkFeePayments } = await import('./waitlistFeeLinks.js');
+    const fees = await checkFeePayments();
+    counts.feesReceived = fees.received;
+    counts.feesPrepaid = fees.prepaid;
   }
   return counts;
 }

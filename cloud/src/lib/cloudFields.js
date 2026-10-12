@@ -79,6 +79,7 @@ export const CLOUD_FIELDS = {
         "time_zone",
         "updated_at",
         "waitlist_config",
+        "waitlist_fee_account_id",
         "website"
       ],
       "nested": {}
@@ -144,9 +145,11 @@ export const CLOUD_FIELDS = {
       "keys": [
         "balance_due_date",
         "balance_paid_date",
+        "balance_paid_via_account_id",
         "buyer_contact_id",
         "created_at",
         "deposit_date",
+        "deposit_paid_via_account_id",
         "dog_id",
         "fee_passed_to_buyer",
         "id",
@@ -296,6 +299,7 @@ export const CLOUD_FIELDS = {
         "created_at",
         "declined_date",
         "fee_due_date",
+        "fee_paid_via_account_id",
         "fee_received_at",
         "fee_received_date",
         "id",

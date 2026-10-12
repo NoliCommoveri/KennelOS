@@ -161,6 +161,8 @@ const PRECACHE_URLS = [
   'data/waitlistCrypto.js',
   'data/waitlistEntryRepo.js',
   'data/waitlistEvents.js',
+  'data/waitlistFeeLinks.js',
+  'data/waitlistFeePay.js',
   'data/waitlistForm.js',
   'data/waitlistInbox.js',
   'data/waitlistEmails.js',

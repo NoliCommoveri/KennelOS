@@ -89,7 +89,7 @@ test('nothing private ever reaches the projection', () => {
 test("a family on the list sees its place, prefs, passes and offers; nothing else", () => {
   const p = buildProjection(fixture());
   const e1 = p.entries.e1;
-  assert.deepEqual(keysOf(e1), ['applied_date', 'approved_date', 'email', 'fee_due', 'fee_received_date', 'listen',
+  assert.deepEqual(keysOf(e1), ['applied_date', 'approved_date', 'email', 'fee_due', 'fee_paid_online', 'fee_received_date', 'listen',
     'matching_litter_ids', 'name', 'offers', 'passes', 'paused_until', 'place_hidden', 'position', 'pref_places', 'prefs', 'prepasses', 'private_name', 'ready_check', 'ready_from', 'requests', 'spent_litter_ids', 'status', 'upcoming', 'whelp_notes']);
   assert.deepEqual(e1.prepasses, []);
   assert.deepEqual(e1.private_name, { on: false, request: null });

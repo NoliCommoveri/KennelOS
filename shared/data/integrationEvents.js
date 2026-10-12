@@ -12,16 +12,17 @@
 //
 // A payment's processing fee (plan §4 → §5) is kept per payment on the sale
 // (`processing_fee_reports`, once per payment reference) and fills the sale's
-// `processing_fee_amount` with their total, unless she typed her own fee: then
-// the payment is still applied, and the fee difference waits on Today.
+// `processing_fee_amount`: each payment part's reported fee replaces that part's
+// estimate (ctx.estimate, processingFees.saleFeeEstimate), unless she typed her own
+// fee: then the payment is still applied, and the fee difference waits on Today.
 
 // → { op: 'update', changes } | { op: 'review', review } | { op: 'skip', reason }
 //   event:   { seq, provider, kind, recordType, recordId, payload, createdAt }
 //   record:  the contract or sale it names, or null
 //   ctx:     { waitlistPick: true when the sale is a waitlist pick (its deposit
 //              is recorded on the family's page, where it places the family),
-//              suggestedFee: the fee the sale's channel rate suggests (a fee still
-//              at it isn't one she typed) }
+//              estimate: { total, parts: { deposit, balance } } from the accounts
+//              each part is paid via (a fee still at it isn't one she typed) }
 // An 'update' may carry a `review` too (applied, but something to check).
 export function planIntegrationEvent(event, record, ctx = {}) {
   if (!record || record.is_archived) return { op: 'skip', reason: 'not_found' };
@@ -68,22 +69,35 @@ function planPayment(sale, p, date, ctx, review) {
 const cents = (n) => Math.round(n * 100) / 100;
 const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
 
+// The sale's fee from its reports, each part's reported fees standing in for
+// that part's estimate.
+function feeFrom(reports, estimate) {
+  const reported = { deposit: null, balance: null };
+  for (const r of reports) {
+    const part = r?.component === 'deposit' ? 'deposit' : 'balance';
+    reported[part] = cents((reported[part] || 0) + (Number(r?.fee) || 0));
+  }
+  const est = estimate?.parts || {};
+  return cents((reported.deposit ?? est.deposit ?? 0) + (reported.balance ?? est.balance ?? 0));
+}
+
 // The payment's update with its fee: recorded once per payment reference, and the
-// sale's fee set to the total reported, unless she typed a fee of her own.
+// sale's fee moved to match, unless she typed a fee of her own.
 function withFee(sale, p, date, ctx, changes) {
   const plan = { op: 'update', changes };
   if (typeof p.fee !== 'number') return plan;
   const reports = Array.isArray(sale.processing_fee_reports) ? sale.processing_fee_reports : [];
   const ref = p.reference || `${p.component}:${date}`;
   if (reports.some((r) => r && r.ref === ref)) return plan;
-  const before = cents(reports.reduce((t, r) => t + (Number(r?.fee) || 0), 0));
-  const total = cents(before + p.fee);
-  changes.processing_fee_reports = [...reports, { ref, fee: p.fee, date, component: p.component }];
+  const next = [...reports, { ref, fee: p.fee, date, component: p.component }];
+  changes.processing_fee_reports = next;
+  const before = feeFrom(reports, ctx.estimate);
+  const after = feeFrom(next, ctx.estimate);
   const current = num(sale.processing_fee_amount);
-  const untouched = current === null || current === 0
-    || (reports.length ? current === before : (ctx.suggestedFee != null && current === Number(ctx.suggestedFee)));
-  if (untouched) changes.processing_fee_amount = total;
-  else plan.review = { reason: `The processing fee reported comes to $${total.toFixed(2)} in all; the sale says $${current.toFixed(2)}, which you entered. Change it if it should match.` };
+  const untouched = current === null || current === 0 || current === before
+    || (!reports.length && ctx.estimate && current === ctx.estimate.total);
+  if (untouched) changes.processing_fee_amount = after;
+  else plan.review = { reason: `With Stripe's fee for this payment the processing fee comes to $${after.toFixed(2)}; the sale says $${current.toFixed(2)}, which you entered. Change it if it should match.` };
   return plan;
 }
 

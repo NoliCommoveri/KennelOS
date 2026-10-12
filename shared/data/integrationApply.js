@@ -7,7 +7,7 @@ import { saleRepo } from './saleRepo.js';
 import { accountRepo } from './accountRepo.js';
 import { waitlistOfferRepo } from './waitlistOfferRepo.js';
 import { editionFlags } from './editionConfig.js';
-import { feeRate, processingFee } from './processingFees.js';
+import { saleFeeEstimate } from './processingFees.js';
 import { planIntegrationEvent, addReview, reviewOf } from './integrationEvents.js';
 
 const REPOS = { contract: contractRepo, sale: saleRepo };
@@ -18,9 +18,8 @@ async function isWaitlistPick(saleId) {
 }
 
 async function saleContext(sale) {
-  const account = sale.sales_channel_account_id ? await accountRepo.getById(sale.sales_channel_account_id) : null;
-  const rate = feeRate(account);
-  return { waitlistPick: await isWaitlistPick(sale.id), suggestedFee: rate ? processingFee(sale.price, rate) : null };
+  const accounts = await accountRepo.getAll({ includeArchived: true });
+  return { waitlistPick: await isWaitlistPick(sale.id), estimate: saleFeeEstimate(sale, new Map(accounts.map((a) => [a.id, a]))) };
 }
 
 // → 'applied' | 'review' | 'skipped'
