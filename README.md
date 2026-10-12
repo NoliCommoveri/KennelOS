@@ -983,7 +983,12 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   joining (newer `updated_at` wins, nothing deleted, resumable), off here / for every device,
   the vault off ending it, and backups on a syncing program (a caught-up device states its
   `sync_seq`; a lapsed license backs up the Phase 1 way, a server change in `snapshots.js`).
-  **Next: step 5, the waitlist lease.**
+  **Step 5 (the waitlist lease) is built (2026-10-12):** on a syncing program one device at a
+  time does the server work (waitlist intake, family and vendor events, publishing, emails)
+  by a two-minute lease, taken only by a syncing device in front of her
+  (`data/cloud/serverWork.js`, `cloud/src/waitlist.js`). **New cloud migration
+  `0016_waitlist_lease`: Apply pending on staging and production after the merge.** **Next:
+  step 6, the UI and release.**
 
 ## Build & deploy
 

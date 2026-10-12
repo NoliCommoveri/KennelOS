@@ -26,6 +26,7 @@ import emailChange from './0012_email_change.sql';
 import accountRecovery from './0013_account_recovery.sql';
 import sync from './0014_sync.sql';
 import integrations from './0015_integrations.sql';
+import waitlistLease from './0016_waitlist_lease.sql';
 
 export const MIGRATIONS = [
   { id: '0001', name: 'schema', sql: schema },
@@ -43,4 +44,5 @@ export const MIGRATIONS = [
   { id: '0013', name: 'account_recovery', sql: accountRecovery },
   { id: '0014', name: 'sync', sql: sync },
   { id: '0015', name: 'integrations', sql: integrations },
+  { id: '0016', name: 'waitlist_lease', sql: waitlistLease },
 ];

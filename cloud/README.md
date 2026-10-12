@@ -50,6 +50,8 @@ src/waitlist.js        the waitlist online, her side (docs/KennelOS_Waitlist_W2_
                        wl_tokens), the encrypted inbox and its ack, the events stream, and
                        POST /waitlist/messages: an email her device wrote, sent to the address
                        in her published projection with the status-link footer (W2 step 6).
+                       Writes: the backing device, or on a syncing program the holder of the
+                       two-minute lease (POST / DELETE /waitlist/lease, migration 0016)
                        Pro only (requirePro); writes from the backing device only
 src/integrations.js    vendor integrations' plumbing (docs/KennelOS_Integrations_Plan.md §0, migration
                        0015): her connections (token sealed with INT_TOKEN_KEY, never sent back; only

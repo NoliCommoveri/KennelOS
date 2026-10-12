@@ -475,7 +475,37 @@ application twice or answer the same family event twice. So:
    Originally: **Join and leave.** Enable, join with the `updated_at` merge, turn off here / for every
    device, the lapsed-license pause (§12 decision 6), the locked-vault pause, the vault-off
    confirm.
-5. **Waitlist lease.** `POST /waitlist/lease`, the route check in `waitlist.js`, the client's
+5. **Built 2026-10-12.** As built: migration `0016_waitlist_lease` (`wl_leases`, one row per
+   program, ephemeral: not in the export; deleted with the account), `POST /waitlist/lease`
+   (→ `{ mode: 'lease', until }`, `409 lease_held { holder: { label, until } }`, or `{ mode:
+   'backing' }` on a program that doesn't sync) and `DELETE /waitlist/lease` (the holder lets
+   go), and `waitlist.js`'s write check: on a syncing program every write takes or renews the
+   lease in one statement. Client: `data/cloud/serverWork.js` (`claimServerWork`,
+   `inBackground`, `releaseServerWork`). Settled in the build:
+   - **Lazy, once per run:** the claim happens right before a run's first write (taking in an
+     application, the inbox ack, applying events, the ready-check sweep, publish, unpublish,
+     an email), so an idle 5-minute poll asks nothing more than before. With a 2-minute lease
+     and a 5-minute poll, the lease is "whoever is doing the work right now", which is the
+     point (§7: never two devices at once); it isn't held between runs.
+   - **Only a syncing device takes it:** on a syncing program a device that doesn't sync
+     stops with `not-syncing`, since what it applied would stay on that device.
+   - **A device in a background tab** that syncs skips the run (`background`); `pagehide`
+     releases the lease.
+   - **Taking it over:** a device that takes the lease when it didn't hold it first pulls
+     sync (`pullIfBehind`) and restarts its events cursor from the published
+     `events_through`, re-reading from there, so it never re-applies a family event the last
+     publisher applied (tested by breaking it).
+   - **Vendor events too:** `cloudIntegrations.js` (Integrations step 5, built after this
+     plan) used the backing-device check, which a syncing program can't pass; it uses
+     `claimServerWork` as well.
+   - **Card wording:** "Handled by Jen's laptop (open now)…" / "This device is handling your
+     online list." / `not-syncing`: turn on "Keep this device in step".
+   Tests: `cloud/tests/waitlist.test.js` (2: not syncing; one holder, renewed by writes,
+   lapsing, released), `tests/cloudWaitlist.test.js` (6: the lease publishes without a
+   backing device, held elsewhere, a non-syncing device, a background tab, the cursor
+   restart, no event read twice), `tests/cloudIntegrations.test.js` (1).
+   **New cloud migration `0016_waitlist_lease`: Apply pending on staging and production.**
+   Originally: **Waitlist lease.** `POST /waitlist/lease`, the route check in `waitlist.js`, the client's
    lease handling in `cloudWaitlist.js`, the settings card wording. Tests in
    `cloud/tests/waitlist.test.js` and `tests/cloudWaitlist.test.js`.
 6. **UI and release.** `cloudSyncUI.js` (§2), the device list's "last synced", the "updated

@@ -174,9 +174,14 @@ KennelOS/
                                (started by bootCloud)
       cloudIntegrations.js     Vendor integrations (Integrations plan §0): read the
                                events the Worker kept (a contract signed, a payment made)
-                               and apply each through the repos, backing device only;
-                               asks nothing until the account has a connection; its
-                               scheduler (started by bootCloud)
+                               and apply each through the repos, by the device doing the
+                               server work only (serverWork.js); asks nothing until the
+                               account has a connection; its scheduler (started by bootCloud)
+      serverWork.js            Which device does the program's server work (waitlist
+                               intake, family and vendor events, publishing, emails):
+                               the backing device, or on a syncing program the holder of
+                               the two-minute lease (POST /waitlist/lease), which only a
+                               syncing device in front of her takes (Cloud Phase 2 plan §7)
       vaultCrypto.js           The private vault's WebCrypto (Private Vault Plan §3.2):
                                codes, the vault key, KEKs, wraps, payload/file ciphertext
       vaultKeyStore.js         This device's unlocked vault key, and its open request to be
@@ -3707,10 +3712,25 @@ shown (`describeOfferChanges`).
   `waitlist_config.online` and a `public_id`, the projection is hashed and `PUT` when it
   changed; a kennel taken offline is `DELETE`d. 20 s after the last data change
   (`CLOUD_DATA_CHANGED_EVENT`), on load and when back online. It needs a session and cloud
-  backup on; the server also needs the **backing device** and a server-known Pro account,
-  and the reason it stopped (`signed-out`, `backup-off`, `not-backing`, `pro-required`,
+  backup on; the server also needs the **backing device** (on a syncing program, the
+  **lease holder**: below) and a server-known Pro account,
+  and the reason it stopped (`signed-out`, `backup-off`, `not-backing`, `lease-held` with
+  the holder's label and expiry, `not-syncing`, `pro-required`,
   `kennel-taken`, `offline`, `failed`) is kept in the `waitlistOnline` settings key for the
-  card. Nothing is sent where it isn't offered (`isWaitlistOnlineOffered()`).
+  card.
+- **On a syncing program (Cloud Phase 2 plan §7, 2026-10-12):** there's no backing device,
+  so the server work goes to one device at a time by a **lease** (`wl_leases`, migration
+  `0016`): two minutes, taken or renewed by `POST /waitlist/lease` and by every waitlist
+  write; another device gets `409 lease_held { holder: { label, until } }`. The device claims
+  it once per run, lazily, right before its first write (`data/cloud/serverWork.js`
+  `claimServerWork`; an idle poll asks nothing more), and only a device that syncs
+  (`not-syncing` otherwise: its writes would stay on that device) and is in front of her (a
+  syncing device in a hidden tab skips the run, `background`); a closing page lets go
+  (`DELETE /waitlist/lease`). A device that takes it over from another first pulls sync and
+  restarts its events cursor from the published `events_through`, so no family event is
+  applied twice. The card says "This device is handling your online list" while it holds
+  it, or "Handled by Jen's laptop (open now)". Vendor events (`cloudIntegrations.js`) follow
+  the same rule. Nothing is sent where it isn't offered (`isWaitlistOnlineOffered()`).
 - **The card:** Waitlist → Manage → **Publish list** → **Online list**
   (`assets/waitlistOnlineUI.js`; on the Kennel page until 2026-10-08): put this
   kennel's list online, its time zone, the status line, **Publish now**, **Copy public
@@ -3871,7 +3891,7 @@ shown (`describeOfferChanges`).
   kennel-wide `turn_queue`: every family still to have a turn, in order, with their eligible
   pups per open litter, which W2 step 7 walks). The server records each action as
   an event; on the **backing device only** (checked with `GET /program` before anything is
-  written), `cloudWaitlist.applyFamilyEvents` reads the events after its cursor
+  written; on a syncing program, the lease holder, `serverWork.js`), `cloudWaitlist.applyFamilyEvents` reads the events after its cursor
   (`waitlistOnline.eventsCursor`; a device with none starts at the published
   `events_through`), plans each with `data/waitlistEvents.js` against her records **now**
   and carries it out with `waitlistActions.applyFamilyPlan`: a pick → `recordPick` (the
