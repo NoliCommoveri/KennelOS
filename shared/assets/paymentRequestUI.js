@@ -74,7 +74,7 @@ function chooseModal({ title, accounts, options, defaultFor, stripeIds }) {
         : '<p class="muted" style="margin:0;">Nothing is owed on this sale. The message leaves the amount out; add it yourself.</p>'}
       <h3 style="font-size:15px; margin:10px 0 4px;">Paid via</h3>
       ${accounts.map((a, i) => radio('pr-acct', a.id, defaultFor(first) ? a.id === defaultFor(first) : i === 0,
-        `${esc(a.name)} <span class="muted">${esc(stripeIds.has(a.id) ? 'Stripe' : paymentLink(a.payment_link) ? 'payment link' : 'instructions')}</span>`)).join('')}
+        `${esc(a.name)} <span class="muted">${esc(stripeIds.has(a.id) ? 'one-time Stripe links' : paymentLink(a.payment_link) ? 'payment link' : 'instructions')}</span>`)).join('')}
       <p class="field-hint" id="pr-via-hint"></p>
       <label class="check-inline" id="pr-stripe-row" style="display:flex; gap:8px; align-items:flex-start; margin-top:10px;">
         <input type="checkbox" id="pr-stripe" checked> <span>Make a one-time Stripe link for exactly this amount. KennelOS marks the payment received, with Stripe's fee, when they pay.</span></label>

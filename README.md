@@ -947,7 +947,15 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   (`cloud/src/integrations.js`, migration `0015`), and on the device
   `data/integrationEvents.js` + `data/cloud/cloudIntegrations.js`: the backing device
   applies a vendor's "signed" / "paid" to the contract or sale, or leaves a review on Today.
-  No provider is registered yet (step 6 adds Stripe / Square). **Next: step 7, revised:** her device checks Jotform for signed
+  No provider is registered on the Worker yet. **Step 6 (Stripe) is built (2026-10-12), with
+  her own restricted key on her device, no KennelOS Stripe platform:** a new **Payment
+  service** account type holds payment links and the Stripe key; a sale's deposit and balance
+  each name the account they're paid via (`db.version(4)`), and the fee is estimated and,
+  from Stripe, captured per payment; one-use Stripe links from Send payment link and Review
+  sale & send, checked from her device when the app opens (`data/stripeApi.js`,
+  `data/stripeLinks.js`); and the **waitlist application fee online**: the kennel's fee
+  account, a Pay button at the end of the application or once approved, recorded when Stripe
+  says it's paid (`data/waitlistFeePay.js`, `data/waitlistFeeLinks.js`). **Next: step 7, revised:** her device checks Jotform for signed
   submissions and marks the contract signed; step 5's server plumbing comes after.
 
 - **Cloud Phase 2, live multi-device sync — being built** (`docs/KennelOS_Cloud_Phase2_Sync_Plan.md`;

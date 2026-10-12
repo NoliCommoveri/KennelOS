@@ -1,7 +1,7 @@
 # KennelOS Integrations — research & plan
 
 > **Status: approved 2026-10-10, every §8 decision as recommended, and every design choice in
-> §0–§7 as written. Steps 1–5 (with 4b and 4c) are built (2026-10-12); §6 is the build order, one reviewable PR per step.**
+> §0–§7 as written. Steps 1–6 (with 4b and 4c) are built (2026-10-12); §6 is the build order, one reviewable PR per step.**
 > It covers five asks: (1) the
 > waitlist embedded on breeders' own websites, (2) Jotform / DocuSign contracts, (3) referral-use
 > notifications + thank-yous, (4) payment links through the breeder's own Stripe / Square, and
@@ -10,7 +10,7 @@
 > optional **Connect Jotform** API layer (§2.1b). D12–D15 were taken as recommended on the
 > go-ahead to build step 4; D16 was decided 2026-10-11: the Jotform API key stays on her device.
 > Still open inside a step: DocuSign's own-key vs Partner Program route (only if D5 ever
-> brings DocuSign in), and confirming Stripe / Square live-animal terms before step 6 (D8).
+> brings DocuSign in), and Stripe live-animal terms were confirmed by the owner before step 6 (D8).
 >
 > Builds on: the Worker (`cloud/`, `docs/KennelOS_Cloud_Phase1_Plan.md`), the online waitlist
 > (`docs/KennelOS_Waitlist_W2_Plan.md`, "W2 §N"), Accounts (End-State guide §32), Financials
@@ -644,23 +644,53 @@ out of money-transmitter territory.
 - **Refunds stay in her Stripe / Square dashboard.** We'd only record a refund event as a note
   (and suggest the Sale status), never issue one.
 
-**As built (step 4, payment link half, Level 0, 2026-10-11)** (End-State guide §32,
-"Payment link"). Pro only (D4). Settled in the build, on the go-ahead (2026-10-11):
-- **The link lives on any Account, and reuses the sale's Sold / paid through account.** No
-  new account type: `payment_link` (a web address) and `payment_instructions` (text for the
-  buyer, e.g. Zelle) on the Account, both cloud tier (D9). So the account a buyer pays
-  through and the account whose fee the sale carries (§5) are the same one.
+**As built (step 4, payment link half, Level 0, 2026-10-11; revised 2026-10-12, D22–D24)**
+(End-State guide §32, "Payment services"). Pro only (D4). Settled in the build:
+- **The link lives on a Payment service Account** (revised 2026-10-12, D23: first built on any
+  account): `payment_link` (a web address) and `payment_instructions` (text for the buyer,
+  e.g. Zelle), both cloud tier (D9). A link saved on another type stays stored, unoffered.
+- **Each payment names its account** (D23): a sale's `deposit_paid_via_account_id` and
+  `balance_paid_via_account_id` (the latter covers transport and boarding; blank = the
+  deposit's), beside Sold through for a marketplace. The fee is estimated per payment from
+  them (`processingFees.saleFeeEstimate`).
 - **Send payment link** on an open Sale and on a sale's Invoice (`assets/paymentRequestUI.js`,
-  pure `data/paymentLinks.js`): she picks the account (the sale's channel first, when it has a
-  link or instructions) and what for (the unpaid deposit, the rest, or everything owed, from
-  the invoice lines), and the message opens in the composer (Email / Text / Copy).
-- **Picking an account on a sale with no channel fills Sold / paid through** (decided
-  2026-10-11), with its passed-on default and, when the fee is empty, the fee suggested from
-  its rate. A different account than the sale's asks first; **Keep** sends without changing
-  the sale.
-- **Review sale & send** (§2.6) puts the step-1 channel's link and instructions in the
-  message, before her waitlist payment text.
-- No Sale fields: the Level 1 fields below come with step 6. Nothing is recorded as paid.
+  pure `data/paymentLinks.js`): she picks what for (the unpaid deposit, the rest, or
+  everything owed) and the account (that part's paid-via first), and the message opens in the
+  composer (Email / Text / Copy).
+- **Picking an account for a part with none fills its paid-via** (decided 2026-10-11 for the
+  channel, moved to paid-via 2026-10-12), moving a fee still at its estimate. A different
+  account asks first; **Keep** sends without changing the sale.
+- **Review sale & send** (§2.6) has **Deposit paid via** in step 1, and puts that account's
+  link and instructions in the message, before her waitlist payment text.
+
+**As built (step 6, Stripe, her own key, 2026-10-12)** (End-State guide §32). D22: no KennelOS
+Stripe platform (Connect): one account for every breeder would be a single point of failure
+with Stripe and a store of broad tokens. Instead:
+- **Her restricted key on her device** (`device_secrets`, `data/stripeKeyStore.js`; `rk_` only,
+  `sk_` refused), on a Payment service account; `data/stripeApi.js` is the only Stripe caller,
+  straight from her browser (*CORS unverified until the real flow, like Jotform's was*).
+- **One-use links** (`stripeLinks.makeSaleLink`): a Price for exactly the amount and a Payment
+  Link limited to one completed session, the sale id and part in the metadata, stored on the
+  Sale (`payment_link_url` / `_ref` / `_component` / `_date` cloud, `_amount` private), from
+  Send payment link and Review sale & send (the deposit), reused while open.
+- **Paid, by itself, from her device** (no webhook; step 5's per-connection webhook can be added
+  later for word while the app is closed): `checkStripePayments` when the app opens (15 min
+  throttle) or **Check now**, through step 5's planner (`integrationApply.js`): status, date,
+  card, reference, and the **fee Stripe kept** (§4 → §5): `processing_fee_reports` once per
+  payment, each part's report replacing its estimate in `processing_fee_amount` unless she
+  typed her own (then a Today review). Square is not built (its API is believed not to answer
+  browsers, *unverified*: it would need the Worker).
+
+**As built (the waitlist application fee online, 2026-10-12, D24; reopens W2 Q6 as D8
+allowed, opt-in)** (End-State guide §29 "Fee paid online", §21): the kennel's **Fee paid
+online via** (`kennels.waitlist_fee_account_id`) and **Ask for the fee** at the end of the
+application or once approved (`waitlist_config.fee_link_when`). A reusable Stripe link per fee
+amount is made on a device with the key (`waitlist_config.fee_links`), charging the fee plus
+the card fee when the account passes fees on; else the account's own link. The family's page
+shows Pay; the Worker adds their id as Stripe's `client_reference_id`; her device reads the
+link's paid checkouts and records the fee received (approved) or `fee_paid_online` (before
+approval: **Approve** then puts them on the list from the day they paid), with
+`fee_paid_via_account_id`, `fee_paid_amount`, `fee_processing_amount`; Income nets the fee.
 
 ### Data model (additive)
 On **Sale**: `payment_link_url`, `payment_link_ref`, `payment_link_component`
@@ -758,7 +788,7 @@ Each step is one reviewable PR, ordered by value ÷ effort and by dependency.
 | 4b | **Connect Jotform** (§2.1b): form picker + field matching from her API key; key on the device (D16). **Built 2026-10-11** (End-State guide §32, "Connect Jotform"); to be proven against a real Jotform account | No | S |
 | 4c | **Pick to send** (§2.6): from a waitlist pick, edit the sale in a modal, make the contract, send invoice + contract link (+ payment link after 6) in one message. **Built 2026-10-11** (End-State guide §29), except D19 | No (D19 email: Worker) | M |
 | 5 | **Integration plumbing** (§0): `int_connections`, `int_events`, hooks routes, `integrationEvents.js` reducer. **Built 2026-10-12** (§0 "As built"); needs the `INT_TOKEN_KEY` secret before a provider can connect | Worker | M |
-| 6 | **Stripe Connect + Square** payment links with paid webhooks (§4), auto fee capture into §5 | Worker | L |
+| 6 | **Stripe** one-use payment links from her own restricted key, checked from her device, with the fee captured into §5; Payment service accounts and per-payment paid-via; the waitlist application fee online. **Built 2026-10-12** (§4 "As built", D22–D24). Square: not built | No (device ↔ Stripe) | L |
 | 7 | **Jotform signed → Contract signed** (§2.1). **Revised 2026-10-11: her device checks first.** With the key on the device (4b), opening KennelOS reads recent submissions of her mapped forms (`GET /form/{id}/submissions`), matches each by its `contractRef`, and marks the Contract `signed` with the date: no server, read-only key, buyer data only Jotform → her device. A Worker webhook (Level 1) only if she wants word while the app is closed; it would carry the whole submission through the Worker, so it must keep only the reference and date | No (webhook later: Worker after 5) | S |
 | 8 | **E-sign API provider**: SignWell / BoldSign first, or DocuSign if D5 says so (§2.2–2.3) | Worker | L |
 | 9 | Referral payouts in Financials (§3.3); network postbacks only on demand (§3.4) | Optional | S–M |
@@ -798,7 +828,7 @@ every new FK lands in `referenceRegistry.js` + the guide; every Worker table is 
 | D5 | First e-sign provider: Jotform form (L0 → L1) only, add **SignWell/BoldSign**, or go for **DocuSign** (Partner Program + her API plan)? | Jotform now; SignWell or BoldSign next; DocuSign only if paying customers already have API plans |
 | D6 | Where the contract template / field map lives: on the vendor's Account, or a settings record? | On the Account (it's per vendor, and Accounts already holds vendor facts) |
 | D7 | Thank-you messages: her own email (copy / mailto) or the KennelOS kennel-name mailer? | Copy / mailto first; mailer when W2's mailer is live for her |
-| D8 | Payments: verify Stripe / Square live-animal terms before building? Allow pay-online for the **waitlist application fee** (reopens W2 Q6)? | Verify first; app fee online = yes, opt-in |
+| D8 | Payments: verify Stripe / Square live-animal terms before building? Allow pay-online for the **waitlist application fee** (reopens W2 Q6)? | Verify first; app fee online = yes, opt-in. **Verified 2026-10-12** by the owner: animal sales are allowed on her Stripe account |
 | D9 | Cloud vs private tier for the new fields (fee %, fee amount, channel, e-sign refs, payment-link refs) Follow the existing split (`syncRegistry.js`: `sales.price` / `deposit_amount` are private, `status` / dates are cloud). So `processing_fee_amount` is **private**, like `price`. `sales_channel_account_id`, `fee_passed_to_buyer`, and the Account's `fee_percent` / `fee_fixed` (a vendor's public rate) are **cloud**. E-sign / payment-link refs are **cloud**, so any device can match an incoming event; `payment_link_url` is cloud too |
 | D10 | Index `Sale.sales_channel_account_id` (filter Financials by channel) or keep it plain? | Index it (a "Good Dog sales" filter is likely wanted); additive `version(N)` block |
 | D11 | Fee as a negative income component (recommended) or an Expense row? Show "includes fee" on the invoice? | Income component; invoice line off by default |
@@ -816,6 +846,9 @@ every new FK lands in `referenceRegistry.js` + the guide; every Worker table is 
 | D19 | **Open again (§2.6 as built).** Tell her when a family picks: an email from the Worker linking to their page (reopens W2's "no notifications") | Wanted, but the server holds no readable email for her account: needs her to give a notify-me address the server may keep. Decide that first |
 | D20 | **Taken as recommended (2026-10-11).** Where "deposit request sent" is recorded | On the offer (`deposit_request_sent_date`, plain, cloud) + the message in the entry's `messages[]` |
 | D21 | **Taken as recommended (2026-10-11).** Payment instructions in the message before §4: the waitlist config's fee payment text, or a new "deposit instructions" text? | Reuse her payment text, editable in the message |
+| D22 | **Decided 2026-10-12.** Stripe through a KennelOS platform (Connect) or her own key? | Her own restricted key, on her device; Stripe checked from the device. Live-animal sales confirmed allowed by the owner (D8) |
+| D23 | **Decided 2026-10-12.** Where a payment's account lives | A **Payment service** account type holds links and keys; a sale's deposit and balance each name theirs (`*_paid_via_account_id`, indexed, `version(4)`); the fee is estimated and captured per payment |
+| D24 | **Decided 2026-10-12.** The waitlist application fee online (D8's opt-in) | Yes: the kennel's fee account, asked for at the end of the application or once approved; a fee paid before approval counts from the day paid once she approves |
 | D16 | **Decided 2026-10-11: on her device** (`device_secrets`). Where a Jotform API key lives (§2.1b): on her device or on the Worker (`int_connections`)? | Device: no central store of every breeder's key; proven in a real flow, Worker after step 5 only if Jotform blocks browser calls |
 
 ---

@@ -64,6 +64,9 @@ src/familyPages.js     the waitlist's family pages: serves public/family/ for /l
                        types the emailed code). /list and /apply carry link-preview tags
                        (Open Graph) with the kennel's name, written in at the page's
                        <!--preview…--> marker; the card image is public/family/share.png.
+                       Her application fee's Pay link (kennel.fee_pay, fee_due.pay_url) is
+                       passed through as a web address only, with the family's id added as
+                       Stripe's client_reference_id (feePayFor; Integrations plan §4).
                        They can be framed by her own website only while her projection has
                        kennel.embed (frameAncestors; docs/KennelOS_Integrations_Plan.md §1);
                        public/family/embed.js is the script she pastes there
