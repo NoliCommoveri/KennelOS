@@ -23,7 +23,7 @@
 //     below supplies an explicit subject_name / mileage_rate to avoid that path.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseCsv, getMapping, summarize } from '../shared/data/csvImport.js';
+import { parseCsv, getMapping, summarize, flagMissingKennel } from '../shared/data/csvImport.js';
 
 // --- Local re-implementations of csvImport.js's private index builders -----
 // (not exported; classify()'s `index` argument is whatever buildIndex()
@@ -102,8 +102,9 @@ test('summarize tallies rows by status', () => {
 
 const dogMapping = getMapping('dog');
 
-function dogIndex({ dogs = [], kennels = [] } = {}) {
+function dogIndex({ dogs = [], kennels = [], contacts = [] } = {}) {
   dogMapping._kennels = kennelNameIndex(kennels);
+  dogMapping._contactByName = new Map(contacts.map((c) => [c.name.toLowerCase(), c]));
   return dogMapping.buildIndex(dogs);
 }
 
@@ -256,11 +257,67 @@ test('dog: an owned dog naming someone else\'s kennel is rejected (requireOwn)',
 
 test('dog: an external dog MAY legitimately name someone else\'s kennel', () => {
   const outside = { id: 'k2', kennel_name: 'Someone Else', is_own_kennel: false };
-  const index = dogIndex({ kennels: [outside] });
-  const row = validDogRow({ ownership_type: 'External', status: 'External reference', kennel_name: 'Someone Else' });
+  const index = dogIndex({ kennels: [outside], contacts: [{ id: 'c1', name: 'Pat Owner' }] });
+  const row = validDogRow({ ownership_type: 'External', status: 'External reference', kennel_name: 'Someone Else', owner_name: 'Pat Owner' });
   const r = dogMapping.classify(row, index, 0);
   assert.equal(r.record.kennel_id, 'k2');
+  assert.equal(r.record.owner_contact_id, 'c1');
   assert.equal(r.status, 'create');
+});
+
+// dogRepo requires owner_contact_id on an external / leased-in dog; without an
+// owner the row would preview as create and then fail at commit.
+test('dog: an external or leased-in dog with no owner goes to review', () => {
+  const index = dogIndex();
+  for (const ownership_type of ['External', 'Leased in']) {
+    const r = dogMapping.classify(validDogRow({ ownership_type }), index, 0);
+    assert.equal(r.status, 'review');
+    assert.equal(r.decision, 'skip');
+    assert.ok(reasonsInclude(r.reasons, 'needs its owner'));
+  }
+});
+
+test('dog: an unknown owner_name is flagged, never invented', () => {
+  const index = dogIndex();
+  const r = dogMapping.classify(validDogRow({ ownership_type: 'External', owner_name: 'Nobody' }), index, 0);
+  assert.equal(r.status, 'review');
+  assert.equal(r.record.owner_contact_id, undefined);
+  assert.ok(reasonsInclude(r.reasons, 'Owner "Nobody" not found'));
+});
+
+test('dog: an update of an external dog that already has an owner needs no owner column', () => {
+  const existing = { id: 'd1', call_name: 'Rex', date_of_birth: '2022-05-04', ownership_type: 'external', owner_contact_id: 'c9' };
+  const index = dogIndex({ dogs: [existing] });
+  const r = dogMapping.classify(validDogRow({ ownership_type: 'External' }), index, 0);
+  assert.equal(r.status, 'update');
+});
+
+test('dog: a pedigree-only match is exempt from the owner rule', () => {
+  const existing = { id: 'd1', call_name: 'Rex', date_of_birth: '2022-05-04', ownership_type: 'external', pedigree_only: true };
+  const index = dogIndex({ dogs: [existing] });
+  const r = dogMapping.classify(validDogRow({ ownership_type: 'External' }), index, 0);
+  assert.equal(r.status, 'update');
+});
+
+// Kennel-scoped creates with no kennel and no active/sole kennel to default to
+// (repo: kennel_id required) go to review in the preview instead of failing at commit.
+test('flagMissingKennel: creates with no kennel and no default go to review', () => {
+  const plan = () => [
+    { status: 'create', decision: 'create', record: {}, reasons: [] },
+    { status: 'create', decision: 'create', record: { kennel_id: 'k1' }, reasons: [] },
+    { status: 'update', decision: 'update', record: {}, reasons: [] }
+  ];
+  const flagged = flagMissingKennel('litter', plan(), null);
+  assert.deepEqual(flagged.map((r) => r.status), ['review', 'create', 'update']);
+  assert.equal(flagged[0].decision, 'skip');
+  assert.ok(reasonsInclude(flagged[0].reasons, 'No kennel'));
+  assert.deepEqual(flagMissingKennel('litter', plan(), 'k1').map((r) => r.status), ['create', 'create', 'update']);
+  // Only owned / co-owned dogs carry a kennel; an external one is left alone.
+  const dogs = [
+    { status: 'create', decision: 'create', record: { ownership_type: 'owned' }, reasons: [] },
+    { status: 'create', decision: 'create', record: { ownership_type: 'external' }, reasons: [] }
+  ];
+  assert.deepEqual(flagMissingKennel('dog', dogs, null).map((r) => r.status), ['review', 'create']);
 });
 
 test('dog: recorded_coi is stored only when coi_value is numeric', () => {
