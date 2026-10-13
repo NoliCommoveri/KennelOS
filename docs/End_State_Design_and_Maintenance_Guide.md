@@ -237,6 +237,7 @@ KennelOS/
                                the "Add to Google Calendar" link
     vocab.js                   Controlled vocabularies + event-type catalog
     csvImport.js               Generic CSV match-or-create engine + mappings
+    csvImportHelp.js           Plain-language column guide for each CSV importer
     importExport.js            JSON backup / restore
     syncApply.js               Live sync: writes pulled records in one transaction per
                                page (echo skip, server wins over an unpushed local edit,
@@ -367,6 +368,7 @@ KennelOS/
                                by both seed-import wizards (kennel-tests-import
                                page + kennelSetupUI's prefill section)
     importView.js              Shared CSV import dry-run/commit UI
+    importHelp.js              Renders the CSV column guide + blank-template download
     onboardingUI.js            First-run Welcome card: Start my kennel / Take the tour / I already use KennelOS (§11)
     cloudBackupUI.js           Every cloud-backup screen: sign-in, Import/Export's Cloud
                                destination pane, the Settings Account card,
@@ -1032,7 +1034,25 @@ Rules that shape everything:
   resolve routes the row to **review**, exactly like an unresolved sire/dam — it never falls
   through to commit and silently lands on whatever `stampKennelScope()` would otherwise
   default to. A blank column is not a failure: `commitPlan`'s `stampKennelScope()` fills it
-  from the active/sole kennel at commit time, same as before this column existed.
+  from the active/sole kennel at commit time, same as before this column existed. When there
+  is **no** active/sole kennel to fall back to (two or more own kennels, "All kennels"
+  showing), `buildPlan` runs `flagMissingKennel()` over the plan: every kennel-needing
+  **create** with no `kennel_id` (a Pairing/Litter/Sale/StudService, or an owned/co-owned Dog)
+  goes to review with "No kennel…", rather than previewing as a create and failing at commit.
+- **Dog owner** (`owner_name`, aliases `owner`/`owner_contact_name`): resolves against
+  existing Contacts only (unknown → flagged). Because `dogRepo` requires `owner_contact_id`
+  on an `external`/`leased_in` dog (pedigree-only exempt), a row whose dog-as-saved (the
+  match merged with the row) would lack one goes to review with "…needs its owner".
+- **Previewed = committable.** When a repo gains a required field, the matching mapping must
+  either fill it from a column or send rows that lack it to review, so a "create" in the
+  preview never fails at commit.
+- **Column guide** (`data/csvImportHelp.js`, rendered by `assets/importHelp.js` on every
+  import screen, the Expense one included): per importer, how rows are matched and one
+  plain-language line per column (Required / Required for new records / Optional, what
+  goes in it, alias headers, and accepted values read live from `vocab.js`), the general
+  rules, and a blank-template download (`downloadImportTemplate`, also offered from the
+  "Download a blank template to fill" dropdown on the Import / Export page, where Kennel tests links its bundled sample instead). `tests/csvImportHelp.test.js` pins each guide's
+  columns to its mapping's `templateHeaders`, so **a new column needs its help line**.
 - **Two deliberate exceptions** auto-create a Contact inline at commit (never a stall):
   Sale's `buyer_name` and StudService's `partner_contact_name`, via each mapping's
   `prepareRecord` hook.
@@ -1094,7 +1114,8 @@ under. Unknown program/placement/kennel values are flagged, never invented.
 
 To add an entity to the importer: write one mapping object (`{entity, label,
 templateHeaders, requiredForCreate, loadExisting, buildIndex, classify, describe, repo,
-prepareRecord?}`) and register it in `MAPPINGS`. Don't rebuild the engine.
+prepareRecord?}`) and register it in `MAPPINGS`, then add its column guide to
+`data/csvImportHelp.js`. Don't rebuild the engine.
 
 > Keep this file clean UTF-8 (no BOM). It contains user-facing review strings.
 
