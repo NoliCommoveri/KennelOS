@@ -1050,7 +1050,8 @@ Rules that shape everything:
   import screen, the Expense one included): per importer, how rows are matched and one
   plain-language line per column (Required / Required for new records / Optional, what
   goes in it, alias headers, and accepted values read live from `vocab.js`), the general
-  rules, and a blank-template download. `tests/csvImportHelp.test.js` pins each guide's
+  rules, and a blank-template download (`downloadImportTemplate`, also offered for every
+  type on the Import / Export page, where Kennel tests links its bundled sample instead). `tests/csvImportHelp.test.js` pins each guide's
   columns to its mapping's `templateHeaders`, so **a new column needs its help line**.
 - **Two deliberate exceptions** auto-create a Contact inline at commit (never a stall):
   Sale's `buyer_name` and StudService's `partner_contact_name`, via each mapping's

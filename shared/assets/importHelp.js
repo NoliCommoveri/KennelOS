@@ -38,18 +38,20 @@ export function importHelpHtml(entity) {
     </details>`;
 }
 
+// Saves the blank template (header row only) for one importer.
+export function downloadImportTemplate(entity) {
+  const url = URL.createObjectURL(new Blob([templateCsv(entity)], { type: 'text/csv' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `kennelos-${entity.replace(/_/g, '-')}-import-template.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 // Wires the template download button inside `mount`.
 export function wireImportHelp(mount, entity) {
   const btn = mount.querySelector('[data-role="import-template"]');
-  if (!btn) return;
-  btn.addEventListener('click', () => {
-    const url = URL.createObjectURL(new Blob([templateCsv(entity)], { type: 'text/csv' }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `kennelos-${entity.replace(/_/g, '-')}-import-template.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  });
+  if (btn) btn.addEventListener('click', () => downloadImportTemplate(entity));
 }

@@ -11,6 +11,7 @@ import { isDropboxConnected } from '../data/dropbox.js';
 import { mountDropboxConnect } from '../assets/dropboxConnectUI.js';
 import { pushToDropbox, fetchDropboxBackup } from '../data/assistantSync.js';
 import { isCloudAvailable } from '../data/cloud/cloudConfig.js';
+import { downloadImportTemplate } from '../assets/importHelp.js';
 
 // Cloud backup UI, loaded only when this edition has a server (`cloudUrl` set),
 // so an edition without one never even loads the cloud modules (plan §7).
@@ -266,6 +267,26 @@ if (edition === 'lite') {
 }
 csvSelect.addEventListener('change', () => {
   if (csvSelect.value) location.href = csvSelect.value;
+});
+
+// One template button per import the select still offers (so Lite shows only
+// its own). Kennel tests import a breed/test seed file, so theirs is the bundled sample.
+const TEMPLATE_ENTITY = {
+  'dog-import.html': 'dog', 'contact-import.html': 'contact', 'pairing-import.html': 'pairing',
+  'litter-import.html': 'litter', 'sale-import.html': 'sale', 'event-import.html': 'event',
+  'stud-service-import.html': 'stud_service', 'expense-import.html': 'expense', 'waitlist-import.html': 'waitlist'
+};
+const templatesEl = document.getElementById('csv-templates');
+templatesEl.innerHTML = [...csvSelect.options].filter((o) => o.value).map((o) => {
+  if (o.value === 'kennel-tests-import.html') {
+    return `<a class="btn btn-sm" href="../resources/common_tests_by_breed_seed.csv" download>${esc(o.textContent)} (sample)</a>`;
+  }
+  const entity = TEMPLATE_ENTITY[o.value];
+  return entity ? `<button type="button" class="btn btn-sm" data-template="${esc(entity)}">${esc(o.textContent)}</button>` : '';
+}).join('');
+templatesEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-template]');
+  if (btn) downloadImportTemplate(btn.dataset.template);
 });
 
 async function renderResetAppStatus() {
