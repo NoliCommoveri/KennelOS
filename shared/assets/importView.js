@@ -190,9 +190,13 @@ export function createImportView({ mount, entity, listHref, listLabel }) {
       const failed = res.failed.length
         ? `<div class="inline-error" style="margin-top:10px;"><strong>${res.failed.length} row(s) failed:</strong><br>${res.failed.map((f) => `Row ${f.index + 2} (${esc(f.display)}): ${esc(f.message)}`).join('<br>')}</div>`
         : '';
+      const notes = res.notes?.length
+        ? `<div class="muted" style="margin-top:10px;"><strong>${res.notes.length} note(s):</strong><br>${res.notes.map((f) => `Row ${f.index + 2} (${esc(f.display)}): ${esc(f.message)}`).join('<br>')}</div>`
+        : '';
       resultEl.innerHTML = `
         <p><strong>${res.created}</strong> created · <strong>${res.updated}</strong> updated · <strong>${res.skipped}</strong> skipped.</p>
         ${failed}
+        ${notes}
         <div class="form-actions"><a class="btn btn-primary" href="${esc(listHref)}">Go to ${esc(listLabel)}</a></div>`;
       resultCard.style.display = '';
       resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });

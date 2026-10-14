@@ -25,6 +25,7 @@ import { waitlistEntryRepo } from './waitlistEntryRepo.js';
 import { waitlistProgramRepo } from './waitlistProgramRepo.js';
 import { formQuestions, isAnswerQuestion, snapshotQuestions, columnsFor, IMPORT_ALIASES } from './waitlistForm.js';
 import { waitlistConfig, kennelBreeds, resolveBreed } from './waitlistRules.js';
+import { normReg } from './pedigreeImport.js';
 import { getMyKennelId, getMileageDefaults } from './settings.js';
 import {
   SEX, OWNERSHIP_TYPE, DOG_STATUS, CONTACT_TYPE, PAIRING_TYPE, PAIRING_METHOD, PAIRING_STATUS,
@@ -214,14 +215,17 @@ const DOG_MAPPING = {
     const byReg = new Map();   // registered_name+dob -> id
     const byCall = new Map();  // call_name+dob -> id
     const byName = new Map();  // any name -> id (for sire/dam resolution)
+    const byRegNo = new Map(); // registration number key (normReg) -> [dogs]
     for (const d of existing) {
+      const rk = d.registration_number ? normReg(d.registration_number) : '';
+      if (rk) { if (!byRegNo.has(rk)) byRegNo.set(rk, []); byRegNo.get(rk).push(d); }
       if (d.registered_name && d.date_of_birth) byReg.set(nk(d.registered_name, d.date_of_birth), d);
       if (d.call_name && d.date_of_birth) byCall.set(nk(d.call_name, d.date_of_birth), d);
       if (d.registered_name) byName.set(d.registered_name.trim().toLowerCase(), d);
       const ck = d.call_name?.trim().toLowerCase();
       if (ck && !byName.has(ck)) byName.set(ck, d);
     }
-    return { byReg, byCall, byName, kennels: this._kennels, contactByName: this._contactByName || new Map() };
+    return { byReg, byCall, byName, byRegNo, kennels: this._kennels, contactByName: this._contactByName || new Map() };
   },
 
   classify(row, index, i) {
@@ -306,34 +310,75 @@ const DOG_MAPPING = {
     // Sire / dam: resolve names against EXISTING dogs (Data Model §8.2). A named
     // parent that doesn't resolve is flagged (never silently dropped).
     const unresolved = [];
+    const batchParents = {}; // idField -> row index of the parent in this file
     for (const [nameCol, idField, roleLabel] of [
       ['sire_registered_name', 'sire_id', 'Sire'], ['dam_registered_name', 'dam_id', 'Dam']
     ]) {
       const pName = col(row, nameCol, nameCol.replace('_registered_name', '_name'));
       if (!pName) continue;
       const hit = index.byName.get(pName.toLowerCase());
-      if (hit) record[idField] = hit.id;
-      else { unresolved.push(`${roleLabel} "${pName}" not found`); }
+      if (hit) { record[idField] = hit.id; continue; }
+      // Not in the app yet: is it a dog on another row of this same file? Then it's
+      // linked by the link pass after every row is written (commitPlan), so one
+      // file can carry a dog and its parents. Still resolve-only: a name that
+      // matches no row, or more than one, is flagged exactly as before.
+      const rowsNamed = (index.batchByName?.get(pName.toLowerCase()) || []).filter((n) => n !== i);
+      if (rowsNamed.length === 1) {
+        batchParents[idField] = rowsNamed[0];
+        reasons.push(`${roleLabel} "${pName}" is row ${rowsNamed[0] + 2} of this file; linked once both are imported.`);
+      } else if (rowsNamed.length > 1) {
+        unresolved.push(`${roleLabel} "${pName}" matches ${rowsNamed.length} rows of this file (rows ${rowsNamed.map((n) => n + 2).join(', ')})`);
+      } else {
+        unresolved.push(`${roleLabel} "${pName}" not found`);
+      }
     }
 
-    // Natural key → match-or-create.
+    // Natural key → match-or-create. Two keys: name + date of birth, or the
+    // registration number (normReg: "NP888072/07 03-25" and "np88807207" are one
+    // number), the same key Pedigree Import matches on. Pedigrees give a dog's
+    // number but rarely its birth date, so the number alone is enough.
     const hasName = !!(reg || call);
-    const validKey = hasName && !!dob;
+    const regNoRaw = col(row, 'registration_number', 'reg_number');
+    const regKey = regNoRaw ? normReg(regNoRaw) : '';
+    const nameDobKey = hasName && !!dob;
     let status_ = 'create';
     let match = null;
-    if (!validKey) {
+    if (!nameDobKey && !regKey) {
       status_ = 'review';
-      if (!hasName) reasons.push('No registered_name or call_name — cannot form a natural key.');
-      if (!dob) reasons.push('No date_of_birth — cannot form a natural key.');
+      if (!hasName) reasons.push('No registered_name or call_name, and no registration_number — cannot form a natural key.');
+      if (!dob) reasons.push('No date_of_birth or registration_number — cannot form a natural key.');
     } else {
-      match = (reg && index.byReg.get(nk(reg, dob))) || (call && index.byCall.get(nk(call, dob))) || null;
-      status_ = match ? 'update' : 'create';
+      const byNameDob = nameDobKey ? ((reg && index.byReg.get(nk(reg, dob))) || (call && index.byCall.get(nk(call, dob))) || null) : null;
+      const regHits = regKey ? (index.byRegNo?.get(regKey) || []) : [];
+      if (regHits.length > 1) {
+        status_ = 'review';
+        match = byNameDob || regHits[0];
+        reasons.push(`${regHits.length} dogs on file have registration number ${regNoRaw} — choose "Update match" and pick the right one.`);
+      } else if (byNameDob && regHits[0] && regHits[0].id !== byNameDob.id) {
+        status_ = 'review';
+        match = byNameDob;
+        reasons.push(`Name and date of birth match ${byNameDob.registered_name || byNameDob.call_name}, but registration number ${regNoRaw} belongs to ${regHits[0].registered_name || regHits[0].call_name} — pick which dog this is.`);
+      } else {
+        match = byNameDob || regHits[0] || null;
+        status_ = match ? 'update' : 'create';
+      }
+    }
+
+    // An outside dog with no owner given is kept for lineage only (pedigree-only,
+    // as Pedigree Import saves ancestors): no owner or call name needed, off the
+    // Dogs list, not counted against a dog cap. Only ever on a NEW dog: an update
+    // never turns a dog already in the app into a pedigree-only one.
+    const changes = buildDogChanges(record);
+    if (!match && ownership === 'external' && !ownerName) {
+      record.pedigree_only = true;
+      if (!record.status) record.status = 'external_reference';
+      reasons.push('No owner given: saved as a pedigree-only dog (kept for lineage, off the Dogs list).');
     }
 
     // A create must satisfy the repo's required fields; if not, review it so the
     // user sees exactly what's missing instead of hitting a commit-time failure.
     if (status_ === 'create') {
-      const missing = this.requiredForCreate.filter((f) => !record[f]);
+      const missing = this.requiredForCreate.filter((f) => !record[f] && !(f === 'call_name' && record.pedigree_only && record.registered_name));
       if (missing.length) { status_ = 'review'; reasons.push(`Missing required field(s) for a new dog: ${missing.join(', ')}.`); }
     }
     // Unresolved parents push a create/update row to review (fixable, or apply anyway).
@@ -351,12 +396,48 @@ const DOG_MAPPING = {
     return {
       index: i, raw: row, entity: 'dog', display,
       record,                             // create payload
-      changes: buildDogChanges(record),   // update payload (same recognized fields)
+      changes,                            // update payload (same recognized fields, never pedigree_only)
+      ...(Object.keys(batchParents).length ? { batchParents } : {}),
       status: status_, match, matchLabel: match ? (match.registered_name || match.call_name) : '',
       reasons,
       decision: status_ === 'review' ? 'skip' : status_,
       decisionTarget: match ? match.id : null
     };
+  },
+
+  // Names of the dogs in this file, for sire/dam names that aren't in the app yet.
+  // Same precedence as buildIndex's byName: a registered name wins, a call name
+  // is used only when no row has that registered name.
+  indexBatch(rows, index) {
+    const byReg = new Map();
+    const byCall = new Map();
+    const add = (map, name, i) => {
+      const k = name.toLowerCase();
+      if (!map.has(k)) map.set(k, []);
+      map.get(k).push(i);
+    };
+    rows.forEach((row, i) => {
+      const reg = col(row, 'registered_name', 'reg_name');
+      const call = col(row, 'call_name', 'name');
+      if (reg) add(byReg, reg, i);
+      if (call) add(byCall, call, i);
+    });
+    const batchByName = new Map(byReg);
+    for (const [k, v] of byCall) if (!batchByName.has(k)) batchByName.set(k, v);
+    index.batchByName = batchByName;
+    return index;
+  },
+
+  // After classify: a parent row that itself needs review is linked only if the
+  // user imports it, so say so on the pup's row.
+  finishPlan(plan) {
+    for (const r of plan) {
+      if (!r.batchParents) continue;
+      for (const n of Object.values(r.batchParents)) {
+        if (plan[n]?.status === 'review') r.reasons.push(`Row ${n + 2} needs review; this dog is linked to it only if you import it.`);
+      }
+    }
+    return plan;
   },
 
   // Human label for an existing record (used by the "match to existing" picker).
@@ -1701,7 +1782,9 @@ export async function buildPlan(entity, rows) {
   const mapping = getMapping(entity);
   const existing = await mapping.loadExisting();
   const index = mapping.buildIndex(existing);
+  if (mapping.indexBatch) mapping.indexBatch(rows, index);
   const plan = rows.map((row, i) => mapping.classify(row, index, i));
+  if (mapping.finishPlan) mapping.finishPlan(plan);
   if (needsKennelScope(entity)) flagMissingKennel(entity, plan, await resolveKennelIdForWrite());
   return { rows: plan, summary: summarize(plan), existing };
 }
@@ -1755,7 +1838,8 @@ async function stampKennelScope(entity, record) {
 // one failure is recorded and the rest still import.
 export async function commitPlan(entity, plan) {
   const mapping = getMapping(entity);
-  const result = { created: 0, updated: 0, skipped: 0, failed: [] };
+  const result = { created: 0, updated: 0, skipped: 0, failed: [], notes: [] };
+  const written = new Map(); // row index -> saved record id
   for (const r of plan) {
     try {
       // Optional per-mapping hook: mutate r.record/r.changes just before the
@@ -1764,12 +1848,14 @@ export async function commitPlan(entity, plan) {
       if (mapping.prepareRecord) await mapping.prepareRecord(r);
       if (r.decision === 'create') {
         await stampKennelScope(entity, r.record);
-        await mapping.repo.create(r.record);
+        const saved = await mapping.repo.create(r.record);
+        written.set(r.index, saved.id);
         result.created++;
       } else if (r.decision === 'update') {
         const id = r.decisionTarget || r.match?.id;
         if (!id) throw new Error('No target record to update.');
         await mapping.repo.update(id, r.changes);
+        written.set(r.index, id);
         result.updated++;
       } else {
         result.skipped++;
@@ -1778,5 +1864,32 @@ export async function commitPlan(entity, plan) {
       result.failed.push({ index: r.index, display: r.display, message: e.message || String(e) });
     }
   }
+  await linkBatchParents(plan, written, mapping.repo, result);
   return result;
+}
+
+// The link pass (dogs): once every row is written, point each dog at a sire or
+// dam that was another row of the same file. Done last rather than by ordering
+// the writes, so a parent row the user switched from review to Create is linked
+// too. A parent row that wasn't imported (skipped or failed) leaves the dog
+// unlinked and says so; it never blocks the dog itself.
+const PARENT_ROLE = { sire_id: 'sire', dam_id: 'dam' };
+
+async function linkBatchParents(plan, written, repo, result) {
+  const byIndex = new Map(plan.map((r) => [r.index, r]));
+  for (const r of plan) {
+    if (!r.batchParents || !written.has(r.index)) continue;
+    const links = {};
+    for (const [field, n] of Object.entries(r.batchParents)) {
+      const parentId = written.get(n);
+      if (parentId) links[field] = parentId;
+      else result.notes.push({ index: r.index, display: r.display, message: `Not linked to its ${PARENT_ROLE[field]}: row ${n + 2} (${byIndex.get(n)?.display || '?'}) wasn't imported.` });
+    }
+    if (!Object.keys(links).length) continue;
+    try {
+      await repo.update(written.get(r.index), links);
+    } catch (e) {
+      result.notes.push({ index: r.index, display: r.display, message: `Saved, but not linked to its parents: ${e.message || String(e)}` });
+    }
+  }
 }

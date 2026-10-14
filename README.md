@@ -995,6 +995,9 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   `public_id`). The dog importer gains `breeder_kennel_name` (any kennel on file, unknown →
   review). Import / Export now lists Kennels first, then Contacts and Dogs, so contacts'
   and dogs' kennel columns find the kennels they name. End-State guide §9.
+  Same day: the dog import matches on registration number as well as name + date of birth,
+  saves a new External dog with no owner as **pedigree-only**, and takes parents in the same
+  file as their pups (a link pass after every row is written sets sire/dam). End-State §9.
 
 ## Build & deploy
 

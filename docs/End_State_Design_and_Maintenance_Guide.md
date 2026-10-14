@@ -1050,7 +1050,21 @@ Rules that shape everything:
 - **Dog owner** (`owner_name`, aliases `owner`/`owner_contact_name`): resolves against
   existing Contacts only (unknown → flagged). Because `dogRepo` requires `owner_contact_id`
   on an `external`/`leased_in` dog (pedigree-only exempt), a row whose dog-as-saved (the
-  match merged with the row) would lack one goes to review with "…needs its owner".
+  match merged with the row) would lack one goes to review with "…needs its owner" —
+  **except a NEW `external` dog with no `owner_name`**, which is created **pedigree-only**
+  (`pedigree_only: true`, status `external_reference` when blank, call name optional with a
+  registered name), the way Pedigree Import saves ancestors: a sire or dam typed from a
+  pedigree, kept for lineage. Only ever on a create — an update never turns a dog already in
+  the app pedigree-only (`pedigree_only` rides `record`, never `changes`).
+- **Parents in the same file** (dogs): a `sire_registered_name`/`dam_registered_name` that
+  isn't in the app but names another row of the file (registered name first, then call name;
+  `DOG_MAPPING.indexBatch`) previews as resolved, with a note naming the row; matching two or
+  more rows is flagged like an unknown name, and `finishPlan` notes when that parent row
+  itself needs review. `commitPlan` writes every row first, then a **link pass**
+  (`linkBatchParents`) sets `sire_id`/`dam_id` from the written rows' ids — after the writes
+  rather than by ordering them, so a parent row switched from review to Create is linked too.
+  A parent row that wasn't imported leaves the dog unlinked and is reported in the result's
+  `notes`, never blocking the dog.
 - **Previewed = committable.** When a repo gains a required field, the matching mapping must
   either fill it from a column or send rows that lack it to review, so a "create" in the
   preview never fails at commit.
@@ -1069,7 +1083,10 @@ Per-entity natural keys: Kennel = kennel_name (a name shared by two kennels on f
 review, the user picks; a new kennel is always created **outside**, `is_own_kennel: false`,
 and an update never touches `is_own_kennel` or `public_id`: own kennels and their identity
 are set up on the Kennels page, §28; columns `kennel_name`, `prefix`, `location`,
-`website`); Dog = name+DOB; Contact = name; Pairing = sire+dam+planned;
+`website`); Dog = name+DOB **or** registration number (`normReg`, the same key Pedigree
+Import uses, so "NP888072/07 03-25" and "np88807207" are one number; a pedigree gives a
+number, rarely a birth date; the two keys naming different dogs, or one number on several
+dogs → review); Contact = name; Pairing = sire+dam+planned;
 Litter = dam+sire+whelp; Sale = dog+buyer+sale_date; Event (dog-subject only) =
 dog+type+date (title tiebreak — and for `show` rows the title **always** takes part: a
 single same-day candidate with a different title goes to review, never a silent update,
