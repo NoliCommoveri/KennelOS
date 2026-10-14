@@ -2,7 +2,9 @@
 // header summing up its sales), opening onto that litter's sales, each carrying
 // its linked Contract(s) inline (Buckets & Direct Contract Linking Plan v1, Work
 // Area 1A). Ended sales (Returned / Cancelled / Voided) fold away under their own
-// "N ended sales" toggle inside the litter.
+// "N ended sales" toggle inside the litter. Only the PAGE_SIZE newest litters show;
+// the rest are behind a "Show more" toggle, like the Breeding hub's pairings.
+// External Acquisitions always shows, last.
 // Contract owns the link (`related_sale_id`) — linking/unlinking here is always
 // one write to the contract via contractRepo.update, never a field on Sale.
 import { saleRepo } from '../data/saleRepo.js';
@@ -15,6 +17,7 @@ import { REGISTRATION_TYPE, SALE_STATUS, CONTRACT_TYPE, CONTRACT_STATUS, RELEASE
 import { esc, badge, fmtDate, cardShell } from '../assets/ui.js';
 import { editionFlags } from '../data/editionConfig.js';
 
+const PAGE_SIZE = 5; // most recent litters shown before "Show more" (as breeding.js)
 const body = document.getElementById('sale-list');
 const errorBox = document.getElementById('page-error');
 
@@ -201,11 +204,40 @@ async function main() {
     cardHtml
   ));
 
-  if (externalByDog.size) {
-    sections.push(groupCardHtml('sales-external', 'External Acquisitions', '', orderedSales(externalByDog, dogsById), cardHtml));
-  }
+  const shownHtml = sections.slice(0, PAGE_SIZE).join('');
+  const rest = sections.slice(PAGE_SIZE);
+  const restHtml = rest.length
+    ? `<div id="sales-more" hidden>${rest.join('')}</div>
+       <div style="margin-top:14px;"><button class="btn" id="show-more-btn">Show ${rest.length} more litter${rest.length === 1 ? '' : 's'} ▾</button></div>`
+    : '';
+  const externalHtml = externalByDog.size
+    ? groupCardHtml('sales-external', 'External Acquisitions', '', orderedSales(externalByDog, dogsById), cardHtml)
+    : '';
 
-  body.innerHTML = sections.join('');
+  // A re-render (after linking or unlinking a contract) keeps what she had open:
+  // the litter cards, their ended-sales lists, and the "Show more" litters.
+  const openCards = new Set([...body.querySelectorAll('.card-collapsible')]
+    .filter((c) => !c.querySelector('.card-body')?.hidden).map((c) => c.dataset.card));
+  const openEnded = new Set([...body.querySelectorAll('.card-collapsible details[open]')]
+    .map((d) => d.closest('.card-collapsible').dataset.card));
+  const moreShown = body.querySelector('#sales-more') && !body.querySelector('#sales-more').hidden;
+
+  body.innerHTML = shownHtml + restHtml + externalHtml;
+  for (const card of body.querySelectorAll('.card-collapsible')) {
+    if (openCards.has(card.dataset.card)) {
+      card.querySelector('.card-body').hidden = false;
+      const toggle = card.querySelector('.card-toggle-btn');
+      toggle.setAttribute('aria-expanded', 'true');
+      toggle.setAttribute('aria-label', 'Collapse card');
+    }
+    if (openEnded.has(card.dataset.card)) card.querySelector('details')?.setAttribute('open', '');
+  }
+  const btn = document.getElementById('show-more-btn');
+  const showMore = () => { document.getElementById('sales-more').hidden = false; btn.remove(); };
+  if (btn) {
+    if (moreShown) showMore();
+    else btn.addEventListener('click', showMore);
+  }
 }
 
 // Delegated on the container (not per-card) so re-renders never leak listeners.
