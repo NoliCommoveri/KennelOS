@@ -389,8 +389,11 @@ export async function computeNudges() {
 
   for (const l of scopedLitters) {
     if (l.is_archived) continue;
-    const pups = pupsByLitter.get(l.id);
-    if (!pups || pups.length === 0) continue;
+    // A pup marked Deceased is out of the picture whatever its disposition says:
+    // it neither reopens a litter (left "Available") nor holds up "mark sold"
+    // (left "Undecided") or "close" (a placed pup that never got a delivered sale).
+    const pups = (pupsByLitter.get(l.id) || []).filter((p) => p.status !== 'deceased');
+    if (pups.length === 0) continue;
     const label = litterLabel(l, dogsById);
     const href = `litter.html?id=${encodeURIComponent(l.id)}`;
     const anyAvailable = pups.some((p) => p.disposition === 'available');

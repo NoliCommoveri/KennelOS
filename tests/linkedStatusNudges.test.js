@@ -2,7 +2,8 @@
 // that implies one on a linked record (End-State guide §19): a whelped litter
 // whose pairing isn't, a pairing that didn't take with its litter still Expected,
 // a whelped pairing with no litter, and a Deceased dog still on an open sale or
-// an unfinished pairing. Each one suggests; only its action writes.
+// an unfinished pairing. Each one suggests; only its action writes. Also: the
+// litter-lifecycle rules (sold / reopen / close) leave a Deceased pup out.
 import { test, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { installMemoryDb } from './support/memoryDb.js';
@@ -139,4 +140,39 @@ test('a Deceased dog with an open sale → open the sale to end it; a delivered 
   const sales = await nudgesFor('deceased-sale:');
   assert.deepEqual(sales.map((n) => n.key), [`deceased-sale:${open.id}`]);
   assert.equal(sales[0].subjectHref, `sale.html?id=${encodeURIComponent(open.id)}`);
+});
+
+// --- The litter-lifecycle rules leave a Deceased pup out --------------------------------
+
+const pupOf = (l, over) => dogRepo.create({
+  breed: 'Boston Terrier', ownership_type: 'owned', status: 'puppy', kennel_id: K.id, litter_id: l.id, dam_id: dam.id, sire_id: sire.id, ...over
+});
+
+test('a Deceased pup left Available doesn\'t ask to reopen a sold litter', async () => {
+  const l = await litterRepo.create({ kennel_id: K.id, dam_id: dam.id, sire_id: sire.id, status: 'sold' });
+  await pupOf(l, { call_name: 'Pip', sex: 'male', disposition: 'placed' });
+  const gone = await pupOf(l, { call_name: 'Wren', sex: 'female', disposition: 'available' });
+  assert.equal((await nudgesFor('litterreopen:')).length, 1, 'alive and available: reopen');
+  await dogRepo.update(gone.id, { status: 'deceased' });
+  assert.equal((await nudgesFor('litterreopen:')).length, 0);
+});
+
+test('a Deceased pup doesn\'t hold up "mark sold" or "close"', async () => {
+  const buyer = await contactRepo.create({ name: 'Renee Coleman' });
+  const l = await litterRepo.create({ kennel_id: K.id, dam_id: dam.id, sire_id: sire.id, status: 'ready' });
+  const pip = await pupOf(l, { call_name: 'Pip', sex: 'male', disposition: 'placed' });
+  await pupOf(l, { call_name: 'Wren', sex: 'female', disposition: 'undecided', status: 'deceased' });
+  assert.deepEqual((await nudgesFor('littersold:')).map((n) => n.key), [`littersold:${l.id}`]);
+
+  await litterRepo.update(l.id, { status: 'sold' });
+  await saleRepo.create({ kennel_id: K.id, dog_id: pip.id, buyer_contact_id: buyer.id, registration_type: 'limited', status: 'delivered' });
+  await pupOf(l, { call_name: 'Moss', sex: 'male', disposition: 'placed', status: 'deceased' });
+  assert.deepEqual((await nudgesFor('litterclose:')).map((n) => n.key), [`litterclose:${l.id}`], 'a placed pup that died before going home has no delivered sale');
+});
+
+test('a litter whose pups all died gets none of the three', async () => {
+  const l = await litterRepo.create({ kennel_id: K.id, dam_id: dam.id, sire_id: sire.id, status: 'sold' });
+  await pupOf(l, { call_name: 'Wren', sex: 'female', disposition: 'available', status: 'deceased' });
+  const keys = (await computeNudges()).map((n) => n.key).filter((k) => /^litter(sold|reopen|close):/.test(k));
+  assert.deepEqual(keys, []);
 });
