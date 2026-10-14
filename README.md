@@ -1004,8 +1004,8 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   mappings' new `links` declarations need (kennels → contacts → dogs → events…), each
   through the usual preview and commit. Expense and Waitlist files hand off to their own
   screens. Cache rolled to `kennelos-shell-v77` for this batch and the two above.
-- **Ken + guided "Record a new litter" — built & browser-verified (2026-10-14).** A floating
-  **Ask Ken** button on every page opens **Ken** (`pages/ken.html`), a scripted helper shown
+- **Kels + guided "Record a new litter" — built & browser-verified (2026-10-14).** A floating
+  **Ask Kels** button on every page opens **Kels** (`pages/kels.html`), a scripted helper shown
   as a chat (not a model; nothing leaves the device): he greets her, offers his tasks, and asks
   each question as a chat message, her answers left as replies, ending with "Here's what I'll
   create:" to approve. Also opened from the Breeding page and an Expected litter's page. The
@@ -1015,14 +1015,29 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   litter of that pair with no pups, then an existing breeding, else the breeding questions;
   the stud service for an outside stud (Pro); the birth, each puppy, plans, prices, dates,
   and one review before anything is saved. Answers are kept as a draft after every step
-  (Ken offers "Finish recording …" first), and the save is resumable. Pro then offers "Let
+  (Kels offers "Finish recording …" first), and the save is resumable. Pro then offers "Let
   families know" (the waitlist's litter notice, or the Companion page one family at a
   time); it never opens picks. New `data/guidedLitter.js` (+ `tests/guidedLitter.test.js`),
-  `data/puppyDefaults.js`, `assets/guidedLitterUI.js`, `assets/kenChat.js`, `pages/ken.*`,
+  `data/puppyDefaults.js`, `assets/guidedLitterUI.js`, `assets/kelsChat.js`, `pages/kels.*`,
   Pro-only `assets/guidedShareUI.js`
   and `assets/companionLink.js` (the console's link builder, moved out of
   `pages/companion.js`). No schema change. End-State guide §33; editions plan tier table.
   Cache rolled to `kennelos-shell-v78` for this batch.
+- **Kels (renamed from Ken) + "Check in on a litter" — built & browser-verified (2026-10-14).**
+  The helper is now **Kels**, "your personal KennelOS agent"; who he is (name, line, button
+  label, a future photo) lives in one place, `kelsChat.KELS`, and the files are `kels*`
+  (`pages/kels.html` replaces `pages/ken.html`). His menu takes tasks generically (priority,
+  resumable, hand-off between tasks) and `kelsChat` gained `form()` for ask-with-a-form steps.
+  New task, the weekly litter check-in: "Which litter are we checking on?" (every litter not
+  closed), where it stands (age, status, each pup's plan), then what's waiting on a decision —
+  open picks when the deposit date has come (Pro, families on the waitlist) or move that date;
+  Weaning from 4 weeks; Ready from the ready date; and Today's sold / reopen / close rules
+  (now shared with `nudges.js`). Then "What are we doing first?": weights (compared with each
+  pup's last), medication, or something else (deworming, shots, a vet visit, plans,
+  microchips, the dates, the status). Also opened from a born litter's page (**Check in with
+  Kels**). New `data/litterCheckin.js` (+ `tests/litterCheckin.test.js`),
+  `assets/litterCheckinUI.js`; `waitlistPicksPanel.openPicksFromCheckin`. No schema change.
+  End-State guide §33. Precache updated; `CACHE_NAME` not bumped yet.
 
 ## Build & deploy
 

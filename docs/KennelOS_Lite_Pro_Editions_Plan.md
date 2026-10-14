@@ -74,7 +74,8 @@ without a server, and good enough.
 | Pairings | Unlimited | Unlimited |
 | Events / history log | Unlimited | Unlimited |
 | Calendar (month grid of events + reminders, Add to Google Calendar link) | ✅ | ✅ |
-| Ken, the scripted guided-task helper (floating "Ask Ken" button), with "Record a new litter" (one question at a time as a chat: parents, breeding, birth, each pup, plans & prices; End-State guide §33; 2026-10-14) | ✅ own dogs | ✅ + outside dogs & their owners, the stud service, and "let families know" (waitlist notice / Companion) after the save |
+| Kels (was the placeholder "Ken"), the scripted guided-task helper (floating "Ask Kels" button), with "Record a new litter" (one question at a time as a chat: parents, breeding, birth, each pup, plans & prices; End-State guide §33; 2026-10-14) | ✅ own dogs | ✅ + outside dogs & their owners, the stud service, and "let families know" (waitlist notice / Companion) after the save |
+| Kels's "Check in on a litter": weights with week-over-week comparison, medication / deworming / shots / vet visit for chosen pups, puppy plans, microchips, dates and status; offers Weaning (4 weeks), Ready and the sold / reopen / close moves (End-State guide §33; 2026-10-14) | ✅ | ✅ + offers to open waitlist picks (or move the deposit date) once the accept-deposits date comes |
 | Pedigree import from PDF + pedigree-only dogs (ancestors kept for lineage; never counted toward the cap) | ✅ | ✅ (+ keep the PDF in Documents) |
 | Sales → income | ✅ log sales on their pups | ✅ |
 | Buyers on a sale | ✅ self + inline "add buyer" | ✅ full Contacts section |

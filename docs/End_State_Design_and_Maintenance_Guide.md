@@ -352,6 +352,10 @@ KennelOS/
                                guided litter flow's unfinished draft, §33)
     nudgeState.js              Device-local dismissal ledger for derived nudges
     nudges.js                  Derived-nudge engine — computeNudges() (§19)
+    litterCheckin.js           Kels's "Check in on a litter", data half: the litters offered, age
+                               and roster, what to bring up, weights and care events; owns the
+                               litter sold/reopen/close rules nudges.js uses (pure, §33;
+                               tests/litterCheckin.test.js)
     awayBoard.js               "Away from home" union: boarding events + in-person
                                stud services, one view-model (§19)
   assets/                      Shared UI helpers + reusable components
@@ -371,10 +375,12 @@ KennelOS/
     puppyForm.js               Litter → puppy roster entry (Add Puppy: name, sex, disposition,
                                registration; Add several: males + females counts, disposition and
                                registration applied to all, placeholders "Puppy N", males first)
-    kenChat.js                 Ken's chat transcript (typing, messages, answer panels, choices)
-                               + the floating "Ask Ken" button (§33)
-    guidedLitterUI.js          Ken's "Record a new litter" task: its questions and the
+    kelsChat.js                Who Kels is (KELS: name, tagline, button label, photo) and his
+                               chat transcript (typing, messages, answer panels, choices,
+                               form panels) + the floating "Ask Kels" button (§33)
+    guidedLitterUI.js          Kels's "Record a new litter" task: its questions and the
                                conversation runner (§33)
+    litterCheckinUI.js         Kels's "Check in on a litter" task: the conversation (§33)
     guidedShareUI.js           Its "Let families know" step after the save (§33; Pro-only,
                                PRO_ONLY_STANDALONE, imported dynamically)
     companionLink.js           Bundle → recipient link + sms:/mailto: anchors, shared by the
@@ -407,7 +413,8 @@ KennelOS/
     waitlistUI.js              Waitlist pages' helpers: which kennel's list, kennel
                                picker, preference summary, form dialog (§29; Pro-only,
                                PRO_ONLY_STANDALONE)
-    waitlistPicksPanel.js      The Litter page's "Waitlist picks" panel (§29; Pro-only,
+    waitlistPicksPanel.js      The Litter page's "Waitlist picks" panel, and Kels's check-in's
+                               Open picks (openPicksFromCheckin) (§29, §33; Pro-only,
                                PRO_ONLY_STANDALONE, imported dynamically by litter.js
                                only when editionFlags.waitlist is on)
     waitlistEmailUI.js         "Email the family?": the preview she edits, sends or skips
@@ -2110,7 +2117,9 @@ disposition is null (puppy-only, forced by `dogRepo`), and a null would otherwis
 rule (left `available`, it would ask to reopen). A litter whose pups are all deceased gets none
 of the three. So `computeNudges()` groups the already-loaded `dogRepo.getAll()` result by
 `litter_id` in one pass and adds `saleRepo.getAll()` to its parallel load rather than
-re-scanning per record. Their actions mutate only `Litter.status` via `litterRepo.update`;
+re-scanning per record. The rules themselves are `litterSoldDue` / `litterReopenDue` /
+`litterCloseDue` in `data/litterCheckin.js`, shared with Kels's litter check-in (§33), so the
+two never disagree. Their actions mutate only `Litter.status` via `litterRepo.update`;
 nothing auto-mutates. The stud→pairing and heat→pairing rules share one dedup helper
 (`pairingExistsForDam`): a pairing counts as "already handled" if it's for the same dam, not
 `cancelled`/`failed`, and opened (`planned_date`, falling back to `created_at`) on or after
@@ -4504,33 +4513,48 @@ a real expense names one, treats it as contamination like a sample dog or kennel
 in `ENTITY_REGISTRIES`): reported on the dry run, archived on the archive-conflicting pass.
 They're never in a cloud snapshot, like all sample rows.
 
-## 33. Ken — guided tasks ("Record a new litter")
+## 33. Kels — guided tasks ("Record a new litter", "Check in on a litter")
 
 ### What it is
-**Ken** (placeholder name; `kenChat.KEN_NAME`) is a scripted helper presented as a chat: a
-floating **Ask Ken** button (`kenChat.ASSIST_LABEL`; bottom right on every page, fixed while
+**Kels** (named 2026-10-14; was the placeholder "Ken") is a scripted helper presented as a
+chat. Who he is lives in one place, `kelsChat.KELS` — `name`, `tagline` ("your personal KennelOS
+agent"), `assistLabel`, and `photo` (null until he has one: a path under `assets/`, which must
+then be precached; the avatar falls back to his initial) — and every page, task and the button
+read it (`kelsHello()`, `kelsAvatar()`). A floating **Ask Kels** button (bottom right on every page, fixed while
 scrolling, a dot while a task is unfinished — rendered by `app.js` via
-`kenChat.renderAssistButton`) opens `pages/ken.html`. He is **not a model**: every line he
-"types" is written in the task scripts, and nothing leaves the device. On the page Ken shows a
-typing indicator, says "Hi, I'm Ken! What can I help you do today?", and his tasks fade in one
-at a time (`pages/ken.js` `TASKS`, each with a `priority(state)` hook — an unfinished task
-first — so more scripts can be ordered as they're added). Picking a task: Ken explains what
+`kelsChat.renderAssistButton`) opens `pages/kels.html`. He is **not a model**: every line he
+"types" is written in the task scripts, and nothing leaves the device. On the page Kels shows a
+typing indicator, says "Hi, I'm Kels, your personal KennelOS agent! What can I help you do
+today?", and his tasks fade in one at a time. `pages/kels.js` `TASKS` is the menu; a task is
+`{ id, label(s), sub, available(s), priority(s), run(opts), resumable?, beforeStart?(opts) }`.
+The highest priority is nearest the top (an unfinished litter 100; the check-in 60 while a
+litter has pups at home, else 40; a new litter 50). `resumable` tasks keep a draft, so the
+header's **Save for later** shows only while one runs; `beforeStart` can redirect a start (a new
+litter with one unfinished asks "Finish that one / Start fresh"). A task can hand her to
+another with `handoff(taskId, opts)` (the check-in's Expected litter → its birth). For the
+litter task: picking it, Kels explains what
 will happen and offers **Sounds great, let's start!** / **Never mind**; then every question is a
-Ken message, her answer panel sits under it, and her answer stays in the chat as her reply,
-all in one transcript box that scrolls itself to the newest message. At the end Ken says "I
+Kels message, her answer panel sits under it, and her answer stays in the chat as her reply,
+all in one transcript box that scrolls itself to the newest message. At the end Kels says "I
 think I got it all. Here's what I'll create:" and shows the plan (each section with a Change
 link; a change asks that question again and returns to the plan), then **Yes, build it**.
 No new table, field, index, FK or vocabulary: every write is an ordinary repo write.
 
-Modules: `assets/kenChat.js` (the transcript: `createChat(box)` → `ken(html)` with typing,
-`you(text)`, `panel(html)`, `choose(choices)`; and the floating button), `pages/ken.*` (the
-page and Ken's menu), `assets/guidedLitterUI.js` (the litter task: its question screens, her
-replies — `answerFor` — and the conversation runner `runLitterTask`).
+Modules: `assets/kelsChat.js` (the identity; the transcript: `createChat(box)` → `say(html)`
+with typing, `you(text)`, `panel(html)`, `choose(choices)`, and `form({ title, html, submit,
+reply, … })` — Kels asks with a form panel; `submit(root)` returns a string to show as a problem
+and stay, anything else to finish, and the panel becomes her reply; and the floating button),
+`pages/kels.*` (the page and Kels's menu), `assets/guidedLitterUI.js` (the litter task: its
+question screens, her replies — `answerFor` — and its conversation runner `runLitterTask`, a
+linear questionnaire with Back and a review), `assets/litterCheckinUI.js` + `data/litterCheckin.js`
+(the check-in, below).
 
-**Doors:** the floating button; the Breeding page header (**Record a litter with Ken** →
-`ken.html?task=record-litter`); an Expected litter's page header (**Record the birth with Ken**
-→ `&litter=<id>`, which starts with that litter's parents and litter already chosen). A header
-**Save for later** button while a task runs says the answers are kept and returns to the menu.
+**Doors:** the floating button; the Breeding page header (**Record a litter with Kels** →
+`kels.html?task=record-litter`); an Expected litter's page header (**Record the birth with Kels**
+→ `&litter=<id>`, which starts with that litter's parents and litter already chosen); a born
+litter's page that isn't closed (**Check in with Kels** → `kels.html?task=checkin&litter=<id>`).
+A header **Save for later** button while a resumable task runs says the answers are kept and
+returns to the menu.
 
 ### The order (`data/guidedLitter.js` `stepsFor`)
 1. **Who is the mom?** then **Who is the dad?** Her own dogs as tiles, "Show all" for outside
@@ -4581,13 +4605,13 @@ values.
 `settings.js` `guidedLitterDraft` (`kennelOS.guidedLitterDraft`): her answers, kept after
 every step, plus `history` (each answered question and her reply, so the chat is replayed when
 she comes back), versioned by `DRAFT_VERSION` (an older version is dropped). Device-only — it
-isn't program data until saved — and in `KEYS`, so Reset App clears it. One at a time: Ken's
+isn't program data until saved — and in `KEYS`, so Reset App clears it. One at a time: Kels's
 menu offers **Finish recording X's litter** first, and starting a new litter with one pending
 asks "Finish that one / Start fresh".
 
 ### After the save: "Let families know" (Pro)
 `assets/guidedShareUI.js` (Pro-only; imported only when `editionFlags.waitlist` or
-`editionFlags.companion` and a pup is Available), as Ken's "Want to tell people about the new
+`editionFlags.companion` and a pup is Available), as Kels's "Want to tell people about the new
 pups?" with its panel in the chat. **Tell my waitlist they were born** opens
 the litter page's own "It's almost your turn" / "a litter you match was born" notice
 (`waitlistPicksPanel.openLitterWaitlistNotice`) to review and send. **Share the available
@@ -4596,3 +4620,45 @@ family per screen with real Email / Text anchors built by `companionLink.js`. It
 picks** (decided 2026-10-14): offers stay hers to make from the litter page, which the Done
 screen says.
 
+### "Check in on a litter" (`assets/litterCheckinUI.js`, `data/litterCheckin.js`)
+The weekly visit with one litter. Every thing she approves is saved at once through the repos
+(no draft; she can stop anywhere). No new table, field, index, FK or vocabulary.
+1. **"Which litter are we checking on?"** — every litter not closed or archived, in the active
+   kennel scope (`checkinLitters`: pups at home first, newest born first; then Expected, then
+   Sold), each with its status, age and pup count. From a litter's page it's already chosen.
+   An **Expected** litter: "hasn't been born yet. Did the puppies arrive?" → **Yes, record the
+   birth** hands her to the litter task with that litter.
+2. **Where it stands:** age (`ageText`: days, weeks + days, months from 16 weeks), status, and
+   the roster by plan (`dispositionSummary`; the roster drops archived and deceased pups), plus
+   how many have gone home. Pups **at home** (`homePups`: still `status: 'puppy'`, no delivered
+   sale) are the ones weighed and treated.
+3. **What's waiting on a decision** (`checkinSuggestions`), one at a time, each once per visit:
+   - **Open picks** — Pro with `editionFlags.waitlist`, the litter's kennel has active families,
+     and `waitlistRules.depositsDueLitters` holds (accept-deposits date reached, picks not open,
+     a pup available; the same test as Today's "Open picks?" nudge). **Yes, open picks** runs
+     `waitlistPicksPanel.openPicksFromCheckin` (Pro-only module, imported dynamically: the
+     panel's own `openPicks` + "Email the family?" preview; Kels says the outcome). **Not yet,
+     move the deposit date** asks a new date after today (default a week out) and saves
+     `accept_deposits_date`, so it comes up again then. **Not now** skips it this visit.
+   - **Weaning** — Whelped and 4 weeks or older (`WEANING_AFTER_DAYS`).
+   - **Ready** — Weaning and its `estimated_ready_date` reached (8 weeks when blank).
+   - Today's litter rules, shared with `nudges.js` (which imports `litterSoldDue`,
+     `litterReopenDue`, `litterCloseDue` from here so the two never disagree): **Sold** (Ready,
+     every pup placed/keeping/health hold, one placed), **Reopen to Ready** (Sold/Closed with a
+     pup available), **Close** (Sold, every placed pup's sale delivered).
+4. **"What are we doing first?"** then "What's next for X?" until **That's all for now**:
+   - **Record weights** — one panel: date, AM/PM, and pounds + ounces per pup at home with its
+     last weight; blank skips a pup. One `weight_check` event per pup titled "Weight check",
+     stored as the birth weight is (`weightDetails`). Kels compares with each pup's last weight
+     (`weightReport`): everyone gaining (and who gained most), or "Heads up" naming pups down or
+     flat, a first weight, and pups skipped.
+   - **Record medication**, and under **Something else**: **Deworming or preventative**,
+     **Shots**, **A vet visit** (`CARE_KINDS` → `medication` / `preventative` / `vaccination` /
+     `vet_visit`): the type's own vocab fields, a date (medication: started + optional last
+     dose = `event_end_date`), and which pups (all ticked). One event per pup, titled by the drug /
+     product / vaccine / reason, else the type's label (`careEvents`, `careProblem`). A vet
+     visit's vet is the plain-text `vet` field (no contact picker here).
+   - **Update puppy plans** (disposition per pup; Placed is shown, not editable — it moves with
+     the sale), **Record microchips** (`microchip_id`), **Change the deposit or ready date**,
+     **Change the litter's status** (any but Expected), **Open the litter's page**.
+   After each, the records are reloaded and new decisions (say, Sold after plans change) come up.

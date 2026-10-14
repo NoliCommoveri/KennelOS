@@ -34,6 +34,7 @@ import { studServiceRepo } from './studServiceRepo.js';
 import { dogRepo } from './dogRepo.js';
 import { kennelRepo } from './kennelRepo.js';
 import { pairingRepo } from './pairingRepo.js';
+import { litterSoldDue, litterReopenDue, litterCloseDue } from './litterCheckin.js';
 import { litterRepo } from './litterRepo.js';
 import { saleRepo } from './saleRepo.js';
 import { eventRepo } from './eventRepo.js';
@@ -466,7 +467,8 @@ export async function computeNudges() {
     pairings, sales, dogsById: new Map(allDogs.map((d) => [d.id, d])), littersById: new Map(litters.map((l) => [l.id, l])), today
   }));
 
-  // Litter-lifecycle nudges — all three are aggregate facts over a litter's
+  // Litter-lifecycle nudges (the rules live in data/litterCheckin.js, shared
+  // with Kels's litter check-in) — all three are aggregate facts over a litter's
   // puppy roster (and, for the close rule, its sales), so they're grouped once
   // here from data already loaded above rather than re-scanned per record on
   // every pup/sale save. Non-archived, non-empty rosters only.
@@ -492,14 +494,11 @@ export async function computeNudges() {
     if (pups.length === 0) continue;
     const label = litterLabel(l, dogsById);
     const href = `litter.html?id=${encodeURIComponent(l.id)}`;
-    const anyAvailable = pups.some((p) => p.disposition === 'available');
 
     // Every pup resolved to placed/keeping (or on a health hold — not for sale),
     // with at least one actually placed (an all-keeping litter never "sold"
     // anything) → suggest marking it sold.
-    if (l.status === 'ready'
-      && pups.every((p) => ['placed', 'keeping', 'health_hold'].includes(p.disposition))
-      && pups.some((p) => p.disposition === 'placed')) {
+    if (litterSoldDue(l, pups)) {
       nudges.push({
         key: `littersold:${l.id}`,
         title: `${label} — all puppies spoken for. Mark the litter sold?`,
@@ -512,7 +511,7 @@ export async function computeNudges() {
     }
 
     // A puppy came back available on a sold/closed litter → suggest reopening.
-    if ((l.status === 'sold' || l.status === 'closed') && anyAvailable) {
+    if (litterReopenDue(l, pups)) {
       nudges.push({
         key: `litterreopen:${l.id}`,
         title: `${label} has a puppy available again — reopen the litter?`,
@@ -526,21 +525,16 @@ export async function computeNudges() {
 
     // Every placed puppy has a delivered sale (a placed pup with no delivered
     // sale — including none at all — blocks this) → suggest closing the litter.
-    if (l.status === 'sold' && !anyAvailable) {
-      const placed = pups.filter((p) => p.disposition === 'placed');
-      const allDelivered = placed.length > 0 && placed.every((p) =>
-        (salesByDog.get(p.id) || []).some((s) => s.status === 'delivered'));
-      if (allDelivered) {
-        nudges.push({
-          key: `litterclose:${l.id}`,
-          title: `${label} — every placement delivered. Close the litter?`,
-          detail: 'All placed puppies have a delivered sale.',
-          subjectHref: href,
-          actions: [
-            { label: 'Close litter', run: async () => { await litterRepo.update(l.id, { status: 'closed' }); } }
-          ]
-        });
-      }
+    if (litterCloseDue(l, pups, salesByDog)) {
+      nudges.push({
+        key: `litterclose:${l.id}`,
+        title: `${label} — every placement delivered. Close the litter?`,
+        detail: 'All placed puppies have a delivered sale.',
+        subjectHref: href,
+        actions: [
+          { label: 'Close litter', run: async () => { await litterRepo.update(l.id, { status: 'closed' }); } }
+        ]
+      });
     }
   }
 
