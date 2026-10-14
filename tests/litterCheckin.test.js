@@ -39,6 +39,8 @@ test('the roster drops archived and deceased pups; at home drops grown dogs and 
   const dogs = [pup('a'), pup('b', { status: 'deceased' }), pup('c', { is_archived: true }), pup('d', { status: 'active_breeding', disposition: null }), pup('e', { disposition: 'placed' }), { id: 'x', litter_id: 'other', status: 'puppy' }];
   const roster = C.rosterOf('L', dogs);
   assert.deepEqual(roster.map((d) => d.id), ['a', 'd', 'e']);
+  // Oldest first, whatever order they come in.
+  assert.deepEqual(C.rosterOf('L', [pup('y', { created_at: '2026-10-02' }), pup('x', { created_at: '2026-10-01' })]).map((d) => d.id), ['x', 'y']);
   assert.deepEqual(C.homePups(roster, [{ dog_id: 'e', status: 'delivered' }]).map((d) => d.id), ['a']);
   assert.deepEqual(C.homePups(roster, [{ dog_id: 'e', status: 'deposit_paid' }]).map((d) => d.id), ['a', 'e']);
   assert.equal(C.dispositionSummary([pup('a', { disposition: 'available' }), pup('b', { disposition: 'available' }), pup('c')]), '3 puppies: 1 undecided, 2 available.');

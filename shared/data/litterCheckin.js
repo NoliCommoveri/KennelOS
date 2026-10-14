@@ -72,8 +72,11 @@ export function checkinLitters(litters) {
 // pups are) and not deceased. `home`: of those, the puppies still with her (not
 // grown into an adult record, not gone home on a delivered sale) — the ones she
 // weighs and treats.
+// In the order they were added (as the litter's roster lists them), so every
+// panel lists the pups the same way.
 export function rosterOf(litterId, dogs) {
-  return dogs.filter((d) => d.litter_id === litterId && !d.is_archived && d.status !== 'deceased');
+  return dogs.filter((d) => d.litter_id === litterId && !d.is_archived && d.status !== 'deceased')
+    .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || '') || (a.call_name || '').localeCompare(b.call_name || ''));
 }
 export function homePups(roster, sales = []) {
   const gone = new Set(sales.filter((s) => !s.is_archived && s.status === 'delivered').map((s) => s.dog_id));
@@ -86,7 +89,7 @@ export function dispositionSummary(roster) {
   const counts = new Map();
   for (const p of roster) counts.set(p.disposition || 'none', (counts.get(p.disposition || 'none') || 0) + 1);
   const parts = DISPOSITION.filter((v) => counts.get(v.value)).map((v) => `${counts.get(v.value)} ${v.label.toLowerCase()}`);
-  if (counts.get('none')) parts.push(`${counts.get('none')} grown`);
+  if (counts.get('none')) parts.push(`${counts.get('none')} grown up`);
   return `${plural(roster.length, 'puppy', 'puppies')}: ${parts.join(', ')}.`;
 }
 
