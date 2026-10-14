@@ -15,6 +15,7 @@ import { inScopeOnly, dogsInScope } from '../data/kennelScope.js';
 import { PAIRING_STATUS, PAIRING_TYPE, LITTER_STATUS } from '../data/vocab.js';
 import { esc, badge, fmtDate } from '../assets/ui.js';
 import { openEventForm } from '../assets/eventForm.js';
+import { openGuidedLitter } from '../assets/guidedLitterUI.js';
 
 const PAGE_SIZE = 5; // recent pairings shown before "Show more"
 
@@ -121,6 +122,8 @@ function openDamPicker(females) {
     });
   });
 }
+
+document.getElementById('guided-litter-btn').addEventListener('click', () => openGuidedLitter());
 
 document.getElementById('log-heat-btn').addEventListener('click', async () => {
   const dogs = await dogRepo.getAll();
