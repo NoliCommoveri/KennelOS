@@ -136,3 +136,52 @@ test('care: one event per chosen pup, titled by what was given; the form refuses
 test('the deposit date moves a week out by default', () => {
   assert.equal(C.rescheduleDefault(today), ago(-7));
 });
+
+test('close (decided 2026-10-14): no pup available or undecided, no sale open, one went home — at any born status', () => {
+  const l = (status) => litter({ status, whelp_date: ago(70) });
+  const delivered = { dog_id: 'a', status: 'delivered' };
+  const placed = pup('a', { disposition: 'placed' });
+  // Kept and health-hold pups don't hold it up; it closes from whatever status it was left at.
+  for (const status of ['whelped', 'weaning', 'ready', 'sold']) {
+    assert.ok(C.litterCloseDue(l(status), [placed, pup('k', { disposition: 'keeping' }), pup('h', { disposition: 'health_hold' })], [delivered]), status);
+  }
+  assert.ok(!C.litterCloseDue(l('expected'), [placed], [delivered]));
+  assert.ok(!C.litterCloseDue(l('closed'), [placed], [delivered]));
+  assert.ok(!C.litterCloseDue({ ...l('sold'), is_archived: true }, [placed], [delivered]));
+  // A pup still available or undecided holds it up.
+  assert.ok(!C.litterCloseDue(l('sold'), [placed, pup('b', { disposition: 'available' })], [delivered]));
+  assert.ok(!C.litterCloseDue(l('sold'), [placed, pup('b')], [delivered]));
+  assert.ok(!C.litterCloseDue(l('sold'), [placed, pup('b', { disposition: null })], [delivered]), 'no plan yet counts as undecided');
+  // A grown-up pup (no longer a puppy, so no disposition) doesn't.
+  assert.ok(C.litterCloseDue(l('sold'), [placed, pup('g', { status: 'active_breeding', disposition: null })], [delivered]));
+  // Another family's sale still open holds it up; a finished one (any of the four) doesn't.
+  const b = pup('b', { disposition: 'placed' });
+  assert.ok(!C.litterCloseDue(l('sold'), [placed, b], [delivered, { dog_id: 'b', status: 'paid_in_full' }]));
+  for (const status of ['delivered', 'returned', 'cancelled', 'voided']) {
+    assert.ok(C.litterCloseDue(l('sold'), [placed, b], [delivered, { dog_id: 'b', status }]), status);
+  }
+  // An archived (abandoned) open sale doesn't count.
+  assert.ok(C.litterCloseDue(l('sold'), [placed, b], [delivered, { dog_id: 'b', status: 'deposit_paid', is_archived: true }]));
+  // A placed pup with no sale at all (given away) doesn't hold it up…
+  assert.ok(C.litterCloseDue(l('sold'), [placed, pup('c', { disposition: 'placed' })], [delivered]));
+  // …but something must have gone home.
+  assert.ok(!C.litterCloseDue(l('sold'), [pup('k', { disposition: 'keeping' })], []));
+  assert.ok(!C.litterCloseDue(l('sold'), [placed], [{ dog_id: 'a', status: 'cancelled' }]));
+  // Lite: every pup departed (archived), so the live roster is empty, but the sales count.
+  assert.ok(C.litterCloseDue(l('sold'), [], [delivered]));
+});
+
+test('a litter that can close is asked only that, not Weaning or Sold first', () => {
+  const placed = [pup('a', { disposition: 'placed' })];
+  const delivered = [{ dog_id: 'a', status: 'delivered' }];
+  assert.deepEqual(ids(C.checkinSuggestions({ litter: litter({ whelp_date: ago(70) }), roster: placed, sales: delivered, today })), ['status:closed']);
+  assert.deepEqual(ids(C.checkinSuggestions({ litter: litter({ status: 'ready', whelp_date: ago(70) }), roster: placed, sales: delivered, today })), ['status:closed']);
+  assert.ok(!C.litterSoldDue(litter({ status: 'ready' }), placed, delivered));
+  assert.ok(C.litterSoldDue(litter({ status: 'ready' }), placed, [{ dog_id: 'a', status: 'paid_in_full' }]));
+});
+
+test('a litter\'s sales include its departed (archived) pups', () => {
+  const dogs = [pup('a'), pup('b', { is_archived: true }), { id: 'x', litter_id: 'other' }];
+  const sales = [{ dog_id: 'a', status: 'delivered' }, { dog_id: 'b', status: 'delivered' }, { dog_id: 'x', status: 'delivered' }];
+  assert.deepEqual(C.litterSalesOf('L', dogs, sales).map((s) => s.dog_id), ['a', 'b']);
+});

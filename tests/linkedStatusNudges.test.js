@@ -175,6 +175,18 @@ test('a Deceased pup doesn\'t hold up "mark sold" or "close"', async () => {
   assert.deepEqual((await nudgesFor('litterclose:')).map((n) => n.key), [`litterclose:${l.id}`], 'a placed pup that died before going home has no delivered sale');
 });
 
+test('close: a Lite litter whose pups all departed (archived) on delivered sales still asks to close, from any born status', async () => {
+  const buyer = await contactRepo.create({ name: 'Dana Ruiz' });
+  const l = await litterRepo.create({ kennel_id: K.id, dam_id: dam.id, sire_id: sire.id, status: 'weaning' });
+  const pip = await pupOf(l, { call_name: 'Pip', sex: 'male', disposition: 'placed' });
+  await pupOf(l, { call_name: 'Fern', sex: 'female', disposition: 'health_hold' });
+  const sale = await saleRepo.create({ kennel_id: K.id, dog_id: pip.id, buyer_contact_id: buyer.id, registration_type: 'limited', status: 'paid_in_full' });
+  assert.equal((await nudgesFor('litterclose:')).length, 0, 'a sale still open');
+  await saleRepo.update(sale.id, { status: 'delivered' });
+  await dogRepo.archive(pip.id);
+  assert.deepEqual((await nudgesFor('litterclose:')).map((n) => n.key), [`litterclose:${l.id}`], 'health hold doesn\'t hold it up; the departed pup\'s sale counts');
+});
+
 test('a litter whose pups all died gets none of the three', async () => {
   const l = await litterRepo.create({ kennel_id: K.id, dam_id: dam.id, sire_id: sire.id, status: 'sold' });
   await pupOf(l, { call_name: 'Wren', sex: 'female', disposition: 'available', status: 'deceased' });

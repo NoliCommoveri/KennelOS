@@ -64,8 +64,8 @@ class Checkin {
     this.dogsById = new Map(dogs.map((d) => [d.id, d]));
     this.label = C.litterLabel(litter, this.dogsById);
     this.roster = C.rosterOf(litter.id, dogs);
-    const rosterIds = new Set(this.roster.map((d) => d.id));
-    this.sales = sales.filter((s) => rosterIds.has(s.dog_id));
+    // Every pup's sales, departed (archived) pups included: the close rule counts them.
+    this.sales = C.litterSalesOf(litter.id, await dogRepo.getByLitter(litter.id), sales);
     this.home = C.homePups(this.roster, this.sales);
     const events = (await Promise.all(this.home.map((p) => eventRepo.getForSubject('dog', p.id)))).flat();
     this.weights = C.lastWeights(events);
@@ -200,7 +200,7 @@ class Checkin {
         ? `A puppy is available again, but the litter is marked ${esc(C.statusLabel(this.litter.status))}. Reopen it to Ready?`
         : `${this.litter.estimated_ready_date ? `Their estimated ready date was ${esc(fmtDate(this.litter.estimated_ready_date))}` : `They're ${esc(age)}`}. Move the litter to Ready?`,
       sold: 'Every puppy is placed or being kept. Mark the litter Sold?',
-      closed: 'Every placed puppy has gone home. Close the litter?'
+      closed: 'Every puppy has gone home or is staying with you, and every sale is finished. Close the litter?'
     }[s.status];
     await this.chat.say(ask);
     const verb = s.reopen ? 'Reopen it' : s.status === 'closed' ? 'Close it' : `Move to ${C.statusLabel(s.status)}`;

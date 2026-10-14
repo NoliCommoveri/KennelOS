@@ -2074,9 +2074,17 @@ Sixteen rules (plus the four waitlist rules below), each producing its own stabl
   nothing, so it never fires), suggests marking the litter `sold`.
 - **Litter → reopen** — a `sold` or `closed` litter with any puppy back to `available`
   suggests reopening it to `ready`.
-- **Litter → close** — a `sold` litter with no `available` puppy where **every** `placed`
-  puppy has a `delivered` sale suggests marking it `closed`. A placed puppy with no delivered
-  sale — including one with no sale row at all — blocks the nudge.
+- **Litter → close** (decided 2026-10-14) — a born litter not yet closed, at **any** status
+  (`whelped`/`weaning`/`ready`/`sold`: people don't keep statuses current), where no live puppy
+  is `available` or `undecided` (a blank plan counts as undecided; `keeping`, `health_hold`
+  and grown-up pups don't hold it up), **no sale on any of its puppies is still open** (each
+  is delivered, returned, cancelled or voided — `isOpenSale`; archived sales ignored), and at
+  least one went home on a `delivered` sale. The sales are those of **every** puppy of the
+  litter, archived ones included (`litterSalesOf`): in Lite a delivered puppy departs
+  (is archived) but its sale still counts, so it's checked before the empty-roster skip. A
+  placed puppy with no sale at all (given away) no longer blocks it. When close is due,
+  **sold** isn't suggested. The same rule asks on the Sale page right after a sale moves
+  into a finished status ("Close Autumn litter? That was the last puppy to go home…", §33).
 - **Show track complete → title** (Pro-only, gated on `editionFlags.shows`; Show Tracking
   Spec §5.4) — for each in-scope dog, `showPoints.showRecordFrom` over its `show` +
   `title_earned` events; a `TITLE_TRACKS` row whose progress is `complete` with **no**
@@ -4645,7 +4653,12 @@ The weekly visit with one litter. Every thing she approves is saved at once thro
    - Today's litter rules, shared with `nudges.js` (which imports `litterSoldDue`,
      `litterReopenDue`, `litterCloseDue` from here so the two never disagree): **Sold** (Ready,
      every pup placed/keeping/health hold, one placed), **Reopen to Ready** (Sold/Closed with a
-     pup available), **Close** (Sold, every placed pup's sale delivered).
+     pup available), **Close** (the §19 rule: any born status, no pup available or
+     undecided, no sale open, one delivered; when it's due it's the only question asked).
+   - The **Sale page** asks the same at the moment it becomes true: after a save that moves a
+     sale into delivered / returned / cancelled / voided, `sale.js` `promptCloseLitter` checks
+     the pup's litter with `litterCloseDue` and, if it's done, offers **Close the litter** /
+     **Not now** (last in the post-save prompts).
 4. **"What are we doing first?"** then "What's next for X?" until **That's all for now**:
    - **Record weights** — one panel: date, AM/PM, and pounds + ounces per pup at home with its
      last weight; blank skips a pup. One `weight_check` event per pup titled "Weight check",

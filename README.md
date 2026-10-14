@@ -1039,6 +1039,13 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   `assets/litterCheckinUI.js`; `waitlistPicksPanel.openPicksFromCheckin`. No schema change.
   End-State guide §33. Precache updated; `CACHE_NAME` not bumped yet.
 
+- **Closing a litter, decided 2026-10-14.** A litter is done when no puppy is Available or
+  Undecided, no sale on it is still open (each delivered, returned, cancelled or voided), and
+  one went home; Kept and Health-hold puppies don't hold it up, and it can close from any
+  born status. One rule (`data/litterCheckin.js` `litterCloseDue`) for Today's nudge, Kels's
+  check-in and a new Sale-page question asked right after the sale that finishes the litter.
+  Also fixes Lite, where a delivered puppy departs (is archived) and the old rule never fired.
+
 ## Build & deploy
 
 `node build/assemble.mjs` → `dist/{lite,pro,demo}/`, each a servable/deployable tree

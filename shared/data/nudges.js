@@ -478,10 +478,15 @@ export async function computeNudges() {
     const arr = pupsByLitter.get(d.litter_id);
     if (arr) arr.push(d); else pupsByLitter.set(d.litter_id, [d]);
   }
-  const salesByDog = new Map();
+  // The close rule reads the sales of EVERY pup of the litter, archived ones
+  // included: in Lite a delivered pup departs (is archived), but its sale counts.
+  const litterOfDog = new Map(allDogs.filter((d) => d.litter_id).map((d) => [d.id, d.litter_id]));
+  const salesByLitter = new Map();
   for (const s of sales) {
-    const arr = salesByDog.get(s.dog_id);
-    if (arr) arr.push(s); else salesByDog.set(s.dog_id, [s]);
+    const litterId = litterOfDog.get(s.dog_id);
+    if (!litterId) continue;
+    const arr = salesByLitter.get(litterId);
+    if (arr) arr.push(s); else salesByLitter.set(litterId, [s]);
   }
 
   for (const l of scopedLitters) {
@@ -491,14 +496,31 @@ export async function computeNudges() {
     // its litter forever. Filtering on status rather than disposition also covers
     // a row restored or synced from before that rule.
     const pups = (pupsByLitter.get(l.id) || []).filter((p) => p.status !== 'deceased');
-    if (pups.length === 0) continue;
+    const litterSales = salesByLitter.get(l.id) || [];
     const label = litterLabel(l, dogsById);
     const href = `litter.html?id=${encodeURIComponent(l.id)}`;
+
+    // Done: no pup Available or Undecided, no sale still open, one went home on a
+    // delivered sale → suggest closing, whatever status it was left at. Checked
+    // before the empty-roster skip: a Lite litter whose pups all departed has none.
+    if (litterCloseDue(l, pups, litterSales)) {
+      nudges.push({
+        key: `litterclose:${l.id}`,
+        title: `${label} — every puppy has gone home or is staying. Close the litter?`,
+        detail: 'No puppy is available or undecided, and every sale is finished.',
+        subjectHref: href,
+        actions: [
+          { label: 'Close litter', run: async () => { await litterRepo.update(l.id, { status: 'closed' }); } }
+        ]
+      });
+      continue;
+    }
+    if (pups.length === 0) continue;
 
     // Every pup resolved to placed/keeping (or on a health hold — not for sale),
     // with at least one actually placed (an all-keeping litter never "sold"
     // anything) → suggest marking it sold.
-    if (litterSoldDue(l, pups)) {
+    if (litterSoldDue(l, pups, litterSales)) {
       nudges.push({
         key: `littersold:${l.id}`,
         title: `${label} — all puppies spoken for. Mark the litter sold?`,
@@ -523,19 +545,6 @@ export async function computeNudges() {
       });
     }
 
-    // Every placed puppy has a delivered sale (a placed pup with no delivered
-    // sale — including none at all — blocks this) → suggest closing the litter.
-    if (litterCloseDue(l, pups, salesByDog)) {
-      nudges.push({
-        key: `litterclose:${l.id}`,
-        title: `${label} — every placement delivered. Close the litter?`,
-        detail: 'All placed puppies have a delivered sale.',
-        subjectHref: href,
-        actions: [
-          { label: 'Close litter', run: async () => { await litterRepo.update(l.id, { status: 'closed' }); } }
-        ]
-      });
-    }
   }
 
   // Show Tracking Spec §5.4 — a title track the dog's results complete, with no

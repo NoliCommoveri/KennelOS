@@ -6,9 +6,9 @@
 // through the repos.
 //
 // The three litter-lifecycle rules (sold / reopen / close) are the same ones
-// Today's nudges use (data/nudges.js imports them from here), so the two never
-// disagree about when a litter is ready to move on.
-import { LITTER_STATUS, DISPOSITION, descriptor } from './vocab.js';
+// Today's nudges and the Sale page use (they import them from here), so none of
+// them disagree about when a litter is ready to move on.
+import { LITTER_STATUS, DISPOSITION, descriptor, isOpenSale } from './vocab.js';
 import { addDaysToYMD } from './dateUtils.js';
 import { depositsDueLitters } from './waitlistRules.js';
 
@@ -93,21 +93,40 @@ export function dispositionSummary(roster) {
   return `${plural(roster.length, 'puppy', 'puppies')}: ${parts.join(', ')}.`;
 }
 
-// --- Litter lifecycle rules (shared with Today's nudges) --------------------------
+// --- Litter lifecycle rules (shared with Today's nudges and the Sale page) -------
 
-// `pups` here: the roster without deceased pups (a deceased pup's disposition is
-// null, which would otherwise hold these up forever).
+// `pups` here: the litter's live roster — not archived (Lite's departed pups are)
+// and not deceased (a deceased pup's disposition is null, which would otherwise
+// hold these up forever).
 // Every pup resolved to placed/keeping/health hold, with at least one placed.
-export const litterSoldDue = (l, pups) => l.status === 'ready' && pups.length > 0
+// Not when the litter can already close (that's the one question to ask).
+export const litterSoldDue = (l, pups, litterSales = null) => l.status === 'ready' && pups.length > 0
   && pups.every((p) => ['placed', 'keeping', 'health_hold'].includes(p.disposition))
-  && pups.some((p) => p.disposition === 'placed');
+  && pups.some((p) => p.disposition === 'placed')
+  && !(litterSales && litterCloseDue(l, pups, litterSales));
 // A puppy came back available on a sold or closed litter.
 export const litterReopenDue = (l, pups) => (l.status === 'sold' || l.status === 'closed') && pups.some((p) => p.disposition === 'available');
-// Sold, nothing available, and every placed pup has a delivered sale.
-export function litterCloseDue(l, pups, salesByDog) {
-  if (l.status !== 'sold' || pups.some((p) => p.disposition === 'available')) return false;
-  const placed = pups.filter((p) => p.disposition === 'placed');
-  return placed.length > 0 && placed.every((p) => (salesByDog.get(p.id) || []).some((s) => s.status === 'delivered'));
+
+// The litter is done (decided 2026-10-14): born and not closed, whatever status
+// it was left at; no pup still Available or Undecided (kept, health-hold and
+// grown-up pups don't hold it up); no sale on any of its pups still open (each is
+// delivered, returned, cancelled or voided); and at least one pup went home on a
+// delivered sale. `litterSales`: the sales of EVERY pup of the litter, archived
+// ones included — in Lite a delivered pup departs (is archived) but its sale
+// still counts.
+export const CLOSABLE_STATUSES = ['whelped', 'weaning', 'ready', 'sold'];
+export function litterCloseDue(l, pups, litterSales) {
+  if (!l || l.is_archived || !CLOSABLE_STATUSES.includes(l.status)) return false;
+  if (pups.some((p) => p.status === 'puppy' && ['available', 'undecided'].includes(p.disposition || 'undecided'))) return false;
+  const live = litterSales.filter((s) => !s.is_archived);
+  return !live.some(isOpenSale) && live.some((s) => s.status === 'delivered');
+}
+
+// The sales of every pup of `litterId` (archived pups too). `dogs` must include
+// archived dogs.
+export function litterSalesOf(litterId, dogs, sales) {
+  const ids = new Set(dogs.filter((d) => d.litter_id === litterId).map((d) => d.id));
+  return sales.filter((s) => ids.has(s.dog_id));
 }
 
 // --- What Kels brings up ------------------------------------------------------------
@@ -115,20 +134,18 @@ export function litterCloseDue(l, pups, salesByDog) {
 // The decisions waiting on this litter, most pressing first. Each is
 // { id, status? } — the UI words them. `waitlistOn`: the edition has the
 // waitlist AND the litter's kennel has families on its list.
+// `sales`: the sales of every pup of the litter (litterSalesOf).
 export function checkinSuggestions({ litter, roster, sales = [], today, waitlistOn = false }) {
+  // A litter that's done: closing is the only question (no point moving it to
+  // Weaning first).
+  if (litterCloseDue(litter, roster, sales)) return [{ id: 'status', status: 'closed' }];
   const out = [];
   const age = ageDays(litter, today);
-  const salesByDog = new Map();
-  for (const s of sales) {
-    if (!salesByDog.has(s.dog_id)) salesByDog.set(s.dog_id, []);
-    salesByDog.get(s.dog_id).push(s);
-  }
   if (waitlistOn && depositsDueLitters([litter], roster, sales, today).length) out.push({ id: 'open-picks' });
   if (litter.status === 'whelped' && age != null && age >= WEANING_AFTER_DAYS) out.push({ id: 'status', status: 'weaning' });
   if (litter.status === 'weaning' && readyDue(litter, today)) out.push({ id: 'status', status: 'ready' });
   if (litterSoldDue(litter, roster)) out.push({ id: 'status', status: 'sold' });
   if (litterReopenDue(litter, roster)) out.push({ id: 'status', status: 'ready', reopen: true });
-  if (litterCloseDue(litter, roster, salesByDog)) out.push({ id: 'status', status: 'closed' });
   return out;
 }
 
