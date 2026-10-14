@@ -4,7 +4,8 @@
 // a whelped pairing with no litter, and a Deceased dog still on an open sale or
 // an unfinished pairing. Each one suggests; only its action writes. Also: the
 // litter-lifecycle rules (sold / reopen / close) leave a Deceased pup out, and a
-// pup that died is offered for archiving.
+// pup that died is offered for archiving. And a pairing due within 3 days with
+// no litter yet suggests creating it.
 import { test, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { installMemoryDb } from './support/memoryDb.js';
@@ -240,4 +241,30 @@ test('Lite: the permanent "remove from program" departure, which asks first', as
   } finally {
     editionFlags.manualDogArchive = true;
   }
+});
+
+// --- Due soon: create the litter ahead of the whelp ----------------------------------
+
+const daysAhead = (n) => daysAgo(-n);
+
+test('a bred pairing due within 3 days with no litter → create the litter', async () => {
+  for (const [n, word] of [[0, 'today'], [1, 'tomorrow'], [3, 'in 3 days']]) {
+    await db.pairings.clear();
+    const p = await pairing({ status: 'confirmed_pregnant', expected_due_date: daysAhead(n) });
+    const [x, ...rest] = await nudgesFor('pairingduesoon:');
+    assert.equal(rest.length, 0);
+    assert.equal(x.key, `pairingduesoon:${p.id}`);
+    assert.equal(x.actions[0].label, 'Create litter');
+    assert.match(x.title, new RegExp(`is due ${word} — create the litter\\?$`));
+  }
+});
+
+test('not too early, not once overdue (that rule takes over), not Planned, not with a litter', async () => {
+  await pairing({ expected_due_date: daysAhead(4) });
+  const overdue = await pairing({ expected_due_date: daysAgo(1) });
+  await pairing({ status: 'planned', expected_due_date: daysAhead(2) });
+  const withLitter = await pairing({ expected_due_date: daysAhead(2) });
+  await litter(withLitter, { status: 'expected', whelp_date: null });
+  assert.equal((await nudgesFor('pairingduesoon:')).length, 0);
+  assert.deepEqual((await nudgesFor('pairingoverdue:')).map((n) => n.key), [`pairingoverdue:${overdue.id}`]);
 });

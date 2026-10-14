@@ -11,9 +11,9 @@
 // Nothing here mutates a record on its own; every action is a user-confirmed
 // button click.
 //
-// Thirteen rules (End-State guide §19), each producing zero or more nudges:
+// Fourteen rules (End-State guide §19), each producing zero or more nudges:
 // stud-service status (§4.2), promote-lifecycle (§4.3), heat→pairing (§4.5),
-// stud→pairing (§4.7), the overdue-pairing rule, four linked-status rules
+// stud→pairing (§4.7), due-soon and overdue pairing rules, four linked-status rules
 // (litter whelped → pairing, pairing ended → expected litter, pairing whelped →
 // no litter, a Deceased dog's open sales and pairings), three litter-lifecycle
 // rules (litter→sold / reopen / close) grouped over each litter's roster below,
@@ -66,6 +66,10 @@ const TERMINAL_PAIRING_STATUSES = ['cancelled', 'failed'];
 
 // Pre-whelp: still expecting a litter, not yet resolved one way or the other.
 const PRE_WHELP_STATUSES = ['planned', 'bred', 'confirmed_pregnant'];
+
+// How many days before a pairing's expected due date the "due soon — create the
+// litter?" nudge starts.
+const DUE_SOON_DAYS = 3;
 
 // How far back the "pairing whelped, no litter" rule looks (see that rule).
 const LITTER_RECORD_WINDOW_DAYS = 180;
@@ -339,6 +343,27 @@ export async function computeNudges() {
       subjectHref: `dog.html?id=${encodeURIComponent(damId)}`,
       actions: [
         { label: 'Create pairing', run: async () => { location.href = `pairing.html?new=1&dam=${encodeURIComponent(damId)}`; } }
+      ]
+    });
+  }
+
+  // Due soon — a bred or confirmed-pregnant pairing whose expected due date is
+  // today or within DUE_SOON_DAYS, with no litter yet: suggest creating the
+  // litter now (it starts as "Expected"), so it's ready when the pups arrive.
+  // Not for a pairing still "Planned" — nothing says the breeding happened. Its
+  // own key, so dismissing it early doesn't hide the overdue nudge below.
+  for (const p of scopedPairings) {
+    if (!['bred', 'confirmed_pregnant'].includes(p.status) || !p.expected_due_date) continue;
+    if (p.expected_due_date < today || p.expected_due_date > addDaysToYMD(today, DUE_SOON_DAYS)) continue;
+    if (pairingIdsWithLitter.has(p.id)) continue;
+    const days = daysBetween(today, p.expected_due_date);
+    nudges.push({
+      key: `pairingduesoon:${p.id}`,
+      title: `${pairingLabel(p, dogsById)} is due ${days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`} — create the litter?`,
+      detail: `Expected ${p.expected_due_date}. The litter starts as "Expected" until the pups arrive.`,
+      subjectHref: `pairing.html?id=${encodeURIComponent(p.id)}`,
+      actions: [
+        { label: 'Create litter', run: async () => { location.href = `litter.html?new=1&pairing=${encodeURIComponent(p.id)}`; } }
       ]
     });
   }

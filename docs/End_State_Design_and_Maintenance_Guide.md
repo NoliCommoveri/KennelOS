@@ -1977,7 +1977,7 @@ originals stay in play for every lookup and every "already handled?" dedup check
 is deliberate: scoping a dedup check would resurrect a nudge whose answer already sits
 one kennel over.
 
-Fifteen rules (plus the four waitlist rules below), each producing its own stable `key` so a dismissal survives re-computation:
+Sixteen rules (plus the four waitlist rules below), each producing its own stable `key` so a dismissal survives re-computation:
 - **What a connected vendor reported** (Pro, `editionFlags.accounts`; Integrations plan §0) —
   each entry of a sale's or contract's `integration_reviews` (an event her device didn't apply
   because the record had moved on, a waitlist pick's deposit, or any refund;
@@ -2006,6 +2006,12 @@ Fifteen rules (plus the four waitlist rules below), each producing its own stabl
 - **Heat → pairing** — a concluded `heat_cycle` event (`event_end_date < today`) with no
   live pairing recorded for that dam since the heat started suggests creating one via
   `pairing.html?new=1&dam=<dogId>`.
+- **Due soon → create litter** — a `bred`/`confirmed_pregnant` pairing whose
+  `expected_due_date` is today or within the next `DUE_SOON_DAYS` (3), with no litter recorded
+  against it, suggests **Create litter** via `litter.html?new=1&pairing=<id>` (it starts as
+  `expected`). Not for a `planned` pairing (nothing says the breeding happened). Key
+  `pairingduesoon:<pairingId>`, its own so dismissing it doesn't hide the overdue rule, which
+  takes over the day after the due date.
 - **Overdue pairing** — a pairing in a pre-whelp status
   (`planned`/`bred`/`confirmed_pregnant`) whose `expected_due_date` has passed, with no
   litter recorded against it (`litterRepo.getForPairing`), suggests either fix: mark the
