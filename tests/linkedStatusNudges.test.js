@@ -3,13 +3,14 @@
 // whose pairing isn't, a pairing that didn't take with its litter still Expected,
 // a whelped pairing with no litter, and a Deceased dog still on an open sale or
 // an unfinished pairing. Each one suggests; only its action writes. Also: the
-// litter-lifecycle rules (sold / reopen / close) leave a Deceased pup out.
+// litter-lifecycle rules (sold / reopen / close) leave a Deceased pup out, and a
+// pup that died is offered for archiving.
 import { test, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { installMemoryDb } from './support/memoryDb.js';
 
 let db; let kennelRepo; let dogRepo; let contactRepo; let pairingRepo; let litterRepo; let saleRepo;
-let computeNudges;
+let computeNudges; let deceasedDogNudges; let deceasedArchiveAction; let editionFlags;
 
 before(async () => {
   await installMemoryDb();
@@ -20,7 +21,8 @@ before(async () => {
   ({ pairingRepo } = await import('../shared/data/pairingRepo.js'));
   ({ litterRepo } = await import('../shared/data/litterRepo.js'));
   ({ saleRepo } = await import('../shared/data/saleRepo.js'));
-  ({ computeNudges } = await import('../shared/data/nudges.js'));
+  ({ computeNudges, deceasedDogNudges, deceasedArchiveAction } = await import('../shared/data/nudges.js'));
+  ({ editionFlags } = await import('../shared/data/editionConfig.js'));
 });
 
 const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
@@ -177,4 +179,65 @@ test('a litter whose pups all died gets none of the three', async () => {
   await pupOf(l, { call_name: 'Wren', sex: 'female', disposition: 'available', status: 'deceased' });
   const keys = (await computeNudges()).map((n) => n.key).filter((k) => /^litter(sold|reopen|close):/.test(k));
   assert.deepEqual(keys, []);
+});
+
+// --- A pup that died is offered for archiving ------------------------------------------
+
+const deadPup = (over) => dogRepo.create({
+  call_name: 'Wren', sex: 'female', breed: 'Boston Terrier', ownership_type: 'owned', kennel_id: K.id,
+  status: 'deceased', date_of_birth: daysAgo(80), date_of_death: daysAgo(10), ...over
+});
+
+test('a pup that died recently → Archive; it leaves the list', async () => {
+  const wren = await deadPup();
+  const [n, ...rest] = await nudgesFor('deceased-archive:');
+  assert.equal(rest.length, 0);
+  assert.equal(n.key, `deceased-archive:${wren.id}`);
+  assert.equal(n.actions[0].label, 'Archive');
+  assert.ok(!n.actions[0].confirm, 'Pro archives straight from the button');
+  await n.actions[0].run();
+  assert.equal((await dogRepo.getById(wren.id)).is_archived, true);
+  assert.equal((await nudgesFor('deceased-archive:')).length, 0);
+});
+
+test('not for a dog that died grown, long ago, or with no birth date to go by', async () => {
+  await deadPup({ call_name: 'Old', date_of_birth: daysAgo(3 * 365) });
+  await deadPup({ call_name: 'Long ago', date_of_birth: daysAgo(300), date_of_death: daysAgo(200) });
+  await deadPup({ call_name: 'Unknown', date_of_birth: null });
+  assert.equal((await nudgesFor('deceased-archive:')).length, 0);
+});
+
+test('no birth date: the litter\'s whelp date stands in', async () => {
+  const l = await litterRepo.create({ kennel_id: K.id, dam_id: dam.id, sire_id: sire.id, status: 'ready', whelp_date: daysAgo(60) });
+  const wren = await deadPup({ date_of_birth: null, litter_id: l.id, dam_id: dam.id, sire_id: sire.id });
+  assert.deepEqual((await nudgesFor('deceased-archive:')).map((n) => n.key), [`deceased-archive:${wren.id}`]);
+});
+
+test('the dog page offers it whenever she has just moved a Puppy to Deceased', async () => {
+  const wren = await deadPup({ date_of_birth: null, date_of_death: null });
+  const list = (wasPuppy) => deceasedDogNudges([wren], { pairings: [], sales: [], dogsById: new Map(), wasPuppy }).map((n) => n.key);
+  assert.deepEqual(list(false), []);
+  assert.deepEqual(list(true), [`deceased-archive:${wren.id}`]);
+});
+
+test('an archived pup that died still shows its open sale', async () => {
+  const buyer = await contactRepo.create({ name: 'Renee Coleman' });
+  const wren = await deadPup();
+  const open = await saleRepo.create({ kennel_id: K.id, dog_id: wren.id, buyer_contact_id: buyer.id, registration_type: 'limited', status: 'deposit_paid' });
+  await dogRepo.archive(wren.id);
+  assert.deepEqual((await nudgesFor('deceased-')).map((n) => n.key), [`deceased-sale:${open.id}`]);
+});
+
+test('Lite: the permanent "remove from program" departure, which asks first', async () => {
+  const wren = await deadPup();
+  editionFlags.manualDogArchive = false;
+  try {
+    const a = deceasedArchiveAction(wren);
+    assert.equal(a.label, 'Remove from program');
+    assert.equal(a.confirm, true);
+    assert.equal(a.ask.confirmLabel, 'Remove permanently');
+    assert.equal(a.ask.danger, true);
+  } finally {
+    editionFlags.manualDogArchive = true;
+  }
 });

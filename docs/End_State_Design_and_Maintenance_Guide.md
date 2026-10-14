@@ -2030,7 +2030,17 @@ Fifteen rules (plus the four waitlist rules below), each producing its own stabl
   pairing still in a pre-whelp status — as the **dam**, any (`planned` → **Cancel pairing**,
   `bred`/`confirmed_pregnant` → **Mark failed**); as the **sire**, a `planned` one only and
   never `method='ai_frozen'` (a bred pairing stands without him). Key
-  `deceased-pairing:<pairingId>:<dogId>`.
+  `deceased-pairing:<pairingId>:<dogId>`. Archived deceased dogs are read too (archiving a pup
+  that died doesn't end its sale). Last, a **puppy that died** is offered for archiving
+  (`deceasedArchiveAction`): it leaves the Dogs list but stays on its litter's roster with its
+  history. Today offers it for a non-archived dog that died (`date_of_death`, else
+  `status_date`) within the last 90 days before its first birthday (by `date_of_birth`, else
+  its litter's `whelp_date`; neither → not offered); the dog page offers it whenever she has
+  just moved a dog from Puppy to Deceased (`wasPuppy`). Pro: **Archive**. Lite: **Remove from
+  program**, the permanent departure (cap spec §5), whose action carries `confirm: true` —
+  Today and the dog page show its `ask` (confirmModal options) first and run it only on yes.
+  A breeding dog that died stays listed under Not breeding → Deceased unless she archives it.
+  Key `deceased-archive:<dogId>`.
 - **Litter → sold** — a non-archived `ready` litter whose whole roster is resolved to
   `placed`/`keeping`/`health_hold` (a pup on a health hold is not for sale), with **at least one** actually `placed` (an all-`keeping` litter sold
   nothing, so it never fires), suggests marking the litter `sold`.
@@ -2067,7 +2077,9 @@ edit made on that page: the **litter page** offers to set the linked pairing's s
 litter is created whelped-or-later or first enters that band; the **pairing page**, on the
 transition into `whelped` with no litter, offers **Create litter**, and into an ended status,
 offers to archive each linked `expected` litter; the **dog page**, on the transition into
-`deceased`, lists `deceasedDogNudges` for that dog with their actions. An import, a live
+`deceased`, lists `deceasedDogNudges` for that dog with their actions (with the archive offer
+when it was a Puppy until now); and **`salePrompts.promptReleasedPup`**, after recording the
+death of a pup whose sale ended `pup_died`, offers the same archive. An import, a live
 sync, another device or a Skip leaves the mismatch for Today to catch.
 
 The three litter-lifecycle rules are aggregate facts over a litter's derived roster (and, for

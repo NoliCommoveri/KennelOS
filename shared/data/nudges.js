@@ -26,7 +26,9 @@
 // pause, a listen-only narrowing, an answer change: Approve / Decline; messages
 // and activity: Mark read). And (Pro) what a connected vendor reported that her
 // device didn't apply by itself (Integrations plan §0): Done.
-//   { key, title, detail, subjectHref, actions: [{ label, run: async () => {} }] }
+//   { key, title, detail, subjectHref, actions: [{ label, run: async () => {}, confirm?, ask? }] }
+// An action with `confirm: true` must be confirmed first — the renderer shows
+// `ask` (confirmModal options) and runs it only on yes (Lite's permanent departure).
 // `run` may resolve to { title, message }, which Today shows once it's done.
 import { studServiceRepo } from './studServiceRepo.js';
 import { dogRepo } from './dogRepo.js';
@@ -122,6 +124,49 @@ function studInProgressNudge(s, dogsById) {
   };
 }
 
+// A puppy that died is archived, so it leaves the Dogs list but stays on its
+// litter's roster with its history (archive is a soft delete). Pro archives it
+// outright; Lite has no free Archive, only the permanent "remove from program"
+// departure (cap spec §5), so there the action carries `confirm: true` and the
+// caller asks `ask` first. `ask` is also the question for a caller that offers it
+// on its own (salePrompts, when a sale ends because the pup died).
+export function deceasedArchiveAction(dog) {
+  const name = dog.call_name || dog.registered_name || 'this dog';
+  const run = async () => { await dogRepo.archive(dog.id); };
+  if (editionFlags.manualDogArchive) {
+    return {
+      label: 'Archive', run,
+      ask: {
+        title: `Archive ${name} too?`,
+        message: `${name} leaves your Dogs list but stays on the litter, with all its history.`,
+        confirmLabel: 'Archive', cancelLabel: 'Keep on list'
+      }
+    };
+  }
+  return {
+    label: 'Remove from program', run, confirm: true,
+    ask: {
+      title: `Remove “${name}” from your program?`,
+      message: `This can't be undone here — ${name} leaves your roster and you won't be able to edit it or bring it back. It stays in your dogs' pedigrees for lineage.`,
+      confirmLabel: 'Remove permanently', cancelLabel: 'Keep on roster', danger: true
+    }
+  };
+}
+
+// Today offers the archive for a dog that died young (before its first
+// birthday, by date of birth, else its litter's whelp date) in the last
+// DECEASED_ARCHIVE_WINDOW_DAYS — a pup, not a breeding dog that died (those stay
+// listed under Not breeding → Deceased unless she archives them herself), and
+// not every pup that died years ago.
+const DECEASED_ARCHIVE_WINDOW_DAYS = 90;
+const PUPPY_MAX_MONTHS = 12;
+function diedAsPuppyRecently(d, littersById, today) {
+  const died = d.date_of_death || d.status_date;
+  if (!died || died < addDaysToYMD(today, -DECEASED_ARCHIVE_WINDOW_DAYS)) return false;
+  const born = d.date_of_birth || littersById?.get(d.litter_id)?.whelp_date;
+  return !!born && born <= died && monthsBetween(born, died) < PUPPY_MAX_MONTHS;
+}
+
 // What a Deceased dog leaves open: its open sales (End the sale on the sale's own
 // page, which settles the family — a waitlist family gets offered back into line)
 // and its unfinished pairings — as the dam, any still expecting a litter (Planned
@@ -129,10 +174,16 @@ function studInProgressNudge(s, dogsById) {
 // (a bred pairing stands without him), and never a frozen-semen AI. Shared by
 // computeNudges (the Today backstop) and the dog page's prompt when she marks a
 // dog Deceased, so the two always list the same things.
-export function deceasedDogNudges(dogs, { pairings, sales, dogsById }) {
+//
+// Last, for a puppy, archiving it (deceasedArchiveAction): on Today when it died
+// young and recently (diedAsPuppyRecently); on the dog page whenever she has just
+// moved it from Puppy to Deceased (`wasPuppy`).
+export function deceasedDogNudges(dogs, { pairings, sales, dogsById, littersById = null, wasPuppy = false, today = todayYMD() }) {
   const out = [];
   for (const d of dogs) {
-    if (d.status !== 'deceased' || d.is_archived) continue;
+    // An archived one still counts for its sales and pairings: archiving a pup
+    // that died doesn't end its sale.
+    if (d.status !== 'deceased') continue;
     const name = d.call_name || d.registered_name || 'This dog';
     for (const s of sales) {
       if (s.dog_id !== d.id || s.is_archived || !isOpenSale(s)) continue;
@@ -160,6 +211,20 @@ export function deceasedDogNudges(dogs, { pairings, sales, dogsById }) {
         actions: [
           { label: next === 'cancelled' ? 'Cancel pairing' : 'Mark failed', run: async () => { await pairingRepo.update(p.id, { status: next }); } }
         ]
+      });
+    }
+    if (!d.is_archived && (wasPuppy || diedAsPuppyRecently(d, littersById, today))) {
+      const action = deceasedArchiveAction(d);
+      out.push({
+        key: `deceased-archive:${d.id}`,
+        title: editionFlags.manualDogArchive
+          ? `${name} is marked Deceased — archive ${name}?`
+          : `${name} is marked Deceased — remove ${name} from your program?`,
+        detail: editionFlags.manualDogArchive
+          ? 'Takes the record off your Dogs list. It stays on the litter, with its history.'
+          : 'Takes the record off your roster. It stays in your dogs\' pedigrees.',
+        subjectHref: `dog.html?id=${encodeURIComponent(d.id)}`,
+        actions: [action]
       });
     }
   }
@@ -369,7 +434,12 @@ export async function computeNudges() {
 
   // A dog marked Deceased that's still on an open sale or an unfinished pairing
   // (the backstop for the prompt on the dog page).
-  nudges.push(...deceasedDogNudges(scopedDogs, { pairings, sales, dogsById }));
+  // Archived ones too (an archived pup can still have an open sale), so this one
+  // rule reads the dogs again with them.
+  const allDogs = await dogRepo.getAll({ includeArchived: true });
+  nudges.push(...deceasedDogNudges(dogsInScope(allDogs.filter((d) => d.status === 'deceased')), {
+    pairings, sales, dogsById: new Map(allDogs.map((d) => [d.id, d])), littersById: new Map(litters.map((l) => [l.id, l])), today
+  }));
 
   // Litter-lifecycle nudges — all three are aggregate facts over a litter's
   // puppy roster (and, for the close rule, its sales), so they're grouped once
