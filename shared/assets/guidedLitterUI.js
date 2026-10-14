@@ -1,16 +1,17 @@
-// guidedLitterUI.js — the screens of the guided "Record a new litter" flow: one
-// question per screen, big buttons, Back on every screen, a progress line, and
-// one "Here's what I'll save" review she approves before anything is written.
-// The steps, checks, review lines and the save itself live in
-// data/guidedLitter.js; this module only draws them and keeps the draft.
+// guidedLitterUI.js — Ken's "Record a new litter" task: the questions he asks,
+// one at a time, in the chat on pages/ken.html (assets/kenChat.js draws the
+// chat). Each question is a "screen" (below): Ken's line, then her answer panel
+// with big buttons and Back; her answer is left in the chat as her reply, and
+// at the end Ken shows the plan ("I think I got it all. Here's what I'll
+// create:") for her to approve before anything is written. The steps, checks,
+// review lines and the save itself live in data/guidedLitter.js; this module
+// only draws them and keeps the draft.
 //
-// Her answers are kept after every step (settings.js guidedLitterDraft), so
-// closing the window loses nothing and Today offers "Finish recording …". After
-// the save, Pro shows the "Let families know" step (assets/guidedShareUI.js,
-// Pro-only, imported only when this edition has the waitlist or Companion).
-//
-// Opened from Today, the Breeding page, and an Expected litter's page; every
-// door calls openGuidedLitter. Reads go through the repos; writes only through
+// Her answers, and the chat so far, are kept after every step (settings.js
+// guidedLitterDraft), so closing the window loses nothing and Ken offers to
+// finish it next time. After the save, Pro shows "Let families know"
+// (assets/guidedShareUI.js, Pro-only, imported only when this edition has the
+// waitlist or Companion). Reads go through the repos; writes only through
 // guidedLitter.saveGuidedLitter.
 import { dogRepo } from '../data/dogRepo.js';
 import { litterRepo } from '../data/litterRepo.js';
@@ -27,10 +28,8 @@ import {
 } from '../data/vocab.js';
 import { addDaysToYMD } from '../data/dateUtils.js';
 import * as G from '../data/guidedLitter.js';
-import { esc, todayYMD, confirmModal } from './ui.js';
+import { esc, todayYMD } from './ui.js';
 import { renderUpgradeNudge } from './upgradeNudge.js';
-
-const TITLE = 'Record a new litter';
 
 function pagesPrefix() {
   return location.pathname.includes('/pages/') ? '' : 'pages/';
@@ -472,8 +471,8 @@ function screens(draft, data, ctx) {
         names: { dam: namesFor(draft.newDam), sire: namesFor(draft.newSire) }
       });
       return {
-        title: 'Here\'s what I\'ll save',
-        html: `<p class="gl-lead">Look it over. Tap <strong>Change</strong> to fix anything, or <strong>Yes, save it</strong> when it's right.</p>
+        title: 'I think I got it all. Here\'s what I\'ll create:',
+        html: `<p class="gl-lead">Look it over. Tap <strong>Change</strong> to fix anything, or <strong>Yes, build it</strong> when it's right.</p>
           ${sections.map((s) => `<section class="gl-review-section">
             <div class="row-between"><h3>${esc(s.title)}</h3><button type="button" class="btn btn-sm" data-goto="${esc(s.step)}">Change</button></div>
             <ul>${s.lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul></section>`).join('')}`,
@@ -512,29 +511,84 @@ function previewItems(pups, prices) {
   }).join('');
 }
 
-// --- The runner -----------------------------------------------------------------------
 
-// Open the flow. `litterId`: opened from an Expected litter's page, so the
-// parents and litter are known. `resume`: carry on the saved draft (Today's card).
-export async function openGuidedLitter({ litterId = null, resume = false } = {}) {
-  let draft = getGuidedLitterDraft();
-  if (draft && draft.v !== G.DRAFT_VERSION) { clearGuidedLitterDraft(); draft = null; }
-  const sameRecord = draft && litterId && draft.litterId === litterId;
-  if (draft && !resume && !sameRecord && !draft.done) {
-    const finish = await confirmModal({
-      title: 'Finish the litter you started?',
-      message: `You have an unfinished litter${draft.label ? ` (${draft.label})` : ''}. Finish that one first, or throw it away and start this one?`,
-      confirmLabel: 'Finish that one',
-      cancelLabel: 'Start over'
-    });
-    if (!finish) { clearGuidedLitterDraft(); draft = null; }
-  } else if (draft && !resume && !sameRecord) {
-    draft = null;
+// --- Her answers, as she'd have said them -------------------------------------------
+
+const yesNo = (b) => (b ? 'Yes' : 'No');
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+// The reply bubble left in the chat once a step is answered: plain text.
+function answerFor(stepId, draft, data) {
+  const dogName = (id) => { const d = data.dogsById.get(id); return d ? (d.call_name || d.registered_name) : ''; };
+  const [role, part] = stepId.split('-');
+  if (G.ROLES[role]) {
+    const r = G.ROLES[role];
+    const spec = draft[r.newKey];
+    if (!part) return spec ? 'A dog that isn\'t in KennelOS yet' : dogName(draft[r.idKey]);
+    if (!spec) return part === 'match' ? `Yes, that's ${r.pronoun === 'she' ? 'her' : 'him'}: ${dogName(draft[r.idKey])}` : '';
+    if (part === 'new') return [spec.call_name, spec.registered_name, spec.breed, spec.mine ? 'mine' : 'someone else\'s'].filter(Boolean).join(' · ');
+    if (part === 'match') return `No, ${r.pronoun}'s a different dog`;
+    if (part === 'owner') return spec.ownerId ? (data.contactsById.get(spec.ownerId)?.name || 'Someone in my contacts') : [spec.owner.name, spec.owner.phone, spec.owner.email].filter(Boolean).join(' · ');
+    if (part === 'kennel') return spec.kennelId ? (data.kennelsById.get(spec.kennelId)?.kennel_name || '') : (spec.kennelName || 'Skip');
   }
+  if (stepId.startsWith('pup:')) {
+    const p = draft.pups[Number(stepId.slice(4))];
+    return [p.call_name, p.sex === 'female' ? 'Girl' : 'Boy', p.color_markings, p.birth_oz ? `${p.birth_oz} oz` : ''].filter(Boolean).join(' · ');
+  }
+  switch (stepId) {
+    case 'match-litter': return draft.litterChoice === 'none' ? 'No, this is a new litter' : 'Yes, that one';
+    case 'match-pairing': return draft.pairingChoice === 'none' ? 'No, a different breeding' : 'Yes, that one';
+    case 'bred': return [draft.bredDate ? G.fmt(draft.bredDate) : 'Not sure of the date', draft.lastBredDate ? `and ${G.fmt(draft.lastBredDate)}` : '', draft.method ? descriptor(PAIRING_METHOD, draft.method).label : ''].filter(Boolean).join(' · ');
+    case 'stud-service': {
+      const st = draft.stud || {};
+      if (!st.record) return 'No, skip it';
+      return ['Yes', st.fee_structure ? descriptor(FEE_STRUCTURE, st.fee_structure).label : '', st.fee_amount ? `$${st.fee_amount}` : ''].filter(Boolean).join(' · ');
+    }
+    case 'born': return G.fmt(draft.whelpDate);
+    case 'count': return [`${draft.alive} born alive`, Number(draft.deceased) ? `${draft.deceased} not alive` : '', Number(draft.abnormalities) ? `${draft.abnormalities} with abnormalities` : ''].filter(Boolean).join(' · ');
+    case 'kennel': return data.kennelsById.get(draft.kennelId)?.kennel_name || '';
+    case 'plans': {
+      const n = (v) => draft.pups.filter((p) => p.disposition === v).length;
+      return DISPOSITION.map((d) => (n(d.value) ? `${n(d.value)} ${d.label.toLowerCase()}` : '')).filter(Boolean).join(' · ');
+    }
+    case 'prices': {
+      const p = draft.prices;
+      const bit = (who, k) => (p[`expected_price_${k}`] ? `${who} $${p[`expected_price_${k}`]}` : '');
+      return [bit('Boys', 'male'), bit('Girls', 'female')].filter(Boolean).join(' · ') || 'Not decided yet';
+    }
+    case 'dates': return [draft.acceptDepositsDate ? `Deposits from ${G.fmt(draft.acceptDepositsDate)}` : '', draft.readyDate ? `Home ${G.fmt(draft.readyDate)}` : ''].filter(Boolean).join(' · ') || 'Skip';
+    case 'extras': {
+      const chips = draft.pups.filter((p) => p.microchip_id).length;
+      return [draft.nickname ? `Nickname: ${draft.nickname}` : '', chips ? plural(chips, 'microchip', 'microchips') : ''].filter(Boolean).join(' · ') || 'Skip for now';
+    }
+    default: return '';
+  }
+}
 
+// --- The conversation -----------------------------------------------------------------
+
+// An unfinished draft, if there is one (Ken offers to finish it).
+export function pendingLitterDraft() {
+  const draft = getGuidedLitterDraft();
+  if (!draft) return null;
+  if (draft.v !== G.DRAFT_VERSION) { clearGuidedLitterDraft(); return null; }
+  return draft.done ? null : draft;
+}
+
+export function discardGuidedLitterDraft() {
+  clearGuidedLitterDraft();
+}
+
+// Run "Record a new litter" in `chat` (assets/kenChat.js). `litterId`: started
+// from an Expected litter's page. `resume`: carry on the unfinished draft.
+// `onExit(reason)` hands the chat back to Ken's menu ('nevermind' | 'later' | 'done').
+// `onSaved()` runs once the records are built (nothing is left to save for later).
+export async function runLitterTask(chat, { litterId = null, resume = false, onExit = () => {}, onSaved = () => {} } = {}) {
   const data = await loadData();
+  let draft = resume ? pendingLitterDraft() : null;
   if (!draft) {
     draft = G.emptyDraft({ litterId });
+    draft.history = [];
     if (litterId) {
       const litter = data.littersById.get(litterId);
       if (litter) {
@@ -543,256 +597,278 @@ export async function openGuidedLitter({ litterId = null, resume = false } = {})
         G.applyLitterChoice(draft, litter, data.dogs);
       }
     }
+    await chat.ken(`Absolutely, let's get those puppies added! I'll ask you some questions; once I'm done collecting the information, I'll build the records for you to approve. If you get stuck or need to save and come back, I'll save what we've got so far until you're ready to continue. Sound good?`, { typing: 900 });
+    const go = await chat.choose([
+      { label: 'Sounds great, let\'s start!', value: 'start', primary: true },
+      { label: 'Never mind', value: 'nevermind' }
+    ]);
+    if (go === 'nevermind') { onExit('nevermind'); return; }
+  } else {
+    draft.history = draft.history || [];
+    await chat.ken(`Welcome back! Here's what we have so far for ${esc(draft.label || 'your litter')}:`, { typing: 500 });
+    for (const h of draft.history) {
+      const b = await chat.ken(esc(h.q), { typing: 0 });
+      b.classList.add('ken-past');
+      chat.you(h.a);
+    }
+    await chat.ken('Let\'s pick up where we left off.', { typing: 500 });
   }
-  runFlow(draft, data);
+  return new LitterConversation(chat, draft, data, onExit, onSaved).start();
 }
 
-// Discard the saved draft (Today's "Throw it away").
-export function discardGuidedLitterDraft() {
-  clearGuidedLitterDraft();
-}
+class LitterConversation {
+  constructor(chat, draft, data, onExit, onSaved) {
+    Object.assign(this, { chat, draft, data, onExit, onSaved, ctx: null, steps: [], current: null, panel: null, busy: false });
+  }
 
-function runFlow(draft, data) {
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay gl-overlay';
-  overlay.innerHTML = `<div class="modal gl-modal" role="dialog" aria-modal="true" aria-labelledby="gl-title">
-      <div class="gl-head">
-        <span class="gl-flow-title">🐾 ${esc(TITLE)}</span>
-        <button type="button" class="btn btn-sm" data-act="close">Save &amp; close</button>
-      </div>
-      <div class="gl-progress" aria-live="polite"></div>
-      <h2 id="gl-title" class="gl-title"></h2>
-      <div class="gl-body"></div>
-      <div class="gl-error" aria-live="assertive"></div>
-      <div class="gl-foot"></div>
-    </div>`;
-  document.body.appendChild(overlay);
-  document.body.classList.add('gl-open');
-  const els = {
-    progress: overlay.querySelector('.gl-progress'),
-    title: overlay.querySelector('.gl-title'),
-    body: overlay.querySelector('.gl-body'),
-    error: overlay.querySelector('.gl-error'),
-    foot: overlay.querySelector('.gl-foot')
-  };
+  persist() {
+    const d = this.draft;
+    d.updatedAt = new Date().toISOString();
+    const damName = d.newDam?.call_name || this.data.dogsById.get(d.damId)?.call_name;
+    d.label = damName ? `${damName}'s litter` : '';
+    if (!d.done) setGuidedLitterDraft(d);
+  }
 
-  let ctx = null;
-  let steps = [];
-  let current = null; // the current screen object
-  let saving = false;
-
-  const persist = () => {
-    draft.updatedAt = new Date().toISOString();
-    const damName = draft.newDam?.call_name || data.dogsById.get(draft.damId)?.call_name;
-    draft.label = damName ? `${damName}'s litter` : '';
-    if (!draft.done) setGuidedLitterDraft(draft);
-  };
   // An answer changed after a save that stopped partway: write the litter's and
   // pups' fields again on the retry (records already made are kept, by id).
-  const answerChanged = () => {
-    if (!draft.saved) return;
-    draft.saved.litterUpdated = false;
-    draft.pups.forEach((p) => { p.saved = false; });
-  };
-  const close = () => {
-    if (!draft.done) persist();
-    overlay.remove();
-    document.body.classList.remove('gl-open');
-    document.removeEventListener('keydown', onKey);
-    window.dispatchEvent(new Event('kennelos:guidedlitterclosed'));
-  };
-  // Escape closes the flow only when no dialog of its own (a share step's
-  // waitlist notice, say) is open on top of it.
-  const onKey = (e) => { if (e.key === 'Escape' && !saving && document.body.lastElementChild === overlay) close(); };
-  document.addEventListener('keydown', onKey);
-  overlay.querySelector('[data-act="close"]').addEventListener('click', () => { if (!saving) close(); });
-
-  const showError = (msg) => { els.error.innerHTML = msg ? `<div class="inline-error gl-inline-error">${esc(msg)}</div>` : ''; };
-
-  async function refreshSteps() {
-    ctx = await stepCtx(draft, data);
-    steps = G.stepsFor(draft, ctx);
+  answerChanged() {
+    if (!this.draft.saved) return;
+    this.draft.saved.litterUpdated = false;
+    this.draft.pups.forEach((p) => { p.saved = false; });
   }
 
-  async function go(stepId) {
-    await refreshSteps();
-    if (!steps.includes(stepId)) stepId = steps[0];
-    draft.step = stepId;
-    persist();
-    render();
+  async refreshSteps() {
+    this.ctx = await stepCtx(this.draft, this.data);
+    this.steps = G.stepsFor(this.draft, this.ctx);
   }
 
-  function screenFor(stepId) {
-    const all = screens(draft, data, ctx);
+  screenFor(stepId) {
+    const all = screens(this.draft, this.data, this.ctx);
     if (stepId.startsWith('pup:')) return all.pup(Number(stepId.slice(4)));
     return all[stepId]();
   }
 
-  function render() {
-    showError('');
-    const stepId = draft.step;
-    current = screenFor(stepId);
-    const index = steps.indexOf(stepId);
-    // Until she's said which litter this is, the number of steps isn't known yet.
-    els.progress.textContent = draft.source ? `Step ${index + 1} of ${steps.length}` : 'Getting started';
-    els.title.innerHTML = current.title;
-    els.body.innerHTML = current.html;
-    const back = index > 0 ? '<button type="button" class="btn gl-back" data-act="back">← Back</button>' : '<span></span>';
-    const next = current.isReview
-      ? '<button type="button" class="btn btn-primary gl-next" data-act="save">Yes, save it</button>'
-      : '<button type="button" class="btn btn-primary gl-next" data-act="next">Next →</button>';
-    els.foot.innerHTML = back + next;
-    current.wire?.(els.body, go);
-    wireCommon();
-    const first = els.body.querySelector('input:not([type="hidden"]), select');
-    if (first && !els.body.querySelector('.gl-tile.selected') && first.type !== 'date') first.focus({ preventScroll: true });
-    els.title.scrollIntoView?.({ block: 'nearest' });
+  async start() {
+    await this.refreshSteps();
+    const step = this.steps.includes(this.draft.step) ? this.draft.step : this.steps[0];
+    await this.ask(step);
   }
 
-  function wireCommon() {
-    els.body.querySelectorAll('.gl-tile').forEach((b) => b.addEventListener('click', async () => {
-      // Keep what's typed on the screen first, then apply the tap on top of it.
-      current.read?.(els.body);
-      const result = current.onTile?.(b.dataset.value, els.body);
-      answerChanged();
-      if (result === 'redraw') { persist(); await go(draft.step); return; }
-      if (result === true) await advance({ skipRead: true });
+  // Ken asks `stepId`: his question, then her answer panel.
+  async ask(stepId, { typing = 650 } = {}) {
+    await this.refreshSteps();
+    if (!this.steps.includes(stepId)) stepId = this.steps[0];
+    this.draft.step = stepId;
+    this.persist();
+    this.current = this.screenFor(stepId);
+    const bubble = await this.chat.ken(`<strong>${this.current.title}</strong>`, { typing });
+    this.panel = this.chat.panel('');
+    this.fillPanel(bubble);
+  }
+
+  // (Re)draw the answer panel for the current step. A lead line in the screen
+  // moves up into Ken's bubble, so he's the one saying it.
+  fillPanel(bubble = null) {
+    const isReview = Boolean(this.current.isReview);
+    const canBack = this.draft.history.length > 0;
+    this.panel.innerHTML = `<div class="gl-body">${this.current.html}</div>
+      <div class="gl-error" aria-live="assertive"></div>
+      <div class="ken-panel-foot">
+        ${canBack ? '<button type="button" class="btn gl-back" data-k="back">← Back</button>' : '<span></span>'}
+        ${this.draft.returnToReview && !isReview ? '<button type="button" class="btn" data-k="to-review">Back to the plan</button>' : ''}
+        ${isReview
+          ? '<button type="button" class="btn btn-primary gl-next" data-k="save">Yes, build it</button>'
+          : '<button type="button" class="btn btn-primary gl-next" data-k="next">Next →</button>'}
+      </div>`;
+    const lead = this.panel.querySelector('.gl-lead');
+    if (lead && bubble) { lead.classList.remove('gl-lead'); lead.classList.add('ken-lead'); bubble.appendChild(lead); }
+    else if (lead) lead.remove();
+    this.wire();
+    this.chat.scroll();
+  }
+
+  body() { return this.panel.querySelector('.gl-body'); }
+  showError(msg) { this.panel.querySelector('.gl-error').innerHTML = msg ? `<div class="inline-error gl-inline-error">${esc(msg)}</div>` : ''; this.chat.scroll(); }
+
+  async redraw() {
+    await this.refreshSteps();
+    this.current = this.screenFor(this.draft.step);
+    this.fillPanel();
+  }
+
+  wire() {
+    const body = this.body();
+    const cur = this.current;
+    body.querySelectorAll('.gl-tile').forEach((b) => b.addEventListener('click', async () => {
+      if (this.busy) return;
+      cur.read?.(body);
+      const result = cur.onTile?.(b.dataset.value, body);
+      this.answerChanged();
+      if (result === 'redraw') { this.persist(); await this.redraw(); return; }
+      if (result === true) await this.advance({ skipRead: true });
     }));
-    els.body.querySelectorAll('[data-act]:not(.gl-tile)').forEach((b) => b.addEventListener('click', async () => {
-      const result = current.onAct?.(b.dataset.act, els.body);
-      if (result === 'read-redraw') { current.read?.(els.body); answerChanged(); persist(); await go(draft.step); }
-      else if (result === 'redraw') { current.read?.(els.body); persist(); await go(draft.step); }
+    body.querySelectorAll('[data-act]:not(.gl-tile)').forEach((b) => b.addEventListener('click', async () => {
+      const result = cur.onAct?.(b.dataset.act, body);
+      if (result === 'read-redraw' || result === 'redraw') {
+        cur.read?.(body);
+        if (result === 'read-redraw') this.answerChanged();
+        this.persist();
+        await this.redraw();
+      }
     }));
-    els.body.querySelectorAll('[data-step-for]').forEach((b) => b.addEventListener('click', () => {
-      const el = els.body.querySelector(`#${b.dataset.stepFor}`);
+    body.querySelectorAll('[data-step-for]').forEach((b) => b.addEventListener('click', () => {
+      const el = body.querySelector(`#${b.dataset.stepFor}`);
       el.value = String(Math.max(0, (Number(el.value) || 0) + Number(b.dataset.delta)));
     }));
-    els.body.querySelectorAll('[data-goto]').forEach((b) => b.addEventListener('click', () => go(b.dataset.goto)));
-    els.body.querySelectorAll('input').forEach((el) => el.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); advance(); }
+    body.querySelectorAll('[data-goto]').forEach((b) => b.addEventListener('click', () => this.change(b.dataset.goto)));
+    body.querySelectorAll('input').forEach((el) => el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); this.advance(); }
     }));
-    els.foot.querySelector('[data-act="back"]')?.addEventListener('click', back);
-    els.foot.querySelector('[data-act="next"]')?.addEventListener('click', () => advance());
-    els.foot.querySelector('[data-act="save"]')?.addEventListener('click', save);
+    cur.wire?.(body);
+    const on = (k, fn) => this.panel.querySelector(`[data-k="${k}"]`)?.addEventListener('click', fn);
+    on('back', () => this.back());
+    on('next', () => this.advance());
+    on('to-review', () => this.advance({ toReview: true }));
+    on('save', () => this.save());
   }
 
-  async function back() {
-    current.read?.(els.body);
-    persist();
-    await refreshSteps();
-    const i = steps.indexOf(draft.step);
-    if (i > 0) await go(steps[i - 1]);
+  // Her answer to the current step goes into the chat as her reply.
+  answered(stepId) {
+    const q = this.panelQuestionText();
+    const a = answerFor(stepId, this.draft, this.data) || 'Done';
+    this.draft.history.push({ step: stepId, q, a });
+    this.panel.closest('.ken-row').remove();
+    this.chat.you(a);
   }
 
-  async function advance({ skipRead = false } = {}) {
-    // The steps as they were when this screen was drawn, before the answer.
-    const shown = steps;
-    if (!skipRead) { current.read?.(els.body); answerChanged(); }
-    await refreshSteps();
-    const problem = G.stepProblem(draft.step, draft, ctx);
-    if (problem) { persist(); showError(problem); return; }
-    current.after?.();
-    // Entering prices for the first time: start from her last litter of the breed.
-    if (!draft.pricesFilled) {
-      const breed = ctx.dam?.breed;
-      const suggested = breed ? G.suggestedPrices({ litters: data.litters, dogsById: data.dogsById, breed, excludeLitterId: draft.litterId }) : null;
-      if (suggested && Object.values(draft.prices).every((v) => v === '')) { draft.prices = suggested; draft.pricesFilled = true; }
-    }
-    persist();
-    // The answer can change which steps there are (a found dog drops the new-dog
-    // questions; a picked breeding drops "When was she bred?"), and even remove
-    // this one: go to the first step after it that still exists.
-    const at = shown.indexOf(draft.step);
-    await refreshSteps();
-    const here = steps.indexOf(draft.step);
-    const nextStep = here !== -1
-      ? steps[Math.min(here + 1, steps.length - 1)]
-      : shown.slice(at + 1).find((x) => steps.includes(x)) || steps[steps.length - 1];
-    await go(nextStep);
+  panelQuestionText() {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = this.current.title;
+    return tmp.textContent;
   }
 
-  async function save() {
-    if (saving) return;
-    saving = true;
-    const btn = els.foot.querySelector('[data-act="save"]');
-    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
-    showError('');
+  async advance({ skipRead = false, toReview = false } = {}) {
+    if (this.busy) return;
+    this.busy = true;
     try {
-      await G.saveGuidedLitter(draft, { onProgress: () => setGuidedLitterDraft(draft) });
-      clearGuidedLitterDraft();
-      saving = false;
-      await afterSave();
-    } catch (e) {
-      saving = false;
-      if (btn) { btn.disabled = false; btn.textContent = 'Try again'; }
-      setGuidedLitterDraft(draft);
-      if (e instanceof CapExceededError) {
-        renderUpgradeNudge(els.error, e);
-      } else {
-        showError(`That didn't save: ${e.message || String(e)} Your answers are kept, so you can fix it and try again.`);
+      const shown = this.steps;
+      const body = this.body();
+      if (!skipRead) { this.current.read?.(body); this.answerChanged(); }
+      await this.refreshSteps();
+      const problem = G.stepProblem(this.draft.step, this.draft, this.ctx);
+      if (problem) { this.persist(); this.showError(problem); return; }
+      this.current.after?.();
+      if (!this.draft.pricesFilled) {
+        const breed = this.ctx.dam?.breed || this.draft.newDam?.breed;
+        const suggested = breed ? G.suggestedPrices({ litters: this.data.litters, dogsById: this.data.dogsById, breed, excludeLitterId: this.draft.litterId }) : null;
+        if (suggested && Object.values(this.draft.prices).every((v) => v === '')) { this.draft.prices = suggested; this.draft.pricesFilled = true; }
       }
+      const stepId = this.draft.step;
+      this.answered(stepId);
+      this.persist();
+      // The answer can change which steps there are, and even remove this one:
+      // go on from where it was.
+      const at = shown.indexOf(stepId);
+      await this.refreshSteps();
+      let next;
+      if (toReview || (this.draft.returnToReview && stepId !== 'review')) {
+        // Fixing something from the plan: straight back to the plan, unless the
+        // fix opened a question that hasn't been answered yet.
+        const answered = new Set(this.draft.history.map((h) => h.step));
+        next = this.steps.find((x) => x !== 'review' && !answered.has(x) && this.steps.indexOf(x) > this.steps.indexOf(stepId)) || 'review';
+        if (next === 'review') this.draft.returnToReview = false;
+      } else {
+        const here = this.steps.indexOf(stepId);
+        next = here !== -1 ? this.steps[Math.min(here + 1, this.steps.length - 1)]
+          : shown.slice(at + 1).find((x) => this.steps.includes(x)) || this.steps[this.steps.length - 1];
+      }
+      await this.ask(next);
+    } finally {
+      this.busy = false;
     }
   }
 
-  // Saved: Pro gets "Let families know"; everyone ends on Done.
-  async function afterSave() {
-    const litter = await litterRepo.getById(draft.savedLitterId);
+  // Back: Ken un-asks the last question; her last answer comes off the chat.
+  async back() {
+    if (this.busy || !this.draft.history.length) return;
+    this.current.read?.(this.body());
+    const prev = this.draft.history.pop();
+    this.panel.closest('.ken-row').remove();
+    // Remove the current question bubble and the previous answer + question.
+    const rows = [...this.chat.box.querySelectorAll('.ken-row')];
+    rows.slice(-3).forEach((r) => r.remove());
+    this.persist();
+    await this.ask(prev.step, { typing: 0 });
+  }
+
+  // "Change" from the plan: ask that step again, then come back to the plan.
+  async change(stepId) {
+    this.draft.returnToReview = true;
+    this.panel.closest('.ken-row').remove();
+    this.chat.you('Let me change something.');
+    await this.ask(stepId);
+  }
+
+  async save() {
+    if (this.busy) return;
+    this.busy = true;
+    const btn = this.panel.querySelector('[data-k="save"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Building…'; }
+    this.showError('');
+    try {
+      await G.saveGuidedLitter(this.draft, { onProgress: () => setGuidedLitterDraft(this.draft) });
+      clearGuidedLitterDraft();
+      this.onSaved();
+      this.panel.closest('.ken-row').remove();
+      this.chat.you('Yes, build it');
+      await this.afterSave();
+    } catch (e) {
+      setGuidedLitterDraft(this.draft);
+      if (btn) { btn.disabled = false; btn.textContent = 'Try again'; }
+      if (e instanceof CapExceededError) {
+        renderUpgradeNudge(this.panel.querySelector('.gl-error'), e);
+      } else {
+        this.showError(`Hmm, that didn't save: ${e.message || String(e)} Your answers are kept, so you can fix it and try again.`);
+      }
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  async afterSave() {
+    const litter = await litterRepo.getById(this.draft.savedLitterId);
     const pups = (await dogRepo.getByLitter(litter.id)).filter((d) => !d.is_archived);
+    const name = this.draft.label || 'The litter';
     const litterHref = `${pagesPrefix()}litter.html?id=${encodeURIComponent(litter.id)}`;
-    // Saved: nothing is left to keep, so the top button just closes.
-    overlay.querySelector('[data-act="close"]').textContent = 'Close';
-    const done = () => {
-      els.progress.textContent = 'All done';
-      els.title.textContent = 'Saved ✓';
-      els.body.innerHTML = `<p class="gl-lead">${esc(draft.label || 'The litter')} is saved, with ${pups.length} ${pups.length === 1 ? 'puppy' : 'puppies'}.</p>
-        <p class="muted">When you're ready to offer pups to families on your waitlist, use <strong>Open picks</strong> on the litter's page.</p>`;
-      els.error.innerHTML = '';
-      els.foot.innerHTML = `<a class="btn gl-back" href="${pagesPrefix()}today.html">Back to Today</a><a class="btn btn-primary gl-next" href="${esc(litterHref)}">See the litter</a>`;
-      overlay.querySelector('[data-act="close"]').textContent = 'Close';
+    await this.chat.ken(`Done! ✓ I built ${esc(name)}${pups.length ? ` with ${plural(pups.length, 'puppy', 'puppies')}` : ''}.`, { typing: 1100 });
+
+    const finish = async () => {
+      await this.chat.ken(`All set. When you're ready to offer pups to families on your waitlist, use <strong>Open picks</strong> on <a href="${esc(litterHref)}">the litter's page</a>.`);
+      const where = await this.chat.choose([
+        { label: 'See the litter', value: 'litter', primary: true },
+        { label: 'Help me with something else', value: 'menu' },
+        { label: 'Back to Today', value: 'today' }
+      ]);
+      if (where === 'litter') location.href = litterHref;
+      else if (where === 'today') location.href = `${pagesPrefix()}today.html`;
+      else this.onExit('done');
     };
+
     const canShare = (editionFlags.waitlist || editionFlags.companion) && pups.some((p) => p.disposition === 'available');
-    if (!canShare) { done(); return; }
+    if (!canShare) { await finish(); return; }
     try {
       const { renderShareStep } = await import('./guidedShareUI.js');
-      els.progress.textContent = 'Saved ✓';
-      els.title.textContent = 'Want to tell people about the new pups?';
-      els.foot.innerHTML = '';
-      await renderShareStep({ mount: els.body, foot: els.foot, litter, pups, onDone: done });
+      await this.chat.ken('<strong>Want to tell people about the new pups?</strong>');
+      const panel = this.chat.panel('<div class="gl-body"></div><div class="ken-panel-foot"></div>');
+      await renderShareStep({
+        mount: panel.querySelector('.gl-body'),
+        foot: panel.querySelector('.ken-panel-foot'),
+        litter, pups,
+        onDone: (reply) => { panel.closest('.ken-row').remove(); if (reply) this.chat.you(reply); finish(); }
+      });
+      this.chat.scroll();
     } catch {
-      done();
+      await finish();
     }
   }
-
-  (async () => {
-    await refreshSteps();
-    draft.step = steps.includes(draft.step) ? draft.step : steps[0];
-    persist();
-    render();
-  })().catch((e) => showError(e.message || String(e)));
-}
-
-// Today's card: start the flow, or finish the one she left. Rendered into `el`.
-export function renderGuidedTasksCard(el) {
-  if (!el) return;
-  const draft = getGuidedLitterDraft();
-  const pending = draft && draft.v === G.DRAFT_VERSION && !draft.done ? draft : null;
-  el.innerHTML = `<section class="card gl-today">
-      <h2 style="margin:0 0 6px;">What do you want to do?</h2>
-      <p class="muted" style="margin:0 0 12px;">A step-by-step guide that asks one question at a time.</p>
-      <div class="pill-row">
-        ${pending ? `<button type="button" class="btn btn-primary gl-big" data-act="resume">▶ Finish recording ${esc(pending.label || 'your litter')}</button>` : ''}
-        <button type="button" class="btn${pending ? '' : ' btn-primary'} gl-big" data-act="new">🐾 Record a new litter</button>
-        ${pending ? '<button type="button" class="btn btn-sm" data-act="discard">Throw away the unfinished one</button>' : ''}
-      </div>
-    </section>`;
-  const rerender = () => renderGuidedTasksCard(el);
-  window.addEventListener('kennelos:guidedlitterclosed', rerender, { once: true });
-  el.querySelector('[data-act="new"]').addEventListener('click', () => openGuidedLitter());
-  el.querySelector('[data-act="resume"]')?.addEventListener('click', () => openGuidedLitter({ resume: true }));
-  el.querySelector('[data-act="discard"]')?.addEventListener('click', async () => {
-    if (await confirmModal({ title: 'Throw away the unfinished litter?', message: 'Your answers so far will be lost. Nothing you already saved is touched.', confirmLabel: 'Throw it away', danger: true })) {
-      discardGuidedLitterDraft();
-      rerender();
-    }
-  });
 }

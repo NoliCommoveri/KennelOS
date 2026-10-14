@@ -475,19 +475,14 @@ async function renderHeaderActions() {
   const archiveBtn = editionFlags.manualDogArchive
     ? `<button class="btn btn-sm" id="btn-archive">${l.is_archived ? 'Unarchive' : 'Archive'}</button>`
     : '';
-  // An Expected litter: record its birth with the guided, step-by-step flow.
+  // An Expected litter: Ken records its birth with her, step by step.
   const guidedBtn = l.status === 'expected' && !l.is_archived
-    ? '<button class="btn btn-primary btn-sm" id="btn-guided-birth">🐾 Record the birth (step by step)</button>'
+    ? `<a class="btn btn-primary btn-sm" href="ken.html?task=record-litter&litter=${encodeURIComponent(l.id)}">✨ Record the birth with Ken</a>`
     : '';
   els.headerActions.innerHTML = `
     ${guidedBtn}
     ${archiveBtn}
     <button class="btn btn-danger btn-sm" id="btn-delete"${blockers.length ? ' disabled' : ''} title="${esc(delTitle)}">Delete</button>`;
-  document.getElementById('btn-guided-birth')?.addEventListener('click', async () => {
-    const { openGuidedLitter } = await import('../assets/guidedLitterUI.js');
-    window.addEventListener('kennelos:guidedlitterclosed', () => location.reload(), { once: true });
-    openGuidedLitter({ litterId: l.id });
-  });
   document.getElementById('btn-archive')?.addEventListener('click', toggleArchive);
   const del = document.getElementById('btn-delete');
   if (!blockers.length) del.onclick = doDelete;

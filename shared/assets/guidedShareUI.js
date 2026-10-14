@@ -20,12 +20,13 @@ import { esc } from './ui.js';
 // Families who get the "prospective" Companion page: the console's own rule.
 const isProspective = (c) => !c.is_archived && c.waitlist_status === 'active';
 
+// onDone(reply): `reply` is her answer to leave in the chat (null: none).
 export async function renderShareStep({ mount, foot, litter, pups, onDone }) {
   const available = pups.filter((p) => p.disposition === 'available');
   const families = editionFlags.companion ? (await contactRepo.getAll({ includeArchived: false })).filter(isProspective) : [];
   const canTell = Boolean(editionFlags.waitlist);
   const canShare = Boolean(editionFlags.companion) && families.length > 0;
-  if (!canTell && !canShare) { onDone(); return; }
+  if (!canTell && !canShare) { onDone(null); return; }
 
   const menu = () => {
     mount.innerHTML = `<p class="gl-lead">${available.length} ${available.length === 1 ? 'puppy is' : 'puppies are'} marked Available. Nothing is sent until you tap send yourself.</p>
@@ -39,10 +40,10 @@ export async function renderShareStep({ mount, foot, litter, pups, onDone }) {
       const { openLitterWaitlistNotice } = await import('./waitlistPicksPanel.js');
       await openLitterWaitlistNotice(litter);
       foot.innerHTML = '<span></span><button type="button" class="btn btn-primary gl-next" data-act="finish">I\'m done →</button>';
-      foot.querySelector('[data-act="finish"]').addEventListener('click', onDone);
+      foot.querySelector('[data-act="finish"]').addEventListener('click', () => onDone('I\'m done'));
     });
     mount.querySelector('[data-share="share"]')?.addEventListener('click', () => shareOneByOne(0));
-    mount.querySelector('[data-share="later"]').addEventListener('click', onDone);
+    mount.querySelector('[data-share="later"]').addEventListener('click', () => onDone('Not now'));
   };
 
   // One family per screen: Email / Text / Skip.
@@ -51,7 +52,7 @@ export async function renderShareStep({ mount, foot, litter, pups, onDone }) {
       mount.innerHTML = `<p class="gl-lead">That's everyone on your list.</p>`;
       foot.innerHTML = '<button type="button" class="btn gl-back" data-act="menu">← Back</button><button type="button" class="btn btn-primary gl-next" data-act="finish">Finish →</button>';
       foot.querySelector('[data-act="menu"]').addEventListener('click', menu);
-      foot.querySelector('[data-act="finish"]').addEventListener('click', onDone);
+      foot.querySelector('[data-act="finish"]').addEventListener('click', () => onDone('Finished sharing'));
       return;
     }
     const contact = families[i];

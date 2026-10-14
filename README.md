@@ -1004,18 +1004,22 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   mappings' new `links` declarations need (kennels → contacts → dogs → events…), each
   through the usual preview and commit. Expense and Waitlist files hand off to their own
   screens. Cache rolled to `kennelos-shell-v77` for this batch and the two above.
-- **Guided "Record a new litter" — built & browser-verified (2026-10-14).** A one-question-
-  per-screen flow for breeders who find the full forms hard, opened from Today's new **What
-  do you want to do?** card, the Breeding page and an Expected litter's page: the mom, then
+- **Ken + guided "Record a new litter" — built & browser-verified (2026-10-14).** A floating
+  **AI Assist** button on every page opens **Ken** (`pages/ken.html`), a scripted helper shown
+  as a chat (not a model; nothing leaves the device): he greets her, offers his tasks, and asks
+  each question as a chat message, her answers left as replies, ending with "Here's what I'll
+  create:" to approve. Also opened from the Breeding page and an Expected litter's page. The
+  litter task, for breeders who find the full forms hard: the mom, then
   the dad (either can be a new dog; a typed name is checked against every dog on file,
   outside and pedigree-only included — "We found Nell. Is this the mom?"), then an existing
   litter of that pair with no pups, then an existing breeding, else the breeding questions;
   the stud service for an outside stud (Pro); the birth, each puppy, plans, prices, dates,
   and one review before anything is saved. Answers are kept as a draft after every step
-  (Today offers "Finish recording …"), and the save is resumable. Pro then offers "Let
+  (Ken offers "Finish recording …" first), and the save is resumable. Pro then offers "Let
   families know" (the waitlist's litter notice, or the Companion page one family at a
   time); it never opens picks. New `data/guidedLitter.js` (+ `tests/guidedLitter.test.js`),
-  `data/puppyDefaults.js`, `assets/guidedLitterUI.js`, Pro-only `assets/guidedShareUI.js`
+  `data/puppyDefaults.js`, `assets/guidedLitterUI.js`, `assets/kenChat.js`, `pages/ken.*`,
+  Pro-only `assets/guidedShareUI.js`
   and `assets/companionLink.js` (the console's link builder, moved out of
   `pages/companion.js`). No schema change. End-State guide §33; editions plan tier table.
 

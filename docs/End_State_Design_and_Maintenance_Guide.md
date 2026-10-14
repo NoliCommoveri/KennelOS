@@ -371,8 +371,10 @@ KennelOS/
     puppyForm.js               Litter → puppy roster entry (Add Puppy: name, sex, disposition,
                                registration; Add several: males + females counts, disposition and
                                registration applied to all, placeholders "Puppy N", males first)
-    guidedLitterUI.js          The guided "Record a new litter" screens + Today's "What do you
-                               want to do?" card (§33)
+    kenChat.js                 Ken's chat transcript (typing, messages, answer panels, choices)
+                               + the floating "AI Assist" button (§33)
+    guidedLitterUI.js          Ken's "Record a new litter" task: its questions and the
+                               conversation runner (§33)
     guidedShareUI.js           Its "Let families know" step after the save (§33; Pro-only,
                                PRO_ONLY_STANDALONE, imported dynamically)
     companionLink.js           Bundle → recipient link + sms:/mailto: anchors, shared by the
@@ -4451,20 +4453,33 @@ a real expense names one, treats it as contamination like a sample dog or kennel
 in `ENTITY_REGISTRIES`): reported on the dry run, archived on the archive-conflicting pass.
 They're never in a cloud snapshot, like all sample rows.
 
-## 33. Guided tasks — "Record a new litter" (step by step)
+## 33. Ken — guided tasks ("Record a new litter")
 
 ### What it is
-A one-question-per-screen guide for breeders who find the full forms hard (large type, big
-tap targets, Back / Next always in the same place, a "Step N of M" line). It records a whole
-birth — the parents, the breeding, the litter, every puppy, and what makes the pups ready to
-sell — and writes nothing until she approves one "Here's what I'll save" review. No new
-table, field, index, FK or vocabulary: every write is an ordinary repo write.
+**Ken** (placeholder name; `kenChat.KEN_NAME`) is a scripted helper presented as a chat: a
+floating **AI Assist** button (`kenChat.ASSIST_LABEL`; bottom right on every page, fixed while
+scrolling, a dot while a task is unfinished — rendered by `app.js` via
+`kenChat.renderAssistButton`) opens `pages/ken.html`. He is **not a model**: every line he
+"types" is written in the task scripts, and nothing leaves the device. On the page Ken shows a
+typing indicator, says "Hi, I'm Ken! What can I help you do today?", and his tasks fade in one
+at a time (`pages/ken.js` `TASKS`, each with a `priority(state)` hook — an unfinished task
+first — so more scripts can be ordered as they're added). Picking a task: Ken explains what
+will happen and offers **Sounds great, let's start!** / **Never mind**; then every question is a
+Ken message, her answer panel sits under it, and her answer stays in the chat as her reply,
+all in one transcript box that scrolls itself to the newest message. At the end Ken says "I
+think I got it all. Here's what I'll create:" and shows the plan (each section with a Change
+link; a change asks that question again and returns to the plan), then **Yes, build it**.
+No new table, field, index, FK or vocabulary: every write is an ordinary repo write.
 
-**Doors:** Today's **What do you want to do?** card (`#today-guided`, which also offers
-**Finish recording X's litter** for an unfinished draft and "Throw away the unfinished one"),
-the Breeding page header (**Record a litter (step by step)**), and an Expected litter's page
-header (**Record the birth (step by step)**, which opens with that litter already chosen). All
-call `guidedLitterUI.openGuidedLitter({ litterId?, resume? })`.
+Modules: `assets/kenChat.js` (the transcript: `createChat(box)` → `ken(html)` with typing,
+`you(text)`, `panel(html)`, `choose(choices)`; and the floating button), `pages/ken.*` (the
+page and Ken's menu), `assets/guidedLitterUI.js` (the litter task: its question screens, her
+replies — `answerFor` — and the conversation runner `runLitterTask`).
+
+**Doors:** the floating button; the Breeding page header (**Record a litter with Ken** →
+`ken.html?task=record-litter`); an Expected litter's page header (**Record the birth with Ken**
+→ `&litter=<id>`, which starts with that litter's parents and litter already chosen). A header
+**Save for later** button while a task runs says the answers are kept and returns to the menu.
 
 ### The order (`data/guidedLitter.js` `stepsFor`)
 1. **Who is the mom?** then **Who is the dad?** Her own dogs as tiles, "Show all" for outside
@@ -4513,13 +4528,16 @@ values.
 
 ### The draft
 `settings.js` `guidedLitterDraft` (`kennelOS.guidedLitterDraft`): her answers, kept after
-every step, versioned by `DRAFT_VERSION` (an older version is dropped). Device-only — it isn't
-program data until saved — and in `KEYS`, so Reset App clears it. One at a time: opening the
-flow with a different draft pending asks "Finish that one / Start over".
+every step, plus `history` (each answered question and her reply, so the chat is replayed when
+she comes back), versioned by `DRAFT_VERSION` (an older version is dropped). Device-only — it
+isn't program data until saved — and in `KEYS`, so Reset App clears it. One at a time: Ken's
+menu offers **Finish recording X's litter** first, and starting a new litter with one pending
+asks "Finish that one / Start fresh".
 
 ### After the save: "Let families know" (Pro)
 `assets/guidedShareUI.js` (Pro-only; imported only when `editionFlags.waitlist` or
-`editionFlags.companion` and a pup is Available). **Tell my waitlist they were born** opens
+`editionFlags.companion` and a pup is Available), as Ken's "Want to tell people about the new
+pups?" with its panel in the chat. **Tell my waitlist they were born** opens
 the litter page's own "It's almost your turn" / "a litter you match was born" notice
 (`waitlistPicksPanel.openLitterWaitlistNotice`) to review and send. **Share the available
 pups** walks the active waitlist contacts (the Companion console's prospective membership) one
