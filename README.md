@@ -1005,7 +1005,7 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   through the usual preview and commit. Expense and Waitlist files hand off to their own
   screens. Cache rolled to `kennelos-shell-v77` for this batch and the two above.
 - **Ken + guided "Record a new litter" — built & browser-verified (2026-10-14).** A floating
-  **AI Assist** button on every page opens **Ken** (`pages/ken.html`), a scripted helper shown
+  **Ask Ken** button on every page opens **Ken** (`pages/ken.html`), a scripted helper shown
   as a chat (not a model; nothing leaves the device): he greets her, offers his tasks, and asks
   each question as a chat message, her answers left as replies, ending with "Here's what I'll
   create:" to approve. Also opened from the Breeding page and an Expected litter's page. The

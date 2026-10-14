@@ -8,7 +8,7 @@ import { esc } from './ui.js';
 
 // The helper's placeholder name and the floating button's label, in one place.
 export const KEN_NAME = 'Ken';
-export const ASSIST_LABEL = 'AI Assist';
+export const ASSIST_LABEL = 'Ask Ken';
 
 const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const pause = (ms) => new Promise((r) => setTimeout(r, reducedMotion() ? Math.min(ms, 80) : ms));
@@ -92,7 +92,7 @@ export function createChat(box) {
   };
 }
 
-// The floating "AI Assist" button, bottom right on every page but Ken's own
+// The floating "Ask Ken" button, bottom right on every page but Ken's own
 // (app.js). A dot shows when a task is waiting to be finished.
 export function renderAssistButton({ pending = false } = {}) {
   if (location.pathname.endsWith('/ken.html') || document.querySelector('.ken-fab')) return;
@@ -101,7 +101,7 @@ export function renderAssistButton({ pending = false } = {}) {
   a.className = 'ken-fab';
   a.href = `${prefix}ken.html`;
   a.title = `${KEN_NAME}, your helper${pending ? ': you have something to finish' : ''}`;
-  a.setAttribute('aria-label', `${ASSIST_LABEL}: open ${KEN_NAME}${pending ? ' (something to finish)' : ''}`);
+  a.setAttribute('aria-label', `${ASSIST_LABEL}${pending ? ' (something to finish)' : ''}`);
   a.innerHTML = `<span class="ken-fab-icon" aria-hidden="true">✨</span><span class="ken-fab-label">${esc(ASSIST_LABEL)}</span>${pending ? '<span class="ken-fab-dot" aria-hidden="true"></span>' : ''}`;
   document.body.appendChild(a);
 }

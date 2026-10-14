@@ -21,7 +21,7 @@ import { isLicenseGated, ensureLicensed } from './assets/licenseGate.js';
 import { isCloudAvailable, isUsingTestServer } from './data/cloud/cloudConfig.js';
 import { editionFlags } from './data/editionConfig.js';
 
-// Ken's floating "AI Assist" button (assets/kenChat.js), with a dot while a
+// Ken's floating "Ask Ken" button (assets/kenChat.js), with a dot while a
 // guided task is waiting to be finished.
 function renderKenButton() {
   const draft = getGuidedLitterDraft();

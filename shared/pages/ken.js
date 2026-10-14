@@ -1,4 +1,4 @@
-// ken.js — Ken, the guided-task helper (the floating "AI Assist" button on
+// ken.js — Ken, the guided-task helper (the floating "Ask Ken" button on
 // every page opens this). Ken greets her, offers his tasks one at a time, and
 // then walks her through the one she picks as a chat (assets/kenChat.js). He's
 // scripted, not a model: every line is written in the task scripts.

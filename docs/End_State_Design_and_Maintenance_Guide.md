@@ -372,7 +372,7 @@ KennelOS/
                                registration; Add several: males + females counts, disposition and
                                registration applied to all, placeholders "Puppy N", males first)
     kenChat.js                 Ken's chat transcript (typing, messages, answer panels, choices)
-                               + the floating "AI Assist" button (§33)
+                               + the floating "Ask Ken" button (§33)
     guidedLitterUI.js          Ken's "Record a new litter" task: its questions and the
                                conversation runner (§33)
     guidedShareUI.js           Its "Let families know" step after the save (§33; Pro-only,
@@ -4457,7 +4457,7 @@ They're never in a cloud snapshot, like all sample rows.
 
 ### What it is
 **Ken** (placeholder name; `kenChat.KEN_NAME`) is a scripted helper presented as a chat: a
-floating **AI Assist** button (`kenChat.ASSIST_LABEL`; bottom right on every page, fixed while
+floating **Ask Ken** button (`kenChat.ASSIST_LABEL`; bottom right on every page, fixed while
 scrolling, a dot while a task is unfinished — rendered by `app.js` via
 `kenChat.renderAssistButton`) opens `pages/ken.html`. He is **not a model**: every line he
 "types" is written in the task scripts, and nothing leaves the device. On the page Ken shows a
