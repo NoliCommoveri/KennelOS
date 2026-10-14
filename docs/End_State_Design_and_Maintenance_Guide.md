@@ -1039,6 +1039,14 @@ Rules that shape everything:
   showing), `buildPlan` runs `flagMissingKennel()` over the plan: every kennel-needing
   **create** with no `kennel_id` (a Pairing/Litter/Sale/StudService, or an owned/co-owned Dog)
   goes to review with "No kennel…", rather than previewing as a create and failing at commit.
+- **Dog breeder kennel** (`breeder_kennel_name`, alias `breeder_kennel`): resolves to
+  `breeder_kennel_id` against **any** existing kennel, own or outside (a dog's breeder is
+  often someone else's kennel); unknown → flagged and the row goes to review. Because a
+  matched row's changes are the same recognized fields, re-importing a dogs file with this
+  column filled sets the breeder kennel on dogs already in the app.
+- **Import order: kennels first.** Kennels are what other rows point at (a contact's and a
+  dog's kennel columns), and relationship columns never invent, so the Import / Export
+  menu lists **Kennels** first, then Contacts and Dogs, and the kennel screen says so.
 - **Dog owner** (`owner_name`, aliases `owner`/`owner_contact_name`): resolves against
   existing Contacts only (unknown → flagged). Because `dogRepo` requires `owner_contact_id`
   on an `external`/`leased_in` dog (pedigree-only exempt), a row whose dog-as-saved (the
@@ -1057,7 +1065,11 @@ Rules that shape everything:
   Sale's `buyer_name` and StudService's `partner_contact_name`, via each mapping's
   `prepareRecord` hook.
 
-Per-entity natural keys: Dog = name+DOB; Contact = name; Pairing = sire+dam+planned;
+Per-entity natural keys: Kennel = kennel_name (a name shared by two kennels on file →
+review, the user picks; a new kennel is always created **outside**, `is_own_kennel: false`,
+and an update never touches `is_own_kennel` or `public_id`: own kennels and their identity
+are set up on the Kennels page, §28; columns `kennel_name`, `prefix`, `location`,
+`website`); Dog = name+DOB; Contact = name; Pairing = sire+dam+planned;
 Litter = dam+sire+whelp; Sale = dog+buyer+sale_date; Event (dog-subject only) =
 dog+type+date (title tiebreak — and for `show` rows the title **always** takes part: a
 single same-day candidate with a different title goes to review, never a silent update,
@@ -1783,7 +1795,7 @@ entry already on file for the same dog + day + title (case-insensitive) is skipp
 duplicated; the handler is tagged `handler` via `contactRepo.ensureType`.
 Reports: `litters-report`, `stud-services-report`, `placements-report`,
 `health-tests-report`, `litter-finances-report` (Litter P&L; `data/litterFinances.js`).
-Import pages: `dog-import`, `contact-import`, `pairing-import`, `litter-import`,
+Import pages: `kennel-import` (Pro-only, like the Kennels page; §9), `dog-import`, `contact-import`, `pairing-import`, `litter-import`,
 `sale-import`, `event-import`, `stud-service-import`, `expense-import`, `kennel-tests-import`,
 `waitlist-import` (Pro-only, §9/§29).
 `breed-feeding-schedules` (Feeding Schedules — per-breed feeding grids, §27.2 — Pro-only,

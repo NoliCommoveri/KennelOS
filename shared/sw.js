@@ -195,6 +195,8 @@ const PRECACHE_URLS = [
   'pages/companion.js',
   'pages/dashboard.html',
   'pages/dashboard.js',
+  'pages/kennel-import.html',
+  'pages/kennel-import.js',
   'pages/contact-import.html',
   'pages/contact-import.js',
   'pages/contact.html',

@@ -989,6 +989,12 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   (`data/cloud/serverWork.js`, `cloud/src/waitlist.js`). **New cloud migration
   `0016_waitlist_lease`: Apply pending on staging and production after the merge.** **Next:
   step 6, the UI and release.**
+- **Kennels CSV import + a dog's breeder kennel on import — built (2026-10-14).** New Pro-only
+  `pages/kennel-import.html` (mapping `kennel` in `data/csvImport.js`, matched on kennel name;
+  a new kennel is always an outside kennel, an update never changes `is_own_kennel` or
+  `public_id`). The dog importer gains `breeder_kennel_name` (any kennel on file, unknown →
+  review). Import / Export now lists Kennels first, then Contacts and Dogs, so contacts'
+  and dogs' kennel columns find the kennels they name. End-State guide §9.
 
 ## Build & deploy
 

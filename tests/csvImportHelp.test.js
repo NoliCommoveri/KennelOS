@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { getMapping } from '../shared/data/csvImport.js';
 import { importHelp, HELP_ENTITIES, NEED_LABELS, templateCsv } from '../shared/data/csvImportHelp.js';
 
-const IMPORTERS = ['dog', 'contact', 'pairing', 'litter', 'sale', 'event', 'stud_service', 'expense', 'waitlist'];
+const IMPORTERS = ['kennel', 'dog', 'contact', 'pairing', 'litter', 'sale', 'event', 'stud_service', 'expense', 'waitlist'];
 
 test('every importer has a guide, and nothing else does', () => {
   assert.deepEqual([...HELP_ENTITIES].sort(), [...IMPORTERS].sort());

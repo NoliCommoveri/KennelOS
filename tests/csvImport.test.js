@@ -82,7 +82,7 @@ test('getMapping throws on an unknown entity', () => {
 });
 
 test('getMapping returns the same mapping for every known entity', () => {
-  for (const entity of ['dog', 'contact', 'pairing', 'litter', 'sale', 'event', 'stud_service', 'expense', 'waitlist']) {
+  for (const entity of ['kennel', 'dog', 'contact', 'pairing', 'litter', 'sale', 'event', 'stud_service', 'expense', 'waitlist']) {
     assert.equal(getMapping(entity).entity, entity);
   }
 });
@@ -346,6 +346,58 @@ test('dog: no coi_value means no recorded_coi at all, even if method/source were
 // =========================================================================
 // Contact mapping
 // =========================================================================
+
+// A dog's breeder kennel resolves against ANY kennel on file, own or outside.
+test('dog: breeder_kennel_name resolves to an outside kennel', () => {
+  const index = dogIndex({ kennels: [{ id: 'k-out', kennel_name: 'Willow Creek', is_own_kennel: false }] });
+  const r = dogMapping.classify(validDogRow({ breeder_kennel_name: ' willow creek ' }), index, 0);
+  assert.equal(r.status, 'create');
+  assert.equal(r.record.breeder_kennel_id, 'k-out');
+});
+
+test('dog: an unknown breeder_kennel_name is flagged -> review, never invented', () => {
+  const index = dogIndex();
+  const r = dogMapping.classify(validDogRow({ breeder_kennel: 'Nowhere' }), index, 0);
+  assert.equal(r.status, 'review');
+  assert.equal(r.record.breeder_kennel_id, undefined);
+  assert.ok(reasonsInclude(r.reasons, 'Breeder kennel "Nowhere" not found'));
+});
+
+// =========================================================================
+// Kennel mapping
+// =========================================================================
+
+const kennelMapping = getMapping('kennel');
+
+test('kennel: a new name is a create, always as an outside kennel', () => {
+  const index = kennelMapping.buildIndex([]);
+  const r = kennelMapping.classify({ kennel_name: 'Cottonpaws', prefix: 'Cottonpaws', location: 'TX' }, index, 0);
+  assert.equal(r.status, 'create');
+  assert.deepEqual(r.record, { kennel_name: 'Cottonpaws', prefix: 'Cottonpaws', location: 'TX', is_own_kennel: false });
+});
+
+test('kennel: a name match (case/space-insensitive) is an update that never touches is_own_kennel', () => {
+  const own = { id: 'k1', kennel_name: 'Thornfield', is_own_kennel: true };
+  const index = kennelMapping.buildIndex([own]);
+  const r = kennelMapping.classify({ kennel: '  THORNFIELD ', website: 'https://x.test' }, index, 0);
+  assert.equal(r.status, 'update');
+  assert.equal(r.decisionTarget, 'k1');
+  assert.deepEqual(r.changes, { kennel_name: 'THORNFIELD', website: 'https://x.test' });
+  assert.ok(!('is_own_kennel' in r.changes));
+});
+
+test('kennel: no name is keyless -> review', () => {
+  const r = kennelMapping.classify({ location: 'TX' }, kennelMapping.buildIndex([]), 0);
+  assert.equal(r.status, 'review');
+  assert.ok(reasonsInclude(r.reasons, 'No kennel_name'));
+});
+
+test('kennel: two kennels sharing the name -> review, user picks', () => {
+  const index = kennelMapping.buildIndex([{ id: 'a', kennel_name: 'Dreams' }, { id: 'b', kennel_name: 'dreams' }]);
+  const r = kennelMapping.classify({ kennel_name: 'Dreams' }, index, 0);
+  assert.equal(r.status, 'review');
+  assert.ok(reasonsInclude(r.reasons, '2 kennels on file'));
+});
 
 const contactMapping = getMapping('contact');
 

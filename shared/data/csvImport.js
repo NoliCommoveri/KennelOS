@@ -191,7 +191,7 @@ const DOG_MAPPING = {
   templateHeaders: [
     'call_name', 'registered_name', 'sex', 'date_of_birth', 'breed',
     'sire_registered_name', 'dam_registered_name', 'ownership_type', 'status',
-    'owner_name', 'kennel_name', 'color_markings', 'registry', 'registration_number', 'microchip_id',
+    'owner_name', 'kennel_name', 'breeder_kennel_name', 'color_markings', 'registry', 'registration_number', 'microchip_id',
     'coi_value', 'coi_method', 'coi_source', 'coi_as_of', 'notes'
   ],
   requiredForCreate: ['call_name', 'sex', 'breed', 'ownership_type', 'status'],
@@ -253,6 +253,15 @@ const DOG_MAPPING = {
     // when the dog's ownership means the app scopes it (owned/co_owned); an
     // external/leased dog may legitimately name an outside kennel here.
     const kennelUnresolved = resolveKennelColumn(row, index.kennels, record, reasons, { requireOwn: SCOPED_OWNERSHIP.has(ownership) });
+    // Breeder kennel by name: the kennel that produced the dog, own or outside, so
+    // any kennel on file. Same resolve-or-review rule as every relationship column.
+    let breederKennelUnresolved = false;
+    const breederKennelName = col(row, 'breeder_kennel_name', 'breeder_kennel');
+    if (breederKennelName) {
+      const hit = index.kennels?.byName.get(breederKennelName.toLowerCase());
+      if (hit) record.breeder_kennel_id = hit.id;
+      else { breederKennelUnresolved = true; reasons.push(`Breeder kennel "${breederKennelName}" not found — import it on the Kennels import first.`); }
+    }
     for (const [key, ...aliases] of [
       ['color_markings', 'color', 'markings'], ['registry'], ['registration_number', 'reg_number'],
       ['microchip_id', 'microchip'], ['notes']
@@ -329,7 +338,7 @@ const DOG_MAPPING = {
     }
     // Unresolved parents push a create/update row to review (fixable, or apply anyway).
     if (unresolved.length) { if (status_ !== 'review') status_ = 'review'; reasons.push(unresolved.join('; ') + '.'); }
-    if (kennelUnresolved || ownerUnresolved) status_ = 'review';
+    if (kennelUnresolved || ownerUnresolved || breederKennelUnresolved) status_ = 'review';
     // The dog as it would be saved (an update merges onto the match): an
     // external or leased-in dog with no owner would fail at commit, so say so now.
     const saved = { ...(match || {}), ...record };
@@ -441,6 +450,85 @@ const CONTACT_MAPPING = {
   describe: (c) => (c.name || '(unnamed contact)') + (c.is_archived ? ' (archived)' : ''),
 
   repo: contactRepo
+};
+
+// =========================================================================
+// Kennel mapping
+// =========================================================================
+// Natural key: kennel_name (case-insensitive, trimmed), the same name rule the
+// kennel card's link offer uses (kennelRepo.findUnlinkedByName). Kennels come
+// first in an import run: a contact's and a dog's kennel columns resolve against
+// existing kennels only, so importing kennels before contacts and dogs is what
+// lets those rows attach to them.
+//
+// A new kennel is always an OUTSIDE kennel (is_own_kennel false), never one of
+// the user's own: an own kennel mints a public identity and joins the kennel
+// scope (Multi-Kennel Scope Spec), which is set up on the Kennels page, not by a
+// file. For the same reason a row never changes is_own_kennel or public_id on a
+// match; it only fills in the identity fields it carries.
+const KENNEL_MAPPING = {
+  entity: 'kennel',
+  label: 'Kennels',
+  templateHeaders: ['kennel_name', 'prefix', 'location', 'website'],
+  requiredForCreate: ['kennel_name'],
+
+  async loadExisting() {
+    return kennelRepo.getAll({ includeArchived: true });
+  },
+
+  buildIndex(existing) {
+    const byName = new Map(); // name -> [kennel] (two kennels can share a name)
+    for (const k of existing) {
+      const key = k.kennel_name?.trim().toLowerCase();
+      if (!key) continue;
+      if (!byName.has(key)) byName.set(key, []);
+      byName.get(key).push(k);
+    }
+    return { byName };
+  },
+
+  classify(row, index, i) {
+    const reasons = [];
+    const name = col(row, 'kennel_name', 'kennel', 'name');
+    const record = {};
+    if (name) record.kennel_name = name;
+    for (const [key, ...aliases] of [['prefix'], ['location'], ['website', 'url']]) {
+      const v = col(row, key, ...aliases);
+      if (v) record[key] = v;
+    }
+
+    let status_ = 'create';
+    let match = null;
+    if (!name) {
+      status_ = 'review';
+      reasons.push('No kennel_name — cannot form a natural key.');
+    } else {
+      const hits = index.byName.get(name.toLowerCase()) || [];
+      if (hits.length === 1) {
+        match = hits[0];
+        status_ = 'update';
+      } else if (hits.length > 1) {
+        match = hits[0];
+        status_ = 'review';
+        reasons.push(`${hits.length} kennels on file are named "${name}" — choose "Update match" and pick the right one, or create a new one.`);
+      }
+    }
+
+    const display = name || `(row ${i + 2})`;
+    return {
+      index: i, raw: row, entity: 'kennel', display,
+      // A create is always an outside kennel; an update never touches the flag.
+      record: { ...record, is_own_kennel: false }, changes: { ...record },
+      status: status_, match, matchLabel: match ? KENNEL_MAPPING.describe(match) : '',
+      reasons,
+      decision: status_ === 'review' ? 'skip' : status_,
+      decisionTarget: match ? match.id : null
+    };
+  },
+
+  describe: (k) => (k.kennel_name || '(unnamed kennel)') + (k.is_own_kennel ? ' (your kennel)' : '') + (k.is_archived ? ' (archived)' : ''),
+
+  repo: kennelRepo
 };
 
 // =========================================================================
@@ -1596,7 +1684,7 @@ const WAITLIST_MAPPING = {
 };
 
 const MAPPINGS = {
-  dog: DOG_MAPPING, contact: CONTACT_MAPPING, pairing: PAIRING_MAPPING, litter: LITTER_MAPPING,
+  kennel: KENNEL_MAPPING, dog: DOG_MAPPING, contact: CONTACT_MAPPING, pairing: PAIRING_MAPPING, litter: LITTER_MAPPING,
   sale: SALE_MAPPING, event: EVENT_MAPPING, stud_service: STUD_SERVICE_MAPPING, expense: EXPENSE_MAPPING,
   waitlist: WAITLIST_MAPPING
 };

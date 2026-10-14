@@ -63,6 +63,7 @@ const HELP = {
       status: { need: 'new', values: DOG_STATUS, text: 'The dog\'s current life stage.' },
       owner_name: { need: 'optional', aliases: ['owner', 'owner_contact_name'], text: 'Who owns the dog, by contact name. Required for an External or Leased in dog. The contact must already exist.' },
       kennel_name: { need: 'optional', aliases: ['kennel'], text: 'The dog\'s kennel, by name. For a dog you own or co-own it must be one of your own kennels (blank = the kennel you\'re working in); an outside dog can name any kennel you have on file.' },
+      breeder_kennel_name: { need: 'optional', aliases: ['breeder_kennel'], text: 'The kennel that bred the dog, by name: your own, or an outside kennel on file (import kennels first). An unknown name is flagged for review.' },
       color_markings: { need: 'optional', aliases: ['color', 'markings'], text: 'Color and markings.' },
       registry: { need: 'optional', text: 'The registry, e.g. AKC or UKC.' },
       registration_number: { need: 'optional', aliases: ['reg_number'], text: 'Registration number.' },
@@ -75,6 +76,16 @@ const HELP = {
     }
   },
 
+  kennel: {
+    match: 'Each row is matched to an existing kennel by name (capitals and extra spaces ignored). A match fills in that kennel; no match adds it as an outside kennel. Import kennels before contacts and dogs, so their kennel columns can find them.',
+    columns: {
+      kennel_name: { need: 'required', aliases: ['kennel', 'name'], text: 'The kennel\'s name. Type it the way its owner does: a kennel card from them is offered as a link only when the names match.' },
+      prefix: { need: 'optional', text: 'The prefix its dogs\' registered names start with.' },
+      location: { need: 'optional', text: 'Where the kennel is, e.g. a town and state.' },
+      website: { need: 'optional', aliases: ['url'], text: 'A web address for the kennel.' }
+    }
+  },
+
   contact: {
     match: 'Each row is matched to an existing contact by name (capitals and extra spaces ignored). A match updates that contact; no match creates a new one.',
     columns: {
@@ -84,7 +95,7 @@ const HELP = {
       phone: { need: 'optional', aliases: ['telephone'], text: 'Phone number.' },
       facebook_profile: { need: 'optional', aliases: ['facebook', 'fb_profile'], text: 'Link to their Facebook profile.' },
       address: { need: 'optional', text: 'Mailing address.' },
-      kennel_name: { need: 'optional', aliases: ['kennel'], text: 'Their kennel, by name. It must already be a kennel on file; an unknown name is left blank and flagged.' },
+      kennel_name: { need: 'optional', aliases: ['kennel'], text: 'Their kennel, by name. It must already be a kennel on file (import kennels first); an unknown name is left blank and flagged.' },
       notes: NOTES
     }
   },
