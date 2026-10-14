@@ -238,6 +238,8 @@ KennelOS/
     vocab.js                   Controlled vocabularies + event-type catalog
     csvImport.js               Generic CSV match-or-create engine + mappings
     csvImportHelp.js           Plain-language column guide for each CSV importer
+    csvBatch.js                Several-file import: guess each file's importer from
+                               its columns, order the files by mapping `links`
     importExport.js            JSON backup / restore
     syncApply.js               Live sync: writes pulled records in one transaction per
                                page (echo skip, server wins over an unpushed local edit,
@@ -1079,6 +1081,25 @@ Rules that shape everything:
   Sale's `buyer_name` and StudService's `partner_contact_name`, via each mapping's
   `prepareRecord` hook.
 
+**Import several files** (`pages/import-batch.html`, `data/csvBatch.js`; the button under
+CSV import on Import / Export, every edition). The user picks every CSV at once. Each
+file's importer is **guessed from its column names**: `detectEntity` reads the names and
+aliases from `csvImportHelp.js` (so it can't miss a column an importer accepts), scoring
+each shared name 1 / (number of importers that read it), so a distinctive column
+(`event_type`, `prefix`) outweighs a common one (`notes`, `kennel_name`). It guesses only
+when at least two of the file's columns, and a third of them, are that importer's, and says
+when the runner-up is close; the user can always change the type or leave a file out. Lite
+guesses only among its own importers and names a Pro-only one as needing Pro. **Order**:
+every mapping declares `links`, the entities its columns point at (dog → kennel, contact;
+event → dog, contact; …); `orderFiles` runs each file after every file of a type it links
+to, keeping the user's order otherwise, so the order follows the declarations: a new
+importer only declares its `links`. Then each file runs **step by step** through the
+ordinary import screen (`createImportView` with `rows`/`fileName`/`onNext`): its own
+dry-run preview against everything earlier steps committed, Commit, Next, or "Skip this
+file". Expense and Waitlist-application files are **handed off** to their own screens
+(`HANDOFF_ENTITIES`: per-row subject attach; which kennel's list), since each needs
+set-up of its own. A finished screen lists every file's result.
+
 Per-entity natural keys: Kennel = kennel_name (a name shared by two kennels on file →
 review, the user picks; a new kennel is always created **outside**, `is_own_kennel: false`,
 and an update never touches `is_own_kennel` or `public_id`: own kennels and their identity
@@ -1812,7 +1833,7 @@ entry already on file for the same dog + day + title (case-insensitive) is skipp
 duplicated; the handler is tagged `handler` via `contactRepo.ensureType`.
 Reports: `litters-report`, `stud-services-report`, `placements-report`,
 `health-tests-report`, `litter-finances-report` (Litter P&L; `data/litterFinances.js`).
-Import pages: `kennel-import` (Pro-only, like the Kennels page; §9), `dog-import`, `contact-import`, `pairing-import`, `litter-import`,
+Import pages: `import-batch` (Import several files, every edition; §9), `kennel-import` (Pro-only, like the Kennels page; §9), `dog-import`, `contact-import`, `pairing-import`, `litter-import`,
 `sale-import`, `event-import`, `stud-service-import`, `expense-import`, `kennel-tests-import`,
 `waitlist-import` (Pro-only, §9/§29).
 `breed-feeding-schedules` (Feeding Schedules — per-breed feeding grids, §27.2 — Pro-only,

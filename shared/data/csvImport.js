@@ -188,6 +188,9 @@ const DOG_OWNER_REQUIRED = ['external', 'leased_in'];
 const DOG_MAPPING = {
   entity: 'dog',
   label: 'Dogs',
+  // What this importer's columns point at (other importers' entities), so a
+  // several-file import (data/csvBatch.js) runs those files first.
+  links: ['kennel', 'contact'],
   // Columns the importer understands (for the on-page template/help).
   templateHeaders: [
     'call_name', 'registered_name', 'sex', 'date_of_birth', 'breed',
@@ -459,6 +462,7 @@ function buildDogChanges(record) {
 const CONTACT_MAPPING = {
   entity: 'contact',
   label: 'Contacts',
+  links: ['kennel'],
   templateHeaders: ['name', 'contact_type', 'email', 'phone', 'facebook_profile', 'address', 'kennel_name', 'notes'],
   requiredForCreate: ['name'],
 
@@ -550,6 +554,7 @@ const CONTACT_MAPPING = {
 const KENNEL_MAPPING = {
   entity: 'kennel',
   label: 'Kennels',
+  links: [],
   templateHeaders: ['kennel_name', 'prefix', 'location', 'website'],
   requiredForCreate: ['kennel_name'],
 
@@ -622,6 +627,7 @@ const KENNEL_MAPPING = {
 const PAIRING_MAPPING = {
   entity: 'pairing',
   label: 'Pairings',
+  links: ['dog', 'kennel'],
   templateHeaders: [
     'sire_registered_name', 'dam_registered_name', 'pairing_type', 'method',
     'status', 'planned_date', 'expected_due_date', 'kennel_name', 'notes'
@@ -743,6 +749,7 @@ const PAIRING_MAPPING = {
 const LITTER_MAPPING = {
   entity: 'litter',
   label: 'Litters',
+  links: ['dog', 'kennel'],
   templateHeaders: [
     'dam_registered_name', 'sire_registered_name', 'nickname', 'whelp_date',
     'litter_registration_number', 'puppies_born_total', 'puppies_born_alive',
@@ -869,6 +876,7 @@ const LITTER_MAPPING = {
 const SALE_MAPPING = {
   entity: 'sale',
   label: 'Sales',
+  links: ['dog', 'contact', 'kennel'],
   templateHeaders: [
     'dog_registered_name', 'buyer_name', 'sale_date', 'registration_type', 'status',
     'price', 'deposit_amount', 'deposit_date', 'balance_paid_date', 'kennel_name', 'lead_source', 'notes'
@@ -1013,6 +1021,7 @@ const SALE_MAPPING = {
 const EVENT_MAPPING = {
   entity: 'event',
   label: 'Events',
+  links: ['dog', 'contact'],
   templateHeaders: [
     'dog_registered_name', 'event_type', 'event_date', 'event_end_date', 'title',
     'related_contact_name', 'reminder_date', 'details_json', 'notes'
@@ -1198,6 +1207,7 @@ function descriptorLabel(vocab, value) {
 const STUD_SERVICE_MAPPING = {
   entity: 'stud_service',
   label: 'Stud Services',
+  links: ['dog', 'contact', 'kennel'],
   templateHeaders: [
     'direction', 'our_dog_registered_name', 'partner_dog_registered_name',
     'partner_contact_name', 'fee_amount', 'fee_structure', 'status', 'kennel_name', 'result_notes'
@@ -1395,6 +1405,7 @@ function expenseNk(subjectType, subjectId, date, amount, category, vendor, recei
 const EXPENSE_MAPPING = {
   entity: 'expense',
   label: 'Expenses',
+  links: ['dog', 'litter', 'pairing', 'kennel'],
   templateHeaders: [
     'subject_type', 'subject_name', 'expense_date', 'amount', 'category',
     'vendor', 'miles', 'mileage_rate', 'receipt_number', 'notes'
@@ -1586,6 +1597,7 @@ const EXPENSE_MAPPING = {
 const WAITLIST_MAPPING = {
   entity: 'waitlist',
   label: 'Waitlist applications',
+  links: ['kennel', 'dog'],
   templateHeaders: ['name', 'email', 'phone', 'location', 'applied_date', 'pref_sex', 'pref_breed', 'pref_purposes', 'pref_colors', 'ready_timing', 'program', 'heard_from', 'household', 'other_pets', 'experience', 'about', 'kennel_name', 'notes'],
   requiredForCreate: ['name', 'email'],
 
