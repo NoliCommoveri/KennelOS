@@ -366,11 +366,15 @@ function renderEdit() {
     ctx.draft = readForm();
     renderEdit();
   });
-  // Whelp date prefills estimated ready date (8 weeks later) — only while that
-  // field is still empty, so it never clobbers a deliberate edit.
+  // Whelp date prefills estimated ready date (8 weeks later) — while that field
+  // is empty, or still exactly 8 weeks after the old whelp date (the prefill,
+  // e.g. from a new litter's suggested date), so it never clobbers a deliberate edit.
   document.getElementById('f-whelp_date').addEventListener('change', (e) => {
+    const prevWhelp = ctx.draft.whelp_date;
     ctx.draft = readForm();
-    if (e.target.value && !ctx.draft.estimated_ready_date) {
+    const readyWasPrefill = !ctx.draft.estimated_ready_date
+      || (prevWhelp && ctx.draft.estimated_ready_date === addDaysToYMD(prevWhelp, READY_DAYS_AFTER_WHELP));
+    if (e.target.value && readyWasPrefill) {
       ctx.draft.estimated_ready_date = addDaysToYMD(e.target.value, READY_DAYS_AFTER_WHELP);
     }
     renderEdit();
@@ -870,6 +874,10 @@ async function main() {
   if (isNew) {
     ctx.mode = 'new';
     ctx.draft = blankLitter();
+    // Suggest the day it's being created as the whelp date (most litters are
+    // recorded as they arrive), and the ready date 8 weeks on. Both editable.
+    ctx.draft.whelp_date = todayYMD();
+    ctx.draft.estimated_ready_date = addDaysToYMD(ctx.draft.whelp_date, READY_DAYS_AFTER_WHELP);
     // Pre-fill from a pairing when arriving via "Create Litter from this Pairing".
     const pairingId = param('pairing');
     if (pairingId && ctx.pairingsById.has(pairingId)) {
