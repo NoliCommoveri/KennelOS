@@ -1022,6 +1022,7 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   Pro-only `assets/guidedShareUI.js`
   and `assets/companionLink.js` (the console's link builder, moved out of
   `pages/companion.js`). No schema change. End-State guide §33; editions plan tier table.
+  Cache rolled to `kennelos-shell-v78` for this batch.
 
 ## Build & deploy
 
