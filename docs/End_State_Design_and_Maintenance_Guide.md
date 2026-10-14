@@ -303,6 +303,11 @@ KennelOS/
                                (§29; tests/waitlistProjection.test.js)
     saleDefaults.js            expectedPricing(dog, litter) — a new Sale's price/deposit
                                prefill, shared by sale.js and the waitlist accept flow
+    puppyDefaults.js           baseFromLitter(litter, dam) — what a new puppy inherits from its
+                               litter; shared by puppyForm.js and the guided litter flow (pure)
+    guidedLitter.js            The guided "Record a new litter" flow's data half: draft, steps,
+                               checks, name/litter/breeding matches, review lines, and the
+                               resumable save through the repos (§33; tests/guidedLitter.test.js)
     processingFees.js          a sales channel's fee: rate (percent + fixed), fee on a price,
                                the price that nets a set amount (pure, §21.1)
     referralShare.js           the referral links she shares with families, the go-home date,
@@ -343,7 +348,8 @@ KennelOS/
     wizardSteps.js             Full (Pro/Demo) guided-tour step catalog — data only (§11)
     editionTour.js             Per-edition tour package (seed + steps) injection point;
                                shared copy re-exports the full seed + catalog (§11)
-    settings.js                localStorage-backed UI prefs / identity keys
+    settings.js                localStorage-backed UI prefs / identity keys (incl. the
+                               guided litter flow's unfinished draft, §33)
     nudgeState.js              Device-local dismissal ledger for derived nudges
     nudges.js                  Derived-nudge engine — computeNudges() (§19)
     awayBoard.js               "Away from home" union: boarding events + in-person
@@ -365,6 +371,15 @@ KennelOS/
     puppyForm.js               Litter → puppy roster entry (Add Puppy: name, sex, disposition,
                                registration; Add several: males + females counts, disposition and
                                registration applied to all, placeholders "Puppy N", males first)
+    kenChat.js                 Ken's chat transcript (typing, messages, answer panels, choices)
+                               + the floating "Ask Ken" button (§33)
+    guidedLitterUI.js          Ken's "Record a new litter" task: its questions and the
+                               conversation runner (§33)
+    guidedShareUI.js           Its "Let families know" step after the save (§33; Pro-only,
+                               PRO_ONLY_STANDALONE, imported dynamically)
+    companionLink.js           Bundle → recipient link + sms:/mailto: anchors, shared by the
+                               Companion console and guidedShareUI (§20; Pro-only,
+                               PRO_ONLY_STANDALONE)
     contactPicker.js           Inline "＋ New contact" decorator for pickers
     breedTestPicker.js         Search/browse-by-breed-group picker widget shared
                                by both seed-import wizards (kennel-tests-import
@@ -2308,7 +2323,9 @@ the one stud `fee_amount`.
 
 - The bundle rides the **URL fragment**: `JSON.stringify` → **lz-string**
   (`vendor/lz-string.min.mjs`, vendored + version-locked, v1.5.0) →
-  `companion-view.html#<hash>`. Send is a **real `sms:`/`mailto:` anchor** the user taps (their
+  `companion-view.html#<hash>` (built by `assets/companionLink.js` — `buildLinkArtifacts`,
+  `sendHrefs` and the two ceilings — shared by the console and the guided litter flow's share
+  step, §33, so both send the same thing). Send is a **real `sms:`/`mailto:` anchor** the user taps (their
   tap is the activating gesture — never a post-async `window.location` assignment). **Channel
   by size:** email is the default; SMS is blocked above `MAX_SMS_HASH_LEN` and steered to
   email; email warns above `MAX_EMAIL_HASH_LEN` (the console's `prepareLink`).
@@ -4486,3 +4503,96 @@ name their account; `manifest.accounts` lists them. Clear Sample Data deletes th
 a real expense names one, treats it as contamination like a sample dog or kennel (`account`
 in `ENTITY_REGISTRIES`): reported on the dry run, archived on the archive-conflicting pass.
 They're never in a cloud snapshot, like all sample rows.
+
+## 33. Ken — guided tasks ("Record a new litter")
+
+### What it is
+**Ken** (placeholder name; `kenChat.KEN_NAME`) is a scripted helper presented as a chat: a
+floating **Ask Ken** button (`kenChat.ASSIST_LABEL`; bottom right on every page, fixed while
+scrolling, a dot while a task is unfinished — rendered by `app.js` via
+`kenChat.renderAssistButton`) opens `pages/ken.html`. He is **not a model**: every line he
+"types" is written in the task scripts, and nothing leaves the device. On the page Ken shows a
+typing indicator, says "Hi, I'm Ken! What can I help you do today?", and his tasks fade in one
+at a time (`pages/ken.js` `TASKS`, each with a `priority(state)` hook — an unfinished task
+first — so more scripts can be ordered as they're added). Picking a task: Ken explains what
+will happen and offers **Sounds great, let's start!** / **Never mind**; then every question is a
+Ken message, her answer panel sits under it, and her answer stays in the chat as her reply,
+all in one transcript box that scrolls itself to the newest message. At the end Ken says "I
+think I got it all. Here's what I'll create:" and shows the plan (each section with a Change
+link; a change asks that question again and returns to the plan), then **Yes, build it**.
+No new table, field, index, FK or vocabulary: every write is an ordinary repo write.
+
+Modules: `assets/kenChat.js` (the transcript: `createChat(box)` → `ken(html)` with typing,
+`you(text)`, `panel(html)`, `choose(choices)`; and the floating button), `pages/ken.*` (the
+page and Ken's menu), `assets/guidedLitterUI.js` (the litter task: its question screens, her
+replies — `answerFor` — and the conversation runner `runLitterTask`).
+
+**Doors:** the floating button; the Breeding page header (**Record a litter with Ken** →
+`ken.html?task=record-litter`); an Expected litter's page header (**Record the birth with Ken**
+→ `&litter=<id>`, which starts with that litter's parents and litter already chosen). A header
+**Save for later** button while a task runs says the answers are kept and returns to the menu.
+
+### The order (`data/guidedLitter.js` `stepsFor`)
+1. **Who is the mom?** then **Who is the dad?** Her own dogs as tiles, "Show all" for outside
+   dogs, and **A dog that isn't in KennelOS yet**. A new dog asks name, breed, registered name
+   and (Pro, `editionFlags.externalOwnership`) **Mine / Someone else's**; someone else's asks
+   the owner (a contact picked, or a new one's name/phone/email) and, optionally, the owner's
+   kennel (an outside kennel picked, or a new one by name). **Before a new dog is made**, the
+   typed name is looked up (`dogMatches`: same sex or unknown, call or registered name equal or
+   one containing the other; every non-archived dog, outside and pedigree-only ones included):
+   any found are offered first — "We found Nell. Is this the mom?" — so a dog is never entered
+   twice. Lite records only her own dogs (no outside dogs there).
+2. **Is this the litter?** — litters of those two parents with no puppies yet
+   (`litterCandidates`), only when both parents are dogs on file.
+3. **Is this the breeding?** — open breedings of the pair with no litter linked
+   (`pairingCandidates`; not `not_pregnant`/`failed`/`cancelled`), asked when no litter was
+   picked or the picked litter has no breeding linked. Picking one fills the bred date and
+   method and skips the next step.
+4. **When was she bred?** (dates optional, method tiles) — only when no breeding exists.
+5. **Record the stud service?** (Pro, `editionFlags.studServices`) — when the dad is somebody
+   else's and the breeding has none: fee structure, fee, in person / shipped.
+6. The birth date, the counts (born alive / not alive / abnormalities), the kennel (only when
+   `resolveKennelIdForWrite` can't work it out), **one screen per puppy** (name — starts as a
+   collar color — Boy/Girl, color & markings, birth weight in ounces), **plans** (disposition +
+   intended registration per pup, with "Set all to"), **prices** (the litter's per-sex price,
+   deposit and Full surcharge, prefilled from her newest priced litter of the dam's breed, with
+   a live "how families will see the available puppies" preview using `pupPriceText` — the
+   same sex + Full-surcharge rule as `saleDefaults.expectedPricing`), **dates** (accept-deposits
+   date; ready date defaulting to whelp + 56 days), **extras** (litter nickname, per-pup
+   microchip and photo link), then the **review**, each section with a Change link.
+
+### The save (`saveGuidedLitter`)
+Order: new parents (an own dog is `owned`/`active_breeding` in the litter's kennel; an outside
+one is `external` with its new kennel and owner contact made first) → the litter (created
+`whelped`, or the picked one updated) → the breeding (the litter's own or the picked one marked
+`whelped` and linked to the litter, or a new `actual` one created `whelped` with
+`expected_due_date` = bred + 63) → the `incoming` stud service (`partner_contact_id` = the
+dad's owner) → each puppy (`puppyDefaults.baseFromLitter`, exactly as Add Puppies; a pup
+already on the litter is updated, and given the birth date if it had none) → a `weight_check`
+event titled "Birth weight" per weighed pup. In Lite the litter is the first write, so the
+litter cap refuses with nothing made (a new own mom counts toward the dog cap and is made
+first). **Resumable:** every record's id goes back on the draft (`draft.saved`, `pup.id`) the
+moment it's made and the draft is re-saved after each write, so a save that stops partway
+(an error, a closed tab) retries without making anything twice; changing an answer after
+such a stop clears `saved.litterUpdated` / each pup's `saved` so the retry writes the new
+values.
+
+### The draft
+`settings.js` `guidedLitterDraft` (`kennelOS.guidedLitterDraft`): her answers, kept after
+every step, plus `history` (each answered question and her reply, so the chat is replayed when
+she comes back), versioned by `DRAFT_VERSION` (an older version is dropped). Device-only — it
+isn't program data until saved — and in `KEYS`, so Reset App clears it. One at a time: Ken's
+menu offers **Finish recording X's litter** first, and starting a new litter with one pending
+asks "Finish that one / Start fresh".
+
+### After the save: "Let families know" (Pro)
+`assets/guidedShareUI.js` (Pro-only; imported only when `editionFlags.waitlist` or
+`editionFlags.companion` and a pup is Available), as Ken's "Want to tell people about the new
+pups?" with its panel in the chat. **Tell my waitlist they were born** opens
+the litter page's own "It's almost your turn" / "a litter you match was born" notice
+(`waitlistPicksPanel.openLitterWaitlistNotice`) to review and send. **Share the available
+pups** walks the active waitlist contacts (the Companion console's prospective membership) one
+family per screen with real Email / Text anchors built by `companionLink.js`. It **never opens
+picks** (decided 2026-10-14): offers stay hers to make from the litter page, which the Done
+screen says.
+
