@@ -168,6 +168,11 @@ always a deliberate, confirmed action.
 - **Sold puppies are archived too.** When a puppy's sale is delivered, the pup departs the roster
   the same way (it never counted toward the cap — this is roster tidiness, and it keeps the
   archived-dog handling uniform). Its Sale record survives.
+- **Puppies that die are offered the same departure** (added 2026-10-14). When a Puppy is marked
+  Deceased on its profile, or its sale ends because the pup died, the departure is offered (it is
+  never automatic), and Today offers it for a pup that died before its first birthday within the
+  last 90 days. Pro offers a plain Archive in the same places. The wording and action live in
+  `nudges.deceasedArchiveAction`; every Lite path still goes through the confirm below.
 - **Every archive action is gated by a blocking "this is permanent" confirm the user must accept**
   — no silent archive, no transient auto-undo (the confirm *is* the safety, and an undo would
   contradict the message). Honest wording, because the app is soft-delete-only and never destroys
