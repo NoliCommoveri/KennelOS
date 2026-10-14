@@ -389,9 +389,10 @@ export async function computeNudges() {
 
   for (const l of scopedLitters) {
     if (l.is_archived) continue;
-    // A pup marked Deceased is out of the picture whatever its disposition says:
-    // it neither reopens a litter (left "Available") nor holds up "mark sold"
-    // (left "Undecided") or "close" (a placed pup that never got a delivered sale).
+    // A pup marked Deceased is out of the picture. dogRepo nulls its disposition
+    // (puppy-only), and a null disposition would otherwise hold up "mark sold" for
+    // its litter forever. Filtering on status rather than disposition also covers
+    // a row restored or synced from before that rule.
     const pups = (pupsByLitter.get(l.id) || []).filter((p) => p.status !== 'deceased');
     if (pups.length === 0) continue;
     const label = litterLabel(l, dogsById);

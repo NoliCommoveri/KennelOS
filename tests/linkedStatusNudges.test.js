@@ -148,12 +148,13 @@ const pupOf = (l, over) => dogRepo.create({
   breed: 'Boston Terrier', ownership_type: 'owned', status: 'puppy', kennel_id: K.id, litter_id: l.id, dam_id: dam.id, sire_id: sire.id, ...over
 });
 
-test('a Deceased pup left Available doesn\'t ask to reopen a sold litter', async () => {
+test('a Deceased pup (from a row written before disposition was cleared) doesn\'t ask to reopen a sold litter', async () => {
   const l = await litterRepo.create({ kennel_id: K.id, dam_id: dam.id, sire_id: sire.id, status: 'sold' });
   await pupOf(l, { call_name: 'Pip', sex: 'male', disposition: 'placed' });
   const gone = await pupOf(l, { call_name: 'Wren', sex: 'female', disposition: 'available' });
   assert.equal((await nudgesFor('litterreopen:')).length, 1, 'alive and available: reopen');
-  await dogRepo.update(gone.id, { status: 'deceased' });
+  // dogRepo nulls a non-puppy's disposition; write past it, as an old restore would.
+  await db.dogs.update(gone.id, { status: 'deceased' });
   assert.equal((await nudgesFor('litterreopen:')).length, 0);
 });
 
@@ -161,7 +162,8 @@ test('a Deceased pup doesn\'t hold up "mark sold" or "close"', async () => {
   const buyer = await contactRepo.create({ name: 'Renee Coleman' });
   const l = await litterRepo.create({ kennel_id: K.id, dam_id: dam.id, sire_id: sire.id, status: 'ready' });
   const pip = await pupOf(l, { call_name: 'Pip', sex: 'male', disposition: 'placed' });
-  await pupOf(l, { call_name: 'Wren', sex: 'female', disposition: 'undecided', status: 'deceased' });
+  const wren = await pupOf(l, { call_name: 'Wren', sex: 'female', status: 'deceased' });
+  assert.equal(wren.disposition ?? null, null, 'a dead pup carries no disposition');
   assert.deepEqual((await nudgesFor('littersold:')).map((n) => n.key), [`littersold:${l.id}`]);
 
   await litterRepo.update(l.id, { status: 'sold' });

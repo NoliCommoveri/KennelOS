@@ -2071,10 +2071,11 @@ offers to archive each linked `expected` litter; the **dog page**, on the transi
 sync, another device or a Skip leaves the mismatch for Today to catch.
 
 The three litter-lifecycle rules are aggregate facts over a litter's derived roster (and, for
-close, its sales) — **leaving out any pup whose `status` is `deceased`**, whatever its
-disposition, so a dead pup left `available` never asks to reopen, one left `undecided` never
-holds up **sold**, and a placed one with no delivered sale never holds up **close** (a litter
-whose pups are all deceased gets none of the three). So `computeNudges()` groups the already-loaded `dogRepo.getAll()` result by
+close, its sales) — **leaving out any pup whose `status` is `deceased`**. A dead pup's
+disposition is null (puppy-only, forced by `dogRepo`), and a null would otherwise hold up
+**sold** for good; filtering on status also covers a row restored or synced from before that
+rule (left `available`, it would ask to reopen). A litter whose pups are all deceased gets none
+of the three. So `computeNudges()` groups the already-loaded `dogRepo.getAll()` result by
 `litter_id` in one pass and adds `saleRepo.getAll()` to its parallel load rather than
 re-scanning per record. Their actions mutate only `Litter.status` via `litterRepo.update`;
 nothing auto-mutates. The stud→pairing and heat→pairing rules share one dedup helper
