@@ -4652,13 +4652,14 @@ The weekly visit with one litter. Every thing she approves is saved at once thro
      stored as the birth weight is (`weightDetails`). Kels compares with each pup's last weight
      (`weightReport`): everyone gaining (and who gained most), or "Heads up" naming pups down or
      flat, a first weight, and pups skipped.
-   - **Record medication**, and under **Something else**: **Deworming or preventative**,
-     **Shots**, **A vet visit** (`CARE_KINDS` → `medication` / `preventative` / `vaccination` /
-     `vet_visit`): the type's own vocab fields, a date (medication: started + optional last
-     dose = `event_end_date`), and which pups (all ticked). One event per pup, titled by the drug /
-     product / vaccine / reason, else the type's label (`careEvents`, `careProblem`). A vet
-     visit's vet is the plain-text `vet` field (no contact picker here).
-   - **Update puppy plans** (disposition per pup; Placed is shown, not editable — it moves with
+   - **Health care** → "Sure! What did they receive?" → **Deworming or flea & tick**, **Shots**,
+     **Other medication**, **A vet visit** (`CARE_KINDS`, in that order → `preventative` /
+     `vaccination` / `medication` / `vet_visit`): the type's own vocab fields, a date
+     (medication: started + optional last dose = `event_end_date`), and which pups (all ticked).
+     One event per pup, titled by the product / vaccine / drug / reason, else the kind's `title`
+     (`careEvents`, `careProblem`). A vet visit's vet is the plain-text `vet` field (no contact
+     picker here).
+   - Under **Something else**: **Update puppy plans** (disposition per pup; Placed is shown, not editable — it moves with
      the sale), **Record microchips** (`microchip_id`), **Change the deposit or ready date**,
      **Change the litter's status** (any but Expected), **Open the litter's page**.
    After each, the records are reloaded and new decisions (say, Sold after plans change) come up.

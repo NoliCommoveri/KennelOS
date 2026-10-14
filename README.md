@@ -1033,8 +1033,8 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   open picks when the deposit date has come (Pro, families on the waitlist) or move that date;
   Weaning from 4 weeks; Ready from the ready date; and Today's sold / reopen / close rules
   (now shared with `nudges.js`). Then "What are we doing first?": weights (compared with each
-  pup's last), medication, or something else (deworming, shots, a vet visit, plans,
-  microchips, the dates, the status). Also opened from a born litter's page (**Check in with
+  pup's last), health care ("What did they receive?": deworming or flea & tick, shots, other
+  medication, a vet visit), or something else (plans, microchips, the dates, the status). Also opened from a born litter's page (**Check in with
   Kels**). New `data/litterCheckin.js` (+ `tests/litterCheckin.test.js`),
   `assets/litterCheckinUI.js`; `waitlistPicksPanel.openPicksFromCheckin`. No schema change.
   End-State guide §33. Precache updated; `CACHE_NAME` not bumped yet.

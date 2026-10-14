@@ -237,12 +237,12 @@ class Checkin {
       const pick = await this.chat.choose([
         ...(hasPups ? [
           { label: 'Record weights', sub: weighedSub, value: 'weights' },
-          { label: 'Record medication', sub: 'For some or all of the puppies', value: 'care:medication' }
+          { label: 'Health care', sub: 'Deworming, shots, medication, a vet visit', value: 'care' }
         ] : []),
-        { label: 'Something else', sub: hasPups ? 'Deworming, shots, a vet visit, plans, microchips, dates' : 'Plans, dates, the litter\'s status', value: 'more' },
+        { label: 'Something else', sub: hasPups ? 'Plans, microchips, dates, the litter\'s status' : 'Plans, dates, the litter\'s status', value: 'more' },
         this.didSomething ? { label: 'That\'s all for now', value: 'done' } : { label: 'Never mind', value: 'nevermind' }
       ], { stagger: 150 });
-      const what = pick === 'more' ? await this.moreMenu() : pick;
+      const what = pick === 'more' ? await this.moreMenu() : pick === 'care' ? await this.careMenu() : pick;
       if (what === 'done' || what === 'nevermind') return this.finish(what);
       if (what === 'page') { location.href = litterHref(this.litter); return; }
       if (what) await this.run(what);
@@ -258,11 +258,6 @@ class Checkin {
     const l = this.litter;
     await this.chat.say('Sure. What do you need?', { typing: 400 });
     const pick = await this.chat.choose([
-      ...(hasPups ? [
-        { label: C.CARE_KINDS.preventative.label, value: 'care:preventative' },
-        { label: C.CARE_KINDS.vaccination.label, value: 'care:vaccination' },
-        { label: C.CARE_KINDS.vet_visit.label, value: 'care:vet_visit' }
-      ] : []),
       ...(this.roster.some((p) => p.status === 'puppy' && p.disposition !== 'placed')
         ? [{ label: 'Update puppy plans', sub: undecided ? `${undecided} undecided` : 'Keeping, available, health hold', value: 'plans' }] : []),
       ...(hasPups ? [{ label: 'Record microchips', sub: unchipped ? `${unchipped} without one` : 'Every puppy has one', value: 'chips' }] : []),
@@ -272,6 +267,15 @@ class Checkin {
       { label: 'Go back', value: '' }
     ], { stagger: 120 });
     return pick;
+  }
+
+  // "Health care": which kind, then that kind's form.
+  async careMenu() {
+    await this.chat.say('Sure! What did they receive?', { typing: 400 });
+    return this.chat.choose([
+      ...Object.entries(C.CARE_KINDS).map(([kind, k]) => ({ label: k.label, value: `care:${kind}` })),
+      { label: 'Go back', value: '' }
+    ], { stagger: 120 });
   }
 
   async run(what) {

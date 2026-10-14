@@ -19,13 +19,14 @@ export const READY_AFTER_DAYS = 56;
 // Days ahead the "push the deposit date back" question suggests.
 export const DEPOSIT_RESCHEDULE_DAYS = 7;
 
-// The care Kels can record for the litter: event types from vocab, the field that
-// names it (and becomes the event's title), and how he asks.
+// The care Kels can record for the litter, in the order he offers it under
+// "Health care": event types from vocab, the field that names it (and becomes
+// the event's title, else `title`), the choice's label, and how he asks.
 export const CARE_KINDS = Object.freeze({
-  medication: { eventType: 'medication', nameKey: 'drug', label: 'Medication', ask: 'What medication are they on?', reply: 'Record medication' },
-  preventative: { eventType: 'preventative', nameKey: 'product', label: 'Deworming or preventative', ask: 'What did they get?', reply: 'Record deworming or a preventative' },
-  vaccination: { eventType: 'vaccination', nameKey: 'vaccine', label: 'Shots', ask: 'Which vaccine?', reply: 'Record shots' },
-  vet_visit: { eventType: 'vet_visit', nameKey: 'reason', label: 'Vet visit', ask: 'Tell me about the vet visit', reply: 'Record a vet visit', optionalName: true }
+  preventative: { eventType: 'preventative', nameKey: 'product', title: 'Preventative', label: 'Deworming or flea & tick', ask: 'Which dewormer or preventative?' },
+  vaccination: { eventType: 'vaccination', nameKey: 'vaccine', title: 'Vaccination', label: 'Shots', ask: 'Which vaccine?' },
+  medication: { eventType: 'medication', nameKey: 'drug', title: 'Medication', label: 'Other medication', ask: 'Which medication?' },
+  vet_visit: { eventType: 'vet_visit', nameKey: 'reason', title: 'Vet visit', label: 'A vet visit', ask: 'Tell me about the vet visit', optionalName: true }
 });
 
 const DAY_MS = 86400000;
@@ -223,7 +224,7 @@ export function lastWeighedDate(weights, pups) {
 
 // One care event per chosen pup. `form`: { date, endDate?, details } with the
 // type's details already read. The title is the named thing (the drug, the
-// vaccine…), else the type's label.
+// vaccine…), else the kind's title.
 export function careEvents(kind, pupIds, form) {
   const k = CARE_KINDS[kind];
   const name = String(form.details?.[k.nameKey] ?? '').trim();
@@ -231,7 +232,7 @@ export function careEvents(kind, pupIds, form) {
   return pupIds.map((id) => ({
     subject_type: 'dog', subject_id: id, event_type: k.eventType,
     event_date: form.date, ...(form.endDate ? { event_end_date: form.endDate } : {}),
-    title: name || k.label, details
+    title: name || k.title, details
   }));
 }
 
