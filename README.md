@@ -989,6 +989,21 @@ isolated; JSON export/import is the Lite→Pro upgrade bridge. See
   (`data/cloud/serverWork.js`, `cloud/src/waitlist.js`). **New cloud migration
   `0016_waitlist_lease`: Apply pending on staging and production after the merge.** **Next:
   step 6, the UI and release.**
+- **Kennels CSV import + a dog's breeder kennel on import — built (2026-10-14).** New Pro-only
+  `pages/kennel-import.html` (mapping `kennel` in `data/csvImport.js`, matched on kennel name;
+  a new kennel is always an outside kennel, an update never changes `is_own_kennel` or
+  `public_id`). The dog importer gains `breeder_kennel_name` (any kennel on file, unknown →
+  review). Import / Export now lists Kennels first, then Contacts and Dogs, so contacts'
+  and dogs' kennel columns find the kennels they name. End-State guide §9.
+  Same day: the dog import matches on registration number as well as name + date of birth,
+  saves a new External dog with no owner as **pedigree-only**, and takes parents in the same
+  file as their pups (a link pass after every row is written sets sire/dam). End-State §9.
+- **Import several files — built (2026-10-14).** `pages/import-batch.html` (every edition,
+  button under CSV import on Import / Export) + `data/csvBatch.js`: pick every CSV at once;
+  each file's importer is guessed from its columns (changeable), files run in the order the
+  mappings' new `links` declarations need (kennels → contacts → dogs → events…), each
+  through the usual preview and commit. Expense and Waitlist files hand off to their own
+  screens. Cache rolled to `kennelos-shell-v77` for this batch and the two above.
 
 ## Build & deploy
 

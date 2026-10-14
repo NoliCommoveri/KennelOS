@@ -23,7 +23,7 @@
 //     below supplies an explicit subject_name / mileage_rate to avoid that path.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseCsv, getMapping, summarize, flagMissingKennel } from '../shared/data/csvImport.js';
+import { parseCsv, getMapping, summarize, flagMissingKennel, commitPlan } from '../shared/data/csvImport.js';
 
 // --- Local re-implementations of csvImport.js's private index builders -----
 // (not exported; classify()'s `index` argument is whatever buildIndex()
@@ -82,7 +82,7 @@ test('getMapping throws on an unknown entity', () => {
 });
 
 test('getMapping returns the same mapping for every known entity', () => {
-  for (const entity of ['dog', 'contact', 'pairing', 'litter', 'sale', 'event', 'stud_service', 'expense', 'waitlist']) {
+  for (const entity of ['kennel', 'dog', 'contact', 'pairing', 'litter', 'sale', 'event', 'stud_service', 'expense', 'waitlist']) {
     assert.equal(getMapping(entity).entity, entity);
   }
 });
@@ -267,14 +267,45 @@ test('dog: an external dog MAY legitimately name someone else\'s kennel', () => 
 
 // dogRepo requires owner_contact_id on an external / leased-in dog; without an
 // owner the row would preview as create and then fail at commit.
-test('dog: an external or leased-in dog with no owner goes to review', () => {
-  const index = dogIndex();
-  for (const ownership_type of ['External', 'Leased in']) {
-    const r = dogMapping.classify(validDogRow({ ownership_type }), index, 0);
-    assert.equal(r.status, 'review');
-    assert.equal(r.decision, 'skip');
-    assert.ok(reasonsInclude(r.reasons, 'needs its owner'));
-  }
+test('dog: a leased-in dog with no owner goes to review', () => {
+  const r = dogMapping.classify(validDogRow({ ownership_type: 'Leased in' }), dogIndex(), 0);
+  assert.equal(r.status, 'review');
+  assert.equal(r.decision, 'skip');
+  assert.ok(reasonsInclude(r.reasons, 'needs its owner'));
+});
+
+test('dog: a NEW external dog with no owner is created pedigree-only', () => {
+  const r = dogMapping.classify(validDogRow({ call_name: '', registered_name: 'Big Sire', ownership_type: 'External', status: '' }), dogIndex(), 0);
+  assert.equal(r.status, 'create');
+  assert.equal(r.record.pedigree_only, true);
+  assert.equal(r.record.status, 'external_reference');
+  assert.ok(!('pedigree_only' in r.changes));
+  assert.ok(reasonsInclude(r.reasons, 'pedigree-only'));
+});
+
+test('dog: an update never turns an existing external dog pedigree-only', () => {
+  const existing = { id: 'd1', call_name: 'Rex', date_of_birth: '2022-05-04', ownership_type: 'owned' };
+  const r = dogMapping.classify(validDogRow({ ownership_type: 'External' }), dogIndex({ dogs: [existing] }), 0);
+  assert.equal(r.status, 'review');
+  assert.ok(reasonsInclude(r.reasons, 'needs its owner'));
+});
+
+test('dog: registration number alone is a key (no date of birth needed)', () => {
+  const existing = { id: 'd1', registered_name: 'Big Sire', registration_number: 'NP97386402' };
+  const index = dogIndex({ dogs: [existing] });
+  const r = dogMapping.classify(validDogRow({ call_name: '', registered_name: 'Big Sire', date_of_birth: '', registration_number: 'np973864/02 11-26' }), index, 0);
+  assert.equal(r.status, 'update');
+  assert.equal(r.decisionTarget, 'd1');
+  const fresh = dogMapping.classify(validDogRow({ date_of_birth: '', registration_number: 'NP11111111' }), index, 0);
+  assert.equal(fresh.status, 'create');
+});
+
+test('dog: name+DOB and registration number pointing at different dogs -> review', () => {
+  const a = { id: 'a', call_name: 'Rex', date_of_birth: '2022-05-04' };
+  const b = { id: 'b', registered_name: 'Other', registration_number: 'NP22222222' };
+  const r = dogMapping.classify(validDogRow({ registration_number: 'NP22222222' }), dogIndex({ dogs: [a, b] }), 0);
+  assert.equal(r.status, 'review');
+  assert.ok(reasonsInclude(r.reasons, 'belongs to Other'));
 });
 
 test('dog: an unknown owner_name is flagged, never invented', () => {
@@ -346,6 +377,118 @@ test('dog: no coi_value means no recorded_coi at all, even if method/source were
 // =========================================================================
 // Contact mapping
 // =========================================================================
+
+// A dog's breeder kennel resolves against ANY kennel on file, own or outside.
+test('dog: breeder_kennel_name resolves to an outside kennel', () => {
+  const index = dogIndex({ kennels: [{ id: 'k-out', kennel_name: 'Willow Creek', is_own_kennel: false }] });
+  const r = dogMapping.classify(validDogRow({ breeder_kennel_name: ' willow creek ' }), index, 0);
+  assert.equal(r.status, 'create');
+  assert.equal(r.record.breeder_kennel_id, 'k-out');
+});
+
+test('dog: an unknown breeder_kennel_name is flagged -> review, never invented', () => {
+  const index = dogIndex();
+  const r = dogMapping.classify(validDogRow({ breeder_kennel: 'Nowhere' }), index, 0);
+  assert.equal(r.status, 'review');
+  assert.equal(r.record.breeder_kennel_id, undefined);
+  assert.ok(reasonsInclude(r.reasons, 'Breeder kennel "Nowhere" not found'));
+});
+
+// --- One file, dogs and their parents: the batch fallback + the link pass ----
+
+const classifyBatch = (rows, opts) => {
+  const index = dogIndex(opts);
+  dogMapping.indexBatch(rows, index);
+  return dogMapping.finishPlan(rows.map((r, i) => dogMapping.classify(r, index, i)));
+};
+const pupRow = validDogRow({ call_name: 'Pup', sire_registered_name: 'big sire', dam_registered_name: 'Mom' });
+const sireRow = validDogRow({ call_name: 'Duke', registered_name: 'Big Sire', ownership_type: 'External', date_of_birth: '2019-01-01' });
+const damRow = validDogRow({ call_name: 'Mom', date_of_birth: '2020-01-01' });
+
+test('dog: a sire/dam named on another row of the file is a create, linked later', () => {
+  const plan = classifyBatch([pupRow, sireRow, damRow]);
+  assert.equal(plan[0].status, 'create');
+  assert.deepEqual(plan[0].batchParents, { sire_id: 1, dam_id: 2 });
+  assert.equal(plan[0].record.sire_id, undefined);
+  assert.ok(reasonsInclude(plan[0].reasons, 'is row 3 of this file'));
+});
+
+test('dog: an existing dog wins over a same-named row of the file', () => {
+  const plan = classifyBatch([pupRow, sireRow], { dogs: [{ id: 'old', registered_name: 'Big Sire' }] });
+  assert.equal(plan[0].record.sire_id, 'old');
+  assert.equal(plan[0].batchParents?.sire_id, undefined);
+});
+
+test('dog: a parent name matching two rows of the file is flagged -> review', () => {
+  const plan = classifyBatch([validDogRow({ call_name: 'Pup', dam_registered_name: 'Mom' }), damRow, { ...damRow, date_of_birth: '2021-01-01' }]);
+  assert.equal(plan[0].status, 'review');
+  assert.ok(reasonsInclude(plan[0].reasons, 'matches 2 rows of this file'));
+});
+
+test('dog: a parent row that needs review is noted on the pup', () => {
+  const plan = classifyBatch([pupRow, { ...sireRow, date_of_birth: '' }, damRow]);
+  assert.equal(plan[1].status, 'review');
+  assert.equal(plan[0].status, 'create');
+  assert.ok(reasonsInclude(plan[0].reasons, 'Row 3 needs review'));
+});
+
+test('dog: commit writes every row, then links parents; an unimported parent is a note', async () => {
+  const plan = classifyBatch([pupRow, sireRow, damRow]);
+  plan[1].decision = 'skip'; // the user leaves the sire out
+  const calls = [];
+  let n = 0;
+  const realRepo = dogMapping.repo;
+  dogMapping.repo = {
+    create: async (rec) => { calls.push(['create', rec.call_name]); return { id: `id${n++}` }; },
+    update: async (id, ch) => { calls.push(['update', id, ch]); return {}; }
+  };
+  plan.forEach((r) => { r.record.kennel_id = 'k1'; }); // skip the localStorage kennel default
+  try {
+    const res = await commitPlan('dog', plan);
+    assert.equal(res.created, 2);
+    assert.deepEqual(calls, [['create', 'Pup'], ['create', 'Mom'], ['update', 'id0', { dam_id: 'id1' }]]);
+    assert.equal(res.notes.length, 1);
+    assert.ok(res.notes[0].message.includes('Not linked to its sire: row 3'));
+  } finally {
+    dogMapping.repo = realRepo;
+  }
+});
+
+// =========================================================================
+// Kennel mapping
+// =========================================================================
+
+const kennelMapping = getMapping('kennel');
+
+test('kennel: a new name is a create, always as an outside kennel', () => {
+  const index = kennelMapping.buildIndex([]);
+  const r = kennelMapping.classify({ kennel_name: 'Cottonpaws', prefix: 'Cottonpaws', location: 'TX' }, index, 0);
+  assert.equal(r.status, 'create');
+  assert.deepEqual(r.record, { kennel_name: 'Cottonpaws', prefix: 'Cottonpaws', location: 'TX', is_own_kennel: false });
+});
+
+test('kennel: a name match (case/space-insensitive) is an update that never touches is_own_kennel', () => {
+  const own = { id: 'k1', kennel_name: 'Thornfield', is_own_kennel: true };
+  const index = kennelMapping.buildIndex([own]);
+  const r = kennelMapping.classify({ kennel: '  THORNFIELD ', website: 'https://x.test' }, index, 0);
+  assert.equal(r.status, 'update');
+  assert.equal(r.decisionTarget, 'k1');
+  assert.deepEqual(r.changes, { kennel_name: 'THORNFIELD', website: 'https://x.test' });
+  assert.ok(!('is_own_kennel' in r.changes));
+});
+
+test('kennel: no name is keyless -> review', () => {
+  const r = kennelMapping.classify({ location: 'TX' }, kennelMapping.buildIndex([]), 0);
+  assert.equal(r.status, 'review');
+  assert.ok(reasonsInclude(r.reasons, 'No kennel_name'));
+});
+
+test('kennel: two kennels sharing the name -> review, user picks', () => {
+  const index = kennelMapping.buildIndex([{ id: 'a', kennel_name: 'Dreams' }, { id: 'b', kennel_name: 'dreams' }]);
+  const r = kennelMapping.classify({ kennel_name: 'Dreams' }, index, 0);
+  assert.equal(r.status, 'review');
+  assert.ok(reasonsInclude(r.reasons, '2 kennels on file'));
+});
 
 const contactMapping = getMapping('contact');
 

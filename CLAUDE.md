@@ -152,7 +152,7 @@ one-bump-per-batch rule applies.
 
 ## CSV import
 - Match-or-create by natural key, never UUID. Every import is a dry-run preview (create/update/needs-review) before commit.
-- Keyless/partial-key rows → always "needs review," never auto-matched or silently created. Name match is case-insensitive + trimmed; dates exact. Relationship columns resolve against existing records only — an unresolved name is flagged, never invented.
+- Keyless/partial-key rows → always "needs review," never auto-matched or silently created. Name match is case-insensitive + trimmed; dates exact. Relationship columns resolve against existing records only — an unresolved name is flagged, never invented. (One extension: a dog's sire/dam may name another row of the same dogs file; it's linked by a pass after every row is written.)
 
 ## Local dev & verification
 - Serve the repo root: `python3 -m http.server 8000` (or `npx serve`), never `file://`.

@@ -238,6 +238,8 @@ KennelOS/
     vocab.js                   Controlled vocabularies + event-type catalog
     csvImport.js               Generic CSV match-or-create engine + mappings
     csvImportHelp.js           Plain-language column guide for each CSV importer
+    csvBatch.js                Several-file import: guess each file's importer from
+                               its columns, order the files by mapping `links`
     importExport.js            JSON backup / restore
     syncApply.js               Live sync: writes pulled records in one transaction per
                                page (echo skip, server wins over an unpushed local edit,
@@ -1039,10 +1041,32 @@ Rules that shape everything:
   showing), `buildPlan` runs `flagMissingKennel()` over the plan: every kennel-needing
   **create** with no `kennel_id` (a Pairing/Litter/Sale/StudService, or an owned/co-owned Dog)
   goes to review with "No kennel…", rather than previewing as a create and failing at commit.
+- **Dog breeder kennel** (`breeder_kennel_name`, alias `breeder_kennel`): resolves to
+  `breeder_kennel_id` against **any** existing kennel, own or outside (a dog's breeder is
+  often someone else's kennel); unknown → flagged and the row goes to review. Because a
+  matched row's changes are the same recognized fields, re-importing a dogs file with this
+  column filled sets the breeder kennel on dogs already in the app.
+- **Import order: kennels first.** Kennels are what other rows point at (a contact's and a
+  dog's kennel columns), and relationship columns never invent, so the Import / Export
+  menu lists **Kennels** first, then Contacts and Dogs, and the kennel screen says so.
 - **Dog owner** (`owner_name`, aliases `owner`/`owner_contact_name`): resolves against
   existing Contacts only (unknown → flagged). Because `dogRepo` requires `owner_contact_id`
   on an `external`/`leased_in` dog (pedigree-only exempt), a row whose dog-as-saved (the
-  match merged with the row) would lack one goes to review with "…needs its owner".
+  match merged with the row) would lack one goes to review with "…needs its owner" —
+  **except a NEW `external` dog with no `owner_name`**, which is created **pedigree-only**
+  (`pedigree_only: true`, status `external_reference` when blank, call name optional with a
+  registered name), the way Pedigree Import saves ancestors: a sire or dam typed from a
+  pedigree, kept for lineage. Only ever on a create — an update never turns a dog already in
+  the app pedigree-only (`pedigree_only` rides `record`, never `changes`).
+- **Parents in the same file** (dogs): a `sire_registered_name`/`dam_registered_name` that
+  isn't in the app but names another row of the file (registered name first, then call name;
+  `DOG_MAPPING.indexBatch`) previews as resolved, with a note naming the row; matching two or
+  more rows is flagged like an unknown name, and `finishPlan` notes when that parent row
+  itself needs review. `commitPlan` writes every row first, then a **link pass**
+  (`linkBatchParents`) sets `sire_id`/`dam_id` from the written rows' ids — after the writes
+  rather than by ordering them, so a parent row switched from review to Create is linked too.
+  A parent row that wasn't imported leaves the dog unlinked and is reported in the result's
+  `notes`, never blocking the dog.
 - **Previewed = committable.** When a repo gains a required field, the matching mapping must
   either fill it from a column or send rows that lack it to review, so a "create" in the
   preview never fails at commit.
@@ -1057,7 +1081,33 @@ Rules that shape everything:
   Sale's `buyer_name` and StudService's `partner_contact_name`, via each mapping's
   `prepareRecord` hook.
 
-Per-entity natural keys: Dog = name+DOB; Contact = name; Pairing = sire+dam+planned;
+**Import several files** (`pages/import-batch.html`, `data/csvBatch.js`; the button under
+CSV import on Import / Export, every edition). The user picks every CSV at once. Each
+file's importer is **guessed from its column names**: `detectEntity` reads the names and
+aliases from `csvImportHelp.js` (so it can't miss a column an importer accepts), scoring
+each shared name 1 / (number of importers that read it), so a distinctive column
+(`event_type`, `prefix`) outweighs a common one (`notes`, `kennel_name`). It guesses only
+when at least two of the file's columns, and a third of them, are that importer's, and says
+when the runner-up is close; the user can always change the type or leave a file out. Lite
+guesses only among its own importers and names a Pro-only one as needing Pro. **Order**:
+every mapping declares `links`, the entities its columns point at (dog → kennel, contact;
+event → dog, contact; …); `orderFiles` runs each file after every file of a type it links
+to, keeping the user's order otherwise, so the order follows the declarations: a new
+importer only declares its `links`. Then each file runs **step by step** through the
+ordinary import screen (`createImportView` with `rows`/`fileName`/`onNext`): its own
+dry-run preview against everything earlier steps committed, Commit, Next, or "Skip this
+file". Expense and Waitlist-application files are **handed off** to their own screens
+(`HANDOFF_ENTITIES`: per-row subject attach; which kennel's list), since each needs
+set-up of its own. A finished screen lists every file's result.
+
+Per-entity natural keys: Kennel = kennel_name (a name shared by two kennels on file →
+review, the user picks; a new kennel is always created **outside**, `is_own_kennel: false`,
+and an update never touches `is_own_kennel` or `public_id`: own kennels and their identity
+are set up on the Kennels page, §28; columns `kennel_name`, `prefix`, `location`,
+`website`); Dog = name+DOB **or** registration number (`normReg`, the same key Pedigree
+Import uses, so "NP888072/07 03-25" and "np88807207" are one number; a pedigree gives a
+number, rarely a birth date; the two keys naming different dogs, or one number on several
+dogs → review); Contact = name; Pairing = sire+dam+planned;
 Litter = dam+sire+whelp; Sale = dog+buyer+sale_date; Event (dog-subject only) =
 dog+type+date (title tiebreak — and for `show` rows the title **always** takes part: a
 single same-day candidate with a different title goes to review, never a silent update,
@@ -1783,7 +1833,7 @@ entry already on file for the same dog + day + title (case-insensitive) is skipp
 duplicated; the handler is tagged `handler` via `contactRepo.ensureType`.
 Reports: `litters-report`, `stud-services-report`, `placements-report`,
 `health-tests-report`, `litter-finances-report` (Litter P&L; `data/litterFinances.js`).
-Import pages: `dog-import`, `contact-import`, `pairing-import`, `litter-import`,
+Import pages: `import-batch` (Import several files, every edition; §9), `kennel-import` (Pro-only, like the Kennels page; §9), `dog-import`, `contact-import`, `pairing-import`, `litter-import`,
 `sale-import`, `event-import`, `stud-service-import`, `expense-import`, `kennel-tests-import`,
 `waitlist-import` (Pro-only, §9/§29).
 `breed-feeding-schedules` (Feeding Schedules — per-breed feeding grids, §27.2 — Pro-only,
