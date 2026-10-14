@@ -1977,7 +1977,7 @@ originals stay in play for every lookup and every "already handled?" dedup check
 is deliberate: scoping a dedup check would resurrect a nudge whose answer already sits
 one kennel over.
 
-Eleven rules (plus the four waitlist rules below), each producing its own stable `key` so a dismissal survives re-computation:
+Fifteen rules (plus the four waitlist rules below), each producing its own stable `key` so a dismissal survives re-computation:
 - **What a connected vendor reported** (Pro, `editionFlags.accounts`; Integrations plan §0) —
   each entry of a sale's or contract's `integration_reviews` (an event her device didn't apply
   because the record had moved on, a waitlist pick's deposit, or any refund;
@@ -2010,6 +2010,27 @@ Eleven rules (plus the four waitlist rules below), each producing its own stable
   (`planned`/`bred`/`confirmed_pregnant`) whose `expected_due_date` has passed, with no
   litter recorded against it (`litterRepo.getForPairing`), suggests either fix: mark the
   pairing `whelped` directly, or deep-link to `litter.html?new=1&pairing=<id>`.
+- **Litter whelped → pairing** — a non-archived litter in a whelped-or-later status
+  (`vocab.WHELPED_OR_LATER`) whose linked pairing isn't `whelped` suggests **Mark pairing
+  whelped**. Key `litterpairing:<litterId>`; auto-dismisses once the pairing matches.
+- **Pairing ended → expected litter** — a pairing in `vocab.PAIRING_ENDED_STATUSES`
+  (`not_pregnant`/`failed`/`cancelled`) with a non-archived linked litter still `expected`
+  suggests **Archive litter** (`litterRepo.archive` — it never happened; archive, not delete).
+  Key `pairingended:<litterId>`.
+- **Pairing whelped → no litter** — a `whelped` pairing with no litter recorded against it
+  (archived ones count) suggests **Create litter** via `litter.html?new=1&pairing=<id>`. Silent
+  for an external dam (`ownership_type='external'` or `status='external_reference'` — our
+  stud's outside breeding) and for a pairing whose `expected_due_date` (else
+  `last_observed_date`, `planned_date`, `created_at`) is over 180 days old
+  (`LITTER_RECORD_WINDOW_DAYS`), so historical pairings entered without litters don't flood
+  Today. Key `pairingnolitter:<pairingId>`.
+- **Deceased dog → open records** (`deceasedDogNudges`, exported) — a non-archived
+  `deceased` dog with an open sale (`isOpenSale`) suggests opening the sale to end it there
+  (the sale page's end flow settles the family; key `deceased-sale:<saleId>`); and with a
+  pairing still in a pre-whelp status — as the **dam**, any (`planned` → **Cancel pairing**,
+  `bred`/`confirmed_pregnant` → **Mark failed**); as the **sire**, a `planned` one only and
+  never `method='ai_frozen'` (a bred pairing stands without him). Key
+  `deceased-pairing:<pairingId>:<dogId>`.
 - **Litter → sold** — a non-archived `ready` litter whose whole roster is resolved to
   `placed`/`keeping`/`health_hold` (a pup on a health hold is not for sale), with **at least one** actually `placed` (an all-`keeping` litter sold
   nothing, so it never fires), suggests marking the litter `sold`.
@@ -2040,6 +2061,14 @@ Eleven rules (plus the four waitlist rules below), each producing its own stable
   application as `expired`); and **second-pass removal** while its 7-day undo lasts
   (`waitlist-removed:<entryId>:<removed_date>`, action `undoRemoval`). Each auto-dismisses
   when its condition clears.
+
+The four linked-status rules above are the backstop for page prompts that fire only on an
+edit made on that page: the **litter page** offers to set the linked pairing's status when a
+litter is created whelped-or-later or first enters that band; the **pairing page**, on the
+transition into `whelped` with no litter, offers **Create litter**, and into an ended status,
+offers to archive each linked `expected` litter; the **dog page**, on the transition into
+`deceased`, lists `deceasedDogNudges` for that dog with their actions. An import, a live
+sync, another device or a Skip leaves the mismatch for Today to catch.
 
 The three litter-lifecycle rules are aggregate facts over a litter's derived roster (and, for
 close, its sales), so `computeNudges()` groups the already-loaded `dogRepo.getAll()` result by
