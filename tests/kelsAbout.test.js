@@ -93,3 +93,23 @@ test('an add word: "log a shot for JJ", "JJ got sick"; not for a topic that can\
   assert.equal(aboutH('add zeus puppies')?.add, false);
   assert.equal(A.addCandidate('pups', { id: 'Zeus', call_name: 'Zeus' }), null);
 });
+
+test('"JJ vet": who saw her last, her vet costs this year, her vet and the Financials link', () => {
+  const vetRows = { ...health,
+    contacts: [...rows.contacts, { id: 'v1', name: 'Dr. Nguyen', contact_type: ['vet'] }],
+    events: [...health.events.map((e) => (e.id === 'e3' ? { ...e, related_contact_id: 'v1' } : e))],
+    expenses: [
+      { id: 'x1', subject_type: 'dog', subject_id: 'JJ', category: 'veterinary', amount: 300, expense_date: '2026-08-03' },
+      { id: 'x2', subject_type: 'dog', subject_id: 'JJ', category: 'veterinary', amount: 120, expense_date: '2026-01-10' },
+      { id: 'x3', subject_type: 'dog', subject_id: 'JJ', category: 'veterinary', amount: 900, expense_date: '2025-05-01' },
+      { id: 'x4', subject_type: 'dog', subject_id: 'JJ', category: 'food', amount: 50, expense_date: '2026-02-01' }] };
+  const a = A.aboutDog('jj vet', vetRows, { flags, today: '2026-10-15' });
+  const { dog, facts } = a.dogs[0];
+  assert.deepEqual([facts.seen.name, facts.vetCosts.thisYear, facts.vetCosts.total], ['Dr. Nguyen', 420, 1320]);
+  assert.match(A.factsSentence(dog, facts, { topics: ['vet'] }),
+    /^JJ was last seen by Dr\. Nguyen on .+ \(Ear infection\)\. She has \$420 in vet expenses logged this year\.$/);
+  const pro = A.topicResults('vet', dog, facts, vetRows, { flags: { ...flags, contactsSection: true } }).extras;
+  assert.deepEqual(pro.map((c) => c.href), ['dog.html?id=JJ&logEvent=vet_visit', 'contact.html?id=v1', 'financials.html?view=expenses&bucket=veterinary&dog=JJ']);
+  const lite = A.topicResults('vet', dog, facts, vetRows, { flags, edition: 'lite' }).extras;
+  assert.deepEqual(lite.map((c) => c.id), ['add:vet:JJ', 'vet-costs:JJ']);
+});

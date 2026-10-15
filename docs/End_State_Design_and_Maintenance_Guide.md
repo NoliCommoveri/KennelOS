@@ -1839,7 +1839,7 @@ builds nothing), then a search box.
   facets? }`. **Places:** `kelsKnowledge.PLACES`, written by us, each with the sentence she
   says (`where`, naming hubs by this edition's menu labels) and a link (a tab in its query
   where the page reads one: `dogs.html?bucket=&disposition=` (a starting Disposition filter), `contacts.html?group=`,
-  `financials.html?view=&bucket=`; `kennel.html?id={kennel}#<section>` with her active
+  `financials.html?view=&bucket=&dog=` (`dog`: only that dog's costs, kept across the category tabs); `kennel.html?id={kennel}#<section>` with her active
   kennel), plus every report (`reportCatalog.REPORTS`) and expense category. A place whose
   page is Pro-only isn't offered in Lite, nor one whose `flag` is off. **Records:** dogs
   (archived only where `archivedDogLinks`), litters, and in Pro contacts and kennels.
@@ -1867,7 +1867,12 @@ builds nothing), then a search box.
   (`dog.html?id=…&logEvent=vaccination|vet_visit`), always first in the list, the first
   choice when nothing is on record, and what she leads with when an add word was typed
   (`ADD_WORDS`: add, log, new, enter, gave, give, got, track — "log a shot for JJ", "JJ got
-  sick"), with what's on record one tap away.
+  sick"), with what's on record one tap away. `vet` also says who saw the dog last (the
+  newest shot or vet event with a vet: its `related_contact_id` contact, or `details.vet`)
+  and its Veterinary expenses this year ("JJ was last seen by Dr. Nguyen on Aug 3, 2026
+  (Ear infection). She has $300 in vet expenses logged this year."), and lists after its
+  events each vet contact linked (Pro, `contact.html`) and "JJ's vet expenses"
+  (`financials.html?view=expenses&bucket=veterinary&dog=<id>`). Expenses are loaded for it.
 - **Levels:** 1 = names, numbers (`normReg`, typed any way), a place's title and keywords;
   2 = secondary details (a dog's breed, color, status, ownership, sex, kennel, bred-by
   kennel; a contact's types, email, phone, kennel; a litter's parents, status, year); 3 =

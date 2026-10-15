@@ -1370,3 +1370,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   for JJ" → `?logEvent=`), first in the list; an add word (log, add, gave, got…) makes
   Kels lead with it, since she may be adding, not finding. Filler words (her, last, next,
   history…) are ignored in "<dog> <topic>".
+- **Kels: "JJ vet" names her vet and her vet costs (2026-10-15).** The vet topic says who
+  saw the dog last (linked vet contact, or the event's plain-text vet) and its Veterinary
+  expenses this year, and offers each linked vet contact (Pro) and "JJ's vet expenses".
+  Financials → Expenses reads `?dog=<id>` (only that dog's costs, "Show every dog →", kept
+  across the category tabs), like `?account=`.

@@ -52,14 +52,15 @@ export const DOG_TOPICS = [
     sub: (f) => [plural(f.shots.length, 'on record', 'on record'), f.due ? `${f.due.vaccine || 'next'} ${f.due.overdue ? 'overdue' : `due ${day(f.due.date)}`}` : null].filter(Boolean).join(' · '), noun: 'shots' },
   { key: 'vet', words: ['vet', 'veterinarian', 'doctor', 'clinic', 'visit', 'sick', 'illness', 'ill', 'medication', 'medicine', 'med', 'surgery', 'injury', 'hurt', 'health', 'medical'],
     events: ['vet_visit', 'illness', 'medication', 'surgery', 'injury'], add: { type: 'vet_visit', label: (n) => `Add a health event for ${n}` },
-    label: (n) => `${n}'s vet visits and health events`, count: (f) => f.vet.length, sub: (f) => plural(f.vet.length, 'on record', 'on record'), noun: 'vet visits or health events' }
+    label: (n) => `${n}'s vet visits and health events`, count: (f) => f.vet.length,
+    sub: (f) => [plural(f.vet.length, 'on record', 'on record'), f.seen?.date ? `last seen ${day(f.seen.date)}` : null].filter(Boolean).join(' · '), noun: 'vet visits or health events' }
 ];
 
 const hitsTopic = (q, t) => t.words.some((w) => wordScore(q, w, 1) > 0);
 const nameStems = (d) => new Set([d.call_name, d.registered_name].flatMap((t) => (t ? queryWords(t).map((x) => x.stem) : [])));
 
 // What a dog has on record: its puppies (sire or dam), its litters, its puppies' sales.
-export function factsOf(dog, { dogs = [], litters = [], sales = [], events = [] }, flags = {}, today = todayYMD()) {
+export function factsOf(dog, { dogs = [], litters = [], sales = [], events = [], contacts = [], expenses = [] }, flags = {}, today = todayYMD()) {
   const seen = (r) => !r.is_archived || flags.archivedDogLinks;
   const pups = dogs.filter((d) => (d.sire_id === dog.id || d.dam_id === dog.id) && seen(d));
   const mine = litters.filter((l) => (l.sire_id === dog.id || l.dam_id === dog.id) && !l.is_archived);
@@ -77,7 +78,21 @@ export function factsOf(dog, { dogs = [], litters = [], sales = [], events = [] 
   for (const e of shots) if (e.event_type === 'vaccination') { const k = String(e.details?.vaccine || '').toLowerCase(); if (!latest.has(k)) latest.set(k, e); }
   const dues = [...latest.values()].filter((e) => /^\d{4}-\d{2}-\d{2}$/.test(e.details?.next_due || '')).sort((a, b) => a.details.next_due.localeCompare(b.details.next_due));
   const due = dues.length ? { vaccine: dues[0].details.vaccine || '', date: dues[0].details.next_due, overdue: dues[0].details.next_due < today } : null;
-  return { pups, litters: mine, sales: pupSales, sold: new Set(placed.map((s) => s.dog_id)).size, earned, shots, vet: ofTopic('vet'), due };
+  // Who saw it last: the newest health event (shots or vet) with a vet on it, the
+  // linked contact or the plain-text name; and every vet linked, newest first.
+  const contactsById = new Map(contacts.map((c) => [c.id, c]));
+  const vetOf = (e) => (e.related_contact_id && contactsById.get(e.related_contact_id)) || (e.details?.vet ? { name: String(e.details.vet) } : null);
+  const health = own.filter((e) => [...DOG_TOPICS.find((t) => t.key === 'shots').events, ...DOG_TOPICS.find((t) => t.key === 'vet').events].includes(e.event_type));
+  const seenBy = health.find(vetOf);
+  const lastSeen = seenBy ? { name: vetOf(seenBy).name || '', date: seenBy.event_date || '', contact: vetOf(seenBy).id ? vetOf(seenBy) : null } : null;
+  const vets = [];
+  for (const e of health) { const c = e.related_contact_id && contactsById.get(e.related_contact_id); if (c && !vets.some((v) => v.contact.id === c.id)) vets.push({ contact: c, last: e.event_date || '', visits: health.filter((x) => x.related_contact_id === c.id).length }); }
+  // Its vet costs: Veterinary expenses on the dog, all time and this year.
+  const vetCosts = expenses.filter((x) => x.subject_type === 'dog' && x.subject_id === dog.id && x.category === 'veterinary' && !x.is_archived);
+  const sum = (xs) => xs.reduce((t, x) => t + (Number(x.amount) || 0), 0);
+  const thisYear = vetCosts.filter((x) => String(x.expense_date || '').slice(0, 4) === today.slice(0, 4));
+  return { pups, litters: mine, sales: pupSales, sold: new Set(placed.map((s) => s.dog_id)).size, earned, shots, vet: ofTopic('vet'), due,
+    seen: lastSeen, vets, vetCosts: { count: vetCosts.length, total: sum(vetCosts), year: today.slice(0, 4), thisYear: sum(thisYear), thisYearCount: thisYear.length } };
 }
 
 // What Kels says she found, for the topics her words touched (all, by default):
@@ -108,11 +123,20 @@ export function factsSentence(dog, f, { pronoun = false, topics = null } = {}) {
     if (f.due) s += f.due.overdue ? `, and ${f.due.vaccine || 'a shot'} was due ${day(f.due.date)} (overdue)` : `, and ${f.due.vaccine || 'the next one'} is due ${day(f.due.date)}`;
     out.push(`${s}.`);
   }
-  if (on('vet') && f.vet.length) {
+  if (on('vet')) {
     const e = f.vet[0];
-    const what = whatOf(e);
-    const kind = typeLabel(e.event_type).toLowerCase();
-    out.push(`${poss()} latest was ${article(kind)} ${kind}${e.event_date ? ` on ${day(e.event_date)}` : ''}${what ? ` (${what})` : ''}.`);
+    // "JJ was last seen by Dr. Nguyen on Aug 3, 2026 (Ear infection)." when that was the latest; else both.
+    if (f.seen?.name && (!e || f.seen.date >= (e.event_date || ''))) {
+      const latest = e && f.seen.date === (e.event_date || '') ? whatOf(e) : '';
+      out.push(`${subj()} was last seen by ${f.seen.name}${f.seen.date ? ` on ${day(f.seen.date)}` : ''}${latest ? ` (${latest})` : ''}.`);
+    } else if (e) {
+      const what = whatOf(e);
+      const kind = typeLabel(e.event_type).toLowerCase();
+      out.push(`${poss()} latest was ${article(kind)} ${kind}${e.event_date ? ` on ${day(e.event_date)}` : ''}${what ? ` (${what})` : ''}.`);
+      if (f.seen?.name) out.push(`${subj()} was last seen by ${f.seen.name}${f.seen.date ? ` on ${day(f.seen.date)}` : ''}.`);
+    }
+    if (f.vetCosts?.thisYear) out.push(`${subj()} has ${money(f.vetCosts.thisYear)} in vet expenses logged this year.`);
+    else if (f.vetCosts?.count) out.push(`${subj()} has no vet expenses logged this year (${money(f.vetCosts.total)} before).`);
   }
   return out.join(' ');
 }
@@ -187,7 +211,19 @@ export function topicResults(key, dog, facts, rows, { flags = {}, edition = 'pro
         facets: [{ key: 'event-kind', question: 'Which kind?', value: kind }, { key: 'event-year', question: 'Which year?', value: e.event_date ? e.event_date.slice(0, 4) : null }]
       });
     });
-    return { hits, extras: [addCandidate(key, dog)] };
+    const extras = [addCandidate(key, dog)];
+    if (key === 'vet') {
+      // Her vets (contact pages are Pro's), and her vet costs on Financials.
+      if (flags.contactsSection && !(edition === 'lite' && isProOnlyPage('contact.html'))) {
+        for (const v of facts.vets) extras.push({ id: `contact:${v.contact.id}`, title: v.contact.name || 'Vet', where: `${name}'s vet: ${plural(v.visits, 'visit')}${v.last ? `, the last on ${day(v.last)}` : ''}.`, href: `contact.html?id=${encodeURIComponent(v.contact.id)}` });
+      }
+      if (facts.vetCosts.count) {
+        extras.push({ id: `vet-costs:${dog.id}`, title: `${name}'s vet expenses`,
+          where: `${money(facts.vetCosts.thisYear)} in ${facts.vetCosts.year}, ${money(facts.vetCosts.total)} in all. Under Financials → Expenses, Veterinary.`,
+          href: `financials.html?view=expenses&bucket=veterinary&dog=${encodeURIComponent(dog.id)}` });
+      }
+    }
+    return { hits, extras };
   }
   if (key === 'litters') return { hits: litterCandidates(facts.litters, { dogsById }).map(hit), extras: [] };
   if (key === 'sales') {

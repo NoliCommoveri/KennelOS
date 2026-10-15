@@ -12,6 +12,7 @@ import { recordCandidates } from '../data/findRecords.js';
 import { aboutDog, factsSentence, topicResults, topicByKey, addCandidate } from '../data/kelsAbout.js';
 import { dogName } from '../data/dogRepo.js';
 import { saleRepo } from '../data/saleRepo.js';
+import { expenseRepo } from '../data/expenseRepo.js';
 import { dogRepo } from '../data/dogRepo.js';
 import { litterRepo } from '../data/litterRepo.js';
 import { contactRepo } from '../data/contactRepo.js';
@@ -36,16 +37,17 @@ const nav = (path) => [...navItems, ...moreItems].find((i) => i.path === path)?.
 
 // Everything she can find, loaded once per visit: { candidates, rows }.
 // `tasks`: her task candidates (pages/kels.js). Contacts are loaded in every
-// edition for a sale's buyer name; they're candidates only where contactsSection.
+// edition for a sale's buyer name and a dog's vet (expenses for its vet costs); they're candidates only where contactsSection.
 async function loadCandidates(tasks) {
   const flags = editionFlags;
-  const [dogs, litters, contacts, kennels, events, sales, kennelId] = await Promise.all([
+  const [dogs, litters, contacts, kennels, events, sales, expenses, kennelId] = await Promise.all([
     dogRepo.getAll({ includeArchived: true, includePedigreeOnly: true }),
     litterRepo.getAll({ includeArchived: true }),
     contactRepo.getAll({ includeArchived: true }),
     kennelRepo.getAll({ includeArchived: true }),
     eventRepo.getAll(),
     saleRepo.getAll({ includeArchived: true }),
+    expenseRepo.getAll({ includeArchived: false }),
     resolveKennelIdForWrite().catch(() => null)
   ]);
   const candidates = [
@@ -53,7 +55,7 @@ async function loadCandidates(tasks) {
     ...recordCandidates({ dogs, litters, contacts, kennels, events }, flags),
     ...tasks
   ];
-  return { candidates, rows: { dogs, litters, contacts, sales, events } };
+  return { candidates, rows: { dogs, litters, contacts, sales, events, expenses } };
 }
 
 // Where a deep word was found, in her words: "its notes", "Vaccination, Mar 1, 2026".
