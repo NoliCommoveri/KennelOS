@@ -1471,3 +1471,19 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `kelsAbout.js`, `kelsFavorites.js`, `kelsFind.js`, `kelsKnowledge.js`, `kelsUnderstand.js`,
   `restoreMatch.js`; the Applications, Offers & removals and Waitlist today reports. All 394
   precache paths checked present, and every app file is in the list.
+- **Kels: Get set up (2026-10-15).** A new task for a new breeder's first run through her
+  settings (`assets/kelsSetupUI.js`, pure rules in `data/kelsSetup.js`, tested): her logo
+  (where something prints it), lifecycle nudges, Puppy Record fields (Pro), another own
+  kennel for a separate side of the business with this kennel's nudge and Puppy Record
+  settings copied (Pro, multi-kennel), Google Drive for Furever connected in the chat (GIS
+  loaded on demand, the window opened from her tap), Dropbox for KennelAssistant (the
+  KennelAssistant page in a new tab, since Dropbox only returns to registered pages), then
+  cloud backup or a backup file; then Add dogs or Add people. Each part saves as answered
+  and can be skipped. Lite (no Kennel page) gets the backup part and Add dogs; not in the
+  Demo. Menu priority 95 while she has no dogs and hasn't been through it (new device-only
+  setting `kelsSetupDone`), else 15. The Kennel page's logo resize, nudge fields and Puppy
+  Record boxes moved into `assets/kennelSettingsFields.js` (Pro-only) so Kels and the page
+  share one copy; `kelsBackupSteps` exports `cloudBackupOn`. Precached: the three new
+  files. Checked in the browser (Pro and the Lite build): the whole run, the saved kennels,
+  the Google window and the KennelAssistant tab opening, the low menu spot afterwards, and
+  the Kennel page's three cards still saving.
