@@ -1391,7 +1391,8 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
 ### Surfaces
 - **Pages** (`proPages.js`): `waitlist` (one kennel: new applications, fee due, the ranked
   list, Litters with "Next: <family>" and **Offer to them**, Closed; everything else under
-  **Manage**), `waitlist-entry` (one family: Details / Interact / History tabs),
+  **Manage**), `waitlist-entry` (one family: Details / Interact / History tabs; its
+  application fields come from `assets/waitlistApplicationForm.js`, shared with Kels),
   `waitlist-programs`, `waitlist-form`, `waitlist-publish`, `waitlist-import`. A page shows
   one kennel (`?kennel=`, else scope, else busiest; `waitlistUI.resolveWaitlistKennel`).
 - **Litter page:** the **Waitlist picks** panel (`assets/waitlistPicksPanel.js`, loaded only
@@ -1746,8 +1747,12 @@ Each thing she approves is saved at once; there is no draft.
    - Per pup with a sale in progress: **log the boarding** its sale charges for (start = the
      ready date or today, end from the charge, `boardingEnd`: the count × Day/Week/Month);
      **When is the pickup?** (a `placement` event, "Puppy pickup", the buyer as related
-     contact); **Did they go home?** after the pickup date — Yes opens
-     `sale.html?id=…&deliver=1`, "the pickup moved" asks a new date.
+     contact); **Did they go home?** after the pickup date — **Yes, mark the sale
+     delivered** saves it Delivered in the chat, then asks what the Sale page's Delivered save
+     asks: Pro (`externalOwnership`), how the pup shows on her roster (the family owns it now,
+     we co-own, or leave it; `goHome.deliveredOwnershipChanges`, the Sale page's rule too);
+     Lite, whether it leaves the program (archived, permanent). Closing the litter, when due,
+     comes up with the litter questions after. "The pickup moved" asks a new date.
 4. **"What are we doing first?"** until **That's all for now**:
    - **Record weights:** date, AM/PM, pounds + ounces per home pup beside its last weight; one
      `weight_check` "Weight check" per pup entered (`weightDetails`). Kels compares each with
@@ -1848,7 +1853,11 @@ checkboxes, never a question apiece:
    then the public list and form links.
 4. **Programs:** as many as she likes (name, place in line, fee, days to accept, passes not
    counted, pause allowed, a description), through `waitlistProgramRepo`.
-5. **Families she already has:** opens the waitlist import or a new entry (both leave Kels).
+5. **Families she already has:** **Add one by hand** asks her application in the chat (her
+   questions, preferences and readiness: `assets/waitlistApplicationForm.js`, the Waitlist
+   entry page's new application too), then the program, when they applied and her notes,
+   and saves it as an application (`applied`), as that page does; **Add another family**
+   repeats. **Import a list** opens the waitlist import (a page of its own; leaves Kels).
 
 Every config save is checked by `waitlistRules.waitlistConfigProblem`, the Kennel page's
 settings card's check too. **Re-runnable:** on a kennel already set up
@@ -1873,11 +1882,11 @@ never the business Accounts page. All editions; each check only where its featur
 | `export-old` | no working cloud backup, and the last JSON backup file (`getLastBackupDate`) is over 14 days old or never | `importExport.downloadBackup()` |
 | `vault-locked` | Sensitive records on, not unlocked here | `cloudVaultUI.unlockModal()` |
 | `recovery-unsaved` | an unsaved recovery code, or none | `saveRecoveryCodeFlow()` / `newRecoveryCodeFlow()` |
-| `license-grace` | Pro gate on, license in grace | Settings, license section |
+| `license-grace` | Pro gate on, license in grace | **Check it again now** (`evaluateLicense`), **Renew my subscription** (the checkout in a new tab, announced, then checked again), or **Use a different key** (pasted in the chat, `license.activate`) |
 | `update` | a new service worker is installing or waiting, or took over since the page loaded | reload |
 | `device-lost` | another device on the account (not erasing, not signed out on its own) unseen 60+ days | `cloudBackupUI.devicesModal()`; "It's fine, I still use it" is remembered |
 | `key-rejected` | Pro `accounts`: a Stripe / Jotform key on this device that its vendor refuses (`stripeCheckKey` / `jotformUser`, one call each, skipped offline) | **Help me replace it**, all in the chat: the steps to make a new key in a new tab (Stripe's from `stripeLinks.STRIPE_KEY_PERMISSIONS`, the list the Accounts page shows too), a link to the vendor (the account's `website`, else its API page), the account's saved username and password when it has them (the password masked until **Show**; **Copy** for each), then the new key and currency / region pasted in and checked and saved by `connectStripe` / `connectJotform`, as the Accounts page connects. "I'll do it later" leaves it for the next visit |
-| `waitlist-signed-out` / `waitlist-error` | Pro `waitlist`: a kennel's list is online, and this device isn't signed in / its last update failed | the kennel's page |
+| `waitlist-signed-out` / `waitlist-error` | Pro `waitlist`: a kennel's list is online, and this device isn't signed in / its last update failed | signed out: **Sign in now** (`cloudBackupUI.signInModal`); failed: why (`waitlistOnlineUI.onlineProblemText`), **Turn on cloud backup** when that's the reason, or **Try again now**. Either way she publishes at once (`syncWaitlistOnline({ force: true })`) and says how it went |
 | `vault-off` | Sensitive records offered and off | `turnOnVaultFlow()` |
 | `passkey-none` | on, passkeys supported, none added | `passkeysModal()` |
 | `storage-full` | 80%+ of the browser's quota used | none; she says so |
@@ -1889,8 +1898,8 @@ or due date, on n of m devices: Lemon Squeezy's `activation_usage` / `activation
 kept on the cached record as `activationUsage` / `activationLimit`), devices signed in
 (by name), Sensitive records (backed up, unlocked here, recovery code, passkeys), each
 vendor connection, each online waitlist. Then the findings, or **All good**. She closes with
-what's still worth a look. Sync isn't checked until live sync's UI exists. A fix that
-opens a page leaves Kels; she says to start the task again after.
+what's still worth a look. Sync isn't checked until live sync's UI exists. Every fix
+happens in the chat or a dialog over it.
 
 ### "Tidy up my records"
 She finds places two records disagree, says how many of each kind, then raises them one at
@@ -1904,12 +1913,15 @@ The checks (`data/tidyRules.js` `tidyFindings`, in `TIDY_KINDS` order; litters, 
 services and her dogs are kennel-scoped, duplicates, contacts and kennels program-wide):
 - **Litter count:** `puppies_born_alive` (else total less deceased) ≠ the litter's pup
   records, departed and deceased pups counted. Fix the count (`countFix`; the total follows
-  when it no longer adds up), or open the litter to add pups.
+  when it no longer adds up), or, when pups are missing, **Add the missing puppies** in the
+  chat: a name and boy or girl each, the rest from the litter (`puppyDefaults.baseFromLitter`,
+  as the Litter page's Add puppies; undecided). A dam with no breed is said, not worked around.
 - **Puppy plan:** a pup with a sale not returned, cancelled or voided whose disposition isn't
   Placed → Placed.
 - **Went home:** an `owned` dog with a Delivered sale (and no newer sale going) → Pro: the
-  buyer owns it (`external`, `external_reference`) or co-owns it; Lite: leave the roster
-  (archive). Co-owned dogs aren't asked about.
+  buyer owns it (`external`, `external_reference`) or co-owns it
+  (`goHome.deliveredOwnershipChanges`, as the Sale page and the check-in); Lite: leave the
+  roster (archive). Co-owned dogs aren't asked about.
 - **Litter vs. breeding:** a litter's sire/dam ≠ its pairing's → fix either side.
 - **Pups vs. litter:** a litter's pups with a blank sire/dam (fill from the litter) or a
   different one (use the litter's).
@@ -1919,7 +1931,11 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
   pedigree-only dog. A typed name is checked against existing dogs first (`dogMatches`).
 - **Stud service** (`studServices`): past its date (returned, else sent; or Completed), not
   cancelled or failed, no `pairing_id` → link a breeding of the same two dogs opened from two
-  weeks before it was sent that no other service claims, or record one (`pairing.html?new=1&stud_service=`).
+  weeks before it was sent that no other service claims, or **Record the breeding** in the
+  chat: the parents from the stud service (ours is the sire when outgoing, the dam when
+  incoming), the first date (default: sent) and how it went (any status but Planned); an
+  `actual` pairing, due 63 days on, kennel from the dam then sire, and the stud service's
+  `pairing_id` set. Whelped says to record the litter with her next.
 - **Breeder without a kennel** (`contactsSection`): a Breeder contact with no `kennel_id` →
   pick or add the kennel.
 - **Kennel without a contact** (`contactsSection`): an outside kennel no contact belongs to →

@@ -129,8 +129,8 @@ pattern: a pure `data/accountHealth.js` of checks, the task asks one at a time).
 As built: End-State guide §33 ("Set up my waitlist"); history in `docs/BUILD_LOG.md`.
 **Modified:** settings are grouped, one screen per part with checkboxes for the on/off
 rules, not one question each; going online first offers to turn on cloud backup when
-it's off; Stripe for the fee connects in the chat; existing families still open the import
-or a new entry (adding them in the chat is a follow-up).
+it's off; Stripe for the fee connects in the chat; an existing family is added in the chat
+(her application form); a spreadsheet still opens the import.
 
 The Waitlist page's settings as a conversation, for a breeder starting from nothing. It comes
 before Record a sale (§3.5) on purpose: a running waitlist turns picks into sales by itself,

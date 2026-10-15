@@ -31,6 +31,7 @@ const PRECACHE_URLS = [
   'assets/accountHealthUI.js',
   'assets/vendorKeyUI.js',
   'assets/waitlistSetupUI.js',
+  'assets/waitlistApplicationForm.js',
   'assets/kelsFindings.js',
   'assets/documentModal.js',
   'assets/dropboxConnectUI.js',

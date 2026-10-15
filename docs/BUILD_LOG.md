@@ -1158,3 +1158,12 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   who register pups before they go), filled in the chat. The ticked checks are remembered on
   the device (`settings.prepChecks`). Each family owing a balance now gets a payment request
   and then an invoice, one after the other, each skippable.
+- **Kels: the exits brought into the chat (2026-10-15).** Check in on a litter marks a sale
+  Delivered in the chat and asks the ownership (Pro) or roster (Lite) question; the rule
+  moved to `goHome.deliveredOwnershipChanges`, which the Sale page now uses too. Tidy up adds
+  a litter's missing puppies and records a stud service's breeding in the chat. Account
+  health checks or renews the license or takes a new key, and signs in to or retries the
+  online waitlist, in the chat. Set up my waitlist adds a family by hand in the chat, its
+  application fields moved from the Waitlist entry page to the shared
+  `assets/waitlistApplicationForm.js` (Pro-only, precached). Left as pages on purpose: the
+  CSV import, the breed feeding schedule (a table editor), and "see the litter" choices.
