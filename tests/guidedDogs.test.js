@@ -1,0 +1,248 @@
+// guidedDogs.test.js — Kels's "Add dogs" task, its data half
+// (data/guidedDogs.js): which steps apply, what each step refuses, what the
+// shared answers fill in, the review, and the save, run through the REAL repos
+// against support/memoryDb.js on the Thornfield seed. The save is resumable, so
+// a second run must make nothing twice; Lite's cap stops it partway.
+import { test, before } from 'node:test';
+import assert from 'node:assert/strict';
+import { installMemoryDb } from './support/memoryDb.js';
+
+let g; let tables; let dogRepo; let seedTestsKennel; let CapExceededError; let onFile; let kennelId;
+
+before(async () => {
+  ({ tables } = await installMemoryDb());
+  g = await import('../shared/data/guidedDogs.js');
+  ({ dogRepo } = await import('../shared/data/dogRepo.js'));
+  ({ seedTestsKennel } = await import('../shared/data/kennelRepo.js'));
+  ({ CapExceededError } = await import('../shared/data/repoBase.js'));
+  const { seedSampleData } = await import('../shared/data/sampleData.js');
+  await seedSampleData();
+  onFile = await dogRepo.getAll({ includeArchived: false, includePedigreeOnly: true });
+  kennelId = [...tables.kennels.rows.values()].find((k) => k.is_own_kennel).id;
+});
+
+const tomorrow = () => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); };
+const dogsNamed = (name) => [...tables.dogs.rows.values()].filter((d) => d.call_name === name);
+
+// A draft with these roster rows, through the roster step's own after().
+function rosterDraft(rows) {
+  const d = g.emptyDraft();
+  d.common.kennelId = kennelId; // the seed has more than one own kennel, so she's asked
+  d.dogs = rows.map(([call_name, sex]) => Object.assign(g.newDog(), { call_name, sex }));
+  g.afterRoster(d, onFile);
+  g.fillFromCommon(d);
+  return d;
+}
+
+test('one dog: no "in common" step; several: one, before each dog\'s details and parents', () => {
+  const one = rosterDraft([['Zinnia', 'female']]);
+  assert.deepEqual(g.stepsFor(one), ['roster', 'dog:0', 'parents:0', 'review']);
+  const two = rosterDraft([['Zinnia', 'female'], ['Quillon', 'male']]);
+  assert.deepEqual(g.stepsFor(two), ['roster', 'common', 'dog:0', 'parents:0', 'dog:1', 'parents:1', 'review']);
+});
+
+test('the roster refuses empty, unnamed, sexless and doubled rows; blank rows are dropped', () => {
+  const d = g.emptyDraft();
+  assert.match(g.stepProblem('roster', d), /Type the name/);
+  d.dogs = [Object.assign(g.newDog(), { sex: 'male' })];
+  assert.match(g.stepProblem('roster', d), /name for each dog/);
+  d.dogs = [Object.assign(g.newDog(), { call_name: 'Pip' })];
+  assert.match(g.stepProblem('roster', d), /Is Pip a boy or a girl/);
+  d.dogs = [Object.assign(g.newDog(), { call_name: 'Pip', sex: 'male' }), Object.assign(g.newDog(), { call_name: ' pip ', sex: 'female' })];
+  assert.match(g.stepProblem('roster', d), /Two dogs are named/);
+  d.dogs = [Object.assign(g.newDog(), { call_name: 'Pip', sex: 'male' }), g.newDog()];
+  assert.equal(g.stepProblem('roster', d), null);
+  g.afterRoster(d, onFile);
+  assert.equal(d.dogs.length, 1);
+});
+
+test('a name already on file is asked about first; "already mine" drops the dog from the save', () => {
+  const existing = onFile.find((x) => !x.pedigree_only && x.call_name && x.sex === 'female');
+  const d = rosterDraft([[existing.call_name, 'female'], ['Zinnia', 'female']]);
+  assert.ok(d.dogs[0].matchIds.includes(existing.id));
+  assert.deepEqual(g.stepsFor(d).slice(0, 2), ['roster', 'match:0']);
+  assert.match(g.stepProblem('match:0', d), /Tap one/);
+  d.dogs[0].match = existing.id;
+  assert.equal(g.stepProblem('match:0', d), null);
+  assert.deepEqual(g.dogsToAdd(d).map((x) => x.call_name), ['Zinnia']);
+  // Only one left to add, so there's nothing "in common" to ask.
+  assert.ok(!g.stepsFor(d).includes('common'));
+  assert.ok(!g.stepsFor(d).includes('dog:0'));
+  const sections = g.reviewSections(d, { dog: (id) => (id === existing.id ? existing.call_name : '') });
+  assert.equal(sections.at(-1).title, 'Already in KennelOS');
+  assert.match(sections.at(-1).lines[0], /left as she is/);
+  // A name changed on the roster asks again.
+  d.dogs[0].call_name = 'Totally New Name';
+  g.afterRoster(d, onFile);
+  assert.equal(d.dogs[0].match, null);
+  assert.deepEqual(d.dogs[0].matchIds, []);
+});
+
+test('"in common" fills each dog; her own change on a dog is kept', () => {
+  const d = rosterDraft([['Zinnia', 'female'], ['Quillon', 'male']]);
+  assert.equal(d.dogs[0].status, 'active_breeding');
+  assert.equal(d.dogs[0].ownership_type, 'owned');
+  d.common.breed = 'Golden Retriever';
+  g.fillFromCommon(d);
+  assert.equal(d.dogs[1].breed, 'Golden Retriever');
+  d.dogs[1].breed = 'Labrador Retriever';
+  d.common.breed = 'Goldendoodle';
+  g.fillFromCommon(d);
+  assert.equal(d.dogs[0].breed, 'Goldendoodle');
+  assert.equal(d.dogs[1].breed, 'Labrador Retriever');
+  // Someone else's dog keeps an owner; switching back to hers clears it.
+  d.dogs[0].ownership_type = 'external';
+  d.dogs[0].ownerName = 'Pat Smith';
+  g.fillFromCommon(d);
+  assert.equal(d.dogs[0].ownerName, 'Pat Smith');
+  d.dogs[0].ownership_type = 'owned';
+  g.fillFromCommon(d);
+  assert.equal(d.dogs[0].ownerName, '');
+});
+
+test('each dog\'s details: breed, a past birth date, status, whose, owner, kennel', () => {
+  const d = rosterDraft([['Zinnia', 'female']]);
+  const z = d.dogs[0];
+  assert.match(g.stepProblem('dog:0', d), /breed/);
+  z.breed = 'Golden Retriever';
+  z.date_of_birth = tomorrow();
+  assert.match(g.stepProblem('dog:0', d), /future/);
+  z.date_of_birth = '2022-03-01';
+  assert.equal(g.stepProblem('dog:0', d), null);
+  z.ownership_type = 'external';
+  assert.match(g.stepProblem('dog:0', d), /owner/);
+  z.ownerName = 'Pat Smith';
+  assert.equal(g.stepProblem('dog:0', d), null);
+  z.ownership_type = 'owned';
+  assert.match(g.stepProblem('dog:0', d, { multiKennel: true, ownKennelIds: ['k1', 'k2'] }), /Which of your kennels/);
+  z.kennelId = 'k2';
+  assert.equal(g.stepProblem('dog:0', d, { multiKennel: true, ownKennelIds: ['k1', 'k2'] }), null);
+});
+
+test('parents: a typed name already on file, or one of this batch, is picked instead', () => {
+  const existingDam = onFile.find((x) => x.sex === 'female' && x.call_name);
+  const d = rosterDraft([['Zinnia', 'female'], ['Quintessa', 'female']]);
+  const z = d.dogs[0];
+  z.dam = { pick: 'new', name: '' };
+  assert.match(g.stepProblem('parents:0', d, { dogs: onFile }), /mom's name/);
+  z.dam = { pick: 'new', name: existingDam.call_name };
+  assert.match(g.stepProblem('parents:0', d, { dogs: onFile }), /already in KennelOS/);
+  z.dam = { pick: 'new', name: 'quintessa' };
+  assert.match(g.stepProblem('parents:0', d, { dogs: onFile }), /one of the dogs we're adding/);
+  z.dam = { pick: `batch:${z.key}`, name: '' };
+  assert.match(g.stepProblem('parents:0', d, { dogs: onFile }), /own mom/);
+  z.dam = { pick: `batch:${d.dogs[1].key}`, name: '' };
+  assert.equal(g.stepProblem('parents:0', d, { dogs: onFile }), null);
+  // Taking that dog off the roster clears the parent that pointed at it.
+  d.dogs.splice(1, 1);
+  g.afterRoster(d, onFile);
+  assert.equal(z.dam.pick, '');
+});
+
+test('the save: owners, typed parents and batch parents, each made once; a second run makes nothing', async () => {
+  const before = tables.dogs.rows.size;
+  const contactsBefore = tables.contacts.rows.size;
+  const d = rosterDraft([['Lumi', 'female'], ['Thistledown', 'female'], ['Brackenridge', 'male']]);
+  d.common.breed = 'Golden Retriever';
+  g.fillFromCommon(d);
+  const [mari, thistle, bramble] = d.dogs;
+  mari.registered_name = 'Sunny Marigold of Elm';
+  mari.date_of_birth = '2021-05-02';
+  // Littermates with the same typed mom: one pedigree-only dam for both.
+  mari.dam = { pick: 'new', name: 'Old Bess' };
+  thistle.dam = { pick: 'new', name: 'old bess' };
+  thistle.sire = { pick: `batch:${bramble.key}`, name: '' };
+  // Two outside dogs with the same new owner: one contact.
+  thistle.ownership_type = 'external'; thistle.ownerName = 'Pat Smith';
+  bramble.ownership_type = 'external'; bramble.ownerName = 'Pat  Smith';
+  for (const step of g.stepsFor(d)) assert.equal(g.stepProblem(step, d, { dogs: onFile }), null, step);
+
+  const res = await g.saveGuidedDogs(d);
+  assert.equal(res.capError, null);
+  assert.equal(res.made.length, 3);
+  assert.equal(tables.dogs.rows.size, before + 4); // three dogs + Old Bess
+  assert.equal(tables.contacts.rows.size, contactsBefore + 1);
+
+  const bess = dogsNamed('Old Bess');
+  assert.equal(bess.length, 1);
+  assert.equal(bess[0].pedigree_only, true);
+  assert.equal(bess[0].status, 'external_reference');
+  const m = await dogRepo.getById(mari.id);
+  assert.equal(m.dam_id, bess[0].id);
+  assert.equal(m.registered_name, 'Sunny Marigold of Elm');
+  assert.equal(m.ownership_type, 'owned');
+  assert.ok(m.kennel_id, 'a dog of hers is in her kennel');
+  const t = await dogRepo.getById(thistle.id);
+  assert.equal(t.sire_id, bramble.id);
+  assert.equal(t.dam_id, bess[0].id);
+  assert.equal(t.owner_contact_id, (await dogRepo.getById(bramble.id)).owner_contact_id);
+  assert.equal(d.done, true);
+
+  await g.saveGuidedDogs(d);
+  assert.equal(tables.dogs.rows.size, before + 4);
+  assert.equal(tables.contacts.rows.size, contactsBefore + 1);
+});
+
+test('a pedigree-only dog she names is brought into use, not made twice', async () => {
+  const ped = await dogRepo.create({ call_name: 'Hazelwick', sex: 'female', breed: 'Golden Retriever', ownership_type: 'external', status: 'external_reference', pedigree_only: true });
+  const dogsNow = await dogRepo.getAll({ includeArchived: false, includePedigreeOnly: true });
+  const d = g.emptyDraft();
+  d.common.kennelId = kennelId;
+  d.dogs = [Object.assign(g.newDog(), { call_name: 'Hazelwick', sex: 'female' })];
+  g.afterRoster(d, dogsNow);
+  g.fillFromCommon(d);
+  assert.ok(d.dogs[0].matchIds.includes(ped.id));
+  Object.assign(d.dogs[0], { match: ped.id, bringIn: true, breed: 'Golden Retriever' });
+  assert.deepEqual(g.stepsFor(d), ['roster', 'match:0', 'dog:0', 'parents:0', 'review']);
+  assert.match(g.reviewSections(d)[0].title, /bringing in/);
+  const before = tables.dogs.rows.size;
+  const res = await g.saveGuidedDogs(d);
+  assert.deepEqual(res.made, [ped.id]);
+  assert.equal(tables.dogs.rows.size, before);
+  const after = await dogRepo.getById(ped.id);
+  assert.equal(after.pedigree_only, false);
+  assert.equal(after.status, 'active_breeding');
+  assert.equal(after.ownership_type, 'owned');
+});
+
+test('Lite\'s cap stops the save: the dogs made so far stay and are linked, the rest aren\'t made', async () => {
+  const d = rosterDraft([['Calloway', 'female'], ['Fenwick', 'male'], ['Solveig', 'female']]);
+  d.common.breed = 'Golden Retriever';
+  g.fillFromCommon(d);
+  d.dogs[0].sire = { pick: `batch:${d.dogs[1].key}`, name: '' };
+  const real = dogRepo.create;
+  let n = 0;
+  dogRepo.create = async (data) => {
+    if (++n > 2) throw new CapExceededError('dogs', 6, 6);
+    return real.call(dogRepo, data);
+  };
+  try {
+    const res = await g.saveGuidedDogs(d);
+    assert.ok(res.capError instanceof CapExceededError);
+    assert.equal(res.made.length, 2);
+    assert.deepEqual(res.notMade.map((x) => x.call_name), ['Solveig']);
+    assert.equal(dogsNamed('Solveig').length, 0);
+    assert.equal((await dogRepo.getById(d.dogs[0].id)).sire_id, d.dogs[1].id);
+    assert.equal(d.done, true);
+  } finally {
+    dogRepo.create = real;
+  }
+});
+
+test('seedTestsKennel: her dog\'s own kennel, else her only one; never an outside dog', () => {
+  const k1 = { id: 'k1', is_own_kennel: true };
+  const k2 = { id: 'k2', is_own_kennel: true };
+  const out = { id: 'k3', is_own_kennel: false };
+  assert.equal(seedTestsKennel({ ownership_type: 'owned' }, [k1, out]), k1);
+  assert.equal(seedTestsKennel({ ownership_type: 'owned' }, [k1, k2]), null);
+  assert.equal(seedTestsKennel({ ownership_type: 'co_owned', kennel_id: 'k2' }, [k1, k2]), k2);
+  assert.equal(seedTestsKennel({ ownership_type: 'external' }, [k1]), null);
+});
+
+test('statuses and ownership follow the edition', () => {
+  assert.deepEqual(g.statusChoices({ fullDogStatuses: false }).map((s) => s.value), ['active_breeding', 'retired_breeding', 'deceased']);
+  assert.ok(g.statusChoices({ fullDogStatuses: true }).some((s) => s.value === 'pet_home'));
+  assert.ok(!g.statusChoices({ fullDogStatuses: true }).some((s) => ['puppy', 'external_reference'].includes(s.value)));
+  assert.deepEqual(g.ownershipChoices({ externalOwnership: false }).map((o) => o.value), ['owned', 'co_owned']);
+  assert.deepEqual(g.ownershipChoices({ externalOwnership: true }).map((o) => o.value), ['owned', 'co_owned', 'external']);
+});

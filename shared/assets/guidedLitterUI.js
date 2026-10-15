@@ -30,10 +30,7 @@ import { addDaysToYMD } from '../data/dateUtils.js';
 import * as G from '../data/guidedLitter.js';
 import { esc, todayYMD } from './ui.js';
 import { renderUpgradeNudge } from './upgradeNudge.js';
-
-function pagesPrefix() {
-  return location.pathname.includes('/pages/') ? '' : 'pages/';
-}
+import { StepConversation, tile, field, input, options, stepper, val, plural, pagesPrefix } from './kelsSteps.js';
 
 // --- The data the screens read --------------------------------------------------
 
@@ -85,31 +82,6 @@ async function stepCtx(draft, data) {
   };
 }
 
-// --- Little HTML helpers ------------------------------------------------------------
-
-const tile = (act, value, labelHtml, { selected = false, sub = '' } = {}) =>
-  `<button type="button" class="gl-tile${selected ? ' selected' : ''}" data-act="${esc(act)}" data-value="${esc(value)}">
-    <span class="gl-tile-label">${labelHtml}</span>${sub ? `<span class="gl-tile-sub">${esc(sub)}</span>` : ''}</button>`;
-
-const field = (labelText, inputHtml, hint = '') =>
-  `<div class="field gl-field"><label>${esc(labelText)}</label>${inputHtml}${hint ? `<span class="field-hint">${esc(hint)}</span>` : ''}</div>`;
-
-const input = (id, value, { type = 'text', placeholder = '', min = null, step = null, inputmode = '' } = {}) =>
-  `<input id="${id}" type="${type}" value="${esc(value ?? '')}"${placeholder ? ` placeholder="${esc(placeholder)}"` : ''}${min != null ? ` min="${min}"` : ''}${step != null ? ` step="${step}"` : ''}${inputmode ? ` inputmode="${inputmode}"` : ''}>`;
-
-const options = (vocab, current, blankLabel = null) =>
-  (blankLabel != null ? `<option value="">${esc(blankLabel)}</option>` : '') +
-  vocab.map((v) => `<option value="${esc(v.value)}"${v.value === current ? ' selected' : ''}>${esc(v.label)}</option>`).join('');
-
-const stepper = (id, value, labelText) => `
-  <div class="gl-stepper">
-    <span class="gl-stepper-label">${esc(labelText)}</span>
-    <button type="button" class="btn gl-step-btn" data-step-for="${id}" data-delta="-1" aria-label="One fewer">−</button>
-    <input id="${id}" type="number" min="0" inputmode="numeric" value="${esc(value ?? '')}">
-    <button type="button" class="btn gl-step-btn" data-step-for="${id}" data-delta="1" aria-label="One more">+</button>
-  </div>`;
-
-const val = (root, id) => root.querySelector(`#${id}`)?.value.trim() ?? '';
 const dogLabel = (d) => `${esc(d.call_name)}${d.registered_name ? ` <span class="faint">${esc(d.registered_name)}</span>` : ''}`;
 
 // --- Screens --------------------------------------------------------------------------
@@ -514,8 +486,6 @@ function previewItems(pups, prices) {
 
 // --- Her answers, as she'd have said them -------------------------------------------
 
-const yesNo = (b) => (b ? 'Yes' : 'No');
-const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 // The reply bubble left in the chat once a step is answered: plain text.
 function answerFor(stepId, draft, data) {
@@ -601,19 +571,16 @@ export async function runLitterTask(chat, { litterId = null, resume = false, onE
   } else {
     draft.history = draft.history || [];
     await chat.say(`Welcome back! Here's what we have so far for ${esc(draft.label || 'your litter')}:`, { typing: 500 });
-    for (const h of draft.history) {
-      const b = await chat.say(esc(h.q), { typing: 0 });
-      b.classList.add('kels-past');
-      chat.you(h.a);
-    }
+    await StepConversation.replay(chat, draft.history);
     await chat.say('Let\'s pick up where we left off.', { typing: 500 });
   }
   return new LitterConversation(chat, draft, data, onExit, onSaved).start();
 }
 
-class LitterConversation {
+class LitterConversation extends StepConversation {
   constructor(chat, draft, data, onExit, onSaved) {
-    Object.assign(this, { chat, draft, data, onExit, onSaved, ctx: null, steps: [], current: null, panel: null, busy: false });
+    super(chat, draft);
+    Object.assign(this, { data, onExit, onSaved, ctx: null });
   }
 
   persist() {
@@ -632,9 +599,9 @@ class LitterConversation {
     this.draft.pups.forEach((p) => { p.saved = false; });
   }
 
-  async refreshSteps() {
+  async loadSteps() {
     this.ctx = await stepCtx(this.draft, this.data);
-    this.steps = G.stepsFor(this.draft, this.ctx);
+    return G.stepsFor(this.draft, this.ctx);
   }
 
   screenFor(stepId) {
@@ -643,165 +610,15 @@ class LitterConversation {
     return all[stepId]();
   }
 
-  async start() {
-    await this.refreshSteps();
-    const step = this.steps.includes(this.draft.step) ? this.draft.step : this.steps[0];
-    await this.ask(step);
-  }
+  problem(stepId) { return G.stepProblem(stepId, this.draft, this.ctx); }
+  answerText(stepId) { return answerFor(stepId, this.draft, this.data); }
 
-  // Kels asks `stepId`: her question, then the breeder's answer panel.
-  async ask(stepId, { typing = 650 } = {}) {
-    await this.refreshSteps();
-    if (!this.steps.includes(stepId)) stepId = this.steps[0];
-    this.draft.step = stepId;
-    this.persist();
-    this.current = this.screenFor(stepId);
-    const bubble = await this.chat.say(`<strong>${this.current.title}</strong>`, { typing });
-    this.panel = this.chat.panel('');
-    this.fillPanel(bubble);
-  }
-
-  // (Re)draw the answer panel for the current step. A lead line in the screen
-  // moves up into Kels's bubble, so she's the one saying it.
-  fillPanel(bubble = null) {
-    const isReview = Boolean(this.current.isReview);
-    const canBack = this.draft.history.length > 0;
-    this.panel.innerHTML = `<div class="gl-body">${this.current.html}</div>
-      <div class="gl-error" aria-live="assertive"></div>
-      <div class="kels-panel-foot">
-        ${canBack ? '<button type="button" class="btn gl-back" data-k="back">← Back</button>' : '<span></span>'}
-        ${this.draft.returnToReview && !isReview ? '<button type="button" class="btn" data-k="to-review">Back to the plan</button>' : ''}
-        ${isReview
-          ? '<button type="button" class="btn btn-primary gl-next" data-k="save">Yes, build it</button>'
-          : '<button type="button" class="btn btn-primary gl-next" data-k="next">Next →</button>'}
-      </div>`;
-    const lead = this.panel.querySelector('.gl-lead');
-    if (lead && bubble) { lead.classList.remove('gl-lead'); lead.classList.add('kels-lead'); bubble.appendChild(lead); }
-    else if (lead) lead.remove();
-    this.wire();
-    this.chat.scroll();
-  }
-
-  body() { return this.panel.querySelector('.gl-body'); }
-  showError(msg) { this.panel.querySelector('.gl-error').innerHTML = msg ? `<div class="inline-error gl-inline-error">${esc(msg)}</div>` : ''; this.chat.scroll(); }
-
-  async redraw() {
-    await this.refreshSteps();
-    this.current = this.screenFor(this.draft.step);
-    this.fillPanel();
-  }
-
-  wire() {
-    const body = this.body();
-    const cur = this.current;
-    body.querySelectorAll('.gl-tile').forEach((b) => b.addEventListener('click', async () => {
-      if (this.busy) return;
-      cur.read?.(body);
-      const result = cur.onTile?.(b.dataset.value, body);
-      this.answerChanged();
-      if (result === 'redraw') { this.persist(); await this.redraw(); return; }
-      if (result === true) await this.advance({ skipRead: true });
-    }));
-    body.querySelectorAll('[data-act]:not(.gl-tile)').forEach((b) => b.addEventListener('click', async () => {
-      const result = cur.onAct?.(b.dataset.act, body);
-      if (result === 'read-redraw' || result === 'redraw') {
-        cur.read?.(body);
-        if (result === 'read-redraw') this.answerChanged();
-        this.persist();
-        await this.redraw();
-      }
-    }));
-    body.querySelectorAll('[data-step-for]').forEach((b) => b.addEventListener('click', () => {
-      const el = body.querySelector(`#${b.dataset.stepFor}`);
-      el.value = String(Math.max(0, (Number(el.value) || 0) + Number(b.dataset.delta)));
-    }));
-    body.querySelectorAll('[data-goto]').forEach((b) => b.addEventListener('click', () => this.change(b.dataset.goto)));
-    body.querySelectorAll('input').forEach((el) => el.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); this.advance(); }
-    }));
-    cur.wire?.(body);
-    const on = (k, fn) => this.panel.querySelector(`[data-k="${k}"]`)?.addEventListener('click', fn);
-    on('back', () => this.back());
-    on('next', () => this.advance());
-    on('to-review', () => this.advance({ toReview: true }));
-    on('save', () => this.save());
-  }
-
-  // Her answer to the current step goes into the chat as her reply.
-  answered(stepId) {
-    const q = this.panelQuestionText();
-    const a = answerFor(stepId, this.draft, this.data) || 'Done';
-    this.draft.history.push({ step: stepId, q, a });
-    this.panel.closest('.kels-row').remove();
-    this.chat.you(a);
-  }
-
-  panelQuestionText() {
-    const tmp = document.createElement('div');
-    tmp.innerHTML = this.current.title;
-    return tmp.textContent;
-  }
-
-  async advance({ skipRead = false, toReview = false } = {}) {
-    if (this.busy) return;
-    this.busy = true;
-    try {
-      const shown = this.steps;
-      const body = this.body();
-      if (!skipRead) { this.current.read?.(body); this.answerChanged(); }
-      await this.refreshSteps();
-      const problem = G.stepProblem(this.draft.step, this.draft, this.ctx);
-      if (problem) { this.persist(); this.showError(problem); return; }
-      this.current.after?.();
-      if (!this.draft.pricesFilled) {
-        const breed = this.ctx.dam?.breed || this.draft.newDam?.breed;
-        const suggested = breed ? G.suggestedPrices({ litters: this.data.litters, dogsById: this.data.dogsById, breed, excludeLitterId: this.draft.litterId }) : null;
-        if (suggested && Object.values(this.draft.prices).every((v) => v === '')) { this.draft.prices = suggested; this.draft.pricesFilled = true; }
-      }
-      const stepId = this.draft.step;
-      this.answered(stepId);
-      this.persist();
-      // The answer can change which steps there are, and even remove this one:
-      // go on from where it was.
-      const at = shown.indexOf(stepId);
-      await this.refreshSteps();
-      let next;
-      if (toReview || (this.draft.returnToReview && stepId !== 'review')) {
-        // Fixing something from the plan: straight back to the plan, unless the
-        // fix opened a question that hasn't been answered yet.
-        const answered = new Set(this.draft.history.map((h) => h.step));
-        next = this.steps.find((x) => x !== 'review' && !answered.has(x) && this.steps.indexOf(x) > this.steps.indexOf(stepId)) || 'review';
-        if (next === 'review') this.draft.returnToReview = false;
-      } else {
-        const here = this.steps.indexOf(stepId);
-        next = here !== -1 ? this.steps[Math.min(here + 1, this.steps.length - 1)]
-          : shown.slice(at + 1).find((x) => this.steps.includes(x)) || this.steps[this.steps.length - 1];
-      }
-      await this.ask(next);
-    } finally {
-      this.busy = false;
-    }
-  }
-
-  // Back: Kels un-asks the last question; her last answer comes off the chat.
-  async back() {
-    if (this.busy || !this.draft.history.length) return;
-    this.current.read?.(this.body());
-    const prev = this.draft.history.pop();
-    this.panel.closest('.kels-row').remove();
-    // Remove the current question bubble and the previous answer + question.
-    const rows = [...this.chat.box.querySelectorAll('.kels-row')];
-    rows.slice(-3).forEach((r) => r.remove());
-    this.persist();
-    await this.ask(prev.step, { typing: 0 });
-  }
-
-  // "Change" from the plan: ask that step again, then come back to the plan.
-  async change(stepId) {
-    this.draft.returnToReview = true;
-    this.panel.closest('.kels-row').remove();
-    this.chat.you('Let me change something.');
-    await this.ask(stepId);
+  // Once the mom's breed is known, her last priced litter of that breed fills the prices.
+  onAnswered() {
+    if (this.draft.pricesFilled) return;
+    const breed = this.ctx.dam?.breed || this.draft.newDam?.breed;
+    const suggested = breed ? G.suggestedPrices({ litters: this.data.litters, dogsById: this.data.dogsById, breed, excludeLitterId: this.draft.litterId }) : null;
+    if (suggested && Object.values(this.draft.prices).every((v) => v === '')) { this.draft.prices = suggested; this.draft.pricesFilled = true; }
   }
 
   async save() {

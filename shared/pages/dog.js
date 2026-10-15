@@ -8,7 +8,7 @@ import { CapExceededError } from '../data/repoBase.js';
 import { contactRepo } from '../data/contactRepo.js';
 import { litterRepo } from '../data/litterRepo.js';
 import { pairingRepo } from '../data/pairingRepo.js';
-import { kennelRepo } from '../data/kennelRepo.js';
+import { kennelRepo, seedTestsKennel } from '../data/kennelRepo.js';
 import { eventRepo, testTokensOf } from '../data/eventRepo.js';
 import { saleRepo } from '../data/saleRepo.js';
 import { studServiceRepo } from '../data/studServiceRepo.js';
@@ -65,20 +65,6 @@ const blankDog = () => ({
   co_owner_contact_ids: [], litter_id: '', breeder_kennel_id: '', kennel_id: '', status: '', status_date: '', disposition: '', intended_registration: '', notes: '',
   planned_tests: []
 });
-
-const SEED_TESTS_FOR = ['owned', 'co_owned'];
-
-// Which kennel's preferred_tests panel seeds a new dog's plan (Test Planning
-// Addendum §4) — resolved the same way kennel_id itself gets prefilled
-// (soleOwnKennelId): dog's kennel_id set wins outright; unset resolves to the
-// sole own-kennel if there's exactly one; 0 or 2+ own-kennels seed nothing
-// (don't guess). Owned/co-owned only — never external/leased-in.
-function resolveSeedKennel(candidate) {
-  if (!SEED_TESTS_FOR.includes(candidate.ownership_type)) return null;
-  if (candidate.kennel_id) return ctx.kennelsById.get(candidate.kennel_id) || null;
-  const owned = ctx.allKennels.filter((k) => k.is_own_kennel && !k.is_archived);
-  return owned.length === 1 ? owned[0] : null;
-}
 
 const ctx = {
   mode: 'view',        // 'new' | 'view' | 'edit'
@@ -718,7 +704,7 @@ async function doSave() {
       // against the panel again after this. Scoped to this dog's own breed
       // (§8): a breed-tagged test only carries over for a matching breed; an
       // untagged/breed-agnostic test still carries over to every new dog.
-      const seedKennel = resolveSeedKennel(candidate);
+      const seedKennel = seedTestsKennel(candidate, ctx.allKennels);
       if (seedKennel) candidate.planned_tests = kennelRepo.testsForBreed(seedKennel, candidate.breed);
       // Kennel scope (Multi-Kennel Scope Spec §6). A dog the user owns needs one;
       // in a multi-kennel edition the required picker above supplied it, and in a

@@ -16,6 +16,7 @@ need. When one is built, its as-built description goes in the guide (§33) and i
 | Finish an unfinished litter | Resumes the litter draft | All |
 | Set up my waitlist | The fee (Stripe in the chat), offers, going online (cloud backup first), programs, existing families; re-runnable | Pro |
 | Check account health | This device, backups, license, Sensitive records, connections, the online waitlist; each finding with its fix | All (license, Sensitive records, connections, waitlist: where offered) |
+| Add dogs | One or several: a roster of names, a found dog asked about first (a pedigree-only one brought into use), what they share asked once, each dog's details and parents, review; resumable draft; then each dog's papers | All (someone else's dog, documents: Pro) |
 | Pups are going home | Optional checks to tick, remembered on the device (chips, litter registration number, pups' registered names and numbers, feeding); pups Available or Placed with no sale (record the sale or change the plan); readiness per pup with fixes (shots, deworming, drop-off date, balance, contract, registration); a payment request then an invoice for each balance owed; the puppy records with a cover page | All (contract, feeding, payment requests, invoices, Furever, print: Pro) |
 
 The menu has a search box that matches each task's `keywords`, and choices open their
@@ -182,7 +183,15 @@ situation; the check-in's Expected litter hands off to the birth as today.
 The litter check-in's health-care and weight forms for one adult dog, plus health tests
 (`planned_tests` → results), and status changes (retire, pet home).
 
-### 3.8 Add dogs: **M**
+### 3.8 Add dogs: **M** — **Built** (but its history step)
+As built: End-State guide §33 ("Add dogs"); history in `docs/BUILD_LOG.md`. **Modified:**
+several dogs are taken the litter task's way, not "Add another?" after each: one roster of
+names (boy / girl) first, then what they have in common asked once and filled in on each,
+then each dog's details and parents, then one review and save (a resumable draft, on the
+litter task's step engine, `assets/kelsSteps.js`). A typed parent is a pedigree-only dog;
+a parent can be another dog in the same batch. The pedigree photo isn't offered yet, and
+the history step waits for Add new events (§3.10).
+
 One dog or several in a row ("Add another?" after each). Typed in (duplicate check first,
 `dogMatches`), or from a pedigree photo (`pedigreeImport`), with parents through the
 tidy-up's parent steps and the dog's kennel, ownership and status. In Lite, at the cap she
@@ -284,8 +293,9 @@ Decided:
 - Set up another device ships before live sync's step 6, stopping after restore and unlock.
 - The order stands: the waitlist (§3.3) before a sale (§3.5), since the waitlist turns
   picks into sales.
-- Add dogs takes several in a row, and offers each dog's documents (Pro) and its history
-  (through Add new events).
+- Add dogs takes several at once (a roster of names first, as the litter takes its puppies),
+  and offers each dog's documents (Pro) and its history (through Add new events, still to
+  build).
 - Add my other accounts (§3.9) and Add new events (§3.10) are on the list, after Add dogs.
 - Starred and frequent tasks move up the menu (§4); "frequent" means more than 3 starts in
   the last 60 days.

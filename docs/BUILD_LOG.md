@@ -1198,3 +1198,15 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Expense on the breeding (else the dam), linked by the new indexed `expenses.stud_service_id`
   (`db.version(5)`, in `STUD_SERVICE_REFERENCES`, private like every expense field) so it's
   asked once. Our stud's fee stays income.
+- **Kels: Add dogs (2026-10-15).** Roadmap §3.8, built the litter task's way at the owner's
+  call: one roster of names (boy / girl, "+ Another dog") instead of "Add another?" after
+  each, then a found name asked about first (a pedigree-only one is brought into use), what
+  they have in common asked once and filled in on each, each dog's details and parents (a
+  dog on file, one of the batch, or a typed name made pedigree-only), one review, a
+  resumable save (`data/guidedDogs.js`, `assets/guidedDogsUI.js`, `settings.guidedDogsDraft`).
+  Pro files each dog's papers in the chat after, through the Documents modal's own save,
+  now exported (`storeDocumentFile`, `createDocument`). Lite's cap stops the save with the
+  upgrade notice, keeping the dogs made so far. The litter task's step engine moved to
+  `assets/kelsSteps.js` (`StepConversation`) so both tasks share it; the Dog page's
+  planned-test seeding moved to `kennelRepo.seedTestsKennel` so Kels seeds the same way.
+  Not yet: the pedigree photo, and the history step (waits for Add new events, §3.10).

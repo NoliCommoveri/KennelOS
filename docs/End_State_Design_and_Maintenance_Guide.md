@@ -529,8 +529,9 @@ Every key is in its `KEYS` table (`kennelOS.*`), each with a getter/setter, and
   changed mid-push.
 - `activeKennelId`: the kennel scope, read and written only through `kennelScope.js`.
 - `myKennelId` / `myContactId`: the user's own kennel and contact.
-- `guidedLitterDraft` and `prepChecks`: Kels's unfinished litter, and the optional checks
-  ticked last time in Pups are going home (§33). Device-only.
+- `guidedLitterDraft`, `guidedDogsDraft` and `prepChecks`: Kels's unfinished litter, her
+  unfinished Add dogs, and the optional checks ticked last time in Pups are going home
+  (§33). Device-only.
 - `studTripsMigrated`: the stud-trip migration has run on this device (§19, Away board).
 
 **Kept outside `KEYS` on purpose**, so Reset App leaves them: the Pro license record and
@@ -1173,7 +1174,9 @@ Local, offline file storage behind three surfaces:
   `document_url` is a separate link field.
 - **Expense receipts:** `assets/receiptCapture.js` on both expense forms (§21).
 
-`assets/documentModal.js` is the shared add/edit and view dialog.
+`assets/documentModal.js` is the shared add/edit and view dialog. Its `storeDocumentFile`
+(a PDF as-is, photos built into one PDF) and `createDocument` (filed under the dog's
+kennel) are the save, used by Kels's Add dogs too (§33).
 
 **Storage:** `documents` (metadata, `dog_id`, `file_id`) and `files` (one row per stored PDF:
 `blob`, `thumbnail`, meta; `data/fileRepo.js`). A file belongs to exactly one Document or
@@ -1689,7 +1692,12 @@ on the first tap to show it and is chosen on the second; `search` adds a box tha
 she types, every word matching the start of a word in a choice's label, sub or `keywords`,
 Enter picks the first match), and `form({ title, html, submit, reply })`, where `submit` returns a string to show as a
 problem and stay, anything else to finish — and the button), `pages/kels.*` (the menu),
-`assets/guidedLitterUI.js` + `data/guidedLitter.js` (the litter task), `assets/litterCheckinUI.js`
+`assets/kelsSteps.js` (`StepConversation`, the step engine the two draft-keeping tasks
+share: a step list worked out from the draft, one screen per step with tiles, Back and
+Next, her answers left in the chat and in `draft.history` to replay a resumed draft, and a
+review whose Change links come straight back to it; plus the screens' HTML helpers),
+`assets/guidedLitterUI.js` + `data/guidedLitter.js` (the litter task), `assets/guidedDogsUI.js`
++ `data/guidedDogs.js` (add dogs), `assets/litterCheckinUI.js`
 + `data/litterCheckin.js` + `data/goHome.js` (the check-in), `assets/tidyUpUI.js` +
 `data/tidyRules.js` + `data/recordMerge.js` (the tidy-up), `assets/accountHealthUI.js` +
 `data/accountHealth.js` (account health), `assets/waitlistSetupUI.js` (set up my waitlist,
@@ -1711,17 +1719,19 @@ collecting the information, I'll build the records for you to approve. If you ge
 need to save and come back, I'll save what we've got so far…  Sound good?"), answered
 **Sounds great, let's start!** or **Never mind** (back to the menu). Openers: record a litter
 "Absolutely, let's get those puppies added!", check-in "Of course, let's check in on your
-litter!", tidy up "Love it, let's get your records tidy!", account health "Good idea, let's
-make sure everything's safe and sound!".
+litter!", add dogs "Wonderful, let's get your dogs added!", tidy up "Love it, let's get your
+records tidy!", account health "Good idea, let's make sure everything's safe and sound!".
 
 **The menu** (`kels.js` `TASKS`): a task is `{ id, label, sub, keywords, available, priority,
 run, resumable?, beforeStart? }`, highest priority first, with a search box above it;
 `keywords` are the other words a breeder might search with ("add puppies" finds Record a new
-litter). The page header shows her photo and `KELS.title` ("Kels, the KennelOS whiz") on one line, sized to fit a phone. Order: an unfinished litter (100), the check-in
-(60 while a litter has pups at home, else 40), a new litter (50), prep pups (45, while a
-litter has pups at home), tidy up (30), set up my waitlist (25, Pro), account health (20). The header's **Save for
-later** shows only while a `resumable` task runs. `beforeStart` can redirect a start (a new
-litter while one is unfinished asks "Finish that one / Start fresh"); `handoff(taskId, opts)`
+litter). The page header shows her photo and `KELS.title` ("Kels, the KennelOS whiz") on one line, sized to fit a phone. Order: an unfinished litter (100), unfinished dogs (99), the
+check-in (60 while a litter has pups at home, else 40), a new litter (50), prep pups (45,
+while a litter has pups at home), add dogs (35), tidy up (30), set up my waitlist (25, Pro),
+account health (20). The header's **Save for later** shows only while a `resumable` task
+runs, and the floating button's dot shows while either draft is unfinished. `beforeStart`
+can redirect a start (a new litter, or new dogs, while one is unfinished asks "Finish that
+one / Start fresh"); `handoff(taskId, opts)`
 moves her to another task (an Expected litter in the check-in → its birth).
 
 **Doors:** the floating button; the Breeding page (`kels.html?task=record-litter`); an
@@ -1749,6 +1759,57 @@ on the draft as it's made, so a retry never duplicates.
 **After the save** (Pro, `assets/guidedShareUI.js`, loaded only with `waitlist` or
 `companion` and an available pup): tell the waitlist (the litter page's notice) or share the
 available pups with prospective families via Companion links. It **never opens picks**.
+
+### "Add dogs"
+One dog or several in one go, the way the litter task takes several puppies. `stepsFor`:
+1. **Who are we adding?** (`roster`): a row per dog, its name and **♂ Boy** / **♀ Girl**,
+   with **+ Another dog** (up to `MAX_DOGS`, 20) and ✕ to take a row off. Names must differ;
+   an empty row is dropped.
+2. **We found…** (`match:<i>`, only for a name already on file: `guidedLitter.dogMatches`
+   over every dog not archived, pedigree-only and outside dogs included). **Yes, that's
+   her** leaves a dog that's already hers as it is (listed under "Already in KennelOS" on
+   the review); a pedigree-only dog is **brought into use** instead (the Dog page's bring-in:
+   updated with her answers, `pedigree_only` false, its parents and details as the starting
+   answers). **No, a different dog** adds a new one. Renaming a dog on the roster asks again.
+3. **What do they have in common?** (`common`, only with two or more to add): breed, status,
+   whose dog, the owner (someone else's) and the kennel (with more than one own kennel; the
+   active one suggested). `fillFromCommon` fills each dog's blank fields, and any still
+   holding the last common answer; her own change on a dog is kept. A lone dog gets the
+   defaults (Active breeding, Owned).
+4. **Each dog** (`dog:<i>`, "Tell me about Daisy (2 of 3)"): breed (required), date of birth,
+   registered name and number, color and markings, microchip, status (`statusChoices`:
+   Active / Retired breeding, Pet home, For sale, Deceased; Lite: Active / Retired breeding,
+   Deceased; a puppy belongs to a litter), whose dog (`ownershipChoices`: Owned, Co-owned,
+   and someone else's only with `externalOwnership`), the owner for someone else's (a
+   contact, or a name that becomes a new contact), the kennel with several own kennels.
+5. **Their parents** (`parents:<i>`, optional): mom and dad each **Not known**, one of the
+   dogs being added, a dog on file of that sex (same breed first), or a typed name, made a
+   pedigree-only dog as the tidy-up makes one. A typed name already on file, or one of the
+   batch, is refused with "pick her from the list".
+6. **Review** (`reviewSections`): a section per dog with **Parents** and **Change**, the dogs
+   already in KennelOS, and **Add or take off a dog** (back to the roster).
+
+**The save** (`saveGuidedDogs`), per dog: its owner (one new contact per typed name, typed
+Breeder), its typed parents (one pedigree-only dog per name and sex, so littermates share
+it), then the dog: owned or co-owned in her kennel (`resolveKennelIdForWrite` when not
+asked), an owned dog's owner her own contact (the Dog page's prefill), and her kennel's
+planned tests for the breed (`kennelRepo.seedTestsKennel` + `testsForBreed`, the Dog page's
+seeding). Then each parent from the same batch is linked. **Resumable:** each id goes back on
+the draft as it's made. **Lite:** the cap (`CapExceededError`) stops the save; the dogs made
+so far are kept and linked, the rest aren't made, and she says who she added and shows
+`renderUpgradeNudge`.
+
+**The draft:** `settings.guidedDogsDraft` (`DRAFT_VERSION`), as the litter's: device-only,
+cleared by Reset App, one at a time.
+
+**After the save** (Pro, `editionFlags.documents`): "Do you have any papers to file for
+them?" **Yes, let's file them** asks which dog (with several), then a form in the chat: the
+type (`DOC_TYPES`), a PDF or photos (taken or chosen, built into one PDF), a title, a date,
+and the type's fields (`documentFieldsFor`; a registration's number prefilled from the dog).
+It's filed through the Documents modal's own `storeDocumentFile` + `createDocument` (§26.1;
+`documentModal.js` is imported only then). **Another for Daisy** / **One for another dog** /
+**That's all for now**. Then **See Daisy** (or **See my dogs**), **Help me with something
+else**, **Back to Today**.
 
 ### "Check in on a litter"
 Each thing she approves is saved at once; there is no draft.

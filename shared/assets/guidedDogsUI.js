@@ -1,0 +1,530 @@
+// guidedDogsUI.js — Kels's "Add dogs" task: the screens, drawn by the shared
+// step engine (assets/kelsSteps.js) in the chat on pages/kels.html. Several dogs
+// at once: a roster of names first (one question for all of them, as the
+// litter's puppies), what they have in common, then each dog's details and
+// parents, and one review she approves. The steps, checks, review lines and the
+// save live in data/guidedDogs.js; this module draws them and keeps the draft
+// (settings.js guidedDogsDraft), so closing the window loses nothing.
+//
+// After the save, Pro (editionFlags.documents) offers to file each dog's papers
+// in the chat: the Documents page's own save (assets/documentModal.js, Pro-only,
+// imported only then). In Lite, the cap stops the save with the upgrade notice.
+import { dogRepo } from '../data/dogRepo.js';
+import { contactRepo } from '../data/contactRepo.js';
+import { kennelRepo } from '../data/kennelRepo.js';
+import { ownKennels, getActiveKennelId } from '../data/kennelScope.js';
+import { editionFlags } from '../data/editionConfig.js';
+import { getGuidedDogsDraft, setGuidedDogsDraft, clearGuidedDogsDraft } from '../data/settings.js';
+import { DOG_STATUS, OWNERSHIP_TYPE, DOC_TYPES, documentFieldsFor, descriptor } from '../data/vocab.js';
+import { SCOPED_OWNERSHIP } from '../data/kennelScope.js';
+import * as G from '../data/guidedDogs.js';
+import { fmt } from '../data/guidedLitter.js';
+import { esc, todayYMD } from './ui.js';
+import { renderUpgradeNudge } from './upgradeNudge.js';
+import { StepConversation, tile, field, input, options, val, plural, pagesPrefix } from './kelsSteps.js';
+
+// --- The data the screens read ----------------------------------------------------
+
+async function loadData() {
+  // Pedigree-only dogs too: a name she types may be one (brought into use), and
+  // they're parents to pick.
+  const [dogs, contacts, kennels, own] = await Promise.all([
+    dogRepo.getAll({ includeArchived: false, includePedigreeOnly: true }),
+    editionFlags.externalOwnership ? contactRepo.getAll({ includeArchived: false }) : Promise.resolve([]),
+    kennelRepo.getAll({ includeArchived: false }),
+    ownKennels()
+  ]);
+  const name = (d) => d.call_name || d.registered_name || '';
+  return {
+    dogs: dogs.sort((a, b) => name(a).localeCompare(name(b))),
+    contacts: contacts.sort((a, b) => (a.name || '').localeCompare(b.name || '')),
+    dogsById: new Map(dogs.map((d) => [d.id, d])),
+    contactsById: new Map(contacts.map((c) => [c.id, c])),
+    kennelsById: new Map(kennels.map((k) => [k.id, k])),
+    own: own.filter((k) => !k.is_archived),
+    breeds: [...new Set(dogs.map((d) => (d.breed || '').trim()).filter(Boolean))].sort()
+  };
+}
+
+const dogName = (d) => (d && (d.call_name || d.registered_name)) || '';
+const her = (sex) => (sex === 'female' ? 'her' : 'his');
+const herHim = (sex) => (sex === 'female' ? 'her' : 'him');
+const sheHe = (sex) => (sex === 'female' ? 'she' : 'he');
+
+// --- Screens ------------------------------------------------------------------------
+
+function screens(draft, data) {
+  const statuses = G.statusChoices(editionFlags);
+  const ownerships = G.ownershipChoices(editionFlags);
+  const multiKennel = data.own.length > 1;
+  const breedList = `<datalist id="gd-breeds">${data.breeds.map((b) => `<option value="${esc(b)}"></option>`).join('')}</datalist>`;
+
+  // Whose dog, its owner (someone else's) and kennel (hers, with several kennels):
+  // the same block on "in common" and on each dog. `o` holds the answers.
+  function ownershipHtml(o, prefix, { allowBlank = false } = {}) {
+    const external = G.OWNER_REQUIRED.includes(o.ownership_type);
+    const scoped = SCOPED_OWNERSHIP.has(o.ownership_type);
+    return `${field('Whose dog?', `<select id="${prefix}-own">${options(ownerships, o.ownership_type, allowBlank ? 'Different for each' : null)}</select>`)}
+      ${editionFlags.externalOwnership ? `<div id="${prefix}-owner"${external ? '' : ' hidden'}>
+        ${data.contacts.length ? field('Owner', `<select id="${prefix}-owner-pick"><option value="">Someone new…</option>${data.contacts.map((c) => `<option value="${esc(c.id)}"${o.ownerId === c.id ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select>`) : ''}
+        <div id="${prefix}-owner-new"${o.ownerId ? ' hidden' : ''}>${field('Owner\'s name', input(`${prefix}-owner-name`, o.ownerName, { placeholder: 'e.g. Pat Smith' }))}</div>
+      </div>` : ''}
+      ${multiKennel ? `<div id="${prefix}-kennel"${scoped ? '' : ' hidden'}>${field('Which of your kennels?', `<select id="${prefix}-kennel-pick">${options(data.own.map((k) => ({ value: k.id, label: k.kennel_name })), o.kennelId || '', allowBlank ? 'Different for each' : 'Pick a kennel…')}</select>`)}</div>` : ''}`;
+  }
+  function wireOwnership(root, prefix) {
+    const sync = () => {
+      const v = val(root, `${prefix}-own`);
+      const owner = root.querySelector(`#${prefix}-owner`);
+      if (owner) owner.hidden = !G.OWNER_REQUIRED.includes(v);
+      const kennel = root.querySelector(`#${prefix}-kennel`);
+      if (kennel) kennel.hidden = !SCOPED_OWNERSHIP.has(v);
+    };
+    root.querySelector(`#${prefix}-own`)?.addEventListener('change', sync);
+    root.querySelector(`#${prefix}-owner-pick`)?.addEventListener('change', (e) => {
+      root.querySelector(`#${prefix}-owner-new`).hidden = Boolean(e.target.value);
+    });
+  }
+  function readOwnership(root, prefix, o) {
+    o.ownership_type = val(root, `${prefix}-own`);
+    const external = G.OWNER_REQUIRED.includes(o.ownership_type);
+    o.ownerId = external ? (val(root, `${prefix}-owner-pick`) || null) : null;
+    o.ownerName = external && !o.ownerId ? val(root, `${prefix}-owner-name`) : '';
+    if (multiKennel) o.kennelId = SCOPED_OWNERSHIP.has(o.ownership_type) ? (val(root, `${prefix}-kennel-pick`) || null) : null;
+  }
+
+  // A parent picker: the dogs being added, dogs on file of that sex (same breed
+  // first), or a name typed in.
+  function parentPicker(d, role) {
+    const sex = role === 'dam' ? 'female' : 'male';
+    const p = d[role];
+    const batch = G.dogsToAdd(draft).filter((x) => x.key !== d.key && x.sex === sex);
+    const breed = (d.breed || '').trim().toLowerCase();
+    // A pedigree dog being brought in is listed once, with the dogs we're adding.
+    const bringing = new Set(G.dogsToAdd(draft).filter((x) => x.bringIn).map((x) => x.match));
+    const onFile = data.dogs
+      .filter((x) => !bringing.has(x.id) && (x.sex === sex || !x.sex || x.sex === 'unknown'))
+      .sort((a, b) => ((b.breed || '').trim().toLowerCase() === breed) - ((a.breed || '').trim().toLowerCase() === breed));
+    const opt = (value, text) => `<option value="${esc(value)}"${p.pick === value ? ' selected' : ''}>${esc(text)}</option>`;
+    const w = role === 'dam' ? 'Mom' : 'Dad';
+    return `${field(w, `<select id="gd-${role}">
+        ${opt('', 'Not known')}
+        ${batch.length ? `<optgroup label="Dogs we're adding">${batch.map((x) => opt(`batch:${x.key}`, G.dogLabel(x))).join('')}</optgroup>` : ''}
+        ${onFile.length ? `<optgroup label="In KennelOS">${onFile.map((x) => opt(`dog:${x.id}`, `${dogName(x)}${x.registered_name && x.call_name ? ` (${x.registered_name})` : ''}${x.breed && x.breed.trim().toLowerCase() !== breed ? ` · ${x.breed}` : ''}`)).join('')}</optgroup>` : ''}
+        ${opt('new', 'Not in KennelOS: I\'ll type the name')}
+      </select>`)}
+      <div id="gd-${role}-new"${p.pick === 'new' ? '' : ' hidden'}>${field(`${w}'s name`, input(`gd-${role}-name`, p.name, { placeholder: 'Call name or registered name' }), 'Added just for the pedigree.')}</div>`;
+  }
+
+  return {
+    roster: () => ({
+      title: 'Who are we adding?',
+      html: `<p class="gl-lead">Type each dog's name and tap boy or girl. Tap <strong>+ Another dog</strong> for the next one.</p>
+        <div class="gd-roster">
+          ${draft.dogs.map((d, i) => `<div class="gd-row">
+            ${input(`gd-name-${d.key}`, d.call_name, { placeholder: i ? 'Name' : 'e.g. Daisy', label: `Dog ${i + 1}'s name` })}
+            ${tile('sex', `${d.key}|male`, '♂ Boy', { selected: d.sex === 'male' })}
+            ${tile('sex', `${d.key}|female`, '♀ Girl', { selected: d.sex === 'female' })}
+            ${draft.dogs.length > 1 ? `<button type="button" class="btn gd-remove" data-act="remove" data-key="${esc(d.key)}" aria-label="Take ${esc(d.call_name || 'this row')} off">✕</button>` : '<span></span>'}
+          </div>`).join('')}
+        </div>
+        ${draft.dogs.length < G.MAX_DOGS ? '<button type="button" class="btn gl-more" data-act="add">+ Another dog</button>' : ''}`,
+      read: (root) => {
+        for (const d of draft.dogs) {
+          const el = root.querySelector(`#gd-name-${d.key}`);
+          if (el) d.call_name = el.value.trim();
+        }
+      },
+      onTile: (value) => {
+        const [k, sex] = value.split('|');
+        const d = draft.dogs.find((x) => x.key === k);
+        if (d) d.sex = sex;
+        return 'redraw';
+      },
+      onAct: (act, root, btn) => {
+        if (act === 'add') { draft.dogs.push(G.newDog()); return 'redraw'; }
+        if (act === 'remove') {
+          // Read first: the redraw reads again, by key, so the others keep theirs.
+          for (const d of draft.dogs) d.call_name = root.querySelector(`#gd-name-${d.key}`)?.value.trim() ?? d.call_name;
+          draft.dogs = draft.dogs.filter((d) => d.key !== btn.dataset.key);
+          return 'redraw';
+        }
+        return null;
+      },
+      wire: (root) => {
+        // A new row's name box gets the cursor.
+        const empty = [...root.querySelectorAll('.gd-row input')].find((el) => !el.value);
+        empty?.focus({ preventScroll: true });
+      },
+      after: () => {
+        G.afterRoster(draft, data.dogs);
+        G.fillFromCommon(draft);
+      }
+    }),
+
+    match: (i) => {
+      const d = draft.dogs[i];
+      const found = d.matchIds.map((id) => data.dogsById.get(id)).filter(Boolean);
+      const one = found.length === 1;
+      const describe = (x) => [
+        x.breed,
+        x.pedigree_only ? `From a pedigree: I'll bring ${herHim(d.sex)} into your dogs` : `Already in KennelOS: I'll leave ${herHim(d.sex)} as ${sheHe(d.sex)} is`,
+        x.date_of_birth ? `born ${fmt(x.date_of_birth)}` : ''
+      ].filter(Boolean).join(' · ');
+      return {
+        title: one ? `We found ${esc(dogName(found[0]))}. Is this the ${esc(d.call_name)} you're adding?` : `We found dogs named like ${esc(d.call_name)}. Is one of them ${herHim(d.sex)}?`,
+        html: `<p class="gl-lead">Using the one on file keeps ${her(d.sex)} records in one place.</p>
+          <div class="gl-tiles">
+            ${found.map((x) => tile('match', x.id, `${one ? `Yes, that's ${herHim(d.sex)}: ` : ''}${esc(dogName(x))}${x.registered_name && x.call_name ? ` <span class="faint">${esc(x.registered_name)}</span>` : ''}`, { selected: d.match === x.id, sub: describe(x) })).join('')}
+            ${tile('match', 'none', `No, ${esc(d.call_name)} is a different dog`, { selected: d.match === 'none', sub: 'Add as a new dog' })}
+          </div>`,
+        onTile: (value) => {
+          if (d.id && d.id === d.match) d.id = null; // a pedigree dog brought in by an earlier answer
+          d.match = value;
+          const x = value === 'none' ? null : data.dogsById.get(value);
+          d.bringIn = Boolean(x?.pedigree_only);
+          if (d.bringIn) {
+            // What the pedigree already knows, as the starting answers.
+            for (const k of ['breed', 'date_of_birth', 'registered_name', 'registration_number', 'color_markings', 'microchip_id']) {
+              if (!d[k] && x[k]) d[k] = x[k];
+            }
+            const pick = (id) => (id && data.dogsById.has(id) ? `dog:${id}` : '');
+            if (!d.dam.pick && pick(x.dam_id)) d.dam = { pick: pick(x.dam_id), name: '' };
+            if (!d.sire.pick && pick(x.sire_id)) d.sire = { pick: pick(x.sire_id), name: '' };
+          }
+          return true;
+        }
+      };
+    },
+
+    common: () => {
+      const c = draft.common;
+      return {
+        title: 'What do they have in common?',
+        html: `<p class="gl-lead">I'll fill these in on each dog, and you can change any of them there. Leave a box blank if it's different for each.</p>
+          ${field('Breed', input('gd-c-breed', c.breed, { list: 'gd-breeds' }))}${breedList}
+          ${field('Status', `<select id="gd-c-status">${options(statuses, c.status, 'Different for each')}</select>`)}
+          ${ownershipHtml(c, 'gd-c', { allowBlank: true })}`,
+        wire: (root) => wireOwnership(root, 'gd-c'),
+        read: (root) => {
+          c.breed = val(root, 'gd-c-breed');
+          c.status = val(root, 'gd-c-status');
+          readOwnership(root, 'gd-c', c);
+        },
+        after: () => G.fillFromCommon(draft)
+      };
+    },
+
+    dog: (i) => {
+      const d = draft.dogs[i];
+      const adding = G.dogsToAdd(draft);
+      const n = adding.indexOf(d) + 1;
+      return {
+        title: `Tell me about ${esc(d.call_name)}${adding.length > 1 ? ` (${n} of ${adding.length})` : ''}`,
+        html: `<p class="gl-lead">Fill in what you have. Anything you skip can go on ${her(d.sex)} page later.</p>
+          ${field('Breed', input('gd-breed', d.breed, { list: 'gd-breeds' }))}${breedList}
+          ${field('Date of birth (optional)', input('gd-dob', d.date_of_birth, { type: 'date', max: todayYMD() }))}
+          ${field('Registered name (optional)', input('gd-reg', d.registered_name))}
+          ${field('Registration number (optional)', input('gd-regnum', d.registration_number))}
+          ${field('Color and markings (optional)', input('gd-color', d.color_markings, { placeholder: 'e.g. red with white chest' }))}
+          ${field('Microchip number (optional)', input('gd-chip', d.microchip_id, { inputmode: 'numeric' }))}
+          ${field('Status', `<select id="gd-status">${options(statuses, d.status, 'Pick one…')}</select>`)}
+          ${ownershipHtml(d, 'gd-d')}`,
+        wire: (root) => wireOwnership(root, 'gd-d'),
+        read: (root) => {
+          d.breed = val(root, 'gd-breed');
+          d.date_of_birth = val(root, 'gd-dob');
+          d.registered_name = val(root, 'gd-reg');
+          d.registration_number = val(root, 'gd-regnum');
+          d.color_markings = val(root, 'gd-color');
+          d.microchip_id = val(root, 'gd-chip');
+          d.status = val(root, 'gd-status');
+          readOwnership(root, 'gd-d', d);
+        }
+      };
+    },
+
+    parents: (i) => {
+      const d = draft.dogs[i];
+      return {
+        title: `Who are ${esc(d.call_name)}'s parents?`,
+        html: `<p class="gl-lead">Optional. Leave either one as Not known.</p>
+          ${parentPicker(d, 'dam')}
+          ${parentPicker(d, 'sire')}`,
+        wire: (root) => {
+          for (const role of ['dam', 'sire']) {
+            root.querySelector(`#gd-${role}`).addEventListener('change', (e) => {
+              root.querySelector(`#gd-${role}-new`).hidden = e.target.value !== 'new';
+            });
+          }
+        },
+        read: (root) => {
+          for (const role of ['dam', 'sire']) {
+            const pick = val(root, `gd-${role}`);
+            d[role] = { pick, name: pick === 'new' ? val(root, `gd-${role}-name`) : '' };
+          }
+        }
+      };
+    },
+
+    review: () => {
+      const sections = G.reviewSections(draft, {
+        dog: (id) => dogName(data.dogsById.get(id)),
+        contact: (id) => data.contactsById.get(id)?.name,
+        kennel: (id) => data.kennelsById.get(id)?.kennel_name
+      }, { kennelNames: multiKennel });
+      const adding = G.dogsToAdd(draft).length;
+      return {
+        title: 'I think I got it all. Here\'s what I\'ll create:',
+        html: `<p class="gl-lead">Look it over. Tap <strong>Change</strong> to fix anything, or <strong>Yes, build it</strong> when it's right.</p>
+          ${sections.map((s) => `<section class="gl-review-section">
+            <div class="row-between"><h3>${esc(s.title)}</h3>
+              <span class="pill-row">${s.steps.parents ? `<button type="button" class="btn btn-sm" data-goto="${esc(s.steps.parents)}">Parents</button>` : ''}<button type="button" class="btn btn-sm" data-goto="${esc(s.steps.details)}">Change</button></span></div>
+            <ul>${s.lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul></section>`).join('')}
+          <button type="button" class="btn btn-sm" data-goto="roster">${adding ? 'Add or take off a dog' : 'Add a different dog'}</button>`,
+        isReview: true
+      };
+    }
+  };
+}
+
+// --- Her answers, as she'd have said them -------------------------------------------
+
+function answerFor(stepId, draft, data) {
+  const c = draft.common;
+  const lbl = (vocab, v) => (v ? descriptor(vocab, v).label : '');
+  const ownerText = (o) => (G.OWNER_REQUIRED.includes(o.ownership_type)
+    ? (o.ownerId ? data.contactsById.get(o.ownerId)?.name : o.ownerName) : '');
+  const kennelText = (o) => (data.own.length > 1 && o.kennelId ? data.kennelsById.get(o.kennelId)?.kennel_name : '');
+  if (stepId === 'roster') {
+    return draft.dogs.map((d) => `${d.call_name} (${d.sex === 'female' ? 'girl' : 'boy'})`).join(', ');
+  }
+  if (stepId === 'common') {
+    return [c.breed, lbl(DOG_STATUS, c.status), lbl(OWNERSHIP_TYPE, c.ownership_type), ownerText(c), kennelText(c)].filter(Boolean).join(' · ') || 'Different for each';
+  }
+  if (stepId === 'review') return '';
+  const d = draft.dogs[G.stepIndex(stepId)];
+  if (!d) return '';
+  if (stepId.startsWith('match:')) {
+    if (d.match === 'none') return `No, ${d.call_name} is a different dog`;
+    return `Yes, that's ${herHim(d.sex)}: ${dogName(data.dogsById.get(d.match))}`;
+  }
+  if (stepId.startsWith('dog:')) {
+    return [d.breed, d.date_of_birth ? `born ${fmt(d.date_of_birth)}` : '', d.registered_name, lbl(DOG_STATUS, d.status), lbl(OWNERSHIP_TYPE, d.ownership_type), ownerText(d), kennelText(d)]
+      .filter(Boolean).join(' · ');
+  }
+  if (stepId.startsWith('parents:')) {
+    const names = { dog: (id) => dogName(data.dogsById.get(id)) };
+    const dam = G.parentText(d.dam, draft, names);
+    const sire = G.parentText(d.sire, draft, names);
+    return [dam ? `Mom: ${dam}` : '', sire ? `Dad: ${sire}` : ''].filter(Boolean).join(' · ') || 'Not known';
+  }
+  return '';
+}
+
+// --- The conversation -----------------------------------------------------------------
+
+// An unfinished draft, if there is one (Kels offers to finish it).
+export function pendingDogsDraft() {
+  const draft = getGuidedDogsDraft();
+  if (!draft) return null;
+  if (draft.v !== G.DRAFT_VERSION) { clearGuidedDogsDraft(); return null; }
+  return draft.done ? null : draft;
+}
+
+export function discardGuidedDogsDraft() {
+  clearGuidedDogsDraft();
+}
+
+// The draft's name on the menu: "Daisy, Duke and Rosie".
+export function draftLabel(draft) {
+  const names = (draft?.dogs || []).map((d) => d.call_name).filter(Boolean);
+  if (!names.length) return '';
+  return names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+// Run "Add dogs" in `chat` (assets/kelsChat.js). `resume`: carry on the
+// unfinished draft. `onExit(reason)` hands the chat back to Kels's menu;
+// `onSaved()` runs once the records are built.
+export async function runDogsTask(chat, { resume = false, onExit = () => {}, onSaved = () => {} } = {}) {
+  const data = await loadData();
+  let draft = resume ? pendingDogsDraft() : null;
+  if (!draft) {
+    draft = G.emptyDraft();
+    // With several kennels, the one she's working in is the suggestion.
+    const active = getActiveKennelId();
+    if (data.own.length > 1 && data.own.some((k) => k.id === active)) draft.common.kennelId = active;
+    if (!(await chat.intro('Wonderful, let\'s get your dogs added!'))) { onExit('nevermind'); return; }
+  } else {
+    await chat.say(`Welcome back! Here's what we have so far for ${esc(draftLabel(draft) || 'your dogs')}:`, { typing: 500 });
+    await StepConversation.replay(chat, draft.history);
+    await chat.say('Let\'s pick up where we left off.', { typing: 500 });
+  }
+  return new DogsConversation(chat, draft, data, onExit, onSaved).start();
+}
+
+class DogsConversation extends StepConversation {
+  constructor(chat, draft, data, onExit, onSaved) {
+    super(chat, draft);
+    Object.assign(this, { data, onExit, onSaved });
+  }
+
+  persist() {
+    const d = this.draft;
+    d.updatedAt = new Date().toISOString();
+    d.label = draftLabel(d);
+    if (!d.done) setGuidedDogsDraft(d);
+  }
+
+  // An answer changed after a save that stopped partway: write each dog again on
+  // the retry (records already made are kept, by id).
+  answerChanged() {
+    this.draft.dogs.forEach((d) => { d.saved = false; });
+    if (this.draft.saved) this.draft.saved.linked = {};
+  }
+
+  async loadSteps() { return G.stepsFor(this.draft); }
+
+  screenFor(stepId) {
+    const all = screens(this.draft, this.data);
+    const [kind, i] = stepId.split(':');
+    return i == null ? all[kind]() : all[kind](Number(i));
+  }
+
+  problem(stepId) {
+    return G.stepProblem(stepId, this.draft, {
+      dogs: this.data.dogs, multiKennel: this.data.own.length > 1, ownKennelIds: this.data.own.map((k) => k.id)
+    });
+  }
+
+  answerText(stepId) { return answerFor(stepId, this.draft, this.data); }
+
+  async save() {
+    if (this.busy) return;
+    this.busy = true;
+    const btn = this.panel.querySelector('[data-k="save"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Building…'; }
+    this.showError('');
+    try {
+      const result = await G.saveGuidedDogs(this.draft, { onProgress: () => setGuidedDogsDraft(this.draft) });
+      clearGuidedDogsDraft();
+      this.onSaved();
+      this.panel.closest('.kels-row').remove();
+      this.chat.you('Yes, build it');
+      await this.afterSave(result);
+    } catch (e) {
+      setGuidedDogsDraft(this.draft);
+      if (btn) { btn.disabled = false; btn.textContent = 'Try again'; }
+      this.showError(`Hmm, that didn't save: ${e.message || String(e)} Your answers are kept, so you can fix it and try again.`);
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  async afterSave({ made, capError }) {
+    const dogs = (await Promise.all(made.map((id) => dogRepo.getById(id)))).filter(Boolean);
+    const names = draftLabel({ dogs: dogs.map((d) => ({ call_name: dogName(d) })) });
+    if (capError) {
+      // Lite's cap: what was added, then the app's usual upgrade notice. Nothing else.
+      const bubble = await this.chat.say(dogs.length ? `I added ${esc(names)}, and that's as many as I can add here.` : '', { typing: 900 });
+      renderUpgradeNudge(bubble, capError);
+    } else {
+      await this.chat.say(`Done! ✓ I added ${esc(names)}. Your program's looking great.`, { typing: 1100 });
+    }
+    if (dogs.length && editionFlags.documents) await this.documents(dogs);
+    await this.finish(dogs);
+  }
+
+  // Pro: their papers, filed on each dog as the Documents page files them.
+  async documents(dogs) {
+    await this.chat.say(`Do you have any papers to file for ${dogs.length === 1 ? esc(dogName(dogs[0])) : 'them'}? Registration, pedigree, health tests… I'll keep them on ${dogs.length === 1 ? her(dogs[0].sex) : 'each dog\'s'} page.`);
+    const go = await this.chat.choose([
+      { label: 'Yes, let\'s file them', value: 'yes', primary: true },
+      { label: 'Not now', value: 'no' }
+    ]);
+    if (go !== 'yes') return;
+    const { storeDocumentFile, createDocument } = await import('./documentModal.js');
+    let dog = dogs.length === 1 ? dogs[0] : null;
+    for (;;) {
+      if (!dog) {
+        await this.chat.say('<strong>Which dog is this one for?</strong>', { typing: 400 });
+        const id = await this.chat.choose([
+          ...dogs.map((d) => ({ label: dogName(d), value: d.id })),
+          { label: 'That\'s all for now', value: '' }
+        ]);
+        if (!id) return;
+        dog = dogs.find((d) => d.id === id);
+      }
+      const filed = await this.documentForm(dog, { storeDocumentFile, createDocument });
+      if (filed) await this.chat.say(`Filed on ${esc(dogName(dog))}'s page. ✓`, { typing: 500 });
+      const next = await this.chat.choose([
+        { label: `Another for ${dogName(dog)}`, value: 'same', primary: true },
+        ...(dogs.length > 1 ? [{ label: 'One for another dog', value: 'other' }] : []),
+        { label: 'That\'s all for now', value: 'done' }
+      ]);
+      if (next === 'done') return;
+      if (next === 'other') dog = null;
+    }
+  }
+
+  async documentForm(dog, { storeDocumentFile, createDocument }) {
+    let pending = null;
+    const extraField = { issuer_or_lab: 'Registry, vet or lab', result: 'Result', registry: 'Registry', registration_number: 'Registration number' };
+    const extrasHtml = (type) => documentFieldsFor(type).map((f) => field(`${extraField[f]} (optional)`, input(`gd-doc-${f}`, f === 'registration_number' && type === 'registration' ? dog.registration_number : ''))).join('');
+    const res = await this.chat.form({
+      title: `<strong>What are you filing for ${esc(dogName(dog))}?</strong><span class="kels-lead">A PDF, or photos of the pages (I'll turn them into one PDF).</span>`,
+      html: `${field('What is it?', `<select id="gd-doc-type">${options(DOC_TYPES, 'registration')}</select>`)}
+        <div class="field gl-field"><label>The file</label>
+          <div class="pill-row">
+            <label class="btn">📄 Choose a PDF<input type="file" id="gd-doc-pdf" accept="application/pdf" hidden></label>
+            <label class="btn">📷 Take photos<input type="file" id="gd-doc-camera" accept="image/*" capture="environment" multiple hidden></label>
+            <label class="btn">🖼 Choose photos<input type="file" id="gd-doc-photos" accept="image/*" multiple hidden></label>
+          </div>
+          <span class="field-hint" id="gd-doc-picked">Nothing chosen yet.</span>
+        </div>
+        ${field('Title (optional)', input('gd-doc-title', '', { placeholder: `e.g. ${dogName(dog)}'s registration` }))}
+        ${field('Date (optional)', input('gd-doc-date', '', { type: 'date' }))}
+        <div id="gd-doc-extras">${extrasHtml('registration')}</div>`,
+      wire: (root) => {
+        const picked = root.querySelector('#gd-doc-picked');
+        const take = (kind, el) => {
+          pending = el.files.length ? { kind, files: [...el.files].slice(0, kind === 'pdf' ? 1 : undefined) } : null;
+          picked.textContent = !pending ? 'Nothing chosen yet.'
+            : kind === 'pdf' ? `📎 ${pending.files[0].name}` : `🖼 ${plural(pending.files.length, 'photo', 'photos')}`;
+        };
+        root.querySelector('#gd-doc-pdf').addEventListener('change', (e) => take('pdf', e.target));
+        root.querySelector('#gd-doc-camera').addEventListener('change', (e) => take('photo', e.target));
+        root.querySelector('#gd-doc-photos').addEventListener('change', (e) => take('photo', e.target));
+        root.querySelector('#gd-doc-type').addEventListener('change', (e) => {
+          root.querySelector('#gd-doc-extras').innerHTML = extrasHtml(e.target.value);
+        });
+      },
+      submitLabel: 'File it',
+      cancelLabel: 'Skip this one',
+      submit: async (root) => {
+        if (!pending) return 'Choose a PDF or photos first.';
+        const docType = val(root, 'gd-doc-type');
+        const title = val(root, 'gd-doc-title');
+        const extras = Object.fromEntries(documentFieldsFor(docType).map((f) => [f, val(root, `gd-doc-${f}`)]));
+        const fileId = await storeDocumentFile(pending, { title: title || docType });
+        await createDocument({ dog_id: dog.id, doc_type: docType, title, doc_date: val(root, 'gd-doc-date'), notes: '', file_id: fileId, ...extras });
+        return { docType, title };
+      },
+      reply: (r) => `${descriptor(DOC_TYPES, r.docType).label}${r.title ? `: ${r.title}` : ''}`
+    });
+    return res.done;
+  }
+
+  async finish(dogs) {
+    const one = dogs.length === 1 ? dogs[0] : null;
+    const href = one ? `${pagesPrefix()}dog.html?id=${encodeURIComponent(one.id)}` : `${pagesPrefix()}dogs.html`;
+    await this.chat.say(dogs.length ? 'All set. Anything else I can do for you?' : 'Anything else I can do for you?');
+    const where = await this.chat.choose([
+      ...(dogs.length ? [{ label: one ? `See ${dogName(one)}` : 'See my dogs', value: 'dogs', primary: true }] : []),
+      { label: 'Help me with something else', value: 'menu' },
+      { label: 'Back to Today', value: 'today' }
+    ]);
+    if (where === 'dogs') location.href = href;
+    else if (where === 'today') location.href = `${pagesPrefix()}today.html`;
+    else this.onExit('done');
+  }
+}
