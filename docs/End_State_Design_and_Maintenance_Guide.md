@@ -1697,7 +1697,10 @@ share: a step list worked out from the draft, one screen per step with tiles, Ba
 Next, her answers left in the chat and in `draft.history` to replay a resumed draft, and a
 review whose Change links come straight back to it; plus the screens' HTML helpers, and
 the add-a-kennel / add-a-person fields every task asks with, `kennelNameField` and
-`contactFields` + `readContactFields`: the tidy-up's "Add their kennel" and "Add a
+`contactFields` + `readContactFields`, and the breed picker, `breedPicker` +
+`wireBreedPicker` + `readBreedPicker` (her breeds, `dogSearch.breedChoices`, as one-tap
+choices, and **➕ A new breed** opening a box, so a breed she has is never retyped; Add dogs'
+"in common" and each dog, the litter task's new mom or dad): the tidy-up's "Add their kennel" and "Add a
 contact", the litter task's outside parent's owner and kennel, Add dogs' breeder),
 `assets/guidedLitterUI.js` + `data/guidedLitter.js` (the litter task), `assets/guidedDogsUI.js`
 + `data/guidedDogs.js` (add dogs), `data/dogSearch.js` (`findDogMatches`, the one way every
@@ -1713,7 +1716,11 @@ day and month swapped make it `likely`; a different breed (not just misspelled) 
 different dog, never offered; a clearly different number only lowers it to `possible`;
 `normReg`, a registration number's key everywhere (spaces, slashes, dashes and a leading
 "AKC" never count; also the CSV import's, the pedigree import's and the tidy-up's
-duplicates'); `similarNamed`, the same name match for kennels and contacts;
+duplicates'); `similarNamed`, the same name match for kennels and contacts; `breedChoices`, the
+breeds to offer: her dogs' breeds, then her kennels' `preferred_breeds` (first-run setup or
+a kennel tests import, so they're there before her first dog), one per breed whatever the
+case or spacing, the spelling her dogs use most winning; the Dog page's breed suggestions
+too;
 `looksLikeNumber`; nothing typed is changed as stored), `assets/litterCheckinUI.js`
 + `data/litterCheckin.js` + `data/goHome.js` (the check-in), `assets/tidyUpUI.js` +
 `data/tidyRules.js` + `data/recordMerge.js` (the tidy-up), `assets/accountHealthUI.js` +

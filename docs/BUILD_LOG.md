@@ -1282,3 +1282,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   repeated": a new step first looks for the same job in other Kels scripts and pages, and
   anything that would exist twice becomes one shared function with the copies removed; the
   rule lists the shared pieces so far.
+- **Kels: a breed picker (2026-10-15).** The Dog page's breed suggestions (her dogs'
+  breeds + her kennels' `preferred_breeds` from first-run setup) moved into the shared,
+  pure `dogSearch.breedChoices` (one per breed whatever the case or spacing, her most-used
+  spelling winning). Kels offers them as one-tap choices with **➕ A new breed**
+  (`kelsSteps.breedPicker`), in Add dogs ("in common" and each dog) and the litter task's
+  new mom or dad; a new breed typed near one she has still gets "Did you mean…?" (the
+  litter task now asks it too).

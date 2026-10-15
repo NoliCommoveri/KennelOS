@@ -119,7 +119,7 @@ test('steps refuse plainly worded problems', () => {
   assert.equal(g.stepProblem('sire-owner', { ...d, newSire: { owner: { name: '' } } }), 'Pick his owner, or type the owner\'s name.');
   assert.equal(g.stepProblem('dam-match', { ...d, newDam: { matchIds: ['x'] } }), 'Tap one of the choices.');
   assert.equal(g.stepProblem('dam-match', { ...d, newDam: { matchIds: ['x'], matchDeclined: true } }), null);
-  assert.equal(g.stepProblem('dam-new', { ...d, newDam: { call_name: 'Daisy', breed: '' } }), 'Type her breed.');
+  assert.equal(g.stepProblem('dam-new', { ...d, newDam: { call_name: 'Daisy', breed: '' } }), 'Pick her breed, or type a new one.');
   assert.equal(g.stepProblem('pup:0', d), null);
 });
 

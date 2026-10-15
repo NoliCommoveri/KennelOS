@@ -246,7 +246,7 @@ export function stepProblem(step, draft, ctx = {}) {
   const name = dogLabel(d);
   if (step.startsWith('match:')) return d.match ? null : 'Tap one of the choices.';
   if (step.startsWith('dog:')) {
-    if (blank(d.breed)) return `Type ${name}'s breed.`;
+    if (blank(d.breed)) return `Pick ${name}'s breed, or type a new one.`;
     if (!blank(d.date_of_birth) && d.date_of_birth > today) return 'The birth date can\'t be in the future.';
     if (blank(d.status)) return `Pick ${name}'s status.`;
     if (blank(d.ownership_type)) return `Whose dog is ${name}?`;

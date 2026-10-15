@@ -222,3 +222,28 @@ export const looksLikeNumber = (text) => {
   const words = t.split(/[^a-z]+/i).filter((w) => w.length >= 3 && w.toLowerCase() !== 'akc');
   return !words.length && numbersIn(t).length > 0;
 };
+
+// The breeds to offer, wherever a breed is typed (the Dog page's suggestions,
+// Kels's breed picker): the breeds on her dogs, then her kennels' breed list
+// (`preferred_breeds`: the breeds picked at first-run setup or a kennel tests
+// import, so they're there before her first dog), one per breed however it's
+// spelled: case and spacing ignored, the spelling her dogs use most winning.
+// dogs: records with `breed`; pool: kennelRepo.getBreedVocabulary(). Pure.
+export function breedChoices({ dogs = [], pool = [] } = {}) {
+  const key = (b) => String(b || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const counts = new Map(); // key → Map(spelling → count)
+  for (const d of dogs) {
+    const spelled = String(d?.breed || '').trim().replace(/\s+/g, ' ');
+    if (!spelled) continue;
+    const k = key(spelled);
+    const m = counts.get(k) || counts.set(k, new Map()).get(k);
+    m.set(spelled, (m.get(spelled) || 0) + 1);
+  }
+  const out = new Map();
+  for (const [k, m] of counts) out.set(k, [...m].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0]);
+  for (const b of pool) {
+    const spelled = String(b || '').trim().replace(/\s+/g, ' ');
+    if (spelled && !out.has(key(spelled))) out.set(key(spelled), spelled);
+  }
+  return [...out.values()].sort((a, b) => a.localeCompare(b));
+}

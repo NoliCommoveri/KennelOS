@@ -66,7 +66,8 @@ These are settled. A task that can't follow one comes back here before it's buil
     tested `data/` module for the rule, `assets/kelsSteps.js` for the chat pieces. Every
     place then calls it, and the copies are removed in the same change. The shared pieces
     so far: `kelsSteps` (the step engine, the form helpers, `kennelNameField`,
-    `contactFields`), `dogSearch` (`findDogMatches`, `similarNamed`, `normReg`),
+    `contactFields`, `breedPicker`), `dogSearch` (`findDogMatches`, `similarNamed`,
+    `normReg`, `breedChoices`),
     `dogRepo.createPedigreeOnly`, `kennelRepo.findOrCreateOutside` and `seedTestsKennel`,
     `expenseRepo.createForEvent`, `documentModal`'s `storeDocumentFile` and
     `createDocument`, `kelsFindings`. A task's write-up says which ones it uses and what it

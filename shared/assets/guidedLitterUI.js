@@ -28,25 +28,28 @@ import {
 } from '../data/vocab.js';
 import { addDaysToYMD } from '../data/dateUtils.js';
 import * as G from '../data/guidedLitter.js';
-import { findDogMatches, matchReason } from '../data/dogSearch.js';
+import { findDogMatches, matchReason, breedChoices } from '../data/dogSearch.js';
 import { esc, todayYMD } from './ui.js';
 import { renderUpgradeNudge } from './upgradeNudge.js';
-import { StepConversation, tile, field, input, options, stepper, val, plural, pagesPrefix, kennelNameField, contactFields, readContactFields } from './kelsSteps.js';
+import { StepConversation, tile, field, input, options, stepper, val, plural, pagesPrefix, kennelNameField, contactFields, readContactFields, breedPicker, wireBreedPicker, readBreedPicker } from './kelsSteps.js';
 
 // --- The data the screens read --------------------------------------------------
 
 async function loadData() {
-  const [dogs, litters, pairings, kennels, contacts] = await Promise.all([
+  const [dogs, litters, pairings, kennels, contacts, breedPool] = await Promise.all([
     // Pedigree-only dogs too: a mom or dad typed in may be one (brought into
     // use); they never show among the dogs to pick (damChoices / sireChoices).
     dogRepo.getAll({ includeArchived: false, includePedigreeOnly: true }),
     litterRepo.getAll({ includeArchived: false }),
     pairingRepo.getAll({ includeArchived: false }),
     kennelRepo.getAll({ includeArchived: false }),
-    editionFlags.externalOwnership ? contactRepo.getAll({ includeArchived: false }) : Promise.resolve([])
+    editionFlags.externalOwnership ? contactRepo.getAll({ includeArchived: false }) : Promise.resolve([]),
+    kennelRepo.getBreedVocabulary()
   ]);
   return {
     dogs,
+    // Her breeds, as the Dog page offers them, for a new mom or dad's breed.
+    breeds: breedChoices({ dogs, pool: breedPool }),
     litters,
     pairings,
     kennels,
@@ -80,6 +83,7 @@ async function stepCtx(draft, data) {
     needsKennel: !litter && !draft.autoKennelId,
     canOutsideDog: Boolean(editionFlags.externalOwnership),
     contacts: data.contacts,
+    breeds: data.breeds,
     outsideKennels: data.kennels.filter((k) => !k.is_own_kennel),
     canStudService: Boolean(editionFlags.studServices),
     sireIsOutside: G.isOutsideDog(sire),
@@ -149,7 +153,7 @@ function screens(draft, data, ctx) {
       title: `Tell me about the ${r.word}`,
       html: `<p class="gl-lead">Just the basics. You can add more on ${r.possessive} page later.</p>
         ${field(`${role === 'dam' ? 'Her' : 'His'} name`, input('gl-nd-name', spec.call_name, { placeholder: role === 'dam' ? 'e.g. Daisy' : 'e.g. Duke' }))}
-        ${field('Breed', input('gl-nd-breed', spec.breed))}
+        ${breedPicker('gl-nd-breed', spec.breed, data.breeds)}
         ${field('Registered name (if you know it)', input('gl-nd-reg', spec.registered_name))}
         ${ctx.canOutsideDog ? `<p class="gl-q">Whose dog is ${r.pronoun}?</p>
         <div class="gl-tiles gl-tiles-small">
@@ -157,9 +161,10 @@ function screens(draft, data, ctx) {
           ${tile('mine', 'no', 'Someone else\'s', { selected: !spec.mine })}
         </div>` : ''}`,
       onTile: (value) => { spec.mine = value === 'yes'; return 'redraw'; },
+      wire: (root) => wireBreedPicker(root, 'gl-nd-breed'),
       read: (root) => {
         spec.call_name = val(root, 'gl-nd-name');
-        spec.breed = val(root, 'gl-nd-breed');
+        spec.breed = readBreedPicker(root, 'gl-nd-breed');
         spec.registered_name = val(root, 'gl-nd-reg');
       },
       // Look for the dog on file before making a new one (dogSearch: both names,

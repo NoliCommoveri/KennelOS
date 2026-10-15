@@ -301,7 +301,10 @@ export function stepProblem(step, draft, ctx = {}) {
     if (!spec) return null;
     if (part === 'new') {
       if (blank(spec?.call_name)) return `Type the ${r.word}'s name.`;
-      if (blank(spec?.breed)) return `Type ${r.possessive} breed.`;
+      if (blank(spec?.breed)) return `Pick ${r.possessive} breed, or type a new one.`;
+      // A breed she has, spelled a little differently, would make a second breed.
+      const like = similarNamed((ctx.breeds || []).filter((b) => norm(b) !== norm(spec.breed)), spec.breed, (b) => b);
+      if (like) return check(draft, `breed:${role}:${norm(spec.breed)}`, `Did you mean ${like}? That's how your other dogs have it.`);
       return null;
     }
     // "We found Nell. Is this the mom?": a found dog clears the new-dog answers;

@@ -53,6 +53,38 @@ export const contactFields = (prefix, v = {}, { nameLabel = 'Name' } = {}) =>
   ${field('Phone (optional)', input(`${prefix}-phone`, v.phone, { type: 'tel' }))}
   ${field('Email (optional)', input(`${prefix}-email`, v.email, { type: 'email' }))}`;
 
+// A breed, picked from hers (dogSearch.breedChoices) or typed as a new one, so
+// a breed she has is one tap and never retyped (or mistyped). `allowBlank`: a
+// "Different for each" choice (the value ''). wireBreedPicker shows the box for
+// a new breed; readBreedPicker gives the breed.
+export function breedPicker(prefix, current, breeds, { allowBlank = false, label = 'Breed' } = {}) {
+  const has = breeds.find((b) => b.toLowerCase() === String(current || '').trim().toLowerCase());
+  const isNew = Boolean(String(current || '').trim()) && !has;
+  const pick = has || (isNew || !breeds.length ? '__new' : '');
+  const radio = (value, text, sub = '') => `<label class="ck-check"><input type="radio" name="${prefix}-pick" value="${esc(value)}"${pick === value ? ' checked' : ''}> <span>${text}${sub ? ` <span class="faint">${esc(sub)}</span>` : ''}</span></label>`;
+  return `<div class="field gl-field"><label>${esc(label)}</label>
+      <div class="ck-checks gd-breeds">
+        ${allowBlank ? radio('', 'Different for each') : ''}
+        ${breeds.map((b) => radio(b, esc(b))).join('')}
+        ${radio('__new', breeds.length ? '➕ A new breed' : 'Type the breed')}
+      </div>
+      <div id="${prefix}-new"${pick === '__new' ? '' : ' hidden'}>${input(`${prefix}-name`, isNew ? current : '', { placeholder: 'e.g. Golden Retriever', label: 'New breed' })}</div>
+    </div>`;
+}
+
+export function wireBreedPicker(root, prefix) {
+  root.querySelectorAll(`input[name="${prefix}-pick"]`).forEach((r) => r.addEventListener('change', () => {
+    const box = root.querySelector(`#${prefix}-new`);
+    box.hidden = r.value !== '__new';
+    if (!box.hidden) box.querySelector('input')?.focus();
+  }));
+}
+
+export function readBreedPicker(root, prefix) {
+  const v = root.querySelector(`input[name="${prefix}-pick"]:checked`)?.value ?? '';
+  return v === '__new' ? val(root, `${prefix}-name`) : v;
+}
+
 export const readContactFields = (root, prefix) => ({
   name: val(root, `${prefix}-name`), phone: val(root, `${prefix}-phone`), email: val(root, `${prefix}-email`)
 });

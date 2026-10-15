@@ -19,23 +19,24 @@ import { getGuidedDogsDraft, setGuidedDogsDraft, clearGuidedDogsDraft } from '..
 import { DOG_STATUS, OWNERSHIP_TYPE, DOC_TYPES, VACCINE_CHECKLIST, VACCINE_GOOD_FOR, documentFieldsFor, descriptor } from '../data/vocab.js';
 import { SCOPED_OWNERSHIP } from '../data/kennelScope.js';
 import * as G from '../data/guidedDogs.js';
-import { findDogMatches, matchReason } from '../data/dogSearch.js';
+import { findDogMatches, matchReason, breedChoices } from '../data/dogSearch.js';
 import { fmt } from '../data/guidedLitter.js';
 import { esc, todayYMD } from './ui.js';
 import { renderUpgradeNudge } from './upgradeNudge.js';
-import { StepConversation, tile, field, input, options, val, plural, pagesPrefix, kennelNameField, contactFields, readContactFields } from './kelsSteps.js';
+import { StepConversation, tile, field, input, options, val, plural, pagesPrefix, kennelNameField, contactFields, readContactFields, breedPicker, wireBreedPicker, readBreedPicker } from './kelsSteps.js';
 
 // --- The data the screens read ----------------------------------------------------
 
 async function loadData() {
   // Pedigree-only dogs too: a name she types may be one (brought into use), and
   // they're parents to pick.
-  const [dogs, contacts, kennels, own, capStatus] = await Promise.all([
+  const [dogs, contacts, kennels, own, capStatus, breedPool] = await Promise.all([
     dogRepo.getAll({ includeArchived: false, includePedigreeOnly: true }),
     (editionFlags.externalOwnership || editionFlags.contactsSection) ? contactRepo.getAll({ includeArchived: false }) : Promise.resolve([]),
     kennelRepo.getAll({ includeArchived: false }),
     ownKennels(),
-    dogCapStatus()
+    dogCapStatus(),
+    kennelRepo.getBreedVocabulary()
   ]);
   const name = (d) => d.call_name || d.registered_name || '';
   return {
@@ -52,7 +53,8 @@ async function loadData() {
     // never has more rows than she has room for.
     capStatus,
     maxDogs: G.maxDogs(capStatus),
-    breeds: [...new Set(dogs.map((d) => (d.breed || '').trim()).filter(Boolean))].sort()
+    // Her breeds, as the Dog page offers them (dogs' breeds + her kennel's list).
+    breeds: breedChoices({ dogs, pool: breedPool })
   };
 }
 
@@ -67,7 +69,6 @@ function screens(draft, data) {
   const statuses = G.statusChoices(editionFlags);
   const ownerships = G.ownershipChoices(editionFlags);
   const multiKennel = data.own.length > 1;
-  const breedList = `<datalist id="gd-breeds">${data.breeds.map((b) => `<option value="${esc(b)}"></option>`).join('')}</datalist>`;
 
   // Whose dog, its owner (someone else's) and kennel (hers, with several kennels):
   // the same block on "in common" and on each dog. `o` holds the answers.
@@ -229,12 +230,12 @@ function screens(draft, data) {
       return {
         title: 'What do they have in common?',
         html: `<p class="gl-lead">I'll fill these in on each dog, and you can change any of them there. Leave a box blank if it's different for each.</p>
-          ${field('Breed', input('gd-c-breed', c.breed, { list: 'gd-breeds' }))}${breedList}
+          ${breedPicker('gd-c-breed', c.breed, data.breeds, { allowBlank: true })}
           ${field('Status', `<select id="gd-c-status">${options(statuses, c.status, 'Different for each')}</select>`)}
           ${ownershipHtml(c, 'gd-c', { allowBlank: true })}`,
-        wire: (root) => wireOwnership(root, 'gd-c'),
+        wire: (root) => { wireOwnership(root, 'gd-c'); wireBreedPicker(root, 'gd-c-breed'); },
         read: (root) => {
-          c.breed = val(root, 'gd-c-breed');
+          c.breed = readBreedPicker(root, 'gd-c-breed');
           c.status = val(root, 'gd-c-status');
           readOwnership(root, 'gd-c', c);
         },
@@ -249,7 +250,7 @@ function screens(draft, data) {
       return {
         title: `Tell me about ${esc(d.call_name)}${adding.length > 1 ? ` (${n} of ${adding.length})` : ''}`,
         html: `<p class="gl-lead">Fill in what you have. Anything you skip can go on ${her(d.sex)} page later.</p>
-          ${field('Breed', input('gd-breed', d.breed, { list: 'gd-breeds' }))}${breedList}
+          ${breedPicker('gd-breed', d.breed, data.breeds)}
           ${field('Date of birth (optional)', input('gd-dob', d.date_of_birth, { type: 'date', max: todayYMD() }))}
           ${field('Registered name (optional)', input('gd-reg', d.registered_name))}
           ${field('Registration number (optional)', input('gd-regnum', d.registration_number))}
@@ -257,9 +258,9 @@ function screens(draft, data) {
           ${field('Microchip number (optional)', input('gd-chip', d.microchip_id, { inputmode: 'numeric' }))}
           ${field('Status', `<select id="gd-status">${options(statuses, d.status, 'Pick one…')}</select>`)}
           ${ownershipHtml(d, 'gd-d')}`,
-        wire: (root) => wireOwnership(root, 'gd-d'),
+        wire: (root) => { wireOwnership(root, 'gd-d'); wireBreedPicker(root, 'gd-breed'); },
         read: (root) => {
-          d.breed = val(root, 'gd-breed');
+          d.breed = readBreedPicker(root, 'gd-breed');
           d.date_of_birth = val(root, 'gd-dob');
           d.registered_name = val(root, 'gd-reg');
           d.registration_number = val(root, 'gd-regnum');

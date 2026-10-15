@@ -9,6 +9,7 @@ import { contactRepo } from '../data/contactRepo.js';
 import { litterRepo } from '../data/litterRepo.js';
 import { pairingRepo } from '../data/pairingRepo.js';
 import { kennelRepo, seedTestsKennel } from '../data/kennelRepo.js';
+import { breedChoices } from '../data/dogSearch.js';
 import { eventRepo, testTokensOf } from '../data/eventRepo.js';
 import { saleRepo } from '../data/saleRepo.js';
 import { studServiceRepo } from '../data/studServiceRepo.js';
@@ -134,14 +135,13 @@ function setupCollapsibleCard(sectionKey) {
 
 // --- Data loading --------------------------------------------------------
 async function loadRefs() {
-  const [dogs, contacts, litters, kennels, breeds, breedPool] = await Promise.all([
+  const [dogs, contacts, litters, kennels, breedPool] = await Promise.all([
     // Pedigree-only ancestors included: they name a sire/dam and fill the
     // Sire/Dam pickers (pedigree building). Nothing else on this page lists them.
     dogRepo.getAll({ includeArchived: true, includePedigreeOnly: true }),
     contactRepo.getAll({ includeArchived: true }),
     litterRepo.getAll({ includeArchived: true }),
     kennelRepo.getAll({ includeArchived: true }),
-    dogRepo.getBreeds(),
     kennelRepo.getBreedVocabulary()
   ]);
   ctx.allDogs = dogs;
@@ -150,9 +150,8 @@ async function loadRefs() {
   ctx.allKennels = kennels;
   // Breed autocomplete = breeds already on dogs UNION the kennel breed pool
   // (Test Planning Addendum §8) — the pool is what lets a seeded breed suggest
-  // before the first dog exists. Case-insensitive dedupe, dog-derived wins.
-  const breedSeen = new Set(breeds.map((b) => b.toLowerCase()));
-  ctx.breeds = [...breeds, ...breedPool.filter((b) => !breedSeen.has(b.toLowerCase()))].sort();
+  // before the first dog exists. dogSearch.breedChoices, Kels's breed picker too.
+  ctx.breeds = breedChoices({ dogs, pool: breedPool });
   ctx.dogsById = new Map(dogs.map((d) => [d.id, d]));
   ctx.contactsById = new Map(contacts.map((c) => [c.id, c]));
   ctx.littersById = new Map(litters.map((l) => [l.id, l]));

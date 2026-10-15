@@ -85,3 +85,11 @@ test('registration numbers: spaces, slashes, dashes and a typed "AKC" never coun
   const none = findDogMatches([{ id: 'y', call_name: 'Pip', registration_number: '12345601' }], { callName: 'Fido', registrationNumber: 'SR 123456/01' });
   assert.ok(!none.some((m) => m.strength === 'certain'));
 });
+
+test('breedChoices: her dogs\' breeds and her kennel\'s list, one per breed, her usual spelling', async () => {
+  const { breedChoices } = await import('../shared/data/dogSearch.js');
+  const dogs = [{ breed: 'Golden Retriever' }, { breed: 'golden  retriever' }, { breed: 'Golden Retriever' }, { breed: ' Whippet ' }, { breed: '' }, {}];
+  assert.deepEqual(breedChoices({ dogs, pool: ['GOLDEN RETRIEVER', 'Vizsla'] }), ['Golden Retriever', 'Vizsla', 'Whippet']);
+  // Before her first dog: the breeds she picked at setup.
+  assert.deepEqual(breedChoices({ pool: ['Boston Terrier'] }), ['Boston Terrier']);
+});
