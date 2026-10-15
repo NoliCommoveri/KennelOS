@@ -5,8 +5,8 @@
 // waitlist's own rule (waitlistRules.pupMatchesPrefs), so "families who'd take this
 // pup" here is exactly who the waitlist would offer it to — minus the listen-only
 // parent choices, which are about litters, not pups.
-import { pupMatchesPrefs, isPupAvailable, WAITLIST_CONFIG_DEFAULTS } from './waitlistRules.js';
-import { REGISTRATION_TYPE, WAITLIST_REMOVED_REASON, WAITLIST_PREF_SEX, registrationsForPurposes, descriptor } from './vocab.js';
+import { pupMatchesPrefs, isPupAvailable, prefColorTokens, WAITLIST_CONFIG_DEFAULTS } from './waitlistRules.js';
+import { REGISTRATION_TYPE, WAITLIST_REMOVED_REASON, WAITLIST_PREF_SEX, PLACEMENT_PURPOSE, registrationsForPurposes, cleanPurposes, descriptor } from './vocab.js';
 import { daysBetween } from './breedingReports.js';
 
 // --- Funnel -----------------------------------------------------------------------------
@@ -137,6 +137,75 @@ export const SEX_WANTED = [
 export function sexWanted(entries) {
   const of = (e) => (WAITLIST_PREF_SEX.some((s) => s.value === e.pref_sex) ? e.pref_sex : 'any');
   return SEX_WANTED.map((s) => ({ ...s, count: entries.filter((e) => of(e) === s.value).length }));
+}
+
+// The other answers that decide which pup a family is offered (waitlistRules
+// .pupMatchesPrefs, isListeningFor): what the pup is for, which parents, breed and,
+// with color matching on, color. Each is [{ value, label, count }] with the open
+// answer ("Any …") last. Purposes are pick-all-that-apply, so a family counts under
+// each one it picked and the counts can add up to more than the families.
+const shortLabel = (label) => label.split(' (')[0];
+export const purposeLabel = (value) => shortLabel(descriptor(PLACEMENT_PURPOSE, value).label);
+
+export function purposesWanted(entries) {
+  const picked = entries.map((e) => cleanPurposes(e.pref_purposes));
+  return [
+    ...PLACEMENT_PURPOSE.map((p) => ({ value: p.value, label: shortLabel(p.label), count: picked.filter((l) => l.includes(p.value)).length })),
+    { value: '', label: 'Any purpose', count: picked.filter((l) => !l.length).length }
+  ];
+}
+
+// How each family's purposes read together ("Pet / companion + Show"), or "Any".
+export function purposesText(e) {
+  const l = cleanPurposes(e.pref_purposes);
+  return l.length ? l.map(purposeLabel).join(' + ') : 'Any';
+}
+
+// Listening for: any parents (every litter), only certain parents, or all but certain.
+export const PARENT_CHOICES = [
+  { value: 'all',      label: 'Any parents' },
+  { value: 'selected', label: 'Only certain parents' },
+  { value: 'except',   label: 'Any but certain parents' }
+];
+export const parentChoice = (e) => (PARENT_CHOICES.some((c) => c.value === e.listen_mode) ? e.listen_mode : 'all');
+export function parentsWanted(entries) {
+  return PARENT_CHOICES.map((c) => ({ ...c, count: entries.filter((e) => parentChoice(e) === c.value).length }));
+}
+
+// The sires and dams families asked for by name (`selected`), or asked to skip
+// (`except`): [{ label, value }] largest first, one per dog. `nameOf(id)` names it.
+export function parentsNamed(entries, mode, nameOf) {
+  const m = new Map();
+  for (const e of entries) {
+    if (parentChoice(e) !== mode) continue;
+    for (const id of new Set([...(e.listen_sire_ids || []), ...(e.listen_dam_ids || [])])) m.set(id, (m.get(id) || 0) + 1);
+  }
+  return [...m].map(([id, value]) => ({ label: nameOf(id), value })).sort((a, b) => b.value - a.value);
+}
+
+// Free-text answers (breed, colors), matched the waitlist's way (trimmed, any
+// case); each is labeled with its first spelling. A family with no answer is "Any".
+function textAnswers(entries, tokensOf, anyLabel) {
+  const m = new Map();
+  let open = 0;
+  for (const e of entries) {
+    const raw = tokensOf(e);
+    if (!raw.length) { open += 1; continue; }
+    for (const t of new Set(raw.map((x) => x.trim()).filter(Boolean))) {
+      const k = t.toLowerCase();
+      const row = m.get(k) || { value: k, label: t, count: 0 };
+      row.count += 1;
+      m.set(k, row);
+    }
+  }
+  return [...[...m.values()].sort((a, b) => b.count - a.count), { value: '', label: anyLabel, count: open }];
+}
+export function breedsWanted(entries) {
+  return textAnswers(entries, (e) => (String(e.pref_breed ?? '').trim() ? [String(e.pref_breed)] : []), 'Any breed');
+}
+export function colorsWanted(entries) {
+  const raw = (e) => (Array.isArray(e.pref_colors) ? e.pref_colors : String(e.pref_colors ?? '').split(','));
+  return textAnswers(entries, (e) => (prefColorTokens(e).length ? raw(e).map(String) : []), 'Any color');
 }
 
 // --- Waitlist today ---------------------------------------------------------------------

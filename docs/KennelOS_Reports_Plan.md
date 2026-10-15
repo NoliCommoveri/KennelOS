@@ -77,7 +77,9 @@ removal reason.
 
 16. **Applications** — how often families apply (average and median days between
     applications), approved of those decided, approved → on the list, days to approve and
-    to the fee, by month, by sex wanted and program.
+    to the fee, by month, by program, and what they asked for: sex, what the pup is for
+    (pet, show…, each picked), which parents (any, only certain, any but certain, and the
+    dogs named), breed when more than one, color when she matches on it.
 17. **Waitlist Today** — a snapshot: who's waiting now in list order, for a girl / boy /
     either, by program and breed, how long (under 3 months … a year or more), passes used,
     paused; families not on the list yet (to review, fee due).

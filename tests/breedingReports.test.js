@@ -10,7 +10,8 @@ import {
 import {
   funnelStage, funnelCounts, exitReasons, offerOutcomes, daysToPlacement, median, demandSupply,
   mean, applicationGaps, wasApproved, wasDecided, wasListed, daysToApprove, daysToFee, sexWanted,
-  listedSince, waitBuckets, exitGroup, exitDate, offerAndExitRows, offerAndExitStats
+  listedSince, waitBuckets, exitGroup, exitDate, offerAndExitRows, offerAndExitStats,
+  purposesWanted, purposesText, parentsWanted, parentsNamed, breedsWanted, colorsWanted
 } from '../shared/data/waitlistReports.js';
 
 test('ageMonths / daysBetween', () => {
@@ -249,4 +250,23 @@ test('offers & removals: rule removals apart from hers; rates over closed offers
   assert.deepEqual([s.familiesOffered, s.familiesPassed], [3, 2]);
   assert.equal(s.left, 2);
   assert.deepEqual(s.byGroup.map((g) => [g.value, g.count]), [['rules', 1], ['by_breeder', 0], ['declined', 0], ['withdrew', 1]]);
+});
+
+test('what families asked for: purposes (each picked), parents, named parents, breed and color', () => {
+  const entries = [
+    { pref_purposes: ['pet', 'show'], listen_mode: 'selected', listen_dam_ids: ['d1'], listen_sire_ids: ['s1'], pref_breed: 'Boxer', pref_colors: ['Fawn', 'brindle'] },
+    { pref_purposes: 'show', listen_mode: 'selected', listen_dam_ids: ['d1'], pref_breed: ' boxer ', pref_colors: 'fawn' },
+    { pref_purposes: [], listen_mode: 'except', listen_sire_ids: ['s1'] },
+    { pref_purposes: ['bogus'], listen_mode: 'weird', pref_breed: 'Poodle' }
+  ];
+  const pw = Object.fromEntries(purposesWanted(entries).map((r) => [r.value, r.count]));
+  assert.deepEqual(pw, { pet: 1, performance: 0, show: 2, breeding: 0, co_own: 0, '': 2 }, 'each purpose picked counts; none or unknown = any');
+  assert.equal(purposesText(entries[0]), 'Pet / companion + Show');
+  assert.equal(purposesText(entries[2]), 'Any');
+  assert.deepEqual(parentsWanted(entries).map((r) => [r.value, r.count]), [['all', 1], ['selected', 2], ['except', 1]], 'unknown mode reads as any parents');
+  const name = (id) => ({ d1: 'Bella', s1: 'Duke' })[id];
+  assert.deepEqual(parentsNamed(entries, 'selected', name), [{ label: 'Bella', value: 2 }, { label: 'Duke', value: 1 }]);
+  assert.deepEqual(parentsNamed(entries, 'except', name), [{ label: 'Duke', value: 1 }]);
+  assert.deepEqual(breedsWanted(entries).map((r) => [r.label, r.count]), [['Boxer', 2], ['Poodle', 1], ['Any breed', 1]], 'any case and spacing match');
+  assert.deepEqual(colorsWanted(entries).map((r) => [r.label, r.count]), [['Fawn', 2], ['brindle', 1], ['Any color', 2]]);
 });

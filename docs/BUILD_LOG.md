@@ -1324,3 +1324,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   **Offers & Removals** (accepted / passed / no-response shares, families who passed, why
   families left, with removals by the list's rules grouped as "Didn't follow the list's
   rules"). Math in `data/waitlistReports.js` (`exitReasons` now reads `exitLabel`).
+- **Applications report: what families asked for (2026-10-15).** Beside boy or girl, every
+  answer that decides which pup a family is offered: what the pup is for (each purpose
+  picked), which parents (any / only certain / any but certain, and the dogs they named or
+  would skip), breed when families named more than one, color when a kennel matches on it.
+  Charts, columns and For / Parents filters.

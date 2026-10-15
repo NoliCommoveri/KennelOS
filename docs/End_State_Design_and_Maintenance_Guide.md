@@ -1602,7 +1602,10 @@ Review (prints on one page).
 
 **The waitlist reports** (`data/waitlistReports.js`): **Applications** (by applied date: days
 between applications, approved of those decided, approved → on the list, median days to
-approve and to the fee, what sex they asked for). **Waitlist Today** (a snapshot, no range:
+approve and to the fee, and every answer that decides which pup they're offered: sex,
+purposes (each picked counts, `purposesWanted`), parents (any / only certain / any but
+certain, and the dogs named, `parentsWanted`, `parentsNamed`), breed when more than one is
+named, color when one of her kennels matches on it). **Waitlist Today** (a snapshot, no range:
 active entries in list order per kennel from `overallPositions`, paused by `isPaused`,
 waiting since `listedSince`: anchor, else fee, approval, application). **Offers & Removals**
 (one row per closed offer and per family that left, by when: accepted / passed / no-response
