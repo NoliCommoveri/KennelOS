@@ -1,11 +1,8 @@
 # KennelOS — Lite / Pro Editions
 
-> **Status: this is now the live plan for THIS repo, and the build has started.** The
-> "new repo" this doc refers to is this one. Foundation is in place (app relocated to
-> `shared/`, editionConfig injection point wired as a no-op, `lite/pro/demo/` skeletons).
-> See the top-level `README.md` for current build status. This document remains the
-> authoritative design for what Lite/Pro/Demo should become — read it as the target, and
-> the README as the progress.
+> **Modified:** Pro-only pages stay in `shared/pages/`, listed in `shared/data/proPages.js`,
+> not in `pro/` as written below. The built system is in
+> `docs/End_State_Design_and_Maintenance_Guide.md` §0.
 
 *Design plan, plain-English throughout; the precise rules are called out where they matter.*
 
@@ -74,8 +71,8 @@ without a server, and good enough.
 | Pairings | Unlimited | Unlimited |
 | Events / history log | Unlimited | Unlimited |
 | Calendar (month grid of events + reminders, Add to Google Calendar link) | ✅ | ✅ |
-| Kels (was the placeholder "Ken"), the scripted guided-task helper (floating "Ask Kels" button), with "Record a new litter" (one question at a time as a chat: parents, breeding, birth, each pup, plans & prices; End-State guide §33; 2026-10-14) | ✅ own dogs | ✅ + outside dogs & their owners, the stud service, and "let families know" (waitlist notice / Companion) after the save |
-| Kels's "Check in on a litter": weights with week-over-week comparison, medication / deworming / shots / vet visit for chosen pups, puppy plans, microchips, dates and status; offers Weaning (4 weeks), Ready and the sold / reopen / close moves (End-State guide §33; 2026-10-14) | ✅ | ✅ + offers to open waitlist picks (or move the deposit date) once the accept-deposits date comes |
+| Kels, the scripted guided-task helper (floating "Ask Kels" button): "Record a new litter" as a chat (parents, breeding, birth, each pup, plans & prices; End-State guide §33) | ✅ own dogs | ✅ + outside dogs & their owners, the stud service, and "let families know" (waitlist notice / Companion) after the save |
+| Kels's "Check in on a litter": weights compared with the last ones, health care for chosen pups, puppy plans, microchips, dates, status; offers Weaning, Ready, Sold / reopen / close, and each sold pup's pickup, boarding and delivery (End-State guide §33) | ✅ | ✅ + offers to open waitlist picks (or move the deposit date) once the accept-deposits date comes |
 | Pedigree import from PDF + pedigree-only dogs (ancestors kept for lineage; never counted toward the cap) | ✅ | ✅ (+ keep the PDF in Documents) |
 | Sales → income | ✅ log sales on their pups | ✅ |
 | Buyers on a sale | ✅ self + inline "add buyer" | ✅ full Contacts section |
@@ -269,7 +266,7 @@ activate/validate endpoints are CORS-enabled for browser calls and need only the
 built** — `shared/data/license.js` (activate/validate + interval-scaled offline grace) and
 `shared/assets/licenseGate.js` (activation/renewal walls + grace banner), gated on
 `editionFlags.licenseGate` (Pro only). The only launch step left is swapping the checkout URL
-placeholder in `pro/editionConfig.js`. See `README.md` Step 7.
+placeholder in `pro/editionConfig.js`. See `docs/BUILD_LOG.md` Step 7.
 
 **The honest caveat:** the license check runs in the buyer's browser, so a technical person
 could bypass it. The audience is dog breeders, not crackers — the key stops ~99%, and the sub is
@@ -498,3 +495,52 @@ see "Hosting, editions, and origin isolation."
 Reset App still wipes a Lite cap — that's the only escape hatch left, and it's self-defeating
 because it destroys the breeder's whole program. Nothing running purely in a browser can beat
 that, and for this audience nothing needs to.
+
+---
+
+## Lite scope — the page partition (decided)
+
+*Moved here from the top-level `README.md` (2026-10-15).*
+
+What Lite ships, versus Pro-only. Pro-only *pages* are listed in `shared/data/proPages.js`
+and left out of the Lite build (physically absent from Lite); a few Lite-kept *shared* pages render with pieces gated off via
+`editionFlags`.
+
+**Lite keeps (shared pages):** Dogs, Breeding (pairings/litters/puppies), Sales
+(self + inline add-buyer), Today/dashboard, Import/Export, kennel setup (startup
+selections), **Financials — the expense ledger + sales→income** ✅.
+
+**Pro-only (absent from Lite):**
+- People / Contacts section, full Kennel management, Stud services, Contracts.
+- Companion share-out, the Furever seed-link generator, Feeding Schedules
+  (per-breed feeding grids fed into the Furever seed packet), Assistant,
+  Documents + file storage, **Accounts** (business logins + referral links/codes, and which
+  account an expense was paid through).
+- External / leased dogs (Lite ownership picker = `owned` / `co_owned` only).
+- **All Reports** (Reports hub + every report page).
+- **Invoice / receipt generation** — the `pages/invoice.html` print doc.
+- **Puppy Record generation** — the `pages/puppy-record.html` print doc.
+
+**Shared pages that render differently in Lite (edition-flag gates, NOT omissions):**
+- **Financials (`financials.js`)** — kept for expense tracking, but the **"Invoice /
+  Receipt" generator button is hidden** in Lite.
+- **Expense form** — kept, but the **"attach a receipt photo" widget is hidden**
+  (receipts & file storage are Pro), and so is the **Account** picker (Accounts is Pro).
+- **Dog Status picker** — reduced to Puppy / Active breeding / Retired breeding / Deceased;
+  Pet home, For Sale, and External reference are Pro-only (cap spec §1a).
+- **New Dog page** — shows a "Creating x/6 available dogs" counter under the title
+  (cap spec §6), reading the same predicate the cap enforces.
+- **Sale form's inline "＋ New" contact** (`contactPicker.js`) — the Contact type list
+  drops to just Buyer, since full Contacts (People section) is Pro-only.
+- **Sale form's "Referred by"** field/link is hidden entirely — it's a Buyer-referrer
+  Contacts feature, Pro-only.
+- **Litter form's "Foster arrangement" section** is hidden entirely in Lite (Pro-only).
+  In Pro/Demo it's a `<details>` disclosure, collapsed by default and open only when
+  the litter already has foster data.
+- **Litter form's "Feeding schedule override" field** is hidden entirely in Lite
+  (Pro-only) — the per-litter override for the Feeding Schedules feature.
+- **Dashboard "Archived (any status)" tile** is hidden in Lite — archive counts are
+  part of the hidden archive machinery (cap spec §7), not just the toggles/links.
+
+(The cap itself — 6 counting dogs, 10 litters — and archive-on-departure are separate
+from this page partition; see the cap spec.)

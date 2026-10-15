@@ -187,11 +187,11 @@ Pro ship with `cloudUrl: null` and no cloud UI appears. Do these in order.
 cache `kennelos-shell-v47`). The owner chose to release without the staging and real-phone
 checks below; they stay listed as worth doing. Production's migration `0005` is applied.
 
-- [ ] **Try it on staging, two real devices:** open `https://lite.kennelos.app/?cloud=staging`
-  (and `https://pro.kennelos.app/?cloud=staging`) on each. Turn on backup, then private
+- [x] **Try it on production, two real devices:** open `https://lite.kennelos.app/`
+  (and `https://pro.kennelos.app/`) on each. Turn on backup, then private
   backup; save the recovery code. On the second device: sign in and restore, unlock with
   **Use another device**, then on a third (or after Reset App) with the recovery code and
-  with **Not now** followed by Unlock. New recovery code; turn it off. `?cloud=off` to leave.
+  with **Not now** followed by Unlock. New recovery code; turn it off.
 - [x] **Passkeys (step 6)** and the **privacy policy / docs (step 7)**: built 2026-10-07
   (Private Vault Plan §9).
 - [ ] **Passkeys on real phones, on staging:** on an iPhone (Safari, iCloud Keychain) and an
@@ -258,22 +258,23 @@ and Email Routing.
   (`[env.production.vars]`) are set. Staging works without it.
 - [x] **Resend: `mail.kennelos.app`** verified (2026-10-09, Cloudflare auto-configure), and
   the production `RESEND_API_KEY` is Sending access for **All domains**, so it can send from it.
-- [ ] **Apply pending (`0010`) on staging's and production's `/ops`** right after the merge
+- [x] **Apply pending (`0010`) on staging's and production's `/ops`** right after the merge
   that carries step 6 (waitlist emails). The whole API answers 503 until then.
 - [x] **Apply pending (`0011`) on staging's and production's `/ops`** right after the merge
   that carries the vault handoff codes (Private Vault Plan §5.4). The whole API answers 503
   until then.
 - [x] **Apply pending (`0012`) on staging's and production's `/ops`** right after the merge
   that carries changing the account's email (Phase 1 plan §2.6).
-- [ ] **Apply pending (`0014`) on staging's and production's `/ops`** right after the merge
+- [x] **Apply pending (`0014`) on staging's and production's `/ops`** right after the merge
   that carries live sync's server (Cloud Phase 2 plan §8 step 2). Nothing calls it until the
   app's sync ships, but the API answers 503 until it's applied.
-- [ ] **Apply pending (`0013`) on staging's and production's `/ops`** right after the merge
+  *(2026-10-15: production has every migration through `0016` applied. Staging is not in
+  use and its migrations are no longer tracked.)*
+- [x] **Apply pending (`0013`) on staging's and production's `/ops`** right after the merge
   that carries account recovery (Phase 1 plan §2.7).
-- [ ] **Try recovering an account on staging** with a test account that has Sensitive records
+- [x] **Try recovering an account on production** with a test account that has Sensitive records
   on: sign out everywhere, then **Lost access to your email?** with the recovery code and a new
-  address; the old inbox should get the notice, and after the day (or by setting
-  `effective_at` back on staging) the new address signs in to the same backups.
+  address; the old inbox should get the notice, and after the day the new address signs in to the same backups.
 - [x] **Try changing an email on staging**, both ways: with the old inbox (changes at once)
   and without (pending a day, shown with Cancel on a second signed-in device).
 - [ ] **Try the handoff on a real phone** (staging, then production): in Lite with Sensitive
@@ -321,6 +322,14 @@ and Email Routing.
   and every footer links to both, and no page still says "no accounts", "no cloud" or "no
   server". The operator ("KennelOS") and governing law (United States) are filled in; have both
   pages read by someone qualified in US law before launch.
+- [ ] **Furever content packs on a real Google account:** in Pro, Connect Google Drive, publish a
+  kennel pack and a litter pack, and check a family's Furever app receives the files (only its
+  own pup's and the parents' from a litter pack). Not yet exercised against real Drive.
+- [ ] **Jotform and Stripe from a real browser:** connect a real Jotform key (Jotform must
+  answer browser calls; check the Full Name / Address prefill naming fills the form) and send a
+  contract that comes back Signed; connect a Stripe restricted key, make a one-time sale link and
+  a waitlist fee link, pay each in test mode, and check the app records them (Stripe must answer
+  browser calls). Neither has been exercised against the real service.
 
 ## 5. Recurring (every subsequent release)
 
