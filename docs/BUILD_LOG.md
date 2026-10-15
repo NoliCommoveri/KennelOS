@@ -1146,3 +1146,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   note are now done in the chat; only the breed feeding schedule still opens its page.
   Printing the puppy records and opening Furever now say a new tab is coming and wait for
   **Okay, open it**. Kels roadmap rules 8 and 9 record both.
+- **Pups are going home: optional checks, unsold pups, balances (2026-10-15).** Microchips,
+  the litter's registration number (new item) and the feeding schedule are now "want me to
+  check these too?" tick boxes at the start, unticked. Pups marked Available or Placed with
+  no sale get **Record the sale** (family, status, registration, price and deposit, in the
+  chat; the pup becomes Placed) or **Change the plan**. Balances still owed get a payment
+  request or an invoice (Pro). The cover page takes `&checks=`; the invoice generator takes
+  `onClose`.

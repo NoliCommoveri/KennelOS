@@ -22,8 +22,9 @@ import { saleDueDate } from './invoiceDoc.js';
 const PAYMENT_METHOD_LIST = PAYMENT_METHODS.map((m) => `<option value="${esc(m)}"></option>`).join('');
 
 // `preselect` = { source: 'sale' | 'stud', id } opens it on that record (the Sale
-// page's "Invoice / Receipt" button), with the picker already set.
-export async function openInvoiceGenerator({ preselect = null } = {}) {
+// page's "Invoice / Receipt" button), with the picker already set. `onClose` runs
+// when the modal closes, generated or not (Kels waits on it).
+export async function openInvoiceGenerator({ preselect = null, onClose = null } = {}) {
   const rows = await getIncomeRows({ includeArchived: false });
   // A preselected record that isn't an active income row (archived, or nothing
   // billable yet) still gets its own option so the modal opens on it.
@@ -78,7 +79,7 @@ export async function openInvoiceGenerator({ preselect = null } = {}) {
   document.body.appendChild(overlay);
   const modal = overlay.querySelector('.modal');
 
-  function close() { overlay.remove(); document.removeEventListener('keydown', onKey); }
+  function close() { overlay.remove(); document.removeEventListener('keydown', onKey); onClose?.(); }
   function onKey(e) { if (e.key === 'Escape') close(); }
   modal.querySelectorAll('[data-act="cancel"]').forEach((b) => b.addEventListener('click', close));
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });

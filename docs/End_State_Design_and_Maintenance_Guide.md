@@ -997,8 +997,9 @@ omitted. Read-only, through the repos.
   field picks are the first pup's kennel's and apply to every pup. `?sale=` still prints one.
 - **Cover page** (`&cover=1`): a page for the breeder, not the families, before the
   records: the litter, today, and per pup its family, drop-off date, and what's done and
-  missing (`prepPups.readiness`, the same rules as Kels's Pups are going home, §33). Field picks don't
-  apply to it.
+  missing (`prepPups.readiness`, the same rules as Kels's Pups are going home, §33). `&checks=`
+  limits the optional items to the ones listed (Kels passes hers); without it, all are shown.
+  Field picks don't apply to it.
 - **Download = the browser's Print → Save as PDF** (`window.print()` with an `@media print`
   block). Opened from a sale's page, the Sales page's Print Puppy Record picker (a litter
   with pups at home, then tick pups, ticked by default with a sale at Deposit paid or later;
@@ -1044,6 +1045,7 @@ for receipts `payment_method`/`payment_reference`); everything is rebuilt on eac
 - **Generator** (`assets/invoiceGenerator.js`): opened from Financials and a Sale's page, both
   importing it only when `editionFlags.invoicing` is on. It opens the new tab **blank,
   synchronously in the click**, then navigates after saving, or iOS Safari blocks the pop-up.
+  `onClose` runs whenever the modal closes (Kels's Pups are going home waits on it).
   A sale's invoice also has **Send payment link** (§32).
 
 ---
@@ -1767,30 +1769,53 @@ The run-up to go-home day for one litter. Each fix is saved when approved; there
 2. **Which pups:** the litter's pups at home, each with its sale's status and family, or
    "No sale". Ticked by default: a sale at Deposit paid or later (`pickedByDefault`); any pup
    can be ticked.
-3. **Where they stand:** per pup, "n of m done" and what's missing.
-4. **One thing at a time**, in `READY_ITEMS` order, each once per visit, for every chosen
+3. **Optional checks:** "Want me to check any of these too?" — the `optional` items this
+   edition has (`optionalItems`: microchip numbers, the litter's registration number, a
+   feeding schedule), all unticked. Only ticked ones are checked (`readiness({ checks })`).
+4. **A plan with no sale** (`planWithoutSale`, every pup at home, chosen or not): a pup
+   marked Available or Placed with no sale going ahead (none, or only a returned /
+   cancelled / voided one). **Record the sale** (several: tick which) asks, per pup, the
+   family (one she has, buyers first, or a new one: name, email, phone, typed Buyer), where
+   it's at (Deposit Pending / Deposit paid / Paid in full, and the date paid: `deposit_date`,
+   and `balance_paid_date` too for Paid in full), the registration (from
+   `intended_registration`), and the price and deposit (`expectedPricing`; the price follows
+   the registration until she types her own); the pup becomes Placed and joins the chosen
+   pups. **Change the plan** sets any plan but Placed. Placed pups left without a sale are
+   offered the plan change after.
+5. **Where they stand:** per pup, "n of m done" and what's missing.
+6. **One thing at a time**, in `READY_ITEMS` order, each once per visit, for every chosen
    pup missing it (**Not now**, or **That's enough for now** to skip to the end):
 
    | Item | Done when | Fix |
    |---|---|---|
-   | Microchip | `microchip_id` set | the check-in's microchip form |
+   | Microchip (optional) | `microchip_id` set | the check-in's microchip form |
+   | Litter registration number (optional) | the litter's `litter_registration_number` | one number for the litter, typed in the chat |
    | Shots | a `vaccination` logged | the check-in's care form (Shots) |
    | Deworming | a `preventative` logged | the check-in's care form |
    | Drop-off date (sale) | a `placement` event for the sale's family (`goHome.pickupFor`) today or later | **When's the drop-off?**: date, time, how (`PLACEMENT_METHODS`) per pup; `goHome.pickupEvent` (titled "Puppy drop-off" unless Local pickup) |
    | Balance (sale) | Paid in full / Delivered, a `balance_paid_date`, or a `balance_due_date` | a due date per pup (`saleRepo.update`) |
    | Contract signed (sale, Pro `contracts`) | a signed contract on the sale | **Where are the contracts at?**: a status per pup (`CONTRACT_STATUS`), and the signed date when Signed; saved on the sale's first live contract, or a new `sale` contract (title "<pup> sale contract", kennel from the sale) when it has none; "No contract yet" skips it |
    | Registration type (sale) | `registration_type` set | **How is each puppy registered?**: a `REGISTRATION_TYPE` per pup (prefilled from `intended_registration`); then, as the Sale page does, the price change for the litter's Full surcharge (`saleDefaults.priceForRegistrationChange`, asked first; a fee that was the estimate follows the price) and, for Co-own, adding the family as the pup's co-owner (asked) |
-   | Feeding schedule (Pro `feedingSchedule`) | the litter's `feeding_schedule_override`, or a breed schedule for the pup's breed | **Just this litter**: the litter's feeding note typed in the chat; **For the breed**: the Feeding schedules page (a table editor) |
+   | Feeding schedule (Pro `feedingSchedule`, optional) | the litter's `feeding_schedule_override`, or a breed schedule for the pup's breed | **Just this litter**: the litter's feeding note typed in the chat; **For the breed**: the Feeding schedules page (a table editor) |
 
    The `placement` event ("Placement / drop-off") is the only go-home date the app keeps;
    Furever's pickup plan reads it too (§27). The typed Furever pickup fields on the Sale are
    only Furever's fallback for a pup with no drop-off event, and don't count. Every fix but
    the breed feeding schedule happens in the chat; that one leaves Kels, and she says to
    start Pups are going home again after.
-5. **The end:** all done, or what's still missing per pup. Pro: the **Furever link** is
+7. **Balances still owed** (Pro: `accounts` or `invoicing`): chosen pups whose sale is at
+   Deposit Pending or Deposit paid, with no `balance_paid_date` and a balance
+   (`contractSend.balanceDueOn`) above zero, listed with the amount and due date. Per sale:
+   **Send a payment request** (`paymentRequestUI.openPaymentRequest`, the Sale page's;
+   offered only when a Payment service takes payments, `paymentAccounts`, or has her Stripe
+   key here; otherwise she says to add one on the Accounts page) or **Make an invoice**
+   (`openInvoiceGenerator({ preselect, onClose })`, said first to open in a new tab; Kels
+   waits for the modal to close). One family is asked once; several get **Yes, let's do it**
+   first.
+8. **The end:** all done, or what's still missing per pup. Pro: the **Furever link** is
    offered (`furever.html`) when a chosen pup has an open sale; it isn't tracked, so it's
    never an item. Pro (`puppyRecord`): **Print puppy records** opens
-   `puppy-record.html?dogs=…&cover=1&autoprint=1` in a new tab (a link if the tab is
+   `puppy-record.html?dogs=…&cover=1&autoprint=1&checks=…` (the optional checks she ticked) in a new tab (a link if the tab is
    blocked). Both tabs are announced first ("Of course! I'll have to open a new tab to
    print from. Once you print, you can close that tab and come back here; I'll be
    waiting.") and open only on **Okay, open it** (`openTab`). Lite runs the same check without Furever or the print, and its menu entry
