@@ -532,7 +532,7 @@ test`, the precache check, and the docs in the same change (§9).
 - **Phase 1 plan §3.4** and **W2 plan §11** step 1: a pointer to §6.4 and §7 here.
 - **`cloud/README.md`:** the new routes, migration `0014`, and the `cloudFields.js` drift
   test.
-- **`README.md`** build status, and **`LAUNCH_CHECKLIST.md`**: Apply pending for `0014`, the
+- **`docs/BUILD_LOG.md`** entry, and **`LAUNCH_CHECKLIST.md`**: Apply pending for `0014`, the
   two-device checks.
 
 ## 10. Testing

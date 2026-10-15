@@ -6,7 +6,7 @@
 // never re-fetches a stale precached file on its own; only a CACHE_NAME change
 // (which changes these bytes, so the browser detects a new service worker,
 // installs it, and purges the old cache in `activate`) rolls it over.
-const CACHE_NAME = 'kennelos-shell-v78';
+const CACHE_NAME = 'kennelos-shell-v79';
 
 const PRECACHE_URLS = [
   './',
@@ -23,7 +23,15 @@ const PRECACHE_URLS = [
   'assets/cloudVaultUI.js',
   'assets/companionLink.js',
   'assets/contactPicker.js',
-  'assets/kenChat.js',
+  'assets/kels.png',
+  'assets/kelsChat.js',
+  'assets/litterCheckinUI.js',
+  'assets/tidyUpUI.js',
+  'assets/prepPupsUI.js',
+  'assets/accountHealthUI.js',
+  'assets/vendorKeyUI.js',
+  'assets/waitlistSetupUI.js',
+  'assets/kelsFindings.js',
   'assets/documentModal.js',
   'assets/dropboxConnectUI.js',
   'assets/editionLinks.js',
@@ -130,6 +138,10 @@ const PRECACHE_URLS = [
   'data/kennelSetup.js',
   'data/kennelTree.js',
   'data/guidedLitter.js',
+  'data/litterCheckin.js',
+  'data/goHome.js',
+  'data/prepPups.js',
+  'data/accountHealth.js',
   'data/litterRepo.js',
   'data/nudges.js',
   'data/nudgeState.js',
@@ -145,6 +157,7 @@ const PRECACHE_URLS = [
   'data/proPages.js',
   'data/puppyDefaults.js',
   'data/puppyRecordFields.js',
+  'data/recordMerge.js',
   'data/referenceRegistry.js',
   'data/repoBase.js',
   'data/reportCatalog.js',
@@ -167,6 +180,7 @@ const PRECACHE_URLS = [
   'data/stripeKeyStore.js',
   'data/stripeLinks.js',
   'data/syncRegistry.js',
+  'data/tidyRules.js',
   'data/vocab.js',
   'data/waitlistActions.js',
   'data/waitlistCrypto.js',
@@ -240,8 +254,8 @@ const PRECACHE_URLS = [
   'pages/invoice.js',
   'pages/kennel-tests-import.html',
   'pages/kennel-tests-import.js',
-  'pages/ken.html',
-  'pages/ken.js',
+  'pages/kels.html',
+  'pages/kels.js',
   'pages/kennel.html',
   'pages/kennel.js',
   'pages/kennels.html',

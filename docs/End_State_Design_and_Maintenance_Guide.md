@@ -1,62 +1,103 @@
-# KennelOS — End-State Design & Maintenance Guide
+# KennelOS — App Design & Maintenance Guide
 
-> ## ⚠️ REFERENCE ONLY in this repo — not the current-state map
->
-> This guide describes the **pre-editions, single-app KennelOS**. In *this* repo that
-> whole app has been relocated under **`shared/`** (and is being split into
-> `shared/` + `pro/`). So this document is now **reference material for the shared/Pro
-> code**, not the authoritative description of the repo as a whole.
->
-> - **Authoritative current-state architecture** = the editions model: the top-level
->   `README.md` (layout + build status) plus `docs/KennelOS_Lite_Pro_Editions_Plan.md`
->   and `docs/KennelOS_Lite_Cap_Enforcement_Spec.md`.
-> - **Path translation:** wherever this guide says `KennelOS/…` or a bare `data/…`,
->   `assets/…`, `pages/…`, `sw.js`, read it as **`shared/…`** (e.g. `shared/data/db.js`,
->   `shared/sw.js`). The single service worker described in §12 is now the *shared
->   default*; each edition will get its own `sw.js` + cache name.
-> - **Still true and still load-bearing:** everything about the data model, the Dexie
->   schema, the repo layer, referential integrity, the Event model, escaping contracts,
->   and the change recipes — that all applies unchanged to the code now under `shared/`.
->   The `data/editionConfig.js` injection point (Lite/Pro cap hooks) and the
->   `data/editionTour.js` injection point (per-edition guided-tour package: sample seed +
->   step catalog — see §11) are the additions not yet folded into the sections below.
-> - **Pro license gate** (`data/license.js` + `assets/licenseGate.js`) is a boot-time
->   addition too: in the Pro edition only (`editionConfig.editionFlags.licenseGate`),
->   `app.js`'s `boot()` calls `ensureLicensed()` before rendering — a Lemon Squeezy
->   key is browser-validated (activate/validate, no backend) with an interval-scaled
->   offline grace window (monthly/yearly subscriptions); a one-time **Lifetime** key is
->   perpetual — it never expires, but it is **no longer exempt from offline
->   re-validation**: 90 days of full access from the last successful `/validate`, then 30
->   days of a reconnect banner, then a wall, all reset by one successful validate. (The
->   old exemption let an activated lifetime key run forever on any number of machines
->   without contacting the store again.) A lifetime key blocked on staleness gets a
->   *reconnect* wall, never the renewal wall — `licenseGate.js`'s `isStaleLifetime`.
->   An unlicensed load is walled. The cached activation lives
->   under its own `settings.js` key (`kennelOS.proLicense`) that is deliberately **excluded
->   from `clearAllSettings()`**, so Reset App keeps paid entitlement. Inert in Lite/Demo.
-> - **Activations are a countable, releasable resource.** Lemon Squeezy counts
->   *activations* ("instances") against the variant's activation limit — it knows nothing
->   about the machine, and neither do we. Three rules make that counter survivable:
->   `deactivate()` hands a slot back (`releaseThisDevice()` from Settings → *This
->   device's license*, which clears the local record **only** if the release succeeded;
->   `resetLicense()` on the renewal wall, which is best-effort so a walled owner is never
->   trapped); each activation is named `"<owner's label> · <8 chars of kennelOS.deviceId>"`
->   so slots are distinguishable in the store dashboard; and `recordFromPayload()` lets an
->   explicit `valid:false` downgrade an otherwise-`active` key to `inactive`, so a released
->   or de-authorized device actually stops working (a more specific `expired` is preserved,
->   because it earns its grace window). `kennelOS.deviceId` is a random per-browser UUID
->   used only for that label — no fingerprinting, no system data — and, like the license
->   record, it sits outside `KEYS` so Reset App leaves it alone.
->
-> Treat everything under this line as an accurate map of the shared/Pro **code**, with
-> the caveats above.
+The map of the whole KennelOS app: what it does, how the code is built, and how to change it
+safely. It covers every edition. The code all lives in **`shared/`**, Pro ships all of it,
+and §0 says what Lite and Demo leave out or change. Each feature section names its edition
+gate where there is one.
+
+- **Paths** are relative to `shared/` (`data/db.js` = `shared/data/db.js`) unless they start
+  with `cloud/`, `build/`, `tests/`, `docs/`, `lite/`, `pro/`, `demo/`, `site/` or `furever/`.
+- **The code is authoritative.** Where this guide and the code disagree, fix the guide.
+- **Why things are the way they are** lives in the plans and specs in `docs/`, which each
+  section links. History is in `docs/BUILD_LOG.md`.
 
 ---
 
-The single current-state reference for the KennelOS dog-breeding records app. It
-describes what the app **is today** and how to change it safely: architecture, data
-model, module map, invariants, and the common "how do I change X" recipes. Read it
-first.
+## 0. Editions — Lite, Pro, Demo
+
+One codebase, three builds. `node build/assemble.mjs` copies `shared/` to
+`dist/<edition>/`, overlays that edition's `editionConfig.js` (and Lite's `editionTour.js`)
+at the shared path, drops files the edition doesn't ship, and generates its `sw.js`
+(`build/README.md`). Each edition deploys to its own origin, so their IndexedDBs never mix.
+The shared core never checks which edition it is: it reads the two injection points.
+
+- **`data/editionConfig.js`** holds `editionFlags`, the cap hooks (`enforceDogCap`,
+  `enforceLitterCap`), `navItems`, `cloudUrl` and `licenseConfig`. The `shared/` copy is
+  the Pro-semantics default. Source copies are in `lite/`, `pro/` and `demo/`.
+- **`data/editionTour.js`** holds the guided-tour package (sample seed + step catalog, §11).
+  Lite supplies its own; Pro and Demo use the shared default.
+- **A new flag goes in all four copies** (`shared/`, `lite/`, `pro/`, `demo/`
+  `editionConfig.js`): the build overlays an edition's file whole, with no merge.
+- **`data/proPages.js`** lists the Pro-only files. The Lite build leaves them out (a direct
+  URL 404s), and Lite-kept pages use it to hide links to them.
+
+| | Lite (free) | Pro (paid) | Demo |
+|---|---|---|---|
+| Pages | Shared pages only: no `PRO_ONLY_PAGES` / `PRO_ONLY_STANDALONE` | All | All but Import/Export, Settings and the Assistant console (`DEMO_EXCLUDED_PAGES` in `build/assemble.mjs`) |
+| Feature flags (contacts, stud services, contracts, documents, companion, furever, reports, invoicing, puppy record, foster, receipts, external ownership, assistant, feeding schedules, accounts, shows, waitlist, multi-kennel) | all `false` | all `true` | all `true` |
+| Cap | 6 counting dogs, 10 litters | none (no-op hooks) | none |
+| Archive | No Archive button, no "include archived" toggles, departed dogs shown as plain text; a dog leaves by "Remove from program" | Normal | Normal |
+| Dog statuses | puppy / active / retired breeding / deceased (`fullDogStatuses: false`) | All | All |
+| Writes | Normal | Normal | Blocked (`demoMode`) |
+| License gate | No | Yes (`licenseGate`) | No |
+| Cloud backup | Yes | Yes | No (`cloudUrl: null`) |
+| Live sync | No (`liveSync: false`) | Yes | No |
+
+The shared pages Lite keeps hide their Pro-only parts with the same flags: the invoice
+button, receipt attach, the Account picker, a sale's "Referred by", the litter foster and
+feeding-schedule fields, and the Dashboard's Archived tile. The full list is in the Editions
+Plan's "Lite scope" section.
+
+**Details live in:** `docs/KennelOS_Lite_Pro_Editions_Plan.md` (tiers, licensing, the Lite→Pro
+bridge, Demo), `docs/KennelOS_Lite_Cap_Enforcement_Spec.md` (the cap, precisely),
+`build/README.md` (build + deploy).
+
+### 0.1 The Lite cap
+`dogRepo.create`/`update` and `litterRepo.create` call the edition's cap hooks. Lite's hooks
+(`lite/editionConfig.js`) throw `CapExceededError` (`data/repoBase.js`) when a write would
+bring a dog **into** the counted set (owned / co-owned live adults; `rosterCount.js`), or
+would add an 11th litter. Editing a counted dog, or a dog leaving, is never blocked. The dog
+form, the litter form and Today's promote-pup nudge catch the error and show
+`assets/upgradeNudge.js` (export a backup, then go to checkout). The New Dog page shows a
+"Creating x/6" counter from the same predicate. Pro and Demo's hooks are no-ops, so no cap
+logic ships in Pro.
+
+### 0.2 Demo mode
+`data/demoMode.js`: every repo write (`repoBase` create/update/hardDelete, `fileRepo`,
+`restoreBackup`) calls `assertWritable()`, which throws a friendly `DemoModeError` when
+`editionFlags.demoMode` is on. The sample seed runs inside `withSeedAllowed()`. `app.js`
+seeds an empty database on load, skips first-run prompts, and shows a read-only banner.
+
+### 0.3 Pro license gate
+- **Boot gate** (`data/license.js` + `assets/licenseGate.js`): in the Pro edition only (`editionConfig.editionFlags.licenseGate`),
+  `app.js`'s `boot()` calls `ensureLicensed()` before rendering — a Lemon Squeezy
+  key is browser-validated (activate/validate, no backend) with an interval-scaled
+  offline grace window (monthly/yearly subscriptions); a one-time **Lifetime** key is
+  perpetual — it never expires, but it still has to **re-validate online**: 90 days of
+  full access from the last successful `/validate`, then 30 days of a reconnect banner,
+  then a wall, all reset by one successful validate. A lifetime key blocked on staleness gets a
+  *reconnect* wall, never the renewal wall — `licenseGate.js`'s `isStaleLifetime`.
+  An unlicensed load is walled. The cached activation lives
+  under its own `settings.js` key (`kennelOS.proLicense`) that is deliberately **excluded
+  from `clearAllSettings()`**, so Reset App keeps paid entitlement. It also keeps how many
+  activations the key is using and allows (`activationUsage` / `activationLimit`, from the
+  last validate; null until then), which Kels's account health reports. Inert in Lite/Demo.
+- **Activations are a countable, releasable resource.** Lemon Squeezy counts
+  *activations* ("instances") against the variant's activation limit — it knows nothing
+  about the machine, and neither do we. Three rules make that counter survivable:
+  `deactivate()` hands a slot back (`releaseThisDevice()` from Settings → *This
+  device's license*, which clears the local record **only** if the release succeeded;
+  `resetLicense()` on the renewal wall, which is best-effort so a walled owner is never
+  trapped); each activation is named `"<owner's label> · <8 chars of kennelOS.deviceId>"`
+  so slots are distinguishable in the store dashboard; and `recordFromPayload()` lets an
+  explicit `valid:false` downgrade an otherwise-`active` key to `inactive`, so a released
+  or de-authorized device actually stops working (a more specific `expired` is preserved,
+  because it earns its grace window). `kennelOS.deviceId` is a random per-browser UUID
+  used only for that label — no fingerprinting, no system data — and, like the license
+  record, it sits outside `KEYS` so Reset App leaves it alone.
+
+**Details:** Editions Plan "Licensing", `docs/KennelOS_License_Link_Plan.md`.
+
 
 Where a field-level or rule-level detail matters, the **code is authoritative** — where a
 doc and the code disagree, the code wins and the doc is what gets fixed.
@@ -65,12 +106,11 @@ doc and the code disagree, the code wins and the doc is what gets fixed.
 
 ## 1. What the app is
 
-A **local-first, static, multi-page web app** for managing a dog-breeding program:
-dogs and pedigrees, contacts, kennels, pairings and litters (including **foster-in /
-foster-out** litters, §25), sales/placements, stud services, contracts, a polymorphic
-health/history event log, an expense/income ledger, reminders, a dashboard, analytics
-reports, CSV/JSON import-export, and a read-only Companion share-out for buyers and
-partners.
+A **local-first, static, multi-page web app** for running a dog-breeding program: dogs and
+pedigrees, contacts, kennels, pairings, litters (incl. foster, §25), sales, stud services,
+contracts, a polymorphic event log, money (§21), reminders and nudges (§19), reports (§31), a
+per-kennel waitlist (§29), shows, business accounts (§32), CSV/JSON import-export, and
+share-outs to families (Companion §20, Furever §27).
 
 - **No required backend, no build step.** Plain ES modules served over HTTP. Hosted on
   GitHub Pages; all data lives in the browser (IndexedDB via Dexie). The one server is the
@@ -78,7 +118,8 @@ partners.
   runs exactly the same.
 - **Single user, single device** is the design centre. Data moves between devices through
   explicit JSON backup/restore, CSV import/export, Dropbox (§26), or (opted in) a cloud
-  backup restored on the new device (§30). There is no live sync.
+  backup restored on the new device (§30). Pro can also turn on live multi-device sync
+  (§34).
 - **Offline-capable PWA.** A service worker precaches the app shell so it works offline
   after the first load.
 
@@ -97,13 +138,11 @@ These are load-bearing. Changing any of them is a design decision, not a routine
    edits; Cloud Phase 2 plan §5.3).
 3. **ES modules over HTTP.** Must be served (`python3 -m http.server`, `npx serve`, or
    GitHub Pages) — never opened as `file://`, which CORS-blocks module imports.
-4. **No CDN / no network deps.** Everything third-party is vendored under
-   `KennelOS/vendor/` and loaded by relative path (Dexie, PapaParse, lz-string). The
-   app must work fully offline after first load. The one deliberate exception is the
-   **Dropbox sync feature set** (§26): those buttons talk to the Dropbox HTTP API with
-   plain `fetch` (still no vendored/CDN code) and are online-only by design — every
-   other part of the app keeps working offline. **Cloud backup** (§30) is the second:
-   opt-in, online-only, and only `data/cloud/cloudApi.js` makes its requests.
+4. **No CDN.** Everything third-party is vendored under `vendor/` and loaded by relative
+   path; the app works fully offline after first load. The online-only, opt-in exceptions
+   each have one module that makes the calls: cloud backup and sync (`data/cloud/cloudApi.js`,
+   §30), Dropbox (`data/dropbox.js`, §26), Google Drive (`data/googleDrive.js`, §27), Jotform
+   (`data/jotformApi.js`) and Stripe (`data/stripeApi.js`) (§32).
 5. **One thin repo per entity**, uniform surface (see §6). New entity = new repo + new
    page; you don't reshape existing ones.
 
@@ -112,4498 +151,1795 @@ These are load-bearing. Changing any of them is a design decision, not a routine
 ## 3. Directory layout
 
 ```
-CLAUDE.md                      Session brief (read first)
-docs/                          Design docs (this file is the end-state map)
-KennelOS/
-  index.html                   App root / landing
-  companion-view.html          Recipient-facing Companion share shell (§20) — a
-                               self-contained, read-only static file; NOT part of
-                               the app's page/nav set, but IS precached
-  assistant.html               KennelAssistant shell (§26) — the junior-helper
-                               mini-app; standalone like companion-view (no
-                               nav/app.js boot), but read-write and precached
-  assistant.js                 KennelAssistant page logic (§26)
-  app.js                       Shared shell bootstrap (nav, PWA, first-run flow)
-  nav.js                       Top-nav definition + rendering
-  sw.js                        Service worker (app-shell precache, offline)
-  manifest.json                PWA manifest
-  vendor/                      Vendored deps: dexie.min.mjs, papaparse.min.mjs,
-                               lz-string.min.mjs, jspdf.umd.min.js (the self-
-                               contained UMD build of jsPDF, Pro-only, loaded on
-                               demand by assets/invoicePdf.js, §24), tesseract/,
-                               pdfjs/ (PDF.js 4.10.38, Apache-2.0: pdf.min.mjs +
-                               pdf.worker.min.mjs, loaded on demand by
-                               data/pedigreeReader.js for pedigree import)
-  resources/
-    common_tests_by_breed_seed.csv   Optional breed→test seed data. Columns:
-                               `Breed Group,breed,test_name` (col A is for the
-                               picker's "browse by breed group" dropdown only —
-                               never stored)
-  data/                        THE DATA LAYER (repos + shared data logic)
-    db.js                      Dexie schema — the only schema definition
-    repoBase.js                makeRepo factory (shared repo surface)
-    referenceRegistry.js       FK declarations + hard-delete guard
-    syncRegistry.js            Cloud-backup field allow-list + row rules (Cloud Phase 1
-                               plan §5); unlisted = private. Pure functions, plus the
-                               field overlay the 'cloud-merge' restore uses
-    cloud/                     Opt-in cloud backup (Cloud Phase 1 plan). Every module
-                               checks cloudConfig.isCloudAvailable() first, so an
-                               edition with cloudUrl null never makes a request.
-      cloudConfig.js           The API base URL from editionConfig (cloudUrl; devCloudUrl
-                               on localhost, or anywhere once ?cloud=staging has
-                               turned on the test-server switch), or null
-      cloudApi.js              The ONLY network module: fetch, bearer token, timeouts,
-                               typed errors (Offline / Auth / Erased / Conflict / Request);
-                               a 401 device_erased calls the registered erase handler
-      cloudAuth.js             Email + 6-digit code sign-in; the session in settings.js
-      cloudBackup.js           Snapshot builder (sample rows dropped, registry
-                               projection, file bytes by sha256, key check), gzip, shrink
-                               guard; pushIfDirty, the one-backup-device choices, restore,
-                               and the scheduler (started by cloudBackupUI.bootCloud)
-      cloudDevices.js          A lost device (Cloud plan §2.5): the check-in (started by
-                               app.js before the license gate), the device list, remote
-                               erase + this device's self-wipe, freeing a device's Pro
-                               license with Lemon Squeezy (the key never goes to our server)
-      cloudEntitlement.js      Is this cloud account Pro on the server? (License Link Plan):
-                               the entitlement (cached), linking another purchase email by
-                               code. Gates only server features (W2); the app stays gated
-                               by license.js
-      cloudWaitlist.js         The waitlist online (W2): publish each online kennel's
-                               projection when it changes, unpublish one taken
-                               offline, then send the queued emails; its scheduler
-                               (started by bootCloud)
-      cloudIntegrations.js     Vendor integrations (Integrations plan §0): read the
-                               events the Worker kept (a contract signed, a payment made)
-                               and apply each through the repos, by the device doing the
-                               server work only (serverWork.js); asks nothing until the
-                               account has a connection; its scheduler (started by bootCloud)
-      serverWork.js            Which device does the program's server work (waitlist
-                               intake, family and vendor events, publishing, emails):
-                               the backing device, or on a syncing program the holder of
-                               the two-minute lease (POST /waitlist/lease), which only a
-                               syncing device in front of her takes (Cloud Phase 2 plan §7)
-      vaultCrypto.js           The private vault's WebCrypto (Private Vault Plan §3.2):
-                               codes, the vault key, KEKs, wraps, payload/file ciphertext
-      vaultKeyStore.js         This device's unlocked vault key, and its open request to be
-                               unlocked by another device, in device_secrets (§30)
-      syncRecords.js           Live sync's wire format (Cloud Phase 2 plan §4; pure): a
-                               record's cloud part (syncRegistry) and sealed whole row,
-                               file references, canonical JSON and the row hash
-      syncState.js             The only reader/writer of sync_meta; the scan that finds
-                               changed and deleted rows by hash (plan §3.3); syncRowFor,
-                               the one place a local row's sync hash is computed
-      cloudSync.js             Live sync's loop: push (scan → records → /sync/push in
-                               pages, file bytes first, the shrink guard, dropped records
-                               not resent unchanged), pull (cursor → syncApply), syncNow
-                               (one at a time across tabs), the scheduler, the pauses and
-                               the activity list (plan §5); turning it on, joining (a
-                               resumable full pull where the newer updated_at wins, then a
-                               push; nothing deleted), off here / for every device, and
-                               syncReadiness (plan §2.1, §2.4, §5.5); only where liveSync is on
-      vaultPasskey.js          WebAuthn + PRF for passkey unlock (no db, no network): the
-                               RP ID, support check, make a passkey / get its PRF output
-      cloudVault.js            Vault flows: turn on with a recovery code, unlock (with the
-                               code, a passkey, or from another unlocked device), merge the
-                               private tier in, add/remove passkeys, new recovery code, turn off
-    dogRepo / contactRepo / kennelRepo / pairingRepo / litterRepo /
-      saleRepo / contractRepo / studServiceRepo / eventRepo / expenseRepo /
-      documentRepo   Entity repos
-    fileRepo.js                The file archive: one row per stored PDF (blob +
-                               thumbnail + meta) backing Documents + expense receipts (§26.1)
-    pdfBuild.js                Photo(s) -> compressed multi-page PDF, no library
-                               (JPEG via DCTDecode); the compress step for a
-                               camera/screenshot upload (§26.1)
-    ocr.js                     Offline receipt OCR (vendored Tesseract) — pre-fills
-                               amount/date/vendor/receipt # on the expense form (§26.1);
-                               recognizeWords() returns positioned words (pedigree import)
-    pedigreeReader.js          Pedigree file → positioned words: PDF.js text layer, or
-                               render + OCR for a picture/image (browser-only)
-    pedigreeParse.js           Pure: positioned words → the chart's dogs by path
-    pedigreeImport.js          Pedigree import plan (match/merge/review, pure) + commit
-    integrationEvents.js       What a vendor's event does to its contract / sale: applied
-                               while the record is where the link left it, else a review
-                               for Today (pure; Integrations plan §0;
-                               tests/cloudIntegrations.test.js)
-    incomeView.js              Derived income aggregator (Sale + outgoing StudService)
-    litterFinances.js          Derived per-litter P&L (income vs cost)
-    moneyReport.js             Money in/out by period (P&L by Month, Year in Review; §31)
-    yearReview.js              Pure Year in Review summary (§31)
-    reportMath.js              Pure report math: date ranges, period buckets, axis ticks (§31)
-    reportCatalog.js           The Reports hub's grouped catalog (§31)
-    breedingReports.js         Pure production / pairing success / puppy growth math (§31)
-    waitlistReports.js         Pure waitlist funnel / demand-vs-supply math (§31)
-    dateUtils.js               todayYMD / date helpers (single "what is today")
-    calendarMath.js            Pure Calendar page math: month grid, event day spans,
-                               the "Add to Google Calendar" link
-    vocab.js                   Controlled vocabularies + event-type catalog
-    csvImport.js               Generic CSV match-or-create engine + mappings
-    csvImportHelp.js           Plain-language column guide for each CSV importer
-    csvBatch.js                Several-file import: guess each file's importer from
-                               its columns, order the files by mapping `links`
-    importExport.js            JSON backup / restore
-    syncApply.js               Live sync: writes pulled records in one transaction per
-                               page (echo skip, server wins over an unpushed local edit,
-                               a delete still referenced here becomes an archive, files
-                               fetched and opened), then SYNC_APPLIED_EVENT (Cloud Phase 2
-                               plan §5.3, §5.4); `merge` for a join: newer updated_at
-                               wins, a kept local row is pushed, tombstones delete nothing
-    companionExport.js         Companion allow-list bundle builder (§20)
-    dropbox.js                 Dropbox API client — PKCE OAuth + JSON up/download (§26)
-    assistantSync.js           Owner-side Dropbox flows: backup push/pull,
-                               assistant feed builder, outbox import (§26)
-    assistantStore.js          KennelAssistant's OWN Dexie db + its data layer (§26)
-    appReset.js                Full "reset to first run" teardown; eraseThisDevice() for
-                               a remote erase (also the license, cloud keys, Assistant db)
-    sampleData.js              "Thornfield Kennels" demo seed + generic clear (§11)
-    seedImport.js              Optional breed+test vocabulary seed
-    kennelSetup.js             First-run "your kennel/owner" wizard logic (a mandatory gate)
-    kennelTree.js              Pure: whole-kennel family-tree layout (families, generation
-                               rows, sire × dam unions, lanes for long edges)
-    kennelScope.js             Active-kennel scope: which own kennel the app is
-                               narrowed to, the inScope()/dogInScope()/subjectInScope()
-                               read predicates bound to it, and the
-                               resolveKennelIdForWrite() stamp every scoped create uses
-    scopePredicates.js         The PURE, db-free half of that scope — the record-shape
-                               rules, taking the active id as an argument so they are
-                               unit-testable in Node (tests/scopePredicates.test.js).
-                               kennelScope.js re-exports them bound; pages import those
-    showPoints.js              Derived championship-points engine (Show Tracking Spec §4):
-                               a db-free pure core (trackProgress / showRecordFrom,
-                               tests/showPoints.test.js) + the getShowRecord(dogId)
-                               loader. Pro-used, shared-resident; callers gate on
-                               editionFlags.shows (§8 "Show specifics")
-    waitlistEntryRepo / waitlistOfferRepo /
-      waitlistProgramRepo      The per-kennel waitlist's repos (§29)
-    waitlistRules.js           The PURE waitlist rules engine — position, eligibility,
-                               passes, removal/undo, contact matching, contact
-                               status (§29; tests/waitlistRules.test.js)
-    waitlistActions.js         The waitlist's multi-step writes — approve, decline,
-                               fee received, withdraw, remove, undo, re-apply, move,
-                               and the offer flow: open/close picks, offer next,
-                               offer one family a litter, record an outcome (accept
-                               creates the Sale) (§29)
-    waitlistForm.js            PURE: her application form — default + locked
-                               questions, answer snapshots, CSV question import
-                               (§29; tests/waitlistForm.test.js)
-    waitlistCrypto.js          Her form key: make, rotate, open an application sealed in the
-                               applicant's browser (W2; tests/waitlistCrypto.test.js)
-    waitlistInbox.js           PURE: an opened online application → an `applied` entry,
-                               validated field by field (W2; tests/waitlistInbox.test.js)
-    waitlistEvents.js          PURE: a family's action on their status page → what her
-                               device does (pick, pass, leave, a request, or a line for
-                               her) (W2 step 5; tests/waitlistEvents.test.js)
-    waitlistEmails.js          PURE: the emails her list sends families (W2 step 6) —
-                               default templates, her wording, placeholders filled
-                               from her records (§29; tests/waitlistEmails.test.js)
-    waitlistOutbox.js          Emails on her device (W2 step 6): draft one from her
-                               records, queue it on the entry, retry; only where the
-                               list is online (§29)
-    waitlistProjection.js      PURE: one kennel's waitlist as published online (W2) —
-                               allow-listed field by field from the rules engine
-                               (§29; tests/waitlistProjection.test.js)
-    saleDefaults.js            expectedPricing(dog, litter) — a new Sale's price/deposit
-                               prefill, shared by sale.js and the waitlist accept flow
-    puppyDefaults.js           baseFromLitter(litter, dam) — what a new puppy inherits from its
-                               litter; shared by puppyForm.js and the guided litter flow (pure)
-    guidedLitter.js            The guided "Record a new litter" flow's data half: draft, steps,
-                               checks, name/litter/breeding matches, review lines, and the
-                               resumable save through the repos (§33; tests/guidedLitter.test.js)
-    processingFees.js          a sales channel's fee: rate (percent + fixed), fee on a price,
-                               the price that nets a set amount (pure, §21.1)
-    referralShare.js           the referral links she shares with families, the go-home date,
-                               and the follow-up / thank-you note texts (pure, §32)
-    contractForms.js           her contract forms on Accounts and the prefilled "Send for
-                               signature" link: ranking, the field allow-list, the URL
-                               (pure, §32; tests/contractForms.test.js)
-    contractSend.js            the facts a contract reaches, its link, marking it sent,
-                               a sale's open contract (§32; tests/pickToSend.test.js)
-    depositRequest.js          the deposit-request message to a family that picked a pup
-                               (pure, §29; tests/pickToSend.test.js)
-    jotformMatch.js            Connect Jotform: a form's fillable fields from the API,
-                               the suggested field_map, warnings, a type guess from the
-                               title (pure, §32; tests/jotformConnect.test.js)
-    jotformApi.js              the only module that calls Jotform's API (her forms, a
-                               form's fields, a form's submissions; key as a query
-                               parameter, §32)
-    jotformSigned.js           step 7: a Sent contract's form submission found by its
-                               contractRef marks it Signed, from her device (§32;
-                               tests/jotformSigned.test.js)
-    jotformConnect.js          connect / disconnect a Jotform key on this device, list
-                               forms, match a form (what accounts.js calls, §32)
-    jotformKeyStore.js         her Jotform API keys in device_secrets (device only, §32)
-    stripeApi.js               the only module that calls Stripe: a one-use sale link or a
-                               reusable fee link, paid checkouts with the fee (§32)
-    stripeKeyStore.js          her Stripe restricted keys in device_secrets (device only)
-    stripeLinks.js             connect Stripe, make a sale's link, check what was paid
-                               (sales and waitlist fees) when the app opens (§32)
-    integrationApply.js        apply one vendor event to its contract / sale (the Worker's
-                               stream and the Stripe check share it; §19, §32)
-    waitlistFeePay.js          the online application fee, pure: account, what the family
-                               pays, their link, what a payment does (§29)
-    waitlistFeeLinks.js        the online application fee's Stripe links and their check (§29)
-    paymentLinks.js            her own payment link on an Account: which accounts take
-                               payments, the sale's paid-through one first, what can be
-                               asked for, the message (pure, §32; tests/paymentLinks.test.js)
-    wizardState.js             Guided-tour status/index state machine (§11)
-    wizardSteps.js             Full (Pro/Demo) guided-tour step catalog — data only (§11)
-    editionTour.js             Per-edition tour package (seed + steps) injection point;
-                               shared copy re-exports the full seed + catalog (§11)
-    settings.js                localStorage-backed UI prefs / identity keys (incl. the
-                               guided litter flow's unfinished draft, §33)
-    nudgeState.js              Device-local dismissal ledger for derived nudges
-    nudges.js                  Derived-nudge engine — computeNudges() (§19)
-    awayBoard.js               "Away from home" union: boarding events + in-person
-                               stud services, one view-model (§19)
-  assets/                      Shared UI helpers + reusable components
-    app.css                    All styles
-    ui.js                      esc(), badge(), fmtDate(), param(), fillSelect()…
-    listView.js                Reusable list screen (cells return HTML)
-    messageComposer.js         a note she sends herself: subject + message, then Email
-                               (mailto:), Text (sms:) or Copy; nothing sent by the app (§32)
-    reportView.js              Reusable report screen (values return text; date range,
-                               KPI tiles, totals row, charts, print — §31)
-    chartView.js               Own SVG charts: bar / line / ranked bar + tooltip (§31)
-    printView.js               Print / Save-as-PDF letterhead + button (§31)
-    timeline.js                Subject health/history timeline
-    pedigree.js                Ancestor-tree + offspring renderer
-    kennelTree.js              Whole-kennel family-tree renderer (layout: data/kennelTree.js)
-    eventForm.js               Add/edit event modal
-    puppyForm.js               Litter → puppy roster entry (Add Puppy: name, sex, disposition,
-                               registration; Add several: males + females counts, disposition and
-                               registration applied to all, placeholders "Puppy N", males first)
-    kenChat.js                 Ken's chat transcript (typing, messages, answer panels, choices)
-                               + the floating "Ask Ken" button (§33)
-    guidedLitterUI.js          Ken's "Record a new litter" task: its questions and the
-                               conversation runner (§33)
-    guidedShareUI.js           Its "Let families know" step after the save (§33; Pro-only,
-                               PRO_ONLY_STANDALONE, imported dynamically)
-    companionLink.js           Bundle → recipient link + sms:/mailto: anchors, shared by the
-                               Companion console and guidedShareUI (§20; Pro-only,
-                               PRO_ONLY_STANDALONE)
-    contactPicker.js           Inline "＋ New contact" decorator for pickers
-    breedTestPicker.js         Search/browse-by-breed-group picker widget shared
-                               by both seed-import wizards (kennel-tests-import
-                               page + kennelSetupUI's prefill section)
-    importView.js              Shared CSV import dry-run/commit UI
-    importHelp.js              Renders the CSV column guide + blank-template download
-    onboardingUI.js            First-run Welcome card: Start my kennel / Take the tour / I already use KennelOS (§11)
-    cloudBackupUI.js           Every cloud-backup screen: sign-in, Import/Export's Cloud
-                               destination pane, the Settings Account card,
-                               the Today nudge, the 409/shrink dialogs, restore as of…,
-                               first-run restore, the post-setup offer, notices, and
-                               "Your devices" (erase / free a Pro license) (§11), and the
-                               record pages' "private details are blank here" hint.
-                               Loaded only when the edition has a cloud server
-    cloudVaultUI.js            The private vault's screens (§30): turn on + recovery code
-                               (+ the passkey offer), unlock (passkey / code / another
-                               device / not now), approve another device, passkeys, new
-                               recovery code, turn off. Loaded by
-                               cloudBackupUI.js only, on first use
-    salePrompts.js             Sale-change prompts: settle the pup when a sale ends; price on a registration change
-    sampleDataUI.js            Sample-data banner + Clear-sample-data flow
-    kennelSetupUI.js           Kennel-setup prompt/wizard + seed prefill
-    wizardUI.js                Guided-tour overlay/spotlight/cards + resume pill (§11)
-    expensePanel.js            Reusable per-subject expense ledger panel (§21)
-    waitlistUI.js              Waitlist pages' helpers: which kennel's list, kennel
-                               picker, preference summary, form dialog (§29; Pro-only,
-                               PRO_ONLY_STANDALONE)
-    waitlistPicksPanel.js      The Litter page's "Waitlist picks" panel (§29; Pro-only,
-                               PRO_ONLY_STANDALONE, imported dynamically by litter.js
-                               only when editionFlags.waitlist is on)
-    waitlistEmailUI.js         "Email the family?": the preview she edits, sends or skips
-                               after an action (§29; Pro-only, PRO_ONLY_STANDALONE)
-    pickToSend.js              "Review sale & send" on a family's turn: the pick's sale,
-                               a contract form, then one message with the invoice PDF
-                               (§29; Pro-only, PRO_ONLY_STANDALONE)
-    paymentRequestUI.js        "Send payment link" on a Sale and its Invoice: the account
-                               paid through, what for, then the composer (§32; Pro-only,
-                               PRO_ONLY_STANDALONE, imported dynamically)
-    waitlistOnlineUI.js        The "Online list" card on the waitlist's Publish list
-                               page (§29; Pro-only, PRO_ONLY_STANDALONE, imported
-                               dynamically by waitlist-publish.js only where the
-                               waitlist online is offered)
-    invoiceDoc.js              The invoice/receipt DOCUMENT MODEL — what a document
-                               says, for sale/stud/waitlist-fee sources (§24; Pro-only,
-                               PRO_ONLY_STANDALONE)
-    invoicePdf.js              Draws that model as a real PDF with vendored jsPDF
-                               (§24; Pro-only, PRO_ONLY_STANDALONE;
-                               tests/invoicePdf.test.js)
-    invoiceGenerator.js        The Invoice / Receipt generator modal, opened from
-                               Financials and preselected from a Sale's page (§24;
-                               Pro-only, PRO_ONLY_STANDALONE; both import it
-                               dynamically only when editionFlags.invoicing is on)
-    receiptCapture.js          Shared "attach a receipt" widget for both expense
-                               forms — photo/screenshot (OCR + compress) or PDF (§26.1)
-    dropboxConnectUI.js        The one Dropbox connect/disconnect control + the
-                               OAuth-completion boilerplate, mounted by every page
-                               that needs the connection (§26)
-  pages/                       One .js + .html per screen (see §13 catalog)
+CLAUDE.md, README.md         Session brief; summary + doc map
+docs/                        Plans, specs, BUILD_LOG.md, this guide
+build/assemble.mjs           Edition builds → dist/<edition>/ (§0)
+lite/ pro/ demo/             Each edition's editionConfig.js (+ Lite's editionTour.js) (§0)
+cloud/                       Cloud backup / sync Worker (§30, §34; cloud/README.md)
+furever/, site/              Family app; marketing site (separate, not editions)
+tests/                       node --test suites
+shared/                      The app
+  index.html, app.js         Landing page; the shell boot (nav, PWA, first run, license gate)
+  nav.js, sw.js, manifest.json
+  companion-view.html        Companion recipient page (§20): standalone, read-only, precached
+  assistant.html/.js         KennelAssistant helper app (§26): standalone, read-write
+  pages/                     One .html + .js per screen (catalog: §13)
+  assets/                    UI: app.css, ui.js, listView/reportView frameworks (§13),
+                             modals, pickers, feature UI modules
+  data/                      The data layer: db.js, repos, vocab, rules engines, import/export
+    cloud/                   Cloud backup, vault and live sync modules (§30, §34)
+  vendor/                    Dexie, PapaParse, lz-string, jsPDF (§24), Tesseract (OCR),
+                             PDF.js (pedigree import), gsi (Google Drive sign-in, Furever packs §27)
+  resources/                 common_tests_by_breed_seed.csv (breed → test seed, §11)
 ```
+
+Every module opens with a comment saying what it is; feature sections (§19–§34) name the
+modules they use. The core data-layer modules:
+
+| Module | Role |
+|---|---|
+| `db.js` | The Dexie schema, the only one (§5) |
+| `repoBase.js` | `makeRepo` factory, `CapExceededError`, `ReferenceBlockedError` (§6) |
+| `referenceRegistry.js` | Every FK and the hard-delete guard (§7) |
+| `syncRegistry.js` | Per-field cloud allow-list; unlisted = private (§30) |
+| `vocab.js` | Controlled vocabularies and the event-type catalog (§8) |
+| `importExport.js`, `syncApply.js` | The two direct writers of every table: restore (§10), live sync (§34) |
+| `csvImport.js` | CSV match-or-create engine and mappings (§9) |
+| `kennelScope.js` / `scopePredicates.js` | Active-kennel scope: bound read predicates and write stamp / their pure half |
+| `editionConfig.js`, `editionTour.js`, `proPages.js`, `demoMode.js` | Edition injection points and gates (§0) |
+| `settings.js`, `nudgeState.js` | Device-local `localStorage` settings; nudge dismissals (§19) |
+| `dateUtils.js` | `todayYMD()`, the single "what is today" |
+| `appReset.js`, `sampleData.js` | Reset App / remote erase; the sample kennel seed (§11) |
 
 ---
 
 ## 4. Data model
 
-### 4.1 Entities and their required fields
+### 4.1 Entities
 
-Every record also carries `id` (UUID), `is_archived` (bool), `created_at`,
-`updated_at`. Dates are `YYYY-MM-DD` strings except `created_at`/`updated_at` (full
-ISO). Required = enforced in the repo's validator; everything else is optional and
-commonly blank at entry time.
+Every record carries `id` (UUID), `is_archived`, `created_at`, `updated_at`. Dates are
+`YYYY-MM-DD` except those two timestamps. "Required" is enforced by the repo's validator.
+Field lists below are the ones that carry rules; the repo's `normalize`/`validate` is the
+full truth, and `data/syncRegistry.js` says which fields are **private tier** (never sent
+to the cloud unsealed).
 
-| Entity | Required | Notable other fields |
+| Entity | Required | Key fields and rules |
 |---|---|---|
-| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`, plus `kennel_id` **when `ownership_type` is `owned`/`co_owned`** (the kennel scope — must be one of your own kennels; optional and free to name an outside kennel for `external`/`leased_in`) | `registered_name`, `date_of_birth`, `date_of_death`, `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (the kennel that *produced* this dog — own or an outside contact's; distinct from `kennel_id`, the kennel it belongs to *now* — the user's own for a dog they own, or an outside kennel for an external/leased dog (the form's Kennel picker offers every kennel, not just own ones); auto-prefilled from the litter's dam's own `kennel_id` when that dam is owned/co-owned), `owner_contact_id`, `co_owner_contact_ids[]`, `kennel_id`, `color_markings`, `registry`, `registration_number`, `microchip_id`, `url` (plain, unindexed — a link for this dog, e.g. a registry page or listing), `planned_tests[]`, `recorded_coi{value,method,source,as_of_date}`, `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold` — breeder intent; `health_hold` = not sellable for a health reason, never offered by the waitlist, the default when a sale is voided for a failed health check or returned for a health problem; **puppy-only**, valid only while `status='puppy'` and forced null otherwise. Enforced in `dogRepo` create/update and mirrored in the UI: the dog form shows it only for a puppy, `sale.js` won't set one on a non-puppy, the profile hides the row otherwise. Feeds the Today "Active litters" card, the promote-lifecycle nudge, and the litter-lifecycle nudges, §19), `intended_registration` (plain, unindexed — nullable `REGISTRATION_TYPE` value (`limited` / `full` / `co_own` / `none` = unregistered): the registration rights this pup is planned for. Prefills a new Sale's `registration_type` (and through it the Full-registration surcharge, `saleDefaults.expectedPricing`), and the waitlist offers the pup only to families whose `pref_purposes` map to it (`waitlistRules.pupMatchesPrefs`, §29); unset = not decided, matches any family. Set from the Add Puppy / Add several puppies forms (applied to all on the bulk one) and the Dog form, which shows it for a puppy in every edition and only writes it when that field rendered, so a status change never clears it; it is not cleared when the dog grows up — the Sale carries what was actually sold), `notes`, `pedigree_only` (plain, unindexed bool — a dog kept **only for lineage**: an ancestor brought in to build a pedigree, never run as part of the kennel. See "Pedigree-only dogs" below). Owner required when `ownership_type ∈ {external, leased_in}` — except on a pedigree-only dog. `call_name` may be blank on a pedigree-only dog that has a `registered_name` (a pedigree gives registered names, not call names); `dogRepo.dogName(d)` (call name, else registered name) is what pedigree-facing screens show. |
-| **Contact** | `name` | `contact_type[]` (multi), `email`, `phone`, `facebook_profile` (plain, unindexed — their Facebook profile as typed, **FB Profile** on the form; shown as a link when it's a web address, a bare `facebook.com/…` getting `https://`; CSV column `facebook_profile` (or `facebook` / `fb_profile`); **private tier**, like `email`/`phone`), `address`, `kennel_id`, `waitlist_status`, `first_contact_source`, `notes`, `companion_note` (plain, unindexed — a per-recipient message **meant for the recipient's eyes**, shown on their companion share page; deliberately distinct from the private `notes`; §20). Buyers are Contacts — **there is no Buyer table**. `address` also resolves an in-person stud service's away-board location (§19). |
-| **Kennel** | `kennel_name` | `public_id` (**indexed** — the kennel's portable PUBLIC IDENTITY, `kos1_<uuid>`; minted once for an **own** kennel and immutable thereafter, so the same real-world kennel keeps one identifier across a backup/restore, the Lite→Pro bridge, a Dropbox sync, and every kennel card it issues. An **outside** kennel never has one minted locally — it can only ever be *received* from a card its owner issued, so a blank value there means “I typed this kennel in myself”, not missing data. Not a foreign key: nothing points at it, so it carries **no** `referenceRegistry` entry. See §28), `is_own_kennel`, `prefix`, `location`, `website` (plain, unindexed — a link for this kennel, mirrors `Dog.url`), `waitlist_form_keys` (plain, unindexed — her application form's key pairs `[{ id, public_key, private_key, created_at, retired_at }]`, W2 step 4, §29; **private tier**: the private halves open every online application, so they ride the private vault and file backups only), `time_zone` (plain, unindexed — IANA name, e.g. `America/Chicago`; set on the **Online list** card (Waitlist → Manage → Publish list), defaulting to the device's zone; the waitlist online's offer deadlines end at 11:59 pm there, Waitlist Spec §6.5; cloud tier), `logo_data_url` (plain, unindexed — a downscaled PNG/SVG **data URL** for the kennel's logo, uploaded/removed on the kennel detail page; an upload is kept under about 300 KB (`LOGO_MAX_CHARS` in `pages/kennel.js`: a PNG is redrawn at 480 / 360 / 240 / 160 px until it fits, an SVG over it is refused with "That logo is too large. Try a smaller image."), because live sync carries it twice in one record (Cloud Phase 2 plan §4.1); upload only, so an older larger logo still restores, rendered on its invoices/receipts (§24) and puppy records (§23); rides the JSON backup), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds` (plain, unindexed — `{ [testKey]: breed[] }`; which breed(s) tagged each preferred test via the breed-seed import, keyed lowercase-trimmed; a test added by typing directly into the kennel's own "Add a test" field has no entry and stays breed-agnostic. Never edited directly — written by `kennelRepo.addPreferredTest`'s third arg, read via `testBreedsFor`/`testsForBreed`), `promote_nudge_enabled` (bool, default off), `promote_age_male_months`/`promote_age_female_months` (the promote-lifecycle nudge's per-kennel thresholds, §19), `puppy_record_fields` (plain, unindexed object — which fields this kennel's printed Puppy Records show, picked on the Kennel page's **Puppy Record fields** card; stores only what's turned off, `{ [key]: false }`, null = everything shown; keys and the read rule live in `data/puppyRecordFields.js`, §23; cloud tier — a print setting), `waitlist_fee_account_id` (optional **indexed** FK → a `payment_service` Account, `version(4)` — the account its waitlist application fee is paid online through, set under **Fee paid online via** in Waitlist settings; guarded by `ACCOUNT_REFERENCES`; cloud tier; Integrations plan §4, §29), `waitlist_config` (plain, unindexed object — this kennel's waitlist settings: fee, credit policy, fee window, payment instructions, `fee_link_when` (`apply` default — the Pay button at the end of the online application — or `approved`) and `fee_links` (`[{ account_id, amount, charge, url, ref }]`, the reusable Stripe links made on a device holding the fee account's key, one per fee amount; `charge` is what the family pays, the fee plus a card fee when the account passes it on; `waitlistFeeLinks.ensureFeeLinks`), max passes, response days (`respond_days` — the days to accept AND pay the deposit), whether no response counts as a pass, color matching, `auto_offer_on` (which closings offer the next family by themselves: `accepted` / `passed` / `no_response` / `no_deposit` / `left` / `restored` (a family back in line after a lost pup, Waitlist Spec §16.11), from `vocab.WAITLIST_AUTO_OFFER_TRIGGER`; `no_deposit` is a no response on an offer whose family had picked a pup, per `waitlistRules.closingTrigger`; default **none**; replaced the boolean `auto_offer_next` 2026-10-08, and a stored `auto_offer_next: true` still reads as all of them via `waitlistConfig`), check-in months, `online` (bool, default off — her list is published online, W2, §29; only acted on where the waitlist online is offered), `online_form` (bool, default off — she takes applications through the online form, W2 step 4), `pass_reasons` (`[{ id, label, message }]` — her reasons for a family's pass and the message each shows them, Waitlist Spec §16.5; null = `waitlistRules.DEFAULT_PASS_REASONS`; read through `passReasons`) and `pass_other` (bool, default on — also offer "Other" with a text box), `online_since` (the day the list last went online, set by the Online list card or backfilled by the sync; "Ready now?" covers holds ending from then), `ready_no_answer` (`keep_paused` default / `unpause` / `remove_after`, `vocab.WAITLIST_READY_NO_ANSWER`) and `ready_answer_days` (14), `show_upcoming` (`{ planned_pairings, pairings, early_litters }`, each `{ public, family }`, all false by default — what shows online before picks open, Waitlist Spec §16.4; read through `waitlistRules.showUpcoming`), `soon_notice_text` (her "It's almost your turn" wording; blank = `waitlistRules.SOON_NOTICE_DEFAULT`, §29), `email_templates` (`{ [kind]: { subject?, body? } }` — her wording for the emails to families, W2 step 6; only what differs from `waitlistEmails.DEFAULT_EMAIL_TEMPLATES` is stored, null = all defaults; read through `waitlistEmails.emailTemplate`; edited under **Emails to families** in Waitlist settings, shown where the waitlist online is offered, §29), `email_reminders` (bool, default on — the server's reminder and "Ready now?" emails while the list is online, W2 step 7), `facebook_button` (bool, default off) + `facebook_page` (her Facebook Page link as typed) — **Message us on Facebook** on status pages (Waitlist Spec §11, W2 step 8): the switch saves only with a link `waitlistRules.messengerLink` accepts (a facebook.com or m.me address naming a Page), and the projection then carries `kennel.messenger` (`https://m.me/<page>`), which the status page shows to a family on the list as a button with a caption pointing back to its own buttons; edited at the bottom of Waitlist settings where the waitlist online is offered, §29; `public_intro_text` (the message under her public list's heading; blank = `waitlistRules.PUBLIC_INTRO_DEFAULT`, `[Kennel Name]` filled in by `publicIntroText`; edited on the Publish list page, §29), `embed` (bool, default off) + `embed_origins` (her website addresses, cleaned to origins by `waitlistRules.embedOrigin`, at most `EMBED_ORIGINS_MAX` = 10; none = any site) — her own website may show the form and list in a frame (Integrations plan §1); the projection then carries `kennel.embed: { origins }`; edited under **On your website** on the Online list card, §29, `form_questions[]`, her application form (§29; read through `waitlistForm.formQuestions`, which supplies the defaults and restores the locked questions), and `application_faq[]` (`{ id, question, answer }`, her FAQ shown at the top of the application; read through `waitlistForm.formFaq`). Kept on the kennel, not in `settings.js`, so it rides the JSON backup/Dropbox sync; missing keys fall back to `waitlistRules.WAITLIST_CONFIG_DEFAULTS`; edited on the Kennel page's **Waitlist settings** card, §29). Lightweight; added inline from the Contact form. |
-| **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date` (shown as "Planned first date" — the first planned/tie date), `last_observed_date` (plain, unindexed — a subsequent observed tie/breeding date), `expected_due_date` (prefilled on the detail page as 63 days after `planned_date` when still empty, never clobbering a deliberate edit), `notes`. Sire ≠ dam (hard block). |
-| **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname` (plain, unindexed — optional friendly label, e.g. "Party of Five"; when set it leads the detail-page title and shows as its own column on the Litters list and report, searchable across all three; falls back to `dam × sire` when blank), `pairing_id`, `whelp_date` (a new litter's form suggests the day it's created — not the pairing's due date — editable), `accept_deposits_date` (plain, unindexed — when the breeder begins accepting deposits; on the detail page it sits between `whelp_date` and `estimated_ready_date`, and surfaces in the **prospective** companion bundle between "Born" and "Estimated ready" when set, §20), `estimated_ready_date` (plain, unindexed — prefilled as 8 weeks/56 days after `whelp_date` when still empty, and follows a whelp-date change while it still equals that prefill, never clobbering a deliberate edit), `litter_registration_number`, `picks_opened_date` (plain, unindexed — nullable `YYYY-MM-DD` set by the waitlist's **Open picks**; while set and pups remain, the next eligible family is offered as each offer closes — only for the closings ticked in the kennel's `waitlist_config.auto_offer_on`, §29), `puppies_born_total/alive/deceased/abnormalities` (the last a count, not mutually exclusive with alive/deceased), `expected_price_male`/`expected_price_female`/`expected_deposit_male`/`expected_deposit_female`/`full_reg_surcharge_male`/`full_reg_surcharge_female` (plain, unindexed, **private tier** — per-litter defaults, grouped by sex on the detail page; `sale.js` prefills a new Sale's `price` and `deposit_amount` from the matching-sex pair by the puppy's `sex`, only into fields still empty, and when the sale's registration is `full` the price adds that sex's Full-registration surcharge (no base price → no price; co-own and the deposit are never surcharged); the rule lives in `data/saleDefaults.js` `expectedPricing(dog, litter, registration = dog.intended_registration)`, shared with the waitlist's accept flow (§29) and the Companion prospective bundle's per-pup price, which also shows the pup's registration beside it), `foster_direction` (plain, unindexed — nullable `foster_in`/`foster_out`; null = an ordinary litter. **Foster is a per-litter fact** (guide §25): the same dam can have foster and non-foster litters, so it can't live on the Dog. A foster puppy is distinguished from a plain "external" dog purely by DERIVATION of its litter's `foster_direction` — it stays a normal `status='puppy'` Dog we manage and sell), `foster_partner_contact_id` (**indexed FK → Contact**; the counterparty — the dam's owner for foster-in, the caretaker for foster-out — guarded in `CONTACT_REFERENCES`; its `kennel_id` is the owner/caretaker kennel a companion share can reveal), `foster_comp_model` (plain, unindexed — `income_split`/`flat_per_pup`; how the partner is paid), `foster_our_share_pct`/`foster_split_basis` (the income-split terms), `foster_flat_fee_per_pup` (the per-pup flat fee), `foster_split_notes` (all plain, unindexed — documentation of the terms for either model; the actual payout to the other party is a real `foster_split` ("Foster compensation") Expense, never a stored derived number), `notes`. The litter's own sire/dam are authoritative. Puppy roster is **derived** (`Dog WHERE litter_id`). |
-| **Sale** | `dog_id`, `buyer_contact_id`, `registration_type` (indexed — `REGISTRATION_TYPE`: the registration rights sold, Limited / Full / Co-own / None; `co_own` drives the add-buyer-as-co-owner prompt; the Sale form prefills it from the pup's `intended_registration`. Changing it on a sale — on the Sale form, in Pick to send, or by changing a puppy's `intended_registration` on the Dog form while it has an open sale (which first offers to change that sale's registration to match) — asks whether the price follows: the litter's Full surcharge is added or taken off the price as it stands, so a discount stays (`saleDefaults.priceForRegistrationChange` + `salePrompts.askRegistrationPrice`, decided 2026-10-11); a sale with no price yet just takes the new expected price), `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`, `deposit_date`, `balance_due_date`, `balance_paid_date`, `transport_fee` (plain, unindexed — a flat delivery/transport charge, decimal), `end_reason` (plain, unindexed — why a `voided`/`returned` sale ended, `vocab.SALE_END_REASON`: voided = `pup_died`/`failed_health_check`/`other`, returned = `health_problem`/`buyer_choice`/`other`; cleared on any other status; **private tier**) + `end_note` (plain, unindexed, free text about it; **private tier**), `deferred_boarding_amount`/`deferred_boarding_frequency`/`deferred_boarding_duration_days` (plain, unindexed — a boarding rate for a buyer who delayed pickup: decimal amount + `BOARDING_FREQUENCY_OPTIONS` Day/Week/Month + a free-text **count of frequency units** (despite the `_days` name, the value is the number of units — `2` with frequency `Week` means two weeks), rendered as "amount per frequency × count"; the family companion bundle multiplies `amount × count` into a deferred-pickup total feeding the computed remaining balance (§20); never cents, never an Expense — see §21), `lead_source`, `referred_by_contact_id` (indexed FK → the Contact who referred this buyer; `CONTACT_REFERENCES`; on save `saleRepo` auto-tags that contact `buyer_referrer` via `contactRepo.ensureType`), `payment_method`/`payment_reference`/`invoice_number`/`invoice_notes` (plain, unindexed — invoice/receipt document fields set from the Financials generator modal; §24), `sales_channel_account_id` (optional **indexed** FK → `accounts`, added in `version(3)` — the marketplace or payment service the sale went through, e.g. Good Dog; guarded by `ACCOUNT_REFERENCES`; picked on the Sale form in Pro only, `editionFlags.accounts`; cloud tier), `processing_fee_amount` (plain, unindexed decimal — what that channel kept of this sale, a **stored snapshot**: suggested from the Account's rate but never re-derived from it, so a later rate change can't rewrite an old sale; **private tier** like `price`; Lite records it with no channel), `integration_reviews` (plain, unindexed, **private tier** — what a connected vendor reported about this sale that her device didn't apply by itself, Integrations plan §0: `[{ id: 'int-<seq>', seq, provider, kind, payload, at, reason }]`, the newest 20; each is a Today nudge until **Done** removes it, §19; also on Contract), `fee_passed_to_buyer` (plain bool — the fee was passed on in a higher price; defaults from the Account's `fee_passed_to_buyer_default`; cloud tier) — the processing-fee trio, §21.1, `deposit_paid_via_account_id` / `balance_paid_via_account_id` (optional **indexed** FKs → a `payment_service` Account, `version(4)` — how the deposit and the rest of the price (with transport and boarding) were paid, Stripe / Zelle…; guarded by `ACCOUNT_REFERENCES`; cloud tier; the fee is estimated per payment from them, `processingFees.saleFeeEstimate`, §32), `payment_link_url` / `payment_link_ref` / `payment_link_component` (`deposit` / `balance`) / `payment_link_date` (plain, cloud tier — her open one-time Stripe link, its Stripe id, which payment it's for and the day it was made; cleared once paid) and `payment_link_amount` (plain, **private tier**), `processing_fee_reports` (plain, **private tier** — `[{ ref, fee, date, component }]`, the fee each payment's processor reported, once per payment reference; each part's reports replace that part's estimate in `processing_fee_amount`, unless she typed her own fee, §32), `notes`. On the detail page (`sale.js`) all fee fields render/edit above all date fields. Its own table (not a Dog field) so reserve/return/re-place stay distinct facts. |
-| **Contract** | `contract_type`, `kennel_id` | `status` (defaults `draft`), `related_sale_id`, `related_stud_service_id`, `related_dog_id` (canonical Dog link, used only for `lease`/`co_own`/`foster`/`other` types — where no linked Sale/StudService reaches a dog; forced `null` for other types via `contractRepo.DOG_LINK_TYPES`/`normalizeLinks`), `related_contact_id` (canonical counterparty link — lessee/co-owner/partner/foster owner — for the same `lease`/`co_own`/`foster`/`other` types via `CONTACT_LINK_TYPES`; sale/stud contracts reach their counterparty through the linked Sale/StudService, so it stays `null` there; scopes a contract into the **partner** companion bundle, §20), `document_url` (plain, unindexed — a share link to the signed document, e.g. a Drive "anyone with the link" URL; carried as a *pointer* into the buyer bundle, §20), `signed_date`, `esign_provider` (`jotform`/`link`, read from the form's host) / `esign_form_label` (snapshot of the contract form's label) / `esign_sent_date` (`YYYY-MM-DD`) — cloud tier — and `esign_url` (the prefilled link sent, **private tier**: it carries the buyer's details and price), `integration_reviews` (as on Sale: a connected e-sign service's report not applied, **private tier**), all set by **Send for signature** (§32), `lease_start_date`/`lease_end_date` (lease type; UI shows them and hides Related sale/stud fields when `contract_type='lease'`), `title`, `terms_summary`, `notes`. Generic across sale/stud/co-ownership/lease. Leaf for its own hard-delete (nothing points *at* a contract), but it points *at* its Dog via `related_dog_id` (guarded under `DOG_REFERENCES`) and its counterparty via `related_contact_id` (guarded under `CONTACT_REFERENCES`). |
-| **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `pairing_id`, `fee_amount`, `fee_structure`, `pick_status` (plain, unindexed — suggested `pending`/`claimed`, free text allowed; meaningful **only** when `fee_structure ∈ {pick_of_litter, flat_plus_pick}`, forced `null` otherwise; feeds the partner companion bundle's compensation, §20), `pick_value_amount` (plain, unindexed decimal — the breeder's own estimated dollar value of the pick puppy, for income tracking; gated the same way as `pick_status`; deliberately **separate** from `fee_amount` (the actual cash); internal only — never in the partner bundle), `result_notes`, `type` (`in_person`/`ai` — coarse physical-travel flag; `in_person` + `sent_date`/`returned_date` window feeds the away-board, §19), `referred_by_contact_id` (indexed FK → the referring Contact; `CONTACT_REFERENCES`; on save `studServiceRepo` auto-tags `stud_referrer` via `contactRepo.ensureType`), `payment_method`/`payment_reference`/`invoice_number`/`invoice_notes` (plain, unindexed — invoice/receipt document fields, mirroring Sale's; only the outgoing direction is invoiceable, since incoming stud is an expense; §24), plus optional logistics dates. Covers both `incoming` and `outgoing`. |
-| **Event** | `subject_type`, `subject_id`, `event_type`, `event_date`, `title` | `event_end_date`, `reminder_date`, `reminder_dismissed`, `related_dog_id`, `related_contact_id`, `details{}`, `notes`. See §8. **No `cost` field** — a cost entered on the event form is written to the Expense ledger (`expenses.event_id` = the event) and read back via `expenseRepo.getByEvent`; see the Expense row and §21. |
-| **Expense** | `subject_type` (`dog`/`litter`/`pairing`/`kennel`), `subject_id`, `amount`, `category`, `expense_date` | `event_id` (nullable FK → the Event a cost was captured from — the one canonical event↔cost link; reverse is `expenseRepo.getByEvent`), `miles`/`mileage_rate` (plain, unindexed — a **mileage** expense: when `miles` is set, `amount` is **derived** = `miles × mileage_rate` in `expenseRepo.normalize`, never entered directly; both null on a flat expense. Default rate prefilled from `settings.getMileageDefaults()`; §21), `vendor`, `receipt_number` (plain, unindexed — a human-facing receipt/reference number printed on the receipt, not an id of anything in KennelOS; auto-filled by OCR off a scanned receipt when found (§26.1) and editable, shown/edited on both expense forms and the Financials ledger, searchable there, and the idempotent key on CSV re-import when present, §9), `account_id` (optional **indexed** FK → `accounts` — the business account the cost was paid through, e.g. a Chewy order; picked on both expense forms in Pro, `editionFlags.accounts`; guarded by `ACCOUNT_REFERENCES`; `vendor` stays free text beside it, §32), `receipt_file_id` (plain, unindexed FK → the `files` row holding the attached receipt — a photo/screenshot compressed to PDF, or an uploaded PDF, attached via the receipt-capture widget; deleted with the expense in `expenseRepo.hardDelete`; §26.1), `reimbursable`/`reimbursed_date` (plain, unindexed — a cost owed back to you, e.g. a foster-in rearing cost the dam's owner reimburses; `reimbursed_date` records when it was settled, and a set date coerces `reimbursable=true`. Litter P&L nets a reimbursed reimbursable out of your cost and lists a pending one as a receivable — §21/§25. "Reimbursable to whom" is derived from the litter's foster partner, so no per-expense contact FK), `notes`. The Financials ledger: the single home for money spent. Polymorphic like Event; `kennel`-subject rows are kennel-wide overhead. Leaf entity (`EXPENSE_REFERENCES` empty). See §21. |
-| **Document** | `dog_id`, `doc_type` (`pedigree`/`health_test`/`registration`/`contract`/`other`), `file_id` | `title`, `doc_date`, `issuer_or_lab`, `result`, `registry`, `registration_number`, `notes`, `furever_shareable` (plain, unindexed boolean, cloud tier — decided 2026-10-11: she lets this document go into a FurEver litter pack; never set = not shareable, except a document already in a published pack's `selection.documentIds`, which counts as shareable until she sets it either way (`documentRepo.isFureverShareable` / `publishedFureverDocIds`). `normalize` keeps it only once set. Ticked per row on the Documents page and in the add/edit modal, both only where `editionFlags.furever`; the FurEver litter picker greys out and disables a document that isn't shareable, and one already published comes out on the next publish). A filed document belonging to exactly one Dog (`dog_id`, guarded in `DOG_REFERENCES`) and pointing at exactly one stored `files` row (`file_id`) — the reverse "a dog's documents" is `documentRepo.getByDog`. Which optional fields show on the form is keyed by `doc_type` (`vocab.documentFieldsFor`). Leaf entity (`DOCUMENT_REFERENCES` empty); `hardDelete` also removes the linked file. See §26.1. |
-| **File** (`files`) | `blob`, `mime`, `filename`, `size`, `created_at` | `thumbnail` (a small JPEG data-URL for photo-sourced files; blank for uploaded PDFs, which show a doc-type icon). The blob archive behind **both** Documents (`documents.file_id`) and expense receipts (`expenses.receipt_file_id`) — every file is a PDF (photos are compressed to PDF by `pdfBuild.js` before storage). Fetched by id only; not an orphan-guarded entity — a file is owned by its one Document/Expense and deleted with it. `blob` is base64-round-tripped through backups (§5). See §26.1. |
-| **WaitlistEntry** (`waitlist_entries`) | `kennel_id` (own kennel), `status` (`WAITLIST_ENTRY_STATUS`), `listen_mode`, `pref_sex`; `contact_id` once `approved`/`active`/`placed`/`removed`; `application.name` when there's no contact yet; `placed_sale_id` when `placed` | `waitlist_program_id` (FK → WaitlistProgram), `applied_date`/`approved_date`/`declined_date`, `fee_amount`, `fee_due_date`, `fee_received_date` (the **position anchor**), `fee_received_at` (plain, unindexed — full ISO timestamp of when she recorded the fee (or the fee-waived approval); orders two families whose fee date is the same day, so they stay in the order they PAID, never the order they applied; absent on imported/older entries, which then sort first among their same-day peers), `fee_payment_method`/`fee_payment_reference`, `fee_paid_via_account_id` (optional **indexed** FK → the `payment_service` Account it was paid online through, `version(4)`, `ACCOUNT_REFERENCES`, cloud tier), `fee_paid_amount` / `fee_processing_amount` (plain, **private tier** — what the family paid online, her fee plus a passed-on card fee, and what the payment service kept; Income shows the fee net of it, §21), `fee_paid_online` (plain, **private tier** — `{ date, amount, fee, method, reference }`, a fee paid online before she approved them; **Approve** then makes them `active` from that date (`waitlistActions.approve`); on a family she declines it stays, for her to refund; published as `entries[id].fee_paid_online` = the date; Integrations plan §4), `fee_credit_policy`, `position_anchor_date` (her manual override; replaces the fee date for ordering only), `pref_breed` (one of the kennel's breeds — picked from a dropdown of `waitlistRules.kennelBreeds` (the breeds of that kennel's non-archived dogs + its `preferred_breeds`), never typed; CSV import resolves it case-insensitively to the kennel's spelling and flags an unknown one, leaving it blank; a stored value outside the list shows an **Unknown breed** badge on the Waitlist list and family page; blank = any)/`pref_purposes[]` (plain, unindexed — what the family wants a pup for, `vocab.PLACEMENT_PURPOSE`: `pet` / `performance` / `show` / `breeding` / `co_own`, any number, stored clean in vocab order; each maps to the registrations it fits (pet & performance → Limited or None, show → Full, breeding → Full or None, co-own → Co-own; `vocab.registrationsForPurposes`), and the family accepts the union; empty = any)/`pref_colors[]`, `ready_timing` (plain, unindexed — `WAITLIST_READY_TIMING`: `asap` / `1_month` / `3_months` / `6_plus_months`, the answer to her locked, required "soonest you can commit" question; anything but `asap` puts a DERIVED **readiness hold** on the entry (`waitlistRules.readyFromDate`): no offers until `hold_months` (1 / 3 / 6) after `fee_received_date`, or `approved_date` with no fee — treated exactly like a pause, including leaving them off the public list; blank on older entries = no hold), `listen_sire_ids[]`/`listen_dam_ids[]` (multi-entry FKs → Dog, used when `listen_mode='selected'`: the family is offered only litters whose `sire_id` is a picked sire OR whose `dam_id` is a picked dam; or `listen_mode='except'` (Waitlist Spec §16.3): every litter except those — an empty except list skips nothing — the litters/pairings covered are derived, never stored; picked on the Edit form only once the entry is `active` — on the list, fee received or waived; any number of each, Waitlist Spec §15.7), `paused_until`, `pause_reason`, `removed_date`/`removed_reason` (`WAITLIST_REMOVED_REASON`, which gained `no_ready_answer`: removed by her device for no answer to "Ready now?", with the same 7-day undo as `second_pass`), `withdrawn_date`, `soon_notified_date` + `soon_notified_litter_ids[]` (plain, unindexed — when she last sent this family the "It's almost your turn" notice and which litters it was about, stamped by `waitlistActions.markSoonNotified`; a record only, never used to skip a family; §29), `pref_change_log[]` (plain, unindexed — `{ date, field, from, to, by }`, one line per change to `pref_sex`/`pref_breed`/`pref_purposes`/`pref_colors`/`ready_timing` (`waitlistRules.PREF_CHANGE_FIELDS`) once the entry is past `applied`; appended by `waitlistEntryRepo.update` from `prefChangeLines`, so her edits and CSV updates are both logged; `by` is `breeder`, or `request` for a family's status-page request she decided (W2 step 5; a declined one is logged too, with `declined: true`); shown newest first as **Answer changes** on the family page so changing an answer and back is visible, Waitlist Spec §15.9), `application{}` (the application answers, keyed by her form's question ids: `name` and `email` are locked; the default questions keep the W1 keys `phone`, `location`, `heard_from`, `household`, `other_pets`, `experience`, `about`; her own questions use `q_…` ids; a checkboxes answer is an array; an older answer under the retired `timing` key still shows), `application_questions[]` (plain snapshot `{ id, label, type, options? }` of the wording the answers were given under, so editing the form never scrambles an old application; absent on W1 entries, which show the current form), `source` (plain, unindexed — `'online_form'` when the application came through her online form, W2 step 4; absent otherwise), `status_token` (plain, unindexed — the family's status-page link token, 64 hex; minted when the kennel's list goes online, replaced by **New link**; cloud tier, since the waitlist server holds it anyway; §29 Online), `pref_change_request` / `pause_request` / `listen_change_request` (plain, unindexed, **private tier** — what the family asked for on their status page, W2 step 5: `{ requested_date, changes, note }` / `{ requested_date, until, note }` / `{ requested_date, listen_mode, listen_sire_ids, listen_dam_ids }`; one per kind, a new one replaces it; nothing changes until she taps Approve or Decline (`waitlistActions.approve…` / `decline…`), which keep the request marked `decided: 'approved' | 'declined'` + `decided_date` so the family's page can show the outcome for 30 days), `companion_request` (plain, unindexed, **private tier** — a family's request for their Companion link from their status page, Waitlist Spec §16.10: `{ requested_date, note }`, only accepted while their contact has an open sale (`isOpenSale`); a new one replaces it; she sends the link from the Companion page and taps **Mark sent** or **Decline** (`waitlistActions.markCompanionLinkSent` / `declineCompanionRequest`), which mark it `decided: 'sent' | 'declined'` + `decided_date`; the projection publishes `entries[id].companion = { available, request }` for a family with an open sale, never the note), `prepasses[]` (plain, unindexed, **private tier** — "Not this litter", Waitlist Spec §16.2: `{ litter_id | pairing_id, reason: { id, label, text }, date }`, one per litter; nothing counts until their turn comes, when the litter is left out of it (recorded as a passed, uncounted row of the turn) and the prepass is used up; a turn made only of such litters is passed at once, counting once (`waitlistActions.autoPassTurn`); the projection publishes the ids and dates, never the reason), `ready_check` (plain, unindexed, **private tier** — "Ready now?", Waitlist Spec §16.7: `{ answer: 'yes' | 'no', answered_date, until, reason, by: 'family' | 'breeder' }`, or `{ ask_from }` after she undoes a removal for no answer; written by `waitlistActions.recordReadyAnswer`, whose No also makes a `pause_request`), `messages[]` (plain, unindexed, **private tier** — the family's messages (sealed on their status page, opened on her device) and their status-page activity, `{ id, at, from: 'family', kind: 'message' | 'action', body, read }` (`from: 'server'` for what KennelOS did while her phone was off, W2 step 7), and from W2 step 6 the emails she sent them, `{ id: 'em-…', at, from: 'breeder', kind: 'email', email_kind, subject, body, status: 'queued' | 'sent' | 'failed', sent_at, error, read: true }` (`data/waitlistOutbox.js`), plus messages she sent herself (`via: 'own'`, `status: 'sent'`, e.g. `email_kind: 'deposit_request'` from **Review sale & send**, `waitlistOutbox.logOwnMessage`; never queued, so the mailer never sends them); oldest first, the newest 500 kept; unread ones are a Today nudge; W2 step 5. Kept on the entry, not in W2 Plan §8's separate `waitlist_messages` table, so no schema change), `private_request` (plain, unindexed, **private tier** — the applicant's ask, ticked on the online form under the public-list notice, to show privately on the public list, Waitlist Spec §15.3: `{ requested_date }`, set by `waitlistInbox.applicationToEntry`; she answers it in the **Approve** dialog (`waitlistActions.approve`'s `privateListing`), which marks it `decided: 'approved' | 'declined'` + `decided_date`; the projection publishes it, without expiry, as `entries[id].private_name.request`), `private_listing` (plain, unindexed bool, **cloud tier** since the public list shows it anyway and a restore without it would unmask them — the family lists as `waitlistRules.privateName` ("A***** K": first letter, one asterisk per hidden letter, last initial) instead of `publicName` ("Andrea K."); set by her answer at approval, or on the Edit form / manual entry; read by `publicList` through `listedName`; published to their own page as `private_name.on`), `carried_payment` (plain, unindexed, **private tier** — `{ amount, date, from_sale_id }`: what a family paid on a pup they lost, kept for their next one, Waitlist Spec §16.11; set by `waitlistActions.restoreAfterLostSale` when she chooses to carry it, taken as the next pick's Sale `deposit_amount` by `recordPick`, prefilled into the pick/deposit dialogs, cleared by `confirmDeposit`), `notes`. One row per family **per time on a kennel's list**. Position and passes are **derived**, never stored. See §29. |
-| **WaitlistOffer** (`waitlist_offers`) | `entry_id`, `litter_id`, `kennel_id` (all the same kennel), `offered_date`, `outcome` (`WAITLIST_OFFER_OUTCOME`); `chosen_dog_id` when `accepted`, or on an `open` offer whose family has **picked** a pup and is sending the deposit (forced null on passed/no_response/voided) | `respond_by_date` (the deadline to pick AND pay the deposit), `eligible_dog_ids[]` (plain snapshot), `picked_date` (plain — when they picked; cleared with the pick), `sale_id` (**indexed FK → Sale** — the deposit-pending Sale created at the pick to hold the pup; kept after the offer closes, so a lapsed pick still records its cancelled Sale, and an accepted offer voided for a lost pup (§29) still records its voided Sale; guarded in `SALE_REFERENCES`), `outcome_date`, `counts_as_pass` (set once when the outcome is recorded; only the second-pass undo and **undoPass** later clear it; a turn passed in full sets it on one row only), `pass_reason` (plain, unindexed, **private tier** — `{ id, label, text }`, the family's own reason for a pass made on their status page, from her list, Waitlist Spec §16.5; none on a pass she records or a no response), `turn_id` (plain, unindexed — the turn this row belongs to, shared by every litter of one family's turn, Waitlist Spec §16.1; absent on offers made before turns, which are each their own turn; cloud tier), `deposit_request_sent_date` (plain, unindexed, `YYYY-MM-DD`, cloud tier — when she sent the family their deposit request through **Review sale & send**, Integrations plan §2.6; shown as a badge on the turn), `notes`. Leaf for hard delete. See §29. |
-| **WaitlistProgram** (`waitlist_programs`) | `kennel_id` (own kennel), `name`, `priority` (`standard`/`ahead`) | `public_description`, `fee_override` (null = normal fee, 0 = waived), `pause_allowed`, `passes_count` (default true), `respond_days_override`, `notes`. **Only she assigns a program** — families never pick one, so programs are never on the application form (decided 2026-10-06; the old `applicable_on_form` flag was dropped before anything shipped). See §29. |
-| **Account** (`accounts`) | `name` | `account_type` (`ACCOUNT_TYPE`), `website`, `username`, `password`, `customer_id`, `referral_link`, `referral_code`, `referral_instructions` (free text for whoever is given the link/code), `share_with_families` (plain bool, cloud tier — the link/code/instructions show to families as "Recommended for your puppy", §32), `fee_percent`/`fee_fixed` (plain, unindexed decimals — a sales channel's processing fee rate, a percentage of the sale price plus a fixed amount, either blank; `accountRepo` requires 0 ≤ percent < 100 and fixed ≥ 0; cloud tier, a vendor's published rate), `fee_passed_to_buyer_default` (plain bool, cloud), `fee_note` (plain free text about the fee, **private tier**), `contract_forms` (plain array of `{ id, form_type, label, url }`, cloud tier: her signable contract forms, e.g. on Jotform; only on an account of type `form_service`, the only type whose form shows it and whose forms are offered; `form_type` from `CONTRACT_FORM_TYPE`; a form picked through Connect Jotform also has `form_id` (its Jotform id, digits) and `field_map` (`{ <our fact>: <her field parameter> }`, which renames the link's values and limits them to what she matched); values on the account, not an entity, so no FK; cleaned by `contractForms.cleanForms` / `cleanFieldMap`, missing reads as `[]`, §32), `payment_link` (plain, cloud tier — her own payment link, Stripe / Square / PayPal / Venmo…, a web address checked by `paymentLinks.paymentLink`; only on an account of type `payment_service` (revised 2026-10-12: one stored on another type stays but isn't shown or offered), §32) and `payment_instructions` (plain free text written for the buyer, e.g. Zelle details, cloud tier; both are sent to buyers by **Send payment link** and on the waitlist fee's Pay button, Integrations plan §4); her Stripe restricted key for the account lives in `device_secrets`, never on the record, `notes`. The breeder's business accounts with registries/vendors/services (AKC, Good Dog, Chewy…), §32. Program-wide (no `kennel_id`), with no FKs of its own; `ACCOUNT_REFERENCES` (six FKs, §5 above: expenses, a sale's channel and paid-via accounts, a family's fee, a kennel's online fee), so an account in use can only be archived. Login fields, notes and `fee_note` are **private tier**; the referral, fee-rate and payment-link fields are cloud (§32). Pro-only page. |
+| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `registered_name`, `registration_number`, `microchip_id`, `planned_tests[]`, `recorded_coi`, `url`. `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`). |
+| **Contact** | `name` | `contact_type[]`, `email`, `phone`, `facebook_profile`, `address` (also the away-board location, §19), `kennel_id` (affiliation, not scope), `waitlist_status` (kept by `waitlistEntryRepo`), `first_contact_source`, `companion_note` (shown to the recipient, §20; `notes` is private). Buyers are Contacts; there is no Buyer table. |
+| **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `logo_data_url` (kept under ~300 KB, `pages/kennel.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `puppy_record_fields` (§23), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
+| **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date` when empty). Sire ≠ dam. |
+| **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `puppies_born_*` counts, per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
+| **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
+| **Contract** | `contract_type`, `kennel_id` | `status` (default `draft`), `related_sale_id`, `related_stud_service_id`; `related_dog_id` and `related_contact_id` only for `lease`/`co_own`/`foster`/`other` (forced null otherwise, `contractRepo.normalizeLinks`), `document_url`, `signed_date`, lease dates, e-sign fields and `integration_reviews` (§32), `title`, `terms_summary`. |
+| **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `pairing_id`, `fee_amount`, `fee_structure`; `pick_status` and `pick_value_amount` only for pick fee structures (forced null otherwise), `type` (`in_person`/`ai`; in-person dates feed the away-board, §19), `referred_by_contact_id`, invoice fields (outgoing only, §24). |
+| **Event** | `subject_type`, `subject_id`, `event_type`, `event_date`, `title` | `event_end_date`, `reminder_date`, `reminder_dismissed`, `related_dog_id`, `related_contact_id`, `details{}`. No cost field: a cost becomes an Expense with `event_id` (§8, §21). |
+| **Expense** | `subject_type` (`dog`/`litter`/`pairing`/`kennel`), `subject_id`, `amount`, `category`, `expense_date` | `event_id`, `miles` × `mileage_rate` (then `amount` is derived), `vendor`, `receipt_number` (CSV re-import key, §9), `account_id`, `receipt_file_id` (deleted with the expense, §26.1), `reimbursable`/`reimbursed_date` (§21, §25). |
+| **Document** | `dog_id`, `doc_type`, `file_id` | `title`, `doc_date`, `issuer_or_lab`, `result`, `registry`, `registration_number`, `contract_id` (optional, unindexed, not in the registry), `furever_shareable` (§27). Fields shown per type: `vocab.documentFieldsFor`. `hardDelete` removes its file. |
+| **File** (`files`) | `blob`, `mime`, `filename`, `size` | `thumbnail`. Always a PDF. Owned by its one Document or Expense; fetched by id only (§26.1). |
+| **WaitlistEntry**, **WaitlistOffer**, **WaitlistProgram** | see §29 | One entry per family per time on a kennel's list; position and passes are derived, never stored. |
+| **Account** (`accounts`) | `name` | `account_type`, login fields (private), referral fields, fee rate, `contract_forms[]`, `payment_link`, `payment_instructions` (§32). Program-wide, no `kennel_id`. API keys live in `device_secrets`, never on the record. |
 
-**Kennel scope.** `Pairing`/`Litter`/`Sale`/`Contract`/`StudService`/`Document` each
-carry a required `kennel_id` naming which of the user's **own** kennels the record
-belongs to, and `Dog.kennel_id` is required for dogs the user owns. It is stamped on
-create by inheriting from the record's parent, never derived at read time. Full rules
-in `docs/KennelOS_Multi_Kennel_Scope_Spec.md`; the scope itself is resolved through
-`data/kennelScope.js` and is Pro-only (`editionFlags.multiKennel`).
+**Kennel scope.** `Pairing`, `Litter`, `Sale`, `Contract`, `StudService`, `Document`, and
+owned dogs carry a required own-kennel `kennel_id`, **stamped on create** from the parent (a
+sale from its dog, a puppy from its litter…), else the active kennel, and never derived at
+read time. Every list, hub and report filters on it (`data/kennelScope.js`). Not filtered,
+each with a comment at its call site: pedigree/lineage walks, detail pages reached by id
+(an out-of-scope record shows a "belongs to <kennel>" banner), external/leased dogs, and
+the contact pool. `Event` and `Expense` take their subject's scope (`subjectInScope`).
+Choosing among several own kennels is Pro only (`editionFlags.multiKennel`). Spec:
+`docs/KennelOS_Multi_Kennel_Scope_Spec.md`.
 
-On the READ side every list, hub, and report filters by that stamp. What is
-deliberately **not** filtered is as load-bearing as what is, and each exception
-carries a comment at its call site: **pedigree/lineage** (`assets/pedigree.js`,
-`pages/pedigree.js`, `data/kennelTree.js` + `assets/kennelTree.js`, `dogRepo`'s ancestor/offspring walks — ancestry crosses kennels
-by definition), **detail pages reached by id** (a direct link must always resolve;
-an out-of-scope record renders in full above a "belongs to <kennel>" banner),
-**external/leased dogs** (scope-transparent: their `kennel_id` names somebody
-*else's* kennel), and the **contact pool** (program-wide; `Contact.kennel_id` is an
-affiliation, not a scope). `Event` and `Expense` carry no `kennel_id` at all — being
-polymorphic, their scope is their subject's, resolved by `subjectInScope`.
+### 4.2 Relationship direction
 
-### 4.2 Relationship direction — the sixth design principle
+**Every relationship has one stored side; the reverse is a derived query, never a second
+pointer.** For example: `Litter.pairing_id` (reverse `litterRepo.getForPairing`),
+`StudService.pairing_id` (`studServiceRepo.getByPairing`), a Contract's `related_*` links
+(`contractRepo.getBySale`/`getByStudService`/`getByDog`/`getByContact`), `Expense.event_id`
+(`expenseRepo.getByEvent`). Need a reverse? Write a query; don't add a mirror field.
 
-**Every relationship has exactly ONE canonical stored side; the reverse is always a
-derived query, never a second stored pointer.** So:
+### 4.3 Settled — do not re-litigate
 
-- Litter→Pairing is stored as `Litter.pairing_id`; a pairing's litter is
-  `litterRepo.getForPairing`. There is no `Pairing.litter_id`.
-- StudService→Pairing is stored as `StudService.pairing_id`;
-  `studServiceRepo.getByPairing` is the reverse. There is no `Pairing.stud_service_id`.
-- Contract→Sale / →StudService / →Dog / →Contact are stored on the Contract
-  (`related_sale_id`, `related_stud_service_id`, `related_dog_id`,
-  `related_contact_id` — the last two for `lease`/`co_own`/`other` contracts).
-  Sales/stud-services/dogs/contacts carry no contract pointer;
-  `contractRepo.getBySale`/`getByStudService`/`getByDog`/`getByContact` are the reverse.
-- A Dog's children, a Contact's dogs, a Kennel's contacts — all derived queries over
-  the indexed FK.
-- Expense→Event is stored as `Expense.event_id` (the money owns the link); an event's
-  cost is `expenseRepo.getByEvent`. There is no `Event.expense_id`/`Event.cost`.
-  Expense→subject (dog/litter/pairing/kennel) is the polymorphic
-  `[subject_type+subject_id]`; a subject's expenses are `expenseRepo.getForSubject`.
-
-When you need "the reverse of X," write a query. Do not add a mirror field.
-
-### 4.3 Two decisions that are settled — do not re-litigate
-
-- **One `Dog` table** for breeding stock, puppies, and external dogs. A life-stage
-  change is a `status` update on the same record, never a new row.
-- **One `Event` table** for all dated history, polymorphic via
-  `subject_type`/`subject_id`. No per-type event tables.
+- **One `Dog` table** for breeding stock, puppies and external dogs; a life-stage change is
+  a `status` update.
+- **One polymorphic `Event` table** for all dated history.
 
 ---
 
 ## 5. Dexie schema (`data/db.js`)
 
-DB name: `KennelOSBreedingApp`. Every kennel table lives in the **`version(1)` block,
-frozen since 2026-10-10** (real records in production); `version(2)` adds the device-only
-`sync_meta`; `version(3)` re-indexes `sales` to add `sales_channel_account_id` (§21.1). Indexes:
+`db.js` is the schema (DB name `KennelOSBreedingApp`); read its `version(N)` blocks for the
+index strings. `version(1)` holds every kennel table and is **frozen**. Later blocks add
+only what's new: `version(2)` the device-only `sync_meta` (§34), `version(3)`/`(4)` the
+account FKs on sales, waitlist entries and kennels (§21.1, §32).
 
-```
-dogs:          id, sire_id, dam_id, litter_id, breeder_kennel_id,
-               owner_contact_id, *co_owner_contact_ids, status, ownership_type,
-               sex, breed, kennel_id, is_archived
-events:        id, [subject_type+subject_id], event_type, event_date,
-               reminder_date, related_dog_id, related_contact_id, is_archived
-expenses:      id, event_id, [subject_type+subject_id], category,
-               expense_date, account_id, is_archived
-contacts:      id, kennel_id, waitlist_status, is_archived
-kennels:       id, public_id, is_archived
-pairings:      id, kennel_id, sire_id, dam_id, status, pairing_type, is_archived
-litters:       id, kennel_id, pairing_id, sire_id, dam_id, status, whelp_date,
-               foster_partner_contact_id, is_archived
-sales:         id, kennel_id, dog_id, buyer_contact_id, referred_by_contact_id,
-               status, registration_type, is_archived
-contracts:     id, kennel_id, contract_type, status, related_sale_id,
-               related_stud_service_id, related_dog_id, related_contact_id, is_archived
-stud_services: id, kennel_id, our_dog_id, partner_dog_id, partner_contact_id,
-               referred_by_contact_id, direction, status, pairing_id, is_archived
-documents:     id, kennel_id, dog_id, doc_type, doc_date, is_archived
-files:         id, created_at
-breed_feeding_schedules: id, breed, is_archived
-waitlist_entries:  id, kennel_id, contact_id, status, waitlist_program_id,
-                   *listen_sire_ids, *listen_dam_ids, placed_sale_id, is_archived
-waitlist_offers:   id, entry_id, litter_id, kennel_id, chosen_dog_id, sale_id, outcome, is_archived
-waitlist_programs: id, kennel_id, is_archived
-accounts:          id, is_archived
-device_secrets:    id
--- version(2) --
-sync_meta:         id, tbl
--- version(3) --
-sales:         id, kennel_id, dog_id, buyer_contact_id, referred_by_contact_id,
-               status, registration_type, sales_channel_account_id, is_archived
--- version(4) --
-sales:         id, kennel_id, dog_id, buyer_contact_id, referred_by_contact_id,
-               status, registration_type, sales_channel_account_id,
-               deposit_paid_via_account_id, balance_paid_via_account_id, is_archived
-waitlist_entries:  id, kennel_id, contact_id, status, waitlist_program_id,
-                   *listen_sire_ids, *listen_dam_ids, placed_sale_id,
-                   fee_paid_via_account_id, is_archived
-kennels:       id, public_id, waitlist_fee_account_id, is_archived
-```
-
-`version(4)` (2026-10-12, Integrations plan §4–§5) indexes the four "paid via" account FKs
-for the `ACCOUNT_REFERENCES` delete guard; a backup's `schema_version` now reads 4, and older
-files still restore.
-
-**A version bump needs every other open copy to let go.** IndexedDB installs a new
-`version(N)` only once every other connection on the device closes. A live tab does so by
-itself (Dexie closes on `versionchange`), but a copy the phone has frozen in the background
-(an old tab, the installed app in Recents) can't, and the upgrade then waits without an
-error: every read hangs, so pages sit on "Loading…" or show no table (the `version(4)`
-rollout, 2026-10-12). `db.js` announces both sides as window events, `DB_BLOCKED_EVENT` /
-`DB_READY_EVENT` (with `isDbUpgradeBlocked()` for a late reader) and
-`DB_VERSIONCHANGE_EVENT`; `app.js` shows "close every other KennelOS tab or window" while
-blocked (gone once the upgrade goes through), and "updated in another tab, reload" on a copy
-that was closed. Expect the first notice on some devices after any shipped version bump.
-
-`device_secrets` is a **device-only table** (`db.DEVICE_ONLY_TABLES`): this device's
-unlocked private-vault key, stored as a `CryptoKey`, and any open request to be unlocked by
-another device (§30, Private Vault Plan §3.3; `cloud/vaultKeyStore.js`), and her **Jotform
-API keys**, one `jotform:<account id>` row `{ account_id, api_key, region, username,
-connected_at }` per Form service account connected on this device (§32, Integrations plan
-§2.1b; `data/jotformKeyStore.js` is the only reader/writer of those rows), and her **Stripe
-restricted keys**, one `stripe:<account id>` row `{ account_id, api_key, currency,
-connected_at }` per Payment service account (§32, plan §4; `data/stripeKeyStore.js`). It is not
-kennel data, so it has no `syncRegistry`/`referenceRegistry` entry, and code that means "the
-records" iterates `db.dataTables()`: `exportAll`, every restore mode, and Reset App's counts
-leave it out. Reset App and remote erase still clear it.
-
-`sync_meta` (version 2, Cloud Phase 2 plan §3.4) is device-only for the same reasons: one row
-per record this device has synced, `{ id: '<table>:<row id>', tbl, row_id, seq, hash }` (the
-server's seq for the version it last pushed or pulled, and `syncRecords.rowHash` of the row
-then). `data/cloud/syncState.js` is its only reader/writer; the live-sync scan compares every
-syncing row's hash with it, so no write path needs a sync hook. Joining a syncing program
-(`cloudSync.joinSync`, or `enableSync` on the first device) starts it over empty; turning sync
-off on this device (here, for every device, or by turning the vault off) clears it.
-
-**Backups on a syncing program** (Cloud Phase 2 plan §6.4): a syncing device's snapshot states
-the seq it has applied (`sync_seq`, `cloudBackup.snapshotSyncSeq`) and goes only while it's
-caught up (nothing to push, no join under way, sync not paused); otherwise the push is
-skipped as `sync_behind` and stays dirty, never a conflict. A device that doesn't sync here
-sends none and gets the Phase 1 refusal. While the owner's Pro has lapsed (sync paused
-`pro_required`), snapshots go by the Phase 1 backing-device rule (server `snapshots.js`,
-plan §12 decision 6).
-
-Index notes:
-- **`kennel_id` on `pairings`/`litters`/`sales`/`stud_services`/`contracts`/
-  `documents` is the KENNEL SCOPE** (`docs/KennelOS_Multi_Kennel_Scope_Spec.md` §4.1):
-  which of the user's own kennels the record belongs to. **Stamped on create** by
-  inheriting from the record's parent (a sale from its dog, a contract from its sale,
-  a puppy from its litter, a litter from its dam) and falling back to the active/sole
-  kennel — never derived at read time, so moving a dog between the user's kennels can't
-  retroactively rewrite the history of a litter or sale. `dogs.kennel_id` is the same
-  scope for a dog, and is **required** for `owned`/`co_owned` dogs (`dogRepo.validateDog`);
-  an `external`/`leased_in` dog's `kennel_id` still names somebody else's kennel and
-  stays optional. Deliberately NOT scoped: `events`/`expenses` (polymorphic — scope
-  derives from the subject), `files` (fetched by id only),
-  `breed_feeding_schedules` (a program-wide per-breed lookup), and `accounts` (the
-  breeder's program-wide business accounts, §32).
-- **`kennels.public_id` is an IDENTITY field, not a foreign key** (§28). It is indexed because the
-  kennel-card import's match-or-create step probes it (`kennelRepo.getByPublicId`) on every apply, and
-  because that lookup is the only thing standing between “link this card to the kennel I already
-  have” and a duplicate. It gets **no `referenceRegistry` entry** — no table stores a pointer to it,
-  so there is nothing to guard on hard delete (same posture as `breed_feeding_schedules.breed`).
-  The index is deliberately **plain, not Dexie-unique (`&`)**: uniqueness is enforced in `kennelRepo`
-  so a collision reaches the user as a sentence about kennels rather than a raw `DexieError`.
-- `events.[subject_type+subject_id]` **and** `expenses.[subject_type+subject_id]` are
-  **compound** indexes (fast per-subject timeline / ledger). Do not split them.
-- `expenses.event_id` is indexed so `expenseRepo.getByEvent` is an index probe.
-  `expenses.category`/`expense_date` back the Financials report's filters.
-- `sales.referred_by_contact_id` and `stud_services.referred_by_contact_id` are the
-  referral FKs, guarded in `CONTACT_REFERENCES`.
-- `dogs.*co_owner_contact_ids` is a **multi-entry** index ("dogs co-owned by X").
-- `documents` (§26.1) is indexed on `dog_id` (a dog's document list), `doc_type`
-  (the type filter chips), and `doc_date` (newest-first sort). `files` — the blob
-  archive backing both Documents and `expenses.receipt_file_id` — is fetched only by
-  id, so only `created_at` (backup ordering) is indexed. `expenses.receipt_file_id`
-  is a **plain, unindexed** FK into `files` (fetched by id only, never queried on).
-  `documents.contract_id` (§26.1) is a **plain, unindexed** optional FK into
-  `contracts` — the same posture — so the Contract page can surface its filed
-  signed document(s). Its reverse (`documentRepo.getByContract`) is an in-memory
-  scan, not an index probe, and it is deliberately **not** a `referenceRegistry`
-  entry (cleared on the contract's `hardDelete` instead).
-- `events.reminder_date` is indexed for the reminder engine's range probe. Every other
-  canonical FK is indexed so reverse lookups are index probes, not scans.
-- **Unindexed but persisted:** `events.event_end_date`, `events.reminder_dismissed`,
-  `dogs.recorded_coi`, plus every non-indexed field. They persist and ride backups;
-  they simply aren't queryable by key.
-- **Binary, base64 in backups:** `files.blob` is a real `Blob` — the schema's only
-  binary field. JSON can't hold a Blob, so `importExport.js` base64-tags it on export
-  and rehydrates it on restore (`BACKUP_FORMAT_VERSION` 2). This is what keeps stored
-  documents/receipts durable across the JSON backup **and** the Dropbox sync (both go
-  through `exportAll`/`restoreBackup`). Any future Blob field must round-trip the same
-  way — a plain `JSON.stringify` silently drops a Blob to `{}`.
-- `is_archived` is filtered in JS, not by index (IndexedDB can't key on booleans;
-  trivial at kennel scale).
-- `breed_feeding_schedules` (§27.2) is indexed on `breed` — a free-text lookup
-  key matched against `Dog.breed`, not a stored FK, so `breedFeedingScheduleRepo.
-  getByBreed` is a probe rather than a scan. `litters.feeding_schedule_override`
-  (§27.2) is plain and unindexed, same posture as the foster fields.
-- The three **waitlist** tables (§29) index every FK so each `referenceRegistry` probe is a
-  lookup — including the two **multi-entry** listen lists (`*listen_sire_ids`,
-  `*listen_dam_ids`), which only the hard-delete guard queries by key. Their
-  `kennel_id` is the kennel scope (one list per kennel). `Dog.intended_registration`,
-  `Litter.picks_opened_date` and `Kennel.waitlist_config` are plain and unindexed.
-
-Every kennel table lives in that one `version(1)` block, including later additions like
-`litters.foster_partner_contact_id` (§25, the referential guard for a foster partner
-Contact) and the `documents`/`files` tables (§26.1) — `foster_direction`, the foster split
-fields, and every other non-indexed field are plain unindexed and so are not in the strings.
-
-### The versioning rule
-
-**`version(1)` is frozen (2026-10-10).** It was edited in place while nothing had shipped;
-production has held real records since 2026-10-07, so Reset App can no longer reconcile a
-change. From now on a new table or index goes in a new `db.version(N).stores({...})` block that
-lists only what it adds (Dexie 4 carries the rest forward), and a shipped block is never
-edited. A new plain field needs no block. **JSON backups stay backward compatible:** a file,
-snapshot or vault payload from any earlier release still restores (new fields optional, nothing
-a shipped file carries is renamed or removed, unknown tables and fields skipped; see
+**The versioning rule.** Schema changes are additive: a new table or index goes in a new
+`db.version(N).stores({...})` block listing only what it adds, and a shipped block is never
+edited. A new plain field needs no block. JSON backups stay backward compatible (see
 `CLAUDE.md`).
+
+**Index rules:**
+- Index only what you query, filter or sort on. Every canonical FK is indexed so reverse
+  lookups and the hard-delete guard are probes. Exceptions, plain and unindexed by design:
+  `expenses.receipt_file_id`, `documents.contract_id` (fetched by id or scanned).
+- `events` and `expenses` use the **compound** `[subject_type+subject_id]`. Don't split it.
+- `*co_owner_contact_ids`, `*listen_sire_ids`, `*listen_dam_ids` are multi-entry.
+- `kennels.public_id` is plain, not unique (`&`): `kennelRepo` enforces uniqueness so a clash
+  reads as a sentence, not a `DexieError`. It isn't an FK, so no registry entry.
+- `is_archived` is filtered in JS (IndexedDB can't key booleans).
+- `files.blob` is the only binary field. `importExport.js` base64-tags it on export and
+  rehydrates it on restore (`BACKUP_FORMAT_VERSION` 2). Any future Blob field must do the
+  same, or `JSON.stringify` silently turns it into `{}`.
+
+**Device-only tables** (`db.DEVICE_ONLY_TABLES`): `device_secrets` (the unlocked vault key,
+an open unlock request, and her Jotform and Stripe API keys, each read and written only by
+its key-store module) and `sync_meta` (§34). They're not kennel data: no registry entries,
+never in a backup. Code that means "the records" iterates `db.dataTables()`. Reset App and
+remote erase still clear them.
+
+**A version bump waits on every other open copy.** IndexedDB installs a new version only once
+every other connection on the device closes. A frozen background copy can block it, and
+then every read hangs. `db.js` fires `DB_BLOCKED_EVENT` / `DB_READY_EVENT` (and
+`isDbUpgradeBlocked()`) and `DB_VERSIONCHANGE_EVENT`; `app.js` shows "close every other
+KennelOS tab" while blocked and "updated in another tab, reload" on a closed copy.
 
 ---
 
 ## 6. The repo layer
 
-`repoBase.js`'s `makeRepo(tableName, references)` gives every entity the same thin
-surface; each entity repo wraps it to add validation and derived queries.
+`repoBase.js`'s `makeRepo(tableName, references)` gives every entity one surface; each
+entity repo wraps it with validation and derived queries:
+`getById`, `getAll({ includeArchived })`, `create` (id, `is_archived=false`, timestamps),
+`update` (merges; keeps `id`/`created_at`), `archive`/`unarchive`, `getDeleteBlockers`,
+`hardDelete` (throws `ReferenceBlockedError` if anything points at the record, §7).
+Every write calls `assertWritable()` first (Demo, §0.2) and marks the cloud backup dirty
+(`settings.markDataChanged()`).
 
-Uniform surface:
-- `getById(id)`
-- `getAll({ includeArchived = false })` — archived filtered in JS
-- `create(data)` — assigns `id` (UUID), `is_archived=false`, timestamps
-- `update(id, changes)` — merges, preserves `id`/`created_at`, bumps `updated_at`
-- `archive(id)` / `unarchive(id)` — soft delete (the normal "remove")
-- `getDeleteBlockers(id)` — reference blockers without deleting (for UI)
-- `hardDelete(id)` — blocked if any reference exists (throws `ReferenceBlockedError`)
+**Conventions:**
+- `create`/`update` run `validate<Entity>` on the **merged** record.
+- Repos hold only hard, non-interactive rules (required fields, pedigree cycles, sire ≠ dam).
+  Soft warnings (sex mismatch, date order, weight drop) are the page's job; a repo can't
+  prompt.
+- Reverse lookups live on the repo (`dogRepo.getChildren`, `contractRepo.getBySale`…).
+- The Event repo is `HistoryEvent`/`eventRepo`, **never a bare `Event`** (DOM global).
 
-`create`/`update`/`hardDelete` each call `assertWritable()` (`data/demoMode.js`) first — a
-**no-op in this (Pro/shared) code**, but the single lever the Demo edition flips to make
-every user write a friendly no-op (throws `DemoModeError`); the demo seed writes inside a
-`withSeedAllowed()` window. `fileRepo` (which bypasses `makeRepo`) carries the same guard.
-Edition machinery — see the editions README / cap spec, not this guide.
+**Repo specifics:**
+- **dogRepo**: cycle check in `validateDog`; `addPlannedTests` (dedupe on write);
+  `getBreeds`; `getAll({ includePedigreeOnly = false })`.
+- **Pedigree-only dogs** (`pedigree_only: true`): lineage-only ancestors, always
+  `external`. `dogRepo.getAll()` leaves them out by default, which keeps them out of every
+  roster, list, picker, report, Today, the waitlist, Companion/Furever and the Lite cap
+  (`rosterCount.isActiveRosterDog` refuses them too, since the cap reads `db.dogs`). Only
+  pedigree building opts in: `assets/pedigree.js`, `pages/pedigree.js`, `pages/dog.js`'s
+  sire/dam pickers, and the dog CSV mapping's `loadExisting`. Their dog page hides the
+  kennel sections. **Bring into use** clears the flag on the same record and runs full
+  validation and the Lite cap. `pedigree_only` is a cloud field, or a cloud restore would
+  turn every ancestor into an ordinary external dog.
+- **Sale status rules** (`vocab.js`, re-exported by `saleRepo`): `isOpenSale` = not archived
+  and not in `TERMINAL_SALE_STATUSES` (`delivered` + the released ones). Released
+  (`returned`/`cancelled`/`voided`) frees the pup (`isPupAvailable`). **Cancelled** = the
+  buyer backed out (a paid deposit stays earned); **voided** = it fell through on the
+  kennel's side, so nothing on it is income (§21). `end_reason` must fit the status and is
+  cleared unless voided/returned. `isLostSale` (voided, or returned for `health_problem`)
+  is shared by Financials and the waitlist's restore (§29).
+- **contractRepo**: `governingContract` (latest signed, derived) and
+  `isLivePartnerContract` (drives partner Companion membership, §20).
+- **kennelRepo**: preferred tests/breeds (dedupe on write; removing never purges a token
+  an event uses); `addPreferredTest`'s breed tag, read by `testBreedsFor`/`testsForBreed`.
+- **contactRepo.ensureType(id, type)** adds a role tag; sale, stud service and event saves
+  use it (`buyer_referrer`, `stud_referrer`, `handler`, `vet`).
+- **waitlistEntryRepo** keeps `Contact.waitlist_status` in step after every write
+  (`waitlistRules.deriveContactWaitlistStatus`). **waitlistOfferRepo** checks entry, litter
+  and offer share a kennel (§29).
 
-Conventions each entity repo follows:
-- `create`/`update` run a `validate<Entity>` first, then delegate to base. Update
-  validates the **merged** result so partial updates are checked as a whole.
-- Only hard, non-interactive rules live in the repo (required fields, cycle prevention,
-  sire≠dam). Soft/interactive warnings (sex mismatch, date ordering, "leaving
-  deceased") belong to the page UI — a repo can't prompt.
-- Derived reverse-lookup helpers live on the repo (e.g. `dogRepo.getChildren`,
-  `contactRepo.getDogs`, `contractRepo.getBySale`).
-
-Notable repo specifics:
-- **dogRepo**: pedigree cycle prevention in `validateDog` (walks ancestors with a
-  visited-set); `addPlannedTests` (additive, dedupe-on-write); `getBreeds`.
-  `getAll({ includeArchived, includePedigreeOnly = false })` overrides the base read and
-  drops pedigree-only dogs unless asked (below).
-
-**Pedigree-only dogs** (`dogs.pedigree_only = true`). Ancestors kept for lineage only. They
-are always `ownership_type: 'external'` (`validateDog` refuses any other ownership while the
-flag is set) and are exempt from the external owner-contact requirement, and from the
-call-name requirement when they have a registered name (an imported ancestor has no call
-name; the tree, the pedigree picker, the dog page's title/parents/pickers and the import
-page show it by `dogRepo.dogName` — call name, else registered name — and a plain Edit
-marks Call name optional; Bring into use still requires one); status is
-`external_reference` by convention. **Isolation is one choke point:** `dogRepo.getAll()`
-leaves them out by default, so they never reach a roster, list, picker, report, Today, the
-waitlist, Companion/Furever, or the Lite cap (`rosterCount.isActiveRosterDog` also refuses
-them, belt and braces, since the cap reads `db.dogs` directly). `getById` is unaffected, so
-links resolve. The callers that opt in with `includePedigreeOnly: true` are pedigree
-building only: `assets/pedigree.js` (the tree), `pages/pedigree.js` (the root picker offers
-only the one being viewed, so hundreds of ancestors don't flood it), `pages/dog.js` (sire/dam
-names and the Sire/Dam pickers, labelled "(pedigree only)"), and the dog CSV mapping's
-`loadExisting` (match-or-create and sire/dam name resolution land on them instead of
-duplicating). `assistantSync.buildAssistantFeed` filters them out of the helper's dog list.
-On the dog page a pedigree-only dog shows a "Pedigree only" badge, its profile without the
-ownership/status rows, Recorded COI and Pedigree — the kennel sections (planned/health
-tests, show record, timeline, expenses, pairings, sales, stud services, contracts, litters)
-are `hidden`. A plain Edit hides the ownership/status/owner/kennel fields and keeps their
-values. **Bring into use** (header button) opens the edit form with ownership and status
-cleared; saving clears `pedigree_only` on the same record (the one-Dog-table rule — never a
-new row), resolves the kennel like a new dog, and runs the full validation and the Lite cap
-(a block shows the upgrade nudge). `pedigree_only` is a **cloud** field (syncRegistry):
-without it a cloud restore would turn every ancestor into an ordinary, ownerless external
-dog.
-- **eventRepo** (exported as both `HistoryEvent` and `eventRepo`): see §8.
-- **saleRepo.isOpenSale(sale)**: true when a sale is non-archived and its status is not
-  in `{delivered, returned, cancelled, voided}`. Drives family-companion membership (§20) and
-  the "open sale" filter. The predicate and `TERMINAL_SALE_STATUSES` live in `vocab.js`
-  (`isOpenSale`), so the pure waitlist modules (projection, family events) use the same rule
-  for Companion link requests (Waitlist Spec §16.10); `saleRepo` re-exports them.
-  `vocab.RELEASED_SALE_STATUSES` (`returned`/`cancelled`/`voided`) is the subset that ends a
-  sale **without** the pup staying placed: each frees the pup for the waitlist
-  (`isPupAvailable`), and editing a sale into one offers to set the pup's disposition back.
-  **`cancelled` vs `voided`:** cancelled is the *buyer* backing out (a paid deposit stays
-  earned, §21); voided is the sale falling through on the *kennel's* side through no fault
-  of the buyer — the pup died or can't go home — so nothing on it is income (decided
-  2026-10-08). **`end_reason`** (`vocab.SALE_END_REASON`, filtered by `saleEndReasonsFor(status)`)
-  must fit the status when given, and `saleRepo` clears it (and `end_note`) whenever the
-  status isn't `voided`/`returned`; the Sale form requires one for those two statuses, the
-  repo doesn't (older returns, imports). `vocab.isLostSale(sale)` — voided, or returned for
-  `health_problem` — is the "pup lost through no fault of the buyer" rule shared by
-  Financials (§21) and the waitlist's restore (§29).
-- **contractRepo.governingContract(contracts)**: derived "live contract" = most recent
-  `signed` by `signed_date` (fallback `created_at`), or null. Never stored.
-  **contractRepo.isLivePartnerContract(c, today)**: non-archived, counterparty set, not
-  a terminal status (`declined`/`cancelled`/`void`), and — for a lease — not past
-  `lease_end_date`. Drives partner-companion membership and the partner bundle's
-  contract block (§20), so the two can't drift.
-- **kennelRepo**: `preferred_tests`/`preferred_breeds` authoring (dedupe-on-write;
-  remove drops membership only, never purges a token another event may need);
-  `getVocabulary`/`getBreedVocabulary` union over own-kennels. `addPreferredTest`'s
-  optional third arg tags the test with a contributing breed in
-  `preferred_test_breeds`; `testBreedsFor(k, token)` reads that tag back sorted for
-  display, `testsForBreed(k, breed)` filters the panel to one breed (a tagged test
-  needs a match, an untagged one always passes) — see the seedImport.js bullet below
-  and §8.
-- **expenseRepo**: `getForSubject`, `getByEvent`/`getOneByEvent`, and `total(rows)`. See §21.
-- **contactRepo.ensureType(id, type)**: adds a `contact_type` role if missing (no-op
-  otherwise). `saleRepo`/`studServiceRepo` call it on save to auto-tag a
-  `referred_by_contact_id` as `buyer_referrer`/`stud_referrer`.
-- **waitlistEntryRepo**: after every create/update/archive/hardDelete it recomputes the
-  family's `Contact.waitlist_status` (`waitlistRules.deriveContactWaitlistStatus`) and
-  tags them `buyer` while approved/on the list/placed — so the field is kept in step, not
-  hand-edited. `getByKennel`/`getByContact`/`getByProgram`. **waitlistOfferRepo** checks the
-  entry, litter and offer share one kennel; `getByEntry`/`getByLitter`/`getByKennel`.
-  **waitlistProgramRepo** `getByKennel`/`getMapForKennel` (archived included). See §29.
-
-Two derived aggregators live in `data/` but are not repos and own no table:
-- **incomeView** (`incomeView.js`): `getIncomeRows({includeArchived})` and
-  `summarize(rows)` read Sale + outgoing StudService and classify each money component
-  earned/anticipated for the Financials Income & Overview views. Each sale row also
-  carries `dog_id`/`litter_id` (the puppy's litter) so income rolls up per litter. Also
-  exports `incomeLineItems(sourceType, record)` — the cash line items (drops the
-  non-cash `pick`, tags each with its label) the invoice/receipt generator builds from,
-  so a document can't show a component the ledger wouldn't. Stores nothing; recomputed on
-  every load. See §21 and §24.
-- **litterFinances** (`litterFinances.js`): `getLitterFinances()` — one P&L row per
-  litter for the **Litter P&L** report: puppy-sale income (earned/anticipated via
-  incomeView, grouped by `litter_id`) vs the full litter cost (litter-subject expenses
-  **plus** each puppy's dog-subject expenses) and the net. Stores nothing. See §21.
-
-> Module naming trap: the Event repo's JS object is `HistoryEvent`/`eventRepo`, **never
-> a bare `Event`** — that would collide with the DOM global.
+**Derived aggregators** (no table): `incomeView.js` (income rows per Sale / outgoing
+StudService component, earned vs anticipated; `incomeLineItems` feeds invoices, §21, §24)
+and `litterFinances.js` (per-litter P&L, §21).
 
 ---
 
 ## 7. Referential integrity (`data/referenceRegistry.js`)
 
-Hard delete is the rare "undo a data-entry mistake" action; **soft delete (archive) is
-the normal remove and never cascades**.
+Archive is the normal remove and **never cascades**. Hard delete is for undoing a mistake,
+and it is blocked while anything points at the record.
 
-- Each entity has a declared array of every FK that can point at it (`DOG_REFERENCES`,
-  `CONTACT_REFERENCES`, …). `findBlockingReferences(registry, id)` counts matching rows
-  per entry and returns human-readable `{label, count}` blockers; `hardDelete` throws
-  `ReferenceBlockedError` if any exist.
-- `CONTACT_REFERENCES` covers owner/co-owner of a dog, buyer + referrer on a sale,
-  partner + referrer on a stud service, contact on a boarding, placement, show, vet visit, or
-  surgery event (the vet), the
-  lease/co_own/foster/other contract counterparty, and the **foster partner on a
-  litter** (`litters.foster_partner_contact_id`, §25) — so a contact documented anywhere
-  can't be hard-deleted out from under it.
-- `EVENT_REFERENCES` is `[{ expenses.event_id }]`: an event carrying a linked expense is
-  hard-delete-blocked (archive it, or clear the Cost first). `eventRepo` is
-  `makeRepo('events', EVENT_REFERENCES)`.
-- `ACCOUNT_REFERENCES` is `[{ expenses.account_id }, { sales.sales_channel_account_id },
-  { sales.deposit_paid_via_account_id }, { sales.balance_paid_via_account_id },
-  { waitlist_entries.fee_paid_via_account_id }, { kennels.waitlist_fee_account_id }]`: an
-  account an expense was paid through, a sale was sold through or paid via, a family's fee
-  was paid via, or a kennel takes its online fee through, can only be archived (§21.1, §32).
-- `DOG_/LITTER_/PAIRING_/KENNEL_REFERENCES` each carry an `expenses.subject_id` entry
-  (compound-index + discriminator), so a subject can't be hard-deleted out from under its
-  expenses.
-- **`KENNEL_REFERENCES` also carries the six kennel-scope FKs** —
-  `pairings`/`litters`/`sales`/`stud_services`/`contracts`/`documents` `.kennel_id`
-  (§5, Multi-Kennel Scope Spec §4.2) — alongside `contacts.kennel_id`,
-  `dogs.kennel_id`, and `dogs.breeder_kennel_id`. **Consequence:** a kennel in real
-  use is effectively undeletable, because its own litters/sales/contracts block the
-  delete. That is intended (archive is the exit), and the Kennels page's Delete
-  button disables itself with the blocker list naming exactly what's holding it.
-  `tests/referenceRegistry.test.js` parses `db.js`'s schema and asserts every
-  declared `*kennel_id` index has a registry entry, so a seventh scoped table can't
-  be added without one.
-- `DOG_REFERENCES` also carries a `documents.dog_id` entry (§26.1), so a dog with filed
-  documents can't be hard-deleted out from under them.
-- **Waitlist FKs (§29):** `waitlist_entries.contact_id` (Contact), the three waitlist
-  `kennel_id`s (Kennel), `waitlist_offers.litter_id` (Litter),
-  `waitlist_entries.placed_sale_id` + `waitlist_offers.sale_id` (Sale), `waitlist_offers.chosen_dog_id`
-  + the multi-entry `waitlist_entries.listen_sire_ids` / `listen_dam_ids` (Dog), plus the new `WAITLIST_ENTRY_REFERENCES` (`waitlist_offers.entry_id`) and
-  `WAITLIST_PROGRAM_REFERENCES` (`waitlist_entries.waitlist_program_id`).
-  `WAITLIST_OFFER_REFERENCES` is empty (a leaf). Consequence: an entry whose listen-only choice
-  names a sire or dam (`selected` or `except`), even a withdrawn one, blocks that dog's hard delete — archive is
-  the exit. `tests/referenceRegistry.test.js` pins each of these to an indexed field.
-- `Contract`, `Expense`, `Document`, and `BreedFeedingSchedule` (§27.2) are leaves
-  *for the registry* (empty `CONTRACT_REFERENCES` / `EXPENSE_REFERENCES` /
-  `DOCUMENT_REFERENCES` / `BREED_FEEDING_SCHEDULE_REFERENCES` — nothing in the
-  registry points *at* them, so none is ever a hard-delete blocker). The one exception
-  that stays outside the registry: a Document may carry an **unindexed** `contract_id`
-  back-link to a Contract (§26.1). Because it isn't a registry entry it never blocks the
-  contract's delete; `contractRepo.hardDelete` clears it first (via
-  `documentRepo.unlinkContract`) so no document is left pointing at a deleted contract —
-  the same "owner clears its unregistered back-link on delete" shape as the `files` rule
-  below. A `files` row is **not** in the registry: it is owned by exactly one Document
-  (`documents.file_id`)
-  or one Expense (`expenses.receipt_file_id`) and is deleted alongside its owner in that
-  repo's `hardDelete`, never orphan-guarded.
-- The guard **skips any table not present in the current schema** — so it can't rot;
-  adding a referencing table later is one appended line.
-- The polymorphic Event/Expense subject is matched via the compound index with a
-  discriminator (`{compoundIndex:'[subject_type+subject_id]', discriminatorValue:'dog'|
-  'pairing'|…}`).
-- The blocking message is generated entirely from the registry, so it always matches the
-  tables that actually exist — no hand-maintained carve-outs.
+- Each entity has an array of every FK pointing at it (`DOG_REFERENCES`,
+  `CONTACT_REFERENCES`…). `findBlockingReferences` counts them and returns `{label, count}`
+  blockers; the blocking message is built entirely from the registry.
+- Polymorphic Event/Expense subjects match through the compound index plus a
+  discriminator. Every subject entity's array includes `expenses.subject_id`.
+- The guard skips tables not in the current schema, so adding one is one appended line.
+- **Leaves** (empty arrays): Contract, Expense, Document, WaitlistOffer,
+  BreedFeedingSchedule.
+- **Outside the registry on purpose:** a `files` row belongs to one Document or Expense and
+  is deleted with it; `documents.contract_id` is cleared by `contractRepo.hardDelete`
+  (`documentRepo.unlinkContract`). Neither ever blocks.
+- `KENNEL_REFERENCES` includes every kennel-scope `kennel_id`, so a kennel in use can only
+  be archived. `tests/referenceRegistry.test.js` checks every indexed `*kennel_id` and the
+  waitlist FKs have entries.
+- A waitlist listen-only choice naming a sire or dam blocks that dog's hard delete.
 
-**When you add an FK anywhere, add its line to the registry** or hard-delete will
-silently allow orphaning.
+**When you add an FK anywhere, add its line to the registry**, or hard delete will silently
+orphan rows, and a merge (§33, `data/recordMerge.js`) will leave rows pointing at the archived
+duplicate. Merge moves every `DOG_REFERENCES` / `CONTACT_REFERENCES` field, plus its own
+`EXTRA_REFERENCES` for unindexed id lists that can't block a delete
+(`waitlist_offers.eligible_dog_ids`).
 
 ---
 
 ## 8. The Event model
 
-One polymorphic table for all dated history. `subject_type ∈ {dog, pairing, litter}` +
-`subject_id` say what it's attached to. The type catalog lives in `vocab.js`
-`EVENT_TYPES`; each type carries:
+One polymorphic table for all dated history: `subject_type ∈ {dog, pairing, litter}` +
+`subject_id`. The type catalog is `vocab.js` `EVENT_TYPES`. Each type has:
 
-> **Cost lives in the ledger, not on the Event.** The event form shows a "Cost" (+
-> "Cost category") field, but on save it upserts an `Expense` carrying `event_id` = this
-> event and the event's own subject; clearing the field removes that linked expense. The
-> timeline reads the amount back via `expenseRepo.getByEvent`. See §21.
-- `subjects[]` — which subject types may log it (`eventTypesFor(subjectType)` filters).
-- `editionFlag` (optional) — the type exists only when `editionFlags[editionFlag]` is on.
-  `enabledEventTypes()` = `EVENT_TYPES` minus types whose flag is off, and
-  `eventTypesFor()` filters *that*, so every type picker (event form, CSV import, the
-  assistant, Upcoming's Type filter) drops the type in one place. Flags are read at call
-  time, never cached in a top-level const. `EVENT_TYPES` itself stays complete, so
-  `descriptor()`/badges still resolve such an event arriving in a backup from another
-  edition. (`show` carries `editionFlag: 'shows'` — Pro/Demo only.)
-- `duration` — `'instant'` (single date) or `'span'` (`event_date` start, optional
-  `event_end_date` end). Spans: `medication`, `heat_cycle`, `boarding`.
-- `badge` — colour class.
-- `fields[]` — the small type-specific form written into `details{}`. Field types:
-  `text`, `textarea`, `number` (optional `step`), `date`, `combobox`
-  (suggest-not-enforce), `select` (enforced, options[] only). Options are plain strings
-  **or** `{ value, label }` vocab objects (the form stores `value`, shows `label`). A
-  field may carry `default`, applied only when *creating* an event whose draft has no
-  value for that key (a prefill wins).
-- `relatedContact: true` — surfaces the top-level `related_contact_id` FK (boarding,
-  placement, show, vet_visit, surgery). Contacts on events are the canonical FK, never a
-  `details` value. A **string** value is the picker's label (`show` → "Handler",
-  `vet_visit`/`surgery` → "Vet"). `eventForm.js`'s `RELATED_CONTACT_ROLE` tags the saved
-  contact with a role via `contactRepo.ensureType` (`show` → `handler`, `vet_visit`/`surgery`
-  → `vet`), whether picked or created inline; with a role, the picker lists contacts that
-  already carry it first and the "＋ New" contact defaults to it.
-- `contactFallback: true` (on a field) — the related contact's plain-text **name**, kept
-  only where no contact is linked: `details.vet` on `vet_visit`/`surgery`, written by
-  KennelAssistant's log form (no pickers there) and by events logged before the vet
-  link. The main event form hides the field, preselects a contact whose name matches
-  (case-insensitive, trimmed; never auto-creates one), prefills "＋ New" with the name, and
-  drops the key on save once a contact is linked. Timeline/Puppy Record show the linked
-  contact's name, falling back to the typed one.
-- `titleFrom` (optional) — a `details` key that auto-fills the title (`show` →
-  `show_name`): while the title is empty, the type label, or the last auto-filled value,
-  typing in that field rewrites it; a hand-edited title is left alone.
+- `subjects[]` — who can log it (`eventTypesFor(subjectType)`).
+- `editionFlag` (optional) — exists only when that flag is on (`show` → `shows`).
+  `enabledEventTypes()` filters every picker in one place; `EVENT_TYPES` stays complete so
+  a backup from another edition still renders.
+- `duration` — `instant`, or `span` (`event_end_date`): `medication`, `heat_cycle`,
+  `boarding`.
+- `badge`, and `fields[]` written to `details{}` (`text`, `textarea`, `number`, `date`,
+  `combobox` = suggest, `select` = enforced; options are strings or `{value,label}`;
+  `default` applies on create only).
+- `relatedContact` — shows the `related_contact_id` picker (a string is its label: show →
+  "Handler", vet_visit/surgery → "Vet"). Contacts on events are always the FK, never a
+  `details` value. `contactFallback` keeps a typed vet name only where no contact is linked
+  (KennelAssistant has no pickers).
+- `titleFrom` — a `details` key that auto-fills the title until it's hand-edited.
 
-`openEventForm`'s `prefill` may also carry `event_date` (seeds a new event's date; today
-is the fallback).
+**Cost lives in the ledger.** The event form's Cost field upserts an Expense with
+`event_id` = the event; clearing it removes that expense (§21).
 
-**Show specifics** (`show`, Pro-only — `docs/KennelOS_Show_Tracking_Spec.md`): one
-instant event per dog per show day. `related_contact_id` = handler; `reminder_date` =
-entries close; Cost → a `show` ("Shows & handling") expense. `details{}`: `entry_status`
-(`SHOW_ENTRY_STATUS`, default `planned`), `show_name`, `club`, `organization`
-(`SHOW_ORGANIZATIONS`, default `AKC`), `location`, `ring`, `ring_time` (inert string),
-`judge` (free text, not a Contact FK), `class` (`AKC_SHOW_CLASSES` suggestions),
-`placement` (`AKC_SHOW_AWARDS` suggestions), `points` (number), `points_toward`
-(`TITLE_TRACKS`), `defeated_champion` (Yes/No). Club and judge suggestions are the
-distinct values already logged (`eventForm.js` `LOGGED_VALUE_FIELDS` →
-`eventRepo.getDetailValues(type, key)`). Points/majors/titles are **derived, never
-stored**. Saving raises one soft confirm (never a block) for: points over the track's
-`perShowMax`, points while status ≠ `shown`, results on a future date, points with no
-`points_toward`.
+**Shows** (Pro, `docs/KennelOS_Show_Tracking_Spec.md`): one `show` event per dog per show
+day. Points, majors and titles are **derived, never stored**: `data/showPoints.js`
+(`trackProgress`, `showRecordFrom`, `getShowRecord`) tallies counting events (`entry_status`
+`shown`, `points_toward` set, points > 0) against `vocab.TITLE_TRACKS`. A track with
+`requires` (GCH → CH) counts only wins after the required title. Saving odd results raises
+a soft confirm, never a block.
 
-**Points engine (`data/showPoints.js`).** Title progress is derived on read from the
-dog's `show` events against the `TITLE_TRACKS` rows (AKC CH / GCH) — no stored points,
-majors or titles. A *counting* event is a non-archived `show` with `entry_status`
-`shown`, `points_toward` = the track, and `Number(points) > 0` (CSV strings coerced;
-blank/junk = 0). Per track: points = Σ min(points, `perShowMax`); a major = a win with
-points ≥ `majorMin` (derived, never a flag); distinct judges are compared trimmed,
-whitespace-collapsed and case-folded, and a blank judge never counts. Two majors under
-one judge are one major judge, so the track still needs "1 more major under a new
-judge". `trackProgress(events, track, {since})` returns the tally, `complete`,
-`completedOn` (the first win that satisfied every requirement), human-readable
-`missing[]`, and `notCounted`. A track with `requires` (GCH → CH) counts only wins dated
-**after** the required-title date — the earliest of a non-archived `title_earned` event
-whose `title_abbreviation` matches (case-insensitive) and the required track's
-`completedOn`; earlier wins are reported in `notCounted`, and with no such date the track
-is incomplete with "CH not yet earned". `showRecordFrom(dogEvents)` (pure) assembles one
-row per track the dog has show events aimed at plus the newest-first history;
-`getShowRecord(dogId)` is the one-query loader (`getForSubject`). Completion never writes
-anything.
+**Litter-wide logging** (`litter.js` → `openEventForm`'s `cascadeTargets`) writes one event
+per checked puppy with the same `details`, except fields in `eventForm.js`
+`PER_TARGET_CASCADE_FIELDS` (`weight_check` weights) which are per puppy. Saving a weight
+below that dog's previous weigh-in (same-day AM/PM aware) asks to confirm.
 
-**Placement specifics:** `dropoff_method` (`select`, enforced choice from
-`PLACEMENT_METHODS` — Flight nanny / Ground transport / Local pickup / Other) sits first
-in the form, directly above `placement_time`. A deferred-pickup boarding rate lives on
-**`Sale`**, not here — see §5's Sale row and §21's money note.
+Test-bearing types (`genetic_test`, `breed_specific_test`, `ofa_pennhip`) feed the test
+vocabulary through `testTokensOf(event)`.
 
-Test-bearing types (`genetic_test`, `breed_specific_test`, `ofa_pennhip`) feed the
-shared test vocabulary; `testTokensOf(event)` derives the test-name token(s).
-
-**Litter-wide cascade** (`litter.js`'s "Log event for whole litter" → `openEventForm`'s
-`cascadeTargets`): normally every checked puppy gets one Event with the *same*
-`details{}`. `weight_check` is the one exception — `eventForm.js`'s
-`PER_TARGET_CASCADE_FIELDS` names `weight_lbs`/`weight_oz` as per-target, so each checked
-puppy gets its own weight inputs while `time_of_day` stays a single shared field. Add a
-type to that map to give any other field the same per-puppy treatment.
-
-**Weight-regression warning** (`eventForm.js` `save()`): saving a `weight_check` whose
-value is **below the same dog's previous weigh-in** raises a soft confirm ("Weight
-decreased — Save anyway?"), never a hard block (soft/interactive checks are the page's job,
-not the repo's, per §6). It's checked **per dog**, so a litter-wide bulk weight-add lists
-exactly which puppies dropped (and by how much). Comparison is total ounces (`lbs×16 + oz`)
-against the dog's **immediately preceding** `weight_check` (`findPriorWeighIn`, excluding the
-event being edited); a weight with no prior to compare against, or one that held/rose, saves
-silently. "Preceding" is a **same-day AM/PM-aware total order** (`weighKey`/`keyCmp`: date →
-AM-before-PM via `time_of_day` → capture time), so two weigh-ins on one day sort correctly — a
-PM compares against that morning's AM, and an AM compares against the prior day rather than a
-later-in-the-day PM.
-
-### eventRepo reads (all siblings — deliberately never fused)
-
-- `getForSubject(type, id)` — the timeline, newest first (compound index).
-- `getBoardRows()` — dogs currently away via boarding events: `event_type='boarding'`,
-  not archived, not yet ended. Whereabouts only — **not** all spans. This is ONE half of
-  the away-board; `data/awayBoard.js` `getAwayBoardRows()` unions it with
-  `studServiceRepo.getBoardRows()` (in-person stud services) into one view-model — §19.
-- `getUpcoming()` — instant-duration events at/after today, any subject ("Upcoming
-  Deliverables").
-- `getScheduledPlacements()` — future `placement` events only.
-- `getInRange(from, to)` — every non-archived event whose dates touch `[from, to]`
-  (starts on/before `to`, and starts or ends on/after `from`), past and future, any type.
-  The Calendar page's read, one month at a time.
-- `getByType(type, {includeArchived})` — every event of one type across all subjects,
-  oldest first (one `event_type` index probe). The Shows page's read (`show`).
-- `getReminders()` / `getDismissedReminders()` — events with a non-null `reminder_date`,
-  not archived, split by `reminder_dismissed`. `reminder_date` is the app's **one**
-  future-dated mechanism. Bucketing into overdue/due-soon/upcoming is a display concern
-  (30-day window), computed in the page, not the repo.
-- Reminder mutations: `dismissReminder`/`undismissReminder` (not archiving, not a status
-  change) and `snoozeReminder` (snooze **is** a `reminder_date` edit — there is no
-  separate snooze field).
-
-The overdue/due-soon boundary (`DUE_SOON_DAYS = 30`) is duplicated as a UI constant in
-`reminders.js` and `dashboard.js`; keep them equal if you change it.
+**eventRepo reads** (separate on purpose):
+- `getForSubject(type, id)` — a timeline, newest first.
+- `getBoardRows()` — dogs away on boarding now; `awayBoard.js` unions it with in-person stud
+  services (§19).
+- `getUpcoming()`, `getScheduledPlacements()`, `getInRange(from, to)` (Calendar),
+  `getByType(type)` (Shows page), `getDetailValues(type, key)` (suggestions).
+- `getReminders()` / `getDismissedReminders()`. `reminder_date` is the app's **one**
+  future-dated mechanism; snooze edits it, dismiss sets `reminder_dismissed`.
+- The 30-day "due soon" window (`DUE_SOON_DAYS`) is repeated in `reminders.js`,
+  `dashboard.js` and `today.js`; keep them equal.
 
 ---
 
 ## 9. CSV import (`data/csvImport.js`)
 
-Generic, entity-agnostic match-or-create engine used through the shared
-`assets/importView.js` UI (the **expense** importer is the one exception — it reuses this
-engine for parsing/classification but renders its own subject-attach review screen; see the
-Expense mapping below). Every import is a **dry-run preview** (create / update /
-needs-review) before any write.
+A generic match-or-create engine. Every import is a **dry-run preview** (create / update /
+needs review) before any write. Flow: `parseCsv` (headers → lower_snake_case, values
+trimmed) → `buildPlan(entity, rows)` → the user reviews → `commitPlan`. The shared UI is
+`assets/importView.js`.
 
-Flow: `parseCsv` (PapaParse; headers → lower_snake_case, values trimmed) →
-`buildPlan(entity, rows)` → user reviews/adjusts decisions → `commitPlan`.
+**Rules:**
+- **Natural key must be non-empty.** Keyless or partial-key rows always need review; they're
+  never auto-matched or silently created.
+- Names match case-insensitively and trimmed; dates exactly. A present but unrecognised
+  enum or date is flagged.
+- Relationship columns resolve against **existing** records only. An unresolved name is
+  flagged, never invented. Two deliberate exceptions create a Contact at commit: Sale
+  `buyer_name` and StudService `partner_contact_name` (each mapping's `prepareRecord`).
+- **`kennel_name`** (Dog, Pairing, Litter, Sale, StudService; `resolveKennelColumn`) must be
+  an own kennel, except on an external/leased dog. Blank = the active/sole kennel at commit;
+  with several own kennels and "All kennels" showing, kennel-needing creates go to review
+  (`flagMissingKennel`). Dogs also take `breeder_kennel_name` (any kennel).
+- **Dog owner** (`owner_name`) resolves against Contacts. An external dog that would lack
+  an owner goes to review, except a **new** external dog with no owner, which is created
+  pedigree-only. An update never makes a dog pedigree-only.
+- **Parents in the same file:** a sire/dam naming another row of the dogs file previews as
+  resolved; `commitPlan` writes every row, then `linkBatchParents` sets the links.
+- **Previewed = committable.** When a repo gains a required field, its mapping must fill it
+  or send rows without it to review.
+- **Column guide:** `data/csvImportHelp.js` (rendered by `assets/importHelp.js`, with a
+  blank-template download). `tests/csvImportHelp.test.js` pins it to each mapping's
+  `templateHeaders`, so **a new column needs its help line**.
+- Kennels import first (other files point at them), so Import / Export lists Kennels, then
+  Contacts, then Dogs.
 
-Rules that shape everything:
-- **Natural key must be non-empty.** Keyless/partial-key rows are always "needs review" —
-  never auto-matched, never silently created.
-- Name match is case-insensitive + trimmed; dates exact. Enum/date cells normalize to a
-  value, `''` (blank), or `null` (present but unrecognized → flagged).
-- Relationship columns (sire/dam/dog names) resolve against **existing** records only; an
-  unresolved name is flagged, never invented.
-- **Kennel by name** (Multi-Kennel Scope Spec §11): Dog, Pairing, Litter, Sale, and
-  StudService all accept an optional `kennel_name` column, resolved the same way as every
-  other relationship column — case-insensitive/trimmed, against existing kennels only, via
-  the shared `resolveKennelColumn()` helper. Pairing/Litter/Sale/StudService require the
-  match to be one of the user's **own** kennels (they only ever carry an own-kennel scope);
-  Dog requires it only when `ownership_type` is `owned`/`co_owned` — an external/leased dog
-  may legitimately name an outside kennel here. Either way, a named kennel that fails to
-  resolve routes the row to **review**, exactly like an unresolved sire/dam — it never falls
-  through to commit and silently lands on whatever `stampKennelScope()` would otherwise
-  default to. A blank column is not a failure: `commitPlan`'s `stampKennelScope()` fills it
-  from the active/sole kennel at commit time, same as before this column existed. When there
-  is **no** active/sole kennel to fall back to (two or more own kennels, "All kennels"
-  showing), `buildPlan` runs `flagMissingKennel()` over the plan: every kennel-needing
-  **create** with no `kennel_id` (a Pairing/Litter/Sale/StudService, or an owned/co-owned Dog)
-  goes to review with "No kennel…", rather than previewing as a create and failing at commit.
-- **Dog breeder kennel** (`breeder_kennel_name`, alias `breeder_kennel`): resolves to
-  `breeder_kennel_id` against **any** existing kennel, own or outside (a dog's breeder is
-  often someone else's kennel); unknown → flagged and the row goes to review. Because a
-  matched row's changes are the same recognized fields, re-importing a dogs file with this
-  column filled sets the breeder kennel on dogs already in the app.
-- **Import order: kennels first.** Kennels are what other rows point at (a contact's and a
-  dog's kennel columns), and relationship columns never invent, so the Import / Export
-  menu lists **Kennels** first, then Contacts and Dogs, and the kennel screen says so.
-- **Dog owner** (`owner_name`, aliases `owner`/`owner_contact_name`): resolves against
-  existing Contacts only (unknown → flagged). Because `dogRepo` requires `owner_contact_id`
-  on an `external`/`leased_in` dog (pedigree-only exempt), a row whose dog-as-saved (the
-  match merged with the row) would lack one goes to review with "…needs its owner" —
-  **except a NEW `external` dog with no `owner_name`**, which is created **pedigree-only**
-  (`pedigree_only: true`, status `external_reference` when blank, call name optional with a
-  registered name), the way Pedigree Import saves ancestors: a sire or dam typed from a
-  pedigree, kept for lineage. Only ever on a create — an update never turns a dog already in
-  the app pedigree-only (`pedigree_only` rides `record`, never `changes`).
-- **Parents in the same file** (dogs): a `sire_registered_name`/`dam_registered_name` that
-  isn't in the app but names another row of the file (registered name first, then call name;
-  `DOG_MAPPING.indexBatch`) previews as resolved, with a note naming the row; matching two or
-  more rows is flagged like an unknown name, and `finishPlan` notes when that parent row
-  itself needs review. `commitPlan` writes every row first, then a **link pass**
-  (`linkBatchParents`) sets `sire_id`/`dam_id` from the written rows' ids — after the writes
-  rather than by ordering them, so a parent row switched from review to Create is linked too.
-  A parent row that wasn't imported leaves the dog unlinked and is reported in the result's
-  `notes`, never blocking the dog.
-- **Previewed = committable.** When a repo gains a required field, the matching mapping must
-  either fill it from a column or send rows that lack it to review, so a "create" in the
-  preview never fails at commit.
-- **Column guide** (`data/csvImportHelp.js`, rendered by `assets/importHelp.js` on every
-  import screen, the Expense one included): per importer, how rows are matched and one
-  plain-language line per column (Required / Required for new records / Optional, what
-  goes in it, alias headers, and accepted values read live from `vocab.js`), the general
-  rules, and a blank-template download (`downloadImportTemplate`, also offered from the
-  "Download a blank template to fill" dropdown on the Import / Export page, where Kennel tests links its bundled sample instead). `tests/csvImportHelp.test.js` pins each guide's
-  columns to its mapping's `templateHeaders`, so **a new column needs its help line**.
-- **Two deliberate exceptions** auto-create a Contact inline at commit (never a stall):
-  Sale's `buyer_name` and StudService's `partner_contact_name`, via each mapping's
-  `prepareRecord` hook.
+**Natural keys:** Kennel = name (a new one is always an outside kennel; an update never
+changes `is_own_kennel` or `public_id`); Dog = name + DOB **or** registration number
+(`normReg`, shared with Pedigree Import); Contact = name; Pairing = sire + dam + planned
+date; Litter = dam + sire + whelp date; Sale = dog + buyer + sale date; Event (dog subject)
+= dog + type + date (title breaks ties; for `show` the title always counts); StudService =
+our dog + partner dog + direction (always review on a match); Expense = `receipt_number` if
+present, else subject + date + amount + category + vendor (re-import updates in place;
+only non-archived rows not linked to an event are matched).
 
-**Import several files** (`pages/import-batch.html`, `data/csvBatch.js`; the button under
-CSV import on Import / Export, every edition). The user picks every CSV at once. Each
-file's importer is **guessed from its column names**: `detectEntity` reads the names and
-aliases from `csvImportHelp.js` (so it can't miss a column an importer accepts), scoring
-each shared name 1 / (number of importers that read it), so a distinctive column
-(`event_type`, `prefix`) outweighs a common one (`notes`, `kennel_name`). It guesses only
-when at least two of the file's columns, and a third of them, are that importer's, and says
-when the runner-up is close; the user can always change the type or leave a file out. Lite
-guesses only among its own importers and names a Pro-only one as needing Pro. **Order**:
-every mapping declares `links`, the entities its columns point at (dog → kennel, contact;
-event → dog, contact; …); `orderFiles` runs each file after every file of a type it links
-to, keeping the user's order otherwise, so the order follows the declarations: a new
-importer only declares its `links`. Then each file runs **step by step** through the
-ordinary import screen (`createImportView` with `rows`/`fileName`/`onNext`): its own
-dry-run preview against everything earlier steps committed, Commit, Next, or "Skip this
-file". Expense and Waitlist-application files are **handed off** to their own screens
-(`HANDOFF_ENTITIES`: per-row subject attach; which kennel's list), since each needs
-set-up of its own. A finished screen lists every file's result.
+**Expense import** (`pages/expense-import.js`) uses the engine but its own review screen,
+so each row gets an **Attach to** control (any dog, litter, pairing or kennel). A row with
+`miles` is a mileage expense: category forced to `mileage`, rate defaulted from
+`settings.getMileageDefaults()`, amount derived. No images cross over (§26.1 attaches
+receipts).
 
-Per-entity natural keys: Kennel = kennel_name (a name shared by two kennels on file →
-review, the user picks; a new kennel is always created **outside**, `is_own_kennel: false`,
-and an update never touches `is_own_kennel` or `public_id`: own kennels and their identity
-are set up on the Kennels page, §28; columns `kennel_name`, `prefix`, `location`,
-`website`); Dog = name+DOB **or** registration number (`normReg`, the same key Pedigree
-Import uses, so "NP888072/07 03-25" and "np88807207" are one number; a pedigree gives a
-number, rarely a birth date; the two keys naming different dogs, or one number on several
-dogs → review); Contact = name; Pairing = sire+dam+planned;
-Litter = dam+sire+whelp; Sale = dog+buyer+sale_date; Event (dog-subject only) =
-dog+type+date (title tiebreak — and for `show` rows the title **always** takes part: a
-single same-day candidate with a different title goes to review, never a silent update,
-so a double-header's "Show 2" can't overwrite "Show 1"); StudService = our_dog+partner_dog+direction (no date, so
-any existing match is always routed to review); Expense = subject+expense_date+amount+
-category+vendor (idempotent re-import — the same file updates, never duplicates).
+**Waitlist application import** (Pro, `waitlist-import`; Waitlist Spec §5.1): each row is an
+`applied` entry on one own kennel's list, keyed by email per kennel. Only a still-`applied`
+match updates (answers and preferences only). Answers map to that kennel's form questions
+(`waitlistForm.columnsFor`) and the entry keeps the wording it was imported under.
 
-**Expense mapping (the Receipts-app import path, §21).** The ledger's external-tool
-in-road: a companion receipts/mileage app (or any spreadsheet) emits one row per cost and
-this brings it into the Expense ledger with the same dry-run discipline. Columns:
-`subject_type`, `subject_name`, `expense_date`, `amount`, `category`, `vendor`, `miles`,
-`mileage_rate`, `receipt_number`, `notes`. **Subject resolution** covers the two subjects a
-name-only tool can express: `subject_type='kennel'` (the default when blank — program
-overhead) resolves by kennel name, or by the configured "my kennel" / sole own kennel when
-`subject_name` is blank; `subject_type='dog'` resolves by registered/call name (an ambiguous
-name is flagged, never guessed). `litter`/`pairing` subjects have no name key, so the CSV
-can't name them — **but the expense importer's review UI lets you attach any row to a litter/
-pairing (or reassign its dog/kennel) by hand before commit** (see below). **Mileage:** a row
-with `miles` set is a mileage expense — `category` is forced to `mileage`, `mileage_rate`
-falls back to `settings.getMileageDefaults().rate` when blank, and `amount` is left for
-`expenseRepo` to derive (miles × rate), never taken from the file. **Idempotent key:** when a
-row carries a `receipt_number`, that IS the natural key (`rcpt <n>`), so the same receipt
-always maps to the same ledger row and re-import updates it in place even if amount/date/
-subject changed; without one, the key is the composite subject+date+amount+category+vendor.
-Either way the match index only considers **non-archived, non-event-linked** ledger rows, so
-a re-import can never clobber a cost captured from the event form. The CSV import carries
-**no image** — only the extracted money data (and the `receipt_number` back-pointer) crosses
-over. To attach the receipt image itself to a ledger row, use the in-app receipt capture on
-the expense form (§26.1); the importer doesn't touch files.
+**Import several files** (`pages/import-batch.html`, `data/csvBatch.js`, every edition):
+`detectEntity` guesses each file's importer from its column names (weighted by how
+distinctive each column is), the user can change or skip any file, and `orderFiles` runs
+files after the ones they link to (each mapping declares `links`). Each file then goes
+through the normal preview. Expense and waitlist files hand off to their own screens
+(`HANDOFF_ENTITIES`). Lite only guesses among its own importers.
 
-**The expense importer has its own review screen** (`pages/expense-import.js`) — the one
-importer that does **not** use the shared `assets/importView.js`. Because an Expense is
-polymorphic (every row must attach to a subject), it reuses the parse + `buildPlan('expense',…)`
-engine for all field parsing / classification / receipt-number keying, but renders its own
-table so each row gets an editable **"Attach to"** control (subject-type dropdown + subject
-picker, prefilled from the CSV's name resolution, reassignable to any dog/litter/pairing/
-kennel) before commit. Commit writes straight through `expenseRepo.create`/`update` with the
-chosen subject. This is the "relate each imported expense to a dog or litter" surface.
-
-**Waitlist application mapping** (`entity: 'waitlist'`, Waitlist Spec §5.1; Pro-only page
-`waitlist-import`, reached from the Import/Export dropdown). Each row becomes an `applied` entry on one own kennel's list — a `kennel_name`
-column, else the kennel the import page picked (`mapping.preferredKennelId`, set from its
-kennel picker), else the active/sole kennel; no kennel → needs review. **Natural key: email**
-(per kennel). No email or no name → needs review (skip). An email matching a still-`applied`
-entry on that kennel → **update**, which only refreshes the answers and preferences (never
-status, kennel or dates); matching an approved/on-the-list entry (by application or contact
-email) → needs review, skip. Contacts are never matched here — approval offers that match
-(§29). Recognized columns include a Google Form `Timestamp` (date part kept) and common
-question-style headers. **Answers follow that kennel's application form** (W1e, §29): each
-question reads `waitlistForm.columnsFor(question)` — the column it was imported from
-(`source_header`) first, then `IMPORT_ALIASES` — answers are keyed by question id (checkboxes
-split into an array), and the entry stores `application_questions`, the wording it was imported
-under. Unknown program/placement/kennel values are flagged, never invented.
-
-To add an entity to the importer: write one mapping object (`{entity, label,
-templateHeaders, requiredForCreate, loadExisting, buildIndex, classify, describe, repo,
-prepareRecord?}`) and register it in `MAPPINGS`, then add its column guide to
-`data/csvImportHelp.js`. Don't rebuild the engine.
-
-> Keep this file clean UTF-8 (no BOM). It contains user-facing review strings.
+**Adding an importer:** write one mapping object (`entity, label, templateHeaders,
+requiredForCreate, loadExisting, buildIndex, classify, describe, repo, prepareRecord?,
+links`), register it in `MAPPINGS`, and add its column guide. Keep `csvImport.js` clean
+UTF-8 (no BOM).
 
 ---
 
 ## 10. JSON backup / restore (`data/importExport.js`)
 
-The cross-device data path. This module may use `db` directly (it's in the data layer,
-doing cross-table transaction work).
+The cross-device data path, and one of the two modules that write tables directly.
 
-- `exportAll()` iterates **whatever tables exist** (no hardcoded list) → `{ schema_version,
+- `exportAll()` iterates every data table (no hardcoded list) → `{ schema_version,
   format_version, exported_at, collections }`. `downloadBackup()` saves it and stamps
-  `lastBackupDate`. `exportAll({ encodeBlobs: false })` leaves file blobs as real Blobs, for
-  the cloud snapshot builder, which hashes and uploads them itself.
-- `inspectBackup(obj)` validates shape and reports counts + unknown tables before any
-  write.
-- `restoreBackup(obj, mode)` (all modes see only `db.dataTables()`, never the device-only
-  `device_secrets`):
-  - `'replace'` — clears **every** known table first, then loads the file's rows, so the
-    result is exactly the backup (a table the file omits ends up empty).
-  - `'merge'` — upserts the file's rows by id, leaving other records intact.
-  - `'cloud-merge'` (with `opts`: `overwrite`, `fetchFile`) — restores a **cloud snapshot**
-    (`data/cloud/cloudBackup.js`; Cloud Phase 1 plan §4.3). It overlays only the
-    `syncRegistry.js` cloud fields onto an existing row, so private fields already on the
-    device survive; `events.details` merges by key. With `overwrite: false` (new device,
-    takeover) a row is overlaid only when the snapshot's `updated_at` is newer. With
-    `overwrite: true` ("Restore as of…") it is overlaid regardless. A missing row is inserted;
-    a local row the snapshot lacks is left alone (it never deletes). A missing file is
-    fetched through `opts.fetchFile(sha256)`, or listed in `missingFiles`.
-    `planCloudMerge()` gives the same per-table counts without writing, for the
-    confirmation screen.
-  - `'vault-merge'` (same `opts`) — restores a decrypted **private-vault payload** (§30;
-    Private Vault Plan §4.4), which holds complete rows. A missing row is inserted; a vault
-    row as new as the local one or newer (or any row, with `overwrite: true`) replaces it
-    whole; a **locally newer** row is kept but its blank private fields, and the missing
-    keys of its object fields, are filled from the vault row (cloud fields stay local). So a
-    record edited while the device was locked keeps the edit and gets its private details
-    back. `files` rows carry `vault_file` `{ sha256, plain_sha256, encrypted }` in place of
-    the blob, fetched through `opts.fetchFile(vaultFile, row)`. `planVaultMerge()` counts
-    without writing.
-  - Unknown collections (tables not in this schema version) are skipped, not errors.
-  - Every restore calls `markDataChanged()` (§11), so the cloud backup sees it.
-  - A `'replace'`/`'merge'` file restore then points the `myKennelId` setting (the nav
-    banner's "My kennel") at the restored own, non-archived kennel when the setting is
-    unset or no longer names one. The setting lives in `localStorage`, not the backup, so
-    a file restored in a new browser would otherwise leave the app with no kennel name.
-    A setting that still resolves is left alone (`restoreOnNewDevice` does the same for a
-    cloud restore).
-  - Before any write it awaits the edition hook `enforceImportDogCap({ incomingDogs, mode })`
-    (`data/editionConfig.js`; classification math in `data/rosterCount.js`). The shared/Pro
-    default is a no-op, so Pro/Demo restore is exactly as above; the Lite override rejects a
-    restore that would leave more than its dog cap (all-or-nothing — see the cap spec §9).
+  `lastBackupDate`. `{ encodeBlobs: false }` keeps Blobs for the cloud snapshot builder.
+- `inspectBackup(obj)` validates shape and reports counts and unknown tables before writing.
+- `restoreBackup(obj, mode)` sees only `db.dataTables()`:
+  - `'replace'` clears every table first, so the result is exactly the file.
+  - `'merge'` upserts by id.
+  - `'cloud-merge'` restores a cloud snapshot: overlays only `syncRegistry` cloud fields, so
+    private fields on the device survive; newer `updated_at` wins unless `overwrite`
+    ("Restore as of…"); never deletes; missing files via `opts.fetchFile(sha256)`.
+    `planCloudMerge()` counts without writing.
+  - `'vault-merge'` restores a decrypted private-vault payload (whole rows). A locally newer
+    row keeps its edits and gets its blank private fields filled. `planVaultMerge()` counts.
+  - Unknown tables and fields are skipped. Every restore calls `markDataChanged()`.
+  - A file restore points the `myKennelId` setting at the restored own kennel if it's unset
+    or stale.
+  - Before writing it awaits the edition hook `enforceImportDogCap` (Lite refuses a restore
+    that would exceed its cap, all or nothing; cap spec §9).
+- Bump `BACKUP_FORMAT_VERSION` only when an older build couldn't read the new file, and keep
+  reading every older version.
 
-`BACKUP_FORMAT_VERSION` bumps only when the on-disk shape changes in a migration-requiring
-way.
-
-**The Import/Export page's "Backup & restore" card drives this on two independent axes:**
-*what* (Back up / Restore — the seg-tabs) × *where* (This device / Dropbox — chosen per
-run, §26). They compose freely because a Dropbox push **is** a backup and a Dropbox pull
-**is** a restore, running the same `exportAll()` / `restoreBackup()` as the local paths.
-The invariant to preserve: **every restore source lands in the one preview**, so nothing
-is ever written without the same dry-run table and the same Merge/Replace choice — adding
-a third source means feeding that preview, not building a parallel flow. In Lite the whole
-Dropbox axis is removed (no destination row, no connect strip), leaving the card as
-plain local backup/restore.
+**The Import/Export "Backup & restore" card** is *what* (Back up / Restore) × *where* (This
+device / Dropbox, §26). A Dropbox push is a backup and a pull is a restore through the same
+functions. **Every restore source lands in the one preview** with the same Merge/Replace
+choice; a new source feeds that preview. Lite has no Dropbox axis.
 
 ---
 
 ## 11. First-run, sample data, seed, settings
 
-- **settings.js** — the primary `localStorage` user. Pages never touch `localStorage`
-  directly. Keys (all under `kennelOS.*`): `lastBackupDate`, `persistRequested`,
-  `cloudDirtyAt` (the cloud backup's dirty signal, Cloud Phase 1 plan §3.2: the time of the
-  latest data change, set by `markDataChanged()` from every write path — `repoBase`
-  create/update/hardDelete, `fileRepo`, `expenseRepo`'s cost migration, `assistantSync`,
-  every `restoreBackup` — and cleared by a push with `clearCloudDirty(pushedValue)`, so a
-  change made mid-push survives; `tests/cloudDirty.test.js` pins every direct writer),
-  `sampleDataManifest`, `sampleDataCleared`, `myKennelId`, `myContactId`,
-  `activeKennelId` (which own kennel the app is scoped to, or absent for "All
-  kennels" — read/written only through `data/kennelScope.js`, never by a page),
-  `companion` (the Companion feature's per-type message templates
-  — Layer 1, §20 — one JSON object keyed by recipient type via
-  `getCompanionSettings`/`setCompanionSettings`), `invoiceDefaults` (the invoice
-  generator's default accepted payment methods, §24, via
-  `getInvoiceDefaults`/`setInvoiceDefaults`), `mileageDefaults` (the add-expense form's
-  default rate per mile for mileage entries, §21, via
-  `getMileageDefaults`/`setMileageDefaults`), `dropbox` (the Dropbox connection blob —
-  refresh token, cached access token, in-flight PKCE verifier; the app key itself is
-  hardcoded in `data/dropbox.js`, not stored here — §26, via
-  `getDropboxSettings`/`setDropboxSettings`/`clearDropboxSettings`), `assistantLastSync`
-  (when the KennelAssistant page last pulled the dog feed, §26),
-  `assistantFeedPushedAt` (the owner-side mirror: when THIS device last *uploaded* the
-  feed — what the Assistant console's "Last sent" reads, since `assistantLastSync` is a
-  read stamp written on the helper's phone and can't answer it here, §26), `furever` (the Furever
-  seed-link generator's kennel-wide identity block — kennel name/tagline, breeder
-  contact, breeder's vet, plus an auto-generated `breederKey` — §27, via
-  `getFureverSettings`/`setFureverSettings`). `clearAllSettings()` drops them all (used
-  by Reset App), including `cloudDirtyAt` and `cloudDirtySince` (the first unpushed change,
-  which the cloud scheduler's five-minute timer runs from), `cloudOfferPending` (the
-  one-time post-setup cloud offer) and `cloudRestoredAt` (when this device was last
-  restored from the cloud, for the private-details hint).
-- **Cloud backup keys outside `KEYS`** (Cloud Phase 1 plan §3.3), so `clearAllSettings()`
-  doesn't touch them: `cloudSession` (`{ token, email, programId, deviceId }`; the email
-  stays on this device, the server keeps only a keyed hash), `cloudBackupState`
-  (`{ enabled, lastPushedAt, lastAttemptAt, lastSnapshotId, lastCounts, lastContentHash,
-  lastError, movedToEdition, lastCheckInAt }`; `lastCheckInAt` is the last device check-in,
-  Cloud plan §2.5; `movedToEdition` is `'pro'` once a Lite device turned backup
-  off because its program moved to Pro, which keeps Today's turn-on nudge quiet until backup
-  is turned on again), and `cloudDeviceId` (this browser's id on the cloud account, sent on every
-  sign-in so the backing device stays recognisable; separate from the license
-  `deviceId`). **Reset App** handles them explicitly in `appReset.stopCloudBackupAfterReset()`:
-  backup is always turned off, and the device forgets which snapshot it was in step with,
-  so turning backup back on meets the server's 409 and the restore-or-replace choice
-  instead of pushing an emptied program. The sign-in itself is kept; signing out is a
-  separate choice (`cloudAuth.signOut`).
-- **`eraseAck`** (outside `KEYS`): after a remote erase wiped this device, the dead cloud
-  token alone, kept until `POST /devices/erase-ack` lands (`cloudDevices.finishEraseAck`, on
-  every page load and when the browser comes back online). It opens nothing else on the
-  server.
-- **`cloudTestServer`** (also outside `KEYS`, so Reset App keeps it): `'1'` while this
-  browser uses the edition's staging server (`devCloudUrl`) on a deployed origin. Any page
-  visited with `?cloud=staging` turns it on and `?cloud=off` turns it off
-  (`cloudConfig.applyCloudTestSwitch()`, run as that module loads). Changing it forgets
-  `cloudSession` and `cloudBackupState` on this device, because a sign-in and a backup
-  position belong to one server. It does nothing in an edition with no `devCloudUrl`
-  (Demo). While it's on, `app.js` shows a "Cloud backup: TEST SERVER" strip on every page
-  with a Turn off link.
-- **nudgeState.js** — a second, deliberately separate `localStorage` module (one key,
-  `kennelOS.nudgeDismissals`): the derived-nudge dismissal ledger (§19). Kept out of
-  `settings.js`/`clearAllSettings()` on purpose — `appReset.js` calls its own `clearAll()`
-  directly — and never exported in JSON backups: dismissals are device-local UI state, not
-  portable domain data.
-- **sampleData.js** — the "Thornfield Kennels" demo. Seeds through the **repo layer** (same
-  validation as real data) and tracks created IDs in one manifest object (not an
-  `is_sample` schema flag), so clearing is a lookup, not a scan. Deliberately **broad**
-  (Tutorial Sample-Data Coverage Spec §6, Phase 2) so a first-run tour can point at a live
-  example on every hub: a two-breed program (Boston Terriers **and** Boxers), a priced,
-  actively-selling **Autumn litter** with an open sale (transport fee + deferred-boarding
-  balance math), an **expected** litter, a lease (leased-in Boxer + `lease` contract) and a
-  `co_own` contract, an **incoming AI** stud service, and dates tuned so seven of the nine
-  Today nudges (§19) are live on a fresh seed — the litter→**close** rule is intentionally
-  not live (it needs a `sold` litter whose placed pups are all `delivered`, which conflicts
-  with the reopen/sold anchors and the packet size, per the spec's §9.3), and the
-  show-title rule is deliberately unfinished so the card shows real gaps (below).
-  **Show tracking** (Show Tracking Spec §9; Pro/Demo only — Lite seeds from its own tour
-  package): Birch is working toward his AKC CH with handler **Lauren Pike** (`handler`
-  role) — 7 past results totalling 12 points, one major, 3 judges ("3 more points, 1 more
-  major under a new judge"), then a Thistle Valley cluster weekend 9–10 days out (Sat
-  `entered` with a $38 `show` entry-fee expense linked via `event_id`; Sun `planned` with
-  entries closing in 3 days — a live reminder and an amber flag on the Shows page). Companion has ≥1
-  recipient on all three tabs (prospective / current families / partners). Editing this file
-  still bumps `CACHE_NAME` (§ service worker); it adds no new file or FK.
-  - **Briar Hollow Kennels** (Multi-Kennel Scope Spec §13) is a SECOND own kennel —
-    Meadow Ridge is Dana Ruiz's outside kennel (the breeder-of-record/external-ownership
-    demo, never a scope), so it never exercised the kennel switcher. Briar Hollow is
-    deliberately small — its own sire/dam (Cassius × Opal, Golden Retrievers — a third
-    breed line makes "which kennel is this" obvious at a glance), one pairing, one litter,
-    one placed pup (Maple), one delivered sale — just enough for the switcher to show two
-    real entries, the kennel hub's roster/litters/P&L to have live cross-kennel content,
-    and a manual QA pass to confirm a picker's "show all my kennels" escape actually
-    surfaces something. All of it rides the same manifest/clear machinery as the rest of
-    the seed.
-  - **A sample waitlist** (Waitlist Spec §11, Pro/Demo only — gated on
-    `editionFlags.waitlist`; Lite's own seed has none) on Thornfield, via
-    `seedWaitlist()`: Thornfield's `waitlist_config` ($300 credited fee, 14 days to
-    pay), a **Treatment family** program (ahead, fee waived, passes don't count),
-    and eight entries — Mia (in the program, **paused**), Owen (an **open offer** on the
-    Autumn litter, whose picks are open), Rachel (one counted pass on Fern), the Alders
-    (**listen-only** for Juniper as dam, which covers the Winter litter), the Riveras (on the list but on a **readiness hold**, can't commit for 3 months), Hannah (approved, fee due), Leo (a new
-    application with no contact), and Priya's past run **placed** with Hazel (its credited
-    fee nets off her sale in Financials, §21). The manifest carries `waitlist_programs` /
-    `waitlist_entries` / `waitlist_offers`; `clearSampleData` deletes them first (offers →
-    entries → programs) and counts them as the seed's own references, not contamination.
-    The Pro/Demo tour gains two stops for it (the Waitlist page and the Autumn litter's
-    picks panel).
-- **seedImport.js** — optional breed+test vocabulary seed (from
-  `resources/common_tests_by_breed_seed.csv` or a user file). Rows carry an optional
-  `Breed Group` column (col A) that `buildSeedGroups()` attaches to each group as
-  `breedGroup`, purely to power the picker's "browse by breed group" dropdown — it is
-  never stored on the kennel. `listBreedGroups()` returns the unique group names.
-  Appends to `Kennel.preferred_tests` / `preferred_breeds`; creates **no** records.
-  Deliberately **not** routed through the csvImport engine (different shape). Both
-  wizards below render the same `assets/breedTestPicker.js` widget over these groups:
-  a type-ahead search box plus the breed-group dropdown (which opens a checkbox
-  modal for that group's breeds); either path checks the breed into a list at the
-  bottom that both wizards read at commit/save time. Used by both the standalone
-  import page and the kennel-setup wizard. `applySeedToKennel` passes each test's
-  contributing breed into `kennelRepo.addPreferredTest`'s third arg, tagging it in
-  `preferred_test_breeds` — this is what powers the breed-scoped consumers: the
-  kennel detail page's `(Breed1, Breed2)` display, new-dog auto-fill on `dog.js`
-  save, and both "copy/apply from kennel" actions (`dog.js`'s Copy plan from…,
-  `kennel.js`'s Apply to dogs…) — each resolves through `kennelRepo.testsForBreed`
-  instead of the raw flat list, so a dog only inherits tests tagged for its own
-  breed (plus any untagged/breed-agnostic ones).
-- **kennelSetup.js** — the "your kennel and owner name" wizard; creates real
-  Kennel/Contact records and remembers them by id in settings. **It is a MANDATORY
-  gate, not a prompt** (Multi-Kennel Scope Spec §3.2): every owned dog carries a
-  required `kennel_id`, so the app isn't usable until one own kennel exists. There
-  is no "Skip for now" and no skipped-flag setting — `shouldRequireKennelSetup()`
-  tests whether an **own kennel exists** (deliberately not whether `myKennelId` is
-  set: the guided tour seeds an own kennel without ever setting it), and `app.js`'s
-  existing fall-through re-fires the modal on every load until it's satisfied, so
-  reloading can't escape it. Demo is exempt — `boot()` returns inside its branch
-  before the first-run flow, and a read-only edition could never satisfy the gate. The owner
-  Contact is always saved with `kennel_id` set to the kennel just created/
-  updated — this is definitionally the breeder's own contact at their own
-  kennel, so it must never come out of the wizard unlinked (a Kennel's
-  `getContacts()` and the Kennel detail page's own-kennel views both depend on
-  this link existing).
-  `resolveMyKennelId()` repairs a missing or stale `myKennelId` (a backup restored
-  before the restore itself set it, cleared storage): when exactly one own,
-  non-archived kennel exists, it adopts that one; with several it guesses nothing,
-  and never while sample data is loaded (the tour kennel must not become the
-  user's identity). `getMyKennelName()`, the wizard's prefill and
-  `completeKennelSetup()` all go through it, so reopening the wizard edits her
-  kennel instead of creating a second one of the same name. With no `myContactId`,
-  the wizard reuses a contact already linked to that kennel whose name matches the
-  owner name (trimmed, case-insensitive) rather than creating a duplicate.
-- **appReset.js** — `resetApp()` clears every table + all settings → the exact blank slate
-  a never-visited browser sees. `eraseThisDevice()` is the remote erase (Cloud plan §2.5):
-  `resetApp()`, plus KennelAssistant's database and every `kennelOS.*` key in both storages,
-  including the ones a reset deliberately keeps (`settings.clearAllAppStorage()`).
+### Settings (`data/settings.js`)
+The only `localStorage` user besides `nudgeState.js`; pages never touch `localStorage`.
+Every key is in its `KEYS` table (`kennelOS.*`), each with a getter/setter, and
+`clearAllSettings()` (Reset App) drops them all. Notable ones:
+- `cloudDirtyAt` / `cloudDirtySince`: the cloud backup's dirty signal. `markDataChanged()` is
+  called by every write path (repos, `fileRepo`, `assistantSync`, every restore);
+  `tests/cloudDirty.test.js` pins every direct writer. A push clears it only if nothing
+  changed mid-push.
+- `activeKennelId`: the kennel scope, read and written only through `kennelScope.js`.
+- `myKennelId` / `myContactId`: the user's own kennel and contact.
 
-First-run flow (`app.js` → `runFirstRunOnboarding()` in **`assets/onboardingUI.js`**):
-request durable storage once, then — on a genuinely fresh install (`shouldOfferFirstRunPrompt()`)
-— show **one non-dismissible Welcome card** (what the app is) with the ways in (2026-10-10;
-it replaced Welcome → tour offer → a backups/install card):
-- **"Start my kennel"** → `declineSampleData()` (a blank kennel, no sample data ever), then
-  the **New Kennel** kennel-setup modal, in its `required` posture. With a cloud server and
-  no sign-in yet, that modal has an optional **"Email for free cloud backup"** field: filling
-  it in is the opt-in. The kennel is saved first, then `cloudBackupUI.turnOnFlow({ email })`
-  sends the code at once, runs the first backup and shows the Sensitive records card; backing
-  out still keeps the kennel.
-- **"Take the tour"** → seed the Thornfield sample data, `startWizard()`, and reload so the
-  destination page's `runWizardStep()` picks the tour up. Sample data is seeded **only** on
-  this path.
-- **Install as an app** is a dismissible card on Today (`#today-install`, nudge key
-  `install-tip`), hidden when the app already runs installed (`display-mode: standalone`).
-- **"I already use KennelOS"** (Cloud Phase 1 plan §2.3) — a third
-  button, shown **only when the edition has a cloud server** (`cloudConfig.isCloudAvailable()`).
-  It runs `cloudBackupUI.runSignInAndRestore()`: email + code, then
-  `cloudBackup.restoreOnNewDevice()`, which restores the latest snapshot, takes over as the
-  backing device, records the first-run choice (`markSampleDataCleared`), and points
-  `myKennelId` at the restored own kennel. Restoring **skips kennel setup**, since the
-  snapshot has the kennel. Backing out of sign-in returns to the choice. An account with no
-  backup yet carries on to kennel setup with backup already on.
+**Kept outside `KEYS` on purpose**, so Reset App leaves them: the Pro license record and
+`deviceId` (§0.3); cloud `cloudSession`, `cloudBackupState`, `cloudDeviceId` (Reset App
+turns backup off but keeps the sign-in, `appReset.stopCloudBackupAfterReset`); `eraseAck`
+(the dead token after a remote erase, until the server acknowledges); `cloudTestServer`
+(`?cloud=staging` / `?cloud=off` switch the edition to its staging server on a deployed
+origin, shown by a TEST SERVER strip). `nudgeState.js` keeps dismissals under one key that
+`appReset` clears itself; it's device UI state, never in a backup.
 
-**Cloud backup in the shell** (only with a server; an edition with `cloudUrl: null` never
-loads any cloud UI, and the Welcome card keeps saying "no account, no cloud"):
-- `app.js`, **first thing in `boot()`, before the Pro license gate**, dynamically imports
-  `cloudDevices.bootDeviceCheck()`: a signed-in device checks in (the first page of a
-  browsing session and on returning to the foreground or online, each at most once a
-  minute; other page loads at most every 15 minutes) so an erase sent from another device
-  reaches it even when it's walled (Cloud plan §2.5).
-- `app.js`, after the first-run flow, dynamically imports `cloudBackupUI.bootCloud()`.
-  That starts the backup scheduler on every page, shows service notices for a signed-in
-  device. (The one-time "Protect your records" offer after kennel setup is gone since
-  2026-10-10: the kennel setup modal's optional email replaced it. The `cloudOfferPending`
-  setting is no longer set.)
-- **Today** has a `#today-cloud` slot. While backup is off it shows "turn on free cloud
-  backup", which "Not now" snoozes for 30 days via `nudgeState.dismissedAt`. While backup is
-  paused (another device, the shrink guard, an expired sign-in) it shows a Resolve link to
-  the Import/Export card. After a passkey-first Sensitive records setup it shows **"Save your
-  recovery code"** (Show code → Print / Save / Copy, type the last 4) until it's saved
-  (`cloudVault.unsavedRecoveryCode` / `markRecoveryCodeSaved`; Private Vault Plan §2.1).
-  Nothing shows while sample data is loaded.
-- **Import/Export** has a **Cloud backup** card (`#cloud-backup`):
-  - turn on (sign in, with a "What's backed up?" link → first backup with progress → the
-    Sensitive records card; the device is named automatically, renamed under Your devices);
-  - a status line ("Backed up 4 minutes ago" / "Not backed up for 3 days: no internet?");
-  - Back up now, and Restore as of… (pick a snapshot → per-table preview → confirm → reload);
-  - turn off, sign out, sign out other devices, and delete my cloud data (typed DELETE);
-    the last two, like Erase below, need a fresh sign-in (one from the last 15 minutes, or a
-    code emailed now: `withFreshSignIn` in `cloudBackupUI.js`);
-  - **Your devices…** (Cloud plan §2.5): every device on the account; **Erase…** (typed
-    ERASE, and a fresh sign-in: one from the last 15 minutes or an emailed code), cancel a
-    pending erase, and in Pro **Free its Pro license**. The Pro activation wall links to the
-    same list ("Free a lost device's slot"), after a cloud sign-in;
-  - a one-time "private details aren't in cloud backup" hint after a cloud restore
-    (settings `cloudRestoredAt`).
-  The 409 dialog offers "Restore that backup here" or "Replace it…" (typed REPLACE); the
-  shrink dialog offers "Restore from backup instead" or "Upload anyway".
-- **Reset App** always turns cloud backup off (`appReset.stopCloudBackupAfterReset`). When
-  the device is signed in, its modal adds **"Also sign out of cloud backup on this
-  device"**, ticked by default.
+### Sample data (`data/sampleData.js`)
+The "Thornfield Kennels" packet, seeded **through the repos** (same validation as real
+data), with created ids tracked in one manifest setting (no `is_sample` flag), so clearing
+is a lookup. It's broad on purpose: every hub has a live example for the tour, including a
+second own kennel (Briar Hollow) for the kennel switcher, and, in Pro/Demo only, a show
+record and a sample waitlist. When the user's own records point at sample ones, `clearSampleData()` reports them
+(`contaminated`) and deletes nothing; `{ archiveConflicting: true }` archives those sample
+records instead of deleting them, so the user's links keep resolving, and clears the rest. **Editing the seed changes a
+shipped file, so it needs the usual cache bump.**
 
-`showKennelSetupModal({ mode })` has two postures: **`required`** (no Skip, no Cancel, no
-backdrop close, no Escape — both ambient escapes are swallowed in the capture phase; used by
-all three first-run call sites) and **`cancellable`** (a Cancel that changes nothing — used
-*only* by Import/Export's deliberate reopen, which edits an existing kennel).
+### Seed import (`data/seedImport.js`)
+An optional breed → test vocabulary seed (`resources/common_tests_by_breed_seed.csv` or a
+user file). It appends to `Kennel.preferred_tests` / `preferred_breeds` and tags each test
+with its breed (`preferred_test_breeds`), creating no records. Both wizards (kennel tests
+import page and kennel setup) use `assets/breedTestPicker.js`. Breed-scoped consumers read
+`kennelRepo.testsForBreed`, so a dog only inherits tests for its breed plus untagged ones.
 
-On a non-fresh load the onboarding no-ops and `app.js` falls through to
-`maybeShowKennelSetupPrompt()` (gated by `shouldRequireKennelSetup()`, which fires on every
-load until an own kennel exists). `sampleDataUI.js` owns only the
-persistent banner + the shared Clear-sample-data flow.
+### Kennel setup (`data/kennelSetup.js`)
+A **mandatory gate**: the app isn't usable until an own kennel exists
+(`shouldRequireKennelSetup()`), and `app.js` reopens the modal on every load until then.
+Demo is exempt. The owner Contact is always saved linked to that kennel.
+`resolveMyKennelId()` repairs a missing or stale `myKennelId` when exactly one own kennel
+exists (never while sample data is loaded). `showKennelSetupModal({ mode })` is
+`required` (no way out; first run) or `cancellable` (editing from Import/Export).
 
-**Guided tour.** A spotlight coach-mark tour of the seeded Thornfield packet — a pure
-UI/state feature that reads existing records (never writes app data) and persists its own
-progress in `localStorage` via `settings.js` (`wizardStatus` + `wizardStepIndex`), no Dexie
-table, no schema, no `referenceRegistry.js` entry. Three modules: **`data/wizardState.js`**
-(the status/index state machine, `isTourAvailable()` gating the tour on the seed
-being active, `isIntroStep()`, and the `HIGHLIGHT_STEPS` list the "Step n of N" counter uses),
-**`data/wizardSteps.js`** (the static ordered full `WIZARD_STEPS` catalog — data only, like
-`vocab.js`; a step may also carry `cloudBody`, shown instead of `body` when the edition has a
-cloud server, as the Import/Export step does), and **`assets/wizardUI.js`** (the box-shadow spotlight overlay, the cards, the
-nav "Take the tour" entry, and the free-navigation "Resume tour" pill). **Editions note:**
-`wizardState.js`/`wizardUI.js` import `WIZARD_STEPS`, and `onboardingUI.js`/`app.js` import the
-`seedSampleData` seed, from the **`data/editionTour.js`** injection point — not from
-`wizardSteps.js`/`sampleData.js` directly — so the tour and its seed vary together per edition.
-The shared copy re-exports the full catalog + Thornfield seed (Pro/Demo); Lite overlays its own
-`editionTour.js` (a smaller packet sized to the 6-dog cap with 2 of the 10 allowed litters, no Pro-only entities, and a
-step catalog scoped to Lite's pages with `pro-promo` upsell cards). `clearSampleData()` /
-`hasSampleData()` stay in `sampleData.js` — manifest-driven and generic, so one copy clears
-whichever packet was seeded. The tour can also be
-relaunched from the **Import / Export** page's "Guided tour" section — a button that calls
-`restartWizard()` + `runWizardStep()` (its opening card is a page-agnostic intro, so it appears
-in place); it and the nav entry share the `isTourAvailable()` gate, so both hide once the sample
-data is cleared. The catalog has three
-step **kinds** (all three are centered/single-button except the last): an **intro** step
-(`kind: 'tour-intro'` or `'hub-intro'`) is a centered, page-agnostic card with a single forward
-button (`step.button`, e.g. "Explore Today Hub →") — one tour-intro leads the tour, and a
-hub-intro precedes each hub's stops; a **`pro-promo`** step (Lite catalog only) is the same
-centered single-button card with an accent + "KennelOS Pro" eyebrow, pitching a Pro feature
-(`isIntroStep()` treats it like an intro, so it renders centered and is excluded from the
-"Step n of N" count); a **highlight** step (no `kind`) spotlights a real element and pins a compact card to the **top** of the
-viewport, scrolling its target to sit just below so the card never covers it (a target pinned
-too high on its page to clear the top card flips the card to the **bottom** of the viewport
-instead; a `ResizeObserver` re-positions the target as a content-heavy page's sections load in,
-so a late reflow can't leave it off-screen; and it falls back to a centered card if the target
-never appears). **Both ways out of the tour** — the last step's "Finish" and the per-step
-**"Skip tour"** — go through one `endTour()` helper that mirrors the "I'll explore"
-onboarding ending: an acknowledgement card, then `clearSampleData()` removes the
-Thornfield seed, then the kennel-setup modal in its **`required`** posture
-(clearing the seed just deleted the only own kennel that existed, so there is
-nothing left to file a dog under). Skipping is deliberately *not* a quiet
-dismissal: leaving Thornfield in place would hand the user a kennel full of
-someone else's dogs and — because sample data satisfies the setup gate — let them
-start filing real dogs into a sample kennel. The clear is also retried with
-`{ archiveConflicting: true }` when it comes back `contaminated`, so a record the
-user made mid-tour keeps resolving instead of the promised clear silently not
-happening. `app.js`'s shared `boot()` calls `runWizardStep()`
-unconditionally on every page — the only wizard hook; no page file is wizard-aware.
-Detail-page highlight steps carry an `anchor` slug that `wizardUI.js` resolves to the current
-seed's real id at runtime via the `manifest.named` map the seed writes (the seed uses runtime
-`crypto.randomUUID()` ids, so links can only resolve per-seed). See
-`docs/Wizard_Runtime_Spec_v1.md` for the original design (the first-run trigger and the
-intro-card / pinned-top-card presentation postdate it).
+### Reset and erase (`data/appReset.js`)
+`resetApp()` clears every table and setting, leaving a never-visited state.
+`eraseThisDevice()` (remote erase, §30) also clears KennelAssistant's database and every
+`kennelOS.*` key, including the ones a reset keeps.
+
+### First run (`app.js` → `assets/onboardingUI.js`)
+On a fresh install, one Welcome card offers:
+- **Start my kennel** → no sample data, then kennel setup (`required`). With a cloud server,
+  its optional email field turns on cloud backup after the kennel is saved.
+- **Take the tour** → seed Thornfield and start the tour. The only path that seeds.
+- **I already use KennelOS** (cloud editions only) → sign in and restore the latest
+  snapshot (`cloudBackup.restoreOnNewDevice`), which skips kennel setup.
+
+Installing as an app is a dismissible Today card. Cloud UI in the shell (device check-in,
+the backup scheduler, Today's backup nudges, the Import/Export Cloud backup card) is
+described in §30; none of it loads when `cloudUrl` is null.
+
+### Guided tour
+A spotlight tour of the seeded packet. It reads records and never writes app data; its
+progress lives in settings (`wizardStatus`, `wizardStepIndex`).
+- `data/wizardState.js` (state machine, `isTourAvailable()` = sample data present),
+  `data/wizardSteps.js` (the full step catalog, data only), `assets/wizardUI.js` (overlay,
+  cards, nav entry, Resume pill). `app.js` calls `runWizardStep()` on every page; no page
+  knows about the tour.
+- The catalog and seed come from **`data/editionTour.js`**: the shared copy re-exports the
+  full Pro/Demo tour; Lite's own copy has a smaller seed (within the cap, no Pro-only
+  records) and Lite pages, plus `pro-promo` cards.
+- Step kinds: `tour-intro` / `hub-intro` (centered card), `pro-promo` (Lite, centered), and
+  highlight steps (spotlight with a card pinned top or bottom). Detail-page steps use an
+  `anchor` slug resolved through the seed manifest's `named` map.
+- **Finish** and **Skip tour** both go through `endTour()`: clear the sample data (with
+  `archiveConflicting`), then the required kennel setup, so nobody files real
+  dogs into a sample kennel.
+- Restartable from Import / Export's "Guided tour" section while sample data is present.
 
 ---
 
 ## 12. Service worker / PWA (`sw.js`)
 
-App-shell cache so the app installs and works offline after first load.
+A cache-first app-shell service worker, so the app installs and works offline.
 
-- `CACHE_NAME` (currently `kennelos-shell-v49`) + a `PRECACHE_URLS` list of **every** app
-  file (html/js/css/icons/vendor/resources).
-- `install` precaches the list (**`cache.addAll` is atomic** — one missing/renamed file
-  fails the whole install). Each file is requested with **`cache: 'reload'`**, past the
-  browser's HTTP cache, so a new version can never precache a stale copy of a file the
-  browser still held (it did once: the cloud go-live left a browser on the old
-  `editionConfig.js` until the next bump). `activate` deletes old caches. Fetch is **cache-first** for
-  same-origin GETs, with runtime caching of anything new.
-
-**The discipline that matters:** whenever you add, rename, or remove an app file — or edit
-an existing one — you must (1) update `PRECACHE_URLS` and (2) bump `CACHE_NAME`. Because
-fetch is cache-first, an installed client only picks up changes when `CACHE_NAME` changes.
-Forgetting to precache a new module silently breaks offline for whatever imports it.
-
-**Bump `CACHE_NAME` ask-first, once per shippable batch — not per edit.** `PRECACHE_URLS`
-always tracks the file set as you go, but the `CACHE_NAME` bump is the *last* step and is
-**not** something to do unprompted: make all the edits, then **ask the user to confirm the
-batch is done** before bumping. In a long multi-turn session a bump every turn just churns
-through versions — so once you've bumped within a session, that pending version **stands**
-for further edits in the same session (it hasn't reached clients yet, so it still represents
-the new set); only re-bump after a deploy actually ships or the user asks for a fresh
-rollover. See CLAUDE.md for the same rule stated as the working checklist.
-
-There is a maintenance check for this — see §16.
+- **Edit only `shared/sw.js`.** `build/assemble.mjs` generates each `dist/<edition>/sw.js`
+  with its own cache name and a precache filtered to that edition's files (Lite drops
+  `proPages.js`'s files; Demo drops `DEMO_EXCLUDED_PAGES`).
+- `PRECACHE_URLS` lists **every** app file. `cache.addAll` is atomic: one missing path fails
+  the whole install. Files are fetched with `cache: 'reload'`, so a new version never
+  precaches a stale copy. `activate` deletes old caches.
+- An installed client sees changes only when `CACHE_NAME` changes. Add/rename/remove a file
+  → update `PRECACHE_URLS` in the same edit. Bump `CACHE_NAME` once per shippable batch,
+  **after asking the user** (the rule is spelled out in `CLAUDE.md`).
+  `tests/serviceWorker.test.js` checks the precache against the files on disk.
 
 ---
 
 ## 13. UI layer
 
-### The two rendering frameworks — different escaping contracts
+### The two list frameworks — different escaping contracts
 
-This distinction is the single easiest thing to get wrong. Learn it:
+- **`assets/reportView.js`**: a column's `value:(r)=>string` returns **plain text**; the
+  framework escapes it. Also `badge` columns, `tone` (badge a value), `groupBy`, CSV export,
+  and the report extras (`dateRange`, `kpis`, `charts`, column `total`, Print/PDF), all
+  computed from the visible rows (§31).
+- **`assets/listView.js`**: a column's `cell:(r)=>html` is injected **raw**, so **the caller
+  must `esc()` every user value**. Sortable columns, filters, "show archived", grouping, CSV.
 
-- **`assets/reportView.js`** — columns provide `value:(r)=>string` returning **plain text**;
-  the framework escapes it (`esc`) before injecting. Return raw text; do not pre-escape.
-  `badge` columns render a controlled-vocab badge. Has CSV export. A column's optional
-  `tone:(r)=>badgeClass|null` wraps that row's (escaped) value in a badge of a class the
-  page code picks (the Shows page's amber/red "entries close"); an optional view-level
-  `groupBy:(r)=>string` inserts a full-width header row whenever consecutive rows change
-  group (rows keep the caller's `load()` order; CSV is unaffected). Report extras (§31):
-  `dateRange`, `kpis`, `charts`, a column's `total:(rows)=>string`, and the always-on
-  **Print / PDF** button — all computed from the visible rows, so they follow every filter.
-- **`assets/listView.js`** — columns provide `cell:(r)=>htmlString` returning **HTML**; the
-  framework injects it **raw**. **The caller must `esc()` every user-controlled value inside
-  `cell`.** Columns can be marked `sortable: true` with a `sortFn:(a,b)=>number` comparator
-  to enable click-to-sort headers. Supports filters, "show archived", collapsible columns,
-  grouping, optional CSV export.
+Both take an optional `scope:(record)=>bool` (the kennel-scope predicate: `inScope`,
+`dogInScope` or `subjectInScope`), applied before search and filters, which also shows the
+"🏠 <kennel> only" chip. A list that omits it says why in a comment (Contacts).
 
-Both also take an optional **`scope: (record) => bool`** — the active-kennel predicate
-(Multi-Kennel Scope Spec §7). It is applied before search/filters (so a CSV export
-exports the scoped set), and its presence is what makes the toolbar render the
-"🏠 <kennel> only" chip. Each caller passes the right flavor — `inScope` for a record
-with its own `kennel_id`, `dogInScope` for dogs, `subjectInScope` for a polymorphic
-event — or omits it **with a comment saying why** (Contacts is the standing example).
-
-When in doubt: `value` = text (auto-escaped), `cell` = HTML (you escape).
+When in doubt: `value` = text (escaped for you), `cell` = HTML (you escape).
 
 ### Shared helpers (`assets/ui.js`)
+`esc` (use on every user value in hand-built HTML), `badge`/`badges`, `fmtDate`, `param`,
+`confirmAction` and the modal dialogs, `wireActionMenu`. `todayYMD` is re-exported from
+`data/dateUtils.js`.
 
-`esc(s)` (HTML-escape — use it on every interpolated user value in hand-built innerHTML),
-`badge`/`badges`, `fmtDate` (YYYY-MM-DD → localized), `param(name)` (read `?id=`),
-`confirmAction` (and the styled modal dialogs). `todayYMD` is re-exported here but its one
-implementation lives in `data/dateUtils.js`.
-
-### Other components
-
-- **timeline.js** — a subject's event list with add/edit/archive/delete; spans render as a
-  date range; escapes all values. Optional `onChange` runs after any add/edit/archive/delete
-  so a page can redraw panels derived from the same events (`dog.js` → Show Record card).
-- **pedigree.js** — derived ancestor tree from `sire_id`/`dam_id`; SVG connectors over
-  positioned nodes. Bounded by a `generations` depth cap (default 3), which makes it
-  cycle-safe regardless of data. Below the tree it renders a derived **Offspring** section —
-  dogs whose `sire_id`/`dam_id` is the root — grouped by litter, sorted, with per-pup sex
-  indicators.
-- **kennelTree.js** — the Pedigree page's **Whole kennel** view (`pedigree.html?view=kennel`;
-  also the Dogs header's "Family tree" button): every dog drawn at once, connected to its
-  sire and dam. Layout is the pure `data/kennelTree.js` `buildKennelTree(dogs,
-  { includePedigreeOnly })`, also derived only from `sire_id`/`dam_id`: dogs split into
-  **families** (connected components over parent links, largest first); dogs with no
-  parent or child among those shown list under "No recorded relatives". Within a family,
-  generation = longest path from a founder, then each founder with offspring drops to just
-  above its earliest offspring (so a bought-in stud sits beside his mate). Each distinct
-  included sire × dam pair is a **union** (one parent only → a single-parent union) drawn as
-  a bracket under the parents meeting at a junction dot that branches down a bus to that
-  pairing's offspring, colour-cycled per union. A parent more than one row above its
-  litter gets a **waypoint** in every row between — a slot reserved like a dog's — so its
-  line runs down its own lane, never behind another dog's card. Row order is barycenter
-  sweeps, then a least-squares placement (`placeRow`, pool-adjacent-violators) keeping one
-  slot between neighbours. Archived dogs are always included (lineage), with the same Lite
-  rule as the ancestor tree (static name, no badge/↗, not in the Find-dog picker);
-  pedigree-only ancestors are off by default (a checkbox includes them — they can join two
-  otherwise separate families). A name opens the One dog view on that dog. Cycle-safe.
-  Not kennel-scoped, like the ancestor tree.
-- **eventForm.js** — add/edit-event modal; renders the type's `fields` into `details`,
-  handles spans/reminders, persists empty optional dates as `null` (keeps them out of the
-  reminder index). Supports applying one payload to multiple subjects. Also exports
-  `openEventFromQuery(subjectType, subjectId, onSaved)` — since Event has no standalone page
-  (polymorphic subject, §2), this is how `pages/today.js`'s Reminders and Due outs rows
-  deep-link "into" an event: each row's button navigates to the subject's own page
-  (`dog.html`/`pairing.html`/`litter.html`) with an extra query param, and that page's
-  `main()` calls this once after loading its record. `openEvent=<id>` opens that exact event
-  in edit mode; `logEvent=<event_type>` opens a fresh event of that type, optionally
-  prefilled by `logDate=<YYYY-MM-DD>`, `logTitle=<text>` and `logDetails=<URL-encoded JSON
-  object>` (string/number values only; malformed JSON is ignored) — used by the show-title
-  nudge (§19). Wired into
-  `dog.js`/`pairing.js`/`litter.js` main() alongside their `new=1` prefill params.
-- **puppyForm.js**, **importView.js**, **onboardingUI.js**, **sampleDataUI.js**,
-  **kennelSetupUI.js** — roster entry, the CSV dry-run/commit UI, the first-run onboarding
-  card sequence, the sample-data banner, and the kennel-setup modal.
-- **cloudBackupUI.js** — every cloud-backup screen (§11's "Cloud backup in the shell").
-  Imported only dynamically and only when `cloudConfig.isCloudAvailable()`, by `app.js`,
-  `today.js`, `import-export.js` and `onboardingUI.js`. Every value it renders goes through
-  `esc()`.
-- **cloudVaultUI.js** — the private vault's screens (§30). Imported only dynamically, and
-  only by `cloudBackupUI.js` (so `cloudUrl: null` never loads it). The card's second line
-  ("Private info: encrypted backup, 4 minutes ago" / "locked on this device" / "only on this
-  device · last file backup …") is rendered by `cloudBackupUI.privateLine`.
-- **contactPicker.js** — `attachNewContactButton(selectEl, {onCreated, defaultType,
-  defaultName})` decorates any contact `<select>` with a "＋ New" button: minimal
-  inline-create modal (name required; `defaultType` preselects the contact type — and adds
-  it to Lite's Buyer-only list — `defaultName` prefills the name),
-  creates via `contactRepo.create`, appends+selects the option, fires a native `change`
-  event. `onCreated` runs **before** that dispatch so a caller that re-renders the select
-  from its own in-memory contact list (e.g. `sale.js`) sees the new contact already there.
-  Wired into sale (buyer), stud-service (partner), and `eventForm.js` (the related contact
-  on boarding/placement/show/vet visit/surgery).
-- **expensePanel.js** — the reusable per-subject expense ledger panel (§21).
-- **kennelScopeUI.js** — all three pieces of active-kennel UI, reading only
-  `data/kennelScope.js`: `renderKennelSwitcher(host)` (the nav's indicator + switcher),
-  `mountScopeChip(el)` (the toolbar chip a scoped list/report shows, with its "Show
-  all" escape), and `renderScopeNotice(host, record, {kind})` /
-  `renderDogScopeNotice(host, dog)` (the out-of-scope banner on a detail page). All
-  three are inert unless `editionFlags.multiKennel`, and switching scope always
-  **reloads** — pages compute their view models once at load, so one repaint of the
-  truth beats a partial re-render. Wired into `nav.js`, both list frameworks, and the
-  six record detail pages (dog/litter/pairing/sale/contract/stud-service, each with a
-  `<div id="scope-notice">` under `#page-error`).
+### Components
+- **timeline.js** — a subject's events with add/edit/archive/delete; `onChange` lets a page
+  redraw derived panels.
+- **pedigree.js** — ancestor tree from `sire_id`/`dam_id`, depth-capped (default 3, so
+  cycle-safe), plus a derived Offspring section.
+- **kennelTree.js** — the Pedigree page's Whole kennel view; layout is the pure
+  `data/kennelTree.js` (families, generations, sire × dam unions, lanes so lines never run
+  behind cards). Archived dogs included; pedigree-only ancestors behind a checkbox; not
+  kennel-scoped.
+- **eventForm.js** — the event modal (§8). Event has no page of its own, so
+  `openEventFromQuery` lets a subject page open one: `openEvent=<id>`, or
+  `logEvent=<type>` with optional `logDate`, `logTitle`, `logEnd` (a span's end),
+  `logContact` (related contact id), `logDetails` (JSON).
+- **contactPicker.js** — `attachNewContactButton(select, {onCreated, defaultType,
+  defaultName})` adds an inline "＋ New" contact; `onCreated` runs before the `change` event.
+  In Lite the type list is Buyer only.
+- **kennelScopeUI.js** — the nav switcher, the list chip, and the out-of-scope banner on
+  detail pages (`#scope-notice`). Inert unless `editionFlags.multiKennel`. Switching scope
+  reloads the page.
+- **cloudBackupUI.js** / **cloudVaultUI.js** — every cloud screen (§30). Imported only
+  dynamically and only when `isCloudAvailable()`; the vault UI only by the backup UI.
+- **expensePanel.js** (§21), **puppyForm.js**, **importView.js** (§9),
+  **onboardingUI.js**, **sampleDataUI.js**, **kennelSetupUI.js** (§11).
 
 ### Navigation (`nav.js`)
+Hubs come from the edition's `navItems`: Pro/Demo **Today / Dogs / Breeding / People /
+Placements & Contracts / Financials / Storage / Sharing**; Lite **Today / Dogs / Breeding /
+Sales / Financials**. A "More" menu holds Reports, Import/Export and Settings. Some hubs are
+one page with `seg-tabs` to its siblings: Placements & Contracts (sales, stud services,
+contracts), Sharing (companion, furever, assistant), Storage (documents, shows, accounts —
+all Pro, so Lite has no Storage hub), People (contacts, waitlist). `HUB_CHILDREN` maps
+detail and sibling pages to the tab that lights up. Links are root-relative and prefixed
+at render time, so they work from any GitHub Pages sub-path. The brand line shows the
+edition and, underneath, the kennel name. The kennel switcher sits before "More".
 
-Organized **by job, not by table**: eight workflow hubs in the main bar — **Today / Dogs /
-Breeding / People / Placements & Contracts / Financials / Storage / Sharing** — plus a "More"
-corner menu for **Reports**, **Import/Export** and **Settings**. Financials is a first-class hub,
-not a report (money is operational; Reports are analytics queries). **Sharing** is the same
-Sales/Stud-Services/Contracts trick applied to a second trio: its nav path is
-`pages/companion.html` (the Companion Messaging console, §20), which carries a `seg-tabs`
-row to its siblings `furever.html` (§27) and `assistant.html` (the owner console, §26) — all
-three are otherwise unrelated tools, just reached through one top-level tab instead of three.
-**Storage** (2026-10-09) is the same trick a third time: its nav path is
-`pages/documents.html`, and `documents`/`shows`/`accounts` each carry a static
-`seg-tabs` row (`aria-label="Storage"`) to the other two — the kennel's filed records,
-show entries and business accounts. All three are Pro-only, so Lite has no Storage hub at
-all (and no per-tab edition gating is needed, unlike Sales' Lite-hidden siblings).
-Detail/edit/import pages are not nav entries; `HUB_CHILDREN` maps them to the hub tab that
-should light up (`pages/companion.html` → `furever.html`/`assistant.html`, same as
-`pages/sales.html` → its two siblings, and `pages/documents.html` → `shows.html`/
-`accounts.html`). Links are stored app-root-relative and prefixed at
-render time so they resolve from `index.html` or `/pages/` and any GitHub Pages sub-path.
+### Pages (`pages/`, one `.html` + `.js` each)
+Pro-only pages are listed in `data/proPages.js`; everything else ships in every edition.
+- **Hubs:** `today`, `dogs`, `breeding`, `contacts`, `sales`, `financials` (§21), `reports`
+  (§31), `companion` (§20), `furever` (§27), `assistant` (§26), `documents` (§26.1),
+  `shows`, `accounts` (§32), `import-export`, `settings`.
+- **Records:** `dog` (includes the Show Record card when the dog has shows), `roster`,
+  `pedigree`, `pairing(s)`, `litter(s)`, `active-breeding`, `live-births`, `contact`,
+  `kennels` / `kennel` (§28), `sale(s)`, `stud-service(s)`, `contract(s)`, `waitlist*` (§29),
+  `breed-feeding-schedules` (§27).
+- **Today cluster:** `dashboard`, `reminders`, `upcoming`, `board`, `scheduled-placements`,
+  `calendar`.
+- **Print docs:** `invoice` (§24), `puppy-record` (§23).
+- **Imports:** `*-import` per entity, `import-batch` (§9), `pedigree-import` (below).
+- **Reports:** every `*-report` page (§31).
 
-The brand is "🐾 KennelOS [edition]" with the user's kennel name (`kennelSetupUI.
-renderKennelBanner`, once a kennel is set up) as a smaller **second line underneath**, not
-beside it — a long name used to crowd the phone menu button. On phones the brand takes the
-row's spare width and the name wraps; on wide screens the brand is capped at 210px.
+**The Kennel page** (`kennel.html`) shows one section card at a time, chosen from a
+**Section** dropdown (`SECTIONS` in `kennel.js`) or `#<section>` in the URL; cards for this
+kennel's own data filter on its id, not the active scope. An outside kennel gets only
+Kennel expenses, Logo and Kennel card.
 
-The bar also carries the **active-kennel switcher** in a `#nav-kennel-scope` slot before
-the "More" menu (Multi-Kennel Scope Spec §8). `nav.js` stays edition-agnostic: it renders
-the empty slot and hands it to `renderKennelSwitcher`, which returns without touching it in
-Lite and before the first own kennel exists — the CSS layout rules are keyed on
-`.nav-scope:not(:empty)` so an edition without a scope lays out exactly as before.
+**The Calendar** (`calendar.html`, every edition): a month grid of `eventRepo.getInRange`
+plus reminders, scoped by `subjectInScope`. Open-ended spans draw on their start day only
+(`calendarMath.eventSpan`). A day's modal has an **Add to Google Calendar** link
+(`calendarMath.googleCalendarUrl`: an all-day prefill, never notes). Nothing leaves the
+device until it's clicked.
 
-### Page catalog (`pages/`, one `.js` + `.html` each)
+**The Shows page** (Pro): Upcoming and Results tabs over `eventRepo.getByType('show')`;
+**+ Add entries** creates one event per picked dog × day, skipping duplicates.
 
-Hubs & landing: `today`, `dogs`, `breeding`, `contacts`, `sales`, `financials` (the
-Financials hub — Overview / Income / Expenses toggle, §21), `reports`, `companion` (the
-Companion Messaging console, §20), `furever` (the Furever seed-link console, §27),
-`import-export`, `settings` (Account, Your kennel, Guided tour, This device's license; split
-out of `import-export` 2026-10-08), `assistant` (the KennelAssistant owner console, §26 — distinct from the
-root-level `assistant.html` the helper opens), plus root `index.html`.
-Dogs: `dog` (detail — includes the Pro-only **Show Record** card, gated on
-`editionFlags.shows` and rendered only once the dog has a non-archived `show` event:
-per-track progress from `showPoints.js` plus a clickable show history; its "+ Add Show"
-opens the event form pre-set to `show`), `roster`, `pedigree` (One dog / Whole kennel views), `pedigree-import`.
-Pedigree import: `pedigree-import` (shared — Lite and Pro; an "Import pedigrees" button on
-the Dogs header and on the Pedigree page). One or more PDFs (or images) are read in the
-browser — nothing is uploaded. **Reading** (`data/pedigreeReader.js`): page 1's PDF.js text
-layer when it has one (≥ 20 text items — an AKC PDF or pedigree software), otherwise the
-page is rendered at 2048 px and run through `ocr.recognizeWords` (best-effort; the file card
-says "Read from an image — check names"). **Layout** (`data/pedigreeParse.js`, pure): words
-→ narrow line segments; header lines (Name/AKC #/Breed/Sex/Birth Date/Colors/Breeder) are
-read for the dog and dropped from the chart by what they say; generation columns are
-clusters of left edges that hold at least one registration number; within a column an
-entry is a name line (wrapped lines joined) plus detail lines (registration — AKC
-`XX000000/00` with OCR letter-for-digit swaps mapped back, plus the four digits printed
-after it (`NP888072/07 03-25`, kept as printed — the header's `AKC #` too), or a foreign code like `MET
-BOST.T.915/19`; a color-only line; `AKC DNA …`, `CHIC…`, `(Country)` → notes). Each entry's
-child is the nearest entry one column left; above it = sire, below = dam. Ancestors are
-addressed by path (`''` the dog, `s`, `d`, `sd`…), and a path's last letter is the sex.
-Titles (`CH`, `GCH`…) come off the front of a name into notes. If the leftmost numbered
-column has 2+ boxes the dog's own box went unread and the dog comes from the header.
-Overfull columns and unplaceable boxes become one warning each. **Matching**
-(`data/pedigreeImport.js` `planImport`, pure — the CSV import's rules): a registration
-number (`normReg`: upper-cased, a leading `AKC` dropped, letters and digits only — so
-`NP165114/01`, `np 165114-01` and `AKC NP16511401` are one; an AKC number keys on its two
-letters and eight digits, so it matches with or without the four digits printed after it) is the natural key and merges automatically —
-within a chart (line-breeding), across charts, and against every existing dog
-(`getAll({ includeArchived, includePedigreeOnly })`, re-read for each file read); a name alone (case-insensitive,
-trimmed, curly quotes folded) never matches, and a chart's names are registered names, so
-they're compared with the `registered_name` of every dog in the app (the kennel's current
-dogs included, titles in front such as `GCH` ignored on both sides via
-`pedigreeParse.splitTitles`), never `call_name` — any dog sharing a name with an existing
-dog (numbered or not: when both have numbers that differ, the row also notes the two
-numbers), or a numberless dog sharing one with a batch dog, is **review** (same as …/a
-separate dog), never silently a new dog. Parents come from paths; two charts naming
-different parents for one dog block until chosen per dog, or in bulk with a file's "Use
-this pedigree's answers where pedigrees disagree". An existing dog keeps any parent it
-already has. Every row's name, number and color are editable (applied to all of that dog's
-source boxes, then re-planned). Import is enabled only when nothing blocks and every new
-dog has a breed (per file, prefilled from the header). **Commit** (`commitImport`): one
-Dexie transaction over dogs/kennels/documents/files, parents first; new dogs are
-`pedigree_only`, `external`, `external_reference`, the chart's name as `registered_name`
-and a blank `call_name`; an
-existing dog (a kennel dog included) is only **filled where blank** (registered name,
-number, registry, color, DOB, sire, dam) and never made pedigree-only. The PDFs are dropped
-afterwards unless a file's **Save this PDF to … Documents** box is ticked (Pro —
-`editionFlags.documents`): it's filed as a `pedigree` document on that chart's dog, after
-the dogs are saved, under the dog's kennel, else the active/sole own kennel, else the
-"File under" kennel the page asks for (a pedigree-only dog lends none); a failure there is
-reported and leaves the dogs.
-Breeding: `pairings`/`pairing`, `litters`/`litter`, `active-breeding`, `live-births`.
-People: `contact`, `kennels` (two screens in one page: on top the **portfolio** — one card
-per own kennel with live counts (roster / active litters / placements this year) and the
-button that switches the active scope, rendered only once a *second* own kennel exists;
-below it the original identity CRUD list over every kennel including outside ones —
-name/prefix/location/own + archive/delete, add form collapsed behind **+ Add New Kennel**,
-own kennels sorted first) / `kennel` (**Kennel Overview and Settings** — headed by the
-kennel's name and badges and a "scope the app to this kennel" action; no Profile card
-(identity is edited on the Kennels list). **One card at a time (decided 2026-10-08):** a
-**Section** dropdown, alphabetical (`SECTIONS` in kennel.js), shows only the chosen card —
-every card carries `data-ks="<section>"` and one injected stylesheet rule hides the rest, so a
-re-rendered card stays right. Nothing is chosen on landing; `#<section>` in the URL opens one
-(and `hashchange` follows a link while the page is open). The sections: Active litters,
-Feeding schedules (a doorway into Feeding Schedules, §27.2), Finances (the kennel's P&L),
-Kennel card (§28), Kennel expenses (its Expenses ledger), Lifecycle nudges, Logo, Preferred
-tests, **Puppy Record fields** (`Kennel.puppy_record_fields`, `#puppy-record`, Pro only —
-`editionFlags.puppyRecord`; §23), Recent placements, Roster (counts by status), and **Waitlist settings**
-(`Kennel.waitlist_config`, `#waitlist-settings`, the Waitlist page's Manage → Settings, §29).
-The hub cards are filtered on THIS kennel's id rather than the active scope; an outside
-kennel gets only Kennel expenses, Logo, and Kennel card when it came with one). Both map to
-the People hub in `HUB_CHILDREN`.
-Waitlist (Pro-only, §29; mapped to the People hub in `HUB_CHILDREN`). **The People hub has
-two top tabs, Contacts | Waitlist** (decided 2026-10-08: the waitlist is many breeders' main
-workflow, so it's a primary view, like Sales on Placements & Contracts); the contact groups
-are a second, smaller tab row under Contacts, and the Waitlist tab goes when
-`editionFlags.waitlist` is off. Also reached from the dashboard tiles. `waitlist` (one
-kennel's list — New applications, Fee due, the ranked **On the list** table with derived `#`,
-Litters, and Closed; one primary button, **+ New application**, and everything else under
-**Manage ▾** (`ui.wireActionMenu`, `.action-menu`): Almost your turn…, Application form,
-Programs, Publish list, Settings; CSV import is on Import/Export only), `waitlist-entry` (one
-family: `?new=1` application entry, or `?id=` in three segment tabs, decided 2026-10-10:
-**Details** (status and place, incl. their place for what they want, their answers and
-application, **Edit**, and one leave button: **Remove from list…** = they withdrew / you
-remove them, **Close application…** = decline / withdrew / fee not received);
-**Interact** (their status-page requests, a turn they hold or an offer still actionable, a
-lost pup, then the status's main action — Offer pups… + Move place…, Approve…, Fee
-received…, Undo removal / Re-apply — and **Communicate…**); **History** (messages and
-emails with Mark read / Retry, every offer, a Timeline of key dates and answer changes,
-Documents). Interact and History carry count badges; the page opens on Interact when
-something waits there, else History for an unread message, else Details; `#details` /
-`#interact` / `#history` picks one. Archive, Delete and **New status link…** sit in the
-header's ⋯ menu),
-`waitlist-programs`, `waitlist-import`, `waitlist-form` (her application form editor + CSV
-question import), `waitlist-publish` (**Publish list**: the **Online list** card where the
-waitlist online is offered, and under it **Copy the list as text** — `publicListText` in a
-box with a Copy button, the old "Copy public list").
-Placements/contracts: `sale`/`sales`, `stud-service`/`stud-services`, `contract`/`contracts`,
-`puppy-record` (print-only puppy record, §23 — not a nav entry, reached from `sale`/`sales`).
-Financials print docs: `invoice` (invoice/receipt view with Download PDF, §24 — not a nav
-entry, reached from the "Invoice / Receipt" generator modal — on the Financials hub and on a
-Sale's page — and a waitlist family's Documents card).
-Documents: `documents` (filed dog documents — local file storage, the **Storage** hub's
-landing tab, plus a "📄 Documents" button on the dog page, §26.1).
-Today cluster: `dashboard`, `reminders`, `upcoming`, `board`, `scheduled-placements`,
-`calendar`.
-Calendar: `calendar` (shared — Lite and Pro; reached from a "📅 Calendar" button on Today's
-header, not a nav entry). A Sunday-first month grid (`?m=YYYY-MM`, default this month) over
-`eventRepo.getInRange` for the month plus `eventRepo.getReminders()` placed on their
-`reminder_date`, scoped with `subjectInScope`. Each event is a chip in its type's vocab
-badge color; a reminder is a dashed amber "⏰" chip. A closed span (`event_end_date` set)
-fills every day it covers, clipped to the month; an **open-ended** span is drawn on its
-start day only (`calendarMath.eventSpan`), so an unclosed old record never smears across
-later months. Up to 3 chips a day then "+N more"; at phone width chips collapse to colored
-dots. A key under the grid lists only the types present. Tapping a day opens a modal with
-each item's subject (dog links via `dogRefHtml`, so Lite's departed dogs stay plain text),
-title, dates, and an **Add to Google Calendar ↗** link — `calendarMath.googleCalendarUrl`,
-Google's `calendar/render?action=TEMPLATE` prefill as an **all-day** event (event times are
-free text, never parsed; Google's end date is exclusive, so +1 day). The link carries only
-subject, type label, title, dates and `details.location` — never notes. It is a plain
-outbound link, so nothing leaves the device until the user clicks it; no OAuth, no feed.
-Shows: `shows` (Pro-only — `PRO_ONLY_PAGES`, the **Storage** hub's second tab in
-shared/Pro/Demo, never in Lite; Show Tracking Spec §5.2). Under the Storage strip, two link-style seg-tabs
-(`?tab=upcoming|results`) over `eventRepo.getByType('show')`, both `reportView`s scoped
-with `subjectInScope` through the event's dog: **Upcoming** (`event_date >= today`, not
-`scratched`, grouped by date; entries close = `reminder_date`, amber within 7 days, red when
-past while still `planned`) and **Results** (`event_date < today`, newest first; Dog /
-Organization / Period — last 12 months or a year on file — / Track filters). Rows open the
-event's own edit modal in place. **+ Add entries** (Upcoming) creates one `show` event per
-picked dog × picked day via `HistoryEvent.create`, sharing show name (also the title),
-club, organization, location, handler, entries close and entry status; no cost field. Dogs
-are scoped with a "Show dogs from all my kennels" escape (archived/deceased left out); an
-entry already on file for the same dog + day + title (case-insensitive) is skipped, not
-duplicated; the handler is tagged `handler` via `contactRepo.ensureType`.
-Reports: `litters-report`, `stud-services-report`, `placements-report`,
-`health-tests-report`, `litter-finances-report` (Litter P&L; `data/litterFinances.js`).
-Import pages: `import-batch` (Import several files, every edition; §9), `kennel-import` (Pro-only, like the Kennels page; §9), `dog-import`, `contact-import`, `pairing-import`, `litter-import`,
-`sale-import`, `event-import`, `stud-service-import`, `expense-import`, `kennel-tests-import`,
-`waitlist-import` (Pro-only, §9/§29).
-`breed-feeding-schedules` (Feeding Schedules — per-breed feeding grids, §27.2 — Pro-only,
-reached from the Kennel detail page, not a nav entry).
-`accounts` (Accounts — business logins + referral links/codes, §32 — Pro-only, the
-**Storage** hub's third tab).
+**Pedigree import** (`pedigree-import.html`, every edition): PDFs or images are read in the
+browser, nothing uploaded. `data/pedigreeReader.js` uses the PDF.js text layer, or renders
+and OCRs the page. `data/pedigreeParse.js` (pure) turns positioned words into dogs by path
+(`''`, `s`, `d`, `sd`…). `data/pedigreeImport.js` plans with the CSV rules: a registration
+number (`normReg`) is the key and merges automatically; a name alone never matches (same
+name → review); an existing dog only has blanks filled and keeps its parents. New dogs are
+saved pedigree-only. In Pro a chart can also be filed as a `pedigree` Document.
 
 ---
 
 ## 14. Data conventions (quick reference)
 
-- `id` = `crypto.randomUUID()`, client-side. No auto-increment.
-- Soft delete only (`is_archived`). Never cascades, never destroys history.
-- Date-only fields are `YYYY-MM-DD` strings compared **lexicographically**. Only
-  `created_at`/`updated_at` are full ISO. "Today" is local wall-clock (`todayYMD`).
-- Money is the app's native **decimal, never cents** — the shell/documents format it.
-- Pickers exclude archived by default (toggle to include). Status/type = colored badges
-  sourced from `vocab.js`.
-- Controlled vocabularies live only in `vocab.js`; dropdowns and badges both read from it so
-  they never drift.
+- `id` = `crypto.randomUUID()`. Soft delete only; never cascades.
+- Date-only fields are `YYYY-MM-DD`, compared lexicographically; "today" is local
+  (`todayYMD`). Only `created_at`/`updated_at` are full ISO.
+- Money is decimal, never cents.
+- Pickers exclude archived by default. Vocabularies live only in `vocab.js`; dropdowns and
+  badges both read it.
 
 ---
 
 ## 15. Deliberately NOT built
 
-Don't assume these exist; several are explicitly deferred "open doors":
-
-- App-computed COI / relatedness / pairing-COI prediction (only a user-recorded
-  `Dog.recorded_coi` exists).
-- Genotype / Mendelian carrier-risk analysis; test-completeness audit.
-- A recurrence-rule engine (recurrence = the "log the next one" workflow on the event;
-  `reminder_date` is the only future-dated field).
-- Photo galleries / a Photos tab / per-record image thumbnails on dogs & litters.
-  (Filed documents and expense receipts **do** store files — the `files`-table PDFs
-  behind Documents and `expenses.receipt_file_id`, §26.1 — and `Kennel.logo_data_url`
-  is still the one inline image field, §4; there is no general per-record photo store
-  beyond those.)
-- Pairing/litter-subject events in the CSV importer (dog-subject only).
+Don't assume these exist:
+- Computed COI or relatedness (only the user-entered `Dog.recorded_coi`).
+- Genotype or carrier-risk analysis; a test-completeness audit.
+- Recurring events (`reminder_date` is the only future-dated field).
+- Photo galleries on dogs or litters. Files exist only as Document and receipt PDFs (§26.1)
+  and the kennel logo.
+- Pairing- or litter-subject events in the CSV importer (dog only).
 
 ---
 
 ## 16. Invariants checklist (before you commit)
 
-1. **Layering:** no page imports `db.js` or calls `db.*`; no page touches `localStorage`
-   (go through a repo / `settings.js`).
-2. **One canonical direction:** you added a query for a reverse relationship, not a mirror
-   field.
-3. **New FK ⇒ registry line** in `referenceRegistry.js`. **New field ⇒ classified** in
-   `syncRegistry.js` (cloud / private / pending); `tests/syncRegistry.test.js` fails on an
-   unclassified field the sample packet writes. **New direct `db` write ⇒
-   `markDataChanged()`** beside it (or a reasoned exemption); `tests/cloudDirty.test.js`
-   pins every write site.
-4. **Escaping:** every user value in hand-built innerHTML is `esc()`'d; `listView` `cell`
-   functions escape; `reportView` `value` functions return plain text.
-5. **New/renamed/removed/edited app file ⇒ update `sw.js` `PRECACHE_URLS` **and** bump
-   `CACHE_NAME`.** Sanity check:
-   ```bash
-   # from KennelOS/ — lists any app file missing from the precache, and any
-   # precache entry with no file on disk. Both lists should be empty.
-   python3 - <<'PY'
-   import re, os
-   sw = open('sw.js').read()
-   urls = re.findall(r"'([^']+)'", sw.split('PRECACHE_URLS')[1].split(']')[0])
-   real = [os.path.join(r,f).replace('./','') for r,_,fs in os.walk('.') for f in fs
-           if f.endswith(('.js','.html','.css')) and '/vendor' not in r]
-   print("missing from precache:", sorted(set(real)-set(urls)-{'sw.js'}) or "OK")
-   print("listed but absent   :", [u for u in urls if u!='./' and not os.path.exists(u)] or "OK")
-   PY
-   ```
-6. **Schema:** `version(1)` is frozen (2026-10-10); additive `version(N)` blocks only, never
-   edit a shipped block, and keep JSON backups backward compatible (§5).
-7. **Encoding:** source files are clean UTF-8, no BOM (matters most for files with
-   user-facing strings like `csvImport.js`).
-8. `node --check <file>.js` parses everything you touched (no bundler to catch it).
-9. **Cloud (§30):** nothing cloud runs before `isCloudAvailable()` and a sign-in;
-   `cloudUrl: null` still boots with no request and no cloud UI. A server change is a new
-   numbered migration (never an edit to an applied one) and `cd cloud && npm test` passes.
+1. **Layering:** no page imports `db.js` or touches `localStorage`.
+2. **Reverse relationships** are queries, not mirror fields.
+3. **New FK** → `referenceRegistry.js` line (hard-delete guard and merge both read it). **New field** → classified in `syncRegistry.js`
+   (`tests/syncRegistry.test.js`); a cloud field also regenerates
+   `cloud/src/lib/cloudFields.js`. **New direct `db` write** → `markDataChanged()` or an
+   exemption in `tests/cloudDirty.test.js`.
+4. **Escaping:** `esc()` every user value in hand-built HTML and `listView` cells.
+5. **File set changed** → `PRECACHE_URLS` (and `proPages.js` if Pro-only); `CACHE_NAME`
+   bumped once per batch after asking.
+6. **Schema:** additive `version(N)` blocks only; backups stay backward compatible (§5).
+7. **Edition-agnostic core:** no hardcoded cap or edition check; use `editionFlags` or the
+   cap hooks (§0).
+8. **Cloud:** nothing runs before `isCloudAvailable()`; `cloudUrl: null` makes no request.
+9. Clean UTF-8, no BOM. `node --check` touched files; `node --test` passes.
 
 ---
 
 ## 17. Local development
 
 ```bash
-cd KennelOS
-python3 -m http.server 8000      # or: npx serve
-# open http://localhost:8000/  — never file://
+python3 -m http.server 8000   # repo root; open http://localhost:8000/shared/ (never file://)
+node --test                   # tests/ + cloud/tests, Node ≥ 22, no dependencies
+node build/assemble.mjs       # edition builds → dist/ (serve dist/<edition>/ to try one)
 ```
 
-There is no build, no test runner, and no linter wired in. Verification is: `node --check`
-for syntax, serving locally and exercising the flow in a browser, and the precache sanity
-check above. State resets via **Reset App to Start** (or clearing site data); sample data is
-seeded by taking the first-run **guided tour** ("Show me around!"), or restored from a JSON
-backup via Import/Export.
+No bundler or linter. Reset state with **Reset App to Start**; get sample data from the
+first-run tour.
 
 ---
 
 ## 18. Common maintenance recipes
 
-**Add a field to an existing entity** — add it to the entity's form/detail page and (if
-you'll query/filter/sort on it) to that table's index string in `db.js`. Plain persisted
-fields need no schema change. Add validation to the repo only if it's a hard rule. If it's
-an FK, add a `referenceRegistry.js` line. Update CSV mapping + sample data if relevant.
+**Add a field:** form/detail page; an index in a new `version(N)` block only if you query
+on it; a repo rule only if it's hard; a registry line if it's an FK; classify it in
+`syncRegistry.js`; CSV mapping, column guide and sample data if relevant.
 
-**Add an event type** — add one entry to `EVENT_TYPES` in `vocab.js` (`value`, `label`,
-`badge`, `subjects`, `duration`, `fields`, and `relatedContact` if it needs a contact FK).
-The event form, timeline, badges, and (for dog-subject types) the event importer pick it up
-automatically.
+**Add an event type:** one `EVENT_TYPES` entry in `vocab.js` (add `editionFlag` if Pro-only).
+The form, timeline, badges and importer pick it up.
 
-**Add a report** — build a page that loads records and calls `createReportView` with
-`columns` (`value` returns text), `filters`, `search`, and `csvFilename`, plus whichever of
-`dateRange` / `kpis` / `charts` / column `total`s it needs (§31); put any pure math in a
-`data/` module with a test. List it in `data/reportCatalog.js` under its group (that's the
-hub link), in `data/proPages.js` (reports are Pro-only), and in `sw.js` (recipe §16.5);
-`tests/reports.test.js` fails if a catalog page is missing, unprecached, or not Pro-only.
+**Add a report:** a page calling `createReportView`, with pure math in a tested `data/`
+module; list it in `reportCatalog.js`, `proPages.js` and `sw.js` (`tests/reports.test.js`
+checks all three).
 
-**Add a new entity** — new `db.js` table (new version block if post-release), new
-`<entity>Repo.js` via `makeRepo` with a validator, a `referenceRegistry.js` array (and lines
-wherever it's referenced), list/detail pages, a CSV mapping if it imports, nav wiring if it
-deserves a hub, sample-data coverage, and `sw.js` precache entries. Build order: schema →
-repo → list/detail → events/relationships → completeness features.
+**Add an entity:** a table in a new `version(N)` block, a `makeRepo` repo with a validator,
+its registry array and lines, sync registry entries, list/detail pages, a CSV mapping if it
+imports, nav wiring, sample data, and precache entries.
 
-**Add a new page** — always finish by adding it to `sw.js` `PRECACHE_URLS` and bumping
-`CACHE_NAME`, or it won't work offline.
+**Add a page:** precache it (and `proPages.js` if Pro-only).
 
 ---
 
 ## 19. Derived nudges & the away-board union
 
-Two small `data/` modules sit on top of the repos as pure composition — neither owns storage
-beyond the one localStorage ledger below.
+**Editions:** All editions. Show, waitlist and vendor nudges are Pro (their flags). In Lite
+the dead-puppy nudge offers **Remove from program** instead of Archive.
 
-**`data/nudges.js`** — `computeNudges()` reads current record state ONLY (no ledger
-awareness) and returns zero or more:
-```
-{ key, title, detail, subjectHref, actions: [{ label, run: async () => {} }] }
-```
-Every rule iterates the **active-kennel-scoped** set of whatever it nudges about (spec
-§7) — you should not be prompted about the kennel you are not looking at. The unscoped
-originals stay in play for every lookup and every "already handled?" dedup check
-(`pairingExistsForDam`, `pairingIdsWithLitter`, the pups/sales indexes). That asymmetry
-is deliberate: scoping a dedup check would resurrect a nudge whose answer already sits
-one kennel over.
+### Nudges (`data/nudges.js`)
+`computeNudges()` reads current records only and returns
+`{ key, title, detail, subjectHref, actions: [{ label, run }] }`. It never changes anything
+by itself: every action is a button. Each `key` is stable, so a dismissal survives
+recomputing. Rules iterate the **kennel-scoped** records, but their "already handled?"
+checks use the unscoped set, so an answer one kennel over still counts.
 
-Sixteen rules (plus the four waitlist rules below), each producing its own stable `key` so a dismissal survives re-computation:
-- **What a connected vendor reported** (Pro, `editionFlags.accounts`; Integrations plan §0) —
-  each entry of a sale's or contract's `integration_reviews` (an event her device didn't apply
-  because the record had moved on, a waitlist pick's deposit, or any refund;
-  `integrationEvents.planIntegrationEvent`) is one nudge, "Stripe says a deposit payment of
-  $500.00 came in: a sale", with the reason, linking to the record. Key
-  `int-review:<recordId>:<reviewId>`. **Done** removes the entry from the record.
-- **Follow-up after going home** (Pro, `editionFlags.accounts`; Integrations plan §3, §32) —
-  a `delivered` sale whose pup went home (`referralShare.goHomeDate`: the dog's latest
-  `placement` event on or before today, else `balance_paid_date`) `FOLLOW_UP_DAYS` (7) to
-  `FOLLOW_UP_WINDOW_DAYS` (60) days ago suggests a note to the buyer. Key `follow-up:<saleId>`.
-  **Write the note** returns `{ compose, doneDismisses }`: Today opens it in
-  `assets/messageComposer.js` (a thank-you and how-is-it-going, with the accounts she shares
-  with families), and once she has emailed, texted or copied it the nudge is dismissed.
-- **Stud-service status** — `sent_date` passed + `status='arranged'` → suggest
-  `in_progress`; `returned_date` passed + `status ∈ {arranged, in_progress}` → suggest
-  `completed` (never both; completed wins if both hold).
-- **Promote-lifecycle** — opt-in per kennel (`Kennel.promote_nudge_enabled`): a
-  `status='puppy'`, `disposition='keeping'` dog past its kennel's
-  `promote_age_male_months`/`promote_age_female_months` (by sex) gets a "promote to active
-  breeding?" suggestion. No kennel, disabled, or non-`keeping` disposition ⇒ silent —
-  decide-not-auto-promote, never a mutation on its own.
-- **Stud → pairing** — a stud service that's `completed` or overdue-returned with no
-  `pairing_id` yet suggests creating one, deep-linking to
-  `pairing.html?new=1&stud_service=<id>`. Auto-dismisses: once `pairing_id` is set the rule
-  produces nothing — the link is the done-signal, no ledger entry needed.
-- **Heat → pairing** — a concluded `heat_cycle` event (`event_end_date < today`) with no
-  live pairing recorded for that dam since the heat started suggests creating one via
-  `pairing.html?new=1&dam=<dogId>`.
-- **Due soon → create litter** — a `bred`/`confirmed_pregnant` pairing whose
-  `expected_due_date` is today or within the next `DUE_SOON_DAYS` (3), with no litter recorded
-  against it, suggests **Create litter** via `litter.html?new=1&pairing=<id>` (it starts as
-  `expected`). Not for a `planned` pairing (nothing says the breeding happened). Key
-  `pairingduesoon:<pairingId>`, its own so dismissing it doesn't hide the overdue rule, which
-  takes over the day after the due date.
-- **Overdue pairing** — a pairing in a pre-whelp status
-  (`planned`/`bred`/`confirmed_pregnant`) whose `expected_due_date` has passed, with no
-  litter recorded against it (`litterRepo.getForPairing`), suggests either fix: mark the
-  pairing `whelped` directly, or deep-link to `litter.html?new=1&pairing=<id>`.
-- **Litter whelped → pairing** — a non-archived litter in a whelped-or-later status
-  (`vocab.WHELPED_OR_LATER`) whose linked pairing isn't `whelped` suggests **Mark pairing
-  whelped**. Key `litterpairing:<litterId>`; auto-dismisses once the pairing matches.
-- **Pairing ended → expected litter** — a pairing in `vocab.PAIRING_ENDED_STATUSES`
-  (`not_pregnant`/`failed`/`cancelled`) with a non-archived linked litter still `expected`
-  suggests **Archive litter** (`litterRepo.archive` — it never happened; archive, not delete).
-  Key `pairingended:<litterId>`.
-- **Pairing whelped → no litter** — a `whelped` pairing with no litter recorded against it
-  (archived ones count) suggests **Create litter** via `litter.html?new=1&pairing=<id>`. Silent
-  for an external dam (`ownership_type='external'` or `status='external_reference'` — our
-  stud's outside breeding) and for a pairing whose `expected_due_date` (else
-  `last_observed_date`, `planned_date`, `created_at`) is over 180 days old
-  (`LITTER_RECORD_WINDOW_DAYS`), so historical pairings entered without litters don't flood
-  Today. Key `pairingnolitter:<pairingId>`.
-- **Deceased dog → open records** (`deceasedDogNudges`, exported) — a non-archived
-  `deceased` dog with an open sale (`isOpenSale`) suggests opening the sale to end it there
-  (the sale page's end flow settles the family; key `deceased-sale:<saleId>`); and with a
-  pairing still in a pre-whelp status — as the **dam**, any (`planned` → **Cancel pairing**,
-  `bred`/`confirmed_pregnant` → **Mark failed**); as the **sire**, a `planned` one only and
-  never `method='ai_frozen'` (a bred pairing stands without him). Key
-  `deceased-pairing:<pairingId>:<dogId>`. Archived deceased dogs are read too (archiving a pup
-  that died doesn't end its sale). Last, a **puppy that died** is offered for archiving
-  (`deceasedArchiveAction`): it leaves the Dogs list but stays on its litter's roster with its
-  history. Today offers it for a non-archived dog that died (`date_of_death`, else
-  `status_date`) within the last 90 days before its first birthday (by `date_of_birth`, else
-  its litter's `whelp_date`; neither → not offered); the dog page offers it whenever she has
-  just moved a dog from Puppy to Deceased (`wasPuppy`). Pro: **Archive**. Lite: **Remove from
-  program**, the permanent departure (cap spec §5), whose action carries `confirm: true` —
-  Today and the dog page show its `ask` (confirmModal options) first and run it only on yes.
-  A breeding dog that died stays listed under Not breeding → Deceased unless she archives it.
-  Key `deceased-archive:<dogId>`.
-- **Litter → sold** — a non-archived `ready` litter whose whole roster is resolved to
-  `placed`/`keeping`/`health_hold` (a pup on a health hold is not for sale), with **at least one** actually `placed` (an all-`keeping` litter sold
-  nothing, so it never fires), suggests marking the litter `sold`.
-- **Litter → reopen** — a `sold` or `closed` litter with any puppy back to `available`
-  suggests reopening it to `ready`.
-- **Litter → close** — a `sold` litter with no `available` puppy where **every** `placed`
-  puppy has a `delivered` sale suggests marking it `closed`. A placed puppy with no delivered
-  sale — including one with no sale row at all — blocks the nudge.
-- **Show track complete → title** (Pro-only, gated on `editionFlags.shows`; Show Tracking
-  Spec §5.4) — for each in-scope dog, `showPoints.showRecordFrom` over its `show` +
-  `title_earned` events; a `TITLE_TRACKS` row whose progress is `complete` with **no**
-  `title_earned` carrying `title_abbreviation = track.title` suggests logging it. Key
-  `show-title:<dogId>:<track>`. The action deep-links to
-  `dog.html?id=…&logEvent=title_earned&logTitle=<track label>&logDetails=<JSON
-  {title_abbreviation, organization}>&logDate=<completedOn>` — a prefilled event form,
-  never an auto-created title. Auto-dismisses once the `title_earned` event exists (the
-  event is the done-signal).
-- **Waitlist** (Pro-only, gated on `editionFlags.waitlist`; Waitlist Spec §6.5, §29) — four
-  rules over the scoped `waitlist_entries`/`waitlist_offers`, each a one-tap suggestion
-  because W1 has no server and nothing moves on its own: **new applications** (one per
-  kennel queue, key `waitlist-applications:<kennelId>:<newestEntryId>` so a new
-  application resurfaces a dismissed batch; action deep-links to the Waitlist page);
-  **offer deadline passed** (`waitlist-offer-overdue:<offerId>`, action records
-  `no_response` via `waitlistActions.recordOutcome`, which also moves the turn on; on an offer
-  whose family picked a pup it reads **deposit didn't arrive / Record no deposit** and the held
-  Sale is cancelled);
-  **fee past its pay-by date** (`waitlist-fee-overdue:<entryId>`, action closes the
-  application as `expired`); and **second-pass removal** while its 7-day undo lasts
-  (`waitlist-removed:<entryId>:<removed_date>`, action `undoRemoval`). Each auto-dismisses
-  when its condition clears.
+`pages/today.js` renders them: it filters out dismissed keys (`nudgeState.isDismissed`),
+wires each action, and adds one Dismiss button per row. Dismissals are device-local
+(`nudgeState.js`), never in a backup.
 
-The four linked-status rules above are the backstop for page prompts that fire only on an
-edit made on that page: the **litter page** offers to set the linked pairing's status when a
-litter is created whelped-or-later or first enters that band; the **pairing page**, on the
-transition into `whelped` with no litter, offers **Create litter**, and into an ended status,
-offers to archive each linked `expected` litter; the **dog page**, on the transition into
-`deceased`, lists `deceasedDogNudges` for that dog with their actions (with the archive offer
-when it was a Puppy until now); and **`salePrompts.promptReleasedPup`**, after recording the
-death of a pup whose sale ended `pup_died`, offers the same archive. An import, a live
-sync, another device or a Skip leaves the mismatch for Today to catch.
+| Key prefix | Fires when | Offers |
+|---|---|---|
+| `studstatus` | a stud service's sent/returned date passed but status lags | `in_progress` / `completed` |
+| `promote` | a kept puppy is past its kennel's promote age (opt-in per kennel) | promote to active breeding |
+| `studpair` | a finished stud service has no `pairing_id` | create the pairing |
+| `heatpair` | a heat cycle ended with no pairing for that dam since | create a pairing |
+| `pairingduesoon` | a bred/confirmed pairing is due within 3 days, no litter | create the litter |
+| `pairingoverdue` | a pre-whelp pairing is past due, no litter | mark whelped / create litter |
+| `litterpairing` | a whelped-or-later litter's pairing isn't `whelped` | mark it whelped |
+| `pairingended` | an ended pairing still has an `expected` litter | archive the litter |
+| `pairingnolitter` | a `whelped` pairing has no litter (not for external dams or pairings over 180 days old) | create the litter |
+| `deceased-sale`, `deceased-pairing` | a deceased dog has an open sale or a pending pairing | end the sale / cancel or fail the pairing |
+| `deceased-archive` | a puppy died in its first year (last 90 days) | Archive (Lite: Remove from program) |
+| `littersold` / `litterreopen` | a `ready` litter's roster is all placed/keeping/health hold with one placed (and it can't close yet) / a sold or closed litter has a pup available again | change litter status |
+| `litterclose` | `litterCheckin.litterCloseDue`: a born litter at any status but `closed`, no live pup `available` or `undecided` (blank = undecided; keeping, health hold and grown-up pups don't count), no open sale on any of its pups (`isOpenSale`), and one `delivered` sale. Sales come from every pup of the litter, archived ones included (`litterSalesOf`), and it's checked even when no live pup is left | close the litter |
+| `gohome-schedule` / `gohome-boarding` / `gohome-overdue` | `goHome.goHomeIssue` for a pup with a sale at `deposit_paid`/`paid_in_full`: from 7 days before the ready date, no pickup (`placement` event for that buyer, or with no contact) today or later and no boarding running / the sale has a `deferred_boarding_amount` and no boarding logged from 7 days before the ready date on / the latest pickup date has passed | the pup's event form prefilled (pickup or boarding) / `sale.html?id=…&deliver=1` |
+| `show-title` | a show track is complete with no `title_earned` event | prefilled title event |
+| `int-review` | a vendor event wasn't applied (`integration_reviews`, §32) | open the record; Done removes it |
+| `follow-up` | a pup went home 7–60 days ago (`referralShare`) | write a thank-you note |
+| `waitlist-*` | new applications, an offer or fee past due, a removal's undo window, planned deposit date reached (`open-picks`), "Ready now?" unanswered, family messages, and family requests (pref, pause, listen, Companion link) | the matching waitlist action (§29) |
 
-The three litter-lifecycle rules are aggregate facts over a litter's derived roster (and, for
-close, its sales) — **leaving out any pup whose `status` is `deceased`**. A dead pup's
-disposition is null (puppy-only, forced by `dogRepo`), and a null would otherwise hold up
-**sold** for good; filtering on status also covers a row restored or synced from before that
-rule (left `available`, it would ask to reopen). A litter whose pups are all deceased gets none
-of the three. So `computeNudges()` groups the already-loaded `dogRepo.getAll()` result by
-`litter_id` in one pass and adds `saleRepo.getAll()` to its parallel load rather than
-re-scanning per record. Their actions mutate only `Litter.status` via `litterRepo.update`;
-nothing auto-mutates. The stud→pairing and heat→pairing rules share one dedup helper
-(`pairingExistsForDam`): a pairing counts as "already handled" if it's for the same dam, not
-`cancelled`/`failed`, and opened (`planned_date`, falling back to `created_at`) on or after
-the window in question.
+Litter-lifecycle rules ignore deceased pups. The same close rule runs on the Sale page: a
+save that moves a sale into delivered / returned / cancelled / voided asks **Close the
+litter?** when `litterCloseDue` holds (`sale.js` `promptCloseLitter`, last of the post-save
+prompts). `sale.html?id=…&deliver=1` opens an open sale in edit with Delivered chosen, so her
+Save runs delivery's prompts. The linked-status rules back up prompts the
+litter, pairing, dog and sale pages show on the edit itself, for changes made elsewhere
+(import, sync, another device).
 
-**`data/nudgeState.js`** — the dismissal ledger (§11): `isDismissed`, `dismiss`, `clearAll`.
-A computed nudge has no backing row to persist "dismissed" on, so dismissal is device-local UI
-state, deliberately kept **out of** JSON backups.
+**Today's "Upcoming shows" card** (Pro): `show` events in the next 14 days; Today's
+"Due outs" list leaves shows out so each appears once.
 
-**Today's "Upcoming shows" card** (`renderShows`, Pro-only via `editionFlags.shows`; Show
-Tracking Spec §5.3): `show` events in the next 14 days, not `scratched`, grouped by date —
-dog · show · status badge, then location · handler · ring · ring time, each row deep-linking
-`openEvent=<id>`. Silent when empty. While the flag is on, `today.js` filters `event_type ===
-'show'` **out** of the rows it passes to the "Due outs & upcoming" card, so a show is listed
-once on Today; the filter lives in `today.js`, not `getUpcoming()`, so the Upcoming page still
-lists shows. Entries-close alerts are ordinary reminders (`reminder_date`) — no new code.
-
-**Rendering (`pages/today.js`)** owns the split: it calls `computeNudges()`, filters out
-`isDismissed(key)` itself, renders what's left in a "Nudges" section (above Reminders), wires
-each nudge's own action button(s), and adds one generic "Dismiss" button per row — the same
-mechanism for every nudge, owned by the renderer.
-
-**`data/awayBoard.js`** — `getAwayBoardRows()` unions two sources into one normalized
-view-model (`{ dogId, location, reason, contactId, outDate, returnDate, dropoffTime,
-pickupTime, sourceType, sourceId, href }`): `eventRepo.getBoardRows()` (boarding events) plus
-`studServiceRepo.getBoardRows()` (stud services where `type='in_person'` and today falls in
-`[sent_date, returned_date]`, open-ended if `returned_date` is null; away dog is always
-`our_dog_id`; location resolves from the partner contact's `address`). Consumed by
-`pages/board.js`, `pages/today.js` (`renderBoard`), and `pages/dashboard.js` (the away-count
-tile). Boarding events still cover non-stud reasons (grow-out, foster, owner travel); a
-stud-reason stay is authored on the StudService record itself, not duplicated as a boarding
-event.
-
-Active-kennel scope is applied **inside** `getAwayBoardRows()`, not in the three renderers,
-so board/today/dashboard cannot disagree about who is away. Both row kinds normalize to a
-`dogId` and the dog is what is physically away, so both scope through that dog (transparent
-flavor — an outside stud boarding with you belongs to no kennel of yours and must not
-vanish). It costs one extra `dogRepo` read, and only when there IS a scope.
-
-`StudService.type` and the three `Kennel` nudge fields are plain unindexed fields (§5); the
-stud→pairing nudge action reuses the existing `StudService.pairing_id` link. No schema, index,
-or reference-registry change.
+### Away board (`data/awayBoard.js`)
+`getAwayBoardRows()` unions boarding events (`eventRepo.getBoardRows`) and in-person stud
+services now in their sent/returned window (`studServiceRepo.getBoardRows`) into one row
+shape. Used by `board.js`, Today and the dashboard tile. Kennel scope is applied inside it,
+through the away dog, so the three can't disagree.
 
 ---
 
 ## 20. Companion share-out (buyers & partners)
 
-A **one-way, point-in-time export** of a curated slice of a recipient's own data, delivered as
-a **no-account, read-only link** — not sync, not a login, not a live view. The main app stays
-single-user/offline/all-local; this adds *recipients*.
+**Editions:** Pro and Demo only (`editionFlags.companion`; `companion.html` and
+`companion-view.html` are in `proPages.js`). `data/companionExport.js` still ships to Lite
+because shared code imports it.
 
-### What it is
+A **one-way, point-in-time snapshot** of a recipient's own slice of the data, sent as a
+no-account, read-only link. Not sync, not a login, not a live view.
 
-**Three bundle types**, all **anchored on a Contact** (the recipient) and discriminated by
-`bundleType`:
+### Bundle types (all anchored on a Contact)
+- **`prospective`** (a contact with `waitlist_status === 'active'`): available pups, one card
+  per litter, with parents' cards (`dogCard`: names, photos link, completed tests) and each
+  pup's per-sex list price and deposit. The same for every prospect: nothing private.
+- **`family`** (a buyer with an open sale, `isOpenSale`): one card per pup on an open sale:
+  names, parents, computed age (never the DOB), placement or ready date, their own sale's
+  money with a computed remaining balance (net of a credited waitlist fee, §21), contracts
+  as `{signedDate, documentUrl}`, and a curated event history (one safe field per type for
+  vaccination, preventative, weight, milestone, note; never `notes`, never
+  illness/injury/evaluation).
+- **`partner`** (the partner on a current stud service, or the counterparty on a live
+  lease/co-own/other contract): stud/dam cards, agreement terms, and the live contract per
+  agreement (`contractRepo.isLivePartnerContract` + `governingContract`). The same predicate
+  drives partner membership, so who appears and what they see can't drift.
 
-- **`prospective`** — a prospective family (a client/waitlister with no sale): current
-  availability as **one card per litter with its available pups nested inside** (`litters[]`,
-  each with `nickname`, `breed`, `whelpDate`, `acceptDepositsDate` (from
-  `Litter.accept_deposits_date`, rendered between "Born" and "Estimated ready" only when
-  set), `readyDate`, a `dogCard` for `sire`/`dam`, and `pups[]`). Each pup carries `sex`,
-  `callName`, `markings`, and its **sex-keyed list `price` + `deposit`**
-  (`Litter.expected_price_*`/`expected_deposit_*`). The availability is the same for every
-  prospect — **no per-recipient private data**.
-- **`family`** — a current family (a buyer with an **open** sale per `saleRepo.isOpenSale`):
-  **one rich card per placed pup** (`pups[]`, from `saleRepo.getByBuyer` filtered by
-  `isOpenSale` → dog — terminal sales `delivered`/`returned`/`cancelled`/`voided` never appear,
-  matching membership). Each pup carries `callName`, `sex`, `photosUrl` (`Dog.url`),
-  `litterNickname` (when set), `sire`/`dam` (call + registered name), a **computed `age`
-  `{ageWeeks, ageDays}`** as-of the generation date (**never the raw DOB**), a `placement`
-  block or an `estimatedReadyDate`, sale facts (`placementType`/`saleStatus` sent as raw
-  values, the shell maps them to their proper-cased vocab labels; `price`, `deposit`,
-  `transportFee` (shown only when present), `deferredPickup` (shown only when a
-  `deferred_boarding_amount` is present — `{total, amount, frequency, duration}`, where
-  `total = amount × count`; the shell shows the total with the rate breakdown beneath it), a
-  **computed** `remainingBalance` = `price + transportFee + deferredPickup.total − deposit`
-  (absent parts count as 0; never stored), and `balanceDueDate` (`Sale.balance_due_date`)),
-  and an `eventSections[]` **curated per-type event history**. When the sale carries a
-  **complete** deferred pickup (amount + frequency + duration) a `deferred_pickup_boarding`
-  section is **pinned to the top** of `eventSections`, listing the dog's `boarding` events as
-  `{startDate, endDate}` scheduled ranges (only the two dates copied — never boarding notes).
-  Plus top-level `contracts[]` = the sale's non-archived contracts as `{signedDate,
-  documentUrl}` (shell shows the signed date or "Not Signed" + a "View/sign contract here"
-  link). Event history
-  surfaces a **title + one curated safe field per type** — `vaccination`→`vaccine`,
-  `preventative`→`product`, `weight_check`→weight, `milestone`→`description`, `note`→title
-  only — **never** the freeform top-level `notes`, and **never** illness/injury/evaluation or
-  any type not on that list.
-- **`partner`** — a stud/lease/co-own partner: `studServices` (labeled **Stud/Dam `dogCard`
-  blocks** carrying registered/call name + completed tests, each followed by an **Agreement
-  Details** section — the service `type` (`in_person`/`ai`, proper-cased), `sentDate`/
-  `returnedDate` relabeled **Begins/Ends**, `fee_structure` as **Terms**, plus the
-  native-decimal `fee_amount` when the structure includes a flat fee and the `pick_status`
-  when it includes a pick of litter — and a **Contract** section carrying the service's own
-  governing/most-recent contract as `contract` = `{signedDate, documentUrl}`), and the
-  top-level `contracts` (lease/co_own/other contracts where `related_contact_id` = them). Each
-  is **projected per type** by `projectContract()`: all carry `type`, `title`, `status`,
-  `signedDate` (shown "Not Signed" when null), `terms`, and `document_url`; a **`lease`** also
-  carries `startDate`/`endDate` and `dog` (the leased dog as `dogRef` = `{registeredName,
-  callName}`); a **`co_own`** also carries `dog`. The shell titles the card by type when it
-  holds a single type ("Lease agreement" / "Co-ownership"), else "Contracts". These are
-  reduced to the **live contract per distinct agreement, not the full history**: only
-  `contractRepo.isLivePartnerContract(c, today)` contracts survive, grouped by
-  `(contract_type, related_dog_id)`, and each group collapses to `governingContract()` (most
-  recent signed) or the most-recent-by-`created_at` fallback. The **same
-  `isLivePartnerContract` predicate drives partner membership** in `companion.js`, so who
-  appears and what their bundle shows can't drift.
-- **`dogCard` / completed tests** (shared projection): prospective sire/dam and partner
-  stud/dam use `dogCard(dog)` → `{registeredName, callName, photosUrl, tests}`, where `tests`
-  is `completedTests(dogId)` reading `eventRepo.getForSubject('dog', …)` and projecting
-  `breed_specific_test` (`test_name`:`result`), `ofa_pennhip` (`joint`:`rating`), and
-  `genetic_test` (`panel_name`:`result`) **only when the result/rating is non-empty** (else
-  `[]`, block omitted).
+### The console (`pages/companion.*`)
+One tab per bundle type (`?type=`); the tab is the type. Each recipient row expands to the
+`companion_note` editor, **Preview** (the real `companion-view.html` in an iframe, sending
+nothing) and **Prepare link**. Both use `buildSendArtifacts`, so the preview can't differ
+from the send.
 
-### Console — one package type at a time
-
-The **Companion Messaging console** (`pages/companion.*`, the Sharing nav item's landing
-page) is scoped by
-`?type=` seg-tabs — one per `COMPANION_TYPES` value (Prospective families / Current families /
-Partners), the same URL-param tab pattern as the Contacts group tabs; no param defaults to the
-first type. The active tab drives the whole page: the single template card shown, a
-plain-language **filter blurb** above it, the **recipients list** (only contacts that match
-the type), and the bundle type "Prepare link" builds (there is no per-row type picker — the
-tab **is** the type).
-
-Each recipient row is **collapsed by default** to a one-line header (name + a `note` badge
-when `companion_note` is set + email/phone); clicking the header reveals the note editor, Save
-note / Preview / Prepare link actions, and the built link. **Preview** builds the same bundle
-"Prepare link" would (persisting any unsaved note first) and opens a modal showing the channel
-body text plus the real `companion-view.html` shell loaded in an iframe off that bundle's hash
-— a byte-for-byte render of what the recipient will see, sending nothing. Both actions share
-`buildSendArtifacts`, so the preview can never drift from the send.
-
-**Membership predicates** (`companion.js`): a **prospective** is a Contact with
-`waitlist_status === 'active'`; a **family** is a buyer with an **open** sale per
-`saleRepo.isOpenSale(s)`; a **partner** is a Contact who is the `partner_contact_id` on a
-non-archived StudService whose `returned_date` is empty or `>= today`, **or** the
-`related_contact_id` on a `lease`/`co_own`/`other` contract that is live per
-`contractRepo.isLivePartnerContract(c, today)`. A Contact can appear under more than one tab —
-that's expected. The prospective filter is display-only, but the **family** and **partner**
-predicates are shared with the bundle builder, so membership and bundle contents stay in
-lockstep.
-
-### Two-layer messaging
-
-Layer 1 is per-type config (`kennelName`/`tagline`/`introText`/`announcement`/`closer`, plus
-the `include` component map — below) in `settings.js` under the `companion` key, edited in the
-console's template card. Layer 2 is **`Contact.companion_note`**, a per-recipient personal
-line. Both are carried in the bundle **separately** — `announcement` (broadcast) and
-`personalNote` (the note) — and the shell shows them **alongside each other**. The shell
-**prepends the recipient's name** to the intro text ("Hi {name} — …"; there is no separate
-greeting card), renders the personal note in the header card's accent box, the broadcast
-announcement as its own card beneath, and the `closer` sign-off as the final card **just above
-the snapshot date**. The bundle copies the resolved copy inline, so header/landing text updates
-without a shell deploy.
-
-### Per-type component allow-list (`include`)
-
-A third piece of Layer-1 config: a flat map of boolean flags, one set per bundle type, stored
-under `companion[type].include` and edited as the "What to include" checkboxes in each template
-card. **All flags default `true`** — everything shows — and `getCompanionSettings` deep-merges
-the map over the defaults so a flag the owner never set (or one added in a later version) falls
-back to on, never silently hiding a component. Each builder reads its type's `include` and
-**only ever subtracts**: a disabled component's field is emitted `null`/`''`/`[]` (or the
-section is skipped), never a new key — so the allow-list invariant below is untouched and no
-`COMPANION_BUNDLE_VERSION` bump is needed. **Master/child flags:** a master gates a group
-(`parents`, `pricing`, `studServices`) and the builder ANDs each child with its master, so a
-child only emits when both are on; the console greys out a child whose master is unchecked.
-
-The flags, by type:
-- **prospective:** `parents` (→ `parentRegisteredName`, `parentCallName`, `parentPhotos`,
-  `parentTests`), `pricing` (→ `pricingPrice`, `pricingDeposit`), `litterDates` (born /
-  accept-deposits / estimated-ready), `markings`, `fosterOwnerKennel` (the litter card's
-  `breederKennel` — the foster dam's **owner kennel**, §25; emitted only for a foster litter,
-  empty for every ordinary litter regardless of the flag). When every `dogCard` field is off the
-  card is omitted entirely; when no pup carries a price/deposit the shell drops the deposit
-  disclaimer.
-- **family:** `age`, `parentage`, `photos`, `readyPlacement`, `financials` (price, deposit,
-  transport, deferred-pickup, remaining balance — net of a credited waitlist application fee,
-  §21 — balance-due — **not** placement type / sale
-  status, which always show), the five history flags `histVaccination`/`histPreventative`/
-  `histWeight`/`histMilestone`/`histNote`, `histBoarding` (deferred-pickup boarding section),
-  `contract`, `fosterOwnerKennel` (the pup card's `breederKennel` — the owner kennel of a
-  pup that came from a foster litter, §25; empty otherwise), `recommended` (the top-level
-  `recommended[]`: her Accounts marked "Share with families", as `referralShare.sharedReferrals`
-  copies them, name / link / code / instructions only; `[]` when off or none, §32; the shell
-  shows a "Recommended for your puppy" card after the contract, links only for web addresses;
-  older links simply lack it).
-- **partner:** `studServices` (master → `studRegisteredName`, `studCallName`, `studPhotos`,
-  `studTests` for the Stud/Dam cards, plus `studAgreement` for the Agreement Details/
-  compensation and `studContract` for the per-service contract), and top-level `contracts`
-  (lease / co-own / other).
+**Messaging:** per-type template copy (kennel name, tagline, intro, announcement, closer) in
+`settings.js` `companion`, plus the per-recipient `Contact.companion_note`. **What to
+include:** per-type boolean flags (`companion[type].include`, all default on, deep-merged so
+new flags default on). Flags **only subtract**: a disabled part is emitted empty, never as a
+new key. Master flags (`parents`, `pricing`, `studServices`) gate their children.
 
 ### The load-bearing invariant: the allow-list builder
+`data/companionExport.js` builds each bundle **field by field**, reading through repos, with
+no record spread. `assertOnlyKeys()` checks the top level against `PROSPECTIVE_KEYS` /
+`FAMILY_KEYS` / `PARTNER_KEYS` and **aborts the send** on anything extra. A new field on a
+source table never reaches a bundle until someone adds it here by name. Money is only ever
+the recipient's own.
 
-`data/companionExport.js` is the **security spine**. `importExport.js` deliberately iterates
-whatever tables exist (a full backup); this builder does the **exact opposite**:
-`buildProspectiveBundle`/`buildFamilyBundle`/`buildPartnerBundle(contact)` each **construct a
-fresh object naming every field explicitly**, reading through repos (never `db.*`), copying
-**only** listed fields — **no record spread, no filter-over-a-record**. After building,
-`assertOnlyKeys()` runs a **positive** allow-list check and **aborts the send** if any
-unexpected top-level key is present. A new field added to a source table does **not** appear in
-a bundle until someone adds it here by name — including fields nested inside a pup/litter/
-service, safe only because each is copied by name and the **top-level** `*_KEYS` allow-lists
-stay exact. Money is limited to the recipient's **own** figures: a prospect sees the litter's
-per-sex list price/deposit, a family sees their own sale price/deposit/balance, a partner sees
-the one stud `fee_amount`.
-
-### Transport & the shell
-
-- The bundle rides the **URL fragment**: `JSON.stringify` → **lz-string**
-  (`vendor/lz-string.min.mjs`, vendored + version-locked, v1.5.0) →
-  `companion-view.html#<hash>` (built by `assets/companionLink.js` — `buildLinkArtifacts`,
-  `sendHrefs` and the two ceilings — shared by the console and the guided litter flow's share
-  step, §33, so both send the same thing). Send is a **real `sms:`/`mailto:` anchor** the user taps (their
-  tap is the activating gesture — never a post-async `window.location` assignment). **Channel
-  by size:** email is the default; SMS is blocked above `MAX_SMS_HASH_LEN` and steered to
-  email; email warns above `MAX_EMAIL_HASH_LEN` (the console's `prepareLink`).
-- **`companion-view.html`** is the recipient shell — one self-contained, read-only static file
-  at the app root (inlined, version-locked lz-string; branches on `bundleType` and
-  `bundleVersion`; **tolerates additive fields**; theme-aware; shows a prominent "snapshot as
-  of" line). It is **infrastructure**: it must stay **backward-compatible with every
-  `bundleVersion` ever sent** — bundle evolution is additive, `bundleVersion` bumps only on a
-  breaking shape change, and a shell fix must not break links sent last month.
-
-### No revocation / no expiry
-
-A hash-link, once sent, is permanent. The sensitive document is **never in the hash** — only
-`document_url`, a pointer; access is governed by the owner's Drive sharing, which they revoke
-independently. `updatedAt` renders prominently so a stale link is self-evident.
-
-### Model touch-points (all covered in §4/§5/§7)
-
-`Contract.related_contact_id` (indexed FK, `CONTACT_REFERENCES`, `getByContact`),
-`Contract.document_url`, `StudService.pick_status`, `Contact.companion_note` — the last three
-plain/unindexed. `companionExport.js` and the console/shell are pure composition + projection;
-no two-way pointers, every reverse stays a query.
+### Transport and the shell
+- The bundle rides the URL fragment: JSON → lz-string (vendored) →
+  `companion-view.html#<hash>`, built by `assets/companionLink.js` (shared with Kels's share
+  step, §33). Send is a real `sms:`/`mailto:` anchor the user taps. SMS is blocked above
+  `MAX_SMS_HASH_LEN` (1800); email warns above `MAX_EMAIL_HASH_LEN` (12000).
+- `companion-view.html` is a standalone, read-only page with lz-string inlined. **It must read
+  every `bundleVersion` ever sent** (`COMPANION_BUNDLE_VERSION`, currently 1): bundles evolve
+  additively, and a shell fix must not break last month's links.
+- **No revocation or expiry.** Documents are never in the link, only `document_url` (her Drive
+  sharing controls access). The "snapshot as of" date shows prominently.
 
 ---
 
 ## 21. Financials — income & the Expense ledger
 
-The Financials hub has **three views**, switched by a top toggle
-(`financials.html?view=overview|income|expenses`; a bare URL opens Overview, a `?bucket=` link
-still opens Expenses):
+**Editions:** All editions. Lite hides the invoice/receipt button (`invoicing`), receipt
+attach (`receiptAttach`) and the Account picker (`accounts`). Waitlist fees and processing
+fees from Accounts are Pro only.
 
-- **Expenses** — the Expense ledger (money spent).
-- **Income** — a **derived** view of money coming in, sectioned earned vs anticipated.
-- **Overview** — Earned income / Anticipated income / Total expenses / **Net (earned − spent)**
-  tiles, plus a component breakdown of income beside a category breakdown of expenses.
+The Financials hub (`pages/financials.*`) has three views
+(`?view=overview|income|expenses`): **Expenses** (the ledger, with one tab per
+`EXPENSE_CATEGORIES` value via `&bucket=`), **Income** (derived, Earned and Anticipated
+boxes; a row opens an **Adjust** modal that writes back to the sale or stud service), and
+**Overview** (earned / anticipated / spent / **Net = earned − spent** tiles and breakdowns).
 
-### The Expense ledger (money spent)
+### Expenses — the one home for money spent
+- `expenses` is polymorphic (`dog`/`litter`/`pairing`/`kennel`). Overhead goes on your own
+  kennel; there is no "general" subject and never a null `subject_id`. Revenue is never
+  stored here.
+- **Mileage** is a repo rule: when `miles` is set, `expenseRepo.normalize` derives
+  `amount = round(miles × mileage_rate, 2)` and the category is `mileage`. Both expense
+  forms share `buildMileageFields`/`wireMileageMode` and preview with `mileageAmount`.
+- Buying a dog is an **expense** (`dog_purchase`), never a Sale.
+- **Event ↔ cost:** `Expense.event_id` is the only link. The event form's Cost field upserts
+  or deletes its expense; its category defaults from `defaultExpenseCategoryFor(event_type)`
+  (`veterinary` only for real vet care; tests → `testing`; `show` → `show`; …). An unlinked
+  expense on a dog/litter/pairing offers **Log event →**, which back-fills `event_id`.
+- **Foster and reimbursables (§25):** the partner's cut is a real `foster_split` expense; a
+  reimbursed `reimbursable` expense drops out of litter cost, and a pending one shows as
+  "Owed back".
+- `assets/expensePanel.js` is the per-subject ledger on dog, litter, pairing and kennel pages.
 
-The single home for money spent. One `expenses` table (§4/§5), polymorphic like Event:
-`subject_type ∈ {dog, litter, pairing, kennel}` + `subject_id`. Kennel-wide overhead (facility,
-bulk food, registration dues, marketing) lives on `subject_type='kennel'`; there is deliberately
-**no `general` subject** — program overhead is logged against your own kennel, so there is never
-a null `subject_id`. Revenue is **not stored** here (it stays on `Sale.price`/`deposit_amount`
-and `StudService.fee_amount`); this table is costs only.
+### Income — derived, never stored (`data/incomeView.js`)
+There is no income table and no `is_earned` field. `getIncomeRows()` reads Sales, outgoing
+StudServices and (Pro) waitlist fees, and classifies each money component on every load.
+Kennel scope applies to the source records here, so every money screen agrees; a
+`kennelId` argument overrides it for the kennel page. Expenses are scoped through their
+subject (`financials.js` `expenseInScope`).
+- **Sale:** deposit, balance (price − deposit), transport and deferred boarding (amount ×
+  count). A part is **earned** once its paid date is set or the status has passed it, else
+  **anticipated**. Returned/cancelled keeps only what was paid. A **lost** sale
+  (`vocab.isLostSale`) counts nothing: it's refunded or carried to another pup (§29).
+  `paidOnSale()` reads what was paid regardless of status.
+- **Outgoing stud fee:** earned when `completed`, anticipated while arranged/in progress.
+  `pick_value_amount` is a separate non-cash `pick` line, outside the cash totals and Net.
+- **Waitlist application fee** (Pro): one earned row per entry with a received fee above 0.
+  When `fee_credit_policy` is `credited_to_purchase` and the family is placed, the fee comes
+  off that sale's balance (`saleComponents(sale, feeCredit)`, `getSaleFeeCredit`) so it isn't
+  counted twice; invoices and the Companion balance show the credit.
+- Vocab: `INCOME_STATES`, `INCOME_SOURCE_TYPES`, `INCOME_COMPONENTS`.
 
-**Foster compensation & reimbursables (§25).** A foster litter needs no new income
-machinery: whoever holds the puppies books the gross Sales, and the **other party's cut is a
-real Expense** — the `foster_split` category ("Foster compensation", whether the terms are a %
-split or a flat per-pup fee) — so it flows into the
-Litter P&L as cost like any other spend. Owner-reimbursable rearing costs use the ledger's
-`reimbursable`/`reimbursed_date` fields: `litterFinances.js` **excludes a reimbursed
-reimbursable from your cost** (it washes out — someone paid you back) and tallies a
-**still-pending** one as an outstanding receivable (`reimbursablePending`, the report's "Owed
-back" column) while leaving it in cost until settled.
+**Per litter:** the Litter page shows a simple Sales & Income panel (each sale's total and
+status). The **Litter P&L** report (`data/litterFinances.js`) is the full picture: income vs
+the litter's expenses plus its puppies' expenses.
 
-The ledger has a **CSV import path** (the `expense` mapping in `csvImport.js`, reached from
-Import/Export → "Import expenses (CSV)"), so a companion receipts/mileage app — or any
-spreadsheet — can feed it with the standard dry-run + match-or-create preview. See §9 for the
-mapping (columns, subject resolution, mileage derivation, idempotent natural key). No photo
-crosses over on import — to attach a receipt image to a ledger row, use the in-app receipt
-capture on the expense form (§26.1).
-
-### Mileage / transport costs
-
-A cost you drive for (vet runs, delivering a puppy, hauling a dam to a stud) is captured as a
-**mileage expense** — a normal ledger row whose dollar `amount` is **derived** from distance,
-not typed. The add-expense form (both `assets/expensePanel.js` on every subject page and the
-Financials hub's own modal in `financials.js`) carries a **Flat amount ↔ Mileage** toggle:
-Mileage mode swaps the Amount box for **Miles** + **Rate / mile** (the rate prefilled from
-`settings.getMileageDefaults()`, with a "Save this rate as my default" opt-in via
-`setMileageDefaults`), shows a live `= $X (N mi × $R/mi)` preview, and locks the category to the
-dedicated **`mileage`** ("Mileage / travel") `EXPENSE_CATEGORIES` value.
-
-The math is a **repo rule, not a UI one**: `expenseRepo.normalize` computes `amount =
-round(miles × mileage_rate, 2)` whenever `miles` is set (and stores `miles`/`mileage_rate` as
-plain unindexed fields), so the amount is authoritative regardless of which modal — or a future
-CSV/import — writes it; `validateExpense` requires a non-negative rate on any mileage entry, and
-`create` normalizes **before** validating so the derived amount exists to check. A flat expense
-leaves both fields null and keeps its entered amount. The pure helper `mileageAmount(miles,
-rate)` is exported for the form's live preview so preview and stored value can't drift. Because
-`mileage` is a real category, driving costs break out on their own Expenses seg-tab and in the
-Overview category breakdown automatically (the seg-tabs are built from the vocab, never
-hand-listed) — a clean deductible-mileage total. The two form modals share
-`buildMileageFields`/`wireMileageMode` (exported from `expensePanel.js`) so they never diverge.
-No new table, index, FK, or `referenceRegistry` entry — the fields are plain and the amount is
-derived.
-
-Buying a new dog is deliberately an **expense, never a Sale** — `Sale` and `StudService` stay
-strictly income-side records (owner decision). `EXPENSE_CATEGORIES` carries a `dog_purchase`
-("New dog purchase") category; the dog's own `acquisition` event type (dog-subject, instant,
-`source` field for the seller) is an **option** on that dog's timeline, never auto-created, and
-its default Cost category (`defaultExpenseCategoryFor`) is `dog_purchase` — logging one with a
-Cost amount upserts the linked `Expense` the normal event↔cost way.
-
-### The event↔cost link (one canonical direction)
-
-`Expense.event_id` is the **only** stored link between an event and its cost:
-
-- **Event form → ledger.** The event form's "Cost" (+ "Cost category") field is a convenience
-  writer: on save (`assets/eventForm.js`) it upserts an `Expense` carrying `event_id` = the
-  saved event and the event's own subject; clearing the Cost hard-deletes that linked expense.
-  Cascade (litter-wide) events create one linked expense per created event. One expense per
-  event is the **form's** limit, not the data model's — `expenses.event_id` allows several
-  and `expenseRepo.getByEvent` returns them all. Event stores **no
-  `cost` field**. The Cost category dropdown pre-selects `defaultExpenseCategoryFor(event_type)`
-  (overridable before save). `veterinary` is reserved for genuine clinical vet care
-  (`vaccination`, `illness`, `injury`, `surgery`, `vet_visit`, `ultrasound`) — **not** a catch-all;
-  diagnostic panels (`genetic_test`/`ofa_pennhip`/`breed_specific_test`/`progesterone_test`) map to
-  `testing`, `boarding`→`boarding`, `show`→`show` ("Shows & handling"), `acquisition`→`dog_purchase`, and everything else (including
-  stockable products like `medication`/`preventative` and observation-only events like
-  `abnormalities`) falls through to `other`.
-- **Ledger → event (display).** `timeline.js` reads amounts back via `expenseRepo.getByEvent`
-  and shows a `🔗 event` tag on linked ledger rows.
-- **Ledger → event (create).** In `assets/expensePanel.js`, a dog/litter/pairing expense with
-  no `event_id` offers "Log event →": it opens the event form for that subject and, on save,
-  back-fills the new event's id onto the expense. No mirror field — the reverse is always the
-  `getByEvent` query.
-
-### Income (derived — `data/incomeView.js`)
-
-There is **no income table and no `is_earned` field.** `data/incomeView.js` is a read-only
-aggregator: it reads the Sale table and the **outgoing** StudService table — the only two places
-money-in is recorded — and normalizes each into one view-model row per record, classifying every
-money component as **earned** or **anticipated** on each load. Storing this (or a mirror flag)
-would be a forbidden stored back-pointer (§7); it is always recomputed.
-
-Active-kennel scope is applied here at the **source records**, so the Financials Overview
-tiles, the Income view, the per-litter P&L, and the invoice/receipt generator's record
-picker can never disagree about which money is yours right now. `getIncomeRows()` also
-takes an optional `kennelId`, which overrides the active scope with one named kennel — the
-per-kennel hub (`kennel.html`) needs it, because it reports on the kennel you opened rather
-than the kennel you are scoped to. The Expense side is scoped separately in
-`pages/financials.js` (`expenseInScope`): an Expense is polymorphic and carries no
-`kennel_id`, so its scope is resolved through its subject.
-
-Classification (owner decisions):
-
-- **Sale.** `price` splits into a deposit portion (`deposit_amount`) and a balance portion
-  (`price − deposit`); `transport_fee` and deferred-pickup boarding (`deferred_boarding_amount ×
-  count`, the count in `deferred_boarding_duration_days`) ride with the balance. A component is
-  **earned** once its paid-date is recorded (`deposit_date` / `balance_paid_date`) or the status
-  has advanced past it (`deposit_paid`/`paid_in_full`/`delivered`), else **anticipated**. On a
-  **returned/cancelled** sale only amounts already recorded as paid survive (as earned); the
-  unpaid remainder is dropped, never anticipated. A **lost** sale (`vocab.isLostSale`: **voided** —
-  the kennel's side fell through, e.g. the pup died before going home — or **returned** with
-  `end_reason: 'health_problem'`, within the guarantee) drops **everything**, paid or not —
-  what was paid is refunded or carried to another pup's sale (§29), so it is never this
-  sale's income. `incomeView.paidOnSale(sale, { feeCredit, asStatus })` reads what was paid
-  on a sale ignoring its released status (the waitlist's carry-over offer). A part-paid open sale therefore appears in
-  **both** the Earned and Anticipated boxes, each with its own portion.
-- **StudService (outgoing only** — incoming is money *we* pay, an expense). `fee_amount` is
-  **earned** when `completed`, **anticipated** while `arranged`/`in_progress`, dropped when
-  `failed`/`cancelled`. `pick_value_amount` is a **non-cash estimate**, surfaced on its own
-  `pick` line and kept **out** of the earned/anticipated cash totals and the Net figure.
-
-- **Waitlist application fee** (Pro-only, `editionFlags.waitlist`; Waitlist Spec §5.3) — the
-  third source, read from `waitlist_entries`: an entry with `fee_received_date` and a
-  `fee_amount` above 0 is one row (`source_type: 'waitlist'`, component `application_fee`),
-  always **earned**, scoped by the entry's `kennel_id`. A waived (0) or unpaid fee is no row.
-  Paid online (Integrations plan §4): the component is what they paid (`fee_paid_amount`,
-  her fee plus a passed-on card fee) and a negative `processing_fee` line takes off what the
-  payment service kept (`fee_processing_amount`), so earned is what she received; a credit to
-  the pup's price is still her `fee_amount`.
-  Refunds aren't tracked in W1. **Credit to purchase:** when the entry's
-  `fee_credit_policy` is `credited_to_purchase` and it's `placed` (`placed_sale_id`), the fee
-  was paid toward that pup's price, so `saleComponents(sale, feeCredit)` takes it off the
-  Sale's **balance** (never below 0) — otherwise the money would count twice — and the fee
-  row carries the pup's `dog_id`/`litter_id` so the Litter P&L (`litterFinances.js`, which
-  now sums `sale` **and** litter-scoped `waitlist` rows, counting only sales as pups sold)
-  keeps the full price. `getSaleFeeCredit(saleId)` exposes the credit: the invoice page and
-  the generator pass it to `incomeLineItems(…, { feeCredit })`, and the invoice's balance
-  line reads "Remaining Purchase Price (after $X application fee credit)"; the family
-  Companion bundle's computed remaining balance subtracts it too (§20). A waitlist row in the
-  Income boxes opens the family's waitlist entry instead of the Adjust modal; the generator
-  never lists waitlist rows.
-
-Vocabs (`vocab.js`): `INCOME_STATES` (earned/anticipated badges), `INCOME_SOURCE_TYPES`
-(sale/stud/waitlist badges — the Source filter drops `waitlist` where the flag is off),
-`INCOME_COMPONENTS` (deposit/balance/transport/boarding/stud_fee/pick/application_fee/
-processing_fee — the summary's per-component breakdown, mirroring the expense category one;
-`processing_fee` is the one **negative** line, §21.1).
-
-Income surfaces (`pages/financials.js`): the Income view shows a summary card
-(earned/anticipated totals + component breakdown) then **two grouped boxes** — **Earned** and
-**Anticipated** — each a `reportView` table (one row per sale/stud, source/year filters, CSV
-export). Clicking a row opens a compact **Adjust** modal that writes the money/status/paid-date
-fields straight back through `saleRepo.update` / `studServiceRepo.update` (with an **Open full
-record →** link), so an anticipated amount can be flipped to earned from the hub. No new FK,
-table, or `referenceRegistry` entry — income is purely derived.
-
-**Per-litter income** (sales reach a litter via the puppy's `dog.litter_id`): the **Litter
-detail page** has a deliberately simple "Sales & Income" panel — each puppy sale's **total
-value** (`price + transport + deferred boarding`) and status, with a total, and **no**
-earned/anticipated split or net (owner decision — that detail lives only on the report). The
-**Litter P&L report** (`litter-finances-report`, `data/litterFinances.js`) is the full picture:
-earned/anticipated income vs the litter's own expenses **plus** each puppy's dog-subject
-expenses, and the net.
-
-### 21.1 Processing fees (sales channels) — `docs/KennelOS_Integrations_Plan.md` §5
-
-A sale made through a marketplace or payment service (Good Dog, Stripe, Square…) loses a
-fee: a percentage of the price plus a fixed amount, either of which may be zero. Often she
-passes it to the buyer as a higher price, so the **price is gross and her income is price −
-fee**.
-
-- **Rate on the Account** (`fee_percent`, `fee_fixed`, `fee_passed_to_buyer_default`,
-  `fee_note`), shown on the account card as "6.25% + $5.00 per sale".
-- **Fee on the Sale** (`sales_channel_account_id`, `processing_fee_amount`,
-  `fee_passed_to_buyer`). Picking a channel fills the fee from its rate on the **price**
-  (transport and boarding aren't in the base) and sets the passed-on flag from the
-  account. A fee still at the amount the form filled in follows a price change; one she typed,
-  or one already stored when she opened the form, stays put. "Sold directly" clears a fee
-  the form had filled in. The form shows "You net $X of the $Y price" live, and the view
-  page adds Processing fee and You net rows.
-- **Price to net** (`data/processingFees.js`, pure, `tests/processingFees.test.js`): the form's
-  "Work out a price that nets you a set amount" helper sets `price = (net + fixed) ÷ (1 −
-  percent)`, rounded **up** to the cent, plus the fee and the passed-on flag. Adding the
-  percentage on top is not enough (to net $3,000 at 6.25% takes $3,200, not $3,187.50). In
-  Lite (no Accounts) she types the rate into the helper itself.
-- **Income** (`incomeView.feeComponents`): the fee comes off as negative `processing_fee`
-  components, split across the sale's cash components in proportion to their size, each
-  share taking that component's state and `when`. So **earned income is what she actually
-  received**: a deposit-paid sale has earned the deposit's share of the fee, a cancelled sale
-  keeps only the paid share's, and a lost sale (no components) has none. Each sale row also
-  carries `processing_fee` (the positive total). The Overview Net, the Litter P&L, the P&L by
-  month and the kennel hub all read these rows, so they net it too. Receivables only lists
-  positive amounts, so the buyer still owes the full balance.
-- **Never buyer-facing:** `saleComponents` (behind `incomeLineItems` for the invoice and
-  `paidOnSale`) leaves the fee out, so an invoice or receipt shows the buyer's gross amounts.
-  The family Companion bundle doesn't read it either.
-
-### Surfaces
-
-- **`assets/expensePanel.js`** — the reusable per-subject ledger panel (running total,
-  add/edit/archive/delete, its own add-expense modal). Mounted on the dog, litter, pairing, and
-  **kennel** detail pages (the last via `pages/kennel.*`, reached from the Kennels list's
-  "Open →").
-- **`pages/financials.*`** — the **Financials hub** (its own top-level nav tab, not a report),
-  with the **Overview / Income / Expenses** top toggle. The **"+ Add Expense"** button (logs a
-  cost against any dog / litter / pairing / kennel) shows only on the Expenses view.
-  - **Expenses view:** a summary card (grand total + per-category breakdown) over the standard
-    `reportView` ledger table (category/subject-type/year filters + CSV export). **Sectioned by
-    category:** a `seg-tabs` row built from `EXPENSE_CATEGORIES` (never hand-listed), one tab per
-    category via `financials.html?view=expenses&bucket=<value>` pre-filtering the loaded ledger,
-    plus **All** (default, no `bucket`). The ledger loads newest-to-oldest by `expense_date`
-    before any bucket filter.
-  - **Income view:** summary card + two grouped Earned/Anticipated `reportView` boxes with the
-    row-level Adjust modal.
-  - **Overview view:** the Net tiles + income/expense breakdown.
-
-### Safety
-
-- **Companion export is safe by construction** — `companionExport.js` is a positive allow-list
-  (§20), so `expenses` never appears in any bundle. Financials do not leak.
-- **Hard-delete guards** (§7): an event with a linked expense, and a subject with any expense,
-  are archive-only until the expense is removed.
+### 21.1 Processing fees — `docs/KennelOS_Integrations_Plan.md` §5
+A sale through a marketplace or payment service loses a fee (percent + fixed). The **price
+stays gross and income is price − fee.**
+- The rate lives on the Account (`fee_percent`, `fee_fixed`, `fee_passed_to_buyer_default`).
+  The Sale stores `processing_fee_amount` as a **snapshot**: filled from the rate on the
+  price, followed by price changes only while it's still the filled value, never re-derived.
+  Deposit/balance paid-via accounts estimate it per payment, and a processor's reported fee
+  replaces the estimate (§32).
+- "Price that nets you $X" (`data/processingFees.js`, pure): `price = (net + fixed) ÷
+  (1 − percent)`, rounded up. In Lite (no Accounts) she types the rate.
+- Income takes the fee off as negative `processing_fee` components, split pro rata across
+  the cash components, so earned is what she actually received.
+- **Never buyer-facing:** invoices and Companion use `saleComponents`, which leaves the fee out.
 
 ---
 
 ## 22. Referral tracking (Sale / StudService "Referred by")
 
-`Sale.referred_by_contact_id` and `StudService.referred_by_contact_id` are indexed FKs → Contact
-(§4/§5), guarded in `CONTACT_REFERENCES`. Each page's form has a "Referred by" picker (any
-contact; the stud page uses a general picker, not its breeder-only partner one). On save the repo
-calls `contactRepo.ensureType` to auto-tag the referrer with the `buyer_referrer` /
-`stud_referrer` role (`CONTACT_TYPE` vocab). The tag is a convenience label; the canonical link
-stays the FK on the Sale/StudService, and a contact's referrals are the reverse query over the
-indexed FK.
+**Editions:** Pro and Demo only. Lite hides a sale's "Referred by" field and has no stud
+services or Contacts section.
+
+`Sale.referred_by_contact_id` and `StudService.referred_by_contact_id` are indexed FKs to the
+referring Contact (`CONTACT_REFERENCES`). Saving tags that contact `buyer_referrer` /
+`stud_referrer` (`contactRepo.ensureType`). A contact's referrals are a query.
 
 ---
 
 ## 23. Puppy Record (print-only PDF)
 
-`pages/puppy-record.html`/`.js` (`?sale=<id>`) is a printable, one-page-style record for a puppy
-being sold: puppy info, sire/dam side by side on one line (with their genetic + breed-specific
-test results as a pipe-separated line; on paper too, stacked only on a phone screen — iOS
-prints at the phone's width, so the stacking rule is `screen`-only), a **Health History** grid — one card per health-relevant event type
-(`vaccination`, `preventative`, `genetic_test`, `ofa_pennhip`, `breed_specific_test`, `illness`,
-`medication`, `surgery`, `vet_visit`, `injury`, `abnormalities`, `weight_check` — deliberately
-excludes admin/lifecycle types like `milestone`/`placement`/`note`), laid out in three
-independent column stacks (on paper too; one column on a phone screen): `healthCardsHtml` deals
-each card onto the shortest stack so far by line count, so a card is only as tall as its own
-entries instead of stretching to match a grid-row neighbour; inside a card, entries with the
-same title, details and notes fold into one line with their dates comma-separated, newest first
-(`healthItems`; a vet visit/surgery also needs the same vet to fold) — and the buyer's contact
-info off the Sale. Each `vet_visit`/`surgery` entry prints its vet under the detail line
-(`vetLines`): "Vet: name · phone", then the address on one line, from the linked contact
-(`related_contact_id`); a vet only typed as text (`details.vet`, the `contactFallback`, §8)
-prints its name alone. Every row is omitted (not shown as a blank/"—") when its field is empty. Reads
-only, through `saleRepo`/`dogRepo`/`contactRepo`/`litterRepo`/`eventRepo` (layering rule, §2) — no
-new repo or table.
+**Editions:** Pro and Demo only (`editionFlags.puppyRecord`; `puppy-record.html` and
+`data/puppyRecordFields.js` are in `proPages.js`).
 
-**"Download" is the browser's own Print → Save as PDF** (`window.print()`, gated by an `@media
-print` block that hides nav/back/print-button), not a vendored PDF library. Entry points: a
-"Puppy Record (PDF)" button on `sale.js`'s header actions, and a "Print Puppy Record" button on
-`sales.js` that opens a modal — a dropdown of every **non-delivered** sale (`status !==
-'delivered'`), ordered by dog name, buyer name shown alongside for disambiguation — whose Print
-button opens the record in a new tab with `?autoprint=1`, which triggers `window.print()` itself
-once rendered.
+`pages/puppy-record.html?sale=<id>` is a printable record for a puppy being sold: puppy
+info, sire and dam with their test results, a **Health History** grid (one card per
+health-relevant event type; identical entries fold into one line with their dates; vet
+visits print the linked vet's name, phone and address), and the buyer. Empty rows are
+omitted. Read-only, through the repos.
 
-The header also renders the resolving own-kennel's `logo_data_url` (§24) above the kennel name
-when one is set.
-
-**Choosing fields (2026-10-09):** every printed field can be turned off per kennel on the Kennel
-page's **Puppy Record fields** card (`#puppy-record`), saved as `Kennel.puppy_record_fields`.
-`data/puppyRecordFields.js` is the one list: `PUPPY_RECORD_FIELD_GROUPS` (Header: logo, generated
-date; Puppy Information's ten rows; Parents' four rows + test-results line; Health History — one
-key per type in `PUPPY_RECORD_HEALTH_TYPES`, `health_<type>`, plus each entry's notes and the vet's name, phone,
-address on vet visits/surgeries; Buyer's four rows), each section but Header with its own on/off. `puppyRecordShows(kennel)` is the read rule
-(a field shows only when it and its section are on; anything not stored shows, so a field added
-to the list later starts out shown). The record reads the picks of the **resolving own kennel**
-(below); a section with nothing left to show is dropped, heading and all. A no-print **Choose
-fields** button on the record links to that kennel's card. A new printed field must be added to
-the list AND gated with `shows(key)` in `puppy-record.js`. `data/puppyRecordFields.js` is in
-`proPages.js`'s `PRO_ONLY_STANDALONE` (both its callers are Pro-only pages), so Lite drops it.
-
-**Own-kennel resolution** (Multi-Kennel Scope Spec §10): the puppy's own `kennel_id`, else the
-active kennel scope (`data/kennelScope.js`'s `getActiveKennel()`), else the sole own kennel on
-record — never "whichever own kennel sorts first," so a Puppy Record for a kennel-B pup carries
-kennel B's name/logo even while the app is scoped (or not scoped) to kennel A.
+- **Several pups in one file:** `?dogs=<id>,<id>…` renders each pup's record in its own
+  `<section class="pr-pup">`, each after the first starting a new page (`break-before:
+  page`). Each pup's sale is found from the dog (`prepPups.pupSale`: its newest open sale,
+  else its delivered one); a pup with no sale prints without the buyer block. The kennel's
+  field picks are the first pup's kennel's and apply to every pup. `?sale=` still prints one.
+- **Cover page** (`&cover=1`): a page for the breeder, not the families, before the
+  records: the litter, today, and per pup its family, drop-off date, and what's done and
+  missing (`prepPups.readiness`, the same rules as Kels's Pups are going home, §33). Field picks don't
+  apply to it.
+- **Download = the browser's Print → Save as PDF** (`window.print()` with an `@media print`
+  block). Opened from a sale's page, the Sales page's Print Puppy Record picker (a litter
+  with pups at home, then tick pups, ticked by default with a sale at Deposit paid or later;
+  **Other puppies with a sale** for pups with a sale in progress on no such litter; an
+  optional **Start with my readiness cover page**, off by default), or Kels's Pups are going home
+  (`?autoprint=1`).
+- **Fields per kennel:** the Kennel page's **Puppy Record fields** card saves
+  `Kennel.puppy_record_fields` (only what's off). `data/puppyRecordFields.js` is the one list
+  and `puppyRecordShows(kennel)` the read rule; anything not stored shows. A new printed field
+  must be added to the list **and** gated with `shows(key)` in `puppy-record.js`.
+- **Whose kennel:** the puppy's `kennel_id`, else the active kennel, else the sole own
+  kennel; its name and logo head the record.
 
 ---
 
 ## 24. Invoice & Receipt (page + PDF)
 
-`pages/invoice.html`/`.js` (`?source=sale|stud|waitlist&id=<id>&doc=invoice|receipt&cfg=<json>`) is a
-printable one-page financial document for a single income record, covering **all five cash income
-types** — **Deposit, Remaining Purchase Price, Transport Fee, Boarding Fee** (the four Sale
-components) and **Stud Fee** (the outgoing StudService component; customer-facing labels from
-`INVOICE_LINE_LABELS`, distinct from the Financials-view `INCOME_COMPONENTS` labels). Non-cash
-`pick` value is never billable, so it never appears. Reads only, through
-`saleRepo`/`studServiceRepo`/`waitlistEntryRepo`/`dogRepo`/`contactRepo`/`kennelRepo` (layering
-rule §2) — no new repo or table.
+**Editions:** Pro and Demo only (`editionFlags.invoicing`; `invoice.html` and the PDF modules
+are in `proPages.js`).
 
-**One model, two renderers.** `assets/invoiceDoc.js`'s `buildInvoiceDoc({ source, id, doc, cfg })`
-decides everything the document says (issuer, recipient, rows, totals, payment box, notes,
-footnotes, filename) as plain text; `invoice.js` draws it as HTML and `assets/invoicePdf.js` draws
-the same model as a real PDF file with the vendored **jsPDF** (decided 2026-10-06, Waitlist Spec
-§15.2), so page and file can't disagree. **Download PDF** (on the invoice page and on a waitlist
-family's Documents card) saves `<Invoice|Receipt>-<number>-<name>.pdf`; **Print** is the browser's
-own print (`@media print`). jsPDF is `vendor/jspdf.umd.min.js` — the self-contained UMD build (its
-ES build needs a bundler), which sets `globalThis.jspdf` when imported as a module, loaded only
-when a PDF is made. The standard PDF fonts are Latin-1, so `pdfText()` maps dashes/quotes to plain
-equivalents and anything undrawable to "?". All three files are Pro-only (`PRO_ONLY_STANDALONE`)
-and precached.
+`pages/invoice.html?source=sale|stud|waitlist&id=<id>&doc=invoice|receipt&cfg=<json>` is a
+one-page invoice or receipt for one income record. **Nothing about an invoice is stored**
+except the fields the generator saves on the record (`invoice_number`, `invoice_notes`, and
+for receipts `payment_method`/`payment_reference`); everything is rebuilt on each view.
 
-**The waitlist source** (`source=waitlist`, the entry id): one line, "Waitlist application fee"
-(`fee_amount`). As a **receipt** it shows the entry's `fee_payment_method`/`fee_payment_reference`
-and `fee_received_date`; as an **invoice** the line is due by `fee_due_date` and the payment box
-shows the kennel's `waitlist_config.payment_instructions`. The recipient is the family's contact,
-else the applicant's own name/email/phone; the "Re:" line names the kennel and the fee policy. The
-fee isn't persisted back (no `invoice_number`); the number is the default `RCT-/INV-…`.
-
-- **Line base amounts** come from `incomeView.incomeLineItems(source, record)` (§6/§21), so the
-  document can never show a component the Income view wouldn't classify. The per-line **choices**
-  ride the `cfg` param (a compact URL-encoded JSON the generator modal builds): each included line
-  carries `{ key, mode: 'full'|'partial', collected, dueDate? }`. **Nothing about an invoice is
-  stored** — the page and the PDF are rebuilt from the record on every view/download.
-- **Full vs Partial** (per line, owner's model): **Partial** prints "<Name> (partial)" with the
-  entered `collected` as its amount; **Full** prints the record's full base amount, and
-  `collected` is treated as *already collected* — on an **invoice** it is subtracted in the totals
-  (Subtotal → "Less amount already collected" → **Balance**), on a **receipt** the line shows the
-  remaining `base − collected`, the collected figure is not printed, and the label reads "<Name>
-  **(balance)**". There is no payment ledger, so `collected` defaults to 0 for manual entry.
-- **Invoice specifics:** no Paid/Due status column; a per-line **Due by** date (the modal prefills
-  the *soonest* of the sale's `balance_due_date` and any scheduled `placement` event date for the
-  puppy — `invoiceDoc.saleDueDate` — still editable per line). That date is read **live**: a line
-  with no `dueDate` in `cfg` (every line of a plain `invoice.html?source=…&id=…` link, e.g. the
-  waitlist family's Documents card, and every generator line she left at the prefill) uses the
-  record's current date, so editing the Sale's balance due date or pickup changes the next
-  view/PDF; only a date she changed (or cleared) in the modal is written into `cfg`. A waitlist
-  fee invoice uses the entry's `fee_due_date` the same way — **except Deposit, whose Due by is always "Immediately"**, so
-  the modal shows a static "Due immediately" note for that line instead of a date picker; footnote
-  markers on **sale** invoices (`*` on Deposit, `**` on Remaining Purchase Price / Transport /
-  Boarding — stud fees carry neither) render the two standing disclaimers (deposit
-  non-refundability; balance-due-date basis) in the footer; the payment block reads **"Payment may
-  be made using one of the following methods:"** over a checkbox-style list of the **accepted
-  methods** — a global default in `settings.getInvoiceDefaults().acceptedMethods`, editable per
-  document in the modal (checkbox set from `PAYMENT_METHODS`) with a **Save as my default** button
-  (`setInvoiceDefaults`).
-- **Receipt specifics:** keeps the **Payment received** box (method used / reference / date) and
-  stamps **Paid**; totals "Total paid".
-- **Issuer** is the resolving own kennel — the record's own `kennel_id` (a Sale/StudService always
-  carries one, §4), else the dog's own `kennel_id`, else the active kennel scope, else the sole own
-  kennel (same fallback order as the Puppy Record, §23/§10) — with its `logo_data_url`, `location`,
-  `website`, and the owner Contact's name/email/phone (via `getMyContactId`). **Recipient** is the
-  sale's buyer or the stud partner contact. A document number defaults to a stable
-  `INV-/RCT-<yyyymmdd>-<id>` when `invoice_number` is blank.
-- **Persisted fields** (`invoice_number`, `invoice_notes`, and — for receipts —
-  `payment_method`/`payment_reference`, §4) are written on the Sale / StudService by the generator
-  modal so they prefill next time and ride backups. Everything else (Full/Partial, collected, due
-  dates, accepted methods) is per-generation and rides `cfg` / `settings`. Nothing here is a new
-  FK, table, or `referenceRegistry` entry — the fields are plain and the document is pure
-  projection.
-
-The generator modal (`assets/invoiceGenerator.js`, `openInvoiceGenerator({ preselect })`) opens
-from the Financials hub (the "Invoice / Receipt" button on every view) and from a **Sale's page**
-(an "Invoice / Receipt" header button that opens it already set to that sale, so a sale reached
-from the waitlist needs no trip to Financials). Both callers `import()` it only when
-`editionFlags.invoicing` is on, so Lite never requests the Pro-only module. It lists every income
-record (from `getIncomeRows`; a preselected archived/unbillable one is added), and opens the print
-page in a new tab. Because the record is persisted (an `await`) before navigating, the tab is opened **blank and
-synchronously within the click handler** and only navigated afterward — opening it *after* the
-await would let iOS Safari's pop-up blocker silently swallow it (the gesture is spent), so the
-invoice/receipt would never appear on iPhone. The document **never prints itself** — the owner
-uses the page's **Download PDF** or **Print** button. A sale's invoice also has **Send payment
-link** (her own payment link from an Account, Integrations plan §4; §32).
+- **One model, two renderers:** `assets/invoiceDoc.js` `buildInvoiceDoc()` decides all the
+  text; `invoice.js` draws HTML and `assets/invoicePdf.js` draws a PDF with vendored jsPDF
+  (`vendor/jspdf.umd.min.js`, loaded only when a PDF is made; `pdfText()` keeps text
+  Latin-1).
+- **Lines** come from `incomeView.incomeLineItems` (§21): Deposit, Remaining Purchase Price,
+  Transport Fee, Boarding Fee, Stud Fee, or the waitlist application fee. Never `pick`, never
+  processing fees, and net of a credited waitlist fee.
+- **Per-line choices ride `cfg`:** `{ key, mode: 'full'|'partial', collected, dueDate? }`.
+  Partial prints the collected amount; Full prints the whole amount and treats `collected`
+  as already paid (an invoice subtracts it, a receipt prints the remaining balance).
+- **Invoice:** per-line Due by (prefilled from the sale's balance due date or scheduled
+  placement, read live unless she changed it; Deposit is always "Immediately"), sale
+  disclaimers as footnotes, and accepted payment methods
+  (`settings.getInvoiceDefaults().acceptedMethods`, editable per document).
+  **Receipt:** a Payment received box and a Paid stamp.
+- **Issuer:** the record's kennel, else the dog's, else the active, else the sole own kennel,
+  with its logo and the owner contact. Number defaults to `INV-/RCT-<yyyymmdd>-<id>`.
+- **Generator** (`assets/invoiceGenerator.js`): opened from Financials and a Sale's page, both
+  importing it only when `editionFlags.invoicing` is on. It opens the new tab **blank,
+  synchronously in the click**, then navigates after saving, or iOS Safari blocks the pop-up.
+  A sale's invoice also has **Send payment link** (§32).
 
 ---
 
 ## 25. Foster whelps (foster-in & foster-out)
 
-Tracking a litter whelped/raised under a **caretaker↔owner arrangement** where the two parties
-differ, with a contract and an income split. `foster_partner_contact_id` is indexed in the
-collapsed `version(1)` block so the referential guard can protect the foster partner Contact
-(§5).
+**Editions:** Pro and Demo only (`editionFlags.fosterArrangement`). Lite hides the litter
+form's Foster section; the fields still ride every backup.
 
-### The two settling ideas
+A litter raised under an arrangement where the dam's owner and the caretaker differ.
 
-- **Foster is a per-litter fact, not a dog fact.** The same dam can have more than one foster
-  litter (and non-foster litters), so foster lives on the **Litter** (`foster_direction` +
-  `foster_partner_contact_id` + split terms), never on the Dog. A foster **puppy** is an ordinary
-  `status='puppy'` Dog we manage and sell; its foster-ness is a **derived** read of its litter's
-  `foster_direction` (badge only) — it is emphatically **not** an `external`/`external_reference`
-  dog (that is a reference-only record we don't raise). The reverse of "is this puppy fostered?"
-  is a query over the litter, per the one-canonical-direction rule (§4.2).
-- **Whoever holds the puppies books the Sales; the other party's cut is an Expense.** Direction
-  only decides who holds the Sales:
-  - **foster-in** — an external dam's litter is raised in our care → **we** record the puppy
-    Sales (full gross) and pay the **owner's** split out as a `foster_split` Expense;
-  - **foster-out** — our dam's litter is raised elsewhere → the pups are still our Dog records; if
-    we handle placement we record the Sales and pay the **caretaker's** cut as a `foster_split`
-    Expense (identical shape, roles swapped).
-
-  This is why foster needs **no new income machinery** — it rides the existing Sale → derived
-  income path (§21), and the split-payout is a normal cost, exactly like an incoming stud fee we
-  pay. (A fully hands-off foster-out where we never see the sales — just receive a check — is the
-  one gap; it is deferred, not modeled.)
-
-  The partner's compensation is one of two models (`foster_comp_model`, owner's choice per
-  litter): an **income split** (`foster_our_share_pct` + `foster_split_basis`) or a **flat fee per
-  pup** (`foster_flat_fee_per_pup`). Both document the terms only — the money is the same
-  `foster_split` ("Foster compensation") Expense either way, so the P&L stays model-agnostic. The
-  `litter.js` edit form swaps the share-% / basis fields for a per-pup fee field as the model
-  changes.
-
-### Model touch-points (all additive; all covered in §4/§5/§7/§20/§21)
-
-- **Litter:** `foster_direction` (plain, nullable `foster_in`/`foster_out`),
-  `foster_partner_contact_id` (**indexed FK → Contact**, the one added index —
-  guarded in `CONTACT_REFERENCES`), `foster_comp_model` (`income_split`/`flat_per_pup`), and
-  `foster_our_share_pct`/`foster_split_basis`/`foster_flat_fee_per_pup`/`foster_split_notes`
-  (plain, documentation of the compensation terms; the real payout is the Expense). `litterRepo`
-  hard-checks only a known direction, a known comp model, a 0–100 share %, and a non-negative flat
-  fee; everything else is warn-only in `litter.js`.
-- **Vocab:** `FOSTER_DIRECTION`, `FOSTER_COMP_MODEL`, `FOSTER_SPLIT_BASIS`, a `foster`
-  `CONTRACT_TYPE`, and a `foster_split` ("Foster compensation") `EXPENSE_CATEGORIES` value.
-- **Contract:** `foster` joins `contractRepo.DOG_LINK_TYPES`/`CONTACT_LINK_TYPES` — a foster
-  contract reaches the fostered dam (`related_dog_id`) and the counterparty (`related_contact_id`)
-  the same way a lease does, so **no new Contract FK**. It is also partner-facing
-  (`isLivePartnerContract`), so a live foster contract confers Companion **Partner** membership.
-- **Expense:** `reimbursable`/`reimbursed_date` plain fields (§21). Reimbursed costs wash out of
-  the Litter P&L; pending ones surface as the "Owed back" receivable.
-- **Companion (§20):** the owner/breeder **kennel** is revealed via a `breederKennel` field on
-  the prospective litter card and the family pup card, sourced from the foster partner contact's
-  `kennel_id`, allow-listed by name in `companionExport.js`, gated by the `fosterOwnerKennel`
-  include flag, and emitted **only for a foster-IN litter** (on foster-out WE are the breeder, so
-  there is nothing external to reveal; empty otherwise). `companion-view.html` renders it as a
-  "Bred by" line (additive; older bundles omit it).
-
-### Surfaces
-
-`litter.js` (a "Foster arrangement" edit section + a read-only callout + a title badge),
-`litters.js` (Foster filter + badge), `litter-finances-report.js` (Foster filter + "Owed back"
-column), `expensePanel.js` (the Reimbursable toggle + Reimbursed-on date), the contract page (works
-unchanged — it reads the link types from the repo), and the Companion console/shell. Sample data
-seeds a full foster-in example (Meadow Ridge / Dana Ruiz: an external dam Marigold, a foster litter
-with two available pups whose `breeder_kennel_id` is the owner kennel, a `foster` contract, a
-`foster_split` payout, and one reimbursed + one pending reimbursable cost).
+- **Foster is a litter fact, not a dog fact.** `Litter.foster_direction`
+  (`foster_in`/`foster_out`), `foster_partner_contact_id` (indexed FK, `CONTACT_REFERENCES`)
+  and the compensation terms (`foster_comp_model`: `income_split` with `foster_our_share_pct`
+  + `foster_split_basis`, or `flat_per_pup` with `foster_flat_fee_per_pup`;
+  `foster_split_notes`). A foster puppy is an ordinary `puppy` Dog; its foster-ness is
+  derived from its litter.
+- **Whoever holds the puppies records the Sales; the other party's cut is an Expense**
+  (`foster_split`, "Foster compensation"). So foster needs no income machinery of its own.
+  Reimbursable rearing costs use the expense's `reimbursable`/`reimbursed_date` (§21).
+  Not modelled: a hands-off foster-out where we never see the sales.
+- `litterRepo` hard-checks only known direction and model, a 0–100 share and a non-negative
+  fee.
+- A `foster` contract links the dam and the partner like a lease does (`DOG_LINK_TYPES` /
+  `CONTACT_LINK_TYPES`) and makes the partner a Companion partner.
+- Companion shows a foster-in litter's owner kennel as "Bred by" (`breederKennel`, behind the
+  `fosterOwnerKennel` flag).
 
 ---
 
 ## 26. Dropbox sync & KennelAssistant
 
-Two zero-cost, online-only features layered over the existing backup engine: **push/pull
-between the owner's phones through the owner's own free Dropbox**, and **KennelAssistant**,
-a deliberately tiny read-write mini-app for a junior helper's phone (log weight checks and
-other events against a synced dog list — nothing else). Both are strictly opt-in buttons;
-nothing syncs on its own, and the rest of the app stays fully offline-capable (§2.4).
+**Editions:** Pro (`editionFlags.assistant`; both `assistant.html` files are in
+`proPages.js`). Demo leaves out the owner console and Import/Export, where Dropbox sync
+lives; the helper app still ships. Lite has no Dropbox.
 
-### The Dropbox transport (`data/dropbox.js`)
+Two opt-in, online-only features over the backup engine: **push/pull between the owner's
+phones through her own Dropbox**, and **KennelAssistant**, a tiny read-write app for a
+helper's phone (log events against a synced dog list).
 
-- Talks straight to the Dropbox HTTP API with `fetch` — **no SDK, nothing vendored**.
-- Auth is **OAuth2 + PKCE, entirely client-side** (no secret, no backend), against a
-  Dropbox app registered once, by the developer, at dropbox.com/developers/apps:
-  *Scoped access*, access type **App folder** (tokens can only ever see
-  `/Apps/KennelOS/`), permissions `files.content.write` + `files.content.read`, and every
-  connecting page's URL listed under **Redirect URIs** (`pages/import-export.html`,
-  `pages/assistant.html`, and the root `assistant.html`, deployed + localhost variants —
-  the exact list lives in `docs/LAUNCH_CHECKLIST.md`).
-- The **app key itself is hardcoded** as `APP_KEY` in `data/dropbox.js` — same pattern as
-  `KennelPapers/data/dropbox.js`. This is safe because a PKCE client id is a public
-  identifier, not a secret: every install shares the one key, but each user still does
-  their own "Connect" and signs into their **own** Dropbox account, landing in their own
-  private `/Apps/KennelOS/` folder. The key grants no access by itself, so there's no
-  per-device paste step and nothing for the user to register.
-- `beginDropboxAuth()` redirects out; `completeDropboxAuth()` finishes the `?code=`
-  round-trip, storing a long-lived refresh token
-  (`token_access_type=offline`) and minting short-lived access tokens as needed. Tokens
-  live in the `dropbox` settings blob (§11); `disconnectDropbox()` forgets them. The kid's
-  phone signs into the **same Dropbox account** as the owner; the app-folder scope is
-  what makes that acceptable.
-- `dropboxUploadJson(path, obj)` / `dropboxDownloadJson(path)` (download returns `null`
-  for a file that doesn't exist yet). One 401-retry with a forced token refresh.
-- **The connect UI is a shared component, not per-page code:**
-  `assets/dropboxConnectUI.js`'s `mountDropboxConnect(host, { onChange, onError })`
-  renders the status/Connect/Disconnect strip into whatever element a page hands it,
-  **and calls `completeDropboxAuth()` itself** before first paint — so a host page never
-  hand-rolls the round-trip. `onChange(connected)` fires whenever the state actually
-  changes, which is how a page re-renders everything gated on the connection.
-  `dropboxRequiredNotice(where)` is the matching inline notice for a gated action.
-  Because the redirect URI is derived from `location.pathname`, **every page that mounts
-  this control needs its own URL registered under the app's Redirect URIs** — that
-  registration list is the one manual step a new host page costs.
+### Dropbox transport (`data/dropbox.js`)
+- Plain `fetch` to the Dropbox HTTP API; OAuth2 + PKCE entirely in the browser. The public
+  app key is `APP_KEY` in the file (a PKCE client id isn't a secret). App-folder scope, so
+  tokens only see `/Apps/KennelOS/`. Tokens live in the `dropbox` setting.
+- `assets/dropboxConnectUI.js` `mountDropboxConnect(host, { onChange })` is the one connect
+  control and completes the OAuth round-trip itself. **Every page that mounts it needs its
+  URL registered as a Redirect URI** (list in `docs/LAUNCH_CHECKLIST.md`).
+- Dropbox calls are cross-origin, so the service worker never caches them.
 
-### The three files — one writer each (`data/assistantSync.js`)
+### Three files, one writer each (`data/assistantSync.js`, `DROPBOX_PATHS`)
+Keep this invariant; it's what makes the scheme conflict-free.
 
-All under the app folder, named in `DROPBOX_PATHS` (dropbox.js). **Each file has exactly
-one writer**, which is what makes the scheme conflict-free — preserve that invariant:
+| File | Writer | Reader |
+|---|---|---|
+| `kennelos-backup.json` | owner (push) | owner's other phone (pull) |
+| `assistant-feed.json` | owner (push, or `pushAssistantFeed`) | helper |
+| `assistant-outbox.json` | helper ("Send my updates") | owner (import) |
 
-| File | Writer | Reader | Contents |
-|---|---|---|---|
-| `/kennelos-backup.json` | owner (`pushToDropbox`) | owner's other phone | the full `exportAll()` backup |
-| `/assistant-feed.json` | owner (`pushToDropbox`) | assistant | allow-listed dog fields + all dog-subject events |
-| `/assistant-outbox.json` | assistant ("Send my updates") | owner | events the helper logged, with their own UUIDs |
+- **Push/pull are Import/Export's backup and restore with Dropbox as the place** (§10); a
+  pull goes through the normal restore preview. Don't edit the same record on both phones
+  between a push and a pull.
+- **The feed is an allow-list** (`ASSISTANT_DOG_FIELDS`: names, breed, sex, status, dates,
+  markings, url, plus derived litter and parent names) and dog events of
+  `vocab.ASSISTANT_EVENT_TYPES` only. The same list gates the helper's log form. Contacts,
+  money, kennels and contracts never reach the helper's device; that, not UI hiding, is
+  the boundary. `pushAssistantFeed()` doesn't stamp `lastBackupDate` (the feed isn't a
+  backup).
+- **Outbox import** previews `new` / `update` / `no_dog` (skipped) / `invalid`, then upserts
+  by id, so re-importing is a no-op. It writes `db` directly, so it calls `assertWritable()`
+  and `markDataChanged()` itself.
 
-- **Push and pull are not a separate feature — they are the Import/Export page's backup
-  and restore with Dropbox chosen as the destination** (§13's Import/Export entry). Push
-  uploads backup + a freshly rebuilt feed in one act (and stamps `lastBackupDate`); pull
-  is `fetchDropboxBackup()` feeding the page's **normal restore preview**, so a Dropbox
-  restore gets the same dry-run table and the same **Merge / Replace** choice a file
-  restore gets, through the same `restoreBackup()` engine (§10). The documented
-  discipline: don't edit the *same record* on both phones between push and pull — merge
-  is a blind per-id upsert and the pulled copy wins.
-- **Privacy is enforced at feed-build time**, same posture as `companionExport.js`:
-  `ASSISTANT_DOG_FIELDS` is a positive allow-list (id, call/registered name, breed, sex,
-  status, DOB/DOD, color/markings, url, is_archived — **no** microchip, registration,
-  ownership, parentage, prices), plus four DERIVED display fields (`litter_id` as a
-  grouping key, `litter_nickname`, `sire_name`/`dam_name` as call-name copies — named
-  copies, never the litters table or parentage FKs). Only `subject_type === 'dog'`
-  events whose type is in **`ASSISTANT_EVENT_TYPES`** (vocab.js — currently
-  `weight_check`, `milestone`, `note`, `preventative`, `medication`) ride along; the same
-  list gates the assistant's log form, so what the helper sees and what they can log
-  never drift. `preventative` (product/dose) and `medication` (drug/dose/frequency,
-  a span — the log form's end-date field shows automatically per `duration: 'span'`)
-  reuse the main app's existing field defs as-is, no assistant-side field changes
-  needed. Contacts, sales,
-  financials, kennels, contracts never reach the assistant device at all — that, not UI
-  hiding, is the security boundary (everything client-side is inspectable).
-- **`pushAssistantFeed()`** uploads *only* the feed — the Assistant console's "send
-  updates to my helper", so telling the helper about a dog added five minutes ago doesn't
-  require a full backup round-trip. It stamps `assistantFeedPushedAt` but deliberately
-  **not** `lastBackupDate`: the feed is an allow-listed slice, not a backup, and counting
-  it as one would tell an owner they're safe when they aren't. `pushToDropbox()` calls it
-  for the feed half of its work, so there is one uploader for that file.
-- **Outbox import** (`fetchAssistantOutbox` → preview → `importAssistantEvents`) is the
-  app's standard dry-run-then-commit posture: rows are annotated `new` / `update` /
-  `no_dog` (unknown subject dog → **skipped, never invented**, per the import rule) /
-  `invalid`, shown in a preview modal, then bulk-upserted by id — so re-importing the
-  same outbox is a no-op. The assistant's local `pending` marker is stripped on import.
-  It writes through `db` rather than a repo (cross-table data-layer work, like
-  `importExport.js`), so it calls **`assertWritable()` itself** — repoBase's blanket demo
-  guard never sees these rows.
+### Owner console (`pages/assistant.*`)
+Connection, Your helper's copy (send the feed), Their entries (import the outbox), and what
+the helper can see (rendered from `ASSISTANT_EVENT_TYPES`).
 
-### The owner console (`pages/assistant.html` + `pages/assistant.js`)
+### KennelAssistant (`assistant.html`, `assistant.js`, `data/assistantStore.js`)
+- Standalone page (no nav/app boot) with its **own Dexie database `KennelOSAssistant`**
+  (`dogs`, `events`). Its log form is built from `EVENT_TYPES`.
+- **Get latest dogs** replaces the synced data, keeping pending events; logged events are
+  `pending: 1` until **Send my updates**. Dogs are grouped by litter, with **Weigh litter**.
+- Its weight-drop warning mirrors `eventForm.js`'s rule; keep the two in step.
+- A pending event clears when a later feed brings its id back.
+- `ASSISTANT_FORMAT_VERSION` / `ASSISTANT_OUTBOX_FORMAT_VERSION` (1) bump only on an
+  incompatible shape change.
 
-Same console/recipient split as Companion: the page that *configures and sends* lives in
-`pages/`, the thing the recipient opens lives at the root (`assistant.html`, §26's
-KennelAssistant shell below). Both share a basename, in `PRO_ONLY_PAGES` and
-`PRO_ONLY_STANDALONE` respectively — different directories, and both Pro-only, so
-`isProOnlyPage()`'s basename match is right either way.
-
-Three cards, in the order an owner meets them: **Connection** (mounts the shared
-`dropboxConnectUI` control — the same connection Import/Export uses, so connecting on
-either page sets both), **Your helper's copy** (`assistantFeedPushedAt` + a live
-`buildAssistantFeed()` count of what a send would include, then `pushAssistantFeed()`),
-and **Their entries** (the outbox preview + import). Full backup push/pull is
-deliberately absent — that is Import/Export's Dropbox destination (§10), and the page
-links there rather than duplicating it. A fourth card explains what the helper can see,
-rendered **from `ASSISTANT_EVENT_TYPES`** rather than a hand-written list so the promise
-on screen can't drift from the allow-list that actually gates the feed.
-
-Excluded from the **Demo** build alongside `import-export.html` (`DEMO_EXCLUDED_PAGES`):
-a console whose job is pushing your records to a real Dropbox account is the opposite of
-a sealed read-only showcase. The helper app at the root still ships to Demo.
-
-### KennelAssistant (`assistant.html` + `assistant.js` + `data/assistantStore.js`)
-
-- Standalone shell like `companion-view.html` (no nav.js/app.js boot), but read-write. It
-  reuses `assets/app.css`, `assets/ui.js`'s `esc()`, `vocab.js` (the event-type catalog
-  drives its log form: same fields, spans get an end date, `combobox` degrades to plain
-  text, `relatedContact` pickers are omitted), `dateUtils.js`, and `data/dropbox.js`.
-- Its data layer is `assistantStore.js` with its **own Dexie database
-  (`KennelOSAssistant`)** — never the main `KennelOSBreedingApp` db — holding exactly two
-  tables: `dogs: 'id'` and `events: 'id, [subject_type+subject_id], event_date'`. Same
-  conventions as the main schema (UUID ids, YYYY-MM-DD dates, filter-in-JS flags).
-- Flows: **Get latest dogs** replaces the synced slice from the feed (dogs wholesale;
-  events except locally-pending ones) and stamps `assistantLastSync`; **tap a dog → log
-  event** creates a local event with `pending: 1`; **Send my updates** uploads all pending
-  events as the outbox (rewritten wholesale each send). Only pending events can be
-  deleted on the device — synced history is the owner's.
-- The dog list is **grouped by litter** (header: nickname + "Sire × Dam" from the derived
-  feed fields) with a **⚖ Weigh litter** button per group: one date + AM/PM, a lbs/oz row
-  per pup, one save → one pending `weight_check` per weighed pup (blank rows skipped).
-  Both this and single weigh-ins reproduce the main app's **weight-drop soft warning**:
-  `assistantStore.js` mirrors `eventForm.js`'s total-ounce comparison and
-  date→AM/PM→capture-time ordering (`getPriorWeighIn` scans synced + pending entries),
-  and a decrease prompts a collected "Save anyway?" confirm, never a hard block. Keep the
-  two implementations semantically in step if the main app's rule ever changes.
-- **Acknowledgment loop**: after the owner imports the outbox and later pushes a fresh
-  feed, the feed carries those same event ids back; the feed sync's `bulkPut` overwrites
-  the pending copies, clearing the flag. Until then pending events keep riding every
-  send, which is harmless (owner-side import is an idempotent upsert).
-- The feed/outbox shapes carry `format_version` (`ASSISTANT_FORMAT_VERSION` /
-  `ASSISTANT_OUTBOX_FORMAT_VERSION`, both 1) — bump only on an incompatible shape change.
-
-### Maintenance notes
-
-- Widening/narrowing what the helper sees = edit `ASSISTANT_DOG_FIELDS` or add an
-  event-type filter in `buildAssistantFeed()` — one place, and update this section.
-- All five new files (`assistant.html`, `assistant.js`, `data/dropbox.js`,
-  `data/assistantSync.js`, `data/assistantStore.js`) are in the sw.js precache; the
-  Dropbox API calls are cross-origin, so the service worker's cache-first handler ignores
-  them (§12) — sync is always live network.
-- No new tables, FKs, or `referenceRegistry.js` entries in the **main** schema: imported
-  assistant events are ordinary Event rows, and the assistant db is a separate database
-  on a separate device.
 
 ## 26.1 Documents & receipt attachments — local file storage
 
-Real, **local** file storage, entirely offline — no external app, no Dropbox connection.
-Two surfaces share one storage stack:
+**Editions:** Pro and Demo only (`editionFlags.documents`, `receiptAttach`; `documents.html`
+and `assets/documentModal.js` are in `proPages.js`).
 
-- **Documents** — a "Documents" page (`pages/documents.html` + `pages/documents.js`, the
-  **Storage** hub's landing tab, plus a "📄 Documents" button on the dog page) where you file a document
-  against a dog (pedigree / health test / registration / contract / other), grouped by dog,
-  with a type filter and search. Full CRUD, all local.
-- **Contract documents** — the Contract detail page (`pages/contract.js`) files the signed
-  contract PDF through the *same* Documents stack, without leaving the contract. An
-  **"Attach signed contract"** button opens the add-document modal pre-filled with the dog
-  the contract resolves to (`related_dog_id`, else the linked Sale's dog, else the linked
-  StudService's our/partner dog) and **Type = Contract**, and stamps the saved document's
-  `contract_id`. The contract then lists its filed document(s) with inline **View / Download**
-  (`documentRepo.getByContract`). This is a plain, unindexed back-link — see the
-  referential-integrity note in §7 / the index notes in §5. The Contract's own DocuSign-style
-  `document_url` ("Document link") is a *separate* field and is unaffected.
-- **Expense receipts** — the receipt-capture widget on both expense forms (§21): attach a
-  receipt to any ledger row. See "Receipt capture" below.
+Local, offline file storage behind three surfaces:
+- **Documents** (`pages/documents.*`, the Storage hub's first tab, and a button on the dog
+  page): file a document against a dog, by type.
+- **Contract documents:** the Contract page's **Attach signed contract** opens the same
+  modal set to Type = Contract and that contract's dog, and stamps `documents.contract_id`.
+  The contract lists its filed documents (`documentRepo.getByContract`). The contract's
+  `document_url` is a separate link field.
+- **Expense receipts:** `assets/receiptCapture.js` on both expense forms (§21).
 
-The add/edit and view dialogs are the shared **`assets/documentModal.js`** (`openDocumentModal`
-/ `openDocumentViewModal`) — one implementation driven by both the Documents page and the
-Contract page, self-contained (each loads its own dogs/file and reports back through
-`onSaved`/`onDeleted`/`onEdit` callbacks). It is Pro-only code (`PRO_ONLY_STANDALONE` in
-`proPages.js`), since both its callers are Pro-only pages, so the Lite build drops it.
+`assets/documentModal.js` is the shared add/edit and view dialog.
 
-**Storage stack (shared by both).** Two Dexie tables (§4, §5): `documents` (metadata + a
-`dog_id` and a `file_id`, via `data/documentRepo.js` on the standard `makeRepo` +
-`referenceRegistry` pattern) and `files` (the blob archive, via `data/fileRepo.js` — one row
-per stored PDF: `blob` + `thumbnail` + meta). `expenses.receipt_file_id` points a ledger row
-at a `files` row the same way. A file is **owned by exactly one** Document or Expense: it is
-deleted alongside its owner in that repo's `hardDelete`, and so is *not* a
-`referenceRegistry` entry (§7). `documents.dog_id` **is** guarded, via a `documents.dog_id`
-line in `DOG_REFERENCES` — a dog with filed documents can't be hard-deleted out from under
-them.
+**Storage:** `documents` (metadata, `dog_id`, `file_id`) and `files` (one row per stored PDF:
+`blob`, `thumbnail`, meta; `data/fileRepo.js`). A file belongs to exactly one Document or
+Expense and is deleted with it (§7). **Every file is a PDF:** photos are downscaled and
+wrapped into a PDF by `data/pdfBuild.js` (no library; JPEG via `DCTDecode`), which also
+makes the thumbnail. Viewing goes through `ui.viewPdfModal`.
 
-**Every stored file is a PDF.** An uploaded PDF is stored as-is. A photo/screenshot (camera,
-or picked from the library — multi-page allowed for documents) is converted client-side to a
-compressed multi-page PDF by `data/pdfBuild.js` — **no library**: it downscales + JPEG
-re-encodes each page and embeds the JPEG directly via the PDF `DCTDecode` filter, and yields
-a small JPEG data-URL thumbnail for the list. `createImageBitmap` also normalizes iPhone
-HEIC on the way in. Viewing/downloading goes through the shared `viewPdfModal` (`assets/ui.js`)
-/ the Documents page's own `<embed>` viewer, off a throwaway object URL.
+**Receipt OCR:** a newly picked photo is scanned offline by `data/ocr.js` (vendored
+Tesseract, loaded on first use) to fill amount, date, vendor and receipt number, **only where
+the field is still blank**. Any failure falls back to typing.
 
-**Receipt capture (`assets/receiptCapture.js`).** One shared widget — built the same way
-`buildMileageFields`/`wireMileageMode` are shared — wired into **both** expense forms (the
-Financials hub's Add Expense modal and each subject's Expense panel), so there's one
-implementation. Take/choose a photo or screenshot, or upload a PDF. A freshly picked photo is
-auto-scanned offline by `data/ocr.js` (vendored Tesseract.js, LSTM core; lazy — the ≈7 MB
-engine loads only on first scan and every failure path degrades to manual entry) to pre-fill
-amount / date / vendor / receipt # **only when those fields are still blank/default** — never
-overwriting what the user typed. `resolveFileId()` at save time builds/stores the file (or
-reuses/removes the existing one) and returns the `receipt_file_id` to persist.
-
-**Durability.** `files.blob` is the schema's only binary field; it is base64-tagged through
-the JSON backup and the Dropbox sync (`importExport.js`, `BACKUP_FORMAT_VERSION` 2 — see §5),
-so filed documents and receipts survive backup/restore and two-phone sync. A plain
-`JSON.stringify` would silently drop a Blob to `{}`, so any future Blob field must
-round-trip the same way.
-
-- **Precache:** `pages/documents.html`, `pages/documents.js`, `data/documentRepo.js`,
-  `data/fileRepo.js`, `data/pdfBuild.js`, `data/ocr.js`, `assets/receiptCapture.js`,
-  `assets/documentModal.js` (the shared add/edit + view dialogs), and the four
-  `vendor/tesseract/*` assets are in `sw.js` — scanning works with no network after
-  first install. Bump `CACHE_NAME` on any change to that file set.
+Blobs survive JSON backup and Dropbox sync through base64 tagging (§5).
 
 ---
 
 ## 27. Furever seed-link generator (breeder side)
 
-**KennelOS Furever** (`furever/`, this repo, a separate deployed app — see
-`furever/README.md` and `docs/KennelOS_Furever_Schema.md`) is a free family-facing
-pet-care app a puppy family installs at pickup. It's seeded by a **texted link**
-whose payload the family app decodes and applies (`furever/data/seedLink.js`); this
-section covers the **encoder side**, which lives here in the breeder app, Pro-only
-(§13's Pro-only feature gates), same shape as Companion (§20) but for a different
-destination — Furever is a **separate origin/app**, not the recipient-facing shell
-Companion uses.
+**Editions:** Pro and Demo only (`editionFlags.furever`, `feedingSchedule`; their pages are
+in `proPages.js`).
 
-**The Furever console** (`pages/furever.*`, a Sharing seg-tab sibling of Companion, gated by
-`editionFlags.furever` + `data/proPages.js`'s `PRO_ONLY_PAGES`) has two parts,
-plus a **setup-nudges strip** above them (`#setup-nudges`, `renderSetupNudges`):
-subtle, non-blocking reminders for the two furever-relevant things easy to
-forget — "No vet contact on file. Add one now →" (`vets.length === 0` from the
-identity load) and "No feeding schedule configured for `<breed(s)>`. Configure
-now →" (breeds among today's open-sale recipients that have no
-`breedFeedingScheduleRepo` row, §27.2) — each a plain link to fix it, nothing
-blocks sending a link without either.
+**KennelOS Furever** (`furever/`, a separate app at `FUREVER_APP_URL`,
+`https://furever.kennelos.app/`; see `furever/README.md`) is the family's pet-care app. A
+**texted link** seeds it; this section is the breeder-side encoder.
 
-- **Kennel identity**, saved once via `settings.js`'s `getFureverSettings`/
-  `setFureverSettings` (`localStorage`, key `kennelOS.furever`, cleared by Reset
-  App like Companion's settings): kennel name, tagline, the breeder's own contact
-  (`{name, phone, email}`), their vet's contact (`{name, phone, address}`) — the
-  "inherently yours, never generic" fields the Furever brief calls for. `breederKey`
-  is generated on first read (`crypto.randomUUID()`) and persisted — deliberately
-  **not** tied to `myKennelId` (§11), so Furever works even when Kennel Setup was
-  skipped. Copied into every packet sent from then on. **The card prefills from the
-  breeder's existing records** so identity isn't retyped: kennel name from My Kennel
-  (`getMyKennelId`), the breeder contact from their owner Contact (`getMyContactId`),
-  and the vet from any Contact tagged `'vet'` — offered as a **picker** that fills
-  the vet fields (and auto-filled when there's exactly one vet). Prefill is
-  **non-binding and blanks-only** (it never overwrites a saved value and the Furever
-  block stays its own store, consistent with the not-tied-to-`myKennelId` rule);
-  filled blanks are persisted on load so a link can be prepared without a manual save.
-- **Recipients** are pups with an **open sale** (`saleRepo.isOpenSale` — the exact
-  membership predicate Companion's "family" package uses, §20), one card each. A
-  personal note and pickup-plan fields (date/time/place/photo URL — the brief's
-  pre-pickup countdown card content, rendered by Furever's Profile page as the
-  countdown card, below) persist as **plain `sales` fields**, no schema/index change and no
-  `referenceRegistry` entry needed (not FKs): `furever_note`,
-  `furever_pickup_date`, `furever_pickup_time`, `furever_pickup_place`,
-  `furever_pickup_photo_url`. Persisting them (rather than a one-shot form) means a
-  resend starts from the last-sent details, same reasoning as Companion's
-  `Contact.companion_note`. **The pickup date/time/place follow the pup's Placement /
-  drop-off event (decided 2026-10-15)**, so a drop-off moved on the timeline reaches
-  the family on the next resend: `fureverSeedExport.pickupEventFor(sale, events)` picks
-  the pup's non-archived `placement` event for the sale's buyer (or naming no contact),
-  the soonest from today on, else the latest past one, and `pickupPlanFor(sale, event)`
-  sends its `event_date`, `details.placement_time` and `details.location` (blank stays
-  blank). The console shows that event read-only with **Edit drop-off** (the shared
-  event modal); only a pup with **no** drop-off event shows the typed
-  `furever_pickup_date/time/place` fields, which the packet then uses, plus **Add a
-  drop-off event** (opens the modal prefilled from what's typed). Those three Sale
-  fields are kept and still read as that fallback, never removed (older sales and
-  backups carry them). The photo URL stays a Sale field (the event has none).
+**The console** (`pages/furever.*`, a Sharing tab beside Companion):
+- **Setup nudges** above it: no vet contact on file; breeds of current buyers' pups with no
+  feeding schedule. Neither blocks sending.
+- **Kennel identity** in the `furever` setting: kennel name, tagline, breeder and vet
+  contacts, and a generated `breederKey`. Prefilled from her records (blanks only; any
+  `vet`-tagged contact can be picked); independent of `myKennelId`.
+- **Recipients:** pups on an open sale (`isOpenSale`, as Companion's family bundle). A
+  personal note and pickup photo persist as plain Sale fields (`furever_note`,
+  `furever_pickup_photo_url`), so a resend starts from them. Furever shows the pickup plan as
+  a pre-pickup countdown card.
+- **Pickup date/time/place follow the pup's Placement / drop-off event** (decided
+  2026-10-15), so a drop-off moved on the timeline reaches the family on the next resend.
+  `pickupEventFor(sale, events)` picks the pup's non-archived `placement` event for the
+  sale's buyer (or naming no contact): the soonest from today on, else the latest past one.
+  `pickupPlanFor(sale, event)` sends its `event_date`, `details.placement_time` and
+  `details.location` (blank stays blank). The card shows it read-only with **Edit
+  drop-off** (the shared event modal). Only a pup with **no** drop-off event shows the
+  typed `furever_pickup_date`/`_time`/`_place` Sale fields, which the packet then uses,
+  plus **Add a drop-off event** (the modal, prefilled from what's typed). Those fields stay
+  and are still read as that fallback (older sales and backups carry them).
 
-**`data/fureverSeedExport.js`** builds the packet: named-copy-only from the dog +
-the saved identity (same allow-list discipline `companionExport.js`'s header
-explains, §20's "load-bearing security invariant" — no record spread), matching
-exactly what the Furever-side decoder reads by name (`pupId`, `breederKey`, `name`,
-`species`, `sex`, `breed`, `dob`, `photoUrl`, `note`, `pickupPlan`, `kennelName`,
-`tagline`, `breederContact`, `breederVet`, `contentPackages`). Compressed with the
-already-vendored `vendor/lz-string.min.mjs` into
-`https://furever.kennelos.app/#seed=<payload>` (`FUREVER_APP_URL`, a fixed constant
-— Furever is one app at one origin regardless of which edition sends the link,
-unlike Companion's same-origin relative shell URL). `buildSeedPacket` is `async`
-(it reads the dog's litter record for its content-pack pointer, below) — `furever.js`
-awaits it. `furever.js`'s send mechanics (real `mailto:`/`sms:` anchors so the tap is
-the activating gesture, a copy-link fallback, the same SMS/email payload-size
-ceilings) mirror `companion.js`'s `prepareLink` pattern; there is no local preview
-(Companion's iframe-preview trick needs a local read-only shell to render into —
-Furever has none, and the real link would write into whatever browser opens it, so
-previewing it isn't safe to fake).
+**`data/fureverSeedExport.js`** `buildSeedPacket` (async) copies named fields only (the
+Companion allow-list discipline, §20), matching what `furever/data/seedLink.js` reads:
+`pupId`, `breederKey`, `name`, `species`, `sex`, `breed`, `dob`, `photoUrl`, `note`,
+`pickupPlan`, `kennelName`, `tagline`, `breederContact`, `breederVet`, `contentPackages`,
+`feedingSchedule`. lz-string compressed into `FUREVER_APP_URL#seed=<payload>`, sent with
+real `mailto:`/`sms:` anchors and the same size ceilings as Companion. No preview: Furever
+has no local read-only shell.
 
-**Rendered on the Furever side:** the seed's `pickupPlan` + `note` become the
-**pre-pickup countdown card** at the top of a seeded pup's Profile
-(`furever/pages/profile.js`, `countdownCardHtml`) — photo, "it's almost time…"
-headline with a live "N days to go" badge, pickup date/time/place, and the personal
-note; it retires once the pickup date passes.
+### 27.1 Content packs on Google Drive — `docs/KennelOS_Content_Package_Fetch_Mechanism.md`
+The console publishes documents to her Google Drive for the family app to fetch; KennelOS
+does every Drive step.
+- **`data/googleDrive.js`**: Google Identity Services token model, `drive.file` scope,
+  public `CLIENT_ID`. The token is in memory for the tab only; `ensureAccessToken` re-requests
+  silently first. GIS is vendored (`vendor/gsi/client.js`), loaded as a classic script in
+  `furever.html`. Multipart uploads are hand-built (`multipart/related`).
+- **`data/fureverContentPack.js`** builds `pack.json` by name and runs one publish: ensure
+  folders → upload each source, **reusing its Drive file id** when the same record was
+  published before (`selection.driveFileIds`, keyed `doc:<id>` / `upload:<id>`) → share the
+  folder by link → write the manifest with a bumped `version`. Items removed since the last
+  publish are trashed in Drive first (`removedKeys`).
+- **Pointers:** the kennel-wide pack is `settings.furever.contentPack`; a litter's pack is the
+  plain `Litter.furever_pack` field.
+- **Kennel-wide pack** = uploads only. **Litter packs** pick from the documents of the
+  litter's pups and its sire and dam. Each manifest file carries its `dogId`, and the family
+  app (`contentPackFetch.filesForThisPup`) keeps only its own pup's and the parents'.
+  Documents not marked `furever_shareable` are disabled. `contract` documents
+  (`SENSITIVE_DOC_TYPES`) need an explicit "this becomes public" confirmation.
+- Not built: the manual (no-OAuth) fallback.
 
-### 27.1 Content-pack publish (breeder side) — `docs/KennelOS_Content_Package_Fetch_Mechanism.md`
-
-The breeder-authored counterpart to Furever's content-pack fetch (schema doc's
-"Built (content-pack fetch)" section): the Furever console publishes documents to
-Google Drive so the family app can pull them in automatically, with KennelOS doing
-every Drive-side step (create the folder, upload, share, write the manifest) —
-the breeder never touches Drive directly.
-
-- **`data/googleDrive.js`** — the Google Identity Services (GIS) **token-model**
-  OAuth client (`drive.file` scope, non-sensitive → no Google verification review;
-  `CLIENT_ID` const, same public-identifier posture as `dropbox.js`'s `APP_KEY`).
-  `connectDrive()` is the interactive "Connect Google Drive" action; the token lives
-  **in memory only** for the tab (no refresh token in this model, so nothing is
-  persisted) and every Drive call goes through `ensureAccessToken`, which tries a
-  SILENT re-request first and only surfaces a friendly "click Connect again" error
-  rather than popping an unexpected consent dialog mid-publish. `driveFetch` retries
-  once on a 401 with a forced token re-acquisition, mirroring `dropbox.js`'s
-  `contentCall`. Also holds `ensureFolder` (find-or-create, safe under `drive.file`
-  scope since `files.list` here can only ever see folders this app created),
-  `shareFolderPublic` (`permissions.create {type:'anyone', role:'reader'}`), and
-  `uploadFile`/`writeManifestFile` (hand-built `multipart/related` bodies — Drive's
-  multipart upload endpoint does NOT accept `fetch`'s own `multipart/form-data`).
-  The GIS library itself is **vendored** at `vendor/gsi/client.js` (no-CDN rule) and
-  loaded as a plain `<script>` (not a module) in `pages/furever.html`, ahead of the
-  module scripts, so `window.google` exists before any Drive call could run.
-- **`data/fureverContentPack.js`** — builds `pack.json` (§3.1 of the mechanism doc)
-  **by name** from the chosen sources (never a record spread, same discipline as
-  `fureverSeedExport.js`) and orchestrates one Publish: ensure folders (reusing a
-  cached `folderId`) → upload each source (a KennelOS `Document`'s file, or a
-  kennel-level "Upload new" blob), **reusing the same Drive file id** when that
-  exact source was published before (tracked in the pointer's cached
-  `selection.driveFileIds`, keyed `doc:<id>` / `upload:<id>`) so a republish
-  overwrites in place instead of accumulating duplicate Drive files → share the
-  folder public-by-link → write/overwrite the manifest, bumping its `version` →
-  return the new pointer for the caller to persist. Exports `SENSITIVE_DOC_TYPES`
-  (`['contract']`) / `isSensitiveDocType` so the console's picker and any future
-  check agree on which types need the "this becomes public" confirmation.
-- **`settings.js`'s `getFureverSettings`/`setFureverSettings`** gained the
-  **kennel-wide** pack pointer, nested under `contentPack`:
-  `{ packKey, folderId, manifestFileId, manifestResourceKey, version, selection:
-  { documentIds, uploads, driveFileIds } }`, plus `driveConnected` (UI-only — "has
-  Connect ever succeeded," never the token itself). The **per-litter** equivalent is
-  a plain, unindexed **`furever_pack`** field (same shape) directly on the litter
-  record — additive, no `litterRepo` code change needed (its `update()` already
-  merges arbitrary fields) and no `referenceRegistry` entry (it points *out* to
-  Drive, not at a KennelOS entity).
-- **Furever console UI** (`pages/furever.js`, new "Content packages" section below
-  the existing recipients list): a **Connect Google Drive** button; a **kennel-wide
-  pack** panel — **uploads only** ("Upload new" area for kennel-level files not
-  filed on any dog; there is deliberately no per-dog document picker here, see
-  mechanism doc §7 decision 5 — a per-dog document is dog/litter-scoped material and
-  belongs in a litter pack, not the every-family kennel-wide one); one **collapsible
-  panel per litter** (candidate pool = that litter's pups **and** `sire_id`/`dam_id`,
-  each via `documentRepo.getByDog` — Data Model §5.4's "litter's own sire_id/dam_id
-  are authoritative"), with **bulk selectors** — a master "select all," a
-  **per-type** toggle per doc type present, and a **per-dog** "select all" — built as
-  plain DOM checkbox manipulation (no separate JS selection model to keep in sync;
-  the checked boxes ARE the state while a panel is open) and pre-checked from the
-  pointer's cached `selection.documentIds`. Publish reads the checked boxes at click
-  time; if any selected document's `doc_type` is sensitive (`isSensitiveDocType`), an
-  inline confirmation (`sensitiveConfirmHtml`) lists exactly which titles are about
-  to become publicly link-readable and requires an explicit "Yes, publish anyway"
-  before the actual `publishPack` call runs. The kennel-wide panel also shows an
-  **"Already published"** list (title, doc-type badge, a "View in Drive" link, a
-  per-item Remove/Undo) sourced from `settings.contentPack.selection.uploads` — every
-  publish re-sends that full carried-forward list plus whatever's newly staged, so
-  `publishPack` can thread a no-longer-blob-holding prior upload into the new
-  manifest by its already-known Drive file id instead of silently dropping it
-  (mechanism doc §7 decision 5).
-- **Removing a doc/upload from a pack trashes its Drive file** (mechanism doc §7
-  decision 6, added post-launch — closes a real gap, not a nicety): unchecking a
-  previously-published litter document, or clicking Remove on a kennel-wide
-  upload, no longer just drops it from the next `pack.json` while the file keeps
-  sitting shared in Drive. `googleDrive.js`'s `trashFile(fileId)` PATCHes
-  `{trashed: true}` (Drive's own recoverable Trash — also drops "anyone with the
-  link" access for non-owners); `publishPack` takes a `removedKeys` param
-  (`driveFileIds` keys the console diffs "last-published selection" against
-  "checked/staged now") and trashes + purges each one as step 0 of the publish,
-  before anything else. Scoped per-pack — a `Document` filed on a dog that's a
-  parent in multiple litters gets an independent Drive file (and `driveFileIds`
-  entry) per litter's own publish, so trashing it out of one litter's pack never
-  touches another litter's copy.
-- **Overwrite is keyed by the KennelOS record id, not the filename** — a
-  republish only PATCHes the same Drive file when the exact same `Document.id`
-  or client-assigned upload id is sent again (mechanism doc §7 decision 7). A
-  new "Upload new" item with a title matching something already published
-  creates a second, separate file rather than replacing it; there's no in-place
-  "replace this file's bytes" affordance today.
-- **Not built:** the manual (no-OAuth) fallback (mechanism doc §7 decision 1 —
-  documented, deliberately second-priority). **Not yet browser/round-trip
-  verified** against a real Google account (no live consent/Drive round trip has
-  been exercised) — verify Connect → Publish → a family device actually receiving
-  the docs before relying on this in production.
-- **Per-pup privacy within a litter pack** (mechanism doc §7 decision 4, added
-  post-launch — fixes a real leak, not a design nicety): a litter pack is one
-  shared Drive manifest for the whole litter, but a document filed on ONE pup
-  must never appear in every OTHER pup's family's app. Each manifest file now
-  carries the `dogId` it was filed on (`fureverContentPack.js`'s
-  `loadDocumentSource`/`buildManifest`), and `doLitterPublish` (`pages/
-  furever.js`) passes the litter's `sire_id`/`dam_id` into `publishPack` as
-  `parentDogIds` — documents filed on the sire or dam are shared with the
-  whole litter (relevant to every family), a pup's own documents are not.
-  `furever/data/contentPackFetch.js`'s `filesForThisPup(manifest, pupId)`
-  filters the fetched file list down to "this pup's own + the parents'"
-  before writing the family's breeder-doc layer — `pupId` is the family's
-  `pet.pup_id`. A `scope:'kennel'` pack carries no `dogId`/`parentDogIds` at
-  all and is never filtered (deliberately identical for every family). The
-  litter picker's checkbox groups (`dogGroupHtml`/`pickerHtml`) now label each
-  group **(Sire)**/**(Dam)**/**(Pup)** and carry an explanatory line, so which
-  documents go to everyone vs. one family is explicit in the UI, not just
-  implicit in the data. A document not marked shareable (`furever_shareable`, §26.1 field
-  table) is listed greyed out with its box disabled, skipped by the bulk
-  selectors and filtered out again at publish.
-
-### 27.2 Feeding Schedules (breed default + litter override) — Pro-only
-
-The breeder's own recommended feeding amounts, structured as a small
-weight-band x age-column grid (both axes free text — a real breeder's printed
-feeding guide rarely fits a fixed set of life-stage labels) plus a food brand
-and notes. **Per breed**, not a kennel-wide default: a Boston Terrier's weight
-bands top out around 60 lbs, a large breed's look nothing like that. Rides into
-a placed pup's Furever seed packet so the family sees the breeder's own
-guidance instead of Furever's generic age-bracket placeholder
-(`furever/data/careLibrary.js` `FEEDING_PLAN`), which is untouched.
-
-- **`data/db.js`** — new table `breed_feeding_schedules: 'id, breed, is_archived'`.
-  `breed` is a free-text lookup key (matched case-insensitively/trimmed against
-  `Dog.breed`, same posture as CSV import's name matching), not a stored FK —
-  so it carries no `referenceRegistry` entry (`BREED_FEEDING_SCHEDULE_REFERENCES
-  = []`, a leaf like `CONTRACT_REFERENCES`/`DOCUMENT_REFERENCES`). Record shape:
-  `{ breed, food_brand, age_columns: string[], weight_rows: [{ label, amounts:
-  string[] }], notes }` — `amounts[i]` aligns with `age_columns[i]` by index.
-  `litters.feeding_schedule_override` is a plain, unindexed free-text field
-  (filtered in JS like the foster fields) — the per-litter override that takes
-  priority over the breed default; additive, no `litterRepo` code change needed
-  (its `update()` already merges arbitrary fields).
-- **`data/breedFeedingScheduleRepo.js`** — the standard thin repo
-  (`makeRepo('breed_feeding_schedules', ...)`), `breed` required, plus
-  `getByBreed(breed)` (case-insensitive/trimmed match, returns null when unset).
-- **`pages/breed-feeding-schedules.*`** (not a nav entry — reached via a "Open
-  Feeding Schedules →" doorway card on the own-kennel's Kennel detail page,
-  `pages/kennel.js` `feedingScheduleCard()`, alongside Lifecycle nudges and
-  Preferred tests; gated by `data/proPages.js`'s `PRO_ONLY_PAGES` the same as
-  every other Pro-only page) — one collapsible card per breed **pulled from the
-  kennel's own dogs**
-  (`dogRepo.getBreeds()` — the existing distinct-breed query breed autocomplete
-  already uses elsewhere, not a separate vocabulary), so a breeder only ever
-  authors schedules for breeds they actually have. Each card is a food-brand
-  input, an editable grid (add/remove weight row, add/remove age column, every
-  cell free text), and a notes field. Cell/label edits mutate an in-memory
-  draft directly (no re-render, so typing doesn't lose focus); add/remove
-  re-renders just that card from the updated draft, mirroring the litter-form
-  re-render pattern.
-- **`pages/litter.js`** — a `feeding_schedule_override` textarea (view row +
-  edit field), gated by `editionFlags.feedingSchedule` the same way the Foster
-  arrangement section is gated by `editionFlags.fosterArrangement`: absent from
-  the DOM in Lite, `readForm()` falls back to the stored draft value instead of
-  being clobbered to `''`.
-- **`data/fureverSeedExport.js`** — `buildSeedPacket` now also fetches the
-  pup's litter once (shared by both `contentPackages` and the new
-  `feedingSchedule` field, replacing two separate `litterRepo.getById` calls)
-  and adds `feedingSchedule: { litterOverride, breedSchedule }` — named-copy-only
-  like every other field here (never a record spread); `null` when neither a
-  litter override nor a breed default exists, so an untouched pup's Furever app
-  is unaffected.
-- **Furever side (`furever/pages/feeding.js`)** — purely additive: reads
-  `pet.seed.feedingSchedule` (already riding along unindexed in `pet.seed` —
-  `petRepo.upsertSeededPet` copies the whole incoming packet by spreading `seed`
-  into that one field, so **no `furever/` schema or repo change was needed** for
-  this to arrive) and renders a reference card above the existing age-bracket
-  radio presets: the litter override (if any) as a highlighted note, else the
-  breed grid as a small table. The family's own save/radio flow (`feedingRepo`,
-  `careLibrary.FEEDING_PLAN`) is completely untouched.
-- **Editions** — Pro/Demo only (the page itself, and its `kennel.js` doorway
-  card — `kennel.html` doesn't exist in the Lite build at all, so no extra
-  edition-flag gate was needed on the card). The litter override field is the
-  one piece that lives on a **shared** page (`litter.js`, kept in Lite), so
-  *that* needs its own flag: `editionFlags.feedingSchedule` is `true` in
-  `pro/editionConfig.js` and `demo/editionConfig.js`, `false` in
-  `lite/editionConfig.js`; `shared/data/editionConfig.js` (the Pro-semantics
-  default) also carries it — remember all **three edition copies plus the
-  shared default** need updating together for a new flag, since each edition
-  ships its own full `editionConfig.js` (`build/assemble.mjs` always overlays
-  `<edition>/editionConfig.js` verbatim — there is no shared/edition merge at
-  build time, despite `editionConfig.js`'s own header describing Pro/Demo as
-  "using the shared defaults"; in practice each keeps its own synced copy).
-  `breed-feeding-schedules.html` was added to `data/proPages.js`'s
-  `PRO_ONLY_PAGES` (excluded from the Lite build, and gates any in-app link to
-  it at runtime) — same mechanism as every other Pro-only page.
+### 27.2 Feeding schedules
+Per-breed feeding grids (weight rows × age columns, free text, plus food brand and notes)
+that ride into a pup's seed packet.
+- Table `breed_feeding_schedules` (`breed` is a lookup key matched case-insensitively
+  against `Dog.breed`, not an FK; a leaf). Shape: `{ breed, food_brand, age_columns[],
+  weight_rows: [{ label, amounts[] }], notes }`. `breedFeedingScheduleRepo.getByBreed`.
+- `pages/breed-feeding-schedules.*` (from the Kennel page's Feeding schedules card): one card
+  per breed among the kennel's dogs (`dogRepo.getBreeds()`).
+- `Litter.feeding_schedule_override` (free text) wins over the breed default. On the shared
+  litter page it's gated by `editionFlags.feedingSchedule`, and kept from the stored value
+  when the field isn't rendered.
+- The packet's `feedingSchedule: { litterOverride, breedSchedule }` is `null` when neither
+  exists; Furever's feeding page shows it as a reference card.
 
 ---
 
 ## 28. Kennel identity & Kennel Cards
 
-**The problem this solves.** Every cross-kennel reference in the app is otherwise a
-privately-typed string. When you record a stud service with an outside dog, set a dog's
-`breeder_kennel_id` to the kennel that produced it, or name a foster partner's kennel, you
-create a Kennel row that exists only in *your* IndexedDB. If the breeder on the other side
-also runs KennelOS, they have their own unrelated row for the same real-world kennel, and
-nothing will ever reconcile the two. Provenance across a kennel boundary is therefore
-name-matching-by-memory.
+**Editions:** Kennel identity (`public_id`) is in every edition and rides the Lite→Pro
+bridge. Kennel Cards and the Kennels pages are Pro and Demo only (`proPages.js`). Several own
+kennels is Pro only (`editionFlags.multiKennel`; `docs/KennelOS_Multi_Kennel_Scope_Spec.md`).
 
-Two pieces close that, and they are deliberately separate:
+Without this, an outside kennel is a row each breeder typed into their own database, and
+nothing ties the two together. Two separate pieces fix that: a portable identity, and a
+card that hands it to another breeder. There is **no registry, directory or network call**;
+a card goes only where the breeder sends it. (A future registry would sit on top: kennels
+would claim the `public_id` they already have.)
 
-- **§28.1 — the identity** (`kennels.public_id`): a durable, portable identifier for a
-  kennel. Ships in every edition.
-- **§28.2 — the card** (`data/kennelCard.js`): the payload that hands that identity to
-  another breeder, peer-to-peer. Pro-only UI.
-
-**What is deliberately NOT here.** There is no registry, no directory, no lookup, no
-server, and no network call of any kind — a card only goes where the breeder sends it.
-Discovery ("find other breeders") is a genuinely different problem that cannot be solved
-local-first, and nothing in this section pretends to solve it. This design is the piece
-that has to exist *first* either way: whenever a registry does arrive, existing kennels
-can **claim** an identifier they already have rather than being re-keyed. Nor does a card
-solve multi-device — it carries identity, not records; a second device restores a JSON
-backup or syncs via Dropbox (§10, §26), and the import preview says so in as many words
-when you feed it your own card.
-
-### 28.1 `kennels.public_id` — the portable identity
-
-Format `kos1_<uuid>` (`kennelRepo.newPublicId` / `isPublicId`).
-
-- **Not the row `id`.** The row id is a database key: it is recreated whenever the record
-  is (a fresh install where the breeder retypes their kennel instead of restoring, a
-  delete-and-re-add, a hand-edited backup), and it names nothing outside this database.
-  The public id is what another breeder's copy points at, so it has to outlive all of that.
-- **Why a prefix, when the codebase otherwise uses bare UUIDs.** This value is copied
-  between apps and, some day, into a registry. A bare UUID pasted into the wrong field is
-  indistinguishable from a right one; `kos1_` makes a mis-paste fail loudly, gives a
-  registry a cheap format check, and gives us a version to migrate off.
-- **Own kennels only.** Minted in `kennelRepo.create` when `is_own_kennel`, and on the
-  update that *promotes* a kennel to own — which by the same line self-heals any own
-  kennel predating the field. An outside kennel is **never** minted one locally: doing so
-  would be inventing somebody else's identity, the same failure the CSV importer refuses
-  (§9). Its `public_id` can only ever be *received*.
-- **Write-once.** `kennelRepo.update` throws on any attempt to change a non-empty
-  `public_id`, and silently ignores an attempt to blank one. Empty → set is allowed (that
-  is exactly what linking a card does).
-- **Uniqueness** is a repo-level guard (`assertPublicIdFree`), not a Dexie `&` index — see
-  the §5 index note.
-- **Portability is free**, and that is the point: `importExport.js` iterates whatever
-  tables exist and copies whole rows, so the identity rides the JSON backup, the Lite→Pro
-  bridge, and the Dropbox sync with no code of its own. Pinned by a browser check.
-
-**Relationship to Furever's `breederKey` (`settings.js`, §27).** Different scopes,
-deliberately not merged. `breederKey` identifies the *installation's breeder* to the family
-app — one key shared across all of a user's own kennels, so every pup they place dedupes
-into one `breeders` row — and re-keying it would break the dedup of packets already sent.
-`public_id` identifies *one Kennel record*. **Not a gap to close.**
+### 28.1 `kennels.public_id`
+- Format `kos1_<uuid>` (`kennelRepo.newPublicId` / `isPublicId`); the prefix makes a mis-paste
+  fail loudly. Not the row `id`, which dies with the record.
+- **Own kennels only:** minted on create, or when a kennel becomes own (which also heals
+  older ones). An outside kennel's id can only be **received** from its card.
+- **Write-once:** changing a set `public_id` throws; blanking it is ignored.
+- Unique by a repo guard (`assertPublicIdFree`), not a unique index.
+- Rides backups, the Lite→Pro bridge and sync with no code of its own.
+- Separate from Furever's `breederKey` (one per installation, §27) on purpose; don't merge.
 
 ### 28.2 The Kennel Card
-
-`data/kennelCard.js` (data layer, ships in every edition — reached through `kennelRepo`,
-exactly as `data/companionExport.js` ships to Lite while `companion.html` does not) plus
-`assets/kennelCardUI.js` (in `PRO_ONLY_STANDALONE`, so it is absent from the Lite build).
-
-**The allow-list invariant**, same posture and same reasoning as `companionExport.js`
-(§20): `buildKennelCard` names every field it copies and copies nothing else, then
-`assertOnlyKeys` runs a **positive** check before the card can leave. A new Kennel field
-does not ride along until someone adds it here by name. That matters more here than most
-places — the Kennel record also carries the kennel's *program* (`preferred_tests`,
-`preferred_breeds`, `preferred_test_breeds`, `promote_*`) and its `logo_data_url`, none of
-which is identity and none of which is anyone else's business.
-
-A card carries exactly: `cardVersion`, `publicId`, `kennelName`, `prefix`, `location`,
-`website`, `issuedAt`. Pinned field-by-field in `tests/kennelCard.test.js`.
-
-**The load-bearing rule on the receiving side: a card can never set `is_own_kennel`.** A
-card names somebody else's kennel by definition, and an imported kennel landing in your
-own-kennel set would enter your scope switcher (§Multi-Kennel), your portfolio, your shared
-preferred-test vocabulary, and — in Lite — your cap accounting. Import forces
-`is_own_kennel: false` on create and never touches the flag on update. A card whose
-`publicId` matches one of *your own* kennels is refused outright with nothing written, so a
-third party can never rewrite your kennel's name.
-
-**Transport** mirrors the two mechanisms already in the repo — lz-string-compressed JSON,
-carried either as a **link** (`kennels.html#kennelcard=…`, like Furever's seed link) or as
-a copyable **code**. The link is the nicer path but is only correct when both breeders are
-on the same origin — which is the common case, since every Pro user shares
-`pro.kennelos.app`. The **code is the universal path** and is the one to hand someone whose
-install you can't locate. Both are offline; nothing here makes a network call. The link
-handler listens for `hashchange` as well as running at load, because pasting a card link
-while already on the Kennels page is a same-document navigation that re-runs no module.
-
-**Every import is a dry-run preview before a commit** (CLAUDE.md), and a payload that
-arrived from another person is the last place to make an exception. `previewKennelCard`
-writes nothing; four outcomes:
-
-| Outcome | When | What commits |
-|---|---|---|
-| `create` | no local kennel carries this identity | a new **outside** kennel — or, if the user picks one, a *link* to an existing record (below) |
-| `update` | a linked outside kennel exists and the card differs | the four identity fields, shown as a before/after diff first |
-| `unchanged` | linked and nothing new | nothing; no commit button is rendered |
-| `own` | the identity is one of *your* kennels | nothing, ever |
-
-**Match-or-create is keyed on `public_id`, never the row id** (§9's rule). On a `create`,
-the preview additionally *offers* any **unlinked, non-own kennel whose name matches**
-case-insensitively (`kennelRepo.findUnlinkedByName`) — the real-world case where the
-breeder typed "Thornfield Kennels" in by hand last year and is now receiving Thornfield's
-actual card. Linking attaches the identity to that existing record, so everything already
-pointing at it (dogs, stud services, contracts) keeps pointing at it instead of being
-stranded on a duplicate. This is **offered and never automatic**: a name is not a key, and
-auto-matching one would be exactly the "silently invented relationship" §9 forbids. "Add as
-a new kennel" is the pre-selected default.
-
-**Surfaces.** The share half is a card section on the Kennel hub (`kennel.html`, own
-kennels only; an outside kennel that arrived via a card shows the ID it came with instead).
-The receive half is "Add from a card" on the Kennels list (`kennels.html`), which also
-badges a card-linked outside kennel as **linked** — the visible difference between a
-cross-kennel reference that lines up with the other breeder's records and one typed from
-memory. Both host pages are Pro-only, so no edition flag was needed.
-
-### 28.3 Changing this
-
-- Adding a field to the card means adding it to `CARD_KEYS` **and** (if it should write on
-  the receiving side) to `CARD_FIELDS` — and asking first whether it is *identity*. Program
-  config, money, and anything about dogs or people are all out of scope by design.
-- `KENNEL_CARD_VERSION` bumps only on a breaking shape change. Adding an optional field is
-  additive; `decodeKennelCard` already drops unknown keys so a card issued by a later
-  version still imports its v1 identity.
-- If a registry is ever built, it slots in **above** this, not instead of it: `public_id`
-  becomes the thing a kennel claims, and a human-readable handle (which needs enforced
-  uniqueness, and therefore a server) would be the new field. Nothing here has to change
-  for that to happen — which is the whole reason it exists now.
+`data/kennelCard.js` (every edition) and `assets/kennelCardUI.js` (Pro, `PRO_ONLY_STANDALONE`).
+- **Allow-list:** `buildKennelCard` copies `CARD_KEYS` only (`cardVersion`, `publicId`,
+  `kennelName`, `prefix`, `location`, `website`, `issuedAt`), checked by `assertOnlyKeys`.
+  The kennel's program settings and logo never travel. `tests/kennelCard.test.js` pins it.
+- **A card can never set `is_own_kennel`.** Import creates an outside kennel and never touches
+  the flag on update. A card carrying one of **your own** ids is refused with nothing
+  written.
+- **Transport:** lz-string JSON as a link (`kennels.html#kennelcard=…`, same origin only;
+  also handled on `hashchange`) or a copyable code (works anywhere). Offline.
+- **Preview first** (`previewKennelCard`, then `applyKennelCard`): `create` (new outside
+  kennel, or link to an existing one), `update` (identity fields, shown as a diff),
+  `unchanged`, or `own` (refused). Matching is by `public_id`. On a create, an unlinked
+  outside kennel with the same name (`kennelRepo.findUnlinkedByName`) is **offered** for
+  linking, so existing references stay attached; "Add as a new kennel" is the default.
+- **Surfaces:** share from the Kennel page (own kennels); "Add from a card" on the Kennels
+  list, which badges card-linked kennels **linked**.
+- **Changing it:** a new card field goes in `CARD_KEYS` (and `CARD_FIELDS` if it writes on
+  receipt), and must be identity, not program, money, dogs or people.
+  `KENNEL_CARD_VERSION` bumps only on a breaking change; unknown keys are dropped on decode.
 
 ---
 
 ## 29. Waitlist (per kennel) — `docs/KennelOS_Waitlist_Spec.md`
 
-**Build status: W1 is complete** — W1a (data layer), W1b (intake + list pages), W1c
-(offers), W1d (sample/Demo seed §11, CSV import of applications §9, application fees in
-Financials §21) and **W1e** (her post-W1 requests, Spec §15: her own application form,
-offering from the family's page, invoice/receipt PDFs, the public list as copyable text).
-W2 (online: form, status page, server; `docs/KennelOS_Waitlist_W2_Plan.md`) is being built
-behind its release switch (`cloudConfig.WAITLIST_ONLINE_RELEASED`, false: offered only
-against staging); see **Online (W2)** below. W3 (assistant) is not started. The spec's §0
-records the decisions, §14 the slices, §15 the W1e design.
+**Editions:** Pro and Demo only (`editionFlags.waitlist`; its pages and UI modules are in
+`proPages.js`). The tables, repos, rules and actions are in `shared/data`, so a Pro backup
+restored into Lite keeps its waitlist rows, dormant.
+
+**Design:** `docs/KennelOS_Waitlist_Spec.md` (decisions §0, §15–16); online parts
+`docs/KennelOS_Waitlist_W2_Plan.md`.
 
 ### Model
-- **One list per kennel.** Every waitlist row carries a required own-kennel `kennel_id`
-  (`assertOwnKennel`). Contacts stay program-wide: a family on two kennels' lists is one
-  Contact with two entries.
-- **`waitlist_entries`**: one row per family per time on the list — a second puppy years
-  later is a new entry. Lifecycle `applied → approved → active → placed`, with exits
-  `declined`/`expired`/`withdrawn`/`removed`. **Pause and listen-only are flags on an
-  `active` entry**, never statuses, so narrowing what a family wants never costs a place.
-- **`waitlist_offers`**: one row per turn on a litter. `counts_as_pass` is decided once,
-  when the outcome is recorded, via `waitlistRules.countsAsPass` — stored so a later rule
-  or program change can't rewrite history.
-- **`waitlist_programs`**: her own named adjustments (fee override, `ahead` priority, pause
-  allowance, passes not counted, longer response window). A table, not a vocab list.
-- **Settings** are `Kennel.waitlist_config` (§4.1), never `settings.js`/localStorage, so
-  they survive a restore. That includes her **application form**, `form_questions[]`, and its FAQ, `application_faq[]`.
+- **One list per kennel:** every row has a required own-kennel `kennel_id`. Contacts stay
+  program-wide (one Contact, an entry per kennel).
+- **`waitlist_entries`:** one row per family per time on the list. Status `applied →
+  approved → active → placed`, exits `declined`/`expired`/`withdrawn`/`removed`. **Pause and
+  listen-only are flags on an `active` entry**, never statuses, so narrowing never costs a
+  place. Many plain fields hold family requests, messages, prepasses, the "Ready now?"
+  answer, a carried payment from a lost pup and the answer-change log; see
+  `waitlistEntryRepo` and `syncRegistry.js` for each one's tier.
+- **`waitlist_offers`:** one row per family per litter in a turn (rows of a turn share
+  `turn_id`). `counts_as_pass` is decided once, when the outcome is recorded, so later rule
+  or program changes can't rewrite history.
+- **`waitlist_programs`:** her named adjustments (fee override, `ahead` priority, pauses
+  allowed, passes not counted, longer response window). Only she assigns them.
+- **Settings** live in `Kennel.waitlist_config` (missing keys from
+  `WAITLIST_CONFIG_DEFAULTS`), so they ride backups, including her application form
+  (`form_questions[]`) and FAQ (`application_faq[]`).
 
-### The application form (`data/waitlistForm.js`, W1e)
-Pure, pinned by `tests/waitlistForm.test.js`.
-- **Questions** `{ id, label, type, required, help, options[], source_header?, key? }`. Types she
-  can pick are `WAITLIST_QUESTION_TYPE` (short/long text, single choice, checkboxes, yes/no,
-  number, date); `email`, `preference` and `notice` are locked-only.
-- **Locked questions** carry a `key`: `name`, `email`, the four preferences (`pref_sex`,
-  `pref_breed`, `pref_purposes` (a choose-all checkbox list from `PLACEMENT_PURPOSE`; a form saved with
-  the retired `pref_placement` key reads as it), `pref_colors` — answers go to the entry's `pref_*` fields, not
-  `application`), `ready_timing` (required; type `preference`, answer on `entry.ready_timing`,
-  fixed answers from `WAITLIST_READY_TIMING`; enforced when she types a new application in), and `public_notice` (her public-list wording, `PUBLIC_LIST_NOTICE`, shown to
-  every applicant; editable text, never removable). She can reword them only.
-  **Matching notice** (`MATCHING_NOTICE`, her wording, fixed text): shown just above the first
-  preference question that filters offers (`matchingPrefKeys(config)`: sex, breed, placement,
-  plus colors when `color_matching` is on; readiness is a hold, not a match) on a new application.
-  **FAQ** (`formFaq` / `validateFaq` / `newFaqItem`): her questions and answers, edited above the
-  questions on the Application form page and shown at the top of a new application.
-  `formQuestions(config)` returns the defaults for a kennel with no form, and always restores a
-  missing locked question and its type/required flag. **No program question exists**: only she
-  assigns programs.
-- **Answers** are keyed by question id; each saved entry also stores `application_questions`
-  (`snapshotQuestions`). `entryQuestions(entry, form)` is what to show/edit: the snapshot's
-  wording first, then questions added since; a W1 entry shows the current form plus any stray
-  answer keys. Typing an application in only requires the name (`missingRequired`); "Required"
-  is for the online form (W2).
-- **Question import**: `proposeQuestionImport(headers, rows, form)` turns each CSV column of
-  her old form's responses into a proposal — **map** onto an existing question (a column it
-  came from before, the `IMPORT_ALIASES`, or matching wording), **new** (type guessed by
-  `guessType`: yes/no, number, date, ", "-joined checkboxes, few repeated values → single
-  choice, long → paragraph) or **skip** (timestamps, kennel/program/notes, blank columns).
-  `applyQuestionImport` stamps `source_header` (the normalized header) on mapped and new
-  questions, and the **application CSV importer** (§9) reads each question from
-  `columnsFor(question)` — its own column first, then the aliases — so the same file then
-  imports the families' answers into those questions.
+### Rules engine (`data/waitlistRules.js`)
+Pure: no Dexie, no clock (callers pass `today`); `tests/waitlistRules.test.js`. **Nothing
+it computes is stored.**
+- **Position** among `active` entries: `ahead` program first, then `position_anchor_date`,
+  else `fee_received_date` (else `approved_date` when the fee was waived), then
+  `fee_received_at` (same-day order of payment), `approved_date`, `created_at`, `id`.
+- **Available pup:** not archived, not deceased / pet home / external reference,
+  disposition not `keeping`/`placed`/`health_hold`, and no live Sale.
+- **Match:** sex, breed (case-insensitive), purposes (`pref_purposes` → registrations, must
+  include the pup's `intended_registration`), and color only with `color_matching`. Unset
+  on either side matches.
+- **Eligible** for a litter: on the list, same kennel, not paused (`isPaused`: her pause, or
+  the **readiness hold** until `readyFromDate`), listening for it (`isListeningFor`:
+  `selected` parents, or `except` parents), and at least one available matching pup.
+- **Turns:** one family holds a turn at a time across the kennel's open litters, covering
+  every pup they're eligible for. `nextTurn` picks the top family with an eligible pup in an
+  open litter they haven't spent a turn on (`turnSpent`, per litter; a voided offer gives it
+  back), recalculated each time. A litter opening mid-turn joins it only if the holder is
+  that litter's top family (`joinsOpenTurn`). A pass closes the whole turn and counts
+  **once**. "Not this litter" (`prepasses`) leaves a litter out when their turn comes; a
+  turn made only of those is passed at once and reported (`auto_passed`).
+- **Passes:** at `max_passes` (default 2) the entry is removed (`second_pass`), with a 7-day
+  undo that forgives the latest pass.
+- **No silent expiry:** overdue offers and fees become Today nudges (`overdueTurns`,
+  `overdueFees`).
+- **Answer changes:** every change to `PREF_CHANGE_FIELDS` after `applied` is logged in
+  `pref_change_log`. A narrower answer that would affect an open offer or next-in-line
+  litter asks to confirm (`prefChangeEffect`).
+- **Public list** (`publicList`): `{ position, name, pref_sex, added }` only. Names are
+  "First L." (`publicName`) or masked "A***** K" (`privateName`) when `private_listing`.
+  **Paused families are left out and their numbers skipped**, and no family count is shown.
+  The turn holder's row reads `DECIDING_LABEL` ("Currently deciding"). `publicListText`
+  is the copyable text version.
+- **"Almost your turn"** (`soonFamiliesForLitter` / `soonFamiliesForKennel`): the queue, one
+  family per available pup; a family mid-turn elsewhere holds room but isn't notified.
+- `describeOfferChanges` turns any action's result into the lines every screen shows, so
+  **no offer is ever made silently.**
+- `deriveContactWaitlistStatus` keeps `Contact.waitlist_status` (via the entry repo).
 
-### The public list (W1e, Spec §15.3)
-`waitlistRules.publicList(entries, kennelId, programsById, { today, nameOf, deciding })` returns only
-`{ position, name, pref_sex, added }` (a row for which `deciding(entry)` is true, the family
-holding a turn, has `name: DECIDING_LABEL` ("Currently deciding") and `deciding: true`, its
-sex preference and date kept, decided 2026-10-10): the real §6.1 position, `publicName` (first word + last
-word's initial; for an entry with `private_listing`, `privateName` instead: "A***** K", one
-asterisk per hidden letter, via `listedName`; she answers the applicant's `private_request` in
-the Approve dialog, 2026-10-10), sex preference, and the anchor date. **Paused families are left out and their
-numbers skipped** (#1, #2, #4), so no public number moves when a pause ends; listen-only
-families show with no marker; a family who passed or let a turn lapse shows as usual;
-programs, contact details, notes and money never appear. **No family count** is shown, online
-or in the text (decided 2026-10-10): paused families are left off, so a row count never says
-how many are on the list. No opt-out
-— every applicant is told by the locked notice — but they can ask to list privately (above). `publicListText` is the text the
-Publish list page's **Copy the list as text** produces for Facebook/her website (the W1 stand-in for
-W2's public link).
-
-### The rules engine (`data/waitlistRules.js`)
-Pure functions, no Dexie, no clock (callers pass `today`); pinned by
-`tests/waitlistRules.test.js`. **Nothing it computes is stored.**
-- **Position** = order among the kennel's `active`, non-archived entries: `ahead` program
-  first → `position_anchor_date` if set, else `fee_received_date` (else `approved_date`, the
-  fee-waived anchor) → `fee_received_at` (same-day fees in the order they were recorded) →
-  `approved_date` → `created_at` → `id`.
-- **Available pup**: not archived, `status` not `deceased`/`pet_home`/`external_reference`
-  (died or gone home — a returned pup is made a puppy again on the Sale page first),
-  `disposition` not `keeping`/`placed`/`health_hold` (unset/`undecided` count as available), and no non-archived Sale whose status isn't
-  `returned`/`cancelled`/`voided` (`vocab.RELEASED_SALE_STATUSES`).
-- **Preference match**: sex (unless `any`), **breed** (unless blank; case-insensitive,
-  trimmed, against `Dog.breed`), purposes (the registrations `pref_purposes` map to must include
-  `Dog.intended_registration`), and color only
-  when `waitlist_config.color_matching` is on. An unset fact on either side matches.
-- **Changing the matching answers** (Waitlist Spec §15.9, W1): every change to the five
-  `PREF_CHANGE_FIELDS` past `applied` is logged in `pref_change_log` (repo-side). Saving a
-  NARROWER answer (`narrowedPrefs`: any → specific, one specific → another, a later readiness,
-  dropping a color while color matching is on) asks her to confirm when `prefChangeEffect`
-  finds an open offer (it stays open; a pass still counts) or a live litter they're next for
-  that the change would skip them on. Widening never asks. From W2 step 5 the family asks on
-  their status page (`pref_change_request`) and she approves or declines with one tap on Today
-  or their page; see **Online (W2)**.
-- **Eligible** for a litter: on the list, same kennel, not paused (`isPaused`: her own `paused_until >= today`, or the readiness hold `today < readyFromDate(entry)`),
-  listening for it (`waitlistRules.isListeningFor` — listen-only `selected`: its sire is a picked sire OR its dam a picked dam; `except`, Waitlist Spec §16.3: neither parent is on their except list; an `except` with nobody listed is All litters, `isListenOnly`), and at least one available matching pup. Skipped families have nothing
-  recorded against them.
-- **Turns** (Waitlist Spec §16.1, decided 2026-10-08, replacing one open offer per litter):
-  one family holds a turn at a time across the kennel's open litters, and the turn lists
-  every pup they're eligible for in every litter with open picks. Stored as one
-  `waitlist_offers` row per litter sharing `turn_id` and `respond_by_date` (an offer from
-  before turns has none and is its own turn: `turnIdOf`). The next turn
-  (`waitlistRules.nextTurn`) goes to the highest-ranked family with an eligible, available
-  pup in an open litter they haven't spent a turn on (spent stays per litter: `turnSpent`; a
-  `voided` offer gives it back), recalculated every time, so a family skipped on one litter
-  comes first for a litter that opens later. A litter opening mid-turn joins it only when the
-  holder is the top family for it (`joinsOpenTurn`; the deadline restarts), else waits.
-  Actions: `offerNextTurn` / `offerNext` / `openPicks` / `offerTo` make turns; picks,
-  deposits and pup switches act on one row (a pick on another litter of the same turn lets
-  the first go); `recordOutcome` passed / no response / voided closes the whole turn, and a
-  pass counts ONCE (`counts_as_pass` on one row) and only when the whole turn is passed; the
-  deposit voids the turn's other rows (never a pass); `undoPass` gives the whole turn back.
-  `nextFamilyForLitter` remains as "first in line for this litter" (the family page's
-  out-of-turn check, `prefChangeEffect`). Today's overdue nudge is one per turn
-  (`overdueTurns`). **Pass reasons and "Not this litter"** (Spec §16.2, §16.5): a family's
-  pass on their status page needs one of her reasons (`passReasons` / `passReasonOf`; saved
-  on the offer as `pass_reason`); "Not this litter" (`Entry.prepasses`) is pending until
-  their turn: `splitPrepassed` leaves those litters out of the offer, and a turn of nothing
-  else is passed at once by `offerNextTurn`, which goes on to the next family. **She always
-  sees it (fixed 2026-10-10):** the "Next turn" line on the Waitlist page and the Litter
-  page's picks panel carries a **Not this litter** note (`nextTurnPrepassNote`: which litters,
-  and that "Offer to them" records a pass, with its count); `offerNextTurn` returns every such
-  family as `auto_passed` (`{ entry_id, litter_ids, counted, used, max, removed }`), or
-  `{ none: true, auto_passed }` when nobody was left to offer, and `moveTurnOn` /
-  `finishTurn` / `releaseOpenOffers` carry them into the action's result, so
-  `describeOfferChanges` (`autoPassedLine`) names each pass in the result message. A family
-  who is only "next" (automatic offers off) gets `waiting.prepassed_litter_ids`.
-- **Passes**: counted from offers with `counts_as_pass === true`; at
-  `waitlist_config.max_passes` (default 2) the entry should be removed. The **7-day undo**
-  is derived from `removed_date`, and forgives the latest counted pass (`passToForgive`)
-  so the family isn't removed again at once.
-- **Deadlines** (W1, no server): `overdueOffers`/`overdueFees` feed one-tap suggestions; the
-  app never expires anything silently.
-- **`deriveContactWaitlistStatus`**: `active` while any entry is applied/approved/active,
-  `fulfilled` when the latest ended `placed`, else `none` — applied by `waitlistEntryRepo`.
-- **"Almost your turn"** (Spec §15.5): `soonFamiliesForLitter(entries, offers, litter, pups,
-  sales, opts)` walks the litter queue in order, one family per available pup, leaving out
-  families whose turn on that litter already closed (passed / no response). A family holding
-  an open offer on **any** litter still takes a pup's worth of room but is marked `inFlight`
-  and gets no notice (so a second litter never re-notifies a family mid-decision); an open
-  offer on this litter whose family has dropped out of the queue still holds a pup.
-  `offers` must be the whole kennel's. `soonFamiliesForKennel` is the union over live
-  litters, one row per family in list order. `soonNoticeText(config, kennelName)` returns
-  `{ subject, body, text }` from `soon_notice_text` (or the default), filling `[Kennel Name]`;
-  the first line is the subject.
-- **`describeOfferChanges(res, { nameOf, litterOf, fmtDate })`**: the plain-text lines every
-  surface shows for offers an action voided or made, so no offer is made silently.
+### Application form (`data/waitlistForm.js`, pure)
+Questions `{ id, label, type, required, help, options[], source_header?, key? }`. **Locked**
+questions (with a `key`) can only be reworded: `name`, `email`, the preference questions
+(answers go to `pref_*`), `ready_timing` (required; drives the readiness hold) and the
+public-list notice. `formQuestions(config)` supplies defaults and restores missing locked
+questions. Each entry stores `application_questions`, the wording it was answered under.
+**Question import** (`proposeQuestionImport` / `applyQuestionImport`) turns an old form's
+CSV columns into questions and stamps `source_header`, so the application importer (§9) can
+then bring in the answers.
 
 ### Actions (`data/waitlistActions.js`)
-Every multi-step write the pages make: **approve** (links the contact she picked from
-`contactMatches` — offered, never automatic — or creates one from the application; stamps
-`approved_date`, the fee from `feeForEntry`, `fee_due_date` from `fee_due_days`, the
-credit policy; a fee of 0 goes straight to `active` anchored at the approval date),
-**decline**, **feeReceived** (sets `fee_received_date` = the place in line, and
-`fee_received_at` = now for same-day order; also the "Add to
-the list" path when no fee is configured), **markFeeExpired**, **withdraw**
-(`withdrawn_date`), **removeByBreeder** (final; coming back = re-apply), **archiveEntry**
-(archives via the repo), **undoRemoval** (second-pass only, within 7 days, forgives the
-pass), **undoPass** (below), **reapply** (a new `applied` entry for the same family/kennel with their preferences
-copied), and **setPositionAnchor** (a date, another family's anchor, or `null` to clear). W1
-sends nothing; she contacts families herself.
+Every multi-step write: approve (links a contact she picks from `contactMatches`, never
+automatically; a fee of 0 goes straight to `active`), decline, fee received (sets the place
+in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move place
+(`setPositionAnchor`).
+- **Leaving releases turns:** withdraw, remove, archive, a deposit or a second-pass removal
+  void the family's open offers (never a pass; a held pick's Sale is cancelled) and move
+  those litters on.
+- **Automatic offers are off by default**, per moment: `waitlist_config.auto_offer_on`
+  lists the closings that offer the next family by themselves (`accepted`, `passed`,
+  `no_response`, `no_deposit`, `left`, `restored`). Otherwise the next family comes back in
+  `waiting` and she offers by hand (**Open picks**, **Offer to them**, **Offer pups…**).
+  Actions on one family (approve, fee received, undo removal) never make offers.
+- **The offer flow:** `openPicks` / `closePicks` (`Litter.picks_opened_date`), `offerNext`,
+  `offerTo` (out of turn, with a note; nobody's place changes). **Accepting is pick +
+  deposit:** `recordPick` creates a `deposit_pending` Sale (registration and price from the
+  pup and `saleDefaults.expectedPricing`) and the offer stays open; `changePick` moves it to
+  another pup; `confirmDeposit` marks the sale paid, the pup placed, the entry placed, and
+  moves on. `recordOutcome` handles passed / no response (lets go of a held pick, counts the
+  pass, removes at the limit) and voided (never a pass, doesn't move on). `undoPass` reopens a
+  pass.
+- **A lost pup** (`vocab.isLostSale`): `restoreAfterLostSale(saleId, { carry })` puts a placed
+  family back in their **original place** (the accepted offer voided, passes unchanged), or
+  refreshes an open turn without the lost pup; `carry` keeps what they paid for their next
+  pick (`carried_payment`). Never automatic: the Sale page (and the family page's **End the
+  sale…**) asks, through `waitlistUI.restoreLostPupDialog`, after the pup-settling prompts in
+  `assets/salePrompts.js`.
 
-**Leaving the list releases the family's turns.** withdraw, removeByBreeder, archiveEntry, a
-received deposit and a second-pass removal all run the internal `releaseOpenOffers`: each
-open offer the family still holds is voided (`counts_as_pass: false`, a note saying why; a
-held pick's deposit-pending Sale is cancelled) and that litter's turn moves on
-(`moveTurnOn`). withdraw / removeByBreeder / archiveEntry return
-`{ entry, voided, offered, waiting }`.
+### Surfaces
+- **Pages** (`proPages.js`): `waitlist` (one kennel: new applications, fee due, the ranked
+  list, Litters with "Next: <family>" and **Offer to them**, Closed; everything else under
+  **Manage**), `waitlist-entry` (one family: Details / Interact / History tabs),
+  `waitlist-programs`, `waitlist-form`, `waitlist-publish`, `waitlist-import`. A page shows
+  one kennel (`?kennel=`, else scope, else busiest; `waitlistUI.resolveWaitlistKennel`).
+- **Litter page:** the **Waitlist picks** panel (`assets/waitlistPicksPanel.js`, loaded only
+  with the flag): picks open/closed, the open turn and its actions, next up, the litter's
+  queue, history. It re-reads the litter after each write.
+- **Kennel page:** the Waitlist settings card. **Contact page:** the family's entries (and the
+  waitlist status becomes read-only). **Dashboard:** application and list tiles. **Today:**
+  waitlist nudges (§19).
+- **"Almost your turn…"** (`waitlistUI.openSoonNotice`): the families and her editable
+  message, sent by `mailto:` BCC or copied addresses (stamping `soon_notified_*`), or from
+  KennelOS when the list is online.
+- **Communicate…** (`waitlistEmailUI.communicateDialog`): emails that fit now, or a suggested
+  message to share from her phone. KennelOS itself sends only the queued emails below.
+- **Documents:** fee receipt, puppy invoice and receipt as PDFs (§24).
+- **Fee paid online** (Pro with Accounts; Integrations plan §4): **Fee paid online via** a
+  Payment service account (`kennels.waitlist_fee_account_id`), asked for at application or
+  once approved (`fee_link_when`). Reusable Stripe links per fee amount
+  (`waitlistFeeLinks.ensureFeeLinks` → `fee_links`; the charge includes a passed-on card
+  fee). Her device's check (`checkFeePayments` / `planFeePayment`) records **fee received**
+  for an approved family, or `fee_paid_online` for one not yet approved.
+- **Review sale & send** (`assets/pickToSend.js`, with contracts + invoicing; Integrations
+  plan §2.6): on a pick awaiting its deposit, edit the sale (incl. channel and fee), choose a
+  contract form, and send one deposit-request message with the invoice PDF via the share
+  sheet or email. It marks the contract sent and stamps `deposit_request_sent_date`.
 
-**Automatic offers are a setting, OFF by default (decided 2026-10-06), per moment since
-2026-10-08:** `waitlist_config.auto_offer_on`, a list of the closings that offer by
-themselves (`accepted`, `passed`, `no_response`, `no_deposit`, `left`, `restored`; ticked on the Kennel page's Waitlist
-settings section). `moveTurnOn(litterId, { trigger })` calls **offerNext** only when
-`waitlistRules.autoOffers(config, trigger)` is true (`confirmDeposit` passes `accepted`,
-`recordOutcome` `closingTrigger(offer, outcome)`, `releaseOpenOffers` `left`, `restoreAfterLostSale` `restored`); otherwise nothing is offered and the family who's next is returned in `waiting`
-(`[{ litter_id, entry_id }]`), which `describeOfferChanges` turns into "X is next in line.
-No offer was made…". Every offer is then made by her (**Open picks**, **Offer to them**,
-**Offer pups…**). (Unarchive goes straight to the repo and makes no offers.)
-
-**Which writes make offers (decided 2026-10-06):** only an offer on that same litter closing
-(deposit received / passed / no response, or the family leaving as above) moves the turn on
-by itself, and only for a moment ticked in `auto_offer_on`. Actions on one family — **approve** (fee-waived), **feeReceived**, **undoRemoval** —
-make **no** offers; the family page then says which litters they're next for, and she offers
-from **Offer pups…** / **Offer to them**. Every offer made on her behalf is returned and
-shown (`describeOfferChanges`).
-
-**The offer flow (W1c):**
-- **openPicks** stamps `Litter.picks_opened_date` and calls **offerNext**; **closePicks** clears
-  it (an open offer stays open until resolved).
-- **offerTo(litterId, entryId, { note })** (W1e) — the family's page's **Offer pups…** (Interact tab):
-  opens picks if needed, then offers that family the litter even if they aren't next. Refused
-  when another offer is open on the litter, the family's turn on it is spent (`turnSpent`), or
-  no available pup matches them. Out of turn, the page confirms first and `note` records who
-  was next; nobody's place changes and the next family still gets their turn afterwards.
-- **offerNext(litterId)** — only while picks are open and no offer is open on the litter:
-  `nextFamilyForLitter` picks the family, and the offer is written with `respond_by_date`
-  (`respondByDate`, program window first) and an `eligible_dog_ids` snapshot.
-- **Accepting is pick + deposit (decided 2026-10-06).** The respond-by window is the time to
-  accept AND pay; a pup is only theirs once the deposit is in.
-  - **recordPick(offerId, { chosenDogId })** creates the **Sale** (`deposit_pending`, buyer =
-    the family's contact, `registration_type` = the pup's `intended_registration` → the first
-    registration the family's purposes fit → `limited`, `lead_source: 'Waitlist'`, price/deposit from
-    `saleDefaults.expectedPricing` for that registration) and stamps `chosen_dog_id`/`picked_date`/`sale_id` on the
-    offer, which stays **open** (`isAwaitingDeposit`). The family stays `active`, nothing moves
-    on, and the live Sale makes the pup unavailable to anyone else.
-  - **changePick(offerId, { chosenDogId })** — they picked the wrong one: moves the same Sale to
-    another available matching pup (`switchablePups`); price/deposit follow the new pup only
-    where they still equal the old pup's expected amounts (a paid deposit is never touched).
-    Allowed while the deposit is pending, and on an `accepted` offer while no later non-voided
-    offer exists on the litter (`canSwitchAcceptedPick`) — then the dispositions swap too
-    (new pup `placed`, old pup `available`).
-  - **confirmDeposit(offerId, { date, amount })** — the Sale goes `deposit_paid` with
-    `deposit_date`/`deposit_amount`, the pup `placed`, the offer `accepted`, the entry `placed`
-    with `placed_sale_id`; the family's other open offers are released; the turn moves on.
-- **recordOutcome(offerId, outcome)**:
-  - `accepted` = recordPick (if not picked yet; or changePick if a different pup is passed)
-    + confirmDeposit, for a pick and deposit that arrive together.
-  - `passed`/`no_response` first lets go of a held pick (its Sale → `cancelled`, with a note;
-    refused if the Sale already shows the deposit — record it with confirmDeposit instead),
-    then freezes `counts_as_pass` (`countsAsPass`) and removes the entry (`second_pass`) once
-    `shouldRemoveForPasses`, releasing its other open offers. No deposit by the deadline is
-    recorded as `no_response` ("No deposit").
-  - `voided` is never a pass, also cancels a held pick, and deliberately does **not** move the
-    turn on (the same family would just be re-offered); she offers the next family by hand.
-  - After passed/no_response the turn moves on (`moveTurnOn`). The result
-    (`{ offer, sale, removed, passes, next, voided, offered, waiting }` — `voided`/`offered`
-    are the family's other litters released above) drives the page's confirmation message.
-- **undoPass(offerId)** (decided 2026-10-06) — undo a `passed`/`no_response`: that family is
-  next in line for the litter again. Allowed while the family is `active`, or `removed` for
-  `second_pass` within the 7-day window (`undoPassBlocker`; they go back on the list). The
-  offer reopens (`open`, `counts_as_pass: false`, a fresh `respond_by_date`, a new
-  `eligible_dog_ids` snapshot, a note). A family holding the litter's open offer meanwhile has
-  it **voided** (never a pass, so they're next again after) — refused if that family has
-  already picked a pup. Refused if the family can no longer be offered the litter. Makes no
-  other offer. Returns `{ offer, voided, restored }`.
-- **A lost pup (Waitlist Spec §16.11, decided 2026-10-08).** `waitlistRules.restoresFamily(sale)`
-  (= `vocab.isLostSale`, not archived) and `lostSaleFamily(sale, entries, offers)` →
-  `{ kind: 'placed' | 'picked', entry, offer }`; `waitlistActions.lostSaleFamilyFor(saleId)`
-  loads it. **restoreAfterLostSale(saleId, { date, carry })** — `placed`: the accepted offer
-  goes `voided` (never a pass, so `turnSpent` no longer blocks that litter; `sale_id` kept),
-  the entry goes back to `active` with `placed_sale_id: null` and its own fee date — its
-  **original place**, passes unchanged; `picked` (their turn still open): the pick is cleared
-  (`chosen_dog_id`/`picked_date`/`sale_id`) and every open row of the turn gets a fresh
-  `respond_by_date` and `eligible_dog_ids` (never the lost pup), a row with no pup left being
-  voided. `carry: { amount }` sets `entry.carried_payment`; none = she's refunding it. A note
-  goes on the entry and offer. Then the turn moves on with trigger `restored` (the picked case
-  only when its turn ended): offered now only with `restored` in `auto_offer_on` and no turn
-  open; otherwise who's next is returned. Another family holding a turn keeps it. Never runs
-  by itself: **sale.js** asks as she saves a sale into a lost status (after settling the pup —
-  record the death for `pup_died`, Health hold for a health reason, or bring a returned
-  Pet-home/External pup back as a puppy), via `waitlistUI.restoreLostPupDialog`, imported
-  dynamically only when `editionFlags.waitlist`; the family's page shows **Pup lost** with
-  **Put back in line…** / **Give their turn back…** until she does. The pup-settling prompts
-  live in `assets/salePrompts.js` (`promptReleasedPup`, `promptDisposition`), shared by
-  **sale.js** and the family's page: its **End the sale…** button (decided 2026-10-11; shown
-  for the sale they're placed with, or the sale holding their open-turn pick, while it hasn't
-  ended) runs `waitlistUI.endSaleDialog` — the sale becomes Voided with a reason (Pup died /
-  Failed a health check / Other), Cancelled ("they backed out", placed families only), or
-  Returned with a reason when it was delivered — then the same settle-the-pup prompts and
-  `restoreLostPupDialog` the Sale page asks.
-
-### Surfaces (W1b)
-- **W1e (the waitlist as the main workflow, Spec §15.2):** the Waitlist page gains a
-  **Litters** card (each live litter with pups to offer: picks state, the open offer or
-  "Next: <family>" with **Offer to them**, which opens picks first if needed), **Application
-  form** and **Copy public list** buttons (since 2026-10-08 under Manage, the copy on the
-  Publish list page). The family page gains **Offer pups…** on an
-  active entry, outcome buttons on an open offer in its Offers card (Picked a pup… / Passed /
-  No response / Void; once picked: Deposit received… / Change pup… / Passed / No deposit /
-  Void — and first, where contracts and invoices are on, **Review sale & send…**, below),
-  **Change pup…** on an accepted offer until the next family is offered, **Undo…** on a
-  pass / no response, and a **Documents** card (application fee receipt once a fee is received;
-  puppy invoice + receipt once placed) with View and Download PDF (§24). New applications are
-  typed in on her form, in her order and wording, with the public-list notice shown.
-- **Fee paid online (2026-10-12, Integrations plan §4).** In Waitlist settings (Pro,
-  `editionFlags.accounts`), **Fee paid online via** names a Payment service account
-  (`kennels.waitlist_fee_account_id`) and **Ask for the fee** says when: at the end of the online
-  application (`waitlist_config.fee_link_when` `apply`, the default) or once approved. The
-  family's Pay button links to a reusable **Stripe link per fee amount**, made on a device
-  holding that account's Stripe key when the list is published (`waitlistFeeLinks.ensureFeeLinks`
-  → `waitlist_config.fee_links`), else to the account's own payment link. With the account's "I
-  usually pass this fee on", the link charges the fee plus the card fee
-  (`waitlistFeePay.feeCharge`, `priceToNet`) so she nets her fee. The projection carries
-  `kennel.fee_pay { url, amount, ref_param, instructions }` (for `apply`) and, on an approved
-  family's `fee_due`, their own `pay_url` / `pay_amount`; the Worker adds each family's id as
-  Stripe's `client_reference_id` to a Stripe link (`familyPages.feePayFor`; an application's id
-  is its entry's id), so the status page (and the page an applicant lands on after confirming
-  their application) shows **Pay the application fee** until they've paid. Her device's Stripe
-  check (`waitlistFeeLinks.checkFeePayments`, with the sale check) reads each fee link's paid
-  checkouts and, per family (`waitlistFeePay.planFeePayment`): approved → **fee received** on the
-  payment's date (`feeReceived`) with `fee_paid_via_account_id`, `fee_paid_amount`,
-  `fee_processing_amount`; not approved yet → `fee_paid_online`, shown on their page ("Fee paid
-  online"), and **Approve** puts them on the list from that date. Income shows the fee net of
-  what the payment service kept (§21). With a non-Stripe link she records the fee herself, as
-  before.
-- **Review sale & send (2026-10-11, Integrations plan §2.6).** On a turn with a pick waiting
-  for its deposit (`editionFlags.contracts` + `invoicing`), the first button opens
-  `assets/pickToSend.js`: **1. Sale** (registration, which moves a price still at its
-  `expectedPricing` amount, price, deposit with its due date = the offer's
-  `respond_by_date`, read-only, transport fee, **Sold / paid through** (any account, with its
-  rate) + **Processing fee** (suggested from the channel's rate and following the price
-  until she types her own, §21.1's rule) + "passed to the buyer" (defaults from the account)
-  + "You net …" + **Price that nets you $…** (`processingFees.priceToNet`), balance due date,
-  notes; **Open the full sale** for the rest), saved through `saleRepo`; **2. Contract** (her contract forms ranked
-  for the sale, or "No contract in this message"; reuses the sale's newest sendable contract,
-  `contractSend.openContractForSale`, else creates a `sale` contract titled "<form label>:
-  <pup>"); **3. Send** (`depositRequest.depositRequestMessage`, editable: deposit and due
-  date, the payment link + instructions of the account step 1 says it's sold / paid
-  through (`paymentLinks.saleChannelPayAccount`, §32; a hint when it has none), then her
-  waitlist `payment_instructions` ("Or pay: …"), the contract link, "Your invoice is attached",
-  the balance; **Share with invoice** where `navigator.canShare({ files })` (the invoice PDF
-  from `invoicePdf.invoicePdfFile`, made on the device), else **Email** (mailto, text only) +
-  **Download invoice** + **Copy message**). The first Share / Email / Copy marks the contract
-  sent (`contractSend.markContractSent`), stamps `deposit_request_sent_date` and logs the
-  message (`logOwnMessage`); the turn shows **Deposit request sent <date>** and the button
-  becomes **Review sale & send again…**. Recording a pick by hand now offers it straight
-  away. Nothing goes to a server. Not built (plan D19): an email to her when a family picks.
-- **Pages** (Pro-only, `PRO_ONLY_PAGES`): `waitlist`, `waitlist-entry`, `waitlist-programs`,
-  `waitlist-import`, `waitlist-form`
-  (§13 page catalog). A page shows ONE kennel: `?kennel=` → the active scope → the first
-  own kennel, with a kennel picker once a second own kennel exists (`waitlistUI.js`).
-- **Kennel page**: the Waitlist settings card.
-- **Litter page** (W1c): the **Waitlist picks** panel (`assets/waitlistPicksPanel.js`) —
-  Open/Close picks, the open offer (family, respond-by with a "deadline passed" badge, the
-  pups currently available to them) with Picked a pup… / Passed / No response / Void — or,
-  once picked, the held pup with Deposit received… / Change pup… / Passed / No deposit /
-  Void — "Next up"
-  with a manual **Offer to them** (after a void, or when someone new becomes eligible),
-  the litter queue (per-litter position, overall #, pups for them; spent turns hidden), and
-  the offer history (with **Change pup…** on the last accepted pick and **Undo…** on a pass /
-  no response; the dialogs live in `waitlistUI.js`). Hidden for a kennel that has never used the waitlist on that litter.
-  After each write the page re-reads the litter so a later Edit → Save can't write back a
-  stale `picks_opened_date`.
-- **Today** (W1c): the four waitlist nudges (§19). A nudge action's `run` may resolve to
-  `{ title, message }`, which Today shows after it runs: **Record no response** reports the
-  pass and who the turn moved to; **Undo** says no offer was made.
-- **"Almost your turn…"** (Spec §15.5): a button on the Waitlist page (every live litter of
-  the kennel, `soonFamiliesForKennel`) and in the Litter page's picks panel (that litter,
-  shown when anyone is in reach). `waitlistUI.openSoonNotice` lists the families (in-flight
-  ones named but not included; no email → "tell them yourself"), the editable message, an
-  **Open in my email** `mailto:` with everyone BCC'd (a warning past ~1800 characters), and
-  **Copy email addresses**. Either of those stamps each ticked family with
-  `soon_notified_date` / `soon_notified_litter_ids` (`markSoonNotified`; the mailto tap is
-  not delayed by the write). Families told before still appear, ticked, with a "Told
-  <date>" badge, since she may need them again (e.g. a "sorry, next time" note); the family
-  page shows the date and litters. W2 delivers the same `{ subject, body, text, recipients }`
-  to the status page and by email.
-- **W1d:** the `waitlist-import` page (§9), application-fee income + the purchase credit
-  (§21), and the sample/Demo seed (§11). A page with no `?kennel=` (dashboard tiles, the
-  Import/Export dropdown) lands on the own kennel with the most open entries, then your
-  own kennel from setup (`waitlistUI.resolveWaitlistKennel`).
-- **Dog form**: `intended_registration` for a puppy (every edition: it also prefills a Sale).
-- **Contact page**: a Waitlist panel listing the family's entries, and the waitlist dropdown
-  becomes read-only (a badge) once any entry exists, since `waitlistEntryRepo` keeps it.
-- **Dashboard**: "New waitlist applications" and "Families on the waitlist" tiles, counting
-  entries under the active kennel scope (they replaced the old contact-based "Active
-  waitlist" tile).
-- All of the above outside the pages check `editionFlags.waitlist` (false in Lite).
-
-### Online (W2, `docs/KennelOS_Waitlist_W2_Plan.md`)
+### Online (W2)
 - **Her device is the source of truth.** `data/waitlistProjection.js` builds one kennel's
-  online view from the same rules-engine calls the pages use, field by field from
-  allow-lists: the public list (unmasked: the server masks the turn holder, below); per family (by entry id) name, email, status, place
-  (`position`, published during a turn too), their place for what they want (`pref_places`,
-  below), the litters with open picks whose turn they passed on or let lapse
-  (`spent_litter_ids`, so their page offers no "Not this litter" there), prefs,
-  pause / readiness hold, listen-only, passes, open offers, which live litters they match
-  (`matching_litter_ids`, a yes/no, never a place in a litter's line), the unpaid
-  fee and her payment instructions (approved and unpaid only), and the fee-received date; a
-  family whose time on the list ended gets only its outcome; per live litter its label,
-  available pups (call name, sex, color) and **every** eligible family in order. Never:
-  other answers, phone, address, programs, notes, payment details. `as_of` is today, so it
-  republishes at least daily (pauses and holds end by date).
-- **What number a family sees** (Waitlist Spec §16.9, decided 2026-10-08, revised
-  2026-10-10): their overall place, never a per-litter one, except during their turn:
-  `waitlistRules.placeHidden(entry, offers)` → `{ reason: 'turn' }` while they hold one (their
-  page says "The wait is over!" instead), else null. A pass or a lapsed turn hides nothing.
-  On the public list the turn holder's row keeps its number and reads **Currently deciding**,
-  highlighted, with its sex preference and date added (only the name is replaced), so the family next in line can't tell whom to
-  press. Her device publishes the rows unmasked; `cloud/src/familyPages.js` `listView`
-  masks the row whose `position` belongs to an active entry holding offers at the moment it
-  serves the page, so a turn the server opens or closes (serverMoves) shows at once. Her
-  **Copy public list** masks the same way (`publicList({ deciding })`). `DECIDING_LABEL` is
-  copied in `familyPages.js`; `tests/familyPages.test.js` pins the two equal.
-- **Place for what they want** (decided 2026-10-10): under the overall number, the status
-  page shows `pref_places` from `waitlistRules.prefPlaces`: for each matching answer the
-  family narrowed (`narrowedPrefFields`: sex, breed, purposes, and colors only with
-  color matching on), their place counting only the families ahead who want the same or
-  wider on it (`prefCovers`), and `all` (every narrowed answer at once) when they narrowed
-  two or more. All open → `{}`; the page skips any number already shown above it.
-- **Available Puppies on the public list** (decided 2026-10-10): `listView.available` is
-  every litter with open picks, as the status page shows it (label, nickname, breed,
-  parents, dates, pups remaining by sex; never a pup's name).
-- **Ready now?** (Waitlist Spec §16.7; online lists only, and only holds ending while the
-  list is online, decided 2026-10-08): `waitlistRules.readyCheck(entry, today, config)`;
-  `isReadyHeld` / `isPaused` take the config as a third argument and, with it, keep a
-  family held past `readyFromDate` while unanswered (unless `unpause`), or while a No's pause
-  request waits for her; without it, the plain rule. Event kind `ready` (yes, or no with a
-  date and a required reason → `recordReadyAnswer`). `cloudWaitlist.sweepReadyChecks` (the
-  backing device, each sync) removes families past their window under `remove_after`
-  (`readyCheckLapsed`); Today lists them under `keep_paused` after `ready_answer_days`
-  (`readyCheckOverdue`) with **They're ready**, and reports a removal with its undo. The
-  family's page shows the answer, or **They told me they're ready**.
-- **A litter was born** (Waitlist Spec §16.6): `waitlistRules.whelpNotes` gives each active
-  family not paused or held a `match` or a `review` (with `why`: `listen`, `sex`, `breed`,
-  `placement`, `colors`) for a born litter before picks open with a pup available,
-  published per entry as `whelp_notes` whatever her `show_upcoming` switches say; the status
-  page's **Review your preferences** card opens the listen-only and Ask-to-change editors.
-- **Publishing** (`data/cloud/cloudWaitlist.js`): for each own kennel with
-  `waitlist_config.online` and a `public_id`, the projection is hashed and `PUT` when it
-  changed; a kennel taken offline is `DELETE`d. 20 s after the last data change
-  (`CLOUD_DATA_CHANGED_EVENT`), on load and when back online. It needs a session and cloud
-  backup on; the server also needs the **backing device** (on a syncing program, the
-  **lease holder**: below) and a server-known Pro account,
-  and the reason it stopped (`signed-out`, `backup-off`, `not-backing`, `lease-held` with
-  the holder's label and expiry, `not-syncing`, `pro-required`,
-  `kennel-taken`, `offline`, `failed`) is kept in the `waitlistOnline` settings key for the
-  card.
-- **On a syncing program (Cloud Phase 2 plan §7, 2026-10-12):** there's no backing device,
-  so the server work goes to one device at a time by a **lease** (`wl_leases`, migration
-  `0016`): two minutes, taken or renewed by `POST /waitlist/lease` and by every waitlist
-  write; another device gets `409 lease_held { holder: { label, until } }`. The device claims
-  it once per run, lazily, right before its first write (`data/cloud/serverWork.js`
-  `claimServerWork`; an idle poll asks nothing more), and only a device that syncs
-  (`not-syncing` otherwise: its writes would stay on that device) and is in front of her (a
-  syncing device in a hidden tab skips the run, `background`); a closing page lets go
-  (`DELETE /waitlist/lease`). A device that takes it over from another first pulls sync and
-  restarts its events cursor from the published `events_through`, so no family event is
-  applied twice. The card says "This device is handling your online list" while it holds
-  it, or "Handled by Jen's laptop (open now)". Vendor events (`cloudIntegrations.js`) follow
-  the same rule. Nothing is sent where it isn't offered (`isWaitlistOnlineOffered()`).
-- **The card:** Waitlist → Manage → **Publish list** → **Online list**
-  (`assets/waitlistOnlineUI.js`; on the Kennel page until 2026-10-08): put this
-  kennel's list online, its time zone, the status line, **Publish now**, **Copy public
-  list link** and **Copy application form link**. The buttons always show; one that can't
-  work yet is greyed out with a line saying why (not online yet / not published yet / the
-  form isn't open).
-- **On your website (2026-10-10, Integrations plan §1):** the Online list card's **On your
-  website** section. Its parts:
-  - **The switch and addresses:** "Let my own website show my application form and list"
-    (`waitlist_config.embed`) and her website's addresses (`embed_origins`, optional, one per
-    line, each cleaned to an origin by `waitlistRules.embedOrigin`; an address it can't read
-    stops the save with a message). The section has its own Save, which is the card's.
-  - **What to paste**, once the list is published, each with Copy:
-    `cloudConfig.embedSnippet(publicId, 'apply' | 'list')` (a `<script async
-    src=…/family/embed.js data-kennel data-view>` with a `<noscript>` link) and
-    `cloudConfig.applyButtonSnippet` (a styled link to the form, which works anywhere and
-    without the switch). A "Where to paste it" note covers WordPress, Wix, Squarespace,
-    GoDaddy/Weebly and no-script places.
-  - **Wix:** Wix shows pasted code from its own address, so there she must leave the address
-    list blank.
-  - **The projection** carries `kennel.embed: { origins }` only while the switch is on.
-  - **The Worker** (`familyPages.frameAncestors`) turns that into the `frame-ancestors` of
-    `/apply` and `/list`: `'none'` without it, the listed origins (re-checked, at most 10), `*`
-    when none are listed, and `'none'` when every listed one is invalid. `/s/<token>` is never
-    framable. The pages are cached for 5 minutes, so a change shows within about that.
-  - **The loader** (`cloud/public/family/embed.js`, on her page) inserts one iframe of
-    `/<view>/<id>?embed=1&frame=<id>&theme=…&accent=…` after itself and sets its height from
-    `kennelos:height` messages, accepted only from that frame on the script's own origin.
-    `data-theme` is `light` (default) / `dark` / `auto`; `data-accent` is a `#rgb`/`#rrggbb`
-    color.
-  - **In the frame** (`cloud/public/family/embedded.js`): no title, footer or background; the
-    theme forced by class (outranking `prefers-color-scheme`); her accent with white or black
-    text picked from its lightness; the height reported via a `ResizeObserver`. Anything that
-    leaves goes to a new tab: a confirmed application shows "Your application is in" with
-    **Open my status page**, the list's Apply and Open my page links, and a sign-in. The sign-in
-    on the list isn't read back from storage, since a framed page's storage may be blocked.
-- **Link previews (2026-10-08):** a shared public list or application link shows a card on
-  Facebook and in texts: the Worker (`cloud/src/familyPages.js` `withPreview`) writes Open
-  Graph tags with the kennel's name ("Thornfield Kennels waitlist" / "Apply to the Thornfield
-  Kennels waitlist") into `/list` and `/apply`, read from the published projection's
-  `kennel.name` only, and a generic image (`cloud/public/family/share.png`). Status pages
-  get none (they're private).
-- **Communicate… (2026-10-10, replaced Text them…, Send status link and Email them…):** on
-  the family page's Interact tab (`waitlistEmailUI.communicateDialog`). A **How** dropdown:
-  **Send email** (only where `kennelEmailsOn` and they have an address) lists the emails that
-  fit now — their status page link, a note from you, the fee request while approved, "on the
-  list" once on it, "It's your turn" again during an open turn — with the drafted email
-  (`waitlistOutbox.draftFor`, her templates) below to edit before Send; emails tied to a
-  moment (a pass, a decision, a closed turn) still come up right after that action.
-  **Message via…** (`waitlistUI.messageViaHtml` / `wireMessageVia`): a suggested message
-  from where they stand (their turn and its respond-by date, a pup held for their deposit,
-  a fee due with her payment instructions, or their place) plus their status link when
-  online, editable, with **Share…** (the phone's share sheet: Google Voice, Messenger, any
-  app), **Copy message** and **Copy number**. The Google Voice and `sms:` buttons are gone.
-  The phone is the contact's, else the application's. KennelOS sends nothing. The message
-  box grows to fit its text, so the status link (its last line) is always in view.
-- **Editing a family's dates (2026-10-08):** the family page's Edit form has **Applied**
-  (`applied_date`, any status) and, once a fee date exists, **Fee received**
-  (`fee_received_date`). The fee date is the position anchor, so correcting it can move the
-  family in line (not when she moved them herself: `position_anchor_date` still wins), and it
-  moves the end of a readiness hold and the day the fee counts as income. It can be changed
-  but not blanked there; `fee_received_at` (the same-day tie-break) is left as recorded.
-- **Import/Export split, and a Settings page (2026-10-08):** `import-export.html` keeps
-  **Backup & restore**, **CSV import** and the **Danger zone**. `settings.html` /
-  `pages/settings.js` (More menu, after Import/Export; in the precache; excluded from Demo
-  with `import-export.html`) holds **Account** (`cloudBackupUI.mountCloudAccountCard`: the
-  cloud sign-in, **Change email…** (Cloud Phase 1 plan §2.6: at once with the old inbox, else after a day with Cancel on every device; a change asked for with the recovery code from the sign-in screen's **Lost access to your email?** (§2.7) shows as "Requested with your recovery code"), Pro on this account, Your devices, sign out, delete cloud data), **Your
-  kennel**, **Guided tour** and **This device's license**.
-  The Backup & restore card's destinations are **Cloud | This device | Dropbox** on both the
-  Back up and Restore sides (Cloud first and the default when the edition has a cloud server;
-  Dropbox Pro only; with neither, the row goes). The Cloud pane (`#br-cloud`,
-  `cloudBackupUI.mountCloudPane`) follows the other destinations' shape: a blurb, **Last
-  backup**, **Back up now** or, on the Restore side, the cloud backups as a dropdown on the
-  page (choosing one loads it and asks before rolling back), and a strip at the foot (Cloud
-  backup on/off, with Turn on / Turn off / Sign in again / Sign in and restore). Each
-  destination's strip shows only with that destination. The encrypted tier is called
-  **Sensitive records** in every screen (formerly "private backup" / "private info"; code
-  names keep `vault`/`private`): one dropdown reading Off, Locked or On, whose other entries
-  (Turn on…, Unlock…, Unlock another device…, Passkeys…, New recovery code…, Turn off…) open
-  their dialog as soon as they're chosen. **Unlock another device…** also offers **Make an
-  unlock code instead**: a one-hour, single-use code to paste into the other device's **Use
-  another device** screen (`cloudVault.createHandoffCode` / `unlockWithHandoffCode`; Private
-  Vault Plan §5.4). Lite's upgrade dialog makes one as it opens. Links into the card use `#backup-restore`.
-- **Contacts page layout (2026-10-08):** **+ Add Contact** comes before **Manage kennels**,
-  and the bucket row (Clients / Network / Care team / Other / All, `#contacts-group-tabs`) is
-  moved by `contacts.js` to sit under the list's search bar and filters, apart from the
-  People hub's Contacts | Waitlist tabs.
-- **Current Applicants: See Your Details** (so visitors who haven't applied can skip it) and **Coming up** (pairings and early litters) on the public list page
-  are collapsed `<details>` cards, and its title reads "<Kennel> Waitlist" (2026-10-08).
-- **A family's status page (2026-10-08):** everything centered; no badge for a family on the
-  list; **Current Position** (the number, then the kennel's name, **Added** and passes used).
-  Sections that ask them to act stay open (their turn, Ready now?, Review your preferences,
-  the fee, Thank you for applying); every other titled section folds away and starts folded,
-  and one they opened stays open while they use it (`state.opened`).
-  Their turn's card reads **The wait is over!** / "Below are the puppies available for
-  selection.", one button per pup (its name, sex and color), one **Pass on turn** button in
-  the warning tint with "N of M passes used" under it (a turn is passed once, whatever
-  litters it covers), and at the bottom "Deadline: Saturday, 10/10/2026 @11:59 pm CDT"
-  (`common.deadlineText`, the kennel's zone abbreviation for that day).
-  "Ready now?" (§16.7) reads **Alert: Pause Ending** / "Your scheduled pause is ending.
-  Please confirm that you are now ready to receive offers for upcoming puppies.", with Yes /
-  Not yet, and, when her rule removes families who don't answer, at the bottom "Deadline for
-  response: 10/26/2026" and the removal warning.
-  **Review Your Preferences** (§16.6): "With new pups upcoming, please take a moment to
-  confirm your preferences." and two lists, litters matching and not matching their
-  answers; no buttons (they ask for changes under What you asked for). **Available
-  Puppies** (was Litters: litters with open picks, or in their turn) and **Coming up** (no
-  badges) lay every litter out the same way (`common.litterHtml`): breed, its name, "Dam:
-  Juniper CGC · Sire: Ash CH", dates as MM/DD/YYYY ("Planned offering" for picks expected to
-  open), and for Available Puppies "2 females and 1 male remaining". Review Your Preferences
-  lists its litters the same way, without dates. The projection's open litters, whelp notes
-  and upcoming items carry `breed` (the dam's, else the sire's) and `sire` / `dam` as
-  `{ name, titles }`; `/f/status` adds `pups_female` / `pups_male`. Current Position shows
-  "Added 03/07/2026" and "Passes 1 of 2 used".
-  Which litters they wait for (listen-only) has no card of its own: it's the **Parents** line
-  of What you asked for ("Any", "Ash, Juniper only", "Not Willow"), and its choices sit at
-  the bottom of the Ask to change form; one Send sends a `listen` action and/or a
-  `pref_change`, whichever changed (a wider listen change still applies at her next update;
-  a narrower one still waits for her OK).
-  A family who opened their link without signing in gets one **Sign In** button in the
-  page header (no card), to `/list/<public_id>#signin`, where the list page opens its
-  sign-in and focuses the code box.
-- **Message on your public list (2026-10-08):** `waitlist_config.public_intro_text` (blank =
-  `waitlistRules.PUBLIC_INTRO_DEFAULT`), edited on the Publish list page; `publicIntroText`
-  fills in `[Kennel Name]`, the projection publishes it as `kennel.intro`, and `/f/list`
-  passes it to the page, which shows it as plain text under the heading.
-- **Apply from the public list (2026-10-08):** while she takes applications online, the
-  public list page shows **Apply to join the waitlist** under its heading, linking to
-  `/apply/<public_id>`; `/f/list` says so with `kennel.apply_open` (= `formView` would serve
-  her form), nothing else of the form.
-- **Status links:** every entry of an online kennel gets `status_token` (64 hex, minted by
-  `cloudWaitlist.ensureStatusTokens` before a publish; cloud tier). The family's page has
-  **Copy status link** and **New link** (`replaceStatusToken`: the old link stops working at
-  the publish that follows); the picks panel has **Copy status link** beside an open offer.
-  Links come from `cloudConfig.statusPageLink` / `publicListLink` (`apply.kennelos.app` for
-  production, staging's own address otherwise); `waitlistUI.statusLinkFor` hides them while
-  the list isn't online.
-- **The family pages** themselves are the Worker's (`cloud/public/family/`, `cloud/README.md`):
-  the public list with search and **See Your Details** (a family signs in with a code
-  emailed to their application address; the browser stays signed in 90 days), the
-  read-only status page, and the online application form.
-- **The online form** (W2 step 4): **Take applications online** on the Online list card
-  (`waitlist_config.online_form`) makes a form key on this device (`Kennel.waitlist_form_keys`,
-  private; `data/waitlistCrypto.js`) and publishes her form with the public key. Applicants'
-  browsers seal their answers to it; an application reaches her once they type the code
-  emailed to them. `cloudWaitlist.takeInApplications` opens each one on the backing device
-  and makes an `applied` entry through `data/waitlistInbox.js` (validated against her form
-  and the vocab; the inbox id is the entry id; `source: 'online_form'`, shown on the family's
-  page as "through your online form"). **Rotate form key…** retires the old key (kept).
-- **Family actions** (W2 step 5): a family signed in on their status page can choose a pup
-  (one per turn), pass (on the whole turn: `{ turn_id }`, with one of her reasons), say "Not
-  this litter" ahead of time or take it back (`prepass` / `unprepass`), say they're still interested, ask for a pause (with an end date), change which
-  litters they wait for, ask to change a matching answer, leave the list, and send her a
-  message (sealed to the kennel's form key, which every online kennel now has; the
-  projection publishes its public half as `kennel.message_key`, plus `kennel.parents` (the
-  listen-only choices, `waitlistRules.listenParentChoices`), `kennel.breeds`,
-  `kennel.color_matching`, each family's `requests`, offers with their `turn_id`, and the
-  kennel-wide `turn_queue`: every family still to have a turn, in order, with their eligible
-  pups per open litter, which W2 step 7 walks). The server records each action as
-  an event; on the **backing device only** (checked with `GET /program` before anything is
-  written; on a syncing program, the lease holder, `serverWork.js`), `cloudWaitlist.applyFamilyEvents` reads the events after its cursor
-  (`waitlistOnline.eventsCursor`; a device with none starts at the published
-  `events_through`), plans each with `data/waitlistEvents.js` against her records **now**
-  and carries it out with `waitlistActions.applyFamilyPlan`: a pick → `recordPick` (the
-  deposit stays her tap), a pass → `recordOutcome(…, 'passed')`, leaving → `withdraw`, a
-  WIDER listen-only change → applied; a pause, a NARROWER listen-only change (`listenChangeKind`:
-  leaving All, dropping a `selected` parent, adding an `except` one, or switching between
-  `selected` and `except`) and an answer
-  change → a request on the entry. An action her records no longer allow (the offer closed,
-  the pup was sold) is never forced: it becomes a line in the family's `messages` for her.
-  The next publish carries the cursor as `events_through`, and the server lets go of the
-  pups it held for picks up to there. Today (`nudges.js`) shows each pending request with
-  **Approve** / **Decline** and unread messages with **Mark read**; the family's page has a
-  **From their status page** card with the same buttons. Server moves (deadlines, automatic
-  offers) are step 7 and are skipped until then.
-- **Emails to families** (W2 step 6; Waitlist Spec §15.4): wherever the list is online
-  (`waitlistOutbox.kennelEmailsOn`) and the family has an address (the one their projection
-  carries), each action a family should hear about is followed by **Email … ?**
-  (`assets/waitlistEmailUI.offerEmails`): the email drafted from her templates
-  (`data/waitlistEmails.js`; every name, date, litter and place filled in from her records,
-  never by the server; no money in any default), ticked, for her to edit, untick or skip.
-  Where: approve (`approved`, or `on_list` when the fee is waived), decline, fee received
-  (`on_list` with their place), every turn offered (`offer`: Offer pups…, Offer to them,
-  Open picks, an undone pass, and each turn an outcome moved on, via
-  `waitlistOutbox.offerSpecs`), a pass and a no-response she records (`pass_recorded`,
-  `deadline_passed`; a void sends nothing), her decision on a request (`request_approved` /
-  `request_declined`), from the family page **Send status link** and **Email them…** (a
-  `note`), and from Today's nudges (a nudge action returns `emails`, and `today.js` offers
-  them). **Almost your turn…** gains **Send from KennelOS** (one `almost_turn` email per
-  ticked family, recording them as told) and, for litters born before picks open
-  (`whelpNotes`), **Email them about the new litter…** (`review_prefs` for families kept out
-  only by their preferences, `litter_born` for those who match and aren't mid-turn). Sending
-  queues the email on the entry (`messages`, `from: 'breeder'`, `status: 'queued'`) and
-  starts a sync; `cloudWaitlist.sendQueuedEmails` posts each one after the publish
-  (`POST /waitlist/messages`, its id making a retry the same email), and records `sent` or
-  `failed` with a reason. Offline, email down or rate-limited, they wait for the next sync.
-  The server picks the address from the published projection (never the device), sends from
-  the kennel's name (`"Thornfield Kennels" <thornfield-kennels@mail.kennelos.app>`) with no
-  Reply-To, and adds the footer with the family's status-page link. The family page lists
-  them under **Status page and emails** (a failed one with **Retry**); the status page lists
-  the sent ones under **Emails from …**. Her wording: **Emails to families** in Waitlist
-  settings.
-- **While her phone is off** (W2 step 7; `cloud/src/serverMoves.js`): for the moments she
-  ticked in `auto_offer_on`, the server closes a turn whose last day has passed (kennel time)
-  and, after that or a family's pass / leave on their page, offers the next family in her
-  published `turn_queue`, emailing both from her templates; with `email_reminders` on it also
-  sends a reminder halfway through a turn and on its last morning, one the day before an
-  unpaid fee is due, and "Ready now?" — each once. Each move is an event `made_by: 'server'`
-  (`server_close`, `server_offer`) that her backing device applies at its next sync through
-  `waitlistEvents.planServerEvent` → `waitlistActions.applyFamilyPlan` (`recordOutcome` with
-  `moveOn: false` where the server already moved on, `applyServerOffer` with the server's
-  offer ids), or, if it no longer fits her records, records as a `from: 'server'` line on the
-  family's entry. The server refuses a publish that hasn't seen its moves (`409
-  events_pending`); `cloudWaitlist` then applies them and publishes again.
-- **Before picks open** (Waitlist Spec §16.4, §16.8; W2 step 5c part 4): her
-  `waitlist_config.show_upcoming` switches publish `upcoming[]` in the projection
-  (`waitlistRules.upcomingItems`: a pairing without a litter as `planned_pairing` /
-  `pairing`; an `expected` litter as a `pairing`, keyed by its pairing; a born litter with
-  picks not open as `early_litter`), each with its parents' call names and titles
-  (`waitlistProjection.titlesByDog`, from logged `title_earned` events), her dates and
-  `public` / `family`; each active entry's `upcoming` says whether they're waiting for it
-  (listen-only) and, for a born one, whether they match it (never a place). The server's `listView` shows the public ones,
-  `statusView` the family ones; a family's Litters card lists only litters with open picks
-  (or in their turn), so with every switch off a family sees a litter only once picks open.
-  "Not this litter" works on what's shown (`checkTarget`). Today suggests **Open picks** for
-  a born litter whose `accept_deposits_date` has come with picks closed and a pup available
-  (`waitlistRules.depositsDueLitters`; only for a kennel with families on its list).
-
-### Editions
-Pro-only *surfaces* (pages in `PRO_ONLY_PAGES`, `assets/waitlistUI.js` and
-`assets/waitlistEmailUI.js` in `PRO_ONLY_STANDALONE`, in-page doors behind `editionFlags.waitlist`); the tables, repos,
-rules and actions live in `shared/data` like every other repo, so a Pro backup restored
-into Lite keeps its waitlist rows dormant. Demo gets a seeded list in W1d.
+  online view, field by field from allow-lists: the public list (unmasked; the server masks
+  the turn holder when serving), and per family their status, place (`pref_places` for
+  narrowed answers), prefs, pauses, open offers, matching litters (yes/no, never a place in a
+  litter's line), and the fee if unpaid. Never other answers, phone, address, programs,
+  notes or payment details. `as_of` = today, so it republishes daily.
+- **Publishing** (`data/cloud/cloudWaitlist.js`): each own kennel with `online` and a
+  `public_id` is hashed and `PUT` when changed (`DELETE` when taken offline), 20 s after a
+  data change, on load, and back online. Needs a sign-in, cloud backup, a server-known Pro
+  account, and the **server-work device** (§34: the backing device, or on a syncing program
+  the lease holder, `serverWork.js`). Why it stopped is kept in the `waitlistOnline` setting.
+- **Family pages** are the Worker's (`cloud/public/family/`, `cloud/src/familyPages.js`): the
+  public list, the status page (`/s/<token>`; `status_token` minted by
+  `ensureStatusTokens`, **New link** replaces it), and the online form. A family signs in
+  with an emailed code. While it's their turn, their number is hidden (`placeHidden`).
+- **Online form:** a form key per kennel (`waitlist_form_keys`, private;
+  `data/waitlistCrypto.js`). The applicant's browser seals the answers to it;
+  `takeInApplications` opens them on the server-work device and makes `applied` entries
+  through `data/waitlistInbox.js`.
+- **Family actions:** a family can pick a pup, pass a turn (with one of her reasons), say
+  "Not this litter", ask for a pause, change listen-only or answers, leave, answer "Ready
+  now?", ask for their Companion link, and message her (sealed). The server stores each as an
+  event; `cloudWaitlist.applyFamilyEvents` plans each against her records **now**
+  (`data/waitlistEvents.js`) and applies it (`applyFamilyPlan`): picks, passes, leaving and
+  wider listen changes apply; pauses, narrower changes and answer changes become requests
+  she approves or declines (Today and the family page). Anything her records no longer allow
+  becomes a message line, never forced.
+- **Emails** (`data/waitlistEmails.js` templates, `data/waitlistOutbox.js` queue): after an
+  action a family should hear about, she's offered a drafted email (`waitlistEmailUI.offerEmails`)
+  to edit or skip. Queued on the entry and posted after the publish (`sendQueuedEmails`);
+  the server sends from the kennel's name at `mail.kennelos.app`, to the address in the
+  projection, never one from the device.
+- **While her phone is off** (`cloud/src/serverMoves.js`): for the moments in
+  `auto_offer_on`, the server closes expired turns and offers the next family from her
+  published `turn_queue`, and sends reminders (with `email_reminders`). Each move is an event
+  her device applies next sync (`planServerEvent`). A publish that hasn't seen them is
+  refused (`409 events_pending`).
+- **"Ready now?"** (`readyCheck`): for holds ending while online; `sweepReadyChecks` removes
+  non-answerers under `remove_after`, Today lists them under `keep_paused`.
+- **Before picks open:** `show_upcoming` switches publish pairings and early litters
+  (`upcomingItems`); a born litter gives each family a match / review note (`whelpNotes`).
+  Today suggests **Open picks** when a litter's `accept_deposits_date` arrives
+  (`depositsDueLitters`).
+- **On her website** (Integrations plan §1): with `waitlist_config.embed`, the projection
+  carries `kennel.embed.origins` and the Worker sets `frame-ancestors` for `/apply` and
+  `/list` (`familyPages.frameAncestors`; status pages are never framable). The loader
+  `cloud/public/family/embed.js` inserts and sizes the iframe. Snippets:
+  `cloudConfig.embedSnippet` / `applyButtonSnippet`.
+- `/list` and `/apply` carry Open Graph previews from the kennel name only
+  (`familyPages.withPreview`).
 
 ---
 
 ## 30. Cloud backup — `docs/KennelOS_Cloud_Phase1_Plan.md`
 
-The plan is the detailed design; `cloud/README.md` is the server's map. This section is the
-shape of it as built, for orientation.
+**Editions:** Lite and Pro. Never Demo (`cloudUrl: null`). Live sync is Pro only (§34).
 
-### What it is
-- An **opt-in** account (email + a 6-digit emailed code; the server keeps only a keyed hash
-  of the email) that **backs up the kennel-records tier** as whole snapshots, keeps 30 days
-  of dated history, and restores onto a new or reset device or "as of" a date. Lite and Pro
-  alike; Demo never (its `cloudUrl` is `null`).
-- **Private data never goes up.** `data/syncRegistry.js` is the per-field allow-list
-  (unlisted = private): contacts' phone/email/address, prices, Financials, contracts and
-  private notes stay on the device. A cloud restore is a field-merge (`'cloud-merge'`,
-  §10), so private fields already on a device survive it.
-- **Shape:** one **backup device** per program at a time (a second device gets a 409 and
-  chooses: restore that backup here, or replace it); a shrink guard refuses an upload that
-  looks like a half-empty device; Reset App turns backup off.
-- **A lost device** (plan §2.5): from another signed-in device, erase it (it wipes itself
-  the next time it opens the app online) and, in Pro, free its license slot.
-- **The private vault** (`docs/KennelOS_Private_Vault_Plan.md`; built):
-  an opt-in, end-to-end encrypted copy of the **complete** records beside the kennel tier.
-  One AES-GCM key per program, held unlocked on each device in `device_secrets`
-  (`vaultKeyStore.js`); the server keeps only wraps of it (one under the recovery code, one
-  per passkey) and ciphertext. A **passkey** (`vaultPasskey.js`, WebAuthn PRF, RP ID
-  `kennelos.app` so Lite and Pro share it) never signs in and is never verified by the
-  server: its PRF output for a stored random salt is the key that opens its own wrap. Offered
-  only where the browser can do PRF; the recovery code stays required. A device can also be unlocked by another, already
-  unlocked one: the server relays an ECDH exchange salted with a 12-character code the
-  user types on the approver, so it can't open what it relays. With it on and unlocked, every push
-  also uploads the encrypted vault part (before the body) and the content hash covers the
-  private rows, so private-only edits push. Files the cloud tier doesn't carry (contracts,
-  "other" documents, receipts) go up encrypted deterministically, so they dedup. On but
-  locked on a device, pushes **pause** (`lastError` `vault_locked`) until it is unlocked;
-  the server refuses a vault-less snapshot anyway. A restore merges the same snapshot's
-  vault part (`'vault-merge'`, §10) when the device is unlocked.
-  **Release switch:** `cloudConfig.VAULT_RELEASED`, **true since 2026-10-08**, so
-  `isVaultOffered()` shows the vault's screens wherever cloud backup is. Set false, they're
-  offered only against staging (localhost, or `?cloud=staging`). The data layer ignores it.
-  **UI:** offered right after the first backup in "Turn on cloud backup" and from the card;
-  the recovery code is shown once (Print / Save to Files / Copy) and its last 4 characters
-  typed back before anything is sent; then, where passkeys can work, "Unlock with a passkey
-  next time?" (skippable). The card's Private backup section has Passkeys… (list, add on an
-  unlocked device, remove with a fresh sign-in). The restore paths (first-run "sign in and restore",
-  and the 409's "restore that backup here") ask to unlock first: passkey (when the vault
-  has one and the browser can try), recovery code, another device, or Not now. After a restore that left private details blank (`cloudRestoredAt`),
-  the record pages that hold them show a hint pointing at Unlock (or a file backup); an
-  unlock that merges the private tier clears it.
+Design: `docs/KennelOS_Cloud_Phase1_Plan.md` (backup), `docs/KennelOS_Private_Vault_Plan.md`
+(vault), `docs/KennelOS_License_Link_Plan.md` (Pro on the server). Server map:
+`cloud/README.md`.
 
-- **The Pro license link** (`docs/KennelOS_License_Link_Plan.md`): the server learns of Pro
-  purchases from Lemon Squeezy's webhook, by the keyed hash of the purchase email, and
-  answers `GET /account/entitlement`. In Pro only (`isLicenseGated()`), the card's Account
-  section shows whether this account is Pro on the server, with **Link a Pro purchase
-  email…** (a code to that address) and **Unlink purchase emails**
-  (`cloudEntitlement.js`). It gates the server's own features (the waitlist's W2), never the
-  app: `license.js` still decides that, with or without a server.
+### What it does
+- **Opt-in account:** email + a 6-digit emailed code (`cloudAuth.js`); the server keeps
+  only a keyed hash of the email. Backs up the **cloud tier** as whole snapshots, keeps 30
+  days of history, and restores onto a new or reset device or "as of" a date.
+- **Private fields never go up unsealed.** `data/syncRegistry.js` is the per-field
+  allow-list (unlisted = private). A cloud restore is a field merge (`'cloud-merge'`, §10),
+  so private fields on the device survive it.
+- **One backup device** per program: another device gets a 409 and chooses to restore that
+  backup or replace it. A **shrink guard** refuses an upload that looks half-empty. Reset
+  App turns backup off.
+- **A lost device** (`cloudDevices.js`): from another device, erase it (it wipes itself
+  next time it's online: `appReset.eraseThisDevice`) and, in Pro, free its license slot.
+  `app.js` runs the device check-in first thing in `boot()`, before the license gate.
+- **The vault ("Sensitive records" in the UI; `vault` in code):** an opt-in, end-to-end
+  encrypted copy of the **complete** records. One AES-GCM key per program, kept unlocked on
+  each device in `device_secrets` (`vaultKeyStore.js`); the server holds only wraps of it
+  (recovery code, each passkey) and ciphertext. Unlock with the recovery code, a passkey
+  (`vaultPasskey.js`, WebAuthn PRF, RP ID `kennelos.app`, never used to sign in), or another
+  unlocked device (ECDH relayed by the server, salted with a code the user types; or a
+  one-hour single-use code, `createHandoffCode`). With it on, every push also uploads the
+  sealed part and the hash covers private rows; **locked, pushes pause** (`vault_locked`).
+  A restore merges it with `'vault-merge'` (§10) when unlocked. `cloudConfig.VAULT_RELEASED`
+  (true) offers it everywhere cloud backup is.
+- **Pro on the server** (`cloudEntitlement.js`): the server learns of purchases from Lemon
+  Squeezy's webhook by email hash and answers `GET /account/entitlement`. It gates only
+  server features (the online waitlist); `license.js` still gates the app.
 
 ### Where it lives
-- **Server:** `cloud/` (one Cloudflare Worker + D1 + R2; staging and production are the
-  top level and `[env.production]` of `cloud/wrangler.toml`). Deployed by Workers Builds,
-  never by `deploy.yml`, and not part of any edition. Operated from its `/ops` page.
-- **Client:** `data/cloud/` (`cloudConfig`, `cloudApi`, `cloudAuth`, `cloudBackup`,
-  `cloudDevices`, `cloudEntitlement`, `cloudWaitlist` (§29), and the vault's `vaultCrypto`, `vaultKeyStore`, `vaultPasskey`, `cloudVault`; §3) and `assets/cloudBackupUI.js` +
-  `assets/cloudVaultUI.js` (§3, §11). `editionConfig` supplies
-  `cloudUrl` (production) and `devCloudUrl` (staging, for localhost and the
-  `?cloud=staging` test switch).
-- **Boot** (§11): `app.js` starts the device check-in before the license gate, and
-  `cloudBackupUI.bootCloud()` (the scheduler, notices, the one-time offer) after first run.
-- **Settings keys** (§11): `cloudSession`, `cloudBackupState`, `cloudDeviceId`,
-  `cloudDirtyAt`/`cloudDirtySince`, `cloudOfferPending`, `cloudRestoredAt`, `eraseAck`,
-  `cloudTestServer`, `waitlistOnline` (§29).
+- **Server:** `cloud/` — one Cloudflare Worker + D1 + R2, deployed by Workers Builds (not
+  `deploy.yml`, not an edition), run from its `/ops` page.
+- **Client:** `data/cloud/*` (only `cloudApi.js` touches the network) and
+  `assets/cloudBackupUI.js` / `assets/cloudVaultUI.js`, imported dynamically and only when
+  `isCloudAvailable()`. `editionConfig` supplies `cloudUrl` and `devCloudUrl` (staging, for
+  localhost and `?cloud=staging`).
+- **Screens:** Import/Export's **Backup & restore** card has destinations **Cloud | This
+  device | Dropbox** (Cloud first when available; Dropbox Pro only), with Back up now,
+  Restore as of…, and a Sensitive records dropdown (Off / Locked / On with its actions). The
+  **Settings** page's Account card has sign-in, Change email…, Pro on this account, Your
+  devices, sign out, delete cloud data. Today shows turn-on, paused and "save your recovery
+  code" nudges (none while sample data is loaded). The 409 and shrink dialogs need typed
+  confirmation; erase, sign out others and delete need a fresh sign-in (`withFreshSignIn`).
+- **Scheduler:** `cloudBackupUI.bootCloud()` starts it after first run; it pushes when
+  `cloudDirtySince` is five minutes old.
 
 ### Rules that keep it safe
-- `cloudUrl: null` must boot with no request and no cloud UI (`tests/cloudClient.test.js`).
-- A new field is private until classified (`tests/syncRegistry.test.js`); a new direct
-  `db` write calls `markDataChanged()` (`tests/cloudDirty.test.js`).
-- Server: migrations are additive and never edited once applied; after a deploy that adds
-  one, the API answers 503 until **Apply pending** on `/ops`. Nothing logs an email, code,
-  token or body.
-- Erasing a device, signing out the others and deleting the account need a fresh sign-in.
+- `cloudUrl: null` boots with no request and no cloud UI (`tests/cloudClient.test.js`).
+- A new field is private until classified (`tests/syncRegistry.test.js`); a new direct `db`
+  write calls `markDataChanged()` (`tests/cloudDirty.test.js`).
+- Server migrations are new files, never edits; after a deploy that adds one the API answers
+  503 until **Apply pending** on `/ops`. Nothing logs an email, code, token or body.
+
 
 ## 31. Reports — `docs/KennelOS_Reports_Plan.md`
 
-The Reports hub (`pages/reports.html` + `reports.js`, Pro-only) lists every report from
-`data/reportCatalog.js`, bucketed into **Money / Breeding / Puppies / Sales & Waitlist /
-Shows & Stud / Dogs & Operations**. Each bucket is a segment tab (the Financials hub's pill
-toggle); the chosen one rides the URL (`?group=money`) and each report's "← All reports"
-link returns to its own bucket. A bucket with no reports yet has no tab. **Year in Review**
-is featured above the tabs.
+**Editions:** Pro and Demo only (`editionFlags.reports`; every `*-report` page is in
+`proPages.js`). Lite keeps the shared Active Roster and Live-Birth Summary pages, with their
+charts and Print.
 
-**Every report is derived** — computed on load from the existing tables, nothing stored, no
-schema of its own. Totals, rates and chart series are figures for what's on screen, never
-persisted aggregates.
+The hub (`pages/reports.*`) lists `data/reportCatalog.js` in tabs (Money / Breeding /
+Puppies / Sales & Waitlist / Shows & Stud / Dogs & Operations; `?group=`), with **Year in
+Review** featured. **Every report is derived** on load; nothing is stored.
 
-**The report screen (`assets/reportView.js`)** adds, when a page asks:
-- `dateRange: { label, date:(r)=>YMD, initial? }` — a preset menu (All time / This year /
-  Last year / Last 12 months / Custom From–To; `data/reportMath.js` `rangeFor`/`inRange`).
-  An undated row is only in "All time".
-- `kpis:(rows, ctx)=>[{ label, value, hint? }]` — a stat strip above the table.
-- `charts:(rows, ctx)=>[chartSpec]` — charts above the table, redrawn from the same visible
-  rows (so they follow every filter); `ctx` = `{ range, preset, records }`.
-- a column's `total:(rows)=>string` — a Total row under the table, over the visible rows.
-- `rowsFor:(records, ctx)=>rows` — a **summary** report: the filters, search and range pick
-  records, then this groups them (one row per category, source…); the table, totals and CSV
-  show its rows while `kpis`/`charts` still get the records (Expenses by Category, Lead
-  Sources).
-- always: **🖨 Print / PDF** and a letterhead that only prints (below).
+**`assets/reportView.js` extras:** `dateRange` (presets via `reportMath.rangeFor`; undated
+rows only in "All time"), `kpis`, `charts`, column `total`, `rowsFor` (summary reports
+grouping the filtered records), and always **Print / PDF**. All follow the visible rows.
 
-**Charts (`assets/chartView.js`)** are the app's own SVG — no vendored library, so they
-work offline and print crisp. `renderBarChart` (one, grouped, stacked, or a signed
-`diverging` series — blue above zero, red below), `renderLineChart` (category or numeric x;
-2px lines, a ringed end dot, direct end labels up to four series), `renderHbarChart`
-(ranked; past `max` rows the rest fold into "Other"). Render functions are pure (spec +
-width → HTML; `tests/reports.test.js`); `mountChart` draws at the container's width, redraws
-on resize and for print, and wires the hover tooltip. Rules: categorical colors come from
-`SERIES_COLORS` in **fixed order** (validated for colour-vision deficiency on white; a
-series keeps its slot even when it has nothing to show, and a chart that colors by a vocab —
-registration, stud direction — passes each value its vocab-index slot so the color follows
-the entity); two or more series always get a legend; count axes never show fractional
-ticks; every user string is escaped; the table under each chart is its accessible view.
+**Charts (`assets/chartView.js`)** are the app's own SVG (bar, grouped/stacked/diverging;
+line; ranked horizontal bar), pure render functions plus `mountChart`. Colors come from
+`SERIES_COLORS` in **fixed order** (a series keeps its slot; vocab-colored charts use the
+vocab index). Two or more series get a legend; count axes have whole ticks; user strings
+are escaped.
 
-**Print / PDF (`assets/printView.js`)** goes through the browser's own print dialog ("Save
-as PDF" makes the file). The print stylesheet (`app.css`, `@media print`) hides the nav,
-banners, toolbar and page header **only on pages with a letterhead**, so printing any other
-page is unchanged; it keeps charts and table rows whole across pages. The letterhead shows
-the active kennel's logo + name (or the only own kennel's), the report title, the date range,
-filters and search in effect, and the date generated.
+**Print (`assets/printView.js`):** the browser's print dialog. On pages with a letterhead,
+print CSS hides the app chrome and prints the kennel logo and name, the title, range,
+filters, and the date.
 
-**Money by period (`data/moneyReport.js`)** — `loadMoney()` reads the same scoped income
-rows and expenses as the Financials Overview, so the reports always agree with it.
-Cash basis: every income component carries `when` (`incomeView.saleComponentDate`: a
-deposit on `deposit_date`, the balance and what rides with it on `balance_paid_date`,
-unpaid money on `balance_due_date`, each falling back to the sale's own date; stud fees on
-`returned_date`/`sent_date`; application fees on `fee_received_date`) and `due` — only a due
-date she set (an unpaid balance's `balance_due_date`, else blank), which Receivables ages by
-so nothing is called overdue off a fallback date. `plByPeriod` files
-earned income and expenses into months; anticipated income is shown when due and never in
-Net; non-cash pick value is never money in.
+**Money by period (`data/moneyReport.js`):** reads the same scoped rows as the Financials
+Overview, so they always agree. Cash basis: each income component has `when`
+(`incomeView.saleComponentDate`) and `due` (only a due date she set; Receivables ages by
+it). Anticipated income never enters Net; pick value is never money in.
 
-**Reports today**
-- Money: **Profit & Loss by Month** (`pl-report`), **Litter P&L**, Financials (link).
-- Breeding: **Litters Over Time**, **Live-Birth Summary**, **Health-Test Events**;
-  **Dam & Sire Production** (`production-report`, `breedingReports.productionRows`): one row
-  per dog that parented a whelped litter in scope (the LITTER's kennel scopes it, so an
-  outside stud shows for litters he sired here) — litters, born, alive, live %, average
-  litter, the sex split of the puppies on record, first/last whelp, age at each litter;
-  dams flagged for litters whelped under `BACK_TO_BACK_DAYS` (240) apart and at
-  `LIFETIME_LITTERS_FLAG` (6) lifetime litters — prompts to look, nothing enforced. Totals
-  count each litter once. **Pairing Success** (`pairing-success-report`): one row per
-  pairing that was bred; outcome `success` (confirmed pregnant, whelped, or a litter's
-  `pairing_id` points at it) / `failed` (not pregnant, failed) / `pending` (bred) — never-bred
-  (planned, cancelled) pairings are left out; rate = success ÷ (success + failed), by method
-  and by sire; the dam's last `progesterone_test` reading on or within 7 days before
-  `planned_date`.
-- Puppies: **Puppy Growth** (`puppy-growth-report`, `?litter=`): pick a litter; each pup's
-  `weight_check` events (lbs + oz/16) by age in days from its DOB (else the whelp date), one
-  line per pup (past eight pups the rest draw in gray); a pup under 85% of the median of its
-  littermates' weights within ±2 days of its latest weigh-in is flagged
-  (`growthFlags`, needs two littermates weighed then).
-- Sales & Waitlist: **Placements** (price column + total; placements by month stacked by
-  registration; average price by registration), **Scheduled Placements**;
-  **Waitlist Funnel** (`waitlist-funnel-report`, `waitlistReports`): one row per entry, by
-  applied date; furthest stage of applied → approved → on the list (fee in, active, or
-  removed after listing) → offered (any offer) → placed; why families left (declined,
-  withdrew, fee expired, each removal reason), how offers ended, pass reasons (a pass with no
-  family reason is "Recorded by you"), median days applied → placement sale date.
-  **Demand vs Supply** (`demand-supply-report`): families = entries `active` on the list,
-  counted by `waitlistRules.pupMatchesPrefs` against a stand-in pup of each kind (breed × sex
-  × intended registration; listen-only parent choices aren't applied); pups =
-  `isPupAvailable` puppies. A kind shows only when it has pups or a family ticked a purpose
-  that maps to its registration, and a breed only when it has pups or a family named it, so a
-  no-preference family (which counts everywhere) doesn't list every combination.
-- Money, phase 3: **Expenses by Category** (`expenses-report`, summary by category, This
-  year by default — the tax-time page); **Receivables** (`receivables-report`,
-  `moneyReport.receivableRows`: every anticipated component + foster costs owed back
-  (`litterFinances.reimbursablePending`), aged Not due / 1–30 / 31–60 / 61–90 / 90+ / No due
-  date); **Pricing** (`pricing-report`: placed priced sales against
-  `expectedPricing(dog, litter, sale.registration_type)`, averages by sex × registration,
-  "Full over Limited"); **Breeding-Dog Return** (`dog-return-report`,
-  `moneyReport.dogReturnRows`: per parent, earned income on its litters' rows + its own stud
-  fees − expenses on the dog; a litter counts for both parents, so no Total row).
-- Breeding, phase 3: **Heat Cycles** (`heat-cycles-report`, `breedingReports.heatRows`:
-  distinct `heat_cycle` start dates per female, average interval, predicted next = last +
-  average (two heats needed), due soon ≤ 30 days / overdue); **Health-Testing Gaps**
-  (`health-gaps-report`, `testGapRows`: adult dogs' `planned_tests` vs their test events'
-  `testTokensOf` names, the dog page's advisory match).
-- Sales, phase 3: **Lead Sources & Referrers** (`lead-sources-report`, summary of placed
-  sales by `lead_source`, grouped case-insensitively; top `referred_by_contact_id`s);
-  **Returns & Voids** (`returns-report`: released sales by `end_reason`, share of all sales
-  in range).
-- Shows & Stud: **Stud Services** (sent date, fee; by month by direction); **Stud Results**
-  (`stud-results-report`, `studResultRows`: the litter whose `pairing_id` is the service's,
-  puppies born, fee, terms); **Show Record** (`show-record-report`: `show` events with
-  `entry_status: 'shown'`, points by `showPoints.eventPoints`, judges grouped by
-  `normalizeJudge`, majors = 3+ points, titles = `title_earned` events in range).
-- Dogs & Operations: **Active Roster**, **Dashboard** (link).
-- Featured: **Year in Review** (`year-review`, `data/yearReview.js`): one calendar year —
-  litters whelped (expected ones left out), puppies born/alive, placements (released sales
-  counted apart), money in/out/net (= P&L by Month), titles earned, waitlist applied / on
-  the list now — with four charts and the year's litters and titles; laid out to print on
-  one page.
-
-Lite keeps Active Roster and Live-Birth Summary (shared pages), so it gets their tiles,
-charts and Print button too; every other report is Pro-only.
+**The reports** (each page's math is in a pure, tested `data/` module): P&L by Month, Litter
+P&L, Expenses by Category, Receivables, Pricing, Breeding-Dog Return; Litters Over Time,
+Live-Birth Summary, Health-Test Events, Dam & Sire Production (flags litters under
+`BACK_TO_BACK_DAYS` apart and at `LIFETIME_LITTERS_FLAG`, prompts only), Pairing Success,
+Heat Cycles, Health-Testing Gaps; Puppy Growth (flags a pup under 85% of its littermates'
+median); Placements, Scheduled Placements, Waitlist Funnel, Demand vs Supply, Lead Sources &
+Referrers, Returns & Voids; Stud Services, Stud Results, Show Record; Active Roster; Year in
+Review (prints on one page).
 
 ---
 
 ## 32. Accounts (business logins & referral codes)
 
-`pages/accounts.html`/`.js` (Pro-only: `proPages.js`, `editionFlags.accounts`; the **Storage**
-hub's third tab, beside Documents and Shows) keeps the breeder's own accounts with registries,
-vendors and services — AKC, Good Dog, Chewy, Embark… — in the `accounts` table through
-`data/accountRepo.js` (`makeRepo` + a required `name`; `getAll` sorts by name). Decided
-2026-10-09: a new table, not Contacts (these are businesses she has a login with, not
-people) and **program-wide**, not kennel-scoped (one list whatever kennel is active).
+**Editions:** Pro and Demo only (`editionFlags.accounts`). The vendor features hanging off
+Accounts (payment links, Stripe, Jotform) are Pro too. Design:
+`docs/KennelOS_Integrations_Plan.md`.
 
-Each account card shows two groups, each value with a **Copy** button:
-- **Your login** — `username`, `password` (masked until **Show**), `customer_id`. For her
-  alone: these and `notes` are **private tier** in `syncRegistry.js` — they reach the cloud
-  only inside the encrypted private vault (§30), never in the plain snapshot. They do ride
-  the local JSON export and Dropbox backup files, like every other private field.
-- **Referral — to share** — `referral_link`, `referral_code`, and `referral_instructions`
-  (free text written for the families who'll use them, e.g. "use code at checkout for 30%
-  off"). These exist to be handed out, so they are cloud tier.
+`pages/accounts.*` (the Storage hub's third tab) keeps her business accounts (AKC, Good Dog,
+Chewy…) in the `accounts` table via `data/accountRepo.js`. A table of its own, not Contacts,
+and **program-wide** (not kennel-scoped).
+- **Your login** (`username`, `password` masked until Show, `customer_id`, `notes`):
+  **private tier**, so they reach the cloud only inside the vault; they do ride file backups.
+- **Referral — to share** (`referral_link`, `referral_code`, `referral_instructions`): cloud
+  tier, meant to be handed out.
+- **Expenses** may name the account paid through (`expenses.account_id`; the Account picker
+  on both expense forms, Pro only). The card totals them, and **View expenses →** opens
+  `financials.html?view=expenses&account=<id>`.
+- **Processing fee** rate (§21.1). Every FK pointing at an account is in
+  `ACCOUNT_REFERENCES`, so an account in use can only be archived.
+- Sample accounts (AKC, Good Dog, Chewy) have obviously fake credentials; clearing sample
+  data treats a real expense naming one as contamination (§11).
 
-**Expenses (2026-10-09).** An expense may name the account it was paid through
-(`expenses.account_id`). Both expense forms — the per-subject panel (`expensePanel.js`) and
-the Financials hub's **+ Add Expense** — show an **Account** picker in Pro (shared helpers
-`loadAccountChoices` / `buildAccountField` / `wireAccountField` in `expensePanel.js`; no field
-at all in Lite, and an absent field leaves a stored `account_id` alone). Archived accounts are
-left out of the picker unless already chosen. Picking one fills an empty Vendor with its name.
-The ledger shows it: an **Account** column, search and filter on the Financials Expenses view,
-and "Account: X" on a panel row when it differs from the vendor. Each account card totals its
-active expenses (program-wide, not kennel-scoped) with **View expenses →**, which opens
-`financials.html?view=expenses&account=<id>`: like `bucket`, that param narrows the whole
-view (summary heading "Total spent — Chewy", with a "Show every account" link back).
-Expense CSV import doesn't read an account column yet.
+### Shared with families (plan §3)
+Referral programs don't report which buyer used a code, so nothing detects use. Instead:
+`share_with_families` on an account puts it in `referralShare.sharedReferrals` (the one list:
+switched on, not archived, a web link or a code), which feeds the family Companion bundle's
+`recommended[]`, every waitlist status page (projection `kennel.recommended`, re-checked by
+the Worker's `familyPages.recommendedOf`), the go-home **follow-up** nudge (§19), and
+**Send a thank-you** on a Contact. Sending is always hers through
+`assets/messageComposer.js` (`mailto:` / `sms:` / copy); nothing goes to a server.
 
-Add/Edit is a modal; Archive/Unarchive and Delete as for any entity. Delete is blocked while
-an expense names the account (`getDeleteBlockers` → "archive it instead"). Search covers name, website, username, customer ID, referral link/code and
-notes; a type filter reads `vocab.ACCOUNT_TYPE`. A `website` typed without a scheme opens
-as `https://…`.
+### Contract forms and e-signature (plan §2.1)
+- A **Form service** account (`form_service`, e.g. Jotform) holds `contract_forms[]`
+  (`{ id, form_type, label, url, form_id?, field_map? }`; types from
+  `vocab.CONTRACT_FORM_TYPE`, each serving certain `CONTRACT_TYPE`s and ranked for a sale's
+  registration by `contractForms.rankForms`).
+- **Send for signature** (Contract page): picks a form, builds a prefilled link
+  (`contractForms.prefillValues`, an allow-list that never includes notes or terms;
+  `prefillUrl` uses the form's URL prefill, no API call), and opens the composer. Using it
+  marks the contract `sent` with the `esign_*` fields. The breeder details come from the
+  contact linked to the contract's kennel (`contractSend.breederFor`).
+- **Connect Jotform** (a key per account, **this device only**: `jotformKeyStore` in
+  `device_secrets`, never in a backup, sync or the cloud). `jotformApi.js` is the only
+  module calling Jotform, straight from the browser. Connected, she can add forms from her
+  Jotform account and **match fields** (`jotformMatch.suggestFieldMap` → `field_map`), so
+  the link carries only matched facts under her field names (`contractForms.mapValues`).
+- **Signed comes back** (`data/jotformSigned.js`): on app open (at most every 15 minutes,
+  Pro) or **Check for signature**, her device finds each Sent Jotform contract's submission by
+  its `contractRef` and applies `contract.signed` through `integrationApply`. A contract she
+  changed meanwhile becomes a Today review. Nothing else from the submission is kept.
 
-**Processing fee (2026-10-10, §21.1).** The Add/Edit modal has a **Processing fee** group
-(percentage, fixed amount, "I usually pass this fee on to the buyer", and a private note),
-and a card with a rate shows it. A sale sold through the account names it
-(`sales.sales_channel_account_id`, in `ACCOUNT_REFERENCES`), so delete is blocked while one
-does. The sample Good Dog account carries a sample rate (6.25% + $5), and Cedar's sample sale
-went through it ($180 fee, passed on).
+### Payment services (plan §4–§5)
+- A **Payment service** account (`payment_service`) holds `payment_link` and/or
+  `payment_instructions` (cloud tier: written for buyers).
+- A Sale's **Deposit paid via** / **Balance paid via** name payment accounts (beside **Sold
+  through**, a marketplace). The fee is estimated per payment from them
+  (`processingFees.saleFeeEstimate`).
+- **Send payment link** (`assets/paymentRequestUI.js`, an open Sale and its invoice): pick
+  what for (`paymentLinks.paymentOptions`) and the account; with Stripe connected, a
+  **one-time Stripe link** for exactly that amount (`stripeLinks.makeSaleLink`), else the
+  account's own link and instructions.
+- **Connect Stripe:** a **restricted key** only (`rk_…`; `sk_` refused), per account, this
+  device only (`stripeKeyStore`). `stripeApi.js` is the only module calling Stripe, from the
+  browser; nothing goes through the Worker and the money goes to her account.
+- **Paid, by itself:** on app open (at most every 15 minutes) or **Check now**,
+  `checkStripePayments` applies a paid link through `integrationApply.js`: deposit or paid in
+  full with the date and reference, and the fee Stripe kept into `processing_fee_reports` /
+  `processing_fee_amount` (a fee she typed stays; the difference is a Today review). A sale
+  that moved on becomes a review.
+- Vendor events from the Worker (`cloudIntegrations.js`, server work only) go through the
+  same `integrationApply` / `integrationEvents.planIntegrationEvent`.
+- The waitlist application fee: §29.
 
-**Shared with families (2026-10-11, Integrations plan §3).** No referral program reports
-*which* buyer used a link or code (Amazon's terms even forbid per-person tags), so nothing
-detects a use. Instead:
-- **The switch.** "Share with families" (`share_with_families`) in the Referral section of the
-  Add/Edit modal; a shared account with a link or code gets a **Shown to families** badge.
-  `referralShare.sharedReferrals` is the one list everything reads: switched on, not
-  archived, a web-address link or a code, name / link / code / instructions only, by name.
-- **Where families see it:** the family Companion bundle's `recommended[]` (include flag
-  `recommended`, §20), and every waitlist status page, placed families included. The
-  projection carries `kennel.recommended` (built from `accountRepo` in `cloudWaitlist.
-  projectionFor`), the Worker re-checks it in `familyPages.recommendedOf` (strings capped, a
-  link only when it's a web address, at most 20), and the page shows a **Recommended for your
-  puppy** card with a Copy button for a code.
-- **The follow-up a week after going home:** the Today nudge in §19, whose note lists them.
-- **Send a thank-you** on a Contact (Pro): she picks what they used (one of the shared
-  accounts) or "Recommending us to someone", and `referralShare.referralThanksMessage` opens
-  in the composer, signed with the kennel of their latest sale, else her own kennel.
-- **Sending is hers:** the composer (`assets/messageComposer.js`) builds real `mailto:` /
-  `sms:` links from the edited text, or copies it. Nothing goes to a server (plan D7).
 
-**Contract forms (2026-10-11, Integrations plan §2.1a, step 4).** An account of type **Form
-service** (`ACCOUNT_TYPE` `form_service`, e.g. Jotform) holds her signable contract forms
-(`contract_forms`, e.g. her pet home and breeding rights contracts). Its Add/Edit modal shows
-a **Contract forms** section right under Name / Type / Website, only while the type is Form
-service; with any other type the section is hidden, and saving leaves stored forms untouched
-(never offered, back if the type is switched back). The section has one row per form (a **type**
-from the fixed `vocab.CONTRACT_FORM_TYPE` list, her **label**, the form's **link**) with ✕ and
-**+ Add another contract form**; a blank row is dropped, a half-filled one is an error. A
-**Field names KennelOS fills in** panel lists `contractForms.PREFILL_FIELDS` per group with
-Copy: she sets each Jotform field's Unique Name to one (fixed names, plan D14). The card lists
-the forms with **Open**.
-- **Form types → contracts.** Each type names the `CONTRACT_TYPE`(s) it serves
-  (`contractTypes`). Pet home, breeding rights and deposit are all `sale`; pet home ranks first
-  for a `limited`/`none` registration, breeding rights for `full`, deposit while the sale is
-  `deposit_pending`, co-own for a `co_own` registration (and for a `co_own` contract).
-- **Send for signature** (Contract page, Pro: `editionFlags.accounts`; on a `draft`, `sent` or
-  `declined` contract; **Save & send for signature** on a new one, which reopens with
-  `?send=1`): picks from `contractForms.allForms` (non-archived Form service accounts) ranked by
-  `rankForms` (matching type first, **Show all forms** for the rest; all of them when none
-  match), shows every prefilled value, offers **Preview form**, and warns past 2,000
-  characters. `prefillValues` (the allow-list: never notes, terms or end reasons) reads the
-  contract's sale + buyer + pup + sire/dam + balance due, or stud service (stud and dam by
-  `direction`) + partner, or dog + counterparty, plus the kennel and her own name / email /
-  phone / address as `breeder…` (the contact whose `kennel_id` is the contract's kennel,
-  `contractSend.breederFor`: a contact typed Breeder first, then the oldest; none → left out,
-  with a note in the send dialog to set her contact's Kennel); `prefillUrl` adds them as
-  query parameters (Jotform's URL prefill — no API call, no server). It opens the composer
-  (`signatureMessage`) to Email / Text / Copy; once used, the contract becomes `sent` (a
-  `sent` one stays `sent`) with `esign_provider`, `esign_url`, `esign_sent_date`,
-  `esign_form_label`. The view shows **Sent for signature** (label · date) with **Copy link
-  again**, and the button becomes **Send again**. She marks it Signed herself; marking it
-  signed by itself is plan step 7 (decided 2026-10-11: her device checks Jotform first, a
-  server webhook only later).
-- **Connect Jotform (2026-10-11, plan §2.1b, step 4b; D16 decided: the key stays on the
-  device).** On a saved Form service account (never in the Demo), the Contract forms
-  section has a **Connect Jotform** box: her API key (the box asks for a **Read Access**
-  key and says any key can read all her submissions) and which Jotform (standard / EU /
-  HIPAA). **Connect** checks the key with Jotform (`GET /user`) before
-  `jotformKeyStore` keeps it in `device_secrets`: on this device only, never in a backup,
-  sync or the cloud, so each device connects on its own; **Disconnect** forgets it here
-  (forms and matches stay), and deleting the account forgets it too. Calls go straight
-  from her browser to Jotform (`jotformApi.js`, the key as the `apiKey` query parameter so
-  each call is a plain GET, no cookies, no referrer); a blocked call says so, and pasting
-  links keeps working. Connected: **+ Add from Jotform** lists her forms (`GET
-  /user/forms`, deleted ones left out) with a type guessed from the title
-  (`jotformMatch.guessFormType`); **Add** reads the form's fields (`GET
-  /form/{id}/questions`; a Full Name field as `name[first]` / `name[last]`, an Address
-  field as `name[addr_line1]`, *Jotform's prefill naming, unverified*) and opens **Match
-  fields**: one row per fact the type fills (`factsFor`), preset by `suggestFieldMap`
-  (our fixed name, then field type, then label words; each of her fields fills one fact;
-  her own `breeder…` details only go to a field whose label says Seller / Breeder / Kennel,
-  and a bare Name / Email field stays the buyer's),
-  with warnings for no signature field, no email or no contract reference
-  (`matchWarnings`). Her confirmed matches become the row's `field_map`; the row shows
-  "Picked from Jotform · N fields matched" with **Fields…** to match again. A mapped
-  form's link carries **only** the matched facts, under her field names
-  (`contractForms.mapValues`, used by `contractSend.buildSignatureLink`); a pasted form
-  keeps the fixed names. The card shows the matched count.
-- **Signed forms come back (2026-10-12, plan §6 step 7; `data/jotformSigned.js`).** A
-  contract that is **Sent** on a Jotform form (`esign_provider = 'jotform'`) is marked
-  **Signed** by her device once the form's submission carrying its reference turns up. When
-  the app opens (at most every 15 minutes, `bootJotformCheck` from `app.js`, Pro), or when
-  she taps **Check for signature** beside **Copy link again** on the contract, the device
-  finds the form each Sent contract went out on (the saved form whose link, without its
-  query, matches `esign_url`), and, when that form's Form service account is connected on
-  this device, reads its submissions since a day before the earliest sent date (`GET
-  /form/{id}/submissions` with a `created_at:gt` filter, `jotformApi.jotformSubmissions`).
-  The form's id is its `form_id`, else the number its link ends in; the reference is read
-  from the `contractRef` field (a pasted form) or the field matched to `contractRef` (a
-  matched form; matched with none → it can't be found). The oldest submission for a
-  contract is applied as a `contract.signed` event (`jotform-<submission id>`) through
-  `integrationApply`, so a Sent contract becomes `signed` with `signed_date` = the
-  submission's date, an already-signed one is skipped, and one she changed meanwhile gets a
-  Today review. Nothing else from the submission is kept (the buyer's answers stay in
-  Jotform); no KennelOS server is involved. Not connected on this device → nothing is
-  asked, and the button says to connect or mark it Signed by hand. The check's last time is
-  `jotformCheckedAt` in `settings.getIntegrationsState()`.
+## 33. Kels — guided tasks
 
-**Payment services (Integrations plan §4–§5; 2026-10-11, revised 2026-10-12).** An account of
-type **Payment service** (`ACCOUNT_TYPE` `payment_service`: Stripe, Square, PayPal, Venmo,
-Zelle…) holds her own **payment link** (`payment_link`, a web address) and/or **payment
-instructions** (`payment_instructions`) in a **Payment link** group of the Add/Edit modal
-(only while the type is Payment service; another type hides it and saving leaves what's stored
-alone); the card shows them under **Payment link — to send buyers** with Copy. Both are cloud
-tier (written to be sent to buyers; plan D9).
-- **Connect Stripe (own key, step 6, decided 2026-10-12).** A saved Payment service account
-  (never in the Demo) has a **Connect Stripe** box: her **restricted key** (`rk_live_` /
-  `rk_test_`; a full `sk_` key is refused) with the permissions it lists (Products, Prices and
-  Payment Links write; Checkout Sessions, PaymentIntents, Charges and Balance read), and the
-  currency. **Connect** checks it with Stripe; `stripeKeyStore` keeps it in `device_secrets`,
-  on this device only; Disconnect and deleting the account forget it. `stripeApi.js` is the
-  only module that calls Stripe (straight from her browser, *CORS unverified until the real
-  flow*); nothing goes through the Worker and the money goes to her Stripe account.
-- **How a sale is paid.** A sale's **Deposit paid via** and **Balance paid via** (the rest of the
-  price, transport and boarding; blank = the deposit's) are Payment service accounts, beside
-  **Sold through** (a marketplace that handles the whole sale, Good Dog). The fee is estimated
-  per payment (`processingFees.saleFeeEstimate`): each payment at its paid-via account's rate
-  (percentage and fixed), else Sold through's; with neither paid-via set, Sold through's rate
-  on the whole price, as before. The Sale form and Review sale & send (which gains **Deposit
-  paid via**) suggest it and follow price, deposit and account changes until she types her own.
-- **Send payment link** (`assets/paymentRequestUI.js`, Pro; an open Sale's header and a
-  sale's Invoice): she picks what for (`paymentOptions`: the unpaid deposit, the rest, or
-  everything owed) and the account it's paid via (that part's account first;
-  `paymentLinks.salePaidVia`). Picking fills that part's paid-via when empty (`paidViaChanges`,
-  moving the fee estimate when the fee is still at it); a different one asks first. With
-  Stripe connected for the account on this device she can tick **Make a one-time Stripe
-  link**: `stripeLinks.makeSaleLink` makes a one-use payment link for exactly that amount with
-  the sale's id in Stripe's metadata (an unpaid earlier link is deactivated, the same one is
-  reused), and the message carries it. Else the account's own link and instructions.
-- **Paid, by itself.** When she opens KennelOS (at most every 15 minutes, `bootStripeCheck`) or
-  taps **Check now** on the Sale page's **Payment link** row, `checkStripePayments` asks Stripe
-  about each sale's open link, with the key of the account that part is paid via, and applies a
-  paid one through `integrationApply.js` (the planner of §19's reviews): Deposit paid / Paid in
-  full with the date, "Credit/debit card" and the payment reference, the fee Stripe kept into
-  `processing_fee_reports` and `processing_fee_amount` (replacing that part's estimate; a fee
-  she typed stays, and the difference is a Today review), and the link cleared. A sale that had
-  moved on, or a waitlist pick's deposit (recorded on the family's page), is a Today review.
-- **The waitlist application fee** (§29): see "Fee paid online" there.
+**Editions:** All editions. Steps for Pro features (outside dogs, stud service, sharing,
+waitlist picks, contacts and kennels) are gated by their flags.
 
-The sample Chewy account is shared, so Maple's sale (delivered 30 days ago, Briar Hollow)
-shows the follow-up on Today.
+**Kels** (she/her) is a **scripted** helper shown as a chat, not a model: every line is written in the
+task scripts, and nothing leaves the device. Who she is lives in `kelsChat.KELS` (`name`,
+`tagline`, `title`, `assistLabel`, `photo`: `assets/kels.png`, 256 px, precached; null shows her
+initial); pages read it through `kelsHello()`, `kelsAvatar()` and `kelsPhotoUrl()` (resolved
+from the module's own URL, so it works from any page). A floating **Ask Kels** button
+(`kelsChat.renderAssistButton`, from `app.js`; her photo above the label, and a dot while a
+litter draft is unfinished) opens `pages/kels.html`. Every write is an ordinary repo write.
 
-The sample seed (`editionFlags.accounts`) adds AKC, Good Dog and Chewy with obviously fake
-credentials (the Demo is public), before the sample expenses so the Chewy and AKC costs
-name their account; `manifest.accounts` lists them. Clear Sample Data deletes them — or, when
-a real expense names one, treats it as contamination like a sample dog or kennel (`account`
-in `ENTITY_REGISTRIES`): reported on the dry run, archived on the archive-conflicting pass.
-They're never in a cloud snapshot, like all sample rows.
+Modules: `assets/kelsChat.js` (identity, the transcript — `say`, `you`, `panel`,
+`choose(choices, { search?, confirmHint? })` (buttons two across; a choice with a `sub` opens
+on the first tap to show it and is chosen on the second; `search` adds a box that filters as
+she types, every word matching the start of a word in a choice's label, sub or `keywords`,
+Enter picks the first match), and `form({ title, html, submit, reply })`, where `submit` returns a string to show as a
+problem and stay, anything else to finish — and the button), `pages/kels.*` (the menu),
+`assets/guidedLitterUI.js` + `data/guidedLitter.js` (the litter task), `assets/litterCheckinUI.js`
++ `data/litterCheckin.js` + `data/goHome.js` (the check-in), `assets/tidyUpUI.js` +
+`data/tidyRules.js` + `data/recordMerge.js` (the tidy-up), `assets/accountHealthUI.js` +
+`data/accountHealth.js` (account health), `assets/waitlistSetupUI.js` (set up my waitlist,
+Pro-only), `assets/vendorKeyUI.js` (`vendorKeyFlow`: a Stripe or Jotform key connected or
+replaced in the chat; account health and the waitlist setup), `assets/kelsFindings.js` (`FindingsTask`, the
+look → raise one at a time → fix → look again loop the tidy-up and account health share:
+"Not now", a remembered "Don't ask me again" under `<prefix>:<key>` in the nudge ledger,
+"Stop for now"), `assets/prepPupsUI.js` +
+`data/prepPups.js` (prep pups; it reuses the check-in's exported `chipsForm`, `careForm`
+and `pickupsForm`). The data modules are tested; all but `recordMerge.js` are pure.
 
-## 33. Ken — guided tasks ("Record a new litter")
+**Her voice:** every message carries a couple of warm words, aimed at the breeder (her
+work, her pups), never more than one phrase or sentence of it; the rest is the task. Sent
+straight to a task (`?task=`), she still greets and asks "What can I help you do today?",
+and the task is the breeder's answer. **Every new task** (not a resumed draft) then starts
+with `chat.intro(opener)`: the task's own line ("Sure thing, let's get those pups ready to
+go home!"), then `kelsChat.KELS_INTRO` ("I'll ask you some questions; once I'm done
+collecting the information, I'll build the records for you to approve. If you get stuck or
+need to save and come back, I'll save what we've got so far…  Sound good?"), answered
+**Sounds great, let's start!** or **Never mind** (back to the menu). Openers: record a litter
+"Absolutely, let's get those puppies added!", check-in "Of course, let's check in on your
+litter!", tidy up "Love it, let's get your records tidy!", account health "Good idea, let's
+make sure everything's safe and sound!".
 
-### What it is
-**Ken** (placeholder name; `kenChat.KEN_NAME`) is a scripted helper presented as a chat: a
-floating **Ask Ken** button (`kenChat.ASSIST_LABEL`; bottom right on every page, fixed while
-scrolling, a dot while a task is unfinished — rendered by `app.js` via
-`kenChat.renderAssistButton`) opens `pages/ken.html`. He is **not a model**: every line he
-"types" is written in the task scripts, and nothing leaves the device. On the page Ken shows a
-typing indicator, says "Hi, I'm Ken! What can I help you do today?", and his tasks fade in one
-at a time (`pages/ken.js` `TASKS`, each with a `priority(state)` hook — an unfinished task
-first — so more scripts can be ordered as they're added). Picking a task: Ken explains what
-will happen and offers **Sounds great, let's start!** / **Never mind**; then every question is a
-Ken message, her answer panel sits under it, and her answer stays in the chat as her reply,
-all in one transcript box that scrolls itself to the newest message. At the end Ken says "I
-think I got it all. Here's what I'll create:" and shows the plan (each section with a Change
-link; a change asks that question again and returns to the plan), then **Yes, build it**.
-No new table, field, index, FK or vocabulary: every write is an ordinary repo write.
+**The menu** (`kels.js` `TASKS`): a task is `{ id, label, sub, keywords, available, priority,
+run, resumable?, beforeStart? }`, highest priority first, with a search box above it;
+`keywords` are the other words a breeder might search with ("add puppies" finds Record a new
+litter). The page header shows her photo and `KELS.title` ("Kels, the KennelOS whiz") on one line, sized to fit a phone. Order: an unfinished litter (100), the check-in
+(60 while a litter has pups at home, else 40), a new litter (50), prep pups (45, while a
+litter has pups at home), tidy up (30), set up my waitlist (25, Pro), account health (20). The header's **Save for
+later** shows only while a `resumable` task runs. `beforeStart` can redirect a start (a new
+litter while one is unfinished asks "Finish that one / Start fresh"); `handoff(taskId, opts)`
+moves her to another task (an Expected litter in the check-in → its birth).
 
-Modules: `assets/kenChat.js` (the transcript: `createChat(box)` → `ken(html)` with typing,
-`you(text)`, `panel(html)`, `choose(choices)`; and the floating button), `pages/ken.*` (the
-page and Ken's menu), `assets/guidedLitterUI.js` (the litter task: its question screens, her
-replies — `answerFor` — and the conversation runner `runLitterTask`).
+**Doors:** the floating button; the Breeding page (`kels.html?task=record-litter`); an
+expected litter's page (`&litter=<id>`, parents and litter preset); a born litter's page that
+isn't closed (**Check in with Kels**, `kels.html?task=checkin&litter=<id>`).
 
-**Doors:** the floating button; the Breeding page header (**Record a litter with Ken** →
-`ken.html?task=record-litter`); an Expected litter's page header (**Record the birth with Ken**
-→ `&litter=<id>`, which starts with that litter's parents and litter already chosen). A header
-**Save for later** button while a task runs says the answers are kept and returns to the menu.
+### "Record a new litter"
+`stepsFor`: mom and dad (own dogs, all dogs, or a new one; a typed name is first checked
+against existing dogs, `dogMatches`, so nobody is entered twice; outside dogs only in Pro) →
+the matching litter (`litterCandidates`) → the matching breeding (`pairingCandidates`) or when
+she was bred → the stud service (Pro, outside dad) → birth date and counts → kennel (only if
+it can't be worked out) → one screen per puppy → plans (disposition, intended registration) →
+prices (prefilled from her last priced litter of that breed, previewed with the
+`expectedPricing` rule) → dates → extras → review with Change links.
 
-### The order (`data/guidedLitter.js` `stepsFor`)
-1. **Who is the mom?** then **Who is the dad?** Her own dogs as tiles, "Show all" for outside
-   dogs, and **A dog that isn't in KennelOS yet**. A new dog asks name, breed, registered name
-   and (Pro, `editionFlags.externalOwnership`) **Mine / Someone else's**; someone else's asks
-   the owner (a contact picked, or a new one's name/phone/email) and, optionally, the owner's
-   kennel (an outside kennel picked, or a new one by name). **Before a new dog is made**, the
-   typed name is looked up (`dogMatches`: same sex or unknown, call or registered name equal or
-   one containing the other; every non-archived dog, outside and pedigree-only ones included):
-   any found are offered first — "We found Nell. Is this the mom?" — so a dog is never entered
-   twice. Lite records only her own dogs (no outside dogs there).
-2. **Is this the litter?** — litters of those two parents with no puppies yet
-   (`litterCandidates`), only when both parents are dogs on file.
-3. **Is this the breeding?** — open breedings of the pair with no litter linked
-   (`pairingCandidates`; not `not_pregnant`/`failed`/`cancelled`), asked when no litter was
-   picked or the picked litter has no breeding linked. Picking one fills the bred date and
-   method and skips the next step.
-4. **When was she bred?** (dates optional, method tiles) — only when no breeding exists.
-5. **Record the stud service?** (Pro, `editionFlags.studServices`) — when the dad is somebody
-   else's and the breeding has none: fee structure, fee, in person / shipped.
-6. The birth date, the counts (born alive / not alive / abnormalities), the kennel (only when
-   `resolveKennelIdForWrite` can't work it out), **one screen per puppy** (name — starts as a
-   collar color — Boy/Girl, color & markings, birth weight in ounces), **plans** (disposition +
-   intended registration per pup, with "Set all to"), **prices** (the litter's per-sex price,
-   deposit and Full surcharge, prefilled from her newest priced litter of the dam's breed, with
-   a live "how families will see the available puppies" preview using `pupPriceText` — the
-   same sex + Full-surcharge rule as `saleDefaults.expectedPricing`), **dates** (accept-deposits
-   date; ready date defaulting to whelp + 56 days), **extras** (litter nickname, per-pup
-   microchip and photo link), then the **review**, each section with a Change link.
+**The save** (`saveGuidedLitter`) writes in order: new parents → litter → breeding (marked
+`whelped`, due = bred + 63) → stud service → puppies (`puppyDefaults.baseFromLitter`, as Add
+Puppies) → a "Birth weight" `weight_check` per weighed pup. In Lite the litter is written
+first so the cap refuses before anything else is made. **Resumable:** each new id goes back
+on the draft as it's made, so a retry never duplicates.
 
-### The save (`saveGuidedLitter`)
-Order: new parents (an own dog is `owned`/`active_breeding` in the litter's kennel; an outside
-one is `external` with its new kennel and owner contact made first) → the litter (created
-`whelped`, or the picked one updated) → the breeding (the litter's own or the picked one marked
-`whelped` and linked to the litter, or a new `actual` one created `whelped` with
-`expected_due_date` = bred + 63) → the `incoming` stud service (`partner_contact_id` = the
-dad's owner) → each puppy (`puppyDefaults.baseFromLitter`, exactly as Add Puppies; a pup
-already on the litter is updated, and given the birth date if it had none) → a `weight_check`
-event titled "Birth weight" per weighed pup. In Lite the litter is the first write, so the
-litter cap refuses with nothing made (a new own mom counts toward the dog cap and is made
-first). **Resumable:** every record's id goes back on the draft (`draft.saved`, `pup.id`) the
-moment it's made and the draft is re-saved after each write, so a save that stops partway
-(an error, a closed tab) retries without making anything twice; changing an answer after
-such a stop clears `saved.litterUpdated` / each pup's `saved` so the retry writes the new
-values.
+**The draft:** `settings.guidedLitterDraft` (answers plus `history` to replay the chat;
+`DRAFT_VERSION`). Device-only, cleared by Reset App, one at a time.
 
-### The draft
-`settings.js` `guidedLitterDraft` (`kennelOS.guidedLitterDraft`): her answers, kept after
-every step, plus `history` (each answered question and her reply, so the chat is replayed when
-she comes back), versioned by `DRAFT_VERSION` (an older version is dropped). Device-only — it
-isn't program data until saved — and in `KEYS`, so Reset App clears it. One at a time: Ken's
-menu offers **Finish recording X's litter** first, and starting a new litter with one pending
-asks "Finish that one / Start fresh".
+**After the save** (Pro, `assets/guidedShareUI.js`, loaded only with `waitlist` or
+`companion` and an available pup): tell the waitlist (the litter page's notice) or share the
+available pups with prospective families via Companion links. It **never opens picks**.
 
-### After the save: "Let families know" (Pro)
-`assets/guidedShareUI.js` (Pro-only; imported only when `editionFlags.waitlist` or
-`editionFlags.companion` and a pup is Available), as Ken's "Want to tell people about the new
-pups?" with its panel in the chat. **Tell my waitlist they were born** opens
-the litter page's own "It's almost your turn" / "a litter you match was born" notice
-(`waitlistPicksPanel.openLitterWaitlistNotice`) to review and send. **Share the available
-pups** walks the active waitlist contacts (the Companion console's prospective membership) one
-family per screen with real Email / Text anchors built by `companionLink.js`. It **never opens
-picks** (decided 2026-10-14): offers stay hers to make from the litter page, which the Done
-screen says.
+### "Check in on a litter"
+Each thing she approves is saved at once; there is no draft.
+1. **Which litter:** `checkinLitters` — every litter not closed or archived, in kennel scope
+   (pups at home first, newest born first; then Expected; then Sold). An Expected litter
+   offers **Yes, record the birth** (hands off to the litter task).
+2. **Where it stands:** age (`ageText`), status, the roster by plan (`dispositionSummary`;
+   `rosterOf` drops archived and deceased pups, in the order added) and how many went home.
+   Pups **at home** (`homePups`: `status: 'puppy'`, no delivered sale) are the ones weighed
+   and treated.
+3. **Decisions**, one at a time, each once per visit (`checkinSuggestions`, then each home
+   pup's `goHome.goHomeIssue`):
+   - When the litter can close (`litterCloseDue`, §19), that is the only litter question.
+   - **Open picks** (Pro, `editionFlags.waitlist`, active families in the kennel,
+     `waitlistRules.depositsDueLitters`): `waitlistPicksPanel.openPicksFromCheckin` (Pro-only,
+     imported dynamically; the panel's `openPicks` and "Email the family?"), or **move the
+     deposit date** (a date after today, default a week out), or **Not now**.
+   - **Weaning** at 4 weeks while Whelped; **Ready** at the ready date while Weaning
+     (`goHome.readyDateOf`: `estimated_ready_date`, else whelp + 56); **Sold** / **Reopen to
+     Ready** (§19).
+   - Per pup with a sale in progress: **log the boarding** its sale charges for (start = the
+     ready date or today, end from the charge, `boardingEnd`: the count × Day/Week/Month);
+     **When is the pickup?** (a `placement` event, "Puppy pickup", the buyer as related
+     contact); **Did they go home?** after the pickup date — Yes opens
+     `sale.html?id=…&deliver=1`, "the pickup moved" asks a new date.
+4. **"What are we doing first?"** until **That's all for now**:
+   - **Record weights:** date, AM/PM, pounds + ounces per home pup beside its last weight; one
+     `weight_check` "Weight check" per pup entered (`weightDetails`). Kels compares each with
+     its last (`weightReport`) and names pups down or flat.
+   - **Health care** → "What did they receive?" → **Deworming or flea & tick**, **Shots**,
+     **Other medication**, **A vet visit** (`CARE_KINDS` → `preventative` / `vaccination` /
+     `medication` / `vet_visit`): the type's vocab fields, a date (medication also an optional
+     last dose = `event_end_date`), and which pups. One event per pup, titled by the named
+     product / vaccine / drug / reason, else the kind's `title`. A vet visit's vet is the
+     plain-text `vet` field.
+   - **Something else:** puppy plans (disposition per pup; Placed is shown, not editable),
+     microchips (`microchip_id`), the deposit and ready dates, the litter's status (any but
+     Expected), the litter's page.
+   After each, the records reload and new decisions come up.
 
+### "Pups are going home"
+The run-up to go-home day for one litter. Each fix is saved when approved; there is no draft.
+1. **Which litter:** `prepLitters` — born litters (Whelped, Weaning, Ready, Sold) not
+   archived, in kennel scope, with a pup at home (`homePups`), newest born first. One such
+   litter is chosen for her.
+2. **Which pups:** the litter's pups at home, each with its sale's status and family, or
+   "No sale". Ticked by default: a sale at Deposit paid or later (`pickedByDefault`); any pup
+   can be ticked.
+3. **Where they stand:** per pup, "n of m done" and what's missing.
+4. **One thing at a time**, in `READY_ITEMS` order, each once per visit, for every chosen
+   pup missing it (**Not now**, or **That's enough for now** to skip to the end):
+
+   | Item | Done when | Fix |
+   |---|---|---|
+   | Microchip | `microchip_id` set | the check-in's microchip form |
+   | Shots | a `vaccination` logged | the check-in's care form (Shots) |
+   | Deworming | a `preventative` logged | the check-in's care form |
+   | Drop-off date (sale) | a `placement` event for the sale's family (`goHome.pickupFor`) today or later | **When's the drop-off?**: date, time, how (`PLACEMENT_METHODS`) per pup; `goHome.pickupEvent` (titled "Puppy drop-off" unless Local pickup) |
+   | Balance (sale) | Paid in full / Delivered, a `balance_paid_date`, or a `balance_due_date` | a due date per pup (`saleRepo.update`) |
+   | Contract signed (sale, Pro `contracts`) | a signed contract on the sale | opens the contract, or `contract.html?new=1&sale=` |
+   | Registration type (sale) | `registration_type` set | opens the sale |
+   | Feeding schedule (Pro `feedingSchedule`) | the litter's `feeding_schedule_override`, or a breed schedule for the pup's breed | the Feeding schedules page, or the litter's page |
+
+   The `placement` event ("Placement / drop-off") is the only go-home date the app keeps;
+   Furever's pickup fields on the Sale are the family app's and don't count. A fix that opens
+   a page leaves Kels; she says to start Pups are going home again after.
+5. **The end:** all done, or what's still missing per pup. Pro: the **Furever link** is
+   offered (`furever.html`) when a chosen pup has an open sale; it isn't tracked, so it's
+   never an item. Pro (`puppyRecord`): **Print puppy records** opens
+   `puppy-record.html?dogs=…&cover=1&autoprint=1` in a new tab (a link if the tab is
+   blocked). Lite runs the same check without Furever or the print, and its menu entry
+   neither mentions nor searches either.
+
+### "Set up my waitlist"
+**Editions:** Pro (`editionFlags.waitlist`); the script is in `proPages.js` and `kels.js`
+imports it on start. The kennel's waitlist settings, its online list and its programs, for a
+breeder starting from nothing. Related settings are one screen each, the on/off ones as
+checkboxes, never a question apiece:
+1. **The fee:** amount, refund policy (`FEE_CREDIT_POLICY`), days to pay, how families pay;
+   with `accounts`, the Payment service it's paid through (or **Stripe (I'll connect it
+   now)**, which makes a Payment service account named Stripe) and when it's asked for. A
+   Stripe account with no key on this device offers **Connect Stripe** (`vendorKeyFlow`).
+2. **Offers:** days to accept and pay, passes before removal, then checkboxes: no response
+   counts as a pass, color matching, and every `WAITLIST_AUTO_OFFER_TRIGGER` moment (All /
+   None).
+3. **Going online** (only where `isWaitlistOnlineOffered()`): asked first. It publishes
+   through this device's cloud backup, so when that's off or signed out she offers **Turn on
+   cloud backup** (`cloudBackupUI.turnOnFlow`) and goes on only once it's on. Then one screen:
+   list online, applications online, reminder emails; what shows before picks open
+   (`UPCOMING_STAGES` × public / family pages); "Ready now?" unanswered and its days; the
+   Facebook button and Page; her website (`embed`, addresses); the public list's message;
+   the time zone. Saved by `cloudWaitlist.saveWaitlistOnline` (the Online list card's save),
+   then the public list and form links.
+4. **Programs:** as many as she likes (name, place in line, fee, days to accept, passes not
+   counted, pause allowed, a description), through `waitlistProgramRepo`.
+5. **Families she already has:** opens the waitlist import or a new entry (both leave Kels).
+
+Every config save is checked by `waitlistRules.waitlistConfigProblem`, the Kennel page's
+settings card's check too. **Re-runnable:** on a kennel already set up
+(`waitlistIsSetUp`) she says what's set (`waitlistSummaryLines`) and asks which part to
+change. The emails, pass reasons, "Almost your turn" message and the application form keep
+the standard wording; she says where to change them.
+
+### "Check account health"
+One look at whether her program is safe and working: her KennelOS account and this device,
+never the business Accounts page. All editions; each check only where its feature is.
+`gatherHealthFacts()` reads what the checks need, each part `null` when it can't be read
+(offline), so its checks are skipped, never guessed; `accountHealth.healthFindings(facts)`
+(pure) decides; the findings loop (`kelsFindings.js`, prefix `health`) raises them in
+`HEALTH_KINDS` order, records at risk first:
+
+| Finding | When | Fix |
+|---|---|---|
+| `storage-persist` | `navigator.storage.persisted()` is false | `db.requestPersistentStorage()`; if the browser declines, she says so |
+| `backup-paused` | cloud backup on and paused (`isBackupBlocked`) | Back up now (below) |
+| `backup-off` | cloud available, backup off (not "moved to Pro") | `cloudBackupUI.turnOnFlow()` |
+| `backup-behind` | on, never backed up, or changes waiting more than a day | Back up now: `pushIfDirty({ force: true })` → `handlePushResult` (its conflict / shrink / unlock dialogs) |
+| `export-old` | no working cloud backup, and the last JSON backup file (`getLastBackupDate`) is over 14 days old or never | `importExport.downloadBackup()` |
+| `vault-locked` | Sensitive records on, not unlocked here | `cloudVaultUI.unlockModal()` |
+| `recovery-unsaved` | an unsaved recovery code, or none | `saveRecoveryCodeFlow()` / `newRecoveryCodeFlow()` |
+| `license-grace` | Pro gate on, license in grace | Settings, license section |
+| `update` | a new service worker is installing or waiting, or took over since the page loaded | reload |
+| `device-lost` | another device on the account (not erasing, not signed out on its own) unseen 60+ days | `cloudBackupUI.devicesModal()`; "It's fine, I still use it" is remembered |
+| `key-rejected` | Pro `accounts`: a Stripe / Jotform key on this device that its vendor refuses (`stripeCheckKey` / `jotformUser`, one call each, skipped offline) | **Help me replace it**, all in the chat: the steps to make a new key in a new tab (Stripe's from `stripeLinks.STRIPE_KEY_PERMISSIONS`, the list the Accounts page shows too), a link to the vendor (the account's `website`, else its API page), the account's saved username and password when it has them (the password masked until **Show**; **Copy** for each), then the new key and currency / region pasted in and checked and saved by `connectStripe` / `connectJotform`, as the Accounts page connects. "I'll do it later" leaves it for the next visit |
+| `waitlist-signed-out` / `waitlist-error` | Pro `waitlist`: a kennel's list is online, and this device isn't signed in / its last update failed | the kennel's page |
+| `vault-off` | Sensitive records offered and off | `turnOnVaultFlow()` |
+| `passkey-none` | on, passkeys supported, none added | `passkeysModal()` |
+| `storage-full` | 80%+ of the browser's quota used | none; she says so |
+
+Right after she looks, a **status report** (`healthReport`), one line per area she could
+read, good or not: this device (kept safe or not, space used of the quota), cloud backup
+(on and when, paused, off) or the last backup file, the Pro license (state, plan, renewal
+or due date, on n of m devices: Lemon Squeezy's `activation_usage` / `activation_limit`,
+kept on the cached record as `activationUsage` / `activationLimit`), devices signed in
+(by name), Sensitive records (backed up, unlocked here, recovery code, passkeys), each
+vendor connection, each online waitlist. Then the findings, or **All good**. She closes with
+what's still worth a look. Sync isn't checked until live sync's UI exists. A fix that
+opens a page leaves Kels; she says to start the task again after.
+
+### "Tidy up my records"
+She finds places two records disagree, says how many of each kind, then raises them one at
+a time; each fix is saved when approved, and she looks again after every one. **Kels only:**
+none of these are Today nudges. Every finding offers **Not now** (this visit) and an answer
+remembered on this device in the nudge ledger under `tidy:<key>` ("Don't ask me again", "Not
+the same dog", "Unknown"…). A key carries the values it was raised on (a count, the parents),
+so a record that changes again is asked about again.
+
+The checks (`data/tidyRules.js` `tidyFindings`, in `TIDY_KINDS` order; litters, sales, stud
+services and her dogs are kennel-scoped, duplicates, contacts and kennels program-wide):
+- **Litter count:** `puppies_born_alive` (else total less deceased) ≠ the litter's pup
+  records, departed and deceased pups counted. Fix the count (`countFix`; the total follows
+  when it no longer adds up), or open the litter to add pups.
+- **Puppy plan:** a pup with a sale not returned, cancelled or voided whose disposition isn't
+  Placed → Placed.
+- **Went home:** an `owned` dog with a Delivered sale (and no newer sale going) → Pro: the
+  buyer owns it (`external`, `external_reference`) or co-owns it; Lite: leave the roster
+  (archive). Co-owned dogs aren't asked about.
+- **Litter vs. breeding:** a litter's sire/dam ≠ its pairing's → fix either side.
+- **Pups vs. litter:** a litter's pups with a blank sire/dam (fill from the litter) or a
+  different one (use the litter's).
+- **No parents:** her own dog (owned, co-owned, leased in) not from one of her litters with a
+  blank sire/dam → pick a dog already on file (right sex, same breed first), or add one: hers
+  (owned, in the dog's kennel; at Lite's cap she shows the usual upgrade notice, `renderUpgradeNudge`, and skips that parent) or somebody else's as a
+  pedigree-only dog. A typed name is checked against existing dogs first (`dogMatches`).
+- **Stud service** (`studServices`): past its date (returned, else sent; or Completed), not
+  cancelled or failed, no `pairing_id` → link a breeding of the same two dogs opened from two
+  weeks before it was sent that no other service claims, or record one (`pairing.html?new=1&stud_service=`).
+- **Breeder without a kennel** (`contactsSection`): a Breeder contact with no `kennel_id` →
+  pick or add the kennel.
+- **Kennel without a contact** (`contactsSection`): an outside kennel no contact belongs to →
+  pick a contact (tagged Breeder) or add one; archive it when no dog names it.
+- **Duplicate dogs:** missing details are unknown, never a difference. *Certain:* the same
+  registration number, or the same registered name with no differing number. *Possible:* the
+  same call name and breed with nothing contradicting (registration number, birthday,
+  microchip, sire, dam differ only when both have them). Never: a known sex that differs,
+  littermates by name, a dog and its own parent or child. Archived dogs are skipped;
+  pedigree-only ones are included.
+- **Duplicate contacts** (`contactsSection`): the same name (case, spacing and punctuation
+  ignored) plus one shared email, phone (last 10 digits), address, Facebook, or kennel.
+
+**Merge** (`data/recordMerge.js` `mergeRecords(kind, keepId, dropId, choices)`): she picks the
+record to keep (`suggestKeep`: in use over pedigree-only, then fuller, then older), then
+which value wins where both have one and they differ (`mergeConflicts`; a dog's ownership,
+status, kennel and owner are one choice). Blank fields fill from the other, lists join, notes
+keep both. The kept record is updated through its repo, then every row pointing at the other
+(§7) is repointed in one transaction, then the other is archived; a contact's
+`waitlist_status` is recomputed. Refused: dogs of a known different sex or in each other's
+pedigree; contacts who both hold a live (applied, fee due, on the list) place on one kennel's
+waitlist.
+
+---
+
+## 34. Live sync (Cloud Phase 2) — `docs/KennelOS_Cloud_Phase2_Sync_Plan.md`
+
+**Editions:** Pro only (`editionFlags.liveSync`, and `isCloudAvailable()`). Lite and Demo
+never sync.
+
+There's no sync UI yet and nothing starts the scheduler, so nothing syncs on its own. The
+plan is the detailed design. This is the shape of what's built.
+
+- **Needs Sensitive records (the vault).** Each record goes up in both tiers: its cloud
+  fields readable as in backups, and the whole row sealed with the vault key. Turning the
+  vault off ends sync.
+- **Changes are found by a scan, not an outbox.** `data/cloud/syncState.js` keeps a hash
+  per row in the device-only `sync_meta` table (`db.version(2)`, in `DEVICE_ONLY_TABLES`,
+  never in a backup). Any write that changes a syncing row gets found, so **no write path
+  needs a sync hook.** `data/cloud/syncRecords.js` is the wire format (pure).
+- **Server order wins per record.** Records live in D1 (`cloud/src/sync.js`, migration
+  `0014`). The server keeps only fields on its allow-list, `cloud/src/lib/cloudFields.js`,
+  which is generated from `data/syncRegistry.js` (`node cloud/scripts/cloud-fields.mjs`).
+- **`data/syncApply.js` is the second direct writer of every table**, beside
+  `importExport.js`. Pulled rows skip the repos so they keep their own timestamps, and they
+  don't call `markDataChanged()`, or they'd be pushed straight back. The one local change it
+  makes, turning a delete into an archive, does mark dirty. Pages listen for
+  `SYNC_APPLIED_EVENT` and never treat it as a local edit. 
+- **The loop:** `data/cloud/cloudSync.js` does push then pull, the lock, the scheduler and
+  pauses. A lapsed license pauses sync. Joining a program: the newer `updated_at` wins and
+  nothing gets deleted.
+- **Backups on a syncing program:** a snapshot states the `sync_seq` it has applied and goes
+  only while the device is caught up (else it's skipped as `sync_behind`, still dirty). While
+  Pro has lapsed (sync paused `pro_required`) backups follow the Phase 1 backing-device rule.
+- **Server work on a syncing program** (waitlist intake, family and vendor events, emails)
+  runs on one device at a time under a two-minute lease (`data/cloud/serverWork.js`,
+  migration `0016`).

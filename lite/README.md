@@ -1,23 +1,14 @@
 # lite/ — KennelOS Lite (free edition)
 
-Lite is the free front door. It ships **only the shared pages** (Dogs, Breeding,
-Sales, Today, …) plus a soft cap (6 counting dogs, 10 litters) and the
-archive-on-departure exit. Pro-only sections (Contacts, Stud services, Contracts,
-Companion, Assistant, Documents/receipts) are **physically absent** — they live in
-`pro/`, so there's nothing to unlock here.
+Lite ships the shared pages only, with a soft cap (6 counting dogs, 10 litters) and
+archive-on-departure. Pro-only files (`shared/data/proPages.js`) are left out of the Lite
+build, so they aren't there to unlock.
 
-**Deployment model:** a Lite origin serves `shared/` + `lite/`, with this dir's
-`editionConfig.js` placed at the shared fixed path so the cap is active. See
-`docs/KennelOS_Lite_Pro_Editions_Plan.md` and `KennelOS_Lite_Cap_Enforcement_Spec.md`.
+- `editionConfig.js`: Lite's flags (every Pro feature off, no license gate, no live sync),
+  the real cap hooks, the reduced nav, and `cloudUrl` (cloud backup on).
+- `editionTour.js`: Lite's guided tour: a smaller sample seed sized to the cap.
 
-## What's here today (foundation)
+`build/assemble.mjs` puts both at their `shared/data/` paths in `dist/lite/`.
 
-- `editionConfig.js` — Lite's config slot. **Still a no-op** — the cap enforcement
-  and the archive-hiding flags are the next pass ("layer cap logic on top").
-
-## Not built yet
-
-- The Lite home page + reduced nav.
-- Its own `sw.js` precache list + cache name.
-- Real cap enforcement, archive-on-departure, hidden-archive links, ownership-vocab
-  restriction, upgrade nudges, and the export→checkout→import upgrade bridge.
+What Lite changes, and where: the guide's §0 (`docs/End_State_Design_and_Maintenance_Guide.md`).
+Why: `docs/KennelOS_Lite_Pro_Editions_Plan.md` and `docs/KennelOS_Lite_Cap_Enforcement_Spec.md`.
