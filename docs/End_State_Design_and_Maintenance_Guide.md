@@ -1251,669 +1251,188 @@ would claim the `public_id` they already have.)
 
 ## 29. Waitlist (per kennel) — `docs/KennelOS_Waitlist_Spec.md`
 
-**Editions:** Pro and Demo only (`editionFlags.waitlist`; its pages and UI modules are in `proPages.js`). The data layer ships to every edition.
+**Editions:** Pro and Demo only (`editionFlags.waitlist`; its pages and UI modules are in
+`proPages.js`). The tables, repos, rules and actions are in `shared/data`, so a Pro backup
+restored into Lite keeps its waitlist rows, dormant.
 
-**Details:** the spec's §0 (decisions) and §15 (application form, offers from a family's
-page, invoice/receipt PDFs, the list as text); online parts (form, status page, server) in
-`docs/KennelOS_Waitlist_W2_Plan.md` and **Online (W2)** below.
+**Design:** `docs/KennelOS_Waitlist_Spec.md` (decisions §0, §15–16); online parts
+`docs/KennelOS_Waitlist_W2_Plan.md`.
 
 ### Model
-- **One list per kennel.** Every waitlist row carries a required own-kennel `kennel_id`
-  (`assertOwnKennel`). Contacts stay program-wide: a family on two kennels' lists is one
-  Contact with two entries.
-- **`waitlist_entries`**: one row per family per time on the list — a second puppy years
-  later is a new entry. Lifecycle `applied → approved → active → placed`, with exits
-  `declined`/`expired`/`withdrawn`/`removed`. **Pause and listen-only are flags on an
-  `active` entry**, never statuses, so narrowing what a family wants never costs a place.
-- **`waitlist_offers`**: one row per turn on a litter. `counts_as_pass` is decided once,
-  when the outcome is recorded, via `waitlistRules.countsAsPass` — stored so a later rule
-  or program change can't rewrite history.
-- **`waitlist_programs`**: her own named adjustments (fee override, `ahead` priority, pause
-  allowance, passes not counted, longer response window). A table, not a vocab list.
-- **Settings** are `Kennel.waitlist_config` (§4.1), never `settings.js`/localStorage, so
-  they survive a restore. That includes her **application form**, `form_questions[]`, and its FAQ, `application_faq[]`.
+- **One list per kennel:** every row has a required own-kennel `kennel_id`. Contacts stay
+  program-wide (one Contact, an entry per kennel).
+- **`waitlist_entries`:** one row per family per time on the list. Status `applied →
+  approved → active → placed`, exits `declined`/`expired`/`withdrawn`/`removed`. **Pause and
+  listen-only are flags on an `active` entry**, never statuses, so narrowing never costs a
+  place. Many plain fields hold family requests, messages, prepasses, the "Ready now?"
+  answer, a carried payment from a lost pup and the answer-change log; see
+  `waitlistEntryRepo` and `syncRegistry.js` for each one's tier.
+- **`waitlist_offers`:** one row per family per litter in a turn (rows of a turn share
+  `turn_id`). `counts_as_pass` is decided once, when the outcome is recorded, so later rule
+  or program changes can't rewrite history.
+- **`waitlist_programs`:** her named adjustments (fee override, `ahead` priority, pauses
+  allowed, passes not counted, longer response window). Only she assigns them.
+- **Settings** live in `Kennel.waitlist_config` (missing keys from
+  `WAITLIST_CONFIG_DEFAULTS`), so they ride backups, including her application form
+  (`form_questions[]`) and FAQ (`application_faq[]`).
 
-### The application form (`data/waitlistForm.js`, W1e)
-Pure, pinned by `tests/waitlistForm.test.js`.
-- **Questions** `{ id, label, type, required, help, options[], source_header?, key? }`. Types she
-  can pick are `WAITLIST_QUESTION_TYPE` (short/long text, single choice, checkboxes, yes/no,
-  number, date); `email`, `preference` and `notice` are locked-only.
-- **Locked questions** carry a `key`: `name`, `email`, the four preferences (`pref_sex`,
-  `pref_breed`, `pref_purposes` (a choose-all checkbox list from `PLACEMENT_PURPOSE`; a form saved with
-  the retired `pref_placement` key reads as it), `pref_colors` — answers go to the entry's `pref_*` fields, not
-  `application`), `ready_timing` (required; type `preference`, answer on `entry.ready_timing`,
-  fixed answers from `WAITLIST_READY_TIMING`; enforced when she types a new application in), and `public_notice` (her public-list wording, `PUBLIC_LIST_NOTICE`, shown to
-  every applicant; editable text, never removable). She can reword them only.
-  **Matching notice** (`MATCHING_NOTICE`, her wording, fixed text): shown just above the first
-  preference question that filters offers (`matchingPrefKeys(config)`: sex, breed, placement,
-  plus colors when `color_matching` is on; readiness is a hold, not a match) on a new application.
-  **FAQ** (`formFaq` / `validateFaq` / `newFaqItem`): her questions and answers, edited above the
-  questions on the Application form page and shown at the top of a new application.
-  `formQuestions(config)` returns the defaults for a kennel with no form, and always restores a
-  missing locked question and its type/required flag. **No program question exists**: only she
-  assigns programs.
-- **Answers** are keyed by question id; each saved entry also stores `application_questions`
-  (`snapshotQuestions`). `entryQuestions(entry, form)` is what to show/edit: the snapshot's
-  wording first, then questions added since; a W1 entry shows the current form plus any stray
-  answer keys. Typing an application in only requires the name (`missingRequired`); "Required"
-  is for the online form (W2).
-- **Question import**: `proposeQuestionImport(headers, rows, form)` turns each CSV column of
-  her old form's responses into a proposal — **map** onto an existing question (a column it
-  came from before, the `IMPORT_ALIASES`, or matching wording), **new** (type guessed by
-  `guessType`: yes/no, number, date, ", "-joined checkboxes, few repeated values → single
-  choice, long → paragraph) or **skip** (timestamps, kennel/program/notes, blank columns).
-  `applyQuestionImport` stamps `source_header` (the normalized header) on mapped and new
-  questions, and the **application CSV importer** (§9) reads each question from
-  `columnsFor(question)` — its own column first, then the aliases — so the same file then
-  imports the families' answers into those questions.
+### Rules engine (`data/waitlistRules.js`)
+Pure: no Dexie, no clock (callers pass `today`); `tests/waitlistRules.test.js`. **Nothing
+it computes is stored.**
+- **Position** among `active` entries: `ahead` program first, then `position_anchor_date`,
+  else `fee_received_date` (else `approved_date` when the fee was waived), then
+  `fee_received_at` (same-day order of payment), `approved_date`, `created_at`, `id`.
+- **Available pup:** not archived, not deceased / pet home / external reference,
+  disposition not `keeping`/`placed`/`health_hold`, and no live Sale.
+- **Match:** sex, breed (case-insensitive), purposes (`pref_purposes` → registrations, must
+  include the pup's `intended_registration`), and color only with `color_matching`. Unset
+  on either side matches.
+- **Eligible** for a litter: on the list, same kennel, not paused (`isPaused`: her pause, or
+  the **readiness hold** until `readyFromDate`), listening for it (`isListeningFor`:
+  `selected` parents, or `except` parents), and at least one available matching pup.
+- **Turns:** one family holds a turn at a time across the kennel's open litters, covering
+  every pup they're eligible for. `nextTurn` picks the top family with an eligible pup in an
+  open litter they haven't spent a turn on (`turnSpent`, per litter; a voided offer gives it
+  back), recalculated each time. A litter opening mid-turn joins it only if the holder is
+  that litter's top family (`joinsOpenTurn`). A pass closes the whole turn and counts
+  **once**. "Not this litter" (`prepasses`) leaves a litter out when their turn comes; a
+  turn made only of those is passed at once and reported (`auto_passed`).
+- **Passes:** at `max_passes` (default 2) the entry is removed (`second_pass`), with a 7-day
+  undo that forgives the latest pass.
+- **No silent expiry:** overdue offers and fees become Today nudges (`overdueTurns`,
+  `overdueFees`).
+- **Answer changes:** every change to `PREF_CHANGE_FIELDS` after `applied` is logged in
+  `pref_change_log`. A narrower answer that would affect an open offer or next-in-line
+  litter asks to confirm (`prefChangeEffect`).
+- **Public list** (`publicList`): `{ position, name, pref_sex, added }` only. Names are
+  "First L." (`publicName`) or masked "A***** K" (`privateName`) when `private_listing`.
+  **Paused families are left out and their numbers skipped**, and no family count is shown.
+  The turn holder's row reads `DECIDING_LABEL` ("Currently deciding"). `publicListText`
+  is the copyable text version.
+- **"Almost your turn"** (`soonFamiliesForLitter` / `soonFamiliesForKennel`): the queue, one
+  family per available pup; a family mid-turn elsewhere holds room but isn't notified.
+- `describeOfferChanges` turns any action's result into the lines every screen shows, so
+  **no offer is ever made silently.**
+- `deriveContactWaitlistStatus` keeps `Contact.waitlist_status` (via the entry repo).
 
-### The public list (W1e, Spec §15.3)
-`waitlistRules.publicList(entries, kennelId, programsById, { today, nameOf, deciding })` returns only
-`{ position, name, pref_sex, added }` (a row for which `deciding(entry)` is true, the family
-holding a turn, has `name: DECIDING_LABEL` ("Currently deciding") and `deciding: true`, its
-sex preference and date kept): the real §6.1 position, `publicName` (first word + last
-word's initial; for an entry with `private_listing`, `privateName` instead: "A***** K", one
-asterisk per hidden letter, via `listedName`; she answers the applicant's `private_request` in
-the Approve dialog), sex preference, and the anchor date. **Paused families are left out and their
-numbers skipped** (#1, #2, #4), so no public number moves when a pause ends; listen-only
-families show with no marker; a family who passed or let a turn lapse shows as usual;
-programs, contact details, notes and money never appear. **No family count** is shown, online
-or in the text: paused families are left off, so a row count never says
-how many are on the list. No opt-out
-— every applicant is told by the locked notice — but they can ask to list privately (above). `publicListText` is the text the
-Publish list page's **Copy the list as text** produces for Facebook/her website (the W1 stand-in for
-W2's public link).
-
-### The rules engine (`data/waitlistRules.js`)
-Pure functions, no Dexie, no clock (callers pass `today`); pinned by
-`tests/waitlistRules.test.js`. **Nothing it computes is stored.**
-- **Position** = order among the kennel's `active`, non-archived entries: `ahead` program
-  first → `position_anchor_date` if set, else `fee_received_date` (else `approved_date`, the
-  fee-waived anchor) → `fee_received_at` (same-day fees in the order they were recorded) →
-  `approved_date` → `created_at` → `id`.
-- **Available pup**: not archived, `status` not `deceased`/`pet_home`/`external_reference`
-  (died or gone home — a returned pup is made a puppy again on the Sale page first),
-  `disposition` not `keeping`/`placed`/`health_hold` (unset/`undecided` count as available), and no non-archived Sale whose status isn't
-  `returned`/`cancelled`/`voided` (`vocab.RELEASED_SALE_STATUSES`).
-- **Preference match**: sex (unless `any`), **breed** (unless blank; case-insensitive,
-  trimmed, against `Dog.breed`), purposes (the registrations `pref_purposes` map to must include
-  `Dog.intended_registration`), and color only
-  when `waitlist_config.color_matching` is on. An unset fact on either side matches.
-- **Changing the matching answers** (Waitlist Spec §15.9, W1): every change to the five
-  `PREF_CHANGE_FIELDS` past `applied` is logged in `pref_change_log` (repo-side). Saving a
-  NARROWER answer (`narrowedPrefs`: any → specific, one specific → another, a later readiness,
-  dropping a color while color matching is on) asks her to confirm when `prefChangeEffect`
-  finds an open offer (it stays open; a pass still counts) or a live litter they're next for
-  that the change would skip them on. Widening never asks. From W2 step 5 the family asks on
-  their status page (`pref_change_request`) and she approves or declines with one tap on Today
-  or their page; see **Online (W2)**.
-- **Eligible** for a litter: on the list, same kennel, not paused (`isPaused`: her own `paused_until >= today`, or the readiness hold `today < readyFromDate(entry)`),
-  listening for it (`waitlistRules.isListeningFor` — listen-only `selected`: its sire is a picked sire OR its dam a picked dam; `except`, Waitlist Spec §16.3: neither parent is on their except list; an `except` with nobody listed is All litters, `isListenOnly`), and at least one available matching pup. Skipped families have nothing
-  recorded against them.
-- **Turns** (Waitlist Spec §16.1):
-  one family holds a turn at a time across the kennel's open litters, and the turn lists
-  every pup they're eligible for in every litter with open picks. Stored as one
-  `waitlist_offers` row per litter sharing `turn_id` and `respond_by_date` (an offer from
-  before turns has none and is its own turn: `turnIdOf`). The next turn
-  (`waitlistRules.nextTurn`) goes to the highest-ranked family with an eligible, available
-  pup in an open litter they haven't spent a turn on (spent stays per litter: `turnSpent`; a
-  `voided` offer gives it back), recalculated every time, so a family skipped on one litter
-  comes first for a litter that opens later. A litter opening mid-turn joins it only when the
-  holder is the top family for it (`joinsOpenTurn`; the deadline restarts), else waits.
-  Actions: `offerNextTurn` / `offerNext` / `openPicks` / `offerTo` make turns; picks,
-  deposits and pup switches act on one row (a pick on another litter of the same turn lets
-  the first go); `recordOutcome` passed / no response / voided closes the whole turn, and a
-  pass counts ONCE (`counts_as_pass` on one row) and only when the whole turn is passed; the
-  deposit voids the turn's other rows (never a pass); `undoPass` gives the whole turn back.
-  `nextFamilyForLitter` remains as "first in line for this litter" (the family page's
-  out-of-turn check, `prefChangeEffect`). Today's overdue nudge is one per turn
-  (`overdueTurns`). **Pass reasons and "Not this litter"** (Spec §16.2, §16.5): a family's
-  pass on their status page needs one of her reasons (`passReasons` / `passReasonOf`; saved
-  on the offer as `pass_reason`); "Not this litter" (`Entry.prepasses`) is pending until
-  their turn: `splitPrepassed` leaves those litters out of the offer, and a turn of nothing
-  else is passed at once by `offerNextTurn`, which goes on to the next family. **She always
-  sees it:** the "Next turn" line on the Waitlist page and the Litter
-  page's picks panel carries a **Not this litter** note (`nextTurnPrepassNote`: which litters,
-  and that "Offer to them" records a pass, with its count); `offerNextTurn` returns every such
-  family as `auto_passed` (`{ entry_id, litter_ids, counted, used, max, removed }`), or
-  `{ none: true, auto_passed }` when nobody was left to offer, and `moveTurnOn` /
-  `finishTurn` / `releaseOpenOffers` carry them into the action's result, so
-  `describeOfferChanges` (`autoPassedLine`) names each pass in the result message. A family
-  who is only "next" (automatic offers off) gets `waiting.prepassed_litter_ids`.
-- **Passes**: counted from offers with `counts_as_pass === true`; at
-  `waitlist_config.max_passes` (default 2) the entry should be removed. The **7-day undo**
-  is derived from `removed_date`, and forgives the latest counted pass (`passToForgive`)
-  so the family isn't removed again at once.
-- **Deadlines** (W1, no server): `overdueOffers`/`overdueFees` feed one-tap suggestions; the
-  app never expires anything silently.
-- **`deriveContactWaitlistStatus`**: `active` while any entry is applied/approved/active,
-  `fulfilled` when the latest ended `placed`, else `none` — applied by `waitlistEntryRepo`.
-- **"Almost your turn"** (Spec §15.5): `soonFamiliesForLitter(entries, offers, litter, pups,
-  sales, opts)` walks the litter queue in order, one family per available pup, leaving out
-  families whose turn on that litter already closed (passed / no response). A family holding
-  an open offer on **any** litter still takes a pup's worth of room but is marked `inFlight`
-  and gets no notice (so a second litter never re-notifies a family mid-decision); an open
-  offer on this litter whose family has dropped out of the queue still holds a pup.
-  `offers` must be the whole kennel's. `soonFamiliesForKennel` is the union over live
-  litters, one row per family in list order. `soonNoticeText(config, kennelName)` returns
-  `{ subject, body, text }` from `soon_notice_text` (or the default), filling `[Kennel Name]`;
-  the first line is the subject.
-- **`describeOfferChanges(res, { nameOf, litterOf, fmtDate })`**: the plain-text lines every
-  surface shows for offers an action voided or made, so no offer is made silently.
+### Application form (`data/waitlistForm.js`, pure)
+Questions `{ id, label, type, required, help, options[], source_header?, key? }`. **Locked**
+questions (with a `key`) can only be reworded: `name`, `email`, the preference questions
+(answers go to `pref_*`), `ready_timing` (required; drives the readiness hold) and the
+public-list notice. `formQuestions(config)` supplies defaults and restores missing locked
+questions. Each entry stores `application_questions`, the wording it was answered under.
+**Question import** (`proposeQuestionImport` / `applyQuestionImport`) turns an old form's
+CSV columns into questions and stamps `source_header`, so the application importer (§9) can
+then bring in the answers.
 
 ### Actions (`data/waitlistActions.js`)
-Every multi-step write the pages make: **approve** (links the contact she picked from
-`contactMatches` — offered, never automatic — or creates one from the application; stamps
-`approved_date`, the fee from `feeForEntry`, `fee_due_date` from `fee_due_days`, the
-credit policy; a fee of 0 goes straight to `active` anchored at the approval date),
-**decline**, **feeReceived** (sets `fee_received_date` = the place in line, and
-`fee_received_at` = now for same-day order; also the "Add to
-the list" path when no fee is configured), **markFeeExpired**, **withdraw**
-(`withdrawn_date`), **removeByBreeder** (final; coming back = re-apply), **archiveEntry**
-(archives via the repo), **undoRemoval** (second-pass only, within 7 days, forgives the
-pass), **undoPass** (below), **reapply** (a new `applied` entry for the same family/kennel with their preferences
-copied), and **setPositionAnchor** (a date, another family's anchor, or `null` to clear). W1
-sends nothing; she contacts families herself.
+Every multi-step write: approve (links a contact she picks from `contactMatches`, never
+automatically; a fee of 0 goes straight to `active`), decline, fee received (sets the place
+in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move place
+(`setPositionAnchor`).
+- **Leaving releases turns:** withdraw, remove, archive, a deposit or a second-pass removal
+  void the family's open offers (never a pass; a held pick's Sale is cancelled) and move
+  those litters on.
+- **Automatic offers are off by default**, per moment: `waitlist_config.auto_offer_on`
+  lists the closings that offer the next family by themselves (`accepted`, `passed`,
+  `no_response`, `no_deposit`, `left`, `restored`). Otherwise the next family comes back in
+  `waiting` and she offers by hand (**Open picks**, **Offer to them**, **Offer pups…**).
+  Actions on one family (approve, fee received, undo removal) never make offers.
+- **The offer flow:** `openPicks` / `closePicks` (`Litter.picks_opened_date`), `offerNext`,
+  `offerTo` (out of turn, with a note; nobody's place changes). **Accepting is pick +
+  deposit:** `recordPick` creates a `deposit_pending` Sale (registration and price from the
+  pup and `saleDefaults.expectedPricing`) and the offer stays open; `changePick` moves it to
+  another pup; `confirmDeposit` marks the sale paid, the pup placed, the entry placed, and
+  moves on. `recordOutcome` handles passed / no response (lets go of a held pick, counts the
+  pass, removes at the limit) and voided (never a pass, doesn't move on). `undoPass` reopens a
+  pass.
+- **A lost pup** (`vocab.isLostSale`): `restoreAfterLostSale(saleId, { carry })` puts a placed
+  family back in their **original place** (the accepted offer voided, passes unchanged), or
+  refreshes an open turn without the lost pup; `carry` keeps what they paid for their next
+  pick (`carried_payment`). Never automatic: the Sale page (and the family page's **End the
+  sale…**) asks, through `waitlistUI.restoreLostPupDialog`, after the pup-settling prompts in
+  `assets/salePrompts.js`.
 
-**Leaving the list releases the family's turns.** withdraw, removeByBreeder, archiveEntry, a
-received deposit and a second-pass removal all run the internal `releaseOpenOffers`: each
-open offer the family still holds is voided (`counts_as_pass: false`, a note saying why; a
-held pick's deposit-pending Sale is cancelled) and that litter's turn moves on
-(`moveTurnOn`). withdraw / removeByBreeder / archiveEntry return
-`{ entry, voided, offered, waiting }`.
+### Surfaces
+- **Pages** (`proPages.js`): `waitlist` (one kennel: new applications, fee due, the ranked
+  list, Litters with "Next: <family>" and **Offer to them**, Closed; everything else under
+  **Manage**), `waitlist-entry` (one family: Details / Interact / History tabs),
+  `waitlist-programs`, `waitlist-form`, `waitlist-publish`, `waitlist-import`. A page shows
+  one kennel (`?kennel=`, else scope, else busiest; `waitlistUI.resolveWaitlistKennel`).
+- **Litter page:** the **Waitlist picks** panel (`assets/waitlistPicksPanel.js`, loaded only
+  with the flag): picks open/closed, the open turn and its actions, next up, the litter's
+  queue, history. It re-reads the litter after each write.
+- **Kennel page:** the Waitlist settings card. **Contact page:** the family's entries (and the
+  waitlist status becomes read-only). **Dashboard:** application and list tiles. **Today:**
+  waitlist nudges (§19).
+- **"Almost your turn…"** (`waitlistUI.openSoonNotice`): the families and her editable
+  message, sent by `mailto:` BCC or copied addresses (stamping `soon_notified_*`), or from
+  KennelOS when the list is online.
+- **Communicate…** (`waitlistEmailUI.communicateDialog`): emails that fit now, or a suggested
+  message to share from her phone. KennelOS itself sends only the queued emails below.
+- **Documents:** fee receipt, puppy invoice and receipt as PDFs (§24).
+- **Fee paid online** (Pro with Accounts; Integrations plan §4): **Fee paid online via** a
+  Payment service account (`kennels.waitlist_fee_account_id`), asked for at application or
+  once approved (`fee_link_when`). Reusable Stripe links per fee amount
+  (`waitlistFeeLinks.ensureFeeLinks` → `fee_links`; the charge includes a passed-on card
+  fee). Her device's check (`checkFeePayments` / `planFeePayment`) records **fee received**
+  for an approved family, or `fee_paid_online` for one not yet approved.
+- **Review sale & send** (`assets/pickToSend.js`, with contracts + invoicing; Integrations
+  plan §2.6): on a pick awaiting its deposit, edit the sale (incl. channel and fee), choose a
+  contract form, and send one deposit-request message with the invoice PDF via the share
+  sheet or email. It marks the contract sent and stamps `deposit_request_sent_date`.
 
-**Automatic offers are a setting, OFF by default, per moment:** `waitlist_config.auto_offer_on`, a list of the closings that offer by
-themselves (`accepted`, `passed`, `no_response`, `no_deposit`, `left`, `restored`; ticked on the Kennel page's Waitlist
-settings section). `moveTurnOn(litterId, { trigger })` calls **offerNext** only when
-`waitlistRules.autoOffers(config, trigger)` is true (`confirmDeposit` passes `accepted`,
-`recordOutcome` `closingTrigger(offer, outcome)`, `releaseOpenOffers` `left`, `restoreAfterLostSale` `restored`); otherwise nothing is offered and the family who's next is returned in `waiting`
-(`[{ litter_id, entry_id }]`), which `describeOfferChanges` turns into "X is next in line.
-No offer was made…". Every offer is then made by her (**Open picks**, **Offer to them**,
-**Offer pups…**). (Unarchive goes straight to the repo and makes no offers.)
-
-**Which writes make offers:** only an offer on that same litter closing
-(deposit received / passed / no response, or the family leaving as above) moves the turn on
-by itself, and only for a moment ticked in `auto_offer_on`. Actions on one family — **approve** (fee-waived), **feeReceived**, **undoRemoval** —
-make **no** offers; the family page then says which litters they're next for, and she offers
-from **Offer pups…** / **Offer to them**. Every offer made on her behalf is returned and
-shown (`describeOfferChanges`).
-
-**The offer flow (W1c):**
-- **openPicks** stamps `Litter.picks_opened_date` and calls **offerNext**; **closePicks** clears
-  it (an open offer stays open until resolved).
-- **offerTo(litterId, entryId, { note })** (W1e) — the family's page's **Offer pups…** (Interact tab):
-  opens picks if needed, then offers that family the litter even if they aren't next. Refused
-  when another offer is open on the litter, the family's turn on it is spent (`turnSpent`), or
-  no available pup matches them. Out of turn, the page confirms first and `note` records who
-  was next; nobody's place changes and the next family still gets their turn afterwards.
-- **offerNext(litterId)** — only while picks are open and no offer is open on the litter:
-  `nextFamilyForLitter` picks the family, and the offer is written with `respond_by_date`
-  (`respondByDate`, program window first) and an `eligible_dog_ids` snapshot.
-- **Accepting is pick + deposit.** The respond-by window is the time to
-  accept AND pay; a pup is only theirs once the deposit is in.
-  - **recordPick(offerId, { chosenDogId })** creates the **Sale** (`deposit_pending`, buyer =
-    the family's contact, `registration_type` = the pup's `intended_registration` → the first
-    registration the family's purposes fit → `limited`, `lead_source: 'Waitlist'`, price/deposit from
-    `saleDefaults.expectedPricing` for that registration) and stamps `chosen_dog_id`/`picked_date`/`sale_id` on the
-    offer, which stays **open** (`isAwaitingDeposit`). The family stays `active`, nothing moves
-    on, and the live Sale makes the pup unavailable to anyone else.
-  - **changePick(offerId, { chosenDogId })** — they picked the wrong one: moves the same Sale to
-    another available matching pup (`switchablePups`); price/deposit follow the new pup only
-    where they still equal the old pup's expected amounts (a paid deposit is never touched).
-    Allowed while the deposit is pending, and on an `accepted` offer while no later non-voided
-    offer exists on the litter (`canSwitchAcceptedPick`) — then the dispositions swap too
-    (new pup `placed`, old pup `available`).
-  - **confirmDeposit(offerId, { date, amount })** — the Sale goes `deposit_paid` with
-    `deposit_date`/`deposit_amount`, the pup `placed`, the offer `accepted`, the entry `placed`
-    with `placed_sale_id`; the family's other open offers are released; the turn moves on.
-- **recordOutcome(offerId, outcome)**:
-  - `accepted` = recordPick (if not picked yet; or changePick if a different pup is passed)
-    + confirmDeposit, for a pick and deposit that arrive together.
-  - `passed`/`no_response` first lets go of a held pick (its Sale → `cancelled`, with a note;
-    refused if the Sale already shows the deposit — record it with confirmDeposit instead),
-    then freezes `counts_as_pass` (`countsAsPass`) and removes the entry (`second_pass`) once
-    `shouldRemoveForPasses`, releasing its other open offers. No deposit by the deadline is
-    recorded as `no_response` ("No deposit").
-  - `voided` is never a pass, also cancels a held pick, and deliberately does **not** move the
-    turn on (the same family would just be re-offered); she offers the next family by hand.
-  - After passed/no_response the turn moves on (`moveTurnOn`). The result
-    (`{ offer, sale, removed, passes, next, voided, offered, waiting }` — `voided`/`offered`
-    are the family's other litters released above) drives the page's confirmation message.
-- **undoPass(offerId)** — undo a `passed`/`no_response`: that family is
-  next in line for the litter again. Allowed while the family is `active`, or `removed` for
-  `second_pass` within the 7-day window (`undoPassBlocker`; they go back on the list). The
-  offer reopens (`open`, `counts_as_pass: false`, a fresh `respond_by_date`, a new
-  `eligible_dog_ids` snapshot, a note). A family holding the litter's open offer meanwhile has
-  it **voided** (never a pass, so they're next again after) — refused if that family has
-  already picked a pup. Refused if the family can no longer be offered the litter. Makes no
-  other offer. Returns `{ offer, voided, restored }`.
-- **A lost pup (Waitlist Spec §16.11).** `waitlistRules.restoresFamily(sale)`
-  (= `vocab.isLostSale`, not archived) and `lostSaleFamily(sale, entries, offers)` →
-  `{ kind: 'placed' | 'picked', entry, offer }`; `waitlistActions.lostSaleFamilyFor(saleId)`
-  loads it. **restoreAfterLostSale(saleId, { date, carry })** — `placed`: the accepted offer
-  goes `voided` (never a pass, so `turnSpent` no longer blocks that litter; `sale_id` kept),
-  the entry goes back to `active` with `placed_sale_id: null` and its own fee date — its
-  **original place**, passes unchanged; `picked` (their turn still open): the pick is cleared
-  (`chosen_dog_id`/`picked_date`/`sale_id`) and every open row of the turn gets a fresh
-  `respond_by_date` and `eligible_dog_ids` (never the lost pup), a row with no pup left being
-  voided. `carry: { amount }` sets `entry.carried_payment`; none = she's refunding it. A note
-  goes on the entry and offer. Then the turn moves on with trigger `restored` (the picked case
-  only when its turn ended): offered now only with `restored` in `auto_offer_on` and no turn
-  open; otherwise who's next is returned. Another family holding a turn keeps it. Never runs
-  by itself: **sale.js** asks as she saves a sale into a lost status (after settling the pup —
-  record the death for `pup_died`, Health hold for a health reason, or bring a returned
-  Pet-home/External pup back as a puppy), via `waitlistUI.restoreLostPupDialog`, imported
-  dynamically only when `editionFlags.waitlist`; the family's page shows **Pup lost** with
-  **Put back in line…** / **Give their turn back…** until she does. The pup-settling prompts
-  live in `assets/salePrompts.js` (`promptReleasedPup`, `promptDisposition`), shared by
-  **sale.js** and the family's page: its **End the sale…** button (shown
-  for the sale they're placed with, or the sale holding their open-turn pick, while it hasn't
-  ended) runs `waitlistUI.endSaleDialog` — the sale becomes Voided with a reason (Pup died /
-  Failed a health check / Other), Cancelled ("they backed out", placed families only), or
-  Returned with a reason when it was delivered — then the same settle-the-pup prompts and
-  `restoreLostPupDialog` the Sale page asks.
-
-### Surfaces (W1b)
-- **W1e (the waitlist as the main workflow, Spec §15.2):** the Waitlist page gains a
-  **Litters** card (each live litter with pups to offer: picks state, the open offer or
-  "Next: <family>" with **Offer to them**, which opens picks first if needed), **Application
-  form** and **Copy public list** buttons (under Manage, the copy on the
-  Publish list page). The family page gains **Offer pups…** on an
-  active entry, outcome buttons on an open offer in its Offers card (Picked a pup… / Passed /
-  No response / Void; once picked: Deposit received… / Change pup… / Passed / No deposit /
-  Void — and first, where contracts and invoices are on, **Review sale & send…**, below),
-  **Change pup…** on an accepted offer until the next family is offered, **Undo…** on a
-  pass / no response, and a **Documents** card (application fee receipt once a fee is received;
-  puppy invoice + receipt once placed) with View and Download PDF (§24). New applications are
-  typed in on her form, in her order and wording, with the public-list notice shown.
-- **Fee paid online (Integrations plan §4).** In Waitlist settings (Pro,
-  `editionFlags.accounts`), **Fee paid online via** names a Payment service account
-  (`kennels.waitlist_fee_account_id`) and **Ask for the fee** says when: at the end of the online
-  application (`waitlist_config.fee_link_when` `apply`, the default) or once approved. The
-  family's Pay button links to a reusable **Stripe link per fee amount**, made on a device
-  holding that account's Stripe key when the list is published (`waitlistFeeLinks.ensureFeeLinks`
-  → `waitlist_config.fee_links`), else to the account's own payment link. With the account's "I
-  usually pass this fee on", the link charges the fee plus the card fee
-  (`waitlistFeePay.feeCharge`, `priceToNet`) so she nets her fee. The projection carries
-  `kennel.fee_pay { url, amount, ref_param, instructions }` (for `apply`) and, on an approved
-  family's `fee_due`, their own `pay_url` / `pay_amount`; the Worker adds each family's id as
-  Stripe's `client_reference_id` to a Stripe link (`familyPages.feePayFor`; an application's id
-  is its entry's id), so the status page (and the page an applicant lands on after confirming
-  their application) shows **Pay the application fee** until they've paid. Her device's Stripe
-  check (`waitlistFeeLinks.checkFeePayments`, with the sale check) reads each fee link's paid
-  checkouts and, per family (`waitlistFeePay.planFeePayment`): approved → **fee received** on the
-  payment's date (`feeReceived`) with `fee_paid_via_account_id`, `fee_paid_amount`,
-  `fee_processing_amount`; not approved yet → `fee_paid_online`, shown on their page ("Fee paid
-  online"), and **Approve** puts them on the list from that date. Income shows the fee net of
-  what the payment service kept (§21). With a non-Stripe link she records the fee herself, as
-  before.
-- **Review sale & send (Integrations plan §2.6).** On a turn with a pick waiting
-  for its deposit (`editionFlags.contracts` + `invoicing`), the first button opens
-  `assets/pickToSend.js`: **1. Sale** (registration, which moves a price still at its
-  `expectedPricing` amount, price, deposit with its due date = the offer's
-  `respond_by_date`, read-only, transport fee, **Sold / paid through** (any account, with its
-  rate) + **Processing fee** (suggested from the channel's rate and following the price
-  until she types her own, §21.1's rule) + "passed to the buyer" (defaults from the account)
-  + "You net …" + **Price that nets you $…** (`processingFees.priceToNet`), balance due date,
-  notes; **Open the full sale** for the rest), saved through `saleRepo`; **2. Contract** (her contract forms ranked
-  for the sale, or "No contract in this message"; reuses the sale's newest sendable contract,
-  `contractSend.openContractForSale`, else creates a `sale` contract titled "<form label>:
-  <pup>"); **3. Send** (`depositRequest.depositRequestMessage`, editable: deposit and due
-  date, the payment link + instructions of the account step 1 says it's sold / paid
-  through (`paymentLinks.saleChannelPayAccount`, §32; a hint when it has none), then her
-  waitlist `payment_instructions` ("Or pay: …"), the contract link, "Your invoice is attached",
-  the balance; **Share with invoice** where `navigator.canShare({ files })` (the invoice PDF
-  from `invoicePdf.invoicePdfFile`, made on the device), else **Email** (mailto, text only) +
-  **Download invoice** + **Copy message**). The first Share / Email / Copy marks the contract
-  sent (`contractSend.markContractSent`), stamps `deposit_request_sent_date` and logs the
-  message (`logOwnMessage`); the turn shows **Deposit request sent <date>** and the button
-  becomes **Review sale & send again…**. Recording a pick by hand now offers it straight
-  away. Nothing goes to a server. Not built (plan D19): an email to her when a family picks.
-- **Pages** (Pro-only, `PRO_ONLY_PAGES`): `waitlist`, `waitlist-entry`, `waitlist-programs`,
-  `waitlist-import`, `waitlist-form`
-  (§13 page catalog). A page shows ONE kennel: `?kennel=` → the active scope → the first
-  own kennel, with a kennel picker once a second own kennel exists (`waitlistUI.js`).
-- **Kennel page**: the Waitlist settings card.
-- **Litter page** (W1c): the **Waitlist picks** panel (`assets/waitlistPicksPanel.js`) —
-  Open/Close picks, the open offer (family, respond-by with a "deadline passed" badge, the
-  pups currently available to them) with Picked a pup… / Passed / No response / Void — or,
-  once picked, the held pup with Deposit received… / Change pup… / Passed / No deposit /
-  Void — "Next up"
-  with a manual **Offer to them** (after a void, or when someone new becomes eligible),
-  the litter queue (per-litter position, overall #, pups for them; spent turns hidden), and
-  the offer history (with **Change pup…** on the last accepted pick and **Undo…** on a pass /
-  no response; the dialogs live in `waitlistUI.js`). Hidden for a kennel that has never used the waitlist on that litter.
-  After each write the page re-reads the litter so a later Edit → Save can't write back a
-  stale `picks_opened_date`.
-- **Today** (W1c): the four waitlist nudges (§19). A nudge action's `run` may resolve to
-  `{ title, message }`, which Today shows after it runs: **Record no response** reports the
-  pass and who the turn moved to; **Undo** says no offer was made.
-- **"Almost your turn…"** (Spec §15.5): a button on the Waitlist page (every live litter of
-  the kennel, `soonFamiliesForKennel`) and in the Litter page's picks panel (that litter,
-  shown when anyone is in reach). `waitlistUI.openSoonNotice` lists the families (in-flight
-  ones named but not included; no email → "tell them yourself"), the editable message, an
-  **Open in my email** `mailto:` with everyone BCC'd (a warning past ~1800 characters), and
-  **Copy email addresses**. Either of those stamps each ticked family with
-  `soon_notified_date` / `soon_notified_litter_ids` (`markSoonNotified`; the mailto tap is
-  not delayed by the write). Families told before still appear, ticked, with a "Told
-  <date>" badge, since she may need them again (e.g. a "sorry, next time" note); the family
-  page shows the date and litters. W2 delivers the same `{ subject, body, text, recipients }`
-  to the status page and by email.
-- **W1d:** the `waitlist-import` page (§9), application-fee income + the purchase credit
-  (§21), and the sample/Demo seed (§11). A page with no `?kennel=` (dashboard tiles, the
-  Import/Export dropdown) lands on the own kennel with the most open entries, then your
-  own kennel from setup (`waitlistUI.resolveWaitlistKennel`).
-- **Dog form**: `intended_registration` for a puppy (every edition: it also prefills a Sale).
-- **Contact page**: a Waitlist panel listing the family's entries, and the waitlist dropdown
-  becomes read-only (a badge) once any entry exists, since `waitlistEntryRepo` keeps it.
-- **Dashboard**: "New waitlist applications" and "Families on the waitlist" tiles, counting
-  entries under the active kennel scope.
-- All of the above outside the pages check `editionFlags.waitlist` (false in Lite).
-
-### Online (W2, `docs/KennelOS_Waitlist_W2_Plan.md`)
+### Online (W2)
 - **Her device is the source of truth.** `data/waitlistProjection.js` builds one kennel's
-  online view from the same rules-engine calls the pages use, field by field from
-  allow-lists: the public list (unmasked: the server masks the turn holder, below); per family (by entry id) name, email, status, place
-  (`position`, published during a turn too), their place for what they want (`pref_places`,
-  below), the litters with open picks whose turn they passed on or let lapse
-  (`spent_litter_ids`, so their page offers no "Not this litter" there), prefs,
-  pause / readiness hold, listen-only, passes, open offers, which live litters they match
-  (`matching_litter_ids`, a yes/no, never a place in a litter's line), the unpaid
-  fee and her payment instructions (approved and unpaid only), and the fee-received date; a
-  family whose time on the list ended gets only its outcome; per live litter its label,
-  available pups (call name, sex, color) and **every** eligible family in order. Never:
-  other answers, phone, address, programs, notes, payment details. `as_of` is today, so it
-  republishes at least daily (pauses and holds end by date).
-- **What number a family sees** (Waitlist Spec §16.9): their overall place, never a per-litter one, except during their turn:
-  `waitlistRules.placeHidden(entry, offers)` → `{ reason: 'turn' }` while they hold one (their
-  page says "The wait is over!" instead), else null. A pass or a lapsed turn hides nothing.
-  On the public list the turn holder's row keeps its number and reads **Currently deciding**,
-  highlighted, with its sex preference and date added (only the name is replaced), so the family next in line can't tell whom to
-  press. Her device publishes the rows unmasked; `cloud/src/familyPages.js` `listView`
-  masks the row whose `position` belongs to an active entry holding offers at the moment it
-  serves the page, so a turn the server opens or closes (serverMoves) shows at once. Her
-  **Copy public list** masks the same way (`publicList({ deciding })`). `DECIDING_LABEL` is
-  copied in `familyPages.js`; `tests/familyPages.test.js` pins the two equal.
-- **Place for what they want**: under the overall number, the status
-  page shows `pref_places` from `waitlistRules.prefPlaces`: for each matching answer the
-  family narrowed (`narrowedPrefFields`: sex, breed, purposes, and colors only with
-  color matching on), their place counting only the families ahead who want the same or
-  wider on it (`prefCovers`), and `all` (every narrowed answer at once) when they narrowed
-  two or more. All open → `{}`; the page skips any number already shown above it.
-- **Available Puppies on the public list**: `listView.available` is
-  every litter with open picks, as the status page shows it (label, nickname, breed,
-  parents, dates, pups remaining by sex; never a pup's name).
-- **Ready now?** (Waitlist Spec §16.7; online lists only, and only holds ending while the
-  list is online): `waitlistRules.readyCheck(entry, today, config)`;
-  `isReadyHeld` / `isPaused` take the config as a third argument and, with it, keep a
-  family held past `readyFromDate` while unanswered (unless `unpause`), or while a No's pause
-  request waits for her; without it, the plain rule. Event kind `ready` (yes, or no with a
-  date and a required reason → `recordReadyAnswer`). `cloudWaitlist.sweepReadyChecks` (the
-  backing device, each sync) removes families past their window under `remove_after`
-  (`readyCheckLapsed`); Today lists them under `keep_paused` after `ready_answer_days`
-  (`readyCheckOverdue`) with **They're ready**, and reports a removal with its undo. The
-  family's page shows the answer, or **They told me they're ready**.
-- **A litter was born** (Waitlist Spec §16.6): `waitlistRules.whelpNotes` gives each active
-  family not paused or held a `match` or a `review` (with `why`: `listen`, `sex`, `breed`,
-  `placement`, `colors`) for a born litter before picks open with a pup available,
-  published per entry as `whelp_notes` whatever her `show_upcoming` switches say; the status
-  page's **Review your preferences** card opens the listen-only and Ask-to-change editors.
-- **Publishing** (`data/cloud/cloudWaitlist.js`): for each own kennel with
-  `waitlist_config.online` and a `public_id`, the projection is hashed and `PUT` when it
-  changed; a kennel taken offline is `DELETE`d. 20 s after the last data change
-  (`CLOUD_DATA_CHANGED_EVENT`), on load and when back online. It needs a session and cloud
-  backup on; the server also needs the **backing device** (on a syncing program, the
-  **lease holder**: below) and a server-known Pro account,
-  and the reason it stopped (`signed-out`, `backup-off`, `not-backing`, `lease-held` with
-  the holder's label and expiry, `not-syncing`, `pro-required`,
-  `kennel-taken`, `offline`, `failed`) is kept in the `waitlistOnline` settings key for the
-  card.
-- **On a syncing program (Cloud Phase 2 plan §7):** there's no backing device,
-  so the server work goes to one device at a time by a **lease** (`wl_leases`, migration
-  `0016`): two minutes, taken or renewed by `POST /waitlist/lease` and by every waitlist
-  write; another device gets `409 lease_held { holder: { label, until } }`. The device claims
-  it once per run, lazily, right before its first write (`data/cloud/serverWork.js`
-  `claimServerWork`; an idle poll asks nothing more), and only a device that syncs
-  (`not-syncing` otherwise: its writes would stay on that device) and is in front of her (a
-  syncing device in a hidden tab skips the run, `background`); a closing page lets go
-  (`DELETE /waitlist/lease`). A device that takes it over from another first pulls sync and
-  restarts its events cursor from the published `events_through`, so no family event is
-  applied twice. The card says "This device is handling your online list" while it holds
-  it, or "Handled by Jen's laptop (open now)". Vendor events (`cloudIntegrations.js`) follow
-  the same rule. Nothing is sent where it isn't offered (`isWaitlistOnlineOffered()`).
-- **The card:** Waitlist → Manage → **Publish list** → **Online list**
-  (`assets/waitlistOnlineUI.js`): put this
-  kennel's list online, its time zone, the status line, **Publish now**, **Copy public
-  list link** and **Copy application form link**. The buttons always show; one that can't
-  work yet is greyed out with a line saying why (not online yet / not published yet / the
-  form isn't open).
-- **On your website (Integrations plan §1):** the Online list card's **On your
-  website** section. Its parts:
-  - **The switch and addresses:** "Let my own website show my application form and list"
-    (`waitlist_config.embed`) and her website's addresses (`embed_origins`, optional, one per
-    line, each cleaned to an origin by `waitlistRules.embedOrigin`; an address it can't read
-    stops the save with a message). The section has its own Save, which is the card's.
-  - **What to paste**, once the list is published, each with Copy:
-    `cloudConfig.embedSnippet(publicId, 'apply' | 'list')` (a `<script async
-    src=…/family/embed.js data-kennel data-view>` with a `<noscript>` link) and
-    `cloudConfig.applyButtonSnippet` (a styled link to the form, which works anywhere and
-    without the switch). A "Where to paste it" note covers WordPress, Wix, Squarespace,
-    GoDaddy/Weebly and no-script places.
-  - **Wix:** Wix shows pasted code from its own address, so there she must leave the address
-    list blank.
-  - **The projection** carries `kennel.embed: { origins }` only while the switch is on.
-  - **The Worker** (`familyPages.frameAncestors`) turns that into the `frame-ancestors` of
-    `/apply` and `/list`: `'none'` without it, the listed origins (re-checked, at most 10), `*`
-    when none are listed, and `'none'` when every listed one is invalid. `/s/<token>` is never
-    framable. The pages are cached for 5 minutes, so a change shows within about that.
-  - **The loader** (`cloud/public/family/embed.js`, on her page) inserts one iframe of
-    `/<view>/<id>?embed=1&frame=<id>&theme=…&accent=…` after itself and sets its height from
-    `kennelos:height` messages, accepted only from that frame on the script's own origin.
-    `data-theme` is `light` (default) / `dark` / `auto`; `data-accent` is a `#rgb`/`#rrggbb`
-    color.
-  - **In the frame** (`cloud/public/family/embedded.js`): no title, footer or background; the
-    theme forced by class (outranking `prefers-color-scheme`); her accent with white or black
-    text picked from its lightness; the height reported via a `ResizeObserver`. Anything that
-    leaves goes to a new tab: a confirmed application shows "Your application is in" with
-    **Open my status page**, the list's Apply and Open my page links, and a sign-in. The sign-in
-    on the list isn't read back from storage, since a framed page's storage may be blocked.
-- **Link previews:** a shared public list or application link shows a card on
-  Facebook and in texts: the Worker (`cloud/src/familyPages.js` `withPreview`) writes Open
-  Graph tags with the kennel's name ("Thornfield Kennels waitlist" / "Apply to the Thornfield
-  Kennels waitlist") into `/list` and `/apply`, read from the published projection's
-  `kennel.name` only, and a generic image (`cloud/public/family/share.png`). Status pages
-  get none (they're private).
-- **Communicate…:** on
-  the family page's Interact tab (`waitlistEmailUI.communicateDialog`). A **How** dropdown:
-  **Send email** (only where `kennelEmailsOn` and they have an address) lists the emails that
-  fit now — their status page link, a note from you, the fee request while approved, "on the
-  list" once on it, "It's your turn" again during an open turn — with the drafted email
-  (`waitlistOutbox.draftFor`, her templates) below to edit before Send; emails tied to a
-  moment (a pass, a decision, a closed turn) still come up right after that action.
-  **Message via…** (`waitlistUI.messageViaHtml` / `wireMessageVia`): a suggested message
-  from where they stand (their turn and its respond-by date, a pup held for their deposit,
-  a fee due with her payment instructions, or their place) plus their status link when
-  online, editable, with **Share…** (the phone's share sheet: Google Voice, Messenger, any
-  app), **Copy message** and **Copy number**. The Google Voice and `sms:` buttons are gone.
-  The phone is the contact's, else the application's. KennelOS sends nothing. The message
-  box grows to fit its text, so the status link (its last line) is always in view.
-- **Editing a family's dates:** the family page's Edit form has **Applied**
-  (`applied_date`, any status) and, once a fee date exists, **Fee received**
-  (`fee_received_date`). The fee date is the position anchor, so correcting it can move the
-  family in line (not when she moved them herself: `position_anchor_date` still wins), and it
-  moves the end of a readiness hold and the day the fee counts as income. It can be changed
-  but not blanked there; `fee_received_at` (the same-day tie-break) is left as recorded.
-- **Import/Export and Settings pages:** `import-export.html` keeps
-  **Backup & restore**, **CSV import** and the **Danger zone**. `settings.html` /
-  `pages/settings.js` (More menu, after Import/Export; in the precache; excluded from Demo
-  with `import-export.html`) holds **Account** (`cloudBackupUI.mountCloudAccountCard`: the
-  cloud sign-in, **Change email…** (Cloud Phase 1 plan §2.6: at once with the old inbox, else after a day with Cancel on every device; a change asked for with the recovery code from the sign-in screen's **Lost access to your email?** (§2.7) shows as "Requested with your recovery code"), Pro on this account, Your devices, sign out, delete cloud data), **Your
-  kennel**, **Guided tour** and **This device's license**.
-  The Backup & restore card's destinations are **Cloud | This device | Dropbox** on both the
-  Back up and Restore sides (Cloud first and the default when the edition has a cloud server;
-  Dropbox Pro only; with neither, the row goes). The Cloud pane (`#br-cloud`,
-  `cloudBackupUI.mountCloudPane`) follows the other destinations' shape: a blurb, **Last
-  backup**, **Back up now** or, on the Restore side, the cloud backups as a dropdown on the
-  page (choosing one loads it and asks before rolling back), and a strip at the foot (Cloud
-  backup on/off, with Turn on / Turn off / Sign in again / Sign in and restore). Each
-  destination's strip shows only with that destination. The encrypted tier is called
-  **Sensitive records** in every screen (formerly "private backup" / "private info"; code
-  names keep `vault`/`private`): one dropdown reading Off, Locked or On, whose other entries
-  (Turn on…, Unlock…, Unlock another device…, Passkeys…, New recovery code…, Turn off…) open
-  their dialog as soon as they're chosen. **Unlock another device…** also offers **Make an
-  unlock code instead**: a one-hour, single-use code to paste into the other device's **Use
-  another device** screen (`cloudVault.createHandoffCode` / `unlockWithHandoffCode`; Private
-  Vault Plan §5.4). Lite's upgrade dialog makes one as it opens. Links into the card use `#backup-restore`.
-- **Contacts page layout:** **+ Add Contact** comes before **Manage kennels**,
-  and the bucket row (Clients / Network / Care team / Other / All, `#contacts-group-tabs`) is
-  moved by `contacts.js` to sit under the list's search bar and filters, apart from the
-  People hub's Contacts | Waitlist tabs.
-- **Current Applicants: See Your Details** (so visitors who haven't applied can skip it) and **Coming up** (pairings and early litters) on the public list page
-  are collapsed `<details>` cards, and its title reads "<Kennel> Waitlist".
-- **A family's status page:** everything centered; no badge for a family on the
-  list; **Current Position** (the number, then the kennel's name, **Added** and passes used).
-  Sections that ask them to act stay open (their turn, Ready now?, Review your preferences,
-  the fee, Thank you for applying); every other titled section folds away and starts folded,
-  and one they opened stays open while they use it (`state.opened`).
-  Their turn's card reads **The wait is over!** / "Below are the puppies available for
-  selection.", one button per pup (its name, sex and color), one **Pass on turn** button in
-  the warning tint with "N of M passes used" under it (a turn is passed once, whatever
-  litters it covers), and at the bottom "Deadline: Saturday, 10/10/2026 @11:59 pm CDT"
-  (`common.deadlineText`, the kennel's zone abbreviation for that day).
-  "Ready now?" (§16.7) reads **Alert: Pause Ending** / "Your scheduled pause is ending.
-  Please confirm that you are now ready to receive offers for upcoming puppies.", with Yes /
-  Not yet, and, when her rule removes families who don't answer, at the bottom "Deadline for
-  response: 10/26/2026" and the removal warning.
-  **Review Your Preferences** (§16.6): "With new pups upcoming, please take a moment to
-  confirm your preferences." and two lists, litters matching and not matching their
-  answers; no buttons (they ask for changes under What you asked for). **Available
-  Puppies** (was Litters: litters with open picks, or in their turn) and **Coming up** (no
-  badges) lay every litter out the same way (`common.litterHtml`): breed, its name, "Dam:
-  Juniper CGC · Sire: Ash CH", dates as MM/DD/YYYY ("Planned offering" for picks expected to
-  open), and for Available Puppies "2 females and 1 male remaining". Review Your Preferences
-  lists its litters the same way, without dates. The projection's open litters, whelp notes
-  and upcoming items carry `breed` (the dam's, else the sire's) and `sire` / `dam` as
-  `{ name, titles }`; `/f/status` adds `pups_female` / `pups_male`. Current Position shows
-  "Added 03/07/2026" and "Passes 1 of 2 used".
-  Which litters they wait for (listen-only) has no card of its own: it's the **Parents** line
-  of What you asked for ("Any", "Ash, Juniper only", "Not Willow"), and its choices sit at
-  the bottom of the Ask to change form; one Send sends a `listen` action and/or a
-  `pref_change`, whichever changed (a wider listen change still applies at her next update;
-  a narrower one still waits for her OK).
-  A family who opened their link without signing in gets one **Sign In** button in the
-  page header (no card), to `/list/<public_id>#signin`, where the list page opens its
-  sign-in and focuses the code box.
-- **Message on your public list:** `waitlist_config.public_intro_text` (blank =
-  `waitlistRules.PUBLIC_INTRO_DEFAULT`), edited on the Publish list page; `publicIntroText`
-  fills in `[Kennel Name]`, the projection publishes it as `kennel.intro`, and `/f/list`
-  passes it to the page, which shows it as plain text under the heading.
-- **Apply from the public list:** while she takes applications online, the
-  public list page shows **Apply to join the waitlist** under its heading, linking to
-  `/apply/<public_id>`; `/f/list` says so with `kennel.apply_open` (= `formView` would serve
-  her form), nothing else of the form.
-- **Status links:** every entry of an online kennel gets `status_token` (64 hex, minted by
-  `cloudWaitlist.ensureStatusTokens` before a publish; cloud tier). The family's page has
-  **Copy status link** and **New link** (`replaceStatusToken`: the old link stops working at
-  the publish that follows); the picks panel has **Copy status link** beside an open offer.
-  Links come from `cloudConfig.statusPageLink` / `publicListLink` (`apply.kennelos.app` for
-  production, staging's own address otherwise); `waitlistUI.statusLinkFor` hides them while
-  the list isn't online.
-- **The family pages** themselves are the Worker's (`cloud/public/family/`, `cloud/README.md`):
-  the public list with search and **See Your Details** (a family signs in with a code
-  emailed to their application address; the browser stays signed in 90 days), the
-  read-only status page, and the online application form.
-- **The online form** (W2 step 4): **Take applications online** on the Online list card
-  (`waitlist_config.online_form`) makes a form key on this device (`Kennel.waitlist_form_keys`,
-  private; `data/waitlistCrypto.js`) and publishes her form with the public key. Applicants'
-  browsers seal their answers to it; an application reaches her once they type the code
-  emailed to them. `cloudWaitlist.takeInApplications` opens each one on the backing device
-  and makes an `applied` entry through `data/waitlistInbox.js` (validated against her form
-  and the vocab; the inbox id is the entry id; `source: 'online_form'`, shown on the family's
-  page as "through your online form"). **Rotate form key…** retires the old key (kept).
-- **Family actions** (W2 step 5): a family signed in on their status page can choose a pup
-  (one per turn), pass (on the whole turn: `{ turn_id }`, with one of her reasons), say "Not
-  this litter" ahead of time or take it back (`prepass` / `unprepass`), say they're still interested, ask for a pause (with an end date), change which
-  litters they wait for, ask to change a matching answer, leave the list, and send her a
-  message (sealed to the kennel's form key, which every online kennel now has; the
-  projection publishes its public half as `kennel.message_key`, plus `kennel.parents` (the
-  listen-only choices, `waitlistRules.listenParentChoices`), `kennel.breeds`,
-  `kennel.color_matching`, each family's `requests`, offers with their `turn_id`, and the
-  kennel-wide `turn_queue`: every family still to have a turn, in order, with their eligible
-  pups per open litter, which W2 step 7 walks). The server records each action as
-  an event; on the **backing device only** (checked with `GET /program` before anything is
-  written; on a syncing program, the lease holder, `serverWork.js`), `cloudWaitlist.applyFamilyEvents` reads the events after its cursor
-  (`waitlistOnline.eventsCursor`; a device with none starts at the published
-  `events_through`), plans each with `data/waitlistEvents.js` against her records **now**
-  and carries it out with `waitlistActions.applyFamilyPlan`: a pick → `recordPick` (the
-  deposit stays her tap), a pass → `recordOutcome(…, 'passed')`, leaving → `withdraw`, a
-  WIDER listen-only change → applied; a pause, a NARROWER listen-only change (`listenChangeKind`:
-  leaving All, dropping a `selected` parent, adding an `except` one, or switching between
-  `selected` and `except`) and an answer
-  change → a request on the entry. An action her records no longer allow (the offer closed,
-  the pup was sold) is never forced: it becomes a line in the family's `messages` for her.
-  The next publish carries the cursor as `events_through`, and the server lets go of the
-  pups it held for picks up to there. Today (`nudges.js`) shows each pending request with
-  **Approve** / **Decline** and unread messages with **Mark read**; the family's page has a
-  **From their status page** card with the same buttons. Server moves (deadlines, automatic
-  offers) are step 7 and are skipped until then.
-- **Emails to families** (W2 step 6; Waitlist Spec §15.4): wherever the list is online
-  (`waitlistOutbox.kennelEmailsOn`) and the family has an address (the one their projection
-  carries), each action a family should hear about is followed by **Email … ?**
-  (`assets/waitlistEmailUI.offerEmails`): the email drafted from her templates
-  (`data/waitlistEmails.js`; every name, date, litter and place filled in from her records,
-  never by the server; no money in any default), ticked, for her to edit, untick or skip.
-  Where: approve (`approved`, or `on_list` when the fee is waived), decline, fee received
-  (`on_list` with their place), every turn offered (`offer`: Offer pups…, Offer to them,
-  Open picks, an undone pass, and each turn an outcome moved on, via
-  `waitlistOutbox.offerSpecs`), a pass and a no-response she records (`pass_recorded`,
-  `deadline_passed`; a void sends nothing), her decision on a request (`request_approved` /
-  `request_declined`), from the family page **Send status link** and **Email them…** (a
-  `note`), and from Today's nudges (a nudge action returns `emails`, and `today.js` offers
-  them). **Almost your turn…** gains **Send from KennelOS** (one `almost_turn` email per
-  ticked family, recording them as told) and, for litters born before picks open
-  (`whelpNotes`), **Email them about the new litter…** (`review_prefs` for families kept out
-  only by their preferences, `litter_born` for those who match and aren't mid-turn). Sending
-  queues the email on the entry (`messages`, `from: 'breeder'`, `status: 'queued'`) and
-  starts a sync; `cloudWaitlist.sendQueuedEmails` posts each one after the publish
-  (`POST /waitlist/messages`, its id making a retry the same email), and records `sent` or
-  `failed` with a reason. Offline, email down or rate-limited, they wait for the next sync.
-  The server picks the address from the published projection (never the device), sends from
-  the kennel's name (`"Thornfield Kennels" <thornfield-kennels@mail.kennelos.app>`) with no
-  Reply-To, and adds the footer with the family's status-page link. The family page lists
-  them under **Status page and emails** (a failed one with **Retry**); the status page lists
-  the sent ones under **Emails from …**. Her wording: **Emails to families** in Waitlist
-  settings.
-- **While her phone is off** (W2 step 7; `cloud/src/serverMoves.js`): for the moments she
-  ticked in `auto_offer_on`, the server closes a turn whose last day has passed (kennel time)
-  and, after that or a family's pass / leave on their page, offers the next family in her
-  published `turn_queue`, emailing both from her templates; with `email_reminders` on it also
-  sends a reminder halfway through a turn and on its last morning, one the day before an
-  unpaid fee is due, and "Ready now?" — each once. Each move is an event `made_by: 'server'`
-  (`server_close`, `server_offer`) that her backing device applies at its next sync through
-  `waitlistEvents.planServerEvent` → `waitlistActions.applyFamilyPlan` (`recordOutcome` with
-  `moveOn: false` where the server already moved on, `applyServerOffer` with the server's
-  offer ids), or, if it no longer fits her records, records as a `from: 'server'` line on the
-  family's entry. The server refuses a publish that hasn't seen its moves (`409
-  events_pending`); `cloudWaitlist` then applies them and publishes again.
-- **Before picks open** (Waitlist Spec §16.4, §16.8; W2 step 5c part 4): her
-  `waitlist_config.show_upcoming` switches publish `upcoming[]` in the projection
-  (`waitlistRules.upcomingItems`: a pairing without a litter as `planned_pairing` /
-  `pairing`; an `expected` litter as a `pairing`, keyed by its pairing; a born litter with
-  picks not open as `early_litter`), each with its parents' call names and titles
-  (`waitlistProjection.titlesByDog`, from logged `title_earned` events), her dates and
-  `public` / `family`; each active entry's `upcoming` says whether they're waiting for it
-  (listen-only) and, for a born one, whether they match it (never a place). The server's `listView` shows the public ones,
-  `statusView` the family ones; a family's Litters card lists only litters with open picks
-  (or in their turn), so with every switch off a family sees a litter only once picks open.
-  "Not this litter" works on what's shown (`checkTarget`). Today suggests **Open picks** for
-  a born litter whose `accept_deposits_date` has come with picks closed and a pup available
-  (`waitlistRules.depositsDueLitters`; only for a kennel with families on its list).
-
-### Editions
-Pro-only *surfaces* (pages in `PRO_ONLY_PAGES`, `assets/waitlistUI.js` and
-`assets/waitlistEmailUI.js` in `PRO_ONLY_STANDALONE`, in-page doors behind `editionFlags.waitlist`); the tables, repos,
-rules and actions live in `shared/data` like every other repo, so a Pro backup restored
-into Lite keeps its waitlist rows dormant. Demo gets a seeded list in W1d.
+  online view, field by field from allow-lists: the public list (unmasked; the server masks
+  the turn holder when serving), and per family their status, place (`pref_places` for
+  narrowed answers), prefs, pauses, open offers, matching litters (yes/no, never a place in a
+  litter's line), and the fee if unpaid. Never other answers, phone, address, programs,
+  notes or payment details. `as_of` = today, so it republishes daily.
+- **Publishing** (`data/cloud/cloudWaitlist.js`): each own kennel with `online` and a
+  `public_id` is hashed and `PUT` when changed (`DELETE` when taken offline), 20 s after a
+  data change, on load, and back online. Needs a sign-in, cloud backup, a server-known Pro
+  account, and the **server-work device** (§34: the backing device, or on a syncing program
+  the lease holder, `serverWork.js`). Why it stopped is kept in the `waitlistOnline` setting.
+- **Family pages** are the Worker's (`cloud/public/family/`, `cloud/src/familyPages.js`): the
+  public list, the status page (`/s/<token>`; `status_token` minted by
+  `ensureStatusTokens`, **New link** replaces it), and the online form. A family signs in
+  with an emailed code. While it's their turn, their number is hidden (`placeHidden`).
+- **Online form:** a form key per kennel (`waitlist_form_keys`, private;
+  `data/waitlistCrypto.js`). The applicant's browser seals the answers to it;
+  `takeInApplications` opens them on the server-work device and makes `applied` entries
+  through `data/waitlistInbox.js`.
+- **Family actions:** a family can pick a pup, pass a turn (with one of her reasons), say
+  "Not this litter", ask for a pause, change listen-only or answers, leave, answer "Ready
+  now?", ask for their Companion link, and message her (sealed). The server stores each as an
+  event; `cloudWaitlist.applyFamilyEvents` plans each against her records **now**
+  (`data/waitlistEvents.js`) and applies it (`applyFamilyPlan`): picks, passes, leaving and
+  wider listen changes apply; pauses, narrower changes and answer changes become requests
+  she approves or declines (Today and the family page). Anything her records no longer allow
+  becomes a message line, never forced.
+- **Emails** (`data/waitlistEmails.js` templates, `data/waitlistOutbox.js` queue): after an
+  action a family should hear about, she's offered a drafted email (`waitlistEmailUI.offerEmails`)
+  to edit or skip. Queued on the entry and posted after the publish (`sendQueuedEmails`);
+  the server sends from the kennel's name at `mail.kennelos.app`, to the address in the
+  projection, never one from the device.
+- **While her phone is off** (`cloud/src/serverMoves.js`): for the moments in
+  `auto_offer_on`, the server closes expired turns and offers the next family from her
+  published `turn_queue`, and sends reminders (with `email_reminders`). Each move is an event
+  her device applies next sync (`planServerEvent`). A publish that hasn't seen them is
+  refused (`409 events_pending`).
+- **"Ready now?"** (`readyCheck`): for holds ending while online; `sweepReadyChecks` removes
+  non-answerers under `remove_after`, Today lists them under `keep_paused`.
+- **Before picks open:** `show_upcoming` switches publish pairings and early litters
+  (`upcomingItems`); a born litter gives each family a match / review note (`whelpNotes`).
+  Today suggests **Open picks** when a litter's `accept_deposits_date` arrives
+  (`depositsDueLitters`).
+- **On her website** (Integrations plan §1): with `waitlist_config.embed`, the projection
+  carries `kennel.embed.origins` and the Worker sets `frame-ancestors` for `/apply` and
+  `/list` (`familyPages.frameAncestors`; status pages are never framable). The loader
+  `cloud/public/family/embed.js` inserts and sizes the iframe. Snippets:
+  `cloudConfig.embedSnippet` / `applyButtonSnippet`.
+- `/list` and `/apply` carry Open Graph previews from the kennel name only
+  (`familyPages.withPreview`).
 
 ---
 
