@@ -1134,3 +1134,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   online). The list stays offline until she says "Yes, put it online", from the menu too.
   Cache rolled to `kennelos-shell-v79` for this batch (Pups are going home, account health,
   set up my waitlist).
+- **FurEver pickup plan follows the drop-off event (2026-10-15).** The seed link's pickup
+  date, time and place now come from the pup's Placement / drop-off event (the same event
+  test Kels and Today use, `goHome.pickupFor`), so a moved drop-off reaches the family on
+  the next resend. The console shows it with **Edit drop-off**; a pup with no drop-off keeps
+  the typed Sale fields (still the fallback) plus **Add a drop-off event**. The editions plan
+  gained rows for Kels's Pups are going home, Set up my waitlist and Check account health.

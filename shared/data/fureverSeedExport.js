@@ -73,7 +73,7 @@ async function resolveFeedingSchedule(dog, litter) {
 }
 
 // The pickup plan's date, time and place come from the pup's Placement /
-// drop-off event (decided 2026-10-15), so a drop-off moved on the pup's
+// drop-off event, so a drop-off moved on the pup's
 // timeline reaches the family on the next resend without retyping it here.
 // Of the pup's drop-off events for this sale's family (goHome.pickupFor, the
 // same test Kels and Today use), the soonest from today on wins, else the latest

@@ -1,5 +1,5 @@
 // fureverPickup.test.js — the FurEver seed packet's pickup plan follows the pup's
-// Placement / drop-off event (decided 2026-10-15): which event counts
+// Placement / drop-off event: which event counts
 // (fureverSeedExport.pickupEventFor), what the plan carries from it and from the
 // Sale (pickupPlanFor), and the packet buildSeedPacket actually builds.
 import { test, before } from 'node:test';

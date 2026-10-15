@@ -1179,8 +1179,8 @@ in `proPages.js`).
   personal note and pickup photo persist as plain Sale fields (`furever_note`,
   `furever_pickup_photo_url`), so a resend starts from them. Furever shows the pickup plan as
   a pre-pickup countdown card.
-- **Pickup date/time/place follow the pup's Placement / drop-off event** (decided
-  2026-10-15), so a drop-off moved on the timeline reaches the family on the next resend.
+- **Pickup date/time/place follow the pup's Placement / drop-off event**, so a drop-off
+  moved on the timeline reaches the family on the next resend.
   `pickupEventFor(sale, events)` picks from the pup's drop-off events for the sale's family
   (`goHome.pickupFor`, as Kels and Today): the soonest from today on, else the latest past one.
   `pickupPlanFor(sale, event)` sends its `event_date`, `details.placement_time` and
