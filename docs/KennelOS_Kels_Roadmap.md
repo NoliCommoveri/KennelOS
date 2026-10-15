@@ -58,6 +58,19 @@ These are settled. A task that can't follow one comes back here before it's buil
 9. **A new tab is announced and waits for an OK.** Before opening one (printing, Furever),
    she says what's about to open and that she'll be waiting here, and opens it only on
    **Okay, open it**, from that tap.
+10. **Reuse before writing, and share what's repeated.** Before building a step, look for
+    the same job in the other Kels scripts and in the pages (finding a dog on file, making
+    a dog, an ancestor, a kennel or a contact, filing a document, logging an event or its
+    cost, a form's fields). If it exists, use it. If it exists as a copy in another place,
+    or the new step would make a second one, it becomes one shared function: a pure,
+    tested `data/` module for the rule, `assets/kelsSteps.js` for the chat pieces. Every
+    place then calls it, and the copies are removed in the same change. The shared pieces
+    so far: `kelsSteps` (the step engine, the form helpers, `kennelNameField`,
+    `contactFields`), `dogSearch` (`findDogMatches`, `similarNamed`, `normReg`),
+    `dogRepo.createPedigreeOnly`, `kennelRepo.findOrCreateOutside` and `seedTestsKennel`,
+    `expenseRepo.createForEvent`, `documentModal`'s `storeDocumentFile` and
+    `createDocument`, `kelsFindings`. A task's write-up says which ones it uses and what it
+    added.
 
 ## 3. Proposed tasks, in build order
 

@@ -1278,3 +1278,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `{ id }` now. And a same-number match of the wrong sex was `certain`, so a typed sire
   could be filled in with a female; a sex or breed that doesn't fit now keeps it
   `possible` (shown, saying why, never taken without her say).
+- **Kels roadmap rule 10 (2026-10-15).** "Reuse before writing, and share what's
+  repeated": a new step first looks for the same job in other Kels scripts and pages, and
+  anything that would exist twice becomes one shared function with the copies removed; the
+  rule lists the shared pieces so far.
