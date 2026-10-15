@@ -3,7 +3,7 @@
 > **Status: this is now the live plan for THIS repo, and the build has started.** The
 > "new repo" this doc refers to is this one. Foundation is in place (app relocated to
 > `shared/`, editionConfig injection point wired as a no-op, `lite/pro/demo/` skeletons).
-> See the top-level `README.md` for current build status. This document remains the
+> See the top-level `README.md` for current status and `docs/BUILD_LOG.md` for history. This document remains the
 > authoritative design for what Lite/Pro/Demo should become — read it as the target, and
 > the README as the progress.
 
@@ -497,3 +497,52 @@ see "Hosting, editions, and origin isolation."
 Reset App still wipes a Lite cap — that's the only escape hatch left, and it's self-defeating
 because it destroys the breeder's whole program. Nothing running purely in a browser can beat
 that, and for this audience nothing needs to.
+
+---
+
+## Lite scope — the page partition (decided)
+
+*Moved here from the top-level `README.md` (2026-10-15).*
+
+What Lite ships, versus Pro-only. Pro-only *pages* live in `pro/` (physically absent
+from Lite); a few Lite-kept *shared* pages render with pieces gated off via
+`editionFlags`.
+
+**Lite keeps (shared pages):** Dogs, Breeding (pairings/litters/puppies), Sales
+(self + inline add-buyer), Today/dashboard, Import/Export, kennel setup (startup
+selections), **Financials — the expense ledger + sales→income** ✅.
+
+**Pro-only (absent from Lite):**
+- People / Contacts section, full Kennel management, Stud services, Contracts.
+- Companion share-out, the Furever seed-link generator, Feeding Schedules
+  (per-breed feeding grids fed into the Furever seed packet), Assistant,
+  Documents + file storage, **Accounts** (business logins + referral links/codes, and which
+  account an expense was paid through).
+- External / leased dogs (Lite ownership picker = `owned` / `co_owned` only).
+- **All Reports** (Reports hub + every report page).
+- **Invoice / receipt generation** — the `pages/invoice.html` print doc.
+- **Puppy Record generation** — the `pages/puppy-record.html` print doc.
+
+**Shared pages that render differently in Lite (edition-flag gates, NOT omissions):**
+- **Financials (`financials.js`)** — kept for expense tracking, but the **"Invoice /
+  Receipt" generator button is hidden** in Lite.
+- **Expense form** — kept, but the **"attach a receipt photo" widget is hidden**
+  (receipts & file storage are Pro), and so is the **Account** picker (Accounts is Pro).
+- **Dog Status picker** — reduced to Puppy / Active breeding / Retired breeding / Deceased;
+  Pet home, For Sale, and External reference are Pro-only (cap spec §1a).
+- **New Dog page** — shows a "Creating x/6 available dogs" counter under the title
+  (cap spec §6), reading the same predicate the cap enforces.
+- **Sale form's inline "＋ New" contact** (`contactPicker.js`) — the Contact type list
+  drops to just Buyer, since full Contacts (People section) is Pro-only.
+- **Sale form's "Referred by"** field/link is hidden entirely — it's a Buyer-referrer
+  Contacts feature, Pro-only.
+- **Litter form's "Foster arrangement" section** is hidden entirely in Lite (Pro-only).
+  In Pro/Demo it's a `<details>` disclosure, collapsed by default and open only when
+  the litter already has foster data.
+- **Litter form's "Feeding schedule override" field** is hidden entirely in Lite
+  (Pro-only) — the per-litter override for the Feeding Schedules feature.
+- **Dashboard "Archived (any status)" tile** is hidden in Lite — archive counts are
+  part of the hidden archive machinery (cap spec §7), not just the toggles/links.
+
+(The cap itself — 6 counting dogs, 10 litters — and archive-on-departure are separate
+from this page partition; see the cap spec.)

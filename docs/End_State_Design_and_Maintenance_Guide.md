@@ -8,7 +8,7 @@
 > code**, not the authoritative description of the repo as a whole.
 >
 > - **Authoritative current-state architecture** = the editions model: the top-level
->   `README.md` (layout + build status) plus `docs/KennelOS_Lite_Pro_Editions_Plan.md`
+>   `README.md` (layout + status; history in `docs/BUILD_LOG.md`) plus `docs/KennelOS_Lite_Pro_Editions_Plan.md`
 >   and `docs/KennelOS_Lite_Cap_Enforcement_Spec.md`.
 > - **Path translation:** wherever this guide says `KennelOS/…` or a bare `data/…`,
 >   `assets/…`, `pages/…`, `sw.js`, read it as **`shared/…`** (e.g. `shared/data/db.js`,

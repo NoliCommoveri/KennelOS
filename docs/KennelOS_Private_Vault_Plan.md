@@ -359,7 +359,7 @@ Where the build differs from §6.1–§6.2 above, this wins:
 - No edition differences: Lite and Pro both get it; Demo has `cloudUrl: null`.
 - `shared/sw.js` `PRECACHE_URLS` gains the new client files (none Pro-only); `CACHE_NAME`
   bump asked first, as always.
-- Docs in the same change as each step: README build status; Phase 1 §2.2 status line and
+- Docs in the same change as each step: `docs/BUILD_LOG.md` entry; Phase 1 §2.2 status line and
   §5.1 Decision 3 (now "built"); Proposal §6.3 and §9 (Phase 2b status); Editions Plan
   ("Converting Lite → Pro": after the vault, the file isn't needed); End-State guide (§30
   cloud section: the new table, modules and flows; `device_secrets` in the schema block);

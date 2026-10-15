@@ -6,7 +6,8 @@ build step). Three editions off one shared core: the full app is under `shared/`
 the opt-in cloud API in `cloud/` (Cloudflare Worker); the app must run identically without it.
 
 ## Docs
-- Read **`README.md`** (editions layout + build status) at the start of a session.
+- Read **`README.md`** (summary, layout, doc map, current status) at the start of a session.
+  History lives in `docs/BUILD_LOG.md`: append to it, don't read it by default.
 - Consult only when the task touches them: `docs/KennelOS_Lite_Pro_Editions_Plan.md` +
   `docs/KennelOS_Lite_Cap_Enforcement_Spec.md` (edition intent);
   `docs/End_State_Design_and_Maintenance_Guide.md` (reference map of `shared/` code — read its
