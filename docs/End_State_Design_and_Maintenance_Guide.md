@@ -1763,8 +1763,10 @@ available pups with prospective families via Companion links. It **never opens p
 ### "Add dogs"
 One dog or several in one go, the way the litter task takes several puppies. `stepsFor`:
 1. **Who are we adding?** (`roster`): a row per dog, its name and **♂ Boy** / **♀ Girl**,
-   with **+ Another dog** (up to `MAX_DOGS`, 20) and ✕ to take a row off. Names must differ;
-   an empty row is dropped.
+   with **+ Another dog** (up to `maxDogs`: `MAX_DOGS`, 20, or in Lite the room left under
+   the cap, `dogCapStatus()`, shown as "You have room for 2 more dogs") and ✕ to take a row
+   off. Names must differ; an empty row is dropped. In Lite with no room left, she shows
+   the upgrade notice in place of the task's questions.
 2. **We found…** (`match:<i>`, only for a name already on file: `guidedLitter.dogMatches`
    over every dog not archived, pedigree-only and outside dogs included). **Yes, that's
    her** leaves a dog that's already hers as it is (listed under "Already in KennelOS" on
@@ -1802,7 +1804,15 @@ so far are kept and linked, the rest aren't made, and she says who she added and
 **The draft:** `settings.guidedDogsDraft` (`DRAFT_VERSION`), as the litter's: device-only,
 cleared by Reset App, one at a time.
 
-**After the save** (Pro, `editionFlags.documents`): "Do you have any papers to file for
+**After the save, when she got them** (all editions, the dogs made that are owned or
+co-owned): "Did you buy any of them? I can add when you got them and who from. A rough
+date is fine if it's hard to remember." **Yes, let's add that** opens one form, a block per
+dog (ticked; untick any she didn't buy): the date (required), who from, the price.
+`saveAcquisitions` makes each an `acquisition` event (titled "Purchased from <seller>",
+`details.source`), and a price an expense linked to it (`expenseRepo.createForEvent`,
+category `dog_purchase`), exactly as the event form's Cost does.
+
+**Then** (Pro, `editionFlags.documents`): "Do you have any papers to file for
 them?" **Yes, let's file them** asks which dog (with several), then a form in the chat: the
 type (`DOC_TYPES`), a PDF or photos (taken or chosen, built into one PDF), a title, a date,
 and the type's fields (`documentFieldsFor`; a registration's number prefilled from the dog).

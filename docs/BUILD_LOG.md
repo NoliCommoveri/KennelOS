@@ -1210,3 +1210,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `assets/kelsSteps.js` (`StepConversation`) so both tasks share it; the Dog page's
   planned-test seeding moved to `kennelRepo.seedTestsKennel` so Kels seeds the same way.
   Not yet: the pedigree photo, and the history step (waits for Add new events, §3.10).
+- **Kels Add dogs: Lite room and purchases (2026-10-15).** In Lite the roster has only as
+  many rows as she has room for (`dogCapStatus()`, "You have room for 2 more dogs"), and at
+  the cap she shows the upgrade notice before any questions. After the save, "Did you buy
+  any of them?" asks, in one form, each owned dog's purchase date (a rough date is fine),
+  seller and price: an `acquisition` event and a linked `dog_purchase` expense. The event
+  form's linked-expense write moved to `expenseRepo.createForEvent` so both share it.

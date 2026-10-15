@@ -189,8 +189,10 @@ several dogs are taken the litter task's way, not "Add another?" after each: one
 names (boy / girl) first, then what they have in common asked once and filled in on each,
 then each dog's details and parents, then one review and save (a resumable draft, on the
 litter task's step engine, `assets/kelsSteps.js`). A typed parent is a pedigree-only dog;
-a parent can be another dog in the same batch. The pedigree photo isn't offered yet, and
-the history step waits for Add new events (§3.10).
+a parent can be another dog in the same batch. In Lite the roster has only as many rows as
+she has room for. Of the history, only the purchase is asked now ("Did you buy any of
+them?", a rough date is fine): an `acquisition` event and its price. The pedigree photo
+isn't offered yet, and the rest of the history waits for Add new events (§3.10).
 
 One dog or several in a row ("Add another?" after each). Typed in (duplicate check first,
 `dogMatches`), or from a pedigree photo (`pedigreeImport`), with parents through the

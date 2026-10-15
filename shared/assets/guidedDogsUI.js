@@ -13,7 +13,8 @@ import { dogRepo } from '../data/dogRepo.js';
 import { contactRepo } from '../data/contactRepo.js';
 import { kennelRepo } from '../data/kennelRepo.js';
 import { ownKennels, getActiveKennelId } from '../data/kennelScope.js';
-import { editionFlags } from '../data/editionConfig.js';
+import { editionFlags, dogCapStatus } from '../data/editionConfig.js';
+import { CapExceededError } from '../data/repoBase.js';
 import { getGuidedDogsDraft, setGuidedDogsDraft, clearGuidedDogsDraft } from '../data/settings.js';
 import { DOG_STATUS, OWNERSHIP_TYPE, DOC_TYPES, documentFieldsFor, descriptor } from '../data/vocab.js';
 import { SCOPED_OWNERSHIP } from '../data/kennelScope.js';
@@ -28,11 +29,12 @@ import { StepConversation, tile, field, input, options, val, plural, pagesPrefix
 async function loadData() {
   // Pedigree-only dogs too: a name she types may be one (brought into use), and
   // they're parents to pick.
-  const [dogs, contacts, kennels, own] = await Promise.all([
+  const [dogs, contacts, kennels, own, capStatus] = await Promise.all([
     dogRepo.getAll({ includeArchived: false, includePedigreeOnly: true }),
     editionFlags.externalOwnership ? contactRepo.getAll({ includeArchived: false }) : Promise.resolve([]),
     kennelRepo.getAll({ includeArchived: false }),
-    ownKennels()
+    ownKennels(),
+    dogCapStatus()
   ]);
   const name = (d) => d.call_name || d.registered_name || '';
   return {
@@ -42,6 +44,10 @@ async function loadData() {
     contactsById: new Map(contacts.map((c) => [c.id, c])),
     kennelsById: new Map(kennels.map((k) => [k.id, k])),
     own: own.filter((k) => !k.is_archived),
+    // Lite's cap: { current, cap }, null where dogs aren't capped. The roster
+    // never has more rows than she has room for.
+    capStatus,
+    maxDogs: G.maxDogs(capStatus),
     breeds: [...new Set(dogs.map((d) => (d.breed || '').trim()).filter(Boolean))].sort()
   };
 }
@@ -127,7 +133,8 @@ function screens(draft, data) {
             ${draft.dogs.length > 1 ? `<button type="button" class="btn gd-remove" data-act="remove" data-key="${esc(d.key)}" aria-label="Take ${esc(d.call_name || 'this row')} off">✕</button>` : '<span></span>'}
           </div>`).join('')}
         </div>
-        ${draft.dogs.length < G.MAX_DOGS ? '<button type="button" class="btn gl-more" data-act="add">+ Another dog</button>' : ''}`,
+        ${draft.dogs.length < data.maxDogs ? '<button type="button" class="btn gl-more" data-act="add">+ Another dog</button>' : ''}
+        ${data.capStatus ? `<p class="muted gl-note">${draft.dogs.length < data.maxDogs ? `You have room for ${plural(data.maxDogs, 'more dog', 'more dogs')}.` : 'That\'s all the room you have left.'}</p>` : ''}`,
       read: (root) => {
         for (const d of draft.dogs) {
           const el = root.querySelector(`#gd-name-${d.key}`);
@@ -349,6 +356,12 @@ export async function runDogsTask(chat, { resume = false, onExit = () => {}, onS
   const data = await loadData();
   let draft = resume ? pendingDogsDraft() : null;
   if (!draft) {
+    // Lite with no room left: the usual upgrade notice, before any questions.
+    if (data.capStatus && !data.maxDogs) {
+      renderUpgradeNudge(await chat.say(''), new CapExceededError('dogs', data.capStatus.current, data.capStatus.cap));
+      onExit('done');
+      return;
+    }
     draft = G.emptyDraft();
     // With several kennels, the one she's working in is the suggestion.
     const active = getActiveKennelId();
@@ -392,7 +405,7 @@ class DogsConversation extends StepConversation {
 
   problem(stepId) {
     return G.stepProblem(stepId, this.draft, {
-      dogs: this.data.dogs, multiKennel: this.data.own.length > 1, ownKennelIds: this.data.own.map((k) => k.id)
+      dogs: this.data.dogs, multiKennel: this.data.own.length > 1, ownKennelIds: this.data.own.map((k) => k.id), maxDogs: this.data.maxDogs
     });
   }
 
@@ -430,8 +443,55 @@ class DogsConversation extends StepConversation {
     } else {
       await this.chat.say(`Done! ✓ I added ${esc(names)}. Your program's looking great.`, { typing: 1100 });
     }
+    const bought = dogs.filter(G.canBeBought);
+    if (bought.length) await this.acquisitions(bought);
     if (dogs.length && editionFlags.documents) await this.documents(dogs);
     await this.finish(dogs);
+  }
+
+  // "Did you buy any of them?": when and who from, and the price, in one form.
+  async acquisitions(dogs) {
+    const one = dogs.length === 1 ? dogs[0] : null;
+    await this.chat.say(`${one ? `Did you buy ${esc(dogName(one))}?` : 'Did you buy any of them?'} I can add when you got ${one ? herHim(one.sex) : 'them'} and who from. A rough date is fine if it's hard to remember.`);
+    const go = await this.chat.choose([
+      { label: 'Yes, let\'s add that', value: 'yes', primary: true },
+      { label: one ? 'No' : 'No, none of them', value: 'no' }
+    ]);
+    if (go !== 'yes') return;
+    const today = todayYMD();
+    const res = await this.chat.form({
+      title: `<strong>When did you get ${one ? esc(dogName(one)) : 'them'}?</strong><span class="kels-lead">${one ? '' : 'Untick any you didn\'t buy. '}The price goes in Financials as a dog purchase.</span>`,
+      html: dogs.map((d) => `<div class="gl-extra-row" data-dog="${esc(d.id)}">
+          ${one ? `<strong>${esc(dogName(d))}</strong>` : `<label class="ck-check"><input type="checkbox" data-k="bought" checked> <strong>${esc(dogName(d))}</strong></label>`}
+          <div class="ck-inline">
+            ${field('Date (rough is fine)', `<input type="date" data-k="date" max="${today}" aria-label="When you got ${esc(dogName(d))}">`)}
+            ${field('Bought from (optional)', `<input type="text" data-k="source" placeholder="Breeder or kennel" aria-label="Who ${esc(dogName(d))} came from">`)}
+            ${field('Price (optional)', `<input type="number" data-k="price" min="0" step="0.01" inputmode="decimal" aria-label="What you paid for ${esc(dogName(d))}">`)}
+          </div>
+        </div>`).join(''),
+      wire: (root) => {
+        root.querySelectorAll('input[data-k="bought"]').forEach((box) => box.addEventListener('change', () => {
+          box.closest('[data-dog]').querySelector('.ck-inline').style.display = box.checked ? '' : 'none'; // .ck-inline's grid outranks [hidden]
+        }));
+      },
+      submitLabel: 'Save',
+      cancelLabel: 'Skip',
+      submit: async (root) => {
+        const rows = [...root.querySelectorAll('[data-dog]')]
+          .filter((el) => el.querySelector('input[data-k="bought"]')?.checked ?? true)
+          .map((el) => {
+            const v = (k) => el.querySelector(`input[data-k="${k}"]`).value.trim();
+            const d = dogs.find((x) => x.id === el.dataset.dog);
+            return { dogId: d.id, name: dogName(d), date: v('date'), source: v('source'), price: v('price') };
+          });
+        const problem = G.acquisitionProblem(rows, today);
+        if (problem) return problem;
+        await G.saveAcquisitions(rows);
+        return rows;
+      },
+      reply: (rows) => rows.map((r) => [`${one ? '' : `${r.name}: `}${fmt(r.date)}`, r.source ? `from ${r.source}` : '', r.price ? `$${r.price}` : ''].filter(Boolean).join(' ')).join(' · ')
+    });
+    if (res.done) await this.chat.say(`Added to ${one ? `${esc(dogName(one))}'s timeline` : 'their timelines'}. ✓`, { typing: 500 });
   }
 
   // Pro: their papers, filed on each dog as the Documents page files them.

@@ -24,8 +24,10 @@ import { kennelRepo, seedTestsKennel } from './kennelRepo.js';
 import { resolveKennelIdForWrite, SCOPED_OWNERSHIP } from './kennelScope.js';
 import { getMyContactId } from './settings.js';
 import { CapExceededError } from './repoBase.js';
+import { eventRepo } from './eventRepo.js';
+import { expenseRepo } from './expenseRepo.js';
 import { todayYMD } from './dateUtils.js';
-import { SEX, DOG_STATUS, OWNERSHIP_TYPE, descriptor } from './vocab.js';
+import { SEX, DOG_STATUS, OWNERSHIP_TYPE, descriptor, defaultExpenseCategoryFor } from './vocab.js';
 import { dogMatches, fmt } from './guidedLitter.js';
 
 export const DRAFT_VERSION = 1;
@@ -158,14 +160,24 @@ export function stepsFor(draft) {
 
 export const stepIndex = (step) => Number(step.split(':')[1]);
 
+// How many roster rows she may have: MAX_DOGS, or fewer where the edition caps
+// dogs (`capStatus`: editionConfig.dogCapStatus(), null when uncapped).
+export function maxDogs(capStatus) {
+  if (!capStatus) return MAX_DOGS;
+  return Math.max(0, Math.min(MAX_DOGS, capStatus.cap - capStatus.current));
+}
+
 // One plain-language problem with the step's answers, or null when it's fine.
-// ctx: { dogs (on file), multiKennel, ownKennelIds }.
+// ctx: { dogs (on file), multiKennel, ownKennelIds, maxDogs }.
 export function stepProblem(step, draft, ctx = {}) {
   const today = todayYMD();
   if (step === 'roster') {
     const rows = draft.dogs.filter((d) => !isEmptyRow(d));
     if (!rows.length) return 'Type the name of a dog you\'re adding.';
-    if (rows.length > MAX_DOGS) return `I can add up to ${MAX_DOGS} dogs at a time.`;
+    const max = ctx.maxDogs ?? MAX_DOGS;
+    if (rows.length > max) {
+      return max < MAX_DOGS ? `You have room for ${max} more ${max === 1 ? 'dog' : 'dogs'}. Take ${rows.length - max === 1 ? 'one' : 'some'} off the list.` : `I can add up to ${MAX_DOGS} dogs at a time.`;
+    }
     const unnamed = rows.find((d) => blank(d.call_name));
     if (unnamed) return 'Type a name for each dog, or take that row off.';
     const noSex = rows.find((d) => !['male', 'female'].includes(d.sex));
@@ -375,4 +387,42 @@ export async function saveGuidedDogs(draft, { onProgress = () => {} } = {}) {
   draft.done = true;
   await step();
   return { made: made.map((d) => d.id), notMade: dogsToAdd(draft).filter((d) => !made.includes(d)), capError };
+}
+
+// --- After the save: when she got them -------------------------------------------
+// "Did you buy any of them?" Each dog she bought gets an `acquisition` event
+// (the first on its timeline, as the event form makes it: `source` the seller),
+// and its price an expense linked to that event (`dog_purchase`, the event
+// form's Cost). A rough date is fine; it's the date she gives.
+// rows: [{ dogId, name, date, source, price }].
+
+export const canBeBought = (d) => SCOPED_OWNERSHIP.has(d.ownership_type) && !d.pedigree_only;
+
+export function acquisitionProblem(rows, today = todayYMD()) {
+  if (!rows.length) return 'Tick the dogs you bought, or tap Skip.';
+  for (const r of rows) {
+    if (blank(r.date)) return `When did you get ${r.name}? A rough date is fine.`;
+    if (r.date > today) return `${r.name}'s date can't be in the future.`;
+    if (!blank(r.price) && !(Number(r.price) >= 0)) return `${r.name}'s price must be a number, like 2500.`;
+  }
+  return null;
+}
+
+export function acquisitionEvent(r) {
+  const source = trimmed(r.source);
+  return {
+    subject_type: 'dog', subject_id: r.dogId, event_type: 'acquisition', event_date: r.date,
+    title: source ? `Purchased from ${source}` : 'Purchased',
+    details: source ? { source } : {}
+  };
+}
+
+export async function saveAcquisitions(rows) {
+  const events = [];
+  for (const r of rows) {
+    const ev = await eventRepo.create(acquisitionEvent(r));
+    if (!blank(r.price)) await expenseRepo.createForEvent(ev, { amount: Number(r.price), category: defaultExpenseCategoryFor('acquisition') });
+    events.push(ev);
+  }
+  return events;
 }

@@ -246,3 +246,42 @@ test('statuses and ownership follow the edition', () => {
   assert.deepEqual(g.ownershipChoices({ externalOwnership: false }).map((o) => o.value), ['owned', 'co_owned']);
   assert.deepEqual(g.ownershipChoices({ externalOwnership: true }).map((o) => o.value), ['owned', 'co_owned', 'external']);
 });
+
+test('Lite: the roster never has more rows than she has room for', () => {
+  assert.equal(g.maxDogs(null), g.MAX_DOGS);
+  assert.equal(g.maxDogs({ current: 4, cap: 6 }), 2);
+  assert.equal(g.maxDogs({ current: 6, cap: 6 }), 0);
+  const d = g.emptyDraft();
+  d.dogs = ['Aa', 'Bb', 'Cc'].map((call_name) => Object.assign(g.newDog(), { call_name, sex: 'male' }));
+  assert.match(g.stepProblem('roster', d, { maxDogs: 2 }), /room for 2 more dogs/);
+  assert.equal(g.stepProblem('roster', d, { maxDogs: 3 }), null);
+});
+
+test('"Did you buy them?": a date for each (rough is fine), then an acquisition event and its price', async () => {
+  const { eventRepo } = await import('../shared/data/eventRepo.js');
+  const { expenseRepo } = await import('../shared/data/expenseRepo.js');
+  assert.ok(g.canBeBought({ ownership_type: 'owned' }));
+  assert.ok(!g.canBeBought({ ownership_type: 'external' }));
+  assert.match(g.acquisitionProblem([]), /Tick the dogs/);
+  assert.match(g.acquisitionProblem([{ name: 'Pip', date: '' }]), /rough date is fine/);
+  assert.match(g.acquisitionProblem([{ name: 'Pip', date: tomorrow() }]), /future/);
+  assert.match(g.acquisitionProblem([{ name: 'Pip', date: '2023-01-01', price: 'lots' }]), /number/);
+  const dog = await dogRepo.create({ call_name: 'Wexley', sex: 'male', breed: 'Whippet', ownership_type: 'owned', status: 'active_breeding', kennel_id: kennelId });
+  const plain = await dogRepo.create({ call_name: 'Yarrowby', sex: 'female', breed: 'Whippet', ownership_type: 'owned', status: 'active_breeding', kennel_id: kennelId });
+  const rows = [
+    { dogId: dog.id, name: 'Wexley', date: '2023-06-01', source: ' Ridgeline Whippets ', price: '1800' },
+    { dogId: plain.id, name: 'Yarrowby', date: '2022-01-01', source: '', price: '' }
+  ];
+  assert.equal(g.acquisitionProblem(rows), null);
+  await g.saveAcquisitions(rows);
+  const [ev] = (await eventRepo.getForSubject('dog', dog.id)).filter((e) => e.event_type === 'acquisition');
+  assert.equal(ev.title, 'Purchased from Ridgeline Whippets');
+  assert.deepEqual(ev.details, { source: 'Ridgeline Whippets' });
+  const exp = await expenseRepo.getOneByEvent(ev.id);
+  assert.equal(exp.amount, 1800);
+  assert.equal(exp.category, 'dog_purchase');
+  assert.equal(exp.expense_date, '2023-06-01');
+  const [ev2] = (await eventRepo.getForSubject('dog', plain.id)).filter((e) => e.event_type === 'acquisition');
+  assert.equal(ev2.title, 'Purchased');
+  assert.equal(await expenseRepo.getOneByEvent(ev2.id), null);
+});
