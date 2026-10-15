@@ -256,8 +256,9 @@ without opening each dog's page. Also how Add dogs (§3.8) brings in a new dog's
 
 ### 3.11 Help me find / do / understand: **L**, all editions — Find: steps 1–2 **Built**
 As built: End-State guide §33 ("Finding Something", "The top"); history in
-`docs/BUILD_LOG.md`. **Modified:** Find has no `KELS_INTRO` (§2.7), since it asks one thing
-and builds nothing; synonyms and slips are their own lower passes, after her words
+`docs/BUILD_LOG.md`. **Modified:** Find's intro (§2.7) is its own how-it-works line
+(`KELS_FIND_INTRO`: it searches features and records, and asks when there are several)
+in place of `KELS_INTRO`, since it builds nothing; synonyms and slips are their own lower passes, after her words
 themselves at every level (a typo or a synonym never hides an exact word deeper down); a
 search that finds nothing offers View your dogs / Manage your litters / See your finances /
 See your contacts / Sharing your pups, or new words. Still to build: steps 3–4.

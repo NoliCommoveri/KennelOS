@@ -15,6 +15,7 @@ import { eventRepo } from '../data/eventRepo.js';
 import { resolveKennelIdForWrite } from '../data/kennelScope.js';
 import { edition, editionFlags, navItems, moreItems } from '../data/editionConfig.js';
 import { esc, fmtDate } from './ui.js';
+import { KELS_FIND_INTRO } from './kelsChat.js';
 
 // What she offers when nothing matches: the places most people are after
 // (cheat-sheet ids), each only where this edition has it.
@@ -51,8 +52,8 @@ const whyText = (why) => (why ? why.replace(/ ?(\d{4}-\d{2}-\d{2})/, (m, d) => `
 const foundIn = (h, words) => (h.why ? ` I found "${esc(words.join(' '))}" in ${h.why === 'notes' ? 'the notes' : esc(whyText(h.why))}.` : '');
 
 export async function runFindTask(chat, { onExit = () => {}, handoff = null, tasks = [] } = {}) {
+  if (!(await chat.intro('Absolutely!', KELS_FIND_INTRO))) return onExit('nevermind');
   let candidates = null;
-  await chat.say('Sure thing, let\'s find it!', { typing: 500 });
   let prompt = '<strong>What are you looking for?</strong><span class="kels-lead">A word or two is plenty: a dog\'s name, "receipts", "contracts"…</span>';
   for (;;) {
     const res = await chat.form({

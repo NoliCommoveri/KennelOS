@@ -1315,3 +1315,4 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   the cheat sheet needed "puppy payments", "stud my dog", "people on waitlist". All fixed.
   The tidy-up's "contact", "breeder", "kennel" and "stud" keywords are now Pro-gated
   (Lite's Find offered the tidy-up for "contacts").
+- **Kels Find intro (2026-10-15).** Finding Something opens like every task, with `chat.intro`: "Absolutely!" and its own how-it-works line (`KELS_FIND_INTRO`; `intro(opener, how)` takes it), answered Sounds great, let's start! / Never mind. The no-match places add Sharing your pups (Pro).

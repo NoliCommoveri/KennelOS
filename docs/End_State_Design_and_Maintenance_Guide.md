@@ -1779,8 +1779,11 @@ isn't closed (**Check in with Kels**, `kels.html?task=checkin&litter=<id>`).
 ### "Finding Something"
 `assets/kelsFindUI.js` + `data/kelsFind.js` (the engine) + `data/kelsKnowledge.js` (the cheat
 sheet) + `data/findRecords.js` (her records as candidates); the three data modules are pure
-and tested (`tests/kelsFind.test.js`). Reads only; no `KELS_INTRO` (it builds nothing): "Sure
-thing, let's find it!", then a search box.
+and tested (`tests/kelsFind.test.js`). Reads only. It opens with `chat.intro('Absolutely!',
+KELS_FIND_INTRO)`: "I'll look through the app and try to find what you're looking for. I'll
+search app features and your existing records. If I find several matches, I'll ask you to
+choose one or ask follow-up questions. Sound good?" (in place of `KELS_INTRO`, since it
+builds nothing), then a search box.
 - **Candidates:** `{ id, group, title, sub, where, href | taskId, boost, levels, numbers?,
   facets? }`. **Places:** `kelsKnowledge.PLACES`, written by us, each with the sentence she
   says (`where`, naming hubs by this edition's menu labels) and a link (a tab in its query

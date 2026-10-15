@@ -28,6 +28,8 @@ export const kelsWelcome = () => `${kelsHello()} I'm here to help you manage you
 // How she works, said at the start of every new task (not a resumed one), after
 // the task's own opener. The answers are INTRO_CHOICES.
 export const KELS_INTRO = 'I\'ll ask you some questions; once I\'m done collecting the information, I\'ll build the records for you to approve. If you get stuck or need to save and come back, I\'ll save what we\'ve got so far until you\'re ready to continue. Sound good?';
+// Finding Something's version: it searches, so there are no records to approve.
+export const KELS_FIND_INTRO = 'I\'ll look through the app and try to find what you\'re looking for. I\'ll search app features and your existing records. If I find several matches, I\'ll ask you to choose one or ask follow-up questions. Sound good?';
 const INTRO_CHOICES = [
   { label: 'Sounds great, let\'s start!', value: 'start', primary: true },
   { label: 'Never mind', value: 'nevermind' }
@@ -226,8 +228,9 @@ export function createChat(box) {
 
     // A new task's start: her `opener` (trusted markup: "Sure thing, let's…"),
     // KELS_INTRO, and Sounds great / Never mind. → true to go ahead.
-    async intro(opener) {
-      await this.say(`${opener} ${KELS_INTRO}`, { typing: 900 });
+    // `how`: what she'll do, after the opener (KELS_INTRO unless a task says otherwise).
+    async intro(opener, how = KELS_INTRO) {
+      await this.say(`${opener} ${how}`, { typing: 900 });
       return (await this.choose(INTRO_CHOICES)) === 'start';
     },
 
