@@ -66,7 +66,7 @@ export const PLACES = [
     where: (nav) => `${nav('pages/breeding.html')} in the menu shows each breeding with its litter and puppies, newest first.` },
   { id: 'pairings', title: 'Pairings', href: 'pairings.html', keywords: ['pairings', 'pairing', 'breedings', 'matings', 'planned breeding'],
     where: (nav) => `Pairings (planned and actual breedings) are under ${nav('pages/breeding.html')}.` },
-  { id: 'litters', title: 'Litters', href: 'litters.html', keywords: ['litters', 'whelped', 'expected', 'litter list'],
+  { id: 'litters', title: 'Litters', href: 'litters.html', keywords: ['litters', 'whelped', 'expected', 'litter list', 'puppies', 'pups', 'unsold puppies', 'unsold pups', 'available puppies', 'available pups'],
     where: (nav) => `Litters, whelped and expected, are under ${nav('pages/breeding.html')}. Each litter's page has its puppies, prices and sales.` },
   { id: 'heat-log', title: 'Log a heat', href: 'breeding.html', keywords: ['heat', 'season', 'in heat', 'log heat', 'heat cycle', 'progesterone'],
     where: (nav) => `${nav('pages/breeding.html')} has a + Log heat cycle button. A dog's heats are in its history too.` },

@@ -1340,3 +1340,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Review's Placements tile says "2 Limited · 1 Full" (`moneyReport.byRegistration`,
   `registrationSummary`). The Kels roadmap's kennel check-up (§3.14) now names the new
   waitlist reports and the registration split as its sources.
+- **Kels finds litters by "puppies" (2026-10-15).** The Litters place's keywords gain
+  puppies / pups and unsold / available puppies / pups, so "unsold puppies" or "available
+  pups" goes straight to Litters, and plain "puppies" lists it (5th, behind the
+  puppy-titled places).

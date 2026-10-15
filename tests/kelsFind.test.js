@@ -134,3 +134,10 @@ test('cheat sheet: unique ids, every page exists and is precached, kennel places
   }
   assert.ok(!placeCandidates({ edition: 'pro', flags: PRO, nav }).some((p) => p.href.includes('kennel.html')));
 });
+
+test('unsold or available puppies are on the litter pages', () => {
+  for (const q of ['unsold puppies', 'available pups', 'unsold pups', 'available puppies']) {
+    assert.equal(F.clearWinner(F.search(all(), q).hits)?.c.id, 'place:litters', q);
+  }
+  assert.ok(titles(F.search(all(), 'puppies')).includes('Litters'));
+});
