@@ -644,7 +644,8 @@ When in doubt: `value` = text (escaped for you), `cell` = HTML (you escape).
   kennel-scoped.
 - **eventForm.js** — the event modal (§8). Event has no page of its own, so
   `openEventFromQuery` lets a subject page open one: `openEvent=<id>`, or
-  `logEvent=<type>` with optional `logDate`, `logTitle`, `logDetails` (JSON).
+  `logEvent=<type>` with optional `logDate`, `logTitle`, `logEnd` (a span's end),
+  `logContact` (related contact id), `logDetails` (JSON).
 - **contactPicker.js** — `attachNewContactButton(select, {onCreated, defaultType,
   defaultName})` adds an inline "＋ New" contact; `onCreated` runs before the `change` event.
   In Lite the type list is Buyer only.
@@ -811,13 +812,19 @@ wires each action, and adds one Dismiss button per row. Dismissals are device-lo
 | `pairingnolitter` | a `whelped` pairing has no litter (not for external dams or pairings over 180 days old) | create the litter |
 | `deceased-sale`, `deceased-pairing` | a deceased dog has an open sale or a pending pairing | end the sale / cancel or fail the pairing |
 | `deceased-archive` | a puppy died in its first year (last 90 days) | Archive (Lite: Remove from program) |
-| `littersold` / `litterreopen` / `litterclose` | a litter's roster is all resolved with one placed / a pup is available again / every placed pup's sale is delivered | change litter status |
+| `littersold` / `litterreopen` | a `ready` litter's roster is all placed/keeping/health hold with one placed (and it can't close yet) / a sold or closed litter has a pup available again | change litter status |
+| `litterclose` | `litterCheckin.litterCloseDue`: a born litter at any status but `closed`, no live pup `available` or `undecided` (blank = undecided; keeping, health hold and grown-up pups don't count), no open sale on any of its pups (`isOpenSale`), and one `delivered` sale. Sales come from every pup of the litter, archived ones included (`litterSalesOf`), and it's checked even when no live pup is left | close the litter |
+| `gohome-schedule` / `gohome-boarding` / `gohome-overdue` | `goHome.goHomeIssue` for a pup with a sale at `deposit_paid`/`paid_in_full`: from 7 days before the ready date, no pickup (`placement` event for that buyer, or with no contact) today or later and no boarding running / the sale has a `deferred_boarding_amount` and no boarding logged from 7 days before the ready date on / the latest pickup date has passed | the pup's event form prefilled (pickup or boarding) / `sale.html?id=…&deliver=1` |
 | `show-title` | a show track is complete with no `title_earned` event | prefilled title event |
 | `int-review` | a vendor event wasn't applied (`integration_reviews`, §32) | open the record; Done removes it |
 | `follow-up` | a pup went home 7–60 days ago (`referralShare`) | write a thank-you note |
 | `waitlist-*` | new applications, an offer or fee past due, a removal's undo window, planned deposit date reached (`open-picks`), "Ready now?" unanswered, family messages, and family requests (pref, pause, listen, Companion link) | the matching waitlist action (§29) |
 
-Litter-lifecycle rules ignore deceased pups. The linked-status rules back up prompts the
+Litter-lifecycle rules ignore deceased pups. The same close rule runs on the Sale page: a
+save that moves a sale into delivered / returned / cancelled / voided asks **Close the
+litter?** when `litterCloseDue` holds (`sale.js` `promptCloseLitter`, last of the post-save
+prompts). `sale.html?id=…&deliver=1` opens an open sale in edit with Delivered chosen, so her
+Save runs delivery's prompts. The linked-status rules back up prompts the
 litter, pairing, dog and sale pages show on the edit itself, for changes made elsewhere
 (import, sync, another device).
 
@@ -877,7 +884,7 @@ the recipient's own.
 
 ### Transport and the shell
 - The bundle rides the URL fragment: JSON → lz-string (vendored) →
-  `companion-view.html#<hash>`, built by `assets/companionLink.js` (shared with Ken's share
+  `companion-view.html#<hash>`, built by `assets/companionLink.js` (shared with Kels's share
   step, §33). Send is a real `sms:`/`mailto:` anchor the user taps. SMS is blocked above
   `MAX_SMS_HASH_LEN` (1800); email warns above `MAX_EMAIL_HASH_LEN` (12000).
 - `companion-view.html` is a standalone, read-only page with lz-string inlined. **It must read
@@ -1606,29 +1613,45 @@ the Worker's `familyPages.recommendedOf`), the go-home **follow-up** nudge (§19
 - The waitlist application fee: §29.
 
 
-## 33. Ken — guided tasks ("Record a new litter")
+## 33. Kels — guided tasks
 
-**Editions:** All editions. Steps for Pro features (outside dogs, stud service, sharing) are
-gated by their flags.
+**Editions:** All editions. Steps for Pro features (outside dogs, stud service, sharing,
+waitlist picks) are gated by their flags.
 
-**Ken** (`kenChat.KEN_NAME`, a placeholder) is a **scripted** helper shown as a chat, not a
-model: every line is written in the task scripts, and nothing leaves the device. A floating
-**Ask Ken** button (`kenChat.renderAssistButton`, from `app.js`) opens `pages/ken.html`,
-which lists tasks (`ken.js` `TASKS`, ordered by each task's `priority(state)`). Every write
-is an ordinary repo write. Modules: `assets/kenChat.js` (the transcript and button),
-`pages/ken.*` (the menu), `assets/guidedLitterUI.js` (the litter task's screens and runner),
-`data/guidedLitter.js` (its steps, matching, review and save; tested).
+**Kels** (she/her) is a **scripted** helper shown as a chat, not a model: every line is written in the
+task scripts, and nothing leaves the device. Who she is lives in `kelsChat.KELS` (`name`,
+`tagline`, `assistLabel`, `photo`: `assets/kels.png`, 256 px, precached; null shows her
+initial); pages read it through `kelsHello()`, `kelsAvatar()` and `kelsPhotoUrl()` (resolved
+from the module's own URL, so it works from any page). A floating **Ask Kels** button
+(`kelsChat.renderAssistButton`, from `app.js`; her photo above the label, and a dot while a
+litter draft is unfinished) opens `pages/kels.html`. Every write is an ordinary repo write.
 
-**Doors:** the floating button; the Breeding page (`ken.html?task=record-litter`); an
-expected litter's page (`&litter=<id>`, parents and litter preset).
+Modules: `assets/kelsChat.js` (identity, the transcript — `say`, `you`, `panel`, `choose`,
+and `form({ title, html, submit, reply })`, where `submit` returns a string to show as a
+problem and stay, anything else to finish — and the button), `pages/kels.*` (the menu),
+`assets/guidedLitterUI.js` + `data/guidedLitter.js` (the litter task), `assets/litterCheckinUI.js`
++ `data/litterCheckin.js` + `data/goHome.js` (the check-in; the data modules are pure and
+tested).
 
-**"Record a new litter"** (`stepsFor`): mom and dad (own dogs, all dogs, or a new one; a
-typed name is first checked against existing dogs, `dogMatches`, so nobody is entered twice;
-outside dogs only in Pro) → the matching litter (`litterCandidates`) → the matching breeding
-(`pairingCandidates`) or when she was bred → the stud service (Pro, outside dad) → birth date
-and counts → kennel (only if it can't be worked out) → one screen per puppy → plans
-(disposition, intended registration) → prices (prefilled from her last priced litter of that
-breed, previewed with the `expectedPricing` rule) → dates → extras → review with Change links.
+**The menu** (`kels.js` `TASKS`): a task is `{ id, label, sub, available, priority, run,
+resumable?, beforeStart? }`, highest priority first: an unfinished litter (100), the check-in
+(60 while a litter has pups at home, else 40), a new litter (50). The header's **Save for
+later** shows only while a `resumable` task runs. `beforeStart` can redirect a start (a new
+litter while one is unfinished asks "Finish that one / Start fresh"); `handoff(taskId, opts)`
+moves her to another task (an Expected litter in the check-in → its birth).
+
+**Doors:** the floating button; the Breeding page (`kels.html?task=record-litter`); an
+expected litter's page (`&litter=<id>`, parents and litter preset); a born litter's page that
+isn't closed (**Check in with Kels**, `kels.html?task=checkin&litter=<id>`).
+
+### "Record a new litter"
+`stepsFor`: mom and dad (own dogs, all dogs, or a new one; a typed name is first checked
+against existing dogs, `dogMatches`, so nobody is entered twice; outside dogs only in Pro) →
+the matching litter (`litterCandidates`) → the matching breeding (`pairingCandidates`) or when
+she was bred → the stud service (Pro, outside dad) → birth date and counts → kennel (only if
+it can't be worked out) → one screen per puppy → plans (disposition, intended registration) →
+prices (prefilled from her last priced litter of that breed, previewed with the
+`expectedPricing` rule) → dates → extras → review with Change links.
 
 **The save** (`saveGuidedLitter`) writes in order: new parents → litter → breeding (marked
 `whelped`, due = bred + 63) → stud service → puppies (`puppyDefaults.baseFromLitter`, as Add
@@ -1643,6 +1666,44 @@ on the draft as it's made, so a retry never duplicates.
 `companion` and an available pup): tell the waitlist (the litter page's notice) or share the
 available pups with prospective families via Companion links. It **never opens picks**.
 
+### "Check in on a litter"
+Each thing she approves is saved at once; there is no draft.
+1. **Which litter:** `checkinLitters` — every litter not closed or archived, in kennel scope
+   (pups at home first, newest born first; then Expected; then Sold). An Expected litter
+   offers **Yes, record the birth** (hands off to the litter task).
+2. **Where it stands:** age (`ageText`), status, the roster by plan (`dispositionSummary`;
+   `rosterOf` drops archived and deceased pups, in the order added) and how many went home.
+   Pups **at home** (`homePups`: `status: 'puppy'`, no delivered sale) are the ones weighed
+   and treated.
+3. **Decisions**, one at a time, each once per visit (`checkinSuggestions`, then each home
+   pup's `goHome.goHomeIssue`):
+   - When the litter can close (`litterCloseDue`, §19), that is the only litter question.
+   - **Open picks** (Pro, `editionFlags.waitlist`, active families in the kennel,
+     `waitlistRules.depositsDueLitters`): `waitlistPicksPanel.openPicksFromCheckin` (Pro-only,
+     imported dynamically; the panel's `openPicks` and "Email the family?"), or **move the
+     deposit date** (a date after today, default a week out), or **Not now**.
+   - **Weaning** at 4 weeks while Whelped; **Ready** at the ready date while Weaning
+     (`goHome.readyDateOf`: `estimated_ready_date`, else whelp + 56); **Sold** / **Reopen to
+     Ready** (§19).
+   - Per pup with a sale in progress: **log the boarding** its sale charges for (start = the
+     ready date or today, end from the charge, `boardingEnd`: the count × Day/Week/Month);
+     **When is the pickup?** (a `placement` event, "Puppy pickup", the buyer as related
+     contact); **Did they go home?** after the pickup date — Yes opens
+     `sale.html?id=…&deliver=1`, "the pickup moved" asks a new date.
+4. **"What are we doing first?"** until **That's all for now**:
+   - **Record weights:** date, AM/PM, pounds + ounces per home pup beside its last weight; one
+     `weight_check` "Weight check" per pup entered (`weightDetails`). Kels compares each with
+     its last (`weightReport`) and names pups down or flat.
+   - **Health care** → "What did they receive?" → **Deworming or flea & tick**, **Shots**,
+     **Other medication**, **A vet visit** (`CARE_KINDS` → `preventative` / `vaccination` /
+     `medication` / `vet_visit`): the type's vocab fields, a date (medication also an optional
+     last dose = `event_end_date`), and which pups. One event per pup, titled by the named
+     product / vaccine / drug / reason, else the kind's `title`. A vet visit's vet is the
+     plain-text `vet` field.
+   - **Something else:** puppy plans (disposition per pup; Placed is shown, not editable),
+     microchips (`microchip_id`), the deposit and ready dates, the litter's status (any but
+     Expected), the litter's page.
+   After each, the records reload and new decisions come up.
 
 ---
 

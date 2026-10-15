@@ -995,3 +995,34 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   and `assets/companionLink.js` (the console's link builder, moved out of
   `pages/companion.js`). No schema change. End-State guide §33; editions plan tier table.
   Cache rolled to `kennelos-shell-v78` for this batch.
+- **Kels (renamed from Ken) + "Check in on a litter" — built & browser-verified
+  (2026-10-14).** The helper is **Kels**, "your personal KennelOS agent" (she/her); her name, line,
+  button label and a future photo live in `kelsChat.KELS`, and the files became `kels*`
+  (`pages/kels.html` replaced `pages/ken.html`). The menu takes tasks generically (priority,
+  resumable, `beforeStart`, `handoff`), and `kelsChat` gained `form()`. The weekly check-in:
+  pick a litter, a summary, then what's waiting (open picks or move the deposit date,
+  Weaning, Ready, Sold / reopen / close), then weights, health care (deworming or flea &
+  tick, shots, other medication, a vet visit) or something else (plans, microchips, dates,
+  status). Door on a born litter's page. Today's sold / reopen / close rules moved into
+  `data/litterCheckin.js` so Today and Kels share them. New `data/litterCheckin.js`
+  (+ tests), `assets/litterCheckinUI.js`, `waitlistPicksPanel.openPicksFromCheckin`.
+  End-State guide §33.
+- **Closing a litter — decided & built (2026-10-14).** Closing no longer waits for the
+  litter to be marked Sold or for every Placed pup to have a delivered sale: a litter at any
+  born status closes when no pup is Available or Undecided, no sale on it is open (each
+  delivered, returned, cancelled or voided) and one went home. Kept, Health-hold and
+  grown-up pups don't hold it up (decided: Health hold doesn't block). Sales of departed
+  (archived) pups count, which fixes Lite, where the old rule never fired. The Sale page asks
+  "Close the litter?" right after the sale that finishes it. End-State guide §19.
+- **Go home — decided & built (2026-10-15).** For a pup with a sale at Deposit paid or Paid
+  in full (`data/goHome.js`, + tests): from a week before the ready date (decided: a week,
+  not on the day), schedule the pickup if none is on the calendar and no boarding is
+  running; log the boarding a sale charges for; and once the pickup date passes without
+  Delivered, ask whether the pup went home (Yes opens `sale.html?…&deliver=1` so the Sale
+  page's delivery prompts run). Today nudges (`gohome-*`; event-form deep links gained
+  `logEnd` / `logContact`) and Kels's check-in. Decided: no nudge for now for pups still
+  Available or Undecided past 8 weeks. End-State guide §19, §33.
+  Precache updated; `CACHE_NAME` not bumped.
+- **Kels's photo (2026-10-15).** A Boston terrier at a laptop, `assets/kels.png` (256 px,
+  resized from the 1254 px original; precached), as her avatar in the chat and the Kels page
+  header, and on the floating **Ask Kels** button in place of the ✨.
