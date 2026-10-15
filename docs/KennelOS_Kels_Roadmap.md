@@ -68,7 +68,11 @@ The run-up to go-home day for one litter, ending with the printed records.
   Puppy Record. The whole print step is Pro-only (`editionFlags.puppyRecord`); in Lite the
   readiness check runs and the print option doesn't exist.
 - **Keywords:** go home, leaving, pickup day, puppy records, print, packet, paperwork.
-- **Open:** include the readiness summary as a cover page for the breeder?
+- **Cover page** (decided): the file opens with a page for the breeder, not the families: the
+  litter, the date, and each chosen pup's readiness (what's done, what's missing, the
+  pickup date and family). Then the pups' records follow, one per page run. Only the cover
+  page needs the readiness rules, so they live in a pure `data/` module the cover page and
+  Kels both read.
 
 ### 3.2 Check account health: **M**
 One look at whether her program is safe and working, as findings with fixes (the tidy-up's
@@ -165,8 +169,7 @@ shows the upgrade notice (§2.3) and stops adding.
   - **Order:** unfinished work (a resumable draft) → starred → frequent → the state-based
     `priority` the menu uses today. Within a group, the state-based priority decides. A
     task that isn't `available` never shows, starred or not.
-  - **Open:** is 60 days the right window, and should a menu with stars show the rest
-    folded under "More"?
+  - **Open:** once she has starred tasks, should the rest fold under "More"?
 - **Task handoffs** grow (sale → prep pups; heat → breeding → litter). `handoff(taskId,
   opts)` already exists; each task documents what `opts` it takes.
 - **Suggested next task:** the menu's `priority` already reads state. Add "pups leave in a
@@ -186,8 +189,9 @@ Decided:
 - The order stands: the waitlist (§3.3) before a sale (§3.5), since the waitlist turns
   picks into sales.
 - Add dogs takes several in a row.
-- Starred and frequent tasks move up the menu (§4).
+- Starred and frequent tasks move up the menu (§4); "frequent" means more than 3 starts in
+  the last 60 days.
+- Prep pups' print opens with a cover page of each pup's readiness, for the breeder.
 
 Open:
-1. Prep pups: a cover page with the readiness summary?
-2. Frequent tasks: the 60-day window, and folding the rest under "More"?
+1. Once she has starred tasks, should the rest of the menu fold under "More"?

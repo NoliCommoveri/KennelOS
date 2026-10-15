@@ -1062,3 +1062,5 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   set up another device ships before live sync (restore and unlock only until step 6); the
   waitlist stays ahead of a sale task; Add dogs takes several in a row; starred tasks and
   ones used more than 3 times in 60 days move up the menu (device-local).
+- **Kels roadmap: cover page, 60 days (2026-10-15).** Prep pups' print opens with a readiness
+  cover page for the breeder; "frequent" tasks are those started more than 3 times in 60 days.
