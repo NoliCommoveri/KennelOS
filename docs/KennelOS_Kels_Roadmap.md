@@ -19,6 +19,7 @@ need. When one is built, its as-built description goes in the guide (§33) and i
 | Add dogs | One or several: a roster of names, a dog on file it may be asked about after its details (one of hers filled in, a pedigree-only one brought into use), what they share asked once, each dog's details and parents, review; resumable draft; then each dog's papers | All (someone else's dog, documents: Pro) |
 | Finding Something | Where a page, a place on it, or a record is, with a button to it; a question or two when there are many; deep in levels | All (people, kennels, Pro pages: Pro) |
 | Add people | A roster of names and what each is to her, her vet if she has none, each person's details (one in her contacts filled in), breeders' kennels (new and on file); review; resumable draft; then her dogs' breeder kennels, and buyers onto the waitlist | Pro (waitlist: where offered) |
+| Set up my application form | Her saved form or the standard one, the locked questions' wording, her own questions, their order, an FAQ, the form as families see it; resumable draft; then its link online, Sensitive records backup, the fee and its payment account, an applicant | Pro (online, Sensitive records, payment accounts: where offered) |
 | Pups are going home | Optional checks to tick, remembered on the device (chips, litter registration number, pups' registered names and numbers, feeding); pups Available or Placed with no sale (record the sale or change the plan); readiness per pup with fixes (shots, deworming, drop-off date, balance, contract, registration); a payment request then an invoice for each balance owed; the puppy records with a cover page | All (contract, feeding, payment requests, invoices, Furever, print: Pro) |
 
 The menu has a search box that matches each task's `keywords`, and choices open their
@@ -69,7 +70,9 @@ These are settled. A task that can't follow one comes back here before it's buil
     place then calls it, and the copies are removed in the same change. The shared pieces
     so far: `kelsSteps` (the step engine, the form helpers, `kennelNameField`,
     `kennelPicker`, `contactFields`, `addContactInChat`, `VET_WHY`, `breedPicker`),
-    `contactSearch` (`findContactMatches`, `hasVet`), `kelsApplicant.askApplicant`, `dogSearch` (`findDogMatches`, `similarNamed`,
+    `contactSearch` (`findContactMatches`, `hasVet`), `kelsApplicant.askApplicant`,
+    `waitlistFeeStep.askWaitlistFee`, `kelsBackupSteps` (`offerCloudBackup`,
+    `offerSensitiveRecords`), `dogSearch` (`findDogMatches`, `similarNamed`,
     `normReg`, `breedChoices`),
     `dogRepo.createPedigreeOnly`, `kennelRepo.findOrCreateOutside` and `seedTestsKennel`,
     `expenseRepo.createForEvent`, `documentModal`'s `storeDocumentFile` and
@@ -357,7 +360,14 @@ one or several, taken the way Add dogs (§3.8) takes dogs, not "Add another?" af
 - **Keywords:** add person, add people, contact, contacts, new buyer, vet, groomer, co-owner,
   handler, family, applicant, phone number, email, breeder, kennel, bred by.
 
-### 3.13 Set up my application form: **M**, Pro (`waitlist`)
+### 3.13 Set up my application form: **M**, Pro (`waitlist`) — **Built**
+As built: End-State guide §33 ("Set up my application form"); history in
+`docs/BUILD_LOG.md`. **Modified:** after the save she also offers Sensitive records backup
+(cloud backup first; applications hold families' details) and the application fee with its
+payment account (Set up my waitlist's fee step, now shared, `assets/waitlistFeeStep.js`,
+which also takes another payment service by name and link). "Where she's starting" is asked
+only when she has a form of her own. Set up my waitlist offers this task at its end.
+
 The Waitlist form page (`waitlist-form`) as a conversation: the questions families answer
 when they apply, and the FAQ above them, for one kennel. Set up my waitlist (§3.3) hands
 off to it where it now only says where to change the form.
@@ -406,7 +416,7 @@ off to it where it now only says where to change the form.
   applicant step `assets/kelsApplicant.js`, and `kelsSteps`' `kennelPicker` /
   `addContactInChat` (the tidy-up's add-a-contact and its vet's, the litter task's and Add
   dogs' kennel pickers, now one each). `contactFields` stayed the short form; Add people
-  asks the rest itself. For §3.13 next, then Record a sale's buyer (§3.5). Three jobs
+  asks the rest itself. §3.13 uses the applicant step; Record a sale's buyer (§3.5) is next. Three jobs
   that today are separate copies become one each:
   - **Their fields:** `kelsSteps.contactFields` grows to the Contact page's fields (type,
     address, Facebook, notes), each opt-in, so the short form the tidy-up and Add dogs use

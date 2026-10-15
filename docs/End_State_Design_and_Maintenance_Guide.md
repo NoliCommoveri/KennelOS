@@ -529,8 +529,9 @@ Every key is in its `KEYS` table (`kennelOS.*`), each with a getter/setter, and
   changed mid-push.
 - `activeKennelId`: the kennel scope, read and written only through `kennelScope.js`.
 - `myKennelId` / `myContactId`: the user's own kennel and contact.
-- `guidedLitterDraft`, `guidedDogsDraft`, `guidedPeopleDraft` and `prepChecks`: Kels's
-  unfinished litter, her unfinished Add dogs and Add people, and the optional checks ticked
+- `guidedLitterDraft`, `guidedDogsDraft`, `guidedPeopleDraft`, `guidedFormDraft` and
+  `prepChecks`: Kels's unfinished litter, her unfinished Add dogs, Add people and
+  application form, and the optional checks ticked
   last time in Pups are going home (§33). Device-only.
 - `kelsFavorites`, `kelsTaskUse`, `kelsNoPromote`: her starred Kels tasks, when she started
   each (the last 60 days), and the ones she said not to move up (§33, Favorites). Device-only.
@@ -1741,7 +1742,11 @@ too;
 + `data/litterCheckin.js` + `data/goHome.js` (the check-in), `assets/tidyUpUI.js` +
 `data/tidyRules.js` + `data/recordMerge.js` (the tidy-up), `assets/accountHealthUI.js` +
 `data/accountHealth.js` (account health), `assets/waitlistSetupUI.js` (set up my waitlist,
-Pro-only), `assets/vendorKeyUI.js` (`vendorKeyFlow`: a Stripe or Jotform key connected or
+Pro-only), `assets/guidedFormUI.js` (Pro-only) + `data/guidedForm.js` (set up my application
+form), `assets/waitlistFeeStep.js` (Pro-only: the application fee and its payment account,
+both waitlist tasks), `assets/kelsBackupSteps.js` (`offerCloudBackup`, `offerSensitiveRecords`,
+`VAULT_WHY`: turning on cloud backup and Sensitive records backup in the chat; the waitlist
+tasks and account health's wording), `assets/vendorKeyUI.js` (`vendorKeyFlow`: a Stripe or Jotform key connected or
 replaced in the chat; account health and the waitlist setup), `assets/kelsFindings.js` (`FindingsTask`, the
 look → raise one at a time → fix → look again loop the tidy-up and account health share:
 "Not now", a remembered "Don't ask me again" under `<prefix>:<key>` in the nudge ledger,
@@ -1768,7 +1773,7 @@ need to save and come back, I'll save what we've got so far…  Sound good?"), a
 **Sounds great, let's start!** or **Never mind** (back to the menu). Openers: record a litter
 "Absolutely, let's get those puppies added!", check-in "Of course, let's check in on your
 litter!", add dogs "Wonderful, let's get your dogs added!", add people "Of course! Let's get your
-people added.", tidy up "Love it, let's get your
+people added.", application form "Yes! Let's make your application form just right.", tidy up "Love it, let's get your
 records tidy!", account health "Good idea, let's make sure everything's safe and sound!".
 
 **The top** (`kels.js` `menu`): her first message, `kelsChat.kelsWelcome` ("Hi, I'm Kels, your
@@ -1793,9 +1798,10 @@ run, resumable?, beforeStart? }`, highest priority first, with a search box abov
 litter). The page header shows her photo and `KELS.title` ("Kels, the KennelOS whiz") on one line, sized to fit a phone. Order: an unfinished litter (100), unfinished dogs (99), the
 check-in (60 while a litter has pups at home, else 40), a new litter (50), prep pups (45,
 while a litter has pups at home), add dogs (35), add people (33, Pro), tidy up (30), set up
-my waitlist (25, Pro), account health (20); unfinished people sit at 98. The header's **Save for later** shows only while a `resumable` task
+my waitlist (25, Pro), set up my application form (24, Pro), account health (20); unfinished
+people sit at 98, an unfinished form at 97. The header's **Save for later** shows only while a `resumable` task
 runs, and the floating button's dot shows while any draft is unfinished. `beforeStart`
-can redirect a start (a new litter, new dogs or new people while one is unfinished asks "Finish that
+can redirect a start (a new litter, dogs, people or form while one is unfinished asks "Finish that
 one / Start fresh"); `handoff(taskId, opts)`
 moves her to another task (an Expected litter in the check-in → its birth).
 
@@ -2143,16 +2149,16 @@ The run-up to go-home day for one litter. Each fix is saved when approved; there
 imports it on start. The kennel's waitlist settings, its online list and its programs, for a
 breeder starting from nothing. Related settings are one screen each, the on/off ones as
 checkboxes, never a question apiece:
-1. **The fee:** amount, refund policy (`FEE_CREDIT_POLICY`), days to pay, how families pay;
-   with `accounts`, the Payment service it's paid through (or **Stripe (I'll connect it
-   now)**, which makes a Payment service account named Stripe) and when it's asked for. A
-   Stripe account with no key on this device offers **Connect Stripe** (`vendorKeyFlow`).
+1. **The fee:** the shared fee step (`waitlistFeeStep.askWaitlistFee`, under "Set up my
+   application form"): amount, refund policy, days to pay, how families pay, and with
+   `accounts` the payment account (one she has, Stripe connected in the chat, or another
+   payment service she names) and when it's asked for.
 2. **Offers:** days to accept and pay, passes before removal, then checkboxes: no response
    counts as a pass, color matching, and every `WAITLIST_AUTO_OFFER_TRIGGER` moment (All /
    None).
 3. **Going online** (only where `isWaitlistOnlineOffered()`): asked first. It publishes
    through this device's cloud backup, so when that's off or signed out she offers **Turn on
-   cloud backup** (`cloudBackupUI.turnOnFlow`) and goes on only once it's on. Then one screen:
+   cloud backup** (`kelsBackupSteps.offerCloudBackup`) and goes on only once it's on. Then one screen:
    list online, applications online, reminder emails; what shows before picks open
    (`UPCOMING_STAGES` × public / family pages); "Ready now?" unanswered and its days; the
    Facebook button and Page; her website (`embed`, addresses); the public list's message;
@@ -2166,8 +2172,56 @@ checkboxes, never a question apiece:
 Every config save is checked by `waitlistRules.waitlistConfigProblem`, the Kennel page's
 settings card's check too. **Re-runnable:** on a kennel already set up
 (`waitlistIsSetUp`) she says what's set (`waitlistSummaryLines`) and asks which part to
-change. The emails, pass reasons, "Almost your turn" message and the application form keep
-the standard wording; she says where to change them.
+change. The emails, pass reasons and "Almost your turn" message keep the standard wording;
+she says where to change them. At the end she offers **Set up my application form**, handing
+it the kennel (`handoff('form-setup', { kennelId })`).
+
+### "Set up my application form"
+**Editions:** Pro (`editionFlags.waitlist`). The script, `assets/guidedFormUI.js`, is in
+`proPages.js` and `kels.js` imports it on start; its data half, `data/guidedForm.js`, is
+shared. The Waitlist form page (`waitlist-form`) as a conversation, for one kennel (asked
+with several; Set up my waitlist hands its kennel over), on the step engine, with the page's
+own rules (`waitlistForm.formQuestions`, `validateQuestions`, `validateFaq`, `newQuestion`,
+`LOCKED_TYPE_LABEL`). `stepsFor`:
+1. **Where shall we start?** (`start`, only when she has saved a form or FAQ of her own,
+   `hasOwnForm`): **Keep my form and change it** or **Start over from the standard form**
+   (`startFrom`; her FAQ stays either way).
+2. **The locked questions** (`locked`): name, email, the preferences, readiness and the
+   public-list notice, shown together, each with what it does ("decides which pups they're
+   offered"); only the wording changes (the notice's text too).
+3. **Her own questions** (`questions`): each with its wording, answer type
+   (`WAITLIST_QUESTION_TYPE`; a choice type shows its choices, one per line), help text and
+   "Required on the online form", ✕ to take one off, **+ Add a question** (just above the
+   notice, `addQuestion`).
+4. **The order** (`order`): every question with ↑ / ↓ (`move`).
+5. **Her FAQ** (`faq`, optional): her questions and answers, with `FAQ_STARTERS` to start
+   from (price, going home, the fee, how the waitlist works, delivery) and **+ My own question**.
+6. **Review:** the FAQ and the whole application as a family sees it (`applicationFields`,
+   disabled), with buttons back to each part.
+
+**The save** (`saveGuidedForm`): one write of `form_questions` and `application_faq`, cleaned
+by the page's rule (`finalForm`), over the kennel's latest config. Nothing is written before
+it, so a half-made form never goes online. **The draft:** `settings.guidedFormDraft`
+(`DRAFT_VERSION`), as the others: device-only, cleared by Reset App, one at a time.
+
+**After the save:**
+- **Online** (the list is online): it publishes now (`cloudWaitlist.syncWaitlistOnline`) and
+  gives her **Copy application form link**, or says what's stopping it.
+- **Sensitive records** (`kelsBackupSteps.offerSensitiveRecords`, only where
+  `isVaultOffered()`): "Applications hold families' phone numbers, addresses and notes."
+  Cloud backup first if it's off on this device (`offerCloudBackup` → `turnOnFlow`), then,
+  if the vault is off, **Turn it on** (`turnOnVaultFlow`). Nothing is said when it's on.
+- **The fee and how families pay:** what's set ("a $300.00 application fee, paid online
+  through Stripe") with **Change the fee** / **It's right**, or "Do you charge an
+  application fee?". It's the shared fee step, `assets/waitlistFeeStep.js`
+  (`askWaitlistFee`, Set up my waitlist's too): amount, refund policy, days to pay, payment
+  instructions, and with `accounts` the Payment service it's paid through: one she has,
+  **Stripe (I'll connect it now)** (a new Payment service account, then **Connect Stripe**
+  in the chat, `vendorKeyFlow`), or **Another payment service…** (its name and payment link,
+  made as a Payment service account), and when the fee is asked for.
+- **"Do you have a family to put on the list now?"**: the applicant step (under "Add
+  people"), asked with the new form; **Add a family** repeats.
+- Then **See my form** (the Waitlist form page), **Help me with something else**, **Back to Today**.
 
 ### "Check account health"
 One look at whether her program is safe and working: her KennelOS account and this device,

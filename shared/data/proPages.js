@@ -87,6 +87,9 @@ export const PRO_ONLY_STANDALONE = [
   'assets/kelsApplicant.js',
   // Kels's "Add people" (pages/kels.js imports it on start, only with contacts).
   'assets/guidedPeopleUI.js',
+  // Kels's "Set up my application form" (pages/kels.js imports it on start, only
+  // with the waitlist) and the fee step it shares with "Set up my waitlist".
+  'assets/guidedFormUI.js', 'assets/waitlistFeeStep.js',
   // "Review sale & send" on the waitlist family page (Integrations plan §2.6).
   'assets/pickToSend.js',
   // The Companion link builder (shared by the Companion console and the guided

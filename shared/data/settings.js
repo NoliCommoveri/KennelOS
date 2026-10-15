@@ -27,6 +27,7 @@ const KEYS = {
   guidedLitterDraft: 'kennelOS.guidedLitterDraft',
   guidedDogsDraft: 'kennelOS.guidedDogsDraft',
   guidedPeopleDraft: 'kennelOS.guidedPeopleDraft',
+  guidedFormDraft: 'kennelOS.guidedFormDraft',
   prepChecks: 'kennelOS.prepChecks',
   kelsFavorites: 'kennelOS.kelsFavorites',
   kelsTaskUse: 'kennelOS.kelsTaskUse',
@@ -514,6 +515,26 @@ export function setGuidedPeopleDraft(draft) {
 
 export function clearGuidedPeopleDraft() {
   localStorage.removeItem(KEYS.guidedPeopleDraft);
+}
+
+// --- Kels's "Set up my application form" draft (assets/guidedFormUI.js) -----
+// As the others: one at a time, null when none, cleared by Reset App. Her form
+// stays here until she approves it, so a half-made one never goes online.
+export function getGuidedFormDraft() {
+  try {
+    return JSON.parse(localStorage.getItem(KEYS.guidedFormDraft) || 'null');
+  } catch {
+    return null;
+  }
+}
+
+export function setGuidedFormDraft(draft) {
+  localStorage.setItem(KEYS.guidedFormDraft, JSON.stringify(draft));
+  return draft;
+}
+
+export function clearGuidedFormDraft() {
+  localStorage.removeItem(KEYS.guidedFormDraft);
 }
 
 // --- Kels's "Pups are going home": the optional checks she ticked last time ----
