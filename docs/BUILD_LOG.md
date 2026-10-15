@@ -1254,3 +1254,13 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   reasons shown, and "Yes" on one of hers fills in only what's blank on it instead of
   leaving it out. Sample data's registration numbers lost their typed "AKC " prefix (the
   registry stays in `registry`); nothing in the app adds one.
+- **Kels: forgiving of how people type (2026-10-15).** The dog search tolerates typos (a
+  swapped pair is one slip; two for long words), sound-alikes, run-together names, numbers
+  typed in name boxes on either side, a number one slip off ("nearly the same"), breeds
+  spelled near enough, and birthdays a few days off or with day and month swapped; a
+  clearly different number or breed now lowers a match instead of hiding it. Near-misses no
+  longer block: `kelsSteps` takes a `{ key, message }` check, said once, then Next again
+  keeps what she typed (`draft.warned`). Used for a typed parent like one on file, a new
+  kennel or contact like one she has (Add dogs, the litter task, the tidy-up), a breed
+  spelled unlike her dogs', and a registration number in a name box. Add dogs saves a breed
+  in her dogs' spelling when it differs only in case or spacing.

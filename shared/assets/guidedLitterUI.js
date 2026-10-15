@@ -77,6 +77,8 @@ async function stepCtx(draft, data) {
     litter, pairing, linkedPairing, dam, sire, litterOptions, pairingOptions,
     needsKennel: !litter && !draft.autoKennelId,
     canOutsideDog: Boolean(editionFlags.externalOwnership),
+    contacts: data.contacts,
+    outsideKennels: data.kennels.filter((k) => !k.is_own_kennel),
     canStudService: Boolean(editionFlags.studServices),
     sireIsOutside: G.isOutsideDog(sire),
     hasStudService: services.some((x) => !x.is_archived)

@@ -30,7 +30,7 @@ import { todayYMD, addMonthsToYMD } from './dateUtils.js';
 import { SEX, DOG_STATUS, OWNERSHIP_TYPE, VACCINE_GOOD_FOR, descriptor, defaultExpenseCategoryFor } from './vocab.js';
 import { fmt } from './guidedLitter.js';
 import { normReg } from './pedigreeImport.js';
-import { findDogMatches, nameKey } from './dogSearch.js';
+import { findDogMatches, matchReason, nameKey, similarNamed, looksLikeNumber } from './dogSearch.js';
 
 // 2: the match is asked after each dog's details (a version-1 draft is dropped).
 export const DRAFT_VERSION = 2;
@@ -201,6 +201,11 @@ export function stepsFor(draft) {
 
 export const stepIndex = (step) => Number(step.split(':')[1]);
 
+// A check she can tap past (kelsSteps): asked once per key, so changing what
+// she typed asks again. People put things in the wrong box and misspell names;
+// these catch the likely slip without stopping her.
+const check = (draft, key, message) => (draft.warned?.[key] ? null : { key, message });
+
 // How many roster rows she may have: MAX_DOGS, or fewer where the edition caps
 // dogs (`capStatus`: editionConfig.dogCapStatus(), null when uncapped).
 export function maxDogs(capStatus) {
@@ -209,8 +214,9 @@ export function maxDogs(capStatus) {
 }
 
 // One plain-language problem with the step's answers, or null when it's fine.
-// ctx: { dogs (on file), multiKennel, ownKennelIds, maxDogs, outsideBreeders
-// (this edition records other breeders' kennels and contacts) }.
+// Plain strings stay until fixed; `check()`s she can tap past. ctx: { dogs (on
+// file), breeds (on file), contacts, outsideKennels, multiKennel, ownKennelIds, maxDogs,
+// outsideBreeders (this edition records other breeders' kennels and contacts) }.
 export function stepProblem(step, draft, ctx = {}) {
   const today = todayYMD();
   if (step === 'roster') {
@@ -230,6 +236,8 @@ export function stepProblem(step, draft, ctx = {}) {
       if (seen.has(n)) return `Two dogs are named ${trimmed(d.call_name)}. Give each one its own name.`;
       seen.add(n);
     }
+    const numberish = rows.find((d) => looksLikeNumber(d.call_name));
+    if (numberish) return check(draft, `rosternum:${norm(numberish.call_name)}`, `"${trimmed(numberish.call_name)}" looks like a registration number. There's a box for it on the next screens; here, the name you call ${numberish.sex === 'male' ? 'him' : 'her'}.`);
     return null;
   }
   if (step === 'common') return null;
@@ -245,6 +253,17 @@ export function stepProblem(step, draft, ctx = {}) {
     if (blank(d.ownership_type)) return `Whose dog is ${name}?`;
     if (OWNER_REQUIRED.includes(d.ownership_type) && !d.ownerId && blank(d.ownerName)) return `Pick ${name}'s owner, or type the owner's name.`;
     if (ctx.multiKennel && SCOPED_OWNERSHIP.has(d.ownership_type) && !(ctx.ownKennelIds || []).includes(d.kennelId)) return `Which of your kennels is ${name} under?`;
+    // A breed she has, spelled a little differently, would make a second breed.
+    const breedLike = similarNamed((ctx.breeds || []).filter((x) => norm(x) !== norm(d.breed)), d.breed, (x) => x);
+    if (breedLike) { const c = check(draft, `breed:${d.key}:${norm(d.breed)}`, `Did you mean ${breedLike}? That's how your other dogs have it.`); if (c) return c; }
+    if (looksLikeNumber(d.registered_name) && blank(d.registration_number)) {
+      const c = check(draft, `regname:${d.key}:${norm(d.registered_name)}`, `"${trimmed(d.registered_name)}" looks like a registration number. Should it go in the Registration number box?`);
+      if (c) return c;
+    }
+    if (OWNER_REQUIRED.includes(d.ownership_type) && !d.ownerId) {
+      const like = similarNamed(ctx.contacts || [], d.ownerName, (c) => c.name);
+      if (like) { const c = check(draft, `owner:${d.key}:${norm(d.ownerName)}`, `Is that ${like.name}, already in your contacts? Pick them from the list if so.`); if (c) return c; }
+    }
     return null;
   }
   if (step.startsWith('breeder:')) {
@@ -252,6 +271,14 @@ export function stepProblem(step, draft, ctx = {}) {
     if (b.bredBy !== 'other' || !ctx.outsideBreeders) return null;
     if (!b.kennelId && blank(b.kennelName)) return 'Pick the breeder\'s kennel, or type its name.';
     if (!b.contactId && blank(b.contactName) && !(blank(b.contactPhone) && blank(b.contactEmail))) return 'Type the breeder\'s name too.';
+    if (!b.kennelId) {
+      const like = similarNamed(ctx.outsideKennels || [], b.kennelName, (k) => k.kennel_name);
+      if (like) { const c = check(draft, `bkennel:${d.key}:${norm(b.kennelName)}`, `Is that ${like.kennel_name}, already in your kennels? Pick it from the list if so.`); if (c) return c; }
+    }
+    if (!b.contactId && !blank(b.contactName)) {
+      const like = similarNamed(ctx.contacts || [], b.contactName, (c) => c.name);
+      if (like) { const c = check(draft, `bcontact:${d.key}:${norm(b.contactName)}`, `Is that ${like.name}, already in your contacts? Pick them from the list if so.`); if (c) return c; }
+    }
     return null;
   }
   if (step.startsWith('parents:')) {
@@ -260,10 +287,16 @@ export function stepProblem(step, draft, ctx = {}) {
       if (p.pick === `batch:${d.key}`) return `${name} can't be ${d.sex === 'female' ? 'her' : 'his'} own ${w}.`;
       if (p.pick !== 'new') continue;
       if (blank(p.name)) return `Type the ${w}'s registered name, or pick "Not known".`;
-      // The same name on file, or a near one with the same breed or birthday:
-      // pick that one (a different number says it's a different dog).
-      const found = findDogMatches(ctx.dogs || [], typedParent(p, sex)).find((m) => m.exact || m.strength !== 'possible');
-      if (found) return `${found.dog.registered_name || found.dog.call_name} is already in KennelOS. Pick ${sex === 'female' ? 'her' : 'him'} from the list, or add ${sex === 'female' ? 'her' : 'his'} registration number if it's a different dog.`;
+      // The same name on file, or a near one with something else agreeing: she
+      // probably means that one. Asked once; she may know better.
+      const found = findDogMatches(ctx.dogs || [], typedParent(p, sex)).find((m) => (m.close && !m.differs.length) || m.strength !== 'possible');
+      if (found) {
+        const on = [found.dog.registered_name, found.dog.call_name].filter(Boolean).join(', ');
+        const why = matchReason(found);
+        const msg = `Is that ${on}, already in KennelOS${why ? ` (${why.toLowerCase()})` : ''}? Pick ${sex === 'female' ? 'her' : 'him'} from the list if so.`;
+        const c = check(draft, `parent:${d.key}:${role}:${nameKey(p.name)}|${normReg(p.regNum)}`, msg);
+        if (c) return c;
+      }
       const twin = dogsToAdd(draft).find((x) => x.sex === sex && [x.call_name, x.registered_name].some((n) => nameKey(n) && nameKey(n) === nameKey(p.name)));
       if (twin) return `${trimmed(p.name)} is one of the dogs we're adding. Pick ${sex === 'female' ? 'her' : 'him'} from the list.`;
     }
@@ -406,6 +439,9 @@ export async function saveGuidedDogs(draft, { onProgress = () => {} } = {}) {
   s.linked = s.linked || {};
   const step = async () => { draft.updatedAt = new Date().toISOString(); await onProgress(draft); };
   const kennels = await kennelRepo.getAll({ includeArchived: false });
+  // A breed typed in another case or spacing takes the spelling her dogs have.
+  const breedSpelling = new Map((await dogRepo.getAll({ includePedigreeOnly: true }))
+    .filter((x) => !blank(x.breed)).map((x) => [norm(x.breed), trimmed(x.breed)]));
   const myContactId = getMyContactId();
   const myContact = myContactId ? await contactRepo.getById(myContactId) : null;
   let capError = null;
@@ -451,6 +487,7 @@ export async function saveGuidedDogs(draft, { onProgress = () => {} } = {}) {
       }
 
       const fields = { ...dogFields(d), owner_contact_id: ownerId };
+      fields.breed = breedSpelling.get(norm(fields.breed)) || fields.breed;
       if (SCOPED_OWNERSHIP.has(d.ownership_type)) fields.kennel_id = d.kennelId || await resolveKennelIdForWrite();
       const breederKennelId = await saveBreeder(d.breeder, { s, step, ownKennelId: fields.kennel_id });
       if (breederKennelId) fields.breeder_kennel_id = breederKennelId;

@@ -141,19 +141,25 @@ test('parents are optional; a typed ancestor is a registered name, looked up by 
   assert.equal(g.stepProblem('parents:0', d, { dogs: onFile }), null);
   z.dam = { pick: 'new', name: '' };
   assert.match(g.stepProblem('parents:0', d, { dogs: onFile }), /mom's registered name/);
-  // Her name, call or registered (titles in front ignored), finds the dog on file.
+  // Her name, call or registered (titles in front ignored, misspelled a little),
+  // finds the dog on file: asked once, then she may keep what she typed.
+  const ask = (x) => g.stepProblem('parents:0', d, { dogs: onFile });
   z.dam = { pick: 'new', name: regDam.call_name };
-  assert.match(g.stepProblem('parents:0', d, { dogs: onFile }), /already in KennelOS/);
+  const first = ask();
+  assert.match(first.message, /Is that .*already in KennelOS/);
+  d.warned = { [first.key]: true };
+  assert.equal(ask(), null);
+  d.warned = {};
+  z.dam = { pick: 'new', name: `GCH CH ${regDam.registered_name.replace('field', 'feild')}` };
+  assert.match(ask().message, /Is that/);
   // A near name with nothing else agreeing doesn't stop her.
   z.dam = { pick: 'new', name: 'Ch Wholly Different Lass' };
-  assert.equal(g.stepProblem('parents:0', d, { dogs: onFile }), null);
-  z.dam = { pick: 'new', name: `GCH CH ${regDam.registered_name}` };
-  assert.match(g.stepProblem('parents:0', d, { dogs: onFile }), /already in KennelOS.*registration number/);
-  // A different number says it's a different dog.
+  assert.equal(ask(), null);
   if (regDam.registration_number) {
-    z.dam.regNum = 'ZZ99999999';
-    assert.equal(g.stepProblem('parents:0', d, { dogs: onFile }), null);
-    // Her number is that dog: picked for her.
+    // A clearly different number makes it doubtful: not asked about.
+    z.dam = { pick: 'new', name: regDam.registered_name, regNum: 'ZZ99999999' };
+    assert.equal(ask(), null);
+    // Her number, however typed, is that dog: picked for her.
     z.dam.regNum = ` ${regDam.registration_number.toLowerCase().replace(/ /g, "-")} `;
     g.resolveTypedParents(z, onFile);
     assert.equal(z.dam.pick, `dog:${regDam.id}`);
@@ -230,8 +236,10 @@ test('a pedigree-only dog she names is brought into use, not made twice', async 
   assert.deepEqual(g.stepsFor(d), ['roster', 'dog:0', 'match:0', 'parents:0', 'breeder:0', 'review']);
   assert.match(g.reviewSections(d)[0].title, /bringing in/);
   const before = tables.dogs.rows.size;
+  d.dogs[0].breed = '  golden   RETRIEVER ';
   const res = await g.saveGuidedDogs(d);
   assert.deepEqual(res.made, [ped.id]);
+  assert.equal((await dogRepo.getById(ped.id)).breed, 'Golden Retriever', 'her spelling of the breed');
   assert.equal(tables.dogs.rows.size, before);
   const after = await dogRepo.getById(ped.id);
   assert.equal(after.pedigree_only, false);
@@ -417,4 +425,29 @@ test('createPedigreeOnly: a registered name is enough; always somebody else\'s, 
   assert.equal(made.ownership_type, 'external');
   assert.equal(made.status, 'external_reference');
   assert.ok(!(await dogRepo.getAll()).some((x) => x.id === made.id));
+});
+
+test('the slips people make get a "did you mean?" once, never a wall', () => {
+  const d = rosterDraft([['SR 123456/01', 'female']]);
+  const r = g.stepProblem('roster', d);
+  assert.match(r.message, /looks like a registration number/);
+  d.warned = { [r.key]: true };
+  assert.equal(g.stepProblem('roster', d), null);
+  const z = rosterDraft([['Zelda', 'female']]);
+  Object.assign(z.dogs[0], { breed: 'Whippet', registered_name: 'ws-71029304' });
+  assert.match(g.stepProblem('dog:0', z).message, /Registration number box/);
+  z.dogs[0].registration_number = 'WS71029304';
+  assert.equal(g.stepProblem('dog:0', z), null);
+  // A breed she has, misspelled: asked once.
+  z.dogs[0].breed = 'Golden Retreiver';
+  assert.match(g.stepProblem('dog:0', z, { breeds: ['Golden Retriever', 'Whippet'] }).message, /Did you mean Golden Retriever/);
+  z.dogs[0].breed = 'golden retriever';
+  assert.equal(g.stepProblem('dog:0', z, { breeds: ['Golden Retriever'] }), null);
+  const b = rosterDraft([['Zelda', 'female']]);
+  b.dogs[0].breeder = { ...g.noBreeder(), bredBy: 'other', kennelName: 'Windmere Golden', contactName: 'Lou Parks' };
+  const ctx = { outsideBreeders: true, outsideKennels: [{ id: 'k', kennel_name: 'Windmere Goldens' }], contacts: [{ id: 'c', name: 'Lou Park' }] };
+  const k = g.stepProblem('breeder:0', b, ctx);
+  assert.match(k.message, /Is that Windmere Goldens/);
+  b.warned = { [k.key]: true };
+  assert.match(g.stepProblem('breeder:0', b, ctx).message, /Is that Lou Park/);
 });

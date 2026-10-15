@@ -65,7 +65,9 @@ export function pagesPrefix() {
 // A task subclasses this and supplies:
 //   async loadSteps()   → the step ids for the draft as it stands
 //   screenFor(stepId)   → the screen (above)
-//   problem(stepId)     → a plain-language problem with the answers, or null
+//   problem(stepId)     → a plain-language problem with the answers (it stays),
+//                         a check she can tap past ({ key, message }: said
+//                         once, then skipped while draft.warned[key]), or null
 //   answerText(stepId)  → her reply bubble once the step is answered
 //   persist()           → keep the draft (settings.js)
 //   answerChanged()     → an answer changed (a save that stopped partway rewrites)
@@ -191,7 +193,15 @@ export class StepConversation {
       if (!skipRead) { this.current.read?.(body); this.answerChanged(); }
       await this.refreshSteps();
       const problem = this.problem(this.draft.step);
-      if (problem) { this.persist(); this.showError(problem); return; }
+      if (typeof problem === 'string' && problem) { this.persist(); this.showError(problem); return; }
+      if (problem?.key) {
+        // A "did you mean?": said once, then Next again keeps what she typed
+        // (the task's check skips a key in draft.warned).
+        (this.draft.warned || (this.draft.warned = {}))[problem.key] = true;
+        this.persist();
+        this.showError(`${problem.message} If it's right as you typed it, tap Next again.`);
+        return;
+      }
       this.current.after?.();
       this.onAnswered(this.draft.step);
       const stepId = this.draft.step;

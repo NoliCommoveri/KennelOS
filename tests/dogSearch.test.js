@@ -3,7 +3,7 @@
 // birthday and sex decide how sure it is.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { findDogMatches, nameHit, nameKey, matchReason } from '../shared/data/dogSearch.js';
+import { findDogMatches, nameHit, nameKey, matchReason, similarNamed, looksLikeNumber } from '../shared/data/dogSearch.js';
 
 const dogs = [
   { id: 'zoe', call_name: 'Zoe', sex: 'female', breed: 'Whippet' },
@@ -18,10 +18,10 @@ const ids = (ms) => ms.map((m) => m.dog.id);
 test('names: titles, case and punctuation ignored; whole words, nearly the same, either way', () => {
   assert.equal(nameKey('GCH CH Thornfield Zoey-Mae'), 'thornfield zoey mae');
   assert.equal(nameHit('zoey', 'zoey'), 'exact');
-  assert.equal(nameHit('zoey', 'zoe'), 'partial');
+  assert.equal(nameHit('zoey', 'zoe'), 'close');
   assert.equal(nameHit('zoey', 'thornfield zoey mae'), 'partial');
   assert.equal(nameHit('thornfield zoey mae', 'zoey'), 'partial');
-  assert.equal(nameHit('bella', 'belle'), 'partial');
+  assert.equal(nameHit('bella', 'belle'), 'close');
   assert.equal(nameHit('daisy', 'dahlia'), null);
   assert.equal(nameHit('max', 'maximus'), null);
 });
@@ -34,15 +34,37 @@ test('a call name finds call and registered names; the sex has to fit; archived 
   assert.deepEqual(findDogMatches(dogs, { callName: 'Z', sex: 'female' }), []);
 });
 
-test('then the facts: a number is certain, a breed or birthday likely, a different number never', () => {
+test('then the facts: a number is certain, a breed or birthday likely, a different number doubtful', () => {
   const ms = findDogMatches(dogs, { callName: 'Zoey', breed: 'golden retriever', registrationNumber: 'sr-123456/01', sex: 'female' });
-  assert.deepEqual(ms.map((m) => [m.dog.id, m.strength]), [['num', 'certain'], ['mae', 'likely'], ['zoe', 'possible']]);
+  assert.deepEqual(ms.map((m) => [m.dog.id, m.strength]), [['num', 'certain'], ['mae', 'likely'], ['other', 'possible'], ['zoe', 'possible']]);
   assert.equal(matchReason(ms[0]), 'Same registration number');
   assert.equal(matchReason(ms[1]), 'Same breed');
-  assert.equal(matchReason(ms[2]), 'Different breed');
-  // 'other' has a different number: a different dog, never offered.
-  assert.ok(!ids(ms).includes('other'));
+  // A different number is a reason to doubt, not to hide (numbers get mistyped).
+  assert.equal(matchReason(ms[2]), 'Different registration number');
+  assert.equal(matchReason(ms[3]), 'Different breed');
   const bday = findDogMatches(dogs, { callName: 'Zoey', dateOfBirth: '2022-01-01', sex: 'female' });
   assert.equal(bday.find((m) => m.dog.id === 'mae').strength, 'likely');
   assert.deepEqual(ids(findDogMatches(dogs, { callName: 'Zoey', sex: 'female' }, { excludeIds: ['zoe', 'mae'] })), ['other']);
+});
+
+test('people: typos, sound-alikes, run-together names, numbers in name boxes, swapped dates', () => {
+  for (const [a, b] of [['Zoey', 'Zoie'], ['Khloe', 'Chloe'], ['Thornfeild', 'Thornfield'], ['Golden Retreiver', 'Golden Retriever']]) {
+    assert.ok(nameHit(nameKey(a), nameKey(b)), `${a} / ${b}`);
+  }
+  assert.equal(nameHit(nameKey('MaryLou'), nameKey('Mary Lou')), 'exact');
+  assert.equal(nameHit(nameKey('Thornfeild Midnigt Juniper'), nameKey('Thornfield Midnight Juniper')), 'close');
+  const on = [
+    { id: 'a', call_name: 'Zoey', registered_name: 'SR12345601', sex: 'female', breed: 'Whippet' }, // number typed in the name box
+    { id: 'b', call_name: 'Pip', registration_number: 'SR12345609', sex: 'female' }, // one slip off
+    { id: 'c', call_name: 'Zoey', sex: 'male', registration_number: 'SR12345601' } // wrong sex, same number
+  ];
+  const ms = findDogMatches(on, { callName: 'Zoie', registrationNumber: 'sr 123456/01', breed: 'whipet', dateOfBirth: '2022-03-04', sex: 'female' });
+  assert.deepEqual(ms.map((m) => [m.dog.id, m.strength]).sort(), [['a', 'certain'], ['b', 'likely'], ['c', 'certain']]);
+  assert.equal(matchReason(ms.find((m) => m.dog.id === 'b')), 'Nearly the same registration number');
+  // Day and month swapped, or a few days off, is the same birthday.
+  const bd = findDogMatches([{ id: 'd', call_name: 'Zoey', date_of_birth: '2022-04-03', sex: 'female' }], { callName: 'Zoey', dateOfBirth: '2022-03-04' });
+  assert.equal(bd[0].strength, 'likely');
+  assert.equal(similarNamed([{ n: 'Windmere Goldens' }], 'windmere golden', (x) => x.n).n, 'Windmere Goldens');
+  assert.ok(looksLikeNumber('AKC ws-71029304'));
+  assert.ok(!looksLikeNumber('Zoey'));
 });

@@ -21,7 +21,7 @@ import { inScopeOnly, dogsInScope, resolveKennelIdForWrite } from '../data/kenne
 import { editionFlags } from '../data/editionConfig.js';
 import { DISPOSITION, OWNERSHIP_TYPE, DOG_STATUS, SALE_STATUS, PAIRING_STATUS, descriptor } from '../data/vocab.js';
 import { litterLabel } from '../data/litterCheckin.js';
-import { findDogMatches, matchReason } from '../data/dogSearch.js';
+import { findDogMatches, matchReason, similarNamed } from '../data/dogSearch.js';
 import { baseFromLitter } from '../data/puppyDefaults.js';
 import { deliveredOwnershipChanges } from '../data/goHome.js';
 import { studParents, ourRole } from '../data/studRules.js';
@@ -488,6 +488,7 @@ class Tidy extends FindingsTask {
   }
 
   async newKennel() {
+    let asked = null; // a near name is asked about once; Add again keeps hers
     const res = await this.chat.form({
       title: '',
       html: kennelNameField('td-kname'),
@@ -495,6 +496,11 @@ class Tidy extends FindingsTask {
       submit: async (root) => {
         const name = root.querySelector('#td-kname').value.trim();
         if (!name) return 'What\'s the kennel called?';
+        const like = similarNamed(this.kennels.filter((k) => !k.is_own_kennel), name, (k) => k.kennel_name);
+        if (like && like.kennel_name.trim().toLowerCase() !== name.toLowerCase() && asked !== name) {
+          asked = name;
+          return `Is that ${like.kennel_name}, already in your kennels? Tap Skip and pick it instead, or Add again to add it as you typed it.`;
+        }
         const { kennel: k } = await kennelRepo.findOrCreateOutside(name);
         this.kennelsById.set(k.id, k);
         return k.id;
@@ -533,6 +539,7 @@ class Tidy extends FindingsTask {
         await contactRepo.ensureType(contactId, 'breeder');
       }
     } else if (pick === 'new') {
+      let asked = null; // a near name is asked about once; Add again keeps hers
       const res = await this.chat.form({
         title: '',
         html: contactFields('td-c'),
@@ -540,6 +547,11 @@ class Tidy extends FindingsTask {
         submit: async (root) => {
           const { name, email, phone } = readContactFields(root, 'td-c');
           if (!name) return 'What\'s their name?';
+          const like = similarNamed(this.contacts, name, (x) => x.name);
+          if (like && asked !== name) {
+            asked = name;
+            return `Is that ${like.name}, already in your contacts? Tap Skip and pick them instead, or Add again to add them as you typed it.`;
+          }
           const c = await contactRepo.create({ name, email, phone, contact_type: ['breeder'], kennel_id: k.id });
           this.contactsById.set(c.id, c);
           return c.id;

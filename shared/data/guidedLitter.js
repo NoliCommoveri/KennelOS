@@ -33,6 +33,7 @@ import { studServiceRepo } from './studServiceRepo.js';
 import { eventRepo } from './eventRepo.js';
 import { baseFromLitter } from './puppyDefaults.js';
 import { addDaysToYMD, todayYMD } from './dateUtils.js';
+import { similarNamed } from './dogSearch.js';
 import {
   SEX, DISPOSITION, REGISTRATION_TYPE, PAIRING_METHOD, FEE_STRUCTURE, STUD_SERVICE_TYPE, descriptor
 } from './vocab.js';
@@ -275,7 +276,12 @@ export function stepsFor(draft, ctx = {}) {
   return steps;
 }
 
-// One plain-language problem with the step's answers, or null when it's fine.
+// A check she can tap past (kelsSteps): asked once per key.
+const check = (draft, key, message) => (draft.warned?.[key] ? null : { key, message });
+
+// One plain-language problem with the step's answers (a string stays until
+// fixed; a check() she can tap past), or null when it's fine. ctx also carries
+// `contacts` and `outsideKennels`, for "is that one you have?".
 export function stepProblem(step, draft, ctx = {}) {
   const today = todayYMD();
   const [role, part] = step.split('-');
@@ -300,7 +306,13 @@ export function stepProblem(step, draft, ctx = {}) {
     if (part === 'match') return spec?.matchDeclined ? null : 'Tap one of the choices.';
     if (part === 'owner') {
       if (!spec?.ownerId && blank(spec?.owner?.name)) return `Pick ${r.possessive} owner, or type the owner's name.`;
+      const like = spec?.ownerId ? null : similarNamed(ctx.contacts || [], spec.owner.name, (c) => c.name);
+      if (like) return check(draft, `owner:${role}:${norm(spec.owner.name)}`, `Is that ${like.name}, already in your contacts? Pick them from the list if so.`);
       return null;
+    }
+    if (part === 'kennel' && spec && !spec.kennelId && !blank(spec.kennelName)) {
+      const like = similarNamed(ctx.outsideKennels || [], spec.kennelName, (k) => k.kennel_name);
+      if (like) return check(draft, `kennel:${role}:${norm(spec.kennelName)}`, `Is that ${like.kennel_name}, already in your kennels? Pick it from the list if so.`);
     }
     return null; // -kennel is optional
   }

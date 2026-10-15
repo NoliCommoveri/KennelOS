@@ -1701,12 +1701,16 @@ the add-a-kennel / add-a-person fields every task asks with, `kennelNameField` a
 contact", the litter task's outside parent's owner and kennel, Add dogs' breeder),
 `assets/guidedLitterUI.js` + `data/guidedLitter.js` (the litter task), `assets/guidedDogsUI.js`
 + `data/guidedDogs.js` (add dogs), `data/dogSearch.js` (`findDogMatches`, the one way every
-task looks for a dog on file before making one: each typed name, call or registered, against
-both names of every dog, fuzzy and both ways ("Zoey" finds "Zoe" and "GCH Thornfield Zoey
-Mae"; titles, case, punctuation ignored); then the same registration number is `certain`, a
-different one rules the dog out, a sex that doesn't fit never shows, a name plus the same
-breed or birthday is `likely`, else `possible`; numbers compared without spaces,
-punctuation or a leading "AKC", and never changed as stored), `assets/litterCheckinUI.js`
+task looks for a dog on file before making one, written for how people type: each typed
+name, call or registered, against both names of every dog, both ways and forgiving (titles,
+case, spacing, punctuation ignored; run-together names; a slip or two per word, a swapped
+pair counting as one; sound-alikes, "Zoie" / "Zoey"; "Zoey" finds "GCH Thornfield Zoey Mae");
+numbers wherever they were typed, a name box included, on both sides; then the same number
+is `certain` (shown even when the sex doesn't fit), one slip off "nearly the same" and a
+breed spelled near enough or a birthday the same, a few days off or day and month swapped
+make it `likely`, and a clearly different number or breed only lowers it to `possible`,
+never hides it; `similarNamed`, the same name match for kennels and contacts;
+`looksLikeNumber`; nothing typed is changed as stored), `assets/litterCheckinUI.js`
 + `data/litterCheckin.js` + `data/goHome.js` (the check-in), `assets/tidyUpUI.js` +
 `data/tidyRules.js` + `data/recordMerge.js` (the tidy-up), `assets/accountHealthUI.js` +
 `data/accountHealth.js` (account health), `assets/waitlistSetupUI.js` (set up my waitlist,
@@ -1717,6 +1721,14 @@ look → raise one at a time → fix → look again loop the tidy-up and account
 "Stop for now"), `assets/prepPupsUI.js` +
 `data/prepPups.js` (prep pups; it reuses the check-in's exported `chipsForm`, `careForm`
 and `pickupsForm`). The data modules are tested; all but `recordMerge.js` are pure.
+
+**People, not forms:** wherever a near-miss would make a duplicate or a slip (a parent
+on file typed again, a kennel or contact like one she has, a breed spelled unlike her
+other dogs', a registration number in a name box), the step's check is one she can tap
+past: `{ key, message }` from `problem()`, shown once by `kelsSteps` ("If it's right as you
+typed it, tap Next again") and then skipped while `draft.warned[key]`; changing what she
+typed asks again. The tidy-up's add-a-kennel / add-a-contact forms ask the same way (Add
+again keeps hers). Only a missing answer, or one that can't be saved, stops her.
 
 **Her voice:** every message carries a couple of warm words, aimed at the breeder (her
 work, her pups), never more than one phrase or sentence of it; the rest is the task. Sent
@@ -1788,6 +1800,10 @@ One dog or several in one go, the way the litter task takes several puppies. `st
    Deceased; a puppy belongs to a litter), whose dog (`ownershipChoices`: Owned, Co-owned,
    and someone else's only with `externalOwnership`), the owner for someone else's (a
    contact, or a name that becomes a new contact), the kennel with several own kennels.
+   Checks she can tap past: a breed spelled unlike one her dogs have ("Did you mean Golden
+   Retriever?"), a registration number in the registered-name box, a new owner like a
+   contact she has. On save, a breed matching hers but for case or spacing takes her
+   dogs' spelling. (The breeder step asks the same of a kennel or contact like one on file.)
 4. **Is this her?** (`match:<i>`, only when `findMatchesFor` finds dogs on file it may be:
    `dogSearch.findDogMatches` over every dog not archived, pedigree-only and outside ones
    included, with its call and registered names, number, breed, birthday and sex; up to six,
@@ -1803,9 +1819,10 @@ One dog or several in one go, the way the litter task takes several puppies. `st
    that sex (same breed first), or one typed in, made pedigree-only: its **registered name**
    (required, as the pedigree reads), registration number and call name (optional). It's
    looked up with `findDogMatches`: its number on a dog on file is that dog, picked for her
-   (`resolveTypedParents`); the same name (call or registered, titles ignored), or a near
-   one with the same breed or birthday, is refused with "pick her from the list, or add her
-   registration number if it's a different dog"; one of the batch is refused too. Littermates with the same typed mom share one record.
+   (`resolveTypedParents`); the same name (call or registered, titles ignored, misspelled
+   or not) with nothing different, or a near one with something agreeing, gets "Is that …,
+   already in KennelOS? Pick her from the list if so" once, a check she can tap past; one
+   of the batch is refused. Littermates with the same typed mom share one record.
 6. **Who bred it?** (`breeder:<i>`): **I did** (her kennel is its `breeder_kennel_id`), **Another
    breeder** (Pro, `contactsSection`: their kennel, one on file or a new name, required, and
    optionally the breeder, a contact picked (one with a kennel fills the kennel) or a new

@@ -486,7 +486,7 @@ class DogsConversation extends StepConversation {
   problem(stepId) {
     return G.stepProblem(stepId, this.draft, {
       dogs: this.data.dogs, multiKennel: this.data.own.length > 1, ownKennelIds: this.data.own.map((k) => k.id), maxDogs: this.data.maxDogs,
-      outsideBreeders: this.data.outsideBreeders
+      outsideBreeders: this.data.outsideBreeders, contacts: this.data.contacts, outsideKennels: this.data.outsideKennels, breeds: this.data.breeds
     });
   }
 
