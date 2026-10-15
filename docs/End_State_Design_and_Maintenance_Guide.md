@@ -1620,10 +1620,11 @@ waitlist picks) are gated by their flags.
 
 **Kels** (she/her) is a **scripted** helper shown as a chat, not a model: every line is written in the
 task scripts, and nothing leaves the device. Who she is lives in `kelsChat.KELS` (`name`,
-`tagline`, `assistLabel`, `photo`: a path under `assets/`, precached, or null for her
-initial); pages read it through `kelsHello()` and `kelsAvatar()`. A floating **Ask Kels**
-button (`kelsChat.renderAssistButton`, from `app.js`; a dot while a litter draft is
-unfinished) opens `pages/kels.html`. Every write is an ordinary repo write.
+`tagline`, `assistLabel`, `photo`: `assets/kels.png`, 256 px, precached; null shows her
+initial); pages read it through `kelsHello()`, `kelsAvatar()` and `kelsPhotoUrl()` (resolved
+from the module's own URL, so it works from any page). A floating **Ask Kels** button
+(`kelsChat.renderAssistButton`, from `app.js`; her photo above the label, and a dot while a
+litter draft is unfinished) opens `pages/kels.html`. Every write is an ordinary repo write.
 
 Modules: `assets/kelsChat.js` (identity, the transcript — `say`, `you`, `panel`, `choose`,
 and `form({ title, html, submit, reply })`, where `submit` returns a string to show as a

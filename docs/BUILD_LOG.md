@@ -1023,3 +1023,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `logEnd` / `logContact`) and Kels's check-in. Decided: no nudge for now for pups still
   Available or Undecided past 8 weeks. End-State guide §19, §33.
   Precache updated; `CACHE_NAME` not bumped.
+- **Kels's photo (2026-10-15).** A Boston terrier at a laptop, `assets/kels.png` (256 px,
+  resized from the 1254 px original; precached), as her avatar in the chat and the Kels page
+  header, and on the floating **Ask Kels** button in place of the ✨.

@@ -23,6 +23,7 @@ const PRECACHE_URLS = [
   'assets/cloudVaultUI.js',
   'assets/companionLink.js',
   'assets/contactPicker.js',
+  'assets/kels.png',
   'assets/kelsChat.js',
   'assets/litterCheckinUI.js',
   'assets/documentModal.js',

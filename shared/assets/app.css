@@ -1093,6 +1093,7 @@ table.data tfoot .total-row td { font-weight: 700; background: var(--surface-2);
 }
 .kels-fab:hover, .kels-fab:focus-visible { transform: scale(1.06); background: var(--accent-dark); }
 .kels-fab-icon { font-size: 22px; line-height: 1; }
+.kels-fab-photo { width: 40px; height: 40px; border-radius: 50%; display: block; }
 .kels-fab-label { font-size: 11px; font-weight: 700; line-height: 1.1; }
 .kels-fab-dot { position: absolute; top: 4px; right: 4px; width: 14px; height: 14px; border-radius: 50%; background: #e0a526; border: 2px solid #fff; }
 @media print { .kels-fab { display: none; } }
@@ -1105,7 +1106,7 @@ table.data tfoot .total-row td { font-weight: 700; background: var(--surface-2);
 .kels-header p { margin: 0; font-size: 14px; }
 .kels-avatar { flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
 .kels-avatar-lg { width: 46px; height: 46px; font-size: 20px; }
-.kels-avatar-photo { object-fit: cover; padding: 0; background: var(--surface-2); }
+.kels-avatar-photo { object-fit: cover; padding: 0; background: none; }
 .kels-transcript { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; overscroll-behavior: contain; }
 .kels-row { display: flex; gap: 8px; align-items: flex-end; animation: kels-in 0.25s ease both; }
 .kels-from-kels { justify-content: flex-start; }

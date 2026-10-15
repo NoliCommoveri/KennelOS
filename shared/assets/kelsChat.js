@@ -8,13 +8,12 @@ import { esc } from './ui.js';
 
 // Who Kels is, in one place: every page, task script and the floating button
 // read these, so a new name or line changes here only. `photo` is a path under
-// assets/ (precached in sw.js) once Kels has one; until then the avatar is her
-// initial.
+// assets/ (precached in sw.js), or null to show her initial instead.
 export const KELS = Object.freeze({
   name: 'Kels',
   tagline: 'your personal KennelOS agent',
   assistLabel: 'Ask Kels',
-  photo: null
+  photo: 'assets/kels.png'
 });
 export const KELS_NAME = KELS.name;
 export const ASSIST_LABEL = KELS.assistLabel;
@@ -22,12 +21,15 @@ export const ASSIST_LABEL = KELS.assistLabel;
 // Kels's opening line, from the menu or when a page sends the breeder straight to a task.
 export const kelsHello = () => `Hi, I'm ${esc(KELS.name)}, ${esc(KELS.tagline)}!`;
 
-// Kels's avatar: the photo when there is one, else her initial. `prefix` reaches
-// assets/ from the current page ('../' under pages/).
-export function kelsAvatar({ large = false, prefix = '../' } = {}) {
+// Kels's photo as a URL any page can use (KELS.photo is relative to shared/,
+// and this module lives in shared/assets/).
+export const kelsPhotoUrl = () => (KELS.photo ? new URL(`../${KELS.photo}`, import.meta.url).href : null);
+
+// Kels's avatar: the photo when there is one, else her initial.
+export function kelsAvatar({ large = false } = {}) {
   const cls = `kels-avatar${large ? ' kels-avatar-lg' : ''}`;
   return KELS.photo
-    ? `<img class="${cls} kels-avatar-photo" src="${esc(prefix + KELS.photo)}" alt="" aria-hidden="true">`
+    ? `<img class="${cls} kels-avatar-photo" src="${esc(kelsPhotoUrl())}" alt="" aria-hidden="true">`
     : `<span class="${cls}" aria-hidden="true">${esc(KELS.name[0])}</span>`;
 }
 
@@ -179,6 +181,9 @@ export function renderAssistButton({ pending = false } = {}) {
   a.href = `${prefix}kels.html`;
   a.title = `${KELS.name}, ${KELS.tagline}${pending ? ': you have something to finish' : ''}`;
   a.setAttribute('aria-label', `${ASSIST_LABEL}${pending ? ' (something to finish)' : ''}`);
-  a.innerHTML = `<span class="kels-fab-icon" aria-hidden="true">✨</span><span class="kels-fab-label">${esc(ASSIST_LABEL)}</span>${pending ? '<span class="kels-fab-dot" aria-hidden="true"></span>' : ''}`;
+  const icon = KELS.photo
+    ? `<img class="kels-fab-photo" src="${esc(kelsPhotoUrl())}" alt="" aria-hidden="true">`
+    : '<span class="kels-fab-icon" aria-hidden="true">✨</span>';
+  a.innerHTML = `${icon}<span class="kels-fab-label">${esc(ASSIST_LABEL)}</span>${pending ? '<span class="kels-fab-dot" aria-hidden="true"></span>' : ''}`;
   document.body.appendChild(a);
 }
