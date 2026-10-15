@@ -353,9 +353,8 @@ when they apply, and the FAQ above them, for one kennel. Set up my waitlist (§3
 off to it where it now only says where to change the form.
 - **Which kennel** (multi-kennel), then **where she's starting:** our standard form
   (`DEFAULT_FORM_QUESTIONS`), the form she has now (re-runnable, §3.3's pattern: she says
-  what's there and asks what to change), or **an old form's spreadsheet** (the page's
-  question import, `proposeQuestionImport` / `applyQuestionImport`: each column shown as
-  a question to keep, rename or skip).
+  what's there and asks what to change). **Not yet** (decided): an old form's spreadsheet;
+  the Waitlist form page's question import still does that, and she says so.
 - **The locked questions** (name, email, the preferences, `ready_timing`, the public-list
   notice) are shown together, once: "These are how the list works, so they stay. Want to
   reword any?" Only the wording changes.
@@ -371,7 +370,7 @@ off to it where it now only says where to change the form.
 - **Then:** with the list online, the link to the form (`waitlistOnlineUI`'s); **Add an
   applicant now?** runs the shared applicant step (§4) with the form she just made.
 - **Keywords:** application, application form, form, questions, questionnaire, apply,
-  waitlist form, FAQ, puppy application, import form, Google Form, Jotform.
+  waitlist form, FAQ, puppy application.
 
 ## 4. Shared pieces
 
@@ -402,7 +401,8 @@ off to it where it now only says where to change the form.
     the tidy-up's `duplicateContactFindings` (same name plus one shared detail) are two
     rules for one question. One pure `data/contactSearch.js` (`findContactMatches`, using
     `dogSearch`'s word match for slips) serves the waitlist's approval, the tidy-up, and
-    Kels; the copies go in the same change.
+    Kels; the copies go in the same change. **Decided:** a matching email or phone is a
+    match; a matching or near-matching name alone is a "maybe this is them", never assumed.
   - **The applicant step:** Set up my waitlist's **Add one by hand** (her application in the
     chat, the program, when they applied, notes, saved `applied`) moves into `kelsSteps` as
     one step any task can run, given a contact or not. Add people, Set up my application
@@ -442,19 +442,15 @@ Decided:
 - Starred tasks stay in the Doing Something list: no shortcuts on her first screen, and
   the rest of the list never folds under "More".
 
+- Add people (§3.12) is Pro only: Lite has no Contacts pages.
+- An applicant added from Add people is linked to the contact she just made, at once.
+  Everywhere else she still picks the contact when she approves the application.
+- One contact match rule (§4): a matching email or phone is the same person; a matching or
+  near-matching name alone is offered as "maybe this is them", never assumed.
+- Set up my application form (§3.13) doesn't take an old form's spreadsheet yet; that stays
+  on the Waitlist form page.
+
 Open:
-- **Add people in Lite?** Lite has no Contacts pages, so §3.12 is written as Pro. Lite
-  still makes contacts (a sale's buyer, a dog's breeder); a Lite Add people would be the
-  only place she could see them as a list. Proposed: Pro only.
-- **Does the applicant step need a contact?** Today an application is saved without one
-  and she links a contact at approval (`contactMatches`, never automatic). From Add people
-  the contact already exists. Proposed: link it at once there (she just made it), keep the
-  approval-time pick everywhere else.
-- **One contact match rule** (§4): the waitlist's exact match and the tidy-up's
-  "name + one detail" give different answers today. Proposed: email or phone alone is a
-  match; a name alone, or a close name (a slip), is offered as "maybe", never assumed.
 - **Which kennels the "bred it" step offers** (§3.12): proposed, the kennels from this run
   first, then every outside kennel she has; never her own (a dog she bred is the litter
   task's), and only dogs with no breeder kennel (one already set is never changed here).
-- **Starting a form from an old spreadsheet** (§3.13) needs a file picked in the chat
-  (Papa parse, as the page does). Proposed: yes, in the chat (§2.8), not by opening the page.
