@@ -1181,8 +1181,8 @@ in `proPages.js`).
   a pre-pickup countdown card.
 - **Pickup date/time/place follow the pup's Placement / drop-off event** (decided
   2026-10-15), so a drop-off moved on the timeline reaches the family on the next resend.
-  `pickupEventFor(sale, events)` picks the pup's non-archived `placement` event for the
-  sale's buyer (or naming no contact): the soonest from today on, else the latest past one.
+  `pickupEventFor(sale, events)` picks from the pup's drop-off events for the sale's family
+  (`goHome.pickupFor`, as Kels and Today): the soonest from today on, else the latest past one.
   `pickupPlanFor(sale, event)` sends its `event_date`, `details.placement_time` and
   `details.location` (blank stays blank). The card shows it read-only with **Edit
   drop-off** (the shared event modal). Only a pup with **no** drop-off event shows the
@@ -1783,7 +1783,8 @@ The run-up to go-home day for one litter. Each fix is saved when approved; there
    | Feeding schedule (Pro `feedingSchedule`) | the litter's `feeding_schedule_override`, or a breed schedule for the pup's breed | the Feeding schedules page, or the litter's page |
 
    The `placement` event ("Placement / drop-off") is the only go-home date the app keeps;
-   Furever's pickup fields on the Sale are the family app's and don't count. A fix that opens
+   Furever's pickup plan reads it too (§27). The typed Furever pickup fields on the Sale are
+   only Furever's fallback for a pup with no drop-off event, and don't count. A fix that opens
    a page leaves Kels; she says to start Pups are going home again after.
 5. **The end:** all done, or what's still missing per pup. Pro: the **Furever link** is
    offered (`furever.html`) when a chosen pup has an open sale; it isn't tracked, so it's

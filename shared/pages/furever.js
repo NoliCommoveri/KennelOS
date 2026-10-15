@@ -20,6 +20,7 @@ import { documentRepo, isFureverShareable, publishedFureverDocIds } from '../dat
 import { getFureverSettings, setFureverSettings, getMyKennelId, getMyContactId } from '../data/settings.js';
 import { eventRepo } from '../data/eventRepo.js';
 import { buildSeedPacket, pickupEventFor, FUREVER_APP_URL } from '../data/fureverSeedExport.js';
+import { PICKUP_TITLE } from '../data/goHome.js';
 import { openEventForm } from '../assets/eventForm.js';
 import { connectDrive, isDriveConnectedThisSession } from '../data/googleDrive.js';
 import { publishPack, isSensitiveDocType } from '../data/fureverContentPack.js';
@@ -315,7 +316,7 @@ function wirePickup(row, entry) {
         event_type: 'placement',
         event_date: typed.furever_pickup_date || '',
         related_contact_id: entry.sale.buyer_contact_id || '',
-        title: 'Puppy pickup',
+        title: PICKUP_TITLE,
         details: { placement_time: typed.furever_pickup_time, location: typed.furever_pickup_place }
       },
       onSaved: () => refreshPickup(row, entry).catch((e) => showError(e.message || String(e)))

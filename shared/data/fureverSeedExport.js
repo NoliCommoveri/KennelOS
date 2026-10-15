@@ -26,6 +26,7 @@ import { litterRepo } from './litterRepo.js';
 import { breedFeedingScheduleRepo } from './breedFeedingScheduleRepo.js';
 import { eventRepo } from './eventRepo.js';
 import { todayYMD } from './dateUtils.js';
+import { pickupFor } from './goHome.js';
 
 export const SEED_PACKET_VERSION = 1;
 
@@ -74,15 +75,11 @@ async function resolveFeedingSchedule(dog, litter) {
 // The pickup plan's date, time and place come from the pup's Placement /
 // drop-off event (decided 2026-10-15), so a drop-off moved on the pup's
 // timeline reaches the family on the next resend without retyping it here.
-// Of the pup's drop-off events for this sale's buyer (or with no buyer named),
-// the soonest from today on wins, else the latest past one. `events` is the
-// pup's timeline (eventRepo.getForSubject('dog', id)).
-const isYMD = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d || '');
+// Of the pup's drop-off events for this sale's family (goHome.pickupFor, the
+// same test Kels and Today use), the soonest from today on wins, else the latest
+// past one. `events` is the pup's timeline (eventRepo.getForSubject('dog', id)).
 export function pickupEventFor(sale, events, today = todayYMD()) {
-  const buyer = sale?.buyer_contact_id || null;
-  const drops = (events || [])
-    .filter((e) => e && !e.is_archived && e.event_type === 'placement' && isYMD(e.event_date))
-    .filter((e) => !buyer || !e.related_contact_id || e.related_contact_id === buyer)
+  const drops = (events || []).filter(Boolean).filter(pickupFor(sale || {}))
     .sort((a, b) => (a.event_date < b.event_date ? -1 : a.event_date > b.event_date ? 1 : 0));
   return drops.find((e) => e.event_date >= today) || drops[drops.length - 1] || null;
 }
