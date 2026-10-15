@@ -135,19 +135,6 @@ export function newDogSpec(breed = '') {
   };
 }
 
-// Dogs already on file that the typed name may mean: same sex (or unknown),
-// call or registered name equal, or one containing the other. Every dog that
-// isn't archived counts, outside and pedigree-only dogs included.
-export function dogMatches(dogs, { name, registeredName = '', sex }) {
-  const wanted = [norm(name), norm(registeredName)].filter((n) => n.length >= 2);
-  if (!wanted.length) return [];
-  const hit = (a, b) => a && b && (a === b || (Math.min(a.length, b.length) >= 3 && (a.includes(b) || b.includes(a))));
-  return dogs
-    .filter((d) => !d.is_archived && (d.sex === sex || d.sex === 'unknown' || !d.sex))
-    .filter((d) => wanted.some((w) => hit(norm(d.call_name), w) || hit(norm(d.registered_name), w)))
-    .sort((a, b) => (a.call_name || a.registered_name || '').localeCompare(b.call_name || b.registered_name || ''));
-}
-
 export function newPup(existingNames = []) {
   const taken = new Set(existingNames.map((n) => String(n || '').trim().toLowerCase()));
   const color = COLLAR_COLORS.find((c) => !taken.has(`${c} collar`.toLowerCase()));

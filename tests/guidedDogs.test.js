@@ -37,6 +37,9 @@ function rosterDraft(rows) {
 test('one dog: no "in common" step; several: one, before each dog\'s details and parents', () => {
   const one = rosterDraft([['Zinnia', 'female']]);
   assert.deepEqual(g.stepsFor(one), ['roster', 'dog:0', 'parents:0', 'breeder:0', 'review']);
+  // A dog that may be on file gets its question right after its details.
+  one.dogs[0].matchIds = ['x'];
+  assert.deepEqual(g.stepsFor(one), ['roster', 'dog:0', 'match:0', 'parents:0', 'breeder:0', 'review']);
   const two = rosterDraft([['Zinnia', 'female'], ['Quillon', 'male']]);
   assert.deepEqual(g.stepsFor(two), ['roster', 'common', 'dog:0', 'parents:0', 'breeder:0', 'dog:1', 'parents:1', 'breeder:1', 'review']);
 });
@@ -56,26 +59,36 @@ test('the roster refuses empty, unnamed, sexless and doubled rows; blank rows ar
   assert.equal(d.dogs.length, 1);
 });
 
-test('a name already on file is asked about first; "already mine" drops the dog from the save', () => {
-  const existing = onFile.find((x) => !x.pedigree_only && x.call_name && x.sex === 'female');
-  const d = rosterDraft([[existing.call_name, 'female'], ['Zinnia', 'female']]);
-  assert.ok(d.dogs[0].matchIds.includes(existing.id));
-  assert.deepEqual(g.stepsFor(d).slice(0, 2), ['roster', 'match:0']);
+test('after its details, a dog on file it may be is asked about; one of hers is only filled in where blank', async () => {
+  const existing = await dogRepo.create({ call_name: 'Zoey', registered_name: 'Thornfield Zoey Mae', sex: 'female', breed: 'Whippet',
+    ownership_type: 'owned', status: 'active_breeding', kennel_id: kennelId, color_markings: 'Brindle' });
+  const dogsNow = await dogRepo.getAll({ includeArchived: false, includePedigreeOnly: true });
+  const d = rosterDraft([['Zoe', 'female'], ['Zinnia', 'female']]);
+  // Nothing is looked up until its details are in.
+  assert.deepEqual(d.dogs[0].matchIds, []);
+  Object.assign(d.dogs[0], { breed: 'Whippet', microchip_id: '900111', color_markings: 'Red' });
+  g.findMatchesFor(d.dogs[0], dogsNow, d);
+  assert.equal(d.dogs[0].matchIds[0], existing.id);
+  assert.deepEqual(g.stepsFor(d).slice(0, 4), ['roster', 'common', 'dog:0', 'match:0']);
   assert.match(g.stepProblem('match:0', d), /Tap one/);
   d.dogs[0].match = existing.id;
   assert.equal(g.stepProblem('match:0', d), null);
-  assert.deepEqual(g.dogsToAdd(d).map((x) => x.call_name), ['Zinnia']);
-  // Only one left to add, so there's nothing "in common" to ask.
-  assert.ok(!g.stepsFor(d).includes('common'));
-  assert.ok(!g.stepsFor(d).includes('dog:0'));
-  const sections = g.reviewSections(d, { dog: (id) => (id === existing.id ? existing.call_name : '') });
-  assert.equal(sections.at(-1).title, 'Already in KennelOS');
-  assert.match(sections.at(-1).lines[0], /left as she is/);
-  // A name changed on the roster asks again.
-  d.dogs[0].call_name = 'Totally New Name';
-  g.afterRoster(d, onFile);
+  assert.match(g.reviewSections(d)[0].title, /filling in what's missing/);
+  // The same details keep her answer; changed ones ask again.
+  g.findMatchesFor(d.dogs[0], dogsNow, d);
+  assert.equal(d.dogs[0].match, existing.id);
+  const before = tables.dogs.rows.size;
+  d.dogs[1].breed = 'Whippet';
+  await g.saveGuidedDogs(d);
+  assert.equal(tables.dogs.rows.size, before + 1); // only Zinnia is new
+  const after = await dogRepo.getById(existing.id);
+  assert.equal(after.microchip_id, '900111'); // blank: filled in
+  assert.equal(after.color_markings, 'Brindle'); // never overwritten
+  assert.equal(after.call_name, 'Zoey');
+  d.dogs[0].matchesFor = null;
+  d.dogs[0].registration_number = 'XX1';
+  g.findMatchesFor(d.dogs[0], dogsNow, d);
   assert.equal(d.dogs[0].match, null);
-  assert.deepEqual(d.dogs[0].matchIds, []);
 });
 
 test('"in common" fills each dog; her own change on a dog is kept', () => {
@@ -119,7 +132,7 @@ test('each dog\'s details: breed, a past birth date, status, whose, owner, kenne
   assert.equal(g.stepProblem('dog:0', d, { multiKennel: true, ownKennelIds: ['k1', 'k2'] }), null);
 });
 
-test('parents are optional; a typed ancestor is a registered name, matched by the pedigree rules', () => {
+test('parents are optional; a typed ancestor is a registered name, looked up by both names and its number', () => {
   const regDam = onFile.find((x) => x.sex === 'female' && x.registered_name);
   const d = rosterDraft([['Zinnia', 'female'], ['Quintessa', 'female']]);
   const z = d.dogs[0];
@@ -128,8 +141,11 @@ test('parents are optional; a typed ancestor is a registered name, matched by th
   assert.equal(g.stepProblem('parents:0', d, { dogs: onFile }), null);
   z.dam = { pick: 'new', name: '' };
   assert.match(g.stepProblem('parents:0', d, { dogs: onFile }), /mom's registered name/);
-  // A call name is never matched; the registered name is (titles in front ignored).
+  // Her name, call or registered (titles in front ignored), finds the dog on file.
   z.dam = { pick: 'new', name: regDam.call_name };
+  assert.match(g.stepProblem('parents:0', d, { dogs: onFile }), /already in KennelOS/);
+  // A near name with nothing else agreeing doesn't stop her.
+  z.dam = { pick: 'new', name: 'Ch Wholly Different Lass' };
   assert.equal(g.stepProblem('parents:0', d, { dogs: onFile }), null);
   z.dam = { pick: 'new', name: `GCH CH ${regDam.registered_name}` };
   assert.match(g.stepProblem('parents:0', d, { dogs: onFile }), /already in KennelOS.*registration number/);
@@ -205,11 +221,13 @@ test('a pedigree-only dog she names is brought into use, not made twice', async 
   const d = g.emptyDraft();
   d.common.kennelId = kennelId;
   d.dogs = [Object.assign(g.newDog(), { call_name: 'Hazelwick', sex: 'female' })];
-  g.afterRoster(d, dogsNow);
+  g.afterRoster(d);
   g.fillFromCommon(d);
-  assert.ok(d.dogs[0].matchIds.includes(ped.id));
-  Object.assign(d.dogs[0], { match: ped.id, bringIn: true, breed: 'Golden Retriever' });
-  assert.deepEqual(g.stepsFor(d), ['roster', 'match:0', 'dog:0', 'parents:0', 'breeder:0', 'review']);
+  d.dogs[0].breed = 'Golden Retriever';
+  g.findMatchesFor(d.dogs[0], dogsNow, d);
+  assert.equal(d.dogs[0].matchIds[0], ped.id);
+  Object.assign(d.dogs[0], { match: ped.id, bringIn: true });
+  assert.deepEqual(g.stepsFor(d), ['roster', 'dog:0', 'match:0', 'parents:0', 'breeder:0', 'review']);
   assert.match(g.reviewSections(d)[0].title, /bringing in/);
   const before = tables.dogs.rows.size;
   const res = await g.saveGuidedDogs(d);
@@ -390,21 +408,6 @@ test('findOrCreateOutside: an outside kennel by name, never an own one, never tw
   const c = await kennelRepo.findOrCreateOutside(own.kennel_name);
   assert.equal(c.created, true, 'her own kennel\'s name is not an outside kennel');
   await assert.rejects(() => kennelRepo.findOrCreateOutside('  '));
-});
-
-test('ancestorMatches: a number is that dog; a registered name is asked about; never a call name', async () => {
-  const { ancestorMatches } = await import('../shared/data/pedigreeImport.js');
-  const dogs = [
-    { id: 'a', sex: 'female', registered_name: 'GCH Willowmere Bella', registration_number: 'SR12345601', call_name: 'Bella' },
-    { id: 'b', sex: 'female', registered_name: 'Willowmere Bella', registration_number: 'SR99999901' },
-    { id: 'c', sex: 'male', registered_name: 'Willowmere Bella' },
-    { id: 'd', sex: 'female', registered_name: 'Willowmere Bella', is_archived: true }
-  ];
-  assert.equal(ancestorMatches(dogs, { registeredName: 'x', registrationNumber: 'AKC sr123456-01', sex: 'female' }).byNumber.id, 'a');
-  assert.deepEqual(ancestorMatches(dogs, { registeredName: 'willowmere  bella', sex: 'female' }).byName.map((x) => x.id), ['a', 'b']);
-  assert.deepEqual(ancestorMatches(dogs, { registeredName: 'Willowmere Bella', registrationNumber: 'SR99999901', sex: 'female' }).byName, []);
-  assert.deepEqual(ancestorMatches(dogs, { registeredName: 'Willowmere Bella', registrationNumber: 'SR00000001', sex: 'female' }).byName.map((x) => x.id), []);
-  assert.deepEqual(ancestorMatches(dogs, { registeredName: 'Bella', sex: 'female' }).byName, []);
 });
 
 test('createPedigreeOnly: a registered name is enough; always somebody else\'s, off the roster', async () => {

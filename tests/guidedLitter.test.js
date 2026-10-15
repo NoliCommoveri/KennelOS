@@ -70,21 +70,6 @@ test('an existing litter is offered before an existing breeding, and a picked br
   assert.deepEqual(g.stepsFor(d, { litterOptions: [{ id: 'l' }], linkedPairing: { id: 'p' } }).slice(2, 4), ['match-litter', 'born']);
 });
 
-test('a typed name finds dogs already on file, outside and pedigree-only ones included', () => {
-  const dogs = [
-    { id: '1', call_name: 'Nell', sex: 'female', ownership_type: 'owned' },
-    { id: '2', call_name: '', registered_name: 'Ch. Nellie of Elm', sex: 'female', ownership_type: 'external', pedigree_only: true },
-    { id: '3', call_name: 'Nell', sex: 'male', ownership_type: 'owned' },
-    { id: '4', call_name: 'Nell', sex: 'female', is_archived: true },
-    { id: '5', call_name: 'Duke', sex: 'female' }
-  ];
-  assert.deepEqual(g.dogMatches(dogs, { name: ' nell ', sex: 'female' }).map((d) => d.id).sort(), ['1', '2']);
-  // A registered name typed in finds that dog, and a dog whose name it contains.
-  assert.deepEqual(g.dogMatches(dogs, { name: 'Ruby', registeredName: 'Ch. Nellie of Elm', sex: 'female' }).map((d) => d.id).sort(), ['1', '2']);
-  assert.deepEqual(g.dogMatches(dogs, { name: 'Ruby', sex: 'female' }), []);
-  assert.deepEqual(g.dogMatches(dogs, { name: 'N', sex: 'female' }), []);
-});
-
 test('litters with no pups and open breedings of the same parents are the candidates', () => {
   const litters = [
     { id: 'a', dam_id: 'd', sire_id: 's', status: 'expected' },

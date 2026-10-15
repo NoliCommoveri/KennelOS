@@ -28,6 +28,7 @@ import {
 } from '../data/vocab.js';
 import { addDaysToYMD } from '../data/dateUtils.js';
 import * as G from '../data/guidedLitter.js';
+import { findDogMatches, matchReason } from '../data/dogSearch.js';
 import { esc, todayYMD } from './ui.js';
 import { renderUpgradeNudge } from './upgradeNudge.js';
 import { StepConversation, tile, field, input, options, stepper, val, plural, pagesPrefix, kennelNameField, contactFields, readContactFields } from './kelsSteps.js';
@@ -157,14 +158,15 @@ function screens(draft, data, ctx) {
         spec.breed = val(root, 'gl-nd-breed');
         spec.registered_name = val(root, 'gl-nd-reg');
       },
-      // Look for dogs already on file by that name before making a new one.
+      // Look for the dog on file before making a new one (dogSearch: both names,
+      // both ways, then the breed).
       after: () => {
-        const asked = `${spec.call_name}|${spec.registered_name}`.toLowerCase();
+        const asked = `${spec.call_name}|${spec.registered_name}|${spec.breed}`.toLowerCase();
         if (spec.matchesFor === asked) return;
         spec.matchesFor = asked;
         spec.matchDeclined = false;
-        spec.matchIds = G.dogMatches(data.dogs, { name: spec.call_name, registeredName: spec.registered_name, sex: r.sex })
-          .filter((d) => d.id !== otherId(role)).map((d) => d.id);
+        spec.matchIds = findDogMatches(data.dogs, { callName: spec.call_name, registeredName: spec.registered_name, breed: spec.breed, sex: r.sex },
+          { excludeIds: [otherId(role)] }).slice(0, 6).map((m) => m.dog.id);
       }
     };
   }
@@ -173,7 +175,10 @@ function screens(draft, data, ctx) {
     const r = G.ROLES[role];
     const spec = draft[r.newKey];
     const found = spec.matchIds.map((id) => data.dogsById.get(id)).filter(Boolean);
+    const reasons = new Map(findDogMatches(data.dogs, { callName: spec.call_name, registeredName: spec.registered_name, breed: spec.breed, sex: r.sex })
+      .map((m) => [m.dog.id, matchReason(m)]));
     const describe = (d) => [
+      reasons.get(d.id),
       d.breed,
       d.pedigree_only ? 'From a pedigree' : G.isOutsideDog(d) ? 'Outside dog' : 'Your dog',
       d.date_of_birth ? `born ${G.fmt(d.date_of_birth)}` : ''

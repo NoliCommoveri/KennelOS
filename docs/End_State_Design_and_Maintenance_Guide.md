@@ -1700,7 +1700,13 @@ the add-a-kennel / add-a-person fields every task asks with, `kennelNameField` a
 `contactFields` + `readContactFields`: the tidy-up's "Add their kennel" and "Add a
 contact", the litter task's outside parent's owner and kennel, Add dogs' breeder),
 `assets/guidedLitterUI.js` + `data/guidedLitter.js` (the litter task), `assets/guidedDogsUI.js`
-+ `data/guidedDogs.js` (add dogs), `assets/litterCheckinUI.js`
++ `data/guidedDogs.js` (add dogs), `data/dogSearch.js` (`findDogMatches`, the one way every
+task looks for a dog on file before making one: each typed name, call or registered, against
+both names of every dog, fuzzy and both ways ("Zoey" finds "Zoe" and "GCH Thornfield Zoey
+Mae"; titles, case, punctuation ignored); then the same registration number is `certain`, a
+different one rules the dog out, a sex that doesn't fit never shows, a name plus the same
+breed or birthday is `likely`, else `possible`; numbers compared without spaces,
+punctuation or a leading "AKC", and never changed as stored), `assets/litterCheckinUI.js`
 + `data/litterCheckin.js` + `data/goHome.js` (the check-in), `assets/tidyUpUI.js` +
 `data/tidyRules.js` + `data/recordMerge.js` (the tidy-up), `assets/accountHealthUI.js` +
 `data/accountHealth.js` (account health), `assets/waitlistSetupUI.js` (set up my waitlist,
@@ -1743,7 +1749,8 @@ isn't closed (**Check in with Kels**, `kels.html?task=checkin&litter=<id>`).
 
 ### "Record a new litter"
 `stepsFor`: mom and dad (own dogs, all dogs, or a new one; a typed name is first checked
-against existing dogs, `dogMatches`, so nobody is entered twice; outside dogs only in Pro) →
+against existing dogs, `dogSearch.findDogMatches` with its names and breed, so nobody is
+entered twice; outside dogs only in Pro) →
 the matching litter (`litterCandidates`) → the matching breeding (`pairingCandidates`) or when
 she was bred → the stud service (Pro, outside dad) → birth date and counts → kennel (only if
 it can't be worked out) → one screen per puppy → plans (disposition, intended registration) →
@@ -1770,32 +1777,35 @@ One dog or several in one go, the way the litter task takes several puppies. `st
    the cap, `dogCapStatus()`, shown as "You have room for 2 more dogs") and ✕ to take a row
    off. Names must differ; an empty row is dropped. In Lite with no room left, she shows
    the upgrade notice in place of the task's questions.
-2. **We found…** (`match:<i>`, only for a name already on file: `guidedLitter.dogMatches`
-   over every dog not archived, pedigree-only and outside dogs included). **Yes, that's
-   her** leaves a dog that's already hers as it is (listed under "Already in KennelOS" on
-   the review); a pedigree-only dog is **brought into use** instead (the Dog page's bring-in:
-   updated with her answers, `pedigree_only` false, its parents and details as the starting
-   answers). **No, a different dog** adds a new one. Renaming a dog on the roster asks again.
-3. **What do they have in common?** (`common`, only with two or more to add): breed, status,
+2. **What do they have in common?** (`common`, only with two or more dogs): breed, status,
    whose dog, the owner (someone else's) and the kennel (with more than one own kennel; the
    active one suggested). `fillFromCommon` fills each dog's blank fields, and any still
    holding the last common answer; her own change on a dog is kept. A lone dog gets the
    defaults (Active breeding, Owned).
-4. **Each dog** (`dog:<i>`, "Tell me about Daisy (2 of 3)"): breed (required), date of birth,
+3. **Each dog** (`dog:<i>`, "Tell me about Daisy (2 of 3)"): breed (required), date of birth,
    registered name and number, color and markings, microchip, status (`statusChoices`:
    Active / Retired breeding, Pet home, For sale, Deceased; Lite: Active / Retired breeding,
    Deceased; a puppy belongs to a litter), whose dog (`ownershipChoices`: Owned, Co-owned,
    and someone else's only with `externalOwnership`), the owner for someone else's (a
    contact, or a name that becomes a new contact), the kennel with several own kennels.
+4. **Is this her?** (`match:<i>`, only when `findMatchesFor` finds dogs on file it may be:
+   `dogSearch.findDogMatches` over every dog not archived, pedigree-only and outside ones
+   included, with its call and registered names, number, breed, birthday and sex; up to six,
+   surest first, each showing why, "Same breed and birthday" / "Different breed"; a dog
+   another one on the roster already is isn't offered). The same number titles it "That
+   registration number is Daisy's". **Yes, that's her** on one of hers **fills in** that
+   record: only what's blank on it is written, its parents and breeder are the starting
+   answers, and nothing is made. On a pedigree-only dog it's **brought into use** (the Dog
+   page's bring-in: updated with her answers, `pedigree_only` false). **No, a different dog**
+   makes a new one. Changed details ask again.
 5. **Their parents** (`parents:<i>`, optional: "If you don't know yet, leave them as Not
    known"): mom and dad each **Not known**, one of the dogs being added, a dog on file of
    that sex (same breed first), or one typed in, made pedigree-only: its **registered name**
    (required, as the pedigree reads), registration number and call name (optional). It's
-   matched by the pedigree import's rules (`pedigreeImport.ancestorMatches`): its number on a
-   dog on file is that dog, picked for her (`resolveTypedParents`); its registered name on a
-   dog on file (titles in front ignored, never a call name) is refused with "pick her from
-   the list, or add her registration number if it's a different dog"; one of the batch is
-   refused too. Littermates with the same typed mom share one record.
+   looked up with `findDogMatches`: its number on a dog on file is that dog, picked for her
+   (`resolveTypedParents`); the same name (call or registered, titles ignored), or a near
+   one with the same breed or birthday, is refused with "pick her from the list, or add her
+   registration number if it's a different dog"; one of the batch is refused too. Littermates with the same typed mom share one record.
 6. **Who bred it?** (`breeder:<i>`): **I did** (her kennel is its `breeder_kennel_id`), **Another
    breeder** (Pro, `contactsSection`: their kennel, one on file or a new name, required, and
    optionally the breeder, a contact picked (one with a kennel fills the kennel) or a new
@@ -2056,9 +2066,9 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
   blank sire/dam → pick a dog already on file (right sex, same breed first), or add one: hers
   (owned, in the dog's kennel; at Lite's cap she shows the usual upgrade notice, `renderUpgradeNudge`, and skips that parent) or somebody else's as a
   pedigree-only dog, asked by its registered name (required) and registration number (no
-  call name). Hers is checked against existing dogs by name first (`dogMatches`); a
-  pedigree dog by `pedigreeImport.ancestorMatches`: its number on a dog on file is that dog
-  (she says so and uses it), its registered name offers the dogs it matches.
+  call name). Either is looked up first with `dogSearch.findDogMatches` (both names, its
+  number, the dog's breed, the sex): the same number is that dog (she says so and uses
+  it); the others are offered with why, before a new one is made.
 - **Stud service** (`studServices`): past its date (returned, else sent; or Completed), not
   cancelled or failed, no `pairing_id` → link a breeding of the same two dogs opened from two
   weeks before it was sent that no other service claims, or **Record the breeding** in the

@@ -1245,3 +1245,12 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   "just for the pedigree" now ask the registered name (required) and number, not a call
   name; Add dogs uses a dog on file by number without asking. The parents step says
   they're optional ("If you don't know yet, leave them as Not known").
+- **Kels: one dog search (2026-10-15).** `data/dogSearch.js` `findDogMatches` replaces
+  `guidedLitter.dogMatches` and `pedigreeImport.ancestorMatches` everywhere Kels looks for
+  a dog on file (the litter task's new mom or dad, the tidy-up's parents, Add dogs and its
+  typed parents): every typed name, call or registered, against both names of every dog,
+  fuzzy and both ways; then the number (certain, or a different dog), breed and birthday
+  (likely) and sex. Add dogs now asks "Is this her?" after each dog's details, with the
+  reasons shown, and "Yes" on one of hers fills in only what's blank on it instead of
+  leaving it out. Sample data's registration numbers lost their typed "AKC " prefix (the
+  registry stays in `registry`); nothing in the app adds one.

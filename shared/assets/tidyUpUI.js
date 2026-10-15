@@ -21,8 +21,7 @@ import { inScopeOnly, dogsInScope, resolveKennelIdForWrite } from '../data/kenne
 import { editionFlags } from '../data/editionConfig.js';
 import { DISPOSITION, OWNERSHIP_TYPE, DOG_STATUS, SALE_STATUS, PAIRING_STATUS, descriptor } from '../data/vocab.js';
 import { litterLabel } from '../data/litterCheckin.js';
-import { dogMatches } from '../data/guidedLitter.js';
-import { ancestorMatches } from '../data/pedigreeImport.js';
+import { findDogMatches, matchReason } from '../data/dogSearch.js';
 import { baseFromLitter } from '../data/puppyDefaults.js';
 import { deliveredOwnershipChanges } from '../data/goHome.js';
 import { studParents, ourRole } from '../data/studRules.js';
@@ -361,24 +360,20 @@ class Tidy extends FindingsTask {
     });
     if (!res.done) return null;
     const v = res.result;
-    // Somebody already on file? An ancestor by the pedigree rules (the same
-    // registration number is that dog; the same registered name is asked about),
-    // her own dog by name. Offered first, so nobody is entered twice.
-    let matches;
-    if (v.mine) {
-      matches = dogMatches(this.allDogs, { name: v.call, registeredName: v.reg, sex: R.sex }).filter((d) => d.id !== dog.id);
-    } else {
-      const { byNumber, byName } = ancestorMatches(this.allDogs.filter((d) => d.id !== dog.id), { registeredName: v.reg, registrationNumber: v.num, sex: R.sex });
-      if (byNumber) {
-        await this.chat.say(`That number is ${this.b(dogName(byNumber))}, already in KennelOS, so I'll use ${R.sex === 'female' ? 'her' : 'him'}.`);
-        return byNumber.id;
-      }
-      matches = byName;
+    // Somebody already on file? dogSearch: both names, both ways, then the
+    // number, breed and sex. The same number is that dog (she says so and uses
+    // it); the rest are offered first, so nobody is entered twice.
+    const found = findDogMatches(this.allDogs, { callName: v.call, registeredName: v.reg, registrationNumber: v.num, breed: dog.breed, sex: R.sex }, { excludeIds: [dog.id] });
+    if (found[0]?.strength === 'certain') {
+      await this.chat.say(`That number is ${this.b(dogName(found[0].dog))}, already in KennelOS, so I'll use ${R.sex === 'female' ? 'her' : 'him'}.`);
+      return found[0].dog.id;
     }
+    const matches = found.map((m) => m.dog);
+    const why = new Map(found.map((m) => [m.dog.id, matchReason(m)]));
     if (matches.length) {
-      await this.chat.say(`I already have ${matches.length === 1 ? 'a dog' : 'dogs'} by that name. Is it one of these?`);
+      await this.chat.say(`I already have ${matches.length === 1 ? 'a dog' : 'dogs'} like that. Is it one of these?`);
       const id = await this.chat.choose([
-        ...matches.slice(0, 6).map((d) => ({ label: dogName(d), sub: [d.registered_name, d.breed].filter(Boolean).join(' · '), value: d.id })),
+        ...matches.slice(0, 6).map((d) => ({ label: dogName(d), sub: [why.get(d.id), d.registered_name, d.breed].filter(Boolean).join(' · '), value: d.id })),
         { label: 'No, add a new dog', value: '' }
       ]);
       if (id) return id;

@@ -19,6 +19,7 @@ import { getGuidedDogsDraft, setGuidedDogsDraft, clearGuidedDogsDraft } from '..
 import { DOG_STATUS, OWNERSHIP_TYPE, DOC_TYPES, VACCINE_CHECKLIST, VACCINE_GOOD_FOR, documentFieldsFor, descriptor } from '../data/vocab.js';
 import { SCOPED_OWNERSHIP } from '../data/kennelScope.js';
 import * as G from '../data/guidedDogs.js';
+import { findDogMatches, matchReason } from '../data/dogSearch.js';
 import { fmt } from '../data/guidedLitter.js';
 import { esc, todayYMD } from './ui.js';
 import { renderUpgradeNudge } from './upgradeNudge.js';
@@ -108,8 +109,8 @@ function screens(draft, data) {
     const p = d[role];
     const batch = G.dogsToAdd(draft).filter((x) => x.key !== d.key && x.sex === sex);
     const breed = (d.breed || '').trim().toLowerCase();
-    // A pedigree dog being brought in is listed once, with the dogs we're adding.
-    const bringing = new Set(G.dogsToAdd(draft).filter((x) => x.bringIn).map((x) => x.match));
+    // A dog on file that one of the dogs we're adding is, is listed once, with them.
+    const bringing = new Set(draft.dogs.filter((x) => x.match && x.match !== 'none').map((x) => x.match));
     const onFile = data.dogs
       .filter((x) => !bringing.has(x.id) && (x.sex === sex || !x.sex || x.sex === 'unknown'))
       .sort((a, b) => ((b.breed || '').trim().toLowerCase() === breed) - ((a.breed || '').trim().toLowerCase() === breed));
@@ -170,45 +171,53 @@ function screens(draft, data) {
         empty?.focus({ preventScroll: true });
       },
       after: () => {
-        G.afterRoster(draft, data.dogs);
+        G.afterRoster(draft);
         G.fillFromCommon(draft);
       }
     }),
 
     match: (i) => {
       const d = draft.dogs[i];
-      const found = d.matchIds.map((id) => data.dogsById.get(id)).filter(Boolean);
+      // The same search that found them, for what she's shown about each.
+      const typed = { callName: d.call_name, registeredName: d.registered_name, registrationNumber: d.registration_number, breed: d.breed, dateOfBirth: d.date_of_birth, sex: d.sex };
+      const byId = new Map(findDogMatches(data.dogs, typed).map((m) => [m.dog.id, m]));
+      const found = d.matchIds.map((id) => byId.get(id) || { dog: data.dogsById.get(id), strength: 'possible', agrees: [], differs: [] }).filter((m) => m.dog);
       const one = found.length === 1;
-      const describe = (x) => [
-        x.breed,
-        x.pedigree_only ? `From a pedigree: I'll bring ${herHim(d.sex)} into your dogs` : `Already in KennelOS: I'll leave ${herHim(d.sex)} as ${sheHe(d.sex)} is`,
-        x.date_of_birth ? `born ${fmt(x.date_of_birth)}` : ''
-      ].filter(Boolean).join(' · ');
+      const sure = found[0]?.strength === 'certain';
+      const describe = (m) => {
+        const x = m.dog;
+        return [
+          matchReason(m),
+          [x.breed, x.date_of_birth ? `born ${fmt(x.date_of_birth)}` : '', x.registration_number].filter(Boolean).join(', '),
+          x.pedigree_only ? `From a pedigree: I'll bring ${herHim(d.sex)} into your dogs` : 'In KennelOS: I\'ll fill in what\'s missing on it'
+        ].filter(Boolean).join(' · ');
+      };
+      const nameHtml = (x) => `${esc(dogName(x))}${x.registered_name && x.call_name ? ` <span class="faint">${esc(x.registered_name)}</span>` : ''}`;
       return {
-        title: one ? `We found ${esc(dogName(found[0]))}. Is this the ${esc(d.call_name)} you're adding?` : `We found dogs named like ${esc(d.call_name)}. Is one of them ${herHim(d.sex)}?`,
+        title: sure ? `That registration number is ${esc(dogName(found[0].dog))}'s. Is this ${esc(d.call_name)}?`
+          : one ? `We found ${esc(dogName(found[0].dog))}. Is this the ${esc(d.call_name)} you're adding?`
+            : `We found dogs like ${esc(d.call_name)}. Is one of them ${herHim(d.sex)}?`,
         html: `<p class="gl-lead">Using the one on file keeps ${her(d.sex)} records in one place.</p>
           <div class="gl-tiles">
-            ${found.map((x) => tile('match', x.id, `${one ? `Yes, that's ${herHim(d.sex)}: ` : ''}${esc(dogName(x))}${x.registered_name && x.call_name ? ` <span class="faint">${esc(x.registered_name)}</span>` : ''}`, { selected: d.match === x.id, sub: describe(x) })).join('')}
+            ${found.map((m) => tile('match', m.dog.id, `${one ? `Yes, that's ${herHim(d.sex)}: ` : ''}${nameHtml(m.dog)}`, { selected: d.match === m.dog.id, sub: describe(m) })).join('')}
             ${tile('match', 'none', `No, ${esc(d.call_name)} is a different dog`, { selected: d.match === 'none', sub: 'Add as a new dog' })}
           </div>`,
         onTile: (value) => {
-          if (d.id && d.id === d.match) d.id = null; // a pedigree dog brought in by an earlier answer
+          if (d.id && d.id === d.match) d.id = null; // the dog an earlier answer pointed at
           d.match = value;
           const x = value === 'none' ? null : data.dogsById.get(value);
           d.bringIn = Boolean(x?.pedigree_only);
-          if (d.bringIn) {
-            // What the pedigree already knows, as the starting answers.
-            for (const k of ['breed', 'date_of_birth', 'registered_name', 'registration_number', 'color_markings', 'microchip_id']) {
-              if (!d[k] && x[k]) d[k] = x[k];
-            }
+          if (x) {
+            // Its parents and breeder on file, as the starting answers.
             if (x.breeder_kennel_id && !d.breeder?.bredBy) {
               d.breeder = data.own.some((k) => k.id === x.breeder_kennel_id)
                 ? { ...G.noBreeder(), bredBy: 'me' }
                 : { ...G.noBreeder(), bredBy: 'other', kennelId: x.breeder_kennel_id };
+              d.breederSeen = true;
             }
             const pick = (id) => (id && data.dogsById.has(id) ? `dog:${id}` : '');
-            if (!d.dam.pick && pick(x.dam_id)) d.dam = { pick: pick(x.dam_id), name: '' };
-            if (!d.sire.pick && pick(x.sire_id)) d.sire = { pick: pick(x.sire_id), name: '' };
+            if (!d.dam.pick && pick(x.dam_id)) d.dam = { pick: pick(x.dam_id), name: '', regNum: '', callName: '' };
+            if (!d.sire.pick && pick(x.sire_id)) d.sire = { pick: pick(x.sire_id), name: '', regNum: '', callName: '' };
           }
           return true;
         }
@@ -258,7 +267,9 @@ function screens(draft, data) {
           d.microchip_id = val(root, 'gd-chip');
           d.status = val(root, 'gd-status');
           readOwnership(root, 'gd-d', d);
-        }
+        },
+        // Now that Kels knows its names, number, breed and birthday: is it on file?
+        after: () => G.findMatchesFor(d, data.dogs, draft)
       };
     },
 

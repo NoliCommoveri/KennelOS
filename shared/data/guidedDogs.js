@@ -2,15 +2,15 @@
 // assets/guidedDogsUI.js, drawn by the shared step engine assets/kelsSteps.js).
 // Several dogs in one go, the way Record a new litter takes several puppies:
 //   1. Who are we adding? One row per dog: name and boy or girl, "+ Another dog".
-//   2. Any name already on file (dogMatches, outside and pedigree-only dogs
-//      too) is asked about first: "We found Bella. Is this her?" A dog that's
-//      already hers is left as it is; a pedigree-only one is brought into use
-//      with the details she gives (the Dog page's "bring in").
-//   3. With more than one dog, what they have in common (breed, status, whose
+//   2. With more than one dog, what they have in common (breed, status, whose
 //      dog, kennel), asked once and filled in on each dog to change.
-//   4. Each dog's details, then its parents (a dog on file, one of the dogs
-//      being added, or a name typed in, made a pedigree-only dog as the
-//      tidy-up does), then one review she approves before anything is written.
+//   3. Each dog's details; then, if a dog on file may be it (dogSearch: names
+//      both ways, then the number, breed and birthday), "Is this her?" One of
+//      hers gets what's missing filled in (never overwritten); a pedigree-only
+//      one is brought into use with these details (the Dog page's "bring in").
+//   4. Its parents (a dog on file, one of the dogs being added, or an ancestor
+//      typed in, made pedigree-only), who bred it, then one review she
+//      approves before anything is written.
 //
 // Three parts, as in guidedLitter.js: the DRAFT (kept after every step through
 // settings.js), pure helpers (steps, checks, review), and saveGuidedDogs(), the
@@ -28,10 +28,12 @@ import { eventRepo } from './eventRepo.js';
 import { expenseRepo } from './expenseRepo.js';
 import { todayYMD, addMonthsToYMD } from './dateUtils.js';
 import { SEX, DOG_STATUS, OWNERSHIP_TYPE, VACCINE_GOOD_FOR, descriptor, defaultExpenseCategoryFor } from './vocab.js';
-import { dogMatches, fmt } from './guidedLitter.js';
-import { ancestorMatches, normReg, normName } from './pedigreeImport.js';
+import { fmt } from './guidedLitter.js';
+import { normReg } from './pedigreeImport.js';
+import { findDogMatches, nameKey } from './dogSearch.js';
 
-export const DRAFT_VERSION = 1;
+// 2: the match is asked after each dog's details (a version-1 draft is dropped).
+export const DRAFT_VERSION = 2;
 export const MAX_DOGS = 20;
 
 // Statuses she can give a dog she's adding. A puppy belongs to a litter (Record
@@ -51,7 +53,6 @@ const blank = (v) => v == null || String(v).trim() === '';
 const trimmed = (v) => (blank(v) ? '' : String(v).trim());
 const norm = (s) => trimmed(s).toLowerCase().replace(/\s+/g, ' ');
 const key = () => (globalThis.crypto?.randomUUID?.() || `k${Math.random().toString(36).slice(2)}`);
-const word = (sex) => (sex === 'female' ? { pronoun: 'she', object: 'her' } : { pronoun: 'he', object: 'him' });
 
 // The fields "what they have in common" fills in on each dog.
 export const COMMON_FIELDS = ['breed', 'status', 'ownership_type', 'kennelId', 'ownerId', 'ownerName'];
@@ -80,15 +81,17 @@ export function emptyDraft() {
 // registration number (`regNum`) and call name (`callName`).
 const noParent = () => ({ pick: '', name: '', regNum: '', callName: '' });
 
-// A typed parent whose registration number is a dog on file IS that dog (the
-// pedigree import's rule): the pick becomes that dog. Run when the parents step
-// is read. dogs: on file.
+// A typed parent, as dogSearch reads it.
+const typedParent = (p, sex) => ({ registeredName: p.name, callName: p.callName, registrationNumber: p.regNum, sex });
+
+// A typed parent whose registration number is a dog on file IS that dog: the
+// pick becomes that dog. Run when the parents step is read. dogs: on file.
 export function resolveTypedParents(d, dogs) {
   for (const [role, sex] of [['dam', 'female'], ['sire', 'male']]) {
     const p = d[role];
     if (p.pick !== 'new' || blank(p.regNum)) continue;
-    const { byNumber } = ancestorMatches(dogs, { registeredName: p.name, registrationNumber: p.regNum, sex });
-    if (byNumber) d[role] = { ...noParent(), pick: `dog:${byNumber.id}` };
+    const sure = findDogMatches(dogs, typedParent(p, sex)).find((m) => m.strength === 'certain');
+    if (sure) d[role] = { ...noParent(), pick: `dog:${sure.dog.id}` };
   }
   return d;
 }
@@ -108,9 +111,10 @@ export function newDog() {
     // kennel, 'other' = another breeder: their kennel (one on file, or a new
     // name) and, where the edition has contacts, the breeder (picked, or new).
     breeder: noBreeder(),
-    // Dogs already on file by that name (matchIds, looked up for `matchesFor`),
-    // and her answer: null = not asked, 'none' = a different dog, else the
-    // dog's id. `bringIn`: the one she picked is pedigree-only, so it's updated.
+    // Dogs on file that may be this one (matchIds, dogSearch, looked up for the
+    // details in `matchesFor`), and her answer: null = not asked, 'none' = a
+    // different dog, else the dog's id: one of hers is filled in where it's
+    // blank; `bringIn`, a pedigree-only one, is brought into use.
     matchIds: [], matchesFor: null, match: null, bringIn: false,
     id: null, saved: false
   };
@@ -119,26 +123,37 @@ export function newDog() {
 // A roster row she left empty (no name, no sex) is just dropped.
 const isEmptyRow = (d) => blank(d.call_name) && !d.sex;
 
-// The dogs the save makes (or brings in): every one but those she said are
-// already on file.
-export const dogsToAdd = (draft) => draft.dogs.filter((d) => !(d.match && d.match !== 'none' && !d.bringIn));
-export const dogsAlreadyIn = (draft) => draft.dogs.filter((d) => d.match && d.match !== 'none' && !d.bringIn);
+// Every dog on the roster is saved: made, brought in, or (a dog of hers she
+// said it is) filled in where blank.
+export const dogsToAdd = (draft) => draft.dogs;
+export const isFillIn = (d) => Boolean(d.match && d.match !== 'none' && !d.bringIn);
 
 export const dogLabel = (d) => trimmed(d.call_name) || 'this dog';
 
-// After the roster: drop empty rows and look up each name on file. A name that
-// hasn't changed keeps her earlier answer.
-export function afterRoster(draft, dogsOnFile) {
+// After each dog's details: the dogs on file that may be it (dogSearch, up to
+// six, surest first). The same details keep her earlier answer; changed ones ask
+// again. dogsOnFile: pedigree-only dogs included.
+export const MAX_MATCHES = 6;
+export function findMatchesFor(d, dogsOnFile, draft) {
+  const typed = {
+    callName: d.call_name, registeredName: d.registered_name, registrationNumber: d.registration_number,
+    breed: d.breed, dateOfBirth: d.date_of_birth, sex: d.sex
+  };
+  const asked = JSON.stringify(typed);
+  if (d.matchesFor === asked) return d;
+  d.matchesFor = asked;
+  if (d.id && d.id === d.match) d.id = null; // the dog an earlier answer pointed at
+  d.match = null;
+  d.bringIn = false;
+  // A dog another one on the roster already is, isn't offered again.
+  const taken = draft.dogs.filter((x) => x !== d && x.match && x.match !== 'none').map((x) => x.match);
+  d.matchIds = findDogMatches(dogsOnFile, typed, { excludeIds: taken }).slice(0, MAX_MATCHES).map((m) => m.dog.id);
+  return d;
+}
+
+// After the roster: drop empty rows.
+export function afterRoster(draft) {
   draft.dogs = draft.dogs.filter((d) => !isEmptyRow(d));
-  for (const d of draft.dogs) {
-    const asked = `${norm(d.call_name)}|${d.sex}`;
-    if (d.matchesFor === asked) continue;
-    d.matchesFor = asked;
-    if (d.id && d.id === d.match) d.id = null; // a pedigree dog brought in under the old name
-    d.match = null;
-    d.bringIn = false;
-    d.matchIds = dogMatches(dogsOnFile, { name: d.call_name, sex: d.sex }).map((x) => x.id);
-  }
   // A parent pointing at a dog no longer in the batch is cleared.
   const keys = new Set(dogsToAdd(draft).map((d) => d.key));
   for (const d of draft.dogs) {
@@ -174,10 +189,12 @@ export function fillFromCommon(draft) {
 // asked which) }. Steps for each dog are keyed by its place in draft.dogs.
 export function stepsFor(draft) {
   const steps = ['roster'];
-  draft.dogs.forEach((d, i) => { if (d.matchIds?.length) steps.push(`match:${i}`); });
-  const adding = dogsToAdd(draft);
-  if (adding.length > 1) steps.push('common');
-  draft.dogs.forEach((d, i) => { if (adding.includes(d)) steps.push(`dog:${i}`, `parents:${i}`, `breeder:${i}`); });
+  if (draft.dogs.length > 1) steps.push('common');
+  draft.dogs.forEach((d, i) => {
+    steps.push(`dog:${i}`);
+    if (d.matchIds?.length) steps.push(`match:${i}`);
+    steps.push(`parents:${i}`, `breeder:${i}`);
+  });
   steps.push('review');
   return steps;
 }
@@ -216,9 +233,7 @@ export function stepProblem(step, draft, ctx = {}) {
     return null;
   }
   if (step === 'common') return null;
-  if (step === 'review') {
-    return dogsToAdd(draft).length ? null : 'Every dog you named is already in KennelOS, so there\'s nothing new to add. Tap Change to add a different dog.';
-  }
+  if (step === 'review') return null;
   const d = draft.dogs[stepIndex(step)];
   if (!d) return null;
   const name = dogLabel(d);
@@ -245,9 +260,11 @@ export function stepProblem(step, draft, ctx = {}) {
       if (p.pick === `batch:${d.key}`) return `${name} can't be ${d.sex === 'female' ? 'her' : 'his'} own ${w}.`;
       if (p.pick !== 'new') continue;
       if (blank(p.name)) return `Type the ${w}'s registered name, or pick "Not known".`;
-      const { byName } = ancestorMatches(ctx.dogs || [], { registeredName: p.name, registrationNumber: p.regNum, sex });
-      if (byName.length) return `${trimmed(p.name)} is already in KennelOS. Pick ${sex === 'female' ? 'her' : 'him'} from the list, or add ${sex === 'female' ? 'her' : 'his'} registration number if it's a different dog.`;
-      const twin = dogsToAdd(draft).find((x) => x.sex === sex && [x.call_name, x.registered_name].some((n) => normName(n) === normName(p.name)));
+      // The same name on file, or a near one with the same breed or birthday:
+      // pick that one (a different number says it's a different dog).
+      const found = findDogMatches(ctx.dogs || [], typedParent(p, sex)).find((m) => m.exact || m.strength !== 'possible');
+      if (found) return `${found.dog.registered_name || found.dog.call_name} is already in KennelOS. Pick ${sex === 'female' ? 'her' : 'him'} from the list, or add ${sex === 'female' ? 'her' : 'his'} registration number if it's a different dog.`;
+      const twin = dogsToAdd(draft).find((x) => x.sex === sex && [x.call_name, x.registered_name].some((n) => nameKey(n) && nameKey(n) === nameKey(p.name)));
       if (twin) return `${trimmed(p.name)} is one of the dogs we're adding. Pick ${sex === 'female' ? 'her' : 'him'} from the list.`;
     }
     return null;
@@ -289,7 +306,6 @@ export function breederDefault(draft, i) {
 // on file; `kennelNames` true when she has more than one own kennel.
 export function reviewSections(draft, names = {}, { kennelNames = false } = {}) {
   const sections = draft.dogs.map((d, i) => {
-    if (!dogsToAdd(draft).includes(d)) return null;
     const lines = [];
     const born = blank(d.date_of_birth) ? '' : `born ${fmt(d.date_of_birth)}`;
     lines.push([label(SEX, d.sex), trimmed(d.breed), born].filter(Boolean).join(', ') + '.');
@@ -308,19 +324,12 @@ export function reviewSections(draft, names = {}, { kennelNames = false } = {}) 
     const bred = breederText(d.breeder, names);
     if (bred) lines.push(`Bred by ${bred}.`);
     return {
-      title: d.bringIn ? `${dogLabel(d)} (bringing in from the pedigree)` : dogLabel(d),
+      title: d.bringIn ? `${dogLabel(d)} (bringing in from the pedigree)`
+        : isFillIn(d) ? `${dogLabel(d)} (on file: filling in what's missing)` : dogLabel(d),
       lines,
       steps: { details: `dog:${i}`, parents: `parents:${i}`, breeder: `breeder:${i}` }
     };
-  }).filter(Boolean);
-  const already = dogsAlreadyIn(draft);
-  if (already.length) {
-    sections.push({
-      title: 'Already in KennelOS',
-      lines: already.map((d) => `${names.dog?.(d.match) || dogLabel(d)}: left as ${word(d.sex).pronoun} is.`),
-      steps: { details: 'roster' }
-    });
-  }
+  });
   return sections;
 }
 
@@ -404,10 +413,14 @@ export async function saveGuidedDogs(draft, { onProgress = () => {} } = {}) {
   for (const d of dogsToAdd(draft)) {
     if (d.id && d.saved) continue;
     try {
+      // One of hers she said this is: only what's blank on it is written.
+      const onFile = isFillIn(d) ? await dogRepo.getById(d.match) : null;
       // Someone else's dog: its owner, a new contact unless she picked one. The
       // same new name for two dogs is one contact.
       let ownerId = null;
-      if (OWNER_REQUIRED.includes(d.ownership_type)) {
+      if (onFile?.owner_contact_id) {
+        ownerId = onFile.owner_contact_id;
+      } else if (OWNER_REQUIRED.includes(d.ownership_type)) {
         ownerId = d.ownerId || s.contacts[norm(d.ownerName)] || null;
         if (!ownerId) {
           const c = await contactRepo.create({ name: trimmed(d.ownerName), contact_type: ['breeder'] });
@@ -425,7 +438,7 @@ export async function saveGuidedDogs(draft, { onProgress = () => {} } = {}) {
         const p = d[role];
         if (p.pick.startsWith('dog:')) parentIds[role] = p.pick.slice(4);
         if (p.pick !== 'new') continue;
-        const k = `${sex}|${normReg(p.regNum) || normName(p.name)}`;
+        const k = `${sex}|${normReg(p.regNum) || nameKey(p.name)}`;
         if (!s.parents[k]) {
           const made = await dogRepo.createPedigreeOnly({
             registered_name: trimmed(p.name), registration_number: trimmed(p.regNum), call_name: trimmed(p.callName),
@@ -443,7 +456,11 @@ export async function saveGuidedDogs(draft, { onProgress = () => {} } = {}) {
       if (breederKennelId) fields.breeder_kennel_id = breederKennelId;
       if (parentIds.dam) fields.dam_id = parentIds.dam;
       if (parentIds.sire) fields.sire_id = parentIds.sire;
-      if (d.bringIn) {
+      if (onFile) {
+        const changes = Object.fromEntries(Object.entries(fields).filter(([k, v]) => !blank(v) && blank(onFile[k])));
+        if (Object.keys(changes).length) await dogRepo.update(onFile.id, changes);
+        d.id = onFile.id;
+      } else if (d.bringIn) {
         await dogRepo.update(d.match, { ...fields, pedigree_only: false });
         d.id = d.match;
       } else if (!d.id) {
@@ -468,9 +485,10 @@ export async function saveGuidedDogs(draft, { onProgress = () => {} } = {}) {
   for (const d of dogsToAdd(draft)) {
     if (!d.id || s.linked[d.key]) continue;
     const changes = {};
+    const current = isFillIn(d) ? await dogRepo.getById(d.id) : null; // never overwrite one of hers
     for (const role of ['dam', 'sire']) {
       const p = d[role];
-      if (!p.pick.startsWith('batch:')) continue;
+      if (!p.pick.startsWith('batch:') || current?.[`${role}_id`]) continue;
       const parent = byKey.get(p.pick.slice(6));
       if (parent?.id) changes[`${role}_id`] = parent.id;
     }
