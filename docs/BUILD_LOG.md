@@ -1057,3 +1057,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   break between pups), check account health, set up my waitlist, set up another device,
   then record a sale, log a heat or breeding, check in on a dog, add a dog. Listed in the
   README's doc map.
+- **Kels roadmap: decisions (2026-10-15).** Prep pups prints pups without a sale (no buyer
+  block); account health is the KennelOS account and device; only we add search keywords;
+  set up another device ships before live sync (restore and unlock only until step 6); the
+  waitlist stays ahead of a sale task; Add dogs takes several in a row; starred tasks and
+  ones used more than 3 times in 60 days move up the menu (device-local).
