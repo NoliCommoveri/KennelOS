@@ -27,7 +27,7 @@ import { isProOnlyPage } from '../data/proPages.js';
 import { isCloudAvailable } from '../data/cloud/cloudConfig.js';
 import { setupParts, logoUses, listWords, settingsToCopy, newKennelNameProblem, possessive, SETUP_HOW } from '../data/kelsSetup.js';
 import { EXPORT_MAX_DAYS } from '../data/accountHealth.js';
-import { getLastBackupDate, setKelsSetupDone, setFureverSettings } from '../data/settings.js';
+import { getLastBackupDate, setFureverSettings } from '../data/settings.js';
 import { downloadBackup } from '../data/importExport.js';
 import { isDropboxConnected } from '../data/dropbox.js';
 import { offerCloudBackup, cloudBackupOn } from './kelsBackupSteps.js';
@@ -90,7 +90,6 @@ class Setup {
       this.first = i === 0;
       await this[part]();
     }
-    setKelsSetupDone();
     return this.next();
   }
 

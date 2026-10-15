@@ -50,12 +50,11 @@ export const possessive = (name) => (/s$/i.test(String(name).trim()) ? `${String
 // as it's answered, so there's no draft to build, approve or come back to.
 export const SETUP_HOW = 'I\'ll go through your kennel\'s settings with you one at a time and save each one as we go. Skip anything you\'re not ready for; you can change it all later. Sound good?';
 
-// While she's new (no dogs of hers on file, and she hasn't been through it on
-// this device), the task sits near the top of her menu; after, near the bottom.
-// `dogs`: every dog record; `done`: settings' kelsSetupDone.
-export function isNewProgram({ dogs = [], done = false } = {}) {
-  if (done) return false;
-  return !dogs.some((d) => !d.is_archived && ['owned', 'co_owned'].includes(d.ownership_type));
+// While she's new (not one dog record on file, of any kind), the task sits near
+// the top of her menu, however often she's run it; from her first dog on, near
+// the bottom. `dogs`: every dog record, archived ones included.
+export function isNewProgram({ dogs = [] } = {}) {
+  return dogs.length === 0;
 }
 
 export const SETUP_PRIORITY_NEW = 95; // under unfinished drafts (97–100)

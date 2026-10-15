@@ -32,7 +32,6 @@ const KEYS = {
   kelsFavorites: 'kennelOS.kelsFavorites',
   kelsTaskUse: 'kennelOS.kelsTaskUse',
   kelsNoPromote: 'kennelOS.kelsNoPromote',
-  kelsSetupDone: 'kennelOS.kelsSetupDone',
   studTripsMigrated: 'kennelOS.studTripsMigrated'
 };
 
@@ -600,10 +599,6 @@ export const getKelsNoPromote = () => readJson(KEYS.kelsNoPromote, [], isIdList)
 export function setKelsNoPromote(ids) { localStorage.setItem(KEYS.kelsNoPromote, JSON.stringify(ids || [])); }
 export const getKelsTaskUse = () => readJson(KEYS.kelsTaskUse, {}, (v) => v && typeof v === 'object' && !Array.isArray(v));
 export function setKelsTaskUse(uses) { localStorage.setItem(KEYS.kelsTaskUse, JSON.stringify(uses || {})); }
-// She's been through Kels's "Get set up" on this device (data/kelsSetup.js), so
-// it no longer sits near the top of her menu. Device-only, like the above.
-export const getKelsSetupDone = () => localStorage.getItem(KEYS.kelsSetupDone) === '1';
-export function setKelsSetupDone() { localStorage.setItem(KEYS.kelsSetupDone, '1'); }
 
 // --- Cloud backup dirty signal (Cloud Phase 1 plan §3.2) ---------------------
 // `cloudDirtyAt` is the ISO time of the latest local data change. Set by ONE

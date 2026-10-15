@@ -610,8 +610,6 @@ Every key is in its `KEYS` table (`kennelOS.*`), each with a getter/setter, and
   last time in Pups are going home (§33). Device-only.
 - `kelsFavorites`, `kelsTaskUse`, `kelsNoPromote`: her starred Kels tasks, when she started
   each (the last 60 days), and the ones she said not to move up (§33, Favorites). Device-only.
-- `kelsSetupDone`: she's been through Kels's Get set up on this device, so it no longer sits
-  near the top of her menu (§33). Device-only.
 - `studTripsMigrated`: the stud-trip migration has run on this device (§19, Away board).
 
 **Kept outside `KEYS` on purpose**, so Reset App leaves them: the Pro license record and
@@ -2036,9 +2034,8 @@ A new breeder's first run through her kennel's settings, after the first-run ken
 (§0): `assets/kelsSetupUI.js` + `data/kelsSetup.js` (pure, tested in
 `tests/kelsSetup.test.js`). Every edition but the Demo (which saves nothing). It keeps no
 draft: each part saves through `kennelRepo` as she answers it, and every part can be
-skipped. **New** (`isNewProgram`): no live owned or co-owned dog on file and `kelsSetupDone`
-not set on this device; then it sits at 95 in her menu, else 15. Finishing the parts sets
-`kelsSetupDone`.
+skipped. **New** (`isNewProgram`): not one dog record on file, of any kind, archived ones
+included (pedigree-only ancestors don't count); then it sits at 95 in her menu, however often she has run it, else 15.
 
 With more than one own kennel she picks which (My kennel first); then the parts, in
 `setupParts(editionFlags, { kennelPage })` order, each only where the edition has what it

@@ -35,13 +35,13 @@ test('possessives', () => {
   assert.equal(S.possessive('Bluebell'), "Bluebell's");
 });
 
-test('new: no live dogs of her own, and not been through it', () => {
+test('new: until her first dog record, of any kind', () => {
   assert.equal(S.isNewProgram({ dogs: [] }), true);
-  assert.equal(S.isNewProgram({ dogs: [{ ownership_type: 'external' }, { ownership_type: 'owned', is_archived: true }] }), true);
-  assert.equal(S.isNewProgram({ dogs: [{ ownership_type: 'co_owned' }] }), false);
-  assert.equal(S.isNewProgram({ dogs: [], done: true }), false);
+  assert.equal(S.isNewProgram({}), true);
+  assert.equal(S.isNewProgram({ dogs: [{ ownership_type: 'external' }] }), false);
+  assert.equal(S.isNewProgram({ dogs: [{ ownership_type: 'owned', is_archived: true }] }), false);
   assert.equal(S.setupPriority({ dogs: [] }), S.SETUP_PRIORITY_NEW);
-  assert.equal(S.setupPriority({ dogs: [], done: true }), S.SETUP_PRIORITY);
+  assert.equal(S.setupPriority({ dogs: [{ ownership_type: 'owned' }] }), S.SETUP_PRIORITY);
   assert.ok(S.SETUP_PRIORITY_NEW < 97, 'unfinished drafts stay above it');
 });
 

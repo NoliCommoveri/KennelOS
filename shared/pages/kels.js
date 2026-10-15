@@ -37,7 +37,7 @@ import { isCloudAvailable, isVaultOffered, isWaitlistOnlineOffered } from '../da
 import { isLicenseGated } from '../data/license.js';
 import { param, esc, todayYMD } from '../assets/ui.js';
 import { orderTasks, withStart, withStar } from '../data/kelsFavorites.js';
-import { getKelsFavorites, setKelsFavorites, getKelsTaskUse, setKelsTaskUse, getKelsNoPromote, setKelsNoPromote, getKelsSetupDone, getGuidedPeopleDraft, clearGuidedPeopleDraft, getGuidedFormDraft, clearGuidedFormDraft } from '../data/settings.js';
+import { getKelsFavorites, setKelsFavorites, getKelsTaskUse, setKelsTaskUse, getKelsNoPromote, setKelsNoPromote, getGuidedPeopleDraft, clearGuidedPeopleDraft, getGuidedFormDraft, clearGuidedFormDraft } from '../data/settings.js';
 import { editionFlags } from '../data/editionConfig.js';
 
 const chat = createChat(document.getElementById('kels-transcript'));
@@ -45,7 +45,7 @@ const laterBtn = document.getElementById('kels-later');
 document.getElementById('kels-name').textContent = KELS.title;
 document.getElementById('kels-avatar').innerHTML = kelsAvatar({ large: true });
 
-// Kels's tasks. `state`: { pendingLitter, pendingDogs, pendingPeople, pendingForm, litters: { open, withPups }, prep: { litters }, setup: { dogs, done } }.
+// Kels's tasks. `state`: { pendingLitter, pendingDogs, pendingPeople, pendingForm, litters: { open, withPups }, prep: { litters }, setup: { dogs } }.
 // Add people (Pro, contacts): its script is Pro-only, so it's imported on start.
 const runPeople = async (opts) => (await import('../assets/guidedPeopleUI.js')).runPeopleTask(chat, opts);
 // Set up my application form (Pro, waitlist): the same.
@@ -106,7 +106,7 @@ const TASKS = [
       ...(isCloudAvailable() ? ['cloud'] : [])],
     // Never in the Demo, which saves nothing.
     available: () => !editionFlags.demoMode,
-    // Near the top while she's new (no dogs of hers, never been through it here).
+    // Near the top until she has her first dog record.
     priority: (s) => setupPriority(s.setup),
     run: (opts) => runSetupTask(chat, opts)
   },
@@ -274,12 +274,12 @@ const TASKS = [
 const taskById = (id) => TASKS.find((t) => t.id === id);
 
 async function state() {
-  const [litters, prep, dogs] = await Promise.all([checkinState(), prepState(), dogRepo.getAll()]);
+  const [litters, prep, dogs] = await Promise.all([checkinState(), prepState(), dogRepo.getAll({ includeArchived: true })]);
   return {
     pendingLitter: pendingLitterDraft(), pendingDogs: pendingDogsDraft(),
     pendingPeople: editionFlags.contactsSection ? pendingPeopleDraft(getGuidedPeopleDraft()) : null,
     pendingForm: editionFlags.waitlist ? pendingFormDraft(getGuidedFormDraft()) : null,
-    litters, prep, setup: { dogs, done: getKelsSetupDone() }
+    litters, prep, setup: { dogs }
   };
 }
 

@@ -1480,8 +1480,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   KennelAssistant page in a new tab, since Dropbox only returns to registered pages), then
   cloud backup or a backup file; then Add dogs or Add people. Each part saves as answered
   and can be skipped. Lite (no Kennel page) gets the backup part and Add dogs; not in the
-  Demo. Menu priority 95 while she has no dogs and hasn't been through it (new device-only
-  setting `kelsSetupDone`), else 15. The Kennel page's logo resize, nudge fields and Puppy
+  Demo. Menu priority 95 until she has her first dog record (of any kind), else 15. The Kennel page's logo resize, nudge fields and Puppy
   Record boxes moved into `assets/kennelSettingsFields.js` (Pro-only) so Kels and the page
   share one copy; `kelsBackupSteps` exports `cloudBackupOn`. Precached: the three new
   files. Checked in the browser (Pro and the Lite build): the whole run, the saved kennels,

@@ -549,7 +549,7 @@ before.
 As built: End-State guide §33 ("Get set up"); history in `docs/BUILD_LOG.md`. A new
 breeder's first run through her kennel's settings after the first-run kennel setup, each
 part saved as answered and skippable, then a handoff to Add dogs or Add people. It sits
-near the top of her menu while she has no dogs and hasn't been through it on this device.
+near the top of her menu until she has her first dog record.
 Shared pieces it added: `assets/kennelSettingsFields.js` (the Kennel page's logo, nudge and
 Puppy Record fields, now one copy), `kelsBackupSteps.cloudBackupOn`. **Open:** whether the
 first-run "Start my kennel" should open it straight after the kennel is saved (today it's
