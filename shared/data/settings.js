@@ -24,7 +24,8 @@ const KEYS = {
   cloudDirtySince: 'kennelOS.cloudDirtySince',
   cloudOfferPending: 'kennelOS.cloudOfferPending',
   cloudRestoredAt: 'kennelOS.cloudRestoredAt',
-  guidedLitterDraft: 'kennelOS.guidedLitterDraft'
+  guidedLitterDraft: 'kennelOS.guidedLitterDraft',
+  prepChecks: 'kennelOS.prepChecks'
 };
 
 export function getLastBackupDate() {
@@ -458,6 +459,23 @@ export function setGuidedLitterDraft(draft) {
 
 export function clearGuidedLitterDraft() {
   localStorage.removeItem(KEYS.guidedLitterDraft);
+}
+
+// --- Kels's "Pups are going home": the optional checks she ticked last time ----
+// (assets/prepPupsUI.js), ticked again next time. Device-only UI state; null until
+// she's answered once. In KEYS, so Reset App clears it.
+export function getPrepChecks() {
+  try {
+    const v = JSON.parse(localStorage.getItem(KEYS.prepChecks) || 'null');
+    return Array.isArray(v) ? v.filter((k) => typeof k === 'string') : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setPrepChecks(keys) {
+  localStorage.setItem(KEYS.prepChecks, JSON.stringify(keys || []));
+  return keys;
 }
 
 // --- Cloud backup dirty signal (Cloud Phase 1 plan §3.2) ---------------------

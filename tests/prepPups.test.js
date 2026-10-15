@@ -53,15 +53,15 @@ test('ticked by default: a sale at Deposit paid or later', () => {
 });
 
 test('a pup with nothing done is missing every item, in order', () => {
-  assert.deepEqual(missing({ sale: sale({ registration_type: '' }) }), ['chip', 'litter_reg', 'shots', 'deworm', 'pickup', 'balance', 'contract', 'registration', 'feeding']);
+  assert.deepEqual(missing({ sale: sale({ registration_type: '' }) }), ['chip', 'litter_reg', 'pup_reg', 'shots', 'deworm', 'pickup', 'balance', 'contract', 'registration', 'feeding']);
 });
 
 test('a pup with no sale skips the sale items', () => {
-  assert.deepEqual(missing({ sale: null }), ['chip', 'litter_reg', 'shots', 'deworm', 'feeding']);
+  assert.deepEqual(missing({ sale: null }), ['chip', 'litter_reg', 'pup_reg', 'shots', 'deworm', 'feeding']);
 });
 
 test('Lite: no contract or feeding schedule items', () => {
-  assert.deepEqual(missing({ flags: {} }), ['chip', 'litter_reg', 'shots', 'deworm', 'pickup', 'balance']);
+  assert.deepEqual(missing({ flags: {} }), ['chip', 'litter_reg', 'pup_reg', 'shots', 'deworm', 'pickup', 'balance']);
 });
 
 test('chip, shots and deworming', () => {
@@ -103,7 +103,7 @@ test('feeding: the litter\'s override or a breed schedule', () => {
 
 test('doneText and missingFor', () => {
   const r = ready({ pup: pup({ microchip_id: '1' }) });
-  assert.equal(P.doneText(r), '2 of 9 done', 'chip and registration');
+  assert.equal(P.doneText(r), '2 of 10 done', 'chip and registration');
   const rows = [{ pup: { id: 'a' }, ready: r }, { pup: { id: 'b' }, ready: ready({ pup: pup({ microchip_id: '' }) }) }];
   assert.deepEqual(P.missingFor(rows, 'chip').map((x) => x.pup.id), ['b']);
 });
@@ -129,8 +129,8 @@ test('goHome.pickupEvent: a method other than Local pickup is a drop-off', () =>
 test('optional items are checked only when ticked', () => {
   assert.deepEqual(missing({ checks: [] }), ['shots', 'deworm', 'pickup', 'balance', 'contract']);
   assert.deepEqual(missing({ checks: ['litter_reg'] }), ['litter_reg', 'shots', 'deworm', 'pickup', 'balance', 'contract']);
-  assert.deepEqual(P.optionalItems(PRO).map((i) => i.key), ['chip', 'litter_reg', 'feeding']);
-  assert.deepEqual(P.optionalItems({}).map((i) => i.key), ['chip', 'litter_reg'], 'Lite has no feeding schedules');
+  assert.deepEqual(P.optionalItems(PRO).map((i) => i.key), ['chip', 'litter_reg', 'pup_reg', 'feeding']);
+  assert.deepEqual(P.optionalItems({}).map((i) => i.key), ['chip', 'litter_reg', 'pup_reg'], 'Lite has no feeding schedules');
 });
 
 test('litter registration number: the litter\'s, blank doesn\'t count', () => {
@@ -145,4 +145,12 @@ test('planWithoutSale: Available or Placed pups with no sale going ahead, Placed
     row('e', 'placed', sale()), row('f', 'available', sale({ status: 'cancelled' })), row('g', 'placed', sale({ is_archived: true }))
   ];
   assert.deepEqual(P.planWithoutSale(rows).map((r) => r.pup.id), ['b', 'g', 'a', 'f']);
+});
+
+test('pup registration: both the registered name and the number', () => {
+  const m = (p) => missing({ pup: pup(p), checks: ['pup_reg'] }).includes('pup_reg');
+  assert.ok(m({}));
+  assert.ok(m({ registered_name: 'Thornfield Cedar' }), 'a name alone isn\'t enough');
+  assert.ok(m({ registration_number: 'AKC1' }), 'a number alone isn\'t enough');
+  assert.ok(!m({ registered_name: 'Thornfield Cedar', registration_number: 'AKC1' }));
 });

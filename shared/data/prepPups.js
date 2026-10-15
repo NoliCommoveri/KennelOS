@@ -6,6 +6,8 @@
 // Readiness, per pup (READY_ITEMS order; an item that doesn't apply is left out):
 //   chip         a microchip number on the dog (optional);
 //   litter_reg   the litter's registration number (optional; one answer for the litter);
+//   pup_reg      the pup's registered name and registration number (optional; for
+//                breeders who register pups before they go);
 //   shots        a vaccination logged;
 //   deworm       a deworming or flea & tick (`preventative`) logged;
 //   pickup       a drop-off date: goHome's `placement` event ("Placement / drop-off") for the
@@ -26,6 +28,7 @@ import { homePups, rosterOf } from './litterCheckin.js';
 export const READY_ITEMS = Object.freeze([
   { key: 'chip', label: 'Microchip', optional: true, ask: 'Microchip numbers' },
   { key: 'litter_reg', label: 'Litter registration number', optional: true, ask: 'The litter\'s registration number' },
+  { key: 'pup_reg', label: 'Registered name and number', optional: true, ask: 'Each pup\'s registered name and number' },
   { key: 'shots', label: 'Shots' },
   { key: 'deworm', label: 'Deworming' },
   { key: 'pickup', label: 'Drop-off date', sale: true },
@@ -86,6 +89,7 @@ export function readiness({ pup, sale = null, events = [], contracts = [], litte
   const override = String(litter?.feeding_schedule_override || '').trim();
   const check = {
     chip: [Boolean(pup.microchip_id), pup.microchip_id || ''],
+    pup_reg: [Boolean(String(pup.registered_name || '').trim() && String(pup.registration_number || '').trim()), String(pup.registration_number || '').trim()],
     litter_reg: [Boolean(String(litter?.litter_registration_number || '').trim()), String(litter?.litter_registration_number || '').trim()],
     shots: [Boolean(shots), shots ? shots.event_date : ''],
     deworm: [Boolean(deworm), deworm ? deworm.event_date : ''],

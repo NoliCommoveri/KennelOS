@@ -3,7 +3,9 @@
 //
 // Kels asks which litter (one with pups still at home), which pups (ticked: every
 // pup whose sale is at Deposit paid or later), and which optional checks she wants
-// (microchips, the litter's registration number, a feeding schedule: unticked).
+// (microchips, the litter's registration number, each pup's registered name and
+// number, a feeding schedule): unticked the first time, then as she left them on
+// this device (settings.prepChecks).
 // Then pups marked Available or Placed with no sale (prepPups.planWithoutSale):
 // record the sale or change the plan, in the chat. Then where each stands, and
 // what's missing one thing at a time (data/prepPups.js READY_ITEMS), each with its
@@ -11,7 +13,7 @@
 // drop-off forms (assets/litterCheckinUI.js), the litter's registration number, a
 // balance-due date, each contract's status, the registration type, the litter's
 // feeding note. Only the breed feeding schedule (a table editor) leaves for its
-// page. Unpaid balances then get a payment request or an invoice (Pro). Each fix is saved
+// page. Unpaid balances then get a payment request, then an invoice (Pro). Each fix is saved
 // when approved, so there's no draft. Then, in Pro, the Furever link (not tracked,
 // so only offered) and the printed puppy records: one file, a cover page for her,
 // then each pup's record (pages/puppy-record.html?dogs=…&cover=1). Anything that
@@ -30,6 +32,7 @@ import { saleFeeEstimate } from '../data/processingFees.js';
 import { paymentAccounts } from '../data/paymentLinks.js';
 import { stripeConnection } from '../data/stripeLinks.js';
 import { editionFlags } from '../data/editionConfig.js';
+import { getPrepChecks, setPrepChecks } from '../data/settings.js';
 import { SALE_STATUS, REGISTRATION_TYPE, CONTRACT_STATUS, DISPOSITION, descriptor } from '../data/vocab.js';
 import { expectedPricing } from '../data/saleDefaults.js';
 import { balanceDueOn } from '../data/contractSend.js';
@@ -168,15 +171,17 @@ class Prep {
     return true;
   }
 
-  // The optional checks, unticked: many breeders don't track them.
+  // The optional checks: unticked the first time (many breeders don't track them),
+  // then ticked as she left them on this device.
   async pickChecks() {
     const opts = P.optionalItems(editionFlags);
     if (!opts.length) return true;
+    const last = getPrepChecks() || [];
     const res = await this.chat.form({
       title: '<strong>Want me to check any of these too?</strong><span class="kels-lead">Tick the ones you keep track of. I\'ll always check shots, deworming, the drop-off, the balance and the paperwork.</span>',
-      html: `<div class="ck-checks">${opts.map((it) => `<label class="ck-check"><input type="checkbox" id="pp-opt-${esc(it.key)}"> <span>${esc(it.ask)}</span></label>`).join('')}</div>`,
+      html: `<div class="ck-checks">${opts.map((it) => `<label class="ck-check"><input type="checkbox" id="pp-opt-${esc(it.key)}"${last.includes(it.key) ? ' checked' : ''}> <span>${esc(it.ask)}</span></label>`).join('')}</div>`,
       submitLabel: 'Continue',
-      submit: async (root) => opts.filter((it) => root.querySelector(`#pp-opt-${it.key}`).checked).map((it) => it.key),
+      submit: async (root) => setPrepChecks(opts.filter((it) => root.querySelector(`#pp-opt-${it.key}`).checked).map((it) => it.key)),
       reply: (keys) => (keys.length ? listText(opts.filter((it) => keys.includes(it.key)).map((it) => it.ask.toLowerCase())) : 'Just the usual')
     });
     if (!res.done) return false;
@@ -357,6 +362,7 @@ class Prep {
     const ask = {
       chip: [`${n} ${one ? 'doesn\'t' : 'don\'t'} have a microchip number on file.`, 'Add chip numbers'],
       litter_reg: ['The litter doesn\'t have its registration number on file yet.', 'Add it'],
+      pup_reg: [`${n} ${one ? 'isn\'t' : 'aren\'t'} fully registered on file yet (registered name and number).`, one ? 'Add them' : 'Add them now'],
       shots: [`I don't see any shots logged for ${n}.`, 'Log shots'],
       deworm: [`I don't see any deworming logged for ${n}.`, 'Log deworming'],
       pickup: [`${n} ${one ? 'has' : 'have'} no drop-off date on the calendar.`, 'Set the drop-off date'],
@@ -389,6 +395,7 @@ class Prep {
     }
     if (key === 'balance') return this.balance(rows);
     if (key === 'litter_reg') return this.litterReg();
+    if (key === 'pup_reg') return this.pupReg(pups);
     if (key === 'contract') return this.contracts(rows);
     if (key === 'registration') return this.registration(rows);
     if (key === 'feeding') return this.feeding();
@@ -561,6 +568,36 @@ class Prep {
     return this.saved(res, () => 'Saved on the litter, so it\'s there for every pup\'s papers.');
   }
 
+  // Each pup's registered name and registration number, for breeders who register
+  // pups before they go. A blank stays as it was.
+  async pupReg(pups) {
+    const res = await this.chat.form({
+      title: '<strong>What are their registered names and numbers?</strong><span class="kels-lead">Leave anything you don\'t have yet blank.</span>',
+      html: pups.map((p, i) => `<p class="gl-q">${pupLine(p)}</p>
+        ${field('Registered name', `<input id="pp-rn-${i}" type="text" autocomplete="off" value="${esc(p.registered_name || '')}">`)}
+        ${field('Registration number', `<input id="pp-rnum-${i}" type="text" autocomplete="off" value="${esc(p.registration_number || '')}">`)}`).join(''),
+      submitLabel: 'Save',
+      cancelLabel: 'Not now',
+      submit: async (root) => {
+        let n = 0;
+        for (const [i, p] of pups.entries()) {
+          const name = root.querySelector(`#pp-rn-${i}`).value.trim();
+          const num = root.querySelector(`#pp-rnum-${i}`).value.trim();
+          const changes = {
+            ...(name && name !== (p.registered_name || '') ? { registered_name: name } : {}),
+            ...(num && num !== (p.registration_number || '') ? { registration_number: num } : {})
+          };
+          if (!Object.keys(changes).length) continue;
+          await dogRepo.update(p.id, changes);
+          n++;
+        }
+        return { n }; // a number of 0 is fine; a string would show as a problem
+      },
+      reply: (out) => (out.n ? `${C.plural(out.n, 'puppy', 'puppies')} updated` : 'Nothing yet')
+    });
+    return this.saved(res, (out) => (out.n ? 'Saved on each puppy\'s record, ready for their papers.' : 'Okay, I left them as they were.'));
+  }
+
   // Sales with money still owed (Pro: accounts / invoicing): for each, a payment
   // request (the Sale page's, a message she sends herself, with a Stripe link when
   // connected) or an invoice (the generator, which opens the invoice in a new tab).
@@ -583,28 +620,30 @@ class Prep {
     }
     if (!canRequest && !editionFlags.invoicing) return;
     const lines = owing.map(({ r, due }) => `<strong>${esc(pupName(r.pup))}</strong>${r.buyer?.name ? ` (${esc(r.buyer.name)})` : ''}: ${esc(fmtMoney(due))}${r.sale.balance_due_date ? `, due ${esc(fmtDate(r.sale.balance_due_date))}` : ''}`);
-    const offer = [canRequest && 'a payment request', editionFlags.invoicing && 'an invoice'].filter(Boolean).join(' or ');
+    const offer = [canRequest && 'a payment request', editionFlags.invoicing && 'an invoice'].filter(Boolean).join(' and ');
     await this.chat.say(`${owing.length === 1 ? 'One family still owes' : 'These families still owe'} a balance:<br>${lines.join('<br>')}<br>Want to send ${owing.length === 1 ? 'them' : 'each'} ${offer}?${editionFlags.accounts && !canRequest ? ' (To send payment requests, add the service families pay you through on the Accounts page.)' : ''}`);
-    const choices = (one) => [
-      ...(canRequest ? [{ label: 'Send a payment request', sub: 'A message with the amount and how to pay, by email or text', value: 'request', primary: true }] : []),
-      ...(editionFlags.invoicing ? [{ label: 'Make an invoice', sub: 'Opens in a new tab to download or print', value: 'invoice', primary: !canRequest }] : []),
-      { label: one ? 'Not now' : 'Skip this one', value: '' }
-    ];
-    // One family: their choices right away. Several: yes first, then one at a time.
-    if (owing.length > 1 && (await this.chat.choose([{ label: 'Yes, let\'s do it', value: 'go', primary: true }, { label: 'Not now', value: '' }])) !== 'go') return;
-    for (const { r, due } of owing) {
-      if (owing.length > 1) await this.chat.say(`<strong>${esc(pupName(r.pup))}</strong>: ${esc(fmtMoney(due))}${r.buyer?.name ? ` from ${esc(r.buyer.name)}` : ''}.`);
-      const pick = await this.chat.choose(choices(owing.length === 1));
-      if (pick === 'request') {
-        const { openPaymentRequest } = await import('./paymentRequestUI.js');
-        await openPaymentRequest({ saleId: r.sale.id });
-        await this.chat.say(r === owing[owing.length - 1].r ? 'Okay!' : 'Okay, next one.', { typing: 300 });
-      } else if (pick === 'invoice') {
-        await this.chat.say('Pick what goes on it, then <strong>Generate</strong>. The invoice opens in a new tab to download or print; close it and come back here when you\'re done.');
-        const { openInvoiceGenerator } = await import('./invoiceGenerator.js');
-        await new Promise((resolve) => { openInvoiceGenerator({ preselect: { source: 'sale', id: r.sale.id }, onClose: resolve }); });
-        await this.chat.say(r === owing[owing.length - 1].r ? 'Okay!' : 'Okay, next one.', { typing: 300 });
+    if ((await this.chat.choose([{ label: 'Yes, let\'s do it', value: 'go', primary: true }, { label: 'Not now', value: '' }])) !== 'go') return;
+    // Each family in turn: the payment request, then the invoice, each skippable.
+    for (const [i, { r, due }] of owing.entries()) {
+      const who = esc(r.buyer?.name || 'the family');
+      if (owing.length > 1) await this.chat.say(`<strong>${esc(pupName(r.pup))}</strong>: ${esc(fmtMoney(due))} from ${who}.`);
+      if (canRequest) {
+        await this.chat.say(`First, a payment request to ${who}: the amount and how to pay, sent by email or text.`, { typing: 400 });
+        if ((await this.chat.choose([{ label: 'Send a payment request', value: 'go', primary: true }, { label: 'Skip', value: '' }])) === 'go') {
+          const { openPaymentRequest } = await import('./paymentRequestUI.js');
+          await openPaymentRequest({ saleId: r.sale.id });
+        }
       }
+      if (editionFlags.invoicing) {
+        await this.chat.say(canRequest ? `And an invoice for ${who}? It opens in a new tab to download or print; close it and come back here when you're done.`
+          : `An invoice for ${who}? It opens in a new tab to download or print; close it and come back here when you're done.`, { typing: 400 });
+        if ((await this.chat.choose([{ label: 'Make an invoice', value: 'go', primary: true }, { label: 'Skip', value: '' }])) === 'go') {
+          await this.chat.say('Pick what goes on it, then <strong>Generate</strong>.', { typing: 300 });
+          const { openInvoiceGenerator } = await import('./invoiceGenerator.js');
+          await new Promise((resolve) => { openInvoiceGenerator({ preselect: { source: 'sale', id: r.sale.id }, onClose: resolve }); });
+        }
+      }
+      await this.chat.say(i === owing.length - 1 ? 'Okay, that\'s the balances!' : 'Okay, next family.', { typing: 300 });
     }
   }
 

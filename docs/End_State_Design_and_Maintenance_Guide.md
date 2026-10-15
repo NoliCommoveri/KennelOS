@@ -528,6 +528,8 @@ Every key is in its `KEYS` table (`kennelOS.*`), each with a getter/setter, and
   changed mid-push.
 - `activeKennelId`: the kennel scope, read and written only through `kennelScope.js`.
 - `myKennelId` / `myContactId`: the user's own kennel and contact.
+- `guidedLitterDraft` and `prepChecks`: Kels's unfinished litter, and the optional checks
+  ticked last time in Pups are going home (§33). Device-only.
 
 **Kept outside `KEYS` on purpose**, so Reset App leaves them: the Pro license record and
 `deviceId` (§0.3); cloud `cloudSession`, `cloudBackupState`, `cloudDeviceId` (Reset App
@@ -1770,8 +1772,10 @@ The run-up to go-home day for one litter. Each fix is saved when approved; there
    "No sale". Ticked by default: a sale at Deposit paid or later (`pickedByDefault`); any pup
    can be ticked.
 3. **Optional checks:** "Want me to check any of these too?" — the `optional` items this
-   edition has (`optionalItems`: microchip numbers, the litter's registration number, a
-   feeding schedule), all unticked. Only ticked ones are checked (`readiness({ checks })`).
+   edition has (`optionalItems`: microchip numbers, the litter's registration number, each
+   pup's registered name and number, a feeding schedule). Unticked the first time, then as
+   she left them on this device (`settings.prepChecks`). Only ticked ones are checked
+   (`readiness({ checks })`).
 4. **A plan with no sale** (`planWithoutSale`, every pup at home, chosen or not): a pup
    marked Available or Placed with no sale going ahead (none, or only a returned /
    cancelled / voided one). **Record the sale** (several: tick which) asks, per pup, the
@@ -1790,6 +1794,7 @@ The run-up to go-home day for one litter. Each fix is saved when approved; there
    |---|---|---|
    | Microchip (optional) | `microchip_id` set | the check-in's microchip form |
    | Litter registration number (optional) | the litter's `litter_registration_number` | one number for the litter, typed in the chat |
+   | Registered name and number (optional) | the pup's `registered_name` and `registration_number` both set | both per pup, typed in the chat; a blank leaves that field as it was |
    | Shots | a `vaccination` logged | the check-in's care form (Shots) |
    | Deworming | a `preventative` logged | the check-in's care form |
    | Drop-off date (sale) | a `placement` event for the sale's family (`goHome.pickupFor`) today or later | **When's the drop-off?**: date, time, how (`PLACEMENT_METHODS`) per pup; `goHome.pickupEvent` (titled "Puppy drop-off" unless Local pickup) |
@@ -1805,13 +1810,13 @@ The run-up to go-home day for one litter. Each fix is saved when approved; there
    start Pups are going home again after.
 7. **Balances still owed** (Pro: `accounts` or `invoicing`): chosen pups whose sale is at
    Deposit Pending or Deposit paid, with no `balance_paid_date` and a balance
-   (`contractSend.balanceDueOn`) above zero, listed with the amount and due date. Per sale:
+   (`contractSend.balanceDueOn`) above zero, listed with the amount and due date, then **Yes,
+   let's do it**. Each family in turn gets both, one after the other, each with **Skip**:
    **Send a payment request** (`paymentRequestUI.openPaymentRequest`, the Sale page's;
    offered only when a Payment service takes payments, `paymentAccounts`, or has her Stripe
-   key here; otherwise she says to add one on the Accounts page) or **Make an invoice**
+   key here; otherwise she says to add one on the Accounts page), then **Make an invoice**
    (`openInvoiceGenerator({ preselect, onClose })`, said first to open in a new tab; Kels
-   waits for the modal to close). One family is asked once; several get **Yes, let's do it**
-   first.
+   waits for the modal to close).
 8. **The end:** all done, or what's still missing per pup. Pro: the **Furever link** is
    offered (`furever.html`) when a chosen pup has an open sale; it isn't tracked, so it's
    never an item. Pro (`puppyRecord`): **Print puppy records** opens

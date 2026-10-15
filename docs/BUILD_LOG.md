@@ -1153,3 +1153,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   chat; the pup becomes Placed) or **Change the plan**. Balances still owed get a payment
   request or an invoice (Pro). The cover page takes `&checks=`; the invoice generator takes
   `onClose`.
+- **Pups are going home: registered names, remembered checks, request then invoice
+  (2026-10-15).** New optional check: each pup's registered name and number (for breeders
+  who register pups before they go), filled in the chat. The ticked checks are remembered on
+  the device (`settings.prepChecks`). Each family owing a balance now gets a payment request
+  and then an invoice, one after the other, each skippable.
