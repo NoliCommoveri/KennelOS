@@ -10,6 +10,7 @@ import { studServiceRepo } from '../data/studServiceRepo.js';
 import { PAIRING_TYPE, PAIRING_METHOD, PAIRING_STATUS, LITTER_STATUS, STUD_SERVICE_DIRECTION, STUD_SERVICE_STATUS, PAIRING_ENDED_STATUSES, descriptor } from '../data/vocab.js';
 import { esc, badge, fmtDate, param, confirmModal, dogRefHtml } from '../assets/ui.js';
 import { addDaysToYMD } from '../data/dateUtils.js';
+import { outgoingPairingIds } from '../data/studRules.js';
 import { editionFlags } from '../data/editionConfig.js';
 import { renderTimeline } from '../assets/timeline.js';
 import { openEventFromQuery } from '../assets/eventForm.js';
@@ -346,6 +347,9 @@ async function doSave() {
 // Resolves true when it navigated away.
 async function promptLinkedLitter(pairing, prevStatus) {
   if (pairing.status === prevStatus) return false;
+  // Our stud bred to somebody else's dam (an outgoing stud service): the litter is
+  // the dam's owner's, so don't ask to record it (studRules.outgoingPairingIds).
+  if (outgoingPairingIds(await studServiceRepo.getByPairing(pairing.id)).has(pairing.id)) return false;
   const litters = await litterRepo.getAllForPairing(pairing.id);
   if (pairing.status === 'whelped' && !litters.length) {
     const ok = await confirmModal({

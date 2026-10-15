@@ -141,6 +141,7 @@ const PRECACHE_URLS = [
   'data/guidedLitter.js',
   'data/litterCheckin.js',
   'data/goHome.js',
+  'data/studRules.js',
   'data/prepPups.js',
   'data/accountHealth.js',
   'data/litterRepo.js',

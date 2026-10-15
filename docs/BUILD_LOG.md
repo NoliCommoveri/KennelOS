@@ -1167,3 +1167,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   application fields moved from the Waitlist entry page to the shared
   `assets/waitlistApplicationForm.js` (Pro-only, precached). Left as pages on purpose: the
   CSV import, the breed feeding schedule (a table editor), and "see the litter" choices.
+- **Our stud's outside breedings (2026-10-15).** A breeding linked to an outgoing stud
+  service is still recorded, but nothing asks for its litter: Today's due-soon / overdue /
+  whelped-no-litter nudges, the Pairing page's "Record the litter now?" and Kels's tidy-up
+  skip it (`data/studRules.js`, new). A pick-of-litter fee on an outgoing service gets
+  Today's "Ready to add your pick puppy?" 63 + 56 days after the service: **Add the puppy**
+  opens a new dog prefilled from the stud service (`dog.html?new=1&pick=`; saving marks the
+  pick claimed), or **Not getting one**.

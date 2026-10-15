@@ -436,7 +436,8 @@ class Tidy extends FindingsTask {
       reply: (out) => `${label(PAIRING_STATUS, out.pairing.status)}, ${fmtDate(out.pairing.planned_date)}`
     });
     if (!res.done) return null;
-    return this.done(res.result.pairing.status === 'whelped'
+    // Our stud's outside breeding (outgoing): her litter isn't ours to record.
+    return this.done(res.result.pairing.status === 'whelped' && s.direction !== 'outgoing'
       ? 'Saved and linked. When we\'re done here, pick <strong>Record a new litter</strong> and I\'ll walk you through the puppies.'
       : 'Saved, and the stud service is linked to it.');
   }
