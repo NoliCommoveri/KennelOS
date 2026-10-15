@@ -18,7 +18,7 @@ function flagsOf(path) {
 const PRO = flagsOf('../pro/editionConfig.js');
 const LITE = flagsOf('../lite/editionConfig.js');
 
-const pro = (opts = {}) => understandEntries({ edition: 'pro', flags: PRO, cloud: true, vault: true, ...opts });
+const pro = (opts = {}) => understandEntries({ edition: 'pro', flags: PRO, cloud: true, vault: true, online: true, ...opts });
 const lite = (opts = {}) => understandEntries({ edition: 'lite', flags: LITE, cloud: true, vault: false, ...opts });
 const ask = (entries, q) => search(understandCandidates(entries), q);
 const top = (entries, q) => clearWinner(ask(entries, q).hits)?.c.entry.id || ask(entries, q).hits[0]?.c.entry.id;
@@ -73,7 +73,9 @@ test('Pro: the gone-home pup goes External; income names every source; no cloud,
   const p = pro();
   assert.match(p.find((e) => e.id === 'gone-home').a, /External with the family as its owner/);
   assert.match(p.find((e) => e.id === 'add-income').a, /your sales, stud fees you earned and waitlist fees/);
-  const offline = new Set(pro({ cloud: false }).map((e) => e.id));
+  assert.match(p.find((e) => e.id === 'add-income').a, /edit the sale, stud service or waitlist family it comes from/);
+  assert.match(p.find((e) => e.id === 'earned').a, /Completed.*received/);
+  const offline = new Set(pro({ cloud: false, online: false }).map((e) => e.id));
   assert.ok(!offline.has('cloud-device') && !offline.has('wl-online'));
   assert.doesNotMatch(pro({ cloud: false }).find((e) => e.id === 'where-data').a, /cloud/);
 });

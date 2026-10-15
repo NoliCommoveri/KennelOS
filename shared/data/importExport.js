@@ -154,6 +154,10 @@ export function inspectBackup(obj) {
 //                    omits ends up empty (a full export always includes all
 //                    tables; this only matters for a partial/hand-edited file).
 //   mode 'merge'   — upsert the file's rows by id, leaving other records intact.
+//                    With `opts.keepNewer`, a row this device changed after the
+//                    file's copy (planFileMerge's `newerHere`) is left as it is;
+//                    without it, the file's copy wins. The Import/Export page
+//                    asks her which whenever there are any.
 // Unknown collections (tables not in this schema version) are skipped, not an error.
 export async function restoreBackup(obj, mode, opts = {}) {
   assertWritable(); // restore is a full-DB write — inert in demo (defense-in-depth;
@@ -161,8 +165,15 @@ export async function restoreBackup(obj, mode, opts = {}) {
   if (mode === 'cloud-merge') return restoreCloudMerge(obj, opts);
   if (mode === 'vault-merge') return restoreVaultMerge(obj, opts);
   inspectBackup(obj);
-  const known = new Set(dataTables().map((t) => t.name));
-  const entries = Object.entries(obj.collections).filter(([name]) => known.has(name));
+  let entries = knownEntries(obj);
+  if (mode === 'merge' && opts.keepNewer) {
+    const kept = [];
+    for (const [name, rows] of entries) {
+      const local = await localRowsById(name);
+      kept.push([name, rows.filter((r) => !localIsNewer(local.get(r?.id), r))]);
+    }
+    entries = kept;
+  }
 
   // Edition bulk-import cap (cap spec §9). No-op in Pro/Demo; in Lite it throws a
   // CapExceededError when this restore would leave more than the allowed number of
@@ -170,9 +181,7 @@ export async function restoreBackup(obj, mode, opts = {}) {
   // all-or-nothing, unlike the per-row CSV import (which lands the first N and
   // fails the rest). Dog rows carry no Blobs, so the raw backup rows classify fine
   // without decoding. `.filter(Boolean)` drops a null/hole from a hand-edited file.
-  const incomingDogs = known.has('dogs')
-    ? (obj.collections.dogs || []).filter(Boolean)
-    : [];
+  const incomingDogs = (entries.find(([name]) => name === 'dogs')?.[1] || []).filter(Boolean);
   await enforceImportDogCap({ incomingDogs, mode });
 
   const tables = dataTables();
@@ -190,6 +199,39 @@ export async function restoreBackup(obj, mode, opts = {}) {
   markDataChanged();
   await pointMyKennelAtRestoredKennel();
   return entries.map(([name, rows]) => ({ name, count: rows.length }));
+}
+
+// The file's collections this schema knows: [[tableName, rows]].
+function knownEntries(obj) {
+  const known = new Set(dataTables().map((t) => t.name));
+  return Object.entries(obj.collections).filter(([name]) => known.has(name));
+}
+
+async function localRowsById(name) {
+  return new Map((await db.table(name).toArray()).map((r) => [r.id, r]));
+}
+
+// This device's copy was changed after the file's. A row without updated_at on
+// either side can't be compared, so the file's copy is taken, as before.
+const localIsNewer = (local, row) => Boolean(local && row && local.updated_at && row.updated_at && local.updated_at > row.updated_at);
+
+// Works out what a file 'merge' would do, without writing: rows it adds, rows it
+// updates, and rows this device changed after the file's copy (`newerHere`): the
+// ones she decides about, keep hers or take the file's.
+export async function planFileMerge(obj) {
+  inspectBackup(obj);
+  const summary = { added: 0, updated: 0, newerHere: 0 };
+  for (const [name, rows] of knownEntries(obj)) {
+    const local = await localRowsById(name);
+    for (const r of rows) {
+      if (!r) continue;
+      const mine = local.get(r.id);
+      if (!mine) summary.added++;
+      else if (localIsNewer(mine, r)) summary.newerHere++;
+      else summary.updated++;
+    }
+  }
+  return summary;
 }
 
 // "My kennel" (the nav banner, Furever prefill) is a settings id, not part of the

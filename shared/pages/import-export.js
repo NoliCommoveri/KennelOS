@@ -1,10 +1,10 @@
 // import-export.js — wires the Import/Export page to the backup engine: Backup &
 // restore, CSV import, and the Danger zone. Account, kennel setup, the guided tour
 // and this device's license are on the Settings page (pages/settings.js).
-import { downloadBackup, readBackupFile, inspectBackup, restoreBackup } from '../data/importExport.js';
+import { downloadBackup, readBackupFile, inspectBackup, restoreBackup, planFileMerge } from '../data/importExport.js';
 import { getLastBackupDate } from '../data/settings.js';
 import { getResetCounts, resetApp } from '../data/appReset.js';
-import { esc, confirmModal } from '../assets/ui.js';
+import { esc, confirmModal, selectModal } from '../assets/ui.js';
 import { editionFlags, edition } from '../data/editionConfig.js';
 import { isProOnlyPage } from '../data/proPages.js';
 import { isDropboxConnected } from '../data/dropbox.js';
@@ -63,8 +63,8 @@ let renderCloudPane = () => {};
 const BLURBS = {
   'backup:local': 'Downloads every record as one JSON file — also the migration path if the app ever moves to a new web address (your data doesn’t follow automatically).',
   'backup:dropbox': 'Uploads a full backup to your own Dropbox, and refreshes what KennelAssistant sees. Pull it on your other phone to catch up.',
-  'restore:local': 'Load records from a backup file. Merge adds/updates by id and keeps everything else; Replace wipes current records first.',
-  'restore:dropbox': 'Load the backup last pushed to Dropbox — from this phone or another one. Merge adds/updates by id and keeps everything else; Replace wipes current records first.'
+  'restore:local': 'Load records from a backup file. Merge adds what’s new and asks before undoing any newer edits here; Replace wipes current records first.',
+  'restore:dropbox': 'Load the backup last pushed to Dropbox — from this phone or another one. Merge adds what’s new and asks before undoing any newer edits here; Replace wipes current records first.'
 };
 
 // Drop a preview without touching the file input — the change handler runs this
@@ -200,19 +200,46 @@ async function runNetworkAction(btn, action) {
   }
 }
 
+// Merge's question. Records only in the file are added and the file's newer copies
+// update hers; a record she changed on this device after the file's copy is the one
+// thing to decide, so she's asked only when there is one: keep her edits, or take
+// the file's copy. → { keepNewer } | null (cancelled).
+async function askMerge() {
+  const plan = await planFileMerge(pendingBackup);
+  const n = (k, one, many) => `${plan[k]} ${plan[k] === 1 ? one : many}`;
+  const what = `This adds ${n('added', 'record', 'records')} and updates ${n('updated', 'record', 'records')} with the file’s newer copy. Nothing is deleted.`;
+  if (!plan.newerHere) {
+    const ok = await confirmModal({ title: 'Merge data?', message: what, confirmLabel: 'Merge' });
+    return ok ? { keepNewer: true } : null;
+  }
+  const choice = await selectModal({
+    title: 'Merge data?',
+    message: `${what} ${n('newerHere', 'record was', 'records were')} changed on this device after this backup was made.`,
+    label: 'For those',
+    options: [
+      { value: 'mine', label: 'Keep my newer edits' },
+      { value: 'file', label: 'Take the backup’s copy' }
+    ],
+    defaultValue: 'mine',
+    confirmLabel: 'Merge'
+  });
+  return choice ? { keepNewer: choice === 'mine' } : null;
+}
+
 async function doRestore(mode) {
   if (!pendingBackup) return;
-  const warning = mode === 'replace'
-    ? 'Replace ALL current records with the file’s contents? This cannot be undone.'
-    : 'Merge the file’s records into your current data (updating any with matching ids)?';
-  if (!(await confirmModal({
-    title: mode === 'replace' ? 'Replace all data?' : 'Merge data?',
-    message: warning,
-    confirmLabel: mode === 'replace' ? 'Replace' : 'Merge',
-    danger: mode === 'replace'
+  let opts = {};
+  if (mode === 'merge') {
+    opts = await askMerge();
+    if (!opts) return;
+  } else if (!(await confirmModal({
+    title: 'Replace all data?',
+    message: 'Replace ALL current records with the file’s contents? This cannot be undone.',
+    confirmLabel: 'Replace',
+    danger: true
   }))) return;
   try {
-    const result = await restoreBackup(pendingBackup, mode);
+    const result = await restoreBackup(pendingBackup, mode, opts);
     const total = result.reduce((n, r) => n + r.count, 0);
     flash(`Restore complete (${mode}) — ${total} record(s) loaded. Reloading…`);
     setTimeout(() => location.reload(), 1200);

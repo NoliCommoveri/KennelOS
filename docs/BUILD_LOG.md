@@ -1394,3 +1394,16 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   visit; How KennelOS works's is now "I'm on it! I can explain the rules KennelOS follows
   behind the scenes…" with examples Lite has too. Something else after an answer returns
   to the question. Roadmap §3.14 records B's approved intro and the Lite decision (no B).
+- **Kels FAQ checked against the code; Merge keeps newer edits (2026-10-15).** Answers
+  corrected where they disagreed with the rules as built: a record's kennel comes from its
+  dogs, not the kennel being viewed; who needs an owner is External / Leased in; an
+  unfinished sale keeps a litter open; "Not this litter" on a whole turn counts as a pass,
+  as does no response by default, and a program can exempt passes; a pick can switch after
+  the deposit until the next family is offered; a released sale frees a pup; earned covers
+  stud and waitlist fees; income lines name the waitlist family; boarding only when paid;
+  Companion link types; the public list shows the date a place counts from; the online
+  waitlist entry gated by `isWaitlistOnlineOffered` (new `online` in ctx). File / Dropbox
+  Merge: `planFileMerge` and `restoreBackup(obj, 'merge', { keepNewer })`; Import/Export
+  asks keep-mine / take-the-file when this device has newer edits (it used to overwrite
+  them silently). `tests/fileMerge.test.js`. Open: matching records across devices whose
+  ids differ (same dog typed on two devices), proposed as a restore-time match + id remap.

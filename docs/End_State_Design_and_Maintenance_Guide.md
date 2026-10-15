@@ -495,7 +495,11 @@ The cross-device data path, and one of the two modules that write tables directl
 - `inspectBackup(obj)` validates shape and reports counts and unknown tables before writing.
 - `restoreBackup(obj, mode)` sees only `db.dataTables()`:
   - `'replace'` clears every table first, so the result is exactly the file.
-  - `'merge'` upserts by id.
+  - `'merge'` upserts by id. With `opts.keepNewer`, a row whose local `updated_at` is later
+    than the file's is left as it is (a row missing `updated_at` on either side takes the
+    file's copy). `planFileMerge()` counts `{ added, updated, newerHere }` without writing;
+    the Import/Export page asks "Keep my newer edits / Take the backup's copy" only when
+    `newerHere` > 0, and otherwise merges with `keepNewer`. Records match by id only.
   - `'cloud-merge'` restores a cloud snapshot: overlays only `syncRegistry` cloud fields, so
     private fields on the device survive; newer `updated_at` wins unless `overwrite`
     ("Restore as of…"); never deletes; missing files via `opts.fetchFile(sha256)`.
@@ -1918,7 +1922,8 @@ question when there is one. How KennelOS works opens "I'm on it!" +
   is `{ id, section, q, a, keywords, href?, show?, flag?, when? }`: the question as she'd
   ask it, the answer in a few plain sentences (no field names; a string, or `(ctx) =>` one
   where the edition changes it), and a **Show me** button to where it lives. `ctx` is
-  `{ edition, flags, cloud, vault, page(href) }`. An answer is written from the rule as
+  `{ edition, flags, cloud, vault, online, page(href) }` (`online`: the online waitlist is
+  offered, `isWaitlistOnlineOffered`). An answer is written from the rule as
   built, so a change to the rule changes its answer in the same edit.
 - **Topics** (`SECTIONS`): Dogs and puppies, Archiving and deleting, Breedings and litters,
   Money, The waitlist, Your data and devices. A topic with no entry in this edition isn't
@@ -1928,7 +1933,8 @@ question when there is one. How KennelOS works opens "I'm on it!" +
   whose page is Pro-only isn't offered in Lite (the answer stays). Lite gets its own
   entries where its rules differ (a dog leaving the program, a gone-home pup removed from
   it, a parent kept for the pedigree). Lite's limit isn't a topic. Cloud entries need
-  `isCloudAvailable()`, the Sensitive records sentence `isVaultOffered()`.
+  `isCloudAvailable()`, the online waitlist entry `isWaitlistOnlineOffered()`, the Sensitive
+  records sentence `isVaultOffered()`.
 - **The chat:** **Search the questions**, the topics, **Something else** (only when there's
   a question to go back to) and **I'm all set**. A topic lists its questions. The search is
   `kelsFind.search` over these entries only (`understandCandidates`: the question and
