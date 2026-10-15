@@ -1403,3 +1403,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **Kels FAQ: the outside-stud answer (2026-10-15).** `our-stud` now asks "Should I record
   the litter?" and says where the stud service goes (Placements & Contracts, Stud Services
   tab) and that its terms and fee structure are what make the fee income.
+- **Kels FAQ: whole-litter logging (2026-10-15).** `litter-logging` now asks why a
+  whole-litter entry isn't on the litter page, and answers that each pup gets its own entry
+  so its history runs for life, found in the pup's Event History.
