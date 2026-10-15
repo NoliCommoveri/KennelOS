@@ -22,7 +22,8 @@ export const ASSIST_LABEL = KELS.assistLabel;
 // Kels's opening line, from the menu or when a page sends the breeder straight to a task.
 export const kelsHello = () => `Hi, I'm ${esc(KELS.name)}, ${esc(KELS.tagline)}!`;
 
-// Her first message on the Kels page, before "Finding Something" / "Doing Something".
+// Her first message on the Kels page, before "Finding Something" / "Doing Something" /
+// "Understanding Something".
 export const kelsWelcome = () => `${kelsHello()} I'm here to help you manage your kennel :) What do you need help with first?`;
 
 // How she works, said at the start of every new task (not a resumed one), after
@@ -30,6 +31,8 @@ export const kelsWelcome = () => `${kelsHello()} I'm here to help you manage you
 export const KELS_INTRO = 'I\'ll ask you some questions; once I\'m done collecting the information, I\'ll build the records for you to approve. If you get stuck or need to save and come back, I\'ll save what we\'ve got so far until you\'re ready to continue. Sound good?';
 // Finding Something's version: it searches, so there are no records to approve.
 export const KELS_FIND_INTRO = 'I\'ll look through the app and try to find what you\'re looking for. I\'ll search app features and your existing records. If I find several matches, I\'ll ask you to choose one or ask follow-up questions. Sound good?';
+// Understanding Something's version: it explains, so nothing is asked or built.
+export const KELS_UNDERSTAND_INTRO = 'I\'ll explain the rules KennelOS follows behind the scenes, the ones that aren\'t obvious from the screens. Pick a topic to see its questions, or search them, and I\'ll answer in plain words. Sound good?';
 const INTRO_CHOICES = [
   { label: 'Sounds great, let\'s start!', value: 'start', primary: true },
   { label: 'Never mind', value: 'nevermind' }

@@ -20,6 +20,7 @@ need. When one is built, its as-built description goes in the guide (§33) and i
 | Finding Something | Where a page, a place on it, or a record is, with a button to it; a question or two when there are many; deep in levels | All (people, kennels, Pro pages: Pro) |
 | Add people | A roster of names and what each is to her, her vet if she has none, each person's details (one in her contacts filled in), breeders' kennels (new and on file); review; resumable draft; then her dogs' breeder kennels, and buyers onto the waitlist | Pro (waitlist: where offered) |
 | Set up my application form | Her saved form or the standard one, the locked questions' wording, her own questions, their order, an FAQ, the form as families see it; resumable draft; then its link online, Sensitive records backup, the fee and its payment account, an applicant | Pro (online, Sensitive records, payment accounts: where offered) |
+| Understanding Something | How the app works as an FAQ: topics, their questions, a search over the questions only; each answer with a Show me | All (waitlist, stud, foster, Companion, multi-kennel topics: Pro) |
 | Pups are going home | Optional checks to tick, remembered on the device (chips, litter registration number, pups' registered names and numbers, feeding); pups Available or Placed with no sale (record the sale or change the plan); readiness per pup with fixes (shots, deworming, drop-off date, balance, contract, registration); a payment request then an invoice for each balance owed; the puppy records with a cover page | All (contract, feeding, payment requests, invoices, Furever, print: Pro) |
 
 The menu has a search box that matches each task's `keywords`, and choices open their
@@ -391,7 +392,16 @@ off to it where it now only says where to change the form.
 - **Keywords:** application, application form, form, questions, questionnaire, apply,
   waitlist form, FAQ, puppy application.
 
-### 3.14 Help me understand: **M**, all editions (how my kennel is doing: Pro, `reports`)
+### 3.14 Help me understand: **M**, all editions (how my kennel is doing: Pro, `reports`) — A step 1 **Built**
+As built: End-State guide §33 ("Understanding Something"); history in `docs/BUILD_LOG.md`.
+**Modified:** "How the app works" is a third button on her first screen, **Understanding
+Something**, organized as an FAQ (topics → questions → answer, with **Show me**) with a
+search over those entries only; Find doesn't search them. The entries are their own module,
+`data/kelsUnderstand.js`, not `kind: 'understand'` places in the cheat sheet. The topics
+below were replaced by the filter "only what a breeder who has used other apps would still
+get wrong here" (the as-built list is in the module); Lite's limit isn't one. Still to
+build: steps 2–5 (her own records worked through, and B).
+
 Two things a breeder means by "help me understand", asked first:
 **How the app works** ("why is this family fourth?", "what counts as income?") and
 **How my kennel is doing** ("how are my dogs doing?"). Both are read-only: she explains,
@@ -605,6 +615,9 @@ Decided:
   near-matching name alone is offered as "maybe this is them", never assumed.
 - Set up my application form (§3.13) doesn't take an old form's spreadsheet yet; that stays
   on the Waitlist form page.
+- How the app works (§3.14 A) is **Understanding Something**, a third button on her first
+  screen: an FAQ of only the rules a breeder who has used other apps would still get wrong
+  here, searched on its own.
 - Help me understand (§3.14) has two flows: how the app works (topics, and the rules worked
   through on her own records), and how her kennel is doing (plain sentences, each from a
   report, with the report a tap away).
@@ -614,8 +627,6 @@ Open:
   first, then every outside kennel she has; never her own (a dog she bred is the litter
   task's), and only dogs with no breeder kennel (one already set is never changed here).
 - **Help me understand** (§3.14), before it's built:
-  - A third button on her first screen (**Understanding Something**), or only through Doing
-    Something and Find? (Her first screen was decided as two buttons, §3.11.)
   - Lite and "how my kennel is doing": none (reports are Pro), or a small version from the two
     reports Lite has (Active Roster, Live-Birth Summary)?
   - The minimums before she ranks or compares (proposed: 2 litters for a dam, 3 breedings for a

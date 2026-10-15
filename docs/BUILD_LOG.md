@@ -1375,3 +1375,15 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   expenses this year, and offers each linked vet contact (Pro) and "JJ's vet expenses".
   Financials → Expenses reads `?dog=<id>` (only that dog's costs, "Show every dog →", kept
   across the category tabs), like `?account=`.
+- **Kels: Understanding Something (2026-10-15).** A third button on Kels's first screen:
+  how the app works, as an FAQ (roadmap §3.14 A, step 1). New `data/kelsUnderstand.js`
+  (pure: `SECTIONS`, `ENTRIES`, `understandEntries` per edition, `understandSections`,
+  `understandCandidates`) and `assets/kelsUnderstandUI.js` (topics → questions → answer with
+  Show me; a search over the entries only, through `kelsFind.search`);
+  `kelsChat.KELS_UNDERSTAND_INTRO`. 39 entries across six topics, chosen as only what a
+  breeder who has used other apps would still get wrong here (a kept pup stays a Puppy;
+  what keeps a litter open; who needs an owner; a delivered pup goes External, or leaves
+  the program in Lite; archiving a sale takes its money out; when a payment is earned; a
+  cancelled sale keeps only dated payments; waitlist place, turns, passes, picks; local
+  data, Merge vs Replace…). Lite gets its own entries where its rules differ, and no limit
+  topic. Precached both modules; `tests/kelsUnderstand.test.js`. Roadmap §3.14 marked.
