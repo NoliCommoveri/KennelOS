@@ -37,11 +37,11 @@ export const ENTRIES = [
     keywords: ['keep', 'keeping', 'kept', 'promote', 'grown', 'adult', 'breeding', 'status', 'plan', 'disposition'],
     href: 'dogs.html?bucket=puppies', show: 'Show me my puppies',
     a: (ctx) => 'Keeping is your plan for the pup, not its stage of life. It stays a Puppy until you change its status to Active breeding (or another adult status) on its page, and the app never does that for you.'
-      + tail(ctx.page('kennel.html'), 'Your kennel\'s page can remind you on Today when a kept pup reaches an age you pick, one age for boys and one for girls.') },
+      + tail(ctx.page('kennel.html'), 'On your kennel\'s page you can pick an age, one for boys and one for girls, and you\'ll be prompted when a kept pup reaches it.') },
   { id: 'unfinished-litter', section: 'dogs', q: 'Why does a litter still look unfinished?',
     keywords: ['litter', 'open', 'active', 'close', 'closed', 'finished', 'done', 'today', 'undecided', 'available', 'plan'],
     href: 'litters.html', show: 'Show me my litters',
-    a: 'It\'s the pups\' plans. A pup marked Available keeps its litter under Active litters on Today. A pup marked Undecided, or never given a plan, stops me from suggesting you close the litter. Keeping, Health hold and Placed all settle a pup, so a pup you\'re holding back won\'t keep its litter open.' },
+    a: 'It\'s the pups\' plans. A pup marked Available keeps its litter showing as active. A pup marked Undecided, or never given a plan, stops me from suggesting you close the litter. Keeping, Health hold and Placed all settle a pup, so a pup you\'re holding back won\'t keep its litter open.' },
   { id: 'health-hold', section: 'dogs', q: 'What does Health hold do?',
     keywords: ['health', 'hold', 'sick', 'not for sale', 'returned', 'plan', 'disposition'],
     a: (ctx) => `Health hold marks a pup you can't sell right now for a health reason. It doesn't count as available${ctx.flags.waitlist ? ', and the waitlist never offers it,' : ''} until you change it. When a sale is returned or falls through for a health reason, the app suggests it.` },
@@ -81,18 +81,18 @@ export const ENTRIES = [
     a: 'Delete is only for undoing a mistake, so it\'s refused while anything else points at the record. The message says what\'s in the way, like 3 events or a sale.' },
   { id: 'deceased', section: 'removing', q: 'How do I record a dog that died?',
     keywords: ['died', 'death', 'dead', 'deceased', 'passed', 'lost', 'rainbow bridge'],
-    a: (ctx) => `Change its status to Deceased and enter the date, rather than archiving it. Today then asks about anything still open for it, like a sale or a planned breeding. For a puppy, it also offers to ${ctx.flags.manualDogArchive ? 'archive it' : 'remove it from your program'}.` },
+    a: (ctx) => `Change its status to Deceased and enter the date, rather than archiving it. You\'ll then be prompted about anything still open for it, like a sale or a planned breeding. For a puppy, the app also offers to ${ctx.flags.manualDogArchive ? 'archive it' : 'remove it from your program'}.` },
 
   // Breedings and litters
   { id: 'pairing-litter', section: 'breeding', q: 'My dog is pregnant or had puppies. How do I enter this so I can sell them?',
     keywords: ['pairing', 'breeding', 'bred', 'mating', 'litter', 'expected', 'pregnant', 'due', 'puppies', 'born',
       'whelped', 'add puppies', 'record litter', 'record the litter', 'enter litter', 'sell', 'selling', 'for sale', 'available', 'plan', 'disposition'],
     href: 'breeding.html', show: 'Show me Breeding',
-    a: 'In four steps. First, record the breeding (a pairing) on Breeding, with the dates she was bred. Next, make her litter from that breeding. It stays Expected until the pups are born, and Today reminds you when one moves along and the other hasn\'t. When they\'re born, change the litter to Whelped and add each puppy on the litter\'s page. Last, give each pup a plan: Available for one you\'re selling, Keeping for one you\'re holding back, or Undecided until you know. If you\'d rather not do it by hand, Record a litter with Kels on Breeding walks you through all four.' },
+    a: 'In four steps. First, record the breeding (a pairing) on Breeding, with the dates she was bred. Next, make her litter from that breeding. It stays Expected until the pups are born, and the app reminds you when one moves along and the other hasn\'t. When they\'re born, change the litter to Whelped and add each puppy on the litter\'s page. Last, give each pup a plan: Available for one you\'re selling, Keeping for one you\'re holding back, or Undecided until you know. If you\'d rather not do it by hand, Record a litter with Kels on Breeding walks you through all four.' },
   { id: 'our-stud', section: 'breeding', q: 'My stud bred someone else\'s female. Should I record the litter?',
     keywords: ['stud', 'outside', 'someone else', 'litter', 'pick', 'pick puppy', 'stud service'],
     flag: 'studServices', href: 'stud-services.html', show: 'Show me stud services',
-    a: 'No, that litter is hers to track. You should record the stud service on Placements & Contracts, on its Stud Services tab. Set the terms, including the fee structure, so that money you\'re paid counts as income. If your fee includes a pick of the litter, Today asks about the pick once the pups would be old enough to come to you.' },
+    a: 'No, that litter is hers to track. You should record the stud service on Placements & Contracts, on its Stud Services tab. Set the terms, including the fee structure, so that money you\'re paid counts as income. If your fee includes a pick of the litter, you\'ll be prompted about the pick once the pups would be old enough to come to you.' },
   { id: 'litter-logging', section: 'breeding', q: 'I logged something (like a deworming) for the whole litter. Why can\'t I see it on the litter page?',
     keywords: ['litter', 'whole', 'all', 'pups', 'log', 'event', 'weight', 'shots', 'deworm', 'deworming', 'each',
       'litter page', 'timeline', 'history', 'missing', 'can\'t see', 'where'],
@@ -100,7 +100,7 @@ export const ENTRIES = [
   { id: 'go-home-day', section: 'breeding', q: 'Where do I put the date a pup goes home?',
     keywords: ['go home', 'going home', 'pickup', 'pick up', 'drop off', 'dropoff', 'date', 'placement', 'boarding', 'delivered'],
     href: 'scheduled-placements.html', show: 'Show me scheduled drop-offs',
-    a: (ctx) => 'It\'s a Placement / drop-off entry in the pup\'s Event History, not a date on the sale. If the family is paying you to keep the pup past its ready date, log that stay as a separate Boarding entry too. Once the drop-off date has passed, Today asks whether the pup went home and offers to mark the sale Delivered. '
+    a: (ctx) => 'It\'s a Placement / drop-off entry in the pup\'s Event History, not a date on the sale. If the family is paying you to keep the pup past its ready date, log that stay as a separate Boarding entry too. Once the drop-off date has passed, the app asks whether the pup went home and offers to mark the sale Delivered. '
       + (ctx.flags.externalOwnership
         ? 'Marking it Delivered then asks about changing the pup to External with the family as its owner, which takes it off your own dogs.'
         : 'Marking it Delivered then asks about removing the pup from your program.') },
@@ -165,7 +165,7 @@ export const ENTRIES = [
   { id: 'wl-auto', section: 'waitlist', q: 'Do offers go out or expire by themselves?',
     keywords: ['automatic', 'auto', 'expire', 'expired', 'overdue', 'offer', 'deadline', 'no response'],
     flag: 'waitlist',
-    a: 'Not unless you turn automatic offers on in your waitlist settings. Otherwise you make each offer, and an offer or fee that runs past its time shows up on Today for you to decide.' },
+    a: 'Not unless you turn automatic offers on in your waitlist settings. Otherwise you make each offer, and you\'ll be prompted to decide on an offer or fee that runs past its time.' },
   { id: 'wl-pick', section: 'waitlist', q: 'When is a family\'s pick final?',
     keywords: ['pick', 'picked', 'deposit', 'accept', 'final', 'placed', 'reserved'],
     flag: 'waitlist',
@@ -202,7 +202,7 @@ export const ENTRIES = [
     a: 'No, it\'s a snapshot from the day you sent it, and it can\'t be taken back. It shows only that family\'s own pups and money. Documents go as links, so your sharing settings on each file decide who can open it.' },
   { id: 'device-only', section: 'data', q: 'Why is something I dismissed back on my other device?',
     keywords: ['dismissed', 'dismiss', 'other device', 'starred', 'star', 'came back', 'today'],
-    a: 'Dismissing a Today suggestion only hides it on this device, and your starred Kels tasks are remembered per device too. Neither is in a backup.' }
+    a: 'Dismissing a prompt from the app only hides it on this device, and your starred Kels tasks are remembered per device too. Neither is in a backup.' }
 ];
 
 const has = (edition) => (href) => !(edition === 'lite' && isProOnlyPage(String(href).split(/[?#]/)[0]));
