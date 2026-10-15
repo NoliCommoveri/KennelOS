@@ -970,447 +970,170 @@ referring Contact (`CONTACT_REFERENCES`). Saving tags that contact `buyer_referr
 
 ## 23. Puppy Record (print-only PDF)
 
-**Editions:** Pro and Demo only (`editionFlags.puppyRecord`; `puppy-record.html` is in `proPages.js`).
+**Editions:** Pro and Demo only (`editionFlags.puppyRecord`; `puppy-record.html` and
+`data/puppyRecordFields.js` are in `proPages.js`).
 
-`pages/puppy-record.html`/`.js` (`?sale=<id>`) is a printable, one-page-style record for a puppy
-being sold: puppy info, sire/dam side by side on one line (with their genetic + breed-specific
-test results as a pipe-separated line; on paper too, stacked only on a phone screen — iOS
-prints at the phone's width, so the stacking rule is `screen`-only), a **Health History** grid — one card per health-relevant event type
-(`vaccination`, `preventative`, `genetic_test`, `ofa_pennhip`, `breed_specific_test`, `illness`,
-`medication`, `surgery`, `vet_visit`, `injury`, `abnormalities`, `weight_check` — deliberately
-excludes admin/lifecycle types like `milestone`/`placement`/`note`), laid out in three
-independent column stacks (on paper too; one column on a phone screen): `healthCardsHtml` deals
-each card onto the shortest stack so far by line count, so a card is only as tall as its own
-entries instead of stretching to match a grid-row neighbour; inside a card, entries with the
-same title, details and notes fold into one line with their dates comma-separated, newest first
-(`healthItems`; a vet visit/surgery also needs the same vet to fold) — and the buyer's contact
-info off the Sale. Each `vet_visit`/`surgery` entry prints its vet under the detail line
-(`vetLines`): "Vet: name · phone", then the address on one line, from the linked contact
-(`related_contact_id`); a vet only typed as text (`details.vet`, the `contactFallback`, §8)
-prints its name alone. Every row is omitted (not shown as a blank/"—") when its field is empty. Reads
-only, through `saleRepo`/`dogRepo`/`contactRepo`/`litterRepo`/`eventRepo` (layering rule, §2) — no
-new repo or table.
+`pages/puppy-record.html?sale=<id>` is a printable record for a puppy being sold: puppy
+info, sire and dam with their test results, a **Health History** grid (one card per
+health-relevant event type; identical entries fold into one line with their dates; vet
+visits print the linked vet's name, phone and address), and the buyer. Empty rows are
+omitted. Read-only, through the repos.
 
-**"Download" is the browser's own Print → Save as PDF** (`window.print()`, gated by an `@media
-print` block that hides nav/back/print-button), not a vendored PDF library. Entry points: a
-"Puppy Record (PDF)" button on `sale.js`'s header actions, and a "Print Puppy Record" button on
-`sales.js` that opens a modal — a dropdown of every **non-delivered** sale (`status !==
-'delivered'`), ordered by dog name, buyer name shown alongside for disambiguation — whose Print
-button opens the record in a new tab with `?autoprint=1`, which triggers `window.print()` itself
-once rendered.
-
-The header also renders the resolving own-kennel's `logo_data_url` (§24) above the kennel name
-when one is set.
-
-**Choosing fields:** every printed field can be turned off per kennel on the Kennel
-page's **Puppy Record fields** card (`#puppy-record`), saved as `Kennel.puppy_record_fields`.
-`data/puppyRecordFields.js` is the one list: `PUPPY_RECORD_FIELD_GROUPS` (Header: logo, generated
-date; Puppy Information's ten rows; Parents' four rows + test-results line; Health History — one
-key per type in `PUPPY_RECORD_HEALTH_TYPES`, `health_<type>`, plus each entry's notes and the vet's name, phone,
-address on vet visits/surgeries; Buyer's four rows), each section but Header with its own on/off. `puppyRecordShows(kennel)` is the read rule
-(a field shows only when it and its section are on; anything not stored shows, so a field added
-to the list later starts out shown). The record reads the picks of the **resolving own kennel**
-(below); a section with nothing left to show is dropped, heading and all. A no-print **Choose
-fields** button on the record links to that kennel's card. A new printed field must be added to
-the list AND gated with `shows(key)` in `puppy-record.js`. `data/puppyRecordFields.js` is in
-`proPages.js`'s `PRO_ONLY_STANDALONE` (both its callers are Pro-only pages), so Lite drops it.
-
-**Own-kennel resolution** (Multi-Kennel Scope Spec §10): the puppy's own `kennel_id`, else the
-active kennel scope (`data/kennelScope.js`'s `getActiveKennel()`), else the sole own kennel on
-record — never "whichever own kennel sorts first," so a Puppy Record for a kennel-B pup carries
-kennel B's name/logo even while the app is scoped (or not scoped) to kennel A.
+- **Download = the browser's Print → Save as PDF** (`window.print()` with an `@media print`
+  block). Opened from a sale's page or the Sales page's Print Puppy Record picker
+  (`?autoprint=1`).
+- **Fields per kennel:** the Kennel page's **Puppy Record fields** card saves
+  `Kennel.puppy_record_fields` (only what's off). `data/puppyRecordFields.js` is the one list
+  and `puppyRecordShows(kennel)` the read rule; anything not stored shows. A new printed field
+  must be added to the list **and** gated with `shows(key)` in `puppy-record.js`.
+- **Whose kennel:** the puppy's `kennel_id`, else the active kennel, else the sole own
+  kennel; its name and logo head the record.
 
 ---
 
 ## 24. Invoice & Receipt (page + PDF)
 
-**Editions:** Pro and Demo only (`editionFlags.invoicing`; `invoice.html` and the PDF modules are in `proPages.js`).
+**Editions:** Pro and Demo only (`editionFlags.invoicing`; `invoice.html` and the PDF modules
+are in `proPages.js`).
 
-`pages/invoice.html`/`.js` (`?source=sale|stud|waitlist&id=<id>&doc=invoice|receipt&cfg=<json>`) is a
-printable one-page financial document for a single income record, covering **all five cash income
-types** — **Deposit, Remaining Purchase Price, Transport Fee, Boarding Fee** (the four Sale
-components) and **Stud Fee** (the outgoing StudService component; customer-facing labels from
-`INVOICE_LINE_LABELS`, distinct from the Financials-view `INCOME_COMPONENTS` labels). Non-cash
-`pick` value is never billable, so it never appears. Reads only, through
-`saleRepo`/`studServiceRepo`/`waitlistEntryRepo`/`dogRepo`/`contactRepo`/`kennelRepo` (layering
-rule §2) — no new repo or table.
+`pages/invoice.html?source=sale|stud|waitlist&id=<id>&doc=invoice|receipt&cfg=<json>` is a
+one-page invoice or receipt for one income record. **Nothing about an invoice is stored**
+except the fields the generator saves on the record (`invoice_number`, `invoice_notes`, and
+for receipts `payment_method`/`payment_reference`); everything is rebuilt on each view.
 
-**One model, two renderers.** `assets/invoiceDoc.js`'s `buildInvoiceDoc({ source, id, doc, cfg })`
-decides everything the document says (issuer, recipient, rows, totals, payment box, notes,
-footnotes, filename) as plain text; `invoice.js` draws it as HTML and `assets/invoicePdf.js` draws
-the same model as a real PDF file with the vendored **jsPDF** (Waitlist Spec
-§15.2), so page and file can't disagree. **Download PDF** (on the invoice page and on a waitlist
-family's Documents card) saves `<Invoice|Receipt>-<number>-<name>.pdf`; **Print** is the browser's
-own print (`@media print`). jsPDF is `vendor/jspdf.umd.min.js` — the self-contained UMD build (its
-ES build needs a bundler), which sets `globalThis.jspdf` when imported as a module, loaded only
-when a PDF is made. The standard PDF fonts are Latin-1, so `pdfText()` maps dashes/quotes to plain
-equivalents and anything undrawable to "?". All three files are Pro-only (`PRO_ONLY_STANDALONE`)
-and precached.
-
-**The waitlist source** (`source=waitlist`, the entry id): one line, "Waitlist application fee"
-(`fee_amount`). As a **receipt** it shows the entry's `fee_payment_method`/`fee_payment_reference`
-and `fee_received_date`; as an **invoice** the line is due by `fee_due_date` and the payment box
-shows the kennel's `waitlist_config.payment_instructions`. The recipient is the family's contact,
-else the applicant's own name/email/phone; the "Re:" line names the kennel and the fee policy. The
-fee isn't persisted back (no `invoice_number`); the number is the default `RCT-/INV-…`.
-
-- **Line base amounts** come from `incomeView.incomeLineItems(source, record)` (§6/§21), so the
-  document can never show a component the Income view wouldn't classify. The per-line **choices**
-  ride the `cfg` param (a compact URL-encoded JSON the generator modal builds): each included line
-  carries `{ key, mode: 'full'|'partial', collected, dueDate? }`. **Nothing about an invoice is
-  stored** — the page and the PDF are rebuilt from the record on every view/download.
-- **Full vs Partial** (per line, owner's model): **Partial** prints "<Name> (partial)" with the
-  entered `collected` as its amount; **Full** prints the record's full base amount, and
-  `collected` is treated as *already collected* — on an **invoice** it is subtracted in the totals
-  (Subtotal → "Less amount already collected" → **Balance**), on a **receipt** the line shows the
-  remaining `base − collected`, the collected figure is not printed, and the label reads "<Name>
-  **(balance)**". There is no payment ledger, so `collected` defaults to 0 for manual entry.
-- **Invoice specifics:** no Paid/Due status column; a per-line **Due by** date (the modal prefills
-  the *soonest* of the sale's `balance_due_date` and any scheduled `placement` event date for the
-  puppy — `invoiceDoc.saleDueDate` — still editable per line). That date is read **live**: a line
-  with no `dueDate` in `cfg` (every line of a plain `invoice.html?source=…&id=…` link, e.g. the
-  waitlist family's Documents card, and every generator line she left at the prefill) uses the
-  record's current date, so editing the Sale's balance due date or pickup changes the next
-  view/PDF; only a date she changed (or cleared) in the modal is written into `cfg`. A waitlist
-  fee invoice uses the entry's `fee_due_date` the same way — **except Deposit, whose Due by is always "Immediately"**, so
-  the modal shows a static "Due immediately" note for that line instead of a date picker; footnote
-  markers on **sale** invoices (`*` on Deposit, `**` on Remaining Purchase Price / Transport /
-  Boarding — stud fees carry neither) render the two standing disclaimers (deposit
-  non-refundability; balance-due-date basis) in the footer; the payment block reads **"Payment may
-  be made using one of the following methods:"** over a checkbox-style list of the **accepted
-  methods** — a global default in `settings.getInvoiceDefaults().acceptedMethods`, editable per
-  document in the modal (checkbox set from `PAYMENT_METHODS`) with a **Save as my default** button
-  (`setInvoiceDefaults`).
-- **Receipt specifics:** keeps the **Payment received** box (method used / reference / date) and
-  stamps **Paid**; totals "Total paid".
-- **Issuer** is the resolving own kennel — the record's own `kennel_id` (a Sale/StudService always
-  carries one, §4), else the dog's own `kennel_id`, else the active kennel scope, else the sole own
-  kennel (same fallback order as the Puppy Record, §23/§10) — with its `logo_data_url`, `location`,
-  `website`, and the owner Contact's name/email/phone (via `getMyContactId`). **Recipient** is the
-  sale's buyer or the stud partner contact. A document number defaults to a stable
-  `INV-/RCT-<yyyymmdd>-<id>` when `invoice_number` is blank.
-- **Persisted fields** (`invoice_number`, `invoice_notes`, and — for receipts —
-  `payment_method`/`payment_reference`, §4) are written on the Sale / StudService by the generator
-  modal so they prefill next time and ride backups. Everything else (Full/Partial, collected, due
-  dates, accepted methods) is per-generation and rides `cfg` / `settings`. Nothing here is a new
-  FK, table, or `referenceRegistry` entry — the fields are plain and the document is pure
-  projection.
-
-The generator modal (`assets/invoiceGenerator.js`, `openInvoiceGenerator({ preselect })`) opens
-from the Financials hub (the "Invoice / Receipt" button on every view) and from a **Sale's page**
-(an "Invoice / Receipt" header button that opens it already set to that sale, so a sale reached
-from the waitlist needs no trip to Financials). Both callers `import()` it only when
-`editionFlags.invoicing` is on, so Lite never requests the Pro-only module. It lists every income
-record (from `getIncomeRows`; a preselected archived/unbillable one is added), and opens the print
-page in a new tab. Because the record is persisted (an `await`) before navigating, the tab is opened **blank and
-synchronously within the click handler** and only navigated afterward — opening it *after* the
-await would let iOS Safari's pop-up blocker silently swallow it (the gesture is spent), so the
-invoice/receipt would never appear on iPhone. The document **never prints itself** — the owner
-uses the page's **Download PDF** or **Print** button. A sale's invoice also has **Send payment
-link** (her own payment link from an Account, Integrations plan §4; §32).
+- **One model, two renderers:** `assets/invoiceDoc.js` `buildInvoiceDoc()` decides all the
+  text; `invoice.js` draws HTML and `assets/invoicePdf.js` draws a PDF with vendored jsPDF
+  (`vendor/jspdf.umd.min.js`, loaded only when a PDF is made; `pdfText()` keeps text
+  Latin-1).
+- **Lines** come from `incomeView.incomeLineItems` (§21): Deposit, Remaining Purchase Price,
+  Transport Fee, Boarding Fee, Stud Fee, or the waitlist application fee. Never `pick`, never
+  processing fees, and net of a credited waitlist fee.
+- **Per-line choices ride `cfg`:** `{ key, mode: 'full'|'partial', collected, dueDate? }`.
+  Partial prints the collected amount; Full prints the whole amount and treats `collected`
+  as already paid (an invoice subtracts it, a receipt prints the remaining balance).
+- **Invoice:** per-line Due by (prefilled from the sale's balance due date or scheduled
+  placement, read live unless she changed it; Deposit is always "Immediately"), sale
+  disclaimers as footnotes, and accepted payment methods
+  (`settings.getInvoiceDefaults().acceptedMethods`, editable per document).
+  **Receipt:** a Payment received box and a Paid stamp.
+- **Issuer:** the record's kennel, else the dog's, else the active, else the sole own kennel,
+  with its logo and the owner contact. Number defaults to `INV-/RCT-<yyyymmdd>-<id>`.
+- **Generator** (`assets/invoiceGenerator.js`): opened from Financials and a Sale's page, both
+  importing it only when `editionFlags.invoicing` is on. It opens the new tab **blank,
+  synchronously in the click**, then navigates after saving, or iOS Safari blocks the pop-up.
+  A sale's invoice also has **Send payment link** (§32).
 
 ---
 
 ## 25. Foster whelps (foster-in & foster-out)
 
-**Editions:** Pro and Demo only (`editionFlags.fosterArrangement`). Lite hides the litter form's Foster section. The fields still ride every backup.
+**Editions:** Pro and Demo only (`editionFlags.fosterArrangement`). Lite hides the litter
+form's Foster section; the fields still ride every backup.
 
-Tracking a litter whelped/raised under a **caretaker↔owner arrangement** where the two parties
-differ, with a contract and an income split. `foster_partner_contact_id` is indexed in the
-collapsed `version(1)` block so the referential guard can protect the foster partner Contact
-(§5).
+A litter raised under an arrangement where the dam's owner and the caretaker differ.
 
-### The two settling ideas
-
-- **Foster is a per-litter fact, not a dog fact.** The same dam can have more than one foster
-  litter (and non-foster litters), so foster lives on the **Litter** (`foster_direction` +
-  `foster_partner_contact_id` + split terms), never on the Dog. A foster **puppy** is an ordinary
-  `status='puppy'` Dog we manage and sell; its foster-ness is a **derived** read of its litter's
-  `foster_direction` (badge only) — it is emphatically **not** an `external`/`external_reference`
-  dog (that is a reference-only record we don't raise). The reverse of "is this puppy fostered?"
-  is a query over the litter, per the one-canonical-direction rule (§4.2).
-- **Whoever holds the puppies books the Sales; the other party's cut is an Expense.** Direction
-  only decides who holds the Sales:
-  - **foster-in** — an external dam's litter is raised in our care → **we** record the puppy
-    Sales (full gross) and pay the **owner's** split out as a `foster_split` Expense;
-  - **foster-out** — our dam's litter is raised elsewhere → the pups are still our Dog records; if
-    we handle placement we record the Sales and pay the **caretaker's** cut as a `foster_split`
-    Expense (identical shape, roles swapped).
-
-  This is why foster needs **no new income machinery** — it rides the existing Sale → derived
-  income path (§21), and the split-payout is a normal cost, exactly like an incoming stud fee we
-  pay. (A fully hands-off foster-out where we never see the sales — just receive a check — is the
-  one gap; it is deferred, not modeled.)
-
-  The partner's compensation is one of two models (`foster_comp_model`, owner's choice per
-  litter): an **income split** (`foster_our_share_pct` + `foster_split_basis`) or a **flat fee per
-  pup** (`foster_flat_fee_per_pup`). Both document the terms only — the money is the same
-  `foster_split` ("Foster compensation") Expense either way, so the P&L stays model-agnostic. The
-  `litter.js` edit form swaps the share-% / basis fields for a per-pup fee field as the model
-  changes.
-
-### Model touch-points (all additive; all covered in §4/§5/§7/§20/§21)
-
-- **Litter:** `foster_direction` (plain, nullable `foster_in`/`foster_out`),
-  `foster_partner_contact_id` (**indexed FK → Contact**, the one added index —
-  guarded in `CONTACT_REFERENCES`), `foster_comp_model` (`income_split`/`flat_per_pup`), and
-  `foster_our_share_pct`/`foster_split_basis`/`foster_flat_fee_per_pup`/`foster_split_notes`
-  (plain, documentation of the compensation terms; the real payout is the Expense). `litterRepo`
-  hard-checks only a known direction, a known comp model, a 0–100 share %, and a non-negative flat
-  fee; everything else is warn-only in `litter.js`.
-- **Vocab:** `FOSTER_DIRECTION`, `FOSTER_COMP_MODEL`, `FOSTER_SPLIT_BASIS`, a `foster`
-  `CONTRACT_TYPE`, and a `foster_split` ("Foster compensation") `EXPENSE_CATEGORIES` value.
-- **Contract:** `foster` joins `contractRepo.DOG_LINK_TYPES`/`CONTACT_LINK_TYPES` — a foster
-  contract reaches the fostered dam (`related_dog_id`) and the counterparty (`related_contact_id`)
-  the same way a lease does, so **no new Contract FK**. It is also partner-facing
-  (`isLivePartnerContract`), so a live foster contract confers Companion **Partner** membership.
-- **Expense:** `reimbursable`/`reimbursed_date` plain fields (§21). Reimbursed costs wash out of
-  the Litter P&L; pending ones surface as the "Owed back" receivable.
-- **Companion (§20):** the owner/breeder **kennel** is revealed via a `breederKennel` field on
-  the prospective litter card and the family pup card, sourced from the foster partner contact's
-  `kennel_id`, allow-listed by name in `companionExport.js`, gated by the `fosterOwnerKennel`
-  include flag, and emitted **only for a foster-IN litter** (on foster-out WE are the breeder, so
-  there is nothing external to reveal; empty otherwise). `companion-view.html` renders it as a
-  "Bred by" line (additive; older bundles omit it).
-
-### Surfaces
-
-`litter.js` (a "Foster arrangement" edit section + a read-only callout + a title badge),
-`litters.js` (Foster filter + badge), `litter-finances-report.js` (Foster filter + "Owed back"
-column), `expensePanel.js` (the Reimbursable toggle + Reimbursed-on date), the contract page (works
-unchanged — it reads the link types from the repo), and the Companion console/shell. Sample data
-seeds a full foster-in example (Meadow Ridge / Dana Ruiz: an external dam Marigold, a foster litter
-with two available pups whose `breeder_kennel_id` is the owner kennel, a `foster` contract, a
-`foster_split` payout, and one reimbursed + one pending reimbursable cost).
+- **Foster is a litter fact, not a dog fact.** `Litter.foster_direction`
+  (`foster_in`/`foster_out`), `foster_partner_contact_id` (indexed FK, `CONTACT_REFERENCES`)
+  and the compensation terms (`foster_comp_model`: `income_split` with `foster_our_share_pct`
+  + `foster_split_basis`, or `flat_per_pup` with `foster_flat_fee_per_pup`;
+  `foster_split_notes`). A foster puppy is an ordinary `puppy` Dog; its foster-ness is
+  derived from its litter.
+- **Whoever holds the puppies records the Sales; the other party's cut is an Expense**
+  (`foster_split`, "Foster compensation"). So foster needs no income machinery of its own.
+  Reimbursable rearing costs use the expense's `reimbursable`/`reimbursed_date` (§21).
+  Not modelled: a hands-off foster-out where we never see the sales.
+- `litterRepo` hard-checks only known direction and model, a 0–100 share and a non-negative
+  fee.
+- A `foster` contract links the dam and the partner like a lease does (`DOG_LINK_TYPES` /
+  `CONTACT_LINK_TYPES`) and makes the partner a Companion partner.
+- Companion shows a foster-in litter's owner kennel as "Bred by" (`breederKennel`, behind the
+  `fosterOwnerKennel` flag).
 
 ---
 
 ## 26. Dropbox sync & KennelAssistant
 
-**Editions:** Pro only in practice (`editionFlags.assistant`; both `assistant.html` files are in `proPages.js`). Demo leaves out the owner console and Import/Export, where Dropbox sync lives. The helper app still ships to Demo.
+**Editions:** Pro (`editionFlags.assistant`; both `assistant.html` files are in
+`proPages.js`). Demo leaves out the owner console and Import/Export, where Dropbox sync
+lives; the helper app still ships. Lite has no Dropbox.
 
-Two zero-cost, online-only features layered over the existing backup engine: **push/pull
-between the owner's phones through the owner's own free Dropbox**, and **KennelAssistant**,
-a deliberately tiny read-write mini-app for a junior helper's phone (log weight checks and
-other events against a synced dog list — nothing else). Both are strictly opt-in buttons;
-nothing syncs on its own, and the rest of the app stays fully offline-capable (§2.4).
+Two opt-in, online-only features over the backup engine: **push/pull between the owner's
+phones through her own Dropbox**, and **KennelAssistant**, a tiny read-write app for a
+helper's phone (log events against a synced dog list).
 
-### The Dropbox transport (`data/dropbox.js`)
+### Dropbox transport (`data/dropbox.js`)
+- Plain `fetch` to the Dropbox HTTP API; OAuth2 + PKCE entirely in the browser. The public
+  app key is `APP_KEY` in the file (a PKCE client id isn't a secret). App-folder scope, so
+  tokens only see `/Apps/KennelOS/`. Tokens live in the `dropbox` setting.
+- `assets/dropboxConnectUI.js` `mountDropboxConnect(host, { onChange })` is the one connect
+  control and completes the OAuth round-trip itself. **Every page that mounts it needs its
+  URL registered as a Redirect URI** (list in `docs/LAUNCH_CHECKLIST.md`).
+- Dropbox calls are cross-origin, so the service worker never caches them.
 
-- Talks straight to the Dropbox HTTP API with `fetch` — **no SDK, nothing vendored**.
-- Auth is **OAuth2 + PKCE, entirely client-side** (no secret, no backend), against a
-  Dropbox app registered once, by the developer, at dropbox.com/developers/apps:
-  *Scoped access*, access type **App folder** (tokens can only ever see
-  `/Apps/KennelOS/`), permissions `files.content.write` + `files.content.read`, and every
-  connecting page's URL listed under **Redirect URIs** (`pages/import-export.html`,
-  `pages/assistant.html`, and the root `assistant.html`, deployed + localhost variants —
-  the exact list lives in `docs/LAUNCH_CHECKLIST.md`).
-- The **app key itself is hardcoded** as `APP_KEY` in `data/dropbox.js` — same pattern as
-  `KennelPapers/data/dropbox.js`. This is safe because a PKCE client id is a public
-  identifier, not a secret: every install shares the one key, but each user still does
-  their own "Connect" and signs into their **own** Dropbox account, landing in their own
-  private `/Apps/KennelOS/` folder. The key grants no access by itself, so there's no
-  per-device paste step and nothing for the user to register.
-- `beginDropboxAuth()` redirects out; `completeDropboxAuth()` finishes the `?code=`
-  round-trip, storing a long-lived refresh token
-  (`token_access_type=offline`) and minting short-lived access tokens as needed. Tokens
-  live in the `dropbox` settings blob (§11); `disconnectDropbox()` forgets them. The kid's
-  phone signs into the **same Dropbox account** as the owner; the app-folder scope is
-  what makes that acceptable.
-- `dropboxUploadJson(path, obj)` / `dropboxDownloadJson(path)` (download returns `null`
-  for a file that doesn't exist yet). One 401-retry with a forced token refresh.
-- **The connect UI is a shared component, not per-page code:**
-  `assets/dropboxConnectUI.js`'s `mountDropboxConnect(host, { onChange, onError })`
-  renders the status/Connect/Disconnect strip into whatever element a page hands it,
-  **and calls `completeDropboxAuth()` itself** before first paint — so a host page never
-  hand-rolls the round-trip. `onChange(connected)` fires whenever the state actually
-  changes, which is how a page re-renders everything gated on the connection.
-  `dropboxRequiredNotice(where)` is the matching inline notice for a gated action.
-  Because the redirect URI is derived from `location.pathname`, **every page that mounts
-  this control needs its own URL registered under the app's Redirect URIs** — that
-  registration list is the one manual step a new host page costs.
+### Three files, one writer each (`data/assistantSync.js`, `DROPBOX_PATHS`)
+Keep this invariant; it's what makes the scheme conflict-free.
 
-### The three files — one writer each (`data/assistantSync.js`)
+| File | Writer | Reader |
+|---|---|---|
+| `kennelos-backup.json` | owner (push) | owner's other phone (pull) |
+| `assistant-feed.json` | owner (push, or `pushAssistantFeed`) | helper |
+| `assistant-outbox.json` | helper ("Send my updates") | owner (import) |
 
-All under the app folder, named in `DROPBOX_PATHS` (dropbox.js). **Each file has exactly
-one writer**, which is what makes the scheme conflict-free — preserve that invariant:
+- **Push/pull are Import/Export's backup and restore with Dropbox as the place** (§10); a
+  pull goes through the normal restore preview. Don't edit the same record on both phones
+  between a push and a pull.
+- **The feed is an allow-list** (`ASSISTANT_DOG_FIELDS`: names, breed, sex, status, dates,
+  markings, url, plus derived litter and parent names) and dog events of
+  `vocab.ASSISTANT_EVENT_TYPES` only. The same list gates the helper's log form. Contacts,
+  money, kennels and contracts never reach the helper's device; that, not UI hiding, is
+  the boundary. `pushAssistantFeed()` doesn't stamp `lastBackupDate` (the feed isn't a
+  backup).
+- **Outbox import** previews `new` / `update` / `no_dog` (skipped) / `invalid`, then upserts
+  by id, so re-importing is a no-op. It writes `db` directly, so it calls `assertWritable()`
+  and `markDataChanged()` itself.
 
-| File | Writer | Reader | Contents |
-|---|---|---|---|
-| `/kennelos-backup.json` | owner (`pushToDropbox`) | owner's other phone | the full `exportAll()` backup |
-| `/assistant-feed.json` | owner (`pushToDropbox`) | assistant | allow-listed dog fields + all dog-subject events |
-| `/assistant-outbox.json` | assistant ("Send my updates") | owner | events the helper logged, with their own UUIDs |
+### Owner console (`pages/assistant.*`)
+Connection, Your helper's copy (send the feed), Their entries (import the outbox), and what
+the helper can see (rendered from `ASSISTANT_EVENT_TYPES`).
 
-- **Push and pull are not a separate feature — they are the Import/Export page's backup
-  and restore with Dropbox chosen as the destination** (§13's Import/Export entry). Push
-  uploads backup + a freshly rebuilt feed in one act (and stamps `lastBackupDate`); pull
-  is `fetchDropboxBackup()` feeding the page's **normal restore preview**, so a Dropbox
-  restore gets the same dry-run table and the same **Merge / Replace** choice a file
-  restore gets, through the same `restoreBackup()` engine (§10). The documented
-  discipline: don't edit the *same record* on both phones between push and pull — merge
-  is a blind per-id upsert and the pulled copy wins.
-- **Privacy is enforced at feed-build time**, same posture as `companionExport.js`:
-  `ASSISTANT_DOG_FIELDS` is a positive allow-list (id, call/registered name, breed, sex,
-  status, DOB/DOD, color/markings, url, is_archived — **no** microchip, registration,
-  ownership, parentage, prices), plus four DERIVED display fields (`litter_id` as a
-  grouping key, `litter_nickname`, `sire_name`/`dam_name` as call-name copies — named
-  copies, never the litters table or parentage FKs). Only `subject_type === 'dog'`
-  events whose type is in **`ASSISTANT_EVENT_TYPES`** (vocab.js — currently
-  `weight_check`, `milestone`, `note`, `preventative`, `medication`) ride along; the same
-  list gates the assistant's log form, so what the helper sees and what they can log
-  never drift. `preventative` (product/dose) and `medication` (drug/dose/frequency,
-  a span — the log form's end-date field shows automatically per `duration: 'span'`)
-  reuse the main app's existing field defs as-is, no assistant-side field changes
-  needed. Contacts, sales,
-  financials, kennels, contracts never reach the assistant device at all — that, not UI
-  hiding, is the security boundary (everything client-side is inspectable).
-- **`pushAssistantFeed()`** uploads *only* the feed — the Assistant console's "send
-  updates to my helper", so telling the helper about a dog added five minutes ago doesn't
-  require a full backup round-trip. It stamps `assistantFeedPushedAt` but deliberately
-  **not** `lastBackupDate`: the feed is an allow-listed slice, not a backup, and counting
-  it as one would tell an owner they're safe when they aren't. `pushToDropbox()` calls it
-  for the feed half of its work, so there is one uploader for that file.
-- **Outbox import** (`fetchAssistantOutbox` → preview → `importAssistantEvents`) is the
-  app's standard dry-run-then-commit posture: rows are annotated `new` / `update` /
-  `no_dog` (unknown subject dog → **skipped, never invented**, per the import rule) /
-  `invalid`, shown in a preview modal, then bulk-upserted by id — so re-importing the
-  same outbox is a no-op. The assistant's local `pending` marker is stripped on import.
-  It writes through `db` rather than a repo (cross-table data-layer work, like
-  `importExport.js`), so it calls **`assertWritable()` itself** — repoBase's blanket demo
-  guard never sees these rows.
+### KennelAssistant (`assistant.html`, `assistant.js`, `data/assistantStore.js`)
+- Standalone page (no nav/app boot) with its **own Dexie database `KennelOSAssistant`**
+  (`dogs`, `events`). Its log form is built from `EVENT_TYPES`.
+- **Get latest dogs** replaces the synced data, keeping pending events; logged events are
+  `pending: 1` until **Send my updates**. Dogs are grouped by litter, with **Weigh litter**.
+- Its weight-drop warning mirrors `eventForm.js`'s rule; keep the two in step.
+- A pending event clears when a later feed brings its id back.
+- `ASSISTANT_FORMAT_VERSION` / `ASSISTANT_OUTBOX_FORMAT_VERSION` (1) bump only on an
+  incompatible shape change.
 
-### The owner console (`pages/assistant.html` + `pages/assistant.js`)
-
-Same console/recipient split as Companion: the page that *configures and sends* lives in
-`pages/`, the thing the recipient opens lives at the root (`assistant.html`, §26's
-KennelAssistant shell below). Both share a basename, in `PRO_ONLY_PAGES` and
-`PRO_ONLY_STANDALONE` respectively — different directories, and both Pro-only, so
-`isProOnlyPage()`'s basename match is right either way.
-
-Three cards, in the order an owner meets them: **Connection** (mounts the shared
-`dropboxConnectUI` control — the same connection Import/Export uses, so connecting on
-either page sets both), **Your helper's copy** (`assistantFeedPushedAt` + a live
-`buildAssistantFeed()` count of what a send would include, then `pushAssistantFeed()`),
-and **Their entries** (the outbox preview + import). Full backup push/pull is
-deliberately absent — that is Import/Export's Dropbox destination (§10), and the page
-links there rather than duplicating it. A fourth card explains what the helper can see,
-rendered **from `ASSISTANT_EVENT_TYPES`** rather than a hand-written list so the promise
-on screen can't drift from the allow-list that actually gates the feed.
-
-Excluded from the **Demo** build alongside `import-export.html` (`DEMO_EXCLUDED_PAGES`):
-a console whose job is pushing your records to a real Dropbox account is the opposite of
-a sealed read-only showcase. The helper app at the root still ships to Demo.
-
-### KennelAssistant (`assistant.html` + `assistant.js` + `data/assistantStore.js`)
-
-- Standalone shell like `companion-view.html` (no nav.js/app.js boot), but read-write. It
-  reuses `assets/app.css`, `assets/ui.js`'s `esc()`, `vocab.js` (the event-type catalog
-  drives its log form: same fields, spans get an end date, `combobox` degrades to plain
-  text, `relatedContact` pickers are omitted), `dateUtils.js`, and `data/dropbox.js`.
-- Its data layer is `assistantStore.js` with its **own Dexie database
-  (`KennelOSAssistant`)** — never the main `KennelOSBreedingApp` db — holding exactly two
-  tables: `dogs: 'id'` and `events: 'id, [subject_type+subject_id], event_date'`. Same
-  conventions as the main schema (UUID ids, YYYY-MM-DD dates, filter-in-JS flags).
-- Flows: **Get latest dogs** replaces the synced slice from the feed (dogs wholesale;
-  events except locally-pending ones) and stamps `assistantLastSync`; **tap a dog → log
-  event** creates a local event with `pending: 1`; **Send my updates** uploads all pending
-  events as the outbox (rewritten wholesale each send). Only pending events can be
-  deleted on the device — synced history is the owner's.
-- The dog list is **grouped by litter** (header: nickname + "Sire × Dam" from the derived
-  feed fields) with a **⚖ Weigh litter** button per group: one date + AM/PM, a lbs/oz row
-  per pup, one save → one pending `weight_check` per weighed pup (blank rows skipped).
-  Both this and single weigh-ins reproduce the main app's **weight-drop soft warning**:
-  `assistantStore.js` mirrors `eventForm.js`'s total-ounce comparison and
-  date→AM/PM→capture-time ordering (`getPriorWeighIn` scans synced + pending entries),
-  and a decrease prompts a collected "Save anyway?" confirm, never a hard block. Keep the
-  two implementations semantically in step if the main app's rule ever changes.
-- **Acknowledgment loop**: after the owner imports the outbox and later pushes a fresh
-  feed, the feed carries those same event ids back; the feed sync's `bulkPut` overwrites
-  the pending copies, clearing the flag. Until then pending events keep riding every
-  send, which is harmless (owner-side import is an idempotent upsert).
-- The feed/outbox shapes carry `format_version` (`ASSISTANT_FORMAT_VERSION` /
-  `ASSISTANT_OUTBOX_FORMAT_VERSION`, both 1) — bump only on an incompatible shape change.
-
-### Maintenance notes
-
-- Widening/narrowing what the helper sees = edit `ASSISTANT_DOG_FIELDS` or add an
-  event-type filter in `buildAssistantFeed()` — one place, and update this section.
-- All five new files (`assistant.html`, `assistant.js`, `data/dropbox.js`,
-  `data/assistantSync.js`, `data/assistantStore.js`) are in the sw.js precache; the
-  Dropbox API calls are cross-origin, so the service worker's cache-first handler ignores
-  them (§12) — sync is always live network.
-- No new tables, FKs, or `referenceRegistry.js` entries in the **main** schema: imported
-  assistant events are ordinary Event rows, and the assistant db is a separate database
-  on a separate device.
 
 ## 26.1 Documents & receipt attachments — local file storage
 
-**Editions:** Pro and Demo only (`editionFlags.documents`, `receiptAttach`; `documents.html` and `assets/documentModal.js` are in `proPages.js`).
+**Editions:** Pro and Demo only (`editionFlags.documents`, `receiptAttach`; `documents.html`
+and `assets/documentModal.js` are in `proPages.js`).
 
-Real, **local** file storage, entirely offline — no external app, no Dropbox connection.
-Two surfaces share one storage stack:
+Local, offline file storage behind three surfaces:
+- **Documents** (`pages/documents.*`, the Storage hub's first tab, and a button on the dog
+  page): file a document against a dog, by type.
+- **Contract documents:** the Contract page's **Attach signed contract** opens the same
+  modal set to Type = Contract and that contract's dog, and stamps `documents.contract_id`.
+  The contract lists its filed documents (`documentRepo.getByContract`). The contract's
+  `document_url` is a separate link field.
+- **Expense receipts:** `assets/receiptCapture.js` on both expense forms (§21).
 
-- **Documents** — a "Documents" page (`pages/documents.html` + `pages/documents.js`, the
-  **Storage** hub's landing tab, plus a "📄 Documents" button on the dog page) where you file a document
-  against a dog (pedigree / health test / registration / contract / other), grouped by dog,
-  with a type filter and search. Full CRUD, all local.
-- **Contract documents** — the Contract detail page (`pages/contract.js`) files the signed
-  contract PDF through the *same* Documents stack, without leaving the contract. An
-  **"Attach signed contract"** button opens the add-document modal pre-filled with the dog
-  the contract resolves to (`related_dog_id`, else the linked Sale's dog, else the linked
-  StudService's our/partner dog) and **Type = Contract**, and stamps the saved document's
-  `contract_id`. The contract then lists its filed document(s) with inline **View / Download**
-  (`documentRepo.getByContract`). This is a plain, unindexed back-link — see the
-  referential-integrity note in §7 / the index notes in §5. The Contract's own DocuSign-style
-  `document_url` ("Document link") is a *separate* field and is unaffected.
-- **Expense receipts** — the receipt-capture widget on both expense forms (§21): attach a
-  receipt to any ledger row. See "Receipt capture" below.
+`assets/documentModal.js` is the shared add/edit and view dialog.
 
-The add/edit and view dialogs are the shared **`assets/documentModal.js`** (`openDocumentModal`
-/ `openDocumentViewModal`) — one implementation driven by both the Documents page and the
-Contract page, self-contained (each loads its own dogs/file and reports back through
-`onSaved`/`onDeleted`/`onEdit` callbacks). It is Pro-only code (`PRO_ONLY_STANDALONE` in
-`proPages.js`), since both its callers are Pro-only pages, so the Lite build drops it.
+**Storage:** `documents` (metadata, `dog_id`, `file_id`) and `files` (one row per stored PDF:
+`blob`, `thumbnail`, meta; `data/fileRepo.js`). A file belongs to exactly one Document or
+Expense and is deleted with it (§7). **Every file is a PDF:** photos are downscaled and
+wrapped into a PDF by `data/pdfBuild.js` (no library; JPEG via `DCTDecode`), which also
+makes the thumbnail. Viewing goes through `ui.viewPdfModal`.
 
-**Storage stack (shared by both).** Two Dexie tables (§4, §5): `documents` (metadata + a
-`dog_id` and a `file_id`, via `data/documentRepo.js` on the standard `makeRepo` +
-`referenceRegistry` pattern) and `files` (the blob archive, via `data/fileRepo.js` — one row
-per stored PDF: `blob` + `thumbnail` + meta). `expenses.receipt_file_id` points a ledger row
-at a `files` row the same way. A file is **owned by exactly one** Document or Expense: it is
-deleted alongside its owner in that repo's `hardDelete`, and so is *not* a
-`referenceRegistry` entry (§7). `documents.dog_id` **is** guarded, via a `documents.dog_id`
-line in `DOG_REFERENCES` — a dog with filed documents can't be hard-deleted out from under
-them.
+**Receipt OCR:** a newly picked photo is scanned offline by `data/ocr.js` (vendored
+Tesseract, loaded on first use) to fill amount, date, vendor and receipt number, **only where
+the field is still blank**. Any failure falls back to typing.
 
-**Every stored file is a PDF.** An uploaded PDF is stored as-is. A photo/screenshot (camera,
-or picked from the library — multi-page allowed for documents) is converted client-side to a
-compressed multi-page PDF by `data/pdfBuild.js` — **no library**: it downscales + JPEG
-re-encodes each page and embeds the JPEG directly via the PDF `DCTDecode` filter, and yields
-a small JPEG data-URL thumbnail for the list. `createImageBitmap` also normalizes iPhone
-HEIC on the way in. Viewing/downloading goes through the shared `viewPdfModal` (`assets/ui.js`)
-/ the Documents page's own `<embed>` viewer, off a throwaway object URL.
-
-**Receipt capture (`assets/receiptCapture.js`).** One shared widget — built the same way
-`buildMileageFields`/`wireMileageMode` are shared — wired into **both** expense forms (the
-Financials hub's Add Expense modal and each subject's Expense panel), so there's one
-implementation. Take/choose a photo or screenshot, or upload a PDF. A freshly picked photo is
-auto-scanned offline by `data/ocr.js` (vendored Tesseract.js, LSTM core; lazy — the ≈7 MB
-engine loads only on first scan and every failure path degrades to manual entry) to pre-fill
-amount / date / vendor / receipt # **only when those fields are still blank/default** — never
-overwriting what the user typed. `resolveFileId()` at save time builds/stores the file (or
-reuses/removes the existing one) and returns the `receipt_file_id` to persist.
-
-**Durability.** `files.blob` is the schema's only binary field; it is base64-tagged through
-the JSON backup and the Dropbox sync (`importExport.js`, `BACKUP_FORMAT_VERSION` 2 — see §5),
-so filed documents and receipts survive backup/restore and two-phone sync. A plain
-`JSON.stringify` would silently drop a Blob to `{}`, so any future Blob field must
-round-trip the same way.
-
-- **Precache:** `pages/documents.html`, `pages/documents.js`, `data/documentRepo.js`,
-  `data/fileRepo.js`, `data/pdfBuild.js`, `data/ocr.js`, `assets/receiptCapture.js`,
-  `assets/documentModal.js` (the shared add/edit + view dialogs), and the four
-  `vendor/tesseract/*` assets are in `sw.js` — scanning works with no network after
-  first install. Bump `CACHE_NAME` on any change to that file set.
+Blobs survive JSON backup and Dropbox sync through base64 tagging (§5).
 
 ---
 
