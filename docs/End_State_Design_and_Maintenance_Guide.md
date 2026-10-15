@@ -1838,13 +1838,41 @@ builds nothing), then a search box.
 - **Candidates:** `{ id, group, title, sub, where, href | taskId, boost, levels, numbers?,
   facets? }`. **Places:** `kelsKnowledge.PLACES`, written by us, each with the sentence she
   says (`where`, naming hubs by this edition's menu labels) and a link (a tab in its query
-  where the page reads one: `dogs.html?bucket=`, `contacts.html?group=`,
-  `financials.html?view=&bucket=`; `kennel.html?id={kennel}#<section>` with her active
+  where the page reads one: `dogs.html?bucket=&disposition=` (a starting Disposition filter), `contacts.html?group=`,
+  `financials.html?view=&bucket=&dog=` (`dog`: only that dog's costs, kept across the category tabs); `kennel.html?id={kennel}#<section>` with her active
   kennel), plus every report (`reportCatalog.REPORTS`) and expense category. A place whose
   page is Pro-only isn't offered in Lite, nor one whose `flag` is off. **Records:** dogs
   (archived only where `archivedDogLinks`), litters, and in Pro contacts and kennels.
   **Tasks:** each available task (label, `keywords`), a little behind a page of the same words;
   choosing one starts it (`handoff`).
+- **A dog and a word about it** (`data/kelsAbout.js`, tested in `tests/kelsAbout.test.js`):
+  when every word is a dog's name or a `DOG_TOPICS` word, with at least one of each ("Zeus
+  puppies", "JJ litters", "Zeus sales"), Kels works out what the dog has (`factsOf`: its
+  puppies by sire/dam, its litters, its puppies' sales, how many sold and for how much) and
+  opens with it ("I found a lot about Zeus. He has sired 8 puppies across 2 litters, and 5
+  have sold for $12,400."). Topics: `pups` (each puppy, asked by litter then sex; plus "All
+  of Zeus's puppies", `dog.html?id=…#offspring`, the Offspring list under the pedigree,
+  which dog.js scrolls to once drawn), `litters` (each litter), `sales` (each sale of a
+  puppy, with buyer, price and status; plus Breeding-Dog Return where reports are). She asks
+  which topic only when two or more have something; one goes straight to its results; none
+  says so and offers the dog's page. Two dogs by that name with something on record: she
+  asks which first. "Something else" is always the ordinary search. Sales and contacts
+  (for buyer names) are loaded in every edition.
+  **Shots and vet** ("JJ shots", "JJ vet", "JJ health" = both): `shots` lists the dog's
+  vaccination and preventative events, `vet` its vet visits, illnesses, medications,
+  surgeries and injuries, each opening the event on the dog's page (`?openEvent=`). Kels
+  says the last one ("JJ's last shot was DHPP on Mar 1, 2026, and DHPP is due Mar 1, 2027";
+  the due date is each vaccine's latest shot's `next_due`, the soonest, "overdue" when
+  past). Both topics can `add`: "Add a shot for JJ" / "Add a health event for JJ"
+  (`dog.html?id=…&logEvent=vaccination|vet_visit`), always first in the list, the first
+  choice when nothing is on record, and what she leads with when an add word was typed
+  (`ADD_WORDS`: add, log, new, enter, gave, give, got, track — "log a shot for JJ", "JJ got
+  sick"), with what's on record one tap away. `vet` also says who saw the dog last (the
+  newest shot or vet event with a vet: its `related_contact_id` contact, or `details.vet`)
+  and its Veterinary expenses this year ("JJ was last seen by Dr. Nguyen on Aug 3, 2026
+  (Ear infection). She has $300 in vet expenses logged this year."), and lists after its
+  events each vet contact linked (Pro, `contact.html`) and "JJ's vet expenses"
+  (`financials.html?view=expenses&bucket=veterinary&dog=<id>`). Expenses are loaded for it.
 - **Levels:** 1 = names, numbers (`normReg`, typed any way), a place's title and keywords;
   2 = secondary details (a dog's breed, color, status, ownership, sex, kennel, bred-by
   kennel; a contact's types, email, phone, kennel; a litter's parents, status, year); 3 =

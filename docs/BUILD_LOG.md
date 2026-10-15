@@ -1340,3 +1340,38 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Review's Placements tile says "2 Limited · 1 Full" (`moneyReport.byRegistration`,
   `registrationSummary`). The Kels roadmap's kennel check-up (§3.14) now names the new
   waitlist reports and the registration split as its sources.
+- **Kels finds litters by "puppies" (2026-10-15).** The Litters place's keywords gain
+  puppies / pups and unsold / available puppies / pups, so "unsold puppies" or "available
+  pups" goes straight to Litters, and plain "puppies" lists it (5th, behind the
+  puppy-titled places).
+- **Kels: Available puppies (2026-10-15).** A new place, Available puppies, links to
+  `dogs.html?bucket=puppies&disposition=available`: the Dogs page now reads `?disposition=`
+  as its starting Disposition filter (listView filters take an `initial` value, used only
+  when it's one of the options). "unsold" / "available" (with or without puppies / pups)
+  now offers both it and Litters.
+- **Kels: "Zeus puppies" (2026-10-15).** Each dog with offspring is a second Find
+  candidate, "<name>'s puppies", opening `dog.html?id=…#offspring` (the Offspring list
+  under the pedigree; `pedigree.js` gives it `id="offspring"`, and dog.js scrolls to it once
+  it draws). Its words are the dog's names plus puppies / pups / offspring / babies…, and it
+  `requires` the dog's name (a new candidate field in `kelsFind`), so "puppies" alone lists
+  no sires and "Zeus" alone is still Zeus.
+- **Kels: "Zeus puppies" asks what about Zeus (2026-10-15).** Replaces the "<name>'s
+  puppies" candidate (and kelsFind's `requires`) from earlier the same day. New
+  `data/kelsAbout.js`: a dog's name plus topic words gives Kels the dog's facts and three
+  topics (one of its puppies, its litters, what its puppies sold for). She asks only when
+  two or more topics have something (decided), with counts on each choice and "Something
+  else" for the ordinary search; a choice lists only that dog's records (sales as each
+  sale, plus Breeding-Dog Return). `offer`/`list` in kelsFindUI take `extras` (places
+  under the list). Precached `data/kelsAbout.js`.
+- **Kels: shots and vet for a dog (2026-10-15).** `kelsAbout` gains `shots` (vaccination,
+  preventative) and `vet` (vet visit, illness, medication, surgery, injury): each of the
+  dog's events opens on its page (`?openEvent=`); Kels says the last one and the next shot
+  due (overdue when past). Both offer adding one ("Add a shot for JJ", "Add a health event
+  for JJ" → `?logEvent=`), first in the list; an add word (log, add, gave, got…) makes
+  Kels lead with it, since she may be adding, not finding. Filler words (her, last, next,
+  history…) are ignored in "<dog> <topic>".
+- **Kels: "JJ vet" names her vet and her vet costs (2026-10-15).** The vet topic says who
+  saw the dog last (linked vet contact, or the event's plain-text vet) and its Veterinary
+  expenses this year, and offers each linked vet contact (Pro) and "JJ's vet expenses".
+  Financials → Expenses reads `?dog=<id>` (only that dog's costs, "Show every dog →", kept
+  across the category tabs), like `?account=`.
