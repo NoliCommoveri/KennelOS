@@ -320,20 +320,32 @@ one or several, taken the way Add dogs (§3.8) takes dogs, not "Add another?" af
 - **A roster first:** names, and for each what they are to her (`CONTACT_TYPE`: buyer, vet,
   breeder, co-owner, groomer, handler, referrer, other; several allowed). What they share
   (a type, how she met them, `first_contact_source`) is asked once and filled in on each.
+- **A vet, if she has none:** when the roster has no vet and no contact on file is one, she
+  asks once, "Do you have a vet you'd like to add?", and a yes adds one to the roster.
 - **Each person's details:** phone, email, address, Facebook (the Contact page's fields),
-  then notes. A breeder or co-owner can be tied to a kennel (`kennelRepo.findOrCreateOutside`,
-  as the tidy-up and Add dogs do).
+  then notes.
+- **Breeders and their kennels:** for each breeder on the roster (and each breeder contact
+  on file with no kennel, `Contact.kennel_id` empty), "Do they have a kennel?": pick an
+  outside kennel she has, or name a new one (`kennelNameField`,
+  `kennelRepo.findOrCreateOutside`, as the tidy-up and Add dogs do), and the contact is
+  linked to it.
 - **Already on file?** Each name is checked before anything is saved, with the one shared
   contact match (§4, "Adding a person"): a likely match asks **Same person** (fills in what
   the record is missing, never overwrites) / **Someone new**.
 - **Review, then save** through `contactRepo`, one resumable draft (`kelsSteps`), as Add dogs.
+- **Then, the dogs they bred:** when a kennel was made or linked above and she has dogs
+  with no breeder kennel (owned or co-owned, not pedigree-only, `breeder_kennel_id` empty),
+  "Do you want to link any kennels to dogs you own as the kennel who bred it?": her dogs as a
+  checklist, each with the kennel it came from (the kennels from this run first, any
+  outside kennel she has), saved through `dogRepo.update`. **Skip** leaves them as they are.
+  Not asked when no dog is missing one.
 - **Then, for someone wanting a pup** (Pro with `waitlist`, a list set up): **Put them on
   the waitlist?** asks her application in the chat (the shared applicant step, §4) and saves
   an `applied` entry linked to the contact just made. Without a waitlist, the question
   isn't asked.
 - **A spreadsheet** of contacts opens the contact import (a page of its own; leaves Kels, §2.8).
 - **Keywords:** add person, add people, contact, contacts, new buyer, vet, groomer, co-owner,
-  handler, family, applicant, phone number, email.
+  handler, family, applicant, phone number, email, breeder, kennel, bred by.
 
 ### 3.13 Set up my application form: **M**, Pro (`waitlist`)
 The Waitlist form page (`waitlist-form`) as a conversation: the questions families answer
@@ -441,5 +453,8 @@ Open:
 - **One contact match rule** (§4): the waitlist's exact match and the tidy-up's
   "name + one detail" give different answers today. Proposed: email or phone alone is a
   match; a name alone, or a close name (a slip), is offered as "maybe", never assumed.
+- **Which kennels the "bred it" step offers** (§3.12): proposed, the kennels from this run
+  first, then every outside kennel she has; never her own (a dog she bred is the litter
+  task's), and only dogs with no breeder kennel (one already set is never changed here).
 - **Starting a form from an old spreadsheet** (§3.13) needs a file picked in the chat
   (Papa parse, as the page does). Proposed: yes, in the chat (§2.8), not by opening the page.
