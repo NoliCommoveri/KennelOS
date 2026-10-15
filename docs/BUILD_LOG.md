@@ -1085,3 +1085,13 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `kelsChat.KELS_INTRO` + `chat.intro(opener)`, said at the start of every new task (record a
   litter, check in, tidy up, pups are going home) after the task's own opener; a resumed
   draft still opens with "Welcome back!".
+- **Kels's "Check account health" — built & browser-verified (2026-10-15).** Roadmap §3.2. A
+  sixth Kels task: storage kept safe and how full, an update waiting, cloud backup (off,
+  paused, behind) or, without it, the age of the last backup file, the Pro license in grace,
+  lost devices, Sensitive records (off, locked, recovery code, passkey), Stripe / Jotform
+  keys still accepted, and the online waitlist; each with the app's own screen as the fix,
+  ending with "All good" and what's fine. Pure `data/accountHealth.js` (tested) +
+  `assets/accountHealthUI.js`. The tidy-up's findings loop moved to
+  `assets/kelsFindings.js` (`FindingsTask`), shared by both. Decided: 14 days for the
+  backup file without cloud backup, 60 days for a lost device, vendor keys tested live once
+  per run.

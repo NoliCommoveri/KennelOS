@@ -19,6 +19,9 @@ import { runLitterTask, pendingLitterDraft, discardGuidedLitterDraft } from '../
 import { runCheckinTask, checkinState } from '../assets/litterCheckinUI.js';
 import { runTidyTask } from '../assets/tidyUpUI.js';
 import { runPrepTask, prepState } from '../assets/prepPupsUI.js';
+import { runHealthTask } from '../assets/accountHealthUI.js';
+import { isCloudAvailable, isVaultOffered } from '../data/cloud/cloudConfig.js';
+import { isLicenseGated } from '../data/license.js';
 import { param, esc } from '../assets/ui.js';
 import { editionFlags } from '../data/editionConfig.js';
 
@@ -93,6 +96,20 @@ const TASKS = [
     available: () => true,
     priority: () => 30,
     run: (opts) => runTidyTask(chat, opts)
+  },
+  {
+    id: 'account-health',
+    label: () => 'Check account health',
+    sub: isCloudAvailable() ? 'Your backups, this device, and your account' : 'Your backups and this device',
+    // Only what this edition checks is searchable.
+    keywords: ['backup', 'back up', 'safe', 'storage', 'space', 'health', 'status', 'update', 'export',
+      ...(isCloudAvailable() ? ['cloud', 'device', 'devices', 'lost phone', 'account', 'sign in'] : []),
+      ...(isLicenseGated() ? ['license', 'subscription', 'renew', 'pro'] : []),
+      ...(isVaultOffered() ? ['sensitive records', 'recovery code', 'passkey', 'encrypted'] : []),
+      ...(editionFlags.accounts ? ['stripe', 'jotform', 'connections', 'keys'] : [])],
+    available: () => true,
+    priority: () => 20,
+    run: (opts) => runHealthTask(chat, opts)
   }
 ];
 

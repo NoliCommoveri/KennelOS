@@ -14,6 +14,7 @@ need. When one is built, its as-built description goes in the guide (§33) and i
 | Check in on a litter | Weights, health care, plans, chips, dates, status; picks, Weaning/Ready/Sold/close; pickup, boarding, delivery | All (open picks: Pro) |
 | Tidy up my records | Records that disagree, duplicates, merge | All (stud, contacts, kennels: Pro) |
 | Finish an unfinished litter | Resumes the litter draft | All |
+| Check account health | This device, backups, license, Sensitive records, connections, the online waitlist; each finding with its fix | All (license, Sensitive records, connections, waitlist: where offered) |
 | Pups are going home | Readiness per pup with fixes (chips, shots, deworming, drop-off date, balance, contract, registration, feeding); the puppy records with a cover page | All (contract, feeding, Furever, print: Pro) |
 
 The menu has a search box that matches each task's `keywords`, and choices open their
@@ -89,7 +90,13 @@ The run-up to go-home day for one litter, ending with the printed records.
   page needs the readiness rules, so they live in a pure `data/` module the cover page and
   Kels both read.
 
-### 3.2 Check account health: **M**
+### 3.2 Check account health: **M** — **Built**
+As built: End-State guide §33 ("Check account health"); history in `docs/BUILD_LOG.md`. The
+findings loop is now `assets/kelsFindings.js`, shared with the tidy-up (§4). **Modified:**
+sync isn't checked yet (Phase 2 step 6); Dropbox isn't tested live (nothing cheap to ask);
+decided thresholds: a backup file older than 14 days without cloud backup, a device unseen
+60 days, vendor keys tested live once per run.
+
 One look at whether her program is safe and working, as findings with fixes (the tidy-up's
 pattern: a pure `data/accountHealth.js` of checks, the task asks one at a time).
 
@@ -191,8 +198,7 @@ shows the upgrade notice (§2.3) and stops adding.
   week" (prep pups), "backup failing" (account health), and "families waiting, no list set
   up" (waitlist) as priority bumps, never as nudges.
 - **One findings framework:** tidy-up and account health share the "findings → ask one at a
-  time → fix → look again" loop. Pull it out of `tidyUpUI.js` when the second one is built,
-  not before.
+  time → fix → look again" loop: `assets/kelsFindings.js` (`FindingsTask`). Built.
 
 ## 5. Decisions and open questions
 

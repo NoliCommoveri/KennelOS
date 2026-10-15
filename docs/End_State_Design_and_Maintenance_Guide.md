@@ -1649,7 +1649,11 @@ Enter picks the first match), and `form({ title, html, submit, reply })`, where 
 problem and stay, anything else to finish — and the button), `pages/kels.*` (the menu),
 `assets/guidedLitterUI.js` + `data/guidedLitter.js` (the litter task), `assets/litterCheckinUI.js`
 + `data/litterCheckin.js` + `data/goHome.js` (the check-in), `assets/tidyUpUI.js` +
-`data/tidyRules.js` + `data/recordMerge.js` (the tidy-up), `assets/prepPupsUI.js` +
+`data/tidyRules.js` + `data/recordMerge.js` (the tidy-up), `assets/accountHealthUI.js` +
+`data/accountHealth.js` (account health), `assets/kelsFindings.js` (`FindingsTask`, the
+look → raise one at a time → fix → look again loop the tidy-up and account health share:
+"Not now", a remembered "Don't ask me again" under `<prefix>:<key>` in the nudge ledger,
+"Stop for now"), `assets/prepPupsUI.js` +
 `data/prepPups.js` (prep pups; it reuses the check-in's exported `chipsForm`, `careForm`
 and `pickupsForm`). The data modules are tested; all but `recordMerge.js` are pure.
 
@@ -1663,14 +1667,15 @@ collecting the information, I'll build the records for you to approve. If you ge
 need to save and come back, I'll save what we've got so far…  Sound good?"), answered
 **Sounds great, let's start!** or **Never mind** (back to the menu). Openers: record a litter
 "Absolutely, let's get those puppies added!", check-in "Of course, let's check in on your
-litter!", tidy up "Love it, let's get your records tidy!".
+litter!", tidy up "Love it, let's get your records tidy!", account health "Good idea, let's
+make sure everything's safe and sound!".
 
 **The menu** (`kels.js` `TASKS`): a task is `{ id, label, sub, keywords, available, priority,
 run, resumable?, beforeStart? }`, highest priority first, with a search box above it;
 `keywords` are the other words a breeder might search with ("add puppies" finds Record a new
 litter). The page header shows her photo and `KELS.title` ("Kels, the KennelOS whiz") on one line, sized to fit a phone. Order: an unfinished litter (100), the check-in
 (60 while a litter has pups at home, else 40), a new litter (50), prep pups (45, while a
-litter has pups at home), tidy up (30). The header's **Save for
+litter has pups at home), tidy up (30), account health (20). The header's **Save for
 later** shows only while a `resumable` task runs. `beforeStart` can redirect a start (a new
 litter while one is unfinished asks "Finish that one / Start fresh"); `handoff(taskId, opts)`
 moves her to another task (an Expected litter in the check-in → its birth).
@@ -1772,6 +1777,37 @@ The run-up to go-home day for one litter. Each fix is saved when approved; there
    `puppy-record.html?dogs=…&cover=1&autoprint=1` in a new tab (a link if the tab is
    blocked). Lite runs the same check without Furever or the print, and its menu entry
    neither mentions nor searches either.
+
+### "Check account health"
+One look at whether her program is safe and working: her KennelOS account and this device,
+never the business Accounts page. All editions; each check only where its feature is.
+`gatherHealthFacts()` reads what the checks need, each part `null` when it can't be read
+(offline), so its checks are skipped, never guessed; `accountHealth.healthFindings(facts)`
+(pure) decides; the findings loop (`kelsFindings.js`, prefix `health`) raises them in
+`HEALTH_KINDS` order, records at risk first:
+
+| Finding | When | Fix |
+|---|---|---|
+| `storage-persist` | `navigator.storage.persisted()` is false | `db.requestPersistentStorage()`; if the browser declines, she says so |
+| `backup-paused` | cloud backup on and paused (`isBackupBlocked`) | Back up now (below) |
+| `backup-off` | cloud available, backup off (not "moved to Pro") | `cloudBackupUI.turnOnFlow()` |
+| `backup-behind` | on, never backed up, or changes waiting more than a day | Back up now: `pushIfDirty({ force: true })` → `handlePushResult` (its conflict / shrink / unlock dialogs) |
+| `export-old` | no working cloud backup, and the last JSON backup file (`getLastBackupDate`) is over 14 days old or never | `importExport.downloadBackup()` |
+| `vault-locked` | Sensitive records on, not unlocked here | `cloudVaultUI.unlockModal()` |
+| `recovery-unsaved` | an unsaved recovery code, or none | `saveRecoveryCodeFlow()` / `newRecoveryCodeFlow()` |
+| `license-grace` | Pro gate on, license in grace | Settings, license section |
+| `update` | a new service worker is installing or waiting, or took over since the page loaded | reload |
+| `device-lost` | another device on the account (not erasing, not signed out on its own) unseen 60+ days | `cloudBackupUI.devicesModal()`; "It's fine, I still use it" is remembered |
+| `key-rejected` | Pro `accounts`: a Stripe / Jotform key on this device that its vendor refuses (`stripeCheckKey` / `jotformUser`, one call each, skipped offline) | the Accounts page |
+| `waitlist-signed-out` / `waitlist-error` | Pro `waitlist`: a kennel's list is online, and this device isn't signed in / its last update failed | the kennel's page |
+| `vault-off` | Sensitive records offered and off | `turnOnVaultFlow()` |
+| `passkey-none` | on, passkeys supported, none added | `passkeysModal()` |
+| `storage-full` | 80%+ of the browser's quota used | none; she says so |
+
+Ends with **All good** and what's fine (`healthGoodLines`: storage kept, space used, last
+backup, the license and its renewal date, Sensitive records, working connections), or
+what's still worth a look. Sync isn't checked until live sync's UI exists. A fix that
+opens a page leaves Kels; she says to start the task again after.
 
 ### "Tidy up my records"
 She finds places two records disagree, says how many of each kind, then raises them one at
