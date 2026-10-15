@@ -1387,3 +1387,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   cancelled sale keeps only dated payments; waitlist place, turns, passes, picks; local
   data, Merge vs Replace…). Lite gets its own entries where its rules differ, and no limit
   topic. Precached both modules; `tests/kelsUnderstand.test.js`. Roadmap §3.14 marked.
+- **Kels: Understanding Something's two halves (2026-10-15).** The button now runs a list of
+  halves (`kelsUnderstandUI.HALVES`): How KennelOS works today, How my business is doing
+  (reports) when built. With two, she asks "Yes, absolutely! Which is your question
+  about?"; Lite, with one, goes straight in. Each half has its own intro, said once a
+  visit; How KennelOS works's is now "I'm on it! I can explain the rules KennelOS follows
+  behind the scenes…" with examples Lite has too. Something else after an answer returns
+  to the question. Roadmap §3.14 records B's approved intro and the Lite decision (no B).

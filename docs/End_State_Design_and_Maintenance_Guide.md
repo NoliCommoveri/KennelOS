@@ -1901,9 +1901,17 @@ builds nothing), then a search box.
 
 ### "Understanding Something"
 
-How the app works, as an FAQ (`assets/kelsUnderstandUI.js`, `data/kelsUnderstand.js`, pure,
-tested in `tests/kelsUnderstand.test.js`). Read-only: it reads none of her records and
-changes nothing.
+`assets/kelsUnderstandUI.js`. Two halves, each `{ id, label, opener, how, flag?, run }` in
+`HALVES`, offered when its flag is on: **How KennelOS works** (every edition, below) and,
+when built, **How my business is doing** (`reports`, roadmap §3.14 B). With more than one
+she asks "Yes, absolutely! Which is your question about?"; with one (today, and always in
+Lite) it starts straight away. Each half's intro (`chat.intro(opener, how)`) is said the
+first time it's picked in a visit; **Something else** after an answer returns to the
+question when there is one. How KennelOS works opens "I'm on it!" +
+`kelsChat.KELS_UNDERSTAND_INTRO`, which names nothing Lite lacks.
+
+**How KennelOS works** is an FAQ (`data/kelsUnderstand.js`, pure, tested in
+`tests/kelsUnderstand.test.js`). Read-only: it reads none of her records and changes nothing.
 
 - **What's in it:** only the rules a breeder who knows dogs and has used other apps would
   still get wrong here, never what any app does or what a screen already says. Each entry
@@ -1921,13 +1929,13 @@ changes nothing.
   entries where its rules differ (a dog leaving the program, a gone-home pup removed from
   it, a parent kept for the pedigree). Lite's limit isn't a topic. Cloud entries need
   `isCloudAvailable()`, the Sensitive records sentence `isVaultOffered()`.
-- **The chat:** `chat.intro('Of course!', KELS_UNDERSTAND_INTRO)`, then **Search the
-  questions**, the topics, and **I'm all set**. A topic lists its questions. The search is
+- **The chat:** **Search the questions**, the topics, **Something else** (only when there's
+  a question to go back to) and **I'm all set**. A topic lists its questions. The search is
   `kelsFind.search` over these entries only (`understandCandidates`: the question and
   keywords at level 1, the answer at level 2), never pages, records or tasks: one clear
   match is answered at once, else the questions four at a time with **Show more**; nothing
   found offers other words or the topics. After an answer: **Show me** (opens its page),
-  **More about <topic>**, **Something else** (the topics), **I'm all set**.
+  **More about <topic>**, **Something else** (the question, else the topics), **I'm all set**.
 - **Adding an entry:** a line in `ENTRIES`. The tests check unique ids, a known section and
   a real edition flag, a sentence in every edition with no field names, and that every Show
   me page exists and is precached.

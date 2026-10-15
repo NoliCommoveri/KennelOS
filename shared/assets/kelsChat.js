@@ -31,8 +31,9 @@ export const kelsWelcome = () => `${kelsHello()} I'm here to help you manage you
 export const KELS_INTRO = 'I\'ll ask you some questions; once I\'m done collecting the information, I\'ll build the records for you to approve. If you get stuck or need to save and come back, I\'ll save what we\'ve got so far until you\'re ready to continue. Sound good?';
 // Finding Something's version: it searches, so there are no records to approve.
 export const KELS_FIND_INTRO = 'I\'ll look through the app and try to find what you\'re looking for. I\'ll search app features and your existing records. If I find several matches, I\'ll ask you to choose one or ask follow-up questions. Sound good?';
-// Understanding Something's version: it explains, so nothing is asked or built.
-export const KELS_UNDERSTAND_INTRO = 'I\'ll explain the rules KennelOS follows behind the scenes, the ones that aren\'t obvious from the screens. Pick a topic to see its questions, or search them, and I\'ll answer in plain words. Sound good?';
+// How KennelOS works's version (Understanding Something): it explains, so nothing
+// is asked or built. Every edition, so it names nothing Lite lacks.
+export const KELS_UNDERSTAND_INTRO = 'I can explain the rules KennelOS follows behind the scenes, the ones that aren\'t obvious from the screens, like what keeps a litter open or when a payment counts as earned. Pick a topic or search in your own words, and I\'ll answer in plain language and show you where it lives. Sound good?';
 const INTRO_CHOICES = [
   { label: 'Sounds great, let\'s start!', value: 'start', primary: true },
   { label: 'Never mind', value: 'nevermind' }

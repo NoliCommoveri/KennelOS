@@ -1,8 +1,13 @@
-// kelsUnderstandUI.js — Kels's "Understanding Something" (Kels roadmap §3.14 A,
-// End-State guide §33), as a chat on pages/kels.html: how the app works, as an
-// FAQ. She offers the topics (data/kelsUnderstand.js SECTIONS) and a search over
-// the questions only (data/kelsFind.js), then answers one in a few plain
-// sentences, with a Show me button where it lives. Reads nothing from her
+// kelsUnderstandUI.js — Kels's "Understanding Something" (Kels roadmap §3.14,
+// End-State guide §33), as a chat on pages/kels.html. Two halves (decided): how
+// KennelOS works, an FAQ in every edition, and how her business is doing, from her
+// reports (Pro; not built yet). With more than one half on offer she asks which
+// first ("Which is your question about?"); with one, it starts straight away.
+// Each half has its own intro, said the first time she picks it.
+//
+// How KennelOS works: she offers the topics (data/kelsUnderstand.js SECTIONS) and
+// a search over the questions only (data/kelsFind.js), then answers one in a few
+// plain sentences, with a Show me button where it lives. Reads nothing from her
 // records and changes nothing.
 import { understandEntries, understandSections, understandCandidates } from '../data/kelsUnderstand.js';
 import { search, clearWinner, SHORT_LIST } from '../data/kelsFind.js';
@@ -11,8 +16,42 @@ import { edition, editionFlags } from '../data/editionConfig.js';
 import { esc } from './ui.js';
 import { KELS_UNDERSTAND_INTRO } from './kelsChat.js';
 
+// The halves, in the order she offers them: { id, label, opener, how, flag?, run }.
+// `run(chat, { branched })` → 'left' | 'done' | 'branch' (back to the question).
+// How my business is doing joins here when it's built (roadmap §3.14 B: label
+// "How my business is doing", opener "Ready when you are!", flag `reports`).
+const HALVES = [
+  { id: 'app', label: 'How KennelOS works', opener: 'I\'m on it!', how: KELS_UNDERSTAND_INTRO, run: (chat, o) => appFaq(chat, o) }
+];
+
 export async function runUnderstandTask(chat, { onExit = () => {} } = {}) {
-  if (!(await chat.intro('Of course!', KELS_UNDERSTAND_INTRO))) return onExit('nevermind');
+  const halves = HALVES.filter((h) => !h.flag || editionFlags[h.flag]);
+  const branched = halves.length > 1;
+  const introduced = new Set();
+  for (;;) {
+    let half = halves[0];
+    if (branched) {
+      await chat.say(introduced.size ? '<strong>What else would you like to understand?</strong>' : 'Yes, absolutely! <strong>Which is your question about?</strong>', { typing: 500 });
+      const v = await chat.choose([
+        ...halves.map((h, i) => ({ label: h.label, value: h.id, primary: i === 0 })),
+        ...(introduced.size ? [{ label: 'I\'m all set', value: 'done' }] : [])
+      ], { stagger: 100 });
+      if (v === 'done') return onExit('done');
+      half = halves.find((h) => h.id === v);
+    }
+    if (!introduced.has(half.id)) {
+      if (!(await chat.intro(half.opener, half.how))) return onExit('nevermind');
+      introduced.add(half.id);
+    }
+    const out = await half.run(chat, { branched });
+    if (out === 'left') return undefined;
+    if (out === 'done') return onExit('done');
+  }
+}
+
+// How KennelOS works: the topics and the search, until she's done. Something else
+// after an answer goes back to the question when there is one, else to the topics.
+async function appFaq(chat, { branched }) {
   const entries = understandEntries({ edition, flags: editionFlags, cloud: isCloudAvailable(), vault: isVaultOffered() });
   const sections = understandSections(entries);
   const candidates = understandCandidates(entries);
@@ -22,14 +61,15 @@ export async function runUnderstandTask(chat, { onExit = () => {} } = {}) {
     const pick = await chat.choose([
       { label: 'Search the questions', value: 'search', primary: true },
       ...sections.map((s) => ({ label: s.label, value: `section:${s.id}` })),
+      ...(branched ? [{ label: 'Something else', value: 'else' }] : []),
       { label: 'I\'m all set', value: 'done' }
     ], { stagger: 100 });
-    let out;
-    if (pick === 'done') return onExit('done');
-    if (pick === 'search') out = await searchQuestions(chat, candidates, sections);
-    else out = await sectionQuestions(chat, sections.find((s) => `section:${s.id}` === pick), sections);
-    if (out === 'left') return undefined;
-    if (out === 'done') return onExit('done');
+    if (pick === 'done') return 'done';
+    if (pick === 'else') return 'branch';
+    const out = pick === 'search' ? await searchQuestions(chat, candidates, sections)
+      : await sectionQuestions(chat, sections.find((s) => `section:${s.id}` === pick), sections);
+    if (out === 'left' || out === 'done') return out;
+    if (out === 'else' && branched) return 'branch';
     ask = '<strong>What else would you like to understand?</strong>';
   }
 }
@@ -95,15 +135,15 @@ async function list(chat, found, sections) {
   }
 }
 
-// The answer, then where next: Show me, the rest of its topic, the topics, or
-// done. → 'left' | 'done' | 'top'.
+// The answer, then where next: Show me, the rest of its topic, something else, or
+// done. → 'left' | 'done' | 'else'.
 async function answer(chat, entry, sections) {
   const section = sections.find((s) => s.id === entry.section);
   await chat.say(`<strong>${esc(entry.q)}</strong><br>${esc(entry.a)}`, { typing: 800 });
   const v = await chat.choose([
     ...(entry.href ? [{ label: entry.show || 'Show me', value: 'show', primary: true }] : []),
     ...(section.entries.length > 1 ? [{ label: `More about ${section.label.toLowerCase()}`, value: 'section' }] : []),
-    { label: 'Something else', value: 'top', primary: !entry.href },
+    { label: 'Something else', value: 'else', primary: !entry.href },
     { label: 'I\'m all set', value: 'done' }
   ]);
   if (v === 'show') {

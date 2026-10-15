@@ -394,8 +394,8 @@ off to it where it now only says where to change the form.
 
 ### 3.14 Help me understand: **M**, all editions (how my kennel is doing: Pro, `reports`) — A step 1 **Built**
 As built: End-State guide §33 ("Understanding Something"); history in `docs/BUILD_LOG.md`.
-**Modified:** "How the app works" is a third button on her first screen, **Understanding
-Something**, organized as an FAQ (topics → questions → answer, with **Show me**) with a
+**Modified:** "How the app works" is **How KennelOS works**, under a third button on her
+first screen, **Understanding Something** (below), organized as an FAQ (topics → questions → answer, with **Show me**) with a
 search over those entries only; Find doesn't search them. The entries are their own module,
 `data/kelsUnderstand.js`, not `kind: 'understand'` places in the cheat sheet. The topics
 below were replaced by the filter "only what a breeder who has used other apps would still
@@ -519,10 +519,20 @@ presets), and gets back a short summary in plain sentences:
 - **Edition:** Pro and Demo (`editionFlags.reports`, the reports are Pro-only). Lite: see
   §5 Open.
 
-**Where she starts it:** Doing Something has **Help me understand** (its two branches), and
-Find's results include the topics and the check-up's topics ("how are my dogs doing", "who's
-my best dam", "how's money"). Whether it's also a third button on her first screen is §5
-Open.
+**Where she starts it** (decided): **Understanding Something**, the third button on her
+first screen. She asks "Yes, absolutely! Which is your question about?": **How KennelOS
+works** (A) / **How my business is doing** (B). Each has its own intro the first time it's
+picked (A: "I'm on it! I can explain the rules KennelOS follows behind the scenes…",
+`kelsChat.KELS_UNDERSTAND_INTRO`; B, below), and **Something else** after an answer comes
+back to the question. Lite has no B, so it skips the question and starts A. The intros name
+nothing Lite lacks. Both halves ship before the button launches; until B is built the
+question isn't asked anywhere.
+
+**B's intro** (decided wording): "**Ready when you are!** I can tell you how your business is
+doing, like who your most productive dam is or how this year's money compares to last
+year's. Pick what you'd like to know about and for what dates, and I'll sum it up in plain
+words. Every number comes straight from your reports, so I'll always show you which one.
+Sound good?" Its half joins `kelsUnderstandUI.HALVES` (flag `reports`).
 
 **Build steps:** (1) the topics and their entries, reached from Find and the task;
 (2) her own records worked through, starting with waitlist position and income; (3) the
@@ -615,9 +625,10 @@ Decided:
   near-matching name alone is offered as "maybe this is them", never assumed.
 - Set up my application form (§3.13) doesn't take an old form's spreadsheet yet; that stays
   on the Waitlist form page.
-- How the app works (§3.14 A) is **Understanding Something**, a third button on her first
-  screen: an FAQ of only the rules a breeder who has used other apps would still get wrong
-  here, searched on its own.
+- How the app works (§3.14 A) is **How KennelOS works** under **Understanding Something**, a
+  third button on her first screen: an FAQ of only the rules a breeder who has used other
+  apps would still get wrong here, searched on its own. The button first asks which half
+  (A or B); Lite has no B and goes straight to A. Both ship before it launches.
 - Help me understand (§3.14) has two flows: how the app works (topics, and the rules worked
   through on her own records), and how her kennel is doing (plain sentences, each from a
   report, with the report a tap away).
@@ -627,8 +638,6 @@ Open:
   first, then every outside kennel she has; never her own (a dog she bred is the litter
   task's), and only dogs with no breeder kennel (one already set is never changed here).
 - **Help me understand** (§3.14), before it's built:
-  - Lite and "how my kennel is doing": none (reports are Pro), or a small version from the two
-    reports Lite has (Active Roster, Live-Birth Summary)?
   - The minimums before she ranks or compares (proposed: 2 litters for a dam, 3 breedings for a
     sire's rate, 3 sales for an average price).
   - Which dogs count as "should have had a litter": breeding-status females of breeding age only,
