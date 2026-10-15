@@ -84,10 +84,11 @@ export const ENTRIES = [
     a: (ctx) => `Change its status to Deceased and enter the date, rather than archiving it. Today then asks about anything still open for it, like a sale or a planned breeding. For a puppy, it also offers to ${ctx.flags.manualDogArchive ? 'archive it' : 'remove it from your program'}.` },
 
   // Breedings and litters
-  { id: 'pairing-litter', section: 'breeding', q: 'Do I record the breeding or the litter?',
-    keywords: ['pairing', 'breeding', 'bred', 'mating', 'litter', 'expected', 'pregnant', 'due'],
+  { id: 'pairing-litter', section: 'breeding', q: 'My dog is pregnant or had puppies. How do I enter this so I can sell them?',
+    keywords: ['pairing', 'breeding', 'bred', 'mating', 'litter', 'expected', 'pregnant', 'due', 'puppies', 'born',
+      'whelped', 'add puppies', 'record litter', 'record the litter', 'enter litter', 'sell', 'selling', 'for sale', 'available', 'plan', 'disposition'],
     href: 'breeding.html', show: 'Show me Breeding',
-    a: 'Both, as two records. The breeding (a pairing) comes first, with its dates. The litter is its own record, Expected until the pups are born. Today reminds you when one moves along and the other hasn\'t.' },
+    a: 'In four steps. First, record the breeding (a pairing) on Breeding, with the dates she was bred. Next, make her litter from that breeding. It stays Expected until the pups are born, and Today reminds you when one moves along and the other hasn\'t. When they\'re born, change the litter to Whelped and add each puppy on the litter\'s page. Last, give each pup a plan: Available for one you\'re selling, Keeping for one you\'re holding back, or Undecided until you know. If you\'d rather not do it by hand, Record a litter with Kels on Breeding walks you through all four.' },
   { id: 'our-stud', section: 'breeding', q: 'My stud bred someone else\'s female. Do I record the litter?',
     keywords: ['stud', 'outside', 'someone else', 'litter', 'pick', 'pick puppy', 'stud service'],
     flag: 'studServices', href: 'stud-services.html', show: 'Show me stud services',

@@ -1394,3 +1394,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   visit; How KennelOS works's is now "I'm on it! I can explain the rules KennelOS follows
   behind the scenes…" with examples Lite has too. Something else after an answer returns
   to the question. Roadmap §3.14 records B's approved intro and the Lite decision (no B).
+- **Kels FAQ: the pregnant-dog walkthrough (2026-10-15).** "Do I record the breeding or the
+  litter?" (`pairing-litter`) is now "My dog is pregnant or had puppies. How do I enter this
+  so I can sell them?", answered as four steps: the pairing, its litter (Expected until
+  born), the puppies once Whelped, and each pup's plan (Available / Keeping / Undecided),
+  with Record a litter with Kels as the guided route. Keywords widened so "pregnant",
+  "puppies born", "sell puppies" and "record the litter" all find it.
