@@ -1289,3 +1289,5 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   (`kelsSteps.breedPicker`), in Add dogs ("in common" and each dog) and the litter task's
   new mom or dad; a new breed typed near one she has still gets "Did you mean…?" (the
   litter task now asks it too).
+- **Service worker v80 (2026-10-15).** Cache bumped for the Kels Add dogs batch (new
+  `assets/guidedDogsUI.js`, `assets/kelsSteps.js`, `data/guidedDogs.js`, `data/dogSearch.js`).
