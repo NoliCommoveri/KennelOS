@@ -129,7 +129,8 @@ const TASKS = [
     label: () => 'Tidy up my records',
     sub: 'Find records that don\'t agree, and duplicates, and fix them',
     keywords: ['clean up', 'cleanup', 'fix', 'check', 'mistakes', 'errors', 'duplicate', 'duplicates', 'merge', 'combine', 'same dog', 'mismatch',
-      'parents', 'sire', 'dam', 'pedigree', 'count', 'placed', 'kennel', 'contact', 'breeder', 'stud', 'audit'],
+      'parents', 'sire', 'dam', 'pedigree', 'count', 'placed', 'kennel', 'contact', 'breeder', 'stud', 'audit',
+      ...(editionFlags.contactsSection ? ['vet', 'veterinarian'] : [])],
     available: () => true,
     priority: () => 30,
     run: (opts) => runTidyTask(chat, opts)

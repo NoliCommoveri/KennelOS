@@ -1291,3 +1291,12 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   litter task now asks it too).
 - **Service worker v80 (2026-10-15).** Cache bumped for the Kels Add dogs batch (new
   `assets/guidedDogsUI.js`, `assets/kelsSteps.js`, `data/guidedDogs.js`, `data/dogSearch.js`).
+- **Kels tidy-up: vets (2026-10-15).** Two Pro checks (`contactsSection`). Vet visits and
+  surgeries with a typed vet name and no linked contact, one finding per name, are linked
+  to the likely contact, one she picks, or one she adds; the contact is tagged Vet and
+  replaces the typed name (`tidyRules.vetContactFindings`, `vetLinkFix`). And no vet in her
+  contacts at all → add her vet or tag one. The kennel finding's pick and add contact forms
+  became `pickContact` / `addContact`, shared with the vet findings. "vet" and
+  "veterinarian" find the tidy-up in Pro. A browser run found that a tie picked the name
+  shown by the order the event types loaded; it's now her most-used spelling, capitals
+  winning a tie.

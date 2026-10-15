@@ -12,7 +12,7 @@ need. When one is built, its as-built description goes in the guide (§33) and i
 |---|---|---|
 | Record a new litter | Parents, breeding, birth, each pup, plans, prices; resumable draft | All (outside dogs, stud, "let families know": Pro) |
 | Check in on a litter | Weights, health care, plans, chips, dates, status; picks, Weaning/Ready/Sold/close; pickup, boarding, delivery | All (open picks: Pro) |
-| Tidy up my records | Records that disagree, duplicates, merge | All (stud, contacts, kennels: Pro) |
+| Tidy up my records | Records that disagree, duplicates, merge, vets missing from contacts | All (stud, contacts, kennels, vets: Pro) |
 | Finish an unfinished litter | Resumes the litter draft | All |
 | Set up my waitlist | The fee (Stripe in the chat), offers, going online (cloud backup first), programs, existing families; re-runnable | Pro |
 | Check account health | This device, backups, license, Sensitive records, connections, the online waitlist; each finding with its fix | All (license, Sensitive records, connections, waitlist: where offered) |

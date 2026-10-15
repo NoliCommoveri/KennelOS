@@ -164,3 +164,52 @@ test('tidyFindings: Lite (no contacts, no stud services) never gets those checks
   assert.deepEqual(kinds(T.tidyFindings({ ...input, flags: { contactsSection: true, studServices: true } })),
     ['stud-unlinked', 'breeder-no-kennel', 'breeder-no-kennel', 'kennel-no-contact']);
 });
+
+const vetEvent = (id, vet, extra = {}) => ({ id, subject_type: 'dog', subject_id: 'a', event_type: 'vet_visit', event_date: '2026-03-01', details: { reason: 'Shots', vet }, ...extra });
+
+test('vet events: one finding per typed vet name, however it\'s typed; linked, archived and other types skipped', () => {
+  const events = [
+    vetEvent('e1', 'Dr. Lee'), vetEvent('e2', ' dr lee ', { event_type: 'surgery', event_date: '2026-01-01' }),
+    vetEvent('e3', 'Dr. Lee', { related_contact_id: 'C' }), vetEvent('e4', 'Dr. Lee', { is_archived: true }),
+    vetEvent('e5', ''), vetEvent('e6', 'Dr. Lee', { event_type: 'note' }), vetEvent('e7', 'Paws Clinic')
+  ];
+  const found = T.vetContactFindings(events, []);
+  assert.deepEqual(found.map((f) => [f.name, f.events.map((e) => e.id)]), [['Dr. Lee', ['e2', 'e1']], ['Paws Clinic', ['e7']]]);
+  assert.equal(found[0].key, 'vetcontact:dr lee:2');
+  assert.equal(found[0].match, null);
+});
+
+test('vet events: the likely contact is the same name (a vet first), else a near one', () => {
+  const contacts = [
+    { id: 'x', name: 'Dr Lee', contact_type: ['buyer'] }, { id: 'v', name: 'Dr. Lee', contact_type: ['vet'] },
+    { id: 'z', name: 'Dr Lee', contact_type: ['vet'], is_archived: true }
+  ];
+  assert.equal(T.vetContactFindings([vetEvent('e1', 'dr lee')], contacts)[0].match.id, 'v');
+  assert.equal(T.vetContactFindings([vetEvent('e1', 'Paws Clinik')], [{ id: 'p', name: 'Paws Clinic' }])[0].match.id, 'p');
+  assert.equal(T.vetContactFindings([vetEvent('e1', 'Someone Else')], contacts)[0].match, null);
+});
+
+test('vet events: named by her most-used spelling, capitals winning a tie', () => {
+  assert.equal(T.vetContactFindings([vetEvent('e1', 'dr lee'), vetEvent('e2', 'Dr. Lee')], [])[0].name, 'Dr. Lee');
+  assert.equal(T.vetContactFindings([vetEvent('e1', 'dr lee'), vetEvent('e2', 'dr lee'), vetEvent('e3', 'Dr. Lee')], [])[0].name, 'dr lee');
+});
+
+test('vet link fix: the contact replaces the typed name, the rest of the details stay', () => {
+  assert.deepEqual(T.vetLinkFix(vetEvent('e1', 'Dr. Lee'), 'C'), { related_contact_id: 'C', details: { reason: 'Shots' } });
+  assert.deepEqual(T.vetLinkFix(vetEvent('e1', 'Dr. Lee', { event_type: 'surgery', details: { procedure: 'Spay', vet: 'Dr. Lee' } }), 'C'),
+    { related_contact_id: 'C', details: { procedure: 'Spay' } });
+});
+
+test('no vet: raised when she has dogs and no live contact is tagged Vet', () => {
+  const dogs = [pup('a')];
+  assert.deepEqual(T.noVetFindings([{ id: 'c', name: 'Pat', contact_type: ['buyer'] }], dogs).map((f) => f.kind), ['no-vet']);
+  assert.deepEqual(T.noVetFindings([{ id: 'c', name: 'Pat', contact_type: ['vet'], is_archived: true }], dogs).length, 1);
+  assert.equal(T.noVetFindings([{ id: 'c', name: 'Pat', contact_type: ['buyer', 'vet'] }], dogs).length, 0);
+  assert.equal(T.noVetFindings([], []).length, 0);
+});
+
+test('the vet checks are Pro (contactsSection) and come after the kennel checks', () => {
+  const base = { litters: [], pairings: [], sales: [], dogs: [pup('a')], allDogs: [pup('a')], contacts: [], kennels: [], vetEvents: [vetEvent('e1', 'Dr. Lee')], today };
+  assert.deepEqual(kinds(T.tidyFindings(base)), []);
+  assert.deepEqual(kinds(T.tidyFindings({ ...base, flags: { contactsSection: true } })), ['event-no-vet', 'no-vet']);
+});

@@ -2111,6 +2111,17 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
   pick or add the kennel.
 - **Kennel without a contact** (`contactsSection`): an outside kennel no contact belongs to →
   pick a contact (tagged Breeder) or add one; archive it when no dog names it.
+  Picking and adding a contact are one pair of chat forms (`pickContact`, `addContact`) the
+  kennel and vet findings share.
+- **Vet not in contacts** (`contactsSection`): vet visits and surgeries (`VET_EVENT_TYPES`,
+  the types whose `relatedContact` is 'Vet') with the vet typed as a name (`details.vet`) and
+  no `related_contact_id`, one finding per name however it's typed (named by her most-used
+  spelling), program-wide → link them all to the likely contact (the same name, a vet
+  first, else `similarNamed`), one she picks (vets first), or one she adds (prefilled with
+  the name). The contact is tagged Vet and replaces the typed name (`vetLinkFix`, as the
+  event form clears it).
+- **No vet** (`contactsSection`): she has a dog and no live contact is tagged Vet → add her
+  vet, or tag one of her contacts. Comes after the one above, which usually settles it.
 - **Duplicate dogs:** missing details are unknown, never a difference. *Certain:* the same
   registration number, or the same registered name with no differing number. *Possible:* the
   same call name and breed with nothing contradicting (registration number, birthday,
