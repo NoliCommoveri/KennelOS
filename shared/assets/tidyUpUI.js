@@ -24,6 +24,7 @@ import { litterLabel } from '../data/litterCheckin.js';
 import { dogMatches } from '../data/guidedLitter.js';
 import { baseFromLitter } from '../data/puppyDefaults.js';
 import { deliveredOwnershipChanges } from '../data/goHome.js';
+import { studParents, ourRole } from '../data/studRules.js';
 import * as T from '../data/tidyRules.js';
 import { mergeConflicts, suggestKeep, mergeRecords } from '../data/recordMerge.js';
 import { CapExceededError } from '../data/repoBase.js';
@@ -403,15 +404,14 @@ class Tidy extends FindingsTask {
   }
 
   // The stud service's breeding, recorded in the chat: its parents come from the
-  // stud service (ours is the sire when it's outgoing, the dam when incoming, as
-  // the Pairing page's stud_service link fills them), she gives the first date
+  // stud service (ours is the sire or the dam by its sex, studRules.studParents,
+  // as the Pairing page's stud_service link fills them), she gives the first date
   // and how it went, and the stud service is linked to it (StudService owns
   // pairing_id).
   async recordBreeding(s, what) {
-    const sire = s.direction === 'outgoing' ? s.our_dog_id : s.partner_dog_id;
-    const dam = s.direction === 'outgoing' ? s.partner_dog_id : s.our_dog_id;
+    const { sireId: sire, damId: dam } = studParents(s, this.dogsById) || {};
     if (!sire || !dam) {
-      await this.chat.say('This stud service is missing one of the dogs, so I can\'t tell who was bred. Add both dogs to it first.');
+      await this.chat.say('I can\'t tell which dog is the stud: neither dog on this stud service has a sex on file. Add it to one of them first.');
       return null;
     }
     const statuses = PAIRING_STATUS.filter((t) => t.value !== 'planned');
@@ -436,8 +436,8 @@ class Tidy extends FindingsTask {
       reply: (out) => `${label(PAIRING_STATUS, out.pairing.status)}, ${fmtDate(out.pairing.planned_date)}`
     });
     if (!res.done) return null;
-    // Our stud's outside breeding (outgoing): her litter isn't ours to record.
-    return this.done(res.result.pairing.status === 'whelped' && s.direction !== 'outgoing'
+    // Our stud's outside breeding: her litter isn't ours to record.
+    return this.done(res.result.pairing.status === 'whelped' && ourRole(s, this.dogsById) !== 'stud'
       ? 'Saved and linked. When we\'re done here, pick <strong>Record a new litter</strong> and I\'ll walk you through the puppies.'
       : 'Saved, and the stud service is linked to it.');
   }

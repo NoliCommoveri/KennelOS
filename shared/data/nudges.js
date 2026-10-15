@@ -62,7 +62,7 @@ import {
 } from './waitlistActions.js';
 import { offerSpecs } from './waitlistOutbox.js';
 import { contractRepo } from './contractRepo.js';
-import { outgoingPairingIds, pickDue, serviceDate } from './studRules.js';
+import { ourStudPairingIds, studParents, pickDue, serviceDate } from './studRules.js';
 import { reviewTitle } from './integrationEvents.js';
 
 const TERMINAL_PAIRING_STATUSES = ['cancelled', 'failed'];
@@ -272,7 +272,7 @@ export async function computeNudges() {
   const pairingIdsWithLitter = new Set(litters.map((l) => l.pairing_id).filter(Boolean));
   // Breedings of our stud to somebody else's dam (linked to an outgoing stud
   // service): the litter is the dam's owner's, so no rule asks her to record it.
-  const outgoingPairings = outgoingPairingIds(studServices);
+  const outgoingPairings = ourStudPairingIds(studServices, dogsById);
 
   const nudges = [];
 
@@ -317,7 +317,7 @@ export async function computeNudges() {
     const isDone = s.status === 'completed' || (s.returned_date && s.returned_date < today);
     if (!isDone) continue;
     const key = `studpair:${s.id}`;
-    const damId = s.direction === 'incoming' ? s.our_dog_id : s.partner_dog_id;
+    const damId = studParents(s, dogsById)?.damId;
     if (damId && pairingExistsForDam(pairings, damId, s.sent_date)) continue;
     nudges.push({
       key,

@@ -1,6 +1,8 @@
-// studServiceRepo.js — all Dexie access for the StudService table. Covers both
-// directions: your stud servicing an outside female (`outgoing`) and you using
-// an outside stud on your dam (`incoming`) — Data Model v3 §5.8.
+// studServiceRepo.js — all Dexie access for the StudService table: your stud on
+// an outside dam, or an outside stud on your dam (Data Model v3 §5.8). Which one
+// is ours comes from our dog's sex (studRules.ourRole); `direction` is who
+// travels (to_partner / to_us / shipped), and `type` follows it (shipped → ai,
+// else in_person), so it's never set by hand.
 //
 // Owns the canonical studservice<->pairing link (`pairing_id`, mirrors
 // Litter.pairing_id). There is no Pairing.stud_service_id — the reverse is
@@ -16,6 +18,9 @@ const base = makeRepo('stud_services', STUD_SERVICE_REFERENCES);
 
 const REQUIRED_FIELDS = ['direction', 'our_dog_id', 'partner_dog_id', 'partner_contact_id', 'status'];
 
+// `type` from `direction`: only a shipment is AI; anyone travelling is in person.
+const withType = (r) => (r.direction ? { ...r, type: r.direction === 'shipped' ? 'ai' : 'in_person' } : r);
+
 function validateStudService(candidate) {
   for (const f of REQUIRED_FIELDS) {
     if (candidate[f] == null || candidate[f] === '') {
@@ -28,6 +33,7 @@ export const studServiceRepo = {
   ...base,
 
   async create(data) {
+    data = withType(data);
     validateStudService(data);
     // Kennel scope (Multi-Kennel Scope Spec §4.3) — inherited from OUR dog, never
     // the partner's: the partner is by definition somebody else's.
@@ -42,6 +48,7 @@ export const studServiceRepo = {
   async update(id, changes) {
     const existing = await db.stud_services.get(id);
     if (!existing) throw new Error(`stud_services: no record with id ${id}`);
+    if (changes.direction) changes = withType(changes);
     validateStudService({ ...existing, ...changes });
     const saved = await base.update(id, changes);
     await contactRepo.ensureType(saved.referred_by_contact_id, 'stud_referrer');
@@ -72,14 +79,11 @@ export const studServiceRepo = {
     return [...byId.values()];
   },
 
-  // Away-board rows (Data Integrity Brief §5) — stud services where our dog
-  // physically travelled and is still away today. Union'd with
-  // eventRepo.getBoardRows() at the call site (data/awayBoard.js), never
-  // replacing it — non-stud boarding stays (grow-out, foster, owner travel)
-  // still come from Event. `type` is a plain unindexed field (§3.1), so this
-  // filters in JS, same posture as is_archived elsewhere in the repo layer.
-  // Away dog is always `our_dog_id`: whichever direction the service runs,
-  // the dog that physically travels for an in-person service is ours.
+  // Away-board rows (Data Integrity Brief §5) — in-person stud services whose
+  // dates cover today: the dog that travels (`direction`), ours away at the
+  // partner's (to_partner) or theirs staying with us (to_us, `visiting`). Union'd
+  // with eventRepo.getBoardRows() at the call site (data/awayBoard.js), which
+  // drops a row when a stud boarding event already covers that trip.
   async getBoardRows() {
     const today = todayYMD();
     const all = await db.stud_services.toArray();
@@ -91,9 +95,10 @@ export const studServiceRepo = {
       away.map((s) => (s.partner_contact_id ? db.contacts.get(s.partner_contact_id) : null))
     );
     return away.map((s, i) => ({
-      dogId: s.our_dog_id,
-      location: contacts[i]?.address || '',
-      reason: 'Stud service',
+      dogId: s.direction === 'to_us' ? s.partner_dog_id : s.our_dog_id,
+      visiting: s.direction === 'to_us',
+      location: s.direction === 'to_us' ? '' : (contacts[i]?.address || ''),
+      reason: s.direction === 'to_us' ? 'Stud service · staying with us' : 'Stud service',
       contactId: s.partner_contact_id || null,
       outDate: s.sent_date,
       returnDate: s.returned_date || null,

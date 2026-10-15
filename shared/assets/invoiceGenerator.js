@@ -1,5 +1,5 @@
 // invoiceGenerator.js — the Invoice / Receipt generator modal (End-State guide
-// §24): pick a Sale or outgoing StudService, choose Invoice vs Receipt, set each
+// §24): pick a Sale or a StudService of our stud, choose Invoice vs Receipt, set each
 // line's Full/Partial, already-collected amount and (invoices) due date, then open
 // the print-only invoice.html. Opened from Financials and from a Sale's own page
 // (preselected). Pro-only (editionFlags.invoicing): both callers import it
@@ -12,7 +12,7 @@ import { PAYMENT_METHODS, INVOICE_LINE_LABELS } from '../data/vocab.js';
 import { esc, fmtDate, fmtMoney } from './ui.js';
 import { saleDueDate } from './invoiceDoc.js';
 
-// A source record is any income row (a Sale or an outgoing StudService that
+// A source record is any income row (a Sale or a StudService of our stud that
 // carries money — exactly what getIncomeRows returns). The modal lets the owner
 // pick one, choose Invoice vs Receipt, then per line item choose Full vs Partial
 // and enter an "already collected" amount (and, on invoices, a per-line due
@@ -73,7 +73,7 @@ export async function openInvoiceGenerator({ preselect = null, onClose = null } 
         <button class="btn btn-primary" data-act="generate" disabled>Generate →</button>
         <button class="btn" data-act="cancel">Cancel</button>
       </div>` : `
-      <p class="muted">No income records to invoice yet. Record a sale or an outgoing stud service with a price, deposit, or fee first.</p>
+      <p class="muted">No income records to invoice yet. Record a sale or a stud service of your stud with a price, deposit, or fee first.</p>
       <div class="form-actions"><button class="btn" data-act="cancel">Close</button></div>`}
     </div>`;
   document.body.appendChild(overlay);

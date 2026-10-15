@@ -10,7 +10,7 @@ import { pairingRepo } from '../data/pairingRepo.js';
 import { dogRepo } from '../data/dogRepo.js';
 import { contactRepo } from '../data/contactRepo.js';
 import {
-  STUD_SERVICE_DIRECTION, FEE_STRUCTURE, STUD_SERVICE_STATUS, STUD_SERVICE_TYPE,
+  STUD_SERVICE_DIRECTION, STUD_SERVICE_ROLE, FEE_STRUCTURE, STUD_SERVICE_STATUS,
   CONTRACT_TYPE, CONTRACT_STATUS, SEX, descriptor
 } from '../data/vocab.js';
 import { esc, badge, fmtDate, param, confirmModal } from '../assets/ui.js';
@@ -18,6 +18,20 @@ import { getMyContactId } from '../data/kennelSetup.js';
 import { attachNewContactButton } from '../assets/contactPicker.js';
 import { resolveKennelIdForWrite, dogInScope, isScoped } from '../data/kennelScope.js';
 import { renderScopeNotice } from '../assets/kennelScopeUI.js';
+import { ourRole } from '../data/studRules.js';
+
+// The two dates, in words that fit who travels (stored as sent_date / returned_date).
+function dateLabels(direction) {
+  if (direction === 'to_us') return ['Their dog arrives', 'Their dog goes home'];
+  if (direction === 'shipped') return ['Shipped', 'Done'];
+  return ['Our dog leaves', 'Our dog is back'];
+}
+
+// "Our stud" / "Our dam", from our dog's sex.
+function roleHint(s) {
+  const role = ourRole(s, ctx.dogsById);
+  return role === 'stud' ? 'Our dog is the stud (male).' : role === 'dam' ? 'Our dog is the dam (female).' : 'Pick our dog: its sex decides whether it\'s the stud or the dam.';
+}
 
 const els = {
   title: document.getElementById('ss-title'),
@@ -87,19 +101,17 @@ function sexLetter(d) {
 
 // Owned/co-owned active breeders only — males first, then by call name. The
 // current selection always stays in the list (edit safety) even if it no
-// longer matches. Once direction is set, our dog is the stud (outgoing =
-// male) or the dam (incoming = female) — filter to that sex.
+// longer matches. Either sex: our dog's sex is what makes it the stud or the
+// dam (studRules.ourRole), so nothing filters by role here.
 // Active-kennel scope (Multi-Kennel Scope Spec §9), scoped by default with the
 // escape: the stud service's kennel is inherited from OUR dog, never the
 // partner's, so which of your kennels' studs you pick decides where the
 // arrangement is filed.
-function ourDogOptions(current, direction) {
+function ourDogOptions(current) {
   const list = ctx.allDogs
     .filter((d) => ctx.pickerAllKennels || d.id === current || dogInScope(d))
     .filter((d) => (['owned', 'co_owned'].includes(d.ownership_type) && d.status === 'active_breeding') || d.id === current)
     .filter((d) => ctx.pickerArchived || !d.is_archived || d.id === current)
-    .filter((d) => d.id === current || direction !== 'outgoing' || d.sex === 'male')
-    .filter((d) => d.id === current || direction !== 'incoming' || d.sex === 'female')
     .sort((a, b) => {
       const rank = (d) => (d.sex === 'male' ? 0 : d.sex === 'female' ? 1 : 2);
       const r = rank(a) - rank(b);
@@ -115,16 +127,14 @@ function ourDogOptions(current, direction) {
 // scope-transparent — belonging to no kennel of yours — and a stud service is
 // one of the two workflows §9 names as intentionally cross-kennel. Filtering
 // here would empty the picker outright.
-// External dogs only — the outside partner. Once direction is set, the
-// partner is the opposite role from our dog: outgoing (our dog is the stud)
-// means the partner is the dam (female); incoming means the partner is the
-// stud (male).
-function partnerDogOptions(current, direction) {
+// External dogs only — the outside partner, of the other sex once our dog is
+// picked (our male → her dam; our female → his stud).
+function partnerDogOptions(current, ourDogId) {
+  const ourSex = ctx.dogsById.get(ourDogId)?.sex;
   const opts = ctx.allDogs
     .filter((d) => d.ownership_type === 'external' || d.id === current)
     .filter((d) => ctx.pickerArchived || !d.is_archived || d.id === current)
-    .filter((d) => d.id === current || direction !== 'outgoing' || d.sex === 'female')
-    .filter((d) => d.id === current || direction !== 'incoming' || d.sex === 'male')
+    .filter((d) => d.id === current || !ourSex || !d.sex || d.sex !== ourSex)
     .map((d) => `<option value="${esc(d.id)}"${d.id === current ? ' selected' : ''}>${esc(d.call_name)}${sexLetter(d)}${d.registered_name ? ' — ' + esc(d.registered_name) : ''}${d.is_archived ? ' (archived)' : ''}</option>`)
     .join('');
   return `<option value="">— select —</option>` + opts;
@@ -174,8 +184,8 @@ function renderView() {
     : `<a class="btn btn-sm" href="pairing.html?new=1&stud_service=${encodeURIComponent(s.id)}">+ Create Pairing from this Stud Service</a>`;
   els.body.innerHTML = `
     <dl class="dl-meta" style="margin-top:14px;">
-      ${row('Direction', badge(STUD_SERVICE_DIRECTION, s.direction))}
-      ${row('Our dog', `<a href="dog.html?id=${encodeURIComponent(s.our_dog_id)}">${esc(dogName(s.our_dog_id) || '—')}</a>`)}
+      ${row('Our dog', `<a href="dog.html?id=${encodeURIComponent(s.our_dog_id)}">${esc(dogName(s.our_dog_id) || '—')}</a> ${badge(STUD_SERVICE_ROLE, ourRole(s, ctx.dogsById))}`)}
+      ${row('Who travels', badge(STUD_SERVICE_DIRECTION, s.direction))}
       ${row('Partner dog', s.partner_dog_id ? `<a href="dog.html?id=${encodeURIComponent(s.partner_dog_id)}">${esc(dogName(s.partner_dog_id) || '—')}</a>` : '')}
       ${row('Partner contact', s.partner_contact_id ? `<a href="contact.html?id=${encodeURIComponent(s.partner_contact_id)}">${esc(contactName(s.partner_contact_id) || '—')}</a>` : '')}
       ${row('Fee', esc(money(s.fee_amount)) + (s.fee_structure ? ` <span class="faint">(${esc((FEE_STRUCTURE.find(f => f.value === s.fee_structure) || {}).label || s.fee_structure)})</span>` : ''))}
@@ -184,9 +194,8 @@ function renderView() {
       ${row('Linked pairing', pairingHtml)}
       ${row('Status', badge(STUD_SERVICE_STATUS, s.status))}
       ${row('Referred by', s.referred_by_contact_id ? `<a href="contact.html?id=${encodeURIComponent(s.referred_by_contact_id)}">${esc(contactName(s.referred_by_contact_id) || '—')}</a>` : '')}
-      ${row('Type', s.type ? badge(STUD_SERVICE_TYPE, s.type) : '')}
-      ${row('Sent', s.sent_date ? esc(fmtDate(s.sent_date)) : '')}
-      ${row('Returned', s.returned_date ? esc(fmtDate(s.returned_date)) : '')}
+      ${row(dateLabels(s.direction)[0], s.sent_date ? esc(fmtDate(s.sent_date)) : '')}
+      ${row(dateLabels(s.direction)[1], s.returned_date ? esc(fmtDate(s.returned_date)) : '')}
       ${row('Result notes', s.result_notes ? esc(s.result_notes).replace(/\n/g, '<br>') : '')}
       ${row('Notes', s.notes ? esc(s.notes).replace(/\n/g, '<br>') : '')}
     </dl>`;
@@ -205,20 +214,19 @@ function renderEdit() {
   const s = ctx.draft;
   els.body.innerHTML = `
     <div class="form-grid" id="ss-form" style="margin-top:14px;">
-      ${field('Direction', `<select id="f-direction">${vocabOptions(STUD_SERVICE_DIRECTION, s.direction, 'Select…')}</select>`, { required: true, hint: 'Outgoing = our dog is the stud. Incoming = our dog is the dam.' })}
-      ${field('Our dog', `<select id="f-our_dog_id">${ourDogOptions(s.our_dog_id, s.direction)}</select>`, { required: true })}
-      ${field('Partner dog', `<select id="f-partner_dog_id">${partnerDogOptions(s.partner_dog_id, s.direction)}</select>`, { required: true })}
+      ${field('Our dog', `<select id="f-our_dog_id">${ourDogOptions(s.our_dog_id)}</select>`, { required: true, hint: roleHint(s) })}
+      ${field('Partner dog', `<select id="f-partner_dog_id">${partnerDogOptions(s.partner_dog_id, s.our_dog_id)}</select>`, { required: true })}
+      ${field('Who travels?', `<select id="f-direction">${vocabOptions(STUD_SERVICE_DIRECTION, s.direction, 'Select…')}</select>`, { required: true, hint: 'Either dog can travel either way. Someone travelling shows on the Away board; AI / shipped never does.' })}
       ${field('Partner contact', `<select id="f-partner_contact_id">${contactOptions(s.partner_contact_id)}</select>`, { required: true, hint: 'Owner of the partner dog.' })}
       ${field('Fee amount', `<input id="f-fee_amount" type="number" min="0" step="0.01" value="${esc(s.fee_amount)}">`)}
       ${field('Fee structure', `<select id="f-fee_structure">${vocabOptions(FEE_STRUCTURE, s.fee_structure, '— none —')}</select>`)}
-      ${feeHasPick(s.fee_structure) ? field('Pick status', `<input id="f-pick_status" type="text" list="pick-status-suggestions" value="${esc(s.pick_status || '')}" placeholder="pending / claimed"><datalist id="pick-status-suggestions"><option value="pending"><option value="claimed"></datalist>`, { hint: 'Has the partner claimed their pick yet? Suggested: pending / claimed (free text allowed).' }) : ''}
+      ${feeHasPick(s.fee_structure) ? field('Pick status', `<input id="f-pick_status" type="text" list="pick-status-suggestions" value="${esc(s.pick_status || '')}" placeholder="pending / claimed"><datalist id="pick-status-suggestions"><option value="pending"><option value="claimed"></datalist>`, { hint: ourRole(s, ctx.dogsById) === 'stud' ? 'Your pick puppy from her litter: pending until you have it, then claimed (free text allowed). Today reminds you once it should be ready.' : 'Has the stud owner claimed their pick yet? Suggested: pending / claimed (free text allowed).' }) : ''}
       ${feeHasPick(s.fee_structure) ? field('Pick value', `<input id="f-pick_value_amount" type="number" min="0" step="0.01" value="${esc(s.pick_value_amount || '')}">`, { hint: 'Estimated dollar value of the pick puppy, for your own income tracking — separate from Fee amount, which is cash actually changing hands.' }) : ''}
       ${field('Linked pairing', `<select id="f-pairing_id">${pairingOptions(s.pairing_id)}</select>`, { hint: 'Optional — the actual breeding record and outcome.' })}
       ${field('Status', `<select id="f-status">${vocabOptions(STUD_SERVICE_STATUS, s.status, 'Select…')}</select>`, { required: true })}
       ${field('Referred by', `<select id="f-referred_by_contact_id">${referrerContactOptions(s.referred_by_contact_id)}</select>`, { hint: 'The contact who referred this arrangement. Tags them as a Stud referrer automatically.' })}
-      ${field('Type', `<select id="f-type">${vocabOptions(STUD_SERVICE_TYPE, s.type, '— unknown —')}</select>`, { hint: 'In person = the dog physically travelled — shows on the away board. AI/shipped never does.' })}
-      ${field('Sent', `<input id="f-sent_date" type="date" value="${esc(s.sent_date)}">`, { hint: 'Date the dog/semen was sent out (optional).' })}
-      ${field('Returned', `<input id="f-returned_date" type="date" value="${esc(s.returned_date)}">`)}
+      ${field(dateLabels(s.direction)[0], `<input id="f-sent_date" type="date" value="${esc(s.sent_date)}">`)}
+      ${field(dateLabels(s.direction)[1], `<input id="f-returned_date" type="date" value="${esc(s.returned_date)}">`)}
       <div class="field field-wide">
         <label class="check-inline"><input id="picker-archived" type="checkbox"${ctx.pickerArchived ? ' checked' : ''}> Include archived dogs/contacts/pairings in the pickers above</label>
       </div>
@@ -234,10 +242,13 @@ function renderEdit() {
   const form = document.getElementById('ss-form');
   form.addEventListener('input', updateWarnings);
   form.addEventListener('change', updateWarnings);
-  document.getElementById('f-direction').addEventListener('change', () => {
-    ctx.draft = readForm();
-    renderEdit();
-  });
+  // Who travels relabels the dates; our dog sets the role and the partner list.
+  for (const id of ['f-direction', 'f-our_dog_id']) {
+    document.getElementById(id).addEventListener('change', () => {
+      ctx.draft = readForm();
+      renderEdit();
+    });
+  }
   // Toggling to/from a pick-bearing structure shows/hides the Pick status field.
   document.getElementById('f-fee_structure').addEventListener('change', () => {
     ctx.draft = readForm();
@@ -279,7 +290,6 @@ function readForm() {
     pick_value_amount: document.getElementById('f-pick_value_amount') ? val('f-pick_value_amount') : (ctx.draft.pick_value_amount || ''),
     pairing_id: val('f-pairing_id') || null,
     status: val('f-status'),
-    type: val('f-type') || '',
     sent_date: val('f-sent_date'),
     returned_date: val('f-returned_date'),
     referred_by_contact_id: val('f-referred_by_contact_id') || null,
@@ -292,8 +302,9 @@ function updateWarnings() {
   const s = readForm();
   const warns = [];
   const our = ctx.dogsById.get(s.our_dog_id);
-  if (our && s.direction === 'outgoing' && our.sex === 'female') warns.push('Direction is “outgoing” (our dog is the stud) but our dog is recorded as female.');
-  if (our && s.direction === 'incoming' && our.sex === 'male') warns.push('Direction is “incoming” (our dog is the dam) but our dog is recorded as male.');
+  const partner = ctx.dogsById.get(s.partner_dog_id);
+  if (our && partner && our.sex && our.sex === partner.sex) warns.push(`Both dogs are recorded as ${our.sex}: one has to be the stud and the other the dam.`);
+  if (our && !our.sex && !partner?.sex) warns.push('Neither dog has a sex on file, so KennelOS can\'t tell which is the stud.');
   if (s.our_dog_id && s.partner_dog_id && s.our_dog_id === s.partner_dog_id) warns.push('Our dog and the partner dog are the same dog — this will be blocked on save.');
   if (s.sent_date && s.returned_date && s.returned_date < s.sent_date) warns.push('Returned date is before the sent date.');
   const box = document.getElementById('form-warn');

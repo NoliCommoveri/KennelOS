@@ -212,7 +212,7 @@ to the cloud unsealed).
 | **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `puppies_born_*` counts, per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
 | **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
 | **Contract** | `contract_type`, `kennel_id` | `status` (default `draft`), `related_sale_id`, `related_stud_service_id`; `related_dog_id` and `related_contact_id` only for `lease`/`co_own`/`foster`/`other` (forced null otherwise, `contractRepo.normalizeLinks`), `document_url`, `signed_date`, lease dates, e-sign fields and `integration_reviews` (§32), `title`, `terms_summary`. |
-| **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `pairing_id`, `fee_amount`, `fee_structure`; `pick_status` and `pick_value_amount` only for pick fee structures (forced null otherwise; on an outgoing service the pick is our puppy, and `pick_status` claimed / waived ends Today's `studpick`, §19), `type` (`in_person`/`ai`; in-person dates feed the away-board, §19), `referred_by_contact_id`, invoice fields (outgoing only, §24). |
+| **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `direction` is **who travels** (`STUD_SERVICE_DIRECTION`: `to_partner` our dog goes to them, `to_us` their dog comes to us, `shipped` no one / AI). Whether our dog is the stud or the dam isn't stored: it's our dog's sex, else the partner's opposite (`studRules.ourRole`; `STUD_SERVICE_ROLE` for badges and filters). `sent_date` / `returned_date` are the travelling dog's two dates (labelled to fit who travels). `type` (`in_person`/`ai`) is set by the repo from `direction` (shipped → ai), never asked. `pairing_id`, `fee_amount`, `fee_structure`; `pick_status` and `pick_value_amount` only for pick fee structures (forced null otherwise; with our stud the pick is our puppy, and `pick_status` claimed / waived ends Today's `studpick`, §19), `referred_by_contact_id`, invoice fields (our stud only, §24). |
 | **Event** | `subject_type`, `subject_id`, `event_type`, `event_date`, `title` | `event_end_date`, `reminder_date`, `reminder_dismissed`, `related_dog_id`, `related_contact_id`, `details{}`. No cost field: a cost becomes an Expense with `event_id` (§8, §21). |
 | **Expense** | `subject_type` (`dog`/`litter`/`pairing`/`kennel`), `subject_id`, `amount`, `category`, `expense_date` | `event_id`, `miles` × `mileage_rate` (then `amount` is derived), `vendor`, `receipt_number` (CSV re-import key, §9), `account_id`, `receipt_file_id` (deleted with the expense, §26.1), `reimbursable`/`reimbursed_date` (§21, §25). |
 | **Document** | `dog_id`, `doc_type`, `file_id` | `title`, `doc_date`, `issuer_or_lab`, `result`, `registry`, `registration_number`, `contract_id` (optional, unindexed, not in the registry), `furever_shareable` (§27). Fields shown per type: `vocab.documentFieldsFor`. `hardDelete` removes its file. |
@@ -332,7 +332,7 @@ Every write calls `assertWritable()` first (Demo, §0.2) and marks the cloud bac
   (`waitlistRules.deriveContactWaitlistStatus`). **waitlistOfferRepo** checks entry, litter
   and offer share a kennel (§29).
 
-**Derived aggregators** (no table): `incomeView.js` (income rows per Sale / outgoing
+**Derived aggregators** (no table): `incomeView.js` (income rows per Sale / our stud's
 StudService component, earned vs anticipated; `incomeLineItems` feeds invoices, §21, §24)
 and `litterFinances.js` (per-litter P&L, §21).
 
@@ -813,14 +813,14 @@ wires each action, and adds one Dismiss button per row. Dismissals are device-lo
 | `studpair` | a finished stud service has no `pairing_id` | create the pairing |
 | `heatpair` | a heat cycle ended with no pairing for that dam since | create a pairing |
 | `pairingduesoon` | a bred/confirmed pairing is due within 3 days, no litter | create the litter |
-| `studpick` | an outgoing, completed stud service with a pick in its fee (`pick_of_litter` / `flat_plus_pick`), 63 + 56 days after it (returned, else sent; `studRules.pickDue`), no pup of that stud out of that dam born since on file, `pick_status` not settled (claimed / received / picked / done / waived) | **Add the puppy** (`dog.html?new=1&pick=<id>`) / **Not getting one** (`pick_status: 'waived'`) |
+| `studpick` | a completed stud service of our stud with a pick in its fee (`pick_of_litter` / `flat_plus_pick`), 63 + 56 days after it (returned, else sent; `studRules.pickDue`), no pup of that stud out of that dam born since on file, `pick_status` not settled (claimed / received / picked / done / waived) | **Add the puppy** (`dog.html?new=1&pick=<id>`) / **Not getting one** (`pick_status: 'waived'`) |
 | `pairingoverdue` | a pre-whelp pairing is past due, no litter | mark whelped / create litter |
 | `litterpairing` | a whelped-or-later litter's pairing isn't `whelped` | mark it whelped |
 | `pairingended` | an ended pairing still has an `expected` litter | archive the litter |
 | `pairingnolitter` | a `whelped` pairing has no litter (not for external dams or pairings over 180 days old) | create the litter |
 
-**Our stud's outside breedings.** A pairing linked to a live **outgoing** stud service
-(`studRules.outgoingPairingIds`: our stud, somebody else's dam) can be recorded like any
+**Our stud's outside breedings.** A pairing linked to a live stud service where our dog is
+the stud (`studRules.ourStudPairingIds`: our stud, somebody else's dam) can be recorded like any
 other, but its litter is the dam's owner's: `pairingduesoon`, `pairingoverdue` and
 `pairingnolitter` skip it, the Pairing page's "Record the litter now?" doesn't ask, and
 Kels's tidy-up doesn't suggest recording it. Its pick puppy, when the fee has one, is
@@ -848,7 +848,8 @@ litter, pairing, dog and sale pages show on the edit itself, for changes made el
 
 ### Away board (`data/awayBoard.js`)
 `getAwayBoardRows()` unions boarding events (`eventRepo.getBoardRows`) and in-person stud
-services now in their sent/returned window (`studServiceRepo.getBoardRows`) into one row
+services now in their two dates (`studServiceRepo.getBoardRows`: the dog that travels, ours
+away at the partner's for `to_partner`, theirs "staying with us" for `to_us`) into one row
 shape. Used by `board.js`, Today and the dashboard tile. Kennel scope is applied inside it,
 through the away dog, so the three can't disagree.
 
@@ -940,7 +941,7 @@ boxes; a row opens an **Adjust** modal that writes back to the sale or stud serv
 - `assets/expensePanel.js` is the per-subject ledger on dog, litter, pairing and kennel pages.
 
 ### Income — derived, never stored (`data/incomeView.js`)
-There is no income table and no `is_earned` field. `getIncomeRows()` reads Sales, outgoing
+There is no income table and no `is_earned` field. `getIncomeRows()` reads Sales, our stud's
 StudServices and (Pro) waitlist fees, and classifies each money component on every load.
 Kennel scope applies to the source records here, so every money screen agrees; a
 `kennelId` argument overrides it for the kennel page. Expenses are scoped through their
@@ -950,7 +951,7 @@ subject (`financials.js` `expenseInScope`).
   **anticipated**. Returned/cancelled keeps only what was paid. A **lost** sale
   (`vocab.isLostSale`) counts nothing: it's refunded or carried to another pup (§29).
   `paidOnSale()` reads what was paid regardless of status.
-- **Outgoing stud fee:** earned when `completed`, anticipated while arranged/in progress.
+- **Our stud's fee** (`studRules.ourRole` = stud): earned when `completed`, anticipated while arranged/in progress.
   `pick_value_amount` is a separate non-cash `pick` line, outside the cash totals and Net.
 - **Waitlist application fee** (Pro): one earned row per entry with a received fee above 0.
   When `fee_credit_policy` is `credited_to_purchase` and the family is placed, the fee comes
@@ -1940,11 +1941,11 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
 - **Stud service** (`studServices`): past its date (returned, else sent; or Completed), not
   cancelled or failed, no `pairing_id` → link a breeding of the same two dogs opened from two
   weeks before it was sent that no other service claims, or **Record the breeding** in the
-  chat: the parents from the stud service (ours is the sire when outgoing, the dam when
-  incoming), the first date (default: sent) and how it went (any status but Planned); an
+  chat: the parents from the stud service (`studRules.studParents`: ours is the sire or the
+  dam by its sex), the first date (default: sent) and how it went (any status but Planned); an
   `actual` pairing, due 63 days on, kennel from the dam then sire, and the stud service's
-  `pairing_id` set. Whelped says to record the litter with her next, except on an outgoing
-  service (the litter is the dam's owner's).
+  `pairing_id` set. Whelped says to record the litter with her next, except when our dog is
+  the stud (the litter is the dam's owner's).
 - **Breeder without a kennel** (`contactsSection`): a Breeder contact with no `kennel_id` →
   pick or add the kennel.
 - **Kennel without a contact** (`contactsSection`): an outside kennel no contact belongs to →

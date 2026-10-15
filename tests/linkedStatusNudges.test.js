@@ -313,7 +313,7 @@ test('our stud\'s outside breeding (an outgoing stud service): no litter is aske
   const outsideDam = await dogRepo.create({ call_name: 'Juno', sex: 'female', breed: 'Boston Terrier', ownership_type: 'external', status: 'external_reference', owner_contact_id: (await contactRepo.create({ name: 'Dana Ruiz' })).id });
   const p = await pairingRepo.create({ kennel_id: K.id, dam_id: outsideDam.id, sire_id: sire.id, pairing_type: 'actual', status: 'bred', expected_due_date: daysAgo(5) });
   assert.equal((await nudgesFor('pairingoverdue:')).length, 1, 'before it\'s linked, the usual overdue nudge');
-  await studServiceRepo.create({ kennel_id: K.id, direction: 'outgoing', our_dog_id: sire.id, partner_dog_id: outsideDam.id, partner_contact_id: outsideDam.owner_contact_id, status: 'completed', pairing_id: p.id });
+  await studServiceRepo.create({ kennel_id: K.id, direction: 'to_us', our_dog_id: sire.id, partner_dog_id: outsideDam.id, partner_contact_id: outsideDam.owner_contact_id, status: 'completed', pairing_id: p.id });
   assert.equal((await nudgesFor('pairingoverdue:')).length, 0);
   await pairingRepo.update(p.id, { status: 'confirmed_pregnant', expected_due_date: new Date(Date.now() + 86400000).toISOString().slice(0, 10) });
   assert.equal((await nudgesFor('pairingduesoon:')).length, 0);
@@ -325,7 +325,7 @@ test('a pick-of-litter fee on an outgoing stud service: ready to add the pick pu
   const { studServiceRepo } = await import('../shared/data/studServiceRepo.js');
   const owner = await contactRepo.create({ name: 'Dana Ruiz' });
   const outsideDam = await dogRepo.create({ call_name: 'Juno', sex: 'female', breed: 'Boston Terrier', ownership_type: 'external', status: 'external_reference', owner_contact_id: owner.id });
-  const s = await studServiceRepo.create({ kennel_id: K.id, direction: 'outgoing', our_dog_id: sire.id, partner_dog_id: outsideDam.id, partner_contact_id: owner.id, status: 'completed', fee_structure: 'pick_of_litter', sent_date: daysAgo(118) });
+  const s = await studServiceRepo.create({ kennel_id: K.id, direction: 'to_us', our_dog_id: sire.id, partner_dog_id: outsideDam.id, partner_contact_id: owner.id, status: 'completed', fee_structure: 'pick_of_litter', sent_date: daysAgo(118) });
   assert.equal((await nudgesFor('studpick:')).length, 0, 'a day early');
   await studServiceRepo.update(s.id, { sent_date: daysAgo(119) });
   const [n] = await nudgesFor('studpick:');

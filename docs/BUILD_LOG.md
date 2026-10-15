@@ -1174,3 +1174,11 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Today's "Ready to add your pick puppy?" 63 + 56 days after the service: **Add the puppy**
   opens a new dog prefilled from the stud service (`dog.html?new=1&pick=`; saving marks the
   pick claimed), or **Not getting one**.
+- **Stud services: direction is who travels (2026-10-15).** `direction` now means who
+  travels (our dog goes to them / their dog comes to us / no one, AI), with `type` set from
+  it; whether our dog is the stud or the dam comes from its sex (`studRules.ourRole`), never
+  stored. Every reader moved over (income, invoices, contracts, Companion, the Pairing
+  page, both stud reports, the litter flow, tidy-up, nudges, CSV import, sample data); the
+  form asks our dog, the partner (the other sex), then who travels, and labels the two
+  dates to fit. The Away board shows the dog that travels, a visitor as "staying with us".
+  Decided with the owner: no stud service records exist yet that used the old meaning.

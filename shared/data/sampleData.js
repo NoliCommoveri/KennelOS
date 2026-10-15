@@ -559,7 +559,7 @@ export async function seedSampleData() {
   });
   manifest.contracts.push(fosterContract.id);
 
-  // --- Stud Service SS1 (outgoing, in-person) — Birch services Nell at Ellen's.
+  // --- Stud Service SS1 (our stud, Birch goes to them) — Birch services Nell at Ellen's.
   // Links to Pairing P3 via the canonical pairing_id. `arranged` with a passed
   // sent_date and no returned_date: Birch is physically away right now, so this is
   // the away-board row AND drives the stud-service status nudge ("mark in
@@ -567,7 +567,7 @@ export async function seedSampleData() {
   // companion bundle exercises both a cash fee and a non-cash pick estimate.
   const studServiceBirch = await studServiceRepo.create({
     kennel_id: thornfield.id,
-    direction: 'outgoing', our_dog_id: birch.id, partner_dog_id: nell.id, partner_contact_id: ellen.id,
+    direction: 'to_partner', our_dog_id: birch.id, partner_dog_id: nell.id, partner_contact_id: ellen.id,
     fee_amount: 800, fee_structure: 'flat_plus_pick', pick_status: 'pending', pick_value_amount: 1500,
     pairing_id: pairingP3.id, type: 'in_person', sent_date: daysFromToday(-3),
     // referred_by (Referral tracking): Dana sent this arrangement our way — the
@@ -587,15 +587,15 @@ export async function seedSampleData() {
   manifest.stud_services.push(studServiceBirch.id);
   manifest.contracts.push(studServiceContract.id);
 
-  // --- Stud Service SS2 (incoming, AI) — we bred our Boxer dam Juno by shipped
-  // semen from Hugo's outside stud Titan (Thread B, G8). `incoming` (our dog is
-  // the dam), `ai` (shipped, so it never hits the away-board), flat_fee (money we
+  // --- Stud Service SS2 (our dam, shipped) — we bred our Boxer dam Juno by shipped
+  // semen from Hugo's outside stud Titan (Thread B, G8). Our dog is the dam (by
+  // her sex), `shipped` (no one travels, so it never hits the away-board), flat_fee (money we
   // PAY — an expense, never income). `completed` with NO linked pairing yet →
   // drives the stud→pairing nudge (§19/§4.7). Its signed contract balances the
   // outgoing one above.
   const studServiceJuno = await studServiceRepo.create({
     kennel_id: thornfield.id,
-    direction: 'incoming', our_dog_id: juno.id, partner_dog_id: titan.id, partner_contact_id: hugo.id,
+    direction: 'shipped', our_dog_id: juno.id, partner_dog_id: titan.id, partner_contact_id: hugo.id,
     fee_amount: 1200, fee_structure: 'flat_fee', type: 'ai', sent_date: daysFromToday(-25),
     status: 'completed', result_notes: 'Shipped chilled semen, AI performed by repro vet.'
   });
