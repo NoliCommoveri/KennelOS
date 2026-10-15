@@ -1440,209 +1440,99 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
 
 **Editions:** Lite and Pro. Never Demo (`cloudUrl: null`). Live sync is Pro only (§34).
 
-The plan is the detailed design; `cloud/README.md` is the server's map. This section is the
-shape of it as built, for orientation.
+Design: `docs/KennelOS_Cloud_Phase1_Plan.md` (backup), `docs/KennelOS_Private_Vault_Plan.md`
+(vault), `docs/KennelOS_License_Link_Plan.md` (Pro on the server). Server map:
+`cloud/README.md`.
 
-### What it is
-- An **opt-in** account (email + a 6-digit emailed code; the server keeps only a keyed hash
-  of the email) that **backs up the kennel-records tier** as whole snapshots, keeps 30 days
-  of dated history, and restores onto a new or reset device or "as of" a date. Lite and Pro
-  alike; Demo never (its `cloudUrl` is `null`).
-- **Private data never goes up.** `data/syncRegistry.js` is the per-field allow-list
-  (unlisted = private): contacts' phone/email/address, prices, Financials, contracts and
-  private notes stay on the device. A cloud restore is a field-merge (`'cloud-merge'`,
-  §10), so private fields already on a device survive it.
-- **Shape:** one **backup device** per program at a time (a second device gets a 409 and
-  chooses: restore that backup here, or replace it); a shrink guard refuses an upload that
-  looks like a half-empty device; Reset App turns backup off.
-- **A lost device** (plan §2.5): from another signed-in device, erase it (it wipes itself
-  the next time it opens the app online) and, in Pro, free its license slot.
-- **The private vault** (`docs/KennelOS_Private_Vault_Plan.md`; built):
-  an opt-in, end-to-end encrypted copy of the **complete** records beside the kennel tier.
-  One AES-GCM key per program, held unlocked on each device in `device_secrets`
-  (`vaultKeyStore.js`); the server keeps only wraps of it (one under the recovery code, one
-  per passkey) and ciphertext. A **passkey** (`vaultPasskey.js`, WebAuthn PRF, RP ID
-  `kennelos.app` so Lite and Pro share it) never signs in and is never verified by the
-  server: its PRF output for a stored random salt is the key that opens its own wrap. Offered
-  only where the browser can do PRF; the recovery code stays required. A device can also be unlocked by another, already
-  unlocked one: the server relays an ECDH exchange salted with a 12-character code the
-  user types on the approver, so it can't open what it relays. With it on and unlocked, every push
-  also uploads the encrypted vault part (before the body) and the content hash covers the
-  private rows, so private-only edits push. Files the cloud tier doesn't carry (contracts,
-  "other" documents, receipts) go up encrypted deterministically, so they dedup. On but
-  locked on a device, pushes **pause** (`lastError` `vault_locked`) until it is unlocked;
-  the server refuses a vault-less snapshot anyway. A restore merges the same snapshot's
-  vault part (`'vault-merge'`, §10) when the device is unlocked.
-  **Release switch:** `cloudConfig.VAULT_RELEASED`, **true**, so
-  `isVaultOffered()` shows the vault's screens wherever cloud backup is. Set false, they're
-  offered only against staging (localhost, or `?cloud=staging`). The data layer ignores it.
-  **UI:** offered right after the first backup in "Turn on cloud backup" and from the card;
-  the recovery code is shown once (Print / Save to Files / Copy) and its last 4 characters
-  typed back before anything is sent; then, where passkeys can work, "Unlock with a passkey
-  next time?" (skippable). The card's Private backup section has Passkeys… (list, add on an
-  unlocked device, remove with a fresh sign-in). The restore paths (first-run "sign in and restore",
-  and the 409's "restore that backup here") ask to unlock first: passkey (when the vault
-  has one and the browser can try), recovery code, another device, or Not now. After a restore that left private details blank (`cloudRestoredAt`),
-  the record pages that hold them show a hint pointing at Unlock (or a file backup); an
-  unlock that merges the private tier clears it.
-
-- **The Pro license link** (`docs/KennelOS_License_Link_Plan.md`): the server learns of Pro
-  purchases from Lemon Squeezy's webhook, by the keyed hash of the purchase email, and
-  answers `GET /account/entitlement`. In Pro only (`isLicenseGated()`), the card's Account
-  section shows whether this account is Pro on the server, with **Link a Pro purchase
-  email…** (a code to that address) and **Unlink purchase emails**
-  (`cloudEntitlement.js`). It gates the server's own features (the waitlist's W2), never the
-  app: `license.js` still decides that, with or without a server.
+### What it does
+- **Opt-in account:** email + a 6-digit emailed code (`cloudAuth.js`); the server keeps
+  only a keyed hash of the email. Backs up the **cloud tier** as whole snapshots, keeps 30
+  days of history, and restores onto a new or reset device or "as of" a date.
+- **Private fields never go up unsealed.** `data/syncRegistry.js` is the per-field
+  allow-list (unlisted = private). A cloud restore is a field merge (`'cloud-merge'`, §10),
+  so private fields on the device survive it.
+- **One backup device** per program: another device gets a 409 and chooses to restore that
+  backup or replace it. A **shrink guard** refuses an upload that looks half-empty. Reset
+  App turns backup off.
+- **A lost device** (`cloudDevices.js`): from another device, erase it (it wipes itself
+  next time it's online: `appReset.eraseThisDevice`) and, in Pro, free its license slot.
+  `app.js` runs the device check-in first thing in `boot()`, before the license gate.
+- **The vault ("Sensitive records" in the UI; `vault` in code):** an opt-in, end-to-end
+  encrypted copy of the **complete** records. One AES-GCM key per program, kept unlocked on
+  each device in `device_secrets` (`vaultKeyStore.js`); the server holds only wraps of it
+  (recovery code, each passkey) and ciphertext. Unlock with the recovery code, a passkey
+  (`vaultPasskey.js`, WebAuthn PRF, RP ID `kennelos.app`, never used to sign in), or another
+  unlocked device (ECDH relayed by the server, salted with a code the user types; or a
+  one-hour single-use code, `createHandoffCode`). With it on, every push also uploads the
+  sealed part and the hash covers private rows; **locked, pushes pause** (`vault_locked`).
+  A restore merges it with `'vault-merge'` (§10) when unlocked. `cloudConfig.VAULT_RELEASED`
+  (true) offers it everywhere cloud backup is.
+- **Pro on the server** (`cloudEntitlement.js`): the server learns of purchases from Lemon
+  Squeezy's webhook by email hash and answers `GET /account/entitlement`. It gates only
+  server features (the online waitlist); `license.js` still gates the app.
 
 ### Where it lives
-- **Server:** `cloud/` (one Cloudflare Worker + D1 + R2; staging and production are the
-  top level and `[env.production]` of `cloud/wrangler.toml`). Deployed by Workers Builds,
-  never by `deploy.yml`, and not part of any edition. Operated from its `/ops` page.
-- **Client:** `data/cloud/` (`cloudConfig`, `cloudApi`, `cloudAuth`, `cloudBackup`,
-  `cloudDevices`, `cloudEntitlement`, `cloudWaitlist` (§29), and the vault's `vaultCrypto`, `vaultKeyStore`, `vaultPasskey`, `cloudVault`; §3) and `assets/cloudBackupUI.js` +
-  `assets/cloudVaultUI.js` (§3, §11). `editionConfig` supplies
-  `cloudUrl` (production) and `devCloudUrl` (staging, for localhost and the
-  `?cloud=staging` test switch).
-- **Boot** (§11): `app.js` starts the device check-in before the license gate, and
-  `cloudBackupUI.bootCloud()` (the scheduler, notices, the one-time offer) after first run.
-- **Settings keys** (§11): `cloudSession`, `cloudBackupState`, `cloudDeviceId`,
-  `cloudDirtyAt`/`cloudDirtySince`, `cloudOfferPending`, `cloudRestoredAt`, `eraseAck`,
-  `cloudTestServer`, `waitlistOnline` (§29).
+- **Server:** `cloud/` — one Cloudflare Worker + D1 + R2, deployed by Workers Builds (not
+  `deploy.yml`, not an edition), run from its `/ops` page.
+- **Client:** `data/cloud/*` (only `cloudApi.js` touches the network) and
+  `assets/cloudBackupUI.js` / `assets/cloudVaultUI.js`, imported dynamically and only when
+  `isCloudAvailable()`. `editionConfig` supplies `cloudUrl` and `devCloudUrl` (staging, for
+  localhost and `?cloud=staging`).
+- **Screens:** Import/Export's **Backup & restore** card has destinations **Cloud | This
+  device | Dropbox** (Cloud first when available; Dropbox Pro only), with Back up now,
+  Restore as of…, and a Sensitive records dropdown (Off / Locked / On with its actions). The
+  **Settings** page's Account card has sign-in, Change email…, Pro on this account, Your
+  devices, sign out, delete cloud data. Today shows turn-on, paused and "save your recovery
+  code" nudges (none while sample data is loaded). The 409 and shrink dialogs need typed
+  confirmation; erase, sign out others and delete need a fresh sign-in (`withFreshSignIn`).
+- **Scheduler:** `cloudBackupUI.bootCloud()` starts it after first run; it pushes when
+  `cloudDirtySince` is five minutes old.
 
 ### Rules that keep it safe
-- `cloudUrl: null` must boot with no request and no cloud UI (`tests/cloudClient.test.js`).
-- A new field is private until classified (`tests/syncRegistry.test.js`); a new direct
-  `db` write calls `markDataChanged()` (`tests/cloudDirty.test.js`).
-- Server: migrations are additive and never edited once applied; after a deploy that adds
-  one, the API answers 503 until **Apply pending** on `/ops`. Nothing logs an email, code,
-  token or body.
-- Erasing a device, signing out the others and deleting the account need a fresh sign-in.
+- `cloudUrl: null` boots with no request and no cloud UI (`tests/cloudClient.test.js`).
+- A new field is private until classified (`tests/syncRegistry.test.js`); a new direct `db`
+  write calls `markDataChanged()` (`tests/cloudDirty.test.js`).
+- Server migrations are new files, never edits; after a deploy that adds one the API answers
+  503 until **Apply pending** on `/ops`. Nothing logs an email, code, token or body.
+
 
 ## 31. Reports — `docs/KennelOS_Reports_Plan.md`
 
-**Editions:** Pro and Demo only (`editionFlags.reports`; every report page is in `proPages.js`).
+**Editions:** Pro and Demo only (`editionFlags.reports`; every `*-report` page is in
+`proPages.js`). Lite keeps the shared Active Roster and Live-Birth Summary pages, with their
+charts and Print.
 
-The Reports hub (`pages/reports.html` + `reports.js`, Pro-only) lists every report from
-`data/reportCatalog.js`, bucketed into **Money / Breeding / Puppies / Sales & Waitlist /
-Shows & Stud / Dogs & Operations**. Each bucket is a segment tab (the Financials hub's pill
-toggle); the chosen one rides the URL (`?group=money`) and each report's "← All reports"
-link returns to its own bucket. A bucket with no reports yet has no tab. **Year in Review**
-is featured above the tabs.
+The hub (`pages/reports.*`) lists `data/reportCatalog.js` in tabs (Money / Breeding /
+Puppies / Sales & Waitlist / Shows & Stud / Dogs & Operations; `?group=`), with **Year in
+Review** featured. **Every report is derived** on load; nothing is stored.
 
-**Every report is derived** — computed on load from the existing tables, nothing stored, no
-schema of its own. Totals, rates and chart series are figures for what's on screen, never
-persisted aggregates.
+**`assets/reportView.js` extras:** `dateRange` (presets via `reportMath.rangeFor`; undated
+rows only in "All time"), `kpis`, `charts`, column `total`, `rowsFor` (summary reports
+grouping the filtered records), and always **Print / PDF**. All follow the visible rows.
 
-**The report screen (`assets/reportView.js`)** adds, when a page asks:
-- `dateRange: { label, date:(r)=>YMD, initial? }` — a preset menu (All time / This year /
-  Last year / Last 12 months / Custom From–To; `data/reportMath.js` `rangeFor`/`inRange`).
-  An undated row is only in "All time".
-- `kpis:(rows, ctx)=>[{ label, value, hint? }]` — a stat strip above the table.
-- `charts:(rows, ctx)=>[chartSpec]` — charts above the table, redrawn from the same visible
-  rows (so they follow every filter); `ctx` = `{ range, preset, records }`.
-- a column's `total:(rows)=>string` — a Total row under the table, over the visible rows.
-- `rowsFor:(records, ctx)=>rows` — a **summary** report: the filters, search and range pick
-  records, then this groups them (one row per category, source…); the table, totals and CSV
-  show its rows while `kpis`/`charts` still get the records (Expenses by Category, Lead
-  Sources).
-- always: **🖨 Print / PDF** and a letterhead that only prints (below).
+**Charts (`assets/chartView.js`)** are the app's own SVG (bar, grouped/stacked/diverging;
+line; ranked horizontal bar), pure render functions plus `mountChart`. Colors come from
+`SERIES_COLORS` in **fixed order** (a series keeps its slot; vocab-colored charts use the
+vocab index). Two or more series get a legend; count axes have whole ticks; user strings
+are escaped.
 
-**Charts (`assets/chartView.js`)** are the app's own SVG — no vendored library, so they
-work offline and print crisp. `renderBarChart` (one, grouped, stacked, or a signed
-`diverging` series — blue above zero, red below), `renderLineChart` (category or numeric x;
-2px lines, a ringed end dot, direct end labels up to four series), `renderHbarChart`
-(ranked; past `max` rows the rest fold into "Other"). Render functions are pure (spec +
-width → HTML; `tests/reports.test.js`); `mountChart` draws at the container's width, redraws
-on resize and for print, and wires the hover tooltip. Rules: categorical colors come from
-`SERIES_COLORS` in **fixed order** (validated for colour-vision deficiency on white; a
-series keeps its slot even when it has nothing to show, and a chart that colors by a vocab —
-registration, stud direction — passes each value its vocab-index slot so the color follows
-the entity); two or more series always get a legend; count axes never show fractional
-ticks; every user string is escaped; the table under each chart is its accessible view.
+**Print (`assets/printView.js`):** the browser's print dialog. On pages with a letterhead,
+print CSS hides the app chrome and prints the kennel logo and name, the title, range,
+filters, and the date.
 
-**Print / PDF (`assets/printView.js`)** goes through the browser's own print dialog ("Save
-as PDF" makes the file). The print stylesheet (`app.css`, `@media print`) hides the nav,
-banners, toolbar and page header **only on pages with a letterhead**, so printing any other
-page is unchanged; it keeps charts and table rows whole across pages. The letterhead shows
-the active kennel's logo + name (or the only own kennel's), the report title, the date range,
-filters and search in effect, and the date generated.
+**Money by period (`data/moneyReport.js`):** reads the same scoped rows as the Financials
+Overview, so they always agree. Cash basis: each income component has `when`
+(`incomeView.saleComponentDate`) and `due` (only a due date she set; Receivables ages by
+it). Anticipated income never enters Net; pick value is never money in.
 
-**Money by period (`data/moneyReport.js`)** — `loadMoney()` reads the same scoped income
-rows and expenses as the Financials Overview, so the reports always agree with it.
-Cash basis: every income component carries `when` (`incomeView.saleComponentDate`: a
-deposit on `deposit_date`, the balance and what rides with it on `balance_paid_date`,
-unpaid money on `balance_due_date`, each falling back to the sale's own date; stud fees on
-`returned_date`/`sent_date`; application fees on `fee_received_date`) and `due` — only a due
-date she set (an unpaid balance's `balance_due_date`, else blank), which Receivables ages by
-so nothing is called overdue off a fallback date. `plByPeriod` files
-earned income and expenses into months; anticipated income is shown when due and never in
-Net; non-cash pick value is never money in.
-
-**Reports today**
-- Money: **Profit & Loss by Month** (`pl-report`), **Litter P&L**, Financials (link).
-- Breeding: **Litters Over Time**, **Live-Birth Summary**, **Health-Test Events**;
-  **Dam & Sire Production** (`production-report`, `breedingReports.productionRows`): one row
-  per dog that parented a whelped litter in scope (the LITTER's kennel scopes it, so an
-  outside stud shows for litters he sired here) — litters, born, alive, live %, average
-  litter, the sex split of the puppies on record, first/last whelp, age at each litter;
-  dams flagged for litters whelped under `BACK_TO_BACK_DAYS` (240) apart and at
-  `LIFETIME_LITTERS_FLAG` (6) lifetime litters — prompts to look, nothing enforced. Totals
-  count each litter once. **Pairing Success** (`pairing-success-report`): one row per
-  pairing that was bred; outcome `success` (confirmed pregnant, whelped, or a litter's
-  `pairing_id` points at it) / `failed` (not pregnant, failed) / `pending` (bred) — never-bred
-  (planned, cancelled) pairings are left out; rate = success ÷ (success + failed), by method
-  and by sire; the dam's last `progesterone_test` reading on or within 7 days before
-  `planned_date`.
-- Puppies: **Puppy Growth** (`puppy-growth-report`, `?litter=`): pick a litter; each pup's
-  `weight_check` events (lbs + oz/16) by age in days from its DOB (else the whelp date), one
-  line per pup (past eight pups the rest draw in gray); a pup under 85% of the median of its
-  littermates' weights within ±2 days of its latest weigh-in is flagged
-  (`growthFlags`, needs two littermates weighed then).
-- Sales & Waitlist: **Placements** (price column + total; placements by month stacked by
-  registration; average price by registration), **Scheduled Placements**;
-  **Waitlist Funnel** (`waitlist-funnel-report`, `waitlistReports`): one row per entry, by
-  applied date; furthest stage of applied → approved → on the list (fee in, active, or
-  removed after listing) → offered (any offer) → placed; why families left (declined,
-  withdrew, fee expired, each removal reason), how offers ended, pass reasons (a pass with no
-  family reason is "Recorded by you"), median days applied → placement sale date.
-  **Demand vs Supply** (`demand-supply-report`): families = entries `active` on the list,
-  counted by `waitlistRules.pupMatchesPrefs` against a stand-in pup of each kind (breed × sex
-  × intended registration; listen-only parent choices aren't applied); pups =
-  `isPupAvailable` puppies. A kind shows only when it has pups or a family ticked a purpose
-  that maps to its registration, and a breed only when it has pups or a family named it, so a
-  no-preference family (which counts everywhere) doesn't list every combination.
-- Money, phase 3: **Expenses by Category** (`expenses-report`, summary by category, This
-  year by default — the tax-time page); **Receivables** (`receivables-report`,
-  `moneyReport.receivableRows`: every anticipated component + foster costs owed back
-  (`litterFinances.reimbursablePending`), aged Not due / 1–30 / 31–60 / 61–90 / 90+ / No due
-  date); **Pricing** (`pricing-report`: placed priced sales against
-  `expectedPricing(dog, litter, sale.registration_type)`, averages by sex × registration,
-  "Full over Limited"); **Breeding-Dog Return** (`dog-return-report`,
-  `moneyReport.dogReturnRows`: per parent, earned income on its litters' rows + its own stud
-  fees − expenses on the dog; a litter counts for both parents, so no Total row).
-- Breeding, phase 3: **Heat Cycles** (`heat-cycles-report`, `breedingReports.heatRows`:
-  distinct `heat_cycle` start dates per female, average interval, predicted next = last +
-  average (two heats needed), due soon ≤ 30 days / overdue); **Health-Testing Gaps**
-  (`health-gaps-report`, `testGapRows`: adult dogs' `planned_tests` vs their test events'
-  `testTokensOf` names, the dog page's advisory match).
-- Sales, phase 3: **Lead Sources & Referrers** (`lead-sources-report`, summary of placed
-  sales by `lead_source`, grouped case-insensitively; top `referred_by_contact_id`s);
-  **Returns & Voids** (`returns-report`: released sales by `end_reason`, share of all sales
-  in range).
-- Shows & Stud: **Stud Services** (sent date, fee; by month by direction); **Stud Results**
-  (`stud-results-report`, `studResultRows`: the litter whose `pairing_id` is the service's,
-  puppies born, fee, terms); **Show Record** (`show-record-report`: `show` events with
-  `entry_status: 'shown'`, points by `showPoints.eventPoints`, judges grouped by
-  `normalizeJudge`, majors = 3+ points, titles = `title_earned` events in range).
-- Dogs & Operations: **Active Roster**, **Dashboard** (link).
-- Featured: **Year in Review** (`year-review`, `data/yearReview.js`): one calendar year —
-  litters whelped (expected ones left out), puppies born/alive, placements (released sales
-  counted apart), money in/out/net (= P&L by Month), titles earned, waitlist applied / on
-  the list now — with four charts and the year's litters and titles; laid out to print on
-  one page.
-
-Lite keeps Active Roster and Live-Birth Summary (shared pages), so it gets their tiles,
-charts and Print button too; every other report is Pro-only.
+**The reports** (each page's math is in a pure, tested `data/` module): P&L by Month, Litter
+P&L, Expenses by Category, Receivables, Pricing, Breeding-Dog Return; Litters Over Time,
+Live-Birth Summary, Health-Test Events, Dam & Sire Production (flags litters under
+`BACK_TO_BACK_DAYS` apart and at `LIFETIME_LITTERS_FLAG`, prompts only), Pairing Success,
+Heat Cycles, Health-Testing Gaps; Puppy Growth (flags a pup under 85% of its littermates'
+median); Placements, Scheduled Placements, Waitlist Funnel, Demand vs Supply, Lead Sources &
+Referrers, Returns & Voids; Stud Services, Stud Results, Show Record; Active Roster; Year in
+Review (prints on one page).
 
 ---
 
