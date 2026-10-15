@@ -18,6 +18,7 @@ need. When one is built, its as-built description goes in the guide (§33) and i
 | Check account health | This device, backups, license, Sensitive records, connections, the online waitlist; each finding with its fix | All (license, Sensitive records, connections, waitlist: where offered) |
 | Add dogs | One or several: a roster of names, a dog on file it may be asked about after its details (one of hers filled in, a pedigree-only one brought into use), what they share asked once, each dog's details and parents, review; resumable draft; then each dog's papers | All (someone else's dog, documents: Pro) |
 | Finding Something | Where a page, a place on it, or a record is, with a button to it; a question or two when there are many; deep in levels | All (people, kennels, Pro pages: Pro) |
+| Add people | A roster of names and what each is to her, her vet if she has none, each person's details (one in her contacts filled in), breeders' kennels (new and on file); review; resumable draft; then her dogs' breeder kennels, and buyers onto the waitlist | Pro (waitlist: where offered) |
 | Pups are going home | Optional checks to tick, remembered on the device (chips, litter registration number, pups' registered names and numbers, feeding); pups Available or Placed with no sale (record the sale or change the plan); readiness per pup with fixes (shots, deworming, drop-off date, balance, contract, registration); a payment request then an invoice for each balance owed; the puppy records with a cover page | All (contract, feeding, payment requests, invoices, Furever, print: Pro) |
 
 The menu has a search box that matches each task's `keywords`, and choices open their
@@ -67,7 +68,8 @@ These are settled. A task that can't follow one comes back here before it's buil
     tested `data/` module for the rule, `assets/kelsSteps.js` for the chat pieces. Every
     place then calls it, and the copies are removed in the same change. The shared pieces
     so far: `kelsSteps` (the step engine, the form helpers, `kennelNameField`,
-    `contactFields`, `breedPicker`), `dogSearch` (`findDogMatches`, `similarNamed`,
+    `kennelPicker`, `contactFields`, `addContactInChat`, `VET_WHY`, `breedPicker`),
+    `contactSearch` (`findContactMatches`, `hasVet`), `kelsApplicant.askApplicant`, `dogSearch` (`findDogMatches`, `similarNamed`,
     `normReg`, `breedChoices`),
     `dogRepo.createPedigreeOnly`, `kennelRepo.findOrCreateOutside` and `seedTestsKennel`,
     `expenseRepo.createForEvent`, `documentModal`'s `storeDocumentFile` and
@@ -314,7 +316,15 @@ history) and landing on the card.
 
 - **Keywords:** help, find, where is, how do I, what is, explain, show me.
 
-### 3.12 Add people: **M**, Pro (`contacts.html`)
+### 3.12 Add people: **M**, Pro (`contacts.html`) — **Built**
+As built: End-State guide §33 ("Add people"); history in `docs/BUILD_LOG.md`. **Modified:**
+the roster asks one main type per person, the rest are ticked on their details; "what they
+share" is only how she met them; the vet she has in her contacts can be picked and tagged
+Vet; a spreadsheet of contacts isn't offered (the Contacts import is still the way). The
+tidy-up's duplicate-contacts finding keeps its own rule (the same name plus one shared
+detail): it compares two records on file, not a person being typed, so only the
+normalizers are shared.
+
 Contacts as a conversation, for a breeder bringing in the people she already deals with:
 one or several, taken the way Add dogs (§3.8) takes dogs, not "Add another?" after each.
 - **A roster first:** names, and for each what they are to her (`CONTACT_TYPE`: buyer, vet,
@@ -392,7 +402,11 @@ off to it where it now only says where to change the form.
     task that isn't `available` never shows, starred or not.
   - **Decided:** the rest never folds under "More", and starred tasks stay in the Doing
     Something list (no shortcuts on her first screen).
-- **Adding a person** (for §3.12 and §3.13, then Record a sale's buyer, §3.5). Three jobs
+- **Adding a person** — **Built** with Add people (End-State guide §33): `contactSearch`, the
+  applicant step `assets/kelsApplicant.js`, and `kelsSteps`' `kennelPicker` /
+  `addContactInChat` (the tidy-up's add-a-contact and its vet's, the litter task's and Add
+  dogs' kennel pickers, now one each). `contactFields` stayed the short form; Add people
+  asks the rest itself. For §3.13 next, then Record a sale's buyer (§3.5). Three jobs
   that today are separate copies become one each:
   - **Their fields:** `kelsSteps.contactFields` grows to the Contact page's fields (type,
     address, Facebook, notes), each opt-in, so the short form the tidy-up and Add dogs use

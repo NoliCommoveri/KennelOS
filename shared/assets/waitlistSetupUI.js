@@ -24,14 +24,12 @@ import { editionFlags } from '../data/editionConfig.js';
 import { isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
 import {
   waitlistConfig, waitlistConfigProblem, waitlistSummaryLines, waitlistIsSetUp, showUpcoming, UPCOMING_STAGES,
-  embedOrigin, embedOrigins, EMBED_ORIGINS_MAX, PUBLIC_INTRO_DEFAULT, kennelBreeds
+  embedOrigin, embedOrigins, EMBED_ORIGINS_MAX, PUBLIC_INTRO_DEFAULT
 } from '../data/waitlistRules.js';
 import { FEE_CREDIT_POLICY, WAITLIST_AUTO_OFFER_TRIGGER, WAITLIST_READY_NO_ANSWER, WAITLIST_PRIORITY } from '../data/vocab.js';
 import { field } from './litterCheckinUI.js';
-import { dogRepo } from '../data/dogRepo.js';
-import { formQuestions, snapshotQuestions, isAnswerQuestion, missingRequired } from '../data/waitlistForm.js';
-import { applicationFields, readAnswers, readPrefs } from './waitlistApplicationForm.js';
-import { esc, fmtMoney, todayYMD } from './ui.js';
+import { askApplicant } from './kelsApplicant.js';
+import { esc, fmtMoney } from './ui.js';
 
 const pagesPrefix = () => (location.pathname.includes('/pages/') ? '' : 'pages/');
 const opt = (value, label, selected) => `<option value="${esc(value)}"${selected ? ' selected' : ''}>${esc(label)}</option>`;
@@ -424,42 +422,9 @@ class Setup {
     return 'left';
   }
 
-  // One family she already has, typed in the chat: her application form (the same
-  // fields as the Waitlist entry page's new application, waitlistApplicationForm.js),
-  // then the program, when they applied and her notes. Saved as an application
-  // (status applied), as that page saves it.
+  // One family she already has, typed in the chat (kelsApplicant.askApplicant).
   async addFamily() {
-    const config = waitlistConfig(this.kennel);
-    const form = formQuestions(config);
-    const breeds = kennelBreeds(this.kennel, await dogRepo.getAll());
-    const programs = this.programs.filter((p) => !p.is_archived).sort((a, b) => a.name.localeCompare(b.name));
-    const res = await this.chat.form({
-      title: '<strong>Tell me about the family.</strong><span class="kels-lead">Your application\'s questions, so it matches what families fill in online.</span>',
-      html: `<div class="form-grid">${applicationFields({ form, config, breeds, entry: {} })}
-        ${programs.length ? field('Program', `<select id="ws-af-program"><option value="">— none —</option>${programs.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')}</select>`) : ''}
-        ${field('When they applied', `<input id="ws-af-applied" type="date" value="${esc(todayYMD())}">`, 'Their place in line comes from when their fee is received, once you approve them.')}
-        ${field('Your notes', '<textarea id="ws-af-notes" rows="2"></textarea>')}</div>`,
-      submitLabel: 'Add the family',
-      cancelLabel: 'Not now',
-      submit: async (root) => {
-        const questions = form.filter(isAnswerQuestion);
-        const application = readAnswers(root, questions);
-        const prefs = readPrefs(root);
-        const missing = missingRequired(questions, application);
-        if (!prefs.ready_timing) missing.push(form.find((q) => q.key === 'ready_timing')?.label || 'Ready to buy');
-        if (missing.length) return `Please fill in: ${missing.map((m) => m.replace(/[?.!:]+$/, '')).join(', ')}.`;
-        const entry = await waitlistEntryRepo.create({
-          ...prefs, application, application_questions: snapshotQuestions(questions),
-          waitlist_program_id: root.querySelector('#ws-af-program')?.value || null,
-          applied_date: root.querySelector('#ws-af-applied').value || todayYMD(),
-          notes: root.querySelector('#ws-af-notes').value,
-          kennel_id: this.kennel.id, status: 'applied'
-        });
-        return { entry };
-      },
-      reply: (out) => out.entry.application?.name || 'Add the family'
-    });
-    return res.done ? res.result.entry : null;
+    return askApplicant(this.chat, { kennel: this.kennel });
   }
 
   // --- The end -----------------------------------------------------------------------------

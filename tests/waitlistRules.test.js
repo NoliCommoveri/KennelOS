@@ -381,15 +381,18 @@ test('contact waitlist_status: active while any run is open; fulfilled when the 
 
 // --- Applicant ↔ Contact matching (Spec §5.2) ---------------------------------------
 
-test('contact matches: email first (case/space-insensitive), then same-name; archived excluded; never automatic', () => {
+test('contact matches: email or phone is certain, a same or near name only possible; archived excluded', () => {
   const contacts = [
     { id: 'c1', name: 'Jane Smith', email: 'JANE@example.com ' },
     { id: 'c2', name: 'jane smith', email: 'other@example.com' },
     { id: 'c3', name: 'Jane Smith', email: '', is_archived: true },
-    { id: 'c4', name: 'Bob Lee', email: '' },
+    { id: 'c4', name: 'Bob Lee', email: '', phone: '(555) 123-4567' },
+    { id: 'c5', name: 'Jane Smyth', email: '' },
   ];
   const m = contactMatches({ name: ' Jane Smith', email: 'jane@example.com' }, contacts);
-  assert.deepEqual(m.map((x) => [x.contact.id, x.reason]), [['c1', 'email'], ['c2', 'name']]);
+  assert.deepEqual(m.map((x) => [x.contact.id, x.reason, x.strength]),
+    [['c1', 'email', 'certain'], ['c2', 'name', 'possible'], ['c5', 'similar name', 'possible']]);
+  assert.deepEqual(contactMatches({ name: 'Robert', phone: '555.123.4567' }, contacts).map((x) => [x.contact.id, x.reason]), [['c4', 'phone']]);
   assert.deepEqual(contactMatches({ name: 'Nobody' }, contacts), []);
   assert.deepEqual(contactMatches({}, contacts), [], 'blank applicant matches nothing');
 });

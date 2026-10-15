@@ -26,6 +26,7 @@ const KEYS = {
   cloudRestoredAt: 'kennelOS.cloudRestoredAt',
   guidedLitterDraft: 'kennelOS.guidedLitterDraft',
   guidedDogsDraft: 'kennelOS.guidedDogsDraft',
+  guidedPeopleDraft: 'kennelOS.guidedPeopleDraft',
   prepChecks: 'kennelOS.prepChecks',
   kelsFavorites: 'kennelOS.kelsFavorites',
   kelsTaskUse: 'kennelOS.kelsTaskUse',
@@ -494,6 +495,25 @@ export function setGuidedDogsDraft(draft) {
 
 export function clearGuidedDogsDraft() {
   localStorage.removeItem(KEYS.guidedDogsDraft);
+}
+
+// --- Kels's "Add people" draft (assets/guidedPeopleUI.js) --------------------
+// As the dogs draft above: one at a time, null when none, cleared by Reset App.
+export function getGuidedPeopleDraft() {
+  try {
+    return JSON.parse(localStorage.getItem(KEYS.guidedPeopleDraft) || 'null');
+  } catch {
+    return null;
+  }
+}
+
+export function setGuidedPeopleDraft(draft) {
+  localStorage.setItem(KEYS.guidedPeopleDraft, JSON.stringify(draft));
+  return draft;
+}
+
+export function clearGuidedPeopleDraft() {
+  localStorage.removeItem(KEYS.guidedPeopleDraft);
 }
 
 // --- Kels's "Pups are going home": the optional checks she ticked last time ----
