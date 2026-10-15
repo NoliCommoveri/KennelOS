@@ -1198,3 +1198,96 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Expense on the breeding (else the dam), linked by the new indexed `expenses.stud_service_id`
   (`db.version(5)`, in `STUD_SERVICE_REFERENCES`, private like every expense field) so it's
   asked once. Our stud's fee stays income.
+- **Kels: Add dogs (2026-10-15).** Roadmap §3.8, built the litter task's way at the owner's
+  call: one roster of names (boy / girl, "+ Another dog") instead of "Add another?" after
+  each, then a found name asked about first (a pedigree-only one is brought into use), what
+  they have in common asked once and filled in on each, each dog's details and parents (a
+  dog on file, one of the batch, or a typed name made pedigree-only), one review, a
+  resumable save (`data/guidedDogs.js`, `assets/guidedDogsUI.js`, `settings.guidedDogsDraft`).
+  Pro files each dog's papers in the chat after, through the Documents modal's own save,
+  now exported (`storeDocumentFile`, `createDocument`). Lite's cap stops the save with the
+  upgrade notice, keeping the dogs made so far. The litter task's step engine moved to
+  `assets/kelsSteps.js` (`StepConversation`) so both tasks share it; the Dog page's
+  planned-test seeding moved to `kennelRepo.seedTestsKennel` so Kels seeds the same way.
+  Not yet: the pedigree photo, and the history step (waits for Add new events, §3.10).
+- **Kels Add dogs: Lite room and purchases (2026-10-15).** In Lite the roster has only as
+  many rows as she has room for (`dogCapStatus()`, "You have room for 2 more dogs"), and at
+  the cap she shows the upgrade notice before any questions. After the save, "Did you buy
+  any of them?" asks, in one form, each owned dog's purchase date (a rough date is fine),
+  seller and price: an `acquisition` event and a linked `dog_purchase` expense. The event
+  form's linked-expense write moved to `expenseRepo.createForEvent` so both share it.
+- **Kels Add dogs: their shots (2026-10-15).** After the purchase question, "Do you have
+  their shots on record?" asks one form per dog over a fixed checklist (`VACCINE_CHECKLIST`:
+  Rabies, DHPP, Bordetella, Leptospirosis), each with its date and how long it's good for
+  (`VACCINE_GOOD_FOR`: 1 / 3 / 5 years, lifetime), and "Remind me on Today when they're
+  due". Each is a `vaccination` event with `next_due`, and the reminder the existing
+  `reminder_date`, so Today's Reminders card shows it; the reminder logic is unchanged.
+  Kels only: the event form's Vaccination type is as it was. Test support: memoryDb's
+  collections gained `.and`.
+- **Kels Add dogs: who bred them (2026-10-15).** A "Who bred Daisy?" step after each dog's
+  parents: I did (her kennel as `breeder_kennel_id`), another breeder (Pro: their kennel,
+  on file or new, and the breeder as a contact linked to it, picked or new), or not sure;
+  Lite asks I did / someone else / not sure. Each dog starts with the one before's answer.
+  No new fields: the breeder is a contact on the kennel (`contacts.kennel_id`), as the
+  tidy-up expects. Dogs she bred skip the purchase question; "Bought from" starts as the
+  breeder kennel's name.
+- **Kels: one add-a-kennel (2026-10-15).** The tidy-up's "Add their kennel" / "Add a
+  contact", the litter task's outside parent and Add dogs' breeder now share the fields
+  (`kelsSteps.kennelNameField`, `contactFields`, `readContactFields`) and the save
+  (`kennelRepo.findOrCreateOutside`: the outside kennel on file by that name, else a new
+  one), so a kennel name typed in any of them never makes a second kennel. The tidy-up's
+  own copy of `field()` went too.
+- **Kels: ancestors by registered name, one way (2026-10-15).** A pedigree-only dog is now
+  made one way, `dogRepo.createPedigreeOnly` (pedigree import, tidy-up, Add dogs), and a
+  typed ancestor is matched one way, the pedigree import's rule as
+  `pedigreeImport.ancestorMatches` (a number is that dog; a registered name, titles
+  ignored, is asked about; never a call name). Add dogs' typed parent and the tidy-up's
+  "just for the pedigree" now ask the registered name (required) and number, not a call
+  name; Add dogs uses a dog on file by number without asking. The parents step says
+  they're optional ("If you don't know yet, leave them as Not known").
+- **Kels: one dog search (2026-10-15).** `data/dogSearch.js` `findDogMatches` replaces
+  `guidedLitter.dogMatches` and `pedigreeImport.ancestorMatches` everywhere Kels looks for
+  a dog on file (the litter task's new mom or dad, the tidy-up's parents, Add dogs and its
+  typed parents): every typed name, call or registered, against both names of every dog,
+  fuzzy and both ways; then the number (certain, or a different dog), breed and birthday
+  (likely) and sex. Add dogs now asks "Is this her?" after each dog's details, with the
+  reasons shown, and "Yes" on one of hers fills in only what's blank on it instead of
+  leaving it out. Sample data's registration numbers lost their typed "AKC " prefix (the
+  registry stays in `registry`); nothing in the app adds one.
+- **Kels: forgiving of how people type (2026-10-15).** The dog search tolerates typos (a
+  swapped pair is one slip; two for long words), sound-alikes, run-together names, numbers
+  typed in name boxes on either side, a number one slip off ("nearly the same"), breeds
+  spelled near enough, and birthdays a few days off or with day and month swapped; a
+  clearly different number or breed now lowers a match instead of hiding it. Near-misses no
+  longer block: `kelsSteps` takes a `{ key, message }` check, said once, then Next again
+  keeps what she typed (`draft.warned`). Used for a typed parent like one on file, a new
+  kennel or contact like one she has (Add dogs, the litter task, the tidy-up), a breed
+  spelled unlike her dogs', and a registration number in a name box. Add dogs saves a breed
+  in her dogs' spelling when it differs only in case or spacing.
+- **Kels: breed and numbers, and the litter task's ancestors (2026-10-15).** A different
+  breed (not a misspelling) is a different dog: never offered, unless the registration
+  number is the same. `normReg` moved to `dogSearch.js`, and the tidy-up's duplicates use
+  it too, so a number's spaces, slashes, dashes and a leading "AKC" never count anywhere;
+  a number typed with spaces is read as one number. Record a new litter now looks at
+  pedigree-only dogs for a new mom or dad and brings the one she picks into use instead of
+  making a second (`newDogSpec.bringInId`).
+- **Kels: end-to-end fixes (2026-10-15).** Running every touched flow in a browser found
+  two bugs. The tidy-up's five chat forms that end in a record (pick a parent, pick or add
+  a kennel, pick or add a contact) returned its id as a string, which `chat.form` shows as
+  a problem: picking or adding did nothing, since the forms were written. They return
+  `{ id }` now. And a same-number match of the wrong sex was `certain`, so a typed sire
+  could be filled in with a female; a sex or breed that doesn't fit now keeps it
+  `possible` (shown, saying why, never taken without her say).
+- **Kels roadmap rule 10 (2026-10-15).** "Reuse before writing, and share what's
+  repeated": a new step first looks for the same job in other Kels scripts and pages, and
+  anything that would exist twice becomes one shared function with the copies removed; the
+  rule lists the shared pieces so far.
+- **Kels: a breed picker (2026-10-15).** The Dog page's breed suggestions (her dogs'
+  breeds + her kennels' `preferred_breeds` from first-run setup) moved into the shared,
+  pure `dogSearch.breedChoices` (one per breed whatever the case or spacing, her most-used
+  spelling winning). Kels offers them as one-tap choices with **➕ A new breed**
+  (`kelsSteps.breedPicker`), in Add dogs ("in common" and each dog) and the litter task's
+  new mom or dad; a new breed typed near one she has still gets "Did you mean…?" (the
+  litter task now asks it too).
+- **Service worker v80 (2026-10-15).** Cache bumped for the Kels Add dogs batch (new
+  `assets/guidedDogsUI.js`, `assets/kelsSteps.js`, `data/guidedDogs.js`, `data/dogSearch.js`).

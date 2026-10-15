@@ -86,7 +86,7 @@ export async function seedSampleData() {
   const juniper = await dogRepo.create({
     call_name: 'Juniper', sex: 'female', breed: BREED,
     date_of_birth: '2019-11-03', sire_id: ash.id, dam_id: willow.id,
-    registered_name: 'Thornfield Midnight Juniper', registration_number: 'AKC WS71029304',
+    registered_name: 'Thornfield Midnight Juniper', registration_number: 'WS71029304',
     microchip_id: '985141000123456', color_markings: 'Black & white, seal points', registry: 'AKC',
     url: 'https://images.example.com/thornfield/juniper.jpg',
     planned_tests: ['OFA Patella', 'Companion Animal Eye Exam (CAER)'],
@@ -98,7 +98,7 @@ export async function seedSampleData() {
   const gunnar = await dogRepo.create({
     call_name: 'Gunnar', sex: 'male', breed: BREED,
     date_of_birth: '2018-06-01',
-    registered_name: 'Thornfield Maximus Gunnar', registration_number: 'AKC WS78341201',
+    registered_name: 'Thornfield Maximus Gunnar', registration_number: 'WS78341201',
     microchip_id: '985141000456789', color_markings: 'Seal & white, Irish marked', registry: 'AKC',
     planned_tests: ['OFA Patella'],
     ownership_type: 'owned', status: 'active_breeding', kennel_id: thornfield.id
@@ -107,7 +107,7 @@ export async function seedSampleData() {
   const ivy = await dogRepo.create({
     call_name: 'Ivy', sex: 'female', breed: BREED,
     date_of_birth: '2021-05-10',
-    registered_name: 'Thornfield Wild Ivy', registration_number: 'AKC WS84550012',
+    registered_name: 'Thornfield Wild Ivy', registration_number: 'WS84550012',
     color_markings: 'Seal brindle & white', registry: 'AKC',
     ownership_type: 'owned', status: 'active_breeding', kennel_id: thornfield.id
   });

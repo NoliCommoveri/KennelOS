@@ -4,7 +4,7 @@
 //
 // It covers the slice of the Dexie Table API the repos and seed use today:
 // get/add/put/update/delete/bulkDelete/bulkPut/clear/toArray/count, where(index)
-// .equals/anyOf/aboveOrEqual/between (multi-entry arrays match by membership;
+// .equals/anyOf/aboveOrEqual/between (+ .filter/.and) (multi-entry arrays match by membership;
 // a '[a+b]' compound index matches by tuple), and an immediate transaction().
 // If a repo starts using something else, the seed throws here, loudly.
 //
@@ -31,7 +31,8 @@ function memoryTable(name) {
     toArray: async () => [...rows.values()].filter(pred).map(copy),
     count: async () => [...rows.values()].filter(pred).length,
     first: async () => { const r = [...rows.values()].find(pred); return r ? copy(r) : undefined; },
-    filter: (p2) => collection((r) => pred(r) && p2(r))
+    filter: (p2) => collection((r) => pred(r) && p2(r)),
+    and: (p2) => collection((r) => pred(r) && p2(r))
   });
   return {
     name,

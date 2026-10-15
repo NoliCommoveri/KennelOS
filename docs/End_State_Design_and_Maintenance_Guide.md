@@ -205,7 +205,7 @@ to the cloud unsealed).
 
 | Entity | Required | Key fields and rules |
 |---|---|---|
-| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `registered_name`, `registration_number`, `microchip_id`, `planned_tests[]`, `recorded_coi`, `url`. `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`). |
+| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `registered_name`, `registration_number`, `microchip_id`, `planned_tests[]`, `recorded_coi`, `url`. `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. |
 | **Contact** | `name` | `contact_type[]`, `email`, `phone`, `facebook_profile`, `address` (also the away-board location, §19), `kennel_id` (affiliation, not scope), `waitlist_status` (kept by `waitlistEntryRepo`), `first_contact_source`, `companion_note` (shown to the recipient, §20; `notes` is private). Buyers are Contacts; there is no Buyer table. |
 | **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `logo_data_url` (kept under ~300 KB, `pages/kennel.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `puppy_record_fields` (§23), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date` when empty). Sire ≠ dam. |
@@ -529,8 +529,9 @@ Every key is in its `KEYS` table (`kennelOS.*`), each with a getter/setter, and
   changed mid-push.
 - `activeKennelId`: the kennel scope, read and written only through `kennelScope.js`.
 - `myKennelId` / `myContactId`: the user's own kennel and contact.
-- `guidedLitterDraft` and `prepChecks`: Kels's unfinished litter, and the optional checks
-  ticked last time in Pups are going home (§33). Device-only.
+- `guidedLitterDraft`, `guidedDogsDraft` and `prepChecks`: Kels's unfinished litter, her
+  unfinished Add dogs, and the optional checks ticked last time in Pups are going home
+  (§33). Device-only.
 - `studTripsMigrated`: the stud-trip migration has run on this device (§19, Away board).
 
 **Kept outside `KEYS` on purpose**, so Reset App leaves them: the Pro license record and
@@ -1173,7 +1174,9 @@ Local, offline file storage behind three surfaces:
   `document_url` is a separate link field.
 - **Expense receipts:** `assets/receiptCapture.js` on both expense forms (§21).
 
-`assets/documentModal.js` is the shared add/edit and view dialog.
+`assets/documentModal.js` is the shared add/edit and view dialog. Its `storeDocumentFile`
+(a PDF as-is, photos built into one PDF) and `createDocument` (filed under the dog's
+kennel) are the save, used by Kels's Add dogs too (§33).
 
 **Storage:** `documents` (metadata, `dog_id`, `file_id`) and `files` (one row per stored PDF:
 `blob`, `thumbnail`, meta; `data/fileRepo.js`). A file belongs to exactly one Document or
@@ -1689,7 +1692,36 @@ on the first tap to show it and is chosen on the second; `search` adds a box tha
 she types, every word matching the start of a word in a choice's label, sub or `keywords`,
 Enter picks the first match), and `form({ title, html, submit, reply })`, where `submit` returns a string to show as a
 problem and stay, anything else to finish — and the button), `pages/kels.*` (the menu),
-`assets/guidedLitterUI.js` + `data/guidedLitter.js` (the litter task), `assets/litterCheckinUI.js`
+`assets/kelsSteps.js` (`StepConversation`, the step engine the two draft-keeping tasks
+share: a step list worked out from the draft, one screen per step with tiles, Back and
+Next, her answers left in the chat and in `draft.history` to replay a resumed draft, and a
+review whose Change links come straight back to it; plus the screens' HTML helpers, and
+the add-a-kennel / add-a-person fields every task asks with, `kennelNameField` and
+`contactFields` + `readContactFields`, and the breed picker, `breedPicker` +
+`wireBreedPicker` + `readBreedPicker` (her breeds, `dogSearch.breedChoices`, as one-tap
+choices, and **➕ A new breed** opening a box, so a breed she has is never retyped; Add dogs'
+"in common" and each dog, the litter task's new mom or dad): the tidy-up's "Add their kennel" and "Add a
+contact", the litter task's outside parent's owner and kennel, Add dogs' breeder),
+`assets/guidedLitterUI.js` + `data/guidedLitter.js` (the litter task), `assets/guidedDogsUI.js`
++ `data/guidedDogs.js` (add dogs), `data/dogSearch.js` (`findDogMatches`, the one way every
+task looks for a dog on file before making one, written for how people type: each typed
+name, call or registered, against both names of every dog, both ways and forgiving (titles,
+case, spacing, punctuation ignored; run-together names; a slip or two per word, a swapped
+pair counting as one; sound-alikes, "Zoie" / "Zoey"; "Zoey" finds "GCH Thornfield Zoey Mae");
+numbers wherever they were typed, a name box included, on both sides; then the same number
+is `certain` unless the sex or breed doesn't fit (then it's shown, saying so, as `possible`,
+so nothing takes it without her say: a mom is never filled in with a male), one slip off
+"nearly the same" and a breed spelled near enough or a birthday the same, a few days off or
+day and month swapped make it `likely`; a different breed (not just misspelled) or sex is a
+different dog, never offered; a clearly different number only lowers it to `possible`;
+`normReg`, a registration number's key everywhere (spaces, slashes, dashes and a leading
+"AKC" never count; also the CSV import's, the pedigree import's and the tidy-up's
+duplicates'); `similarNamed`, the same name match for kennels and contacts; `breedChoices`, the
+breeds to offer: her dogs' breeds, then her kennels' `preferred_breeds` (first-run setup or
+a kennel tests import, so they're there before her first dog), one per breed whatever the
+case or spacing, the spelling her dogs use most winning; the Dog page's breed suggestions
+too;
+`looksLikeNumber`; nothing typed is changed as stored), `assets/litterCheckinUI.js`
 + `data/litterCheckin.js` + `data/goHome.js` (the check-in), `assets/tidyUpUI.js` +
 `data/tidyRules.js` + `data/recordMerge.js` (the tidy-up), `assets/accountHealthUI.js` +
 `data/accountHealth.js` (account health), `assets/waitlistSetupUI.js` (set up my waitlist,
@@ -1701,6 +1733,14 @@ look → raise one at a time → fix → look again loop the tidy-up and account
 `data/prepPups.js` (prep pups; it reuses the check-in's exported `chipsForm`, `careForm`
 and `pickupsForm`). The data modules are tested; all but `recordMerge.js` are pure.
 
+**People, not forms:** wherever a near-miss would make a duplicate or a slip (a parent
+on file typed again, a kennel or contact like one she has, a breed spelled unlike her
+other dogs', a registration number in a name box), the step's check is one she can tap
+past: `{ key, message }` from `problem()`, shown once by `kelsSteps` ("If it's right as you
+typed it, tap Next again") and then skipped while `draft.warned[key]`; changing what she
+typed asks again. The tidy-up's add-a-kennel / add-a-contact forms ask the same way (Add
+again keeps hers). Only a missing answer, or one that can't be saved, stops her.
+
 **Her voice:** every message carries a couple of warm words, aimed at the breeder (her
 work, her pups), never more than one phrase or sentence of it; the rest is the task. Sent
 straight to a task (`?task=`), she still greets and asks "What can I help you do today?",
@@ -1711,17 +1751,19 @@ collecting the information, I'll build the records for you to approve. If you ge
 need to save and come back, I'll save what we've got so far…  Sound good?"), answered
 **Sounds great, let's start!** or **Never mind** (back to the menu). Openers: record a litter
 "Absolutely, let's get those puppies added!", check-in "Of course, let's check in on your
-litter!", tidy up "Love it, let's get your records tidy!", account health "Good idea, let's
-make sure everything's safe and sound!".
+litter!", add dogs "Wonderful, let's get your dogs added!", tidy up "Love it, let's get your
+records tidy!", account health "Good idea, let's make sure everything's safe and sound!".
 
 **The menu** (`kels.js` `TASKS`): a task is `{ id, label, sub, keywords, available, priority,
 run, resumable?, beforeStart? }`, highest priority first, with a search box above it;
 `keywords` are the other words a breeder might search with ("add puppies" finds Record a new
-litter). The page header shows her photo and `KELS.title` ("Kels, the KennelOS whiz") on one line, sized to fit a phone. Order: an unfinished litter (100), the check-in
-(60 while a litter has pups at home, else 40), a new litter (50), prep pups (45, while a
-litter has pups at home), tidy up (30), set up my waitlist (25, Pro), account health (20). The header's **Save for
-later** shows only while a `resumable` task runs. `beforeStart` can redirect a start (a new
-litter while one is unfinished asks "Finish that one / Start fresh"); `handoff(taskId, opts)`
+litter). The page header shows her photo and `KELS.title` ("Kels, the KennelOS whiz") on one line, sized to fit a phone. Order: an unfinished litter (100), unfinished dogs (99), the
+check-in (60 while a litter has pups at home, else 40), a new litter (50), prep pups (45,
+while a litter has pups at home), add dogs (35), tidy up (30), set up my waitlist (25, Pro),
+account health (20). The header's **Save for later** shows only while a `resumable` task
+runs, and the floating button's dot shows while either draft is unfinished. `beforeStart`
+can redirect a start (a new litter, or new dogs, while one is unfinished asks "Finish that
+one / Start fresh"); `handoff(taskId, opts)`
 moves her to another task (an Expected litter in the check-in → its birth).
 
 **Doors:** the floating button; the Breeding page (`kels.html?task=record-litter`); an
@@ -1730,7 +1772,10 @@ isn't closed (**Check in with Kels**, `kels.html?task=checkin&litter=<id>`).
 
 ### "Record a new litter"
 `stepsFor`: mom and dad (own dogs, all dogs, or a new one; a typed name is first checked
-against existing dogs, `dogMatches`, so nobody is entered twice; outside dogs only in Pro) →
+against existing dogs, `dogSearch.findDogMatches` with its names and breed, pedigree-only
+dogs included, so nobody is entered twice; "Yes, that's her" on a pedigree-only one brings
+it into use with her answers (`spec.bringInId`: updated, not made; the pedigree's names and
+breed stay, hers fill only blanks); outside dogs only in Pro) →
 the matching litter (`litterCandidates`) → the matching breeding (`pairingCandidates`) or when
 she was bred → the stud service (Pro, outside dad) → birth date and counts → kennel (only if
 it can't be worked out) → one screen per puppy → plans (disposition, intended registration) →
@@ -1749,6 +1794,103 @@ on the draft as it's made, so a retry never duplicates.
 **After the save** (Pro, `assets/guidedShareUI.js`, loaded only with `waitlist` or
 `companion` and an available pup): tell the waitlist (the litter page's notice) or share the
 available pups with prospective families via Companion links. It **never opens picks**.
+
+### "Add dogs"
+One dog or several in one go, the way the litter task takes several puppies. `stepsFor`:
+1. **Who are we adding?** (`roster`): a row per dog, its name and **♂ Boy** / **♀ Girl**,
+   with **+ Another dog** (up to `maxDogs`: `MAX_DOGS`, 20, or in Lite the room left under
+   the cap, `dogCapStatus()`, shown as "You have room for 2 more dogs") and ✕ to take a row
+   off. Names must differ; an empty row is dropped. In Lite with no room left, she shows
+   the upgrade notice in place of the task's questions.
+2. **What do they have in common?** (`common`, only with two or more dogs): breed, status,
+   whose dog, the owner (someone else's) and the kennel (with more than one own kennel; the
+   active one suggested). `fillFromCommon` fills each dog's blank fields, and any still
+   holding the last common answer; her own change on a dog is kept. A lone dog gets the
+   defaults (Active breeding, Owned).
+3. **Each dog** (`dog:<i>`, "Tell me about Daisy (2 of 3)"): breed (required), date of birth,
+   registered name and number, color and markings, microchip, status (`statusChoices`:
+   Active / Retired breeding, Pet home, For sale, Deceased; Lite: Active / Retired breeding,
+   Deceased; a puppy belongs to a litter), whose dog (`ownershipChoices`: Owned, Co-owned,
+   and someone else's only with `externalOwnership`), the owner for someone else's (a
+   contact, or a name that becomes a new contact), the kennel with several own kennels.
+   Checks she can tap past: a breed spelled unlike one her dogs have ("Did you mean Golden
+   Retriever?"), a registration number in the registered-name box, a new owner like a
+   contact she has. On save, a breed matching hers but for case or spacing takes her
+   dogs' spelling. (The breeder step asks the same of a kennel or contact like one on file.)
+4. **Is this her?** (`match:<i>`, only when `findMatchesFor` finds dogs on file it may be:
+   `dogSearch.findDogMatches` over every dog not archived, pedigree-only and outside ones
+   included, with its call and registered names, number, breed, birthday and sex; up to six,
+   surest first, each showing why, "Same breed and birthday" / "Different breed"; a dog
+   another one on the roster already is isn't offered). The same number titles it "That
+   registration number is Daisy's". **Yes, that's her** on one of hers **fills in** that
+   record: only what's blank on it is written, its parents and breeder are the starting
+   answers, and nothing is made. On a pedigree-only dog it's **brought into use** (the Dog
+   page's bring-in: updated with her answers, `pedigree_only` false). **No, a different dog**
+   makes a new one. Changed details ask again.
+5. **Their parents** (`parents:<i>`, optional: "If you don't know yet, leave them as Not
+   known"): mom and dad each **Not known**, one of the dogs being added, a dog on file of
+   that sex (same breed first), or one typed in, made pedigree-only: its **registered name**
+   (required, as the pedigree reads), registration number and call name (optional). It's
+   looked up with `findDogMatches`: its number on a dog on file is that dog, picked for her
+   (`resolveTypedParents`); the same name (call or registered, titles ignored, misspelled
+   or not) with nothing different, or a near one with something agreeing, gets "Is that …,
+   already in KennelOS? Pick her from the list if so" once, a check she can tap past; one
+   of the batch is refused. Littermates with the same typed mom share one record.
+6. **Who bred it?** (`breeder:<i>`): **I did** (her kennel is its `breeder_kennel_id`), **Another
+   breeder** (Pro, `contactsSection`: their kennel, one on file or a new name, required, and
+   optionally the breeder, a contact picked (one with a kennel fills the kennel) or a new
+   name, phone and email), or **Not sure**. Lite offers **I did** / **Someone else** / **Not
+   sure**, and someone else saves nothing. Each dog starts with the dog before's answer
+   (`breederDefault`), so dogs from one breeder take one tap each.
+7. **Review** (`reviewSections`): a section per dog with **Parents**, **Breeder** and **Change**, the dogs
+   already in KennelOS, and **Add or take off a dog** (back to the roster).
+
+**The save** (`saveGuidedDogs`), per dog: its owner (one new contact per typed name, typed
+Breeder), its typed parents (one pedigree-only dog per name and sex, so littermates share
+it), then the dog: owned or co-owned in her kennel (`resolveKennelIdForWrite` when not
+asked), its breeder kennel (`saveBreeder`: hers; or another breeder's, a typed name
+through `kennelRepo.findOrCreateOutside`, the outside kennel on file by that name (trimmed,
+any case, not archived) or else a new one, as every Kels add-a-kennel does (the tidy-up,
+the litter task's outside parent); the breeder a
+contact typed Breeder linked to it by `contacts.kennel_id`, one she picked gaining the
+kennel if it had none; one new kennel and one new contact per name across the batch, the
+owner's included), an owned dog's owner her own contact (the Dog page's prefill), and her kennel's
+planned tests for the breed (`kennelRepo.seedTestsKennel` + `testsForBreed`, the Dog page's
+seeding). Then each parent from the same batch is linked. **Resumable:** each id goes back on
+the draft as it's made. **Lite:** the cap (`CapExceededError`) stops the save; the dogs made
+so far are kept and linked, the rest aren't made, and she says who she added and shows
+`renderUpgradeNudge`.
+
+**The draft:** `settings.guidedDogsDraft` (`DRAFT_VERSION`), as the litter's: device-only,
+cleared by Reset App, one at a time.
+
+**After the save, when she got them** (all editions, the dogs made that are owned or
+co-owned and she didn't breed, `canBeBought`): "Did you buy any of them? I can add when you got them and who from. A rough
+date is fine if it's hard to remember." **Yes, let's add that** opens one form, a block per
+dog (ticked; untick any she didn't buy): the date (required), who from (starting as the
+breeder kennel's name), the price.
+`saveAcquisitions` makes each an `acquisition` event (titled "Purchased from <seller>",
+`details.source`), and a price an expense linked to it (`expenseRepo.createForEvent`,
+category `dog_purchase`), exactly as the event form's Cost does.
+
+**Their shots** (the same dogs): "Do you have their shots on record?" **Yes, let's add
+them** asks one form per dog over `vocab.VACCINE_CHECKLIST` (Rabies, DHPP, Bordetella,
+Leptospirosis): the date given (blank = skip; a rough date is fine) and how long it's good
+for (`VACCINE_GOOD_FOR`: 1, 3 or 5 years, or Lifetime; 1 year suggested), and **Remind me on
+Today when they're due** (ticked). `saveShots` makes each dated row a `vaccination` event
+titled "Rabies (3-year)" / "DHPP (lifetime)", `details.vaccine`, `details.next_due` = the
+date plus its years, and with the reminder that date as `reminder_date`, so Today's
+Reminders card brings it up like any other reminder. Lifetime has no due date or
+reminder. She names the next one due.
+
+**Then** (Pro, `editionFlags.documents`): "Do you have any papers to file for
+them?" **Yes, let's file them** asks which dog (with several), then a form in the chat: the
+type (`DOC_TYPES`), a PDF or photos (taken or chosen, built into one PDF), a title, a date,
+and the type's fields (`documentFieldsFor`; a registration's number prefilled from the dog).
+It's filed through the Documents modal's own `storeDocumentFile` + `createDocument` (§26.1;
+`documentModal.js` is imported only then). **Another for Daisy** / **One for another dog** /
+**That's all for now**. Then **See Daisy** (or **See my dogs**), **Help me with something
+else**, **Back to Today**.
 
 ### "Check in on a litter"
 Each thing she approves is saved at once; there is no draft.
@@ -1953,7 +2095,10 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
 - **No parents:** her own dog (owned, co-owned, leased in) not from one of her litters with a
   blank sire/dam → pick a dog already on file (right sex, same breed first), or add one: hers
   (owned, in the dog's kennel; at Lite's cap she shows the usual upgrade notice, `renderUpgradeNudge`, and skips that parent) or somebody else's as a
-  pedigree-only dog. A typed name is checked against existing dogs first (`dogMatches`).
+  pedigree-only dog, asked by its registered name (required) and registration number (no
+  call name). Either is looked up first with `dogSearch.findDogMatches` (both names, its
+  number, the dog's breed, the sex): the same number is that dog (she says so and uses
+  it); the others are offered with why, before a new one is made.
 - **Stud service** (`studServices`): past its date (returned, else sent; or Completed), not
   cancelled or failed, no `pairing_id` → link a breeding of the same two dogs opened from two
   weeks before it was sent that no other service claims, or **Record the breeding** in the

@@ -70,21 +70,6 @@ test('an existing litter is offered before an existing breeding, and a picked br
   assert.deepEqual(g.stepsFor(d, { litterOptions: [{ id: 'l' }], linkedPairing: { id: 'p' } }).slice(2, 4), ['match-litter', 'born']);
 });
 
-test('a typed name finds dogs already on file, outside and pedigree-only ones included', () => {
-  const dogs = [
-    { id: '1', call_name: 'Nell', sex: 'female', ownership_type: 'owned' },
-    { id: '2', call_name: '', registered_name: 'Ch. Nellie of Elm', sex: 'female', ownership_type: 'external', pedigree_only: true },
-    { id: '3', call_name: 'Nell', sex: 'male', ownership_type: 'owned' },
-    { id: '4', call_name: 'Nell', sex: 'female', is_archived: true },
-    { id: '5', call_name: 'Duke', sex: 'female' }
-  ];
-  assert.deepEqual(g.dogMatches(dogs, { name: ' nell ', sex: 'female' }).map((d) => d.id).sort(), ['1', '2']);
-  // A registered name typed in finds that dog, and a dog whose name it contains.
-  assert.deepEqual(g.dogMatches(dogs, { name: 'Ruby', registeredName: 'Ch. Nellie of Elm', sex: 'female' }).map((d) => d.id).sort(), ['1', '2']);
-  assert.deepEqual(g.dogMatches(dogs, { name: 'Ruby', sex: 'female' }), []);
-  assert.deepEqual(g.dogMatches(dogs, { name: 'N', sex: 'female' }), []);
-});
-
 test('litters with no pups and open breedings of the same parents are the candidates', () => {
   const litters = [
     { id: 'a', dam_id: 'd', sire_id: 's', status: 'expected' },
@@ -134,7 +119,7 @@ test('steps refuse plainly worded problems', () => {
   assert.equal(g.stepProblem('sire-owner', { ...d, newSire: { owner: { name: '' } } }), 'Pick his owner, or type the owner\'s name.');
   assert.equal(g.stepProblem('dam-match', { ...d, newDam: { matchIds: ['x'] } }), 'Tap one of the choices.');
   assert.equal(g.stepProblem('dam-match', { ...d, newDam: { matchIds: ['x'], matchDeclined: true } }), null);
-  assert.equal(g.stepProblem('dam-new', { ...d, newDam: { call_name: 'Daisy', breed: '' } }), 'Type her breed.');
+  assert.equal(g.stepProblem('dam-new', { ...d, newDam: { call_name: 'Daisy', breed: '' } }), 'Pick her breed, or type a new one.');
   assert.equal(g.stepProblem('pup:0', d), null);
 });
 
@@ -262,4 +247,22 @@ test('a new dog of hers, and a litter entered without its breeding: the picked b
   assert.equal(daisy.ownership_type, 'owned');
   assert.equal(daisy.kennel_id, kennelId);
   assert.equal((await dogRepo.getByLitter(litterId))[0].breed, 'Poodle');
+});
+
+test('a new mom who is only on a pedigree is brought into use, not made twice', async () => {
+  const ped = await dogRepo.createPedigreeOnly({ registered_name: 'Ch Ancestral Nell of Elm', sex: 'female', breed: dam.breed });
+  const d = birthDraft({ damId: null });
+  d.newDam = Object.assign(g.newDogSpec(dam.breed), { call_name: 'Nellie', registered_name: 'Ancestral Nell', bringInId: ped.id });
+  assert.equal(g.stepProblem('dam-match', d), null);
+  assert.match(g.reviewSections(d, {})[0].lines[0], /Brought into your dogs from a pedigree/);
+  const before = tables.dogs.rows.size;
+  const { litterId } = await g.saveGuidedLitter(d);
+  const litter = await litterRepo.getById(litterId);
+  assert.equal(litter.dam_id, ped.id);
+  const nell = await dogRepo.getById(ped.id);
+  assert.equal(nell.pedigree_only, false);
+  assert.equal(nell.ownership_type, 'owned');
+  assert.equal(nell.registered_name, 'Ch Ancestral Nell of Elm', 'the pedigree\'s name stays');
+  assert.equal(nell.call_name, 'Nellie', 'her call name fills the blank');
+  assert.equal(tables.dogs.rows.size, before + 3, 'only the three pups are new');
 });
