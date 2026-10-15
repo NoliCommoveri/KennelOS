@@ -50,6 +50,9 @@ backup, carries a program from Lite to Pro.
     still need proving against a real account.
   - Cloud Phase 2 live sync: next is step 6, the UI and release. Production has every cloud
     migration through `0016` applied. Staging isn't in use, so deploys there aren't tracked.
+  - Duplicates: next is extending the duplicate check to every record type (kennels, breedings,
+    litters, sales, events…), with a Scan for duplicates card on Import/Export that uses the
+    same rules as a file Merge (End-State guide §10).
 - **Open launch items:** confirm `yearlyVariantPattern` / `lifetimeVariantPattern` against
   the store's real variant names. Click the six site checkout links after each deploy
   (`--release` doesn't check them). See `docs/LAUNCH_CHECKLIST.md`.

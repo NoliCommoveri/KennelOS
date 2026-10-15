@@ -1394,3 +1394,80 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   visit; How KennelOS works's is now "I'm on it! I can explain the rules KennelOS follows
   behind the scenes…" with examples Lite has too. Something else after an answer returns
   to the question. Roadmap §3.14 records B's approved intro and the Lite decision (no B).
+- **Kels FAQ checked against the code; Merge keeps newer edits (2026-10-15).** Answers
+  corrected where they disagreed with the rules as built: a record's kennel comes from its
+  dogs, not the kennel being viewed; who needs an owner is External / Leased in; an
+  unfinished sale keeps a litter open; "Not this litter" on a whole turn counts as a pass,
+  as does no response by default, and a program can exempt passes; a pick can switch after
+  the deposit until the next family is offered; a released sale frees a pup; earned covers
+  stud and waitlist fees; income lines name the waitlist family; boarding only when paid;
+  Companion link types; the public list shows the date a place counts from; the online
+  waitlist entry gated by `isWaitlistOnlineOffered` (new `online` in ctx). File / Dropbox
+  Merge: `planFileMerge` and `restoreBackup(obj, 'merge', { keepNewer })`; Import/Export
+  asks keep-mine / take-the-file when this device has newer edits (it used to overwrite
+  them silently). `tests/fileMerge.test.js`. Open: matching records across devices whose
+  ids differ (same dog typed on two devices), proposed as a restore-time match + id remap.
+- **File Merge pairs what each device entered on its own (2026-10-15).** New
+  `data/restoreMatch.js` (pure): per-table rules (Same / Ask / Never) for kennels, accounts,
+  contacts, waitlist programs, feeding schedules, dogs (registered name with titles
+  ignored, registration number, microchip; pups through their litter; call name asked),
+  pairings, litters, sales, stud services, contracts, events, expenses, documents and
+  their files, waitlist entries and offers; only records whose id isn't on the other
+  side; one to one, ambiguity asked. `planFileMerge` now plans the pairs, the open
+  questions and a paired dog's clashes (name, sex, sire, dam); `restoreBackup('merge',
+  { keepNewer, answers, clashChoices })` gives each pair the backup's id (this device's
+  when cloud backup or live sync is on), re-keys every record, `device_secrets` and the
+  app's settings (`settings.remapStoredIds`), and merges fields (blanks fill, newer wins,
+  lists join, notes keep both). Lite's cap is checked on the merged dogs. Import/Export
+  asks "Are these the same?" and "Which should I keep?" before writing. Guide §10 holds
+  the rules. `tests/restoreMatch.test.js`, more in `tests/fileMerge.test.js`; memoryDb's
+  localStorage gained `key()`/`length`. Next: the same rules for on-device duplicates
+  (Tidy up for every record type, kennels included, and a Scan for duplicates card on
+  Import/Export).
+- **Kels FAQ: Lite never says archive (2026-10-15).** "Why did a sale's money disappear"
+  is Pro only (`manualDogArchive`); Lite gets "I entered a sale or an expense by mistake. How
+  do I take it out?" (Delete; end a sale that fell through with a status). The deceased
+  answer drops "rather than archiving it" in Lite. Test: no Lite question or answer says
+  archive.
+  The topic is "Removing and deleting" in Lite (`labelNoArchive`; `understandSections` /
+  `understandCandidates` take the edition's flags).
+- **Kels FAQ: the pregnant-dog walkthrough (2026-10-15).** "Do I record the breeding or the
+  litter?" (`pairing-litter`) is now "My dog is pregnant or had puppies. How do I enter this
+  so I can sell them?", answered as four steps: the pairing, its litter (Expected until
+  born), the puppies once Whelped, and each pup's plan (Available / Keeping / Undecided),
+  with Record a litter with Kels as the guided route. Keywords widened so "pregnant",
+  "puppies born", "sell puppies" and "record the litter" all find it.
+- **Kels FAQ: the outside-stud answer (2026-10-15).** `our-stud` now asks "Should I record
+  the litter?" and says where the stud service goes (Placements & Contracts, Stud Services
+  tab) and that its terms and fee structure are what make the fee income.
+- **Kels FAQ: whole-litter logging (2026-10-15).** `litter-logging` now asks why a
+  whole-litter entry isn't on the litter page, and answers that each pup gets its own entry
+  so its history runs for life, found in the pup's Event History.
+- **Kels FAQ: the go-home date (2026-10-15).** `go-home-day` now says what follows the
+  drop-off entry: once its date has passed, Today asks whether the pup went home and offers
+  Delivered, and Delivered asks about External (Pro) or removing the pup (Lite).
+- **Kels FAQ: no "Today" in answers (2026-10-15).** Every answer that sent her to Today now
+  says "you'll be prompted" or "the app" instead (kept-pup age reminder, an open litter, a
+  dog that died, pairing ↔ litter, the stud pick, the go-home date, waitlist offers, a
+  dismissed prompt).
+- **Kels FAQ: The Today hub (2026-10-15).** A new first topic explaining what's on Today
+  and the rules behind each card: nudges (derived suggestions; nothing changes until she
+  acts; Dismiss is per device), reminders (any event's reminder date; Overdue / Due soon /
+  Upcoming; logging the next one doesn't clear the old one), what an active litter is (one
+  or more Available pups), Due outs & upcoming (one-day events from today on; shows apart
+  in Pro), and Away from home (Boarding entries not yet ended; a stud trip in Pro).
+- **Log new clears its reminder (2026-10-15).** A reminder's Log new on Today now carries
+  `fromReminder=<event id>`; `eventForm.openEventFromQuery` dismisses that reminder once the
+  new event saves (same subject and type only; cancelling leaves it). The Kels reminders
+  answer says so. Checked in the browser: logging the next vaccination from its reminder
+  leaves no reminder pending.
+- **Service worker v81 (2026-10-15).** Cache bumped once for everything since v80: PRs
+  #124–#129 merged to main without a bump (Kels Add people / application form, Find,
+  Understanding Something, waitlist reports) and this branch (the Kels FAQ rework and Today
+  hub topic, Log new clearing its reminder, file Merge pairing). New precached files since
+  v80: `assets/guidedFormUI.js`, `guidedPeopleUI.js`, `kelsApplicant.js`,
+  `kelsBackupSteps.js`, `kelsFindUI.js`, `kelsUnderstandUI.js`, `waitlistFeeStep.js`;
+  `data/contactSearch.js`, `findRecords.js`, `guidedForm.js`, `guidedPeople.js`,
+  `kelsAbout.js`, `kelsFavorites.js`, `kelsFind.js`, `kelsKnowledge.js`, `kelsUnderstand.js`,
+  `restoreMatch.js`; the Applications, Offers & removals and Waitlist today reports. All 394
+  precache paths checked present, and every app file is in the list.

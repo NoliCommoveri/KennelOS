@@ -18,7 +18,7 @@ function flagsOf(path) {
 const PRO = flagsOf('../pro/editionConfig.js');
 const LITE = flagsOf('../lite/editionConfig.js');
 
-const pro = (opts = {}) => understandEntries({ edition: 'pro', flags: PRO, cloud: true, vault: true, ...opts });
+const pro = (opts = {}) => understandEntries({ edition: 'pro', flags: PRO, cloud: true, vault: true, online: true, ...opts });
 const lite = (opts = {}) => understandEntries({ edition: 'lite', flags: LITE, cloud: true, vault: false, ...opts });
 const ask = (entries, q) => search(understandCandidates(entries), q);
 const top = (entries, q) => clearWinner(ask(entries, q).hits)?.c.entry.id || ask(entries, q).hits[0]?.c.entry.id;
@@ -66,6 +66,12 @@ test('Lite: no waitlist, stud, foster or Companion topics; its own way out for a
   assert.match(l.find((e) => e.id === 'gone-home').a, /remove the pup from your program/);
   assert.doesNotMatch(l.find((e) => e.id === 'add-income').a, /stud|waitlist/);
   assert.ok(!l.some((e) => /\blimit\b|\bcap\b|upgrade/i.test(e.a)), 'no word on the limit');
+  assert.ok(!l.some((e) => /archiv/i.test(e.q + e.a + (e.show || ''))), 'Lite never says archive');
+  assert.ok(!understandSections(l, LITE).some((s) => /archiv/i.test(s.label)), 'nor does a Lite topic');
+  assert.ok(!understandCandidates(l, LITE).some((c) => /archiv/i.test(c.group)));
+  assert.equal(understandSections(pro(), PRO).find((s) => s.id === 'removing').label, 'Archiving and deleting');
+  assert.ok(ids.has('mistake-money') && !ids.has('archive-money'), 'Lite asks how to take out a mistake instead');
+  assert.ok(!pro().some((e) => e.id === 'mistake-money'));
   assert.ok(!understandSections(l).some((s) => s.id === 'waitlist'), 'no empty topic');
 });
 
@@ -73,7 +79,9 @@ test('Pro: the gone-home pup goes External; income names every source; no cloud,
   const p = pro();
   assert.match(p.find((e) => e.id === 'gone-home').a, /External with the family as its owner/);
   assert.match(p.find((e) => e.id === 'add-income').a, /your sales, stud fees you earned and waitlist fees/);
-  const offline = new Set(pro({ cloud: false }).map((e) => e.id));
+  assert.match(p.find((e) => e.id === 'add-income').a, /edit the sale, stud service or waitlist family it comes from/);
+  assert.match(p.find((e) => e.id === 'earned').a, /Completed.*received/);
+  const offline = new Set(pro({ cloud: false, online: false }).map((e) => e.id));
   assert.ok(!offline.has('cloud-device') && !offline.has('wl-online'));
   assert.doesNotMatch(pro({ cloud: false }).find((e) => e.id === 'where-data').a, /cloud/);
 });
