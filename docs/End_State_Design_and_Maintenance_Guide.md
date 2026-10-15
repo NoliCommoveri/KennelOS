@@ -413,7 +413,8 @@ vocabulary through `testTokensOf(event)`.
 - `getUpcoming()`, `getScheduledPlacements()`, `getInRange(from, to)` (Calendar),
   `getByType(type)` (Shows page), `getDetailValues(type, key)` (suggestions).
 - `getReminders()` / `getDismissedReminders()`. `reminder_date` is the app's **one**
-  future-dated mechanism; snooze edits it, dismiss sets `reminder_dismissed`.
+  future-dated mechanism; snooze edits it, dismiss sets `reminder_dismissed`. Saving the
+  next one through a reminder's Log new on Today dismisses it too (`fromReminder`).
 - The 30-day "due soon" window (`DUE_SOON_DAYS`) is repeated in `reminders.js`,
   `dashboard.js` and `today.js`; keep them equal.
 
@@ -658,7 +659,8 @@ When in doubt: `value` = text (escaped for you), `cell` = HTML (you escape).
 - **eventForm.js** — the event modal (§8). Event has no page of its own, so
   `openEventFromQuery` lets a subject page open one: `openEvent=<id>`, or
   `logEvent=<type>` with optional `logDate`, `logTitle`, `logEnd` (a span's end),
-  `logContact` (related contact id), `logDetails` (JSON).
+  `logContact` (related contact id), `logDetails` (JSON), `fromReminder` (an event id:
+  saving dismisses that reminder when its subject and type match; Today's Log new).
 - **contactPicker.js** — `attachNewContactButton(select, {onCreated, defaultType,
   defaultName})` adds an inline "＋ New" contact; `onCreated` runs before the `change` event.
   In Lite the type list is Buyer only.

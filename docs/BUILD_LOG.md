@@ -1419,3 +1419,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Upcoming; logging the next one doesn't clear the old one), what an active litter is (one
   or more Available pups), Due outs & upcoming (one-day events from today on; shows apart
   in Pro), and Away from home (Boarding entries not yet ended; a stud trip in Pro).
+- **Log new clears its reminder (2026-10-15).** A reminder's Log new on Today now carries
+  `fromReminder=<event id>`; `eventForm.openEventFromQuery` dismisses that reminder once the
+  new event saves (same subject and type only; cancelling leaves it). The Kels reminders
+  answer says so. Checked in the browser: logging the next vaccination from its reminder
+  leaves no reminder pending.

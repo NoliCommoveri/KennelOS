@@ -41,7 +41,7 @@ export const ENTRIES = [
   { id: 'today-reminders', section: 'today', q: 'How do reminders work?',
     keywords: ['reminder', 'reminders', 'due', 'next', 'vaccination', 'vaccine', 'shots', 'checkup', 'annual', 'recurring', 'snooze', 'overdue'],
     href: 'reminders.html', show: 'Show me my reminders',
-    a: 'Any event you log on a dog can have a reminder date, like when the next vaccination or annual checkup is due. Every reminder still pending shows under Reminders on Today, as Overdue, Due soon (the next 30 days) or Upcoming. Log new opens a fresh entry of the same kind for that dog, where you can set the reminder for the time after. Logging the next one doesn\'t clear the old reminder, so Dismiss it once it\'s done, or Snooze it to a later date.' },
+    a: 'Any event you log on a dog can have a reminder date, like when the next vaccination or annual checkup is due. Every reminder still pending shows under Reminders on Today, as Overdue, Due soon (the next 30 days) or Upcoming. Log new opens a fresh entry of the same kind for that dog, where you can set the reminder for the time after, and saving it clears the old reminder. If you log the next one some other way, Dismiss the old reminder yourself, or Snooze it to a later date.' },
   { id: 'active-litter', section: 'today', q: 'What is an "active litter"?',
     keywords: ['active', 'active litter', 'active litters', 'litter', 'available', 'sold', 'today', 'for sale', 'add sale'],
     href: 'today.html', show: 'Show me Today',
