@@ -108,7 +108,12 @@ export function createChat(box) {
     // label, sub or `keywords` (her own words for it: "add puppies" finds
     // "Record a new litter"). Enter picks the first match. Resolves with the
     // chosen value; the buttons are replaced by her reply bubble (unless !echo).
-    async choose(choices, { stagger = 160, echo = true, search = null, confirmHint = 'Tap again to choose' } = {}) {
+    // A choice with `star` (true/false) gets a ☆ in its corner, its own tap
+    // target that never opens or picks it: `onStar(value, on)` keeps the change.
+    // `note` is a line always shown under the label; `noteAction` ({ label,
+    // run(value) }) a small button shown when the choice is open, that runs and
+    // then takes the note away.
+    async choose(choices, { stagger = 160, echo = true, search = null, confirmHint = 'Tap again to choose', onStar = null } = {}) {
       const holder = add(row('kels-from-you kels-choices-row', `<div class="kels-pick">
         ${search ? `<input type="search" class="kels-search" placeholder="${esc(search.placeholder || 'Search')}" aria-label="${esc(search.placeholder || 'Search')}" autocomplete="off" enterkeyhint="go">
         <p class="kels-search-empty" hidden></p>` : ''}
@@ -121,15 +126,49 @@ export function createChat(box) {
         b.className = `kels-choice${c.primary ? ' primary' : ''}${c.sub ? ' has-sub' : ''}`;
         b.dataset.value = c.value;
         if (c.sub) b.setAttribute('aria-expanded', 'false');
-        b.innerHTML = `<span class="kels-choice-label">${esc(c.label)}</span>${c.sub ? `<span class="kels-choice-sub">${esc(c.sub)}</span><span class="kels-choice-hint">${esc(confirmHint)}</span>` : ''}`;
+        b.innerHTML = `<span class="kels-choice-label">${esc(c.label)}</span>${c.note ? `<span class="kels-choice-note">${esc(c.note)}</span>` : ''}${c.sub ? `<span class="kels-choice-sub">${esc(c.sub)}</span><span class="kels-choice-hint">${esc(confirmHint)}</span>` : ''}`;
         b._words = searchWords([c.label, c.sub, ...(c.keywords || [])].join(' '));
-        list.appendChild(b);
+        // The button's cell in the grid: the button itself, or a holder for it and its star.
+        b._cell = b;
+        if (typeof c.star === 'boolean' && onStar) {
+          const cell = document.createElement('div');
+          cell.className = 'kels-choice-cell';
+          cell.appendChild(b);
+          const star = document.createElement('button');
+          star.type = 'button';
+          star.className = 'kels-star';
+          let on = c.star;
+          const show = () => {
+            star.textContent = on ? '★' : '☆';
+            star.setAttribute('aria-pressed', String(on));
+            star.setAttribute('aria-label', `${on ? 'Unstar' : 'Star'} ${c.label}`);
+            star.title = on ? 'Starred: always at the top' : 'Star it to keep it at the top';
+          };
+          show();
+          star.addEventListener('click', (e) => { e.stopPropagation(); on = !on; show(); onStar(c.value, on); });
+          cell.appendChild(star);
+          if (c.noteAction) {
+            const aside = document.createElement('button');
+            aside.type = 'button';
+            aside.className = 'kels-choice-aside';
+            aside.textContent = c.noteAction.label;
+            aside.addEventListener('click', (e) => {
+              e.stopPropagation();
+              c.noteAction.run(c.value);
+              b.querySelector('.kels-choice-note')?.remove();
+              aside.remove();
+            });
+            cell.appendChild(aside);
+          }
+          b._cell = cell;
+        }
+        list.appendChild(b._cell);
         buttons.push(b);
         scroll();
         if (stagger) await pause(stagger);
         b.classList.add('in');
       }
-      const close = () => buttons.forEach((x) => { if (x.classList.contains('open')) { x.classList.remove('open'); x.setAttribute('aria-expanded', 'false'); } });
+      const close = () => buttons.forEach((x) => { if (x.classList.contains('open')) { x.classList.remove('open'); x._cell.classList.remove('open'); x.setAttribute('aria-expanded', 'false'); } });
       return new Promise((resolve) => {
         const pickBtn = (b) => {
           const choice = choices.find((c) => String(c.value) === b.dataset.value);
@@ -143,6 +182,7 @@ export function createChat(box) {
           if (b.classList.contains('has-sub') && !b.classList.contains('open')) {
             close();
             b.classList.add('open');
+            b._cell.classList.add('open');
             b.setAttribute('aria-expanded', 'true');
             b.scrollIntoView({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
             return;
@@ -152,10 +192,10 @@ export function createChat(box) {
         const box = holder.querySelector('.kels-search');
         if (!box) return;
         const empty = holder.querySelector('.kels-search-empty');
-        const visible = () => buttons.filter((b) => !b.hidden);
+        const visible = () => buttons.filter((b) => !b._cell.hidden);
         box.addEventListener('input', () => {
           const q = searchWords(box.value);
-          for (const b of buttons) b.hidden = !q.every((w) => b._words.some((x) => x.startsWith(w)));
+          for (const b of buttons) b._cell.hidden = !q.every((w) => b._words.some((x) => x.startsWith(w)));
           close();
           const none = !visible().length;
           empty.hidden = !none;

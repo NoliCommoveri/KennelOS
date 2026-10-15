@@ -319,7 +319,8 @@ history) and landing on the card.
 - **Search words are ours.** **Decided:** only we add `keywords` (in `TASKS`); breeders
   don't add their own. An empty search that a breeder would plausibly type is a keyword we
   add in the next release.
-- **Her favorites first.** Two ways a task moves up her menu, both device-local in
+- **Her favorites first** — **Built** (the Doing Something list; End-State guide §33,
+  `data/kelsFavorites.js`). Two ways a task moves up her menu, both device-local in
   `settings.js` (her habits on this device, never in a backup or synced):
   - **Star:** a ☆ in the corner of each menu button (its own tap target, so starring never
     opens or starts the task) toggles `kelsFavorites`. Starred tasks sit at the top.

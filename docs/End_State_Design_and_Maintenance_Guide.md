@@ -532,6 +532,8 @@ Every key is in its `KEYS` table (`kennelOS.*`), each with a getter/setter, and
 - `guidedLitterDraft`, `guidedDogsDraft` and `prepChecks`: Kels's unfinished litter, her
   unfinished Add dogs, and the optional checks ticked last time in Pups are going home
   (§33). Device-only.
+- `kelsFavorites`, `kelsTaskUse`, `kelsNoPromote`: her starred Kels tasks, when she started
+  each (the last 60 days), and the ones she said not to move up (§33, Favorites). Device-only.
 - `studTripsMigrated`: the stud-trip migration has run on this device (§19, Away board).
 
 **Kept outside `KEYS` on purpose**, so Reset App leaves them: the Pro license record and
@@ -1759,6 +1761,16 @@ personal KennelOS agent! I'm here to help you manage your kennel :) What do you 
 with first?"), then an unfinished draft (if any, first), **Finding Something** and **Doing
 Something** (the task menu below, after "Love it! Here's what we can do together."). After a
 task or a find: "What else can I help you with?" and the same buttons.
+
+**Favorites** (`data/kelsFavorites.js`, pure, tested; `kels.js` `doMenu`): the Doing
+Something list is ordered unfinished draft → starred → used often → `priority` (priority
+decides within each). Every task but a resumed draft has a ☆ in its corner (`chat.choose`'s
+`star` / `onStar`: its own tap target, never opens or starts the task) that toggles
+`settings.kelsFavorites`. Each start but a resumed draft is logged (`kelsTaskUse`: id →
+start dates in the last 60 days); more than 3 makes it "You use this often" (a `note` on the
+button), and opening it shows **Don't move this up** (`noteAction`), which adds it to
+`kelsNoPromote` until she stars it. All three are device-only settings, in `KEYS` (Reset
+App clears them), never in a backup or synced.
 
 **The menu** (`kels.js` `TASKS`): a task is `{ id, label, sub, keywords, available, priority,
 run, resumable?, beforeStart? }`, highest priority first, with a search box above it;

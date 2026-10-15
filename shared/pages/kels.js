@@ -28,7 +28,9 @@ import { runHealthTask } from '../assets/accountHealthUI.js';
 import { runDogsTask, pendingDogsDraft, discardGuidedDogsDraft } from '../assets/guidedDogsUI.js';
 import { isCloudAvailable, isVaultOffered, isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
 import { isLicenseGated } from '../data/license.js';
-import { param, esc } from '../assets/ui.js';
+import { param, esc, todayYMD } from '../assets/ui.js';
+import { orderTasks, withStart, withStar } from '../data/kelsFavorites.js';
+import { getKelsFavorites, setKelsFavorites, getKelsTaskUse, setKelsTaskUse, getKelsNoPromote, setKelsNoPromote } from '../data/settings.js';
 import { editionFlags } from '../data/editionConfig.js';
 
 const chat = createChat(document.getElementById('kels-transcript'));
@@ -194,6 +196,9 @@ async function handoff(taskId, opts = {}) {
 async function startTask(task, opts = {}) {
   const redirect = await task.beforeStart?.(opts);
   if (redirect) task = taskById(redirect.taskId);
+  // Each start counts toward "You use this often" (data/kelsFavorites.js); a
+  // resumed draft is the same work, not a new start.
+  if (!task.id.startsWith('resume-')) setKelsTaskUse(withStart(getKelsTaskUse(), task.id, todayYMD()));
   running(task);
   return task.run({ ...opts, onExit, handoff, onSaved: () => running(null) });
 }
@@ -213,13 +218,31 @@ async function menu({ again = false } = {}) {
   return doMenu(s);
 }
 
-// Doing Something: her tasks, highest priority first, with a search box.
+// Doing Something: her tasks with a search box. Unfinished work first, then the
+// ones she starred, then the ones she uses often, then the state-based priority
+// (data/kelsFavorites.js). Every task but a resumed draft has a ☆.
 async function doMenu(s) {
-  const tasks = TASKS.filter((t) => t.available(s)).sort((a, b) => b.priority(s) - a.priority(s));
+  const tasks = TASKS.filter((t) => t.available(s)).map((t) => ({ id: t.id, priority: t.priority(s), unfinished: t.id.startsWith('resume-'), t }));
+  const rows = orderTasks(tasks, { starred: getKelsFavorites(), uses: getKelsTaskUse(), noPromote: getKelsNoPromote() }, todayYMD());
   await chat.say('Love it! Here\'s what we can do together.', { typing: 600 });
-  const id = await chat.choose(tasks.map((t) => ({ label: t.label(s), sub: t.sub, keywords: t.keywords, value: t.id })),
-    { stagger: 200, search: { placeholder: 'What do you need? Try "add puppies"' }, confirmHint: 'Tap again to start' });
+  const id = await chat.choose(rows.map(({ task: { t, unfinished }, starred, frequent }) => ({
+    label: t.label(s), sub: t.sub, keywords: t.keywords, value: t.id,
+    ...(unfinished ? {} : { star: starred }),
+    ...(frequent ? { note: 'You use this often', noteAction: { label: 'Don\'t move this up', run: dontPromote } } : {})
+  })), { stagger: 200, search: { placeholder: 'What do you need? Try "add puppies"' }, confirmHint: 'Tap again to start', onStar: star });
   await startTask(taskById(id));
+}
+
+// The ☆: starred tasks sit at the top. Starring also undoes "Don't move this up".
+function star(id, on) {
+  const next = withStar({ starred: getKelsFavorites(), noPromote: getKelsNoPromote() }, id, on);
+  setKelsFavorites(next.starred);
+  setKelsNoPromote(next.noPromote);
+}
+
+// One she uses often, kept where its priority puts it until she stars it.
+function dontPromote(id) {
+  setKelsNoPromote([...new Set([...getKelsNoPromote(), id])]);
 }
 
 // Her tasks as Find candidates (data/kelsFind.js): a match offers to start it.
