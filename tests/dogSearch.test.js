@@ -46,6 +46,7 @@ test('then the facts: a number is certain, a breed or birthday likely, a differe
   // ...unless the number is the same, which she's told about.
   const same = findDogMatches([{ id: 'w', call_name: 'Rex', breed: 'Whippet', registration_number: 'SR12345601' }], { callName: 'Rex', breed: 'Beagle', registrationNumber: 'SR 123456/01' });
   assert.equal(matchReason(same[0]), 'Same registration number; Different breed');
+  assert.equal(same[0].strength, 'possible', 'never taken without her say');
   const bday = findDogMatches(dogs, { callName: 'Zoey', dateOfBirth: '2022-01-01', sex: 'female' });
   assert.equal(bday.find((m) => m.dog.id === 'mae').strength, 'likely');
   assert.deepEqual(ids(findDogMatches(dogs, { callName: 'Zoey', sex: 'female' }, { excludeIds: ['zoe', 'mae'] })), ['other']);
@@ -63,7 +64,9 @@ test('people: typos, sound-alikes, run-together names, numbers in name boxes, sw
     { id: 'c', call_name: 'Zoey', sex: 'male', registration_number: 'SR12345601' } // wrong sex, same number
   ];
   const ms = findDogMatches(on, { callName: 'Zoie', registrationNumber: 'sr 123456/01', breed: 'whipet', dateOfBirth: '2022-03-04', sex: 'female' });
-  assert.deepEqual(ms.map((m) => [m.dog.id, m.strength]).sort(), [['a', 'certain'], ['b', 'likely'], ['c', 'certain']]);
+  // 'c' has her number but is male: shown, saying so, never certain.
+  assert.deepEqual(ms.map((m) => [m.dog.id, m.strength]).sort(), [['a', 'certain'], ['b', 'likely'], ['c', 'possible']]);
+  assert.match(matchReason(ms.find((m) => m.dog.id === 'c')), /Different sex/);
   assert.equal(matchReason(ms.find((m) => m.dog.id === 'b')), 'Nearly the same registration number');
   // Day and month swapped, or a few days off, is the same birthday.
   const bd = findDogMatches([{ id: 'd', call_name: 'Zoey', date_of_birth: '2022-04-03', sex: 'female' }], { callName: 'Zoey', dateOfBirth: '2022-03-04' });

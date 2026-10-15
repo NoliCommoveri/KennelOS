@@ -1271,3 +1271,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   a number typed with spaces is read as one number. Record a new litter now looks at
   pedigree-only dogs for a new mom or dad and brings the one she picks into use instead of
   making a second (`newDogSpec.bringInId`).
+- **Kels: end-to-end fixes (2026-10-15).** Running every touched flow in a browser found
+  two bugs. The tidy-up's five chat forms that end in a record (pick a parent, pick or add
+  a kennel, pick or add a contact) returned its id as a string, which `chat.form` shows as
+  a problem: picking or adding did nothing, since the forms were written. They return
+  `{ id }` now. And a same-number match of the wrong sex was `certain`, so a typed sire
+  could be filled in with a female; a sex or breed that doesn't fit now keeps it
+  `possible` (shown, saying why, never taken without her say).

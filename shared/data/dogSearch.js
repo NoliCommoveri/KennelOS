@@ -135,6 +135,8 @@ const sexFits = (want, d) => !want || want === 'unknown' || !d.sex || d.sex === 
 //    close (the same name, maybe misspelled),
 //    agrees: ['registration number'|'nearly the same registration number'|'breed'|'birthday'],
 //    differs: ['registration number'|'breed'|'birthday'] }].
+// A same-number dog of another sex or breed is shown (`possible`, saying why),
+// never `certain`, so nothing takes it without her say.
 // typed: { callName, registeredName, registrationNumber, breed, dateOfBirth, sex };
 // `excludeIds`: dogs not to offer (the dog itself).
 export function findDogMatches(dogs, typed = {}, { excludeIds = [] } = {}) {
@@ -147,7 +149,8 @@ export function findDogMatches(dogs, typed = {}, { excludeIds = [] } = {}) {
     const dogNums = [...new Set([d.registration_number, d.call_name, d.registered_name].flatMap(numbersIn))];
     const sameNumber = typedNums.some((n) => dogNums.includes(n));
     const nearNumber = !sameNumber && typedNums.some((n) => dogNums.some((m) => Math.min(n.length, m.length) >= 6 && slips(n, m) <= 1));
-    if (!sameNumber && !sexFits(typed.sex, d)) continue;
+    const sexOk = sexFits(typed.sex, d);
+    if (!sameNumber && !sexOk) continue;
     const RANK = { exact: 3, close: 2, partial: 1 };
     let hit = null;
     for (const t of typedNames) {
@@ -172,7 +175,10 @@ export function findDogMatches(dogs, typed = {}, { excludeIds = [] } = {}) {
     }
     const day = sameDay(typed.dateOfBirth, d.date_of_birth);
     if (day != null) (day ? agrees : differs).push('birthday');
-    const strength = sameNumber ? 'certain'
+    // The same number with the wrong sex or breed is shown, to say so, but never
+    // taken as that dog without her say (a mom is never filled in with a male).
+    if (!sexOk) differs.unshift('sex');
+    const strength = sameNumber && !differs.some((x) => x === 'sex' || x === 'breed') ? 'certain'
       : agrees.length && !differs.length ? 'likely'
         : 'possible';
     // `exact`: a name the same; `close`: the same name, misspelled.

@@ -1706,7 +1706,8 @@ name, call or registered, against both names of every dog, both ways and forgivi
 case, spacing, punctuation ignored; run-together names; a slip or two per word, a swapped
 pair counting as one; sound-alikes, "Zoie" / "Zoey"; "Zoey" finds "GCH Thornfield Zoey Mae");
 numbers wherever they were typed, a name box included, on both sides; then the same number
-is `certain` (shown even when the sex or breed doesn't fit, to say so), one slip off
+is `certain` unless the sex or breed doesn't fit (then it's shown, saying so, as `possible`,
+so nothing takes it without her say: a mom is never filled in with a male), one slip off
 "nearly the same" and a breed spelled near enough or a birthday the same, a few days off or
 day and month swapped make it `likely`; a different breed (not just misspelled) or sex is a
 different dog, never offered; a clearly different number only lowers it to `possible`;

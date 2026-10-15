@@ -313,10 +313,11 @@ class Tidy extends FindingsTask {
       html: field(`${cap(R.word)}`, `<select id="td-parent">${options.map((d) => `<option value="${esc(d.id)}">${esc(dogName(d))}${d.registered_name && d.call_name ? ` (${esc(d.registered_name)})` : ''}${T.normName(d.breed) !== breed ? ` · ${esc(d.breed || '')}` : ''}</option>`).join('')}</select>`),
       submitLabel: 'Use this dog',
       cancelLabel: 'Skip',
-      submit: async (root) => root.querySelector('#td-parent').value || 'Pick a dog.',
-      reply: (id) => this.dog(id)
+      // form() shows a returned string as a problem, so the pick goes back as { id }.
+      submit: async (root) => { const id = root.querySelector('#td-parent').value; return id ? { id } : 'Pick a dog.'; },
+      reply: (r) => this.dog(r.id)
     });
-    return res.done ? res.result : null;
+    return res.done ? res.result.id : null;
   }
 
   async newParent(dog, R) {
@@ -475,10 +476,10 @@ class Tidy extends FindingsTask {
         title: '',
         html: field('Kennel', `<select id="td-kennel">${opts.map((k) => `<option value="${esc(k.id)}">${esc(k.kennel_name)}${k.is_own_kennel ? ' (yours)' : ''}</option>`).join('')}</select>`),
         submitLabel: 'Link', cancelLabel: 'Skip',
-        submit: async (root) => root.querySelector('#td-kennel').value || 'Pick a kennel.',
-        reply: (id) => this.kennel(id)
+        submit: async (root) => { const id = root.querySelector('#td-kennel').value; return id ? { id } : 'Pick a kennel.'; },
+        reply: (r) => this.kennel(r.id)
       });
-      if (res.done) kennelId = res.result;
+      if (res.done) kennelId = res.result.id;
     } else if (pick === 'new') {
       kennelId = await this.newKennel();
     } else return pick;
@@ -503,11 +504,11 @@ class Tidy extends FindingsTask {
         }
         const { kennel: k } = await kennelRepo.findOrCreateOutside(name);
         this.kennelsById.set(k.id, k);
-        return k.id;
+        return { id: k.id };
       },
-      reply: (id) => this.kennel(id)
+      reply: (r) => this.kennel(r.id)
     });
-    return res.done ? res.result : null;
+    return res.done ? res.result.id : null;
   }
 
   async kennelContact(f) {
@@ -530,11 +531,11 @@ class Tidy extends FindingsTask {
         title: '',
         html: field('Contact', `<select id="td-contact">${opts.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}${c.kennel_id ? ` (now with ${esc(this.kennel(c.kennel_id))})` : ''}</option>`).join('')}</select>`),
         submitLabel: 'Link', cancelLabel: 'Skip',
-        submit: async (root) => root.querySelector('#td-contact').value || 'Pick a contact.',
-        reply: (id) => this.contact(id)
+        submit: async (root) => { const id = root.querySelector('#td-contact').value; return id ? { id } : 'Pick a contact.'; },
+        reply: (r) => this.contact(r.id)
       });
       if (res.done) {
-        contactId = res.result;
+        contactId = res.result.id;
         await contactRepo.update(contactId, { kennel_id: k.id });
         await contactRepo.ensureType(contactId, 'breeder');
       }
@@ -554,11 +555,11 @@ class Tidy extends FindingsTask {
           }
           const c = await contactRepo.create({ name, email, phone, contact_type: ['breeder'], kennel_id: k.id });
           this.contactsById.set(c.id, c);
-          return c.id;
+          return { id: c.id };
         },
-        reply: (id) => this.contact(id)
+        reply: (r) => this.contact(r.id)
       });
-      if (res.done) contactId = res.result;
+      if (res.done) contactId = res.result.id;
     } else return pick;
     if (!contactId) return null;
     return this.done(`Done. ${this.b(this.contact(contactId))} is with ${esc(k.kennel_name)}.`);
