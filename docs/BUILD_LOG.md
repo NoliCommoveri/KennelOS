@@ -1424,3 +1424,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   localStorage gained `key()`/`length`. Next: the same rules for on-device duplicates
   (Tidy up for every record type, kennels included, and a Scan for duplicates card on
   Import/Export).
+- **Kels FAQ: Lite never says archive (2026-10-15).** "Why did a sale's money disappear"
+  is Pro only (`manualDogArchive`); Lite gets "I entered a sale or an expense by mistake. How
+  do I take it out?" (Delete; end a sale that fell through with a status). The deceased
+  answer drops "rather than archiving it" in Lite. Test: no Lite question or answer says
+  archive.
