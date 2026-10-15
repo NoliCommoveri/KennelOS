@@ -22,6 +22,9 @@ export const ASSIST_LABEL = KELS.assistLabel;
 // Kels's opening line, from the menu or when a page sends the breeder straight to a task.
 export const kelsHello = () => `Hi, I'm ${esc(KELS.name)}, ${esc(KELS.tagline)}!`;
 
+// Her first message on the Kels page, before "Finding Something" / "Doing Something".
+export const kelsWelcome = () => `${kelsHello()} I'm here to help you manage your kennel :) What do you need help with first?`;
+
 // How she works, said at the start of every new task (not a resumed one), after
 // the task's own opener. The answers are INTRO_CHOICES.
 export const KELS_INTRO = 'I\'ll ask you some questions; once I\'m done collecting the information, I\'ll build the records for you to approve. If you get stuck or need to save and come back, I\'ll save what we\'ve got so far until you\'re ready to continue. Sound good?';

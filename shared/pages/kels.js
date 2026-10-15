@@ -4,6 +4,10 @@
 // (assets/kelsChat.js). She's scripted, not a model: every line is written in
 // the task scripts. Who she is (name, line, photo) lives in kelsChat.js `KELS`.
 //
+// She opens with "What do you need help with first?": Finding Something (assets/
+// kelsFindUI.js: where a page or record is, with a button to it) or Doing
+// Something (TASKS), with an unfinished draft offered first.
+//
 // TASKS is her menu. A task is { id, label(s), sub, keywords, available(s),
 // priority(s), run(opts), resumable?, beforeStart?(opts) }. `keywords` are the
 // other words a breeder might search the menu with ("add puppies" for a new
@@ -14,7 +18,8 @@
 // `beforeStart` can redirect a start (an unfinished draft of the same task).
 // URL: ?task=<id> starts that task straight away; &litter=<id> hands it a litter
 // (an Expected litter's birth, or the litter to check on).
-import { createChat, KELS, kelsAvatar, kelsHello } from '../assets/kelsChat.js';
+import { createChat, KELS, kelsAvatar, kelsWelcome } from '../assets/kelsChat.js';
+import { runFindTask } from '../assets/kelsFindUI.js';
 import { runLitterTask, pendingLitterDraft, discardGuidedLitterDraft } from '../assets/guidedLitterUI.js';
 import { runCheckinTask, checkinState } from '../assets/litterCheckinUI.js';
 import { runTidyTask } from '../assets/tidyUpUI.js';
@@ -129,8 +134,8 @@ const TASKS = [
     label: () => 'Tidy up my records',
     sub: 'Find records that don\'t agree, and duplicates, and fix them',
     keywords: ['clean up', 'cleanup', 'fix', 'check', 'mistakes', 'errors', 'duplicate', 'duplicates', 'merge', 'combine', 'same dog', 'mismatch',
-      'parents', 'sire', 'dam', 'pedigree', 'count', 'placed', 'kennel', 'contact', 'breeder', 'stud', 'audit',
-      ...(editionFlags.contactsSection ? ['vet', 'veterinarian'] : [])],
+      'parents', 'sire', 'dam', 'pedigree', 'count', 'placed', 'audit',
+      ...(editionFlags.contactsSection ? ['kennel', 'contact', 'breeder', 'vet', 'veterinarian'] : []), ...(editionFlags.studServices ? ['stud'] : [])],
     available: () => true,
     priority: () => 30,
     run: (opts) => runTidyTask(chat, opts)
@@ -193,13 +198,38 @@ async function startTask(task, opts = {}) {
   return task.run({ ...opts, onExit, handoff, onSaved: () => running(null) });
 }
 
+// The top: unfinished work first, then Finding Something / Doing Something.
 async function menu({ again = false } = {}) {
   const s = await state();
+  const unfinished = TASKS.filter((t) => t.id.startsWith('resume-') && t.available(s));
+  await chat.say(again ? 'What else can I help you with?' : kelsWelcome(), { typing: again ? 600 : 1300 });
+  const pick = await chat.choose([
+    ...unfinished.map((t) => ({ label: t.label(s), value: `task:${t.id}`, primary: true })),
+    { label: 'Finding Something', value: 'find', primary: !unfinished.length },
+    { label: 'Doing Something', value: 'do' }
+  ], { stagger: 150 });
+  if (pick.startsWith('task:')) return startTask(taskById(pick.slice(5)));
+  if (pick === 'find') return runFindTask(chat, { onExit, handoff, tasks: taskCandidates(s) });
+  return doMenu(s);
+}
+
+// Doing Something: her tasks, highest priority first, with a search box.
+async function doMenu(s) {
   const tasks = TASKS.filter((t) => t.available(s)).sort((a, b) => b.priority(s) - a.priority(s));
-  await chat.say(again ? 'What else can I help you with?' : `${kelsHello()} What can I help you do today?`, { typing: again ? 600 : 1300 });
+  await chat.say('Love it! Here\'s what we can do together.', { typing: 600 });
   const id = await chat.choose(tasks.map((t) => ({ label: t.label(s), sub: t.sub, keywords: t.keywords, value: t.id })),
     { stagger: 200, search: { placeholder: 'What do you need? Try "add puppies"' }, confirmHint: 'Tap again to start' });
   await startTask(taskById(id));
+}
+
+// Her tasks as Find candidates (data/kelsFind.js): a match offers to start it.
+// A little behind a page of the same words, since she asked to find something.
+function taskCandidates(s) {
+  return TASKS.filter((t) => t.available(s)).map((t) => ({
+    id: `task:${t.id}`, group: 'Something we can do together', title: t.label(s), sub: t.sub,
+    where: 'I can do this with you right now.', taskId: t.id, boost: -0.3,
+    levels: [[t.label(s), ...t.keywords], [t.sub], []]
+  }));
 }
 
 laterBtn.addEventListener('click', async () => {
@@ -215,7 +245,7 @@ async function main() {
   const asked = taskById(param('task'));
   if (!asked) { await menu(); return; }
   // Sent straight to a task: she still greets and asks, and the task is the answer.
-  await chat.say(`${kelsHello()} What can I help you do today?`, { typing: 900 });
+  await chat.say(kelsWelcome(), { typing: 900 });
   chat.you(asked.label(await state()));
   await startTask(asked, { litterId: param('litter') || null });
 }

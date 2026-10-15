@@ -1300,3 +1300,18 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   "veterinarian" find the tidy-up in Pro. A browser run found that a tie picked the name
   shown by the order the event types loaded; it's now her most-used spelling, capitals
   winning a tie.
+- **Kels: Finding Something (2026-10-15).** Her first message is now "…I'm here to help you
+  manage your kennel :) What do you need help with first?" with **Finding Something** /
+  **Doing Something** (the task menu), an unfinished draft first. Find searches the cheat
+  sheet (`data/kelsKnowledge.js`: hand-written places, plus every report and expense
+  category), her dogs, litters, people and kennels, and her tasks, with `data/kelsFind.js`:
+  three levels (names; details; notes and events), each tried with her words before
+  synonyms, and synonyms before slips; then one answer, or a question that splits them,
+  or a short list, and a button that opens the page. Nothing found offers the common
+  places or a new search. `dogSearch.wordHit` is exported for it. Browser runs found: the
+  search form returned a string (shown as a problem); synonyms pulled in every expense
+  page for "receipts"; "rabies" stopped at "babies"; a tie picked "Litter P&L" over
+  "Litters"; questions were asked with an obvious answer; a doubled "litter" in titles;
+  the cheat sheet needed "puppy payments", "stud my dog", "people on waitlist". All fixed.
+  The tidy-up's "contact", "breeder", "kennel" and "stud" keywords are now Pro-gated
+  (Lite's Find offered the tidy-up for "contacts").
