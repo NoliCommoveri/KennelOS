@@ -314,6 +314,53 @@ history) and landing on the card.
 
 - **Keywords:** help, find, where is, how do I, what is, explain, show me.
 
+### 3.12 Add people: **M**, Pro (`contacts.html`)
+Contacts as a conversation, for a breeder bringing in the people she already deals with:
+one or several, taken the way Add dogs (§3.8) takes dogs, not "Add another?" after each.
+- **A roster first:** names, and for each what they are to her (`CONTACT_TYPE`: buyer, vet,
+  breeder, co-owner, groomer, handler, referrer, other; several allowed). What they share
+  (a type, how she met them, `first_contact_source`) is asked once and filled in on each.
+- **Each person's details:** phone, email, address, Facebook (the Contact page's fields),
+  then notes. A breeder or co-owner can be tied to a kennel (`kennelRepo.findOrCreateOutside`,
+  as the tidy-up and Add dogs do).
+- **Already on file?** Each name is checked before anything is saved, with the one shared
+  contact match (§4, "Adding a person"): a likely match asks **Same person** (fills in what
+  the record is missing, never overwrites) / **Someone new**.
+- **Review, then save** through `contactRepo`, one resumable draft (`kelsSteps`), as Add dogs.
+- **Then, for someone wanting a pup** (Pro with `waitlist`, a list set up): **Put them on
+  the waitlist?** asks her application in the chat (the shared applicant step, §4) and saves
+  an `applied` entry linked to the contact just made. Without a waitlist, the question
+  isn't asked.
+- **A spreadsheet** of contacts opens the contact import (a page of its own; leaves Kels, §2.8).
+- **Keywords:** add person, add people, contact, contacts, new buyer, vet, groomer, co-owner,
+  handler, family, applicant, phone number, email.
+
+### 3.13 Set up my application form: **M**, Pro (`waitlist`)
+The Waitlist form page (`waitlist-form`) as a conversation: the questions families answer
+when they apply, and the FAQ above them, for one kennel. Set up my waitlist (§3.3) hands
+off to it where it now only says where to change the form.
+- **Which kennel** (multi-kennel), then **where she's starting:** our standard form
+  (`DEFAULT_FORM_QUESTIONS`), the form she has now (re-runnable, §3.3's pattern: she says
+  what's there and asks what to change), or **an old form's spreadsheet** (the page's
+  question import, `proposeQuestionImport` / `applyQuestionImport`: each column shown as
+  a question to keep, rename or skip).
+- **The locked questions** (name, email, the preferences, `ready_timing`, the public-list
+  notice) are shown together, once: "These are how the list works, so they stay. Want to
+  reword any?" Only the wording changes.
+- **Her own questions:** keep / reword / drop each standard one; then **Add a question**:
+  the question, its kind (`WAITLIST_QUESTION_TYPE`; the choices one per line for a choice
+  kind), required or not, help text. Order: a review screen with ↑/↓, as on the page.
+- **FAQ** (`application_faq`): a few common ones offered to start from (price, when pups go
+  home, the fee), each answer hers; or her own.
+- **Review:** the whole form as a family sees it (the same fields as the Waitlist entry page,
+  `assets/waitlistApplicationForm.js`), then saved once through `kennelRepo`, checked by
+  `validateQuestions` / `validateFaq`. One resumable draft until then, since a half-saved
+  form could go live mid-edit when her list is online.
+- **Then:** with the list online, the link to the form (`waitlistOnlineUI`'s); **Add an
+  applicant now?** runs the shared applicant step (§4) with the form she just made.
+- **Keywords:** application, application form, form, questions, questionnaire, apply,
+  waitlist form, FAQ, puppy application, import form, Google Form, Jotform.
+
 ## 4. Shared pieces
 
 - **Search words are ours.** **Decided:** only we add `keywords` (in `TASKS`); breeders
@@ -334,7 +381,22 @@ history) and landing on the card.
     task that isn't `available` never shows, starred or not.
   - **Decided:** the rest never folds under "More", and starred tasks stay in the Doing
     Something list (no shortcuts on her first screen).
-- **Task handoffs** grow (sale → prep pups; heat → breeding → litter). `handoff(taskId,
+- **Adding a person** (for §3.12 and §3.13, then Record a sale's buyer, §3.5). Three jobs
+  that today are separate copies become one each:
+  - **Their fields:** `kelsSteps.contactFields` grows to the Contact page's fields (type,
+    address, Facebook, notes), each opt-in, so the short form the tidy-up and Add dogs use
+    stays as it is.
+  - **Already on file?** `waitlistRules.contactMatches` (exact email, then exact name) and
+    the tidy-up's `duplicateContactFindings` (same name plus one shared detail) are two
+    rules for one question. One pure `data/contactSearch.js` (`findContactMatches`, using
+    `dogSearch`'s word match for slips) serves the waitlist's approval, the tidy-up, and
+    Kels; the copies go in the same change.
+  - **The applicant step:** Set up my waitlist's **Add one by hand** (her application in the
+    chat, the program, when they applied, notes, saved `applied`) moves into `kelsSteps` as
+    one step any task can run, given a contact or not. Add people, Set up my application
+    form and Set up my waitlist all call it.
+- **Task handoffs** grow (sale → prep pups; heat → breeding → litter; waitlist → application
+  form; add people → applicant). `handoff(taskId,
   opts)` already exists; each task documents what `opts` it takes.
 - **Suggested next task:** the menu's `priority` already reads state. Add "pups leave in a
   week" (prep pups), "backup failing" (account health), and "families waiting, no list set
@@ -368,4 +430,16 @@ Decided:
 - Starred tasks stay in the Doing Something list: no shortcuts on her first screen, and
   the rest of the list never folds under "More".
 
-Open: nothing right now.
+Open:
+- **Add people in Lite?** Lite has no Contacts pages, so §3.12 is written as Pro. Lite
+  still makes contacts (a sale's buyer, a dog's breeder); a Lite Add people would be the
+  only place she could see them as a list. Proposed: Pro only.
+- **Does the applicant step need a contact?** Today an application is saved without one
+  and she links a contact at approval (`contactMatches`, never automatic). From Add people
+  the contact already exists. Proposed: link it at once there (she just made it), keep the
+  approval-time pick everywhere else.
+- **One contact match rule** (§4): the waitlist's exact match and the tidy-up's
+  "name + one detail" give different answers today. Proposed: email or phone alone is a
+  match; a name alone, or a close name (a slip), is offered as "maybe", never assumed.
+- **Starting a form from an old spreadsheet** (§3.13) needs a file picked in the chat
+  (Papa parse, as the page does). Proposed: yes, in the chat (§2.8), not by opening the page.
