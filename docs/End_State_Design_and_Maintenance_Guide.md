@@ -785,631 +785,186 @@ imports, nav wiring, sample data, and precache entries.
 
 ## 19. Derived nudges & the away-board union
 
-**Editions:** All editions; nudges for Pro features (shows, waitlist, vendor events) are gated item by item below, and Lite's departure nudge offers **Remove from program** instead of Archive.
+**Editions:** All editions. Show, waitlist and vendor nudges are Pro (their flags). In Lite
+the dead-puppy nudge offers **Remove from program** instead of Archive.
 
-Two small `data/` modules sit on top of the repos as pure composition — neither owns storage
-beyond the one localStorage ledger below.
+### Nudges (`data/nudges.js`)
+`computeNudges()` reads current records only and returns
+`{ key, title, detail, subjectHref, actions: [{ label, run }] }`. It never changes anything
+by itself: every action is a button. Each `key` is stable, so a dismissal survives
+recomputing. Rules iterate the **kennel-scoped** records, but their "already handled?"
+checks use the unscoped set, so an answer one kennel over still counts.
 
-**`data/nudges.js`** — `computeNudges()` reads current record state ONLY (no ledger
-awareness) and returns zero or more:
-```
-{ key, title, detail, subjectHref, actions: [{ label, run: async () => {} }] }
-```
-Every rule iterates the **active-kennel-scoped** set of whatever it nudges about (spec
-§7) — you should not be prompted about the kennel you are not looking at. The unscoped
-originals stay in play for every lookup and every "already handled?" dedup check
-(`pairingExistsForDam`, `pairingIdsWithLitter`, the pups/sales indexes). That asymmetry
-is deliberate: scoping a dedup check would resurrect a nudge whose answer already sits
-one kennel over.
+`pages/today.js` renders them: it filters out dismissed keys (`nudgeState.isDismissed`),
+wires each action, and adds one Dismiss button per row. Dismissals are device-local
+(`nudgeState.js`), never in a backup.
 
-Sixteen rules (plus the four waitlist rules below), each producing its own stable `key` so a dismissal survives re-computation:
-- **What a connected vendor reported** (Pro, `editionFlags.accounts`; Integrations plan §0) —
-  each entry of a sale's or contract's `integration_reviews` (an event her device didn't apply
-  because the record had moved on, a waitlist pick's deposit, or any refund;
-  `integrationEvents.planIntegrationEvent`) is one nudge, "Stripe says a deposit payment of
-  $500.00 came in: a sale", with the reason, linking to the record. Key
-  `int-review:<recordId>:<reviewId>`. **Done** removes the entry from the record.
-- **Follow-up after going home** (Pro, `editionFlags.accounts`; Integrations plan §3, §32) —
-  a `delivered` sale whose pup went home (`referralShare.goHomeDate`: the dog's latest
-  `placement` event on or before today, else `balance_paid_date`) `FOLLOW_UP_DAYS` (7) to
-  `FOLLOW_UP_WINDOW_DAYS` (60) days ago suggests a note to the buyer. Key `follow-up:<saleId>`.
-  **Write the note** returns `{ compose, doneDismisses }`: Today opens it in
-  `assets/messageComposer.js` (a thank-you and how-is-it-going, with the accounts she shares
-  with families), and once she has emailed, texted or copied it the nudge is dismissed.
-- **Stud-service status** — `sent_date` passed + `status='arranged'` → suggest
-  `in_progress`; `returned_date` passed + `status ∈ {arranged, in_progress}` → suggest
-  `completed` (never both; completed wins if both hold).
-- **Promote-lifecycle** — opt-in per kennel (`Kennel.promote_nudge_enabled`): a
-  `status='puppy'`, `disposition='keeping'` dog past its kennel's
-  `promote_age_male_months`/`promote_age_female_months` (by sex) gets a "promote to active
-  breeding?" suggestion. No kennel, disabled, or non-`keeping` disposition ⇒ silent —
-  decide-not-auto-promote, never a mutation on its own.
-- **Stud → pairing** — a stud service that's `completed` or overdue-returned with no
-  `pairing_id` yet suggests creating one, deep-linking to
-  `pairing.html?new=1&stud_service=<id>`. Auto-dismisses: once `pairing_id` is set the rule
-  produces nothing — the link is the done-signal, no ledger entry needed.
-- **Heat → pairing** — a concluded `heat_cycle` event (`event_end_date < today`) with no
-  live pairing recorded for that dam since the heat started suggests creating one via
-  `pairing.html?new=1&dam=<dogId>`.
-- **Due soon → create litter** — a `bred`/`confirmed_pregnant` pairing whose
-  `expected_due_date` is today or within the next `DUE_SOON_DAYS` (3), with no litter recorded
-  against it, suggests **Create litter** via `litter.html?new=1&pairing=<id>` (it starts as
-  `expected`). Not for a `planned` pairing (nothing says the breeding happened). Key
-  `pairingduesoon:<pairingId>`, its own so dismissing it doesn't hide the overdue rule, which
-  takes over the day after the due date.
-- **Overdue pairing** — a pairing in a pre-whelp status
-  (`planned`/`bred`/`confirmed_pregnant`) whose `expected_due_date` has passed, with no
-  litter recorded against it (`litterRepo.getForPairing`), suggests either fix: mark the
-  pairing `whelped` directly, or deep-link to `litter.html?new=1&pairing=<id>`.
-- **Litter whelped → pairing** — a non-archived litter in a whelped-or-later status
-  (`vocab.WHELPED_OR_LATER`) whose linked pairing isn't `whelped` suggests **Mark pairing
-  whelped**. Key `litterpairing:<litterId>`; auto-dismisses once the pairing matches.
-- **Pairing ended → expected litter** — a pairing in `vocab.PAIRING_ENDED_STATUSES`
-  (`not_pregnant`/`failed`/`cancelled`) with a non-archived linked litter still `expected`
-  suggests **Archive litter** (`litterRepo.archive` — it never happened; archive, not delete).
-  Key `pairingended:<litterId>`.
-- **Pairing whelped → no litter** — a `whelped` pairing with no litter recorded against it
-  (archived ones count) suggests **Create litter** via `litter.html?new=1&pairing=<id>`. Silent
-  for an external dam (`ownership_type='external'` or `status='external_reference'` — our
-  stud's outside breeding) and for a pairing whose `expected_due_date` (else
-  `last_observed_date`, `planned_date`, `created_at`) is over 180 days old
-  (`LITTER_RECORD_WINDOW_DAYS`), so historical pairings entered without litters don't flood
-  Today. Key `pairingnolitter:<pairingId>`.
-- **Deceased dog → open records** (`deceasedDogNudges`, exported) — a non-archived
-  `deceased` dog with an open sale (`isOpenSale`) suggests opening the sale to end it there
-  (the sale page's end flow settles the family; key `deceased-sale:<saleId>`); and with a
-  pairing still in a pre-whelp status — as the **dam**, any (`planned` → **Cancel pairing**,
-  `bred`/`confirmed_pregnant` → **Mark failed**); as the **sire**, a `planned` one only and
-  never `method='ai_frozen'` (a bred pairing stands without him). Key
-  `deceased-pairing:<pairingId>:<dogId>`. Archived deceased dogs are read too (archiving a pup
-  that died doesn't end its sale). Last, a **puppy that died** is offered for archiving
-  (`deceasedArchiveAction`): it leaves the Dogs list but stays on its litter's roster with its
-  history. Today offers it for a non-archived dog that died (`date_of_death`, else
-  `status_date`) within the last 90 days before its first birthday (by `date_of_birth`, else
-  its litter's `whelp_date`; neither → not offered); the dog page offers it whenever she has
-  just moved a dog from Puppy to Deceased (`wasPuppy`). Pro: **Archive**. Lite: **Remove from
-  program**, the permanent departure (cap spec §5), whose action carries `confirm: true` —
-  Today and the dog page show its `ask` (confirmModal options) first and run it only on yes.
-  A breeding dog that died stays listed under Not breeding → Deceased unless she archives it.
-  Key `deceased-archive:<dogId>`.
-- **Litter → sold** — a non-archived `ready` litter whose whole roster is resolved to
-  `placed`/`keeping`/`health_hold` (a pup on a health hold is not for sale), with **at least one** actually `placed` (an all-`keeping` litter sold
-  nothing, so it never fires), suggests marking the litter `sold`.
-- **Litter → reopen** — a `sold` or `closed` litter with any puppy back to `available`
-  suggests reopening it to `ready`.
-- **Litter → close** — a `sold` litter with no `available` puppy where **every** `placed`
-  puppy has a `delivered` sale suggests marking it `closed`. A placed puppy with no delivered
-  sale — including one with no sale row at all — blocks the nudge.
-- **Show track complete → title** (Pro-only, gated on `editionFlags.shows`; Show Tracking
-  Spec §5.4) — for each in-scope dog, `showPoints.showRecordFrom` over its `show` +
-  `title_earned` events; a `TITLE_TRACKS` row whose progress is `complete` with **no**
-  `title_earned` carrying `title_abbreviation = track.title` suggests logging it. Key
-  `show-title:<dogId>:<track>`. The action deep-links to
-  `dog.html?id=…&logEvent=title_earned&logTitle=<track label>&logDetails=<JSON
-  {title_abbreviation, organization}>&logDate=<completedOn>` — a prefilled event form,
-  never an auto-created title. Auto-dismisses once the `title_earned` event exists (the
-  event is the done-signal).
-- **Waitlist** (Pro-only, gated on `editionFlags.waitlist`; Waitlist Spec §6.5, §29) — four
-  rules over the scoped `waitlist_entries`/`waitlist_offers`, each a one-tap suggestion
-  because W1 has no server and nothing moves on its own: **new applications** (one per
-  kennel queue, key `waitlist-applications:<kennelId>:<newestEntryId>` so a new
-  application resurfaces a dismissed batch; action deep-links to the Waitlist page);
-  **offer deadline passed** (`waitlist-offer-overdue:<offerId>`, action records
-  `no_response` via `waitlistActions.recordOutcome`, which also moves the turn on; on an offer
-  whose family picked a pup it reads **deposit didn't arrive / Record no deposit** and the held
-  Sale is cancelled);
-  **fee past its pay-by date** (`waitlist-fee-overdue:<entryId>`, action closes the
-  application as `expired`); and **second-pass removal** while its 7-day undo lasts
-  (`waitlist-removed:<entryId>:<removed_date>`, action `undoRemoval`). Each auto-dismisses
-  when its condition clears.
+| Key prefix | Fires when | Offers |
+|---|---|---|
+| `studstatus` | a stud service's sent/returned date passed but status lags | `in_progress` / `completed` |
+| `promote` | a kept puppy is past its kennel's promote age (opt-in per kennel) | promote to active breeding |
+| `studpair` | a finished stud service has no `pairing_id` | create the pairing |
+| `heatpair` | a heat cycle ended with no pairing for that dam since | create a pairing |
+| `pairingduesoon` | a bred/confirmed pairing is due within 3 days, no litter | create the litter |
+| `pairingoverdue` | a pre-whelp pairing is past due, no litter | mark whelped / create litter |
+| `litterpairing` | a whelped-or-later litter's pairing isn't `whelped` | mark it whelped |
+| `pairingended` | an ended pairing still has an `expected` litter | archive the litter |
+| `pairingnolitter` | a `whelped` pairing has no litter (not for external dams or pairings over 180 days old) | create the litter |
+| `deceased-sale`, `deceased-pairing` | a deceased dog has an open sale or a pending pairing | end the sale / cancel or fail the pairing |
+| `deceased-archive` | a puppy died in its first year (last 90 days) | Archive (Lite: Remove from program) |
+| `littersold` / `litterreopen` / `litterclose` | a litter's roster is all resolved with one placed / a pup is available again / every placed pup's sale is delivered | change litter status |
+| `show-title` | a show track is complete with no `title_earned` event | prefilled title event |
+| `int-review` | a vendor event wasn't applied (`integration_reviews`, §32) | open the record; Done removes it |
+| `follow-up` | a pup went home 7–60 days ago (`referralShare`) | write a thank-you note |
+| `waitlist-*` | new applications, an offer or fee past due, a removal's undo window, planned deposit date reached (`open-picks`), "Ready now?" unanswered, family messages, and family requests (pref, pause, listen, Companion link) | the matching waitlist action (§29) |
 
-The four linked-status rules above are the backstop for page prompts that fire only on an
-edit made on that page: the **litter page** offers to set the linked pairing's status when a
-litter is created whelped-or-later or first enters that band; the **pairing page**, on the
-transition into `whelped` with no litter, offers **Create litter**, and into an ended status,
-offers to archive each linked `expected` litter; the **dog page**, on the transition into
-`deceased`, lists `deceasedDogNudges` for that dog with their actions (with the archive offer
-when it was a Puppy until now); and **`salePrompts.promptReleasedPup`**, after recording the
-death of a pup whose sale ended `pup_died`, offers the same archive. An import, a live
-sync, another device or a Skip leaves the mismatch for Today to catch.
+Litter-lifecycle rules ignore deceased pups. The linked-status rules back up prompts the
+litter, pairing, dog and sale pages show on the edit itself, for changes made elsewhere
+(import, sync, another device).
 
-The three litter-lifecycle rules are aggregate facts over a litter's derived roster (and, for
-close, its sales) — **leaving out any pup whose `status` is `deceased`**. A dead pup's
-disposition is null (puppy-only, forced by `dogRepo`), and a null would otherwise hold up
-**sold** for good; filtering on status also covers a row restored or synced from before that
-rule (left `available`, it would ask to reopen). A litter whose pups are all deceased gets none
-of the three. So `computeNudges()` groups the already-loaded `dogRepo.getAll()` result by
-`litter_id` in one pass and adds `saleRepo.getAll()` to its parallel load rather than
-re-scanning per record. Their actions mutate only `Litter.status` via `litterRepo.update`;
-nothing auto-mutates. The stud→pairing and heat→pairing rules share one dedup helper
-(`pairingExistsForDam`): a pairing counts as "already handled" if it's for the same dam, not
-`cancelled`/`failed`, and opened (`planned_date`, falling back to `created_at`) on or after
-the window in question.
+**Today's "Upcoming shows" card** (Pro): `show` events in the next 14 days; Today's
+"Due outs" list leaves shows out so each appears once.
 
-**`data/nudgeState.js`** — the dismissal ledger (§11): `isDismissed`, `dismiss`, `clearAll`.
-A computed nudge has no backing row to persist "dismissed" on, so dismissal is device-local UI
-state, deliberately kept **out of** JSON backups.
-
-**Today's "Upcoming shows" card** (`renderShows`, Pro-only via `editionFlags.shows`; Show
-Tracking Spec §5.3): `show` events in the next 14 days, not `scratched`, grouped by date —
-dog · show · status badge, then location · handler · ring · ring time, each row deep-linking
-`openEvent=<id>`. Silent when empty. While the flag is on, `today.js` filters `event_type ===
-'show'` **out** of the rows it passes to the "Due outs & upcoming" card, so a show is listed
-once on Today; the filter lives in `today.js`, not `getUpcoming()`, so the Upcoming page still
-lists shows. Entries-close alerts are ordinary reminders (`reminder_date`) — no new code.
-
-**Rendering (`pages/today.js`)** owns the split: it calls `computeNudges()`, filters out
-`isDismissed(key)` itself, renders what's left in a "Nudges" section (above Reminders), wires
-each nudge's own action button(s), and adds one generic "Dismiss" button per row — the same
-mechanism for every nudge, owned by the renderer.
-
-**`data/awayBoard.js`** — `getAwayBoardRows()` unions two sources into one normalized
-view-model (`{ dogId, location, reason, contactId, outDate, returnDate, dropoffTime,
-pickupTime, sourceType, sourceId, href }`): `eventRepo.getBoardRows()` (boarding events) plus
-`studServiceRepo.getBoardRows()` (stud services where `type='in_person'` and today falls in
-`[sent_date, returned_date]`, open-ended if `returned_date` is null; away dog is always
-`our_dog_id`; location resolves from the partner contact's `address`). Consumed by
-`pages/board.js`, `pages/today.js` (`renderBoard`), and `pages/dashboard.js` (the away-count
-tile). Boarding events still cover non-stud reasons (grow-out, foster, owner travel); a
-stud-reason stay is authored on the StudService record itself, not duplicated as a boarding
-event.
-
-Active-kennel scope is applied **inside** `getAwayBoardRows()`, not in the three renderers,
-so board/today/dashboard cannot disagree about who is away. Both row kinds normalize to a
-`dogId` and the dog is what is physically away, so both scope through that dog (transparent
-flavor — an outside stud boarding with you belongs to no kennel of yours and must not
-vanish). It costs one extra `dogRepo` read, and only when there IS a scope.
-
-`StudService.type` and the three `Kennel` nudge fields are plain unindexed fields (§5); the
-stud→pairing nudge action reuses the existing `StudService.pairing_id` link. No schema, index,
-or reference-registry change.
+### Away board (`data/awayBoard.js`)
+`getAwayBoardRows()` unions boarding events (`eventRepo.getBoardRows`) and in-person stud
+services now in their sent/returned window (`studServiceRepo.getBoardRows`) into one row
+shape. Used by `board.js`, Today and the dashboard tile. Kennel scope is applied inside it,
+through the away dog, so the three can't disagree.
 
 ---
 
 ## 20. Companion share-out (buyers & partners)
 
-**Editions:** Pro and Demo only (`editionFlags.companion`; `companion.html` and `companion-view.html` are in `proPages.js`). `data/companionExport.js` still ships to Lite because shared code imports it.
+**Editions:** Pro and Demo only (`editionFlags.companion`; `companion.html` and
+`companion-view.html` are in `proPages.js`). `data/companionExport.js` still ships to Lite
+because shared code imports it.
 
-A **one-way, point-in-time export** of a curated slice of a recipient's own data, delivered as
-a **no-account, read-only link** — not sync, not a login, not a live view. The main app stays
-single-user/offline/all-local; this adds *recipients*.
+A **one-way, point-in-time snapshot** of a recipient's own slice of the data, sent as a
+no-account, read-only link. Not sync, not a login, not a live view.
 
-### What it is
+### Bundle types (all anchored on a Contact)
+- **`prospective`** (a contact with `waitlist_status === 'active'`): available pups, one card
+  per litter, with parents' cards (`dogCard`: names, photos link, completed tests) and each
+  pup's per-sex list price and deposit. The same for every prospect: nothing private.
+- **`family`** (a buyer with an open sale, `isOpenSale`): one card per pup on an open sale:
+  names, parents, computed age (never the DOB), placement or ready date, their own sale's
+  money with a computed remaining balance (net of a credited waitlist fee, §21), contracts
+  as `{signedDate, documentUrl}`, and a curated event history (one safe field per type for
+  vaccination, preventative, weight, milestone, note; never `notes`, never
+  illness/injury/evaluation).
+- **`partner`** (the partner on a current stud service, or the counterparty on a live
+  lease/co-own/other contract): stud/dam cards, agreement terms, and the live contract per
+  agreement (`contractRepo.isLivePartnerContract` + `governingContract`). The same predicate
+  drives partner membership, so who appears and what they see can't drift.
 
-**Three bundle types**, all **anchored on a Contact** (the recipient) and discriminated by
-`bundleType`:
+### The console (`pages/companion.*`)
+One tab per bundle type (`?type=`); the tab is the type. Each recipient row expands to the
+`companion_note` editor, **Preview** (the real `companion-view.html` in an iframe, sending
+nothing) and **Prepare link**. Both use `buildSendArtifacts`, so the preview can't differ
+from the send.
 
-- **`prospective`** — a prospective family (a client/waitlister with no sale): current
-  availability as **one card per litter with its available pups nested inside** (`litters[]`,
-  each with `nickname`, `breed`, `whelpDate`, `acceptDepositsDate` (from
-  `Litter.accept_deposits_date`, rendered between "Born" and "Estimated ready" only when
-  set), `readyDate`, a `dogCard` for `sire`/`dam`, and `pups[]`). Each pup carries `sex`,
-  `callName`, `markings`, and its **sex-keyed list `price` + `deposit`**
-  (`Litter.expected_price_*`/`expected_deposit_*`). The availability is the same for every
-  prospect — **no per-recipient private data**.
-- **`family`** — a current family (a buyer with an **open** sale per `saleRepo.isOpenSale`):
-  **one rich card per placed pup** (`pups[]`, from `saleRepo.getByBuyer` filtered by
-  `isOpenSale` → dog — terminal sales `delivered`/`returned`/`cancelled`/`voided` never appear,
-  matching membership). Each pup carries `callName`, `sex`, `photosUrl` (`Dog.url`),
-  `litterNickname` (when set), `sire`/`dam` (call + registered name), a **computed `age`
-  `{ageWeeks, ageDays}`** as-of the generation date (**never the raw DOB**), a `placement`
-  block or an `estimatedReadyDate`, sale facts (`placementType`/`saleStatus` sent as raw
-  values, the shell maps them to their proper-cased vocab labels; `price`, `deposit`,
-  `transportFee` (shown only when present), `deferredPickup` (shown only when a
-  `deferred_boarding_amount` is present — `{total, amount, frequency, duration}`, where
-  `total = amount × count`; the shell shows the total with the rate breakdown beneath it), a
-  **computed** `remainingBalance` = `price + transportFee + deferredPickup.total − deposit`
-  (absent parts count as 0; never stored), and `balanceDueDate` (`Sale.balance_due_date`)),
-  and an `eventSections[]` **curated per-type event history**. When the sale carries a
-  **complete** deferred pickup (amount + frequency + duration) a `deferred_pickup_boarding`
-  section is **pinned to the top** of `eventSections`, listing the dog's `boarding` events as
-  `{startDate, endDate}` scheduled ranges (only the two dates copied — never boarding notes).
-  Plus top-level `contracts[]` = the sale's non-archived contracts as `{signedDate,
-  documentUrl}` (shell shows the signed date or "Not Signed" + a "View/sign contract here"
-  link). Event history
-  surfaces a **title + one curated safe field per type** — `vaccination`→`vaccine`,
-  `preventative`→`product`, `weight_check`→weight, `milestone`→`description`, `note`→title
-  only — **never** the freeform top-level `notes`, and **never** illness/injury/evaluation or
-  any type not on that list.
-- **`partner`** — a stud/lease/co-own partner: `studServices` (labeled **Stud/Dam `dogCard`
-  blocks** carrying registered/call name + completed tests, each followed by an **Agreement
-  Details** section — the service `type` (`in_person`/`ai`, proper-cased), `sentDate`/
-  `returnedDate` relabeled **Begins/Ends**, `fee_structure` as **Terms**, plus the
-  native-decimal `fee_amount` when the structure includes a flat fee and the `pick_status`
-  when it includes a pick of litter — and a **Contract** section carrying the service's own
-  governing/most-recent contract as `contract` = `{signedDate, documentUrl}`), and the
-  top-level `contracts` (lease/co_own/other contracts where `related_contact_id` = them). Each
-  is **projected per type** by `projectContract()`: all carry `type`, `title`, `status`,
-  `signedDate` (shown "Not Signed" when null), `terms`, and `document_url`; a **`lease`** also
-  carries `startDate`/`endDate` and `dog` (the leased dog as `dogRef` = `{registeredName,
-  callName}`); a **`co_own`** also carries `dog`. The shell titles the card by type when it
-  holds a single type ("Lease agreement" / "Co-ownership"), else "Contracts". These are
-  reduced to the **live contract per distinct agreement, not the full history**: only
-  `contractRepo.isLivePartnerContract(c, today)` contracts survive, grouped by
-  `(contract_type, related_dog_id)`, and each group collapses to `governingContract()` (most
-  recent signed) or the most-recent-by-`created_at` fallback. The **same
-  `isLivePartnerContract` predicate drives partner membership** in `companion.js`, so who
-  appears and what their bundle shows can't drift.
-- **`dogCard` / completed tests** (shared projection): prospective sire/dam and partner
-  stud/dam use `dogCard(dog)` → `{registeredName, callName, photosUrl, tests}`, where `tests`
-  is `completedTests(dogId)` reading `eventRepo.getForSubject('dog', …)` and projecting
-  `breed_specific_test` (`test_name`:`result`), `ofa_pennhip` (`joint`:`rating`), and
-  `genetic_test` (`panel_name`:`result`) **only when the result/rating is non-empty** (else
-  `[]`, block omitted).
-
-### Console — one package type at a time
-
-The **Companion Messaging console** (`pages/companion.*`, the Sharing nav item's landing
-page) is scoped by
-`?type=` seg-tabs — one per `COMPANION_TYPES` value (Prospective families / Current families /
-Partners), the same URL-param tab pattern as the Contacts group tabs; no param defaults to the
-first type. The active tab drives the whole page: the single template card shown, a
-plain-language **filter blurb** above it, the **recipients list** (only contacts that match
-the type), and the bundle type "Prepare link" builds (there is no per-row type picker — the
-tab **is** the type).
-
-Each recipient row is **collapsed by default** to a one-line header (name + a `note` badge
-when `companion_note` is set + email/phone); clicking the header reveals the note editor, Save
-note / Preview / Prepare link actions, and the built link. **Preview** builds the same bundle
-"Prepare link" would (persisting any unsaved note first) and opens a modal showing the channel
-body text plus the real `companion-view.html` shell loaded in an iframe off that bundle's hash
-— a byte-for-byte render of what the recipient will see, sending nothing. Both actions share
-`buildSendArtifacts`, so the preview can never drift from the send.
-
-**Membership predicates** (`companion.js`): a **prospective** is a Contact with
-`waitlist_status === 'active'`; a **family** is a buyer with an **open** sale per
-`saleRepo.isOpenSale(s)`; a **partner** is a Contact who is the `partner_contact_id` on a
-non-archived StudService whose `returned_date` is empty or `>= today`, **or** the
-`related_contact_id` on a `lease`/`co_own`/`other` contract that is live per
-`contractRepo.isLivePartnerContract(c, today)`. A Contact can appear under more than one tab —
-that's expected. The prospective filter is display-only, but the **family** and **partner**
-predicates are shared with the bundle builder, so membership and bundle contents stay in
-lockstep.
-
-### Two-layer messaging
-
-Layer 1 is per-type config (`kennelName`/`tagline`/`introText`/`announcement`/`closer`, plus
-the `include` component map — below) in `settings.js` under the `companion` key, edited in the
-console's template card. Layer 2 is **`Contact.companion_note`**, a per-recipient personal
-line. Both are carried in the bundle **separately** — `announcement` (broadcast) and
-`personalNote` (the note) — and the shell shows them **alongside each other**. The shell
-**prepends the recipient's name** to the intro text ("Hi {name} — …"; there is no separate
-greeting card), renders the personal note in the header card's accent box, the broadcast
-announcement as its own card beneath, and the `closer` sign-off as the final card **just above
-the snapshot date**. The bundle copies the resolved copy inline, so header/landing text updates
-without a shell deploy.
-
-### Per-type component allow-list (`include`)
-
-A third piece of Layer-1 config: a flat map of boolean flags, one set per bundle type, stored
-under `companion[type].include` and edited as the "What to include" checkboxes in each template
-card. **All flags default `true`** — everything shows — and `getCompanionSettings` deep-merges
-the map over the defaults so a flag the owner never set (or one added in a later version) falls
-back to on, never silently hiding a component. Each builder reads its type's `include` and
-**only ever subtracts**: a disabled component's field is emitted `null`/`''`/`[]` (or the
-section is skipped), never a new key — so the allow-list invariant below is untouched and no
-`COMPANION_BUNDLE_VERSION` bump is needed. **Master/child flags:** a master gates a group
-(`parents`, `pricing`, `studServices`) and the builder ANDs each child with its master, so a
-child only emits when both are on; the console greys out a child whose master is unchecked.
-
-The flags, by type:
-- **prospective:** `parents` (→ `parentRegisteredName`, `parentCallName`, `parentPhotos`,
-  `parentTests`), `pricing` (→ `pricingPrice`, `pricingDeposit`), `litterDates` (born /
-  accept-deposits / estimated-ready), `markings`, `fosterOwnerKennel` (the litter card's
-  `breederKennel` — the foster dam's **owner kennel**, §25; emitted only for a foster litter,
-  empty for every ordinary litter regardless of the flag). When every `dogCard` field is off the
-  card is omitted entirely; when no pup carries a price/deposit the shell drops the deposit
-  disclaimer.
-- **family:** `age`, `parentage`, `photos`, `readyPlacement`, `financials` (price, deposit,
-  transport, deferred-pickup, remaining balance — net of a credited waitlist application fee,
-  §21 — balance-due — **not** placement type / sale
-  status, which always show), the five history flags `histVaccination`/`histPreventative`/
-  `histWeight`/`histMilestone`/`histNote`, `histBoarding` (deferred-pickup boarding section),
-  `contract`, `fosterOwnerKennel` (the pup card's `breederKennel` — the owner kennel of a
-  pup that came from a foster litter, §25; empty otherwise), `recommended` (the top-level
-  `recommended[]`: her Accounts marked "Share with families", as `referralShare.sharedReferrals`
-  copies them, name / link / code / instructions only; `[]` when off or none, §32; the shell
-  shows a "Recommended for your puppy" card after the contract, links only for web addresses;
-  older links simply lack it).
-- **partner:** `studServices` (master → `studRegisteredName`, `studCallName`, `studPhotos`,
-  `studTests` for the Stud/Dam cards, plus `studAgreement` for the Agreement Details/
-  compensation and `studContract` for the per-service contract), and top-level `contracts`
-  (lease / co-own / other).
+**Messaging:** per-type template copy (kennel name, tagline, intro, announcement, closer) in
+`settings.js` `companion`, plus the per-recipient `Contact.companion_note`. **What to
+include:** per-type boolean flags (`companion[type].include`, all default on, deep-merged so
+new flags default on). Flags **only subtract**: a disabled part is emitted empty, never as a
+new key. Master flags (`parents`, `pricing`, `studServices`) gate their children.
 
 ### The load-bearing invariant: the allow-list builder
+`data/companionExport.js` builds each bundle **field by field**, reading through repos, with
+no record spread. `assertOnlyKeys()` checks the top level against `PROSPECTIVE_KEYS` /
+`FAMILY_KEYS` / `PARTNER_KEYS` and **aborts the send** on anything extra. A new field on a
+source table never reaches a bundle until someone adds it here by name. Money is only ever
+the recipient's own.
 
-`data/companionExport.js` is the **security spine**. `importExport.js` deliberately iterates
-whatever tables exist (a full backup); this builder does the **exact opposite**:
-`buildProspectiveBundle`/`buildFamilyBundle`/`buildPartnerBundle(contact)` each **construct a
-fresh object naming every field explicitly**, reading through repos (never `db.*`), copying
-**only** listed fields — **no record spread, no filter-over-a-record**. After building,
-`assertOnlyKeys()` runs a **positive** allow-list check and **aborts the send** if any
-unexpected top-level key is present. A new field added to a source table does **not** appear in
-a bundle until someone adds it here by name — including fields nested inside a pup/litter/
-service, safe only because each is copied by name and the **top-level** `*_KEYS` allow-lists
-stay exact. Money is limited to the recipient's **own** figures: a prospect sees the litter's
-per-sex list price/deposit, a family sees their own sale price/deposit/balance, a partner sees
-the one stud `fee_amount`.
-
-### Transport & the shell
-
-- The bundle rides the **URL fragment**: `JSON.stringify` → **lz-string**
-  (`vendor/lz-string.min.mjs`, vendored + version-locked, v1.5.0) →
-  `companion-view.html#<hash>` (built by `assets/companionLink.js` — `buildLinkArtifacts`,
-  `sendHrefs` and the two ceilings — shared by the console and the guided litter flow's share
-  step, §33, so both send the same thing). Send is a **real `sms:`/`mailto:` anchor** the user taps (their
-  tap is the activating gesture — never a post-async `window.location` assignment). **Channel
-  by size:** email is the default; SMS is blocked above `MAX_SMS_HASH_LEN` and steered to
-  email; email warns above `MAX_EMAIL_HASH_LEN` (the console's `prepareLink`).
-- **`companion-view.html`** is the recipient shell — one self-contained, read-only static file
-  at the app root (inlined, version-locked lz-string; branches on `bundleType` and
-  `bundleVersion`; **tolerates additive fields**; theme-aware; shows a prominent "snapshot as
-  of" line). It is **infrastructure**: it must stay **backward-compatible with every
-  `bundleVersion` ever sent** — bundle evolution is additive, `bundleVersion` bumps only on a
-  breaking shape change, and a shell fix must not break links sent last month.
-
-### No revocation / no expiry
-
-A hash-link, once sent, is permanent. The sensitive document is **never in the hash** — only
-`document_url`, a pointer; access is governed by the owner's Drive sharing, which they revoke
-independently. `updatedAt` renders prominently so a stale link is self-evident.
-
-### Model touch-points (all covered in §4/§5/§7)
-
-`Contract.related_contact_id` (indexed FK, `CONTACT_REFERENCES`, `getByContact`),
-`Contract.document_url`, `StudService.pick_status`, `Contact.companion_note` — the last three
-plain/unindexed. `companionExport.js` and the console/shell are pure composition + projection;
-no two-way pointers, every reverse stays a query.
+### Transport and the shell
+- The bundle rides the URL fragment: JSON → lz-string (vendored) →
+  `companion-view.html#<hash>`, built by `assets/companionLink.js` (shared with Ken's share
+  step, §33). Send is a real `sms:`/`mailto:` anchor the user taps. SMS is blocked above
+  `MAX_SMS_HASH_LEN` (1800); email warns above `MAX_EMAIL_HASH_LEN` (12000).
+- `companion-view.html` is a standalone, read-only page with lz-string inlined. **It must read
+  every `bundleVersion` ever sent** (`COMPANION_BUNDLE_VERSION`, currently 1): bundles evolve
+  additively, and a shell fix must not break last month's links.
+- **No revocation or expiry.** Documents are never in the link, only `document_url` (her Drive
+  sharing controls access). The "snapshot as of" date shows prominently.
 
 ---
 
 ## 21. Financials — income & the Expense ledger
 
-**Editions:** All editions. Lite hides the invoice/receipt button (`invoicing`), receipt attach (`receiptAttach`) and the Account picker (`accounts`). Waitlist fees and vendor-reported fees are Pro only.
+**Editions:** All editions. Lite hides the invoice/receipt button (`invoicing`), receipt
+attach (`receiptAttach`) and the Account picker (`accounts`). Waitlist fees and processing
+fees from Accounts are Pro only.
 
-The Financials hub has **three views**, switched by a top toggle
-(`financials.html?view=overview|income|expenses`; a bare URL opens Overview, a `?bucket=` link
-still opens Expenses):
+The Financials hub (`pages/financials.*`) has three views
+(`?view=overview|income|expenses`): **Expenses** (the ledger, with one tab per
+`EXPENSE_CATEGORIES` value via `&bucket=`), **Income** (derived, Earned and Anticipated
+boxes; a row opens an **Adjust** modal that writes back to the sale or stud service), and
+**Overview** (earned / anticipated / spent / **Net = earned − spent** tiles and breakdowns).
 
-- **Expenses** — the Expense ledger (money spent).
-- **Income** — a **derived** view of money coming in, sectioned earned vs anticipated.
-- **Overview** — Earned income / Anticipated income / Total expenses / **Net (earned − spent)**
-  tiles, plus a component breakdown of income beside a category breakdown of expenses.
+### Expenses — the one home for money spent
+- `expenses` is polymorphic (`dog`/`litter`/`pairing`/`kennel`). Overhead goes on your own
+  kennel; there is no "general" subject and never a null `subject_id`. Revenue is never
+  stored here.
+- **Mileage** is a repo rule: when `miles` is set, `expenseRepo.normalize` derives
+  `amount = round(miles × mileage_rate, 2)` and the category is `mileage`. Both expense
+  forms share `buildMileageFields`/`wireMileageMode` and preview with `mileageAmount`.
+- Buying a dog is an **expense** (`dog_purchase`), never a Sale.
+- **Event ↔ cost:** `Expense.event_id` is the only link. The event form's Cost field upserts
+  or deletes its expense; its category defaults from `defaultExpenseCategoryFor(event_type)`
+  (`veterinary` only for real vet care; tests → `testing`; `show` → `show`; …). An unlinked
+  expense on a dog/litter/pairing offers **Log event →**, which back-fills `event_id`.
+- **Foster and reimbursables (§25):** the partner's cut is a real `foster_split` expense; a
+  reimbursed `reimbursable` expense drops out of litter cost, and a pending one shows as
+  "Owed back".
+- `assets/expensePanel.js` is the per-subject ledger on dog, litter, pairing and kennel pages.
 
-### The Expense ledger (money spent)
+### Income — derived, never stored (`data/incomeView.js`)
+There is no income table and no `is_earned` field. `getIncomeRows()` reads Sales, outgoing
+StudServices and (Pro) waitlist fees, and classifies each money component on every load.
+Kennel scope applies to the source records here, so every money screen agrees; a
+`kennelId` argument overrides it for the kennel page. Expenses are scoped through their
+subject (`financials.js` `expenseInScope`).
+- **Sale:** deposit, balance (price − deposit), transport and deferred boarding (amount ×
+  count). A part is **earned** once its paid date is set or the status has passed it, else
+  **anticipated**. Returned/cancelled keeps only what was paid. A **lost** sale
+  (`vocab.isLostSale`) counts nothing: it's refunded or carried to another pup (§29).
+  `paidOnSale()` reads what was paid regardless of status.
+- **Outgoing stud fee:** earned when `completed`, anticipated while arranged/in progress.
+  `pick_value_amount` is a separate non-cash `pick` line, outside the cash totals and Net.
+- **Waitlist application fee** (Pro): one earned row per entry with a received fee above 0.
+  When `fee_credit_policy` is `credited_to_purchase` and the family is placed, the fee comes
+  off that sale's balance (`saleComponents(sale, feeCredit)`, `getSaleFeeCredit`) so it isn't
+  counted twice; invoices and the Companion balance show the credit.
+- Vocab: `INCOME_STATES`, `INCOME_SOURCE_TYPES`, `INCOME_COMPONENTS`.
 
-The single home for money spent. One `expenses` table (§4/§5), polymorphic like Event:
-`subject_type ∈ {dog, litter, pairing, kennel}` + `subject_id`. Kennel-wide overhead (facility,
-bulk food, registration dues, marketing) lives on `subject_type='kennel'`; there is deliberately
-**no `general` subject** — program overhead is logged against your own kennel, so there is never
-a null `subject_id`. Revenue is **not stored** here (it stays on `Sale.price`/`deposit_amount`
-and `StudService.fee_amount`); this table is costs only.
+**Per litter:** the Litter page shows a simple Sales & Income panel (each sale's total and
+status). The **Litter P&L** report (`data/litterFinances.js`) is the full picture: income vs
+the litter's expenses plus its puppies' expenses.
 
-**Foster compensation & reimbursables (§25).** A foster litter needs no new income
-machinery: whoever holds the puppies books the gross Sales, and the **other party's cut is a
-real Expense** — the `foster_split` category ("Foster compensation", whether the terms are a %
-split or a flat per-pup fee) — so it flows into the
-Litter P&L as cost like any other spend. Owner-reimbursable rearing costs use the ledger's
-`reimbursable`/`reimbursed_date` fields: `litterFinances.js` **excludes a reimbursed
-reimbursable from your cost** (it washes out — someone paid you back) and tallies a
-**still-pending** one as an outstanding receivable (`reimbursablePending`, the report's "Owed
-back" column) while leaving it in cost until settled.
-
-The ledger has a **CSV import path** (the `expense` mapping in `csvImport.js`, reached from
-Import/Export → "Import expenses (CSV)"), so a companion receipts/mileage app — or any
-spreadsheet — can feed it with the standard dry-run + match-or-create preview. See §9 for the
-mapping (columns, subject resolution, mileage derivation, idempotent natural key). No photo
-crosses over on import — to attach a receipt image to a ledger row, use the in-app receipt
-capture on the expense form (§26.1).
-
-### Mileage / transport costs
-
-A cost you drive for (vet runs, delivering a puppy, hauling a dam to a stud) is captured as a
-**mileage expense** — a normal ledger row whose dollar `amount` is **derived** from distance,
-not typed. The add-expense form (both `assets/expensePanel.js` on every subject page and the
-Financials hub's own modal in `financials.js`) carries a **Flat amount ↔ Mileage** toggle:
-Mileage mode swaps the Amount box for **Miles** + **Rate / mile** (the rate prefilled from
-`settings.getMileageDefaults()`, with a "Save this rate as my default" opt-in via
-`setMileageDefaults`), shows a live `= $X (N mi × $R/mi)` preview, and locks the category to the
-dedicated **`mileage`** ("Mileage / travel") `EXPENSE_CATEGORIES` value.
-
-The math is a **repo rule, not a UI one**: `expenseRepo.normalize` computes `amount =
-round(miles × mileage_rate, 2)` whenever `miles` is set (and stores `miles`/`mileage_rate` as
-plain unindexed fields), so the amount is authoritative regardless of which modal — or a future
-CSV/import — writes it; `validateExpense` requires a non-negative rate on any mileage entry, and
-`create` normalizes **before** validating so the derived amount exists to check. A flat expense
-leaves both fields null and keeps its entered amount. The pure helper `mileageAmount(miles,
-rate)` is exported for the form's live preview so preview and stored value can't drift. Because
-`mileage` is a real category, driving costs break out on their own Expenses seg-tab and in the
-Overview category breakdown automatically (the seg-tabs are built from the vocab, never
-hand-listed) — a clean deductible-mileage total. The two form modals share
-`buildMileageFields`/`wireMileageMode` (exported from `expensePanel.js`) so they never diverge.
-No new table, index, FK, or `referenceRegistry` entry — the fields are plain and the amount is
-derived.
-
-Buying a new dog is deliberately an **expense, never a Sale** — `Sale` and `StudService` stay
-strictly income-side records (owner decision). `EXPENSE_CATEGORIES` carries a `dog_purchase`
-("New dog purchase") category; the dog's own `acquisition` event type (dog-subject, instant,
-`source` field for the seller) is an **option** on that dog's timeline, never auto-created, and
-its default Cost category (`defaultExpenseCategoryFor`) is `dog_purchase` — logging one with a
-Cost amount upserts the linked `Expense` the normal event↔cost way.
-
-### The event↔cost link (one canonical direction)
-
-`Expense.event_id` is the **only** stored link between an event and its cost:
-
-- **Event form → ledger.** The event form's "Cost" (+ "Cost category") field is a convenience
-  writer: on save (`assets/eventForm.js`) it upserts an `Expense` carrying `event_id` = the
-  saved event and the event's own subject; clearing the Cost hard-deletes that linked expense.
-  Cascade (litter-wide) events create one linked expense per created event. One expense per
-  event is the **form's** limit, not the data model's — `expenses.event_id` allows several
-  and `expenseRepo.getByEvent` returns them all. Event stores **no
-  `cost` field**. The Cost category dropdown pre-selects `defaultExpenseCategoryFor(event_type)`
-  (overridable before save). `veterinary` is reserved for genuine clinical vet care
-  (`vaccination`, `illness`, `injury`, `surgery`, `vet_visit`, `ultrasound`) — **not** a catch-all;
-  diagnostic panels (`genetic_test`/`ofa_pennhip`/`breed_specific_test`/`progesterone_test`) map to
-  `testing`, `boarding`→`boarding`, `show`→`show` ("Shows & handling"), `acquisition`→`dog_purchase`, and everything else (including
-  stockable products like `medication`/`preventative` and observation-only events like
-  `abnormalities`) falls through to `other`.
-- **Ledger → event (display).** `timeline.js` reads amounts back via `expenseRepo.getByEvent`
-  and shows a `🔗 event` tag on linked ledger rows.
-- **Ledger → event (create).** In `assets/expensePanel.js`, a dog/litter/pairing expense with
-  no `event_id` offers "Log event →": it opens the event form for that subject and, on save,
-  back-fills the new event's id onto the expense. No mirror field — the reverse is always the
-  `getByEvent` query.
-
-### Income (derived — `data/incomeView.js`)
-
-There is **no income table and no `is_earned` field.** `data/incomeView.js` is a read-only
-aggregator: it reads the Sale table and the **outgoing** StudService table — the only two places
-money-in is recorded — and normalizes each into one view-model row per record, classifying every
-money component as **earned** or **anticipated** on each load. Storing this (or a mirror flag)
-would be a forbidden stored back-pointer (§7); it is always recomputed.
-
-Active-kennel scope is applied here at the **source records**, so the Financials Overview
-tiles, the Income view, the per-litter P&L, and the invoice/receipt generator's record
-picker can never disagree about which money is yours right now. `getIncomeRows()` also
-takes an optional `kennelId`, which overrides the active scope with one named kennel — the
-per-kennel hub (`kennel.html`) needs it, because it reports on the kennel you opened rather
-than the kennel you are scoped to. The Expense side is scoped separately in
-`pages/financials.js` (`expenseInScope`): an Expense is polymorphic and carries no
-`kennel_id`, so its scope is resolved through its subject.
-
-Classification (owner decisions):
-
-- **Sale.** `price` splits into a deposit portion (`deposit_amount`) and a balance portion
-  (`price − deposit`); `transport_fee` and deferred-pickup boarding (`deferred_boarding_amount ×
-  count`, the count in `deferred_boarding_duration_days`) ride with the balance. A component is
-  **earned** once its paid-date is recorded (`deposit_date` / `balance_paid_date`) or the status
-  has advanced past it (`deposit_paid`/`paid_in_full`/`delivered`), else **anticipated**. On a
-  **returned/cancelled** sale only amounts already recorded as paid survive (as earned); the
-  unpaid remainder is dropped, never anticipated. A **lost** sale (`vocab.isLostSale`: **voided** —
-  the kennel's side fell through, e.g. the pup died before going home — or **returned** with
-  `end_reason: 'health_problem'`, within the guarantee) drops **everything**, paid or not —
-  what was paid is refunded or carried to another pup's sale (§29), so it is never this
-  sale's income. `incomeView.paidOnSale(sale, { feeCredit, asStatus })` reads what was paid
-  on a sale ignoring its released status (the waitlist's carry-over offer). A part-paid open sale therefore appears in
-  **both** the Earned and Anticipated boxes, each with its own portion.
-- **StudService (outgoing only** — incoming is money *we* pay, an expense). `fee_amount` is
-  **earned** when `completed`, **anticipated** while `arranged`/`in_progress`, dropped when
-  `failed`/`cancelled`. `pick_value_amount` is a **non-cash estimate**, surfaced on its own
-  `pick` line and kept **out** of the earned/anticipated cash totals and the Net figure.
-
-- **Waitlist application fee** (Pro-only, `editionFlags.waitlist`; Waitlist Spec §5.3) — the
-  third source, read from `waitlist_entries`: an entry with `fee_received_date` and a
-  `fee_amount` above 0 is one row (`source_type: 'waitlist'`, component `application_fee`),
-  always **earned**, scoped by the entry's `kennel_id`. A waived (0) or unpaid fee is no row.
-  Paid online (Integrations plan §4): the component is what they paid (`fee_paid_amount`,
-  her fee plus a passed-on card fee) and a negative `processing_fee` line takes off what the
-  payment service kept (`fee_processing_amount`), so earned is what she received; a credit to
-  the pup's price is still her `fee_amount`.
-  Refunds aren't tracked in W1. **Credit to purchase:** when the entry's
-  `fee_credit_policy` is `credited_to_purchase` and it's `placed` (`placed_sale_id`), the fee
-  was paid toward that pup's price, so `saleComponents(sale, feeCredit)` takes it off the
-  Sale's **balance** (never below 0) — otherwise the money would count twice — and the fee
-  row carries the pup's `dog_id`/`litter_id` so the Litter P&L (`litterFinances.js`, which
-  now sums `sale` **and** litter-scoped `waitlist` rows, counting only sales as pups sold)
-  keeps the full price. `getSaleFeeCredit(saleId)` exposes the credit: the invoice page and
-  the generator pass it to `incomeLineItems(…, { feeCredit })`, and the invoice's balance
-  line reads "Remaining Purchase Price (after $X application fee credit)"; the family
-  Companion bundle's computed remaining balance subtracts it too (§20). A waitlist row in the
-  Income boxes opens the family's waitlist entry instead of the Adjust modal; the generator
-  never lists waitlist rows.
-
-Vocabs (`vocab.js`): `INCOME_STATES` (earned/anticipated badges), `INCOME_SOURCE_TYPES`
-(sale/stud/waitlist badges — the Source filter drops `waitlist` where the flag is off),
-`INCOME_COMPONENTS` (deposit/balance/transport/boarding/stud_fee/pick/application_fee/
-processing_fee — the summary's per-component breakdown, mirroring the expense category one;
-`processing_fee` is the one **negative** line, §21.1).
-
-Income surfaces (`pages/financials.js`): the Income view shows a summary card
-(earned/anticipated totals + component breakdown) then **two grouped boxes** — **Earned** and
-**Anticipated** — each a `reportView` table (one row per sale/stud, source/year filters, CSV
-export). Clicking a row opens a compact **Adjust** modal that writes the money/status/paid-date
-fields straight back through `saleRepo.update` / `studServiceRepo.update` (with an **Open full
-record →** link), so an anticipated amount can be flipped to earned from the hub. No new FK,
-table, or `referenceRegistry` entry — income is purely derived.
-
-**Per-litter income** (sales reach a litter via the puppy's `dog.litter_id`): the **Litter
-detail page** has a deliberately simple "Sales & Income" panel — each puppy sale's **total
-value** (`price + transport + deferred boarding`) and status, with a total, and **no**
-earned/anticipated split or net (owner decision — that detail lives only on the report). The
-**Litter P&L report** (`litter-finances-report`, `data/litterFinances.js`) is the full picture:
-earned/anticipated income vs the litter's own expenses **plus** each puppy's dog-subject
-expenses, and the net.
-
-### 21.1 Processing fees (sales channels) — `docs/KennelOS_Integrations_Plan.md` §5
-
-A sale made through a marketplace or payment service (Good Dog, Stripe, Square…) loses a
-fee: a percentage of the price plus a fixed amount, either of which may be zero. Often she
-passes it to the buyer as a higher price, so the **price is gross and her income is price −
-fee**.
-
-- **Rate on the Account** (`fee_percent`, `fee_fixed`, `fee_passed_to_buyer_default`,
-  `fee_note`), shown on the account card as "6.25% + $5.00 per sale".
-- **Fee on the Sale** (`sales_channel_account_id`, `processing_fee_amount`,
-  `fee_passed_to_buyer`). Picking a channel fills the fee from its rate on the **price**
-  (transport and boarding aren't in the base) and sets the passed-on flag from the
-  account. A fee still at the amount the form filled in follows a price change; one she typed,
-  or one already stored when she opened the form, stays put. "Sold directly" clears a fee
-  the form had filled in. The form shows "You net $X of the $Y price" live, and the view
-  page adds Processing fee and You net rows.
-- **Price to net** (`data/processingFees.js`, pure, `tests/processingFees.test.js`): the form's
-  "Work out a price that nets you a set amount" helper sets `price = (net + fixed) ÷ (1 −
-  percent)`, rounded **up** to the cent, plus the fee and the passed-on flag. Adding the
-  percentage on top is not enough (to net $3,000 at 6.25% takes $3,200, not $3,187.50). In
-  Lite (no Accounts) she types the rate into the helper itself.
-- **Income** (`incomeView.feeComponents`): the fee comes off as negative `processing_fee`
-  components, split across the sale's cash components in proportion to their size, each
-  share taking that component's state and `when`. So **earned income is what she actually
-  received**: a deposit-paid sale has earned the deposit's share of the fee, a cancelled sale
-  keeps only the paid share's, and a lost sale (no components) has none. Each sale row also
-  carries `processing_fee` (the positive total). The Overview Net, the Litter P&L, the P&L by
-  month and the kennel hub all read these rows, so they net it too. Receivables only lists
-  positive amounts, so the buyer still owes the full balance.
-- **Never buyer-facing:** `saleComponents` (behind `incomeLineItems` for the invoice and
-  `paidOnSale`) leaves the fee out, so an invoice or receipt shows the buyer's gross amounts.
-  The family Companion bundle doesn't read it either.
-
-### Surfaces
-
-- **`assets/expensePanel.js`** — the reusable per-subject ledger panel (running total,
-  add/edit/archive/delete, its own add-expense modal). Mounted on the dog, litter, pairing, and
-  **kennel** detail pages (the last via `pages/kennel.*`, reached from the Kennels list's
-  "Open →").
-- **`pages/financials.*`** — the **Financials hub** (its own top-level nav tab, not a report),
-  with the **Overview / Income / Expenses** top toggle. The **"+ Add Expense"** button (logs a
-  cost against any dog / litter / pairing / kennel) shows only on the Expenses view.
-  - **Expenses view:** a summary card (grand total + per-category breakdown) over the standard
-    `reportView` ledger table (category/subject-type/year filters + CSV export). **Sectioned by
-    category:** a `seg-tabs` row built from `EXPENSE_CATEGORIES` (never hand-listed), one tab per
-    category via `financials.html?view=expenses&bucket=<value>` pre-filtering the loaded ledger,
-    plus **All** (default, no `bucket`). The ledger loads newest-to-oldest by `expense_date`
-    before any bucket filter.
-  - **Income view:** summary card + two grouped Earned/Anticipated `reportView` boxes with the
-    row-level Adjust modal.
-  - **Overview view:** the Net tiles + income/expense breakdown.
-
-### Safety
-
-- **Companion export is safe by construction** — `companionExport.js` is a positive allow-list
-  (§20), so `expenses` never appears in any bundle. Financials do not leak.
-- **Hard-delete guards** (§7): an event with a linked expense, and a subject with any expense,
-  are archive-only until the expense is removed.
+### 21.1 Processing fees — `docs/KennelOS_Integrations_Plan.md` §5
+A sale through a marketplace or payment service loses a fee (percent + fixed). The **price
+stays gross and income is price − fee.**
+- The rate lives on the Account (`fee_percent`, `fee_fixed`, `fee_passed_to_buyer_default`).
+  The Sale stores `processing_fee_amount` as a **snapshot**: filled from the rate on the
+  price, followed by price changes only while it's still the filled value, never re-derived.
+  Deposit/balance paid-via accounts estimate it per payment, and a processor's reported fee
+  replaces the estimate (§32).
+- "Price that nets you $X" (`data/processingFees.js`, pure): `price = (net + fixed) ÷
+  (1 − percent)`, rounded up. In Lite (no Accounts) she types the rate.
+- Income takes the fee off as negative `processing_fee` components, split pro rata across
+  the cash components, so earned is what she actually received.
+- **Never buyer-facing:** invoices and Companion use `saleComponents`, which leaves the fee out.
 
 ---
 
 ## 22. Referral tracking (Sale / StudService "Referred by")
 
-**Editions:** Pro and Demo only. Lite hides a sale's "Referred by" field, and has no stud services or Contacts section.
+**Editions:** Pro and Demo only. Lite hides a sale's "Referred by" field and has no stud
+services or Contacts section.
 
-`Sale.referred_by_contact_id` and `StudService.referred_by_contact_id` are indexed FKs → Contact
-(§4/§5), guarded in `CONTACT_REFERENCES`. Each page's form has a "Referred by" picker (any
-contact; the stud page uses a general picker, not its breeder-only partner one). On save the repo
-calls `contactRepo.ensureType` to auto-tag the referrer with the `buyer_referrer` /
-`stud_referrer` role (`CONTACT_TYPE` vocab). The tag is a convenience label; the canonical link
-stays the FK on the Sale/StudService, and a contact's referrals are the reverse query over the
-indexed FK.
+`Sale.referred_by_contact_id` and `StudService.referred_by_contact_id` are indexed FKs to the
+referring Contact (`CONTACT_REFERENCES`). Saving tags that contact `buyer_referrer` /
+`stud_referrer` (`contactRepo.ensureType`). A contact's referrals are a query.
 
 ---
 
