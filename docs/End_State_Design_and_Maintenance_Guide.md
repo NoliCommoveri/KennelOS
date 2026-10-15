@@ -2158,7 +2158,8 @@ checkboxes, never a question apiece:
    None).
 3. **Going online** (only where `isWaitlistOnlineOffered()`): asked first. It publishes
    through this device's cloud backup, so when that's off or signed out she offers **Turn on
-   cloud backup** (`kelsBackupSteps.offerCloudBackup`) and goes on only once it's on. Then one screen:
+   cloud backup** (`kelsBackupSteps.offerCloudBackup`, with the `CLOUD_OFF_FORM` warning:
+   no link, each applicant typed in by hand) and goes on only once it's on. Then one screen:
    list online, applications online, reminder emails; what shows before picks open
    (`UPCOMING_STAGES` × public / family pages); "Ready now?" unanswered and its days; the
    Facebook button and Page; her website (`embed`, addresses); the public list's message;
@@ -2205,8 +2206,6 @@ it, so a half-made form never goes online. **The draft:** `settings.guidedFormDr
 (`DRAFT_VERSION`), as the others: device-only, cleared by Reset App, one at a time.
 
 **After the save:**
-- **Online** (the list is online): it publishes now (`cloudWaitlist.syncWaitlistOnline`) and
-  gives her **Copy application form link**, or says what's stopping it.
 - **Sensitive records** (`kelsBackupSteps.offerSensitiveRecords`, only where
   `isVaultOffered()`): "Applications hold families' phone numbers, addresses and notes."
   Cloud backup first if it's off on this device (`offerCloudBackup` → `turnOnFlow`), then,
@@ -2219,6 +2218,16 @@ it, so a half-made form never goes online. **The draft:** `settings.guidedFormDr
   **Stripe (I'll connect it now)** (a new Payment service account, then **Connect Stripe**
   in the chat, `vendorKeyFlow`), or **Another payment service…** (its name and payment link,
   made as a Payment service account), and when the fee is asked for.
+- **The link to share** (where `isWaitlistOnlineOffered()`): her form is online only while
+  her list is online taking applications (`online_form`). Already so: it publishes now
+  (`cloudWaitlist.syncWaitlistOnline`). Otherwise "Want families to apply online?" (or, with
+  the list online, "take applications online?"); **Yes, take applications online** asks for
+  cloud backup first if it's off (`offerCloudBackup`, warning with `CLOUD_OFF_FORM` that
+  without it there's no link and she'll type each applicant in herself; **Not now** says so
+  again), then `saveWaitlistOnline(kennelId, { online: true, online_form: true })`. Then
+  "Your form is live! Families apply at <link>" with **Copy the link** (`waitlistUI.copyLink`,
+  a box to copy from where the clipboard is refused), or what's stopping it
+  (`onlineProblemText`).
 - **"Do you have a family to put on the list now?"**: the applicant step (under "Add
   people"), asked with the new form; **Add a family** repeats.
 - Then **See my form** (the Waitlist form page), **Help me with something else**, **Back to Today**.

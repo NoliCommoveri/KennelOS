@@ -28,7 +28,7 @@ import {
 import { WAITLIST_AUTO_OFFER_TRIGGER, WAITLIST_READY_NO_ANSWER, WAITLIST_PRIORITY } from '../data/vocab.js';
 import { field } from './litterCheckinUI.js';
 import { askApplicant } from './kelsApplicant.js';
-import { offerCloudBackup } from './kelsBackupSteps.js';
+import { offerCloudBackup, CLOUD_OFF_FORM } from './kelsBackupSteps.js';
 import { askWaitlistFee } from './waitlistFeeStep.js';
 import { esc, fmtMoney } from './ui.js';
 
@@ -189,8 +189,8 @@ class Setup {
     let st = cw.waitlistOnlineStatus(this.kennel);
     if (!st.signedIn || !st.backupOn) {
       const on = await offerCloudBackup(this.chat, {
-        line: `Your online list is published through cloud backup, and that's ${st.signedIn ? 'off' : 'not set up'} on this device. Want to turn it on now? It only takes a minute, and your records get backed up too.`,
-        later: 'Okay, we\'ll leave the list offline for now. Once cloud backup is on, come back and we\'ll put it online.'
+        line: `Your online list is published through cloud backup, and that's ${st.signedIn ? 'off' : 'not set up'} on this device. ${CLOUD_OFF_FORM} Want to turn it on now? It only takes a minute, and your records get backed up too.`,
+        later: 'Okay, we\'ll leave the list offline for now, so you\'ll type each family\'s application in yourself. Once cloud backup is on, come back and we\'ll put it online.'
       });
       st = cw.waitlistOnlineStatus(this.kennel);
       if (!on || !st.signedIn || !st.backupOn) return null;

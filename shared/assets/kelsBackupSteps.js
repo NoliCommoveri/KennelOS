@@ -11,6 +11,11 @@ import { isCloudAvailable, isVaultOffered } from '../data/cloud/cloudConfig.js';
 // What Sensitive records backup adds, in her words.
 export const VAULT_WHY = 'Turn on Sensitive records backup and they\'re saved too, encrypted so only you can read them.';
 
+// What having cloud backup off costs her waitlist: the warning every offer to
+// turn it on for the online form or list gives (Set up my application form, Set
+// up my waitlist).
+export const CLOUD_OFF_FORM = 'Without it, there\'s no link to share: families can\'t apply online, and you\'ll type each applicant in yourself.';
+
 const backupOn = async () => {
   const { getBackupStatus } = await import('../data/cloud/cloudBackup.js');
   const s = getBackupStatus();

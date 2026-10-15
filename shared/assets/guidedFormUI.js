@@ -23,7 +23,7 @@ import { WAITLIST_QUESTION_TYPE, descriptor } from '../data/vocab.js';
 import { getGuidedFormDraft, setGuidedFormDraft, clearGuidedFormDraft } from '../data/settings.js';
 import * as G from '../data/guidedForm.js';
 import { applicationFields } from './waitlistApplicationForm.js';
-import { offerSensitiveRecords } from './kelsBackupSteps.js';
+import { offerSensitiveRecords, offerCloudBackup, CLOUD_OFF_FORM } from './kelsBackupSteps.js';
 import { askWaitlistFee, feeSummary } from './waitlistFeeStep.js';
 import { esc } from './ui.js';
 import { StepConversation, tile, field, input, options, val, plural, pagesPrefix } from './kelsSteps.js';
@@ -278,31 +278,54 @@ class FormConversation extends StepConversation {
 
   async afterSave(kennel) {
     await this.chat.say('Done! ✓ Your application form is saved. Families are going to love how clear it is.', { typing: 1000 });
-    await this.online(kennel);
     await offerSensitiveRecords(this.chat, { what: 'Applications hold families\' phone numbers, addresses and notes.' });
     await this.fee(kennel);
+    await this.shareLink(kennel);
     await this.applicants(kennel);
     await this.finish(kennel);
   }
 
-  // Her list is online: publish the new form now, and give her its link.
-  async online(kennel) {
-    if (!isWaitlistOnlineOffered() || !waitlistConfig(kennel).online) return;
+  // The link families apply at, offered to copy. Her form is online only while her
+  // list is online with applications taken online (online_form); otherwise she's
+  // offered that first (cloud backup on, through kelsBackupSteps, since the list
+  // publishes from it), saved by cloudWaitlist.saveWaitlistOnline as the Online
+  // list card saves it. Only where the waitlist online is offered.
+  async shareLink(kennel) {
+    if (!isWaitlistOnlineOffered()) return;
     const cw = await import('../data/cloud/cloudWaitlist.js');
-    await cw.syncWaitlistOnline().catch(() => {});
-    const st = cw.waitlistOnlineStatus(kennel);
-    if (!st.formOpen) return;
+    let fresh = await kennelRepo.getById(kennel.id);
+    let st = cw.waitlistOnlineStatus(fresh);
+    if (!st.formOpen) {
+      await this.chat.say(st.online
+        ? 'Your list is online, but families can\'t apply online yet. Want to take applications online? You\'ll get a link to share on Facebook or your website.'
+        : 'Want families to apply online? I\'ll put your waitlist online with this form and give you a link to share on Facebook or your website. Your public list shows first names only.');
+      const pick = await this.chat.choose([{ label: 'Yes, take applications online', value: 'yes', primary: true }, { label: 'Not now', value: '' }]);
+      if (pick !== 'yes') return;
+      if (!(await offerCloudBackup(this.chat, {
+        line: `Your online form is published through cloud backup, and that's not on for this device yet. ${CLOUD_OFF_FORM} Want to turn it on now? It only takes a minute.`,
+        later: `Okay, your form stays offline for now, so you'll type each family's application in yourself. Once cloud backup is on, I can put it online any time.`
+      }))) return;
+      await this.chat.say('Putting it online…', { typing: 300 });
+      fresh = await cw.saveWaitlistOnline(kennel.id, { online: true, online_form: true });
+      st = cw.waitlistOnlineStatus(fresh);
+    } else {
+      await cw.syncWaitlistOnline().catch(() => {});
+      st = cw.waitlistOnlineStatus(fresh);
+    }
     if (st.lastError) {
       const { onlineProblemText } = await import('./waitlistOnlineUI.js');
-      await this.chat.say(`It's saved, but it isn't online yet. ${esc(onlineProblemText(st.lastError.code))}`);
+      await this.chat.say(`Your form is saved, but it isn't online yet. ${esc(onlineProblemText(st.lastError.code))}`);
       return;
     }
+    if (!st.formOpen) return;
     const { applyFormLink } = await import('../data/cloud/cloudConfig.js');
-    const link = applyFormLink(kennel.public_id);
-    const bubble = await this.chat.say(`It's live online too. Here's the link to share:
-      <div class="pill-row" style="margin-top:8px;"><button type="button" class="btn btn-sm btn-primary" data-gf-copy>Copy application form link</button></div>`);
+    const link = applyFormLink(fresh.public_id);
+    await this.chat.say(`Your form is live! Families apply at:<br><strong class="gf-link">${esc(link)}</strong><br>Want to copy it to share?`);
+    const pick = await this.chat.choose([{ label: 'Copy the link', value: 'copy', primary: true }, { label: 'Not now', value: '' }]);
+    if (pick !== 'copy') return;
     const { copyLink } = await import('./waitlistUI.js');
-    bubble.querySelector('[data-gf-copy]').addEventListener('click', (ev) => copyLink(link, ev.currentTarget, { title: 'Your application form' }));
+    await copyLink(link, null, { title: 'Your application form' });
+    await this.chat.say('Copied! Paste it on Facebook, your website, or anywhere families will see it.', { typing: 400 });
   }
 
   // The application fee and how families pay, with its payment account.
