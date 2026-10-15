@@ -43,6 +43,7 @@ export async function prepState() {
 
 // Run the task. `litterId` skips "which litter?" (when it's one she can prep).
 export async function runPrepTask(chat, { litterId = null, onExit = () => {} } = {}) {
+  if (!(await chat.intro('Sure thing, let\'s get those pups ready to go home!'))) return onExit('nevermind');
   return new Prep(chat, onExit).start(litterId);
 }
 
@@ -52,7 +53,6 @@ class Prep {
   }
 
   async start(litterId) {
-    await this.chat.say('Sure thing, let\'s get those pups ready to go home!', { typing: 700 });
     const [litters, dogs, sales] = await Promise.all([
       litterRepo.getAll({ includeArchived: false }), dogRepo.getAll({ includeArchived: false }), saleRepo.getAll({ includeArchived: false })
     ]);

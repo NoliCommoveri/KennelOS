@@ -51,6 +51,7 @@ const KIND_WORDS = {
 };
 
 export async function runTidyTask(chat, { onExit = () => {} } = {}) {
+  if (!(await chat.intro('Love it, let\'s get your records tidy!'))) return onExit('nevermind');
   return new Tidy(chat, onExit).start();
 }
 

@@ -44,7 +44,9 @@ These are settled. A task that can't follow one comes back here before it's buil
    steps in her own words, and closes warmly. Every message carries a couple of warm words
    for the breeder (her work, her pups), **never more than one phrase or sentence** of it;
    the rest is the task. Sent straight to a task, she still asks "What can I help you do
-   today?" first.
+   today?" first. Every new task (not a resumed one) starts with `chat.intro(opener)`: its
+   own opener, then the standard "I'll ask you some questions…  Sound good?"
+   (`KELS_INTRO`), answered **Sounds great, let's start!** / **Never mind**.
 
 ## 3. Proposed tasks, in build order
 

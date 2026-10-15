@@ -1080,3 +1080,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   drop-off"); the Sales cover page is off by default. Kels now greets with "What can I help
   you do today?" when sent straight to a task too. Roadmap §2.7: her voice, a couple of
   warm words per message, never more than one phrase or sentence.
+- **Kels's intro on every task (2026-10-15).** The record-a-litter opener's "I'll ask you some
+  questions… Sound good?" with **Sounds great, let's start!** / **Never mind** is now
+  `kelsChat.KELS_INTRO` + `chat.intro(opener)`, said at the start of every new task (record a
+  litter, check in, tidy up, pups are going home) after the task's own opener; a resumed
+  draft still opens with "Welcome back!".

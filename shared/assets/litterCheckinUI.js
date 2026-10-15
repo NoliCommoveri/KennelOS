@@ -46,6 +46,7 @@ export async function checkinState() {
 // `handoff(taskId, opts)` starts another of Kels's tasks (an Expected litter's
 // birth); `onExit(reason)` hands the chat back to her menu.
 export async function runCheckinTask(chat, { litterId = null, onExit = () => {}, handoff = null } = {}) {
+  if (!(await chat.intro('Of course, let\'s check in on your litter!'))) return onExit('nevermind');
   return new Checkin(chat, onExit, handoff).start(litterId);
 }
 

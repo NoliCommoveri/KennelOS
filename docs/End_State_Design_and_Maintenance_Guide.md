@@ -1656,7 +1656,14 @@ and `pickupsForm`). The data modules are tested; all but `recordMerge.js` are pu
 **Her voice:** every message carries a couple of warm words, aimed at the breeder (her
 work, her pups), never more than one phrase or sentence of it; the rest is the task. Sent
 straight to a task (`?task=`), she still greets and asks "What can I help you do today?",
-and the task is the breeder's answer.
+and the task is the breeder's answer. **Every new task** (not a resumed draft) then starts
+with `chat.intro(opener)`: the task's own line ("Sure thing, let's get those pups ready to
+go home!"), then `kelsChat.KELS_INTRO` ("I'll ask you some questions; once I'm done
+collecting the information, I'll build the records for you to approve. If you get stuck or
+need to save and come back, I'll save what we've got so far…  Sound good?"), answered
+**Sounds great, let's start!** or **Never mind** (back to the menu). Openers: record a litter
+"Absolutely, let's get those puppies added!", check-in "Of course, let's check in on your
+litter!", tidy up "Love it, let's get your records tidy!".
 
 **The menu** (`kels.js` `TASKS`): a task is `{ id, label, sub, keywords, available, priority,
 run, resumable?, beforeStart? }`, highest priority first, with a search box above it;
