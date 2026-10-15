@@ -22,7 +22,7 @@ import { param, esc } from '../assets/ui.js';
 
 const chat = createChat(document.getElementById('kels-transcript'));
 const laterBtn = document.getElementById('kels-later');
-document.getElementById('kels-name').textContent = KELS.name;
+document.getElementById('kels-name').textContent = KELS.title;
 document.getElementById('kels-avatar').innerHTML = kelsAvatar({ large: true });
 
 // Kels's tasks. `state`: { pendingLitter, litters: { open, withPups } }.

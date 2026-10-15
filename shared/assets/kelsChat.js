@@ -7,11 +7,12 @@
 import { esc } from './ui.js';
 
 // Who Kels is, in one place: every page, task script and the floating button
-// read these, so a new name or line changes here only. `photo` is a path under
+// read these, so a new name, title or line changes here only. `photo` is a path under
 // assets/ (precached in sw.js), or null to show her initial instead.
 export const KELS = Object.freeze({
   name: 'Kels',
   tagline: 'your personal KennelOS agent',
+  title: 'Kels, the KennelOS whiz', // the Kels page header
   assistLabel: 'Ask Kels',
   photo: 'assets/kels.png'
 });

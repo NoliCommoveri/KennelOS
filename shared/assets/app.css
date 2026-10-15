@@ -1100,12 +1100,14 @@ table.data tfoot .total-row td { font-weight: 700; background: var(--surface-2);
 
 .kels-main { max-width: 760px; }
 .kels-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); display: flex; flex-direction: column; height: calc(100vh - 120px); min-height: 420px; }
-.kels-header { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
-.kels-header-text { flex: 1; }
-.kels-header h1 { font-size: 20px; margin: 0; }
+/* Header: a bigger photo and title in the same 59px, so the chat doesn't move down. */
+.kels-header { display: flex; align-items: center; gap: 10px; padding: 3px 10px; min-height: 59px; box-sizing: border-box; border-bottom: 1px solid var(--border); }
+#kels-avatar { display: flex; flex: none; }
+.kels-header-text { flex: 1; min-width: 0; }
+.kels-header h1 { font-size: clamp(18px, 6.3vw, 28px); line-height: 1.15; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kels-header p { margin: 0; font-size: 14px; }
 .kels-avatar { flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
-.kels-avatar-lg { width: 36px; height: 36px; font-size: 18px; }
+.kels-avatar-lg { width: 52px; height: 52px; font-size: 24px; }
 .kels-avatar-photo { object-fit: cover; padding: 0; background: none; }
 .kels-transcript { flex: 1; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; scroll-behavior: smooth; overscroll-behavior: contain; }
 .kels-row { display: flex; gap: 6px; align-items: flex-end; animation: kels-in 0.25s ease both; }
@@ -1144,7 +1146,7 @@ table.data tfoot .total-row td { font-weight: 700; background: var(--surface-2);
 .kels-choice-sub, .kels-choice-hint { display: none; font-size: 14px; font-weight: 400; color: var(--text-muted); }
 .kels-choice.open .kels-choice-sub, .kels-choice.open .kels-choice-hint { display: block; }
 .kels-choice-hint { font-weight: 700; color: var(--accent-dark); margin-top: 2px; }
-.kels-choice.has-sub .kels-choice-label::after { content: " ›"; font-weight: 400; }
+.kels-choice.has-sub .kels-choice-label::after { content: "\00a0›"; font-weight: 400; }
 .kels-choice.open .kels-choice-label::after { content: ""; }
 .kels-choice.primary .kels-choice-sub, .kels-choice.primary .kels-choice-hint { color: #e5f0ea; }
 .kels-panel { width: min(100%, 560px); background: var(--surface); border: 2px solid var(--accent-soft); border-radius: 16px; border-bottom-right-radius: 5px; padding: 10px 12px; }
@@ -1153,7 +1155,7 @@ table.data tfoot .total-row td { font-weight: 700; background: var(--surface-2);
   .kels-row, .kels-choice, .kels-typing span { animation: none; transition: none; }
 }
 @media (max-width: 520px) {
-  .kels-main { padding-left: 0; padding-right: 0; }
+  .kels-main { padding: 0; }
   .kels-card { height: calc(100vh - 96px); border-radius: 0; border-left: none; border-right: none; }
   .kels-transcript { padding: 8px; }
   .kels-bubble { max-width: 92%; }
@@ -1218,5 +1220,6 @@ table.data tfoot .total-row td { font-weight: 700; background: var(--surface-2);
 .gl-body textarea { width: 100%; font: inherit; font-size: 17px; padding: 10px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); }
 @media (max-width: 420px) { .ck-row { grid-template-columns: 1fr 76px 76px; } }
 .kels-main { padding-top: 8px; padding-bottom: 8px; }
+@media (max-width: 520px) { .kels-main { padding: 0; } }
 /* Room under every page's content for the floating button. */
 body:has(> .kels-fab) main { padding-bottom: 104px; }

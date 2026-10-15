@@ -1048,3 +1048,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   tagline (her first message says it). Decided: in Lite, adding a parent at the cap shows the
   usual upgrade notice and skips that parent; Kels never suggests a way around the cap.
   End-State guide §33. No new files.
+- **Kels's page header (2026-10-15).** A bigger photo (52 px) and her title, "Kels, the KennelOS
+  whiz" (`KELS.title`), on one line sized to the phone's width, in the same header height; no
+  gap above the chat on phones.

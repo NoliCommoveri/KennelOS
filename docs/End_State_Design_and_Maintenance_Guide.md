@@ -1623,7 +1623,7 @@ waitlist picks, contacts and kennels) are gated by their flags.
 
 **Kels** (she/her) is a **scripted** helper shown as a chat, not a model: every line is written in the
 task scripts, and nothing leaves the device. Who she is lives in `kelsChat.KELS` (`name`,
-`tagline`, `assistLabel`, `photo`: `assets/kels.png`, 256 px, precached; null shows her
+`tagline`, `title`, `assistLabel`, `photo`: `assets/kels.png`, 256 px, precached; null shows her
 initial); pages read it through `kelsHello()`, `kelsAvatar()` and `kelsPhotoUrl()` (resolved
 from the module's own URL, so it works from any page). A floating **Ask Kels** button
 (`kelsChat.renderAssistButton`, from `app.js`; her photo above the label, and a dot while a
@@ -1643,7 +1643,7 @@ all but `recordMerge.js` are pure.
 **The menu** (`kels.js` `TASKS`): a task is `{ id, label, sub, keywords, available, priority,
 run, resumable?, beforeStart? }`, highest priority first, with a search box above it;
 `keywords` are the other words a breeder might search with ("add puppies" finds Record a new
-litter). The page header shows only her name and photo. Order: an unfinished litter (100), the check-in
+litter). The page header shows her photo and `KELS.title` ("Kels, the KennelOS whiz") on one line, sized to fit a phone. Order: an unfinished litter (100), the check-in
 (60 while a litter has pups at home, else 40), a new litter (50), tidy up (30). The header's **Save for
 later** shows only while a `resumable` task runs. `beforeStart` can redirect a start (a new
 litter while one is unfinished asks "Finish that one / Start fresh"); `handoff(taskId, opts)`
