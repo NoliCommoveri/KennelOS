@@ -322,6 +322,9 @@ and Email Routing.
   and every footer links to both, and no page still says "no accounts", "no cloud" or "no
   server". The operator ("KennelOS") and governing law (United States) are filled in; have both
   pages read by someone qualified in US law before launch.
+- [ ] **Furever content packs on a real Google account:** in Pro, Connect Google Drive, publish a
+  kennel pack and a litter pack, and check a family's Furever app receives the files (only its
+  own pup's and the parents' from a litter pack). Not yet exercised against real Drive.
 
 ## 5. Recurring (every subsequent release)
 

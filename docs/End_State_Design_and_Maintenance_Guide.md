@@ -26,6 +26,8 @@ The shared core never checks which edition it is: it reads the two injection poi
   the Pro-semantics default. Source copies are in `lite/`, `pro/` and `demo/`.
 - **`data/editionTour.js`** holds the guided-tour package (sample seed + step catalog, §11).
   Lite supplies its own; Pro and Demo use the shared default.
+- **A new flag goes in all four copies** (`shared/`, `lite/`, `pro/`, `demo/`
+  `editionConfig.js`): the build overlays an edition's file whole, with no merge.
 - **`data/proPages.js`** lists the Pro-only files. The Lite build leaves them out (a direct
   URL 404s), and Lite-kept pages use it to hide links to them.
 
@@ -1139,261 +1141,66 @@ Blobs survive JSON backup and Dropbox sync through base64 tagging (§5).
 
 ## 27. Furever seed-link generator (breeder side)
 
-**Editions:** Pro and Demo only (`editionFlags.furever`, `feedingSchedule`; their pages are in `proPages.js`).
+**Editions:** Pro and Demo only (`editionFlags.furever`, `feedingSchedule`; their pages are
+in `proPages.js`).
 
-**KennelOS Furever** (`furever/`, this repo, a separate deployed app — see
-`furever/README.md` and `docs/KennelOS_Furever_Schema.md`) is a free family-facing
-pet-care app a puppy family installs at pickup. It's seeded by a **texted link**
-whose payload the family app decodes and applies (`furever/data/seedLink.js`); this
-section covers the **encoder side**, which lives here in the breeder app, Pro-only
-(§13's Pro-only feature gates), same shape as Companion (§20) but for a different
-destination — Furever is a **separate origin/app**, not the recipient-facing shell
-Companion uses.
+**KennelOS Furever** (`furever/`, a separate app at `FUREVER_APP_URL`,
+`https://furever.kennelos.app/`; see `furever/README.md`) is the family's pet-care app. A
+**texted link** seeds it; this section is the breeder-side encoder.
 
-**The Furever console** (`pages/furever.*`, a Sharing seg-tab sibling of Companion, gated by
-`editionFlags.furever` + `data/proPages.js`'s `PRO_ONLY_PAGES`) has two parts,
-plus a **setup-nudges strip** above them (`#setup-nudges`, `renderSetupNudges`):
-subtle, non-blocking reminders for the two furever-relevant things easy to
-forget — "No vet contact on file. Add one now →" (`vets.length === 0` from the
-identity load) and "No feeding schedule configured for `<breed(s)>`. Configure
-now →" (breeds among today's open-sale recipients that have no
-`breedFeedingScheduleRepo` row, §27.2) — each a plain link to fix it, nothing
-blocks sending a link without either.
+**The console** (`pages/furever.*`, a Sharing tab beside Companion):
+- **Setup nudges** above it: no vet contact on file; breeds of current buyers' pups with no
+  feeding schedule. Neither blocks sending.
+- **Kennel identity** in the `furever` setting: kennel name, tagline, breeder and vet
+  contacts, and a generated `breederKey`. Prefilled from her records (blanks only; any
+  `vet`-tagged contact can be picked); independent of `myKennelId`.
+- **Recipients:** pups on an open sale (`isOpenSale`, as Companion's family bundle). A
+  personal note and pickup plan persist as plain Sale fields (`furever_note`,
+  `furever_pickup_date`/`_time`/`_place`/`_photo_url`), so a resend starts from them. Furever
+  shows them as a pre-pickup countdown card.
 
-- **Kennel identity**, saved once via `settings.js`'s `getFureverSettings`/
-  `setFureverSettings` (`localStorage`, key `kennelOS.furever`, cleared by Reset
-  App like Companion's settings): kennel name, tagline, the breeder's own contact
-  (`{name, phone, email}`), their vet's contact (`{name, phone, address}`) — the
-  "inherently yours, never generic" fields the Furever brief calls for. `breederKey`
-  is generated on first read (`crypto.randomUUID()`) and persisted — deliberately
-  **not** tied to `myKennelId` (§11), so Furever works even when Kennel Setup was
-  skipped. Copied into every packet sent from then on. **The card prefills from the
-  breeder's existing records** so identity isn't retyped: kennel name from My Kennel
-  (`getMyKennelId`), the breeder contact from their owner Contact (`getMyContactId`),
-  and the vet from any Contact tagged `'vet'` — offered as a **picker** that fills
-  the vet fields (and auto-filled when there's exactly one vet). Prefill is
-  **non-binding and blanks-only** (it never overwrites a saved value and the Furever
-  block stays its own store, consistent with the not-tied-to-`myKennelId` rule);
-  filled blanks are persisted on load so a link can be prepared without a manual save.
-- **Recipients** are pups with an **open sale** (`saleRepo.isOpenSale` — the exact
-  membership predicate Companion's "family" package uses, §20), one card each. A
-  personal note and pickup-plan fields (date/time/place/photo URL — the brief's
-  pre-pickup countdown card content, rendered by Furever's Profile page as the
-  countdown card, below) persist as **plain `sales` fields**, no schema/index change and no
-  `referenceRegistry` entry needed (not FKs): `furever_note`,
-  `furever_pickup_date`, `furever_pickup_time`, `furever_pickup_place`,
-  `furever_pickup_photo_url`. Persisting them (rather than a one-shot form) means a
-  resend starts from the last-sent details, same reasoning as Companion's
-  `Contact.companion_note`.
+**`data/fureverSeedExport.js`** `buildSeedPacket` (async) copies named fields only (the
+Companion allow-list discipline, §20), matching what `furever/data/seedLink.js` reads:
+`pupId`, `breederKey`, `name`, `species`, `sex`, `breed`, `dob`, `photoUrl`, `note`,
+`pickupPlan`, `kennelName`, `tagline`, `breederContact`, `breederVet`, `contentPackages`,
+`feedingSchedule`. lz-string compressed into `FUREVER_APP_URL#seed=<payload>`, sent with
+real `mailto:`/`sms:` anchors and the same size ceilings as Companion. No preview: Furever
+has no local read-only shell.
 
-**`data/fureverSeedExport.js`** builds the packet: named-copy-only from the dog +
-the saved identity (same allow-list discipline `companionExport.js`'s header
-explains, §20's "load-bearing security invariant" — no record spread), matching
-exactly what the Furever-side decoder reads by name (`pupId`, `breederKey`, `name`,
-`species`, `sex`, `breed`, `dob`, `photoUrl`, `note`, `pickupPlan`, `kennelName`,
-`tagline`, `breederContact`, `breederVet`, `contentPackages`). Compressed with the
-already-vendored `vendor/lz-string.min.mjs` into
-`https://furever.kennelos.app/#seed=<payload>` (`FUREVER_APP_URL`, a fixed constant
-— Furever is one app at one origin regardless of which edition sends the link,
-unlike Companion's same-origin relative shell URL). `buildSeedPacket` is `async`
-(it reads the dog's litter record for its content-pack pointer, below) — `furever.js`
-awaits it. `furever.js`'s send mechanics (real `mailto:`/`sms:` anchors so the tap is
-the activating gesture, a copy-link fallback, the same SMS/email payload-size
-ceilings) mirror `companion.js`'s `prepareLink` pattern; there is no local preview
-(Companion's iframe-preview trick needs a local read-only shell to render into —
-Furever has none, and the real link would write into whatever browser opens it, so
-previewing it isn't safe to fake).
+### 27.1 Content packs on Google Drive — `docs/KennelOS_Content_Package_Fetch_Mechanism.md`
+The console publishes documents to her Google Drive for the family app to fetch; KennelOS
+does every Drive step.
+- **`data/googleDrive.js`**: Google Identity Services token model, `drive.file` scope,
+  public `CLIENT_ID`. The token is in memory for the tab only; `ensureAccessToken` re-requests
+  silently first. GIS is vendored (`vendor/gsi/client.js`), loaded as a classic script in
+  `furever.html`. Multipart uploads are hand-built (`multipart/related`).
+- **`data/fureverContentPack.js`** builds `pack.json` by name and runs one publish: ensure
+  folders → upload each source, **reusing its Drive file id** when the same record was
+  published before (`selection.driveFileIds`, keyed `doc:<id>` / `upload:<id>`) → share the
+  folder by link → write the manifest with a bumped `version`. Items removed since the last
+  publish are trashed in Drive first (`removedKeys`).
+- **Pointers:** the kennel-wide pack is `settings.furever.contentPack`; a litter's pack is the
+  plain `Litter.furever_pack` field.
+- **Kennel-wide pack** = uploads only. **Litter packs** pick from the documents of the
+  litter's pups and its sire and dam. Each manifest file carries its `dogId`, and the family
+  app (`contentPackFetch.filesForThisPup`) keeps only its own pup's and the parents'.
+  Documents not marked `furever_shareable` are disabled. `contract` documents
+  (`SENSITIVE_DOC_TYPES`) need an explicit "this becomes public" confirmation.
+- Not built: the manual (no-OAuth) fallback.
 
-**Rendered on the Furever side:** the seed's `pickupPlan` + `note` become the
-**pre-pickup countdown card** at the top of a seeded pup's Profile
-(`furever/pages/profile.js`, `countdownCardHtml`) — photo, "it's almost time…"
-headline with a live "N days to go" badge, pickup date/time/place, and the personal
-note; it retires once the pickup date passes.
-
-### 27.1 Content-pack publish (breeder side) — `docs/KennelOS_Content_Package_Fetch_Mechanism.md`
-
-The breeder-authored counterpart to Furever's content-pack fetch (schema doc's
-"Built (content-pack fetch)" section): the Furever console publishes documents to
-Google Drive so the family app can pull them in automatically, with KennelOS doing
-every Drive-side step (create the folder, upload, share, write the manifest) —
-the breeder never touches Drive directly.
-
-- **`data/googleDrive.js`** — the Google Identity Services (GIS) **token-model**
-  OAuth client (`drive.file` scope, non-sensitive → no Google verification review;
-  `CLIENT_ID` const, same public-identifier posture as `dropbox.js`'s `APP_KEY`).
-  `connectDrive()` is the interactive "Connect Google Drive" action; the token lives
-  **in memory only** for the tab (no refresh token in this model, so nothing is
-  persisted) and every Drive call goes through `ensureAccessToken`, which tries a
-  SILENT re-request first and only surfaces a friendly "click Connect again" error
-  rather than popping an unexpected consent dialog mid-publish. `driveFetch` retries
-  once on a 401 with a forced token re-acquisition, mirroring `dropbox.js`'s
-  `contentCall`. Also holds `ensureFolder` (find-or-create, safe under `drive.file`
-  scope since `files.list` here can only ever see folders this app created),
-  `shareFolderPublic` (`permissions.create {type:'anyone', role:'reader'}`), and
-  `uploadFile`/`writeManifestFile` (hand-built `multipart/related` bodies — Drive's
-  multipart upload endpoint does NOT accept `fetch`'s own `multipart/form-data`).
-  The GIS library itself is **vendored** at `vendor/gsi/client.js` (no-CDN rule) and
-  loaded as a plain `<script>` (not a module) in `pages/furever.html`, ahead of the
-  module scripts, so `window.google` exists before any Drive call could run.
-- **`data/fureverContentPack.js`** — builds `pack.json` (§3.1 of the mechanism doc)
-  **by name** from the chosen sources (never a record spread, same discipline as
-  `fureverSeedExport.js`) and orchestrates one Publish: ensure folders (reusing a
-  cached `folderId`) → upload each source (a KennelOS `Document`'s file, or a
-  kennel-level "Upload new" blob), **reusing the same Drive file id** when that
-  exact source was published before (tracked in the pointer's cached
-  `selection.driveFileIds`, keyed `doc:<id>` / `upload:<id>`) so a republish
-  overwrites in place instead of accumulating duplicate Drive files → share the
-  folder public-by-link → write/overwrite the manifest, bumping its `version` →
-  return the new pointer for the caller to persist. Exports `SENSITIVE_DOC_TYPES`
-  (`['contract']`) / `isSensitiveDocType` so the console's picker and any future
-  check agree on which types need the "this becomes public" confirmation.
-- **`settings.js`'s `getFureverSettings`/`setFureverSettings`** gained the
-  **kennel-wide** pack pointer, nested under `contentPack`:
-  `{ packKey, folderId, manifestFileId, manifestResourceKey, version, selection:
-  { documentIds, uploads, driveFileIds } }`, plus `driveConnected` (UI-only — "has
-  Connect ever succeeded," never the token itself). The **per-litter** equivalent is
-  a plain, unindexed **`furever_pack`** field (same shape) directly on the litter
-  record — additive, no `litterRepo` code change needed (its `update()` already
-  merges arbitrary fields) and no `referenceRegistry` entry (it points *out* to
-  Drive, not at a KennelOS entity).
-- **Furever console UI** (`pages/furever.js`, new "Content packages" section below
-  the existing recipients list): a **Connect Google Drive** button; a **kennel-wide
-  pack** panel — **uploads only** ("Upload new" area for kennel-level files not
-  filed on any dog; there is deliberately no per-dog document picker here, see
-  mechanism doc §7 decision 5 — a per-dog document is dog/litter-scoped material and
-  belongs in a litter pack, not the every-family kennel-wide one); one **collapsible
-  panel per litter** (candidate pool = that litter's pups **and** `sire_id`/`dam_id`,
-  each via `documentRepo.getByDog` — Data Model §5.4's "litter's own sire_id/dam_id
-  are authoritative"), with **bulk selectors** — a master "select all," a
-  **per-type** toggle per doc type present, and a **per-dog** "select all" — built as
-  plain DOM checkbox manipulation (no separate JS selection model to keep in sync;
-  the checked boxes ARE the state while a panel is open) and pre-checked from the
-  pointer's cached `selection.documentIds`. Publish reads the checked boxes at click
-  time; if any selected document's `doc_type` is sensitive (`isSensitiveDocType`), an
-  inline confirmation (`sensitiveConfirmHtml`) lists exactly which titles are about
-  to become publicly link-readable and requires an explicit "Yes, publish anyway"
-  before the actual `publishPack` call runs. The kennel-wide panel also shows an
-  **"Already published"** list (title, doc-type badge, a "View in Drive" link, a
-  per-item Remove/Undo) sourced from `settings.contentPack.selection.uploads` — every
-  publish re-sends that full carried-forward list plus whatever's newly staged, so
-  `publishPack` can thread a no-longer-blob-holding prior upload into the new
-  manifest by its already-known Drive file id instead of silently dropping it
-  (mechanism doc §7 decision 5).
-- **Removing a doc/upload from a pack trashes its Drive file** (mechanism doc §7
-  decision 6): unchecking a previously-published litter document, or clicking Remove on a
-  kennel-wide upload, also trashes the file in Drive, so it doesn't stay shared there. `googleDrive.js`'s `trashFile(fileId)` PATCHes
-  `{trashed: true}` (Drive's own recoverable Trash — also drops "anyone with the
-  link" access for non-owners); `publishPack` takes a `removedKeys` param
-  (`driveFileIds` keys the console diffs "last-published selection" against
-  "checked/staged now") and trashes + purges each one as step 0 of the publish,
-  before anything else. Scoped per-pack — a `Document` filed on a dog that's a
-  parent in multiple litters gets an independent Drive file (and `driveFileIds`
-  entry) per litter's own publish, so trashing it out of one litter's pack never
-  touches another litter's copy.
-- **Overwrite is keyed by the KennelOS record id, not the filename** — a
-  republish only PATCHes the same Drive file when the exact same `Document.id`
-  or client-assigned upload id is sent again (mechanism doc §7 decision 7). A
-  new "Upload new" item with a title matching something already published
-  creates a second, separate file rather than replacing it; there's no in-place
-  "replace this file's bytes" affordance today.
-- **Not built:** the manual (no-OAuth) fallback (mechanism doc §7 decision 1 —
-  documented, deliberately second-priority). **Not yet browser/round-trip
-  verified** against a real Google account (no live consent/Drive round trip has
-  been exercised) — verify Connect → Publish → a family device actually receiving
-  the docs before relying on this in production.
-- **Per-pup privacy within a litter pack** (mechanism doc §7 decision 4): a litter pack is one
-  shared Drive manifest for the whole litter, but a document filed on ONE pup
-  must never appear in every OTHER pup's family's app. Each manifest file now
-  carries the `dogId` it was filed on (`fureverContentPack.js`'s
-  `loadDocumentSource`/`buildManifest`), and `doLitterPublish` (`pages/
-  furever.js`) passes the litter's `sire_id`/`dam_id` into `publishPack` as
-  `parentDogIds` — documents filed on the sire or dam are shared with the
-  whole litter (relevant to every family), a pup's own documents are not.
-  `furever/data/contentPackFetch.js`'s `filesForThisPup(manifest, pupId)`
-  filters the fetched file list down to "this pup's own + the parents'"
-  before writing the family's breeder-doc layer — `pupId` is the family's
-  `pet.pup_id`. A `scope:'kennel'` pack carries no `dogId`/`parentDogIds` at
-  all and is never filtered (deliberately identical for every family). The
-  litter picker's checkbox groups (`dogGroupHtml`/`pickerHtml`) now label each
-  group **(Sire)**/**(Dam)**/**(Pup)** and carry an explanatory line, so which
-  documents go to everyone vs. one family is explicit in the UI, not just
-  implicit in the data. A document not marked shareable (`furever_shareable`, §26.1 field
-  table) is listed greyed out with its box disabled, skipped by the bulk
-  selectors and filtered out again at publish.
-
-### 27.2 Feeding Schedules (breed default + litter override) — Pro-only
-
-The breeder's own recommended feeding amounts, structured as a small
-weight-band x age-column grid (both axes free text — a real breeder's printed
-feeding guide rarely fits a fixed set of life-stage labels) plus a food brand
-and notes. **Per breed**, not a kennel-wide default: a Boston Terrier's weight
-bands top out around 60 lbs, a large breed's look nothing like that. Rides into
-a placed pup's Furever seed packet so the family sees the breeder's own
-guidance instead of Furever's generic age-bracket placeholder
-(`furever/data/careLibrary.js` `FEEDING_PLAN`), which is untouched.
-
-- **`data/db.js`** — new table `breed_feeding_schedules: 'id, breed, is_archived'`.
-  `breed` is a free-text lookup key (matched case-insensitively/trimmed against
-  `Dog.breed`, same posture as CSV import's name matching), not a stored FK —
-  so it carries no `referenceRegistry` entry (`BREED_FEEDING_SCHEDULE_REFERENCES
-  = []`, a leaf like `CONTRACT_REFERENCES`/`DOCUMENT_REFERENCES`). Record shape:
-  `{ breed, food_brand, age_columns: string[], weight_rows: [{ label, amounts:
-  string[] }], notes }` — `amounts[i]` aligns with `age_columns[i]` by index.
-  `litters.feeding_schedule_override` is a plain, unindexed free-text field
-  (filtered in JS like the foster fields) — the per-litter override that takes
-  priority over the breed default; additive, no `litterRepo` code change needed
-  (its `update()` already merges arbitrary fields).
-- **`data/breedFeedingScheduleRepo.js`** — the standard thin repo
-  (`makeRepo('breed_feeding_schedules', ...)`), `breed` required, plus
-  `getByBreed(breed)` (case-insensitive/trimmed match, returns null when unset).
-- **`pages/breed-feeding-schedules.*`** (not a nav entry — reached via a "Open
-  Feeding Schedules →" doorway card on the own-kennel's Kennel detail page,
-  `pages/kennel.js` `feedingScheduleCard()`, alongside Lifecycle nudges and
-  Preferred tests; gated by `data/proPages.js`'s `PRO_ONLY_PAGES` the same as
-  every other Pro-only page) — one collapsible card per breed **pulled from the
-  kennel's own dogs**
-  (`dogRepo.getBreeds()` — the existing distinct-breed query breed autocomplete
-  already uses elsewhere, not a separate vocabulary), so a breeder only ever
-  authors schedules for breeds they actually have. Each card is a food-brand
-  input, an editable grid (add/remove weight row, add/remove age column, every
-  cell free text), and a notes field. Cell/label edits mutate an in-memory
-  draft directly (no re-render, so typing doesn't lose focus); add/remove
-  re-renders just that card from the updated draft, mirroring the litter-form
-  re-render pattern.
-- **`pages/litter.js`** — a `feeding_schedule_override` textarea (view row +
-  edit field), gated by `editionFlags.feedingSchedule` the same way the Foster
-  arrangement section is gated by `editionFlags.fosterArrangement`: absent from
-  the DOM in Lite, `readForm()` falls back to the stored draft value instead of
-  being clobbered to `''`.
-- **`data/fureverSeedExport.js`** — `buildSeedPacket` fetches the pup's litter once (shared by `contentPackages` and `feedingSchedule`)
-  and adds `feedingSchedule: { litterOverride, breedSchedule }` — named-copy-only
-  like every other field here (never a record spread); `null` when neither a
-  litter override nor a breed default exists, so an untouched pup's Furever app
-  is unaffected.
-- **Furever side (`furever/pages/feeding.js`)** — purely additive: reads
-  `pet.seed.feedingSchedule` (already riding along unindexed in `pet.seed` —
-  `petRepo.upsertSeededPet` copies the whole incoming packet by spreading `seed`
-  into that one field, so **no `furever/` schema or repo change was needed** for
-  this to arrive) and renders a reference card above the existing age-bracket
-  radio presets: the litter override (if any) as a highlighted note, else the
-  breed grid as a small table. The family's own save/radio flow (`feedingRepo`,
-  `careLibrary.FEEDING_PLAN`) is completely untouched.
-- **Editions** — Pro/Demo only (the page itself, and its `kennel.js` doorway
-  card — `kennel.html` doesn't exist in the Lite build at all, so no extra
-  edition-flag gate was needed on the card). The litter override field is the
-  one piece that lives on a **shared** page (`litter.js`, kept in Lite), so
-  *that* needs its own flag: `editionFlags.feedingSchedule` is `true` in
-  `pro/editionConfig.js` and `demo/editionConfig.js`, `false` in
-  `lite/editionConfig.js`; `shared/data/editionConfig.js` (the Pro-semantics
-  default) also carries it — remember all **three edition copies plus the
-  shared default** need updating together for a new flag, since each edition
-  ships its own full `editionConfig.js` (`build/assemble.mjs` always overlays
-  `<edition>/editionConfig.js` verbatim — there is no shared/edition merge at
-  build time, despite `editionConfig.js`'s own header describing Pro/Demo as
-  "using the shared defaults"; in practice each keeps its own synced copy).
-  `breed-feeding-schedules.html` was added to `data/proPages.js`'s
-  `PRO_ONLY_PAGES` (excluded from the Lite build, and gates any in-app link to
-  it at runtime) — same mechanism as every other Pro-only page.
+### 27.2 Feeding schedules
+Per-breed feeding grids (weight rows × age columns, free text, plus food brand and notes)
+that ride into a pup's seed packet.
+- Table `breed_feeding_schedules` (`breed` is a lookup key matched case-insensitively
+  against `Dog.breed`, not an FK; a leaf). Shape: `{ breed, food_brand, age_columns[],
+  weight_rows: [{ label, amounts[] }], notes }`. `breedFeedingScheduleRepo.getByBreed`.
+- `pages/breed-feeding-schedules.*` (from the Kennel page's Feeding schedules card): one card
+  per breed among the kennel's dogs (`dogRepo.getBreeds()`).
+- `Litter.feeding_schedule_override` (free text) wins over the breed default. On the shared
+  litter page it's gated by `editionFlags.feedingSchedule`, and kept from the stored value
+  when the field isn't rendered.
+- The packet's `feedingSchedule: { litterOverride, breedSchedule }` is `null` when neither
+  exists; Furever's feeding page shows it as a reference card.
 
 ---
 
