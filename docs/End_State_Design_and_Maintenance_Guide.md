@@ -1796,9 +1796,10 @@ records tidy!", account health "Good idea, let's make sure everything's safe and
 
 **The top** (`kels.js` `menu`): her first message, `kelsChat.kelsWelcome` ("Hi, I'm Kels, your
 personal KennelOS agent! I'm here to help you manage your kennel :) What do you need help
-with first?"), then an unfinished draft (if any, first), **Finding Something** and **Doing
-Something** (the task menu below, after "Love it! Here's what we can do together."). After a
-task or a find: "What else can I help you with?" and the same buttons.
+with first?"), then an unfinished draft (if any, first), **Finding Something**, **Doing
+Something** (the task menu below, after "Love it! Here's what we can do together.") and
+**Understanding Something** (below). After a task, a find or an answer: "What else can I help
+you with?" and the same buttons.
 
 **Favorites** (`data/kelsFavorites.js`, pure, tested; `kels.js` `doMenu`): the Doing
 Something list is ordered unfinished draft → starred → used often → `priority` (priority
@@ -1897,6 +1898,47 @@ builds nothing), then a search box.
   **See your contacts**, **Sharing your pups** (the Sharing hub's Companion page; each only
   where the edition has it) and **Try new words**. Going
   there opens the page in this tab.
+
+### "Understanding Something"
+
+`assets/kelsUnderstandUI.js`. Two halves, each `{ id, label, opener, how, flag?, run }` in
+`HALVES`, offered when its flag is on: **How KennelOS works** (every edition, below) and,
+when built, **How my business is doing** (`reports`, roadmap §3.14 B). With more than one
+she asks "Yes, absolutely! Which is your question about?"; with one (today, and always in
+Lite) it starts straight away. Each half's intro (`chat.intro(opener, how)`) is said the
+first time it's picked in a visit; **Something else** after an answer returns to the
+question when there is one. How KennelOS works opens "I'm on it!" +
+`kelsChat.KELS_UNDERSTAND_INTRO`, which names nothing Lite lacks.
+
+**How KennelOS works** is an FAQ (`data/kelsUnderstand.js`, pure, tested in
+`tests/kelsUnderstand.test.js`). Read-only: it reads none of her records and changes nothing.
+
+- **What's in it:** only the rules a breeder who knows dogs and has used other apps would
+  still get wrong here, never what any app does or what a screen already says. Each entry
+  is `{ id, section, q, a, keywords, href?, show?, flag?, when? }`: the question as she'd
+  ask it, the answer in a few plain sentences (no field names; a string, or `(ctx) =>` one
+  where the edition changes it), and a **Show me** button to where it lives. `ctx` is
+  `{ edition, flags, cloud, vault, page(href) }`. An answer is written from the rule as
+  built, so a change to the rule changes its answer in the same edit.
+- **Topics** (`SECTIONS`): Dogs and puppies, Archiving and deleting, Breedings and litters,
+  Money, The waitlist, Your data and devices. A topic with no entry in this edition isn't
+  offered (`understandSections`).
+- **Edition-honest:** an entry with a `flag` the edition lacks, or whose `when(ctx)` is
+  false, isn't there; a sentence about such a feature is left out of the answer; a Show me
+  whose page is Pro-only isn't offered in Lite (the answer stays). Lite gets its own
+  entries where its rules differ (a dog leaving the program, a gone-home pup removed from
+  it, a parent kept for the pedigree). Lite's limit isn't a topic. Cloud entries need
+  `isCloudAvailable()`, the Sensitive records sentence `isVaultOffered()`.
+- **The chat:** **Search the questions**, the topics, **Something else** (only when there's
+  a question to go back to) and **I'm all set**. A topic lists its questions. The search is
+  `kelsFind.search` over these entries only (`understandCandidates`: the question and
+  keywords at level 1, the answer at level 2), never pages, records or tasks: one clear
+  match is answered at once, else the questions four at a time with **Show more**; nothing
+  found offers other words or the topics. After an answer: **Show me** (opens its page),
+  **More about <topic>**, **Something else** (the question, else the topics), **I'm all set**.
+- **Adding an entry:** a line in `ENTRIES`. The tests check unique ids, a known section and
+  a real edition flag, a sentence in every edition with no field names, and that every Show
+  me page exists and is precached.
 
 ### "Record a new litter"
 `stepsFor`: mom and dad (own dogs, all dogs, or a new one; a typed name is first checked
