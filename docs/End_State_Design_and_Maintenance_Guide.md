@@ -529,9 +529,10 @@ Every key is in its `KEYS` table (`kennelOS.*`), each with a getter/setter, and
   changed mid-push.
 - `activeKennelId`: the kennel scope, read and written only through `kennelScope.js`.
 - `myKennelId` / `myContactId`: the user's own kennel and contact.
-- `guidedLitterDraft`, `guidedDogsDraft` and `prepChecks`: Kels's unfinished litter, her
-  unfinished Add dogs, and the optional checks ticked last time in Pups are going home
-  (§33). Device-only.
+- `guidedLitterDraft`, `guidedDogsDraft`, `guidedPeopleDraft`, `guidedFormDraft` and
+  `prepChecks`: Kels's unfinished litter, her unfinished Add dogs, Add people and
+  application form, and the optional checks ticked
+  last time in Pups are going home (§33). Device-only.
 - `kelsFavorites`, `kelsTaskUse`, `kelsNoPromote`: her starred Kels tasks, when she started
   each (the last 60 days), and the ones she said not to move up (§33, Favorites). Device-only.
 - `studTripsMigrated`: the stud-trip migration has run on this device (§19, Away board).
@@ -1391,7 +1392,8 @@ CSV columns into questions and stamps `source_header`, so the application import
 then bring in the answers.
 
 ### Actions (`data/waitlistActions.js`)
-Every multi-step write: approve (links a contact she picks from `contactMatches`, never
+Every multi-step write: approve (links a contact she picks from `contactMatches`, §33's
+one contact rule: the same email or phone first, then the same or a near name; never
 automatically; a fee of 0 goes straight to `active`), decline, fee received (sets the place
 in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move place
 (`setPositionAnchor`).
@@ -1699,13 +1701,26 @@ share: a step list worked out from the draft, one screen per step with tiles, Ba
 Next, her answers left in the chat and in `draft.history` to replay a resumed draft, and a
 review whose Change links come straight back to it; plus the screens' HTML helpers, and
 the add-a-kennel / add-a-person fields every task asks with, `kennelNameField` and
-`contactFields` + `readContactFields`, and the breed picker, `breedPicker` +
+`contactFields` + `readContactFields`; the outside-kennel picker, `kennelPicker` +
+`wireKennelPicker` + `readKennelPicker` (one she has, or a new name: the litter task's
+outside owner's kennel, Add dogs' breeder, Add people's breeders); `addContactInChat` (a
+new contact in a chat form, someone she may have asked about once by `contactSearch`: the
+tidy-up's "Add a contact" and its vet's); `VET_WHY` / `VET_NAME_HINT` (how she asks for a vet,
+the tidy-up's and Add people's); and the breed picker, `breedPicker` +
 `wireBreedPicker` + `readBreedPicker` (her breeds, `dogSearch.breedChoices`, as one-tap
 choices, and **➕ A new breed** opening a box, so a breed she has is never retyped; Add dogs'
 "in common" and each dog, the litter task's new mom or dad): the tidy-up's "Add their kennel" and "Add a
 contact", the litter task's outside parent's owner and kennel, Add dogs' breeder),
 `assets/guidedLitterUI.js` + `data/guidedLitter.js` (the litter task), `assets/guidedDogsUI.js`
-+ `data/guidedDogs.js` (add dogs), `data/dogSearch.js` (`findDogMatches`, the one way every
++ `data/guidedDogs.js` (add dogs), `assets/guidedPeopleUI.js` (Pro-only) + `data/guidedPeople.js`
+(add people), `assets/kelsApplicant.js` (Pro-only, the applicant step below),
+`data/contactSearch.js` (`findContactMatches`, the one way every place asks whether a person
+is already in her contacts: the same email or phone is `certain`; the same name, or a near
+one by `dogSearch`'s word match (a slip, or one name's words all in the other when both have
+two or more; a lone first name never), only `possible`, a "maybe this is them" that's
+offered, never applied; Add people, the waitlist's approval through
+`waitlistRules.contactMatches`, and the tidy-up's name / email / phone keys; `hasVet`, the
+tidy-up's "no vet" rule and Add people's vet question), `data/dogSearch.js` (`findDogMatches`, the one way every
 task looks for a dog on file before making one, written for how people type: each typed
 name, call or registered, against both names of every dog, both ways and forgiving (titles,
 case, spacing, punctuation ignored; run-together names; a slip or two per word, a swapped
@@ -1727,7 +1742,11 @@ too;
 + `data/litterCheckin.js` + `data/goHome.js` (the check-in), `assets/tidyUpUI.js` +
 `data/tidyRules.js` + `data/recordMerge.js` (the tidy-up), `assets/accountHealthUI.js` +
 `data/accountHealth.js` (account health), `assets/waitlistSetupUI.js` (set up my waitlist,
-Pro-only), `assets/vendorKeyUI.js` (`vendorKeyFlow`: a Stripe or Jotform key connected or
+Pro-only), `assets/guidedFormUI.js` (Pro-only) + `data/guidedForm.js` (set up my application
+form), `assets/waitlistFeeStep.js` (Pro-only: the application fee and its payment account,
+both waitlist tasks), `assets/kelsBackupSteps.js` (`offerCloudBackup`, `offerSensitiveRecords`,
+`VAULT_WHY`: turning on cloud backup and Sensitive records backup in the chat; the waitlist
+tasks and account health's wording), `assets/vendorKeyUI.js` (`vendorKeyFlow`: a Stripe or Jotform key connected or
 replaced in the chat; account health and the waitlist setup), `assets/kelsFindings.js` (`FindingsTask`, the
 look → raise one at a time → fix → look again loop the tidy-up and account health share:
 "Not now", a remembered "Don't ask me again" under `<prefix>:<key>` in the nudge ledger,
@@ -1753,7 +1772,8 @@ collecting the information, I'll build the records for you to approve. If you ge
 need to save and come back, I'll save what we've got so far…  Sound good?"), answered
 **Sounds great, let's start!** or **Never mind** (back to the menu). Openers: record a litter
 "Absolutely, let's get those puppies added!", check-in "Of course, let's check in on your
-litter!", add dogs "Wonderful, let's get your dogs added!", tidy up "Love it, let's get your
+litter!", add dogs "Wonderful, let's get your dogs added!", add people "Of course! Let's get your
+people added.", application form "Yes! Let's make your application form just right.", tidy up "Love it, let's get your
 records tidy!", account health "Good idea, let's make sure everything's safe and sound!".
 
 **The top** (`kels.js` `menu`): her first message, `kelsChat.kelsWelcome` ("Hi, I'm Kels, your
@@ -1777,10 +1797,11 @@ run, resumable?, beforeStart? }`, highest priority first, with a search box abov
 `keywords` are the other words a breeder might search with ("add puppies" finds Record a new
 litter). The page header shows her photo and `KELS.title` ("Kels, the KennelOS whiz") on one line, sized to fit a phone. Order: an unfinished litter (100), unfinished dogs (99), the
 check-in (60 while a litter has pups at home, else 40), a new litter (50), prep pups (45,
-while a litter has pups at home), add dogs (35), tidy up (30), set up my waitlist (25, Pro),
-account health (20). The header's **Save for later** shows only while a `resumable` task
-runs, and the floating button's dot shows while either draft is unfinished. `beforeStart`
-can redirect a start (a new litter, or new dogs, while one is unfinished asks "Finish that
+while a litter has pups at home), add dogs (35), add people (33, Pro), tidy up (30), set up
+my waitlist (25, Pro), set up my application form (24, Pro), account health (20); unfinished
+people sit at 98, an unfinished form at 97. The header's **Save for later** shows only while a `resumable` task
+runs, and the floating button's dot shows while any draft is unfinished. `beforeStart`
+can redirect a start (a new litter, dogs, people or form while one is unfinished asks "Finish that
 one / Start fresh"); `handoff(taskId, opts)`
 moves her to another task (an Expected litter in the check-in → its birth).
 
@@ -1953,6 +1974,70 @@ It's filed through the Documents modal's own `storeDocumentFile` + `createDocume
 **That's all for now**. Then **See Daisy** (or **See my dogs**), **Help me with something
 else**, **Back to Today**.
 
+### "Add people"
+**Editions:** Pro (`editionFlags.contactsSection`; Lite has no Contacts pages). The script,
+`assets/guidedPeopleUI.js`, is in `proPages.js` and `kels.js` imports it on start; its data
+half, `data/guidedPeople.js`, is shared like every data module. Several people in one go,
+on the step engine, the way Add dogs takes dogs. `stepsFor(draft, { contacts })`:
+1. **Who are we adding?** (`roster`): a row per person, their name and what they are to her
+   (`ROSTER_TYPES`: `CONTACT_TYPE` but Handler, which a show event tags), **+ Another
+   person** (up to `MAX_PEOPLE`, 20) and ✕. A name twice on the list is refused. The type
+   picked here joins their types (`afterRoster`; changing it there replaces it).
+2. **Her vet** (`vet`, `asksVet`: nobody on the list is a vet and `contactSearch.hasVet` finds
+   none in her contacts; once answered it stays): "Do you have a vet you'd like to add?" with
+   `VET_WHY`. **Yes, add my vet** (a name, `VET_NAME_HINT`) puts the vet on the list, last,
+   typed Vet, and they get a details step (`afterVet`); **They're in my contacts** picks one,
+   tagged Vet on save; **Not now**.
+3. **How did you meet them?** (`common`, two or more people, optional):
+   `first_contact_source` (her earlier answers suggested), filled in on each as Add dogs'
+   "in common" is (`fillFromCommon`).
+4. **Each person** (`person:<i>`): what they are (checkboxes, at least one), phone, email (one
+   that doesn't look like an address is a check she can tap past), address, Facebook, met
+   through, notes: the Contact page's fields.
+5. **Is this them?** (`match:<i>`, when `findMatchesFor` finds someone with
+   `contactSearch.findContactMatches`; up to six, surest first, each with why: "Same email",
+   "Similar name"; someone another person on the list already is isn't offered). **Yes**
+   fills in that contact: only what's blank on it is written, its name kept, their types
+   added; its kennel is their kennel. **No, someone new** makes one. Changed details ask again.
+6. **Their kennel** (`kennel:<i>`, a breeder, unless the contact they are on file has one):
+   **Yes** (`kelsSteps.kennelPicker`: an outside kennel she has, or a new name, with "Is that
+   Elmwood Kennels, already in your kennels?" once) or **No, or not sure**.
+7. **Breeders already in her contacts with no kennel** (`breeders`, `breedersWithoutKennel`,
+   not anyone on the list): a picker each, optional.
+8. **Review** (`reviewSections`): a section per person (**Kennel**, **Change**), then "In your
+   contacts already": her vet and the breeders' kennels; **Add or take off someone**.
+
+**The save** (`saveGuidedPeople`): each person made through `contactRepo` (or filled in), a
+breeder's kennel through `kennelRepo.findOrCreateOutside` (one kennel per name across the
+run) as their `kennel_id`; her vet on file `ensureType('vet')`; each breeder on file linked
+to their kennel if they still have none. **Resumable:** each id goes back on the draft.
+Returns the contacts and `kennelIds`, the kennels made or linked in this run.
+
+**The draft:** `settings.guidedPeopleDraft` (`DRAFT_VERSION`), as Add dogs': device-only,
+cleared by Reset App, one at a time.
+
+**After the save, the dogs they bred** (when this run made or linked a kennel and she has
+dogs with none: owned or co-owned, not pedigree-only, not archived, no `breeder_kennel_id`,
+`dogsWithoutBreeder`): "Do you want to link any kennels to dogs you own as the kennel who bred
+it?" **Yes** opens one form, a picker per dog: **Not this one**, the kennels from this run
+("Just added"), then her other outside kennels (`breederKennelChoices`; never her own, which
+the litter task sets). `breederLinks` keeps only dogs still without one and outside kennels,
+saved through `dogRepo.update`.
+
+**Then, the waitlist** (`editionFlags.waitlist`, a buyer among them, and an own kennel with
+its waitlist set up, `waitlistIsSetUp`): "Would you like to put them on your waitlist?" Each
+one she picks (and the kennel, with several) runs the applicant step,
+`kelsApplicant.askApplicant` (imported only then), with that contact: its name, email and
+phone fill in the form's, and the application is saved **linked to the contact**
+(`contact_id`) at once. Then **See Pat** (or **See my contacts**), **Help me with something
+else**, **Back to Today**.
+
+**The applicant step** (`assets/kelsApplicant.js`, Pro-only): her application in the chat (her
+questions, preferences and readiness, `assets/waitlistApplicationForm.js`), then the
+program, when they applied and her notes, saved as an application (`applied`), as the
+Waitlist entry page saves one. Set up my waitlist's **Add one by hand** and Add people both
+run it; without a contact it's linked at approval, as ever.
+
 ### "Check in on a litter"
 Each thing she approves is saved at once; there is no draft.
 1. **Which litter:** `checkinLitters` — every litter not closed or archived, in kennel scope
@@ -2064,16 +2149,17 @@ The run-up to go-home day for one litter. Each fix is saved when approved; there
 imports it on start. The kennel's waitlist settings, its online list and its programs, for a
 breeder starting from nothing. Related settings are one screen each, the on/off ones as
 checkboxes, never a question apiece:
-1. **The fee:** amount, refund policy (`FEE_CREDIT_POLICY`), days to pay, how families pay;
-   with `accounts`, the Payment service it's paid through (or **Stripe (I'll connect it
-   now)**, which makes a Payment service account named Stripe) and when it's asked for. A
-   Stripe account with no key on this device offers **Connect Stripe** (`vendorKeyFlow`).
+1. **The fee:** the shared fee step (`waitlistFeeStep.askWaitlistFee`, under "Set up my
+   application form"): amount, refund policy, days to pay, how families pay, and with
+   `accounts` the payment account (one she has, Stripe connected in the chat, or another
+   payment service she names) and when it's asked for.
 2. **Offers:** days to accept and pay, passes before removal, then checkboxes: no response
    counts as a pass, color matching, and every `WAITLIST_AUTO_OFFER_TRIGGER` moment (All /
    None).
 3. **Going online** (only where `isWaitlistOnlineOffered()`): asked first. It publishes
    through this device's cloud backup, so when that's off or signed out she offers **Turn on
-   cloud backup** (`cloudBackupUI.turnOnFlow`) and goes on only once it's on. Then one screen:
+   cloud backup** (`kelsBackupSteps.offerCloudBackup`, with the `CLOUD_OFF_FORM` warning:
+   no link, each applicant typed in by hand) and goes on only once it's on. Then one screen:
    list online, applications online, reminder emails; what shows before picks open
    (`UPCOMING_STAGES` × public / family pages); "Ready now?" unanswered and its days; the
    Facebook button and Page; her website (`embed`, addresses); the public list's message;
@@ -2081,17 +2167,70 @@ checkboxes, never a question apiece:
    then the public list and form links.
 4. **Programs:** as many as she likes (name, place in line, fee, days to accept, passes not
    counted, pause allowed, a description), through `waitlistProgramRepo`.
-5. **Families she already has:** **Add one by hand** asks her application in the chat (her
-   questions, preferences and readiness: `assets/waitlistApplicationForm.js`, the Waitlist
-   entry page's new application too), then the program, when they applied and her notes,
-   and saves it as an application (`applied`), as that page does; **Add another family**
-   repeats. **Import a list** opens the waitlist import (a page of its own; leaves Kels).
+5. **Families she already has:** **Add one by hand** runs the applicant step
+   (`kelsApplicant.askApplicant`, under "Add people"); **Add another family** repeats. **Import a list** opens the waitlist import (a page of its own; leaves Kels).
 
 Every config save is checked by `waitlistRules.waitlistConfigProblem`, the Kennel page's
 settings card's check too. **Re-runnable:** on a kennel already set up
 (`waitlistIsSetUp`) she says what's set (`waitlistSummaryLines`) and asks which part to
-change. The emails, pass reasons, "Almost your turn" message and the application form keep
-the standard wording; she says where to change them.
+change. The emails, pass reasons and "Almost your turn" message keep the standard wording;
+she says where to change them. At the end she offers **Set up my application form**, handing
+it the kennel (`handoff('form-setup', { kennelId })`).
+
+### "Set up my application form"
+**Editions:** Pro (`editionFlags.waitlist`). The script, `assets/guidedFormUI.js`, is in
+`proPages.js` and `kels.js` imports it on start; its data half, `data/guidedForm.js`, is
+shared. The Waitlist form page (`waitlist-form`) as a conversation, for one kennel (asked
+with several; Set up my waitlist hands its kennel over), on the step engine, with the page's
+own rules (`waitlistForm.formQuestions`, `validateQuestions`, `validateFaq`, `newQuestion`,
+`LOCKED_TYPE_LABEL`). `stepsFor`:
+1. **Where shall we start?** (`start`, only when she has saved a form or FAQ of her own,
+   `hasOwnForm`): **Keep my form and change it** or **Start over from the standard form**
+   (`startFrom`; her FAQ stays either way).
+2. **The locked questions** (`locked`): name, email, the preferences, readiness and the
+   public-list notice, shown together, each with what it does ("decides which pups they're
+   offered"); only the wording changes (the notice's text too).
+3. **Her own questions** (`questions`): each with its wording, answer type
+   (`WAITLIST_QUESTION_TYPE`; a choice type shows its choices, one per line), help text and
+   "Required on the online form", ✕ to take one off, **+ Add a question** (just above the
+   notice, `addQuestion`).
+4. **The order** (`order`): every question with ↑ / ↓ (`move`).
+5. **Her FAQ** (`faq`, optional): her questions and answers, with `FAQ_STARTERS` to start
+   from (price, going home, the fee, how the waitlist works, delivery) and **+ My own question**.
+6. **Review:** the FAQ and the whole application as a family sees it (`applicationFields`,
+   disabled), with buttons back to each part.
+
+**The save** (`saveGuidedForm`): one write of `form_questions` and `application_faq`, cleaned
+by the page's rule (`finalForm`), over the kennel's latest config. Nothing is written before
+it, so a half-made form never goes online. **The draft:** `settings.guidedFormDraft`
+(`DRAFT_VERSION`), as the others: device-only, cleared by Reset App, one at a time.
+
+**After the save:**
+- **Sensitive records** (`kelsBackupSteps.offerSensitiveRecords`, only where
+  `isVaultOffered()`): "Applications hold families' phone numbers, addresses and notes."
+  Cloud backup first if it's off on this device (`offerCloudBackup` → `turnOnFlow`), then,
+  if the vault is off, **Turn it on** (`turnOnVaultFlow`). Nothing is said when it's on.
+- **The fee and how families pay:** what's set ("a $300.00 application fee, paid online
+  through Stripe") with **Change the fee** / **It's right**, or "Do you charge an
+  application fee?". It's the shared fee step, `assets/waitlistFeeStep.js`
+  (`askWaitlistFee`, Set up my waitlist's too): amount, refund policy, days to pay, payment
+  instructions, and with `accounts` the Payment service it's paid through: one she has,
+  **Stripe (I'll connect it now)** (a new Payment service account, then **Connect Stripe**
+  in the chat, `vendorKeyFlow`), or **Another payment service…** (its name and payment link,
+  made as a Payment service account), and when the fee is asked for.
+- **The link to share** (where `isWaitlistOnlineOffered()`): her form is online only while
+  her list is online taking applications (`online_form`). Already so: it publishes now
+  (`cloudWaitlist.syncWaitlistOnline`). Otherwise "Want families to apply online?" (or, with
+  the list online, "take applications online?"); **Yes, take applications online** asks for
+  cloud backup first if it's off (`offerCloudBackup`, warning with `CLOUD_OFF_FORM` that
+  without it there's no link and she'll type each applicant in herself; **Not now** says so
+  again), then `saveWaitlistOnline(kennelId, { online: true, online_form: true })`. Then
+  "Your form is live! Families apply at <link>" with **Copy the link** (`waitlistUI.copyLink`,
+  a box to copy from where the clipboard is refused), or what's stopping it
+  (`onlineProblemText`).
+- **"Do you have a family to put on the list now?"**: the applicant step (under "Add
+  people"), asked with the new form; **Add a family** repeats.
+- Then **See my form** (the Waitlist form page), **Help me with something else**, **Back to Today**.
 
 ### "Check account health"
 One look at whether her program is safe and working: her KennelOS account and this device,
