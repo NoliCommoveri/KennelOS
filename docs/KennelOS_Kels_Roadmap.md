@@ -260,7 +260,7 @@ As built: End-State guide §33 ("Finding Something", "The top"); history in
 and builds nothing; synonyms and slips are their own lower passes, after her words
 themselves at every level (a typo or a synonym never hides an exact word deeper down); a
 search that finds nothing offers View your dogs / Manage your litters / See your finances /
-See your contacts, or a new search. Still to build: steps 3–4.
+See your contacts, or new words. Still to build: steps 3–4.
 
 Kels as a navigator and a knowledge base, not only task scripts. **Find** is first; **Understand**
 comes later.

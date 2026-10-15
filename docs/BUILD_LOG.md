@@ -1308,7 +1308,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   three levels (names; details; notes and events), each tried with her words before
   synonyms, and synonyms before slips; then one answer, or a question that splits them,
   or a short list, and a button that opens the page. Nothing found offers the common
-  places or a new search. `dogSearch.wordHit` is exported for it. Browser runs found: the
+  places or new words. `dogSearch.wordHit` is exported for it. Browser runs found: the
   search form returned a string (shown as a problem); synonyms pulled in every expense
   page for "receipts"; "rabies" stopped at "babies"; a tie picked "Litter P&L" over
   "Litters"; questions were asked with an obvious answer; a doubled "litter" in titles;

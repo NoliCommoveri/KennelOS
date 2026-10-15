@@ -85,10 +85,10 @@ export async function runFindTask(chat, { onExit = () => {}, handoff = null, tas
 // Nothing matched: a few common places, or a new search.
 async function noMatch(chat, q, candidates) {
   const common = COMMON.map(([id, label]) => [candidates.find((c) => c.id === id), label]).filter(([c]) => c);
-  await chat.say(`Hmm, I couldn't find anything for "${esc(q)}". <strong>Is it one of these, or shall we try other words?</strong>`, { typing: 700 });
+  await chat.say(`I couldn't find anything for "${esc(q)}". Here are a couple of things people often look for. If none of them are right, feel free to give me new words and I'll search again!`, { typing: 700 });
   const pick = await chat.choose([
     ...common.map(([c, label]) => ({ label, sub: c.where, value: c.id })),
-    { label: 'Search again', value: 'again', primary: true },
+    { label: 'Try new words', value: 'again', primary: true },
     { label: 'I\'m all set', value: 'done' }
   ], { stagger: 100, confirmHint: 'Tap again to go there' });
   if (pick === 'again' || pick === 'done') return pick;

@@ -1809,8 +1809,10 @@ thing, let's find it!", then a search box.
   (`narrow`: which kind, then the kind's facets that actually split them: a dog's whose /
   sex / breed, a contact's type, a kennel's own or not, a litter's year), then **Do you
   want…** four at a time (each opens its `where` on the first tap), **Show more**, **Look
-  deeper**. Nothing matched: **View your dogs**, **Manage your litters**, **See your
-  finances**, **See your contacts** (where the edition has each) or **Search again**. Going
+  deeper**. Nothing matched: "I couldn't find anything for "…". Here are a couple of things
+  people often look for. If none of them are right, feel free to give me new words and I'll
+  search again!" with **View your dogs**, **Manage your litters**, **See your finances**,
+  **See your contacts** (where the edition has each) and **Try new words**. Going
   there opens the page in this tab.
 
 ### "Record a new litter"
