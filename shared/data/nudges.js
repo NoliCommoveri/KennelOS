@@ -62,7 +62,7 @@ import {
 } from './waitlistActions.js';
 import { offerSpecs } from './waitlistOutbox.js';
 import { contractRepo } from './contractRepo.js';
-import { ourStudPairingIds, studParents, pickDue, serviceDate } from './studRules.js';
+import { ourStudPairingIds, studParents, pickDue, serviceDate, boardingEndedUpdate } from './studRules.js';
 import { reviewTitle } from './integrationEvents.js';
 
 const TERMINAL_PAIRING_STATUSES = ['cancelled', 'failed'];
@@ -276,8 +276,33 @@ export async function computeNudges() {
 
   const nudges = [];
 
+  // A stud service's trip boarded and the boarding has ended, but the service
+  // doesn't say so yet (studRules.boardingEndedUpdate): offer to bring its dates
+  // and status in line. It stands in for the status nudge below on that service.
+  const boardingUpdated = new Set();
+  for (const s of scopedStudServices) {
+    const u = boardingEndedUpdate(s, events, today);
+    if (!u) continue;
+    boardingUpdated.add(s.id);
+    const who = dogsById.get(u.boarding.subject_id)?.call_name || 'The dog';
+    const said = [
+      u.changes.returned_date || u.changes.sent_date ? `dates ${u.boarding.event_date} to ${u.boarding.event_end_date}` : '',
+      u.changes.status ? 'mark it completed' : ''
+    ].filter(Boolean).join(', ');
+    nudges.push({
+      key: `studboard:${s.id}:${u.boarding.event_end_date}`,
+      title: `${who}'s stud-service stay ended ${u.boarding.event_end_date} — update the stud service?`,
+      detail: `${studPartnerLabel(s, dogsById)}: ${said}.`,
+      subjectHref: `stud-service.html?id=${encodeURIComponent(s.id)}`,
+      actions: [
+        { label: 'Update it', run: async () => { await studServiceRepo.update(s.id, u.changes); } }
+      ]
+    });
+  }
+
   // §4.2 — stud-service status nudges.
   for (const s of scopedStudServices) {
+    if (boardingUpdated.has(s.id)) continue;
     let n = null;
     if (s.returned_date && s.returned_date < today && ['arranged', 'in_progress'].includes(s.status)) {
       n = studCompletedNudge(s, dogsById);

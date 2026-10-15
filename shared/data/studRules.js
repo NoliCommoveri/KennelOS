@@ -89,3 +89,57 @@ export function pickPupDefaults(s, stud) {
     breed: stud?.breed || '', kennel_id: s.kennel_id || stud?.kennel_id || ''
   };
 }
+
+// --- Boarding for a stud service ----------------------------------------------------
+// Whoever travels boards: ours at the partner's (to_partner), theirs with us (to_us).
+// A boarding event belongs to a stud service when it's on the dog that travels, its
+// reason is "Stud service", and its dates overlap the service's. No stored link: the
+// match is derived, so either side can be edited first.
+export const STUD_BOARDING_REASON = 'Stud service';
+
+const isStudReason = (e) => String(e?.details?.boarding_reason || '').trim().toLowerCase() === STUD_BOARDING_REASON.toLowerCase();
+// Two date spans overlap (an open end runs on; a missing start matches nothing).
+const overlaps = (a1, a2, b1, b2) => ymd(a1) && ymd(b1) && a1 <= (ymd(b2) ? b2 : '9999-12-31') && b1 <= (ymd(a2) ? a2 : '9999-12-31');
+
+// The boarding event for this stud service's trip, or null. `events`: any events.
+export function studBoardingFor(s, events) {
+  const dogId = travellingDogId(s);
+  if (!dogId || !ymd(s?.sent_date)) return null;
+  return (events || []).find((e) => e && !e.is_archived && e.event_type === 'boarding' && e.subject_type === 'dog'
+    && e.subject_id === dogId && isStudReason(e)
+    && overlaps(s.sent_date, s.returned_date || s.sent_date, e.event_date, e.event_end_date)) || null;
+}
+
+// An Away-board row from the stud service that a stud boarding event already covers
+// (same dog, reason, overlapping dates): the event is the trip, so the row is dropped.
+export function coveredByBoarding(row, boardingEvents) {
+  return (boardingEvents || []).some((e) => e && e.subject_id === row.dogId && isStudReason(e)
+    && overlaps(row.outDate, row.returnDate, e.event_date, e.event_end_date));
+}
+
+// The boarding event a stud service's trip starts as (the event form's prefill).
+// `partner`: the partner contact (its address is where our dog stays).
+export function studBoardingPrefill(s, partner) {
+  return {
+    event_type: 'boarding', event_date: s.sent_date, event_end_date: s.returned_date || '',
+    related_contact_id: s.partner_contact_id || '', title: STUD_BOARDING_REASON,
+    details: {
+      boarding_reason: STUD_BOARDING_REASON,
+      location: s.direction === 'to_us' ? 'With us' : String(partner?.address || '').replace(/\s*\n+\s*/g, ', ').trim()
+    }
+  };
+}
+
+// A stud service whose trip's boarding has ended (its end date before `today`) and
+// the service doesn't say so yet: the dates differ, or it's still arranged / in
+// progress. → { boarding, changes } (what "Update it" writes) or null.
+export function boardingEndedUpdate(s, events, today) {
+  if (!s || s.is_archived || ['cancelled', 'failed'].includes(s.status)) return null;
+  const b = studBoardingFor(s, events);
+  if (!b || !ymd(b.event_end_date) || b.event_end_date >= today) return null;
+  const changes = {};
+  if (s.returned_date !== b.event_end_date) changes.returned_date = b.event_end_date;
+  if (s.sent_date !== b.event_date) changes.sent_date = b.event_date;
+  if (['arranged', 'in_progress'].includes(s.status)) changes.status = 'completed';
+  return Object.keys(changes).length ? { boarding: b, changes } : null;
+}

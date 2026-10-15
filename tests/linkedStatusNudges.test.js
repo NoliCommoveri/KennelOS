@@ -334,3 +334,21 @@ test('a pick-of-litter fee on an outgoing stud service: ready to add the pick pu
   await dogRepo.create({ call_name: 'Pick', sex: 'male', breed: 'Boston Terrier', ownership_type: 'owned', status: 'puppy', kennel_id: K.id, sire_id: sire.id, dam_id: outsideDam.id, date_of_birth: daysAgo(56) });
   assert.equal((await nudgesFor('studpick:')).length, 0, 'the pick is on file');
 });
+
+test('a stud service\'s boarding ended: update its dates and status (instead of the status nudge)', async () => {
+  const { studServiceRepo } = await import('../shared/data/studServiceRepo.js');
+  const { eventRepo } = await import('../shared/data/eventRepo.js');
+  const owner = await contactRepo.create({ name: 'Dana Ruiz' });
+  const visitor = await dogRepo.create({ call_name: 'Juno', sex: 'female', breed: 'Boston Terrier', ownership_type: 'external', status: 'external_reference', owner_contact_id: owner.id });
+  const s = await studServiceRepo.create({ kennel_id: K.id, direction: 'to_us', our_dog_id: sire.id, partner_dog_id: visitor.id, partner_contact_id: owner.id, status: 'in_progress', sent_date: daysAgo(10) });
+  await eventRepo.create({ subject_type: 'dog', subject_id: visitor.id, event_type: 'boarding', event_date: daysAgo(10), event_end_date: daysAgo(3), title: 'Stud service', details: { boarding_reason: 'Stud service' } });
+  const [n, ...rest] = await nudgesFor('studboard:');
+  assert.equal(rest.length, 0);
+  assert.equal((await nudgesFor(`studstatus:${s.id}`)).length, 0, 'one nudge per service');
+  await n.actions[0].run();
+  const after = await studServiceRepo.getById(s.id);
+  assert.equal(after.returned_date, daysAgo(3));
+  assert.equal(after.status, 'completed');
+  assert.equal(after.type, 'in_person', 'type follows who travels');
+  assert.equal((await nudgesFor('studboard:')).length, 0);
+});

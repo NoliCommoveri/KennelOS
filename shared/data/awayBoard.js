@@ -2,13 +2,13 @@
 // events (Event.event_type === 'boarding') and in-person stud services
 // (Data Integrity Brief §5). Normalizes both to one view-model so board.js,
 // today.js, and dashboard.js render/count them together without knowing
-// which table a row came from. Boarding events stay for non-stud reasons
-// (grow-out, foster, owner travel, …) — only the stud-reason duplicate goes
-// away: one row per physical trip now, sourced from whichever table owns it.
+// which table a row came from. One row per physical trip: a stud service's
+// dates make a row only until a "Stud service" boarding event covers that trip.
 import { eventRepo } from './eventRepo.js';
 import { studServiceRepo } from './studServiceRepo.js';
 import { dogRepo } from './dogRepo.js';
 import { isScoped, subjectInScope } from './kennelScope.js';
+import { coveredByBoarding } from './studRules.js';
 
 function fromBoardingEvent(ev) {
   const d = ev.details || {};
@@ -50,7 +50,9 @@ export async function getAwayBoardRows() {
     eventRepo.getBoardRows(),
     studServiceRepo.getBoardRows()
   ]);
-  const rows = await scopeRows([...boarding.map(fromBoardingEvent), ...stud]);
+  // One row per trip: a stud service's own row drops out once a stud boarding
+  // event covers it (studRules.coveredByBoarding); the event is the trip then.
+  const rows = await scopeRows([...boarding.map(fromBoardingEvent), ...stud.filter((r) => !coveredByBoarding(r, boarding))]);
   return rows.sort((a, b) => {
     if (!a.returnDate && !b.returnDate) return 0;
     if (!a.returnDate) return 1;

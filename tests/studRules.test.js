@@ -59,3 +59,38 @@ test('pickPupDefaults: ours, a puppy, the pair, the stud\'s breed, estimated bir
     status: 'puppy', ownership_type: 'owned', disposition: 'keeping', breed: 'Boston Terrier', kennel_id: 'K'
   });
 });
+
+const board = (o = {}) => ({ id: 'b', event_type: 'boarding', subject_type: 'dog', subject_id: 'dam', event_date: '2026-01-01', event_end_date: '2026-01-06', details: { boarding_reason: 'Stud service' }, ...o });
+
+test('studBoardingFor: the travelling dog, reason Stud service, overlapping dates', () => {
+  const s = svc({ direction: 'to_us' }); // her dam stays with us, Jan 1–5
+  assert.equal(S.studBoardingFor(s, [board()]).id, 'b');
+  assert.equal(S.studBoardingFor(s, [board({ subject_id: 'stud' })]), null, 'not the dog that travels');
+  assert.equal(S.studBoardingFor(s, [board({ details: { boarding_reason: 'Grow-out' } })]), null);
+  assert.equal(S.studBoardingFor(s, [board({ event_date: '2026-02-01', event_end_date: '2026-02-03' })]), null);
+  assert.equal(S.studBoardingFor(s, [board({ event_end_date: null })]).id, 'b', 'an open stay overlaps');
+  assert.equal(S.studBoardingFor(svc({ direction: 'to_partner' }), [board({ subject_id: 'stud' })]).id, 'b');
+  assert.equal(S.studBoardingFor(svc({ direction: 'shipped' }), [board()]), null);
+});
+
+test('coveredByBoarding: the Away-board row of a trip a stud boarding covers', () => {
+  const row = { dogId: 'dam', outDate: '2026-01-01', returnDate: null };
+  assert.equal(S.coveredByBoarding(row, [board()]), true);
+  assert.equal(S.coveredByBoarding(row, [board({ subject_id: 'x' })]), false);
+});
+
+test('studBoardingPrefill: the trip as a boarding event', () => {
+  assert.deepEqual(S.studBoardingPrefill(svc({ direction: 'to_us', partner_contact_id: 'c' })), {
+    event_type: 'boarding', event_date: '2026-01-01', event_end_date: '2026-01-05', related_contact_id: 'c', title: 'Stud service',
+    details: { boarding_reason: 'Stud service', location: 'With us' }
+  });
+  assert.equal(S.studBoardingPrefill(svc({ direction: 'to_partner' }), { address: '1 Main St\nVT' }).details.location, '1 Main St, VT');
+});
+
+test('boardingEndedUpdate: dates and status from a stay that has ended', () => {
+  const s = svc({ direction: 'to_us', status: 'in_progress' });
+  assert.deepEqual(S.boardingEndedUpdate(s, [board()], '2026-01-10'), { boarding: board(), changes: { returned_date: '2026-01-06', status: 'completed' } });
+  assert.equal(S.boardingEndedUpdate(s, [board()], '2026-01-06'), null, 'not until the day after it ends');
+  assert.equal(S.boardingEndedUpdate(svc({ direction: 'to_us', returned_date: '2026-01-06' }), [board()], '2026-01-10'), null, 'already in line');
+  assert.equal(S.boardingEndedUpdate(svc({ direction: 'to_us', status: 'cancelled' }), [board()], '2026-01-10'), null);
+});

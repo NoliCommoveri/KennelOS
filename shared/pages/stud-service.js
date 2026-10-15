@@ -18,7 +18,9 @@ import { getMyContactId } from '../data/kennelSetup.js';
 import { attachNewContactButton } from '../assets/contactPicker.js';
 import { resolveKennelIdForWrite, dogInScope, isScoped } from '../data/kennelScope.js';
 import { renderScopeNotice } from '../assets/kennelScopeUI.js';
-import { ourRole } from '../data/studRules.js';
+import { ourRole, travellingDogId, studBoardingFor, studBoardingPrefill } from '../data/studRules.js';
+import { eventRepo } from '../data/eventRepo.js';
+import { openEventForm } from '../assets/eventForm.js';
 
 // The two dates, in words that fit who travels (stored as sent_date / returned_date).
 function dateLabels(direction) {
@@ -403,10 +405,13 @@ async function doSave() {
         inheritFrom: ctx.dogsById.get(candidate.our_dog_id)
       });
       const saved = await studServiceRepo.create(candidate);
+      await promptStudBoarding(saved, null);
       location.href = `stud-service.html?id=${encodeURIComponent(saved.id)}`;
       return;
     }
+    const before = ctx.original;
     const saved = await studServiceRepo.update(ctx.original.id, candidate);
+    await promptStudBoarding(saved, before);
     ctx.original = saved;
     ctx.mode = 'view';
     await loadRefs();
@@ -415,6 +420,30 @@ async function doSave() {
   } catch (e) {
     showError(e.message || String(e));
   }
+}
+
+// Someone travels: offer to log their stay as a boarding event (studRules.
+// studBoardingPrefill: the dog that travels, the two dates, reason "Stud service"),
+// when the service is new or its dates or who travels changed, and no stud boarding
+// already covers the trip. Resolves once the form is saved or dismissed.
+async function promptStudBoarding(s, before) {
+  if (!s.sent_date || s.direction === 'shipped' || !travellingDogId(s)) return;
+  if (before && before.sent_date === s.sent_date && before.returned_date === s.returned_date && before.direction === s.direction) return;
+  if (studBoardingFor(s, await eventRepo.getForSubject('dog', travellingDogId(s)))) return;
+  const who = ctx.dogsById.get(travellingDogId(s))?.call_name || 'The dog';
+  const ok = await confirmModal({
+    title: 'Log the boarding?',
+    message: s.direction === 'to_us'
+      ? `${who} is staying with you for this stud service. Log the stay as boarding, so it's on the Away board and Today asks to update this when it ends?`
+      : `${who} is staying at the partner's for this stud service. Log the stay as boarding, so it's on the Away board and Today asks to update this when it ends?`,
+    confirmLabel: 'Log the boarding', cancelLabel: 'Not now'
+  });
+  if (!ok) return;
+  await new Promise((resolve) => openEventForm({
+    subjectType: 'dog', subjectId: travellingDogId(s),
+    prefill: studBoardingPrefill(s, ctx.contactsById.get(s.partner_contact_id)),
+    onSaved: () => resolve(true), onCancel: () => resolve(false)
+  }));
 }
 
 async function toggleArchive() {

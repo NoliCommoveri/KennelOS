@@ -808,6 +808,7 @@ wires each action, and adds one Dismiss button per row. Dismissals are device-lo
 
 | Key prefix | Fires when | Offers |
 |---|---|---|
+| `studboard` | a stud service's boarding (`studRules.studBoardingFor`: a `boarding` event on the dog that travels, reason "Stud service", dates overlapping the service's) ended before today, and the service's dates differ or it's still arranged / in progress (`boardingEndedUpdate`) | **Update it**: its dates from the stay, Completed. Stands in for `studstatus` on that service |
 | `studstatus` | a stud service's sent/returned date passed but status lags | `in_progress` / `completed` |
 | `promote` | a kept puppy is past its kennel's promote age (opt-in per kennel) | promote to active breeding |
 | `studpair` | a finished stud service has no `pairing_id` | create the pairing |
@@ -849,7 +850,12 @@ litter, pairing, dog and sale pages show on the edit itself, for changes made el
 ### Away board (`data/awayBoard.js`)
 `getAwayBoardRows()` unions boarding events (`eventRepo.getBoardRows`) and in-person stud
 services now in their two dates (`studServiceRepo.getBoardRows`: the dog that travels, ours
-away at the partner's for `to_partner`, theirs "staying with us" for `to_us`) into one row
+away at the partner's for `to_partner`, theirs "staying with us" for `to_us`). One row per
+trip: a stud service's row drops out once a "Stud service" boarding event covers it
+(`studRules.coveredByBoarding`). Saving a stud service where someone travels (new, or its
+dates or who travels changed, and no stud boarding yet) asks **Log the boarding?** and opens
+the event form prefilled (`studBoardingPrefill`: the dog that travels, the two dates, reason
+"Stud service", the partner, where they stay). Every row has one
 shape. Used by `board.js`, Today and the dashboard tile. Kennel scope is applied inside it,
 through the away dog, so the three can't disagree.
 

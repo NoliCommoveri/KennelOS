@@ -1182,3 +1182,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   form asks our dog, the partner (the other sex), then who travels, and labels the two
   dates to fit. The Away board shows the dog that travels, a visitor as "staying with us".
   Decided with the owner: no stud service records exist yet that used the old meaning.
+- **Stud service boarding (2026-10-15).** Saving a stud service where someone travels asks
+  **Log the boarding?** and opens the boarding form prefilled for the dog that travels. The
+  Away board shows one row per trip (the boarding event replaces the service's own row).
+  When that boarding ends, Today asks to update the stud service's dates and mark it
+  Completed (`studboard`, in place of the status nudge). The match between the two is
+  derived (dog, reason "Stud service", overlapping dates), no stored link.
