@@ -7,7 +7,12 @@ import {
   ageMonths, daysBetween, productionRows, pairingOutcome, pairingRows, successBy, progesteroneAtBreeding,
   weightLbs, growthSeries, growthFlags, BACK_TO_BACK_DAYS
 } from '../shared/data/breedingReports.js';
-import { funnelStage, funnelCounts, exitReasons, offerOutcomes, daysToPlacement, median, demandSupply } from '../shared/data/waitlistReports.js';
+import {
+  funnelStage, funnelCounts, exitReasons, offerOutcomes, daysToPlacement, median, demandSupply,
+  mean, applicationGaps, wasApproved, wasDecided, wasListed, daysToApprove, daysToFee, sexWanted,
+  listedSince, waitBuckets, exitGroup, exitDate, offerAndExitRows, offerAndExitStats,
+  purposesWanted, purposesText, parentsWanted, parentsNamed, breedsWanted, colorsWanted
+} from '../shared/data/waitlistReports.js';
 
 test('ageMonths / daysBetween', () => {
   assert.equal(ageMonths('2022-03-15', '2024-03-14'), 23);
@@ -177,4 +182,91 @@ test('testGapRows: planned vs logged by name token, case-insensitive', () => {
 test('studResultRows: the litter its pairing produced', () => {
   const rows = studResultRows([{ id: 's1', pairing_id: 'p1' }, { id: 's2', pairing_id: 'p2' }, { id: 's3' }], [{ id: 'L', pairing_id: 'p1', puppies_born_total: '6' }]);
   assert.deepEqual(rows.map((r) => [r.service.id, r.litter?.id || null, r.born]), [['s1', 'L', 6], ['s2', null, null], ['s3', null, null]]);
+});
+
+test('applications: gaps between applications, approval and listing rates, days to approve and to fee', () => {
+  const entries = [
+    { id: 1, status: 'applied', applied_date: '2026-01-10', pref_sex: 'female' },
+    { id: 2, status: 'declined', applied_date: '2026-01-01', declined_date: '2026-01-03' },
+    { id: 3, status: 'active', applied_date: '2026-01-01', approved_date: '2026-01-04', fee_received_date: '2026-01-09', pref_sex: 'male' },
+    { id: 4, status: 'expired', applied_date: '2026-01-20', approved_date: '2026-01-21', pref_sex: 'weird' },
+    { id: 5, status: 'withdrawn', applied_date: '2026-01-25' }
+  ];
+  assert.deepEqual(applicationGaps(entries), [0, 9, 10, 5], 'sorted by applied date; same day is 0');
+  assert.equal(mean([0, 9, 10, 5]), 6);
+  assert.equal(mean([]), null);
+  assert.deepEqual(entries.map(wasDecided), [false, true, true, true, false], 'waiting or withdrawn before a decision: not decided');
+  assert.deepEqual(entries.map(wasApproved), [false, false, true, true, false]);
+  assert.deepEqual(entries.map(wasListed), [false, false, true, false, false]);
+  assert.equal(daysToApprove(entries[2]), 3);
+  assert.equal(daysToFee(entries[2]), 5);
+  assert.equal(daysToFee(entries[3]), null);
+  assert.deepEqual(sexWanted(entries).map((s) => [s.value, s.count]), [['female', 1], ['male', 1], ['any', 3]], 'blank or unknown = Either');
+});
+
+test('waitlist today: waiting counted from the anchor, then fee, approval, application; bucketed', () => {
+  assert.equal(listedSince({ position_anchor_date: '2025-01-01', fee_received_date: '2025-06-01' }), '2025-01-01');
+  assert.equal(listedSince({ fee_received_date: '2025-06-01', approved_date: '2025-05-01' }), '2025-06-01');
+  assert.equal(listedSince({ approved_date: '2025-05-01', applied_date: '2025-04-01' }), '2025-05-01');
+  assert.equal(listedSince({}), null);
+  const today = '2026-01-01';
+  const b = waitBuckets([
+    { fee_received_date: '2025-12-01' }, { fee_received_date: '2025-10-03' }, { fee_received_date: '2025-10-02' },
+    { fee_received_date: '2025-02-01' }, { fee_received_date: '2024-01-01' }, {}
+  ], today);
+  assert.deepEqual(b.map((x) => x.value), [2, 1, 1, 1], '90 days is under 3 months, 91 is not; no date is left out');
+});
+
+test('offers & removals: rule removals apart from hers; rates over closed offers', () => {
+  assert.equal(exitGroup({ status: 'removed', removed_reason: 'second_pass' }), 'rules');
+  assert.equal(exitGroup({ status: 'removed', removed_reason: 'no_ready_answer' }), 'rules');
+  assert.equal(exitGroup({ status: 'expired' }), 'rules', 'a fee that lapsed before listing');
+  assert.equal(exitGroup({ status: 'removed', removed_reason: 'by_breeder' }), 'by_breeder');
+  assert.equal(exitGroup({ status: 'removed' }), 'by_breeder', 'no reason recorded: hers');
+  assert.equal(exitGroup({ status: 'withdrawn' }), 'withdrew');
+  assert.equal(exitGroup({ status: 'active' }), null);
+  assert.equal(exitDate({ status: 'expired', fee_due_date: '2026-02-01' }), '2026-02-01');
+
+  const entries = [
+    { id: 'a', status: 'active' },
+    { id: 'b', status: 'removed', removed_reason: 'second_pass', removed_date: '2026-03-01' },
+    { id: 'c', status: 'placed' },
+    { id: 'd', status: 'withdrawn', withdrawn_date: '2026-02-01' }
+  ];
+  const offers = [
+    { id: 1, entry_id: 'a', outcome: 'passed', outcome_date: '2026-01-05', counts_as_pass: false },
+    { id: 2, entry_id: 'b', outcome: 'passed', outcome_date: '2026-01-06', counts_as_pass: true },
+    { id: 3, entry_id: 'b', outcome: 'no_response', outcome_date: '2026-02-20', counts_as_pass: true },
+    { id: 4, entry_id: 'c', outcome: 'accepted', outcome_date: '2026-02-10' },
+    { id: 5, entry_id: 'a', outcome: 'open' },
+    { id: 6, entry_id: 'a', outcome: 'voided' },
+    { id: 7, entry_id: 'zz', outcome: 'passed' }
+  ];
+  const rows = offerAndExitRows(entries, offers);
+  assert.deepEqual(rows.map((r) => r.id), ['e:b', 'o:3', 'o:4', 'e:d', 'o:2', 'o:1'], 'closed offers and exits, newest first; open, voided and orphans out');
+  const s = offerAndExitStats(rows);
+  assert.equal(s.closed, 4);
+  assert.deepEqual([s.accepted, s.passed, s.noResponse, s.countedPasses], [1, 2, 1, 2]);
+  assert.deepEqual([s.familiesOffered, s.familiesPassed], [3, 2]);
+  assert.equal(s.left, 2);
+  assert.deepEqual(s.byGroup.map((g) => [g.value, g.count]), [['rules', 1], ['by_breeder', 0], ['declined', 0], ['withdrew', 1]]);
+});
+
+test('what families asked for: purposes (each picked), parents, named parents, breed and color', () => {
+  const entries = [
+    { pref_purposes: ['pet', 'show'], listen_mode: 'selected', listen_dam_ids: ['d1'], listen_sire_ids: ['s1'], pref_breed: 'Boxer', pref_colors: ['Fawn', 'brindle'] },
+    { pref_purposes: 'show', listen_mode: 'selected', listen_dam_ids: ['d1'], pref_breed: ' boxer ', pref_colors: 'fawn' },
+    { pref_purposes: [], listen_mode: 'except', listen_sire_ids: ['s1'] },
+    { pref_purposes: ['bogus'], listen_mode: 'weird', pref_breed: 'Poodle' }
+  ];
+  const pw = Object.fromEntries(purposesWanted(entries).map((r) => [r.value, r.count]));
+  assert.deepEqual(pw, { pet: 1, performance: 0, show: 2, breeding: 0, co_own: 0, '': 2 }, 'each purpose picked counts; none or unknown = any');
+  assert.equal(purposesText(entries[0]), 'Pet / companion + Show');
+  assert.equal(purposesText(entries[2]), 'Any');
+  assert.deepEqual(parentsWanted(entries).map((r) => [r.value, r.count]), [['all', 1], ['selected', 2], ['except', 1]], 'unknown mode reads as any parents');
+  const name = (id) => ({ d1: 'Bella', s1: 'Duke' })[id];
+  assert.deepEqual(parentsNamed(entries, 'selected', name), [{ label: 'Bella', value: 2 }, { label: 'Duke', value: 1 }]);
+  assert.deepEqual(parentsNamed(entries, 'except', name), [{ label: 'Duke', value: 1 }]);
+  assert.deepEqual(breedsWanted(entries).map((r) => [r.label, r.count]), [['Boxer', 2], ['Poodle', 1], ['Any breed', 1]], 'any case and spacing match');
+  assert.deepEqual(colorsWanted(entries).map((r) => [r.label, r.count]), [['Fawn', 2], ['brindle', 1], ['Any color', 2]]);
 });

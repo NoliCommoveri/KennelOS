@@ -269,7 +269,7 @@ search that finds nothing offers View your dogs / Manage your litters / See your
 See your contacts / Sharing your pups, or new words. Still to build: steps 3–4.
 
 Kels as a navigator and a knowledge base, not only task scripts. **Find** is first; **Understand**
-comes later.
+is §3.14.
 
 **Her first message** (decided): "Hi, I'm Kels, your personal KennelOS agent! I'm here to
 help you manage your kennel :) What do you need help with first?" with two buttons,
@@ -308,8 +308,7 @@ and Kels says where it is, with a button that opens it.
   tab in the URL where the page reads one). Pointing at the exact card is later.
 - **Not now** (decided): no record of searches that found nothing.
 
-**Help me understand…** (later): what something means, in a few plain sentences, with
-the button to see it; the same catalog with `kind: 'understand'` entries.
+**Help me understand…** is its own task now: §3.14.
 
 **Build steps:** (1) the shared word match, the engine (`data/kelsFind.js`), the cheat
 sheet, the first message and Finding Something; (2) dogs (with their events, deep),
@@ -392,6 +391,139 @@ off to it where it now only says where to change the form.
 - **Keywords:** application, application form, form, questions, questionnaire, apply,
   waitlist form, FAQ, puppy application.
 
+### 3.14 Help me understand: **M**, all editions (how my kennel is doing: Pro, `reports`)
+Two things a breeder means by "help me understand", asked first:
+**How the app works** ("why is this family fourth?", "what counts as income?") and
+**How my kennel is doing** ("how are my dogs doing?"). Both are read-only: she explains,
+shows the numbers and offers the page, and never changes a record. Both answer in plain
+sentences a breeder would say out loud, never field names or ids.
+
+**A. How the app works.** A topic in a few plain sentences, with a **Show me** button to
+where it lives, and, where it helps, the same rule worked through on one of her own
+records.
+- **Topics** are `kind: 'understand'` entries in `data/kelsKnowledge.js` (the cheat sheet
+  Find already searches, §3.11), so Find's search reaches them too ("how does the waitlist
+  work" lands on the topic, not just the page). Each is `{ id, title, keywords, explain,
+  href, flag?, example? }`. `explain` is written by us, a few sentences; `example` (optional)
+  names the rule function that works it through on her data.
+- **First topics** (one sentence each here; the entry says it properly):
+  - **What's linked to what:** a dog's litters, pairings, sales, events, expenses and
+    documents; a litter's dam, sire, pairing and pups; a sale's pup, family, contract and
+    payments; why archiving a dog keeps its litters and sales (soft delete, §7).
+  - **A dog's life in one record:** puppy → kept or placed → breeding → retired is a status
+    change on the same dog, never a new one.
+  - **The waitlist:** how position is decided (an ahead program first, then the anchor date,
+    else the fee date, then same-day payment order), what makes a family eligible for a
+    litter (sex, breed, purposes, color only when matching is on; not paused; listening for
+    those parents), turns and offers, passes, and when the application fee comes off the
+    pup's price.
+  - **Income:** there's no income ledger; it's read from sales, stud services and fees on
+    every load. Earned (paid, or the sale has passed that step) vs anticipated, why a
+    returned sale keeps only what was paid, why a lost sale counts nothing, why pick value
+    isn't money in, processing fees taken off, and Net = earned − spent.
+  - **Expenses:** every cost hangs on a dog, litter, pairing or her kennel; mileage; an
+    event's cost; a stud fee she paid is an expense, one she earned is income.
+  - **Reports:** each is worked out fresh from her records; the date range; why a report
+    and the Financials Overview always agree.
+  - **Kennels and scope** (multi-kennel), **backups and cloud**, **Sensitive records** (Pro),
+    **sharing with families** (Pro), each where the edition has it.
+- **Her own records, worked through** (`example`): "Why is the Smith family fourth?" →
+  the three families ahead and the reason each is ahead ("the Lees paid their fee on March 2,
+  you on March 9"). "Why is Bella's balance anticipated?" → its parts and which are paid.
+  "Why isn't the Joneses' fee counted twice?" → the credit on their sale. Each answer comes
+  from a small pure `explain…` function **next to the rule it explains**
+  (`waitlistRules.explainPosition`, `incomeView.explainComponent`…), tested with the rule,
+  so an explanation can never drift from what the app does (§2.2). She reaches these from
+  the topic ("Want me to show you on one of yours?" → pick the record) and from Find when a
+  record and a "why" are typed together ("why smith fourth").
+- **Edition-honest:** a topic for a feature the edition lacks isn't there. In Lite, the
+  cap is explained only as the upgrade notice does (§2.3): no "what doesn't count".
+
+**B. How my kennel is doing.** She asks what about (**My dogs**, **Money**, **Litters &
+pups**, **Sales & the waitlist**, **Shows & stud**, or **The whole picture**) and for when
+(this year by default; last 12 months, last year, all time, as `reportMath.rangeFor`'s
+presets), and gets back a short summary in plain sentences:
+
+> Here's how your dogs did this year. Your most prolific dam is Bella, with 2 litters and
+> 14 puppies. Your highest-earning sire is Duke: his pups brought in $18,400. Rosie was bred
+> in April but didn't take, and Maple hasn't been bred this year. Want more, or the report?
+
+- **Every sentence comes from a report.** A pure `data/kennelInsights.js` turns the
+  reports' own rows into sentences; it never computes a figure itself. Each insight is
+  `{ id, topic, text, tone, value, dogIds, source: { href, range } }`, and its **See the
+  report** button opens that report with the same range (and the dog, where the report
+  filters by one). If a question needs a figure no report has, the figure is added to the
+  report first, so she can always see where Kels got it.
+- **My dogs** (from Dam & Sire Production, Breeding-Dog Return, Pairing Success, Heat Cycles,
+  Health-Testing Gaps):
+  - most prolific dam and sire (puppies born, then litters), and the best live-birth rate;
+  - highest-earning dam and sire (their pups' income plus stud fees), and the best and
+    worst return after their own costs ("Rosie's costs are more than her pups have brought
+    in so far");
+  - a breeding dog with **no litter in the range**, said as what happened: bred and didn't
+    take (a failed pairing), or not bred at all. Never "failed to produce". Needs the
+    production report to list breeding-status dogs with no litter in the range (it lists
+    only dogs with a litter today);
+  - the sire with the lowest conception rate, only past a minimum number of breedings;
+  - a heat due in the next month; health tests planned but not logged;
+  - back-to-back litters and lifetime-litter flags, said as the report says them (a prompt
+    to look, never a judgment).
+- **Money** (P&L by Month, Litter P&L, Expenses by Category, Receivables, Pricing,
+  Placements): net for the range and against the one before, the best month, the biggest
+  cost, the most and least profitable litter, what's owed and how overdue, what her pups
+  brought in by registration ("Limited pups brought in $7,500, Full $2,800"), and whether
+  a Full registration is selling for more ("Full sells for $300 more than Limited").
+- **Litters & pups** (Litters Over Time, Live-Birth Summary, Puppy Growth): litters and pups
+  against the range before, the live-birth rate, average litter size, a pup falling behind
+  its littermates.
+- **Sales & the waitlist** (Placements, Waitlist Funnel, Applications, Waitlist Today,
+  Offers & Removals, Demand vs Supply, Lead Sources, Returns), each line from the report
+  named:
+  - *Placements:* pups placed and average price, and how many went with each registration
+    ("You placed 4 pups: 3 on Limited, 1 on Full").
+  - *Applications:* how often families apply ("a new application about every 30 days"),
+    how many she approves, how fast they pay the fee, and what they ask for: a boy or a
+    girl, what the pup is for (pet, show…), any parents or only certain ones, and the dogs
+    they name most ("2 families asked only for Juniper's pups").
+  - *Waitlist Today:* who's waiting now for a girl, a boy or either, how long they've
+    waited, how many are paused, and applications still to review or with a fee due.
+  - *Offers & Removals:* the share of offers accepted, passed or unanswered, families who
+    passed at least once, why they passed, and families removed for not following the
+    list's rules, apart from ones she removed.
+  - *Funnel, Demand vs Supply, Lead Sources, Returns:* where families drop off, families
+    waiting against pups available ("6 families want a girl; you have 2"), the top lead
+    source and referrer, returns.
+- **Shows & stud** (Show Record, Stud Services, Stud Results): points and titles, stud fees
+  earned, services that produced a litter.
+- **The whole picture:** the top one or two from each topic, then **Year in Review**.
+- **How she says it:**
+  - at most four or five sentences per topic, the most telling first (a new high or low,
+    a change against the range before, then the rest); **Tell me more** gives the next few;
+  - names, rounded money and plain counts; a rate with its count ("3 of 4 breedings took");
+  - **too little to say is said:** under a minimum (one litter, two breedings) she says
+    it's too early to compare instead of ranking; a tie is said as a tie;
+  - kind and factual about a dog that's behind, never blaming; welfare flags as prompts;
+  - a topic with nothing in the range says so and offers a longer range.
+- **Scope:** her active kennel scope, as every report reads it (multi-kennel, §31). Kennel
+  check-ins stay in Kels (§2.5): nothing here becomes a Today nudge.
+- **Edition:** Pro and Demo (`editionFlags.reports`, the reports are Pro-only). Lite: see
+  §5 Open.
+
+**Where she starts it:** Doing Something has **Help me understand** (its two branches), and
+Find's results include the topics and the check-up's topics ("how are my dogs doing", "who's
+my best dam", "how's money"). Whether it's also a third button on her first screen is §5
+Open.
+
+**Build steps:** (1) the topics and their entries, reached from Find and the task;
+(2) her own records worked through, starting with waitlist position and income; (3) the
+kennel check-up, **My dogs** first (and the production report's no-litter rows); (4) Money,
+Litters & pups, Sales & the waitlist, Shows & stud, The whole picture; (5) against the range
+before.
+
+- **Keywords:** understand, explain, how does, why, what does, what counts, how am I doing,
+  how's my kennel, my dogs, best dam, best sire, most prolific, earnings, summary, check-up,
+  stats.
+
 ## 4. Shared pieces
 
 - **Search words are ours.** **Decided:** only we add `keywords` (in `TASKS`); breeders
@@ -473,8 +605,20 @@ Decided:
   near-matching name alone is offered as "maybe this is them", never assumed.
 - Set up my application form (§3.13) doesn't take an old form's spreadsheet yet; that stays
   on the Waitlist form page.
+- Help me understand (§3.14) has two flows: how the app works (topics, and the rules worked
+  through on her own records), and how her kennel is doing (plain sentences, each from a
+  report, with the report a tap away).
 
 Open:
 - **Which kennels the "bred it" step offers** (§3.12): proposed, the kennels from this run
   first, then every outside kennel she has; never her own (a dog she bred is the litter
   task's), and only dogs with no breeder kennel (one already set is never changed here).
+- **Help me understand** (§3.14), before it's built:
+  - A third button on her first screen (**Understanding Something**), or only through Doing
+    Something and Find? (Her first screen was decided as two buttons, §3.11.)
+  - Lite and "how my kennel is doing": none (reports are Pro), or a small version from the two
+    reports Lite has (Active Roster, Live-Birth Summary)?
+  - The minimums before she ranks or compares (proposed: 2 litters for a dam, 3 breedings for a
+    sire's rate, 3 sales for an average price).
+  - Which dogs count as "should have had a litter": breeding-status females of breeding age only,
+    or every intact female she owns?

@@ -1,6 +1,6 @@
 # KennelOS — Reports & Analytics Plan
 
-Status: **Phases 1–3 built** (2026-10-09) — every report in this plan exists. The code map is the
+Status: **Phases 1–4 built** — every report in this plan exists. The code map is the
 End-State guide §31; this doc is the plan and the decisions behind it.
 
 ## Decided (2026-10-09)
@@ -67,3 +67,22 @@ date she set (`balance_due_date`); anything without one is "No due date".
 13. **Returns & Voids** (Sales & Waitlist) — by end reason.
 14. **Show Record** (Shows & Stud) — points by dog and track, wins, judges, titles.
 15. **Stud Results** (Shows & Stud) — outgoing services → litters → fees and pick value.
+
+## Phase 4 — done (2026-10-15)
+
+Waitlist and applications, three new Sales & Waitlist reports. **Decided:** removals the
+list's rules make (second pass, no check-in answer, no ready-check answer, fee not received)
+are grouped as "Didn't follow the list's rules", apart from removals she makes; no new
+removal reason.
+
+16. **Applications** — how often families apply (average and median days between
+    applications), approved of those decided, approved → on the list, days to approve and
+    to the fee, by month, by program, and what they asked for: sex, what the pup is for
+    (pet, show…, each picked), which parents (any, only certain, any but certain, and the
+    dogs named), breed when more than one, color when she matches on it.
+17. **Waitlist Today** — a snapshot: who's waiting now in list order, for a girl / boy /
+    either, by program and breed, how long (under 3 months … a year or more), passes used,
+    paused; families not on the list yet (to review, fee due).
+18. **Offers & Removals** — accepted / passed / no-response as shares of closed offers,
+    passes that counted, families who passed at least once, why they passed, why families
+    left (rules / by you / declined / withdrew), which rules, by month.
