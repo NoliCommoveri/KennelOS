@@ -532,6 +532,8 @@ Every key is in its `KEYS` table (`kennelOS.*`), each with a getter/setter, and
 - `guidedLitterDraft`, `guidedDogsDraft` and `prepChecks`: Kels's unfinished litter, her
   unfinished Add dogs, and the optional checks ticked last time in Pups are going home
   (§33). Device-only.
+- `kelsFavorites`, `kelsTaskUse`, `kelsNoPromote`: her starred Kels tasks, when she started
+  each (the last 60 days), and the ones she said not to move up (§33, Favorites). Device-only.
 - `studTripsMigrated`: the stud-trip migration has run on this device (§19, Away board).
 
 **Kept outside `KEYS` on purpose**, so Reset App leaves them: the Pro license record and
@@ -1743,7 +1745,7 @@ again keeps hers). Only a missing answer, or one that can't be saved, stops her.
 
 **Her voice:** every message carries a couple of warm words, aimed at the breeder (her
 work, her pups), never more than one phrase or sentence of it; the rest is the task. Sent
-straight to a task (`?task=`), she still greets and asks "What can I help you do today?",
+straight to a task (`?task=`), she still greets with her first message (`kelsWelcome`),
 and the task is the breeder's answer. **Every new task** (not a resumed draft) then starts
 with `chat.intro(opener)`: the task's own line ("Sure thing, let's get those pups ready to
 go home!"), then `kelsChat.KELS_INTRO` ("I'll ask you some questions; once I'm done
@@ -1753,6 +1755,22 @@ need to save and come back, I'll save what we've got so far…  Sound good?"), a
 "Absolutely, let's get those puppies added!", check-in "Of course, let's check in on your
 litter!", add dogs "Wonderful, let's get your dogs added!", tidy up "Love it, let's get your
 records tidy!", account health "Good idea, let's make sure everything's safe and sound!".
+
+**The top** (`kels.js` `menu`): her first message, `kelsChat.kelsWelcome` ("Hi, I'm Kels, your
+personal KennelOS agent! I'm here to help you manage your kennel :) What do you need help
+with first?"), then an unfinished draft (if any, first), **Finding Something** and **Doing
+Something** (the task menu below, after "Love it! Here's what we can do together."). After a
+task or a find: "What else can I help you with?" and the same buttons.
+
+**Favorites** (`data/kelsFavorites.js`, pure, tested; `kels.js` `doMenu`): the Doing
+Something list is ordered unfinished draft → starred → used often → `priority` (priority
+decides within each). Every task but a resumed draft has a ☆ in its corner (`chat.choose`'s
+`star` / `onStar`: its own tap target, never opens or starts the task) that toggles
+`settings.kelsFavorites`. Each start but a resumed draft is logged (`kelsTaskUse`: id →
+start dates in the last 60 days); more than 3 makes it "You use this often" (a `note` on the
+button), and opening it shows **Don't move this up** (`noteAction`), which adds it to
+`kelsNoPromote` until she stars it. All three are device-only settings, in `KEYS` (Reset
+App clears them), never in a backup or synced.
 
 **The menu** (`kels.js` `TASKS`): a task is `{ id, label, sub, keywords, available, priority,
 run, resumable?, beforeStart? }`, highest priority first, with a search box above it;
@@ -1769,6 +1787,49 @@ moves her to another task (an Expected litter in the check-in → its birth).
 **Doors:** the floating button; the Breeding page (`kels.html?task=record-litter`); an
 expected litter's page (`&litter=<id>`, parents and litter preset); a born litter's page that
 isn't closed (**Check in with Kels**, `kels.html?task=checkin&litter=<id>`).
+
+### "Finding Something"
+`assets/kelsFindUI.js` + `data/kelsFind.js` (the engine) + `data/kelsKnowledge.js` (the cheat
+sheet) + `data/findRecords.js` (her records as candidates); the three data modules are pure
+and tested (`tests/kelsFind.test.js`). Reads only. It opens with `chat.intro('Absolutely!',
+KELS_FIND_INTRO)`: "I'll look through the app and try to find what you're looking for. I'll
+search app features and your existing records. If I find several matches, I'll ask you to
+choose one or ask follow-up questions. Sound good?" (in place of `KELS_INTRO`, since it
+builds nothing), then a search box.
+- **Candidates:** `{ id, group, title, sub, where, href | taskId, boost, levels, numbers?,
+  facets? }`. **Places:** `kelsKnowledge.PLACES`, written by us, each with the sentence she
+  says (`where`, naming hubs by this edition's menu labels) and a link (a tab in its query
+  where the page reads one: `dogs.html?bucket=`, `contacts.html?group=`,
+  `financials.html?view=&bucket=`; `kennel.html?id={kennel}#<section>` with her active
+  kennel), plus every report (`reportCatalog.REPORTS`) and expense category. A place whose
+  page is Pro-only isn't offered in Lite, nor one whose `flag` is off. **Records:** dogs
+  (archived only where `archivedDogLinks`), litters, and in Pro contacts and kennels.
+  **Tasks:** each available task (label, `keywords`), a little behind a page of the same words;
+  choosing one starts it (`handoff`).
+- **Levels:** 1 = names, numbers (`normReg`, typed any way), a place's title and keywords;
+  2 = secondary details (a dog's breed, color, status, ownership, sex, kennel, bred-by
+  kennel; a contact's types, email, phone, kennel; a litter's parents, status, year); 3 =
+  notes and a dog's or litter's events (titles, details, notes), labelled so she says where
+  ("I found "rabies" in Vaccination, Mar 1, 2026").
+- **Passes** (`search`): her words themselves (or a word's start) at levels 1, 2, 3; then
+  with synonyms (`SYNONYM_GROUPS`) at each level; then with slips and sound-alikes
+  (`dogSearch.wordHit`). The first pass where some candidate matches every word is used;
+  if none does, the pass with the most words matched. Only the candidates matching the most
+  words are shown. Little words (`STOP_WORDS`) are dropped; "show" counts unless it's "show
+  me". Scores: the word 3, its start 2.5, a synonym 1.5, a slip 1.2; level 2 ×0.8, level 3
+  ×0.6; +0.5 for a word in the title; ties go to the shorter title. **Look deeper**: level 3
+  with every reach, the ones not already shown.
+- **Answering:** a clear winner (alone, or 1.5 ahead and 1.5× the next) is said with **Take
+  me there** / **Let's do it** and **Not it**. Otherwise, more than four: up to two questions
+  (`narrow`: which kind, then the kind's facets that actually split them: a dog's whose /
+  sex / breed, a contact's type, a kennel's own or not, a litter's year), then **Do you
+  want…** four at a time (each opens its `where` on the first tap), **Show more**, **Look
+  deeper**. Nothing matched: "I couldn't find anything for "…". Here are a couple of things
+  people often look for. If none of them are right, feel free to give me new words and I'll
+  search again!" with **View your dogs**, **Manage your litters**, **See your finances**,
+  **See your contacts**, **Sharing your pups** (the Sharing hub's Companion page; each only
+  where the edition has it) and **Try new words**. Going
+  there opens the page in this tab.
 
 ### "Record a new litter"
 `stepsFor`: mom and dad (own dogs, all dogs, or a new one; a typed name is first checked
@@ -2111,6 +2172,17 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
   pick or add the kennel.
 - **Kennel without a contact** (`contactsSection`): an outside kennel no contact belongs to →
   pick a contact (tagged Breeder) or add one; archive it when no dog names it.
+  Picking and adding a contact are one pair of chat forms (`pickContact`, `addContact`) the
+  kennel and vet findings share.
+- **Vet not in contacts** (`contactsSection`): vet visits and surgeries (`VET_EVENT_TYPES`,
+  the types whose `relatedContact` is 'Vet') with the vet typed as a name (`details.vet`) and
+  no `related_contact_id`, one finding per name however it's typed (named by her most-used
+  spelling), program-wide → link them all to the likely contact (the same name, a vet
+  first, else `similarNamed`), one she picks (vets first), or one she adds (prefilled with
+  the name). The contact is tagged Vet and replaces the typed name (`vetLinkFix`, as the
+  event form clears it).
+- **No vet** (`contactsSection`): she has a dog and no live contact is tagged Vet → add her
+  vet, or tag one of her contacts. Comes after the one above, which usually settles it.
 - **Duplicate dogs:** missing details are unknown, never a difference. *Certain:* the same
   registration number, or the same registered name with no differing number. *Possible:* the
   same call name and breed with nothing contradicting (registration number, birthday,

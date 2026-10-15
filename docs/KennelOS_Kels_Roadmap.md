@@ -12,11 +12,12 @@ need. When one is built, its as-built description goes in the guide (§33) and i
 |---|---|---|
 | Record a new litter | Parents, breeding, birth, each pup, plans, prices; resumable draft | All (outside dogs, stud, "let families know": Pro) |
 | Check in on a litter | Weights, health care, plans, chips, dates, status; picks, Weaning/Ready/Sold/close; pickup, boarding, delivery | All (open picks: Pro) |
-| Tidy up my records | Records that disagree, duplicates, merge | All (stud, contacts, kennels: Pro) |
+| Tidy up my records | Records that disagree, duplicates, merge, vets missing from contacts | All (stud, contacts, kennels, vets: Pro) |
 | Finish an unfinished litter | Resumes the litter draft | All |
 | Set up my waitlist | The fee (Stripe in the chat), offers, going online (cloud backup first), programs, existing families; re-runnable | Pro |
 | Check account health | This device, backups, license, Sensitive records, connections, the online waitlist; each finding with its fix | All (license, Sensitive records, connections, waitlist: where offered) |
 | Add dogs | One or several: a roster of names, a dog on file it may be asked about after its details (one of hers filled in, a pedigree-only one brought into use), what they share asked once, each dog's details and parents, review; resumable draft; then each dog's papers | All (someone else's dog, documents: Pro) |
+| Finding Something | Where a page, a place on it, or a record is, with a button to it; a question or two when there are many; deep in levels | All (people, kennels, Pro pages: Pro) |
 | Pups are going home | Optional checks to tick, remembered on the device (chips, litter registration number, pups' registered names and numbers, feeding); pups Available or Placed with no sale (record the sale or change the plan); readiness per pup with fixes (shots, deworming, drop-off date, balance, contract, registration); a payment request then an invoice for each balance owed; the puppy records with a cover page | All (contract, feeding, payment requests, invoices, Furever, print: Pro) |
 
 The menu has a search box that matches each task's `keywords`, and choices open their
@@ -253,26 +254,64 @@ without opening each dog's page. Also how Add dogs (§3.8) brings in a new dog's
 - **Keywords:** add event, log, record, history, shots, vaccine, vet visit, health test,
   weight, heat, medication, note, show.
 
-### 3.11 Help me find / do / understand: **L**, all editions
-Kels as a knowledge base and a navigator, not only task scripts. Three top-level questions
-on her menu, each a search box first:
-- **"Help me find…"**: she types keywords ("vet records", "where are my contracts",
-  "referral code") and Kels finds where it lives: a page, a card on a page, a report, a
-  setting. Only what this edition has (`editionFlags`, `proPages.js`).
-- **"Help me do…"**: what she wants to get done. When one of Kels's tasks does it, Kels
-  starts that task; when none does, she says how, then gives a button to the page where
-  it's done (the Financials hub, a dog's page…).
-- **"Help me understand…"**: what something means or how it works (an application fee's
-  credit policy, how offers move down the list, what "Sensitive records" protects), in a
-  few plain sentences, with the button to see it.
-- **Clarifying questions:** when the words fit several things, she asks one short question
-  with choices ("Your own vet records, or a puppy's?") before answering. Still scripted
-  (§2.1): every answer is written by us.
-- **Shared pieces it needs:** a catalog (`data/kelsKnowledge.js`, pure, tested) of entries
-  `{ id, kind: 'find' | 'do' | 'understand', title, keywords, answer, href?, taskId?,
-  editions? }`; the menu's word matching (kelsChat's search) scored across the catalog;
-  each task's `keywords` count as "do" entries. An empty search she would plausibly type is
-  a catalog entry we add (§4, "Search words are ours").
+### 3.11 Help me find / do / understand: **L**, all editions — Find: steps 1–2 **Built**
+As built: End-State guide §33 ("Finding Something", "The top"); history in
+`docs/BUILD_LOG.md`. **Modified:** Find's intro (§2.7) is its own how-it-works line
+(`KELS_FIND_INTRO`: it searches features and records, and asks when there are several)
+in place of `KELS_INTRO`, since it builds nothing; synonyms and slips are their own lower passes, after her words
+themselves at every level (a typo or a synonym never hides an exact word deeper down); a
+search that finds nothing offers View your dogs / Manage your litters / See your finances /
+See your contacts / Sharing your pups, or new words. Still to build: steps 3–4.
+
+Kels as a navigator and a knowledge base, not only task scripts. **Find** is first; **Understand**
+comes later.
+
+**Her first message** (decided): "Hi, I'm Kels, your personal KennelOS agent! I'm here to
+help you manage your kennel :) What do you need help with first?" with two buttons,
+**Finding Something** and **Doing Something** (the task list as today). An unfinished draft
+is offered as a third button at the top, so it's never hidden behind "Doing Something".
+After a task: "What else can I help you with?" and the same buttons.
+
+**Finding Something.** She types words ("receipts", "zoey", "zoey rabies", "where's my vet"),
+and Kels says where it is, with a button that opens it.
+- **Three sources, ranked together:**
+  - **Places** (the cheat sheet, decided): `data/kelsKnowledge.js`, written by us, not read
+    from the pages. Each entry is `{ id, title, where, keywords, href, flag? }`, and its
+    `where` is the plain sentence she says. The hub pages and the reports
+    (`reportCatalog.REPORTS`) come in automatically. Tests check every `href` exists, is
+    precached, and is gated like its page.
+  - **Records:** dogs, people, kennels, litters (then sales, contracts, documents,
+    expenses, accounts, waitlist entries), each as a candidate with its detail page.
+  - **Her tasks:** a task's label and `keywords`. A match offers to start it.
+- **Deep, in levels** (decided): every field can be searched, but in three levels, and a
+  deeper one is only used when the levels above don't match every word she typed.
+  Level 1: a record's names and numbers, a place's title and keywords. Level 2: secondary
+  details (breed, color, kennel, contact type, email). Level 3: notes, and a dog's events
+  (titles, details, notes). After a level-1 or -2 answer she offers **Look deeper**.
+- **Matching** each typed word: the same word, the start of one, a slip or sound-alike
+  (`dogSearch`'s word match, shared), or a synonym from our list (receipt → expense).
+  Little words ("my", "where", "the") are ignored. A candidate matching more of her words
+  comes first; within that, the score.
+- **Narrowing:** one clear match is said with **Take me there** (and **Not it**). More than
+  four: she asks one question that splits them, from what's actually there: which kind (a
+  dog, a person, a page…), then the kind's own split (a dog: hers or someone else's, boy or
+  girl, breed; a person: what they are to her; a litter: which year). At most two
+  questions, then the top four and **Show more**.
+- **Edition-honest:** a place whose page is Pro-only, or whose `flag` is off, isn't in
+  Lite; record kinds the edition lacks aren't searched.
+- **Landing** (decided): the button opens the page (a record's detail page, a hub with its
+  tab in the URL where the page reads one). Pointing at the exact card is later.
+- **Not now** (decided): no record of searches that found nothing.
+
+**Help me understand…** (later): what something means, in a few plain sentences, with
+the button to see it; the same catalog with `kind: 'understand'` entries.
+
+**Build steps:** (1) the shared word match, the engine (`data/kelsFind.js`), the cheat
+sheet, the first message and Finding Something; (2) dogs (with their events, deep),
+people, kennels, litters; (3) sales, contracts, documents, expenses and receipts,
+accounts, waitlist entries; (4) a record and a topic together ("zoey shots" → her health
+history) and landing on the card.
+
 - **Keywords:** help, find, where is, how do I, what is, explain, show me.
 
 ## 4. Shared pieces
@@ -280,7 +319,8 @@ on her menu, each a search box first:
 - **Search words are ours.** **Decided:** only we add `keywords` (in `TASKS`); breeders
   don't add their own. An empty search that a breeder would plausibly type is a keyword we
   add in the next release.
-- **Her favorites first.** Two ways a task moves up her menu, both device-local in
+- **Her favorites first** — **Built** (the Doing Something list; End-State guide §33,
+  `data/kelsFavorites.js`). Two ways a task moves up her menu, both device-local in
   `settings.js` (her habits on this device, never in a backup or synced):
   - **Star:** a ☆ in the corner of each menu button (its own tap target, so starring never
     opens or starts the task) toggles `kelsFavorites`. Starred tasks sit at the top.
@@ -292,7 +332,8 @@ on her menu, each a search box first:
   - **Order:** unfinished work (a resumable draft) → starred → frequent → the state-based
     `priority` the menu uses today. Within a group, the state-based priority decides. A
     task that isn't `available` never shows, starred or not.
-  - **Open:** once she has starred tasks, should the rest fold under "More"?
+  - **Decided:** the rest never folds under "More", and starred tasks stay in the Doing
+    Something list (no shortcuts on her first screen).
 - **Task handoffs** grow (sale → prep pups; heat → breeding → litter). `handoff(taskId,
   opts)` already exists; each task documents what `opts` it takes.
 - **Suggested next task:** the menu's `priority` already reads state. Add "pups leave in a
@@ -320,5 +361,11 @@ Decided:
   the last 60 days.
 - Pups are going home's print opens with a cover page of each pup's readiness, for the breeder.
 
-Open:
-1. Once she has starred tasks, should the rest of the menu fold under "More"?
+- Kels opens with "What do you need help with first?": **Finding Something** / **Doing
+  Something** (§3.11). Find searches places (a cheat sheet we write), records and tasks,
+  deep in levels; the button opens the page.
+
+- Starred tasks stay in the Doing Something list: no shortcuts on her first screen, and
+  the rest of the list never folds under "More".
+
+Open: nothing right now.

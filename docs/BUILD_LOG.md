@@ -1291,3 +1291,29 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   litter task now asks it too).
 - **Service worker v80 (2026-10-15).** Cache bumped for the Kels Add dogs batch (new
   `assets/guidedDogsUI.js`, `assets/kelsSteps.js`, `data/guidedDogs.js`, `data/dogSearch.js`).
+- **Kels tidy-up: vets (2026-10-15).** Two Pro checks (`contactsSection`). Vet visits and
+  surgeries with a typed vet name and no linked contact, one finding per name, are linked
+  to the likely contact, one she picks, or one she adds; the contact is tagged Vet and
+  replaces the typed name (`tidyRules.vetContactFindings`, `vetLinkFix`). And no vet in her
+  contacts at all → add her vet or tag one. The kennel finding's pick and add contact forms
+  became `pickContact` / `addContact`, shared with the vet findings. "vet" and
+  "veterinarian" find the tidy-up in Pro. A browser run found that a tie picked the name
+  shown by the order the event types loaded; it's now her most-used spelling, capitals
+  winning a tie.
+- **Kels: Finding Something (2026-10-15).** Her first message is now "…I'm here to help you
+  manage your kennel :) What do you need help with first?" with **Finding Something** /
+  **Doing Something** (the task menu), an unfinished draft first. Find searches the cheat
+  sheet (`data/kelsKnowledge.js`: hand-written places, plus every report and expense
+  category), her dogs, litters, people and kennels, and her tasks, with `data/kelsFind.js`:
+  three levels (names; details; notes and events), each tried with her words before
+  synonyms, and synonyms before slips; then one answer, or a question that splits them,
+  or a short list, and a button that opens the page. Nothing found offers the common
+  places or new words. `dogSearch.wordHit` is exported for it. Browser runs found: the
+  search form returned a string (shown as a problem); synonyms pulled in every expense
+  page for "receipts"; "rabies" stopped at "babies"; a tie picked "Litter P&L" over
+  "Litters"; questions were asked with an obvious answer; a doubled "litter" in titles;
+  the cheat sheet needed "puppy payments", "stud my dog", "people on waitlist". All fixed.
+  The tidy-up's "contact", "breeder", "kennel" and "stud" keywords are now Pro-gated
+  (Lite's Find offered the tidy-up for "contacts").
+- **Kels Find intro (2026-10-15).** Finding Something opens like every task, with `chat.intro`: "Absolutely!" and its own how-it-works line (`KELS_FIND_INTRO`; `intro(opener, how)` takes it), answered Sounds great, let's start! / Never mind. The no-match places add Sharing your pups (Pro).
+- **Kels: favorites (2026-10-15).** The Doing Something list puts unfinished work first, then starred tasks, then ones used often, then the usual priority (`data/kelsFavorites.js`). A ☆ in each task button's corner stars it (its own tap target; `chat.choose` `star`/`onStar`). More than 3 starts in 60 days shows "You use this often", with **Don't move this up** when opened (undone by starring). Kept on the device in `settings.js` (`kelsFavorites`, `kelsTaskUse`, `kelsNoPromote`), never backed up or synced.
