@@ -6,7 +6,7 @@
 > `shared/data/cloud/`; the UI in `shared/assets/cloudBackupUI.js`), plus the lost-device
 > erase and Pro-license release (§2.5, added 2026-10-07), and step 6 (§9): the repo half, then
 > the go-live change. **Live once the go-live change is merged** (after the operator's
-> production setup, `docs/LAUNCH_CHECKLIST.md` §3a). The README's build status is the
+> production setup, `docs/LAUNCH_CHECKLIST.md` §3a). The build log (`docs/BUILD_LOG.md`) is the
 > live record. Decisions it relies on are recorded in Proposal §10. The ones it raises are in
 > §11 below.
 
@@ -821,7 +821,7 @@ whose page is open to anyone until the first account exists.
   - `cloudUrl: null` must work;
   - a new field is private until classified in `syncRegistry.js`, with that file named
     alongside `referenceRegistry.js` as the second registry to keep current.
-- **README** build status; **Editions Plan** (Lite gains an optional account + backup + vault).
+- **`docs/BUILD_LOG.md`** entry; **Editions Plan** (Lite gains an optional account + backup + vault).
 - **End-State guide:** §2 (architecture), §5/§10 (the `'cloud-merge'` restore mode), §11 (new
   settings keys, first-run choice), and a new **§29 Cloud backup** section. §16's invariants gain
   the registry coverage test.
