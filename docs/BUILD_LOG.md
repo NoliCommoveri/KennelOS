@@ -1231,3 +1231,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   No new fields: the breeder is a contact on the kennel (`contacts.kennel_id`), as the
   tidy-up expects. Dogs she bred skip the purchase question; "Bought from" starts as the
   breeder kennel's name.
+- **Kels: one add-a-kennel (2026-10-15).** The tidy-up's "Add their kennel" / "Add a
+  contact", the litter task's outside parent and Add dogs' breeder now share the fields
+  (`kelsSteps.kennelNameField`, `contactFields`, `readContactFields`) and the save
+  (`kennelRepo.findOrCreateOutside`: the outside kennel on file by that name, else a new
+  one), so a kennel name typed in any of them never makes a second kennel. The tidy-up's
+  own copy of `field()` went too.

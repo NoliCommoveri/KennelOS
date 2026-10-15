@@ -42,6 +42,21 @@ export const val = (root, id) => root.querySelector(`#${id}`)?.value.trim() ?? '
 
 export const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
+// The add-a-kennel and add-a-person fields Kels asks wherever she makes an
+// outside kennel or a breeder / owner contact (the tidy-up, the litter task's
+// outside parent, Add dogs' breeder), so they read the same everywhere.
+export const kennelNameField = (id, value = '') =>
+  field('Kennel name', input(id, value, { placeholder: 'e.g. Elmwood Kennels' }));
+
+export const contactFields = (prefix, v = {}, { nameLabel = 'Name' } = {}) =>
+  `${field(nameLabel, input(`${prefix}-name`, v.name, { placeholder: 'e.g. Pat Smith' }))}
+  ${field('Phone (optional)', input(`${prefix}-phone`, v.phone, { type: 'tel' }))}
+  ${field('Email (optional)', input(`${prefix}-email`, v.email, { type: 'email' }))}`;
+
+export const readContactFields = (root, prefix) => ({
+  name: val(root, `${prefix}-name`), phone: val(root, `${prefix}-phone`), email: val(root, `${prefix}-email`)
+});
+
 export function pagesPrefix() {
   return location.pathname.includes('/pages/') ? '' : 'pages/';
 }

@@ -32,6 +32,7 @@ import { esc, fmtDate, todayYMD } from './ui.js';
 import { addDaysToYMD } from '../data/dateUtils.js';
 import { renderUpgradeNudge } from './upgradeNudge.js';
 import { FindingsTask, plural } from './kelsFindings.js';
+import { field, kennelNameField, contactFields, readContactFields } from './kelsSteps.js';
 
 const ROLE = { sire: { field: 'sire_id', sex: 'male', word: 'sire' }, dam: { field: 'dam_id', sex: 'female', word: 'dam' } };
 const label = (vocab, v) => descriptor(vocab, v).label;
@@ -472,12 +473,12 @@ class Tidy extends FindingsTask {
   async newKennel() {
     const res = await this.chat.form({
       title: '',
-      html: field('Kennel name', '<input id="td-kname" type="text" autocomplete="off">'),
+      html: kennelNameField('td-kname'),
       submitLabel: 'Add', cancelLabel: 'Skip',
       submit: async (root) => {
         const name = root.querySelector('#td-kname').value.trim();
         if (!name) return 'What\'s the kennel called?';
-        const k = await kennelRepo.create({ kennel_name: name, is_own_kennel: false });
+        const { kennel: k } = await kennelRepo.findOrCreateOutside(name);
         this.kennelsById.set(k.id, k);
         return k.id;
       },
@@ -517,14 +518,12 @@ class Tidy extends FindingsTask {
     } else if (pick === 'new') {
       const res = await this.chat.form({
         title: '',
-        html: `${field('Name', '<input id="td-cname" type="text" autocomplete="off">')}
-          ${field('Email (optional)', '<input id="td-cemail" type="email" autocomplete="off">')}
-          ${field('Phone (optional)', '<input id="td-cphone" type="tel" autocomplete="off">')}`,
+        html: contactFields('td-c'),
         submitLabel: 'Add', cancelLabel: 'Skip',
         submit: async (root) => {
-          const name = root.querySelector('#td-cname').value.trim();
+          const { name, email, phone } = readContactFields(root, 'td-c');
           if (!name) return 'What\'s their name?';
-          const c = await contactRepo.create({ name, email: root.querySelector('#td-cemail').value.trim(), phone: root.querySelector('#td-cphone').value.trim(), contact_type: ['breeder'], kennel_id: k.id });
+          const c = await contactRepo.create({ name, email, phone, contact_type: ['breeder'], kennel_id: k.id });
           this.contactsById.set(c.id, c);
           return c.id;
         },
@@ -608,7 +607,4 @@ class Tidy extends FindingsTask {
 
 const cap = (s) => s[0].toUpperCase() + s.slice(1);
 
-function field(labelText, inputHtml, hint = '') {
-  return `<div class="field gl-field"><label>${esc(labelText)}</label>${inputHtml}${hint ? `<span class="field-hint">${esc(hint)}</span>` : ''}</div>`;
-}
 

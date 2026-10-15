@@ -361,3 +361,17 @@ test('who bred them: hers, or another breeder\'s kennel and contact, each made o
   assert.equal(tables.kennels.rows.size, kennelsBefore + 1);
   assert.equal((await dogRepo.getById(d2.dogs[0].id)).breeder_kennel_id, windmere.id);
 });
+
+test('findOrCreateOutside: an outside kennel by name, never an own one, never twice', async () => {
+  const { kennelRepo } = await import('../shared/data/kennelRepo.js');
+  const own = [...tables.kennels.rows.values()].find((k) => k.is_own_kennel);
+  const a = await kennelRepo.findOrCreateOutside('  Hollowbrook  Setters ');
+  assert.equal(a.created, true);
+  assert.equal(a.kennel.is_own_kennel, false);
+  const b = await kennelRepo.findOrCreateOutside('hollowbrook  setters');
+  assert.equal(b.created, false);
+  assert.equal(b.kennel.id, a.kennel.id);
+  const c = await kennelRepo.findOrCreateOutside(own.kennel_name);
+  assert.equal(c.created, true, 'her own kennel\'s name is not an outside kennel');
+  await assert.rejects(() => kennelRepo.findOrCreateOutside('  '));
+});

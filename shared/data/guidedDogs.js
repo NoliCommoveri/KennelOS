@@ -330,7 +330,7 @@ function dogFields(d) {
 // kennel), with the breeder as a contact linked to it (typed Breeder; one she
 // picked keeps any kennel she already has). New ones go on `s` as made, so the
 // same breeder for two dogs is one kennel and one contact. → the kennel id.
-async function saveBreeder(b, { s, step, kennels, ownKennelId }) {
+async function saveBreeder(b, { s, step, ownKennelId }) {
   if (!b?.bredBy) return null;
   if (b.bredBy === 'me') return ownKennelId || await resolveKennelIdForWrite();
   s.kennels = s.kennels || {};
@@ -338,14 +338,12 @@ async function saveBreeder(b, { s, step, kennels, ownKennelId }) {
   let kennelId = b.kennelId || null;
   if (!kennelId && !blank(b.kennelName)) {
     const k = norm(b.kennelName);
-    kennelId = s.kennels[k] || kennels.find((x) => !x.is_archived && norm(x.kennel_name) === k)?.id || null;
+    kennelId = s.kennels[k] || null;
     if (!kennelId) {
-      const made = await kennelRepo.create({ kennel_name: trimmed(b.kennelName), is_own_kennel: false });
-      kennels.push(made);
-      kennelId = made.id;
-      await step();
+      const { kennel, created } = await kennelRepo.findOrCreateOutside(b.kennelName);
+      kennelId = s.kennels[k] = kennel.id;
+      if (created) await step();
     }
-    s.kennels[k] = kennelId;
   }
   if (b.contactId) {
     const c = await contactRepo.getById(b.contactId);
@@ -426,7 +424,7 @@ export async function saveGuidedDogs(draft, { onProgress = () => {} } = {}) {
 
       const fields = { ...dogFields(d), owner_contact_id: ownerId };
       if (SCOPED_OWNERSHIP.has(d.ownership_type)) fields.kennel_id = d.kennelId || await resolveKennelIdForWrite();
-      const breederKennelId = await saveBreeder(d.breeder, { s, step, kennels, ownKennelId: fields.kennel_id });
+      const breederKennelId = await saveBreeder(d.breeder, { s, step, ownKennelId: fields.kennel_id });
       if (breederKennelId) fields.breeder_kennel_id = breederKennelId;
       if (parentIds.dam) fields.dam_id = parentIds.dam;
       if (parentIds.sire) fields.sire_id = parentIds.sire;

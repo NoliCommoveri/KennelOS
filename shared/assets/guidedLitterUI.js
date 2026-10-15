@@ -30,7 +30,7 @@ import { addDaysToYMD } from '../data/dateUtils.js';
 import * as G from '../data/guidedLitter.js';
 import { esc, todayYMD } from './ui.js';
 import { renderUpgradeNudge } from './upgradeNudge.js';
-import { StepConversation, tile, field, input, options, stepper, val, plural, pagesPrefix } from './kelsSteps.js';
+import { StepConversation, tile, field, input, options, stepper, val, plural, pagesPrefix, kennelNameField, contactFields, readContactFields } from './kelsSteps.js';
 
 // --- The data the screens read --------------------------------------------------
 
@@ -204,18 +204,14 @@ function screens(draft, data, ctx) {
       title: `Who owns ${esc(s.call_name || (r.pronoun === 'she' ? 'her' : 'him'))}?`,
       html: `${data.contacts.length ? field('Someone already in your contacts', `<select id="gl-so-pick"><option value="">Someone new…</option>${data.contacts.map((c) => `<option value="${esc(c.id)}"${s.ownerId === c.id ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select>`) : ''}
         <div id="gl-so-new"${s.ownerId ? ' hidden' : ''}>
-          ${field('Owner\'s name', input('gl-so-name', owner.name, { placeholder: 'e.g. Pat Smith' }))}
-          ${field('Phone (optional)', input('gl-so-phone', owner.phone, { type: 'tel' }))}
-          ${field('Email (optional)', input('gl-so-email', owner.email, { type: 'email' }))}
+          ${contactFields('gl-so', owner, { nameLabel: 'Owner\'s name' })}
         </div>`,
       wire: (root) => {
         root.querySelector('#gl-so-pick')?.addEventListener('change', (e) => { root.querySelector('#gl-so-new').hidden = Boolean(e.target.value); });
       },
       read: (root) => {
         s.ownerId = val(root, 'gl-so-pick') || null;
-        owner.name = val(root, 'gl-so-name');
-        owner.phone = val(root, 'gl-so-phone');
-        owner.email = val(root, 'gl-so-email');
+        Object.assign(owner, readContactFields(root, 'gl-so'));
         // A picked owner with a kennel names the dog's kennel too.
         const picked = s.ownerId ? data.contactsById.get(s.ownerId) : null;
         if (picked?.kennel_id && !s.kennelId && !s.kennelName) s.kennelId = picked.kennel_id;
@@ -231,7 +227,7 @@ function screens(draft, data, ctx) {
       title: 'Does the owner have a kennel name?',
       html: `<p class="gl-lead">Optional. Tap Next to skip.</p>
         ${outside.length ? field('A kennel you already have', `<select id="gl-sk-pick"><option value="">None, or a new one…</option>${outside.map((k) => `<option value="${esc(k.id)}"${s.kennelId === k.id ? ' selected' : ''}>${esc(k.kennel_name)}</option>`).join('')}</select>`) : ''}
-        <div id="gl-sk-new"${s.kennelId ? ' hidden' : ''}>${field('Kennel name', input('gl-sk-name', s.kennelName, { placeholder: 'e.g. Elmwood Kennels' }))}</div>`,
+        <div id="gl-sk-new"${s.kennelId ? ' hidden' : ''}>${kennelNameField('gl-sk-name', s.kennelName)}</div>`,
       wire: (root) => {
         root.querySelector('#gl-sk-pick')?.addEventListener('change', (e) => { root.querySelector('#gl-sk-new').hidden = Boolean(e.target.value); });
       },

@@ -546,7 +546,7 @@ async function createParent(spec, role, s, ownKennelId, step) {
   }
   let kennelId = spec.kennelId || made.kennelId || null;
   if (!kennelId && !blank(spec.kennelName)) {
-    const k = await kennelRepo.create({ kennel_name: trimmed(spec.kennelName), is_own_kennel: false });
+    const { kennel: k } = await kennelRepo.findOrCreateOutside(spec.kennelName);
     kennelId = made.kennelId = k.id;
     await step();
   }

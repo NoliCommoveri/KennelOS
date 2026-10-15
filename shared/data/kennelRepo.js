@@ -148,6 +148,20 @@ export const kennelRepo = {
     return all.filter((k) => !k.public_id && !k.is_own_kennel && testKey(k.kennel_name) === key);
   },
 
+  // An outside kennel by the name she typed: the one on file with that name (not
+  // archived, the same name match as above), else a new outside kennel. Kels's
+  // add-a-kennel everywhere (the tidy-up, an outside parent in the litter task,
+  // a breeder in Add dogs), so a name she types twice is one kennel.
+  // → { kennel, created }.
+  async findOrCreateOutside(name) {
+    const key = testKey(name);
+    if (!key) throw new Error('Kennel: "kennel_name" is required.');
+    const all = await kennelRepo.getAll({ includeArchived: false });
+    const found = all.find((k) => !k.is_own_kennel && testKey(k.kennel_name) === key);
+    if (found) return { kennel: found, created: false };
+    return { kennel: await kennelRepo.create({ kennel_name: String(name).trim(), is_own_kennel: false }), created: true };
+  },
+
   // Contacts affiliated with this kennel — for the standalone kennel list screen.
   getContacts(kennelId) {
     return db.contacts.where('kennel_id').equals(kennelId).toArray();

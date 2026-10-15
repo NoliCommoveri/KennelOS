@@ -1695,7 +1695,10 @@ problem and stay, anything else to finish — and the button), `pages/kels.*` (t
 `assets/kelsSteps.js` (`StepConversation`, the step engine the two draft-keeping tasks
 share: a step list worked out from the draft, one screen per step with tiles, Back and
 Next, her answers left in the chat and in `draft.history` to replay a resumed draft, and a
-review whose Change links come straight back to it; plus the screens' HTML helpers),
+review whose Change links come straight back to it; plus the screens' HTML helpers, and
+the add-a-kennel / add-a-person fields every task asks with, `kennelNameField` and
+`contactFields` + `readContactFields`: the tidy-up's "Add their kennel" and "Add a
+contact", the litter task's outside parent's owner and kennel, Add dogs' breeder),
 `assets/guidedLitterUI.js` + `data/guidedLitter.js` (the litter task), `assets/guidedDogsUI.js`
 + `data/guidedDogs.js` (add dogs), `assets/litterCheckinUI.js`
 + `data/litterCheckin.js` + `data/goHome.js` (the check-in), `assets/tidyUpUI.js` +
@@ -1801,7 +1804,9 @@ One dog or several in one go, the way the litter task takes several puppies. `st
 Breeder), its typed parents (one pedigree-only dog per name and sex, so littermates share
 it), then the dog: owned or co-owned in her kennel (`resolveKennelIdForWrite` when not
 asked), its breeder kennel (`saveBreeder`: hers; or another breeder's, a typed name
-matching a kennel on file being that kennel, else a new outside kennel; the breeder a
+through `kennelRepo.findOrCreateOutside`, the outside kennel on file by that name (trimmed,
+any case, not archived) or else a new one, as every Kels add-a-kennel does (the tidy-up,
+the litter task's outside parent); the breeder a
 contact typed Breeder linked to it by `contacts.kennel_id`, one she picked gaining the
 kennel if it had none; one new kennel and one new contact per name across the batch, the
 owner's included), an owned dog's owner her own contact (the Dog page's prefill), and her kennel's

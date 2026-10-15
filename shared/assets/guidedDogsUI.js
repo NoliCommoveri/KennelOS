@@ -22,7 +22,7 @@ import * as G from '../data/guidedDogs.js';
 import { fmt } from '../data/guidedLitter.js';
 import { esc, todayYMD } from './ui.js';
 import { renderUpgradeNudge } from './upgradeNudge.js';
-import { StepConversation, tile, field, input, options, val, plural, pagesPrefix } from './kelsSteps.js';
+import { StepConversation, tile, field, input, options, val, plural, pagesPrefix, kennelNameField, contactFields, readContactFields } from './kelsSteps.js';
 
 // --- The data the screens read ----------------------------------------------------
 
@@ -298,14 +298,10 @@ function screens(draft, data) {
           </div>
           ${other ? `<p class="gl-q">Their kennel</p>
             ${data.outsideKennels.length ? field('A kennel you have', `<select id="gd-bk-pick"><option value="">A new kennel…</option>${data.outsideKennels.map((k) => `<option value="${esc(k.id)}"${b.kennelId === k.id ? ' selected' : ''}>${esc(k.kennel_name)}</option>`).join('')}</select>`) : ''}
-            <div id="gd-bk-new"${b.kennelId ? ' hidden' : ''}>${field('Kennel name', input('gd-bk-name', b.kennelName, { placeholder: 'e.g. Ridgeline Kennels' }))}</div>
+            <div id="gd-bk-new"${b.kennelId ? ' hidden' : ''}>${kennelNameField('gd-bk-name', b.kennelName)}</div>
             <p class="gl-q">The breeder (optional)</p>
             ${people.length ? field('Someone in your contacts', `<select id="gd-bc-pick"><option value="">Someone new…</option>${people.map((c) => `<option value="${esc(c.id)}" data-kennel="${esc(c.kennel_id || '')}"${b.contactId === c.id ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select>`) : ''}
-            <div id="gd-bc-new"${b.contactId ? ' hidden' : ''}>
-              ${field('Name', input('gd-bc-name', b.contactName, { placeholder: 'e.g. Pat Smith' }))}
-              ${field('Phone (optional)', input('gd-bc-phone', b.contactPhone, { type: 'tel' }))}
-              ${field('Email (optional)', input('gd-bc-email', b.contactEmail, { type: 'email' }))}
-            </div>` : ''}`,
+            <div id="gd-bc-new"${b.contactId ? ' hidden' : ''}>${contactFields('gd-bc', { name: b.contactName, phone: b.contactPhone, email: b.contactEmail })}</div>` : ''}`,
         onTile: (value) => {
           if (value === 'unsure') { d.breeder = G.noBreeder(); return true; }
           b.bredBy = value;
@@ -326,9 +322,8 @@ function screens(draft, data) {
           b.kennelId = val(root, 'gd-bk-pick') || null;
           b.kennelName = b.kennelId ? '' : val(root, 'gd-bk-name');
           b.contactId = val(root, 'gd-bc-pick') || null;
-          b.contactName = b.contactId ? '' : val(root, 'gd-bc-name');
-          b.contactPhone = b.contactId ? '' : val(root, 'gd-bc-phone');
-          b.contactEmail = b.contactId ? '' : val(root, 'gd-bc-email');
+          const typed = b.contactId ? { name: '', phone: '', email: '' } : readContactFields(root, 'gd-bc');
+          Object.assign(b, { contactName: typed.name, contactPhone: typed.phone, contactEmail: typed.email });
         }
       };
     },
