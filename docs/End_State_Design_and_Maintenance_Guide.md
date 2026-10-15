@@ -1812,6 +1812,16 @@ dog (ticked; untick any she didn't buy): the date (required), who from, the pric
 `details.source`), and a price an expense linked to it (`expenseRepo.createForEvent`,
 category `dog_purchase`), exactly as the event form's Cost does.
 
+**Their shots** (the same dogs): "Do you have their shots on record?" **Yes, let's add
+them** asks one form per dog over `vocab.VACCINE_CHECKLIST` (Rabies, DHPP, Bordetella,
+Leptospirosis): the date given (blank = skip; a rough date is fine) and how long it's good
+for (`VACCINE_GOOD_FOR`: 1, 3 or 5 years, or Lifetime; 1 year suggested), and **Remind me on
+Today when they're due** (ticked). `saveShots` makes each dated row a `vaccination` event
+titled "Rabies (3-year)" / "DHPP (lifetime)", `details.vaccine`, `details.next_due` = the
+date plus its years, and with the reminder that date as `reminder_date`, so Today's
+Reminders card brings it up like any other reminder. Lifetime has no due date or
+reminder. She names the next one due.
+
 **Then** (Pro, `editionFlags.documents`): "Do you have any papers to file for
 them?" **Yes, let's file them** asks which dog (with several), then a form in the chat: the
 type (`DOC_TYPES`), a PDF or photos (taken or chosen, built into one PDF), a title, a date,

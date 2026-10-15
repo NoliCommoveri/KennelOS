@@ -26,8 +26,8 @@ import { getMyContactId } from './settings.js';
 import { CapExceededError } from './repoBase.js';
 import { eventRepo } from './eventRepo.js';
 import { expenseRepo } from './expenseRepo.js';
-import { todayYMD } from './dateUtils.js';
-import { SEX, DOG_STATUS, OWNERSHIP_TYPE, descriptor, defaultExpenseCategoryFor } from './vocab.js';
+import { todayYMD, addMonthsToYMD } from './dateUtils.js';
+import { SEX, DOG_STATUS, OWNERSHIP_TYPE, VACCINE_GOOD_FOR, descriptor, defaultExpenseCategoryFor } from './vocab.js';
 import { dogMatches, fmt } from './guidedLitter.js';
 
 export const DRAFT_VERSION = 1;
@@ -425,4 +425,43 @@ export async function saveAcquisitions(rows) {
     events.push(ev);
   }
   return events;
+}
+
+// --- After the save: their shots -----------------------------------------------
+// "Do you have their shots on record?" One form per dog over VACCINE_CHECKLIST:
+// a date given (blank = not given / not known) and how long it's good for. Each
+// becomes a `vaccination` event titled "Rabies (3-year)" / "DHPP (lifetime)",
+// `details.next_due` from the date and its years, and with `remind` that same
+// date as its `reminder_date`, so Today's Reminders card brings it up (Upcoming,
+// then Due soon, then Overdue), as any event with a reminder date.
+// rows: [{ vaccine, date, goodFor }].
+
+const goodFor = (v) => VACCINE_GOOD_FOR.find((g) => g.value === v) || null;
+
+export function shotsProblem(rows, today = todayYMD()) {
+  for (const r of rows) {
+    if (blank(r.date)) continue;
+    if (r.date > today) return `The ${r.vaccine} date can't be in the future.`;
+    if (!goodFor(r.goodFor)) return `How long is the ${r.vaccine} shot good for?`;
+  }
+  return rows.some((r) => !blank(r.date)) ? null : 'Fill in the date of at least one shot, or tap Skip.';
+}
+
+export function shotEvents(dogId, rows, { remind = false } = {}) {
+  return rows.filter((r) => !blank(r.date)).map((r) => {
+    const g = goodFor(r.goodFor);
+    const nextDue = g.years ? addMonthsToYMD(r.date, g.years * 12) : null;
+    return {
+      subject_type: 'dog', subject_id: dogId, event_type: 'vaccination', event_date: r.date,
+      title: `${r.vaccine} (${g.years ? `${g.years}-year` : 'lifetime'})`,
+      details: { vaccine: r.vaccine, ...(nextDue ? { next_due: nextDue } : {}) },
+      ...(remind && nextDue ? { reminder_date: nextDue } : {})
+    };
+  });
+}
+
+export async function saveShots(dogId, rows, opts) {
+  const made = [];
+  for (const ev of shotEvents(dogId, rows, opts)) made.push(await eventRepo.create(ev));
+  return made;
 }

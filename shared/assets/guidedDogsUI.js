@@ -16,7 +16,7 @@ import { ownKennels, getActiveKennelId } from '../data/kennelScope.js';
 import { editionFlags, dogCapStatus } from '../data/editionConfig.js';
 import { CapExceededError } from '../data/repoBase.js';
 import { getGuidedDogsDraft, setGuidedDogsDraft, clearGuidedDogsDraft } from '../data/settings.js';
-import { DOG_STATUS, OWNERSHIP_TYPE, DOC_TYPES, documentFieldsFor, descriptor } from '../data/vocab.js';
+import { DOG_STATUS, OWNERSHIP_TYPE, DOC_TYPES, VACCINE_CHECKLIST, VACCINE_GOOD_FOR, documentFieldsFor, descriptor } from '../data/vocab.js';
 import { SCOPED_OWNERSHIP } from '../data/kennelScope.js';
 import * as G from '../data/guidedDogs.js';
 import { fmt } from '../data/guidedLitter.js';
@@ -445,6 +445,7 @@ class DogsConversation extends StepConversation {
     }
     const bought = dogs.filter(G.canBeBought);
     if (bought.length) await this.acquisitions(bought);
+    if (bought.length) await this.shots(bought);
     if (dogs.length && editionFlags.documents) await this.documents(dogs);
     await this.finish(dogs);
   }
@@ -492,6 +493,53 @@ class DogsConversation extends StepConversation {
       reply: (rows) => rows.map((r) => [`${one ? '' : `${r.name}: `}${fmt(r.date)}`, r.source ? `from ${r.source}` : '', r.price ? `$${r.price}` : ''].filter(Boolean).join(' ')).join(' · ')
     });
     if (res.done) await this.chat.say(`Added to ${one ? `${esc(dogName(one))}'s timeline` : 'their timelines'}. ✓`, { typing: 500 });
+  }
+
+  // "Do you have their shots on record?": the fixed checklist, one dog at a time,
+  // each with how long it's good for and a reminder on Today when it's due.
+  async shots(dogs) {
+    const one = dogs.length === 1 ? dogs[0] : null;
+    await this.chat.say(`Do you have ${one ? `${esc(dogName(one))}'s` : 'their'} shots on record? I'll ask about ${VACCINE_CHECKLIST.join(', ').replace(/, ([^,]*)$/, ' and $1')}, and can remind you on Today when ${one ? 'they\'re' : 'each one\'s'} due.`);
+    const go = await this.chat.choose([
+      { label: 'Yes, let\'s add them', value: 'yes', primary: true },
+      { label: 'Not now', value: 'no' }
+    ]);
+    if (go !== 'yes') return;
+    const today = todayYMD();
+    for (const dog of dogs) {
+      const res = await this.chat.form({
+        title: `<strong>${esc(dogName(dog))}'s shots</strong><span class="kels-lead">Fill in the ones ${sheHe(dog.sex)}'s had, and leave the rest blank. A rough date is fine.</span>`,
+        html: `${VACCINE_CHECKLIST.map((v) => `<div class="gl-extra-row" data-vaccine="${esc(v)}">
+            <strong>${esc(v)}</strong>
+            <div class="ck-inline">
+              ${field('Date given', `<input type="date" data-k="date" max="${today}" aria-label="${esc(v)} date for ${esc(dogName(dog))}">`)}
+              ${field('Good for', `<select data-k="goodFor" aria-label="How long ${esc(v)} is good for">${options(VACCINE_GOOD_FOR, '1')}</select>`)}
+            </div>
+          </div>`).join('')}
+          <label class="ck-check" style="margin-top:12px;"><input type="checkbox" id="gd-shot-remind" checked> Remind me on Today when they're due</label>`,
+        submitLabel: 'Save',
+        cancelLabel: one ? 'Skip' : `Skip ${dogName(dog)}`,
+        submit: async (root) => {
+          const rows = [...root.querySelectorAll('[data-vaccine]')].map((el) => ({
+            vaccine: el.dataset.vaccine,
+            date: el.querySelector('[data-k="date"]').value,
+            goodFor: el.querySelector('[data-k="goodFor"]').value
+          }));
+          const problem = G.shotsProblem(rows, today);
+          if (problem) return problem;
+          const remind = root.querySelector('#gd-shot-remind').checked;
+          const made = await G.saveShots(dog.id, rows, { remind });
+          return { made, remind };
+        },
+        reply: ({ made, remind }) => `${made.map((e) => `${e.title} ${fmt(e.event_date)}`).join(' · ')}${remind && made.some((e) => e.reminder_date) ? ' · remind me' : ''}`
+      });
+      if (res.done) {
+        const due = res.result.made.filter((e) => e.reminder_date).sort((a, b) => a.reminder_date.localeCompare(b.reminder_date))[0];
+        await this.chat.say(due
+          ? `Saved. ✓ The next one due is ${esc(due.details.vaccine)}, ${esc(fmt(due.reminder_date))}; it'll be on Today's Reminders.`
+          : 'Saved. ✓', { typing: 500 });
+      }
+    }
   }
 
   // Pro: their papers, filed on each dog as the Documents page files them.

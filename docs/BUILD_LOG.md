@@ -1216,3 +1216,11 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   any of them?" asks, in one form, each owned dog's purchase date (a rough date is fine),
   seller and price: an `acquisition` event and a linked `dog_purchase` expense. The event
   form's linked-expense write moved to `expenseRepo.createForEvent` so both share it.
+- **Kels Add dogs: their shots (2026-10-15).** After the purchase question, "Do you have
+  their shots on record?" asks one form per dog over a fixed checklist (`VACCINE_CHECKLIST`:
+  Rabies, DHPP, Bordetella, Leptospirosis), each with its date and how long it's good for
+  (`VACCINE_GOOD_FOR`: 1 / 3 / 5 years, lifetime), and "Remind me on Today when they're
+  due". Each is a `vaccination` event with `next_due`, and the reminder the existing
+  `reminder_date`, so Today's Reminders card shows it; the reminder logic is unchanged.
+  Kels only: the event form's Vaccination type is as it was. Test support: memoryDb's
+  collections gained `.and`.

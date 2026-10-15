@@ -285,3 +285,30 @@ test('"Did you buy them?": a date for each (rough is fine), then an acquisition 
   assert.equal(ev2.title, 'Purchased');
   assert.equal(await expenseRepo.getOneByEvent(ev2.id), null);
 });
+
+test('shots: the checklist\'s dated rows become vaccinations, due and reminded by how long they\'re good for', async () => {
+  const { eventRepo } = await import('../shared/data/eventRepo.js');
+  assert.match(g.shotsProblem([{ vaccine: 'Rabies', date: '', goodFor: '1' }]), /at least one/);
+  assert.match(g.shotsProblem([{ vaccine: 'Rabies', date: tomorrow(), goodFor: '1' }]), /future/);
+  assert.match(g.shotsProblem([{ vaccine: 'Rabies', date: '2024-01-01', goodFor: '' }]), /good for/);
+  const rows = [
+    { vaccine: 'Rabies', date: '2024-02-29', goodFor: '3' },
+    { vaccine: 'DHPP', date: '2025-06-10', goodFor: 'lifetime' },
+    { vaccine: 'Bordetella', date: '', goodFor: '1' }
+  ];
+  assert.equal(g.shotsProblem(rows), null);
+  const evs = g.shotEvents('dog1', rows, { remind: true });
+  assert.equal(evs.length, 2);
+  assert.equal(evs[0].title, 'Rabies (3-year)');
+  assert.deepEqual(evs[0].details, { vaccine: 'Rabies', next_due: '2027-02-28' });
+  assert.equal(evs[0].reminder_date, '2027-02-28');
+  assert.equal(evs[1].title, 'DHPP (lifetime)');
+  assert.deepEqual(evs[1].details, { vaccine: 'DHPP' });
+  assert.equal(evs[1].reminder_date, undefined);
+  assert.equal(g.shotEvents('dog1', rows)[0].reminder_date, undefined);
+
+  const dog = await dogRepo.create({ call_name: 'Shotwell', sex: 'male', breed: 'Whippet', ownership_type: 'owned', status: 'active_breeding', kennel_id: kennelId });
+  await g.saveShots(dog.id, rows, { remind: true });
+  const reminders = (await eventRepo.getReminders()).filter((e) => e.subject_id === dog.id);
+  assert.deepEqual(reminders.map((e) => [e.title, e.reminder_date]), [['Rabies (3-year)', '2027-02-28']]);
+});
