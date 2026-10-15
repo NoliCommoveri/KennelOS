@@ -3078,7 +3078,18 @@ blocks sending a link without either.
   `furever_pickup_date`, `furever_pickup_time`, `furever_pickup_place`,
   `furever_pickup_photo_url`. Persisting them (rather than a one-shot form) means a
   resend starts from the last-sent details, same reasoning as Companion's
-  `Contact.companion_note`.
+  `Contact.companion_note`. **The pickup date/time/place follow the pup's Placement /
+  drop-off event (decided 2026-10-15)**, so a drop-off moved on the timeline reaches
+  the family on the next resend: `fureverSeedExport.pickupEventFor(sale, events)` picks
+  the pup's non-archived `placement` event for the sale's buyer (or naming no contact),
+  the soonest from today on, else the latest past one, and `pickupPlanFor(sale, event)`
+  sends its `event_date`, `details.placement_time` and `details.location` (blank stays
+  blank). The console shows that event read-only with **Edit drop-off** (the shared
+  event modal); only a pup with **no** drop-off event shows the typed
+  `furever_pickup_date/time/place` fields, which the packet then uses, plus **Add a
+  drop-off event** (opens the modal prefilled from what's typed). Those three Sale
+  fields are kept and still read as that fallback, never removed (older sales and
+  backups carry them). The photo URL stays a Sale field (the event has none).
 
 **`data/fureverSeedExport.js`** builds the packet: named-copy-only from the dog +
 the saved identity (same allow-list discipline `companionExport.js`'s header
