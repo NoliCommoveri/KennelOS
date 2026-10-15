@@ -1224,3 +1224,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `reminder_date`, so Today's Reminders card shows it; the reminder logic is unchanged.
   Kels only: the event form's Vaccination type is as it was. Test support: memoryDb's
   collections gained `.and`.
+- **Kels Add dogs: who bred them (2026-10-15).** A "Who bred Daisy?" step after each dog's
+  parents: I did (her kennel as `breeder_kennel_id`), another breeder (Pro: their kennel,
+  on file or new, and the breeder as a contact linked to it, picked or new), or not sure;
+  Lite asks I did / someone else / not sure. Each dog starts with the one before's answer.
+  No new fields: the breeder is a contact on the kennel (`contacts.kennel_id`), as the
+  tidy-up expects. Dogs she bred skip the purchase question; "Bought from" starts as the
+  breeder kennel's name.

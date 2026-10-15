@@ -77,6 +77,10 @@ export function emptyDraft() {
 // the dogs being added, 'new' = a name she typed (`name`).
 const noParent = () => ({ pick: '', name: '' });
 
+export const noBreeder = () => ({
+  bredBy: '', kennelId: null, kennelName: '', contactId: null, contactName: '', contactPhone: '', contactEmail: ''
+});
+
 export function newDog() {
   return {
     key: key(),
@@ -84,6 +88,10 @@ export function newDog() {
     color_markings: '', microchip_id: '', status: '', ownership_type: '',
     ownerId: null, ownerName: '', kennelId: null,
     dam: noParent(), sire: noParent(),
+    // Who bred it (`breeder:<i>`): '' = not asked or not sure, 'me' = her own
+    // kennel, 'other' = another breeder: their kennel (one on file, or a new
+    // name) and, where the edition has contacts, the breeder (picked, or new).
+    breeder: noBreeder(),
     // Dogs already on file by that name (matchIds, looked up for `matchesFor`),
     // and her answer: null = not asked, 'none' = a different dog, else the
     // dog's id. `bringIn`: the one she picked is pedigree-only, so it's updated.
@@ -153,7 +161,7 @@ export function stepsFor(draft) {
   draft.dogs.forEach((d, i) => { if (d.matchIds?.length) steps.push(`match:${i}`); });
   const adding = dogsToAdd(draft);
   if (adding.length > 1) steps.push('common');
-  draft.dogs.forEach((d, i) => { if (adding.includes(d)) steps.push(`dog:${i}`, `parents:${i}`); });
+  draft.dogs.forEach((d, i) => { if (adding.includes(d)) steps.push(`dog:${i}`, `parents:${i}`, `breeder:${i}`); });
   steps.push('review');
   return steps;
 }
@@ -168,7 +176,8 @@ export function maxDogs(capStatus) {
 }
 
 // One plain-language problem with the step's answers, or null when it's fine.
-// ctx: { dogs (on file), multiKennel, ownKennelIds, maxDogs }.
+// ctx: { dogs (on file), multiKennel, ownKennelIds, maxDogs, outsideBreeders
+// (this edition records other breeders' kennels and contacts) }.
 export function stepProblem(step, draft, ctx = {}) {
   const today = todayYMD();
   if (step === 'roster') {
@@ -207,6 +216,13 @@ export function stepProblem(step, draft, ctx = {}) {
     if (ctx.multiKennel && SCOPED_OWNERSHIP.has(d.ownership_type) && !(ctx.ownKennelIds || []).includes(d.kennelId)) return `Which of your kennels is ${name} under?`;
     return null;
   }
+  if (step.startsWith('breeder:')) {
+    const b = d.breeder || noBreeder();
+    if (b.bredBy !== 'other' || !ctx.outsideBreeders) return null;
+    if (!b.kennelId && blank(b.kennelName)) return 'Pick the breeder\'s kennel, or type its name.';
+    if (!b.contactId && blank(b.contactName) && !(blank(b.contactPhone) && blank(b.contactEmail))) return 'Type the breeder\'s name too.';
+    return null;
+  }
   if (step.startsWith('parents:')) {
     for (const [role, sex, w] of [['dam', 'female', 'mom'], ['sire', 'male', 'dad']]) {
       const p = d[role];
@@ -236,6 +252,23 @@ export function parentText(p, draft, names = {}) {
   return '';
 }
 
+// Who bred it, as she'd say it: "you", or the kennel and the breeder (new ones
+// marked). '' when not known. names: { kennel(id), contact(id) }.
+export function breederText(b, names = {}) {
+  if (!b || !b.bredBy) return '';
+  if (b.bredBy === 'me') return 'you';
+  const kennel = b.kennelId ? names.kennel?.(b.kennelId) : (blank(b.kennelName) ? '' : `${trimmed(b.kennelName)} (a new kennel)`);
+  const person = b.contactId ? names.contact?.(b.contactId) : (blank(b.contactName) ? '' : `${trimmed(b.contactName)} (a new contact)`);
+  return [kennel, person].filter(Boolean).join(', ') || 'another breeder';
+}
+
+// The breeder answer the next dog starts with: the dog before it's, so dogs from
+// one breeder take one tap each.
+export function breederDefault(draft, i) {
+  const prev = dogsToAdd(draft).filter((d) => draft.dogs.indexOf(d) < i).pop();
+  return prev?.breeder?.bredBy ? { ...prev.breeder } : noBreeder();
+}
+
 // One section per dog: { title, lines, steps: { details, parents } }, then the
 // dogs left as they are. names: { dog(id), contact(id), kennel(id) } for records
 // on file; `kennelNames` true when she has more than one own kennel.
@@ -257,10 +290,12 @@ export function reviewSections(draft, names = {}, { kennelNames = false } = {}) 
     const dam = parentText(d.dam, draft, names);
     const sire = parentText(d.sire, draft, names);
     lines.push(dam || sire ? `Parents: ${sire || 'dad not known'} × ${dam || 'mom not known'}.` : 'Parents: not known.');
+    const bred = breederText(d.breeder, names);
+    if (bred) lines.push(`Bred by ${bred}.`);
     return {
       title: d.bringIn ? `${dogLabel(d)} (bringing in from the pedigree)` : dogLabel(d),
       lines,
-      steps: { details: `dog:${i}`, parents: `parents:${i}` }
+      steps: { details: `dog:${i}`, parents: `parents:${i}`, breeder: `breeder:${i}` }
     };
   }).filter(Boolean);
   const already = dogsAlreadyIn(draft);
@@ -288,6 +323,52 @@ function dogFields(d) {
     if (!blank(d[k])) fields[k] = trimmed(d[k]);
   }
   return fields;
+}
+
+// The dog's breeder kennel: hers (`ownKennelId`, else the one she works in), or
+// another breeder's (one on file, one of that name on file, or a new outside
+// kennel), with the breeder as a contact linked to it (typed Breeder; one she
+// picked keeps any kennel she already has). New ones go on `s` as made, so the
+// same breeder for two dogs is one kennel and one contact. → the kennel id.
+async function saveBreeder(b, { s, step, kennels, ownKennelId }) {
+  if (!b?.bredBy) return null;
+  if (b.bredBy === 'me') return ownKennelId || await resolveKennelIdForWrite();
+  s.kennels = s.kennels || {};
+  s.contacts = s.contacts || {};
+  let kennelId = b.kennelId || null;
+  if (!kennelId && !blank(b.kennelName)) {
+    const k = norm(b.kennelName);
+    kennelId = s.kennels[k] || kennels.find((x) => !x.is_archived && norm(x.kennel_name) === k)?.id || null;
+    if (!kennelId) {
+      const made = await kennelRepo.create({ kennel_name: trimmed(b.kennelName), is_own_kennel: false });
+      kennels.push(made);
+      kennelId = made.id;
+      await step();
+    }
+    s.kennels[k] = kennelId;
+  }
+  if (b.contactId) {
+    const c = await contactRepo.getById(b.contactId);
+    if (c && !c.kennel_id && kennelId) await contactRepo.update(c.id, { kennel_id: kennelId });
+    await contactRepo.ensureType(b.contactId, 'breeder');
+    if (!kennelId) kennelId = c?.kennel_id || null;
+  } else if (!blank(b.contactName)) {
+    // The same new name as a dog's owner (or another dog's breeder) is one contact.
+    const k = norm(b.contactName);
+    const madeId = s.contacts[k];
+    if (madeId) {
+      const c = await contactRepo.getById(madeId);
+      if (c && !c.kennel_id && kennelId) await contactRepo.update(c.id, { kennel_id: kennelId });
+    } else {
+      const c = await contactRepo.create({
+        name: trimmed(b.contactName), phone: trimmed(b.contactPhone), email: trimmed(b.contactEmail),
+        contact_type: ['breeder'], kennel_id: kennelId
+      });
+      s.contacts[k] = c.id;
+      await step();
+    }
+  }
+  return kennelId;
 }
 
 // Write everything the review listed, in order: for each dog its owner (a new
@@ -344,9 +425,11 @@ export async function saveGuidedDogs(draft, { onProgress = () => {} } = {}) {
       }
 
       const fields = { ...dogFields(d), owner_contact_id: ownerId };
+      if (SCOPED_OWNERSHIP.has(d.ownership_type)) fields.kennel_id = d.kennelId || await resolveKennelIdForWrite();
+      const breederKennelId = await saveBreeder(d.breeder, { s, step, kennels, ownKennelId: fields.kennel_id });
+      if (breederKennelId) fields.breeder_kennel_id = breederKennelId;
       if (parentIds.dam) fields.dam_id = parentIds.dam;
       if (parentIds.sire) fields.sire_id = parentIds.sire;
-      if (SCOPED_OWNERSHIP.has(d.ownership_type)) fields.kennel_id = d.kennelId || await resolveKennelIdForWrite();
       if (d.bringIn) {
         await dogRepo.update(d.match, { ...fields, pedigree_only: false });
         d.id = d.match;
@@ -396,7 +479,9 @@ export async function saveGuidedDogs(draft, { onProgress = () => {} } = {}) {
 // form's Cost). A rough date is fine; it's the date she gives.
 // rows: [{ dogId, name, date, source, price }].
 
-export const canBeBought = (d) => SCOPED_OWNERSHIP.has(d.ownership_type) && !d.pedigree_only;
+// Her dogs (owned / co-owned) she didn't breed. `ownKennelIds`: her kennels.
+export const canBeBought = (d, ownKennelIds = []) => SCOPED_OWNERSHIP.has(d.ownership_type) && !d.pedigree_only
+  && !(d.breeder_kennel_id && ownKennelIds.includes(d.breeder_kennel_id));
 
 export function acquisitionProblem(rows, today = todayYMD()) {
   if (!rows.length) return 'Tick the dogs you bought, or tap Skip.';

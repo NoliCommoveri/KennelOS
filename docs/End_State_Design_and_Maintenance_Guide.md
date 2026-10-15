@@ -1788,13 +1788,23 @@ One dog or several in one go, the way the litter task takes several puppies. `st
    dogs being added, a dog on file of that sex (same breed first), or a typed name, made a
    pedigree-only dog as the tidy-up makes one. A typed name already on file, or one of the
    batch, is refused with "pick her from the list".
-6. **Review** (`reviewSections`): a section per dog with **Parents** and **Change**, the dogs
+6. **Who bred it?** (`breeder:<i>`): **I did** (her kennel is its `breeder_kennel_id`), **Another
+   breeder** (Pro, `contactsSection`: their kennel, one on file or a new name, required, and
+   optionally the breeder, a contact picked (one with a kennel fills the kennel) or a new
+   name, phone and email), or **Not sure**. Lite offers **I did** / **Someone else** / **Not
+   sure**, and someone else saves nothing. Each dog starts with the dog before's answer
+   (`breederDefault`), so dogs from one breeder take one tap each.
+7. **Review** (`reviewSections`): a section per dog with **Parents**, **Breeder** and **Change**, the dogs
    already in KennelOS, and **Add or take off a dog** (back to the roster).
 
 **The save** (`saveGuidedDogs`), per dog: its owner (one new contact per typed name, typed
 Breeder), its typed parents (one pedigree-only dog per name and sex, so littermates share
 it), then the dog: owned or co-owned in her kennel (`resolveKennelIdForWrite` when not
-asked), an owned dog's owner her own contact (the Dog page's prefill), and her kennel's
+asked), its breeder kennel (`saveBreeder`: hers; or another breeder's, a typed name
+matching a kennel on file being that kennel, else a new outside kennel; the breeder a
+contact typed Breeder linked to it by `contacts.kennel_id`, one she picked gaining the
+kennel if it had none; one new kennel and one new contact per name across the batch, the
+owner's included), an owned dog's owner her own contact (the Dog page's prefill), and her kennel's
 planned tests for the breed (`kennelRepo.seedTestsKennel` + `testsForBreed`, the Dog page's
 seeding). Then each parent from the same batch is linked. **Resumable:** each id goes back on
 the draft as it's made. **Lite:** the cap (`CapExceededError`) stops the save; the dogs made
@@ -1805,9 +1815,10 @@ so far are kept and linked, the rest aren't made, and she says who she added and
 cleared by Reset App, one at a time.
 
 **After the save, when she got them** (all editions, the dogs made that are owned or
-co-owned): "Did you buy any of them? I can add when you got them and who from. A rough
+co-owned and she didn't breed, `canBeBought`): "Did you buy any of them? I can add when you got them and who from. A rough
 date is fine if it's hard to remember." **Yes, let's add that** opens one form, a block per
-dog (ticked; untick any she didn't buy): the date (required), who from, the price.
+dog (ticked; untick any she didn't buy): the date (required), who from (starting as the
+breeder kennel's name), the price.
 `saveAcquisitions` makes each an `acquisition` event (titled "Purchased from <seller>",
 `details.source`), and a price an expense linked to it (`expenseRepo.createForEvent`,
 category `dog_purchase`), exactly as the event form's Cost does.

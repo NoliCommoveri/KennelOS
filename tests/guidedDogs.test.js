@@ -36,9 +36,9 @@ function rosterDraft(rows) {
 
 test('one dog: no "in common" step; several: one, before each dog\'s details and parents', () => {
   const one = rosterDraft([['Zinnia', 'female']]);
-  assert.deepEqual(g.stepsFor(one), ['roster', 'dog:0', 'parents:0', 'review']);
+  assert.deepEqual(g.stepsFor(one), ['roster', 'dog:0', 'parents:0', 'breeder:0', 'review']);
   const two = rosterDraft([['Zinnia', 'female'], ['Quillon', 'male']]);
-  assert.deepEqual(g.stepsFor(two), ['roster', 'common', 'dog:0', 'parents:0', 'dog:1', 'parents:1', 'review']);
+  assert.deepEqual(g.stepsFor(two), ['roster', 'common', 'dog:0', 'parents:0', 'breeder:0', 'dog:1', 'parents:1', 'breeder:1', 'review']);
 });
 
 test('the roster refuses empty, unnamed, sexless and doubled rows; blank rows are dropped', () => {
@@ -193,7 +193,7 @@ test('a pedigree-only dog she names is brought into use, not made twice', async 
   g.fillFromCommon(d);
   assert.ok(d.dogs[0].matchIds.includes(ped.id));
   Object.assign(d.dogs[0], { match: ped.id, bringIn: true, breed: 'Golden Retriever' });
-  assert.deepEqual(g.stepsFor(d), ['roster', 'match:0', 'dog:0', 'parents:0', 'review']);
+  assert.deepEqual(g.stepsFor(d), ['roster', 'match:0', 'dog:0', 'parents:0', 'breeder:0', 'review']);
   assert.match(g.reviewSections(d)[0].title, /bringing in/);
   const before = tables.dogs.rows.size;
   const res = await g.saveGuidedDogs(d);
@@ -311,4 +311,53 @@ test('shots: the checklist\'s dated rows become vaccinations, due and reminded b
   await g.saveShots(dog.id, rows, { remind: true });
   const reminders = (await eventRepo.getReminders()).filter((e) => e.subject_id === dog.id);
   assert.deepEqual(reminders.map((e) => [e.title, e.reminder_date]), [['Rabies (3-year)', '2027-02-28']]);
+});
+
+test('who bred them: hers, or another breeder\'s kennel and contact, each made once; bred by her skips the purchase', async () => {
+  const kennelsBefore = tables.kennels.rows.size;
+  const contactsBefore = tables.contacts.rows.size;
+  const d = rosterDraft([['Breezy', 'female'], ['Brisket', 'male'], ['Homebred', 'female']]);
+  d.common.breed = 'Whippet';
+  g.fillFromCommon(d);
+  const [a, b, c] = d.dogs;
+  a.breeder = { ...g.noBreeder(), bredBy: 'other', kennelName: 'Windmere Whippets', contactName: 'Lou Park', contactEmail: 'lou@example.com' };
+  // The next dog starts with the one before's answer.
+  b.breeder = g.breederDefault(d, 1);
+  assert.equal(b.breeder.kennelName, 'Windmere Whippets');
+  c.breeder = { ...g.noBreeder(), bredBy: 'me' };
+  const ctx = { dogs: onFile, outsideBreeders: true };
+  assert.equal(g.stepProblem('breeder:0', d, ctx), null);
+  const bad = { ...g.noBreeder(), bredBy: 'other', contactPhone: '555' };
+  d.dogs[0].breeder = bad;
+  assert.match(g.stepProblem('breeder:0', d, ctx), /kennel/);
+  bad.kennelName = 'Windmere Whippets';
+  assert.match(g.stepProblem('breeder:0', d, ctx), /breeder's name/);
+  assert.equal(g.stepProblem('breeder:0', d, { ...ctx, outsideBreeders: false }), null);
+  d.dogs[0].breeder = { ...b.breeder };
+  assert.match(g.reviewSections(d)[0].lines.at(-1), /Bred by Windmere Whippets \(a new kennel\), Lou Park \(a new contact\)/);
+  assert.match(g.reviewSections(d)[2].lines.at(-1), /Bred by you/);
+
+  await g.saveGuidedDogs(d);
+  assert.equal(tables.kennels.rows.size, kennelsBefore + 1);
+  assert.equal(tables.contacts.rows.size, contactsBefore + 1);
+  const windmere = [...tables.kennels.rows.values()].find((k) => k.kennel_name === 'Windmere Whippets');
+  assert.equal(windmere.is_own_kennel, false);
+  const lou = [...tables.contacts.rows.values()].find((x) => x.name === 'Lou Park');
+  assert.equal(lou.kennel_id, windmere.id);
+  assert.deepEqual(lou.contact_type, ['breeder']);
+  const [ra, rb, rc] = await Promise.all([a, b, c].map((x) => dogRepo.getById(x.id)));
+  assert.equal(ra.breeder_kennel_id, windmere.id);
+  assert.equal(rb.breeder_kennel_id, windmere.id);
+  assert.equal(rc.breeder_kennel_id, rc.kennel_id);
+  assert.ok(g.canBeBought(ra, [kennelId]));
+  assert.ok(!g.canBeBought(rc, [rc.kennel_id]));
+
+  // A typed kennel name already on file is that kennel, not a second one.
+  const d2 = rosterDraft([['Breezer', 'male']]);
+  d2.common.breed = 'Whippet';
+  g.fillFromCommon(d2);
+  d2.dogs[0].breeder = { ...g.noBreeder(), bredBy: 'other', kennelName: ' windmere whippets ' };
+  await g.saveGuidedDogs(d2);
+  assert.equal(tables.kennels.rows.size, kennelsBefore + 1);
+  assert.equal((await dogRepo.getById(d2.dogs[0].id)).breeder_kennel_id, windmere.id);
 });

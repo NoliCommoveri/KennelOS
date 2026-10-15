@@ -31,7 +31,7 @@ async function loadData() {
   // they're parents to pick.
   const [dogs, contacts, kennels, own, capStatus] = await Promise.all([
     dogRepo.getAll({ includeArchived: false, includePedigreeOnly: true }),
-    editionFlags.externalOwnership ? contactRepo.getAll({ includeArchived: false }) : Promise.resolve([]),
+    (editionFlags.externalOwnership || editionFlags.contactsSection) ? contactRepo.getAll({ includeArchived: false }) : Promise.resolve([]),
     kennelRepo.getAll({ includeArchived: false }),
     ownKennels(),
     dogCapStatus()
@@ -44,6 +44,9 @@ async function loadData() {
     contactsById: new Map(contacts.map((c) => [c.id, c])),
     kennelsById: new Map(kennels.map((k) => [k.id, k])),
     own: own.filter((k) => !k.is_archived),
+    // Other breeders' kennels and the breeders themselves (Pro: contacts).
+    outsideBreeders: Boolean(editionFlags.contactsSection),
+    outsideKennels: kennels.filter((k) => !k.is_own_kennel).sort((a, b) => (a.kennel_name || '').localeCompare(b.kennel_name || '')),
     // Lite's cap: { current, cap }, null where dogs aren't capped. The roster
     // never has more rows than she has room for.
     capStatus,
@@ -194,6 +197,11 @@ function screens(draft, data) {
             for (const k of ['breed', 'date_of_birth', 'registered_name', 'registration_number', 'color_markings', 'microchip_id']) {
               if (!d[k] && x[k]) d[k] = x[k];
             }
+            if (x.breeder_kennel_id && !d.breeder?.bredBy) {
+              d.breeder = data.own.some((k) => k.id === x.breeder_kennel_id)
+                ? { ...G.noBreeder(), bredBy: 'me' }
+                : { ...G.noBreeder(), bredBy: 'other', kennelId: x.breeder_kennel_id };
+            }
             const pick = (id) => (id && data.dogsById.has(id) ? `dog:${id}` : '');
             if (!d.dam.pick && pick(x.dam_id)) d.dam = { pick: pick(x.dam_id), name: '' };
             if (!d.sire.pick && pick(x.sire_id)) d.sire = { pick: pick(x.sire_id), name: '' };
@@ -273,6 +281,58 @@ function screens(draft, data) {
       };
     },
 
+    breeder: (i) => {
+      const d = draft.dogs[i];
+      // The dog before's answer to start with (dogs from one breeder: one tap each).
+      if (!d.breederSeen) { d.breeder = d.breeder?.bredBy ? d.breeder : G.breederDefault(draft, i); d.breederSeen = true; }
+      const b = d.breeder || (d.breeder = G.noBreeder());
+      const other = b.bredBy === 'other' && data.outsideBreeders;
+      const rank = (c) => ((c.contact_type || []).includes('breeder') ? 0 : 1);
+      const people = [...data.contacts].sort((a, c) => rank(a) - rank(c) || (a.name || '').localeCompare(c.name || ''));
+      return {
+        title: `Who bred ${esc(d.call_name)}?`,
+        html: `<div class="gl-tiles gl-tiles-small">
+            ${tile('bred', 'me', 'I did', { selected: b.bredBy === 'me' })}
+            ${tile('bred', 'other', data.outsideBreeders ? 'Another breeder' : 'Someone else', { selected: b.bredBy === 'other' })}
+            ${tile('bred', 'unsure', 'Not sure', { selected: false })}
+          </div>
+          ${other ? `<p class="gl-q">Their kennel</p>
+            ${data.outsideKennels.length ? field('A kennel you have', `<select id="gd-bk-pick"><option value="">A new kennel…</option>${data.outsideKennels.map((k) => `<option value="${esc(k.id)}"${b.kennelId === k.id ? ' selected' : ''}>${esc(k.kennel_name)}</option>`).join('')}</select>`) : ''}
+            <div id="gd-bk-new"${b.kennelId ? ' hidden' : ''}>${field('Kennel name', input('gd-bk-name', b.kennelName, { placeholder: 'e.g. Ridgeline Kennels' }))}</div>
+            <p class="gl-q">The breeder (optional)</p>
+            ${people.length ? field('Someone in your contacts', `<select id="gd-bc-pick"><option value="">Someone new…</option>${people.map((c) => `<option value="${esc(c.id)}" data-kennel="${esc(c.kennel_id || '')}"${b.contactId === c.id ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select>`) : ''}
+            <div id="gd-bc-new"${b.contactId ? ' hidden' : ''}>
+              ${field('Name', input('gd-bc-name', b.contactName, { placeholder: 'e.g. Pat Smith' }))}
+              ${field('Phone (optional)', input('gd-bc-phone', b.contactPhone, { type: 'tel' }))}
+              ${field('Email (optional)', input('gd-bc-email', b.contactEmail, { type: 'email' }))}
+            </div>` : ''}`,
+        onTile: (value) => {
+          if (value === 'unsure') { d.breeder = G.noBreeder(); return true; }
+          b.bredBy = value;
+          return value === 'other' && data.outsideBreeders ? 'redraw' : true;
+        },
+        wire: (root) => {
+          const kPick = root.querySelector('#gd-bk-pick');
+          kPick?.addEventListener('change', () => { root.querySelector('#gd-bk-new').hidden = Boolean(kPick.value); });
+          root.querySelector('#gd-bc-pick')?.addEventListener('change', (e) => {
+            root.querySelector('#gd-bc-new').hidden = Boolean(e.target.value);
+            // Someone with a kennel names the kennel too.
+            const kid = e.target.selectedOptions[0]?.dataset.kennel;
+            if (kid && kPick && [...kPick.options].some((o) => o.value === kid)) { kPick.value = kid; root.querySelector('#gd-bk-new').hidden = true; }
+          });
+        },
+        read: (root) => {
+          if (!(b.bredBy === 'other' && data.outsideBreeders)) return;
+          b.kennelId = val(root, 'gd-bk-pick') || null;
+          b.kennelName = b.kennelId ? '' : val(root, 'gd-bk-name');
+          b.contactId = val(root, 'gd-bc-pick') || null;
+          b.contactName = b.contactId ? '' : val(root, 'gd-bc-name');
+          b.contactPhone = b.contactId ? '' : val(root, 'gd-bc-phone');
+          b.contactEmail = b.contactId ? '' : val(root, 'gd-bc-email');
+        }
+      };
+    },
+
     review: () => {
       const sections = G.reviewSections(draft, {
         dog: (id) => dogName(data.dogsById.get(id)),
@@ -285,7 +345,7 @@ function screens(draft, data) {
         html: `<p class="gl-lead">Look it over. Tap <strong>Change</strong> to fix anything, or <strong>Yes, build it</strong> when it's right.</p>
           ${sections.map((s) => `<section class="gl-review-section">
             <div class="row-between"><h3>${esc(s.title)}</h3>
-              <span class="pill-row">${s.steps.parents ? `<button type="button" class="btn btn-sm" data-goto="${esc(s.steps.parents)}">Parents</button>` : ''}<button type="button" class="btn btn-sm" data-goto="${esc(s.steps.details)}">Change</button></span></div>
+              <span class="pill-row">${s.steps.parents ? `<button type="button" class="btn btn-sm" data-goto="${esc(s.steps.parents)}">Parents</button>` : ''}${s.steps.breeder ? `<button type="button" class="btn btn-sm" data-goto="${esc(s.steps.breeder)}">Breeder</button>` : ''}<button type="button" class="btn btn-sm" data-goto="${esc(s.steps.details)}">Change</button></span></div>
             <ul>${s.lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul></section>`).join('')}
           <button type="button" class="btn btn-sm" data-goto="roster">${adding ? 'Add or take off a dog' : 'Add a different dog'}</button>`,
         isReview: true
@@ -318,6 +378,13 @@ function answerFor(stepId, draft, data) {
   if (stepId.startsWith('dog:')) {
     return [d.breed, d.date_of_birth ? `born ${fmt(d.date_of_birth)}` : '', d.registered_name, lbl(DOG_STATUS, d.status), lbl(OWNERSHIP_TYPE, d.ownership_type), ownerText(d), kennelText(d)]
       .filter(Boolean).join(' · ');
+  }
+  if (stepId.startsWith('breeder:')) {
+    const b = d.breeder || {};
+    if (!b.bredBy) return 'Not sure';
+    if (b.bredBy === 'me') return 'I did';
+    const text = G.breederText(b, { kennel: (id) => data.kennelsById.get(id)?.kennel_name, contact: (id) => data.contactsById.get(id)?.name });
+    return data.outsideBreeders ? text.replace(/ \(a new (kennel|contact)\)/g, '') : 'Someone else';
   }
   if (stepId.startsWith('parents:')) {
     const names = { dog: (id) => dogName(data.dogsById.get(id)) };
@@ -405,7 +472,8 @@ class DogsConversation extends StepConversation {
 
   problem(stepId) {
     return G.stepProblem(stepId, this.draft, {
-      dogs: this.data.dogs, multiKennel: this.data.own.length > 1, ownKennelIds: this.data.own.map((k) => k.id), maxDogs: this.data.maxDogs
+      dogs: this.data.dogs, multiKennel: this.data.own.length > 1, ownKennelIds: this.data.own.map((k) => k.id), maxDogs: this.data.maxDogs,
+      outsideBreeders: this.data.outsideBreeders
     });
   }
 
@@ -443,7 +511,7 @@ class DogsConversation extends StepConversation {
     } else {
       await this.chat.say(`Done! ✓ I added ${esc(names)}. Your program's looking great.`, { typing: 1100 });
     }
-    const bought = dogs.filter(G.canBeBought);
+    const bought = dogs.filter((d) => G.canBeBought(d, this.data.own.map((k) => k.id)));
     if (bought.length) await this.acquisitions(bought);
     if (bought.length) await this.shots(bought);
     if (dogs.length && editionFlags.documents) await this.documents(dogs);
@@ -460,13 +528,15 @@ class DogsConversation extends StepConversation {
     ]);
     if (go !== 'yes') return;
     const today = todayYMD();
+    // "Bought from" starts as the breeder's kennel, when she named one.
+    const kennelNames = new Map(await Promise.all(dogs.map(async (d) => [d.id, d.breeder_kennel_id ? (await kennelRepo.getById(d.breeder_kennel_id))?.kennel_name || '' : ''])));
     const res = await this.chat.form({
       title: `<strong>When did you get ${one ? esc(dogName(one)) : 'them'}?</strong><span class="kels-lead">${one ? '' : 'Untick any you didn\'t buy. '}The price goes in Financials as a dog purchase.</span>`,
       html: dogs.map((d) => `<div class="gl-extra-row" data-dog="${esc(d.id)}">
           ${one ? `<strong>${esc(dogName(d))}</strong>` : `<label class="ck-check"><input type="checkbox" data-k="bought" checked> <strong>${esc(dogName(d))}</strong></label>`}
           <div class="ck-inline">
             ${field('Date (rough is fine)', `<input type="date" data-k="date" max="${today}" aria-label="When you got ${esc(dogName(d))}">`)}
-            ${field('Bought from (optional)', `<input type="text" data-k="source" placeholder="Breeder or kennel" aria-label="Who ${esc(dogName(d))} came from">`)}
+            ${field('Bought from (optional)', `<input type="text" data-k="source" value="${esc(kennelNames.get(d.id) || '')}" placeholder="Breeder or kennel" aria-label="Who ${esc(dogName(d))} came from">`)}
             ${field('Price (optional)', `<input type="number" data-k="price" min="0" step="0.01" inputmode="decimal" aria-label="What you paid for ${esc(dogName(d))}">`)}
           </div>
         </div>`).join(''),

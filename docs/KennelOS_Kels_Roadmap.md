@@ -193,7 +193,8 @@ a parent can be another dog in the same batch. In Lite the roster has only as ma
 she has room for. Of the history, the purchase ("Did you buy any of them?", a rough date
 is fine: an `acquisition` event and its price as an expense) and their shots (a fixed
 checklist, each good for 1 / 3 / 5 years or lifetime, with a reminder on Today when due)
-are asked now. The pedigree photo
+are asked now, and who bred each dog (her kennel, or another breeder's kennel and the
+breeder as a contact, Pro). The pedigree photo
 isn't offered yet, and the rest of the history waits for Add new events (§3.10).
 
 One dog or several in a row ("Add another?" after each). Typed in (duplicate check first,
