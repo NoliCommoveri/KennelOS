@@ -1406,3 +1406,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **Kels FAQ: whole-litter logging (2026-10-15).** `litter-logging` now asks why a
   whole-litter entry isn't on the litter page, and answers that each pup gets its own entry
   so its history runs for life, found in the pup's Event History.
+- **Kels FAQ: the go-home date (2026-10-15).** `go-home-day` now says what follows the
+  drop-off entry: once its date has passed, Today asks whether the pup went home and offers
+  Delivered, and Delivered asks about External (Pro) or removing the pup (Lite).

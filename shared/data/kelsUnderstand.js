@@ -97,10 +97,13 @@ export const ENTRIES = [
     keywords: ['litter', 'whole', 'all', 'pups', 'log', 'event', 'weight', 'shots', 'deworm', 'deworming', 'each',
       'litter page', 'timeline', 'history', 'missing', 'can\'t see', 'where'],
     a: 'Most events, even ones for the pups of a single litter, are logged on each dog as its own entry. That keeps every pup\'s history a running record of what happened to it throughout its life. To see them, open a pup\'s page and look in its Event History.' },
-  { id: 'go-home-day', section: 'breeding', q: 'Where do I put the day a pup goes home?',
-    keywords: ['go home', 'going home', 'pickup', 'pick up', 'drop off', 'dropoff', 'date', 'placement', 'boarding'],
+  { id: 'go-home-day', section: 'breeding', q: 'Where do I put the date a pup goes home?',
+    keywords: ['go home', 'going home', 'pickup', 'pick up', 'drop off', 'dropoff', 'date', 'placement', 'boarding', 'delivered'],
     href: 'scheduled-placements.html', show: 'Show me scheduled drop-offs',
-    a: 'It\'s a Placement / drop-off entry in the pup\'s history, not a date on the sale. Today and Pups are going home look for it. A pup staying with you past its ready date needs a Boarding entry too.' },
+    a: (ctx) => 'It\'s a Placement / drop-off entry in the pup\'s Event History, not a date on the sale. If the family is paying you to keep the pup past its ready date, log that stay as a separate Boarding entry too. Once the drop-off date has passed, Today asks whether the pup went home and offers to mark the sale Delivered. '
+      + (ctx.flags.externalOwnership
+        ? 'Marking it Delivered then asks about changing the pup to External with the family as its owner, which takes it off your own dogs.'
+        : 'Marking it Delivered then asks about removing the pup from your program.') },
 
   // Money
   { id: 'add-income', section: 'money', q: 'How do I add income?',
