@@ -212,7 +212,7 @@ to the cloud unsealed).
 | **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `puppies_born_*` counts, per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
 | **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
 | **Contract** | `contract_type`, `kennel_id` | `status` (default `draft`), `related_sale_id`, `related_stud_service_id`; `related_dog_id` and `related_contact_id` only for `lease`/`co_own`/`foster`/`other` (forced null otherwise, `contractRepo.normalizeLinks`), `document_url`, `signed_date`, lease dates, e-sign fields and `integration_reviews` (§32), `title`, `terms_summary`. |
-| **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `direction` is **who travels** (`STUD_SERVICE_DIRECTION`: `to_partner` our dog goes to them, `to_us` their dog comes to us, `shipped` no one / AI). Whether our dog is the stud or the dam isn't stored: it's our dog's sex, else the partner's opposite (`studRules.ourRole`; `STUD_SERVICE_ROLE` for badges and filters). `sent_date` / `returned_date` are the travelling dog's two dates (labelled to fit who travels). `type` (`in_person`/`ai`) is set by the repo from `direction` (shipped → ai), never asked. `pairing_id`, `fee_amount`, `fee_structure`; `pick_status` and `pick_value_amount` only for pick fee structures (forced null otherwise; with our stud the pick is our puppy, and `pick_status` claimed / waived ends Today's `studpick`, §19), `referred_by_contact_id`, invoice fields (our stud only, §24). |
+| **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `direction` is **who travels** (`STUD_SERVICE_DIRECTION`: `to_partner` our dog goes to them, `to_us` their dog comes to us, `shipped` no one / AI). Whether our dog is the stud or the dam isn't stored: it's our dog's sex, else the partner's opposite (`studRules.ourRole`; `STUD_SERVICE_ROLE` for badges and filters). `sent_date` / `returned_date` are the service's two dates, labelled **Begins / Ends**. `type` (`in_person`/`ai`) is set by the repo from `direction` (shipped → ai), never asked. `pairing_id`, `fee_amount`, `fee_structure`; `pick_status` and `pick_value_amount` only for pick fee structures (forced null otherwise; with our stud the pick is our puppy, and `pick_status` claimed / waived ends Today's `studpick`, §19), `referred_by_contact_id`, invoice fields (our stud only, §24). |
 | **Event** | `subject_type`, `subject_id`, `event_type`, `event_date`, `title` | `event_end_date`, `reminder_date`, `reminder_dismissed`, `related_dog_id`, `related_contact_id`, `details{}`. No cost field: a cost becomes an Expense with `event_id` (§8, §21). |
 | **Expense** | `subject_type` (`dog`/`litter`/`pairing`/`kennel`), `subject_id`, `amount`, `category`, `expense_date` | `event_id`, `miles` × `mileage_rate` (then `amount` is derived), `vendor`, `receipt_number` (CSV re-import key, §9), `account_id`, `receipt_file_id` (deleted with the expense, §26.1), `reimbursable`/`reimbursed_date` (§21, §25). |
 | **Document** | `dog_id`, `doc_type`, `file_id` | `title`, `doc_date`, `issuer_or_lab`, `result`, `registry`, `registration_number`, `contract_id` (optional, unindexed, not in the registry), `furever_shareable` (§27). Fields shown per type: `vocab.documentFieldsFor`. `hardDelete` removes its file. |
@@ -407,8 +407,8 @@ vocabulary through `testTokensOf(event)`.
 
 **eventRepo reads** (separate on purpose):
 - `getForSubject(type, id)` — a timeline, newest first.
-- `getBoardRows()` — dogs away on boarding now; `awayBoard.js` unions it with in-person stud
-  services (§19).
+- `getBoardRows()` — dogs away on boarding now; the Away board's only source (`awayBoard.js`,
+  §19; stud-service trips are boarding events too).
 - `getUpcoming()`, `getScheduledPlacements()`, `getInRange(from, to)` (Calendar),
   `getByType(type)` (Shows page), `getDetailValues(type, key)` (suggestions).
 - `getReminders()` / `getDismissedReminders()`. `reminder_date` is the app's **one**
@@ -530,6 +530,7 @@ Every key is in its `KEYS` table (`kennelOS.*`), each with a getter/setter, and
 - `myKennelId` / `myContactId`: the user's own kennel and contact.
 - `guidedLitterDraft` and `prepChecks`: Kels's unfinished litter, and the optional checks
   ticked last time in Pups are going home (§33). Device-only.
+- `studTripsMigrated`: the stud-trip migration has run on this device (§19, Away board).
 
 **Kept outside `KEYS` on purpose**, so Reset App leaves them: the Pro license record and
 `deviceId` (§0.3); cloud `cloudSession`, `cloudBackupState`, `cloudDeviceId` (Reset App
@@ -848,16 +849,18 @@ litter, pairing, dog and sale pages show on the edit itself, for changes made el
 "Due outs" list leaves shows out so each appears once.
 
 ### Away board (`data/awayBoard.js`)
-`getAwayBoardRows()` unions boarding events (`eventRepo.getBoardRows`) and in-person stud
-services now in their two dates (`studServiceRepo.getBoardRows`: the dog that travels, ours
-away at the partner's for `to_partner`, theirs "staying with us" for `to_us`). One row per
-trip: a stud service's row drops out once a "Stud service" boarding event covers it
-(`studRules.coveredByBoarding`). Saving a stud service where someone travels (new, or its
-dates or who travels changed, and no stud boarding yet) asks **Log the boarding?** and opens
-the event form prefilled (`studBoardingPrefill`: the dog that travels, the two dates, reason
-"Stud service", the partner, where they stay). Every row has one
-shape. Used by `board.js`, Today and the dashboard tile. Kennel scope is applied inside it,
-through the away dog, so the three can't disagree.
+`getAwayBoardRows()` turns the boarding events running now (`eventRepo.getBoardRows`) into one
+row shape, used by `board.js`, Today and the dashboard tile. A stud service's trip is a
+boarding event like any other; the service's own dates never make a row. Saving a stud
+service where someone travels (new, or its dates or who travels changed, and no stud
+boarding yet, `studRules.studBoardingFor`) asks **Log the boarding?** and opens the event form
+prefilled (`studBoardingPrefill`: the dog that travels, the two dates, reason "Stud service",
+the partner, where they stay: the partner's address, or "With us"). On boot,
+`studServiceRepo.migrateStudTrips` reads a pre-"who travels" `direction` (outgoing /
+incoming) as `shipped` for AI, else `to_partner`, and (once per device, `settings.
+studTripsMigrated`) gives every in-person, not-cancelled service with a start date and no
+stud boarding its boarding event. Kennel scope is applied inside `getAwayBoardRows`, through
+the away dog, so the three can't disagree.
 
 ---
 

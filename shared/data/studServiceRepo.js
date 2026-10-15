@@ -12,7 +12,9 @@ import { makeRepo } from './repoBase.js';
 import { STUD_SERVICE_REFERENCES } from './referenceRegistry.js';
 import { assertOwnKennel } from './kennelScope.js';
 import { contactRepo } from './contactRepo.js';
-import { todayYMD } from './dateUtils.js';
+import { eventRepo } from './eventRepo.js';
+import { getStudTripsMigrated, markStudTripsMigrated } from './settings.js';
+import { travellingDogId, studBoardingFor, studBoardingPrefill } from './studRules.js';
 
 const base = makeRepo('stud_services', STUD_SERVICE_REFERENCES);
 
@@ -79,35 +81,30 @@ export const studServiceRepo = {
     return [...byId.values()];
   },
 
-  // Away-board rows (Data Integrity Brief §5) — in-person stud services whose
-  // dates cover today: the dog that travels (`direction`), ours away at the
-  // partner's (to_partner) or theirs staying with us (to_us, `visiting`). Union'd
-  // with eventRepo.getBoardRows() at the call site (data/awayBoard.js), which
-  // drops a row when a stud boarding event already covers that trip.
-  async getBoardRows() {
-    const today = todayYMD();
+  // Trips are boarding events now, not the service's own dates. Run on every boot:
+  // 1. a direction from before it meant who travels (outgoing / incoming) becomes
+  //    shipped for AI, else to_partner (how the Away board read it then: our dog
+  //    went). Cheap and idempotent, so a restored older file is caught too.
+  // 2. once per device (settings flag): every in-person service with a start date,
+  //    not cancelled, whose trip has no stud boarding yet gets one
+  //    (studRules.studBoardingPrefill). The match check keeps a second device, or a
+  //    re-run after Reset App, from adding it twice.
+  async migrateStudTrips() {
     const all = await db.stud_services.toArray();
-    const away = all.filter((s) =>
-      !s.is_archived && s.type === 'in_person' && s.sent_date && s.sent_date <= today &&
-      (s.returned_date == null || s.returned_date >= today)
-    );
-    const contacts = await Promise.all(
-      away.map((s) => (s.partner_contact_id ? db.contacts.get(s.partner_contact_id) : null))
-    );
-    return away.map((s, i) => ({
-      dogId: s.direction === 'to_us' ? s.partner_dog_id : s.our_dog_id,
-      visiting: s.direction === 'to_us',
-      location: s.direction === 'to_us' ? '' : (contacts[i]?.address || ''),
-      reason: s.direction === 'to_us' ? 'Stud service · staying with us' : 'Stud service',
-      contactId: s.partner_contact_id || null,
-      outDate: s.sent_date,
-      returnDate: s.returned_date || null,
-      dropoffTime: '',
-      pickupTime: '',
-      sourceType: 'stud_service',
-      sourceId: s.id,
-      href: `stud-service.html?id=${encodeURIComponent(s.id)}`
-    }));
+    for (const s of all) {
+      if (s.direction !== 'outgoing' && s.direction !== 'incoming') continue;
+      await this.update(s.id, { direction: s.type === 'ai' ? 'shipped' : 'to_partner' });
+    }
+    if (getStudTripsMigrated()) return;
+    for (const s of await db.stud_services.toArray()) {
+      if (s.is_archived || s.status === 'cancelled' || !s.sent_date || !travellingDogId(s)) continue;
+      const dogId = travellingDogId(s);
+      if (studBoardingFor(s, await eventRepo.getForSubject('dog', dogId))) continue;
+      const partner = s.partner_contact_id ? await db.contacts.get(s.partner_contact_id) : null;
+      const { event_end_date, ...rest } = studBoardingPrefill(s, partner);
+      await eventRepo.create({ subject_type: 'dog', subject_id: dogId, ...rest, event_end_date: event_end_date || null });
+    }
+    markStudTripsMigrated();
   }
 };
 

@@ -1188,3 +1188,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   When that boarding ends, Today asks to update the stud service's dates and mark it
   Completed (`studboard`, in place of the status nudge). The match between the two is
   derived (dog, reason "Stud service", overlapping dates), no stored link.
+- **Stud trips are boarding events (2026-10-15).** A stud service's dates no longer make an
+  Away-board row; the board reads boarding events only. On boot, `migrateStudTrips` reads any
+  outgoing / incoming direction as who travels and gives every in-person service's trip a
+  boarding event (once per device, and never a second one for the same trip). The two dates
+  are labelled Begins / Ends. Sample data's Birch trip is a boarding event.

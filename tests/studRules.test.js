@@ -73,12 +73,6 @@ test('studBoardingFor: the travelling dog, reason Stud service, overlapping date
   assert.equal(S.studBoardingFor(svc({ direction: 'shipped' }), [board()]), null);
 });
 
-test('coveredByBoarding: the Away-board row of a trip a stud boarding covers', () => {
-  const row = { dogId: 'dam', outDate: '2026-01-01', returnDate: null };
-  assert.equal(S.coveredByBoarding(row, [board()]), true);
-  assert.equal(S.coveredByBoarding(row, [board({ subject_id: 'x' })]), false);
-});
-
 test('studBoardingPrefill: the trip as a boarding event', () => {
   assert.deepEqual(S.studBoardingPrefill(svc({ direction: 'to_us', partner_contact_id: 'c' })), {
     event_type: 'boarding', event_date: '2026-01-01', event_end_date: '2026-01-05', related_contact_id: 'c', title: 'Stud service',

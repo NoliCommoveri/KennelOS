@@ -110,13 +110,6 @@ export function studBoardingFor(s, events) {
     && overlaps(s.sent_date, s.returned_date || s.sent_date, e.event_date, e.event_end_date)) || null;
 }
 
-// An Away-board row from the stud service that a stud boarding event already covers
-// (same dog, reason, overlapping dates): the event is the trip, so the row is dropped.
-export function coveredByBoarding(row, boardingEvents) {
-  return (boardingEvents || []).some((e) => e && e.subject_id === row.dogId && isStudReason(e)
-    && overlaps(row.outDate, row.returnDate, e.event_date, e.event_end_date));
-}
-
 // The boarding event a stud service's trip starts as (the event form's prefill).
 // `partner`: the partner contact (its address is where our dog stays).
 export function studBoardingPrefill(s, partner) {

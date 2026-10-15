@@ -786,6 +786,12 @@ export async function seedSampleData() {
     // pairing recorded since → the heat→pairing nudge (§19/§4.5). Thread G(3).
     { subject_id: sage.id, event_type: 'heat_cycle', event_date: daysFromToday(-22), event_end_date: daysFromToday(-15),
       title: 'Heat cycle', details: { notes: 'Standing heat days 9–13; leased in for this breeding.' } },
+    // Birch — away at Ellen's for his stud service with Nell (SS1, our dog goes to
+    // them): the trip is a boarding event, so he's on the Away board, and Today asks
+    // to update the stud service once it ends (studRules.boardingEndedUpdate).
+    { subject_id: birch.id, event_type: 'boarding', event_date: daysFromToday(-3),
+      title: 'Stud service', related_contact_id: ellen.id,
+      details: { location: 'Ellen Brooks (Burlington, VT)', boarding_reason: 'Stud service' } },
     // Percy — a completed BOARDING span (Thread E/G11): a grow-out stay with a
     // related contact, showing a span row + related_contact_id on the timeline.
     { subject_id: percy.id, event_type: 'boarding', event_date: daysFromToday(-40), event_end_date: daysFromToday(-33),

@@ -25,7 +25,8 @@ const KEYS = {
   cloudOfferPending: 'kennelOS.cloudOfferPending',
   cloudRestoredAt: 'kennelOS.cloudRestoredAt',
   guidedLitterDraft: 'kennelOS.guidedLitterDraft',
-  prepChecks: 'kennelOS.prepChecks'
+  prepChecks: 'kennelOS.prepChecks',
+  studTripsMigrated: 'kennelOS.studTripsMigrated'
 };
 
 export function getLastBackupDate() {
@@ -363,6 +364,16 @@ export function getExpensesMigrated() {
 
 export function markExpensesMigrated() {
   localStorage.setItem(KEYS.expensesMigrated, '1');
+}
+
+// Stud-trip migration flag — set once every in-person stud service's trip has a
+// boarding event (studServiceRepo.migrateStudTrips). Cleared by Reset App.
+export function getStudTripsMigrated() {
+  return localStorage.getItem(KEYS.studTripsMigrated) === '1';
+}
+
+export function markStudTripsMigrated() {
+  localStorage.setItem(KEYS.studTripsMigrated, '1');
 }
 
 // --- Guided tour (first-run wizard) -----------------------------------------

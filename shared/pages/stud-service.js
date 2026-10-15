@@ -22,11 +22,9 @@ import { ourRole, travellingDogId, studBoardingFor, studBoardingPrefill } from '
 import { eventRepo } from '../data/eventRepo.js';
 import { openEventForm } from '../assets/eventForm.js';
 
-// The two dates, in words that fit who travels (stored as sent_date / returned_date).
-function dateLabels(direction) {
-  if (direction === 'to_us') return ['Their dog arrives', 'Their dog goes home'];
-  if (direction === 'shipped') return ['Shipped', 'Done'];
-  return ['Our dog leaves', 'Our dog is back'];
+// The service's two dates (stored as sent_date / returned_date), whoever travels.
+function dateLabels() {
+  return ['Begins', 'Ends'];
 }
 
 // "Our stud" / "Our dam", from our dog's sex.
