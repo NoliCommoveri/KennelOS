@@ -1206,139 +1206,46 @@ that ride into a pup's seed packet.
 
 ## 28. Kennel identity & Kennel Cards
 
-**Editions:** Kennel identity (`public_id`) is in every edition and rides the Lite→Pro bridge. Kennel Cards and the Kennels pages are Pro and Demo only (`proPages.js`). Several own kennels is Pro only (`editionFlags.multiKennel`; `docs/KennelOS_Multi_Kennel_Scope_Spec.md`).
+**Editions:** Kennel identity (`public_id`) is in every edition and rides the Lite→Pro
+bridge. Kennel Cards and the Kennels pages are Pro and Demo only (`proPages.js`). Several own
+kennels is Pro only (`editionFlags.multiKennel`; `docs/KennelOS_Multi_Kennel_Scope_Spec.md`).
 
-**The problem this solves.** Every cross-kennel reference in the app is otherwise a
-privately-typed string. When you record a stud service with an outside dog, set a dog's
-`breeder_kennel_id` to the kennel that produced it, or name a foster partner's kennel, you
-create a Kennel row that exists only in *your* IndexedDB. If the breeder on the other side
-also runs KennelOS, they have their own unrelated row for the same real-world kennel, and
-nothing will ever reconcile the two. Provenance across a kennel boundary is therefore
-name-matching-by-memory.
+Without this, an outside kennel is a row each breeder typed into their own database, and
+nothing ties the two together. Two separate pieces fix that: a portable identity, and a
+card that hands it to another breeder. There is **no registry, directory or network call**;
+a card goes only where the breeder sends it. (A future registry would sit on top: kennels
+would claim the `public_id` they already have.)
 
-Two pieces close that, and they are deliberately separate:
-
-- **§28.1 — the identity** (`kennels.public_id`): a durable, portable identifier for a
-  kennel. Ships in every edition.
-- **§28.2 — the card** (`data/kennelCard.js`): the payload that hands that identity to
-  another breeder, peer-to-peer. Pro-only UI.
-
-**What is deliberately NOT here.** There is no registry, no directory, no lookup, no
-server, and no network call of any kind — a card only goes where the breeder sends it.
-Discovery ("find other breeders") is a genuinely different problem that cannot be solved
-local-first, and nothing in this section pretends to solve it. This design is the piece
-that has to exist *first* either way: whenever a registry does arrive, existing kennels
-can **claim** an identifier they already have rather than being re-keyed. Nor does a card
-solve multi-device — it carries identity, not records; a second device restores a JSON
-backup or syncs via Dropbox (§10, §26), and the import preview says so in as many words
-when you feed it your own card.
-
-### 28.1 `kennels.public_id` — the portable identity
-
-Format `kos1_<uuid>` (`kennelRepo.newPublicId` / `isPublicId`).
-
-- **Not the row `id`.** The row id is a database key: it is recreated whenever the record
-  is (a fresh install where the breeder retypes their kennel instead of restoring, a
-  delete-and-re-add, a hand-edited backup), and it names nothing outside this database.
-  The public id is what another breeder's copy points at, so it has to outlive all of that.
-- **Why a prefix, when the codebase otherwise uses bare UUIDs.** This value is copied
-  between apps and, some day, into a registry. A bare UUID pasted into the wrong field is
-  indistinguishable from a right one; `kos1_` makes a mis-paste fail loudly, gives a
-  registry a cheap format check, and gives us a version to migrate off.
-- **Own kennels only.** Minted in `kennelRepo.create` when `is_own_kennel`, and on the
-  update that *promotes* a kennel to own — which by the same line self-heals any own
-  kennel predating the field. An outside kennel is **never** minted one locally: doing so
-  would be inventing somebody else's identity, the same failure the CSV importer refuses
-  (§9). Its `public_id` can only ever be *received*.
-- **Write-once.** `kennelRepo.update` throws on any attempt to change a non-empty
-  `public_id`, and silently ignores an attempt to blank one. Empty → set is allowed (that
-  is exactly what linking a card does).
-- **Uniqueness** is a repo-level guard (`assertPublicIdFree`), not a Dexie `&` index — see
-  the §5 index note.
-- **Portability is free**, and that is the point: `importExport.js` iterates whatever
-  tables exist and copies whole rows, so the identity rides the JSON backup, the Lite→Pro
-  bridge, and the Dropbox sync with no code of its own. Pinned by a browser check.
-
-**Relationship to Furever's `breederKey` (`settings.js`, §27).** Different scopes,
-deliberately not merged. `breederKey` identifies the *installation's breeder* to the family
-app — one key shared across all of a user's own kennels, so every pup they place dedupes
-into one `breeders` row — and re-keying it would break the dedup of packets already sent.
-`public_id` identifies *one Kennel record*. **Not a gap to close.**
+### 28.1 `kennels.public_id`
+- Format `kos1_<uuid>` (`kennelRepo.newPublicId` / `isPublicId`); the prefix makes a mis-paste
+  fail loudly. Not the row `id`, which dies with the record.
+- **Own kennels only:** minted on create, or when a kennel becomes own (which also heals
+  older ones). An outside kennel's id can only be **received** from its card.
+- **Write-once:** changing a set `public_id` throws; blanking it is ignored.
+- Unique by a repo guard (`assertPublicIdFree`), not a unique index.
+- Rides backups, the Lite→Pro bridge and sync with no code of its own.
+- Separate from Furever's `breederKey` (one per installation, §27) on purpose; don't merge.
 
 ### 28.2 The Kennel Card
-
-`data/kennelCard.js` (data layer, ships in every edition — reached through `kennelRepo`,
-exactly as `data/companionExport.js` ships to Lite while `companion.html` does not) plus
-`assets/kennelCardUI.js` (in `PRO_ONLY_STANDALONE`, so it is absent from the Lite build).
-
-**The allow-list invariant**, same posture and same reasoning as `companionExport.js`
-(§20): `buildKennelCard` names every field it copies and copies nothing else, then
-`assertOnlyKeys` runs a **positive** check before the card can leave. A new Kennel field
-does not ride along until someone adds it here by name. That matters more here than most
-places — the Kennel record also carries the kennel's *program* (`preferred_tests`,
-`preferred_breeds`, `preferred_test_breeds`, `promote_*`) and its `logo_data_url`, none of
-which is identity and none of which is anyone else's business.
-
-A card carries exactly: `cardVersion`, `publicId`, `kennelName`, `prefix`, `location`,
-`website`, `issuedAt`. Pinned field-by-field in `tests/kennelCard.test.js`.
-
-**The load-bearing rule on the receiving side: a card can never set `is_own_kennel`.** A
-card names somebody else's kennel by definition, and an imported kennel landing in your
-own-kennel set would enter your scope switcher (§Multi-Kennel), your portfolio, your shared
-preferred-test vocabulary, and — in Lite — your cap accounting. Import forces
-`is_own_kennel: false` on create and never touches the flag on update. A card whose
-`publicId` matches one of *your own* kennels is refused outright with nothing written, so a
-third party can never rewrite your kennel's name.
-
-**Transport** mirrors the two mechanisms already in the repo — lz-string-compressed JSON,
-carried either as a **link** (`kennels.html#kennelcard=…`, like Furever's seed link) or as
-a copyable **code**. The link is the nicer path but is only correct when both breeders are
-on the same origin — which is the common case, since every Pro user shares
-`pro.kennelos.app`. The **code is the universal path** and is the one to hand someone whose
-install you can't locate. Both are offline; nothing here makes a network call. The link
-handler listens for `hashchange` as well as running at load, because pasting a card link
-while already on the Kennels page is a same-document navigation that re-runs no module.
-
-**Every import is a dry-run preview before a commit** (CLAUDE.md), and a payload that
-arrived from another person is the last place to make an exception. `previewKennelCard`
-writes nothing; four outcomes:
-
-| Outcome | When | What commits |
-|---|---|---|
-| `create` | no local kennel carries this identity | a new **outside** kennel — or, if the user picks one, a *link* to an existing record (below) |
-| `update` | a linked outside kennel exists and the card differs | the four identity fields, shown as a before/after diff first |
-| `unchanged` | linked and nothing new | nothing; no commit button is rendered |
-| `own` | the identity is one of *your* kennels | nothing, ever |
-
-**Match-or-create is keyed on `public_id`, never the row id** (§9's rule). On a `create`,
-the preview additionally *offers* any **unlinked, non-own kennel whose name matches**
-case-insensitively (`kennelRepo.findUnlinkedByName`) — the real-world case where the
-breeder typed "Thornfield Kennels" in by hand last year and is now receiving Thornfield's
-actual card. Linking attaches the identity to that existing record, so everything already
-pointing at it (dogs, stud services, contracts) keeps pointing at it instead of being
-stranded on a duplicate. This is **offered and never automatic**: a name is not a key, and
-auto-matching one would be exactly the "silently invented relationship" §9 forbids. "Add as
-a new kennel" is the pre-selected default.
-
-**Surfaces.** The share half is a card section on the Kennel hub (`kennel.html`, own
-kennels only; an outside kennel that arrived via a card shows the ID it came with instead).
-The receive half is "Add from a card" on the Kennels list (`kennels.html`), which also
-badges a card-linked outside kennel as **linked** — the visible difference between a
-cross-kennel reference that lines up with the other breeder's records and one typed from
-memory. Both host pages are Pro-only, so no edition flag was needed.
-
-### 28.3 Changing this
-
-- Adding a field to the card means adding it to `CARD_KEYS` **and** (if it should write on
-  the receiving side) to `CARD_FIELDS` — and asking first whether it is *identity*. Program
-  config, money, and anything about dogs or people are all out of scope by design.
-- `KENNEL_CARD_VERSION` bumps only on a breaking shape change. Adding an optional field is
-  additive; `decodeKennelCard` already drops unknown keys so a card issued by a later
-  version still imports its v1 identity.
-- If a registry is ever built, it slots in **above** this, not instead of it: `public_id`
-  becomes the thing a kennel claims, and a human-readable handle (which needs enforced
-  uniqueness, and therefore a server) would be the new field. Nothing here has to change
-  for that to happen — which is the whole reason it exists now.
+`data/kennelCard.js` (every edition) and `assets/kennelCardUI.js` (Pro, `PRO_ONLY_STANDALONE`).
+- **Allow-list:** `buildKennelCard` copies `CARD_KEYS` only (`cardVersion`, `publicId`,
+  `kennelName`, `prefix`, `location`, `website`, `issuedAt`), checked by `assertOnlyKeys`.
+  The kennel's program settings and logo never travel. `tests/kennelCard.test.js` pins it.
+- **A card can never set `is_own_kennel`.** Import creates an outside kennel and never touches
+  the flag on update. A card carrying one of **your own** ids is refused with nothing
+  written.
+- **Transport:** lz-string JSON as a link (`kennels.html#kennelcard=…`, same origin only;
+  also handled on `hashchange`) or a copyable code (works anywhere). Offline.
+- **Preview first** (`previewKennelCard`, then `applyKennelCard`): `create` (new outside
+  kennel, or link to an existing one), `update` (identity fields, shown as a diff),
+  `unchanged`, or `own` (refused). Matching is by `public_id`. On a create, an unlinked
+  outside kennel with the same name (`kennelRepo.findUnlinkedByName`) is **offered** for
+  linking, so existing references stay attached; "Add as a new kennel" is the default.
+- **Surfaces:** share from the Kennel page (own kennels); "Add from a card" on the Kennels
+  list, which badges card-linked kennels **linked**.
+- **Changing it:** a new card field goes in `CARD_KEYS` (and `CARD_FIELDS` if it writes on
+  receipt), and must be identity, not program, money, dogs or people.
+  `KENNEL_CARD_VERSION` bumps only on a breaking change; unknown keys are dropped on decode.
 
 ---
 
