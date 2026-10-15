@@ -1600,6 +1600,10 @@ median); Placements, Scheduled Placements, Waitlist Funnel, Demand vs Supply, Ap
 Today, Offers & Removals, Lead Sources & Referrers, Returns & Voids; Stud Services, Stud Results, Show Record; Active Roster; Year in
 Review (prints on one page).
 
+**Registration split:** Placements counts pups placed, sale value and average price per
+registration (`moneyReport.byRegistration`, every type in vocab order, "Not set" last), and
+Year in Review's Placements tile reads `registrationSummary` ("2 Limited · 1 Full").
+
 **The waitlist reports** (`data/waitlistReports.js`): **Applications** (by applied date: days
 between applications, approved of those decided, approved → on the list, median days to
 approve and to the fee, and every answer that decides which pup they're offered: sex,

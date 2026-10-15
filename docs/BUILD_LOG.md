@@ -1329,3 +1329,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   picked), which parents (any / only certain / any but certain, and the dogs they named or
   would skip), breed when families named more than one, color when a kennel matches on it.
   Charts, columns and For / Parents filters.
+- **Placements by registration (2026-10-15).** Placements gains Pups placed by registration
+  (count and share), Sale value by registration, and a Limited tile beside Full; Year in
+  Review's Placements tile says "2 Limited · 1 Full" (`moneyReport.byRegistration`,
+  `registrationSummary`). The Kels roadmap's kennel check-up (§3.12) now names the new
+  waitlist reports and the registration split as its sources.

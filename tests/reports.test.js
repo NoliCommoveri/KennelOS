@@ -224,7 +224,7 @@ test('every report on the hub exists, is precached, and (but Lite-kept pages) is
 });
 
 // --- Phase 3 money -------------------------------------------------------------------
-import { ageBucket, daysOverdue, receivableRows, pricingRows, averageBy, dogReturnRows } from '../shared/data/moneyReport.js';
+import { ageBucket, daysOverdue, receivableRows, pricingRows, averageBy, dogReturnRows, byRegistration, registrationSummary } from '../shared/data/moneyReport.js';
 
 test('receivables: anticipated money aged from today; foster owed back undated', () => {
   assert.equal(daysOverdue('2026-10-01', '2026-10-09'), 8);
@@ -274,4 +274,21 @@ test('dogReturnRows: pups’ income per parent, stud fees, own costs, net', () =
   assert.deepEqual([dam.earned, dam.studFees, dam.costs, dam.net, dam.pupsSold, dam.anticipated], [2500, 0, 1200, 1300, 1, 500]);
   assert.deepEqual([sire.earned, sire.studFees, sire.net], [2500, 800, 3300], 'the litter counts for both parents');
   assert.ok(!rows.some((r) => r.dog.id === 'pup'));
+});
+
+test('pups placed by registration: every type in vocab order, counts and price totals, Not set last', () => {
+  const sales = [
+    { registration_type: 'limited', price: 2500 },
+    { registration_type: 'limited', price: '3000' },
+    { registration_type: 'full', price: 4000 },
+    { registration_type: 'full', price: '' },
+    { registration_type: 'none', price: 1500 },
+    { price: 2000 }
+  ];
+  const rows = byRegistration(sales);
+  assert.deepEqual(rows.map((r) => [r.value, r.count, r.priced, r.total]),
+    [['limited', 2, 2, 5500], ['full', 2, 1, 4000], ['co_own', 0, 0, 0], ['none', 1, 1, 1500], ['', 1, 1, 2000]]);
+  assert.equal(byRegistration(sales.slice(0, 2)).length, 4, 'no "Not set" row when every sale has one');
+  assert.equal(registrationSummary(sales), '2 Limited · 2 Full · 1 Unregistered · 1 Not set');
+  assert.equal(registrationSummary([]), '');
 });

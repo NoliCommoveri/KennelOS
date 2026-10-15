@@ -390,19 +390,31 @@ presets), and gets back a short summary in plain sentences:
   - a heat due in the next month; health tests planned but not logged;
   - back-to-back litters and lifetime-litter flags, said as the report says them (a prompt
     to look, never a judgment).
-- **Money** (P&L by Month, Litter P&L, Expenses by Category, Receivables, Pricing): net for
-  the range and against the one before, the best month, the biggest cost, the most and
-  least profitable litter, what's owed and how overdue, whether a Full registration is
-  selling for more.
+- **Money** (P&L by Month, Litter P&L, Expenses by Category, Receivables, Pricing,
+  Placements): net for the range and against the one before, the best month, the biggest
+  cost, the most and least profitable litter, what's owed and how overdue, what her pups
+  brought in by registration ("Limited pups brought in $7,500, Full $2,800"), and whether
+  a Full registration is selling for more ("Full sells for $300 more than Limited").
 - **Litters & pups** (Litters Over Time, Live-Birth Summary, Puppy Growth): litters and pups
   against the range before, the live-birth rate, average litter size, a pup falling behind
   its littermates.
 - **Sales & the waitlist** (Placements, Waitlist Funnel, Applications, Waitlist Today,
-  Offers & Removals, Demand vs Supply, Lead Sources, Returns): pups placed, average price,
-  how often families apply and how many she approves, how long families wait, who's
-  waiting for a girl or a boy, the share of offers passed, families removed for not
-  following the list's rules, families waiting against pups available ("6 families want
-  a girl; you have 2"), the top lead source and referrer, returns.
+  Offers & Removals, Demand vs Supply, Lead Sources, Returns), each line from the report
+  named:
+  - *Placements:* pups placed and average price, and how many went with each registration
+    ("You placed 4 pups: 3 on Limited, 1 on Full").
+  - *Applications:* how often families apply ("a new application about every 30 days"),
+    how many she approves, how fast they pay the fee, and what they ask for: a boy or a
+    girl, what the pup is for (pet, show…), any parents or only certain ones, and the dogs
+    they name most ("2 families asked only for Juniper's pups").
+  - *Waitlist Today:* who's waiting now for a girl, a boy or either, how long they've
+    waited, how many are paused, and applications still to review or with a fee due.
+  - *Offers & Removals:* the share of offers accepted, passed or unanswered, families who
+    passed at least once, why they passed, and families removed for not following the
+    list's rules, apart from ones she removed.
+  - *Funnel, Demand vs Supply, Lead Sources, Returns:* where families drop off, families
+    waiting against pups available ("6 families want a girl; you have 2"), the top lead
+    source and referrer, returns.
 - **Shows & stud** (Show Record, Stud Services, Stud Results): points and titles, stud fees
   earned, services that produced a litter.
 - **The whole picture:** the top one or two from each topic, then **Year in Review**.
