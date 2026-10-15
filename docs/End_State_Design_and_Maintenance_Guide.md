@@ -1,62 +1,101 @@
-# KennelOS — End-State Design & Maintenance Guide
+# KennelOS — App Design & Maintenance Guide
 
-> ## ⚠️ REFERENCE ONLY in this repo — not the current-state map
->
-> This guide describes the **pre-editions, single-app KennelOS**. In *this* repo that
-> whole app has been relocated under **`shared/`** (and is being split into
-> `shared/` + `pro/`). So this document is now **reference material for the shared/Pro
-> code**, not the authoritative description of the repo as a whole.
->
-> - **Authoritative current-state architecture** = the editions model: the top-level
->   `README.md` (layout + status; history in `docs/BUILD_LOG.md`) plus `docs/KennelOS_Lite_Pro_Editions_Plan.md`
->   and `docs/KennelOS_Lite_Cap_Enforcement_Spec.md`.
-> - **Path translation:** wherever this guide says `KennelOS/…` or a bare `data/…`,
->   `assets/…`, `pages/…`, `sw.js`, read it as **`shared/…`** (e.g. `shared/data/db.js`,
->   `shared/sw.js`). The single service worker described in §12 is now the *shared
->   default*; each edition will get its own `sw.js` + cache name.
-> - **Still true and still load-bearing:** everything about the data model, the Dexie
->   schema, the repo layer, referential integrity, the Event model, escaping contracts,
->   and the change recipes — that all applies unchanged to the code now under `shared/`.
->   The `data/editionConfig.js` injection point (Lite/Pro cap hooks) and the
->   `data/editionTour.js` injection point (per-edition guided-tour package: sample seed +
->   step catalog — see §11) are the additions not yet folded into the sections below.
-> - **Pro license gate** (`data/license.js` + `assets/licenseGate.js`) is a boot-time
->   addition too: in the Pro edition only (`editionConfig.editionFlags.licenseGate`),
->   `app.js`'s `boot()` calls `ensureLicensed()` before rendering — a Lemon Squeezy
->   key is browser-validated (activate/validate, no backend) with an interval-scaled
->   offline grace window (monthly/yearly subscriptions); a one-time **Lifetime** key is
->   perpetual — it never expires, but it is **no longer exempt from offline
->   re-validation**: 90 days of full access from the last successful `/validate`, then 30
->   days of a reconnect banner, then a wall, all reset by one successful validate. (The
->   old exemption let an activated lifetime key run forever on any number of machines
->   without contacting the store again.) A lifetime key blocked on staleness gets a
->   *reconnect* wall, never the renewal wall — `licenseGate.js`'s `isStaleLifetime`.
->   An unlicensed load is walled. The cached activation lives
->   under its own `settings.js` key (`kennelOS.proLicense`) that is deliberately **excluded
->   from `clearAllSettings()`**, so Reset App keeps paid entitlement. Inert in Lite/Demo.
-> - **Activations are a countable, releasable resource.** Lemon Squeezy counts
->   *activations* ("instances") against the variant's activation limit — it knows nothing
->   about the machine, and neither do we. Three rules make that counter survivable:
->   `deactivate()` hands a slot back (`releaseThisDevice()` from Settings → *This
->   device's license*, which clears the local record **only** if the release succeeded;
->   `resetLicense()` on the renewal wall, which is best-effort so a walled owner is never
->   trapped); each activation is named `"<owner's label> · <8 chars of kennelOS.deviceId>"`
->   so slots are distinguishable in the store dashboard; and `recordFromPayload()` lets an
->   explicit `valid:false` downgrade an otherwise-`active` key to `inactive`, so a released
->   or de-authorized device actually stops working (a more specific `expired` is preserved,
->   because it earns its grace window). `kennelOS.deviceId` is a random per-browser UUID
->   used only for that label — no fingerprinting, no system data — and, like the license
->   record, it sits outside `KEYS` so Reset App leaves it alone.
->
-> Treat everything under this line as an accurate map of the shared/Pro **code**, with
-> the caveats above.
+The map of the whole KennelOS app: what it does, how the code is built, and how to change it
+safely. It covers every edition. The code all lives in **`shared/`**, Pro ships all of it,
+and §0 says what Lite and Demo leave out or change. Each feature section names its edition
+gate where there is one.
+
+- **Paths** are relative to `shared/` (`data/db.js` = `shared/data/db.js`) unless they start
+  with `cloud/`, `build/`, `tests/`, `docs/`, `lite/`, `pro/`, `demo/`, `site/` or `furever/`.
+- **The code is authoritative.** Where this guide and the code disagree, fix the guide.
+- **Why things are the way they are** lives in the plans and specs in `docs/`, which each
+  section links. History is in `docs/BUILD_LOG.md`.
 
 ---
 
-The single current-state reference for the KennelOS dog-breeding records app. It
-describes what the app **is today** and how to change it safely: architecture, data
-model, module map, invariants, and the common "how do I change X" recipes. Read it
-first.
+## 0. Editions — Lite, Pro, Demo
+
+One codebase, three builds. `node build/assemble.mjs` copies `shared/` to
+`dist/<edition>/`, overlays that edition's `editionConfig.js` (and Lite's `editionTour.js`)
+at the shared path, drops files the edition doesn't ship, and generates its `sw.js`
+(`build/README.md`). Each edition deploys to its own origin, so their IndexedDBs never mix.
+The shared core never checks which edition it is: it reads the two injection points.
+
+- **`data/editionConfig.js`** holds `editionFlags`, the cap hooks (`enforceDogCap`,
+  `enforceLitterCap`), `navItems`, `cloudUrl` and `licenseConfig`. The `shared/` copy is
+  the Pro-semantics default. Source copies are in `lite/`, `pro/` and `demo/`.
+- **`data/editionTour.js`** holds the guided-tour package (sample seed + step catalog, §11).
+  Lite supplies its own; Pro and Demo use the shared default.
+- **`data/proPages.js`** lists the Pro-only files. The Lite build leaves them out (a direct
+  URL 404s), and Lite-kept pages use it to hide links to them.
+
+| | Lite (free) | Pro (paid) | Demo |
+|---|---|---|---|
+| Pages | Shared pages only: no `PRO_ONLY_PAGES` / `PRO_ONLY_STANDALONE` | All | All but Import/Export, Settings and the Assistant console (`DEMO_EXCLUDED_PAGES` in `build/assemble.mjs`) |
+| Feature flags (contacts, stud services, contracts, documents, companion, furever, reports, invoicing, puppy record, foster, receipts, external ownership, assistant, feeding schedules, accounts, shows, waitlist, multi-kennel) | all `false` | all `true` | all `true` |
+| Cap | 6 counting dogs, 10 litters | none (no-op hooks) | none |
+| Archive | No Archive button, no "include archived" toggles, departed dogs shown as plain text; a dog leaves by "Remove from program" | Normal | Normal |
+| Dog statuses | puppy / active / retired breeding / deceased (`fullDogStatuses: false`) | All | All |
+| Writes | Normal | Normal | Blocked (`demoMode`) |
+| License gate | No | Yes (`licenseGate`) | No |
+| Cloud backup | Yes | Yes | No (`cloudUrl: null`) |
+| Live sync | No (`liveSync: false`) | Yes | No |
+
+The shared pages Lite keeps hide their Pro-only parts with the same flags: the invoice
+button, receipt attach, the Account picker, a sale's "Referred by", the litter foster and
+feeding-schedule fields, and the Dashboard's Archived tile. The full list is in the Editions
+Plan's "Lite scope" section.
+
+**Details live in:** `docs/KennelOS_Lite_Pro_Editions_Plan.md` (tiers, licensing, the Lite→Pro
+bridge, Demo), `docs/KennelOS_Lite_Cap_Enforcement_Spec.md` (the cap, precisely),
+`build/README.md` (build + deploy).
+
+### 0.1 The Lite cap
+`dogRepo.create`/`update` and `litterRepo.create` call the edition's cap hooks. Lite's hooks
+(`lite/editionConfig.js`) throw `CapExceededError` (`data/repoBase.js`) when a write would
+bring a dog **into** the counted set (owned / co-owned live adults; `rosterCount.js`), or
+would add an 11th litter. Editing a counted dog, or a dog leaving, is never blocked. The dog
+form, the litter form and Today's promote-pup nudge catch the error and show
+`assets/upgradeNudge.js` (export a backup, then go to checkout). The New Dog page shows a
+"Creating x/6" counter from the same predicate. Pro and Demo's hooks are no-ops, so no cap
+logic ships in Pro.
+
+### 0.2 Demo mode
+`data/demoMode.js`: every repo write (`repoBase` create/update/hardDelete, `fileRepo`,
+`restoreBackup`) calls `assertWritable()`, which throws a friendly `DemoModeError` when
+`editionFlags.demoMode` is on. The sample seed runs inside `withSeedAllowed()`. `app.js`
+seeds an empty database on load, skips first-run prompts, and shows a read-only banner.
+
+### 0.3 Pro license gate
+- **Boot gate** (`data/license.js` + `assets/licenseGate.js`): in the Pro edition only (`editionConfig.editionFlags.licenseGate`),
+  `app.js`'s `boot()` calls `ensureLicensed()` before rendering — a Lemon Squeezy
+  key is browser-validated (activate/validate, no backend) with an interval-scaled
+  offline grace window (monthly/yearly subscriptions); a one-time **Lifetime** key is
+  perpetual — it never expires, but it is **no longer exempt from offline
+  re-validation**: 90 days of full access from the last successful `/validate`, then 30
+  days of a reconnect banner, then a wall, all reset by one successful validate. (The
+  old exemption let an activated lifetime key run forever on any number of machines
+  without contacting the store again.) A lifetime key blocked on staleness gets a
+  *reconnect* wall, never the renewal wall — `licenseGate.js`'s `isStaleLifetime`.
+  An unlicensed load is walled. The cached activation lives
+  under its own `settings.js` key (`kennelOS.proLicense`) that is deliberately **excluded
+  from `clearAllSettings()`**, so Reset App keeps paid entitlement. Inert in Lite/Demo.
+- **Activations are a countable, releasable resource.** Lemon Squeezy counts
+  *activations* ("instances") against the variant's activation limit — it knows nothing
+  about the machine, and neither do we. Three rules make that counter survivable:
+  `deactivate()` hands a slot back (`releaseThisDevice()` from Settings → *This
+  device's license*, which clears the local record **only** if the release succeeded;
+  `resetLicense()` on the renewal wall, which is best-effort so a walled owner is never
+  trapped); each activation is named `"<owner's label> · <8 chars of kennelOS.deviceId>"`
+  so slots are distinguishable in the store dashboard; and `recordFromPayload()` lets an
+  explicit `valid:false` downgrade an otherwise-`active` key to `inactive`, so a released
+  or de-authorized device actually stops working (a more specific `expired` is preserved,
+  because it earns its grace window). `kennelOS.deviceId` is a random per-browser UUID
+  used only for that label — no fingerprinting, no system data — and, like the license
+  record, it sits outside `KEYS` so Reset App leaves it alone.
+
+**Details:** Editions Plan "Licensing", `docs/KennelOS_License_Link_Plan.md`.
+
 
 Where a field-level or rule-level detail matters, the **code is authoritative** — where a
 doc and the code disagree, the code wins and the doc is what gets fixed.
@@ -78,7 +117,8 @@ partners.
   runs exactly the same.
 - **Single user, single device** is the design centre. Data moves between devices through
   explicit JSON backup/restore, CSV import/export, Dropbox (§26), or (opted in) a cloud
-  backup restored on the new device (§30). There is no live sync.
+  backup restored on the new device (§30). Pro can also turn on live multi-device sync
+  (§34).
 - **Offline-capable PWA.** A service worker precaches the app shell so it works offline
   after the first load.
 
@@ -98,7 +138,7 @@ These are load-bearing. Changing any of them is a design decision, not a routine
 3. **ES modules over HTTP.** Must be served (`python3 -m http.server`, `npx serve`, or
    GitHub Pages) — never opened as `file://`, which CORS-blocks module imports.
 4. **No CDN / no network deps.** Everything third-party is vendored under
-   `KennelOS/vendor/` and loaded by relative path (Dexie, PapaParse, lz-string). The
+   `vendor/` and loaded by relative path (Dexie, PapaParse, lz-string). The
    app must work fully offline after first load. The one deliberate exception is the
    **Dropbox sync feature set** (§26): those buttons talk to the Dropbox HTTP API with
    plain `fetch` (still no vendored/CDN code) and are online-only by design — every
@@ -113,8 +153,13 @@ These are load-bearing. Changing any of them is a design decision, not a routine
 
 ```
 CLAUDE.md                      Session brief (read first)
-docs/                          Design docs (this file is the end-state map)
-KennelOS/
+README.md                      Summary + doc map
+docs/                          Plans, specs, BUILD_LOG.md, this guide
+build/assemble.mjs             Edition builds → dist/<edition>/ (§0)
+lite/ pro/ demo/               Per-edition editionConfig.js (+ Lite's editionTour.js) (§0)
+cloud/                         Cloud backup / sync Worker (§30, §34; cloud/README.md)
+tests/                         node --test suites
+shared/
   index.html                   App root / landing
   companion-view.html          Recipient-facing Companion share shell (§20) — a
                                self-contained, read-only static file; NOT part of
@@ -346,6 +391,10 @@ KennelOS/
                                asked for, the message (pure, §32; tests/paymentLinks.test.js)
     wizardState.js             Guided-tour status/index state machine (§11)
     wizardSteps.js             Full (Pro/Demo) guided-tour step catalog — data only (§11)
+    editionConfig.js           Per-edition flags, cap hooks, nav, cloudUrl, licenseConfig —
+                               injection point; shared copy = Pro-semantics default (§0)
+    proPages.js                Pro-only file list the Lite build drops (§0)
+    demoMode.js                Demo's write block, assertWritable() (§0.2)
     editionTour.js             Per-edition tour package (seed + steps) injection point;
                                shared copy re-exports the full seed + catalog (§11)
     settings.js                localStorage-backed UI prefs / identity keys (incl. the
@@ -1535,7 +1584,11 @@ intro-card / pinned-top-card presentation postdate it).
 
 App-shell cache so the app installs and works offline after first load.
 
-- `CACHE_NAME` (currently `kennelos-shell-v49`) + a `PRECACHE_URLS` list of **every** app
+- **One source, one worker per edition.** Edit only `shared/sw.js`. `build/assemble.mjs`
+  generates each `dist/<edition>/sw.js` with its own cache name and a precache filtered to
+  the files that edition ships (Lite drops `proPages.js`'s files; Demo drops `DEMO_EXCLUDED_PAGES`).
+  Never hand-edit a generated one.
+- `CACHE_NAME` (currently `kennelos-shell-v78`) + a `PRECACHE_URLS` list of **every** app
   file (html/js/css/icons/vendor/resources).
 - `install` precaches the list (**`cache.addAll` is atomic** — one missing/renamed file
   fails the whole install). Each file is requested with **`cache: 'reload'`**, past the
@@ -1906,7 +1959,7 @@ Don't assume these exist; several are explicitly deferred "open doors":
 5. **New/renamed/removed/edited app file ⇒ update `sw.js` `PRECACHE_URLS` **and** bump
    `CACHE_NAME`.** Sanity check:
    ```bash
-   # from KennelOS/ — lists any app file missing from the precache, and any
+   # from shared/ — lists any app file missing from the precache, and any
    # precache entry with no file on disk. Both lists should be empty.
    python3 - <<'PY'
    import re, os
@@ -1932,14 +1985,13 @@ Don't assume these exist; several are explicitly deferred "open doors":
 ## 17. Local development
 
 ```bash
-cd KennelOS
-python3 -m http.server 8000      # or: npx serve
-# open http://localhost:8000/  — never file://
+python3 -m http.server 8000      # from the repo root; open http://localhost:8000/shared/ — never file://
+node --test                      # tests/ + cloud/tests, Node ≥ 22, no dependencies
+node build/assemble.mjs          # edition builds → dist/ (serve dist/<edition>/ to try one)
 ```
 
-There is no build, no test runner, and no linter wired in. Verification is: `node --check`
-for syntax, serving locally and exercising the flow in a browser, and the precache sanity
-check above. State resets via **Reset App to Start** (or clearing site data); sample data is
+There is no bundler and no linter. Verification is `node --check` for syntax, `node --test`
+(the precache check is `tests/serviceWorker.test.js`), and exercising the flow in a browser. State resets via **Reset App to Start** (or clearing site data); sample data is
 seeded by taking the first-run **guided tour** ("Show me around!"), or restored from a JSON
 backup via Import/Export.
 
@@ -1976,6 +2028,8 @@ repo → list/detail → events/relationships → completeness features.
 ---
 
 ## 19. Derived nudges & the away-board union
+
+**Editions:** All editions; nudges for Pro features (shows, waitlist, vendor events) are gated item by item below, and Lite's departure nudge offers **Remove from program** instead of Archive.
 
 Two small `data/` modules sit on top of the repos as pure composition — neither owns storage
 beyond the one localStorage ledger below.
@@ -2157,6 +2211,8 @@ or reference-registry change.
 ---
 
 ## 20. Companion share-out (buyers & partners)
+
+**Editions:** Pro and Demo only (`editionFlags.companion`; `companion.html` and `companion-view.html` are in `proPages.js`). `data/companionExport.js` still ships to Lite because shared code imports it.
 
 A **one-way, point-in-time export** of a curated slice of a recipient's own data, delivered as
 a **no-account, read-only link** — not sync, not a login, not a live view. The main app stays
@@ -2352,6 +2408,8 @@ no two-way pointers, every reverse stays a query.
 ---
 
 ## 21. Financials — income & the Expense ledger
+
+**Editions:** All editions. Lite hides the invoice/receipt button (`invoicing`), receipt attach (`receiptAttach`) and the Account picker (`accounts`). Waitlist fees and vendor-reported fees are Pro only.
 
 The Financials hub has **three views**, switched by a top toggle
 (`financials.html?view=overview|income|expenses`; a bare URL opens Overview, a `?bucket=` link
@@ -2587,6 +2645,8 @@ fee**.
 
 ## 22. Referral tracking (Sale / StudService "Referred by")
 
+**Editions:** Pro and Demo only. Lite hides a sale's "Referred by" field, and has no stud services or Contacts section.
+
 `Sale.referred_by_contact_id` and `StudService.referred_by_contact_id` are indexed FKs → Contact
 (§4/§5), guarded in `CONTACT_REFERENCES`. Each page's form has a "Referred by" picker (any
 contact; the stud page uses a general picker, not its breeder-only partner one). On save the repo
@@ -2598,6 +2658,8 @@ indexed FK.
 ---
 
 ## 23. Puppy Record (print-only PDF)
+
+**Editions:** Pro and Demo only (`editionFlags.puppyRecord`; `puppy-record.html` is in `proPages.js`).
 
 `pages/puppy-record.html`/`.js` (`?sale=<id>`) is a printable, one-page-style record for a puppy
 being sold: puppy info, sire/dam side by side on one line (with their genetic + breed-specific
@@ -2650,6 +2712,8 @@ kennel B's name/logo even while the app is scoped (or not scoped) to kennel A.
 ---
 
 ## 24. Invoice & Receipt (page + PDF)
+
+**Editions:** Pro and Demo only (`editionFlags.invoicing`; `invoice.html` and the PDF modules are in `proPages.js`).
 
 `pages/invoice.html`/`.js` (`?source=sale|stud|waitlist&id=<id>&doc=invoice|receipt&cfg=<json>`) is a
 printable one-page financial document for a single income record, covering **all five cash income
@@ -2738,6 +2802,8 @@ link** (her own payment link from an Account, Integrations plan §4; §32).
 
 ## 25. Foster whelps (foster-in & foster-out)
 
+**Editions:** Pro and Demo only (`editionFlags.fosterArrangement`). Lite hides the litter form's Foster section. The fields still ride every backup.
+
 Tracking a litter whelped/raised under a **caretaker↔owner arrangement** where the two parties
 differ, with a contract and an income split. `foster_partner_contact_id` is indexed in the
 collapsed `version(1)` block so the referential guard can protect the foster partner Contact
@@ -2809,6 +2875,8 @@ with two available pups whose `breeder_kennel_id` is the owner kennel, a `foster
 ---
 
 ## 26. Dropbox sync & KennelAssistant
+
+**Editions:** Pro only in practice (`editionFlags.assistant`; both `assistant.html` files are in `proPages.js`). Demo leaves out the owner console and Import/Export, where Dropbox sync lives. The helper app still ships to Demo.
 
 Two zero-cost, online-only features layered over the existing backup engine: **push/pull
 between the owner's phones through the owner's own free Dropbox**, and **KennelAssistant**,
@@ -2966,6 +3034,8 @@ a sealed read-only showcase. The helper app at the root still ships to Demo.
 
 ## 26.1 Documents & receipt attachments — local file storage
 
+**Editions:** Pro and Demo only (`editionFlags.documents`, `receiptAttach`; `documents.html` and `assets/documentModal.js` are in `proPages.js`).
+
 Real, **local** file storage, entirely offline — no external app, no Dropbox connection.
 Two surfaces share one storage stack:
 
@@ -3034,6 +3104,8 @@ round-trip the same way.
 ---
 
 ## 27. Furever seed-link generator (breeder side)
+
+**Editions:** Pro and Demo only (`editionFlags.furever`, `feedingSchedule`; their pages are in `proPages.js`).
 
 **KennelOS Furever** (`furever/`, this repo, a separate deployed app — see
 `furever/README.md` and `docs/KennelOS_Furever_Schema.md`) is a free family-facing
@@ -3298,6 +3370,8 @@ guidance instead of Furever's generic age-bracket placeholder
 
 ## 28. Kennel identity & Kennel Cards
 
+**Editions:** Kennel identity (`public_id`) is in every edition and rides the Lite→Pro bridge. Kennel Cards and the Kennels pages are Pro and Demo only (`proPages.js`). Several own kennels is Pro only (`editionFlags.multiKennel`; `docs/KennelOS_Multi_Kennel_Scope_Spec.md`).
+
 **The problem this solves.** Every cross-kennel reference in the app is otherwise a
 privately-typed string. When you record a stud service with an outside dog, set a dog's
 `breeder_kennel_id` to the kennel that produced it, or name a foster partner's kennel, you
@@ -3433,6 +3507,8 @@ memory. Both host pages are Pro-only, so no edition flag was needed.
 ---
 
 ## 29. Waitlist (per kennel) — `docs/KennelOS_Waitlist_Spec.md`
+
+**Editions:** Pro and Demo only (`editionFlags.waitlist`; its pages and UI modules are in `proPages.js`). The data layer ships to every edition.
 
 **Build status: W1 is complete** — W1a (data layer), W1b (intake + list pages), W1c
 (offers), W1d (sample/Demo seed §11, CSV import of applications §9, application fees in
@@ -4108,6 +4184,8 @@ into Lite keeps its waitlist rows dormant. Demo gets a seeded list in W1d.
 
 ## 30. Cloud backup — `docs/KennelOS_Cloud_Phase1_Plan.md`
 
+**Editions:** Lite and Pro. Never Demo (`cloudUrl: null`). Live sync is Pro only (§34).
+
 The plan is the detailed design; `cloud/README.md` is the server's map. This section is the
 shape of it as built, for orientation.
 
@@ -4187,6 +4265,8 @@ shape of it as built, for orientation.
 - Erasing a device, signing out the others and deleting the account need a fresh sign-in.
 
 ## 31. Reports — `docs/KennelOS_Reports_Plan.md`
+
+**Editions:** Pro and Demo only (`editionFlags.reports`; every report page is in `proPages.js`).
 
 The Reports hub (`pages/reports.html` + `reports.js`, Pro-only) lists every report from
 `data/reportCatalog.js`, bucketed into **Money / Breeding / Puppies / Sales & Waitlist /
@@ -4313,6 +4393,8 @@ charts and Print button too; every other report is Pro-only.
 ---
 
 ## 32. Accounts (business logins & referral codes)
+
+**Editions:** Pro and Demo only (`editionFlags.accounts`). The Integrations plan's vendor features (payment links, Stripe, Jotform) hang off Accounts and are Pro only too: `docs/KennelOS_Integrations_Plan.md`.
 
 `pages/accounts.html`/`.js` (Pro-only: `proPages.js`, `editionFlags.accounts`; the **Storage**
 hub's third tab, beside Documents and Shows) keeps the breeder's own accounts with registries,
@@ -4506,6 +4588,8 @@ They're never in a cloud snapshot, like all sample rows.
 
 ## 33. Ken — guided tasks ("Record a new litter")
 
+**Editions:** All editions. Steps for Pro features (outside dogs, stud service, sharing) are gated by their flags, as noted in the steps.
+
 ### What it is
 **Ken** (placeholder name; `kenChat.KEN_NAME`) is a scripted helper presented as a chat: a
 floating **Ask Ken** button (`kenChat.ASSIST_LABEL`; bottom right on every page, fixed while
@@ -4596,3 +4680,37 @@ family per screen with real Email / Text anchors built by `companionLink.js`. It
 picks** (decided 2026-10-14): offers stay hers to make from the litter page, which the Done
 screen says.
 
+
+---
+
+## 34. Live sync (Cloud Phase 2) — `docs/KennelOS_Cloud_Phase2_Sync_Plan.md`
+
+**Editions:** Pro only (`editionFlags.liveSync`, and `isCloudAvailable()`). Lite and Demo
+never sync.
+
+**Status:** steps 1–5 are built (record format, server, the sync loop, join/leave, the
+waitlist lease). Step 6, the UI and starting the scheduler, isn't built yet, so nothing
+syncs on its own. The plan is the detailed design. This is the shape.
+
+- **Needs Sensitive records (the vault).** Each record goes up in both tiers: its cloud
+  fields readable as in backups, and the whole row sealed with the vault key. Turning the
+  vault off ends sync.
+- **Changes are found by a scan, not an outbox.** `data/cloud/syncState.js` keeps a hash
+  per row in the device-only `sync_meta` table (`db.version(2)`, in `DEVICE_ONLY_TABLES`,
+  never in a backup). Any write that changes a syncing row gets found, so **no write path
+  needs a sync hook.** `data/cloud/syncRecords.js` is the wire format (pure).
+- **Server order wins per record.** Records live in D1 (`cloud/src/sync.js`, migration
+  `0014`). The server keeps only fields on its allow-list, `cloud/src/lib/cloudFields.js`,
+  which is generated from `data/syncRegistry.js` (`node cloud/scripts/cloud-fields.mjs`).
+- **`data/syncApply.js` is the second direct writer of every table**, beside
+  `importExport.js`. Pulled rows skip the repos so they keep their own timestamps, and they
+  don't call `markDataChanged()`, or they'd be pushed straight back. The one local change it
+  makes, turning a delete into an archive, does mark dirty. Pages listen for
+  `SYNC_APPLIED_EVENT` and never treat it as a local edit. (Decided for step 6: an open form
+  will show "updated elsewhere" with a Reload button.)
+- **The loop:** `data/cloud/cloudSync.js` does push then pull, the lock, the scheduler and
+  pauses. A lapsed license pauses sync. Joining a program: the newer `updated_at` wins and
+  nothing gets deleted.
+- **Server work on a syncing program** (waitlist intake, family and vendor events, emails)
+  runs on one device at a time under a two-minute lease (`data/cloud/serverWork.js`,
+  migration `0016`).

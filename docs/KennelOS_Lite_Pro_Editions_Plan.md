@@ -1,11 +1,10 @@
 # KennelOS — Lite / Pro Editions
 
-> **Status: this is now the live plan for THIS repo, and the build has started.** The
-> "new repo" this doc refers to is this one. Foundation is in place (app relocated to
-> `shared/`, editionConfig injection point wired as a no-op, `lite/pro/demo/` skeletons).
-> See the top-level `README.md` for current status and `docs/BUILD_LOG.md` for history. This document remains the
-> authoritative design for what Lite/Pro/Demo should become — read it as the target, and
-> the README as the progress.
+> **The design and the reasons for Lite / Pro / Demo. All three are built.** How the code
+> does it is in `docs/End_State_Design_and_Maintenance_Guide.md` §0. Where this plan says
+> Pro-only pages live in `pro/`, the build went another way: they stay in `shared/pages/`,
+> listed in `shared/data/proPages.js`, and the Lite build drops them. "The new repo" means
+> this one. History: `docs/BUILD_LOG.md`.
 
 *Design plan, plain-English throughout; the precise rules are called out where they matter.*
 
@@ -268,7 +267,7 @@ activate/validate endpoints are CORS-enabled for browser calls and need only the
 built** — `shared/data/license.js` (activate/validate + interval-scaled offline grace) and
 `shared/assets/licenseGate.js` (activation/renewal walls + grace banner), gated on
 `editionFlags.licenseGate` (Pro only). The only launch step left is swapping the checkout URL
-placeholder in `pro/editionConfig.js`. See `README.md` Step 7.
+placeholder in `pro/editionConfig.js`. See `docs/BUILD_LOG.md` Step 7.
 
 **The honest caveat:** the license check runs in the buyer's browser, so a technical person
 could bypass it. The audience is dog breeders, not crackers — the key stops ~99%, and the sub is
@@ -433,6 +432,10 @@ demo flag on and the save/export paths omitted. If we ever fall back off the cus
 single `*.github.io` origin, the editions must instead open **distinct Dexie database names** —
 see "Hosting, editions, and origin isolation."
 
+**As built:** every page stays in `shared/pages/`. `lite/`, `pro/` and `demo/` hold only each
+edition's `editionConfig.js` (plus Lite's `editionTour.js`). `build/assemble.mjs` drops
+`proPages.js`'s files from Lite and generates each edition's `sw.js`.
+
 ---
 
 ## Guardrails carried over from the current app
@@ -504,8 +507,8 @@ that, and for this audience nothing needs to.
 
 *Moved here from the top-level `README.md` (2026-10-15).*
 
-What Lite ships, versus Pro-only. Pro-only *pages* live in `pro/` (physically absent
-from Lite); a few Lite-kept *shared* pages render with pieces gated off via
+What Lite ships, versus Pro-only. Pro-only *pages* are listed in `shared/data/proPages.js`
+and left out of the Lite build (physically absent from Lite); a few Lite-kept *shared* pages render with pieces gated off via
 `editionFlags`.
 
 **Lite keeps (shared pages):** Dogs, Breeding (pairings/litters/puppies), Sales

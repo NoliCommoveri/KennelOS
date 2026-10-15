@@ -11,7 +11,8 @@ The opt-in cloud backup and sync server is separate, and the app runs without it
 ```
 shared/   The core: database, repos, vocab, pages, assets, vendor, sw.js. What Pro ships.
 lite/     Lite (free): fewer pages + a soft cap (6 dogs / 10 litters) + archive-on-departure.
-pro/      Pro (paid): the full app, Pro-only pages, license gate (Lemon Squeezy).
+pro/      Pro (paid): the full app + license gate (Lemon Squeezy). Pro-only files stay in
+          shared/, listed in shared/data/proPages.js so the Lite build drops them.
 demo/     Pro in seeded, read-only demo mode.
 build/    assemble.mjs: shared/ + edition overlay → dist/<edition>/.  See build/README.md.
 cloud/    Opt-in cloud backup + live sync API (Cloudflare Worker + D1 + R2), deployed

@@ -10,8 +10,8 @@ the opt-in cloud API in `cloud/` (Cloudflare Worker); the app must run identical
   History lives in `docs/BUILD_LOG.md`: append to it, don't read it by default.
 - Consult only when the task touches them: `docs/KennelOS_Lite_Pro_Editions_Plan.md` +
   `docs/KennelOS_Lite_Cap_Enforcement_Spec.md` (edition intent);
-  `docs/End_State_Design_and_Maintenance_Guide.md` (reference map of `shared/` code — read its
-  `KennelOS/…`, `data/…`, `pages/…`, `sw.js` paths as `shared/…`); cloud/sync plans in `docs/`;
+  `docs/End_State_Design_and_Maintenance_Guide.md` (the app guide: all code, every edition;
+  §0 = edition differences); cloud/sync plans in `docs/`;
   `cloud/README.md` for server work.
 - Undocumented or design-adjacent decision → ask / surface it before implementing.
 - After a structural change (table/index/field, FK, entity, repo, page, event type, vocab,
@@ -31,7 +31,8 @@ the opt-in cloud API in `cloud/` (Cloudflare Worker); the app must run identical
 - One thin repo per entity (`getById`, `getAll({includeArchived})`, `create`, `update`, `archive`, `hardDelete`).
 - Shared core is edition-agnostic: no hardcoded caps or Pro/Lite checks. Edition specifics go via
   `shared/data/editionConfig.js` and `shared/data/editionTour.js` (overlaid per edition by
-  `build/assemble.mjs`). Pro-only pages live in `pro/`, not `shared/`.
+  `build/assemble.mjs`). Pro-only files stay in `shared/`, listed in
+  `shared/data/proPages.js`; the Lite build drops them.
 
 ## Decided — do not re-litigate
 - One `Dog` table for all dogs; life-stage change = `status` update, never a new record.
