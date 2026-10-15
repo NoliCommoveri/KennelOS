@@ -20,7 +20,7 @@ import { runCheckinTask, checkinState } from '../assets/litterCheckinUI.js';
 import { runTidyTask } from '../assets/tidyUpUI.js';
 import { runPrepTask, prepState } from '../assets/prepPupsUI.js';
 import { runHealthTask } from '../assets/accountHealthUI.js';
-import { isCloudAvailable, isVaultOffered } from '../data/cloud/cloudConfig.js';
+import { isCloudAvailable, isVaultOffered, isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
 import { isLicenseGated } from '../data/license.js';
 import { param, esc } from '../assets/ui.js';
 import { editionFlags } from '../data/editionConfig.js';
@@ -96,6 +96,17 @@ const TASKS = [
     available: () => true,
     priority: () => 30,
     run: (opts) => runTidyTask(chat, opts)
+  },
+  {
+    id: 'waitlist-setup',
+    label: () => 'Set up my waitlist',
+    sub: isWaitlistOnlineOffered() ? 'The fee, offers, going online, programs' : 'The fee, offers, programs',
+    keywords: ['waitlist', 'wait list', 'applications', 'apply', 'deposit list', 'reservations', 'families', 'fee', 'application fee',
+      'offers', 'picks', 'programs', ...(isWaitlistOnlineOffered() ? ['online', 'website', 'facebook', 'publish'] : [])],
+    // Pro only (the waitlist); its script is Pro-only too, so it's imported on start.
+    available: () => editionFlags.waitlist,
+    priority: () => 25,
+    run: async (opts) => (await import('../assets/waitlistSetupUI.js')).runWaitlistSetupTask(chat, opts)
   },
   {
     id: 'account-health',

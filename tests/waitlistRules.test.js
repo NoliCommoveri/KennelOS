@@ -16,6 +16,7 @@ import {
   isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker, kennelBreeds, resolveBreed,
   prefChangeLines, narrowedPrefs, prefChangeEffect, PREF_CHANGE_FIELDS,
   turnIdOf, turnOffers, openTurns, turnLittersFor, nextTurn, joinsOpenTurn, overdueTurns,
+  waitlistConfigProblem, onlineConfig, waitlistSummaryLines, waitlistIsSetUp,
 } from '../shared/data/waitlistRules.js';
 import { registrationsForPurposes, cleanPurposes } from '../shared/data/vocab.js';
 
@@ -950,3 +951,42 @@ test('"Ready now?" unanswered: removed after her window, or flagged on Today', (
   assert.equal(readyCheckOverdue(e, '2026-09-16', remove), false, 'remove_after removes instead');
   assert.equal(canUndo({ ...e, status: 'removed', removed_reason: 'no_ready_answer', removed_date: '2026-09-16' }, '2026-09-20'), true, 'the same 7-day undo');
 });
+
+test('waitlistConfigProblem: the settings card and Kels share these checks', () => {
+  const ok = { ...WAITLIST_CONFIG_DEFAULTS };
+  assert.equal(waitlistConfigProblem(ok), '');
+  assert.match(waitlistConfigProblem({ ...ok, fee_amount: -1 }), /negative/);
+  assert.match(waitlistConfigProblem({ ...ok, fee_due_days: 0 }), /Days to pay/);
+  assert.match(waitlistConfigProblem({ ...ok, respond_days: 0 }), /deposit/);
+  assert.match(waitlistConfigProblem({ ...ok, max_passes: 0 }), /Passes/);
+  assert.match(waitlistConfigProblem({ ...ok, ready_answer_days: 0 }), /answer/);
+  assert.match(waitlistConfigProblem({ ...ok, pass_reasons: [], pass_other: false }), /reason/);
+  assert.equal(waitlistConfigProblem({ ...ok, pass_reasons: [], pass_other: true }), '');
+  assert.match(waitlistConfigProblem({ ...ok, facebook_button: true, facebook_page: '' }), /Page link/);
+  assert.match(waitlistConfigProblem({ ...ok, facebook_page: 'example.com' }), /Facebook Page/);
+  assert.equal(waitlistConfigProblem({ ...ok, facebook_button: true, facebook_page: 'facebook.com/thornfield' }), '');
+});
+
+test('onlineConfig: applications only while online; online_since the day it (last) went online', () => {
+  assert.deepEqual(onlineConfig({ fee_amount: 50 }, { online: true, online_form: true }, '2026-10-15'),
+    { fee_amount: 50, online: true, online_form: true, online_since: '2026-10-15' });
+  assert.equal(onlineConfig({ online: true, online_since: '2026-01-01' }, { online: true }, '2026-10-15').online_since, '2026-01-01', 'already online');
+  assert.deepEqual(onlineConfig({ online: true }, { online: false, online_form: true }, '2026-10-15'), { online: false, online_form: false });
+});
+
+test('waitlistSummaryLines: what Kels says is set', () => {
+  const lines = waitlistSummaryLines({ ...WAITLIST_CONFIG_DEFAULTS, fee_amount: 50, fee_due_days: 7, color_matching: true, online: true, online_form: true },
+    { programs: [{ name: 'Repeat buyers' }], online: true, fmtMoney: (n) => `$${n}` });
+  assert.deepEqual(lines, [
+    'Application fee: $50, credited to the purchase price, due within 7 days of approval.',
+    'Families get 3 days to accept an offer and pay the deposit, and can pass 2 times before they\'re removed (no response counts as a pass).',
+    autoOfferSummary(WAITLIST_CONFIG_DEFAULTS),
+    'Offers only go to families who listed the pup\'s color.',
+    'Online: your list is published, and families apply online.',
+    'Programs: Repeat buyers.'
+  ]);
+  assert.equal(waitlistSummaryLines({ ...WAITLIST_CONFIG_DEFAULTS })[0], 'No application fee.');
+  assert.equal(waitlistIsSetUp({ waitlist_config: {} }), false);
+  assert.equal(waitlistIsSetUp({ waitlist_config: { fee_amount: 10 } }), true);
+});
+
