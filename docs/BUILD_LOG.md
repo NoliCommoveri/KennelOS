@@ -1394,6 +1394,43 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   visit; How KennelOS works's is now "I'm on it! I can explain the rules KennelOS follows
   behind the scenes…" with examples Lite has too. Something else after an answer returns
   to the question. Roadmap §3.14 records B's approved intro and the Lite decision (no B).
+- **Kels FAQ checked against the code; Merge keeps newer edits (2026-10-15).** Answers
+  corrected where they disagreed with the rules as built: a record's kennel comes from its
+  dogs, not the kennel being viewed; who needs an owner is External / Leased in; an
+  unfinished sale keeps a litter open; "Not this litter" on a whole turn counts as a pass,
+  as does no response by default, and a program can exempt passes; a pick can switch after
+  the deposit until the next family is offered; a released sale frees a pup; earned covers
+  stud and waitlist fees; income lines name the waitlist family; boarding only when paid;
+  Companion link types; the public list shows the date a place counts from; the online
+  waitlist entry gated by `isWaitlistOnlineOffered` (new `online` in ctx). File / Dropbox
+  Merge: `planFileMerge` and `restoreBackup(obj, 'merge', { keepNewer })`; Import/Export
+  asks keep-mine / take-the-file when this device has newer edits (it used to overwrite
+  them silently). `tests/fileMerge.test.js`. Open: matching records across devices whose
+  ids differ (same dog typed on two devices), proposed as a restore-time match + id remap.
+- **File Merge pairs what each device entered on its own (2026-10-15).** New
+  `data/restoreMatch.js` (pure): per-table rules (Same / Ask / Never) for kennels, accounts,
+  contacts, waitlist programs, feeding schedules, dogs (registered name with titles
+  ignored, registration number, microchip; pups through their litter; call name asked),
+  pairings, litters, sales, stud services, contracts, events, expenses, documents and
+  their files, waitlist entries and offers; only records whose id isn't on the other
+  side; one to one, ambiguity asked. `planFileMerge` now plans the pairs, the open
+  questions and a paired dog's clashes (name, sex, sire, dam); `restoreBackup('merge',
+  { keepNewer, answers, clashChoices })` gives each pair the backup's id (this device's
+  when cloud backup or live sync is on), re-keys every record, `device_secrets` and the
+  app's settings (`settings.remapStoredIds`), and merges fields (blanks fill, newer wins,
+  lists join, notes keep both). Lite's cap is checked on the merged dogs. Import/Export
+  asks "Are these the same?" and "Which should I keep?" before writing. Guide §10 holds
+  the rules. `tests/restoreMatch.test.js`, more in `tests/fileMerge.test.js`; memoryDb's
+  localStorage gained `key()`/`length`. Next: the same rules for on-device duplicates
+  (Tidy up for every record type, kennels included, and a Scan for duplicates card on
+  Import/Export).
+- **Kels FAQ: Lite never says archive (2026-10-15).** "Why did a sale's money disappear"
+  is Pro only (`manualDogArchive`); Lite gets "I entered a sale or an expense by mistake. How
+  do I take it out?" (Delete; end a sale that fell through with a status). The deceased
+  answer drops "rather than archiving it" in Lite. Test: no Lite question or answer says
+  archive.
+  The topic is "Removing and deleting" in Lite (`labelNoArchive`; `understandSections` /
+  `understandCandidates` take the edition's flags).
 - **Kels FAQ: the pregnant-dog walkthrough (2026-10-15).** "Do I record the breeding or the
   litter?" (`pairing-litter`) is now "My dog is pregnant or had puppies. How do I enter this
   so I can sell them?", answered as four steps: the pairing, its litter (Expected until

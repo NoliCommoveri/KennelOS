@@ -132,6 +132,7 @@ const PRECACHE_URLS = [
   'data/fureverSeedExport.js',
   'data/googleDrive.js',
   'data/importExport.js',
+  'data/restoreMatch.js',
   'data/license.js',
   'data/incomeView.js',
   'data/integrationApply.js',

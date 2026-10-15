@@ -14,7 +14,8 @@
 //   href? + show? (the Show me button: a page relative to pages/, its label),
 //   flag? (an editionFlags key it needs), when? ((ctx) => false hides it) }.
 // ctx: { flags, edition, cloud (cloud backup offered), vault (Sensitive records
-//   offered), page(href) (this edition has that page) }.
+//   offered), online (the online waitlist offered), page(href) (this edition has
+//   that page) }.
 //
 // Edition-honest (roadmap §2.3): an entry or a sentence about a feature the
 // edition lacks isn't there. Lite's limit isn't a topic at all.
@@ -23,7 +24,8 @@ import { isProOnlyPage } from './proPages.js';
 export const SECTIONS = [
   { id: 'today', label: 'The Today hub' },
   { id: 'dogs', label: 'Dogs and puppies' },
-  { id: 'removing', label: 'Archiving and deleting' },
+  // Lite has no archiving to speak of: its word is removing (a dog leaves the program).
+  { id: 'removing', label: 'Archiving and deleting', labelNoArchive: 'Removing and deleting' },
   { id: 'breeding', label: 'Breedings and litters' },
   { id: 'money', label: 'Money' },
   { id: 'waitlist', label: 'The waitlist' },
@@ -31,6 +33,7 @@ export const SECTIONS = [
 ];
 
 const tail = (cond, text) => (cond ? ` ${text}` : '');
+const joinList = (xs, word) => (xs.length > 2 ? `${xs.slice(0, -1).join(', ')} ${word} ${xs.at(-1)}` : xs.join(` ${word} `));
 
 export const ENTRIES = [
   // The Today hub
@@ -65,14 +68,14 @@ export const ENTRIES = [
   { id: 'unfinished-litter', section: 'dogs', q: 'Why does a litter still look unfinished?',
     keywords: ['litter', 'open', 'active', 'close', 'closed', 'finished', 'done', 'today', 'undecided', 'available', 'plan'],
     href: 'litters.html', show: 'Show me my litters',
-    a: 'It\'s the pups\' plans. A pup marked Available keeps its litter showing as active. A pup marked Undecided, or never given a plan, stops me from suggesting you close the litter. Keeping, Health hold and Placed all settle a pup, so a pup you\'re holding back won\'t keep its litter open.' },
+    a: 'It\'s the pups\' plans and their sales. A pup marked Available keeps its litter showing as active. A pup marked Undecided, or never given a plan, stops me from suggesting you close the litter, and so does any sale on the litter that isn\'t finished yet, even for a pup marked Placed. Every sale has to be Delivered, Cancelled, Voided or Returned, with at least one pup gone home Delivered. Keeping and Health hold settle a pup, so a pup you\'re holding back won\'t keep its litter open.' },
   { id: 'health-hold', section: 'dogs', q: 'What does Health hold do?',
     keywords: ['health', 'hold', 'sick', 'not for sale', 'returned', 'plan', 'disposition'],
     a: (ctx) => `Health hold marks a pup you can't sell right now for a health reason. It doesn't count as available${ctx.flags.waitlist ? ', and the waitlist never offers it,' : ''} until you change it. When a sale is returned or falls through for a health reason, the app suggests it.` },
   { id: 'owner-needed', section: 'dogs', q: 'Which dogs need an owner?',
     keywords: ['owner', 'external', 'outside', 'someone else', 'leased', 'lease', 'pedigree', 'ancestor', 'stud'],
     flag: 'externalOwnership', href: 'dogs.html?bucket=external', show: 'Show me other people\'s dogs',
-    a: 'Any dog that lives outside your care but that you still deal with needs its owner linked as a contact: a stud you used, a dog leased to you, a pup you sold. A dog that\'s only there to fill in a pedigree (an ancestor) doesn\'t need one, and isn\'t counted as one of your dogs.' },
+    a: 'A dog marked External or Leased in needs its owner linked as a contact: a stud you used, a dog leased to you, a pup you sold and changed to External. Co-owned and Leased out dogs don\'t, because you\'re an owner. A dog that\'s only there to fill in a pedigree (an ancestor) doesn\'t need one either, and isn\'t counted as one of your dogs.' },
   { id: 'pedigree-only', section: 'dogs', q: 'What happens to a parent I type in that isn\'t mine?',
     keywords: ['pedigree', 'ancestor', 'parent', 'sire', 'dam', 'grandparent', 'outside'],
     when: (ctx) => !ctx.flags.externalOwnership,
@@ -85,7 +88,7 @@ export const ENTRIES = [
   { id: 'kennel-scope', section: 'dogs', q: 'I can\'t find a litter or sale I entered. Where did it go?',
     keywords: ['missing', 'disappeared', 'gone', 'cant find', 'kennel', 'switch', 'scope', 'lost'],
     flag: 'multiKennel', href: 'kennels.html', show: 'Show me my kennels',
-    a: 'Each litter, sale, breeding and contract belongs to the kennel you were in when you made it, and lists and reports show only the kennel you\'re viewing. Switch kennels to see it. Dogs that belong to someone else show under every kennel.' },
+    a: 'Each litter, sale, breeding and contract belongs to the kennel of your dog in it, not the kennel you were viewing: a sale goes with the pup\'s kennel, a litter or breeding with the dam\'s (else the sire\'s), and a contract with whatever it covers. Only when none of its dogs is yours does it go on the kennel you were viewing. Lists and reports show only the kennel you\'re viewing, so switch to that dog\'s kennel, or All kennels, to see it. Dogs that belong to someone else show under every kennel.' },
 
   // Archiving and deleting
   { id: 'archive-dog', section: 'removing', q: 'What happens when I archive a dog?',
@@ -98,14 +101,18 @@ export const ENTRIES = [
     a: 'It\'s hidden from your lists, but its litters, sales and history stay on file and it still shows in pedigrees. Nothing linked to it is removed with it. It can\'t be undone, so it\'s only for a dog that has really left.' },
   { id: 'archive-money', section: 'removing', q: 'Why did a sale\'s money disappear from Financials?',
     keywords: ['archive', 'archived', 'sale', 'expense', 'money', 'income', 'missing', 'financials', 'disappeared'],
-    href: 'financials.html', show: 'Show me Financials',
+    flag: 'manualDogArchive', href: 'financials.html', show: 'Show me Financials',
     a: (ctx) => `Archiving a sale or an expense takes its money out of Financials${ctx.flags.reports ? ' and reports' : ''}. Only archive one that was entered by mistake. A sale that fell through should be ended with a status instead (Cancelled, Voided or Returned), so its money counts the right way.` },
+  { id: 'mistake-money', section: 'removing', q: 'I entered a sale or an expense by mistake. How do I take it out?',
+    keywords: ['mistake', 'wrong', 'delete', 'remove', 'sale', 'expense', 'money', 'financials', 'take out', 'undo'],
+    when: (ctx) => !ctx.flags.manualDogArchive, href: 'financials.html', show: 'Show me Financials',
+    a: 'Delete it on its page, and its money leaves Financials. Delete is only for a mistake. A sale that fell through should be ended with a status instead (Cancelled, Voided or Returned), so its money counts the right way.' },
   { id: 'cant-delete', section: 'removing', q: 'Why can\'t I delete something?',
     keywords: ['delete', 'remove', 'blocked', 'cant', 'mistake', 'erase'],
     a: 'Delete is only for undoing a mistake, so it\'s refused while anything else points at the record. The message says what\'s in the way, like 3 events or a sale.' },
   { id: 'deceased', section: 'removing', q: 'How do I record a dog that died?',
     keywords: ['died', 'death', 'dead', 'deceased', 'passed', 'lost', 'rainbow bridge'],
-    a: (ctx) => `Change its status to Deceased and enter the date, rather than archiving it. You\'ll then be prompted about anything still open for it, like a sale or a planned breeding. For a puppy, the app also offers to ${ctx.flags.manualDogArchive ? 'archive it' : 'remove it from your program'}.` },
+    a: (ctx) => `Change its status to Deceased and enter the date${ctx.flags.manualDogArchive ? ', rather than archiving it' : ''}. You\'ll then be prompted about anything still open for it, like a sale or a planned breeding. For a puppy, the app also offers to ${ctx.flags.manualDogArchive ? 'archive it' : 'remove it from your program'}.` },
 
   // Breedings and litters
   { id: 'pairing-litter', section: 'breeding', q: 'My dog is pregnant or had puppies. How do I enter this so I can sell them?',
@@ -135,12 +142,16 @@ export const ENTRIES = [
     href: 'financials.html?view=income', show: 'Show me my income',
     a: (ctx) => {
       const from = ['your sales', ctx.flags.studServices && 'stud fees you earned', ctx.flags.waitlist && 'waitlist fees'].filter(Boolean);
-      return `You don't type it in. Income comes from ${from.length > 2 ? `${from.slice(0, -1).join(', ')} and ${from.at(-1)}` : from.join(' and ')}. To change an income line, edit the ${ctx.flags.studServices ? 'sale or stud service' : 'sale'} it comes from.`;
+      const edit = ['sale', ctx.flags.studServices && 'stud service', ctx.flags.waitlist && 'waitlist family'].filter(Boolean);
+      return `You don't type it in. Income comes from ${joinList(from, 'and')}. To change an income line, edit the ${joinList(edit, 'or')} it comes from.`;
     } },
   { id: 'earned', section: 'money', q: 'When does a payment count as earned?',
     keywords: ['earned', 'anticipated', 'expected', 'paid', 'counted', 'net', 'deposit', 'balance'],
     href: 'financials.html?view=income', show: 'Show me my income',
-    a: 'When its paid date is entered, or when the sale\'s status has moved past it: Deposit paid counts the deposit, and Paid in full or Delivered count the rest, transport and boarding included. Until then it\'s expected, and expected money is never in your Net.' },
+    a: (ctx) => 'On a sale, when its paid date is entered, or when the sale\'s status has moved past it: Deposit paid counts the deposit, and Paid in full or Delivered count the rest, transport and boarding included.'
+      + tail(ctx.flags.studServices, 'A stud fee you earn counts once the service is Completed.')
+      + tail(ctx.flags.waitlist, 'A waitlist fee counts once you record it received.')
+      + ' Until then it\'s expected, and expected money is never in your Net.' },
   { id: 'sale-ended', section: 'money', q: 'What happens to the money when a sale falls through?',
     keywords: ['cancelled', 'canceled', 'voided', 'void', 'returned', 'refund', 'fell through', 'backed out', 'deposit', 'keep'],
     a: 'It depends how it ended. Cancelled (the family backed out) and Returned keep only payments that have a paid date, so enter the deposit date before you cancel. Voided (it fell through on your side), or a pup returned for a health problem, counts nothing: that money is taken as refunded or moved to another pup.' },
@@ -177,11 +188,11 @@ export const ENTRIES = [
   { id: 'wl-available', section: 'waitlist', q: 'Which pups does the waitlist count as available?',
     keywords: ['available', 'pups', 'sale', 'deposit', 'off the market', 'offer'],
     flag: 'waitlist',
-    a: 'Pups that aren\'t kept, placed or on Health hold, and that have no sale. Any open sale takes a pup off the market, even one still waiting on its deposit.' },
+    a: 'Pups that aren\'t kept, placed or on Health hold, and that have no sale going or delivered. Any open sale takes a pup off the market, even one still waiting on its deposit. When a sale is cancelled, voided or returned, the pup counts again once you change it back from Placed (the app asks).' },
   { id: 'wl-turns', section: 'waitlist', q: 'How do turns and passes work?',
     keywords: ['turn', 'pass', 'passes', 'not this litter', 'skip', 'removed', 'limit'],
     flag: 'waitlist',
-    a: 'One family holds a turn at a time, and their turn covers every open litter they match. Passing ends the whole turn and counts as one pass. "Not this litter" skips one litter without using a pass. At the pass limit (2 unless you change it) the family is removed, and you have 7 days to undo it.' },
+    a: 'One family holds a turn at a time, and their turn covers every open litter they match. Passing ends the whole turn and counts as one pass, and so does letting the turn run out without an answer, unless you turn that off in your waitlist settings. "Not this litter" skips one litter without using a pass, but if they said it to every litter in their turn, that turn counts as one pass. Families in a program you set so passes don\'t count never use one. At the pass limit (2 unless you change it) the family is removed, and you have 7 days to undo it.' },
   { id: 'wl-pause', section: 'waitlist', q: 'Does pausing cost a family their place?',
     keywords: ['pause', 'paused', 'listen', 'only', 'parents', 'place', 'hold', 'ready'],
     flag: 'waitlist',
@@ -193,7 +204,7 @@ export const ENTRIES = [
   { id: 'wl-pick', section: 'waitlist', q: 'When is a family\'s pick final?',
     keywords: ['pick', 'picked', 'deposit', 'accept', 'final', 'placed', 'reserved'],
     flag: 'waitlist',
-    a: 'When the deposit is in. A pick makes a sale waiting on its deposit, and the pup is off the market while it waits. Confirming the deposit places the pup and the family.' },
+    a: 'When you offer the next family a turn. A pick makes a sale waiting on its deposit, and the pup is off the market while it waits. Confirming the deposit places the pup and the family, but until the next family is offered a turn, they can still switch to another pup that matches.' },
   { id: 'wl-lost-pup', section: 'waitlist', q: 'A family\'s pup can\'t go home. Do they lose their place?',
     keywords: ['lost', 'died', 'returned', 'voided', 'place', 'back', 'carry', 'refund'],
     flag: 'waitlist',
@@ -204,8 +215,8 @@ export const ENTRIES = [
     a: 'Only if your fee setting says it\'s credited to the purchase. Then it comes off the balance when they buy, so it\'s never counted twice, and their invoice shows the credit.' },
   { id: 'wl-online', section: 'waitlist', q: 'What can families do on my online list?',
     keywords: ['online', 'public', 'families', 'see', 'request', 'approve', 'status page'],
-    flag: 'waitlist', when: (ctx) => ctx.cloud,
-    a: 'They see the list as first name and last initial, with their place and the sex they want. Paused families are left out, and no total is shown. A family can pick, pass or leave on their own. Pausing, narrowing what they want or changing their answers waits for your OK. Your device keeps the list up to date.' },
+    flag: 'waitlist', when: (ctx) => ctx.online,
+    a: 'They see the list as first name and last initial, with their place, the sex they want and the date their place counts from. Paused families are left out, and no total is shown. A family can pick, pass or leave on their own. Pausing, narrowing what they want or changing their answers waits for your OK. Your device keeps the list up to date.' },
 
   // Your data and devices
   { id: 'where-data', section: 'data', q: 'Where is my data kept?',
@@ -213,9 +224,9 @@ export const ENTRIES = [
     href: 'import-export.html', show: 'Show me backups',
     a: (ctx) => `In this browser, on this device.${ctx.cloud ? ' There\'s no account behind it unless you turn on cloud backup.' : ''} Clearing this browser's site data erases your program, so keep a backup.` },
   { id: 'merge-replace', section: 'data', q: 'What\'s the difference between Merge and Replace?',
-    keywords: ['restore', 'merge', 'replace', 'backup', 'import', 'overwrite'],
+    keywords: ['restore', 'merge', 'replace', 'backup', 'import', 'overwrite', 'duplicate', 'twice', 'newer'],
     href: 'import-export.html', show: 'Show me backups',
-    a: 'Merge adds the file\'s records to what\'s here, updating ones you already have. Replace wipes this device first, so it ends up exactly like the file.' },
+    a: 'Merge adds the file\'s records to what\'s here and updates ones you already have with the file\'s newer copy. If you changed something here after the file was made, it asks whether to keep your edits or take the file\'s. Something you entered on both devices, like the same dog, becomes one record with the details from both: it\'s matched by things like a registered name, registration number or microchip, and when it\'s not sure, it asks you first. Replace wipes this device first, so it ends up exactly like the file.' },
   { id: 'cloud-device', section: 'data', q: 'Can two devices both back up to the cloud?',
     keywords: ['cloud', 'backup', 'two', 'devices', 'phone', 'computer', 'private', 'sensitive'],
     when: (ctx) => ctx.cloud, href: 'settings.html', show: 'Show me Settings',
@@ -223,7 +234,7 @@ export const ENTRIES = [
   { id: 'companion-link', section: 'data', q: 'Does a family\'s Companion link update?',
     keywords: ['companion', 'link', 'share', 'family', 'update', 'snapshot', 'revoke'],
     flag: 'companion', href: 'companion.html', show: 'Show me Companion',
-    a: 'No, it\'s a snapshot from the day you sent it, and it can\'t be taken back. It shows only that family\'s own pups and money. Documents go as links, so your sharing settings on each file decide who can open it.' },
+    a: 'No, it\'s a snapshot from the day you sent it, and it can\'t be taken back. A family\'s link shows only their own pups and money; a link for someone still choosing shows the pups you have available. Documents go as links, so your sharing settings on each file decide who can open it.' },
   { id: 'device-only', section: 'data', q: 'Why is something I dismissed back on my other device?',
     keywords: ['dismissed', 'dismiss', 'other device', 'starred', 'star', 'came back', 'today'],
     a: 'Dismissing a prompt from the app only hides it on this device, and your starred Kels tasks are remembered per device too. Neither is in a backup.' }
@@ -234,9 +245,9 @@ const has = (edition) => (href) => !(edition === 'lite' && isProOnlyPage(String(
 // The entries this edition has, each with its answer worked out:
 // [{ id, section, q, a, keywords, href?, show? }], in ENTRIES order. A Show me
 // whose page this edition lacks is dropped (the answer stays).
-export function understandEntries({ edition, flags = {}, cloud = false, vault = false }) {
+export function understandEntries({ edition, flags = {}, cloud = false, vault = false, online = false }) {
   const page = has(edition);
-  const ctx = { edition, flags, cloud, vault, page };
+  const ctx = { edition, flags, cloud, vault, online, page };
   return ENTRIES
     .filter((e) => (!e.flag || flags[e.flag]) && (!e.when || e.when(ctx)))
     .map((e) => ({
@@ -247,14 +258,17 @@ export function understandEntries({ edition, flags = {}, cloud = false, vault = 
 }
 
 // The sections with at least one entry, in order: [{ id, label, entries }].
-export function understandSections(entries) {
-  return SECTIONS.map((s) => ({ ...s, entries: entries.filter((e) => e.section === s.id) })).filter((s) => s.entries.length);
+// `flags`: the edition's, for a topic named differently where it lacks a feature.
+const sectionLabel = (s, flags = {}) => (s.labelNoArchive && !flags.manualDogArchive ? s.labelNoArchive : s.label);
+
+export function understandSections(entries, flags = {}) {
+  return SECTIONS.map((s) => ({ id: s.id, label: sectionLabel(s, flags), entries: entries.filter((e) => e.section === s.id) })).filter((s) => s.entries.length);
 }
 
 // The entries as kelsFind candidates: the search looks at these only (decided).
 // Level 1 is the question and its keywords, level 2 the answer.
-export function understandCandidates(entries) {
-  const label = new Map(SECTIONS.map((s) => [s.id, s.label]));
+export function understandCandidates(entries, flags = {}) {
+  const label = new Map(SECTIONS.map((s) => [s.id, sectionLabel(s, flags)]));
   return entries.map((e) => ({
     id: `understand:${e.id}`, group: label.get(e.section), title: e.q, entry: e,
     levels: [[e.q, ...e.keywords], [e.a], []]
