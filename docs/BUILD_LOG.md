@@ -1363,3 +1363,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   else" for the ordinary search; a choice lists only that dog's records (sales as each
   sale, plus Breeding-Dog Return). `offer`/`list` in kelsFindUI take `extras` (places
   under the list). Precached `data/kelsAbout.js`.
+- **Kels: shots and vet for a dog (2026-10-15).** `kelsAbout` gains `shots` (vaccination,
+  preventative) and `vet` (vet visit, illness, medication, surgery, injury): each of the
+  dog's events opens on its page (`?openEvent=`); Kels says the last one and the next shot
+  due (overdue when past). Both offer adding one ("Add a shot for JJ", "Add a health event
+  for JJ" → `?logEvent=`), first in the list; an add word (log, add, gave, got…) makes
+  Kels lead with it, since she may be adding, not finding. Filler words (her, last, next,
+  history…) are ignored in "<dog> <topic>".

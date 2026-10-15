@@ -35,7 +35,7 @@ test('one topic word is one topic; a dam "has had"; archived pups only where the
 });
 
 test('not "<dog> <topic>": a name alone, a word alone, a word no topic has', () => {
-  for (const q of ['zeus', 'puppies', 'zeus shots', 'zeus puppies receipts']) assert.equal(about(q), null, q);
+  for (const q of ['zeus', 'puppies', 'zeus receipts', 'zeus puppies receipts']) assert.equal(about(q), null, q);
 });
 
 test('a dog with nothing: named, but nothing offered', () => {
@@ -57,4 +57,39 @@ test('scoped results: the puppies (with a litter question and "all of"), the lit
   assert.equal(sales.extras[0].href, 'dog-return-report.html');
   assert.deepEqual(A.topicResults('sales', dog, facts, rows, { flags, edition: 'lite' }).extras, []);
   assert.equal(A.topicByKey('sales').sub(facts), '1 sold · $3,000');
+});
+
+const ev = (id, event_type, event_date, details = {}) => ({ id, subject_type: 'dog', subject_id: 'JJ', event_type, event_date, details });
+const health = { ...rows, events: [
+  ev('e1', 'vaccination', '2025-03-01', { vaccine: 'Rabies', next_due: '2028-03-01' }),
+  ev('e2', 'vaccination', '2026-03-01', { vaccine: 'DHPP', next_due: '2026-09-01' }),
+  ev('e3', 'vet_visit', '2026-08-03', { reason: 'Ear infection' }),
+  ev('e4', 'illness', '2026-01-10', { diagnosis: 'Kennel cough' }),
+  { ...ev('e5', 'vaccination', '2026-04-01', { vaccine: 'Lepto' }), subject_id: 'Zeus' }] };
+const aboutH = (q) => A.aboutDog(q, health, { flags, today: '2026-10-15' });
+
+test('"JJ shots": her shots, the last and the next due (overdue here), and adding one first', () => {
+  const a = aboutH('JJ shots');
+  assert.deepEqual(a.topics, ['shots']);
+  assert.equal(a.add, false);
+  const { dog, facts } = a.dogs[0];
+  assert.deepEqual(facts.shots.map((e) => e.id), ['e2', 'e1']);
+  assert.match(A.factsSentence(dog, facts, { topics: a.topics }), /^JJ's last shot was DHPP on .+, and DHPP was due .+ \(overdue\)\.$/);
+  const res = A.topicResults('shots', dog, facts, health, { flags });
+  assert.deepEqual(res.hits.map((h) => [h.c.title, h.c.href]), [['DHPP (vaccination)', 'dog.html?id=JJ&openEvent=e2'], ['Rabies (vaccination)', 'dog.html?id=JJ&openEvent=e1']]);
+  assert.deepEqual([res.extras[0].title, res.extras[0].href, res.extras[0].first], ['Add a shot for JJ', 'dog.html?id=JJ&logEvent=vaccination', true]);
+});
+
+test('"JJ vet" lists her vet visits and health events; "JJ health" touches shots and vet', () => {
+  const a = aboutH('jj vet');
+  assert.deepEqual(a.dogs[0].facts.vet.map((e) => e.id), ['e3', 'e4']);
+  assert.match(A.factsSentence(a.dogs[0].dog, a.dogs[0].facts, { topics: ['vet'] }), /^JJ's latest was a vet visit on .+ \(Ear infection\)\.$/);
+  assert.equal(A.addCandidate('vet', a.dogs[0].dog).title, 'Add a health event for JJ');
+  assert.deepEqual(aboutH('jj health').dogs[0].offered, ['shots', 'vet']);
+});
+
+test('an add word: "log a shot for JJ", "JJ got sick"; not for a topic that can\'t add', () => {
+  for (const q of ['log a shot for JJ', 'add JJ vet visit', 'JJ got sick', 'gave JJ her rabies']) assert.equal(aboutH(q)?.add, true, q);
+  assert.equal(aboutH('add zeus puppies')?.add, false);
+  assert.equal(A.addCandidate('pups', { id: 'Zeus', call_name: 'Zeus' }), null);
 });

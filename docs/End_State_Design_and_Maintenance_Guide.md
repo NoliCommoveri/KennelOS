@@ -1858,6 +1858,16 @@ builds nothing), then a search box.
   says so and offers the dog's page. Two dogs by that name with something on record: she
   asks which first. "Something else" is always the ordinary search. Sales and contacts
   (for buyer names) are loaded in every edition.
+  **Shots and vet** ("JJ shots", "JJ vet", "JJ health" = both): `shots` lists the dog's
+  vaccination and preventative events, `vet` its vet visits, illnesses, medications,
+  surgeries and injuries, each opening the event on the dog's page (`?openEvent=`). Kels
+  says the last one ("JJ's last shot was DHPP on Mar 1, 2026, and DHPP is due Mar 1, 2027";
+  the due date is each vaccine's latest shot's `next_due`, the soonest, "overdue" when
+  past). Both topics can `add`: "Add a shot for JJ" / "Add a health event for JJ"
+  (`dog.html?id=…&logEvent=vaccination|vet_visit`), always first in the list, the first
+  choice when nothing is on record, and what she leads with when an add word was typed
+  (`ADD_WORDS`: add, log, new, enter, gave, give, got, track — "log a shot for JJ", "JJ got
+  sick"), with what's on record one tap away.
 - **Levels:** 1 = names, numbers (`normReg`, typed any way), a place's title and keywords;
   2 = secondary details (a dog's breed, color, status, ownership, sex, kennel, bred-by
   kennel; a contact's types, email, phone, kennel; a litter's parents, status, year); 3 =
