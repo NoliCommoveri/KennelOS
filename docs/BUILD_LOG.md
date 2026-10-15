@@ -1344,3 +1344,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   puppies / pups and unsold / available puppies / pups, so "unsold puppies" or "available
   pups" goes straight to Litters, and plain "puppies" lists it (5th, behind the
   puppy-titled places).
+- **Kels: Available puppies (2026-10-15).** A new place, Available puppies, links to
+  `dogs.html?bucket=puppies&disposition=available`: the Dogs page now reads `?disposition=`
+  as its starting Disposition filter (listView filters take an `initial` value, used only
+  when it's one of the options). "unsold" / "available" (with or without puppies / pups)
+  now offers both it and Litters.

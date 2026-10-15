@@ -42,6 +42,8 @@ export const PLACES = [
     where: (nav) => `${nav('pages/dogs.html')} in the menu lists every dog, with tabs for Puppies, Breeding, Not breeding and External.` },
   { id: 'puppies', title: 'Puppies', href: 'dogs.html?bucket=puppies', keywords: ['puppies', 'pups', 'babies'],
     where: (nav) => `Your puppies are under ${nav('pages/dogs.html')}, on the Puppies tab. Each litter's own puppies are on its litter page too.` },
+  { id: 'available-puppies', title: 'Available puppies', href: 'dogs.html?bucket=puppies&disposition=available', keywords: ['available', 'unsold', 'for sale', 'not sold', 'still available', 'unsold puppies', 'unsold pups', 'available pups'],
+    where: (nav) => `Your available puppies are under ${nav('pages/dogs.html')}, on the Puppies tab with Disposition set to Available. Each litter's page shows its unsold pups too.` },
   { id: 'breeding-dogs', title: 'Breeding dogs', href: 'dogs.html?bucket=breeding', keywords: ['breeding dogs', 'breeders', 'stock', 'active', 'dams', 'sires', 'brood'],
     where: (nav) => `Your breeding dogs are under ${nav('pages/dogs.html')}, on the Breeding tab.` },
   { id: 'retired-dogs', title: 'Retired and pet dogs', href: 'dogs.html?bucket=not_breeding', keywords: ['retired', 'pet home', 'not breeding', 'spayed', 'neutered'],

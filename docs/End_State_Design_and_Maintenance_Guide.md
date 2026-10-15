@@ -1838,7 +1838,7 @@ builds nothing), then a search box.
 - **Candidates:** `{ id, group, title, sub, where, href | taskId, boost, levels, numbers?,
   facets? }`. **Places:** `kelsKnowledge.PLACES`, written by us, each with the sentence she
   says (`where`, naming hubs by this edition's menu labels) and a link (a tab in its query
-  where the page reads one: `dogs.html?bucket=`, `contacts.html?group=`,
+  where the page reads one: `dogs.html?bucket=&disposition=` (a starting Disposition filter), `contacts.html?group=`,
   `financials.html?view=&bucket=`; `kennel.html?id={kennel}#<section>` with her active
   kennel), plus every report (`reportCatalog.REPORTS`) and expense category. A place whose
   page is Pro-only isn't offered in Lite, nor one whose `flag` is off. **Records:** dogs
