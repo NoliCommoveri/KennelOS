@@ -1,10 +1,8 @@
 # KennelOS — Lite / Pro Editions
 
-> **The design and the reasons for Lite / Pro / Demo. All three are built.** How the code
-> does it is in `docs/End_State_Design_and_Maintenance_Guide.md` §0. Where this plan says
-> Pro-only pages live in `pro/`, the build went another way: they stay in `shared/pages/`,
-> listed in `shared/data/proPages.js`, and the Lite build drops them. "The new repo" means
-> this one. History: `docs/BUILD_LOG.md`.
+> **Modified:** Pro-only pages stay in `shared/pages/`, listed in `shared/data/proPages.js`,
+> not in `pro/` as written below. The built system is in
+> `docs/End_State_Design_and_Maintenance_Guide.md` §0.
 
 *Design plan, plain-English throughout; the precise rules are called out where they matter.*
 
@@ -431,10 +429,6 @@ own origin* (the subdomains above) so their IndexedDB stays isolated. `/demo` is
 demo flag on and the save/export paths omitted. If we ever fall back off the custom domain onto a
 single `*.github.io` origin, the editions must instead open **distinct Dexie database names** —
 see "Hosting, editions, and origin isolation."
-
-**As built:** every page stays in `shared/pages/`. `lite/`, `pro/` and `demo/` hold only each
-edition's `editionConfig.js` (plus Lite's `editionTour.js`). `build/assemble.mjs` drops
-`proPages.js`'s files from Lite and generates each edition's `sw.js`.
 
 ---
 
