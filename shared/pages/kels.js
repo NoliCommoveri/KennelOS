@@ -96,10 +96,10 @@ const TASKS = [
     id: 'get-started',
     label: () => 'Get set up',
     // Only what this edition sets up is said or searched (data/kelsSetup.js).
-    sub: editionFlags.multiKennel ? 'Your logo, nudges, puppy records, kennels, connections and backup'
-      : editionFlags.puppyRecord ? 'Your logo, nudges, puppy records, connections and backup' : 'Your backup, then your dogs',
+    sub: editionFlags.multiKennel ? 'Your logo, nudges, tests, puppy records, kennels, connections and backup'
+      : editionFlags.puppyRecord ? 'Your logo, nudges, tests, puppy records, connections and backup' : 'Your backup, then your dogs',
     keywords: ['setup', 'set up', 'get started', 'getting started', 'start', 'new', 'new here', 'first time', 'begin', 'welcome', 'settings', 'backup', 'back up',
-      ...(editionFlags.puppyRecord ? ['logo', 'nudges', 'lifecycle', 'promote', 'puppy record', 'puppy records'] : []),
+      ...(editionFlags.puppyRecord ? ['logo', 'nudges', 'lifecycle', 'promote', 'tests', 'health tests', 'preferred tests', 'ofa', 'puppy record', 'puppy records'] : []),
       ...(editionFlags.multiKennel ? ['another kennel', 'second kennel', 'new kennel', 'two kennels', 'separate'] : []),
       ...(editionFlags.furever ? ['furever', 'google drive', 'drive'] : []),
       ...(editionFlags.assistant ? ['dropbox', 'kennelassistant', 'assistant', 'helper'] : []),

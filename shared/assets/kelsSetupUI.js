@@ -4,6 +4,8 @@
 // where this edition has what it sets up (data/kelsSetup.js `setupParts`):
 //   1. her logo (where something prints it), the Kennel page's own upload;
 //   2. lifecycle nudges (the Kennel page's fields);
+//   2b. her preferred tests (each new dog's planned tests): add, remove, rename, as
+//      many rounds as she likes (kennelRepo's add / remove / renamePreferredTest);
 //   3. Puppy Record fields (Pro): everything, or what to leave off;
 //   4. another kennel (Pro, multi-kennel), for a separate side of the business: two
 //      breeds with their own waitlists, a pet side and a show side; it starts with
@@ -164,6 +166,101 @@ class Setup {
     if (!res.done) return this.chat.say('Okay, I\'ll leave those as they are. They\'re on your kennel\'s page whenever you want them.', { typing: 300 });
     await this.reload();
     await this.chat.say(res.result.promote_nudge_enabled ? 'Done! You\'ll never miss a keeper\'s big day.' : 'Got it, no nudges.', { typing: 400 });
+  }
+
+  // --- 2b. Preferred tests -------------------------------------------------------
+  testsLine() {
+    const tests = [...(this.kennel.preferred_tests || [])].sort((a, b) => a.localeCompare(b));
+    return tests.map((t) => {
+      const breeds = kennelRepo.testBreedsFor(this.kennel, t);
+      return `<li>${esc(t)}${breeds.length ? ` <span class="faint">(${breeds.map(esc).join(', ')})</span>` : ''}</li>`;
+    }).join('');
+  }
+
+  async tests() {
+    const why = 'Each new dog you add gets these as its planned tests, and they\'re suggested whenever you log a test result.';
+    const has = () => (this.kennel.preferred_tests || []).length > 0;
+    if (has()) await this.chat.say(`Now your preferred health tests. ${why} Here's what ${this.name} has:<ul class="kels-list">${this.testsLine()}</ul>Any you'd like to add, remove or rename?`);
+    else await this.chat.say(`Now your preferred health tests, like OFA hips and elbows, eyes, or a DNA panel. ${why} Any you'd like to add?`);
+    let first = true;
+    for (;;) {
+      const pick = await this.chat.choose([
+        { label: 'Add tests', value: 'add', primary: !has() },
+        ...(has() ? [{ label: 'Remove tests', value: 'remove' }, { label: 'Rename a test', value: 'rename' }] : []),
+        { label: first ? (has() ? 'They\'re good as they are' : 'Not now') : 'That\'s all', value: '', primary: has() }
+      ]);
+      if (!pick) break;
+      first = false;
+      const changed = await this[`${pick}Tests`]();
+      await this.reload();
+      if (changed) {
+        await this.chat.say(has() ? `Done! ${esc(possessive(this.kennel.kennel_name))} tests now:<ul class="kels-list">${this.testsLine()}</ul>Anything else?` : 'Done! There are no preferred tests now. Anything else?', { typing: 400 });
+      }
+    }
+    if (!first) await this.chat.say('Lovely, your tests are set! Every dog you add from now on gets them. A dog already on file keeps its own; you can apply these to it from your kennel\'s page.', { typing: 400 });
+    else if (!has()) await this.chat.say('No problem. You can add them any time from your kennel\'s page.', { typing: 300 });
+  }
+
+  // Several at once, one per line, each optionally for some of her breeds.
+  async addTests() {
+    const breeds = [...(this.kennel.preferred_breeds || [])].sort((a, b) => a.localeCompare(b));
+    const res = await this.chat.form({
+      title: '<strong>Which tests?</strong><span class="kels-lead">One per line.</span>',
+      html: `${field('Tests', '<textarea id="ks-tests" rows="4" placeholder="OFA Hips&#10;OFA Elbows&#10;Eyes (CAER)"></textarea>')}
+        ${breeds.length ? field('Only for these breeds (optional)', `<div class="check-group">${breeds.map((b) => `<label class="check-inline"><input type="checkbox" data-ks-breed="${esc(b)}"> ${esc(b)}</label>`).join('')}</div>`, 'Leave them all unticked and the tests are for every breed.') : ''}`,
+      submit: async (root) => {
+        const names = root.querySelector('#ks-tests').value.split('\n').map((t) => t.trim()).filter(Boolean);
+        if (!names.length) return 'Type a test, one per line.';
+        const forBreeds = [...root.querySelectorAll('[data-ks-breed]:checked')].map((cb) => cb.dataset.ksBreed);
+        for (const name of names) {
+          if (forBreeds.length) for (const b of forBreeds) await kennelRepo.addPreferredTest(this.kennel.id, name, b);
+          else await kennelRepo.addPreferredTest(this.kennel.id, name);
+        }
+        return names;
+      },
+      reply: (names) => names.join(', '),
+      submitLabel: 'Add',
+      cancelLabel: 'Never mind'
+    });
+    return res.done;
+  }
+
+  async removeTests() {
+    const tests = [...(this.kennel.preferred_tests || [])].sort((a, b) => a.localeCompare(b));
+    const res = await this.chat.form({
+      title: '<strong>Tick the ones to remove.</strong><span class="kels-lead">Only from the list: dogs that already have them planned keep them.</span>',
+      html: tests.map((t) => `<label class="check-inline ws-check"><input type="checkbox" data-ks-test="${esc(t)}"> ${esc(t)}</label>`).join(''),
+      submit: async (root) => {
+        const gone = [...root.querySelectorAll('[data-ks-test]:checked')].map((cb) => cb.dataset.ksTest);
+        if (!gone.length) return 'Tick at least one, or tap Never mind.';
+        for (const t of gone) await kennelRepo.removePreferredTest(this.kennel.id, t);
+        return gone;
+      },
+      reply: (gone) => `Remove ${gone.join(', ')}`,
+      submitLabel: 'Remove',
+      cancelLabel: 'Never mind'
+    });
+    return res.done;
+  }
+
+  async renameTests() {
+    const tests = [...(this.kennel.preferred_tests || [])].sort((a, b) => a.localeCompare(b));
+    const res = await this.chat.form({
+      title: '<strong>Which one, and what should it be called?</strong>',
+      html: `${field('Test', `<select id="ks-rename-from">${tests.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join('')}</select>`)}
+        ${field('New name', input('ks-rename-to', ''))}`,
+      submit: async (root) => {
+        const from = root.querySelector('#ks-rename-from').value;
+        const to = val(root, 'ks-rename-to');
+        if (!to) return 'Type its new name.';
+        await kennelRepo.renamePreferredTest(this.kennel.id, from, to);
+        return { from, to };
+      },
+      reply: ({ from, to }) => `${from} → ${to}`,
+      submitLabel: 'Rename',
+      cancelLabel: 'Never mind'
+    });
+    return res.done;
   }
 
   // --- 3. Puppy Record fields (Pro) ------------------------------------------------

@@ -326,7 +326,10 @@ Every write calls `assertWritable()` first (Demo, §0.2) and marks the cloud bac
 - **contractRepo**: `governingContract` (latest signed, derived) and
   `isLivePartnerContract` (drives partner Companion membership, §20).
 - **kennelRepo**: preferred tests/breeds (dedupe on write; removing never purges a token
-  an event uses); `addPreferredTest`'s breed tag, read by `testBreedsFor`/`testsForBreed`.
+  an event uses); `addPreferredTest`'s breed tag, read by `testBreedsFor`/`testsForBreed`;
+  `renamePreferredTest` (in place, breed tags kept; renamed to another test in the panel,
+  the two become one with both tests' tags, untagged if either was; panel only, never a
+  dog's planned tests or past events; Kels's Get set up).
 - **contactRepo.ensureType(id, type)** adds a role tag; sale, stud service and event saves
   use it (`buyer_referrer`, `stud_referrer`, `handler`, `vet`).
 - **waitlistEntryRepo** keeps `Contact.waitlist_status` in step after every write
@@ -2046,6 +2049,7 @@ part alone, then her dogs.
 |---|---|---|
 | `logo` | the Kennel page, and something prints it (`logoUses`: invoices, receipts, puppy records, printed reports) | Upload (a file box in the chat, scaled by `fileToLogoDataUrl`, previewed, saved on **Use this logo**); one on file is shown with **Keep it** / **Change it** |
 | `nudges` | the Kennel page | The Lifecycle nudges fields in one form, suggested on when never set (`promote_nudge_enabled`, the two promote ages) |
+| `tests` | the Kennel page | Her preferred tests listed (with their breed tags), then **Add tests** (one per line, optionally for some of her `preferred_breeds`: `addPreferredTest`), **Remove tests** (ticked: `removePreferredTest`), **Rename a test** (`renamePreferredTest`), round after round until **That's all**. Panel only: dogs on file keep their planned tests |
 | `puppy-record` | Pro (`puppyRecord`) | **Show everything** (clears `puppy_record_fields`) or **Let me choose** (the Puppy Record fields' boxes) |
 | `kennels` | Pro (`multiKennel`) | Another own kennel, for a separate side of the business (two breeds with their own waitlists, a pet side and a show side); with the waitlist she adds that a program per breed may be enough. Name (checked by `newKennelNameProblem`: required; one like a kennel on file asked about once), prefix, location; created with `is_own_kennel` and `settingsToCopy` (the nudge settings and Puppy Record fields, nothing else); then its logo (upload, the first kennel's, or not now). As many as she likes |
 | `furever` | Pro (`furever`) | Google Drive for Furever's content packages: Google's sign-in script (`vendor/gsi/client.js`) is loaded on demand, then a form whose **Connect** calls `googleDrive.connectDrive()` from the tap (so the window isn't blocked) and sets `driveConnected` |

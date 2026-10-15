@@ -9,7 +9,7 @@ import { editionFlags } from '../shared/data/editionConfig.js';
 const LITE = Object.fromEntries(Object.keys(editionFlags).map((k) => [k, false]));
 
 test('Pro asks every part, in order', () => {
-  assert.deepEqual(S.setupParts(editionFlags), ['logo', 'nudges', 'puppy-record', 'kennels', 'furever', 'assistant', 'backup']);
+  assert.deepEqual(S.setupParts(editionFlags), ['logo', 'nudges', 'tests', 'puppy-record', 'kennels', 'furever', 'assistant', 'backup']);
 });
 
 test('Lite (no Kennel page, no Pro features) asks only the backup', () => {
@@ -18,9 +18,9 @@ test('Lite (no Kennel page, no Pro features) asks only the backup', () => {
 
 test('each part only with what it sets up', () => {
   const only = (flags) => S.setupParts({ ...LITE, ...flags });
-  assert.deepEqual(only({}), ['nudges', 'backup']);
-  assert.deepEqual(only({ invoicing: true }), ['logo', 'nudges', 'backup']);
-  assert.deepEqual(only({ multiKennel: true, furever: true }), ['nudges', 'kennels', 'furever', 'backup']);
+  assert.deepEqual(only({}), ['nudges', 'tests', 'backup']);
+  assert.deepEqual(only({ invoicing: true }), ['logo', 'nudges', 'tests', 'backup']);
+  assert.deepEqual(only({ multiKennel: true, furever: true }), ['nudges', 'tests', 'kennels', 'furever', 'backup']);
   assert.deepEqual(S.setupParts({ ...editionFlags }, { kennelPage: false }), ['furever', 'assistant', 'backup']);
 });
 

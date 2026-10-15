@@ -6,10 +6,11 @@ import { similarNamed } from './dogSearch.js';
 
 // The parts, in the order she asks them. Each only where the edition has what it
 // sets up, so a part for a missing feature is never asked or mentioned. The
-// kennel's own settings (logo, nudges, Puppy Record, another kennel) need its
+// kennel's own settings (logo, nudges, tests, Puppy Record, another kennel) need its
 // Kennel page (`kennelPage`: false in Lite, which has none).
 //   logo         — only where something prints it (logoUses);
 //   nudges       — the Today hub's promote nudge;
+//   tests        — her preferred tests: added, removed or renamed;
 //   puppy-record — Pro (Puppy Record);
 //   kennels      — Pro (multiKennel): another kennel, for a separate side of the business;
 //   furever      — Pro (Furever): Google Drive, for families' content packages;
@@ -19,6 +20,7 @@ export function setupParts(flags = {}, { kennelPage = true } = {}) {
   return [
     kennelPage && logoUses(flags).length ? 'logo' : null,
     kennelPage ? 'nudges' : null,
+    kennelPage ? 'tests' : null,
     kennelPage && flags.puppyRecord ? 'puppy-record' : null,
     kennelPage && flags.multiKennel ? 'kennels' : null,
     flags.furever ? 'furever' : null,

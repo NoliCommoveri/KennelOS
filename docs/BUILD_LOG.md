@@ -1486,3 +1486,11 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   files. Checked in the browser (Pro and the Lite build): the whole run, the saved kennels,
   the Google window and the KennelAssistant tab opening, the low menu spot afterwards, and
   the Kennel page's three cards still saving.
+- **Kels Get set up: preferred tests (2026-10-15).** A part after lifecycle nudges (where
+  the Kennel page is, so not Lite): her preferred tests listed with their breed tags, then
+  add (one per line, optionally for some of her breeds), remove, or rename, round after
+  round. New `kennelRepo.renamePreferredTest` (in place with its breed tags; renamed onto
+  another test, the two merge; panel only), tested in `tests/preferredTestRename.test.js`.
+  The task also now leads the menu until her first dog record, however often she's run it
+  (the unreleased `kelsSetupDone` flag removed). Checked in the browser: add three, rename
+  one, remove one, saved as shown.
