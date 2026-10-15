@@ -167,12 +167,48 @@ situation; the check-in's Expected litter hands off to the birth as today.
 The litter check-in's health-care and weight forms for one adult dog, plus health tests
 (`planned_tests` → results), and status changes (retire, pet home).
 
-### 3.8 Add dogs: **S**
+### 3.8 Add dogs: **M**
 One dog or several in a row ("Add another?" after each). Typed in (duplicate check first,
 `dogMatches`), or from a pedigree photo (`pedigreeImport`), with parents through the
 tidy-up's parent steps and the dog's kennel, ownership and status. In Lite, at the cap she
 shows the upgrade notice (§2.3) and stops adding.
-- **Keywords:** new dog, add dog, bought a dog, new female, new male, stud, import pedigree.
+- **Then, for each dog, optional:**
+  - **Documents** (Pro, `documents`): upload its registration, pedigree, health certificates,
+    contract… one or several, each filed on the dog with its type (`documentRepo` /
+    `fileRepo`, as the Documents page files them).
+  - **History** (all editions): its past events, through "Add new events" (§3.10) handed
+    the new dog, so shots, health tests, heats and the rest come in the same way as there.
+- **Keywords:** new dog, add dog, bought a dog, new female, new male, stud, import pedigree,
+  registration papers, health records.
+
+### 3.9 Add my other accounts: **S**, Pro (`accounts`)
+The business Accounts page (registries, marketplaces, suppliers, labs, insurance, payment and
+form services) as a conversation, for a breeder entering the logins and referral codes she
+keeps elsewhere, one or several in a row ("Add another?" after each), like Add dogs.
+- Per account: what it is (`ACCOUNT_TYPE`) and its name → website, username, password,
+  customer / member ID → a referral link or code and its instructions, if she has one → notes.
+  Saved through `accountRepo`, each when she approves it. A name she already has is checked
+  first, so nothing is entered twice.
+- A **Payment service** or **Form service** offers to connect Stripe / Jotform right there,
+  the same in-chat steps as account health's "Help me replace it" (§3.2, built), so nothing
+  sends her to another page.
+- **Not** her KennelOS account (that's §3.2). The private fields stay private, as on the
+  Accounts page (`syncRegistry`).
+- **Keywords:** accounts, logins, passwords, AKC, registry, marketplace, supplier, referral,
+  referral code, Stripe, Jotform, insurance.
+
+### 3.10 Add new events: **S**
+Log what happened, for one or several dogs, one event or several in a row ("Add another?"),
+without opening each dog's page. Also how Add dogs (§3.8) brings in a new dog's history.
+- **Which dogs** (search, or her own / a litter's pups) → **what happened** (`EVENT_TYPES`
+  for dogs, grouped as the timeline groups them; only the types this edition has: `show`
+  needs `shows`) → that type's own fields, date, and end date for a span type → saved, one
+  event per dog, through `eventRepo` (`careEvents`'s pattern, now for every type).
+- Breeding events (`breeding_tie`, `progesterone_test`, `ultrasound`, `pregnancy_update`)
+  belong to a pairing and stay with Log a heat or breeding (§3.6); a litter's
+  `whelping_summary` stays with the litter.
+- **Keywords:** add event, log, record, history, shots, vaccine, vet visit, health test,
+  weight, heat, medication, note, show.
 
 ## 4. Shared pieces
 
@@ -211,7 +247,9 @@ Decided:
 - Set up another device ships before live sync's step 6, stopping after restore and unlock.
 - The order stands: the waitlist (§3.3) before a sale (§3.5), since the waitlist turns
   picks into sales.
-- Add dogs takes several in a row.
+- Add dogs takes several in a row, and offers each dog's documents (Pro) and its history
+  (through Add new events).
+- Add my other accounts (§3.9) and Add new events (§3.10) are on the list, after Add dogs.
 - Starred and frequent tasks move up the menu (§4); "frequent" means more than 3 starts in
   the last 60 days.
 - Pups are going home's print opens with a cover page of each pup's readiness, for the breeder.

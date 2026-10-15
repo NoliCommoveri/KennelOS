@@ -1109,3 +1109,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `connectStripe` / `connectJotform`. The Stripe permission list is now one constant,
   `stripeLinks.STRIPE_KEY_PERMISSIONS`, read by the Accounts page too. Browser-verified with a
   simulated Stripe that refuses the old key and accepts the new one.
+- **Kels roadmap: three more (2026-10-15).** Add dogs (§3.8, now **M**) offers each new dog's
+  documents (Pro) and its history; new §3.9 Add my other accounts (the business Accounts page
+  as a conversation, several in a row, Stripe / Jotform connected in the chat); new §3.10 Add
+  new events (any dog event type, for one or several dogs, several in a row; also how Add dogs
+  brings in history).
