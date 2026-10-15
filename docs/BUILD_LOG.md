@@ -1355,3 +1355,11 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   it draws). Its words are the dog's names plus puppies / pups / offspring / babies…, and it
   `requires` the dog's name (a new candidate field in `kelsFind`), so "puppies" alone lists
   no sires and "Zeus" alone is still Zeus.
+- **Kels: "Zeus puppies" asks what about Zeus (2026-10-15).** Replaces the "<name>'s
+  puppies" candidate (and kelsFind's `requires`) from earlier the same day. New
+  `data/kelsAbout.js`: a dog's name plus topic words gives Kels the dog's facts and three
+  topics (one of its puppies, its litters, what its puppies sold for). She asks only when
+  two or more topics have something (decided), with counts on each choice and "Something
+  else" for the ordinary search; a choice lists only that dog's records (sales as each
+  sale, plus Breeding-Dog Return). `offer`/`list` in kelsFindUI take `extras` (places
+  under the list). Precached `data/kelsAbout.js`.

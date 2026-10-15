@@ -70,27 +70,6 @@ export function dogCandidates(dogs, { events = [], kennelsById = new Map(), flag
   });
 }
 
-// A dog's puppies: "Zeus puppies" opens the Offspring list on Zeus's page. Only
-// for a dog with offspring, and only when she names the dog (`requires`); a
-// little behind the dog itself, so "Zeus" alone is still Zeus.
-export function offspringCandidates(dogs, { flags = {} } = {}) {
-  const count = new Map();
-  for (const d of dogs) for (const p of new Set([d.sire_id, d.dam_id])) if (p) count.set(p, (count.get(p) || 0) + 1);
-  return dogs.filter((d) => count.has(d.id) && (!d.is_archived || flags.archivedDogLinks)).map((d) => {
-    const name = dogName(d) || 'Unnamed dog';
-    const n = count.get(d.id);
-    return {
-      id: `offspring:${d.id}`, group: 'A dog\'s puppies', title: `${name}'s puppies`,
-      sub: n === 1 ? '1 puppy' : `${n} puppies`,
-      where: `${name}'s puppies are on ${name}'s page, under Offspring at the bottom of the pedigree.`,
-      href: `dog.html?id=${encodeURIComponent(d.id)}#offspring`,
-      boost: -1.5 + (d.is_archived ? ARCHIVED : 0),
-      requires: [d.call_name, d.registered_name],
-      levels: [[d.call_name, d.registered_name, 'puppies', 'pups', 'offspring', 'babies', 'kids', 'children', 'progeny'], [], []]
-    };
-  });
-}
-
 export function contactCandidates(contacts, { kennelsById = new Map() } = {}) {
   return contacts.map((c) => {
     const types = (c.contact_type || []).map((t) => label(CONTACT_TYPE, t));
@@ -159,7 +138,6 @@ export function recordCandidates({ dogs = [], contacts = [], kennels = [], litte
   const dogsById = new Map(dogs.map((d) => [d.id, d]));
   return [
     ...dogCandidates(dogs, { events, kennelsById, flags }),
-    ...offspringCandidates(dogs, { flags }),
     ...litterCandidates(litters, { dogsById, events }),
     ...(flags.contactsSection ? contactCandidates(contacts, { kennelsById }) : []),
     ...(flags.contactsSection ? kennelCandidates(kennels) : [])

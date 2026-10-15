@@ -3,10 +3,15 @@
 // for, searches the cheat sheet (data/kelsKnowledge.js), her records
 // (data/findRecords.js) and her tasks with data/kelsFind.js, asks a question or
 // two when there are too many, then says where it is with a button that opens
-// it (or starts the task). Reads only, through the repos; nothing leaves the device.
+// it (or starts the task). "<a dog> <a word about it>" ("Zeus puppies") goes to
+// data/kelsAbout.js first: what the dog has, and which of it she means. Reads
+// only, through the repos; nothing leaves the device.
 import { search, deeperHits, clearWinner, narrow, SHORT_LIST } from '../data/kelsFind.js';
 import { placeCandidates } from '../data/kelsKnowledge.js';
 import { recordCandidates } from '../data/findRecords.js';
+import { aboutDog, factsSentence, topicResults, topicByKey } from '../data/kelsAbout.js';
+import { dogName } from '../data/dogRepo.js';
+import { saleRepo } from '../data/saleRepo.js';
 import { dogRepo } from '../data/dogRepo.js';
 import { litterRepo } from '../data/litterRepo.js';
 import { contactRepo } from '../data/contactRepo.js';
@@ -29,22 +34,26 @@ const COMMON = [
 
 const nav = (path) => [...navItems, ...moreItems].find((i) => i.path === path)?.label || 'the menu';
 
-// Everything she can find, loaded once per visit. `tasks`: her task candidates (pages/kels.js).
+// Everything she can find, loaded once per visit: { candidates, rows }.
+// `tasks`: her task candidates (pages/kels.js). Contacts are loaded in every
+// edition for a sale's buyer name; they're candidates only where contactsSection.
 async function loadCandidates(tasks) {
   const flags = editionFlags;
-  const [dogs, litters, contacts, kennels, events, kennelId] = await Promise.all([
+  const [dogs, litters, contacts, kennels, events, sales, kennelId] = await Promise.all([
     dogRepo.getAll({ includeArchived: true, includePedigreeOnly: true }),
     litterRepo.getAll({ includeArchived: true }),
-    flags.contactsSection ? contactRepo.getAll({ includeArchived: true }) : [],
+    contactRepo.getAll({ includeArchived: true }),
     kennelRepo.getAll({ includeArchived: true }),
     eventRepo.getAll(),
+    saleRepo.getAll({ includeArchived: true }),
     resolveKennelIdForWrite().catch(() => null)
   ]);
-  return [
+  const candidates = [
     ...placeCandidates({ edition, flags, nav, kennelId }),
     ...recordCandidates({ dogs, litters, contacts, kennels, events }, flags),
     ...tasks
   ];
+  return { candidates, rows: { dogs, litters, contacts, sales } };
 }
 
 // Where a deep word was found, in her words: "its notes", "Vaccination, Mar 1, 2026".
@@ -54,6 +63,7 @@ const foundIn = (h, words) => (h.why ? ` I found "${esc(words.join(' '))}" in ${
 export async function runFindTask(chat, { onExit = () => {}, handoff = null, tasks = [] } = {}) {
   if (!(await chat.intro('Absolutely!', KELS_FIND_INTRO))) return onExit('nevermind');
   let candidates = null;
+  let rows = null;
   let prompt = '<strong>What are you looking for?</strong><span class="kels-lead">A word or two is plenty: a dog\'s name, "receipts", "contracts"…</span>';
   for (;;) {
     const res = await chat.form({
@@ -67,8 +77,16 @@ export async function runFindTask(chat, { onExit = () => {}, handoff = null, tas
     });
     if (!res.done) return onExit('nevermind');
     const { q } = res.result;
-    candidates ||= await loadCandidates(tasks);
+    if (!candidates) ({ candidates, rows } = await loadCandidates(tasks));
     const r = search(candidates, q);
+    const about = aboutDog(q, rows, { flags: editionFlags });
+    if (about) {
+      const out = await aboutOffer(chat, about, r, { q, candidates, rows, handoff });
+      if (out === 'left' || out === 'task') return undefined;
+      if (out === 'done') return onExit('done');
+      prompt = '<strong>What else are you looking for?</strong>';
+      continue;
+    }
     if (!r.hits.length) {
       const out = await noMatch(chat, q, candidates);
       if (out === 'left') return undefined;
@@ -98,7 +116,7 @@ async function noMatch(chat, q, candidates) {
 }
 
 // From the hits to one she picks: a question or two, then one answer or a short list.
-async function offer(chat, r, { q, candidates, handoff }) {
+async function offer(chat, r, { q, candidates, handoff, extras = [] }) {
   let hits = r.hits;
   const asked = new Set();
   // A question only when there's no clear answer already.
@@ -121,7 +139,7 @@ async function offer(chat, r, { q, candidates, handoff }) {
     await chat.say(`Found it! <strong>${esc(c.title)}</strong>${c.sub ? ` <span class="muted">(${esc(c.sub)})</span>` : ''}. ${esc(c.where)}${foundIn(one, r.words)}`, { typing: 700 });
     const pick = await chat.choose([
       { label: c.taskId ? 'Let\'s do it' : 'Take me there', value: 'go', primary: true },
-      ...(hits.length > 1 || r.deeper ? [{ label: 'Not it', value: 'not' }] : []),
+      ...(hits.length > 1 || r.deeper || extras.length ? [{ label: 'Not it', value: 'not' }] : []),
       { label: 'Find something else', value: 'again' },
       { label: 'I\'m all set', value: 'done' }
     ]);
@@ -129,11 +147,12 @@ async function offer(chat, r, { q, candidates, handoff }) {
     if (pick !== 'not') return pick;
     hits = hits.filter((h) => h !== one);
   }
-  return list(chat, hits, { r, q, candidates, handoff });
+  return list(chat, hits, { r, q, candidates, handoff, extras });
 }
 
 // The short list: "Do you want…", four at a time; each opens its where on the first tap.
-async function list(chat, hits, { r, q, candidates, handoff }) {
+// `extras`: places offered under every page of the list ("All of Zeus's puppies").
+async function list(chat, hits, { r, q, candidates, handoff, extras = [] }) {
   let from = 0;
   let deeper = r.deeper;
   for (;;) {
@@ -149,12 +168,14 @@ async function list(chat, hits, { r, q, candidates, handoff }) {
         sub: [h.c.sub, h.c.where, h.why ? `Found in ${h.why === 'notes' ? 'the notes' : whyText(h.why)}.` : ''].filter(Boolean).join(' · '),
         value: `hit:${from + i}`, primary: i === 0 && !from
       })),
+      ...extras.map((c, i) => ({ label: c.title, sub: c.where, value: `extra:${i}` })),
       ...(hits.length > from + SHORT_LIST ? [{ label: 'Show more', value: 'more' }] : []),
       ...(deeper ? [{ label: 'Look deeper', value: 'deeper' }] : []),
       { label: 'Find something else', value: 'again' },
       { label: 'I\'m all set', value: 'done' }
     ], { stagger: 100, confirmHint: 'Tap again to go there' });
     if (pick.startsWith('hit:')) return go(chat, hits[Number(pick.slice(4))].c, handoff);
+    if (pick.startsWith('extra:')) return go(chat, extras[Number(pick.slice(6))], handoff);
     if (pick === 'more') { from += SHORT_LIST; continue; }
     if (pick === 'deeper') {
       const more = deeperHits(candidates, q, { ...r, hits });
@@ -168,6 +189,58 @@ async function list(chat, hits, { r, q, candidates, handoff }) {
     }
     return pick;
   }
+}
+
+// "Zeus puppies": which Zeus (when two dogs answer to it), what Zeus has, and
+// which of it she means. A question only when two or more topics have something
+// (decided); one goes straight to its results; none says so. "Something else"
+// is the ordinary search, `r`.
+async function aboutOffer(chat, about, r, { q, candidates, rows, handoff }) {
+  let pick = about.dogs[0];
+  const withData = about.dogs.filter((d) => d.offered.length);
+  if (withData.length > 1) {
+    await chat.say(`I know more than one dog by that name. <strong>Which one?</strong>`, { typing: 500 });
+    const v = await chat.choose([
+      ...withData.map((d, i) => ({ label: dogName(d.dog) || 'Unnamed dog', note: factsSentence(d.dog, d.facts), value: String(i) })),
+      { label: 'Something else', value: 'else' }
+    ], { stagger: 100 });
+    if (v === 'else') return offer(chat, r, { q, candidates, handoff });
+    pick = withData[Number(v)];
+  } else if (withData.length) pick = withData[0];
+  const { dog, facts, offered } = pick;
+  const name = esc(dogName(dog) || 'This dog');
+  const facts1 = esc(factsSentence(dog, facts));
+  const factsAfter = esc(factsSentence(dog, facts, { pronoun: true }));
+  const nav = { flags: editionFlags, edition };
+  const show = async (key, lead) => {
+    const { hits, extras } = topicResults(key, dog, facts, rows, nav);
+    if (lead) await chat.say(lead, { typing: 600 });
+    return offer(chat, { words: about.words, level: 1, hits, unmatched: [], deeper: false }, { q, candidates, handoff, extras });
+  };
+
+  if (!offered.length) {
+    const nouns = about.topics.map((k) => topicByKey(k).noun);
+    const said = nouns.length > 1 ? `${nouns.slice(0, -1).join(', ')} or ${nouns.at(-1)}` : nouns[0];
+    await chat.say(`${name} doesn't have any ${esc(said)} on record yet.`, { typing: 600 });
+    const v = await chat.choose([
+      { label: `Open ${dogName(dog) || 'the dog'}'s page`, value: 'dog', primary: true },
+      ...(r.hits.length ? [{ label: 'Something else', value: 'else' }] : []),
+      { label: 'Find something else', value: 'again' },
+      { label: 'I\'m all set', value: 'done' }
+    ]);
+    if (v === 'dog') return go(chat, { title: dogName(dog) || 'the dog', href: `dog.html?id=${encodeURIComponent(dog.id)}` }, handoff);
+    if (v === 'else') return offer(chat, r, { q, candidates, handoff });
+    return v;
+  }
+  if (offered.length === 1) return show(offered[0], facts1 || null);
+
+  await chat.say(`I found a lot about ${name}. ${factsAfter} <strong>What are you looking for?</strong>`, { typing: 700 });
+  const v = await chat.choose([
+    ...offered.map((k) => { const t = topicByKey(k); return { label: t.label(dogName(dog) || 'this dog'), note: t.sub(facts), value: k }; }),
+    { label: 'Something else', value: 'else' }
+  ], { stagger: 100 });
+  if (v === 'else') return offer(chat, r, { q, candidates, handoff });
+  return show(v, null);
 }
 
 async function go(chat, c, handoff) {

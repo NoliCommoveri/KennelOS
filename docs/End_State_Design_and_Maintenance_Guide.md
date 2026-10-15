@@ -1842,11 +1842,22 @@ builds nothing), then a search box.
   `financials.html?view=&bucket=`; `kennel.html?id={kennel}#<section>` with her active
   kennel), plus every report (`reportCatalog.REPORTS`) and expense category. A place whose
   page is Pro-only isn't offered in Lite, nor one whose `flag` is off. **Records:** dogs
-  (archived only where `archivedDogLinks`), each dog with offspring once more as "<name>'s
-  puppies" (`dog.html?id=…#offspring`, the Offspring list under its pedigree; found only
-  with the dog's name, a candidate's `requires`), litters, and in Pro contacts and kennels.
+  (archived only where `archivedDogLinks`), litters, and in Pro contacts and kennels.
   **Tasks:** each available task (label, `keywords`), a little behind a page of the same words;
   choosing one starts it (`handoff`).
+- **A dog and a word about it** (`data/kelsAbout.js`, tested in `tests/kelsAbout.test.js`):
+  when every word is a dog's name or a `DOG_TOPICS` word, with at least one of each ("Zeus
+  puppies", "JJ litters", "Zeus sales"), Kels works out what the dog has (`factsOf`: its
+  puppies by sire/dam, its litters, its puppies' sales, how many sold and for how much) and
+  opens with it ("I found a lot about Zeus. He has sired 8 puppies across 2 litters, and 5
+  have sold for $12,400."). Topics: `pups` (each puppy, asked by litter then sex; plus "All
+  of Zeus's puppies", `dog.html?id=…#offspring`, the Offspring list under the pedigree,
+  which dog.js scrolls to once drawn), `litters` (each litter), `sales` (each sale of a
+  puppy, with buyer, price and status; plus Breeding-Dog Return where reports are). She asks
+  which topic only when two or more have something; one goes straight to its results; none
+  says so and offers the dog's page. Two dogs by that name with something on record: she
+  asks which first. "Something else" is always the ordinary search. Sales and contacts
+  (for buyer names) are loaded in every edition.
 - **Levels:** 1 = names, numbers (`normReg`, typed any way), a place's title and keywords;
   2 = secondary details (a dog's breed, color, status, ownership, sex, kennel, bred-by
   kennel; a contact's types, email, phone, kennel; a litter's parents, status, year); 3 =

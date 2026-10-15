@@ -141,16 +141,3 @@ test('unsold or available puppies: the filtered Puppies tab and the litter pages
   }
   assert.ok(titles(F.search(all(), 'puppies')).includes('Litters'));
 });
-
-test('"<dog> puppies" opens that dog\'s Offspring; "puppies" alone lists no sires', () => {
-  const pup = { id: 'Ugh', call_name: 'Ugh', sex: 'male', status: 'puppy', ownership_type: 'owned', sire_id: 'Max', dam_id: 'Zoey' };
-  const cs = [...placeCandidates({ edition: 'pro', flags: PRO, nav, kennelId: 'k1' }), ...recordCandidates({ ...rows, dogs: [...rows.dogs, pup] }, PRO)];
-  for (const [q, id] of [['max puppies', 'Max'], ['zoey pups', 'Zoey'], ["Max's offspring", 'Max']]) {
-    const w = F.clearWinner(F.search(cs, q).hits);
-    assert.equal(w?.c.id, `offspring:${id}`, q);
-    assert.equal(w.c.href, `dog.html?id=${id}#offspring`);
-  }
-  assert.equal(F.clearWinner(F.search(cs, 'max').hits)?.c.id, 'dog:Max');
-  assert.ok(!F.search(cs, 'puppies').hits.some((h) => h.c.id.startsWith('offspring:')));
-  assert.ok(!cs.some((c) => c.id === 'offspring:Ugh'));
-});
