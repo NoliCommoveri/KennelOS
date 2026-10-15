@@ -325,6 +325,11 @@ and Email Routing.
 - [ ] **Furever content packs on a real Google account:** in Pro, Connect Google Drive, publish a
   kennel pack and a litter pack, and check a family's Furever app receives the files (only its
   own pup's and the parents' from a litter pack). Not yet exercised against real Drive.
+- [ ] **Jotform and Stripe from a real browser:** connect a real Jotform key (Jotform must
+  answer browser calls; check the Full Name / Address prefill naming fills the form) and send a
+  contract that comes back Signed; connect a Stripe restricted key, make a one-time sale link and
+  a waitlist fee link, pay each in test mode, and check the app records them (Stripe must answer
+  browser calls). Neither has been exercised against the real service.
 
 ## 5. Recurring (every subsequent release)
 

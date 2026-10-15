@@ -1538,290 +1538,113 @@ Review (prints on one page).
 
 ## 32. Accounts (business logins & referral codes)
 
-**Editions:** Pro and Demo only (`editionFlags.accounts`). The Integrations plan's vendor features (payment links, Stripe, Jotform) hang off Accounts and are Pro only too: `docs/KennelOS_Integrations_Plan.md`.
+**Editions:** Pro and Demo only (`editionFlags.accounts`). The vendor features hanging off
+Accounts (payment links, Stripe, Jotform) are Pro too. Design:
+`docs/KennelOS_Integrations_Plan.md`.
 
-`pages/accounts.html`/`.js` (Pro-only: `proPages.js`, `editionFlags.accounts`; the **Storage**
-hub's third tab, beside Documents and Shows) keeps the breeder's own accounts with registries,
-vendors and services — AKC, Good Dog, Chewy, Embark… — in the `accounts` table through
-`data/accountRepo.js` (`makeRepo` + a required `name`; `getAll` sorts by name). A table of its own, not Contacts (these are businesses she has a login with, not
-people) and **program-wide**, not kennel-scoped (one list whatever kennel is active).
+`pages/accounts.*` (the Storage hub's third tab) keeps her business accounts (AKC, Good Dog,
+Chewy…) in the `accounts` table via `data/accountRepo.js`. A table of its own, not Contacts,
+and **program-wide** (not kennel-scoped).
+- **Your login** (`username`, `password` masked until Show, `customer_id`, `notes`):
+  **private tier**, so they reach the cloud only inside the vault; they do ride file backups.
+- **Referral — to share** (`referral_link`, `referral_code`, `referral_instructions`): cloud
+  tier, meant to be handed out.
+- **Expenses** may name the account paid through (`expenses.account_id`; the Account picker
+  on both expense forms, Pro only). The card totals them, and **View expenses →** opens
+  `financials.html?view=expenses&account=<id>`.
+- **Processing fee** rate (§21.1). Every FK pointing at an account is in
+  `ACCOUNT_REFERENCES`, so an account in use can only be archived.
+- Sample accounts (AKC, Good Dog, Chewy) have obviously fake credentials; clearing sample
+  data treats a real expense naming one as contamination (§11).
 
-Each account card shows two groups, each value with a **Copy** button:
-- **Your login** — `username`, `password` (masked until **Show**), `customer_id`. For her
-  alone: these and `notes` are **private tier** in `syncRegistry.js` — they reach the cloud
-  only inside the encrypted private vault (§30), never in the plain snapshot. They do ride
-  the local JSON export and Dropbox backup files, like every other private field.
-- **Referral — to share** — `referral_link`, `referral_code`, and `referral_instructions`
-  (free text written for the families who'll use them, e.g. "use code at checkout for 30%
-  off"). These exist to be handed out, so they are cloud tier.
+### Shared with families (plan §3)
+Referral programs don't report which buyer used a code, so nothing detects use. Instead:
+`share_with_families` on an account puts it in `referralShare.sharedReferrals` (the one list:
+switched on, not archived, a web link or a code), which feeds the family Companion bundle's
+`recommended[]`, every waitlist status page (projection `kennel.recommended`, re-checked by
+the Worker's `familyPages.recommendedOf`), the go-home **follow-up** nudge (§19), and
+**Send a thank-you** on a Contact. Sending is always hers through
+`assets/messageComposer.js` (`mailto:` / `sms:` / copy); nothing goes to a server.
 
-**Expenses.** An expense may name the account it was paid through
-(`expenses.account_id`). Both expense forms — the per-subject panel (`expensePanel.js`) and
-the Financials hub's **+ Add Expense** — show an **Account** picker in Pro (shared helpers
-`loadAccountChoices` / `buildAccountField` / `wireAccountField` in `expensePanel.js`; no field
-at all in Lite, and an absent field leaves a stored `account_id` alone). Archived accounts are
-left out of the picker unless already chosen. Picking one fills an empty Vendor with its name.
-The ledger shows it: an **Account** column, search and filter on the Financials Expenses view,
-and "Account: X" on a panel row when it differs from the vendor. Each account card totals its
-active expenses (program-wide, not kennel-scoped) with **View expenses →**, which opens
-`financials.html?view=expenses&account=<id>`: like `bucket`, that param narrows the whole
-view (summary heading "Total spent — Chewy", with a "Show every account" link back).
-Expense CSV import doesn't read an account column yet.
+### Contract forms and e-signature (plan §2.1)
+- A **Form service** account (`form_service`, e.g. Jotform) holds `contract_forms[]`
+  (`{ id, form_type, label, url, form_id?, field_map? }`; types from
+  `vocab.CONTRACT_FORM_TYPE`, each serving certain `CONTRACT_TYPE`s and ranked for a sale's
+  registration by `contractForms.rankForms`).
+- **Send for signature** (Contract page): picks a form, builds a prefilled link
+  (`contractForms.prefillValues`, an allow-list that never includes notes or terms;
+  `prefillUrl` uses the form's URL prefill, no API call), and opens the composer. Using it
+  marks the contract `sent` with the `esign_*` fields. The breeder details come from the
+  contact linked to the contract's kennel (`contractSend.breederFor`).
+- **Connect Jotform** (a key per account, **this device only**: `jotformKeyStore` in
+  `device_secrets`, never in a backup, sync or the cloud). `jotformApi.js` is the only
+  module calling Jotform, straight from the browser. Connected, she can add forms from her
+  Jotform account and **match fields** (`jotformMatch.suggestFieldMap` → `field_map`), so
+  the link carries only matched facts under her field names (`contractForms.mapValues`).
+- **Signed comes back** (`data/jotformSigned.js`): on app open (at most every 15 minutes,
+  Pro) or **Check for signature**, her device finds each Sent Jotform contract's submission by
+  its `contractRef` and applies `contract.signed` through `integrationApply`. A contract she
+  changed meanwhile becomes a Today review. Nothing else from the submission is kept.
 
-Add/Edit is a modal; Archive/Unarchive and Delete as for any entity. Delete is blocked while
-an expense names the account (`getDeleteBlockers` → "archive it instead"). Search covers name, website, username, customer ID, referral link/code and
-notes; a type filter reads `vocab.ACCOUNT_TYPE`. A `website` typed without a scheme opens
-as `https://…`.
+### Payment services (plan §4–§5)
+- A **Payment service** account (`payment_service`) holds `payment_link` and/or
+  `payment_instructions` (cloud tier: written for buyers).
+- A Sale's **Deposit paid via** / **Balance paid via** name payment accounts (beside **Sold
+  through**, a marketplace). The fee is estimated per payment from them
+  (`processingFees.saleFeeEstimate`).
+- **Send payment link** (`assets/paymentRequestUI.js`, an open Sale and its invoice): pick
+  what for (`paymentLinks.paymentOptions`) and the account; with Stripe connected, a
+  **one-time Stripe link** for exactly that amount (`stripeLinks.makeSaleLink`), else the
+  account's own link and instructions.
+- **Connect Stripe:** a **restricted key** only (`rk_…`; `sk_` refused), per account, this
+  device only (`stripeKeyStore`). `stripeApi.js` is the only module calling Stripe, from the
+  browser; nothing goes through the Worker and the money goes to her account.
+- **Paid, by itself:** on app open (at most every 15 minutes) or **Check now**,
+  `checkStripePayments` applies a paid link through `integrationApply.js`: deposit or paid in
+  full with the date and reference, and the fee Stripe kept into `processing_fee_reports` /
+  `processing_fee_amount` (a fee she typed stays; the difference is a Today review). A sale
+  that moved on becomes a review.
+- Vendor events from the Worker (`cloudIntegrations.js`, server work only) go through the
+  same `integrationApply` / `integrationEvents.planIntegrationEvent`.
+- The waitlist application fee: §29.
 
-**Processing fee (§21.1).** The Add/Edit modal has a **Processing fee** group
-(percentage, fixed amount, "I usually pass this fee on to the buyer", and a private note),
-and a card with a rate shows it. A sale sold through the account names it
-(`sales.sales_channel_account_id`, in `ACCOUNT_REFERENCES`), so delete is blocked while one
-does. The sample Good Dog account carries a sample rate (6.25% + $5), and Cedar's sample sale
-went through it ($180 fee, passed on).
-
-**Shared with families (Integrations plan §3).** No referral program reports
-*which* buyer used a link or code (Amazon's terms even forbid per-person tags), so nothing
-detects a use. Instead:
-- **The switch.** "Share with families" (`share_with_families`) in the Referral section of the
-  Add/Edit modal; a shared account with a link or code gets a **Shown to families** badge.
-  `referralShare.sharedReferrals` is the one list everything reads: switched on, not
-  archived, a web-address link or a code, name / link / code / instructions only, by name.
-- **Where families see it:** the family Companion bundle's `recommended[]` (include flag
-  `recommended`, §20), and every waitlist status page, placed families included. The
-  projection carries `kennel.recommended` (built from `accountRepo` in `cloudWaitlist.
-  projectionFor`), the Worker re-checks it in `familyPages.recommendedOf` (strings capped, a
-  link only when it's a web address, at most 20), and the page shows a **Recommended for your
-  puppy** card with a Copy button for a code.
-- **The follow-up a week after going home:** the Today nudge in §19, whose note lists them.
-- **Send a thank-you** on a Contact (Pro): she picks what they used (one of the shared
-  accounts) or "Recommending us to someone", and `referralShare.referralThanksMessage` opens
-  in the composer, signed with the kennel of their latest sale, else her own kennel.
-- **Sending is hers:** the composer (`assets/messageComposer.js`) builds real `mailto:` /
-  `sms:` links from the edited text, or copies it. Nothing goes to a server (plan D7).
-
-**Contract forms (Integrations plan §2.1a, step 4).** An account of type **Form
-service** (`ACCOUNT_TYPE` `form_service`, e.g. Jotform) holds her signable contract forms
-(`contract_forms`, e.g. her pet home and breeding rights contracts). Its Add/Edit modal shows
-a **Contract forms** section right under Name / Type / Website, only while the type is Form
-service; with any other type the section is hidden, and saving leaves stored forms untouched
-(never offered, back if the type is switched back). The section has one row per form (a **type**
-from the fixed `vocab.CONTRACT_FORM_TYPE` list, her **label**, the form's **link**) with ✕ and
-**+ Add another contract form**; a blank row is dropped, a half-filled one is an error. A
-**Field names KennelOS fills in** panel lists `contractForms.PREFILL_FIELDS` per group with
-Copy: she sets each Jotform field's Unique Name to one (fixed names, plan D14). The card lists
-the forms with **Open**.
-- **Form types → contracts.** Each type names the `CONTRACT_TYPE`(s) it serves
-  (`contractTypes`). Pet home, breeding rights and deposit are all `sale`; pet home ranks first
-  for a `limited`/`none` registration, breeding rights for `full`, deposit while the sale is
-  `deposit_pending`, co-own for a `co_own` registration (and for a `co_own` contract).
-- **Send for signature** (Contract page, Pro: `editionFlags.accounts`; on a `draft`, `sent` or
-  `declined` contract; **Save & send for signature** on a new one, which reopens with
-  `?send=1`): picks from `contractForms.allForms` (non-archived Form service accounts) ranked by
-  `rankForms` (matching type first, **Show all forms** for the rest; all of them when none
-  match), shows every prefilled value, offers **Preview form**, and warns past 2,000
-  characters. `prefillValues` (the allow-list: never notes, terms or end reasons) reads the
-  contract's sale + buyer + pup + sire/dam + balance due, or stud service (stud and dam by
-  `direction`) + partner, or dog + counterparty, plus the kennel and her own name / email /
-  phone / address as `breeder…` (the contact whose `kennel_id` is the contract's kennel,
-  `contractSend.breederFor`: a contact typed Breeder first, then the oldest; none → left out,
-  with a note in the send dialog to set her contact's Kennel); `prefillUrl` adds them as
-  query parameters (Jotform's URL prefill — no API call, no server). It opens the composer
-  (`signatureMessage`) to Email / Text / Copy; once used, the contract becomes `sent` (a
-  `sent` one stays `sent`) with `esign_provider`, `esign_url`, `esign_sent_date`,
-  `esign_form_label`. The view shows **Sent for signature** (label · date) with **Copy link
-  again**, and the button becomes **Send again**. She marks it Signed herself; marking it
-  signed by itself is plan step 7 (her device checks Jotform first, a
-  server webhook only later).
-- **Connect Jotform (plan §2.1b, step 4b; D16 decided: the key stays on the
-  device).** On a saved Form service account (never in the Demo), the Contract forms
-  section has a **Connect Jotform** box: her API key (the box asks for a **Read Access**
-  key and says any key can read all her submissions) and which Jotform (standard / EU /
-  HIPAA). **Connect** checks the key with Jotform (`GET /user`) before
-  `jotformKeyStore` keeps it in `device_secrets`: on this device only, never in a backup,
-  sync or the cloud, so each device connects on its own; **Disconnect** forgets it here
-  (forms and matches stay), and deleting the account forgets it too. Calls go straight
-  from her browser to Jotform (`jotformApi.js`, the key as the `apiKey` query parameter so
-  each call is a plain GET, no cookies, no referrer); a blocked call says so, and pasting
-  links keeps working. Connected: **+ Add from Jotform** lists her forms (`GET
-  /user/forms`, deleted ones left out) with a type guessed from the title
-  (`jotformMatch.guessFormType`); **Add** reads the form's fields (`GET
-  /form/{id}/questions`; a Full Name field as `name[first]` / `name[last]`, an Address
-  field as `name[addr_line1]`, *Jotform's prefill naming, unverified*) and opens **Match
-  fields**: one row per fact the type fills (`factsFor`), preset by `suggestFieldMap`
-  (our fixed name, then field type, then label words; each of her fields fills one fact;
-  her own `breeder…` details only go to a field whose label says Seller / Breeder / Kennel,
-  and a bare Name / Email field stays the buyer's),
-  with warnings for no signature field, no email or no contract reference
-  (`matchWarnings`). Her confirmed matches become the row's `field_map`; the row shows
-  "Picked from Jotform · N fields matched" with **Fields…** to match again. A mapped
-  form's link carries **only** the matched facts, under her field names
-  (`contractForms.mapValues`, used by `contractSend.buildSignatureLink`); a pasted form
-  keeps the fixed names. The card shows the matched count.
-- **Signed forms come back (plan §6 step 7; `data/jotformSigned.js`).** A
-  contract that is **Sent** on a Jotform form (`esign_provider = 'jotform'`) is marked
-  **Signed** by her device once the form's submission carrying its reference turns up. When
-  the app opens (at most every 15 minutes, `bootJotformCheck` from `app.js`, Pro), or when
-  she taps **Check for signature** beside **Copy link again** on the contract, the device
-  finds the form each Sent contract went out on (the saved form whose link, without its
-  query, matches `esign_url`), and, when that form's Form service account is connected on
-  this device, reads its submissions since a day before the earliest sent date (`GET
-  /form/{id}/submissions` with a `created_at:gt` filter, `jotformApi.jotformSubmissions`).
-  The form's id is its `form_id`, else the number its link ends in; the reference is read
-  from the `contractRef` field (a pasted form) or the field matched to `contractRef` (a
-  matched form; matched with none → it can't be found). The oldest submission for a
-  contract is applied as a `contract.signed` event (`jotform-<submission id>`) through
-  `integrationApply`, so a Sent contract becomes `signed` with `signed_date` = the
-  submission's date, an already-signed one is skipped, and one she changed meanwhile gets a
-  Today review. Nothing else from the submission is kept (the buyer's answers stay in
-  Jotform); no KennelOS server is involved. Not connected on this device → nothing is
-  asked, and the button says to connect or mark it Signed by hand. The check's last time is
-  `jotformCheckedAt` in `settings.getIntegrationsState()`.
-
-**Payment services (Integrations plan §4–§5).** An account of
-type **Payment service** (`ACCOUNT_TYPE` `payment_service`: Stripe, Square, PayPal, Venmo,
-Zelle…) holds her own **payment link** (`payment_link`, a web address) and/or **payment
-instructions** (`payment_instructions`) in a **Payment link** group of the Add/Edit modal
-(only while the type is Payment service; another type hides it and saving leaves what's stored
-alone); the card shows them under **Payment link — to send buyers** with Copy. Both are cloud
-tier (written to be sent to buyers; plan D9).
-- **Connect Stripe (own key, step 6).** A saved Payment service account
-  (never in the Demo) has a **Connect Stripe** box: her **restricted key** (`rk_live_` /
-  `rk_test_`; a full `sk_` key is refused) with the permissions it lists (Products, Prices and
-  Payment Links write; Checkout Sessions, PaymentIntents, Charges and Balance read), and the
-  currency. **Connect** checks it with Stripe; `stripeKeyStore` keeps it in `device_secrets`,
-  on this device only; Disconnect and deleting the account forget it. `stripeApi.js` is the
-  only module that calls Stripe (straight from her browser, *CORS unverified until the real
-  flow*); nothing goes through the Worker and the money goes to her Stripe account.
-- **How a sale is paid.** A sale's **Deposit paid via** and **Balance paid via** (the rest of the
-  price, transport and boarding; blank = the deposit's) are Payment service accounts, beside
-  **Sold through** (a marketplace that handles the whole sale, Good Dog). The fee is estimated
-  per payment (`processingFees.saleFeeEstimate`): each payment at its paid-via account's rate
-  (percentage and fixed), else Sold through's; with neither paid-via set, Sold through's rate
-  on the whole price, as before. The Sale form and Review sale & send (which gains **Deposit
-  paid via**) suggest it and follow price, deposit and account changes until she types her own.
-- **Send payment link** (`assets/paymentRequestUI.js`, Pro; an open Sale's header and a
-  sale's Invoice): she picks what for (`paymentOptions`: the unpaid deposit, the rest, or
-  everything owed) and the account it's paid via (that part's account first;
-  `paymentLinks.salePaidVia`). Picking fills that part's paid-via when empty (`paidViaChanges`,
-  moving the fee estimate when the fee is still at it); a different one asks first. With
-  Stripe connected for the account on this device she can tick **Make a one-time Stripe
-  link**: `stripeLinks.makeSaleLink` makes a one-use payment link for exactly that amount with
-  the sale's id in Stripe's metadata (an unpaid earlier link is deactivated, the same one is
-  reused), and the message carries it. Else the account's own link and instructions.
-- **Paid, by itself.** When she opens KennelOS (at most every 15 minutes, `bootStripeCheck`) or
-  taps **Check now** on the Sale page's **Payment link** row, `checkStripePayments` asks Stripe
-  about each sale's open link, with the key of the account that part is paid via, and applies a
-  paid one through `integrationApply.js` (the planner of §19's reviews): Deposit paid / Paid in
-  full with the date, "Credit/debit card" and the payment reference, the fee Stripe kept into
-  `processing_fee_reports` and `processing_fee_amount` (replacing that part's estimate; a fee
-  she typed stays, and the difference is a Today review), and the link cleared. A sale that had
-  moved on, or a waitlist pick's deposit (recorded on the family's page), is a Today review.
-- **The waitlist application fee** (§29): see "Fee paid online" there.
-
-The sample Chewy account is shared, so Maple's sale (delivered 30 days ago, Briar Hollow)
-shows the follow-up on Today.
-
-The sample seed (`editionFlags.accounts`) adds AKC, Good Dog and Chewy with obviously fake
-credentials (the Demo is public), before the sample expenses so the Chewy and AKC costs
-name their account; `manifest.accounts` lists them. Clear Sample Data deletes them — or, when
-a real expense names one, treats it as contamination like a sample dog or kennel (`account`
-in `ENTITY_REGISTRIES`): reported on the dry run, archived on the archive-conflicting pass.
-They're never in a cloud snapshot, like all sample rows.
 
 ## 33. Ken — guided tasks ("Record a new litter")
 
-**Editions:** All editions. Steps for Pro features (outside dogs, stud service, sharing) are gated by their flags, as noted in the steps.
+**Editions:** All editions. Steps for Pro features (outside dogs, stud service, sharing) are
+gated by their flags.
 
-### What it is
-**Ken** (placeholder name; `kenChat.KEN_NAME`) is a scripted helper presented as a chat: a
-floating **Ask Ken** button (`kenChat.ASSIST_LABEL`; bottom right on every page, fixed while
-scrolling, a dot while a task is unfinished — rendered by `app.js` via
-`kenChat.renderAssistButton`) opens `pages/ken.html`. He is **not a model**: every line he
-"types" is written in the task scripts, and nothing leaves the device. On the page Ken shows a
-typing indicator, says "Hi, I'm Ken! What can I help you do today?", and his tasks fade in one
-at a time (`pages/ken.js` `TASKS`, each with a `priority(state)` hook — an unfinished task
-first — so more scripts can be ordered as they're added). Picking a task: Ken explains what
-will happen and offers **Sounds great, let's start!** / **Never mind**; then every question is a
-Ken message, her answer panel sits under it, and her answer stays in the chat as her reply,
-all in one transcript box that scrolls itself to the newest message. At the end Ken says "I
-think I got it all. Here's what I'll create:" and shows the plan (each section with a Change
-link; a change asks that question again and returns to the plan), then **Yes, build it**.
-No new table, field, index, FK or vocabulary: every write is an ordinary repo write.
+**Ken** (`kenChat.KEN_NAME`, a placeholder) is a **scripted** helper shown as a chat, not a
+model: every line is written in the task scripts, and nothing leaves the device. A floating
+**Ask Ken** button (`kenChat.renderAssistButton`, from `app.js`) opens `pages/ken.html`,
+which lists tasks (`ken.js` `TASKS`, ordered by each task's `priority(state)`). Every write
+is an ordinary repo write. Modules: `assets/kenChat.js` (the transcript and button),
+`pages/ken.*` (the menu), `assets/guidedLitterUI.js` (the litter task's screens and runner),
+`data/guidedLitter.js` (its steps, matching, review and save; tested).
 
-Modules: `assets/kenChat.js` (the transcript: `createChat(box)` → `ken(html)` with typing,
-`you(text)`, `panel(html)`, `choose(choices)`; and the floating button), `pages/ken.*` (the
-page and Ken's menu), `assets/guidedLitterUI.js` (the litter task: its question screens, her
-replies — `answerFor` — and the conversation runner `runLitterTask`).
+**Doors:** the floating button; the Breeding page (`ken.html?task=record-litter`); an
+expected litter's page (`&litter=<id>`, parents and litter preset).
 
-**Doors:** the floating button; the Breeding page header (**Record a litter with Ken** →
-`ken.html?task=record-litter`); an Expected litter's page header (**Record the birth with Ken**
-→ `&litter=<id>`, which starts with that litter's parents and litter already chosen). A header
-**Save for later** button while a task runs says the answers are kept and returns to the menu.
+**"Record a new litter"** (`stepsFor`): mom and dad (own dogs, all dogs, or a new one; a
+typed name is first checked against existing dogs, `dogMatches`, so nobody is entered twice;
+outside dogs only in Pro) → the matching litter (`litterCandidates`) → the matching breeding
+(`pairingCandidates`) or when she was bred → the stud service (Pro, outside dad) → birth date
+and counts → kennel (only if it can't be worked out) → one screen per puppy → plans
+(disposition, intended registration) → prices (prefilled from her last priced litter of that
+breed, previewed with the `expectedPricing` rule) → dates → extras → review with Change links.
 
-### The order (`data/guidedLitter.js` `stepsFor`)
-1. **Who is the mom?** then **Who is the dad?** Her own dogs as tiles, "Show all" for outside
-   dogs, and **A dog that isn't in KennelOS yet**. A new dog asks name, breed, registered name
-   and (Pro, `editionFlags.externalOwnership`) **Mine / Someone else's**; someone else's asks
-   the owner (a contact picked, or a new one's name/phone/email) and, optionally, the owner's
-   kennel (an outside kennel picked, or a new one by name). **Before a new dog is made**, the
-   typed name is looked up (`dogMatches`: same sex or unknown, call or registered name equal or
-   one containing the other; every non-archived dog, outside and pedigree-only ones included):
-   any found are offered first — "We found Nell. Is this the mom?" — so a dog is never entered
-   twice. Lite records only her own dogs (no outside dogs there).
-2. **Is this the litter?** — litters of those two parents with no puppies yet
-   (`litterCandidates`), only when both parents are dogs on file.
-3. **Is this the breeding?** — open breedings of the pair with no litter linked
-   (`pairingCandidates`; not `not_pregnant`/`failed`/`cancelled`), asked when no litter was
-   picked or the picked litter has no breeding linked. Picking one fills the bred date and
-   method and skips the next step.
-4. **When was she bred?** (dates optional, method tiles) — only when no breeding exists.
-5. **Record the stud service?** (Pro, `editionFlags.studServices`) — when the dad is somebody
-   else's and the breeding has none: fee structure, fee, in person / shipped.
-6. The birth date, the counts (born alive / not alive / abnormalities), the kennel (only when
-   `resolveKennelIdForWrite` can't work it out), **one screen per puppy** (name — starts as a
-   collar color — Boy/Girl, color & markings, birth weight in ounces), **plans** (disposition +
-   intended registration per pup, with "Set all to"), **prices** (the litter's per-sex price,
-   deposit and Full surcharge, prefilled from her newest priced litter of the dam's breed, with
-   a live "how families will see the available puppies" preview using `pupPriceText` — the
-   same sex + Full-surcharge rule as `saleDefaults.expectedPricing`), **dates** (accept-deposits
-   date; ready date defaulting to whelp + 56 days), **extras** (litter nickname, per-pup
-   microchip and photo link), then the **review**, each section with a Change link.
+**The save** (`saveGuidedLitter`) writes in order: new parents → litter → breeding (marked
+`whelped`, due = bred + 63) → stud service → puppies (`puppyDefaults.baseFromLitter`, as Add
+Puppies) → a "Birth weight" `weight_check` per weighed pup. In Lite the litter is written
+first so the cap refuses before anything else is made. **Resumable:** each new id goes back
+on the draft as it's made, so a retry never duplicates.
 
-### The save (`saveGuidedLitter`)
-Order: new parents (an own dog is `owned`/`active_breeding` in the litter's kennel; an outside
-one is `external` with its new kennel and owner contact made first) → the litter (created
-`whelped`, or the picked one updated) → the breeding (the litter's own or the picked one marked
-`whelped` and linked to the litter, or a new `actual` one created `whelped` with
-`expected_due_date` = bred + 63) → the `incoming` stud service (`partner_contact_id` = the
-dad's owner) → each puppy (`puppyDefaults.baseFromLitter`, exactly as Add Puppies; a pup
-already on the litter is updated, and given the birth date if it had none) → a `weight_check`
-event titled "Birth weight" per weighed pup. In Lite the litter is the first write, so the
-litter cap refuses with nothing made (a new own mom counts toward the dog cap and is made
-first). **Resumable:** every record's id goes back on the draft (`draft.saved`, `pup.id`) the
-moment it's made and the draft is re-saved after each write, so a save that stops partway
-(an error, a closed tab) retries without making anything twice; changing an answer after
-such a stop clears `saved.litterUpdated` / each pup's `saved` so the retry writes the new
-values.
+**The draft:** `settings.guidedLitterDraft` (answers plus `history` to replay the chat;
+`DRAFT_VERSION`). Device-only, cleared by Reset App, one at a time.
 
-### The draft
-`settings.js` `guidedLitterDraft` (`kennelOS.guidedLitterDraft`): her answers, kept after
-every step, plus `history` (each answered question and her reply, so the chat is replayed when
-she comes back), versioned by `DRAFT_VERSION` (an older version is dropped). Device-only — it
-isn't program data until saved — and in `KEYS`, so Reset App clears it. One at a time: Ken's
-menu offers **Finish recording X's litter** first, and starting a new litter with one pending
-asks "Finish that one / Start fresh".
-
-### After the save: "Let families know" (Pro)
-`assets/guidedShareUI.js` (Pro-only; imported only when `editionFlags.waitlist` or
-`editionFlags.companion` and a pup is Available), as Ken's "Want to tell people about the new
-pups?" with its panel in the chat. **Tell my waitlist they were born** opens
-the litter page's own "It's almost your turn" / "a litter you match was born" notice
-(`waitlistPicksPanel.openLitterWaitlistNotice`) to review and send. **Share the available
-pups** walks the active waitlist contacts (the Companion console's prospective membership) one
-family per screen with real Email / Text anchors built by `companionLink.js`. It **never opens
-picks**: offers stay hers to make from the litter page, which the Done
-screen says.
+**After the save** (Pro, `assets/guidedShareUI.js`, loaded only with `waitlist` or
+`companion` and an available pup): tell the waitlist (the litter page's notice) or share the
+available pups with prospective families via Companion links. It **never opens picks**.
 
 
 ---
@@ -1852,6 +1675,9 @@ plan is the detailed design. This is the shape of what's built.
 - **The loop:** `data/cloud/cloudSync.js` does push then pull, the lock, the scheduler and
   pauses. A lapsed license pauses sync. Joining a program: the newer `updated_at` wins and
   nothing gets deleted.
+- **Backups on a syncing program:** a snapshot states the `sync_seq` it has applied and goes
+  only while the device is caught up (else it's skipped as `sync_behind`, still dirty). While
+  Pro has lapsed (sync paused `pro_required`) backups follow the Phase 1 backing-device rule.
 - **Server work on a syncing program** (waitlist intake, family and vendor events, emails)
   runs on one device at a time under a two-minute lease (`data/cloud/serverWork.js`,
   migration `0016`).
