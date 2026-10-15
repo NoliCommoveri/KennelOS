@@ -1349,3 +1349,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   as its starting Disposition filter (listView filters take an `initial` value, used only
   when it's one of the options). "unsold" / "available" (with or without puppies / pups)
   now offers both it and Litters.
+- **Kels: "Zeus puppies" (2026-10-15).** Each dog with offspring is a second Find
+  candidate, "<name>'s puppies", opening `dog.html?id=…#offspring` (the Offspring list
+  under the pedigree; `pedigree.js` gives it `id="offspring"`, and dog.js scrolls to it once
+  it draws). Its words are the dog's names plus puppies / pups / offspring / babies…, and it
+  `requires` the dog's name (a new candidate field in `kelsFind`), so "puppies" alone lists
+  no sires and "Zeus" alone is still Zeus.

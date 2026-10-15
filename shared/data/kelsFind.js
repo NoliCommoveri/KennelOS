@@ -10,7 +10,9 @@
 //   levels: [level1, level2, level3] (each a list of texts, or [label, text]
 //   pairs, where a label names the field: "her notes"),
 //   numbers?: [registration or chip numbers, as normReg keys],
-//   facets?: [{ key, question, value }] (how to split many of one kind) }.
+//   facets?: [{ key, question, value }] (how to split many of one kind),
+//   requires?: [texts] (found only when one of her words is in one of these:
+//   "Zeus's puppies" needs "Zeus", so "puppies" alone doesn't list every sire) }.
 //
 // Levels (decided): 1 = names, numbers, a place's title and keywords; 2 =
 // secondary details; 3 = deep (notes, a dog's events). A deeper level is used
@@ -106,6 +108,7 @@ function indexOf(c) {
       return [...out].map(([w, label]) => ({ w, label }));
     });
     c._title = new Set(tokens(c.title).map(stem));
+    c._requires = c.requires ? new Set(c.requires.flatMap((t) => tokens(t).map(stem))) : null;
   }
   return c._index;
 }
@@ -115,6 +118,7 @@ function scoreAt(candidates, qs, level, typedNumber, reach) {
   const hits = [];
   for (const c of candidates) {
     const idx = indexOf(c);
+    if (c._requires && !qs.some((q) => [...c._requires].some((w) => wordScore(q, w, reach) > 0))) continue;
     let matched = 0;
     let score = 0;
     let why = null;

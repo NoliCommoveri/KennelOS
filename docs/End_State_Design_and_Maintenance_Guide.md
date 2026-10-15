@@ -1842,7 +1842,9 @@ builds nothing), then a search box.
   `financials.html?view=&bucket=`; `kennel.html?id={kennel}#<section>` with her active
   kennel), plus every report (`reportCatalog.REPORTS`) and expense category. A place whose
   page is Pro-only isn't offered in Lite, nor one whose `flag` is off. **Records:** dogs
-  (archived only where `archivedDogLinks`), litters, and in Pro contacts and kennels.
+  (archived only where `archivedDogLinks`), each dog with offspring once more as "<name>'s
+  puppies" (`dog.html?id=…#offspring`, the Offspring list under its pedigree; found only
+  with the dog's name, a candidate's `requires`), litters, and in Pro contacts and kennels.
   **Tasks:** each available task (label, `keywords`), a little behind a page of the same words;
   choosing one starts it (`handoff`).
 - **Levels:** 1 = names, numbers (`normReg`, typed any way), a place's title and keywords;
