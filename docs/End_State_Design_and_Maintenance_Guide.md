@@ -1706,10 +1706,13 @@ name, call or registered, against both names of every dog, both ways and forgivi
 case, spacing, punctuation ignored; run-together names; a slip or two per word, a swapped
 pair counting as one; sound-alikes, "Zoie" / "Zoey"; "Zoey" finds "GCH Thornfield Zoey Mae");
 numbers wherever they were typed, a name box included, on both sides; then the same number
-is `certain` (shown even when the sex doesn't fit), one slip off "nearly the same" and a
-breed spelled near enough or a birthday the same, a few days off or day and month swapped
-make it `likely`, and a clearly different number or breed only lowers it to `possible`,
-never hides it; `similarNamed`, the same name match for kennels and contacts;
+is `certain` (shown even when the sex or breed doesn't fit, to say so), one slip off
+"nearly the same" and a breed spelled near enough or a birthday the same, a few days off or
+day and month swapped make it `likely`; a different breed (not just misspelled) or sex is a
+different dog, never offered; a clearly different number only lowers it to `possible`;
+`normReg`, a registration number's key everywhere (spaces, slashes, dashes and a leading
+"AKC" never count; also the CSV import's, the pedigree import's and the tidy-up's
+duplicates'); `similarNamed`, the same name match for kennels and contacts;
 `looksLikeNumber`; nothing typed is changed as stored), `assets/litterCheckinUI.js`
 + `data/litterCheckin.js` + `data/goHome.js` (the check-in), `assets/tidyUpUI.js` +
 `data/tidyRules.js` + `data/recordMerge.js` (the tidy-up), `assets/accountHealthUI.js` +
@@ -1761,8 +1764,10 @@ isn't closed (**Check in with Kels**, `kels.html?task=checkin&litter=<id>`).
 
 ### "Record a new litter"
 `stepsFor`: mom and dad (own dogs, all dogs, or a new one; a typed name is first checked
-against existing dogs, `dogSearch.findDogMatches` with its names and breed, so nobody is
-entered twice; outside dogs only in Pro) →
+against existing dogs, `dogSearch.findDogMatches` with its names and breed, pedigree-only
+dogs included, so nobody is entered twice; "Yes, that's her" on a pedigree-only one brings
+it into use with her answers (`spec.bringInId`: updated, not made; the pedigree's names and
+breed stay, hers fill only blanks); outside dogs only in Pro) →
 the matching litter (`litterCandidates`) → the matching breeding (`pairingCandidates`) or when
 she was bred → the stud service (Pro, outside dad) → birth date and counts → kennel (only if
 it can't be worked out) → one screen per puppy → plans (disposition, intended registration) →

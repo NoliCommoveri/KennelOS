@@ -37,7 +37,9 @@ import { StepConversation, tile, field, input, options, stepper, val, plural, pa
 
 async function loadData() {
   const [dogs, litters, pairings, kennels, contacts] = await Promise.all([
-    dogRepo.getAll({ includeArchived: false }),
+    // Pedigree-only dogs too: a mom or dad typed in may be one (brought into
+    // use); they never show among the dogs to pick (damChoices / sireChoices).
+    dogRepo.getAll({ includeArchived: false, includePedigreeOnly: true }),
     litterRepo.getAll({ includeArchived: false }),
     pairingRepo.getAll({ includeArchived: false }),
     kennelRepo.getAll({ includeArchived: false }),
@@ -167,6 +169,7 @@ function screens(draft, data, ctx) {
         if (spec.matchesFor === asked) return;
         spec.matchesFor = asked;
         spec.matchDeclined = false;
+        spec.bringInId = null;
         spec.matchIds = findDogMatches(data.dogs, { callName: spec.call_name, registeredName: spec.registered_name, breed: spec.breed, sex: r.sex },
           { excludeIds: [otherId(role)] }).slice(0, 6).map((m) => m.dog.id);
       }
@@ -190,11 +193,15 @@ function screens(draft, data, ctx) {
       title: one ? `We found ${esc(found[0].call_name || found[0].registered_name)}. Is this the ${r.word}?` : `We found dogs with that name. Is one of them the ${r.word}?`,
       html: `<p class="gl-lead">${one ? 'This dog is already in KennelOS.' : 'These dogs are already in KennelOS.'} Using ${one ? 'it' : 'one'} keeps ${r.possessive} records in one place.</p>
         <div class="gl-tiles">
-          ${found.map((d) => tile('match', d.id, `${one ? `Yes, that's ${r.pronoun === 'she' ? 'her' : 'him'}: ` : ''}${dogLabel(d)}`, { sub: describe(d) })).join('')}
+          ${found.map((d) => tile('match', d.id, `${one ? `Yes, that's ${r.pronoun === 'she' ? 'her' : 'him'}: ` : ''}${dogLabel(d)}`, { selected: spec.bringInId === d.id, sub: describe(d) })).join('')}
           ${tile('match', 'none', `No, ${r.pronoun}'s a different dog`, { selected: spec.matchDeclined, sub: `Add ${spec.call_name ? esc(spec.call_name) : `the ${r.word}`} as a new dog` })}
         </div>`,
       onTile: (value) => {
+        spec.bringInId = null;
         if (value === 'none') { spec.matchDeclined = true; return true; }
+        // A dog only on a pedigree: brought into use with her answers (and,
+        // someone else's, its owner), instead of a second one.
+        if (data.dogsById.get(value)?.pedigree_only) { spec.bringInId = value; spec.matchDeclined = false; return true; }
         draft[r.idKey] = value;
         draft[r.newKey] = null;
         resetMatches();
@@ -500,7 +507,7 @@ function answerFor(stepId, draft, data) {
     if (!part) return spec ? 'A dog that isn\'t in KennelOS yet' : dogName(draft[r.idKey]);
     if (!spec) return part === 'match' ? `Yes, that's ${r.pronoun === 'she' ? 'her' : 'him'}: ${dogName(draft[r.idKey])}` : '';
     if (part === 'new') return [spec.call_name, spec.registered_name, spec.breed, spec.mine ? 'mine' : 'someone else\'s'].filter(Boolean).join(' · ');
-    if (part === 'match') return `No, ${r.pronoun}'s a different dog`;
+    if (part === 'match') return spec.bringInId ? `Yes, that's ${r.pronoun === 'she' ? 'her' : 'him'}: ${dogName(spec.bringInId)} (from a pedigree)` : `No, ${r.pronoun}'s a different dog`;
     if (part === 'owner') return spec.ownerId ? (data.contactsById.get(spec.ownerId)?.name || 'Someone in my contacts') : [spec.owner.name, spec.owner.phone, spec.owner.email].filter(Boolean).join(' · ');
     if (part === 'kennel') return spec.kennelId ? (data.kennelsById.get(spec.kennelId)?.kennel_name || '') : (spec.kennelName || 'Skip');
   }

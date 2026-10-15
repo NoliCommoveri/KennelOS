@@ -248,3 +248,21 @@ test('a new dog of hers, and a litter entered without its breeding: the picked b
   assert.equal(daisy.kennel_id, kennelId);
   assert.equal((await dogRepo.getByLitter(litterId))[0].breed, 'Poodle');
 });
+
+test('a new mom who is only on a pedigree is brought into use, not made twice', async () => {
+  const ped = await dogRepo.createPedigreeOnly({ registered_name: 'Ch Ancestral Nell of Elm', sex: 'female', breed: dam.breed });
+  const d = birthDraft({ damId: null });
+  d.newDam = Object.assign(g.newDogSpec(dam.breed), { call_name: 'Nellie', registered_name: 'Ancestral Nell', bringInId: ped.id });
+  assert.equal(g.stepProblem('dam-match', d), null);
+  assert.match(g.reviewSections(d, {})[0].lines[0], /Brought into your dogs from a pedigree/);
+  const before = tables.dogs.rows.size;
+  const { litterId } = await g.saveGuidedLitter(d);
+  const litter = await litterRepo.getById(litterId);
+  assert.equal(litter.dam_id, ped.id);
+  const nell = await dogRepo.getById(ped.id);
+  assert.equal(nell.pedigree_only, false);
+  assert.equal(nell.ownership_type, 'owned');
+  assert.equal(nell.registered_name, 'Ch Ancestral Nell of Elm', 'the pedigree\'s name stays');
+  assert.equal(nell.call_name, 'Nellie', 'her call name fills the blank');
+  assert.equal(tables.dogs.rows.size, before + 3, 'only the three pups are new');
+});

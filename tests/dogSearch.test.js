@@ -34,14 +34,18 @@ test('a call name finds call and registered names; the sex has to fit; archived 
   assert.deepEqual(findDogMatches(dogs, { callName: 'Z', sex: 'female' }), []);
 });
 
-test('then the facts: a number is certain, a breed or birthday likely, a different number doubtful', () => {
+test('then the facts: a number is certain, a breed or birthday likely, a different number doubtful, a different breed another dog', () => {
   const ms = findDogMatches(dogs, { callName: 'Zoey', breed: 'golden retriever', registrationNumber: 'sr-123456/01', sex: 'female' });
-  assert.deepEqual(ms.map((m) => [m.dog.id, m.strength]), [['num', 'certain'], ['mae', 'likely'], ['other', 'possible'], ['zoe', 'possible']]);
+  assert.deepEqual(ms.map((m) => [m.dog.id, m.strength]), [['num', 'certain'], ['mae', 'likely'], ['other', 'possible']]);
   assert.equal(matchReason(ms[0]), 'Same registration number');
   assert.equal(matchReason(ms[1]), 'Same breed');
   // A different number is a reason to doubt, not to hide (numbers get mistyped).
   assert.equal(matchReason(ms[2]), 'Different registration number');
-  assert.equal(matchReason(ms[3]), 'Different breed');
+  // A different breed is a different dog: Zoe the Whippet isn't offered.
+  assert.ok(!ids(ms).includes('zoe'));
+  // ...unless the number is the same, which she's told about.
+  const same = findDogMatches([{ id: 'w', call_name: 'Rex', breed: 'Whippet', registration_number: 'SR12345601' }], { callName: 'Rex', breed: 'Beagle', registrationNumber: 'SR 123456/01' });
+  assert.equal(matchReason(same[0]), 'Same registration number; Different breed');
   const bday = findDogMatches(dogs, { callName: 'Zoey', dateOfBirth: '2022-01-01', sex: 'female' });
   assert.equal(bday.find((m) => m.dog.id === 'mae').strength, 'likely');
   assert.deepEqual(ids(findDogMatches(dogs, { callName: 'Zoey', sex: 'female' }, { excludeIds: ['zoe', 'mae'] })), ['other']);
@@ -67,4 +71,14 @@ test('people: typos, sound-alikes, run-together names, numbers in name boxes, sw
   assert.equal(similarNamed([{ n: 'Windmere Goldens' }], 'windmere golden', (x) => x.n).n, 'Windmere Goldens');
   assert.ok(looksLikeNumber('AKC ws-71029304'));
   assert.ok(!looksLikeNumber('Zoey'));
+});
+
+test('registration numbers: spaces, slashes, dashes and a typed "AKC" never count', async () => {
+  const { normReg } = await import('../shared/data/dogSearch.js');
+  for (const n of ['SR 123456/01', 'sr123456-01', 'AKC SR12345601', 'SR 12345601 03-25', ' S R 1 2 3 4 5 6 / 0 1 ']) assert.equal(normReg(n), 'SR12345601', n);
+  const ms = findDogMatches([{ id: 'x', call_name: 'Rex', registration_number: 'SR12345601' }], { callName: 'Fido', registrationNumber: 'SR 123456/01' });
+  assert.deepEqual(ms.map((m) => [m.dog.id, m.strength]), [['x', 'certain']]);
+  // A number typed with a space is one number, not two.
+  const none = findDogMatches([{ id: 'y', call_name: 'Pip', registration_number: '12345601' }], { callName: 'Fido', registrationNumber: 'SR 123456/01' });
+  assert.ok(!none.some((m) => m.strength === 'certain'));
 });

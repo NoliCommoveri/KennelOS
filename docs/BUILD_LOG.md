@@ -1264,3 +1264,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   kennel or contact like one she has (Add dogs, the litter task, the tidy-up), a breed
   spelled unlike her dogs', and a registration number in a name box. Add dogs saves a breed
   in her dogs' spelling when it differs only in case or spacing.
+- **Kels: breed and numbers, and the litter task's ancestors (2026-10-15).** A different
+  breed (not a misspelling) is a different dog: never offered, unless the registration
+  number is the same. `normReg` moved to `dogSearch.js`, and the tidy-up's duplicates use
+  it too, so a number's spaces, slashes, dashes and a leading "AKC" never count anywhere;
+  a number typed with spaces is read as one number. Record a new litter now looks at
+  pedigree-only dogs for a new mom or dad and brings the one she picks into use instead of
+  making a second (`newDogSpec.bringInId`).

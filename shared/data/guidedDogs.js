@@ -29,8 +29,7 @@ import { expenseRepo } from './expenseRepo.js';
 import { todayYMD, addMonthsToYMD } from './dateUtils.js';
 import { SEX, DOG_STATUS, OWNERSHIP_TYPE, VACCINE_GOOD_FOR, descriptor, defaultExpenseCategoryFor } from './vocab.js';
 import { fmt } from './guidedLitter.js';
-import { normReg } from './pedigreeImport.js';
-import { findDogMatches, matchReason, nameKey, similarNamed, looksLikeNumber } from './dogSearch.js';
+import { findDogMatches, matchReason, nameKey, similarNamed, looksLikeNumber, normReg } from './dogSearch.js';
 
 // 2: the match is asked after each dog's details (a version-1 draft is dropped).
 export const DRAFT_VERSION = 2;

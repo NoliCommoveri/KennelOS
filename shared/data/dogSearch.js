@@ -14,18 +14,29 @@
 //    of the other ("Zoe" / "Zoey"), or sounding the same ("Zoie" / "Zoey",
 //    "Khloe" / "Chloe").
 // 2. Numbers wherever they were typed: the registration number, and anything
-//    number-like in a name box, on both sides. The same number is that dog
+//    number-like in a name box, on both sides; spaces, slashes, dashes and an
+//    "AKC" in front never count. The same number is that dog
 //    (`certain`); one slip off is "nearly the same number" (likely); a clearly
 //    different one is a reason to doubt, never a reason to hide it.
-// 3. Then the other facts: the same breed (spelled near enough) or birthday
-//    (the same, a few days off, or day and month swapped) makes a name `likely`;
-//    a name alone, or with something different, is `possible`. A sex that
-//    doesn't fit isn't offered (unknown fits either), unless the number is the
-//    same.
+// 3. Then the other facts: a different breed (not just spelled differently) or a
+//    sex that doesn't fit is a different dog, never offered (unknown fits
+//    either), unless the number is the same; the same breed or birthday (the
+//    same, a few days off, or day and month swapped) makes a name `likely`; a
+//    name alone, or with a different number or birthday, is `possible`.
 // A number is compared without spaces, punctuation or an "AKC" in front, and
 // nothing here changes what's stored: everything is kept as she typed it.
-import { normReg } from './pedigreeImport.js';
 import { splitTitles } from './pedigreeParse.js';
+
+// A registration number's key: upper-cased, an "AKC" in front dropped, and only
+// letters and digits kept — "NP165114/01", "np 165114-01", "AKC NP16511401" are
+// one number however they were typed.
+// An AKC number is two letters and eight digits; the four digits printed after it
+// ("NP888072/07 03-25") are kept on the record but left out of the key, so the
+// number matches whether or not they were typed.
+export const normReg = (r) => {
+  const k = String(r || '').toUpperCase().replace(/^\s*AKC\b[\s#:.-]*/, '').replace(/[^A-Z0-9]/g, '');
+  return /^[A-Z]{2}\d{8}(\d{4})?$/.test(k) ? k.slice(0, 10) : k;
+};
 
 const STRENGTH_ORDER = { certain: 0, likely: 1, possible: 2 };
 
@@ -47,9 +58,11 @@ function numbersIn(text) {
   const s = String(text || '');
   const out = new Set();
   // The whole thing, when it has no words in it ("SR 123456/01", "AKC sr-12345601").
+  // A number typed with spaces or slashes is one number: spaces, "/", "-" and
+  // the rest never count ("SR 123456/01" = "SR12345601").
   const words = s.split(/[^a-z]+/i).filter((w) => w.length >= 3 && w.toLowerCase() !== 'akc');
-  if (!words.length) { const whole = normReg(s); if (isNumberish(whole)) out.add(whole); }
-  // Or a number-like piece of it ("Zoey SR12345601").
+  if (!words.length) { const whole = normReg(s); if (isNumberish(whole)) out.add(whole); return [...out]; }
+  // Or a number-like piece of a name ("Zoey SR12345601").
   for (const t of s.split(/\s+/)) { const k = normReg(t); if (isNumberish(k)) out.add(k); }
   return [...out];
 }
@@ -149,8 +162,14 @@ export function findDogMatches(dogs, typed = {}, { excludeIds = [] } = {}) {
     if (sameNumber) agrees.push('registration number');
     else if (nearNumber) agrees.push('nearly the same registration number');
     else if (typedNums.length && dogNums.length) differs.push('registration number');
+    // A different breed is a different dog (spelled near enough is the same one);
+    // only the same registration number still shows it, to say so.
     const dBreed = nameKey(d.breed);
-    if (breedKey && dBreed) (nameHit(breedKey, dBreed) ? agrees : differs).push('breed');
+    if (breedKey && dBreed) {
+      if (nameHit(breedKey, dBreed)) agrees.push('breed');
+      else if (sameNumber) differs.push('breed');
+      else continue;
+    }
     const day = sameDay(typed.dateOfBirth, d.date_of_birth);
     if (day != null) (day ? agrees : differs).push('birthday');
     const strength = sameNumber ? 'certain'
