@@ -67,6 +67,9 @@ test('Lite: no waitlist, stud, foster or Companion topics; its own way out for a
   assert.doesNotMatch(l.find((e) => e.id === 'add-income').a, /stud|waitlist/);
   assert.ok(!l.some((e) => /\blimit\b|\bcap\b|upgrade/i.test(e.a)), 'no word on the limit');
   assert.ok(!l.some((e) => /archiv/i.test(e.q + e.a + (e.show || ''))), 'Lite never says archive');
+  assert.ok(!understandSections(l, LITE).some((s) => /archiv/i.test(s.label)), 'nor does a Lite topic');
+  assert.ok(!understandCandidates(l, LITE).some((c) => /archiv/i.test(c.group)));
+  assert.equal(understandSections(pro(), PRO).find((s) => s.id === 'removing').label, 'Archiving and deleting');
   assert.ok(ids.has('mistake-money') && !ids.has('archive-money'), 'Lite asks how to take out a mistake instead');
   assert.ok(!pro().some((e) => e.id === 'mistake-money'));
   assert.ok(!understandSections(l).some((s) => s.id === 'waitlist'), 'no empty topic');

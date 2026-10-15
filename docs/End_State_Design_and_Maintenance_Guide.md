@@ -1995,8 +1995,9 @@ question when there is one. How KennelOS works opens "I'm on it!" +
   `{ edition, flags, cloud, vault, online, page(href) }` (`online`: the online waitlist is
   offered, `isWaitlistOnlineOffered`). An answer is written from the rule as
   built, so a change to the rule changes its answer in the same edit.
-- **Topics** (`SECTIONS`): Dogs and puppies, Archiving and deleting, Breedings and litters,
-  Money, The waitlist, Your data and devices. A topic with no entry in this edition isn't
+- **Topics** (`SECTIONS`): Dogs and puppies, Archiving and deleting (Removing and deleting in
+  Lite, which never says archive), Breedings and litters, Money, The waitlist, Your data and
+  devices. A topic with no entry in this edition isn't
   offered (`understandSections`).
 - **Edition-honest:** an entry with a `flag` the edition lacks, or whose `when(ctx)` is
   false, isn't there; a sentence about such a feature is left out of the answer; a Show me

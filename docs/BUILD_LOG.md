@@ -1429,3 +1429,5 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   do I take it out?" (Delete; end a sale that fell through with a status). The deceased
   answer drops "rather than archiving it" in Lite. Test: no Lite question or answer says
   archive.
+  The topic is "Removing and deleting" in Lite (`labelNoArchive`; `understandSections` /
+  `understandCandidates` take the edition's flags).

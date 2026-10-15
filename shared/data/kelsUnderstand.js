@@ -23,7 +23,8 @@ import { isProOnlyPage } from './proPages.js';
 
 export const SECTIONS = [
   { id: 'dogs', label: 'Dogs and puppies' },
-  { id: 'removing', label: 'Archiving and deleting' },
+  // Lite has no archiving to speak of: its word is removing (a dog leaves the program).
+  { id: 'removing', label: 'Archiving and deleting', labelNoArchive: 'Removing and deleting' },
   { id: 'breeding', label: 'Breedings and litters' },
   { id: 'money', label: 'Money' },
   { id: 'waitlist', label: 'The waitlist' },
@@ -228,14 +229,17 @@ export function understandEntries({ edition, flags = {}, cloud = false, vault = 
 }
 
 // The sections with at least one entry, in order: [{ id, label, entries }].
-export function understandSections(entries) {
-  return SECTIONS.map((s) => ({ ...s, entries: entries.filter((e) => e.section === s.id) })).filter((s) => s.entries.length);
+// `flags`: the edition's, for a topic named differently where it lacks a feature.
+const sectionLabel = (s, flags = {}) => (s.labelNoArchive && !flags.manualDogArchive ? s.labelNoArchive : s.label);
+
+export function understandSections(entries, flags = {}) {
+  return SECTIONS.map((s) => ({ id: s.id, label: sectionLabel(s, flags), entries: entries.filter((e) => e.section === s.id) })).filter((s) => s.entries.length);
 }
 
 // The entries as kelsFind candidates: the search looks at these only (decided).
 // Level 1 is the question and its keywords, level 2 the answer.
-export function understandCandidates(entries) {
-  const label = new Map(SECTIONS.map((s) => [s.id, s.label]));
+export function understandCandidates(entries, flags = {}) {
+  const label = new Map(SECTIONS.map((s) => [s.id, sectionLabel(s, flags)]));
   return entries.map((e) => ({
     id: `understand:${e.id}`, group: label.get(e.section), title: e.q, entry: e,
     levels: [[e.q, ...e.keywords], [e.a], []]
