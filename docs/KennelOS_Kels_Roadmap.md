@@ -332,7 +332,8 @@ history) and landing on the card.
   - **Order:** unfinished work (a resumable draft) → starred → frequent → the state-based
     `priority` the menu uses today. Within a group, the state-based priority decides. A
     task that isn't `available` never shows, starred or not.
-  - **Open:** once she has starred tasks, should the rest fold under "More"?
+  - **Decided:** the rest never folds under "More", and starred tasks stay in the Doing
+    Something list (no shortcuts on her first screen).
 - **Task handoffs** grow (sale → prep pups; heat → breeding → litter). `handoff(taskId,
   opts)` already exists; each task documents what `opts` it takes.
 - **Suggested next task:** the menu's `priority` already reads state. Add "pups leave in a
@@ -364,5 +365,7 @@ Decided:
   Something** (§3.11). Find searches places (a cheat sheet we write), records and tasks,
   deep in levels; the button opens the page.
 
-Open:
-1. Once she has starred tasks, should the rest of the menu fold under "More"?
+- Starred tasks stay in the Doing Something list: no shortcuts on her first screen, and
+  the rest of the list never folds under "More".
+
+Open: nothing right now.
