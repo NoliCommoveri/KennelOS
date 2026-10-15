@@ -217,3 +217,12 @@ test('recordFromPayload: an activate response (no `valid` field) never downgrade
   assert.equal(r.status, 'active');
   assert.equal(onlineVerdict(r), 'valid');
 });
+
+test('recordFromPayload: keeps how many devices the key is on, of how many', () => {
+  const r = recordFromPayload('K', { valid: true, license_key: { status: 'active', activation_usage: 2, activation_limit: 3 }, meta: {} }, 'i', 'n');
+  assert.equal(r.activationUsage, 2);
+  assert.equal(r.activationLimit, 3);
+  const none = recordFromPayload('K', { valid: true, license_key: { status: 'active' }, meta: {} }, 'i', 'n');
+  assert.equal(none.activationUsage, null);
+  assert.equal(none.activationLimit, null);
+});

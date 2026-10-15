@@ -1095,3 +1095,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `assets/kelsFindings.js` (`FindingsTask`), shared by both. Decided: 14 days for the
   backup file without cloud backup, 60 days for a lost device, vendor keys tested live once
   per run.
+- **Account health: status report (2026-10-15).** After she looks, Kels now reports every area
+  she checked, good or not (`accountHealth.healthReport`): space used, cloud backup or the
+  backup file, the Pro license (state, plan, renewal, "on 3 of 3 devices"), devices signed in
+  by name, Sensitive records, each connection, each online waitlist; then the findings. The
+  cached license record keeps Lemon Squeezy's `activation_usage` / `activation_limit`
+  (`activationUsage` / `activationLimit`). Browser-verified on the Pro build with a simulated
+  signed-in account (license, devices, Sensitive records, a refused Stripe key).

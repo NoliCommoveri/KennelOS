@@ -23,13 +23,16 @@ export class FindingsTask {
   notDismissed(findings) { return findings.filter((f) => !isDismissed(this.dismissKey(f))); }
   next() { return this.findings.find((f) => !this.asked.has(f.key)); }
 
-  // The visit. `words`: { looking, none (or a function, called after the look),
+  // The visit. `words`: { looking, report? (a function, called after the look:
+  // what she saw, said before the findings), none (or a function, likewise),
   // found(findings) → html, allDone(fixed),
   // nothingDone, stopped(fixed), stoppedEmpty } (trusted markup).
   async loop(words) {
     this.words = words;
     await this.chat.say(words.looking, { typing: 700 });
     await this.load();
+    const report = words.report?.();
+    if (report) await this.chat.say(report, { typing: 1100 });
     if (!this.next()) {
       await this.chat.say(typeof words.none === 'function' ? words.none() : words.none);
       return this.onExit('done');

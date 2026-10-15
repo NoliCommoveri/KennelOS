@@ -106,25 +106,68 @@ export function healthFindings(facts = {}, now = Date.now()) {
 export function bytesText(n) {
   if (!Number.isFinite(n) || n < 0) return '';
   if (n < 1024 * 1024) return `${Math.max(1, Math.round(n / 1024))} KB`;
-  if (n < 1024 ** 3) return `${Math.round(n / 1024 ** 2)} MB`;
+  if (n < 1000 * 1024 ** 2) return `${Math.round(n / 1024 ** 2)} MB`;
   return `${(n / 1024 ** 3).toFixed(1)} GB`;
 }
 
-// What's fine, for her closing "All good": short plain-text lines, only for what
-// was checked. `fmtDate(iso)` formats a date for her.
-export function healthGoodLines(facts = {}, fmtDate = (iso) => String(iso).slice(0, 10)) {
-  const lines = [];
-  const { storage, cloud, license, vault } = facts;
-  if (storage?.persisted) lines.push('This browser keeps your records safe from clean-ups.');
-  if (storage?.usage != null) lines.push(`Your records use ${bytesText(storage.usage)} on this device.`);
-  if (cloudBacksUp(cloud) && cloud.backup.lastPushedAt) lines.push(`Cloud backup is on, last backed up ${fmtDate(cloud.backup.lastPushedAt)}.`);
-  else if (facts.lastExportAt) lines.push(`Your last backup file is from ${fmtDate(facts.lastExportAt)}.`);
-  if (license?.gated && license.state === 'valid') {
-    const r = license.record || {};
-    lines.push(r.interval === 'lifetime' ? 'Your Pro license is lifetime.' : r.expiresAt ? `Your Pro license is active and renews ${fmtDate(r.expiresAt)}.` : 'Your Pro license is active.');
+// Where everything stands, for her status report right after she looks: one
+// { area, text } per area she checked, good or not, in plain text. `fmtDate(iso)`
+// formats a date for her. Areas she couldn't read (null facts) are left out.
+export function healthReport(facts = {}, fmtDate = (iso) => String(iso).slice(0, 10)) {
+  const out = [];
+  const add = (area, text) => out.push({ area, text });
+  const { storage, cloud, license, devices, vault, keys = [], waitlists = [] } = facts;
+
+  if (storage) {
+    const kept = storage.persisted === true ? 'kept safe from clean-ups' : storage.persisted === false ? 'could be cleared by the browser' : '';
+    const used = storage.usage != null ? `using ${bytesText(storage.usage)}${storage.quota ? ` of ${bytesText(storage.quota)}` : ''}` : '';
+    if (kept || used) add('This device', [kept, used].filter(Boolean).join(', '));
   }
-  if (vault?.offered && vault.status?.enabled && vault.status.unlocked) lines.push('Sensitive records are backed up, encrypted.');
-  const okKeys = (facts.keys || []).filter((k) => k.ok);
-  if (okKeys.length) lines.push(`${okKeys.map((k) => k.account.name).join(', ')} ${okKeys.length === 1 ? 'is' : 'are'} connected and working.`);
-  return lines;
+  if (facts.update?.waiting) add('App', 'a new version is ready to load');
+
+  const b = cloud?.available ? cloud.backup : null;
+  if (b) {
+    if (!b.enabled) add('Cloud backup', b.movedToEdition === 'pro' ? 'off here: your records moved to Pro' : 'off');
+    else if (b.paused) add('Cloud backup', 'on, but paused');
+    else add('Cloud backup', b.lastPushedAt ? `on, last backed up ${fmtDate(b.lastPushedAt)}${b.dirty ? ', with changes waiting' : ''}` : 'on, not backed up yet');
+  }
+  if (!cloudBacksUp(cloud)) add('Backup file', facts.lastExportAt ? `last saved ${fmtDate(facts.lastExportAt)}` : 'never saved');
+
+  if (license?.gated) {
+    const r = license.record || {};
+    const plan = r.interval === 'lifetime' ? 'lifetime' : r.interval || '';
+    const state = { valid: 'active', grace: 'needs attention', wall: 'not active', unactivated: 'not activated' }[license.state] || license.state;
+    const when = r.interval === 'lifetime' ? '' : r.expiresAt ? `${license.state === 'valid' ? 'renews' : 'was due'} ${fmtDate(r.expiresAt)}` : '';
+    const seats = Number.isFinite(r.activationUsage)
+      ? `on ${r.activationUsage}${Number.isFinite(r.activationLimit) ? ` of ${r.activationLimit}` : ''} device${r.activationUsage === 1 && !Number.isFinite(r.activationLimit) ? '' : 's'}` : '';
+    add('Pro license', [`${state}${plan ? ` (${plan})` : ''}`, when, seats].filter(Boolean).join(', '));
+  }
+
+  if (devices) {
+    const active = devices.filter((d) => d.status === 'signed-in' && !d.erase);
+    const others = active.filter((d) => !d.thisDevice).map((d) => d.label || 'a device');
+    add('Devices', `${active.length} signed in${active.length ? ` (this one${others.length ? `, ${others.join(', ')}` : ''})` : ''}`);
+  }
+
+  const v = vault?.offered ? vault.status : null;
+  if (v) {
+    if (!v.enabled) add('Sensitive records', 'not backed up');
+    else {
+      const bits = [v.unlocked ? 'backed up, unlocked here' : 'backed up, locked on this device',
+        vault.unsavedCode || !v.recovery ? 'recovery code not saved' : 'recovery code saved',
+        `${(v.passkeys || []).length || 'no'} passkey${(v.passkeys || []).length === 1 ? '' : 's'}`];
+      add('Sensitive records', bits.join(', '));
+    }
+  }
+
+  for (const k of keys) {
+    const vendor = k.vendor === 'stripe' ? 'Stripe' : 'Jotform';
+    add(k.account.name, `${vendor} ${k.ok ? 'connected and working' : k.ok === false ? 'key refused' : 'couldn\'t check right now'}`);
+  }
+  for (const w of waitlists) {
+    const s = w.status || {};
+    add(`${w.kennel.kennel_name || 'Kennel'} waitlist`, !s.signedIn ? 'online, but this device isn\'t signed in'
+      : s.lastError ? 'online, last update failed' : `online${s.formOpen ? ', taking applications' : ''}`);
+  }
+  return out;
 }

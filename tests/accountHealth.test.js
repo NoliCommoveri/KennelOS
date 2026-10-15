@@ -95,27 +95,47 @@ test('order: records at risk first', () => {
   assert.deepEqual(all, ['storage-persist', 'backup-off', 'export-old', 'update', 'vault-off', 'storage-full']);
 });
 
-test('All good lines say what was checked and is fine', () => {
-  const lines = A.healthGoodLines({
-    storage: { persisted: true, usage: 5 * 1024 * 1024 },
-    cloud: cloud({}),
-    license: { gated: true, state: 'valid', record: { interval: 'yearly', expiresAt: '2027-01-02T00:00:00Z' } },
-    vault: { offered: true, status: { enabled: true, unlocked: true } },
-    keys: [{ account: { name: 'Stripe' }, ok: true }]
+test('the status report: every area she checked, good or not', () => {
+  const report = A.healthReport({
+    storage: { persisted: true, usage: 5 * 1024 * 1024, quota: 2 * 1024 ** 3 },
+    cloud: cloud({ dirty: true }),
+    license: { gated: true, state: 'valid', record: { interval: 'yearly', expiresAt: '2027-01-02T00:00:00Z', activationUsage: 2, activationLimit: 3 } },
+    devices: [
+      { id: 'a', label: 'This laptop', status: 'signed-in', thisDevice: true },
+      { id: 'b', label: 'Ray\'s iPad', status: 'signed-in' },
+      { id: 'c', label: 'Old phone', status: 'signed-out' },
+      { id: 'd', label: 'Lost tablet', status: 'signed-in', erase: { requestedAt: 'x' } }
+    ],
+    vault: { offered: true, status: { enabled: true, unlocked: true, recovery: { createdAt: 'x' }, passkeys: [{ id: 'p' }] }, unsavedCode: false },
+    keys: [{ account: { name: 'Payments' }, vendor: 'stripe', ok: true }, { account: { name: 'Forms' }, vendor: 'jotform', ok: null }],
+    waitlists: [{ kennel: { kennel_name: 'Thornfield' }, status: { online: true, signedIn: true, formOpen: true } }]
   }, (iso) => iso.slice(0, 10));
-  assert.deepEqual(lines, [
-    'This browser keeps your records safe from clean-ups.',
-    'Your records use 5 MB on this device.',
-    'Cloud backup is on, last backed up 2026-10-15.',
-    'Your Pro license is active and renews 2027-01-02.',
-    'Sensitive records are backed up, encrypted.',
-    'Stripe is connected and working.'
+  assert.deepEqual(report.map((l) => `${l.area}: ${l.text}`), [
+    'This device: kept safe from clean-ups, using 5 MB of 2.0 GB',
+    `Cloud backup: on, last backed up ${daysAgo(0.1).slice(0, 10)}, with changes waiting`,
+    'Pro license: active (yearly), renews 2027-01-02, on 2 of 3 devices',
+    'Devices: 2 signed in (this one, Ray\'s iPad)',
+    'Sensitive records: backed up, unlocked here, recovery code saved, 1 passkey',
+    'Payments: Stripe connected and working',
+    'Forms: Jotform couldn\'t check right now',
+    'Thornfield waitlist: online, taking applications'
   ]);
-  assert.deepEqual(A.healthGoodLines({ lastExportAt: '2026-10-10T00:00:00Z' }), ['Your last backup file is from 2026-10-10.']);
+});
+
+test('the status report without cloud: the backup file; a license in grace; lifetime', () => {
+  const r = (facts) => A.healthReport(facts, (iso) => iso.slice(0, 10)).map((l) => `${l.area}: ${l.text}`);
+  assert.deepEqual(r({ lastExportAt: '2026-10-10T00:00:00Z' }), ['Backup file: last saved 2026-10-10']);
+  assert.deepEqual(r({ lastExportAt: null }), ['Backup file: never saved']);
+  assert.deepEqual(r({ ...fresh, license: { gated: true, state: 'grace', record: { interval: 'monthly', expiresAt: '2026-10-01T00:00:00Z' } } }).slice(-1),
+    ['Pro license: needs attention (monthly), was due 2026-10-01']);
+  assert.deepEqual(r({ ...fresh, license: { gated: true, state: 'valid', record: { interval: 'lifetime', activationUsage: 1 } } }).slice(-1),
+    ['Pro license: active (lifetime), on 1 device']);
+  assert.deepEqual(r({ ...fresh, vault: { offered: true, status: { enabled: false } } }).slice(-1), ['Sensitive records: not backed up']);
 });
 
 test('bytesText', () => {
   assert.equal(A.bytesText(500), '1 KB');
   assert.equal(A.bytesText(3 * 1024 * 1024), '3 MB');
   assert.equal(A.bytesText(1.5 * 1024 ** 3), '1.5 GB');
+  assert.equal(A.bytesText(1010 * 1024 ** 2), '1.0 GB', 'never "1010 MB"');
 });

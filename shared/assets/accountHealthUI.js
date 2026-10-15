@@ -126,8 +126,9 @@ class Health extends FindingsTask {
   start() {
     return this.loop({
       looking: 'Let me check on this device, your backups and your account…',
-      none: () => this.allGood(),
-      found: (findings) => `You're in good hands. I found ${plural(findings.length, 'thing')} worth a look, so let's go one at a time.`,
+      report: () => this.report(),
+      none: 'All good! You\'re doing a great job keeping things safe.',
+      found: (findings) => `I found ${plural(findings.length, 'thing')} worth a look, so let's go one at a time.`,
       allDone: (n) => `That's everything! ${n === 1 ? 'One fix' : `${n} fixes`} in, and your program is in great shape.`,
       nothingDone: 'That\'s everything I found for now.',
       stopped: () => 'Okay, we\'ll stop here. Everything we fixed is saved.',
@@ -135,22 +136,17 @@ class Health extends FindingsTask {
     });
   }
 
-  // "All good", with what's fine.
-  allGood() {
-    const lines = A.healthGoodLines(this.facts, (iso) => fmtDate(String(iso).slice(0, 10)));
-    return `All good! You're doing a great job keeping things safe.${lines.length ? `<br>${lines.map(esc).join('<br>')}` : ''}`;
+  // Where everything stands (data/accountHealth.js healthReport), area by area.
+  report() {
+    const lines = A.healthReport(this.facts, (iso) => fmtDate(String(iso).slice(0, 10)));
+    if (!lines.length) return '';
+    return `Here's where everything stands:<br>${lines.map((l) => `<strong>${esc(l.area)}:</strong> ${esc(l.text)}`).join('<br>')}`;
   }
 
   async finish(all) {
-    if (all) {
-      const lines = A.healthGoodLines(this.facts, (iso) => fmtDate(String(iso).slice(0, 10)));
-      const left = this.findings.filter((f) => this.asked.has(f.key));
-      if (left.length) {
-        await this.chat.say(`${this.fixed ? 'Nice work.' : 'That\'s everything I found.'} Still worth a look when you have a minute: ${esc(left.map((f) => SHORT[f.kind]).join(', '))}.`);
-        this.onExit('done');
-        return;
-      }
-      await this.chat.say(`That's everything, and it all checks out. Your program is in great shape!${lines.length ? `<br>${lines.map(esc).join('<br>')}` : ''}`);
+    const left = this.findings.filter((f) => this.asked.has(f.key));
+    if (all && left.length) {
+      await this.chat.say(`${this.fixed ? 'Nice work.' : 'That\'s everything I found.'} Still worth a look when you have a minute: ${esc(left.map((f) => SHORT[f.kind]).join(', '))}.`);
       this.onExit('done');
       return;
     }
@@ -178,7 +174,7 @@ class Health extends FindingsTask {
 
 // What's left, in her closing line.
 const SHORT = {
-  'storage-persist': 'storage that could be cleaned up', 'storage-full': 'storage filling up',
+  'storage-persist': 'storage the browser could clear', 'storage-full': 'storage filling up',
   'backup-paused': 'cloud backup is paused', 'backup-off': 'cloud backup is off', 'backup-behind': 'a backup that\'s behind',
   'export-old': 'an old backup file', 'vault-locked': 'Sensitive records locked here', 'recovery-unsaved': 'the recovery code',
   'license-grace': 'your Pro license', update: 'an update to load', 'device-lost': 'a device to check',
@@ -295,7 +291,7 @@ const FIXES = {
 
   async 'key-rejected'(f) {
     const vendor = f.vendor === 'stripe' ? 'Stripe' : 'Jotform';
-    const pick = await this.ask(f, `${vendor} didn't accept the key on <strong>${esc(f.account.name)}</strong>${f.message ? `: ${esc(f.message)}` : '.'} Until it's fixed, KennelOS can't use that connection.`, [
+    const pick = await this.ask(f, `The ${vendor} key on <strong>${esc(f.account.name)}</strong> isn't working.${f.message ? ` ${esc(f.message)}` : ''} Until it's fixed, KennelOS can't use that connection.`, [
       { label: 'Open Accounts', value: 'fix', primary: true }
     ]);
     if (pick !== 'fix') return pick;

@@ -79,7 +79,9 @@ seeds an empty database on load, skips first-run prompts, and shows a read-only 
   *reconnect* wall, never the renewal wall — `licenseGate.js`'s `isStaleLifetime`.
   An unlicensed load is walled. The cached activation lives
   under its own `settings.js` key (`kennelOS.proLicense`) that is deliberately **excluded
-  from `clearAllSettings()`**, so Reset App keeps paid entitlement. Inert in Lite/Demo.
+  from `clearAllSettings()`**, so Reset App keeps paid entitlement. It also keeps how many
+  activations the key is using and allows (`activationUsage` / `activationLimit`, from the
+  last validate; null until then), which Kels's account health reports. Inert in Lite/Demo.
 - **Activations are a countable, releasable resource.** Lemon Squeezy counts
   *activations* ("instances") against the variant's activation limit — it knows nothing
   about the machine, and neither do we. Three rules make that counter survivable:
@@ -1804,8 +1806,13 @@ never the business Accounts page. All editions; each check only where its featur
 | `passkey-none` | on, passkeys supported, none added | `passkeysModal()` |
 | `storage-full` | 80%+ of the browser's quota used | none; she says so |
 
-Ends with **All good** and what's fine (`healthGoodLines`: storage kept, space used, last
-backup, the license and its renewal date, Sensitive records, working connections), or
+Right after she looks, a **status report** (`healthReport`), one line per area she could
+read, good or not: this device (kept safe or not, space used of the quota), cloud backup
+(on and when, paused, off) or the last backup file, the Pro license (state, plan, renewal
+or due date, on n of m devices: Lemon Squeezy's `activation_usage` / `activation_limit`,
+kept on the cached record as `activationUsage` / `activationLimit`), devices signed in
+(by name), Sensitive records (backed up, unlocked here, recovery code, passkeys), each
+vendor connection, each online waitlist. Then the findings, or **All good**. She closes with
 what's still worth a look. Sync isn't checked until live sync's UI exists. A fix that
 opens a page leaves Kels; she says to start the task again after.
 
