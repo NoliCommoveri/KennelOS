@@ -78,10 +78,10 @@ test('her own dogs with no litter and a blank parent; outside and pedigree-only 
 
 test('a stud service past its date with no breeding: offers the matching unclaimed breeding to link', () => {
   const studs = [
-    { id: 'in', direction: 'incoming', our_dog_id: 'D', partner_dog_id: 'S', status: 'in_progress', sent_date: '2026-09-01', returned_date: '2026-09-05' },
-    { id: 'future', direction: 'outgoing', our_dog_id: 'S', partner_dog_id: 'D2', status: 'arranged', sent_date: '2026-11-01' },
-    { id: 'linked', direction: 'incoming', our_dog_id: 'D', partner_dog_id: 'S', status: 'completed', pairing_id: 'P0' },
-    { id: 'off', direction: 'incoming', our_dog_id: 'D', partner_dog_id: 'S', status: 'cancelled', sent_date: '2026-01-01' }
+    { id: 'in', direction: 'to_partner', our_dog_id: 'D', partner_dog_id: 'S', status: 'in_progress', sent_date: '2026-09-01', returned_date: '2026-09-05' },
+    { id: 'future', direction: 'to_us', our_dog_id: 'S', partner_dog_id: 'D2', status: 'arranged', sent_date: '2026-11-01' },
+    { id: 'linked', direction: 'to_partner', our_dog_id: 'D', partner_dog_id: 'S', status: 'completed', pairing_id: 'P0' },
+    { id: 'off', direction: 'to_partner', our_dog_id: 'D', partner_dog_id: 'S', status: 'cancelled', sent_date: '2026-01-01' }
   ];
   const pairings = [
     { id: 'P0', sire_id: 'S', dam_id: 'D', planned_date: '2026-09-02' }, // claimed by "linked"
@@ -89,7 +89,8 @@ test('a stud service past its date with no breeding: offers the matching unclaim
     { id: 'old', sire_id: 'S', dam_id: 'D', planned_date: '2025-01-01' },
     { id: 'other', sire_id: 'S9', dam_id: 'D', planned_date: '2026-09-03' }
   ];
-  const found = T.studFindings(studs, pairings, today);
+  const dogs = [{ id: 'D', sex: 'female' }, { id: 'S', sex: 'male' }, { id: 'D2', sex: 'female' }];
+  const found = T.studFindings(studs, pairings, today, dogs);
   assert.deepEqual(found.map((f) => f.stud.id), ['in']);
   assert.deepEqual(found[0].candidates.map((p) => p.id), ['P1']);
 });
@@ -155,7 +156,7 @@ test('duplicate dogs: archived dogs are skipped, each pair once, certain first',
 test('tidyFindings: Lite (no contacts, no stud services) never gets those checks', () => {
   const input = {
     litters: [], pairings: [], sales: [], dogs: [], allDogs: [], today,
-    studServices: [{ id: 's', direction: 'incoming', our_dog_id: 'D', partner_dog_id: 'S', status: 'completed' }],
+    studServices: [{ id: 's', direction: 'to_partner', our_dog_id: 'D', partner_dog_id: 'S', status: 'completed' }],
     contacts: [{ id: 'c', name: 'A', contact_type: ['breeder'] }, { id: 'c2', name: 'A', contact_type: ['breeder'] }],
     kennels: [{ id: 'K' }]
   };

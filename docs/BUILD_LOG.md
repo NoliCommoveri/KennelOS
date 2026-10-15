@@ -1134,3 +1134,67 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   online). The list stays offline until she says "Yes, put it online", from the menu too.
   Cache rolled to `kennelos-shell-v79` for this batch (Pups are going home, account health,
   set up my waitlist).
+- **FurEver pickup plan follows the drop-off event (2026-10-15).** The seed link's pickup
+  date, time and place now come from the pup's Placement / drop-off event (the same event
+  test Kels and Today use, `goHome.pickupFor`), so a moved drop-off reaches the family on
+  the next resend. The console shows it with **Edit drop-off**; a pup with no drop-off keeps
+  the typed Sale fields (still the fallback) plus **Add a drop-off event**. The editions plan
+  gained rows for Kels's Pups are going home, Set up my waitlist and Check account health.
+- **Pups are going home: fixes in the chat, tabs announced (2026-10-15).** The contract
+  (status and signed date, or a new sale contract), the registration type (with the Full
+  price change and the Co-own co-owner offer the Sale page asks) and the litter's feeding
+  note are now done in the chat; only the breed feeding schedule still opens its page.
+  Printing the puppy records and opening Furever now say a new tab is coming and wait for
+  **Okay, open it**. Kels roadmap rules 8 and 9 record both.
+- **Pups are going home: optional checks, unsold pups, balances (2026-10-15).** Microchips,
+  the litter's registration number (new item) and the feeding schedule are now "want me to
+  check these too?" tick boxes at the start, unticked. Pups marked Available or Placed with
+  no sale get **Record the sale** (family, status, registration, price and deposit, in the
+  chat; the pup becomes Placed) or **Change the plan**. Balances still owed get a payment
+  request or an invoice (Pro). The cover page takes `&checks=`; the invoice generator takes
+  `onClose`.
+- **Pups are going home: registered names, remembered checks, request then invoice
+  (2026-10-15).** New optional check: each pup's registered name and number (for breeders
+  who register pups before they go), filled in the chat. The ticked checks are remembered on
+  the device (`settings.prepChecks`). Each family owing a balance now gets a payment request
+  and then an invoice, one after the other, each skippable.
+- **Kels: the exits brought into the chat (2026-10-15).** Check in on a litter marks a sale
+  Delivered in the chat and asks the ownership (Pro) or roster (Lite) question; the rule
+  moved to `goHome.deliveredOwnershipChanges`, which the Sale page now uses too. Tidy up adds
+  a litter's missing puppies and records a stud service's breeding in the chat. Account
+  health checks or renews the license or takes a new key, and signs in to or retries the
+  online waitlist, in the chat. Set up my waitlist adds a family by hand in the chat, its
+  application fields moved from the Waitlist entry page to the shared
+  `assets/waitlistApplicationForm.js` (Pro-only, precached). Left as pages on purpose: the
+  CSV import, the breed feeding schedule (a table editor), and "see the litter" choices.
+- **Our stud's outside breedings (2026-10-15).** A breeding linked to an outgoing stud
+  service is still recorded, but nothing asks for its litter: Today's due-soon / overdue /
+  whelped-no-litter nudges, the Pairing page's "Record the litter now?" and Kels's tidy-up
+  skip it (`data/studRules.js`, new). A pick-of-litter fee on an outgoing service gets
+  Today's "Ready to add your pick puppy?" 63 + 56 days after the service: **Add the puppy**
+  opens a new dog prefilled from the stud service (`dog.html?new=1&pick=`; saving marks the
+  pick claimed), or **Not getting one**.
+- **Stud services: direction is who travels (2026-10-15).** `direction` now means who
+  travels (our dog goes to them / their dog comes to us / no one, AI), with `type` set from
+  it; whether our dog is the stud or the dam comes from its sex (`studRules.ourRole`), never
+  stored. Every reader moved over (income, invoices, contracts, Companion, the Pairing
+  page, both stud reports, the litter flow, tidy-up, nudges, CSV import, sample data); the
+  form asks our dog, the partner (the other sex), then who travels, and labels the two
+  dates to fit. The Away board shows the dog that travels, a visitor as "staying with us".
+  Decided with the owner: no stud service records exist yet that used the old meaning.
+- **Stud service boarding (2026-10-15).** Saving a stud service where someone travels asks
+  **Log the boarding?** and opens the boarding form prefilled for the dog that travels. The
+  Away board shows one row per trip (the boarding event replaces the service's own row).
+  When that boarding ends, Today asks to update the stud service's dates and mark it
+  Completed (`studboard`, in place of the status nudge). The match between the two is
+  derived (dog, reason "Stud service", overlapping dates), no stored link.
+- **Stud trips are boarding events (2026-10-15).** A stud service's dates no longer make an
+  Away-board row; the board reads boarding events only. On boot, `migrateStudTrips` reads any
+  outgoing / incoming direction as who travels and gives every in-person service's trip a
+  boarding event (once per device, and never a second one for the same trip). The two dates
+  are labelled Begins / Ends. Sample data's Birch trip is a boarding event.
+- **Our dam's stud fee as an expense (2026-10-15).** Saving a stud service of our dam that's
+  Completed with a fee asks **Log the stud fee as an expense?** and creates a Stud fee
+  Expense on the breeding (else the dam), linked by the new indexed `expenses.stud_service_id`
+  (`db.version(5)`, in `STUD_SERVICE_REFERENCES`, private like every expense field) so it's
+  asked once. Our stud's fee stays income.

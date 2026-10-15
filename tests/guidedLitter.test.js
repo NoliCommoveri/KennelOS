@@ -196,7 +196,7 @@ test('an outside stud not in KennelOS becomes a dog, his owner a contact, plus h
   assert.equal(kennel.is_own_kennel, false);
   assert.equal(owner.kennel_id, kennel.id);
   const [ss] = await studServiceRepo.getByPairing(litter.pairing_id);
-  assert.equal(ss.direction, 'incoming');
+  assert.equal(ss.direction, 'to_partner', 'a natural breeding: our dam went to him');
   assert.equal(ss.partner_contact_id, owner.id);
   assert.equal(ss.our_dog_id, dam.id);
   assert.equal(ss.fee_amount, 1500);

@@ -91,3 +91,15 @@ test('the events Kels writes', () => {
   assert.equal(H.defaultStart(at(3), today), at(3));
   assert.equal(H.defaultStart(at(-3), today), today);
 });
+
+test('deliveredOwnershipChanges: External (owner set) or Co-owned (buyer added once)', () => {
+  const dog = { id: 'd', co_owner_contact_ids: ['x'] };
+  assert.deepEqual(H.deliveredOwnershipChanges(dog, 'external', { ownerId: 'b', buyerId: 'b', today: '2026-10-15' }),
+    { ownership_type: 'external', status: 'external_reference', status_date: '2026-10-15', owner_contact_id: 'b' });
+  assert.deepEqual(H.deliveredOwnershipChanges(dog, 'external', { today: '2026-10-15' }),
+    { ownership_type: 'external', status: 'external_reference', status_date: '2026-10-15' }, 'no owner picked');
+  assert.deepEqual(H.deliveredOwnershipChanges(dog, 'co_owned', { buyerId: 'b' }), { ownership_type: 'co_owned', co_owner_contact_ids: ['x', 'b'] });
+  assert.deepEqual(H.deliveredOwnershipChanges({ co_owner_contact_ids: ['b'] }, 'co_owned', { buyerId: 'b' }), { ownership_type: 'co_owned' }, 'already a co-owner');
+  assert.equal(H.deliveredOwnershipChanges(dog, ''), null);
+  assert.equal(H.deliveredOwnershipChanges(null, 'external'), null);
+});

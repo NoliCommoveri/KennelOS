@@ -464,7 +464,10 @@ the decoder above consumes:
   note + pickup-plan fields persisted as plain (unindexed, no FK) `sales` fields —
   `furever_note`, `furever_pickup_date`, `furever_pickup_time`,
   `furever_pickup_place`, `furever_pickup_photo_url` — so a resend starts from the
-  last-sent details.
+  last-sent details. **Modified:** the pickup date/time/place now come from the
+  pup's Placement / drop-off event when it has one (`event_date`,
+  `placement_time`, `location`); the typed Sale fields are the fallback for a pup
+  with none. `pickupPlan`'s shape is unchanged.
 - **`shared/data/fureverSeedExport.js`** builds the packet field-by-field (named
   copy only, same allow-list discipline as `companionExport.js`) from the dog +
   the saved identity, compresses it with the already-vendored lz-string, and forms

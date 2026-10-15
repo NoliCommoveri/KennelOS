@@ -16,7 +16,7 @@ need. When one is built, its as-built description goes in the guide (§33) and i
 | Finish an unfinished litter | Resumes the litter draft | All |
 | Set up my waitlist | The fee (Stripe in the chat), offers, going online (cloud backup first), programs, existing families; re-runnable | Pro |
 | Check account health | This device, backups, license, Sensitive records, connections, the online waitlist; each finding with its fix | All (license, Sensitive records, connections, waitlist: where offered) |
-| Pups are going home | Readiness per pup with fixes (chips, shots, deworming, drop-off date, balance, contract, registration, feeding); the puppy records with a cover page | All (contract, feeding, Furever, print: Pro) |
+| Pups are going home | Optional checks to tick, remembered on the device (chips, litter registration number, pups' registered names and numbers, feeding); pups Available or Placed with no sale (record the sale or change the plan); readiness per pup with fixes (shots, deworming, drop-off date, balance, contract, registration); a payment request then an invoice for each balance owed; the puppy records with a cover page | All (contract, feeding, payment requests, invoices, Furever, print: Pro) |
 
 The menu has a search box that matches each task's `keywords`, and choices open their
 description on the first tap.
@@ -49,6 +49,14 @@ These are settled. A task that can't follow one comes back here before it's buil
    today?" first. Every new task (not a resumed one) starts with `chat.intro(opener)`: its
    own opener, then the standard "I'll ask you some questions…  Sound good?"
    (`KELS_INTRO`), answered **Sounds great, let's start!** / **Never mind**.
+8. **Help-me-do fixes happen in the chat.** Anything she can finish in a form panel (a
+   contract's status, a registration type, a date, a note) is collected and saved there.
+   Leaving Kels for a page makes the breeder start the task over, so a fix opens a page
+   only when it can't be done in the chat (a table editor, a vendor's e-sign send), and she
+   says so first.
+9. **A new tab is announced and waits for an OK.** Before opening one (printing, Furever),
+   she says what's about to open and that she'll be waiting here, and opens it only on
+   **Okay, open it**, from that tap.
 
 ## 3. Proposed tasks, in build order
 
@@ -121,8 +129,8 @@ pattern: a pure `data/accountHealth.js` of checks, the task asks one at a time).
 As built: End-State guide §33 ("Set up my waitlist"); history in `docs/BUILD_LOG.md`.
 **Modified:** settings are grouped, one screen per part with checkboxes for the on/off
 rules, not one question each; going online first offers to turn on cloud backup when
-it's off; Stripe for the fee connects in the chat; existing families still open the import
-or a new entry (adding them in the chat is a follow-up).
+it's off; Stripe for the fee connects in the chat; an existing family is added in the chat
+(her application form); a spreadsheet still opens the import.
 
 The Waitlist page's settings as a conversation, for a breeder starting from nothing. It comes
 before Record a sale (§3.5) on purpose: a running waitlist turns picks into sales by itself,

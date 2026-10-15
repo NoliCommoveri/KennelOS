@@ -212,9 +212,9 @@ to the cloud unsealed).
 | **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `puppies_born_*` counts, per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
 | **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
 | **Contract** | `contract_type`, `kennel_id` | `status` (default `draft`), `related_sale_id`, `related_stud_service_id`; `related_dog_id` and `related_contact_id` only for `lease`/`co_own`/`foster`/`other` (forced null otherwise, `contractRepo.normalizeLinks`), `document_url`, `signed_date`, lease dates, e-sign fields and `integration_reviews` (§32), `title`, `terms_summary`. |
-| **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `pairing_id`, `fee_amount`, `fee_structure`; `pick_status` and `pick_value_amount` only for pick fee structures (forced null otherwise), `type` (`in_person`/`ai`; in-person dates feed the away-board, §19), `referred_by_contact_id`, invoice fields (outgoing only, §24). |
+| **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `direction` is **who travels** (`STUD_SERVICE_DIRECTION`: `to_partner` our dog goes to them, `to_us` their dog comes to us, `shipped` no one / AI). Whether our dog is the stud or the dam isn't stored: it's our dog's sex, else the partner's opposite (`studRules.ourRole`; `STUD_SERVICE_ROLE` for badges and filters). `sent_date` / `returned_date` are the service's two dates, labelled **Begins / Ends**. `type` (`in_person`/`ai`) is set by the repo from `direction` (shipped → ai), never asked. `pairing_id`, `fee_amount`, `fee_structure`; `pick_status` and `pick_value_amount` only for pick fee structures (forced null otherwise; with our stud the pick is our puppy, and `pick_status` claimed / waived ends Today's `studpick`, §19), `referred_by_contact_id`, invoice fields (our stud only, §24). |
 | **Event** | `subject_type`, `subject_id`, `event_type`, `event_date`, `title` | `event_end_date`, `reminder_date`, `reminder_dismissed`, `related_dog_id`, `related_contact_id`, `details{}`. No cost field: a cost becomes an Expense with `event_id` (§8, §21). |
-| **Expense** | `subject_type` (`dog`/`litter`/`pairing`/`kennel`), `subject_id`, `amount`, `category`, `expense_date` | `event_id`, `miles` × `mileage_rate` (then `amount` is derived), `vendor`, `receipt_number` (CSV re-import key, §9), `account_id`, `receipt_file_id` (deleted with the expense, §26.1), `reimbursable`/`reimbursed_date` (§21, §25). |
+| **Expense** | `subject_type` (`dog`/`litter`/`pairing`/`kennel`), `subject_id`, `amount`, `category`, `expense_date` | `event_id`, `stud_service_id` (indexed; the stud service whose fee it records, in `STUD_SERVICE_REFERENCES`; private like every expense field), `miles` × `mileage_rate` (then `amount` is derived), `vendor`, `receipt_number` (CSV re-import key, §9), `account_id`, `receipt_file_id` (deleted with the expense, §26.1), `reimbursable`/`reimbursed_date` (§21, §25). |
 | **Document** | `dog_id`, `doc_type`, `file_id` | `title`, `doc_date`, `issuer_or_lab`, `result`, `registry`, `registration_number`, `contract_id` (optional, unindexed, not in the registry), `furever_shareable` (§27). Fields shown per type: `vocab.documentFieldsFor`. `hardDelete` removes its file. |
 | **File** (`files`) | `blob`, `mime`, `filename`, `size` | `thumbnail`. Always a PDF. Owned by its one Document or Expense; fetched by id only (§26.1). |
 | **WaitlistEntry**, **WaitlistOffer**, **WaitlistProgram** | see §29 | One entry per family per time on a kennel's list; position and passes are derived, never stored. |
@@ -251,7 +251,8 @@ pointer.** For example: `Litter.pairing_id` (reverse `litterRepo.getForPairing`)
 `db.js` is the schema (DB name `KennelOSBreedingApp`); read its `version(N)` blocks for the
 index strings. `version(1)` holds every kennel table and is **frozen**. Later blocks add
 only what's new: `version(2)` the device-only `sync_meta` (§34), `version(3)`/`(4)` the
-account FKs on sales, waitlist entries and kennels (§21.1, §32).
+account FKs on sales, waitlist entries and kennels (§21.1, §32), `version(5)`
+`expenses.stud_service_id` (our dam's stud fee, §21).
 
 **The versioning rule.** Schema changes are additive: a new table or index goes in a new
 `db.version(N).stores({...})` block listing only what it adds, and a shipped block is never
@@ -332,7 +333,7 @@ Every write calls `assertWritable()` first (Demo, §0.2) and marks the cloud bac
   (`waitlistRules.deriveContactWaitlistStatus`). **waitlistOfferRepo** checks entry, litter
   and offer share a kennel (§29).
 
-**Derived aggregators** (no table): `incomeView.js` (income rows per Sale / outgoing
+**Derived aggregators** (no table): `incomeView.js` (income rows per Sale / our stud's
 StudService component, earned vs anticipated; `incomeLineItems` feeds invoices, §21, §24)
 and `litterFinances.js` (per-litter P&L, §21).
 
@@ -407,8 +408,8 @@ vocabulary through `testTokensOf(event)`.
 
 **eventRepo reads** (separate on purpose):
 - `getForSubject(type, id)` — a timeline, newest first.
-- `getBoardRows()` — dogs away on boarding now; `awayBoard.js` unions it with in-person stud
-  services (§19).
+- `getBoardRows()` — dogs away on boarding now; the Away board's only source (`awayBoard.js`,
+  §19; stud-service trips are boarding events too).
 - `getUpcoming()`, `getScheduledPlacements()`, `getInRange(from, to)` (Calendar),
   `getByType(type)` (Shows page), `getDetailValues(type, key)` (suggestions).
 - `getReminders()` / `getDismissedReminders()`. `reminder_date` is the app's **one**
@@ -528,6 +529,9 @@ Every key is in its `KEYS` table (`kennelOS.*`), each with a getter/setter, and
   changed mid-push.
 - `activeKennelId`: the kennel scope, read and written only through `kennelScope.js`.
 - `myKennelId` / `myContactId`: the user's own kennel and contact.
+- `guidedLitterDraft` and `prepChecks`: Kels's unfinished litter, and the optional checks
+  ticked last time in Pups are going home (§33). Device-only.
+- `studTripsMigrated`: the stud-trip migration has run on this device (§19, Away board).
 
 **Kept outside `KEYS` on purpose**, so Reset App leaves them: the Pro license record and
 `deviceId` (§0.3); cloud `cloudSession`, `cloudBackupState`, `cloudDeviceId` (Reset App
@@ -806,15 +810,24 @@ wires each action, and adds one Dismiss button per row. Dismissals are device-lo
 
 | Key prefix | Fires when | Offers |
 |---|---|---|
+| `studboard` | a stud service's boarding (`studRules.studBoardingFor`: a `boarding` event on the dog that travels, reason "Stud service", dates overlapping the service's) ended before today, and the service's dates differ or it's still arranged / in progress (`boardingEndedUpdate`) | **Update it**: its dates from the stay, Completed. Stands in for `studstatus` on that service |
 | `studstatus` | a stud service's sent/returned date passed but status lags | `in_progress` / `completed` |
 | `promote` | a kept puppy is past its kennel's promote age (opt-in per kennel) | promote to active breeding |
 | `studpair` | a finished stud service has no `pairing_id` | create the pairing |
 | `heatpair` | a heat cycle ended with no pairing for that dam since | create a pairing |
 | `pairingduesoon` | a bred/confirmed pairing is due within 3 days, no litter | create the litter |
+| `studpick` | a completed stud service of our stud with a pick in its fee (`pick_of_litter` / `flat_plus_pick`), 63 + 56 days after it (returned, else sent; `studRules.pickDue`), no pup of that stud out of that dam born since on file, `pick_status` not settled (claimed / received / picked / done / waived) | **Add the puppy** (`dog.html?new=1&pick=<id>`) / **Not getting one** (`pick_status: 'waived'`) |
 | `pairingoverdue` | a pre-whelp pairing is past due, no litter | mark whelped / create litter |
 | `litterpairing` | a whelped-or-later litter's pairing isn't `whelped` | mark it whelped |
 | `pairingended` | an ended pairing still has an `expected` litter | archive the litter |
 | `pairingnolitter` | a `whelped` pairing has no litter (not for external dams or pairings over 180 days old) | create the litter |
+
+**Our stud's outside breedings.** A pairing linked to a live stud service where our dog is
+the stud (`studRules.ourStudPairingIds`: our stud, somebody else's dam) can be recorded like any
+other, but its litter is the dam's owner's: `pairingduesoon`, `pairingoverdue` and
+`pairingnolitter` skip it, the Pairing page's "Record the litter now?" doesn't ask, and
+Kels's tidy-up doesn't suggest recording it. Its pick puppy, when the fee has one, is
+`studpick` above.
 | `deceased-sale`, `deceased-pairing` | a deceased dog has an open sale or a pending pairing | end the sale / cancel or fail the pairing |
 | `deceased-archive` | a puppy died in its first year (last 90 days) | Archive (Lite: Remove from program) |
 | `littersold` / `litterreopen` | a `ready` litter's roster is all placed/keeping/health hold with one placed (and it can't close yet) / a sold or closed litter has a pup available again | change litter status |
@@ -837,10 +850,18 @@ litter, pairing, dog and sale pages show on the edit itself, for changes made el
 "Due outs" list leaves shows out so each appears once.
 
 ### Away board (`data/awayBoard.js`)
-`getAwayBoardRows()` unions boarding events (`eventRepo.getBoardRows`) and in-person stud
-services now in their sent/returned window (`studServiceRepo.getBoardRows`) into one row
-shape. Used by `board.js`, Today and the dashboard tile. Kennel scope is applied inside it,
-through the away dog, so the three can't disagree.
+`getAwayBoardRows()` turns the boarding events running now (`eventRepo.getBoardRows`) into one
+row shape, used by `board.js`, Today and the dashboard tile. A stud service's trip is a
+boarding event like any other; the service's own dates never make a row. Saving a stud
+service where someone travels (new, or its dates or who travels changed, and no stud
+boarding yet, `studRules.studBoardingFor`) asks **Log the boarding?** and opens the event form
+prefilled (`studBoardingPrefill`: the dog that travels, the two dates, reason "Stud service",
+the partner, where they stay: the partner's address, or "With us"). On boot,
+`studServiceRepo.migrateStudTrips` reads a pre-"who travels" `direction` (outgoing /
+incoming) as `shipped` for AI, else `to_partner`, and (once per device, `settings.
+studTripsMigrated`) gives every in-person, not-cancelled service with a start date and no
+stud boarding its boarding event. Kennel scope is applied inside `getAwayBoardRows`, through
+the away dog, so the three can't disagree.
 
 ---
 
@@ -930,7 +951,7 @@ boxes; a row opens an **Adjust** modal that writes back to the sale or stud serv
 - `assets/expensePanel.js` is the per-subject ledger on dog, litter, pairing and kennel pages.
 
 ### Income — derived, never stored (`data/incomeView.js`)
-There is no income table and no `is_earned` field. `getIncomeRows()` reads Sales, outgoing
+There is no income table and no `is_earned` field. `getIncomeRows()` reads Sales, our stud's
 StudServices and (Pro) waitlist fees, and classifies each money component on every load.
 Kennel scope applies to the source records here, so every money screen agrees; a
 `kennelId` argument overrides it for the kennel page. Expenses are scoped through their
@@ -940,7 +961,13 @@ subject (`financials.js` `expenseInScope`).
   **anticipated**. Returned/cancelled keeps only what was paid. A **lost** sale
   (`vocab.isLostSale`) counts nothing: it's refunded or carried to another pup (§29).
   `paidOnSale()` reads what was paid regardless of status.
-- **Outgoing stud fee:** earned when `completed`, anticipated while arranged/in progress.
+- **Our stud's fee** (`studRules.ourRole` = stud): earned when `completed`, anticipated while arranged/in progress.
+- **Our dam's stud fee** is money paid, so it's an Expense, never income. Saving a stud service
+  of our dam that's Completed with a fee and no linked expense (new, just Completed, or the
+  fee changed; `studRules.studFeeExpenseDue`) asks **Log the stud fee as an expense?**: a
+  `stud_fee` Expense for the fee, on the linked breeding (else our dam), dated the service's
+  end (else start), the partner as vendor, `stud_service_id` set so it's asked once
+  (`studFeeExpense`).
   `pick_value_amount` is a separate non-cash `pick` line, outside the cash totals and Net.
 - **Waitlist application fee** (Pro): one earned row per entry with a received fee above 0.
   When `fee_credit_policy` is `credited_to_purchase` and the family is placed, the fee comes
@@ -997,8 +1024,9 @@ omitted. Read-only, through the repos.
   field picks are the first pup's kennel's and apply to every pup. `?sale=` still prints one.
 - **Cover page** (`&cover=1`): a page for the breeder, not the families, before the
   records: the litter, today, and per pup its family, drop-off date, and what's done and
-  missing (`prepPups.readiness`, the same rules as Kels's Pups are going home, §33). Field picks don't
-  apply to it.
+  missing (`prepPups.readiness`, the same rules as Kels's Pups are going home, §33). `&checks=`
+  limits the optional items to the ones listed (Kels passes hers); without it, all are shown.
+  Field picks don't apply to it.
 - **Download = the browser's Print → Save as PDF** (`window.print()` with an `@media print`
   block). Opened from a sale's page, the Sales page's Print Puppy Record picker (a litter
   with pups at home, then tick pups, ticked by default with a sale at Deposit paid or later;
@@ -1044,6 +1072,7 @@ for receipts `payment_method`/`payment_reference`); everything is rebuilt on eac
 - **Generator** (`assets/invoiceGenerator.js`): opened from Financials and a Sale's page, both
   importing it only when `editionFlags.invoicing` is on. It opens the new tab **blank,
   synchronously in the click**, then navigates after saving, or iOS Safari blocks the pop-up.
+  `onClose` runs whenever the modal closes (Kels's Pups are going home waits on it).
   A sale's invoice also has **Send payment link** (§32).
 
 ---
@@ -1176,9 +1205,19 @@ in `proPages.js`).
   contacts, and a generated `breederKey`. Prefilled from her records (blanks only; any
   `vet`-tagged contact can be picked); independent of `myKennelId`.
 - **Recipients:** pups on an open sale (`isOpenSale`, as Companion's family bundle). A
-  personal note and pickup plan persist as plain Sale fields (`furever_note`,
-  `furever_pickup_date`/`_time`/`_place`/`_photo_url`), so a resend starts from them. Furever
-  shows them as a pre-pickup countdown card.
+  personal note and pickup photo persist as plain Sale fields (`furever_note`,
+  `furever_pickup_photo_url`), so a resend starts from them. Furever shows the pickup plan as
+  a pre-pickup countdown card.
+- **Pickup date/time/place follow the pup's Placement / drop-off event**, so a drop-off
+  moved on the timeline reaches the family on the next resend.
+  `pickupEventFor(sale, events)` picks from the pup's drop-off events for the sale's family
+  (`goHome.pickupFor`, as Kels and Today): the soonest from today on, else the latest past one.
+  `pickupPlanFor(sale, event)` sends its `event_date`, `details.placement_time` and
+  `details.location` (blank stays blank). The card shows it read-only with **Edit
+  drop-off** (the shared event modal). Only a pup with **no** drop-off event shows the
+  typed `furever_pickup_date`/`_time`/`_place` Sale fields, which the packet then uses,
+  plus **Add a drop-off event** (the modal, prefilled from what's typed). Those fields stay
+  and are still read as that fallback (older sales and backups carry them).
 
 **`data/fureverSeedExport.js`** `buildSeedPacket` (async) copies named fields only (the
 Companion allow-list discipline, §20), matching what `furever/data/seedLink.js` reads:
@@ -1377,7 +1416,8 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
 ### Surfaces
 - **Pages** (`proPages.js`): `waitlist` (one kennel: new applications, fee due, the ranked
   list, Litters with "Next: <family>" and **Offer to them**, Closed; everything else under
-  **Manage**), `waitlist-entry` (one family: Details / Interact / History tabs),
+  **Manage**), `waitlist-entry` (one family: Details / Interact / History tabs; its
+  application fields come from `assets/waitlistApplicationForm.js`, shared with Kels),
   `waitlist-programs`, `waitlist-form`, `waitlist-publish`, `waitlist-import`. A page shows
   one kennel (`?kennel=`, else scope, else busiest; `waitlistUI.resolveWaitlistKennel`).
 - **Litter page:** the **Waitlist picks** panel (`assets/waitlistPicksPanel.js`, loaded only
@@ -1732,8 +1772,12 @@ Each thing she approves is saved at once; there is no draft.
    - Per pup with a sale in progress: **log the boarding** its sale charges for (start = the
      ready date or today, end from the charge, `boardingEnd`: the count × Day/Week/Month);
      **When is the pickup?** (a `placement` event, "Puppy pickup", the buyer as related
-     contact); **Did they go home?** after the pickup date — Yes opens
-     `sale.html?id=…&deliver=1`, "the pickup moved" asks a new date.
+     contact); **Did they go home?** after the pickup date — **Yes, mark the sale
+     delivered** saves it Delivered in the chat, then asks what the Sale page's Delivered save
+     asks: Pro (`externalOwnership`), how the pup shows on her roster (the family owns it now,
+     we co-own, or leave it; `goHome.deliveredOwnershipChanges`, the Sale page's rule too);
+     Lite, whether it leaves the program (archived, permanent). Closing the litter, when due,
+     comes up with the litter questions after. "The pickup moved" asks a new date.
 4. **"What are we doing first?"** until **That's all for now**:
    - **Record weights:** date, AM/PM, pounds + ounces per home pup beside its last weight; one
      `weight_check` "Weight check" per pup entered (`weightDetails`). Kels compares each with
@@ -1757,29 +1801,59 @@ The run-up to go-home day for one litter. Each fix is saved when approved; there
 2. **Which pups:** the litter's pups at home, each with its sale's status and family, or
    "No sale". Ticked by default: a sale at Deposit paid or later (`pickedByDefault`); any pup
    can be ticked.
-3. **Where they stand:** per pup, "n of m done" and what's missing.
-4. **One thing at a time**, in `READY_ITEMS` order, each once per visit, for every chosen
+3. **Optional checks:** "Want me to check any of these too?" — the `optional` items this
+   edition has (`optionalItems`: microchip numbers, the litter's registration number, each
+   pup's registered name and number, a feeding schedule). Unticked the first time, then as
+   she left them on this device (`settings.prepChecks`). Only ticked ones are checked
+   (`readiness({ checks })`).
+4. **A plan with no sale** (`planWithoutSale`, every pup at home, chosen or not): a pup
+   marked Available or Placed with no sale going ahead (none, or only a returned /
+   cancelled / voided one). **Record the sale** (several: tick which) asks, per pup, the
+   family (one she has, buyers first, or a new one: name, email, phone, typed Buyer), where
+   it's at (Deposit Pending / Deposit paid / Paid in full, and the date paid: `deposit_date`,
+   and `balance_paid_date` too for Paid in full), the registration (from
+   `intended_registration`), and the price and deposit (`expectedPricing`; the price follows
+   the registration until she types her own); the pup becomes Placed and joins the chosen
+   pups. **Change the plan** sets any plan but Placed. Placed pups left without a sale are
+   offered the plan change after.
+5. **Where they stand:** per pup, "n of m done" and what's missing.
+6. **One thing at a time**, in `READY_ITEMS` order, each once per visit, for every chosen
    pup missing it (**Not now**, or **That's enough for now** to skip to the end):
 
    | Item | Done when | Fix |
    |---|---|---|
-   | Microchip | `microchip_id` set | the check-in's microchip form |
+   | Microchip (optional) | `microchip_id` set | the check-in's microchip form |
+   | Litter registration number (optional) | the litter's `litter_registration_number` | one number for the litter, typed in the chat |
+   | Registered name and number (optional) | the pup's `registered_name` and `registration_number` both set | both per pup, typed in the chat; a blank leaves that field as it was |
    | Shots | a `vaccination` logged | the check-in's care form (Shots) |
    | Deworming | a `preventative` logged | the check-in's care form |
    | Drop-off date (sale) | a `placement` event for the sale's family (`goHome.pickupFor`) today or later | **When's the drop-off?**: date, time, how (`PLACEMENT_METHODS`) per pup; `goHome.pickupEvent` (titled "Puppy drop-off" unless Local pickup) |
    | Balance (sale) | Paid in full / Delivered, a `balance_paid_date`, or a `balance_due_date` | a due date per pup (`saleRepo.update`) |
-   | Contract signed (sale, Pro `contracts`) | a signed contract on the sale | opens the contract, or `contract.html?new=1&sale=` |
-   | Registration type (sale) | `registration_type` set | opens the sale |
-   | Feeding schedule (Pro `feedingSchedule`) | the litter's `feeding_schedule_override`, or a breed schedule for the pup's breed | the Feeding schedules page, or the litter's page |
+   | Contract signed (sale, Pro `contracts`) | a signed contract on the sale | **Where are the contracts at?**: a status per pup (`CONTRACT_STATUS`), and the signed date when Signed; saved on the sale's first live contract, or a new `sale` contract (title "<pup> sale contract", kennel from the sale) when it has none; "No contract yet" skips it |
+   | Registration type (sale) | `registration_type` set | **How is each puppy registered?**: a `REGISTRATION_TYPE` per pup (prefilled from `intended_registration`); then, as the Sale page does, the price change for the litter's Full surcharge (`saleDefaults.priceForRegistrationChange`, asked first; a fee that was the estimate follows the price) and, for Co-own, adding the family as the pup's co-owner (asked) |
+   | Feeding schedule (Pro `feedingSchedule`, optional) | the litter's `feeding_schedule_override`, or a breed schedule for the pup's breed | **Just this litter**: the litter's feeding note typed in the chat; **For the breed**: the Feeding schedules page (a table editor) |
 
    The `placement` event ("Placement / drop-off") is the only go-home date the app keeps;
-   Furever's pickup fields on the Sale are the family app's and don't count. A fix that opens
-   a page leaves Kels; she says to start Pups are going home again after.
-5. **The end:** all done, or what's still missing per pup. Pro: the **Furever link** is
+   Furever's pickup plan reads it too (§27). The typed Furever pickup fields on the Sale are
+   only Furever's fallback for a pup with no drop-off event, and don't count. Every fix but
+   the breed feeding schedule happens in the chat; that one leaves Kels, and she says to
+   start Pups are going home again after.
+7. **Balances still owed** (Pro: `accounts` or `invoicing`): chosen pups whose sale is at
+   Deposit Pending or Deposit paid, with no `balance_paid_date` and a balance
+   (`contractSend.balanceDueOn`) above zero, listed with the amount and due date, then **Yes,
+   let's do it**. Each family in turn gets both, one after the other, each with **Skip**:
+   **Send a payment request** (`paymentRequestUI.openPaymentRequest`, the Sale page's;
+   offered only when a Payment service takes payments, `paymentAccounts`, or has her Stripe
+   key here; otherwise she says to add one on the Accounts page), then **Make an invoice**
+   (`openInvoiceGenerator({ preselect, onClose })`, said first to open in a new tab; Kels
+   waits for the modal to close).
+8. **The end:** all done, or what's still missing per pup. Pro: the **Furever link** is
    offered (`furever.html`) when a chosen pup has an open sale; it isn't tracked, so it's
    never an item. Pro (`puppyRecord`): **Print puppy records** opens
-   `puppy-record.html?dogs=…&cover=1&autoprint=1` in a new tab (a link if the tab is
-   blocked). Lite runs the same check without Furever or the print, and its menu entry
+   `puppy-record.html?dogs=…&cover=1&autoprint=1&checks=…` (the optional checks she ticked) in a new tab (a link if the tab is
+   blocked). Both tabs are announced first ("Of course! I'll have to open a new tab to
+   print from. Once you print, you can close that tab and come back here; I'll be
+   waiting.") and open only on **Okay, open it** (`openTab`). Lite runs the same check without Furever or the print, and its menu entry
    neither mentions nor searches either.
 
 ### "Set up my waitlist"
@@ -1804,7 +1878,11 @@ checkboxes, never a question apiece:
    then the public list and form links.
 4. **Programs:** as many as she likes (name, place in line, fee, days to accept, passes not
    counted, pause allowed, a description), through `waitlistProgramRepo`.
-5. **Families she already has:** opens the waitlist import or a new entry (both leave Kels).
+5. **Families she already has:** **Add one by hand** asks her application in the chat (her
+   questions, preferences and readiness: `assets/waitlistApplicationForm.js`, the Waitlist
+   entry page's new application too), then the program, when they applied and her notes,
+   and saves it as an application (`applied`), as that page does; **Add another family**
+   repeats. **Import a list** opens the waitlist import (a page of its own; leaves Kels).
 
 Every config save is checked by `waitlistRules.waitlistConfigProblem`, the Kennel page's
 settings card's check too. **Re-runnable:** on a kennel already set up
@@ -1829,11 +1907,11 @@ never the business Accounts page. All editions; each check only where its featur
 | `export-old` | no working cloud backup, and the last JSON backup file (`getLastBackupDate`) is over 14 days old or never | `importExport.downloadBackup()` |
 | `vault-locked` | Sensitive records on, not unlocked here | `cloudVaultUI.unlockModal()` |
 | `recovery-unsaved` | an unsaved recovery code, or none | `saveRecoveryCodeFlow()` / `newRecoveryCodeFlow()` |
-| `license-grace` | Pro gate on, license in grace | Settings, license section |
+| `license-grace` | Pro gate on, license in grace | **Check it again now** (`evaluateLicense`), **Renew my subscription** (the checkout in a new tab, announced, then checked again), or **Use a different key** (pasted in the chat, `license.activate`) |
 | `update` | a new service worker is installing or waiting, or took over since the page loaded | reload |
 | `device-lost` | another device on the account (not erasing, not signed out on its own) unseen 60+ days | `cloudBackupUI.devicesModal()`; "It's fine, I still use it" is remembered |
 | `key-rejected` | Pro `accounts`: a Stripe / Jotform key on this device that its vendor refuses (`stripeCheckKey` / `jotformUser`, one call each, skipped offline) | **Help me replace it**, all in the chat: the steps to make a new key in a new tab (Stripe's from `stripeLinks.STRIPE_KEY_PERMISSIONS`, the list the Accounts page shows too), a link to the vendor (the account's `website`, else its API page), the account's saved username and password when it has them (the password masked until **Show**; **Copy** for each), then the new key and currency / region pasted in and checked and saved by `connectStripe` / `connectJotform`, as the Accounts page connects. "I'll do it later" leaves it for the next visit |
-| `waitlist-signed-out` / `waitlist-error` | Pro `waitlist`: a kennel's list is online, and this device isn't signed in / its last update failed | the kennel's page |
+| `waitlist-signed-out` / `waitlist-error` | Pro `waitlist`: a kennel's list is online, and this device isn't signed in / its last update failed | signed out: **Sign in now** (`cloudBackupUI.signInModal`); failed: why (`waitlistOnlineUI.onlineProblemText`), **Turn on cloud backup** when that's the reason, or **Try again now**. Either way she publishes at once (`syncWaitlistOnline({ force: true })`) and says how it went |
 | `vault-off` | Sensitive records offered and off | `turnOnVaultFlow()` |
 | `passkey-none` | on, passkeys supported, none added | `passkeysModal()` |
 | `storage-full` | 80%+ of the browser's quota used | none; she says so |
@@ -1845,8 +1923,8 @@ or due date, on n of m devices: Lemon Squeezy's `activation_usage` / `activation
 kept on the cached record as `activationUsage` / `activationLimit`), devices signed in
 (by name), Sensitive records (backed up, unlocked here, recovery code, passkeys), each
 vendor connection, each online waitlist. Then the findings, or **All good**. She closes with
-what's still worth a look. Sync isn't checked until live sync's UI exists. A fix that
-opens a page leaves Kels; she says to start the task again after.
+what's still worth a look. Sync isn't checked until live sync's UI exists. Every fix
+happens in the chat or a dialog over it.
 
 ### "Tidy up my records"
 She finds places two records disagree, says how many of each kind, then raises them one at
@@ -1860,12 +1938,15 @@ The checks (`data/tidyRules.js` `tidyFindings`, in `TIDY_KINDS` order; litters, 
 services and her dogs are kennel-scoped, duplicates, contacts and kennels program-wide):
 - **Litter count:** `puppies_born_alive` (else total less deceased) ≠ the litter's pup
   records, departed and deceased pups counted. Fix the count (`countFix`; the total follows
-  when it no longer adds up), or open the litter to add pups.
+  when it no longer adds up), or, when pups are missing, **Add the missing puppies** in the
+  chat: a name and boy or girl each, the rest from the litter (`puppyDefaults.baseFromLitter`,
+  as the Litter page's Add puppies; undecided). A dam with no breed is said, not worked around.
 - **Puppy plan:** a pup with a sale not returned, cancelled or voided whose disposition isn't
   Placed → Placed.
 - **Went home:** an `owned` dog with a Delivered sale (and no newer sale going) → Pro: the
-  buyer owns it (`external`, `external_reference`) or co-owns it; Lite: leave the roster
-  (archive). Co-owned dogs aren't asked about.
+  buyer owns it (`external`, `external_reference`) or co-owns it
+  (`goHome.deliveredOwnershipChanges`, as the Sale page and the check-in); Lite: leave the
+  roster (archive). Co-owned dogs aren't asked about.
 - **Litter vs. breeding:** a litter's sire/dam ≠ its pairing's → fix either side.
 - **Pups vs. litter:** a litter's pups with a blank sire/dam (fill from the litter) or a
   different one (use the litter's).
@@ -1875,7 +1956,12 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
   pedigree-only dog. A typed name is checked against existing dogs first (`dogMatches`).
 - **Stud service** (`studServices`): past its date (returned, else sent; or Completed), not
   cancelled or failed, no `pairing_id` → link a breeding of the same two dogs opened from two
-  weeks before it was sent that no other service claims, or record one (`pairing.html?new=1&stud_service=`).
+  weeks before it was sent that no other service claims, or **Record the breeding** in the
+  chat: the parents from the stud service (`studRules.studParents`: ours is the sire or the
+  dam by its sex), the first date (default: sent) and how it went (any status but Planned); an
+  `actual` pairing, due 63 days on, kennel from the dam then sire, and the stud service's
+  `pairing_id` set. Whelped says to record the litter with her next, except when our dog is
+  the stud (the litter is the dam's owner's).
 - **Breeder without a kennel** (`contactsSection`): a Breeder contact with no `kennel_id` →
   pick or add the kennel.
 - **Kennel without a contact** (`contactsSection`): an outside kennel no contact belongs to →

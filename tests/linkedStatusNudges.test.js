@@ -307,3 +307,48 @@ test('go home: schedule the pickup, log the boarding a sale charges for, and "di
   await saleRepo.update(sale.id, { status: 'delivered' });
   assert.equal((await nudgesFor('gohome-')).length, 0, 'delivered: settled');
 });
+
+test('our stud\'s outside breeding (an outgoing stud service): no litter is asked for', async () => {
+  const { studServiceRepo } = await import('../shared/data/studServiceRepo.js');
+  const outsideDam = await dogRepo.create({ call_name: 'Juno', sex: 'female', breed: 'Boston Terrier', ownership_type: 'external', status: 'external_reference', owner_contact_id: (await contactRepo.create({ name: 'Dana Ruiz' })).id });
+  const p = await pairingRepo.create({ kennel_id: K.id, dam_id: outsideDam.id, sire_id: sire.id, pairing_type: 'actual', status: 'bred', expected_due_date: daysAgo(5) });
+  assert.equal((await nudgesFor('pairingoverdue:')).length, 1, 'before it\'s linked, the usual overdue nudge');
+  await studServiceRepo.create({ kennel_id: K.id, direction: 'to_us', our_dog_id: sire.id, partner_dog_id: outsideDam.id, partner_contact_id: outsideDam.owner_contact_id, status: 'completed', pairing_id: p.id });
+  assert.equal((await nudgesFor('pairingoverdue:')).length, 0);
+  await pairingRepo.update(p.id, { status: 'confirmed_pregnant', expected_due_date: new Date(Date.now() + 86400000).toISOString().slice(0, 10) });
+  assert.equal((await nudgesFor('pairingduesoon:')).length, 0);
+  await pairingRepo.update(p.id, { status: 'whelped' });
+  assert.equal((await nudgesFor('pairingnolitter:')).length, 0);
+});
+
+test('a pick-of-litter fee on an outgoing stud service: ready to add the pick puppy, 63 + 56 days on', async () => {
+  const { studServiceRepo } = await import('../shared/data/studServiceRepo.js');
+  const owner = await contactRepo.create({ name: 'Dana Ruiz' });
+  const outsideDam = await dogRepo.create({ call_name: 'Juno', sex: 'female', breed: 'Boston Terrier', ownership_type: 'external', status: 'external_reference', owner_contact_id: owner.id });
+  const s = await studServiceRepo.create({ kennel_id: K.id, direction: 'to_us', our_dog_id: sire.id, partner_dog_id: outsideDam.id, partner_contact_id: owner.id, status: 'completed', fee_structure: 'pick_of_litter', sent_date: daysAgo(118) });
+  assert.equal((await nudgesFor('studpick:')).length, 0, 'a day early');
+  await studServiceRepo.update(s.id, { sent_date: daysAgo(119) });
+  const [n] = await nudgesFor('studpick:');
+  assert.equal(n.key, `studpick:${s.id}`);
+  assert.deepEqual(n.actions.map((a) => a.label), ['Add the puppy', 'Not getting one']);
+  await dogRepo.create({ call_name: 'Pick', sex: 'male', breed: 'Boston Terrier', ownership_type: 'owned', status: 'puppy', kennel_id: K.id, sire_id: sire.id, dam_id: outsideDam.id, date_of_birth: daysAgo(56) });
+  assert.equal((await nudgesFor('studpick:')).length, 0, 'the pick is on file');
+});
+
+test('a stud service\'s boarding ended: update its dates and status (instead of the status nudge)', async () => {
+  const { studServiceRepo } = await import('../shared/data/studServiceRepo.js');
+  const { eventRepo } = await import('../shared/data/eventRepo.js');
+  const owner = await contactRepo.create({ name: 'Dana Ruiz' });
+  const visitor = await dogRepo.create({ call_name: 'Juno', sex: 'female', breed: 'Boston Terrier', ownership_type: 'external', status: 'external_reference', owner_contact_id: owner.id });
+  const s = await studServiceRepo.create({ kennel_id: K.id, direction: 'to_us', our_dog_id: sire.id, partner_dog_id: visitor.id, partner_contact_id: owner.id, status: 'in_progress', sent_date: daysAgo(10) });
+  await eventRepo.create({ subject_type: 'dog', subject_id: visitor.id, event_type: 'boarding', event_date: daysAgo(10), event_end_date: daysAgo(3), title: 'Stud service', details: { boarding_reason: 'Stud service' } });
+  const [n, ...rest] = await nudgesFor('studboard:');
+  assert.equal(rest.length, 0);
+  assert.equal((await nudgesFor(`studstatus:${s.id}`)).length, 0, 'one nudge per service');
+  await n.actions[0].run();
+  const after = await studServiceRepo.getById(s.id);
+  assert.equal(after.returned_date, daysAgo(3));
+  assert.equal(after.status, 'completed');
+  assert.equal(after.type, 'in_person', 'type follows who travels');
+  assert.equal((await nudgesFor('studboard:')).length, 0);
+});

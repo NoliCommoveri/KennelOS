@@ -882,15 +882,17 @@ function studIndex({ services = [], dogs = [], contacts = [], kennels = [] } = {
 }
 
 const validStudRow = (over = {}) => ({
-  direction: 'Outgoing', our_dog_registered_name: 'Zeus', partner_dog_registered_name: 'Ruby',
+  direction: 'Our dog goes to them', our_dog_registered_name: 'Zeus', partner_dog_registered_name: 'Ruby',
   partner_contact_name: 'Ruby\'s Owner', status: 'Arranged', ...over
 });
 
-test('stud service: our_dog + partner_dog + direction all required for a natural key', () => {
-  const index = studIndex({ dogs: [ourDog, partnerDog] });
+test('stud service: who travels is required for a new one, and plain words read as it', () => {
+  const index = studIndex({ dogs: [ourDog, partnerDog], contacts: [{ id: 'pc-1', name: "Ruby's Owner" }] });
   const r = studMapping.classify(validStudRow({ direction: '' }), index, 0);
   assert.equal(r.status, 'review');
-  assert.ok(reasonsInclude(r.reasons, 'No direction'));
+  assert.ok(reasonsInclude(r.reasons, 'direction'));
+  assert.equal(studMapping.classify(validStudRow({ direction: 'AI' }), index, 0).record.direction, 'shipped');
+  assert.equal(studMapping.classify(validStudRow({ direction: 'Their dog comes to us' }), index, 0).record.direction, 'to_us');
 });
 
 test('stud service: an unresolved our_dog name forces review', () => {
@@ -900,13 +902,13 @@ test('stud service: an unresolved our_dog name forces review', () => {
   assert.ok(reasonsInclude(r.reasons, 'Our dog "Zeus" not found'));
 });
 
-test('stud service: any existing match on the pair+direction key is ALWAYS routed to review, never auto-updated', () => {
-  const existing = { id: 'ss1', our_dog_id: 'our-1', partner_dog_id: 'partner-1', direction: 'outgoing' };
+test('stud service: any existing match on the dog pair is ALWAYS routed to review, never auto-updated', () => {
+  const existing = { id: 'ss1', our_dog_id: 'our-1', partner_dog_id: 'partner-1', direction: 'to_partner' };
   const index = studIndex({ services: [existing], dogs: [ourDog, partnerDog] });
   const r = studMapping.classify(validStudRow(), index, 0);
   assert.equal(r.status, 'review');
   assert.equal(r.match.id, 'ss1');
-  assert.ok(reasonsInclude(r.reasons, 'already matches this dog pair + direction'));
+  assert.ok(reasonsInclude(r.reasons, 'already matches this dog pair'));
 });
 
 const partnerContact = { id: 'pc-1', name: "Ruby's Owner" };
