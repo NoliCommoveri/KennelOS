@@ -1461,3 +1461,13 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   new event saves (same subject and type only; cancelling leaves it). The Kels reminders
   answer says so. Checked in the browser: logging the next vaccination from its reminder
   leaves no reminder pending.
+- **Service worker v81 (2026-10-15).** Cache bumped once for everything since v80: PRs
+  #124–#129 merged to main without a bump (Kels Add people / application form, Find,
+  Understanding Something, waitlist reports) and this branch (the Kels FAQ rework and Today
+  hub topic, Log new clearing its reminder, file Merge pairing). New precached files since
+  v80: `assets/guidedFormUI.js`, `guidedPeopleUI.js`, `kelsApplicant.js`,
+  `kelsBackupSteps.js`, `kelsFindUI.js`, `kelsUnderstandUI.js`, `waitlistFeeStep.js`;
+  `data/contactSearch.js`, `findRecords.js`, `guidedForm.js`, `guidedPeople.js`,
+  `kelsAbout.js`, `kelsFavorites.js`, `kelsFind.js`, `kelsKnowledge.js`, `kelsUnderstand.js`,
+  `restoreMatch.js`; the Applications, Offers & removals and Waitlist today reports. All 394
+  precache paths checked present, and every app file is in the list.
