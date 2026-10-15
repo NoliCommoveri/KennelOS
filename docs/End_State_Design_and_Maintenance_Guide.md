@@ -1629,16 +1629,21 @@ from the module's own URL, so it works from any page). A floating **Ask Kels** b
 (`kelsChat.renderAssistButton`, from `app.js`; her photo above the label, and a dot while a
 litter draft is unfinished) opens `pages/kels.html`. Every write is an ordinary repo write.
 
-Modules: `assets/kelsChat.js` (identity, the transcript — `say`, `you`, `panel`, `choose`,
-and `form({ title, html, submit, reply })`, where `submit` returns a string to show as a
+Modules: `assets/kelsChat.js` (identity, the transcript — `say`, `you`, `panel`,
+`choose(choices, { search?, confirmHint? })` (buttons two across; a choice with a `sub` opens
+on the first tap to show it and is chosen on the second; `search` adds a box that filters as
+she types, every word matching the start of a word in a choice's label, sub or `keywords`,
+Enter picks the first match), and `form({ title, html, submit, reply })`, where `submit` returns a string to show as a
 problem and stay, anything else to finish — and the button), `pages/kels.*` (the menu),
 `assets/guidedLitterUI.js` + `data/guidedLitter.js` (the litter task), `assets/litterCheckinUI.js`
 + `data/litterCheckin.js` + `data/goHome.js` (the check-in), `assets/tidyUpUI.js` +
 `data/tidyRules.js` + `data/recordMerge.js` (the tidy-up). The data modules are tested;
 all but `recordMerge.js` are pure.
 
-**The menu** (`kels.js` `TASKS`): a task is `{ id, label, sub, available, priority, run,
-resumable?, beforeStart? }`, highest priority first: an unfinished litter (100), the check-in
+**The menu** (`kels.js` `TASKS`): a task is `{ id, label, sub, keywords, available, priority,
+run, resumable?, beforeStart? }`, highest priority first, with a search box above it;
+`keywords` are the other words a breeder might search with ("add puppies" finds Record a new
+litter). The page header shows only her name and photo. Order: an unfinished litter (100), the check-in
 (60 while a litter has pups at home, else 40), a new litter (50), tidy up (30). The header's **Save for
 later** shows only while a `resumable` task runs. `beforeStart` can redirect a start (a new
 litter while one is unfinished asks "Finish that one / Start fresh"); `handoff(taskId, opts)`
@@ -1732,7 +1737,7 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
   different one (use the litter's).
 - **No parents:** her own dog (owned, co-owned, leased in) not from one of her litters with a
   blank sire/dam → pick a dog already on file (right sex, same breed first), or add one: hers
-  (owned, in the dog's kennel; Lite's cap is explained, not shown raw) or somebody else's as a
+  (owned, in the dog's kennel; at Lite's cap she shows the usual upgrade notice, `renderUpgradeNudge`, and skips that parent) or somebody else's as a
   pedigree-only dog. A typed name is checked against existing dogs first (`dogMatches`).
 - **Stud service** (`studServices`): past its date (returned, else sent; or Completed), not
   cancelled or failed, no `pairing_id` → link a breeding of the same two dogs opened from two

@@ -25,7 +25,9 @@ import { litterLabel } from '../data/litterCheckin.js';
 import { dogMatches } from '../data/guidedLitter.js';
 import * as T from '../data/tidyRules.js';
 import { mergeConflicts, suggestKeep, mergeRecords } from '../data/recordMerge.js';
+import { CapExceededError } from '../data/repoBase.js';
 import { esc, fmtDate, todayYMD } from './ui.js';
+import { renderUpgradeNudge } from './upgradeNudge.js';
 
 const pagesPrefix = () => (location.pathname.includes('/pages/') ? '' : 'pages/');
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -369,9 +371,10 @@ class Tidy {
       this.dogsById.set(made.id, made);
       return made.id;
     } catch (e) {
-      if (e?.name === 'CapExceededError') {
-        await this.chat.say(`Your plan holds ${e.limit} of your own dogs, and you're there. You can add the ${R.word} as somebody else's dog (just for the pedigree), or as Deceased, and neither one counts.`);
-        return this.newParent(dog, R);
+      // Lite's cap: the app's usual upgrade notice, in her bubble. Nothing else.
+      if (e instanceof CapExceededError) {
+        renderUpgradeNudge(await this.chat.say(''), e);
+        return null;
       }
       await this.chat.say(`I couldn't add that dog: ${esc(e?.message || String(e))}`);
       return null;

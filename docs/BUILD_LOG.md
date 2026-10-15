@@ -1041,3 +1041,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `waitlistEntryRepo.syncContactWaitlistStatus` exported. No schema change. End-State guide
   §7, §16, §33; editions plan tier table. CLAUDE.md: README is a snapshot, history only here.
   Precache updated; `CACHE_NAME` not bumped.
+- **Kels's chat, tighter and searchable (2026-10-15).** Less padding throughout the chat;
+  reply buttons two across; a choice's description stays hidden until the first tap, and the
+  second tap chooses it; her menu has a search box that filters as you type, matching each
+  task's `keywords` too ("add puppies" → Record a new litter). The page header drops her
+  tagline (her first message says it). Decided: in Lite, adding a parent at the cap shows the
+  usual upgrade notice and skips that parent; Kels never suggests a way around the cap.
+  End-State guide §33. No new files.
