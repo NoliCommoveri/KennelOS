@@ -21,6 +21,7 @@
 import { isProOnlyPage } from './proPages.js';
 
 export const SECTIONS = [
+  { id: 'today', label: 'The Today hub' },
   { id: 'dogs', label: 'Dogs and puppies' },
   { id: 'removing', label: 'Archiving and deleting' },
   { id: 'breeding', label: 'Breedings and litters' },
@@ -32,6 +33,29 @@ export const SECTIONS = [
 const tail = (cond, text) => (cond ? ` ${text}` : '');
 
 export const ENTRIES = [
+  // The Today hub
+  { id: 'today-nudges', section: 'today', q: 'What are nudges?',
+    keywords: ['nudge', 'nudges', 'suggestion', 'suggestions', 'today', 'attention', 'prompt', 'rules', 'dismiss'],
+    href: 'today.html', show: 'Show me Today',
+    a: 'Nudges are suggestions the app works out from your records. A set of rules looks for things that need your attention, like a detail to update or a page to open and review. Nothing changes until you tap one of a nudge\'s buttons. A nudge goes away by itself once what it\'s about is taken care of, and Dismiss hides it on this device only.' },
+  { id: 'today-reminders', section: 'today', q: 'How do reminders work?',
+    keywords: ['reminder', 'reminders', 'due', 'next', 'vaccination', 'vaccine', 'shots', 'checkup', 'annual', 'recurring', 'snooze', 'overdue'],
+    href: 'reminders.html', show: 'Show me my reminders',
+    a: 'Any event you log on a dog can have a reminder date, like when the next vaccination or annual checkup is due. Every reminder still pending shows under Reminders on Today, as Overdue, Due soon (the next 30 days) or Upcoming. Log new opens a fresh entry of the same kind for that dog, where you can set the reminder for the time after. Logging the next one doesn\'t clear the old reminder, so Dismiss it once it\'s done, or Snooze it to a later date.' },
+  { id: 'active-litter', section: 'today', q: 'What is an "active litter"?',
+    keywords: ['active', 'active litter', 'active litters', 'litter', 'available', 'sold', 'today', 'for sale', 'add sale'],
+    href: 'today.html', show: 'Show me Today',
+    a: 'A litter with at least one pup marked Available. It shows under Active litters on Today with its pups marked Available, Undecided or Placed, and how many are sold, counting the Placed ones. Pups you\'re keeping or have on Health hold aren\'t listed. Once no pup is Available, the litter leaves that list, even if it isn\'t closed yet.' },
+  { id: 'today-upcoming', section: 'today', q: 'What shows under Due outs & upcoming?',
+    keywords: ['due out', 'due outs', 'upcoming', 'scheduled', 'vet visit', 'surgery', 'drop off', 'future', 'today'],
+    a: (ctx) => 'Every event dated today or later, like a drop-off, a vet visit or a surgery. It lists one-day events only, so a stay that runs over several days, like boarding, is under Away from home instead.'
+      + tail(ctx.flags.shows, 'Shows in the next two weeks have their own card, Upcoming shows.') },
+  { id: 'today-away', section: 'today', q: 'Why isn\'t my dog under Away from home?',
+    keywords: ['away', 'away from home', 'boarding', 'board', 'stay', 'trip', 'gone', 'location', 'return'],
+    a: (ctx) => 'Away from home lists only Boarding entries that haven\'t ended yet, so medications and heat cycles never show there.'
+      + tail(ctx.flags.studServices, 'A stud service\'s trip counts, because saving the service logs it as Boarding.')
+      + ' A stay with no return date stays on the list until you add one.' },
+
   // Dogs and puppies
   { id: 'keeping-puppy', section: 'dogs', q: 'I\'m keeping a puppy. Why is it still a puppy?',
     keywords: ['keep', 'keeping', 'kept', 'promote', 'grown', 'adult', 'breeding', 'status', 'plan', 'disposition'],

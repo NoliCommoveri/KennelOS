@@ -1413,3 +1413,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   says "you'll be prompted" or "the app" instead (kept-pup age reminder, an open litter, a
   dog that died, pairing ↔ litter, the stud pick, the go-home date, waitlist offers, a
   dismissed prompt).
+- **Kels FAQ: The Today hub (2026-10-15).** A new first topic explaining what's on Today
+  and the rules behind each card: nudges (derived suggestions; nothing changes until she
+  acts; Dismiss is per device), reminders (any event's reminder date; Overdue / Due soon /
+  Upcoming; logging the next one doesn't clear the old one), what an active litter is (one
+  or more Available pups), Due outs & upcoming (one-day events from today on; shows apart
+  in Pro), and Away from home (Boarding entries not yet ended; a stud trip in Pro).

@@ -1920,7 +1920,7 @@ question when there is one. How KennelOS works opens "I'm on it!" +
   where the edition changes it), and a **Show me** button to where it lives. `ctx` is
   `{ edition, flags, cloud, vault, page(href) }`. An answer is written from the rule as
   built, so a change to the rule changes its answer in the same edit.
-- **Topics** (`SECTIONS`): Dogs and puppies, Archiving and deleting, Breedings and litters,
+- **Topics** (`SECTIONS`): The Today hub, Dogs and puppies, Archiving and deleting, Breedings and litters,
   Money, The waitlist, Your data and devices. A topic with no entry in this edition isn't
   offered (`understandSections`).
 - **Edition-honest:** an entry with a `flag` the edition lacks, or whose `when(ctx)` is
