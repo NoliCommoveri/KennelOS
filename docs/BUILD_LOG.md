@@ -1407,3 +1407,20 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   asks keep-mine / take-the-file when this device has newer edits (it used to overwrite
   them silently). `tests/fileMerge.test.js`. Open: matching records across devices whose
   ids differ (same dog typed on two devices), proposed as a restore-time match + id remap.
+- **File Merge pairs what each device entered on its own (2026-10-15).** New
+  `data/restoreMatch.js` (pure): per-table rules (Same / Ask / Never) for kennels, accounts,
+  contacts, waitlist programs, feeding schedules, dogs (registered name with titles
+  ignored, registration number, microchip; pups through their litter; call name asked),
+  pairings, litters, sales, stud services, contracts, events, expenses, documents and
+  their files, waitlist entries and offers; only records whose id isn't on the other
+  side; one to one, ambiguity asked. `planFileMerge` now plans the pairs, the open
+  questions and a paired dog's clashes (name, sex, sire, dam); `restoreBackup('merge',
+  { keepNewer, answers, clashChoices })` gives each pair the backup's id (this device's
+  when cloud backup or live sync is on), re-keys every record, `device_secrets` and the
+  app's settings (`settings.remapStoredIds`), and merges fields (blanks fill, newer wins,
+  lists join, notes keep both). Lite's cap is checked on the merged dogs. Import/Export
+  asks "Are these the same?" and "Which should I keep?" before writing. Guide §10 holds
+  the rules. `tests/restoreMatch.test.js`, more in `tests/fileMerge.test.js`; memoryDb's
+  localStorage gained `key()`/`length`. Next: the same rules for on-device duplicates
+  (Tidy up for every record type, kennels included, and a Scan for duplicates card on
+  Import/Export).

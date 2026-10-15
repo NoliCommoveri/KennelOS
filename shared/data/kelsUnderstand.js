@@ -192,8 +192,7 @@ export const ENTRIES = [
   { id: 'merge-replace', section: 'data', q: 'What\'s the difference between Merge and Replace?',
     keywords: ['restore', 'merge', 'replace', 'backup', 'import', 'overwrite', 'duplicate', 'twice', 'newer'],
     href: 'import-export.html', show: 'Show me backups',
-    a: (ctx) => 'Merge adds the file\'s records to what\'s here and updates ones you already have with the file\'s newer copy. If you changed something here after the file was made, it asks whether to keep your edits or take the file\'s. Records match only when one came from the other, so a dog you typed in separately on two devices ends up twice: Tidy up my records finds those'
-      + (ctx.flags.contactsSection ? ', and people too' : '') + '. Replace wipes this device first, so it ends up exactly like the file.' },
+    a: 'Merge adds the file\'s records to what\'s here and updates ones you already have with the file\'s newer copy. If you changed something here after the file was made, it asks whether to keep your edits or take the file\'s. Something you entered on both devices, like the same dog, becomes one record with the details from both: it\'s matched by things like a registered name, registration number or microchip, and when it\'s not sure, it asks you first. Replace wipes this device first, so it ends up exactly like the file.' },
   { id: 'cloud-device', section: 'data', q: 'Can two devices both back up to the cloud?',
     keywords: ['cloud', 'backup', 'two', 'devices', 'phone', 'computer', 'private', 'sensitive'],
     when: (ctx) => ctx.cloud, href: 'settings.html', show: 'Show me Settings',

@@ -499,7 +499,8 @@ The cross-device data path, and one of the two modules that write tables directl
     than the file's is left as it is (a row missing `updated_at` on either side takes the
     file's copy). `planFileMerge()` counts `{ added, updated, newerHere }` without writing;
     the Import/Export page asks "Keep my newer edits / Take the backup's copy" only when
-    `newerHere` > 0, and otherwise merges with `keepNewer`. Records match by id only.
+    `newerHere` > 0, and otherwise merges with `keepNewer`. Records with different ids are
+    matched by content first (below).
   - `'cloud-merge'` restores a cloud snapshot: overlays only `syncRegistry` cloud fields, so
     private fields on the device survive; newer `updated_at` wins unless `overwrite`
     ("Restore as of…"); never deletes; missing files via `opts.fetchFile(sha256)`.
@@ -513,6 +514,75 @@ The cross-device data path, and one of the two modules that write tables directl
     that would exceed its cap, all or nothing; cap spec §9).
 - Bump `BACKUP_FORMAT_VERSION` only when an older build couldn't read the new file, and keep
   reading every older version.
+
+**Matching records across devices (file / Dropbox Merge; `data/restoreMatch.js`, pure).** The
+same dog typed on two devices has two ids, so a Merge would keep both. Before writing, the
+restore pairs such records by content, gives each pair one id, and merges their fields.
+
+- **Only unclaimed records.** A record is eligible only if its id isn't on the other side:
+  a backup record whose id isn't on this device, paired with a device record whose id isn't
+  in the backup. An id match is never re-matched by content. Two records from the same side
+  are never combined by a restore, however alike (that's Tidy up's job, in person). Pairs
+  are one to one; a record with more than one candidate is asked about, never guessed.
+- **Three levels.** *Same*: paired automatically. *Ask*: shown to her in the restore
+  preview ("Are these the same?", with Not the same), before anything is written. *Never*:
+  kept as two. Tables are matched in order (kennels, accounts, contacts, waitlist programs,
+  feeding schedules, dogs, pairings, litters, pups, sales, stud services, contracts, events,
+  expenses, documents and their files, waitlist entries, offers), each comparing foreign
+  keys through the pairs found so far; so a dog she says isn't the same leaves everything
+  hanging off it unmatched. The preview re-plans after each answer, since a Yes can make
+  new pairs (a litter once its dam is paired).
+- **The rules.**
+  - *Own kennel*: Same on the same public id, or the same name (case and spacing ignored);
+    Ask when each side has exactly one own kennel and the names differ. *Outside kennel*:
+    Same on the same name; Ask when the website or location differs.
+  - *Account*: Same on name and type. *Waitlist program*: Same on kennel and name.
+    *Feeding schedule*: Same on breed.
+  - *Contact*: Same on name plus a shared email or phone (last 10 digits). Ask on a shared
+    email or phone with a different name, or the same name with nothing to compare. Never
+    when the emails and the phones both differ.
+  - *Dog*: Same on the same registered name (`dogSearch.nameKey`: titles, case,
+    punctuation and spacing ignored), registration number (`normReg`) or microchip; or a
+    pup of a paired litter with the same call name and sex. Ask on the same call name, breed
+    and sex (two pups pair only through their litters, never by name alone). Never,
+    whatever else agrees: known sexes differ; both have a registration number, microchip or
+    birthday and it differs; one is the other's parent.
+  - *Pairing*: Same on dam, sire and planned date. Ask on dam and sire with dates within 21
+    days or blank on one side. Never across heats.
+  - *Litter*: Same on the same paired breeding, or dam, sire and whelp date (the sire blank
+    on both sides counts: a dam whelps once a day). Ask on dam and whelp date with the sire
+    blank on one side, or both Expected for the same dam and sire
+    with no breeding.
+  - *Sale*: Same on pup and buyer. Ask when both have sale dates that differ and exactly one
+    of the two has ended (Returned, Cancelled, Voided): a pup sold to the same family again.
+    Several each side pair by closest sale date. Never on a different buyer. Price, deposit
+    and status never tell two sales apart.
+  - *Stud service*: Same on our dog, the partner dog and the begin date. Ask on the same
+    dogs with dates within 21 days or blank on one side.
+  - *Contract*: Same on type and the same paired sale or stud service; a lease, co-own,
+    foster or other contract on type, dog and contact.
+  - *Event*: Same on subject, type and date, where the type's short detail fields (vaccine,
+    product, weight, AM/PM, result…; not long notes) agree wherever both have them. Never
+    when one differs: two weight checks on one day are two events.
+  - *Expense*: Same when it hangs off a paired event or stud service, on the same receipt
+    number, or on subject, date, amount and category.
+  - *Document*: Same on dog, type, date and title; its file goes with it (as does an
+    expense's receipt file). *Waitlist entry*: Same on kennel and contact when both are
+    open, or both closed with the same application date. *Offer*: Same on entry, litter
+    and offer date.
+- **Which id survives.** The backup's, so two devices that restore each other's files
+  converge on one set of ids, unless this device has cloud backup (or live sync) on: then
+  this device keeps its ids, so its cloud copy never sees records vanish and reappear. A
+  re-key replaces the old id everywhere on this device: every field of every record
+  (nested ones included), device-only rows (`device_secrets`), and this app's settings
+  (dismissals, drafts, My kennel, the active kennel).
+- **Merging a pair.** A field blank on one side fills from the other. Where both have a
+  value and they differ, the newer record (`updated_at`) wins, except a dog's call name,
+  registered name, sex, sire and dam, which she chooses in the preview (a registered name
+  that differs only in titles, case or punctuation isn't a clash). Lists of plain
+  values (co-owners, tests, contact types) are joined; notes keep both. `created_at` is
+  the earlier one.
+- The Lite cap is checked against the dogs as they'll be after the whole merge.
 
 **The Import/Export "Backup & restore" card** is *what* (Back up / Restore) × *where* (This
 device / Dropbox, §26). A Dropbox push is a backup and a pull is a restore through the same
