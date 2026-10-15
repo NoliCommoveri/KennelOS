@@ -44,6 +44,9 @@ const PROBLEM = {
   failed: 'Publishing didn\'t work. It will try again.'
 };
 
+// Why the list isn't published, in her words (Kels's "Set up my waitlist" says it too).
+export const onlineProblemText = (code) => PROBLEM[code] || 'It didn\'t publish yet. It will try again by itself.';
+
 // Who handles the list on a syncing program: another device's lease (open now,
 // while it lasts), or this one's.
 function leaseHolder(st) {

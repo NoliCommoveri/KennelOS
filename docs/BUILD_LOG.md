@@ -1114,3 +1114,23 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   as a conversation, several in a row, Stripe / Jotform connected in the chat); new §3.10 Add
   new events (any dog event type, for one or several dogs, several in a row; also how Add dogs
   brings in history).
+- **Kels's "Set up my waitlist" — built (2026-10-15).** Roadmap §3.3, Pro. Grouped screens:
+  the fee (paid online through a Payment service, Stripe connected in the chat), offers (the
+  on/off rules and every automatic-offer moment as checkboxes), going online (offers to turn
+  on cloud backup first, then the list, applications, reminders, what shows before picks
+  open, "Ready now?", Facebook, her website, the time zone in one screen), programs, and the
+  families she already has. Re-runnable, with a summary of what's set. Shared, so nothing is
+  copied: `waitlistRules.waitlistConfigProblem` (now the Kennel page's checks too),
+  `onlineConfig`, `waitlistSummaryLines`, `waitlistIsSetUp`, and
+  `cloudWaitlist.saveWaitlistOnline` (now the Online list card's save). The Stripe / Jotform
+  key steps moved to `assets/vendorKeyUI.js` for account health and this task.
+- **Kels roadmap: Help me find / do / understand (2026-10-15).** New §3.11: Kels as a
+  knowledge base and navigator, with keyword search across where things are, what she can do
+  (starting a task or giving a button to the right page) and what things mean, with one
+  short clarifying question when the words fit several things. Built on a catalog
+  (`data/kelsKnowledge.js`).
+- **Set up my waitlist: copy links, offline until asked (2026-10-15).** A successful publish
+  ends with **Copy list link** (and **Copy application form link** when applications are
+  online). The list stays offline until she says "Yes, put it online", from the menu too.
+  Cache rolled to `kennelos-shell-v79` for this batch (Pups are going home, account health,
+  set up my waitlist).

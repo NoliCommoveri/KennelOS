@@ -1652,7 +1652,9 @@ problem and stay, anything else to finish — and the button), `pages/kels.*` (t
 `assets/guidedLitterUI.js` + `data/guidedLitter.js` (the litter task), `assets/litterCheckinUI.js`
 + `data/litterCheckin.js` + `data/goHome.js` (the check-in), `assets/tidyUpUI.js` +
 `data/tidyRules.js` + `data/recordMerge.js` (the tidy-up), `assets/accountHealthUI.js` +
-`data/accountHealth.js` (account health), `assets/kelsFindings.js` (`FindingsTask`, the
+`data/accountHealth.js` (account health), `assets/waitlistSetupUI.js` (set up my waitlist,
+Pro-only), `assets/vendorKeyUI.js` (`vendorKeyFlow`: a Stripe or Jotform key connected or
+replaced in the chat; account health and the waitlist setup), `assets/kelsFindings.js` (`FindingsTask`, the
 look → raise one at a time → fix → look again loop the tidy-up and account health share:
 "Not now", a remembered "Don't ask me again" under `<prefix>:<key>` in the nudge ledger,
 "Stop for now"), `assets/prepPupsUI.js` +
@@ -1677,7 +1679,7 @@ run, resumable?, beforeStart? }`, highest priority first, with a search box abov
 `keywords` are the other words a breeder might search with ("add puppies" finds Record a new
 litter). The page header shows her photo and `KELS.title` ("Kels, the KennelOS whiz") on one line, sized to fit a phone. Order: an unfinished litter (100), the check-in
 (60 while a litter has pups at home, else 40), a new litter (50), prep pups (45, while a
-litter has pups at home), tidy up (30), account health (20). The header's **Save for
+litter has pups at home), tidy up (30), set up my waitlist (25, Pro), account health (20). The header's **Save for
 later** shows only while a `resumable` task runs. `beforeStart` can redirect a start (a new
 litter while one is unfinished asks "Finish that one / Start fresh"); `handoff(taskId, opts)`
 moves her to another task (an Expected litter in the check-in → its birth).
@@ -1779,6 +1781,36 @@ The run-up to go-home day for one litter. Each fix is saved when approved; there
    `puppy-record.html?dogs=…&cover=1&autoprint=1` in a new tab (a link if the tab is
    blocked). Lite runs the same check without Furever or the print, and its menu entry
    neither mentions nor searches either.
+
+### "Set up my waitlist"
+**Editions:** Pro (`editionFlags.waitlist`); the script is in `proPages.js` and `kels.js`
+imports it on start. The kennel's waitlist settings, its online list and its programs, for a
+breeder starting from nothing. Related settings are one screen each, the on/off ones as
+checkboxes, never a question apiece:
+1. **The fee:** amount, refund policy (`FEE_CREDIT_POLICY`), days to pay, how families pay;
+   with `accounts`, the Payment service it's paid through (or **Stripe (I'll connect it
+   now)**, which makes a Payment service account named Stripe) and when it's asked for. A
+   Stripe account with no key on this device offers **Connect Stripe** (`vendorKeyFlow`).
+2. **Offers:** days to accept and pay, passes before removal, then checkboxes: no response
+   counts as a pass, color matching, and every `WAITLIST_AUTO_OFFER_TRIGGER` moment (All /
+   None).
+3. **Going online** (only where `isWaitlistOnlineOffered()`): asked first. It publishes
+   through this device's cloud backup, so when that's off or signed out she offers **Turn on
+   cloud backup** (`cloudBackupUI.turnOnFlow`) and goes on only once it's on. Then one screen:
+   list online, applications online, reminder emails; what shows before picks open
+   (`UPCOMING_STAGES` × public / family pages); "Ready now?" unanswered and its days; the
+   Facebook button and Page; her website (`embed`, addresses); the public list's message;
+   the time zone. Saved by `cloudWaitlist.saveWaitlistOnline` (the Online list card's save),
+   then the public list and form links.
+4. **Programs:** as many as she likes (name, place in line, fee, days to accept, passes not
+   counted, pause allowed, a description), through `waitlistProgramRepo`.
+5. **Families she already has:** opens the waitlist import or a new entry (both leave Kels).
+
+Every config save is checked by `waitlistRules.waitlistConfigProblem`, the Kennel page's
+settings card's check too. **Re-runnable:** on a kennel already set up
+(`waitlistIsSetUp`) she says what's set (`waitlistSummaryLines`) and asks which part to
+change. The emails, pass reasons, "Almost your turn" message and the application form keep
+the standard wording; she says where to change them.
 
 ### "Check account health"
 One look at whether her program is safe and working: her KennelOS account and this device,

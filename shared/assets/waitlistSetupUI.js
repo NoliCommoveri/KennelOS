@@ -232,7 +232,8 @@ class Setup {
 
   async online({ walk }) {
     const cw = await import('../data/cloud/cloudWaitlist.js');
-    if (walk && !this.config.online) {
+    // The list stays offline until she says so: asked whenever it's off.
+    if (!this.config.online) {
       await this.chat.say('Want families to apply and check their place in line online? You get a link to share, and KennelOS keeps it up to date for you.');
       const pick = await this.chat.choose([
         { label: 'Yes, put it online', value: 'yes', primary: true },
@@ -317,15 +318,21 @@ class Setup {
     await this.chat.say('Publishing…', { typing: 300 });
     const st = cw.waitlistOnlineStatus(this.kennel);
     if (st.lastError) {
-      await this.chat.say(`Saved, but it didn't publish yet (${esc(st.lastError.message || st.lastError.code || 'it will try again')}). It keeps trying by itself; the waitlist's Publish page shows where it stands.`);
+      const { onlineProblemText } = await import('./waitlistOnlineUI.js');
+      await this.chat.say(`Your settings are saved, but the list isn't published yet. ${esc(onlineProblemText(st.lastError.code))}`);
       return null;
     }
     const { publicListLink, applyFormLink } = await import('../data/cloud/cloudConfig.js');
-    const links = [
-      `<a href="${esc(publicListLink(this.kennel.public_id))}" target="_blank" rel="noopener">Your public list</a>`,
-      ...(st.formOpen ? [`<a href="${esc(applyFormLink(this.kennel.public_id))}" target="_blank" rel="noopener">Your application form</a>`] : [])
-    ];
-    await this.chat.say(`You're live! Families can find you here: ${links.join(' · ')}. Share them on Facebook or your website.`);
+    const list = publicListLink(this.kennel.public_id);
+    const form = st.formOpen ? applyFormLink(this.kennel.public_id) : null;
+    const bubble = await this.chat.say(`You're live! Copy your links to share on Facebook or your website:
+      <div class="pill-row" style="margin-top:8px;">
+        <button type="button" class="btn btn-sm btn-primary" data-ws-copy="list">Copy list link</button>
+        ${form ? '<button type="button" class="btn btn-sm" data-ws-copy="form">Copy application form link</button>' : ''}
+      </div>`);
+    const { copyLink } = await import('./waitlistUI.js');
+    bubble.querySelector('[data-ws-copy="list"]').addEventListener('click', (ev) => copyLink(list, ev.currentTarget, { title: 'Your public list' }));
+    bubble.querySelector('[data-ws-copy="form"]')?.addEventListener('click', (ev) => copyLink(form, ev.currentTarget, { title: 'Your application form' }));
     return null;
   }
 

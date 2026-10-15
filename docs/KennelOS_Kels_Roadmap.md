@@ -14,6 +14,7 @@ need. When one is built, its as-built description goes in the guide (§33) and i
 | Check in on a litter | Weights, health care, plans, chips, dates, status; picks, Weaning/Ready/Sold/close; pickup, boarding, delivery | All (open picks: Pro) |
 | Tidy up my records | Records that disagree, duplicates, merge | All (stud, contacts, kennels: Pro) |
 | Finish an unfinished litter | Resumes the litter draft | All |
+| Set up my waitlist | The fee (Stripe in the chat), offers, going online (cloud backup first), programs, existing families; re-runnable | Pro |
 | Check account health | This device, backups, license, Sensitive records, connections, the online waitlist; each finding with its fix | All (license, Sensitive records, connections, waitlist: where offered) |
 | Pups are going home | Readiness per pup with fixes (chips, shots, deworming, drop-off date, balance, contract, registration, feeding); the puppy records with a cover page | All (contract, feeding, Furever, print: Pro) |
 
@@ -116,7 +117,13 @@ pattern: a pure `data/accountHealth.js` of checks, the task asks one at a time).
 - **Decided:** "account" is her KennelOS account and this device, as above. The business
   Accounts page (vendor logins, referral codes) isn't part of it.
 
-### 3.3 Set up my waitlist: **M**, Pro (`waitlist`)
+### 3.3 Set up my waitlist: **M**, Pro (`waitlist`) — **Built**
+As built: End-State guide §33 ("Set up my waitlist"); history in `docs/BUILD_LOG.md`.
+**Modified:** settings are grouped, one screen per part with checkboxes for the on/off
+rules, not one question each; going online first offers to turn on cloud backup when
+it's off; Stripe for the fee connects in the chat; existing families still open the import
+or a new entry (adding them in the chat is a follow-up).
+
 The Waitlist page's settings as a conversation, for a breeder starting from nothing. It comes
 before Record a sale (§3.5) on purpose: a running waitlist turns picks into sales by itself,
 so it saves her more sale entry than a sale task would.
@@ -209,6 +216,28 @@ without opening each dog's page. Also how Add dogs (§3.8) brings in a new dog's
   `whelping_summary` stays with the litter.
 - **Keywords:** add event, log, record, history, shots, vaccine, vet visit, health test,
   weight, heat, medication, note, show.
+
+### 3.11 Help me find / do / understand: **L**, all editions
+Kels as a knowledge base and a navigator, not only task scripts. Three top-level questions
+on her menu, each a search box first:
+- **"Help me find…"**: she types keywords ("vet records", "where are my contracts",
+  "referral code") and Kels finds where it lives: a page, a card on a page, a report, a
+  setting. Only what this edition has (`editionFlags`, `proPages.js`).
+- **"Help me do…"**: what she wants to get done. When one of Kels's tasks does it, Kels
+  starts that task; when none does, she says how, then gives a button to the page where
+  it's done (the Financials hub, a dog's page…).
+- **"Help me understand…"**: what something means or how it works (an application fee's
+  credit policy, how offers move down the list, what "Sensitive records" protects), in a
+  few plain sentences, with the button to see it.
+- **Clarifying questions:** when the words fit several things, she asks one short question
+  with choices ("Your own vet records, or a puppy's?") before answering. Still scripted
+  (§2.1): every answer is written by us.
+- **Shared pieces it needs:** a catalog (`data/kelsKnowledge.js`, pure, tested) of entries
+  `{ id, kind: 'find' | 'do' | 'understand', title, keywords, answer, href?, taskId?,
+  editions? }`; the menu's word matching (kelsChat's search) scored across the catalog;
+  each task's `keywords` count as "do" entries. An empty search she would plausibly type is
+  a catalog entry we add (§4, "Search words are ours").
+- **Keywords:** help, find, where is, how do I, what is, explain, show me.
 
 ## 4. Shared pieces
 

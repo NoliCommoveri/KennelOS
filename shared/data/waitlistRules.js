@@ -96,7 +96,7 @@ export function waitlistSummaryLines(config, { programs = [], online = false, fm
   lines.push(`Families get ${c.respond_days} day${Number(c.respond_days) === 1 ? '' : 's'} to accept an offer and pay the deposit, and can pass ${c.max_passes} time${Number(c.max_passes) === 1 ? '' : 's'} before they're removed${c.no_response_counts_as_pass ? ' (no response counts as a pass)' : ''}.`);
   lines.push(autoOfferSummary(c));
   if (c.color_matching) lines.push('Offers only go to families who listed the pup\'s color.');
-  if (online) lines.push(c.online ? `Online: your list is published${c.online_form ? ', and families apply online' : ''}.` : 'Your list isn\'t online.');
+  if (online) lines.push(c.online ? `Online: your list is set to be online${c.online_form ? ', with applications online' : ''}.` : 'Your list isn\'t online.');
   if (programs.length) lines.push(`Programs: ${programs.map((p) => p.name).join(', ')}.`);
   return lines;
 }
