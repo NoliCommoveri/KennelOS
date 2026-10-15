@@ -18,7 +18,9 @@ import { getMyContactId } from '../data/kennelSetup.js';
 import { attachNewContactButton } from '../assets/contactPicker.js';
 import { resolveKennelIdForWrite, dogInScope, isScoped } from '../data/kennelScope.js';
 import { renderScopeNotice } from '../assets/kennelScopeUI.js';
-import { ourRole, travellingDogId, studBoardingFor, studBoardingPrefill } from '../data/studRules.js';
+import { ourRole, travellingDogId, studBoardingFor, studBoardingPrefill, studFeeExpenseDue, studFeeExpense } from '../data/studRules.js';
+import { expenseRepo } from '../data/expenseRepo.js';
+import { todayYMD } from '../data/dateUtils.js';
 import { eventRepo } from '../data/eventRepo.js';
 import { openEventForm } from '../assets/eventForm.js';
 
@@ -404,12 +406,14 @@ async function doSave() {
       });
       const saved = await studServiceRepo.create(candidate);
       await promptStudBoarding(saved, null);
+      await promptStudFeeExpense(saved, null);
       location.href = `stud-service.html?id=${encodeURIComponent(saved.id)}`;
       return;
     }
     const before = ctx.original;
     const saved = await studServiceRepo.update(ctx.original.id, candidate);
     await promptStudBoarding(saved, before);
+    await promptStudFeeExpense(saved, before);
     ctx.original = saved;
     ctx.mode = 'view';
     await loadRefs();
@@ -442,6 +446,24 @@ async function promptStudBoarding(s, before) {
     prefill: studBoardingPrefill(s, ctx.contactsById.get(s.partner_contact_id)),
     onSaved: () => resolve(true), onCancel: () => resolve(false)
   }));
+}
+
+// Our dam's service, completed with a fee no expense records yet
+// (studRules.studFeeExpenseDue): offer to log it as a Stud fee expense, on the
+// breeding (else our dam), linked by expenses.stud_service_id so it's asked once.
+// Asked when the service is new, just became Completed, or its fee changed.
+async function promptStudFeeExpense(s, before) {
+  if (before && before.status === s.status && Number(before.fee_amount) === Number(s.fee_amount)) return;
+  if (!studFeeExpenseDue(s, ctx.dogsById, await expenseRepo.getByStudService(s.id))) return;
+  const partner = ctx.contactsById.get(s.partner_contact_id);
+  const exp = studFeeExpense(s, partner, todayYMD());
+  const ok = await confirmModal({
+    title: 'Log the stud fee as an expense?',
+    message: `${money(exp.amount)}${partner?.name ? ` to ${partner.name}` : ''}, on ${s.pairing_id ? 'the breeding' : (dogName(s.our_dog_id) || 'your dam')}, dated ${fmtDate(exp.expense_date)}. It shows in Financials; you can attach the receipt there.`,
+    confirmLabel: 'Log the expense', cancelLabel: 'Not now'
+  });
+  if (!ok) return;
+  await expenseRepo.create(exp);
 }
 
 async function toggleArchive() {

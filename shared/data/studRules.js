@@ -136,3 +136,26 @@ export function boardingEndedUpdate(s, events, today) {
   if (['arranged', 'in_progress'].includes(s.status)) changes.status = 'completed';
   return Object.keys(changes).length ? { boarding: b, changes } : null;
 }
+
+// --- Our dam's stud fee ---------------------------------------------------------------
+// Our stud's fee is income, read from the service (incomeView). Our dam's is money we
+// pay: when her service is completed with a fee and no expense records it yet
+// (expenses.stud_service_id), saving it offers to log one (`studFeeExpense`).
+
+// `expenses`: the expenses already linked to this service. → boolean
+export function studFeeExpenseDue(s, dogs, expenses = []) {
+  if (!s || s.is_archived || s.status !== 'completed' || ourRole(s, dogs) !== 'dam') return false;
+  if (!(Number(s.fee_amount) > 0)) return false;
+  return !(expenses || []).some((e) => e && !e.is_archived);
+}
+
+// The expense: Stud fee, the fee, on the linked breeding (else our dam), dated the
+// service's end (else its start, else `today`), the partner as vendor.
+export function studFeeExpense(s, partner, today) {
+  return {
+    subject_type: s.pairing_id ? 'pairing' : 'dog', subject_id: s.pairing_id || s.our_dog_id,
+    amount: Number(s.fee_amount), category: 'stud_fee',
+    expense_date: ymd(s.returned_date) ? s.returned_date : ymd(s.sent_date) ? s.sent_date : today,
+    vendor: partner?.name || '', notes: 'Stud fee', stud_service_id: s.id
+  };
+}

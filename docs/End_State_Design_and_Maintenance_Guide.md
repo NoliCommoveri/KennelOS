@@ -214,7 +214,7 @@ to the cloud unsealed).
 | **Contract** | `contract_type`, `kennel_id` | `status` (default `draft`), `related_sale_id`, `related_stud_service_id`; `related_dog_id` and `related_contact_id` only for `lease`/`co_own`/`foster`/`other` (forced null otherwise, `contractRepo.normalizeLinks`), `document_url`, `signed_date`, lease dates, e-sign fields and `integration_reviews` (§32), `title`, `terms_summary`. |
 | **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `direction` is **who travels** (`STUD_SERVICE_DIRECTION`: `to_partner` our dog goes to them, `to_us` their dog comes to us, `shipped` no one / AI). Whether our dog is the stud or the dam isn't stored: it's our dog's sex, else the partner's opposite (`studRules.ourRole`; `STUD_SERVICE_ROLE` for badges and filters). `sent_date` / `returned_date` are the service's two dates, labelled **Begins / Ends**. `type` (`in_person`/`ai`) is set by the repo from `direction` (shipped → ai), never asked. `pairing_id`, `fee_amount`, `fee_structure`; `pick_status` and `pick_value_amount` only for pick fee structures (forced null otherwise; with our stud the pick is our puppy, and `pick_status` claimed / waived ends Today's `studpick`, §19), `referred_by_contact_id`, invoice fields (our stud only, §24). |
 | **Event** | `subject_type`, `subject_id`, `event_type`, `event_date`, `title` | `event_end_date`, `reminder_date`, `reminder_dismissed`, `related_dog_id`, `related_contact_id`, `details{}`. No cost field: a cost becomes an Expense with `event_id` (§8, §21). |
-| **Expense** | `subject_type` (`dog`/`litter`/`pairing`/`kennel`), `subject_id`, `amount`, `category`, `expense_date` | `event_id`, `miles` × `mileage_rate` (then `amount` is derived), `vendor`, `receipt_number` (CSV re-import key, §9), `account_id`, `receipt_file_id` (deleted with the expense, §26.1), `reimbursable`/`reimbursed_date` (§21, §25). |
+| **Expense** | `subject_type` (`dog`/`litter`/`pairing`/`kennel`), `subject_id`, `amount`, `category`, `expense_date` | `event_id`, `stud_service_id` (indexed; the stud service whose fee it records, in `STUD_SERVICE_REFERENCES`; private like every expense field), `miles` × `mileage_rate` (then `amount` is derived), `vendor`, `receipt_number` (CSV re-import key, §9), `account_id`, `receipt_file_id` (deleted with the expense, §26.1), `reimbursable`/`reimbursed_date` (§21, §25). |
 | **Document** | `dog_id`, `doc_type`, `file_id` | `title`, `doc_date`, `issuer_or_lab`, `result`, `registry`, `registration_number`, `contract_id` (optional, unindexed, not in the registry), `furever_shareable` (§27). Fields shown per type: `vocab.documentFieldsFor`. `hardDelete` removes its file. |
 | **File** (`files`) | `blob`, `mime`, `filename`, `size` | `thumbnail`. Always a PDF. Owned by its one Document or Expense; fetched by id only (§26.1). |
 | **WaitlistEntry**, **WaitlistOffer**, **WaitlistProgram** | see §29 | One entry per family per time on a kennel's list; position and passes are derived, never stored. |
@@ -251,7 +251,8 @@ pointer.** For example: `Litter.pairing_id` (reverse `litterRepo.getForPairing`)
 `db.js` is the schema (DB name `KennelOSBreedingApp`); read its `version(N)` blocks for the
 index strings. `version(1)` holds every kennel table and is **frozen**. Later blocks add
 only what's new: `version(2)` the device-only `sync_meta` (§34), `version(3)`/`(4)` the
-account FKs on sales, waitlist entries and kennels (§21.1, §32).
+account FKs on sales, waitlist entries and kennels (§21.1, §32), `version(5)`
+`expenses.stud_service_id` (our dam's stud fee, §21).
 
 **The versioning rule.** Schema changes are additive: a new table or index goes in a new
 `db.version(N).stores({...})` block listing only what it adds, and a shipped block is never
@@ -961,6 +962,12 @@ subject (`financials.js` `expenseInScope`).
   (`vocab.isLostSale`) counts nothing: it's refunded or carried to another pup (§29).
   `paidOnSale()` reads what was paid regardless of status.
 - **Our stud's fee** (`studRules.ourRole` = stud): earned when `completed`, anticipated while arranged/in progress.
+- **Our dam's stud fee** is money paid, so it's an Expense, never income. Saving a stud service
+  of our dam that's Completed with a fee and no linked expense (new, just Completed, or the
+  fee changed; `studRules.studFeeExpenseDue`) asks **Log the stud fee as an expense?**: a
+  `stud_fee` Expense for the fee, on the linked breeding (else our dam), dated the service's
+  end (else start), the partner as vendor, `stud_service_id` set so it's asked once
+  (`studFeeExpense`).
   `pick_value_amount` is a separate non-cash `pick` line, outside the cash totals and Net.
 - **Waitlist application fee** (Pro): one earned row per entry with a received fee above 0.
   When `fee_credit_policy` is `credited_to_purchase` and the family is placed, the fee comes

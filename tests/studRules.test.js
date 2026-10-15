@@ -88,3 +88,23 @@ test('boardingEndedUpdate: dates and status from a stay that has ended', () => {
   assert.equal(S.boardingEndedUpdate(svc({ direction: 'to_us', returned_date: '2026-01-06' }), [board()], '2026-01-10'), null, 'already in line');
   assert.equal(S.boardingEndedUpdate(svc({ direction: 'to_us', status: 'cancelled' }), [board()], '2026-01-10'), null);
 });
+
+test('studFeeExpenseDue: our dam, completed, a fee, nothing logged yet', () => {
+  const dam = svc({ our_dog_id: 'ourDam', partner_dog_id: 'theirStud', fee_amount: 1200 });
+  assert.equal(S.studFeeExpenseDue(dam, DOGS, []), true);
+  assert.equal(S.studFeeExpenseDue(dam, DOGS, [{ id: 'e' }]), false, 'already logged');
+  assert.equal(S.studFeeExpenseDue(dam, DOGS, [{ id: 'e', is_archived: true }]), true);
+  assert.equal(S.studFeeExpenseDue({ ...dam, status: 'in_progress' }, DOGS, []), false);
+  assert.equal(S.studFeeExpenseDue({ ...dam, fee_amount: 0 }, DOGS, []), false);
+  assert.equal(S.studFeeExpenseDue(svc({ fee_amount: 800 }), DOGS, []), false, 'our stud\'s fee is income');
+});
+
+test('studFeeExpense: on the breeding, else our dam; the partner as vendor', () => {
+  const dam = svc({ id: 's1', our_dog_id: 'ourDam', partner_dog_id: 'theirStud', fee_amount: '1200' });
+  assert.deepEqual(S.studFeeExpense(dam, { name: 'Hugo' }, '2026-10-15'), {
+    subject_type: 'dog', subject_id: 'ourDam', amount: 1200, category: 'stud_fee', expense_date: '2026-01-05',
+    vendor: 'Hugo', notes: 'Stud fee', stud_service_id: 's1'
+  });
+  assert.equal(S.studFeeExpense({ ...dam, pairing_id: 'p' }, null, '2026-10-15').subject_type, 'pairing');
+  assert.equal(S.studFeeExpense({ ...dam, sent_date: null, returned_date: null }, null, '2026-10-15').expense_date, '2026-10-15');
+});

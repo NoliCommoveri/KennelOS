@@ -1193,3 +1193,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   outgoing / incoming direction as who travels and gives every in-person service's trip a
   boarding event (once per device, and never a second one for the same trip). The two dates
   are labelled Begins / Ends. Sample data's Birch trip is a boarding event.
+- **Our dam's stud fee as an expense (2026-10-15).** Saving a stud service of our dam that's
+  Completed with a fee asks **Log the stud fee as an expense?** and creates a Stud fee
+  Expense on the breeding (else the dam), linked by the new indexed `expenses.stud_service_id`
+  (`db.version(5)`, in `STUD_SERVICE_REFERENCES`, private like every expense field) so it's
+  asked once. Our stud's fee stays income.

@@ -78,7 +78,7 @@ test('the whole sample packet, treated as real, projects cleanly and fills the e
   const now = new Date('2026-10-06T09:14:00.000Z');
   const { envelope } = await cb.buildCloudSnapshot({ manifest: null, deviceId: 'dev-1', now });
   assert.equal(envelope.snapshot_format, cb.SNAPSHOT_FORMAT);
-  assert.equal(envelope.schema_version, 4); // db.version(4) indexed the paid-via accounts (Integrations plan §4–§5)
+  assert.equal(envelope.schema_version, 5); // db.version(5) indexed expenses.stud_service_id
   assert.equal(envelope.created_at, now.toISOString());
   assert.equal(envelope.device_id, 'dev-1');
   assert.equal(envelope.edition, 'pro');
