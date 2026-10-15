@@ -119,14 +119,29 @@ test('each dog\'s details: breed, a past birth date, status, whose, owner, kenne
   assert.equal(g.stepProblem('dog:0', d, { multiKennel: true, ownKennelIds: ['k1', 'k2'] }), null);
 });
 
-test('parents: a typed name already on file, or one of this batch, is picked instead', () => {
-  const existingDam = onFile.find((x) => x.sex === 'female' && x.call_name);
+test('parents are optional; a typed ancestor is a registered name, matched by the pedigree rules', () => {
+  const regDam = onFile.find((x) => x.sex === 'female' && x.registered_name);
   const d = rosterDraft([['Zinnia', 'female'], ['Quintessa', 'female']]);
   const z = d.dogs[0];
+  // Not known is fine: she may not know right off.
+  assert.equal(z.dam.pick, '');
+  assert.equal(g.stepProblem('parents:0', d, { dogs: onFile }), null);
   z.dam = { pick: 'new', name: '' };
-  assert.match(g.stepProblem('parents:0', d, { dogs: onFile }), /mom's name/);
-  z.dam = { pick: 'new', name: existingDam.call_name };
-  assert.match(g.stepProblem('parents:0', d, { dogs: onFile }), /already in KennelOS/);
+  assert.match(g.stepProblem('parents:0', d, { dogs: onFile }), /mom's registered name/);
+  // A call name is never matched; the registered name is (titles in front ignored).
+  z.dam = { pick: 'new', name: regDam.call_name };
+  assert.equal(g.stepProblem('parents:0', d, { dogs: onFile }), null);
+  z.dam = { pick: 'new', name: `GCH CH ${regDam.registered_name}` };
+  assert.match(g.stepProblem('parents:0', d, { dogs: onFile }), /already in KennelOS.*registration number/);
+  // A different number says it's a different dog.
+  if (regDam.registration_number) {
+    z.dam.regNum = 'ZZ99999999';
+    assert.equal(g.stepProblem('parents:0', d, { dogs: onFile }), null);
+    // Her number is that dog: picked for her.
+    z.dam.regNum = ` ${regDam.registration_number.toLowerCase().replace(/ /g, "-")} `;
+    g.resolveTypedParents(z, onFile);
+    assert.equal(z.dam.pick, `dog:${regDam.id}`);
+  }
   z.dam = { pick: 'new', name: 'quintessa' };
   assert.match(g.stepProblem('parents:0', d, { dogs: onFile }), /one of the dogs we're adding/);
   z.dam = { pick: `batch:${z.key}`, name: '' };
@@ -149,8 +164,8 @@ test('the save: owners, typed parents and batch parents, each made once; a secon
   mari.registered_name = 'Sunny Marigold of Elm';
   mari.date_of_birth = '2021-05-02';
   // Littermates with the same typed mom: one pedigree-only dam for both.
-  mari.dam = { pick: 'new', name: 'Old Bess' };
-  thistle.dam = { pick: 'new', name: 'old bess' };
+  mari.dam = { pick: 'new', name: 'Ch Olde Bess of Elm', regNum: '', callName: 'Bess' };
+  thistle.dam = { pick: 'new', name: 'ch olde  bess of elm', regNum: '', callName: '' };
   thistle.sire = { pick: `batch:${bramble.key}`, name: '' };
   // Two outside dogs with the same new owner: one contact.
   thistle.ownership_type = 'external'; thistle.ownerName = 'Pat Smith';
@@ -160,11 +175,12 @@ test('the save: owners, typed parents and batch parents, each made once; a secon
   const res = await g.saveGuidedDogs(d);
   assert.equal(res.capError, null);
   assert.equal(res.made.length, 3);
-  assert.equal(tables.dogs.rows.size, before + 4); // three dogs + Old Bess
+  assert.equal(tables.dogs.rows.size, before + 4); // three dogs + their typed mom
   assert.equal(tables.contacts.rows.size, contactsBefore + 1);
 
-  const bess = dogsNamed('Old Bess');
+  const bess = [...tables.dogs.rows.values()].filter((x) => x.registered_name === 'Ch Olde Bess of Elm');
   assert.equal(bess.length, 1);
+  assert.equal(bess[0].call_name, 'Bess');
   assert.equal(bess[0].pedigree_only, true);
   assert.equal(bess[0].status, 'external_reference');
   const m = await dogRepo.getById(mari.id);
@@ -374,4 +390,28 @@ test('findOrCreateOutside: an outside kennel by name, never an own one, never tw
   const c = await kennelRepo.findOrCreateOutside(own.kennel_name);
   assert.equal(c.created, true, 'her own kennel\'s name is not an outside kennel');
   await assert.rejects(() => kennelRepo.findOrCreateOutside('  '));
+});
+
+test('ancestorMatches: a number is that dog; a registered name is asked about; never a call name', async () => {
+  const { ancestorMatches } = await import('../shared/data/pedigreeImport.js');
+  const dogs = [
+    { id: 'a', sex: 'female', registered_name: 'GCH Willowmere Bella', registration_number: 'SR12345601', call_name: 'Bella' },
+    { id: 'b', sex: 'female', registered_name: 'Willowmere Bella', registration_number: 'SR99999901' },
+    { id: 'c', sex: 'male', registered_name: 'Willowmere Bella' },
+    { id: 'd', sex: 'female', registered_name: 'Willowmere Bella', is_archived: true }
+  ];
+  assert.equal(ancestorMatches(dogs, { registeredName: 'x', registrationNumber: 'AKC sr123456-01', sex: 'female' }).byNumber.id, 'a');
+  assert.deepEqual(ancestorMatches(dogs, { registeredName: 'willowmere  bella', sex: 'female' }).byName.map((x) => x.id), ['a', 'b']);
+  assert.deepEqual(ancestorMatches(dogs, { registeredName: 'Willowmere Bella', registrationNumber: 'SR99999901', sex: 'female' }).byName, []);
+  assert.deepEqual(ancestorMatches(dogs, { registeredName: 'Willowmere Bella', registrationNumber: 'SR00000001', sex: 'female' }).byName.map((x) => x.id), []);
+  assert.deepEqual(ancestorMatches(dogs, { registeredName: 'Bella', sex: 'female' }).byName, []);
+});
+
+test('createPedigreeOnly: a registered name is enough; always somebody else\'s, off the roster', async () => {
+  const made = await dogRepo.createPedigreeOnly({ registered_name: 'Ch Ancestor Annie', sex: 'female', breed: 'Whippet' });
+  assert.equal(made.call_name, '');
+  assert.equal(made.pedigree_only, true);
+  assert.equal(made.ownership_type, 'external');
+  assert.equal(made.status, 'external_reference');
+  assert.ok(!(await dogRepo.getAll()).some((x) => x.id === made.id));
 });

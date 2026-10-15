@@ -48,6 +48,21 @@ const nameKey = (n) => normName(splitTitles(String(n || '')).name);
 
 const srcId = (fileId, path) => `${fileId}:${path}`;
 
+// One typed ancestor against the dogs on file, by the rules above: the same
+// registration number is that dog (`byNumber`, used without asking); the same
+// registered name, titles ignored, is a dog to ask about (`byName`), unless both
+// have numbers and they differ. Never a call name. Same sex, or none recorded.
+// Kels's tidy-up and Add dogs, wherever she types an ancestor.
+export function ancestorMatches(dogs, { registeredName = '', registrationNumber = '', sex = '' } = {}) {
+  const fits = (d) => !d.is_archived && (!sex || !d.sex || d.sex === 'unknown' || d.sex === sex);
+  const reg = normReg(registrationNumber);
+  const byNumber = reg ? dogs.find((d) => fits(d) && d.registration_number && normReg(d.registration_number) === reg) || null : null;
+  const key = nameKey(registeredName);
+  const byName = byNumber || !key ? [] : dogs.filter((d) => fits(d) && d.registered_name && nameKey(d.registered_name) === key
+    && !(reg && d.registration_number && normReg(d.registration_number) !== reg));
+  return { byNumber, byName };
+}
+
 // files: [{ id, name, breed, dogs: Map(path → parsed dog) }]
 // existing: every dog in the app (archived and pedigree-only included).
 // edits: { 'fileId:path': { registered_name?, registration_number?, color_markings? } }
@@ -272,9 +287,8 @@ export async function commitImport(plan, { storeFiles = [] } = {}) {
         if (Object.keys(changes).length) { await dogRepo.update(ex.id, changes); updated++; }
         idOf.set(r.key, ex.id);
       } else {
-        const d = await dogRepo.create({
-          call_name: '', registered_name: r.name, sex: r.sex || 'unknown', breed: r.breed,
-          ownership_type: 'external', status: 'external_reference', pedigree_only: true,
+        const d = await dogRepo.createPedigreeOnly({
+          registered_name: r.name, sex: r.sex || 'unknown', breed: r.breed,
           registration_number: r.registration_number, registry: r.registry, color_markings: r.color_markings,
           date_of_birth: r.date_of_birth || '', notes: r.notes.join('\n'), sire_id, dam_id
         });

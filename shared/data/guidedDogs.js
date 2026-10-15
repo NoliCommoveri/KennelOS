@@ -29,6 +29,7 @@ import { expenseRepo } from './expenseRepo.js';
 import { todayYMD, addMonthsToYMD } from './dateUtils.js';
 import { SEX, DOG_STATUS, OWNERSHIP_TYPE, VACCINE_GOOD_FOR, descriptor, defaultExpenseCategoryFor } from './vocab.js';
 import { dogMatches, fmt } from './guidedLitter.js';
+import { ancestorMatches, normReg, normName } from './pedigreeImport.js';
 
 export const DRAFT_VERSION = 1;
 export const MAX_DOGS = 20;
@@ -74,8 +75,23 @@ export function emptyDraft() {
 }
 
 // A parent: '' = not known, 'dog:<id>' = a dog on file, 'batch:<key>' = one of
-// the dogs being added, 'new' = a name she typed (`name`).
-const noParent = () => ({ pick: '', name: '' });
+// the dogs being added, 'new' = an ancestor she typed, made pedigree-only: its
+// registered name (`name`, as a pedigree names it), and if she knows them its
+// registration number (`regNum`) and call name (`callName`).
+const noParent = () => ({ pick: '', name: '', regNum: '', callName: '' });
+
+// A typed parent whose registration number is a dog on file IS that dog (the
+// pedigree import's rule): the pick becomes that dog. Run when the parents step
+// is read. dogs: on file.
+export function resolveTypedParents(d, dogs) {
+  for (const [role, sex] of [['dam', 'female'], ['sire', 'male']]) {
+    const p = d[role];
+    if (p.pick !== 'new' || blank(p.regNum)) continue;
+    const { byNumber } = ancestorMatches(dogs, { registeredName: p.name, registrationNumber: p.regNum, sex });
+    if (byNumber) d[role] = { ...noParent(), pick: `dog:${byNumber.id}` };
+  }
+  return d;
+}
 
 export const noBreeder = () => ({
   bredBy: '', kennelId: null, kennelName: '', contactId: null, contactName: '', contactPhone: '', contactEmail: ''
@@ -228,11 +244,10 @@ export function stepProblem(step, draft, ctx = {}) {
       const p = d[role];
       if (p.pick === `batch:${d.key}`) return `${name} can't be ${d.sex === 'female' ? 'her' : 'his'} own ${w}.`;
       if (p.pick !== 'new') continue;
-      if (blank(p.name)) return `Type the ${w}'s name, or pick "Not known".`;
-      const found = dogMatches(ctx.dogs || [], { name: p.name, registeredName: p.name, sex })
-        .filter((x) => norm(x.call_name) === norm(p.name) || norm(x.registered_name) === norm(p.name));
-      if (found.length) return `${trimmed(p.name)} is already in KennelOS. Pick ${sex === 'female' ? 'her' : 'him'} from the list.`;
-      const twin = dogsToAdd(draft).find((x) => x.sex === sex && norm(x.call_name) === norm(p.name));
+      if (blank(p.name)) return `Type the ${w}'s registered name, or pick "Not known".`;
+      const { byName } = ancestorMatches(ctx.dogs || [], { registeredName: p.name, registrationNumber: p.regNum, sex });
+      if (byName.length) return `${trimmed(p.name)} is already in KennelOS. Pick ${sex === 'female' ? 'her' : 'him'} from the list, or add ${sex === 'female' ? 'her' : 'his'} registration number if it's a different dog.`;
+      const twin = dogsToAdd(draft).find((x) => x.sex === sex && [x.call_name, x.registered_name].some((n) => normName(n) === normName(p.name)));
       if (twin) return `${trimmed(p.name)} is one of the dogs we're adding. Pick ${sex === 'female' ? 'her' : 'him'} from the list.`;
     }
     return null;
@@ -246,7 +261,7 @@ const label = (vocab, v) => (blank(v) ? '' : descriptor(vocab, v).label);
 
 // The parent as she'd say it, for the review. names: { dog(id) → name }.
 export function parentText(p, draft, names = {}) {
-  if (p.pick === 'new') return `${trimmed(p.name)} (new, for the pedigree)`;
+  if (p.pick === 'new') return `${trimmed(p.name)}${blank(p.callName) ? '' : ` "${trimmed(p.callName)}"`} (new, for the pedigree)`;
   if (p.pick.startsWith('dog:')) return names.dog?.(p.pick.slice(4)) || 'a dog on file';
   if (p.pick.startsWith('batch:')) return dogLabel(draft.dogs.find((d) => d.key === p.pick.slice(6)) || {});
   return '';
@@ -403,18 +418,18 @@ export async function saveGuidedDogs(draft, { onProgress = () => {} } = {}) {
         ownerId = myContact.id; // the Dog page's prefill for a dog she owns
       }
 
-      // Typed parents: pedigree-only dogs, as the tidy-up makes them. The same
-      // name for two dogs (littermates) is one parent.
+      // Typed parents: pedigree-only dogs (dogRepo.createPedigreeOnly). The same
+      // number, or name, for two dogs (littermates) is one parent.
       const parentIds = {};
       for (const [role, sex] of [['dam', 'female'], ['sire', 'male']]) {
         const p = d[role];
         if (p.pick.startsWith('dog:')) parentIds[role] = p.pick.slice(4);
         if (p.pick !== 'new') continue;
-        const k = `${sex}|${norm(p.name)}`;
+        const k = `${sex}|${normReg(p.regNum) || normName(p.name)}`;
         if (!s.parents[k]) {
-          const made = await dogRepo.create({
-            call_name: trimmed(p.name), sex, breed: trimmed(d.breed),
-            ownership_type: 'external', status: 'external_reference', pedigree_only: true
+          const made = await dogRepo.createPedigreeOnly({
+            registered_name: trimmed(p.name), registration_number: trimmed(p.regNum), call_name: trimmed(p.callName),
+            sex, breed: trimmed(d.breed)
           });
           s.parents[k] = made.id;
           await step();

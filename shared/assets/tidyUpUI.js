@@ -22,6 +22,7 @@ import { editionFlags } from '../data/editionConfig.js';
 import { DISPOSITION, OWNERSHIP_TYPE, DOG_STATUS, SALE_STATUS, PAIRING_STATUS, descriptor } from '../data/vocab.js';
 import { litterLabel } from '../data/litterCheckin.js';
 import { dogMatches } from '../data/guidedLitter.js';
+import { ancestorMatches } from '../data/pedigreeImport.js';
 import { baseFromLitter } from '../data/puppyDefaults.js';
 import { deliveredOwnershipChanges } from '../data/goHome.js';
 import { studParents, ourRole } from '../data/studRules.js';
@@ -322,17 +323,25 @@ class Tidy extends FindingsTask {
   async newParent(dog, R) {
     const statuses = ['active_breeding', 'retired_breeding', ...(editionFlags.fullDogStatuses ? ['pet_home'] : []), 'deceased'];
     const res = await this.chat.form({
-      title: `<strong>Tell me about the ${R.word}.</strong><span class="kels-lead">Is it your dog, or somebody else's? Somebody else's goes in just for the pedigree (no owner needed).</span>`,
-      html: `${field('Call name', '<input id="td-call" type="text" autocomplete="off">')}
-        ${field('Registered name (optional)', '<input id="td-reg" type="text" autocomplete="off">')}
-        ${field('Registration number (optional)', '<input id="td-num" type="text" autocomplete="off">')}
-        <div class="field gl-field"><label>Whose dog?</label>
+      title: `<strong>Tell me about the ${R.word}.</strong><span class="kels-lead">Is it your dog, or somebody else's? Somebody else's goes in just for the pedigree, by its registered name (no owner needed).</span>`,
+      html: `<div class="field gl-field"><label>Whose dog?</label>
           <label class="td-radio"><input type="radio" name="td-whose" value="mine" checked> Mine</label>
           <label class="td-radio"><input type="radio" name="td-whose" value="pedigree"> Somebody else's (just for the pedigree)</label>
         </div>
+        <div id="td-call-wrap">${field('Call name', '<input id="td-call" type="text" autocomplete="off">')}</div>
+        ${field('Registered name', '<input id="td-reg" type="text" autocomplete="off">', 'As it reads on the pedigree')}
+        ${field('Registration number (optional)', '<input id="td-num" type="text" autocomplete="off">')}
         <div id="td-status-wrap">${field('Status', `<select id="td-status">${statuses.map((s) => `<option value="${s}">${esc(label(DOG_STATUS, s))}</option>`).join('')}</select>`)}</div>`,
       wire: (root) => {
-        const sync = () => { root.querySelector('#td-status-wrap').hidden = root.querySelector('input[name="td-whose"]:checked').value !== 'mine'; };
+        // A pedigree names a dog by its registered name: that's what's asked for
+        // somebody else's dog; a call name only for hers.
+        const sync = () => {
+          const mine = root.querySelector('input[name="td-whose"]:checked').value === 'mine';
+          root.querySelector('#td-status-wrap').hidden = !mine;
+          root.querySelector('#td-call-wrap').hidden = !mine;
+          root.querySelector('#td-reg').closest('.field').querySelector('label').textContent = mine ? 'Registered name (optional)' : 'Registered name';
+        };
+        sync();
         root.querySelectorAll('input[name="td-whose"]').forEach((r) => r.addEventListener('change', sync));
       },
       submitLabel: 'Next',
@@ -344,15 +353,28 @@ class Tidy extends FindingsTask {
           mine: root.querySelector('input[name="td-whose"]:checked').value === 'mine',
           status: root.querySelector('#td-status').value
         };
-        if (!v.call && !(v.reg && !v.mine)) return v.mine ? 'What\'s the dog\'s call name?' : 'Type a call name or a registered name.';
+        if (!v.mine) v.call = '';
+        if (v.mine ? !v.call : !v.reg) return v.mine ? 'What\'s the dog\'s call name?' : 'What\'s the registered name? It\'s how a pedigree names the dog.';
         return v;
       },
       reply: (v) => v.call || v.reg
     });
     if (!res.done) return null;
     const v = res.result;
-    // Somebody already on file by that name? Offer them first, so nobody is entered twice.
-    const matches = dogMatches(this.allDogs, { name: v.call || v.reg, registeredName: v.reg, sex: R.sex }).filter((d) => d.id !== dog.id);
+    // Somebody already on file? An ancestor by the pedigree rules (the same
+    // registration number is that dog; the same registered name is asked about),
+    // her own dog by name. Offered first, so nobody is entered twice.
+    let matches;
+    if (v.mine) {
+      matches = dogMatches(this.allDogs, { name: v.call, registeredName: v.reg, sex: R.sex }).filter((d) => d.id !== dog.id);
+    } else {
+      const { byNumber, byName } = ancestorMatches(this.allDogs.filter((d) => d.id !== dog.id), { registeredName: v.reg, registrationNumber: v.num, sex: R.sex });
+      if (byNumber) {
+        await this.chat.say(`That number is ${this.b(dogName(byNumber))}, already in KennelOS, so I'll use ${R.sex === 'female' ? 'her' : 'him'}.`);
+        return byNumber.id;
+      }
+      matches = byName;
+    }
     if (matches.length) {
       await this.chat.say(`I already have ${matches.length === 1 ? 'a dog' : 'dogs'} by that name. Is it one of these?`);
       const id = await this.chat.choose([
@@ -366,7 +388,7 @@ class Tidy extends FindingsTask {
       const made = v.mine
         ? await dogRepo.create({ ...base, ownership_type: 'owned', status: v.status,
           kennel_id: ['owned', 'co_owned'].includes(dog.ownership_type) ? dog.kennel_id : await resolveKennelIdForWrite() })
-        : await dogRepo.create({ ...base, ownership_type: 'external', status: 'external_reference', pedigree_only: true });
+        : await dogRepo.createPedigreeOnly(base);
       this.dogsById.set(made.id, made);
       return made.id;
     } catch (e) {

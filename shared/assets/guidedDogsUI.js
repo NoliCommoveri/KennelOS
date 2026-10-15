@@ -121,7 +121,11 @@ function screens(draft, data) {
         ${onFile.length ? `<optgroup label="In KennelOS">${onFile.map((x) => opt(`dog:${x.id}`, `${dogName(x)}${x.registered_name && x.call_name ? ` (${x.registered_name})` : ''}${x.breed && x.breed.trim().toLowerCase() !== breed ? ` · ${x.breed}` : ''}`)).join('')}</optgroup>` : ''}
         ${opt('new', 'Not in KennelOS: I\'ll type the name')}
       </select>`)}
-      <div id="gd-${role}-new"${p.pick === 'new' ? '' : ' hidden'}>${field(`${w}'s name`, input(`gd-${role}-name`, p.name, { placeholder: 'Call name or registered name' }), 'Added just for the pedigree.')}</div>`;
+      <div id="gd-${role}-new"${p.pick === 'new' ? '' : ' hidden'}>
+        ${field(`${w}'s registered name`, input(`gd-${role}-name`, p.name, { placeholder: 'As it reads on the pedigree' }), 'Added just for the pedigree.')}
+        ${field('Registration number (optional)', input(`gd-${role}-regnum`, p.regNum))}
+        ${field('Call name (optional)', input(`gd-${role}-call`, p.callName))}
+      </div>`;
   }
 
   return {
@@ -262,7 +266,7 @@ function screens(draft, data) {
       const d = draft.dogs[i];
       return {
         title: `Who are ${esc(d.call_name)}'s parents?`,
-        html: `<p class="gl-lead">Optional. Leave either one as Not known.</p>
+        html: `<p class="gl-lead">Optional. If you don't know yet, leave them as Not known; you can add them on ${her(d.sex)} page any time.</p>
           ${parentPicker(d, 'dam')}
           ${parentPicker(d, 'sire')}`,
         wire: (root) => {
@@ -275,8 +279,11 @@ function screens(draft, data) {
         read: (root) => {
           for (const role of ['dam', 'sire']) {
             const pick = val(root, `gd-${role}`);
-            d[role] = { pick, name: pick === 'new' ? val(root, `gd-${role}-name`) : '' };
+            d[role] = pick === 'new'
+              ? { pick, name: val(root, `gd-${role}-name`), regNum: val(root, `gd-${role}-regnum`), callName: val(root, `gd-${role}-call`) }
+              : { pick, name: '', regNum: '', callName: '' };
           }
+          G.resolveTypedParents(d, data.dogs);
         }
       };
     },

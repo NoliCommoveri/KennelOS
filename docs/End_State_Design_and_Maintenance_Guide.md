@@ -205,7 +205,7 @@ to the cloud unsealed).
 
 | Entity | Required | Key fields and rules |
 |---|---|---|
-| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `registered_name`, `registration_number`, `microchip_id`, `planned_tests[]`, `recorded_coi`, `url`. `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`). |
+| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `registered_name`, `registration_number`, `microchip_id`, `planned_tests[]`, `recorded_coi`, `url`. `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. |
 | **Contact** | `name` | `contact_type[]`, `email`, `phone`, `facebook_profile`, `address` (also the away-board location, §19), `kennel_id` (affiliation, not scope), `waitlist_status` (kept by `waitlistEntryRepo`), `first_contact_source`, `companion_note` (shown to the recipient, §20; `notes` is private). Buyers are Contacts; there is no Buyer table. |
 | **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `logo_data_url` (kept under ~300 KB, `pages/kennel.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `puppy_record_fields` (§23), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date` when empty). Sire ≠ dam. |
@@ -1787,10 +1787,15 @@ One dog or several in one go, the way the litter task takes several puppies. `st
    Deceased; a puppy belongs to a litter), whose dog (`ownershipChoices`: Owned, Co-owned,
    and someone else's only with `externalOwnership`), the owner for someone else's (a
    contact, or a name that becomes a new contact), the kennel with several own kennels.
-5. **Their parents** (`parents:<i>`, optional): mom and dad each **Not known**, one of the
-   dogs being added, a dog on file of that sex (same breed first), or a typed name, made a
-   pedigree-only dog as the tidy-up makes one. A typed name already on file, or one of the
-   batch, is refused with "pick her from the list".
+5. **Their parents** (`parents:<i>`, optional: "If you don't know yet, leave them as Not
+   known"): mom and dad each **Not known**, one of the dogs being added, a dog on file of
+   that sex (same breed first), or one typed in, made pedigree-only: its **registered name**
+   (required, as the pedigree reads), registration number and call name (optional). It's
+   matched by the pedigree import's rules (`pedigreeImport.ancestorMatches`): its number on a
+   dog on file is that dog, picked for her (`resolveTypedParents`); its registered name on a
+   dog on file (titles in front ignored, never a call name) is refused with "pick her from
+   the list, or add her registration number if it's a different dog"; one of the batch is
+   refused too. Littermates with the same typed mom share one record.
 6. **Who bred it?** (`breeder:<i>`): **I did** (her kennel is its `breeder_kennel_id`), **Another
    breeder** (Pro, `contactsSection`: their kennel, one on file or a new name, required, and
    optionally the breeder, a contact picked (one with a kennel fills the kennel) or a new
@@ -2050,7 +2055,10 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
 - **No parents:** her own dog (owned, co-owned, leased in) not from one of her litters with a
   blank sire/dam → pick a dog already on file (right sex, same breed first), or add one: hers
   (owned, in the dog's kennel; at Lite's cap she shows the usual upgrade notice, `renderUpgradeNudge`, and skips that parent) or somebody else's as a
-  pedigree-only dog. A typed name is checked against existing dogs first (`dogMatches`).
+  pedigree-only dog, asked by its registered name (required) and registration number (no
+  call name). Hers is checked against existing dogs by name first (`dogMatches`); a
+  pedigree dog by `pedigreeImport.ancestorMatches`: its number on a dog on file is that dog
+  (she says so and uses it), its registered name offers the dogs it matches.
 - **Stud service** (`studServices`): past its date (returned, else sent; or Completed), not
   cancelled or failed, no `pairing_id` → link a breeding of the same two dogs opened from two
   weeks before it was sent that no other service claims, or **Record the breeding** in the

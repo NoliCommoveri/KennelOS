@@ -1237,3 +1237,11 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   (`kennelRepo.findOrCreateOutside`: the outside kennel on file by that name, else a new
   one), so a kennel name typed in any of them never makes a second kennel. The tidy-up's
   own copy of `field()` went too.
+- **Kels: ancestors by registered name, one way (2026-10-15).** A pedigree-only dog is now
+  made one way, `dogRepo.createPedigreeOnly` (pedigree import, tidy-up, Add dogs), and a
+  typed ancestor is matched one way, the pedigree import's rule as
+  `pedigreeImport.ancestorMatches` (a number is that dog; a registered name, titles
+  ignored, is asked about; never a call name). Add dogs' typed parent and the tidy-up's
+  "just for the pedigree" now ask the registered name (required) and number, not a call
+  name; Add dogs uses a dog on file by number without asking. The parents step says
+  they're optional ("If you don't know yet, leave them as Not known").
