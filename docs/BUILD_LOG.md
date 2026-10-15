@@ -1400,3 +1400,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   born), the puppies once Whelped, and each pup's plan (Available / Keeping / Undecided),
   with Record a litter with Kels as the guided route. Keywords widened so "pregnant",
   "puppies born", "sell puppies" and "record the litter" all find it.
+- **Kels FAQ: the outside-stud answer (2026-10-15).** `our-stud` now asks "Should I record
+  the litter?" and says where the stud service goes (Placements & Contracts, Stud Services
+  tab) and that its terms and fee structure are what make the fee income.
