@@ -258,17 +258,19 @@ and Email Routing.
   (`[env.production.vars]`) are set. Staging works without it.
 - [x] **Resend: `mail.kennelos.app`** verified (2026-10-09, Cloudflare auto-configure), and
   the production `RESEND_API_KEY` is Sending access for **All domains**, so it can send from it.
-- [ ] **Apply pending (`0010`) on staging's and production's `/ops`** right after the merge
+- [x] **Apply pending (`0010`) on staging's and production's `/ops`** right after the merge
   that carries step 6 (waitlist emails). The whole API answers 503 until then.
 - [x] **Apply pending (`0011`) on staging's and production's `/ops`** right after the merge
   that carries the vault handoff codes (Private Vault Plan §5.4). The whole API answers 503
   until then.
 - [x] **Apply pending (`0012`) on staging's and production's `/ops`** right after the merge
   that carries changing the account's email (Phase 1 plan §2.6).
-- [ ] **Apply pending (`0014`) on staging's and production's `/ops`** right after the merge
+- [x] **Apply pending (`0014`) on staging's and production's `/ops`** right after the merge
   that carries live sync's server (Cloud Phase 2 plan §8 step 2). Nothing calls it until the
   app's sync ships, but the API answers 503 until it's applied.
-- [ ] **Apply pending (`0013`) on staging's and production's `/ops`** right after the merge
+  *(2026-10-15: production has every migration through `0016` applied. Staging is not in
+  use and its migrations are no longer tracked.)*
+- [x] **Apply pending (`0013`) on staging's and production's `/ops`** right after the merge
   that carries account recovery (Phase 1 plan §2.7).
 - [ ] **Try recovering an account on staging** with a test account that has Sensitive records
   on: sign out everywhere, then **Lost access to your email?** with the recovery code and a new

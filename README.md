@@ -46,9 +46,8 @@ backup, carries a program from Lite to Pro.
 - **In progress:**
   - Integrations: next is step 8, an e-sign provider (SignWell / BoldSign). The Jotform steps
     still need proving against a real account.
-  - Cloud Phase 2 live sync: next is step 6, the UI and release. When the last entries
-    were written, cloud migrations `0014`/`0016` still had to be applied on staging and
-    production. `docs/LAUNCH_CHECKLIST.md` tracks whether that's done.
+  - Cloud Phase 2 live sync: next is step 6, the UI and release. Production has every cloud
+    migration through `0016` applied. Staging isn't in use, so deploys there aren't tracked.
 - **Open launch items:** confirm `yearlyVariantPattern` / `lifetimeVariantPattern` against
   the store's real variant names. Click the six site checkout links after each deploy
   (`--release` doesn't check them). See `docs/LAUNCH_CHECKLIST.md`.
