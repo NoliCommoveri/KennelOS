@@ -582,6 +582,10 @@ function showError(msg) {
   els.error.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 function clearError() { els.error.innerHTML = ''; }
+// A friendly line in the same spot (not an error).
+function showNotice(msg) {
+  els.error.innerHTML = `<div class="inline-notice">${esc(msg)}</div>`;
+}
 
 function enterEdit() {
   clearError();
@@ -976,6 +980,17 @@ async function main() {
   // one-click switch. Renders nothing in the ordinary in-scope case.
   renderScopeNotice(document.getElementById('scope-notice'), s, { kind: 'sale' });
   renderAll();
+  // `&deliver=1` (the "Did Cedar go home?" nudge and Kels, data/goHome.js): open
+  // the form with Delivered chosen, so her Save runs delivery's usual prompts
+  // (ownership or departure, the pickup, closing the litter). Nothing is written
+  // until she saves.
+  if (param('deliver') && isOpenSale(s)) {
+    enterEdit();
+    ctx.draft.status = 'delivered';
+    renderEdit();
+    document.getElementById('f-status')?.dispatchEvent(new Event('change'));
+    showNotice('Marked Delivered below. Check the details, then tap Save.');
+  }
 }
 
 // The open one-time Stripe link on the view (Integrations plan §4): Copy, and

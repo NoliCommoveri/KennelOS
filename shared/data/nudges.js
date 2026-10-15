@@ -35,6 +35,7 @@ import { dogRepo } from './dogRepo.js';
 import { kennelRepo } from './kennelRepo.js';
 import { pairingRepo } from './pairingRepo.js';
 import { litterSoldDue, litterReopenDue, litterCloseDue } from './litterCheckin.js';
+import { goHomeIssue, GO_HOME_SALE_STATUSES, defaultStart, boardingEnd, boardingChargeText, PICKUP_TITLE, BOARDING_TITLE } from './goHome.js';
 import { litterRepo } from './litterRepo.js';
 import { saleRepo } from './saleRepo.js';
 import { eventRepo } from './eventRepo.js';
@@ -545,6 +546,72 @@ export async function computeNudges() {
       });
     }
 
+  }
+
+  // A sold puppy's way home (data/goHome.js, decided 2026-10-15): from a week
+  // before the ready date, a sale in progress with no pickup or boarding on the
+  // calendar → schedule the pickup; a pickup date that passed with the sale not
+  // Delivered → did they go home? (opens the Sale page set to Delivered, so its
+  // delivery prompts run); a boarding charge on the sale with no boarding logged
+  // → log it. The actions open the puppy's event form prefilled, or the sale.
+  {
+    const openSales = inScopeOnly(sales).filter((x) => GO_HOME_SALE_STATUSES.includes(x.status));
+    if (openSales.length) {
+      const littersById = new Map(litters.map((l) => [l.id, l]));
+      const contactsById = new Map((await contactRepo.getAll({ includeArchived: true })).map((c) => [c.id, c]));
+      const eventsByDog = new Map();
+      for (const e of events) {
+        if (e.subject_type !== 'dog' || (e.event_type !== 'placement' && e.event_type !== 'boarding')) continue;
+        if (!eventsByDog.has(e.subject_id)) eventsByDog.set(e.subject_id, []);
+        eventsByDog.get(e.subject_id).push(e);
+      }
+      const done = new Set();
+      for (const sale of openSales) {
+        const pup = dogsById.get(sale.dog_id);
+        if (!pup || done.has(pup.id)) continue;
+        done.add(pup.id);
+        const issue = goHomeIssue({
+          pup, litter: littersById.get(pup.litter_id), today,
+          sales: sales.filter((x) => x.dog_id === pup.id), events: eventsByDog.get(pup.id) || []
+        });
+        if (!issue) continue;
+        const s2 = issue.sale;
+        const name = pup.call_name || pup.registered_name || 'This puppy';
+        const family = contactsById.get(s2.buyer_contact_id)?.name || 'their family';
+        const dogHref = (q) => `dog.html?id=${encodeURIComponent(pup.id)}&${new URLSearchParams(q).toString()}`;
+        const start = defaultStart(issue.readyDate, today);
+        const logPickup = (label) => ({ label, run: async () => { location.href = dogHref({ logEvent: 'placement', logDate: start, logTitle: PICKUP_TITLE, ...(s2.buyer_contact_id ? { logContact: s2.buyer_contact_id } : {}) }); } });
+        if (issue.kind === 'boarding') {
+          const end = boardingEnd(s2, start);
+          nudges.push({
+            key: `gohome-boarding:${s2.id}`,
+            title: `${name}'s sale includes boarding (${boardingChargeText(s2)}). Log the boarding?`,
+            detail: `${family} is paying for ${name} to stay with you after the ready date (${issue.readyDate}), but no boarding is logged.`,
+            subjectHref: `sale.html?id=${encodeURIComponent(s2.id)}`,
+            actions: [{ label: 'Log boarding', run: async () => { location.href = dogHref({ logEvent: 'boarding', logDate: start, logTitle: BOARDING_TITLE, ...(end ? { logEnd: end } : {}), logDetails: JSON.stringify({ boarding_reason: 'Deferred pickup' }) }); } }]
+          });
+        } else if (issue.kind === 'schedule') {
+          nudges.push({
+            key: `gohome-schedule:${s2.id}`,
+            title: `${name} is going home to ${family}. Schedule the pickup?`,
+            detail: `The litter is ready ${issue.readyDate}, and there's no pickup or boarding on the calendar.`,
+            subjectHref: `sale.html?id=${encodeURIComponent(s2.id)}`,
+            actions: [logPickup('Schedule pickup')]
+          });
+        } else {
+          nudges.push({
+            key: `gohome-overdue:${s2.id}:${issue.pickupDate}`,
+            title: `${name}'s pickup was ${issue.pickupDate}. Did ${name} go home?`,
+            detail: `The sale to ${family} still isn't marked Delivered.`,
+            subjectHref: `sale.html?id=${encodeURIComponent(s2.id)}`,
+            actions: [
+              { label: 'Yes, mark delivered', run: async () => { location.href = `sale.html?id=${encodeURIComponent(s2.id)}&deliver=1`; } },
+              logPickup('No, new pickup date')
+            ]
+          });
+        }
+      }
+    }
   }
 
   // Show Tracking Spec §5.4 — a title track the dog's results complete, with no

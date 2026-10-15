@@ -476,6 +476,7 @@ table.data tr.row-detail .dl-meta { margin: 0; }
 .form-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
 .inline-warn { color: var(--warn); background: var(--warn-soft); border: 1px solid #e6d5ad; padding: 8px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 10px; }
 .inline-error { color: var(--danger); background: var(--danger-soft); border: 1px solid #e6c3c3; padding: 8px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 10px; }
+.inline-notice { color: var(--accent-dark); background: var(--accent-soft); border: 1px solid var(--border); padding: 8px 12px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 10px; }
 
 /* Lite cap upgrade nudge (cap spec §6) — a friendly prompt, not an error. */
 .upgrade-nudge { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; background: var(--accent-soft); border: 1px solid #bfe0cd; color: var(--accent-dark); padding: 12px 14px; border-radius: var(--radius-sm); margin-top: 10px; }

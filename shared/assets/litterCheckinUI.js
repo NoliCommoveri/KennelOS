@@ -23,8 +23,10 @@ import { inScopeOnly } from '../data/kennelScope.js';
 import { editionFlags } from '../data/editionConfig.js';
 import { DISPOSITION, EVENT_TYPES, descriptor } from '../data/vocab.js';
 import * as C from '../data/litterCheckin.js';
+import * as H from '../data/goHome.js';
+import { contactRepo } from '../data/contactRepo.js';
 import { addDaysToYMD } from '../data/dateUtils.js';
-import { esc, fmtDate, todayYMD } from './ui.js';
+import { esc, fmtDate, fmtMoney, todayYMD } from './ui.js';
 
 const pagesPrefix = () => (location.pathname.includes('/pages/') ? '' : 'pages/');
 const litterHref = (l) => `${pagesPrefix()}litter.html?id=${encodeURIComponent(l.id)}`;
@@ -67,8 +69,9 @@ class Checkin {
     // Every pup's sales, departed (archived) pups included: the close rule counts them.
     this.sales = C.litterSalesOf(litter.id, await dogRepo.getByLitter(litter.id), sales);
     this.home = C.homePups(this.roster, this.sales);
-    const events = (await Promise.all(this.home.map((p) => eventRepo.getForSubject('dog', p.id)))).flat();
-    this.weights = C.lastWeights(events);
+    const perPup = await Promise.all(this.home.map((p) => eventRepo.getForSubject('dog', p.id)));
+    this.eventsByPup = new Map(this.home.map((p, i) => [p.id, perPup[i]]));
+    this.weights = C.lastWeights(perPup.flat());
     this.waitlistOn = false;
     if (editionFlags.waitlist) {
       const entries = await waitlistEntryRepo.getByKennel(litter.kennel_id);
@@ -140,16 +143,114 @@ class Checkin {
   }
 
   // Each decision waiting on the litter, once per visit.
+  // Each decision waiting on the litter, then on each puppy's way home
+  // (data/goHome.js), once per visit.
   async raiseSuggestions() {
     for (;;) {
       const next = C.checkinSuggestions({ litter: this.litter, roster: this.roster, sales: this.sales, today: this.today, waitlistOn: this.waitlistOn })
         .find((s) => !this.asked.has(`${s.id}:${s.status || ''}`));
-      if (!next) return;
-      this.asked.add(`${next.id}:${next.status || ''}`);
-      if (next.id === 'open-picks') await this.offerPicks();
-      else await this.offerStatus(next);
+      const home = next ? null : this.goHomeIssues().find((x) => !this.asked.has(`gohome:${x.pup.id}:${x.kind}`));
+      if (!next && !home) return;
+      if (next) {
+        this.asked.add(`${next.id}:${next.status || ''}`);
+        if (next.id === 'open-picks') await this.offerPicks();
+        else await this.offerStatus(next);
+      } else {
+        this.asked.add(`gohome:${home.pup.id}:${home.kind}`);
+        if (await this.offerGoHome(home) === 'left') return;
+      }
       await this.load(this.litter.id);
     }
+  }
+
+  goHomeIssues() {
+    return this.home.map((pup) => {
+      const issue = H.goHomeIssue({
+        pup, litter: this.litter, today: this.today,
+        sales: this.sales.filter((x) => x.dog_id === pup.id), events: this.eventsByPup.get(pup.id) || []
+      });
+      return issue ? { ...issue, pup } : null;
+    }).filter(Boolean);
+  }
+
+  // --- A puppy's way home --------------------------------------------------------
+
+  async offerGoHome(x) {
+    const name = esc(pupName(x.pup));
+    const family = esc((x.sale.buyer_contact_id && (await contactRepo.getById(x.sale.buyer_contact_id))?.name) || 'their family');
+    const start = H.defaultStart(x.readyDate, this.today);
+    if (x.kind === 'boarding') {
+      await this.chat.say(`${name}'s sale includes boarding (${esc(H.boardingChargeText(x.sale, fmtMoney))}): ${family} is paying for ${name} to stay after the ready date. Want me to log the boarding?`);
+      return this.logBoarding(x, start);
+    }
+    if (x.kind === 'schedule') {
+      await this.chat.say(`${name} is going home to ${family}, and the litter is ready ${esc(fmtDate(x.readyDate))}. There's no pickup on the calendar yet.`);
+      return this.logPickup(x, start, '<strong>When is the pickup?</strong>');
+    }
+    await this.chat.say(`${name}'s pickup was ${esc(fmtDate(x.pickupDate))}, but the sale to ${family} isn't marked Delivered. Did ${name} go home?`);
+    const pick = await this.chat.choose([
+      { label: 'Yes, mark the sale delivered', value: 'yes', primary: true },
+      { label: 'No, the pickup moved', value: 'moved' },
+      { label: 'Not now', value: 'later' }
+    ]);
+    if (pick === 'moved') return this.logPickup(x, this.today, '<strong>When is the new pickup?</strong>');
+    if (pick === 'yes') {
+      await this.chat.say('I\'ll open the sale with Delivered chosen. Check it and tap <strong>Save</strong>; the Sale page takes it from there.');
+      await this.chat.pause(1200);
+      location.href = `${pagesPrefix()}sale.html?id=${encodeURIComponent(x.sale.id)}&deliver=1`;
+      return 'left';
+    }
+  }
+
+  async logPickup(x, date, title) {
+    const res = await this.chat.form({
+      title,
+      html: `<div class="ck-inline">
+          ${field('Pickup date', `<input id="ck-pickup" type="date" value="${esc(date)}">`)}
+          ${field('Time (optional)', '<input id="ck-time" type="text" placeholder="e.g. 10am">')}
+        </div>`,
+      submitLabel: 'Save pickup',
+      cancelLabel: 'Not sure yet',
+      submit: async (root) => {
+        const d = root.querySelector('#ck-pickup').value;
+        if (!d) return 'Pick a date.';
+        await eventRepo.create(H.pickupEvent(x.pup, x.sale, d, root.querySelector('#ck-time').value.trim()));
+        return { d };
+      },
+      reply: (r) => `Pickup on ${fmtDate(r.d)}`
+    });
+    if (!res.done) return;
+    this.didSomething = true;
+    await this.chat.say(`Saved. It's on ${esc(pupName(x.pup))}'s history and your calendar. After that day, I'll ask whether ${esc(pupName(x.pup))} went home.`);
+  }
+
+  async logBoarding(x, start) {
+    const res = await this.chat.form({
+      title: '',
+      html: `<div class="ck-inline">
+          ${field('Boarding starts', `<input id="ck-bstart" type="date" value="${esc(start)}">`)}
+          ${field('Ends (optional)', `<input id="ck-bend" type="date" value="${esc(H.boardingEnd(x.sale, start))}">`)}
+        </div>`,
+      wire: (root) => {
+        const st = root.querySelector('#ck-bstart');
+        const en = root.querySelector('#ck-bend');
+        st.addEventListener('change', () => { en.value = H.boardingEnd(x.sale, st.value) || en.value; });
+      },
+      submitLabel: 'Log boarding',
+      cancelLabel: 'Not now',
+      submit: async (root) => {
+        const a = root.querySelector('#ck-bstart').value;
+        const b = root.querySelector('#ck-bend').value;
+        if (!a) return 'When does the boarding start?';
+        if (b && b < a) return 'The end is before the start.';
+        await eventRepo.create(H.boardingEvent(x.pup, a, b));
+        return { a, b };
+      },
+      reply: (r) => `Boarding from ${fmtDate(r.a)}${r.b ? ` to ${fmtDate(r.b)}` : ''}`
+    });
+    if (!res.done) return;
+    this.didSomething = true;
+    await this.chat.say('Logged. Once it\'s over, I\'ll ask about the pickup.');
   }
 
   async offerPicks() {

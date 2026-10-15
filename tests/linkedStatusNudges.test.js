@@ -280,3 +280,30 @@ test('not too early, not once overdue (that rule takes over), not Planned, not w
   assert.equal((await nudgesFor('pairingduesoon:')).length, 0);
   assert.deepEqual((await nudgesFor('pairingoverdue:')).map((n) => n.key), [`pairingoverdue:${overdue.id}`]);
 });
+
+test('go home: schedule the pickup, log the boarding a sale charges for, and "did they go home?" once the pickup passes', async () => {
+  const { eventRepo } = await import('../shared/data/eventRepo.js');
+  const buyer = await contactRepo.create({ name: 'Jamal Reed' });
+  const l = await litterRepo.create({ kennel_id: K.id, dam_id: dam.id, sire_id: sire.id, status: 'weaning', whelp_date: daysAgo(52) });
+  const cedar = await pupOf(l, { call_name: 'Cedar', sex: 'male', disposition: 'placed' });
+  const sale = await saleRepo.create({ kennel_id: K.id, dog_id: cedar.id, buyer_contact_id: buyer.id, registration_type: 'limited', status: 'deposit_paid' });
+  // Ready in 4 days (8 weeks), nothing on the calendar.
+  const [n] = await nudgesFor('gohome-');
+  assert.equal(n.key, `gohome-schedule:${sale.id}`);
+  assert.match(n.title, /^Cedar is going home to Jamal Reed\. Schedule the pickup\?$/);
+  assert.equal(n.actions[0].label, 'Schedule pickup');
+
+  // A boarding charge on the sale: log the boarding first.
+  await saleRepo.update(sale.id, { deferred_boarding_amount: 15, deferred_boarding_frequency: 'Day', deferred_boarding_duration_days: '14' });
+  assert.deepEqual((await nudgesFor('gohome-')).map((x) => x.key), [`gohome-boarding:${sale.id}`]);
+  await saleRepo.update(sale.id, { deferred_boarding_amount: null });
+
+  // A pickup that's passed with the sale still open: did Cedar go home?
+  const past = await eventRepo.create({ subject_type: 'dog', subject_id: cedar.id, event_type: 'placement', event_date: daysAgo(2), title: 'Puppy pickup', related_contact_id: buyer.id });
+  const [o] = await nudgesFor('gohome-');
+  assert.equal(o.key, `gohome-overdue:${sale.id}:${past.event_date}`);
+  assert.deepEqual(o.actions.map((a) => a.label), ['Yes, mark delivered', 'No, new pickup date']);
+
+  await saleRepo.update(sale.id, { status: 'delivered' });
+  assert.equal((await nudgesFor('gohome-')).length, 0, 'delivered: settled');
+});

@@ -132,6 +132,7 @@ const PRECACHE_URLS = [
   'data/kennelTree.js',
   'data/guidedLitter.js',
   'data/litterCheckin.js',
+  'data/goHome.js',
   'data/litterRepo.js',
   'data/nudges.js',
   'data/nudgeState.js',

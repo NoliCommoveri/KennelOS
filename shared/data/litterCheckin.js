@@ -11,11 +11,12 @@
 import { LITTER_STATUS, DISPOSITION, descriptor, isOpenSale } from './vocab.js';
 import { addDaysToYMD } from './dateUtils.js';
 import { depositsDueLitters } from './waitlistRules.js';
+import { readyDateOf } from './goHome.js';
 
 // A litter moves to Weaning from 4 weeks; Ready from its estimated ready date
 // (or 8 weeks, when that's blank).
 export const WEANING_AFTER_DAYS = 28;
-export const READY_AFTER_DAYS = 56;
+export { READY_AFTER_DAYS } from './goHome.js';
 // Days ahead the "push the deposit date back" question suggests.
 export const DEPOSIT_RESCHEDULE_DAYS = 7;
 
@@ -150,7 +151,7 @@ export function checkinSuggestions({ litter, roster, sales = [], today, waitlist
 }
 
 export function readyDue(litter, today) {
-  const ready = litter.estimated_ready_date || (litter.whelp_date ? addDaysToYMD(litter.whelp_date, READY_AFTER_DAYS) : null);
+  const ready = readyDateOf(litter);
   return Boolean(ready) && ready <= today;
 }
 
