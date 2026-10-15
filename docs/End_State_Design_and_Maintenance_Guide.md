@@ -1618,9 +1618,9 @@ the Worker's `familyPages.recommendedOf`), the go-home **follow-up** nudge (§19
 **Editions:** All editions. Steps for Pro features (outside dogs, stud service, sharing,
 waitlist picks) are gated by their flags.
 
-**Kels** is a **scripted** helper shown as a chat, not a model: every line is written in the
-task scripts, and nothing leaves the device. Who he is lives in `kelsChat.KELS` (`name`,
-`tagline`, `assistLabel`, `photo`: a path under `assets/`, precached, or null for his
+**Kels** (she/her) is a **scripted** helper shown as a chat, not a model: every line is written in the
+task scripts, and nothing leaves the device. Who she is lives in `kelsChat.KELS` (`name`,
+`tagline`, `assistLabel`, `photo`: a path under `assets/`, precached, or null for her
 initial); pages read it through `kelsHello()` and `kelsAvatar()`. A floating **Ask Kels**
 button (`kelsChat.renderAssistButton`, from `app.js`; a dot while a litter draft is
 unfinished) opens `pages/kels.html`. Every write is an ordinary repo write.

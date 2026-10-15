@@ -1,10 +1,10 @@
 // kels.js — Kels, the guided-task helper (the floating "Ask Kels" button on
-// every page opens this). Kels greets her, offers his tasks one at a time, and
-// then walks her through the one she picks as a chat (assets/kelsChat.js). He's
-// scripted, not a model: every line is written in the task scripts. Who he is
-// (name, line, photo) lives in kelsChat.js `KELS`.
+// every page opens this). Kels greets the breeder, offers her tasks one at a
+// time, and then walks the breeder through the one picked, as a chat
+// (assets/kelsChat.js). She's scripted, not a model: every line is written in
+// the task scripts. Who she is (name, line, photo) lives in kelsChat.js `KELS`.
 //
-// TASKS is his menu. A task is { id, label(s), sub, available(s), priority(s),
+// TASKS is her menu. A task is { id, label(s), sub, available(s), priority(s),
 // run(opts), resumable?, beforeStart?(opts) }: the higher the priority, the
 // nearer the top, so tasks are ordered by what she's likely to need (something
 // unfinished first, then whatever fits her kennel now). `resumable` tasks keep

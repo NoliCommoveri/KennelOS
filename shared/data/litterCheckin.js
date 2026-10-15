@@ -20,9 +20,9 @@ export { READY_AFTER_DAYS } from './goHome.js';
 // Days ahead the "push the deposit date back" question suggests.
 export const DEPOSIT_RESCHEDULE_DAYS = 7;
 
-// The care Kels can record for the litter, in the order he offers it under
+// The care Kels can record for the litter, in the order she offers it under
 // "Health care": event types from vocab, the field that names it (and becomes
-// the event's title, else `title`), the choice's label, and how he asks.
+// the event's title, else `title`), the choice's label, and how she asks.
 export const CARE_KINDS = Object.freeze({
   preventative: { eventType: 'preventative', nameKey: 'product', title: 'Preventative', label: 'Deworming or flea & tick', ask: 'Which dewormer or preventative?' },
   vaccination: { eventType: 'vaccination', nameKey: 'vaccine', title: 'Vaccination', label: 'Shots', ask: 'Which vaccine?' },

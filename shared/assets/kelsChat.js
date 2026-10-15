@@ -1,14 +1,14 @@
 // kelsChat.js — the chat transcript Kels's guided tasks talk through (pages/kels.*).
-// Kels is a scripted helper, not a model: every line he "types" is written in
+// Kels is a scripted helper, not a model: every line she "types" is written in
 // the task scripts (assets/guidedLitterUI.js and friends). This module only
-// draws the conversation: his messages (after a short typing indicator), her
-// replies, and the answer panels her inputs live in, all in one box that
-// scrolls itself to the newest message.
+// draws the conversation: Kels's messages (after a short typing indicator), the
+// breeder's replies, and the answer panels the breeder's inputs live in, all in
+// one box that scrolls itself to the newest message.
 import { esc } from './ui.js';
 
 // Who Kels is, in one place: every page, task script and the floating button
 // read these, so a new name or line changes here only. `photo` is a path under
-// assets/ (precached in sw.js) once Kels has one; until then the avatar is his
+// assets/ (precached in sw.js) once Kels has one; until then the avatar is her
 // initial.
 export const KELS = Object.freeze({
   name: 'Kels',
@@ -19,10 +19,10 @@ export const KELS = Object.freeze({
 export const KELS_NAME = KELS.name;
 export const ASSIST_LABEL = KELS.assistLabel;
 
-// His opening line, from the menu or when a page sends her straight to a task.
+// Kels's opening line, from the menu or when a page sends the breeder straight to a task.
 export const kelsHello = () => `Hi, I'm ${esc(KELS.name)}, ${esc(KELS.tagline)}!`;
 
-// His avatar: the photo when there is one, else his initial. `prefix` reaches
+// Kels's avatar: the photo when there is one, else her initial. `prefix` reaches
 // assets/ from the current page ('../' under pages/).
 export function kelsAvatar({ large = false, prefix = '../' } = {}) {
   const cls = `kels-avatar${large ? ' kels-avatar-lg' : ''}`;
@@ -109,7 +109,7 @@ export function createChat(box) {
       });
     },
 
-    // Kels asks with a form: his `title` (trusted markup), then her panel holding
+    // Kels asks with a form: her `title` (trusted markup), then the breeder's panel holding
     // `html`, an error line and the foot (`cancelLabel` and `submitLabel`). Enter
     // in a text box submits. `submit(root)` does the work: return a string to show
     // it as a problem and stay; anything else finishes, and the panel becomes her

@@ -996,7 +996,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `pages/companion.js`). No schema change. End-State guide §33; editions plan tier table.
   Cache rolled to `kennelos-shell-v78` for this batch.
 - **Kels (renamed from Ken) + "Check in on a litter" — built & browser-verified
-  (2026-10-14).** The helper is **Kels**, "your personal KennelOS agent"; his name, line,
+  (2026-10-14).** The helper is **Kels**, "your personal KennelOS agent" (she/her); her name, line,
   button label and a future photo live in `kelsChat.KELS`, and the files became `kels*`
   (`pages/kels.html` replaced `pages/ken.html`). The menu takes tasks generically (priority,
   resumable, `beforeStart`, `handoff`), and `kelsChat` gained `form()`. The weekly check-in:
@@ -1020,6 +1020,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   running; log the boarding a sale charges for; and once the pickup date passes without
   Delivered, ask whether the pup went home (Yes opens `sale.html?…&deliver=1` so the Sale
   page's delivery prompts run). Today nudges (`gohome-*`; event-form deep links gained
-  `logEnd` / `logContact`) and Kels's check-in. Open question: a nudge for pups still
-  Available or Undecided past 8 weeks ("still needs a home"). End-State guide §19, §33.
+  `logEnd` / `logContact`) and Kels's check-in. Decided: no nudge for now for pups still
+  Available or Undecided past 8 weeks. End-State guide §19, §33.
   Precache updated; `CACHE_NAME` not bumped.

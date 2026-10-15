@@ -1,4 +1,4 @@
-// guidedLitterUI.js — Kels's "Record a new litter" task: the questions he asks,
+// guidedLitterUI.js — Kels's "Record a new litter" task: the questions she asks,
 // one at a time, in the chat on pages/kels.html (assets/kelsChat.js draws the
 // chat). Each question is a "screen" (below): Kels's line, then her answer panel
 // with big buttons and Back; her answer is left in the chat as her reply, and
@@ -654,7 +654,7 @@ class LitterConversation {
     await this.ask(step);
   }
 
-  // Kels asks `stepId`: his question, then her answer panel.
+  // Kels asks `stepId`: her question, then the breeder's answer panel.
   async ask(stepId, { typing = 650 } = {}) {
     await this.refreshSteps();
     if (!this.steps.includes(stepId)) stepId = this.steps[0];
@@ -667,7 +667,7 @@ class LitterConversation {
   }
 
   // (Re)draw the answer panel for the current step. A lead line in the screen
-  // moves up into Kels's bubble, so he's the one saying it.
+  // moves up into Kels's bubble, so she's the one saying it.
   fillPanel(bubble = null) {
     const isReview = Boolean(this.current.isReview);
     const canBack = this.draft.history.length > 0;
