@@ -1064,3 +1064,19 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   ones used more than 3 times in 60 days move up the menu (device-local).
 - **Kels roadmap: cover page, 60 days (2026-10-15).** Prep pups' print opens with a readiness
   cover page for the breeder; "frequent" tasks are those started more than 3 times in 60 days.
+- **Kels's "Pups are going home" — built & browser-verified (2026-10-15).** Roadmap §3.1
+  ("Prep pups for leaving" in the plan; renamed when built).
+  A fifth Kels task: pick a litter with pups at home and the pups leaving (ticked: a sale at
+  Deposit paid or later), see each pup's readiness, fix what's missing one thing at a time,
+  then (Pro) the Furever link and one printed file of puppy records. New pure
+  `data/prepPups.js` (readiness, read by Kels and the Puppy Record's cover page) and
+  `assets/prepPupsUI.js`; the check-in's microchip, care and pickup forms are now exported
+  (`chipsForm`, `careForm`, `pickupsForm`) and shared. Puppy Record: `?dogs=` prints several
+  pups, a page each, pups with no sale without the buyer block; `&cover=1` adds the
+  breeder's readiness cover page. The Sales page's Print Puppy Record is the same picker,
+  with an optional cover page. Decided: the Furever link isn't tracked (offered, never an
+  item); the go-home date is the `placement` ("Placement / drop-off") event, scheduled from
+  the task with its method (`goHome.pickupEvent` takes one; not Local pickup → "Puppy
+  drop-off"); the Sales cover page is off by default. Kels now greets with "What can I help
+  you do today?" when sent straight to a task too. Roadmap §2.7: her voice, a couple of
+  warm words per message, never more than one phrase or sentence.

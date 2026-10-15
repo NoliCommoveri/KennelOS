@@ -18,14 +18,16 @@ import { createChat, KELS, kelsAvatar, kelsHello } from '../assets/kelsChat.js';
 import { runLitterTask, pendingLitterDraft, discardGuidedLitterDraft } from '../assets/guidedLitterUI.js';
 import { runCheckinTask, checkinState } from '../assets/litterCheckinUI.js';
 import { runTidyTask } from '../assets/tidyUpUI.js';
+import { runPrepTask, prepState } from '../assets/prepPupsUI.js';
 import { param, esc } from '../assets/ui.js';
+import { editionFlags } from '../data/editionConfig.js';
 
 const chat = createChat(document.getElementById('kels-transcript'));
 const laterBtn = document.getElementById('kels-later');
 document.getElementById('kels-name').textContent = KELS.title;
 document.getElementById('kels-avatar').innerHTML = kelsAvatar({ large: true });
 
-// Kels's tasks. `state`: { pendingLitter, litters: { open, withPups } }.
+// Kels's tasks. `state`: { pendingLitter, litters: { open, withPups }, prep: { litters } }.
 const TASKS = [
   {
     id: 'resume-litter',
@@ -72,6 +74,17 @@ const TASKS = [
     run: (opts) => runLitterTask(chat, opts)
   },
   {
+    id: 'prep-pups',
+    label: () => 'Pups are going home',
+    // Printing is Pro (Puppy Record); Lite never mentions or searches it.
+    sub: editionFlags.puppyRecord ? 'Chips, shots, drop-off dates, balances, then their puppy records' : 'Chips, shots, drop-off dates and balances',
+    keywords: ['go home', 'going home', 'leaving', 'pickup day', 'drop off', 'dropoff', 'ready', 'balance', 'paperwork',
+      ...(editionFlags.puppyRecord ? ['puppy records', 'print', 'packet'] : []), ...(editionFlags.contracts ? ['contract'] : [])],
+    available: (s) => s.prep.litters > 0,
+    priority: () => 45,
+    run: (opts) => runPrepTask(chat, opts)
+  },
+  {
     id: 'tidy-up',
     label: () => 'Tidy up my records',
     sub: 'Find records that don\'t agree, and duplicates, and fix them',
@@ -86,7 +99,8 @@ const TASKS = [
 const taskById = (id) => TASKS.find((t) => t.id === id);
 
 async function state() {
-  return { pendingLitter: pendingLitterDraft(), litters: await checkinState() };
+  const [litters, prep] = await Promise.all([checkinState(), prepState()]);
+  return { pendingLitter: pendingLitterDraft(), litters, prep };
 }
 
 function running(task) {
@@ -134,7 +148,8 @@ laterBtn.addEventListener('click', async () => {
 async function main() {
   const asked = taskById(param('task'));
   if (!asked) { await menu(); return; }
-  await chat.say(kelsHello(), { typing: 900 });
+  // Sent straight to a task: she still greets and asks, and the task is the answer.
+  await chat.say(`${kelsHello()} What can I help you do today?`, { typing: 900 });
   chat.you(asked.label(await state()));
   await startTask(asked, { litterId: param('litter') || null });
 }

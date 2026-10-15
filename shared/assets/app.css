@@ -1217,6 +1217,9 @@ table.data tfoot .total-row td { font-weight: 700; background: var(--surface-2);
 .ck-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .ck-check { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 16px; cursor: pointer; }
 .ck-check input { width: 20px; height: 20px; }
+/* Pups are going home's "Which puppies are leaving?": one pup per row, its sale under its name. */
+.pp-checks { grid-template-columns: 1fr; }
+.pp-checks .pp-sub { display: block; font-size: 14px; }
 .gl-body textarea { width: 100%; font: inherit; font-size: 17px; padding: 10px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); }
 @media (max-width: 420px) { .ck-row { grid-template-columns: 1fr 76px 76px; } }
 .kels-main { padding-top: 8px; padding-bottom: 8px; }

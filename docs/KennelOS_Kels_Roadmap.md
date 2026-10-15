@@ -14,6 +14,7 @@ need. When one is built, its as-built description goes in the guide (§33) and i
 | Check in on a litter | Weights, health care, plans, chips, dates, status; picks, Weaning/Ready/Sold/close; pickup, boarding, delivery | All (open picks: Pro) |
 | Tidy up my records | Records that disagree, duplicates, merge | All (stud, contacts, kennels: Pro) |
 | Finish an unfinished litter | Resumes the litter draft | All |
+| Pups are going home | Readiness per pup with fixes (chips, shots, deworming, drop-off date, balance, contract, registration, feeding); the puppy records with a cover page | All (contract, feeding, Furever, print: Pro) |
 
 The menu has a search box that matches each task's `keywords`, and choices open their
 description on the first tap.
@@ -38,13 +39,25 @@ These are settled. A task that can't follow one comes back here before it's buil
    should be.
 6. **Every task has `keywords`** in the menu, and every new page a task can open is in
    `PRECACHE_URLS` (and `proPages.js` if Pro-only).
+7. **She talks like a person.** Every task opens with a line that says yes to it ("Sure
+   thing, let's get those pups ready to go home!"), acknowledges each answer, moves between
+   steps in her own words, and closes warmly. Every message carries a couple of warm words
+   for the breeder (her work, her pups), **never more than one phrase or sentence** of it;
+   the rest is the task. Sent straight to a task, she still asks "What can I help you do
+   today?" first.
 
 ## 3. Proposed tasks, in build order
 
 Sizes: **S** a few days of work, reusing what exists; **M** a new data module and a
 script; **L** needs a feature that isn't built yet.
 
-### 3.1 Prep pups for leaving: **M**, Pro (Puppy Record), the rest all editions
+### 3.1 Pups are going home (was "Prep pups for leaving"): **M**, Pro (Puppy Record), the rest all editions — **Built**
+As built: End-State guide §33 ("Pups are going home") and the Puppy Record section;
+history in `docs/BUILD_LOG.md`. **Modified:** the Furever link isn't tracked, so it's
+offered at the end rather than checked; "a pickup on the calendar" is a drop-off date (the
+`placement` event, the only go-home date the app keeps), scheduled from the task; the
+Sales picker's cover page is an option, off by default.
+
 The run-up to go-home day for one litter, ending with the printed records.
 
 - **Asks which litter** (litters with pups at home, like the check-in's list), then which
@@ -134,7 +147,7 @@ Three different things people mean, asked first:
 Pup → buyer (existing contact, or a new one checked for duplicates with the tidy-up's
 matching) → registration type and price (prefilled from the litter's
 `expectedPricing`) → deposit → contract (Pro) → payment link (Pro, Stripe) → mark Placed.
-Hands off to Prep pups (§3.1) when the litter is near ready.
+Hands off to Pups are going home (§3.1) when the litter is near ready.
 
 ### 3.6 Log a heat or breeding: **S**
 Heat start → (later) breeding dates and method → stud service if outside (Pro) → the
@@ -182,7 +195,9 @@ shows the upgrade notice (§2.3) and stops adding.
 ## 5. Decisions and open questions
 
 Decided:
-- Prep pups prints pups with no sale (no buyer block).
+- Kels's voice (§2.7): a couple of warm words in every message, never more than one phrase
+  or sentence. The tasks built before the rule haven't been swept for it yet.
+- Pups are going home prints pups with no sale (no buyer block).
 - Account health is her KennelOS account and this device, not the business Accounts page.
 - Only we add search keywords.
 - Set up another device ships before live sync's step 6, stopping after restore and unlock.
@@ -191,7 +206,7 @@ Decided:
 - Add dogs takes several in a row.
 - Starred and frequent tasks move up the menu (§4); "frequent" means more than 3 starts in
   the last 60 days.
-- Prep pups' print opens with a cover page of each pup's readiness, for the breeder.
+- Pups are going home's print opens with a cover page of each pup's readiness, for the breeder.
 
 Open:
 1. Once she has starred tasks, should the rest of the menu fold under "More"?

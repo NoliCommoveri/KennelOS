@@ -988,8 +988,20 @@ health-relevant event type; identical entries fold into one line with their date
 visits print the linked vet's name, phone and address), and the buyer. Empty rows are
 omitted. Read-only, through the repos.
 
+- **Several pups in one file:** `?dogs=<id>,<id>…` renders each pup's record in its own
+  `<section class="pr-pup">`, each after the first starting a new page (`break-before:
+  page`). Each pup's sale is found from the dog (`prepPups.pupSale`: its newest open sale,
+  else its delivered one); a pup with no sale prints without the buyer block. The kennel's
+  field picks are the first pup's kennel's and apply to every pup. `?sale=` still prints one.
+- **Cover page** (`&cover=1`): a page for the breeder, not the families, before the
+  records: the litter, today, and per pup its family, drop-off date, and what's done and
+  missing (`prepPups.readiness`, the same rules as Kels's Pups are going home, §33). Field picks don't
+  apply to it.
 - **Download = the browser's Print → Save as PDF** (`window.print()` with an `@media print`
-  block). Opened from a sale's page or the Sales page's Print Puppy Record picker
+  block). Opened from a sale's page, the Sales page's Print Puppy Record picker (a litter
+  with pups at home, then tick pups, ticked by default with a sale at Deposit paid or later;
+  **Other puppies with a sale** for pups with a sale in progress on no such litter; an
+  optional **Start with my readiness cover page**, off by default), or Kels's Pups are going home
   (`?autoprint=1`).
 - **Fields per kennel:** the Kennel page's **Puppy Record fields** card saves
   `Kennel.puppy_record_fields` (only what's off). `data/puppyRecordFields.js` is the one list
@@ -1637,14 +1649,21 @@ Enter picks the first match), and `form({ title, html, submit, reply })`, where 
 problem and stay, anything else to finish — and the button), `pages/kels.*` (the menu),
 `assets/guidedLitterUI.js` + `data/guidedLitter.js` (the litter task), `assets/litterCheckinUI.js`
 + `data/litterCheckin.js` + `data/goHome.js` (the check-in), `assets/tidyUpUI.js` +
-`data/tidyRules.js` + `data/recordMerge.js` (the tidy-up). The data modules are tested;
-all but `recordMerge.js` are pure.
+`data/tidyRules.js` + `data/recordMerge.js` (the tidy-up), `assets/prepPupsUI.js` +
+`data/prepPups.js` (prep pups; it reuses the check-in's exported `chipsForm`, `careForm`
+and `pickupsForm`). The data modules are tested; all but `recordMerge.js` are pure.
+
+**Her voice:** every message carries a couple of warm words, aimed at the breeder (her
+work, her pups), never more than one phrase or sentence of it; the rest is the task. Sent
+straight to a task (`?task=`), she still greets and asks "What can I help you do today?",
+and the task is the breeder's answer.
 
 **The menu** (`kels.js` `TASKS`): a task is `{ id, label, sub, keywords, available, priority,
 run, resumable?, beforeStart? }`, highest priority first, with a search box above it;
 `keywords` are the other words a breeder might search with ("add puppies" finds Record a new
 litter). The page header shows her photo and `KELS.title` ("Kels, the KennelOS whiz") on one line, sized to fit a phone. Order: an unfinished litter (100), the check-in
-(60 while a litter has pups at home, else 40), a new litter (50), tidy up (30). The header's **Save for
+(60 while a litter has pups at home, else 40), a new litter (50), prep pups (45, while a
+litter has pups at home), tidy up (30). The header's **Save for
 later** shows only while a `resumable` task runs. `beforeStart` can redirect a start (a new
 litter while one is unfinished asks "Finish that one / Start fresh"); `handoff(taskId, opts)`
 moves her to another task (an Expected litter in the check-in → its birth).
@@ -1713,6 +1732,39 @@ Each thing she approves is saved at once; there is no draft.
      microchips (`microchip_id`), the deposit and ready dates, the litter's status (any but
      Expected), the litter's page.
    After each, the records reload and new decisions come up.
+
+### "Pups are going home"
+The run-up to go-home day for one litter. Each fix is saved when approved; there is no draft.
+1. **Which litter:** `prepLitters` — born litters (Whelped, Weaning, Ready, Sold) not
+   archived, in kennel scope, with a pup at home (`homePups`), newest born first. One such
+   litter is chosen for her.
+2. **Which pups:** the litter's pups at home, each with its sale's status and family, or
+   "No sale". Ticked by default: a sale at Deposit paid or later (`pickedByDefault`); any pup
+   can be ticked.
+3. **Where they stand:** per pup, "n of m done" and what's missing.
+4. **One thing at a time**, in `READY_ITEMS` order, each once per visit, for every chosen
+   pup missing it (**Not now**, or **That's enough for now** to skip to the end):
+
+   | Item | Done when | Fix |
+   |---|---|---|
+   | Microchip | `microchip_id` set | the check-in's microchip form |
+   | Shots | a `vaccination` logged | the check-in's care form (Shots) |
+   | Deworming | a `preventative` logged | the check-in's care form |
+   | Drop-off date (sale) | a `placement` event for the sale's family (`goHome.pickupFor`) today or later | **When's the drop-off?**: date, time, how (`PLACEMENT_METHODS`) per pup; `goHome.pickupEvent` (titled "Puppy drop-off" unless Local pickup) |
+   | Balance (sale) | Paid in full / Delivered, a `balance_paid_date`, or a `balance_due_date` | a due date per pup (`saleRepo.update`) |
+   | Contract signed (sale, Pro `contracts`) | a signed contract on the sale | opens the contract, or `contract.html?new=1&sale=` |
+   | Registration type (sale) | `registration_type` set | opens the sale |
+   | Feeding schedule (Pro `feedingSchedule`) | the litter's `feeding_schedule_override`, or a breed schedule for the pup's breed | the Feeding schedules page, or the litter's page |
+
+   The `placement` event ("Placement / drop-off") is the only go-home date the app keeps;
+   Furever's pickup fields on the Sale are the family app's and don't count. A fix that opens
+   a page leaves Kels; she says to start Pups are going home again after.
+5. **The end:** all done, or what's still missing per pup. Pro: the **Furever link** is
+   offered (`furever.html`) when a chosen pup has an open sale; it isn't tracked, so it's
+   never an item. Pro (`puppyRecord`): **Print puppy records** opens
+   `puppy-record.html?dogs=…&cover=1&autoprint=1` in a new tab (a link if the tab is
+   blocked). Lite runs the same check without Furever or the print, and its menu entry
+   neither mentions nor searches either.
 
 ### "Tidy up my records"
 She finds places two records disagree, says how many of each kind, then raises them one at
