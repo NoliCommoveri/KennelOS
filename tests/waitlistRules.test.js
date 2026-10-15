@@ -982,7 +982,7 @@ test('waitlistSummaryLines: what Kels says is set', () => {
     'Families get 3 days to accept an offer and pay the deposit, and can pass 2 times before they\'re removed (no response counts as a pass).',
     autoOfferSummary(WAITLIST_CONFIG_DEFAULTS),
     'Offers only go to families who listed the pup\'s color.',
-    'Online: your list is published, and families apply online.',
+    'Online: your list is set to be online, with applications online.',
     'Programs: Repeat buyers.'
   ]);
   assert.equal(waitlistSummaryLines({ ...WAITLIST_CONFIG_DEFAULTS })[0], 'No application fee.');
