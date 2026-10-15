@@ -22,7 +22,8 @@ const COMMON = [
   ['place:dogs', 'View your dogs'],
   ['place:litters', 'Manage your litters'],
   ['place:financials', 'See your finances'],
-  ['place:contacts', 'See your contacts']
+  ['place:contacts', 'See your contacts'],
+  ['place:companion', 'Sharing your pups']
 ];
 
 const nav = (path) => [...navItems, ...moreItems].find((i) => i.path === path)?.label || 'the menu';

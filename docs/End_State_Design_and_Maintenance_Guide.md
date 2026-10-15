@@ -1812,7 +1812,8 @@ thing, let's find it!", then a search box.
   deeper**. Nothing matched: "I couldn't find anything for "…". Here are a couple of things
   people often look for. If none of them are right, feel free to give me new words and I'll
   search again!" with **View your dogs**, **Manage your litters**, **See your finances**,
-  **See your contacts** (where the edition has each) and **Try new words**. Going
+  **See your contacts**, **Sharing your pups** (the Sharing hub's Companion page; each only
+  where the edition has it) and **Try new words**. Going
   there opens the page in this tab.
 
 ### "Record a new litter"
