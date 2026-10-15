@@ -90,11 +90,15 @@ async function vendorKeys() {
   const { getJotformKey } = await import('../data/jotformKeyStore.js');
   const out = [];
   for (const a of await accountRepo.getAll()) {
-    const account = { id: a.id, name: a.name || 'An account' };
+    // Her saved login for the vendor and the connection's settings ride along (in
+    // memory only) for "Help me replace it".
+    const account = { id: a.id, name: a.name || 'An account', username: a.username || '', password: a.password || '', website: a.website || '' };
     const stripe = a.account_type === 'payment_service' ? await getStripeKey(a.id) : null;
     const jot = a.account_type === 'form_service' ? await getJotformKey(a.id) : null;
     if (!stripe && !jot) continue;
     const vendor = stripe ? 'stripe' : 'jotform';
+    account.currency = stripe?.currency || 'usd';
+    account.region = jot?.region || 'us';
     if (navigator.onLine === false) { out.push({ account, vendor, ok: null }); continue; }
     try {
       if (stripe) await (await import('../data/stripeApi.js')).stripeCheckKey(stripe);
@@ -292,10 +296,10 @@ const FIXES = {
   async 'key-rejected'(f) {
     const vendor = f.vendor === 'stripe' ? 'Stripe' : 'Jotform';
     const pick = await this.ask(f, `The ${vendor} key on <strong>${esc(f.account.name)}</strong> isn't working.${f.message ? ` ${esc(f.message)}` : ''} Until it's fixed, KennelOS can't use that connection.`, [
-      { label: 'Open Accounts', value: 'fix', primary: true }
+      { label: 'Help me replace it', value: 'fix', primary: true }
     ]);
     if (pick !== 'fix') return pick;
-    return this.leave('accounts.html', `I'll open your Accounts. Reconnect ${vendor} on ${esc(f.account.name)}.`);
+    return replaceKey.call(this, f);
   },
 
   async 'waitlist-signed-out'(f) {
@@ -344,4 +348,88 @@ async function pushNow() {
   if (!s.paused && (result?.status === 'pushed' || result?.status === 'unchanged')) return this.done('Backed up. You\'re all set!');
   await this.chat.say(esc(ui.statusLine(s)));
   return null;
+}
+
+// --- "Help me replace it": a new Stripe or Jotform key, right here --------------
+// The steps to make one (in a new tab, signed in with the login saved on that
+// account, shown here when she has one), then the key pasted in the chat, checked
+// with the vendor and kept on this device (stripeLinks.connectStripe /
+// jotformConnect.connectJotform, as the Accounts page connects).
+const KEY_STEPS = {
+  stripe: (a, perms) => ({
+    site: a.website || 'https://dashboard.stripe.com/apikeys',
+    steps: [
+      'Open a new browser tab and sign in to your Stripe Dashboard.',
+      'Go to <strong>Developers → API keys</strong> and choose <strong>Create restricted key</strong>. Name it KennelOS.',
+      `Give it only these permissions: ${perms.map(([what, level]) => `${esc(what)} <em>${esc(level)}</em>`).join(', ')}. Leave the rest as None (the names may differ a little).`,
+      'Create it, then copy the key. It starts <code>rk_</code>. Never your full secret key (<code>sk_</code>).',
+      'Come back to this tab and paste it below. You can delete the old key in Stripe once this one works.'
+    ]
+  }),
+  jotform: (a, _perms, regions) => {
+    const host = (regions.find((r) => r.value === a.region)?.label.match(/\(([^)]+)\)/) || [])[1] || 'jotform.com';
+    return {
+      site: a.website || `https://${host}/myaccount/api`,
+      steps: [
+        `Open a new browser tab and sign in to Jotform (${esc(host)}).`,
+        'Open <strong>Settings → API</strong> and choose <strong>Create New Key</strong> with <strong>Read Access</strong>.',
+        'Copy the new key.',
+        'Come back to this tab and paste it below.'
+      ]
+    };
+  }
+};
+
+async function replaceKey(f) {
+  const a = f.account;
+  const isStripe = f.vendor === 'stripe';
+  const vendor = isStripe ? 'Stripe' : 'Jotform';
+  const stripeMod = isStripe ? await import('../data/stripeLinks.js') : null;
+  const jotMod = isStripe ? null : await import('../data/jotformConnect.js');
+  const { site, steps } = KEY_STEPS[f.vendor](a, stripeMod?.STRIPE_KEY_PERMISSIONS || [], jotMod?.JOTFORM_REGIONS || []);
+  await this.chat.say(`Happy to help! Here's how to get a new ${vendor} key:<ol class="kels-steps">${steps.map((x) => `<li>${x}</li>`).join('')}</ol>`
+    + `<a class="btn btn-sm" href="${esc(site)}" target="_blank" rel="noopener">Open ${esc(vendor)} in a new tab</a>`, { typing: 900 });
+
+  const login = a.username || a.password ? `<div class="kels-login">
+      <p class="gl-q">Your login for ${esc(a.name)}, from your Accounts</p>
+      ${a.username ? `<div class="kels-login-row"><span class="faint">Username</span><code>${esc(a.username)}</code><button type="button" class="gl-more" data-copy="u">Copy</button></div>` : ''}
+      ${a.password ? `<div class="kels-login-row"><span class="faint">Password</span><code data-pw>••••••••</code><button type="button" class="gl-more" data-show>Show</button><button type="button" class="gl-more" data-copy="p">Copy</button></div>` : ''}
+    </div>` : '';
+  const options = isStripe
+    ? stripeMod.STRIPE_CURRENCIES.map((c) => `<option value="${esc(c.value)}"${c.value === a.currency ? ' selected' : ''}>${esc(c.label)}</option>`).join('')
+    : jotMod.JOTFORM_REGIONS.map((r) => `<option value="${esc(r.value)}"${r.value === a.region ? ' selected' : ''}>${esc(r.label)}</option>`).join('');
+  const res = await this.chat.form({
+    title: '<strong>Paste the new key when you have it.</strong><span class="kels-lead">Take your time. I\'ll be right here.</span>',
+    html: `${login}
+      <div class="field gl-field"><label for="kh-key">${isStripe ? 'New restricted key' : 'New API key'}</label>
+        <input id="kh-key" type="password" autocomplete="off" spellcheck="false" placeholder="${isStripe ? 'rk_live_…' : ''}"></div>
+      <div class="field gl-field"><label for="kh-opt">${isStripe ? 'Currency' : 'Your Jotform account'}</label><select id="kh-opt">${options}</select></div>`,
+    wire: (root) => {
+      const copy = async (btn, text) => { try { await navigator.clipboard.writeText(text); btn.textContent = 'Copied!'; } catch { btn.textContent = 'Couldn\'t copy'; } setTimeout(() => { btn.textContent = 'Copy'; }, 1500); };
+      root.querySelector('[data-copy="u"]')?.addEventListener('click', (e) => copy(e.currentTarget, a.username));
+      root.querySelector('[data-copy="p"]')?.addEventListener('click', (e) => copy(e.currentTarget, a.password));
+      root.querySelector('[data-show]')?.addEventListener('click', (e) => {
+        const pw = root.querySelector('[data-pw]');
+        const shown = e.currentTarget.textContent === 'Hide';
+        pw.textContent = shown ? '••••••••' : a.password;
+        e.currentTarget.textContent = shown ? 'Show' : 'Hide';
+      });
+    },
+    submitLabel: 'Check and save',
+    cancelLabel: 'I\'ll do it later',
+    submit: async (root) => {
+      const key = root.querySelector('#kh-key').value.trim();
+      if (!key) return `Paste the new ${vendor} key first.`;
+      const opt = root.querySelector('#kh-opt').value;
+      if (isStripe) await stripeMod.connectStripe(a.id, key, opt);
+      else await jotMod.connectJotform(a.id, key, opt);
+      return true;
+    },
+    reply: () => `Here's the new ${vendor} key`
+  });
+  if (!res.done) {
+    await this.chat.say(`No problem. When you have it, tap me and pick <strong>Check account health</strong>, and we'll pick up right here.`);
+    return null;
+  }
+  return this.done(`It works! ${esc(a.name)} is connected again. Nicely done.`);
 }

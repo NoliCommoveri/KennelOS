@@ -1800,7 +1800,7 @@ never the business Accounts page. All editions; each check only where its featur
 | `license-grace` | Pro gate on, license in grace | Settings, license section |
 | `update` | a new service worker is installing or waiting, or took over since the page loaded | reload |
 | `device-lost` | another device on the account (not erasing, not signed out on its own) unseen 60+ days | `cloudBackupUI.devicesModal()`; "It's fine, I still use it" is remembered |
-| `key-rejected` | Pro `accounts`: a Stripe / Jotform key on this device that its vendor refuses (`stripeCheckKey` / `jotformUser`, one call each, skipped offline) | the Accounts page |
+| `key-rejected` | Pro `accounts`: a Stripe / Jotform key on this device that its vendor refuses (`stripeCheckKey` / `jotformUser`, one call each, skipped offline) | **Help me replace it**, all in the chat: the steps to make a new key in a new tab (Stripe's from `stripeLinks.STRIPE_KEY_PERMISSIONS`, the list the Accounts page shows too), a link to the vendor (the account's `website`, else its API page), the account's saved username and password when it has them (the password masked until **Show**; **Copy** for each), then the new key and currency / region pasted in and checked and saved by `connectStripe` / `connectJotform`, as the Accounts page connects. "I'll do it later" leaves it for the next visit |
 | `waitlist-signed-out` / `waitlist-error` | Pro `waitlist`: a kennel's list is online, and this device isn't signed in / its last update failed | the kennel's page |
 | `vault-off` | Sensitive records offered and off | `turnOnVaultFlow()` |
 | `passkey-none` | on, passkeys supported, none added | `passkeysModal()` |

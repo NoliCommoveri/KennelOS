@@ -1102,3 +1102,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   cached license record keeps Lemon Squeezy's `activation_usage` / `activation_limit`
   (`activationUsage` / `activationLimit`). Browser-verified on the Pro build with a simulated
   signed-in account (license, devices, Sensitive records, a refused Stripe key).
+- **Account health: replace a refused key in the chat (2026-10-15).** A refused Stripe or
+  Jotform key no longer sends her to Accounts: **Help me replace it** gives the steps for a
+  new key in a new tab, shows the login saved on that account (password masked until Show,
+  Copy for each), and takes the new key in the chat, checked and saved through
+  `connectStripe` / `connectJotform`. The Stripe permission list is now one constant,
+  `stripeLinks.STRIPE_KEY_PERMISSIONS`, read by the Accounts page too. Browser-verified with a
+  simulated Stripe that refuses the old key and accepts the new one.

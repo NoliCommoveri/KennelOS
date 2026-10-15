@@ -1118,6 +1118,15 @@ table.data tfoot .total-row td { font-weight: 700; background: var(--surface-2);
 .kels-from-you .kels-bubble { background: var(--accent); color: #fff; border-bottom-right-radius: 5px; }
 .kels-bubble strong { font-weight: 700; }
 .kels-bubble .kels-lead { display: block; margin: 4px 0 0; color: var(--text-muted); font-size: 16px; }
+/* Numbered steps in her message (account health's "Help me replace it"). */
+.kels-bubble .kels-steps { margin: 8px 0 10px; padding-left: 22px; }
+.kels-bubble .kels-steps li { margin: 4px 0; }
+/* A saved login shown in her panel: label, value, small Show / Copy buttons. */
+.kels-login { margin-bottom: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.kels-login .gl-q { margin: 0 0 6px; }
+.kels-login-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 2px 0; }
+.kels-login-row .faint { min-width: 74px; }
+.kels-login-row code { overflow-wrap: anywhere; }
 .kels-bubble a { color: var(--accent-dark); }
 .kels-past { opacity: 0.85; }
 .kels-typing { display: inline-flex; gap: 5px; align-items: center; padding: 11px 14px; }
