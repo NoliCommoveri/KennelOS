@@ -1196,6 +1196,11 @@ table.data tfoot .total-row td { font-weight: 700; background: var(--surface-2);
 .ck-row-name { display: flex; flex-direction: column; gap: 2px; }
 .ck-row-name .field-hint { font-size: 14px; }
 .ck-unit { display: flex; align-items: center; gap: 4px; font-size: 15px; color: var(--text-muted); }
+/* Tidy up (assets/tidyUpUI.js): a radio choice per line, and two records side by side. */
+.gl-body .field .td-radio { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 16px; font-weight: 400; cursor: pointer; }
+.td-radio input { width: 20px; height: 20px; flex: none; }
+.kels-bubble .kels-list { margin: 8px 0 0; padding-left: 20px; }
+.kels-bubble .kels-list li { margin: 4px 0; }
 .ck-unit input { width: 100%; min-width: 0; font: inherit; font-size: 18px; color: var(--text); text-align: center; padding: 10px 4px; min-height: 48px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); }
 .ck-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .ck-check { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 16px; cursor: pointer; }

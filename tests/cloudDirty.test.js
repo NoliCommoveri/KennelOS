@@ -24,7 +24,8 @@ const MARKED = {
   'shared/data/fileRepo.js': 3,      // create / remove / putRaw
   'shared/data/expenseRepo.js': 2,   // migrateEventCosts
   'shared/data/assistantSync.js': 1, // KennelAssistant event import
-  'shared/data/importExport.js': 4   // restoreBackup replace/merge, cloud-merge, vault-merge
+  'shared/data/importExport.js': 4,  // restoreBackup replace/merge, cloud-merge, vault-merge
+  'shared/data/recordMerge.js': 1    // merging two records: repointing what pointed at the archived one
 };
 
 // File → { sites, why }. Writers that deliberately don't mark the backup dirty.

@@ -358,7 +358,10 @@ and it is blocked while anything points at the record.
 - A waitlist listen-only choice naming a sire or dam blocks that dog's hard delete.
 
 **When you add an FK anywhere, add its line to the registry**, or hard delete will silently
-orphan rows.
+orphan rows, and a merge (§33, `data/recordMerge.js`) will leave rows pointing at the archived
+duplicate. Merge moves every `DOG_REFERENCES` / `CONTACT_REFERENCES` field, plus its own
+`EXTRA_REFERENCES` for unindexed id lists that can't block a delete
+(`waitlist_offers.eligible_dog_ids`).
 
 ---
 
@@ -734,7 +737,7 @@ Don't assume these exist:
 
 1. **Layering:** no page imports `db.js` or touches `localStorage`.
 2. **Reverse relationships** are queries, not mirror fields.
-3. **New FK** → `referenceRegistry.js` line. **New field** → classified in `syncRegistry.js`
+3. **New FK** → `referenceRegistry.js` line (hard-delete guard and merge both read it). **New field** → classified in `syncRegistry.js`
    (`tests/syncRegistry.test.js`); a cloud field also regenerates
    `cloud/src/lib/cloudFields.js`. **New direct `db` write** → `markDataChanged()` or an
    exemption in `tests/cloudDirty.test.js`.
@@ -1616,7 +1619,7 @@ the Worker's `familyPages.recommendedOf`), the go-home **follow-up** nudge (§19
 ## 33. Kels — guided tasks
 
 **Editions:** All editions. Steps for Pro features (outside dogs, stud service, sharing,
-waitlist picks) are gated by their flags.
+waitlist picks, contacts and kennels) are gated by their flags.
 
 **Kels** (she/her) is a **scripted** helper shown as a chat, not a model: every line is written in the
 task scripts, and nothing leaves the device. Who she is lives in `kelsChat.KELS` (`name`,
@@ -1630,12 +1633,13 @@ Modules: `assets/kelsChat.js` (identity, the transcript — `say`, `you`, `panel
 and `form({ title, html, submit, reply })`, where `submit` returns a string to show as a
 problem and stay, anything else to finish — and the button), `pages/kels.*` (the menu),
 `assets/guidedLitterUI.js` + `data/guidedLitter.js` (the litter task), `assets/litterCheckinUI.js`
-+ `data/litterCheckin.js` + `data/goHome.js` (the check-in; the data modules are pure and
-tested).
++ `data/litterCheckin.js` + `data/goHome.js` (the check-in), `assets/tidyUpUI.js` +
+`data/tidyRules.js` + `data/recordMerge.js` (the tidy-up). The data modules are tested;
+all but `recordMerge.js` are pure.
 
 **The menu** (`kels.js` `TASKS`): a task is `{ id, label, sub, available, priority, run,
 resumable?, beforeStart? }`, highest priority first: an unfinished litter (100), the check-in
-(60 while a litter has pups at home, else 40), a new litter (50). The header's **Save for
+(60 while a litter has pups at home, else 40), a new litter (50), tidy up (30). The header's **Save for
 later** shows only while a `resumable` task runs. `beforeStart` can redirect a start (a new
 litter while one is unfinished asks "Finish that one / Start fresh"); `handoff(taskId, opts)`
 moves her to another task (an Expected litter in the check-in → its birth).
@@ -1704,6 +1708,57 @@ Each thing she approves is saved at once; there is no draft.
      microchips (`microchip_id`), the deposit and ready dates, the litter's status (any but
      Expected), the litter's page.
    After each, the records reload and new decisions come up.
+
+### "Tidy up my records"
+She finds places two records disagree, says how many of each kind, then raises them one at
+a time; each fix is saved when approved, and she looks again after every one. **Kels only:**
+none of these are Today nudges. Every finding offers **Not now** (this visit) and an answer
+remembered on this device in the nudge ledger under `tidy:<key>` ("Don't ask me again", "Not
+the same dog", "Unknown"…). A key carries the values it was raised on (a count, the parents),
+so a record that changes again is asked about again.
+
+The checks (`data/tidyRules.js` `tidyFindings`, in `TIDY_KINDS` order; litters, sales, stud
+services and her dogs are kennel-scoped, duplicates, contacts and kennels program-wide):
+- **Litter count:** `puppies_born_alive` (else total less deceased) ≠ the litter's pup
+  records, departed and deceased pups counted. Fix the count (`countFix`; the total follows
+  when it no longer adds up), or open the litter to add pups.
+- **Puppy plan:** a pup with a sale not returned, cancelled or voided whose disposition isn't
+  Placed → Placed.
+- **Went home:** an `owned` dog with a Delivered sale (and no newer sale going) → Pro: the
+  buyer owns it (`external`, `external_reference`) or co-owns it; Lite: leave the roster
+  (archive). Co-owned dogs aren't asked about.
+- **Litter vs. breeding:** a litter's sire/dam ≠ its pairing's → fix either side.
+- **Pups vs. litter:** a litter's pups with a blank sire/dam (fill from the litter) or a
+  different one (use the litter's).
+- **No parents:** her own dog (owned, co-owned, leased in) not from one of her litters with a
+  blank sire/dam → pick a dog already on file (right sex, same breed first), or add one: hers
+  (owned, in the dog's kennel; Lite's cap is explained, not shown raw) or somebody else's as a
+  pedigree-only dog. A typed name is checked against existing dogs first (`dogMatches`).
+- **Stud service** (`studServices`): past its date (returned, else sent; or Completed), not
+  cancelled or failed, no `pairing_id` → link a breeding of the same two dogs opened from two
+  weeks before it was sent that no other service claims, or record one (`pairing.html?new=1&stud_service=`).
+- **Breeder without a kennel** (`contactsSection`): a Breeder contact with no `kennel_id` →
+  pick or add the kennel.
+- **Kennel without a contact** (`contactsSection`): an outside kennel no contact belongs to →
+  pick a contact (tagged Breeder) or add one; archive it when no dog names it.
+- **Duplicate dogs:** missing details are unknown, never a difference. *Certain:* the same
+  registration number, or the same registered name with no differing number. *Possible:* the
+  same call name and breed with nothing contradicting (registration number, birthday,
+  microchip, sire, dam differ only when both have them). Never: a known sex that differs,
+  littermates by name, a dog and its own parent or child. Archived dogs are skipped;
+  pedigree-only ones are included.
+- **Duplicate contacts** (`contactsSection`): the same name (case, spacing and punctuation
+  ignored) plus one shared email, phone (last 10 digits), address, Facebook, or kennel.
+
+**Merge** (`data/recordMerge.js` `mergeRecords(kind, keepId, dropId, choices)`): she picks the
+record to keep (`suggestKeep`: in use over pedigree-only, then fuller, then older), then
+which value wins where both have one and they differ (`mergeConflicts`; a dog's ownership,
+status, kennel and owner are one choice). Blank fields fill from the other, lists join, notes
+keep both. The kept record is updated through its repo, then every row pointing at the other
+(§7) is repointed in one transaction, then the other is archived; a contact's
+`waitlist_status` is recomputed. Refused: dogs of a known different sex or in each other's
+pedigree; contacts who both hold a live (applied, fee due, on the list) place on one kennel's
+waitlist.
 
 ---
 

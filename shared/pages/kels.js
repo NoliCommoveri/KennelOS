@@ -15,6 +15,7 @@
 import { createChat, KELS, kelsAvatar, kelsHello } from '../assets/kelsChat.js';
 import { runLitterTask, pendingLitterDraft, discardGuidedLitterDraft } from '../assets/guidedLitterUI.js';
 import { runCheckinTask, checkinState } from '../assets/litterCheckinUI.js';
+import { runTidyTask } from '../assets/tidyUpUI.js';
 import { param, esc } from '../assets/ui.js';
 
 const chat = createChat(document.getElementById('kels-transcript'));
@@ -64,6 +65,14 @@ const TASKS = [
       return null;
     },
     run: (opts) => runLitterTask(chat, opts)
+  },
+  {
+    id: 'tidy-up',
+    label: () => 'Tidy up my records',
+    sub: 'Find records that don\'t agree, and duplicates, and fix them',
+    available: () => true,
+    priority: () => 30,
+    run: (opts) => runTidyTask(chat, opts)
   }
 ];
 

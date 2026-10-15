@@ -1026,3 +1026,18 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **Kels's photo (2026-10-15).** A Boston terrier at a laptop, `assets/kels.png` (256 px,
   resized from the 1254 px original; precached), as her avatar in the chat and the Kels page
   header, and on the floating **Ask Kels** button in place of the ✨.
+- **Kels's "Tidy up my records" + merging duplicates — built & browser-verified
+  (2026-10-15).** A fourth Kels task that finds records that disagree and raises them one at a
+  time: litter counts vs. pup records; pups with a sale not marked Placed; delivered dogs
+  still owned (Pro: buyer owns / co-owns; Lite: leave the roster); a litter's parents vs. its
+  breeding's and its pups'; her dogs with no parents (pick one on file or add one, hers or
+  pedigree-only); stud services past their date with no breeding (Pro); breeders without a
+  kennel and outside kennels without a contact (Pro); duplicate dogs and duplicate contacts
+  (Pro), with a merge that repoints every registry FK and archives the other record.
+  Decided: Kels only, never Today nudges; Lite never checks or shows features it lacks;
+  duplicate dogs treat a missing birthday or registration number as unknown, never as a
+  difference; "don't ask again" answers are device-local (the nudge ledger). New
+  `data/tidyRules.js`, `data/recordMerge.js` (+ tests), `assets/tidyUpUI.js`;
+  `waitlistEntryRepo.syncContactWaitlistStatus` exported. No schema change. End-State guide
+  §7, §16, §33; editions plan tier table. CLAUDE.md: README is a snapshot, history only here.
+  Precache updated; `CACHE_NAME` not bumped.
