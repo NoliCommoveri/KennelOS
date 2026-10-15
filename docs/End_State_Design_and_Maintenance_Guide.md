@@ -104,12 +104,11 @@ doc and the code disagree, the code wins and the doc is what gets fixed.
 
 ## 1. What the app is
 
-A **local-first, static, multi-page web app** for managing a dog-breeding program:
-dogs and pedigrees, contacts, kennels, pairings and litters (including **foster-in /
-foster-out** litters, §25), sales/placements, stud services, contracts, a polymorphic
-health/history event log, an expense/income ledger, reminders, a dashboard, analytics
-reports, CSV/JSON import-export, and a read-only Companion share-out for buyers and
-partners.
+A **local-first, static, multi-page web app** for running a dog-breeding program: dogs and
+pedigrees, contacts, kennels, pairings, litters (incl. foster, §25), sales, stud services,
+contracts, a polymorphic event log, money (§21), reminders and nudges (§19), reports (§31), a
+per-kennel waitlist (§29), shows, business accounts (§32), CSV/JSON import-export, and
+share-outs to families (Companion §20, Furever §27).
 
 - **No required backend, no build step.** Plain ES modules served over HTTP. Hosted on
   GitHub Pages; all data lives in the browser (IndexedDB via Dexie). The one server is the
@@ -137,13 +136,11 @@ These are load-bearing. Changing any of them is a design decision, not a routine
    edits; Cloud Phase 2 plan §5.3).
 3. **ES modules over HTTP.** Must be served (`python3 -m http.server`, `npx serve`, or
    GitHub Pages) — never opened as `file://`, which CORS-blocks module imports.
-4. **No CDN / no network deps.** Everything third-party is vendored under
-   `vendor/` and loaded by relative path (Dexie, PapaParse, lz-string). The
-   app must work fully offline after first load. The one deliberate exception is the
-   **Dropbox sync feature set** (§26): those buttons talk to the Dropbox HTTP API with
-   plain `fetch` (still no vendored/CDN code) and are online-only by design — every
-   other part of the app keeps working offline. **Cloud backup** (§30) is the second:
-   opt-in, online-only, and only `data/cloud/cloudApi.js` makes its requests.
+4. **No CDN.** Everything third-party is vendored under `vendor/` and loaded by relative
+   path; the app works fully offline after first load. The online-only, opt-in exceptions
+   each have one module that makes the calls: cloud backup and sync (`data/cloud/cloudApi.js`,
+   §30), Dropbox (`data/dropbox.js`, §26), Google Drive (`data/googleDrive.js`, §27), Jotform
+   (`data/jotformApi.js`) and Stripe (`data/stripeApi.js`) (§32).
 5. **One thin repo per entity**, uniform surface (see §6). New entity = new repo + new
    page; you don't reshape existing ones.
 
