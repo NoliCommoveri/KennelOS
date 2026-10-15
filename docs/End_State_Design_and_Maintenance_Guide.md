@@ -79,7 +79,9 @@ seeds an empty database on load, skips first-run prompts, and shows a read-only 
   *reconnect* wall, never the renewal wall — `licenseGate.js`'s `isStaleLifetime`.
   An unlicensed load is walled. The cached activation lives
   under its own `settings.js` key (`kennelOS.proLicense`) that is deliberately **excluded
-  from `clearAllSettings()`**, so Reset App keeps paid entitlement. Inert in Lite/Demo.
+  from `clearAllSettings()`**, so Reset App keeps paid entitlement. It also keeps how many
+  activations the key is using and allows (`activationUsage` / `activationLimit`, from the
+  last validate; null until then), which Kels's account health reports. Inert in Lite/Demo.
 - **Activations are a countable, releasable resource.** Lemon Squeezy counts
   *activations* ("instances") against the variant's activation limit — it knows nothing
   about the machine, and neither do we. Three rules make that counter survivable:
@@ -988,8 +990,20 @@ health-relevant event type; identical entries fold into one line with their date
 visits print the linked vet's name, phone and address), and the buyer. Empty rows are
 omitted. Read-only, through the repos.
 
+- **Several pups in one file:** `?dogs=<id>,<id>…` renders each pup's record in its own
+  `<section class="pr-pup">`, each after the first starting a new page (`break-before:
+  page`). Each pup's sale is found from the dog (`prepPups.pupSale`: its newest open sale,
+  else its delivered one); a pup with no sale prints without the buyer block. The kennel's
+  field picks are the first pup's kennel's and apply to every pup. `?sale=` still prints one.
+- **Cover page** (`&cover=1`): a page for the breeder, not the families, before the
+  records: the litter, today, and per pup its family, drop-off date, and what's done and
+  missing (`prepPups.readiness`, the same rules as Kels's Pups are going home, §33). Field picks don't
+  apply to it.
 - **Download = the browser's Print → Save as PDF** (`window.print()` with an `@media print`
-  block). Opened from a sale's page or the Sales page's Print Puppy Record picker
+  block). Opened from a sale's page, the Sales page's Print Puppy Record picker (a litter
+  with pups at home, then tick pups, ticked by default with a sale at Deposit paid or later;
+  **Other puppies with a sale** for pups with a sale in progress on no such litter; an
+  optional **Start with my readiness cover page**, off by default), or Kels's Pups are going home
   (`?autoprint=1`).
 - **Fields per kennel:** the Kennel page's **Puppy Record fields** card saves
   `Kennel.puppy_record_fields` (only what's off). `data/puppyRecordFields.js` is the one list
@@ -1637,14 +1651,35 @@ Enter picks the first match), and `form({ title, html, submit, reply })`, where 
 problem and stay, anything else to finish — and the button), `pages/kels.*` (the menu),
 `assets/guidedLitterUI.js` + `data/guidedLitter.js` (the litter task), `assets/litterCheckinUI.js`
 + `data/litterCheckin.js` + `data/goHome.js` (the check-in), `assets/tidyUpUI.js` +
-`data/tidyRules.js` + `data/recordMerge.js` (the tidy-up). The data modules are tested;
-all but `recordMerge.js` are pure.
+`data/tidyRules.js` + `data/recordMerge.js` (the tidy-up), `assets/accountHealthUI.js` +
+`data/accountHealth.js` (account health), `assets/waitlistSetupUI.js` (set up my waitlist,
+Pro-only), `assets/vendorKeyUI.js` (`vendorKeyFlow`: a Stripe or Jotform key connected or
+replaced in the chat; account health and the waitlist setup), `assets/kelsFindings.js` (`FindingsTask`, the
+look → raise one at a time → fix → look again loop the tidy-up and account health share:
+"Not now", a remembered "Don't ask me again" under `<prefix>:<key>` in the nudge ledger,
+"Stop for now"), `assets/prepPupsUI.js` +
+`data/prepPups.js` (prep pups; it reuses the check-in's exported `chipsForm`, `careForm`
+and `pickupsForm`). The data modules are tested; all but `recordMerge.js` are pure.
+
+**Her voice:** every message carries a couple of warm words, aimed at the breeder (her
+work, her pups), never more than one phrase or sentence of it; the rest is the task. Sent
+straight to a task (`?task=`), she still greets and asks "What can I help you do today?",
+and the task is the breeder's answer. **Every new task** (not a resumed draft) then starts
+with `chat.intro(opener)`: the task's own line ("Sure thing, let's get those pups ready to
+go home!"), then `kelsChat.KELS_INTRO` ("I'll ask you some questions; once I'm done
+collecting the information, I'll build the records for you to approve. If you get stuck or
+need to save and come back, I'll save what we've got so far…  Sound good?"), answered
+**Sounds great, let's start!** or **Never mind** (back to the menu). Openers: record a litter
+"Absolutely, let's get those puppies added!", check-in "Of course, let's check in on your
+litter!", tidy up "Love it, let's get your records tidy!", account health "Good idea, let's
+make sure everything's safe and sound!".
 
 **The menu** (`kels.js` `TASKS`): a task is `{ id, label, sub, keywords, available, priority,
 run, resumable?, beforeStart? }`, highest priority first, with a search box above it;
 `keywords` are the other words a breeder might search with ("add puppies" finds Record a new
 litter). The page header shows her photo and `KELS.title` ("Kels, the KennelOS whiz") on one line, sized to fit a phone. Order: an unfinished litter (100), the check-in
-(60 while a litter has pups at home, else 40), a new litter (50), tidy up (30). The header's **Save for
+(60 while a litter has pups at home, else 40), a new litter (50), prep pups (45, while a
+litter has pups at home), tidy up (30), set up my waitlist (25, Pro), account health (20). The header's **Save for
 later** shows only while a `resumable` task runs. `beforeStart` can redirect a start (a new
 litter while one is unfinished asks "Finish that one / Start fresh"); `handoff(taskId, opts)`
 moves her to another task (an Expected litter in the check-in → its birth).
@@ -1713,6 +1748,105 @@ Each thing she approves is saved at once; there is no draft.
      microchips (`microchip_id`), the deposit and ready dates, the litter's status (any but
      Expected), the litter's page.
    After each, the records reload and new decisions come up.
+
+### "Pups are going home"
+The run-up to go-home day for one litter. Each fix is saved when approved; there is no draft.
+1. **Which litter:** `prepLitters` — born litters (Whelped, Weaning, Ready, Sold) not
+   archived, in kennel scope, with a pup at home (`homePups`), newest born first. One such
+   litter is chosen for her.
+2. **Which pups:** the litter's pups at home, each with its sale's status and family, or
+   "No sale". Ticked by default: a sale at Deposit paid or later (`pickedByDefault`); any pup
+   can be ticked.
+3. **Where they stand:** per pup, "n of m done" and what's missing.
+4. **One thing at a time**, in `READY_ITEMS` order, each once per visit, for every chosen
+   pup missing it (**Not now**, or **That's enough for now** to skip to the end):
+
+   | Item | Done when | Fix |
+   |---|---|---|
+   | Microchip | `microchip_id` set | the check-in's microchip form |
+   | Shots | a `vaccination` logged | the check-in's care form (Shots) |
+   | Deworming | a `preventative` logged | the check-in's care form |
+   | Drop-off date (sale) | a `placement` event for the sale's family (`goHome.pickupFor`) today or later | **When's the drop-off?**: date, time, how (`PLACEMENT_METHODS`) per pup; `goHome.pickupEvent` (titled "Puppy drop-off" unless Local pickup) |
+   | Balance (sale) | Paid in full / Delivered, a `balance_paid_date`, or a `balance_due_date` | a due date per pup (`saleRepo.update`) |
+   | Contract signed (sale, Pro `contracts`) | a signed contract on the sale | opens the contract, or `contract.html?new=1&sale=` |
+   | Registration type (sale) | `registration_type` set | opens the sale |
+   | Feeding schedule (Pro `feedingSchedule`) | the litter's `feeding_schedule_override`, or a breed schedule for the pup's breed | the Feeding schedules page, or the litter's page |
+
+   The `placement` event ("Placement / drop-off") is the only go-home date the app keeps;
+   Furever's pickup fields on the Sale are the family app's and don't count. A fix that opens
+   a page leaves Kels; she says to start Pups are going home again after.
+5. **The end:** all done, or what's still missing per pup. Pro: the **Furever link** is
+   offered (`furever.html`) when a chosen pup has an open sale; it isn't tracked, so it's
+   never an item. Pro (`puppyRecord`): **Print puppy records** opens
+   `puppy-record.html?dogs=…&cover=1&autoprint=1` in a new tab (a link if the tab is
+   blocked). Lite runs the same check without Furever or the print, and its menu entry
+   neither mentions nor searches either.
+
+### "Set up my waitlist"
+**Editions:** Pro (`editionFlags.waitlist`); the script is in `proPages.js` and `kels.js`
+imports it on start. The kennel's waitlist settings, its online list and its programs, for a
+breeder starting from nothing. Related settings are one screen each, the on/off ones as
+checkboxes, never a question apiece:
+1. **The fee:** amount, refund policy (`FEE_CREDIT_POLICY`), days to pay, how families pay;
+   with `accounts`, the Payment service it's paid through (or **Stripe (I'll connect it
+   now)**, which makes a Payment service account named Stripe) and when it's asked for. A
+   Stripe account with no key on this device offers **Connect Stripe** (`vendorKeyFlow`).
+2. **Offers:** days to accept and pay, passes before removal, then checkboxes: no response
+   counts as a pass, color matching, and every `WAITLIST_AUTO_OFFER_TRIGGER` moment (All /
+   None).
+3. **Going online** (only where `isWaitlistOnlineOffered()`): asked first. It publishes
+   through this device's cloud backup, so when that's off or signed out she offers **Turn on
+   cloud backup** (`cloudBackupUI.turnOnFlow`) and goes on only once it's on. Then one screen:
+   list online, applications online, reminder emails; what shows before picks open
+   (`UPCOMING_STAGES` × public / family pages); "Ready now?" unanswered and its days; the
+   Facebook button and Page; her website (`embed`, addresses); the public list's message;
+   the time zone. Saved by `cloudWaitlist.saveWaitlistOnline` (the Online list card's save),
+   then the public list and form links.
+4. **Programs:** as many as she likes (name, place in line, fee, days to accept, passes not
+   counted, pause allowed, a description), through `waitlistProgramRepo`.
+5. **Families she already has:** opens the waitlist import or a new entry (both leave Kels).
+
+Every config save is checked by `waitlistRules.waitlistConfigProblem`, the Kennel page's
+settings card's check too. **Re-runnable:** on a kennel already set up
+(`waitlistIsSetUp`) she says what's set (`waitlistSummaryLines`) and asks which part to
+change. The emails, pass reasons, "Almost your turn" message and the application form keep
+the standard wording; she says where to change them.
+
+### "Check account health"
+One look at whether her program is safe and working: her KennelOS account and this device,
+never the business Accounts page. All editions; each check only where its feature is.
+`gatherHealthFacts()` reads what the checks need, each part `null` when it can't be read
+(offline), so its checks are skipped, never guessed; `accountHealth.healthFindings(facts)`
+(pure) decides; the findings loop (`kelsFindings.js`, prefix `health`) raises them in
+`HEALTH_KINDS` order, records at risk first:
+
+| Finding | When | Fix |
+|---|---|---|
+| `storage-persist` | `navigator.storage.persisted()` is false | `db.requestPersistentStorage()`; if the browser declines, she says so |
+| `backup-paused` | cloud backup on and paused (`isBackupBlocked`) | Back up now (below) |
+| `backup-off` | cloud available, backup off (not "moved to Pro") | `cloudBackupUI.turnOnFlow()` |
+| `backup-behind` | on, never backed up, or changes waiting more than a day | Back up now: `pushIfDirty({ force: true })` → `handlePushResult` (its conflict / shrink / unlock dialogs) |
+| `export-old` | no working cloud backup, and the last JSON backup file (`getLastBackupDate`) is over 14 days old or never | `importExport.downloadBackup()` |
+| `vault-locked` | Sensitive records on, not unlocked here | `cloudVaultUI.unlockModal()` |
+| `recovery-unsaved` | an unsaved recovery code, or none | `saveRecoveryCodeFlow()` / `newRecoveryCodeFlow()` |
+| `license-grace` | Pro gate on, license in grace | Settings, license section |
+| `update` | a new service worker is installing or waiting, or took over since the page loaded | reload |
+| `device-lost` | another device on the account (not erasing, not signed out on its own) unseen 60+ days | `cloudBackupUI.devicesModal()`; "It's fine, I still use it" is remembered |
+| `key-rejected` | Pro `accounts`: a Stripe / Jotform key on this device that its vendor refuses (`stripeCheckKey` / `jotformUser`, one call each, skipped offline) | **Help me replace it**, all in the chat: the steps to make a new key in a new tab (Stripe's from `stripeLinks.STRIPE_KEY_PERMISSIONS`, the list the Accounts page shows too), a link to the vendor (the account's `website`, else its API page), the account's saved username and password when it has them (the password masked until **Show**; **Copy** for each), then the new key and currency / region pasted in and checked and saved by `connectStripe` / `connectJotform`, as the Accounts page connects. "I'll do it later" leaves it for the next visit |
+| `waitlist-signed-out` / `waitlist-error` | Pro `waitlist`: a kennel's list is online, and this device isn't signed in / its last update failed | the kennel's page |
+| `vault-off` | Sensitive records offered and off | `turnOnVaultFlow()` |
+| `passkey-none` | on, passkeys supported, none added | `passkeysModal()` |
+| `storage-full` | 80%+ of the browser's quota used | none; she says so |
+
+Right after she looks, a **status report** (`healthReport`), one line per area she could
+read, good or not: this device (kept safe or not, space used of the quota), cloud backup
+(on and when, paused, off) or the last backup file, the Pro license (state, plan, renewal
+or due date, on n of m devices: Lemon Squeezy's `activation_usage` / `activation_limit`,
+kept on the cached record as `activationUsage` / `activationLimit`), devices signed in
+(by name), Sensitive records (backed up, unlocked here, recovery code, passkeys), each
+vendor connection, each online waitlist. Then the findings, or **All good**. She closes with
+what's still worth a look. Sync isn't checked until live sync's UI exists. A fix that
+opens a page leaves Kels; she says to start the task again after.
 
 ### "Tidy up my records"
 She finds places two records disagree, says how many of each kind, then raises them one at

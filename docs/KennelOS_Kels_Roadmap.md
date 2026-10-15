@@ -14,6 +14,9 @@ need. When one is built, its as-built description goes in the guide (§33) and i
 | Check in on a litter | Weights, health care, plans, chips, dates, status; picks, Weaning/Ready/Sold/close; pickup, boarding, delivery | All (open picks: Pro) |
 | Tidy up my records | Records that disagree, duplicates, merge | All (stud, contacts, kennels: Pro) |
 | Finish an unfinished litter | Resumes the litter draft | All |
+| Set up my waitlist | The fee (Stripe in the chat), offers, going online (cloud backup first), programs, existing families; re-runnable | Pro |
+| Check account health | This device, backups, license, Sensitive records, connections, the online waitlist; each finding with its fix | All (license, Sensitive records, connections, waitlist: where offered) |
+| Pups are going home | Readiness per pup with fixes (chips, shots, deworming, drop-off date, balance, contract, registration, feeding); the puppy records with a cover page | All (contract, feeding, Furever, print: Pro) |
 
 The menu has a search box that matches each task's `keywords`, and choices open their
 description on the first tap.
@@ -38,13 +41,27 @@ These are settled. A task that can't follow one comes back here before it's buil
    should be.
 6. **Every task has `keywords`** in the menu, and every new page a task can open is in
    `PRECACHE_URLS` (and `proPages.js` if Pro-only).
+7. **She talks like a person.** Every task opens with a line that says yes to it ("Sure
+   thing, let's get those pups ready to go home!"), acknowledges each answer, moves between
+   steps in her own words, and closes warmly. Every message carries a couple of warm words
+   for the breeder (her work, her pups), **never more than one phrase or sentence** of it;
+   the rest is the task. Sent straight to a task, she still asks "What can I help you do
+   today?" first. Every new task (not a resumed one) starts with `chat.intro(opener)`: its
+   own opener, then the standard "I'll ask you some questions…  Sound good?"
+   (`KELS_INTRO`), answered **Sounds great, let's start!** / **Never mind**.
 
 ## 3. Proposed tasks, in build order
 
 Sizes: **S** a few days of work, reusing what exists; **M** a new data module and a
 script; **L** needs a feature that isn't built yet.
 
-### 3.1 Prep pups for leaving: **M**, Pro (Puppy Record), the rest all editions
+### 3.1 Pups are going home (was "Prep pups for leaving"): **M**, Pro (Puppy Record), the rest all editions — **Built**
+As built: End-State guide §33 ("Pups are going home") and the Puppy Record section;
+history in `docs/BUILD_LOG.md`. **Modified:** the Furever link isn't tracked, so it's
+offered at the end rather than checked; "a pickup on the calendar" is a drop-off date (the
+`placement` event, the only go-home date the app keeps), scheduled from the task; the
+Sales picker's cover page is an option, off by default.
+
 The run-up to go-home day for one litter, ending with the printed records.
 
 - **Asks which litter** (litters with pups at home, like the check-in's list), then which
@@ -74,7 +91,13 @@ The run-up to go-home day for one litter, ending with the printed records.
   page needs the readiness rules, so they live in a pure `data/` module the cover page and
   Kels both read.
 
-### 3.2 Check account health: **M**
+### 3.2 Check account health: **M** — **Built**
+As built: End-State guide §33 ("Check account health"); history in `docs/BUILD_LOG.md`. The
+findings loop is now `assets/kelsFindings.js`, shared with the tidy-up (§4). **Modified:**
+sync isn't checked yet (Phase 2 step 6); Dropbox isn't tested live (nothing cheap to ask);
+decided thresholds: a backup file older than 14 days without cloud backup, a device unseen
+60 days, vendor keys tested live once per run.
+
 One look at whether her program is safe and working, as findings with fixes (the tidy-up's
 pattern: a pure `data/accountHealth.js` of checks, the task asks one at a time).
 
@@ -94,7 +117,13 @@ pattern: a pure `data/accountHealth.js` of checks, the task asks one at a time).
 - **Decided:** "account" is her KennelOS account and this device, as above. The business
   Accounts page (vendor logins, referral codes) isn't part of it.
 
-### 3.3 Set up my waitlist: **M**, Pro (`waitlist`)
+### 3.3 Set up my waitlist: **M**, Pro (`waitlist`) — **Built**
+As built: End-State guide §33 ("Set up my waitlist"); history in `docs/BUILD_LOG.md`.
+**Modified:** settings are grouped, one screen per part with checkboxes for the on/off
+rules, not one question each; going online first offers to turn on cloud backup when
+it's off; Stripe for the fee connects in the chat; existing families still open the import
+or a new entry (adding them in the chat is a follow-up).
+
 The Waitlist page's settings as a conversation, for a breeder starting from nothing. It comes
 before Record a sale (§3.5) on purpose: a running waitlist turns picks into sales by itself,
 so it saves her more sale entry than a sale task would.
@@ -134,7 +163,7 @@ Three different things people mean, asked first:
 Pup → buyer (existing contact, or a new one checked for duplicates with the tidy-up's
 matching) → registration type and price (prefilled from the litter's
 `expectedPricing`) → deposit → contract (Pro) → payment link (Pro, Stripe) → mark Placed.
-Hands off to Prep pups (§3.1) when the litter is near ready.
+Hands off to Pups are going home (§3.1) when the litter is near ready.
 
 ### 3.6 Log a heat or breeding: **S**
 Heat start → (later) breeding dates and method → stud service if outside (Pro) → the
@@ -145,12 +174,70 @@ situation; the check-in's Expected litter hands off to the birth as today.
 The litter check-in's health-care and weight forms for one adult dog, plus health tests
 (`planned_tests` → results), and status changes (retire, pet home).
 
-### 3.8 Add dogs: **S**
+### 3.8 Add dogs: **M**
 One dog or several in a row ("Add another?" after each). Typed in (duplicate check first,
 `dogMatches`), or from a pedigree photo (`pedigreeImport`), with parents through the
 tidy-up's parent steps and the dog's kennel, ownership and status. In Lite, at the cap she
 shows the upgrade notice (§2.3) and stops adding.
-- **Keywords:** new dog, add dog, bought a dog, new female, new male, stud, import pedigree.
+- **Then, for each dog, optional:**
+  - **Documents** (Pro, `documents`): upload its registration, pedigree, health certificates,
+    contract… one or several, each filed on the dog with its type (`documentRepo` /
+    `fileRepo`, as the Documents page files them).
+  - **History** (all editions): its past events, through "Add new events" (§3.10) handed
+    the new dog, so shots, health tests, heats and the rest come in the same way as there.
+- **Keywords:** new dog, add dog, bought a dog, new female, new male, stud, import pedigree,
+  registration papers, health records.
+
+### 3.9 Add my other accounts: **S**, Pro (`accounts`)
+The business Accounts page (registries, marketplaces, suppliers, labs, insurance, payment and
+form services) as a conversation, for a breeder entering the logins and referral codes she
+keeps elsewhere, one or several in a row ("Add another?" after each), like Add dogs.
+- Per account: what it is (`ACCOUNT_TYPE`) and its name → website, username, password,
+  customer / member ID → a referral link or code and its instructions, if she has one → notes.
+  Saved through `accountRepo`, each when she approves it. A name she already has is checked
+  first, so nothing is entered twice.
+- A **Payment service** or **Form service** offers to connect Stripe / Jotform right there,
+  the same in-chat steps as account health's "Help me replace it" (§3.2, built), so nothing
+  sends her to another page.
+- **Not** her KennelOS account (that's §3.2). The private fields stay private, as on the
+  Accounts page (`syncRegistry`).
+- **Keywords:** accounts, logins, passwords, AKC, registry, marketplace, supplier, referral,
+  referral code, Stripe, Jotform, insurance.
+
+### 3.10 Add new events: **S**
+Log what happened, for one or several dogs, one event or several in a row ("Add another?"),
+without opening each dog's page. Also how Add dogs (§3.8) brings in a new dog's history.
+- **Which dogs** (search, or her own / a litter's pups) → **what happened** (`EVENT_TYPES`
+  for dogs, grouped as the timeline groups them; only the types this edition has: `show`
+  needs `shows`) → that type's own fields, date, and end date for a span type → saved, one
+  event per dog, through `eventRepo` (`careEvents`'s pattern, now for every type).
+- Breeding events (`breeding_tie`, `progesterone_test`, `ultrasound`, `pregnancy_update`)
+  belong to a pairing and stay with Log a heat or breeding (§3.6); a litter's
+  `whelping_summary` stays with the litter.
+- **Keywords:** add event, log, record, history, shots, vaccine, vet visit, health test,
+  weight, heat, medication, note, show.
+
+### 3.11 Help me find / do / understand: **L**, all editions
+Kels as a knowledge base and a navigator, not only task scripts. Three top-level questions
+on her menu, each a search box first:
+- **"Help me find…"**: she types keywords ("vet records", "where are my contracts",
+  "referral code") and Kels finds where it lives: a page, a card on a page, a report, a
+  setting. Only what this edition has (`editionFlags`, `proPages.js`).
+- **"Help me do…"**: what she wants to get done. When one of Kels's tasks does it, Kels
+  starts that task; when none does, she says how, then gives a button to the page where
+  it's done (the Financials hub, a dog's page…).
+- **"Help me understand…"**: what something means or how it works (an application fee's
+  credit policy, how offers move down the list, what "Sensitive records" protects), in a
+  few plain sentences, with the button to see it.
+- **Clarifying questions:** when the words fit several things, she asks one short question
+  with choices ("Your own vet records, or a puppy's?") before answering. Still scripted
+  (§2.1): every answer is written by us.
+- **Shared pieces it needs:** a catalog (`data/kelsKnowledge.js`, pure, tested) of entries
+  `{ id, kind: 'find' | 'do' | 'understand', title, keywords, answer, href?, taskId?,
+  editions? }`; the menu's word matching (kelsChat's search) scored across the catalog;
+  each task's `keywords` count as "do" entries. An empty search she would plausibly type is
+  a catalog entry we add (§4, "Search words are ours").
+- **Keywords:** help, find, where is, how do I, what is, explain, show me.
 
 ## 4. Shared pieces
 
@@ -176,22 +263,25 @@ shows the upgrade notice (§2.3) and stops adding.
   week" (prep pups), "backup failing" (account health), and "families waiting, no list set
   up" (waitlist) as priority bumps, never as nudges.
 - **One findings framework:** tidy-up and account health share the "findings → ask one at a
-  time → fix → look again" loop. Pull it out of `tidyUpUI.js` when the second one is built,
-  not before.
+  time → fix → look again" loop: `assets/kelsFindings.js` (`FindingsTask`). Built.
 
 ## 5. Decisions and open questions
 
 Decided:
-- Prep pups prints pups with no sale (no buyer block).
+- Kels's voice (§2.7): a couple of warm words in every message, never more than one phrase
+  or sentence. The tasks built before the rule haven't been swept for it yet.
+- Pups are going home prints pups with no sale (no buyer block).
 - Account health is her KennelOS account and this device, not the business Accounts page.
 - Only we add search keywords.
 - Set up another device ships before live sync's step 6, stopping after restore and unlock.
 - The order stands: the waitlist (§3.3) before a sale (§3.5), since the waitlist turns
   picks into sales.
-- Add dogs takes several in a row.
+- Add dogs takes several in a row, and offers each dog's documents (Pro) and its history
+  (through Add new events).
+- Add my other accounts (§3.9) and Add new events (§3.10) are on the list, after Add dogs.
 - Starred and frequent tasks move up the menu (§4); "frequent" means more than 3 starts in
   the last 60 days.
-- Prep pups' print opens with a cover page of each pup's readiness, for the breeder.
+- Pups are going home's print opens with a cover page of each pup's readiness, for the breeder.
 
 Open:
 1. Once she has starred tasks, should the rest of the menu fold under "More"?

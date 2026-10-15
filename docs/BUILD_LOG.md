@@ -1064,3 +1064,73 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   ones used more than 3 times in 60 days move up the menu (device-local).
 - **Kels roadmap: cover page, 60 days (2026-10-15).** Prep pups' print opens with a readiness
   cover page for the breeder; "frequent" tasks are those started more than 3 times in 60 days.
+- **Kels's "Pups are going home" — built & browser-verified (2026-10-15).** Roadmap §3.1
+  ("Prep pups for leaving" in the plan; renamed when built).
+  A fifth Kels task: pick a litter with pups at home and the pups leaving (ticked: a sale at
+  Deposit paid or later), see each pup's readiness, fix what's missing one thing at a time,
+  then (Pro) the Furever link and one printed file of puppy records. New pure
+  `data/prepPups.js` (readiness, read by Kels and the Puppy Record's cover page) and
+  `assets/prepPupsUI.js`; the check-in's microchip, care and pickup forms are now exported
+  (`chipsForm`, `careForm`, `pickupsForm`) and shared. Puppy Record: `?dogs=` prints several
+  pups, a page each, pups with no sale without the buyer block; `&cover=1` adds the
+  breeder's readiness cover page. The Sales page's Print Puppy Record is the same picker,
+  with an optional cover page. Decided: the Furever link isn't tracked (offered, never an
+  item); the go-home date is the `placement` ("Placement / drop-off") event, scheduled from
+  the task with its method (`goHome.pickupEvent` takes one; not Local pickup → "Puppy
+  drop-off"); the Sales cover page is off by default. Kels now greets with "What can I help
+  you do today?" when sent straight to a task too. Roadmap §2.7: her voice, a couple of
+  warm words per message, never more than one phrase or sentence.
+- **Kels's intro on every task (2026-10-15).** The record-a-litter opener's "I'll ask you some
+  questions… Sound good?" with **Sounds great, let's start!** / **Never mind** is now
+  `kelsChat.KELS_INTRO` + `chat.intro(opener)`, said at the start of every new task (record a
+  litter, check in, tidy up, pups are going home) after the task's own opener; a resumed
+  draft still opens with "Welcome back!".
+- **Kels's "Check account health" — built & browser-verified (2026-10-15).** Roadmap §3.2. A
+  sixth Kels task: storage kept safe and how full, an update waiting, cloud backup (off,
+  paused, behind) or, without it, the age of the last backup file, the Pro license in grace,
+  lost devices, Sensitive records (off, locked, recovery code, passkey), Stripe / Jotform
+  keys still accepted, and the online waitlist; each with the app's own screen as the fix,
+  ending with "All good" and what's fine. Pure `data/accountHealth.js` (tested) +
+  `assets/accountHealthUI.js`. The tidy-up's findings loop moved to
+  `assets/kelsFindings.js` (`FindingsTask`), shared by both. Decided: 14 days for the
+  backup file without cloud backup, 60 days for a lost device, vendor keys tested live once
+  per run.
+- **Account health: status report (2026-10-15).** After she looks, Kels now reports every area
+  she checked, good or not (`accountHealth.healthReport`): space used, cloud backup or the
+  backup file, the Pro license (state, plan, renewal, "on 3 of 3 devices"), devices signed in
+  by name, Sensitive records, each connection, each online waitlist; then the findings. The
+  cached license record keeps Lemon Squeezy's `activation_usage` / `activation_limit`
+  (`activationUsage` / `activationLimit`). Browser-verified on the Pro build with a simulated
+  signed-in account (license, devices, Sensitive records, a refused Stripe key).
+- **Account health: replace a refused key in the chat (2026-10-15).** A refused Stripe or
+  Jotform key no longer sends her to Accounts: **Help me replace it** gives the steps for a
+  new key in a new tab, shows the login saved on that account (password masked until Show,
+  Copy for each), and takes the new key in the chat, checked and saved through
+  `connectStripe` / `connectJotform`. The Stripe permission list is now one constant,
+  `stripeLinks.STRIPE_KEY_PERMISSIONS`, read by the Accounts page too. Browser-verified with a
+  simulated Stripe that refuses the old key and accepts the new one.
+- **Kels roadmap: three more (2026-10-15).** Add dogs (§3.8, now **M**) offers each new dog's
+  documents (Pro) and its history; new §3.9 Add my other accounts (the business Accounts page
+  as a conversation, several in a row, Stripe / Jotform connected in the chat); new §3.10 Add
+  new events (any dog event type, for one or several dogs, several in a row; also how Add dogs
+  brings in history).
+- **Kels's "Set up my waitlist" — built (2026-10-15).** Roadmap §3.3, Pro. Grouped screens:
+  the fee (paid online through a Payment service, Stripe connected in the chat), offers (the
+  on/off rules and every automatic-offer moment as checkboxes), going online (offers to turn
+  on cloud backup first, then the list, applications, reminders, what shows before picks
+  open, "Ready now?", Facebook, her website, the time zone in one screen), programs, and the
+  families she already has. Re-runnable, with a summary of what's set. Shared, so nothing is
+  copied: `waitlistRules.waitlistConfigProblem` (now the Kennel page's checks too),
+  `onlineConfig`, `waitlistSummaryLines`, `waitlistIsSetUp`, and
+  `cloudWaitlist.saveWaitlistOnline` (now the Online list card's save). The Stripe / Jotform
+  key steps moved to `assets/vendorKeyUI.js` for account health and this task.
+- **Kels roadmap: Help me find / do / understand (2026-10-15).** New §3.11: Kels as a
+  knowledge base and navigator, with keyword search across where things are, what she can do
+  (starting a task or giving a button to the right page) and what things mean, with one
+  short clarifying question when the words fit several things. Built on a catalog
+  (`data/kelsKnowledge.js`).
+- **Set up my waitlist: copy links, offline until asked (2026-10-15).** A successful publish
+  ends with **Copy list link** (and **Copy application form link** when applications are
+  online). The list stays offline until she says "Yes, put it online", from the menu too.
+  Cache rolled to `kennelos-shell-v79` for this batch (Pups are going home, account health,
+  set up my waitlist).
