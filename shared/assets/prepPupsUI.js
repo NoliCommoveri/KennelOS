@@ -4,12 +4,14 @@
 // Kels asks which litter (one with pups still at home) and which pups (ticked:
 // every pup whose sale is at Deposit paid or later), says where each stands, then
 // raises what's missing one thing at a time (data/prepPups.js READY_ITEMS), each
-// with its fix: the check-in's microchip, care and drop-off forms
-// (assets/litterCheckinUI.js), a balance-due date, or the page that holds it (the
-// sale, its contract, the feeding schedules). Each fix is saved when approved, so
-// there's no draft. Then, in Pro, the Furever link (not tracked, so only offered)
-// and the printed puppy records: one file, a cover page for her, then each pup's
-// record (pages/puppy-record.html?dogs=…&cover=1).
+// with its fix, done in the chat wherever it can be: the check-in's microchip,
+// care and drop-off forms (assets/litterCheckinUI.js), a balance-due date, each
+// contract's status, the registration type, the litter's feeding note. Only the
+// breed feeding schedule (a table editor) leaves for its page. Each fix is saved
+// when approved, so there's no draft. Then, in Pro, the Furever link (not tracked,
+// so only offered) and the printed puppy records: one file, a cover page for her,
+// then each pup's record (pages/puppy-record.html?dogs=…&cover=1). Anything that
+// opens a new tab is announced first and waits for her OK.
 import { dogRepo } from '../data/dogRepo.js';
 import { litterRepo } from '../data/litterRepo.js';
 import { saleRepo } from '../data/saleRepo.js';
@@ -17,13 +19,16 @@ import { eventRepo } from '../data/eventRepo.js';
 import { contactRepo } from '../data/contactRepo.js';
 import { contractRepo } from '../data/contractRepo.js';
 import { breedFeedingScheduleRepo } from '../data/breedFeedingScheduleRepo.js';
-import { inScopeOnly } from '../data/kennelScope.js';
+import { accountRepo } from '../data/accountRepo.js';
+import { inScopeOnly, resolveKennelIdForWrite } from '../data/kennelScope.js';
+import { priceForRegistrationChange } from '../data/saleDefaults.js';
+import { saleFeeEstimate } from '../data/processingFees.js';
 import { editionFlags } from '../data/editionConfig.js';
-import { SALE_STATUS, REGISTRATION_TYPE, descriptor } from '../data/vocab.js';
+import { SALE_STATUS, REGISTRATION_TYPE, CONTRACT_STATUS, descriptor } from '../data/vocab.js';
 import * as C from '../data/litterCheckin.js';
 import * as P from '../data/prepPups.js';
 import { chipsForm, careForm, pickupsForm, field, pupName, pupLine } from './litterCheckinUI.js';
-import { esc, fmtDate, todayYMD } from './ui.js';
+import { esc, fmtDate, fmtMoney, todayYMD } from './ui.js';
 
 // A few ways she moves on, so the walk-through doesn't read like a checklist.
 const NEXT = ['Next up:', 'Okay, moving on.', 'Now,', 'Alright, next one.'];
@@ -188,8 +193,8 @@ class Prep {
       deworm: [`I don't see any deworming logged for ${n}.`, 'Log deworming'],
       pickup: [`${n} ${one ? 'has' : 'have'} no drop-off date on the calendar.`, 'Set the drop-off date'],
       balance: [`${n}'s ${one ? 'sale has' : 'sales have'} a balance with no due date.`, 'Set the due date'],
-      contract: [`${n}'s ${one ? 'contract isn\'t' : 'contracts aren\'t'} signed yet.`, one ? 'Open the contract' : 'Open the first one'],
-      registration: [`${n}'s ${one ? 'sale has' : 'sales have'} no registration type.`, one ? 'Open the sale' : 'Open the first one'],
+      contract: [`${n}'s ${one ? 'contract isn\'t' : 'contracts aren\'t'} signed yet.`, one ? 'Update the contract' : 'Update the contracts'],
+      registration: [`${n}'s ${one ? 'sale has' : 'sales have'} no registration type.`, 'Pick the registration'],
       feeding: [`There's no feeding schedule for ${n}.`, 'Set one up']
     }[key];
     await this.chat.say(next ? `${NEXT[this.asked.size % NEXT.length]} ${ask[0]}` : ask[0]);
@@ -215,16 +220,8 @@ class Prep {
         (out) => `Got it! ${out.length === 1 ? 'It\'s' : 'They\'re'} on your calendar and ${out.length === 1 ? 'the puppy\'s' : 'each puppy\'s'} history.`);
     }
     if (key === 'balance') return this.balance(rows);
-    if (key === 'contract') {
-      const r = rows[0];
-      const open = r.contracts.find((c) => !c.is_archived);
-      return this.leave(open ? `contract.html?id=${encodeURIComponent(open.id)}` : `contract.html?new=1&sale=${encodeURIComponent(r.sale.id)}`,
-        open ? `I'll open ${esc(pupName(r.pup))}'s contract.` : `There's no contract on ${esc(pupName(r.pup))}'s sale yet, so I'll start one.`);
-    }
-    if (key === 'registration') {
-      return this.leave(`sale.html?id=${encodeURIComponent(rows[0].sale.id)}`,
-        `I'll open ${esc(pupName(rows[0].pup))}'s sale so you can pick its registration (${esc(REGISTRATION_TYPE.map((t) => t.label).join(', '))}).`);
-    }
+    if (key === 'contract') return this.contracts(rows);
+    if (key === 'registration') return this.registration(rows);
     if (key === 'feeding') return this.feeding();
   }
 
@@ -259,6 +256,124 @@ class Prep {
     return this.saved(res, () => 'Saved on the sale. One less thing to chase!');
   }
 
+  // Each pup's sale contract: its status (and the signed date), saved on the
+  // contract, or a new sale contract when there's none. Sending one for e-signature
+  // stays on the contract page.
+  async contracts(rows) {
+    const opts = (cur, none) => [none ? `<option value="">${none}</option>` : '']
+      .concat(CONTRACT_STATUS.map((t) => `<option value="${esc(t.value)}"${t.value === cur ? ' selected' : ''}>${esc(t.label)}</option>`)).join('');
+    const html = rows.map((r, i) => {
+      const c = r.contracts.find((x) => !x.is_archived);
+      return `<div class="pp-contract">
+        ${field(`${pupName(r.pup)}${r.buyer?.name ? ` (${r.buyer.name})` : ''}`, `<select id="pp-ct-${i}">${opts(c ? c.status || 'draft' : '', c ? '' : 'No contract yet')}</select>`, c ? '' : 'Pick a status and I\'ll add the contract to the sale.')}
+        ${field('Signed on', `<input id="pp-ct-date-${i}" type="date" value="${esc(c?.signed_date || this.today)}">`)}
+      </div>`;
+    }).join('');
+    const res = await this.chat.form({
+      title: '<strong>Where are the contracts at?</strong><span class="kels-lead">Signed one on paper or by email? Mark it Signed with the date.</span>',
+      html,
+      wire: (root) => rows.forEach((r, i) => {
+        const sel = root.querySelector(`#pp-ct-${i}`);
+        const date = root.querySelector(`#pp-ct-date-${i}`).closest('.field');
+        const show = () => { date.style.display = sel.value === 'signed' ? '' : 'none'; };
+        sel.addEventListener('change', show);
+        show();
+      }),
+      submitLabel: 'Save',
+      cancelLabel: 'Not now',
+      submit: async (root) => {
+        const out = [];
+        for (const [i, r] of rows.entries()) {
+          const status = root.querySelector(`#pp-ct-${i}`).value;
+          const signed_date = status === 'signed' ? root.querySelector(`#pp-ct-date-${i}`).value : '';
+          if (status === 'signed' && !signed_date) return `Pick the date ${pupName(r.pup)}'s contract was signed.`;
+          const c = r.contracts.find((x) => !x.is_archived);
+          const changes = { status, ...(signed_date ? { signed_date } : {}) };
+          if (c) {
+            if (c.status === status && (!signed_date || c.signed_date === signed_date)) continue;
+            await contractRepo.update(c.id, changes);
+          } else if (status) {
+            await contractRepo.create({
+              contract_type: 'sale', related_sale_id: r.sale.id, title: `${pupName(r.pup)} sale contract`, ...changes,
+              kennel_id: await resolveKennelIdForWrite({ inheritFrom: [r.sale] })
+            });
+          } else continue;
+          out.push({ r, status });
+        }
+        return out;
+      },
+      reply: (out) => (!out.length ? 'No changes' : out.every((x) => x.status === 'signed') ? `${C.plural(out.length, 'contract')} signed` : `${C.plural(out.length, 'contract')} updated`)
+    });
+    return this.saved(res, (out) => (out.length ? 'Saved on the sale. To send one for e-signature, open it from the sale.' : 'Okay, I left them as they were.'));
+  }
+
+  // Each sale's registration type. Where the litter prices Full differently, she
+  // says how the price would change and asks first, as the Sale page does; a fee
+  // she didn't type follows the price. A Co-own placement offers to add the
+  // family as a co-owner of the pup.
+  async registration(rows) {
+    const opts = (cur) => [`<option value="">Pick…</option>`]
+      .concat(REGISTRATION_TYPE.map((t) => `<option value="${esc(t.value)}"${t.value === cur ? ' selected' : ''}>${esc(t.label)}</option>`)).join('');
+    const res = await this.chat.form({
+      title: '<strong>How is each puppy registered?</strong><span class="kels-lead">Leave one on Pick… to skip it.</span>',
+      html: rows.map((r, i) => field(`${pupName(r.pup)}${r.buyer?.name ? ` (${r.buyer.name})` : ''}`, `<select id="pp-reg-${i}">${opts(r.pup.intended_registration || '')}</select>`)).join(''),
+      submitLabel: 'Save',
+      cancelLabel: 'Not now',
+      submit: async (root) => {
+        const out = rows.map((r, i) => ({ r, reg: root.querySelector(`#pp-reg-${i}`).value })).filter((x) => x.reg);
+        if (!out.length) return 'Pick a registration for at least one puppy.';
+        for (const x of out) await saleRepo.update(x.r.sale.id, { registration_type: x.reg });
+        return out;
+      },
+      reply: (out) => (out.length === 1 ? descriptor(REGISTRATION_TYPE, out[0].reg).label : `${C.plural(out.length, 'registration')} set`)
+    });
+    if (!res.done) return null;
+    await this.chat.say('Saved on the sale.');
+    const accounts = new Map((await accountRepo.getAll()).map((a) => [a.id, a]));
+    for (const { r, reg } of res.result) {
+      const change = priceForRegistrationChange(r.pup, this.litter, r.sale.price, r.sale.registration_type || '', reg);
+      if (change && change.from != null && change.to !== change.from) {
+        await this.chat.say(`${esc(descriptor(REGISTRATION_TYPE, reg).label)} ${change.delta > 0 ? 'adds' : 'takes off'} ${esc(fmtMoney(Math.abs(change.delta)))} for this litter. Change ${esc(pupName(r.pup))}'s price from ${esc(fmtMoney(change.from))} to ${esc(fmtMoney(change.to))}?`);
+        const pick = await this.chat.choose([{ label: `Make it ${fmtMoney(change.to)}`, value: 'yes', primary: true }, { label: `Keep ${fmtMoney(change.from)}`, value: '' }]);
+        if (pick === 'yes') {
+          const sale = await saleRepo.getById(r.sale.id);
+          const fee = sale.processing_fee_amount === '' || sale.processing_fee_amount == null ? null : Number(sale.processing_fee_amount);
+          const auto = fee == null || fee === (saleFeeEstimate(sale, accounts)?.total ?? null);
+          const next = { ...sale, price: change.to };
+          const est = saleFeeEstimate(next, accounts)?.total ?? null;
+          await saleRepo.update(sale.id, { price: change.to, ...(auto && fee != null ? { processing_fee_amount: est ?? '' } : {}) });
+          await this.chat.say('Price updated.');
+        }
+      }
+      if (reg === 'co_own' && r.sale.buyer_contact_id && !(r.pup.co_owner_contact_ids || []).includes(r.sale.buyer_contact_id)) {
+        await this.chat.say(`${esc(pupName(r.pup))} is a co-own placement. Add ${esc(r.buyer?.name || 'the family')} as a co-owner of ${esc(pupName(r.pup))} too?`);
+        if ((await this.chat.choose([{ label: 'Add them', value: 'yes', primary: true }, { label: 'Skip', value: '' }])) === 'yes') {
+          await dogRepo.update(r.pup.id, { co_owner_contact_ids: [...(r.pup.co_owner_contact_ids || []), r.sale.buyer_contact_id] });
+          await this.chat.say('Done, they\'re a co-owner now.');
+        }
+      }
+    }
+    return 'saved';
+  }
+
+  // The litter's own feeding note (feeding_schedule_override), typed in the chat.
+  async feedingNote() {
+    const res = await this.chat.form({
+      title: '<strong>What should these families feed?</strong><span class="kels-lead">It goes in every pup\'s Furever app for this litter, ahead of your breed schedule.</span>',
+      html: field('Feeding schedule for this litter', `<textarea id="pp-feed" rows="4" placeholder="e.g. Purina Pro Plan Puppy, 1/2 cup three times a day until 12 weeks">${esc(this.litter.feeding_schedule_override || '')}</textarea>`),
+      submitLabel: 'Save',
+      cancelLabel: 'Not now',
+      submit: async (root) => {
+        const text = root.querySelector('#pp-feed').value.trim();
+        if (!text) return 'Type the feeding schedule, or tap Not now.';
+        await litterRepo.update(this.litter.id, { feeding_schedule_override: text });
+        return { text }; // a string would show as a problem
+      },
+      reply: () => 'Saved'
+    });
+    return this.saved(res, () => 'Saved on the litter. Every pup\'s Furever app will show it.');
+  }
+
   async feeding() {
     await this.chat.say('A feeding schedule can be set for the breed (it covers every litter) or just for this litter.');
     const pick = await this.chat.choose([
@@ -267,7 +382,7 @@ class Prep {
       { label: 'Not now', value: '' }
     ]);
     if (pick === 'breed') return this.leave('breed-feeding-schedules.html', 'I\'ll open your feeding schedules.');
-    if (pick === 'litter') return this.leave(`litter.html?id=${encodeURIComponent(this.litter.id)}`, 'I\'ll open the litter\'s page. Edit it to add a feeding schedule override.');
+    if (pick === 'litter') return this.feedingNote();
     return null;
   }
 
@@ -286,16 +401,36 @@ class Prep {
     if (editionFlags.furever && this.chosen.some((r) => r.sale && r.sale.status !== 'delivered')) {
       await this.chat.say('One more idea: want to send the families their pup\'s Furever app? It\'s a sweet way to say welcome home.');
       const pick = await this.chat.choose([{ label: 'Open Furever', value: 'yes' }, { label: 'Not now', value: '' }]);
-      if (pick === 'yes') { window.open(`${pagesPrefix()}furever.html`, '_blank'); }
+      if (pick === 'yes') {
+        await this.openTab(`${pagesPrefix()}furever.html`, {
+          say: 'Sure! Furever opens in a new tab. Once you\'ve sent the links, you can close that tab and come back here; I\'ll be waiting.',
+          opened: 'Furever is open in the other tab. Take your time!',
+          blockedLabel: 'Furever'
+        });
+      }
     }
     if (!editionFlags.puppyRecord) { await this.goodbye(); return; }
     await this.chat.say('<strong>Last step: want me to print their puppy records?</strong> I\'ll put it all in one file, with a cover page just for you showing where each pup stands, then each pup\'s record for their family.');
     const pick = await this.chat.choose([{ label: 'Print puppy records', value: 'print', primary: true }, { label: 'Not now', value: '' }]);
     if (pick !== 'print') { await this.goodbye(); return; }
     const href = `${pagesPrefix()}puppy-record.html?dogs=${this.chosen.map((r) => encodeURIComponent(r.pup.id)).join(',')}&cover=1&autoprint=1`;
-    const tab = window.open(href, '_blank');
-    await this.chat.say(tab ? 'Here you go! I opened them in a new tab, ready to print.' : `Your browser blocked the new tab. <a href="${esc(href)}" target="_blank" rel="noopener">Tap here to open the puppy records</a>.`);
+    await this.openTab(href, {
+      say: 'Of course! I\'ll have to open a new tab to print from. Once you print, you can close that tab and come back here; I\'ll be waiting.',
+      opened: 'The puppy records are open in the other tab, ready to print. Take your time!',
+      blockedLabel: 'the puppy records'
+    });
     await this.goodbye();
+  }
+
+  // Says a new tab is coming and waits for her OK before opening it, so the switch
+  // never takes her by surprise. Opened from that tap, so it isn't blocked.
+  // `say`: what she's told first; `opened`: the line once the tab is open.
+  async openTab(href, { say, opened, blockedLabel }) {
+    await this.chat.say(say);
+    if ((await this.chat.choose([{ label: 'Okay, open it', value: 'go', primary: true }, { label: 'Not now', value: '' }])) !== 'go') return false;
+    const tab = window.open(href, '_blank');
+    await this.chat.say(tab ? opened : `Your browser blocked the new tab. <a href="${esc(href)}" target="_blank" rel="noopener">Tap here to open ${esc(blockedLabel)}</a>.`);
+    return Boolean(tab);
   }
 
   async goodbye() {

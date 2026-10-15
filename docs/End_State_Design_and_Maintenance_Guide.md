@@ -1778,19 +1778,22 @@ The run-up to go-home day for one litter. Each fix is saved when approved; there
    | Deworming | a `preventative` logged | the check-in's care form |
    | Drop-off date (sale) | a `placement` event for the sale's family (`goHome.pickupFor`) today or later | **When's the drop-off?**: date, time, how (`PLACEMENT_METHODS`) per pup; `goHome.pickupEvent` (titled "Puppy drop-off" unless Local pickup) |
    | Balance (sale) | Paid in full / Delivered, a `balance_paid_date`, or a `balance_due_date` | a due date per pup (`saleRepo.update`) |
-   | Contract signed (sale, Pro `contracts`) | a signed contract on the sale | opens the contract, or `contract.html?new=1&sale=` |
-   | Registration type (sale) | `registration_type` set | opens the sale |
-   | Feeding schedule (Pro `feedingSchedule`) | the litter's `feeding_schedule_override`, or a breed schedule for the pup's breed | the Feeding schedules page, or the litter's page |
+   | Contract signed (sale, Pro `contracts`) | a signed contract on the sale | **Where are the contracts at?**: a status per pup (`CONTRACT_STATUS`), and the signed date when Signed; saved on the sale's first live contract, or a new `sale` contract (title "<pup> sale contract", kennel from the sale) when it has none; "No contract yet" skips it |
+   | Registration type (sale) | `registration_type` set | **How is each puppy registered?**: a `REGISTRATION_TYPE` per pup (prefilled from `intended_registration`); then, as the Sale page does, the price change for the litter's Full surcharge (`saleDefaults.priceForRegistrationChange`, asked first; a fee that was the estimate follows the price) and, for Co-own, adding the family as the pup's co-owner (asked) |
+   | Feeding schedule (Pro `feedingSchedule`) | the litter's `feeding_schedule_override`, or a breed schedule for the pup's breed | **Just this litter**: the litter's feeding note typed in the chat; **For the breed**: the Feeding schedules page (a table editor) |
 
    The `placement` event ("Placement / drop-off") is the only go-home date the app keeps;
    Furever's pickup plan reads it too (§27). The typed Furever pickup fields on the Sale are
-   only Furever's fallback for a pup with no drop-off event, and don't count. A fix that opens
-   a page leaves Kels; she says to start Pups are going home again after.
+   only Furever's fallback for a pup with no drop-off event, and don't count. Every fix but
+   the breed feeding schedule happens in the chat; that one leaves Kels, and she says to
+   start Pups are going home again after.
 5. **The end:** all done, or what's still missing per pup. Pro: the **Furever link** is
    offered (`furever.html`) when a chosen pup has an open sale; it isn't tracked, so it's
    never an item. Pro (`puppyRecord`): **Print puppy records** opens
    `puppy-record.html?dogs=…&cover=1&autoprint=1` in a new tab (a link if the tab is
-   blocked). Lite runs the same check without Furever or the print, and its menu entry
+   blocked). Both tabs are announced first ("Of course! I'll have to open a new tab to
+   print from. Once you print, you can close that tab and come back here; I'll be
+   waiting.") and open only on **Okay, open it** (`openTab`). Lite runs the same check without Furever or the print, and its menu entry
    neither mentions nor searches either.
 
 ### "Set up my waitlist"

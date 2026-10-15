@@ -1140,3 +1140,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   the next resend. The console shows it with **Edit drop-off**; a pup with no drop-off keeps
   the typed Sale fields (still the fallback) plus **Add a drop-off event**. The editions plan
   gained rows for Kels's Pups are going home, Set up my waitlist and Check account health.
+- **Pups are going home: fixes in the chat, tabs announced (2026-10-15).** The contract
+  (status and signed date, or a new sale contract), the registration type (with the Full
+  price change and the Co-own co-owner offer the Sale page asks) and the litter's feeding
+  note are now done in the chat; only the breed feeding schedule still opens its page.
+  Printing the puppy records and opening Furever now say a new tab is coming and wait for
+  **Okay, open it**. Kels roadmap rules 8 and 9 record both.
