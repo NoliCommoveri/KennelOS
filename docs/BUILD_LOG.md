@@ -1051,3 +1051,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **Kels's page header (2026-10-15).** A bigger photo (52 px) and her title, "Kels, the KennelOS
   whiz" (`KELS.title`), on one line sized to the phone's width, in the same header height; no
   gap above the chat on phones.
+- **Kels roadmap written (2026-10-15).** `docs/KennelOS_Kels_Roadmap.md`: the rules every
+  task follows (including: in Lite, the cap is never worked around) and the next tasks in
+  build order: prep pups for leaving (with one Puppy Record file for chosen pups, a page
+  break between pups), check account health, set up my waitlist, set up another device,
+  then record a sale, log a heat or breeding, check in on a dog, add a dog. Listed in the
+  README's doc map.
