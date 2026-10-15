@@ -73,6 +73,7 @@ without a server, and good enough.
 | Calendar (month grid of events + reminders, Add to Google Calendar link) | ✅ | ✅ |
 | Kels, the scripted guided-task helper (floating "Ask Kels" button): "Record a new litter" as a chat (parents, breeding, birth, each pup, plans & prices; End-State guide §33) | ✅ own dogs | ✅ + outside dogs & their owners, the stud service, and "let families know" (waitlist notice / Companion) after the save |
 | Kels's "Check in on a litter": weights compared with the last ones, health care for chosen pups, puppy plans, microchips, dates, status; offers Weaning, Ready, Sold / reopen / close, and each sold pup's pickup, boarding and delivery (End-State guide §33) | ✅ | ✅ + offers to open waitlist picks (or move the deposit date) once the accept-deposits date comes |
+| Kels's "Tidy up my records": litter counts vs. pups, puppy plans and dogs that went home, litter / breeding / pup parents, dogs with no parents (pick or add them), duplicate dogs and merging them (End-State guide §33) | ✅ (a dog that went home leaves the roster) | ✅ + stud services with no breeding, breeders without a kennel, kennels without a contact, duplicate contacts and merging them |
 | Pedigree import from PDF + pedigree-only dogs (ancestors kept for lineage; never counted toward the cap) | ✅ | ✅ (+ keep the PDF in Documents) |
 | Sales → income | ✅ log sales on their pups | ✅ |
 | Buyers on a sale | ✅ self + inline "add buyer" | ✅ full Contacts section |

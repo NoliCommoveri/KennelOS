@@ -1026,3 +1026,41 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **Kels's photo (2026-10-15).** A Boston terrier at a laptop, `assets/kels.png` (256 px,
   resized from the 1254 px original; precached), as her avatar in the chat and the Kels page
   header, and on the floating **Ask Kels** button in place of the ✨.
+- **Kels's "Tidy up my records" + merging duplicates — built & browser-verified
+  (2026-10-15).** A fourth Kels task that finds records that disagree and raises them one at a
+  time: litter counts vs. pup records; pups with a sale not marked Placed; delivered dogs
+  still owned (Pro: buyer owns / co-owns; Lite: leave the roster); a litter's parents vs. its
+  breeding's and its pups'; her dogs with no parents (pick one on file or add one, hers or
+  pedigree-only); stud services past their date with no breeding (Pro); breeders without a
+  kennel and outside kennels without a contact (Pro); duplicate dogs and duplicate contacts
+  (Pro), with a merge that repoints every registry FK and archives the other record.
+  Decided: Kels only, never Today nudges; Lite never checks or shows features it lacks;
+  duplicate dogs treat a missing birthday or registration number as unknown, never as a
+  difference; "don't ask again" answers are device-local (the nudge ledger). New
+  `data/tidyRules.js`, `data/recordMerge.js` (+ tests), `assets/tidyUpUI.js`;
+  `waitlistEntryRepo.syncContactWaitlistStatus` exported. No schema change. End-State guide
+  §7, §16, §33; editions plan tier table. CLAUDE.md: README is a snapshot, history only here.
+  Precache updated; `CACHE_NAME` not bumped.
+- **Kels's chat, tighter and searchable (2026-10-15).** Less padding throughout the chat;
+  reply buttons two across; a choice's description stays hidden until the first tap, and the
+  second tap chooses it; her menu has a search box that filters as you type, matching each
+  task's `keywords` too ("add puppies" → Record a new litter). The page header drops her
+  tagline (her first message says it). Decided: in Lite, adding a parent at the cap shows the
+  usual upgrade notice and skips that parent; Kels never suggests a way around the cap.
+  End-State guide §33. No new files.
+- **Kels's page header (2026-10-15).** A bigger photo (52 px) and her title, "Kels, the KennelOS
+  whiz" (`KELS.title`), on one line sized to the phone's width, in the same header height; no
+  gap above the chat on phones.
+- **Kels roadmap written (2026-10-15).** `docs/KennelOS_Kels_Roadmap.md`: the rules every
+  task follows (including: in Lite, the cap is never worked around) and the next tasks in
+  build order: prep pups for leaving (with one Puppy Record file for chosen pups, a page
+  break between pups), check account health, set up my waitlist, set up another device,
+  then record a sale, log a heat or breeding, check in on a dog, add a dog. Listed in the
+  README's doc map.
+- **Kels roadmap: decisions (2026-10-15).** Prep pups prints pups without a sale (no buyer
+  block); account health is the KennelOS account and device; only we add search keywords;
+  set up another device ships before live sync (restore and unlock only until step 6); the
+  waitlist stays ahead of a sale task; Add dogs takes several in a row; starred tasks and
+  ones used more than 3 times in 60 days move up the menu (device-local).
+- **Kels roadmap: cover page, 60 days (2026-10-15).** Prep pups' print opens with a readiness
+  cover page for the breeder; "frequent" tasks are those started more than 3 times in 60 days.
