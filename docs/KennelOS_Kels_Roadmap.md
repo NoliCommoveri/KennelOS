@@ -397,10 +397,12 @@ presets), and gets back a short summary in plain sentences:
 - **Litters & pups** (Litters Over Time, Live-Birth Summary, Puppy Growth): litters and pups
   against the range before, the live-birth rate, average litter size, a pup falling behind
   its littermates.
-- **Sales & the waitlist** (Placements, Waitlist Funnel, Demand vs Supply, Lead Sources,
-  Returns): pups placed, average price, how long families wait, where families drop off,
-  families waiting against pups available ("6 families want a girl; you have 2"), the top
-  lead source and referrer, returns.
+- **Sales & the waitlist** (Placements, Waitlist Funnel, Applications, Waitlist Today,
+  Offers & Removals, Demand vs Supply, Lead Sources, Returns): pups placed, average price,
+  how often families apply and how many she approves, how long families wait, who's
+  waiting for a girl or a boy, the share of offers passed, families removed for not
+  following the list's rules, families waiting against pups available ("6 families want
+  a girl; you have 2"), the top lead source and referrer, returns.
 - **Shows & stud** (Show Record, Stud Services, Stud Results): points and titles, stud fees
   earned, services that produced a litter.
 - **The whole picture:** the top one or two from each topic, then **Year in Review**.

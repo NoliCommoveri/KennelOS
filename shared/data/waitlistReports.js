@@ -1,11 +1,12 @@
 // waitlistReports.js — the numbers behind the Sales & Waitlist reports (Reports plan,
-// phase 2): the Waitlist Funnel and Demand vs Supply. PURE (tests/waitlistReports
+// phases 2 and 4): the Waitlist Funnel, Demand vs Supply, Applications, Waitlist Today
+// and Offers & Removals. PURE (tests/waitlistReports
 // .test.js): plain, already-scoped records in, report data out. Matching reuses the
 // waitlist's own rule (waitlistRules.pupMatchesPrefs), so "families who'd take this
 // pup" here is exactly who the waitlist would offer it to — minus the listen-only
 // parent choices, which are about litters, not pups.
 import { pupMatchesPrefs, isPupAvailable, WAITLIST_CONFIG_DEFAULTS } from './waitlistRules.js';
-import { REGISTRATION_TYPE, WAITLIST_REMOVED_REASON, registrationsForPurposes, descriptor } from './vocab.js';
+import { REGISTRATION_TYPE, WAITLIST_REMOVED_REASON, WAITLIST_PREF_SEX, registrationsForPurposes, descriptor } from './vocab.js';
 import { daysBetween } from './breedingReports.js';
 
 // --- Funnel -----------------------------------------------------------------------------
@@ -46,14 +47,20 @@ export function funnelCounts(entries, offers = []) {
 // withdrew, fee expired, and each removal reason.
 export function exitReasons(entries) {
   const m = new Map();
-  const add = (label) => m.set(label, (m.get(label) || 0) + 1);
   for (const e of entries) {
-    if (e.status === 'declined') add('Declined by you');
-    else if (e.status === 'withdrawn') add('Withdrew');
-    else if (e.status === 'expired') add('Fee expired');
-    else if (e.status === 'removed') add(e.removed_reason ? descriptor(WAITLIST_REMOVED_REASON, e.removed_reason).label : 'Removed');
+    const label = exitLabel(e);
+    if (label) m.set(label, (m.get(label) || 0) + 1);
   }
   return [...m].map(([label, value]) => ({ label, value }));
+}
+
+// Why one entry left the list, as a label; null while it's open or placed.
+export function exitLabel(e) {
+  if (e.status === 'declined') return 'Declined by you';
+  if (e.status === 'withdrawn') return 'Withdrew';
+  if (e.status === 'expired') return 'Fee expired';
+  if (e.status === 'removed') return e.removed_reason ? descriptor(WAITLIST_REMOVED_REASON, e.removed_reason).label : 'Removed';
+  return null;
 }
 
 // How offers ended, and why families passed: { outcomes: [{label, value}], reasons:
@@ -85,6 +92,150 @@ export function median(xs) {
   if (!xs.length) return null;
   const s = [...xs].sort((a, b) => a - b);
   return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
+}
+
+export function mean(xs) {
+  return xs.length ? xs.reduce((t, x) => t + x, 0) / xs.length : null;
+}
+
+// --- Applications -----------------------------------------------------------------------
+
+// Days between one application and the next, in applied-date order (same-day
+// applications are a 0-day gap). Entries without an applied date are skipped.
+export function applicationGaps(entries) {
+  const dates = entries.map((e) => e.applied_date).filter(Boolean).sort();
+  return dates.slice(1).map((d, i) => daysBetween(dates[i], d));
+}
+
+// Has she decided on the application? Approved (or further) or declined. One
+// still waiting, or withdrawn before she decided, isn't counted in the rates.
+export const wasApproved = (e) => funnelStage(e) >= 1;
+export const wasDecided = (e) => wasApproved(e) || e.status === 'declined';
+// An approved family that went on the list (fee paid or waived).
+export const wasListed = (e) => funnelStage(e) >= 2;
+
+// Days from applying to approval, and from approval to the fee received; null
+// when either date is missing (or the order is off, a data slip).
+export function daysToApprove(e) {
+  if (!e.applied_date || !e.approved_date) return null;
+  const d = daysBetween(e.applied_date, e.approved_date);
+  return d >= 0 ? d : null;
+}
+export function daysToFee(e) {
+  if (!e.approved_date || !e.fee_received_date) return null;
+  const d = daysBetween(e.approved_date, e.fee_received_date);
+  return d >= 0 ? d : null;
+}
+
+// What sex families asked for, every option present: [{ value, label, count }]
+// (Female, Male, Either; a blank preference is Either, as the waitlist reads it).
+export const SEX_WANTED = [
+  { value: 'female', label: 'A girl' },
+  { value: 'male',   label: 'A boy' },
+  { value: 'any',    label: 'Either' }
+];
+export function sexWanted(entries) {
+  const of = (e) => (WAITLIST_PREF_SEX.some((s) => s.value === e.pref_sex) ? e.pref_sex : 'any');
+  return SEX_WANTED.map((s) => ({ ...s, count: entries.filter((e) => of(e) === s.value).length }));
+}
+
+// --- Waitlist today ---------------------------------------------------------------------
+
+// The date a family's wait is counted from: her anchor date if she set one, else
+// the fee received, else approval (fee waived), else the application.
+export function listedSince(e) {
+  return e.position_anchor_date || e.fee_received_date || e.approved_date || e.applied_date || null;
+}
+
+export const WAIT_BUCKETS = [
+  { label: 'Under 3 months', under: 91 },
+  { label: '3–6 months',     under: 183 },
+  { label: '6–12 months',    under: 365 },
+  { label: 'A year or more', under: Infinity }
+];
+// [{ label, value }] in bucket order, every bucket present, for families with a date.
+export function waitBuckets(entries, today) {
+  const counts = WAIT_BUCKETS.map((b) => ({ label: b.label, value: 0 }));
+  for (const e of entries) {
+    const since = listedSince(e);
+    if (!since) continue;
+    const days = Math.max(0, daysBetween(since, today));
+    counts[WAIT_BUCKETS.findIndex((b) => days < b.under)].value += 1;
+  }
+  return counts;
+}
+
+// --- Offers & removals ------------------------------------------------------------------
+
+// Removals that follow from the list's own rules (decided 2026-10-15: "didn't
+// follow the list's rules"), as against ones she made herself. A fee that lapsed
+// before the family was listed (status `expired`) counts here too.
+export const RULE_REMOVAL_REASONS = ['second_pass', 'no_checkin_response', 'no_ready_answer', 'fee_expired'];
+
+export const EXIT_GROUPS = [
+  { value: 'rules',      label: 'Didn’t follow the list’s rules' },
+  { value: 'by_breeder', label: 'Removed by you' },
+  { value: 'declined',   label: 'Declined by you' },
+  { value: 'withdrew',   label: 'Withdrew' }
+];
+
+// Which EXIT_GROUPS value an entry left under; null while open or placed. A
+// removal with no reason recorded is one she made.
+export function exitGroup(e) {
+  if (e.status === 'expired') return 'rules';
+  if (e.status === 'removed') return RULE_REMOVAL_REASONS.includes(e.removed_reason) ? 'rules' : 'by_breeder';
+  if (e.status === 'declined') return 'declined';
+  if (e.status === 'withdrawn') return 'withdrew';
+  return null;
+}
+
+// When it left: the status's own date, else the closest one on file.
+export function exitDate(e) {
+  if (e.status === 'removed') return e.removed_date || null;
+  if (e.status === 'withdrawn') return e.withdrawn_date || null;
+  if (e.status === 'declined') return e.declined_date || e.applied_date || null;
+  if (e.status === 'expired') return e.fee_due_date || e.approved_date || null;
+  return null;
+}
+
+export const CLOSED_OUTCOMES = ['accepted', 'passed', 'no_response'];
+
+// One row per closed offer and per family that left, for the Offers & Removals
+// report: { id, kind: 'offer'|'exit', date, entry, offer?, what }, newest first.
+// `what` is the outcome (accepted / passed / no_response) or the exit group.
+export function offerAndExitRows(entries, offers) {
+  const byId = new Map(entries.map((e) => [e.id, e]));
+  const rows = [];
+  for (const o of offers) {
+    if (!CLOSED_OUTCOMES.includes(o.outcome) || !byId.has(o.entry_id)) continue;
+    rows.push({ id: `o:${o.id}`, kind: 'offer', date: o.outcome_date || o.offered_date || null, entry: byId.get(o.entry_id), offer: o, what: o.outcome });
+  }
+  for (const e of entries) {
+    const g = exitGroup(e);
+    if (g) rows.push({ id: `e:${e.id}`, kind: 'exit', date: exitDate(e), entry: e, what: g });
+  }
+  return rows.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+}
+
+// The rates over those rows: offers closed, how they ended, passes that counted
+// against a family, families offered and families who passed at least once, and
+// families who left by group. Percentages are the caller's (reportMath.pct).
+export function offerAndExitStats(rows) {
+  const offers = rows.filter((r) => r.kind === 'offer');
+  const exits = rows.filter((r) => r.kind === 'exit');
+  const n = (list, what) => list.filter((r) => r.what === what).length;
+  const families = (list) => new Set(list.map((r) => r.entry.id)).size;
+  return {
+    closed: offers.length,
+    accepted: n(offers, 'accepted'),
+    passed: n(offers, 'passed'),
+    noResponse: n(offers, 'no_response'),
+    countedPasses: offers.filter((r) => r.offer.counts_as_pass === true).length,
+    familiesOffered: families(offers),
+    familiesPassed: families(offers.filter((r) => r.what === 'passed' || r.what === 'no_response')),
+    left: exits.length,
+    byGroup: EXIT_GROUPS.map((g) => ({ ...g, count: n(exits, g.value) }))
+  };
 }
 
 // --- Demand vs Supply -------------------------------------------------------------------

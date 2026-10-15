@@ -1596,9 +1596,20 @@ P&L, Expenses by Category, Receivables, Pricing, Breeding-Dog Return; Litters Ov
 Live-Birth Summary, Health-Test Events, Dam & Sire Production (flags litters under
 `BACK_TO_BACK_DAYS` apart and at `LIFETIME_LITTERS_FLAG`, prompts only), Pairing Success,
 Heat Cycles, Health-Testing Gaps; Puppy Growth (flags a pup under 85% of its littermates'
-median); Placements, Scheduled Placements, Waitlist Funnel, Demand vs Supply, Lead Sources &
-Referrers, Returns & Voids; Stud Services, Stud Results, Show Record; Active Roster; Year in
+median); Placements, Scheduled Placements, Waitlist Funnel, Demand vs Supply, Applications, Waitlist
+Today, Offers & Removals, Lead Sources & Referrers, Returns & Voids; Stud Services, Stud Results, Show Record; Active Roster; Year in
 Review (prints on one page).
+
+**The waitlist reports** (`data/waitlistReports.js`): **Applications** (by applied date: days
+between applications, approved of those decided, approved → on the list, median days to
+approve and to the fee, what sex they asked for). **Waitlist Today** (a snapshot, no range:
+active entries in list order per kennel from `overallPositions`, paused by `isPaused`,
+waiting since `listedSince`: anchor, else fee, approval, application). **Offers & Removals**
+(one row per closed offer and per family that left, by when: accepted / passed / no-response
+shares of closed offers, families who passed at least once, and exits by `EXIT_GROUPS`;
+`RULE_REMOVAL_REASONS` (second pass, no check-in answer, no ready-check answer, fee not
+received, and a fee that expired before listing) are "Didn't follow the list's rules",
+apart from removals she made).
 
 ---
 

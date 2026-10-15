@@ -1317,3 +1317,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   (Lite's Find offered the tidy-up for "contacts").
 - **Kels Find intro (2026-10-15).** Finding Something opens like every task, with `chat.intro`: "Absolutely!" and its own how-it-works line (`KELS_FIND_INTRO`; `intro(opener, how)` takes it), answered Sounds great, let's start! / Never mind. The no-match places add Sharing your pups (Pro).
 - **Kels: favorites (2026-10-15).** The Doing Something list puts unfinished work first, then starred tasks, then ones used often, then the usual priority (`data/kelsFavorites.js`). A ☆ in each task button's corner stars it (its own tap target; `chat.choose` `star`/`onStar`). More than 3 starts in 60 days shows "You use this often", with **Don't move this up** when opened (undone by starring). Kept on the device in `settings.js` (`kelsFavorites`, `kelsTaskUse`, `kelsNoPromote`), never backed up or synced.
+- **Waitlist reports (2026-10-15).** Three new Sales & Waitlist reports (Reports plan phase
+  4), Pro: **Applications** (days between applications, approval and listing rates, days to
+  approve and to the fee, what sex they ask for), **Waitlist Today** (who's waiting now in
+  list order: girl / boy / either, program, breed, time waiting, passes, paused) and
+  **Offers & Removals** (accepted / passed / no-response shares, families who passed, why
+  families left, with removals by the list's rules grouped as "Didn't follow the list's
+  rules"). Math in `data/waitlistReports.js` (`exitReasons` now reads `exitLabel`).
