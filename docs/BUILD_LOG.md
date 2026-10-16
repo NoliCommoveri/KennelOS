@@ -1568,3 +1568,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   fix). Checked in headless Chromium: a second device with its own Birchie, Willow and Maple
   signing in → the two questions → one of each everywhere, under the cloud's ids, both
   devices' notes kept; both devices' backups pushed.
+- **Live sync released (2026-10-16).** `cloudConfig.SYNC_RELEASED = true` and the service
+  worker cache to `kennelos-shell-v82`. Decided with the owner: released to production ahead
+  of the real-device checks (iPhone and Android home-screen apps and a laptop), which follow
+  there (LAUNCH_CHECKLIST).

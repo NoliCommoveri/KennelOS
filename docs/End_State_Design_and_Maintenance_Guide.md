@@ -2661,7 +2661,7 @@ The plan is the detailed design. This is the shape of what's built.
 - **Where she turns it on:** Import / Export → Backup & restore → Cloud, **Keep my devices in
   step**, a dropdown under Sensitive records (`assets/cloudSyncUI.js`, loaded only when
   shown). It's offered where `cloudConfig.isSyncOffered()`: Pro, a server, and the release
-  switch `SYNC_RELEASED` (false: offered only against staging, localhost or
+  switch `SYNC_RELEASED` (true; false would offer it only against staging, localhost or
   `?cloud=staging`). A device that already syncs keeps syncing whatever the switch says;
   `bootCloud` starts the scheduler only on such a device. The dropdown reads Off / Off on this
   device (the program syncs: **Keep this device in step…**) / On · 2 devices · synced just

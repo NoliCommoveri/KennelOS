@@ -6,7 +6,7 @@
 > (`docs/KennelOS_Private_Vault_Plan.md`, "Vault §N"), the Pro license link
 > (`docs/KennelOS_License_Link_Plan.md`) and the waitlist online (`docs/KennelOS_Waitlist_W2_Plan.md`,
 > "W2 §N").
-> **Status: being built.** The §12 decisions were all taken as recommended (2026-10-10), and
+> **Status: steps 1–6 built and released (2026-10-16); step 7 (the live nudge) is optional.** The §12 decisions were all taken as recommended (2026-10-10), and
 > JSON backups stay backward compatible throughout (`CLAUDE.md`). Progress is under §8.
 > The server migration is **`0014_sync`**, not `0012` as first drafted (`0012` and `0013`
 > went to changing and recovering the account's email).
@@ -508,7 +508,7 @@ application twice or answer the same family event twice. So:
    Originally: **Waitlist lease.** `POST /waitlist/lease`, the route check in `waitlist.js`, the client's
    lease handling in `cloudWaitlist.js`, the settings card wording. Tests in
    `cloud/tests/waitlist.test.js` and `tests/cloudWaitlist.test.js`.
-6. **Built 2026-10-16, but the real-device checks and the release.** As built:
+6. **Built and released 2026-10-16** (`SYNC_RELEASED = true`, `kennelos-shell-v82`; decided with the owner: released ahead of the real-device checks, which follow on production). As built:
    `assets/cloudSyncUI.js` (the pane's **Keep my devices in step** dropdown under Sensitive
    records, in the Sensitive records field's pattern; turn on, join, catch up, pauses and their
    fixes, turn off here / for every device, the activity list), `data/cloud/syncActivity.js`
@@ -547,8 +547,8 @@ application twice or answer the same family event twice. So:
    an edit on one reaching the other's open dog page (notice, 57 s) and its Dogs list in
    another tab (reloaded); the device list's "last synced"; the activity list; turn off here
    and join again; a planted `pro_required` and Check again; turn off for every device (the
-   other device says so) and on again. **Still to do:** two real devices (an iPhone
-   home-screen app and a laptop), then `SYNC_RELEASED = true` with the `CACHE_NAME` bump.
+   other device says so) and on again. **Still to do:** the real-device checks on
+   production (an iPhone and an Android phone, each as a home-screen app, and a laptop).
    Originally: **UI and release.** `cloudSyncUI.js` (§2), the device list's "last synced", the "updated
    elsewhere" notice, the activity list. Browser checks in headless Chromium at phone width
    with two browser contexts as two devices against `wrangler dev`, then two real devices on
@@ -586,9 +586,10 @@ test`, the precache check, and the docs in the same change (§9).
 - **Browser:** two contexts as two devices against local `wrangler dev`: edit on one, see it
   on the other within the poll; offline edit on both; a document upload; a delete racing a
   reference; the waitlist lease moving when one device closes.
-- **Real devices on staging:** an iPhone home-screen app and a laptop, with the phone
-  backgrounded and killed between edits (Safari's background limits are the realistic way a
-  push gets lost; the scan re-finds anything not acknowledged).
+- **Real devices** (on production, after the release): an iPhone and an Android phone, each
+  as a home-screen app, and a laptop, with the phones backgrounded and killed between edits
+  (Safari's background limits are the realistic way a push gets lost, and Android's battery
+  saver can freeze a backgrounded tab the same way; the scan re-finds anything not acknowledged).
 
 ## 11. Risks & mitigations
 

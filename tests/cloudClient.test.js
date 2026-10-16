@@ -165,10 +165,10 @@ test('private backup is released: offered wherever cloud backup is, and nowhere 
   assert.equal(config.isVaultOffered(), true, 'the test-server switch');
 });
 
-test('keeping devices in step is not released: offered only against staging, and only in Pro', () => {
-  assert.equal(config.SYNC_RELEASED, false, 'flipped after the real-device checks (Cloud Phase 2 plan §8 step 6): update this test with it');
+test('keeping devices in step is released: offered wherever cloud backup is, and only in Pro', () => {
+  assert.equal(config.SYNC_RELEASED, true, 'released 2026-10-16 (Cloud Phase 2 plan §8 step 6); turning it back off is a deliberate change: update this test with it');
   globalThis.location = { hostname: 'localhost' };
-  assert.equal(config.isSyncOffered(), true, 'localhost talks to staging');
+  assert.equal(config.isSyncOffered(), true);
   assert.equal(config.isSyncOffered({ liveSync: false }), false, 'Lite and Demo never');
   deployedPage('');
   assert.equal(config.isSyncOffered(), false, 'no cloud, no sync');

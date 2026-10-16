@@ -67,12 +67,13 @@ export function isWaitlistOnlineOffered() {
   return isCloudAvailable() && (WAITLIST_ONLINE_RELEASED || isLocalDev() || testServerOn());
 }
 
-// Live sync's release switch (Cloud Phase 2 plan §8 step 6). Off until the
-// two-device checks on real phones pass: until then "Keep my devices in step"
-// is offered only where cloud backup talks to STAGING (localhost, or
-// ?cloud=staging). Pro only either way (editionFlags.liveSync). A device that
-// already syncs keeps syncing wherever it's opened: the data layer doesn't read this.
-export const SYNC_RELEASED = false;
+// Live sync's release switch (Cloud Phase 2 plan §8 step 6). Released
+// 2026-10-16: "Keep my devices in step" is offered wherever cloud backup is, in
+// Pro (editionFlags.liveSync). Set back to false to hide it again; then it's
+// offered only where cloud backup talks to STAGING (localhost, or ?cloud=staging).
+// A device that already syncs keeps syncing wherever it's opened: the data layer
+// doesn't read this.
+export const SYNC_RELEASED = true;
 
 export function isSyncOffered(flags = editionFlags) {
   return isCloudAvailable() && flags.liveSync === true && (SYNC_RELEASED || isLocalDev() || testServerOn());
