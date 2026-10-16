@@ -88,7 +88,10 @@ src/serverMoves.js     the waitlist's own moves while her phone is off (W2 step 
                        'server'; the stored projection updated; a publish that hasn't seen them is
                        refused (409 events_pending)
 src/notice.js          service notices (public /notice; set on /ops)
-src/retention.js       the daily prune and GC; pickDrops is the pure rule
+src/retention.js       the daily prune and GC; pickDrops is the pure rule; sweepR2Orphans walks the
+                       bucket a few pages a run (its place in r2_sweep, migration 0017) and deletes
+                       objects D1 doesn't track, for programs D1 knows, uploaded over a day ago;
+                       more than 1000 in one run deletes none (D1 may not be the real index)
 src/backup.js          /ops export/import of the D1 rows (not R2)
 src/gate.js            503 {maintenance:true} until every bundled migration is applied
 src/ops.js             /ops: sign-in, migrations, health, outbox, notices, retention, export/import

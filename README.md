@@ -50,7 +50,8 @@ backup, carries a program from Lite to Pro.
     still need proving against a real account.
   - Cloud Phase 2 live sync: released. Next is checking it on real phones (iPhone and Android)
     on production; step 7, the live nudge, is optional. Production has every cloud migration
-    through `0016` applied. Staging isn't in use, so deploys there aren't tracked.
+    through `0016` applied; `0017` (the R2 orphan sweep's state) is waiting to be applied from
+    /ops after the next Worker deploy. Staging isn't in use, so deploys there aren't tracked.
   - Duplicates: Import/Export's Scan for duplicates covers every record type. Open: Kels's
     Tidy up still checks only dogs and contacts for duplicates.
 - **Open launch items:** confirm `yearlyVariantPattern` / `lifetimeVariantPattern` against

@@ -27,6 +27,7 @@ import accountRecovery from './0013_account_recovery.sql';
 import sync from './0014_sync.sql';
 import integrations from './0015_integrations.sql';
 import waitlistLease from './0016_waitlist_lease.sql';
+import r2Sweep from './0017_r2_sweep.sql';
 
 export const MIGRATIONS = [
   { id: '0001', name: 'schema', sql: schema },
@@ -45,4 +46,5 @@ export const MIGRATIONS = [
   { id: '0014', name: 'sync', sql: sync },
   { id: '0015', name: 'integrations', sql: integrations },
   { id: '0016', name: 'waitlist_lease', sql: waitlistLease },
+  { id: '0017', name: 'r2_sweep', sql: r2Sweep },
 ];

@@ -1606,3 +1606,15 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   naming both; a cloud restore on a second device pairing its own kennel and two dogs (one
   asked), the duplicates gone, its private notes and litter and My kennel moved, and a
   cancelled question writing nothing.
+- **R2 orphan sweep (2026-10-16).** Retention deletes D1 rows before R2 objects, so a failed
+  R2 delete left objects nothing tracked and nothing found again. `retention.sweepR2Orphans`,
+  run at the end of every retention, walks the bucket ten pages (10,000 objects) a run from
+  where the last stopped (new migration `0017_r2_sweep`: one row, R2's list cursor and when
+  the pass began / last finished) and deletes `files/<program>/<sha256>` with no `files` row and
+  `snapshots/<program>/<id>.json.gz|.vault` with no `snapshots` row. Never: other key shapes, a
+  program D1 doesn't know (an emptied or re-imported D1 deletes nothing), objects uploaded in
+  the last day; and a run finding over 1,000 deletes none and stays put, reported as
+  `r2SweepHalted` on /ops and in the cron log. The test bucket's `list` now gives `uploaded`.
+  Tested: the leftovers deleted and everything else kept, a bucket walked over three runs, the
+  halt. Production needs `0017` applied from /ops after deploy (the cron skips retention while
+  a migration is pending).
