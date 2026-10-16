@@ -393,15 +393,26 @@ off to it where it now only says where to change the form.
 - **Keywords:** application, application form, form, questions, questionnaire, apply,
   waitlist form, FAQ, puppy application.
 
-### 3.14 Help me understand: **M**, all editions (how my kennel is doing: Pro, `reports`) — A step 1 **Built**
+### 3.14 Help me understand: **M**, all editions (how my kennel is doing: Pro, `reports`) — A step 1 and B (steps 3–4) **Built**
 As built: End-State guide §33 ("Understanding Something"); history in `docs/BUILD_LOG.md`.
 **Modified:** "How the app works" is **How KennelOS works**, under a third button on her
 first screen, **Understanding Something** (below), organized as an FAQ (topics → questions → answer, with **Show me**) with a
 search over those entries only; Find doesn't search them. The entries are their own module,
 `data/kelsUnderstand.js`, not `kind: 'understand'` places in the cheat sheet. The topics
 below were replaced by the filter "only what a breeder who has used other apps would still
-get wrong here" (the as-built list is in the module); Lite's limit isn't one. Still to
-build: steps 2–5 (her own records worked through, and B).
+get wrong here" (the as-built list is in the module); Lite's limit isn't one.
+**B as built:** End-State guide §33 ("How my business is doing") and §31 (the shared
+report loaders and figures); history in `docs/BUILD_LOG.md`. **Modified:** every report Kels
+quotes loads through `data/reportSources.js` and its tiles' figures come from
+`data/reportFigures.js`, shared with the page, rather than `kennelInsights` reading rows
+the pages build; the intro drops "how this year's money compares to last year's" until
+step 5; Breeding-Dog Return, Heat Cycles, Health-Testing Gaps, Receivables, Waitlist Today
+and Demand vs Supply have no range, so their sentences are lifetime or as of today;
+Placements' registration split stands in for "Limited pups brought in…". Decided: the
+minimums (2 litters, 3 decided breedings, 3 sales), "no litter" = live, owned or co-owned
+females at Active breeding past her kennel's female promote age, comparison with the
+range before after the first release, and Lite has no B. Still to build: step 2 (her own
+records worked through) and step 5 (against the range before).
 
 Two things a breeder means by "help me understand", asked first:
 **How the app works** ("why is this family fourth?", "what counts as income?") and
@@ -606,6 +617,9 @@ kennel) shows a Meet Kels card whose **Try Getting Started** opens it.
 ## 5. Decisions and open questions
 
 Decided:
+- Help me understand B (§3.14): rank only past 2 litters, 3 decided breedings, 3 sales;
+  "no litter" counts Active breeding females of breeding age only; against the range before
+  ships after the first release; Lite has no B.
 - Kels's voice (§2.7): a couple of warm words in every message, never more than one phrase
   or sentence. The tasks built before the rule haven't been swept for it yet.
 - Pups are going home prints pups with no sale (no buyer block).
@@ -648,8 +662,4 @@ Open:
 - **Which kennels the "bred it" step offers** (§3.12): proposed, the kennels from this run
   first, then every outside kennel she has; never her own (a dog she bred is the litter
   task's), and only dogs with no breeder kennel (one already set is never changed here).
-- **Help me understand** (§3.14), before it's built:
-  - The minimums before she ranks or compares (proposed: 2 litters for a dam, 3 breedings for a
-    sire's rate, 3 sales for an average price).
-  - Which dogs count as "should have had a litter": breeding-status females of breeding age only,
-    or every intact female she owns?
+

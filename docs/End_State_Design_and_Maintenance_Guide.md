@@ -209,7 +209,7 @@ to the cloud unsealed).
 | **Contact** | `name` | `contact_type[]`, `email`, `phone`, `facebook_profile`, `address` (also the away-board location, §19), `kennel_id` (affiliation, not scope), `waitlist_status` (kept by `waitlistEntryRepo`), `first_contact_source`, `companion_note` (shown to the recipient, §20; `notes` is private). Buyers are Contacts; there is no Buyer table. |
 | **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `puppy_record_fields` (§23), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date` when empty). Sire ≠ dam. |
-| **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `puppies_born_*` counts, per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
+| **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `puppies_born_*` counts, `delivery_type` (`LITTER_DELIVERY_TYPE`: natural, assisted, planned or emergency C-section; cloud; shown and asked only once the litter is Whelped or later, see Litter delivery below), per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
 | **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
 | **Contract** | `contract_type`, `kennel_id` | `status` (default `draft`), `related_sale_id`, `related_stud_service_id`; `related_dog_id` and `related_contact_id` only for `lease`/`co_own`/`foster`/`other` (forced null otherwise, `contractRepo.normalizeLinks`), `document_url`, `signed_date`, lease dates, e-sign fields and `integration_reviews` (§32), `title`, `terms_summary`. |
 | **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `direction` is **who travels** (`STUD_SERVICE_DIRECTION`: `to_partner` our dog goes to them, `to_us` their dog comes to us, `shipped` no one / AI). Whether our dog is the stud or the dam isn't stored: it's our dog's sex, else the partner's opposite (`studRules.ourRole`; `STUD_SERVICE_ROLE` for badges and filters). `sent_date` / `returned_date` are the service's two dates, labelled **Begins / Ends**. `type` (`in_person`/`ai`) is set by the repo from `direction` (shipped → ai), never asked. `pairing_id`, `fee_amount`, `fee_structure`; `pick_status` and `pick_value_amount` only for pick fee structures (forced null otherwise; with our stud the pick is our puppy, and `pick_status` claimed / waived ends Today's `studpick`, §19), `referred_by_contact_id`, invoice fields (our stud only, §24). |
@@ -219,6 +219,17 @@ to the cloud unsealed).
 | **File** (`files`) | `blob`, `mime`, `filename`, `size` | `thumbnail`. Always a PDF. Owned by its one Document or Expense; fetched by id only (§26.1). |
 | **WaitlistEntry**, **WaitlistOffer**, **WaitlistProgram** | see §29 | One entry per family per time on a kennel's list; position and passes are derived, never stored. |
 | **Account** (`accounts`) | `name` | `account_type`, login fields (private), referral fields, fee rate, `contract_forms[]`, `payment_link`, `payment_instructions` (§32). Program-wide, no `kennel_id`. API keys live in `device_secrets`, never on the record. |
+
+**Litter delivery.** `Litter.delivery_type` is asked only once the litter is Whelped or
+later (`vocab.WHELPED_OR_LATER`). The Litter page hides the field before that, so a status
+change redraws the form with it, and keeps a stored value hidden rather than clearing it.
+When a litter is created at Whelped or later, or first gets there, with none recorded, the
+page asks for it ("How was this litter delivered?", **Save** / **Not now**) before its
+linked-pairing prompt. Kels's Record a new litter asks it after the counts; the tidy-up
+raises a whelped litter without it (§33); the litter CSV import takes a `delivery_type`
+column (labels, or words like "elective c-section"). A dog's Litters list shows it as a pill
+after the status, by its `short` label (Natural, Assisted, Planned C-sec, Emergency C-sec;
+the full name on hover).
 
 **Kennel scope.** `Pairing`, `Litter`, `Sale`, `Contract`, `StudService`, `Document`, and
 owned dogs carry a required own-kennel `kennel_id`, **stamped on create** from the parent (a
@@ -1668,8 +1679,19 @@ Puppies / Sales & Waitlist / Shows & Stud / Dogs & Operations; `?group=`), with 
 Review** featured. **Every report is derived** on load; nothing is stored.
 
 **`assets/reportView.js` extras:** `dateRange` (presets via `reportMath.rangeFor`; undated
-rows only in "All time"), `kpis`, `charts`, column `total`, `rowsFor` (summary reports
+rows only in "All time"; `rowsIn(range)` instead of `date` rebuilds a per-dog report's
+rows for the range), `kpis`, `charts`, column `total`, `rowsFor` (summary reports
 grouping the filtered records), and always **Print / PDF**. All follow the visible rows.
+A report opens on a range from its link: `?range=<preset>` (`&from=&to=` for custom).
+
+**What a report reads (`data/reportSources.js`):** one loader per report Kels quotes,
+`load<Name>(today)` → `{ href, rows, scope?, date?, rowsIn?, …lookups }`: its records
+loaded and scoped, its rows built (by the pure `data/` modules), and the scope and date
+the page hands reportView. `reportMath.inView(rows, { scope, date }, range)` is how
+reportView and Kels both cut rows to a range. The tiles' figures for those reports are
+`data/reportFigures.js` (pure, tested), which the page tiles and Kels both call. So a
+report page and Kels's kennel check-up (§33) can't disagree. A new figure Kels says goes
+into `reportFigures.js` and onto the report's tiles first. Both modules are Pro-only.
 
 **Charts (`assets/chartView.js`)** are the app's own SVG (bar, grouped/stacked/diverging;
 line; ranked horizontal bar), pure render functions plus `mountChart`. Colors come from
@@ -1688,8 +1710,12 @@ it). Anticipated income never enters Net; pick value is never money in.
 
 **The reports** (each page's math is in a pure, tested `data/` module): P&L by Month, Litter
 P&L, Expenses by Category, Receivables, Pricing, Breeding-Dog Return; Litters Over Time,
-Live-Birth Summary, Health-Test Events, Dam & Sire Production (flags litters under
-`BACK_TO_BACK_DAYS` apart and at `LIFETIME_LITTERS_FLAG`, prompts only), Pairing Success,
+Live-Birth Summary, Health-Test Events, Dam & Sire Production (by whelp-date range,
+`breedingReports.productionRowsIn`; flags litters under `BACK_TO_BACK_DAYS` apart and at
+`LIFETIME_LITTERS_FLAG`, prompts only; plus a row for each live, owned or co-owned female
+at Active breeding, of her kennel's female promote age (12 months by default) by the range's
+end, with no litter in the range, said as `IDLE_TEXT`: expecting, bred and waiting, bred and
+didn't take, not bred), Pairing Success,
 Heat Cycles, Health-Testing Gaps; Puppy Growth (flags a pup under 85% of its littermates'
 median); Placements, Scheduled Placements, Waitlist Funnel, Demand vs Supply, Applications, Waitlist
 Today, Offers & Removals, Lead Sources & Referrers, Returns & Voids; Stud Services, Stud Results, Show Record; Active Roster; Year in
@@ -2002,10 +2028,10 @@ builds nothing), then a search box.
 ### "Understanding Something"
 
 `assets/kelsUnderstandUI.js`. Two halves, each `{ id, label, opener, how, flag?, run }` in
-`HALVES`, offered when its flag is on: **How KennelOS works** (every edition, below) and,
-when built, **How my business is doing** (`reports`, roadmap §3.14 B). With more than one
-she asks "Yes, absolutely! Which is your question about?"; with one (today, and always in
-Lite) it starts straight away. Each half's intro (`chat.intro(opener, how)`) is said the
+`HALVES`, offered when its flag is on: **How KennelOS works** (every edition, below) and
+**How my business is doing** (`reports`: Pro and Demo, below). With more than one she asks
+"Yes, absolutely! Which is your question about?"; with one (always in Lite) it starts
+straight away. Each half's intro (`chat.intro(opener, how)`) is said the
 first time it's picked in a visit; **Something else** after an answer returns to the
 question when there is one. How KennelOS works opens "I'm on it!" +
 `kelsChat.KELS_UNDERSTAND_INTRO`, which names nothing Lite lacks.
@@ -2043,6 +2069,57 @@ question when there is one. How KennelOS works opens "I'm on it!" +
   a real edition flag, a sentence in every edition with no field names, and that every Show
   me page exists and is precached.
 
+**How my business is doing** (`assets/kelsInsightsUI.js` + `data/kennelInsights.js`, both
+Pro-only; the UI is imported when the half is picked). It opens "Ready when you are!" +
+`KELS_BUSINESS_INTRO` ("I can tell you how your business is doing, like who your most
+productive dam is or how your money did this year…"). Read-only.
+- **The chat:** a topic (`insightTopics`: **My dogs**, **Money**, **Litters & pups**,
+  **Sales** / **Sales & the waitlist** (`waitlist`), **Shows & stud** / **Shows** / **Stud
+  services** where `shows` / `studServices` are, **The whole picture**), then a range
+  (**This year**, **The last 12 months**, **Last year**, **All time**). She loads that
+  topic's reports (`topicSources` → `reportSources.load<Name>`), says a warm lead line and
+  the first `FIRST_SHOWN` (4) sentences as a list, then **Tell me more**, **See <report>**
+  for each report those sentences came from (in this tab, on her range when the report
+  has one), **Another topic**, **Different dates**, **Something else** and **I'm all set**.
+  Nothing in the range: `nothingText`, with **Yes, all time** where it wasn't.
+- **The sentences** (`insightsFor(topic, loaded, ctx)`): each `{ id, topic, text, tone,
+  value, dogIds, source: { href, title, range } }`, cut to the range as the report cuts it
+  (`rowsOf`: `inView`, or the report's `rowsIn`) and worked from the report's rows and
+  `reportFigures`, never a figure of its own. Reports with no range (Breeding-Dog Return,
+  lifetime; Heat Cycles, Health-Testing Gaps, Receivables, Waitlist Today, Demand vs
+  Supply, Puppy Growth's flags, as of today) say "so far" or "now", and their button opens
+  them plain.
+  - *My dogs:* most prolific dam and sire (puppies born; only dogs with `MIN_LITTERS` (2)
+    litters in the range ranked; under it, "too early to say"; a tie said as a tie); the
+    best live-birth rate (two or more dams past the minimum); the breeding girls with no
+    litter, as production's idle rows say it (never "failed"); who's expecting; how many
+    breedings took (`MIN_BREEDINGS`, 3 decided), and of two or more sires past it the one
+    whose took least often; the highest-earning dam and sire and the dog furthest in the red
+    (Breeding-Dog Return); back-to-back and 6+ litter flags, as prompts; heats due within a
+    month or overdue; health tests planned and not logged.
+  - *Money:* net with money in and out (P&L); the best month (two or more months with
+    money); the biggest cost and its share; the most and least profitable litter (Litter
+    P&L, two or more); what's owed now and how much is overdue (and over 90 days); sale
+    value by registration (Placements); Full against Limited average price (Pricing,
+    `MIN_SALES`, 3 each; under it, "too early to compare").
+  - *Litters & pups:* litters and puppies born; the average litter (2 or more with counts);
+    the live-birth rate; each pup flagged by Puppy Growth in a litter whelped in the range
+    and not closed, linked to that litter.
+  - *Sales & the waitlist:* pups placed, sale value and (3 or more priced) the average;
+    the count on each registration; the top lead source and referrals; sales that ended, or
+    that none did (3 or more sales); then, with `waitlist`: applications, how often (a mean
+    over 2 or more gaps) and approvals; what families asked for; the parent named most by
+    families who chose only some; who's waiting now, for what, paused, and the median wait;
+    applications to review and fees due; offers accepted (a rate past 3 closed, else plain
+    counts); the kind of pup most short of supply (Demand vs Supply).
+  - *Shows & stud:* points, results and majors; the dog with the most points (two or more
+    shown); titles earned in the range; stud fees earned and paid (completed services);
+    litters stud services produced.
+  - *The whole picture:* the first two from My dogs and Money and the first from each other
+    topic, then Year in Review.
+- **Tested** in `tests/kennelInsights.test.js` (topics per edition, the minimums, ties, the
+  idle wording, each topic's sentences from fake loaders, every source in the catalog).
+
 ### "Getting Started"
 A new breeder's first run through her kennel's settings, after the first-run kennel setup
 (§0): `assets/kelsSetupUI.js` + `data/kelsSetup.js` (pure, tested in
@@ -2078,7 +2155,9 @@ dogs included, so nobody is entered twice; "Yes, that's her" on a pedigree-only 
 it into use with her answers (`spec.bringInId`: updated, not made; the pedigree's names and
 breed stay, hers fill only blanks); outside dogs only in Pro) →
 the matching litter (`litterCandidates`) → the matching breeding (`pairingCandidates`) or when
-she was bred → the stud service (Pro, outside dad) → birth date and counts → kennel (only if
+she was bred → the stud service (Pro, outside dad) → birth date and counts → how they were
+delivered (`delivery`: a tile per `LITTER_DELIVERY_TYPE`, or "I'll add it later", which saves
+nothing; skipped when the chosen litter already has one) → kennel (only if
 it can't be worked out) → one screen per puppy → plans (disposition, intended registration) →
 prices (prefilled from her last priced litter of that breed, previewed with the
 `expectedPricing` rule) → dates → extras → review with Change links.
@@ -2502,6 +2581,9 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
   when it no longer adds up), or, when pups are missing, **Add the missing puppies** in the
   chat: a name and boy or girl each, the rest from the litter (`puppyDefaults.baseFromLitter`,
   as the Litter page's Add puppies; undecided). A dam with no breed is said, not worked around.
+- **Delivery:** a live litter at Whelped or later with no `delivery_type`
+  (`tidyRules.deliveryFindings`, newest first) → one tap per delivery type; "I don't remember"
+  is the remembered answer.
 - **Puppy plan:** a pup with a sale not returned, cancelled or voided whose disposition isn't
   Placed → Placed.
 - **Went home:** an `owned` dog with a Delivered sale (and no newer sale going) → Pro: the

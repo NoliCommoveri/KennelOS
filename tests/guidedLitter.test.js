@@ -90,7 +90,22 @@ test('litters with no pups and open breedings of the same parents are the candid
 test('one screen per puppy, then the sale-ready steps, then the review', () => {
   const d = birthDraft();
   const steps = g.stepsFor(d);
-  assert.deepEqual(steps.slice(steps.indexOf('count')), ['count', 'pup:0', 'pup:1', 'pup:2', 'plans', 'prices', 'dates', 'extras', 'review']);
+  assert.deepEqual(steps.slice(steps.indexOf('count')), ['count', 'delivery', 'pup:0', 'pup:1', 'pup:2', 'plans', 'prices', 'dates', 'extras', 'review']);
+});
+
+test('how they were delivered: asked after the count, unless the litter already says; "later" saves nothing', async () => {
+  const d = birthDraft();
+  assert.ok(g.stepsFor(d).includes('delivery'));
+  assert.ok(!g.stepsFor(d, { litter: { id: 'l', delivery_type: 'natural' } }).includes('delivery'));
+  assert.match(g.stepProblem('delivery', d), /how they were delivered/);
+  d.delivery = 'later';
+  assert.equal(g.stepProblem('delivery', d), null);
+  const { litterId } = await g.saveGuidedLitter(d);
+  assert.equal((await litterRepo.getById(litterId)).delivery_type, undefined);
+  const e = birthDraft({ delivery: 'c_section_emergency' });
+  assert.ok(g.reviewSections(e, {}).some((sec) => sec.lines.includes('Delivery: Emergency C-section.')));
+  const saved = await g.saveGuidedLitter(e);
+  assert.equal((await litterRepo.getById(saved.litterId)).delivery_type, 'c_section_emergency');
 });
 
 test('syncPups names pups by collar and never drops one already recorded', () => {

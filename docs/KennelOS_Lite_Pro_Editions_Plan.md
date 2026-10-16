@@ -78,6 +78,7 @@ without a server, and good enough.
 | Kels's "Set up my waitlist": the fee, offers, going online, programs, then the families she already has; re-runnable to change one part (End-State guide §33) | ❌ | ✅ |
 | Kels's "Check account health": a status report, then fixes — this device's storage, backups, Sensitive records, updates, other devices (End-State guide §33) | ✅ (the checks for what Lite has) | ✅ + the license, Stripe / Jotform keys replaced in the chat, online waitlists |
 | Kels's "Getting Started": a new breeder's first run through her settings, each saved as answered, then Add dogs (End-State guide §33) | ✅ backup (cloud, else a backup file) | ✅ + logo, lifecycle nudges, preferred tests (add, remove, rename), Puppy Record fields, another kennel for a separate side of the business, Google Drive for Furever, Dropbox for KennelAssistant, then Add people too |
+| Kels's "How my business is doing" (Understanding Something): a topic and dates, then plain sentences from her reports with a button to each (End-State guide §33) | ❌ | ✅ |
 | Pedigree import from PDF + pedigree-only dogs (ancestors kept for lineage; never counted toward the cap) | ✅ | ✅ (+ keep the PDF in Documents) |
 | Sales → income | ✅ log sales on their pups | ✅ |
 | Buyers on a sale | ✅ self + inline "add buyer" | ✅ full Contacts section |

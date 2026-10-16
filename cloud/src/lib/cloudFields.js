@@ -120,6 +120,7 @@ export const CLOUD_FIELDS = {
         "accept_deposits_date",
         "created_at",
         "dam_id",
+        "delivery_type",
         "estimated_ready_date",
         "foster_direction",
         "foster_partner_contact_id",
