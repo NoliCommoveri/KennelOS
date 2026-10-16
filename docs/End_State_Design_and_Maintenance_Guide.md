@@ -375,10 +375,10 @@ and it is blocked while anything points at the record.
 - A waitlist listen-only choice naming a sire or dam blocks that dog's hard delete.
 
 **When you add an FK anywhere, add its line to the registry**, or hard delete will silently
-orphan rows, and a merge (§33, `data/recordMerge.js`) will leave rows pointing at the archived
-duplicate. Merge moves every `DOG_REFERENCES` / `CONTACT_REFERENCES` field, plus its own
-`EXTRA_REFERENCES` for unindexed id lists that can't block a delete
-(`waitlist_offers.eligible_dog_ids`).
+orphan rows. A merge (§10, §33, `data/recordMerge.js`) replaces the duplicate's id in every
+field of every record, then checks the duplicate's registry array is clear before deleting it:
+an FK the registry lacks is still moved, but one the registry names and the sweep missed stops
+the delete.
 
 ---
 
@@ -530,12 +530,16 @@ The cross-device data path, and one of the two modules that write tables directl
 - Bump `BACKUP_FORMAT_VERSION` only when an older build couldn't read the new file, and keep
   reading every older version.
 
-**Matching records across devices (file / Dropbox Merge, and a device joining live sync;
-`data/restoreMatch.js`, pure).** The same dog typed on two devices has two ids, so a Merge
-would keep both. Before writing, the restore pairs such records by content, gives each pair
-one id, and merges their fields. A sync join runs the same rules between this device's records
-and the cloud's (`importExport.planJoinMatches` / `mergeJoinMatches`, §34), asking the same
-questions (`assets/mergeQuestions.js`).
+**Matching records across devices (file / Dropbox Merge, a cloud restore, and a device
+joining live sync; `data/restoreMatch.js`, pure).** The same dog typed on two devices has two
+ids, so a Merge would keep both. Before writing, the restore pairs such records by content,
+gives each pair one id, and merges their fields; the other id is gone from this device, so no
+copy of the duplicate is left. A sync join runs the same rules between this device's records
+and the cloud's (`importExport.planJoinMatches` / `mergeJoinMatches`, §34), and so does a
+cloud restore (new device, take over, Restore as of: `cloudBackup.restoreSnapshot` against
+`importExport.cloudSnapshotRows`, before its field overlay; a pair keeps the backup's id), all
+asking the same questions (`assets/mergeQuestions.js`). A cloud restore cancelled at a question
+writes nothing; called with no `ask`, it makes only the certain pairs.
 
 - **Only unclaimed records.** A record is eligible only if its id isn't on the other side:
   a backup record whose id isn't on this device, paired with a device record whose id isn't
@@ -591,7 +595,7 @@ questions (`assets/mergeQuestions.js`).
 - **Which id survives.** The backup's, so two devices that restore each other's files
   converge on one set of ids, unless this device has cloud backup (or live sync) on: then
   this device keeps its ids, so its cloud copy never sees records vanish and reappear. In a
-  sync join it's always the cloud's, since the other devices already have it; the merged
+  sync join or a cloud restore it's always the cloud's, since the other devices already have it; the merged
   record is stamped now, so the join keeps it and pushes it up. A
   re-key replaces the old id everywhere on this device: every field of every record
   (nested ones included), device-only rows (`device_secrets`), and this app's settings
@@ -603,6 +607,40 @@ questions (`assets/mergeQuestions.js`).
   values (co-owners, tests, contact types) are joined; notes keep both. `created_at` is
   the earlier one.
 - The Lite cap is checked against the dogs as they'll be after the whole merge.
+
+**Duplicates on this device (the Import/Export "Duplicates" card; `data/duplicateScan.js`,
+pure, and `assets/duplicateScanUI.js`).** **Scan for duplicates** runs the matching rules
+above between two records on this device instead of across two devices, and adds the
+tidy-up's duplicate dogs and contacts (§33), so anything either would call the same is raised.
+- **Every kind of record the edition has** (`scanTables(flags)`): kennels (outside kennels need
+  `contactsSection`), accounts, contacts, waitlist programs, feeding schedules, dogs,
+  breedings, litters, sales, stud services, contracts, events, expenses, documents, waitlist
+  families and offers; Lite scans its own kennels, dogs, breedings, litters, sales, events
+  and expenses. Live records only. Demo has no Import/Export page.
+- **Nothing merges by itself.** A rule's *Same* is "These look like the same…", its *Ask*
+  "These might be the same…", with what the two have in common; she decides each pair. Two
+  pups of one litter by call name are only ever *Ask*. Foreign keys compare as stored, so the
+  card scans again after every merge: merging two records for one dam makes her two litters a
+  pair. Records are bucketed by what a rule compares first, so a scan never compares every
+  pair.
+- **Not the same** is remembered on this device in the nudge ledger under `dup:<table>:<ids>`
+  (dogs and contacts also under the tidy-up's key, so Kels doesn't ask either).
+- **Merge…** (`recordMerge.mergeDuplicate(table, keepId, dropId, choices)`, also Kels's
+  tidy-up, §33): she picks the record to keep (`suggestKeep`) and, where both have a value and
+  they differ, which one wins (`duplicateConflicts`; dogs and contacts by `MERGE_SPEC`). Blank
+  fields fill from the other, lists join, detail objects fill their blank keys, notes keep
+  both; a kennel's public ID is never copied (the kept kennel's carries on). The kept record is
+  updated through its repo; then the other's id is replaced with the kept one's in every field
+  of every record (nested ones included, a list naming both names it once, a dog's owner never
+  also its co-owner; `files` aren't read), each stamped now, so all its keys and history move.
+  **The other record is deleted, never archived**: it's a mistake, not a record, and an
+  archived copy would still count (a departed dog in Lite, an extra pup in a litter count).
+  The registry (§7) must show nothing pointing at it first. Its own file (a document's, an
+  expense receipt's) is deleted with it unless the kept record took it over. Live sync sends
+  the delete as a tombstone (another device still using it archives it instead, §34). Then
+  this app's settings follow (`settings.remapStoredIds`). Refused: her kennel with someone
+  else's; dogs of a known different sex or in each other's pedigree; contacts who both hold a
+  live place on one kennel's waitlist.
 
 **The Import/Export "Backup & restore" card** is *what* (Back up / Restore) × *where* (This
 device / Dropbox, §26). A Dropbox push is a backup and a pull is a restore through the same
@@ -2639,12 +2677,13 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
 - **Duplicate contacts** (`contactsSection`): the same name (case, spacing and punctuation
   ignored) plus one shared email, phone (last 10 digits), address, Facebook, or kennel.
 
-**Merge** (`data/recordMerge.js` `mergeRecords(kind, keepId, dropId, choices)`): she picks the
+**Merge** (`data/recordMerge.js` `mergeRecords(kind, keepId, dropId, choices)`, the
+`mergeDuplicate` of §10): she picks the
 record to keep (`suggestKeep`: in use over pedigree-only, then fuller, then older), then
 which value wins where both have one and they differ (`mergeConflicts`; a dog's ownership,
 status, kennel and owner are one choice). Blank fields fill from the other, lists join, notes
-keep both. The kept record is updated through its repo, then every row pointing at the other
-(§7) is repointed in one transaction, then the other is archived; a contact's
+keep both. The kept record is updated through its repo, then every id of the other is
+replaced with the kept one's in every record, then the other is deleted (§10); a contact's
 `waitlist_status` is recomputed. Refused: dogs of a known different sex or in each other's
 pedigree; contacts who both hold a live (applied, fee due, on the list) place on one kennel's
 waitlist.

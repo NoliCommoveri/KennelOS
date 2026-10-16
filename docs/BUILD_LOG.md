@@ -1572,3 +1572,49 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   worker cache to `kennelos-shell-v82`. Decided with the owner: released to production ahead
   of the real-device checks (iPhone and Android home-screen apps and a laptop), which follow
   there (LAUNCH_CHECKLIST).
+- **Scan for duplicates on Import/Export (2026-10-16).** A **Duplicates** card between Backup
+  & restore and CSV import (`assets/duplicateScanUI.js`). New `data/duplicateScan.js` (pure)
+  runs a file Merge's matching rules (`restoreMatch.MATCH_RULES`, now exported with `dogNever`)
+  between two records on this device, plus the tidy-up's duplicate dogs and contacts, over every
+  record type the edition has (Lite: its own kennels, dogs, breedings, litters, sales, events,
+  expenses). Each pair is raised with what they share, certain or possible, and nothing merges
+  by itself; two littermates by name are only possible. "Not the same" is remembered (`dup:`,
+  plus the tidy-up's key for dogs and contacts). New `recordMerge.mergeDuplicate`: dogs and
+  contacts through `mergeRecords`; any other record merged field by field
+  (`duplicateConflicts` / `duplicateChanges`), its id replaced in every field of every record,
+  the other archived, then settings re-keyed; a kennel's public ID never copied, and her
+  kennel never merged with someone else's. `describeRecord` now names every record type (the
+  file Merge's questions too). Tested: every table found, Lite's subset, the never-pairs, a
+  dismissed pair, a litter merge moving pups / events / expenses / a setting, event details,
+  the kennel refusals, a dog merge then a clean rescan. Checked in headless Chromium at phone
+  width: two Bellas and a doubled weight check found; merging the Bellas raised their two
+  litters next; Lite's card lists only its record types.
+- **Every merge gets rid of the duplicate (2026-10-16).** Decided with the owner: wherever two
+  records are merged, all keys and history move to the kept one and the duplicate is deleted,
+  never archived (an archived copy still counted: a departed dog in Lite, an extra pup in a
+  litter count). `recordMerge.mergeDuplicate` is now the one on-device merge (Kels's
+  `mergeRecords` calls it): the kept record through its repo, then the duplicate's id replaced
+  in every field of every record (lists de-duplicated, owner never also co-owner), then the
+  duplicate deleted once its registry array is clear, its own file with it unless the kept
+  record took it over, then settings re-keyed. `EXTRA_REFERENCES` and `MERGE_SPEC.references`
+  are gone (the sweep covers them). Cloud restore (new device, take over, Restore as of) now
+  pairs records entered on both sides before its overlay, as a file Merge and a sync join do
+  (`importExport.cloudSnapshotRows` + `planJoinMatches` / `mergeJoinMatches`; the backup's id
+  wins), asking "Are these the same?" through `restoreSnapshot`'s `ask` (cancel writes
+  nothing). File / Dropbox Merge and the sync join already left no duplicate. Tested: dogs,
+  contacts, litters and documents deleted after a merge with files kept or removed, a list
+  naming both; a cloud restore on a second device pairing its own kennel and two dogs (one
+  asked), the duplicates gone, its private notes and litter and My kennel moved, and a
+  cancelled question writing nothing.
+- **R2 orphan sweep (2026-10-16).** Retention deletes D1 rows before R2 objects, so a failed
+  R2 delete left objects nothing tracked and nothing found again. `retention.sweepR2Orphans`,
+  run at the end of every retention, walks the bucket ten pages (10,000 objects) a run from
+  where the last stopped (new migration `0017_r2_sweep`: one row, R2's list cursor and when
+  the pass began / last finished) and deletes `files/<program>/<sha256>` with no `files` row and
+  `snapshots/<program>/<id>.json.gz|.vault` with no `snapshots` row. Never: other key shapes, a
+  program D1 doesn't know (an emptied or re-imported D1 deletes nothing), objects uploaded in
+  the last day; and a run finding over 1,000 deletes none and stays put, reported as
+  `r2SweepHalted` on /ops and in the cron log. The test bucket's `list` now gives `uploaded`.
+  Tested: the leftovers deleted and everything else kept, a bucket walked over three runs, the
+  halt. Production needs `0017` applied from /ops after deploy (the cron skips retention while
+  a migration is pending).

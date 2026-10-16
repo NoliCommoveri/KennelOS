@@ -102,7 +102,7 @@ export function makeBucket() {
       if (options.sha256 && createHash('sha256').update(bytes).digest('hex') !== options.sha256) {
         throw new Error('put: The SHA-256 checksum you specified did not match what we received.');
       }
-      store.set(key, { bytes, httpMetadata: options.httpMetadata ?? {} });
+      store.set(key, { bytes, httpMetadata: options.httpMetadata ?? {}, uploaded: new Date() });
       return object(key, store.get(key));
     },
     async get(key) {
@@ -114,7 +114,7 @@ export function makeBucket() {
       const from = cursor ? all.findIndex((k) => k > cursor) : 0;
       const start = from === -1 ? all.length : from;
       const page = all.slice(start, start + limit);
-      return { objects: page.map((key) => ({ key })), truncated: start + page.length < all.length, cursor: page.at(-1) };
+      return { objects: page.map((key) => ({ key, uploaded: store.get(key).uploaded })), truncated: start + page.length < all.length, cursor: page.at(-1) };
     },
     async delete(keys) {
       const list = [].concat(keys);

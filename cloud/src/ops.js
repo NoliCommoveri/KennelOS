@@ -313,7 +313,7 @@ async function route(request, env) {
 
   if (url.pathname === '/ops/retention' && request.method === 'POST') {
     const r = await runRetention(env);
-    return dashboard(env, `<p class="ok">Retention done: ${esc(r.snapshotsDropped)} snapshots and ${esc(r.pendingDropped)} abandoned uploads removed, ${esc(r.filesDropped)} unreferenced files removed.</p>`);
+    return dashboard(env, `<p class="ok">Retention done: ${esc(r.snapshotsDropped)} snapshots and ${esc(r.pendingDropped)} abandoned uploads removed, ${esc(r.filesDropped)} unreferenced files removed, ${esc(r.r2Untracked)} untracked R2 objects removed.${r.r2SweepHalted ? ` The R2 sweep stopped: it found ${esc(r.r2SweepHalted)} objects D1 doesn't track and deleted none of them. Check D1 is the bucket's real index before it runs again.` : ''}</p>`);
   }
 
   if (url.pathname === '/ops/notices' && request.method === 'POST') {

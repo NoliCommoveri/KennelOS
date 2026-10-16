@@ -22,7 +22,8 @@
 // and date stay for her log).
 //
 // D1 rows go first, then R2 objects. If the R2 delete fails, the leftovers are
-// unreferenced objects (harmless), never rows pointing at nothing.
+// unreferenced objects, never rows pointing at nothing; the orphan sweep at the
+// end of every run (sweepR2Orphans) finds and deletes them.
 import { syncRetentionStatements } from './sync.js';
 import { vaultKeyFor } from './snapshots.js';
 
@@ -67,7 +68,7 @@ export function pickDrops(snapshots, nowMs) {
 export async function runRetention(env, now = new Date()) {
   const nowMs = now.getTime();
   const iso = (ms) => new Date(ms).toISOString();
-  const summary = { snapshotsDropped: 0, pendingDropped: 0, filesDropped: 0, r2Deleted: 0 };
+  const summary = { snapshotsDropped: 0, pendingDropped: 0, filesDropped: 0, r2Deleted: 0, r2Untracked: 0 };
 
   const { results: committed } = await env.DB.prepare(
     `SELECT id, program_id, created_at, r2_key FROM snapshots WHERE status = 'committed'`,
@@ -113,6 +114,8 @@ export async function runRetention(env, now = new Date()) {
     summary.r2Deleted += orphans.length;
   }
 
+  Object.assign(summary, await sweepR2Orphans(env, nowMs));
+
   await env.DB.batch([
     env.DB.prepare('DELETE FROM login_codes WHERE expires_at < ?').bind(iso(nowMs)),
     env.DB.prepare('DELETE FROM rate_limits WHERE window_start < ?').bind(iso(nowMs - DAY)),
@@ -151,4 +154,76 @@ export async function runRetention(env, now = new Date()) {
   ]);
 
   return summary;
+}
+
+// --- The R2 orphan sweep ----------------------------------------------------------
+// An object nothing in D1 tracks (an R2 delete above that failed after its rows
+// went, or an upload whose row never landed) can't be reached through the API, so
+// it's deleted. The bucket is walked a few pages a run, carrying on from where the
+// last run stopped (r2_sweep, migration 0017), so a big bucket is covered over
+// several days at a bounded cost per run. Safe by construction:
+//   - only the two shapes the Worker writes: files/<program>/<sha256> (tracked by
+//     `files`) and snapshots/<program>/<id>.json.gz | .vault (tracked by
+//     `snapshots`, any status); any other key is left alone;
+//   - only for a program D1 knows, so an emptied or restored D1 (backup.js
+//     imports D1 back over a bucket that still holds the objects) deletes nothing;
+//   - only objects uploaded more than a day ago, so an upload whose row is a
+//     moment behind (files.js writes R2 first) is never caught mid-way;
+//   - a run that finds more than SWEEP_HALT_AT deletes none of them and stays
+//     where it was: that many means D1 isn't the bucket's index right now
+//     (a restore, a bug), which is for a person to look at, not to "fix".
+export const SWEEP_PAGES = 10;
+export const SWEEP_HALT_AT = 1000;
+const FILE_KEY = /^files\/([^/]+)\/([0-9a-f]{64})$/;
+const SNAPSHOT_KEY = /^snapshots\/([^/]+)\/([^/]+)\.(?:json\.gz|vault)$/;
+
+function parseKey(key) {
+  let m = FILE_KEY.exec(key);
+  if (m) return { k: key, kind: 'file', p: m[1], x: m[2] };
+  m = SNAPSHOT_KEY.exec(key);
+  if (m) return { k: key, kind: 'snapshot', p: m[1], x: m[2] };
+  return null;
+}
+
+// The keys among `keys` nothing in D1 tracks (one query, one bound parameter).
+async function untrackedKeys(env, keys) {
+  const parsed = keys.map(parseKey).filter(Boolean);
+  if (!parsed.length) return [];
+  const { results } = await env.DB.prepare(
+    `SELECT json_extract(j.value, '$.k') AS key FROM json_each(?) j
+      WHERE EXISTS (SELECT 1 FROM programs p WHERE p.id = json_extract(j.value, '$.p'))
+        AND NOT (json_extract(j.value, '$.kind') = 'file' AND EXISTS (SELECT 1 FROM files f
+              WHERE f.program_id = json_extract(j.value, '$.p') AND f.sha256 = json_extract(j.value, '$.x')))
+        AND NOT (json_extract(j.value, '$.kind') = 'snapshot' AND EXISTS (SELECT 1 FROM snapshots s
+              WHERE s.id = json_extract(j.value, '$.x') AND s.program_id = json_extract(j.value, '$.p')))`,
+  ).bind(JSON.stringify(parsed)).all();
+  return results.map((r) => r.key);
+}
+
+// → { r2Untracked: objects deleted, r2SweepHalted?: how many it found instead }.
+export async function sweepR2Orphans(env, nowMs = Date.now(), { pages = SWEEP_PAGES, pageSize = MAX_PER_RUN } = {}) {
+  const iso = (ms) => new Date(ms).toISOString();
+  const state = await env.DB.prepare('SELECT cursor, pass_started_at FROM r2_sweep WHERE id = 1').first();
+  let cursor = state?.cursor || undefined;
+  const passStarted = state?.pass_started_at || iso(nowMs);
+  let passDone = false;
+  const found = [];
+  for (let i = 0; i < pages; i++) {
+    const page = await env.FILES.list({ cursor, limit: pageSize });
+    const settled = page.objects.filter((o) => o.uploaded && nowMs - new Date(o.uploaded).getTime() > DAY);
+    found.push(...await untrackedKeys(env, settled.map((o) => o.key)));
+    if (!page.truncated) { passDone = true; cursor = undefined; break; }
+    cursor = page.cursor;
+  }
+  if (found.length > SWEEP_HALT_AT) {
+    console.log('r2 sweep halted', JSON.stringify({ untracked: found.length }));
+    return { r2Untracked: 0, r2SweepHalted: found.length };
+  }
+  for (let i = 0; i < found.length; i += MAX_PER_RUN) await env.FILES.delete(found.slice(i, i + MAX_PER_RUN));
+  await env.DB.prepare(
+    `INSERT INTO r2_sweep (id, cursor, pass_started_at, last_pass_at) VALUES (1, ?, ?, ?)
+     ON CONFLICT (id) DO UPDATE SET cursor = excluded.cursor, pass_started_at = excluded.pass_started_at,
+       last_pass_at = COALESCE(excluded.last_pass_at, r2_sweep.last_pass_at)`,
+  ).bind(cursor ?? null, passDone ? null : passStarted, passDone ? iso(nowMs) : null).run();
+  return { r2Untracked: found.length };
 }

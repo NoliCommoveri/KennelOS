@@ -383,6 +383,44 @@ test('a second device meets a 409, restores (keeping its own private data), then
   assert.equal((await cb.getProgramStatus()).backingDevice.label, 'Phone A');
 });
 
+test('a restore pairs records entered on both devices: one record each, the duplicates deleted', async () => {
+  putProgram();
+  tables.dogs.rows.get('d1').registered_name = 'Oak Hill Bella';
+  tables.dogs.rows.get('d2').call_name = 'Maple';
+  await signIn('breeder@example.com', 'Phone A');
+  await cb.enableBackup();
+
+  switchDevice('B');
+  put('kennels', row('kB', { kennel_name: 'Oak Hill', is_own_kennel: true }));
+  putDog('bBella', { kennel_id: 'kB', registered_name: 'CH Oak Hill Bella', notes: 'typed on B' });
+  putDog('bMaple', { kennel_id: 'kB', call_name: 'maple' });
+  put('litters', row('bL', { kennel_id: 'kB', dam_id: 'bBella', status: 'expected' }));
+  settings.setMyKennelId('kB');
+  await signIn('breeder@example.com', 'Laptop B');
+  assert.equal((await cb.enableBackup()).status, 'conflict');
+
+  // Cancelling the question writes nothing.
+  const cancelled = await cb.restoreLatestAndTakeOver({ ask: async () => null });
+  assert.equal(cancelled.cancelled, true);
+  assert.ok(tables.dogs.rows.has('bBella') && !tables.dogs.rows.has('d1'));
+
+  const asked = [];
+  const { restored } = await cb.restoreLatestAndTakeOver({
+    ask: async ({ asks, clashes }) => {
+      asked.push(asks ? 'asks' : 'clashes');
+      return asks ? Object.fromEntries(asks.map((q) => [q.key, q.candidates[0].id])) : {};
+    }
+  });
+  assert.equal(restored.matched, 3); // the kennel, Bella (certain), Maple (asked)
+  assert.deepEqual(asked, ['asks', 'clashes']);
+  for (const id of ['kB', 'bBella', 'bMaple']) assert.ok(!tables[id === 'kB' ? 'kennels' : 'dogs'].rows.has(id), `${id} deleted`);
+  assert.equal(tables.dogs.rows.size, 3);
+  assert.equal(tables.dogs.rows.get('d1').notes, 'typed on B'); // B's private details kept
+  assert.equal(tables.litters.rows.get('bL').dam_id, 'd1');
+  assert.equal(tables.litters.rows.get('bL').kennel_id, 'k1');
+  assert.equal(settings.getMyKennelId(), 'k1');
+});
+
 test('Reset App turns backup off; turning it back on goes through the restore-or-replace choice', async () => {
   putProgram();
   await signIn();

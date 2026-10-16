@@ -1,6 +1,7 @@
 // recordMerge.test.js — merging two records for one dog or one person
 // (data/recordMerge.js): what the kept record ends up with, that every row
-// pointing at the other one now points at the kept one, and when it refuses.
+// pointing at the other one now points at the kept one, that the other one is
+// deleted, and when it refuses.
 import { test, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { installMemoryDb } from './support/memoryDb.js';
@@ -37,26 +38,24 @@ test('lists are joined, notes kept from both, and the owner never also a co-owne
   assert.equal(ch.notes, 'one\n\ntwo');
 });
 
-test('merging dogs moves every reference to the kept dog and archives the other', async () => {
+test('merging dogs moves every reference to the kept dog and deletes the other', async () => {
   put('dogs', { id: 'keep', call_name: 'Bella', sex: 'female', breed: 'Boston', ownership_type: 'owned', status: 'active_breeding', kennel_id: 'K' });
   put('dogs', { id: 'dup', call_name: 'Bella', sex: 'female', breed: 'Boston', ownership_type: 'external', status: 'external_reference', pedigree_only: true, registration_number: 'R1' });
   put('dogs', { id: 'pup', call_name: 'Pup', sex: 'male', breed: 'Boston', ownership_type: 'owned', status: 'puppy', kennel_id: 'K', dam_id: 'dup' });
   put('litters', { id: 'L', sire_id: 'S', dam_id: 'dup', status: 'whelped', kennel_id: 'K' });
   put('events', { id: 'e', subject_type: 'dog', subject_id: 'dup', event_type: 'heat_cycle', event_date: '2026-01-01', title: 'Heat' });
-  put('events', { id: 'e2', subject_type: 'litter', subject_id: 'dup', event_type: 'note', event_date: '2026-01-01', title: 'Not a dog' });
   put('waitlist_offers', { id: 'o', eligible_dog_ids: ['dup', 'keep'], chosen_dog_id: 'dup' });
 
   const { moved } = await M.mergeRecords('dog', 'keep', 'dup');
-  assert.equal(moved, 5);
+  assert.equal(moved, 4); // the pup, the litter, the event, the offer
   assert.equal(row('dogs', 'pup').dam_id, 'keep');
   assert.equal(row('litters', 'L').dam_id, 'keep');
   assert.equal(row('events', 'e').subject_id, 'keep');
-  assert.equal(row('events', 'e2').subject_id, 'dup'); // a litter's event, untouched
   assert.deepEqual(row('waitlist_offers', 'o').eligible_dog_ids, ['keep']);
   assert.equal(row('waitlist_offers', 'o').chosen_dog_id, 'keep');
   assert.equal(row('dogs', 'keep').registration_number, 'R1'); // filled in from the other
   assert.equal(row('dogs', 'keep').ownership_type, 'owned');   // ownership kept
-  assert.equal(row('dogs', 'dup').is_archived, true);
+  assert.equal(row('dogs', 'dup'), undefined);
 });
 
 test('refuses a dog that is in the other\'s pedigree, or of the other sex', async () => {
@@ -83,7 +82,7 @@ test('merging contacts moves sales, ownership and waitlist places, and joins the
   assert.deepEqual(row('dogs', 'd').co_owner_contact_ids, []); // c1 owns it; not also a co-owner
   assert.equal(row('waitlist_entries', 'w').contact_id, 'c1');
   assert.equal(c1.waitlist_status, 'fulfilled'); // recomputed from the moved entry
-  assert.equal(row('contacts', 'c2').is_archived, true);
+  assert.equal(row('contacts', 'c2'), undefined);
 });
 
 test('refuses two contacts who both hold a live place on the same waitlist', async () => {
