@@ -1589,3 +1589,20 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   the kennel refusals, a dog merge then a clean rescan. Checked in headless Chromium at phone
   width: two Bellas and a doubled weight check found; merging the Bellas raised their two
   litters next; Lite's card lists only its record types.
+- **Every merge gets rid of the duplicate (2026-10-16).** Decided with the owner: wherever two
+  records are merged, all keys and history move to the kept one and the duplicate is deleted,
+  never archived (an archived copy still counted: a departed dog in Lite, an extra pup in a
+  litter count). `recordMerge.mergeDuplicate` is now the one on-device merge (Kels's
+  `mergeRecords` calls it): the kept record through its repo, then the duplicate's id replaced
+  in every field of every record (lists de-duplicated, owner never also co-owner), then the
+  duplicate deleted once its registry array is clear, its own file with it unless the kept
+  record took it over, then settings re-keyed. `EXTRA_REFERENCES` and `MERGE_SPEC.references`
+  are gone (the sweep covers them). Cloud restore (new device, take over, Restore as of) now
+  pairs records entered on both sides before its overlay, as a file Merge and a sync join do
+  (`importExport.cloudSnapshotRows` + `planJoinMatches` / `mergeJoinMatches`; the backup's id
+  wins), asking "Are these the same?" through `restoreSnapshot`'s `ask` (cancel writes
+  nothing). File / Dropbox Merge and the sync join already left no duplicate. Tested: dogs,
+  contacts, litters and documents deleted after a merge with files kept or removed, a list
+  naming both; a cloud restore on a second device pairing its own kennel and two dogs (one
+  asked), the duplicates gone, its private notes and litter and My kennel moved, and a
+  cancelled question writing nothing.

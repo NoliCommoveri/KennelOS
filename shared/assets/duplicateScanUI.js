@@ -3,8 +3,8 @@
 // a file Merge's rules plus the tidy-up's), lists each pair with what they have
 // in common, and merges a pair she confirms (data/recordMerge.js mergeDuplicate):
 // she picks the record to keep and, where they disagree, which value wins;
-// everything that pointed at the other one moves to it, and the other is
-// archived. "Not the same" is remembered on this device (nudge ledger, `dup:`;
+// everything that pointed at the other one (its history included) moves to it,
+// and the other is deleted. "Not the same" is remembered on this device (nudge ledger, `dup:`;
 // for dogs and contacts the tidy-up's key too). Nothing changes until she merges.
 import { esc, fmtDate } from './ui.js';
 import { editionFlags } from '../data/editionConfig.js';
@@ -151,7 +151,7 @@ export function mountDuplicateScan(root, { flash = () => {} } = {}) {
       overlay.className = 'modal-overlay';
       overlay.innerHTML = `<div class="modal" role="dialog" aria-modal="true" style="max-width:560px;">
         <h2 style="margin-top:0;">Merge these ${esc(RECORD_WORDS[f.table][1])}?</h2>
-        <p class="muted">Everything that points at the other ${esc(word)} moves to the one you keep, and the other is archived. Blank details fill in from the other one, and notes are kept from both.</p>
+        <p class="muted">Everything that points at the other ${esc(word)} and all its history move to the one you keep, and the other is deleted. Blank details fill in from the other one, and notes are kept from both.</p>
         <div class="field"><label>Keep this ${esc(word)}</label>
           ${radio('dup-keep', 'a', esc(describe(f.table, f.a)), defaultSide === 'a')}
           ${radio('dup-keep', 'b', esc(describe(f.table, f.b)), defaultSide === 'b')}

@@ -98,7 +98,7 @@ test('possible pairs are raised too, and a dismissed pair is left out', () => {
   assert.deepEqual(S.findDuplicates({ rows, flags: PRO, dismissed: (x) => x.key === f.key }), []);
 });
 
-test('merging two litters moves the pups, events and expenses, fills blanks and archives the other', async () => {
+test('merging two litters moves the pups, events and expenses, fills blanks and deletes the other', async () => {
   put('kennels', { id: 'K', kennel_name: 'Mine', is_own_kennel: true });
   put('litters', { id: 'keep', dam_id: 'D', sire_id: 'S', status: 'whelped', whelp_date: '2026-05-03', kennel_id: 'K', notes: 'first' });
   put('litters', { id: 'dup', dam_id: 'D', sire_id: 'S', status: 'weaning', whelp_date: '2026-05-03', kennel_id: 'K', puppies_born_total: 5, notes: 'second', created_at: at(2) });
@@ -118,7 +118,7 @@ test('merging two litters moves the pups, events and expenses, fills blanks and 
   assert.equal(kept.status, 'weaning');
   assert.equal(kept.puppies_born_total, 5);
   assert.equal(kept.notes, 'first\n\nsecond');
-  assert.equal(row('litters', 'dup').is_archived, true);
+  assert.equal(row('litters', 'dup'), undefined);
   assert.equal(JSON.parse(localStorage.getItem('kennelOS.someDraft')).litterId, 'keep');
 });
 
@@ -147,7 +147,34 @@ test('dogs and contacts merge through mergeRecords, and settings follow', async 
   assert.deepEqual(scan.findings.map((f) => f.key), ['dogs:dup:keep']);
   await M.mergeDuplicate('dogs', 'keep', 'dup');
   assert.equal(row('litters', 'L').dam_id, 'keep');
-  assert.equal(row('dogs', 'dup').is_archived, true);
+  assert.equal(row('dogs', 'dup'), undefined);
   assert.equal(localStorage.getItem('kennelOS.lastDog'), 'keep');
   assert.deepEqual((await M.scanForDuplicates({ flags: PRO })).findings, []);
+});
+
+test('a merged document keeps the file it ends up with; the duplicate\'s other file goes with it', async () => {
+  put('dogs', { id: 'D', call_name: 'Bella' });
+  put('files', { id: 'fKeep', mime: 'application/pdf' });
+  put('files', { id: 'fDrop', mime: 'application/pdf' });
+  put('files', { id: 'fOnly', mime: 'application/pdf' });
+  put('documents', { id: 'k', dog_id: 'D', doc_type: 'pedigree', title: 'Pedigree', file_id: 'fKeep' });
+  put('documents', { id: 'x', dog_id: 'D', doc_type: 'pedigree', title: 'Pedigree', file_id: 'fDrop', created_at: at(2) });
+  await M.mergeDuplicate('documents', 'k', 'x');
+  assert.equal(row('documents', 'x'), undefined);
+  assert.ok(row('files', 'fKeep') && !row('files', 'fDrop'));
+
+  put('documents', { id: 'k2', dog_id: 'D', doc_type: 'health_test', title: 'OFA' });
+  put('documents', { id: 'x2', dog_id: 'D', doc_type: 'health_test', title: 'OFA', file_id: 'fOnly', created_at: at(2) });
+  await M.mergeDuplicate('documents', 'k2', 'x2');
+  assert.equal(row('documents', 'k2').file_id, 'fOnly'); // the kept one took it over
+  assert.ok(row('files', 'fOnly'));
+});
+
+test('a list naming both records names the kept one once', async () => {
+  put('litters', { id: 'k', dam_id: 'D', sire_id: 'S', whelp_date: '2026-05-03' });
+  put('litters', { id: 'x', dam_id: 'D', sire_id: 'S', whelp_date: '2026-05-03', created_at: at(2) });
+  put('waitlist_offers', { id: 'o', litter_id: 'x', notes_ids: ['k', 'x'] });
+  await M.mergeDuplicate('litters', 'k', 'x');
+  assert.equal(row('waitlist_offers', 'o').litter_id, 'k');
+  assert.deepEqual(row('waitlist_offers', 'o').notes_ids, ['k']);
 });

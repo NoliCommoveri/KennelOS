@@ -25,7 +25,7 @@ const MARKED = {
   'shared/data/expenseRepo.js': 2,   // migrateEventCosts
   'shared/data/assistantSync.js': 1, // KennelAssistant event import
   'shared/data/importExport.js': 8,  // restoreBackup replace, file merge (rows, re-keyed device secrets), cloud-merge, vault-merge, a sync join's pairs (rows, device secrets)
-  'shared/data/recordMerge.js': 2    // merging two records: repointing what pointed at the archived one (dogs/contacts by the registry; any other record by a re-key)
+  'shared/data/recordMerge.js': 2    // merging two records: re-keying what named the duplicate, then deleting it
 };
 
 // File → { sites, why }. Writers that deliberately don't mark the backup dirty.
