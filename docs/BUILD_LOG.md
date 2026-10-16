@@ -1518,3 +1518,15 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   page's rows and tiles against the commit before (only production's new row and the link
   range differ), each topic's sentences on the sample data, the empty-range offer, a report
   link on its range, and Lite's Understanding Something unchanged.
+- **Litter delivery type (2026-10-16).** New optional `Litter.delivery_type`
+  (`vocab.LITTER_DELIVERY_TYPE`: Natural, Natural assisted, Planned C-section, Emergency
+  C-section), synced (cloud; `cloudFields.js` regenerated). The Litter page shows it only
+  once the litter is Whelped or later and asks for it when a litter first gets there (or is
+  created there) without one; Kels's Record a new litter asks it after the counts ("I'll add
+  it later" saves nothing); the tidy-up raises each whelped litter without it, newest first
+  ("I don't remember" is remembered); the litter CSV import takes a `delivery_type` column.
+  No schema block (a plain field). Tested: the repo's value check, the guided step and save,
+  the tidy finding, the import's words. Checked in the browser: hidden while Expected, shown
+  on Whelped, the prompt on save, and the tidy-up fix.
+  A dog's Litters list shows it as a pill after the status, by a short label (Natural,
+  Assisted, Planned C-sec, Emergency C-sec).

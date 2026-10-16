@@ -213,3 +213,12 @@ test('the vet checks are Pro (contactsSection) and come after the kennel checks'
   assert.deepEqual(kinds(T.tidyFindings(base)), []);
   assert.deepEqual(kinds(T.tidyFindings({ ...base, flags: { contactsSection: true } })), ['event-no-vet', 'no-vet']);
 });
+
+test('a whelped litter with no delivery type is asked about, newest first; expected and archived ones are not', () => {
+  const l = (id, status, extra = {}) => ({ id, status, whelp_date: `2026-0${id}-01`, ...extra });
+  const found = T.deliveryFindings([l(1, 'whelped'), l(2, 'expected'), l(3, 'closed'), l(4, 'sold', { delivery_type: 'natural' }), l(5, 'ready', { is_archived: true })]);
+  assert.deepEqual(found.map((f) => [f.kind, f.litter.id]), [['litter-delivery', 3], ['litter-delivery', 1]]);
+  assert.equal(found[0].key, 'delivery:3');
+  assert.equal(T.TIDY_KINDS.indexOf('litter-delivery'), 1);
+});
+

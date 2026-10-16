@@ -209,7 +209,7 @@ to the cloud unsealed).
 | **Contact** | `name` | `contact_type[]`, `email`, `phone`, `facebook_profile`, `address` (also the away-board location, §19), `kennel_id` (affiliation, not scope), `waitlist_status` (kept by `waitlistEntryRepo`), `first_contact_source`, `companion_note` (shown to the recipient, §20; `notes` is private). Buyers are Contacts; there is no Buyer table. |
 | **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `puppy_record_fields` (§23), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date` when empty). Sire ≠ dam. |
-| **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `puppies_born_*` counts, per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
+| **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `puppies_born_*` counts, `delivery_type` (`LITTER_DELIVERY_TYPE`: natural, assisted, planned or emergency C-section; cloud; shown and asked only once the litter is Whelped or later, see Litter delivery below), per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
 | **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
 | **Contract** | `contract_type`, `kennel_id` | `status` (default `draft`), `related_sale_id`, `related_stud_service_id`; `related_dog_id` and `related_contact_id` only for `lease`/`co_own`/`foster`/`other` (forced null otherwise, `contractRepo.normalizeLinks`), `document_url`, `signed_date`, lease dates, e-sign fields and `integration_reviews` (§32), `title`, `terms_summary`. |
 | **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `direction` is **who travels** (`STUD_SERVICE_DIRECTION`: `to_partner` our dog goes to them, `to_us` their dog comes to us, `shipped` no one / AI). Whether our dog is the stud or the dam isn't stored: it's our dog's sex, else the partner's opposite (`studRules.ourRole`; `STUD_SERVICE_ROLE` for badges and filters). `sent_date` / `returned_date` are the service's two dates, labelled **Begins / Ends**. `type` (`in_person`/`ai`) is set by the repo from `direction` (shipped → ai), never asked. `pairing_id`, `fee_amount`, `fee_structure`; `pick_status` and `pick_value_amount` only for pick fee structures (forced null otherwise; with our stud the pick is our puppy, and `pick_status` claimed / waived ends Today's `studpick`, §19), `referred_by_contact_id`, invoice fields (our stud only, §24). |
@@ -219,6 +219,17 @@ to the cloud unsealed).
 | **File** (`files`) | `blob`, `mime`, `filename`, `size` | `thumbnail`. Always a PDF. Owned by its one Document or Expense; fetched by id only (§26.1). |
 | **WaitlistEntry**, **WaitlistOffer**, **WaitlistProgram** | see §29 | One entry per family per time on a kennel's list; position and passes are derived, never stored. |
 | **Account** (`accounts`) | `name` | `account_type`, login fields (private), referral fields, fee rate, `contract_forms[]`, `payment_link`, `payment_instructions` (§32). Program-wide, no `kennel_id`. API keys live in `device_secrets`, never on the record. |
+
+**Litter delivery.** `Litter.delivery_type` is asked only once the litter is Whelped or
+later (`vocab.WHELPED_OR_LATER`). The Litter page hides the field before that, so a status
+change redraws the form with it, and keeps a stored value hidden rather than clearing it.
+When a litter is created at Whelped or later, or first gets there, with none recorded, the
+page asks for it ("How was this litter delivered?", **Save** / **Not now**) before its
+linked-pairing prompt. Kels's Record a new litter asks it after the counts; the tidy-up
+raises a whelped litter without it (§33); the litter CSV import takes a `delivery_type`
+column (labels, or words like "elective c-section"). A dog's Litters list shows it as a pill
+after the status, by its `short` label (Natural, Assisted, Planned C-sec, Emergency C-sec;
+the full name on hover).
 
 **Kennel scope.** `Pairing`, `Litter`, `Sale`, `Contract`, `StudService`, `Document`, and
 owned dogs carry a required own-kennel `kennel_id`, **stamped on create** from the parent (a
@@ -2144,7 +2155,9 @@ dogs included, so nobody is entered twice; "Yes, that's her" on a pedigree-only 
 it into use with her answers (`spec.bringInId`: updated, not made; the pedigree's names and
 breed stay, hers fill only blanks); outside dogs only in Pro) →
 the matching litter (`litterCandidates`) → the matching breeding (`pairingCandidates`) or when
-she was bred → the stud service (Pro, outside dad) → birth date and counts → kennel (only if
+she was bred → the stud service (Pro, outside dad) → birth date and counts → how they were
+delivered (`delivery`: a tile per `LITTER_DELIVERY_TYPE`, or "I'll add it later", which saves
+nothing; skipped when the chosen litter already has one) → kennel (only if
 it can't be worked out) → one screen per puppy → plans (disposition, intended registration) →
 prices (prefilled from her last priced litter of that breed, previewed with the
 `expectedPricing` rule) → dates → extras → review with Change links.
@@ -2568,6 +2581,9 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
   when it no longer adds up), or, when pups are missing, **Add the missing puppies** in the
   chat: a name and boy or girl each, the rest from the litter (`puppyDefaults.baseFromLitter`,
   as the Litter page's Add puppies; undecided). A dam with no breed is said, not worked around.
+- **Delivery:** a live litter at Whelped or later with no `delivery_type`
+  (`tidyRules.deliveryFindings`, newest first) → one tap per delivery type; "I don't remember"
+  is the remembered answer.
 - **Puppy plan:** a pup with a sale not returned, cancelled or voided whose disposition isn't
   Placed → Placed.
 - **Went home:** an `owned` dog with a Delivered sale (and no newer sale going) → Pro: the

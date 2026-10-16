@@ -618,6 +618,18 @@ const validLitterRow = (over = {}) => ({
   dam_registered_name: 'Bella', sire_registered_name: 'Zeus', whelp_date: '2024-05-10', status: 'Whelped', ...over
 });
 
+test('litter: delivery_type by its label or another word for it; an unknown one is ignored with a reason', () => {
+  const index = litterIndex({ dogs: [sire, dam] });
+  const of = (v, key = 'delivery_type') => litterMapping.classify(validLitterRow({ [key]: v }), index, 0);
+  assert.equal(of('Emergency C-section').record.delivery_type, 'c_section_emergency');
+  assert.equal(of('elective c-section', 'delivery').record.delivery_type, 'c_section_planned');
+  assert.equal(of('Natural, assisted').record.delivery_type, 'assisted');
+  assert.equal(of('').record.delivery_type, undefined);
+  const odd = of('by stork');
+  assert.equal(odd.record.delivery_type, undefined);
+  assert.ok(reasonsInclude(odd.reasons, 'Unrecognized delivery_type "by stork"'));
+});
+
 test('litter: dam + sire + whelp_date all required for a natural key', () => {
   const index = litterIndex({ dogs: [sire, dam] });
   const r = litterMapping.classify(validLitterRow({ whelp_date: '' }), index, 0);
