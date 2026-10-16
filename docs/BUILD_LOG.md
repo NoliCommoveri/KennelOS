@@ -1530,3 +1530,45 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   on Whelped, the prompt on save, and the tidy-up fix.
   A dog's Litters list shows it as a pill after the status, by a short label (Natural,
   Assisted, Planned C-sec, Emergency C-sec).
+- **Kels: Cancel a task (2026-10-16).** A **Cancel** button in Kels's header beside Save for
+  later, shown while any task runs. It asks "Are you sure?" (Yes, cancel / Keep going); yes
+  drops the open question, throws away a resumable task's draft (each resumable task names
+  its `discard`), says "Okay, I've stopped." and goes back to the menu. Records already saved
+  stay. Checked in the browser at phone width: both buttons fit, Keep going leaves the task
+  as it was, Yes ends it and hides both buttons.
+- **Live sync: the UI (Cloud Phase 2 step 6, 2026-10-16).** **Keep my devices in step** on
+  Import / Export → Cloud, under Sensitive records (`assets/cloudSyncUI.js`): turn on (what's
+  missing named first), join (offered in place of restore / replace wherever a backup gets
+  the syncing 409, and after Sign in and restore), catch up, each pause with its fix, turn off
+  here / for every device (typed, fresh sign-in), and the activity list in words
+  (`data/cloud/syncActivity.js`). `bootCloud` starts the scheduler on a device that syncs.
+  An open record page whose record arrives shows "Updated on another device" with Reload; a
+  list or Today reloads itself (keeping scroll) unless she's typed there or a dialog is open;
+  other tabs hear by `BroadcastChannel`. Server: `/sync/head` counts devices in step (cursor
+  in the last 30 days) and `GET /devices` gives `lastSyncAt`; no migration. A backup paused
+  as a second device no longer blocks joining, and a finished join clears it. Behind
+  `cloudConfig.SYNC_RELEASED = false` (offered only against staging). Privacy policy: the
+  paragraph and retention line. Tested: the release switch, the activity sentences, the
+  readiness rule, the head count and `lastSyncAt`. Checked in headless Chromium, two
+  profiles as two devices against the real Worker run locally: turn on, restore and join on
+  the second, an edit reaching the other's open dog page and its Dogs list tab, the device
+  list, the activity list, off here and back, a lapsed license, off everywhere and on again.
+  Still to do: two real devices, then the release with the `CACHE_NAME` bump.
+- **Live sync: joining dedupes, a new device joins directly, a stale backup base (2026-10-16).**
+  A join now pairs records entered on both sides with a file Merge's rules before it pulls
+  (`importExport.planJoinMatches` / `mergeJoinMatches`, `restoreMatch` unchanged), asking
+  "Are these the same?" and a paired dog's clashes (moved from the Import/Export page into
+  `assets/mergeQuestions.js`, shared); a pair keeps the cloud's id, re-keyed everywhere on
+  this device. Sign in and restore on a syncing program joins instead of restoring, once
+  Sensitive records unlock (`cloudBackup.prepareDirectJoin`, `adoptOwnKennel`). Fixed: a
+  syncing device's backups were skipped for good once another device made the latest
+  snapshot; a caught-up refusal now adopts the server's latest as the base, once. Tested:
+  a join pairing a kennel and two dogs (one asked, one clash), the event and setting re-keyed,
+  no second Birch on either device; backups from both devices in turn (fails without the
+  fix). Checked in headless Chromium: a second device with its own Birchie, Willow and Maple
+  signing in → the two questions → one of each everywhere, under the cloud's ids, both
+  devices' notes kept; both devices' backups pushed.
+- **Live sync released (2026-10-16).** `cloudConfig.SYNC_RELEASED = true` and the service
+  worker cache to `kennelos-shell-v82`. Decided with the owner: released to production ahead
+  of the real-device checks (iPhone and Android home-screen apps and a laptop), which follow
+  there (LAUNCH_CHECKLIST).

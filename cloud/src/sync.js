@@ -14,7 +14,7 @@
 //
 //   POST   /sync/enable                      turn sync on for the program (needs the vault)
 //   DELETE /sync {email?, code?}             turn it off for every device (fresh sign-in)
-//   GET    /sync/head                        { enabled, seq, keyId }
+//   GET    /sync/head                        { enabled, seq, keyId, devices }
 //   POST   /sync/push {records}              → { seq, accepted, superseded, dropped }
 //   GET    /sync/pull?since=&limit=          → { records, seq, more }; 410 resync_required
 //   POST   /sync/cursor {seq}                this device's applied cursor
@@ -83,8 +83,15 @@ export async function disableSync(env, auth, body) {
 export async function syncHead(env, auth, { skipChecks = false } = {}) {
   const program = skipChecks ? await loadSyncProgram(env, auth.programId) : await begin(env, auth);
   const vault = await loadVault(env, auth.programId);
-  return { enabled: Boolean(program.sync_enabled_at), seq: program.sync_seq, keyId: vault?.key_id ?? null };
+  // The status line's "2 devices": devices that sent a cursor in the last 30 days.
+  const since = new Date(Date.now() - DEVICE_ACTIVE_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const active = program.sync_enabled_at
+    ? await env.DB.prepare('SELECT COUNT(*) AS n FROM sync_devices WHERE program_id = ? AND last_sync_at >= ?').bind(auth.programId, since).first()
+    : null;
+  return { enabled: Boolean(program.sync_enabled_at), seq: program.sync_seq, keyId: vault?.key_id ?? null, devices: active?.n ?? 0 };
 }
+
+const DEVICE_ACTIVE_DAYS = 30;
 
 // --- Checking one record ----------------------------------------------------------
 const isPlainObject = (v) => v != null && typeof v === 'object' && !Array.isArray(v);

@@ -530,9 +530,12 @@ The cross-device data path, and one of the two modules that write tables directl
 - Bump `BACKUP_FORMAT_VERSION` only when an older build couldn't read the new file, and keep
   reading every older version.
 
-**Matching records across devices (file / Dropbox Merge; `data/restoreMatch.js`, pure).** The
-same dog typed on two devices has two ids, so a Merge would keep both. Before writing, the
-restore pairs such records by content, gives each pair one id, and merges their fields.
+**Matching records across devices (file / Dropbox Merge, and a device joining live sync;
+`data/restoreMatch.js`, pure).** The same dog typed on two devices has two ids, so a Merge
+would keep both. Before writing, the restore pairs such records by content, gives each pair
+one id, and merges their fields. A sync join runs the same rules between this device's records
+and the cloud's (`importExport.planJoinMatches` / `mergeJoinMatches`, §34), asking the same
+questions (`assets/mergeQuestions.js`).
 
 - **Only unclaimed records.** A record is eligible only if its id isn't on the other side:
   a backup record whose id isn't on this device, paired with a device record whose id isn't
@@ -587,7 +590,9 @@ restore pairs such records by content, gives each pair one id, and merges their 
     and offer date.
 - **Which id survives.** The backup's, so two devices that restore each other's files
   converge on one set of ids, unless this device has cloud backup (or live sync) on: then
-  this device keeps its ids, so its cloud copy never sees records vanish and reappear. A
+  this device keeps its ids, so its cloud copy never sees records vanish and reappear. In a
+  sync join it's always the cloud's, since the other devices already have it; the merged
+  record is stamped now, so the join keeps it and pushes it up. A
   re-key replaces the old id everywhere on this device: every field of every record
   (nested ones included), device-only rows (`device_secrets`), and this app's settings
   (dismissals, drafts, My kennel, the active kennel).
@@ -1944,7 +1949,9 @@ while a litter has pups at home), add dogs (35), add people (33, Pro), tidy up (
 my waitlist (25, Pro), set up my application form (24, Pro), account health (20), Getting Started
 (95 while she's new, else 15: `kelsSetup.setupPriority`); unfinished
 people sit at 98, an unfinished form at 97. The header's **Save for later** shows only while a `resumable` task
-runs, and the floating button's dot shows while any draft is unfinished. `beforeStart`
+runs; its **Cancel** shows while any task runs and, after an "Are you sure?" (`confirmModal`),
+drops the open question, discards a resumable task's draft (its `discard`) and returns to the
+menu (records already saved stay), and the floating button's dot shows while any draft is unfinished. `beforeStart`
 can redirect a start (a new litter, dogs, people or form while one is unfinished asks "Finish that
 one / Start fresh"); `handoff(taskId, opts)`
 moves her to another task (an Expected litter in the check-in → its birth).
@@ -2563,7 +2570,7 @@ or due date, on n of m devices: Lemon Squeezy's `activation_usage` / `activation
 kept on the cached record as `activationUsage` / `activationLimit`), devices signed in
 (by name), Sensitive records (backed up, unlocked here, recovery code, passkeys), each
 vendor connection, each online waitlist. Then the findings, or **All good**. She closes with
-what's still worth a look. Sync isn't checked until live sync's UI exists. Every fix
+what's still worth a look. Sync isn't checked. Every fix
 happens in the chat or a dialog over it.
 
 ### "Tidy up my records"
@@ -2649,8 +2656,25 @@ waitlist.
 **Editions:** Pro only (`editionFlags.liveSync`, and `isCloudAvailable()`). Lite and Demo
 never sync.
 
-There's no sync UI yet and nothing starts the scheduler, so nothing syncs on its own. The
-plan is the detailed design. This is the shape of what's built.
+The plan is the detailed design. This is the shape of what's built.
+
+- **Where she turns it on:** Import / Export → Backup & restore → Cloud, **Keep my devices in
+  step**, a dropdown under Sensitive records (`assets/cloudSyncUI.js`, loaded only when
+  shown). It's offered where `cloudConfig.isSyncOffered()`: Pro, a server, and the release
+  switch `SYNC_RELEASED` (true; false would offer it only against staging, localhost or
+  `?cloud=staging`). A device that already syncs keeps syncing whatever the switch says;
+  `bootCloud` starts the scheduler only on such a device. The dropdown reads Off / Off on this
+  device (the program syncs: **Keep this device in step…**) / On · 2 devices · synced just
+  now / Paused (the reason, and its fix) / Joining…. A backup refused because the program
+  syncs offers the join in place of Phase 1's restore / replace. Turning it on names what's
+  missing first (`syncReadiness`); a backup paused as a second device doesn't count, since
+  joining fixes it.
+- **The activity list** (Recent activity…): what sync decided by itself in the last 30 days,
+  one sentence each (`data/cloud/syncActivity.js`).
+- **An open page when records arrive** (`SYNC_APPLIED_EVENT`, relayed to other tabs by
+  `BroadcastChannel`): a record page whose record changed shows "Updated on another device"
+  with Reload; a list page or Today reloads itself unless she's typed there or a dialog is
+  open, else it gets the same notice. The device list shows each device's "last synced".
 
 - **Needs Sensitive records (the vault).** Each record goes up in both tiers: its cloud
   fields readable as in backups, and the whole row sealed with the vault key. Turning the
@@ -2668,10 +2692,17 @@ plan is the detailed design. This is the shape of what's built.
   makes, turning a delete into an archive, does mark dirty. Pages listen for
   `SYNC_APPLIED_EVENT` and never treat it as a local edit. 
 - **The loop:** `data/cloud/cloudSync.js` does push then pull, the lock, the scheduler and
-  pauses. A lapsed license pauses sync. Joining a program: the newer `updated_at` wins and
-  nothing gets deleted.
+  pauses. A lapsed license pauses sync. Joining a program: first every cloud record is read
+  and paired by content with this device's (§10's rules; the pair keeps the cloud's id;
+  `joinSync` answers `{ status: 'ask' }` while there's something to ask), then the newer
+  `updated_at` wins and nothing gets deleted.
+- **A new device on a syncing program** (Sign in and restore, first-run's "I already use
+  KennelOS") joins instead of restoring the latest backup, once Sensitive records are
+  unlocked there (`cloudBackup.prepareDirectJoin`); not unlocked, it restores as before.
 - **Backups on a syncing program:** a snapshot states the `sync_seq` it has applied and goes
-  only while the device is caught up (else it's skipped as `sync_behind`, still dirty). While
+  only while the device is caught up (else it's skipped as `sync_behind`, still dirty). Any
+  caught-up device may make the latest one, so a refusal that shows this device is caught up
+  but its base is older takes the server's latest as its base and tries once more. While
   Pro has lapsed (sync paused `pro_required`) backups follow the Phase 1 backing-device rule.
 - **Server work on a syncing program** (waitlist intake, family and vendor events, emails)
   runs on one device at a time under a two-minute lease (`data/cloud/serverWork.js`,

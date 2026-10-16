@@ -48,8 +48,9 @@ backup, carries a program from Lite to Pro.
 - **In progress:**
   - Integrations: next is step 8, an e-sign provider (SignWell / BoldSign). The Jotform steps
     still need proving against a real account.
-  - Cloud Phase 2 live sync: next is step 6, the UI and release. Production has every cloud
-    migration through `0016` applied. Staging isn't in use, so deploys there aren't tracked.
+  - Cloud Phase 2 live sync: released. Next is checking it on real phones (iPhone and Android)
+    on production; step 7, the live nudge, is optional. Production has every cloud migration
+    through `0016` applied. Staging isn't in use, so deploys there aren't tracked.
   - Duplicates: next is extending the duplicate check to every record type (kennels, breedings,
     litters, sales, events…), with a Scan for duplicates card on Import/Export that uses the
     same rules as a file Merge (End-State guide §10).

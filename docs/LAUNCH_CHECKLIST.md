@@ -285,6 +285,12 @@ and Email Routing.
   **Email them…** from their page; it should arrive from
   `"<Your Kennel>" <…@mail.kennelos.app>` (not in spam), and show under **Emails from …**
   on their status page.
+- [ ] **Keep my devices in step on real devices, on production** (Cloud Phase 2 plan §8
+  step 6; released 2026-10-16 ahead of this check): an iPhone and an Android phone, each as a
+  home-screen app, and a laptop, all Pro, signed in, Sensitive records unlocked. Turn it on
+  on one, join on the others (one with records of its own, to see the "Are these the same?"
+  questions), edit on each (also with a phone backgrounded, closed and offline between
+  edits), and check the others show it within a minute.
 - [ ] **Step 7's hourly cron** (`7 * * * *`) deploys with the Worker; nothing to set. After
   the deploy, Workers & Pages → `kennelos-api` → Settings → Triggers should list both
   crons. With families on a list online, the hourly run reads every published list, which

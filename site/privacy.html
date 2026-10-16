@@ -40,7 +40,7 @@
     <div class="wrap">
       <p class="eyebrow">Privacy policy</p>
       <h1>What we hold, what we never receive, and how to delete it</h1>
-      <p>Effective 10 October 2026. Last updated 12 October 2026.</p>
+      <p>Effective 10 October 2026. Last updated 16 October 2026.</p>
     </div>
   </section>
 
@@ -174,6 +174,11 @@
       </ul>
       <p>If you lose your recovery code and every passkey, and have no other unlocked device, we
         can't unlock your private backup for you. Your devices and file backups are unaffected.</p>
+      <p><strong>Keeping your devices in step (Pro, optional)</strong> needs private backup on. Each
+        record you change goes to our server as it changes, in the same two parts as your
+        backups: the kennel-record fields we already hold in every backup, and the whole record
+        encrypted on your device with the same key we don't have. So it lets us read nothing
+        new. We also keep, per device, when it last caught up, to show you in your device list.</p>
 
       <h2 id="purchases">8. Buying Pro</h2>
       <p>Pro is sold through <strong>Lemon Squeezy</strong>, who act as the merchant of record: they
@@ -265,6 +270,7 @@
       <h2 id="retention">13. How long we keep things</h2>
       <ul>
         <li><strong>Backups:</strong> the newest one always, plus one per hour for the last day and one per day for 30 days. Older ones are deleted automatically, and so are documents no remaining backup uses. A backup's encrypted private copy goes with it.</li>
+        <li><strong>Keeping devices in step:</strong> the records are kept while it's on. Turned off for every device, they're deleted after 30 days; a deleted record's marker is deleted after 90 days.</li>
         <li><strong>Turning off private backup</strong> (Import/Export → Cloud backup → Private backup) deletes its locked keys at once, so nobody can unlock it again; the encrypted copies already made are deleted within 30 days.</li>
         <li><strong>Codes:</strong> sign-in and link codes expire after 10 minutes, family sign-in codes after 15. A signed-out device's record is deleted after 30 days.</li>
         <li><strong>Pro purchases:</strong> deleted 90 days after the purchase stops giving you Pro.</li>

@@ -6,7 +6,7 @@
 > (`docs/KennelOS_Private_Vault_Plan.md`, "Vault §N"), the Pro license link
 > (`docs/KennelOS_License_Link_Plan.md`) and the waitlist online (`docs/KennelOS_Waitlist_W2_Plan.md`,
 > "W2 §N").
-> **Status: being built.** The §12 decisions were all taken as recommended (2026-10-10), and
+> **Status: steps 1–6 built and released (2026-10-16); step 7 (the live nudge) is optional.** The §12 decisions were all taken as recommended (2026-10-10), and
 > JSON backups stay backward compatible throughout (`CLAUDE.md`). Progress is under §8.
 > The server migration is **`0014_sync`**, not `0012` as first drafted (`0012` and `0013`
 > went to changing and recovering the account's email).
@@ -508,7 +508,48 @@ application twice or answer the same family event twice. So:
    Originally: **Waitlist lease.** `POST /waitlist/lease`, the route check in `waitlist.js`, the client's
    lease handling in `cloudWaitlist.js`, the settings card wording. Tests in
    `cloud/tests/waitlist.test.js` and `tests/cloudWaitlist.test.js`.
-6. **UI and release.** `cloudSyncUI.js` (§2), the device list's "last synced", the "updated
+6. **Built and released 2026-10-16** (`SYNC_RELEASED = true`, `kennelos-shell-v82`; decided with the owner: released ahead of the real-device checks, which follow on production). As built:
+   `assets/cloudSyncUI.js` (the pane's **Keep my devices in step** dropdown under Sensitive
+   records, in the Sensitive records field's pattern; turn on, join, catch up, pauses and their
+   fixes, turn off here / for every device, the activity list), `data/cloud/syncActivity.js`
+   (the activity list in words, tested), `cloudConfig.SYNC_RELEASED` (false) and
+   `isSyncOffered()`, the scheduler started by `bootCloud` on a device that syncs. Settled in
+   the build:
+   - **The join offer** replaces the Phase 1 restore / replace dialog wherever a backup gets
+     the 409 with `syncing` (the pane's Resolve, and straight after **Sign in and restore**).
+     A backup paused as a second device (any `conflict`) doesn't block joining, and a
+     finished join clears it, since a join merges both sides and deletes nothing.
+   - **The shrink guard's answer** for sync is **Bring them back** (a join: everything comes
+     down, nothing is deleted) or **Delete them everywhere** (typed DELETE).
+     `resync_required` is **Catch up…**, the same join.
+   - **"2 devices"** needed a server change: `/sync/head` counts the devices that sent a cursor
+     in the last 30 days, and `GET /devices` gives each one's `lastSyncAt`. A device list on
+     a syncing program drops the "backs up your records" tag.
+   - **An open page:** a record page (`?id=`) whose record arrived shows "Updated on another
+     device. Reload to see it"; a list page or Today reloads itself (keeping its scroll)
+     unless she has typed there, a dialog is open, or the tab is hidden, when it gets the
+     notice too. The pull runs in one tab, so the others hear of it by `BroadcastChannel`.
+     The notice names no device: the event doesn't carry one.
+   - **Records entered on both sides** (decided 2026-10-16): a join first pairs them with a
+     file Merge's rules (guide §10) and asks the same questions; a pair keeps the cloud's id.
+     §5.5's merge alone matched by id, so the same dog typed on two devices came out twice.
+   - **A new device joins directly** (decided 2026-10-16): Sign in and restore on a syncing
+     program joins in place of restoring the latest backup, when Sensitive records unlock.
+   - **A stale backup base** (found here; a step 4 gap): any caught-up device can make the
+     latest snapshot, so the others' `lastSnapshotId` went stale and their backups were
+     skipped as not caught up for good. A refusal naming the same `syncSeq` now adopts the
+     server's latest snapshot as the base and retries once.
+   - **Status line:** "On · 2 devices · synced just now", or "changes waiting: no internet";
+     a head check that finds nothing new counts as synced (`lastCheckAt`).
+   Checked in headless Chromium at phone width, two browser profiles as two devices against
+   the real Worker run locally (`cloud/tests/helpers/serve.mjs`'s setup): turn on (first
+   device), Sign in and restore on the second → the join offer → in step with private notes;
+   an edit on one reaching the other's open dog page (notice, 57 s) and its Dogs list in
+   another tab (reloaded); the device list's "last synced"; the activity list; turn off here
+   and join again; a planted `pro_required` and Check again; turn off for every device (the
+   other device says so) and on again. **Still to do:** the real-device checks on
+   production (an iPhone and an Android phone, each as a home-screen app, and a laptop).
+   Originally: **UI and release.** `cloudSyncUI.js` (§2), the device list's "last synced", the "updated
    elsewhere" notice, the activity list. Browser checks in headless Chromium at phone width
    with two browser contexts as two devices against `wrangler dev`, then two real devices on
    staging. Privacy policy paragraph (no new readable data, §4.2). Release switch
@@ -545,9 +586,10 @@ test`, the precache check, and the docs in the same change (§9).
 - **Browser:** two contexts as two devices against local `wrangler dev`: edit on one, see it
   on the other within the poll; offline edit on both; a document upload; a delete racing a
   reference; the waitlist lease moving when one device closes.
-- **Real devices on staging:** an iPhone home-screen app and a laptop, with the phone
-  backgrounded and killed between edits (Safari's background limits are the realistic way a
-  push gets lost; the scan re-finds anything not acknowledged).
+- **Real devices** (on production, after the release): an iPhone and an Android phone, each
+  as a home-screen app, and a laptop, with the phones backgrounded and killed between edits
+  (Safari's background limits are the realistic way a push gets lost, and Android's battery
+  saver can freeze a backgrounded tab the same way; the scan re-finds anything not acknowledged).
 
 ## 11. Risks & mitigations
 
