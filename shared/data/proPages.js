@@ -117,7 +117,9 @@ export const PRO_ONLY_STANDALONE = [
   'assets/kennelSettingsFields.js',
   // What each report reads and the figures its tiles show: the Pro-only report
   // pages', and Kels's "How my business is doing", which is Pro-only too.
-  'data/reportSources.js', 'data/reportFigures.js'
+  'data/reportSources.js', 'data/reportFigures.js',
+  // ...and the sentences she makes from them, with their chat.
+  'data/kennelInsights.js', 'assets/kelsInsightsUI.js'
 ];
 
 // True when a link target (an href like "contact-import.html" or with a query string)

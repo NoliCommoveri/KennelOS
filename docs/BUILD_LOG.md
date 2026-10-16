@@ -1502,3 +1502,19 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   setup's save). Checked in the browser on both paths: shown once, gone on reload, never on
   Kels's page, and Try opens the task.
   The card is titled **Introducing Kels**, with the Meet Kels line as its first paragraph.
+- **Kels: How my business is doing (2026-10-16).** The second half of Understanding
+  Something (roadmap §3.14 B, steps 3–4), Pro: a topic (My dogs, Money, Litters & pups,
+  Sales & the waitlist, Shows & stud, The whole picture) and dates, then a few plain
+  sentences from her reports, Tell me more, and a button to each report quoted, opened on
+  the same range (`assets/kelsInsightsUI.js`, pure `data/kennelInsights.js`, tested). To
+  keep her and the reports from ever disagreeing, the 23 reports she quotes now load
+  through `data/reportSources.js` and their tiles' figures come from
+  `data/reportFigures.js`, both shared with the pages; `reportMath.inView` cuts rows to a
+  range for both. Reports open on `?range=`. Dam & Sire Production gained a date range and
+  a row per breeding female of breeding age with no litter, said as what happened.
+  Decided with the owner: rank only past 2 litters / 3 decided breedings / 3 sales,
+  "no litter" means Active breeding females of breeding age, the comparison with the range
+  before comes after the first release, Lite has no B. Checked in the browser: every report
+  page's rows and tiles against the commit before (only production's new row and the link
+  range differ), each topic's sentences on the sample data, the empty-range offer, a report
+  link on its range, and Lite's Understanding Something unchanged.

@@ -1668,8 +1668,19 @@ Puppies / Sales & Waitlist / Shows & Stud / Dogs & Operations; `?group=`), with 
 Review** featured. **Every report is derived** on load; nothing is stored.
 
 **`assets/reportView.js` extras:** `dateRange` (presets via `reportMath.rangeFor`; undated
-rows only in "All time"), `kpis`, `charts`, column `total`, `rowsFor` (summary reports
+rows only in "All time"; `rowsIn(range)` instead of `date` rebuilds a per-dog report's
+rows for the range), `kpis`, `charts`, column `total`, `rowsFor` (summary reports
 grouping the filtered records), and always **Print / PDF**. All follow the visible rows.
+A report opens on a range from its link: `?range=<preset>` (`&from=&to=` for custom).
+
+**What a report reads (`data/reportSources.js`):** one loader per report Kels quotes,
+`load<Name>(today)` → `{ href, rows, scope?, date?, rowsIn?, …lookups }`: its records
+loaded and scoped, its rows built (by the pure `data/` modules), and the scope and date
+the page hands reportView. `reportMath.inView(rows, { scope, date }, range)` is how
+reportView and Kels both cut rows to a range. The tiles' figures for those reports are
+`data/reportFigures.js` (pure, tested), which the page tiles and Kels both call. So a
+report page and Kels's kennel check-up (§33) can't disagree. A new figure Kels says goes
+into `reportFigures.js` and onto the report's tiles first. Both modules are Pro-only.
 
 **Charts (`assets/chartView.js`)** are the app's own SVG (bar, grouped/stacked/diverging;
 line; ranked horizontal bar), pure render functions plus `mountChart`. Colors come from
@@ -1688,8 +1699,12 @@ it). Anticipated income never enters Net; pick value is never money in.
 
 **The reports** (each page's math is in a pure, tested `data/` module): P&L by Month, Litter
 P&L, Expenses by Category, Receivables, Pricing, Breeding-Dog Return; Litters Over Time,
-Live-Birth Summary, Health-Test Events, Dam & Sire Production (flags litters under
-`BACK_TO_BACK_DAYS` apart and at `LIFETIME_LITTERS_FLAG`, prompts only), Pairing Success,
+Live-Birth Summary, Health-Test Events, Dam & Sire Production (by whelp-date range,
+`breedingReports.productionRowsIn`; flags litters under `BACK_TO_BACK_DAYS` apart and at
+`LIFETIME_LITTERS_FLAG`, prompts only; plus a row for each live, owned or co-owned female
+at Active breeding, of her kennel's female promote age (12 months by default) by the range's
+end, with no litter in the range, said as `IDLE_TEXT`: expecting, bred and waiting, bred and
+didn't take, not bred), Pairing Success,
 Heat Cycles, Health-Testing Gaps; Puppy Growth (flags a pup under 85% of its littermates'
 median); Placements, Scheduled Placements, Waitlist Funnel, Demand vs Supply, Applications, Waitlist
 Today, Offers & Removals, Lead Sources & Referrers, Returns & Voids; Stud Services, Stud Results, Show Record; Active Roster; Year in
@@ -2002,10 +2017,10 @@ builds nothing), then a search box.
 ### "Understanding Something"
 
 `assets/kelsUnderstandUI.js`. Two halves, each `{ id, label, opener, how, flag?, run }` in
-`HALVES`, offered when its flag is on: **How KennelOS works** (every edition, below) and,
-when built, **How my business is doing** (`reports`, roadmap §3.14 B). With more than one
-she asks "Yes, absolutely! Which is your question about?"; with one (today, and always in
-Lite) it starts straight away. Each half's intro (`chat.intro(opener, how)`) is said the
+`HALVES`, offered when its flag is on: **How KennelOS works** (every edition, below) and
+**How my business is doing** (`reports`: Pro and Demo, below). With more than one she asks
+"Yes, absolutely! Which is your question about?"; with one (always in Lite) it starts
+straight away. Each half's intro (`chat.intro(opener, how)`) is said the
 first time it's picked in a visit; **Something else** after an answer returns to the
 question when there is one. How KennelOS works opens "I'm on it!" +
 `kelsChat.KELS_UNDERSTAND_INTRO`, which names nothing Lite lacks.
@@ -2042,6 +2057,57 @@ question when there is one. How KennelOS works opens "I'm on it!" +
 - **Adding an entry:** a line in `ENTRIES`. The tests check unique ids, a known section and
   a real edition flag, a sentence in every edition with no field names, and that every Show
   me page exists and is precached.
+
+**How my business is doing** (`assets/kelsInsightsUI.js` + `data/kennelInsights.js`, both
+Pro-only; the UI is imported when the half is picked). It opens "Ready when you are!" +
+`KELS_BUSINESS_INTRO` ("I can tell you how your business is doing, like who your most
+productive dam is or how your money did this year…"). Read-only.
+- **The chat:** a topic (`insightTopics`: **My dogs**, **Money**, **Litters & pups**,
+  **Sales** / **Sales & the waitlist** (`waitlist`), **Shows & stud** / **Shows** / **Stud
+  services** where `shows` / `studServices` are, **The whole picture**), then a range
+  (**This year**, **The last 12 months**, **Last year**, **All time**). She loads that
+  topic's reports (`topicSources` → `reportSources.load<Name>`), says a warm lead line and
+  the first `FIRST_SHOWN` (4) sentences as a list, then **Tell me more**, **See <report>**
+  for each report those sentences came from (in this tab, on her range when the report
+  has one), **Another topic**, **Different dates**, **Something else** and **I'm all set**.
+  Nothing in the range: `nothingText`, with **Yes, all time** where it wasn't.
+- **The sentences** (`insightsFor(topic, loaded, ctx)`): each `{ id, topic, text, tone,
+  value, dogIds, source: { href, title, range } }`, cut to the range as the report cuts it
+  (`rowsOf`: `inView`, or the report's `rowsIn`) and worked from the report's rows and
+  `reportFigures`, never a figure of its own. Reports with no range (Breeding-Dog Return,
+  lifetime; Heat Cycles, Health-Testing Gaps, Receivables, Waitlist Today, Demand vs
+  Supply, Puppy Growth's flags, as of today) say "so far" or "now", and their button opens
+  them plain.
+  - *My dogs:* most prolific dam and sire (puppies born; only dogs with `MIN_LITTERS` (2)
+    litters in the range ranked; under it, "too early to say"; a tie said as a tie); the
+    best live-birth rate (two or more dams past the minimum); the breeding girls with no
+    litter, as production's idle rows say it (never "failed"); who's expecting; how many
+    breedings took (`MIN_BREEDINGS`, 3 decided), and of two or more sires past it the one
+    whose took least often; the highest-earning dam and sire and the dog furthest in the red
+    (Breeding-Dog Return); back-to-back and 6+ litter flags, as prompts; heats due within a
+    month or overdue; health tests planned and not logged.
+  - *Money:* net with money in and out (P&L); the best month (two or more months with
+    money); the biggest cost and its share; the most and least profitable litter (Litter
+    P&L, two or more); what's owed now and how much is overdue (and over 90 days); sale
+    value by registration (Placements); Full against Limited average price (Pricing,
+    `MIN_SALES`, 3 each; under it, "too early to compare").
+  - *Litters & pups:* litters and puppies born; the average litter (2 or more with counts);
+    the live-birth rate; each pup flagged by Puppy Growth in a litter whelped in the range
+    and not closed, linked to that litter.
+  - *Sales & the waitlist:* pups placed, sale value and (3 or more priced) the average;
+    the count on each registration; the top lead source and referrals; sales that ended, or
+    that none did (3 or more sales); then, with `waitlist`: applications, how often (a mean
+    over 2 or more gaps) and approvals; what families asked for; the parent named most by
+    families who chose only some; who's waiting now, for what, paused, and the median wait;
+    applications to review and fees due; offers accepted (a rate past 3 closed, else plain
+    counts); the kind of pup most short of supply (Demand vs Supply).
+  - *Shows & stud:* points, results and majors; the dog with the most points (two or more
+    shown); titles earned in the range; stud fees earned and paid (completed services);
+    litters stud services produced.
+  - *The whole picture:* the first two from My dogs and Money and the first from each other
+    topic, then Year in Review.
+- **Tested** in `tests/kennelInsights.test.js` (topics per edition, the minimums, ties, the
+  idle wording, each topic's sentences from fake loaders, every source in the catalog).
 
 ### "Getting Started"
 A new breeder's first run through her kennel's settings, after the first-run kennel setup
