@@ -94,7 +94,7 @@ const TASKS = [
   },
   {
     id: 'get-started',
-    label: () => 'Get set up',
+    label: () => 'Getting Started',
     // Only what this edition sets up is said or searched (data/kelsSetup.js).
     sub: editionFlags.multiKennel ? 'Your logo, nudges, tests, puppy records, kennels, connections and backup'
       : editionFlags.puppyRecord ? 'Your logo, nudges, tests, puppy records, connections and backup' : 'Your backup, then your dogs',

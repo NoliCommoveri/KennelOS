@@ -329,7 +329,7 @@ Every write calls `assertWritable()` first (Demo, §0.2) and marks the cloud bac
   an event uses); `addPreferredTest`'s breed tag, read by `testBreedsFor`/`testsForBreed`;
   `renamePreferredTest` (in place, breed tags kept; renamed to another test in the panel,
   the two become one with both tests' tags, untagged if either was; panel only, never a
-  dog's planned tests or past events; Kels's Get set up).
+  dog's planned tests or past events; Kels's Getting Started).
 - **contactRepo.ensureType(id, type)** adds a role tag; sale, stud service and event saves
   use it (`buyer_referrer`, `stud_referrer`, `handler`, `vet`).
 - **waitlistEntryRepo** keeps `Contact.waitlist_status` in step after every write
@@ -611,6 +611,8 @@ Every key is in its `KEYS` table (`kennelOS.*`), each with a getter/setter, and
   `prepChecks`: Kels's unfinished litter, her unfinished Add dogs, Add people and
   application form, and the optional checks ticked
   last time in Pups are going home (§33). Device-only.
+- `meetKelsPending`: the Meet Kels card waits for the next page load (set by the first-run
+  kennel setup's save, cleared when shown; First run, below). Device-only.
 - `kelsFavorites`, `kelsTaskUse`, `kelsNoPromote`: her starred Kels tasks, when she started
   each (the last 60 days), and the ones she said not to move up (§33, Favorites). Device-only.
 - `studTripsMigrated`: the stud-trip migration has run on this device (§19, Away board).
@@ -660,6 +662,14 @@ On a fresh install, one Welcome card offers:
 - **Take the tour** → seed Thornfield and start the tour. The only path that seeds.
 - **I already use KennelOS** (cloud editions only) → sign in and restore the latest
   snapshot (`cloudBackup.restoreOnNewDevice`), which skips kennel setup.
+
+Both ways out of the tour (finished or skipped) also end in the required kennel setup. Its
+save sets `meetKelsPending`, and the page that loads next shows **Meet Kels**
+(`onboardingUI.maybeMeetKels`, once, never on Kels's own page): "Meet Kels, your KennelOS
+guru! She's a sweet, fun-loving pup who can help simplify your kennel management and teach
+you how to use KennelOS. To test her out, try the Getting Started flow now!", with **Try
+Getting Started** (`kels.html?task=get-started`) and **Maybe later**. Nothing starts on
+its own. A reopen of kennel setup from Settings doesn't set it.
 
 Installing as an app is a dismissible Today card. Cloud UI in the shell (device check-in,
 the backup scheduler, Today's backup nudges, the Import/Export Cloud backup card) is
@@ -782,7 +792,7 @@ Kennel expenses, Logo and Kennel card. The Logo, Lifecycle nudges and Puppy Reco
 cards build their fields from `assets/kennelSettingsFields.js` (`fileToLogoDataUrl`,
 `logoPreview`, `nudgeFields` / `readNudgeFields`, `puppyRecordFieldsHtml` /
 `wirePuppyRecordFields` / `readPuppyRecordFields`; Pro-only, in `proPages.js`), which Kels's
-Get set up uses too.
+Getting Started uses too.
 
 **The Calendar** (`calendar.html`, every edition): a month grid of `eventRepo.getInRange`
 plus reminders, scoped by `subjectInScope`. Open-ended spans draw on their start day only
@@ -1847,8 +1857,8 @@ Pro-only), `assets/guidedFormUI.js` (Pro-only) + `data/guidedForm.js` (set up my
 form), `assets/waitlistFeeStep.js` (Pro-only: the application fee and its payment account,
 both waitlist tasks), `assets/kelsBackupSteps.js` (`offerCloudBackup`, `offerSensitiveRecords`,
 `VAULT_WHY`, `cloudBackupOn`: turning on cloud backup and Sensitive records backup in the
-chat; the waitlist tasks, Get set up and account health's wording), `assets/kelsSetupUI.js` +
-`data/kelsSetup.js` (get set up), `assets/vendorKeyUI.js` (`vendorKeyFlow`: a Stripe or Jotform key connected or
+chat; the waitlist tasks, Getting Started and account health's wording), `assets/kelsSetupUI.js` +
+`data/kelsSetup.js` (Getting Started), `assets/vendorKeyUI.js` (`vendorKeyFlow`: a Stripe or Jotform key connected or
 replaced in the chat; account health and the waitlist setup), `assets/kelsFindings.js` (`FindingsTask`, the
 look → raise one at a time → fix → look again loop the tidy-up and account health share:
 "Not now", a remembered "Don't ask me again" under `<prefix>:<key>` in the nudge ledger,
@@ -1876,8 +1886,8 @@ need to save and come back, I'll save what we've got so far…  Sound good?"), a
 "Absolutely, let's get those puppies added!", check-in "Of course, let's check in on your
 litter!", add dogs "Wonderful, let's get your dogs added!", add people "Of course! Let's get your
 people added.", application form "Yes! Let's make your application form just right.", tidy up "Love it, let's get your
-records tidy!", account health "Good idea, let's make sure everything's safe and sound!", get
-set up "Welcome aboard! Let's get KennelOS set up just the way you like it." Get set up says
+records tidy!", account health "Good idea, let's make sure everything's safe and sound!", Getting
+Started "Welcome aboard! Let's get KennelOS set up just the way you like it." Getting Started says
 `kelsSetup.SETUP_HOW` in place of `KELS_INTRO` ("I'll go through your kennel's settings with
 you one at a time and save each one as we go…"), since it keeps no draft and builds nothing
 to approve.
@@ -1905,7 +1915,7 @@ run, resumable?, beforeStart? }`, highest priority first, with a search box abov
 litter). The page header shows her photo and `KELS.title` ("Kels, the KennelOS whiz") on one line, sized to fit a phone. Order: an unfinished litter (100), unfinished dogs (99), the
 check-in (60 while a litter has pups at home, else 40), a new litter (50), prep pups (45,
 while a litter has pups at home), add dogs (35), add people (33, Pro), tidy up (30), set up
-my waitlist (25, Pro), set up my application form (24, Pro), account health (20), get set up
+my waitlist (25, Pro), set up my application form (24, Pro), account health (20), Getting Started
 (95 while she's new, else 15: `kelsSetup.setupPriority`); unfinished
 people sit at 98, an unfinished form at 97. The header's **Save for later** shows only while a `resumable` task
 runs, and the floating button's dot shows while any draft is unfinished. `beforeStart`
@@ -1915,7 +1925,8 @@ moves her to another task (an Expected litter in the check-in → its birth).
 
 **Doors:** the floating button; the Breeding page (`kels.html?task=record-litter`); an
 expected litter's page (`&litter=<id>`, parents and litter preset); a born litter's page that
-isn't closed (**Check in with Kels**, `kels.html?task=checkin&litter=<id>`).
+isn't closed (**Check in with Kels**, `kels.html?task=checkin&litter=<id>`); the first-run
+Meet Kels card (**Try Getting Started**, `kels.html?task=get-started`).
 
 ### "Finding Something"
 `assets/kelsFindUI.js` + `data/kelsFind.js` (the engine) + `data/kelsKnowledge.js` (the cheat
@@ -2032,7 +2043,7 @@ question when there is one. How KennelOS works opens "I'm on it!" +
   a real edition flag, a sentence in every edition with no field names, and that every Show
   me page exists and is precached.
 
-### "Get set up"
+### "Getting Started"
 A new breeder's first run through her kennel's settings, after the first-run kennel setup
 (§0): `assets/kelsSetupUI.js` + `data/kelsSetup.js` (pure, tested in
 `tests/kelsSetup.test.js`). Every edition but the Demo (which saves nothing). It keeps no

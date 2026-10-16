@@ -137,7 +137,7 @@ window.addEventListener('hashchange', () => { if (kennel) renderSectionPicker(ke
 // The logo is a plain (unindexed) data-URL string on the Kennel record, so it
 // rides JSON backups and needs no schema/index change. Uploads are downscaled
 // and re-encoded by assets/kennelSettingsFields.js (fileToLogoDataUrl, shared
-// with Kels's "Get set up"), so an oversized photo never bloats the record. The invoice /
+// with Kels's "Getting Started"), so an oversized photo never bloats the record. The invoice /
 // receipt generator and the puppy record read this field back verbatim.
 function renderLogo() {
   const k = kennel;

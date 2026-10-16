@@ -1,4 +1,4 @@
-// kelsSetup.test.js — the rules behind Kels's "Get set up" (data/kelsSetup.js):
+// kelsSetup.test.js — the rules behind Kels's "Getting Started" (data/kelsSetup.js):
 // which parts each edition asks, when the task leads her menu, and what a
 // second kennel starts with.
 import { test } from 'node:test';

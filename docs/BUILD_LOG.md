@@ -1494,3 +1494,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   The task also now leads the menu until her first dog record, however often she's run it
   (the unreleased `kelsSetupDone` flag removed). Checked in the browser: add three, rename
   one, remove one, saved as shown.
+- **Meet Kels card; Getting Started (2026-10-16).** Kels's setup task is renamed Getting
+  Started. Decided: it never starts on its own. Instead, the first page after the first-run
+  kennel setup saves (which both the tour's end and Start my kennel reach) shows a one-time
+  Meet Kels card with her photo, **Try Getting Started** (opens the task) and **Maybe later**
+  (`onboardingUI.maybeMeetKels`, device-only `meetKelsPending` set by the required kennel
+  setup's save). Checked in the browser on both paths: shown once, gone on reload, never on
+  Kels's page, and Try opens the task.

@@ -22,7 +22,7 @@ need. When one is built, its as-built description goes in the guide (§33) and i
 | Set up my application form | Her saved form or the standard one, the locked questions' wording, her own questions, their order, an FAQ, the form as families see it; resumable draft; then its link online, Sensitive records backup, the fee and its payment account, an applicant | Pro (online, Sensitive records, payment accounts: where offered) |
 | Understanding Something | How the app works as an FAQ: topics, their questions, a search over the questions only; each answer with a Show me | All (waitlist, stud, foster, Companion, multi-kennel topics: Pro) |
 | Pups are going home | Optional checks to tick, remembered on the device (chips, litter registration number, pups' registered names and numbers, feeding); pups Available or Placed with no sale (record the sale or change the plan); readiness per pup with fixes (shots, deworming, drop-off date, balance, contract, registration); a payment request then an invoice for each balance owed; the puppy records with a cover page | All (contract, feeding, payment requests, invoices, Furever, print: Pro) |
-| Get set up | A new breeder's first run: logo, lifecycle nudges, preferred tests (add, remove, rename), Puppy Record fields, another kennel for a separate side of the business, Google Drive for Furever, Dropbox for KennelAssistant, backup; each saved as answered; then Add dogs or Add people | All but Demo (Lite: backup, then Add dogs; the rest Pro) |
+| Getting Started | A new breeder's first run: logo, lifecycle nudges, preferred tests (add, remove, rename), Puppy Record fields, another kennel for a separate side of the business, Google Drive for Furever, Dropbox for KennelAssistant, backup; each saved as answered; then Add dogs or Add people | All but Demo (Lite: backup, then Add dogs; the rest Pro) |
 
 The menu has a search box that matches each task's `keywords`, and choices open their
 description on the first tap.
@@ -545,15 +545,15 @@ before.
   how's my kennel, my dogs, best dam, best sire, most prolific, earnings, summary, check-up,
   stats.
 
-### 3.15 Get set up: **S**, all editions but Demo (most parts Pro) — **Built**
-As built: End-State guide §33 ("Get set up"); history in `docs/BUILD_LOG.md`. A new
+### 3.15 Getting Started: **S**, all editions but Demo (most parts Pro) — **Built**
+As built: End-State guide §33 ("Getting Started"); history in `docs/BUILD_LOG.md`. A new
 breeder's first run through her kennel's settings after the first-run kennel setup, each
 part saved as answered and skippable, then a handoff to Add dogs or Add people. It sits
 near the top of her menu until she has her first dog record.
 Shared pieces it added: `assets/kennelSettingsFields.js` (the Kennel page's logo, nudge and
-Puppy Record fields, now one copy), `kelsBackupSteps.cloudBackupOn`. **Open:** whether the
-first-run "Start my kennel" should open it straight after the kennel is saved (today it's
-only in her menu).
+Puppy Record fields, now one copy), `kelsBackupSteps.cloudBackupOn`. **Decided:** it never starts on
+its own; the first page after the first-run kennel setup (after the tour, or Start my
+kennel) shows a Meet Kels card whose **Try Getting Started** opens it.
 
 ## 4. Shared pieces
 

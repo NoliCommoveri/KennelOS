@@ -1,5 +1,5 @@
 // kennelSettingsFields.js — one kennel's program settings as form pieces, shared by
-// the Kennel page's cards (pages/kennel.js) and Kels's "Get set up" (assets/
+// the Kennel page's cards (pages/kennel.js) and Kels's "Getting Started" (assets/
 // kelsSetupUI.js), so the two can never ask or save them differently:
 //   • the logo: an image file → the data URL stored on Kennel.logo_data_url;
 //   • lifecycle nudges: the on/off and the two promote ages;

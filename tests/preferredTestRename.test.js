@@ -1,5 +1,5 @@
 // preferredTestRename.test.js — renaming one of a kennel's preferred tests
-// (kennelRepo.renamePreferredTest, used by Kels's Get set up): in place, tags
+// (kennelRepo.renamePreferredTest, used by Kels's Getting Started): in place, tags
 // kept, and two tests renamed into one become one.
 import { test, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';

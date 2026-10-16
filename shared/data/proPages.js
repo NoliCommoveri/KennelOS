@@ -112,7 +112,7 @@ export const PRO_ONLY_STANDALONE = [
   // and Kennel pages.
   'data/puppyRecordFields.js',
   // A kennel's settings as form pieces (logo, nudges, Puppy Record fields): the
-  // Kennel page's, and Kels's "Get set up", which imports it only in the parts
+  // Kennel page's, and Kels's "Getting Started", which imports it only in the parts
   // that need that page (none in Lite).
   'assets/kennelSettingsFields.js'
 ];

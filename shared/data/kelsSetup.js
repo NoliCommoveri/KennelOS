@@ -1,4 +1,4 @@
-// kelsSetup.js — the rules behind Kels's "Get set up" (assets/kelsSetupUI.js):
+// kelsSetup.js — the rules behind Kels's "Getting Started" (assets/kelsSetupUI.js):
 // which parts this edition asks, what her logo is printed on, when the task sits
 // at the top of the menu, and what a second kennel starts with. Pure: no db, no
 // DOM; `flags` is editionFlags.

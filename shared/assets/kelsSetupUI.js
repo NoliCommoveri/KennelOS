@@ -1,4 +1,4 @@
-// kelsSetupUI.js — Kels's "Get set up": a new breeder's first run through her
+// kelsSetupUI.js — Kels's "Getting Started": a new breeder's first run through her
 // kennel's settings, as a chat on pages/kels.html. Each part is saved as it's
 // answered (nothing to draft), and every part can be skipped. The parts, each only
 // where this edition has what it sets up (data/kelsSetup.js `setupParts`):
