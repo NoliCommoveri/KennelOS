@@ -1572,3 +1572,20 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   worker cache to `kennelos-shell-v82`. Decided with the owner: released to production ahead
   of the real-device checks (iPhone and Android home-screen apps and a laptop), which follow
   there (LAUNCH_CHECKLIST).
+- **Scan for duplicates on Import/Export (2026-10-16).** A **Duplicates** card between Backup
+  & restore and CSV import (`assets/duplicateScanUI.js`). New `data/duplicateScan.js` (pure)
+  runs a file Merge's matching rules (`restoreMatch.MATCH_RULES`, now exported with `dogNever`)
+  between two records on this device, plus the tidy-up's duplicate dogs and contacts, over every
+  record type the edition has (Lite: its own kennels, dogs, breedings, litters, sales, events,
+  expenses). Each pair is raised with what they share, certain or possible, and nothing merges
+  by itself; two littermates by name are only possible. "Not the same" is remembered (`dup:`,
+  plus the tidy-up's key for dogs and contacts). New `recordMerge.mergeDuplicate`: dogs and
+  contacts through `mergeRecords`; any other record merged field by field
+  (`duplicateConflicts` / `duplicateChanges`), its id replaced in every field of every record,
+  the other archived, then settings re-keyed; a kennel's public ID never copied, and her
+  kennel never merged with someone else's. `describeRecord` now names every record type (the
+  file Merge's questions too). Tested: every table found, Lite's subset, the never-pairs, a
+  dismissed pair, a litter merge moving pups / events / expenses / a setting, event details,
+  the kennel refusals, a dog merge then a clean rescan. Checked in headless Chromium at phone
+  width: two Bellas and a doubled weight check found; merging the Bellas raised their two
+  litters next; Lite's card lists only its record types.

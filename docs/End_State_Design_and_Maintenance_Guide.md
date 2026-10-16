@@ -378,7 +378,9 @@ and it is blocked while anything points at the record.
 orphan rows, and a merge (§33, `data/recordMerge.js`) will leave rows pointing at the archived
 duplicate. Merge moves every `DOG_REFERENCES` / `CONTACT_REFERENCES` field, plus its own
 `EXTRA_REFERENCES` for unindexed id lists that can't block a delete
-(`waitlist_offers.eligible_dog_ids`).
+(`waitlist_offers.eligible_dog_ids`). A merge of any other kind of record (Scan for
+duplicates, §10) doesn't read the registry: it replaces the other record's id in every field
+of every record.
 
 ---
 
@@ -603,6 +605,34 @@ questions (`assets/mergeQuestions.js`).
   values (co-owners, tests, contact types) are joined; notes keep both. `created_at` is
   the earlier one.
 - The Lite cap is checked against the dogs as they'll be after the whole merge.
+
+**Duplicates on this device (the Import/Export "Duplicates" card; `data/duplicateScan.js`,
+pure, and `assets/duplicateScanUI.js`).** **Scan for duplicates** runs the matching rules
+above between two records on this device instead of across two devices, and adds the
+tidy-up's duplicate dogs and contacts (§33), so anything either would call the same is raised.
+- **Every kind of record the edition has** (`scanTables(flags)`): kennels (outside kennels need
+  `contactsSection`), accounts, contacts, waitlist programs, feeding schedules, dogs,
+  breedings, litters, sales, stud services, contracts, events, expenses, documents, waitlist
+  families and offers; Lite scans its own kennels, dogs, breedings, litters, sales, events
+  and expenses. Live records only. Demo has no Import/Export page.
+- **Nothing merges by itself.** A rule's *Same* is "These look like the same…", its *Ask*
+  "These might be the same…", with what the two have in common; she decides each pair. Two
+  pups of one litter by call name are only ever *Ask*. Foreign keys compare as stored, so the
+  card scans again after every merge: merging two records for one dam makes her two litters a
+  pair. Records are bucketed by what a rule compares first, so a scan never compares every
+  pair.
+- **Not the same** is remembered on this device in the nudge ledger under `dup:<table>:<ids>`
+  (dogs and contacts also under the tidy-up's key, so Kels doesn't ask either).
+- **Merge…** (`recordMerge.mergeDuplicate(table, keepId, dropId, choices)`): she picks the
+  record to keep (`suggestKeep`) and, where both have a value and they differ, which one wins
+  (`duplicateConflicts`; dogs and contacts as the tidy-up, §33). Blank fields fill from the
+  other, lists join, detail objects fill their blank keys, notes keep both; a kennel's public
+  ID is never copied (the kept kennel's carries on). Dogs and contacts merge through
+  `mergeRecords`; any other record has the other's id replaced in every field of every record
+  (nested ones included; `files` aren't read), each stamped now. The other record is archived,
+  never deleted, so live sync and cloud backup see an ordinary edit. Then this app's settings
+  follow (`settings.remapStoredIds`). Refused: her kennel with someone else's, and the
+  tidy-up's refusals for dogs and contacts.
 
 **The Import/Export "Backup & restore" card** is *what* (Back up / Restore) × *where* (This
 device / Dropbox, §26). A Dropbox push is a backup and a pull is a restore through the same

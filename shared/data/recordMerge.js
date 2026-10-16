@@ -8,14 +8,35 @@
 //   3. the other record is archived (soft delete; it keeps its own history).
 // So a new FK that isn't in the registry is a merge that leaves rows behind:
 // that's the second reason every FK goes in referenceRegistry.js.
-import { db } from './db.js';
+//
+// mergeDuplicate(table, …) does the same for a record of any kind (the
+// Import/Export page's Scan for duplicates, data/duplicateScan.js): dogs and
+// contacts go through mergeRecords; any other record has every id of the other
+// one replaced with the kept one's, in every field of every record (nested ones
+// included, as a file Merge re-keys), and this app's settings follow.
+import { db, dataTables } from './db.js';
 import { DOG_REFERENCES, CONTACT_REFERENCES } from './referenceRegistry.js';
 import { dogRepo } from './dogRepo.js';
 import { contactRepo } from './contactRepo.js';
-import { syncContactWaitlistStatus } from './waitlistEntryRepo.js';
+import { kennelRepo } from './kennelRepo.js';
+import { accountRepo } from './accountRepo.js';
+import { waitlistProgramRepo } from './waitlistProgramRepo.js';
+import { breedFeedingScheduleRepo } from './breedFeedingScheduleRepo.js';
+import { pairingRepo } from './pairingRepo.js';
+import { litterRepo } from './litterRepo.js';
+import { saleRepo } from './saleRepo.js';
+import { studServiceRepo } from './studServiceRepo.js';
+import { contractRepo } from './contractRepo.js';
+import { eventRepo } from './eventRepo.js';
+import { expenseRepo } from './expenseRepo.js';
+import { documentRepo } from './documentRepo.js';
+import { waitlistEntryRepo, syncContactWaitlistStatus } from './waitlistEntryRepo.js';
+import { waitlistOfferRepo } from './waitlistOfferRepo.js';
 import { assertWritable } from './demoMode.js';
-import { markDataChanged } from './settings.js';
+import { markDataChanged, remapStoredIds } from './settings.js';
 import { nowIso } from './repoBase.js';
+import { rekey } from './restoreMatch.js';
+import { findDuplicates } from './duplicateScan.js';
 
 const blank = (v) => v == null || (typeof v === 'string' && v.trim() === '') || (Array.isArray(v) && !v.length);
 const same = (a, b) => (typeof a === 'string' && typeof b === 'string' ? a.trim() === b.trim() : a === b);
@@ -220,5 +241,127 @@ export async function mergeRecords(kind, keepId, dropId, choices = {}) {
 
   await repo.archive(dropId);
   if (kind === 'contact') await syncContactWaitlistStatus(keepId);
+  return { moved };
+}
+
+// --- Any record (Scan for duplicates) ----------------------------------------------
+
+const REPOS = {
+  dogs: dogRepo, contacts: contactRepo, kennels: kennelRepo, accounts: accountRepo, waitlist_programs: waitlistProgramRepo,
+  breed_feeding_schedules: breedFeedingScheduleRepo, pairings: pairingRepo, litters: litterRepo, sales: saleRepo,
+  stud_services: studServiceRepo, contracts: contractRepo, events: eventRepo, expenses: expenseRepo, documents: documentRepo,
+  waitlist_entries: waitlistEntryRepo, waitlist_offers: waitlistOfferRepo
+};
+const KIND = { dogs: 'dog', contacts: 'contact' };
+
+// Never chosen between or copied: identity, timestamps, a kennel's permanent public
+// ID (the kept kennel's stays; the other's goes with it into the archive), and notes
+// (kept from both).
+const ANY_NEVER_COPY = new Set(['id', 'created_at', 'updated_at', 'is_archived', 'public_id', 'notes']);
+const isObj = (v) => v != null && typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype;
+const isList = (v) => Array.isArray(v) && v.every((x) => x == null || typeof x !== 'object');
+const sameValue = (a, b) => same(a, b) || (typeof a === 'object' && typeof b === 'object' && JSON.stringify(a) === JSON.stringify(b));
+const fieldLabel = (key) => {
+  const words = key.replace(/_ids?$/, '').replace(/_/g, ' ').trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+};
+// Two detail objects disagree where both have a key and the values differ.
+const objectsClash = (a, b) => Object.keys(a).some((k) => !blank(a[k]) && !blank(b[k]) && !sameValue(a[k], b[k]));
+
+// Where two records of `table` disagree: [{ key, label, keep, drop, ref?, group? }].
+export function duplicateConflicts(table, keep, drop) {
+  if (KIND[table]) return mergeConflicts(KIND[table], keep, drop);
+  const out = [];
+  for (const key of new Set([...Object.keys(keep), ...Object.keys(drop)])) {
+    const k = keep[key];
+    const d = drop[key];
+    if (ANY_NEVER_COPY.has(key) || blank(k) || blank(d) || (isList(k) && isList(d))) continue;
+    if (isObj(k) && isObj(d) ? objectsClash(k, d) : !sameValue(k, d)) out.push({ key, label: fieldLabel(key), keep: k, drop: d });
+  }
+  return out;
+}
+
+// The changes to write on the kept record: as mergedChanges, for any table.
+// A detail object fills its blank keys from the other record's, or, chosen, takes
+// the other's values where both have one.
+export function duplicateChanges(table, keep, drop, choices = {}) {
+  if (KIND[table]) return mergedChanges(KIND[table], keep, drop, choices);
+  const changes = {};
+  for (const [key, v] of Object.entries(drop)) {
+    if (ANY_NEVER_COPY.has(key) || blank(v)) continue;
+    const k = keep[key];
+    if (blank(k)) changes[key] = v;
+    else if (isList(k) && isList(v)) {
+      const joined = [...new Set([...k, ...v])];
+      if (joined.length !== k.length) changes[key] = joined;
+    } else if (isObj(k) && isObj(v)) {
+      const [base, over] = choices[key] === 'drop' ? [k, v] : [v, k];
+      const merged = { ...base };
+      for (const [kk, vv] of Object.entries(over)) if (!blank(vv) || !(kk in merged)) merged[kk] = vv;
+      if (JSON.stringify(merged) !== JSON.stringify(k)) changes[key] = merged;
+    } else if (choices[key] === 'drop' && !sameValue(k, v)) changes[key] = v;
+  }
+  const kn = String(keep.notes || '').trim();
+  const dn = String(drop.notes || '').trim();
+  if (dn && dn !== kn && !kn.includes(dn)) changes.notes = kn ? `${kn}\n\n${dn}` : dn;
+  return changes;
+}
+
+// Why two records of `table` can't be merged (a sentence), or null.
+export function duplicateBlocker(table, keep, drop, ctx = {}) {
+  if (KIND[table]) return mergeBlocker(KIND[table], keep, drop, ctx);
+  if (table === 'kennels' && !!keep.is_own_kennel !== !!drop.is_own_kennel) {
+    return 'One is your kennel and the other is someone else\'s, so they can\'t be merged.';
+  }
+  return null;
+}
+
+// Every duplicate on this device (data/duplicateScan.js), read from the tables.
+export async function scanForDuplicates({ flags = {}, dismissed } = {}) {
+  const rows = {};
+  for (const t of Object.keys(REPOS)) rows[t] = await db.table(t).toArray();
+  return { findings: findDuplicates({ rows, flags, dismissed }), rows };
+}
+
+// Merge `dropId` into `keepId`, both of `table`. → { moved: rows repointed }.
+export async function mergeDuplicate(table, keepId, dropId, choices = {}) {
+  assertWritable();
+  if (keepId === dropId) throw new Error('Pick two different records to merge.');
+  const remap = new Map([[dropId, keepId]]);
+  if (KIND[table]) {
+    const res = await mergeRecords(KIND[table], keepId, dropId, choices);
+    remapStoredIds((v) => rekey(v, remap));
+    return res;
+  }
+  const repo = REPOS[table];
+  if (!repo) throw new Error(`Can't merge ${table} records.`);
+  const [keep, drop] = await Promise.all([repo.getById(keepId), repo.getById(dropId)]);
+  if (!keep || !drop) throw new Error('One of those records is gone.');
+  const blocker = duplicateBlocker(table, keep, drop);
+  if (blocker) throw new Error(blocker);
+
+  const changes = duplicateChanges(table, keep, drop, choices);
+  if (Object.keys(changes).length) await repo.update(keepId, changes);
+
+  // Everything that names the other record names the kept one. Files hold only
+  // their bytes, so they're not read.
+  const tables = dataTables().filter((t) => t.name !== 'files');
+  let moved = 0;
+  await db.transaction('rw', tables, async () => {
+    const now = nowIso();
+    for (const t of tables) {
+      for (const row of await t.toArray()) {
+        if (row.id === dropId) continue;
+        const next = rekey(row, remap);
+        if (next === row) continue;
+        await db.table(t.name).put({ ...next, updated_at: now });
+        moved++;
+      }
+    }
+  });
+  if (moved) markDataChanged(); // cloud backup dirty signal (Cloud Phase 1 §3.2)
+
+  await repo.archive(dropId);
+  remapStoredIds((v) => rekey(v, remap));
   return { moved };
 }
