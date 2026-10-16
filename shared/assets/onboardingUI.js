@@ -110,7 +110,7 @@ export async function runFirstRunOnboarding() {
   return true;
 }
 
-// "Meet Kels": once, on the first page load after the first-run kennel setup saves
+// "Introducing Kels": once, on the first page load after the first-run kennel setup saves
 // (the end of the tour hands off to it too, so both ways in end here). Try it opens
 // her Getting Started task; Maybe later just closes. Never on Kels's own page.
 // Resolves once it's answered, so app.js's cloud UI waits behind it.
@@ -122,8 +122,8 @@ export async function maybeMeetKels() {
   const choice = await onboardCard({
     bodyHtml: `
       ${photo ? `<img class="onboard-kels" src="${photo}" alt="">` : ''}
-      <h2 class="onboard-title">Meet ${KELS.name}, your KennelOS guru!</h2>
-      <p>She's a sweet, fun-loving pup who can help simplify your kennel management and teach you how to use KennelOS.</p>
+      <h2 class="onboard-title">Introducing ${KELS.name}</h2>
+      <p>Meet ${KELS.name}, your KennelOS guru! She's a sweet, fun-loving pup who can help simplify your kennel management and teach you how to use KennelOS.</p>
       <p>To test her out, try the <strong>Getting Started</strong> flow now!</p>`,
     buttons: [
       { label: 'Maybe later', value: 'later' },

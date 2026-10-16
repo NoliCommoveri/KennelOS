@@ -664,7 +664,7 @@ On a fresh install, one Welcome card offers:
   snapshot (`cloudBackup.restoreOnNewDevice`), which skips kennel setup.
 
 Both ways out of the tour (finished or skipped) also end in the required kennel setup. Its
-save sets `meetKelsPending`, and the page that loads next shows **Meet Kels**
+save sets `meetKelsPending`, and the page that loads next shows **Introducing Kels**
 (`onboardingUI.maybeMeetKels`, once, never on Kels's own page): "Meet Kels, your KennelOS
 guru! She's a sweet, fun-loving pup who can help simplify your kennel management and teach
 you how to use KennelOS. To test her out, try the Getting Started flow now!", with **Try

@@ -1501,3 +1501,4 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   (`onboardingUI.maybeMeetKels`, device-only `meetKelsPending` set by the required kennel
   setup's save). Checked in the browser on both paths: shown once, gone on reload, never on
   Kels's page, and Try opens the task.
+  The card is titled **Introducing Kels**, with the Meet Kels line as its first paragraph.
