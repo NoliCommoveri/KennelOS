@@ -1530,3 +1530,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   on Whelped, the prompt on save, and the tidy-up fix.
   A dog's Litters list shows it as a pill after the status, by a short label (Natural,
   Assisted, Planned C-sec, Emergency C-sec).
+- **Kels: Cancel a task (2026-10-16).** A **Cancel** button in Kels's header beside Save for
+  later, shown while any task runs. It asks "Are you sure?" (Yes, cancel / Keep going); yes
+  drops the open question, throws away a resumable task's draft (each resumable task names
+  its `discard`), says "Okay, I've stopped." and goes back to the menu. Records already saved
+  stay. Checked in the browser at phone width: both buttons fit, Keep going leaves the task
+  as it was, Yes ends it and hides both buttons.

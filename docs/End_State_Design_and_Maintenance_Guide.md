@@ -1944,7 +1944,9 @@ while a litter has pups at home), add dogs (35), add people (33, Pro), tidy up (
 my waitlist (25, Pro), set up my application form (24, Pro), account health (20), Getting Started
 (95 while she's new, else 15: `kelsSetup.setupPriority`); unfinished
 people sit at 98, an unfinished form at 97. The header's **Save for later** shows only while a `resumable` task
-runs, and the floating button's dot shows while any draft is unfinished. `beforeStart`
+runs; its **Cancel** shows while any task runs and, after an "Are you sure?" (`confirmModal`),
+drops the open question, discards a resumable task's draft (its `discard`) and returns to the
+menu (records already saved stay), and the floating button's dot shows while any draft is unfinished. `beforeStart`
 can redirect a start (a new litter, dogs, people or form while one is unfinished asks "Finish that
 one / Start fresh"); `handoff(taskId, opts)`
 moves her to another task (an Expected litter in the check-in → its birth).
