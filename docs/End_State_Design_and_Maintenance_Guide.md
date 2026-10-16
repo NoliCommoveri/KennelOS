@@ -207,7 +207,7 @@ to the cloud unsealed).
 |---|---|---|
 | **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `registered_name`, `registration_number`, `microchip_id`, `planned_tests[]`, `recorded_coi`, `url`. `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. |
 | **Contact** | `name` | `contact_type[]`, `email`, `phone`, `facebook_profile`, `address` (also the away-board location, §19), `kennel_id` (affiliation, not scope), `waitlist_status` (kept by `waitlistEntryRepo`), `first_contact_source`, `companion_note` (shown to the recipient, §20; `notes` is private). Buyers are Contacts; there is no Buyer table. |
-| **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `logo_data_url` (kept under ~300 KB, `pages/kennel.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `puppy_record_fields` (§23), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
+| **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `puppy_record_fields` (§23), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date` when empty). Sire ≠ dam. |
 | **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `puppies_born_*` counts, per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
 | **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
@@ -326,7 +326,10 @@ Every write calls `assertWritable()` first (Demo, §0.2) and marks the cloud bac
 - **contractRepo**: `governingContract` (latest signed, derived) and
   `isLivePartnerContract` (drives partner Companion membership, §20).
 - **kennelRepo**: preferred tests/breeds (dedupe on write; removing never purges a token
-  an event uses); `addPreferredTest`'s breed tag, read by `testBreedsFor`/`testsForBreed`.
+  an event uses); `addPreferredTest`'s breed tag, read by `testBreedsFor`/`testsForBreed`;
+  `renamePreferredTest` (in place, breed tags kept; renamed to another test in the panel,
+  the two become one with both tests' tags, untagged if either was; panel only, never a
+  dog's planned tests or past events; Kels's Getting Started).
 - **contactRepo.ensureType(id, type)** adds a role tag; sale, stud service and event saves
   use it (`buyer_referrer`, `stud_referrer`, `handler`, `vet`).
 - **waitlistEntryRepo** keeps `Contact.waitlist_status` in step after every write
@@ -608,6 +611,8 @@ Every key is in its `KEYS` table (`kennelOS.*`), each with a getter/setter, and
   `prepChecks`: Kels's unfinished litter, her unfinished Add dogs, Add people and
   application form, and the optional checks ticked
   last time in Pups are going home (§33). Device-only.
+- `meetKelsPending`: the Meet Kels card waits for the next page load (set by the first-run
+  kennel setup's save, cleared when shown; First run, below). Device-only.
 - `kelsFavorites`, `kelsTaskUse`, `kelsNoPromote`: her starred Kels tasks, when she started
   each (the last 60 days), and the ones she said not to move up (§33, Favorites). Device-only.
 - `studTripsMigrated`: the stud-trip migration has run on this device (§19, Away board).
@@ -657,6 +662,14 @@ On a fresh install, one Welcome card offers:
 - **Take the tour** → seed Thornfield and start the tour. The only path that seeds.
 - **I already use KennelOS** (cloud editions only) → sign in and restore the latest
   snapshot (`cloudBackup.restoreOnNewDevice`), which skips kennel setup.
+
+Both ways out of the tour (finished or skipped) also end in the required kennel setup. Its
+save sets `meetKelsPending`, and the page that loads next shows **Introducing Kels**
+(`onboardingUI.maybeMeetKels`, once, never on Kels's own page): "Meet Kels, your KennelOS
+guru! She's a sweet, fun-loving pup who can help simplify your kennel management and teach
+you how to use KennelOS. To test her out, try the Getting Started flow now!", with **Try
+Getting Started** (`kels.html?task=get-started`) and **Maybe later**. Nothing starts on
+its own. A reopen of kennel setup from Settings doesn't set it.
 
 Installing as an app is a dismissible Today card. Cloud UI in the shell (device check-in,
 the backup scheduler, Today's backup nudges, the Import/Export Cloud backup card) is
@@ -775,7 +788,11 @@ Pro-only pages are listed in `data/proPages.js`; everything else ships in every 
 **The Kennel page** (`kennel.html`) shows one section card at a time, chosen from a
 **Section** dropdown (`SECTIONS` in `kennel.js`) or `#<section>` in the URL; cards for this
 kennel's own data filter on its id, not the active scope. An outside kennel gets only
-Kennel expenses, Logo and Kennel card.
+Kennel expenses, Logo and Kennel card. The Logo, Lifecycle nudges and Puppy Record fields
+cards build their fields from `assets/kennelSettingsFields.js` (`fileToLogoDataUrl`,
+`logoPreview`, `nudgeFields` / `readNudgeFields`, `puppyRecordFieldsHtml` /
+`wirePuppyRecordFields` / `readPuppyRecordFields`; Pro-only, in `proPages.js`), which Kels's
+Getting Started uses too.
 
 **The Calendar** (`calendar.html`, every edition): a month grid of `eventRepo.getInRange`
 plus reminders, scoped by `subjectInScope`. Open-ended spans draw on their start day only
@@ -1839,8 +1856,9 @@ too;
 Pro-only), `assets/guidedFormUI.js` (Pro-only) + `data/guidedForm.js` (set up my application
 form), `assets/waitlistFeeStep.js` (Pro-only: the application fee and its payment account,
 both waitlist tasks), `assets/kelsBackupSteps.js` (`offerCloudBackup`, `offerSensitiveRecords`,
-`VAULT_WHY`: turning on cloud backup and Sensitive records backup in the chat; the waitlist
-tasks and account health's wording), `assets/vendorKeyUI.js` (`vendorKeyFlow`: a Stripe or Jotform key connected or
+`VAULT_WHY`, `cloudBackupOn`: turning on cloud backup and Sensitive records backup in the
+chat; the waitlist tasks, Getting Started and account health's wording), `assets/kelsSetupUI.js` +
+`data/kelsSetup.js` (Getting Started), `assets/vendorKeyUI.js` (`vendorKeyFlow`: a Stripe or Jotform key connected or
 replaced in the chat; account health and the waitlist setup), `assets/kelsFindings.js` (`FindingsTask`, the
 look → raise one at a time → fix → look again loop the tidy-up and account health share:
 "Not now", a remembered "Don't ask me again" under `<prefix>:<key>` in the nudge ledger,
@@ -1868,7 +1886,11 @@ need to save and come back, I'll save what we've got so far…  Sound good?"), a
 "Absolutely, let's get those puppies added!", check-in "Of course, let's check in on your
 litter!", add dogs "Wonderful, let's get your dogs added!", add people "Of course! Let's get your
 people added.", application form "Yes! Let's make your application form just right.", tidy up "Love it, let's get your
-records tidy!", account health "Good idea, let's make sure everything's safe and sound!".
+records tidy!", account health "Good idea, let's make sure everything's safe and sound!", Getting
+Started "Welcome aboard! Let's get KennelOS set up just the way you like it." Getting Started says
+`kelsSetup.SETUP_HOW` in place of `KELS_INTRO` ("I'll go through your kennel's settings with
+you one at a time and save each one as we go…"), since it keeps no draft and builds nothing
+to approve.
 
 **The top** (`kels.js` `menu`): her first message, `kelsChat.kelsWelcome` ("Hi, I'm Kels, your
 personal KennelOS agent! I'm here to help you manage your kennel :) What do you need help
@@ -1893,7 +1915,8 @@ run, resumable?, beforeStart? }`, highest priority first, with a search box abov
 litter). The page header shows her photo and `KELS.title` ("Kels, the KennelOS whiz") on one line, sized to fit a phone. Order: an unfinished litter (100), unfinished dogs (99), the
 check-in (60 while a litter has pups at home, else 40), a new litter (50), prep pups (45,
 while a litter has pups at home), add dogs (35), add people (33, Pro), tidy up (30), set up
-my waitlist (25, Pro), set up my application form (24, Pro), account health (20); unfinished
+my waitlist (25, Pro), set up my application form (24, Pro), account health (20), Getting Started
+(95 while she's new, else 15: `kelsSetup.setupPriority`); unfinished
 people sit at 98, an unfinished form at 97. The header's **Save for later** shows only while a `resumable` task
 runs, and the floating button's dot shows while any draft is unfinished. `beforeStart`
 can redirect a start (a new litter, dogs, people or form while one is unfinished asks "Finish that
@@ -1902,7 +1925,8 @@ moves her to another task (an Expected litter in the check-in → its birth).
 
 **Doors:** the floating button; the Breeding page (`kels.html?task=record-litter`); an
 expected litter's page (`&litter=<id>`, parents and litter preset); a born litter's page that
-isn't closed (**Check in with Kels**, `kels.html?task=checkin&litter=<id>`).
+isn't closed (**Check in with Kels**, `kels.html?task=checkin&litter=<id>`); the first-run
+Meet Kels card (**Try Getting Started**, `kels.html?task=get-started`).
 
 ### "Finding Something"
 `assets/kelsFindUI.js` + `data/kelsFind.js` (the engine) + `data/kelsKnowledge.js` (the cheat
@@ -2018,6 +2042,34 @@ question when there is one. How KennelOS works opens "I'm on it!" +
 - **Adding an entry:** a line in `ENTRIES`. The tests check unique ids, a known section and
   a real edition flag, a sentence in every edition with no field names, and that every Show
   me page exists and is precached.
+
+### "Getting Started"
+A new breeder's first run through her kennel's settings, after the first-run kennel setup
+(§0): `assets/kelsSetupUI.js` + `data/kelsSetup.js` (pure, tested in
+`tests/kelsSetup.test.js`). Every edition but the Demo (which saves nothing). It keeps no
+draft: each part saves through `kennelRepo` as she answers it, and every part can be
+skipped. **New** (`isNewProgram`): not one dog record on file, of any kind, archived ones
+included (pedigree-only ancestors don't count); then it sits at 95 in her menu, however often she has run it, else 15.
+
+With more than one own kennel she picks which (My kennel first); then the parts, in
+`setupParts(editionFlags, { kennelPage })` order, each only where the edition has what it
+sets up. The kennel's own settings need its Kennel page (Pro-only), so Lite gets the backup
+part alone, then her dogs.
+
+| Part | Where | What |
+|---|---|---|
+| `logo` | the Kennel page, and something prints it (`logoUses`: invoices, receipts, puppy records, printed reports) | Upload (a file box in the chat, scaled by `fileToLogoDataUrl`, previewed, saved on **Use this logo**); one on file is shown with **Keep it** / **Change it** |
+| `nudges` | the Kennel page | The Lifecycle nudges fields in one form, suggested on when never set (`promote_nudge_enabled`, the two promote ages) |
+| `tests` | the Kennel page | Her preferred tests listed (with their breed tags), then **Add tests** (one per line, optionally for some of her `preferred_breeds`: `addPreferredTest`), **Remove tests** (ticked: `removePreferredTest`), **Rename a test** (`renamePreferredTest`), round after round until **That's all**. Panel only: dogs on file keep their planned tests |
+| `puppy-record` | Pro (`puppyRecord`) | **Show everything** (clears `puppy_record_fields`) or **Let me choose** (the Puppy Record fields' boxes) |
+| `kennels` | Pro (`multiKennel`) | Another own kennel, for a separate side of the business (two breeds with their own waitlists, a pet side and a show side); with the waitlist she adds that a program per breed may be enough. Name (checked by `newKennelNameProblem`: required; one like a kennel on file asked about once), prefix, location; created with `is_own_kennel` and `settingsToCopy` (the nudge settings and Puppy Record fields, nothing else); then its logo (upload, the first kennel's, or not now). As many as she likes |
+| `furever` | Pro (`furever`) | Google Drive for Furever's content packages: Google's sign-in script (`vendor/gsi/client.js`) is loaded on demand, then a form whose **Connect** calls `googleDrive.connectDrive()` from the tap (so the window isn't blocked) and sets `driveConnected` |
+| `assistant` | Pro (`assistant`) | Dropbox for KennelAssistant. Dropbox returns to the page that asked, and only registered pages may ask, so it connects on the KennelAssistant page: announced, opened in a new tab on **Okay, open it**, then **I'm back, check it now** reads `isDropboxConnected()`. Already connected: she says so |
+| `backup` | every edition | Cloud backup on: she says so. Cloud offered and off: `offerCloudBackup`. Otherwise, with no backup file in `EXPORT_MAX_DAYS` (14): **Download a backup now** (`importExport.downloadBackup`) |
+
+Then **Add my dogs** / **Add my people** (Pro, `contactsSection`) / **I'm all set for now**:
+a pick is `handoff('add-dogs' | 'add-people')`, so an unfinished draft of that task still
+asks Finish / Start fresh.
 
 ### "Record a new litter"
 `stepsFor`: mom and dad (own dogs, all dogs, or a new one; a typed name is first checked

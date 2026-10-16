@@ -1471,3 +1471,34 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `kelsAbout.js`, `kelsFavorites.js`, `kelsFind.js`, `kelsKnowledge.js`, `kelsUnderstand.js`,
   `restoreMatch.js`; the Applications, Offers & removals and Waitlist today reports. All 394
   precache paths checked present, and every app file is in the list.
+- **Kels: Get set up (2026-10-15).** A new task for a new breeder's first run through her
+  settings (`assets/kelsSetupUI.js`, pure rules in `data/kelsSetup.js`, tested): her logo
+  (where something prints it), lifecycle nudges, Puppy Record fields (Pro), another own
+  kennel for a separate side of the business with this kennel's nudge and Puppy Record
+  settings copied (Pro, multi-kennel), Google Drive for Furever connected in the chat (GIS
+  loaded on demand, the window opened from her tap), Dropbox for KennelAssistant (the
+  KennelAssistant page in a new tab, since Dropbox only returns to registered pages), then
+  cloud backup or a backup file; then Add dogs or Add people. Each part saves as answered
+  and can be skipped. Lite (no Kennel page) gets the backup part and Add dogs; not in the
+  Demo. Menu priority 95 until she has her first dog record (of any kind), else 15. The Kennel page's logo resize, nudge fields and Puppy
+  Record boxes moved into `assets/kennelSettingsFields.js` (Pro-only) so Kels and the page
+  share one copy; `kelsBackupSteps` exports `cloudBackupOn`. Precached: the three new
+  files. Checked in the browser (Pro and the Lite build): the whole run, the saved kennels,
+  the Google window and the KennelAssistant tab opening, the low menu spot afterwards, and
+  the Kennel page's three cards still saving.
+- **Kels Get set up: preferred tests (2026-10-15).** A part after lifecycle nudges (where
+  the Kennel page is, so not Lite): her preferred tests listed with their breed tags, then
+  add (one per line, optionally for some of her breeds), remove, or rename, round after
+  round. New `kennelRepo.renamePreferredTest` (in place with its breed tags; renamed onto
+  another test, the two merge; panel only), tested in `tests/preferredTestRename.test.js`.
+  The task also now leads the menu until her first dog record, however often she's run it
+  (the unreleased `kelsSetupDone` flag removed). Checked in the browser: add three, rename
+  one, remove one, saved as shown.
+- **Meet Kels card; Getting Started (2026-10-16).** Kels's setup task is renamed Getting
+  Started. Decided: it never starts on its own. Instead, the first page after the first-run
+  kennel setup saves (which both the tour's end and Start my kennel reach) shows a one-time
+  Meet Kels card with her photo, **Try Getting Started** (opens the task) and **Maybe later**
+  (`onboardingUI.maybeMeetKels`, device-only `meetKelsPending` set by the required kennel
+  setup's save). Checked in the browser on both paths: shown once, gone on reload, never on
+  Kels's page, and Try opens the task.
+  The card is titled **Introducing Kels**, with the Meet Kels line as its first paragraph.
