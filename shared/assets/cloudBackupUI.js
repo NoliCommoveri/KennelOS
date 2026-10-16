@@ -32,7 +32,8 @@ import {
 import {
   enableBackup, disableBackup, pushIfDirty, getBackupStatus, restoreLatestAndTakeOver,
   replaceCloudWithThisDevice, listSnapshots, downloadSnapshot, previewRestore, restoreSnapshot,
-  restoreOnNewDevice, deleteCloudData, startBackupScheduler, getServiceNotices, CLOUD_BACKUP_EVENT
+  restoreOnNewDevice, deleteCloudData, startBackupScheduler, getServiceNotices, CLOUD_BACKUP_EVENT,
+  prepareDirectJoin, adoptOwnKennel
 } from '../data/cloud/cloudBackup.js';
 import { listDevices, requestErase, cancelErase, releaseDeviceLicense } from '../data/cloud/cloudDevices.js';
 import {
@@ -1431,6 +1432,11 @@ export async function runSignInAndRestore({ fromCard = false } = {}) {
   if (!account) return false;
   // Private Vault Plan §2.3: the unlock step, when the program has a vault.
   if (isVaultOffered()) await (await vaultUI()).unlockBeforeRestore();
+  // A program that keeps its devices in step (Cloud Phase 2 plan §2.1): this
+  // device joins it, which brings every record, in place of restoring a backup.
+  // Not unlocked here (sync needs Sensitive records), it restores as before.
+  const joined = await joinInsteadOfRestore();
+  if (joined !== null) return joined;
   const pg = progressModal('Restoring your records…');
   try {
     const { restored, push } = await restoreOnNewDevice({
@@ -1462,6 +1468,19 @@ export async function runSignInAndRestore({ fromCard = false } = {}) {
     await alertModal({ title: "Couldn't restore", message: errorText(e) });
     return false;
   }
+}
+
+// → true (joined), false (she backed out of the join), or null (restore instead:
+// the program doesn't sync, sync isn't offered here, or this device can't join yet).
+async function joinInsteadOfRestore() {
+  if (!isSyncOffered()) return null;
+  const sync = await import('../data/cloud/cloudSync.js');
+  if (!(await sync.programSyncs())?.enabled) return null;
+  prepareDirectJoin();
+  if ((await sync.syncReadiness()).length) return null;
+  const joined = await (await syncUI()).joinSyncFlow({ confirmed: true });
+  if (joined) await adoptOwnKennel();
+  return joined;
 }
 
 // --- Today (plan §2.1): turn it on, or it's paused -------------------------------------

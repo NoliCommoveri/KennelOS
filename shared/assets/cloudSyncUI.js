@@ -19,6 +19,7 @@ import {
 import { pushIfDirty } from '../data/cloud/cloudBackup.js';
 import { listDevices } from '../data/cloud/cloudDevices.js';
 import { describeActivity } from '../data/cloud/syncActivity.js';
+import { askSame, askClashes } from './mergeQuestions.js';
 import { SYNC_APPLIED_EVENT } from '../data/syncApply.js';
 import { getMyKennelName } from '../data/kennelSetup.js';
 import {
@@ -156,6 +157,7 @@ async function missingAlert(missing) {
 
 // The progress modal's words for cloudSync's ({ phase, done, total }).
 function progressText(p) {
+  if (p.phase === 'match') return ['Looking for records you entered on more than one device…', p.done, p.total];
   if (p.phase === 'pull') return ['Bringing down your records…', p.done, p.total];
   return [`Getting your records ready to sync: ${p.done.toLocaleString()} of ${p.total.toLocaleString()}`, p.done, p.total];
 }
@@ -169,9 +171,33 @@ async function withProgress(title, run) {
   }
 }
 
+// A join (or a turn-on, which joins) with its questions, as a file Merge asks
+// them: "Are these the same?" until nothing is left to ask (an answer can pair
+// more), then a paired dog's name, sex or parents. → the last result, or null
+// when she cancelled (nothing was written).
+async function withQuestions(title, first) {
+  let answers = {};
+  let result = await withProgress(title, first);
+  while (result?.status === 'ask') {
+    let clashChoices = null;
+    if (result.asks.length) {
+      const got = await askSame(result.asks, { theirs: 'on your other devices' });
+      if (!got) return null;
+      answers = { ...answers, ...got };
+    } else {
+      clashChoices = await askClashes(result.clashes, { theirsLabel: 'your other devices' });
+      if (!clashChoices) return null;
+    }
+    result = await withProgress(title, (onProgress) => joinSync({ onProgress, answers, clashChoices }));
+  }
+  return result;
+}
+
 // What a turn-on or a join came back with, said to her. True when this device is in step.
 async function joinResult(result, { first = false } = {}) {
   forgetProgram();
+  if (result === null) return false; // she cancelled a question: nothing was written
+  const matched = result?.matched ? ` ${result.matched.toLocaleString()} record(s) you had entered on more than one device became one.` : '';
   switch (result?.status) {
     case 'on':
       startSyncUI();
@@ -181,7 +207,7 @@ async function joinResult(result, { first = false } = {}) {
         title: 'Your devices are in step',
         message: first
           ? 'This device is the starting point. On your other devices, sign in to cloud backup, unlock Sensitive records, and choose Keep this device in step.'
-          : `${result.pulled ? `${result.pulled.toLocaleString()} record(s) came down. ` : ''}${result.pushed ? `${result.pushed.toLocaleString()} from this device went up. ` : ''}From now on, changes reach your other devices within a minute.`
+          : `${result.pulled ? `${result.pulled.toLocaleString()} record(s) came down. ` : ''}${result.pushed ? `${result.pushed.toLocaleString()} from this device went up. ` : ''}From now on, changes reach your other devices within a minute.${matched}`
       });
       return true;
     case 'not_ready':
@@ -228,8 +254,8 @@ export async function turnOnSyncFlow() {
     confirmLabel: 'Turn on'
   });
   if (!ok) return false;
-  const result = await withProgress('Turning on…', (onProgress) => enableSync({ onProgress }));
-  return joinResult(result, { first: result?.status === 'on' && !result.pulled });
+  const result = await withQuestions('Turning on…', (onProgress) => enableSync({ onProgress }));
+  return joinResult(result, { first: result?.status === 'on' && !result.pulled && !result.matched });
 }
 
 // "Keep this device in step" (§2.1, §5.5). `catchUp`: a device that fell too far
@@ -241,12 +267,13 @@ export async function joinSyncFlow({ catchUp = false, confirmed = false } = {}) 
     const ok = await confirmModal({
       title: catchUp ? 'Catch up with your other devices?' : 'Keep this device in step?',
       message: 'Your records come down from the cloud, and this device\'s records the cloud doesn\'t have go up. '
+        + 'A record you entered on both devices becomes one (I\'ll ask about any I\'m not sure of). '
         + 'Where both have changed a record, the newer change is kept. Nothing is deleted on either side.',
       confirmLabel: catchUp ? 'Catch up' : 'Keep in step'
     });
     if (!ok) return false;
   }
-  const result = await withProgress(catchUp ? 'Catching up…' : 'Joining your devices…', (onProgress) => joinSync({ onProgress }));
+  const result = await withQuestions(catchUp ? 'Catching up…' : 'Joining your devices…', (onProgress) => joinSync({ onProgress }));
   return joinResult(result);
 }
 
@@ -258,7 +285,7 @@ export async function joinOfferDialog() {
     const overlay = openModal(`
       <h2 style="margin-top:0;">Your devices keep in step</h2>
       <p class="muted">${esc(kennel)} keeps its devices in step, so there's no single device that backs up. Join them to keep backing up from this one.</p>
-      <p class="muted">Your records come down, this device's records the cloud doesn't have go up, and nothing is deleted on either side.</p>
+      <p class="muted">Your records come down, this device's records the cloud doesn't have go up, a record entered on both becomes one, and nothing is deleted on either side.</p>
       <div class="form-actions">
         <button class="btn btn-primary" data-v="join">Keep this device in step</button>
         <button class="btn" data-v="cancel">Not now</button>

@@ -530,6 +530,15 @@ application twice or answer the same family event twice. So:
      unless she has typed there, a dialog is open, or the tab is hidden, when it gets the
      notice too. The pull runs in one tab, so the others hear of it by `BroadcastChannel`.
      The notice names no device: the event doesn't carry one.
+   - **Records entered on both sides** (decided 2026-10-16): a join first pairs them with a
+     file Merge's rules (guide §10) and asks the same questions; a pair keeps the cloud's id.
+     §5.5's merge alone matched by id, so the same dog typed on two devices came out twice.
+   - **A new device joins directly** (decided 2026-10-16): Sign in and restore on a syncing
+     program joins in place of restoring the latest backup, when Sensitive records unlock.
+   - **A stale backup base** (found here; a step 4 gap): any caught-up device can make the
+     latest snapshot, so the others' `lastSnapshotId` went stale and their backups were
+     skipped as not caught up for good. A refusal naming the same `syncSeq` now adopts the
+     server's latest snapshot as the base and retries once.
    - **Status line:** "On · 2 devices · synced just now", or "changes waiting: no internet";
      a head check that finds nothing new counts as synced (`lastCheckAt`).
    Checked in headless Chromium at phone width, two browser profiles as two devices against

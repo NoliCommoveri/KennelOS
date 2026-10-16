@@ -320,12 +320,71 @@ test('turning it on: what\'s missing is named; then the first device uploads eve
   makePro();
   const steps = [];
   const on = await sync.enableSync({ onProgress: (p) => steps.push(p) });
-  assert.deepEqual(on, { status: 'on', pulled: 0, keptOurs: 0, pushed: 1 });
+  assert.deepEqual(on, { status: 'on', pulled: 0, keptOurs: 0, pushed: 1, matched: 0 });
   assert.deepEqual(steps.filter((s) => s.phase === 'push').at(-1), { phase: 'push', done: 1, total: 1 });
   const s = settings.getCloudSyncState();
   assert.equal(s.enabled, true);
   assert.equal(s.joining, false);
   assert.equal(s.cursor, 1);
+});
+
+test('joining pairs records both devices entered on their own, by a file Merge\'s rules, and the pair keeps the cloud\'s id', async () => {
+  await beforeSync();
+  put('dogs', dog('a9', { call_name: 'Birch', registered_name: 'Oak Hill Birch' }));
+  assert.equal((await sync.enableSync()).status, 'on');
+
+  switchDevice('B');
+  put('kennels', row('kB', { kennel_name: 'Oak Hill', is_own_kennel: true }));
+  put('dogs', dog('b9', { call_name: 'Birchie', registered_name: 'OAK HILL BIRCH', kennel_id: 'kB', notes: 'B notes' }));
+  put('dogs', dog('b8', { call_name: 'd2', kennel_id: 'kB', notes: 'B\'s d2' }));
+  put('events', row('e1', { subject_type: 'dog', subject_id: 'b9', event_type: 'note', event_date: '2026-01-02' }));
+  settings.setMyKennelId('kB');
+
+  // Not sure about b8 / d2 (the same call name, breed and sex): asked first.
+  const first = await sync.joinSync();
+  assert.equal(first.status, 'ask');
+  assert.deepEqual(first.asks.map((q) => [q.table, q.candidates.map((c) => c.id)]), [['dogs', ['b8']]]);
+  assert.ok(!settings.getCloudSyncState().joining, 'nothing started yet');
+  assert.ok(get('dogs', 'b9'), 'nothing written yet');
+  const answers = { [first.asks[0].key]: 'b8' };
+
+  // Then the paired dog whose call name differs.
+  const second = await sync.joinSync({ answers });
+  assert.equal(second.status, 'ask');
+  assert.deepEqual(second.asks, []);
+  const clash = second.clashes.find((c) => c.local === 'Birchie');
+  assert.ok(clash, 'Birch / Birchie is hers to choose');
+
+  const joined = await sync.joinSync({ answers, clashChoices: { [clash.key]: 'local' } });
+  assert.equal(joined.status, 'on');
+  assert.equal(joined.matched, 3, 'the kennel and two dogs');
+  assert.equal(get('dogs', 'b9'), undefined);
+  assert.equal(get('dogs', 'b8'), undefined);
+  assert.equal(get('kennels', 'kB'), undefined);
+  assert.equal(get('dogs', 'a9').call_name, 'Birchie', 'her choice');
+  assert.match(get('dogs', 'a9').notes, /B notes/);
+  assert.equal(get('dogs', 'a9').kennel_id, 'k1');
+  assert.equal(get('events', 'e1').subject_id, 'a9', 'what pointed at it points at the cloud\'s id');
+  assert.equal(settings.getMyKennelId(), 'k1', 'and so do settings');
+
+  switchDevice('A');
+  await sync.syncNow();
+  assert.deepEqual([...tables.dogs.rows.keys()].sort(), ['a9', 'd1', 'd2'], 'no second Birch anywhere');
+  assert.equal(get('dogs', 'a9').call_name, 'Birchie');
+  assert.equal(get('events', 'e1').subject_id, 'a9');
+});
+
+test('a syncing device builds its backup on the latest one, whichever device made it', async () => {
+  const backup = await import('../shared/data/cloud/cloudBackup.js');
+  await beforeSync();
+  await sync.enableSync();
+  switchDevice('B');
+  await sync.joinSync();
+  settings.markDataChanged();
+  assert.equal((await backup.pushIfDirty({ force: true })).status, 'pushed', 'B joined without restoring: it adopts A\'s');
+  switchDevice('A');
+  settings.markDataChanged();
+  assert.equal((await backup.pushIfDirty({ force: true })).status, 'pushed', 'and A adopts B\'s');
 });
 
 test('a backup paused as a second device doesn\'t stop it joining, and the join clears that pause', async () => {

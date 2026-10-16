@@ -21,6 +21,7 @@ const PRECACHE_URLS = [
   'assets/breedTestPicker.js',
   'assets/cloudBackupUI.js',
   'assets/cloudSyncUI.js',
+  'assets/mergeQuestions.js',
   'assets/cloudVaultUI.js',
   'assets/companionLink.js',
   'assets/contactPicker.js',

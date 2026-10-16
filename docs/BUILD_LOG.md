@@ -1554,3 +1554,17 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   the second, an edit reaching the other's open dog page and its Dogs list tab, the device
   list, the activity list, off here and back, a lapsed license, off everywhere and on again.
   Still to do: two real devices, then the release with the `CACHE_NAME` bump.
+- **Live sync: joining dedupes, a new device joins directly, a stale backup base (2026-10-16).**
+  A join now pairs records entered on both sides with a file Merge's rules before it pulls
+  (`importExport.planJoinMatches` / `mergeJoinMatches`, `restoreMatch` unchanged), asking
+  "Are these the same?" and a paired dog's clashes (moved from the Import/Export page into
+  `assets/mergeQuestions.js`, shared); a pair keeps the cloud's id, re-keyed everywhere on
+  this device. Sign in and restore on a syncing program joins instead of restoring, once
+  Sensitive records unlock (`cloudBackup.prepareDirectJoin`, `adoptOwnKennel`). Fixed: a
+  syncing device's backups were skipped for good once another device made the latest
+  snapshot; a caught-up refusal now adopts the server's latest as the base, once. Tested:
+  a join pairing a kennel and two dogs (one asked, one clash), the event and setting re-keyed,
+  no second Birch on either device; backups from both devices in turn (fails without the
+  fix). Checked in headless Chromium: a second device with its own Birchie, Willow and Maple
+  signing in → the two questions → one of each everywhere, under the cloud's ids, both
+  devices' notes kept; both devices' backups pushed.

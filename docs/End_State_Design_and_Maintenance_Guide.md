@@ -530,9 +530,12 @@ The cross-device data path, and one of the two modules that write tables directl
 - Bump `BACKUP_FORMAT_VERSION` only when an older build couldn't read the new file, and keep
   reading every older version.
 
-**Matching records across devices (file / Dropbox Merge; `data/restoreMatch.js`, pure).** The
-same dog typed on two devices has two ids, so a Merge would keep both. Before writing, the
-restore pairs such records by content, gives each pair one id, and merges their fields.
+**Matching records across devices (file / Dropbox Merge, and a device joining live sync;
+`data/restoreMatch.js`, pure).** The same dog typed on two devices has two ids, so a Merge
+would keep both. Before writing, the restore pairs such records by content, gives each pair
+one id, and merges their fields. A sync join runs the same rules between this device's records
+and the cloud's (`importExport.planJoinMatches` / `mergeJoinMatches`, §34), asking the same
+questions (`assets/mergeQuestions.js`).
 
 - **Only unclaimed records.** A record is eligible only if its id isn't on the other side:
   a backup record whose id isn't on this device, paired with a device record whose id isn't
@@ -587,7 +590,9 @@ restore pairs such records by content, gives each pair one id, and merges their 
     and offer date.
 - **Which id survives.** The backup's, so two devices that restore each other's files
   converge on one set of ids, unless this device has cloud backup (or live sync) on: then
-  this device keeps its ids, so its cloud copy never sees records vanish and reappear. A
+  this device keeps its ids, so its cloud copy never sees records vanish and reappear. In a
+  sync join it's always the cloud's, since the other devices already have it; the merged
+  record is stamped now, so the join keeps it and pushes it up. A
   re-key replaces the old id everywhere on this device: every field of every record
   (nested ones included), device-only rows (`device_secrets`), and this app's settings
   (dismissals, drafts, My kennel, the active kennel).
@@ -2687,10 +2692,17 @@ The plan is the detailed design. This is the shape of what's built.
   makes, turning a delete into an archive, does mark dirty. Pages listen for
   `SYNC_APPLIED_EVENT` and never treat it as a local edit. 
 - **The loop:** `data/cloud/cloudSync.js` does push then pull, the lock, the scheduler and
-  pauses. A lapsed license pauses sync. Joining a program: the newer `updated_at` wins and
-  nothing gets deleted.
+  pauses. A lapsed license pauses sync. Joining a program: first every cloud record is read
+  and paired by content with this device's (§10's rules; the pair keeps the cloud's id;
+  `joinSync` answers `{ status: 'ask' }` while there's something to ask), then the newer
+  `updated_at` wins and nothing gets deleted.
+- **A new device on a syncing program** (Sign in and restore, first-run's "I already use
+  KennelOS") joins instead of restoring the latest backup, once Sensitive records are
+  unlocked there (`cloudBackup.prepareDirectJoin`); not unlocked, it restores as before.
 - **Backups on a syncing program:** a snapshot states the `sync_seq` it has applied and goes
-  only while the device is caught up (else it's skipped as `sync_behind`, still dirty). While
+  only while the device is caught up (else it's skipped as `sync_behind`, still dirty). Any
+  caught-up device may make the latest one, so a refusal that shows this device is caught up
+  but its base is older takes the server's latest as its base and tries once more. While
   Pro has lapsed (sync paused `pro_required`) backups follow the Phase 1 backing-device rule.
 - **Server work on a syncing program** (waitlist intake, family and vendor events, emails)
   runs on one device at a time under a two-minute lease (`data/cloud/serverWork.js`,
