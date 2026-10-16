@@ -188,6 +188,8 @@ const PRECACHE_URLS = [
   'data/repoBase.js',
   'data/reportCatalog.js',
   'data/reportMath.js',
+  'data/reportSources.js',
+  'data/reportFigures.js',
   'data/moneyReport.js',
   'data/yearReview.js',
   'data/breedingReports.js',
