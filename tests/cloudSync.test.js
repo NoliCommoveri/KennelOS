@@ -328,6 +328,20 @@ test('turning it on: what\'s missing is named; then the first device uploads eve
   assert.equal(s.cursor, 1);
 });
 
+test('a backup paused as a second device doesn\'t stop it joining, and the join clears that pause', async () => {
+  await beforeSync();
+  assert.equal((await sync.enableSync()).status, 'on');
+  switchDevice('B');
+  settings.updateCloudBackupState({ lastError: { code: 'conflict', at: T0, syncing: true, backingDevice: null } });
+  assert.deepEqual(await sync.syncReadiness(), [], 'joining is the fix');
+  settings.updateCloudBackupState({ lastError: { code: 'shrink', at: T0 } });
+  assert.deepEqual(await sync.syncReadiness(), ['backup_paused'], 'any other pause still comes first');
+  settings.updateCloudBackupState({ lastError: { code: 'conflict', at: T0, syncing: true, backingDevice: null } });
+  assert.equal((await sync.joinSync()).status, 'on');
+  assert.equal(settings.getCloudBackupState().lastError, null);
+  assert.equal(sync.syncStatus().devices, 1, 'the head\'s count: A has sent its cursor, B not yet');
+});
+
 test('joining: the newer updated_at wins each record, both sides\' new records meet, nothing is deleted', async () => {
   await beforeSync();
   assert.equal((await sync.enableSync()).status, 'on');

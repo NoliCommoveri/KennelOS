@@ -35,7 +35,10 @@ src/sync.js            live sync (docs/KennelOS_Cloud_Phase2_Sync_Plan.md §6): 
                        /sync, /sync/head, /sync/push, /sync/pull, /sync/cursor. One row per record
                        (sync_records), numbered from programs.sync_seq in one batch; the cloud part
                        checked against src/lib/cloudFields.js; tombstones 90 days; Pro only
-                       (migration 0014). Turning the vault off (src/vault.js) turns it off too
+                       (migration 0014). Turning the vault off (src/vault.js) turns it off too.
+                       /sync/head also counts the devices that sent a cursor in the last 30
+                       days (the status line's "2 devices"); GET /devices gives each one's
+                       lastSyncAt (from sync_devices)
 src/lib/cloudFields.js GENERATED from shared/data/syncRegistry.js by scripts/cloud-fields.mjs; never
                        edit by hand (tests/cloudFields.test.js fails when it drifts)
 src/recovery.js        recovering the account with no signed-in device: the recovery code proves it

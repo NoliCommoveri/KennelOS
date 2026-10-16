@@ -19,11 +19,11 @@
 //                               line, and Link a Pro purchase email… (License Link Plan §6)
 //
 // The private vault's screens are cloudVaultUI.js, imported from here only when
-// needed (vaultUI()).
+// needed (vaultUI()); live sync's are cloudSyncUI.js (syncUI()), the same way.
 //
 // Layering: talks to data/cloud/* only (never cloudApi's fetch directly, never db).
 import { esc, confirmModal, alertModal, promptModal } from './ui.js';
-import { isCloudAvailable, isVaultOffered, isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
+import { isCloudAvailable, isVaultOffered, isWaitlistOnlineOffered, isSyncOffered } from '../data/cloud/cloudConfig.js';
 import { editionFlags } from '../data/editionConfig.js';
 import {
   startSignIn, verifySignIn, currentAccount, signOut, signOutOtherDevices, defaultDeviceLabel,
@@ -40,7 +40,7 @@ import {
 } from '../data/cloud/cloudEntitlement.js';
 import { CloudOfflineError, CloudRequestError, CloudAuthError, CloudConflictError } from '../data/cloud/cloudApi.js';
 import {
-  getCloudRestoredAt, setCloudRestoredAt, getProLicense, getLastBackupDate
+  getCloudRestoredAt, setCloudRestoredAt, getProLicense, getLastBackupDate, getCloudSyncState, SYNC_STATUS_EVENT
 } from '../data/settings.js';
 import { isLicenseGated } from '../data/license.js';
 import { hasSampleData } from '../data/sampleData.js';
@@ -51,6 +51,10 @@ import { dismiss, dismissedAt, undismiss } from '../data/nudgeState.js';
 
 // The vault's screens (Private Vault Plan §2), loaded on first use.
 const vaultUI = () => import('./cloudVaultUI.js');
+// Live sync's (Cloud Phase 2 plan §2), the same way.
+const syncUI = () => import('./cloudSyncUI.js');
+// This device keeps in step (read from settings, so pages don't load the sync loop).
+const syncsHere = () => getCloudSyncState().enabled === true;
 
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
@@ -95,6 +99,7 @@ export function statusLine(status, now = Date.now()) {
 function pausedReason(lastError) {
   switch (lastError?.code) {
     case 'conflict': if (lastError.movedToEdition === 'pro') return 'Your records moved to KennelOS Pro.';
+      if (lastError.syncing && isSyncOffered()) return 'Your other devices keep in step. Join them to keep backing up from this one.';
       return lastError.ownDevice
       ? 'The cloud already has a backup from this device, made before it was reset.'
       : `Backups are coming from ${lastError.backingDevice?.label || 'another device'}.`;
@@ -517,6 +522,8 @@ export async function handlePushResult(result) {
 // first: that's an upgrade, not a second device.
 async function conflictDialog(result, { skipMoved = false } = {}) {
   if (!skipMoved && result.movedToEdition === 'pro') return movedToProDialog(result);
+  // A program that keeps its devices in step has no one backing device: join it.
+  if (result.syncing && isSyncOffered()) return (await syncUI()).joinOfferDialog();
   const kennel = (await getMyKennelName()) || 'your program';
   const who = result.backingDevice?.label || 'another device';
   const when = result.backingDevice?.lastPushAt ? ` (last backup ${relativeTime(result.backingDevice.lastPushAt)})` : '';
@@ -696,10 +703,12 @@ export function mountCloudPane(el, getMode) {
   if (!el || !isCloudAvailable()) return () => {};
   const render = () => { if (!el.hidden) renderPane(el, getMode(), render); };
   // A background push must not rebuild a dropdown she has open.
-  window.addEventListener(CLOUD_BACKUP_EVENT, () => {
+  const refresh = () => {
     if (el.contains(document.activeElement) && document.activeElement.tagName === 'SELECT') return;
     render();
-  });
+  };
+  window.addEventListener(CLOUD_BACKUP_EVENT, refresh);
+  window.addEventListener(SYNC_STATUS_EVENT, refresh);
   // Learn the vault's state from the server once per visit (another device may
   // have turned it on or off); refreshVaultState re-renders through the event.
   if (isVaultOffered() && currentAccount()?.signedIn) vaultUI().then((ui) => ui.refreshVaultState()).catch(() => {});
@@ -810,7 +819,8 @@ function renderPane(el, mode, rerender) {
       ${signedIn ? lastBackup : ''}
       ${pausedWarn}
       <button class="btn btn-primary" data-act="now"${ready ? '' : ' disabled'}>⬆ Back up now</button>
-      ${signedIn ? sensitiveField(status) : ''}`;
+      ${signedIn ? sensitiveField(status) : ''}
+      ${signedIn && (isSyncOffered() || syncsHere()) ? '<div id="cb-sync-slot"></div>' : ''}`;
   }
 
   el.innerHTML = `
@@ -838,7 +848,9 @@ function renderPane(el, mode, rerender) {
   });
   act('resolve', () => (status.lastError?.code === 'vault_locked'
     ? handlePushResult({ status: 'vault_locked', stale: !!status.lastError.stale })
-    : pushWithProgress((onProgress) => pushIfDirty({ force: true, onProgress }))));
+    : status.lastError?.code === 'conflict' && status.lastError.syncing && isSyncOffered()
+      ? syncUI().then((ui) => ui.joinOfferDialog())
+      : pushWithProgress((onProgress) => pushIfDirty({ force: true, onProgress }))));
   act('now', () => pushWithProgress((onProgress) => pushIfDirty({ force: true, onProgress })));
   act('off', async () => {
     if (await confirmModal({ title: 'Turn off backup on this device?', message: 'Changes on this device stop backing up. The cloud copy stays, and you can turn it back on any time.', confirmLabel: 'Turn off' })) disableBackup();
@@ -859,6 +871,10 @@ function renderPane(el, mode, rerender) {
     const run = vaultActions[sensitive.value];
     if (run) guarded(sensitive, async () => run(await vaultUI()));
   });
+
+  // Keep my devices in step (Cloud Phase 2 plan §2.1): its own module, loaded when shown.
+  const syncSlot = el.querySelector('#cb-sync-slot');
+  if (syncSlot) syncUI().then((ui) => { if (syncSlot.isConnected) ui.fillSyncField(syncSlot, rerender); }).catch(() => {});
 
   // Restore: the backups are listed right here; choosing one starts the roll back.
   const asOf = el.querySelector('#cb-asof');
@@ -1206,7 +1222,9 @@ function deviceStatusText(d) {
   if (d.erase?.confirmedAt) return `Erased ${relativeTime(d.erase.confirmedAt)}.`;
   if (d.erase) return `Erase requested ${snapshotLabel(d.erase.requestedAt)}. It happens the next time that device opens KennelOS with an internet connection.`;
   const seen = d.lastSeenAt ? `Last used ${relativeTime(d.lastSeenAt)}` : '';
-  if (d.status === 'signed-in') return `${seen || 'Signed in'}.`;
+  // Live sync (Cloud Phase 2 plan §2.2): when it last caught up.
+  const synced = d.lastSyncAt ? ` · last synced ${relativeTime(d.lastSyncAt)}` : '';
+  if (d.status === 'signed-in') return `${seen || 'Signed in'}${synced}.`;
   if (d.status === 'signed-out-here') return `Signed out on that device${seen ? ` · ${seen.toLowerCase()}` : ''}. It can't be erased from here.`;
   return `Signed out${seen ? ` · ${seen.toLowerCase()}` : ''}.`;
 }
@@ -1229,8 +1247,10 @@ export function devicesModal({ key = '' } = {}) {
         body.querySelector('#dv-close').addEventListener('click', done);
         return;
       }
+      const syncing = devices.some((d) => d.lastSyncAt) && syncsHere();
       const rows = devices.map((d) => {
-        const tags = [d.thisDevice ? 'this device' : '', d.backing ? 'backs up your records' : ''].filter(Boolean)
+        // A program in step has no one backing device (Cloud Phase 2 plan §6.4).
+        const tags = [d.thisDevice ? 'this device' : '', d.backing && !syncing ? 'backs up your records' : ''].filter(Boolean)
           .map((t) => `<span class="faint">· ${esc(t)}</span>`).join(' ');
         const canErase = !d.thisDevice && !d.erase && d.status !== 'signed-out-here';
         const canCancel = !!d.erase && !d.erase.confirmedAt;
@@ -1413,7 +1433,7 @@ export async function runSignInAndRestore({ fromCard = false } = {}) {
   if (isVaultOffered()) await (await vaultUI()).unlockBeforeRestore();
   const pg = progressModal('Restoring your records…');
   try {
-    const { restored } = await restoreOnNewDevice({
+    const { restored, push } = await restoreOnNewDevice({
       onProgress: (done, total) => pg.update(`Downloading documents: ${done} of ${total}…`, done, total)
     });
     pg.close();
@@ -1434,6 +1454,8 @@ export async function runSignInAndRestore({ fromCard = false } = {}) {
       message: `Restored ${n} record(s). ${privateNote}`
         + (missing ? `\n\n${missing} document file(s) couldn't be downloaded yet.` : '')
     });
+    // The program keeps its devices in step (Cloud Phase 2 plan §2.1): offer to join.
+    if (push?.status === 'conflict' && push.syncing && isSyncOffered()) await (await syncUI()).joinOfferDialog();
     return true;
   } catch (e) {
     pg.close();
@@ -1588,6 +1610,8 @@ export async function bootCloud() {
   if (editionFlags.accounts) {
     import('../data/cloud/cloudIntegrations.js').then((m) => m.startIntegrationsScheduler()).catch(() => {});
   }
+  // Live sync (Cloud Phase 2 plan §5): only on a device that keeps in step.
+  if (editionFlags.liveSync === true && syncsHere()) syncUI().then((ui) => ui.startSyncUI()).catch(() => {});
   renderServiceNotices().catch(() => {});
   try { renderPrivateGapHint(); } catch { /* a hint only */ }
 }

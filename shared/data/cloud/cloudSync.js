@@ -40,7 +40,7 @@ import { scanLocalChanges, writeSyncMeta, removeSyncMeta, clearSyncMeta, metaId 
 import { isBackupBlocked } from './cloudBackup.js';
 import { applyPulledRecords } from '../syncApply.js';
 import { CloudKeyError } from '../syncRegistry.js';
-import { getCloudSyncState, updateCloudSyncState, getCloudBackupState, CLOUD_DATA_CHANGED_EVENT } from '../settings.js';
+import { getCloudSyncState, updateCloudSyncState, getCloudBackupState, updateCloudBackupState, CLOUD_DATA_CHANGED_EVENT, SYNC_STATUS_EVENT } from '../settings.js';
 
 export const PUSH_DEBOUNCE_MS = 10 * 1000;
 export const POLL_MS = 60 * 1000;
@@ -262,12 +262,16 @@ export async function pullChanges({ merge = false, onProgress = null, total = nu
 // --- Both, one at a time ---------------------------------------------------------
 // Serialized across tabs where the browser can (navigator.locks), and within one
 // tab by a chain, like the backup push.
+// Each run ends with SYNC_STATUS_EVENT (settings.js) on the window.
 let chain = Promise.resolve();
 function exclusive(fn) {
   const locks = globalThis.navigator?.locks;
   const run = () => (locks ? locks.request(LOCK_NAME, fn) : fn());
   const next = chain.then(run, run);
   chain = next.catch(() => {});
+  next.finally(() => {
+    try { globalThis.dispatchEvent?.(new CustomEvent(SYNC_STATUS_EVENT)); } catch { /* no window */ }
+  }).catch(() => {});
   return next;
 }
 
@@ -291,7 +295,12 @@ export function pullIfBehind() {
       const { token } = await requireSync();
       const head = await api.syncHead(token);
       if (!head.enabled) return stoppedElsewhere();
-      if (head.seq <= (getCloudSyncState().cursor || 0)) return { status: 'current' };
+      noteHead(head);
+      if (head.seq <= (getCloudSyncState().cursor || 0)) {
+        const offline = getCloudSyncState().lastError?.code === 'offline';
+        updateCloudSyncState({ lastCheckAt: new Date().toISOString(), ...(offline ? { lastError: null } : {}) });
+        return { status: 'current' };
+      }
     } catch (err) {
       return fromError(err);
     }
@@ -299,14 +308,37 @@ export function pullIfBehind() {
   });
 }
 
+// The status line's device count, from the last head check.
+function noteHead(head) {
+  if (Number.isInteger(head.devices)) updateCloudSyncState({ devices: head.devices });
+}
+
+// `pausedDetail` is the stop's detail (the shrink's { deletes, total }).
 export function syncStatus() {
   const s = getCloudSyncState();
+  const paused = s.lastError && s.lastError.code !== 'offline' ? s.lastError.code : null;
   return {
     enabled: s.enabled, joining: !!s.joining, cursor: s.cursor, lastPushAt: s.lastPushAt, lastPullAt: s.lastPullAt,
-    paused: s.lastError && s.lastError.code !== 'offline' ? s.lastError.code : null,
-    offline: s.lastError?.code === 'offline', activity: s.activity || []
+    lastCheckAt: s.lastCheckAt || null, paused, pausedDetail: paused ? s.lastError.detail ?? null : null,
+    offline: s.lastError?.code === 'offline', activity: s.activity || [], devices: s.devices ?? null
   };
 }
+
+// The activity list's "Got it": clear what's been read.
+export function clearSyncActivity() {
+  updateCloudSyncState({ activity: [] });
+}
+
+// A stop she's read and set aside (sync_off: turned off elsewhere).
+export function dismissSyncStop() {
+  updateCloudSyncState({ lastError: null });
+}
+
+// A backup paused as a second device (the 409: another device backs up, or the
+// program syncs and this device hasn't joined, plan §6.4) is what joining fixes:
+// a join merges both sides and deletes nothing, and a syncing program has no one
+// backing device. So it doesn't count against joining, and a finished join clears it.
+const joinFixes = (backup) => backup.lastError?.code === 'conflict';
 
 // --- Turning it on, joining, turning it off (§2.1, §2.4, §5.5) -------------------------
 // What this device still needs before it can keep in step (§2.1), in the order
@@ -319,7 +351,7 @@ export async function syncReadiness() {
   const missing = [];
   const backup = getCloudBackupState();
   if (!backup.enabled) missing.push('backup_off');
-  else if (isBackupBlocked(backup) && backup.lastError?.code !== 'vault_locked') missing.push('backup_paused');
+  else if (isBackupBlocked(backup) && backup.lastError?.code !== 'vault_locked' && !joinFixes(backup)) missing.push('backup_paused');
   if (!(await getVaultKey(programId))) missing.push(backup.vault === 'locked' ? 'vault_locked' : 'vault_off');
   return missing;
 }
@@ -340,6 +372,7 @@ async function joinNow({ onProgress = null } = {}) {
     const { token } = await requireSync();
     const head = await api.syncHead(token);
     if (!head.enabled) return stoppedElsewhere();
+    noteHead(head);
     const s = getCloudSyncState();
     if (!s.joining) {
       await clearSyncMeta();
@@ -350,6 +383,7 @@ async function joinNow({ onProgress = null } = {}) {
     const push = await pushChanges({ allowShrink: true, onProgress });
     if (push.status !== 'pushed' && push.status !== 'nothing') return push;
     updateCloudSyncState({ joining: false });
+    if (joinFixes(getCloudBackupState())) updateCloudBackupState({ lastError: null });
     await pullChanges(); // anything that arrived meanwhile, by server order again
     return { status: 'on', pulled: pull.applied, keptOurs: pull.keptOurs, pushed: push.pushed || 0 };
   } catch (err) {

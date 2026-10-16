@@ -43,14 +43,17 @@ export async function checkIn(env, auth, body) {
 //           can't reach it) | 'signed-out' (signed out from another device, or
 //           expired: it still has its token, so an erase reaches it)
 export async function listDevices(env, auth) {
-  const [{ results: sessions }, { results: erasures }, program] = await Promise.all([
+  const [{ results: sessions }, { results: erasures }, program, synced] = await Promise.all([
     env.DB.prepare(
       `SELECT device_id, device_label, last_seen_at, expires_at, revoked_at, revoked_reason, license_instance_id
          FROM sessions WHERE user_id = ? ORDER BY last_seen_at DESC`,
     ).bind(auth.userId).all(),
     env.DB.prepare('SELECT device_id, device_label, requested_at, confirmed_at FROM device_erasures WHERE user_id = ?').bind(auth.userId).all(),
     env.DB.prepare('SELECT backing_device_id FROM programs WHERE id = ?').bind(auth.programId).first(),
+    // Live sync's "last synced" per device (Cloud Phase 2 plan §2.2).
+    env.DB.prepare('SELECT device_id, last_sync_at FROM sync_devices WHERE program_id = ?').bind(auth.programId).all(),
   ]);
+  const lastSync = new Map(synced.results.map((r) => [r.device_id, r.last_sync_at]));
   const now = Date.now();
   const byId = new Map();
   for (const s of sessions) {
@@ -76,6 +79,7 @@ export async function listDevices(env, auth) {
   }
   const devices = [...byId.values()].map((d) => ({
     ...d, thisDevice: d.id === auth.deviceId, backing: d.id === program?.backing_device_id,
+    lastSyncAt: lastSync.get(d.id) ?? null,
   }));
   devices.sort((a, b) => (b.thisDevice - a.thisDevice) || String(b.lastSeenAt ?? '').localeCompare(String(a.lastSeenAt ?? '')));
   return { devices };

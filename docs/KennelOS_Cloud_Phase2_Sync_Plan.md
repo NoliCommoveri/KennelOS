@@ -508,7 +508,39 @@ application twice or answer the same family event twice. So:
    Originally: **Waitlist lease.** `POST /waitlist/lease`, the route check in `waitlist.js`, the client's
    lease handling in `cloudWaitlist.js`, the settings card wording. Tests in
    `cloud/tests/waitlist.test.js` and `tests/cloudWaitlist.test.js`.
-6. **UI and release.** `cloudSyncUI.js` (§2), the device list's "last synced", the "updated
+6. **Built 2026-10-16, but the real-device checks and the release.** As built:
+   `assets/cloudSyncUI.js` (the pane's **Keep my devices in step** dropdown under Sensitive
+   records, in the Sensitive records field's pattern; turn on, join, catch up, pauses and their
+   fixes, turn off here / for every device, the activity list), `data/cloud/syncActivity.js`
+   (the activity list in words, tested), `cloudConfig.SYNC_RELEASED` (false) and
+   `isSyncOffered()`, the scheduler started by `bootCloud` on a device that syncs. Settled in
+   the build:
+   - **The join offer** replaces the Phase 1 restore / replace dialog wherever a backup gets
+     the 409 with `syncing` (the pane's Resolve, and straight after **Sign in and restore**).
+     A backup paused as a second device (any `conflict`) doesn't block joining, and a
+     finished join clears it, since a join merges both sides and deletes nothing.
+   - **The shrink guard's answer** for sync is **Bring them back** (a join: everything comes
+     down, nothing is deleted) or **Delete them everywhere** (typed DELETE).
+     `resync_required` is **Catch up…**, the same join.
+   - **"2 devices"** needed a server change: `/sync/head` counts the devices that sent a cursor
+     in the last 30 days, and `GET /devices` gives each one's `lastSyncAt`. A device list on
+     a syncing program drops the "backs up your records" tag.
+   - **An open page:** a record page (`?id=`) whose record arrived shows "Updated on another
+     device. Reload to see it"; a list page or Today reloads itself (keeping its scroll)
+     unless she has typed there, a dialog is open, or the tab is hidden, when it gets the
+     notice too. The pull runs in one tab, so the others hear of it by `BroadcastChannel`.
+     The notice names no device: the event doesn't carry one.
+   - **Status line:** "On · 2 devices · synced just now", or "changes waiting: no internet";
+     a head check that finds nothing new counts as synced (`lastCheckAt`).
+   Checked in headless Chromium at phone width, two browser profiles as two devices against
+   the real Worker run locally (`cloud/tests/helpers/serve.mjs`'s setup): turn on (first
+   device), Sign in and restore on the second → the join offer → in step with private notes;
+   an edit on one reaching the other's open dog page (notice, 57 s) and its Dogs list in
+   another tab (reloaded); the device list's "last synced"; the activity list; turn off here
+   and join again; a planted `pro_required` and Check again; turn off for every device (the
+   other device says so) and on again. **Still to do:** two real devices (an iPhone
+   home-screen app and a laptop), then `SYNC_RELEASED = true` with the `CACHE_NAME` bump.
+   Originally: **UI and release.** `cloudSyncUI.js` (§2), the device list's "last synced", the "updated
    elsewhere" notice, the activity list. Browser checks in headless Chromium at phone width
    with two browser contexts as two devices against `wrangler dev`, then two real devices on
    staging. Privacy policy paragraph (no new readable data, §4.2). Release switch

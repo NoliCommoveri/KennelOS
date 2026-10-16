@@ -56,8 +56,8 @@ test('sync needs Pro, the vault, and to be turned on', async () => {
   await call(env, 'POST', '/vault', { token: s.token, body: { keyId: KEY_ID, recoveryWrap: WRAP } });
   assert.equal((await pushRecs(env, s, [put('dogs', 'd1')])).body.error, 'sync_off');
   const on = await (await call(env, 'POST', '/sync/enable', { token: s.token })).json();
-  assert.deepEqual(on, { enabled: true, seq: 0, keyId: KEY_ID });
-  assert.deepEqual(await (await call(env, 'GET', '/sync/head', { token: s.token })).json(), { enabled: true, seq: 0, keyId: KEY_ID });
+  assert.deepEqual(on, { enabled: true, seq: 0, keyId: KEY_ID, devices: 0 });
+  assert.deepEqual(await (await call(env, 'GET', '/sync/head', { token: s.token })).json(), { enabled: true, seq: 0, keyId: KEY_ID, devices: 0 });
 });
 
 test('a push numbers each record in order; a pull returns them in seq order, the other device included', async () => {
@@ -303,4 +303,20 @@ test('turning the vault off turns sync off for every device', async () => {
   assert.equal((await (await call(env, 'GET', '/sync/head', { token: laptop.token })).json()).enabled, false);
   assert.equal((await pull(env, laptop, 0)).body.error, 'sync_off');
   assert.ok(env.DB.raw.prepare('SELECT sync_disabled_at FROM programs').get().sync_disabled_at, 'the records are kept 30 days, as when it\'s turned off');
+});
+
+test('head counts the devices in step, and the device list says when each last synced', async () => {
+  const env = await makeEnv();
+  const { phone, laptop } = await program(env);
+  const head = async (s) => (await (await call(env, 'GET', '/sync/head', { token: s.token })).json()).devices;
+  assert.equal(await head(phone), 0, 'no cursor yet');
+  await pushRecs(env, phone, [put('dogs', 'd1')]);
+  await call(env, 'POST', '/sync/cursor', { token: phone.token, body: { seq: 1 } });
+  await call(env, 'POST', '/sync/cursor', { token: laptop.token, body: { seq: 1 } });
+  assert.equal(await head(phone), 2);
+  env.DB.raw.prepare('UPDATE sync_devices SET last_sync_at = ? WHERE device_id = ?').run(iso(Date.now() - 31 * DAY), LAPTOP);
+  assert.equal(await head(phone), 1, 'a device quiet for 30 days no longer counts');
+  const list = (await (await call(env, 'GET', '/devices', { token: phone.token })).json()).devices;
+  assert.ok(list.find((d) => d.id === PHONE).lastSyncAt);
+  assert.ok(list.find((d) => d.id === LAPTOP).lastSyncAt);
 });

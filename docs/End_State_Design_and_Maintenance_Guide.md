@@ -2565,7 +2565,7 @@ or due date, on n of m devices: Lemon Squeezy's `activation_usage` / `activation
 kept on the cached record as `activationUsage` / `activationLimit`), devices signed in
 (by name), Sensitive records (backed up, unlocked here, recovery code, passkeys), each
 vendor connection, each online waitlist. Then the findings, or **All good**. She closes with
-what's still worth a look. Sync isn't checked until live sync's UI exists. Every fix
+what's still worth a look. Sync isn't checked. Every fix
 happens in the chat or a dialog over it.
 
 ### "Tidy up my records"
@@ -2651,8 +2651,25 @@ waitlist.
 **Editions:** Pro only (`editionFlags.liveSync`, and `isCloudAvailable()`). Lite and Demo
 never sync.
 
-There's no sync UI yet and nothing starts the scheduler, so nothing syncs on its own. The
-plan is the detailed design. This is the shape of what's built.
+The plan is the detailed design. This is the shape of what's built.
+
+- **Where she turns it on:** Import / Export → Backup & restore → Cloud, **Keep my devices in
+  step**, a dropdown under Sensitive records (`assets/cloudSyncUI.js`, loaded only when
+  shown). It's offered where `cloudConfig.isSyncOffered()`: Pro, a server, and the release
+  switch `SYNC_RELEASED` (false: offered only against staging, localhost or
+  `?cloud=staging`). A device that already syncs keeps syncing whatever the switch says;
+  `bootCloud` starts the scheduler only on such a device. The dropdown reads Off / Off on this
+  device (the program syncs: **Keep this device in step…**) / On · 2 devices · synced just
+  now / Paused (the reason, and its fix) / Joining…. A backup refused because the program
+  syncs offers the join in place of Phase 1's restore / replace. Turning it on names what's
+  missing first (`syncReadiness`); a backup paused as a second device doesn't count, since
+  joining fixes it.
+- **The activity list** (Recent activity…): what sync decided by itself in the last 30 days,
+  one sentence each (`data/cloud/syncActivity.js`).
+- **An open page when records arrive** (`SYNC_APPLIED_EVENT`, relayed to other tabs by
+  `BroadcastChannel`): a record page whose record changed shows "Updated on another device"
+  with Reload; a list page or Today reloads itself unless she's typed there or a dialog is
+  open, else it gets the same notice. The device list shows each device's "last synced".
 
 - **Needs Sensitive records (the vault).** Each record goes up in both tiers: its cloud
   fields readable as in backups, and the whole row sealed with the vault key. Turning the

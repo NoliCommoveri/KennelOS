@@ -464,7 +464,10 @@ function failFromError(err) {
       backingDevice: err.backingDevice || null,
       latestSnapshotId: err.latestSnapshotId || null,
       ownDevice: !!own,
-      movedToEdition: movedToEdition(err.backingDevice, own)
+      movedToEdition: movedToEdition(err.backingDevice, own),
+      // The program keeps its devices in step (Cloud Phase 2 plan §6.4): the
+      // answer is to join it, not to take over the backups.
+      syncing: !!err.syncing
     });
   }
   if (err && err.name === 'CloudKeyError') return fail('error', { code: 'unexpected_key' }, { message: err.message });
