@@ -1637,3 +1637,14 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   package on Cedar's sale. Tested: the list rules, the charge-back offer, per-charge lines and
   keys, paid with the balance, dropped on a cancelled sale; in the browser, the form, price list,
   offer and invoice. Service worker cache bumped to `kennelos-shell-v83`.
+- **Kels: extras and how families pay (2026-10-30).** Decided with the owner: Getting
+  Started gets two Pro parts after Puppy Record fields. `extra-charges` lists or sets up the
+  kennel's extras price list. `payments` lists her Payment service accounts and adds or
+  changes them in rounds: name, fee rate, payment link, and (with `extraCharges`) "Only some
+  families pay this way, and I charge them the fee"; a new Stripe one offers Connect Stripe
+  (`waitlistFeeStep.offerStripe`, now exported). Pups are going home's balances step asks
+  each family, before the payment request, to add the deposit's charged-back fee (catching
+  deposits the Sale page never saw) and any extras from the price list, then says the new
+  balance. `kelsSetup.paymentServiceLine` is new. Tested: the part lists and the line; in the
+  browser, Getting Started through both parts (price list changed, PayPal (business) added
+  with its fee and charge-back) and Pups are going home adding the fee and an extra.

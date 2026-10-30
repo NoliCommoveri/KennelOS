@@ -9,7 +9,7 @@ import { editionFlags } from '../shared/data/editionConfig.js';
 const LITE = Object.fromEntries(Object.keys(editionFlags).map((k) => [k, false]));
 
 test('Pro asks every part, in order', () => {
-  assert.deepEqual(S.setupParts(editionFlags), ['logo', 'nudges', 'tests', 'puppy-record', 'kennels', 'furever', 'assistant', 'backup']);
+  assert.deepEqual(S.setupParts(editionFlags), ['logo', 'nudges', 'tests', 'puppy-record', 'extra-charges', 'payments', 'kennels', 'furever', 'assistant', 'backup']);
 });
 
 test('Lite (no Kennel page, no Pro features) asks only the backup', () => {
@@ -21,7 +21,15 @@ test('each part only with what it sets up', () => {
   assert.deepEqual(only({}), ['nudges', 'tests', 'backup']);
   assert.deepEqual(only({ invoicing: true }), ['logo', 'nudges', 'tests', 'backup']);
   assert.deepEqual(only({ multiKennel: true, furever: true }), ['nudges', 'tests', 'kennels', 'furever', 'backup']);
-  assert.deepEqual(S.setupParts({ ...editionFlags }, { kennelPage: false }), ['furever', 'assistant', 'backup']);
+  assert.deepEqual(only({ extraCharges: true, accounts: true }), ['nudges', 'tests', 'extra-charges', 'payments', 'backup']);
+  assert.deepEqual(S.setupParts({ ...editionFlags }, { kennelPage: false }), ['payments', 'furever', 'assistant', 'backup']);
+});
+
+test('a payment service as she\'d say it', () => {
+  const pp = { name: 'PayPal (business)', fee_percent: 3.49, fee_fixed: 0.49, fee_charge_back: true };
+  assert.equal(S.paymentServiceLine(pp, { chargeBack: true }), 'PayPal (business): 3.49% + $0.49, charged back to the family');
+  assert.equal(S.paymentServiceLine(pp), 'PayPal (business): 3.49% + $0.49', 'only where charge-backs exist');
+  assert.equal(S.paymentServiceLine({ name: 'Zelle' }, { chargeBack: true }), 'Zelle: no fee');
 });
 
 test('what prints her logo, in her words', () => {

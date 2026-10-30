@@ -1171,7 +1171,10 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
   processor kept is still `processing_fee_amount` (§21.1), so the charge and the fee cancel in
   earned income. A fee on the balance itself has no later payment to ride on: she adds it as
   an extra charge before invoicing the balance. Payments recorded by an integration (§32)
-  don't ask.
+  don't ask on their own; Kels's Pups are going home asks before each balance (§33).
+- **Kels:** Getting Started sets up the price list (`extra-charges`) and her payment services
+  with their fees and charge-back (`payments`); Pups are going home offers the deposit fee
+  and her extras before each balance (§33).
 - **Not in CSV import/export**; the JSON backup carries both lists.
 
 ---
@@ -2215,6 +2218,8 @@ part alone, then her dogs.
 | `nudges` | the Kennel page | The Lifecycle nudges fields in one form, suggested on when never set (`promote_nudge_enabled`, the two promote ages) |
 | `tests` | the Kennel page | Her preferred tests listed (with their breed tags), then **Add tests** (one per line, optionally for some of her `preferred_breeds`: `addPreferredTest`), **Remove tests** (ticked: `removePreferredTest`), **Rename a test** (`renamePreferredTest`), round after round until **That's all**. Panel only: dogs on file keep their planned tests |
 | `puppy-record` | Pro (`puppyRecord`) | **Show everything** (clears `puppy_record_fields`) or **Let me choose** (the Puppy Record fields' boxes) |
+| `extra-charges` | Pro (`extraCharges`) | Her extras price list (§21.2): one on file is listed with **Keep it** / **Change it**; else "Do you offer extras…?" → rows of name and price (`readExtraCharges`), saved as `extra_charge_list` |
+| `payments` | Pro (`accounts`) | How families pay her: her Payment service accounts listed (`kelsSetup.paymentServiceLine`), then **Add one** / **Add another** / **Change a fee**, round after round until **That's all**. A new one: name, fee percentage and fixed fee, payment link; an existing one: its fee. With `extraCharges`, **Only some families pay this way, and I charge them the fee** (`fee_charge_back`). A new one named Stripe offers **Connect Stripe** (`waitlistFeeStep.offerStripe`) |
 | `kennels` | Pro (`multiKennel`) | Another own kennel, for a separate side of the business (two breeds with their own waitlists, a pet side and a show side); with the waitlist she adds that a program per breed may be enough. Name (checked by `newKennelNameProblem`: required; one like a kennel on file asked about once), prefix, location; created with `is_own_kennel` and `settingsToCopy` (the nudge settings and Puppy Record fields, nothing else); then its logo (upload, the first kennel's, or not now). As many as she likes |
 | `furever` | Pro (`furever`) | Google Drive for Furever's content packages: Google's sign-in script (`vendor/gsi/client.js`) is loaded on demand, then a form whose **Connect** calls `googleDrive.connectDrive()` from the tap (so the window isn't blocked) and sets `driveConnected` |
 | `assistant` | Pro (`assistant`) | Dropbox for KennelAssistant. Dropbox returns to the page that asked, and only registered pages may ask, so it connects on the KennelAssistant page: announced, opened in a new tab on **Okay, open it**, then **I'm back, check it now** reads `isDropboxConnected()`. Already connected: she says so |
@@ -2503,7 +2508,12 @@ The run-up to go-home day for one litter. Each fix is saved when approved; there
 7. **Balances still owed** (Pro: `accounts` or `invoicing`): chosen pups whose sale is at
    Deposit Pending or Deposit paid, with no `balance_paid_date` and a balance
    (`contractSend.balanceDueOn`) above zero, listed with the amount and due date, then **Yes,
-   let's do it**. Each family in turn gets both, one after the other, each with **Skip**:
+   let's do it**. Each family in turn first gets (Pro, `extraCharges`, §21.2) the deposit's
+   fee charged back when it came through an account set to charge it back and the sale
+   doesn't carry it (`depositFeeChargeBack`, **Add it** / **Skip**), then **Did they get any
+   extras?** (her kennel's price list, less what's already on the sale, ticked; **No
+   extras**), and the new balance when either changed it. Then both, one after the other,
+   each with **Skip**:
    **Send a payment request** (`paymentRequestUI.openPaymentRequest`, the Sale page's;
    offered only when a Payment service takes payments, `paymentAccounts`, or has her Stripe
    key here; otherwise she says to add one on the Accounts page), then **Make an invoice**
