@@ -135,6 +135,7 @@ export const editionFlags = {
   furever: false,
   reports: false,
   invoicing: false,
+  extraCharges: false,
   puppyRecord: false,
   fosterArrangement: false,
   receiptAttach: false,

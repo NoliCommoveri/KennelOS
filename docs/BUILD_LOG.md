@@ -1618,3 +1618,22 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Tested: the leftovers deleted and everything else kept, a bucket walked over three runs, the
   halt. Production needs `0017` applied from /ops after deploy (the cron skips retention while
   a migration is pending).
+- **Extra charges (2026-10-30).** Decided with the owner: a breeder sells photo and video
+  packages, several to one family, each on its own invoice line, always with a puppy sale,
+  paid with the balance, Pro only. A fixed column like `transport_fee` couldn't itemize, so a
+  sale now carries `extra_charges[]` (`{ id, label, amount, fee_for? }`) and each kennel a price
+  list (`extra_charge_list[]`, the Kennel page's new **Extra charges price list** section);
+  picking one on the sale copies its name and price. New module `data/extraCharges.js`; each
+  charge is an `extra` income component keyed `extra:<id>`, so the invoice, generator, receipt,
+  PDF and payment link print one line per charge, and Financials, Receivables and the P&L file
+  them under **Extra charges**. The Companion balance and the litter's sale totals include
+  them. Also decided: PayPal / Zelle sent as business is charged back as an extra charge, not a
+  new kind of fee. A Payment service account's new **Charge this fee back to the buyer**
+  (`fee_charge_back`) makes the Sale page, once the deposit is paid through it, offer to add
+  `<account> fee` (the account's rate on the deposit) to the balance; the fee the processor
+  kept stays `processing_fee_amount`, so the two cancel in earned income. A fee on the balance
+  payment itself isn't handled (option A): she adds it before invoicing. All three fields are
+  private. Flag `extraCharges` (Lite false). Sample data: Thornfield's price list and a photo
+  package on Cedar's sale. Tested: the list rules, the charge-back offer, per-charge lines and
+  keys, paid with the balance, dropped on a cancelled sale; in the browser, the form, price list,
+  offer and invoice.

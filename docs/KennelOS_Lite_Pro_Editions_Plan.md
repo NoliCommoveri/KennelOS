@@ -525,6 +525,8 @@ selections), **Financials — the expense ledger + sales→income** ✅.
 - External / leased dogs (Lite ownership picker = `owned` / `co_owned` only).
 - **All Reports** (Reports hub + every report page).
 - **Invoice / receipt generation** — the `pages/invoice.html` print doc.
+- **Extra charges** — a sale's photo packages and payment fees charged back, and the
+  kennel's price list (`editionFlags.extraCharges`; End-State guide §21.2).
 - **Puppy Record generation** — the `pages/puppy-record.html` print doc.
 
 **Shared pages that render differently in Lite (edition-flag gates, NOT omissions):**
@@ -536,6 +538,8 @@ selections), **Financials — the expense ledger + sales→income** ✅.
   Pet home, For Sale, and External reference are Pro-only (cap spec §1a).
 - **New Dog page** — shows a "Creating x/6 available dogs" counter under the title
   (cap spec §6), reading the same predicate the cap enforces.
+- **Sale form** — no Extra charges rows (`extraCharges`); charges already on a sale still
+  show on it and count toward income.
 - **Sale form's inline "＋ New" contact** (`contactPicker.js`) — the Contact type list
   drops to just Buyer, since full Contacts (People section) is Pro-only.
 - **Sale form's "Referred by"** field/link is hidden entirely — it's a Buyer-referrer

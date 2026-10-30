@@ -34,7 +34,7 @@ The shared core never checks which edition it is: it reads the two injection poi
 | | Lite (free) | Pro (paid) | Demo |
 |---|---|---|---|
 | Pages | Shared pages only: no `PRO_ONLY_PAGES` / `PRO_ONLY_STANDALONE` | All | All but Import/Export, Settings and the Assistant console (`DEMO_EXCLUDED_PAGES` in `build/assemble.mjs`) |
-| Feature flags (contacts, stud services, contracts, documents, companion, furever, reports, invoicing, puppy record, foster, receipts, external ownership, assistant, feeding schedules, accounts, shows, waitlist, multi-kennel) | all `false` | all `true` | all `true` |
+| Feature flags (contacts, stud services, contracts, documents, companion, furever, reports, invoicing, extra charges, puppy record, foster, receipts, external ownership, assistant, feeding schedules, accounts, shows, waitlist, multi-kennel) | all `false` | all `true` | all `true` |
 | Cap | 6 counting dogs, 10 litters | none (no-op hooks) | none |
 | Archive | No Archive button, no "include archived" toggles, departed dogs shown as plain text; a dog leaves by "Remove from program" | Normal | Normal |
 | Dog statuses | puppy / active / retired breeding / deceased (`fullDogStatuses: false`) | All | All |
@@ -207,10 +207,10 @@ to the cloud unsealed).
 |---|---|---|
 | **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `registered_name`, `registration_number`, `microchip_id`, `planned_tests[]`, `recorded_coi`, `url`. `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. |
 | **Contact** | `name` | `contact_type[]`, `email`, `phone`, `facebook_profile`, `address` (also the away-board location, §19), `kennel_id` (affiliation, not scope), `waitlist_status` (kept by `waitlistEntryRepo`), `first_contact_source`, `companion_note` (shown to the recipient, §20; `notes` is private). Buyers are Contacts; there is no Buyer table. |
-| **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `puppy_record_fields` (§23), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
+| **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date` when empty). Sire ≠ dam. |
 | **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `puppies_born_*` counts, `delivery_type` (`LITTER_DELIVERY_TYPE`: natural, assisted, planned or emergency C-section; cloud; shown and asked only once the litter is Whelped or later, see Litter delivery below), per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
-| **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
+| **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, `extra_charges[]` (private, §21.2), payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
 | **Contract** | `contract_type`, `kennel_id` | `status` (default `draft`), `related_sale_id`, `related_stud_service_id`; `related_dog_id` and `related_contact_id` only for `lease`/`co_own`/`foster`/`other` (forced null otherwise, `contractRepo.normalizeLinks`), `document_url`, `signed_date`, lease dates, e-sign fields and `integration_reviews` (§32), `title`, `terms_summary`. |
 | **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `direction` is **who travels** (`STUD_SERVICE_DIRECTION`: `to_partner` our dog goes to them, `to_us` their dog comes to us, `shipped` no one / AI). Whether our dog is the stud or the dam isn't stored: it's our dog's sex, else the partner's opposite (`studRules.ourRole`; `STUD_SERVICE_ROLE` for badges and filters). `sent_date` / `returned_date` are the service's two dates, labelled **Begins / Ends**. `type` (`in_person`/`ai`) is set by the repo from `direction` (shipped → ai), never asked. `pairing_id`, `fee_amount`, `fee_structure`; `pick_status` and `pick_value_amount` only for pick fee structures (forced null otherwise; with our stud the pick is our puppy, and `pick_status` claimed / waived ends Today's `studpick`, §19), `referred_by_contact_id`, invoice fields (our stud only, §24). |
 | **Event** | `subject_type`, `subject_id`, `event_type`, `event_date`, `title` | `event_end_date`, `reminder_date`, `reminder_dismissed`, `related_dog_id`, `related_contact_id`, `details{}`. No cost field: a cost becomes an Expense with `event_id` (§8, §21). |
@@ -218,7 +218,7 @@ to the cloud unsealed).
 | **Document** | `dog_id`, `doc_type`, `file_id` | `title`, `doc_date`, `issuer_or_lab`, `result`, `registry`, `registration_number`, `contract_id` (optional, unindexed, not in the registry), `furever_shareable` (§27). Fields shown per type: `vocab.documentFieldsFor`. `hardDelete` removes its file. |
 | **File** (`files`) | `blob`, `mime`, `filename`, `size` | `thumbnail`. Always a PDF. Owned by its one Document or Expense; fetched by id only (§26.1). |
 | **WaitlistEntry**, **WaitlistOffer**, **WaitlistProgram** | see §29 | One entry per family per time on a kennel's list; position and passes are derived, never stored. |
-| **Account** (`accounts`) | `name` | `account_type`, login fields (private), referral fields, fee rate, `contract_forms[]`, `payment_link`, `payment_instructions` (§32). Program-wide, no `kennel_id`. API keys live in `device_secrets`, never on the record. |
+| **Account** (`accounts`) | `name` | `account_type`, login fields (private), referral fields, fee rate, `fee_charge_back` (private, §21.2), `contract_forms[]`, `payment_link`, `payment_instructions` (§32). Program-wide, no `kennel_id`. API keys live in `device_secrets`, never on the record. |
 
 **Litter delivery.** `Litter.delivery_type` is asked only once the litter is Whelped or
 later (`vocab.WHELPED_OR_LATER`). The Litter page hides the field before that, so a status
@@ -1107,8 +1107,8 @@ StudServices and (Pro) waitlist fees, and classifies each money component on eve
 Kennel scope applies to the source records here, so every money screen agrees; a
 `kennelId` argument overrides it for the kennel page. Expenses are scoped through their
 subject (`financials.js` `expenseInScope`).
-- **Sale:** deposit, balance (price − deposit), transport and deferred boarding (amount ×
-  count). A part is **earned** once its paid date is set or the status has passed it, else
+- **Sale:** deposit, balance (price − deposit), transport, deferred boarding (amount ×
+  count) and one `extra` component per extra charge (§21.2). A part is **earned** once its paid date is set or the status has passed it, else
   **anticipated**. Returned/cancelled keeps only what was paid. A **lost** sale
   (`vocab.isLostSale`) counts nothing: it's refunded or carried to another pup (§29).
   `paidOnSale()` reads what was paid regardless of status.
@@ -1143,6 +1143,36 @@ stays gross and income is price − fee.**
 - Income takes the fee off as negative `processing_fee` components, split pro rata across
   the cash components, so earned is what she actually received.
 - **Never buyer-facing:** invoices and Companion use `saleComponents`, which leaves the fee out.
+
+### 21.2 Extra charges — `data/extraCharges.js`
+**Editions:** editing is Pro and Demo only (`editionFlags.extraCharges`). Income, the litter
+total and a sale's read-only view count charges already on a sale in every edition.
+
+What a buyer pays for beyond the puppy, transport and boarding (photo and video packages, a
+payment fee charged back), each its own invoice line. Always on a puppy sale.
+- **On the sale:** `Sale.extra_charges[]` = `{ id, label, amount, fee_for? }`. The Sale form's
+  **Extra charges** rows (name, amount, remove) and **+ Add an extra charge…** (a price-list
+  entry, or Something else…). A row with a name but no amount, or the reverse, blocks Save.
+- **Paid with the balance:** each is an `extra` income component (`key` `extra:<id>`, its own
+  label), earned with `balance_paid_date` / the status, like transport. Financials files them all
+  under **Extra charges**. `incomeLineItems` gives each line a `key` and an `invoiceLabel`, so the
+  invoice, generator, payment link, receipt and PDF print one line per charge under its name.
+  The Companion page lists them and adds them to the remaining balance; the litter's Sales &
+  Income panel adds them to each sale's total.
+- **Price list:** `Kennel.extra_charge_list[]` = `{ id, label, amount }`, edited on the Kennel
+  page's **Extra charges price list** section. The sale offers its own kennel's list (the dog's,
+  for a new sale; every own kennel's when neither is known). Picking one copies the name and
+  amount, so a later price change never rewrites a sale.
+- **Fee charged back:** an Account with `fee_charge_back` (a Payment service: PayPal or Zelle
+  sent as business…). When a save leaves the deposit paid (`incomeView.depositPaid`) through
+  such an account with a usable rate, and the sale didn't qualify before the save, the Sale
+  page asks to add `<account> fee` (`processingFee(deposit, rate)`, `fee_for: 'deposit'`) as an
+  extra charge, so it's on the balance invoice. Asked once; Skip leaves it off. What the
+  processor kept is still `processing_fee_amount` (§21.1), so the charge and the fee cancel in
+  earned income. A fee on the balance itself has no later payment to ride on: she adds it as
+  an extra charge before invoicing the balance. Payments recorded by an integration (§32)
+  don't ask.
+- **Not in CSV import/export**; the JSON backup carries both lists.
 
 ---
 
@@ -1208,7 +1238,8 @@ for receipts `payment_method`/`payment_reference`); everything is rebuilt on eac
   (`vendor/jspdf.umd.min.js`, loaded only when a PDF is made; `pdfText()` keeps text
   Latin-1).
 - **Lines** come from `incomeView.incomeLineItems` (§21): Deposit, Remaining Purchase Price,
-  Transport Fee, Boarding Fee, Stud Fee, or the waitlist application fee. Never `pick`, never
+  Transport Fee, Boarding Fee, each extra charge under its own name (§21.2), Stud Fee, or the
+  waitlist application fee. A line's `cfg` key is its component, or `extra:<id>`. Never `pick`, never
   processing fees, and net of a credited waitlist fee.
 - **Per-line choices ride `cfg`:** `{ key, mode: 'full'|'partial', collected, dueDate? }`.
   Partial prints the collected amount; Full prints the whole amount and treats `collected`
