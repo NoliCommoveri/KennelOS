@@ -1650,3 +1650,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   balance. `kelsSetup.accountLine` and `FEE_ACCOUNT_TYPES` are new. Tested: the part lists and the line; in the
   browser, Getting Started through both parts (price list changed, PayPal (business) added
   as a payment service with its fee and charge-back) and Pups are going home adding the fee and an extra.
+- **Application answers blank on phones (2026-10-30).** A waitlist entry's Application
+  section showed its question labels with tall empty gaps and no answers on a phone. The
+  `.dl-meta` grid sized its label column `max-content`, so a long question ("What are you
+  looking for in a puppy? Choose all that apply.") took the whole width and squeezed the
+  answer column to 0px, where each answer wrapped a letter per line off the card's edge.
+  The label column is now `fit-content(40%)` with `minmax(0, 1fr)` values, and labels wrap.
+  Tested: at 390px the answers sit beside their wrapped labels; `node --test` passes.
