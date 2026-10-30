@@ -65,6 +65,7 @@ export const editionFlags = {
   furever: true,
   reports: true,
   invoicing: true,
+  extraCharges: true,
   puppyRecord: true,
   fosterArrangement: true,
   receiptAttach: true,

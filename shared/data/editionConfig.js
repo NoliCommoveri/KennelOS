@@ -92,6 +92,7 @@ export const editionFlags = {
   furever: true,           // Furever seed-link generator (send a pup its own family app)
   reports: true,           // Reports hub + report pages
   invoicing: true,         // Invoice/receipt generation (print docs)
+  extraCharges: true,      // A sale's extra charges (photo packages, a fee charged back) + a kennel's price list (§21.2)
   puppyRecord: true,       // Puppy Record generation (print doc)
   fosterArrangement: true, // Foster litter tracking (direction/partner/compensation)
   receiptAttach: true,     // Attach a receipt photo/PDF to an expense (file storage)
