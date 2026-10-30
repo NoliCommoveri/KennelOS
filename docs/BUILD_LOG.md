@@ -1636,4 +1636,4 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   private. Flag `extraCharges` (Lite false). Sample data: Thornfield's price list and a photo
   package on Cedar's sale. Tested: the list rules, the charge-back offer, per-charge lines and
   keys, paid with the balance, dropped on a cancelled sale; in the browser, the form, price list,
-  offer and invoice.
+  offer and invoice. Service worker cache bumped to `kennelos-shell-v83`.
