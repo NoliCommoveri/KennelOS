@@ -9,9 +9,10 @@
 //   3. Puppy Record fields (Pro): everything, or what to leave off;
 //   3b. her extra charges price list (Pro, extraCharges): photo packages and the
 //      like, saved on the kennel (data/extraCharges.js);
-//   3c. how families pay her (Pro, Accounts): her Payment service accounts, each
-//      one's fee, and whether she charges that fee back to the family; Stripe
-//      connected right here (waitlistFeeStep.offerStripe);
+//   3c. her vendor and third-party accounts (Pro, Accounts): added or changed in
+//      rounds; a marketplace's or payment service's fee, and whether she charges a
+//      payment service's fee back to the family; Stripe connected right here
+//      (waitlistFeeStep.offerStripe);
 //   4. another kennel (Pro, multi-kennel), for a separate side of the business: two
 //      breeds with their own waitlists, a pet side and a show side; it starts with
 //      the nudge and Puppy Record settings from 1–3, and its own logo;
@@ -32,7 +33,7 @@ import { resolveMyKennelId } from '../data/kennelSetup.js';
 import { editionFlags, edition } from '../data/editionConfig.js';
 import { isProOnlyPage } from '../data/proPages.js';
 import { isCloudAvailable } from '../data/cloud/cloudConfig.js';
-import { setupParts, logoUses, listWords, settingsToCopy, newKennelNameProblem, possessive, paymentServiceLine, SETUP_HOW } from '../data/kelsSetup.js';
+import { setupParts, logoUses, listWords, settingsToCopy, newKennelNameProblem, possessive, accountLine, FEE_ACCOUNT_TYPES, SETUP_HOW } from '../data/kelsSetup.js';
 import { kennelChargeList, readExtraCharges } from '../data/extraCharges.js';
 import { paymentLink } from '../data/paymentLinks.js';
 import { EXPORT_MAX_DAYS } from '../data/accountHealth.js';
@@ -41,6 +42,7 @@ import { downloadBackup } from '../data/importExport.js';
 import { isDropboxConnected } from '../data/dropbox.js';
 import { offerCloudBackup, cloudBackupOn } from './kelsBackupSteps.js';
 import { field, input, val, kennelNameField, pagesPrefix } from './kelsSteps.js';
+import { ACCOUNT_TYPE } from '../data/vocab.js';
 import { esc, fmtMoney } from './ui.js';
 
 export async function runSetupTask(chat, { onExit = () => {}, handoff = null } = {}) {
@@ -343,81 +345,103 @@ class Setup {
     if (res.done && res.result.length) await this.chat.say('Saved! On a sale, pick them from <strong>Add an extra charge</strong>.', { typing: 300 });
   }
 
-  // --- 3c. How families pay you (Pro, Accounts) -----------------------------------------
-  // Her Payment service accounts (Zelle, PayPal, Stripe…), each one's fee, and, with
-  // extraCharges, whether only some families pay that way and she charges them the
-  // fee (Account.fee_charge_back): a sale then offers to add it to the balance.
-  async payments() {
+  // --- 3c. Vendor and third-party accounts (Pro, Accounts) ------------------------------
+  // The Accounts page's records: her registry, marketplaces, payment services,
+  // suppliers, labs… Kels asks only what the app uses: the name and type, a website,
+  // the fee a marketplace or payment service takes, a payment service's link, and
+  // (extraCharges) whether only some families pay that way and she charges them its
+  // fee (Account.fee_charge_back). Logins and referral codes stay on the Accounts page.
+  async accounts() {
     const { accountRepo } = await import('../data/accountRepo.js');
     const chargeBack = !!editionFlags.extraCharges;
-    const services = async () => (await accountRepo.getAll()).filter((a) => a.account_type === 'payment_service' && !a.is_archived);
-    let list = await services();
-    const lines = () => `<ul>${list.map((a) => `<li>${esc(paymentServiceLine(a, { chargeBack }))}</li>`).join('')}</ul>`;
-    if (list.length) {
-      await this.chat.say(`Now, how families pay you. Here's what you have:${lines()}Want to add one, or change a fee?`);
-    } else {
-      await this.chat.say(`Now, how families pay you: Zelle, PayPal, Venmo, Stripe, whatever you use. I'll keep each one's fee, so your income is what you actually received, and it's ready for payment links and requests.${chargeBack ? ' If one costs you a fee only when a family chooses it (PayPal sent as business, say), I can add that fee to their balance.' : ''} Want to add them?`);
-    }
+    const load = async () => (await accountRepo.getAll()).filter((a) => !a.is_archived).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    let list = await load();
+    const lines = () => `<ul>${list.map((a) => `<li>${esc(accountLine(a, { chargeBack }))}</li>`).join('')}</ul>`;
+    const why = `Marketplaces and payment services take a fee, so I'll keep it, and your income is what you actually received.${chargeBack ? ' If a payment service costs you a fee only when a family chooses it (PayPal sent as business, say), I can add that fee to their balance.' : ''}`;
+    await this.chat.say(list.length
+      ? `Next, your vendor and third-party accounts. Here's what you have:${lines()}Want to add one, or change one?`
+      : `Next, your vendor and third-party accounts: your registry, where you list puppies, how families pay you (Zelle, PayPal, Stripe…), suppliers, labs. ${why} Want to set them up?`);
     for (;;) {
       const pick = await this.chat.choose([
         { label: list.length ? 'Add another' : 'Add one', value: 'add', primary: !list.length },
-        ...(list.length ? [{ label: 'Change a fee', value: 'change' }] : []),
+        ...(list.length ? [{ label: 'Change one', value: 'change' }] : []),
         { label: list.length ? 'That\'s all' : 'Not now', value: '', primary: !!list.length }
       ]);
       if (!pick) break;
       let account = null;
       if (pick === 'change') {
         await this.chat.say('Which one?', { typing: 200 });
-        const id = await this.chat.choose([...list.map((a) => ({ label: a.name || 'Payment service', value: a.id })), { label: 'Never mind', value: '' }]);
+        const id = await this.chat.choose([...list.map((a) => ({ label: a.name || 'Account', value: a.id })), { label: 'Never mind', value: '' }]);
         account = list.find((a) => a.id === id) || null;
         if (!account) continue;
       }
-      const saved = await this.askPaymentService(accountRepo, account, chargeBack);
+      const saved = await this.askAccount(accountRepo, account, chargeBack);
       if (!saved) continue;
-      list = await services();
-      if (!account && /stripe/i.test(saved.name || '')) {
+      list = await load();
+      if (!account && saved.account_type === 'payment_service' && /stripe/i.test(saved.name || '')) {
         const { offerStripe } = await import('./waitlistFeeStep.js');
         await offerStripe(this.chat, saved.id, true, 'Getting Started');
       }
       await this.chat.say(`Saved. Anything else?${lines()}`, { typing: 300 });
     }
-    if (!list.length) await this.chat.say('No problem. They\'re on your Accounts page whenever you want them.', { typing: 300 });
+    await this.chat.say(list.length
+      ? 'They\'re all on your Accounts page, with room for logins and referral codes too.'
+      : 'No problem. You can add them any time on your Accounts page.', { typing: 300 });
   }
 
-  // One Payment service, new (`a` null) or her fee on one she has. → the saved account, or null.
-  async askPaymentService(accountRepo, a, chargeBack) {
-    const isNew = !a;
+  // One account, new (`a` null) or one she has. → the saved account, or null.
+  async askAccount(accountRepo, a, chargeBack) {
+    const type = a?.account_type || '';
+    const typeOptions = `<option value="">— choose —</option>${ACCOUNT_TYPE.map((t) => `<option value="${esc(t.value)}"${t.value === type ? ' selected' : ''}>${esc(t.label)}</option>`).join('')}`;
     const res = await this.chat.form({
-      title: isNew
-        ? '<strong>A way families pay you.</strong><span class="kels-lead">If one way is free and another isn\'t (PayPal personal and business), add them as two.</span>'
-        : `<strong>${esc(a.name || 'Payment service')}</strong>`,
-      html: `${isNew ? field('Its name', input('ks-ps-name', '', { placeholder: 'e.g. Zelle, PayPal (business)' })) : ''}
-        <div class="ck-inline">
-          ${field('Fee percentage', input('ks-ps-percent', a?.fee_percent ?? '', { type: 'number', min: 0, max: 99.99, step: 0.01, inputmode: 'decimal', placeholder: 'e.g. 3.49' }))}
-          ${field('Fixed fee ($)', input('ks-ps-fixed', a?.fee_fixed ?? '', { type: 'number', min: 0, step: 0.01, inputmode: 'decimal', placeholder: 'e.g. 0.49' }))}
+      title: a ? `<strong>${esc(a.name || 'Account')}</strong>` : '<strong>A vendor or third-party account.</strong><span class="kels-lead">If one way to pay is free and another isn\'t (PayPal personal and business), add them as two.</span>',
+      html: `${field('Its name', input('ks-ac-name', a?.name ?? '', { placeholder: 'e.g. AKC, Good Dog, PayPal (business)' }))}
+        ${field('What it is', `<select id="ks-ac-type">${typeOptions}</select>`)}
+        ${field('Website (optional)', input('ks-ac-site', a?.website ?? '', { type: 'url', inputmode: 'url', placeholder: 'https://…' }))}
+        <div id="ks-ac-fee"${FEE_ACCOUNT_TYPES.includes(type) ? '' : ' hidden'}>
+          <div class="ck-inline">
+            ${field('Fee percentage', input('ks-ac-percent', a?.fee_percent ?? '', { type: 'number', min: 0, max: 99.99, step: 0.01, inputmode: 'decimal', placeholder: 'e.g. 3.49' }))}
+            ${field('Fixed fee ($)', input('ks-ac-fixed', a?.fee_fixed ?? '', { type: 'number', min: 0, step: 0.01, inputmode: 'decimal', placeholder: 'e.g. 0.49' }))}
+          </div>
+          <p class="field-hint">What it keeps of each payment. Leave both blank if it's free.</p>
         </div>
-        <p class="field-hint">Leave both blank if it's free.</p>
-        ${isNew ? field('Its payment link (optional)', input('ks-ps-link', '', { type: 'url', inputmode: 'url', placeholder: 'https://…' }), 'A PayPal.me or Stripe link families can tap.') : ''}
-        ${chargeBack ? `<label class="check-inline"><input id="ks-ps-back" type="checkbox"${a?.fee_charge_back ? ' checked' : ''}> Only some families pay this way, and I charge them the fee</label>
-          <p class="field-hint">When a deposit comes in this way, the sale offers to add the fee to their balance.</p>` : ''}`,
+        <div id="ks-ac-pay"${type === 'payment_service' ? '' : ' hidden'}>
+          ${field('Its payment link (optional)', input('ks-ac-link', a?.payment_link ?? '', { type: 'url', inputmode: 'url', placeholder: 'https://…' }), 'A PayPal.me or Stripe link families can tap.')}
+          ${chargeBack ? `<label class="check-inline"><input id="ks-ac-back" type="checkbox"${a?.fee_charge_back ? ' checked' : ''}> Only some families pay this way, and I charge them the fee</label>
+            <p class="field-hint">When a deposit comes in this way, the sale offers to add the fee to their balance.</p>` : ''}
+        </div>`,
+      wire: (root) => {
+        root.querySelector('#ks-ac-type').addEventListener('change', (e) => {
+          root.querySelector('#ks-ac-fee').hidden = !FEE_ACCOUNT_TYPES.includes(e.target.value);
+          root.querySelector('#ks-ac-pay').hidden = e.target.value !== 'payment_service';
+        });
+      },
       submitLabel: 'Save',
       cancelLabel: 'Never mind',
       submit: async (root) => {
         const q = (sel) => root.querySelector(sel);
         const num = (v) => (String(v).trim() === '' ? null : Number(v));
-        const changes = { fee_percent: num(q('#ks-ps-percent').value), fee_fixed: num(q('#ks-ps-fixed').value) };
-        if (changes.fee_percent != null && !(changes.fee_percent >= 0 && changes.fee_percent < 100)) return 'The percentage should be under 100.';
-        if (changes.fee_fixed != null && !(changes.fee_fixed >= 0)) return 'The fixed fee can\'t be below $0.';
-        if (q('#ks-ps-back')) changes.fee_charge_back = q('#ks-ps-back').checked;
-        if (!isNew) return accountRepo.update(a.id, changes);
-        const name = q('#ks-ps-name').value.trim();
+        const name = q('#ks-ac-name').value.trim();
+        const account_type = q('#ks-ac-type').value;
         if (!name) return 'What\'s it called?';
-        const typed = q('#ks-ps-link').value.trim();
-        const link = typed ? paymentLink(typed) : '';
-        if (typed && !link) return 'That link doesn\'t look like a web address. Copy it from the service and paste it here.';
-        return accountRepo.create({ name, account_type: 'payment_service', ...changes, ...(link ? { payment_link: link } : {}) });
+        if (!account_type) return `What is ${name}? Pick the closest one.`;
+        const changes = { name, account_type, website: q('#ks-ac-site').value.trim() };
+        if (FEE_ACCOUNT_TYPES.includes(account_type)) {
+          changes.fee_percent = num(q('#ks-ac-percent').value);
+          changes.fee_fixed = num(q('#ks-ac-fixed').value);
+          if (changes.fee_percent != null && !(changes.fee_percent >= 0 && changes.fee_percent < 100)) return 'The percentage should be under 100.';
+          if (changes.fee_fixed != null && !(changes.fee_fixed >= 0)) return 'The fixed fee can\'t be below $0.';
+        }
+        if (account_type === 'payment_service') {
+          const typed = q('#ks-ac-link').value.trim();
+          const link = typed ? paymentLink(typed) : '';
+          if (typed && !link) return 'That link doesn\'t look like a web address. Copy it from the service and paste it here.';
+          changes.payment_link = link;
+          if (q('#ks-ac-back')) changes.fee_charge_back = q('#ks-ac-back').checked;
+        }
+        return a ? accountRepo.update(a.id, changes) : accountRepo.create(changes);
       },
-      reply: (saved) => paymentServiceLine(saved, { chargeBack })
+      reply: (saved) => accountLine(saved, { chargeBack })
     });
     return res.done ? res.result : null;
   }

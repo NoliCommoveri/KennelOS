@@ -104,7 +104,7 @@ export async function askWaitlistFee(chat, kennel, { resumeTask = '', title = ''
 }
 
 // The fee's payment account is Stripe with no key on this device: connect it here.
-// Getting Started's "How families pay you" offers it the same way.
+// Getting Started's vendor and third-party accounts part offers it the same way.
 export async function offerStripe(chat, accountId, isNew, resumeTask) {
   const { accountRepo } = await import('../data/accountRepo.js');
   const { getStripeKey } = await import('../data/stripeKeyStore.js');
