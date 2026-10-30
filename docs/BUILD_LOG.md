@@ -1656,4 +1656,4 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   looking for in a puppy? Choose all that apply.") took the whole width and squeezed the
   answer column to 0px, where each answer wrapped a letter per line off the card's edge.
   The label column is now `fit-content(40%)` with `minmax(0, 1fr)` values, and labels wrap.
-  Tested: at 390px the answers sit beside their wrapped labels; `node --test` passes.
+  Tested: at 390px the answers sit beside their wrapped labels; `node --test` passes. SW cache bumped to v84.
