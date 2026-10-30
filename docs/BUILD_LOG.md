@@ -1657,3 +1657,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   answer column to 0px, where each answer wrapped a letter per line off the card's edge.
   The label column is now `fit-content(40%)` with `minmax(0, 1fr)` values, and labels wrap.
   Tested: at 390px the answers sit beside their wrapped labels; `node --test` passes. SW cache bumped to v84.
+- **Set up my accounts (2026-10-30).** The owner couldn't find the accounts setup inside
+  Getting Started, so it's also its own Kels menu task now, **Set up my accounts** (Pro,
+  `accounts`, priority 22, not in the Demo): `kelsSetupUI.runAccountsTask` runs the same
+  `accounts` part with its own opener (`kelsSetup.ACCOUNTS_HOW`); searchable by vendor,
+  marketplace, PayPal, Zelle, Stripe, fees and the like. The owner declined a separate
+  extras price list task. Tested in the browser: the tile, a search for "paypal", the task.

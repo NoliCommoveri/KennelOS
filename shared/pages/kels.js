@@ -30,7 +30,7 @@ import { runTidyTask } from '../assets/tidyUpUI.js';
 import { runPrepTask, prepState } from '../assets/prepPupsUI.js';
 import { runHealthTask } from '../assets/accountHealthUI.js';
 import { runDogsTask, pendingDogsDraft, discardGuidedDogsDraft } from '../assets/guidedDogsUI.js';
-import { runSetupTask } from '../assets/kelsSetupUI.js';
+import { runSetupTask, runAccountsTask } from '../assets/kelsSetupUI.js';
 import { setupPriority } from '../data/kelsSetup.js';
 import { dogRepo } from '../data/dogRepo.js';
 import { pendingPeopleDraft } from '../data/guidedPeople.js';
@@ -265,6 +265,18 @@ const TASKS = [
       return null;
     },
     run: (opts) => runForm(opts)
+  },
+  {
+    id: 'accounts-setup',
+    label: () => 'Set up my accounts',
+    sub: 'Vendors, marketplaces, payment services and their fees',
+    keywords: ['accounts', 'account', 'vendor', 'vendors', 'third party', 'third-party', 'marketplace', 'good dog', 'puppyfind',
+      'registry', 'akc', 'supplier', 'lab', 'insurance', 'payment', 'pay', 'paypal', 'zelle', 'venmo', 'stripe', 'square',
+      'fee', 'fees', 'processing fee', 'business', 'charge back', 'chargeback', 'payment link'],
+    // Pro only (Accounts), and never in the Demo, which saves nothing.
+    available: () => editionFlags.accounts && !editionFlags.demoMode,
+    priority: () => 22,
+    run: (opts) => runAccountsTask(chat, opts)
   },
   {
     id: 'account-health',

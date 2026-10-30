@@ -2018,7 +2018,7 @@ run, resumable?, beforeStart? }`, highest priority first, with a search box abov
 litter). The page header shows her photo and `KELS.title` ("Kels, the KennelOS whiz") on one line, sized to fit a phone. Order: an unfinished litter (100), unfinished dogs (99), the
 check-in (60 while a litter has pups at home, else 40), a new litter (50), prep pups (45,
 while a litter has pups at home), add dogs (35), add people (33, Pro), tidy up (30), set up
-my waitlist (25, Pro), set up my application form (24, Pro), account health (20), Getting Started
+my waitlist (25, Pro), set up my application form (24, Pro), set up my accounts (22, Pro, not in the Demo), account health (20), Getting Started
 (95 while she's new, else 15: `kelsSetup.setupPriority`); unfinished
 people sit at 98, an unfinished form at 97. The header's **Save for later** shows only while a `resumable` task
 runs; its **Cancel** shows while any task runs and, after an "Are you sure?" (`confirmModal`),
@@ -2224,6 +2224,8 @@ part alone, then her dogs.
 | `furever` | Pro (`furever`) | Google Drive for Furever's content packages: Google's sign-in script (`vendor/gsi/client.js`) is loaded on demand, then a form whose **Connect** calls `googleDrive.connectDrive()` from the tap (so the window isn't blocked) and sets `driveConnected` |
 | `assistant` | Pro (`assistant`) | Dropbox for KennelAssistant. Dropbox returns to the page that asked, and only registered pages may ask, so it connects on the KennelAssistant page: announced, opened in a new tab on **Okay, open it**, then **I'm back, check it now** reads `isDropboxConnected()`. Already connected: she says so |
 | `backup` | every edition | Cloud backup on: she says so. Cloud offered and off: `offerCloudBackup`. Otherwise, with no backup file in `EXPORT_MAX_DAYS` (14): **Download a backup now** (`importExport.downloadBackup`) |
+
+**Set up my accounts** (its own menu task, Pro `accounts`, not in the Demo: `kelsSetupUI.runAccountsTask`) runs the `accounts` part on its own, with its own opener (`kelsSetup.ACCOUNTS_HOW`), for a breeder already set up.
 
 Then **Add my dogs** / **Add my people** (Pro, `contactsSection`) / **I'm all set for now**:
 a pick is `handoff('add-dogs' | 'add-people')`, so an unfinished draft of that task still
