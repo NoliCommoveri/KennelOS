@@ -1663,3 +1663,11 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `accounts` part with its own opener (`kelsSetup.ACCOUNTS_HOW`); searchable by vendor,
   marketplace, PayPal, Zelle, Stripe, fees and the like. The owner declined a separate
   extras price list task. Tested in the browser: the tile, a search for "paypal", the task.
+- **Help text on the matching questions (2026-10-30).** The owner asked for hints under
+  application questions. Every question's Help text was saved and published, but the
+  online application page (`cloud/public/family/apply.js` `prefHtml`) drew the five
+  matching questions (male or female, breed, looking for, colors, soonest) without it; it
+  now prints her help text under each, below the page's own note where there is one
+  (colors, looking for). Ships with the Worker's static files. Tested in the browser with a
+  stubbed form: every help text shows. Service worker cache bumped to `kennelos-shell-v85`
+  for this batch (Set up my accounts).
