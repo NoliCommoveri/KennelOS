@@ -36,6 +36,8 @@ backup, carries a program from Lite to Pro.
 | Cloud backup / live sync | `docs/KennelOS_Cloud_Phase1_Plan.md`, `docs/KennelOS_Cloud_Phase2_Sync_Plan.md`, `cloud/README.md` |
 | Vault, license link, integrations | `docs/KennelOS_Private_Vault_Plan.md`, `docs/KennelOS_License_Link_Plan.md`, `docs/KennelOS_Integrations_Plan.md` |
 | Waitlist, shows, reports, multi-kennel | `docs/KennelOS_Waitlist_Spec.md` (+ `_W2_Plan`), `docs/KennelOS_Show_Tracking_Spec.md`, `docs/KennelOS_Reports_Plan.md`, `docs/KennelOS_Multi_Kennel_Scope_Spec.md` |
+| App alerts (web push) and email digests | `docs/KennelOS_Notifications_Plan.md` |
+| Kels on the family pages (help, FAQ) | `docs/KennelOS_Family_Help_Plan.md` |
 | Furever | `docs/KennelOS_Furever_*.md`, `furever/README.md` |
 | Kels (the guided-task helper): what's next | `docs/KennelOS_Kels_Roadmap.md` (built tasks: End-State guide §33) |
 | Launch to-dos | `docs/LAUNCH_CHECKLIST.md` |
@@ -52,6 +54,9 @@ backup, carries a program from Lite to Pro.
     on production; step 7, the live nudge, is optional. Production has every cloud migration
     through `0016` applied; `0017` (the R2 orphan sweep's state) is waiting to be applied from
     /ops after the next Worker deploy. Staging isn't in use, so deploys there aren't tracked.
+  - Notifications (app alerts and the email digest): built. Next: generate the push key on
+    /ops and add it as the `VAPID_PRIVATE_JWK` secret, apply migration `0018` after the
+    Worker deploy, then check alerts on a real Android phone and an iPhone.
   - Duplicates: Import/Export's Scan for duplicates covers every record type. Open: Kels's
     Tidy up still checks only dogs and contacts for duplicates.
 - **Open launch items:** confirm `yearlyVariantPattern` / `lifetimeVariantPattern` against

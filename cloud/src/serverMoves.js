@@ -19,6 +19,7 @@
 // Runs from the hourly cron (index.js), and for one kennel right after a family
 // passes or leaves (familyActions.js). Never logged: a projection, an email, a name.
 import { sendFamilyMessage, familySender, familyFooter, mailMode } from './mail.js';
+import { notifyEvent } from './notify.js';
 
 const OPEN = ['applied', 'approved', 'active'];
 // Reminders and the "Ready now?" email go out from this hour, kennel time.
@@ -149,11 +150,15 @@ export function giveTurn(projection, entryId, turn) {
 
 const autoOn = (projection, trigger) => (projection.kennel?.auto_offer_on || []).includes(trigger);
 
-async function insertEvent(env, row, { entryId, kind, payload }, at) {
+async function insertEvent(env, row, { entryId, kind, payload }, at, projection = null) {
   const res = await env.DB.prepare(
     `INSERT INTO wl_events (program_id, public_id, entry_id, kind, payload, based_on_version, made_by, created_at)
      VALUES (?, ?, ?, ?, ?, ?, 'server', ?)`,
   ).bind(row.program_id, row.public_id, entryId, kind, JSON.stringify(payload), row.version, at).run();
+  // A move she must follow up (contact the family offered; Notifications plan §1).
+  if (projection) {
+    await notifyEvent(env, { programId: row.program_id, kind: 'server_move', what: kind, name: projection.entries?.[entryId]?.name, kennel: projection.kennel?.name, entryId });
+  }
   return res.meta?.last_row_id ?? null;
 }
 
@@ -190,7 +195,7 @@ async function offerNext(env, row, projection, { today, skip, held, cause, cause
     turn_id: crypto.randomUUID(), offered_date: today, respond_by_date: addDays(today, next.respondDays),
     rows: next.rows.map((r) => ({ offer_id: crypto.randomUUID(), ...r })),
   };
-  const seq = await insertEvent(env, row, { entryId: next.entryId, kind: 'server_offer', payload: { ...turn, cause, cause_seq: causeSeq } }, at);
+  const seq = await insertEvent(env, row, { entryId: next.entryId, kind: 'server_offer', payload: { ...turn, cause, cause_seq: causeSeq } }, at, projection);
   giveTurn(projection, next.entryId, turn);
   await emailOnce(env, row, projection, {
     id: `srv-offer-${turn.turn_id}`, entryId: next.entryId, kind: 'offer', origin,
@@ -241,7 +246,7 @@ export async function runKennel(env, row, { now = new Date(), origin } = {}) {
     const seq = await insertEvent(env, row, {
       entryId: t.entryId, kind: 'server_close',
       payload: { turn_id: t.turnId, offer_ids: t.offers.map((o) => o.id), litter_ids: t.offers.map((o) => o.litter_id), respond_by_date: t.respondBy, trigger, picked_dog_id: t.picked },
-    }, at);
+    }, at, projection);
     await env.DB.prepare('DELETE FROM wl_holds WHERE public_id = ? AND entry_id = ?').bind(row.public_id, t.entryId).run();
     if (t.picked) held.delete(t.picked);
     closeTurn(projection, t.entryId, t.turnId);

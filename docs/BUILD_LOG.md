@@ -1707,3 +1707,53 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   sex preference or pause reason is published for them. The online table's renderer
   (`cloud/public/family/common.js`) ships with the Worker's static files. Tests in
   `tests/waitlistForm.test.js`. Service worker cache bumped to `kennelos-shell-v86`.
+- **Today shows a family's message as it arrives (2026-10-31).** Asked by the owner. The
+  "A message from …" nudge existed, but Today drew its nudges once on load, and the waitlist
+  inbox takes messages in a moment after the app opens (and every 5 minutes), so a new
+  message only showed after leaving and coming back. Today now redraws its nudges on
+  `CLOUD_DATA_CHANGED_EVENT` (debounced 1.5 s). Tested in the browser: a message added with
+  Today open shows within seconds; without the change it showed only after a reload. Rides
+  the `kennelos-shell-v86` cache bump.
+- **Notifications plan drafted (2026-10-31).** Asked by the owner: app alerts on Android and
+  iPhone for family messages and other waitlist activity, and an opt-in email digest
+  (separate, since it means the server keeps her readable address). Draft in
+  `docs/KennelOS_Notifications_Plan.md`, modeled on the MCCE repo's §19 push plan. Nothing
+  built; decisions D1–D5 open.
+- **Notifications built (2026-10-31).** Asked by the owner, decisions D1–D5 as recommended
+  (`docs/KennelOS_Notifications_Plan.md` §8 has what changed from the plan). Server:
+  `cloud/src/notify.js`, migration `0018_notifications.sql` (`notify_settings`,
+  `push_subscriptions`, `notify_items`), hooks in familyActions (messages, picks, passes,
+  requests, leaving, "Ready now?"), familyPages (a confirmed application) and serverMoves
+  (turns closed or offered); payload-free web push with VAPID (one secret,
+  `VAPID_PRIVATE_JWK`, generated on /ops); the email digest (her address kept only while on,
+  another address confirmed by code, hourly cron, `/notify/off` page); retention and account
+  deletion cover all three tables. App: Settings → Notifications (`assets/notificationsUI.js`,
+  Pro-only), `data/cloud/cloudNotify.js`, `sw.js` `push`/`notificationclick`, a daily
+  re-subscribe on open. Tests: `cloud/tests/notify.test.js` (14) and one in
+  `serverMoves.test.js`. Tested in the browser against the local Worker: the card, the
+  digest turned on, and an alert shown by the worker on a delivered push; subscribing
+  itself couldn't be tested here (the sandbox can't reach Google's push service), so the
+  20-second give-up message was. Not yet tried on real phones.
+- **Heats, monthly preventatives, and Check in on my dogs (2026-10-31).** Asked by the owner.
+  `data/dogCare.js` (pure, `tests/dogCare.test.js`): the next heat is 6 months after a single
+  heat, else the last start plus her average interval (`heatRows` and the Heat Cycles report now
+  use it too, so one heat gets a prediction); `preventativeGaps` for the month. Today: the
+  `heatwatch` nudge ("…is expected to go into heat soon — keep an eye out" from 30 days before,
+  "…was expected to cycle recently — has that happened?" after; a logged heat, future too,
+  moves it) and `preventatives` (from the 1st until every active breeding dog has a
+  preventative dated this month). The Dogs page's **Log for several dogs** (the litter's
+  cascade event form, `cascadeTitle`/`cascadeSelected`). Kels's **Check in on my dogs**
+  (`assets/dogCheckinUI.js`). Main had taken v86 (PR #138), so the notifications batch and this
+  one ride `kennelos-shell-v87`. Tested in the browser: both nudges and their wordings, Log
+  to the form and back to Today with the nudge gone, and the Kels flow end to end.
+- **Multi-dog forms tick only active breeding dogs (2026-10-31).** Asked by the owner: Log for
+  several dogs and Kels's preventatives form list the dogs at home (`dogCare.homeDogs`: active
+  breeding, retired breeding, for sale), with only active breeding dogs ticked (from the
+  preventatives nudge, only those still missing this month's). Checked in the browser.
+- **Family Help plan drafted (2026-10-31).** Asked by the owner: Kels on the public list and
+  status pages answering families' common questions from a KennelOS cheat sheet (the owner
+  writes it) and the breeder's FAQ, with her intro decided by the owner; an optional Claude
+  Haiku 5.5 "ask in your own words" layer (about $0.0002–0.0007 a question). Draft in
+  `docs/KennelOS_Family_Help_Plan.md`; nothing built.
+- **Family Help plan: decisions (2026-10-31).** D2 (each breeder turns Layer 2 on), D3 (the cheat sheet format) and D5 (20 questions per family a day) decided by the owner; D4 (Layer 2 after Layer 1 has been used) still open.
+- **Family Help plan: D4 decided (2026-10-31).** Layer 2 (Haiku) is a second version, after Layer 1 has been used.

@@ -20,6 +20,7 @@ import { hmacHex, timingSafeEqual } from './lib/crypto.js';
 import { readCookie } from './lib/http.js';
 import { escapeHtml as esc } from './lib/html.js';
 import { importFromLemonSqueezy } from './license.js';
+import { generateVapidKeys } from './notify.js';
 
 const COOKIE = 'ops_session';
 const SESSION_SECONDS = 12 * 60 * 60;
@@ -136,6 +137,8 @@ ${migrations.some((m) => m.state === 'drifted' || m.state === 'orphaned')
   <tr><td>Email sending</td><td>${health.mail === 'resend' ? '<span class="ok">Resend</span>'
     : health.mail === 'outbox' ? 'staging outbox (codes shown below, not emailed)'
     : '<span class="bad">none: sign-in is refused until <code>RESEND_API_KEY</code> is set</span>'}</td></tr>
+  <tr><td>App alerts (web push)</td><td>${health.push ? '<span class="ok">ready</span>'
+    : 'off: secret <code>VAPID_PRIVATE_JWK</code> is not set (generate it below); the app says alerts aren\'t available yet'}</td></tr>
   <tr><td>Schema version</td><td>${esc(health.schema_version ?? 'none')}</td></tr>
   <tr><td>Pro license webhook</td><td>${health.license.ready
     ? `<span class="ok">ready</span> <span class="muted">(${health.license.testMode ? 'test-mode purchases' : 'live purchases'}, ${esc(health.license.products)} product(s))</span>`
@@ -165,6 +168,14 @@ ${results.length
       .join('')}</table>`
     : '<p class="muted">None yet.</p>'}`;
   }
+
+  // App alerts' key pair (docs/KennelOS_Notifications_Plan.md §2.4): made here,
+  // pasted into the dashboard as a secret. Shown once, never stored by this page.
+  const pushKeys = `<h2>App alerts</h2>
+<p class="muted">Web push signs with a key pair. Generate one, then in the Cloudflare dashboard open this Worker → Settings →
+Variables and Secrets and add <code>VAPID_PRIVATE_JWK</code> as a <em>Secret</em> with the text shown. Changing it later
+silences every device until each turns alerts on again.</p>
+<form method="post" action="/ops/push-keys"><button type="submit">Generate push keys</button></form>`;
 
   const testEmail = mailMode(env) === 'resend'
     ? `<h2>Email</h2>
@@ -213,7 +224,7 @@ ${purchases.length
   <tr><td>Record versions received in the last hour</td><td>${esc(sc.recentVersions)}</td></tr>
 </table>`;
 
-  return `${outbox}${testEmail}${license}${sync}
+  return `${outbox}${testEmail}${pushKeys}${license}${sync}
 <h2>Service notices</h2>
 ${noticeRows ? `<table>${noticeRows}</table>` : '<p class="muted">No active notices.</p>'}
 <form method="post" action="/ops/notices">
@@ -302,6 +313,13 @@ async function route(request, env) {
   if (url.pathname === '/ops/test-email' && request.method === 'POST') {
     const r = await sendTestEmail(env, (await request.formData()).get('email'));
     return dashboard(env, r.ok ? '<p class="ok">Sent. Check that inbox, and its spam folder.</p>' : `<p class="bad">${esc(r.reason)}</p>`);
+  }
+
+  if (url.pathname === '/ops/push-keys' && request.method === 'POST') {
+    const { privateJwk, publicKey } = await generateVapidKeys();
+    return dashboard(env, `<p class="ok">New push keys. Copy the secret now: it isn't kept anywhere.</p>
+<p>Secret <code>VAPID_PRIVATE_JWK</code>:</p><pre>${esc(privateJwk)}</pre>
+<p class="muted">Public key (the app gets it from the server; nothing to paste): <code>${esc(publicKey)}</code></p>`);
   }
 
   if (url.pathname === '/ops/license-import' && request.method === 'POST') {

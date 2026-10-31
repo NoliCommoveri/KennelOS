@@ -25,6 +25,7 @@
 // unreferenced objects, never rows pointing at nothing; the orphan sweep at the
 // end of every run (sweepR2Orphans) finds and deletes them.
 import { syncRetentionStatements } from './sync.js';
+import { notifyRetentionStatements } from './notify.js';
 import { vaultKeyFor } from './snapshots.js';
 
 const HOUR = 60 * 60 * 1000;
@@ -117,6 +118,7 @@ export async function runRetention(env, now = new Date()) {
   Object.assign(summary, await sweepR2Orphans(env, nowMs));
 
   await env.DB.batch([
+    ...notifyRetentionStatements(env, nowMs),
     env.DB.prepare('DELETE FROM login_codes WHERE expires_at < ?').bind(iso(nowMs)),
     env.DB.prepare('DELETE FROM rate_limits WHERE window_start < ?').bind(iso(nowMs - DAY)),
     env.DB.prepare('DELETE FROM dev_outbox WHERE created_at < ?').bind(iso(nowMs - HOUR)),

@@ -32,6 +32,7 @@ import { hmacHex, sha256Hex, randomCode, randomHex } from './lib/crypto.js';
 import { assertMailAvailable, familySender, sendFamilyMessage } from './mail.js';
 import { PUBLIC_ID, STATUS_TOKEN, sentEmailsFor } from './waitlist.js';
 import { handleAct, handleMessage, pendingFor, heldByOthers } from './familyActions.js';
+import { notifyEvent } from './notify.js';
 import { fail, json, readJson } from './lib/http.js';
 
 export const FAMILY_LIMITS = {
@@ -574,7 +575,7 @@ export async function handleFamilyApi(request, env, url) {
     const statusToken = await statusTokenOf(env, publicId, row.entry_id);
     if (!statusToken) fail(400, 'invalid_code');
     const session = randomHex(32);
-    await env.DB.batch([
+    const confirmed = await env.DB.batch([
       env.DB.prepare('DELETE FROM wl_family_codes WHERE public_id = ? AND code_hash = ?').bind(publicId, hash),
       // The code an applicant typed confirms their application: now it reaches her.
       env.DB.prepare(
@@ -584,6 +585,12 @@ export async function handleFamilyApi(request, env, url) {
         'INSERT INTO wl_family_sessions (token_hash, program_id, public_id, entry_id, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
       ).bind(await sha256Hex(session), row.program_id, publicId, row.entry_id, now.toISOString(), new Date(now.getTime() + FAMILY_SESSION_MS).toISOString()),
     ]);
+    // A newly confirmed application: her alert and digest (Notifications plan §1).
+    if (confirmed[1]?.meta?.changes === 1) {
+      const app = await env.DB.prepare('SELECT name FROM wl_inbox WHERE id = ?').bind(row.entry_id).first();
+      const found = await projectionOf(env, publicId);
+      await notifyEvent(env, { programId: row.program_id, kind: 'application', what: 'application', name: app?.name, kennel: found?.projection.kennel?.name, entryId: row.entry_id });
+    }
     return json({ status_token: statusToken, session, expires_at: new Date(now.getTime() + FAMILY_SESSION_MS).toISOString() });
   }
 

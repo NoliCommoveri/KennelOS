@@ -11,7 +11,9 @@
 //   served whatever the schema state, and their same-origin JSON under /f/,
 //   behind the gate;
 // - the crons: the daily one runs retention, the hourly one the waitlist's
-//   own moves (serverMoves.js: deadlines, automatic offers, reminders).
+//   own moves (serverMoves.js: deadlines, automatic offers, reminders) and the
+//   breeder's email digests (notify.js);
+// - /notify/off: the digest email's turn-off page (notify.js).
 import { handleOps } from './ops.js';
 import { handleApi } from './api.js';
 import { schemaReady } from './gate.js';
@@ -22,6 +24,7 @@ import { handleFamilyApi, serveFamilyPage } from './familyPages.js';
 import { runRetention } from './retention.js';
 import { runWaitlistMoves } from './serverMoves.js';
 import { applyDueEmailChanges } from './emailChange.js';
+import { handleDigestOff, runDigests } from './notify.js';
 import { corsHeaders, preflight } from './lib/cors.js';
 import { ApiError, json } from './lib/http.js';
 
@@ -64,6 +67,8 @@ export default {
         return json({ maintenance: true }, 503, { ...cors, 'retry-after': '300' });
       }
 
+      // The digest email's turn-off link: a page with a button, same origin, no CORS.
+      if (url.pathname === '/notify/off' && (request.method === 'GET' || request.method === 'POST')) return await handleDigestOff(request, env, url);
       if (url.pathname === '/webhooks/lemonsqueezy' && request.method === 'POST') return await handleWebhook(request, env);
       if (url.pathname.startsWith('/hooks/') && request.method === 'POST') return await handleHook(request, env, url);
       if (url.pathname.startsWith('/f/')) return await handleFamilyApi(request, env, url);
@@ -94,6 +99,7 @@ export default {
       else {
         console.log('waitlist moves', JSON.stringify(await runWaitlistMoves(env)));
         console.log('email changes', JSON.stringify(await applyDueEmailChanges(env)));
+        console.log('digests', JSON.stringify(await runDigests(env)));
       }
     })());
   },

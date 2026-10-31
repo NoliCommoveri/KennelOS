@@ -11,12 +11,13 @@
 // Ephemeral tables (codes, link codes, rate limits, the staging outbox, vault
 // pairings) are not exported. Nor is sync_records (live sync's records): the
 // snapshots in R2 are the recovery copy (Phase 2 plan §6.3); sync_devices is.
+// notify_items (alerts' and digests' recent events) aren't: a week of them at most.
 import { migrationStatus } from './migrate.js';
 
 // Foreign-key order: parents before children.
 export const EXPORT_TABLES = ['users', 'programs', 'sessions', 'device_erasures', 'snapshots', 'files', 'snapshot_files', 'notices', 'vaults', 'vault_wraps',
   'pro_purchases', 'license_links', 'wl_projection', 'wl_tokens', 'wl_inbox', 'wl_events', 'wl_holds', 'wl_messages', 'wl_family_sessions', 'wl_senders',
-  'sync_devices', 'int_connections', 'int_events'];
+  'sync_devices', 'int_connections', 'int_events', 'notify_settings', 'push_subscriptions'];
 export const FORMAT = 'kennelos-cloud-d1';
 
 async function schemaVersion(db) {
