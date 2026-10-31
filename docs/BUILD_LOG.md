@@ -1734,3 +1734,15 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   digest turned on, and an alert shown by the worker on a delivered push; subscribing
   itself couldn't be tested here (the sandbox can't reach Google's push service), so the
   20-second give-up message was. Not yet tried on real phones.
+- **Heats, monthly preventatives, and Check in on my dogs (2026-10-31).** Asked by the owner.
+  `data/dogCare.js` (pure, `tests/dogCare.test.js`): the next heat is 6 months after a single
+  heat, else the last start plus her average interval (`heatRows` and the Heat Cycles report now
+  use it too, so one heat gets a prediction); `preventativeGaps` for the month. Today: the
+  `heatwatch` nudge ("…is expected to go into heat soon — keep an eye out" from 30 days before,
+  "…was expected to cycle recently — has that happened?" after; a logged heat, future too,
+  moves it) and `preventatives` (from the 1st until every active breeding dog has a
+  preventative dated this month). The Dogs page's **Log for several dogs** (the litter's
+  cascade event form, `cascadeTitle`/`cascadeSelected`). Kels's **Check in on my dogs**
+  (`assets/dogCheckinUI.js`). Main had taken v86 (PR #138), so the notifications batch and this
+  one ride `kennelos-shell-v87`. Tested in the browser: both nudges and their wordings, Log
+  to the form and back to Today with the nudge gone, and the Kels flow end to end.

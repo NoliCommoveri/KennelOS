@@ -162,8 +162,8 @@ test('heatRows: interval from her own history; prediction and due-soon / overdue
   assert.equal(a.status, 'due_soon');
   assert.equal(rows.find((r) => r.dog.id === 'b').status, 'overdue');
   const c = rows.find((r) => r.dog.id === 'c');
-  assert.deepEqual([c.avgInterval, c.next, c.status], [null, null, null], 'one heat: no prediction');
-  assert.equal(rows[rows.length - 1].dog.id, 'c', 'unpredicted last');
+  assert.deepEqual([c.avgInterval, c.next, c.status], [null, '2026-09-01', 'overdue'], 'one heat: 6 months after it');
+  assert.deepEqual(rows.map((r) => r.dog.id), ['b', 'c', 'a'], 'soonest prediction first');
 });
 
 test('testGapRows: planned vs logged by name token, case-insensitive', () => {

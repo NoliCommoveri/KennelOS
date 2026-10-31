@@ -415,7 +415,10 @@ a soft confirm, never a block.
 **Litter-wide logging** (`litter.js` → `openEventForm`'s `cascadeTargets`) writes one event
 per checked puppy with the same `details`, except fields in `eventForm.js`
 `PER_TARGET_CASCADE_FIELDS` (`weight_check` weights) which are per puppy. Saving a weight
-below that dog's previous weigh-in (same-day AM/PM aware) asks to confirm.
+below that dog's previous weigh-in (same-day AM/PM aware) asks to confirm. The Dogs page's
+**Log for several dogs** is the same form over the active breeding dogs (`cascadeTitle`,
+`cascadeSelected`); `dogs.html?logEvent=preventative&from=today` opens it with only the dogs
+still missing this month's preventative ticked and goes back to Today after saving.
 
 Test-bearing types (`genetic_test`, `breed_specific_test`, `ofa_pennhip`) feed the test
 vocabulary through `testTokensOf(event)`.
@@ -968,6 +971,8 @@ status-page action the waitlist inbox takes in after the page loaded shows witho
 | `promote` | a kept puppy is past its kennel's promote age (opt-in per kennel) | promote to active breeding |
 | `studpair` | a finished stud service has no `pairing_id` | create the pairing |
 | `heatpair` | a heat cycle ended with no pairing for that dam since | create a pairing |
+| `heatwatch` | an active breeding female's predicted next heat (`dogCare.predictNextHeat`: 6 months after a single heat, else last start + her average interval; future-dated heats count) is within `HEAT_NOTICE_DAYS` (30): "is expected to go into heat soon"; past it: "was expected to cycle recently — has that happened?". Logging a heat moves the prediction, so the key (dog, date, wording) changes | Log heat (her page's event form, dated the prediction or today) |
+| `preventatives` | from the 1st, while any active breeding dog has no `preventative` event dated this month (`dogCare.preventativeGaps`); goes by itself once all have one | Log (the Dogs page's Log for several dogs) |
 | `pairingduesoon` | a bred/confirmed pairing is due within 3 days, no litter | create the litter |
 | `studpick` | a completed stud service of our stud with a pick in its fee (`pick_of_litter` / `flat_plus_pick`), 63 + 56 days after it (returned, else sent; `studRules.pickDue`), no pup of that stud out of that dam born since on file, `pick_status` not settled (claimed / received / picked / done / waived) | **Add the puppy** (`dog.html?new=1&pick=<id>`) / **Not getting one** (`pick_status: 'waived'`) |
 | `pairingoverdue` | a pre-whelp pairing is past due, no litter | mark whelped / create litter |
@@ -2488,6 +2493,17 @@ questions, preferences and readiness, `assets/waitlistApplicationForm.js`), then
 program, when they applied and her notes, saved as an application (`applied`), as the
 Waitlist entry page saves one. Set up my waitlist's **Add one by hand** and Add people both
 run it; without a contact it's linked at approval, as ever.
+
+### "Check in on my dogs"
+`assets/dogCheckinUI.js`, offered with any Active breeding dog (priority 55 while a heat is
+due or late or a dog is missing this month's preventative, else 30); also from the Dogs page.
+Each thing is saved as she approves it.
+1. **Heats:** each active breeding female's predicted next heat (`dogCare`, as the
+   `heatwatch` nudge) or "no heats logged yet", then "Do you want to log any heats?", one
+   female at a time: a `heat_cycle` with start (the prediction if it's ahead, else today;
+   any date, future included), optional end and notes, and her new prediction.
+2. **Preventatives:** the active breeding dogs with no `preventative` this month, all
+   ticked, one form (product, dose, date) → one event each.
 
 ### "Check in on a litter"
 Each thing she approves is saved at once; there is no draft.

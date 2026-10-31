@@ -5,7 +5,11 @@ import { contactRepo } from '../data/contactRepo.js';
 import { createListView } from '../assets/listView.js';
 import { dogInScope } from '../data/kennelScope.js';
 import { badge, fmtDate, esc, param } from '../assets/ui.js';
-import { descriptor, SEX, DOG_STATUS, DISPOSITION, OWNERSHIP_TYPE } from '../data/vocab.js';
+import { descriptor, SEX, DOG_STATUS, DISPOSITION, OWNERSHIP_TYPE, EVENT_TYPES } from '../data/vocab.js';
+import { eventRepo } from '../data/eventRepo.js';
+import { openEventForm } from '../assets/eventForm.js';
+import { breedingDogs, preventativeGaps } from '../data/dogCare.js';
+import { todayYMD } from '../data/dateUtils.js';
 
 const mount = document.getElementById('dog-list');
 const bucket = param('bucket');
@@ -130,4 +134,26 @@ async function init() {
   });
 }
 
-init();
+// "Log for several dogs": one event form, ticked for each active breeding dog, one
+// event saved per dog (eventForm's cascade, as a litter's "Log event for whole
+// litter"). Today's preventatives nudge opens it with ?logEvent=preventative and
+// only the dogs still missing this month's ticked; &from=today goes back after.
+async function openLogSeveral(type = null) {
+  const dogs = breedingDogs((await dogRepo.getAll()).filter(dogInScope))
+    .sort((a, b) => (a.call_name || '').localeCompare(b.call_name || ''));
+  if (!dogs.length) return;
+  const known = type && EVENT_TYPES.some((t) => t.value === type) ? type : null;
+  const selected = known === 'preventative' ? preventativeGaps(dogs, await eventRepo.getAll(), todayYMD()).map((d) => d.id) : null;
+  const back = () => { if (param('from') === 'today') location.href = 'today.html'; };
+  openEventForm({
+    subjectType: 'dog',
+    cascadeTitle: 'Log for several dogs',
+    cascadeTargets: dogs.map((d) => ({ id: d.id, label: `${d.call_name || 'Unnamed'}${d.sex ? ` (${descriptor(SEX, d.sex).label[0]})` : ''}` })),
+    cascadeSelected: selected && selected.length ? selected : null,
+    prefill: known ? { event_type: known } : null,
+    onSaved: back
+  });
+}
+document.getElementById('btn-log-several')?.addEventListener('click', () => openLogSeveral());
+
+init().then(() => { if (param('logEvent')) openLogSeveral(param('logEvent')); });
