@@ -15,6 +15,7 @@ import { getEntitlement, removeLinks, startLink, verifyLink } from './license.js
 import { cancelEmailChange, getEmailChange, requestEmailChange } from './emailChange.js';
 import { ackInbox, claimLease, releaseLease, publishProjection, readEvents, readInbox, readProjection, sendMessage, unpublishProjection, PROJECTION_MAX_BYTES } from './waitlist.js';
 import { deleteConnection, listConnections, readIntegrationEvents } from './integrations.js';
+import { deleteDigest, getNotify, pendingPush, putNotify, startDigest, subscribePush, testPush, unsubscribePush, verifyDigest } from './notify.js';
 import { fail, json, readJson } from './lib/http.js';
 
 const FILE = /^\/files\/([^/]+)$/;
@@ -47,6 +48,10 @@ export async function handleApi(request, env, url, cors) {
   if (p === '/recover/wrap' && m === 'POST') return json(await recoveryWrap(env, request, await readJson(request)), 200, cors);
   if (p === '/recover/check' && m === 'POST') return json(await checkRecovery(env, request, await readJson(request)), 200, cors);
   if (p === '/recover/email' && m === 'POST') return json(await requestRecoveryEmail(env, request, await readJson(request)), 200, cors);
+
+  // A service worker asking what an alert should say (docs/KennelOS_Notifications_Plan.md
+  // §2.3): it has no session token, so its subscription's own secret is the proof.
+  if (p === '/notify/push/pending' && m === 'POST') return json(await pendingPush(env, await readJson(request, 4 * 1024)), 200, cors);
 
   // The one route an erased device may still call (plan §2.5).
   if (p === '/devices/erase-ack' && m === 'POST') {
@@ -115,6 +120,16 @@ export async function handleApi(request, env, url, cors) {
 
   if (p === '/vault/check' && m === 'PUT') return json(await saveRecoveryCheck(env, auth, await readJson(request)), 200, cors);
   if (p === '/vault/handoffs/redeem' && m === 'POST') return json(await redeemHandoff(env, auth, await readJson(request)), 200, cors);
+
+  // Notifications: app alerts and the email digest (docs/KennelOS_Notifications_Plan.md).
+  if (p === '/notify' && m === 'GET') return json(await getNotify(env, auth), 200, cors);
+  if (p === '/notify' && m === 'PUT') return json(await putNotify(env, auth, await readJson(request)), 200, cors);
+  if (p === '/notify/push/subscribe' && m === 'POST') return json(await subscribePush(env, auth, await readJson(request, 4 * 1024)), 200, cors);
+  if (p === '/notify/push/unsubscribe' && m === 'POST') return json(await unsubscribePush(env, auth), 200, cors);
+  if (p === '/notify/push/test' && m === 'POST') return json(await testPush(env, auth), 200, cors);
+  if (p === '/notify/digest' && m === 'POST') return json(await startDigest(env, auth, request, await readJson(request)), 200, cors);
+  if (p === '/notify/digest/verify' && m === 'POST') return json(await verifyDigest(env, auth, await readJson(request)), 200, cors);
+  if (p === '/notify/digest' && m === 'DELETE') return json(await deleteDigest(env, auth), 200, cors);
 
   // The waitlist online, her side (Waitlist W2 Plan §2, §4–§6). Pro only.
   const projection = WL_PROJECTION.exec(p);

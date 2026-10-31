@@ -1752,6 +1752,36 @@ Design: `docs/KennelOS_Cloud_Phase1_Plan.md` (backup), `docs/KennelOS_Private_Va
 - Server migrations are new files, never edits; after a deploy that adds one the API answers
   503 until **Apply pending** on `/ops`. Nothing logs an email, code, token or body.
 
+### Notifications: app alerts and the email digest — `docs/KennelOS_Notifications_Plan.md`
+**Editions:** Pro with a server (`editionFlags.waitlist`); never Lite or Demo. Two separate
+opt-ins, both about her waitlist online, both a second way to hear about something Today
+already lists.
+- **Where:** the **Settings** page's Notifications card (`assets/notificationsUI.js`, Pro-only
+  in `proPages.js`), shown only with a server; data side `data/cloud/cloudNotify.js`.
+  Settings live on the server (`notify_settings` per program, `push_subscriptions` per
+  device), never in a backup or `syncRegistry`.
+- **What triggers them** (server, `cloud/src/notify.js` `notifyEvent`): a family's message,
+  a confirmed application, a pick or pass, a request (pause, listen, answers, Companion link)
+  or leaving, a "Ready now?" answer, and a turn the server closed or offered. She ticks each
+  kind for alerts and for the digest. Lines name the kind and the family's listed name
+  ("New message from Jane S."), never what anyone wrote; "Hide family names on my lock
+  screen" makes it "a family".
+- **App alerts** (web push): **Turn on alerts on this device** asks permission and
+  subscribes with the server's VAPID public key; **Send a test**. Sends carry **no
+  payload**: `sw.js`'s `push` handler asks `POST /notify/push/pending` what to show,
+  proving itself with its subscription's auth secret, and reads the server's address from
+  the `kennelos-notify` Cache Storage note (`cloudNotify` writes it; `activate` never purges
+  it). Every alert uses one tag, so a newer one replaces the last. A tap opens the family's
+  page (one family) or Today. A device with alerts on re-sends its subscription once a day
+  on open (`refreshAlertsHere`, from `bootCloud`), so a subscription iPhone dropped comes
+  back. iPhone/iPad need the app added to the Home Screen (iOS 16.4+); the card says so.
+  Alerts stop for a device with no live session (sign out, erase).
+- **The email digest:** her readable address is kept on the server **only while it's on**
+  (the one exception to "email hashes only"), with consent text at the switch. Her sign-in
+  address is on at once; another gets a 6-digit code first. Daily or weekly (Mondays), after
+  8 am in her time zone, only when something happened. Every email carries a turn-off link
+  (a page with a button; pressing it deletes the address). Turning it off in the app does
+  the same.
 
 ## 31. Reports — `docs/KennelOS_Reports_Plan.md`
 

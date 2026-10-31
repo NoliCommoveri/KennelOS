@@ -229,3 +229,14 @@ test('a pass made on the status page moves the turn on straight away', async () 
   const bo = await (await call(env, 'GET', `/f/status/${tok('b')}`)).json();
   assert.equal(bo.offers.length, 1, "Bo's page offers the turn now");
 });
+
+test('her alerts and digest hear about the server\'s moves, as she must contact the family offered', async () => {
+  const { env, s } = await published();
+  await call(env, 'POST', '/notify/digest', { token: s.token, body: { email: 'breeder@example.com', tz: 'America/Chicago' } });
+  await runKennel(env, row(env), { now: NOW, origin: 'https://apply.example' });
+  const items = env.DB.raw.prepare('SELECT kind, what, name, kennel, entry_id FROM notify_items ORDER BY seq').all().map((r) => ({ ...r }));
+  assert.deepEqual(items, [
+    { kind: 'server_move', what: 'server_close', name: 'Ann L.', kennel: 'Thornfield Kennels', entry_id: 'ann' },
+    { kind: 'server_move', what: 'server_offer', name: 'Bo K.', kennel: 'Thornfield Kennels', entry_id: 'bo' },
+  ]);
+});

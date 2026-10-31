@@ -8,8 +8,8 @@ This file is the map.
 ```
 wrangler.toml          the STAGING Worker: bindings DB (D1) and FILES (R2), the .sql text rule
 package.json           wrangler (dev only) and the test script; read by Workers Builds
-src/index.js           router: /ops, preflights, /notice, /health, the 503 gate, the API; and the crons
-                       (daily: retention; hourly: serverMoves)
+src/index.js           router: /ops, preflights, /notice, /health, /notify/off, the 503 gate, the API; and
+                       the crons (daily: retention; hourly: serverMoves, email changes, digests)
 src/api.js             the API's routes (plan §6.1)
 src/auth.js            sign-in codes, sessions, sign out
 src/ratelimit.js       5 codes/hour per address, 30/hour per IP (both HMAC'd)
@@ -87,6 +87,15 @@ src/serverMoves.js     the waitlist's own moves while her phone is off (W2 step 
                        family, only for moments she ticked; reminders once each. Events made_by
                        'server'; the stored projection updated; a publish that hasn't seen them is
                        refused (409 events_pending)
+src/notify.js          the breeder's notifications (docs/KennelOS_Notifications_Plan.md, migration 0018):
+                       notifyEvent (called by familyActions, familyPages' application confirm and
+                       serverMoves) records an item and sends payload-free web push (VAPID ES256 via
+                       Web Crypto; only to real push services; 404/410 prune) to devices with a live
+                       session; POST /notify/push/pending (no bearer: the subscription's auth secret)
+                       says what to show; /notify settings, subscribe/unsubscribe/test; the email
+                       digest (her readable address only while on; another address confirmed by
+                       code), sent by the hourly cron, with the /notify/off page. Secret
+                       VAPID_PRIVATE_JWK (generate on /ops); optional vars VAPID_SUBJECT, APP_URL
 src/notice.js          service notices (public /notice; set on /ops)
 src/retention.js       the daily prune and GC; pickDrops is the pure rule; sweepR2Orphans walks the
                        bucket a few pages a run (its place in r2_sweep, migration 0017) and deletes

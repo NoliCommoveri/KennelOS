@@ -1719,3 +1719,18 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   (separate, since it means the server keeps her readable address). Draft in
   `docs/KennelOS_Notifications_Plan.md`, modeled on the MCCE repo's §19 push plan. Nothing
   built; decisions D1–D5 open.
+- **Notifications built (2026-10-31).** Asked by the owner, decisions D1–D5 as recommended
+  (`docs/KennelOS_Notifications_Plan.md` §8 has what changed from the plan). Server:
+  `cloud/src/notify.js`, migration `0018_notifications.sql` (`notify_settings`,
+  `push_subscriptions`, `notify_items`), hooks in familyActions (messages, picks, passes,
+  requests, leaving, "Ready now?"), familyPages (a confirmed application) and serverMoves
+  (turns closed or offered); payload-free web push with VAPID (one secret,
+  `VAPID_PRIVATE_JWK`, generated on /ops); the email digest (her address kept only while on,
+  another address confirmed by code, hourly cron, `/notify/off` page); retention and account
+  deletion cover all three tables. App: Settings → Notifications (`assets/notificationsUI.js`,
+  Pro-only), `data/cloud/cloudNotify.js`, `sw.js` `push`/`notificationclick`, a daily
+  re-subscribe on open. Tests: `cloud/tests/notify.test.js` (14) and one in
+  `serverMoves.test.js`. Tested in the browser against the local Worker: the card, the
+  digest turned on, and an alert shown by the worker on a delivered push; subscribing
+  itself couldn't be tested here (the sandbox can't reach Google's push service), so the
+  20-second give-up message was. Not yet tried on real phones.

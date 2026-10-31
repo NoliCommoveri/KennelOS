@@ -1,4 +1,4 @@
-# KennelOS Notifications — plan: app alerts and email digests (DRAFT)
+# KennelOS Notifications — plan: app alerts and email digests
 
 Two ways for the breeder to hear that something happened on her waitlist without opening
 KennelOS: **app alerts** (web push to her installed app on Android and iPhone) and an
@@ -164,3 +164,23 @@ link (signed token), which deletes the address.
 4. Email digest: settings with consent and address confirmation, the hourly send, the
    turn-off link, retention.
 5. End-State guide, `cloud/README.md`, SW cache bump.
+
+## 8. As built (2026-10-31)
+
+Decisions D1–D5 taken as recommended. Steps 1–4 built (server `cloud/src/notify.js`,
+migration `0018_notifications.sql`; app `data/cloud/cloudNotify.js`,
+`assets/notificationsUI.js` on Settings, `sw.js` handlers). **Modified:**
+- **No fee-paid row.** The server never sees an online fee payment (Stripe reports it to
+  her device), so it isn't in the catalog.
+- **No 2-minute coalescing.** Every event sends; all alerts share one tag, so a newer one
+  replaces the last on the phone, and the worker shows everything not yet shown on that
+  device (by item sequence number, not time).
+- **One secret.** `VAPID_PRIVATE_JWK` holds both halves; the public key is derived from it,
+  so there's no `VAPID_PUBLIC_KEY` var to keep in step.
+- **The worker's server address** is a note in Cache Storage (`kennelos-notify`), not
+  IndexedDB; the session token never reaches the worker (the subscription's auth secret is
+  its proof).
+- A subscribe the browser's push service never answers gives up after 20 seconds with a
+  message.
+- Not yet checked on a real Android phone or an iPhone (step 2's device test).
+

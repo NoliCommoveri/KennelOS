@@ -17,6 +17,7 @@ import { runKennelNow } from './serverMoves.js';
 import { limitBucket } from './ratelimit.js';
 import { sha256Hex } from './lib/crypto.js';
 import { STATUS_TOKEN } from './waitlist.js';
+import { ACTION_KINDS, notifyEvent } from './notify.js';
 import { fail, json, readJson } from './lib/http.js';
 
 export const ACTION_LIMITS = { perHourPerSession: 60, messagesPerHourPerSession: 10, messageBytes: 32 * 1024, noteChars: 500, maxPauseDays: 731 };
@@ -240,6 +241,10 @@ export async function handleAct(env, request) {
   // A pass or leaving the list may move the turn on now, if she ticked that moment
   // (serverMoves.js; W2 step 7). The family sees their own action either way.
   if (action === 'pass' || action === 'leave') await runKennelNow(env, fam.public_id, { origin: new URL(request.url).origin });
+  // Her alerts and digest (docs/KennelOS_Notifications_Plan.md §1): never fails the action.
+  if (ACTION_KINDS[action]) {
+    await notifyEvent(env, { programId: fam.program_id, kind: ACTION_KINDS[action], what: action, name: fam.entry.name, kennel: fam.projection.kennel?.name, entryId: fam.entry_id });
+  }
   return json({ ok: true, pending: await pendingFor(env, fam.public_id, fam.entry_id, fam.eventsThrough) });
 }
 
@@ -259,5 +264,6 @@ export async function handleMessage(env, request) {
     `INSERT INTO wl_inbox (id, program_id, public_id, kind, entry_id, name, email, key_id, blob, created_at, acked_at, confirmed_at)
      VALUES (?, ?, ?, 'message', ?, ?, NULL, ?, ?, ?, NULL, ?)`,
   ).bind(crypto.randomUUID(), fam.program_id, fam.public_id, fam.entry_id, fam.entry.name ?? '', key.key_id, body.sealed, at, at).run();
+  await notifyEvent(env, { programId: fam.program_id, kind: 'message', what: 'message', name: fam.entry.name, kennel: fam.projection.kennel?.name, entryId: fam.entry_id });
   return json({ ok: true });
 }

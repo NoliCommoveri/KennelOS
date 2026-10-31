@@ -53,6 +53,9 @@ backup, carries a program from Lite to Pro.
     on production; step 7, the live nudge, is optional. Production has every cloud migration
     through `0016` applied; `0017` (the R2 orphan sweep's state) is waiting to be applied from
     /ops after the next Worker deploy. Staging isn't in use, so deploys there aren't tracked.
+  - Notifications (app alerts and the email digest): built. Next: generate the push key on
+    /ops and add it as the `VAPID_PRIVATE_JWK` secret, apply migration `0018` after the
+    Worker deploy, then check alerts on a real Android phone and an iPhone.
   - Duplicates: Import/Export's Scan for duplicates covers every record type. Open: Kels's
     Tidy up still checks only dogs and contacts for duplicates.
 - **Open launch items:** confirm `yearlyVariantPattern` / `lifetimeVariantPattern` against

@@ -220,3 +220,31 @@ export async function sendNotice(env, { email, emailHash, message }) {
   }
   fail(503, 'email_unavailable');
 }
+
+// The breeder's email digest (notify.js runDigests; docs/KennelOS_Notifications_Plan.md
+// §3): plain text from MAIL_FROM to the address she turned the digest on with.
+// Never throws: → 'sent' | 'failed' | 'off'. Staging's outbox records a 'digest'
+// row (no address) so /ops shows one went out. The address is never logged.
+export async function sendDigestMail(env, { to, subject, text }) {
+  const mode = mailMode(env);
+  if (mode === 'resend') {
+    try {
+      const res = await fetch(RESEND_URL, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ from: env.MAIL_FROM || DEFAULT_FROM, to: [to], subject, text }),
+      });
+      if (res.ok) return 'sent';
+      console.error('resend send failed', res.status);
+    } catch {
+      console.error('resend send failed', 0);
+    }
+    return 'failed';
+  }
+  if (mode === 'outbox') {
+    await env.DB.prepare('INSERT INTO dev_outbox (email_hash, code, created_at) VALUES (?, ?, ?)')
+      .bind('digest', 'digest', new Date().toISOString()).run();
+    return 'sent';
+  }
+  return 'off';
+}
