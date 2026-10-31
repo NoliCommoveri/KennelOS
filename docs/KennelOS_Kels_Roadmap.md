@@ -573,54 +573,64 @@ an existing `waitlistActions` call; the task adds no data. Each step is skipped 
 nothing, and each item has **Skip for now**, so she can stop at any point.
 
 Opening: "Here's what's waiting on you: 2 new applications, 1 fee to check, picks to open
-on Daisy's litter, 1 family's turn to offer, 3 new messages." Then **Start with the first** /
+on Daisy's litter, 1 family's turn to offer, 3 new messages." (Sales to cancel aren't
+counted: only she knows.) Then **Start with the first** /
 **Pick one** (the list as choices) / **Not now**. Order, most time-sensitive first:
 
 1. **Family requests and messages** (unread `messages`, pending pref / pause / listen /
-   Companion-link requests). Messages first because an offer answer or a question about
-   one can change what she does in step 4. One family at a time: "Sarah Lee wrote on her
-   status page (Oct 29): …" → **Write back** (Communicate…: an email that also shows on
-   their status page) / **Mark read** / **Open their page**. A request: "Sarah asked to
+   Companion-link requests). Messages first because a family backing out, or an answer
+   about an offer, changes the steps after it. One family at a time: "Sarah Lee wrote on
+   her status page (Oct 29): …" → **Write back** (Communicate…: an email that also shows
+   on their status page) / **Mark read** / **Open their page**. A request: "Sarah asked to
    pause until March 1." → **Approve** / **Decline** (the nudge's actions and emails).
-2. **Offers past their deadline** (`waitlist-offer-overdue`). "The Kims' time to pick from
+2. **Sales to cancel or void** (asked every time, since nothing in the app knows yet):
+   "Do you need to cancel or void any sales? For example a family backed out, or a pup
+   died or can't go home." → **Yes** / **No**. Yes → her open sales as choices (pup, family,
+   litter) → "What happened?":
+   - **The family backed out** → `cancelled`. "Their deposit stays as income." Then, with
+     the pup still here: "Offer [pup] to the next family?" (step 5 for that litter).
+   - **The pup died** → `voided`, `pup_died`; then **Record [pup]'s death** (date, cause).
+   - **The pup failed a health check** → `voided`, `failed_health_check`; then **Put
+     [pup] on Health hold**.
+   - **The pup came back after going home** → `returned`, then the reason: **A health
+     problem (within the guarantee)** / **The family's choice**.
+   - **Something else** → **Cancel** or **Void** with the Other reason.
+
+   When the family lost their pup through no fault of theirs (`isLostSale`): "Put the
+   Kims back in line in their old place?" → **Yes, carry their $500 to their next pup** /
+   **Yes, I'm refunding it** / **No** (`restoreAfterLostSale`). Each saves through the
+   Sale page's own path (end reason required, as there). Then "Any other sales to cancel
+   or void?" until **No, that's all**.
+3. **Offers past their deadline** (`waitlist-offer-overdue`). "The Kims' time to pick from
    Daisy's litter ran out yesterday." → **They picked** (pup + deposit) / **Count it as a
-   pass** / **Give them more time**. Then step 4's "offer the next family?" for that
+   pass** / **Give them more time**. Then step 5's "offer the next family?" for that
    litter, straight away.
-3. **Open picks** (`waitlist-open-picks`: `accept_deposits_date` reached, picks not open).
+4. **Open picks** (`waitlist-open-picks`: `accept_deposits_date` reached, picks not open).
    "You planned to start taking deposits on Daisy's litter today. 3 girls and 2 boys are
    available. Open picks?" → **Open picks** (`openPicks`, which offers the first turn when
    automatic offers are on) / **Not yet, remind me in a few days** / **Change the date**.
-4. **Turns waiting on her** (auto offers off for that moment, a litter with pups and
+5. **Turns waiting on her** (auto offers off for that moment, a litter with pups and
    nobody holding a turn). "Next in line for Daisy's litter is the Garcias (want a girl,
    waiting 8 months). Offer it to them?" → **Offer it** (`offerNext`, then the offer
    email) / **Offer someone else** (the list, `offerTo`) / **Not yet**.
-5. **New applications** (`applied`). One at a time, the application as on the entry page:
+6. **New applications** (`applied`). One at a time, the application as on the entry page:
    "Jordan Price applied Oct 28 for a male, pet home, has a fenced yard." → **Approve**
    (program, then the fee request) / **Decline** (editable message) / **Ask a question**
    (goes to their status page) / **Decide later**.
-6. **Fees to check** (`approved`, fee not received; overdue first). "Jordan's $100 fee:
+7. **Fees to check** (`approved`, fee not received; overdue first). "Jordan's $100 fee:
    asked for Oct 20, due Nov 3." → **Received** (amount prefilled, date, method) / **Not
    yet** / **Remove them** (only once overdue, `markFeeExpired`).
-7. **"Ready now?" unanswered and recent removals** (`waitlist-ready-overdue`,
+8. **"Ready now?" unanswered and recent removals** (`waitlist-ready-overdue`,
    `waitlist-removed` inside its undo window). → **Remove them** / **Wait longer**; a
    removal: **Keep it** / **Undo**.
-8. **Lost and cancelled sales** (her "sales data"): sales from waitlist pups that ended in
-   the last 90 days. "2 sales fell through since August:" each with what happened
-   ("Biscuit died, the Kims' sale was voided"; "the Lees backed out of Rosie, deposit
-   kept"). A lost sale (`isLostSale`) whose family isn't back in line yet → **Put them back
-   in line** (`restoreAfterLostSale`: carry their payment or refund it). A cancelled
-   one with the pup still unsold → **Offer the pup to the next family** (step 4). Then
-   **See the numbers** (the Sales / waitlist funnel reports, filtered).
 9. Close: "That's everything on your waitlist for today." (or "…I left 2 for later.") and
    back to the menu.
 
 Each step ends "Anything else here?" only where there can be more than one (as the
 preventatives loop does).
 - **Keywords:** waitlist, applications, fees, deposits, picks, offers, messages, turns,
-  backed out, lost sale, refund.
-- **Open questions:** whether messages lead (proposed) or sit at the end; whether step 8
-  belongs here or in Help me understand; the window for step 8 (proposed 90 days);
-  whether "remind me in a few days" on open picks moves `accept_deposits_date` or only
+  backed out, cancel a sale, void, pup died, refund.
+- **Open questions:** whether messages lead (proposed) or sit at the end; whether "remind me in a few days" on open picks moves `accept_deposits_date` or only
   snoozes the nudge.
 
 ## 4. Shared pieces

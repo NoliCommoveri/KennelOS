@@ -1764,3 +1764,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   first. Also drafted **Review my waitlist** (Kels Roadmap §3.16, proposed): the order and
   wording for messages, requests, overdue offers, open picks, turns, applications, fees,
   "Ready now?" and lost or cancelled sales. Nothing of it built.
+- **Review my waitlist: sales step reworked (2026-10-31).** Asked by the owner: the "lost and
+  cancelled sales" report step is dropped; step 2 now asks whether she needs to cancel or void
+  any sales (backed out, pup died, failed a health check, returned) and runs the Sale page's
+  follow-ups. Still a proposal; nothing built.
