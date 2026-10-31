@@ -1757,3 +1757,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `docs/KennelOS_Family_Help_Plan.md`; nothing built.
 - **Family Help plan: decisions (2026-10-31).** D2 (each breeder turns Layer 2 on), D3 (the cheat sheet format) and D5 (20 questions per family a day) decided by the owner; D4 (Layer 2 after Layer 1 has been used) still open.
 - **Family Help plan: D4 decided (2026-10-31).** Layer 2 (Haiku) is a second version, after Layer 1 has been used.
+- **/ops push key easier to copy (2026-10-31).** Asked by the owner: Generate push keys showed the
+  secret on one scrolling line, too long to copy on a phone. Now a wrapping box with a "Copy the
+  whole key" button, and the page says the key ends with `"d":"…"}`. Checked at phone width: the
+  copy holds the whole key.

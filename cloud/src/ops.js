@@ -318,7 +318,18 @@ async function route(request, env) {
   if (url.pathname === '/ops/push-keys' && request.method === 'POST') {
     const { privateJwk, publicKey } = await generateVapidKeys();
     return dashboard(env, `<p class="ok">New push keys. Copy the secret now: it isn't kept anywhere.</p>
-<p>Secret <code>VAPID_PRIVATE_JWK</code>:</p><pre>${esc(privateJwk)}</pre>
+<p>Secret <code>VAPID_PRIVATE_JWK</code> (all of it, from <code>{</code> to <code>}</code>; it ends with <code>"d":"…"}</code>):</p>
+<textarea id="push-key" readonly rows="5" style="width:100%;box-sizing:border-box;font-family:ui-monospace,monospace;font-size:.85em;word-break:break-all;">${esc(privateJwk)}</textarea>
+<p><button type="button" id="push-key-copy">Copy the whole key</button> <span id="push-key-note" class="muted"></span></p>
+<script>
+document.getElementById('push-key-copy').addEventListener('click', async () => {
+  const box = document.getElementById('push-key');
+  const note = document.getElementById('push-key-note');
+  box.select();
+  try { await navigator.clipboard.writeText(box.value); note.textContent = 'Copied.'; }
+  catch { note.textContent = document.execCommand('copy') ? 'Copied.' : 'Select the text in the box and copy it.'; }
+});
+</script>
 <p class="muted">Public key (the app gets it from the server; nothing to paste): <code>${esc(publicKey)}</code></p>`);
   }
 
