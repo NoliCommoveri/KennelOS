@@ -1714,3 +1714,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `CLOUD_DATA_CHANGED_EVENT` (debounced 1.5 s). Tested in the browser: a message added with
   Today open shows within seconds; without the change it showed only after a reload. Rides
   the `kennelos-shell-v86` cache bump.
+- **Notifications plan drafted (2026-10-31).** Asked by the owner: app alerts on Android and
+  iPhone for family messages and other waitlist activity, and an opt-in email digest
+  (separate, since it means the server keeps her readable address). Draft in
+  `docs/KennelOS_Notifications_Plan.md`, modeled on the MCCE repo's §19 push plan. Nothing
+  built; decisions D1–D5 open.

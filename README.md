@@ -36,6 +36,7 @@ backup, carries a program from Lite to Pro.
 | Cloud backup / live sync | `docs/KennelOS_Cloud_Phase1_Plan.md`, `docs/KennelOS_Cloud_Phase2_Sync_Plan.md`, `cloud/README.md` |
 | Vault, license link, integrations | `docs/KennelOS_Private_Vault_Plan.md`, `docs/KennelOS_License_Link_Plan.md`, `docs/KennelOS_Integrations_Plan.md` |
 | Waitlist, shows, reports, multi-kennel | `docs/KennelOS_Waitlist_Spec.md` (+ `_W2_Plan`), `docs/KennelOS_Show_Tracking_Spec.md`, `docs/KennelOS_Reports_Plan.md`, `docs/KennelOS_Multi_Kennel_Scope_Spec.md` |
+| App alerts (web push) and email digests | `docs/KennelOS_Notifications_Plan.md` |
 | Furever | `docs/KennelOS_Furever_*.md`, `furever/README.md` |
 | Kels (the guided-task helper): what's next | `docs/KennelOS_Kels_Roadmap.md` (built tasks: End-State guide §33) |
 | Launch to-dos | `docs/LAUNCH_CHECKLIST.md` |
