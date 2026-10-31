@@ -1750,3 +1750,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   several dogs and Kels's preventatives form list the dogs at home (`dogCare.homeDogs`: active
   breeding, retired breeding, for sale), with only active breeding dogs ticked (from the
   preventatives nudge, only those still missing this month's). Checked in the browser.
+- **Family Help plan drafted (2026-10-31).** Asked by the owner: Kels on the public list and
+  status pages answering families' common questions from a KennelOS cheat sheet (the owner
+  writes it) and the breeder's FAQ, with her intro decided by the owner; an optional Claude
+  Haiku 5.5 "ask in your own words" layer (about $0.0002–0.0007 a question). Draft in
+  `docs/KennelOS_Family_Help_Plan.md`; nothing built.
