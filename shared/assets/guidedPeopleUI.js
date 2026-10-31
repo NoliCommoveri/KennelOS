@@ -9,8 +9,9 @@
 //
 // After the save: her dogs with no breeder kennel, to link to a kennel ("Do you
 // want to link any kennels to dogs you own as the kennel who bred it?"); then,
-// with the waitlist (editionFlags.waitlist, a list set up), a buyer put on it in
-// the chat (assets/kelsApplicant.js, imported only then), linked to their contact.
+// with the waitlist (editionFlags.waitlist, a list set up), "Do any of these need to
+// go on your waitlist?" (ticked), then each one's application in the chat
+// (assets/kelsApplicant.js, imported only then), linked to their contact.
 // Pro-only (proPages.js); pages/kels.js imports it on start.
 import { contactRepo } from '../data/contactRepo.js';
 import { kennelRepo } from '../data/kennelRepo.js';
@@ -381,39 +382,49 @@ class PeopleConversation extends StepConversation {
     if (res.done) await this.chat.say(`Linked. ✓ ${res.result.length === 1 ? 'Its page shows' : 'Their pages show'} who bred ${res.result.length === 1 ? 'it' : 'them'} now.`, { typing: 500 });
   }
 
-  // With a waitlist set up: put a buyer she just added on it, in the chat.
+  // With a waitlist set up: "Do any of these need to go on your waitlist?", every
+  // person she just added who isn't on one already, ticked; then the waitlist (with
+  // more than one set up), then each one's application in turn, linked to their
+  // contact (assets/kelsApplicant.js). The entry tags them a buyer once approved.
   async waitlist(saved) {
-    const buyers = saved.filter((c) => (c.contact_type || []).includes('buyer'));
-    if (!buyers.length) return;
+    const people = saved.filter((c) => (c.waitlist_status || 'none') !== 'active');
+    if (!people.length) return;
     const kennels = (await ownKennels()).filter((k) => !k.is_archived && waitlistIsSetUp(k));
     if (!kennels.length) return;
-    const one = buyers.length === 1 ? buyers[0] : null;
-    await this.chat.say(`Would you like to put ${one ? esc(one.name) : 'any of them'} on your waitlist? I'll ask your application's questions, and they'll be in your applications, ready for you to approve.`);
+    const one = people.length === 1 ? people[0] : null;
+    const res = await this.chat.form({
+      title: one
+        ? `<strong>Does ${esc(one.name)} need to go on your waitlist?</strong><span class="kels-lead">I'll ask your application's questions, and they'll be in your applications, ready for you to approve.</span>`
+        : '<strong>Do any of these need to go on your waitlist?</strong><span class="kels-lead">Tick them, and I\'ll ask your application\'s questions for each. They\'ll be in your applications, ready for you to approve.</span>',
+      html: `<div class="field gl-field">${people.map((c) => `<label class="check-inline"><input type="checkbox" data-wl="${esc(c.id)}"${one ? ' checked' : ''}> ${esc(c.name)}${c.contact_type?.length ? ` <span class="faint">${esc(typeText(c.contact_type))}</span>` : ''}</label>`).join('<br>')}</div>`,
+      submitLabel: one ? 'Yes, add them' : 'Add them',
+      cancelLabel: one ? 'No' : 'None of them',
+      submit: (root) => {
+        const ids = [...root.querySelectorAll('[data-wl]:checked')].map((el) => el.dataset.wl);
+        return ids.length ? people.filter((c) => ids.includes(c.id)) : `Tick who goes on the waitlist, or choose ${one ? 'No' : 'None of them'}.`;
+      },
+      reply: (picked) => picked.map((c) => c.name).join(', ')
+    });
+    if (!res.done) return;
+    const picked = res.result;
+    let kennel = kennels[0];
+    if (kennels.length > 1) {
+      await this.chat.say('<strong>Which kennel\'s waitlist?</strong>', { typing: 400 });
+      const kid = await this.chat.choose(kennels.map((k) => ({ label: k.kennel_name, value: k.id })));
+      kennel = kennels.find((k) => k.id === kid);
+    }
     const { askApplicant } = await import('./kelsApplicant.js');
-    let left = [...buyers];
-    for (;;) {
-      const pick = await this.chat.choose([
-        ...left.map((c) => ({ label: one ? 'Yes, add them' : c.name, value: c.id, primary: Boolean(one) })),
-        { label: one ? 'Not now' : 'That\'s all for now', value: '' }
-      ]);
-      if (!pick) return;
-      const contact = left.find((c) => c.id === pick);
-      let kennel = kennels[0];
-      if (kennels.length > 1) {
-        await this.chat.say(`<strong>Which kennel's waitlist?</strong>`, { typing: 400 });
-        const kid = await this.chat.choose(kennels.map((k) => ({ label: k.kennel_name, value: k.id })));
-        kennel = kennels.find((k) => k.id === kid);
-      }
+    const added = [];
+    for (const [i, contact] of picked.entries()) {
       const entry = await askApplicant(this.chat, {
         kennel, contact,
-        title: `<strong>Tell me about ${esc(contact.name)}'s application.</strong><span class="kels-lead">Your application's questions, so it matches what families fill in online.</span>`
+        title: `<strong>${esc(contact.name)}'s application${picked.length > 1 ? ` (${i + 1} of ${picked.length})` : ''}.</strong><span class="kels-lead">Your application's questions, so it matches what families fill in online. Their name, email and phone are filled in.</span>`
       });
-      if (entry) {
-        await this.chat.say(`Added! ${esc(contact.name)} is in your applications, ready for you to approve.`, { typing: 500 });
-        left = left.filter((c) => c !== contact);
-      }
-      if (!left.length || one) return;
-      await this.chat.say('Anyone else?', { typing: 300 });
+      if (entry) added.push(contact);
+      else await this.chat.say(`Okay, I'll leave ${esc(contact.name)} off for now.`, { typing: 300 });
+    }
+    if (added.length) {
+      await this.chat.say(`Added! ${esc(G.draftLabel({ people: added }))} ${added.length === 1 ? 'is' : 'are'} in your applications, linked to ${added.length === 1 ? 'their contact' : 'their contacts'} and ready for you to approve.`, { typing: 500 });
     }
   }
 

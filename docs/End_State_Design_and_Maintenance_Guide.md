@@ -2412,12 +2412,15 @@ it?" **Yes** opens one form, a picker per dog: **Not this one**, the kennels fro
 the litter task sets). `breederLinks` keeps only dogs still without one and outside kennels,
 saved through `dogRepo.update`.
 
-**Then, the waitlist** (`editionFlags.waitlist`, a buyer among them, and an own kennel with
-its waitlist set up, `waitlistIsSetUp`): "Would you like to put them on your waitlist?" Each
-one she picks (and the kennel, with several) runs the applicant step,
-`kelsApplicant.askApplicant` (imported only then), with that contact: its name, email and
-phone fill in the form's, and the application is saved **linked to the contact**
-(`contact_id`) at once. Then **See Pat** (or **See my contacts**), **Help me with something
+**Then, the waitlist** (`editionFlags.waitlist`, and an own kennel with its waitlist set up,
+`waitlistIsSetUp`): **Do any of these need to go on your waitlist?**, a box for everyone she
+just added whose `waitlist_status` isn't `active` (whatever their type; one person: ticked,
+**Yes, add them** / **No**). Then the kennel once, with several set up, and the applicant step
+for each ticked person in turn ("Pat's application (1 of 2)"), `kelsApplicant.askApplicant`
+(imported only then), with that contact: its name, email and phone fill in the form's, and the
+application is saved **linked to the contact** (`contact_id`) at once. **Not now** on one
+leaves that person off and goes on to the next. The entry repo tags them a buyer once
+approved. Then **See Pat** (or **See my contacts**), **Help me with something
 else**, **Back to Today**.
 
 **The applicant step** (`assets/kelsApplicant.js`, Pro-only): her application in the chat (her

@@ -1679,3 +1679,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   waitlist uses it (the form task already did), so both open on the page's kennel. Tested
   in the browser with two kennels: every button, and both waitlist tasks starting on the
   second kennel without asking.
+- **Add people → the waitlist, ticked (2026-10-31).** Asked by the owner: after the save,
+  Add people now asks "Do any of these need to go on your waitlist?" with a box for
+  everyone just added who isn't already on one (it offered only people typed Buyer, one
+  at a time). Then the kennel once (with several waitlists), then each ticked person's
+  application in turn, linked to their contact (`kelsApplicant.askApplicant`); Not now on
+  one skips to the next. Tested in the browser: two people added, both ticked, both
+  applications saved linked to their contacts.
