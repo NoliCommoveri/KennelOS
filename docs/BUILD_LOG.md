@@ -1671,3 +1671,11 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   (colors, looking for). Ships with the Worker's static files. Tested in the browser with a
   stubbed form: every help text shows. Service worker cache bumped to `kennelos-shell-v85`
   for this batch (Set up my accounts).
+- **More "with Kels" buttons (2026-10-31).** Asked by the owner, beside the Breeding page's
+  Record a litter with Kels: **Set up your waitlist with Kels** (Waitlist), **Set up your
+  application form with Kels** (Application form), **Set up your accounts with Kels**
+  (Accounts, hidden in the Demo), **Add your dogs with Kels** (Dogs) and **Add your people
+  with Kels** (Contacts). `kels.html` now passes `&kennel=<id>` to the task, and Set up my
+  waitlist uses it (the form task already did), so both open on the page's kennel. Tested
+  in the browser with two kennels: every button, and both waitlist tasks starting on the
+  second kennel without asking.

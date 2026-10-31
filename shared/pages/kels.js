@@ -19,7 +19,8 @@
 // throws that draft away. The header's "Cancel" shows while any task runs and,
 // once she says she's sure, stops it (and discards a resumable task's draft).
 // `beforeStart` can redirect a start (an unfinished draft of the same task).
-// URL: ?task=<id> starts that task straight away; &litter=<id> hands it a litter
+// URL: ?task=<id> starts that task straight away; &kennel=<id> hands it a kennel
+// (the waitlist and application form tasks); &litter=<id> hands it a litter
 // (an Expected litter's birth, or the litter to check on).
 import { createChat, KELS, kelsAvatar, kelsWelcome } from '../assets/kelsChat.js';
 import { runFindTask } from '../assets/kelsFindUI.js';
@@ -429,7 +430,7 @@ async function main() {
   // Sent straight to a task: she still greets and asks, and the task is the answer.
   await chat.say(kelsWelcome(), { typing: 900 });
   chat.you(asked.label(await state()));
-  await startTask(asked, { litterId: param('litter') || null });
+  await startTask(asked, { litterId: param('litter') || null, kennelId: param('kennel') || null });
 }
 
 main().catch((e) => chat.say(`Sorry, something went wrong: ${esc(e.message || String(e))}`, { typing: 0 }));

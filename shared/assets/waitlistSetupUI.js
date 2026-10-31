@@ -38,14 +38,15 @@ const check = (id, label, on, attrs = '') => `<label class="check-inline ws-chec
 const group = (title, inner, hint = '') => `<fieldset class="ws-group"><legend>${esc(title)}</legend>${hint ? `<p class="field-hint">${hint}</p>` : ''}${inner}</fieldset>`;
 const numOrNull = (v) => (String(v ?? '').trim() === '' ? null : Number(v));
 
-export async function runWaitlistSetupTask(chat, { onExit = () => {}, handoff = null } = {}) {
+// `kennelId`: the kennel to set up (the Waitlist page's button), skipping "which kennel?".
+export async function runWaitlistSetupTask(chat, { onExit = () => {}, handoff = null, kennelId = null } = {}) {
   if (!(await chat.intro('Ooh, love it, let\'s get your waitlist ready for families!'))) return onExit('nevermind');
-  return new Setup(chat, onExit, handoff).start();
+  return new Setup(chat, onExit, handoff, kennelId).start();
 }
 
 class Setup {
-  constructor(chat, onExit, handoff) {
-    Object.assign(this, { chat, onExit, handoff, saved: 0 });
+  constructor(chat, onExit, handoff, kennelId = null) {
+    Object.assign(this, { chat, onExit, handoff, kennelId, saved: 0 });
     this.onlineOffered = isWaitlistOnlineOffered();
   }
 
@@ -72,7 +73,7 @@ class Setup {
       await this.chat.say('You\'ll need your kennel set up first. Once it is, come back and we\'ll build your waitlist together.');
       return this.onExit('done');
     }
-    let kennel = kennels.length === 1 ? kennels[0] : null;
+    let kennel = kennels.find((k) => k.id === this.kennelId) || (kennels.length === 1 ? kennels[0] : null);
     if (!kennel) {
       const active = await getActiveKennel();
       await this.chat.say('<strong>Which kennel\'s waitlist are we setting up?</strong>');

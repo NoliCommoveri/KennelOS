@@ -2031,7 +2031,14 @@ moves her to another task (an Expected litter in the check-in → its birth).
 **Doors:** the floating button; the Breeding page (`kels.html?task=record-litter`); an
 expected litter's page (`&litter=<id>`, parents and litter preset); a born litter's page that
 isn't closed (**Check in with Kels**, `kels.html?task=checkin&litter=<id>`); the first-run
-Meet Kels card (**Try Getting Started**, `kels.html?task=get-started`).
+Meet Kels card (**Try Getting Started**, `kels.html?task=get-started`); the Dogs page (**Add
+your dogs with Kels**, `add-dogs`); Pro: Contacts (**Add your people with Kels**,
+`add-people`), Waitlist (**Set up your waitlist with Kels**, `waitlist-setup&kennel=<id>`),
+its Application form (**Set up your application form with Kels**, `form-setup&kennel=<id>`)
+and Accounts (**Set up your accounts with Kels**, `accounts-setup`, hidden in the Demo).
+`&kennel=<id>` hands the waitlist and form tasks the page's kennel, so they skip "which
+kennel?". Set up my waitlist ends by offering **Set up my application form** for the same
+kennel (`handoff`).
 
 ### "Finding Something"
 `assets/kelsFindUI.js` + `data/kelsFind.js` (the engine) + `data/kelsKnowledge.js` (the cheat
