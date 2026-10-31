@@ -993,3 +993,22 @@ test('waitlistSummaryLines: what Kels says is set', () => {
   assert.equal(waitlistIsSetUp({ waitlist_config: { fee_amount: 10 } }), true);
 });
 
+
+test('chosenOrderChanges: her order among new families, a moved-by-breeder date only when needed', async () => {
+  const { chosenOrderChanges, compareEntries } = await import('../shared/data/waitlistRules.js');
+  const now = new Date('2026-10-31T12:00:00Z');
+  const a = { id: 'a', status: 'active', fee_received_date: '2026-10-01' };
+  const b = { id: 'b', status: 'active', fee_received_date: '2026-10-05' };
+  const c = { id: 'c', status: 'active', fee_received_date: '2026-10-05' };
+  // Same-day families in her order: recorded a second apart, no anchor.
+  const same = chosenOrderChanges([c, b], now);
+  assert.deepEqual(same.map((x) => x.changes.position_anchor_date), [undefined, undefined]);
+  assert.ok(same[0].changes.fee_received_at < same[1].changes.fee_received_at);
+  // A (paid earlier) after B: A takes B's date, and only A is moved.
+  const moved = chosenOrderChanges([b, a, c], now);
+  assert.equal(moved[0].changes.position_anchor_date, undefined);
+  assert.equal(moved[1].changes.position_anchor_date, '2026-10-05');
+  assert.equal(moved[2].changes.position_anchor_date, undefined);
+  const applied = [b, a, c].map((e, i) => ({ ...e, ...moved[i].changes }));
+  assert.deepEqual([...applied].sort((x, y) => compareEntries(x, y, new Map())).map((e) => e.id), ['b', 'a', 'c']);
+});

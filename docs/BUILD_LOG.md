@@ -1657,3 +1657,44 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   answer column to 0px, where each answer wrapped a letter per line off the card's edge.
   The label column is now `fit-content(40%)` with `minmax(0, 1fr)` values, and labels wrap.
   Tested: at 390px the answers sit beside their wrapped labels; `node --test` passes. SW cache bumped to v84.
+- **Set up my accounts (2026-10-30).** The owner couldn't find the accounts setup inside
+  Getting Started, so it's also its own Kels menu task now, **Set up my accounts** (Pro,
+  `accounts`, priority 22, not in the Demo): `kelsSetupUI.runAccountsTask` runs the same
+  `accounts` part with its own opener (`kelsSetup.ACCOUNTS_HOW`); searchable by vendor,
+  marketplace, PayPal, Zelle, Stripe, fees and the like. The owner declined a separate
+  extras price list task. Tested in the browser: the tile, a search for "paypal", the task.
+- **Help text on the matching questions (2026-10-30).** The owner asked for hints under
+  application questions. Every question's Help text was saved and published, but the
+  online application page (`cloud/public/family/apply.js` `prefHtml`) drew the five
+  matching questions (male or female, breed, looking for, colors, soonest) without it; it
+  now prints her help text under each, below the page's own note where there is one
+  (colors, looking for). Ships with the Worker's static files. Tested in the browser with a
+  stubbed form: every help text shows. Service worker cache bumped to `kennelos-shell-v85`
+  for this batch (Set up my accounts).
+- **More "with Kels" buttons (2026-10-31).** Asked by the owner, beside the Breeding page's
+  Record a litter with Kels: **Set up your waitlist with Kels** (Waitlist), **Set up your
+  application form with Kels** (Application form), **Set up your accounts with Kels**
+  (Accounts, hidden in the Demo), **Add your dogs with Kels** (Dogs) and **Add your people
+  with Kels** (Contacts). `kels.html` now passes `&kennel=<id>` to the task, and Set up my
+  waitlist uses it (the form task already did), so both open on the page's kennel. Tested
+  in the browser with two kennels: every button, and both waitlist tasks starting on the
+  second kennel without asking.
+- **Add people → the waitlist, ticked (2026-10-31).** Asked by the owner: after the save,
+  Add people now asks "Do any of these need to go on your waitlist?" with a box for
+  everyone just added who isn't already on one (it offered only people typed Buyer, one
+  at a time). Then the kennel once (with several waitlists), then each ticked person's
+  application in turn, linked to their contact (`kelsApplicant.askApplicant`); Not now on
+  one skips to the next. Tested in the browser: two people added, both ticked, both
+  applications saved linked to their contacts.
+- **Add people → waitlist, with the fee and the order (2026-10-31).** Decided with the owner:
+  a person she ticks for the waitlist gets Buyer added to their types (never replacing one)
+  and is **approved**, since she added them herself. With a fee Kels asks: paid (when, how;
+  on the list from that day), not yet (fee due), or not charging (a waived program she has,
+  a new program through `waitlistSetupUI.askNewProgram`, now shared with Set up my
+  waitlist's program step, or waived for just them). Then the ones now on the list, numbered
+  in their order among themselves; a change uses `waitlistRules.chosenOrderChanges` (new,
+  tested): `fee_received_at` a second apart, and a moved-by-breeder date only for someone put
+  after a later payer. Then each one's place on the list. With no waitlist set up, Set up my
+  waitlist and Set up my application form run inside Add people first (`within` on both: no
+  families step, no "add a family"/"anything else?"). Tested in the browser: paid and
+  waived applicants, a reorder, places #6 and #7, and the no-waitlist path end to end.

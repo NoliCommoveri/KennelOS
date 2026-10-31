@@ -63,22 +63,24 @@ function fieldHtml(q, form) {
   }
 }
 
+// The matching questions draw their own controls, and some carry a fixed note
+// ("Separate colors with commas."); her own help text for one goes under it.
 function prefHtml(q, form) {
-  const legend = `<legend class="q">${esc(q.label)}${q.key === 'ready_timing' ? required({ required: true }) : ''}</legend>`;
+  const legend = `<legend class="q">${esc(q.label)}${q.key === 'ready_timing' ? required({ required: true }) : ''}</legend>${help(q)}`;
   switch (q.key) {
     case 'pref_sex':
       return `<fieldset class="field" data-pref="pref_sex">${legend}${radios('pref_sex', Object.entries(SEX_LABEL))}</fieldset>`;
     case 'pref_breed':
       if (!form.breeds.length) return '';
-      return `<div class="field"><label class="q" for="pref_breed">${esc(q.label)}</label>
+      return `<div class="field"><label class="q" for="pref_breed">${esc(q.label)}</label>${help(q)}
         <select id="pref_breed" data-pref="pref_breed"><option value="">Any breed</option>${form.breeds.map((b) => `<option>${esc(b)}</option>`).join('')}</select></div>`;
     case 'pref_purposes':
-      return `<fieldset class="field" data-pref="pref_purposes">${legend}<p class="small muted mt0">Leave all unticked if any is fine.</p>
+      return `<fieldset class="field" data-pref="pref_purposes"><legend class="q">${esc(q.label)}</legend><p class="small muted mt0">Leave all unticked if any is fine.</p>${help(q)}
         <div class="choices">${Object.entries(PURPOSE_LABEL).map(([v, l]) => `<label class="choice"><input type="checkbox" value="${esc(v)}"> ${esc(l)}</label>`).join('')}</div></fieldset>`;
     case 'pref_colors':
       return `<div class="field"><label class="q" for="pref_colors">${esc(q.label)}</label>
         <input id="pref_colors" data-pref="pref_colors" type="text" maxlength="300" placeholder="Leave blank for any">
-        <p class="small muted mt0">Separate colors with commas.${form.color_matching ? ' Only pups in a color you list will be offered.' : ''}</p></div>`;
+        <p class="small muted mt0">Separate colors with commas.${form.color_matching ? ' Only pups in a color you list will be offered.' : ''}</p>${help(q)}</div>`;
     case 'ready_timing':
       return `<fieldset class="field" data-pref="ready_timing">${legend}${radios('ready_timing', Object.entries(READY_LABEL), { requiredGroup: true })}</fieldset>`;
     default:

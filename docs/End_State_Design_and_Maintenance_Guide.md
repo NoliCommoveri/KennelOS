@@ -2018,7 +2018,7 @@ run, resumable?, beforeStart? }`, highest priority first, with a search box abov
 litter). The page header shows her photo and `KELS.title` ("Kels, the KennelOS whiz") on one line, sized to fit a phone. Order: an unfinished litter (100), unfinished dogs (99), the
 check-in (60 while a litter has pups at home, else 40), a new litter (50), prep pups (45,
 while a litter has pups at home), add dogs (35), add people (33, Pro), tidy up (30), set up
-my waitlist (25, Pro), set up my application form (24, Pro), account health (20), Getting Started
+my waitlist (25, Pro), set up my application form (24, Pro), set up my accounts (22, Pro, not in the Demo), account health (20), Getting Started
 (95 while she's new, else 15: `kelsSetup.setupPriority`); unfinished
 people sit at 98, an unfinished form at 97. The header's **Save for later** shows only while a `resumable` task
 runs; its **Cancel** shows while any task runs and, after an "Are you sure?" (`confirmModal`),
@@ -2031,7 +2031,14 @@ moves her to another task (an Expected litter in the check-in → its birth).
 **Doors:** the floating button; the Breeding page (`kels.html?task=record-litter`); an
 expected litter's page (`&litter=<id>`, parents and litter preset); a born litter's page that
 isn't closed (**Check in with Kels**, `kels.html?task=checkin&litter=<id>`); the first-run
-Meet Kels card (**Try Getting Started**, `kels.html?task=get-started`).
+Meet Kels card (**Try Getting Started**, `kels.html?task=get-started`); the Dogs page (**Add
+your dogs with Kels**, `add-dogs`); Pro: Contacts (**Add your people with Kels**,
+`add-people`), Waitlist (**Set up your waitlist with Kels**, `waitlist-setup&kennel=<id>`),
+its Application form (**Set up your application form with Kels**, `form-setup&kennel=<id>`)
+and Accounts (**Set up your accounts with Kels**, `accounts-setup`, hidden in the Demo).
+`&kennel=<id>` hands the waitlist and form tasks the page's kennel, so they skip "which
+kennel?". Set up my waitlist ends by offering **Set up my application form** for the same
+kennel (`handoff`).
 
 ### "Finding Something"
 `assets/kelsFindUI.js` + `data/kelsFind.js` (the engine) + `data/kelsKnowledge.js` (the cheat
@@ -2225,6 +2232,8 @@ part alone, then her dogs.
 | `assistant` | Pro (`assistant`) | Dropbox for KennelAssistant. Dropbox returns to the page that asked, and only registered pages may ask, so it connects on the KennelAssistant page: announced, opened in a new tab on **Okay, open it**, then **I'm back, check it now** reads `isDropboxConnected()`. Already connected: she says so |
 | `backup` | every edition | Cloud backup on: she says so. Cloud offered and off: `offerCloudBackup`. Otherwise, with no backup file in `EXPORT_MAX_DAYS` (14): **Download a backup now** (`importExport.downloadBackup`) |
 
+**Set up my accounts** (its own menu task, Pro `accounts`, not in the Demo: `kelsSetupUI.runAccountsTask`) runs the `accounts` part on its own, with its own opener (`kelsSetup.ACCOUNTS_HOW`), for a breeder already set up.
+
 Then **Add my dogs** / **Add my people** (Pro, `contactsSection`) / **I'm all set for now**:
 a pick is `handoff('add-dogs' | 'add-people')`, so an unfinished draft of that task still
 asks Finish / Start fresh.
@@ -2403,12 +2412,37 @@ it?" **Yes** opens one form, a picker per dog: **Not this one**, the kennels fro
 the litter task sets). `breederLinks` keeps only dogs still without one and outside kennels,
 saved through `dogRepo.update`.
 
-**Then, the waitlist** (`editionFlags.waitlist`, a buyer among them, and an own kennel with
-its waitlist set up, `waitlistIsSetUp`): "Would you like to put them on your waitlist?" Each
-one she picks (and the kennel, with several) runs the applicant step,
-`kelsApplicant.askApplicant` (imported only then), with that contact: its name, email and
-phone fill in the form's, and the application is saved **linked to the contact**
-(`contact_id`) at once. Then **See Pat** (or **See my contacts**), **Help me with something
+**Then, the waitlist** (`editionFlags.waitlist`): **Do any of these need to go on your
+waitlist?**, a box for everyone she just added whose `waitlist_status` isn't `active` (whatever
+their type; one person: ticked, **Yes, add them** / **No**).
+- **No waitlist set up** (no own kennel `waitlistIsSetUp`): Set up my waitlist runs right here
+  (`within`: no "families you already have" step), then **Set up my application form** or
+  **Use the standard one for now** (the form task `within`: after its fee and link steps it
+  hands back, with no "add a family" or "anything else?"), then back to the applicants.
+- The kennel, once, with several set up.
+- **Each ticked person in turn:** Buyer added to their `contact_type` (`ensureType`, never
+  replacing a type), then the applicant step ("Pat's application (1 of 2)"),
+  `kelsApplicant.askApplicant` (imported only then), with that contact: its name, email and
+  phone fill in the form's, and the application is saved **linked to the contact**
+  (`contact_id`). **Not now** leaves that person off. She added them herself, so it's then
+  **approved** (`waitlistActions.approve`). With a fee (`feeForEntry` > 0) Kels asks **Has Pat
+  already paid the $300.00 application fee?**:
+  - **Yes, they paid:** when (not in the future) and how, then `feeReceived`: on the list from
+    that day.
+  - **Not yet:** approved, with the fee due.
+  - **Not charging for this applicant:** a program that waives it (one she has, `isFeeWaived`),
+    **Set up a new program** (`waitlistSetupUI.askNewProgram`, Set up my waitlist's program
+    form, fee prefilled at $0), or **Just Pat** (fee received, $0, `Waived`).
+
+  No fee set, or a waived program picked on the application, goes straight onto the list.
+- **The order:** the ones now on the list, numbered by their place among themselves (number
+  boxes, each 1 to n once). A change is applied by `waitlistRules.chosenOrderChanges`:
+  `fee_received_at` a second apart in her order (it orders same-day families), and a
+  `position_anchor_date` (moved by breeder) only for a family she put after someone who paid
+  later, which takes that later date. Then each one's place on the whole list ("Sam is #6").
+  Families with the fee due are named as approved, fee due.
+
+Then **See Pat** (or **See my contacts**), **Help me with something
 else**, **Back to Today**.
 
 **The applicant step** (`assets/kelsApplicant.js`, Pro-only): her application in the chat (her
