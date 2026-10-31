@@ -11,7 +11,7 @@ import {
   proposeQuestionImport, applyQuestionImport, columnsFor, normalizeHeader, isLocked,
   READY_TIMING_LABEL, formFaq, validateFaq, newFaqItem, matchingPrefKeys
 } from '../shared/data/waitlistForm.js';
-import { publicName, privateName, publicList, publicListText } from '../shared/data/waitlistRules.js';
+import { publicName, privateName, publicList, publicListText, pausedUntil } from '../shared/data/waitlistRules.js';
 
 const ids = (qs) => qs.map((x) => x.id);
 let seq = 0;
@@ -224,6 +224,43 @@ test('public list: real positions, paused families hidden with their number skip
   const turnText = publicListText(turn, {});
   assert.match(turnText, /^#2 Currently deciding · Male · added 2026-02-01$/m);
   assert.ok(!/Bob/.test(turnText));
+});
+
+test('public list: with public_show_paused, paused families show "Skipped until" in place of what they want', () => {
+  const entries = [
+    e('Ann Avery', '2026-01-01'),
+    e('Cat Cole', '2026-03-01', { pref_sex: 'female', paused_until: '2026-12-01', pause_reason: 'Chemo' }),
+    // Readiness hold: fee received 2026-09-15, 3 months → back 2026-12-15.
+    e('Dee Dunn', '2026-09-15', { ready_timing: '3_months' }),
+    // Both: the later date wins.
+    e('Gus Gray', '2026-09-20', { ready_timing: '1_month', paused_until: '2027-01-10' })
+  ];
+  const nameOf = (x) => x.application.name;
+  const config = { public_show_paused: true };
+  const rows = publicList(entries, K, new Map(), { today: TODAY, nameOf, config });
+  assert.deepEqual(rows.map((r) => r.position), [1, 2, 3, 4], 'nobody hidden, no gaps');
+  assert.deepEqual(rows[1], { position: 2, name: 'Cat C.', skipped: true, skipped_until: '2026-12-01', added: '2026-03-01' }, 'no sex preference, no reason');
+  assert.equal(rows[2].skipped_until, '2026-12-15');
+  assert.equal(rows[3].skipped_until, '2027-01-10');
+  assert.equal(rows[0].pref_sex, 'any');
+
+  const text = publicListText(rows, { kennelName: 'Thornfield', today: TODAY });
+  assert.match(text, /^#2 Cat C\. · Skipped until 2026-12-01 · added 2026-03-01$/m);
+  assert.match(text, /^#1 Ann A\. · Either · added 2026-01-01$/m);
+  assert.ok(!/Chemo|Female/.test(text));
+  assert.ok(!/Their place is being held/.test(text), 'no gaps, so no note');
+
+  // A hold with no end date yet ("Ready now?" unanswered on an online list).
+  const online = { online: true, online_since: '2026-01-01', ready_no_answer: 'keep_paused', public_show_paused: true };
+  const held = e('Hal Hart', '2026-06-01', { ready_timing: '1_month' });
+  assert.equal(pausedUntil(held, TODAY, online), null);
+  const [row] = publicList([held], K, new Map(), { today: TODAY, nameOf, config: online });
+  assert.equal(row.skipped, true);
+  assert.match(publicListText([row], {}), /· Skipped for now ·/);
+
+  // Off (the default): left out as before.
+  assert.deepEqual(publicList(entries, K, new Map(), { today: TODAY, nameOf, config: {} }).map((r) => r.position), [1]);
+  assert.equal(pausedUntil(entries[0], TODAY, null), null, 'not paused');
 });
 
 test('readiness is a locked, required question her older stored forms get back', () => {

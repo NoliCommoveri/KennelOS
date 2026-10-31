@@ -1554,6 +1554,12 @@ it computes is stored.**
 - **Public list** (`publicList`): `{ position, name, pref_sex, added }` only. Names are
   "First L." (`publicName`) or masked "A***** K" (`privateName`) when `private_listing`.
   **Paused families are left out and their numbers skipped**, and no family count is shown.
+  With `waitlist_config.public_show_paused` on (Waitlist settings, "Show paused families on
+  the public list"; off by default) they show at their number instead, as
+  `{ position, name, skipped: true, skipped_until, added }`: no `pref_sex`, and "Skipped
+  until <date>" (`publicWants`; online, `cloud/public/family/common.js`) in its place.
+  `skipped_until` is `pausedUntil`: `paused_until`, or the readiness hold's
+  `readyFromDate`, the later when both; null ("Skipped for now") when the hold has no end yet.
   The turn holder's row reads `DECIDING_LABEL` ("Currently deciding"). `publicListText`
   is the copyable text version.
 - **"Almost your turn"** (`soonFamiliesForLitter` / `soonFamiliesForKennel`): the queue, one

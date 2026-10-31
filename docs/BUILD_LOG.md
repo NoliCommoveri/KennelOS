@@ -1698,3 +1698,12 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   waitlist and Set up my application form run inside Add people first (`within` on both: no
   families step, no "add a family"/"anything else?"). Tested in the browser: paid and
   waived applicants, a reorder, places #6 and #7, and the no-waitlist path end to end.
+- **Paused families on the public list, by choice (2026-10-31).** Asked by the owner: a new
+  Waitlist settings box, "Show paused families on the public list" (`waitlist_config
+  .public_show_paused`, off by default). On, paused families keep their row at their number
+  on the online list and the copied text, with "Skipped until <date>" in place of their sex
+  preference (`waitlistRules.pausedUntil`: their `paused_until`, or the readiness hold's
+  ready date, the later when both; "Skipped for now" while "Ready now?" is unanswered). No
+  sex preference or pause reason is published for them. The online table's renderer
+  (`cloud/public/family/common.js`) ships with the Worker's static files. Tests in
+  `tests/waitlistForm.test.js`. Service worker cache bumped to `kennelos-shell-v86`.

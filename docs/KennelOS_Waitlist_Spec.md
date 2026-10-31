@@ -1109,6 +1109,9 @@ list"); both are marked there.
   (§6.3) and reappear when the pause ends. **Their number is skipped** (#1, #2, #4; decided
   2026-10-06, Q24): public positions are the real §6.1 positions, so nobody's number
   shifts when a pause ends. **Listen-only families appear**, with no marker (decided).
+  **Modified:** she can choose to show paused families (`public_show_paused`, off by
+  default): at their number, with "Skipped until <date their pause ends>" in place of
+  their sex preference, and no reason.
 - **Never shown:** contact details, city, program (a program can be health-related), notes,
   money, other preferences, or applicants who aren't on the list yet (`applied` /
   `approved`). Only `active` entries appear.

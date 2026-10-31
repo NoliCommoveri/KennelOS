@@ -110,6 +110,8 @@ export function rowMatches(row, query) {
 // highlight (the family's own row on their status page), or null.
 // A family holding a turn (`deciding`, masked by the server) shows as "Currently
 // deciding", highlighted, with their sex preference and date added (decided 2026-10-10).
+// A paused family (only when she shows them, waitlist_config.public_show_paused)
+// reads "Skipped until <date>" (or "Skipped for now") in place of their preference.
 export function publicListHtml(rows, query = '', mine = null) {
   const shown = rows.filter((r) => rowMatches(r, query));
   if (!rows.length) return '<p class="muted">No families to show right now.</p>';
@@ -118,7 +120,7 @@ export function publicListHtml(rows, query = '', mine = null) {
   const body = shown.map((r) => `<tr${rowClass(r) ? ` class="${rowClass(r)}"` : ''}>
       <td class="num">#${esc(r.position)}</td>
       <td>${r.deciding ? `<em>${esc(r.name)}</em>` : esc(r.name)}${r.position === mine ? ' <span class="badge">You</span>' : ''}</td>
-      <td>${esc(SEX_LABEL[r.pref_sex] || 'Either')}</td>
+      <td>${r.skipped ? `<em>${esc(r.skipped_until ? `Skipped until ${fmtDate(r.skipped_until)}` : 'Skipped for now')}</em>` : esc(SEX_LABEL[r.pref_sex] || 'Either')}</td>
       <td class="small">${esc(fmtDate(r.added))}</td></tr>`).join('');
   const gaps = rows.some((r, i) => r.position !== i + 1);
   return `<table class="list"><thead><tr><th>#</th><th>Name</th><th>Wants</th><th>Added</th></tr></thead><tbody>${body}</tbody></table>
