@@ -2412,15 +2412,37 @@ it?" **Yes** opens one form, a picker per dog: **Not this one**, the kennels fro
 the litter task sets). `breederLinks` keeps only dogs still without one and outside kennels,
 saved through `dogRepo.update`.
 
-**Then, the waitlist** (`editionFlags.waitlist`, and an own kennel with its waitlist set up,
-`waitlistIsSetUp`): **Do any of these need to go on your waitlist?**, a box for everyone she
-just added whose `waitlist_status` isn't `active` (whatever their type; one person: ticked,
-**Yes, add them** / **No**). Then the kennel once, with several set up, and the applicant step
-for each ticked person in turn ("Pat's application (1 of 2)"), `kelsApplicant.askApplicant`
-(imported only then), with that contact: its name, email and phone fill in the form's, and the
-application is saved **linked to the contact** (`contact_id`) at once. **Not now** on one
-leaves that person off and goes on to the next. The entry repo tags them a buyer once
-approved. Then **See Pat** (or **See my contacts**), **Help me with something
+**Then, the waitlist** (`editionFlags.waitlist`): **Do any of these need to go on your
+waitlist?**, a box for everyone she just added whose `waitlist_status` isn't `active` (whatever
+their type; one person: ticked, **Yes, add them** / **No**).
+- **No waitlist set up** (no own kennel `waitlistIsSetUp`): Set up my waitlist runs right here
+  (`within`: no "families you already have" step), then **Set up my application form** or
+  **Use the standard one for now** (the form task `within`: after its fee and link steps it
+  hands back, with no "add a family" or "anything else?"), then back to the applicants.
+- The kennel, once, with several set up.
+- **Each ticked person in turn:** Buyer added to their `contact_type` (`ensureType`, never
+  replacing a type), then the applicant step ("Pat's application (1 of 2)"),
+  `kelsApplicant.askApplicant` (imported only then), with that contact: its name, email and
+  phone fill in the form's, and the application is saved **linked to the contact**
+  (`contact_id`). **Not now** leaves that person off. She added them herself, so it's then
+  **approved** (`waitlistActions.approve`). With a fee (`feeForEntry` > 0) Kels asks **Has Pat
+  already paid the $300.00 application fee?**:
+  - **Yes, they paid:** when (not in the future) and how, then `feeReceived`: on the list from
+    that day.
+  - **Not yet:** approved, with the fee due.
+  - **Not charging for this applicant:** a program that waives it (one she has, `isFeeWaived`),
+    **Set up a new program** (`waitlistSetupUI.askNewProgram`, Set up my waitlist's program
+    form, fee prefilled at $0), or **Just Pat** (fee received, $0, `Waived`).
+
+  No fee set, or a waived program picked on the application, goes straight onto the list.
+- **The order:** the ones now on the list, numbered by their place among themselves (number
+  boxes, each 1 to n once). A change is applied by `waitlistRules.chosenOrderChanges`:
+  `fee_received_at` a second apart in her order (it orders same-day families), and a
+  `position_anchor_date` (moved by breeder) only for a family she put after someone who paid
+  later, which takes that later date. Then each one's place on the whole list ("Sam is #6").
+  Families with the fee due are named as approved, fee due.
+
+Then **See Pat** (or **See my contacts**), **Help me with something
 else**, **Back to Today**.
 
 **The applicant step** (`assets/kelsApplicant.js`, Pro-only): her application in the chat (her

@@ -1686,3 +1686,15 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   application in turn, linked to their contact (`kelsApplicant.askApplicant`); Not now on
   one skips to the next. Tested in the browser: two people added, both ticked, both
   applications saved linked to their contacts.
+- **Add people → waitlist, with the fee and the order (2026-10-31).** Decided with the owner:
+  a person she ticks for the waitlist gets Buyer added to their types (never replacing one)
+  and is **approved**, since she added them herself. With a fee Kels asks: paid (when, how;
+  on the list from that day), not yet (fee due), or not charging (a waived program she has,
+  a new program through `waitlistSetupUI.askNewProgram`, now shared with Set up my
+  waitlist's program step, or waived for just them). Then the ones now on the list, numbered
+  in their order among themselves; a change uses `waitlistRules.chosenOrderChanges` (new,
+  tested): `fee_received_at` a second apart, and a moved-by-breeder date only for someone put
+  after a later payer. Then each one's place on the list. With no waitlist set up, Set up my
+  waitlist and Set up my application form run inside Add people first (`within` on both: no
+  families step, no "add a family"/"anything else?"). Tested in the browser: paid and
+  waived applicants, a reorder, places #6 and #7, and the no-waitlist path end to end.
