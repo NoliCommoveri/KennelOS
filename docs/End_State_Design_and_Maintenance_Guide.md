@@ -957,7 +957,9 @@ checks use the unscoped set, so an answer one kennel over still counts.
 
 `pages/today.js` renders them: it filters out dismissed keys (`nudgeState.isDismissed`),
 wires each action, and adds one Dismiss button per row. Dismissals are device-local
-(`nudgeState.js`), never in a backup.
+(`nudgeState.js`), never in a backup. While Today is open it redraws the nudges on
+`CLOUD_DATA_CHANGED_EVENT` (debounced, one redraw at a time), so a family's message or
+status-page action the waitlist inbox takes in after the page loaded shows without a reload.
 
 | Key prefix | Fires when | Offers |
 |---|---|---|

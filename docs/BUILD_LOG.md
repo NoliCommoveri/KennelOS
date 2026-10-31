@@ -1707,3 +1707,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   sex preference or pause reason is published for them. The online table's renderer
   (`cloud/public/family/common.js`) ships with the Worker's static files. Tests in
   `tests/waitlistForm.test.js`. Service worker cache bumped to `kennelos-shell-v86`.
+- **Today shows a family's message as it arrives (2026-10-31).** Asked by the owner. The
+  "A message from …" nudge existed, but Today drew its nudges once on load, and the waitlist
+  inbox takes messages in a moment after the app opens (and every 5 minutes), so a new
+  message only showed after leaving and coming back. Today now redraws its nudges on
+  `CLOUD_DATA_CHANGED_EVENT` (debounced 1.5 s). Tested in the browser: a message added with
+  Today open shows within seconds; without the change it showed only after a reload. Rides
+  the `kennelos-shell-v86` cache bump.
