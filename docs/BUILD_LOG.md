@@ -1756,3 +1756,4 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Haiku 5.5 "ask in your own words" layer (about $0.0002–0.0007 a question). Draft in
   `docs/KennelOS_Family_Help_Plan.md`; nothing built.
 - **Family Help plan: decisions (2026-10-31).** D2 (each breeder turns Layer 2 on), D3 (the cheat sheet format) and D5 (20 questions per family a day) decided by the owner; D4 (Layer 2 after Layer 1 has been used) still open.
+- **Family Help plan: D4 decided (2026-10-31).** Layer 2 (Haiku) is a second version, after Layer 1 has been used.

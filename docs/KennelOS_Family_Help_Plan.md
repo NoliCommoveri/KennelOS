@@ -114,8 +114,8 @@ About $0.0007 per question uncached, about $0.0002 with the cheat sheet cached
 - **D3 — The cheat sheet's home and format:** §3. *Decided (owner).*
 - **D5 — Layer 2's limit:** 20 questions per family session (or IP) per day, plus the
   per-kennel daily cap. *Decided (owner).*
-- **D4 — Does Layer 2 ship with Layer 1, or after real families have used Layer 1?**
-  *Recommendation:* after, so the cheat sheet is filled in from what families actually ask.
+- **D4 — When Layer 2 ships:** a second version, after real families have used Layer 1,
+  so the cheat sheet is filled in from what they actually ask. *Decided (owner).*
 
 ## 8. Build order
 
