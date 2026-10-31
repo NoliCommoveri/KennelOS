@@ -1768,3 +1768,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   cancelled sales" report step is dropped; step 2 now asks whether she needs to cancel or void
   any sales (backed out, pup died, failed a health check, returned) and runs the Sale page's
   follow-ups. Still a proposal; nothing built.
+- **Family Requests plan drafted (2026-10-31).** Asked by the owner: price-list groups with
+  age windows for families requesting and cancelling extras (training packages too), pickup
+  slots and locations booked from the status page, mileage from her standard location,
+  transport (flight nanny) suggestions, training packages tied to boarding, and backing out
+  with a deposit policy by reason and age. Draft in `docs/KennelOS_Family_Requests_Plan.md`
+  with decisions D1–D9; nothing built.

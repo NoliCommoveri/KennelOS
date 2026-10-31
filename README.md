@@ -38,6 +38,7 @@ backup, carries a program from Lite to Pro.
 | Waitlist, shows, reports, multi-kennel | `docs/KennelOS_Waitlist_Spec.md` (+ `_W2_Plan`), `docs/KennelOS_Show_Tracking_Spec.md`, `docs/KennelOS_Reports_Plan.md`, `docs/KennelOS_Multi_Kennel_Scope_Spec.md` |
 | App alerts (web push) and email digests | `docs/KennelOS_Notifications_Plan.md` |
 | Kels on the family pages (help, FAQ) | `docs/KennelOS_Family_Help_Plan.md` |
+| Families asking for extras, pickup times, transport, backing out | `docs/KennelOS_Family_Requests_Plan.md` |
 | Furever | `docs/KennelOS_Furever_*.md`, `furever/README.md` |
 | Kels (the guided-task helper): what's next | `docs/KennelOS_Kels_Roadmap.md` (built tasks: End-State guide §33) |
 | Launch to-dos | `docs/LAUNCH_CHECKLIST.md` |
