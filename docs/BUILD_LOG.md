@@ -1706,4 +1706,4 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   ready date, the later when both; "Skipped for now" while "Ready now?" is unanswered). No
   sex preference or pause reason is published for them. The online table's renderer
   (`cloud/public/family/common.js`) ships with the Worker's static files. Tests in
-  `tests/waitlistForm.test.js`.
+  `tests/waitlistForm.test.js`. Service worker cache bumped to `kennelos-shell-v86`.
