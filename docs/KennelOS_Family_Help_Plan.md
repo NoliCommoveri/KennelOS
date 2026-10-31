@@ -112,10 +112,10 @@ About $0.0007 per question uncached, about $0.0002 with the cheat sheet cached
 - **D1 — Name and intro:** Kels, with §1's intro. *Decided (owner).*
 - **D2 — Who turns on Layer 2:** each breeder, off by default. *Decided (owner).*
 - **D3 — The cheat sheet's home and format:** §3. *Decided (owner).*
-- **D5 — Layer 2's limit:** 20 questions per family session (or IP) per day, plus the
-  per-kennel daily cap. *Decided (owner).*
 - **D4 — When Layer 2 ships:** a second version, after real families have used Layer 1,
   so the cheat sheet is filled in from what they actually ask. *Decided (owner).*
+- **D5 — Layer 2's limit:** 20 questions per family session (or IP) per day, plus the
+  per-kennel daily cap. *Decided (owner).*
 
 ## 8. Build order
 
@@ -123,5 +123,5 @@ About $0.0007 per question uncached, about $0.0002 with the cheat sheet cached
    with a few entries to show the shape (you write the rest).
 2. Layer 1 on both pages, with §2's message handoff. Browser-tested with the local Worker
    (`cloud/tests/helpers/serve.mjs`).
-3. Layer 2: the route, prompt, limits, Waitlist settings switch, `/ops` health.
+3. **Second version:** Layer 2: the route, prompt, limits, Waitlist settings switch, `/ops` health.
 4. End-State guide §29, `cloud/README.md`, BUILD_LOG.
