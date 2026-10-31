@@ -1757,3 +1757,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `docs/KennelOS_Family_Help_Plan.md`; nothing built.
 - **Family Help plan: decisions (2026-10-31).** D2 (each breeder turns Layer 2 on), D3 (the cheat sheet format) and D5 (20 questions per family a day) decided by the owner; D4 (Layer 2 after Layer 1 has been used) still open.
 - **Family Help plan: D4 decided (2026-10-31).** Layer 2 (Haiku) is a second version, after Layer 1 has been used.
+- **Kels preventatives: log more than one (2026-10-31).** Asked by the owner: Check in on my
+  dogs' preventatives step asks "Any other preventatives to log?" after each product
+  (**Log another** / **No, that's all**), each later form ticking the dogs picked last time,
+  so heartworm, flea & tick and a dewormer are each logged in turn. With none missing it asks
+  first. Also drafted **Review my waitlist** (Kels Roadmap §3.16, proposed): the order and
+  wording for messages, requests, overdue offers, open picks, turns, applications, fees,
+  "Ready now?" and lost or cancelled sales. Nothing of it built.

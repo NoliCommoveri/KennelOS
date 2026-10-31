@@ -566,6 +566,63 @@ Puppy Record fields, now one copy), `kelsBackupSteps.cloudBackupOn`. **Decided:*
 its own; the first page after the first-run kennel setup (after the tour, or Start my
 kennel) shows a Meet Kels card whose **Try Getting Started** opens it.
 
+### 3.16 Review my waitlist: **M**, Pro (`waitlist`) — **Proposed, not decided**
+Her day-to-day waitlist work as one conversation, offered once a list is set up (priority
+high while anything is waiting on her, like the Today `waitlist-*` nudges). Every action is
+an existing `waitlistActions` call; the task adds no data. Each step is skipped when it has
+nothing, and each item has **Skip for now**, so she can stop at any point.
+
+Opening: "Here's what's waiting on you: 2 new applications, 1 fee to check, picks to open
+on Daisy's litter, 1 family's turn to offer, 3 new messages." Then **Start with the first** /
+**Pick one** (the list as choices) / **Not now**. Order, most time-sensitive first:
+
+1. **Family requests and messages** (unread `messages`, pending pref / pause / listen /
+   Companion-link requests). Messages first because an offer answer or a question about
+   one can change what she does in step 4. One family at a time: "Sarah Lee wrote on her
+   status page (Oct 29): …" → **Write back** (Communicate…: an email that also shows on
+   their status page) / **Mark read** / **Open their page**. A request: "Sarah asked to
+   pause until March 1." → **Approve** / **Decline** (the nudge's actions and emails).
+2. **Offers past their deadline** (`waitlist-offer-overdue`). "The Kims' time to pick from
+   Daisy's litter ran out yesterday." → **They picked** (pup + deposit) / **Count it as a
+   pass** / **Give them more time**. Then step 4's "offer the next family?" for that
+   litter, straight away.
+3. **Open picks** (`waitlist-open-picks`: `accept_deposits_date` reached, picks not open).
+   "You planned to start taking deposits on Daisy's litter today. 3 girls and 2 boys are
+   available. Open picks?" → **Open picks** (`openPicks`, which offers the first turn when
+   automatic offers are on) / **Not yet, remind me in a few days** / **Change the date**.
+4. **Turns waiting on her** (auto offers off for that moment, a litter with pups and
+   nobody holding a turn). "Next in line for Daisy's litter is the Garcias (want a girl,
+   waiting 8 months). Offer it to them?" → **Offer it** (`offerNext`, then the offer
+   email) / **Offer someone else** (the list, `offerTo`) / **Not yet**.
+5. **New applications** (`applied`). One at a time, the application as on the entry page:
+   "Jordan Price applied Oct 28 for a male, pet home, has a fenced yard." → **Approve**
+   (program, then the fee request) / **Decline** (editable message) / **Ask a question**
+   (goes to their status page) / **Decide later**.
+6. **Fees to check** (`approved`, fee not received; overdue first). "Jordan's $100 fee:
+   asked for Oct 20, due Nov 3." → **Received** (amount prefilled, date, method) / **Not
+   yet** / **Remove them** (only once overdue, `markFeeExpired`).
+7. **"Ready now?" unanswered and recent removals** (`waitlist-ready-overdue`,
+   `waitlist-removed` inside its undo window). → **Remove them** / **Wait longer**; a
+   removal: **Keep it** / **Undo**.
+8. **Lost and cancelled sales** (her "sales data"): sales from waitlist pups that ended in
+   the last 90 days. "2 sales fell through since August:" each with what happened
+   ("Biscuit died, the Kims' sale was voided"; "the Lees backed out of Rosie, deposit
+   kept"). A lost sale (`isLostSale`) whose family isn't back in line yet → **Put them back
+   in line** (`restoreAfterLostSale`: carry their payment or refund it). A cancelled
+   one with the pup still unsold → **Offer the pup to the next family** (step 4). Then
+   **See the numbers** (the Sales / waitlist funnel reports, filtered).
+9. Close: "That's everything on your waitlist for today." (or "…I left 2 for later.") and
+   back to the menu.
+
+Each step ends "Anything else here?" only where there can be more than one (as the
+preventatives loop does).
+- **Keywords:** waitlist, applications, fees, deposits, picks, offers, messages, turns,
+  backed out, lost sale, refund.
+- **Open questions:** whether messages lead (proposed) or sit at the end; whether step 8
+  belongs here or in Help me understand; the window for step 8 (proposed 90 days);
+  whether "remind me in a few days" on open picks moves `accept_deposits_date` or only
+  snoozes the nudge.
+
 ## 4. Shared pieces
 
 - **Search words are ours.** **Decided:** only we add `keywords` (in `TASKS`); breeders

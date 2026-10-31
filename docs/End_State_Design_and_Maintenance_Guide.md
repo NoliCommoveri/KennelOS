@@ -2504,7 +2504,10 @@ Each thing is saved as she approves it.
    female at a time: a `heat_cycle` with start (the prediction if it's ahead, else today;
    any date, future included), optional end and notes, and her new prediction.
 2. **Preventatives:** the active breeding dogs with no `preventative` this month, ticked,
-   and her other dogs at home unticked; one form (product, dose, date) → one event each.
+   and her other dogs at home unticked; a form (product, dose, date) → one event each, then
+   "Any other preventatives to log?" (**Log another** / **No, that's all**), repeated, each
+   later form ticking the dogs she picked last time. With none missing it asks first
+   whether to log one (flea & tick, say).
 
 ### "Check in on a litter"
 Each thing she approves is saved at once; there is no draft.
