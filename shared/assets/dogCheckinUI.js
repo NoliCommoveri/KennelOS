@@ -11,9 +11,10 @@
 import { dogRepo } from '../data/dogRepo.js';
 import { eventRepo } from '../data/eventRepo.js';
 import { dogsInScope } from '../data/kennelScope.js';
-import { breedingDogs, heatStarts, predictNextHeat, heatForecast, preventativeGaps, monthName } from '../data/dogCare.js';
+import { breedingDogs, homeDogs, heatStarts, predictNextHeat, heatForecast, preventativeGaps, monthName } from '../data/dogCare.js';
 import { daysBetween } from '../data/litterCheckin.js';
 import { field } from './litterCheckinUI.js';
+import { DOG_STATUS, descriptor } from '../data/vocab.js';
 import { esc, fmtDate, todayYMD } from './ui.js';
 
 const HOW = 'I\'ll show you when each of your girls is expected to come into heat and help you log any you know about, then we\'ll catch up on this month\'s dewormer and heartworm preventative. Sound good?';
@@ -129,7 +130,10 @@ async function preventatives(chat, today) {
     return;
   }
   await chat.say(`${gaps.length === 1 ? 'This dog doesn\'t' : 'These dogs don\'t'} have a dewormer or heartworm preventative logged for ${esc(month)} yet: ${esc(listText(gaps.map(dogName)))}.`);
-  const boxes = gaps.map((d, i) => `<label class="ck-check"><input type="checkbox" id="dc-dog-${i}" checked> <strong>${esc(dogName(d))}</strong></label>`).join('');
+  // Her other dogs at home are listed too, unticked: only active breeding dogs start ticked.
+  const gapIds = new Set(gaps.map((d) => d.id));
+  const listed = [...gaps, ...homeDogs(dogs).filter((d) => d.status !== 'active_breeding')];
+  const boxes = listed.map((d, i) => `<label class="ck-check"><input type="checkbox" id="dc-dog-${i}"${gapIds.has(d.id) ? ' checked' : ''}> <strong>${esc(dogName(d))}</strong>${gapIds.has(d.id) ? '' : ` <span class="faint">${esc(descriptor(DOG_STATUS, d.status).label)}</span>`}</label>`).join('');
   const res = await chat.form({
     title: '<strong>Which preventative did they get?</strong>',
     html: `${field('Product', '<input id="dc-product" type="text" autocomplete="off" placeholder="e.g. Heartgard Plus, Panacur">')}
@@ -145,7 +149,7 @@ async function preventatives(chat, today) {
       const product = root.querySelector('#dc-product').value.trim();
       const dose = root.querySelector('#dc-dose').value.trim();
       const date = root.querySelector('#dc-date').value;
-      const picked = gaps.filter((d, i) => root.querySelector(`#dc-dog-${i}`).checked);
+      const picked = listed.filter((d, i) => root.querySelector(`#dc-dog-${i}`).checked);
       if (!product) return 'Which product was it?';
       if (!date) return 'What day did they get it?';
       if (!picked.length) return 'Tick at least one dog.';

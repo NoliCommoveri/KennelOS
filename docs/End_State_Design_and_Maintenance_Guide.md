@@ -416,9 +416,10 @@ a soft confirm, never a block.
 per checked puppy with the same `details`, except fields in `eventForm.js`
 `PER_TARGET_CASCADE_FIELDS` (`weight_check` weights) which are per puppy. Saving a weight
 below that dog's previous weigh-in (same-day AM/PM aware) asks to confirm. The Dogs page's
-**Log for several dogs** is the same form over the active breeding dogs (`cascadeTitle`,
-`cascadeSelected`); `dogs.html?logEvent=preventative&from=today` opens it with only the dogs
-still missing this month's preventative ticked and goes back to Today after saving.
+**Log for several dogs** is the same form over the dogs at home (`dogCare.homeDogs`: active
+breeding, retired breeding, for sale), with only the active breeding ones ticked (`cascadeTitle`,
+`cascadeSelected`); `dogs.html?logEvent=preventative&from=today` ticks only the active breeding
+dogs still missing this month's preventative and goes back to Today after saving.
 
 Test-bearing types (`genetic_test`, `breed_specific_test`, `ofa_pennhip`) feed the test
 vocabulary through `testTokensOf(event)`.
@@ -2502,8 +2503,8 @@ Each thing is saved as she approves it.
    `heatwatch` nudge) or "no heats logged yet", then "Do you want to log any heats?", one
    female at a time: a `heat_cycle` with start (the prediction if it's ahead, else today;
    any date, future included), optional end and notes, and her new prediction.
-2. **Preventatives:** the active breeding dogs with no `preventative` this month, all
-   ticked, one form (product, dose, date) → one event each.
+2. **Preventatives:** the active breeding dogs with no `preventative` this month, ticked,
+   and her other dogs at home unticked; one form (product, dose, date) → one event each.
 
 ### "Check in on a litter"
 Each thing she approves is saved at once; there is no draft.

@@ -8,7 +8,7 @@ import { badge, fmtDate, esc, param } from '../assets/ui.js';
 import { descriptor, SEX, DOG_STATUS, DISPOSITION, OWNERSHIP_TYPE, EVENT_TYPES } from '../data/vocab.js';
 import { eventRepo } from '../data/eventRepo.js';
 import { openEventForm } from '../assets/eventForm.js';
-import { breedingDogs, preventativeGaps } from '../data/dogCare.js';
+import { breedingDogs, homeDogs, preventativeGaps } from '../data/dogCare.js';
 import { todayYMD } from '../data/dateUtils.js';
 
 const mount = document.getElementById('dog-list');
@@ -134,22 +134,25 @@ async function init() {
   });
 }
 
-// "Log for several dogs": one event form, ticked for each active breeding dog, one
-// event saved per dog (eventForm's cascade, as a litter's "Log event for whole
-// litter"). Today's preventatives nudge opens it with ?logEvent=preventative and
-// only the dogs still missing this month's ticked; &from=today goes back after.
+// "Log for several dogs": one event form listing the dogs at home (dogCare.homeDogs),
+// one event saved per ticked dog (eventForm's cascade, as a litter's "Log event for
+// whole litter"). Only active breeding dogs start ticked. Today's preventatives
+// nudge opens it with ?logEvent=preventative, ticking only the active breeding
+// dogs still missing this month's; &from=today goes back after.
 async function openLogSeveral(type = null) {
-  const dogs = breedingDogs((await dogRepo.getAll()).filter(dogInScope))
-    .sort((a, b) => (a.call_name || '').localeCompare(b.call_name || ''));
+  const dogs = homeDogs((await dogRepo.getAll()).filter(dogInScope));
   if (!dogs.length) return;
   const known = type && EVENT_TYPES.some((t) => t.value === type) ? type : null;
-  const selected = known === 'preventative' ? preventativeGaps(dogs, await eventRepo.getAll(), todayYMD()).map((d) => d.id) : null;
+  const selected = known === 'preventative'
+    ? preventativeGaps(dogs, await eventRepo.getAll(), todayYMD()).map((d) => d.id)
+    : breedingDogs(dogs).map((d) => d.id);
   const back = () => { if (param('from') === 'today') location.href = 'today.html'; };
+  const label = (d) => `${d.call_name || 'Unnamed'}${d.sex ? ` (${descriptor(SEX, d.sex).label[0]})` : ''}${d.status !== 'active_breeding' ? ` · ${descriptor(DOG_STATUS, d.status).label}` : ''}`;
   openEventForm({
     subjectType: 'dog',
     cascadeTitle: 'Log for several dogs',
-    cascadeTargets: dogs.map((d) => ({ id: d.id, label: `${d.call_name || 'Unnamed'}${d.sex ? ` (${descriptor(SEX, d.sex).label[0]})` : ''}` })),
-    cascadeSelected: selected && selected.length ? selected : null,
+    cascadeTargets: dogs.map((d) => ({ id: d.id, label: label(d) })),
+    cascadeSelected: selected,
     prefill: known ? { event_type: known } : null,
     onSaved: back
   });

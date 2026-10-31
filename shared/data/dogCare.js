@@ -19,6 +19,13 @@ const daysBetween = (a, b) => Math.round((ymdMs(b) - ymdMs(a)) / DAY);
 export const breedingDogs = (dogs, sex = null) => (dogs || [])
   .filter((d) => d && !d.is_archived && d.status === 'active_breeding' && (!sex || d.sex === sex));
 
+// The grown dogs living with her (not archived): active breeding, retired, and
+// for sale. The multi-dog forms list these; only active breeding dogs start ticked.
+export const HOME_DOG_STATUSES = ['active_breeding', 'retired_breeding', 'for_sale'];
+export const homeDogs = (dogs) => (dogs || [])
+  .filter((d) => d && !d.is_archived && HOME_DOG_STATUSES.includes(d.status))
+  .sort((a, b) => (a.status === 'active_breeding' ? 0 : 1) - (b.status === 'active_breeding' ? 0 : 1) || (a.call_name || '').localeCompare(b.call_name || ''));
+
 // A female's heat starts: each heat_cycle event's start, once, oldest first.
 // Future-dated heats count (she may log one she expects).
 export function heatStarts(dogId, events) {

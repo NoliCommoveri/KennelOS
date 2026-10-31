@@ -1746,3 +1746,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   (`assets/dogCheckinUI.js`). Main had taken v86 (PR #138), so the notifications batch and this
   one ride `kennelos-shell-v87`. Tested in the browser: both nudges and their wordings, Log
   to the form and back to Today with the nudge gone, and the Kels flow end to end.
+- **Multi-dog forms tick only active breeding dogs (2026-10-31).** Asked by the owner: Log for
+  several dogs and Kels's preventatives form list the dogs at home (`dogCare.homeDogs`: active
+  breeding, retired breeding, for sale), with only active breeding dogs ticked (from the
+  preventatives nudge, only those still missing this month's). Checked in the browser.

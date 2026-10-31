@@ -2,7 +2,7 @@
 // single heat, else her average interval) and this month's preventatives.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { predictNextHeat, heatStarts, heatForecast, preventativeGaps, breedingDogs, heatBasisText, monthName } from '../shared/data/dogCare.js';
+import { predictNextHeat, heatStarts, heatForecast, preventativeGaps, breedingDogs, homeDogs, heatBasisText, monthName } from '../shared/data/dogCare.js';
 
 const heat = (id, d, extra = {}) => ({ subject_type: 'dog', subject_id: id, event_type: 'heat_cycle', event_date: d, ...extra });
 const prev = (id, d) => ({ subject_type: 'dog', subject_id: id, event_type: 'preventative', event_date: d });
@@ -44,4 +44,10 @@ test('preventatives: active breeding dogs (both sexes) with none dated this mont
   assert.deepEqual(preventativeGaps(dogs, [...events, prev('Ash', '2026-11-20'), prev('Cy', '2026-11-01')], '2026-11-15'), [], 'all done: the nudge goes');
   assert.deepEqual(breedingDogs(dogs, 'male').map((d) => d.id), ['Ash']);
   assert.equal(monthName('2026-11-15'), 'November 2026');
+});
+
+test('the multi-dog forms list the dogs at home, active breeding first', () => {
+  const dogs = [dog('Zed'), dog('Ret', { status: 'retired_breeding' }), dog('Sale', { status: 'for_sale' }), dog('Abe'),
+    dog('Pup', { status: 'puppy' }), dog('Pet', { status: 'pet_home' }), dog('Gone', { status: 'deceased' }), dog('Ext', { status: 'external_reference' })];
+  assert.deepEqual(homeDogs(dogs).map((d) => d.id), ['Abe', 'Zed', 'Ret', 'Sale']);
 });
