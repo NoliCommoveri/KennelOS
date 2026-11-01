@@ -2176,3 +2176,11 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **Check in on my dogs leaves out Pet home dogs (2026-11-01).** Owner decision: the health
   test and "any other events" steps' list (`dogCare.checkinDogs`) no longer includes dogs
   with status Pet home. Test: `tests/dogCare.test.js`.
+- **One rule for the dogs she looks after (2026-11-01).** Owner decision: new
+  `dogCare.isCareDog` = owned, co-owned, leased in or leased out, and never External, an
+  External reference, Deceased or Pet home dog, archived or pedigree-only. `breedingDogs` and
+  `homeDogs` now read it, so Today's heat and preventative reminders, the Dogs page's Log for
+  several dogs, Log health test results' "at home" list and Check in on my dogs agree; the
+  Heat Cycles report lists only these females. Check in on my dogs now includes leased-in /
+  leased-out dogs (`ownDogs` = `isCareDog`; `checkinDogs` adds kept puppies). Tests:
+  `tests/dogCare.test.js` (fixtures now carry an ownership).

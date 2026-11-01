@@ -6,7 +6,7 @@ import { predictNextHeat, heatStarts, heatForecast, preventativeGaps, breedingDo
 
 const heat = (id, d, extra = {}) => ({ subject_type: 'dog', subject_id: id, event_type: 'heat_cycle', event_date: d, ...extra });
 const prev = (id, d) => ({ subject_type: 'dog', subject_id: id, event_type: 'preventative', event_date: d });
-const dog = (id, extra = {}) => ({ id, call_name: id, sex: 'female', status: 'active_breeding', ...extra });
+const dog = (id, extra = {}) => ({ id, call_name: id, sex: 'female', status: 'active_breeding', ownership_type: 'owned', ...extra });
 
 test('one heat: the next is 6 months after it began; more: her average interval', () => {
   assert.equal(predictNextHeat([]), null);
@@ -84,23 +84,25 @@ test('dogEventProblem: a dog, a date, an end after the start, a note\'s words, a
   assert.equal(dogEventProblem({ ...ok, cost: '85.50' }), '');
 });
 
-test('checkinDogs: owned and co-owned only, never external, pedigree-only, archived, deceased or in a pet home; puppies only when kept', () => {
+test('checkinDogs: the dogs she looks after (owned, co-owned, leased in or out), never external, pedigree-only, archived, deceased or in a pet home; puppies only when kept', () => {
   const dog = (id, extra) => ({ id, call_name: id, ownership_type: 'owned', status: 'active_breeding', ...extra });
   const out = checkinDogs([
     dog('Zed'), dog('Ada', { ownership_type: 'co_owned', status: 'retired_breeding' }),
     dog('Ext', { ownership_type: 'external' }), dog('Lease', { ownership_type: 'leased_in' }),
     dog('Anc', { pedigree_only: true }), dog('Gone', { status: 'deceased' }), dog('Arch', { is_archived: true }),
     dog('Pip', { status: 'puppy', disposition: 'keeping' }), dog('Sold', { status: 'puppy', disposition: 'available' }),
-    dog('Bea'), dog('Pet', { status: 'pet_home' })
+    dog('Bea'), dog('Pet', { status: 'pet_home' }), dog('Out', { ownership_type: 'leased_out', status: 'retired_breeding' }),
+    dog('Ref', { status: 'external_reference' })
   ]).map((d) => d.id);
-  assert.deepEqual(out, ['Bea', 'Zed', 'Ada', 'Pip']);
+  assert.deepEqual(out, ['Bea', 'Lease', 'Zed', 'Ada', 'Out', 'Pip']);
 });
 
-test('ownDogs: what Check in on my dogs looks at; its heats and preventatives are her own active breeding dogs', () => {
+test('ownDogs / breedingDogs / homeDogs: only the dogs she looks after; heats and preventatives are those dogs\' active breeding ones', () => {
   const dog = (id, extra) => ({ id, call_name: id, ownership_type: 'owned', status: 'active_breeding', sex: 'female', ...extra });
   const dogs = [dog('Mine'), dog('Co', { ownership_type: 'co_owned', sex: 'male' }), dog('Stud', { ownership_type: 'external', sex: 'male' }),
     dog('Lease', { ownership_type: 'leased_in' }), dog('Gone', { status: 'deceased' }), dog('Arch', { is_archived: true }), dog('Old', { status: 'retired_breeding' })];
-  assert.deepEqual(ownDogs(dogs).map((d) => d.id), ['Mine', 'Co', 'Old']);
-  assert.deepEqual(breedingDogs(ownDogs(dogs), 'female').map((d) => d.id), ['Mine'], 'heats: her own active breeding females');
-  assert.deepEqual(preventativeGaps(ownDogs(dogs), [], '2026-11-01').map((d) => d.id), ['Co', 'Mine'], 'preventatives: her own active breeding dogs');
+  assert.deepEqual(ownDogs(dogs).map((d) => d.id), ['Mine', 'Co', 'Lease', 'Old']);
+  assert.deepEqual(breedingDogs(dogs, 'female').map((d) => d.id), ['Mine', 'Lease'], 'heats (also Today): her active breeding females, leased in included, never External');
+  assert.deepEqual(preventativeGaps(dogs, [], '2026-11-01').map((d) => d.id), ['Co', 'Lease', 'Mine'], 'preventatives (also Today)');
+  assert.equal(homeDogs(dogs).some((d) => d.id === 'Stud'), false, 'Log for several dogs never lists an External dog');
 });

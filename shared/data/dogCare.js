@@ -20,13 +20,22 @@ const daysBetween = (a, b) => Math.round((ymdMs(b) - ymdMs(a)) / DAY);
 
 // Active breeding dogs (not archived), optionally one sex.
 export const breedingDogs = (dogs, sex = null) => (dogs || [])
-  .filter((d) => d && !d.is_archived && d.status === 'active_breeding' && (!sex || d.sex === sex));
+  .filter((d) => isCareDog(d) && d.status === 'active_breeding' && (!sex || d.sex === sex));
 
-// The grown dogs living with her (not archived): active breeding, retired, and
+// The dogs she looks after, the only ones routine care (heats, preventatives,
+// Check in on my dogs, Log for several dogs, Today's reminders) ever looks at:
+// owned, co-owned, leased in or leased out (never External), and never an
+// External reference, Deceased or Pet home dog, archived or pedigree-only.
+export const CARE_OWNERSHIP = Object.freeze(['owned', 'co_owned', 'leased_in', 'leased_out']);
+export const NOT_CARE_STATUSES = Object.freeze(['external_reference', 'deceased', 'pet_home']);
+export const isCareDog = (d) => Boolean(d) && !d.is_archived && !d.pedigree_only
+  && CARE_OWNERSHIP.includes(d.ownership_type) && !NOT_CARE_STATUSES.includes(d.status);
+
+// The grown dogs living with her (isCareDog): active breeding, retired, and
 // for sale. The multi-dog forms list these; only active breeding dogs start ticked.
 export const HOME_DOG_STATUSES = ['active_breeding', 'retired_breeding', 'for_sale'];
 export const homeDogs = (dogs) => (dogs || [])
-  .filter((d) => d && !d.is_archived && HOME_DOG_STATUSES.includes(d.status))
+  .filter((d) => isCareDog(d) && HOME_DOG_STATUSES.includes(d.status))
   .sort((a, b) => (a.status === 'active_breeding' ? 0 : 1) - (b.status === 'active_breeding' ? 0 : 1) || (a.call_name || '').localeCompare(b.call_name || ''));
 
 // A female's heat starts: each heat_cycle event's start, once, oldest first.
@@ -97,22 +106,16 @@ export function monthName(ymd) {
 
 // --- Any other events (the check-in's last step) ------------------------------------
 
-// Every dog "Check in on my dogs" looks at: her own (owned or co-owned; never
-// external, leased-in or pedigree-only), not archived, not deceased. The check-in
-// loads only these, so its heats (active breeding females) and preventatives
-// (active breeding dogs) are hers alone. Today's nudges and the reports still
-// read breedingDogs on every dog.
-export const OWN_OWNERSHIP = Object.freeze(['owned', 'co_owned']);
-export const ownDogs = (dogs) => (dogs || [])
-  .filter((d) => d && !d.is_archived && !d.pedigree_only && OWN_OWNERSHIP.includes(d.ownership_type) && d.status !== 'deceased');
+// Every dog "Check in on my dogs" looks at: the dogs she looks after (isCareDog).
+export const ownDogs = (dogs) => (dogs || []).filter(isCareDog);
 
-// The dogs the check-in's health-test and "any other events" steps list: her own
-// (ownDogs), never one in a pet home, and a puppy only when she's keeping it. Active breeding first, then
+// The dogs the check-in's health-test and "any other events" steps list: the
+// dogs she looks after (ownDogs), a puppy only when she's keeping it. Active breeding first, then
 // the other grown dogs, then kept puppies, each A→Z.
 export function checkinDogs(dogs) {
   const rank = (d) => (d.status === 'active_breeding' ? 0 : d.status === 'puppy' ? 2 : 1);
   return ownDogs(dogs)
-    .filter((d) => d.status !== 'pet_home' && (d.status !== 'puppy' || d.disposition === 'keeping'))
+    .filter((d) => d.status !== 'puppy' || d.disposition === 'keeping')
     .sort((a, b) => rank(a) - rank(b) || (a.call_name || a.registered_name || '').localeCompare(b.call_name || b.registered_name || ''));
 }
 

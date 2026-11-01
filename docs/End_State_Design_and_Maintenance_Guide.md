@@ -419,6 +419,11 @@ a soft confirm, never a block.
 per checked puppy with the same `details`, except fields in `eventForm.js`
 `PER_TARGET_CASCADE_FIELDS` (`weight_check` weights) which are per puppy. Saving a weight
 below that dog's previous weigh-in (same-day AM/PM aware) asks to confirm. The Dogs page's
+**The dogs she looks after** (`dogCare.isCareDog`): owned, co-owned, leased in or leased out
+(`CARE_OWNERSHIP`; never External), never External reference, Deceased or Pet home
+(`NOT_CARE_STATUSES`), archived or pedigree-only. Every routine-care list reads only these:
+`breedingDogs` (Today's `heatwatch` and `preventatives`, Check in on my dogs), `homeDogs`,
+`ownDogs`, and the Heat Cycles report's females.
 **Log for several dogs** is the same form over the dogs at home (`dogCare.homeDogs`: active
 breeding, retired breeding, for sale), with only the active breeding ones ticked (`cascadeTitle`,
 `cascadeSelected`); `dogs.html?logEvent=preventative&from=today` ticks only the active breeding
@@ -1017,8 +1022,8 @@ status-page action the waitlist inbox takes in after the page loaded shows witho
 | `promote` | a kept puppy is past its kennel's promote age (opt-in per kennel) | promote to active breeding |
 | `studpair` | a finished stud service has no `pairing_id` | create the pairing |
 | `heatpair` | a heat cycle ended with no pairing for that dam since | create a pairing |
-| `heatwatch` | an active breeding female's predicted next heat (`dogCare.predictNextHeat`: 6 months after a single heat, else last start + her average interval; future-dated heats count) is within `HEAT_NOTICE_DAYS` (30): "is expected to go into heat soon"; past it: "was expected to cycle recently — has that happened?". Logging a heat moves the prediction, so the key (dog, date, wording) changes | Log heat (her page's event form, dated the prediction or today) |
-| `preventatives` | from the 1st, while any active breeding dog has no `preventative` event dated this month (`dogCare.preventativeGaps`); goes by itself once all have one | Log (the Dogs page's Log for several dogs) |
+| `heatwatch` | an active breeding female's (`isCareDog`) predicted next heat (`dogCare.predictNextHeat`: 6 months after a single heat, else last start + her average interval; future-dated heats count) is within `HEAT_NOTICE_DAYS` (30): "is expected to go into heat soon"; past it: "was expected to cycle recently — has that happened?". Logging a heat moves the prediction, so the key (dog, date, wording) changes | Log heat (her page's event form, dated the prediction or today) |
+| `preventatives` | from the 1st, while any active breeding dog she looks after (`isCareDog`) has no `preventative` event dated this month (`dogCare.preventativeGaps`); goes by itself once all have one | Log (the Dogs page's Log for several dogs) |
 | `pairingduesoon` | a bred/confirmed pairing is due within 3 days, no litter | create the litter |
 | `studpick` | a completed stud service of our stud with a pick in its fee (`pick_of_litter` / `flat_plus_pick`), 63 + 56 days after it (returned, else sent; `studRules.pickDue`), no pup of that stud out of that dam born since on file, `pick_status` not settled (claimed / received / picked / done / waived) | **Add the puppy** (`dog.html?new=1&pick=<id>`) / **Not getting one** (`pick_status: 'waived'`) |
 | `pairingoverdue` | a pre-whelp pairing is past due, no litter | mark whelped / create litter |
@@ -2769,10 +2774,9 @@ run it; without a contact it's linked at approval, as ever.
 ### "Check in on my dogs"
 `assets/dogCheckinUI.js`, offered with any Active breeding dog of her own (priority 55 while a heat is
 due or late or a dog is missing this month's preventative, else 30); also from the Dogs page.
-Each thing is saved as she approves it. Every step looks only at her own dogs:
-`dogCare.ownDogs` (owned or co-owned; never external, leased-in or pedigree-only; never
-archived or deceased). Today's nudges and the reports still read `breedingDogs` on every dog.
-1. **Heats:** each of her own active breeding females' predicted next heat (`dogCare`, as the
+Each thing is saved as she approves it. Every step looks only at the dogs she looks after
+(`dogCare.ownDogs` = `isCareDog`, below).
+1. **Heats:** each of her active breeding females' predicted next heat (`dogCare`, as the
    `heatwatch` nudge) or "no heats logged yet", then "Do you want to log any heats?", one
    female at a time: a `heat_cycle` with start (the prediction if it's ahead, else today;
    any date, future included), optional end and notes, and her new prediction.
