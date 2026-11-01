@@ -20,6 +20,61 @@ export function mailMode(env) {
   return null;
 }
 
+// --- Counting what goes out (for /ops: emails sent month to date) ------------------
+//
+// Every Resend send goes through resendSend, which counts it (sent or failed) in
+// mail_counts by UTC month and kind. Counts only: never an address or a body.
+// Counting never fails a send: before migration 0019 is applied, or on any
+// database error, the count is skipped.
+export const MAIL_KINDS = Object.freeze(['code', 'notice', 'digest', 'family', 'test']);
+
+export async function countMail(env, kind, ok, now = new Date()) {
+  try {
+    const at = now.toISOString();
+    await env.DB.prepare(
+      `INSERT INTO mail_counts (month, kind, sent, failed, first_at) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT (month, kind) DO UPDATE SET sent = mail_counts.sent + excluded.sent, failed = mail_counts.failed + excluded.failed`,
+    ).bind(at.slice(0, 7), kind, ok ? 1 : 0, ok ? 0 : 1, at).run();
+  } catch {
+    console.error('mail count skipped');
+  }
+}
+
+// One email through Resend, counted. → the fetch Response (a network error throws,
+// counted as failed first).
+async function resendSend(env, kind, payload) {
+  let res;
+  try {
+    res = await fetch(RESEND_URL, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    await countMail(env, kind, false);
+    throw err;
+  }
+  await countMail(env, kind, res.ok);
+  return res;
+}
+
+// This month's counts (UTC), for /ops. → { month, countingSince, kinds: { kind: { sent, failed } }, sent, failed }.
+export async function mailCountsThisMonth(env, now = new Date()) {
+  const month = now.toISOString().slice(0, 7);
+  const { results } = await env.DB.prepare('SELECT kind, sent, failed FROM mail_counts WHERE month = ?').bind(month).all();
+  const kinds = Object.fromEntries(MAIL_KINDS.map((k) => [k, { sent: 0, failed: 0 }]));
+  let sent = 0;
+  let failed = 0;
+  for (const r of results) {
+    kinds[r.kind] = { sent: Number(r.sent) || 0, failed: Number(r.failed) || 0 };
+    sent += Number(r.sent) || 0;
+    failed += Number(r.failed) || 0;
+  }
+  // Counting began with migration 0019: before then nothing was counted.
+  const first = await env.DB.prepare('SELECT MIN(first_at) AS t FROM mail_counts').first('t');
+  return { month, countingSince: first ?? null, kinds, sent, failed };
+}
+
 export function assertMailAvailable(env) {
   if (!mailMode(env)) fail(503, 'email_unavailable');
 }
@@ -54,15 +109,11 @@ export async function sendTestEmail(env, rawEmail) {
   const email = String(rawEmail ?? '').trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, reason: 'That is not an email address.' };
   if (mailMode(env) !== 'resend') return { ok: false, reason: 'RESEND_API_KEY is not set, so there is nothing to test.' };
-  const res = await fetch(RESEND_URL, {
-    method: 'POST',
-    headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
-    body: JSON.stringify({
-      from: env.MAIL_FROM || DEFAULT_FROM,
-      to: [email],
-      subject: 'KennelOS test email',
-      text: 'This is a test sent from KennelOS ops. Sign-in codes will come from this address.\n',
-    }),
+  const res = await resendSend(env, 'test', {
+    from: env.MAIL_FROM || DEFAULT_FROM,
+    to: [email],
+    subject: 'KennelOS test email',
+    text: 'This is a test sent from KennelOS ops. Sign-in codes will come from this address.\n',
   });
   if (res.ok) return { ok: true };
   let detail = '';
@@ -148,11 +199,7 @@ export async function sendFamilyMessage(env, {
   if (!mode) fail(503, 'email_unavailable');
   let status = 'sent';
   if (mode === 'resend') {
-    const res = await fetch(RESEND_URL, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ from: from || env.MAIL_FROM || DEFAULT_FROM, to: [to], subject, text: text + footer }),
-    });
+    const res = await resendSend(env, 'family', { from: from || env.MAIL_FROM || DEFAULT_FROM, to: [to], subject, text: text + footer });
     if (!res.ok) {
       console.error('resend send failed', res.status);
       status = 'failed';
@@ -174,11 +221,7 @@ export async function sendCode(env, { email, emailHash, code, minutes, message =
   const mode = mailMode(env);
 
   if (mode === 'resend') {
-    const res = await fetch(RESEND_URL, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ from: env.MAIL_FROM || DEFAULT_FROM, to: [email], ...(message ?? codeMessage(code, minutes)) }),
-    });
+    const res = await resendSend(env, 'code', { from: env.MAIL_FROM || DEFAULT_FROM, to: [email], ...(message ?? codeMessage(code, minutes)) });
     if (!res.ok) {
       console.error('resend send failed', res.status);
       fail(502, 'email_failed');
@@ -202,11 +245,7 @@ export async function sendCode(env, { email, emailHash, code, minutes, message =
 export async function sendNotice(env, { email, emailHash, message }) {
   const mode = mailMode(env);
   if (mode === 'resend') {
-    const res = await fetch(RESEND_URL, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ from: env.MAIL_FROM || DEFAULT_FROM, to: [email], ...message }),
-    });
+    const res = await resendSend(env, 'notice', { from: env.MAIL_FROM || DEFAULT_FROM, to: [email], ...message });
     if (!res.ok) {
       console.error('resend send failed', res.status);
       fail(502, 'email_failed');
@@ -229,11 +268,7 @@ export async function sendDigestMail(env, { to, subject, text }) {
   const mode = mailMode(env);
   if (mode === 'resend') {
     try {
-      const res = await fetch(RESEND_URL, {
-        method: 'POST',
-        headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
-        body: JSON.stringify({ from: env.MAIL_FROM || DEFAULT_FROM, to: [to], subject, text }),
-      });
+      const res = await resendSend(env, 'digest', { from: env.MAIL_FROM || DEFAULT_FROM, to: [to], subject, text });
       if (res.ok) return 'sent';
       console.error('resend send failed', res.status);
     } catch {

@@ -72,3 +72,30 @@ test('/ops can send a test email through Resend, and reports a refusal', async (
   assert.match(await (await send('me@example.com')).text(), /Resend refused it \(403\): The kennelos\.app domain is not verified\./);
   assert.match(await (await send('nope')).text(), /not an email address/);
 });
+
+test('every Resend send is counted by month and kind, sent or failed; never an address', async () => {
+  const { mailCountsThisMonth, sendTestEmail, sendDigestMail } = await import('../src/mail.js');
+  const env = await makeEnv({ RESEND_API_KEY: 're_test' });
+  captureFetch();
+  await call(env, 'POST', '/auth/start', { body: { email: 'count@example.com' } });
+  await sendTestEmail(env, 'count@example.com');
+  captureFetch(500);
+  assert.equal(await sendDigestMail(env, { to: 'count@example.com', subject: 's', text: 't' }), 'failed');
+  const mc = await mailCountsThisMonth(env);
+  assert.equal(mc.month, new Date().toISOString().slice(0, 7));
+  assert.equal(mc.sent, 2);
+  assert.equal(mc.failed, 1);
+  assert.deepEqual(mc.kinds.code, { sent: 1, failed: 0 });
+  assert.deepEqual(mc.kinds.test, { sent: 1, failed: 0 });
+  assert.deepEqual(mc.kinds.digest, { sent: 0, failed: 1 });
+  assert.ok(mc.countingSince);
+  const rows = JSON.stringify(env.DB.raw.prepare('SELECT * FROM mail_counts').all());
+  assert.equal(rows.includes('count@example.com'), false);
+});
+
+test('the staging outbox counts nothing: no email went out', async () => {
+  const { mailCountsThisMonth } = await import('../src/mail.js');
+  const env = await makeEnv();
+  await call(env, 'POST', '/auth/start', { body: { email: 'outbox@example.com' } });
+  assert.equal((await mailCountsThisMonth(env)).sent, 0);
+});

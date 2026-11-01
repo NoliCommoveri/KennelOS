@@ -2064,3 +2064,11 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Same in the copied text; the publish page's hint says so. The Worker keeps `wants_more`
   to 6 short strings. Tests in `waitlistForm`, `familyPages` (root and cloud). Needs a
   Worker deploy for the online list.
+- **/ops: emails sent month to date, and the Mapbox key (2026-11-01).** Asked by the owner.
+  Migration `0019_mail_counts` (month UTC, kind, sent, failed, first_at; counts only, not in
+  the D1 export). Every Resend send now goes through `mail.resendSend`, which counts it by
+  kind (code, family, digest, notice, test); a count never fails a send. /ops shows the
+  month's total, failures and a row per kind, and from when counting began (nothing before
+  `0019` was counted). Health has **Driving miles (Mapbox)**: off, working (a live geocode of
+  Denver and one Matrix element to Boulder, no one's address) or not working with Mapbox's
+  HTTP status and message and what to do. Tests in cloud `mail` and `ops-sections`.
