@@ -22,7 +22,8 @@ export const PICKUP_REQUEST_SHOWN_DAYS = 30;
 export const pendingPickupRequests = (entry) => (Array.isArray(entry?.pickup_requests) ? entry.pickup_requests : []).filter((r) => r && !r.decided);
 
 // May this family suggest their own meetup place? true / false, or null when her
-// distance rule is on and where they live isn't known yet (their page asks).
+// distance rule is on and their distance isn't known (their page asks while no
+// place is known at all; with an unmeasured place she decides on their entry).
 export function ownPlaceAllowed(entry, config) {
   if (typeof entry?.own_place_override === 'boolean') return entry.own_place_override;
   if (!locationRuleOn(config)) return true;
@@ -89,8 +90,10 @@ export function familyPickupView({ entry, sales, dogsById, litters, kennel, conf
     ? { date: r.date, requires: priceList.find((x) => x.id === r.requires_list_id)?.label || 'a package', has_it: theirs.has(r.requires_list_id) }
     : { date: r.date, boarding: true }));
   const own = ownPlaceAllowed(entry, config);
+  // Asked only while no place is known. A place on file that couldn't be measured
+  // (no map key, or not found) isn't asked again: she chooses on their entry.
   const view = {
-    ready_from: from, slots, dates, booked, requests, own_place: own, ask_home: own === null,
+    ready_from: from, slots, dates, booked, requests, own_place: own, ask_home: own === null && !entry.home_place,
     far_miles: Number(config.transport_far_miles) || 0, min_home_miles: Number(config.transport_min_home_miles) || 0
   };
   return slots.length || booked || requests.length || own !== false ? view : null;

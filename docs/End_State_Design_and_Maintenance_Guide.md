@@ -1760,7 +1760,9 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   `change_until`, the rules on the dates they can see (`dates`: `requires` + `has_it`, or
   `boarding`; a package date's times can't be chosen until the extra is on their sale, and
   the Worker refuses `needs_extra`), their requests, `own_place` (`ownPlaceAllowed`: her override, else her
-  distance rule against `home_miles`, null = ask) and `ask_home`; the projection's `server`
+  distance rule against `home_miles`, null = unknown) and `ask_home` (unknown and no
+  `home_place` at all: a place on file that couldn't be measured isn't asked again; their
+  entry's Pickup card says so and she chooses); the projection's `server`
   part carries her standard location's address for the Worker only. Their page's **Pickup**
   card books a time, changes or cancels it until her cutoff, suggests their own address, or
   says where they live. Events `pickup_book` / `pickup_cancel` / `pickup_address` (the

@@ -1935,3 +1935,15 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   first part (keep / move / refund, the items that come off, the pup back, then offer the
   next family). Extras payments due join step 7. Three questions are left open there. Plan
   only; nothing built.
+- **Review my waitlist: three questions decided (2026-11-01).** The owner took all three
+  proposals: a back-out with no request takes the full back-out path; own-address pickups
+  are set up in the conversation; extras payments due are in step 7.
+- **"Where do you live?" no longer asked over and over (2026-11-01).** Found while checking
+  the owner's report that the question never appeared (it shows only with the distance rule
+  on, i.e. a "live at least N miles away" figure above 0 on Pickup & transport, for a signed-in
+  family with an open sale and a pup, whose home wasn't measured from the application or
+  contact). Traced end to end: it does ask, but an answer the server couldn't measure (no
+  Mapbox key, or a place it can't find) left the distance unknown, so the page asked again
+  at every update. `ask_home` now needs no `home_place` on file; with an unmeasured place the
+  entry's Pickup card says the distance couldn't be measured and she chooses. Test in
+  `tests/familyPickup.test.js`.

@@ -635,8 +635,7 @@ counted: only she knows.) Then **Start with the first** /
      out, or a pup died or can't go home." → **Yes** / **No**. Yes → her open sales as
      choices (pup, family, litter) → "What happened?":
      - **The family backed out** → for a buyer with a waitlist entry, the back-out path
-       above with no request (keep / move / refund, the items, the pup back; see the open
-       question below); otherwise `cancelled`, "Their deposit stays as income." Then, with
+       above with no request (keep / move / refund, the items, the pup back); otherwise `cancelled`, "Their deposit stays as income." Then, with
        the pup still here: "Offer [pup] to the next family?" (step 5 for that litter).
      - **The pup died** → `voided`, `pup_died`; then **Record [pup]'s death** (date, cause).
      - **The pup failed a health check** → `voided`, `failed_health_check`; then **Put
@@ -691,17 +690,13 @@ preventatives loop does).
   (`pick`, `pass`, `prepass` / `unprepass`, `still_interested`, `leave`, `ready`,
   `home_location`) and show up only through what they cause: a message note (step 1), a
   turn moving on (steps 3 and 5), "Ready now?" answers (step 8).
-- **Open (to decide before building):**
-  - **A back-out with no request.** When she picks "The family backed out" for a buyer
-    with a waitlist entry, use the full back-out path (keep / move / refund, the items,
-    the pup back) instead of a plain cancel? Proposed: yes, so the extras, stays, pickups
-    and the pup are handled the same however she heard.
-  - **Own-address pickups in the conversation.** Proposed: Kels asks the day, time and
-    method and shows the fee working (**Set it up**), with **Open their page** always
-    there; the alternative is a hand-off to the entry page only.
-  - **Extras payments due in step 7.** Proposed: yes, after the waitlist fees, because a
-    waitlist family's extras plan is part of their waitlist money; the alternative leaves
-    `extra-due` to Today.
+- **Decided (2026-11-01):**
+  - **A back-out with no request** (she picks "The family backed out" for a buyer with a
+    waitlist entry) takes the full back-out path (keep / move / refund, the items, the pup
+    back), not a plain cancel, so it's handled the same however she heard.
+  - **Own-address pickups are set up in the conversation** (**Set it up**: day, time,
+    method, the fee working), with **Open their page** always there.
+  - **Extras payments due are in step 7**, after the waitlist fees.
 - **Decided (2026-11-01):** messages and family requests lead (step 1); **Not yet, remind me
   in a few days** on open picks only snoozes the `waitlist-open-picks` nudge (3 days) and
   leaves `accept_deposits_date` as she planned it; **Change the date** is how she moves it.

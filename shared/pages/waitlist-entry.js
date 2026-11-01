@@ -426,7 +426,7 @@ function homeHtml(e) {
     : 'Where they live isn\'t known yet; their status page asks once their pup is picked.';
   const state = typeof e.own_place_override === 'boolean' ? ' (your choice)' : ' (your distance rule)';
   return `<section class="card"><h2 style="margin-top:0;">Pickup</h2><p style="margin:0;">${where}</p>
-    <p class="field-hint">${allowed === true ? 'They can suggest their own meetup place' : allowed === false ? 'They choose from your listed places and times' : 'Waiting to hear where they live'}${allowed === null ? '' : state}.</p>
+    <p class="field-hint">${allowed === true ? 'They can suggest their own meetup place' : allowed === false ? 'They choose from your listed places and times' : e.home_place ? 'The distance couldn\'t be measured, so they aren\'t offered their own place: choose below' : 'Waiting to hear where they live'}${allowed === null ? '' : state}.</p>
     <span class="pill-row"><button class="btn btn-sm" data-own="true">Allow their own place</button><button class="btn btn-sm" data-own="false">Listed places only</button>${typeof e.own_place_override === 'boolean' ? '<button class="btn btn-sm" data-own="">Follow my rule</button>' : ''}</span></section>`;
 }
 
