@@ -7,7 +7,9 @@
 //                         else" (`other`, a few words) is always offered)
 //   back_out_policy       [{ reason_id ('any' or a reason), from_weeks?, until_weeks?,
 //                         outcome: 'keep' | 'move' }]: the first row that fits suggests
-//   back_out_policy_text  what families read before sending
+//   back_out_policy_text  what every family reads before sending (blank = the default;
+//                         [Kennel Name] filled in). Her policy rows are hers alone: they
+//                         only suggest an outcome to her and never reach a family.
 // Their request on the entry: `back_out_request` = { requested_date, reason: { id,
 // label, text }, note, decided?, decided_date?, outcome? }.
 
@@ -22,7 +24,8 @@ export const BACK_OUT_OUTCOMES = Object.freeze([
   { value: 'keep', label: 'Keep the deposit' },
   { value: 'move', label: 'Move the deposit to another pup' }
 ]);
-export const BACK_OUT_POLICY_TEXT_DEFAULT = 'If you need to back out, please tell us why. Depending on the reason and your puppy\'s age, your deposit may be moved to another puppy (you go to the end of the waitlist) or kept. We\'ll confirm what happens.';
+// The owner's wording (2026-11-01).
+export const BACK_OUT_POLICY_TEXT_DEFAULT = 'Please note that all paid deposits are non-refundable and by canceling, you are forfeiting your deposit. We do understand that sometimes, life happens; [Kennel Name] will review your reason for cancelling and will reach out if we determine you are eligible to apply any portion of your paid deposit to a future litter. If not eligible, you will be required to re-apply and place a new deposit should you decide to purchase one of our pups in the future.';
 
 const text = (v) => String(v ?? '').trim();
 const count = (v) => (v == null || v === '' || !Number.isFinite(Number(v)) || Number(v) < 0 ? null : Math.round(Number(v)));
@@ -41,7 +44,9 @@ export function backOutPolicy(config) {
   }));
 }
 
-export const backOutPolicyText = (config) => text(config?.back_out_policy_text) || BACK_OUT_POLICY_TEXT_DEFAULT;
+// What families read: her text, else the default, with [Kennel Name] filled in.
+export const backOutPolicyText = (config, kennelName = '') =>
+  (text(config?.back_out_policy_text) || BACK_OUT_POLICY_TEXT_DEFAULT).replace(/\[kennel name\]/gi, text(kennelName) || 'We');
 
 // The pup's age in whole weeks on `date`, or null without a birth date.
 export function ageWeeks(birthDate, date) {

@@ -15,7 +15,9 @@ before(async () => {
 test('her reasons, then "Something else"; the default list when she has none', () => {
   assert.deepEqual(backOutReasons({}).map((r) => r.id), ['changed_mind', 'circumstances', 'pup', 'timing', 'other']);
   assert.deepEqual(backOutReasons({ back_out_reasons: [{ id: 'moving', label: 'Moving' }, { id: 'other', label: 'x' }] }).map((r) => r.id), ['moving', 'other']);
-  assert.equal(backOutPolicyText({}), BACK_OUT_POLICY_TEXT_DEFAULT);
+  assert.equal(backOutPolicyText({}, 'Test Boston'), BACK_OUT_POLICY_TEXT_DEFAULT.replace('[Kennel Name]', 'Test Boston'));
+  assert.match(backOutPolicyText({}, 'Test Boston'), /^Please note that all paid deposits are non-refundable.*sometimes, life happens; Test Boston will review your reason/);
+  assert.equal(backOutPolicyText({ back_out_policy_text: 'Call [kennel name] first.' }, 'Briar Hollow'), 'Call Briar Hollow first.');
 });
 
 test('the first rule that fits the reason and the pup\'s age suggests; none fits: keep', () => {

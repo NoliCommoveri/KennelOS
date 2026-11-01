@@ -443,7 +443,7 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
       // Backing out: her reasons and what families read first, while any family can.
       ...(Object.values(entryViews).some((v) => v.back_out) ? {
         back_out_reasons: backOutReasons(config).map((r) => ({ id: r.id, label: r.label })),
-        back_out_policy_text: backOutPolicyText(config)
+        back_out_policy_text: backOutPolicyText(config, kennel.kennel_name)
       } : {}),
       // Only while some family has extras to see.
       ...(Object.values(entryViews).some((v) => v.extras) ? {

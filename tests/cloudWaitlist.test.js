@@ -644,6 +644,9 @@ test('backing out (Family Requests plan §7): a placed family asks, her policy s
   const page = await view();
   assert.deepEqual(page.family.back_out, { available: true, request: null });
   assert.equal(page.kennel.back_out_policy_text, 'Tell us why; we may move your deposit.');
+  const publishedBody = JSON.parse(raw('SELECT body FROM wl_projection')[0].body);
+  assert.equal('back_out_policy' in publishedBody.kennel, false, 'her deposit policy never reaches the server, let alone a family');
+  assert.equal(JSON.stringify(publishedBody).includes('"outcome":"move"'), false);
   assert.equal((await act('back_out', { reason_id: 'changed_mind', note: 'Landlord said no' })).status, 200);
   assert.equal((await act('back_out', { reason_id: 'changed_mind' })).status, 409, 'one at a time');
   await cw.syncWaitlistOnline();

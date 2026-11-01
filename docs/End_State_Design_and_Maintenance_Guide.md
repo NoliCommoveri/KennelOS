@@ -1776,7 +1776,9 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
 - **Backing out** (`docs/KennelOS_Family_Requests_Plan.md` §7; `data/backOut.js`): for a family
   with an open sale, the projection's `entry.back_out` (`{ available, request }`) and the
   kennel's `back_out_reasons` (`backOutReasons`: hers, else the defaults, plus **Something
-  else**) and `back_out_policy_text`. Their page's **Need to back out?** sends a reason, a
+  else**) and `back_out_policy_text` (`backOutPolicyText`: one text for every family, hers or
+  the owner's default about deposits being non-refundable and reviewed, `[Kennel Name]`
+  filled in; her policy rows never leave her device). Their page's **Need to back out?** sends a reason, a
   few words for Something else, and a note (`back_out` event; the Worker checks the reason
   and one request at a time) → `entry.back_out_request`. Her Waitlist settings hold the
   reasons, the policy rows (`back_out_policy`: reason or any, optional from / until weeks,

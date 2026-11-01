@@ -507,8 +507,9 @@ function backOutSettings(c) {
       <div id="bo-rows">${backOutPolicy(c).map((row) => policyRowHtml(row, reasons)).join('')}</div>
       <button type="button" class="btn btn-sm" data-act="bo-add">+ Add a rule</button>
       <span class="field-hint">When a family asks to back out, the first rule that fits their reason and the puppy's age (leave the weeks blank for any age) is suggested; you always choose. With none, keeping the deposit is suggested. A refund is never suggested.</span>
-      <label for="wl-bo-text" style="margin-top:8px;">What families read before they send</label>
-      <textarea id="wl-bo-text" rows="3" placeholder="${esc(BACK_OUT_POLICY_TEXT_DEFAULT)}">${esc(c.back_out_policy_text || '')}</textarea>
+      <label for="wl-bo-text" style="margin-top:8px;">What every family reads before they send</label>
+      <textarea id="wl-bo-text" rows="6">${esc(c.back_out_policy_text || BACK_OUT_POLICY_TEXT_DEFAULT)}</textarea>
+      <span class="field-hint">[Kennel Name] is filled in. Your deposit policy above is never shown to families; it only suggests an outcome to you.</span>
     </div>`;
 }
 
