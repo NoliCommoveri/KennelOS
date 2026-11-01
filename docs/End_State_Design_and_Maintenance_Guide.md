@@ -1792,7 +1792,8 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   `cancelled`, entry `withdrawn`; move → sale `cancelled`, entry reopened `active` at the
   end of the line (`position_anchor_date` today) with `carried_payment` for a paid deposit;
   refund → sale `voided` with end reason `buyer_backed_out` (never `restoresFamily`), entry
-  `withdrawn`. The offer that gave them the pup gets `backed_out_date` (not a pass; that
+  `withdrawn`. A ticked "Put [pup] back to" sets the pup Available (or Health hold, the default for a
+  health reason) so it can be offered again. The offer that gave them the pup gets `backed_out_date` (not a pass; that
   litter counts as spent), and an open turn is closed and moves on (`left`). The Sale page's
   extras have a **Done** tick (`completed_date`).
 - **Transport options email** (`transport_options`): one she sends (Communicate… for a family

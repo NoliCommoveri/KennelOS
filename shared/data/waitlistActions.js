@@ -1308,7 +1308,7 @@ export async function declinePickupRequest(entryId, requestId, { date = todayYMD
 // archived. The offer that gave them the pup is marked `backed_out_date` (never a
 // pass; that litter isn't offered to them again); a turn still open is closed and the
 // kennel moves on. → { entry, sale, outcome, next, waiting }
-export async function approveBackOut(entryId, { outcome, remove = [], date = todayYMD() } = {}) {
+export async function approveBackOut(entryId, { outcome, remove = [], pup = null, date = todayYMD() } = {}) {
   if (!['keep', 'move', 'refund'].includes(outcome)) throw new Error('Choose what happens to their deposit.');
   const entry = await load(entryId);
   const req = entry.back_out_request;
@@ -1327,6 +1327,12 @@ export async function approveBackOut(entryId, { outcome, remove = [], date = tod
     if (ev && !ev.is_archived && ev.subject_id === sale.dog_id) await eventRepo.archive(ev.id);
   }
   const note = `Backed out on ${date} (${why}).`;
+  // The pup back to Available (or Health hold), as the Sale page asks when a sale ends,
+  // so it can be offered to the next family.
+  if (pup === 'available' || pup === 'health_hold') {
+    const dog = await dogRepo.getById(sale.dog_id);
+    if (dog && dog.status !== 'deceased') await dogRepo.update(dog.id, { disposition: pup });
+  }
   await saleRepo.update(sale.id, {
     extra_charges: charges,
     ...(outcome === 'refund' ? { status: 'voided', end_reason: 'buyer_backed_out', end_note: note } : { status: 'cancelled' })

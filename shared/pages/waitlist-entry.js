@@ -513,11 +513,14 @@ async function onBackOut(decision) {
       ${outcome === 'move' ? '<p style="margin-top:0;">They go back on your list at the end of the line, with their application, fee and history. What they paid as a deposit goes toward their next pup.</p>' : ''}
       ${items.length ? `<p class="field-hint" style="margin:0 0 4px;">Tick what comes off with the sale. Extras you leave unticked stay on it, still owed.</p>
         ${items.map((it, i) => `<label class="check-inline" style="display:block; margin:4px 0;"><input type="checkbox" class="bo-item" data-i="${i}"${it.remove ? ' checked' : ''}> <strong>${esc(it.label)}</strong> <span class="faint">${esc(it.kind === 'charge' ? `extra, ${it.detail}` : it.detail)}</span></label>`).join('')}` : ''}
+      <label class="check-inline" style="display:block; margin:8px 0 4px;"><input type="checkbox" id="bo-pup" checked> Put ${esc(ctx.dogsById.get(sale.dog_id)?.call_name || 'the pup')} back to
+        <select id="bo-pup-to" style="width:auto;"><option value="available"${request.reason?.id === 'pup' ? '' : ' selected'}>Available</option><option value="health_hold"${request.reason?.id === 'pup' ? ' selected' : ''}>Health hold</option></select></label>
       <p class="field-hint" id="bo-summary" style="margin-top:8px;"></p>
       ${outcome === 'refund' ? '<div class="field"><label for="bo-type">Type REFUND to confirm</label><input id="bo-type" type="text" autocomplete="off"></div>' : ''}`,
     onConfirm: async (o) => {
       const remove = [...o.querySelectorAll('.bo-item:checked')].map((c) => items[Number(c.dataset.i)].id);
-      await actions.approveBackOut(e.id, { outcome, remove });
+      const pup = o.querySelector('#bo-pup').checked ? o.querySelector('#bo-pup-to').value : null;
+      await actions.approveBackOut(e.id, { outcome, remove, pup });
       await afterAction();
     }
   }, (o) => {

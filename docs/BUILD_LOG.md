@@ -1902,3 +1902,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   read the same text she can edit, defaulting to the owner's wording (deposits are
   non-refundable; [Kennel Name] reviews the reason for backing out and reaches out if any of it can apply to a
   future litter), with [Kennel Name] filled in. The settings box starts with that text.
+- **Backing out puts the pup back (2026-11-01).** Asked by the owner: the back-out confirm has
+  "Put [pup] back to Available" (Health hold when their reason is the pup's health), ticked,
+  so the pup can be offered to the next family, as the Sale page asks when a sale ends. All
+  of this session's app changes ride `kennelos-shell-v88`.

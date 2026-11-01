@@ -656,7 +656,9 @@ test('backing out (Family Requests plan §7): a placed family asks, her policy s
   const { computeNudges } = await import('../shared/data/nudges.js');
   assert.ok((await computeNudges()).some((n) => n.key === `waitlist-back-out:${entry.id}:${req.requested_date}`));
 
-  await actions.approveBackOut(entry.id, { outcome: 'move', remove: ['ph', pickup.id] });
+  await dogRepo.update(pups[0].id, { disposition: 'placed' });
+  await actions.approveBackOut(entry.id, { outcome: 'move', remove: ['ph', pickup.id], pup: 'available' });
+  assert.equal((await dogRepo.getById(pups[0].id)).disposition, 'available', 'the pup can be offered again');
   const after = await saleRepo.getById(sale.id);
   assert.equal(after.status, 'cancelled');
   assert.deepEqual(after.extra_charges.map((c) => [c.id, c.kept_after_cancel]), [['tr', true]], 'Photos off, the part-paid training kept and owed');
