@@ -1800,3 +1800,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   "no charge under X miles", every mile charged at or over it; families may suggest their own
   meetup place only if they live at least X miles away, measured once per family from their
   City / state (application, contact, or asked on the status page) with Mapbox (D17 open).
+- **Family Requests plan: every decision made (2026-11-01).** Asked by the owner: City / state
+  is a locked, required application question while the home-distance rule is on (D17c); the
+  rest follow the plan's recommendations (D3, D4b, D6, D8–D12, D15, D16, D17). Ready to build.

@@ -1,10 +1,9 @@
 # KennelOS — Family Requests Plan (extras, pickup, transport, backing out)
 
-> **Status: draft, nothing built.** Asked by the owner (2026-10-31). Families whose pup is
+> **Status: decided, nothing built.** Asked by the owner (2026-10-31). Families whose pup is
 > picked can ask for extras (photo and training packages), book a pickup time and place, see
 > her transport suggestions, and tell her they're backing out, all from their status page.
-> Decisions are in §8 (D1, D2, D4, D5, D7, D13 and D14 decided 2026-11-01; D3, D4b, D6, D8–D12, D15–D17 open); nothing is
-> built until the rest are answered.
+> Every decision is in §8 (all made 2026-11-01).
 
 ## 1. Where things are now
 
@@ -65,7 +64,7 @@ New `FAMILY_ACTIONS`: `extra_request`, `extra_cancel`, `pickup_book`, `pickup_ca
 Her example "under 6 weeks they can do X; over 7 weeks they can do Y" is two rows:
 X with `request_until_weeks: 6`, Y with `request_from_weeks: 7`.
 
-**Proposed:** windows are per row, with an optional **group default** she sets once
+**Decided (D3):** windows are per row, with an optional **group default** she sets once
 (`Kennel.extra_charge_groups[]` = `{ name, request_from_weeks, request_until_weeks,
 cancel_until_weeks }`) that rows without their own window follow. See D3.
 
@@ -171,13 +170,17 @@ Each is one Mapbox lookup (geocode the place, then one Matrix element); a city a
 geocodes to the town's center, which is close enough for "lives at least 200 miles away".
 
 **Where their home comes from**, first found wins:
-- their application's **City / state** answer (on the standard form, but optional and she
-  can remove it), or the contact's address;
-- otherwise the status page asks once, when they first open the pickup section: "Where do
+- their application's **City / state** answer, or the contact's address. While her
+  `transport_min_home_miles` setting is above 0, **City / state is a locked, required
+  question** on her application form (D17c, decided): it gets a `key` (`location`), she
+  can reword it but not remove it or make it optional, and Set up my application form says
+  why. Turning the setting back to 0 unlocks it;
+- otherwise (applications from before the rule, families she added by hand) the status page
+  asks once, when they first open the pickup section: "Where do
   you live? City and state is enough." (`home_location`, a new family action).
 
-**Who measures** (D17): applications and contacts are encrypted to her device, so the server
-can't read them. Proposed:
+**Who measures** (D17a, decided): applications and contacts are encrypted to her device, so
+the server can't read them.
 - **From the application or contact:** her device measures (`cloudApi.getDistance`) once,
   when the family's sale opens, stores `home_miles` on the entry (a number, not their
   address), and publishes only `own_place_allowed: true/false`.
@@ -189,22 +192,22 @@ Either way it's self-reported; she sees the city and the miles on the entry and 
 
 ## 5. Mileage and transport fee
 
-Three levels, cheapest first (D4):
-1. **A directions link** (no service): every location and a family's suggested spot gets
-   **Open in Maps** from her standard location; she reads the miles and types them.
-2. **Straight-line estimate** (offline): from the lat/lng saved on each location (she pastes
-   them, or taps **Use my location** at the spot), haversine × 1.25 for roads, shown as
-   "about 48 miles". Good enough to quote; not for exact billing.
-3. **Driving distance** through **Mapbox** (decided 2026-11-01): road miles and drive time,
-   only with the cloud on (details below).
+Two ways (D4, D4b decided):
+1. **Driving distance through Mapbox:** road miles and drive time, with the cloud on
+   (details below).
+2. **An Open in Maps link** (no service) on every location and every family's suggested
+   place, from her standard location: a check on Mapbox's figure, and how she gets miles
+   when Mapbox isn't available (she types them in).
 
-**Level 3 with Mapbox.** One key covers geocoding (address → point) and the Matrix API
+There's no offline straight-line estimate.
+
+**Mapbox.** One key covers geocoding (address → point) and the Matrix API
 (miles and minutes); a quote is one matrix element, so her volume sits far inside the free
 tier (about 100,000 elements and 100,000 geocodes a month at the time of writing).
 - **Key:** a Worker secret (`MAPBOX_TOKEN`), never in the app.
 - **Server:** `POST /geo/distance` `{ from, to }` (addresses) → `{ miles, minutes }`: geocode
   both, then one Matrix call. Signed-in accounts only, rate-limited per account, addresses
-  never logged (cloud rules). No key set → `503 geo_off`, and the app falls back to levels 1–2.
+  never logged (cloud rules). No key set → `503 geo_off`, and the app falls back to the Open in Maps link.
 - **For a family's own address** the server measures it itself when they submit (same code,
   rate-limited per family, a few a day), so the page can answer at once. Her **standard
   location's address is on the server** for that: her device publishes it in a server-only
@@ -275,10 +278,9 @@ or "18 miles: under your 25, no charge".
   money circumstances, the pup's health or temperament, timing, other) and a note. It's a
   request, not a cancellation: the sale stays as it is until she decides.
 - **Her deposit policy**, set in Waitlist settings: rows of reason × pup age, each with an
-  outcome: **keep the deposit**, **move it to another pup** (back in line or a pup now), or
-  **refund**. Example: "changed our mind, under 6 weeks → move it; over 6 weeks → keep it";
-  "pup's health, any age → move it or refund". Plus **policy text** families see before
-  sending.
+  outcome: **keep the deposit** or **move it to another pup** (to the end of the line).
+  Example: "changed our mind, under 6 weeks → move it; over 6 weeks → keep it"; "pup's
+  health, any age → move it". Plus **policy text** families see before sending.
 - **Her side:** the request shows the outcome her policy suggests for that reason and age,
   and her buttons are that outcome plus the others (she can always choose differently):
   - **Keep the deposit:** sale `cancelled` (today's rule: deposit stays earned).
@@ -366,55 +368,40 @@ new fee, the usual path) when she'd rather start over.
   refunded"), behind **More options…** and a typed confirm, since she doesn't plan to use it
   (§7).
 
-**Still open:**
+- **D3. Age windows. Decided (2026-11-01):** both: a group default she sets once, and an extra
+  with its own window overrides it (§3).
+- **D4b. Fallback. Decided (2026-11-01):** Open in Maps links kept; no offline straight-line
+  estimate (§5).
+- **D6. Training ↔ boarding link. Decided (2026-11-01):** stored on the boarding event
+  (`details.sale_id`, `details.extra_charge_id`); the sale finds its stays by query (§6).
+- **D8. Transport suggestions. Decided (2026-11-01):** her recommended list's **Getting your
+  pup home** group, always shown to families with a picked pup under its own heading, and
+  pulled into the transport options email.
+- **D9. Edition. Decided (2026-11-01):** Pro only (it needs the online waitlist).
+- **D10. Pickup times. Decided (2026-11-01):** per litter, with **Copy to another litter**;
+  1 family per time by default (her choice per time); changes up to 2 days before (her
+  setting, `pickup_change_days`).
+- **D11. Transport fee. Decided (2026-11-01):** fee per mile with **One way** / **Round trip**
+  radio buttons; **No charge under X miles** (every mile charged at or over it), compared
+  against the miles charged (after round-trip doubling); "she'll be in touch" over
+  `transport_far_miles`, default 150 (§5).
+- **D12. Backing out. Decided (2026-11-01):** reasons (editable): changed our mind; family or
+  money circumstances; the pup's health or temperament; timing; other. Her policy as rows of
+  reason × pup age → keep / move (refund is never suggested, D13); families see her policy
+  text before sending (§7).
+- **D15. A family's own address. Decided (2026-11-01):** kept on the request and the drop-off
+  event only, not added to their contact.
+- **D16. Extras payment plans. Decided (2026-11-01):** all four due rules (at an age, on
+  approval + days, before pickup, with the balance); set per extra with a group default;
+  the `extra-due` reminder from 7 days before (§3.1).
+- **D17. Where the family lives. Decided (2026-11-01):** her device measures from the
+  application's City / state or the contact, else the status page asks and the server
+  measures; City / state is a locked, required form question while the distance rule is on;
+  `transport_min_home_miles` defaults to 0 (§4.1).
 
-- **D3. Where the age windows live.** (a) on each extra only; (b) on the group only (every
-  training package shares one window); (c) both: a group default she sets once, and an extra
-  with its own window overrides it. **Proposed: (c).**
-- **D4b. The fallbacks besides Mapbox.** Families' own addresses need Mapbox (and the cloud)
-  anyway. Keep (a) **Open in Maps** links on her locations and requests (free, no service, a
-  check on the figure) and/or (b) the offline straight-line estimate. **Proposed: keep (a),
-  drop (b).**
-- **D6. Where the training ↔ boarding link is stored.** (a) on the boarding event
-  (`details.sale_id` + `details.extra_charge_id`), the sale finding its stays by query; (b) on
-  the sale's extra row (`boarding_event_id`). The app's rule is no back-pointers, one side
-  stored. **Proposed: (a)**: the event is what the Away board, Today and pickup already read.
-- **D8. Transport suggestions.** Reuse her recommended list with a **Getting your pup home**
-  group (name, link, notes), which the transport options email pulls from. On the status
-  page: (a) always shown to families with a picked pup; (b) only after she sends the
-  transport options email; (c) only in the email. **Proposed: (a)**, under a heading of its
-  own, so a far family can look before asking.
-- **D9. Edition.** All of this is Pro and needs the online waitlist (cloud). Lite has no online
-  waitlist, so nothing there. **Proposed: Pro only.**
-- **D10. Pickup times.** (a) Per litter or kennel-wide (every litter ready then can use
-  them)? **Proposed: per litter, with "copy to another litter".** (b) Families per time slot
-  (default 1)? (c) Last change before the pickup: **proposed 2 days**, her setting.
-- **D11. Transport fee and the mile limit.** (a) One way or round trip: **decided
-  (2026-11-01): her setting, radio buttons** next to the fee per mile (§5). Still open:
-  (b) free miles: **decided: "no charge under X miles", every mile charged at or over it**
-  (§5). Still open: (c) the "be in touch" limit, `transport_far_miles`: **proposed default
-  150 miles**, her setting; (d) whether "under X miles" compares the miles charged (after
-  round-trip doubling; **proposed**, so it matches what the family sees) or always one way.
-- **D17. Where the family lives** (§4.1). (a) Measured by her device from the application's
-  City / state or the contact, else asked on the status page and measured by the server
-  (**proposed**); or (b) always asked on the status page. (c) Make City / state a required
-  question on her form while "families can suggest their own place" is on: **proposed no**
-  (the status page asks when it's missing). (d) Default `transport_min_home_miles`:
-  **proposed 0 (every family can suggest a place) until she sets it.**
-- **D12. Backing out: reasons and policy.** (a) The family's reasons: **proposed** changed our
-  mind; family or money circumstances; the pup's health or temperament; timing; other (her
-  list, editable). (b) Her policy as rows of reason × pup age → keep / move / refund
-  (**proposed**), or one rule by age only. (c) Families see her policy text before sending:
-  **proposed yes**, a box she writes in, like the extras message.
-- **D16. Extras payment plans** (§3.1). (a) The due rules offered: at an age, on approval
-  (+ days), before pickup, with the balance: **proposed all four**; (b) the plan set per
-  extra with a group default, as D3 (**proposed**); (c) the `extra-due` reminder from **7
-  days** before.
-- **D15. A family's own address, saved?** The address is in the request she approves (she
-  needs it for the drop-off event's location). (a) Kept on the request and the drop-off event
-  only (**proposed**); (b) also added to their contact record.
+Every decision is made; the plan is ready to build in the order below.
 
-## 9. Proposed build order
+## 9. Build order
 
 1. Price list groups, windows and `family_can_request` (her side only; no server).
 2. Transport suggestions on the status page (D8: smallest server change).
