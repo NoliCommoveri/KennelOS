@@ -2054,3 +2054,13 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   pages: "Upcoming heat · estimated around March 2027" under the dam's name, and "Heat dates
   are estimates: the month shown is approximate and can shift." under the list. Tests in
   `waitlistRules`, `waitlistProjection`, cloud `familyPages` and `familyActions`.
+- **Public list: more under Wants, date added as a bubble (2026-11-01).** Asked by the owner.
+  Copy the list as text drops "added <date>". Online, the Added column is gone; each row ends
+  with an ⓘ whose bubble says "Added <date>" on hover, focus or tap (one document click
+  listener in `common.js`; CSS in `family.css`). "Wants" adds, after the sex, only what a
+  family narrowed (`publicWantsMore`, a row's `wants_more`): breed when the kennel has more
+  than one, "Full registration" when their purposes rule out Limited (show, breeding),
+  colors with color matching on, and listen-only parents ("Only from …" / "Not from …").
+  Same in the copied text; the publish page's hint says so. The Worker keeps `wants_more`
+  to 6 short strings. Tests in `waitlistForm`, `familyPages` (root and cloud). Needs a
+  Worker deploy for the online list.

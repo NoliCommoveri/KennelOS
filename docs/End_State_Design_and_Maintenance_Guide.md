@@ -1629,7 +1629,15 @@ it computes is stored.**
 - **Answer changes:** every change to `PREF_CHANGE_FIELDS` after `applied` is logged in
   `pref_change_log`. A narrower answer that would affect an open offer or next-in-line
   litter asks to confirm (`prefChangeEffect`).
-- **Public list** (`publicList`): `{ position, name, pref_sex, added }` only. Names are
+- **Public list** (`publicList`): `{ position, name, pref_sex, wants_more?, added }` only.
+  `wants_more` (`publicWantsMore`, absent when empty) is what else the family narrowed, as
+  short strings after the sex under "Wants": their breed only when the kennel has more than
+  one (`kennelBreeds`), "Full registration" when their purposes take Full but rule out
+  Limited, their colors only with `color_matching` on, and listen-only parents ("Only from
+  Ash or Juniper" / "Not from Juniper", by call name). Open answers never show. Online, the
+  date added is an ⓘ bubble at the row's end (hover, focus or tap), not a column; the
+  copied text leaves it out. The Worker passes `wants_more` on as at most 6 strings of 200
+  characters. Names are
   "First L." (`publicName`) or masked "A***** K" (`privateName`) when `private_listing`.
   **Paused families are left out and their numbers skipped**, and no family count is shown.
   With `waitlist_config.public_show_paused` on (Waitlist settings, "Show paused families on
@@ -1639,7 +1647,7 @@ it computes is stored.**
   `skipped_until` is `pausedUntil`: `paused_until`, or the readiness hold's
   `readyFromDate`, the later when both; null ("Skipped for now") when the hold has no end yet.
   The turn holder's row reads `DECIDING_LABEL` ("Currently deciding"). `publicListText`
-  is the copyable text version.
+  is the copyable text version (position, name, wants; no date added).
 - **"Almost your turn"** (`soonFamiliesForLitter` / `soonFamiliesForKennel`): the queue, one
   family per available pup; a family mid-turn elsewhere holds room but isn't notified.
 - `describeOfferChanges` turns any action's result into the lines every screen shows, so

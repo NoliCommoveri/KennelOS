@@ -32,7 +32,10 @@ test("the family pages' labels match vocab.js", () => {
 
 test('the turn holder\'s row: highlighted, "Currently deciding" for the name, sex and date kept', () => {
   const html = publicListHtml([{ position: 1, name: 'Currently deciding', pref_sex: 'female', added: '2026-01-01', deciding: true }, { position: 2, name: 'Bo K.', pref_sex: 'male', added: '2026-01-02' }], '', 2);
-  assert.match(html, /<tr class="deciding">\s*<td class="num">#1<\/td>\s*<td><em>Currently deciding<\/em><\/td>\s*<td>Female<\/td>\s*<td class="small">Jan 1, 2026<\/td>/);
+  assert.match(html, /<tr class="deciding">\s*<td class="num">#1<\/td>\s*<td><em>Currently deciding<\/em><\/td>\s*<td>Female<\/td>\s*<td class="tip"><button type="button" class="added-tip" aria-label="Added Jan 1, 2026" data-tip="Added Jan 1, 2026">i<\/button><\/td>/);
+  assert.equal(/<th>Added<\/th>/.test(html), false, 'the date added is a bubble, not a column');
+  assert.match(publicListHtml([{ position: 1, name: 'Ann A.', pref_sex: 'female', wants_more: ['Full registration', '<b>'], added: '2026-01-01' }]),
+    /<td>Female · Full registration · &lt;b&gt;<\/td>/, 'what else they narrowed, escaped');
   assert.match(html, /<tr class="mine">/);
   assert.match(publicListHtml([]), /No families to show right now/);
 });

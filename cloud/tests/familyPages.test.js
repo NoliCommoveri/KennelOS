@@ -371,6 +371,17 @@ test('planned heats (Spec §16.4): the dam and the month only, never a day; noth
   assert.deepEqual(statusView(p, 'ann').upcoming, [{ ...row, pairing_id: null, litter_id: null, waiting: false }]);
 });
 
+test('the public list passes on what else a family narrowed as short strings only', () => {
+  const p = projection();
+  p.public_list = [
+    { position: 1, name: 'Ann A.', pref_sex: 'female', added: '2026-01-01', wants_more: ['Full registration', 7, '  ', 'x'.repeat(300), 'a', 'b', 'c', 'd', 'e'] },
+    { position: 2, name: 'Bo B.', pref_sex: 'any', added: '2026-01-02', wants_more: 'nope' },
+  ];
+  const [a, b] = listView(p).rows;
+  assert.deepEqual(a.wants_more, ['Full registration', 'x'.repeat(200), 'a', 'b', 'c', 'd']);
+  assert.equal('wants_more' in b, false);
+});
+
 test('Coming up on the public list holds only what she switched on for the public', () => {
   const p = projection();
   p.upcoming = [

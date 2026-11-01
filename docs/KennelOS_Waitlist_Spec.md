@@ -543,7 +543,7 @@ readable form** (Proposal §6). Applicants are other people. The split:
 | Full application answers (phone, address, household, essay…) | **Encrypted** to her device's key; the server can't read it | Nothing automatic needs it |
 | Applicant **name + email** | **Readable** | Automatic messages have to go out while her phone is off. The applicant gave these **directly to this service**, under its privacy policy, which differs from buyers she typed in herself. |
 | Position, status, offers, deadlines, litter cards | Readable (no personal details) | The status page and reminders |
-| **Public list** projection: first name, last initial, sex preference, date added, position, for `active` entries that aren't paused (§15.3) | **Readable and public** | It's published on purpose. Applicants are told on the form before they apply. |
+| **Public list** projection: first name, last initial, sex preference and any narrowed breed / Full registration / colors / listen-only parents (§15.3), date added, position, for `active` entries that aren't paused (§15.3) | **Readable and public** | It's published on purpose. Applicants are told on the form before they apply. |
 | Invoice and receipt PDFs for a family (§15.2) | **Not on the server** (dropped from W2, 2026-10-08) | She sends them herself |
 | Fee amount + her payment instructions, **for `approved` entries only** | **Readable, in that family's status-page projection only** | The status page shows what to pay and how (§5.3). Her device removes them from the projection once the fee is received, declined or expired. They never appear in an email. |
 | **Fee received** (that it was received, and the date) | **Readable**, in that family's projection | The status page shows "Fee received" and their place in line (Q11, decided 2026-10-08) |
@@ -1093,6 +1093,11 @@ list"); both are marked there.
 - **Shown (allow-list, decided 2026-10-06):** position, first name + last initial (or the
   private form of it, below), sex
   preference, and date added (`fee_received_date`, or `position_anchor_date` if set).
+  **Modified 2026-11-01 (asked by the owner):** "Wants" also shows what a family narrowed,
+  never an open answer: their breed (only when the kennel has more than one), "Full
+  registration" when their purposes rule out Limited, colors (only with color matching on)
+  and their listen-only sires and dams by call name. Online, the date added is a hover/tap
+  bubble at the row's end instead of a column; the copied text leaves it out.
 - **Listing privately (decided 2026-10-10).** Under the notice, the online form offers
   *"Please show my name privately on the public list"*. Ticked, the entry arrives with
   `private_request` (`{ requested_date }`), and she answers it **in the Approve dialog**:

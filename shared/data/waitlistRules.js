@@ -1357,7 +1357,7 @@ export const listedName = (entry, fullName) => (entry && entry.private_listing ?
 // who holds a turn at that moment (cloud/src/familyPages.js listView), so a turn
 // the server closes or opens while her phone is off shows right away.
 export const DECIDING_LABEL = 'Currently deciding';
-export function publicList(entries, kennelId, programsById = new Map(), { today, nameOf = (e) => entryName(e, null), deciding = () => false, config = null } = {}) {
+export function publicList(entries, kennelId, programsById = new Map(), { today, nameOf = (e) => entryName(e, null), deciding = () => false, config = null, wantsMore = () => [] } = {}) {
   return rankedList(entries, kennelId, programsById)
     .map((e, i) => ({ entry: e, position: i + 1 }))
     .map(({ entry, position }) => ({ entry, position, paused: isPaused(entry, today, config) }))
@@ -1365,17 +1365,45 @@ export function publicList(entries, kennelId, programsById = new Map(), { today,
     .map(({ entry, position, paused }) => ({
       position,
       name: deciding(entry) ? DECIDING_LABEL : listedName(entry, nameOf(entry)),
-      ...(paused ? { skipped: true, skipped_until: pausedUntil(entry, today, config) } : { pref_sex: entry.pref_sex || 'any' }),
+      ...(paused ? { skipped: true, skipped_until: pausedUntil(entry, today, config) } : { pref_sex: entry.pref_sex || 'any', ...wantsMoreOf(wantsMore(entry)) }),
       added: anchorDate(entry),
       ...(deciding(entry) ? { deciding: true } : {})
     }));
 }
 
-// What a public-list row shows under "Wants": the sex preference, or for a paused
-// family (shown only with public_show_paused) "Skipped until …" / "Skipped for now".
+const wantsMoreOf = (list) => (Array.isArray(list) && list.length ? { wants_more: list } : {});
+
+// What else a public-list row shows under "Wants", after the sex (asked by the
+// owner, 2026-11-01): only what a family narrowed, never an answer left open.
+// Their breed, only when the kennel has more than one (`breeds`, kennelBreeds);
+// "Full registration" when their purposes rule Limited out but take Full (show,
+// breeding); their colors, only with color matching on (else colors don't
+// restrict); and their listen-only parents ("Only from Juniper or Ash" /
+// "Not from Juniper"), by call name (`dogsById`). → [string].
+export function publicWantsMore(entry, { config = WAITLIST_CONFIG_DEFAULTS, breeds = [], dogsById = new Map() } = {}) {
+  const out = [];
+  if (key(entry.pref_breed) && breeds.length > 1) out.push(String(entry.pref_breed).trim());
+  const regs = registrationsForPurposes(entry.pref_purposes);
+  if (regs && regs.includes('full') && !regs.includes('limited')) out.push('Full registration');
+  if (config && config.color_matching) {
+    const raw = Array.isArray(entry.pref_colors) ? entry.pref_colors : String(entry.pref_colors ?? '').split(',');
+    const colors = raw.map((c) => String(c ?? '').trim()).filter(Boolean);
+    if (colors.length) out.push(colors.join(' or '));
+  }
+  if (isListenOnly(entry)) {
+    const names = [...new Set([...(entry.listen_sire_ids || []), ...(entry.listen_dam_ids || [])]
+      .map((id) => dogsById.get(id)?.call_name).filter(Boolean))];
+    if (names.length) out.push(`${entry.listen_mode === 'except' ? 'Not from' : 'Only from'} ${names.join(' or ')}`);
+  }
+  return out;
+}
+
+// What a public-list row shows under "Wants": the sex preference and anything
+// else they narrowed (publicWantsMore), or for a paused family (shown only with
+// public_show_paused) "Skipped until …" / "Skipped for now".
 export function publicWants(row, fmtDate = (d) => d) {
   if (row.skipped) return row.skipped_until ? `Skipped until ${fmtDate(row.skipped_until)}` : 'Skipped for now';
-  return PUBLIC_SEX[row.pref_sex] || 'Either';
+  return [PUBLIC_SEX[row.pref_sex] || 'Either', ...(Array.isArray(row.wants_more) ? row.wants_more : [])].join(' · ');
 }
 
 const PUBLIC_SEX = { male: 'Male', female: 'Female', any: 'Either' };
@@ -1385,7 +1413,7 @@ const PUBLIC_SEX = { male: 'Male', female: 'Female', any: 'Either' };
 export function publicListText(rows, { kennelName = '', today = '', fmtDate = (d) => d } = {}) {
   const head = `${kennelName ? `${kennelName} Waitlist` : 'Waitlist'}${today ? ` (updated ${fmtDate(today)})` : ''}`;
   if (!rows.length) return `${head}\nNo families to show right now.`;
-  const lines = rows.map((r) => `#${r.position} ${r.name} · ${publicWants(r, fmtDate)} · added ${fmtDate(r.added)}`);
+  const lines = rows.map((r) => `#${r.position} ${r.name} · ${publicWants(r, fmtDate)}`);
   const gaps = rows.some((r, i) => r.position !== i + 1);
   return [head, '', ...lines, ...(gaps ? ['', 'Note: in special circumstances, some applicant names may not be displayed above. Their place is being held, but they are not currently eligible for available pups.'] : [])].join('\n');
 }

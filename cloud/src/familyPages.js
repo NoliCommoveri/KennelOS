@@ -240,7 +240,13 @@ function publicRows(projection) {
     .map((e) => e.position));
   return rows.map((r) => (deciding.has(r.position) || r.deciding
     ? { ...r, name: DECIDING_LABEL, deciding: true }
-    : r));
+    : r)).map((r) => {
+    // What else they narrowed, after the sex (her device's publicWantsMore): short
+    // strings only, at most 6.
+    const { wants_more: more, ...rest } = r;
+    const list = Array.isArray(more) ? more.filter((x) => typeof x === 'string' && x.trim()).slice(0, 6).map((x) => x.trim().slice(0, 200)) : [];
+    return list.length ? { ...rest, wants_more: list } : rest;
+  });
 }
 
 // A litter with open picks as the pages show it (Available Puppies): her nickname,

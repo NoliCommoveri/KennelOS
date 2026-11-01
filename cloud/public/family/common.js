@@ -117,14 +117,28 @@ export function publicListHtml(rows, query = '', mine = null) {
   if (!rows.length) return '<p class="muted">No families to show right now.</p>';
   if (!shown.length) return `<p class="muted">No one on the list matches "${esc(query)}".</p>`;
   const rowClass = (r) => [r.position === mine && 'mine', r.deciding && 'deciding'].filter(Boolean).join(' ');
+  // The date added is a bubble on the ⓘ at the row's end (hover, focus or tap),
+  // not a column (asked by the owner, 2026-11-01).
+  const added = (r) => (r.added ? `<button type="button" class="added-tip" aria-label="Added ${esc(fmtDate(r.added))}" data-tip="Added ${esc(fmtDate(r.added))}">i</button>` : '');
+  const wants = (r) => [SEX_LABEL[r.pref_sex] || 'Either', ...(Array.isArray(r.wants_more) ? r.wants_more : [])].map(esc).join(' · ');
   const body = shown.map((r) => `<tr${rowClass(r) ? ` class="${rowClass(r)}"` : ''}>
       <td class="num">#${esc(r.position)}</td>
       <td>${r.deciding ? `<em>${esc(r.name)}</em>` : esc(r.name)}${r.position === mine ? ' <span class="badge">You</span>' : ''}</td>
-      <td>${r.skipped ? `<em>${esc(r.skipped_until ? `Skipped until ${fmtDate(r.skipped_until)}` : 'Skipped for now')}</em>` : esc(SEX_LABEL[r.pref_sex] || 'Either')}</td>
-      <td class="small">${esc(fmtDate(r.added))}</td></tr>`).join('');
+      <td>${r.skipped ? `<em>${esc(r.skipped_until ? `Skipped until ${fmtDate(r.skipped_until)}` : 'Skipped for now')}</em>` : wants(r)}</td>
+      <td class="tip">${added(r)}</td></tr>`).join('');
   const gaps = rows.some((r, i) => r.position !== i + 1);
-  return `<table class="list"><thead><tr><th>#</th><th>Name</th><th>Wants</th><th>Added</th></tr></thead><tbody>${body}</tbody></table>
+  return `<table class="list"><thead><tr><th>#</th><th>Name</th><th>Wants</th><th class="tip"><span class="sr-only">Added</span></th></tr></thead><tbody>${body}</tbody></table>
     ${gaps ? '<p class="small muted">Note: in special circumstances, some applicant names may not be displayed above. Their place is being held, but they are not currently eligible for available pups.</p>' : ''}`;
+}
+
+// A tap on an ⓘ opens its bubble (touch screens have no hover); a tap anywhere
+// else closes it. One listener for every list on the page.
+if (typeof document !== 'undefined') {
+  document.addEventListener('click', (ev) => {
+    const tip = ev.target instanceof Element ? ev.target.closest('.added-tip') : null;
+    for (const t of document.querySelectorAll('.added-tip.open')) if (t !== tip) t.classList.remove('open');
+    if (tip) tip.classList.toggle('open');
+  });
 }
 
 // A pairing or litter before picks open (Waitlist Spec §16.4): its parents with

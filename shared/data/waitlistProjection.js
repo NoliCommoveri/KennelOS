@@ -21,7 +21,7 @@
 // message stay on her device: the page shows what was asked, never the note.
 import { expectedPricing } from './saleDefaults.js';
 import {
-  waitlistConfig, openDays, closedDates, liveClosedDates, entryName, publicList, overallPositions, litterQueue, isPupAvailable, passesUsed,
+  waitlistConfig, openDays, closedDates, liveClosedDates, entryName, publicList, publicWantsMore, overallPositions, litterQueue, isPupAvailable, passesUsed,
   isManuallyPaused, readyFromDate, isReadyHeld, feeForEntry, kennelBreeds, listenParentChoices,
   rankedList, turnLittersFor, turnIdOf, passReasons, splitPrepassed, upcomingItems, plannedHeats, showUpcoming, isListeningFor, placeHidden, prefPlaces, whelpNotes, readyCheck, publicIntroText,
   messengerLink, embedOrigins
@@ -547,7 +547,8 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
     // Unmasked: the server shows "Currently deciding" for whoever holds a turn when
     // the page is served (publicList, familyPages.listView).
     public_list: publicList(live, kennel.id, programsById, {
-      today, nameOf: (e) => entryName(e, contactsById.get(e.contact_id)), config
+      today, nameOf: (e) => entryName(e, contactsById.get(e.contact_id)), config,
+      wantsMore: (e) => publicWantsMore(e, { config, breeds: kennelBreeds(kennel, dogs), dogsById })
     }),
     entries: entryViews,
     litters: litterViews,
