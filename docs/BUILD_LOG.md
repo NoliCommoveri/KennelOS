@@ -2085,3 +2085,13 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   8px with the description right under the name (about a third shorter overall).
 - **Family pages: less space outside the cards on phones (2026-11-01).** Asked by the owner: at
   520px and under, the page's side margin is 8px (was 16px) and cards are 10px apart (was 14px).
+- **Logging completed health tests (2026-11-01).** Asked by the owner. New pure
+  `data/healthTestLog.js` (test type from past use or the name, the event, a dog's unlogged
+  planned tests via `testGapRows`). Dog page: each unlogged planned test has **Log result**,
+  opening the event form with the type, today, title and name field filled in; saved, the
+  row leaves the card. Kels: **Log health test results** (`assets/healthTestsUI.js`, all
+  editions): dog → planned test or another → test, kind, date, result, lab (Genetic only),
+  saved at once; ticks the plan. Both new files precached. Tests:
+  `tests/healthTestLog.test.js`; both checked in the browser on the sample data. Seen while
+  checking: the Dog page throws a Dexie `SchemaError` on load with the sample data, before
+  this change too (not looked into).
