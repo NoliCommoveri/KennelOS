@@ -2095,3 +2095,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `tests/healthTestLog.test.js`; both checked in the browser on the sample data. Seen while
   checking: the Dog page throws a Dexie `SchemaError` on load with the sample data, before
   this change too (not looked into).
+- **SW cache bumped to `kennelos-shell-v90` (2026-11-01).** This session's app changes ride it:
+  planned heats on Coming up (the projection side), the public list's narrowed Wants and
+  copied text, the CSV import guide on phones, and logging completed health tests (Log
+  result on planned tests, Kels's Log health test results). The family pages and /ops
+  changes need a Worker deploy, then Apply pending (`0017`, `0019`) on /ops.
