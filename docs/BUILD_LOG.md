@@ -1774,3 +1774,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   transport (flight nanny) suggestions, training packages tied to boarding, and backing out
   with a deposit policy by reason and age. Draft in `docs/KennelOS_Family_Requests_Plan.md`
   with decisions D1–D9; nothing built.
+- **Family Requests plan: D4 provider decided (2026-11-01).** Asked by the owner: driving
+  miles come from Mapbox (geocoding + Matrix) through a Worker endpoint, `POST /geo/distance`,
+  storing only miles and minutes. Whether levels 1–2 ship first is still open.

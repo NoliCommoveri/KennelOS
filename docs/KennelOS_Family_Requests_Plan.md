@@ -97,9 +97,25 @@ Three levels, cheapest first (D4):
 2. **Straight-line estimate** (offline): from the lat/lng saved on each location (she pastes
    them, or taps **Use my location** at the spot), haversine × 1.25 for roads, shown as
    "about 48 miles". Good enough to quote; not for exact billing.
-3. **Driving distance** through a routing service (OpenRouteService has a free tier; Google's
-   Distance Matrix is paid): a call through `cloudApi.js` and the Worker, so it needs the
-   cloud, a key and an outbound call carrying both addresses to that service.
+3. **Driving distance** through **Mapbox** (decided 2026-11-01): road miles and drive time,
+   only with the cloud on (details below).
+
+**Level 3 with Mapbox.** One key covers geocoding (address → point) and the Matrix API
+(miles and minutes); a quote is one matrix element, so her volume sits far inside the free
+tier (about 100,000 elements and 100,000 geocodes a month at the time of writing).
+- **Key:** a Worker secret (`MAPBOX_TOKEN`), never in the app.
+- **Server:** `POST /geo/distance` `{ from, to }` (addresses) → `{ miles, minutes }`: geocode
+  both, then one Matrix call. Signed-in accounts only, rate-limited per account, addresses
+  never logged (cloud rules). No key set → `503 geo_off`, and the app falls back to levels 1–2.
+- **App:** `cloudApi.getDistance(from, to)`, the only network call, made when she taps
+  **Get driving miles** (never automatically), gated by `cloudConfig.isCloudAvailable()`.
+- **Stored:** only the miles and minutes (on the request or the sale, for the fee). The
+  geocoded points and route are not kept: Mapbox's free (temporary) geocoding doesn't allow
+  storing results.
+- **Privacy:** both addresses go to Mapbox on each lookup; the privacy policy says so.
+- **Why Mapbox:** one key for both steps, a generous free tier, no traffic needed for a
+  quote. Google works too but needs a billing account and its Distance Matrix is now legacy
+  (Routes API); OpenRouteService's free-plan commercial terms weren't clear.
 
 With miles known: `Kennel.mileage_rate` (per mile, optionally a round-trip switch and free
 miles) suggests `Sale.transport_fee`, which she can change.
@@ -146,7 +162,8 @@ miles) suggests `Sale.transport_fee`, which she can change.
 - **D2. Automatic or approved.** Proposed: extra requests and cancellations inside the window,
   and slot bookings, apply automatically; backing out always waits for her.
 - **D3. Windows per row, per group, or both** (proposed both, row wins).
-- **D4. Mileage level** to build first (proposed 1 + 2; 3 later, only if she asks).
+- **D4. Mileage.** **Decided (2026-11-01):** level 3 uses Mapbox (§5). Still open: build 1 + 2
+  first and add Mapbox after, or all three together.
 - **D5. Family-suggested meetup spots** in the first version, or slots only.
 - **D6. Training ↔ boarding link** on the event (proposed) or on the sale's extra row.
 - **D7. Moved deposit, place in line:** their old place, the end, or her choice each time.
