@@ -2236,3 +2236,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   the dogs she looks after, the Vet summary document type (backed up), All dogs ordered by
   status / sex / name, and Kels's Review my waitlist (two new precached files). The family
   pages' health tests need a Worker deploy.
+- **Driving miles fixed: Directions API, not Matrix (2026-11-01).** /ops showed "Driving
+  miles (Mapbox): not working (HTTP 422: … only 1 matrix element; minimum number of matrix
+  elements is 2)". The Matrix API refuses a request for a single distance, and both
+  `geo.drivingDistance` (her Get driving miles, a family's own address) and the /ops check
+  asked for exactly one. Both now ask Mapbox's Directions API for one route
+  (`routes[0].distance` / `duration`), same token. Tests' Mapbox stubs updated
+  (`cloud/tests/familyActions`, `ops-sections`, `tests/cloudWaitlist`). Needs a Worker deploy.

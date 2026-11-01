@@ -300,21 +300,21 @@ test('a pickup time only as published, with room, one request at a time; changes
   assert.throws(() => checkAction('pickup_book', { slot_id: 'x1' }, { ...at('2026-11-01'), entry: { ...entry, companion: null } }), /no_sale/);
 });
 
-test('driving miles: geocode both, one Matrix element; no key, no call; addresses stay out of the result', async () => {
+test('driving miles: geocode both, one route (Directions API); no key, no call; addresses stay out of the result', async () => {
   const { drivingDistance, handleGeoDistance } = await import('../src/geo.js');
   const realFetch = globalThis.fetch;
   const asked = [];
   globalThis.fetch = async (url) => {
     asked.push(String(url));
     if (String(url).includes('/geocode/')) return new Response(JSON.stringify({ features: [{ geometry: { coordinates: String(url).includes('Library') ? [-97.7, 30.2] : [-96.8, 32.8] } }] }));
-    return new Response(JSON.stringify({ distances: [[315000]], durations: [[11400]] }));
+    return new Response(JSON.stringify({ routes: [{ distance: 315000, duration: 11400 }] }));
   };
   try {
     await assert.rejects(drivingDistance({}, 'Library, Austin TX', 'Dallas TX'), /geo_off/);
     assert.equal(asked.length, 0, 'no key: nothing asked');
     assert.deepEqual(await drivingDistance({ MAPBOX_TOKEN: 'pk.test' }, 'Library, Austin TX', 'Dallas TX'), { miles: 195.7, minutes: 190 });
     assert.equal(asked.length, 3);
-    assert.match(asked[2], /directions-matrix\/v1\/mapbox\/driving\/-97\.7,30\.2;-96\.8,32\.8\?/);
+    assert.match(asked[2], /directions\/v5\/mapbox\/driving\/-97\.7,30\.2;-96\.8,32\.8\?/);
     globalThis.fetch = async (url) => new Response(JSON.stringify(String(url).includes('/geocode/') ? { features: [] } : {}));
     assert.equal(await drivingDistance({ MAPBOX_TOKEN: 'pk.test' }, 'Nowhere', 'Dallas TX'), null);
     const env = await makeEnv({ MAPBOX_TOKEN: 'pk.test' });

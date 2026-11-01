@@ -201,7 +201,7 @@ Two ways (D4, D4b decided):
 
 There's no offline straight-line estimate.
 
-**Mapbox.** One key covers geocoding (address → point) and the Matrix API
+**Mapbox.** (**Modified:** the route is the Directions API, not the Matrix API, which refuses a single distance.) One key covers geocoding (address → point) and the Matrix API
 (miles and minutes); a quote is one matrix element, so her volume sits far inside the free
 tier (about 100,000 elements and 100,000 geocodes a month at the time of writing).
 - **Key:** a Worker secret (`MAPBOX_TOKEN`), never in the app.
