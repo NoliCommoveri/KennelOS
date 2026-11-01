@@ -271,3 +271,53 @@ test('an extra can be asked for only as published, inside its dates, once; a can
   assert.throws(() => checkAction('extra_cancel', { charge_id: 'c1' }, at('2026-10-26')), /not_open/, 'past its cancel date');
   assert.throws(() => checkAction('extra_cancel', { charge_id: 'c2' }, at('2026-10-21')), /not_open/, 'she said no cancelling');
 });
+
+// --- Pickup (docs/KennelOS_Family_Requests_Plan.md §4) ---------------------------------
+
+test('a pickup time only as published, with room, one request at a time; changes until her cutoff; own place only when allowed', () => {
+  const pickup = {
+    slots: [{ id: 'x1', date: '2026-11-21', start_time: '10:00', end_time: '10:30', left: 1, location: { label: 'Library' } }, { id: 'x2', date: '2026-11-21', start_time: '11:00', left: 0, location: { label: 'Library' } }],
+    booked: null, requests: [], own_place: false, ask_home: true, far_miles: 150, min_home_miles: 200,
+  };
+  const entry = { status: 'placed', companion: { available: true }, pickup };
+  const at = (d, over = {}) => ({ entry: { ...entry, pickup: { ...pickup, ...over } }, projection: projection(), pending: [], now: new Date(`${d}T12:00:00Z`) });
+  assert.deepEqual(checkAction('pickup_book', { slot_id: 'x1' }, at('2026-11-01')),
+    { slot_id: 'x1', date: '2026-11-21', start_time: '10:00', end_time: '10:30', place: 'Library', note: '' });
+  assert.throws(() => checkAction('pickup_book', { slot_id: 'x2' }, at('2026-11-01')), /slot_full/);
+  assert.throws(() => checkAction('pickup_book', { slot_id: 'nope' }, at('2026-11-01')), /not_listed/);
+  assert.throws(() => checkAction('pickup_book', { slot_id: 'x1' }, { ...at('2026-11-01'), pending: [{ kind: 'pickup_book', payload: {} }] }), /already_requested/);
+  assert.throws(() => checkAction('pickup_book', { slot_id: 'x1' }, at('2026-11-04', { booked: { date: '2026-11-05', change_until: '2026-11-03' } })), /too_late/, 'past her cutoff');
+  assert.deepEqual(checkAction('pickup_cancel', {}, at('2026-11-02', { booked: { date: '2026-11-05', change_until: '2026-11-03' } })), { note: '' });
+  assert.throws(() => checkAction('pickup_address', { address: '9 Oak, Dallas TX' }, at('2026-11-01')), /not_allowed/);
+  assert.deepEqual(checkAction('pickup_address', { address: ' 9 Oak,  Dallas TX ', date: '2026-11-22' }, at('2026-11-01', { own_place: true })), { address: '9 Oak, Dallas TX', date: '2026-11-22', note: '' });
+  assert.throws(() => checkAction('pickup_address', { address: '9 Oak', date: '2026-10-01' }, at('2026-11-01', { own_place: true })), /bad_date/);
+  assert.deepEqual(checkAction('home_location', { place: 'Dallas, TX' }, at('2026-11-01', { own_place: null })), { place: 'Dallas, TX' });
+  assert.throws(() => checkAction('home_location', { place: 'Dallas, TX' }, at('2026-11-01', { own_place: true, ask_home: false })), /not_asked/);
+  assert.throws(() => checkAction('pickup_book', { slot_id: 'x1' }, { ...at('2026-11-01'), entry: { ...entry, companion: null } }), /no_sale/);
+});
+
+test('driving miles: geocode both, one Matrix element; no key, no call; addresses stay out of the result', async () => {
+  const { drivingDistance, handleGeoDistance } = await import('../src/geo.js');
+  const realFetch = globalThis.fetch;
+  const asked = [];
+  globalThis.fetch = async (url) => {
+    asked.push(String(url));
+    if (String(url).includes('/geocode/')) return new Response(JSON.stringify({ features: [{ geometry: { coordinates: String(url).includes('Library') ? [-97.7, 30.2] : [-96.8, 32.8] } }] }));
+    return new Response(JSON.stringify({ distances: [[315000]], durations: [[11400]] }));
+  };
+  try {
+    await assert.rejects(drivingDistance({}, 'Library, Austin TX', 'Dallas TX'), /geo_off/);
+    assert.equal(asked.length, 0, 'no key: nothing asked');
+    assert.deepEqual(await drivingDistance({ MAPBOX_TOKEN: 'pk.test' }, 'Library, Austin TX', 'Dallas TX'), { miles: 195.7, minutes: 190 });
+    assert.equal(asked.length, 3);
+    assert.match(asked[2], /directions-matrix\/v1\/mapbox\/driving\/-97\.7,30\.2;-96\.8,32\.8\?/);
+    globalThis.fetch = async (url) => new Response(JSON.stringify(String(url).includes('/geocode/') ? { features: [] } : {}));
+    assert.equal(await drivingDistance({ MAPBOX_TOKEN: 'pk.test' }, 'Nowhere', 'Dallas TX'), null);
+    const env = await makeEnv({ MAPBOX_TOKEN: 'pk.test' });
+    const req = (body) => new Request('http://x/geo/distance', { method: 'POST', body: JSON.stringify(body) });
+    await assert.rejects(handleGeoDistance(env, { programId: 'p1' }, req({ from: 'x', to: '' })), /bad_address/);
+    await assert.rejects(handleGeoDistance(env, { programId: 'p1' }, req({ from: 'Library', to: 'Nowhere' })), /not_found/);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

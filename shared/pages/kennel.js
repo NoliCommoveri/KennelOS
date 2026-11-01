@@ -31,6 +31,8 @@ import { editionFlags } from '../data/editionConfig.js';
 import { kennelChargeList, readPriceList, readChargeGroups } from '../data/extraCharges.js';
 import { priceListHtml, wirePriceList, readPriceListForm } from '../assets/priceListEditor.js';
 import { isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
+import { pickupLocations, locationsProblem } from '../data/pickupSlots.js';
+import { MILEAGE_BASIS } from '../data/transportFee.js';
 import { waitlistConfig, waitlistConfigProblem, SOON_NOTICE_DEFAULT, EXTRAS_INTRO_DEFAULT, passReasons, showUpcoming, UPCOMING_STAGES } from '../data/waitlistRules.js';
 import { EMAIL_TEMPLATE_KINDS, EMAIL_PLACEHOLDERS, DEFAULT_EMAIL_TEMPLATES, emailTemplate } from '../data/waitlistEmails.js';
 import { esc, badge, fmtDate, fmtMoney, param } from '../assets/ui.js';
@@ -93,6 +95,7 @@ const SECTIONS = [
   { key: 'tests', label: 'Preferred tests', when: (k) => k.is_own_kennel },
   { key: 'puppy-record', label: 'Puppy Record fields', when: (k) => k.is_own_kennel && editionFlags.puppyRecord },
   { key: 'placements', label: 'Recent placements', when: (k) => k.is_own_kennel },
+  { key: 'pickup', label: 'Pickup & transport', when: (k) => k.is_own_kennel && editionFlags.waitlist },
   { key: 'roster', label: 'Roster', when: (k) => k.is_own_kennel },
   { key: 'waitlist-settings', label: 'Waitlist settings', when: (k) => k.is_own_kennel && editionFlags.waitlist }
 ].sort((a, b) => a.label.localeCompare(b.label));
@@ -373,7 +376,7 @@ async function renderOverview() {
 function renderConfig() {
   if (!kennel.is_own_kennel) { els.config.innerHTML = ''; return; }
   // The waitlist online's card moved to the waitlist's Publish list page (2026-10-08).
-  els.config.innerHTML = nudgeCard(kennel) + testsCard(kennel) + feedingScheduleCard() + puppyRecordCard(kennel) + extraChargesCard(kennel) + waitlistCard(kennel);
+  els.config.innerHTML = nudgeCard(kennel) + testsCard(kennel) + feedingScheduleCard() + puppyRecordCard(kennel) + extraChargesCard(kennel) + waitlistCard(kennel) + pickupCard(kennel);
   wireConfig();
 }
 
@@ -748,7 +751,97 @@ function applyToDogsPanel() {
   </div>`;
 }
 
+// Pickup & transport (Family Requests plan §4–§5): her pickup places (one is her
+// standard location, the start of every mileage figure: a public place near her,
+// never her house), and the settings that work out a transport fee and decide who
+// may suggest their own meetup place. Pickup times are set per litter.
+function placeRow(l = { id: '', label: '', address: '', notes: '', is_standard: false, show_to_families: true }) {
+  return `<div class="pl-row" data-pl-id="${esc(l.id)}" style="border-top:1px solid var(--border); padding:8px 0;">
+      <div style="display:flex; gap:8px; align-items:center;">
+        <input class="pl-label" type="text" value="${esc(l.label)}" placeholder="e.g. Library parking lot" aria-label="Name" style="flex:1; min-width:0;">
+        <button type="button" class="btn btn-sm" data-pl="remove" aria-label="Remove">✕</button>
+      </div>
+      <input class="pl-address" type="text" value="${esc(l.address)}" placeholder="Street, city, state" aria-label="Address" style="margin-top:6px; width:100%;">
+      <input class="pl-notes" type="text" value="${esc(l.notes)}" placeholder="Notes for families (optional), e.g. by the north entrance" aria-label="Notes" style="margin-top:6px; width:100%;">
+      <div style="display:flex; flex-wrap:wrap; gap:4px 16px; margin-top:6px;">
+        <label class="check-inline"><input type="radio" name="pl-standard" class="pl-standard"${l.is_standard ? ' checked' : ''}> Standard location</label>
+        <label class="check-inline"><input type="checkbox" class="pl-show"${l.show_to_families ? ' checked' : ''}> Show to families</label>
+      </div>
+    </div>`;
+}
+
+function pickupCard(k) {
+  if (!editionFlags.waitlist) return '';
+  const c = waitlistConfig(k);
+  const places = pickupLocations(k);
+  const n = (id, v, label, unit, hint = '') => `<div class="field"><label for="${id}">${label}</label>
+      <span style="display:inline-flex; align-items:center; gap:6px;"><input id="${id}" type="number" min="0" step="any" inputmode="decimal" value="${esc(v ?? '')}" style="width:7em;"> ${esc(unit)}</span>${hint ? `<span class="field-hint">${hint}</span>` : ''}</div>`;
+  return `
+    <section class="card" data-ks="pickup">
+      <h2 style="margin-top:0;">Pickup places</h2>
+      <p class="field-hint">Where families pick up their puppies. Your <strong>standard location</strong> is where every mileage figure starts: use a public place near you, not your home address. Set pickup times on each litter's page.</p>
+      <div id="pl-list">${(places.length ? places : [{ id: '', label: '', address: '', notes: '', is_standard: true, show_to_families: true }]).map(placeRow).join('')}</div>
+      <button type="button" class="btn btn-sm" data-pl="add">+ Add a place</button>
+      <h2>Transport fee</h2>
+      <p class="field-hint">For a family's own meetup address: KennelOS measures the driving miles from your standard location and suggests the fee, which you can change before approving.</p>
+      <div class="form-grid">
+        ${n('tr-rate', c.mileage_rate, 'Fee per mile', '$ per mile')}
+        <div class="field"><label>Calculate from</label>
+          <span style="display:flex; gap:16px;">${MILEAGE_BASIS.map((b) => `<label class="check-inline"><input type="radio" name="tr-basis" value="${b.value}"${c.mileage_basis === b.value ? ' checked' : ''}> ${esc(b.label)}</label>`).join('')}</span>
+          <span class="field-hint">Round trip doubles the miles before the fee per mile.</span></div>
+        ${n('tr-free', c.mileage_free_under || '', 'No charge under', 'miles', 'A shorter trip is free; at or over it, every mile is charged.')}
+        ${n('tr-far', c.transport_far_miles, 'Farther than this, you\'ll be in touch', 'miles', 'Families farther away are told you\'ll contact them about driving or a flight nanny.')}
+        ${n('tr-home', c.transport_min_home_miles || '', 'Families can suggest their own place only if they live at least', 'miles away', 'Blank or 0: any family can. Above 0, City / state becomes a required question on your application form.')}
+        ${n('tr-change', c.pickup_change_days, 'Families can change their pickup time until', 'days before')}
+      </div>
+      <div class="form-actions"><button class="btn btn-primary btn-sm" data-act="save-pickup">Save</button></div>
+    </section>`;
+}
+
+async function onSavePickup() {
+  clearError();
+  const card = els.config.querySelector('[data-ks="pickup"]');
+  const rows = [...card.querySelectorAll('.pl-row')].map((el) => ({
+    id: el.dataset.plId || crypto.randomUUID(), label: el.querySelector('.pl-label').value, address: el.querySelector('.pl-address').value,
+    notes: el.querySelector('.pl-notes').value, is_standard: el.querySelector('.pl-standard').checked, show_to_families: el.querySelector('.pl-show').checked
+  }));
+  const problem = locationsProblem(rows);
+  if (problem) { showError(problem); return; }
+  const q = (sel) => card.querySelector(sel).value.trim();
+  const val = (sel) => (q(sel) === '' ? null : Number(q(sel)));
+  const waitlist_config = {
+    ...(kennel.waitlist_config || {}),
+    mileage_rate: val('#tr-rate'), mileage_basis: card.querySelector('input[name="tr-basis"]:checked')?.value || 'round_trip',
+    mileage_free_under: val('#tr-free') || 0, transport_far_miles: val('#tr-far'), transport_min_home_miles: val('#tr-home') || 0,
+    pickup_change_days: val('#tr-change') ?? 2
+  };
+  const configProblem = waitlistConfigProblem(waitlist_config);
+  if (configProblem) { showError(configProblem); return; }
+  try {
+    await kennelRepo.update(kennel.id, { pickup_locations: pickupLocations({ pickup_locations: rows }), waitlist_config });
+    await reloadKennel();
+    renderConfig();
+  } catch (err) { showError(err.message || String(err)); }
+}
+
+function wirePickup() {
+  const card = els.config.querySelector('[data-ks="pickup"]');
+  if (!card) return;
+  card.querySelector('[data-act="save-pickup"]').addEventListener('click', onSavePickup);
+  card.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-pl]');
+    if (!b) return;
+    if (b.dataset.pl === 'remove') b.closest('.pl-row').remove();
+    if (b.dataset.pl === 'add') {
+      const list = card.querySelector('#pl-list');
+      list.insertAdjacentHTML('beforeend', placeRow({ id: '', label: '', address: '', notes: '', is_standard: !list.querySelector('.pl-standard:checked'), show_to_families: true }));
+      list.lastElementChild.querySelector('.pl-label').focus();
+    }
+  });
+}
+
 function wireConfig() {
+  wirePickup();
   const saveNudges = els.config.querySelector('[data-act="save-nudges"]');
   if (saveNudges) saveNudges.addEventListener('click', onSaveNudges);
   els.config.querySelector('[data-act="save-puppy-record"]')?.addEventListener('click', onSavePuppyRecord);

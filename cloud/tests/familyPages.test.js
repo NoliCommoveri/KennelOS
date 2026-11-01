@@ -489,3 +489,25 @@ test('a family\'s extras pass field by field: names and dates only, and only wit
   assert.equal(v.kennel.extras_intro, 'Our extras');
   assert.equal('extras_info_url' in v.kennel, false, 'only an https link');
 });
+
+test("a family's pickup passes field by field; her standard location and the mile limits never do", async () => {
+  const { pickupOf } = await import('../src/familyPages.js');
+  const x = pickupOf({
+    ready_from: '2026-10-27', far_miles: 150, min_home_miles: 200, geo_from: 'secret',
+    slots: [{ id: 'x1', date: '2026-11-21', start_time: '10:00', end_time: '10:30', left: 2, location: { label: 'Library', address: '1 Main St', notes: '', id: 'a' }, capacity: 3 }],
+    booked: null, requests: [{ id: 'event-1', kind: 'address', address: '9 Oak', miles: 196.44, far: true, requested_date: '2026-11-01', note: 'private' }],
+    own_place: true, ask_home: false,
+  });
+  assert.deepEqual(Object.keys(x).sort(), ['ask_home', 'booked', 'own_place', 'ready_from', 'requests', 'slots']);
+  assert.deepEqual(x.slots[0], { id: 'x1', date: '2026-11-21', start_time: '10:00', end_time: '10:30', left: 2, location: { label: 'Library', address: '1 Main St', notes: '' } });
+  assert.equal(x.requests[0].miles, 196.4);
+  assert.equal('note' in x.requests[0], false);
+  assert.equal(pickupOf({ slots: [], requests: [], own_place: false }), null);
+  const p = projection();
+  p.server = { geo_from: 'Library, Austin TX' };
+  p.entries.cy.companion = { available: true, request: null };
+  p.entries.cy.pickup = { slots: [], own_place: true };
+  const v = statusView(p, 'cy');
+  assert.equal(v.family.pickup.own_place, true);
+  assert.equal(JSON.stringify(v).includes('Austin'), false, 'her standard location never reaches a family');
+});

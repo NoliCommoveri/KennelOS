@@ -32,6 +32,8 @@ import { serverEmailTemplates } from './waitlistEmails.js';
 import { sharedReferrals, sharedTransport } from './referralShare.js';
 import { feePay, withClientRef } from './waitlistFeePay.js';
 import { familySale, familyExtrasView, pupBirthDate } from './familyExtras.js';
+import { familyPickupView } from './familyPickup.js';
+import { standardLocation } from './pickupSlots.js';
 import { EXTRAS_INTRO_DEFAULT, extrasInfoLink } from './waitlistRules.js';
 
 export const PROJECTION_FORMAT = 1;
@@ -102,6 +104,10 @@ function entryView(entry, ctx) {
   // a price; absent without an open sale or anything to show.
   const extras = companion ? ctx.extrasFor(entry) : null;
   if (extras) view.extras = extras;
+  // Pickup (Family Requests plan §4): their times, booking, requests, and whether
+  // they may suggest their own place; absent without an open sale.
+  const pickup = companion ? ctx.pickupFor(entry) : null;
+  if (pickup) view.pickup = pickup;
   if (!WAITLIST_OPEN_STATUSES.includes(entry.status)) return view;
 
   const program = ctx.programsById.get(entry.waitlist_program_id) || null;
@@ -288,7 +294,7 @@ const readyCheckView = (rc) => (rc ? { asked: rc.asked, answer_by: rc.answer_by,
 // PUBLIC half seals applications and family messages); `eventsThrough` the last
 // family event her device has applied (the server lets go of picked pups' holds
 // up to there, W2 step 5).
-export function buildProjection({ kennel, entries = [], offers = [], programsById = new Map(), litters = [], pairings = [], dogs = [], sales = [], contacts = [], events = [], accounts = [], today, formKey = null, eventsThrough = 0 }) {
+export function buildProjection({ kennel, entries = [], offers = [], programsById = new Map(), litters = [], pairings = [], dogs = [], sales = [], contacts = [], events = [], accounts = [], today, formKey = null, eventsThrough = 0, pickupEvents = [] }) {
   if (!kennel || !kennel.public_id) throw new Error('This kennel has no public identity yet.');
   if (!today) throw new Error('buildProjection needs today.');
   const config = waitlistConfig(kennel);
@@ -371,6 +377,7 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
     picksOpen: new Set(Object.entries(litterViews).filter(([, l]) => l.picks_open).map(([id]) => id)),
     positions: overallPositions(live, kennel.id, programsById), prefPlaces: prefPlaces(live, kennel.id, programsById, config), matches, litterLabels, hidden, notes,
     openSaleBuyers: new Set(sales.filter((x) => x.buyer_contact_id && isOpenSale(x)).map((x) => x.buyer_contact_id)),
+    pickupFor: (entry) => familyPickupView({ entry, sales, dogsById, litters, kennel, config, entries: live, events: pickupEvents, today }),
     extrasFor: (entry) => {
       const sale = familySale(entry, sales);
       if (!sale) return null;
@@ -443,6 +450,9 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
     litters: litterViews,
     upcoming: upcoming.map(toUpcomingView),
     turn_queue: turnQueue,
-    events_through: Number.isInteger(eventsThrough) && eventsThrough > 0 ? eventsThrough : 0
+    events_through: Number.isInteger(eventsThrough) && eventsThrough > 0 ? eventsThrough : 0,
+    // For the server only, never in a family's view: her standard location (a public
+    // place near her, Family Requests plan §5), where it measures a family's miles from.
+    ...(standardLocation(kennel) ? { server: { geo_from: standardLocation(kennel).address } } : {})
   };
 }

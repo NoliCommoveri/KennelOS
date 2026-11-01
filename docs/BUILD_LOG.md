@@ -1851,3 +1851,20 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   entries (an unindexed dotted path), used for the stay's `details.sale_id`, so a sale with
   a stay can't be hard-deleted. Tests in `tests/extraCharges.test.js`; the event-form edit
   checked in the browser. Rides `kennelos-shell-v88`.
+- **Family Requests step 5: pickup places, times, own addresses, Mapbox (2026-11-01).** Her
+  pickup places and transport fee settings (Kennel page, Pickup & transport); pickup times per
+  litter (Litter page, `assets/pickupTimesPanel.js`, Pro); City / state locked and required on
+  her form while a minimum home distance is set. Families with an open sale get a Pickup card:
+  choose a time (from the ready date, or after a training stay), change or cancel until her
+  cutoff, suggest their own address (when allowed), or say where they live (when asked).
+  The Worker measures an address or home with Mapbox (`cloud/src/geo.js`, `MAPBOX_TOKEN`,
+  `POST /geo/distance`), counts unapplied bookings against a time's room, and keeps her
+  standard location server-only. Her device applies requests (`familyPickup.js`), measures
+  homes once during sync, and approves: a time → the pickup event; an address → day, time,
+  method, miles and the suggested fee (`transportFee.js`, working shown) → a drop-off and the
+  sale's transport fee. Today nudges, the entry page's Pickup card and override, and the
+  `transport_options` email (her Transport accounts, the miles). Privacy policy lists
+  Mapbox. Tests: `tests/familyPickup.test.js`, an end-to-end test in
+  `tests/cloudWaitlist.test.js` (Mapbox stubbed), `cloud/tests/familyActions.test.js`,
+  `cloud/tests/familyPages.test.js`. Checked in the browser (status page card, Kennel card,
+  Litter times, the approve form). Needs a Worker deploy and the `MAPBOX_TOKEN` secret.

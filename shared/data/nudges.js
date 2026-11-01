@@ -59,9 +59,10 @@ import {
 import {
   recordOutcome, markFeeExpired, openPicks, recordReadyAnswer, undoRemoval, hasPendingRequest, markMessagesRead,
   approvePauseRequest, declinePauseRequest, approvePrefChange, declinePrefChange, approveListenChange, declineListenChange,
-  markCompanionLinkSent, declineCompanionRequest, approveExtraRequest, declineExtraRequest
+  markCompanionLinkSent, declineCompanionRequest, approveExtraRequest, declineExtraRequest, approvePickupRequest, declinePickupRequest
 } from './waitlistActions.js';
 import { pendingExtraRequests } from './familyExtras.js';
+import { pendingPickupRequests, requestText as pickupRequestText } from './familyPickup.js';
 import { offerSpecs } from './waitlistOutbox.js';
 import { contractRepo } from './contractRepo.js';
 import { ourStudPairingIds, studParents, pickDue, serviceDate, boardingEndedUpdate } from './studRules.js';
@@ -1162,6 +1163,27 @@ async function statusPageNudges(entries, offers, { today, litters, dogsById, ken
           { label: 'Decline', run: async () => { await declineExtraRequest(e.id, r.id, { date: today }); return { title: 'Declined', message: 'Nothing changed on their sale. Let them know.', emails: emails('request_declined') }; } },
           { label: 'Open', run: async () => { location.href = href(e); } }
         ]
+      });
+    }
+    // Pickup requests (Family Requests plan §4): a time or a cancel is decided here;
+    // their own address needs a day, time and fee, so it opens their page.
+    for (const r of pendingPickupRequests(e)) {
+      const emails = (kind, extra = {}) => [{ entryId: e.id, kind, extra: { request: { field: 'pickup_request', request: r }, ...extra } }];
+      const actions = r.kind === 'address'
+        ? [
+            { label: 'Open', run: async () => { location.href = href(e); } },
+            ...(r.far ? [{ label: 'Send transport options', run: async () => ({ title: 'Transport options', message: 'Edit the email, then send it.', emails: [{ entryId: e.id, kind: 'transport_options', extra: Number.isFinite(r.miles) ? { distance: r.miles } : {} }] }) }] : [])
+          ]
+        : [
+            { label: 'Approve', run: async () => { await approvePickupRequest(e.id, r.id, { date: today }); return { title: 'Approved', message: r.kind === 'cancel' ? 'Their pickup is off the calendar. Let them know.' : 'It\'s on the pup\'s calendar as their pickup. Let them know.', emails: emails('request_approved') }; } },
+            { label: 'Decline', run: async () => { await declinePickupRequest(e.id, r.id, { date: today }); return { title: 'Declined', message: 'Nothing changed. Let them know.', emails: emails('request_declined') }; } }
+          ];
+      out.push({
+        key: `waitlist-pickup-request:${e.id}:${r.id}`,
+        title: `${name(e)} asked ${pickupRequestText(r)}`,
+        detail: `${r.kind === 'address' ? (r.far ? 'Farther than your limit: they were told you\'ll be in touch about driving or a flight nanny. ' : 'Approve on their page with the day, time and transport fee. ') : ''}${said(r.note)}`.trim(),
+        subjectHref: href(e),
+        actions
       });
     }
     const unread = (e.messages || []).filter((m) => !m.read);

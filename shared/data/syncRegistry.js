@@ -96,7 +96,9 @@ export const SYNC_REGISTRY = Object.freeze({
     private: ['waitlist_form_keys',
       // Her extra charges price list (guide §21.2): prices, private like a sale's,
       // and its groups' rules and payment plans.
-      'extra_charge_list', 'extra_charge_groups'],
+      'extra_charge_list', 'extra_charge_groups',
+      // Her pickup places (Family Requests plan §4): addresses, private.
+      'pickup_locations'],
     pending: []
   },
 
@@ -134,7 +136,10 @@ export const SYNC_REGISTRY = Object.freeze({
       'expected_deposit_female', 'full_reg_surcharge_male', 'full_reg_surcharge_female',
       'foster_comp_model', 'foster_our_share_pct',
       'foster_split_basis', 'foster_flat_fee_per_pup', 'foster_split_notes',
-      'feeding_schedule_override', 'notes'
+      'feeding_schedule_override', 'notes',
+      // Her pickup times for the litter (Family Requests plan §4): private like her
+      // pickup places, which they point at.
+      'pickup_slots'
     ],
     pending: []
   },
@@ -338,7 +343,10 @@ export const SYNC_REGISTRY = Object.freeze({
       'private_request',
       // Extras they asked for or to cancel on their status page (Family Requests
       // plan §3), with their notes: private like pause_request.
-      'extra_requests'
+      'extra_requests',
+      // Pickup (Family Requests plan §4): their pickup requests (an address among
+      // them), where they live and how far, and her choice for them: private.
+      'pickup_requests', 'home_place', 'home_miles', 'home_measured_date', 'own_place_override'
     ],
     pending: []
   },

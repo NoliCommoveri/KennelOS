@@ -207,9 +207,9 @@ to the cloud unsealed).
 |---|---|---|
 | **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `registered_name`, `registration_number`, `microchip_id`, `planned_tests[]`, `recorded_coi`, `url`. `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. |
 | **Contact** | `name` | `contact_type[]`, `email`, `phone`, `facebook_profile`, `address` (also the away-board location, §19), `kennel_id` (affiliation, not scope), `waitlist_status` (kept by `waitlistEntryRepo`), `first_contact_source`, `companion_note` (shown to the recipient, §20; `notes` is private). Buyers are Contacts; there is no Buyer table. |
-| **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `extra_charge_groups` (its groups' defaults, private, §21.2), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
+| **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `extra_charge_groups` (its groups' defaults, private, §21.2), `pickup_locations` (her pickup places, private, §29 Pickup), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date` when empty). Sire ≠ dam. |
-| **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `puppies_born_*` counts, `delivery_type` (`LITTER_DELIVERY_TYPE`: natural, assisted, planned or emergency C-section; cloud; shown and asked only once the litter is Whelped or later, see Litter delivery below), per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
+| **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `puppies_born_*` counts, `delivery_type` (`LITTER_DELIVERY_TYPE`: natural, assisted, planned or emergency C-section; cloud; shown and asked only once the litter is Whelped or later, see Litter delivery below), per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), `pickup_slots` (her pickup times, private, §29 Pickup), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
 | **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, `extra_charges[]` (private, §21.2), payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
 | **Contract** | `contract_type`, `kennel_id` | `status` (default `draft`), `related_sale_id`, `related_stud_service_id`; `related_dog_id` and `related_contact_id` only for `lease`/`co_own`/`foster`/`other` (forced null otherwise, `contractRepo.normalizeLinks`), `document_url`, `signed_date`, lease dates, e-sign fields and `integration_reviews` (§32), `title`, `terms_summary`. |
 | **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `direction` is **who travels** (`STUD_SERVICE_DIRECTION`: `to_partner` our dog goes to them, `to_us` their dog comes to us, `shipped` no one / AI). Whether our dog is the stud or the dam isn't stored: it's our dog's sex, else the partner's opposite (`studRules.ourRole`; `STUD_SERVICE_ROLE` for badges and filters). `sent_date` / `returned_date` are the service's two dates, labelled **Begins / Ends**. `type` (`in_person`/`ai`) is set by the repo from `direction` (shipped → ai), never asked. `pairing_id`, `fee_amount`, `fee_structure`; `pick_status` and `pick_value_amount` only for pick fee structures (forced null otherwise; with our stud the pick is our puppy, and `pick_status` claimed / waived ends Today's `studpick`, §19), `referred_by_contact_id`, invoice fields (our stud only, §24). |
@@ -1000,7 +1000,7 @@ Kels's tidy-up doesn't suggest recording it. Its pick puppy, when the fee has on
 | `follow-up` | a pup went home 7–60 days ago (`referralShare`) | write a thank-you note |
 | `training-stay` / `training-stay-orphan` | an extra with `boarding_days` on an open sale and no boarding event linked to it (`goHome.trainingStaysFor`) / a linked stay still to come whose extra is off its sale (`orphanTrainingStays`) | **Log the stay** (`trainingStayEvent`, created at once: from the ready date or today, its days long) / **Remove the stay** (archive) |
 | `extra-due` | an extra's payment-plan step (§21.2) is due within `EXTRA_DUE_DAYS` (7) or overdue, unpaid, on an open sale whose balance isn't paid | open the sale |
-| `waitlist-*` | new applications, an offer or fee past due, a removal's undo window, planned deposit date reached (`open-picks`), "Ready now?" unanswered, family messages, and family requests (pref, pause, listen, Companion link, extras) | the matching waitlist action (§29) |
+| `waitlist-*` | new applications, an offer or fee past due, a removal's undo window, planned deposit date reached (`open-picks`), "Ready now?" unanswered, family messages, and family requests (pref, pause, listen, Companion link, extras, pickup) | the matching waitlist action (§29) |
 
 Litter-lifecycle rules ignore deceased pups. The same close rule runs on the Sale page: a
 save that moves a sale into delivered / returned / cancelled / voided asks **Close the
@@ -1617,8 +1617,10 @@ it computes is stored.**
 Questions `{ id, label, type, required, help, options[], source_header?, key? }`. **Locked**
 questions (with a `key`) can only be reworded: `name`, `email`, the preference questions
 (answers go to `pref_*`), `ready_timing` (required; drives the readiness hold) and the
-public-list notice. `formQuestions(config)` supplies defaults and restores missing locked
-questions. Each entry stores `application_questions`, the wording it was answered under.
+public-list notice, and City / state (`location`, required) while her
+`transport_min_home_miles` is above 0 (`LOCATION_LOCK`; saved while locked, it reads back
+as an ordinary optional question once the rule is off). `formQuestions(config)` supplies
+defaults and restores missing locked questions. Each entry stores `application_questions`, the wording it was answered under.
 **Question import** (`proposeQuestionImport` / `applyQuestionImport`) turns an old form's
 CSV columns into questions and stamps `source_header`, so the application importer (§9) can
 then bring in the answers.
@@ -1729,6 +1731,38 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   `list_id`, `group` and its plan's dated `payments`; a cancel removes it, refused while any
   part is paid) or **Decline**, then the request approved/declined email. App alerts and the
   digest count them as requests.
+- **Pickup** (`docs/KennelOS_Family_Requests_Plan.md` §4–§5): her places on the Kennel page's
+  **Pickup & transport** card (`Kennel.pickup_locations`, `pickupSlots.pickupLocations`: one
+  standard location, a public place, the start of every mileage figure; **Show to
+  families** each) with the fee settings in `waitlist_config` (`mileage_rate`,
+  `mileage_basis` one way / round trip, `mileage_free_under`, `transport_far_miles`,
+  `transport_min_home_miles`, `pickup_change_days`); her times per litter on the Litter
+  page's **Pickup times** (`assets/pickupTimesPanel.js`, Pro: **Add times** = `makeSlots`,
+  **Copy to another litter**; `Litter.pickup_slots`). For a family with an open sale the
+  projection's `entry.pickup` (`familyPickup.familyPickupView`): times from the pup's ready
+  date or the day after its training stay (`pickupFrom`) with room left (`slotBookings`:
+  placement events with `details.pickup_slot_id` plus waiting requests), their booking with
+  `change_until`, their requests, `own_place` (`ownPlaceAllowed`: her override, else her
+  distance rule against `home_miles`, null = ask) and `ask_home`; the projection's `server`
+  part carries her standard location's address for the Worker only. Their page's **Pickup**
+  card books a time, changes or cancels it until her cutoff, suggests their own address, or
+  says where they live. Events `pickup_book` / `pickup_cancel` / `pickup_address` (the
+  Worker counts other families' unapplied bookings against a time's room, and measures an
+  address with Mapbox: `miles`, `far`) become `entry.pickup_requests`; `home_location` sets
+  `home_place` / `home_miles`. Her device measures a family's home once from their
+  application's City / state or contact address (`cloudWaitlist.measureHomes`, during sync).
+  **Approve** (`approvePickupRequest`): a time → the pup's placement event (Local pickup,
+  the time, the place, `pickup_slot_id`); an address → a form with the day, time, method,
+  miles (**Get driving miles**, **Open in Maps**) and the fee (`transportQuote`, the
+  working shown) → a drop-off and `Sale.transport_fee`; a cancel archives the pickup. Any
+  other pickup still to come is archived first. Today: `waitlist-pickup-request` (a time or
+  cancel: Approve / Decline; an address: Open, and **Send transport options** when far).
+  The entry page's **Pickup** card shows where they live and **Allow their own place** /
+  **Listed places only** (`own_place_override`).
+- **Transport options email** (`transport_options`): one she sends (Communicate… for a family
+  with an open sale, and an address request), never the server; placeholders `[Distance]`
+  (" You're about N miles from us.", from their latest measured address) and
+  `[Transport Options]` (her shared Transport accounts).
 - **Emails** (`data/waitlistEmails.js` templates, `data/waitlistOutbox.js` queue): after an
   action a family should hear about, she's offered a drafted email (`waitlistEmailUI.offerEmails`)
   to edit or skip. Queued on the entry and posted after the publish (`sendQueuedEmails`);

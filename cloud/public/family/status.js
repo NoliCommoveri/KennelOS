@@ -584,6 +584,98 @@ function extrasHtml(f) {
 }
 const canActExtras = () => signedIn();
 
+// Pickup (Family Requests plan §4): their booking (change or cancel until her
+// cutoff), the times they may choose from, their own address when she allows one,
+// or where they live when she asks. Every choice is a request she confirms.
+const hm12 = (t) => {
+  if (!/^\d{2}:\d{2}$/.test(t || '')) return '';
+  const [h, m] = t.split(':').map(Number);
+  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+};
+const timeText = (a, b) => (a ? (b && b !== a ? `${hm12(a)}–${hm12(b)}` : hm12(a)) : '');
+const directions = (address) => `https://www.google.com/maps/dir/?${new URLSearchParams({ api: '1', destination: address })}`;
+function milesLine(miles, far, kennel) {
+  if (!Number.isFinite(miles)) return `${esc(kennel)} will confirm the time and any transport fee.`;
+  const about = `That's about ${Math.round(miles).toLocaleString('en-US')} miles from us.`;
+  return far ? `${about} ${esc(kennel)} will be in touch about whether they'll bring your puppy themselves or you'll need a flight nanny.`
+    : `${about} ${esc(kennel)} will confirm the time and any transport fee.`;
+}
+function pickupHtml(f) {
+  const pk = f.pickup;
+  if (!pk) return '';
+  const kennel = state.v.kennel.name;
+  const today = todayUtc();
+  const act = signedIn();
+  const parts = [];
+  const sentBook = pendingOf('pickup_book')[0];
+  const sentAddress = pendingOf('pickup_address')[0];
+  const sentCancel = pendingOf('pickup_cancel')[0];
+  const sentHome = pendingOf('home_location')[0];
+  const waiting = (pk.requests || []).filter((r) => !r.decided);
+  const b = pk.booked;
+  if (b) {
+    const when = `${esc(fmtDate(b.date))}${b.start_time ? `, ${esc(timeText(b.start_time, b.end_time))}` : ''}`;
+    parts.push(`<p class="mt0"><strong>Your ${b.kind === 'address' ? 'drop-off' : 'pickup'}:</strong> ${when}${b.place ? ` at ${esc(b.place)}` : ''}</p>
+      ${b.address ? `<p class="small mt0">${esc(b.address)} · <a href="${esc(directions(b.address))}" target="_blank" rel="noopener noreferrer">Directions</a></p>` : ''}`);
+    const canChange = b.change_until && today <= b.change_until;
+    if (sentCancel || waiting.some((r) => r.kind === 'cancel')) parts.push(`<p class="small"><span class="badge warn">Requested</span> to cancel. ${esc(kennel)} will confirm.</p>`);
+    else if (act && canChange && state.open !== 'pickup-change') {
+      parts.push(`<p class="small muted">You can change or cancel until ${esc(fmtDate(b.change_until))}.</p>
+        <div class="actions"><button type="button" class="secondary small" data-act="open" data-what="pickup-change">Change time</button><button type="button" class="secondary small" data-act="pickup_cancel">Cancel pickup</button></div>`);
+    }
+  }
+  // What they asked for and haven't heard back on.
+  if (sentBook) parts.push(`<p class="small"><span class="badge warn">Requested</span> ${esc(fmtDate(sentBook.payload.date))}${sentBook.payload.start_time ? `, ${esc(timeText(sentBook.payload.start_time, sentBook.payload.end_time))}` : ''}${sentBook.payload.place ? ` at ${esc(sentBook.payload.place)}` : ''}. ${esc(kennel)} will confirm.</p>`);
+  if (sentAddress) parts.push(`<p class="small"><span class="badge warn">Requested</span> ${esc(sentAddress.payload.address)}. ${milesLine(sentAddress.payload.miles, sentAddress.payload.far, kennel)}</p>`);
+  for (const r of waiting.filter((x) => x.kind !== 'cancel')) {
+    parts.push(r.kind === 'address'
+      ? `<p class="small"><span class="badge warn">Requested</span> ${esc(r.address)}. ${milesLine(r.miles, r.far, kennel)}</p>`
+      : `<p class="small"><span class="badge warn">Requested</span> ${esc(fmtDate(r.date))}${r.start_time ? `, ${esc(hm12(r.start_time))}` : ''}${r.place ? ` at ${esc(r.place)}` : ''}. ${esc(kennel)} will confirm.</p>`);
+  }
+  for (const r of (pk.requests || []).filter((x) => x.decided === 'declined')) {
+    parts.push(`<p class="small muted">${esc(kennel)} couldn't confirm ${r.kind === 'cancel' ? 'cancelling' : r.kind === 'address' ? esc(r.address) : `${esc(fmtDate(r.date))}`} (${esc(fmtDate(r.decided_date))}). Please choose again or contact them.</p>`);
+  }
+  const asking = sentBook || sentAddress || waiting.some((r) => r.kind !== 'cancel');
+  const choosing = !asking && (!b || state.open === 'pickup-change' || state.open === 'pickup-address');
+  if (choosing) {
+    const slots = (pk.slots || []).filter((sl) => sl.date > today && (!b || !(sl.date === b.date && sl.start_time === b.start_time)));
+    if (slots.length) {
+      const byDate = new Map();
+      for (const sl of slots) { if (!byDate.has(sl.date)) byDate.set(sl.date, []); byDate.get(sl.date).push(sl); }
+      parts.push(`<p class="${b ? 'small' : 'mt0'}">${b ? 'Choose a new time:' : 'Choose a pickup time.'}${pk.ready_from ? ` <span class="muted small">From ${esc(fmtDate(pk.ready_from))}, when your puppy is ready.</span>` : ''}</p>
+        ${[...byDate.entries()].map(([date, items]) => `<h3 class="mt8">${esc(fmtDate(date))}</h3><ul class="plain">${items.map((sl) => `<li class="mt8">
+          <div><strong>${esc(timeText(sl.start_time, sl.end_time))}</strong> · ${esc(sl.location.label)}</div>
+          <div class="small">${esc(sl.location.address)} · <a href="${esc(directions(sl.location.address))}" target="_blank" rel="noopener noreferrer">Directions</a></div>
+          ${sl.location.notes ? `<div class="small muted">${esc(sl.location.notes)}</div>` : ''}
+          ${act ? `<div class="mt8"><button type="button" class="secondary small" data-act="pickup_book" data-id="${esc(sl.id)}" data-when="${esc(`${fmtDate(sl.date)}, ${timeText(sl.start_time, sl.end_time)} at ${sl.location.label}`)}">Choose this time</button></div>` : ''}
+        </li>`).join('')}</ul>`).join('')}`);
+    } else if (!b) {
+      parts.push(`<p class="mt0">${esc(kennel)} hasn't posted pickup times yet.</p>`);
+    }
+    if (pk.own_place && act) {
+      parts.push(state.open === 'pickup-address'
+        ? `<form data-form="pickup_address" class="mt8">
+            <label class="q">Where would you like to meet? <span class="muted small">(an address, or a place with its city)</span><input name="address" maxlength="300" required></label>
+            <label class="q">Which day works? <span class="muted small">(optional)</span><input name="date" type="date" min="${esc(today)}"></label>
+            <label class="q">Anything ${esc(kennel)} should know? <span class="muted small">(optional)</span><textarea name="note" maxlength="500"></textarea></label>
+            <div class="actions"><button class="primary" type="submit">Send</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
+          </form>`
+        : `<div class="actions mt8"><button type="button" class="linkish small" data-act="open" data-what="pickup-address">${slots.length ? 'None of these work for us' : 'Suggest a meetup place'}</button></div>`);
+    }
+  }
+  if (pk.ask_home && !sentHome && act) {
+    parts.push(`<form data-form="home_location" class="mt8">
+        <label class="q">Where do you live? <span class="muted small">City and state is enough. It helps ${esc(kennel)} plan getting your puppy to you.</span><input name="place" maxlength="120" required></label>
+        <div class="actions"><button class="primary" type="submit">Send</button></div>
+      </form>`);
+  } else if (sentHome) {
+    parts.push(`<p class="small muted">Thanks! ${esc(kennel)} will see where you live at their next update.</p>`);
+  }
+  if (!act && (pk.slots || []).length) parts.push('<p class="small muted">To choose a time, sign in on this device with a code sent to the email on your application.</p>');
+  if (!parts.length) return '';
+  return card('Pickup', parts.join(''));
+}
+
 // Getting your pup home (Family Requests plan D8): her flight nannies and ground
 // transporters, for a family whose pup is picked (the server sends them only then).
 function transportHtml() {
@@ -627,6 +719,7 @@ function mineHtml() {
   if (!['applied', 'approved', 'active'].includes(f.status)) {
     parts.push(card('', `<p class="mt0">${closedText(f.status, kennel)}</p>`));
     parts.push(companionHtml(f));
+    parts.push(pickupHtml(f));
     parts.push(extrasHtml(f));
     parts.push(transportHtml());
     parts.push(recommendedHtml());
@@ -662,6 +755,7 @@ function mineHtml() {
 
   for (const rows of turnsOf(v.offers)) parts.push(turnHtml(rows));
   parts.push(companionHtml(f));
+  parts.push(pickupHtml(f));
   parts.push(extrasHtml(f));
   parts.push(transportHtml());
   parts.push(readyHtml(f));
@@ -726,6 +820,17 @@ const ERRORS = {
   no_sale: "There's no puppy sale on record for you right now, so there's no Companion link to send. Contact the breeder with any questions.",
   already_requested: "You've already asked. The breeder will send your link by text or email.",
   other_family: 'This device is signed in as a different family. Sign out on the waitlist page and sign in again.',
+  'pickup_book:not_listed': "That time isn't offered any more. The page now shows the times left.",
+  'pickup_book:slot_full': 'Another family just took that time. Please choose another.',
+  'pickup_book:already_requested': "You've already asked. The breeder will confirm.",
+  'pickup_book:too_late': "It's too late to change your pickup here. Contact the breeder.",
+  'pickup_cancel:too_late': "It's too late to cancel here. Contact the breeder.",
+  'pickup_cancel:already_requested': "You've already asked to cancel. The breeder will confirm.",
+  'pickup_address:not_allowed': 'Please choose one of the listed times.',
+  'pickup_address:bad_address': 'Please type the address or place, with its city.',
+  'pickup_address:already_requested': "You've already asked. The breeder will confirm.",
+  'pickup_address:bad_date': 'Please pick a day after today.',
+  'home_location:bad_address': 'Please type your city and state.',
   'extra_request:not_listed': "That extra isn't offered any more. The page now shows what's available.",
   'extra_request:not_open': "That extra can't be requested today. The page now shows when it can.",
   'extra_request:already_requested': "You've already asked for that. The breeder will confirm it.",
@@ -791,6 +896,16 @@ async function onClick(ev) {
       b.disabled = true;
       await act('ready', { answer: 'yes' }, `Thanks! ${kennel} will see that you're ready at their next update.`);
       return;
+    case 'pickup_book':
+      if (!window.confirm(`Ask ${kennel} for ${b.dataset.when}? They'll confirm it.`)) return;
+      b.disabled = true;
+      await act('pickup_book', { slot_id: b.dataset.id }, `Your request is on its way. ${kennel} will confirm your pickup time.`);
+      return;
+    case 'pickup_cancel':
+      if (!window.confirm(`Ask ${kennel} to cancel your pickup time?`)) return;
+      b.disabled = true;
+      await act('pickup_cancel', {}, `Your request is on its way. ${kennel} will confirm.`);
+      return;
     case 'extra_request':
       if (!window.confirm(`Ask ${kennel} for ${b.dataset.name}? They'll confirm it and let you know the cost and when it's due.`)) return;
       b.disabled = true;
@@ -841,6 +956,12 @@ async function onSubmit(ev) {
     }
     case 'pause':
       await act('pause_request', { until: data.get('until'), note: data.get('note') }, `Your pause request is on its way. ${kennel} decides; until then nothing changes.`);
+      return;
+    case 'pickup_address':
+      await act('pickup_address', { address: data.get('address'), date: data.get('date') || '', note: data.get('note') }, `Your request is on its way. ${kennel} will confirm.`);
+      return;
+    case 'home_location':
+      await act('home_location', { place: data.get('place') }, `Thanks! ${kennel} will see where you live at their next update.`);
       return;
     case 'companion':
       await act('companion_request', { note: data.get('note') }, `Your request is on its way. ${kennel} will send your Companion link by text or email.`);

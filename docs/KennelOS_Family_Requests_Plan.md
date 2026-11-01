@@ -419,6 +419,11 @@ Every decision is made; the plan is ready to build in the order below.
    event form, so the link can't be lost; the pickup scheduler's "slots after the stay" waits
    for step 5.
 5. Pickup locations and slots, booking; where families live and who may suggest a place;
-   their own addresses with Mapbox miles and the transport options email.
+   their own addresses with Mapbox miles and the transport options email. **Built
+   2026-11-01** (guide §29 Pickup). **Modified:** times are stored on the litter
+   (`Litter.pickup_slots`), not in a table of their own; a time's room on the server is
+   counted from the family events her device hasn't applied, with no holds table; the fee
+   settings sit on the Kennel page's Pickup & transport card with her places; the email's
+   placeholders are `[Distance]` and `[Transport Options]`, in the templates' own style.
 6. Backing out with her deposit policy.
 7. Kels: Review my waitlist picks these up in step 1 (requests) and step 2 (backing out).

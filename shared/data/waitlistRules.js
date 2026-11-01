@@ -52,7 +52,14 @@ export const WAITLIST_CONFIG_DEFAULTS = Object.freeze({
   embed: false, // her own website may show the form and list in a frame (Integrations plan §1)
   embed_origins: [], // …only these sites (embedOrigin form, at most EMBED_ORIGINS_MAX); none = any site
   extras_info_url: '', // her own page with the extras' details and prices (Family Requests plan §3); https only
-  extras_intro_text: '' // her message above the extras on a family's status page; blank = EXTRAS_INTRO_DEFAULT
+  extras_intro_text: '', // her message above the extras on a family's status page; blank = EXTRAS_INTRO_DEFAULT
+  // Pickup and transport (Family Requests plan §4–§5; transportFee.js):
+  mileage_rate: null, // fee per mile for a family's own meetup address; blank = no fee worked out
+  mileage_basis: 'round_trip', // 'one_way' | 'round_trip'
+  mileage_free_under: 0, // a trip under this many miles (after round trip doubles it) is free
+  transport_far_miles: 150, // over this, "she'll be in touch" (and the transport options email)
+  transport_min_home_miles: 0, // families may suggest their own place only living this far away; 0 = any family
+  pickup_change_days: 2 // a family may change or cancel their pickup time until this many days before
 });
 
 // The default message above the extras on a family's status page (the owner's wording).
@@ -73,6 +80,10 @@ export function waitlistConfigProblem(c) {
   if (c.facebook_button && !String(c.facebook_page || '').trim()) return 'Add your Page link first.';
   if (String(c.facebook_page || '').trim() && !messengerLink(c.facebook_page)) return 'That link isn\'t a Facebook Page. Use a facebook.com or m.me address.';
   if (String(c.extras_info_url || '').trim() && !extrasInfoLink(c.extras_info_url)) return 'The extras page link has to be a web address starting with https://.';
+  const atLeast0 = (v) => v == null || v === '' || (Number.isFinite(Number(v)) && Number(v) >= 0);
+  if (!atLeast0(c.mileage_rate)) return 'The fee per mile can\'t be negative.';
+  if (!atLeast0(c.mileage_free_under) || !atLeast0(c.transport_far_miles) || !atLeast0(c.transport_min_home_miles)) return 'Miles can\'t be negative.';
+  if (!atLeast0(c.pickup_change_days)) return 'Days before pickup can\'t be negative.';
   return '';
 }
 

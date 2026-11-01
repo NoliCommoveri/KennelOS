@@ -286,6 +286,8 @@ export async function readEvents(env, auth, url) {
 // a message already sent answers with its first result; a failed one is tried again.
 export const EMAIL_KINDS = ['approved', 'on_list', 'declined', 'offer', 'pass_recorded', 'deadline_passed', 'almost_turn',
   'review_prefs', 'litter_born', 'request_approved', 'request_declined', 'status_link', 'note',
+  // Getting their pup home (Family Requests plan §5.1): only ever sent by her.
+  'transport_options',
   // Sent by the server itself (serverMoves.js, step 7), from the templates she publishes.
   'offer_reminder', 'fee_reminder', 'ready_check'];
 export const MESSAGE_LIMITS = { perHour: 300, subjectMax: 200, bodyMax: 8000 };

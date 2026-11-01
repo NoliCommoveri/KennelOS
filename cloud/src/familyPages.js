@@ -301,6 +301,37 @@ export function extrasOf(x) {
   return out.available.length || out.current.length || out.requests.length ? out : null;
 }
 
+// A family's pickup section as her device published it, field by field. Her
+// standard location and the mile limits never pass. → object or null.
+const HM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+export function pickupOf(x) {
+  if (!x || typeof x !== 'object') return null;
+  const str = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
+  const id = (v) => (typeof v === 'string' && v.length <= 80 ? v : '');
+  const date = (v) => (typeof v === 'string' && YMD_RE.test(v) ? v : null);
+  const time = (v) => (typeof v === 'string' && HM_RE.test(v) ? v : '');
+  const place = (l) => ({ label: str(l?.label, 80), address: str(l?.address, 300), notes: str(l?.notes, 500) });
+  const miles = (v) => (Number.isFinite(v) && v >= 0 ? Math.round(v * 10) / 10 : null);
+  const slots = (Array.isArray(x.slots) ? x.slots.slice(0, 200) : []).map((sl) => ({
+    id: id(sl?.id), date: date(sl?.date), start_time: time(sl?.start_time), end_time: time(sl?.end_time), left: Math.max(0, Math.round(Number(sl?.left) || 0)), location: place(sl?.location),
+  })).filter((sl) => sl.id && sl.date && sl.start_time);
+  const b = x.booked && typeof x.booked === 'object' ? x.booked : null;
+  const booked = b ? {
+    kind: b.kind === 'address' ? 'address' : 'slot', date: date(b.date), start_time: time(b.start_time), end_time: time(b.end_time),
+    place: str(b.place, 80), address: str(b.address, 300), change_until: date(b.change_until),
+  } : null;
+  const requests = (Array.isArray(x.requests) ? x.requests.slice(0, 20) : []).map((r) => ({
+    id: id(r?.id), kind: ['slot', 'address', 'cancel'].includes(r?.kind) ? r.kind : 'slot', date: date(r?.date), start_time: time(r?.start_time),
+    place: str(r?.place, 80), address: str(r?.address, 300), miles: miles(r?.miles), far: r?.far === true,
+    requested_date: date(r?.requested_date), decided: ['approved', 'declined'].includes(r?.decided) ? r.decided : null, decided_date: date(r?.decided_date),
+  })).filter((r) => r.id);
+  const out = {
+    ready_from: date(x.ready_from), slots, booked, requests,
+    own_place: x.own_place === true ? true : x.own_place === false ? false : null, ask_home: x.ask_home === true,
+  };
+  return out.slots.length || out.booked || out.requests.length || out.own_place || out.ask_home ? out : null;
+}
+
 // Her application fee paid online (docs/KennelOS_Integrations_Plan.md §4): the
 // Pay link her device published, a web address only, with this family's id added
 // as Stripe's client_reference_id when it's a Stripe link (so her device can tell
@@ -356,6 +387,10 @@ export function statusView(projection, entryId) {
     const url = projection.kennel?.extras_info_url;
     if (typeof url === 'string' && /^https:\/\/[^\s"'<>]{1,500}$/i.test(url)) kennel.extras_info_url = url;
   }
+  // Pickup (Family Requests plan §4): their times, their booking and requests;
+  // only with an open sale.
+  const pickup = e.companion?.available ? pickupOf(e.pickup) : null;
+  if (pickup) family.pickup = pickup;
   // Getting your pup home: only for a family with an open sale (their pup is picked).
   const transport = e.companion?.available ? transportOf(projection) : [];
   if (transport.length) kennel.transport = transport;

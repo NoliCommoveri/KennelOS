@@ -36,6 +36,10 @@ import { litterRepo } from './litterRepo.js';
 import { dogRepo } from './dogRepo.js';
 import { saleRepo } from './saleRepo.js';
 import { familySale, pupBirthDate, withExtraRequest } from './familyExtras.js';
+import { withPickupRequest } from './familyPickup.js';
+import { pickupLocations, timeRange } from './pickupSlots.js';
+import { pickupFor, PICKUP_TITLE, DROPOFF_TITLE } from './goHome.js';
+import { eventRepo } from './eventRepo.js';
 import { kennelChargeList, kennelChargeGroups, chargeRules, planSteps, saleExtraCharges } from './extraCharges.js';
 import { expectedPricing } from './saleDefaults.js';
 import { todayYMD } from './dateUtils.js';
@@ -1008,6 +1012,8 @@ export async function applyFamilyPlan(entryId, plan) {
       case 'pref_request': await waitlistEntryRepo.update(entryId, { pref_change_request: plan.request }); break;
       case 'companion_request': await waitlistEntryRepo.update(entryId, { companion_request: plan.request }); break;
       case 'extra_request': await addExtraRequest(entryId, plan.request); break;
+      case 'pickup_request': await addPickupRequest(entryId, plan.request); break;
+      case 'home_location': await setHomeLocation(entryId, { place: plan.place, miles: plan.miles, date }); break;
       case 'listen_apply': await waitlistEntryRepo.update(entryId, plan.changes); break;
       case 'note': case 'skip': break;
       default: throw new Error(`Unknown plan "${plan.op}".`);
@@ -1149,6 +1155,84 @@ export async function declineExtraRequest(entryId, requestId, { date = todayYMD(
   const entry = await load(entryId);
   loadExtraRequest(entry, requestId);
   return waitlistEntryRepo.update(entryId, { extra_requests: decideExtra(entry, requestId, 'declined', date) });
+}
+
+// --- Pickup (Family Requests plan §4) ---------------------------------------------
+
+export async function addPickupRequest(entryId, request) {
+  const entry = await load(entryId);
+  const next = withPickupRequest(entry, request);
+  return next ? waitlistEntryRepo.update(entryId, { pickup_requests: next }) : entry;
+}
+
+// Where they live, measured once (her device from their application, or the server
+// from their answer on the status page). `miles` null = not measured.
+export async function setHomeLocation(entryId, { place, miles = null, date = todayYMD() }) {
+  return waitlistEntryRepo.update(entryId, { home_place: place || null, home_miles: Number.isFinite(miles) ? miles : null, home_measured_date: date });
+}
+
+// Her choice for this family: true (they may suggest a place), false (listed places
+// only), or null (follow her distance rule).
+export async function setOwnPlaceOverride(entryId, value) {
+  return waitlistEntryRepo.update(entryId, { own_place_override: typeof value === 'boolean' ? value : null });
+}
+
+function loadPickupRequest(entry, requestId) {
+  const req = (entry.pickup_requests || []).find((r) => r.id === requestId);
+  if (!req || req.decided) throw new Error('That pickup request isn\'t waiting any more.');
+  return req;
+}
+
+const decidePickup = (entry, requestId, decision, date) =>
+  (entry.pickup_requests || []).map((r) => (r.id === requestId ? { ...r, decided: decision, decided_date: date } : r));
+
+// Approve: a time becomes the pup's pickup event (Local pickup, the time and place,
+// `details.pickup_slot_id`); their own address becomes a drop-off with the date,
+// time, method and transport fee she gives (`opts`); a cancel archives the pickup.
+// Any other pickup still to come for this family is archived first, so a change
+// leaves one booking. → { entry, sale, event }
+export async function approvePickupRequest(entryId, requestId, { date = todayYMD(), when = null, time = '', method = 'Ground transport', fee = null } = {}) {
+  const entry = await load(entryId);
+  const req = loadPickupRequest(entry, requestId);
+  const sales = entry.contact_id ? await saleRepo.getByBuyer(entry.contact_id) : [];
+  const sale = familySale(entry, sales);
+  if (!sale?.dog_id) throw new Error('They have no open sale with a pup, so there\'s no pickup to plan.');
+  const upcoming = (await eventRepo.getForSubject('dog', sale.dog_id)).filter((e) => pickupFor(sale)(e) && e.event_date >= date);
+  let event = null;
+  if (req.kind === 'slot') {
+    const kennel = await kennelRepo.getById(sale.kennel_id);
+    const dog = await dogRepo.getById(sale.dog_id);
+    const litter = dog?.litter_id ? await litterRepo.getById(dog.litter_id) : null;
+    const slot = (litter?.pickup_slots || []).find((s) => s.id === req.slot_id);
+    if (!slot) throw new Error('That pickup time isn\'t on the litter any more. Decline it, and they can choose another.');
+    const place = pickupLocations(kennel).find((l) => l.id === slot.location_id);
+    for (const e of upcoming) await eventRepo.archive(e.id);
+    event = await eventRepo.create({
+      subject_type: 'dog', subject_id: sale.dog_id, event_type: 'placement', event_date: slot.date, title: PICKUP_TITLE,
+      ...(sale.buyer_contact_id ? { related_contact_id: sale.buyer_contact_id } : {}),
+      details: { dropoff_method: 'Local pickup', placement_time: timeRange(slot), ...(place ? { location: `${place.label}, ${place.address}` } : {}), pickup_slot_id: slot.id }
+    });
+  } else if (req.kind === 'address') {
+    const day = when || req.date;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day || '')) throw new Error('Choose the day for the drop-off.');
+    for (const e of upcoming) await eventRepo.archive(e.id);
+    event = await eventRepo.create({
+      subject_type: 'dog', subject_id: sale.dog_id, event_type: 'placement', event_date: day, title: method === 'Local pickup' ? PICKUP_TITLE : DROPOFF_TITLE,
+      ...(sale.buyer_contact_id ? { related_contact_id: sale.buyer_contact_id } : {}),
+      details: { dropoff_method: method, ...(time ? { placement_time: time } : {}), location: req.address }
+    });
+    if (fee != null && fee !== '' && Number.isFinite(Number(fee))) await saleRepo.update(sale.id, { transport_fee: Math.round(Number(fee) * 100) / 100 });
+  } else {
+    for (const e of upcoming) await eventRepo.archive(e.id);
+  }
+  const updated = await waitlistEntryRepo.update(entryId, { pickup_requests: decidePickup(entry, requestId, 'approved', date) });
+  return { entry: updated, sale: await saleRepo.getById(sale.id), event };
+}
+
+export async function declinePickupRequest(entryId, requestId, { date = todayYMD() } = {}) {
+  const entry = await load(entryId);
+  loadPickupRequest(entry, requestId);
+  return waitlistEntryRepo.update(entryId, { pickup_requests: decidePickup(entry, requestId, 'declined', date) });
 }
 
 // "Not this litter" (Spec §16.2): a pending pass on a litter (or an upcoming

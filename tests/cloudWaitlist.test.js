@@ -500,6 +500,85 @@ test('extras (Family Requests plan §3): a family with a sale asks by name, her 
   assert.deepEqual((await saleRepo.getById(sale.id)).extra_charges, [], 'cancelled');
 });
 
+test('pickup (Family Requests plan §4): a family books a time and her Approve makes the pickup; their own address is measured, and her Approve sets the drop-off and fee', async () => {
+  const { contactRepo } = await import('../shared/data/contactRepo.js');
+  const { saleRepo } = await import('../shared/data/saleRepo.js');
+  const { dogRepo } = await import('../shared/data/dogRepo.js');
+  const { litterRepo } = await import('../shared/data/litterRepo.js');
+  const { eventRepo } = await import('../shared/data/eventRepo.js');
+  const actions = await import('../shared/data/waitlistActions.js');
+  await breeder();
+  const k = await putOnline();
+  await kennelRepo.update(k.id, {
+    pickup_locations: [{ id: 'std', label: 'Library', address: 'Public Library, Austin TX', is_standard: true, show_to_families: true }],
+    waitlist_config: { ...(await kennelRepo.getById(k.id)).waitlist_config, mileage_rate: 1.5, mileage_basis: 'round_trip', transport_far_miles: 150 }
+  });
+  const sales = await saleRepo.getAll({ includeArchived: true });
+  const entry = (await waitlistEntryRepo.getByKennel(k.id)).find((e) => e.status === 'active' && e.contact_id
+    && !sales.some((x) => x.buyer_contact_id === e.contact_id && saleRepo.isOpenSale(x)));
+  await contactRepo.update(entry.contact_id, { email: 'pickup@example.com' });
+  const dog = (await dogRepo.getAll()).find((d) => d.kennel_id === k.id && !d.date_of_death && d.litter_id);
+  const later = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  await litterRepo.update(dog.litter_id, { estimated_ready_date: later(3), pickup_slots: [
+    { id: 'x1', date: later(10), start_time: '10:00', end_time: '10:30', location_id: 'std', capacity: 1 },
+    { id: 'x2', date: later(10), start_time: '10:30', end_time: '11:00', location_id: 'std', capacity: 1 }
+  ] });
+  const sale = await saleRepo.create({ kennel_id: k.id, dog_id: dog.id, buyer_contact_id: entry.contact_id, registration_type: 'limited', status: 'deposit_paid' });
+  await cw.syncWaitlistOnline();
+  const fam = await familySignIn(k.public_id, 'pickup@example.com');
+  const act = (action, extra = {}) => fam.call('/f/act', { session: fam.session, status_token: fam.statusToken, action, ...extra });
+  const view = async () => (await (await worker.fetch(new Request(`http://localhost/f/status/${fam.statusToken}`), env)).json());
+
+  let pk = (await view()).family.pickup;
+  assert.deepEqual(pk.slots.map((x) => [x.id, x.location.label]), [['x1', 'Library'], ['x2', 'Library']]);
+  assert.equal(pk.own_place, true, 'no distance rule: any family can suggest a place');
+  assert.equal(JSON.stringify(await view()).includes('Austin'), true, 'the library is a place she shows families');
+
+  assert.equal((await act('pickup_book', { slot_id: 'x1', note: 'Morning is best' })).status, 200);
+  assert.equal((await act('pickup_book', { slot_id: 'x2' })).status, 409, 'one at a time');
+  await cw.syncWaitlistOnline();
+  const req = (await waitlistEntryRepo.getById(entry.id)).pickup_requests[0];
+  assert.deepEqual([req.kind, req.slot_id, req.place], ['slot', 'x1', 'Library']);
+  const { computeNudges } = await import('../shared/data/nudges.js');
+  const nudge = (await computeNudges()).find((n) => n.key === `waitlist-pickup-request:${entry.id}:${req.id}`);
+  await nudge.actions.find((a) => a.label === 'Approve').run();
+  const [booked] = (await eventRepo.getForSubject('dog', dog.id)).filter((e) => e.event_type === 'placement' && !e.is_archived);
+  assert.deepEqual([booked.event_date, booked.details.pickup_slot_id, booked.details.dropoff_method, booked.related_contact_id], [later(10), 'x1', 'Local pickup', entry.contact_id]);
+  await cw.syncWaitlistOnline();
+  pk = (await view()).family.pickup;
+  assert.deepEqual([pk.booked.kind, pk.booked.place, pk.booked.start_time], ['slot', 'Library', '10:00']);
+
+  // Their own address, measured by the server through Mapbox (stubbed here).
+  env.MAPBOX_TOKEN = 'pk.test';
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    if (!String(url).startsWith('https://api.mapbox.com/')) return realFetch(url, init);
+    if (String(url).includes('/geocode/')) return new Response(JSON.stringify({ features: [{ geometry: { coordinates: String(url).includes('Library') ? [-97.7, 30.2] : [-96.8, 32.8] } }] }));
+    return new Response(JSON.stringify({ distances: [[315000]], durations: [[11400]] }));
+  };
+  try {
+    assert.equal((await act('pickup_address', { address: '9 Oak St, Dallas TX', date: later(12) })).status, 200);
+    const sent = (await view()).pending.find((p) => p.kind === 'pickup_address');
+    assert.deepEqual([sent.payload.miles, sent.payload.far], [195.7, true], 'measured at once: farther than her 150');
+  } finally {
+    globalThis.fetch = realFetch;
+    delete env.MAPBOX_TOKEN;
+  }
+  await cw.syncWaitlistOnline();
+  const addr = (await waitlistEntryRepo.getById(entry.id)).pickup_requests.find((r) => r.kind === 'address');
+  assert.deepEqual([addr.address, addr.miles, addr.far], ['9 Oak St, Dallas TX', 195.7, true]);
+  const far = (await computeNudges()).find((n) => n.key === `waitlist-pickup-request:${entry.id}:${addr.id}`);
+  assert.deepEqual(far.actions.map((a) => a.label), ['Open', 'Send transport options']);
+  const drafted = await far.actions[1].run();
+  assert.equal(drafted.emails[0].kind, 'transport_options');
+  const { draftFor } = await import('../shared/data/waitlistOutbox.js');
+  assert.match((await draftFor(entry.id, 'transport_options', drafted.emails[0].extra)).body, /about 196 miles from us/);
+  await actions.approvePickupRequest(entry.id, addr.id, { time: '2:00 PM', method: 'Flight nanny', fee: 587.1 });
+  const live = (await eventRepo.getForSubject('dog', dog.id)).filter((e) => e.event_type === 'placement' && !e.is_archived);
+  assert.deepEqual(live.map((e) => [e.event_date, e.details.dropoff_method, e.details.location]), [[later(12), 'Flight nanny', '9 Oak St, Dallas TX']], 'the time it replaced is archived');
+  assert.equal((await saleRepo.getById(sale.id)).transport_fee, 587.1);
+});
+
 test('only the backing device applies family actions; a new backing device starts where the last one got to', async () => {
   await breeder();
   const k = await putOnline();

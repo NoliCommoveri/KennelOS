@@ -96,6 +96,11 @@ src/notify.js          the breeder's notifications (docs/KennelOS_Notifications_
                        digest (her readable address only while on; another address confirmed by
                        code), sent by the hourly cron, with the /notify/off page. Secret
                        VAPID_PRIVATE_JWK (generate on /ops); optional vars VAPID_SUBJECT, APP_URL
+src/geo.js             driving miles through Mapbox (docs/KennelOS_Family_Requests_Plan.md §5): geocode
+                       two addresses, one Matrix element → { miles, minutes }; POST /geo/distance (her
+                       app, signed in, 60/hour) and familyActions' measuring of a family's own address
+                       or home (6/hour per family). Nothing stored, addresses never logged. Secret
+                       MAPBOX_TOKEN; without it 503 geo_off and nothing is measured
 src/notice.js          service notices (public /notice; set on /ops)
 src/retention.js       the daily prune and GC; pickDrops is the pure rule; sweepR2Orphans walks the
                        bucket a few pages a run (its place in r2_sweep, migration 0017) and deletes
@@ -184,6 +189,7 @@ The dashboard setup is plan §6.7. In short: the D1 database and R2 bucket named
 connected to this repo with root directory `cloud/`; and the secrets `OPS_TOKEN`,
 `EMAIL_HMAC_KEY`, `RESEND_API_KEY`, (for the Pro license link) `LEMONSQUEEZY_WEBHOOK_SECRET`, and
 (for vendor integrations, Integrations plan §0) `INT_TOKEN_KEY`, a long random string,
+(for driving miles, Family Requests plan §5) `MAPBOX_TOKEN`, a Mapbox access token,
 with the Lemon Squeezy ids in the `LS_*` vars (License Link Plan §7). Waitlist emails go out
 from `MAIL_FAMILY_DOMAIN` (`mail.kennelos.app`, its own sending domain verified in Resend;
 the same `RESEND_API_KEY` must be allowed to send from it), with links to

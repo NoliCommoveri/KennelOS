@@ -20,6 +20,7 @@ export async function healthCheck(env) {
       LEMONSQUEEZY_WEBHOOK_SECRET: Boolean(env.LEMONSQUEEZY_WEBHOOK_SECRET),
       INT_TOKEN_KEY: Boolean(env.INT_TOKEN_KEY),
       VAPID_PRIVATE_JWK: Boolean(env.VAPID_PRIVATE_JWK),
+      MAPBOX_TOKEN: Boolean(env.MAPBOX_TOKEN),
     },
     license: (({ ready, storeId, productIds, testMode }) => ({ ready, storeSet: Boolean(storeId), products: productIds.size, testMode }))(licenseConfig(env)),
     mail: mailMode(env),

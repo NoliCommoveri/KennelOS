@@ -25,7 +25,12 @@ import { dogRepo } from '../data/dogRepo.js';
 import { saleRepo } from '../data/saleRepo.js';
 import * as actions from '../data/waitlistActions.js';
 import { kennelChargeList, kennelChargeGroups, chargeRules, planText } from '../data/extraCharges.js';
-import { pendingExtraRequests } from '../data/familyExtras.js';
+import { pendingExtraRequests, familySale } from '../data/familyExtras.js';
+import { pendingPickupRequests, requestText as pickupRequestText, ownPlaceAllowed } from '../data/familyPickup.js';
+import { standardLocation } from '../data/pickupSlots.js';
+import { transportQuote, mapsLink } from '../data/transportFee.js';
+import { locationRuleOn } from '../data/waitlistForm.js';
+import { PLACEMENT_METHODS } from '../data/vocab.js';
 import { trainingStaysFor, trainingStayEvent, defaultStart, readyDateOf } from '../data/goHome.js';
 import { eventRepo } from '../data/eventRepo.js';
 import { offerEmails, syncSoon, communicateDialog } from '../assets/waitlistEmailUI.js';
@@ -282,6 +287,8 @@ function emailChoices(e) {
   const out = [{ kind: 'status_link', label: 'Their status page link' }, { kind: 'note', label: 'A note from you' }];
   if (e.status === 'approved') out.push({ kind: 'approved', label: 'Application approved (fee request)' });
   if (e.status === 'active') out.push({ kind: 'on_list', label: 'You\'re on the list' });
+  // Getting their pup home (Family Requests plan §5.1): once they have an open sale.
+  if (familySale(e, ctx.sales)) out.push({ kind: 'transport_options', label: 'Transport options (getting their pup home)' });
   const open = ctx.offers.filter((o) => o.outcome === 'open' && !o.is_archived && !o.chosen_dog_id);
   if (open.length) {
     out.push({ kind: 'offer', label: 'It\'s your turn (send again)', extra: { litterIds: open.map((o) => o.litter_id), respondBy: open.map((o) => o.respond_by_date).filter(Boolean).sort().pop() } });
@@ -355,6 +362,24 @@ function pendingRequests(e) {
         : `Asked ${esc(fmtDate(r.requested_date))} for <strong>${esc(r.name)}</strong>${price}.`,
       hint: r.kind === 'cancel' ? 'Approve takes it off their sale.' : item ? 'Approve adds it to their sale at your price-list price, with its payment plan.' : 'It\'s no longer on your price list: add it to the sale by hand, or decline.' });
   }
+  // Pickup (Family Requests plan §4): a time, a cancel, or their own address.
+  const from = standardLocation(ctx.kennel)?.address || '';
+  for (const r of pendingPickupRequests(e)) {
+    const kind = `pickup|${r.id}`;
+    if (r.kind !== 'address') {
+      out.push({ kind, note: r.note, text: `Asked ${esc(fmtDate(r.requested_date))} ${esc(pickupRequestText(r))}.`,
+        hint: r.kind === 'cancel' ? 'Approve takes their pickup off the pup\'s calendar.' : 'Approve puts it on the pup\'s calendar as their pickup (any other one still to come is replaced).' });
+      continue;
+    }
+    const q = Number.isFinite(r.miles) ? transportQuote(r.miles, ctx.config) : null;
+    out.push({ kind, note: r.note,
+      text: `Asked ${esc(fmtDate(r.requested_date))} to meet at <strong>${esc(r.address)}</strong>${r.date ? ` on ${esc(fmtDate(r.date))}` : ''}.`,
+      hint: q ? `${q.text}${q.far ? ' · Farther than your limit: they were told you\'ll be in touch.' : ''}` : 'Not measured yet.',
+      buttons: `<a class="btn btn-sm" href="${esc(mapsLink(from, r.address))}" target="_blank" rel="noopener noreferrer">Open in Maps</a>
+        <button class="btn btn-sm" data-req="${kind}:transport">Send transport options</button>
+        <button class="btn btn-sm btn-primary" data-req="${kind}:approve">Approve…</button>
+        <button class="btn btn-sm" data-req="${kind}:decline">Decline</button>` });
+  }
   return out;
 }
 
@@ -372,10 +397,25 @@ function emailItemHtml(m) {
 }
 
 // Their status-page requests (Interact, top): each waits for her Approve / Decline.
+// Where they live (Family Requests plan §4.1), when her distance rule is on or she
+// knows: the place, the miles, and her choice of whether they may suggest their own
+// meetup place.
+function homeHtml(e) {
+  if (!locationRuleOn(ctx.config) && !e.home_place && typeof e.own_place_override !== 'boolean') return '';
+  const allowed = ownPlaceAllowed(e, ctx.config);
+  const where = e.home_place
+    ? `Lives in <strong>${esc(e.home_place)}</strong>${Number.isFinite(e.home_miles) ? `, about ${Math.round(e.home_miles)} miles from your standard location` : ' (not measured)'}.`
+    : 'Where they live isn\'t known yet; their status page asks once their pup is picked.';
+  const state = typeof e.own_place_override === 'boolean' ? ' (your choice)' : ' (your distance rule)';
+  return `<section class="card"><h2 style="margin-top:0;">Pickup</h2><p style="margin:0;">${where}</p>
+    <p class="field-hint">${allowed === true ? 'They can suggest their own meetup place' : allowed === false ? 'They choose from your listed places and times' : 'Waiting to hear where they live'}${allowed === null ? '' : state}.</p>
+    <span class="pill-row"><button class="btn btn-sm" data-own="true">Allow their own place</button><button class="btn btn-sm" data-own="false">Listed places only</button>${typeof e.own_place_override === 'boolean' ? '<button class="btn btn-sm" data-own="">Follow my rule</button>' : ''}</span></section>`;
+}
+
 function requestsHtml(e) {
   const requests = pendingRequests(e);
-  if (!requests.length) return '';
-  return `<section class="card"><h2 style="margin-top:0;">Waiting for you <span class="badge badge-amber">${requests.length}</span></h2>
+  if (!requests.length) return homeHtml(e);
+  return `${homeHtml(e)}<section class="card"><h2 style="margin-top:0;">Waiting for you <span class="badge badge-amber">${requests.length}</span></h2>
     ${requests.map((r) => `<div class="row-between" style="gap:8px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--border);">
       <div><p style="margin:0;">${r.text}</p>${r.note ? `<p class="faint" style="margin:2px 0 0;">They said: "${esc(r.note)}"</p>` : ''}<p class="field-hint" style="margin:2px 0 0;">${esc(r.hint)}</p></div>
       <span class="pill-row">${r.buttons || `<button class="btn btn-sm btn-primary" data-req="${r.kind}:approve">Approve</button><button class="btn btn-sm" data-req="${r.kind}:decline">Decline</button>`}</span>
@@ -408,11 +448,76 @@ function wireRequests(root) {
     await afterAction();
     await emailThem(approved ? 'request_approved' : 'request_declined', { request: { field: 'extra_request', request } });
   };
+  root.querySelectorAll('[data-own]').forEach((btn) => btn.addEventListener('click', () => run(() => actions.setOwnPlaceOverride(e.id, btn.dataset.own === '' ? null : btn.dataset.own === 'true'))));
+  // A pickup request (data-req "pickup|<request id>:approve|decline|transport").
+  const pickup = (requestId, decision) => async () => {
+    const request = (e.pickup_requests || []).find((r) => r.id === requestId);
+    if (decision === 'transport') return emailThem('transport_options', Number.isFinite(request?.miles) ? { distance: request.miles } : {});
+    if (decision === 'decline') { await actions.declinePickupRequest(e.id, requestId); await afterAction(); return emailThem('request_declined', { request: { field: 'pickup_request', request } }); }
+    if (request.kind === 'address') { if (await approveAddress(request)) await emailThem('request_approved', { request: { field: 'pickup_request', request } }); return; }
+    await actions.approvePickupRequest(e.id, requestId);
+    await afterAction();
+    return emailThem('request_approved', { request: { field: 'pickup_request', request } });
+  };
   root.querySelectorAll('[data-req]').forEach((btn) => btn.addEventListener('click', () => {
     const [kind, decision] = btn.dataset.req.split(':');
     if (kind.startsWith('extra|')) return run(extra(kind.slice(6), decision === 'approve'));
+    if (kind.startsWith('pickup|')) return run(pickup(kind.slice(7), decision));
     return run(handlers[btn.dataset.req]);
   }));
+}
+
+// Approving a family's own address (Family Requests plan §4): the day, time, how
+// (Ground transport, Flight nanny…) and the transport fee, suggested from the miles
+// (Get driving miles when they weren't measured). → true once approved.
+async function approveAddress(request) {
+  const e = ctx.entry;
+  const from = standardLocation(ctx.kennel)?.address || '';
+  let miles = Number.isFinite(request.miles) ? request.miles : null;
+  const sales = e.contact_id ? await saleRepo.getByBuyer(e.contact_id) : [];
+  const sale = familySale(e, sales);
+  const quote = () => (miles != null ? transportQuote(miles, ctx.config) : null);
+  return formModal({
+    title: 'Approve their meetup place',
+    confirmLabel: 'Approve',
+    bodyHtml: `<p style="margin-top:0;">${esc(request.address)} <a href="${esc(mapsLink(from, request.address))}" target="_blank" rel="noopener noreferrer">Open in Maps</a></p>
+      <div class="form-grid">
+        <div class="field"><label for="pa-date">Day</label><input id="pa-date" type="date" value="${esc(request.date || '')}"></div>
+        <div class="field"><label for="pa-time">Time</label><input id="pa-time" type="text" placeholder="e.g. 2:00 PM"></div>
+        <div class="field"><label for="pa-method">How</label><select id="pa-method">${PLACEMENT_METHODS.map((m) => `<option${m === 'Ground transport' ? ' selected' : ''}>${esc(m)}</option>`).join('')}</select></div>
+        <div class="field"><label for="pa-miles">Miles, one way</label><span style="display:inline-flex; gap:6px; align-items:center;"><input id="pa-miles" type="number" min="0" step="0.1" value="${miles ?? ''}" style="width:7em;">${from ? '<button type="button" class="btn btn-sm" id="pa-measure">Get driving miles</button>' : ''}</span></div>
+        <div class="field"><label for="pa-fee">Transport fee</label><input id="pa-fee" type="number" min="0" step="0.01" value="${quote()?.fee ?? (sale?.transport_fee ?? '')}" style="width:9em;"><span class="field-hint" id="pa-working">${esc(quote()?.text || '')}</span></div>
+      </div>
+      <p class="field-hint">Approving puts the drop-off on the pup's calendar (any other pickup still to come is replaced) and the fee on their sale.</p>`,
+    onConfirm: async (o) => {
+      await actions.approvePickupRequest(e.id, request.id, {
+        when: o.querySelector('#pa-date').value, time: o.querySelector('#pa-time').value.trim(),
+        method: o.querySelector('#pa-method').value, fee: o.querySelector('#pa-fee').value
+      });
+      await afterAction();
+    }
+  }, (o) => {
+    const refresh = () => {
+      const v = o.querySelector('#pa-miles').value;
+      miles = v === '' ? null : Number(v);
+      const q = quote();
+      o.querySelector('#pa-working').textContent = q?.text || '';
+      if (q && q.fee != null) o.querySelector('#pa-fee').value = q.fee;
+    };
+    o.querySelector('#pa-miles').addEventListener('change', refresh);
+    o.querySelector('#pa-measure')?.addEventListener('click', async (ev) => {
+      ev.target.disabled = true;
+      try {
+        const { drivingMiles } = await import('../data/cloud/cloudWaitlist.js');
+        const d = await drivingMiles(from, request.address);
+        o.querySelector('#pa-miles').value = d.miles;
+        refresh();
+      } catch (err) {
+        o.querySelector('#pa-working').textContent = `Couldn't measure: ${err.code === 'geo_off' ? 'miles aren\'t switched on for KennelOS yet' : err.code === 'not_found' ? 'the address wasn\'t found' : err.message}. Use Open in Maps and type the miles.`;
+      }
+      ev.target.disabled = false;
+    });
+  });
 }
 
 // Training stays (Family Requests plan §6): a package the pup stays for is offered
