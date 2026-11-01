@@ -527,8 +527,8 @@ test("backing out passes field by field, with her reasons and policy text, only 
 
 test('her expected prices reach a family\'s turn only, number by number', () => {
   const p = projection();
-  p.litters.l1.prices = { by_registration: { limited: { male: 2800, female: '3000<script>' }, full: { male: 3800, female: 4500 }, bogus: { male: 1 } }, full_surcharge: { male: 1000, female: 1500 } };
+  p.litters.l1.prices = { by_registration: { limited: { male: 2800, female: '3000<script>' }, full: { male: 3800, female: 4500 }, bogus: { male: 1 } }, full_surcharge: { male: 1000, female: 1500 }, deposit: { male: 500, female: -5 } };
   const v = statusView(p, 'ann');
-  assert.deepEqual(v.offers[0].prices, { by_registration: { limited: { male: 2800, female: null }, full: { male: 3800, female: 4500 } }, full_surcharge: { male: 1000, female: 1500 } });
+  assert.deepEqual(v.offers[0].prices, { by_registration: { limited: { male: 2800, female: null }, full: { male: 3800, female: 4500 } }, deposit: { male: 500, female: null } });
   assert.equal(JSON.stringify(v.litters).includes('3800'), false, 'not on the Available Puppies cards');
 });

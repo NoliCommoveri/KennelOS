@@ -371,16 +371,16 @@ test('"Message us on Facebook": a Messenger link only while it is switched on wi
   assert.equal('messenger' in withConfig({ facebook_button: true, facebook_page: 'nope' }), false);
 });
 
-test('a family\'s turn can show her expected prices: males and females per registration, the Full surcharge apart; her switch hides them', () => {
+test('a family\'s turn can show her expected prices and deposits: males and females per registration, Full as its total; her switch hides them', () => {
   const f = fixture();
   const litter = f.litters.find((l) => l.id === 'lit-1');
-  Object.assign(litter, { expected_price_male: 2800, expected_price_female: 3000, full_reg_surcharge_male: 1000, full_reg_surcharge_female: 1500, expected_deposit_male: 500 });
+  Object.assign(litter, { expected_price_male: 2800, expected_price_female: 3000, full_reg_surcharge_male: 1000, full_reg_surcharge_female: 1500, expected_deposit_male: 500, expected_deposit_female: 600 });
   f.dogs.find((d) => d.id === 'p2').intended_registration = 'full';
   const l = buildProjection(f).litters['lit-1'];
   assert.deepEqual(l.prices, {
     by_registration: { full: { male: 3800, female: 4500 }, limited: { male: 2800, female: 3000 } },
-    full_surcharge: { male: 1000, female: 1500 }
-  }, 'asking prices only: no deposit');
+    deposit: { male: 500, female: 600 }
+  }, 'her listed prices and deposits');
   assert.equal(l.pups.find((d) => d.id === 'p2').registration, 'full');
   const off = buildProjection({ ...f, kennel: { ...f.kennel, waitlist_config: { ...(f.kennel.waitlist_config || {}), turn_prices: false } } });
   assert.equal('prices' in off.litters['lit-1'], false, 'switched off: not published');

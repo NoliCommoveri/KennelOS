@@ -187,7 +187,8 @@ export async function serveFamilyPage(request, env, url) {
 const parentOf = (d) => ({ name: d?.name ?? '', titles: Array.isArray(d?.titles) ? d.titles : [] });
 
 // A litter's expected prices as her device published them, field by field: per
-// registration a male and a female price, and the Full surcharge. null when none.
+// registration a male and a female price (the total), and the deposit for a male
+// and a female. null when none.
 const REGISTRATIONS = ['limited', 'full', 'co_own', 'none'];
 function pricesOf(p) {
   if (!p || typeof p !== 'object') return null;
@@ -197,8 +198,9 @@ function pricesOf(p) {
     const r = p.by_registration?.[reg];
     if (r && typeof r === 'object') by[reg] = { male: money(r.male), female: money(r.female) };
   }
-  if (!Object.values(by).some((r) => r.male != null || r.female != null)) return null;
-  return { by_registration: by, full_surcharge: { male: money(p.full_surcharge?.male), female: money(p.full_surcharge?.female) } };
+  const deposit = { male: money(p.deposit?.male), female: money(p.deposit?.female) };
+  if (!Object.values(by).some((r) => r.male != null || r.female != null) && deposit.male == null && deposit.female == null) return null;
+  return { by_registration: by, deposit };
 }
 
 function upcomingRow(u) {

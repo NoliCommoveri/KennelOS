@@ -95,9 +95,11 @@ const publicPup = (d) => ({ id: d.id, call_name: d.call_name || '', sex: orNull(
 
 // A litter's expected prices as a family on their turn may see them (her setting
 // turn_prices): per registration the pups of it are planned for, the male and
-// female price (saleDefaults.expectedPricing, the price a sale starts at), and the
-// Full-registration surcharge. Her asking prices only: never a sale's amount, a
-// deposit or anything a family owes. null when she set none.
+// female price (saleDefaults.expectedPricing, the price a sale starts at: Full
+// includes her surcharge, never shown apart), and her expected deposit for a male
+// and a female.
+// Her listed prices only: never a sale's amount or anything a family owes. null
+// when she set none.
 function litterPrices(litter, pups) {
   const regs = [...new Set(pups.map((d) => d.intended_registration || 'limited'))].sort();
   const num = (v) => (v === '' || v == null || !Number.isFinite(Number(v)) ? null : Number(v));
@@ -105,9 +107,9 @@ function litterPrices(litter, pups) {
     male: num(expectedPricing({ sex: 'male' }, litter, reg).price),
     female: num(expectedPricing({ sex: 'female' }, litter, reg).price)
   }]));
-  const surcharge = { male: num(litter.full_reg_surcharge_male), female: num(litter.full_reg_surcharge_female) };
-  const any = Object.values(by).some((p) => p.male != null || p.female != null);
-  return any ? { by_registration: by, full_surcharge: surcharge } : null;
+  const deposit = { male: num(litter.expected_deposit_male), female: num(litter.expected_deposit_female) };
+  const any = Object.values(by).some((p) => p.male != null || p.female != null) || deposit.male != null || deposit.female != null;
+  return any ? { by_registration: by, deposit } : null;
 }
 
 // One family's status page (Plan §5). A family still in the pipeline gets the

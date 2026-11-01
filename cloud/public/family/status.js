@@ -170,18 +170,14 @@ function reasonMessage(id) {
 }
 
 const REG_LABEL = { limited: 'Limited registration', full: 'Full registration', co_own: 'Co-ownership', none: 'Unregistered' };
-// "Males $2,800 · Females $3,000", and for Full registration what it adds:
-// "(+$1,000 males · +$1,500 females)". Whole dollars unless she priced in cents.
+// "Males $2,800 · Females $3,000": the total price for that registration (Full
+// includes her surcharge; the page never splits it out). Whole dollars unless she
+// priced in cents.
 const price = (n) => (Number.isInteger(n) ? `$${n.toLocaleString('en-US')}` : money(n));
-function priceLine(p, reg, surcharge) {
+function priceLine(p) {
   if (!p) return '';
   const parts = [p.male != null ? `Males ${price(p.male)}` : '', p.female != null ? `Females ${price(p.female)}` : ''].filter(Boolean);
-  if (!parts.length) return '';
-  const s = surcharge || {};
-  const adds = reg === 'full' && (s.male || s.female)
-    ? (s.male && s.female && s.male !== s.female ? `+${price(s.male)} males · +${price(s.female)} females` : `+${price(s.male || s.female)}`)
-    : '';
-  return `<p class="small mt0">${esc(parts.join(' · '))}${adds ? ` <span class="muted">(${esc(adds)})</span>` : ''}</p>`;
+  return parts.length ? `<p class="small mt0 price">${esc(parts.join(' · '))}</p>` : '';
 }
 
 // A family's turn (Waitlist Spec §16.1): every litter it covers, in one card. They
@@ -220,7 +216,13 @@ function turnHtml(rows) {
     }
     const order = ['limited', 'none', 'co_own', 'full'].filter((r) => groups.has(r));
     const sectioned = order.length > 1 || groups.has('full');
-    return order.map((reg) => `${sectioned ? `<p class="small mt8"><strong>${esc(REG_LABEL[reg])}</strong></p>` : ''}${priceLine(prices[reg], reg, o.prices.full_surcharge)}${pupButtons(o, groups.get(reg))}`).join('');
+    const d = o.prices.deposit || {};
+    const deposit = [d.male != null ? `Males ${price(d.male)}` : '', d.female != null ? `Females ${price(d.female)}` : ''].filter(Boolean);
+    // The deposit is the same whatever the registration: once per litter, under the
+    // price when there's one price line, above the sections when there are several.
+    const depositLine = deposit.length ? `<p class="small mt0 muted">Deposit: ${esc(deposit.join(' · '))}</p>` : '';
+    if (!sectioned) return `${priceLine(prices[order[0]])}${depositLine}${pupButtons(o, groups.get(order[0]))}`;
+    return depositLine + order.map((reg) => `<p class="small mt8"><strong>${esc(REG_LABEL[reg])}</strong></p>${priceLine(prices[reg])}${pupButtons(o, groups.get(reg))}`).join('');
   };
   const chosenName = rows.flatMap((o) => o.pups).find((d) => d.id === chosen)?.call_name || 'a pup';
   let next;
@@ -240,7 +242,7 @@ function turnHtml(rows) {
   const respondBy = rows.map((o) => o.respond_by_date || '').sort().reverse()[0];
   return openCard('The wait is over!', `
     <p class="mt0">Below are the puppies available for selection.</p>
-    ${rows.some((o) => o.prices) ? `<p class="small muted mt0">Prices are ${esc(kennel)}'s estimates; they confirm yours when you choose.</p>` : ''}
+    ${rows.some((o) => o.prices) ? '<p class="small muted mt0">Listed prices are intended base purchase price and may not include additional fees; all prices are subject to change prior to contract signing.</p>' : ''}
     ${rows.map((o) => `<p class="mt8"><strong>${esc(o.litter)}</strong>${o.breed ? ` <span class="small muted">${esc(o.breed)}</span>` : ''}</p>${parentsLine(o.dam, o.sire)}${pupsOf(o)}`).join('')}
     ${next}
     ${respondBy ? `<p class="deadline"><strong>${esc(deadlineText(respondBy, v.kennel.time_zone))}</strong></p>` : ''}`, 'turn');

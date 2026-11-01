@@ -1998,3 +1998,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   → Turns & offers (`turn_prices`). Published pups carry their intended registration.
   Needs a Worker deploy. Tests in `tests/waitlistProjection.test.js` and
   `cloud/tests/familyPages.test.js`. Checked in the browser.
+- **Turn prices: deposits, totals only, her notice (2026-11-01).** Asked by the owner: each
+  litter of a turn also shows the deposit for males and females; Full registration shows
+  its total price only (no "+$1,000" surcharge split, and the surcharge isn't published);
+  the note reads "Listed prices are intended base purchase price and may not include
+  additional fees; all prices are subject to change prior to contract signing." Screenshots
+  made from the real path (projection → statusView → status page).

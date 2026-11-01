@@ -247,3 +247,5 @@ html.embedded.theme-dark {
 .records .record > div { min-width: 0; }
 .records .record .button, .records .record .badge { flex: 0 0 auto; }
 .records a.button.secondary.small { padding: 6px 14px; font-size: 0.875rem; }
+/* A turn's price line sits right on its deposit line. */
+.turn p.price { margin-bottom: 2px; }
