@@ -2272,3 +2272,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `fee_due`, a $200 credit on a $500 deposit (invoice: $200 already collected; ledger: $200
   earned + $300 anticipated; balance due). Not driven: the family status page itself (server
   render), the invoice generator modal, payment requests, the Kels paths.
+- **SW cache bumped to `kennelos-shell-v92` (2026-11-01).** This session's app changes ride
+  it: the Keeping prompt for planned tests and planned-test seeding on every way a dog is
+  added (new `assets/keeperTests.js`), and credits for funds already received (new
+  `data/receivedCredits.js`). The family status page's credit lines need a Worker deploy.
