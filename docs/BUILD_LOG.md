@@ -2173,3 +2173,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   missing last at its level so no dog drops off. The Status and Sex columns now sort in
   vocab order too (were alphabetical by stored value). Other tabs unchanged. Test:
   `tests/vocab.test.js`; checked in the browser on the sample data.
+- **Check in on my dogs leaves out Pet home dogs (2026-11-01).** Owner decision: the health
+  test and "any other events" steps' list (`dogCare.checkinDogs`) no longer includes dogs
+  with status Pet home. Test: `tests/dogCare.test.js`.

@@ -107,12 +107,12 @@ export const ownDogs = (dogs) => (dogs || [])
   .filter((d) => d && !d.is_archived && !d.pedigree_only && OWN_OWNERSHIP.includes(d.ownership_type) && d.status !== 'deceased');
 
 // The dogs the check-in's health-test and "any other events" steps list: her own
-// (ownDogs), and a puppy only when she's keeping it. Active breeding first, then
+// (ownDogs), never one in a pet home, and a puppy only when she's keeping it. Active breeding first, then
 // the other grown dogs, then kept puppies, each A→Z.
 export function checkinDogs(dogs) {
   const rank = (d) => (d.status === 'active_breeding' ? 0 : d.status === 'puppy' ? 2 : 1);
   return ownDogs(dogs)
-    .filter((d) => d.status !== 'puppy' || d.disposition === 'keeping')
+    .filter((d) => d.status !== 'pet_home' && (d.status !== 'puppy' || d.disposition === 'keeping'))
     .sort((a, b) => rank(a) - rank(b) || (a.call_name || a.registered_name || '').localeCompare(b.call_name || b.registered_name || ''));
 }
 

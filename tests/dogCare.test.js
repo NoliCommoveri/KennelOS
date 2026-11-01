@@ -84,14 +84,14 @@ test('dogEventProblem: a dog, a date, an end after the start, a note\'s words, a
   assert.equal(dogEventProblem({ ...ok, cost: '85.50' }), '');
 });
 
-test('checkinDogs: owned and co-owned only, never external, pedigree-only, archived or deceased; puppies only when kept', () => {
+test('checkinDogs: owned and co-owned only, never external, pedigree-only, archived, deceased or in a pet home; puppies only when kept', () => {
   const dog = (id, extra) => ({ id, call_name: id, ownership_type: 'owned', status: 'active_breeding', ...extra });
   const out = checkinDogs([
     dog('Zed'), dog('Ada', { ownership_type: 'co_owned', status: 'retired_breeding' }),
     dog('Ext', { ownership_type: 'external' }), dog('Lease', { ownership_type: 'leased_in' }),
     dog('Anc', { pedigree_only: true }), dog('Gone', { status: 'deceased' }), dog('Arch', { is_archived: true }),
     dog('Pip', { status: 'puppy', disposition: 'keeping' }), dog('Sold', { status: 'puppy', disposition: 'available' }),
-    dog('Bea')
+    dog('Bea'), dog('Pet', { status: 'pet_home' })
   ]).map((d) => d.id);
   assert.deepEqual(out, ['Bea', 'Zed', 'Ada', 'Pip']);
 });

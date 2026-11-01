@@ -2783,8 +2783,8 @@ archived or deceased). Today's nudges and the reports still read `breedingDogs` 
    whether to log one (flea & tick, say).
 3. **Health test results:** "Do you need to log any new health test results?" (with how many
    planned tests wait for one) → **Yes, log results** runs Log health test results' own loop
-   (`healthTestsUI.logHealthTests`, below) on `dogCare.checkinDogs` (her own dogs, and puppies
-   only when Keeping) / **No thanks**.
+   (`healthTestsUI.logHealthTests`, below) on `dogCare.checkinDogs` (her own dogs, never one
+   in a pet home, and puppies only when Keeping) / **No thanks**.
 4. **Any other events:** "Any other events that need logging, like a vet visit, a new
    medication or a weight?" → the kind (`dogCare.otherEventTypes`: every dog event type but
    the ones this check-in asks itself, heats, preventatives and the three test types, and
