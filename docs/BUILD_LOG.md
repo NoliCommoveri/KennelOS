@@ -2075,3 +2075,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **Public list tightened (2026-11-01).** Asked by the owner: the list's card has less padding
   (6px 10px) and the number column sits close to the name, sized to fit "#999" in bold on one
   line (checked at 320px and 390px wide: no wrap, no spill, no sideways scroll).
+- **CSV import guide fits a phone (2026-11-01).** Asked by the owner: the "What should my file
+  look like?" table no longer scrolls sideways. Column names wrap after underscores; the
+  "Required for new records" pill is "New records" (the key under the table explains it);
+  the header reads Need. At 640px and under, each column is one block: name and pill on one
+  line, what goes in it full width below (`table.ih-cols` in `app.css`).
