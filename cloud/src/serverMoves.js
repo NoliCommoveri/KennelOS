@@ -47,6 +47,24 @@ export function addDays(ymd, days) {
   return d.toISOString().slice(0, 10);
 }
 
+// n of her OPEN days after (n < 0: before) a date: a copy of the app's
+// dateUtils.addOpenDays, with her weekdays from the projection (kennel.open_days,
+// 0 = Sunday; null = every day), so a turn offered here is due the day her device
+// would make it.
+export function addOpenDays(ymd, days, openDays) {
+  const open = new Set(Array.isArray(openDays) ? openDays.filter((n) => Number.isInteger(n) && n >= 0 && n <= 6) : []);
+  const n = Math.round(Number(days) || 0);
+  if (!n || open.size === 0 || open.size === 7) return addDays(ymd, n);
+  const step = n < 0 ? -1 : 1;
+  let left = Math.abs(n);
+  let at = ymd;
+  while (left > 0) {
+    at = addDays(at, step);
+    if (open.has(new Date(`${at}T00:00:00Z`).getUTCDay())) left--;
+  }
+  return at;
+}
+
 const daysBetween = (a, b) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86400000);
 
 // --- Her templates (pure) -----------------------------------------------------------
@@ -192,7 +210,7 @@ async function offerNext(env, row, projection, { today, skip, held, cause, cause
   const next = nextFromQueue(projection, { skip, held });
   if (!next) return null;
   const turn = {
-    turn_id: crypto.randomUUID(), offered_date: today, respond_by_date: addDays(today, next.respondDays),
+    turn_id: crypto.randomUUID(), offered_date: today, respond_by_date: addOpenDays(today, next.respondDays, projection.kennel?.open_days),
     rows: next.rows.map((r) => ({ offer_id: crypto.randomUUID(), ...r })),
   };
   const seq = await insertEvent(env, row, { entryId: next.entryId, kind: 'server_offer', payload: { ...turn, cause, cause_seq: causeSeq } }, at, projection);
@@ -274,7 +292,8 @@ export async function runKennel(env, row, { now = new Date(), origin } = {}) {
     for (const [entryId, e] of Object.entries(projection.entries || {})) {
       if (!OPEN.includes(e.status)) continue;
       const due = e.fee_due?.due_date;
-      if (due && today === addDays(due, -1)) {
+      // The open day before it's due (her closed days skipped).
+      if (due && today === addOpenDays(due, -1, projection.kennel?.open_days)) {
         const r = await emailOnce(env, row, projection, { id: `srv-fee-${entryId}-${due}`, entryId, kind: 'fee_reminder', facts: { payBy: due }, origin }, now);
         if (r === 'sent') counts.reminders++;
       }

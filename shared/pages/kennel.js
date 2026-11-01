@@ -34,7 +34,7 @@ import { isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
 import { pickupLocations, locationsProblem } from '../data/pickupSlots.js';
 import { MILEAGE_BASIS } from '../data/transportFee.js';
 import { backOutReasons, backOutPolicy, BACK_OUT_OUTCOMES, BACK_OUT_POLICY_TEXT_DEFAULT } from '../data/backOut.js';
-import { waitlistConfig, waitlistConfigProblem, SOON_NOTICE_DEFAULT, EXTRAS_INTRO_DEFAULT, passReasons, showUpcoming, UPCOMING_STAGES } from '../data/waitlistRules.js';
+import { waitlistConfig, waitlistConfigProblem, openDays, SOON_NOTICE_DEFAULT, EXTRAS_INTRO_DEFAULT, passReasons, showUpcoming, UPCOMING_STAGES } from '../data/waitlistRules.js';
 import { EMAIL_TEMPLATE_KINDS, EMAIL_PLACEHOLDERS, DEFAULT_EMAIL_TEMPLATES, emailTemplate } from '../data/waitlistEmails.js';
 import { esc, badge, fmtDate, fmtMoney, param } from '../assets/ui.js';
 import { renderExpensePanel } from '../assets/expensePanel.js';
@@ -423,6 +423,9 @@ ${group('fees', 'Fees & payment', 'Application fee, when it is due, how families
           <span class="field-hint">Paid before you approve them: approving puts them on the list from the day they paid.</span></div>` : ''}
 `)}
 ${group('turns', 'Turns & offers', 'Time to respond, passes, color matching, automatic offers', `
+        <div class="field field-wide"><label>Days you do business</label>
+          <div class="pill-row">${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, n) => `<label class="check-inline"><input type="checkbox" data-wl-open="${n}"${openDays(c).includes(n) ? ' checked' : ''}> ${d}</label>`).join('')}</div>
+          <span class="field-hint">Deadlines count only these days, so one never lands on a day you're closed: the days to accept and pay the deposit, to pay the application fee, to answer "Ready now?", to change a pickup time, and extras payment plans. Closed Saturdays: offered on a Friday with 3 days, it's due Tuesday.</span></div>
         <div class="field"><label>Days to accept and pay the deposit</label><input id="wl-respond" type="number" min="1" step="1" value="${esc(c.respond_days)}">
           <span class="field-hint">From the offer. A pup they pick is held until then; no deposit in time counts as no response.</span></div>
         <div class="field"><label>Passes before removal</label><input id="wl-passes" type="number" min="1" step="1" value="${esc(c.max_passes)}"></div>
@@ -430,7 +433,7 @@ ${group('turns', 'Turns & offers', 'Time to respond, passes, color matching, aut
           <label class="check-inline"><input id="wl-noresp" type="checkbox"${c.no_response_counts_as_pass ? ' checked' : ''}> No response by the deadline counts as a pass</label>
           <label class="check-inline"><input id="wl-colors" type="checkbox"${c.color_matching ? ' checked' : ''}> Match on color (only offer pups in a color the family listed)</label>
           <label class="check-inline"><input id="wl-turn-prices" type="checkbox"${c.turn_prices !== false ? ' checked' : ''}> Show your expected prices on a family's turn</label>
-          <span class="field-hint">From each litter's expected prices (Litter page): males and females, with pups planned for Full registration in their own section showing the surcharge. Your asking prices only, marked as estimates; never a sale's amount.</span>
+          <span class="field-hint">From each litter's expected prices and deposits (Litter page), for males and females; pups planned for Full registration in their own section at their full price. Once a family picks, their page also shows the deposit with your payment instructions.</span>
         </div>
         <div class="field field-wide"><label>Offer the next family automatically when…</label>
           ${WAITLIST_AUTO_OFFER_TRIGGER.map((t) => `<label class="check-inline"><input type="checkbox" data-wl-auto="${esc(t.value)}"${c.auto_offer_on.includes(t.value) ? ' checked' : ''}> ${esc(t.label)}</label>`).join('')}
@@ -584,6 +587,7 @@ async function onSaveWaitlist() {
     no_response_counts_as_pass: q('#wl-noresp').checked,
     color_matching: q('#wl-colors').checked,
     turn_prices: q('#wl-turn-prices').checked,
+    open_days: (() => { const d = [...els.config.querySelectorAll('[data-wl-open]')].filter((b) => b.checked).map((b) => Number(b.dataset.wlOpen)); return d.length === 7 ? null : d; })(),
     public_show_paused: q('#wl-show-paused').checked,
     auto_offer_on: [...els.config.querySelectorAll('[data-wl-auto]:checked')].map((b) => b.dataset.wlAuto),
     // Stored only when she's changed it, so the default wording stays the default.

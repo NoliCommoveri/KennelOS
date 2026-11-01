@@ -45,7 +45,7 @@ import { expectedPricing } from './saleDefaults.js';
 import { todayYMD } from './dateUtils.js';
 import { RELEASED_SALE_STATUSES, SALE_END_REASON, registrationsForPurposes, descriptor } from './vocab.js';
 import {
-  waitlistConfig, feeForEntry, feeDueDate, anchorDate, canUndoRemoval, passToForgive,
+  waitlistConfig, openDays, feeForEntry, feeDueDate, anchorDate, canUndoRemoval, passToForgive,
   respondByDate, countsAsPass, shouldRemoveForPasses, passesUsed, isPupAvailable,
   turnSpent, eligiblePupsFor, isAwaitingDeposit, canSwitchAcceptedPick, undoPassBlocker, autoOffers, closingTrigger,
   prefChangeLines, turnIdOf, turnOffers, openTurns, nextTurn, turnLittersFor, joinsOpenTurn,
@@ -1152,7 +1152,7 @@ export async function approveExtraRequest(entryId, requestId, { date = todayYMD(
       const dog = sale.dog_id ? await dogRepo.getById(sale.dog_id) : null;
       const litter = dog?.litter_id ? await litterRepo.getById(dog.litter_id) : null;
       const rules = chargeRules(item, kennelChargeGroups(kennel));
-      const payments = planSteps(rules.payment_plan, item.amount, { approvalDate: date, birthDate: pupBirthDate(dog, litter) });
+      const payments = planSteps(rules.payment_plan, item.amount, { approvalDate: date, birthDate: pupBirthDate(dog, litter), openDays: openDays(waitlistConfig(kennel)) });
       charge = { id: crypto.randomUUID(), label: item.label, amount: item.amount, list_id: item.id, ...(item.group ? { group: item.group } : {}),
         ...(payments ? { payments } : {}), ...(item.boarding_days ? { boarding_days: item.boarding_days } : {}) };
       await saleRepo.update(sale.id, { extra_charges: [...(sale.extra_charges || []), charge] });

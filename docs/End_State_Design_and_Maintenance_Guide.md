@@ -1573,6 +1573,16 @@ restored into Lite keeps its waitlist rows, dormant.
   or program changes can't rewrite history. A lost pup's restore clears the pick (a voided
   or re-opened offer holds no pup) but keeps its history: `restored_date`, `lost_dog_id`
   (in `referenceRegistry`), `lost_picked_date`, `lost_accepted_date`.
+- **Her open days** (`waitlist_config.open_days`, weekdays 0 = Sunday … 6 = Saturday;
+  null = every day; Waitlist settings → Turns & offers, **Days you do business**): every
+  deadline worked out from her day counts counts only these (`dateUtils.addOpenDays`,
+  `waitlistRules.openDays`), so none lands on a closed day: the respond-by date
+  (`respondByDate`), the fee's pay-by date (`feeDueDate`), "Ready now?" (`readyCheck`'s
+  `answer_by`, `readyCheckOverdue`), the pickup change cutoff (`pickupSlots.changeUntil`),
+  and extras plan steps "after approval" / "before pickup" (`planSteps`, `stepDueDate`).
+  The projection's kennel carries `open_days` so a turn the server offers is due the same
+  day (`serverMoves.addOpenDays`), and its fee reminder goes on the open day before. Dates
+  already set (an offer made, a fee asked for) keep theirs.
 - **A family back on the list** (a second pup: **Re-apply**, or a new application) gets a
   new entry; the old one keeps its pup, offers and sale. Every ask that's about a pup
   (extras, pickup, backing out, the Companion link) acts on the entry's **own** pup

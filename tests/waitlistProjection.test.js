@@ -65,7 +65,7 @@ test('the projection has exactly its allow-listed parts', () => {
   assert.deepEqual(keysOf(p), ['as_of', 'entries', 'events_through', 'format', 'kennel', 'litters', 'public_list', 'turn_queue', 'upcoming']);
   assert.deepEqual(p.kennel, {
     public_id: kennel.public_id, name: 'Thornfield Kennels', intro: publicIntroText({}, 'Thornfield Kennels'), time_zone: 'America/Chicago',
-    respond_days: 3, max_passes: 2, auto_offer_on: ['no_response'],
+    respond_days: 3, open_days: null, max_passes: 2, auto_offer_on: ['no_response'],
     breeds: [], color_matching: false,
     pass_reasons: passReasons({}),
     parents: { sires: [{ id: 'sire', name: 'Ash' }], dams: [{ id: 'dam', name: 'Juniper' }] },
@@ -394,4 +394,28 @@ test('a family who picked sees the deposit to send: on their sale, else her list
   f.sales = [{ id: 's9', dog_id: 'p2', buyer_contact_id: 'c-e1', status: 'deposit_pending', deposit_amount: 750, kennel_id: K }];
   assert.equal(buildProjection(f).entries.e1.offers[0].deposit_amount, 750, 'the deposit on their sale');
   assert.deepEqual(buildProjection(f).entries.e1.offers[0].picked_pup, { id: 'p2', call_name: 'p2', sex: 'female', color: 'black', registration: null }, 'their pick, as a family may see a pup');
+});
+
+test('her open days: every deadline counts only the days she does business; the server is told them', async () => {
+  const { addOpenDays } = await import('../shared/data/dateUtils.js');
+  const { respondByDate, feeDueDate, openDays, waitlistConfigProblem } = await import('../shared/data/waitlistRules.js');
+  const { changeUntil } = await import('../shared/data/pickupSlots.js');
+  const { planSteps, stepDueDate } = await import('../shared/data/extraCharges.js');
+  const noSat = [0, 1, 2, 3, 4, 5]; // 2026-11-06 is a Friday, 11-07 a Saturday
+  assert.equal(addOpenDays('2026-11-06', 3, noSat), '2026-11-10', 'Fri + 3 open days: Sun, Mon, Tue');
+  assert.equal(addOpenDays('2026-11-06', 3), '2026-11-09', 'every day open: plain days');
+  assert.equal(addOpenDays('2026-11-06', 1, noSat), '2026-11-08', 'never lands on the closed Saturday');
+  assert.equal(addOpenDays('2026-11-09', -2, noSat), '2026-11-06', 'backwards skips it too');
+  assert.equal(addOpenDays('2026-11-07', 0, noSat), '2026-11-07', 'zero days: the date itself');
+  const config = { respond_days: 3, fee_due_days: 1, open_days: noSat };
+  assert.equal(respondByDate('2026-11-06', config, null), '2026-11-10');
+  assert.equal(feeDueDate('2026-11-06', config), '2026-11-08');
+  assert.deepEqual(openDays({}), [0, 1, 2, 3, 4, 5, 6]);
+  assert.equal(changeUntil('2026-11-09', 2, noSat), '2026-11-06', 'pickup changes: 2 open days before Monday is Friday');
+  assert.equal(planSteps([{ percent: 100, due: 'on_approval', n: 1 }], 100, { approvalDate: '2026-11-06', openDays: noSat })[0].due_date, '2026-11-08');
+  assert.equal(stepDueDate({ due: 'before_pickup', n: 1 }, { pickupDate: '2026-11-08', openDays: noSat }), '2026-11-06');
+  assert.match(waitlistConfigProblem({ open_days: [] }), /at least one day/);
+  const f = fixture();
+  const p = buildProjection({ ...f, kennel: { ...f.kennel, waitlist_config: { ...f.kennel.waitlist_config, open_days: noSat } } });
+  assert.deepEqual(p.kennel.open_days, noSat);
 });

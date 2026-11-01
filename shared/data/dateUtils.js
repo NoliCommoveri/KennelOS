@@ -42,6 +42,28 @@ export function addDaysToYMD(ymd, n) {
   return formatYMD(date);
 }
 
+// Days of the week, 0 = Sunday … 6 = Saturday (Date.getDay).
+export const ALL_WEEKDAYS = Object.freeze([0, 1, 2, 3, 4, 5, 6]);
+
+// n OPEN days after (or, n < 0, before) a YYYY-MM-DD date: only the weekdays in
+// `openDays` are counted, so the result never lands on a closed day (Saturday
+// closed: Friday + 3 open days = Tuesday, counting Sun, Mon, Tue). n = 0 returns the
+// date itself. Every day open (the default) is plain addDaysToYMD.
+export function addOpenDays(ymd, n, openDays = ALL_WEEKDAYS) {
+  const open = new Set(openDays);
+  const days = Math.round(Number(n) || 0);
+  if (!ymd || !days || open.size === 0 || open.size === 7) return ymd ? addDaysToYMD(ymd, days) : ymd;
+  const step = days < 0 ? -1 : 1;
+  const weekday = (x) => { const [y, m, d] = x.split('-').map(Number); return new Date(y, m - 1, d).getDay(); };
+  let left = Math.abs(days);
+  let at = ymd;
+  while (left > 0) {
+    at = addDaysToYMD(at, step);
+    if (open.has(weekday(at))) left--;
+  }
+  return at;
+}
+
 // n calendar months after a YYYY-MM-DD date. A day the target month doesn't have
 // lands on its last day (Jan 31 + 1 month = Feb 28/29), never spilling into the
 // month after the way Date.setMonth does. Local calendar components, like above.

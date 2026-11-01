@@ -2021,3 +2021,13 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   invoice. Found while screenshotting: the picked pup dropped out of the card (it's no
   longer available), so the offer now carries `picked_pup`. Payment links still come only in
   her deposit request. Needs a Worker deploy. Checked in the browser.
+- **Days she does business (2026-11-01).** Asked by the owner (a breeder closed on
+  Saturdays): Waitlist settings → Turns & offers → Days you do business, all ticked by
+  default. Decided by the owner: closed days are skipped when counting (Fri + 3 days with
+  Saturday closed = Tuesday), for every deadline from her day counts: the deposit /
+  respond-by (also when the server offers a turn), the application fee, "Ready now?", the
+  pickup change cutoff, and extras plan steps after approval / before pickup. New
+  `dateUtils.addOpenDays`, `waitlistRules.openDays`, `open_days` in the projection's kennel,
+  `serverMoves.addOpenDays` (the fee reminder goes on the open day before). Dates already
+  set keep theirs. The turn-prices setting's hint updated to match what it now shows.
+  Needs a Worker deploy. Checked in the browser.
