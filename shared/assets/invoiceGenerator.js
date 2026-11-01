@@ -249,6 +249,8 @@ export async function openInvoiceGenerator({ preselect = null, onClose = null } 
       // (balance due date, pickup) shows on the next view/PDF. Only a date she
       // changed (or cleared) here is carried.
       const line = { key: k, mode: ln.mode === 'partial' ? 'partial' : 'full', collected: num(ln.collected) };
+      // The credit's share of "already collected" prints as its own line.
+      if (line.mode === 'full' && ln.credited > 0) line.credit = Math.min(ln.credited, line.collected);
       if ((ln.dueDate || '') !== (st.soonest || '')) line.dueDate = ln.dueDate || '';
       return line;
     });

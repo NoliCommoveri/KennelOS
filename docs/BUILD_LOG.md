@@ -2276,3 +2276,11 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   it: the Keeping prompt for planned tests and planned-test seeding on every way a dog is
   added (new `assets/keeperTests.js`), and credits for funds already received (new
   `data/receivedCredits.js`). The family status page's credit lines need a Worker deploy.
+- **Credits on receipts (2026-11-01).** Receipts used to fold a credit into "already
+  collected" and just print the line smaller. A cfg line now carries `credit` (the credit's
+  share of `collected`; the generator and the default document set it), printed as **Less
+  credit for funds already received** in the totals: a receipt shows the line whole,
+  Subtotal, the credit, then Total paid; an invoice shows it apart from any other amount
+  already collected. Old links without `credit` print as before. Checked in the browser: a
+  deposit receipt ($500 − $200 credit = $300 paid), an application fee receipt ($300 −
+  $100 = $200) and the invoice. Rides `kennelos-shell-v92`.

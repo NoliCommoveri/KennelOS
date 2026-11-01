@@ -128,7 +128,10 @@ export async function buildInvoiceDoc({ source = 'sale', id, doc = 'invoice', cf
     cfg = {
       number: isFee ? '' : (record.invoice_number || '').trim(),
       notes: isFee ? '' : (record.invoice_notes || '').trim(),
-      lines: [...baseByKey.keys()].map((key) => ({ key, mode: 'full', collected: Math.min(credited[key] || 0, baseByKey.get(key)) })),
+      lines: [...baseByKey.keys()].map((key) => {
+        const c = Math.min(credited[key] || 0, baseByKey.get(key));
+        return { key, mode: 'full', collected: c, ...(c > 0 ? { credit: c } : {}) };
+      }),
       methods: getInvoiceDefaults().acceptedMethods,
       payMethod: isFee ? (record.fee_payment_method || '') : (record.payment_method || ''),
       payReference: isFee ? (record.fee_payment_reference || '') : (record.payment_reference || '')
@@ -140,29 +143,36 @@ export async function buildInvoiceDoc({ source = 'sale', id, doc = 'invoice', cf
   let subtotal = 0;       // invoice: sum of printed line amounts
   let collectedFull = 0;  // invoice: already-collected on full lines (reduces balance)
   let paidTotal = 0;      // receipt: sum of amounts received
+  let creditTotal = 0;    // both: the family's credit for funds already received, on full lines
 
   for (const line of (cfg.lines || [])) {
     const base = baseByKey.get(line.key);
     if (base == null || base <= 0) continue;
     const collected = numOf(line.collected);
     const partial = line.mode === 'partial';
+    // `credit`: the part of `collected` that is the family's credit for funds already
+    // received. It prints as its own line in the totals; the rest of `collected` is
+    // money collected before, as always. Full lines only.
+    const credit = partial ? 0 : Math.min(numOf(line.credit), collected);
+    const before = collected - credit;
+    creditTotal += credit;
     let label = line.key === 'application_fee' ? 'Waitlist application fee' : (labelByKey.get(line.key) || INVOICE_LINE_LABELS[line.key] || line.key);
     if (line.key === 'balance' && feeCredit > 0) label += ` (after ${money(feeCredit)} application fee credit)`;
     const marker = isSale && !isReceipt ? (FOOTNOTE[line.key] || '') : '';
     if (marker) markersUsed.add(marker);
 
     if (isReceipt) {
-      const amount = partial ? collected : Math.max(base - collected, 0);
+      const amount = partial ? collected : Math.max(base - before, 0);
       // Partial → "(partial)". Full but with a prior partial payment already
       // collected → this line is the remaining balance, so print "(balance)".
       if (partial) label += ' (partial)';
-      else if (collected > 0) label += ' (balance)';
+      else if (before > 0) label += ' (balance)';
       paidTotal += amount;
       rows.push({ label, marker: '', due: '', amount });
     } else {
       const amount = partial ? collected : base;
       if (partial) label += ' (partial)';
-      if (!partial) collectedFull += collected;
+      if (!partial) collectedFull += before;
       subtotal += amount;
       // Deposits are always due immediately; the calculated due date (expected
       // pickup / nine-weeks-of-age, or a fee's pay-by date) applies to the rest.
@@ -172,11 +182,15 @@ export async function buildInvoiceDoc({ source = 'sale', id, doc = 'invoice', cf
     }
   }
 
-  const balance = Math.max(subtotal - collectedFull, 0);
+  const balance = Math.max(subtotal - collectedFull - creditTotal, 0);
+  const creditRow = creditTotal > 0 ? [{ label: 'Less credit for funds already received', amount: -creditTotal }] : [];
   const totals = isReceipt
-    ? [{ label: 'Total paid', amount: paidTotal, total: true }]
+    ? (creditRow.length
+        ? [{ label: 'Subtotal', amount: paidTotal }, ...creditRow, { label: 'Total paid', amount: Math.max(paidTotal - creditTotal, 0), total: true }]
+        : [{ label: 'Total paid', amount: paidTotal, total: true }])
     : [
         { label: 'Subtotal', amount: subtotal },
+        ...creditRow,
         ...(collectedFull > 0 ? [{ label: 'Less amount already collected', amount: -collectedFull }] : []),
         { label: 'Balance', amount: balance, total: true }
       ];

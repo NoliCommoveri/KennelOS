@@ -1675,7 +1675,10 @@ restored into Lite keeps its waitlist rows, dormant.
   load it. Taken off wherever an amount is shown to the family: their status page's fee
   (`fee_due.amount` less `fee_due.credit`; no Pay link then, since it charges the whole fee)
   and deposit (`offers[].deposit_credit`); the invoice/receipt generator and the default
-  document (each line's "already collected" starts at the credit's share); payment
+  document (each line's "already collected" starts at the credit's share, carried as the
+  cfg line's `credit`, which prints as its own **Less credit for funds already received**
+  total on invoices and receipts; a receipt's lines stay whole, then Subtotal, the credit
+  line, and Total paid, what they paid now); payment
   requests (owed lines less it); `contractSend.balanceDueOn`; the Companion remaining
   balance. In the app: the entry page's **Credits** card (Add / Edit / Remove, used and
   remaining), the status card and Fee received (Kels's too) say what the credit covers (all
