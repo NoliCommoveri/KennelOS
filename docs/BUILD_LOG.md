@@ -2072,3 +2072,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `0019` was counted). Health has **Driving miles (Mapbox)**: off, working (a live geocode of
   Denver and one Matrix element to Boulder, no one's address) or not working with Mapbox's
   HTTP status and message and what to do. Tests in cloud `mail` and `ops-sections`.
+- **Public list tightened (2026-11-01).** Asked by the owner: the list's card has less padding
+  (6px 10px) and the number column sits close to the name, sized to fit "#999" in bold on one
+  line (checked at 320px and 390px wide: no wrap, no spill, no sideways scroll).

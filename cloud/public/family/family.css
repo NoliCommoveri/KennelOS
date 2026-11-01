@@ -138,7 +138,11 @@ form.inline input { flex: 1 1 200px; }
 table.list { width: 100%; border-collapse: collapse; }
 table.list th, table.list td { text-align: left; padding: 9px 6px; border-top: 1px solid var(--border); vertical-align: top; }
 table.list th { border-top: 0; font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
-table.list td.num { font-weight: 700; white-space: nowrap; width: 3.2em; }
+/* The list's card is tighter than the others, and the number sits close to the
+   name: its column fits "#999" in bold on one line, never wider. */
+.card#list { padding: 6px 10px; }
+table.list th:first-child, table.list td.num { padding-left: 6px; padding-right: 2px; }
+table.list td.num { font-weight: 700; white-space: nowrap; width: 3em; font-variant-numeric: tabular-nums; }
 table.list tr.mine td { background: var(--accent-soft); }
 table.list tr.deciding td { background: var(--warn-soft); }
 table.list tr.deciding td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
