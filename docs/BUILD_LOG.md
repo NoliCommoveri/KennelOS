@@ -2184,3 +2184,11 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Heat Cycles report lists only these females. Check in on my dogs now includes leased-in /
   leased-out dogs (`ownDogs` = `isCareDog`; `checkinDogs` adds kept puppies). Tests:
   `tests/dogCare.test.js` (fixtures now carry an ownership).
+- **Health test results take the certificate (2026-11-01).** Asked by the owner. Log health
+  test results' form (and so Check in on my dogs' health-test step) has **Certificate or
+  report (optional)** with Documents (Pro): a PDF or photos, filed on the dog as a Health
+  test document titled and dated as the test, with its lab and result. The file picker is
+  now one shared piece, `kelsSteps.filePicker` / `wireFilePicker`, which Add dogs' document
+  form uses too (its own copy removed). `documentModal.js` stays Pro-only, loaded only when
+  a file is picked. Checked in the browser on the sample data (a PDF on Juniper's OFA Elbows
+  filed one document and one event); Lite's `documents: false` hides the field.

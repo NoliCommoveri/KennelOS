@@ -8,6 +8,9 @@
 // the name, or the kind she used for it before), the date, the result or
 // rating, and the lab for a genetic test. Each result is saved as she approves
 // it, through eventRepo (data/healthTestLog.js builds it), so there's no draft.
+// With Documents (Pro), the form also takes the certificate or report (a PDF or
+// photos, kelsSteps.filePicker), filed on the dog as a Health test document with
+// the test's name, date, lab and result.
 // The test's name lands in its kind's name field, so a planned test reads as
 // logged everywhere at once (Dog page, Health-Testing Gaps).
 import { dogRepo } from '../data/dogRepo.js';
@@ -18,6 +21,8 @@ import { homeDogs } from '../data/dogCare.js';
 import { TEST_TYPES, TEST_TYPE_FIELDS, testTypeFor, testEvent, unloggedPlanned, testResultSuggestions } from '../data/healthTestLog.js';
 import { EVENT_TYPES, TEST_OUTCOME, descriptor } from '../data/vocab.js';
 import { field } from './litterCheckinUI.js';
+import { filePicker, wireFilePicker } from './kelsSteps.js';
+import { editionFlags } from '../data/editionConfig.js';
 import { esc, fmtDate, todayYMD } from './ui.js';
 
 const HOW = 'Pick a dog, then a test from their plan or any other, and I\'ll log each result as you go. Sound good?';
@@ -121,9 +126,10 @@ async function logForDog(chat, dog) {
     const res = await testForm(chat, dog, name, tests);
     if (!res.done) continue;
     const stillLeft = unloggedPlanned(dog, (await load()).tests, testMatchTokensOf);
+    const filed = res.result.filed ? ` The certificate is filed on ${esc(dogName(dog))}'s page.` : '';
     await chat.say(res.result.planned
-      ? `Logged, and ticked off ${esc(dogName(dog))}'s plan.${stillLeft.length ? '' : ' Every planned test has a result now!'}`
-      : 'Logged.');
+      ? `Logged, and ticked off ${esc(dogName(dog))}'s plan.${stillLeft.length ? '' : ' Every planned test has a result now!'}${filed}`
+      : `Logged.${filed}`);
   }
 }
 
@@ -132,6 +138,8 @@ async function testForm(chat, dog, name, tests) {
   const type = testTypeFor(name || '', tests, testTokensOf);
   const results = testResultSuggestions(await eventRepo.getTestResultValues());
   const plannedKeys = new Set((dog.planned_tests || []).map((t) => String(t).trim().toLowerCase()));
+  const docs = editionFlags.documents;
+  let pickedDoc = () => null;
   return chat.form({
     title: `<strong>${esc(dogName(dog))}: ${name ? esc(name) : 'which test?'}</strong>`,
     html: `${field('Test', `<input id="ht-name" type="text" list="ht-dl" autocomplete="off" value="${esc(name)}" placeholder="e.g. OFA Hips, Embark panel, CAER eye exam"><datalist id="ht-dl">${vocab.map((t) => `<option value="${esc(t)}"></option>`).join('')}</datalist>`)}
@@ -141,7 +149,8 @@ async function testForm(chat, dog, name, tests) {
       </div>
       ${field('Result', `<input id="ht-result" type="text" list="ht-results" autocomplete="off" placeholder="e.g. Good, Clear, Grade 2, N/N"><datalist id="ht-results">${results.map((r) => `<option value="${esc(r)}"></option>`).join('')}</datalist>`, 'Optional. For OFA, its rating.')}
       ${field('Normal or abnormal', `<select id="ht-outcome"><option value="">Not marked</option>${TEST_OUTCOME.map((o) => `<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>`, 'Optional. Your online waitlist can show only the results marked Normal.')}
-      <div id="ht-lab-wrap">${field('Lab (optional)', '<input id="ht-lab" type="text" autocomplete="off" placeholder="e.g. Embark, Paw Print Genetics">')}</div>`,
+      <div id="ht-lab-wrap">${field('Lab (optional)', '<input id="ht-lab" type="text" autocomplete="off" placeholder="e.g. Embark, Paw Print Genetics">')}</div>
+      ${docs ? filePicker('ht-doc', { label: 'Certificate or report (optional)', hint: 'A PDF, or photos of the pages. Filed on their page under Documents.' }) : ''}`,
     submitLabel: 'Log result',
     cancelLabel: 'Not now',
     wire: (root) => {
@@ -157,6 +166,7 @@ async function testForm(chat, dog, name, tests) {
         showLab();
       });
       showLab();
+      if (docs) pickedDoc = wireFilePicker(root, 'ht-doc', { hint: 'A PDF, or photos of the pages. Filed on their page under Documents.' });
       if (!name) nameIn.focus();
     },
     submit: async (root) => {
@@ -165,13 +175,17 @@ async function testForm(chat, dog, name, tests) {
       const date = root.querySelector('#ht-date').value;
       if (!n) return 'Which test was it?';
       if (!date) return 'What day was it done (or the result dated)?';
-      await eventRepo.create(testEvent({
-        dogId: dog.id, name: n, type: t, date,
-        result: root.querySelector('#ht-result').value, lab: root.querySelector('#ht-lab').value,
-        outcome: root.querySelector('#ht-outcome').value
-      }));
-      return { name: n, date, result: root.querySelector('#ht-result').value.trim(), planned: plannedKeys.has(n.toLowerCase()) };
+      const result = root.querySelector('#ht-result').value.trim();
+      const lab = TEST_TYPE_FIELDS[t].lab ? root.querySelector('#ht-lab').value.trim() : '';
+      await eventRepo.create(testEvent({ dogId: dog.id, name: n, type: t, date, result, lab, outcome: root.querySelector('#ht-outcome').value }));
+      const doc = pickedDoc();
+      if (doc) {
+        const { storeDocumentFile, createDocument } = await import('./documentModal.js');
+        const fileId = await storeDocumentFile(doc, { title: n });
+        await createDocument({ dog_id: dog.id, doc_type: 'health_test', title: n, doc_date: date, issuer_or_lab: lab, result, notes: '', file_id: fileId });
+      }
+      return { name: n, date, result, filed: Boolean(doc), planned: plannedKeys.has(n.toLowerCase()) };
     },
-    reply: (r) => `${r.name}${r.result ? `: ${r.result}` : ''}, ${fmtDate(r.date)}`
+    reply: (r) => `${r.name}${r.result ? `: ${r.result}` : ''}, ${fmtDate(r.date)}${r.filed ? ' 📎' : ''}`
   });
 }

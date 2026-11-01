@@ -2815,9 +2815,14 @@ with no result, else 28. Each result is saved as she approves it.
    **Log a test** when none are planned), **Done with <dog>**.
 3. **The form:** Test (her preferred tests and every test name she's logged as
    suggestions), Kind (`testTypeFor`; typing another test moves it until she picks one),
-   Date (today), Result (OFA's rating), Lab (Genetic only) → `testEvent`. "Logged, and
-   ticked off <dog>'s plan" when it was planned. Then another result for that dog, then
-   another dog.
+   Date (today), Result (OFA's rating; `testResultSuggestions`), Normal or abnormal, Lab
+   (Genetic only) → `testEvent`. With Documents (Pro), **Certificate or report (optional)**
+   (`kelsSteps.filePicker`: a PDF, or photos made into one PDF): a file she picks is filed
+   on the dog as a `health_test` document (`documentModal.storeDocumentFile` /
+   `createDocument`, loaded only then), titled and dated as the test, with its lab and
+   result. "Logged, and ticked off <dog>'s plan" when it was planned (and "The certificate
+   is filed on <dog>'s page"). Then another result for that dog, then another dog. Check in
+   on my dogs' health-test step is this same loop, so it offers the certificate too.
 
 ### "Check in on a litter"
 Each thing she approves is saved at once; there is no draft.
