@@ -1927,3 +1927,11 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   families; Backing out), closed at first, with the open ones kept open across Save. Same
   fields and ids, so saving is unchanged. New `.settings-group` style in `app.css`. Checked
   in the browser.
+- **Review my waitlist plan brought up to date with family requests (2026-11-01).** Asked by
+  the owner. Kels Roadmap §3.16 now covers every request that waits on her: extras asked
+  for and cancelled (with the training stay to log or remove), pickup times and cancels
+  (with the boarding and leftover transport fee follow-ups), own-address pickups (set up in
+  the conversation, or the transport options email when far), and backing out as step 2's
+  first part (keep / move / refund, the items that come off, the pup back, then offer the
+  next family). Extras payments due join step 7. Three questions are left open there. Plan
+  only; nothing built.
