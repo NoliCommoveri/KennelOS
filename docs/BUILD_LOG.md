@@ -1824,3 +1824,19 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   share hint and the card's badge follow the type. Tests in `tests/referralShare.test.js` and
   `cloud/tests/familyPages.test.js`; the card checked in the browser with a mocked response.
   Needs a Worker deploy for the status page.
+- **Family Requests step 3: extras requests and payment plans (2026-11-01).** Families with an
+  open sale see an Extras card on their status page: her message (Waitlist settings, default
+  in the owner's words), See our extras and prices (her https page, new tab), and the extras
+  she marked "families can ask" by name under her group headings, inside their age window,
+  with Request, and Cancel on theirs while allowed. No price reaches the server
+  (`data/familyExtras.js`, projection `entry.extras`, Worker `extrasOf` and
+  `extra_request` / `extra_cancel` checks, alerts and digest as requests). Each request
+  waits for her: a Today nudge and a Waiting for you row on the entry, Approve adds the
+  charge at her price with its payment plan as dated steps (or removes it; refused while
+  part is paid), then the request email. Payment steps: their own income parts, invoice
+  lines with their own due dates, a Paid on date on the Sale page, an `extra-due` nudge 7
+  days before. A charge picked from the price list on the Sale page gets its plan too.
+  Tests: `tests/extraCharges.test.js`, an end-to-end one in `tests/cloudWaitlist.test.js`,
+  `cloud/tests/familyActions.test.js`, `cloud/tests/familyPages.test.js`. Checked in the
+  browser (status page card with a mocked response; approve on the entry page; steps and
+  Paid on on the Sale page). Needs a Worker deploy; rides `kennelos-shell-v88`.

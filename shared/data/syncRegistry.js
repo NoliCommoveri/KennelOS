@@ -335,7 +335,10 @@ export const SYNC_REGISTRY = Object.freeze({
       'carried_payment',
       // Their ask, on the application, to list privately (Spec §15.3): private
       // like pause_request. What she decided rides private_listing.
-      'private_request'
+      'private_request',
+      // Extras they asked for or to cancel on their status page (Family Requests
+      // plan §3), with their notes: private like pause_request.
+      'extra_requests'
     ],
     pending: []
   },

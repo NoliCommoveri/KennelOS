@@ -186,6 +186,8 @@ export function requestPhrase(field, request) {
   if (field === 'pause_request') return request && request.until ? `to pause your place until ${longDate(request.until)}` : 'to pause your place';
   if (field === 'listen_change_request') return 'to change which litters you wait for';
   if (field === 'pref_change_request') return 'to change your preferences';
+  // One of their extras requests (Family Requests plan §3): { kind, name }.
+  if (field === 'extra_request') return request && request.kind === 'cancel' ? `to cancel ${request.name || 'an extra'}` : `for ${request?.name || 'an extra'}`;
   return '';
 }
 

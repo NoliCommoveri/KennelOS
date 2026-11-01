@@ -465,3 +465,27 @@ test("every family's status page shows the products she shares, placed families 
   const none = await (await get(await publishedWith({}), `/f/status/${tok('a')}`)).json();
   assert.equal('recommended' in none.kennel, false);
 });
+
+test('a family\'s extras pass field by field: names and dates only, and only with an open sale', async () => {
+  const { extrasOf } = await import('../src/familyPages.js');
+  assert.equal(extrasOf(null), null);
+  assert.equal(extrasOf({ available: [], current: [], requests: [] }), null);
+  const x = extrasOf({
+    available: [{ id: 'tr', name: 'Puppy training', group: 'Training', description: 'Basics', open_from: '2026-10-20', open_until: 'soon', amount: 600 }],
+    current: [{ id: 'c1', list_id: 'gold', name: 'Gold', group: '', can_cancel: 'yes', cancel_until: null, price: 150 }],
+    requests: [{ id: 'event-1', kind: 'add', list_id: 'tr', name: 'Puppy training', requested_date: '2026-10-21', decided: 'maybe', note: 'private' }],
+  });
+  assert.deepEqual(x.available, [{ id: 'tr', name: 'Puppy training', group: 'Training', description: 'Basics', open_from: '2026-10-20', open_until: null }]);
+  assert.deepEqual(x.current, [{ id: 'c1', list_id: 'gold', name: 'Gold', group: '', can_cancel: false, cancel_until: null }]);
+  assert.deepEqual(x.requests, [{ id: 'event-1', kind: 'add', list_id: 'tr', charge_id: null, name: 'Puppy training', requested_date: '2026-10-21', decided: null, decided_date: null }]);
+  const p = projection();
+  p.entries.cy.extras = { available: [{ id: 'tr', name: 'Puppy training' }] };
+  p.kennel.extras_intro = 'Our extras';
+  p.kennel.extras_info_url = 'javascript:alert(1)';
+  assert.equal('extras' in statusView(p, 'cy').family, false, 'no open sale: none');
+  p.entries.cy.companion = { available: true, request: null };
+  const v = statusView(p, 'cy');
+  assert.equal(v.family.extras.available[0].name, 'Puppy training');
+  assert.equal(v.kennel.extras_intro, 'Our extras');
+  assert.equal('extras_info_url' in v.kennel, false, 'only an https link');
+});

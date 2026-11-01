@@ -2,8 +2,11 @@
 // pays for beyond the puppy, transport and boarding, one line each on the
 // invoice. Photo and video packages, or a payment service's fee charged back.
 //
-// Stored as Sale.extra_charges: [{ id, label, amount, fee_for? }]. Every charge
-// is paid with the balance (incomeView.saleComponents). `fee_for: 'deposit'`
+// Stored as Sale.extra_charges: [{ id, label, amount, fee_for?, list_id?, group?,
+// payments? }]. A charge is paid with the balance (incomeView.saleComponents)
+// unless it has `payments`: its payment plan as dated steps, copied when she
+// approves it (planSteps), each [{ id, percent, amount, due, n?, due_date?,
+// paid_date? }], earned on its own paid date (or with the balance). `fee_for: 'deposit'`
 // marks the fee charged back for a deposit paid through an account set to
 // charge its fee back (Account.fee_charge_back), so it's offered only once.
 //
@@ -41,10 +44,71 @@ function cleanList(list, { mintIds = false } = {}) {
     if (!label || !(amount > 0)) continue;
     const row = { id: x.id || (mintIds ? crypto.randomUUID() : `row${i}`), label, amount };
     if (x.fee_for) row.fee_for = x.fee_for;
+    if (typeof x.list_id === 'string' && x.list_id) row.list_id = x.list_id;
+    if (text(x.group)) row.group = text(x.group);
+    const steps = cleanSteps(x.payments, amount);
+    if (steps) row.payments = steps;
     out.push(row);
   }
   return out;
 }
+
+const YMD = /^\d{4}-\d{2}-\d{2}$/;
+const ymd = (v) => (typeof v === 'string' && YMD.test(v) ? v : null);
+
+// A charge's payment steps as stored, each amount worked out from its percent of
+// the charge (the last step takes the rounding), so changing the charge's amount
+// on the Sale page rescales them. null = no steps (paid with the balance).
+export function cleanSteps(payments, amount) {
+  if (!Array.isArray(payments)) return null;
+  const steps = [];
+  for (const [i, st] of payments.entries()) {
+    if (!st || typeof st !== 'object' || !DUE_VALUES.includes(st.due)) continue;
+    const percent = Math.round(num(st.percent) * 100) / 100;
+    if (!(percent > 0)) continue;
+    const row = { id: text(st.id) || `step${i}`, percent, amount: 0, due: st.due };
+    const n = count(st.n);
+    if (n != null && st.due !== 'with_balance') row.n = n;
+    if (ymd(st.due_date)) row.due_date = st.due_date;
+    if (ymd(st.paid_date)) row.paid_date = st.paid_date;
+    steps.push(row);
+  }
+  if (!steps.length) return null;
+  const total = steps.reduce((t, st) => t + st.percent, 0);
+  let left = cents(amount);
+  steps.forEach((st, i) => {
+    st.amount = i === steps.length - 1 ? cents(left) : cents(amount * st.percent / total);
+    left -= st.amount;
+  });
+  return steps;
+}
+
+// A payment plan copied onto a sale as dated steps, when she approves the extra.
+// `at_weeks` is dated from the pup's birth date, `on_approval` from the day she
+// approves; `before_pickup` and `with_balance` stay undated and are read live
+// (stepDueDate). → steps, or null for a plan of one "with the balance" step.
+export function planSteps(plan, amount, { approvalDate, birthDate = null } = {}) {
+  const steps = cleanPlan(plan);
+  if (!steps || (steps.length === 1 && steps[0].due === 'with_balance')) return null;
+  return cleanSteps(steps.map((st) => {
+    const out = { id: crypto.randomUUID(), percent: st.percent, due: st.due, ...(st.n != null ? { n: st.n } : {}) };
+    if (st.due === 'at_weeks' && birthDate) out.due_date = addDaysToYMD(birthDate, st.n * 7);
+    if (st.due === 'on_approval' && approvalDate) out.due_date = addDaysToYMD(approvalDate, st.n || 0);
+    return out;
+  }), amount);
+}
+
+// When a step is due: its own date, else read live: before pickup from the pup's
+// pickup date, with the balance from the sale's balance due date. '' = not known.
+export function stepDueDate(step, { sale = null, pickupDate = '' } = {}) {
+  if (step.due_date) return step.due_date;
+  if (step.due === 'before_pickup' && pickupDate) return addDaysToYMD(pickupDate, -(step.n || 0));
+  if (step.due === 'with_balance') return sale?.balance_due_date || pickupDate || '';
+  return '';
+}
+
+// "Puppy training, 50%" (a step's line name on invoices and in Financials).
+export const stepLabel = (charge, step) => `${charge.label}, ${step.percent}%`;
 
 // The sale's extra charges, as the money code reads them.
 export function saleExtraCharges(sale) {
@@ -142,7 +206,7 @@ function cleanPriceList(list, { mintIds = false } = {}) {
   const byPlace = list.filter((x) => x && typeof x === 'object' && text(x.label) && cents(num(x.amount)) > 0);
   return base.map((row, i) => {
     const src = byPlace[i];
-    delete row.fee_for;
+    delete row.fee_for; delete row.list_id; delete row.payments;
     const group = text(src.group);
     if (group) row.group = group;
     const description = text(src.description);

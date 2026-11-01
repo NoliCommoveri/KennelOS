@@ -29,7 +29,7 @@ import { waitlistEntryRepo } from './waitlistEntryRepo.js';
 import { inScopeOnly } from './kennelScope.js';
 import { ourRole } from './studRules.js';
 import { editionFlags } from './editionConfig.js';
-import { saleExtraCharges } from './extraCharges.js';
+import { saleExtraCharges, stepLabel } from './extraCharges.js';
 import { INCOME_COMPONENTS, INVOICE_LINE_LABELS, RELEASED_SALE_STATUSES, isLostSale, descriptor } from './vocab.js';
 
 const num = (v) => (v == null || v === '' ? 0 : Number(v)) || 0;
@@ -77,12 +77,12 @@ function saleComponents(s, feeCredit = 0) {
     { component: 'balance', amount: balance, paid: balancePaid(s) },
     { component: 'transport', amount: num(s.transport_fee), paid: balancePaid(s) },
     { component: 'boarding', amount: num(s.deferred_boarding_amount) * boardingCount(s), paid: balancePaid(s) },
-    ...saleExtraCharges(s).map((x) => ({ component: 'extra', key: `extra:${x.id}`, label: x.label, amount: x.amount, paid: balancePaid(s) }))
+    ...saleExtraCharges(s).flatMap(extraParts.bind(null, s))
   ];
   const out = [];
   for (const p of parts) {
     if (!p.amount) continue;
-    const named = p.key ? { key: p.key, label: p.label } : {};
+    const named = p.key ? { key: p.key, label: p.label, ...(p.paidDate ? { paid_date: p.paidDate } : {}), ...(p.dueDate ? { due_date: p.dueDate } : {}) } : {};
     if (dead) {
       if (p.paid) out.push({ component: p.component, ...named, amount: p.amount, state: 'earned' });
       // unpaid remainder of a dead sale → dropped from both totals
@@ -91,6 +91,17 @@ function saleComponents(s, feeCredit = 0) {
     }
   }
   return out;
+}
+
+// An extra charge's parts: one, paid with the balance; or, with a payment plan
+// (Family Requests plan §3.1), one per step, keyed `extra:<id>:<step id>`, each
+// earned on its own paid date or else with the balance.
+function extraParts(s, x) {
+  if (!x.payments) return [{ component: 'extra', key: `extra:${x.id}`, label: x.label, amount: x.amount, paid: balancePaid(s) }];
+  return x.payments.map((st) => ({
+    component: 'extra', key: `extra:${x.id}:${st.id}`, label: stepLabel(x, st), amount: st.amount,
+    paid: Boolean(st.paid_date) || balancePaid(s), paidDate: st.paid_date || null, dueDate: st.due_date || null
+  }));
 }
 
 // The sales channel's processing fee (Sale.processing_fee_amount, Integrations
@@ -152,8 +163,8 @@ function studComponents(s) {
 function saleComponentDate(s, c) {
   const fallback = s.sale_date || s.deposit_date || s.balance_paid_date || '';
   if (c.component === 'deposit') return s.deposit_date || fallback;
-  if (c.state === 'earned') return s.balance_paid_date || fallback;
-  return s.balance_due_date || fallback;
+  if (c.state === 'earned') return c.paid_date || s.balance_paid_date || fallback;
+  return c.due_date || s.balance_due_date || fallback;
 }
 
 function sumBy(components, state) {
@@ -263,7 +274,7 @@ export async function getIncomeRows({ includeArchived = false, kennelId = null }
     // `due` is only a due date she actually set (the balance's), for Receivables'
     // aging; `when` always has a date, for filing by month.
     const cash = saleComponents(s, feeCredit).map((c) => ({
-      ...c, when: saleComponentDate(s, c), due: c.state === 'anticipated' && c.component !== 'deposit' ? s.balance_due_date || '' : ''
+      ...c, when: saleComponentDate(s, c), due: c.state === 'anticipated' && c.component !== 'deposit' ? c.due_date || s.balance_due_date || '' : ''
     }));
     if (!cash.length) continue; // no money on this sale — nothing to show
     const components = [...cash, ...feeComponents(s, cash, saleGross(s, feeCredit))];

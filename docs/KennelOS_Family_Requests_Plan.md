@@ -411,7 +411,9 @@ Every decision is made; the plan is ready to build in the order below.
    marked Share with families, so transport is a new account type, **Transport (flight nanny,
    ground)**, shown under Getting your pup home and never with her recommended products.
 3. Extra requests and cancellations (status page, pending events, Approve), with payment
-   plans, part-payment invoices and the `extra-due` reminder.
+   plans, part-payment invoices and the `extra-due` reminder. **Built 2026-11-01** (guide
+   §29 "Extras", §21.2). Marking a step paid is a **Paid on** date on the Sale page; a
+   receipt or a payment-link payment doesn't set it by itself yet.
 4. Training packages ↔ boarding.
 5. Pickup locations and slots, booking; where families live and who may suggest a place;
    their own addresses with Mapbox miles and the transport options email.

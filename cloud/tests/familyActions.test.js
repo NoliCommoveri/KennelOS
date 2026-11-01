@@ -249,3 +249,25 @@ test('a Companion link request (Spec §8.3): only with an open sale, placed fami
   assert.equal((await act(env, cy, tok('c'), 'companion_request')).status, 200);
   assert.deepEqual(events(env).at(-1).payload, { note: '' });
 });
+
+// --- Extras (docs/KennelOS_Family_Requests_Plan.md §3) ----------------------------------
+
+test('an extra can be asked for only as published, inside its dates, once; a cancel only while allowed', () => {
+  const extras = {
+    available: [{ id: 'tr', name: 'Puppy training', open_from: '2026-10-20', open_until: null }, { id: 'ph', name: 'Photos', open_from: null, open_until: '2026-10-12' }],
+    current: [{ id: 'c1', list_id: 'gold', name: 'Gold photos', can_cancel: true, cancel_until: '2026-10-25' }, { id: 'c2', name: 'Video', can_cancel: false }],
+    requests: [],
+  };
+  const entry = { status: 'placed', companion: { available: true }, extras };
+  const at = (d) => ({ entry, projection: projection(), pending: [], now: new Date(`${d}T12:00:00Z`) });
+  assert.deepEqual(checkAction('extra_request', { list_id: 'tr', note: ' Before pickup ' }, at('2026-10-21')), { list_id: 'tr', name: 'Puppy training', note: 'Before pickup' }, 'a placed family too');
+  assert.throws(() => checkAction('extra_request', { list_id: 'tr' }, at('2026-10-19')), /not_open/, 'not yet');
+  assert.throws(() => checkAction('extra_request', { list_id: 'ph' }, at('2026-10-13')), /not_open/, 'closed');
+  assert.throws(() => checkAction('extra_request', { list_id: 'nope' }, at('2026-10-21')), /not_listed/);
+  assert.throws(() => checkAction('extra_request', { list_id: 'tr' }, { ...at('2026-10-21'), pending: [{ kind: 'extra_request', payload: { list_id: 'tr' } }] }), /already_requested/);
+  assert.throws(() => checkAction('extra_request', { list_id: 'tr' }, { ...at('2026-10-21'), entry: { ...entry, extras: { ...extras, requests: [{ kind: 'add', list_id: 'tr', decided: null }] } } }), /already_requested/);
+  assert.throws(() => checkAction('extra_request', { list_id: 'tr' }, { ...at('2026-10-21'), entry: { ...entry, companion: null } }), /no_sale/);
+  assert.deepEqual(checkAction('extra_cancel', { charge_id: 'c1' }, at('2026-10-25')), { charge_id: 'c1', list_id: 'gold', name: 'Gold photos', note: '' });
+  assert.throws(() => checkAction('extra_cancel', { charge_id: 'c1' }, at('2026-10-26')), /not_open/, 'past its cancel date');
+  assert.throws(() => checkAction('extra_cancel', { charge_id: 'c2' }, at('2026-10-21')), /not_open/, 'she said no cancelling');
+});

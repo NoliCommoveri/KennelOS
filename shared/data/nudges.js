@@ -49,6 +49,7 @@ import { waitlistOfferRepo } from './waitlistOfferRepo.js';
 import { contactRepo } from './contactRepo.js';
 import { accountRepo } from './accountRepo.js';
 import { goHomeDate, daysBetween, followUpMessage, sharedReferrals, FOLLOW_UP_DAYS, FOLLOW_UP_WINDOW_DAYS } from './referralShare.js';
+import { saleExtraCharges, stepDueDate, stepLabel } from './extraCharges.js';
 import { waitlistProgramRepo } from './waitlistProgramRepo.js';
 import {
   overdueTurns, overdueFees, canUndoRemoval, entryName, describeOfferChanges, waitlistConfig, autoOffers, closingTrigger,
@@ -58,8 +59,9 @@ import {
 import {
   recordOutcome, markFeeExpired, openPicks, recordReadyAnswer, undoRemoval, hasPendingRequest, markMessagesRead,
   approvePauseRequest, declinePauseRequest, approvePrefChange, declinePrefChange, approveListenChange, declineListenChange,
-  markCompanionLinkSent, declineCompanionRequest
+  markCompanionLinkSent, declineCompanionRequest, approveExtraRequest, declineExtraRequest
 } from './waitlistActions.js';
+import { pendingExtraRequests } from './familyExtras.js';
 import { offerSpecs } from './waitlistOutbox.js';
 import { contractRepo } from './contractRepo.js';
 import { ourStudPairingIds, studParents, pickDue, serviceDate, boardingEndedUpdate } from './studRules.js';
@@ -742,6 +744,10 @@ export async function computeNudges() {
   if (editionFlags.waitlist) nudges.push(...(await waitlistNudges(today, litters, dogsById, { dogs, sales })));
   if (editionFlags.accounts) nudges.push(...(await followUpNudges(today, inScopeOnly(sales), events, dogsById, kennelsById)));
   if (editionFlags.accounts) nudges.push(...(await integrationReviewNudges(inScopeOnly(sales))));
+  if (editionFlags.extraCharges && sales.some((s) => saleExtraCharges(s).some((x) => x.payments))) {
+    const contactsById = new Map((await contactRepo.getAll({ includeArchived: true })).map((c) => [c.id, c]));
+    nudges.push(...extraDueNudges(today, inScopeOnly(sales), events, dogsById, contactsById));
+  }
 
   return nudges;
 }
@@ -779,6 +785,39 @@ async function integrationReviewNudges(sales) {
   };
   for (const s of sales) add(s, saleRepo, `sale.html?id=${encodeURIComponent(s.id)}`, 'a sale');
   for (const c of contracts) add(c, contractRepo, `contract.html?id=${encodeURIComponent(c.id)}`, c.title || 'a contract');
+  return out;
+}
+
+// A part of an extra's payment plan coming due (Family Requests plan §3.1): from
+// EXTRA_DUE_DAYS before its due date until it's paid (a paid date on the step, or
+// the balance paid). Steps due before pickup read the pup's latest pickup date.
+export const EXTRA_DUE_DAYS = 7;
+export function extraDueNudges(today, sales, events, dogsById, contactsById) {
+  const out = [];
+  const pickup = new Map();
+  for (const e of events) {
+    if (e.event_type !== 'placement' || e.subject_type !== 'dog' || !e.event_date || e.is_archived) continue;
+    if (!pickup.has(e.subject_id) || e.event_date > pickup.get(e.subject_id)) pickup.set(e.subject_id, e.event_date);
+  }
+  for (const s of sales) {
+    if (s.is_archived || !isOpenSale(s) || s.balance_paid_date) continue;
+    for (const x of saleExtraCharges(s)) {
+      for (const st of x.payments || []) {
+        if (st.paid_date) continue;
+        const due = stepDueDate(st, { sale: s, pickupDate: pickup.get(s.dog_id) || '' });
+        if (!due || due > addDaysToYMD(today, EXTRA_DUE_DAYS)) continue;
+        const who = contactsById?.get(s.buyer_contact_id)?.name || 'The buyer';
+        const pup = dogsById.get(s.dog_id)?.call_name || 'their pup';
+        out.push({
+          key: `extra-due:${s.id}:${x.id}:${st.id}`,
+          title: `${who}'s ${stepLabel(x, st)} for ${pup} ${due < today ? `was due ${due}` : due === today ? 'is due today' : `is due ${due}`}`,
+          detail: `${st.amount ? `$${st.amount.toFixed(2)}. ` : ''}Make the invoice from the sale (it has its own line), and put the day it's paid on the sale.`,
+          subjectHref: `sale.html?id=${encodeURIComponent(s.id)}`,
+          actions: [{ label: 'Open the sale', run: async () => { location.href = `sale.html?id=${encodeURIComponent(s.id)}`; } }]
+        });
+      }
+    }
+  }
   return out;
 }
 
@@ -1063,6 +1102,25 @@ async function statusPageNudges(entries, offers, { today, litters, dogsById, ken
           { label: 'Open Companion', run: async () => { location.href = 'companion.html?type=family'; } },
           { label: 'Mark sent', run: async () => { await markCompanionLinkSent(e.id, { date: today }); return { title: 'Marked sent', message: `${name(e)}'s status page now says their link was sent.` }; } },
           { label: 'Decline', run: async () => { await declineCompanionRequest(e.id, { date: today }); return { title: 'Declined', message: 'Their status page says you didn\'t send one. Let them know why.' }; } }
+        ]
+      });
+    }
+    // Extras asked for or cancelled (Family Requests plan §3): each waits for her.
+    for (const r of pendingExtraRequests(e)) {
+      const emails = (kind) => [{ entryId: e.id, kind, extra: { request: { field: 'extra_request', request: r } } }];
+      const cancel = r.kind === 'cancel';
+      out.push({
+        key: `waitlist-extra-request:${e.id}:${r.id}`,
+        title: cancel ? `${name(e)} asked to cancel ${r.name}` : `${name(e)} asked for ${r.name}`,
+        detail: `${cancel ? 'Approve takes it off their sale.' : 'Approve adds it to their sale at your price-list price, with its payment plan.'}${said(r.note)}`,
+        subjectHref: href(e),
+        actions: [
+          { label: 'Approve', run: async () => {
+            const res = await approveExtraRequest(e.id, r.id, { date: today });
+            return { title: 'Approved', message: cancel ? `${r.name} is off their sale. Let them know.` : `${r.name} is on their sale${res.charge?.payments ? ', with its payment plan' : ''}. Let them know.`, emails: emails('request_approved') };
+          } },
+          { label: 'Decline', run: async () => { await declineExtraRequest(e.id, r.id, { date: today }); return { title: 'Declined', message: 'Nothing changed on their sale. Let them know.', emails: emails('request_declined') }; } },
+          { label: 'Open', run: async () => { location.href = href(e); } }
         ]
       });
     }

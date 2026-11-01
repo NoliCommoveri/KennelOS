@@ -995,7 +995,8 @@ Kels's tidy-up doesn't suggest recording it. Its pick puppy, when the fee has on
 | `show-title` | a show track is complete with no `title_earned` event | prefilled title event |
 | `int-review` | a vendor event wasn't applied (`integration_reviews`, §32) | open the record; Done removes it |
 | `follow-up` | a pup went home 7–60 days ago (`referralShare`) | write a thank-you note |
-| `waitlist-*` | new applications, an offer or fee past due, a removal's undo window, planned deposit date reached (`open-picks`), "Ready now?" unanswered, family messages, and family requests (pref, pause, listen, Companion link) | the matching waitlist action (§29) |
+| `extra-due` | an extra's payment-plan step (§21.2) is due within `EXTRA_DUE_DAYS` (7) or overdue, unpaid, on an open sale whose balance isn't paid | open the sale |
+| `waitlist-*` | new applications, an offer or fee past due, a removal's undo window, planned deposit date reached (`open-picks`), "Ready now?" unanswered, family messages, and family requests (pref, pause, listen, Companion link, extras) | the matching waitlist action (§29) |
 
 Litter-lifecycle rules ignore deceased pups. The same close rule runs on the Sale page: a
 save that moves a sale into delivered / returned / cancelled / voided asks **Close the
@@ -1186,7 +1187,16 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
   plans are used by family requests (`docs/KennelOS_Family_Requests_Plan.md`; not built yet),
   so today they're only stored. The sale offers its own kennel's list (the dog's, for a new
   sale; every own kennel's when neither is known), grouped. Picking one copies the name and
-  amount, so a later price change never rewrites a sale.
+  amount, so a later price change never rewrites a sale; from the list it also copies
+  `list_id`, `group` and the plan as dated steps.
+- **Payment plans on a sale:** `Sale.extra_charges[].payments` = `[{ id, percent, amount, due,
+  n?, due_date?, paid_date? }]` (`planSteps`: `at_weeks` dated from the pup's birth date,
+  `on_approval` from that day; `before_pickup` / `with_balance` read live by `stepDueDate`).
+  `cleanSteps` works each amount out from its percent (the last takes the rounding), so a
+  changed amount rescales them. Income: one `extra` component per step, keyed
+  `extra:<id>:<step id>`, labelled "Name, 50%" (`stepLabel`), earned on its `paid_date` or
+  else with the balance, filed on its paid date or due date; the invoice gets a line per step
+  with its own Due by. The Sale page lists each step with a **Paid on** date.
 - **Fee charged back:** an Account with `fee_charge_back` (a Payment service: PayPal or Zelle
   sent as business…). When a save leaves the deposit paid (`incomeView.depositPaid`) through
   such an account with a usable rate, and the sale didn't qualify before the save, the Sale
@@ -1535,7 +1545,7 @@ restored into Lite keeps its waitlist rows, dormant.
 - **`waitlist_entries`:** one row per family per time on the list. Status `applied →
   approved → active → placed`, exits `declined`/`expired`/`withdrawn`/`removed`. **Pause and
   listen-only are flags on an `active` entry**, never statuses, so narrowing never costs a
-  place. Many plain fields hold family requests, messages, prepasses, the "Ready now?"
+  place. Many plain fields hold family requests (extras ones in `extra_requests`), messages, prepasses, the "Ready now?"
   answer, a carried payment from a lost pup and the answer-change log; see
   `waitlistEntryRepo` and `syncRegistry.js` for each one's tier.
 - **`waitlist_offers`:** one row per family per litter in a turn (rows of a turn share
@@ -1689,6 +1699,25 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   wider listen changes apply; pauses, narrower changes and answer changes become requests
   she approves or declines (Today and the family page). Anything her records no longer allow
   becomes a message line, never forced.
+- **Extras** (`docs/KennelOS_Family_Requests_Plan.md` §3; `data/familyExtras.js`): for a family
+  with an open sale (`familySale`: the contact's newest open sale in the kennel), the
+  projection's `entry.extras` = `{ available, current, requests }` (`familyExtrasView`):
+  the price-list extras marked `family_can_request` not on the sale, with `open_from` /
+  `open_until` from the pup's birth date (`pupBirthDate`: the dog's, else the litter's; an
+  age rule with no birth date isn't offered), the sale's extras that came from one with
+  `can_cancel` (not paid, not past its cancel age) and `cancel_until`, and their requests
+  (undecided, or decided within 30 days). Names and dates only, never a price. The kennel
+  carries `extras_intro` (`waitlist_config.extras_intro_text`, blank =
+  `EXTRAS_INTRO_DEFAULT`) and `extras_info_url` (`extras_info_url`, https only) while any
+  family has extras. Their page's **Extras** card shows her message, **See our extras and
+  prices** (new tab), the extras under her group headings with **Request** / **Cancel**.
+  `extra_request` / `extra_cancel` events (the Worker checks them against `entry.extras`,
+  dates included, one waiting per extra) become `entry.extra_requests` (`addExtraRequest`).
+  Each is a Today nudge (`waitlist-extra-request`) and a row in the entry's Waiting for you:
+  **Approve** (`approveExtraRequest`: adds the charge at her price-list price with
+  `list_id`, `group` and its plan's dated `payments`; a cancel removes it, refused while any
+  part is paid) or **Decline**, then the request approved/declined email. App alerts and the
+  digest count them as requests.
 - **Emails** (`data/waitlistEmails.js` templates, `data/waitlistOutbox.js` queue): after an
   action a family should hear about, she's offered a drafted email (`waitlistEmailUI.offerEmails`)
   to edit or skip. Queued on the entry and posted after the publish (`sendQueuedEmails`);

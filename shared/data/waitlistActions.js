@@ -35,6 +35,8 @@ import { waitlistProgramRepo } from './waitlistProgramRepo.js';
 import { litterRepo } from './litterRepo.js';
 import { dogRepo } from './dogRepo.js';
 import { saleRepo } from './saleRepo.js';
+import { familySale, pupBirthDate, withExtraRequest } from './familyExtras.js';
+import { kennelChargeList, kennelChargeGroups, chargeRules, planSteps, saleExtraCharges } from './extraCharges.js';
 import { expectedPricing } from './saleDefaults.js';
 import { todayYMD } from './dateUtils.js';
 import { RELEASED_SALE_STATUSES, SALE_END_REASON, registrationsForPurposes, descriptor } from './vocab.js';
@@ -1005,6 +1007,7 @@ export async function applyFamilyPlan(entryId, plan) {
       case 'listen_request': await waitlistEntryRepo.update(entryId, { listen_change_request: plan.request }); break;
       case 'pref_request': await waitlistEntryRepo.update(entryId, { pref_change_request: plan.request }); break;
       case 'companion_request': await waitlistEntryRepo.update(entryId, { companion_request: plan.request }); break;
+      case 'extra_request': await addExtraRequest(entryId, plan.request); break;
       case 'listen_apply': await waitlistEntryRepo.update(entryId, plan.changes); break;
       case 'note': case 'skip': break;
       default: throw new Error(`Unknown plan "${plan.op}".`);
@@ -1083,6 +1086,68 @@ export async function markCompanionLinkSent(entryId, { date = todayYMD() } = {})
 export async function declineCompanionRequest(entryId, { date = todayYMD() } = {}) {
   const entry = await load(entryId);
   return waitlistEntryRepo.update(entryId, { companion_request: decided(loadPending(entry, 'companion_request', 'Companion link'), 'declined', date) });
+}
+
+// --- Extras they ask for or cancel (Family Requests plan §3) ------------------------
+// A request waits on the entry (familyExtras.js) until she approves or declines it.
+
+export async function addExtraRequest(entryId, request) {
+  const entry = await load(entryId);
+  const next = withExtraRequest(entry, request);
+  return next ? waitlistEntryRepo.update(entryId, { extra_requests: next }) : entry;
+}
+
+function loadExtraRequest(entry, requestId) {
+  const req = (entry.extra_requests || []).find((r) => r.id === requestId);
+  if (!req || req.decided) throw new Error('That extras request isn\'t waiting any more.');
+  return req;
+}
+
+const decideExtra = (entry, requestId, decision, date) =>
+  (entry.extra_requests || []).map((r) => (r.id === requestId ? { ...r, decided: decision, decided_date: date } : r));
+
+// Approve: an extra asked for goes on their open sale, its name and price copied
+// from her price list and its payment plan copied as dated steps; a cancellation
+// takes it off (not when part of it is paid: she edits the sale for a refund).
+// → { entry, sale, charge, kind, boardingDays } (charge: the row added or removed).
+export async function approveExtraRequest(entryId, requestId, { date = todayYMD() } = {}) {
+  const entry = await load(entryId);
+  const req = loadExtraRequest(entry, requestId);
+  const sales = entry.contact_id ? await saleRepo.getByBuyer(entry.contact_id) : [];
+  const sale = familySale(entry, sales);
+  if (!sale) throw new Error(`${req.name || 'This extra'}: they have no open sale to put it on.`);
+  const charges = saleExtraCharges(sale);
+  let charge = null;
+  let boardingDays = 0;
+  if (req.kind === 'cancel') {
+    charge = charges.find((c) => c.id === req.charge_id) || null;
+    if (charge && (charge.payments || []).some((st) => st.paid_date)) {
+      throw new Error(`Part of ${charge.label} is already paid. Edit the sale if you're taking it off and refunding them.`);
+    }
+    if (charge) await saleRepo.update(sale.id, { extra_charges: (sale.extra_charges || []).filter((c) => c.id !== charge.id) });
+  } else {
+    const kennel = await kennelRepo.getById(sale.kennel_id);
+    const item = kennelChargeList(kennel).find((x) => x.id === req.list_id);
+    if (!item) throw new Error(`${req.name || 'That extra'} is no longer on your price list, so there's no price to copy. Add it to the sale by hand, or decline.`);
+    charge = charges.find((c) => c.list_id === item.id) || null;
+    if (!charge) {
+      const dog = sale.dog_id ? await dogRepo.getById(sale.dog_id) : null;
+      const litter = dog?.litter_id ? await litterRepo.getById(dog.litter_id) : null;
+      const rules = chargeRules(item, kennelChargeGroups(kennel));
+      const payments = planSteps(rules.payment_plan, item.amount, { approvalDate: date, birthDate: pupBirthDate(dog, litter) });
+      charge = { id: crypto.randomUUID(), label: item.label, amount: item.amount, list_id: item.id, ...(item.group ? { group: item.group } : {}), ...(payments ? { payments } : {}) };
+      await saleRepo.update(sale.id, { extra_charges: [...(sale.extra_charges || []), charge] });
+      boardingDays = item.boarding_days || 0;
+    }
+  }
+  const updated = await waitlistEntryRepo.update(entryId, { extra_requests: decideExtra(entry, requestId, 'approved', date) });
+  return { entry: updated, sale: await saleRepo.getById(sale.id), charge, kind: req.kind, boardingDays };
+}
+
+export async function declineExtraRequest(entryId, requestId, { date = todayYMD() } = {}) {
+  const entry = await load(entryId);
+  loadExtraRequest(entry, requestId);
+  return waitlistEntryRepo.update(entryId, { extra_requests: decideExtra(entry, requestId, 'declined', date) });
 }
 
 // "Not this litter" (Spec §16.2): a pending pass on a litter (or an upcoming

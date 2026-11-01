@@ -31,6 +31,8 @@ import { formQuestions, formFaq, matchingPrefKeys, MATCHING_NOTICE } from './wai
 import { serverEmailTemplates } from './waitlistEmails.js';
 import { sharedReferrals, sharedTransport } from './referralShare.js';
 import { feePay, withClientRef } from './waitlistFeePay.js';
+import { familySale, familyExtrasView, pupBirthDate } from './familyExtras.js';
+import { EXTRAS_INTRO_DEFAULT, extrasInfoLink } from './waitlistRules.js';
 
 export const PROJECTION_FORMAT = 1;
 
@@ -96,6 +98,10 @@ function entryView(entry, ctx) {
   if (entry.status_token) view.status_token = entry.status_token;
   const companion = companionView(entry, ctx);
   if (companion) view.companion = companion; // absent without an open sale
+  // Extras they may ask for or cancel (Family Requests plan §3): names only, never
+  // a price; absent without an open sale or anything to show.
+  const extras = companion ? ctx.extrasFor(entry) : null;
+  if (extras) view.extras = extras;
   if (!WAITLIST_OPEN_STATUSES.includes(entry.status)) return view;
 
   const program = ctx.programsById.get(entry.waitlist_program_id) || null;
@@ -365,6 +371,13 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
     picksOpen: new Set(Object.entries(litterViews).filter(([, l]) => l.picks_open).map(([id]) => id)),
     positions: overallPositions(live, kennel.id, programsById), prefPlaces: prefPlaces(live, kennel.id, programsById, config), matches, litterLabels, hidden, notes,
     openSaleBuyers: new Set(sales.filter((x) => x.buyer_contact_id && isOpenSale(x)).map((x) => x.buyer_contact_id)),
+    extrasFor: (entry) => {
+      const sale = familySale(entry, sales);
+      if (!sale) return null;
+      const dog = dogsById.get(sale.dog_id) || null;
+      const litter = dog?.litter_id ? litters.find((l) => l.id === dog.litter_id) : null;
+      return familyExtrasView({ entry, sale, kennel, birthDate: pupBirthDate(dog, litter), today });
+    },
     // A family's own Pay link for a fee of `fee` (Integrations plan §4), or null.
     feePayFor: (fee, entryId) => {
       const pay = feePay(kennel, accounts, fee);
@@ -412,6 +425,13 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
       // D8): name, link, notes. The server shows them only to a family with an
       // open sale (entry.companion); none = absent.
       ...(sharedTransport(accounts).length ? { transport: sharedTransport(accounts) } : {}),
+      // Above the extras on a family's page (Family Requests plan §3): her message
+      // and her own page with the details and prices (opened in a new tab).
+      // Only while some family has extras to see.
+      ...(Object.values(entryViews).some((v) => v.extras) ? {
+        extras_intro: (config.extras_intro_text || '').trim() || EXTRAS_INTRO_DEFAULT,
+        ...(extrasInfoLink(config.extras_info_url) ? { extras_info_url: extrasInfoLink(config.extras_info_url) } : {})
+      } : {}),
       ...(applyPay ? { fee_pay: { url: applyPay.url, amount: applyPay.amount, ref_param: applyPay.stripe, instructions: config.payment_instructions || '' } } : {})
     },
     // Unmasked: the server shows "Currently deciding" for whoever holds a turn when

@@ -538,6 +538,52 @@ function recommendedHtml() {
   return card('Recommended for your puppy', `<ul class="plain">${items}</ul>`);
 }
 
+// Extras (Family Requests plan §3): her message, her own page with the details and
+// prices (a new tab), then what they may ask for today under her group headings,
+// and what's on their sale with Cancel while they still can. Names only: prices
+// live on her page. Every request waits for her.
+const todayUtc = () => new Date().toISOString().slice(0, 10);
+function extrasHtml(f) {
+  const x = f.extras;
+  if (!x) return '';
+  const k = state.v.kennel;
+  const kennel = k.name;
+  const today = todayUtc();
+  const sentAdd = (id) => pendingOf('extra_request', (p) => p.list_id === id).length;
+  const sentCancel = (id) => pendingOf('extra_cancel', (p) => p.charge_id === id).length;
+  const req = (kind, test) => (x.requests || []).find((r) => r.kind === kind && test(r) && !r.decided);
+  const act = canActExtras();
+  const status = (text) => `<div class="small"><span class="badge warn">Requested</span> ${text}</div>`;
+  const groups = new Map();
+  const add = (g, html) => { if (!groups.has(g)) groups.set(g, []); groups.get(g).push(html); };
+  for (const c of x.current || []) {
+    const asked = sentCancel(c.id) || req('cancel', (r) => r.charge_id === c.id);
+    add(c.group, `<li class="mt8"><div><strong>${esc(c.name)}</strong> <span class="badge">Yours</span></div>
+      ${asked ? status(`to cancel. ${esc(kennel)} will confirm.`)
+        : c.can_cancel && act && (!c.cancel_until || today <= c.cancel_until)
+          ? `<div class="small">${c.cancel_until ? `You can cancel until ${esc(fmtDate(c.cancel_until))}. ` : ''}<button type="button" class="linkish small" data-act="extra_cancel" data-id="${esc(c.id)}" data-name="${esc(c.name)}">Cancel</button></div>` : ''}</li>`);
+  }
+  for (const a of x.available || []) {
+    const opens = a.open_from && today < a.open_from;
+    const asked = sentAdd(a.id) || req('add', (r) => r.list_id === a.id);
+    add(a.group, `<li class="mt8"><div><strong>${esc(a.name)}</strong></div>
+      ${a.description ? `<p class="small mt0">${esc(a.description)}</p>` : ''}
+      ${asked ? status(`${esc(kennel)} will confirm.`)
+        : opens ? `<div class="small muted">You can ask for this from ${esc(fmtDate(a.open_from))}.</div>`
+          : act ? `<div class="small">${a.open_until ? `Available to request until ${esc(fmtDate(a.open_until))}. ` : ''}<button type="button" class="secondary small" data-act="extra_request" data-id="${esc(a.id)}" data-name="${esc(a.name)}">Request</button></div>` : ''}</li>`);
+  }
+  const decided = (x.requests || []).filter((r) => r.decided).map((r) => `<li class="small">${r.decided === 'approved' ? 'Confirmed' : 'Not confirmed'}: ${r.kind === 'cancel' ? 'cancel ' : ''}${esc(r.name)} (${esc(fmtDate(r.decided_date))})</li>`);
+  const lists = [...groups.entries()].sort(([a], [b]) => (a ? 0 : 1) - (b ? 0 : 1))
+    .map(([g, items]) => `${g ? `<h3 class="mt8">${esc(g)}</h3>` : ''}<ul class="plain">${items.join('')}</ul>`).join('');
+  return card('Extras', `
+    ${k.extras_intro ? `<p class="mt0 pre">${esc(k.extras_intro)}</p>` : ''}
+    ${k.extras_info_url ? `<div class="actions"><a class="button secondary" href="${esc(k.extras_info_url)}" target="_blank" rel="noopener noreferrer">See our extras and prices</a></div>` : ''}
+    ${lists}
+    ${decided.length ? `<ul class="plain mt8">${decided.join('')}</ul>` : ''}
+    ${act ? '' : `<p class="small muted">To ask for an extra, sign in on this device with a code sent to the email on your application.</p>`}`);
+}
+const canActExtras = () => signedIn();
+
 // Getting your pup home (Family Requests plan D8): her flight nannies and ground
 // transporters, for a family whose pup is picked (the server sends them only then).
 function transportHtml() {
@@ -581,6 +627,7 @@ function mineHtml() {
   if (!['applied', 'approved', 'active'].includes(f.status)) {
     parts.push(card('', `<p class="mt0">${closedText(f.status, kennel)}</p>`));
     parts.push(companionHtml(f));
+    parts.push(extrasHtml(f));
     parts.push(transportHtml());
     parts.push(recommendedHtml());
     parts.push(emailsHtml());
@@ -615,6 +662,7 @@ function mineHtml() {
 
   for (const rows of turnsOf(v.offers)) parts.push(turnHtml(rows));
   parts.push(companionHtml(f));
+  parts.push(extrasHtml(f));
   parts.push(transportHtml());
   parts.push(readyHtml(f));
 
@@ -678,6 +726,14 @@ const ERRORS = {
   no_sale: "There's no puppy sale on record for you right now, so there's no Companion link to send. Contact the breeder with any questions.",
   already_requested: "You've already asked. The breeder will send your link by text or email.",
   other_family: 'This device is signed in as a different family. Sign out on the waitlist page and sign in again.',
+  'extra_request:not_listed': "That extra isn't offered any more. The page now shows what's available.",
+  'extra_request:not_open': "That extra can't be requested today. The page now shows when it can.",
+  'extra_request:already_requested': "You've already asked for that. The breeder will confirm it.",
+  'extra_request:no_sale': "There's no puppy sale on record for you right now. Contact the breeder with any questions.",
+  'extra_cancel:not_listed': "That extra isn't on your puppy's sale any more.",
+  'extra_cancel:not_open': "It's too late to cancel that here. Contact the breeder.",
+  'extra_cancel:already_requested': "You've already asked to cancel that. The breeder will confirm it.",
+  'extra_cancel:no_sale': "There's no puppy sale on record for you right now. Contact the breeder with any questions.",
 };
 
 async function send(path, body) {
@@ -689,7 +745,7 @@ async function send(path, body) {
     state.session = null;
     state.flash = 'You were signed out on this device. Sign in again with a code to respond.';
   } else {
-    state.flash = ERRORS[code] || loadError(r, { notFound: 'Something went wrong. Please try again.' });
+    state.flash = ERRORS[`${body.action}:${code}`] || ERRORS[code] || loadError(r, { notFound: 'Something went wrong. Please try again.' });
   }
   return false;
 }
@@ -734,6 +790,16 @@ async function onClick(ev) {
     case 'ready_yes':
       b.disabled = true;
       await act('ready', { answer: 'yes' }, `Thanks! ${kennel} will see that you're ready at their next update.`);
+      return;
+    case 'extra_request':
+      if (!window.confirm(`Ask ${kennel} for ${b.dataset.name}? They'll confirm it and let you know the cost and when it's due.`)) return;
+      b.disabled = true;
+      await act('extra_request', { list_id: b.dataset.id }, `Your request for ${b.dataset.name} is on its way. ${kennel} will confirm it.`);
+      return;
+    case 'extra_cancel':
+      if (!window.confirm(`Ask ${kennel} to cancel ${b.dataset.name}?`)) return;
+      b.disabled = true;
+      await act('extra_cancel', { charge_id: b.dataset.id }, `Your request to cancel ${b.dataset.name} is on its way. ${kennel} will confirm it.`);
       return;
     case 'still_interested':
       b.disabled = true;

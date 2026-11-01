@@ -31,7 +31,7 @@ import { editionFlags } from '../data/editionConfig.js';
 import { kennelChargeList, readPriceList, readChargeGroups } from '../data/extraCharges.js';
 import { priceListHtml, wirePriceList, readPriceListForm } from '../assets/priceListEditor.js';
 import { isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
-import { waitlistConfig, waitlistConfigProblem, SOON_NOTICE_DEFAULT, passReasons, showUpcoming, UPCOMING_STAGES } from '../data/waitlistRules.js';
+import { waitlistConfig, waitlistConfigProblem, SOON_NOTICE_DEFAULT, EXTRAS_INTRO_DEFAULT, passReasons, showUpcoming, UPCOMING_STAGES } from '../data/waitlistRules.js';
 import { EMAIL_TEMPLATE_KINDS, EMAIL_PLACEHOLDERS, DEFAULT_EMAIL_TEMPLATES, emailTemplate } from '../data/waitlistEmails.js';
 import { esc, badge, fmtDate, fmtMoney, param } from '../assets/ui.js';
 import { renderExpensePanel } from '../assets/expensePanel.js';
@@ -425,7 +425,7 @@ function waitlistCard(k) {
           <div class="pill-row" style="margin-top:6px;"><button type="button" class="btn btn-sm" data-act="add-reason">Add a reason</button></div>
           <label class="check-inline" style="margin-top:6px;"><input id="wl-pass-other" type="checkbox"${c.pass_other !== false ? ' checked' : ''}> Also offer "Other", with a box for their own words</label>
         </div>
-        ${isWaitlistOnlineOffered() ? readySettings(c) + upcomingSwitches(c) + emailTemplateSettings(c) + facebookSettings(c) : ''}
+        ${isWaitlistOnlineOffered() ? readySettings(c) + upcomingSwitches(c) + emailTemplateSettings(c) + facebookSettings(c) + extrasSettings(c) : ''}
       </div>
       <div class="form-actions"><button class="btn btn-primary btn-sm" data-act="save-waitlist">Save</button></div>
     </section>`;
@@ -463,6 +463,19 @@ function facebookSettings(c) {
       <input id="wl-fb-page" type="url" inputmode="url" autocomplete="url" value="${esc(c.facebook_page || '')}" placeholder="facebook.com/yourkennel">
       <span class="field-hint">A facebook.com or m.me address.</span>
       <span class="field-hint">Messages sent there stay in Messenger. They aren't added to the family's entry, and they don't count as a reply to an offer.</span>
+    </div>`;
+}
+
+// Extras on a family's status page (Family Requests plan §3): her message above
+// them and her own page with the details and prices. The extras themselves, and
+// which ones families can ask for, are on the Extra charges price list.
+function extrasSettings(c) {
+  return `<div class="field field-wide">
+      <label for="wl-extras-intro">Extras: your message to families</label>
+      <textarea id="wl-extras-intro" rows="3" placeholder="${esc(EXTRAS_INTRO_DEFAULT)}">${esc(c.extras_intro_text || '')}</textarea>
+      <label for="wl-extras-url" style="margin-top:6px;">Your page with the extras' details and prices</label>
+      <input id="wl-extras-url" type="url" inputmode="url" autocomplete="url" value="${esc(c.extras_info_url || '')}" placeholder="https://yourkennel.com/extras">
+      <span class="field-hint">Families whose pup is picked see your message, a <strong>See our extras and prices</strong> button that opens this page in a new tab, then the extras they can ask for, by name. Prices never show on their page. Choose which extras they can ask for on the Extra charges price list.</span>
     </div>`;
 }
 
@@ -539,6 +552,11 @@ async function onSaveWaitlist() {
     const on = q('#wl-fb-on').checked;
     waitlist_config.facebook_button = on;
     waitlist_config.facebook_page = page;
+  }
+  if (q('#wl-extras-intro')) {
+    const intro = q('#wl-extras-intro').value.trim();
+    waitlist_config.extras_intro_text = intro === EXTRAS_INTRO_DEFAULT ? '' : intro;
+    waitlist_config.extras_info_url = q('#wl-extras-url').value.trim();
   }
   if (q('#wl-ready-rule')) {
     waitlist_config.ready_no_answer = q('#wl-ready-rule').value;

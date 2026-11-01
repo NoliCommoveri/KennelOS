@@ -36,7 +36,7 @@ import { WAITLIST_OPEN_STATUSES, isOpenSale } from './vocab.js';
 import { isPupAvailable, isListenOnly, listenChangeKind, prefChangeLines, PREF_CHANGE_FIELDS, turnIdOf, turnSpent, passReasonOf } from './waitlistRules.js';
 import { arrivalDate } from './waitlistInbox.js';
 
-export const FAMILY_EVENT_KINDS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change', 'prepass', 'unprepass', 'ready', 'companion_request'];
+export const FAMILY_EVENT_KINDS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change', 'prepass', 'unprepass', 'ready', 'companion_request', 'extra_request', 'extra_cancel'];
 export const NOTE_MAX = 500;
 
 const clean = (v) => String(v ?? '').trim().slice(0, NOTE_MAX);
@@ -64,6 +64,7 @@ export const activityId = (event) => `event-${event.seq}`;
 //   op 'unprepass'      { target }   → taken back
 //   op 'ready'          { answer, until, reason } → "Ready now?" answered (§16.7)
 //   op 'companion_request' { request } → entry.companion_request
+//   op 'extra_request'  { request }  → added to entry.extra_requests (familyExtras.js)
 // `date` is the day the family acted, in the kennel's time zone; `activity` the
 // line for their entry's activity ({ id, at, body }), or null.
 export function planFamilyEvent(event, ctx) {
@@ -178,6 +179,22 @@ export function planFamilyEvent(event, ctx) {
         return note(`Asked for their Companion link, but they have no open sale now, so there's no family link to send.${why ? ` They said: "${why}"` : ''}`);
       }
       return { op: 'companion_request', date, activity: null, request: { requested_date: date, note: why } };
+    }
+    case 'extra_request':
+    case 'extra_cancel': {
+      // An extra asked for or cancelled (Family Requests plan §3): only while they
+      // have an open sale; it waits for her either way (plan D2).
+      const cancel = event.kind === 'extra_cancel';
+      const name = clean(p.name).slice(0, 120) || 'an extra';
+      const why = clean(p.note);
+      if (!entry.contact_id || !sales.some((x) => x.buyer_contact_id === entry.contact_id && isOpenSale(x))) {
+        return note(`Asked ${cancel ? `to cancel ${name}` : `for ${name}`}, but they have no open sale now, so there's nothing to ${cancel ? 'take it off' : 'put it on'}.${why ? ` They said: "${why}"` : ''}`);
+      }
+      if (cancel ? typeof p.charge_id !== 'string' || !p.charge_id : typeof p.list_id !== 'string' || !p.list_id) return skip('bad_payload');
+      return { op: 'extra_request', date, activity: null, request: {
+        id: activityId(event), kind: cancel ? 'cancel' : 'add', list_id: typeof p.list_id === 'string' ? p.list_id : null,
+        ...(cancel ? { charge_id: p.charge_id } : {}), name, note: why, requested_date: date
+      } };
     }
     case 'pref_change': {
       if (!open) return skip('not_on_list');

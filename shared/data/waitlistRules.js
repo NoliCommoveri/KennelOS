@@ -50,8 +50,15 @@ export const WAITLIST_CONFIG_DEFAULTS = Object.freeze({
   facebook_button: false, // "Message us on Facebook" on status pages (Spec §11, W2 step 8); needs facebook_page
   facebook_page: '', // her Facebook Page link, as she typed it (facebook.com/… or m.me/…)
   embed: false, // her own website may show the form and list in a frame (Integrations plan §1)
-  embed_origins: [] // …only these sites (embedOrigin form, at most EMBED_ORIGINS_MAX); none = any site
+  embed_origins: [], // …only these sites (embedOrigin form, at most EMBED_ORIGINS_MAX); none = any site
+  extras_info_url: '', // her own page with the extras' details and prices (Family Requests plan §3); https only
+  extras_intro_text: '' // her message above the extras on a family's status page; blank = EXTRAS_INTRO_DEFAULT
 });
+
+// The default message above the extras on a family's status page (the owner's wording).
+export const EXTRAS_INTRO_DEFAULT = 'We offer several paid extras to our families. Please click the link below to see the details before making your selection below.';
+// Her extras page link, when it's a usable https address; else ''.
+export const extrasInfoLink = (v) => (/^https:\/\/[^\s"'<>]{1,500}$/i.test(String(v || '').trim()) ? String(v).trim() : '');
 
 // What's wrong with a kennel's waitlist settings, or '' (Waitlist settings card and
 // Kels's "Set up my waitlist" both check with this before saving).
@@ -65,6 +72,7 @@ export function waitlistConfigProblem(c) {
   if (Array.isArray(c.pass_reasons) && !c.pass_reasons.length && c.pass_other === false) return 'Keep at least one reason for passing, or tick "Other".';
   if (c.facebook_button && !String(c.facebook_page || '').trim()) return 'Add your Page link first.';
   if (String(c.facebook_page || '').trim() && !messengerLink(c.facebook_page)) return 'That link isn\'t a Facebook Page. Use a facebook.com or m.me address.';
+  if (String(c.extras_info_url || '').trim() && !extrasInfoLink(c.extras_info_url)) return 'The extras page link has to be a web address starting with https://.';
   return '';
 }
 

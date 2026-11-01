@@ -284,6 +284,23 @@ export function transportOf(projection) {
   })).filter((t) => t.name && (t.link || t.notes));
 }
 
+// A family's extras as her device published them, field by field (no prices
+// ever pass). → { available, current, requests } or null.
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
+export function extrasOf(x) {
+  if (!x || typeof x !== 'object') return null;
+  const str = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
+  const id = (v) => (typeof v === 'string' && v.length <= 80 ? v : '');
+  const date = (v) => (typeof v === 'string' && YMD_RE.test(v) ? v : null);
+  const arr = (v) => (Array.isArray(v) ? v.slice(0, 100) : []);
+  const out = {
+    available: arr(x.available).map((a) => ({ id: id(a?.id), name: str(a?.name, 120), group: str(a?.group, 80), description: str(a?.description, 300), open_from: date(a?.open_from), open_until: date(a?.open_until) })).filter((a) => a.id && a.name),
+    current: arr(x.current).map((c) => ({ id: id(c?.id), list_id: id(c?.list_id) || null, name: str(c?.name, 120), group: str(c?.group, 80), can_cancel: c?.can_cancel === true, cancel_until: date(c?.cancel_until) })).filter((c) => c.id && c.name),
+    requests: arr(x.requests).map((r) => ({ id: id(r?.id), kind: r?.kind === 'cancel' ? 'cancel' : 'add', list_id: id(r?.list_id) || null, charge_id: id(r?.charge_id) || null, name: str(r?.name, 120), requested_date: date(r?.requested_date), decided: ['approved', 'declined'].includes(r?.decided) ? r.decided : null, decided_date: date(r?.decided_date) })).filter((r) => r.id),
+  };
+  return out.available.length || out.current.length || out.requests.length ? out : null;
+}
+
 // Her application fee paid online (docs/KennelOS_Integrations_Plan.md §4): the
 // Pay link her device published, a web address only, with this family's id added
 // as Stripe's client_reference_id when it's a Stripe link (so her device can tell
@@ -330,6 +347,15 @@ export function statusView(projection, entryId) {
   if (recommended.length) kennel.recommended = recommended;
   // Their Companion link request: only with an open sale, placed families too.
   if (e.companion) family.companion = e.companion;
+  // Their extras (Family Requests plan §3): only with an open sale, names and dates
+  // only, never a price; her message and her own page's link above them.
+  const extras = e.companion?.available ? extrasOf(e.extras) : null;
+  if (extras) {
+    family.extras = extras;
+    kennel.extras_intro = typeof projection.kennel?.extras_intro === 'string' ? projection.kennel.extras_intro.slice(0, 2000) : '';
+    const url = projection.kennel?.extras_info_url;
+    if (typeof url === 'string' && /^https:\/\/[^\s"'<>]{1,500}$/i.test(url)) kennel.extras_info_url = url;
+  }
   // Getting your pup home: only for a family with an open sale (their pup is picked).
   const transport = e.companion?.available ? transportOf(projection) : [];
   if (transport.length) kennel.transport = transport;

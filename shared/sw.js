@@ -140,6 +140,7 @@ const PRECACHE_URLS = [
   'data/eventRepo.js',
   'data/expenseRepo.js',
   'data/extraCharges.js',
+  'data/familyExtras.js',
   'data/fileRepo.js',
   'data/fureverContentPack.js',
   'data/fureverSeedExport.js',

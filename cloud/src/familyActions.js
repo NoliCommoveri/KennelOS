@@ -21,7 +21,7 @@ import { ACTION_KINDS, notifyEvent } from './notify.js';
 import { fail, json, readJson } from './lib/http.js';
 
 export const ACTION_LIMITS = { perHourPerSession: 60, messagesPerHourPerSession: 10, messageBytes: 32 * 1024, noteChars: 500, maxPauseDays: 731 };
-export const FAMILY_ACTIONS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change', 'prepass', 'unprepass', 'ready', 'companion_request'];
+export const FAMILY_ACTIONS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change', 'prepass', 'unprepass', 'ready', 'companion_request', 'extra_request', 'extra_cancel'];
 
 const OPEN_STATUSES = ['applied', 'approved', 'active'];
 // Copies of the app's vocab (shared/data/vocab.js); tests/familyPages.test.js in
@@ -110,6 +110,29 @@ export function checkAction(action, body, { entry, projection, pending, now = ne
     if (!entry.companion?.available) fail(409, 'no_sale');
     if ((entry.companion.request && !entry.companion.request.decided) || already('companion_request')) fail(409, 'already_requested');
     return { note: cleanNote(body.note) };
+  }
+  // An extra asked for or cancelled (docs/KennelOS_Family_Requests_Plan.md §3): only
+  // what her device published to this family (entry.extras), inside its dates, one
+  // waiting request per extra. It's a request: her device applies nothing until she
+  // approves it.
+  if (action === 'extra_request' || action === 'extra_cancel') {
+    const x = entry.companion?.available && entry.extras && typeof entry.extras === 'object' ? entry.extras : fail(409, 'no_sale');
+    const today = todayUtc(now);
+    const waiting = (r) => r && !r.decided;
+    if (action === 'extra_request') {
+      const id = String(body.list_id ?? '');
+      const item = (Array.isArray(x.available) ? x.available : []).find((a) => a && a.id === id) || fail(409, 'not_listed');
+      if ((item.open_from && today < item.open_from) || (item.open_until && today > item.open_until)) fail(409, 'not_open');
+      if ((x.requests || []).some((r) => waiting(r) && r.kind === 'add' && r.list_id === id)
+        || already('extra_request', (p) => p.list_id === id)) fail(409, 'already_requested');
+      return { list_id: id, name: String(item.name ?? '').slice(0, 120), note: cleanNote(body.note) };
+    }
+    const id = String(body.charge_id ?? '');
+    const charge = (Array.isArray(x.current) ? x.current : []).find((c) => c && c.id === id) || fail(409, 'not_listed');
+    if (!charge.can_cancel || (charge.cancel_until && today > charge.cancel_until)) fail(409, 'not_open');
+    if ((x.requests || []).some((r) => waiting(r) && r.kind === 'cancel' && r.charge_id === id)
+      || already('extra_cancel', (p) => p.charge_id === id)) fail(409, 'already_requested');
+    return { charge_id: id, list_id: typeof charge.list_id === 'string' ? charge.list_id : null, name: String(charge.name ?? '').slice(0, 120), note: cleanNote(body.note) };
   }
   if (!OPEN_STATUSES.includes(entry.status)) fail(409, 'not_on_list');
   // A family's turn (Waitlist Spec §16.1) is one offer row per litter sharing a

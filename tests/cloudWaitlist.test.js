@@ -428,6 +428,78 @@ test('a Companion link request (Spec §8.3): a family with a sale asks, her Toda
   assert.equal((await act('companion_request')).status, 200, 'after she sent it they can ask again');
 });
 
+test('extras (Family Requests plan §3): a family with a sale asks by name, her Approve puts it on the sale with its plan, no price ever reaches the server', async () => {
+  const { contactRepo } = await import('../shared/data/contactRepo.js');
+  const { saleRepo } = await import('../shared/data/saleRepo.js');
+  const { dogRepo } = await import('../shared/data/dogRepo.js');
+  const actions = await import('../shared/data/waitlistActions.js');
+  await breeder();
+  const k = await putOnline();
+  await kennelRepo.update(k.id, {
+    extra_charge_list: [
+      { id: 'xt', label: 'Puppy training', amount: 987.65, group: 'Training', family_can_request: true, description: 'Two weeks of basics' },
+      { id: 'xp', label: 'Gold photos', amount: 150, group: 'Photo packages' }
+    ],
+    extra_charge_groups: [{ name: 'Training', payment_plan: [{ percent: 50, due: 'at_weeks', n: 8 }, { percent: 50, due: 'with_balance' }] }],
+    waitlist_config: { ...(await kennelRepo.getById(k.id)).waitlist_config, extras_info_url: 'https://thornfield.example.com/extras' }
+  });
+  const sales = await saleRepo.getAll({ includeArchived: true });
+  const entry = (await waitlistEntryRepo.getByKennel(k.id)).find((e) => e.status === 'active' && e.contact_id
+    && !sales.some((x) => x.buyer_contact_id === e.contact_id && saleRepo.isOpenSale(x)));
+  await contactRepo.update(entry.contact_id, { email: 'extras@example.com' });
+  const dog = (await dogRepo.getAll()).find((d) => d.kennel_id === k.id && !d.date_of_death && d.litter_id);
+  await dogRepo.update(dog.id, { date_of_birth: '2026-09-01' });
+  await cw.syncWaitlistOnline();
+  const fam = await familySignIn(k.public_id, 'extras@example.com');
+  const act = (action, extra = {}) => fam.call('/f/act', { session: fam.session, status_token: fam.statusToken, action, ...extra });
+  const view = async () => (await (await worker.fetch(new Request(`http://localhost/f/status/${fam.statusToken}`), env)).json());
+
+  assert.equal('extras' in (await view()).family, false, 'no sale: no extras');
+  assert.equal((await act('extra_request', { list_id: 'xt' })).status, 409);
+
+  const sale = await saleRepo.create({ kennel_id: k.id, dog_id: dog.id, buyer_contact_id: entry.contact_id, registration_type: 'limited', status: 'deposit_pending' });
+  await cw.syncWaitlistOnline();
+  const page = await view();
+  assert.deepEqual(page.family.extras.available.map((a) => [a.id, a.name, a.group]), [['xt', 'Puppy training', 'Training']], 'only what families can ask for');
+  assert.equal(page.kennel.extras_info_url, 'https://thornfield.example.com/extras');
+  assert.match(page.kennel.extras_intro, /several paid extras/);
+  const published = raw('SELECT body FROM wl_projection')[0].body;
+  assert.equal(published.includes('987.65'), false, 'no price reaches the server');
+
+  assert.equal((await act('extra_request', { list_id: 'xp' })).status, 409, 'not offered to families');
+  assert.equal((await act('extra_request', { list_id: 'xt', note: 'Before pickup please' })).status, 200);
+  assert.equal((await act('extra_request', { list_id: 'xt' })).status, 409, 'one waiting request per extra');
+  assert.deepEqual((await cw.syncWaitlistOnline()).events, { applied: 1, noted: 0, skipped: 0 });
+  const req = (await waitlistEntryRepo.getById(entry.id)).extra_requests[0];
+  assert.deepEqual([req.kind, req.list_id, req.name, req.note, req.decided ?? null], ['add', 'xt', 'Puppy training', 'Before pickup please', null]);
+  assert.equal((await view()).family.extras.requests[0].decided, null, 'their page shows it waiting');
+
+  const { computeNudges } = await import('../shared/data/nudges.js');
+  const nudge = (await computeNudges()).find((n) => n.key === `waitlist-extra-request:${entry.id}:${req.id}`);
+  assert.deepEqual(nudge.actions.map((a) => a.label), ['Approve', 'Decline', 'Open']);
+  const done = await nudge.actions.find((a) => a.label === 'Approve').run();
+  assert.equal(done.emails[0].kind, 'request_approved');
+  const charged = (await saleRepo.getById(sale.id)).extra_charges[0];
+  assert.deepEqual([charged.label, charged.amount, charged.list_id, charged.group], ['Puppy training', 987.65, 'xt', 'Training']);
+  assert.deepEqual(charged.payments.map((st) => [st.percent, st.amount, st.due, st.due_date ?? null]),
+    [[50, 493.83, 'at_weeks', '2026-10-27'], [50, 493.82, 'with_balance', null]], '50% at 8 weeks from the birth date, 50% with the balance');
+
+  await cw.syncWaitlistOnline();
+  const after = (await view()).family.extras;
+  assert.deepEqual(after.available, [], 'on their sale now');
+  assert.deepEqual([after.current[0].name, after.current[0].can_cancel], ['Puppy training', true]);
+  assert.equal(after.requests[0].decided, 'approved');
+
+  assert.equal((await act('extra_cancel', { charge_id: after.current[0].id })).status, 200);
+  await cw.syncWaitlistOnline();
+  const cancelReq = (await waitlistEntryRepo.getById(entry.id)).extra_requests.find((r) => r.kind === 'cancel');
+  await saleRepo.update(sale.id, { extra_charges: [{ ...charged, payments: [{ ...charged.payments[0], paid_date: '2026-10-27' }, charged.payments[1]] }] });
+  await assert.rejects(actions.approveExtraRequest(entry.id, cancelReq.id), /already paid/, 'a paid part keeps it on');
+  await saleRepo.update(sale.id, { extra_charges: [charged] });
+  await actions.approveExtraRequest(entry.id, cancelReq.id);
+  assert.deepEqual((await saleRepo.getById(sale.id)).extra_charges, [], 'cancelled');
+});
+
 test('only the backing device applies family actions; a new backing device starts where the last one got to', async () => {
   await breeder();
   const k = await putOnline();

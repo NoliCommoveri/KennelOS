@@ -24,6 +24,8 @@ import { pairingRepo } from '../data/pairingRepo.js';
 import { dogRepo } from '../data/dogRepo.js';
 import { saleRepo } from '../data/saleRepo.js';
 import * as actions from '../data/waitlistActions.js';
+import { kennelChargeList, kennelChargeGroups, chargeRules, planText } from '../data/extraCharges.js';
+import { pendingExtraRequests } from '../data/familyExtras.js';
 import { offerEmails, syncSoon, communicateDialog } from '../assets/waitlistEmailUI.js';
 import { offerSpecs, retryEmail, kennelEmailsOn, familyEmail, emailErrorText } from '../data/waitlistOutbox.js';
 import {
@@ -339,6 +341,18 @@ function pendingRequests(e) {
       hint: 'Send it from the Companion page (Current families), then mark it sent so their status page says so.',
       buttons: '<a class="btn btn-sm" href="companion.html?type=family">Open Companion</a><button class="btn btn-sm btn-primary" data-req="companion:sent">Mark sent</button><button class="btn btn-sm" data-req="companion:decline">Decline</button>' });
   }
+  // Extras asked for or cancelled (Family Requests plan §3): Approve puts it on (or
+  // takes it off) their open sale.
+  const list = kennelChargeList(ctx.kennel);
+  for (const r of pendingExtraRequests(e)) {
+    const item = list.find((x) => x.id === r.list_id);
+    const price = item ? ` (${esc(fmtMoney(item.amount))}; ${esc(planText(chargeRules(item, kennelChargeGroups(ctx.kennel)).payment_plan).toLowerCase())})` : '';
+    out.push({ kind: `extra|${r.id}`, note: r.note,
+      text: r.kind === 'cancel'
+        ? `Asked ${esc(fmtDate(r.requested_date))} to cancel <strong>${esc(r.name)}</strong>.`
+        : `Asked ${esc(fmtDate(r.requested_date))} for <strong>${esc(r.name)}</strong>${price}.`,
+      hint: r.kind === 'cancel' ? 'Approve takes it off their sale.' : item ? 'Approve adds it to their sale at your price-list price, with its payment plan.' : 'It\'s no longer on your price list: add it to the sale by hand, or decline.' });
+  }
   return out;
 }
 
@@ -382,7 +396,19 @@ function wireRequests(root) {
     'listen:approve': decide('listen_change_request', actions.approveListenChange, true), 'listen:decline': decide('listen_change_request', actions.declineListenChange, false),
     'companion:sent': () => actions.markCompanionLinkSent(e.id), 'companion:decline': () => actions.declineCompanionRequest(e.id)
   };
-  root.querySelectorAll('[data-req]').forEach((btn) => btn.addEventListener('click', () => run(handlers[btn.dataset.req])));
+  // An extras request (data-req "extra|<request id>:approve"), then the email saying so.
+  const extra = (requestId, approved) => async () => {
+    const request = (e.extra_requests || []).find((r) => r.id === requestId);
+    if (approved) await actions.approveExtraRequest(e.id, requestId);
+    else await actions.declineExtraRequest(e.id, requestId);
+    await afterAction();
+    await emailThem(approved ? 'request_approved' : 'request_declined', { request: { field: 'extra_request', request } });
+  };
+  root.querySelectorAll('[data-req]').forEach((btn) => btn.addEventListener('click', () => {
+    const [kind, decision] = btn.dataset.req.split(':');
+    if (kind.startsWith('extra|')) return run(extra(kind.slice(6), decision === 'approve'));
+    return run(handlers[btn.dataset.req]);
+  }));
 }
 
 // Their messages, their status-page activity and the emails she sent (History),
