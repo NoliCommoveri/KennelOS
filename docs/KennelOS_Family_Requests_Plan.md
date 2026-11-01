@@ -3,7 +3,7 @@
 > **Status: draft, nothing built.** Asked by the owner (2026-10-31). Families whose pup is
 > picked can ask for extras (photo and training packages), book a pickup time and place, see
 > her transport suggestions, and tell her they're backing out, all from their status page.
-> Decisions are in §8 (D1, D2, D4's provider, D5 and D7 decided 2026-11-01); nothing is
+> Decisions are in §8 (D1, D2, D4, D5 and D7 decided 2026-11-01; D3, D4b, D6, D8–D15 open); nothing is
 > built until the rest are answered.
 
 ## 1. Where things are now
@@ -115,8 +115,9 @@ turns weeks into dates from the litter's birth date), plus their current extras 
   - **Within her range** (`transport_far_miles`, a Waitlist setting, e.g. 150): the page says
     "That's about 48 miles from us. [Her name] will confirm the time and any transport fee."
   - **Over it:** the page says "That's about 340 miles from us. [Her name] will be in touch
-    about whether she'll bring your puppy herself or you'll need a flight nanny." and the
-    server sends the new **transport options** email (§5.1) right away.
+    about whether she'll bring your puppy herself or you'll need a flight nanny." Nothing is
+    sent automatically: the request shows her the miles and offers the new **transport
+    options** email (§5.1) to send with a tap.
   - Either way it's a request: she approves with a date, time and transport fee (the drop-off
     event is created, method Ground transport or Flight nanny), or declines with a note.
 - **Cancel / rebook** until a cutoff she sets (`pickup_change_days`, default 2 days before).
@@ -140,11 +141,12 @@ tier (about 100,000 elements and 100,000 geocodes a month at the time of writing
   both, then one Matrix call. Signed-in accounts only, rate-limited per account, addresses
   never logged (cloud rules). No key set → `503 geo_off`, and the app falls back to levels 1–2.
 - **For a family's own address** the server measures it itself when they submit (same code,
-  rate-limited per family, a few a day), so the page can answer at once. That needs her
-  **standard location's address on the server**: her device publishes it in a server-only
-  part of the projection that no family view ever includes. That's a privacy step (her home
-  address, held readable by our server) she agrees to once when she turns on "families can
-  give their own address"; without it, families can only pick her listed spots.
+  rate-limited per family, a few a day), so the page can answer at once. Her **standard
+  location's address is on the server** for that: her device publishes it in a server-only
+  part of the projection that no family view includes. **Decided (2026-11-01):** fine to
+  hold, since her standard location is a public place near home (a store, a library), not
+  her house; the settings screen says so in one line ("Use a public place near you, not your
+  home address").
 - **App:** `cloudApi.getDistance(from, to)`, the only network call, made when she taps
   **Get driving miles** (never automatically), gated by `cloudConfig.isCloudAvailable()`.
 - **Stored:** only the miles and minutes (on the request or the sale, for the fee). The
@@ -157,8 +159,12 @@ tier (about 100,000 elements and 100,000 geocodes a month at the time of writing
 
 ### 5.1 The "transport options" email (new kind)
 
-`transport_options` joins `EMAIL_KINDS` and `SERVER_EMAIL_KINDS` (the server sends it while
-her phone is off), with a default template she can edit in Waitlist settings like the others.
+`transport_options` joins `EMAIL_KINDS` (not `SERVER_EMAIL_KINDS`: **she sends it, the server
+never does**). It's a standard email like the status link email: one of the choices in the
+family's **Communicate…** (`emailChoices`) whenever they have an open sale, and a **Send
+transport options** button on an over-the-limit address request (and its Today nudge), both
+opening the usual preview to edit before sending. A default template she can edit in Waitlist
+settings like the others.
 New placeholders: `{distance}` ("about 340 miles") and `{transport_options}`, filled from her
 recommended list's **Getting your pup home** group (D8): each one's name, link and notes.
 Default wording:
@@ -169,8 +175,8 @@ Default wording:
 >
 > {transport_options}
 
-Sent once per address request, logged in the family's Messages and emails like the others,
-and shown on their status page.
+Logged in the family's Messages and emails like the others, and shown on their status page.
+`{distance}` comes from their latest address request; without one, that sentence is left out.
 
 With miles known: `Kennel.mileage_rate` (per mile, optionally a round-trip switch and free
 miles) suggests `Sale.transport_fee`, which she can change.
@@ -238,26 +244,62 @@ What reopening does:
 She can still choose **Keep the deposit** and let them reapply later (a new application, a
 new fee, the usual path) when she'd rather start over.
 
-## 8. Decisions needed
+## 8. Decisions
 
 - **D1. Prices on the server. Decided (2026-11-01): no.** The status page shows extras by
   name, grouped, under her message and a link to her own page with the prices (§3).
 - **D2. Automatic or approved. Decided (2026-11-01): every request waits for her**, with an
   app alert, a digest line, a Today nudge, and one tap on Approve to make every change (§2).
-- **D3. Windows per row, per group, or both** (proposed both, row wins).
-- **D4. Mileage.** **Decided (2026-11-01):** level 3 uses Mapbox (§5). Still open: build 1 + 2
-  first and add Mapbox after, or all three together.
+- **D4. Mileage provider. Decided (2026-11-01):** Mapbox (§5).
 - **D5. Meetup spots. Decided (2026-11-01):** her listed locations (one standard), plus a
   family's own address measured with Mapbox; over her mile limit, the "be in touch" answer
-  and the new transport options email (§4, §5.1). Open: her standard address held on the
-  server to measure from (§5): agree, or measure only after she approves (no instant answer).
-- **D6. Training ↔ boarding link** on the event (proposed) or on the sale's extra row.
+  and the transport options email she sends with a tap (§4, §5.1). Her standard location
+  (a public place) is held on the server to measure from (§5).
 - **D7. Moved deposit, place in line. Decided (2026-11-01): the end of the line**, on their
   existing entry, reopened (§7.1).
-- **D8. Transport suggestions:** reuse her recommended list (`Kennel.recommended`) with a
-  **Getting your pup home** group (flight nannies, their sites, notes), shown to picked
-  families; optionally only when their area is over her `far_miles` setting.
-- **D9. Edition:** all of this Pro (it rides the online waitlist).
+
+**Still open:**
+
+- **D3. Where the age windows live.** (a) on each extra only; (b) on the group only (every
+  training package shares one window); (c) both: a group default she sets once, and an extra
+  with its own window overrides it. **Proposed: (c).**
+- **D4b. The fallbacks besides Mapbox.** Families' own addresses need Mapbox (and the cloud)
+  anyway. Keep (a) **Open in Maps** links on her locations and requests (free, no service, a
+  check on the figure) and/or (b) the offline straight-line estimate. **Proposed: keep (a),
+  drop (b).**
+- **D6. Where the training ↔ boarding link is stored.** (a) on the boarding event
+  (`details.sale_id` + `details.extra_charge_id`), the sale finding its stays by query; (b) on
+  the sale's extra row (`boarding_event_id`). The app's rule is no back-pointers, one side
+  stored. **Proposed: (a)**: the event is what the Away board, Today and pickup already read.
+- **D8. Transport suggestions.** Reuse her recommended list with a **Getting your pup home**
+  group (name, link, notes), which the transport options email pulls from. On the status
+  page: (a) always shown to families with a picked pup; (b) only after she sends the
+  transport options email; (c) only in the email. **Proposed: (a)**, under a heading of its
+  own, so a far family can look before asking.
+- **D9. Edition.** All of this is Pro and needs the online waitlist (cloud). Lite has no online
+  waitlist, so nothing there. **Proposed: Pro only.**
+- **D10. Pickup times.** (a) Per litter or kennel-wide (every litter ready then can use
+  them)? **Proposed: per litter, with "copy to another litter".** (b) Families per time slot
+  (default 1)? (c) Last change before the pickup: **proposed 2 days**, her setting.
+- **D11. Transport fee and the mile limit.** (a) Rate per mile, one-way or round trip
+  (**proposed round trip**, since she drives back); (b) free miles first (e.g. the first 25
+  free; **proposed: a setting, default 0**); (c) the "be in touch" limit,
+  `transport_far_miles`: **proposed default 150 miles**, her setting.
+- **D12. Backing out: reasons and policy.** (a) The family's reasons: **proposed** changed our
+  mind; family or money circumstances; the pup's health or temperament; timing; other (her
+  list, editable). (b) Her policy as rows of reason × pup age → keep / move / refund
+  (**proposed**), or one rule by age only. (c) Families see her policy text before sending:
+  **proposed yes**, a box she writes in, like the extras message.
+- **D13. A refund on the books.** When she refunds a family who backed out: (a) sale
+  `voided` with a new end reason "Buyer backed out, refunded", so nothing on it counts as
+  income (**proposed**: the same rule as every voided sale); (b) `cancelled` with the
+  refund recorded as an expense.
+- **D14. What Approve on a back-out also undoes.** Their extras and any boarding stay or
+  drop-off booked for that pup: (a) removed with the same tap, listed in the confirm so she
+  sees them (**proposed**); (b) left for her to clean up; (c) she ticks which go.
+- **D15. A family's own address, saved?** The address is in the request she approves (she
+  needs it for the drop-off event's location). (a) Kept on the request and the drop-off event
+  only (**proposed**); (b) also added to their contact record.
 
 ## 9. Proposed build order
 

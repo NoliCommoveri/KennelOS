@@ -1783,3 +1783,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   nudge, one-tap Approve); families can give their own address, measured with Mapbox, with a
   "she'll be in touch" answer and a new `transport_options` email over her mile limit; a moved
   deposit puts them at the end of the line on their existing entry, reopened. Still a plan.
+- **Family Requests plan: transport email and standard address (2026-11-01).** Asked by the
+  owner: the `transport_options` email is one she sends with a tap (Communicate… and the
+  address request), never automatically; her standard location is a public place, so it's
+  held on the server to measure families' addresses from. Open questions listed in full
+  (D3, D4b, D6, D8–D15).
