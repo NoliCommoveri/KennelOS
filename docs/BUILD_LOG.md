@@ -1906,3 +1906,14 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   "Put [pup] back to Available" (Health hold when their reason is the pup's health), ticked,
   so the pup can be offered to the next family, as the Sale page asks when a sale ends. All
   of this session's app changes ride `kennelos-shell-v88`.
+- **Planned heats on Coming up (2026-11-01).** Asked by the owner: future-dated heat cycles
+  show as coming up on the public list and family status pages, month and year only, with an
+  "estimated around" disclaimer. A fourth `show_upcoming` stage, `planned_heats` (off by
+  default, a Public list and a Family pages switch like the others). `plannedHeats` in
+  `waitlistRules.js` (active breeding females of the kennel, event after today, once per dam
+  per month); the projection publishes `expected_month` (`YYYY-MM`) and never the day;
+  `projectionFor` now also reads `heat_cycle` events. The Worker passes `expected_month`
+  through only as `YYYY-MM`, gives heats no waiting, and refuses a prepass on one. Family
+  pages: "Upcoming heat · estimated around March 2027" under the dam's name, and "Heat dates
+  are estimates: the month shown is approximate and can shift." under the list. Tests in
+  `waitlistRules`, `waitlistProjection`, cloud `familyPages` and `familyActions`.

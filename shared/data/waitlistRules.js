@@ -177,15 +177,16 @@ export function messengerLink(raw) {
   return `https://m.me/${page}`;
 }
 
-// The three stages she can show before picks open (Spec §16.4), each on the public
+// The stages she can show before picks open (Spec §16.4), each on the public
 // list and on family pages separately. All off unless she switches one on.
 export const UPCOMING_STAGES = Object.freeze([
+  { value: 'planned_heats', label: 'Planned heats (month and year only)' },
   { value: 'planned_pairings', label: 'Planned pairings' },
   { value: 'pairings', label: 'Pairings (bred or confirmed pregnant)' },
   { value: 'early_litters', label: 'Whelped litters, picks not open yet' }
 ]);
 
-// → { planned_pairings: { public, family }, pairings: {…}, early_litters: {…} }, all booleans.
+// → { planned_heats: { public, family }, planned_pairings: {…}, pairings: {…}, early_litters: {…} }, all booleans.
 export function showUpcoming(config) {
   const stored = config && typeof config.show_upcoming === 'object' && config.show_upcoming ? config.show_upcoming : {};
   return Object.fromEntries(UPCOMING_STAGES.map(({ value }) => [value, {
@@ -731,6 +732,29 @@ export function upcomingItems(kennel, { litters = [], pairings = [] } = {}) {
   const order = { early_litter: 0, pairing: 1, planned_pairing: 2 };
   const when = (x) => x.litter?.whelp_date || x.pairing?.expected_due_date || x.pairing?.planned_date || '9999';
   return out.sort((a, b) => order[a.kind] - order[b.kind] || when(a).localeCompare(when(b)) || String(a.id).localeCompare(String(b.id)));
+}
+
+// Her planned heats (Spec §16.4): each future-dated `heat_cycle` event (starting
+// after `today`) of an active breeding female of this kennel, as the MONTH it's
+// expected (`YYYY-MM`), never the day. One per dam per month; soonest first.
+// → [{ id, kind: 'planned_heat', stage: 'planned_heats', dam_id, month }]; `id` is
+// the event's id.
+export function plannedHeats(kennel, { dogs = [], events = [], today } = {}) {
+  const dams = new Map(dogs.filter((d) => !d.is_archived && d.kennel_id === kennel.id && d.sex === 'female' && d.status === 'active_breeding').map((d) => [d.id, d]));
+  const seen = new Set();
+  const out = [];
+  const heats = events
+    .filter((ev) => ev.event_type === 'heat_cycle' && ev.subject_type === 'dog' && !ev.is_archived && dams.has(ev.subject_id)
+      && /^\d{4}-\d{2}-\d{2}$/.test(String(ev.event_date || '')) && ev.event_date > today)
+    .sort((a, b) => a.event_date.localeCompare(b.event_date) || String(a.id).localeCompare(String(b.id)));
+  for (const ev of heats) {
+    const month = ev.event_date.slice(0, 7);
+    const key = `${ev.subject_id}|${month}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ id: ev.id, kind: 'planned_heat', stage: 'planned_heats', dam_id: ev.subject_id, month });
+  }
+  return out;
 }
 
 // The parent dogs a family can pick for listen-only (Spec §15.7 item 1): this

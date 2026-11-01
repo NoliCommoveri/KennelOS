@@ -1813,7 +1813,9 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
 - **"Ready now?"** (`readyCheck`): for holds ending while online; `sweepReadyChecks` removes
   non-answerers under `remove_after`, Today lists them under `keep_paused`.
 - **Before picks open:** `show_upcoming` switches publish pairings and early litters
-  (`upcomingItems`); a born litter gives each family a match / review note (`whelpNotes`).
+  (`upcomingItems`) and planned heats (`plannedHeats`: future-dated `heat_cycle` events of
+  active breeding females, as `expected_month` `YYYY-MM` only, never the day; no waiting or
+  "Not this litter", and the server refuses a prepass on one); a born litter gives each family a match / review note (`whelpNotes`).
   Today suggests **Open picks** when a litter's `accept_deposits_date` arrives
   (`depositsDueLitters`).
 - **On her website** (Integrations plan §1): with `waitlist_config.embed`, the projection

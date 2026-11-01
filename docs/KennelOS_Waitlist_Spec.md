@@ -1444,11 +1444,12 @@ the whole respond window.
 their turn), not every live litter as before. An `expected` litter (not born yet) counts as
 an actual pairing, shown once, with its pairing's expected whelp date.
 
-New settings in her Waitlist settings: three stages, each with two switches, **all off by
+New settings in her Waitlist settings: four stages, each with two switches, **all off by
 default**.
 
 | Stage | Public list | Family pages (signed in / status page) |
 |---|---|---|
+| Planned heats (month and year only) | off | off |
 | Planned pairings | off | off |
 | Actual pairings (bred / confirmed pregnant) | off | off |
 | Whelped litters, picks not open yet | off | off |
@@ -1461,6 +1462,12 @@ default**.
   **Not this litter** (§16.2).
 - A pairing has no pups yet, so no place in line can be counted for it; the page says only
   whether the family is waiting for it.
+- **Planned heats** (asked by the owner, 2026-11-01): each future-dated `heat_cycle` event of
+  an active breeding female of the kennel, once per dam per month: her call name (and
+  titles), breed, and "Upcoming heat · estimated around March 2027". Only the **month and
+  year** leave her device (`expected_month`, `YYYY-MM`), never the day, and the list ends
+  with a disclaimer that heat dates are estimates. No waiting, place or **Not this litter**
+  on a heat (it's no litter yet).
 - The settings screen warns that the public list makes her breeding plans public.
 - Stored in `waitlist_config` (cloud tier, like the rest of it).
 

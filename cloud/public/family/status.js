@@ -12,7 +12,7 @@
 // Messages are sealed here, in this browser, to her key (seal.js); the server
 // can't read them.
 import {
-  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingItemHtml, litterHtml, availableItemHtml, deadlineText, fmtShortDate,
+  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingItemHtml, upcomingFootHtml, litterHtml, availableItemHtml, deadlineText, fmtShortDate,
   SEX_LABEL, READY_LABEL, PURPOSE_LABEL, purposesText, CREDIT_LABEL
 } from './common.js';
 import { rememberedFamily, forgetFamily } from './session.js';
@@ -277,9 +277,10 @@ function notThisLitter(t) {
 function upcomingCard(v) {
   if (!(v.upcoming || []).length) return '';
   // Laid out like Available Puppies; no badges (decided 2026-10-08).
-  const items = v.upcoming.map((u) => `<li>${upcomingItemHtml(u, u.waiting ? notThisLitter(upcomingTarget(u)) : '')}</li>`).join('');
+  // A planned heat is no litter yet: no "Not this litter" on it.
+  const items = v.upcoming.map((u) => `<li>${upcomingItemHtml(u, u.waiting && u.kind !== 'planned_heat' ? notThisLitter(upcomingTarget(u)) : '')}</li>`).join('');
   return card('Coming up', `<ul class="plain">${items}</ul>
-    <p class="small muted">Plans can change.</p>`);
+    ${upcomingFootHtml(v.upcoming)}`);
 }
 
 // --- Your name on the public list (Spec §15.3) -----------------------------------

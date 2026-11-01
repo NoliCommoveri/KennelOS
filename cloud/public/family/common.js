@@ -154,8 +154,26 @@ export function upcomingWhen(u) {
   return u.expected_whelp_date ? `Expected ${fmtShortDate(u.expected_whelp_date)}` : 'Expected';
 }
 
+// A planned heat's month, "March 2027", from YYYY-MM. Never a day: only the month
+// is published, and it's an estimate.
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+export function fmtMonthYear(ym) {
+  const m = /^(\d{4})-(\d{2})$/.exec(String(ym ?? ''));
+  return m && MONTHS[Number(m[2]) - 1] ? `${MONTHS[Number(m[2]) - 1]} ${m[1]}` : '';
+}
+export const HEAT_DISCLAIMER = 'Heat dates are estimates: the month shown is approximate and can shift.';
+
 export function upcomingItemHtml(u, extra = '') {
+  if (u.kind === 'planned_heat') {
+    const month = fmtMonthYear(u.expected_month);
+    return litterHtml({ breed: u.breed, name: parentText(u.dam) || u.label, when: month ? `Upcoming heat · estimated around ${month}` : 'Upcoming heat', extra });
+  }
   return litterHtml({ breed: u.breed, name: u.label, dam: u.dam, sire: u.sire, when: upcomingWhen(u), extra });
+}
+
+// Under a Coming up list: plans can change, and heat months are estimates.
+export function upcomingFootHtml(rows) {
+  return `<p class="small muted">Plans can change.${rows.some((u) => u.kind === 'planned_heat') ? ` ${esc(HEAT_DISCLAIMER)}` : ''}</p>`;
 }
 
 // "Born 09/01/2026 · Ready 10/27/2026" (Available Puppies).
@@ -188,5 +206,5 @@ export function availableItemHtml(l, extra = '') {
 export function upcomingListHtml(rows) {
   if (!rows.length) return '';
   return `<ul class="plain">${rows.map((u) => `<li>${upcomingItemHtml(u)}</li>`).join('')}</ul>
-    <p class="small muted">Plans can change.</p>`;
+    ${upcomingFootHtml(rows)}`;
 }

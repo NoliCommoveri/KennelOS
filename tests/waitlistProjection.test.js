@@ -291,13 +291,13 @@ test('upcoming: each stage where she shows it, with call names, titles and her d
   assert.deepEqual(p.upcoming, [
     { id: 'spring', kind: 'early_litter', label: 'Spring litter', pairing_id: 'pr-spring', litter_id: 'spring',
       sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Willow', titles: [] }, breed: null,
-      expected_whelp_date: null, whelp_date: '2026-09-20', picks_expected_date: '2026-10-20', public: true, family: true },
+      expected_whelp_date: null, whelp_date: '2026-09-20', picks_expected_date: '2026-10-20', expected_month: null, public: true, family: true },
     { id: 'pr-winter', kind: 'pairing', label: 'Winter litter', pairing_id: 'pr-winter', litter_id: 'winter',
       sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Juniper', titles: ['CGC'] }, breed: null,
-      expected_whelp_date: '2026-12-01', whelp_date: null, picks_expected_date: null, public: false, family: true },
+      expected_whelp_date: '2026-12-01', whelp_date: null, picks_expected_date: null, expected_month: null, public: false, family: true },
     { id: 'pr-plan', kind: 'planned_pairing', label: 'Willow × Ash', pairing_id: 'pr-plan', litter_id: null,
       sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Willow', titles: [] }, breed: null,
-      expected_whelp_date: '2027-04-05', whelp_date: null, picks_expected_date: null, public: true, family: false }
+      expected_whelp_date: '2027-04-05', whelp_date: null, picks_expected_date: null, expected_month: null, public: true, family: false }
   ], 'an expected litter shows once, with its pairing; a litter with open picks and a cancelled pairing not at all');
   const text = JSON.stringify(p.upcoming);
   for (const secret of ['pairing note', 'litter note', 'sire_id', 'dam_id', '"willow"']) assert.equal(text.includes(secret), false, secret);
@@ -305,6 +305,23 @@ test('upcoming: each stage where she shows it, with call names, titles and her d
   assert.deepEqual(p.entries.e1.upcoming, { spring: { waiting: false, match: false }, 'pr-winter': { waiting: true } });
   assert.deepEqual(p.entries.e2.upcoming.spring, { waiting: true, match: true }, 'whether they match the born litter, never their place in it');
   assert.deepEqual(p.entries.e4.upcoming, {}, 'not on the list yet');
+});
+
+test('upcoming: a planned heat is its dam and the month only, never the day; nothing for a family to wait on', () => {
+  const f = upcomingFixture({ planned_heats: { public: true, family: true } });
+  f.dogs.find((d) => d.id === 'willow').status = 'active_breeding';
+  f.events.push(
+    { id: 'heat1', subject_type: 'dog', subject_id: 'willow', event_type: 'heat_cycle', event_date: '2027-03-14', details: { notes: 'heat note' } },
+    { id: 'heat0', subject_type: 'dog', subject_id: 'willow', event_type: 'heat_cycle', event_date: '2026-01-14' }
+  );
+  const p = buildProjection(f);
+  assert.deepEqual(p.upcoming, [
+    { id: 'heat1', kind: 'planned_heat', label: 'Willow', pairing_id: null, litter_id: null, sire: null, dam: { name: 'Willow', titles: [] }, breed: null,
+      expected_whelp_date: null, whelp_date: null, picks_expected_date: null, expected_month: '2027-03', public: true, family: true }
+  ], 'only the future heat');
+  const text = JSON.stringify(p);
+  for (const secret of ['2027-03-14', 'heat note']) assert.equal(text.includes(secret), false, secret);
+  assert.deepEqual(p.entries.e1.upcoming, {}, 'no waiting or "Not this litter" on a heat');
 });
 
 test('titlesByDog: logged title_earned abbreviations, oldest first, once each, never archived', () => {

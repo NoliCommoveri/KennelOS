@@ -186,11 +186,11 @@ test('pairings and early litters (Spec §16.4): each where she shows it; a litte
   p.entries.ann.upcoming = { l2: { waiting: true, match: true } };
   const list = listView(p);
   assert.deepEqual(list.upcoming, [{ id: 'pr3', kind: 'planned_pairing', label: 'Juniper × Ash', breed: null, sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Juniper', titles: ['CGC'] },
-    expected_whelp_date: null, whelp_date: null, picks_expected_date: null }]);
+    expected_whelp_date: null, whelp_date: null, picks_expected_date: null, expected_month: null }]);
   const v = statusView(p, 'ann');
   assert.deepEqual(v.litters.map((l) => l.id), ['l1'], 'the early litter is not in the Litters list');
   assert.deepEqual(v.upcoming, [{ id: 'l2', kind: 'early_litter', label: 'Spring litter', breed: null, sire: { name: 'Ash', titles: ['JH'] }, dam: { name: 'Willow', titles: [] },
-    expected_whelp_date: null, whelp_date: '2026-09-20', picks_expected_date: '2026-10-20', pairing_id: 'pr2', litter_id: 'l2', waiting: true, match: true }]);
+    expected_whelp_date: null, whelp_date: '2026-09-20', picks_expected_date: '2026-10-20', expected_month: null, pairing_id: 'pr2', litter_id: 'l2', waiting: true, match: true }]);
   assert.equal(JSON.stringify(v).includes('secret-sire'), false);
   assert.deepEqual(statusView(p, 'dee').upcoming, [], 'not on the list yet: nothing coming up');
   // A litter in their turn shows even if her picks were stopped.
@@ -354,6 +354,21 @@ test('the public list carries her message under the heading', () => {
   assert.equal(listView(p).kennel.intro, p.kennel.intro);
   delete p.kennel.intro;
   assert.equal(listView(p).kennel.intro, '');
+});
+
+test('planned heats (Spec §16.4): the dam and the month only, never a day; nothing to wait for or pass on', () => {
+  const p = projection();
+  p.upcoming = [
+    { id: 'h1', kind: 'planned_heat', label: 'Juniper', pairing_id: null, litter_id: null, sire: null, dam: { name: 'Juniper', titles: ['CGC'] },
+      expected_whelp_date: null, whelp_date: null, picks_expected_date: null, expected_month: '2027-03', public: true, family: true },
+    { id: 'h2', kind: 'planned_heat', label: 'Willow', dam: { name: 'Willow', titles: [] }, expected_month: '2027-03-14', public: true, family: false },
+  ];
+  const row = { id: 'h1', kind: 'planned_heat', label: 'Juniper', breed: null, sire: { name: '', titles: [] }, dam: { name: 'Juniper', titles: ['CGC'] },
+    expected_whelp_date: null, whelp_date: null, picks_expected_date: null, expected_month: '2027-03' };
+  const list = listView(p).upcoming;
+  assert.deepEqual(list[0], row);
+  assert.equal(list[1].expected_month, null, 'a full date is never passed on');
+  assert.deepEqual(statusView(p, 'ann').upcoming, [{ ...row, pairing_id: null, litter_id: null, waiting: false }]);
 });
 
 test('Coming up on the public list holds only what she switched on for the public', () => {

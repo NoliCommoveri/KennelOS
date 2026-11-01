@@ -182,7 +182,8 @@ export async function serveFamilyPage(request, env, url) {
 // --- What a family sees (pure) ------------------------------------------------------
 
 // A pairing or early litter as a page shows it (Spec §16.4): parents' call names
-// and titles, and her dates. Never where it shows or which dogs.
+// and titles, and her dates. A planned heat: its dam and the month (YYYY-MM), never
+// a day. Never where it shows or which dogs.
 // A parent as a page shows one: call name and titles.
 const parentOf = (d) => ({ name: d?.name ?? '', titles: Array.isArray(d?.titles) ? d.titles : [] });
 
@@ -192,6 +193,7 @@ function upcomingRow(u) {
     id: u.id, kind: u.kind, label: u.label ?? '', breed: u.breed ?? null, sire: parent(u.sire), dam: parent(u.dam),
     expected_whelp_date: u.expected_whelp_date ?? null, whelp_date: u.whelp_date ?? null,
     picks_expected_date: u.picks_expected_date ?? null,
+    expected_month: /^\d{4}-\d{2}$/.test(String(u.expected_month ?? '')) ? u.expected_month : null,
   };
 }
 const upcomingOf = (projection, where) => (Array.isArray(projection.upcoming) ? projection.upcoming : []).filter((u) => u && u[where] === true);
@@ -463,7 +465,8 @@ export function statusView(projection, entryId) {
   const mine = e.upcoming || {};
   const upcoming = e.status === 'active' ? upcomingOf(projection, 'family').map((u) => ({
     ...upcomingRow(u), pairing_id: u.pairing_id ?? null, litter_id: u.litter_id ?? null,
-    waiting: mine[u.id]?.waiting !== false, ...(u.kind === 'early_litter' ? { match: mine[u.id]?.match === true } : {}),
+    // A planned heat is no litter yet: nothing to wait for or pass on.
+    waiting: u.kind !== 'planned_heat' && mine[u.id]?.waiting !== false, ...(u.kind === 'early_litter' ? { match: mine[u.id]?.match === true } : {}),
   })) : [];
   return { kennel, as_of: projection.as_of ?? null, family, offers, litters: litterList, upcoming, public_list: listView(projection).rows };
 }
