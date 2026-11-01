@@ -1877,3 +1877,11 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `Litter.pickup_date_rules`, `pickupSlots.dateRules` / `standardBoarding`, `Sale.boarding_from_pickup`.
   Also: the event form now keeps a pickup's `pickup_slot_id` (and the boarding marker) through
   an edit. Tests extended; checked in the browser.
+- **Pickup charges never overwrite hers (2026-11-01).** Asked by the owner: the pickup flow
+  fills the sale's existing `transport_fee` and deferred boarding fields (there was no other
+  boarding default; `boarding_rate` is the only one). The address approval form starts with
+  the fee already on the sale ("On the sale now: $250.00") and offers **Use $588.00** for the
+  suggestion; after a time or a cancel, a transport fee still on the sale is offered for
+  removal; on a boarding date, a boarding charge she typed is kept and **Use standard
+  boarding** is offered instead (Today says both in its message). `applyPickupBoarding`,
+  `clearTransportFee`; the end-to-end test covers both.

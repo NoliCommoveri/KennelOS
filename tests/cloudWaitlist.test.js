@@ -586,6 +586,23 @@ test('pickup (Family Requests plan §4): a family books a time and her Approve m
   assert.equal(charged.transport_fee, 587.1);
   assert.deepEqual([charged.deferred_boarding_amount ?? null, charged.boarding_from_pickup], [null, false], 'moving off the boarding date takes the charge off');
   assert.equal((await eventRepo.getForSubject('dog', dog.id)).some((e) => e.event_type === 'boarding' && !e.is_archived), false, 'and the stay');
+
+  // Back to one of her times, on the boarding date, with her own boarding charge on the
+  // sale: nothing she typed is replaced; both are reported for her to decide.
+  await saleRepo.update(sale.id, { deferred_boarding_amount: 15, deferred_boarding_frequency: 'Week', deferred_boarding_duration_days: 2 });
+  await cw.syncWaitlistOnline();
+  assert.equal((await act('pickup_book', { slot_id: 'x2' })).status, 200);
+  await cw.syncWaitlistOnline();
+  const again = (await waitlistEntryRepo.getById(entry.id)).pickup_requests.find((r) => r.kind === 'slot' && !r.decided);
+  const res = await actions.approvePickupRequest(entry.id, again.id);
+  assert.deepEqual([res.boarding, res.boardingKept?.days, res.boardingKept?.rate, res.transportFeeLeft], [null, 7, 25, 587.1]);
+  charged = await saleRepo.getById(sale.id);
+  assert.deepEqual([charged.deferred_boarding_amount, charged.deferred_boarding_frequency, charged.transport_fee], [15, 'Week', 587.1], 'her charges stay until she says');
+  await actions.applyPickupBoarding(sale.id, res.boardingKept, res.boardingKept.rate);
+  await actions.clearTransportFee(sale.id);
+  charged = await saleRepo.getById(sale.id);
+  assert.deepEqual([charged.deferred_boarding_amount, charged.deferred_boarding_frequency, charged.deferred_boarding_duration_days, charged.boarding_from_pickup, charged.transport_fee ?? null],
+    [25, 'Day', 7, true, null], 'replaced and removed once she chose to');
 });
 
 test('only the backing device applies family actions; a new backing device starts where the last one got to', async () => {

@@ -1759,7 +1759,14 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   the time, the place, `pickup_slot_id`), and on a boarding date her standard boarding
   (`standardBoarding`: per day from `pickupFrom` to the day before) as the sale's deferred
   boarding (`boarding_from_pickup` marks it) plus a logged stay (`details.pickup_boarding`),
-  both taken off again (`clearPickupBoarding`) by a later approval or cancel; an address → a form with the day, time, method,
+  both taken off again (`clearPickupBoarding`) by a later approval or cancel. These fill the
+  sale's existing fields (`transport_fee`; the deferred boarding amount / frequency / count),
+  never new ones, and never replace what she typed without her say: a boarding charge of
+  her own is kept (`boardingKept`; the entry page offers **Use standard boarding**,
+  `applyPickupBoarding`), and a transport fee left after a time or a cancel is reported
+  (`transportFeeLeft`; the entry page offers **Remove it**, `clearTransportFee`; Today says
+  so in its message); the address form starts with the fee already on the sale, with
+  **Use $N** for the suggestion; an address → a form with the day, time, method,
   miles (**Get driving miles**, **Open in Maps**) and the fee (`transportQuote`, the
   working shown) → a drop-off and `Sale.transport_fee`; a cancel archives the pickup. Any
   other pickup still to come is archived first. Today: `waitlist-pickup-request` (a time or

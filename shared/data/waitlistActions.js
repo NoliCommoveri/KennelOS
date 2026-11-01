@@ -1196,6 +1196,27 @@ async function clearPickupBoarding(sale) {
   }
 }
 
+// Her standard boarding for a pickup on a boarding date: the sale's deferred
+// boarding (her rate, per Day, that many days) marked as set from the pickup, and
+// the stay logged. `b` is pickupSlots.standardBoarding's result.
+export async function applyPickupBoarding(saleId, b, rate) {
+  const sale = await saleRepo.getById(saleId);
+  await saleRepo.update(sale.id, { deferred_boarding_amount: rate, deferred_boarding_frequency: 'Day', deferred_boarding_duration_days: b.days, boarding_from_pickup: true });
+  await eventRepo.create({
+    subject_type: 'dog', subject_id: sale.dog_id, event_type: 'boarding', event_date: b.start, event_end_date: b.end, title: BOARDING_TITLE,
+    details: { boarding_reason: 'Deferred pickup', sale_id: sale.id, pickup_boarding: 'yes' }
+  });
+}
+
+// Take the transport fee off a sale (she said so, after the family moved off their
+// own address).
+export async function clearTransportFee(saleId) {
+  return saleRepo.update(saleId, { transport_fee: null });
+}
+
+// A deferred boarding charge she put on the sale herself (not one a pickup set).
+const ownBoarding = (sale) => Number(sale.deferred_boarding_amount) > 0 && !sale.boarding_from_pickup;
+
 const decidePickup = (entry, requestId, decision, date) =>
   (entry.pickup_requests || []).map((r) => (r.id === requestId ? { ...r, decided: decision, decided_date: date } : r));
 
@@ -1203,7 +1224,11 @@ const decidePickup = (entry, requestId, decision, date) =>
 // `details.pickup_slot_id`); their own address becomes a drop-off with the date,
 // time, method and transport fee she gives (`opts`); a cancel archives the pickup.
 // Any other pickup still to come for this family is archived first, so a change
-// leaves one booking. → { entry, sale, event }
+// leaves one booking. Nothing she typed on the sale is replaced without her say:
+// a boarding charge of her own stays (→ `boardingKept`, the standard boarding she
+// could apply instead with applyPickupBoarding), and a transport fee left on the
+// sale after a time or a cancel is reported (→ `transportFeeLeft`) for her to keep
+// or clear. → { entry, sale, event, boarding, boardingKept, transportFeeLeft }
 export async function approvePickupRequest(entryId, requestId, { date = todayYMD(), when = null, time = '', method = 'Ground transport', fee = null } = {}) {
   const entry = await load(entryId);
   const req = loadPickupRequest(entry, requestId);
@@ -1213,6 +1238,7 @@ export async function approvePickupRequest(entryId, requestId, { date = todayYMD
   const upcoming = (await eventRepo.getForSubject('dog', sale.dog_id)).filter((e) => pickupFor(sale)(e) && e.event_date >= date);
   let event = null;
   let boarding = null;
+  let boardingKept = null;
   if (req.kind === 'slot') {
     const kennel = await kennelRepo.getById(sale.kennel_id);
     const dog = await dogRepo.getById(sale.dog_id);
@@ -1227,12 +1253,9 @@ export async function approvePickupRequest(entryId, requestId, { date = todayYMD
       const rate = Number(waitlistConfig(kennel).boarding_rate);
       const from = pickupFrom(sale, litter, await eventRepo.getForSubject('dog', sale.dog_id));
       const b = standardBoarding(from, slot.date, rate);
-      if (b) {
-        await saleRepo.update(sale.id, { deferred_boarding_amount: rate, deferred_boarding_frequency: 'Day', deferred_boarding_duration_days: b.days, boarding_from_pickup: true });
-        await eventRepo.create({
-          subject_type: 'dog', subject_id: sale.dog_id, event_type: 'boarding', event_date: b.start, event_end_date: b.end, title: BOARDING_TITLE,
-          details: { boarding_reason: 'Deferred pickup', sale_id: sale.id, pickup_boarding: 'yes' }
-        });
+      if (b && ownBoarding(await saleRepo.getById(sale.id))) boardingKept = { ...b, rate };
+      else if (b) {
+        await applyPickupBoarding(sale.id, b, rate);
         boarding = b;
       }
     }
@@ -1257,7 +1280,9 @@ export async function approvePickupRequest(entryId, requestId, { date = todayYMD
     await clearPickupBoarding(sale);
   }
   const updated = await waitlistEntryRepo.update(entryId, { pickup_requests: decidePickup(entry, requestId, 'approved', date) });
-  return { entry: updated, sale: await saleRepo.getById(sale.id), event, boarding };
+  const after = await saleRepo.getById(sale.id);
+  const transportFeeLeft = req.kind !== 'address' && Number(after.transport_fee) > 0 ? Number(after.transport_fee) : null;
+  return { entry: updated, sale: after, event, boarding, boardingKept, transportFeeLeft };
 }
 
 export async function declinePickupRequest(entryId, requestId, { date = todayYMD() } = {}) {

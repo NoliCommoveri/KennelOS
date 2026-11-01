@@ -31,7 +31,7 @@ import { standardLocation } from '../data/pickupSlots.js';
 import { transportQuote, mapsLink } from '../data/transportFee.js';
 import { locationRuleOn } from '../data/waitlistForm.js';
 import { PLACEMENT_METHODS } from '../data/vocab.js';
-import { trainingStaysFor, trainingStayEvent, defaultStart, readyDateOf } from '../data/goHome.js';
+import { trainingStaysFor, trainingStayEvent, defaultStart, readyDateOf, boardingChargeText } from '../data/goHome.js';
 import { eventRepo } from '../data/eventRepo.js';
 import { offerEmails, syncSoon, communicateDialog } from '../assets/waitlistEmailUI.js';
 import { offerSpecs, retryEmail, kennelEmailsOn, familyEmail, emailErrorText } from '../data/waitlistOutbox.js';
@@ -455,7 +455,8 @@ function wireRequests(root) {
     if (decision === 'transport') return emailThem('transport_options', Number.isFinite(request?.miles) ? { distance: request.miles } : {});
     if (decision === 'decline') { await actions.declinePickupRequest(e.id, requestId); await afterAction(); return emailThem('request_declined', { request: { field: 'pickup_request', request } }); }
     if (request.kind === 'address') { if (await approveAddress(request)) await emailThem('request_approved', { request: { field: 'pickup_request', request } }); return; }
-    await actions.approvePickupRequest(e.id, requestId);
+    const res = await actions.approvePickupRequest(e.id, requestId);
+    await afterPickupApproval(res);
     await afterAction();
     return emailThem('request_approved', { request: { field: 'pickup_request', request } });
   };
@@ -465,6 +466,23 @@ function wireRequests(root) {
     if (kind.startsWith('pickup|')) return run(pickup(kind.slice(7), decision));
     return run(handlers[btn.dataset.req]);
   }));
+}
+
+// After approving a time or a cancel: nothing she typed on the sale changes without
+// her say. Her own boarding charge was kept: replace it with standard boarding?
+// A transport fee is still on the sale: remove it?
+async function afterPickupApproval(res) {
+  const b = res.boardingKept;
+  if (b && await confirmModal({
+    title: 'Replace your boarding charge?',
+    message: `This pickup date has standard boarding: ${b.days} day${b.days === 1 ? '' : 's'} at ${fmtMoney(b.rate)} = ${fmtMoney(b.amount)}. The sale already has your own boarding charge (${boardingChargeText(res.sale, fmtMoney)}), so it was kept.`,
+    confirmLabel: 'Use standard boarding', cancelLabel: 'Keep mine'
+  })) await actions.applyPickupBoarding(res.sale.id, b, b.rate);
+  if (res.transportFeeLeft && await confirmModal({
+    title: 'Remove the transport fee?',
+    message: `Their sale still has a ${fmtMoney(res.transportFeeLeft)} transport fee from an earlier drop-off plan.`,
+    confirmLabel: 'Remove it', cancelLabel: 'Keep it'
+  })) await actions.clearTransportFee(res.sale.id);
 }
 
 // Approving a family's own address (Family Requests plan §4): the day, time, how
@@ -477,6 +495,8 @@ async function approveAddress(request) {
   const sales = e.contact_id ? await saleRepo.getByBuyer(e.contact_id) : [];
   const sale = familySale(e, sales);
   const quote = () => (miles != null ? transportQuote(miles, ctx.config) : null);
+  // A fee already on the sale starts in the box: replacing it is her choice.
+  const current = Number(sale?.transport_fee) > 0 ? Number(sale.transport_fee) : null;
   return formModal({
     title: 'Approve their meetup place',
     confirmLabel: 'Approve',
@@ -486,7 +506,10 @@ async function approveAddress(request) {
         <div class="field"><label for="pa-time">Time</label><input id="pa-time" type="text" placeholder="e.g. 2:00 PM"></div>
         <div class="field"><label for="pa-method">How</label><select id="pa-method">${PLACEMENT_METHODS.map((m) => `<option${m === 'Ground transport' ? ' selected' : ''}>${esc(m)}</option>`).join('')}</select></div>
         <div class="field"><label for="pa-miles">Miles, one way</label><span style="display:inline-flex; gap:6px; align-items:center;"><input id="pa-miles" type="number" min="0" step="0.1" value="${miles ?? ''}" style="width:7em;">${from ? '<button type="button" class="btn btn-sm" id="pa-measure">Get driving miles</button>' : ''}</span></div>
-        <div class="field"><label for="pa-fee">Transport fee</label><input id="pa-fee" type="number" min="0" step="0.01" value="${quote()?.fee ?? (sale?.transport_fee ?? '')}" style="width:9em;"><span class="field-hint" id="pa-working">${esc(quote()?.text || '')}</span></div>
+        <div class="field"><label for="pa-fee">Transport fee</label>
+          <span style="display:inline-flex; gap:6px; align-items:center; flex-wrap:wrap;"><input id="pa-fee" type="number" min="0" step="0.01" value="${current != null ? current : (quote()?.fee ?? '')}" style="width:9em;"><button type="button" class="btn btn-sm" id="pa-use"${quote()?.fee != null ? '' : ' hidden'}>Use ${esc(fmtMoney(quote()?.fee ?? 0))}</button></span>
+          ${current != null ? `<span class="field-hint">On the sale now: ${esc(fmtMoney(current))}. Approving saves what's in the box.</span>` : ''}
+          <span class="field-hint" id="pa-working">${esc(quote()?.text || '')}</span></div>
       </div>
       <p class="field-hint">Approving puts the drop-off on the pup's calendar (any other pickup still to come is replaced) and the fee on their sale.</p>`,
     onConfirm: async (o) => {
@@ -497,13 +520,18 @@ async function approveAddress(request) {
       await afterAction();
     }
   }, (o) => {
+    const use = o.querySelector('#pa-use');
     const refresh = () => {
       const v = o.querySelector('#pa-miles').value;
       miles = v === '' ? null : Number(v);
       const q = quote();
       o.querySelector('#pa-working').textContent = q?.text || '';
-      if (q && q.fee != null) o.querySelector('#pa-fee').value = q.fee;
+      use.hidden = q?.fee == null;
+      if (q?.fee != null) use.textContent = `Use ${fmtMoney(q.fee)}`;
+      // With nothing on the sale yet, the suggestion fills the box; otherwise she taps Use.
+      if (current == null && q?.fee != null) o.querySelector('#pa-fee').value = q.fee;
     };
+    use.addEventListener('click', () => { const q = quote(); if (q?.fee != null) o.querySelector('#pa-fee').value = q.fee; });
     o.querySelector('#pa-miles').addEventListener('change', refresh);
     o.querySelector('#pa-measure')?.addEventListener('click', async (ev) => {
       ev.target.disabled = true;
