@@ -1777,3 +1777,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **Family Requests plan: D4 provider decided (2026-11-01).** Asked by the owner: driving
   miles come from Mapbox (geocoding + Matrix) through a Worker endpoint, `POST /geo/distance`,
   storing only miles and minutes. Whether levels 1–2 ship first is still open.
+- **Family Requests plan: D1, D2, D5, D7 decided (2026-11-01).** Asked by the owner: no prices
+  on the server (a link to her own page, opened in a new tab, and her message above the extras
+  listed by name under group headings); every request waits for her approval (alert, digest,
+  nudge, one-tap Approve); families can give their own address, measured with Mapbox, with a
+  "she'll be in touch" answer and a new `transport_options` email over her mile limit; a moved
+  deposit puts them at the end of the line on their existing entry, reopened. Still a plan.
