@@ -10,10 +10,14 @@
 // result whose title is the test name counts too (eventRepo.testMatchTokensOf).
 // The type only files it; matching is by name whatever the type.
 import { testGapRows } from './breedingReports.js';
+import { TEST_OUTCOME, TEST_RESULT_SUGGESTIONS } from './vocab.js';
 
 export const TEST_TYPES = Object.freeze(['genetic_test', 'ofa_pennhip', 'breed_specific_test']);
 
 // Each test type's name field and result field (vocab.js EVENT_TYPES' fields).
+// Every test type's overall flag field: TEST_OUTCOME's 'Normal' / 'Abnormal', or unset.
+export const TEST_OUTCOME_FIELD = 'outcome';
+
 export const TEST_TYPE_FIELDS = Object.freeze({
   genetic_test: { name: 'panel_name', result: 'result', lab: 'lab' },
   ofa_pennhip: { name: 'joint', result: 'rating', lab: null },
@@ -21,6 +25,22 @@ export const TEST_TYPE_FIELDS = Object.freeze({
 });
 
 const key = (s) => String(s ?? '').trim().toLowerCase();
+
+// A test result's suggestions: TEST_RESULT_SUGGESTIONS in their own order, then
+// every result she's typed before (`logged`, from any of the three types' result
+// fields) not already listed, A→Z. Deduped case-insensitively; the first spelling
+// wins.
+export function testResultSuggestions(logged = []) {
+  const seen = new Set(TEST_RESULT_SUGGESTIONS.map(key));
+  const mine = [];
+  for (const v of logged) {
+    const t = String(v ?? '').trim();
+    if (!t || seen.has(key(t))) continue;
+    seen.add(key(t));
+    mine.push(t);
+  }
+  return [...TEST_RESULT_SUGGESTIONS, ...mine.sort((a, b) => a.localeCompare(b))];
+}
 
 // A best guess from the name alone: OFA / PennHIP / hips / elbows are OFA /
 // PennHIP; DNA, panels and the common genetic tests are Genetic; anything else
@@ -55,14 +75,16 @@ export function testPrefill(name, type, today) {
 }
 
 // The event for one completed test → an eventRepo.create candidate. `lab` is
-// kept only where the type has a lab field (Genetic test).
-export function testEvent({ dogId, name, type, date, result = '', lab = '' }) {
+// kept only where the type has a lab field (Genetic test); `outcome` only when
+// it's one of TEST_OUTCOME.
+export function testEvent({ dogId, name, type, date, result = '', lab = '', outcome = '' }) {
   const t = TEST_TYPE_FIELDS[type] ? type : 'breed_specific_test';
   const f = TEST_TYPE_FIELDS[t];
   const n = String(name ?? '').trim();
   const details = { [f.name]: n };
   if (String(result).trim()) details[f.result] = String(result).trim();
   if (f.lab && String(lab).trim()) details[f.lab] = String(lab).trim();
+  if (TEST_OUTCOME.includes(outcome)) details[TEST_OUTCOME_FIELD] = outcome;
   return { subject_type: 'dog', subject_id: dogId, event_type: t, event_date: date, title: n, details };
 }
 
@@ -72,12 +94,13 @@ export function unloggedPlanned(dog, events, tokensOf) {
 }
 
 // Each dog's completed tests as family pages show them (Waitlist: parents' health
-// tests): Map dogId → [{ name, result }], one row per test name (a retest replaces
+// tests): Map dogId → [{ name, result, outcome }], one row per test name (a retest replaces
 // the older result: the latest event_date wins), in the order first tested. A
 // result counts only when its type's result field is filled in; the name is the
 // test's name as eventRepo.testTokensOf reads it (OFA: Method + Joint, "OFA
 // Hips"), else the event title, as the Puppy Record names it. Archived events and
-// non-dog subjects are skipped. Never the lab, notes, dates or documents.
+// non-dog subjects are skipped. `outcome` is 'Normal' / 'Abnormal' (TEST_OUTCOME)
+// or '' when unflagged. Never the lab, notes, dates or documents.
 export function completedTestsByDog(events = []) {
   const latest = new Map(); // dogId → Map(nameKey → event)
   const sorted = events
@@ -92,7 +115,9 @@ export function completedTestsByDog(events = []) {
     if (!name || !result) continue;
     const byName = latest.get(e.subject_id) || new Map();
     const k = key(name);
-    byName.set(k, { name, result }); // a retest keeps the first test's place
+    const flag = String(e.details?.[TEST_OUTCOME_FIELD] ?? '').trim();
+    const outcome = TEST_OUTCOME.find((o) => o.toLowerCase() === flag.toLowerCase()) || '';
+    byName.set(k, { name, result, outcome }); // a retest keeps the first test's place
     latest.set(e.subject_id, byName);
   }
   return new Map([...latest].map(([id, byName]) => [id, [...byName.values()]]));

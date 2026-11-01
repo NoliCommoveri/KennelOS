@@ -398,15 +398,18 @@ export const CLOUD_FIELDS = {
     ],
     "genetic_test": [
       "lab",
+      "outcome",
       "panel_name",
       "result"
     ],
     "ofa_pennhip": [
       "joint",
       "method",
+      "outcome",
       "rating"
     ],
     "breed_specific_test": [
+      "outcome",
       "result",
       "test_name"
     ],

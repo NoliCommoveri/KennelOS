@@ -258,6 +258,15 @@ export const HistoryEvent = {
       out.push(v);
     }
     return out.sort((a, b) => a.localeCompare(b));
+  },
+
+  // Every result she's typed on a test event, whichever type: genetic_test /
+  // breed_specific_test `result` and ofa_pennhip `rating` (healthTestLog
+  // TEST_TYPE_FIELDS). Feed to healthTestLog.testResultSuggestions.
+  async getTestResultValues() {
+    const lists = await Promise.all([['genetic_test', 'result'], ['breed_specific_test', 'result'], ['ofa_pennhip', 'rating']]
+      .map(([type, key]) => this.getDetailValues(type, key)));
+    return lists.flat();
   }
 };
 

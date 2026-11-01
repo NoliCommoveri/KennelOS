@@ -2128,3 +2128,22 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `tests/healthTestLog.test.js`, `tests/waitlistProjection.test.js`,
   `tests/familyPages.test.js`, `cloud/tests/familyPages.test.js`. Needs a Worker deploy for
   the family pages to show them.
+- **Health test events get a Normal / abnormal flag; family pages can show Normal only
+  (2026-11-01, draft).** Genetic, OFA / PennHIP and Breed-specific events carry an optional
+  **Normal or abnormal** select (`details.outcome`, `vocab.TEST_OUTCOME`, stored as the label)
+  beside her own result wording; offered in the event form and Kels's Log health test
+  results (`testEvent` takes `outcome`); a cloud details key like `result` (`cloudFields.js`
+  regenerated). The parents' health tests setting became three levels
+  (`PARENT_TESTS_SHOWN`: Don't show / Normal results only / All results; `parent_tests`
+  default `'off'`), and `Dog.waitlist_tests` takes the same values (null = follow).
+  Normal only = the latest result per test marked Normal; unmarked results aren't shown;
+  the flag isn't published. Replaces the draft's checkbox and Always / Never show (never
+  shipped). Tests: `tests/healthTestLog.test.js`, `tests/waitlistProjection.test.js`.
+- **Suggestions for test results (2026-11-01).** Genetic / Breed-specific `result` and OFA
+  `rating` are now comboboxes: `vocab.TEST_RESULT_SUGGESTIONS` (Clear, Carrier, Affected,
+  N/N, Grade 1–4, Grade I–VI) followed by every result she's already typed on any of the
+  three types (new `eventRepo.getTestResultValues`, pooled; `healthTestLog.
+  testResultSuggestions` merges, deduped any case). The event form now merges a combobox's
+  logged values for these fields with its options; Kels's Log health test results gets the
+  same list. Free text, nothing enforced. Test: `tests/healthTestLog.test.js`. Screenshots
+  checked at phone width on the sample data.

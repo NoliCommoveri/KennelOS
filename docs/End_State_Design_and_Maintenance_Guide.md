@@ -205,7 +205,7 @@ to the cloud unsealed).
 
 | Entity | Required | Key fields and rules |
 |---|---|---|
-| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `registered_name`, `registration_number`, `microchip_id`, `planned_tests[]`, `recorded_coi`, `url`. `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `waitlist_tests` (`PARENT_TESTS_ONLINE`: `show`/`hide`, null = follow Waitlist settings' `parent_tests`) is this dog's say over its completed health tests on waitlist family pages (§29 Online), set on its Health-Test Summary card. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. |
+| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `registered_name`, `registration_number`, `microchip_id`, `planned_tests[]`, `recorded_coi`, `url`. `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `waitlist_tests` (`PARENT_TESTS_SHOWN`: `off`/`normal`/`all`, null = follow Waitlist settings' `parent_tests`) is this dog's say over which of its completed health tests show on waitlist family pages (§29 Online), set on its Health-Test Summary card. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. |
 | **Contact** | `name` | `contact_type[]`, `email`, `phone`, `facebook_profile`, `address` (also the away-board location, §19), `kennel_id` (affiliation, not scope), `waitlist_status` (kept by `waitlistEntryRepo`), `first_contact_source`, `companion_note` (shown to the recipient, §20; `notes` is private). Buyers are Contacts; there is no Buyer table. |
 | **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `extra_charge_groups` (its groups' defaults, private, §21.2), `pickup_locations` (her pickup places, private, §29 Pickup), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date` when empty). Sire ≠ dam. |
@@ -714,13 +714,21 @@ tokens plus the event's title, so a hand-added "OFA Patella" with Joint "Patella
 used most for that name before, else `guessTestType` (OFA / PennHIP / hips / elbows → OFA /
 PennHIP; DNA, panels and common genetic tests → Genetic; else Breed-specific).
 `testPrefill` is the Dog page's event-form prefill, `testEvent` the event Kels saves
-(result in `result`, or `rating` for OFA; `lab` only for Genetic), and `unloggedPlanned` a
+(result in `result`, or `rating` for OFA; `lab` only for Genetic; `outcome` only when one of `TEST_OUTCOME`), and `unloggedPlanned` a
 dog's planned tests with no result (`breedingReports.testGapRows`, archived results not
 counted). On the Dog page each unlogged planned test has **Log result**: the event form
 with the type, today, the title and the name field filled in. `completedTestsByDog(events)`
-is each dog's completed tests as waitlist family pages show them: `[{ name, result }]`, one
+is each dog's completed tests as waitlist family pages show them: `[{ name, result, outcome }]`, one
 per test name (named as `testTokensOf` does, OFA Method + Joint, else the title; a result needed), a retest replacing the
 result in the first test's place; archived skipped; never the lab, notes or dates.
+All three test types carry an optional **Normal or abnormal** select (`details.outcome`,
+`vocab.TEST_OUTCOME`: `Normal`/`Abnormal`, stored as the label) beside her own wording of the
+result ("Clear", "Grade 2", "N/N"); the event form and Kels's Log health test results offer
+it, and `outcome` is a cloud details key like `result`. The result fields themselves
+(`result`, OFA `rating`) are comboboxes: `testResultSuggestions` gives
+`vocab.TEST_RESULT_SUGGESTIONS` (Clear, Carrier, Affected, N/N, Grade 1–4, Grade I–VI) then
+every result she's typed on any of the three types (`eventRepo.getTestResultValues`), A→Z,
+once each; the event form and Kels's result box both use it. Free text either way.
 
 ### Kennel setup (`data/kennelSetup.js`)
 A **mandatory gate**: the app isn't usable until an own kennel exists
@@ -1793,15 +1801,18 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   prior to contract signing." Published pups carry `registration` (`intended_registration`).
   **Parents' health tests:** every parent family pages show (Coming up, a planned heat's
   dam, Available Puppies, whelp notes, a turn's litters) carries `tests` (`[{ name, result }]`,
-  `healthTestLog.completedTestsByDog`; absent when none) where `showsParentTests` says so:
-  the dog's `waitlist_tests` (`show`/`hide`), else her `waitlist_config.parent_tests`
-  (default off; Waitlist settings → Public list & family pages, offered with the list
-  online). The Worker copies them by name (`familyPages.parentOf`: trimmed, 80 characters,
+  `healthTestLog.completedTestsByDog`; absent when none) at the level `parentTestsShown`
+  gives (`PARENT_TESTS_SHOWN`): the dog's `waitlist_tests`, else her
+  `waitlist_config.parent_tests` (default `off`; Waitlist settings → Public list & family
+  pages, offered with the list online). `normal` keeps a test only when its latest result is
+  marked `Normal` (an unmarked one isn't; a retest marked Abnormal hides the test, never
+  falling back to an older Normal); `all` keeps every one. The flag itself is never
+  published. The Worker copies them by name (`familyPages.parentOf`: trimmed, 80 characters,
   at most `PARENT_TESTS_MAX` = 20), and the pages fold them under the parents line as
   **Health testing** (`common.parentTestsHtml`), so with Coming up or Available Puppies on
   the public list they're public. The Dog page's Health-Test Summary card has **On family
-  pages** (Follow Waitlist settings / Always show / Never show) for any non-puppy, offered
-  with the waitlist and the list online.
+  pages** (Follow Waitlist settings / Don't show / Normal results only / All results) for any
+  non-puppy, offered with the waitlist and the list online.
   Each open offer carries `deposit_instructions` (her `payment_instructions`) and, once
   picked, `deposit_amount` (the sale's deposit, else her listed one: `depositFor`) and
   `picked_pup` (the Worker adds it to the offer's pups: it's no longer available). After a

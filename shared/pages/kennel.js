@@ -26,7 +26,7 @@ import { contactRepo } from '../data/contactRepo.js';
 import { expenseRepo } from '../data/expenseRepo.js';
 import { getIncomeRows, summarize } from '../data/incomeView.js';
 import { getActiveKennelId, setActiveKennel } from '../data/kennelScope.js';
-import { DOG_STATUS, LITTER_STATUS, SALE_STATUS, FEE_CREDIT_POLICY, WAITLIST_AUTO_OFFER_TRIGGER, WAITLIST_READY_NO_ANSWER } from '../data/vocab.js';
+import { DOG_STATUS, LITTER_STATUS, SALE_STATUS, FEE_CREDIT_POLICY, WAITLIST_AUTO_OFFER_TRIGGER, WAITLIST_READY_NO_ANSWER, PARENT_TESTS_SHOWN } from '../data/vocab.js';
 import { editionFlags } from '../data/editionConfig.js';
 import { kennelChargeList, readPriceList, readChargeGroups } from '../data/extraCharges.js';
 import { priceListHtml, wirePriceList, readPriceListForm } from '../assets/priceListEditor.js';
@@ -564,12 +564,12 @@ function upcomingSwitches(c) {
     </div>`;
 }
 
-// Parents' health tests on family pages (default off); each dog can override it
-// on its Health-Test Summary card (Dog.waitlist_tests).
+// Parents' health tests on family pages (PARENT_TESTS_SHOWN, default off); each
+// dog can override it on its Health-Test Summary card (Dog.waitlist_tests).
 function parentTestsSetting(c) {
-  return `<div class="field field-wide">
-      <label class="check-inline"><input id="wl-parent-tests" type="checkbox"${c.parent_tests === true ? ' checked' : ''}> Show parents' health test results</label>
-      <span class="field-hint">Wherever family pages show a litter's parents (Coming up, Available Puppies, a family's turn), with a "Health testing" line under them: each completed test's name and result, the latest result when a test was repeated. Never the lab, dates, notes or documents. To show or hide one dog's results whatever this says, use "On family pages" on its Health-Test Summary card.</span>
+  return `<div class="field field-wide"><label for="wl-parent-tests">Parents' health test results</label>
+      <select id="wl-parent-tests">${PARENT_TESTS_SHOWN.map((o) => `<option value="${esc(o.value)}"${(c.parent_tests || 'off') === o.value ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}</select>
+      <span class="field-hint">Wherever family pages show a litter's parents (Coming up, Available Puppies, a family's turn), with a "Health testing" line under them: each completed test's name and your result, the latest result when a test was repeated. Never the lab, dates, notes or documents. <strong>Normal results only</strong> shows a test only when its latest result is marked Normal ("Normal or abnormal" on the test's event); a result not marked either way isn't shown. To choose differently for one dog, use "On family pages" on its Health-Test Summary card.</span>
       <div class="inline-warn"><strong>The public list is open to anyone with its link:</strong> with Coming up or Available Puppies on the public list, these results are public too.</div>
     </div>`;
 }
@@ -670,7 +670,7 @@ async function onSaveWaitlist() {
     waitlist_config.ready_no_answer = q('#wl-ready-rule').value;
     waitlist_config.ready_answer_days = num('#wl-ready-days');
   }
-  if (q('#wl-parent-tests')) waitlist_config.parent_tests = q('#wl-parent-tests').checked;
+  if (q('#wl-parent-tests')) waitlist_config.parent_tests = q('#wl-parent-tests').value;
   if (els.config.querySelector('[data-wl-show]')) {
     const show = showUpcoming({});
     for (const b of els.config.querySelectorAll('[data-wl-show]')) {

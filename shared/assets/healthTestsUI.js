@@ -15,8 +15,8 @@ import { eventRepo, testTokensOf, testMatchTokensOf } from '../data/eventRepo.js
 import { kennelRepo } from '../data/kennelRepo.js';
 import { dogsInScope } from '../data/kennelScope.js';
 import { homeDogs } from '../data/dogCare.js';
-import { TEST_TYPES, TEST_TYPE_FIELDS, testTypeFor, testEvent, unloggedPlanned } from '../data/healthTestLog.js';
-import { EVENT_TYPES, descriptor } from '../data/vocab.js';
+import { TEST_TYPES, TEST_TYPE_FIELDS, testTypeFor, testEvent, unloggedPlanned, testResultSuggestions } from '../data/healthTestLog.js';
+import { EVENT_TYPES, TEST_OUTCOME, descriptor } from '../data/vocab.js';
 import { field } from './litterCheckinUI.js';
 import { esc, fmtDate, todayYMD } from './ui.js';
 
@@ -120,6 +120,7 @@ async function logForDog(chat, dog) {
 async function testForm(chat, dog, name, tests) {
   const vocab = [...new Set([...(await kennelRepo.getVocabulary()), ...(await eventRepo.getTestTokens())])].sort((a, b) => a.localeCompare(b));
   const type = testTypeFor(name || '', tests, testTokensOf);
+  const results = testResultSuggestions(await eventRepo.getTestResultValues());
   const plannedKeys = new Set((dog.planned_tests || []).map((t) => String(t).trim().toLowerCase()));
   return chat.form({
     title: `<strong>${esc(dogName(dog))}: ${name ? esc(name) : 'which test?'}</strong>`,
@@ -128,7 +129,8 @@ async function testForm(chat, dog, name, tests) {
         ${field('Kind', `<select id="ht-type">${TEST_TYPES.map((t) => `<option value="${t}"${t === type ? ' selected' : ''}>${esc(typeLabel(t))}</option>`).join('')}</select>`)}
         ${field('Date', `<input id="ht-date" type="date" value="${esc(todayYMD())}">`)}
       </div>
-      ${field('Result', '<input id="ht-result" type="text" autocomplete="off" placeholder="e.g. Good, Clear, Normal, Carrier">', 'Optional. For OFA, its rating.')}
+      ${field('Result', `<input id="ht-result" type="text" list="ht-results" autocomplete="off" placeholder="e.g. Good, Clear, Grade 2, N/N"><datalist id="ht-results">${results.map((r) => `<option value="${esc(r)}"></option>`).join('')}</datalist>`, 'Optional. For OFA, its rating.')}
+      ${field('Normal or abnormal', `<select id="ht-outcome"><option value="">Not marked</option>${TEST_OUTCOME.map((o) => `<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>`, 'Optional. Your online waitlist can show only the results marked Normal.')}
       <div id="ht-lab-wrap">${field('Lab (optional)', '<input id="ht-lab" type="text" autocomplete="off" placeholder="e.g. Embark, Paw Print Genetics">')}</div>`,
     submitLabel: 'Log result',
     cancelLabel: 'Not now',
@@ -155,7 +157,8 @@ async function testForm(chat, dog, name, tests) {
       if (!date) return 'What day was it done (or the result dated)?';
       await eventRepo.create(testEvent({
         dogId: dog.id, name: n, type: t, date,
-        result: root.querySelector('#ht-result').value, lab: root.querySelector('#ht-lab').value
+        result: root.querySelector('#ht-result').value, lab: root.querySelector('#ht-lab').value,
+        outcome: root.querySelector('#ht-outcome').value
       }));
       return { name: n, date, result: root.querySelector('#ht-result').value.trim(), planned: plannedKeys.has(n.toLowerCase()) };
     },

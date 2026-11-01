@@ -238,12 +238,14 @@ export const WAITLIST_READY_NO_ANSWER = [
   { value: 'remove_after', label: 'Wait, then remove them from the list' }
 ];
 
-// Dog.waitlist_tests: one parent's own say over whether its completed health
-// tests show on waitlist family pages, over Waitlist settings' `parent_tests`.
-// Unset (null) = follow the setting.
-export const PARENT_TESTS_ONLINE = [
-  { value: 'show', label: 'Always show' },
-  { value: 'hide', label: 'Never show' }
+// Which of a parent's completed health tests waitlist family pages show:
+// Waitlist settings' `parent_tests` (default 'off'), and Dog.waitlist_tests, one
+// dog's own say over it (null = follow the setting). 'normal' = only results
+// flagged Normal (TEST_OUTCOME); an unflagged result counts as not Normal.
+export const PARENT_TESTS_SHOWN = [
+  { value: 'off',    label: "Don't show" },
+  { value: 'normal', label: 'Normal results only' },
+  { value: 'all',    label: 'All results' }
 ];
 
 export const WAITLIST_PRIORITY = [
@@ -624,6 +626,21 @@ export const VACCINE_GOOD_FOR = [
   { value: 'lifetime', label: 'Lifetime', years: null }
 ];
 
+// A completed test's overall flag (genetic_test / ofa_pennhip / breed_specific_test
+// `outcome`), beside her own wording of the result ("Clear", "Grade 2", "N/N").
+// Optional; stored as the label itself. Waitlist family pages can show only the
+// results flagged Normal (waitlist_config.parent_tests, Dog.waitlist_tests).
+export const TEST_OUTCOME = ['Normal', 'Abnormal'];
+// Suggestions for a test's result (genetic_test / breed_specific_test `result`,
+// ofa_pennhip `rating`), shown with every result she's typed on any of the three
+// (healthTestLog.testResultSuggestions). Free text: suggest, never enforce.
+export const TEST_RESULT_SUGGESTIONS = [
+  'Clear', 'Carrier', 'Affected', 'N/N',
+  'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4',
+  'Grade I', 'Grade II', 'Grade III', 'Grade IV', 'Grade V', 'Grade VI'
+];
+const OUTCOME_FIELD = { key: 'outcome', label: 'Normal or abnormal', type: 'select', options: TEST_OUTCOME };
+
 export const EVENT_TYPES = [
   // Acquisition — an option for the first event on a newly-bought dog's
   // timeline, never auto-created. `source` is a plain free-text field (the
@@ -642,11 +659,11 @@ export const EVENT_TYPES = [
   // union distinct tokens already seen in events) — see eventForm.js's
   // TEST_VOCAB_FIELDS. Suggest-not-enforce, same as boarding_reason below.
   { value: 'genetic_test',       label: 'Genetic test',       badge: 'badge-purple',  subjects: ['dog'], duration: 'instant',
-    fields: [{ key: 'panel_name', label: 'Panel', type: 'combobox' }, { key: 'lab', label: 'Lab', type: 'text' }, { key: 'result', label: 'Result', type: 'text' }] },
+    fields: [{ key: 'panel_name', label: 'Panel', type: 'combobox' }, { key: 'lab', label: 'Lab', type: 'text' }, { key: 'result', label: 'Result', type: 'combobox', options: TEST_RESULT_SUGGESTIONS }, OUTCOME_FIELD] },
   { value: 'ofa_pennhip',        label: 'OFA / PennHIP',      badge: 'badge-purple',  subjects: ['dog'], duration: 'instant',
-    fields: [{ key: 'joint', label: 'Joint', type: 'combobox' }, { key: 'method', label: 'Method', type: 'text' }, { key: 'rating', label: 'Rating', type: 'text' }] },
+    fields: [{ key: 'joint', label: 'Joint', type: 'combobox' }, { key: 'method', label: 'Method', type: 'text' }, { key: 'rating', label: 'Rating', type: 'combobox', options: TEST_RESULT_SUGGESTIONS }, OUTCOME_FIELD] },
   { value: 'breed_specific_test', label: 'Breed-specific test', badge: 'badge-purple', subjects: ['dog'], duration: 'instant',
-    fields: [{ key: 'test_name', label: 'Test', type: 'combobox' }, { key: 'result', label: 'Result', type: 'text' }] },
+    fields: [{ key: 'test_name', label: 'Test', type: 'combobox' }, { key: 'result', label: 'Result', type: 'combobox', options: TEST_RESULT_SUGGESTIONS }, OUTCOME_FIELD] },
   { value: 'illness',            label: 'Illness',            badge: 'badge-red',     subjects: ['dog'], duration: 'instant',
     fields: [{ key: 'diagnosis', label: 'Diagnosis', type: 'text' }, { key: 'treatment', label: 'Treatment', type: 'textarea' }] },
   // Span (Stage4.5 Addendum §C5): event_date is the start, event_end_date the

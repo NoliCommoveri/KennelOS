@@ -307,21 +307,24 @@ const parentView = (dogsById, titles, id, testsOf = () => []) => {
   return { name: dogsById.get(id)?.call_name || 'Unknown', titles: [...(titles.get(id) || [])], ...(tests.length ? { tests } : {}) };
 };
 
-// Whether a dog's tests show on family pages: its own say (Dog.waitlist_tests
-// 'show' / 'hide'), else her Waitlist setting (`parent_tests`, default off).
-export function showsParentTests(dog, config) {
-  if (dog?.waitlist_tests === 'show') return true;
-  if (dog?.waitlist_tests === 'hide') return false;
-  return config?.parent_tests === true;
+// Which of a dog's tests family pages show (PARENT_TESTS_SHOWN): its own say
+// (Dog.waitlist_tests), else her Waitlist setting (`parent_tests`, default 'off').
+const SHOWN = ['off', 'normal', 'all'];
+export function parentTestsShown(dog, config) {
+  if (SHOWN.includes(dog?.waitlist_tests)) return dog.waitlist_tests;
+  return SHOWN.includes(config?.parent_tests) ? config.parent_tests : 'off';
 }
 
-// dogId → the tests a family page shows for it ([] when hidden or none), copied
-// by name: a test's name and result, nothing else.
+// dogId → the tests a family page shows for it ([] when off or none), copied by
+// name: a test's name and result, nothing else (never its flag). 'normal' keeps
+// only results flagged Normal, judged on each test's LATEST result: a retest
+// flagged Abnormal hides that test rather than falling back to an older Normal.
 function parentTestsOf(dogsById, config, events) {
   const done = completedTestsByDog(events);
   return (id) => {
-    if (!id || !showsParentTests(dogsById.get(id), config)) return [];
-    return (done.get(id) || []).map((t) => ({ name: t.name, result: t.result }));
+    const shown = id ? parentTestsShown(dogsById.get(id), config) : 'off';
+    if (shown === 'off') return [];
+    return (done.get(id) || []).filter((t) => shown === 'all' || t.outcome === 'Normal').map((t) => ({ name: t.name, result: t.result }));
   };
 }
 const breedOf = (dogsById, damId, sireId) => orNull(dogsById.get(damId)?.breed || dogsById.get(sireId)?.breed);
