@@ -2296,3 +2296,18 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   deploy), the Companion balance, and the received-credits allocation. Checked in the
   browser: $500 deposit, $300 fee toward it and a $200 credit → nothing more to send on the
   invoice, the deposit dialog and the family page. Rides `kennelos-shell-v92`.
+- **Kels: the new settings in the waitlist flows, and pickup and transport set-up
+  (2026-11-01).** Set up my waitlist gets a **Pickup and transport** screen (new
+  `assets/pickupTransportStep.js`, Pro-only, precached): standard pickup location, fee per
+  mile, one way / round trip, no charge under, how far a family must live to suggest their
+  own meetup place, the "you'll be in touch" distance, pickup changes, boarding rate, then a
+  worked example. It's in the walk-through (after offers) and the change menu, and Kels's
+  summary gains a pickup/transport line (`waitlistRules.transportSummary`). Review my
+  waitlist offers it when a meetup request comes in with no standard location or rate. The
+  fee step asks where a credited fee counts. The applicant step (Add people, Set up my
+  waitlist's Add one by hand) takes **Money they've already paid you** as a credit, and Add
+  people's fee question uses it (covered in full → on the list from the credit's date). The
+  waitlist CSV import gains `already_paid` / `already_paid_date`. Tests: CSV, summary line.
+  Driven in the browser: the transport screen saved and its example, the applicant form's
+  new box. Not driven: Add people's covered-fee question, Review my waitlist's offer.
+  Rides `kennelos-shell-v92`.

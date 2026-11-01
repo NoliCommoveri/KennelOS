@@ -446,6 +446,16 @@ class Review {
         await this.chat.say('Declined. Nothing changed.');
         return this.emails(emails('request_declined'));
       }
+      // No standard pickup location or fee per mile yet: set them up first, so the
+      // miles and the fee can be worked out (Set up my waitlist's same screen).
+      if (!standardLocation(this.kennel) || !(Number(this.config.mileage_rate) > 0)) {
+        await this.chat.say(`${standardLocation(this.kennel) ? 'You haven\'t set a fee per mile' : 'You haven\'t set your standard pickup location (where the miles start)'} yet. Set up pickup and transport now?`);
+        if ((await this.chat.choose([{ label: 'Set it up', value: 'yes', primary: true }, { label: 'Not now, I\'ll type the fee', value: '' }])) === 'yes') {
+          const { askPickupTransport } = await import('./pickupTransportStep.js');
+          await askPickupTransport(this.chat, this.kennel);
+          await this.load();
+        }
+      }
       const res = await this.addressForm(e, r);
       if (!res.done) { this.skipped++; return; }
       await this.chat.say('It\'s on the pup\'s calendar as their drop-off, with the fee on their sale.');

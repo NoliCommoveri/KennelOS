@@ -989,6 +989,9 @@ test('waitlistSummaryLines: what Kels says is set', () => {
     'Programs: Repeat buyers.'
   ]);
   assert.equal(waitlistSummaryLines({ ...WAITLIST_CONFIG_DEFAULTS })[0], 'No application fee.');
+  const withTransport = waitlistSummaryLines({ ...WAITLIST_CONFIG_DEFAULTS, mileage_rate: 1.5, mileage_free_under: 20, transport_min_home_miles: 50 },
+    { fmtMoney: (n) => `$${n}`, pickup: { label: 'Library lot' } });
+  assert.equal(withTransport.at(-1), 'Pickup at Library lot; transport $1.5 a mile round trip, free under 20 miles; families 50+ miles away can suggest their own meetup place; farther than 150 miles, you\'ll be in touch.');
   assert.equal(waitlistIsSetUp({ waitlist_config: {} }), false);
   assert.equal(waitlistIsSetUp({ waitlist_config: { fee_amount: 10 } }), true);
 });

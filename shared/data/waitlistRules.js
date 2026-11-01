@@ -121,7 +121,8 @@ export const waitlistIsSetUp = (kennel) => Object.keys(kennel?.waitlist_config |
 // What's set, in plain sentences, for Kels's "Set up my waitlist" (her summary
 // before "what would you like to change?" and at the end). `programs`: the
 // kennel's live programs; `fmtMoney(n)` formats an amount.
-export function waitlistSummaryLines(config, { programs = [], online = false, fmtMoney = (n) => `$${n}` } = {}) {
+// `pickup`: her standard pickup location (pickupSlots.standardLocation), or null.
+export function waitlistSummaryLines(config, { programs = [], online = false, fmtMoney = (n) => `$${n}`, pickup = null } = {}) {
   const c = config;
   const policy = { credited_to_purchase: c.fee_credit_toward === 'deposit' ? 'credited toward the deposit' : 'credited to the purchase price', non_refundable: 'non-refundable', refundable: 'refundable' }[c.fee_credit_policy] || '';
   const lines = [];
@@ -133,7 +134,25 @@ export function waitlistSummaryLines(config, { programs = [], online = false, fm
   if (c.color_matching) lines.push('Offers only go to families who listed the pup\'s color.');
   if (online) lines.push(c.online ? `Online: your list is set to be online${c.online_form ? ', with applications online' : ''}.` : 'Your list isn\'t online.');
   if (programs.length) lines.push(`Programs: ${programs.map((p) => p.name).join(', ')}.`);
+  const transport = transportSummary(c, pickup, fmtMoney);
+  if (transport) lines.push(transport);
   return lines;
+}
+
+// Pickup and transport in a sentence (Family Requests plan §4–§5), or '' when
+// neither a pickup place nor a fee per mile is set.
+export function transportSummary(c, pickup, fmtMoney = (n) => `$${n}`) {
+  const rate = Number(c.mileage_rate);
+  if (!pickup && !(rate > 0)) return '';
+  const parts = [];
+  if (pickup) parts.push(`Pickup at ${pickup.label}`);
+  if (rate > 0) {
+    parts.push(`transport ${fmtMoney(rate)} a mile ${c.mileage_basis === 'one_way' ? 'one way' : 'round trip'}${Number(c.mileage_free_under) > 0 ? `, free under ${c.mileage_free_under} miles` : ''}`);
+  } else parts.push('no transport fee per mile set');
+  if (Number(c.transport_min_home_miles) > 0) parts.push(`families ${c.transport_min_home_miles}+ miles away can suggest their own meetup place`);
+  if (Number(c.transport_far_miles) > 0) parts.push(`farther than ${c.transport_far_miles} miles, you'll be in touch`);
+  const s = parts.join('; ');
+  return `${s.charAt(0).toUpperCase()}${s.slice(1)}.`;
 }
 
 // --- Embedding on her own website (Integrations plan §1) --------------------------

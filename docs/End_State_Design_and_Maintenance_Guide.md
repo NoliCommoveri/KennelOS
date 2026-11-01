@@ -2812,6 +2812,9 @@ their type; one person: ticked, **Yes, add them** / **No**).
   already paid the $300.00 application fee?**:
   - **Yes, they paid:** when (not in the future) and how, then `feeReceived`: on the list from
     that day.
+  Money they'd already paid her (the applicant step's credit) pays the fee first: covering it
+  all, she asks **Put them on the list from [the credit's date]?** instead; covering part,
+  she says what's left and asks about that.
   - **Not yet:** approved, with the fee due.
   - **Not charging for this applicant:** a program that waives it (one she has, `isFeeWaived`),
     **Set up a new program** (`waitlistSetupUI.askNewProgram`, Set up my waitlist's program
@@ -2830,7 +2833,9 @@ else**, **Back to Today**.
 
 **The applicant step** (`assets/kelsApplicant.js`, Pro-only): her application in the chat (her
 questions, preferences and readiness, `assets/waitlistApplicationForm.js`), then the
-program, when they applied and her notes, saved as an application (`applied`), as the
+program, when they applied, **Money they've already paid you** (optional amount, date and
+note: a credit for funds already received, every use ticked, `receivedCredits.newCredit`)
+and her notes, saved as an application (`applied`), as the
 Waitlist entry page saves one. Set up my waitlist's **Add one by hand** and Add people both
 run it; without a contact it's linked at approval, as ever.
 
@@ -3010,12 +3015,21 @@ imports it on start. The kennel's waitlist settings, its online list and its pro
 breeder starting from nothing. Related settings are one screen each, the on/off ones as
 checkboxes, never a question apiece:
 1. **The fee:** the shared fee step (`waitlistFeeStep.askWaitlistFee`, under "Set up my
-   application form"): amount, refund policy, days to pay, how families pay, and with
+   application form"): amount, refund policy, where a credited fee counts
+   (`fee_credit_toward`: the remaining price or the deposit), days to pay, how families pay, and with
    `accounts` the payment account (one she has, Stripe connected in the chat, or another
    payment service she names) and when it's asked for.
 2. **Offers:** days to accept and pay, passes before removal, then checkboxes: no response
    counts as a pass, color matching, and every `WAITLIST_AUTO_OFFER_TRIGGER` moment (All /
    None).
+2b. **Pickup and transport** (`assets/pickupTransportStep.askPickupTransport`, Pro-only): her
+   standard pickup location (name, address, notes, shown to families; any other places kept,
+   changed on the Kennel page's Pickup places), and the transport settings
+   (`transportFee.js`): fee per mile, one way or round trip, no charge under, how far a
+   family must live to suggest their own meetup place (`transport_min_home_miles`), the
+   "you'll be in touch" distance, pickup changes until, standard boarding rate. Then a
+   worked example (`transportExample`: a family half her far limit away, at most 60 miles).
+   Also offered by Review my waitlist when a meetup request comes in before it's set.
 3. **Going online** (only where `isWaitlistOnlineOffered()`): asked first. It publishes
    through this device's cloud backup, so when that's off or signed out she offers **Turn on
    cloud backup** (`kelsBackupSteps.offerCloudBackup`, with the `CLOUD_OFF_FORM` warning:
@@ -3032,7 +3046,8 @@ checkboxes, never a question apiece:
 
 Every config save is checked by `waitlistRules.waitlistConfigProblem`, the Kennel page's
 settings card's check too. **Re-runnable:** on a kennel already set up
-(`waitlistIsSetUp`) she says what's set (`waitlistSummaryLines`) and asks which part to
+(`waitlistIsSetUp`) she says what's set (`waitlistSummaryLines`, with
+`transportSummary` once a pickup place or fee per mile is set) and asks which part to
 change. The emails, pass reasons and "Almost your turn" message keep the standard wording;
 she says where to change them. At the end she offers **Set up my application form**, handing
 it the kennel (`handoff('form-setup', { kennelId })`).
@@ -3121,8 +3136,9 @@ unpaid fees), else 26.
      it** / **Open the sale**); a pickup time or cancel (`approvePickupRequest`, then her own
      boarding kept → **Use it** `applyPickupBoarding`, a transport fee left → **Remove it**
      `clearTransportFee`); their own address set up in the chat (day, time, how, miles with
-     **Get driving miles**, the fee from `transportQuote`), or past her limit **Send
-     transport options**.
+     **Get driving miles**, the fee from `transportQuote`; with no standard location or fee
+     per mile yet, she first offers **Set it up**, the pickup and transport screen), or past
+     her limit **Send transport options**.
   2. **Backing out:** each request with `suggestOutcome` (from the pup's age in weeks) →
      **Keep the deposit** / **Move the deposit** / **More options…** (refund, typed REFUND) /
      **Decline**; a form with `backOutItems` ticked as the entry page ticks them, **Put [pup]

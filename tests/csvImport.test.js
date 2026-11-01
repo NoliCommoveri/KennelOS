@@ -1119,6 +1119,22 @@ test('waitlist: a new email creates an applied entry on the default kennel, Goog
   assert.equal(r.record.contact_id, undefined, 'contacts are matched at approval, never on import');
 });
 
+test('waitlist: already_paid becomes a credit for funds already received, on new applications only', () => {
+  const idx = wlSetup();
+  const r = wlMapping.classify({ name: 'Ann', email: 'ann@example.com', applied_date: '2025-02-01', already_paid: '$200', already_paid_date: '3/1/2025' }, idx, 0);
+  assert.equal(r.record.received_credits.length, 1);
+  assert.equal(r.record.received_credits[0].amount, 200);
+  assert.equal(r.record.received_credits[0].date, '2025-03-01');
+  assert.deepEqual(r.record.received_credits[0].applies_to, ['fee', 'deposit', 'price', 'extras']);
+  const noDate = wlMapping.classify({ name: 'Bea', email: 'bea@example.com', applied_date: '2025-02-01', already_paid: '150' }, idx, 1);
+  assert.equal(noDate.record.received_credits[0].date, '2025-02-01', 'blank date uses the applied date');
+  const bad = wlMapping.classify({ name: 'Cy', email: 'cy@example.com', already_paid: 'lots' }, idx, 2);
+  assert.equal(bad.record.received_credits, undefined);
+  assert.ok(bad.reasons.some((x) => x.includes('already_paid')));
+  const upd = wlMapping.classify({ name: 'Ann', email: 'ann@example.com', already_paid: '200' }, wlSetup([{ id: 'e1', kennel_id: 'k1', status: 'applied', application: { email: 'ann@example.com' } }]), 0);
+  assert.equal(upd.changes.received_credits, undefined, 'an update never touches credits');
+});
+
 test('waitlist: a breed that isn\'t one of the kennel\'s breeds is flagged and left as any, never invented', () => {
   const idx = wlSetup();
   const r = wlMapping.classify({ name: 'Bo', email: 'bo@example.com', breed: 'Bostons' }, idx, 0);
