@@ -186,6 +186,21 @@ export async function serveFamilyPage(request, env, url) {
 // A parent as a page shows one: call name and titles.
 const parentOf = (d) => ({ name: d?.name ?? '', titles: Array.isArray(d?.titles) ? d.titles : [] });
 
+// A litter's expected prices as her device published them, field by field: per
+// registration a male and a female price, and the Full surcharge. null when none.
+const REGISTRATIONS = ['limited', 'full', 'co_own', 'none'];
+function pricesOf(p) {
+  if (!p || typeof p !== 'object') return null;
+  const money = (v) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v < 1e7 ? v : null);
+  const by = {};
+  for (const reg of REGISTRATIONS) {
+    const r = p.by_registration?.[reg];
+    if (r && typeof r === 'object') by[reg] = { male: money(r.male), female: money(r.female) };
+  }
+  if (!Object.values(by).some((r) => r.male != null || r.female != null)) return null;
+  return { by_registration: by, full_surcharge: { male: money(p.full_surcharge?.male), female: money(p.full_surcharge?.female) } };
+}
+
 function upcomingRow(u) {
   const parent = parentOf;
   return {
@@ -449,6 +464,8 @@ export function statusView(projection, entryId) {
       breed: l.breed ?? null,
       sire: parentOf(l.sire),
       dam: parentOf(l.dam),
+      // Her expected prices (when she shows them): only on a family's turn.
+      prices: pricesOf(l.prices),
       offered_date: o.offered_date ?? null,
       respond_by_date: o.respond_by_date ?? null,
       picked_dog_id: o.picked_dog_id ?? null,

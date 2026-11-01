@@ -1989,3 +1989,12 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   publishes `record` ({ state, until }) for it. Also asked: a family's turn now shows each
   litter's breed and parents with their titles, as Coming up does. Needs a Worker deploy.
   Checked in the browser.
+- **Expected prices on a family's turn (2026-11-01).** Asked by the owner (for a breeder):
+  a family holding a turn couldn't tell what a pup would cost. Each litter of a turn now
+  shows her expected prices from the Litter page (males / females), and when any pup is
+  planned for Full registration the pups are sectioned by registration with the surcharge
+  shown ("+$1,000 males · +$1,500 females"), marked as her estimates. Her asking prices
+  only, never a deposit or a sale's amount; on by default with a switch in Waitlist settings
+  → Turns & offers (`turn_prices`). Published pups carry their intended registration.
+  Needs a Worker deploy. Tests in `tests/waitlistProjection.test.js` and
+  `cloud/tests/familyPages.test.js`. Checked in the browser.

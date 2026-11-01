@@ -1738,7 +1738,15 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   their own words ("Waiting for my turn for a new puppy", **My turn to choose a puppy**,
   "Chose Hazel", "Brought Hazel home", …; never the app's statuses), **Viewing** or
   **Switch**. A turn's litters carry their breed and parents (call names and earned
-  titles), as Coming up and Available Puppies show them. One sign-in acts on any of
+  titles), as Coming up and Available Puppies show them, and, with her setting
+  `waitlist_config.turn_prices` on (default; Waitlist settings → Turns & offers), her
+  expected prices (`litterPrices`: per registration the available pups are planned for,
+  `saleDefaults.expectedPricing` for a male and a female, plus the Full surcharge; never a
+  deposit or a sale's amount; the Worker's `pricesOf` passes them to the turn only). The
+  turn card shows "Males $2,800 · Females $3,000" per litter and, when any pup is planned
+  for Full registration, its pups in sections by registration with "(+$1,000 males ·
+  +$1,500 females)", under "Prices are [kennel]'s estimates; they confirm yours when you
+  choose". Published pups carry `registration` (`intended_registration`). One sign-in acts on any of
   them (`familyFor` allows the page's entry when it shares the session entry's email;
   the action goes to the page's entry).
 - **Online form:** a form key per kennel (`waitlist_form_keys`, private;

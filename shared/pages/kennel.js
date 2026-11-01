@@ -429,6 +429,8 @@ ${group('turns', 'Turns & offers', 'Time to respond, passes, color matching, aut
         <div class="field field-wide">
           <label class="check-inline"><input id="wl-noresp" type="checkbox"${c.no_response_counts_as_pass ? ' checked' : ''}> No response by the deadline counts as a pass</label>
           <label class="check-inline"><input id="wl-colors" type="checkbox"${c.color_matching ? ' checked' : ''}> Match on color (only offer pups in a color the family listed)</label>
+          <label class="check-inline"><input id="wl-turn-prices" type="checkbox"${c.turn_prices !== false ? ' checked' : ''}> Show your expected prices on a family's turn</label>
+          <span class="field-hint">From each litter's expected prices (Litter page): males and females, with pups planned for Full registration in their own section showing the surcharge. Your asking prices only, marked as estimates; never a sale's amount.</span>
         </div>
         <div class="field field-wide"><label>Offer the next family automatically when…</label>
           ${WAITLIST_AUTO_OFFER_TRIGGER.map((t) => `<label class="check-inline"><input type="checkbox" data-wl-auto="${esc(t.value)}"${c.auto_offer_on.includes(t.value) ? ' checked' : ''}> ${esc(t.label)}</label>`).join('')}
@@ -581,6 +583,7 @@ async function onSaveWaitlist() {
     ...(q('#wl-fee-when') ? { fee_link_when: q('#wl-fee-when').value } : {}),
     no_response_counts_as_pass: q('#wl-noresp').checked,
     color_matching: q('#wl-colors').checked,
+    turn_prices: q('#wl-turn-prices').checked,
     public_show_paused: q('#wl-show-paused').checked,
     auto_offer_on: [...els.config.querySelectorAll('[data-wl-auto]:checked')].map((b) => b.dataset.wlAuto),
     // Stored only when she's changed it, so the default wording stays the default.

@@ -19,6 +19,7 @@
 // choices, requests and message key in step 5, email templates in step 6) here,
 // in the same allow-listed way. A family's own notes on a request and every
 // message stay on her device: the page shows what was asked, never the note.
+import { expectedPricing } from './saleDefaults.js';
 import {
   waitlistConfig, entryName, publicList, overallPositions, litterQueue, isPupAvailable, passesUsed,
   isManuallyPaused, readyFromDate, isReadyHeld, feeForEntry, kennelBreeds, listenParentChoices,
@@ -90,7 +91,24 @@ function companionView(entry, ctx) {
 }
 
 // A pup as a family may see it: call name, sex, color. Nothing else.
-const publicPup = (d) => ({ id: d.id, call_name: d.call_name || '', sex: orNull(d.sex), color: orNull(d.color_markings) });
+const publicPup = (d) => ({ id: d.id, call_name: d.call_name || '', sex: orNull(d.sex), color: orNull(d.color_markings), registration: orNull(d.intended_registration) });
+
+// A litter's expected prices as a family on their turn may see them (her setting
+// turn_prices): per registration the pups of it are planned for, the male and
+// female price (saleDefaults.expectedPricing, the price a sale starts at), and the
+// Full-registration surcharge. Her asking prices only: never a sale's amount, a
+// deposit or anything a family owes. null when she set none.
+function litterPrices(litter, pups) {
+  const regs = [...new Set(pups.map((d) => d.intended_registration || 'limited'))].sort();
+  const num = (v) => (v === '' || v == null || !Number.isFinite(Number(v)) ? null : Number(v));
+  const by = Object.fromEntries(regs.map((reg) => [reg, {
+    male: num(expectedPricing({ sex: 'male' }, litter, reg).price),
+    female: num(expectedPricing({ sex: 'female' }, litter, reg).price)
+  }]));
+  const surcharge = { male: num(litter.full_reg_surcharge_male), female: num(litter.full_reg_surcharge_female) };
+  const any = Object.values(by).some((p) => p.male != null || p.female != null);
+  return any ? { by_registration: by, full_surcharge: surcharge } : null;
+}
 
 // One family's status page (Plan §5). A family still in the pipeline gets the
 // detail; one whose time on the list ended (placed, declined, withdrawn, removed,
@@ -354,6 +372,7 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
       whelp_date: orNull(litter.whelp_date),
       ready_date: orNull(litter.estimated_ready_date),
       picks_open: Boolean(litter.picks_opened_date),
+      ...(config.turn_prices !== false ? { prices: litterPrices(litter, pups.filter((d) => isPupAvailable(d, sales))) } : {}),
       pairing_id: orNull(litter.pairing_id),
       pups: pups.filter((d) => isPupAvailable(d, sales)).sort(byId).map(publicPup),
       open_offer_entry_id: open ? open.entry_id : null

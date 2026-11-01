@@ -35,6 +35,7 @@ export const WAITLIST_CONFIG_DEFAULTS = Object.freeze({
   auto_offer_on: [], // which closings offer the next family by themselves (WAITLIST_AUTO_OFFER_TRIGGER); none = she offers
   no_response_counts_as_pass: true,
   color_matching: false,
+  turn_prices: true, // a family's turn shows each litter's expected prices (males / females, full registration apart)
   checkin_months: 6,
   soon_notice_text: '', // blank = SOON_NOTICE_DEFAULT
   public_intro_text: '', // blank = PUBLIC_INTRO_DEFAULT (the message under her public list's heading)

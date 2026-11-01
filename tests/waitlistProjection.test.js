@@ -162,13 +162,14 @@ test('a litter shows its available pups as a family may see them, and every elig
   }
   const p = buildProjection(f);
   const l = p.litters['lit-1'];
-  assert.deepEqual(keysOf(l), ['breed', 'dam', 'label', 'nickname', 'open_offer_entry_id', 'pairing_id', 'picks_open', 'pups', 'ready_date', 'sire', 'status', 'whelp_date']);
+  assert.deepEqual(keysOf(l), ['breed', 'dam', 'label', 'nickname', 'open_offer_entry_id', 'pairing_id', 'picks_open', 'prices', 'pups', 'ready_date', 'sire', 'status', 'whelp_date']);
+  assert.equal(l.prices, null, 'no expected prices on the litter: none shown');
   assert.equal(l.label, 'Juniper × Ash');
   assert.deepEqual(l.sire, { name: 'Ash', titles: [] });
   assert.deepEqual(l.dam, { name: 'Juniper', titles: [] });
   assert.equal(l.picks_open, true);
   assert.equal(l.open_offer_entry_id, 'e1');
-  assert.deepEqual(l.pups, [{ id: 'p1', call_name: 'p1', sex: 'male', color: 'black' }, { id: 'p2', call_name: 'p2', sex: 'female', color: 'black' }],
+  assert.deepEqual(l.pups, [{ id: 'p1', call_name: 'p1', sex: 'male', color: 'black', registration: null }, { id: 'p2', call_name: 'p2', sex: 'female', color: 'black', registration: null }],
     'a pup she is keeping is not shown');
   assert.equal(p.turn_queue.length, 60, 'every eligible family still to have a turn (e1 holds it, e2 passed, e3 is paused), not just the next few (Q13)');
   f.entries.find((e) => e.id === 'm0').pref_sex = 'female';
@@ -368,4 +369,19 @@ test('"Message us on Facebook": a Messenger link only while it is switched on wi
   assert.equal(withConfig({ facebook_button: true, facebook_page: 'facebook.com/thornfield' }).messenger, 'https://m.me/thornfield');
   assert.equal('messenger' in withConfig({ facebook_button: false, facebook_page: 'facebook.com/thornfield' }), false);
   assert.equal('messenger' in withConfig({ facebook_button: true, facebook_page: 'nope' }), false);
+});
+
+test('a family\'s turn can show her expected prices: males and females per registration, the Full surcharge apart; her switch hides them', () => {
+  const f = fixture();
+  const litter = f.litters.find((l) => l.id === 'lit-1');
+  Object.assign(litter, { expected_price_male: 2800, expected_price_female: 3000, full_reg_surcharge_male: 1000, full_reg_surcharge_female: 1500, expected_deposit_male: 500 });
+  f.dogs.find((d) => d.id === 'p2').intended_registration = 'full';
+  const l = buildProjection(f).litters['lit-1'];
+  assert.deepEqual(l.prices, {
+    by_registration: { full: { male: 3800, female: 4500 }, limited: { male: 2800, female: 3000 } },
+    full_surcharge: { male: 1000, female: 1500 }
+  }, 'asking prices only: no deposit');
+  assert.equal(l.pups.find((d) => d.id === 'p2').registration, 'full');
+  const off = buildProjection({ ...f, kennel: { ...f.kennel, waitlist_config: { ...(f.kennel.waitlist_config || {}), turn_prices: false } } });
+  assert.equal('prices' in off.litters['lit-1'], false, 'switched off: not published');
 });
