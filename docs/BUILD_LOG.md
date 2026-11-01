@@ -1900,5 +1900,5 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **Backing out: one text for every family (2026-11-01).** Asked by the owner: families never
   see her deposit policy (they never did; now a test pins that it isn't published). They all
   read the same text she can edit, defaulting to the owner's wording (deposits are
-  non-refundable; [Kennel Name] reviews the reason and reaches out if any of it can apply to a
+  non-refundable; [Kennel Name] reviews the reason for backing out and reaches out if any of it can apply to a
   future litter), with [Kennel Name] filled in. The settings box starts with that text.

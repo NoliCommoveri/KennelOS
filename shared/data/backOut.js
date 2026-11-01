@@ -25,7 +25,7 @@ export const BACK_OUT_OUTCOMES = Object.freeze([
   { value: 'move', label: 'Move the deposit to another pup' }
 ]);
 // The owner's wording (2026-11-01).
-export const BACK_OUT_POLICY_TEXT_DEFAULT = 'Please note that all paid deposits are non-refundable and by canceling, you are forfeiting your deposit. We do understand that sometimes, life happens; [Kennel Name] will review your reason for cancelling and will reach out if we determine you are eligible to apply any portion of your paid deposit to a future litter. If not eligible, you will be required to re-apply and place a new deposit should you decide to purchase one of our pups in the future.';
+export const BACK_OUT_POLICY_TEXT_DEFAULT = 'Please note that all paid deposits are non-refundable and by backing out, you are forfeiting your deposit. We do understand that sometimes, life happens; [Kennel Name] will review your reason for backing out and will reach out if we determine you are eligible to apply any portion of your paid deposit to a future litter. If not eligible, you will be required to re-apply and place a new deposit should you decide to purchase one of our pups in the future.';
 
 const text = (v) => String(v ?? '').trim();
 const count = (v) => (v == null || v === '' || !Number.isFinite(Number(v)) || Number(v) < 0 ? null : Math.round(Number(v)));
