@@ -256,8 +256,8 @@ keeps elsewhere, one or several in a row ("Add another?" after each), like Add d
 the last step of Check in on my dogs ("Any other events that need logging?"), for her own
 dogs and kept puppies, and only the event types no other step or task logs (heats,
 preventatives and health tests are that check-in's own steps; a purchase is Add dogs'; a
-puppy going home is Pups are going home's). As built: End-State guide, "Check in on my dogs"
-step 4. Add dogs' history step (§3.8) still waits; it would reuse the same pieces
+puppy going home is Pups are going home's; vet visits are that check-in's own step, with
+the vet summary). As built: End-State guide, "Check in on my dogs" steps 4–5. Add dogs' history step (§3.8) still waits; it would reuse the same pieces
 (`dogCare.dogEvents`, `litterCheckinUI.eventFieldInput`). The plan as first written:
 Log what happened, for one or several dogs, one event or several in a row ("Add another?"),
 without opening each dog's page. Also how Add dogs (§3.8) brings in a new dog's history.

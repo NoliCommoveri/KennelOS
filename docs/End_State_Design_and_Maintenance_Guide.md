@@ -215,7 +215,7 @@ to the cloud unsealed).
 | **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `direction` is **who travels** (`STUD_SERVICE_DIRECTION`: `to_partner` our dog goes to them, `to_us` their dog comes to us, `shipped` no one / AI). Whether our dog is the stud or the dam isn't stored: it's our dog's sex, else the partner's opposite (`studRules.ourRole`; `STUD_SERVICE_ROLE` for badges and filters). `sent_date` / `returned_date` are the service's two dates, labelled **Begins / Ends**. `type` (`in_person`/`ai`) is set by the repo from `direction` (shipped → ai), never asked. `pairing_id`, `fee_amount`, `fee_structure`; `pick_status` and `pick_value_amount` only for pick fee structures (forced null otherwise; with our stud the pick is our puppy, and `pick_status` claimed / waived ends Today's `studpick`, §19), `referred_by_contact_id`, invoice fields (our stud only, §24). |
 | **Event** | `subject_type`, `subject_id`, `event_type`, `event_date`, `title` | `event_end_date`, `reminder_date`, `reminder_dismissed`, `related_dog_id`, `related_contact_id`, `details{}`. No cost field: a cost becomes an Expense with `event_id` (§8, §21). |
 | **Expense** | `subject_type` (`dog`/`litter`/`pairing`/`kennel`), `subject_id`, `amount`, `category`, `expense_date` | `event_id`, `stud_service_id` (indexed; the stud service whose fee it records, in `STUD_SERVICE_REFERENCES`; private like every expense field), `miles` × `mileage_rate` (then `amount` is derived), `vendor`, `receipt_number` (CSV re-import key, §9), `account_id`, `receipt_file_id` (deleted with the expense, §26.1), `reimbursable`/`reimbursed_date` (§21, §25). |
-| **Document** | `dog_id`, `doc_type`, `file_id` | `title`, `doc_date`, `issuer_or_lab`, `result`, `registry`, `registration_number`, `contract_id` (optional, unindexed, not in the registry), `furever_shareable` (§27). `doc_type` from `DOC_TYPES`: Pedigree, Health test, Vet summary (a visit summary, medical record or vaccine history), Registration, Contract, Other. Fields shown per type: `vocab.documentFieldsFor`. Cloud backup carries only Health test, Pedigree and Registration rows and their files (`syncRegistry.CLOUD_DOC_TYPES`); Vet summary, Contract and Other stay on the device. `hardDelete` removes its file. |
+| **Document** | `dog_id`, `doc_type`, `file_id` | `title`, `doc_date`, `issuer_or_lab`, `result`, `registry`, `registration_number`, `contract_id` (optional, unindexed, not in the registry), `furever_shareable` (§27). `doc_type` from `DOC_TYPES`: Pedigree, Health test, Vet summary (a visit summary, medical record or vaccine history), Registration, Contract, Other. Fields shown per type: `vocab.documentFieldsFor`. Cloud backup carries only Health test, Vet summary, Pedigree and Registration rows and their files (`syncRegistry.CLOUD_DOC_TYPES`); Contract and Other stay on the device. `hardDelete` removes its file. |
 | **File** (`files`) | `blob`, `mime`, `filename`, `size` | `thumbnail`. Always a PDF. Owned by its one Document or Expense; fetched by id only (§26.1). |
 | **WaitlistEntry**, **WaitlistOffer**, **WaitlistProgram** | see §29 | One entry per family per time on a kennel's list; position and passes are derived, never stored. |
 | **Account** (`accounts`) | `name` | `account_type`, login fields (private), referral fields, fee rate, `fee_charge_back` (private, §21.2), `contract_forms[]`, `payment_link`, `payment_instructions` (§32). Program-wide, no `kennel_id`. API keys live in `device_secrets`, never on the record. |
@@ -2789,9 +2789,15 @@ Each thing is saved as she approves it. Every step looks only at the dogs she lo
    planned tests wait for one) → **Yes, log results** runs Log health test results' own loop
    (`healthTestsUI.logHealthTests`, below) on `dogCare.checkinDogs` (her own dogs, never one
    in a pet home, and puppies only when Keeping) / **No thanks**.
-4. **Any other events:** "Any other events that need logging, like a vet visit, a new
-   medication or a weight?" → the kind (`dogCare.otherEventTypes`: every dog event type but
-   the ones this check-in asks itself, heats, preventatives and the three test types, and
+4. **Vet visits:** "Any vet visits to log?" → the same form as step 5 for a `vet_visit`,
+   plus, with Documents (Pro), **Vet summary (optional)** (`kelsSteps.filePicker`): filed on
+   each ticked dog as a `vet_summary` document (its own copy of the file, since a document
+   belongs to one dog and deleting it deletes its file), titled and dated as the visit, the
+   vet as its issuer → "Any other vet visits?".
+5. **Any other events:** "Any other events that need logging, like a new medication, an
+   illness or a weight?" → the kind (`dogCare.otherEventTypes`: every dog event type but
+   the ones this check-in asks itself, heats, preventatives, the three test types and vet
+   visits, and
    the ones another task logs, `acquisition` (Add dogs) and `placement` (Pups are going
    home); `show` only with `shows`; searchable) → one form: an optional title (a note's
    words, required for a Note), the type's own fields (`litterCheckinUI.eventFieldInput`,

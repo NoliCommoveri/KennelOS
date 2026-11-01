@@ -54,8 +54,8 @@ test('the multi-dog forms list the dogs at home, active breeding first', () => {
 
 test('otherEventTypes: dog types minus what the check-in asks and what other tasks log; show only with its flag', () => {
   const types = otherEventTypes({}).map((t) => t.value);
-  for (const t of ['vet_visit', 'medication', 'vaccination', 'weight_check', 'illness', 'note']) assert.ok(types.includes(t), t);
-  for (const t of ['heat_cycle', 'preventative', 'genetic_test', 'ofa_pennhip', 'breed_specific_test', 'acquisition', 'placement', 'whelping_summary', 'breeding_tie', 'show']) assert.equal(types.includes(t), false, t);
+  for (const t of ['medication', 'vaccination', 'weight_check', 'illness', 'surgery', 'note']) assert.ok(types.includes(t), t);
+  for (const t of ['vet_visit', 'heat_cycle', 'preventative', 'genetic_test', 'ofa_pennhip', 'breed_specific_test', 'acquisition', 'placement', 'whelping_summary', 'breeding_tie', 'show']) assert.equal(types.includes(t), false, t);
   assert.ok(otherEventTypes({ shows: true }).some((t) => t.value === 'show'));
 });
 

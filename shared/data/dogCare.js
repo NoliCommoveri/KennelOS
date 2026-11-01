@@ -120,9 +120,9 @@ export function checkinDogs(dogs) {
 }
 
 // Dog event types the check-in's "Any other events to log?" leaves out: the ones
-// it asks about itself (heats, preventatives, health tests), and the ones another
-// Kels task logs (a purchase: Add dogs; a puppy going home: Pups are going home).
-export const CHECKIN_OWN_TYPES = Object.freeze(['heat_cycle', 'preventative', 'genetic_test', 'ofa_pennhip', 'breed_specific_test']);
+// it asks about itself (heats, preventatives, health tests, vet visits), and the
+// ones another Kels task logs (a purchase: Add dogs; a puppy going home: Pups are going home).
+export const CHECKIN_OWN_TYPES = Object.freeze(['heat_cycle', 'preventative', 'genetic_test', 'ofa_pennhip', 'breed_specific_test', 'vet_visit']);
 export const OTHER_TASK_TYPES = Object.freeze(['acquisition', 'placement']);
 
 // The dog event types "Any other events to log?" offers, in vocab order: a dog's

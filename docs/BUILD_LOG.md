@@ -2197,3 +2197,12 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   type is picked (Documents, Add dogs, Furever uploads). It stays out of cloud backup for
   now (`CLOUD_DOC_TYPES` unchanged, like Contract and Other): a privacy call left to the
   owner. No new files.
+- **Check in on my dogs: a vet visits step with the vet summary; Vet summary to the cloud
+  (2026-11-01).** Owner decisions. Before "Any other events", "Any vet visits to log?" uses
+  the same event form for a `vet_visit` plus (Documents, Pro) **Vet summary (optional)**:
+  filed on each ticked dog as a `vet_summary` document, its own copy of the file (a
+  document's delete removes its file), titled and dated as the visit, the vet as issuer.
+  `vet_visit` joins `dogCare.CHECKIN_OWN_TYPES`, so "Any other events" no longer offers it.
+  `vet_summary` joins `syncRegistry.CLOUD_DOC_TYPES` (backed up like Health test). Kels menu
+  card updated. Tests: `tests/dogCare.test.js`. Browser: a visit for two dogs with a PDF and
+  $120 filed two vet summaries (separate files) beside the events and expenses.

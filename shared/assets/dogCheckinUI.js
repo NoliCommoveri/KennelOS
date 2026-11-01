@@ -9,8 +9,9 @@
 // breeding dogs with no preventative (deworming, heartworm, flea & tick) dated
 // this month, one form per product, repeated until she says that's all. Then
 // "Do you need to log any new health test results?" (the Log health test results
-// task's own loop, assets/healthTestsUI.js). Last, "Any other events to log?": a
-// vet visit, a medication, a weight, any dog event type no other step or task
+// task's own loop, assets/healthTestsUI.js). Then "Any vet visits to log?", each
+// with its vet summary filed on the dog (Documents, Pro). Last, "Any other events
+// to log?": a medication, an illness, a weight, any dog event type no other step or task
 // logs (data/dogCare.js otherEventTypes), for the dogs she ticks (both last steps
 // list only her own dogs and the puppies she's keeping: checkinDogs), one form per
 // event, with an optional cost per dog. Each thing is saved as soon as she
@@ -23,11 +24,12 @@ import { editionFlags } from '../data/editionConfig.js';
 import { breedingDogs, ownDogs, heatStarts, predictNextHeat, heatForecast, preventativeGaps, monthName, otherEventTypes, dogEvents, dogEventProblem, eventNameKey, checkinDogs } from '../data/dogCare.js';
 import { daysBetween } from '../data/litterCheckin.js';
 import { field, eventFieldInput } from './litterCheckinUI.js';
+import { filePicker, wireFilePicker } from './kelsSteps.js';
 import { logHealthTests, healthTestsState } from './healthTestsUI.js';
 import { DOG_STATUS, EVENT_TYPES, descriptor, defaultExpenseCategoryFor } from '../data/vocab.js';
 import { esc, fmtDate, todayYMD } from './ui.js';
 
-const HOW = 'I\'ll show you when each of your girls is expected to come into heat and help you log any you know about, then we\'ll log this month\'s preventatives (heartworm, flea & tick, dewormer), any new health test results, and anything else that happened, like a vet visit. Sound good?';
+const HOW = 'I\'ll show you when each of your girls is expected to come into heat and help you log any you know about, then we\'ll log this month\'s preventatives (heartworm, flea & tick, dewormer), any new health test results, any vet visits, and anything else that happened. Sound good?';
 const dogName = (d) => d.call_name || d.registered_name || 'Unnamed';
 const listText = (xs) => (xs.length < 3 ? xs.join(' and ') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 
@@ -59,6 +61,7 @@ export async function runDogCheckinTask(chat, { onExit = () => {} } = {}) {
   await heats(chat, today);
   await preventatives(chat, today);
   await healthTests(chat);
+  await vetVisits(chat, today);
   await otherEvents(chat, today);
   await chat.say('That\'s everything for your dogs today. Nice work!');
   return onExit('done');
@@ -225,7 +228,23 @@ async function healthTests(chat) {
   if (await logHealthTests(chat, { only: checkinDogs })) await chat.say('Those results are saved on each dog\'s page.');
 }
 
-// --- 4. Any other events ---------------------------------------------------------------
+// --- 4. Vet visits -----------------------------------------------------------------------
+// "Any vet visits to log?" → the same form as any other event (otherEventForm), with
+// the vet's summary to file (Documents, Pro) → "Any other vet visits?".
+
+async function vetVisits(chat, today) {
+  if (!checkinDogs((await load()).dogs).length) return;
+  await chat.say('Any vet visits to log?');
+  if ((await chat.choose([{ label: 'Yes, log one', value: 'log' }, { label: 'No thanks', value: '__done', primary: true }])) === '__done') return;
+  for (;;) {
+    const res = await otherEventForm(chat, descriptor(EVENT_TYPES, 'vet_visit'), today, { docType: editionFlags.documents ? 'vet_summary' : null });
+    if (res.done) await chat.say(`Logged.${res.result.filed ? ' The vet summary is filed on their page.' : ''}`);
+    await chat.say('Any other vet visits?');
+    if ((await chat.choose([{ label: 'Log another', value: 'log' }, { label: 'No, that\'s all', value: '__done', primary: true }])) === '__done') return;
+  }
+}
+
+// --- 5. Any other events ---------------------------------------------------------------
 // Anything else that happened to her dogs: a type (otherEventTypes), then one form
 // with that type's fields, the date (and end date for a span), the dogs, and a
 // cost per dog. "Anything else to log?" until she says that's all.
@@ -233,7 +252,7 @@ async function healthTests(chat) {
 async function otherEvents(chat, today) {
   const types = otherEventTypes(editionFlags);
   if (!types.length || !checkinDogs((await load()).dogs).length) return;
-  await chat.say('Any other events that need logging, like a vet visit, a new medication or a weight?');
+  await chat.say('Any other events that need logging, like a new medication, an illness or a weight?');
   if ((await chat.choose([{ label: 'Yes, log one', value: 'log' }, { label: 'No thanks', value: '__done', primary: true }])) === '__done') return;
   for (;;) {
     await chat.say('What happened?');
@@ -251,8 +270,13 @@ async function otherEvents(chat, today) {
 
 // One event of `type` for the dogs she ticks → one event each (dogEvents), and a
 // linked expense each when she gives a cost (expenseRepo.createForEvent, as the
-// event form does for several dogs).
-async function otherEventForm(chat, type, today) {
+// event form does for several dogs). With `docType` (vet visits: 'vet_summary'),
+// the form also takes a file (kelsSteps.filePicker), filed on each ticked dog as
+// that kind of document, titled and dated as the event, the vet as its issuer.
+// A document belongs to one dog and deleting it deletes its file, so each dog
+// gets its own copy.
+async function otherEventForm(chat, type, today, { docType = null } = {}) {
+  let pickedDoc = () => null;
   const { dogs } = await load();
   const listed = checkinDogs(dogs);
   const span = type.duration === 'span';
@@ -267,8 +291,12 @@ async function otherEventForm(chat, type, today) {
         ${span ? field('Ended (optional)', '<input id="dc-ev-end" type="date">') : ''}
       </div>
       ${field('Cost per dog (optional)', '<input id="dc-ev-cost" type="number" min="0" step="0.01" inputmode="decimal">', 'Logged to Financials against each dog.')}
+      ${docType ? filePicker('dc-ev-doc', { label: 'Vet summary (optional)', hint: 'A PDF, or photos of the pages. Filed on each dog\'s page under Documents.' }) : ''}
       <p class="gl-q">Which dogs?</p>
       <div class="ck-checks">${boxes}</div>`,
+    wire: (root) => {
+      if (docType) pickedDoc = wireFilePicker(root, 'dc-ev-doc', { hint: 'A PDF, or photos of the pages. Filed on each dog\'s page under Documents.' });
+    },
     submitLabel: 'Log it',
     cancelLabel: 'Not now',
     submit: async (root) => {
@@ -291,8 +319,16 @@ async function otherEventForm(chat, type, today) {
         const saved = await eventRepo.create(e);
         if (amount != null) await expenseRepo.createForEvent(saved, { amount, category: defaultExpenseCategoryFor(type.value) });
       }
-      return { title: events[0].title, count: events.length, date: form.date };
+      const doc = docType ? pickedDoc() : null;
+      if (doc) {
+        const { storeDocumentFile, createDocument } = await import('./documentModal.js');
+        for (const e of events) {
+          const fileId = await storeDocumentFile(doc, { title: e.title });
+          await createDocument({ dog_id: e.subject_id, doc_type: docType, title: e.title, doc_date: e.event_date, issuer_or_lab: e.details.vet || '', notes: '', file_id: fileId });
+        }
+      }
+      return { title: events[0].title, count: events.length, date: form.date, filed: Boolean(doc) };
     },
-    reply: (r) => `${r.title} for ${r.count === 1 ? '1 dog' : `${r.count} dogs`}, ${fmtDate(r.date)}`
+    reply: (r) => `${r.title} for ${r.count === 1 ? '1 dog' : `${r.count} dogs`}, ${fmtDate(r.date)}${r.filed ? ' 📎' : ''}`
   });
 }
