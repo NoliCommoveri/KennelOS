@@ -2229,3 +2229,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   received, a back-out kept with the pup back, a sale voided (pup died). Not driven in the
   browser: extra and pickup requests, own-address set-up, "Ready now?"/removals, extras due,
   the pick/deposit dialogs.
+- **SW cache bumped to `kennelos-shell-v91` (2026-11-01).** This session's app changes ride it:
+  parents' health tests on family pages (setting, per-dog override, Normal/abnormal flag on
+  test events, result suggestions), Check in on my dogs' new steps (health test results with
+  the certificate, vet visits with the vet summary, any other events) and its one rule for
+  the dogs she looks after, the Vet summary document type (backed up), All dogs ordered by
+  status / sex / name, and Kels's Review my waitlist (two new precached files). The family
+  pages' health tests need a Worker deploy.
