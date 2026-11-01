@@ -61,6 +61,17 @@ test('who may suggest their own place: anyone, unless her distance rule says how
   assert.equal(ownPlaceAllowed({ own_place_override: false }, {}), false);
 });
 
+test('their page asks where they live only while no place is known; an unmeasured place is hers to decide', () => {
+  const sale = { id: 's1', dog_id: 'p1', buyer_contact_id: 'c1', status: 'deposit_paid', kennel_id: 'k1' };
+  const base = { sales: [sale], dogsById: new Map([['p1', { id: 'p1', litter_id: 'l1' }]]), litters: [{ id: 'l1', whelp_date: '2026-09-01' }],
+    kennel: {}, config: { transport_min_home_miles: 100 }, today: '2026-10-20' };
+  const ask = (entry) => { const v = familyPickupView({ ...base, entry: { contact_id: 'c1', kennel_id: 'k1', ...entry } }); return [v?.own_place, v?.ask_home]; };
+  assert.deepEqual(ask({}), [null, true], 'nothing known: asked');
+  assert.deepEqual(ask({ home_place: 'Dallas, TX', home_miles: null, home_measured_date: '2026-10-19' }), [null, false], 'answered but not measured: not asked again');
+  assert.deepEqual(ask({ home_place: 'Dallas, TX', home_miles: 190 }), [true, false]);
+  assert.deepEqual(ask({ home_place: 'Dallas, TX', home_miles: null, own_place_override: true }), [true, false], 'her choice');
+});
+
 test('their times start after a training stay; their page shows the booking with its change date', () => {
   const sale = { id: 's1', dog_id: 'p1', buyer_contact_id: 'c1', status: 'deposit_paid', kennel_id: 'k1' };
   const litter = { id: 'l1', whelp_date: '2026-09-01', pickup_slots: [

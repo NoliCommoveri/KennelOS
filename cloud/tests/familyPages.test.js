@@ -119,7 +119,7 @@ test("a family's status page shows their own place and offers, never anyone else
   assert.equal(v.family.name, 'Ann Lee');
   assert.equal(v.family.position, 1);
   assert.equal('email' in v.family, false, 'their email is not on the page');
-  assert.deepEqual(v.offers, [{ id: 'o1', turn_id: 'o1', litter_id: 'l1', litter: 'Juniper × Ash', offered_date: '2026-10-07', respond_by_date: '2026-10-10', picked_dog_id: null,
+  assert.deepEqual(v.offers, [{ id: 'o1', turn_id: 'o1', litter_id: 'l1', litter: 'Juniper × Ash', breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] }, prices: null, offered_date: '2026-10-07', respond_by_date: '2026-10-10', picked_dog_id: null, deposit_instructions: '', deposit_amount: null,
     pups: [{ id: 'p2', call_name: 'Poppy', sex: 'female', color: 'black' }] }]);
   assert.deepEqual(v.litters, [{ id: 'l1', label: 'Juniper × Ash', status: 'whelped', whelp_date: '2026-09-01', ready_date: '2026-10-27',
     picks_open: true, pairing_id: null, pups_available: 2, pups_female: 1, pups_male: 1, nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] }, match: true }]);
@@ -523,4 +523,12 @@ test("backing out passes field by field, with her reasons and policy text, only 
   assert.deepEqual(v.family.back_out, { available: true, request: { reason: 'The timing', requested_date: '2026-11-01', decided: null, decided_date: null, outcome: null } });
   assert.deepEqual(v.kennel.back_out_reasons, [{ id: 'timing', label: 'The timing' }]);
   assert.equal(v.kennel.back_out_policy_text, 'Tell us why.');
+});
+
+test('her expected prices reach a family\'s turn only, number by number', () => {
+  const p = projection();
+  p.litters.l1.prices = { by_registration: { limited: { male: 2800, female: '3000<script>' }, full: { male: 3800, female: 4500 }, bogus: { male: 1 } }, full_surcharge: { male: 1000, female: 1500 }, deposit: { male: 500, female: -5 } };
+  const v = statusView(p, 'ann');
+  assert.deepEqual(v.offers[0].prices, { by_registration: { limited: { male: 2800, female: null }, full: { male: 3800, female: 4500 } }, deposit: { male: 500, female: null } });
+  assert.equal(JSON.stringify(v.litters).includes('3800'), false, 'not on the Available Puppies cards');
 });

@@ -12,8 +12,8 @@
 // Messages are sealed here, in this browser, to her key (seal.js); the server
 // can't read them.
 import {
-  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingItemHtml, litterHtml, availableItemHtml, deadlineText, fmtShortDate,
-  SEX_LABEL, READY_LABEL, PURPOSE_LABEL, purposesText, CREDIT_LABEL
+  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingItemHtml, litterHtml, availableItemHtml, deadlineText, fmtShortDate, parentsLine,
+  SEX_LABEL, READY_LABEL, PURPOSE_LABEL, purposesText, CREDIT_LABEL, confirmDialog
 } from './common.js';
 import { rememberedFamily, forgetFamily } from './session.js';
 import { seal } from './seal.js';
@@ -169,6 +169,18 @@ function reasonMessage(id) {
   return r?.message || 'Thank you for letting us know.';
 }
 
+const REG_LABEL = { limited: 'Limited registration', full: 'Full registration', co_own: 'Co-ownership', none: 'Unregistered' };
+// "Males $2,800 · Females $3,000": the total price for that registration (Full
+// includes her surcharge; the page never splits it out). Whole dollars unless she
+// priced in cents.
+const price = (n) => (Number.isInteger(n) ? `$${n.toLocaleString('en-US')}` : money(n));
+function priceLine(p, sex = null) {
+  if (!p) return '';
+  if (sex) return p[sex] != null ? `<p class="small mt0 price">Price: ${esc(price(p[sex]))}</p>` : '';
+  const parts = [p.male != null ? `Males ${price(p.male)}` : '', p.female != null ? `Females ${price(p.female)}` : ''].filter(Boolean);
+  return parts.length ? `<p class="small mt0 price">${esc(parts.join(' · '))}</p>` : '';
+}
+
 // A family's turn (Waitlist Spec §16.1): every litter it covers, in one card. They
 // choose ONE pup from any of them, or pass on all of them (only that counts as a
 // pass, and once). `rows` are the turn's offers, each one litter.
@@ -184,20 +196,63 @@ function turnHtml(rows) {
   const chosen = picked?.picked_dog_id || sentPick?.payload.dog_id || null;
   const actOn = canAct() && !chosen && !sentPass;
   const several = rows.length > 1;
-  const pupsOf = (o) => (o.pups.length
-    ? `<div class="pups">${o.pups.map((d) => {
+  // Once they've picked, the card shows just their pick (the rest can't be chosen now).
+  const mineOnly = chosen && !sentPass ? rows.filter((o) => o.pups.some((d) => d.id === chosen)).map((o) => ({ ...o, pups: o.pups.filter((d) => d.id === chosen) })) : [];
+  if (mineOnly.length) rows = mineOnly;
+  const pupButtons = (o, pups) => `<div class="pups">${pups.map((d) => {
       const label = `${esc(d.call_name)} · ${esc(SEX_LABEL[d.sex] || '')}${d.color ? ` · ${esc(d.color)}` : ''}`;
       const yours = d.id === chosen ? ' <span class="badge">Your pick</span>' : '';
       return actOn
         ? `<button type="button" class="pup secondary" data-act="pick" data-offer="${esc(o.id)}" data-dog="${esc(d.id)}" data-name="${esc(d.call_name)}">${label}</button>`
         : `<span class="pup">${label}${yours}</span>`;
-    }).join('')}</div>`
-    : '<p class="small muted mt0">No pups left in this litter for you.</p>');
+    }).join('')}</div>`;
+  // Her expected prices (when she shows them): males and females, and pups planned
+  // for Full registration in their own section with the surcharge spelled out.
+  const pupsOf = (o) => {
+    if (!o.pups.length) return '<p class="small muted mt0">No pups left in this litter for you.</p>';
+    const prices = o.prices?.by_registration;
+    if (!prices) return pupButtons(o, o.pups);
+    const groups = new Map();
+    for (const d of o.pups) {
+      const reg = d.registration && prices[d.registration] ? d.registration : 'limited';
+      if (!groups.has(reg)) groups.set(reg, []);
+      groups.get(reg).push(d);
+    }
+    const order = ['limited', 'none', 'co_own', 'full'].filter((r) => groups.has(r));
+    const sectioned = order.length > 1 || groups.has('full');
+    const d = o.prices.deposit || {};
+    // Their pick alone: its own sex's price and deposit.
+    const only = o.pups.length === 1 && o.pups[0].id === chosen ? o.pups[0].sex : null;
+    const deposit = only ? (d[only] != null ? [price(d[only])] : [])
+      : [d.male != null ? `Males ${price(d.male)}` : '', d.female != null ? `Females ${price(d.female)}` : ''].filter(Boolean);
+    // The deposit is the same whatever the registration: once per litter, under the
+    // price when there's one price line, above the sections when there are several.
+    // (Their pick's deposit is in the Sending your deposit block below instead.)
+    const depositLine = deposit.length && !only ? `<p class="small mt0 muted">Deposit: ${esc(deposit.join(' · '))}</p>` : '';
+    if (!sectioned || only) return `${priceLine(prices[order[0]], only)}${depositLine}${pupButtons(o, groups.get(order[0]))}`;
+    return depositLine + order.map((reg) => `<p class="small mt8"><strong>${esc(REG_LABEL[reg])}</strong></p>${priceLine(prices[reg])}${pupButtons(o, groups.get(reg))}`).join('');
+  };
   const chosenName = rows.flatMap((o) => o.pups).find((d) => d.id === chosen)?.call_name || 'a pup';
+  const respondBy = rows.map((o) => o.respond_by_date || '').sort().reverse()[0];
+  // Once they've picked: what to send, by when, and how (her payment instructions),
+  // until her deposit request (contract, invoice) reaches them.
+  const depositBlock = () => {
+    const o = rows.find((r) => r.picked_dog_id) || rows.find((r) => r.id === sentPick?.payload.offer_id) || rows[0];
+    const pup = rows.flatMap((r) => r.pups).find((d) => d.id === chosen);
+    const amount = o.deposit_amount ?? (pup && o.prices?.deposit ? o.prices.deposit[pup.sex] ?? null : null);
+    const deadline = deadlineText(respondBy, v.kennel.time_zone);
+    return `<div class="deposit-block">
+        <h3>Sending your deposit</h3>
+        ${amount != null ? `<p class="big mt0">${esc(price(amount))}</p>` : ''}
+        ${deadline ? `<p class="mt0"><strong>${esc(deadline)}</strong></p>` : ''}
+        ${o.deposit_instructions ? `<p class="small muted mt8">How to pay:</p><p class="pre mt0 small">${esc(o.deposit_instructions)}</p>` : ''}
+        <p class="small muted">${esc(kennel)} will also send your contract and invoice.</p>
+      </div>`;
+  };
   let next;
   if (sentPass) next = `<p>You passed on ${several ? 'all of these' : 'this litter'}. ${waiting(kennel)}</p>`;
-  else if (sentPick && !picked) next = `<p>You chose ${esc(chosenName)}. ${waiting(kennel)} Send your deposit by the deadline to keep them.</p>`;
-  else if (picked) next = '<p>You picked a pup. Send your deposit by the deadline to keep them.</p>';
+  else if (sentPick && !picked) next = `<p>You chose ${esc(chosenName)}. ${waiting(kennel)} Your selection isn't final until they receive your deposit.</p>${depositBlock()}`;
+  else if (picked) next = `<p>You chose ${esc(chosenName)}. Your selection isn't final until ${esc(kennel)} receives your deposit.</p>${depositBlock()}`;
   else if (actOn && state.open === `pass:${turnId}`) {
     const p = v.family.passes;
     next = reasonForm('pass', `Pass on this turn?${p ? ` You've used ${esc(p.used)} of ${esc(p.max)} passes; this may count as one.` : ''}`,
@@ -208,12 +263,13 @@ function turnHtml(rows) {
     next = `<div class="actions mt8"><button type="button" class="pass" data-act="open" data-what="pass:${esc(turnId)}">Pass on turn</button></div>
       ${p ? `<p class="small muted mt0">${esc(p.used)} of ${esc(p.max)} passes used</p>` : ''}`;
   } else next = signedIn() ? '' : `<p>Sign in at the top of the page to choose a pup or pass, or contact ${esc(kennel)}.</p>`;
-  const respondBy = rows.map((o) => o.respond_by_date || '').sort().reverse()[0];
+  const showsDeadline = Boolean(chosen && !sentPass);
   return openCard('The wait is over!', `
-    <p class="mt0">Below are the puppies available for selection.</p>
-    ${rows.map((o) => `<p class="mt8"><strong>${esc(o.litter)}</strong></p>${pupsOf(o)}`).join('')}
+    <p class="mt0">${mineOnly.length ? 'Your pick:' : 'Below are the puppies available for selection.'}</p>
+    ${rows.some((o) => o.prices) ? '<p class="small muted mt0">Listed prices are intended base purchase price and may not include additional fees; all prices are subject to change prior to contract signing.</p>' : ''}
+    ${rows.map((o) => `<div class="turn-litter"><p class="mt0"><strong>${esc(o.litter)}</strong>${o.breed ? ` <span class="small muted">${esc(o.breed)}</span>` : ''}</p>${parentsLine(o.dam, o.sire)}${pupsOf(o)}</div>`).join('')}
     ${next}
-    ${respondBy ? `<p class="deadline"><strong>${esc(deadlineText(respondBy, v.kennel.time_zone))}</strong></p>` : ''}`, 'turn');
+    ${respondBy && !showsDeadline ? `<p class="deadline"><strong>${esc(deadlineText(respondBy, v.kennel.time_zone))}</strong></p>` : ''}`, 'turn');
 }
 
 // The family's offers as turns, oldest first.
@@ -749,6 +805,47 @@ function signInButton() {
   return `<div class="actions signin-top"><a class="button primary" href="/list/${encodeURIComponent(v.kennel.public_id)}#signin">Sign In</a></div>`;
 }
 
+// A family on the list more than once (a second pup): their records, newest first,
+// in their own words (never the app's statuses), the one this page is about marked,
+// the others a Switch away. One sign-in covers them all (same email).
+function recordText(r, kennel, anotherPup) {
+  const pup = esc(r.pup || 'my puppy');
+  switch (r.state) {
+    case 'applied': return `Applied: waiting for ${esc(kennel)} to review`;
+    case 'approved': return 'Approved: application fee to pay';
+    case 'waiting': return `Waiting for my turn for ${anotherPup ? 'a new' : 'a'} puppy`;
+    case 'paused': return r.until ? `On hold until ${esc(fmtDate(r.until))}` : 'On hold';
+    case 'turn': return '<strong>My turn to choose a puppy</strong>';
+    case 'picked': return `Chose ${pup}: deposit to send`;
+    case 'chose': return `Chose ${pup}`;
+    case 'home': return `Brought ${pup} home`;
+    case 'declined': return 'Application not accepted';
+    case 'left': return 'Left the waitlist';
+    case 'backed_out': return `Backed out of ${pup}`;
+    case 'removed': return 'No longer on the waitlist';
+    case 'expired': return 'Application closed: fee not received';
+    default: return 'On the waitlist';
+  }
+}
+function recordsHtml(v) {
+  const rs = Array.isArray(v.records) ? v.records : [];
+  if (rs.length < 2 || !rs.some((r) => r.current)) return '';
+  const kennel = v.kennel.name;
+  const withPup = (r) => ['picked', 'chose', 'home'].includes(r.state);
+  const rows = rs.map((r) => {
+    const anotherPup = rs.some((x) => x !== r && withPup(x));
+    const right = r.current ? '<span class="badge plain">Viewing</span>'
+      : r.token ? `<a class="button secondary small" href="/s/${encodeURIComponent(r.token)}">Switch</a>` : '';
+    return `<li class="record${r.current ? ' current' : ''}">
+        <div><div class="small muted">${r.since ? esc(fmtDate(r.since)) : ''}</div><div>${recordText(r, kennel, anotherPup)}</div></div>
+        ${right}
+      </li>`;
+  }).join('');
+  return openCard('', `<p class="mt0"><strong>You have more than one waitlist record with ${esc(kennel)}.</strong> Choose the one you want to see below.</p>
+    <ul class="plain records">${rows}</ul>
+    ${signedIn() ? '<p class="small muted">You\'re signed in for all of them.</p>' : ''}`, 'records-card');
+}
+
 function mineHtml() {
   const v = state.v;
   const f = v.family;
@@ -757,6 +854,7 @@ function mineHtml() {
   // No badge for a family on the list: being on it is why they're here.
   const parts = f.status === 'active' ? [] : [`<p><span class="badge ${st.badge}">${esc(st.label)}</span></p>`];
   if (state.flash) parts.push(`<p class="card notice-card small" role="status">${esc(state.flash)}</p>`);
+  parts.push(recordsHtml(v));
 
   if (!['applied', 'approved', 'active'].includes(f.status)) {
     parts.push(card('', `<p class="mt0">${closedText(f.status, kennel)}</p>`));
@@ -931,7 +1029,13 @@ async function onClick(ev) {
     case 'close': state.open = null; render(); return;
     case 'pick': {
       const offer = state.v.offers.find((o) => o.id === b.dataset.offer);
-      if (!window.confirm(`Choose ${b.dataset.name}? Send your deposit by ${fmtDate(offer?.respond_by_date)} to keep them.`)) return;
+      // Not final until the deposit arrives; the deadline is her "days to accept and
+      // pay the deposit" from the offer, and the deposit for this pup's sex when she lists one.
+      const pup = (offer?.pups || []).find((d) => d.id === b.dataset.dog);
+      const dep = pup && offer?.prices?.deposit ? offer.prices.deposit[pup.sex] : null;
+      const deadline = deadlineText(offer?.respond_by_date, state.v.kennel.time_zone).replace(/^Deadline: /, '').replace(/\u00a0/g, ' ');
+      const message = `Your selection isn't final until ${kennel} receives your deposit${dep != null ? ` of ${price(dep)}` : ''}.${deadline ? ` Deadline to send the deposit: ${deadline}.` : ''}`;
+      if (!await confirmDialog({ title: `Choose ${b.dataset.name}?`, message, confirmLabel: `Choose ${b.dataset.name}` })) return;
       b.disabled = true;
       await act('pick', { offer_id: b.dataset.offer, dog_id: b.dataset.dog }, `You chose ${b.dataset.name}. ${kennel} will confirm, and holds them for you meanwhile.`);
       return;
@@ -945,22 +1049,22 @@ async function onClick(ev) {
       await act('ready', { answer: 'yes' }, `Thanks! ${kennel} will see that you're ready at their next update.`);
       return;
     case 'pickup_book':
-      if (!window.confirm(`Ask ${kennel} for ${b.dataset.when}? They'll confirm it.`)) return;
+      if (!await confirmDialog({ title: 'Ask for this pickup time?', message: `${b.dataset.when}. ${kennel} will confirm it.`, confirmLabel: 'Ask for this time' })) return;
       b.disabled = true;
       await act('pickup_book', { slot_id: b.dataset.id }, `Your request is on its way. ${kennel} will confirm your pickup time.`);
       return;
     case 'pickup_cancel':
-      if (!window.confirm(`Ask ${kennel} to cancel your pickup time?`)) return;
+      if (!await confirmDialog({ title: 'Cancel your pickup time?', message: `We'll ask ${kennel} to cancel it. They'll confirm.`, confirmLabel: 'Ask to cancel', cancelLabel: 'Keep it', danger: true })) return;
       b.disabled = true;
       await act('pickup_cancel', {}, `Your request is on its way. ${kennel} will confirm.`);
       return;
     case 'extra_request':
-      if (!window.confirm(`Ask ${kennel} for ${b.dataset.name}? They'll confirm it and let you know the cost and when it's due.`)) return;
+      if (!await confirmDialog({ title: `Ask for ${b.dataset.name}?`, message: `${kennel} will confirm it and let you know the cost and when it's due.`, confirmLabel: 'Send request' })) return;
       b.disabled = true;
       await act('extra_request', { list_id: b.dataset.id }, `Your request for ${b.dataset.name} is on its way. ${kennel} will confirm it.`);
       return;
     case 'extra_cancel':
-      if (!window.confirm(`Ask ${kennel} to cancel ${b.dataset.name}?`)) return;
+      if (!await confirmDialog({ title: `Cancel ${b.dataset.name}?`, message: `We'll ask ${kennel} to cancel it. They'll confirm.`, confirmLabel: 'Ask to cancel', cancelLabel: 'Keep it', danger: true })) return;
       b.disabled = true;
       await act('extra_cancel', { charge_id: b.dataset.id }, `Your request to cancel ${b.dataset.name} is on its way. ${kennel} will confirm it.`);
       return;
@@ -1014,7 +1118,7 @@ async function onSubmit(ev) {
         render();
         return;
       }
-      if (!window.confirm(`Send ${kennel} your request to back out? Nothing changes until they confirm.`)) { button.disabled = false; return; }
+      if (!await confirmDialog({ title: 'Send your request to back out?', message: `Nothing changes until ${kennel} confirms.`, confirmLabel: 'Send request', cancelLabel: 'Not now', danger: true })) { button.disabled = false; return; }
       await act('back_out', { reason_id: reasonId, reason_text: text, note: data.get('note') }, `Your request is on its way. ${kennel} will be in touch.`);
       return;
     }

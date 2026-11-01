@@ -1058,3 +1058,50 @@ test('a device taking the lease over never re-reads events the last publisher al
   assert.equal(next.events.skipped + next.events.applied + next.events.noted, 0, 'nothing read twice');
   assert.equal(settings.getWaitlistOnlineState().eventsCursor, through);
 });
+
+test('a family back on the list for a second pup: each record handles its own pup, the pages link each other, one sign-in acts on either', async () => {
+  const { contactRepo } = await import('../shared/data/contactRepo.js');
+  const { saleRepo } = await import('../shared/data/saleRepo.js');
+  const { dogRepo } = await import('../shared/data/dogRepo.js');
+  const actions = await import('../shared/data/waitlistActions.js');
+  await breeder();
+  const k = await putOnline();
+  const sales = await saleRepo.getAll({ includeArchived: true });
+  const first = (await waitlistEntryRepo.getByKennel(k.id)).find((e) => e.status === 'active' && e.contact_id
+    && !sales.some((x) => x.buyer_contact_id === e.contact_id && saleRepo.isOpenSale(x)));
+  await contactRepo.update(first.contact_id, { email: 'again@example.com' });
+  const pup = (await dogRepo.getAll()).find((d) => d.kennel_id === k.id && !d.date_of_death && d.litter_id);
+  const sale = await saleRepo.create({ kennel_id: k.id, dog_id: pup.id, buyer_contact_id: first.contact_id, registration_type: 'limited', status: 'deposit_paid' });
+  await waitlistEntryRepo.update(first.id, { status: 'placed', placed_sale_id: sale.id });
+  const second = await actions.reapply(first.id);
+  await waitlistEntryRepo.update(second.id, { status: 'active', approved_date: '2026-10-31', fee_received_date: '2026-10-31' });
+  await cw.syncWaitlistOnline();
+
+  // Signing in by email lands on the open record, which says which one it is and links the other.
+  const fam = await familySignIn(k.public_id, 'again@example.com');
+  const viewOf = async (token) => (await (await worker.fetch(new Request(`http://localhost/f/status/${token}`), env)).json());
+  const now = await viewOf(fam.statusToken);
+  assert.equal(now.family.status, 'active');
+  assert.equal(now.family.pickup ?? null, null, 'the first pup\'s pickup is not on the new record');
+  assert.equal(now.family.back_out ?? null, null, 'nor backing out of it');
+  assert.deepEqual(now.records.map((r) => [r.state, r.current, r.pup ?? null]), [['waiting', true, null], ['chose', false, pup.call_name]]);
+  const oldToken = now.records.find((r) => !r.current).token;
+  const old = await viewOf(oldToken);
+  assert.equal(old.family.status, 'placed');
+  assert.equal(old.family.back_out?.available, true, 'the first pup\'s cards are on its own record');
+  assert.equal(old.records.find((r) => r.current).state, 'chose');
+
+  // The same sign-in acts on the placed record's page, and the request lands on that record.
+  const act = (token, action, extra = {}) => fam.call('/f/act', { session: fam.session, status_token: token, action, ...extra });
+  const reason = (old.kennel.back_out_reasons || [])[0]?.id || 'other';
+  assert.equal((await act(oldToken, 'back_out', { reason_id: reason, reason_text: 'Timing', note: '' })).status, 200);
+  assert.equal((await act(fam.statusToken, 'back_out', { reason_id: reason, reason_text: 'Timing', note: '' })).status, 409, 'the new record has nothing to back out of');
+  await cw.syncWaitlistOnline();
+  assert.ok((await waitlistEntryRepo.getById(first.id)).back_out_request?.requested_date, 'on the first record');
+  assert.equal((await waitlistEntryRepo.getById(second.id)).back_out_request ?? null, null);
+
+  // Another family's page is still refused.
+  const stranger = (await waitlistEntryRepo.getByKennel(k.id)).find((e) => e.contact_id && e.contact_id !== first.contact_id && e.status_token);
+  assert.ok(stranger, 'another family to try');
+  assert.equal((await act(stranger.status_token, 'pause_request', { until: '2027-01-01' })).status, 403);
+});

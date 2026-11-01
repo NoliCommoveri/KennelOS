@@ -572,35 +572,83 @@ high while anything is waiting on her, like the Today `waitlist-*` nudges). Ever
 an existing `waitlistActions` call; the task adds no data. Each step is skipped when it has
 nothing, and each item has **Skip for now**, so she can stop at any point.
 
-Opening: "Here's what's waiting on you: 2 new applications, 1 fee to check, picks to open
-on Daisy's litter, 1 family's turn to offer, 3 new messages." (Sales to cancel aren't
+Opening: "Here's what's waiting on you: 1 family backing out, 3 requests (2 extras, a
+pickup time), 3 new messages, 2 new applications, 1 fee to check, picks to open on Daisy's
+litter, 1 family's turn to offer." (Sales to cancel aren't
 counted: only she knows.) Then **Start with the first** /
 **Pick one** (the list as choices) / **Not now**. Order, most time-sensitive first:
 
-1. **Family requests and messages** (unread `messages`, pending pref / pause / listen /
-   Companion-link requests). Messages first because a family backing out, or an answer
-   about an offer, changes the steps after it. One family at a time: "Sarah Lee wrote on
-   her status page (Oct 29): …" → **Write back** (Communicate…: an email that also shows
-   on their status page) / **Mark read** / **Open their page**. A request: "Sarah asked to
-   pause until March 1." → **Approve** / **Decline** (the nudge's actions and emails).
-2. **Sales to cancel or void** (asked every time, since nothing in the app knows yet):
-   "Do you need to cancel or void any sales? For example a family backed out, or a pup
-   died or can't go home." → **Yes** / **No**. Yes → her open sales as choices (pup, family,
-   litter) → "What happened?":
-   - **The family backed out** → `cancelled`. "Their deposit stays as income." Then, with
-     the pup still here: "Offer [pup] to the next family?" (step 5 for that litter).
-   - **The pup died** → `voided`, `pup_died`; then **Record [pup]'s death** (date, cause).
-   - **The pup failed a health check** → `voided`, `failed_health_check`; then **Put
-     [pup] on Health hold**.
-   - **The pup came back after going home** → `returned`, then the reason: **A health
-     problem (within the guarantee)** / **The family's choice**.
-   - **Something else** → **Cancel** or **Void** with the Other reason.
+1. **Family requests and messages** (unread `messages`, then every pending request on an
+   entry, the same set the Today `waitlist-*` request nudges show). Messages first because
+   an answer about an offer can change the steps after it. One family at a time, all of
+   that family's items together. Every decision ends with its drafted email
+   (`waitlistEmailUI.offerEmails`: request approved / declined, edit or skip), as on Today.
+   - **A message:** "Sarah Lee wrote on her status page (Oct 29): …" → **Write back**
+     (Communicate…: an email that also shows on their status page) / **Mark read** /
+     **Open their page**. Status-page activity notes (not `kind: 'message'`) only get
+     **Mark read**.
+   - **Pause / answers / which litters / Companion link:** "Sarah asked to pause until
+     March 1." → **Approve** / **Decline** (the nudge's own actions and wording, including
+     a pref change's "Narrower: they'd stop being next for…").
+   - **An extra asked for** (`extra_requests`, `kind: 'request'`): "The Garcias asked for
+     Puppy Photo Package." → **Approve** (`approveExtraRequest`: on their sale at her
+     price-list price, with its payment plan) / **Decline** / **Open their page**. When the
+     extra has `boarding_days` (a training package), straight after Approve: "Log Daisy's
+     14-day training stay from Nov 20?" → **Log it** (`trainingStayEvent`) / **Later**
+     (the `training-stay` nudge stays on Today).
+   - **An extra to cancel** (`kind: 'cancel'`): "The Garcias asked to cancel Puppy Photo
+     Package." → **Approve** (off their sale) / **Decline**. With any part paid, Approve
+     is refused: Kels says so and offers **Decline** / **Open the sale**. When it had a
+     linked stay still to come: "Remove the training stay too?" → **Remove it** (archive) /
+     **Keep it** (the `training-stay-orphan` nudge stays).
+   - **A pickup time, or cancelling one** (`pickup_requests`, `time` / `cancel`):
+     "The Kims asked for Sat Nov 29, 8–9 AM at Circle K." → **Approve**
+     (`approvePickupRequest`) / **Decline**. Then its follow-ups, each only when the result
+     says so: standard boarding added ("2 days, $60, on their sale and logged as a stay":
+     she's told), her own boarding charge kept (`boardingKept`: "Use standard boarding
+     instead, $60?" → **Use it**, `applyPickupBoarding` / **Keep mine**), a transport fee
+     left on the sale (`transportFeeLeft`: "Remove their $85 transport fee?" → **Remove
+     it**, `clearTransportFee` / **Keep it**).
+   - **Their own address** (`kind: 'address'`): within her limit, "The Kims asked you to
+     bring their pup to 12 Elm St, Laurel, MS (about 31 miles)." → **Set it up** (Kels asks
+     the day, time and method, shows the miles and `transportQuote`'s working, **Use $62**
+     or type a fee, then saves as the entry page does: a drop-off and `Sale.transport_fee`)
+     / **Open their page** / **Decline**. Past `transport_far_miles`: "…about 320 miles,
+     past your 150; they were told you'll be in touch." → **Send transport options**
+     (the `transport_options` email, `[Distance]` filled) / **Open their page** /
+     **Decline**.
+   - **Not asked:** `home_location` (where a family lives) is applied at sync and waits on
+     nothing, so it's never an item; backing out is step 2.
+2. **Families backing out, then sales to cancel or void.**
+   - **Each pending back-out request first** (`back_out_request`): "Sarah Lee asked to
+     back out of Daisy's boy (Oct 30). Their reason: Timing. Your policy suggests keeping
+     the deposit (he's 9 weeks)." (`suggestOutcome`; none fits: keep) → **Keep the
+     deposit** / **Move the deposit** / **More options…** (refund, typed REFUND, as on the
+     entry page) / **Decline**. Then what comes off with the sale (`backOutItems`, as
+     choices with the entry page's ticks: extras unless part-paid or Done, stays not
+     started, pickups to come) and **Put [pup] back to Available** (Health hold for a
+     health reason), ticked. Then the summary line (`backOutSummary`) → **Do it**
+     (`approveBackOut`) / **Back**. With the pup back, "Offer [pup] to the next family?"
+     (step 5 for that litter, straight away).
+   - **Then the open question** (asked every time, since a family may have called her
+     instead): "Do you need to cancel or void any other sales? For example a family backed
+     out, or a pup died or can't go home." → **Yes** / **No**. Yes → her open sales as
+     choices (pup, family, litter) → "What happened?":
+     - **The family backed out** → for a buyer with a waitlist entry, the back-out path
+       above with no request (keep / move / refund, the items, the pup back); otherwise `cancelled`, "Their deposit stays as income." Then, with
+       the pup still here: "Offer [pup] to the next family?" (step 5 for that litter).
+     - **The pup died** → `voided`, `pup_died`; then **Record [pup]'s death** (date, cause).
+     - **The pup failed a health check** → `voided`, `failed_health_check`; then **Put
+       [pup] on Health hold**.
+     - **The pup came back after going home** → `returned`, then the reason: **A health
+       problem (within the guarantee)** / **The family's choice**.
+     - **Something else** → **Cancel** or **Void** with the Other reason.
 
-   When the family lost their pup through no fault of theirs (`isLostSale`): "Put the
-   Kims back in line in their old place?" → **Yes, carry their $500 to their next pup** /
-   **Yes, I'm refunding it** / **No** (`restoreAfterLostSale`). Each saves through the
-   Sale page's own path (end reason required, as there). Then "Any other sales to cancel
-   or void?" until **No, that's all**.
+     When the family lost their pup through no fault of theirs (`isLostSale`): "Put the
+     Kims back in line in their old place?" → **Yes, carry their $500 to their next pup** /
+     **Yes, I'm refunding it** / **No** (`restoreAfterLostSale`). Each saves through the
+     Sale page's own path (end reason required, as there). Then "Any other sales to cancel
+     or void?" until **No, that's all**.
 3. **Offers past their deadline** (`waitlist-offer-overdue`). "The Kims' time to pick from
    Daisy's litter ran out yesterday." → **They picked** (pup + deposit) / **Count it as a
    pass** / **Give them more time**. Then step 5's "offer the next family?" for that
@@ -619,7 +667,11 @@ counted: only she knows.) Then **Start with the first** /
    (goes to their status page) / **Decide later**.
 7. **Fees to check** (`approved`, fee not received; overdue first). "Jordan's $100 fee:
    asked for Oct 20, due Nov 3." → **Received** (amount prefilled, date, method) / **Not
-   yet** / **Remove them** (only once overdue, `markFeeExpired`).
+   yet** / **Remove them** (only once overdue, `markFeeExpired`). Then **extras payments
+   due** (the `extra-due` nudge: a payment-plan step due within 7 days or overdue, on a
+   waitlist family's open sale): "The Garcias' Training package, part 2, $300, due
+   Nov 10." → **Paid** (the Sale page's **Paid on** date, today prefilled) / **Not yet** /
+   **Open the sale**.
 8. **"Ready now?" unanswered and recent removals** (`waitlist-ready-overdue`,
    `waitlist-removed` inside its undo window). → **Remove them** / **Wait longer**; a
    removal: **Keep it** / **Undo**.
@@ -629,7 +681,22 @@ counted: only she knows.) Then **Start with the first** /
 Each step ends "Anything else here?" only where there can be more than one (as the
 preventatives loop does).
 - **Keywords:** waitlist, applications, fees, deposits, picks, offers, messages, turns,
-  backed out, cancel a sale, void, pup died, refund.
+  backed out, back out, cancel a sale, void, pup died, refund, requests, extras, pickup,
+  pickup time, transport, training stay, boarding.
+- **Family requests covered** (`FAMILY_ACTIONS`, `cloud/src/familyActions.js`): the ones
+  that wait on her are all here: `pause_request`, `pref_change`, `listen`,
+  `companion_request` and `extra_request` / `extra_cancel` / `pickup_book` /
+  `pickup_cancel` / `pickup_address` in step 1, `back_out` in step 2. The rest act at once
+  (`pick`, `pass`, `prepass` / `unprepass`, `still_interested`, `leave`, `ready`,
+  `home_location`) and show up only through what they cause: a message note (step 1), a
+  turn moving on (steps 3 and 5), "Ready now?" answers (step 8).
+- **Decided (2026-11-01):**
+  - **A back-out with no request** (she picks "The family backed out" for a buyer with a
+    waitlist entry) takes the full back-out path (keep / move / refund, the items, the pup
+    back), not a plain cancel, so it's handled the same however she heard.
+  - **Own-address pickups are set up in the conversation** (**Set it up**: day, time,
+    method, the fee working), with **Open their page** always there.
+  - **Extras payments due are in step 7**, after the waitlist fees.
 - **Decided (2026-11-01):** messages and family requests lead (step 1); **Not yet, remind me
   in a few days** on open picks only snoozes the `waitlist-open-picks` nudge (3 days) and
   leaves `accept_deposits_date` as she planned it; **Change the date** is how she moves it.

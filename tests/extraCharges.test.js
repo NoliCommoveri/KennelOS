@@ -293,3 +293,29 @@ test('Today offers to log a training stay, logs it linked in one tap, and a sale
     assert.equal((await eventRepo.getById(stays[0].id)).is_archived, true);
   }
 });
+
+test('each waitlist record acts on its own pup: a family back for a second pup never gets the first one\'s cards on the new record', async () => {
+  const { familySale } = await import('../shared/data/familyExtras.js');
+  const sale = (id, extra = {}) => ({ id, buyer_contact_id: 'c1', kennel_id: 'k1', status: 'deposit_paid', sale_date: '2026-10-01', ...extra });
+  const rec = (id, extra = {}) => ({ id, contact_id: 'c1', kennel_id: 'k1', status: 'active', applied_date: '2026-09-01', ...extra });
+  const id = (s) => s?.id ?? null;
+
+  // One record, a sale made on the Sale page (no offer): theirs, as before.
+  assert.equal(id(familySale(rec('a'), [sale('s1')], [], [rec('a')])), 's1');
+  // Back on the list: the placed record keeps its pup; the new run has none.
+  const old = rec('old', { status: 'placed', placed_sale_id: 's1' });
+  const fresh = rec('new', { applied_date: '2026-10-31' });
+  assert.equal(id(familySale(old, [sale('s1')], [], [old, fresh])), 's1');
+  assert.equal(id(familySale(fresh, [sale('s1')], [], [old, fresh])), null);
+  // Two pups at once: the new run's pick is its own; the first pup stays on the first record.
+  const pick = { id: 'o1', entry_id: 'new', outcome: 'open', sale_id: 's2' };
+  const both = [sale('s1'), sale('s2', { sale_date: '2026-10-30', status: 'deposit_pending' })];
+  assert.equal(id(familySale(fresh, both, [pick], [old, fresh])), 's2');
+  assert.equal(id(familySale(old, both, [pick], [old, fresh])), 's1');
+  // A sale no record claims goes to one record only: the open one.
+  const done = rec('old', { status: 'placed' });
+  assert.equal(id(familySale(fresh, [sale('s3')], [], [done, fresh])), 's3');
+  assert.equal(id(familySale(done, [sale('s3')], [], [done, fresh])), null);
+  // The placed sale ending ends it: nothing falls through to another sale.
+  assert.equal(id(familySale(old, [sale('s1', { status: 'cancelled' }), sale('s4')], [], [old])), null);
+});
