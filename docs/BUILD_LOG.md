@@ -1954,3 +1954,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   suggest a place** / **Only my pickup times**, with a hint saying what it means for this
   family (under the rule: what the rule decides and why). Same `own_place_override` values.
   Checked in the browser.
+- **A family's Timeline shows offers and requests (2026-11-01).** Asked by the owner: the
+  entry's History timeline had only applied / approved / fee and status dates. It now adds
+  each offer (offered, picked, deposit request sent, how it ended, backed out), a placement
+  with no offer on this device ("Placed with [pup]", from the sale), and every status-page
+  request with her decision (pause, litters, Companion link, answers, backing out, extras,
+  pickups), newest first including within a day. Checked in the browser.

@@ -28,7 +28,7 @@ import { kennelChargeList, kennelChargeGroups, chargeRules, planText } from '../
 import { pendingExtraRequests, familySale, pupBirthDate } from '../data/familyExtras.js';
 import { suggestOutcome, policyRowText, backOutReasons, ageWeeks, backOutItems, backOutSummary, BACK_OUT_OUTCOMES } from '../data/backOut.js';
 import { pendingPickupRequests, requestText as pickupRequestText, ownPlaceAllowed } from '../data/familyPickup.js';
-import { standardLocation } from '../data/pickupSlots.js';
+import { standardLocation, timeRange } from '../data/pickupSlots.js';
 import { transportQuote, mapsLink } from '../data/transportFee.js';
 import { locationRuleOn } from '../data/waitlistForm.js';
 import { PLACEMENT_METHODS } from '../data/vocab.js';
@@ -1424,6 +1424,65 @@ function offersHistoryHtml() {
       }</tbody></table></div></section>`;
 }
 
+// The timeline's offer lines: each offer, its pick, the deposit request, how it
+// ended, and a back-out from it. A placement with no offer on this device shows
+// from its sale.
+function offerTimeline(e) {
+  const litter = (id) => { const l = ctx.litters.find((x) => x.id === id); return l ? litterLabel(l) : 'a litter'; };
+  const out = [];
+  for (const o of [...ctx.offers].sort((a, b) => (a.offered_date || '').localeCompare(b.offered_date || ''))) {
+    const from = litter(o.litter_id);
+    out.push([o.offered_date, `Offered ${from}`]);
+    if (o.picked_date && o.chosen_dog_id) out.push([o.picked_date, `Picked ${dogName(o.chosen_dog_id)} from ${from}`]);
+    if (o.deposit_request_sent_date) out.push([o.deposit_request_sent_date, 'Deposit request sent']);
+    const ended = {
+      accepted: `Accepted ${o.chosen_dog_id ? dogName(o.chosen_dog_id) : 'a pup'} (deposit received)`,
+      passed: `Passed on ${from}${o.counts_as_pass ? ' (counted as a pass)' : ''}`,
+      no_response: `No response to the ${from} offer${o.counts_as_pass ? ' (counted as a pass)' : ''}`,
+      voided: `The ${from} offer was closed`
+    }[o.outcome];
+    if (ended && o.outcome_date) out.push([o.outcome_date, ended]);
+    if (o.backed_out_date) out.push([o.backed_out_date, `Backed out of ${o.chosen_dog_id ? dogName(o.chosen_dog_id) : 'their pup'}`]);
+  }
+  const sale = e.placed_sale_id ? ctx.sales.find((x) => x.id === e.placed_sale_id) : null;
+  if (sale && !ctx.offers.some((o) => o.outcome === 'accepted' && o.sale_id === sale.id)) {
+    out.push([sale.deposit_date || sale.sale_date || null, `Placed with ${sale.dog_id ? dogName(sale.dog_id) : 'a pup'}`]);
+  }
+  return out;
+}
+
+// The timeline's request lines: what they asked for on their status page, and what
+// she decided. A one-at-a-time request (pause, litters, Companion link, backing out)
+// keeps only its latest; extras and pickups keep each one.
+function requestTimeline(e) {
+  const out = [];
+  const decision = (r, what) => {
+    if (!r.decided || !r.decided_date) return;
+    const outcome = { keep: ' (kept the deposit)', move: ' (moved the deposit)', refund: ' (refunded)' }[r.outcome] || '';
+    out.push([r.decided_date, r.decided === 'sent' ? `You sent ${what}` : `You ${r.decided === 'declined' ? 'declined' : 'approved'} ${what}${outcome}`]);
+  };
+  const one = (r, asked, what) => { if (!r?.requested_date) return; out.push([r.requested_date, asked]); decision(r, what); };
+  one(e.pause_request, e.pause_request?.until ? `Asked to pause until ${fmtDate(e.pause_request.until)}` : 'Asked to pause', 'their pause');
+  one(e.listen_change_request, 'Asked to change which litters they wait for', 'their litters change');
+  one(e.companion_request, 'Asked for their Companion link', 'their Companion link');
+  if (e.pref_change_request?.requested_date) out.push([e.pref_change_request.requested_date, 'Asked to change their answers']);
+  one(e.back_out_request, `Asked to back out${e.back_out_request?.reason?.label ? ` (${e.back_out_request.reason.label})` : ''}`, 'backing out');
+  for (const r of e.extra_requests || []) {
+    if (!r?.requested_date) continue;
+    out.push([r.requested_date, r.kind === 'cancel' ? `Asked to cancel ${r.name}` : `Asked for ${r.name}`]);
+    decision(r, r.kind === 'cancel' ? `cancelling ${r.name}` : r.name);
+  }
+  for (const r of e.pickup_requests || []) {
+    if (!r?.requested_date) continue;
+    const when = r.date ? `${fmtDate(r.date)}${r.start_time ? `, ${timeRange({ start_time: r.start_time, end_time: r.end_time || '' })}` : ''}` : '';
+    out.push([r.requested_date, r.kind === 'cancel' ? 'Asked to cancel their pickup time'
+      : r.kind === 'address' ? `Asked to meet at ${r.address}${when ? ` on ${fmtDate(r.date)}` : ''}`
+        : `Asked for a pickup on ${when}${r.place ? ` at ${r.place}` : ''}`]);
+    decision(r, r.kind === 'cancel' ? 'cancelling their pickup' : r.kind === 'address' ? 'their meetup place' : 'their pickup time');
+  }
+  return out;
+}
+
 // Key dates and her changes to their answers (History): the running log of what
 // happened to this family, newest first.
 function timelineHtml() {
@@ -1436,8 +1495,12 @@ function timelineHtml() {
     [e.declined_date, 'Application declined'],
     [e.withdrawn_date, 'Withdrew'],
     [e.removed_date, `Removed${e.removed_reason ? ` (${descriptor(WAITLIST_REMOVED_REASON, e.removed_reason).label.toLowerCase()})` : ''}`],
+    ...offerTimeline(e),
+    ...requestTimeline(e),
     ...(e.pref_change_log || []).map((x) => [x.date, `${PREF_FIELD_LABEL[x.field] || x.field}: ${prefValueText(x.field, x.from)} → ${prefValueText(x.field, x.to)}${x.declined ? ' (they asked; you declined)' : x.by === 'request' ? ' (they asked)' : ''}`])
-  ].filter(([d]) => d).sort((a, b) => String(b[0]).localeCompare(String(a[0])));
+  ].filter(([d]) => d)
+    // Newest first, and within a day the later step first (items are listed in order).
+    .map((x, i) => [...x, i]).sort((a, b) => String(b[0]).localeCompare(String(a[0])) || b[2] - a[2]);
   if (!items.length) return '';
   return `<section class="card"><h2 style="margin-top:0;">Timeline</h2>
     <ul style="list-style:none;margin:0;padding:0;">${items.map(([d, t], i) => `<li style="padding:5px 0;${i ? 'border-top:1px solid var(--border);' : ''}"><span class="faint">${esc(fmtDate(d))}</span> · ${esc(t)}</li>`).join('')}</ul>

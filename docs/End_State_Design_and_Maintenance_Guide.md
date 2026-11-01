@@ -1667,7 +1667,12 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
 - **Pages** (`proPages.js`): `waitlist` (one kennel: new applications, fee due, the ranked
   list, Litters with "Next: <family>" and **Offer to them**, Closed; everything else under
   **Manage**), `waitlist-entry` (one family: Details / Interact / History tabs; its
-  application fields come from `assets/waitlistApplicationForm.js`, shared with Kels),
+  application fields come from `assets/waitlistApplicationForm.js`, shared with Kels; History's
+  **Timeline**, newest first, is read from the entry's dates, its offers (offered, picked,
+  deposit request sent, accepted / passed / no response / closed, backed out; a placed sale
+  with no offer on this device shows as "Placed with [pup]"), their status-page requests and
+  her decisions (pause, litters, Companion link, answers, backing out, each extra and pickup;
+  a one-at-a-time request keeps only its latest), and the answer-change log),
   `waitlist-programs`, `waitlist-form`, `waitlist-publish`, `waitlist-import`. A page shows
   one kennel (`?kennel=`, else scope, else busiest; `waitlistUI.resolveWaitlistKennel`).
 - **Litter page:** the **Waitlist picks** panel (`assets/waitlistPicksPanel.js`, loaded only
