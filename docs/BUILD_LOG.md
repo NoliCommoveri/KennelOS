@@ -1977,3 +1977,15 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   pick, the acceptance and going back in line. Tests: `tests/extraCharges.test.js`,
   `tests/waitlistLostPup.test.js`, an end-to-end test in `tests/cloudWaitlist.test.js`.
   Needs a Worker deploy. Checked in the browser.
+- **Family records card reworded; parents on the turn card (2026-11-01).** Asked by the
+  owner: the records card read like the app ("Placed with Hazel (since…)", "Everything you
+  do here is for this one"). It's now "You have more than one waitlist record with
+  [kennel]. Choose the one you want to see below.", one row per record (date, then the
+  family's own words, Viewing or Switch), with wording the owner approved: Applied: waiting
+  for [kennel] to review / Approved: application fee to pay / Waiting for my turn for a (new)
+  puppy / On hold until [date] / **My turn to choose a puppy** / Chose [pup]: deposit to send
+  / Chose [pup] / Brought [pup] home / Application not accepted / Left the waitlist / Backed
+  out of [pup] / No longer on the waitlist / Application closed: fee not received. Each entry
+  publishes `record` ({ state, until }) for it. Also asked: a family's turn now shows each
+  litter's breed and parents with their titles, as Coming up does. Needs a Worker deploy.
+  Checked in the browser.

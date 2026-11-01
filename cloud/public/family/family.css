@@ -238,3 +238,12 @@ html.embedded.theme-dark {
 .modal p { margin: 0 0 16px; line-height: 1.45; }
 .modal-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .modal-actions button { flex: 1 1 auto; }
+
+/* A family's records with this kennel (more than one time on the list): one row
+   each, date over the line, Viewing or Switch on the right, left-aligned. */
+.records-card { text-align: left; }
+.records { margin: 10px 0 0; padding: 0; list-style: none; }
+.records .record { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
+.records .record > div { min-width: 0; }
+.records .record .button, .records .record .badge { flex: 0 0 auto; }
+.records a.button.secondary.small { padding: 6px 14px; font-size: 0.875rem; }

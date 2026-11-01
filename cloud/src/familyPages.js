@@ -444,6 +444,11 @@ export function statusView(projection, entryId) {
       turn_id: o.turn_id ?? o.id,
       litter_id: o.litter_id ?? null,
       litter: l.label ?? '',
+      // The parents as Coming up and Available Puppies show them (call names and
+      // earned titles), so a family can tell the litters of their turn apart.
+      breed: l.breed ?? null,
+      sire: parentOf(l.sire),
+      dam: parentOf(l.dam),
       offered_date: o.offered_date ?? null,
       respond_by_date: o.respond_by_date ?? null,
       picked_dog_id: o.picked_dog_id ?? null,
@@ -528,6 +533,8 @@ export function entryForEmail(projection, email) {
 // back for a second pup has two), by the email on them. Each status page lists them
 // so the family always knows which record it's acting on, and can open the others.
 // [] unless there are two or more. Never another family's: same email only.
+const RECORD_STATES = ['applied', 'approved', 'waiting', 'paused', 'turn', 'picked', 'chose', 'home', 'declined', 'left', 'backed_out', 'removed', 'expired'];
+
 export function sameFamilyIds(projection, entryId) {
   const email = normalizeEmail(projection.entries?.[entryId]?.email);
   if (!email) return [];
@@ -543,7 +550,8 @@ async function familyRecords(env, projection, publicId, entryId) {
     const e = projection.entries[id];
     const token = id === entryId ? null : await statusTokenOf(env, publicId, id);
     if (id !== entryId && !token) continue;
-    out.push({ current: id === entryId, status: typeof e.status === 'string' ? e.status : '', since: ymd(e.since),
+    const state = RECORD_STATES.includes(e.record?.state) ? e.record.state : null;
+    out.push({ current: id === entryId, state, until: state === 'paused' ? ymd(e.record.until) : null, since: ymd(e.since),
       pup: typeof e.pup === 'string' ? e.pup.slice(0, 80) : null, ...(token ? { token } : {}) });
   }
   // Newest first: the time on the list they're most likely asking about.

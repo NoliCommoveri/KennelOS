@@ -1084,12 +1084,12 @@ test('a family back on the list for a second pup: each record handles its own pu
   assert.equal(now.family.status, 'active');
   assert.equal(now.family.pickup ?? null, null, 'the first pup\'s pickup is not on the new record');
   assert.equal(now.family.back_out ?? null, null, 'nor backing out of it');
-  assert.deepEqual(now.records.map((r) => [r.status, r.current, r.pup ?? null]), [['active', true, null], ['placed', false, pup.call_name]]);
+  assert.deepEqual(now.records.map((r) => [r.state, r.current, r.pup ?? null]), [['waiting', true, null], ['chose', false, pup.call_name]]);
   const oldToken = now.records.find((r) => !r.current).token;
   const old = await viewOf(oldToken);
   assert.equal(old.family.status, 'placed');
   assert.equal(old.family.back_out?.available, true, 'the first pup\'s cards are on its own record');
-  assert.equal(old.records.find((r) => r.current).status, 'placed');
+  assert.equal(old.records.find((r) => r.current).state, 'chose');
 
   // The same sign-in acts on the placed record's page, and the request lands on that record.
   const act = (token, action, extra = {}) => fam.call('/f/act', { session: fam.session, status_token: token, action, ...extra });

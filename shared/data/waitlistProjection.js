@@ -104,6 +104,7 @@ function entryView(entry, ctx) {
   if (entry.applied_date) view.since = entry.applied_date;
   const pup = ctx.pupFor(entry);
   if (pup) view.pup = pup;
+  view.record = ctx.recordFor(entry);
   const companion = companionView(entry, ctx);
   if (companion) view.companion = companion; // absent without an open sale
   // Extras they may ask for or cancel (Family Requests plan §3): names only, never
@@ -392,6 +393,22 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
     saleFor: (entry) => familySale(entry, sales, kennelOffers, live),
     // The pup this record is about: the one it was placed with (even once home),
     // else its own open sale's (a pick awaiting the deposit). A call name only.
+    // Where this record stands, in the family's terms, for the list of their
+    // records on each status page: { state, until? }. Facts their own page shows.
+    recordFor: (entry) => {
+      const own = kennelOffers.filter((o) => o.entry_id === entry.id && o.outcome === 'open' && !o.is_archived);
+      const placedSale = entry.placed_sale_id ? sales.find((x) => x.id === entry.placed_sale_id) : null;
+      switch (entry.status) {
+        case 'active':
+          if (own.some((o) => o.chosen_dog_id)) return { state: 'picked' };
+          if (own.length) return { state: 'turn' };
+          if (entry.paused_until && entry.paused_until >= today) return { state: 'paused', until: entry.paused_until };
+          return { state: 'waiting' };
+        case 'placed': return { state: placedSale?.status === 'delivered' ? 'home' : 'chose' };
+        case 'withdrawn': return { state: entry.back_out_request?.decided === 'approved' ? 'backed_out' : 'left' };
+        default: return { state: entry.status };
+      }
+    },
     pupFor: (entry) => {
       const sale = (entry.placed_sale_id && sales.find((x) => x.id === entry.placed_sale_id)) || familySale(entry, sales, kennelOffers, live);
       return (sale?.dog_id && dogsById.get(sale.dog_id)?.call_name) || null;

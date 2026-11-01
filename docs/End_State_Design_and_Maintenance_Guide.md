@@ -1729,10 +1729,16 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   public list, the status page (`/s/<token>`; `status_token` minted by
   `ensureStatusTokens`, **New link** replaces it), and the online form. A family signs in
   with an emailed code; signing in lands on their open entry. While it's their turn, their
-  number is hidden (`placeHidden`). Each entry publishes `since` (its applied date) and
-  `pup` (its own pup's call name); a family with more than one entry by the same email
-  gets `records` on each status page (status, since, pup, the others' links: `sameFamilyIds`,
-  `familyRecords`), shown as "This page is about: …", and one sign-in acts on any of
+  number is hidden (`placeHidden`). Each entry publishes `since` (its applied date), `pup`
+  (its own pup's call name) and `record` (`recordFor`: `{ state, until? }`, where it stands
+  in the family's terms: applied, approved, waiting, paused + until, turn, picked, chose,
+  home, declined, left, backed_out, removed, expired); a family with more than one entry by
+  the same email gets `records` on each status page (`sameFamilyIds`, `familyRecords`):
+  "You have more than one waitlist record with [kennel]", newest first, each a date and
+  their own words ("Waiting for my turn for a new puppy", **My turn to choose a puppy**,
+  "Chose Hazel", "Brought Hazel home", …; never the app's statuses), **Viewing** or
+  **Switch**. A turn's litters carry their breed and parents (call names and earned
+  titles), as Coming up and Available Puppies show them. One sign-in acts on any of
   them (`familyFor` allows the page's entry when it shares the session entry's email;
   the action goes to the page's entry).
 - **Online form:** a form key per kennel (`waitlist_form_keys`, private;

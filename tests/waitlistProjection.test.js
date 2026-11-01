@@ -90,7 +90,7 @@ test("a family on the list sees its place, prefs, passes and offers; nothing els
   const p = buildProjection(fixture());
   const e1 = p.entries.e1;
   assert.deepEqual(keysOf(e1), ['applied_date', 'approved_date', 'email', 'fee_due', 'fee_paid_online', 'fee_received_date', 'listen',
-    'matching_litter_ids', 'name', 'offers', 'passes', 'paused_until', 'place_hidden', 'position', 'pref_places', 'prefs', 'prepasses', 'private_name', 'ready_check', 'ready_from', 'requests', 'spent_litter_ids', 'status', 'upcoming', 'whelp_notes']);
+    'matching_litter_ids', 'name', 'offers', 'passes', 'paused_until', 'place_hidden', 'position', 'pref_places', 'prefs', 'prepasses', 'private_name', 'ready_check', 'ready_from', 'record', 'requests', 'spent_litter_ids', 'status', 'upcoming', 'whelp_notes']);
   assert.deepEqual(e1.prepasses, []);
   assert.deepEqual(e1.private_name, { on: false, request: null });
   assert.deepEqual(e1.requests, { pause: null, pref_change: null, listen: null });
@@ -116,8 +116,8 @@ test('the fee and her payment instructions show only while approved and unpaid',
 
 test("a family whose time on the list ended keeps only its outcome; archived and other kennels' families are left out", () => {
   const p = buildProjection(fixture());
-  assert.deepEqual(p.entries.e6, { name: 'Family e6 Lee', email: 'c-e6@example.com', status: 'placed' });
-  assert.deepEqual(p.entries.e7, { name: 'Family e7 Lee', email: 'c-e7@example.com', status: 'removed' });
+  assert.deepEqual(p.entries.e6, { name: 'Family e6 Lee', email: 'c-e6@example.com', status: 'placed', record: { state: 'chose' } });
+  assert.deepEqual(p.entries.e7, { name: 'Family e7 Lee', email: 'c-e7@example.com', status: 'removed', record: { state: 'removed' } });
   assert.equal(p.entries.e8, undefined);
   assert.equal(p.entries.e9, undefined);
   assert.equal(p.entries.e5.name, 'Ignored Name', 'an applicant with no contact yet goes by the name they applied with');
@@ -334,7 +334,7 @@ test('the Companion link block (Spec §8.3): only for a family with an open sale
   f.entries[5].companion_request = { requested_date: '2026-10-07', note: 'NOTE-SECRET' };
   const p = buildProjection(f);
   assert.deepEqual(p.entries.e6, {
-    name: 'Family e6 Lee', email: 'c-e6@example.com', status: 'placed',
+    name: 'Family e6 Lee', email: 'c-e6@example.com', status: 'placed', record: { state: 'chose' },
     companion: { available: true, request: { requested_date: '2026-10-07', decided: null, decided_date: null } },
     back_out: { available: true, request: null }
   });
