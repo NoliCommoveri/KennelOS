@@ -2007,3 +2007,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **Turn litters set apart (2026-11-01).** Asked by the owner: each litter of a turn is its
   own block with a line and space above it (`.turn-litter`); "The wait is over!" and each
   litter's name are a couple of points larger.
+- **Choosing a pup says it isn't final (2026-11-01).** Asked by the owner: the status page's
+  "Choose [pup]?" dialog now reads "Your selection isn't final until [kennel] receives your
+  deposit (of $N, her listed deposit for that pup's sex when shown). Deadline to send the
+  deposit: [the offer's respond-by date, from her days to accept and pay, as the turn card
+  shows it]." Checked in the browser.

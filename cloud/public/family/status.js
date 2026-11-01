@@ -1005,7 +1005,13 @@ async function onClick(ev) {
     case 'close': state.open = null; render(); return;
     case 'pick': {
       const offer = state.v.offers.find((o) => o.id === b.dataset.offer);
-      if (!await confirmDialog({ title: `Choose ${b.dataset.name}?`, message: `Send your deposit by ${fmtDate(offer?.respond_by_date)} to keep them.`, confirmLabel: `Choose ${b.dataset.name}` })) return;
+      // Not final until the deposit arrives; the deadline is her "days to accept and
+      // pay the deposit" from the offer, and the deposit for this pup's sex when she lists one.
+      const pup = (offer?.pups || []).find((d) => d.id === b.dataset.dog);
+      const dep = pup && offer?.prices?.deposit ? offer.prices.deposit[pup.sex] : null;
+      const deadline = deadlineText(offer?.respond_by_date, state.v.kennel.time_zone).replace(/^Deadline: /, '').replace(/\u00a0/g, ' ');
+      const message = `Your selection isn't final until ${kennel} receives your deposit${dep != null ? ` of ${price(dep)}` : ''}.${deadline ? ` Deadline to send the deposit: ${deadline}.` : ''}`;
+      if (!await confirmDialog({ title: `Choose ${b.dataset.name}?`, message, confirmLabel: `Choose ${b.dataset.name}` })) return;
       b.disabled = true;
       await act('pick', { offer_id: b.dataset.offer, dog_id: b.dataset.dog }, `You chose ${b.dataset.name}. ${kennel} will confirm, and holds them for you meanwhile.`);
       return;
