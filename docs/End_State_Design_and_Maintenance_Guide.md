@@ -1201,9 +1201,16 @@ subject (`financials.js` `expenseInScope`).
   (`studFeeExpense`).
   `pick_value_amount` is a separate non-cash `pick` line, outside the cash totals and Net.
 - **Waitlist application fee** (Pro): one earned row per entry with a received fee above 0.
-  When `fee_credit_policy` is `credited_to_purchase` and the family is placed, the fee comes
-  off that sale's balance (`saleComponents(sale, feeCredit)`, `getSaleFeeCredit`) so it isn't
-  counted twice; invoices and the Companion balance show the credit.
+  When `fee_credit_policy` is `credited_to_purchase`, the fee comes off the family's sale (the
+  one they're placed with, or their pick's while the deposit is pending: `creditSale`) so it
+  isn't counted twice: off the balance, or off the deposit when her setting
+  `waitlist_config.fee_credit_toward` is `deposit` (vocab `FEE_CREDIT_TOWARD`; any of the fee
+  beyond the deposit comes off the balance). Read live for every family of the kennel. The
+  fee credit is `{ amount, toward }` (`feeCreditOf`, `feeCreditSplit`; `getSaleFeeCredit`,
+  `saleComponents(sale, feeCredit)`). Invoices label the line it comes off ("after $X
+  application fee credit"); the deposit dialog, the family's deposit block
+  (`offers[].deposit_fee_credit`, and "Credited toward your deposit" on their fee card via
+  `fee_due.credit_toward`) and the Companion balance follow it.
 - **A family's credits for funds already received** (Pro, §29 "Credits"): the credited part
   of a sale line not yet paid is earned on the credit's date and the rest stays anticipated
   (`saleComponents(sale, feeCredit, received)`, from `familyCredit(...).received`). Only the

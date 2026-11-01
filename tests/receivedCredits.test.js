@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { creditsOf, newCredit, feeCharge, allocateCredits, saleCredited, CREDIT_USE_VALUES } from '../shared/data/receivedCredits.js';
-import { familyCredit, saleCreditCharges, paidOnSale, paidBesidesCredits, incomeLineItems } from '../shared/data/incomeView.js';
+import { familyCredit, saleCreditCharges, paidOnSale, paidBesidesCredits, incomeLineItems, feeCreditSplit, feeCreditOf } from '../shared/data/incomeView.js';
 import { creditSale } from '../shared/data/familyExtras.js';
 
 const credit = (amount, date, applies_to = CREDIT_USE_VALUES, id = `c${amount}${date}`) => ({ id, amount, date, applies_to });
@@ -79,3 +79,19 @@ test('creditSale: a delivered sale keeps the credit; a cancelled one gives it ba
   assert.equal(creditSale(entry, [sale({ status: 'delivered' })])?.id, 's1');
   assert.equal(creditSale(entry, [sale({ status: 'cancelled' })]), null);
 });
+
+test('application fee credit: toward the balance by default, or toward the deposit by her setting', () => {
+  const amounts = (fc) => Object.fromEntries(incomeLineItems('sale', sale(), { feeCredit: fc }).map((x) => [x.key, x.amount]));
+  assert.deepEqual(feeCreditOf(150), { amount: 150, toward: 'balance' });
+  assert.deepEqual(amounts(150), { deposit: 500, balance: 1350, transport: 100 });
+  assert.deepEqual(amounts({ amount: 150, toward: 'deposit' }), { deposit: 350, balance: 1500, transport: 100 });
+  // A fee bigger than the deposit: the rest comes off the balance.
+  assert.deepEqual(feeCreditSplit(sale({ deposit_amount: 100 }), { amount: 150, toward: 'deposit' }), { deposit: 100, balance: 50 });
+});
+
+test('a credit for funds received pays what the fee credit leaves of the deposit', () => {
+  const entry = { fee_amount: 0, received_credits: [credit(400, '2025-03-01')] };
+  const f = familyCredit(entry, sale(), { amount: 150, toward: 'deposit' });
+  assert.deepEqual(f.byKey, { deposit: 350, balance: 50 });
+});
+

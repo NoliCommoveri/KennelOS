@@ -2284,3 +2284,15 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   already collected. Old links without `credit` print as before. Checked in the browser: a
   deposit receipt ($500 − $200 credit = $300 paid), an application fee receipt ($300 −
   $100 = $200) and the invoice. Rides `kennelos-shell-v92`.
+- **Application fee credited toward the deposit (2026-11-01).** New waitlist setting
+  `fee_credit_toward` (Waitlist settings → Fees & payment, and Kels's fee step): a fee
+  credited to the purchase price counts toward the remaining balance (default, as before)
+  or the deposit (families send the deposit less their fee; any of the fee beyond the deposit
+  comes off the balance). The fee credit is now `{ amount, toward }` (`incomeView.feeCreditOf`
+  / `feeCreditSplit`), and it applies from the family's pick (deposit pending), not only once
+  they're placed, so it comes off the deposit before it's paid (balance mode now nets the
+  balance from the pick too). Follows through invoices (line label), the deposit dialog, the
+  family's deposit block and fee card (`deposit_fee_credit`, `credit_toward`; needs a Worker
+  deploy), the Companion balance, and the received-credits allocation. Checked in the
+  browser: $500 deposit, $300 fee toward it and a $200 credit → nothing more to send on the
+  invoice, the deposit dialog and the family page. Rides `kennelos-shell-v92`.

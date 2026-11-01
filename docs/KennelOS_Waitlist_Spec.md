@@ -288,6 +288,7 @@ defaults in `waitlistRules.waitlistConfig()`, so an old kennel with no config ju
 |---|---|---|
 | `fee_amount` | `null` | The normal application fee. A program's `fee_override` replaces it. |
 | `fee_credit_policy` | `credited_to_purchase` | `credited_to_purchase` / `non_refundable` / `refundable` (Q5) |
+| `fee_credit_toward` | `balance` | **Modified (2026-11-01):** where a credited fee counts: `balance` (the rest of the price) or `deposit` (families send the deposit less their fee; any of the fee beyond it comes off the balance). Read live. |
 | `fee_due_days` | `null` | Days after approval to pay. `null` = no pay-by date, so nothing expires. |
 | `payment_instructions` | `''` | Free text shown to approved families (§5.3) |
 | `max_passes` | `2` | Passes before removal (§6.4) |

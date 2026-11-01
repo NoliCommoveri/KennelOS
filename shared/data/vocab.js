@@ -318,6 +318,14 @@ export const FEE_CREDIT_POLICY = [
   { value: 'refundable',           label: 'Refundable',                 badge: 'badge-blue' }
 ];
 
+// Where a fee credited to the purchase price counts (waitlist_config.fee_credit_toward):
+// off the rest of the price (the balance), or toward the deposit (any of the fee
+// beyond the deposit then comes off the balance).
+export const FEE_CREDIT_TOWARD = [
+  { value: 'balance', label: 'The remaining purchase price' },
+  { value: 'deposit', label: 'The deposit' }
+];
+
 // What a family's credit for funds already received (WaitlistEntry.received_credits)
 // may pay toward, in the order it's used. Every use is ticked on a new credit.
 export const CREDIT_USES = [

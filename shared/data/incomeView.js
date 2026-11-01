@@ -27,6 +27,7 @@ import { dogRepo } from './dogRepo.js';
 import { contactRepo } from './contactRepo.js';
 import { waitlistEntryRepo } from './waitlistEntryRepo.js';
 import { waitlistOfferRepo } from './waitlistOfferRepo.js';
+import { kennelRepo } from './kennelRepo.js';
 import { creditSale } from './familyExtras.js';
 import { creditsOf, feeCharge, allocateCredits, saleCredited } from './receivedCredits.js';
 import { inScopeOnly } from './kennelScope.js';
@@ -36,6 +37,26 @@ import { saleExtraCharges, stepLabel } from './extraCharges.js';
 import { INCOME_COMPONENTS, INVOICE_LINE_LABELS, RELEASED_SALE_STATUSES, isLostSale, descriptor } from './vocab.js';
 
 const num = (v) => (v == null || v === '' ? 0 : Number(v)) || 0;
+const round2 = (n) => Math.round(n * 100) / 100;
+
+// A credited application fee on a sale: { amount, toward } — 'balance' (the rest of
+// the price, the default) or 'deposit' (her waitlist setting fee_credit_toward). A
+// bare number is toward the balance.
+export function feeCreditOf(fc) {
+  return fc && typeof fc === 'object'
+    ? { amount: num(fc.amount), toward: fc.toward === 'deposit' ? 'deposit' : 'balance' }
+    : { amount: num(fc), toward: 'balance' };
+}
+export const feeCreditAmount = (fc) => feeCreditOf(fc).amount;
+
+// How a fee credit splits over the sale's deposit and balance: toward the deposit,
+// up to the deposit, and anything beyond it off the balance.
+export function feeCreditSplit(sale, fc) {
+  const f = feeCreditOf(fc);
+  if (f.toward !== 'deposit') return { deposit: 0, balance: f.amount };
+  const deposit = Math.min(f.amount, num(sale?.deposit_amount));
+  return { deposit, balance: round2(f.amount - deposit) };
+}
 
 // Deferred boarding is stored as amount + a free-text count of frequency units
 // (`deferred_boarding_duration_days`, despite the name — e.g. "2" = two weeks).
@@ -67,8 +88,8 @@ function balancePaid(s) {
 // paid is refunded or carried to another pup's sale, never this sale's income.
 // On any other status, an unpaid component is anticipated.
 // `feeCredit` is a credited waitlist application fee already received for this
-// sale (Waitlist Spec §5.3) — it was paid toward the price, so it comes off the
-// balance (never below 0).
+// sale (Waitlist Spec §5.3; feeCreditOf) — it was paid toward the price, so it
+// comes off the balance, or off the deposit when her setting says so (never below 0).
 // `received` (the Financials ledger only): the family's credits for funds already
 // received toward this sale, { byKey: { lineKey: amount }, date } (familyCredit).
 // The credited part of a component not yet paid is earned (on the credit's date);
@@ -81,8 +102,9 @@ function saleComponents(s, feeCredit = 0, received = null) {
   if (isLostSale(s)) return keptParts(s, kept);
   const dead = RELEASED_SALE_STATUSES.includes(s.status);
   const price = num(s.price);
-  const deposit = num(s.deposit_amount);
-  const balance = Math.max(price - deposit - num(feeCredit), 0);
+  const split = feeCreditSplit(s, feeCredit);
+  const deposit = round2(num(s.deposit_amount) - split.deposit);
+  const balance = Math.max(round2(price - num(s.deposit_amount) - split.balance), 0);
   const parts = [
     { component: 'deposit', amount: deposit, paid: depositPaid(s) },
     { component: 'balance', amount: balance, paid: balancePaid(s) },
@@ -249,13 +271,19 @@ export function paidOnSale(sale, { feeCredit = 0, asStatus = null, received = nu
 // aren't tracked in W1: a refundable fee stays earned until she edits the entry.
 const feeReceived = (e) => !e.is_archived && !!e.fee_received_date && num(e.fee_amount) > 0;
 
-// saleId → credited fee amount, from placed entries whose fee is credited to the
-// purchase price.
-function feeCreditsBySale(entries) {
+// saleId → { amount, toward }, from entries whose received fee is credited to the
+// purchase price: on their sale as creditSale finds it (the one they're placed
+// with, or their pick's while the deposit is pending, so a fee toward the deposit
+// comes off it before it's paid), `toward` from their kennel's setting.
+function feeCreditsBySale(entries, { sales = [], offers = [], kennels = [] } = {}) {
   const out = new Map();
+  const towardOf = (e) => (kennels.find((k) => k.id === e.kennel_id)?.waitlist_config?.fee_credit_toward === 'deposit' ? 'deposit' : 'balance');
   for (const e of entries) {
-    if (!feeReceived(e) || !e.placed_sale_id || e.fee_credit_policy !== 'credited_to_purchase') continue;
-    out.set(e.placed_sale_id, (out.get(e.placed_sale_id) || 0) + num(e.fee_amount));
+    if (!feeReceived(e) || e.fee_credit_policy !== 'credited_to_purchase') continue;
+    const saleId = e.placed_sale_id || creditSale(e, sales, offers, entries)?.id;
+    if (!saleId) continue;
+    const had = out.get(saleId);
+    out.set(saleId, { amount: round2((had?.amount || 0) + num(e.fee_amount)), toward: towardOf(e) });
   }
   return out;
 }
@@ -264,10 +292,13 @@ async function loadWaitlistEntries(includeArchived) {
   return editionFlags.waitlist ? waitlistEntryRepo.getAll({ includeArchived }) : [];
 }
 
-// The credited application fee for one sale (0 when none) — the invoice page
-// passes it to incomeLineItems so the document's balance matches the ledger.
+// The credited application fee for one sale ({ amount, toward }, amount 0 when
+// none) — the invoice page passes it to incomeLineItems so the document's lines
+// match the ledger.
+const NO_FEE_CREDIT = Object.freeze({ amount: 0, toward: 'balance' });
 export async function getSaleFeeCredit(saleId) {
-  return feeCreditsBySale(await loadWaitlistEntries(false)).get(saleId) || 0;
+  const ctx = await loadCreditContext();
+  return (ctx && feeCreditsBySale(ctx.entries, ctx).get(saleId)) || NO_FEE_CREDIT;
 }
 
 // --- Credits for funds already received (receivedCredits.js) ----------------------
@@ -310,8 +341,8 @@ export function paidBesidesCredits(sale, entry, { feeCredit = 0, asStatus = null
 
 async function loadCreditContext() {
   if (!editionFlags.waitlist) return null;
-  const [entries, offers, sales] = await Promise.all([waitlistEntryRepo.getAll(), waitlistOfferRepo.getAll(), saleRepo.getAll()]);
-  return { entries, offers, sales };
+  const [entries, offers, sales, kennels] = await Promise.all([waitlistEntryRepo.getAll(), waitlistOfferRepo.getAll(), saleRepo.getAll(), kennelRepo.getAll({ includeArchived: true })]);
+  return { entries, offers, sales, kennels };
 }
 
 // The entry whose credits go toward this sale, in a loaded context.
@@ -323,7 +354,8 @@ function creditEntryFor(sale, ctx) {
 // Everything a document about one sale takes off: the credited application fee
 // and the family's credits. → { feeCredit, credit (familyCredit or null), entry }
 export async function getSaleCredits(saleId) {
-  const [feeCredit, ctx] = await Promise.all([getSaleFeeCredit(saleId), loadCreditContext()]);
+  const ctx = await loadCreditContext();
+  const feeCredit = (ctx && feeCreditsBySale(ctx.entries, ctx).get(saleId)) || NO_FEE_CREDIT;
   const sale = ctx?.sales.find((s) => s.id === saleId) || null;
   const entry = creditEntryFor(sale, ctx);
   return { feeCredit, credit: entry ? familyCredit(entry, sale, feeCredit) : null, entry };
@@ -334,9 +366,9 @@ export async function getSaleCredits(saleId) {
 export async function getEntryCredit(entryId) {
   const ctx = await loadCreditContext();
   const entry = ctx?.entries.find((e) => e.id === entryId) || null;
-  if (!entry) return { credit: null, sale: null, feeCredit: 0 };
+  if (!entry) return { credit: null, sale: null, feeCredit: NO_FEE_CREDIT };
   const sale = creditSale(entry, ctx.sales, ctx.offers, ctx.entries);
-  const feeCredit = sale ? feeCreditsBySale(ctx.entries).get(sale.id) || 0 : 0;
+  const feeCredit = (sale && feeCreditsBySale(ctx.entries, ctx).get(sale.id)) || NO_FEE_CREDIT;
   return { credit: familyCredit(entry, sale, feeCredit), sale, feeCredit };
 }
 
@@ -362,18 +394,19 @@ export async function getCreditedByLine(source, id) {
 // else and the active scope applies (Multi-Kennel Scope Spec §7/§8).
 export async function getIncomeRows({ includeArchived = false, kennelId = null } = {}) {
   const scopeTo = (list) => (kennelId ? list.filter((r) => r.kennel_id === kennelId) : inScopeOnly(list));
-  const [sales, studs, dogs, contacts, entries, offers] = await Promise.all([
+  const [sales, studs, dogs, contacts, entries, offers, kennels] = await Promise.all([
     saleRepo.getAll({ includeArchived }),
     studServiceRepo.getAll({ includeArchived }),
     dogRepo.getAll({ includeArchived: true }),
     contactRepo.getAll({ includeArchived: true }),
     loadWaitlistEntries(includeArchived),
-    editionFlags.waitlist ? waitlistOfferRepo.getAll() : []
+    editionFlags.waitlist ? waitlistOfferRepo.getAll() : [],
+    editionFlags.waitlist ? kennelRepo.getAll({ includeArchived: true }) : []
   ]);
   const creditCtx = { entries: entries.filter((e) => !e.is_archived), offers, sales };
   // Credits come from ALL entries (not just in-scope ones): a sale's credit is a
   // fact about that sale, whichever kennel the app is scoped to.
-  const creditBySale = feeCreditsBySale(entries);
+  const creditBySale = feeCreditsBySale(entries, { sales, offers, kennels });
   const dogById = new Map(dogs.map((d) => [d.id, d]));
   const contactById = new Map(contacts.map((c) => [c.id, c]));
   const dogName = (id) => dogById.get(id)?.call_name || '—';
@@ -388,7 +421,7 @@ export async function getIncomeRows({ includeArchived = false, kennelId = null }
   // carry a stamped kennel_id (a sale inherits the dog's, a stud service OUR
   // dog's), and both are pass-throughs when unscoped.
   for (const s of scopeTo(sales)) {
-    const feeCredit = creditBySale.get(s.id) || 0;
+    const feeCredit = creditBySale.get(s.id) || NO_FEE_CREDIT;
     const creditEntry = creditEntryFor(s, creditCtx);
     const received = creditEntry ? familyCredit(creditEntry, s, feeCredit)?.received || null : null;
     // `due` is only a due date she actually set (the balance's), for Receivables'

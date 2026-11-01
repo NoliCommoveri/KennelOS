@@ -18,7 +18,7 @@ import { eventRepo } from '../data/eventRepo.js';
 import { contactRepo } from '../data/contactRepo.js';
 import { kennelRepo } from '../data/kennelRepo.js';
 import { getActiveKennel } from '../data/kennelScope.js';
-import { incomeLineItems, getSaleFeeCredit, getCreditedByLine } from '../data/incomeView.js';
+import { incomeLineItems, getSaleFeeCredit, getCreditedByLine, feeCreditSplit } from '../data/incomeView.js';
 import { getMyContactId, getInvoiceDefaults } from '../data/settings.js';
 import { todayYMD } from '../data/dateUtils.js';
 import { waitlistConfig, entryName } from '../data/waitlistRules.js';
@@ -157,7 +157,9 @@ export async function buildInvoiceDoc({ source = 'sale', id, doc = 'invoice', cf
     const before = collected - credit;
     creditTotal += credit;
     let label = line.key === 'application_fee' ? 'Waitlist application fee' : (labelByKey.get(line.key) || INVOICE_LINE_LABELS[line.key] || line.key);
-    if (line.key === 'balance' && feeCredit > 0) label += ` (after ${money(feeCredit)} application fee credit)`;
+    const feeSplit = isSale ? feeCreditSplit(record, feeCredit) : { deposit: 0, balance: 0 };
+    if (line.key === 'balance' && feeSplit.balance > 0) label += ` (after ${money(feeSplit.balance)} application fee credit)`;
+    if (line.key === 'deposit' && feeSplit.deposit > 0) label += ` (after ${money(feeSplit.deposit)} application fee credit)`;
     const marker = isSale && !isReceipt ? (FOOTNOTE[line.key] || '') : '';
     if (marker) markersUsed.add(marker);
 

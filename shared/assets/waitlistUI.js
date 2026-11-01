@@ -24,7 +24,7 @@ import { contactRepo } from '../data/contactRepo.js';
 import { dogRepo } from '../data/dogRepo.js';
 import { litterRepo } from '../data/litterRepo.js';
 import { waitlistProgramRepo } from '../data/waitlistProgramRepo.js';
-import { paidBesidesCredits, getSaleFeeCredit, getSaleCredits, getEntryCredit } from '../data/incomeView.js';
+import { paidBesidesCredits, getSaleFeeCredit, getSaleCredits, getEntryCredit, feeCreditAmount, feeCreditSplit } from '../data/incomeView.js';
 import { newCredit, CREDIT_USE_VALUES } from '../data/receivedCredits.js';
 import { CREDIT_USES, PAYMENT_METHODS } from '../data/vocab.js';
 import { saveCredit } from '../data/waitlistActions.js';
@@ -374,9 +374,17 @@ export async function pickDialog({ offer, name, pups, pupLabel, carried = null }
 export async function depositDialog({ offer, name, pupName, sale, carried = null }) {
   let res = null;
   // Their credit for funds already received pays part (or all) of the deposit.
-  const credited = sale ? (await getSaleCredits(sale.id)).credit?.byKey.deposit || 0 : 0;
-  const creditHint = credited > 0
-    ? ` ${esc(fmtMoney(credited))} of it is covered by their credit for funds already received${sale?.deposit_amount != null ? `, so ${esc(fmtMoney(Math.max(0, Number(sale.deposit_amount) - credited)))} is what they send` : ''}. Enter the whole deposit.` : '';
+  const sc = sale ? await getSaleCredits(sale.id) : null;
+  const credited = sc?.credit?.byKey.deposit || 0;
+  // Her setting can put a credited application fee toward the deposit too.
+  const feePart = sale ? feeCreditSplit(sale, sc.feeCredit).deposit : 0;
+  const parts = [feePart > 0 ? `${fmtMoney(feePart)} is their application fee` : '', credited > 0 ? `${fmtMoney(credited)} is covered by their credit for funds already received` : ''].filter(Boolean);
+  const creditHint = parts.length
+    ? (() => {
+        const left = sale?.deposit_amount != null ? Math.max(0, Number(sale.deposit_amount) - feePart - credited) : null;
+        const send = left == null ? '' : left > 0 ? `, so ${esc(fmtMoney(left))} is what they send` : ', so there\'s nothing more for them to send';
+        return ` Of it, ${esc(parts.join(' and '))}${send}. Enter the whole deposit.`;
+      })() : '';
   const ok = await formModal({
     title: `${name}'s deposit received`,
     confirmLabel: 'Deposit received',
@@ -463,8 +471,8 @@ export async function restoreLostPupDialog({ saleId, asStatus = null }) {
       ? 'Automatic offers are on for this, so if nobody holds a turn the next one is offered now (to them, if they\'re next).'
       : 'Nobody is offered automatically; you\'ll be told who\'s next.')
     : '';
-  const credit = feeCredit > 0 && kind === 'placed'
-    ? `<p class="field-hint">Their ${esc(fmtMoney(feeCredit))} application fee stays credited toward their next pup.</p>` : '';
+  const credit = feeCreditAmount(feeCredit) > 0 && kind === 'placed'
+    ? `<p class="field-hint">Their ${esc(fmtMoney(feeCreditAmount(feeCredit)))} application fee stays credited toward their next pup.</p>` : '';
   const money = paid > 0 ? `
       <p style="margin-bottom:4px;">They've paid <strong>${esc(fmtMoney(paid))}</strong> on ${esc(pupName)}'s sale.</p>
       <label class="check-inline" style="display:block;"><input type="radio" name="lp-money" value="carry" checked> Carry it to their next pup</label>

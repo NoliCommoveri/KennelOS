@@ -21,6 +21,9 @@ import { WAITLIST_OPEN_STATUSES, WAITLIST_READY_TIMING, WAITLIST_AUTO_OFFER_TRIG
 export const WAITLIST_CONFIG_DEFAULTS = Object.freeze({
   fee_amount: null,
   fee_credit_policy: 'credited_to_purchase',
+  // A credited fee counts toward 'balance' (the rest of the price) or 'deposit'
+  // (vocab.FEE_CREDIT_TOWARD). Read live, for every family of this kennel.
+  fee_credit_toward: 'balance',
   fee_due_days: null,
   payment_instructions: '',
   // The fee paid online (Integrations plan §4): ask for it at the end of the
@@ -120,7 +123,7 @@ export const waitlistIsSetUp = (kennel) => Object.keys(kennel?.waitlist_config |
 // kennel's live programs; `fmtMoney(n)` formats an amount.
 export function waitlistSummaryLines(config, { programs = [], online = false, fmtMoney = (n) => `$${n}` } = {}) {
   const c = config;
-  const policy = { credited_to_purchase: 'credited to the purchase price', non_refundable: 'non-refundable', refundable: 'refundable' }[c.fee_credit_policy] || '';
+  const policy = { credited_to_purchase: c.fee_credit_toward === 'deposit' ? 'credited toward the deposit' : 'credited to the purchase price', non_refundable: 'non-refundable', refundable: 'refundable' }[c.fee_credit_policy] || '';
   const lines = [];
   lines.push(c.fee_amount != null && Number(c.fee_amount) > 0
     ? `Application fee: ${fmtMoney(c.fee_amount)}${policy ? `, ${policy}` : ''}${c.fee_due_days ? `, due within ${c.fee_due_days} day${Number(c.fee_due_days) === 1 ? '' : 's'} of approval` : ''}.`

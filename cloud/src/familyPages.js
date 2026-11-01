@@ -509,6 +509,8 @@ export function statusView(projection, entryId) {
       deposit_amount: typeof o.deposit_amount === 'number' && Number.isFinite(o.deposit_amount) && o.deposit_amount >= 0 ? o.deposit_amount : null,
       // What their credit for funds already received covers of that deposit.
       ...(typeof o.deposit_credit === 'number' && Number.isFinite(o.deposit_credit) && o.deposit_credit > 0 ? { deposit_credit: o.deposit_credit } : {}),
+      // Their application fee, when she credits it toward the deposit.
+      ...(typeof o.deposit_fee_credit === 'number' && Number.isFinite(o.deposit_fee_credit) && o.deposit_fee_credit > 0 ? { deposit_fee_credit: o.deposit_fee_credit } : {}),
       pups: withPick((l.pups || []).filter((d) => eligible.has(d.id) || d.id === o.picked_dog_id), o),
     };
   });
