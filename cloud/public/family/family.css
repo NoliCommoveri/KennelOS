@@ -44,6 +44,11 @@ body {
   font: 16px/1.5 var(--font);
 }
 main { max-width: 640px; margin: 0 auto; padding: 16px 16px 48px; }
+/* On a phone, cards sit close to the screen's edges and to each other. */
+@media (max-width: 520px) {
+  main { padding: 10px 8px 40px; }
+  .card { margin: 10px 0; }
+}
 header.page { padding: 8px 0 4px; }
 header.page h1 { font-size: 1.45rem; line-height: 1.25; margin: 0 0 2px; overflow-wrap: anywhere; }
 header.page .actions { margin-top: 10px; }

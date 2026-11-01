@@ -2083,3 +2083,5 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **CSV import guide tightened (2026-11-01).** Asked by the owner: on a phone, table.data's own
   cell padding was doubling each block's; those cells now have none, and each block is 6px
   8px with the description right under the name (about a third shorter overall).
+- **Family pages: less space outside the cards on phones (2026-11-01).** Asked by the owner: at
+  520px and under, the page's side margin is 8px (was 16px) and cards are 10px apart (was 14px).
