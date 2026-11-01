@@ -1921,3 +1921,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **Open kennel settings from Settings (2026-11-01).** Asked by the owner: Settings → Your
   kennel has **Open kennel settings →**, straight to the kennel's Overview and Settings page,
   so it isn't reached only through People → Kennels. Not in Lite (no `kennel.html`).
+- **Waitlist settings folded into groups (2026-11-01).** Asked by the owner: the card had
+  grown to ~25 fields in one column. It's now six folded groups under the one Save (Fees &
+  payment; Turns & offers; Passing & readiness; Public list & family pages; Messages to
+  families; Backing out), closed at first, with the open ones kept open across Save. Same
+  fields and ids, so saving is unchanged. New `.settings-group` style in `app.css`. Checked
+  in the browser.

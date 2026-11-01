@@ -1673,7 +1673,11 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
 - **Litter page:** the **Waitlist picks** panel (`assets/waitlistPicksPanel.js`, loaded only
   with the flag): picks open/closed, the open turn and its actions, next up, the litter's
   queue, history. It re-reads the litter after each write.
-- **Kennel page:** the Waitlist settings card. **Contact page:** the family's entries (and the
+- **Kennel page:** the Waitlist settings card: folded groups (`<details class="settings-group">`,
+  closed at first, open ones kept across Save) under one Save: **Fees & payment**, **Turns &
+  offers**, **Passing & readiness**, **Public list & family pages**, **Messages to families**,
+  and **Backing out** (online lists only; the online-only fields inside the other groups
+  likewise). **Contact page:** the family's entries (and the
   waitlist status becomes read-only). **Dashboard:** application and list tiles. **Today:**
   waitlist nudges (§19).
 - **"Almost your turn…"** (`waitlistUI.openSoonNotice`): the families and her editable
