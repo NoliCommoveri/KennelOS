@@ -253,3 +253,6 @@ html.embedded.theme-dark {
 .turn .turn-litter { border-top: 1px solid var(--border); padding-top: 14px; margin-top: 14px; }
 .turn .turn-litter .pups { margin-bottom: 4px; }
 .turn .turn-litter > p:first-child { margin-bottom: 2px; }
+/* A turn's heading and each litter's name, a couple of points larger. */
+.turn h2 { font-size: 1.3rem; }
+.turn .turn-litter > p:first-child strong { font-size: 1.15rem; }
