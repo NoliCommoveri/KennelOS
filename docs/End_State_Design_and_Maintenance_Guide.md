@@ -1204,6 +1204,10 @@ subject (`financials.js` `expenseInScope`).
   When `fee_credit_policy` is `credited_to_purchase` and the family is placed, the fee comes
   off that sale's balance (`saleComponents(sale, feeCredit)`, `getSaleFeeCredit`) so it isn't
   counted twice; invoices and the Companion balance show the credit.
+- **A family's credits for funds already received** (Pro, §29 "Credits"): the credited part
+  of a sale line not yet paid is earned on the credit's date and the rest stays anticipated
+  (`saleComponents(sale, feeCredit, received)`, from `familyCredit(...).received`). Only the
+  ledger passes `received`; `incomeLineItems` keeps each line whole.
 - Vocab: `INCOME_STATES`, `INCOME_SOURCE_TYPES`, `INCOME_COMPONENTS`.
 
 **Per litter:** the Litter page shows a simple Sales & Income panel (each sale's total and
@@ -1654,6 +1658,31 @@ restored into Lite keeps its waitlist rows, dormant.
   entry of theirs claims, given to one entry only (the open one, else the newest). The
   entry page's status card says how many times the family has been on the list, which one
   you're viewing, and links the others.
+- **Credits for funds already received** (`received_credits` on the entry, private;
+  `data/receivedCredits.js`): money she collected from the family outside the app, e.g. a
+  small deposit taken before a litter was born. Each credit is `{ id, amount, date, method?,
+  note?, applies_to }`, `applies_to` from `vocab.CREDIT_USES` (application fee, deposit, rest
+  of the purchase price, extras/transport/boarding), all ticked on a new one. How a credit is
+  used is never stored: `allocateCredits` spreads the credits, oldest first, over the
+  family's charges in that order, each only toward its ticked uses; what's left is their
+  credit remaining. The charges: the fee while unpaid (`feeCharge`; once received, only
+  `fee_credit_amount`, the part a credit paid, which `waitlistActions.feeReceived` records,
+  0 for a fee paid online), then the lines of the sale the credit goes toward
+  (`familyExtras.creditSale`: `familySale`'s pick, a delivered sale included, never a
+  returned/cancelled/voided one, whose credit is theirs again), at full amounts
+  (`incomeView.saleCreditCharges`). `incomeView.familyCredit(entry, sale)` is the result;
+  `getSaleCredits(saleId)`, `getEntryCredit(entryId)` and `getCreditedByLine(source, id)`
+  load it. Taken off wherever an amount is shown to the family: their status page's fee
+  (`fee_due.amount` less `fee_due.credit`; no Pay link then, since it charges the whole fee)
+  and deposit (`offers[].deposit_credit`); the invoice/receipt generator and the default
+  document (each line's "already collected" starts at the credit's share); payment
+  requests (owed lines less it); `contractSend.balanceDueOn`; the Companion remaining
+  balance. In the app: the entry page's **Credits** card (Add / Edit / Remove, used and
+  remaining), the status card and Fee received (Kels's too) say what the credit covers (all
+  of it: the credit's date is prefilled), and the pick and deposit dialogs say what it pays
+  of the deposit. A lost pup's carry-over (`paidBesidesCredits`) and a back-out's moved
+  deposit carry only what was paid beyond the credit, which stays on the entry.
+  Tests: `tests/receivedCredits.test.js`.
 - **`waitlist_programs`:** her named adjustments (fee override, `ahead` priority, pauses
   allowed, passes not counted, longer response window). Only she assigns them.
 - **Settings** live in `Kennel.waitlist_config` (missing keys from

@@ -158,6 +158,7 @@ const PRECACHE_URLS = [
   'data/restoreMatch.js',
   'data/license.js',
   'data/incomeView.js',
+  'data/receivedCredits.js',
   'data/integrationApply.js',
   'data/integrationEvents.js',
   'data/jotformApi.js',

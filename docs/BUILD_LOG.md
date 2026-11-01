@@ -2254,3 +2254,21 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `tests/keeperTests.test.js`. Driven in the browser: Fern (sample data) set to Keeping on
   the Dog page, the prompt listed her seven Boston Terrier tests, Add the tests saved them.
   Not driven in the browser: the Kels and Litter page prompts.
+- **Credits for funds already received (2026-11-01).** A breeder who used to collect small
+  deposits before litters were born (and now collects a larger deposit around four weeks)
+  needed those early payments to count as part of a family's deposit, not all of it. Each
+  waitlist entry can hold credits (`received_credits`: amount, date, method, note, and what
+  it can pay toward: application fee, deposit, rest of the purchase price, extras/transport/
+  boarding, all ticked by default). New `data/receivedCredits.js` (precached) works out,
+  every time, how the credits are used: oldest first, fee → deposit → price → extras. Taken
+  off on the family's status page (fee and deposit; needs a Worker deploy for the page), the
+  invoice/receipt generator and default documents ("already collected" prefilled), payment
+  requests, contract balance due, the Companion balance and Financials (credited part
+  earned on the credit's date). Entry page Credits card; Fee received records the credit's
+  share (`fee_credit_amount`); pick/deposit dialogs say what it covers; lost-pup and
+  back-out carry-overs leave the credit on the entry. Both new fields private in
+  `syncRegistry`. Tests: `tests/receivedCredits.test.js`. Driven in the browser on the
+  sample data: the Credits card, the fee covered in full and in part, the family projection's
+  `fee_due`, a $200 credit on a $500 deposit (invoice: $200 already collected; ledger: $200
+  earned + $300 anticipated; balance due). Not driven: the family status page itself (server
+  render), the invoice generator modal, payment requests, the Kels paths.

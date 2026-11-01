@@ -175,6 +175,8 @@ code. See Q1.
 | `fee_received_date` | | **The position anchor** (§6.1). Cloud tier (§9), so a restore keeps the order. |
 | `fee_payment_method`, `fee_payment_reference` | | Same posture as `Sale.payment_*` |
 | `fee_credit_policy` | | `credited_to_purchase` / `non_refundable` / `refundable`, copied from `waitlist_config` when the entry is approved (Q5) |
+| `received_credits` | | **Modified (2026-11-01):** credits for funds already received outside the app (`{ id, amount, date, method?, note?, applies_to }`), used oldest first toward the fee, deposit, rest of the price, then extras (End-State guide §29, `data/receivedCredits.js`). Private. |
+| `fee_credit_amount` | | **Modified (2026-11-01):** the part of the fee a credit paid, set when the fee is marked received. Private. |
 | `position_anchor_date` | | Optional manual override (§6.1), rarely used. Replaces `fee_received_date` for ordering only. |
 | `pref_sex` | | `any` / `male` / `female` |
 | `pref_purposes` | | **Amended 2026-10-09** (was `pref_placement_type`, one `PLACEMENT_TYPE` value). Any number of `PLACEMENT_PURPOSE` values: pet / performance / show / breeding / co_own. Each maps to the registrations it fits (pet & performance → Limited or None, show → Full, breeding → Full or None, co-own → Co-own); the family accepts the union. Empty = any. Show and breeding overlapped as placements; as purposes they simply both map to Full. |

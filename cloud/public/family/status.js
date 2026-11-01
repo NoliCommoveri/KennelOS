@@ -241,9 +241,20 @@ function turnHtml(rows) {
     const pup = rows.flatMap((r) => r.pups).find((d) => d.id === chosen);
     const amount = o.deposit_amount ?? (pup && o.prices?.deposit ? o.prices.deposit[pup.sex] ?? null : null);
     const deadline = deadlineText(respondBy, v.kennel.time_zone);
+    // Their credit for funds already received pays part (or all) of it.
+    const credit = amount != null && o.deposit_credit > 0 ? Math.min(o.deposit_credit, amount) : 0;
+    const toSend = Math.round((amount - credit) * 100) / 100;
+    if (credit > 0 && toSend <= 0) {
+      return `<div class="deposit-block">
+        <h3>Your deposit</h3>
+        <p class="mt0">Your ${esc(price(amount))} deposit is covered by your credit for funds ${esc(kennel)} already received. Nothing more to send for it.</p>
+        <p class="small muted">${esc(kennel)} will also send your contract and invoice.</p>
+      </div>`;
+    }
     return `<div class="deposit-block">
         <h3>Sending your deposit</h3>
-        ${amount != null ? `<p class="big mt0">${esc(price(amount))}</p>` : ''}
+        ${amount != null ? `<p class="big mt0">${esc(price(credit > 0 ? toSend : amount))}</p>` : ''}
+        ${credit > 0 ? `<p class="small mt0 muted">Deposit ${esc(price(amount))}, less ${esc(price(credit))} already received (your credit).</p>` : ''}
         ${deadline ? `<p class="mt0"><strong>${esc(deadline)}</strong></p>` : ''}
         ${o.deposit_instructions ? `<p class="small muted mt8">How to pay:</p><p class="pre mt0 small">${esc(o.deposit_instructions)}</p>` : ''}
         <p class="small muted">${esc(kennel)} will also send your contract and invoice.</p>
@@ -884,10 +895,15 @@ function mineHtml() {
     }
   }
 
-  if (f.fee_due) {
+  if (f.fee_due && f.fee_due.credit > 0 && !(f.fee_due.amount > 0)) {
+    // Their credit for funds already received pays the whole fee.
+    parts.push(openCard('Your application fee', `
+      <p class="mt0">Your application fee is covered by your credit for funds ${esc(kennel)} already received. ${esc(kennel)} will confirm your place on the list.</p>`));
+  } else if (f.fee_due) {
     const fee = f.fee_due;
     parts.push(openCard('Your application fee', `
       <p class="big mt0">${esc(money(fee.amount))}</p>
+      ${fee.credit > 0 ? `<p class="small mt0 muted">After ${esc(money(fee.credit))} already received (your credit).</p>` : ''}
       ${fee.due_date ? `<p>Please pay by <strong>${esc(fmtDate(fee.due_date))}</strong>.</p>` : ''}
       ${fee.credit_policy ? `<p class="small muted">${esc(CREDIT_LABEL[fee.credit_policy] || '')}</p>` : ''}
       ${fee.pay_url ? `<div class="actions"><a class="button primary" href="${esc(fee.pay_url)}" target="_blank" rel="noopener noreferrer">Pay ${esc(money(fee.pay_amount || fee.amount))} now</a></div>` : ''}

@@ -18,7 +18,7 @@ import { eventRepo } from '../data/eventRepo.js';
 import { contactRepo } from '../data/contactRepo.js';
 import { kennelRepo } from '../data/kennelRepo.js';
 import { getActiveKennel } from '../data/kennelScope.js';
-import { incomeLineItems, getSaleFeeCredit } from '../data/incomeView.js';
+import { incomeLineItems, getSaleFeeCredit, getCreditedByLine } from '../data/incomeView.js';
 import { getMyContactId, getInvoiceDefaults } from '../data/settings.js';
 import { todayYMD } from '../data/dateUtils.js';
 import { waitlistConfig, entryName } from '../data/waitlistRules.js';
@@ -121,12 +121,14 @@ export async function buildInvoiceDoc({ source = 'sale', id, doc = 'invoice', cf
   const liveDue = isSale ? await saleDueDate(record) : (isFee ? (record.fee_due_date || '') : '');
 
   // Config — from the generator, or a full-line default (every cash line, full,
-  // nothing collected, the record's due date).
+  // nothing collected but what the family's credit for funds already received paid,
+  // the record's due date).
   if (!cfg) {
+    const credited = await getCreditedByLine(source, id);
     cfg = {
       number: isFee ? '' : (record.invoice_number || '').trim(),
       notes: isFee ? '' : (record.invoice_notes || '').trim(),
-      lines: [...baseByKey.keys()].map((key) => ({ key, mode: 'full', collected: 0 })),
+      lines: [...baseByKey.keys()].map((key) => ({ key, mode: 'full', collected: Math.min(credited[key] || 0, baseByKey.get(key)) })),
       methods: getInvoiceDefaults().acceptedMethods,
       payMethod: isFee ? (record.fee_payment_method || '') : (record.payment_method || ''),
       payReference: isFee ? (record.fee_payment_reference || '') : (record.payment_reference || '')

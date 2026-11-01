@@ -26,6 +26,9 @@ import { studServiceRepo } from './studServiceRepo.js';
 import { dogRepo } from './dogRepo.js';
 import { contactRepo } from './contactRepo.js';
 import { waitlistEntryRepo } from './waitlistEntryRepo.js';
+import { waitlistOfferRepo } from './waitlistOfferRepo.js';
+import { creditSale } from './familyExtras.js';
+import { creditsOf, feeCharge, allocateCredits, saleCredited } from './receivedCredits.js';
 import { inScopeOnly } from './kennelScope.js';
 import { ourRole } from './studRules.js';
 import { editionFlags } from './editionConfig.js';
@@ -66,7 +69,12 @@ function balancePaid(s) {
 // `feeCredit` is a credited waitlist application fee already received for this
 // sale (Waitlist Spec §5.3) — it was paid toward the price, so it comes off the
 // balance (never below 0).
-function saleComponents(s, feeCredit = 0) {
+// `received` (the Financials ledger only): the family's credits for funds already
+// received toward this sale, { byKey: { lineKey: amount }, date } (familyCredit).
+// The credited part of a component not yet paid is earned (on the credit's date);
+// the rest stays anticipated. Invoices never pass it: their lines stay whole, and
+// the credit prefills what's already collected instead.
+function saleComponents(s, feeCredit = 0, received = null) {
   // Extras she kept when the family backed out (Family Requests plan §7.2) are still
   // owed whatever the sale's status: paid parts earned, the rest anticipated.
   const kept = saleExtraCharges(s).filter((x) => x.kept_after_cancel);
@@ -87,9 +95,14 @@ function saleComponents(s, feeCredit = 0) {
   for (const p of parts) {
     if (!p.amount) continue;
     const named = p.key ? { key: p.key, label: p.label, ...(p.paidDate ? { paid_date: p.paidDate } : {}), ...(p.dueDate ? { due_date: p.dueDate } : {}) } : {};
+    const credited = !dead && !p.paid ? Math.min(num(received?.byKey?.[p.key || p.component]), p.amount) : 0;
     if (dead) {
       if (p.paid) out.push({ component: p.component, ...named, amount: p.amount, state: 'earned' });
       // unpaid remainder of a dead sale → dropped from both totals
+    } else if (credited > 0) {
+      out.push({ component: p.component, ...named, amount: credited, state: 'earned', credited: true, ...(received.date ? { paid_date: received.date } : {}) });
+      const rest = Math.round((p.amount - credited) * 100) / 100;
+      if (rest > 0) out.push({ component: p.component, ...named, amount: rest, state: 'anticipated' });
     } else {
       out.push({ component: p.component, ...named, amount: p.amount, state: p.paid ? 'earned' : 'anticipated' });
     }
@@ -152,9 +165,9 @@ function feeComponents(s, components, gross) {
 
 // The full cash value of a sale while it's open: what its components would sum to
 // before a released status drops the unpaid part. Lost sales count nothing.
-function saleGross(s, feeCredit) {
+function saleGross(s, feeCredit, received = null) {
   const open = RELEASED_SALE_STATUSES.includes(s.status) ? { ...s, status: 'deposit_pending', end_reason: null } : s;
-  return saleComponents(open, feeCredit).reduce((t, c) => t + c.amount, 0);
+  return saleComponents(open, feeCredit, received).reduce((t, c) => t + c.amount, 0);
 }
 
 // Break an outgoing StudService into its components. `fee_amount` is cash —
@@ -180,7 +193,7 @@ function studComponents(s) {
 // back to the sale's own date, so nothing goes undated when a date wasn't kept.
 function saleComponentDate(s, c) {
   const fallback = s.sale_date || s.deposit_date || s.balance_paid_date || '';
-  if (c.component === 'deposit') return s.deposit_date || fallback;
+  if (c.component === 'deposit') return (c.credited && c.paid_date) || s.deposit_date || fallback;
   if (c.state === 'earned') return c.paid_date || s.balance_paid_date || fallback;
   return c.due_date || s.balance_due_date || fallback;
 }
@@ -219,10 +232,13 @@ export function incomeLineItems(sourceType, record, { feeCredit = 0 } = {}) {
 // `asStatus` reads it as of the status it had before (the Sale page knows it);
 // without it, only the recorded paid-dates count. A credited application fee isn't
 // money paid on the sale, so pass `feeCredit` to keep it out of the balance.
-export function paidOnSale(sale, { feeCredit = 0, asStatus = null } = {}) {
+// `received` (familyCredit's { byKey, date }) counts the family's credits for
+// funds already received as paid too: what a balance-due figure wants, never the
+// carry-over (the credit stays theirs).
+export function paidOnSale(sale, { feeCredit = 0, asStatus = null, received = null } = {}) {
   if (!sale) return 0;
   const status = asStatus || (RELEASED_SALE_STATUSES.includes(sale.status) ? 'deposit_pending' : sale.status);
-  return saleComponents({ ...sale, status, end_reason: null }, feeCredit)
+  return saleComponents({ ...sale, status, end_reason: null }, feeCredit, received)
     .filter((c) => c.state === 'earned')
     .reduce((sum, c) => sum + c.amount, 0);
 }
@@ -254,6 +270,88 @@ export async function getSaleFeeCredit(saleId) {
   return feeCreditsBySale(await loadWaitlistEntries(false)).get(saleId) || 0;
 }
 
+// --- Credits for funds already received (receivedCredits.js) ----------------------
+
+const CREDIT_USE_OF = { deposit: 'deposit', balance: 'price', transport: 'extras', boarding: 'extras', extra: 'extras' };
+
+// A sale's charges a family's credit can pay, keyed like its invoice lines, at
+// their full amounts (paid or not: a credit's share of a charge doesn't move once
+// the rest is paid). None for a returned, cancelled or voided sale.
+export function saleCreditCharges(sale, feeCredit = 0) {
+  if (!sale || sale.is_archived || RELEASED_SALE_STATUSES.includes(sale.status)) return [];
+  return saleComponents({ ...sale, status: 'deposit_pending', end_reason: null }, feeCredit)
+    .filter((c) => CREDIT_USE_OF[c.component])
+    .map((c) => ({ key: c.key || c.component, use: CREDIT_USE_OF[c.component], amount: c.amount }));
+}
+
+// How a family's credits are used: their fee, then their sale (`sale` may be null).
+// → receivedCredits.allocateCredits' result plus `date` (the oldest credit's) and
+// `received` ({ byKey, date } of the sale's lines, for saleComponents / paidOnSale),
+// or null with no credits.
+export function familyCredit(entry, sale, feeCredit = 0) {
+  const credits = creditsOf(entry);
+  if (!credits.length) return null;
+  const alloc = allocateCredits(credits, [...feeCharge(entry), ...saleCreditCharges(sale, feeCredit)]);
+  const date = credits[0].date || null;
+  const byKey = Object.fromEntries(Object.entries(alloc.byKey).filter(([k]) => k !== 'fee'));
+  return { ...alloc, date, received: { byKey, date } };
+}
+
+// What a family paid on a sale beyond their credits (the lost-pup carry-over): the
+// credit's share stays on their entry as credit, so carrying it too would count it
+// twice. `asStatus` as paidOnSale's.
+export function paidBesidesCredits(sale, entry, { feeCredit = 0, asStatus = null } = {}) {
+  if (!sale) return 0;
+  const status = asStatus || (RELEASED_SALE_STATUSES.includes(sale.status) ? 'deposit_pending' : sale.status);
+  const credit = entry ? familyCredit(entry, { ...sale, status, end_reason: null }, feeCredit) : null;
+  if (!credit) return paidOnSale(sale, { feeCredit, asStatus });
+  return Math.max(0, Math.round((paidOnSale(sale, { feeCredit, asStatus, received: credit.received }) - saleCredited(credit)) * 100) / 100);
+}
+
+async function loadCreditContext() {
+  if (!editionFlags.waitlist) return null;
+  const [entries, offers, sales] = await Promise.all([waitlistEntryRepo.getAll(), waitlistOfferRepo.getAll(), saleRepo.getAll()]);
+  return { entries, offers, sales };
+}
+
+// The entry whose credits go toward this sale, in a loaded context.
+function creditEntryFor(sale, ctx) {
+  if (!ctx || !sale) return null;
+  return ctx.entries.find((e) => creditsOf(e).length && creditSale(e, ctx.sales, ctx.offers, ctx.entries)?.id === sale.id) || null;
+}
+
+// Everything a document about one sale takes off: the credited application fee
+// and the family's credits. → { feeCredit, credit (familyCredit or null), entry }
+export async function getSaleCredits(saleId) {
+  const [feeCredit, ctx] = await Promise.all([getSaleFeeCredit(saleId), loadCreditContext()]);
+  const sale = ctx?.sales.find((s) => s.id === saleId) || null;
+  const entry = creditEntryFor(sale, ctx);
+  return { feeCredit, credit: entry ? familyCredit(entry, sale, feeCredit) : null, entry };
+}
+
+// One entry's credits as its page shows them, with the sale they go toward.
+// → { credit (familyCredit or null), sale, feeCredit }
+export async function getEntryCredit(entryId) {
+  const ctx = await loadCreditContext();
+  const entry = ctx?.entries.find((e) => e.id === entryId) || null;
+  if (!entry) return { credit: null, sale: null, feeCredit: 0 };
+  const sale = creditSale(entry, ctx.sales, ctx.offers, ctx.entries);
+  const feeCredit = sale ? feeCreditsBySale(ctx.entries).get(sale.id) || 0 : 0;
+  return { credit: familyCredit(entry, sale, feeCredit), sale, feeCredit };
+}
+
+// What a family's credits for funds already received have paid on each line of a
+// document (invoice / receipt / payment request), keyed like incomeLineItems:
+// a sale's lines, or a fee's `application_fee`. {} when none.
+export async function getCreditedByLine(source, id) {
+  if (source === 'sale') return (await getSaleCredits(id)).credit?.received.byKey || {};
+  if (source === 'waitlist') {
+    const fee = (await getEntryCredit(id)).credit?.byKey.fee || 0;
+    return fee > 0 ? { application_fee: fee } : {};
+  }
+  return {};
+}
+
 // Build the one-per-record income rows. Each carries its component breakdown (each
 // component with the `when` it's filed under, saleComponentDate) plus
 // the rolled-up earned / anticipated (cash) and pick (non-cash) totals, the raw
@@ -264,13 +362,15 @@ export async function getSaleFeeCredit(saleId) {
 // else and the active scope applies (Multi-Kennel Scope Spec §7/§8).
 export async function getIncomeRows({ includeArchived = false, kennelId = null } = {}) {
   const scopeTo = (list) => (kennelId ? list.filter((r) => r.kennel_id === kennelId) : inScopeOnly(list));
-  const [sales, studs, dogs, contacts, entries] = await Promise.all([
+  const [sales, studs, dogs, contacts, entries, offers] = await Promise.all([
     saleRepo.getAll({ includeArchived }),
     studServiceRepo.getAll({ includeArchived }),
     dogRepo.getAll({ includeArchived: true }),
     contactRepo.getAll({ includeArchived: true }),
-    loadWaitlistEntries(includeArchived)
+    loadWaitlistEntries(includeArchived),
+    editionFlags.waitlist ? waitlistOfferRepo.getAll() : []
   ]);
+  const creditCtx = { entries: entries.filter((e) => !e.is_archived), offers, sales };
   // Credits come from ALL entries (not just in-scope ones): a sale's credit is a
   // fact about that sale, whichever kennel the app is scoped to.
   const creditBySale = feeCreditsBySale(entries);
@@ -289,13 +389,15 @@ export async function getIncomeRows({ includeArchived = false, kennelId = null }
   // dog's), and both are pass-throughs when unscoped.
   for (const s of scopeTo(sales)) {
     const feeCredit = creditBySale.get(s.id) || 0;
+    const creditEntry = creditEntryFor(s, creditCtx);
+    const received = creditEntry ? familyCredit(creditEntry, s, feeCredit)?.received || null : null;
     // `due` is only a due date she actually set (the balance's), for Receivables'
     // aging; `when` always has a date, for filing by month.
-    const cash = saleComponents(s, feeCredit).map((c) => ({
+    const cash = saleComponents(s, feeCredit, received).map((c) => ({
       ...c, when: saleComponentDate(s, c), due: c.state === 'anticipated' && c.component !== 'deposit' ? c.due_date || s.balance_due_date || '' : ''
     }));
     if (!cash.length) continue; // no money on this sale — nothing to show
-    const components = [...cash, ...feeComponents(s, cash, saleGross(s, feeCredit))];
+    const components = [...cash, ...feeComponents(s, cash, saleGross(s, feeCredit, received))];
     rows.push({
       source_type: 'sale',
       source_id: s.id,

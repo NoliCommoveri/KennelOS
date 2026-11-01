@@ -21,6 +21,7 @@
 // waitlistRules), or a shared dialog (offerEmails for every "email the family",
 // communicateDialog, pickDialog / depositDialog, salePrompts, restoreLostPupDialog).
 import { kennelRepo } from '../data/kennelRepo.js';
+import { getEntryCredit } from '../data/incomeView.js';
 import { contactRepo } from '../data/contactRepo.js';
 import { dogRepo } from '../data/dogRepo.js';
 import { litterRepo } from '../data/litterRepo.js';
@@ -994,8 +995,11 @@ class Review {
         await this.chat.say('Their application is closed. They can re-apply later.');
         continue;
       }
+      // Their credit for funds already received pays this much of it.
+      const feeCredit = (await getEntryCredit(e.id)).credit?.byKey.fee || 0;
+      const creditLead = feeCredit > 0 ? ` ${esc(fmtMoney(feeCredit))} of it is paid by their credit for funds already received.` : '';
       const res = await this.chat.form({
-        title: `<strong>${esc(this.name(e))}'s fee</strong><span class="kels-lead">The date sets their place in line.</span>`,
+        title: `<strong>${esc(this.name(e))}'s fee</strong><span class="kels-lead">The date sets their place in line.${creditLead}</span>`,
         html: `<div class="ck-inline">
             ${field('Date received', `<input id="wr-fr-date" type="date" value="${esc(this.today)}">`)}
             ${e.fee_amount != null ? field('Amount', `<input id="wr-fr-amt" type="number" min="0" step="0.01" value="${esc(e.fee_amount)}">`) : ''}
