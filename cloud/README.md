@@ -14,6 +14,7 @@ src/api.js             the API's routes (plan §6.1)
 src/auth.js            sign-in codes, sessions, sign out
 src/ratelimit.js       5 codes/hour per address, 30/hour per IP (both HMAC'd)
 src/mail.js            sending a code through Resend; without a key, staging's DEV_OUTBOX shows it on /ops.
+                       Every Resend send is counted in mail_counts (month, kind; counts only) for /ops.
                        Emails to waitlist families go out in the kennel's name from
                        MAIL_FAMILY_DOMAIN (each kennel's address claimed in wl_senders), no Reply-To
 src/files.js           content-addressed files; R2 verifies the sha256
@@ -98,7 +99,8 @@ src/notify.js          the breeder's notifications (docs/KennelOS_Notifications_
                        VAPID_PRIVATE_JWK (generate on /ops); optional vars VAPID_SUBJECT, APP_URL
 src/geo.js             driving miles through Mapbox (docs/KennelOS_Family_Requests_Plan.md §5): geocode
                        two addresses, one Matrix element → { miles, minutes }; POST /geo/distance (her
-                       app, signed in, 60/hour) and familyActions' measuring of a family's own address
+                       app, signed in, 60/hour) and familyActions' measuring of a family's own address;
+                       checkMapbox: /ops's live key check (Denver → Boulder, no one's address)
                        or home (6/hour per family). Nothing stored, addresses never logged. Secret
                        MAPBOX_TOKEN; without it 503 geo_off and nothing is measured
 src/notice.js          service notices (public /notice; set on /ops)
@@ -108,7 +110,8 @@ src/retention.js       the daily prune and GC; pickDrops is the pure rule; sweep
                        more than 1000 in one run deletes none (D1 may not be the real index)
 src/backup.js          /ops export/import of the D1 rows (not R2)
 src/gate.js            503 {maintenance:true} until every bundled migration is applied
-src/ops.js             /ops: sign-in, migrations, health, outbox, notices, retention, export/import
+src/ops.js             /ops: sign-in, migrations, health (incl. the Mapbox key), emails sent month to date,
+                       outbox, notices, retention, export/import
 src/migrate.js         the runner (ported from MCCE): status, drift, atomic apply
 src/health.js          bindings, secrets present, schema version, row counts
 src/lib/cors.js        the allowed origins (Lite, Pro, localhost)

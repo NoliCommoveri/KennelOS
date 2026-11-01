@@ -117,14 +117,28 @@ export function publicListHtml(rows, query = '', mine = null) {
   if (!rows.length) return '<p class="muted">No families to show right now.</p>';
   if (!shown.length) return `<p class="muted">No one on the list matches "${esc(query)}".</p>`;
   const rowClass = (r) => [r.position === mine && 'mine', r.deciding && 'deciding'].filter(Boolean).join(' ');
+  // The date added is a bubble on the ⓘ at the row's end (hover, focus or tap),
+  // not a column (asked by the owner, 2026-11-01).
+  const added = (r) => (r.added ? `<button type="button" class="added-tip" aria-label="Added ${esc(fmtDate(r.added))}" data-tip="Added ${esc(fmtDate(r.added))}">i</button>` : '');
+  const wants = (r) => [SEX_LABEL[r.pref_sex] || 'Either', ...(Array.isArray(r.wants_more) ? r.wants_more : [])].map(esc).join(' · ');
   const body = shown.map((r) => `<tr${rowClass(r) ? ` class="${rowClass(r)}"` : ''}>
       <td class="num">#${esc(r.position)}</td>
       <td>${r.deciding ? `<em>${esc(r.name)}</em>` : esc(r.name)}${r.position === mine ? ' <span class="badge">You</span>' : ''}</td>
-      <td>${r.skipped ? `<em>${esc(r.skipped_until ? `Skipped until ${fmtDate(r.skipped_until)}` : 'Skipped for now')}</em>` : esc(SEX_LABEL[r.pref_sex] || 'Either')}</td>
-      <td class="small">${esc(fmtDate(r.added))}</td></tr>`).join('');
+      <td>${r.skipped ? `<em>${esc(r.skipped_until ? `Skipped until ${fmtDate(r.skipped_until)}` : 'Skipped for now')}</em>` : wants(r)}</td>
+      <td class="tip">${added(r)}</td></tr>`).join('');
   const gaps = rows.some((r, i) => r.position !== i + 1);
-  return `<table class="list"><thead><tr><th>#</th><th>Name</th><th>Wants</th><th>Added</th></tr></thead><tbody>${body}</tbody></table>
+  return `<table class="list"><thead><tr><th>#</th><th>Name</th><th>Wants</th><th class="tip"><span class="sr-only">Added</span></th></tr></thead><tbody>${body}</tbody></table>
     ${gaps ? '<p class="small muted">Note: in special circumstances, some applicant names may not be displayed above. Their place is being held, but they are not currently eligible for available pups.</p>' : ''}`;
+}
+
+// A tap on an ⓘ opens its bubble (touch screens have no hover); a tap anywhere
+// else closes it. One listener for every list on the page.
+if (typeof document !== 'undefined') {
+  document.addEventListener('click', (ev) => {
+    const tip = ev.target instanceof Element ? ev.target.closest('.added-tip') : null;
+    for (const t of document.querySelectorAll('.added-tip.open')) if (t !== tip) t.classList.remove('open');
+    if (tip) tip.classList.toggle('open');
+  });
 }
 
 // A pairing or litter before picks open (Waitlist Spec §16.4): its parents with
@@ -154,8 +168,26 @@ export function upcomingWhen(u) {
   return u.expected_whelp_date ? `Expected ${fmtShortDate(u.expected_whelp_date)}` : 'Expected';
 }
 
+// A planned heat's month, "March 2027", from YYYY-MM. Never a day: only the month
+// is published, and it's an estimate.
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+export function fmtMonthYear(ym) {
+  const m = /^(\d{4})-(\d{2})$/.exec(String(ym ?? ''));
+  return m && MONTHS[Number(m[2]) - 1] ? `${MONTHS[Number(m[2]) - 1]} ${m[1]}` : '';
+}
+export const HEAT_DISCLAIMER = 'Heat dates are estimates: the month shown is approximate and can shift.';
+
 export function upcomingItemHtml(u, extra = '') {
+  if (u.kind === 'planned_heat') {
+    const month = fmtMonthYear(u.expected_month);
+    return litterHtml({ breed: u.breed, name: parentText(u.dam) || u.label, when: month ? `Upcoming heat · estimated around ${month}` : 'Upcoming heat', extra });
+  }
   return litterHtml({ breed: u.breed, name: u.label, dam: u.dam, sire: u.sire, when: upcomingWhen(u), extra });
+}
+
+// Under a Coming up list: plans can change, and heat months are estimates.
+export function upcomingFootHtml(rows) {
+  return `<p class="small muted">Plans can change.${rows.some((u) => u.kind === 'planned_heat') ? ` ${esc(HEAT_DISCLAIMER)}` : ''}</p>`;
 }
 
 // "Born 09/01/2026 · Ready 10/27/2026" (Available Puppies).
@@ -188,7 +220,7 @@ export function availableItemHtml(l, extra = '') {
 export function upcomingListHtml(rows) {
   if (!rows.length) return '';
   return `<ul class="plain">${rows.map((u) => `<li>${upcomingItemHtml(u)}</li>`).join('')}</ul>
-    <p class="small muted">Plans can change.</p>`;
+    ${upcomingFootHtml(rows)}`;
 }
 
 // The family pages' own yes/no dialog, in place of the browser's window.confirm

@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import {
   waitlistConfig, WAITLIST_CONFIG_DEFAULTS, autoOffers, autoOfferSummary, closingTrigger, feeForEntry, isFeeWaived, feeDueDate, respondByDate,
   anchorDate, isMovedByBreeder, rankedList, overallPositions,
-  isPupAvailable, pupMatchesPrefs, prefColorTokens, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, isListeningFor, isListenOnly, eligiblePupsFor, showUpcoming, upcomingItems, depositsDueLitters, placeHidden, prefPlaces, prefCovers, narrowedPrefFields, whelpNotes, readyCheck, readyCheckLapsed, readyCheckOverdue, canUndoRemoval as canUndo,
+  isPupAvailable, pupMatchesPrefs, prefColorTokens, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, isListeningFor, isListenOnly, eligiblePupsFor, showUpcoming, upcomingItems, plannedHeats, depositsDueLitters, placeHidden, prefPlaces, prefCovers, narrowedPrefFields, whelpNotes, readyCheck, readyCheckLapsed, readyCheckOverdue, canUndoRemoval as canUndo,
   litterQueue, nextFamilyForLitter, hasOpenOffer, turnSpent,
   countsAsPass, passesUsed, shouldRemoveForPasses, canUndoRemoval, passToForgive,
   overdueOffers, overdueFees, deriveContactWaitlistStatus, contactMatches, entryName,
@@ -814,7 +814,7 @@ test('canSwitchAcceptedPick: blocked once another family has been offered a turn
 
 test('showUpcoming (Spec §16.4): every stage off unless switched on, each place apart', () => {
   const off = { public: false, family: false };
-  assert.deepEqual(showUpcoming(waitlistConfig({})), { planned_pairings: off, pairings: off, early_litters: off });
+  assert.deepEqual(showUpcoming(waitlistConfig({})), { planned_heats: off, planned_pairings: off, pairings: off, early_litters: off });
   assert.deepEqual(showUpcoming({ show_upcoming: { pairings: { family: true, public: 'yes' } } }).pairings, { public: false, family: true });
 });
 
@@ -1011,4 +1011,30 @@ test('chosenOrderChanges: her order among new families, a moved-by-breeder date 
   assert.equal(moved[2].changes.position_anchor_date, undefined);
   const applied = [b, a, c].map((e, i) => ({ ...e, ...moved[i].changes }));
   assert.deepEqual([...applied].sort((x, y) => compareEntries(x, y, new Map())).map((e) => e.id), ['b', 'a', 'c']);
+});
+
+test('plannedHeats (Spec §16.4): future heats of her active breeding females, as the month only, once per dam per month', () => {
+  const k = { id: 'k1' };
+  const dogs = [
+    { id: 'jun', kennel_id: 'k1', sex: 'female', status: 'active_breeding' },
+    { id: 'wil', kennel_id: 'k1', sex: 'female', status: 'active_breeding' },
+    { id: 'ret', kennel_id: 'k1', sex: 'female', status: 'retired' },
+    { id: 'far', kennel_id: 'k2', sex: 'female', status: 'active_breeding' }
+  ];
+  const heat = (id, subject_id, event_date, extra = {}) => ({ id, subject_type: 'dog', subject_id, event_type: 'heat_cycle', event_date, ...extra });
+  const events = [
+    heat('h1', 'jun', '2027-03-14'),
+    heat('h2', 'jun', '2027-03-20'),
+    heat('h3', 'wil', '2027-01-05'),
+    heat('h4', 'jun', '2026-11-01'),
+    heat('h5', 'jun', '2026-06-01'),
+    heat('h6', 'wil', '2027-02-01', { is_archived: true }),
+    heat('h7', 'ret', '2027-02-01'),
+    heat('h8', 'far', '2027-02-01'),
+    { id: 'x', subject_type: 'dog', subject_id: 'jun', event_type: 'vet_visit', event_date: '2027-02-01' }
+  ];
+  assert.deepEqual(plannedHeats(k, { dogs, events, today: '2026-11-01' }), [
+    { id: 'h3', kind: 'planned_heat', stage: 'planned_heats', dam_id: 'wil', month: '2027-01' },
+    { id: 'h1', kind: 'planned_heat', stage: 'planned_heats', dam_id: 'jun', month: '2027-03' }
+  ]);
 });

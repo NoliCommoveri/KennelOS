@@ -703,6 +703,20 @@ with its breed (`preferred_test_breeds`), creating no records. Both wizards (ken
 import page and kennel setup) use `assets/breedTestPicker.js`. Breed-scoped consumers read
 `kennelRepo.testsForBreed`, so a dog only inherits tests for its breed plus untagged ones.
 
+### Logging completed tests (`data/healthTestLog.js`)
+Pure helpers the Dog page's Planned Tests card and Kels's "Log health test results" share.
+A test's name always goes in its type's name field (`genetic_test.panel_name`,
+`ofa_pennhip.joint`, `breed_specific_test.test_name`; `TEST_TYPE_FIELDS`), so
+`eventRepo.testTokensOf` reads it back as planned and the planned test counts as logged
+(Dog page, Health-Testing Gaps). The type only files it: `testTypeFor` takes the type she
+used most for that name before, else `guessTestType` (OFA / PennHIP / hips / elbows → OFA /
+PennHIP; DNA, panels and common genetic tests → Genetic; else Breed-specific).
+`testPrefill` is the Dog page's event-form prefill, `testEvent` the event Kels saves
+(result in `result`, or `rating` for OFA; `lab` only for Genetic), and `unloggedPlanned` a
+dog's planned tests with no result (`breedingReports.testGapRows`, archived results not
+counted). On the Dog page each unlogged planned test has **Log result**: the event form
+with the type, today, the title and the name field filled in.
+
 ### Kennel setup (`data/kennelSetup.js`)
 A **mandatory gate**: the app isn't usable until an own kennel exists
 (`shouldRequireKennelSetup()`), and `app.js` reopens the modal on every load until then.
@@ -1629,7 +1643,15 @@ it computes is stored.**
 - **Answer changes:** every change to `PREF_CHANGE_FIELDS` after `applied` is logged in
   `pref_change_log`. A narrower answer that would affect an open offer or next-in-line
   litter asks to confirm (`prefChangeEffect`).
-- **Public list** (`publicList`): `{ position, name, pref_sex, added }` only. Names are
+- **Public list** (`publicList`): `{ position, name, pref_sex, wants_more?, added }` only.
+  `wants_more` (`publicWantsMore`, absent when empty) is what else the family narrowed, as
+  short strings after the sex under "Wants": their breed only when the kennel has more than
+  one (`kennelBreeds`), "Full registration" when their purposes take Full but rule out
+  Limited, their colors only with `color_matching` on, and listen-only parents ("Only from
+  Ash or Juniper" / "Not from Juniper", by call name). Open answers never show. Online, the
+  date added is an ⓘ bubble at the row's end (hover, focus or tap), not a column; the
+  copied text leaves it out. The Worker passes `wants_more` on as at most 6 strings of 200
+  characters. Names are
   "First L." (`publicName`) or masked "A***** K" (`privateName`) when `private_listing`.
   **Paused families are left out and their numbers skipped**, and no family count is shown.
   With `waitlist_config.public_show_paused` on (Waitlist settings, "Show paused families on
@@ -1639,7 +1661,7 @@ it computes is stored.**
   `skipped_until` is `pausedUntil`: `paused_until`, or the readiness hold's
   `readyFromDate`, the later when both; null ("Skipped for now") when the hold has no end yet.
   The turn holder's row reads `DECIDING_LABEL` ("Currently deciding"). `publicListText`
-  is the copyable text version.
+  is the copyable text version (position, name, wants; no date added).
 - **"Almost your turn"** (`soonFamiliesForLitter` / `soonFamiliesForKennel`): the queue, one
   family per available pup; a family mid-turn elsewhere holds room but isn't notified.
 - `describeOfferChanges` turns any action's result into the lines every screen shows, so
@@ -1889,7 +1911,9 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
 - **"Ready now?"** (`readyCheck`): for holds ending while online; `sweepReadyChecks` removes
   non-answerers under `remove_after`, Today lists them under `keep_paused`.
 - **Before picks open:** `show_upcoming` switches publish pairings and early litters
-  (`upcomingItems`); a born litter gives each family a match / review note (`whelpNotes`).
+  (`upcomingItems`) and planned heats (`plannedHeats`: future-dated `heat_cycle` events of
+  active breeding females, as `expected_month` `YYYY-MM` only, never the day; no waiting or
+  "Not this litter", and the server refuses a prepass on one); a born litter gives each family a match / review note (`whelpNotes`).
   Today suggests **Open picks** when a litter's `accept_deposits_date` arrives
   (`depositsDueLitters`).
 - **On her website** (Integrations plan §1): with `waitlist_config.embed`, the projection
@@ -2181,7 +2205,8 @@ the tidy-up's and Add people's); and the breed picker, `breedPicker` +
 choices, and **➕ A new breed** opening a box, so a breed she has is never retyped; Add dogs'
 "in common" and each dog, the litter task's new mom or dad): the tidy-up's "Add their kennel" and "Add a
 contact", the litter task's outside parent's owner and kennel, Add dogs' breeder),
-`assets/guidedLitterUI.js` + `data/guidedLitter.js` (the litter task), `assets/guidedDogsUI.js`
+`assets/guidedLitterUI.js` + `data/guidedLitter.js` (the litter task),
+`assets/healthTestsUI.js` + `data/healthTestLog.js` (log health test results), `assets/guidedDogsUI.js`
 + `data/guidedDogs.js` (add dogs), `assets/guidedPeopleUI.js` (Pro-only) + `data/guidedPeople.js`
 (add people), `assets/kelsApplicant.js` (Pro-only, the applicant step below),
 `data/contactSearch.js` (`findContactMatches`, the one way every place asks whether a person
@@ -2720,6 +2745,21 @@ Each thing is saved as she approves it.
    "Any other preventatives to log?" (**Log another** / **No, that's all**), repeated, each
    later form ticking the dogs she picked last time. With none missing it asks first
    whether to log one (flea & tick, say).
+
+### "Log health test results"
+`assets/healthTestsUI.js` + `data/healthTestLog.js` (above), all editions, offered with any
+dog to test (hers, not pedigree-only or deceased); priority 42 while a dog has planned tests
+with no result, else 28. Each result is saved as she approves it.
+1. **Which dog:** her dogs at home and any with unlogged planned tests (those first, each
+   noting "N planned to log"; the first message names them), **Another dog** (the rest, by
+   search), **Never mind** / **No, that's all**.
+2. **Which test:** the dog's unlogged planned tests as choices, **A different test** (or
+   **Log a test** when none are planned), **Done with <dog>**.
+3. **The form:** Test (her preferred tests and every test name she's logged as
+   suggestions), Kind (`testTypeFor`; typing another test moves it until she picks one),
+   Date (today), Result (OFA's rating), Lab (Genetic only) → `testEvent`. "Logged, and
+   ticked off <dog>'s plan" when it was planned. Then another result for that dog, then
+   another dog.
 
 ### "Check in on a litter"
 Each thing she approves is saved at once; there is no draft.

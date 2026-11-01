@@ -37,6 +37,7 @@ const projection = (extra = {}) => ({
   upcoming: [
     { id: 'pair1', kind: 'pairing', pairing_id: 'pair1', litter_id: null, public: false, family: true },
     { id: 'pair2', kind: 'planned_pairing', pairing_id: 'pair2', litter_id: null, public: true, family: false },
+    { id: 'heat1', kind: 'planned_heat', pairing_id: null, litter_id: null, expected_month: '2027-03', public: true, family: true },
   ],
   ...extra,
 });
@@ -204,6 +205,7 @@ test('"Not this litter" before picks open: only on what she shows on family page
   const { env, bo } = await setup();
   assert.equal(await err(await act(env, bo, tok('b'), 'prepass', { litter_id: 'l3', reason_id: 'timing' })), 'not_listed', 'picks not open and not shown');
   assert.equal(await err(await act(env, bo, tok('b'), 'prepass', { pairing_id: 'pair2', reason_id: 'timing' })), 'not_listed', 'shown publicly only');
+  assert.equal(await err(await act(env, bo, tok('b'), 'prepass', { pairing_id: 'heat1', reason_id: 'timing' })), 'not_listed', 'a planned heat is no litter to pass on');
   assert.equal((await act(env, bo, tok('b'), 'prepass', { pairing_id: 'pair1', reason_id: 'timing' })).status, 200);
 });
 

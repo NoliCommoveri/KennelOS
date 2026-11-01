@@ -2043,3 +2043,60 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Waitlist settings, the own-place dropdown, the entry Timeline, records per pup and their
   links, turn prices and deposits, Sending your deposit, open days and closed dates). The
   family pages and server changes need a Worker deploy.
+- **Planned heats on Coming up (2026-11-01).** Asked by the owner: future-dated heat cycles
+  show as coming up on the public list and family status pages, month and year only, with an
+  "estimated around" disclaimer. A fourth `show_upcoming` stage, `planned_heats` (off by
+  default, a Public list and a Family pages switch like the others). `plannedHeats` in
+  `waitlistRules.js` (active breeding females of the kennel, event after today, once per dam
+  per month); the projection publishes `expected_month` (`YYYY-MM`) and never the day;
+  `projectionFor` now also reads `heat_cycle` events. The Worker passes `expected_month`
+  through only as `YYYY-MM`, gives heats no waiting, and refuses a prepass on one. Family
+  pages: "Upcoming heat · estimated around March 2027" under the dam's name, and "Heat dates
+  are estimates: the month shown is approximate and can shift." under the list. Tests in
+  `waitlistRules`, `waitlistProjection`, cloud `familyPages` and `familyActions`.
+- **Public list: more under Wants, date added as a bubble (2026-11-01).** Asked by the owner.
+  Copy the list as text drops "added <date>". Online, the Added column is gone; each row ends
+  with an ⓘ whose bubble says "Added <date>" on hover, focus or tap (one document click
+  listener in `common.js`; CSS in `family.css`). "Wants" adds, after the sex, only what a
+  family narrowed (`publicWantsMore`, a row's `wants_more`): breed when the kennel has more
+  than one, "Full registration" when their purposes rule out Limited (show, breeding),
+  colors with color matching on, and listen-only parents ("Only from …" / "Not from …").
+  Same in the copied text; the publish page's hint says so. The Worker keeps `wants_more`
+  to 6 short strings. Tests in `waitlistForm`, `familyPages` (root and cloud). Needs a
+  Worker deploy for the online list.
+- **/ops: emails sent month to date, and the Mapbox key (2026-11-01).** Asked by the owner.
+  Migration `0019_mail_counts` (month UTC, kind, sent, failed, first_at; counts only, not in
+  the D1 export). Every Resend send now goes through `mail.resendSend`, which counts it by
+  kind (code, family, digest, notice, test); a count never fails a send. /ops shows the
+  month's total, failures and a row per kind, and from when counting began (nothing before
+  `0019` was counted). Health has **Driving miles (Mapbox)**: off, working (a live geocode of
+  Denver and one Matrix element to Boulder, no one's address) or not working with Mapbox's
+  HTTP status and message and what to do. Tests in cloud `mail` and `ops-sections`.
+- **Public list tightened (2026-11-01).** Asked by the owner: the list's card has less padding
+  (6px 10px) and the number column sits close to the name, sized to fit "#999" in bold on one
+  line (checked at 320px and 390px wide: no wrap, no spill, no sideways scroll).
+- **CSV import guide fits a phone (2026-11-01).** Asked by the owner: the "What should my file
+  look like?" table no longer scrolls sideways. Column names wrap after underscores; the
+  "Required for new records" pill is "New records" (the key under the table explains it);
+  the header reads Need. At 640px and under, each column is one block: name and pill on one
+  line, what goes in it full width below (`table.ih-cols` in `app.css`).
+- **CSV import guide tightened (2026-11-01).** Asked by the owner: on a phone, table.data's own
+  cell padding was doubling each block's; those cells now have none, and each block is 6px
+  8px with the description right under the name (about a third shorter overall).
+- **Family pages: less space outside the cards on phones (2026-11-01).** Asked by the owner: at
+  520px and under, the page's side margin is 8px (was 16px) and cards are 10px apart (was 14px).
+- **Logging completed health tests (2026-11-01).** Asked by the owner. New pure
+  `data/healthTestLog.js` (test type from past use or the name, the event, a dog's unlogged
+  planned tests via `testGapRows`). Dog page: each unlogged planned test has **Log result**,
+  opening the event form with the type, today, title and name field filled in; saved, the
+  row leaves the card. Kels: **Log health test results** (`assets/healthTestsUI.js`, all
+  editions): dog → planned test or another → test, kind, date, result, lab (Genetic only),
+  saved at once; ticks the plan. Both new files precached. Tests:
+  `tests/healthTestLog.test.js`; both checked in the browser on the sample data. Seen while
+  checking: the Dog page throws a Dexie `SchemaError` on load with the sample data, before
+  this change too (not looked into).
+- **SW cache bumped to `kennelos-shell-v90` (2026-11-01).** This session's app changes ride it:
+  planned heats on Coming up (the projection side), the public list's narrowed Wants and
+  copied text, the CSV import guide on phones, and logging completed health tests (Log
+  result on planned tests, Kels's Log health test results). The family pages and /ops
+  changes need a Worker deploy, then Apply pending (`0017`, `0019`) on /ops.

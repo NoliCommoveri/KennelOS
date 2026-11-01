@@ -15,7 +15,8 @@ import { healthCheck } from './health.js';
 import { activeNotices, addNotice, removeNotice, LEVELS } from './notice.js';
 import { runRetention } from './retention.js';
 import { exportAll, importAll } from './backup.js';
-import { mailMode, sendTestEmail } from './mail.js';
+import { mailMode, sendTestEmail, mailCountsThisMonth } from './mail.js';
+import { checkMapbox } from './geo.js';
 import { hmacHex, timingSafeEqual } from './lib/crypto.js';
 import { readCookie } from './lib/http.js';
 import { escapeHtml as esc } from './lib/html.js';
@@ -88,6 +89,16 @@ function errorPage(err) {
   );
 }
 
+// The Mapbox check (geo.checkMapbox), checked live each time /ops loads.
+function mapboxRow(m) {
+  if (m.state === 'off') return 'off: secret <code>MAPBOX_TOKEN</code> is not set; the app shows an Open in Maps link instead of miles';
+  if (m.state === 'ok') return `<span class="ok">working</span> <span class="muted">(test: Denver to Boulder, ${esc(m.miles)} mi)</span>`;
+  const hint = m.status === 401 ? ' The token is wrong or was deleted: copy it again from Mapbox and replace the secret.'
+    : m.status === 403 ? ' The token isn\'t allowed this API or this URL: check its scopes and URL restrictions in Mapbox.'
+      : m.status === 429 ? ' Over the rate limit right now; try again shortly.' : '';
+  return `<span class="bad">not working</span> <span class="muted">(${esc(m.step === 'route' ? 'driving distance' : m.step === 'geocode' ? 'address lookup' : 'network')}${m.status ? `, HTTP ${esc(m.status)}` : ''}${m.message ? `: ${esc(m.message)}` : ''}).${esc(hint)}</span>`;
+}
+
 const yesNo = (v) => (v ? '<span class="ok">yes</span>' : '<span class="bad">no</span>');
 
 async function dashboard(env, flash) {
@@ -137,6 +148,7 @@ ${migrations.some((m) => m.state === 'drifted' || m.state === 'orphaned')
   <tr><td>Email sending</td><td>${health.mail === 'resend' ? '<span class="ok">Resend</span>'
     : health.mail === 'outbox' ? 'staging outbox (codes shown below, not emailed)'
     : '<span class="bad">none: sign-in is refused until <code>RESEND_API_KEY</code> is set</span>'}</td></tr>
+  <tr><td>Driving miles (Mapbox)</td><td>${mapboxRow(await checkMapbox(env))}</td></tr>
   <tr><td>App alerts (web push)</td><td>${health.push ? '<span class="ok">ready</span>'
     : 'off: secret <code>VAPID_PRIVATE_JWK</code> is not set (generate it below); the app says alerts aren\'t available yet'}</td></tr>
   <tr><td>Schema version</td><td>${esc(health.schema_version ?? 'none')}</td></tr>
@@ -176,6 +188,18 @@ ${results.length
 Variables and Secrets and add <code>VAPID_PRIVATE_JWK</code> as a <em>Secret</em> with the text shown. Changing it later
 silences every device until each turns alerts on again.</p>
 <form method="post" action="/ops/push-keys"><button type="submit">Generate push keys</button></form>`;
+
+  // Emails sent month to date (mail_counts, migration 0019): counts only.
+  const mc = await mailCountsThisMonth(env);
+  const KIND_LABEL = { code: 'Sign-in and link codes', family: 'Emails to families', digest: 'Email digests', notice: 'Account notices', test: 'Test emails' };
+  const monthName = new Date(`${mc.month}-01T00:00:00Z`).toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  const mailCounts = `<h2>Emails sent: ${esc(monthName)}, month to date</h2>
+<p><strong style="font-size:1.4rem">${esc(mc.sent)}</strong> sent${mc.failed ? ` · <span class="bad">${esc(mc.failed)} failed</span>` : ''}</p>
+<table><tr><th>kind</th><th>sent</th><th>failed</th></tr>${Object.entries(mc.kinds)
+    .map(([k, v]) => `<tr><td>${esc(KIND_LABEL[k] ?? k)}</td><td>${esc(v.sent)}</td><td class="${v.failed ? 'bad' : 'muted'}">${esc(v.failed)}</td></tr>`).join('')}</table>
+<p class="muted">Each counts one recipient, as Resend's monthly quota does. Months are UTC.
+${mc.countingSince ? `Counted since ${esc(mc.countingSince.slice(0, 10))}; earlier sends weren't counted.` : 'Nothing counted yet: counting began with migration 0019.'}
+${mailMode(env) === 'resend' ? '' : ' No email provider is connected, so nothing is being sent.'}</p>`;
 
   const testEmail = mailMode(env) === 'resend'
     ? `<h2>Email</h2>
@@ -224,7 +248,7 @@ ${purchases.length
   <tr><td>Record versions received in the last hour</td><td>${esc(sc.recentVersions)}</td></tr>
 </table>`;
 
-  return `${outbox}${testEmail}${pushKeys}${license}${sync}
+  return `${outbox}${mailCounts}${testEmail}${pushKeys}${license}${sync}
 <h2>Service notices</h2>
 ${noticeRows ? `<table>${noticeRows}</table>` : '<p class="muted">No active notices.</p>'}
 <form method="post" action="/ops/notices">

@@ -44,6 +44,11 @@ body {
   font: 16px/1.5 var(--font);
 }
 main { max-width: 640px; margin: 0 auto; padding: 16px 16px 48px; }
+/* On a phone, cards sit close to the screen's edges and to each other. */
+@media (max-width: 520px) {
+  main { padding: 10px 8px 40px; }
+  .card { margin: 10px 0; }
+}
 header.page { padding: 8px 0 4px; }
 header.page h1 { font-size: 1.45rem; line-height: 1.25; margin: 0 0 2px; overflow-wrap: anywhere; }
 header.page .actions { margin-top: 10px; }
@@ -138,10 +143,20 @@ form.inline input { flex: 1 1 200px; }
 table.list { width: 100%; border-collapse: collapse; }
 table.list th, table.list td { text-align: left; padding: 9px 6px; border-top: 1px solid var(--border); vertical-align: top; }
 table.list th { border-top: 0; font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
-table.list td.num { font-weight: 700; white-space: nowrap; width: 3.2em; }
+/* The list's card is tighter than the others, and the number sits close to the
+   name: its column fits "#999" in bold on one line, never wider. */
+.card#list { padding: 6px 10px; }
+table.list th:first-child, table.list td.num { padding-left: 6px; padding-right: 2px; }
+table.list td.num { font-weight: 700; white-space: nowrap; width: 3em; font-variant-numeric: tabular-nums; }
 table.list tr.mine td { background: var(--accent-soft); }
 table.list tr.deciding td { background: var(--warn-soft); }
 table.list tr.deciding td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
+/* The date added: a bubble on the ⓘ at the row's end (hover, focus or tap). */
+table.list .tip { width: 1.8em; text-align: right; padding-left: 0; }
+.added-tip { position: relative; width: 1.35em; height: 1.35em; padding: 0; border-radius: 50%; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font: italic 700 0.75rem/1 Georgia, serif; cursor: pointer; }
+.added-tip:hover, .added-tip:focus-visible, .added-tip.open { color: var(--text); border-color: var(--text-muted); }
+.added-tip::after { content: attr(data-tip); position: absolute; right: 0; bottom: calc(100% + 6px); white-space: nowrap; padding: 5px 8px; border-radius: 6px; background: var(--text); color: var(--surface); font-family: var(--font); font-size: 0.8rem; font-weight: 400; font-style: normal; line-height: 1.2; box-shadow: 0 2px 6px rgba(0,0,0,0.18); opacity: 0; pointer-events: none; transition: opacity 0.12s; z-index: 5; }
+.added-tip:hover::after, .added-tip:focus-visible::after, .added-tip.open::after { opacity: 1; }
 ul.places { list-style: none; padding: 0; margin: 8px 0 4px; }
 ul.places li { margin: 2px 0; }
 .pups { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
@@ -261,3 +276,5 @@ html.embedded.theme-dark {
 .turn .deposit-block h3 { margin: 0 0 6px; font-size: 1.05rem; }
 .turn .deposit-block .big { font-size: 1.6rem; }
 .turn .deposit-block p:last-child { margin-bottom: 0; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }

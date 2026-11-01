@@ -97,3 +97,39 @@ test('import refuses an unknown column or a different schema version before writ
   assert.match(await send({ hello: 1 }), /not a KennelOS cloud export/);
   assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM users').get().n, 0);
 });
+
+test('emails sent month to date, by kind', async () => {
+  const env = await makeEnv();
+  const month = new Date().toISOString().slice(0, 7);
+  env.DB.raw.prepare('INSERT INTO mail_counts (month, kind, sent, failed, first_at) VALUES (?, ?, ?, ?, ?)').run(month, 'family', 12, 1, `${month}-01T08:00:00.000Z`);
+  env.DB.raw.prepare('INSERT INTO mail_counts (month, kind, sent, failed, first_at) VALUES (?, ?, ?, ?, ?)').run(month, 'code', 30, 0, `${month}-01T09:00:00.000Z`);
+  env.DB.raw.prepare('INSERT INTO mail_counts (month, kind, sent, failed, first_at) VALUES (?, ?, ?, ?, ?)').run('2000-01', 'code', 999, 0, '2000-01-01T00:00:00.000Z');
+  const html = await (await ops(env, '/ops')).text();
+  assert.match(html, /month to date/);
+  assert.match(html, /<strong[^>]*>42<\/strong> sent · <span class="bad">1 failed<\/span>/, 'only this month');
+  assert.match(html, /Emails to families<\/td><td>12<\/td>/);
+});
+
+test('the Mapbox key: off without the secret, working or not with it, checked with fixed places only', async () => {
+  const realFetch = globalThis.fetch;
+  try {
+    let html = await (await ops(await makeEnv(), '/ops')).text();
+    assert.match(html, /Driving miles \(Mapbox\)<\/td><td>off: secret <code>MAPBOX_TOKEN<\/code> is not set/);
+    const env = await makeEnv({ MAPBOX_TOKEN: 'pk.test' });
+    const urls = [];
+    globalThis.fetch = async (url) => {
+      urls.push(String(url));
+      if (String(url).includes('/geocode/')) return Response.json({ features: [{ geometry: { coordinates: [-104.99, 39.74] } }] });
+      return Response.json({ distances: [[46671]] });
+    };
+    html = await (await ops(env, '/ops')).text();
+    assert.match(html, /<span class="ok">working<\/span>.*29 mi/);
+    assert.equal(urls.length, 2);
+    assert.match(urls[0], /Denver/);
+    globalThis.fetch = async () => Response.json({ message: 'Not Authorized - Invalid Token' }, { status: 401 });
+    html = await (await ops(env, '/ops')).text();
+    assert.match(html, /not working.*address lookup, HTTP 401: Not Authorized - Invalid Token.*token is wrong/);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

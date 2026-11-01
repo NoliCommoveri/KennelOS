@@ -11,7 +11,7 @@ import {
   proposeQuestionImport, applyQuestionImport, columnsFor, normalizeHeader, isLocked,
   READY_TIMING_LABEL, formFaq, validateFaq, newFaqItem, matchingPrefKeys
 } from '../shared/data/waitlistForm.js';
-import { publicName, privateName, publicList, publicListText, pausedUntil } from '../shared/data/waitlistRules.js';
+import { publicName, privateName, publicList, publicListText, publicWantsMore, pausedUntil } from '../shared/data/waitlistRules.js';
 
 const ids = (qs) => qs.map((x) => x.id);
 let seq = 0;
@@ -212,7 +212,7 @@ test('public list: real positions, paused families hidden with their number skip
 
   const text = publicListText(rows, { kennelName: 'Thornfield', today: TODAY });
   assert.match(text, /^Thornfield Waitlist \(updated 2026-10-06\)/);
-  assert.match(text, /#4 Dee D\. · Either · added 2026-04-01/);
+  assert.match(text, /^#4 Dee D\. · Either$/m);
   assert.match(text, /Their place is being held/);
   assert.ok(!/Chemo|Cat/.test(text));
   assert.match(publicListText([], {}), /No families to show right now/);
@@ -222,7 +222,7 @@ test('public list: real positions, paused families hidden with their number skip
   const turn = publicList(entries, K, new Map(), { today: TODAY, nameOf: (x) => x.application.name, deciding: (x) => x.application.name === 'Bob Burns' });
   assert.deepEqual(turn[1], { position: 2, name: 'Currently deciding', pref_sex: 'male', added: '2026-02-01', deciding: true });
   const turnText = publicListText(turn, {});
-  assert.match(turnText, /^#2 Currently deciding · Male · added 2026-02-01$/m);
+  assert.match(turnText, /^#2 Currently deciding · Male$/m);
   assert.ok(!/Bob/.test(turnText));
 });
 
@@ -245,8 +245,8 @@ test('public list: with public_show_paused, paused families show "Skipped until"
   assert.equal(rows[0].pref_sex, 'any');
 
   const text = publicListText(rows, { kennelName: 'Thornfield', today: TODAY });
-  assert.match(text, /^#2 Cat C\. · Skipped until 2026-12-01 · added 2026-03-01$/m);
-  assert.match(text, /^#1 Ann A\. · Either · added 2026-01-01$/m);
+  assert.match(text, /^#2 Cat C\. · Skipped until 2026-12-01$/m);
+  assert.match(text, /^#1 Ann A\. · Either$/m);
   assert.ok(!/Chemo|Female/.test(text));
   assert.ok(!/Their place is being held/.test(text), 'no gaps, so no note');
 
@@ -256,7 +256,7 @@ test('public list: with public_show_paused, paused families show "Skipped until"
   assert.equal(pausedUntil(held, TODAY, online), null);
   const [row] = publicList([held], K, new Map(), { today: TODAY, nameOf, config: online });
   assert.equal(row.skipped, true);
-  assert.match(publicListText([row], {}), /· Skipped for now ·/);
+  assert.match(publicListText([row], {}), /· Skipped for now$/m);
 
   // Off (the default): left out as before.
   assert.deepEqual(publicList(entries, K, new Map(), { today: TODAY, nameOf, config: {} }).map((r) => r.position), [1]);
@@ -299,4 +299,28 @@ test('matching notice covers the offer-filtering preferences; colors only with c
   assert.deepEqual(matchingPrefKeys({}), ['pref_sex', 'pref_breed', 'pref_purposes']);
   assert.deepEqual(matchingPrefKeys({ color_matching: true }), ['pref_sex', 'pref_breed', 'pref_purposes', 'pref_colors']);
   assert.ok(!matchingPrefKeys({ color_matching: true }).includes('ready_timing'));
+});
+
+test('Wants on the public list: the sex, then only what a family narrowed (asked by the owner, 2026-11-01)', () => {
+  const dogsById = new Map([['ash', { id: 'ash', call_name: 'Ash' }], ['jun', { id: 'jun', call_name: 'Juniper' }]]);
+  const two = ['Golden Retriever', 'Labrador Retriever'];
+  const more = (entry, opts = {}) => publicWantsMore(entry, { breeds: two, dogsById, ...opts });
+  assert.deepEqual(more({}), [], 'nothing narrowed: nothing more');
+  assert.deepEqual(more({ pref_breed: 'Golden Retriever' }), ['Golden Retriever']);
+  assert.deepEqual(more({ pref_breed: 'Golden Retriever' }, { breeds: ['Golden Retriever'] }), [], 'one breed: never shown');
+  assert.deepEqual(more({ pref_purposes: ['show'] }), ['Full registration']);
+  assert.deepEqual(more({ pref_purposes: ['breeding'] }), ['Full registration'], 'Limited ruled out');
+  assert.deepEqual(more({ pref_purposes: ['show', 'pet'] }), [], 'Limited still taken');
+  assert.deepEqual(more({ pref_purposes: ['pet'] }), [], 'narrowed, but not to Full');
+  assert.deepEqual(more({ pref_colors: ['Black', 'Yellow'] }), [], 'colors restrict only with color matching on');
+  assert.deepEqual(more({ pref_colors: ['Black', 'Yellow'] }, { config: { color_matching: true } }), ['Black or Yellow']);
+  assert.deepEqual(more({ listen_mode: 'selected', listen_sire_ids: ['ash'], listen_dam_ids: ['jun'] }), ['Only from Ash or Juniper']);
+  assert.deepEqual(more({ listen_mode: 'except', listen_dam_ids: ['jun'] }), ['Not from Juniper']);
+  assert.deepEqual(more({ listen_mode: 'except' }), [], 'except nobody is All litters');
+  // In the row and the copied text.
+  const [row] = publicList([e('Ann Avery', '2026-01-01', { pref_sex: 'female', pref_purposes: ['show'] })], K, new Map(), {
+    today: TODAY, nameOf: (x) => x.application.name, wantsMore: (x) => publicWantsMore(x, { breeds: two, dogsById })
+  });
+  assert.deepEqual(row.wants_more, ['Full registration']);
+  assert.match(publicListText([row], {}), /^#1 Ann A\. · Female · Full registration$/m);
 });

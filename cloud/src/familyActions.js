@@ -100,7 +100,7 @@ function checkTarget(body, projection) {
   if (typeof body.litter_id === 'string' && body.litter_id && projection.litters?.[body.litter_id]
     && (projection.litters[body.litter_id].picks_open || shown.some((u) => u.litter_id === body.litter_id))) return { litter_id: body.litter_id };
   if (typeof body.pairing_id === 'string' && body.pairing_id
-    && shown.some((u) => u.id === body.pairing_id && u.kind !== 'early_litter')) return { pairing_id: body.pairing_id };
+    && shown.some((u) => u.id === body.pairing_id && (u.kind === 'pairing' || u.kind === 'planned_pairing'))) return { pairing_id: body.pairing_id };
   return fail(409, 'not_listed');
 }
 
