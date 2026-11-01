@@ -715,6 +715,23 @@ with its breed (`preferred_test_breeds`), creating no records. Both wizards (ken
 import page and kennel setup) use `assets/breedTestPicker.js`. Breed-scoped consumers read
 `kennelRepo.testsForBreed`, so a dog only inherits tests for its breed plus untagged ones.
 
+### A dog's first planned tests, and a kept pup's (`kennelRepo`, `assets/keeperTests.js`)
+`seedTestsFor(candidate, kennels)` is the seeding kennel's panel for the dog's breed
+(`seedTestsKennel` + `testsForBreed`; owned / co-owned dogs only), and
+`withSeededTests(fields, kennels)` puts it on a new dog's fields unless they already carry
+`planned_tests` or the dog is pedigree-only. Every way a dog of hers is added seeds through
+these: the Dog page's new dog, Kels's Add dogs, Kels's Tidy up (a missing parent of hers),
+Kels's Record a litter (a new parent of hers; a brought-in pedigree-only dog isn't seeded,
+as on the Dog page) and the CSV dog import (`DOG_MAPPING.seedRecord`, from the kennels its
+preview loaded). Pups added from a litter (Add Puppies, Kels's Record a litter, Tidy up's
+missing pups) start with no plan. When a pup is marked **Keeping**, `assets/keeperTests.js`
+offers the tests it doesn't have yet (`testsToPlan`, case-insensitive): `offerKeeperTests`
+as a modal (Dog page save, Add Puppies, the Sale page's disposition prompt and a pup brought
+back as a puppy) and `askKeeperTests(chat, dogs)` in Kels (Prep pups and litter check-in's
+plans, Record a litter's finish), one question for every pup kept at once. **Add the tests**
+merges them with `dogRepo.addPlannedTests`; **Not now** leaves the plan as it is. Nothing is
+asked when there's nothing to add. Tests: `tests/keeperTests.test.js`.
+
 ### Logging completed tests (`data/healthTestLog.js`)
 Pure helpers the Dog page's Planned Tests card and Kels's "Log health test results" share.
 A test's name always goes in its type's name field (`genetic_test.panel_name`,
@@ -2652,7 +2669,7 @@ the litter task's outside parent); the breeder a
 contact typed Breeder linked to it by `contacts.kennel_id`, one she picked gaining the
 kennel if it had none; one new kennel and one new contact per name across the batch, the
 owner's included), an owned dog's owner her own contact (the Dog page's prefill), and her kennel's
-planned tests for the breed (`kennelRepo.seedTestsKennel` + `testsForBreed`, the Dog page's
+planned tests for the breed (`kennelRepo.withSeededTests`, the Dog page's
 seeding). Then each parent from the same batch is linked. **Resumable:** each id goes back on
 the draft as it's made. **Lite:** the cap (`CapExceededError`) stops the save; the dogs made
 so far are kept and linked, the rest aren't made, and she says who she added and shows

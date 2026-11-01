@@ -2243,3 +2243,14 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   asked for exactly one. Both now ask Mapbox's Directions API for one route
   (`routes[0].distance` / `duration`), same token. Tests' Mapbox stubs updated
   (`cloud/tests/familyActions`, `ops-sections`, `tests/cloudWaitlist`). Needs a Worker deploy.
+- **Planned tests for kept pups, and for every new dog (2026-11-01).** Marking a pup Keeping
+  now offers her kennel's planned tests for its breed that it doesn't have yet (new
+  `assets/keeperTests.js`, precached): a modal on the Dog page save, Add Puppies, the Sale
+  page's disposition prompt and a pup brought back as a puppy; a chat question in Kels's
+  Prep pups and litter check-in plans and at the end of Record a litter. New dogs are now
+  seeded with the kennel's planned tests on every path, not just the Dog page and Kels's Add
+  dogs: CSV dog import, Tidy up's missing parent, Record a litter's new parent
+  (`kennelRepo.seedTestsFor` / `withSeededTests` / `testsToPlan`). Tests:
+  `tests/keeperTests.test.js`. Driven in the browser: Fern (sample data) set to Keeping on
+  the Dog page, the prompt listed her seven Boston Terrier tests, Add the tests saved them.
+  Not driven in the browser: the Kels and Litter page prompts.

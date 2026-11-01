@@ -14,7 +14,7 @@ import Papa from '../vendor/papaparse.min.mjs';
 import { dogRepo } from './dogRepo.js';
 import { resolveKennelIdForWrite, SCOPED_OWNERSHIP, ownKennels } from './kennelScope.js';
 import { contactRepo } from './contactRepo.js';
-import { kennelRepo } from './kennelRepo.js';
+import { kennelRepo, withSeededTests } from './kennelRepo.js';
 import { pairingRepo } from './pairingRepo.js';
 import { litterRepo } from './litterRepo.js';
 import { saleRepo } from './saleRepo.js';
@@ -215,9 +215,16 @@ const DOG_MAPPING = {
       contactRepo.getAll({ includeArchived: true })
     ]);
     this._kennels = buildKennelNameIndex(kennels);
+    this._allKennels = kennels;
     this._contactByName = new Map();
     for (const c of contacts) if (c.name) this._contactByName.set(c.name.trim().toLowerCase(), c);
     return dogs;
+  },
+
+  // A new dog starts with her kennel's planned tests for its breed, as on the
+  // Dog page (the kennels loadExisting read for the preview).
+  seedRecord(record) {
+    return this._allKennels ? withSeededTests(record, this._allKennels) : record;
   },
 
   buildIndex(existing) {
@@ -1877,7 +1884,7 @@ export async function commitPlan(entity, plan) {
       if (mapping.prepareRecord) await mapping.prepareRecord(r);
       if (r.decision === 'create') {
         await stampKennelScope(entity, r.record);
-        const saved = await mapping.repo.create(r.record);
+        const saved = await mapping.repo.create(mapping.seedRecord ? mapping.seedRecord(r.record) : r.record);
         written.set(r.index, saved.id);
         result.created++;
       } else if (r.decision === 'update') {
