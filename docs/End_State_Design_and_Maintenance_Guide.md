@@ -1266,7 +1266,8 @@ referring Contact (`CONTACT_REFERENCES`). Saving tags that contact `buyer_referr
 `data/puppyRecordFields.js` are in `proPages.js`).
 
 `pages/puppy-record.html?sale=<id>` is a printable record for a puppy being sold: puppy
-info, sire and dam with their test results, a **Health History** grid (one card per
+info, sire and dam with their test results (Genetic, OFA / PennHIP and Breed-specific
+events with a result or rating, one line, under the **Health test results** field), a **Health History** grid (one card per
 health-relevant event type; identical entries fold into one line with their dates; vet
 visits print the linked vet's name, phone and address), and the buyer. Empty rows are
 omitted. Read-only, through the repos.

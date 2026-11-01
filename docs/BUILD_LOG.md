@@ -2106,3 +2106,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   (name tokens + title) drives the Dog page's Planned Tests card, Health-Testing Gaps and
   Kels's Log health test results; the test vocabulary still reads `testTokensOf`. No new
   files. Tests: `tests/eventRepo.test.js`, `tests/healthTestLog.test.js`.
+- **Puppy Record prints parents' OFA / PennHIP results (2026-11-01).** The sire/dam test line
+  took only Genetic and Breed-specific results; it now takes OFA / PennHIP too (rating), named
+  by the test's name field (OFA: Method + Joint) else the title. The field is now labelled
+  **Health test results** (key `parentTests` unchanged, so saved picks keep). Checked in the
+  browser on the sample data (Juniper's OFA Hips prints).
