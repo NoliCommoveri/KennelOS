@@ -560,7 +560,7 @@ test('pickup (Family Requests plan §4): a family books a time and her Approve m
   globalThis.fetch = async (url, init) => {
     if (!String(url).startsWith('https://api.mapbox.com/')) return realFetch(url, init);
     if (String(url).includes('/geocode/')) return new Response(JSON.stringify({ features: [{ geometry: { coordinates: String(url).includes('Library') ? [-97.7, 30.2] : [-96.8, 32.8] } }] }));
-    return new Response(JSON.stringify({ distances: [[315000]], durations: [[11400]] }));
+    return new Response(JSON.stringify({ routes: [{ distance: 315000, duration: 11400 }] }));
   };
   try {
     assert.equal((await act('pickup_address', { address: '9 Oak St, Dallas TX', date: later(12) })).status, 200);

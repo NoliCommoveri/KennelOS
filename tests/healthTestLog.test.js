@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { guessTestType, testTypeFor, testPrefill, testEvent, unloggedPlanned } from '../shared/data/healthTestLog.js';
+import { guessTestType, testTypeFor, testPrefill, testEvent, unloggedPlanned, completedTestsByDog, testResultSuggestions } from '../shared/data/healthTestLog.js';
 import { testTokensOf } from '../shared/data/eventRepo.js';
 
 test('guessTestType: OFA / PennHIP, genetic, else breed-specific', () => {
@@ -48,4 +48,44 @@ test('unloggedPlanned: case and spacing ignored; an archived result doesn\'t cou
     { subject_type: 'dog', subject_id: 'd2', event_type: 'genetic_test', details: { panel_name: 'Embark panel' } }
   ];
   assert.deepEqual(unloggedPlanned(dog, events, testTokensOf), ['Embark panel']);
+});
+
+import { testMatchTokensOf } from '../shared/data/eventRepo.js';
+
+test('unloggedPlanned: a result titled as the planned test counts even when Joint differs', () => {
+  const dog = { id: 'd1', planned_tests: ['OFA Patella', 'OFA Hips'] };
+  const e = { subject_type: 'dog', subject_id: 'd1', event_type: 'ofa_pennhip', title: 'OFA Patella', details: { joint: 'Patella', rating: 'Grade 1' } };
+  assert.deepEqual(unloggedPlanned(dog, [e], testMatchTokensOf), ['OFA Hips']);
+});
+
+test('completedTestsByDog: name and result only, a retest replaces the result in place, blanks and archived skipped', () => {
+  const ev = (id, dog, type, date, details, extra = {}) => ({ id, subject_type: 'dog', subject_id: dog, event_type: type, event_date: date, title: '', details, ...extra });
+  const m = completedTestsByDog([
+    ev('a', 'd1', 'ofa_pennhip', '2025-01-10', { joint: 'Hips', rating: 'Fair' }),
+    ev('b', 'd1', 'genetic_test', '2025-02-01', { panel_name: 'PRA-prcd', result: 'Clear', lab: 'OptiGen' }),
+    ev('c', 'd1', 'ofa_pennhip', '2026-01-10', { joint: 'hips', rating: 'Good' }),
+    ev('c2', 'd1', 'ofa_pennhip', '2026-01-12', { method: 'OFA', joint: 'Elbows', rating: 'Normal', outcome: 'normal' }),
+    ev('d', 'd1', 'breed_specific_test', '2026-02-01', { test_name: 'CAER' }), // no result yet
+    ev('e', 'd1', 'breed_specific_test', '2026-03-01', { result: 'Normal' }, { title: 'BAER Hearing' }), // name from the title
+    ev('f', 'd1', 'genetic_test', '2026-04-01', { panel_name: 'DM', result: 'Carrier' }, { is_archived: true }),
+    ev('g', 'd2', 'title_earned', '2026-01-01', { title_abbreviation: 'CH' }),
+    { ...ev('h', 'd2', 'ofa_pennhip', '2026-01-01', { joint: 'Elbows', rating: 'Normal' }), subject_type: 'litter' }
+  ]);
+  assert.deepEqual(m.get('d1'), [{ name: 'hips', result: 'Good', outcome: '' }, { name: 'PRA-prcd', result: 'Clear', outcome: '' }, { name: 'OFA Elbows', result: 'Normal', outcome: 'Normal' }, { name: 'BAER Hearing', result: 'Normal', outcome: '' }]);
+  assert.equal(m.has('d2'), false);
+});
+
+test('testEvent keeps a Normal / Abnormal flag, and nothing else in that field', () => {
+  const base = { dogId: 'd1', name: 'Patella', type: 'breed_specific_test', date: '2026-01-01', result: 'Grade 2' };
+  assert.equal(testEvent({ ...base, outcome: 'Abnormal' }).details.outcome, 'Abnormal');
+  assert.equal('outcome' in testEvent({ ...base, outcome: '' }).details, false);
+  assert.equal('outcome' in testEvent({ ...base, outcome: 'maybe' }).details, false);
+});
+
+test('testResultSuggestions: the usual results first, then her own once each (any case), A→Z', () => {
+  const s = testResultSuggestions(['Excellent', 'clear', ' Grade 2 ', 'Fair', 'excellent', '', null]);
+  assert.deepEqual(s.slice(0, 4), ['Clear', 'Carrier', 'Affected', 'N/N']);
+  assert.ok(s.includes('Grade 4') && s.includes('Grade VI'));
+  assert.deepEqual(s.slice(14), ['Excellent', 'Fair']);
+  assert.equal(s.filter((x) => x.toLowerCase() === 'clear').length, 1);
 });

@@ -7,7 +7,7 @@
 import { serverEmailTemplates } from '../shared/data/waitlistEmails.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildProjection, entryEmail, titlesByDog, PROJECTION_FORMAT } from '../shared/data/waitlistProjection.js';
+import { buildProjection, entryEmail, titlesByDog, parentTestsShown, PROJECTION_FORMAT } from '../shared/data/waitlistProjection.js';
 import { litterQueue, publicList, overallPositions, waitlistConfig, entryName, passReasons, publicIntroText, PUBLIC_INTRO_DEFAULT } from '../shared/data/waitlistRules.js';
 
 const TODAY = '2026-10-08';
@@ -450,4 +450,41 @@ test('her closed dates are skipped like a closed weekday, and drop off a week af
   const f = fixture();
   const p = buildProjection({ ...f, kennel: { ...f.kennel, waitlist_config: { ...f.kennel.waitlist_config, closed_dates: ['2026-09-01', '2026-10-20'] } } });
   assert.deepEqual(p.kennel.closed_dates, ['2026-10-20'], 'the server gets the live ones');
+});
+
+test('parents\' health tests: off by default; normal-only or all by her setting; each dog\'s own say wins; name and result only', () => {
+  const ev = (id, dog, type, date, details) => ({ id, subject_type: 'dog', subject_id: dog, event_type: type, event_date: date, title: '', details });
+  const tests = [
+    { ...ev('t1', 'dam', 'ofa_pennhip', '2026-01-01', { method: 'OFA', joint: 'Hips', rating: 'Good', outcome: 'Normal' }), notes: 'vet said borderline' },
+    ev('t2', 'dam', 'breed_specific_test', '2026-01-02', { test_name: 'Patella', result: 'Grade 2', outcome: 'Abnormal' }),
+    ev('t3', 'dam', 'breed_specific_test', '2026-01-03', { test_name: 'CAER', result: 'Clear' }), // not marked
+    ev('t4', 'sire', 'genetic_test', '2025-01-01', { panel_name: 'PRA-prcd', result: 'N/N', outcome: 'Normal', lab: 'OptiGen' }),
+    ev('t5', 'sire', 'genetic_test', '2026-01-01', { panel_name: 'PRA-prcd', result: 'N/prcd', outcome: 'Abnormal' }) // the retest
+  ];
+  const build = (config, dogPatch = {}) => {
+    const f = fixture();
+    f.kennel = { ...f.kennel, waitlist_config: { ...(f.kennel.waitlist_config || {}), ...config } };
+    f.dogs = f.dogs.map((d) => (dogPatch[d.id] ? { ...d, ...dogPatch[d.id] } : d));
+    f.events = tests;
+    return buildProjection(f).litters['lit-1'];
+  };
+  let l = build({});
+  assert.deepEqual(l.dam, { name: 'Juniper', titles: [] }, 'off by default: no tests key at all');
+  l = build({ parent_tests: 'all' });
+  assert.deepEqual(l.dam.tests, [{ name: 'OFA Hips', result: 'Good' }, { name: 'Patella', result: 'Grade 2' }, { name: 'CAER', result: 'Clear' }]);
+  assert.deepEqual(l.sire.tests, [{ name: 'PRA-prcd', result: 'N/prcd' }], 'the latest result');
+  l = build({ parent_tests: 'normal' });
+  assert.deepEqual(l.dam.tests, [{ name: 'OFA Hips', result: 'Good' }], 'only marked Normal: not the Abnormal one, not the unmarked one');
+  assert.equal('tests' in l.sire, false, 'a retest marked Abnormal hides the test; the older Normal never stands in');
+  l = build({ parent_tests: 'all' }, { sire: { waitlist_tests: 'off' } });
+  assert.equal('tests' in l.sire, false, "a dog set to Don't show stays hidden");
+  l = build({}, { dam: { waitlist_tests: 'normal' } });
+  assert.deepEqual(l.dam.tests, [{ name: 'OFA Hips', result: 'Good' }], 'a dog set to Normal only shows with the setting off');
+  l = build({ parent_tests: 'normal' }, { dam: { waitlist_tests: 'all' } });
+  assert.equal(l.dam.tests.length, 3, 'a dog set to All shows all with the setting at Normal only');
+  const json = JSON.stringify(build({ parent_tests: 'all' }));
+  for (const never of ['OptiGen', 'borderline', '2026-01-01', 'Abnormal', 'outcome']) assert.equal(json.includes(never), false, `never ${never}`);
+  assert.equal(parentTestsShown(null, { parent_tests: 'all' }), 'all');
+  assert.equal(parentTestsShown({ waitlist_tests: null }, {}), 'off');
+  assert.equal(parentTestsShown({ waitlist_tests: 'bogus' }, { parent_tests: 'bogus' }), 'off');
 });

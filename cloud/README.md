@@ -98,7 +98,7 @@ src/notify.js          the breeder's notifications (docs/KennelOS_Notifications_
                        code), sent by the hourly cron, with the /notify/off page. Secret
                        VAPID_PRIVATE_JWK (generate on /ops); optional vars VAPID_SUBJECT, APP_URL
 src/geo.js             driving miles through Mapbox (docs/KennelOS_Family_Requests_Plan.md §5): geocode
-                       two addresses, one Matrix element → { miles, minutes }; POST /geo/distance (her
+                       two addresses, one driving route (Directions API) → { miles, minutes }; POST /geo/distance (her
                        app, signed in, 60/hour) and familyActions' measuring of a family's own address;
                        checkMapbox: /ops's live key check (Denver → Boulder, no one's address)
                        or home (6/hour per family). Nothing stored, addresses never logged. Secret

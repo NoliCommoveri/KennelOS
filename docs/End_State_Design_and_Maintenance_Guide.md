@@ -205,7 +205,7 @@ to the cloud unsealed).
 
 | Entity | Required | Key fields and rules |
 |---|---|---|
-| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `registered_name`, `registration_number`, `microchip_id`, `planned_tests[]`, `recorded_coi`, `url`. `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. |
+| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `registered_name`, `registration_number`, `microchip_id`, `planned_tests[]`, `recorded_coi`, `url`. `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `waitlist_tests` (`PARENT_TESTS_SHOWN`: `off`/`normal`/`all`, null = follow Waitlist settings' `parent_tests`) is this dog's say over which of its completed health tests show on waitlist family pages (§29 Online), set on its Health-Test Summary card. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. |
 | **Contact** | `name` | `contact_type[]`, `email`, `phone`, `facebook_profile`, `address` (also the away-board location, §19), `kennel_id` (affiliation, not scope), `waitlist_status` (kept by `waitlistEntryRepo`), `first_contact_source`, `companion_note` (shown to the recipient, §20; `notes` is private). Buyers are Contacts; there is no Buyer table. |
 | **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `extra_charge_groups` (its groups' defaults, private, §21.2), `pickup_locations` (her pickup places, private, §29 Pickup), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date` when empty). Sire ≠ dam. |
@@ -215,7 +215,7 @@ to the cloud unsealed).
 | **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `direction` is **who travels** (`STUD_SERVICE_DIRECTION`: `to_partner` our dog goes to them, `to_us` their dog comes to us, `shipped` no one / AI). Whether our dog is the stud or the dam isn't stored: it's our dog's sex, else the partner's opposite (`studRules.ourRole`; `STUD_SERVICE_ROLE` for badges and filters). `sent_date` / `returned_date` are the service's two dates, labelled **Begins / Ends**. `type` (`in_person`/`ai`) is set by the repo from `direction` (shipped → ai), never asked. `pairing_id`, `fee_amount`, `fee_structure`; `pick_status` and `pick_value_amount` only for pick fee structures (forced null otherwise; with our stud the pick is our puppy, and `pick_status` claimed / waived ends Today's `studpick`, §19), `referred_by_contact_id`, invoice fields (our stud only, §24). |
 | **Event** | `subject_type`, `subject_id`, `event_type`, `event_date`, `title` | `event_end_date`, `reminder_date`, `reminder_dismissed`, `related_dog_id`, `related_contact_id`, `details{}`. No cost field: a cost becomes an Expense with `event_id` (§8, §21). |
 | **Expense** | `subject_type` (`dog`/`litter`/`pairing`/`kennel`), `subject_id`, `amount`, `category`, `expense_date` | `event_id`, `stud_service_id` (indexed; the stud service whose fee it records, in `STUD_SERVICE_REFERENCES`; private like every expense field), `miles` × `mileage_rate` (then `amount` is derived), `vendor`, `receipt_number` (CSV re-import key, §9), `account_id`, `receipt_file_id` (deleted with the expense, §26.1), `reimbursable`/`reimbursed_date` (§21, §25). |
-| **Document** | `dog_id`, `doc_type`, `file_id` | `title`, `doc_date`, `issuer_or_lab`, `result`, `registry`, `registration_number`, `contract_id` (optional, unindexed, not in the registry), `furever_shareable` (§27). Fields shown per type: `vocab.documentFieldsFor`. `hardDelete` removes its file. |
+| **Document** | `dog_id`, `doc_type`, `file_id` | `title`, `doc_date`, `issuer_or_lab`, `result`, `registry`, `registration_number`, `contract_id` (optional, unindexed, not in the registry), `furever_shareable` (§27). `doc_type` from `DOC_TYPES`: Pedigree, Health test, Vet summary (a visit summary, medical record or vaccine history), Registration, Contract, Other. Fields shown per type: `vocab.documentFieldsFor`. Cloud backup carries only Health test, Vet summary, Pedigree and Registration rows and their files (`syncRegistry.CLOUD_DOC_TYPES`); Contract and Other stay on the device. `hardDelete` removes its file. |
 | **File** (`files`) | `blob`, `mime`, `filename`, `size` | `thumbnail`. Always a PDF. Owned by its one Document or Expense; fetched by id only (§26.1). |
 | **WaitlistEntry**, **WaitlistOffer**, **WaitlistProgram** | see §29 | One entry per family per time on a kennel's list; position and passes are derived, never stored. |
 | **Account** (`accounts`) | `name` | `account_type`, login fields (private), referral fields, fee rate, `fee_charge_back` (private, §21.2), `contract_forms[]`, `payment_link`, `payment_instructions` (§32). Program-wide, no `kennel_id`. API keys live in `device_secrets`, never on the record. |
@@ -419,13 +419,25 @@ a soft confirm, never a block.
 per checked puppy with the same `details`, except fields in `eventForm.js`
 `PER_TARGET_CASCADE_FIELDS` (`weight_check` weights) which are per puppy. Saving a weight
 below that dog's previous weigh-in (same-day AM/PM aware) asks to confirm. The Dogs page's
+**The dogs she looks after** (`dogCare.isCareDog`): owned, co-owned, leased in or leased out
+(`CARE_OWNERSHIP`; never External), never External reference, Deceased or Pet home
+(`NOT_CARE_STATUSES`), archived or pedigree-only. Every routine-care list reads only these:
+`breedingDogs` (Today's `heatwatch` and `preventatives`, Check in on my dogs), `homeDogs`,
+`ownDogs`, and the Heat Cycles report's females.
 **Log for several dogs** is the same form over the dogs at home (`dogCare.homeDogs`: active
 breeding, retired breeding, for sale), with only the active breeding ones ticked (`cascadeTitle`,
 `cascadeSelected`); `dogs.html?logEvent=preventative&from=today` ticks only the active breeding
 dogs still missing this month's preventative and goes back to Today after saving.
+The Dogs page's **All dogs** list is ordered by `vocab.dogListOrder`: status in `DOG_STATUS`
+order (Puppy, Active breeding, Retired breeding, Pet home, For Sale, Deceased, External
+reference), then sex in `SEX` order (Male, Female, Unknown), then name A→Z (call name, else
+registered name); a missing status, sex or name sorts last at its level. Its Status and Sex
+columns sort in that vocab order too (`dogStatusOrder`, `dogSexOrder`). The other tabs keep
+their own order.
 
 Test-bearing types (`genetic_test`, `breed_specific_test`, `ofa_pennhip`) feed the test
-vocabulary through `testTokensOf(event)`.
+vocabulary through `testTokensOf(event)`; planned tests are matched against
+`testMatchTokensOf(event)` (those tokens plus the title).
 
 **eventRepo reads** (separate on purpose):
 - `getForSubject(type, id)` — a timeline, newest first.
@@ -708,14 +720,26 @@ Pure helpers the Dog page's Planned Tests card and Kels's "Log health test resul
 A test's name always goes in its type's name field (`genetic_test.panel_name`,
 `ofa_pennhip.joint`, `breed_specific_test.test_name`; `TEST_TYPE_FIELDS`), so
 `eventRepo.testTokensOf` reads it back as planned and the planned test counts as logged
-(Dog page, Health-Testing Gaps). The type only files it: `testTypeFor` takes the type she
+(Dog page, Health-Testing Gaps). Planned-vs-logged matching uses `testMatchTokensOf`: those
+tokens plus the event's title, so a hand-added "OFA Patella" with Joint "Patella" still counts. The type only files it: `testTypeFor` takes the type she
 used most for that name before, else `guessTestType` (OFA / PennHIP / hips / elbows → OFA /
 PennHIP; DNA, panels and common genetic tests → Genetic; else Breed-specific).
 `testPrefill` is the Dog page's event-form prefill, `testEvent` the event Kels saves
-(result in `result`, or `rating` for OFA; `lab` only for Genetic), and `unloggedPlanned` a
+(result in `result`, or `rating` for OFA; `lab` only for Genetic; `outcome` only when one of `TEST_OUTCOME`), and `unloggedPlanned` a
 dog's planned tests with no result (`breedingReports.testGapRows`, archived results not
 counted). On the Dog page each unlogged planned test has **Log result**: the event form
-with the type, today, the title and the name field filled in.
+with the type, today, the title and the name field filled in. `completedTestsByDog(events)`
+is each dog's completed tests as waitlist family pages show them: `[{ name, result, outcome }]`, one
+per test name (named as `testTokensOf` does, OFA Method + Joint, else the title; a result needed), a retest replacing the
+result in the first test's place; archived skipped; never the lab, notes or dates.
+All three test types carry an optional **Normal or abnormal** select (`details.outcome`,
+`vocab.TEST_OUTCOME`: `Normal`/`Abnormal`, stored as the label) beside her own wording of the
+result ("Clear", "Grade 2", "N/N"); the event form and Kels's Log health test results offer
+it, and `outcome` is a cloud details key like `result`. The result fields themselves
+(`result`, OFA `rating`) are comboboxes: `testResultSuggestions` gives
+`vocab.TEST_RESULT_SUGGESTIONS` (Clear, Carrier, Affected, N/N, Grade 1–4, Grade I–VI) then
+every result she's typed on any of the three types (`eventRepo.getTestResultValues`), A→Z,
+once each; the event form and Kels's result box both use it. Free text either way.
 
 ### Kennel setup (`data/kennelSetup.js`)
 A **mandatory gate**: the app isn't usable until an own kennel exists
@@ -987,7 +1011,10 @@ checks use the unscoped set, so an answer one kennel over still counts.
 
 `pages/today.js` renders them: it filters out dismissed keys (`nudgeState.isDismissed`),
 wires each action, and adds one Dismiss button per row. Dismissals are device-local
-(`nudgeState.js`), never in a backup. While Today is open it redraws the nudges on
+(`nudgeState.js`), never in a backup. A nudge can also be snoozed (`nudgeState.snooze(key,
+untilYMD)`: hidden until that day, then back; Kels's Review my waitlist uses it for "remind
+me in a few days" on open picks). `nudges.waitlistNudgeItems()` and `extraDueItems(sales)`
+give the waitlist and extras-due nudges on their own, for that task. While Today is open it redraws the nudges on
 `CLOUD_DATA_CHANGED_EVENT` (debounced, one redraw at a time), so a family's message or
 status-page action the waitlist inbox takes in after the page loaded shows without a reload.
 
@@ -998,8 +1025,8 @@ status-page action the waitlist inbox takes in after the page loaded shows witho
 | `promote` | a kept puppy is past its kennel's promote age (opt-in per kennel) | promote to active breeding |
 | `studpair` | a finished stud service has no `pairing_id` | create the pairing |
 | `heatpair` | a heat cycle ended with no pairing for that dam since | create a pairing |
-| `heatwatch` | an active breeding female's predicted next heat (`dogCare.predictNextHeat`: 6 months after a single heat, else last start + her average interval; future-dated heats count) is within `HEAT_NOTICE_DAYS` (30): "is expected to go into heat soon"; past it: "was expected to cycle recently — has that happened?". Logging a heat moves the prediction, so the key (dog, date, wording) changes | Log heat (her page's event form, dated the prediction or today) |
-| `preventatives` | from the 1st, while any active breeding dog has no `preventative` event dated this month (`dogCare.preventativeGaps`); goes by itself once all have one | Log (the Dogs page's Log for several dogs) |
+| `heatwatch` | an active breeding female's (`isCareDog`) predicted next heat (`dogCare.predictNextHeat`: 6 months after a single heat, else last start + her average interval; future-dated heats count) is within `HEAT_NOTICE_DAYS` (30): "is expected to go into heat soon"; past it: "was expected to cycle recently — has that happened?". Logging a heat moves the prediction, so the key (dog, date, wording) changes | Log heat (her page's event form, dated the prediction or today) |
+| `preventatives` | from the 1st, while any active breeding dog she looks after (`isCareDog`) has no `preventative` event dated this month (`dogCare.preventativeGaps`); goes by itself once all have one | Log (the Dogs page's Log for several dogs) |
 | `pairingduesoon` | a bred/confirmed pairing is due within 3 days, no litter | create the litter |
 | `studpick` | a completed stud service of our stud with a pick in its fee (`pick_of_litter` / `flat_plus_pick`), 63 + 56 days after it (returned, else sent; `studRules.pickDue`), no pup of that stud out of that dam born since on file, `pick_status` not settled (claimed / received / picked / done / waived) | **Add the puppy** (`dog.html?new=1&pick=<id>`) / **Not getting one** (`pick_status: 'waived'`) |
 | `pairingoverdue` | a pre-whelp pairing is past due, no litter | mark whelped / create litter |
@@ -1264,7 +1291,8 @@ referring Contact (`CONTACT_REFERENCES`). Saving tags that contact `buyer_referr
 `data/puppyRecordFields.js` are in `proPages.js`).
 
 `pages/puppy-record.html?sale=<id>` is a printable record for a puppy being sold: puppy
-info, sire and dam with their test results, a **Health History** grid (one card per
+info, sire and dam with their test results (Genetic, OFA / PennHIP and Breed-specific
+events with a result or rating, one line, under the **Health test results** field), a **Health History** grid (one card per
 health-relevant event type; identical entries fold into one line with their dates; vet
 visits print the linked vet's name, phone and address), and the buyer. Empty rows are
 omitted. Read-only, through the repos.
@@ -1701,7 +1729,11 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   another pup; `confirmDeposit` marks the sale paid, the pup placed, the entry placed, and
   moves on. `recordOutcome` handles passed / no response (lets go of a held pick, counts the
   pass, removes at the limit) and voided (never a pass, doesn't move on). `undoPass` reopens a
-  pass.
+  pass. `previewNextTurn(kennelId)` says who `nextTurn` would offer without offering it;
+  `extendTurn(turnId, { until })` gives an open turn a later respond-by date (after today),
+  noted on each of its offers.
+- **Backing out** (`approveBackOut`) needs the family's pending request, or `told` (`{ reason }`)
+  when she heard some other way: the same path, the request recorded as hers (`by: 'breeder'`).
 - **A lost pup** (`vocab.isLostSale`): `restoreAfterLostSale(saleId, { carry })` puts a placed
   family back in their **original place** (the accepted offer voided with its history kept,
   passes unchanged), or
@@ -1785,6 +1817,20 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   its own prices and the deposit once above them; under "Listed prices are intended base
   purchase price and may not include additional fees; all prices are subject to change
   prior to contract signing." Published pups carry `registration` (`intended_registration`).
+  **Parents' health tests:** every parent family pages show (Coming up, a planned heat's
+  dam, Available Puppies, whelp notes, a turn's litters) carries `tests` (`[{ name, result }]`,
+  `healthTestLog.completedTestsByDog`; absent when none) at the level `parentTestsShown`
+  gives (`PARENT_TESTS_SHOWN`): the dog's `waitlist_tests`, else her
+  `waitlist_config.parent_tests` (default `off`; Waitlist settings → Public list & family
+  pages, offered with the list online). `normal` keeps a test only when its latest result is
+  marked `Normal` (an unmarked one isn't; a retest marked Abnormal hides the test, never
+  falling back to an older Normal); `all` keeps every one. The flag itself is never
+  published. The Worker copies them by name (`familyPages.parentOf`: trimmed, 80 characters,
+  at most `PARENT_TESTS_MAX` = 20), and the pages fold them under the parents line as
+  **Health testing** (`common.parentTestsHtml`), so with Coming up or Available Puppies on
+  the public list they're public. The Dog page's Health-Test Summary card has **On family
+  pages** (Follow Waitlist settings / Don't show / Normal results only / All results) for any
+  non-puppy, offered with the waitlist and the list online.
   Each open offer carries `deposit_instructions` (her `payment_instructions`) and, once
   picked, `deposit_amount` (the sale's deposit, else her listed one: `depositFor`) and
   `picked_pup` (the Worker adds it to the offer's pups: it's no longer available). After a
@@ -2733,18 +2779,43 @@ Waitlist entry page saves one. Set up my waitlist's **Add one by hand** and Add 
 run it; without a contact it's linked at approval, as ever.
 
 ### "Check in on my dogs"
-`assets/dogCheckinUI.js`, offered with any Active breeding dog (priority 55 while a heat is
+`assets/dogCheckinUI.js`, offered with any Active breeding dog of her own (priority 55 while a heat is
 due or late or a dog is missing this month's preventative, else 30); also from the Dogs page.
-Each thing is saved as she approves it.
-1. **Heats:** each active breeding female's predicted next heat (`dogCare`, as the
+Each thing is saved as she approves it. Every step looks only at the dogs she looks after
+(`dogCare.ownDogs` = `isCareDog`, below).
+1. **Heats:** each of her active breeding females' predicted next heat (`dogCare`, as the
    `heatwatch` nudge) or "no heats logged yet", then "Do you want to log any heats?", one
    female at a time: a `heat_cycle` with start (the prediction if it's ahead, else today;
    any date, future included), optional end and notes, and her new prediction.
-2. **Preventatives:** the active breeding dogs with no `preventative` this month, ticked,
-   and her other dogs at home unticked; a form (product, dose, date) → one event each, then
+2. **Preventatives:** her own active breeding dogs (only those listed), the ones with no
+   `preventative` this month ticked; a form (product, dose, date) → one event each, then
    "Any other preventatives to log?" (**Log another** / **No, that's all**), repeated, each
    later form ticking the dogs she picked last time. With none missing it asks first
    whether to log one (flea & tick, say).
+3. **Health test results:** "Do you need to log any new health test results?" (with how many
+   planned tests wait for one) → **Yes, log results** runs Log health test results' own loop
+   (`healthTestsUI.logHealthTests`, below) on `dogCare.checkinDogs` (her own dogs, never one
+   in a pet home, and puppies only when Keeping) / **No thanks**.
+4. **Vet visits:** "Any vet visits to log?" → the same form as step 5 for a `vet_visit`,
+   plus, with Documents (Pro), **Vet summary (optional)** (`kelsSteps.filePicker`): filed on
+   each ticked dog as a `vet_summary` document (its own copy of the file, since a document
+   belongs to one dog and deleting it deletes its file), titled and dated as the visit, the
+   vet as its issuer → "Any other vet visits?".
+5. **Any other events:** "Any other events that need logging, like a new medication, an
+   illness or a weight?" → the kind (`dogCare.otherEventTypes`: every dog event type but
+   the ones this check-in asks itself, heats, preventatives, the three test types and vet
+   visits, and
+   the ones another task logs, `acquisition` (Add dogs) and `placement` (Pups are going
+   home); `show` only with `shows`; searchable) → one form: an optional title (a note's
+   words, required for a Note), the type's own fields (`litterCheckinUI.eventFieldInput`,
+   shared with the litter check-in's care forms; combobox options as suggestions), the date
+   (and end for a span type), **Cost per dog** (optional; one `expenseRepo.createForEvent`
+   per event, the type's default category, as the event form does for several dogs) and the
+   dogs (`checkinDogs`, none ticked unless only one) → one event each (`dogCare.dogEvents`:
+   titled by her title, else the type's naming field, `eventNameKey`, else its label; also
+   builds the litter check-in's care events) → "Anything else to log?" (**Log another** /
+   **No, that's all**). Checked by `dogEventProblem`. This is where Kels logs any other
+   event; there is no separate Add new events task.
 
 ### "Log health test results"
 `assets/healthTestsUI.js` + `data/healthTestLog.js` (above), all editions, offered with any
@@ -2757,9 +2828,14 @@ with no result, else 28. Each result is saved as she approves it.
    **Log a test** when none are planned), **Done with <dog>**.
 3. **The form:** Test (her preferred tests and every test name she's logged as
    suggestions), Kind (`testTypeFor`; typing another test moves it until she picks one),
-   Date (today), Result (OFA's rating), Lab (Genetic only) → `testEvent`. "Logged, and
-   ticked off <dog>'s plan" when it was planned. Then another result for that dog, then
-   another dog.
+   Date (today), Result (OFA's rating; `testResultSuggestions`), Normal or abnormal, Lab
+   (Genetic only) → `testEvent`. With Documents (Pro), **Certificate or report (optional)**
+   (`kelsSteps.filePicker`: a PDF, or photos made into one PDF): a file she picks is filed
+   on the dog as a `health_test` document (`documentModal.storeDocumentFile` /
+   `createDocument`, loaded only then), titled and dated as the test, with its lab and
+   result. "Logged, and ticked off <dog>'s plan" when it was planned (and "The certificate
+   is filed on <dog>'s page"). Then another result for that dog, then another dog. Check in
+   on my dogs' health-test step is this same loop, so it offers the certificate too.
 
 ### "Check in on a litter"
 Each thing she approves is saved at once; there is no draft.
@@ -2959,6 +3035,70 @@ it, so a half-made form never goes online. **The draft:** `settings.guidedFormDr
 - **"Do you have a family to put on the list now?"**: the applicant step (under "Add
   people"), asked with the new form; **Add a family** repeats.
 - Then **See my form** (the Waitlist form page), **Help me with something else**, **Back to Today**.
+
+### "Review my waitlist"
+**Editions:** Pro (`editionFlags.waitlist`). The script, `assets/waitlistReviewUI.js`, is in
+`proPages.js` and `kels.js` imports it on start; its rules, `data/waitlistReview.js`, are
+shared (Today's overdue-offer nudge words its report with `outcomeReport`). Priority 58 while
+anything is waiting (`reviewWaitlistState`: Today's waitlist nudges plus applications and
+unpaid fees), else 26.
+- **First, is there anything to review** (`readinessProblems`), for one kennel (asked with
+  several set up): not set up → it says so and offers **Set up my waitlist** / **Not now**;
+  otherwise, where the waitlist online is offered, not online (**Put my list online**),
+  online but not publishing (the Online list card's `onlineProblemText`), no form of her own
+  (`guidedForm.hasOwnForm`) or the form not taking applications online (**Set up my
+  application form**), each said, with **Keep going**. A fix hands her to that task with the
+  kennel (`handoff`), never redone here.
+- **"Here's what's waiting on you: …"** (`reviewSummary`) → **Start with the first** (every
+  step in `REVIEW_STEPS` order, each rechecked as it comes, so a pass that frees a turn
+  brings up the turn) / **Pick one** / **Not now**. Each item has **Skip for now**; the close
+  says how many were left ("it's all still on Today").
+- **The items are Today's own waitlist nudges** (`nudges.waitlistNudgeItems`), read by key
+  (`readNudgeKey`, `STEP_OF`) and scoped to the kennel; their one-tap actions run as on
+  Today (message, then `waitlistEmailUI.offerEmails`). Every other write is a
+  `waitlistActions` call, and every "email the family" is `offerEmails`.
+  1. **Requests and messages**, one family at a time, messages first: **Write back**
+     (`communicateDialog`, a note email) and **Mark read**; pause / answers / litters /
+     Companion link by the nudge's actions; an extra asked for or cancelled
+     (`approveExtraRequest`; a training package then offers **Log it**, `trainingStayEvent`;
+     a cancel offers to remove its stays still to come; a part-paid refusal offers **Decline
+     it** / **Open the sale**); a pickup time or cancel (`approvePickupRequest`, then her own
+     boarding kept → **Use it** `applyPickupBoarding`, a transport fee left → **Remove it**
+     `clearTransportFee`); their own address set up in the chat (day, time, how, miles with
+     **Get driving miles**, the fee from `transportQuote`), or past her limit **Send
+     transport options**.
+  2. **Backing out:** each request with `suggestOutcome` (from the pup's age in weeks) →
+     **Keep the deposit** / **Move the deposit** / **More options…** (refund, typed REFUND) /
+     **Decline**; a form with `backOutItems` ticked as the entry page ticks them, **Put [pup]
+     back to** Available / Health hold, and `backOutSummary` → `approveBackOut`. A pup back
+     to Available → "Offer [pup] to the next family?". Then, every time, "Do you need to
+     cancel or void any other sales?": her open and gone-home sales → the family backed out
+     (a waitlist family → the back-out form with `told`; anyone else → Cancelled), the pup
+     died / failed a health check (Voided with that reason), came back (Returned, health
+     problem or the family's choice), or something else (Cancel / Void with Other and a
+     note); then `salePrompts.promptReleasedPup` and, for a lost sale,
+     `waitlistUI.restoreLostPupDialog`, as the Sale page does.
+  3. **Offers past their deadline:** **They picked** / **The deposit came** (`pickDialog` /
+     `depositDialog`), **Count it as a pass** (`recordOutcome`, `outcomeReport`), **Record no
+     response** (the nudge's action), **Give them more time** (`extendTurn`, then the offer
+     email with the new date).
+  4. **Picks to open:** **Open picks** (the nudge's action), **Not yet, remind me in a few
+     days** (snoozes the nudge 3 days; the planned date stays), **Change the date**
+     (`accept_deposits_date`).
+  5. **A turn to offer** (`previewNextTurn`): "Next in line for … is … (wants …, waiting N
+     months)" → **Offer it** (`offerNextTurn`) / **Offer someone else** (the litter, then the
+     families with pups in it, `offerTo` with a note) / **Not yet**.
+  6. **New applications**, oldest first, with their wants and answers → **Approve** (date,
+     program, the contact as `contactMatches` suggests, their private-listing ask; then the
+     fee request or "on the list" email) / **Decline** (confirmed; the declined email) /
+     **Ask a question** (`communicateDialog`) / **Decide later**.
+  7. **Fees to check** (approved, unpaid; soonest due first) → **Received** (date, amount,
+     method, reference → `feeReceived`) / **Not yet** / **Remove them** (overdue only,
+     `markFeeExpired`); then extras payments due on waitlist families' sales
+     (`extraDueItems`) → **Paid** (today, `extraCharges.chargesWithStepPaid`, the helper the
+     Sale page's Paid on box uses) / **Not yet** / **Open the sale**.
+  8. **"Ready now?" unanswered** → **They're ready** / **Remove them**
+     (`removeForNoReadyAnswer`) / **Wait longer**; **recent removals** → **Keep it** / **Undo**.
 
 ### "Check account health"
 One look at whether her program is safe and working: her KennelOS account and this device,

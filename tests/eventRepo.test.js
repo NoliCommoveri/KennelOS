@@ -30,3 +30,12 @@ test('a non-test event type never contributes a token', () => {
   assert.deepEqual(testTokensOf({ event_type: 'vaccination', details: { panel_name: 'x' } }), []);
   assert.deepEqual(testTokensOf({ event_type: 'note', details: {} }), []);
 });
+
+import { testMatchTokensOf } from '../shared/data/eventRepo.js';
+
+test('testMatchTokensOf: name tokens plus the title, deduped case-insensitively', () => {
+  assert.deepEqual(testMatchTokensOf({ event_type: 'ofa_pennhip', title: 'OFA Patella', details: { joint: 'Patella' } }), ['Patella', 'OFA Patella']);
+  assert.deepEqual(testMatchTokensOf({ event_type: 'ofa_pennhip', title: 'ofa patella', details: { joint: 'OFA Patella' } }), ['OFA Patella']);
+  assert.deepEqual(testMatchTokensOf({ event_type: 'genetic_test', title: 'DM', details: {} }), ['DM']);
+  assert.deepEqual(testMatchTokensOf({ event_type: 'vaccination', title: 'DM', details: {} }), []);
+});

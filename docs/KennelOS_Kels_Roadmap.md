@@ -204,6 +204,9 @@ situation; the check-in's Expected litter hands off to the birth as today.
 ### 3.7 Check in on a dog: **S**
 The litter check-in's health-care and weight forms for one adult dog, plus health tests
 (`planned_tests` → results), and status changes (retire, pet home).
+**Modified (2026-11-01):** health test results and every other event (vet visits, weights,
+medications…) are now steps of Check in on my dogs (all her own dogs at once, see §3.10);
+only the status changes are left here.
 
 ### 3.8 Add dogs: **M** — **Built** (but its history step)
 As built: End-State guide §33 ("Add dogs"); history in `docs/BUILD_LOG.md`. **Modified:**
@@ -248,7 +251,14 @@ keeps elsewhere, one or several in a row ("Add another?" after each), like Add d
 - **Keywords:** accounts, logins, passwords, AKC, registry, marketplace, supplier, referral,
   referral code, Stripe, Jotform, insurance.
 
-### 3.10 Add new events: **S**
+### 3.10 Add new events: **S** — **Built, as part of Check in on my dogs**
+**Modified (owner decision, 2026-11-01):** not a task of its own. Logging any other event is
+the last step of Check in on my dogs ("Any other events that need logging?"), for her own
+dogs and kept puppies, and only the event types no other step or task logs (heats,
+preventatives and health tests are that check-in's own steps; a purchase is Add dogs'; a
+puppy going home is Pups are going home's; vet visits are that check-in's own step, with
+the vet summary). As built: End-State guide, "Check in on my dogs" steps 4–5. Add dogs' history step (§3.8) still waits; it would reuse the same pieces
+(`dogCare.dogEvents`, `litterCheckinUI.eventFieldInput`). The plan as first written:
 Log what happened, for one or several dogs, one event or several in a row ("Add another?"),
 without opening each dog's page. Also how Add dogs (§3.8) brings in a new dog's history.
 - **Which dogs** (search, or her own / a litter's pups) → **what happened** (`EVENT_TYPES`
@@ -566,7 +576,21 @@ Puppy Record fields, now one copy), `kelsBackupSteps.cloudBackupOn`. **Decided:*
 its own; the first page after the first-run kennel setup (after the tour, or Start my
 kennel) shows a Meet Kels card whose **Try Getting Started** opens it.
 
-### 3.16 Review my waitlist: **M**, Pro (`waitlist`) — **Proposed, not decided**
+### 3.16 Review my waitlist: **M**, Pro (`waitlist`) — **Built**
+As built: End-State guide §33 ("Review my waitlist"); history in `docs/BUILD_LOG.md`.
+**Modified:** (1) it opens by checking there's something to review (asked by the owner):
+the list set up, online and publishing, her own form taking applications online; each gap
+is said, with a button that hands her to Set up my waitlist / Set up my application form,
+and **Keep going**. (2) The items are Today's own waitlist nudges, so their wording and
+one-tap actions are shared; the rest calls `waitlistActions`. (3) Three things it needed
+were added there rather than here: `previewNextTurn`, `extendTurn` ("Give them more time"),
+and `approveBackOut`'s `told` (a back-out with no request); and a snooze in `nudgeState`
+for "remind me in a few days". (4) Where the family page already has a dialog, it's used
+as is rather than redone in the chat (Write back and Ask a question: `communicateDialog`;
+They picked / The deposit came: `pickDialog` / `depositDialog`; the pup and the family's
+place after a sale ends: `salePrompts`, `restoreLostPupDialog`); every email is
+`offerEmails`, as on Today. (5) "Ask a question" is a note email (their status page shows
+it), not a separate message. The plan as first written:
 Her day-to-day waitlist work as one conversation, offered once a list is set up (priority
 high while anything is waiting on her, like the Today `waitlist-*` nudges). Every action is
 an existing `waitlistActions` call; the task adds no data. Each step is skipped when it has

@@ -59,7 +59,7 @@ backup, carries a program from Lite to Pro.
     /ops and add it as the `VAPID_PRIVATE_JWK` secret, apply migration `0018` after the
     Worker deploy, then check alerts on a real Android phone and an iPhone.
   - Family requests (`docs/KennelOS_Family_Requests_Plan.md`): extras, transport suggestions,
-    training stays, pickup and backing out are built; next is Kels's Review my waitlist. Needs a Worker deploy and the `MAPBOX_TOKEN` secret for driving miles.
+    training stays, pickup and backing out are built, and Kels's Review my waitlist works through them. Needs a Worker deploy and the `MAPBOX_TOKEN` secret for driving miles.
   - Duplicates: Import/Export's Scan for duplicates covers every record type. Open: Kels's
     Tidy up still checks only dogs and contacts for duplicates.
 - **Open launch items:** confirm `yearlyVariantPattern` / `lifetimeVariantPattern` against

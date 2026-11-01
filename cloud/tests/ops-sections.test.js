@@ -120,7 +120,7 @@ test('the Mapbox key: off without the secret, working or not with it, checked wi
     globalThis.fetch = async (url) => {
       urls.push(String(url));
       if (String(url).includes('/geocode/')) return Response.json({ features: [{ geometry: { coordinates: [-104.99, 39.74] } }] });
-      return Response.json({ distances: [[46671]] });
+      return Response.json({ routes: [{ distance: 46671 }] });
     };
     html = await (await ops(env, '/ops')).text();
     assert.match(html, /<span class="ok">working<\/span>.*29 mi/);

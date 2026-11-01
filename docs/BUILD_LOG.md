@@ -2100,3 +2100,146 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   copied text, the CSV import guide on phones, and logging completed health tests (Log
   result on planned tests, Kels's Log health test results). The family pages and /ops
   changes need a Worker deploy, then Apply pending (`0017`, `0019`) on /ops.
+- **Planned tests also match on the event title (2026-11-01).** A planned test left Planned
+  only when its name was in the type's name field (OFA: Method + Joint), so a hand-added
+  "OFA Patella" result with Joint "Patella" stayed Planned. New `eventRepo.testMatchTokensOf`
+  (name tokens + title) drives the Dog page's Planned Tests card, Health-Testing Gaps and
+  Kels's Log health test results; the test vocabulary still reads `testTokensOf`. No new
+  files. Tests: `tests/eventRepo.test.js`, `tests/healthTestLog.test.js`.
+- **Puppy Record prints parents' OFA / PennHIP results (2026-11-01).** The sire/dam test line
+  took only Genetic and Breed-specific results; it now takes OFA / PennHIP too (rating), named
+  by the test's name field (OFA: Method + Joint) else the title. The field is now labelled
+  **Health test results** (key `parentTests` unchanged, so saved picks keep). Checked in the
+  browser on the sample data (Juniper's OFA Hips prints).
+- **Parents' health tests on waitlist family pages (2026-11-01, draft).** New Waitlist setting
+  `waitlist_config.parent_tests` (default off; Waitlist settings → Public list & family
+  pages, offered with the list online): every parent the family pages show (Coming up, a
+  planned heat's dam, Available Puppies, whelp notes, a turn's litters) carries `tests`
+  (`[{ name, result }]`), folded under the parents line as **Health testing**. Per-dog
+  override `Dog.waitlist_tests` (`PARENT_TESTS_ONLINE`: Always show / Never show; null =
+  follow), on the Dog page's Health-Test Summary card as **On family pages**. New pure
+  `healthTestLog.completedTestsByDog` (latest result per test name; OFA named Method + Joint;
+  never lab, notes or dates); the projection reads it through `showsParentTests`;
+  `cloudWaitlist` now also loads the three test event types. Worker: `familyPages.parentOf`
+  copies `tests` by name (80 characters, at most 20); `common.parentTestsHtml` + a few lines
+  of `family.css`. `waitlist_tests` classified `cloud` (a display choice the publishing
+  device must see); `cloudFields.js` regenerated. Waitlist Spec §8.1 gets a Modified row
+  (results readable on the server, public with the public list). No new files. Tests:
+  `tests/healthTestLog.test.js`, `tests/waitlistProjection.test.js`,
+  `tests/familyPages.test.js`, `cloud/tests/familyPages.test.js`. Needs a Worker deploy for
+  the family pages to show them.
+- **Health test events get a Normal / abnormal flag; family pages can show Normal only
+  (2026-11-01, draft).** Genetic, OFA / PennHIP and Breed-specific events carry an optional
+  **Normal or abnormal** select (`details.outcome`, `vocab.TEST_OUTCOME`, stored as the label)
+  beside her own result wording; offered in the event form and Kels's Log health test
+  results (`testEvent` takes `outcome`); a cloud details key like `result` (`cloudFields.js`
+  regenerated). The parents' health tests setting became three levels
+  (`PARENT_TESTS_SHOWN`: Don't show / Normal results only / All results; `parent_tests`
+  default `'off'`), and `Dog.waitlist_tests` takes the same values (null = follow).
+  Normal only = the latest result per test marked Normal; unmarked results aren't shown;
+  the flag isn't published. Replaces the draft's checkbox and Always / Never show (never
+  shipped). Tests: `tests/healthTestLog.test.js`, `tests/waitlistProjection.test.js`.
+- **Suggestions for test results (2026-11-01).** Genetic / Breed-specific `result` and OFA
+  `rating` are now comboboxes: `vocab.TEST_RESULT_SUGGESTIONS` (Clear, Carrier, Affected,
+  N/N, Grade 1–4, Grade I–VI) followed by every result she's already typed on any of the
+  three types (new `eventRepo.getTestResultValues`, pooled; `healthTestLog.
+  testResultSuggestions` merges, deduped any case). The event form now merges a combobox's
+  logged values for these fields with its options; Kels's Log health test results gets the
+  same list. Free text, nothing enforced. Test: `tests/healthTestLog.test.js`. Screenshots
+  checked at phone width on the sample data.
+- **Check in on my dogs: health test results and any other events; own dogs only
+  (2026-11-01).** Owner decision: Kels logs other events only inside this check-in, not as a
+  separate Add new events task (Kels Roadmap §3.10 / §3.7 Modified). Two new last steps:
+  "Do you need to log any new health test results?" runs Log health test results' own loop
+  (`healthTestsUI.logHealthTests`, now exported, with an `only` dog filter), and "Any other
+  events that need logging?" (a kind from `dogCare.otherEventTypes`, everything but the
+  check-in's own types and `acquisition` / `placement`; one form with the type's fields,
+  date / end, a cost per dog as linked expenses, and the dogs). Shared rather than copied:
+  `dogCare.dogEvents` builds one event per dog (the litter check-in's `careEvents` now calls
+  it), and `litterCheckinUI.eventFieldInput` (was `careInput`; combobox options now
+  suggested, select defaults honoured) renders a type's fields in both. The whole check-in
+  now loads only her own dogs (`dogCare.ownDogs`: owned / co-owned, not archived, deceased or
+  pedigree-only): heats are her own active breeding females, preventatives her own active
+  breeding dogs only (the form no longer adds her other dogs at home), and the two new steps
+  list `checkinDogs` (her own dogs, puppies only when Keeping). Today's nudges and reports
+  keep `breedingDogs` on every dog. Kels menu card's subtitle and keywords updated. Tests:
+  `tests/dogCare.test.js`. Driven end to end in the browser on the sample data (lists
+  checked against each dog's ownership and status; a vet visit for two dogs with $85 saved
+  two events and two veterinary expenses).
+- **All dogs ordered by status, sex, name (2026-11-01).** The Dogs page's All dogs list had
+  no default order; it now uses `vocab.dogListOrder`: status in `DOG_STATUS` order (Puppy,
+  Active breeding, Retired breeding, Pet home, For Sale, Deceased, External reference), then
+  Male / Female / Unknown, then name A→Z (call name, else registered name), anything
+  missing last at its level so no dog drops off. The Status and Sex columns now sort in
+  vocab order too (were alphabetical by stored value). Other tabs unchanged. Test:
+  `tests/vocab.test.js`; checked in the browser on the sample data.
+- **Check in on my dogs leaves out Pet home dogs (2026-11-01).** Owner decision: the health
+  test and "any other events" steps' list (`dogCare.checkinDogs`) no longer includes dogs
+  with status Pet home. Test: `tests/dogCare.test.js`.
+- **One rule for the dogs she looks after (2026-11-01).** Owner decision: new
+  `dogCare.isCareDog` = owned, co-owned, leased in or leased out, and never External, an
+  External reference, Deceased or Pet home dog, archived or pedigree-only. `breedingDogs` and
+  `homeDogs` now read it, so Today's heat and preventative reminders, the Dogs page's Log for
+  several dogs, Log health test results' "at home" list and Check in on my dogs agree; the
+  Heat Cycles report lists only these females. Check in on my dogs now includes leased-in /
+  leased-out dogs (`ownDogs` = `isCareDog`; `checkinDogs` adds kept puppies). Tests:
+  `tests/dogCare.test.js` (fixtures now carry an ownership).
+- **Health test results take the certificate (2026-11-01).** Asked by the owner. Log health
+  test results' form (and so Check in on my dogs' health-test step) has **Certificate or
+  report (optional)** with Documents (Pro): a PDF or photos, filed on the dog as a Health
+  test document titled and dated as the test, with its lab and result. The file picker is
+  now one shared piece, `kelsSteps.filePicker` / `wireFilePicker`, which Add dogs' document
+  form uses too (its own copy removed). `documentModal.js` stays Pro-only, loaded only when
+  a file is picked. Checked in the browser on the sample data (a PDF on Juniper's OFA Elbows
+  filed one document and one event); Lite's `documents: false` hides the field.
+- **Vet summary document type (2026-11-01).** Asked by the owner. `DOC_TYPES` gains
+  `vet_summary` (Vet summary, 🏥; field: Registry / vet / lab), offered wherever a document
+  type is picked (Documents, Add dogs, Furever uploads). It stays out of cloud backup for
+  now (`CLOUD_DOC_TYPES` unchanged, like Contract and Other): a privacy call left to the
+  owner. No new files.
+- **Check in on my dogs: a vet visits step with the vet summary; Vet summary to the cloud
+  (2026-11-01).** Owner decisions. Before "Any other events", "Any vet visits to log?" uses
+  the same event form for a `vet_visit` plus (Documents, Pro) **Vet summary (optional)**:
+  filed on each ticked dog as a `vet_summary` document, its own copy of the file (a
+  document's delete removes its file), titled and dated as the visit, the vet as issuer.
+  `vet_visit` joins `dogCare.CHECKIN_OWN_TYPES`, so "Any other events" no longer offers it.
+  `vet_summary` joins `syncRegistry.CLOUD_DOC_TYPES` (backed up like Health test). Kels menu
+  card updated. Tests: `tests/dogCare.test.js`. Browser: a visit for two dogs with a PDF and
+  $120 filed two vet summaries (separate files) beside the events and expenses.
+- **Kels: Review my waitlist (2026-11-01).** Roadmap §3.16, all of it (owner's choice over an
+  applicants-only slice). New `assets/waitlistReviewUI.js` (Pro, `proPages.js`) and shared
+  `data/waitlistReview.js` (`readNudgeKey`, `STEP_OF`, `REVIEW_STEPS`, `reviewSummary`,
+  `readinessProblems`, `outcomeReport`); both precached. Opens by checking the list is set up,
+  online and publishing, and her own form takes applications online, handing her to Set up
+  my waitlist / Set up my application form with buttons (asked by the owner), or Keep going.
+  Then "Here's what's waiting on you" and the eight steps (requests and messages; backing out
+  and any sale to cancel or void; offers past their deadline; picks to open; a turn to offer;
+  new applications; fees and extras payments due; "Ready now?" and removals), each item with
+  Skip for now, each step rechecked as it comes. Shared rather than copied: the items are
+  Today's waitlist nudges (`nudges.waitlistNudgeItems`, `extraDueItems`); Today's
+  overdue-offer report now comes from `outcomeReport`; the Sale page's Paid on box and Kels's
+  Paid share `extraCharges.stepWithPaidDate` / `chargesWithStepPaid`; the family page's
+  dialogs are reused (communicate, pick, deposit, sale prompts, restore). Added:
+  `waitlistActions.previewNextTurn`, `extendTurn`, `approveBackOut({ told })`, and
+  `nudgeState.snooze` / `snoozedUntil` (Today honours a snooze). Kels menu: "Review my
+  waitlist", priority 58 while anything waits. Tests: `tests/waitlistReview.test.js`. Driven
+  in the browser on the sample data plus seeded requests: readiness (not online), message
+  (Write back, Mark read), pause approved, a pass then the freed turn offered, more time,
+  open picks (joined the open turn) and snooze, an application approved then its fee
+  received, a back-out kept with the pup back, a sale voided (pup died). Not driven in the
+  browser: extra and pickup requests, own-address set-up, "Ready now?"/removals, extras due,
+  the pick/deposit dialogs.
+- **SW cache bumped to `kennelos-shell-v91` (2026-11-01).** This session's app changes ride it:
+  parents' health tests on family pages (setting, per-dog override, Normal/abnormal flag on
+  test events, result suggestions), Check in on my dogs' new steps (health test results with
+  the certificate, vet visits with the vet summary, any other events) and its one rule for
+  the dogs she looks after, the Vet summary document type (backed up), All dogs ordered by
+  status / sex / name, and Kels's Review my waitlist (two new precached files). The family
+  pages' health tests need a Worker deploy.
+- **Driving miles fixed: Directions API, not Matrix (2026-11-01).** /ops showed "Driving
+  miles (Mapbox): not working (HTTP 422: … only 1 matrix element; minimum number of matrix
+  elements is 2)". The Matrix API refuses a request for a single distance, and both
+  `geo.drivingDistance` (her Get driving miles, a family's own address) and the /ops check
+  asked for exactly one. Both now ask Mapbox's Directions API for one route
+  (`routes[0].distance` / `duration`), same token. Tests' Mapbox stubs updated
+  (`cloud/tests/familyActions`, `ops-sections`, `tests/cloudWaitlist`). Needs a Worker deploy.

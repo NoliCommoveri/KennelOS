@@ -6,7 +6,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import {
-  SEX_LABEL, READY_LABEL, PURPOSE_LABEL, purposesText, CREDIT_LABEL, rowMatches, fmtDate, possessive, publicListHtml, esc
+  SEX_LABEL, READY_LABEL, PURPOSE_LABEL, purposesText, CREDIT_LABEL, rowMatches, fmtDate, possessive, publicListHtml, esc,
+  parentsLine, parentTestsHtml, upcomingItemHtml
 } from '../cloud/public/family/common.js';
 import { WAITLIST_PREF_SEX, WAITLIST_READY_TIMING, PLACEMENT_PURPOSE, FEE_CREDIT_POLICY } from '../shared/data/vocab.js';
 import { ACTION_VOCAB } from '../cloud/src/familyActions.js';
@@ -74,4 +75,18 @@ test('the pages carry no inline script or style (the CSP forbids them) and load 
     assert.equal(/https?:\/\//.test(outside), false, `${f}: an outside URL`);
     if (f.endsWith('.html')) assert.equal(/<script(?![^>]*\bsrc=)[^>]*>/.test(text), false, `${f}: inline script`);
   }
+});
+
+test('parents\' health testing folds under the parents line, escaped; nothing when neither parent has any', () => {
+  const dam = { name: 'Juniper', titles: ['CGC'], tests: [{ name: 'OFA Hips', result: 'Good' }, { name: 'PRA-prcd', result: '<b>Clear</b>' }] };
+  const sire = { name: 'Ash', titles: [] };
+  const html = parentsLine(dam, sire);
+  assert.match(html, /Dam: Juniper CGC · Sire: Ash/);
+  assert.match(html, /<details class="small parent-tests"><summary>Health testing<\/summary>/);
+  assert.match(html, /<strong>Dam Juniper:<\/strong> OFA Hips: Good · PRA-prcd: &lt;b&gt;Clear&lt;\/b&gt;/);
+  assert.equal(html.includes('Sire Ash:'), false, 'a parent with none shown gets no line');
+  assert.equal(parentTestsHtml(sire, { name: 'Bo', titles: [] }), '');
+  assert.equal(parentsLine({ name: 'Juniper', titles: [] }, sire).includes('details'), false);
+  const heat = upcomingItemHtml({ kind: 'planned_heat', label: 'Juniper', dam, expected_month: '2027-03' });
+  assert.match(heat, /Dam Juniper:/, 'a planned heat shows its dam\'s testing too');
 });
