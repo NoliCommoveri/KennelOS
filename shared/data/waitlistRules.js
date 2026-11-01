@@ -60,7 +60,11 @@ export const WAITLIST_CONFIG_DEFAULTS = Object.freeze({
   transport_far_miles: 150, // over this, "she'll be in touch" (and the transport options email)
   transport_min_home_miles: 0, // families may suggest their own place only living this far away; 0 = any family
   pickup_change_days: 2, // a family may change or cancel their pickup time until this many days before
-  boarding_rate: null // her standard boarding, $ per day, for a pickup date marked "standard boarding applies"
+  boarding_rate: null, // her standard boarding, $ per day, for a pickup date marked "standard boarding applies"
+  // Backing out (Family Requests plan §7; backOut.js):
+  back_out_reasons: null, // [{ id, label }]; null = BACK_OUT_REASONS_DEFAULT ("Something else" always added)
+  back_out_policy: [], // [{ reason_id, from_weeks?, until_weeks?, outcome: 'keep' | 'move' }]; first row that fits suggests
+  back_out_policy_text: '' // what families read before sending; blank = BACK_OUT_POLICY_TEXT_DEFAULT
 });
 
 // The default message above the extras on a family's status page (the owner's wording).
@@ -434,7 +438,8 @@ export function isPupAvailable(dog, sales = []) {
 // home) or RETURNED for a health problem within the guarantee. Never a cancelled
 // sale or a buyer's-choice return: the family backed out themselves.
 export function restoresFamily(sale) {
-  return isLostSale(sale) && !sale.is_archived;
+  // A family who backed out and was refunded isn't put back in line by this.
+  return isLostSale(sale) && !sale.is_archived && sale.end_reason !== 'buyer_backed_out';
 }
 
 // The waitlist family a lost sale belongs to, or null:
@@ -792,6 +797,10 @@ export function litterQueue(entries, litter, pups, sales, { today, config = WAIT
 // Offers that have already used a family's turn on a litter. A voided offer
 // doesn't (she cancelled it), so that family can be offered again.
 const SPENT_OUTCOMES = ['open', 'accepted', 'passed', 'no_response'];
+// A turn on a litter is spent by those outcomes, or by backing out of the pup it gave
+// them (Family Requests plan §7): never a pass, but that litter isn't offered again
+// unless she offers it by hand.
+const spentOffer = (o) => SPENT_OUTCOMES.includes(o.outcome) || Boolean(o.backed_out_date);
 
 export function hasOpenOffer(offers, litterId) {
   return offers.some((o) => !o.is_archived && o.litter_id === litterId && o.outcome === 'open');
@@ -843,13 +852,13 @@ export function undoPassBlocker(offer, entry, today) {
 // against them — they simply aren't in the queue.
 // Has this family already used its turn on this litter (an offer that wasn't voided)?
 export function turnSpent(offers, litterId, entryId) {
-  return offers.some((o) => !o.is_archived && o.litter_id === litterId && o.entry_id === entryId && SPENT_OUTCOMES.includes(o.outcome));
+  return offers.some((o) => !o.is_archived && o.litter_id === litterId && o.entry_id === entryId && spentOffer(o));
 }
 
 export function nextFamilyForLitter(entries, offers, litter, pups, sales, opts = {}) {
   if (hasOpenOffer(offers, litter.id)) return null;
   const spent = new Set(
-    offers.filter((o) => !o.is_archived && o.litter_id === litter.id && SPENT_OUTCOMES.includes(o.outcome)).map((o) => o.entry_id)
+    offers.filter((o) => !o.is_archived && o.litter_id === litter.id && spentOffer(o)).map((o) => o.entry_id)
   );
   return litterQueue(entries, litter, pups, sales, opts).find((q) => !spent.has(q.entry.id)) || null;
 }

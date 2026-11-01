@@ -511,3 +511,16 @@ test("a family's pickup passes field by field; her standard location and the mil
   assert.equal(v.family.pickup.own_place, true);
   assert.equal(JSON.stringify(v).includes('Austin'), false, 'her standard location never reaches a family');
 });
+
+test("backing out passes field by field, with her reasons and policy text, only with an open sale", () => {
+  const p = projection();
+  p.kennel.back_out_reasons = [{ id: 'timing', label: 'The timing', extra: 'x' }];
+  p.kennel.back_out_policy_text = 'Tell us why.';
+  p.entries.cy.back_out = { available: true, request: { reason: 'The timing', requested_date: '2026-11-01', decided: null, note: 'private', outcome: null } };
+  assert.equal('back_out' in statusView(p, 'cy').family, false, 'no open sale: none');
+  p.entries.cy.companion = { available: true, request: null };
+  const v = statusView(p, 'cy');
+  assert.deepEqual(v.family.back_out, { available: true, request: { reason: 'The timing', requested_date: '2026-11-01', decided: null, decided_date: null, outcome: null } });
+  assert.deepEqual(v.kennel.back_out_reasons, [{ id: 'timing', label: 'The timing' }]);
+  assert.equal(v.kennel.back_out_policy_text, 'Tell us why.');
+});

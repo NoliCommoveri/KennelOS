@@ -23,7 +23,7 @@ import { fail, json, readJson } from './lib/http.js';
 
 export const ACTION_LIMITS = { perHourPerSession: 60, messagesPerHourPerSession: 10, messageBytes: 32 * 1024, noteChars: 500, maxPauseDays: 731 };
 export const FAMILY_ACTIONS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change', 'prepass', 'unprepass', 'ready', 'companion_request', 'extra_request', 'extra_cancel',
-  'pickup_book', 'pickup_cancel', 'pickup_address', 'home_location'];
+  'pickup_book', 'pickup_cancel', 'pickup_address', 'home_location', 'back_out'];
 
 const OPEN_STATUSES = ['applied', 'approved', 'active'];
 // Copies of the app's vocab (shared/data/vocab.js); tests/familyPages.test.js in
@@ -135,6 +135,19 @@ export function checkAction(action, body, { entry, projection, pending, now = ne
     if ((x.requests || []).some((r) => waiting(r) && r.kind === 'cancel' && r.charge_id === id)
       || already('extra_cancel', (p) => p.charge_id === id)) fail(409, 'already_requested');
     return { charge_id: id, list_id: typeof charge.list_id === 'string' ? charge.list_id : null, name: String(charge.name ?? '').slice(0, 120), note: cleanNote(body.note) };
+  }
+  // Backing out (docs/KennelOS_Family_Requests_Plan.md §7): only with an open sale,
+  // one of her reasons ("Something else" needs a few words), one request at a time.
+  // Nothing changes until she decides.
+  if (action === 'back_out') {
+    const bo = entry.back_out?.available ? entry.back_out : fail(409, 'no_sale');
+    if ((bo.request && !bo.request.decided) || already('back_out')) fail(409, 'already_requested');
+    const reasons = Array.isArray(projection.kennel?.back_out_reasons) ? projection.kennel.back_out_reasons : [];
+    const id = String(body.reason_id ?? '');
+    if (!reasons.some((r) => r && r.id === id)) fail(400, 'reason_required');
+    const reasonText = String(body.reason_text ?? '').trim().slice(0, REASON_TEXT_MAX);
+    if (id === 'other' && !reasonText) fail(400, 'reason_required');
+    return { reason_id: id, reason_text: id === 'other' ? reasonText : '', note: cleanNote(body.note) };
   }
   // Pickup (docs/KennelOS_Family_Requests_Plan.md §4): a time she published to this
   // family (entry.pickup.slots, with room left), a cancel or change before her

@@ -338,6 +338,7 @@ export const CLOUD_FIELDS = {
     },
     "waitlist_offers": {
       "keys": [
+        "backed_out_date",
         "chosen_dog_id",
         "counts_as_pass",
         "created_at",

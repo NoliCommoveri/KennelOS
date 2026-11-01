@@ -35,9 +35,10 @@
 import { WAITLIST_OPEN_STATUSES, isOpenSale } from './vocab.js';
 import { isPupAvailable, isListenOnly, listenChangeKind, prefChangeLines, PREF_CHANGE_FIELDS, turnIdOf, turnSpent, passReasonOf } from './waitlistRules.js';
 import { arrivalDate } from './waitlistInbox.js';
+import { backOutReasons, BACK_OUT_OTHER } from './backOut.js';
 
 export const FAMILY_EVENT_KINDS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change', 'prepass', 'unprepass', 'ready', 'companion_request', 'extra_request', 'extra_cancel',
-  'pickup_book', 'pickup_cancel', 'pickup_address', 'home_location'];
+  'pickup_book', 'pickup_cancel', 'pickup_address', 'home_location', 'back_out'];
 export const NOTE_MAX = 500;
 
 const clean = (v) => String(v ?? '').trim().slice(0, NOTE_MAX);
@@ -68,6 +69,7 @@ export const activityId = (event) => `event-${event.seq}`;
 //   op 'extra_request'  { request }  → added to entry.extra_requests (familyExtras.js)
 //   op 'pickup_request' { request }  → added to entry.pickup_requests (familyPickup.js)
 //   op 'home_location'  { place, miles } → where they live, on the entry
+//   op 'back_out_request' { request } → entry.back_out_request (backOut.js)
 // `date` is the day the family acted, in the kennel's time zone; `activity` the
 // line for their entry's activity ({ id, at, body }), or null.
 export function planFamilyEvent(event, ctx) {
@@ -220,6 +222,19 @@ export function planFamilyEvent(event, ctx) {
       if (typeof p.slot_id !== 'string' || !p.slot_id) return skip('bad_payload');
       return { op: 'pickup_request', date, activity: null, request: { ...base, kind: 'slot', slot_id: p.slot_id, date: ymd(p.date),
         start_time: clean(p.start_time).slice(0, 5), end_time: clean(p.end_time).slice(0, 5), place: clean(p.place).slice(0, 80) } };
+    }
+    case 'back_out': {
+      // Backing out (Family Requests plan §7): only with an open sale; nothing changes
+      // until she decides. Their reason as her list says it now.
+      const why = clean(p.note);
+      if (!entry.contact_id || !sales.some((x) => x.buyer_contact_id === entry.contact_id && isOpenSale(x))) {
+        return note(`Asked to back out, but they have no open sale now, so there's nothing to back out of.${why ? ` They said: "${why}"` : ''}`);
+      }
+      const reasons = backOutReasons(config);
+      const r = reasons.find((x) => x.id === p.reason_id) || BACK_OUT_OTHER;
+      return { op: 'back_out_request', date, activity: null, request: {
+        requested_date: date, reason: { id: r.id, label: r.label, text: clean(p.reason_text).slice(0, 200) }, note: why
+      } };
     }
     case 'home_location': {
       const place = clean(p.place).slice(0, 120);

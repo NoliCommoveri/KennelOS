@@ -1165,6 +1165,18 @@ async function statusPageNudges(entries, offers, { today, litters, dogsById, ken
         ]
       });
     }
+    // Backing out (Family Requests plan §7): she decides on their page, where she
+    // chooses the outcome and ticks what comes off with the sale.
+    if (hasPendingRequest(e, 'back_out_request')) {
+      const r = e.back_out_request;
+      out.push({
+        key: `waitlist-back-out:${e.id}:${r.requested_date}`,
+        title: `${name(e)} asked to back out`,
+        detail: `Their reason: ${r.reason?.label || ''}${r.reason?.text ? `: "${r.reason.text}"` : ''}. Nothing changes until you decide on their page: keep the deposit or move it to another pup.${said(r.note)}`,
+        subjectHref: href(e),
+        actions: [{ label: 'Open', run: async () => { location.href = href(e); } }]
+      });
+    }
     // Pickup requests (Family Requests plan §4): a time or a cancel is decided here;
     // their own address needs a day, time and fee, so it opens their page.
     for (const r of pendingPickupRequests(e)) {

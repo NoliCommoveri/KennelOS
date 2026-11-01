@@ -25,7 +25,8 @@ import { dogRepo } from '../data/dogRepo.js';
 import { saleRepo } from '../data/saleRepo.js';
 import * as actions from '../data/waitlistActions.js';
 import { kennelChargeList, kennelChargeGroups, chargeRules, planText } from '../data/extraCharges.js';
-import { pendingExtraRequests, familySale } from '../data/familyExtras.js';
+import { pendingExtraRequests, familySale, pupBirthDate } from '../data/familyExtras.js';
+import { suggestOutcome, policyRowText, backOutReasons, ageWeeks, backOutItems, backOutSummary, BACK_OUT_OUTCOMES } from '../data/backOut.js';
 import { pendingPickupRequests, requestText as pickupRequestText, ownPlaceAllowed } from '../data/familyPickup.js';
 import { standardLocation } from '../data/pickupSlots.js';
 import { transportQuote, mapsLink } from '../data/transportFee.js';
@@ -362,6 +363,23 @@ function pendingRequests(e) {
         : `Asked ${esc(fmtDate(r.requested_date))} for <strong>${esc(r.name)}</strong>${price}.`,
       hint: r.kind === 'cancel' ? 'Approve takes it off their sale.' : item ? 'Approve adds it to their sale at your price-list price, with its payment plan.' : 'It\'s no longer on your price list: add it to the sale by hand, or decline.' });
   }
+  // Backing out (Family Requests plan §7): her policy's suggestion; she chooses, then
+  // ticks what comes off in the confirm.
+  if (actions.hasPendingRequest(e, 'back_out_request')) {
+    const r = e.back_out_request;
+    const sale = familySale(e, ctx.sales);
+    const pup = sale ? ctx.dogsById.get(sale.dog_id) : null;
+    const litter = pup ? ctx.litters.find((l) => l.id === pup.litter_id) : null;
+    const s = suggestOutcome(ctx.config, r.reason?.id, ageWeeks(pupBirthDate(pup, litter), r.requested_date));
+    ctx.backOut = { pupName: pup?.call_name || '' };
+    out.push({ kind: 'backout', note: r.note,
+      text: `Asked ${esc(fmtDate(r.requested_date))} to <strong>back out</strong>${ctx.backOut?.pupName ? ` of ${esc(ctx.backOut.pupName)}` : ''}. Their reason: ${esc(r.reason?.label || '')}${r.reason?.text ? `: "${esc(r.reason.text)}"` : ''}.`,
+      hint: s ? `Your policy suggests: ${BACK_OUT_OUTCOMES.find((o) => o.value === s.outcome).label.toLowerCase()}${s.row ? ` (${policyRowText(s.row, backOutReasons(ctx.config))})` : ' (no rule fits)'}.` : '',
+      buttons: `<button class="btn btn-sm${s?.outcome === 'keep' ? ' btn-primary' : ''}" data-req="backout:keep">Keep the deposit</button>
+        <button class="btn btn-sm${s?.outcome === 'move' ? ' btn-primary' : ''}" data-req="backout:move">Move the deposit</button>
+        <button class="btn btn-sm" data-req="backout:more">More options…</button>
+        <button class="btn btn-sm" data-req="backout:decline">Decline</button>` });
+  }
   // Pickup (Family Requests plan §4): a time, a cancel, or their own address.
   const from = standardLocation(ctx.kennel)?.address || '';
   for (const r of pendingPickupRequests(e)) {
@@ -464,8 +482,59 @@ function wireRequests(root) {
     const [kind, decision] = btn.dataset.req.split(':');
     if (kind.startsWith('extra|')) return run(extra(kind.slice(6), decision === 'approve'));
     if (kind.startsWith('pickup|')) return run(pickup(kind.slice(7), decision));
+    if (kind === 'backout') return run(() => onBackOut(decision));
     return run(handlers[btn.dataset.req]);
   }));
+}
+
+// Backing out (Family Requests plan §7.2): the confirm lists what comes off with the
+// sale, each ticked or not by default (paid or finished extras start kept: she's owed
+// them), and ends with the one-line summary. A refund (More options…) needs REFUND
+// typed, since she doesn't plan to use it.
+async function onBackOut(decision) {
+  const e = ctx.entry;
+  const request = e.back_out_request;
+  if (decision === 'decline') {
+    if (!(await confirmModal({ title: 'Decline their request?', message: 'Nothing changes: their sale stays as it is. Let them know why.', confirmLabel: 'Decline' }))) return;
+    await actions.declineBackOut(e.id);
+    await afterAction();
+    return emailThem('request_declined', { request: { field: 'back_out_request', request } });
+  }
+  let outcome = decision === 'more' ? 'refund' : decision;
+  const sale = familySale(e, ctx.sales);
+  if (!sale) throw new Error('They have no open sale to back out of any more.');
+  const events = sale.dog_id ? await eventRepo.getForSubject('dog', sale.dog_id) : [];
+  const items = backOutItems({ sale, events, today: todayYMD() });
+  const deposit = Number(sale.deposit_amount) || 0;
+  const titles = { keep: 'Cancel the sale, keep the deposit', move: 'Cancel the sale, move the deposit', refund: 'Refund their deposit' };
+  const ok = await formModal({
+    title: titles[outcome], confirmLabel: outcome === 'refund' ? 'Refund' : 'Approve', danger: outcome === 'refund',
+    bodyHtml: `${outcome === 'refund' ? `<p style="margin-top:0;">The sale is voided ("Buyer backed out, refunded"), so ${deposit ? `their ${esc(fmtMoney(deposit))} deposit` : 'their deposit'} won't count as income. Record that you refunded it?</p>` : ''}
+      ${outcome === 'move' ? '<p style="margin-top:0;">They go back on your list at the end of the line, with their application, fee and history. What they paid as a deposit goes toward their next pup.</p>' : ''}
+      ${items.length ? `<p class="field-hint" style="margin:0 0 4px;">Tick what comes off with the sale. Extras you leave unticked stay on it, still owed.</p>
+        ${items.map((it, i) => `<label class="check-inline" style="display:block; margin:4px 0;"><input type="checkbox" class="bo-item" data-i="${i}"${it.remove ? ' checked' : ''}> <strong>${esc(it.label)}</strong> <span class="faint">${esc(it.kind === 'charge' ? `extra, ${it.detail}` : it.detail)}</span></label>`).join('')}` : ''}
+      <p class="field-hint" id="bo-summary" style="margin-top:8px;"></p>
+      ${outcome === 'refund' ? '<div class="field"><label for="bo-type">Type REFUND to confirm</label><input id="bo-type" type="text" autocomplete="off"></div>' : ''}`,
+    onConfirm: async (o) => {
+      const remove = [...o.querySelectorAll('.bo-item:checked')].map((c) => items[Number(c.dataset.i)].id);
+      await actions.approveBackOut(e.id, { outcome, remove });
+      await afterAction();
+    }
+  }, (o) => {
+    const confirm = o.querySelector('[data-fm-confirm]');
+    const summary = () => {
+      const picked = items.map((it, i) => ({ ...it, remove: o.querySelector(`.bo-item[data-i="${i}"]`).checked }));
+      o.querySelector('#bo-summary').textContent = `${backOutSummary(outcome, { deposit, items: picked, money: fmtMoney })}.`;
+    };
+    o.querySelectorAll('.bo-item').forEach((c) => c.addEventListener('change', summary));
+    summary();
+    const typed = o.querySelector('#bo-type');
+    if (typed) {
+      confirm.disabled = true;
+      typed.addEventListener('input', () => { confirm.disabled = typed.value.trim() !== 'REFUND'; });
+    }
+  });
+  if (ok) await emailThem('request_approved', { request: { field: 'back_out_request', request } });
 }
 
 // After approving a time or a cancel: nothing she typed on the sale changes without

@@ -323,3 +323,19 @@ test('driving miles: geocode both, one Matrix element; no key, no call; addresse
     globalThis.fetch = realFetch;
   }
 });
+
+// --- Backing out (docs/KennelOS_Family_Requests_Plan.md §7) ------------------------------
+
+test('backing out: only with an open sale, one of her reasons, one request at a time', () => {
+  const p = projection();
+  p.kennel.back_out_reasons = [{ id: 'changed_mind', label: 'We changed our mind' }, { id: 'other', label: 'Something else' }];
+  const entry = { status: 'placed', companion: { available: true }, back_out: { available: true, request: null } };
+  const ctx = (over = {}) => ({ entry: { ...entry, ...over }, projection: p, pending: [] });
+  assert.deepEqual(checkAction('back_out', { reason_id: 'changed_mind', note: ' Sorry ' }, ctx()), { reason_id: 'changed_mind', reason_text: '', note: 'Sorry' }, 'a placed family too');
+  assert.deepEqual(checkAction('back_out', { reason_id: 'other', reason_text: ' Moving abroad ' }, ctx()).reason_text, 'Moving abroad');
+  assert.throws(() => checkAction('back_out', { reason_id: 'other' }, ctx()), /reason_required/);
+  assert.throws(() => checkAction('back_out', { reason_id: 'nope' }, ctx()), /reason_required/);
+  assert.throws(() => checkAction('back_out', { reason_id: 'changed_mind' }, ctx({ back_out: { available: true, request: { decided: null } } })), /already_requested/);
+  assert.throws(() => checkAction('back_out', { reason_id: 'changed_mind' }, { ...ctx(), pending: [{ kind: 'back_out', payload: {} }] }), /already_requested/);
+  assert.throws(() => checkAction('back_out', { reason_id: 'changed_mind' }, ctx({ back_out: null })), /no_sale/);
+});

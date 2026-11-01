@@ -684,6 +684,40 @@ function pickupHtml(f) {
   return card('Pickup', parts.join(''));
 }
 
+// Backing out (Family Requests plan §7): they tell her why; her policy text first.
+// Nothing changes until she decides, and their page shows what she decided.
+function backOutHtml(f) {
+  const bo = f.back_out;
+  if (!bo?.available) return '';
+  const k = state.v.kennel;
+  const kennel = k.name;
+  const req = bo.request;
+  const sent = pendingOf('back_out')[0];
+  if (sent || (req && !req.decided)) {
+    return openCard('Backing out', `<p class="mt0"><span class="badge warn">Requested</span> ${req?.requested_date && !sent ? `on ${esc(fmtDate(req.requested_date))}. ` : ''}${esc(kennel)} will be in touch. Nothing changes until they confirm.</p>`);
+  }
+  if (req?.decided === 'approved') {
+    const what = { keep: 'Your puppy\'s sale is cancelled.', move: 'Your puppy\'s sale is cancelled and your deposit moves to another puppy; you\'re back on the waitlist.', refund: 'Your puppy\'s sale is cancelled and your deposit refunded.' }[req.outcome] || 'Confirmed.';
+    return openCard('Backing out', `<p class="mt0">${esc(kennel)} confirmed on ${esc(fmtDate(req.decided_date))}. ${esc(what)}</p>`);
+  }
+  if (!signedIn()) return '';
+  if (state.open !== 'back_out') {
+    return `<div class="actions mt8"><button type="button" class="linkish small" data-act="open" data-what="back_out">Need to back out?</button></div>
+      ${req?.decided === 'declined' ? `<p class="small muted">${esc(kennel)} didn't confirm your request (${esc(fmtDate(req.decided_date))}). Contact them with any questions.</p>` : ''}`;
+  }
+  const reasons = k.back_out_reasons || [];
+  return openCard('Backing out', `
+    ${k.back_out_policy_text ? `<p class="mt0 pre">${esc(k.back_out_policy_text)}</p>` : ''}
+    <form data-form="back_out" class="mt8">
+      <fieldset class="q"><legend>Why do you need to back out?</legend>
+        ${reasons.map((r) => `<label class="choice"><input type="radio" name="reason_id" value="${esc(r.id)}"> ${esc(r.label)}</label>`).join('')}
+      </fieldset>
+      <label class="q">A few words <span class="muted small">(needed for "${esc(reasons.find((r) => r.id === 'other')?.label || 'Something else')}")</span><input name="reason_text" maxlength="200"></label>
+      <label class="q">Anything else ${esc(kennel)} should know? <span class="muted small">(optional)</span><textarea name="note" maxlength="500"></textarea></label>
+      <div class="actions"><button class="primary danger" type="submit">Send my request</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
+    </form>`);
+}
+
 // Getting your pup home (Family Requests plan D8): her flight nannies and ground
 // transporters, for a family whose pup is picked (the server sends them only then).
 function transportHtml() {
@@ -732,6 +766,7 @@ function mineHtml() {
     parts.push(transportHtml());
     parts.push(recommendedHtml());
     parts.push(emailsHtml());
+    parts.push(backOutHtml(f));
     return parts.join('');
   }
 
@@ -801,6 +836,7 @@ function mineHtml() {
   parts.push(messageHtml());
   parts.push(messengerHtml());
   parts.push(recommendedHtml());
+  parts.push(backOutHtml(f));
   return parts.join('');
 }
 
@@ -831,6 +867,9 @@ const ERRORS = {
   'pickup_book:not_listed': "That time isn't offered any more. The page now shows the times left.",
   'pickup_book:slot_full': 'Another family just took that time. Please choose another.',
   'pickup_book:already_requested': "You've already asked. The breeder will confirm.",
+  'back_out:already_requested': "You've already asked. The breeder will be in touch.",
+  'back_out:reason_required': 'Please choose a reason (and for "Something else", a few words).',
+  'back_out:no_sale': "There's no puppy sale on record for you right now. Contact the breeder with any questions.",
   'pickup_book:needs_extra': 'That day needs a package on your puppy\'s sale first. Ask for it on the Extras card.',
   'pickup_book:too_late': "It's too late to change your pickup here. Contact the breeder.",
   'pickup_cancel:too_late': "It's too late to cancel here. Contact the breeder.",
@@ -966,6 +1005,19 @@ async function onSubmit(ev) {
     case 'pause':
       await act('pause_request', { until: data.get('until'), note: data.get('note') }, `Your pause request is on its way. ${kennel} decides; until then nothing changes.`);
       return;
+    case 'back_out': {
+      const reasonId = String(data.get('reason_id') || '');
+      const text = String(data.get('reason_text') || '').trim();
+      if (!reasonId || (reasonId === 'other' && !text)) {
+        state.flash = reasonId ? 'Please tell us a little more.' : 'Please choose a reason.';
+        button.disabled = false;
+        render();
+        return;
+      }
+      if (!window.confirm(`Send ${kennel} your request to back out? Nothing changes until they confirm.`)) { button.disabled = false; return; }
+      await act('back_out', { reason_id: reasonId, reason_text: text, note: data.get('note') }, `Your request is on its way. ${kennel} will be in touch.`);
+      return;
+    }
     case 'pickup_address':
       await act('pickup_address', { address: data.get('address'), date: data.get('date') || '', note: data.get('note') }, `Your request is on its way. ${kennel} will confirm.`);
       return;

@@ -396,6 +396,20 @@ export function statusView(projection, entryId) {
   // only with an open sale.
   const pickup = e.companion?.available ? pickupOf(e.pickup) : null;
   if (pickup) family.pickup = pickup;
+  // Backing out (Family Requests plan §7): only with an open sale; her reasons and
+  // what she wants them to read first.
+  if (e.companion?.available && e.back_out?.available) {
+    const r = e.back_out.request;
+    const ymd = (v) => (typeof v === 'string' && YMD_RE.test(v) ? v : null);
+    family.back_out = { available: true, request: r && typeof r === 'object' ? {
+      reason: typeof r.reason === 'string' ? r.reason.slice(0, 200) : '', requested_date: ymd(r.requested_date),
+      decided: ['approved', 'declined'].includes(r.decided) ? r.decided : null, decided_date: ymd(r.decided_date),
+      outcome: ['keep', 'move', 'refund'].includes(r.outcome) ? r.outcome : null,
+    } : null };
+    kennel.back_out_reasons = (Array.isArray(projection.kennel?.back_out_reasons) ? projection.kennel.back_out_reasons : []).slice(0, 20)
+      .map((x) => ({ id: typeof x?.id === 'string' ? x.id.slice(0, 40) : '', label: typeof x?.label === 'string' ? x.label.slice(0, 80) : '' })).filter((x) => x.id && x.label);
+    kennel.back_out_policy_text = typeof projection.kennel?.back_out_policy_text === 'string' ? projection.kennel.back_out_policy_text.slice(0, 2000) : '';
+  }
   // Getting your pup home: only for a family with an open sale (their pup is picked).
   const transport = e.companion?.available ? transportOf(projection) : [];
   if (transport.length) kennel.transport = transport;

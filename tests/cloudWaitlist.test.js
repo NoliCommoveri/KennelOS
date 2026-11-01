@@ -605,6 +605,78 @@ test('pickup (Family Requests plan §4): a family books a time and her Approve m
     [25, 'Day', 7, true, null], 'replaced and removed once she chose to');
 });
 
+test('backing out (Family Requests plan §7): a placed family asks, her policy suggests, she moves their deposit with what she ticked; a refund voids the sale', async () => {
+  const { contactRepo } = await import('../shared/data/contactRepo.js');
+  const { saleRepo } = await import('../shared/data/saleRepo.js');
+  const { dogRepo } = await import('../shared/data/dogRepo.js');
+  const { eventRepo } = await import('../shared/data/eventRepo.js');
+  const actions = await import('../shared/data/waitlistActions.js');
+  await breeder();
+  const k = await putOnline();
+  await kennelRepo.update(k.id, { waitlist_config: { ...(await kennelRepo.getById(k.id)).waitlist_config,
+    back_out_policy: [{ reason_id: 'changed_mind', outcome: 'move' }], back_out_policy_text: 'Tell us why; we may move your deposit.' } });
+  const sales = await saleRepo.getAll({ includeArchived: true });
+  const entry = (await waitlistEntryRepo.getByKennel(k.id)).find((e) => e.status === 'active' && e.contact_id
+    && !sales.some((x) => x.buyer_contact_id === e.contact_id && saleRepo.isOpenSale(x)));
+  const other = (await waitlistEntryRepo.getByKennel(k.id)).find((e) => e.status === 'active' && e.contact_id && e.id !== entry.id && e.contact_id !== entry.contact_id);
+  // The seed is shared with later tests: both families are put back as they were at the end.
+  const restore = async () => {
+    for (const e of [entry, other]) {
+      await waitlistEntryRepo.update(e.id, { status: e.status, placed_sale_id: e.placed_sale_id || null, position_anchor_date: e.position_anchor_date || null,
+        carried_payment: e.carried_payment || null, withdrawn_date: e.withdrawn_date || null, back_out_request: null });
+    }
+  };
+  await contactRepo.update(entry.contact_id, { email: 'backout@example.com' });
+  const pups = (await dogRepo.getAll()).filter((d) => d.kennel_id === k.id && !d.date_of_death && d.litter_id);
+  const later = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const sale = await saleRepo.create({ kennel_id: k.id, dog_id: pups[0].id, buyer_contact_id: entry.contact_id, registration_type: 'limited', status: 'deposit_paid',
+    price: 3000, deposit_amount: 500, deposit_date: later(-10), extra_charges: [
+      { id: 'tr', label: 'Puppy training', amount: 600, payments: [{ id: 'a', percent: 50, due: 'on_approval', paid_date: later(-2) }, { id: 'b', percent: 50, due: 'with_balance' }] },
+      { id: 'ph', label: 'Photos', amount: 150 }
+    ] });
+  await waitlistEntryRepo.update(entry.id, { status: 'placed', placed_sale_id: sale.id });
+  const pickup = await eventRepo.create({ subject_type: 'dog', subject_id: pups[0].id, event_type: 'placement', event_date: later(20), title: 'Puppy pickup', related_contact_id: entry.contact_id, details: {} });
+  await cw.syncWaitlistOnline();
+  const fam = await familySignIn(k.public_id, 'backout@example.com');
+  const act = (action, extra = {}) => fam.call('/f/act', { session: fam.session, status_token: fam.statusToken, action, ...extra });
+  const view = async () => (await (await worker.fetch(new Request(`http://localhost/f/status/${fam.statusToken}`), env)).json());
+
+  const page = await view();
+  assert.deepEqual(page.family.back_out, { available: true, request: null });
+  assert.equal(page.kennel.back_out_policy_text, 'Tell us why; we may move your deposit.');
+  assert.equal((await act('back_out', { reason_id: 'changed_mind', note: 'Landlord said no' })).status, 200);
+  assert.equal((await act('back_out', { reason_id: 'changed_mind' })).status, 409, 'one at a time');
+  await cw.syncWaitlistOnline();
+  const req = (await waitlistEntryRepo.getById(entry.id)).back_out_request;
+  assert.deepEqual([req.reason.id, req.reason.label, req.note, req.decided ?? null], ['changed_mind', 'We changed our mind', 'Landlord said no', null]);
+  assert.equal((await saleRepo.getById(sale.id)).status, 'deposit_paid', 'nothing changes until she decides');
+  const { computeNudges } = await import('../shared/data/nudges.js');
+  assert.ok((await computeNudges()).some((n) => n.key === `waitlist-back-out:${entry.id}:${req.requested_date}`));
+
+  await actions.approveBackOut(entry.id, { outcome: 'move', remove: ['ph', pickup.id] });
+  const after = await saleRepo.getById(sale.id);
+  assert.equal(after.status, 'cancelled');
+  assert.deepEqual(after.extra_charges.map((c) => [c.id, c.kept_after_cancel]), [['tr', true]], 'Photos off, the part-paid training kept and owed');
+  assert.equal((await eventRepo.getById(pickup.id)).is_archived, true, 'the pickup came off');
+  const moved = await waitlistEntryRepo.getById(entry.id);
+  assert.deepEqual([moved.status, moved.placed_sale_id, moved.position_anchor_date, moved.carried_payment.amount, moved.back_out_request.outcome],
+    ['active', null, later(0), 500, 'move'], 'back on the list at the end, the same entry, the deposit carried');
+  await cw.syncWaitlistOnline();
+  assert.equal((await view()).family.status, 'active', 'their status page and sign-in still work');
+
+  // A refund: the sale is voided, never offered back in line, and they leave the list.
+  const sale2 = await saleRepo.create({ kennel_id: k.id, dog_id: pups[1].id, buyer_contact_id: other.contact_id, registration_type: 'limited', status: 'deposit_paid', price: 3000, deposit_amount: 500, deposit_date: later(-5) });
+  await waitlistEntryRepo.update(other.id, { status: 'placed', placed_sale_id: sale2.id, back_out_request: { requested_date: later(0), reason: { id: 'timing', label: 'The timing', text: '' }, note: '' } });
+  await actions.approveBackOut(other.id, { outcome: 'refund', remove: [] });
+  const refunded = await saleRepo.getById(sale2.id);
+  assert.deepEqual([refunded.status, refunded.end_reason], ['voided', 'buyer_backed_out']);
+  assert.equal(await actions.lostSaleFamilyFor(sale2.id), null, 'not a lost pup: no "put them back in line"');
+  assert.equal((await waitlistEntryRepo.getById(other.id)).status, 'withdrawn');
+  await restore();
+  await saleRepo.archive(sale.id);
+  await saleRepo.archive(sale2.id);
+});
+
 test('only the backing device applies family actions; a new backing device starts where the last one got to', async () => {
   await breeder();
   const k = await putOnline();

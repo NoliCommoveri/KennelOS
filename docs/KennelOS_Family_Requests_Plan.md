@@ -429,5 +429,8 @@ Every decision is made; the plan is ready to build in the order below.
    requires one of her extras (the date's times can't be chosen until the family has it;
    decided: block, not auto-request), or her standard boarding applies (decided: charged per
    day at her rate from when the pup could go home, and logged as a stay, on approval).
-6. Backing out with her deposit policy.
+6. Backing out with her deposit policy. **Built 2026-11-01** (guide §29 Backing out).
+   **Modified:** the offer keeps its outcome and gets `backed_out_date` (not a new
+   `backed_out` outcome); a turn's litter backed out of counts as spent through it. Keep
+   and refund close the family's run on the list (withdrawn).
 7. Kels: Review my waitlist picks these up in step 1 (requests) and step 2 (backing out).

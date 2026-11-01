@@ -1000,7 +1000,7 @@ Kels's tidy-up doesn't suggest recording it. Its pick puppy, when the fee has on
 | `follow-up` | a pup went home 7–60 days ago (`referralShare`) | write a thank-you note |
 | `training-stay` / `training-stay-orphan` | an extra with `boarding_days` on an open sale and no boarding event linked to it (`goHome.trainingStaysFor`) / a linked stay still to come whose extra is off its sale (`orphanTrainingStays`) | **Log the stay** (`trainingStayEvent`, created at once: from the ready date or today, its days long) / **Remove the stay** (archive) |
 | `extra-due` | an extra's payment-plan step (§21.2) is due within `EXTRA_DUE_DAYS` (7) or overdue, unpaid, on an open sale whose balance isn't paid | open the sale |
-| `waitlist-*` | new applications, an offer or fee past due, a removal's undo window, planned deposit date reached (`open-picks`), "Ready now?" unanswered, family messages, and family requests (pref, pause, listen, Companion link, extras, pickup) | the matching waitlist action (§29) |
+| `waitlist-*` | new applications, an offer or fee past due, a removal's undo window, planned deposit date reached (`open-picks`), "Ready now?" unanswered, family messages, and family requests (pref, pause, listen, Companion link, extras, pickup, backing out) | the matching waitlist action (§29) |
 
 Litter-lifecycle rules ignore deceased pups. The same close rule runs on the Sale page: a
 save that moves a sale into delivered / returned / cancelled / voided asks **Close the
@@ -1773,6 +1773,26 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   cancel: Approve / Decline; an address: Open, and **Send transport options** when far).
   The entry page's **Pickup** card shows where they live and **Allow their own place** /
   **Listed places only** (`own_place_override`).
+- **Backing out** (`docs/KennelOS_Family_Requests_Plan.md` §7; `data/backOut.js`): for a family
+  with an open sale, the projection's `entry.back_out` (`{ available, request }`) and the
+  kennel's `back_out_reasons` (`backOutReasons`: hers, else the defaults, plus **Something
+  else**) and `back_out_policy_text`. Their page's **Need to back out?** sends a reason, a
+  few words for Something else, and a note (`back_out` event; the Worker checks the reason
+  and one request at a time) → `entry.back_out_request`. Her Waitlist settings hold the
+  reasons, the policy rows (`back_out_policy`: reason or any, optional from / until weeks,
+  keep or move) and the text. Today (`waitlist-back-out`) opens the entry, whose Waiting for
+  you row shows the suggestion (`suggestOutcome` on the pup's age in weeks; none fits:
+  keep) with **Keep the deposit** / **Move the deposit** / **More options…** (refund, typed
+  REFUND) / **Decline**. Each opens a confirm listing `backOutItems` (extras ticked to
+  remove unless part-paid or Done; stays not started; pickups to come) and a summary line.
+  `approveBackOut`: ticked extras off, the rest `kept_after_cancel` (still owed: income
+  keeps their parts on a cancelled or voided sale), ticked events archived; keep → sale
+  `cancelled`, entry `withdrawn`; move → sale `cancelled`, entry reopened `active` at the
+  end of the line (`position_anchor_date` today) with `carried_payment` for a paid deposit;
+  refund → sale `voided` with end reason `buyer_backed_out` (never `restoresFamily`), entry
+  `withdrawn`. The offer that gave them the pup gets `backed_out_date` (not a pass; that
+  litter counts as spent), and an open turn is closed and moves on (`left`). The Sale page's
+  extras have a **Done** tick (`completed_date`).
 - **Transport options email** (`transport_options`): one she sends (Communicate… for a family
   with an open sale, and an address request), never the server; placeholders `[Distance]`
   (" You're about N miles from us.", from their latest measured address) and

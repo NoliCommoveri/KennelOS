@@ -1014,6 +1014,7 @@ export async function applyFamilyPlan(entryId, plan) {
       case 'extra_request': await addExtraRequest(entryId, plan.request); break;
       case 'pickup_request': await addPickupRequest(entryId, plan.request); break;
       case 'home_location': await setHomeLocation(entryId, { place: plan.place, miles: plan.miles, date }); break;
+      case 'back_out_request': await waitlistEntryRepo.update(entryId, { back_out_request: plan.request }); break;
       case 'listen_apply': await waitlistEntryRepo.update(entryId, plan.changes); break;
       case 'note': case 'skip': break;
       default: throw new Error(`Unknown plan "${plan.op}".`);
@@ -1289,6 +1290,83 @@ export async function declinePickupRequest(entryId, requestId, { date = todayYMD
   const entry = await load(entryId);
   loadPickupRequest(entry, requestId);
   return waitlistEntryRepo.update(entryId, { pickup_requests: decidePickup(entry, requestId, 'declined', date) });
+}
+
+// --- Backing out (Family Requests plan §7) ------------------------------------------
+//
+// Approve with her outcome:
+//  - keep:   the sale is cancelled (a paid deposit stays earned); they leave the list
+//            (withdrawn), and can reapply later as a new application.
+//  - move:   the sale is cancelled; what they'd paid as a deposit is carried to their
+//            next pick (`carried_payment`), and their entry is reopened at the END of
+//            the line (`position_anchor_date` = today), application, fee and history
+//            kept (plan §7.1).
+//  - refund: the sale is voided ("Buyer backed out, refunded"), so the deposit isn't
+//            income; they leave the list.
+// `remove` names what she ticked (backOut.backOutItems): extras taken off the sale
+// (the rest stay, marked `kept_after_cancel`: still owed), stays and pickups
+// archived. The offer that gave them the pup is marked `backed_out_date` (never a
+// pass; that litter isn't offered to them again); a turn still open is closed and the
+// kennel moves on. → { entry, sale, outcome, next, waiting }
+export async function approveBackOut(entryId, { outcome, remove = [], date = todayYMD() } = {}) {
+  if (!['keep', 'move', 'refund'].includes(outcome)) throw new Error('Choose what happens to their deposit.');
+  const entry = await load(entryId);
+  const req = entry.back_out_request;
+  if (!pending(req)) throw new Error('There\'s no back-out request waiting for this family.');
+  const sales = entry.contact_id ? await saleRepo.getByBuyer(entry.contact_id) : [];
+  const sale = familySale(entry, sales);
+  if (!sale) throw new Error('They have no open sale to back out of any more.');
+  const why = `${req.reason?.label || 'backed out'}${req.reason?.text ? `: ${req.reason.text}` : ''}`;
+  const removeSet = new Set(remove);
+  const depositIn = Boolean(sale.deposit_date) || ['deposit_paid', 'paid_in_full'].includes(sale.status);
+
+  // What she ticked: extras off the sale (the rest kept, still owed); stays and pickups archived.
+  const charges = (sale.extra_charges || []).filter((c) => !removeSet.has(c.id)).map((c) => (c.fee_for ? c : { ...c, kept_after_cancel: true }));
+  for (const id of removeSet) {
+    const ev = await eventRepo.getById(id);
+    if (ev && !ev.is_archived && ev.subject_id === sale.dog_id) await eventRepo.archive(ev.id);
+  }
+  const note = `Backed out on ${date} (${why}).`;
+  await saleRepo.update(sale.id, {
+    extra_charges: charges,
+    ...(outcome === 'refund' ? { status: 'voided', end_reason: 'buyer_backed_out', end_note: note } : { status: 'cancelled' })
+  });
+
+  // The offer that gave them the pup.
+  const offers = await waitlistOfferRepo.getByEntry(entry.id);
+  const result = { entry: null, sale: null, outcome, next: null, waiting: [] };
+  let openTurn = false;
+  for (const o of offers.filter((x) => !x.is_archived && (x.sale_id === sale.id || (x.outcome === 'open' && x.chosen_dog_id === sale.dog_id)))) {
+    if (o.outcome === 'open') {
+      openTurn = true;
+      for (const row of offers.filter((x) => !x.is_archived && x.outcome === 'open' && turnIdOf(x) === turnIdOf(o))) {
+        await waitlistOfferRepo.update(row.id, { outcome: 'voided', outcome_date: date, counts_as_pass: false, backed_out_date: date, notes: appendNote(row.notes, `${note} Not a pass.`) });
+      }
+    } else {
+      await waitlistOfferRepo.update(o.id, { backed_out_date: date, notes: appendNote(o.notes, `${note} Not a pass.`) });
+    }
+  }
+
+  const decided = { ...req, decided: 'approved', decided_date: date, outcome };
+  if (outcome === 'move') {
+    result.entry = await waitlistEntryRepo.update(entry.id, {
+      status: 'active', placed_sale_id: null, position_anchor_date: date, back_out_request: decided,
+      ...(depositIn && Number(sale.deposit_amount) > 0 ? { carried_payment: { amount: Number(sale.deposit_amount), date, from_sale_id: sale.id } } : {}),
+      notes: appendNote(entry.notes, `${note} Their deposit moves to their next pup; back on the list at the end of the line.`)
+    });
+  } else {
+    result.entry = await waitlistEntryRepo.update(entry.id, {
+      status: 'withdrawn', withdrawn_date: date, placed_sale_id: entry.placed_sale_id || null, back_out_request: decided,
+      notes: appendNote(entry.notes, `${note} ${outcome === 'refund' ? 'Deposit refunded.' : 'Deposit kept.'}`)
+    });
+  }
+  result.sale = await saleRepo.getById(sale.id);
+  return openTurn ? finishTurn(result, entry.kennel_id, date, 'left') : result;
+}
+
+export async function declineBackOut(entryId, { date = todayYMD() } = {}) {
+  const entry = await load(entryId);
+  return waitlistEntryRepo.update(entryId, { back_out_request: decided(loadPending(entry, 'back_out_request', 'back-out'), 'declined', date) });
 }
 
 // "Not this litter" (Spec §16.2): a pending pass on a litter (or an upcoming

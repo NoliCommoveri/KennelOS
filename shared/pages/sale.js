@@ -325,6 +325,7 @@ function extraChargesField(s) {
     <div class="xc-row" data-xc-id="${esc(x.id)}" style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">
       <input class="xc-label" type="text" value="${esc(x.label)}" placeholder="e.g. Gold photo package" style="flex:2; min-width:120px;">
       <input class="xc-amount" type="number" min="0" step="0.01" value="${esc(x.amount)}" placeholder="$" style="flex:1; min-width:80px;">
+      <label class="check-inline" style="gap:4px; white-space:nowrap;" title="The work is finished (a backed-out family still owes it)"><input type="checkbox" class="xc-done"${x.completed_date ? ' checked' : ''}> Done</label>
       <button type="button" class="btn btn-sm" data-xc-remove aria-label="Remove">✕</button>
     </div>${stepsHtml(x)}`).join('');
   const presets = priceList(s);
@@ -362,6 +363,10 @@ function readExtraChargeRows() {
   const prior = new Map((Array.isArray(ctx.draft.extra_charges) ? ctx.draft.extra_charges : []).map((x) => [x.id, x]));
   return [...document.querySelectorAll('#xc-rows .xc-row')].map((el) => {
     const row = { ...prior.get(el.dataset.xcId), id: el.dataset.xcId, label: el.querySelector('.xc-label').value, amount: el.querySelector('.xc-amount').value };
+    // Done (Family Requests plan §7.2): the day she ticked it, kept while it stays ticked.
+    const done = el.querySelector('.xc-done')?.checked;
+    if (done) row.completed_date = row.completed_date || todayYMD();
+    else delete row.completed_date;
     const box = document.querySelector(`#xc-rows .xc-steps[data-xc-for="${CSS.escape(el.dataset.xcId)}"]`);
     if (box && Array.isArray(row.payments)) {
       row.payments = row.payments.map((st) => {

@@ -33,6 +33,7 @@ import { priceListHtml, wirePriceList, readPriceListForm } from '../assets/price
 import { isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
 import { pickupLocations, locationsProblem } from '../data/pickupSlots.js';
 import { MILEAGE_BASIS } from '../data/transportFee.js';
+import { backOutReasons, backOutPolicy, BACK_OUT_OUTCOMES, BACK_OUT_POLICY_TEXT_DEFAULT } from '../data/backOut.js';
 import { waitlistConfig, waitlistConfigProblem, SOON_NOTICE_DEFAULT, EXTRAS_INTRO_DEFAULT, passReasons, showUpcoming, UPCOMING_STAGES } from '../data/waitlistRules.js';
 import { EMAIL_TEMPLATE_KINDS, EMAIL_PLACEHOLDERS, DEFAULT_EMAIL_TEMPLATES, emailTemplate } from '../data/waitlistEmails.js';
 import { esc, badge, fmtDate, fmtMoney, param } from '../assets/ui.js';
@@ -428,7 +429,7 @@ function waitlistCard(k) {
           <div class="pill-row" style="margin-top:6px;"><button type="button" class="btn btn-sm" data-act="add-reason">Add a reason</button></div>
           <label class="check-inline" style="margin-top:6px;"><input id="wl-pass-other" type="checkbox"${c.pass_other !== false ? ' checked' : ''}> Also offer "Other", with a box for their own words</label>
         </div>
-        ${isWaitlistOnlineOffered() ? readySettings(c) + upcomingSwitches(c) + emailTemplateSettings(c) + facebookSettings(c) + extrasSettings(c) : ''}
+        ${isWaitlistOnlineOffered() ? readySettings(c) + upcomingSwitches(c) + emailTemplateSettings(c) + facebookSettings(c) + extrasSettings(c) + backOutSettings(c) : ''}
       </div>
       <div class="form-actions"><button class="btn btn-primary btn-sm" data-act="save-waitlist">Save</button></div>
     </section>`;
@@ -479,6 +480,35 @@ function extrasSettings(c) {
       <label for="wl-extras-url" style="margin-top:6px;">Your page with the extras' details and prices</label>
       <input id="wl-extras-url" type="url" inputmode="url" autocomplete="url" value="${esc(c.extras_info_url || '')}" placeholder="https://yourkennel.com/extras">
       <span class="field-hint">Families whose pup is picked see your message, a <strong>See our extras and prices</strong> button that opens this page in a new tab, then the extras they can ask for, by name. Prices never show on their page. Choose which extras they can ask for on the Extra charges price list.</span>
+    </div>`;
+}
+
+// Backing out (Family Requests plan §7): her reasons (one per line; "Something else"
+// is always offered), her deposit policy (rows: a reason or any, an optional age,
+// keep or move), and what families read before they send.
+function policyRowHtml(row, reasons) {
+  const r = row || { reason_id: 'any', from_weeks: null, until_weeks: null, outcome: 'keep' };
+  return `<div class="bo-row" style="display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:6px;">
+      <select class="bo-reason" style="width:auto; max-width:100%;"><option value="any">Any reason</option>${reasons.map((x) => `<option value="${esc(x.id)}"${x.id === r.reason_id ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</select>
+      <span style="display:inline-flex; gap:4px; align-items:center;">from <input class="bo-from" type="number" min="0" step="1" value="${esc(r.from_weeks ?? '')}" style="width:4.5em;"> to <input class="bo-until" type="number" min="0" step="1" value="${esc(r.until_weeks ?? '')}" style="width:4.5em;"> weeks</span>
+      <select class="bo-outcome" style="width:auto;">${BACK_OUT_OUTCOMES.map((o) => `<option value="${o.value}"${o.value === r.outcome ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}</select>
+      <button type="button" class="btn btn-sm" data-act="bo-remove" aria-label="Remove">✕</button>
+    </div>`;
+}
+
+function backOutSettings(c) {
+  const reasons = backOutReasons(c);
+  const mine = reasons.filter((r) => r.id !== 'other');
+  return `<div class="field field-wide" data-bo>
+      <label for="wl-bo-reasons">Backing out: the reasons families choose from</label>
+      <textarea id="wl-bo-reasons" rows="4">${esc(mine.map((r) => r.label).join('\n'))}</textarea>
+      <span class="field-hint">One per line. "Something else" (with a few words) is always offered too.</span>
+      <label style="margin-top:8px;">Your deposit policy</label>
+      <div id="bo-rows">${backOutPolicy(c).map((row) => policyRowHtml(row, reasons)).join('')}</div>
+      <button type="button" class="btn btn-sm" data-act="bo-add">+ Add a rule</button>
+      <span class="field-hint">When a family asks to back out, the first rule that fits their reason and the puppy's age (leave the weeks blank for any age) is suggested; you always choose. With none, keeping the deposit is suggested. A refund is never suggested.</span>
+      <label for="wl-bo-text" style="margin-top:8px;">What families read before they send</label>
+      <textarea id="wl-bo-text" rows="3" placeholder="${esc(BACK_OUT_POLICY_TEXT_DEFAULT)}">${esc(c.back_out_policy_text || '')}</textarea>
     </div>`;
 }
 
@@ -555,6 +585,28 @@ async function onSaveWaitlist() {
     const on = q('#wl-fb-on').checked;
     waitlist_config.facebook_button = on;
     waitlist_config.facebook_page = page;
+  }
+  if (q('#wl-bo-reasons')) {
+    const slug = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || 'reason';
+    const lines = q('#wl-bo-reasons').value.split('\n').map((t) => t.trim()).filter(Boolean);
+    const before = backOutReasons(kennel.waitlist_config || {});
+    // A reason keeps its id while its wording stays, so her policy rows still point at it.
+    const used = new Set();
+    const reasons = lines.map((label) => {
+      const same = before.find((r) => r.label === label && r.id !== 'other');
+      let id = same ? same.id : slug(label);
+      while (used.has(id) || id === 'other' || id === 'any') id = `${id}_2`;
+      used.add(id);
+      return { id, label };
+    });
+    waitlist_config.back_out_reasons = reasons.length ? reasons : null;
+    waitlist_config.back_out_policy = [...els.config.querySelectorAll('.bo-row')].map((row) => ({
+      reason_id: row.querySelector('.bo-reason').value, outcome: row.querySelector('.bo-outcome').value,
+      from_weeks: row.querySelector('.bo-from').value === '' ? null : Number(row.querySelector('.bo-from').value),
+      until_weeks: row.querySelector('.bo-until').value === '' ? null : Number(row.querySelector('.bo-until').value)
+    }));
+    const text = q('#wl-bo-text').value.trim();
+    waitlist_config.back_out_policy_text = text === BACK_OUT_POLICY_TEXT_DEFAULT ? '' : text;
   }
   if (q('#wl-extras-intro')) {
     const intro = q('#wl-extras-intro').value.trim();
@@ -851,6 +903,10 @@ function wireConfig() {
   if (chargesCard) wirePriceList(chargesCard, { familyRequests: editionFlags.waitlist });
   els.config.querySelector('[data-act="puppy-record-all"]')?.addEventListener('click', () => tickAllPuppyRecordFields(els.config));
   wirePuppyRecordFields(els.config);
+  els.config.querySelector('[data-act="bo-add"]')?.addEventListener('click', () => {
+    els.config.querySelector('#bo-rows').insertAdjacentHTML('beforeend', policyRowHtml(null, backOutReasons(kennel.waitlist_config || {})));
+  });
+  els.config.querySelector('#bo-rows')?.addEventListener('click', (ev) => { if (ev.target.closest('[data-act="bo-remove"]')) ev.target.closest('.bo-row').remove(); });
   const saveWaitlist = els.config.querySelector('[data-act="save-waitlist"]');
   if (saveWaitlist) saveWaitlist.addEventListener('click', onSaveWaitlist);
   els.config.querySelector('[data-act="add-reason"]')?.addEventListener('click', () => {

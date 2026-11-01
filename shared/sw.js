@@ -145,6 +145,7 @@ const PRECACHE_URLS = [
   'data/transportFee.js',
   'data/pickupSlots.js',
   'data/familyPickup.js',
+  'data/backOut.js',
   'data/fileRepo.js',
   'data/fureverContentPack.js',
   'data/fureverSeedExport.js',

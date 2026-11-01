@@ -350,7 +350,10 @@ export const SYNC_REGISTRY = Object.freeze({
       'extra_requests',
       // Pickup (Family Requests plan §4): their pickup requests (an address among
       // them), where they live and how far, and her choice for them: private.
-      'pickup_requests', 'home_place', 'home_miles', 'home_measured_date', 'own_place_override'
+      'pickup_requests', 'home_place', 'home_miles', 'home_measured_date', 'own_place_override',
+      // Their request to back out (Family Requests plan §7), with their reason and
+      // note: private like a pass reason.
+      'back_out_request'
     ],
     pending: []
   },
@@ -364,7 +367,10 @@ export const SYNC_REGISTRY = Object.freeze({
       'turn_id', // the turn the row belongs to (Spec §16.1): how the list ran, like outcome
       // When she sent the family their deposit request (Integrations plan §2.6, D20):
       // a date, like picked_date.
-      'deposit_request_sent_date'
+      'deposit_request_sent_date',
+      // When the family backed out of the pup this offer placed (Family Requests
+      // plan §7): a date, like outcome_date.
+      'backed_out_date'
     ],
     // pass_reason: the family's own reason for a pass (Spec §16.5, decided private:
     // it can name money or health).

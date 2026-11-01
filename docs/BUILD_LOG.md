@@ -1885,3 +1885,15 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   removal; on a boarding date, a boarding charge she typed is kept and **Use standard
   boarding** is offered instead (Today says both in its message). `applyPickupBoarding`,
   `clearTransportFee`; the end-to-end test covers both.
+- **Family Requests step 6: backing out (2026-11-01).** Families with an open sale can ask to
+  back out from their status page (her reasons, "Something else", a note; her policy text
+  first). Her Waitlist settings: reasons, deposit policy rows (reason × pup age → keep or
+  move), the text. Today and the entry page show the request with her policy's suggestion;
+  Keep / Move / More options (refund, typed REFUND) / Decline, each with a confirm that lists
+  extras, stays and pickups ticked or kept (part-paid or Done extras kept, still owed) and a
+  summary. Move reopens their entry at the end of the line with the deposit carried; keep and
+  refund withdraw them; refund voids the sale ("Buyer backed out, refunded"). Kept extras
+  keep their income on a released sale; the offer gets `backed_out_date` (cloud date field,
+  `cloudFields.js` regenerated) and that litter counts as spent. New `data/backOut.js`; the
+  Sale page's Done tick. Tests: `tests/backOut.test.js`, an end-to-end test in
+  `tests/cloudWaitlist.test.js`, cloud action and page tests. Checked in the browser.

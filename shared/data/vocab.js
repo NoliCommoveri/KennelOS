@@ -355,6 +355,9 @@ export const SALE_END_REASON = [
   { value: 'failed_health_check', label: 'Failed a health check (can\'t be sold)',  statuses: ['voided'] },
   { value: 'health_problem',      label: 'Health problem (within the guarantee)',  statuses: ['returned'] },
   { value: 'buyer_choice',        label: 'Buyer\'s choice',                         statuses: ['returned'] },
+  // A family who backed out and was refunded (Family Requests plan §7, D13): voided, so
+  // the deposit isn't income, but never "put them back in line" (restoresFamily).
+  { value: 'buyer_backed_out',    label: 'Buyer backed out, refunded',             statuses: ['voided'] },
   { value: 'other',               label: 'Other',                                   statuses: ['voided', 'returned'] }
 ];
 export const saleEndReasonsFor = (status) => SALE_END_REASON.filter((r) => r.statuses.includes(status));

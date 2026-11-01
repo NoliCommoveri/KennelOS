@@ -67,7 +67,10 @@ function balancePaid(s) {
 // sale (Waitlist Spec §5.3) — it was paid toward the price, so it comes off the
 // balance (never below 0).
 function saleComponents(s, feeCredit = 0) {
-  if (isLostSale(s)) return [];
+  // Extras she kept when the family backed out (Family Requests plan §7.2) are still
+  // owed whatever the sale's status: paid parts earned, the rest anticipated.
+  const kept = saleExtraCharges(s).filter((x) => x.kept_after_cancel);
+  if (isLostSale(s)) return keptParts(s, kept);
   const dead = RELEASED_SALE_STATUSES.includes(s.status);
   const price = num(s.price);
   const deposit = num(s.deposit_amount);
@@ -80,6 +83,7 @@ function saleComponents(s, feeCredit = 0) {
     ...saleExtraCharges(s).flatMap(extraParts.bind(null, s))
   ];
   const out = [];
+  if (dead && kept.length) return [...deadParts(parts.filter((p) => !(p.key && kept.some((x) => p.key === `extra:${x.id}` || p.key.startsWith(`extra:${x.id}:`))))), ...keptParts(s, kept)];
   for (const p of parts) {
     if (!p.amount) continue;
     const named = p.key ? { key: p.key, label: p.label, ...(p.paidDate ? { paid_date: p.paidDate } : {}), ...(p.dueDate ? { due_date: p.dueDate } : {}) } : {};
@@ -91,6 +95,20 @@ function saleComponents(s, feeCredit = 0) {
     }
   }
   return out;
+}
+
+// A released sale's parts: only what was paid survives, as earned.
+function deadParts(parts) {
+  return parts.filter((p) => p.amount && p.paid).map((p) => ({ component: p.component, ...(p.key ? { key: p.key, label: p.label, ...(p.paidDate ? { paid_date: p.paidDate } : {}) } : {}), amount: p.amount, state: 'earned' }));
+}
+
+// Kept extras on a released sale: each part earned once paid (its own paid date;
+// the balance doesn't apply any more), else still owed.
+function keptParts(s, kept) {
+  return kept.flatMap((x) => extraParts({ ...s, status: 'deposit_pending', balance_paid_date: null }, x)).filter((p) => p.amount).map((p) => ({
+    component: 'extra', key: p.key, label: p.label, amount: p.amount, state: p.paidDate ? 'earned' : 'anticipated',
+    ...(p.paidDate ? { paid_date: p.paidDate } : {}), ...(p.dueDate ? { due_date: p.dueDate } : {})
+  }));
 }
 
 // An extra charge's parts: one, paid with the balance; or, with a payment plan

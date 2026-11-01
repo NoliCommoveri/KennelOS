@@ -33,6 +33,7 @@ import { sharedReferrals, sharedTransport } from './referralShare.js';
 import { feePay, withClientRef } from './waitlistFeePay.js';
 import { familySale, familyExtrasView, pupBirthDate } from './familyExtras.js';
 import { familyPickupView } from './familyPickup.js';
+import { backOutReasons, backOutPolicyText } from './backOut.js';
 import { standardLocation } from './pickupSlots.js';
 import { EXTRAS_INTRO_DEFAULT, extrasInfoLink } from './waitlistRules.js';
 
@@ -108,6 +109,11 @@ function entryView(entry, ctx) {
   // they may suggest their own place; absent without an open sale.
   const pickup = companion ? ctx.pickupFor(entry) : null;
   if (pickup) view.pickup = pickup;
+  // Backing out (Family Requests plan §7): with an open sale they can tell her; their
+  // request as their page shows it (her reason list and policy text are the kennel's).
+  if (companion) {
+    view.back_out = { available: true, request: requestView(entry.back_out_request, ctx.today, (r) => ({ reason: r.reason?.label || '', outcome: r.outcome || null })) };
+  }
   if (!WAITLIST_OPEN_STATUSES.includes(entry.status)) return view;
 
   const program = ctx.programsById.get(entry.waitlist_program_id) || null;
@@ -434,6 +440,11 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
       ...(sharedTransport(accounts).length ? { transport: sharedTransport(accounts) } : {}),
       // Above the extras on a family's page (Family Requests plan §3): her message
       // and her own page with the details and prices (opened in a new tab).
+      // Backing out: her reasons and what families read first, while any family can.
+      ...(Object.values(entryViews).some((v) => v.back_out) ? {
+        back_out_reasons: backOutReasons(config).map((r) => ({ id: r.id, label: r.label })),
+        back_out_policy_text: backOutPolicyText(config)
+      } : {}),
       // Only while some family has extras to see.
       ...(Object.values(entryViews).some((v) => v.extras) ? {
         extras_intro: (config.extras_intro_text || '').trim() || EXTRAS_INTRO_DEFAULT,
