@@ -1372,7 +1372,10 @@ for receipts `payment_method`/`payment_reference`); everything is rebuilt on eac
   Partial prints the collected amount; Full prints the whole amount and treats `collected`
   as already paid (an invoice subtracts it, a receipt prints the remaining balance).
 - **Invoice:** per-line Due by (prefilled from the sale's balance due date or scheduled
-  placement, read live unless she changed it; Deposit is always "Immediately"), sale
+  placement, read live unless she changed it; Deposit is "Immediately"). A sale's line
+  already paid (the ledger's earned: a deposit received, carried-over ones too, or lines
+  paid with the balance) prints "Paid" and starts as collected in full, in the default and
+  in the Financials generator, so the balance nets it out. Sale
   disclaimers as footnotes, and accepted payment methods
   (`settings.getInvoiceDefaults().acceptedMethods`, editable per document).
   **Receipt:** a Payment received box and a Paid stamp.
@@ -1783,7 +1786,13 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   deposit:** `recordPick` creates a `deposit_pending` Sale (registration and price from the
   pup and `saleDefaults.expectedPricing`) and the offer stays open; `changePick` moves it to
   another pup; `confirmDeposit` marks the sale paid, the pup placed, the entry placed, and
-  moves on. `recordOutcome` handles passed / no response (lets go of a held pick, counts the
+  moves on (`paidDate` sets the sale's `deposit_date` when the money came in earlier). A
+  family with `carried_payment` (a lost pup's money) has its deposit in already: `recordPick`
+  gives the Sale that amount as its deposit and goes straight on to `confirmDeposit` (paid on
+  `carried_payment.date`, the turn ending on the pick date), returning its result with
+  `depositDone: true` (`false` otherwise). Every path takes it: the pick dialog (which then
+  has no "deposit is already in" box), `recordOutcome('accepted')`, and a family's pick on
+  their status page. `recordOutcome` handles passed / no response (lets go of a held pick, counts the
   pass, removes at the limit) and voided (never a pass, doesn't move on). `undoPass` reopens a
   pass. `previewNextTurn(kennelId)` says who `nextTurn` would offer without offering it;
   `extendTurn(turnId, { until })` gives an open turn a later respond-by date (after today),
@@ -1794,7 +1803,7 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   family back in their **original place** (the accepted offer voided with its history kept,
   passes unchanged), or
   refreshes an open turn without the lost pup; `carry` keeps what they paid for their next
-  pick (`carried_payment`). Never automatic: the Sale page (and the family page's **End the
+  pick (`carried_payment`, paid as that pick's deposit when it's recorded). Never automatic: the Sale page (and the family page's **End the
   sale…**) asks, through `waitlistUI.restoreLostPupDialog`, after the pup-settling prompts in
   `assets/salePrompts.js`.
 
@@ -1835,7 +1844,14 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
 - **Review sale & send** (`assets/pickToSend.js`, with contracts + invoicing; Integrations
   plan §2.6): on a pick awaiting its deposit, edit the sale (incl. channel and fee), choose a
   contract form, and send one deposit-request message with the invoice PDF via the share
-  sheet or email. It marks the contract sent and stamps `deposit_request_sent_date`.
+  sheet or email. It marks the contract sent and stamps `deposit_request_sent_date`. With
+  the deposit already in (`incomeView.depositPaid`), the message thanks them for it instead
+  of asking (`depositRequestMessage`'s `depositPaid`): no due date, no payment link or Stripe
+  link, her payment instructions only for a balance. A placed family's pick whose sale is
+  still at deposit paid and wasn't sent from here gets **Send contract & invoice…** (the
+  same modal). On a pick still awaiting its deposit while the family carries one, the send
+  first offers to mark that deposit received (`confirmDeposit` with the carried amount and
+  date).
 
 ### Online (W2)
 - **Her device is the source of truth.** `data/waitlistProjection.js` builds one kennel's

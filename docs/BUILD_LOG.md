@@ -2311,3 +2311,19 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Driven in the browser: the transport screen saved and its example, the applicant form's
   new box. Not driven: Add people's covered-fee question, Review my waitlist's offer.
   Rides `kennelos-shell-v92`.
+- **A carried-over deposit is paid at the pick; Send and the invoice stop asking for a paid
+  deposit (2026-11-01).** Reported: a family carrying $500 from a lost pup picked again, and
+  Review sale & send asked for the $500 "due by" their deadline while the invoice showed it
+  due Immediately with the full balance. `recordPick` now gives a family with
+  `carried_payment` a deposit-paid sale and goes on to `confirmDeposit` (new `paidDate`:
+  `deposit_date` is when they paid it; the turn ends on the pick date), returning
+  `depositDone: true`; `recordOutcome('accepted')` and the family's own pick online go the
+  same way, and the pick dialog drops its "deposit is already in" box for them. The family
+  page then offers **Send contract & invoice** (also a button on a placed family's pick still
+  at deposit paid and not yet sent); for a pick already pending with a carried deposit, the
+  send first offers to mark it received. `depositRequestMessage` gains `depositPaid` (a
+  thank-you, no due date, no payment or Stripe link). Invoices: a sale's paid lines print
+  "Paid" and start as collected in full (default and Financials generator), so the balance
+  nets them out. Tests: carried pick through both paths, the paid message, the paid invoice;
+  `waitlistLostPup` updated for the one-step placement. Smoke-loaded the family and invoice
+  pages; the dialogs weren't driven in the browser. No new files; no cache bump yet.

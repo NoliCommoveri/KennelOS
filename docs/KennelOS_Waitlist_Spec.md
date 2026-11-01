@@ -1645,6 +1645,8 @@ get their place back and be offered the next pup.
 5. **Money already paid: she's asked each time** — carry it to their next pup (it becomes the
    deposit on their next pick, `WaitlistEntry.carried_payment`) or refund it. A credited
    application fee stays credited toward their next pup either way.
+   **Modified:** a carried deposit is recorded as paid when the next pick is recorded (the
+   pick places them and the turn moves on); she no longer taps Deposit received for it.
 6. **No new offer by itself unless she turned it on:** a new automatic-offer moment,
    `restored`, off by default. With it on and nobody holding a turn, the next turn is offered
    at once (to them, when they're next). A family holding a turn keeps it; the restored family

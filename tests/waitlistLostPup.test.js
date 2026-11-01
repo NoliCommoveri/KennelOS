@@ -125,9 +125,14 @@ test('the pup died after the deposit: the family is back in their original place
   const turn = await actions.offerNext(A.id, { today: LATER });
   assert.equal(turn.entry_id, ids.lee);
   assert.deepEqual(turn.offers[0].eligible_dog_ids, [ids.max]);
-  const { sale: next } = await actions.recordPick(turn.offers[0].id, { chosenDogId: ids.max, date: LATER });
+  // Their carried payment is their deposit, already in: the pick places them.
+  const picked = await actions.recordPick(turn.offers[0].id, { chosenDogId: ids.max, date: LATER });
+  const next = picked.sale;
+  assert.equal(picked.depositDone, true, 'no "Deposit received" tap needed');
+  assert.equal(picked.offer.outcome, 'accepted');
   assert.equal(next.deposit_amount, 500, 'what they paid on Pip is their deposit on Max');
-  await actions.confirmDeposit(turn.offers[0].id, { date: LATER });
+  assert.equal(next.status, 'deposit_paid');
+  assert.equal(next.deposit_date, LATER, 'paid on the date they paid it (carried_payment.date)');
   const placed = await waitlistEntryRepo.getById(ids.lee);
   assert.equal(placed.status, 'placed');
   assert.equal(placed.placed_sale_id, next.id);
@@ -222,4 +227,29 @@ test('a sale\'s end reason must fit its status, and leaves with it', async () =>
   assert.equal(back.end_note, null);
   const ret = await saleRepo.update(sale.id, { status: 'returned' });
   assert.equal(ret.end_reason ?? null, null, 'the repo allows a return without one (the form asks)');
+});
+
+test('a carried deposit is paid at the pick, whichever way the pick is recorded, on the date they paid it', async () => {
+  const sale = await placeLee();
+  await saleRepo.update(sale.id, { status: 'voided', end_reason: 'pup_died' });
+  await actions.restoreAfterLostSale(sale.id, { date: LATER, carry: { amount: 500 } });
+  await waitlistEntryRepo.update(ids.lee, { carried_payment: { amount: 500, date: DAY, from_sale_id: sale.id } });
+  const turn = await actions.offerNext(A.id, { today: LATER });
+  // "Accepted" at once (the pick dialog's other path) goes through the same place.
+  const res = await actions.recordOutcome(turn.offers[0].id, 'accepted', { chosenDogId: ids.max, date: LATER });
+  assert.equal(res.depositDone, true);
+  assert.equal(res.offer.outcome, 'accepted');
+  assert.equal(res.offer.outcome_date, LATER, 'the turn ends today');
+  const next = await saleRepo.getById(res.sale.id);
+  assert.deepEqual([next.status, next.deposit_amount, next.deposit_date], ['deposit_paid', 500, DAY]);
+  assert.equal((await dogRepo.getById(ids.max)).disposition, 'placed');
+  assert.equal((await waitlistEntryRepo.getById(ids.lee)).carried_payment, null);
+});
+
+test('a family with nothing carried still waits for the deposit at the pick', async () => {
+  const turn = await actions.openPicks(A.id, { date: DAY });
+  const res = await actions.recordPick(turn.offers[0].id, { chosenDogId: ids.pip, date: DAY });
+  assert.equal(res.depositDone, false);
+  assert.equal(res.sale.status, 'deposit_pending');
+  assert.equal(res.offer.outcome, 'open');
 });

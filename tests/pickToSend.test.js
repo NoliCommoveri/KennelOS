@@ -117,3 +117,36 @@ test('the message she sent herself is logged as sent and never queued for the ma
   assert.equal(saved.messages.length, 1);
   assert.deepEqual(queuedEmails([saved]), []);
 });
+
+// --- A deposit already in (carried over from a pup they lost, or received) ----------
+
+test('with the deposit already in, the message thanks them for it and asks for nothing now', () => {
+  const m = depositRequestMessage({
+    who: 'Ashley', pupName: 'Red collar', deposit: '$500.00', depositDue: 'Nov 2, 2026', depositPaid: 'Oct 11, 2026',
+    paymentLink: 'https://pay.example/x', paymentText: 'Venmo @thebest',
+    contractLabel: 'Pet home contract', contractLink: 'https://form.jotform.com/1', invoice: true,
+    balance: '$1,500.00', balanceDue: 'Dec 1, 2026'
+  });
+  assert.equal(m.subject, 'Red collar: your contract');
+  assert.match(m.body, /Your deposit of \$500\.00 is already in \(received Oct 11, 2026\), thank you\. Red collar is yours\./);
+  assert.ok(!/due by Nov 2|held for you|Pay online/.test(m.body), 'no due date, no hold, no deposit link');
+  assert.match(m.body, /How to pay the balance: Venmo @thebest/);
+  assert.match(m.body, /The balance of \$1,500\.00 is due by Dec 1, 2026\./);
+  const bare = depositRequestMessage({ pupName: 'Red collar', deposit: '$500.00', depositPaid: true, paymentText: 'Venmo', invoice: true });
+  assert.equal(bare.subject, 'Red collar: your invoice');
+  assert.match(bare.body, /Your deposit of \$500\.00 is already in, thank you\./);
+  assert.ok(!/Venmo/.test(bare.body), 'nothing left to pay: no payment instructions');
+});
+
+test('the invoice shows a received deposit as paid and takes it off the balance', async () => {
+  // invoiceDoc reaches ui.js, which wires a document click handler on load.
+  globalThis.document ??= { addEventListener() {} };
+  const { buildInvoiceDoc } = await import('../shared/assets/invoiceDoc.js');
+  const pending = await buildInvoiceDoc({ source: 'sale', id: sale.id, doc: 'invoice' });
+  assert.equal(pending.rows.find((r) => /Deposit/.test(r.label)).due, 'Immediately');
+  assert.equal(pending.totals.at(-1).amount, 2200);
+  await saleRepo.update(sale.id, { status: 'deposit_paid', deposit_date: '2026-10-11' });
+  const paid = await buildInvoiceDoc({ source: 'sale', id: sale.id, doc: 'invoice' });
+  assert.equal(paid.rows.find((r) => /Deposit/.test(r.label)).due, 'Paid');
+  assert.deepEqual(paid.totals.map((t) => [t.label, t.amount]), [['Subtotal', 2200], ['Less amount already collected', -500], ['Balance', 1700]]);
+});

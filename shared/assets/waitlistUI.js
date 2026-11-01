@@ -329,10 +329,11 @@ const pupOptions = (pups, pupLabel) => pups.map((p) => `<option value="${esc(p.i
 // respond-by date is the deadline). Ticking "deposit received" does both at once.
 // Resolves { res, depositDone } or null.
 // `carried` (the entry's carried_payment, Spec §16.11): what they'd paid on a pup
-// they lost. It's already in hand, so the deposit box starts ticked with it.
+// they lost. It's already in hand, so there's no deposit box: recording the pick
+// marks the deposit paid and places them (recordPick).
 export async function pickDialog({ offer, name, pups, pupLabel, carried = null }) {
   let out = null;
-  const carriedHint = carried ? `<p class="field-hint">${esc(fmtMoney(carried.amount))} they paid on a pup they lost (${esc(fmtDate(carried.date))}) is their deposit on this one.</p>` : '';
+  const carriedHint = carried ? `<p class="field-hint">${esc(fmtMoney(carried.amount))} they paid on a pup they lost (${esc(fmtDate(carried.date))}) is their deposit on this one. Recording the pick marks it paid, places ${esc(name)} and moves the turn on.</p>` : '';
   const credit = (await getEntryCredit(offer.entry_id)).credit;
   const creditHint = credit?.remaining > 0 ? `<p class="field-hint">They have ${esc(fmtMoney(credit.remaining))} credit for funds already received. It comes off what they're asked to pay for this pup, starting with the deposit.</p>` : '';
   const ok = await formModal({
@@ -340,29 +341,33 @@ export async function pickDialog({ offer, name, pups, pupLabel, carried = null }
     confirmLabel: 'Record their pick',
     bodyHtml: `<div class="field"><label>Which pup?</label><select id="pk-dog">${pupOptions(pups, pupLabel)}</select></div>
       <div class="field"><label>Date</label><input id="pk-date" type="date" value="${esc(todayYMD())}"></div>
-      <label class="check-inline" style="display:block;margin:8px 0;"><input id="pk-paid" type="checkbox"${carried ? ' checked' : ''}> Their deposit is already in</label>
-      <div id="pk-paid-fields" class="form-grid"${carried ? '' : ' hidden'}>
-        <div class="field"><label>Deposit received</label><input id="pk-dep-date" type="date" value="${esc(carried?.date || todayYMD())}"></div>
-        <div class="field"><label>Amount</label><input id="pk-dep-amount" type="number" min="0" step="0.01" placeholder="The litter's expected deposit" value="${esc(carried?.amount ?? '')}"></div>
-      </div>
+      ${carried ? '' : `<label class="check-inline" style="display:block;margin:8px 0;"><input id="pk-paid" type="checkbox"> Their deposit is already in</label>
+      <div id="pk-paid-fields" class="form-grid" hidden>
+        <div class="field"><label>Deposit received</label><input id="pk-dep-date" type="date" value="${esc(todayYMD())}"></div>
+        <div class="field"><label>Amount</label><input id="pk-dep-amount" type="number" min="0" step="0.01" placeholder="The litter's expected deposit"></div>
+      </div>`}
       ${carriedHint}${creditHint}
-      <p class="field-hint">Creates a Sale (deposit pending, price and deposit from the litter's expected amounts) to hold the pup. It isn't theirs until the deposit arrives${offer.respond_by_date ? `, by <strong>${esc(fmtDate(offer.respond_by_date))}</strong>` : ''}. Until then you can switch the pup, and nobody else is offered this litter. No deposit by then counts as no response.</p>`,
+      ${carried
+        ? '<p class="field-hint">Creates the Sale (deposit paid, price from the litter\'s expected amounts). You can still switch the pup until the next family is offered a turn.</p>'
+        : `<p class="field-hint">Creates a Sale (deposit pending, price and deposit from the litter's expected amounts) to hold the pup. It isn't theirs until the deposit arrives${offer.respond_by_date ? `, by <strong>${esc(fmtDate(offer.respond_by_date))}</strong>` : ''}. Until then you can switch the pup, and nobody else is offered this litter. No deposit by then counts as no response.</p>`}`,
     onConfirm: async (o) => {
       const chosenDogId = o.querySelector('#pk-dog').value;
       const date = o.querySelector('#pk-date').value || todayYMD();
-      if (o.querySelector('#pk-paid').checked) {
+      if (o.querySelector('#pk-paid')?.checked) {
         out = { depositDone: true, res: await recordOutcome(offer.id, 'accepted', {
           chosenDogId, date,
           depositDate: o.querySelector('#pk-dep-date').value || date,
           depositAmount: o.querySelector('#pk-dep-amount').value
         }) };
       } else {
-        out = { depositDone: false, res: await recordPick(offer.id, { chosenDogId, date }) };
+        // A carried-over deposit makes the pick place them (recordPick).
+        const res = await recordPick(offer.id, { chosenDogId, date });
+        out = { depositDone: !!res.depositDone, res };
       }
     }
   }, (o) => {
     const box = o.querySelector('#pk-paid');
-    box.addEventListener('change', () => { o.querySelector('#pk-paid-fields').hidden = !box.checked; });
+    box?.addEventListener('change', () => { o.querySelector('#pk-paid-fields').hidden = !box.checked; });
   });
   return ok ? out : null;
 }
