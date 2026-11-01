@@ -2192,3 +2192,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   form uses too (its own copy removed). `documentModal.js` stays Pro-only, loaded only when
   a file is picked. Checked in the browser on the sample data (a PDF on Juniper's OFA Elbows
   filed one document and one event); Lite's `documents: false` hides the field.
+- **Vet summary document type (2026-11-01).** Asked by the owner. `DOC_TYPES` gains
+  `vet_summary` (Vet summary, 🏥; field: Registry / vet / lab), offered wherever a document
+  type is picked (Documents, Add dogs, Furever uploads). It stays out of cloud backup for
+  now (`CLOUD_DOC_TYPES` unchanged, like Contract and Other): a privacy call left to the
+  owner. No new files.

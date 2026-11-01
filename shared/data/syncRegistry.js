@@ -35,7 +35,8 @@ import { EVENT_TYPES } from './vocab.js';
 
 export const IMPLICIT_CLOUD_FIELDS = Object.freeze(['id', 'is_archived', 'created_at', 'updated_at']);
 
-// Documents whose rows (and files) go to the cloud. contract/other stay local.
+// Documents whose rows (and files) go to the cloud. contract/other stay local, and
+// so does vet_summary (a vet's records: not yet decided for the cloud).
 export const CLOUD_DOC_TYPES = Object.freeze(['health_test', 'pedigree', 'registration']);
 
 const ALL = 'all';

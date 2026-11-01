@@ -838,6 +838,7 @@ export const EXPENSE_SUBJECT_TYPES = [
 export const DOC_TYPES = [
   { value: 'pedigree',     label: 'Pedigree',     badge: 'badge-green' },
   { value: 'health_test',  label: 'Health test',  badge: 'badge-blue' },
+  { value: 'vet_summary',  label: 'Vet summary',  badge: 'badge-blue' }, // a visit summary, medical record or vaccine history from the vet
   { value: 'registration', label: 'Registration', badge: 'badge-neutral' },
   { value: 'contract',     label: 'Contract',     badge: 'badge-purple' },
   { value: 'other',        label: 'Other',        badge: 'badge-gray' }
@@ -848,6 +849,7 @@ export const DOC_TYPES = [
 const DOC_FIELDS_BY_TYPE = {
   pedigree:     ['issuer_or_lab', 'registry', 'registration_number'],
   health_test:  ['issuer_or_lab', 'result'],
+  vet_summary:  ['issuer_or_lab'],
   registration: ['issuer_or_lab', 'registry', 'registration_number'],
   contract:     ['issuer_or_lab'],
   other:        ['issuer_or_lab']
@@ -862,6 +864,7 @@ export function documentFieldsFor(docType) {
 const DOC_TYPE_ICON = {
   pedigree: '🌳',
   health_test: '🩺',
+  vet_summary: '🏥',
   registration: '📜',
   contract: '✍️',
   other: '📄'
