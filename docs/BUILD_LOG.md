@@ -2004,3 +2004,5 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   the note reads "Listed prices are intended base purchase price and may not include
   additional fees; all prices are subject to change prior to contract signing." Screenshots
   made from the real path (projection → statusView → status page).
+- **Turn litters set apart (2026-11-01).** Asked by the owner: each litter of a turn is its
+  own block with a line and space above it (`.turn-litter`).

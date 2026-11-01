@@ -243,7 +243,7 @@ function turnHtml(rows) {
   return openCard('The wait is over!', `
     <p class="mt0">Below are the puppies available for selection.</p>
     ${rows.some((o) => o.prices) ? '<p class="small muted mt0">Listed prices are intended base purchase price and may not include additional fees; all prices are subject to change prior to contract signing.</p>' : ''}
-    ${rows.map((o) => `<p class="mt8"><strong>${esc(o.litter)}</strong>${o.breed ? ` <span class="small muted">${esc(o.breed)}</span>` : ''}</p>${parentsLine(o.dam, o.sire)}${pupsOf(o)}`).join('')}
+    ${rows.map((o) => `<div class="turn-litter"><p class="mt0"><strong>${esc(o.litter)}</strong>${o.breed ? ` <span class="small muted">${esc(o.breed)}</span>` : ''}</p>${parentsLine(o.dam, o.sire)}${pupsOf(o)}</div>`).join('')}
     ${next}
     ${respondBy ? `<p class="deadline"><strong>${esc(deadlineText(respondBy, v.kennel.time_zone))}</strong></p>` : ''}`, 'turn');
 }

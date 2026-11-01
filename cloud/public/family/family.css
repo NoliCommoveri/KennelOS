@@ -249,3 +249,7 @@ html.embedded.theme-dark {
 .records a.button.secondary.small { padding: 6px 14px; font-size: 0.875rem; }
 /* A turn's price line sits right on its deposit line. */
 .turn p.price { margin-bottom: 2px; }
+/* Each litter of a turn in its own block: a line and room between them. */
+.turn .turn-litter { border-top: 1px solid var(--border); padding-top: 14px; margin-top: 14px; }
+.turn .turn-litter .pups { margin-bottom: 4px; }
+.turn .turn-litter > p:first-child { margin-bottom: 2px; }
