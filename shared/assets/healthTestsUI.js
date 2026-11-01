@@ -25,16 +25,17 @@ const dogName = (d) => d.call_name || d.registered_name || 'Unnamed';
 const listText = (xs) => (xs.length < 3 ? xs.join(' and ') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 const typeLabel = (t) => descriptor(EVENT_TYPES, t)?.label || t;
 
-async function load() {
+// `only`: a narrower list of dogs (the dog check-in passes dogCare.checkinDogs).
+async function load(only = null) {
   const [dogs, tests] = await Promise.all([dogRepo.getAll(), Promise.all(TEST_TYPES.map((t) => eventRepo.getByType(t))).then((x) => x.flat())]);
   // Dogs she'd test: hers, not pedigree-only, not deceased.
   const eligible = dogsInScope(dogs).filter((d) => !d.is_archived && !d.pedigree_only && d.status !== 'deceased');
-  return { dogs: eligible, tests };
+  return { dogs: only ? only(eligible) : eligible, tests };
 }
 
 // For Kels's menu: dogs to test, and how many planned tests are still unlogged.
-export async function healthTestsState() {
-  const { dogs, tests } = await load();
+export async function healthTestsState({ only = null } = {}) {
+  const { dogs, tests } = await load(only);
   return { dogs: dogs.length, missing: dogs.reduce((n, d) => n + unloggedPlanned(d, tests, testMatchTokensOf).length, 0) };
 }
 
@@ -45,22 +46,31 @@ export async function runHealthTestsTask(chat, { onExit = () => {} } = {}) {
     await chat.say('You don\'t have any dogs to log tests for yet. Add a dog first and I\'ll help with their results.');
     return onExit('done');
   }
-  let first = true;
-  for (;;) {
-    const dog = await pickDog(chat, first);
-    if (!dog) break;
-    first = false;
-    await logForDog(chat, dog);
-    await chat.say('Results for another dog?');
-  }
+  await logHealthTests(chat);
   await chat.say('All logged. Those clearances are hard-won, nice work!');
   return onExit('done');
 }
 
+// The task's loop, also the dog check-in's "Do you need to log any new health test
+// results?" (assets/dogCheckinUI.js, which passes `only`: her own dogs and kept
+// puppies): pick a dog (those with planned tests waiting named first), log its
+// results, "Results for another dog?", until she's done.
+// → how many dogs she logged for.
+export async function logHealthTests(chat, { only = null } = {}) {
+  let n = 0;
+  for (let first = true; ; first = false) {
+    const dog = await pickDog(chat, first, only);
+    if (!dog) return n;
+    n++;
+    await logForDog(chat, dog);
+    await chat.say('Results for another dog?');
+  }
+}
+
 // Her dogs at home and any with planned tests left, those with tests left first;
 // Another dog searches the rest.
-async function pickDog(chat, first) {
-  const { dogs, tests } = await load();
+async function pickDog(chat, first, only = null) {
+  const { dogs, tests } = await load(only);
   const left = new Map(dogs.map((d) => [d.id, unloggedPlanned(d, tests, testMatchTokensOf)]));
   const home = new Set(homeDogs(dogs).map((d) => d.id));
   const byName = (a, b) => dogName(a).localeCompare(dogName(b));

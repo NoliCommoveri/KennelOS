@@ -2147,3 +2147,22 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   logged values for these fields with its options; Kels's Log health test results gets the
   same list. Free text, nothing enforced. Test: `tests/healthTestLog.test.js`. Screenshots
   checked at phone width on the sample data.
+- **Check in on my dogs: health test results and any other events; own dogs only
+  (2026-11-01).** Owner decision: Kels logs other events only inside this check-in, not as a
+  separate Add new events task (Kels Roadmap §3.10 / §3.7 Modified). Two new last steps:
+  "Do you need to log any new health test results?" runs Log health test results' own loop
+  (`healthTestsUI.logHealthTests`, now exported, with an `only` dog filter), and "Any other
+  events that need logging?" (a kind from `dogCare.otherEventTypes`, everything but the
+  check-in's own types and `acquisition` / `placement`; one form with the type's fields,
+  date / end, a cost per dog as linked expenses, and the dogs). Shared rather than copied:
+  `dogCare.dogEvents` builds one event per dog (the litter check-in's `careEvents` now calls
+  it), and `litterCheckinUI.eventFieldInput` (was `careInput`; combobox options now
+  suggested, select defaults honoured) renders a type's fields in both. The whole check-in
+  now loads only her own dogs (`dogCare.ownDogs`: owned / co-owned, not archived, deceased or
+  pedigree-only): heats are her own active breeding females, preventatives her own active
+  breeding dogs only (the form no longer adds her other dogs at home), and the two new steps
+  list `checkinDogs` (her own dogs, puppies only when Keeping). Today's nudges and reports
+  keep `breedingDogs` on every dog. Kels menu card's subtitle and keywords updated. Tests:
+  `tests/dogCare.test.js`. Driven end to end in the browser on the sample data (lists
+  checked against each dog's ownership and status; a vet visit for two dogs with $85 saved
+  two events and two veterinary expenses).

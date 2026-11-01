@@ -2,7 +2,7 @@
 // single heat, else her average interval) and this month's preventatives.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { predictNextHeat, heatStarts, heatForecast, preventativeGaps, breedingDogs, homeDogs, heatBasisText, monthName } from '../shared/data/dogCare.js';
+import { predictNextHeat, heatStarts, heatForecast, preventativeGaps, breedingDogs, homeDogs, heatBasisText, monthName, otherEventTypes, dogEvents, dogEventProblem, checkinDogs, ownDogs } from '../shared/data/dogCare.js';
 
 const heat = (id, d, extra = {}) => ({ subject_type: 'dog', subject_id: id, event_type: 'heat_cycle', event_date: d, ...extra });
 const prev = (id, d) => ({ subject_type: 'dog', subject_id: id, event_type: 'preventative', event_date: d });
@@ -50,4 +50,57 @@ test('the multi-dog forms list the dogs at home, active breeding first', () => {
   const dogs = [dog('Zed'), dog('Ret', { status: 'retired_breeding' }), dog('Sale', { status: 'for_sale' }), dog('Abe'),
     dog('Pup', { status: 'puppy' }), dog('Pet', { status: 'pet_home' }), dog('Gone', { status: 'deceased' }), dog('Ext', { status: 'external_reference' })];
   assert.deepEqual(homeDogs(dogs).map((d) => d.id), ['Abe', 'Zed', 'Ret', 'Sale']);
+});
+
+test('otherEventTypes: dog types minus what the check-in asks and what other tasks log; show only with its flag', () => {
+  const types = otherEventTypes({}).map((t) => t.value);
+  for (const t of ['vet_visit', 'medication', 'vaccination', 'weight_check', 'illness', 'note']) assert.ok(types.includes(t), t);
+  for (const t of ['heat_cycle', 'preventative', 'genetic_test', 'ofa_pennhip', 'breed_specific_test', 'acquisition', 'placement', 'whelping_summary', 'breeding_tie', 'show']) assert.equal(types.includes(t), false, t);
+  assert.ok(otherEventTypes({ shows: true }).some((t) => t.value === 'show'));
+});
+
+test('dogEvents: one per dog, titled by what she typed, else the naming field, else the label; blanks dropped', () => {
+  const [a, b] = dogEvents({ eventType: 'vet_visit', dogIds: ['d1', 'd2'], date: '2026-11-01', details: { reason: ' Ear infection ', vet: '', findings: 'Otitis' } });
+  assert.deepEqual(a, { subject_type: 'dog', subject_id: 'd1', event_type: 'vet_visit', event_date: '2026-11-01', title: 'Ear infection', details: { reason: 'Ear infection', findings: 'Otitis' } });
+  assert.equal(b.subject_id, 'd2');
+  assert.notEqual(a.details, b.details, 'each event its own details object');
+  assert.equal(dogEvents({ eventType: 'vet_visit', dogIds: ['d1'], date: '2026-11-01', details: {}, title: 'Annual exam' })[0].title, 'Annual exam');
+  assert.equal(dogEvents({ eventType: 'weight_check', dogIds: ['d1'], date: '2026-11-01', details: { weight_lbs: '62' } })[0].title, 'Weight check');
+  const med = dogEvents({ eventType: 'medication', dogIds: ['d1'], date: '2026-11-01', endDate: '2026-11-10', details: { drug: 'Apoquel' } })[0];
+  assert.equal(med.event_end_date, '2026-11-10');
+  assert.equal(med.title, 'Apoquel');
+});
+
+test('dogEventProblem: a dog, a date, an end after the start, a note\'s words, a sensible cost', () => {
+  const ok = { eventType: 'vet_visit', dogIds: ['d1'], date: '2026-11-01' };
+  assert.equal(dogEventProblem(ok), '');
+  assert.match(dogEventProblem({ ...ok, dogIds: [] }), /at least one dog/);
+  assert.match(dogEventProblem({ ...ok, date: '' }), /When was it/);
+  assert.match(dogEventProblem({ ...ok, endDate: '2026-10-01' }), /before the start/);
+  assert.match(dogEventProblem({ ...ok, eventType: 'note' }), /note/);
+  assert.equal(dogEventProblem({ ...ok, eventType: 'note', title: 'Limping a little' }), '');
+  assert.match(dogEventProblem({ ...ok, cost: 'abc' }), /cost/);
+  assert.match(dogEventProblem({ ...ok, cost: '-5' }), /cost/);
+  assert.equal(dogEventProblem({ ...ok, cost: '85.50' }), '');
+});
+
+test('checkinDogs: owned and co-owned only, never external, pedigree-only, archived or deceased; puppies only when kept', () => {
+  const dog = (id, extra) => ({ id, call_name: id, ownership_type: 'owned', status: 'active_breeding', ...extra });
+  const out = checkinDogs([
+    dog('Zed'), dog('Ada', { ownership_type: 'co_owned', status: 'retired_breeding' }),
+    dog('Ext', { ownership_type: 'external' }), dog('Lease', { ownership_type: 'leased_in' }),
+    dog('Anc', { pedigree_only: true }), dog('Gone', { status: 'deceased' }), dog('Arch', { is_archived: true }),
+    dog('Pip', { status: 'puppy', disposition: 'keeping' }), dog('Sold', { status: 'puppy', disposition: 'available' }),
+    dog('Bea')
+  ]).map((d) => d.id);
+  assert.deepEqual(out, ['Bea', 'Zed', 'Ada', 'Pip']);
+});
+
+test('ownDogs: what Check in on my dogs looks at; its heats and preventatives are her own active breeding dogs', () => {
+  const dog = (id, extra) => ({ id, call_name: id, ownership_type: 'owned', status: 'active_breeding', sex: 'female', ...extra });
+  const dogs = [dog('Mine'), dog('Co', { ownership_type: 'co_owned', sex: 'male' }), dog('Stud', { ownership_type: 'external', sex: 'male' }),
+    dog('Lease', { ownership_type: 'leased_in' }), dog('Gone', { status: 'deceased' }), dog('Arch', { is_archived: true }), dog('Old', { status: 'retired_breeding' })];
+  assert.deepEqual(ownDogs(dogs).map((d) => d.id), ['Mine', 'Co', 'Old']);
+  assert.deepEqual(breedingDogs(ownDogs(dogs), 'female').map((d) => d.id), ['Mine'], 'heats: her own active breeding females');
+  assert.deepEqual(preventativeGaps(ownDogs(dogs), [], '2026-11-01').map((d) => d.id), ['Co', 'Mine'], 'preventatives: her own active breeding dogs');
 });

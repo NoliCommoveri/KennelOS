@@ -2761,18 +2761,38 @@ Waitlist entry page saves one. Set up my waitlist's **Add one by hand** and Add 
 run it; without a contact it's linked at approval, as ever.
 
 ### "Check in on my dogs"
-`assets/dogCheckinUI.js`, offered with any Active breeding dog (priority 55 while a heat is
+`assets/dogCheckinUI.js`, offered with any Active breeding dog of her own (priority 55 while a heat is
 due or late or a dog is missing this month's preventative, else 30); also from the Dogs page.
-Each thing is saved as she approves it.
-1. **Heats:** each active breeding female's predicted next heat (`dogCare`, as the
+Each thing is saved as she approves it. Every step looks only at her own dogs:
+`dogCare.ownDogs` (owned or co-owned; never external, leased-in or pedigree-only; never
+archived or deceased). Today's nudges and the reports still read `breedingDogs` on every dog.
+1. **Heats:** each of her own active breeding females' predicted next heat (`dogCare`, as the
    `heatwatch` nudge) or "no heats logged yet", then "Do you want to log any heats?", one
    female at a time: a `heat_cycle` with start (the prediction if it's ahead, else today;
    any date, future included), optional end and notes, and her new prediction.
-2. **Preventatives:** the active breeding dogs with no `preventative` this month, ticked,
-   and her other dogs at home unticked; a form (product, dose, date) → one event each, then
+2. **Preventatives:** her own active breeding dogs (only those listed), the ones with no
+   `preventative` this month ticked; a form (product, dose, date) → one event each, then
    "Any other preventatives to log?" (**Log another** / **No, that's all**), repeated, each
    later form ticking the dogs she picked last time. With none missing it asks first
    whether to log one (flea & tick, say).
+3. **Health test results:** "Do you need to log any new health test results?" (with how many
+   planned tests wait for one) → **Yes, log results** runs Log health test results' own loop
+   (`healthTestsUI.logHealthTests`, below) on `dogCare.checkinDogs` (her own dogs, and puppies
+   only when Keeping) / **No thanks**.
+4. **Any other events:** "Any other events that need logging, like a vet visit, a new
+   medication or a weight?" → the kind (`dogCare.otherEventTypes`: every dog event type but
+   the ones this check-in asks itself, heats, preventatives and the three test types, and
+   the ones another task logs, `acquisition` (Add dogs) and `placement` (Pups are going
+   home); `show` only with `shows`; searchable) → one form: an optional title (a note's
+   words, required for a Note), the type's own fields (`litterCheckinUI.eventFieldInput`,
+   shared with the litter check-in's care forms; combobox options as suggestions), the date
+   (and end for a span type), **Cost per dog** (optional; one `expenseRepo.createForEvent`
+   per event, the type's default category, as the event form does for several dogs) and the
+   dogs (`checkinDogs`, none ticked unless only one) → one event each (`dogCare.dogEvents`:
+   titled by her title, else the type's naming field, `eventNameKey`, else its label; also
+   builds the litter check-in's care events) → "Anything else to log?" (**Log another** /
+   **No, that's all**). Checked by `dogEventProblem`. This is where Kels logs any other
+   event; there is no separate Add new events task.
 
 ### "Log health test results"
 `assets/healthTestsUI.js` + `data/healthTestLog.js` (above), all editions, offered with any

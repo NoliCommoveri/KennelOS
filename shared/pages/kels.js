@@ -134,9 +134,9 @@ const TASKS = [
   {
     id: 'dog-checkin',
     label: () => 'Check in on my dogs',
-    sub: 'Upcoming heats, and this month\'s preventatives (heartworm, flea & tick, dewormer)',
+    sub: 'Upcoming heats, this month\'s preventatives, new health test results, and anything else to log, like a vet visit',
     keywords: ['heat', 'heats', 'season', 'cycle', 'in heat', 'deworm', 'dewormer', 'heartworm', 'flea', 'tick', 'preventative', 'monthly meds',
-      'breeding dogs', 'females', 'girls', 'dams'],
+      'breeding dogs', 'females', 'girls', 'dams', 'vet visit', 'vet', 'medication', 'illness', 'injury', 'surgery', 'weight', 'log an event'],
     available: (s) => s.dogs.breeding > 0,
     // Up near the top while a heat is coming (or late) or a dog is missing this month's preventative.
     priority: (s) => (s.dogs.heatsDue || s.dogs.missing ? 55 : 30),

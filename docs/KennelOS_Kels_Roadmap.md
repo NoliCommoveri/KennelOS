@@ -204,6 +204,9 @@ situation; the check-in's Expected litter hands off to the birth as today.
 ### 3.7 Check in on a dog: **S**
 The litter check-in's health-care and weight forms for one adult dog, plus health tests
 (`planned_tests` → results), and status changes (retire, pet home).
+**Modified (2026-11-01):** health test results and every other event (vet visits, weights,
+medications…) are now steps of Check in on my dogs (all her own dogs at once, see §3.10);
+only the status changes are left here.
 
 ### 3.8 Add dogs: **M** — **Built** (but its history step)
 As built: End-State guide §33 ("Add dogs"); history in `docs/BUILD_LOG.md`. **Modified:**
@@ -248,7 +251,14 @@ keeps elsewhere, one or several in a row ("Add another?" after each), like Add d
 - **Keywords:** accounts, logins, passwords, AKC, registry, marketplace, supplier, referral,
   referral code, Stripe, Jotform, insurance.
 
-### 3.10 Add new events: **S**
+### 3.10 Add new events: **S** — **Built, as part of Check in on my dogs**
+**Modified (owner decision, 2026-11-01):** not a task of its own. Logging any other event is
+the last step of Check in on my dogs ("Any other events that need logging?"), for her own
+dogs and kept puppies, and only the event types no other step or task logs (heats,
+preventatives and health tests are that check-in's own steps; a purchase is Add dogs'; a
+puppy going home is Pups are going home's). As built: End-State guide, "Check in on my dogs"
+step 4. Add dogs' history step (§3.8) still waits; it would reuse the same pieces
+(`dogCare.dogEvents`, `litterCheckinUI.eventFieldInput`). The plan as first written:
 Log what happened, for one or several dogs, one event or several in a row ("Add another?"),
 without opening each dog's page. Also how Add dogs (§3.8) brings in a new dog's history.
 - **Which dogs** (search, or her own / a litter's pups) → **what happened** (`EVENT_TYPES`
