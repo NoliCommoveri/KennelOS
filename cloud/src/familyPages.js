@@ -185,7 +185,33 @@ export async function serveFamilyPage(request, env, url) {
 // and titles, and her dates. A planned heat: its dam and the month (YYYY-MM), never
 // a day. Never where it shows or which dogs.
 // A parent as a page shows one: call name and titles.
+// Their pick (sent with the offer: it's no longer among the litter's available
+// pups), field by field, so their card can name it.
+function withPick(pups, o) {
+  const d = o.picked_pup;
+  if (!o.picked_dog_id || !d || d.id !== o.picked_dog_id || pups.some((x) => x.id === d.id)) return pups;
+  const s = (v, n) => (typeof v === 'string' ? v.slice(0, n) : null);
+  return [...pups, { id: d.id, call_name: s(d.call_name, 80) || '', sex: s(d.sex, 10), color: s(d.color, 80), registration: s(d.registration, 20) }];
+}
+
 const parentOf = (d) => ({ name: d?.name ?? '', titles: Array.isArray(d?.titles) ? d.titles : [] });
+
+// A litter's expected prices as her device published them, field by field: per
+// registration a male and a female price (the total), and the deposit for a male
+// and a female. null when none.
+const REGISTRATIONS = ['limited', 'full', 'co_own', 'none'];
+function pricesOf(p) {
+  if (!p || typeof p !== 'object') return null;
+  const money = (v) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v < 1e7 ? v : null);
+  const by = {};
+  for (const reg of REGISTRATIONS) {
+    const r = p.by_registration?.[reg];
+    if (r && typeof r === 'object') by[reg] = { male: money(r.male), female: money(r.female) };
+  }
+  const deposit = { male: money(p.deposit?.male), female: money(p.deposit?.female) };
+  if (!Object.values(by).some((r) => r.male != null || r.female != null) && deposit.male == null && deposit.female == null) return null;
+  return { by_registration: by, deposit };
+}
 
 function upcomingRow(u) {
   const parent = parentOf;
@@ -446,10 +472,21 @@ export function statusView(projection, entryId) {
       turn_id: o.turn_id ?? o.id,
       litter_id: o.litter_id ?? null,
       litter: l.label ?? '',
+      // The parents as Coming up and Available Puppies show them (call names and
+      // earned titles), so a family can tell the litters of their turn apart.
+      breed: l.breed ?? null,
+      sire: parentOf(l.sire),
+      dam: parentOf(l.dam),
+      // Her expected prices (when she shows them): only on a family's turn.
+      prices: pricesOf(l.prices),
       offered_date: o.offered_date ?? null,
       respond_by_date: o.respond_by_date ?? null,
       picked_dog_id: o.picked_dog_id ?? null,
-      pups: (l.pups || []).filter((d) => eligible.has(d.id) || d.id === o.picked_dog_id),
+      // Sending the deposit: her payment instructions, and once they've picked, the
+      // deposit on their sale (or her listed one).
+      deposit_instructions: typeof o.deposit_instructions === 'string' ? o.deposit_instructions.slice(0, 1000) : '',
+      deposit_amount: typeof o.deposit_amount === 'number' && Number.isFinite(o.deposit_amount) && o.deposit_amount >= 0 ? o.deposit_amount : null,
+      pups: withPick((l.pups || []).filter((d) => eligible.has(d.id) || d.id === o.picked_dog_id), o),
     };
   });
   // Whether they match a litter's available pups now: a yes/no, never a place in
@@ -525,6 +562,35 @@ export function entryForEmail(projection, email) {
     .sort(([a, x], [b, y]) => (OPEN_STATUSES.includes(y.status) - OPEN_STATUSES.includes(x.status)) || a.localeCompare(b))
     .map(([id]) => id);
   return ids[0] ?? null;
+}
+
+// The same family's records on this kennel's list (one per time on it: a family
+// back for a second pup has two), by the email on them. Each status page lists them
+// so the family always knows which record it's acting on, and can open the others.
+// [] unless there are two or more. Never another family's: same email only.
+const RECORD_STATES = ['applied', 'approved', 'waiting', 'paused', 'turn', 'picked', 'chose', 'home', 'declined', 'left', 'backed_out', 'removed', 'expired'];
+
+export function sameFamilyIds(projection, entryId) {
+  const email = normalizeEmail(projection.entries?.[entryId]?.email);
+  if (!email) return [];
+  return Object.entries(projection.entries || {}).filter(([, e]) => normalizeEmail(e?.email) === email).map(([id]) => id);
+}
+
+async function familyRecords(env, projection, publicId, entryId) {
+  const ids = sameFamilyIds(projection, entryId);
+  if (ids.length < 2) return [];
+  const ymd = (v) => (typeof v === 'string' && YMD_RE.test(v) ? v : null);
+  const out = [];
+  for (const id of ids) {
+    const e = projection.entries[id];
+    const token = id === entryId ? null : await statusTokenOf(env, publicId, id);
+    if (id !== entryId && !token) continue;
+    const state = RECORD_STATES.includes(e.record?.state) ? e.record.state : null;
+    out.push({ current: id === entryId, state, until: state === 'paused' ? ymd(e.record.until) : null, since: ymd(e.since),
+      pup: typeof e.pup === 'string' ? e.pup.slice(0, 80) : null, ...(token ? { token } : {}) });
+  }
+  // Newest first: the time on the list they're most likely asking about.
+  return out.sort((a, b) => String(b.since || '').localeCompare(String(a.since || '')));
 }
 
 async function statusTokenOf(env, publicId, entryId) {
@@ -622,6 +688,9 @@ export async function handleFamilyApi(request, env, url) {
       for (const o of view.offers) o.pups = o.pups.filter((d) => !held.has(d.id) || d.id === o.picked_dog_id);
       // The emails she sent them (step 6), so one lost to spam is still read here.
       view.emails = await sentEmailsFor(env, t.public_id, t.entry_id);
+      // Their other times on this list, linked, so they know which one this is.
+      const records = await familyRecords(env, found.projection, t.public_id, t.entry_id);
+      if (records.length) view.records = records;
     } else {
       view.pending = [];
       view.emails = [];

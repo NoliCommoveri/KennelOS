@@ -1906,6 +1906,143 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   "Put [pup] back to Available" (Health hold when their reason is the pup's health), ticked,
   so the pup can be offered to the next family, as the Sale page asks when a sale ends. All
   of this session's app changes ride `kennelos-shell-v88`.
+- **Styled dialogs on the family pages, and the modal rules everywhere (2026-11-01).** Asked
+  by the owner: the status page's six `window.confirm` prompts (choose a pup, ask for or
+  cancel a pickup time, ask for or cancel an extra, back out) showed the bare browser box
+  ("apply.kennelos.app says"). They now use `confirmDialog` (family `common.js` + `.modal`
+  in `family.css`), shaped like the app's `confirmModal`: a title, a message, a primary and a
+  cancel button; cancel, a backdrop tap and Escape all say no. The app had no native dialogs
+  left; the audit found modals that ignored Escape (including `ui.js`'s own confirm, alert,
+  prompt and select) and seven with no backdrop close. The rules are now written at the top
+  of `ui.js`'s modal block, with one Escape handler there (Escape = a backdrop tap on the top
+  overlay, unless its own handler already closed it, or it carries `data-no-dismiss`: the
+  required kennel setup and `openModal({ dismissible: false })`). The seven now press their
+  Cancel on a backdrop tap. Checked in the browser.
+- **Open kennel settings from Settings (2026-11-01).** Asked by the owner: Settings → Your
+  kennel has **Open kennel settings →**, straight to the kennel's Overview and Settings page,
+  so it isn't reached only through People → Kennels. Not in Lite (no `kennel.html`).
+- **Waitlist settings folded into groups (2026-11-01).** Asked by the owner: the card had
+  grown to ~25 fields in one column. It's now six folded groups under the one Save (Fees &
+  payment; Turns & offers; Passing & readiness; Public list & family pages; Messages to
+  families; Backing out), closed at first, with the open ones kept open across Save. Same
+  fields and ids, so saving is unchanged. New `.settings-group` style in `app.css`. Checked
+  in the browser.
+- **Review my waitlist plan brought up to date with family requests (2026-11-01).** Asked by
+  the owner. Kels Roadmap §3.16 now covers every request that waits on her: extras asked
+  for and cancelled (with the training stay to log or remove), pickup times and cancels
+  (with the boarding and leftover transport fee follow-ups), own-address pickups (set up in
+  the conversation, or the transport options email when far), and backing out as step 2's
+  first part (keep / move / refund, the items that come off, the pup back, then offer the
+  next family). Extras payments due join step 7. Three questions are left open there. Plan
+  only; nothing built.
+- **Review my waitlist: three questions decided (2026-11-01).** The owner took all three
+  proposals: a back-out with no request takes the full back-out path; own-address pickups
+  are set up in the conversation; extras payments due are in step 7.
+- **"Where do you live?" no longer asked over and over (2026-11-01).** Found while checking
+  the owner's report that the question never appeared (it shows only with the distance rule
+  on, i.e. a "live at least N miles away" figure above 0 on Pickup & transport, for a signed-in
+  family with an open sale and a pup, whose home wasn't measured from the application or
+  contact). Traced end to end: it does ask, but an answer the server couldn't measure (no
+  Mapbox key, or a place it can't find) left the distance unknown, so the page asked again
+  at every update. `ask_home` now needs no `home_place` on file; with an unmeasured place the
+  entry's Pickup card says the distance couldn't be measured and she chooses. Test in
+  `tests/familyPickup.test.js`.
+- **Own meetup place: a dropdown, in plain words (2026-11-01).** Asked by the owner: the
+  entry's Pickup card had three buttons (Allow their own place / Listed places only / Follow
+  my rule) that read unclearly. It's now one dropdown, **Can they suggest their own meetup
+  place?**, showing only the choice in force: **Use my distance rule** (default) / **Let them
+  suggest a place** / **Only my pickup times**, with a hint saying what it means for this
+  family (under the rule: what the rule decides and why). Same `own_place_override` values.
+  Checked in the browser.
+- **A family's Timeline shows offers and requests (2026-11-01).** Asked by the owner: the
+  entry's History timeline had only applied / approved / fee and status dates. It now adds
+  each offer (offered, picked, deposit request sent, how it ended, backed out), a placement
+  with no offer on this device ("Placed with [pup]", from the sale), and every status-page
+  request with her decision (pause, litters, Companion link, answers, backing out, extras,
+  pickups), newest first including within a day. Checked in the browser.
+- **A family back on the list: each record its own pup, records linked, lost-pup history
+  kept (2026-11-01).** Found by the owner: Ray had a placed record (offer, sale, a pickup
+  request) and a re-applied one; signing in by email landed on the new one with no sign of
+  the other, and both pages showed the first pup's Pickup, Extras and Need to back out
+  (backing out from the new page, with Keep, would have withdrawn the new place). Now
+  `familySale` takes the record's own pup (placed sale, else its open offer's pick, else an
+  unclaimed open sale to the contact, given to one record), everywhere it's used (the
+  projection, the event planner, approvals, measuring homes, the entry page). The projection
+  publishes `since` and `pup` per record; the Worker adds `records` to each status page by
+  the same email ("This page is about: Placed with Hazel", links to the others) and lets one
+  sign-in act on any of them, on the page's own record. The entry page's status card says
+  how many times the family has been on the list and links the others. A lost pup's restore
+  keeps the offer's history (`restored_date`, `lost_dog_id`, `lost_picked_date`,
+  `lost_accepted_date`, synced like the offer's other dates), so the Timeline shows the
+  pick, the acceptance and going back in line. Tests: `tests/extraCharges.test.js`,
+  `tests/waitlistLostPup.test.js`, an end-to-end test in `tests/cloudWaitlist.test.js`.
+  Needs a Worker deploy. Checked in the browser.
+- **Family records card reworded; parents on the turn card (2026-11-01).** Asked by the
+  owner: the records card read like the app ("Placed with Hazel (since…)", "Everything you
+  do here is for this one"). It's now "You have more than one waitlist record with
+  [kennel]. Choose the one you want to see below.", one row per record (date, then the
+  family's own words, Viewing or Switch), with wording the owner approved: Applied: waiting
+  for [kennel] to review / Approved: application fee to pay / Waiting for my turn for a (new)
+  puppy / On hold until [date] / **My turn to choose a puppy** / Chose [pup]: deposit to send
+  / Chose [pup] / Brought [pup] home / Application not accepted / Left the waitlist / Backed
+  out of [pup] / No longer on the waitlist / Application closed: fee not received. Each entry
+  publishes `record` ({ state, until }) for it. Also asked: a family's turn now shows each
+  litter's breed and parents with their titles, as Coming up does. Needs a Worker deploy.
+  Checked in the browser.
+- **Expected prices on a family's turn (2026-11-01).** Asked by the owner (for a breeder):
+  a family holding a turn couldn't tell what a pup would cost. Each litter of a turn now
+  shows her expected prices from the Litter page (males / females), and when any pup is
+  planned for Full registration the pups are sectioned by registration with the surcharge
+  shown ("+$1,000 males · +$1,500 females"), marked as her estimates. Her asking prices
+  only, never a deposit or a sale's amount; on by default with a switch in Waitlist settings
+  → Turns & offers (`turn_prices`). Published pups carry their intended registration.
+  Needs a Worker deploy. Tests in `tests/waitlistProjection.test.js` and
+  `cloud/tests/familyPages.test.js`. Checked in the browser.
+- **Turn prices: deposits, totals only, her notice (2026-11-01).** Asked by the owner: each
+  litter of a turn also shows the deposit for males and females; Full registration shows
+  its total price only (no "+$1,000" surcharge split, and the surcharge isn't published);
+  the note reads "Listed prices are intended base purchase price and may not include
+  additional fees; all prices are subject to change prior to contract signing." Screenshots
+  made from the real path (projection → statusView → status page).
+- **Turn litters set apart (2026-11-01).** Asked by the owner: each litter of a turn is its
+  own block with a line and space above it (`.turn-litter`); "The wait is over!" and each
+  litter's name are a couple of points larger.
+- **Choosing a pup says it isn't final (2026-11-01).** Asked by the owner: the status page's
+  "Choose [pup]?" dialog now reads "Your selection isn't final until [kennel] receives your
+  deposit (of $N, her listed deposit for that pup's sex when shown). Deadline to send the
+  deposit: [the offer's respond-by date, from her days to accept and pay, as the turn card
+  shows it]." Checked in the browser.
+- **Sending your deposit on the turn card (2026-11-01).** Asked by the owner: between a
+  family's pick and her deposit request they were told to send a deposit with no amount
+  or way to pay. Once they pick, the turn card shows just their pick (its price for its sex),
+  "Your selection isn't final until [kennel] receives your deposit", and a Sending your
+  deposit block: the deposit (on their sale, else her listed one), the deadline, her payment
+  instructions (already on their page for the fee), and that she'll send the contract and
+  invoice. Found while screenshotting: the picked pup dropped out of the card (it's no
+  longer available), so the offer now carries `picked_pup`. Payment links still come only in
+  her deposit request. Needs a Worker deploy. Checked in the browser.
+- **Days she does business (2026-11-01).** Asked by the owner (a breeder closed on
+  Saturdays): Waitlist settings → Turns & offers → Days you do business, all ticked by
+  default. Decided by the owner: closed days are skipped when counting (Fri + 3 days with
+  Saturday closed = Tuesday), for every deadline from her day counts: the deposit /
+  respond-by (also when the server offers a turn), the application fee, "Ready now?", the
+  pickup change cutoff, and extras plan steps after approval / before pickup. New
+  `dateUtils.addOpenDays`, `waitlistRules.openDays`, `open_days` in the projection's kennel,
+  `serverMoves.addOpenDays` (the fee reminder goes on the open day before). Dates already
+  set keep theirs. The turn-prices setting's hint updated to match what it now shows.
+  Needs a Worker deploy. Checked in the browser.
+- **Closed dates (2026-11-01).** Asked by the owner: a blackout list of any dates she's
+  closed, for any reason, under Days you do business (date picker, Add date, ✕ to remove).
+  Deadlines skip them like a closed weekday, on her device and for turns the server offers
+  (`closed_dates` in the projection's kennel). A date drops off by itself a week after it
+  passes: on save, and `waitlistActions.tidyClosedDates` when the app loads. Tests:
+  `tests/closedDates.test.js`, `tests/waitlistProjection.test.js`,
+  `cloud/tests/serverMoves.test.js`. Needs a Worker deploy. Checked in the browser.
+- **SW cache bumped to `kennelos-shell-v89` (2026-11-01).** All of this session's app
+  changes ride it (styled family dialogs and the modal rules, Open kennel settings, folded
+  Waitlist settings, the own-place dropdown, the entry Timeline, records per pup and their
+  links, turn prices and deposits, Sending your deposit, open days and closed dates). The
+  family pages and server changes need a Worker deploy.
 - **Planned heats on Coming up (2026-11-01).** Asked by the owner: future-dated heat cycles
   show as coming up on the public list and family status pages, month and year only, with an
   "estimated around" disclaimer. A fourth `show_upcoming` stage, `planned_heats` (off by

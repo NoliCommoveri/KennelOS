@@ -65,7 +65,7 @@ test('the projection has exactly its allow-listed parts', () => {
   assert.deepEqual(keysOf(p), ['as_of', 'entries', 'events_through', 'format', 'kennel', 'litters', 'public_list', 'turn_queue', 'upcoming']);
   assert.deepEqual(p.kennel, {
     public_id: kennel.public_id, name: 'Thornfield Kennels', intro: publicIntroText({}, 'Thornfield Kennels'), time_zone: 'America/Chicago',
-    respond_days: 3, max_passes: 2, auto_offer_on: ['no_response'],
+    respond_days: 3, open_days: null, closed_dates: [], max_passes: 2, auto_offer_on: ['no_response'],
     breeds: [], color_matching: false,
     pass_reasons: passReasons({}),
     parents: { sires: [{ id: 'sire', name: 'Ash' }], dams: [{ id: 'dam', name: 'Juniper' }] },
@@ -90,7 +90,7 @@ test("a family on the list sees its place, prefs, passes and offers; nothing els
   const p = buildProjection(fixture());
   const e1 = p.entries.e1;
   assert.deepEqual(keysOf(e1), ['applied_date', 'approved_date', 'email', 'fee_due', 'fee_paid_online', 'fee_received_date', 'listen',
-    'matching_litter_ids', 'name', 'offers', 'passes', 'paused_until', 'place_hidden', 'position', 'pref_places', 'prefs', 'prepasses', 'private_name', 'ready_check', 'ready_from', 'requests', 'spent_litter_ids', 'status', 'upcoming', 'whelp_notes']);
+    'matching_litter_ids', 'name', 'offers', 'passes', 'paused_until', 'place_hidden', 'position', 'pref_places', 'prefs', 'prepasses', 'private_name', 'ready_check', 'ready_from', 'record', 'requests', 'spent_litter_ids', 'status', 'upcoming', 'whelp_notes']);
   assert.deepEqual(e1.prepasses, []);
   assert.deepEqual(e1.private_name, { on: false, request: null });
   assert.deepEqual(e1.requests, { pause: null, pref_change: null, listen: null });
@@ -98,7 +98,7 @@ test("a family on the list sees its place, prefs, passes and offers; nothing els
   assert.equal(e1.email, 'c-e1@example.com', "the contact's address wins over the application's");
   assert.equal(e1.fee_due, null, 'paid: no amount or instructions');
   assert.equal(e1.fee_received_date, '2026-02-11', 'fee received is readable (Q11)');
-  assert.deepEqual(e1.offers, [{ id: 'o1', turn_id: 'o1', litter_id: 'lit-1', offered_date: '2026-10-07', respond_by_date: '2026-10-10', eligible_dog_ids: ['p1', 'p2'], picked_dog_id: null }]);
+  assert.deepEqual(e1.offers, [{ id: 'o1', turn_id: 'o1', litter_id: 'lit-1', offered_date: '2026-10-07', respond_by_date: '2026-10-10', eligible_dog_ids: ['p1', 'p2'], picked_dog_id: null, deposit_instructions: 'Venmo @thornfield' }]);
   assert.deepEqual(p.entries.e2.passes, { used: 1, max: 2 });
   assert.equal(p.entries.e3.paused_until, '2026-12-01');
 });
@@ -116,8 +116,8 @@ test('the fee and her payment instructions show only while approved and unpaid',
 
 test("a family whose time on the list ended keeps only its outcome; archived and other kennels' families are left out", () => {
   const p = buildProjection(fixture());
-  assert.deepEqual(p.entries.e6, { name: 'Family e6 Lee', email: 'c-e6@example.com', status: 'placed' });
-  assert.deepEqual(p.entries.e7, { name: 'Family e7 Lee', email: 'c-e7@example.com', status: 'removed' });
+  assert.deepEqual(p.entries.e6, { name: 'Family e6 Lee', email: 'c-e6@example.com', status: 'placed', record: { state: 'chose' } });
+  assert.deepEqual(p.entries.e7, { name: 'Family e7 Lee', email: 'c-e7@example.com', status: 'removed', record: { state: 'removed' } });
   assert.equal(p.entries.e8, undefined);
   assert.equal(p.entries.e9, undefined);
   assert.equal(p.entries.e5.name, 'Ignored Name', 'an applicant with no contact yet goes by the name they applied with');
@@ -162,13 +162,14 @@ test('a litter shows its available pups as a family may see them, and every elig
   }
   const p = buildProjection(f);
   const l = p.litters['lit-1'];
-  assert.deepEqual(keysOf(l), ['breed', 'dam', 'label', 'nickname', 'open_offer_entry_id', 'pairing_id', 'picks_open', 'pups', 'ready_date', 'sire', 'status', 'whelp_date']);
+  assert.deepEqual(keysOf(l), ['breed', 'dam', 'label', 'nickname', 'open_offer_entry_id', 'pairing_id', 'picks_open', 'prices', 'pups', 'ready_date', 'sire', 'status', 'whelp_date']);
+  assert.equal(l.prices, null, 'no expected prices on the litter: none shown');
   assert.equal(l.label, 'Juniper × Ash');
   assert.deepEqual(l.sire, { name: 'Ash', titles: [] });
   assert.deepEqual(l.dam, { name: 'Juniper', titles: [] });
   assert.equal(l.picks_open, true);
   assert.equal(l.open_offer_entry_id, 'e1');
-  assert.deepEqual(l.pups, [{ id: 'p1', call_name: 'p1', sex: 'male', color: 'black' }, { id: 'p2', call_name: 'p2', sex: 'female', color: 'black' }],
+  assert.deepEqual(l.pups, [{ id: 'p1', call_name: 'p1', sex: 'male', color: 'black', registration: null }, { id: 'p2', call_name: 'p2', sex: 'female', color: 'black', registration: null }],
     'a pup she is keeping is not shown');
   assert.equal(p.turn_queue.length, 60, 'every eligible family still to have a turn (e1 holds it, e2 passed, e3 is paused), not just the next few (Q13)');
   f.entries.find((e) => e.id === 'm0').pref_sex = 'female';
@@ -351,7 +352,7 @@ test('the Companion link block (Spec §8.3): only for a family with an open sale
   f.entries[5].companion_request = { requested_date: '2026-10-07', note: 'NOTE-SECRET' };
   const p = buildProjection(f);
   assert.deepEqual(p.entries.e6, {
-    name: 'Family e6 Lee', email: 'c-e6@example.com', status: 'placed',
+    name: 'Family e6 Lee', email: 'c-e6@example.com', status: 'placed', record: { state: 'chose' },
     companion: { available: true, request: { requested_date: '2026-10-07', decided: null, decided_date: null } },
     back_out: { available: true, request: null }
   });
@@ -385,4 +386,68 @@ test('"Message us on Facebook": a Messenger link only while it is switched on wi
   assert.equal(withConfig({ facebook_button: true, facebook_page: 'facebook.com/thornfield' }).messenger, 'https://m.me/thornfield');
   assert.equal('messenger' in withConfig({ facebook_button: false, facebook_page: 'facebook.com/thornfield' }), false);
   assert.equal('messenger' in withConfig({ facebook_button: true, facebook_page: 'nope' }), false);
+});
+
+test('a family\'s turn can show her expected prices and deposits: males and females per registration, Full as its total; her switch hides them', () => {
+  const f = fixture();
+  const litter = f.litters.find((l) => l.id === 'lit-1');
+  Object.assign(litter, { expected_price_male: 2800, expected_price_female: 3000, full_reg_surcharge_male: 1000, full_reg_surcharge_female: 1500, expected_deposit_male: 500, expected_deposit_female: 600 });
+  f.dogs.find((d) => d.id === 'p2').intended_registration = 'full';
+  const l = buildProjection(f).litters['lit-1'];
+  assert.deepEqual(l.prices, {
+    by_registration: { full: { male: 3800, female: 4500 }, limited: { male: 2800, female: 3000 } },
+    deposit: { male: 500, female: 600 }
+  }, 'her listed prices and deposits');
+  assert.equal(l.pups.find((d) => d.id === 'p2').registration, 'full');
+  const off = buildProjection({ ...f, kennel: { ...f.kennel, waitlist_config: { ...(f.kennel.waitlist_config || {}), turn_prices: false } } });
+  assert.equal('prices' in off.litters['lit-1'], false, 'switched off: not published');
+});
+
+test('a family who picked sees the deposit to send: on their sale, else her listed one for that pup', () => {
+  const f = fixture();
+  Object.assign(f.litters[0], { expected_deposit_male: 500, expected_deposit_female: 600 });
+  Object.assign(f.offers[0], { chosen_dog_id: 'p2', picked_date: '2026-10-08', sale_id: 's9' });
+  assert.equal(buildProjection(f).entries.e1.offers[0].deposit_amount, 600, 'no sale yet: her listed deposit for a female');
+  f.sales = [{ id: 's9', dog_id: 'p2', buyer_contact_id: 'c-e1', status: 'deposit_pending', deposit_amount: 750, kennel_id: K }];
+  assert.equal(buildProjection(f).entries.e1.offers[0].deposit_amount, 750, 'the deposit on their sale');
+  assert.deepEqual(buildProjection(f).entries.e1.offers[0].picked_pup, { id: 'p2', call_name: 'p2', sex: 'female', color: 'black', registration: null }, 'their pick, as a family may see a pup');
+});
+
+test('her open days: every deadline counts only the days she does business; the server is told them', async () => {
+  const { addOpenDays } = await import('../shared/data/dateUtils.js');
+  const { respondByDate, feeDueDate, openDays, waitlistConfigProblem } = await import('../shared/data/waitlistRules.js');
+  const { changeUntil } = await import('../shared/data/pickupSlots.js');
+  const { planSteps, stepDueDate } = await import('../shared/data/extraCharges.js');
+  const noSat = [0, 1, 2, 3, 4, 5]; // 2026-11-06 is a Friday, 11-07 a Saturday
+  assert.equal(addOpenDays('2026-11-06', 3, noSat), '2026-11-10', 'Fri + 3 open days: Sun, Mon, Tue');
+  assert.equal(addOpenDays('2026-11-06', 3), '2026-11-09', 'every day open: plain days');
+  assert.equal(addOpenDays('2026-11-06', 1, noSat), '2026-11-08', 'never lands on the closed Saturday');
+  assert.equal(addOpenDays('2026-11-09', -2, noSat), '2026-11-06', 'backwards skips it too');
+  assert.equal(addOpenDays('2026-11-07', 0, noSat), '2026-11-07', 'zero days: the date itself');
+  const config = { respond_days: 3, fee_due_days: 1, open_days: noSat };
+  assert.equal(respondByDate('2026-11-06', config, null), '2026-11-10');
+  assert.equal(feeDueDate('2026-11-06', config), '2026-11-08');
+  assert.deepEqual(openDays({}), [0, 1, 2, 3, 4, 5, 6]);
+  assert.equal(changeUntil('2026-11-09', 2, noSat), '2026-11-06', 'pickup changes: 2 open days before Monday is Friday');
+  assert.equal(planSteps([{ percent: 100, due: 'on_approval', n: 1 }], 100, { approvalDate: '2026-11-06', openDays: noSat })[0].due_date, '2026-11-08');
+  assert.equal(stepDueDate({ due: 'before_pickup', n: 1 }, { pickupDate: '2026-11-08', openDays: noSat }), '2026-11-06');
+  assert.match(waitlistConfigProblem({ open_days: [] }), /at least one day/);
+  const f = fixture();
+  const p = buildProjection({ ...f, kennel: { ...f.kennel, waitlist_config: { ...f.kennel.waitlist_config, open_days: noSat } } });
+  assert.deepEqual(p.kennel.open_days, noSat);
+});
+
+test('her closed dates are skipped like a closed weekday, and drop off a week after they pass', async () => {
+  const { addOpenDays } = await import('../shared/data/dateUtils.js');
+  const { respondByDate, businessDays, closedDates, liveClosedDates } = await import('../shared/data/waitlistRules.js');
+  // 2026-11-26 is a Thursday (Thanksgiving), 11-27 Friday, 11-28 Saturday.
+  const config = { respond_days: 2, open_days: [0, 1, 2, 3, 4, 5], closed_dates: ['2026-11-26', '2026-11-27', 'nonsense', '2026-11-26'] };
+  assert.deepEqual(closedDates(config), ['2026-11-26', '2026-11-27'], 'valid, unique, in order');
+  assert.equal(respondByDate('2026-11-25', config, null), '2026-11-30', 'Wed + 2: Thu, Fri closed; Sat closed weekday; Sun, Mon');
+  assert.equal(addOpenDays('2026-11-25', 2, { weekdays: [0, 1, 2, 3, 4, 5, 6], closed: ['2026-11-26'] }), '2026-11-28', 'a closed date alone');
+  assert.deepEqual(businessDays({}), { weekdays: [0, 1, 2, 3, 4, 5, 6], closed: [] });
+  assert.deepEqual(liveClosedDates(['2026-10-20', '2026-10-25', '2026-11-03'], '2026-11-01'), ['2026-10-25', '2026-11-03'], 'more than 7 days past: dropped');
+  const f = fixture();
+  const p = buildProjection({ ...f, kennel: { ...f.kennel, waitlist_config: { ...f.kennel.waitlist_config, closed_dates: ['2026-09-01', '2026-10-20'] } } });
+  assert.deepEqual(p.kennel.closed_dates, ['2026-10-20'], 'the server gets the live ones');
 });

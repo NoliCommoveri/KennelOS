@@ -709,7 +709,10 @@ A **mandatory gate**: the app isn't usable until an own kennel exists
 Demo is exempt. The owner Contact is always saved linked to that kennel.
 `resolveMyKennelId()` repairs a missing or stale `myKennelId` when exactly one own kennel
 exists (never while sample data is loaded). `showKennelSetupModal({ mode })` is
-`required` (no way out; first run) or `cancellable` (editing from Import/Export).
+`required` (no way out; first run) or `cancellable` (editing from Settings → Your kennel).
+That card also has **Open kennel settings →**, straight to `kennel.html?id=<my kennel>`
+(the kennel's Overview and Settings hub), so it isn't reached only through People →
+Kennels. It shows only where `kennel.html` ships (not Lite).
 
 ### Reset and erase (`data/appReset.js`)
 `resetApp()` clears every table and setting, leaving a never-visited state.
@@ -794,6 +797,12 @@ When in doubt: `value` = text (escaped for you), `cell` = HTML (you escape).
 `esc` (use on every user value in hand-built HTML), `badge`/`badges`, `fmtDate`, `param`,
 `confirmAction` and the modal dialogs, `wireActionMenu`. `todayYMD` is re-exported from
 `data/dateUtils.js`.
+
+**Modal rules** (written at the top of `ui.js`'s modal block): no `window.confirm`/`alert`/
+`prompt`; every `.modal-overlay` closes as cancel on a backdrop tap; Escape does what a backdrop
+tap does (one handler in `ui.js`, after the modal's own); a modal that must stay open carries
+`data-no-dismiss` and swallows backdrop clicks. The family pages follow the same rules with
+their own `confirmDialog` (`cloud/public/family/common.js`).
 
 ### Components
 - **timeline.js** — a subject's events with add/edit/archive/delete; `onChange` lets a page
@@ -1561,7 +1570,31 @@ restored into Lite keeps its waitlist rows, dormant.
   `waitlistEntryRepo` and `syncRegistry.js` for each one's tier.
 - **`waitlist_offers`:** one row per family per litter in a turn (rows of a turn share
   `turn_id`). `counts_as_pass` is decided once, when the outcome is recorded, so later rule
-  or program changes can't rewrite history.
+  or program changes can't rewrite history. A lost pup's restore clears the pick (a voided
+  or re-opened offer holds no pup) but keeps its history: `restored_date`, `lost_dog_id`
+  (in `referenceRegistry`), `lost_picked_date`, `lost_accepted_date`.
+- **Her open days** (`waitlist_config.open_days`, weekdays 0 = Sunday … 6 = Saturday;
+  null = every day; Waitlist settings → Turns & offers, **Days you do business**): every
+  deadline worked out from her day counts counts only these, minus her **Closed dates**
+  (`closed_dates`, YYYY-MM-DD, any reason; `closedDates`): `dateUtils.addOpenDays` with
+  `waitlistRules.businessDays(config)` = `{ weekdays, closed }`, so none lands on a closed day: the respond-by date
+  (`respondByDate`), the fee's pay-by date (`feeDueDate`), "Ready now?" (`readyCheck`'s
+  `answer_by`, `readyCheckOverdue`), the pickup change cutoff (`pickupSlots.changeUntil`),
+  and extras plan steps "after approval" / "before pickup" (`planSteps`, `stepDueDate`).
+  The projection's kennel carries `open_days` and the live `closed_dates` so a turn the
+  server offers is due the same day (`serverMoves.addOpenDays`), and its fee reminder goes
+  on the open day before. Dates already set (an offer made, a fee asked for) keep theirs.
+  A closed date more than 7 days past (`CLOSED_DATES_KEPT_DAYS`, `liveClosedDates`) is
+  dropped on save and by `waitlistActions.tidyClosedDates`, run when the app loads (not in
+  Demo).
+- **A family back on the list** (a second pup: **Re-apply**, or a new application) gets a
+  new entry; the old one keeps its pup, offers and sale. Every ask that's about a pup
+  (extras, pickup, backing out, the Companion link) acts on the entry's **own** pup
+  (`familyExtras.familySale(entry, sales, offers, entries)`): the sale it was placed with
+  (`placed_sale_id`), else its open offer's pick, else an open sale to the contact that no
+  entry of theirs claims, given to one entry only (the open one, else the newest). The
+  entry page's status card says how many times the family has been on the list, which one
+  you're viewing, and links the others.
 - **`waitlist_programs`:** her named adjustments (fee override, `ahead` priority, pauses
   allowed, passes not counted, longer response window). Only she assigns them.
 - **Settings** live in `Kennel.waitlist_config` (missing keys from
@@ -1648,7 +1681,8 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   pass, removes at the limit) and voided (never a pass, doesn't move on). `undoPass` reopens a
   pass.
 - **A lost pup** (`vocab.isLostSale`): `restoreAfterLostSale(saleId, { carry })` puts a placed
-  family back in their **original place** (the accepted offer voided, passes unchanged), or
+  family back in their **original place** (the accepted offer voided with its history kept,
+  passes unchanged), or
   refreshes an open turn without the lost pup; `carry` keeps what they paid for their next
   pick (`carried_payment`). Never automatic: the Sale page (and the family page's **End the
   sale…**) asks, through `waitlistUI.restoreLostPupDialog`, after the pup-settling prompts in
@@ -1658,13 +1692,22 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
 - **Pages** (`proPages.js`): `waitlist` (one kennel: new applications, fee due, the ranked
   list, Litters with "Next: <family>" and **Offer to them**, Closed; everything else under
   **Manage**), `waitlist-entry` (one family: Details / Interact / History tabs; its
-  application fields come from `assets/waitlistApplicationForm.js`, shared with Kels),
+  application fields come from `assets/waitlistApplicationForm.js`, shared with Kels; History's
+  **Timeline**, newest first, is read from the entry's dates, its offers (offered, picked,
+  deposit request sent, accepted / passed / no response / closed, backed out; a placed sale
+  with no offer on this device shows as "Placed with [pup]"), their status-page requests and
+  her decisions (pause, litters, Companion link, answers, backing out, each extra and pickup;
+  a one-at-a-time request keeps only its latest), and the answer-change log),
   `waitlist-programs`, `waitlist-form`, `waitlist-publish`, `waitlist-import`. A page shows
   one kennel (`?kennel=`, else scope, else busiest; `waitlistUI.resolveWaitlistKennel`).
 - **Litter page:** the **Waitlist picks** panel (`assets/waitlistPicksPanel.js`, loaded only
   with the flag): picks open/closed, the open turn and its actions, next up, the litter's
   queue, history. It re-reads the litter after each write.
-- **Kennel page:** the Waitlist settings card. **Contact page:** the family's entries (and the
+- **Kennel page:** the Waitlist settings card: folded groups (`<details class="settings-group">`,
+  closed at first, open ones kept across Save) under one Save: **Fees & payment**, **Turns &
+  offers**, **Passing & readiness**, **Public list & family pages**, **Messages to families**,
+  and **Backing out** (online lists only; the online-only fields inside the other groups
+  likewise). **Contact page:** the family's entries (and the
   waitlist status becomes read-only). **Dashboard:** application and list tiles. **Today:**
   waitlist nudges (§19).
 - **"Almost your turn…"** (`waitlistUI.openSoonNotice`): the families and her editable
@@ -1699,7 +1742,36 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
 - **Family pages** are the Worker's (`cloud/public/family/`, `cloud/src/familyPages.js`): the
   public list, the status page (`/s/<token>`; `status_token` minted by
   `ensureStatusTokens`, **New link** replaces it), and the online form. A family signs in
-  with an emailed code. While it's their turn, their number is hidden (`placeHidden`).
+  with an emailed code; signing in lands on their open entry. While it's their turn, their
+  number is hidden (`placeHidden`). Each entry publishes `since` (its applied date), `pup`
+  (its own pup's call name) and `record` (`recordFor`: `{ state, until? }`, where it stands
+  in the family's terms: applied, approved, waiting, paused + until, turn, picked, chose,
+  home, declined, left, backed_out, removed, expired); a family with more than one entry by
+  the same email gets `records` on each status page (`sameFamilyIds`, `familyRecords`):
+  "You have more than one waitlist record with [kennel]", newest first, each a date and
+  their own words ("Waiting for my turn for a new puppy", **My turn to choose a puppy**,
+  "Chose Hazel", "Brought Hazel home", …; never the app's statuses), **Viewing** or
+  **Switch**. A turn's litters carry their breed and parents (call names and earned
+  titles), as Coming up and Available Puppies show them, and, with her setting
+  `waitlist_config.turn_prices` on (default; Waitlist settings → Turns & offers), her
+  expected prices (`litterPrices`: per registration the available pups are planned for,
+  `saleDefaults.expectedPricing` for a male and a female, the total, Full including her
+  surcharge, never split out; and her expected deposit for a male and a female; never a
+  sale's amount; the Worker's `pricesOf` passes them to the turn only). The turn card shows
+  per litter "Males $2,800 · Females $3,000" and "Deposit: Males $500 · Females $600"; when
+  any pup is planned for Full registration, its pups in sections by registration, each with
+  its own prices and the deposit once above them; under "Listed prices are intended base
+  purchase price and may not include additional fees; all prices are subject to change
+  prior to contract signing." Published pups carry `registration` (`intended_registration`).
+  Each open offer carries `deposit_instructions` (her `payment_instructions`) and, once
+  picked, `deposit_amount` (the sale's deposit, else her listed one: `depositFor`) and
+  `picked_pup` (the Worker adds it to the offer's pups: it's no longer available). After a
+  pick the turn card shows only that pup (its own price), "You chose [pup]. Your selection
+  isn't final until [kennel] receives your deposit.", and a **Sending your deposit** block
+  (amount, deadline, how to pay, "[kennel] will also send your contract and invoice").
+  The "Choose [pup]?" dialog says the same before they confirm. One sign-in acts on any of
+  them (`familyFor` allows the page's entry when it shares the session entry's email;
+  the action goes to the page's entry).
 - **Online form:** a form key per kennel (`waitlist_form_keys`, private;
   `data/waitlistCrypto.js`). The applicant's browser seals the answers to it;
   `takeInApplications` opens them on the server-work device and makes `applied` entries
@@ -1713,7 +1785,7 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   she approves or declines (Today and the family page). Anything her records no longer allow
   becomes a message line, never forced.
 - **Extras** (`docs/KennelOS_Family_Requests_Plan.md` §3; `data/familyExtras.js`): for a family
-  with an open sale (`familySale`: the contact's newest open sale in the kennel), the
+  with an open sale (`familySale`: the entry's own pup's sale, see `waitlist_offers` above), the
   projection's `entry.extras` = `{ available, current, requests }` (`familyExtrasView`):
   the price-list extras marked `family_can_request` not on the sale, with `open_from` /
   `open_until` from the pup's birth date (`pupBirthDate`: the dog's, else the litter's; an
@@ -1747,7 +1819,9 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   `change_until`, the rules on the dates they can see (`dates`: `requires` + `has_it`, or
   `boarding`; a package date's times can't be chosen until the extra is on their sale, and
   the Worker refuses `needs_extra`), their requests, `own_place` (`ownPlaceAllowed`: her override, else her
-  distance rule against `home_miles`, null = ask) and `ask_home`; the projection's `server`
+  distance rule against `home_miles`, null = unknown) and `ask_home` (unknown and no
+  `home_place` at all: a place on file that couldn't be measured isn't asked again; their
+  entry's Pickup card says so and she can choose); the projection's `server`
   part carries her standard location's address for the Worker only. Their page's **Pickup**
   card books a time, changes or cancels it until her cutoff, suggests their own address, or
   says where they live. Events `pickup_book` / `pickup_cancel` / `pickup_address` (the
@@ -1771,8 +1845,10 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   working shown) → a drop-off and `Sale.transport_fee`; a cancel archives the pickup. Any
   other pickup still to come is archived first. Today: `waitlist-pickup-request` (a time or
   cancel: Approve / Decline; an address: Open, and **Send transport options** when far).
-  The entry page's **Pickup** card shows where they live and **Allow their own place** /
-  **Listed places only** (`own_place_override`).
+  The entry page's **Pickup** card shows where they live and a dropdown, **Can they suggest
+  their own meetup place?**: **Use my distance rule** (the default, `own_place_override`
+  null; its hint says what the rule decides for them) / **Let them suggest a place** (true) /
+  **Only my pickup times** (false).
 - **Backing out** (`docs/KennelOS_Family_Requests_Plan.md` §7; `data/backOut.js`): for a family
   with an open sale, the projection's `entry.back_out` (`{ available, request }`) and the
   kennel's `back_out_reasons` (`backOutReasons`: hers, else the defaults, plus **Something

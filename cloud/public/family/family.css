@@ -208,3 +208,56 @@ html.embedded.theme-dark {
   --accent: #6fbf94; --accent-soft: #1f3529; --warn: #e0b56a; --warn-soft: #3a2f1b; --danger: #ef8f8f;
   --info: #8db8e6; --info-soft: #1e2d3d; --on-accent: #0f1a14;
 }
+
+/* The family pages' confirm dialog (common.js confirmDialog), in place of the
+   browser's window.confirm. Same look as the app's .modal (shared/assets/app.css):
+   a dimmed backdrop and a surface card, sized for a phone. */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(18, 26, 38, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 100;
+}
+.modal {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 40px rgba(15, 25, 40, 0.28);
+  padding: 20px;
+  width: 100%;
+  max-width: 420px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+.modal h2 { margin: 0 0 8px; font-size: 1.15rem; }
+.modal p { margin: 0 0 16px; line-height: 1.45; }
+.modal-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.modal-actions button { flex: 1 1 auto; }
+
+/* A family's records with this kennel (more than one time on the list): one row
+   each, date over the line, Viewing or Switch on the right, left-aligned. */
+.records-card { text-align: left; }
+.records { margin: 10px 0 0; padding: 0; list-style: none; }
+.records .record { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
+.records .record > div { min-width: 0; }
+.records .record .button, .records .record .badge { flex: 0 0 auto; }
+.records a.button.secondary.small { padding: 6px 14px; font-size: 0.875rem; }
+/* A turn's price line sits right on its deposit line. */
+.turn p.price { margin-bottom: 2px; }
+/* Each litter of a turn in its own block: a line and room between them. */
+.turn .turn-litter { border-top: 1px solid var(--border); padding-top: 14px; margin-top: 14px; }
+.turn .turn-litter .pups { margin-bottom: 4px; }
+.turn .turn-litter > p:first-child { margin-bottom: 2px; }
+/* A turn's heading and each litter's name, a couple of points larger. */
+.turn h2 { font-size: 1.3rem; }
+.turn .turn-litter > p:first-child strong { font-size: 1.15rem; }
+/* Sending your deposit (a turn card, once they've picked): set apart in the accent tint. */
+.turn .deposit-block { margin-top: 12px; padding: 14px; border-radius: var(--radius); background: var(--accent-soft); }
+.turn .deposit-block h3 { margin: 0 0 6px; font-size: 1.05rem; }
+.turn .deposit-block .big { font-size: 1.6rem; }
+.turn .deposit-block p:last-child { margin-bottom: 0; }

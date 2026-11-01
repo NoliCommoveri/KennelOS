@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeEnv, call, signIn } from './helpers/env.js';
 
-const { localNow, addDays, fillTemplate, openTurns, nextFromQueue, runKennel, runWaitlistMoves } = await import('../src/serverMoves.js');
+const { localNow, addDays, addOpenDays, fillTemplate, openTurns, nextFromQueue, runKennel, runWaitlistMoves } = await import('../src/serverMoves.js');
 const { DAILY_CRON } = await import('../src/index.js');
 
 const KENNEL = 'kos1_11111111-2222-4333-8444-555555555555';
@@ -239,4 +239,16 @@ test('her alerts and digest hear about the server\'s moves, as she must contact 
     { kind: 'server_move', what: 'server_close', name: 'Ann L.', kennel: 'Thornfield Kennels', entry_id: 'ann' },
     { kind: 'server_move', what: 'server_offer', name: 'Bo K.', kennel: 'Thornfield Kennels', entry_id: 'bo' },
   ]);
+});
+
+test('her open days: a turn the server offers counts only the days she does business, like her device', () => {
+  const noSat = [0, 1, 2, 3, 4, 5];
+  assert.equal(addOpenDays('2026-11-06', 3, noSat), '2026-11-10', 'Fri + 3 open days, Saturday closed');
+  assert.equal(addOpenDays('2026-11-06', 3, null), '2026-11-09', 'every day open');
+  assert.equal(addOpenDays('2026-11-08', -1, noSat), '2026-11-06', 'the open day before');
+});
+
+test('her closed dates: a turn the server offers skips them too', () => {
+  assert.equal(addOpenDays('2026-11-25', 2, [0, 1, 2, 3, 4, 5], ['2026-11-26', '2026-11-27']), '2026-11-30');
+  assert.equal(addOpenDays('2026-11-25', 2, null, ['2026-11-26']), '2026-11-28');
 });

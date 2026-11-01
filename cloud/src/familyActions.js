@@ -13,6 +13,7 @@
 // her form key and go to the encrypted inbox, never into an event.
 //
 // Never logged: a session, a token, a message, a request body (plan §6.4).
+import { sameFamilyIds } from './familyPages.js';
 import { runKennelNow } from './serverMoves.js';
 import { limitBucket } from './ratelimit.js';
 import { cleanAddress, drivingDistance, geoAvailable, GEO_LIMITS } from './geo.js';
@@ -47,13 +48,16 @@ async function familyFor(env, body) {
   if (!s || s.expires_at <= new Date().toISOString()) fail(401, 'signed_out');
   if (typeof body.status_token !== 'string' || !STATUS_TOKEN.test(body.status_token)) fail(400, 'bad_request');
   const t = await env.DB.prepare('SELECT public_id, entry_id FROM wl_tokens WHERE token = ?').bind(body.status_token).first();
-  if (!t || t.public_id !== s.public_id || t.entry_id !== s.entry_id) fail(403, 'other_family');
+  if (!t || t.public_id !== s.public_id) fail(403, 'other_family');
   const row = await env.DB.prepare('SELECT version, body FROM wl_projection WHERE public_id = ?').bind(s.public_id).first();
   if (!row) fail(404, 'not_found');
   const projection = JSON.parse(row.body);
-  const entry = projection.entries?.[s.entry_id];
+  // The record acted on is the PAGE's. One sign-in covers the family's other times
+  // on the list (same email on both records); never another family's.
+  if (t.entry_id !== s.entry_id && !sameFamilyIds(projection, s.entry_id).includes(t.entry_id)) fail(403, 'other_family');
+  const entry = projection.entries?.[t.entry_id];
   if (!entry) fail(409, 'not_yet'); // a new application her device hasn't taken in
-  return { ...s, version: row.version, projection, entry, eventsThrough: Number(projection.events_through) || 0 };
+  return { ...s, entry_id: t.entry_id, version: row.version, projection, entry, eventsThrough: Number(projection.events_through) || 0 };
 }
 
 // The family's actions her device hasn't applied yet: events after the last one

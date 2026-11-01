@@ -111,6 +111,9 @@ test('the pup died after the deposit: the family is back in their original place
   assert.deepEqual(offers.map((o) => o.outcome), ['voided'], 'their accepted offer is voided');
   assert.equal(offers[0].counts_as_pass, false);
   assert.equal(offers[0].sale_id, sale.id, 'it still records the sale');
+  assert.deepEqual([offers[0].restored_date, offers[0].lost_dog_id, offers[0].chosen_dog_id ?? null], [LATER, ids.pip, null],
+    'its history keeps the pup they lost and when they went back in line; the pick itself is cleared');
+  assert.ok(offers[0].lost_picked_date && offers[0].lost_accepted_date, 'and when they picked and were accepted');
   assert.equal(rules.turnSpent(offers, A.id, ids.lee), false, 'so Litter A can be theirs again');
   assert.equal(rules.passesUsed(lee, offers), 0);
 
