@@ -1796,3 +1796,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **Family Requests plan: D14 decided (2026-11-01).** Asked by the owner: approving a back-out
   lists the pup's extras, boarding and drop-off with tick boxes; paid or finished extras start
   kept and stay owed (invoiceable, reminded, anticipated income) on the cancelled sale.
+- **Family Requests plan: free miles and home distance (2026-11-01).** Asked by the owner:
+  "no charge under X miles", every mile charged at or over it; families may suggest their own
+  meetup place only if they live at least X miles away, measured once per family from their
+  City / state (application, contact, or asked on the status page) with Mapbox (D17 open).

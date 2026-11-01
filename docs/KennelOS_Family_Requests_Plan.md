@@ -3,7 +3,7 @@
 > **Status: draft, nothing built.** Asked by the owner (2026-10-31). Families whose pup is
 > picked can ask for extras (photo and training packages), book a pickup time and place, see
 > her transport suggestions, and tell her they're backing out, all from their status page.
-> Decisions are in §8 (D1, D2, D4, D5, D7, D13 and D14 decided 2026-11-01; D3, D4b, D6, D8–D12, D15, D16 open); nothing is
+> Decisions are in §8 (D1, D2, D4, D5, D7, D13 and D14 decided 2026-11-01; D3, D4b, D6, D8–D12, D15–D17 open); nothing is
 > built until the rest are answered.
 
 ## 1. Where things are now
@@ -142,8 +142,12 @@ steps that each take a percent of its amount and a due date worked out from a ru
   holds a pup) so two families can't take the last place; her device then creates the pup's
   `placement` event (method Local pickup, the slot's time and location), which is what
   `goHome`, Today, Furever and the Companion page already read.
-- **Their own address instead** (D5, decided): "None of these work for us" → they type an
-  address (and the date they'd like). The server measures driving miles from her standard
+- **Only for families who live far enough away** (decided 2026-11-01): her setting
+  `transport_min_home_miles` ("Families can suggest their own meetup place only if they live
+  at least __ miles from me"). Closer families see only her listed places and times. That
+  needs where they live (§4.1).
+- **Their own address instead** (D5, decided), for an eligible family: "None of these work
+  for us" → they type an address (and the date they'd like). The server measures driving miles from her standard
   location with Mapbox (§5) as they submit, and the request reaches her with the miles and
   the suggested transport fee.
   - **Within her range** (`transport_far_miles`, a Waitlist setting, e.g. 150): the page says
@@ -155,6 +159,33 @@ steps that each take a percent of its amount and a due date worked out from a ru
   - Either way it's a request: she approves with a date, time and transport fee (the drop-off
     event is created, method Ground transport or Flight nanny), or declines with a note.
 - **Cancel / rebook** until a cutoff she sets (`pickup_change_days`, default 2 days before).
+
+### 4.1 Where the family lives (eligibility)
+
+Two different distances, two map lookups, both from her standard location:
+1. **Their home** (city and state is enough): decides whether they may suggest a place of
+   their own at all. Measured **once per family** and remembered.
+2. **The place they suggest:** prices the trip (§5). Measured per request.
+
+Each is one Mapbox lookup (geocode the place, then one Matrix element); a city and state
+geocodes to the town's center, which is close enough for "lives at least 200 miles away".
+
+**Where their home comes from**, first found wins:
+- their application's **City / state** answer (on the standard form, but optional and she
+  can remove it), or the contact's address;
+- otherwise the status page asks once, when they first open the pickup section: "Where do
+  you live? City and state is enough." (`home_location`, a new family action).
+
+**Who measures** (D17): applications and contacts are encrypted to her device, so the server
+can't read them. Proposed:
+- **From the application or contact:** her device measures (`cloudApi.getDistance`) once,
+  when the family's sale opens, stores `home_miles` on the entry (a number, not their
+  address), and publishes only `own_place_allowed: true/false`.
+- **Asked on the status page:** the server measures as they submit, answers at once, and
+  passes the city/state and miles to her device as a pending event, like any request.
+
+Either way it's self-reported; she sees the city and the miles on the entry and can switch
+`own_place_allowed` by hand (**Allow their own place** / **Listed places only**).
 
 ## 5. Mileage and transport fee
 
@@ -217,9 +248,13 @@ With miles known, her **transport fee settings** (Waitlist settings, per kennel)
 - **Fee per mile** (`mileage_rate`).
 - **Calculate from:** radio buttons, **One way** / **Round trip** (`mileage_basis`; decided
   2026-11-01: a setting, not a fixed rule). Round trip doubles the miles before the rate.
-- **Free miles** (`mileage_free_miles`, default 0), taken off before the rate.
+- **No charge under** (`mileage_free_under`, default 0 = always charge): a trip shorter than
+  this is free; at or over it, **every mile** is charged, from the first (decided
+  2026-11-01: not subtracted). Compared against the miles being charged, i.e. after round
+  trip doubles them (D11d).
 
-The request shows the working: "340 miles one way × 2 (round trip) = 680 × $1.50 = $1,020".
+The request shows the working: "340 miles one way × 2 (round trip) = 680 × $1.50 = $1,020",
+or "18 miles: under your 25, no charge".
 
 ## 6. Training packages tied to boarding
 
@@ -356,8 +391,16 @@ new fee, the usual path) when she'd rather start over.
   (default 1)? (c) Last change before the pickup: **proposed 2 days**, her setting.
 - **D11. Transport fee and the mile limit.** (a) One way or round trip: **decided
   (2026-11-01): her setting, radio buttons** next to the fee per mile (§5). Still open:
-  (b) free miles first (**proposed: a setting, default 0**); (c) the "be in touch" limit,
-  `transport_far_miles`: **proposed default 150 miles**, her setting.
+  (b) free miles: **decided: "no charge under X miles", every mile charged at or over it**
+  (§5). Still open: (c) the "be in touch" limit, `transport_far_miles`: **proposed default
+  150 miles**, her setting; (d) whether "under X miles" compares the miles charged (after
+  round-trip doubling; **proposed**, so it matches what the family sees) or always one way.
+- **D17. Where the family lives** (§4.1). (a) Measured by her device from the application's
+  City / state or the contact, else asked on the status page and measured by the server
+  (**proposed**); or (b) always asked on the status page. (c) Make City / state a required
+  question on her form while "families can suggest their own place" is on: **proposed no**
+  (the status page asks when it's missing). (d) Default `transport_min_home_miles`:
+  **proposed 0 (every family can suggest a place) until she sets it.**
 - **D12. Backing out: reasons and policy.** (a) The family's reasons: **proposed** changed our
   mind; family or money circumstances; the pup's health or temperament; timing; other (her
   list, editable). (b) Her policy as rows of reason × pup age → keep / move / refund
@@ -378,7 +421,7 @@ new fee, the usual path) when she'd rather start over.
 3. Extra requests and cancellations (status page, pending events, Approve), with payment
    plans, part-payment invoices and the `extra-due` reminder.
 4. Training packages ↔ boarding.
-5. Pickup locations and slots, booking; families' own addresses with Mapbox miles and the
-   transport options email.
+5. Pickup locations and slots, booking; where families live and who may suggest a place;
+   their own addresses with Mapbox miles and the transport options email.
 6. Backing out with her deposit policy.
 7. Kels: Review my waitlist picks these up in step 1 (requests) and step 2 (backing out).
