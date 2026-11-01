@@ -85,7 +85,7 @@ function requestsView(entry, today) {
 // 'declined' once she's dealt with it). The link itself never comes through here:
 // she sends it from her device (Companion page), so the server never holds it.
 function companionView(entry, ctx) {
-  if (!entry.contact_id || !ctx.openSaleBuyers.has(entry.contact_id)) return null;
+  if (!ctx.saleFor(entry)) return null;
   return { available: true, request: requestView(entry.companion_request, ctx.today, () => ({})) };
 }
 
@@ -99,6 +99,11 @@ function entryView(entry, ctx) {
   const contact = ctx.contactsById.get(entry.contact_id) || null;
   const view = { name: entryName(entry, contact), email: entryEmail(entry, contact), status: entry.status };
   if (entry.status_token) view.status_token = entry.status_token;
+  // Which time on the list this record is, for a family with more than one (the
+  // server links them on each page): when it started, and its own pup's call name.
+  if (entry.applied_date) view.since = entry.applied_date;
+  const pup = ctx.pupFor(entry);
+  if (pup) view.pup = pup;
   const companion = companionView(entry, ctx);
   if (companion) view.companion = companion; // absent without an open sale
   // Extras they may ask for or cancel (Family Requests plan §3): names only, never
@@ -382,10 +387,18 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
     config, contactsById, programsById, offers: kennelOffers, today, upcoming,
     picksOpen: new Set(Object.entries(litterViews).filter(([, l]) => l.picks_open).map(([id]) => id)),
     positions: overallPositions(live, kennel.id, programsById), prefPlaces: prefPlaces(live, kennel.id, programsById, config), matches, litterLabels, hidden, notes,
-    openSaleBuyers: new Set(sales.filter((x) => x.buyer_contact_id && isOpenSale(x)).map((x) => x.buyer_contact_id)),
-    pickupFor: (entry) => familyPickupView({ entry, sales, dogsById, litters, kennel, config, entries: live, events: pickupEvents, today }),
+    // Each record's own pup's sale (familySale): a family back on the list for a
+    // second pup gets its first pup's cards only on that pup's record.
+    saleFor: (entry) => familySale(entry, sales, kennelOffers, live),
+    // The pup this record is about: the one it was placed with (even once home),
+    // else its own open sale's (a pick awaiting the deposit). A call name only.
+    pupFor: (entry) => {
+      const sale = (entry.placed_sale_id && sales.find((x) => x.id === entry.placed_sale_id)) || familySale(entry, sales, kennelOffers, live);
+      return (sale?.dog_id && dogsById.get(sale.dog_id)?.call_name) || null;
+    },
+    pickupFor: (entry) => familyPickupView({ entry, sales, offers: kennelOffers, dogsById, litters, kennel, config, entries: live, events: pickupEvents, today }),
     extrasFor: (entry) => {
-      const sale = familySale(entry, sales);
+      const sale = familySale(entry, sales, kennelOffers, live);
       if (!sale) return null;
       const dog = dogsById.get(sale.dog_id) || null;
       const litter = dog?.litter_id ? litters.find((l) => l.id === dog.litter_id) : null;

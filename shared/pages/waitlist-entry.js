@@ -236,7 +236,8 @@ function statusLines(e) {
     lines.push(`Removed ${esc(fmtDate(e.removed_date))}${e.removed_reason ? ` — ${esc(descriptor(WAITLIST_REMOVED_REASON, e.removed_reason).label.toLowerCase())}` : ''}.`);
     if (canUndoRemoval(e, today)) lines.push(`<span class="badge badge-amber">You can undo this until ${esc(fmtDate(addDaysToYMD(e.removed_date, REMOVAL_UNDO_DAYS)))}</span>`);
   } else if (e.status === 'placed') {
-    lines.push(e.placed_sale_id ? `Placed — <a href="sale.html?id=${encodeURIComponent(e.placed_sale_id)}">open the sale →</a>` : 'Placed.');
+    const placedPup = ctx.sales.find((x) => x.id === e.placed_sale_id)?.dog_id;
+    lines.push(e.placed_sale_id ? `Placed${placedPup ? ` with ${esc(dogName(placedPup))}` : ''} — <a href="sale.html?id=${encodeURIComponent(e.placed_sale_id)}">open the sale →</a>` : 'Placed.');
   } else if (e.status === 'withdrawn') {
     lines.push(`Withdrew${e.withdrawn_date ? ` ${esc(fmtDate(e.withdrawn_date))}` : ''}.`);
   } else if (e.status === 'declined') {
@@ -244,7 +245,24 @@ function statusLines(e) {
   } else if (e.status === 'expired') {
     lines.push('The fee wasn\'t received by the pay-by date.');
   }
+  const others = otherRecordsLine(e);
+  if (others) lines.push(others);
   return lines;
+}
+
+// A family back on the list (a second pup) has a record per time on it. Each record
+// says the others exist and links them, so she always knows which one she's in.
+function recordLabel(x) {
+  const pup = x.placed_sale_id ? ctx.sales.find((s) => s.id === x.placed_sale_id)?.dog_id : null;
+  const status = x.status === 'placed' ? `Placed${pup ? ` with ${dogName(pup)}` : ''}` : descriptor(WAITLIST_ENTRY_STATUS, x.status).label;
+  return `${status}${x.applied_date ? ` (since ${fmtDate(x.applied_date)})` : ''}`;
+}
+function otherRecordsLine(e) {
+  if (!e.contact_id) return '';
+  const others = ctx.kennelEntries.filter((x) => x.id !== e.id && !x.is_archived && x.contact_id === e.contact_id)
+    .sort((a, b) => String(b.applied_date || b.created_at || '').localeCompare(String(a.applied_date || a.created_at || '')));
+  if (!others.length) return '';
+  return `<span class="badge badge-blue">${others.length + 1} records</span> This family has been on your list ${others.length + 1} times. You're viewing: <strong>${esc(recordLabel(e))}</strong>. Also: ${others.map((x) => `<a href="waitlist-entry.html?id=${encodeURIComponent(x.id)}">${esc(recordLabel(x))} →</a>`).join(' · ')}`;
 }
 
 // --- Communicate… (waitlistEmailUI.communicateDialog) ----------------------------------
@@ -289,7 +307,7 @@ function emailChoices(e) {
   if (e.status === 'approved') out.push({ kind: 'approved', label: 'Application approved (fee request)' });
   if (e.status === 'active') out.push({ kind: 'on_list', label: 'You\'re on the list' });
   // Getting their pup home (Family Requests plan §5.1): once they have an open sale.
-  if (familySale(e, ctx.sales)) out.push({ kind: 'transport_options', label: 'Transport options (getting their pup home)' });
+  if (familySale(e, ctx.sales, ctx.kennelOffers, ctx.kennelEntries)) out.push({ kind: 'transport_options', label: 'Transport options (getting their pup home)' });
   const open = ctx.offers.filter((o) => o.outcome === 'open' && !o.is_archived && !o.chosen_dog_id);
   if (open.length) {
     out.push({ kind: 'offer', label: 'It\'s your turn (send again)', extra: { litterIds: open.map((o) => o.litter_id), respondBy: open.map((o) => o.respond_by_date).filter(Boolean).sort().pop() } });
@@ -367,7 +385,7 @@ function pendingRequests(e) {
   // ticks what comes off in the confirm.
   if (actions.hasPendingRequest(e, 'back_out_request')) {
     const r = e.back_out_request;
-    const sale = familySale(e, ctx.sales);
+    const sale = familySale(e, ctx.sales, ctx.kennelOffers, ctx.kennelEntries);
     const pup = sale ? ctx.dogsById.get(sale.dog_id) : null;
     const litter = pup ? ctx.litters.find((l) => l.id === pup.litter_id) : null;
     const s = suggestOutcome(ctx.config, r.reason?.id, ageWeeks(pupBirthDate(pup, litter), r.requested_date));
@@ -517,7 +535,7 @@ async function onBackOut(decision) {
     return emailThem('request_declined', { request: { field: 'back_out_request', request } });
   }
   let outcome = decision === 'more' ? 'refund' : decision;
-  const sale = familySale(e, ctx.sales);
+  const sale = familySale(e, ctx.sales, ctx.kennelOffers, ctx.kennelEntries);
   if (!sale) throw new Error('They have no open sale to back out of any more.');
   const events = sale.dog_id ? await eventRepo.getForSubject('dog', sale.dog_id) : [];
   const items = backOutItems({ sale, events, today: todayYMD() });
@@ -581,7 +599,7 @@ async function approveAddress(request) {
   const from = standardLocation(ctx.kennel)?.address || '';
   let miles = Number.isFinite(request.miles) ? request.miles : null;
   const sales = e.contact_id ? await saleRepo.getByBuyer(e.contact_id) : [];
-  const sale = familySale(e, sales);
+  const sale = familySale(e, sales, ctx.kennelOffers, ctx.kennelEntries);
   const quote = () => (miles != null ? transportQuote(miles, ctx.config) : null);
   // A fee already on the sale starts in the box: replacing it is her choice.
   const current = Number(sale?.transport_fee) > 0 ? Number(sale.transport_fee) : null;
@@ -1374,7 +1392,7 @@ function offerStatusHtml(o) {
   const sale = o.sale_id && isAwaitingDeposit(o) ? ` · <a href="sale.html?id=${encodeURIComponent(o.sale_id)}">sale</a>` : '';
   return isAwaitingDeposit(o)
     ? `<span class="badge badge-purple">Picked ${esc(dogName(o.chosen_dog_id))}</span> <span class="faint">deposit pending${sale}</span>${o.deposit_request_sent_date ? ` <span class="badge badge-blue">Deposit request sent ${esc(fmtDate(o.deposit_request_sent_date))}</span>` : ''}`
-    : `${badge(WAITLIST_OFFER_OUTCOME, o.outcome)}${o.chosen_dog_id ? ` ${esc(dogName(o.chosen_dog_id))}` : ''}${o.pass_reason ? ` <span class="faint">${esc(reasonText(o.pass_reason))}</span>` : ''}`;
+    : `${badge(WAITLIST_OFFER_OUTCOME, o.outcome)}${o.chosen_dog_id ? ` ${esc(dogName(o.chosen_dog_id))}` : ''}${o.pass_reason ? ` <span class="faint">${esc(reasonText(o.pass_reason))}</span>` : ''}${o.restored_date ? ` <span class="faint">${o.lost_accepted_date ? 'had' : 'picked'} ${esc(o.lost_dog_id ? dogName(o.lost_dog_id) : 'a pup')}; back in line ${esc(fmtDate(o.restored_date))}</span>` : ''}`;
 }
 const litterLink = (id) => {
   const l = ctx.litters.find((x) => x.id === id);
@@ -1434,14 +1452,22 @@ function offerTimeline(e) {
     const from = litter(o.litter_id);
     out.push([o.offered_date, `Offered ${from}`]);
     if (o.picked_date && o.chosen_dog_id) out.push([o.picked_date, `Picked ${dogName(o.chosen_dog_id)} from ${from}`]);
+    // A lost pup (restoreAfterLostSale): the pick and acceptance it cleared, then back in line.
+    const lostPup = o.lost_dog_id ? dogName(o.lost_dog_id) : 'their pup';
+    if (o.restored_date && o.lost_picked_date) out.push([o.lost_picked_date, `Picked ${lostPup} from ${from}`]);
     if (o.deposit_request_sent_date) out.push([o.deposit_request_sent_date, 'Deposit request sent']);
+    if (o.restored_date && o.lost_accepted_date) out.push([o.lost_accepted_date, `Accepted ${lostPup} (deposit received)`]);
     const ended = {
       accepted: `Accepted ${o.chosen_dog_id ? dogName(o.chosen_dog_id) : 'a pup'} (deposit received)`,
       passed: `Passed on ${from}${o.counts_as_pass ? ' (counted as a pass)' : ''}`,
       no_response: `No response to the ${from} offer${o.counts_as_pass ? ' (counted as a pass)' : ''}`,
       voided: `The ${from} offer was closed`
     }[o.outcome];
-    if (ended && o.outcome_date) out.push([o.outcome_date, ended]);
+    if (o.restored_date) {
+      out.push([o.restored_date, o.lost_accepted_date ? `Back in line in their original place after losing ${lostPup}` : `Their pick of ${lostPup} was cleared after losing ${lostPup}; time to pick another`]);
+      if (o.outcome === 'voided' && o.outcome_date && o.outcome_date !== o.restored_date) out.push([o.outcome_date, ended]);
+      else if (o.outcome !== 'voided' && ended && o.outcome_date) out.push([o.outcome_date, ended]);
+    } else if (ended && o.outcome_date) out.push([o.outcome_date, ended]);
     if (o.backed_out_date) out.push([o.backed_out_date, `Backed out of ${o.chosen_dog_id ? dogName(o.chosen_dog_id) : 'their pup'}`]);
   }
   const sale = e.placed_sale_id ? ctx.sales.find((x) => x.id === e.placed_sale_id) : null;

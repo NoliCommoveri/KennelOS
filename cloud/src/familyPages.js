@@ -524,6 +524,32 @@ export function entryForEmail(projection, email) {
   return ids[0] ?? null;
 }
 
+// The same family's records on this kennel's list (one per time on it: a family
+// back for a second pup has two), by the email on them. Each status page lists them
+// so the family always knows which record it's acting on, and can open the others.
+// [] unless there are two or more. Never another family's: same email only.
+export function sameFamilyIds(projection, entryId) {
+  const email = normalizeEmail(projection.entries?.[entryId]?.email);
+  if (!email) return [];
+  return Object.entries(projection.entries || {}).filter(([, e]) => normalizeEmail(e?.email) === email).map(([id]) => id);
+}
+
+async function familyRecords(env, projection, publicId, entryId) {
+  const ids = sameFamilyIds(projection, entryId);
+  if (ids.length < 2) return [];
+  const ymd = (v) => (typeof v === 'string' && YMD_RE.test(v) ? v : null);
+  const out = [];
+  for (const id of ids) {
+    const e = projection.entries[id];
+    const token = id === entryId ? null : await statusTokenOf(env, publicId, id);
+    if (id !== entryId && !token) continue;
+    out.push({ current: id === entryId, status: typeof e.status === 'string' ? e.status : '', since: ymd(e.since),
+      pup: typeof e.pup === 'string' ? e.pup.slice(0, 80) : null, ...(token ? { token } : {}) });
+  }
+  // Newest first: the time on the list they're most likely asking about.
+  return out.sort((a, b) => String(b.since || '').localeCompare(String(a.since || '')));
+}
+
 async function statusTokenOf(env, publicId, entryId) {
   return (await env.DB.prepare('SELECT token FROM wl_tokens WHERE public_id = ? AND entry_id = ?').bind(publicId, entryId).first())?.token ?? null;
 }
@@ -619,6 +645,9 @@ export async function handleFamilyApi(request, env, url) {
       for (const o of view.offers) o.pups = o.pups.filter((d) => !held.has(d.id) || d.id === o.picked_dog_id);
       // The emails she sent them (step 6), so one lost to spam is still read here.
       view.emails = await sentEmailsFor(env, t.public_id, t.entry_id);
+      // Their other times on this list, linked, so they know which one this is.
+      const records = await familyRecords(env, found.projection, t.public_id, t.entry_id);
+      if (records.length) view.records = records;
     } else {
       view.pending = [];
       view.emails = [];

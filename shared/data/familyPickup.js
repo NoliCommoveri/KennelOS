@@ -49,8 +49,8 @@ export function pickupFrom(sale, litter, events) {
 
 // → null, or { ready_from, slots, booked, requests, own_place, ask_home, far_miles,
 // min_home_miles } (the last two for the server's checks only; never on their page).
-export function familyPickupView({ entry, sales, dogsById, litters, kennel, config, entries = [], events = [], today }) {
-  const sale = familySale(entry, sales);
+export function familyPickupView({ entry, sales, offers = [], dogsById, litters, kennel, config, entries = [], events = [], today }) {
+  const sale = familySale(entry, sales, offers, entries);
   if (!sale?.dog_id) return null;
   const pup = dogsById.get(sale.dog_id);
   if (!pup) return null;

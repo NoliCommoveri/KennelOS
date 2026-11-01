@@ -1570,7 +1570,17 @@ restored into Lite keeps its waitlist rows, dormant.
   `waitlistEntryRepo` and `syncRegistry.js` for each one's tier.
 - **`waitlist_offers`:** one row per family per litter in a turn (rows of a turn share
   `turn_id`). `counts_as_pass` is decided once, when the outcome is recorded, so later rule
-  or program changes can't rewrite history.
+  or program changes can't rewrite history. A lost pup's restore clears the pick (a voided
+  or re-opened offer holds no pup) but keeps its history: `restored_date`, `lost_dog_id`
+  (in `referenceRegistry`), `lost_picked_date`, `lost_accepted_date`.
+- **A family back on the list** (a second pup: **Re-apply**, or a new application) gets a
+  new entry; the old one keeps its pup, offers and sale. Every ask that's about a pup
+  (extras, pickup, backing out, the Companion link) acts on the entry's **own** pup
+  (`familyExtras.familySale(entry, sales, offers, entries)`): the sale it was placed with
+  (`placed_sale_id`), else its open offer's pick, else an open sale to the contact that no
+  entry of theirs claims, given to one entry only (the open one, else the newest). The
+  entry page's status card says how many times the family has been on the list, which one
+  you're viewing, and links the others.
 - **`waitlist_programs`:** her named adjustments (fee override, `ahead` priority, pauses
   allowed, passes not counted, longer response window). Only she assigns them.
 - **Settings** live in `Kennel.waitlist_config` (missing keys from
@@ -1657,7 +1667,8 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   pass, removes at the limit) and voided (never a pass, doesn't move on). `undoPass` reopens a
   pass.
 - **A lost pup** (`vocab.isLostSale`): `restoreAfterLostSale(saleId, { carry })` puts a placed
-  family back in their **original place** (the accepted offer voided, passes unchanged), or
+  family back in their **original place** (the accepted offer voided with its history kept,
+  passes unchanged), or
   refreshes an open turn without the lost pup; `carry` keeps what they paid for their next
   pick (`carried_payment`). Never automatic: the Sale page (and the family page's **End the
   sale…**) asks, through `waitlistUI.restoreLostPupDialog`, after the pup-settling prompts in
@@ -1717,7 +1728,13 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
 - **Family pages** are the Worker's (`cloud/public/family/`, `cloud/src/familyPages.js`): the
   public list, the status page (`/s/<token>`; `status_token` minted by
   `ensureStatusTokens`, **New link** replaces it), and the online form. A family signs in
-  with an emailed code. While it's their turn, their number is hidden (`placeHidden`).
+  with an emailed code; signing in lands on their open entry. While it's their turn, their
+  number is hidden (`placeHidden`). Each entry publishes `since` (its applied date) and
+  `pup` (its own pup's call name); a family with more than one entry by the same email
+  gets `records` on each status page (status, since, pup, the others' links: `sameFamilyIds`,
+  `familyRecords`), shown as "This page is about: …", and one sign-in acts on any of
+  them (`familyFor` allows the page's entry when it shares the session entry's email;
+  the action goes to the page's entry).
 - **Online form:** a form key per kennel (`waitlist_form_keys`, private;
   `data/waitlistCrypto.js`). The applicant's browser seals the answers to it;
   `takeInApplications` opens them on the server-work device and makes `applied` entries
@@ -1731,7 +1748,7 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   she approves or declines (Today and the family page). Anything her records no longer allow
   becomes a message line, never forced.
 - **Extras** (`docs/KennelOS_Family_Requests_Plan.md` §3; `data/familyExtras.js`): for a family
-  with an open sale (`familySale`: the contact's newest open sale in the kennel), the
+  with an open sale (`familySale`: the entry's own pup's sale, see `waitlist_offers` above), the
   projection's `entry.extras` = `{ available, current, requests }` (`familyExtrasView`):
   the price-list extras marked `family_can_request` not on the sale, with `open_from` /
   `open_until` from the pup's birth date (`pupBirthDate`: the dog's, else the litter's; an

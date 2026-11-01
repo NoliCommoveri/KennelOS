@@ -749,6 +749,22 @@ function signInButton() {
   return `<div class="actions signin-top"><a class="button primary" href="/list/${encodeURIComponent(v.kennel.public_id)}#signin">Sign In</a></div>`;
 }
 
+// A family on the list more than once (a second pup): which time this page is about,
+// and links to the others. One sign-in covers them all (same email).
+function recordLabel(r) {
+  const what = r.status === 'placed' ? `Placed${r.pup ? ` with ${r.pup}` : ''}` : `${(STATUS[r.status] || { label: r.status }).label}${r.pup ? `: ${r.pup}` : ''}`;
+  return `${what}${r.since ? ` (since ${fmtDate(r.since)})` : ''}`;
+}
+function recordsHtml(v) {
+  const rs = Array.isArray(v.records) ? v.records : [];
+  const cur = rs.find((r) => r.current);
+  if (rs.length < 2 || !cur) return '';
+  const others = rs.filter((r) => !r.current && r.token);
+  return openCard('', `<p class="mt0">You've been on ${esc(v.kennel.name)}'s waitlist ${rs.length} times. <strong>This page is about: ${esc(recordLabel(cur))}.</strong> Everything you do here is for this one.</p>
+    ${others.length ? `<ul class="plain">${others.map((r) => `<li class="mt8"><a href="/s/${encodeURIComponent(r.token)}">${esc(recordLabel(r))} →</a></li>`).join('')}</ul>` : ''}
+    ${signedIn() ? '<p class="small muted">You\'re signed in for all of them on this device.</p>' : ''}`, 'records-card');
+}
+
 function mineHtml() {
   const v = state.v;
   const f = v.family;
@@ -757,6 +773,7 @@ function mineHtml() {
   // No badge for a family on the list: being on it is why they're here.
   const parts = f.status === 'active' ? [] : [`<p><span class="badge ${st.badge}">${esc(st.label)}</span></p>`];
   if (state.flash) parts.push(`<p class="card notice-card small" role="status">${esc(state.flash)}</p>`);
+  parts.push(recordsHtml(v));
 
   if (!['applied', 'approved', 'active'].includes(f.status)) {
     parts.push(card('', `<p class="mt0">${closedText(f.status, kennel)}</p>`));

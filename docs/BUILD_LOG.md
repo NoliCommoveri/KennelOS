@@ -1960,3 +1960,20 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   with no offer on this device ("Placed with [pup]", from the sale), and every status-page
   request with her decision (pause, litters, Companion link, answers, backing out, extras,
   pickups), newest first including within a day. Checked in the browser.
+- **A family back on the list: each record its own pup, records linked, lost-pup history
+  kept (2026-11-01).** Found by the owner: Ray had a placed record (offer, sale, a pickup
+  request) and a re-applied one; signing in by email landed on the new one with no sign of
+  the other, and both pages showed the first pup's Pickup, Extras and Need to back out
+  (backing out from the new page, with Keep, would have withdrawn the new place). Now
+  `familySale` takes the record's own pup (placed sale, else its open offer's pick, else an
+  unclaimed open sale to the contact, given to one record), everywhere it's used (the
+  projection, the event planner, approvals, measuring homes, the entry page). The projection
+  publishes `since` and `pup` per record; the Worker adds `records` to each status page by
+  the same email ("This page is about: Placed with Hazel", links to the others) and lets one
+  sign-in act on any of them, on the page's own record. The entry page's status card says
+  how many times the family has been on the list and links the others. A lost pup's restore
+  keeps the offer's history (`restored_date`, `lost_dog_id`, `lost_picked_date`,
+  `lost_accepted_date`, synced like the offer's other dates), so the Timeline shows the
+  pick, the acceptance and going back in line. Tests: `tests/extraCharges.test.js`,
+  `tests/waitlistLostPup.test.js`, an end-to-end test in `tests/cloudWaitlist.test.js`.
+  Needs a Worker deploy. Checked in the browser.
