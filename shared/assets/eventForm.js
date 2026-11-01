@@ -25,7 +25,7 @@ import { esc, todayYMD, param, confirmModal } from './ui.js';
 import { attachNewContactButton } from './contactPicker.js';
 
 // Detail keys that link an event to another record and aren't form fields.
-const LINK_DETAIL_KEYS = ['sale_id', 'extra_charge_id'];
+const LINK_DETAIL_KEYS = ['sale_id', 'extra_charge_id', 'pickup_slot_id', 'pickup_boarding'];
 
 // Which combobox field on each test-bearing type draws from the shared test
 // vocabulary rather than a static options list (Test Planning Addendum §3).

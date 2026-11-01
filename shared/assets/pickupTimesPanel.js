@@ -9,7 +9,9 @@ import { kennelRepo } from '../data/kennelRepo.js';
 import { eventRepo } from '../data/eventRepo.js';
 import { dogRepo } from '../data/dogRepo.js';
 import { waitlistEntryRepo } from '../data/waitlistEntryRepo.js';
-import { pickupLocations, cleanSlots, makeSlots, timeRange, slotBookings } from '../data/pickupSlots.js';
+import { pickupLocations, cleanSlots, makeSlots, timeRange, slotBookings, ruleFor, withDateRule } from '../data/pickupSlots.js';
+import { kennelChargeList } from '../data/extraCharges.js';
+import { waitlistConfig } from '../data/waitlistRules.js';
 import { esc, fmtDate, todayYMD, confirmModal } from './ui.js';
 
 export async function renderPickupTimesPanel({ mount, litter, onChange = async () => {} }) {
@@ -29,7 +31,19 @@ export async function renderPickupTimesPanel({ mount, litter, onChange = async (
 
   const byDate = new Map();
   for (const s of upcoming) { if (!byDate.has(s.date)) byDate.set(s.date, []); byDate.get(s.date).push(s); }
-  const list = [...byDate.entries()].map(([date, items]) => `<div style="margin-top:8px;"><strong>${esc(fmtDate(date))}</strong>
+  // Each date's rule: one of her packages needed first, or her standard boarding.
+  const extras = kennelChargeList(kennel);
+  const rate = Number(waitlistConfig(kennel).boarding_rate) || 0;
+  const ruleSelect = (date) => {
+    const r = ruleFor(litter, date);
+    const value = r?.requires_list_id ? `x:${r.requires_list_id}` : r?.boarding ? 'boarding' : '';
+    return `<select class="pt-rule" data-date="${esc(date)}" aria-label="Rule for ${esc(fmtDate(date))}" style="width:auto; max-width:100%;">
+      <option value="">Nothing extra</option>
+      <option value="boarding"${value === 'boarding' ? ' selected' : ''}>Standard boarding applies${rate ? '' : ' (set your rate)'}</option>
+      ${extras.map((x) => `<option value="x:${esc(x.id)}"${value === `x:${x.id}` ? ' selected' : ''}>Requires: ${esc(x.label)}${x.family_can_request ? '' : ' (families can\'t ask for it)'}</option>`).join('')}
+    </select>`;
+  };
+  const list = [...byDate.entries()].map(([date, items]) => `<div style="margin-top:8px;"><div class="row-between" style="gap:8px; flex-wrap:wrap;"><strong>${esc(fmtDate(date))}</strong>${ruleSelect(date)}</div>
       ${items.map((s) => {
         const n = booked.get(s.id) || 0;
         const who = whoBooked(s.id);
@@ -44,7 +58,7 @@ export async function renderPickupTimesPanel({ mount, litter, onChange = async (
   mount.innerHTML = `<section class="card">
     <h2 style="margin-top:0;">Pickup times</h2>
     ${!places.length ? '<p class="field-hint">Add your pickup places first: Kennel page, <strong>Pickup &amp; transport</strong>.</p>' : `
-    <p class="field-hint">Families whose pup is picked choose one of these on their status page; you approve it, and it goes on the pup's calendar.</p>
+    <p class="field-hint">Families whose pup is picked choose one of these on their status page; you approve it, and it goes on the pup's calendar. For each date you can require one of your packages (families need it on their sale before they can choose that day) or apply your standard boarding (charged and logged when you approve).</p>
     ${list || '<p class="faint">No times yet.</p>'}
     <details style="margin-top:10px;"><summary><strong>Add times</strong></summary>
       <div class="form-grid" style="margin-top:6px;">
@@ -61,6 +75,12 @@ export async function renderPickupTimesPanel({ mount, litter, onChange = async (
   </section>`;
 
   const save = async (next) => { await litterRepo.update(litter.id, { pickup_slots: cleanSlots(next) }); await onChange(); };
+  mount.querySelectorAll('.pt-rule').forEach((sel) => sel.addEventListener('change', async () => {
+    const v = sel.value;
+    const rule = v === 'boarding' ? { boarding: true } : v.startsWith('x:') ? { requires_list_id: v.slice(2) } : null;
+    await litterRepo.update(litter.id, { pickup_date_rules: withDateRule(litter, sel.dataset.date, rule) });
+    await onChange();
+  }));
   mount.querySelectorAll('[data-pt-remove]').forEach((b) => b.addEventListener('click', () => save(slots.filter((s) => s.id !== b.dataset.ptRemove))));
   mount.querySelector('[data-pt="add"]')?.addEventListener('click', async () => {
     const v = (id) => mount.querySelector(id).value;

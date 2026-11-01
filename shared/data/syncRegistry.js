@@ -138,8 +138,9 @@ export const SYNC_REGISTRY = Object.freeze({
       'foster_split_basis', 'foster_flat_fee_per_pup', 'foster_split_notes',
       'feeding_schedule_override', 'notes',
       // Her pickup times for the litter (Family Requests plan §4): private like her
-      // pickup places, which they point at.
-      'pickup_slots'
+      // pickup places, which they point at; and each date's rule (a package needed
+      // first, or her standard boarding).
+      'pickup_slots', 'pickup_date_rules'
     ],
     pending: []
   },
@@ -163,6 +164,9 @@ export const SYNC_REGISTRY = Object.freeze({
     private: [
       'price', 'deposit_amount', 'transport_fee', 'deferred_boarding_amount',
       'deferred_boarding_frequency', 'deferred_boarding_duration_days',
+      // Set by a pickup date's standard boarding (Family Requests plan §4), so it
+      // can come off again; money-adjacent, private like the charge.
+      'boarding_from_pickup',
       'invoice_number', 'invoice_notes', 'payment_method', 'payment_reference',
       'lead_source', 'referred_by_contact_id', 'notes',
       // Why a voided/returned sale ended, and her note on it (decided 2026-10-08):

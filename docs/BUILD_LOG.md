@@ -1868,3 +1868,12 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `tests/cloudWaitlist.test.js` (Mapbox stubbed), `cloud/tests/familyActions.test.js`,
   `cloud/tests/familyPages.test.js`. Checked in the browser (status page card, Kennel card,
   Litter times, the approve form). Needs a Worker deploy and the `MAPBOX_TOKEN` secret.
+- **Pickup date rules (2026-11-01).** Asked by the owner: each pickup date on a litter can
+  require one of her extras (families see "Requires 10 week training" and can't choose that
+  day's times until it's on their sale; the Worker refuses `needs_extra`) or apply her
+  standard boarding (new `boarding_rate` setting; families see "Will result in boarding
+  charges"; approving a time that day sets the sale's deferred boarding per day from when the
+  pup could go home and logs the stay, both removed if they move to another date or cancel).
+  `Litter.pickup_date_rules`, `pickupSlots.dateRules` / `standardBoarding`, `Sale.boarding_from_pickup`.
+  Also: the event form now keeps a pickup's `pickup_slot_id` (and the boarding marker) through
+  an edit. Tests extended; checked in the browser.

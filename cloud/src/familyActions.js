@@ -150,6 +150,9 @@ export function checkAction(action, body, { entry, projection, pending, now = ne
     if (action === 'pickup_book') {
       const slot = (Array.isArray(pk.slots) ? pk.slots : []).find((x) => x && x.id === String(body.slot_id ?? '')) || fail(409, 'not_listed');
       if (!(slot.date > today) || !(Number(slot.left) > 0)) fail(409, 'slot_full');
+      // A date that needs one of her packages first (a training package) they don't have.
+      const rule = (Array.isArray(pk.dates) ? pk.dates : []).find((d) => d && d.date === slot.date);
+      if (rule?.requires && !rule.has_it) fail(409, 'needs_extra');
       if (waitingBook) fail(409, 'already_requested');
       if (!canChange) fail(409, 'too_late');
       return { slot_id: slot.id, date: slot.date, start_time: String(slot.start_time ?? ''), end_time: String(slot.end_time ?? ''), place: String(slot.location?.label ?? '').slice(0, 80), note };

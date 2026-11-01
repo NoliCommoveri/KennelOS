@@ -425,5 +425,9 @@ Every decision is made; the plan is ready to build in the order below.
    counted from the family events her device hasn't applied, with no holds table; the fee
    settings sit on the Kennel page's Pickup & transport card with her places; the email's
    placeholders are `[Distance]` and `[Transport Options]`, in the templates' own style.
+   **Added (2026-11-01, asked by the owner):** a rule per pickup date (not per time): it
+   requires one of her extras (the date's times can't be chosen until the family has it;
+   decided: block, not auto-request), or her standard boarding applies (decided: charged per
+   day at her rate from when the pup could go home, and logged as a stay, on approval).
 6. Backing out with her deposit policy.
 7. Kels: Review my waitlist picks these up in step 1 (requests) and step 2 (backing out).

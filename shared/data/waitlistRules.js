@@ -59,7 +59,8 @@ export const WAITLIST_CONFIG_DEFAULTS = Object.freeze({
   mileage_free_under: 0, // a trip under this many miles (after round trip doubles it) is free
   transport_far_miles: 150, // over this, "she'll be in touch" (and the transport options email)
   transport_min_home_miles: 0, // families may suggest their own place only living this far away; 0 = any family
-  pickup_change_days: 2 // a family may change or cancel their pickup time until this many days before
+  pickup_change_days: 2, // a family may change or cancel their pickup time until this many days before
+  boarding_rate: null // her standard boarding, $ per day, for a pickup date marked "standard boarding applies"
 });
 
 // The default message above the extras on a family's status page (the owner's wording).
@@ -82,6 +83,7 @@ export function waitlistConfigProblem(c) {
   if (String(c.extras_info_url || '').trim() && !extrasInfoLink(c.extras_info_url)) return 'The extras page link has to be a web address starting with https://.';
   const atLeast0 = (v) => v == null || v === '' || (Number.isFinite(Number(v)) && Number(v) >= 0);
   if (!atLeast0(c.mileage_rate)) return 'The fee per mile can\'t be negative.';
+  if (!atLeast0(c.boarding_rate)) return 'The boarding rate can\'t be negative.';
   if (!atLeast0(c.mileage_free_under) || !atLeast0(c.transport_far_miles) || !atLeast0(c.transport_min_home_miles)) return 'Miles can\'t be negative.';
   if (!atLeast0(c.pickup_change_days)) return 'Days before pickup can\'t be negative.';
   return '';

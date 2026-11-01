@@ -110,5 +110,40 @@ export function familySlots({ slots, locations, bookings, from = null, today, mi
     .filter((s) => s.left > 0 || s.id === mine);
 }
 
+// --- Rules per pickup date (Family Requests plan §4) -----------------------------------
+// Litter.pickup_date_rules = [{ date, requires_list_id? , boarding? }]: on that date a
+// family needs one of her extras (a training package) before they can choose a time,
+// or her standard boarding applies (charged per day from when the pup could first go
+// home until that date, and logged as a stay). One rule per date, never both.
+
+export function dateRules(litter) {
+  const seen = new Set();
+  return (Array.isArray(litter?.pickup_date_rules) ? litter.pickup_date_rules : [])
+    .filter((r) => r && YMD.test(r.date || '') && !seen.has(r.date) && (seen.add(r.date), true))
+    .map((r) => (text(r.requires_list_id) ? { date: r.date, requires_list_id: text(r.requires_list_id) } : r.boarding === true ? { date: r.date, boarding: true } : null))
+    .filter(Boolean);
+}
+
+export const ruleFor = (litter, date) => dateRules(litter).find((r) => r.date === date) || null;
+
+// The rules with one date's set to `rule` ({ requires_list_id } | { boarding: true } | null).
+export function withDateRule(litter, date, rule) {
+  const rest = dateRules(litter).filter((r) => r.date !== date);
+  return rule ? [...rest, { date, ...rule }].sort((a, b) => a.date.localeCompare(b.date)) : rest;
+}
+
+const ms = (ymd) => Date.UTC(Number(ymd.slice(0, 4)), Number(ymd.slice(5, 7)) - 1, Number(ymd.slice(8, 10)));
+
+// Standard boarding for a pickup on `date`: the days from `from` (the day the pup
+// could first go home) up to the day before. → { days, start, end, amount } or null
+// when there are none or no rate.
+export function standardBoarding(from, date, rate) {
+  const r = Number(rate);
+  if (!from || !YMD.test(date || '') || !(r > 0)) return null;
+  const days = Math.round((ms(date) - ms(from)) / 86400000);
+  if (days <= 0) return null;
+  return { days, start: from, end: addDaysToYMD(date, -1), amount: Math.round(days * r * 100) / 100 };
+}
+
 // The last day a family may change or cancel a booking for `date` themselves.
 export const changeUntil = (date, days) => addDaysToYMD(date, -Math.max(0, Math.round(Number(days) || 0)));

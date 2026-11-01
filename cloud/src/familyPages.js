@@ -315,6 +315,11 @@ export function pickupOf(x) {
   const slots = (Array.isArray(x.slots) ? x.slots.slice(0, 200) : []).map((sl) => ({
     id: id(sl?.id), date: date(sl?.date), start_time: time(sl?.start_time), end_time: time(sl?.end_time), left: Math.max(0, Math.round(Number(sl?.left) || 0)), location: place(sl?.location),
   })).filter((sl) => sl.id && sl.date && sl.start_time);
+  // Rules on her dates: a package needed first (and whether they have it), or her
+  // standard boarding. Never a price.
+  const dates = (Array.isArray(x.dates) ? x.dates.slice(0, 100) : []).map((d) => (d?.requires
+    ? { date: date(d.date), requires: str(d.requires, 120), has_it: d.has_it === true }
+    : { date: date(d?.date), boarding: d?.boarding === true })).filter((d) => d.date && (d.requires || d.boarding));
   const b = x.booked && typeof x.booked === 'object' ? x.booked : null;
   const booked = b ? {
     kind: b.kind === 'address' ? 'address' : 'slot', date: date(b.date), start_time: time(b.start_time), end_time: time(b.end_time),
@@ -326,7 +331,7 @@ export function pickupOf(x) {
     requested_date: date(r?.requested_date), decided: ['approved', 'declined'].includes(r?.decided) ? r.decided : null, decided_date: date(r?.decided_date),
   })).filter((r) => r.id);
   const out = {
-    ready_from: date(x.ready_from), slots, booked, requests,
+    ready_from: date(x.ready_from), slots, dates, booked, requests,
     own_place: x.own_place === true ? true : x.own_place === false ? false : null, ask_home: x.ask_home === true,
   };
   return out.slots.length || out.booked || out.requests.length || out.own_place || out.ask_home ? out : null;

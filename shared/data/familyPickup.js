@@ -10,7 +10,8 @@
 // `home_miles` on the entry (measured once), and `own_place_override` (true/false)
 // when she decides by hand.
 import { familySale } from './familyExtras.js';
-import { pickupLocations, familySlots, slotBookings, changeUntil, timeRange } from './pickupSlots.js';
+import { pickupLocations, familySlots, slotBookings, changeUntil, timeRange, dateRules } from './pickupSlots.js';
+import { kennelChargeList, saleExtraCharges } from './extraCharges.js';
 import { readyDateOf, pickupFor } from './goHome.js';
 import { addDaysToYMD } from './dateUtils.js';
 import { locationRuleOn } from './waitlistForm.js';
@@ -38,7 +39,7 @@ export function upcomingPickup(sale, events, today) {
 // Where a family's times start: the pup's ready date, or the day after the last
 // training stay linked to the sale ends, whichever is later.
 export function pickupFrom(sale, litter, events) {
-  const stays = events.filter((e) => !e.is_archived && e.event_type === 'boarding' && e.subject_id === sale.dog_id && e.details?.sale_id === sale.id);
+  const stays = events.filter((e) => !e.is_archived && e.event_type === 'boarding' && e.subject_id === sale.dog_id && e.details?.sale_id === sale.id && e.details?.extra_charge_id);
   const stayEnd = stays.map((e) => e.event_end_date || e.event_date).sort().pop() || null;
   const ready = readyDateOf(litter);
   const after = stayEnd ? addDaysToYMD(stayEnd, 1) : null;
@@ -79,9 +80,17 @@ export function familyPickupView({ entry, sales, dogsById, litters, kennel, conf
     .filter((r) => r && r.requested_date && (!r.decided || (r.decided_date && addDaysToYMD(r.decided_date, PICKUP_REQUEST_SHOWN_DAYS) >= today)))
     .map((r) => ({ id: r.id, kind: r.kind, date: r.date || null, start_time: r.start_time || '', place: r.place || '', address: r.address || '',
       miles: Number.isFinite(r.miles) ? r.miles : null, far: r.far === true, requested_date: r.requested_date, decided: r.decided || null, decided_date: r.decided_date || null }));
+  // The rules on the dates they can see: a package they need first (blocked until
+  // it's on their sale), or her standard boarding.
+  const priceList = kennelChargeList(kennel);
+  const theirs = new Set(saleExtraCharges(sale).map((c) => c.list_id).filter(Boolean));
+  const shownDates = new Set(slots.map((s) => s.date));
+  const dates = dateRules(litter).filter((r) => shownDates.has(r.date)).map((r) => (r.requires_list_id
+    ? { date: r.date, requires: priceList.find((x) => x.id === r.requires_list_id)?.label || 'a package', has_it: theirs.has(r.requires_list_id) }
+    : { date: r.date, boarding: true }));
   const own = ownPlaceAllowed(entry, config);
   const view = {
-    ready_from: from, slots, booked, requests, own_place: own, ask_home: own === null,
+    ready_from: from, slots, dates, booked, requests, own_place: own, ask_home: own === null,
     far_miles: Number(config.transport_far_miles) || 0, min_home_miles: Number(config.transport_min_home_miles) || 0
   };
   return slots.length || booked || requests.length || own !== false ? view : null;

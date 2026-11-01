@@ -511,7 +511,7 @@ test('pickup (Family Requests plan §4): a family books a time and her Approve m
   const k = await putOnline();
   await kennelRepo.update(k.id, {
     pickup_locations: [{ id: 'std', label: 'Library', address: 'Public Library, Austin TX', is_standard: true, show_to_families: true }],
-    waitlist_config: { ...(await kennelRepo.getById(k.id)).waitlist_config, mileage_rate: 1.5, mileage_basis: 'round_trip', transport_far_miles: 150 }
+    waitlist_config: { ...(await kennelRepo.getById(k.id)).waitlist_config, mileage_rate: 1.5, mileage_basis: 'round_trip', transport_far_miles: 150, boarding_rate: 25 }
   });
   const sales = await saleRepo.getAll({ includeArchived: true });
   const entry = (await waitlistEntryRepo.getByKennel(k.id)).find((e) => e.status === 'active' && e.contact_id
@@ -522,7 +522,7 @@ test('pickup (Family Requests plan §4): a family books a time and her Approve m
   await litterRepo.update(dog.litter_id, { estimated_ready_date: later(3), pickup_slots: [
     { id: 'x1', date: later(10), start_time: '10:00', end_time: '10:30', location_id: 'std', capacity: 1 },
     { id: 'x2', date: later(10), start_time: '10:30', end_time: '11:00', location_id: 'std', capacity: 1 }
-  ] });
+  ], pickup_date_rules: [{ date: later(10), boarding: true }] });
   const sale = await saleRepo.create({ kennel_id: k.id, dog_id: dog.id, buyer_contact_id: entry.contact_id, registration_type: 'limited', status: 'deposit_paid' });
   await cw.syncWaitlistOnline();
   const fam = await familySignIn(k.public_id, 'pickup@example.com');
@@ -531,6 +531,7 @@ test('pickup (Family Requests plan §4): a family books a time and her Approve m
 
   let pk = (await view()).family.pickup;
   assert.deepEqual(pk.slots.map((x) => [x.id, x.location.label]), [['x1', 'Library'], ['x2', 'Library']]);
+  assert.deepEqual(pk.dates, [{ date: later(10), boarding: true }], 'the day says boarding charges apply');
   assert.equal(pk.own_place, true, 'no distance rule: any family can suggest a place');
   assert.equal(JSON.stringify(await view()).includes('Austin'), true, 'the library is a place she shows families');
 
@@ -544,6 +545,11 @@ test('pickup (Family Requests plan §4): a family books a time and her Approve m
   await nudge.actions.find((a) => a.label === 'Approve').run();
   const [booked] = (await eventRepo.getForSubject('dog', dog.id)).filter((e) => e.event_type === 'placement' && !e.is_archived);
   assert.deepEqual([booked.event_date, booked.details.pickup_slot_id, booked.details.dropoff_method, booked.related_contact_id], [later(10), 'x1', 'Local pickup', entry.contact_id]);
+  let charged = await saleRepo.getById(sale.id);
+  assert.deepEqual([charged.deferred_boarding_amount, charged.deferred_boarding_frequency, charged.deferred_boarding_duration_days, charged.boarding_from_pickup], [25, 'Day', 7, true],
+    'standard boarding from the ready date to the day before pickup');
+  const stay = (await eventRepo.getForSubject('dog', dog.id)).find((e) => e.event_type === 'boarding' && !e.is_archived);
+  assert.deepEqual([stay.event_date, stay.event_end_date, stay.details.pickup_boarding], [later(3), later(9), 'yes']);
   await cw.syncWaitlistOnline();
   pk = (await view()).family.pickup;
   assert.deepEqual([pk.booked.kind, pk.booked.place, pk.booked.start_time], ['slot', 'Library', '10:00']);
@@ -576,7 +582,10 @@ test('pickup (Family Requests plan §4): a family books a time and her Approve m
   await actions.approvePickupRequest(entry.id, addr.id, { time: '2:00 PM', method: 'Flight nanny', fee: 587.1 });
   const live = (await eventRepo.getForSubject('dog', dog.id)).filter((e) => e.event_type === 'placement' && !e.is_archived);
   assert.deepEqual(live.map((e) => [e.event_date, e.details.dropoff_method, e.details.location]), [[later(12), 'Flight nanny', '9 Oak St, Dallas TX']], 'the time it replaced is archived');
-  assert.equal((await saleRepo.getById(sale.id)).transport_fee, 587.1);
+  charged = await saleRepo.getById(sale.id);
+  assert.equal(charged.transport_fee, 587.1);
+  assert.deepEqual([charged.deferred_boarding_amount ?? null, charged.boarding_from_pickup], [null, false], 'moving off the boarding date takes the charge off');
+  assert.equal((await eventRepo.getForSubject('dog', dog.id)).some((e) => e.event_type === 'boarding' && !e.is_archived), false, 'and the stay');
 });
 
 test('only the backing device applies family actions; a new backing device starts where the last one got to', async () => {

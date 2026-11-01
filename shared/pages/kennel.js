@@ -793,6 +793,7 @@ function pickupCard(k) {
         ${n('tr-far', c.transport_far_miles, 'Farther than this, you\'ll be in touch', 'miles', 'Families farther away are told you\'ll contact them about driving or a flight nanny.')}
         ${n('tr-home', c.transport_min_home_miles || '', 'Families can suggest their own place only if they live at least', 'miles away', 'Blank or 0: any family can. Above 0, City / state becomes a required question on your application form.')}
         ${n('tr-change', c.pickup_change_days, 'Families can change their pickup time until', 'days before')}
+        ${n('tr-board', c.boarding_rate, 'Standard boarding rate', '$ per day', 'For a pickup date you mark "standard boarding applies" on a litter: charged from when the pup could go home until that day, and logged as a stay.')}
       </div>
       <div class="form-actions"><button class="btn btn-primary btn-sm" data-act="save-pickup">Save</button></div>
     </section>`;
@@ -813,7 +814,7 @@ async function onSavePickup() {
     ...(kennel.waitlist_config || {}),
     mileage_rate: val('#tr-rate'), mileage_basis: card.querySelector('input[name="tr-basis"]:checked')?.value || 'round_trip',
     mileage_free_under: val('#tr-free') || 0, transport_far_miles: val('#tr-far'), transport_min_home_miles: val('#tr-home') || 0,
-    pickup_change_days: val('#tr-change') ?? 2
+    pickup_change_days: val('#tr-change') ?? 2, boarding_rate: val('#tr-board')
   };
   const configProblem = waitlistConfigProblem(waitlist_config);
   if (configProblem) { showError(configProblem); return; }

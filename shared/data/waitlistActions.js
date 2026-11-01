@@ -36,9 +36,9 @@ import { litterRepo } from './litterRepo.js';
 import { dogRepo } from './dogRepo.js';
 import { saleRepo } from './saleRepo.js';
 import { familySale, pupBirthDate, withExtraRequest } from './familyExtras.js';
-import { withPickupRequest } from './familyPickup.js';
-import { pickupLocations, timeRange } from './pickupSlots.js';
-import { pickupFor, PICKUP_TITLE, DROPOFF_TITLE } from './goHome.js';
+import { withPickupRequest, pickupFrom } from './familyPickup.js';
+import { pickupLocations, timeRange, ruleFor, standardBoarding } from './pickupSlots.js';
+import { pickupFor, PICKUP_TITLE, DROPOFF_TITLE, BOARDING_TITLE } from './goHome.js';
 import { eventRepo } from './eventRepo.js';
 import { kennelChargeList, kennelChargeGroups, chargeRules, planSteps, saleExtraCharges } from './extraCharges.js';
 import { expectedPricing } from './saleDefaults.js';
@@ -1183,6 +1183,19 @@ function loadPickupRequest(entry, requestId) {
   return req;
 }
 
+// Standard boarding from a pickup date (Family Requests plan §4): the stay it logged
+// (`details.pickup_boarding`) and the charge it set (`Sale.boarding_from_pickup`) come
+// off when the family moves to another date or cancels. A charge she typed herself
+// is never touched.
+async function clearPickupBoarding(sale) {
+  for (const e of await eventRepo.getForSubject('dog', sale.dog_id)) {
+    if (e.event_type === 'boarding' && e.details?.pickup_boarding && e.details?.sale_id === sale.id) await eventRepo.archive(e.id);
+  }
+  if (sale.boarding_from_pickup) {
+    await saleRepo.update(sale.id, { deferred_boarding_amount: null, deferred_boarding_frequency: null, deferred_boarding_duration_days: null, boarding_from_pickup: false });
+  }
+}
+
 const decidePickup = (entry, requestId, decision, date) =>
   (entry.pickup_requests || []).map((r) => (r.id === requestId ? { ...r, decided: decision, decided_date: date } : r));
 
@@ -1199,6 +1212,7 @@ export async function approvePickupRequest(entryId, requestId, { date = todayYMD
   if (!sale?.dog_id) throw new Error('They have no open sale with a pup, so there\'s no pickup to plan.');
   const upcoming = (await eventRepo.getForSubject('dog', sale.dog_id)).filter((e) => pickupFor(sale)(e) && e.event_date >= date);
   let event = null;
+  let boarding = null;
   if (req.kind === 'slot') {
     const kennel = await kennelRepo.getById(sale.kennel_id);
     const dog = await dogRepo.getById(sale.dog_id);
@@ -1207,6 +1221,21 @@ export async function approvePickupRequest(entryId, requestId, { date = todayYMD
     if (!slot) throw new Error('That pickup time isn\'t on the litter any more. Decline it, and they can choose another.');
     const place = pickupLocations(kennel).find((l) => l.id === slot.location_id);
     for (const e of upcoming) await eventRepo.archive(e.id);
+    await clearPickupBoarding(sale);
+    // A date where her standard boarding applies: the charge on the sale, the stay logged.
+    if (ruleFor(litter, slot.date)?.boarding) {
+      const rate = Number(waitlistConfig(kennel).boarding_rate);
+      const from = pickupFrom(sale, litter, await eventRepo.getForSubject('dog', sale.dog_id));
+      const b = standardBoarding(from, slot.date, rate);
+      if (b) {
+        await saleRepo.update(sale.id, { deferred_boarding_amount: rate, deferred_boarding_frequency: 'Day', deferred_boarding_duration_days: b.days, boarding_from_pickup: true });
+        await eventRepo.create({
+          subject_type: 'dog', subject_id: sale.dog_id, event_type: 'boarding', event_date: b.start, event_end_date: b.end, title: BOARDING_TITLE,
+          details: { boarding_reason: 'Deferred pickup', sale_id: sale.id, pickup_boarding: 'yes' }
+        });
+        boarding = b;
+      }
+    }
     event = await eventRepo.create({
       subject_type: 'dog', subject_id: sale.dog_id, event_type: 'placement', event_date: slot.date, title: PICKUP_TITLE,
       ...(sale.buyer_contact_id ? { related_contact_id: sale.buyer_contact_id } : {}),
@@ -1216,6 +1245,7 @@ export async function approvePickupRequest(entryId, requestId, { date = todayYMD
     const day = when || req.date;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day || '')) throw new Error('Choose the day for the drop-off.');
     for (const e of upcoming) await eventRepo.archive(e.id);
+    await clearPickupBoarding(sale);
     event = await eventRepo.create({
       subject_type: 'dog', subject_id: sale.dog_id, event_type: 'placement', event_date: day, title: method === 'Local pickup' ? PICKUP_TITLE : DROPOFF_TITLE,
       ...(sale.buyer_contact_id ? { related_contact_id: sale.buyer_contact_id } : {}),
@@ -1224,9 +1254,10 @@ export async function approvePickupRequest(entryId, requestId, { date = todayYMD
     if (fee != null && fee !== '' && Number.isFinite(Number(fee))) await saleRepo.update(sale.id, { transport_fee: Math.round(Number(fee) * 100) / 100 });
   } else {
     for (const e of upcoming) await eventRepo.archive(e.id);
+    await clearPickupBoarding(sale);
   }
   const updated = await waitlistEntryRepo.update(entryId, { pickup_requests: decidePickup(entry, requestId, 'approved', date) });
-  return { entry: updated, sale: await saleRepo.getById(sale.id), event };
+  return { entry: updated, sale: await saleRepo.getById(sale.id), event, boarding };
 }
 
 export async function declinePickupRequest(entryId, requestId, { date = todayYMD() } = {}) {

@@ -643,12 +643,20 @@ function pickupHtml(f) {
       const byDate = new Map();
       for (const sl of slots) { if (!byDate.has(sl.date)) byDate.set(sl.date, []); byDate.get(sl.date).push(sl); }
       parts.push(`<p class="${b ? 'small' : 'mt0'}">${b ? 'Choose a new time:' : 'Choose a pickup time.'}${pk.ready_from ? ` <span class="muted small">From ${esc(fmtDate(pk.ready_from))}, when your puppy is ready.</span>` : ''}</p>
-        ${[...byDate.entries()].map(([date, items]) => `<h3 class="mt8">${esc(fmtDate(date))}</h3><ul class="plain">${items.map((sl) => `<li class="mt8">
+        ${[...byDate.entries()].map(([date, items]) => {
+          // Her rule for the date: a package they need first, or her standard boarding.
+          const rule = (pk.dates || []).find((d) => d.date === date);
+          const blocked = Boolean(rule?.requires && !rule.has_it);
+          const note = rule?.requires
+            ? `<p class="small mt0"><span class="badge ${blocked ? 'warn' : ''}">Requires ${esc(rule.requires)}</span>${blocked ? ' Ask for it on the Extras card first; once it\'s on your puppy\'s sale you can choose a time this day.' : ''}</p>`
+            : rule?.boarding ? `<p class="small mt0"><span class="badge warn">Will result in boarding charges</span> ${esc(kennel)} boards your puppy until this day.</p>` : '';
+          return `<h3 class="mt8">${esc(fmtDate(date))}</h3>${note}<ul class="plain">${items.map((sl) => `<li class="mt8">
           <div><strong>${esc(timeText(sl.start_time, sl.end_time))}</strong> · ${esc(sl.location.label)}</div>
           <div class="small">${esc(sl.location.address)} · <a href="${esc(directions(sl.location.address))}" target="_blank" rel="noopener noreferrer">Directions</a></div>
           ${sl.location.notes ? `<div class="small muted">${esc(sl.location.notes)}</div>` : ''}
-          ${act ? `<div class="mt8"><button type="button" class="secondary small" data-act="pickup_book" data-id="${esc(sl.id)}" data-when="${esc(`${fmtDate(sl.date)}, ${timeText(sl.start_time, sl.end_time)} at ${sl.location.label}`)}">Choose this time</button></div>` : ''}
-        </li>`).join('')}</ul>`).join('')}`);
+          ${act && !blocked ? `<div class="mt8"><button type="button" class="secondary small" data-act="pickup_book" data-id="${esc(sl.id)}" data-when="${esc(`${fmtDate(sl.date)}, ${timeText(sl.start_time, sl.end_time)} at ${sl.location.label}${rule?.boarding ? ' (boarding charges apply)' : ''}`)}">Choose this time</button></div>` : ''}
+        </li>`).join('')}</ul>`;
+        }).join('')}`);
     } else if (!b) {
       parts.push(`<p class="mt0">${esc(kennel)} hasn't posted pickup times yet.</p>`);
     }
@@ -823,6 +831,7 @@ const ERRORS = {
   'pickup_book:not_listed': "That time isn't offered any more. The page now shows the times left.",
   'pickup_book:slot_full': 'Another family just took that time. Please choose another.',
   'pickup_book:already_requested': "You've already asked. The breeder will confirm.",
+  'pickup_book:needs_extra': 'That day needs a package on your puppy\'s sale first. Ask for it on the Extras card.',
   'pickup_book:too_late': "It's too late to change your pickup here. Contact the breeder.",
   'pickup_cancel:too_late': "It's too late to cancel here. Contact the breeder.",
   'pickup_cancel:already_requested': "You've already asked to cancel. The breeder will confirm.",

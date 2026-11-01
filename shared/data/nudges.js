@@ -1175,7 +1175,11 @@ async function statusPageNudges(entries, offers, { today, litters, dogsById, ken
             ...(r.far ? [{ label: 'Send transport options', run: async () => ({ title: 'Transport options', message: 'Edit the email, then send it.', emails: [{ entryId: e.id, kind: 'transport_options', extra: Number.isFinite(r.miles) ? { distance: r.miles } : {} }] }) }] : [])
           ]
         : [
-            { label: 'Approve', run: async () => { await approvePickupRequest(e.id, r.id, { date: today }); return { title: 'Approved', message: r.kind === 'cancel' ? 'Their pickup is off the calendar. Let them know.' : 'It\'s on the pup\'s calendar as their pickup. Let them know.', emails: emails('request_approved') }; } },
+            { label: 'Approve', run: async () => {
+              const res = await approvePickupRequest(e.id, r.id, { date: today });
+              const board = res.boarding ? ` Standard boarding applies: ${res.boarding.days} day${res.boarding.days === 1 ? '' : 's'}, $${res.boarding.amount.toFixed(2)}, on their sale and logged as a stay.` : '';
+              return { title: 'Approved', message: r.kind === 'cancel' ? 'Their pickup is off the calendar. Let them know.' : `It's on the pup's calendar as their pickup.${board} Let them know.`, emails: emails('request_approved') };
+            } },
             { label: 'Decline', run: async () => { await declinePickupRequest(e.id, r.id, { date: today }); return { title: 'Declined', message: 'Nothing changed. Let them know.', emails: emails('request_declined') }; } }
           ];
       out.push({

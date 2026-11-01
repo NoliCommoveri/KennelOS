@@ -284,6 +284,8 @@ test('a pickup time only as published, with room, one request at a time; changes
   assert.deepEqual(checkAction('pickup_book', { slot_id: 'x1' }, at('2026-11-01')),
     { slot_id: 'x1', date: '2026-11-21', start_time: '10:00', end_time: '10:30', place: 'Library', note: '' });
   assert.throws(() => checkAction('pickup_book', { slot_id: 'x2' }, at('2026-11-01')), /slot_full/);
+  assert.throws(() => checkAction('pickup_book', { slot_id: 'x1' }, at('2026-11-01', { dates: [{ date: '2026-11-21', requires: '10 week training', has_it: false }] })), /needs_extra/, 'a package needed first');
+  assert.equal(checkAction('pickup_book', { slot_id: 'x1' }, at('2026-11-01', { dates: [{ date: '2026-11-21', requires: '10 week training', has_it: true }] })).slot_id, 'x1');
   assert.throws(() => checkAction('pickup_book', { slot_id: 'nope' }, at('2026-11-01')), /not_listed/);
   assert.throws(() => checkAction('pickup_book', { slot_id: 'x1' }, { ...at('2026-11-01'), pending: [{ kind: 'pickup_book', payload: {} }] }), /already_requested/);
   assert.throws(() => checkAction('pickup_book', { slot_id: 'x1' }, at('2026-11-04', { booked: { date: '2026-11-05', change_until: '2026-11-03' } })), /too_late/, 'past her cutoff');

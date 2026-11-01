@@ -498,7 +498,7 @@ test("a family's pickup passes field by field; her standard location and the mil
     booked: null, requests: [{ id: 'event-1', kind: 'address', address: '9 Oak', miles: 196.44, far: true, requested_date: '2026-11-01', note: 'private' }],
     own_place: true, ask_home: false,
   });
-  assert.deepEqual(Object.keys(x).sort(), ['ask_home', 'booked', 'own_place', 'ready_from', 'requests', 'slots']);
+  assert.deepEqual(Object.keys(x).sort(), ['ask_home', 'booked', 'dates', 'own_place', 'ready_from', 'requests', 'slots']);
   assert.deepEqual(x.slots[0], { id: 'x1', date: '2026-11-21', start_time: '10:00', end_time: '10:30', left: 2, location: { label: 'Library', address: '1 Main St', notes: '' } });
   assert.equal(x.requests[0].miles, 196.4);
   assert.equal('note' in x.requests[0], false);

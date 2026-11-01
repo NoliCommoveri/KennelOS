@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { transportQuote, mapsLink, aboutMiles } from '../shared/data/transportFee.js';
-import { pickupLocations, standardLocation, locationsProblem, makeSlots, cleanSlots, familySlots, slotBookings, timeRange, changeUntil } from '../shared/data/pickupSlots.js';
+import { pickupLocations, standardLocation, locationsProblem, makeSlots, cleanSlots, familySlots, slotBookings, timeRange, changeUntil, dateRules, withDateRule, ruleFor, standardBoarding } from '../shared/data/pickupSlots.js';
 import { ownPlaceAllowed, pickupFrom, familyPickupView, withPickupRequest, requestText } from '../shared/data/familyPickup.js';
 import { formQuestions, DEFAULT_FORM_QUESTIONS } from '../shared/data/waitlistForm.js';
 
@@ -67,7 +67,7 @@ test('their times start after a training stay; their page shows the booking with
     { id: 'x1', date: '2026-10-30', start_time: '10:00', end_time: '10:30', location_id: 'a' },
     { id: 'x2', date: '2026-11-20', start_time: '10:00', end_time: '10:30', location_id: 'a' }
   ] };
-  const stay = { id: 'b1', event_type: 'boarding', subject_id: 'p1', event_date: '2026-10-27', event_end_date: '2026-11-09', details: { sale_id: 's1' } };
+  const stay = { id: 'b1', event_type: 'boarding', subject_id: 'p1', event_date: '2026-10-27', event_end_date: '2026-11-09', details: { sale_id: 's1', extra_charge_id: 'c1' } };
   assert.equal(pickupFrom(sale, litter, []), '2026-10-27', 'the ready date (8 weeks)');
   assert.equal(pickupFrom(sale, litter, [stay]), '2026-11-10', 'the day after the stay');
   const kennel = { pickup_locations: [{ id: 'a', label: 'Library', address: '1 Main St' }] };
@@ -94,4 +94,28 @@ test('City / state is locked and required while her distance rule is on, and her
   assert.deepEqual([back.key, back.required], [undefined, false], 'saved while locked: an ordinary question again');
   const removed = formQuestions({ form_questions: DEFAULT_FORM_QUESTIONS.filter((x) => x.id !== 'location'), transport_min_home_miles: 50 });
   assert.equal(removed[removed.findIndex((x) => x.key === 'email') + 1].id, 'location', 'put back after email when she had removed it');
+});
+
+test('a rule per pickup date: a package needed first, or her standard boarding, never both', () => {
+  const litter = { pickup_date_rules: [
+    { date: '2026-11-21', requires_list_id: 'tr', boarding: true }, { date: '2026-11-22', boarding: true }, { date: '2026-11-22', requires_list_id: 'dup' }, { date: 'bad', boarding: true }
+  ] };
+  assert.deepEqual(dateRules(litter), [{ date: '2026-11-21', requires_list_id: 'tr' }, { date: '2026-11-22', boarding: true }]);
+  assert.deepEqual(withDateRule(litter, '2026-11-22', null), [{ date: '2026-11-21', requires_list_id: 'tr' }]);
+  assert.deepEqual(ruleFor({ pickup_date_rules: withDateRule({}, '2026-11-20', { boarding: true }) }, '2026-11-20'), { date: '2026-11-20', boarding: true });
+  assert.deepEqual(standardBoarding('2026-11-10', '2026-11-22', 25), { days: 12, start: '2026-11-10', end: '2026-11-21', amount: 300 });
+  assert.equal(standardBoarding('2026-11-22', '2026-11-22', 25), null, 'picked up the day they can go: no boarding');
+  assert.equal(standardBoarding('2026-11-10', '2026-11-22', null), null, 'no rate set');
+
+  const sale = { id: 's1', dog_id: 'p1', buyer_contact_id: 'c1', status: 'deposit_paid', kennel_id: 'k1', extra_charges: [] };
+  const lit = { id: 'l1', whelp_date: '2026-09-01', pickup_slots: [
+    { id: 'a1', date: '2026-11-21', start_time: '10:00', location_id: 'a' }, { id: 'b1', date: '2026-11-22', start_time: '10:00', location_id: 'a' }
+  ], pickup_date_rules: [{ date: '2026-11-21', requires_list_id: 'tr' }, { date: '2026-11-22', boarding: true }] };
+  const kennel = { pickup_locations: [{ id: 'a', label: 'Library', address: '1 Main St' }], extra_charge_list: [{ id: 'tr', label: '10 week training', amount: 900, family_can_request: true }] };
+  const base = { entry: { contact_id: 'c1', kennel_id: 'k1' }, dogsById: new Map([['p1', { id: 'p1', litter_id: 'l1' }]]), litters: [lit], kennel, config: {}, events: [], today: '2026-11-01' };
+  assert.deepEqual(familyPickupView({ ...base, sales: [sale] }).dates, [
+    { date: '2026-11-21', requires: '10 week training', has_it: false }, { date: '2026-11-22', boarding: true }
+  ]);
+  const withIt = { ...sale, extra_charges: [{ id: 'c', label: '10 week training', amount: 900, list_id: 'tr' }] };
+  assert.equal(familyPickupView({ ...base, sales: [withIt] }).dates[0].has_it, true);
 });
