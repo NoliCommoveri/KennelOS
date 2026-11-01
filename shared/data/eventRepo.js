@@ -40,6 +40,18 @@ export function testTokensOf(e) {
   return [];
 }
 
+// The names a planned test can match on (Dog.planned_tests → "logged"): the
+// test-name token(s) above plus the event's title, so a result filed as
+// "OFA Patella" moves its planned test out of Planned even when Joint says just
+// "Patella". Matching only — getTestTokens' vocabulary stays testTokensOf.
+export function testMatchTokensOf(e) {
+  const tokens = testTokensOf(e);
+  if (!TEST_EVENT_TYPES.includes(e.event_type)) return tokens;
+  const title = String(e.title ?? '').trim();
+  if (title && !tokens.some((t) => t.toLowerCase() === title.toLowerCase())) tokens.push(title);
+  return tokens;
+}
+
 function validateEvent(candidate) {
   for (const f of REQUIRED_FIELDS) {
     if (candidate[f] == null || candidate[f] === '') {

@@ -11,7 +11,7 @@
 // The test's name lands in its kind's name field, so a planned test reads as
 // logged everywhere at once (Dog page, Health-Testing Gaps).
 import { dogRepo } from '../data/dogRepo.js';
-import { eventRepo, testTokensOf } from '../data/eventRepo.js';
+import { eventRepo, testTokensOf, testMatchTokensOf } from '../data/eventRepo.js';
 import { kennelRepo } from '../data/kennelRepo.js';
 import { dogsInScope } from '../data/kennelScope.js';
 import { homeDogs } from '../data/dogCare.js';
@@ -35,7 +35,7 @@ async function load() {
 // For Kels's menu: dogs to test, and how many planned tests are still unlogged.
 export async function healthTestsState() {
   const { dogs, tests } = await load();
-  return { dogs: dogs.length, missing: dogs.reduce((n, d) => n + unloggedPlanned(d, tests, testTokensOf).length, 0) };
+  return { dogs: dogs.length, missing: dogs.reduce((n, d) => n + unloggedPlanned(d, tests, testMatchTokensOf).length, 0) };
 }
 
 export async function runHealthTestsTask(chat, { onExit = () => {} } = {}) {
@@ -61,7 +61,7 @@ export async function runHealthTestsTask(chat, { onExit = () => {} } = {}) {
 // Another dog searches the rest.
 async function pickDog(chat, first) {
   const { dogs, tests } = await load();
-  const left = new Map(dogs.map((d) => [d.id, unloggedPlanned(d, tests, testTokensOf)]));
+  const left = new Map(dogs.map((d) => [d.id, unloggedPlanned(d, tests, testMatchTokensOf)]));
   const home = new Set(homeDogs(dogs).map((d) => d.id));
   const byName = (a, b) => dogName(a).localeCompare(dogName(b));
   const shown = dogs.filter((d) => home.has(d.id) || left.get(d.id).length)
@@ -93,7 +93,7 @@ async function pickDog(chat, first) {
 async function logForDog(chat, dog) {
   for (let firstTest = true; ; firstTest = false) {
     const { tests } = await load();
-    const planned = unloggedPlanned(dog, tests, testTokensOf);
+    const planned = unloggedPlanned(dog, tests, testMatchTokensOf);
     if (firstTest) {
       await chat.say(planned.length
         ? `${esc(dogName(dog))}'s plan still needs: ${esc(listText(planned))}. Which result do you have?`
@@ -110,7 +110,7 @@ async function logForDog(chat, dog) {
     const name = pick.startsWith('plan:') ? pick.slice(5) : '';
     const res = await testForm(chat, dog, name, tests);
     if (!res.done) continue;
-    const stillLeft = unloggedPlanned(dog, (await load()).tests, testTokensOf);
+    const stillLeft = unloggedPlanned(dog, (await load()).tests, testMatchTokensOf);
     await chat.say(res.result.planned
       ? `Logged, and ticked off ${esc(dogName(dog))}'s plan.${stillLeft.length ? '' : ' Every planned test has a result now!'}`
       : 'Logged.');

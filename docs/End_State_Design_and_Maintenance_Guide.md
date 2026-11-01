@@ -425,7 +425,8 @@ breeding, retired breeding, for sale), with only the active breeding ones ticked
 dogs still missing this month's preventative and goes back to Today after saving.
 
 Test-bearing types (`genetic_test`, `breed_specific_test`, `ofa_pennhip`) feed the test
-vocabulary through `testTokensOf(event)`.
+vocabulary through `testTokensOf(event)`; planned tests are matched against
+`testMatchTokensOf(event)` (those tokens plus the title).
 
 **eventRepo reads** (separate on purpose):
 - `getForSubject(type, id)` — a timeline, newest first.
@@ -708,7 +709,8 @@ Pure helpers the Dog page's Planned Tests card and Kels's "Log health test resul
 A test's name always goes in its type's name field (`genetic_test.panel_name`,
 `ofa_pennhip.joint`, `breed_specific_test.test_name`; `TEST_TYPE_FIELDS`), so
 `eventRepo.testTokensOf` reads it back as planned and the planned test counts as logged
-(Dog page, Health-Testing Gaps). The type only files it: `testTypeFor` takes the type she
+(Dog page, Health-Testing Gaps). Planned-vs-logged matching uses `testMatchTokensOf`: those
+tokens plus the event's title, so a hand-added "OFA Patella" with Joint "Patella" still counts. The type only files it: `testTypeFor` takes the type she
 used most for that name before, else `guessTestType` (OFA / PennHIP / hips / elbows → OFA /
 PennHIP; DNA, panels and common genetic tests → Genetic; else Breed-specific).
 `testPrefill` is the Dog page's event-form prefill, `testEvent` the event Kels saves

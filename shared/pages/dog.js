@@ -10,7 +10,7 @@ import { litterRepo } from '../data/litterRepo.js';
 import { pairingRepo } from '../data/pairingRepo.js';
 import { kennelRepo, seedTestsKennel } from '../data/kennelRepo.js';
 import { breedChoices } from '../data/dogSearch.js';
-import { eventRepo, testTokensOf } from '../data/eventRepo.js';
+import { eventRepo, testTokensOf, testMatchTokensOf } from '../data/eventRepo.js';
 import { TEST_TYPES, testTypeFor, testPrefill } from '../data/healthTestLog.js';
 import { saleRepo } from '../data/saleRepo.js';
 import { studServiceRepo } from '../data/studServiceRepo.js';
@@ -1170,7 +1170,7 @@ async function renderPlannedTestsSection(eventsP = null) {
   ]);
   const loggedTokens = new Set();
   for (const e of events) {
-    for (const t of testTokensOf(e)) loggedTokens.add(t.trim().toLowerCase());
+    for (const t of testMatchTokensOf(e)) loggedTokens.add(t.trim().toLowerCase());
   }
   const vocabulary = [];
   {

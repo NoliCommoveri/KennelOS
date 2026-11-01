@@ -6,8 +6,9 @@
 //
 // A test's name always goes in its type's name field (genetic_test.panel_name,
 // ofa_pennhip.joint, breed_specific_test.test_name), so eventRepo.testTokensOf
-// reads it back exactly as planned and the planned test counts as logged. The
-// type only files it; matching is by name whatever the type.
+// reads it back exactly as planned and the planned test counts as logged; a
+// result whose title is the test name counts too (eventRepo.testMatchTokensOf).
+// The type only files it; matching is by name whatever the type.
 import { testGapRows } from './breedingReports.js';
 
 export const TEST_TYPES = Object.freeze(['genetic_test', 'ofa_pennhip', 'breed_specific_test']);

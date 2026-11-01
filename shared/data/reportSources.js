@@ -12,7 +12,7 @@
 import { dogRepo } from './dogRepo.js';
 import { litterRepo } from './litterRepo.js';
 import { pairingRepo } from './pairingRepo.js';
-import { eventRepo, testTokensOf } from './eventRepo.js';
+import { eventRepo, testMatchTokensOf } from './eventRepo.js';
 import { saleRepo } from './saleRepo.js';
 import { contactRepo } from './contactRepo.js';
 import { kennelRepo } from './kennelRepo.js';
@@ -77,7 +77,7 @@ export async function loadHeatCycles(today) {
 export const HEALTH_TEST_TYPES = ['genetic_test', 'ofa_pennhip', 'breed_specific_test'];
 export async function loadHealthGaps() {
   const [dogs, ...byType] = await Promise.all([dogRepo.getAll({ includeArchived: false }), ...HEALTH_TEST_TYPES.map((t) => eventRepo.getByType(t))]);
-  const rows = testGapRows(dogs.filter((d) => dogInScope(d) && d.status !== 'puppy' && d.status !== 'deceased'), byType.flat(), testTokensOf);
+  const rows = testGapRows(dogs.filter((d) => dogInScope(d) && d.status !== 'puppy' && d.status !== 'deceased'), byType.flat(), testMatchTokensOf);
   return { href: 'health-gaps-report.html', rows, dogs };
 }
 

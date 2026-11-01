@@ -49,3 +49,11 @@ test('unloggedPlanned: case and spacing ignored; an archived result doesn\'t cou
   ];
   assert.deepEqual(unloggedPlanned(dog, events, testTokensOf), ['Embark panel']);
 });
+
+import { testMatchTokensOf } from '../shared/data/eventRepo.js';
+
+test('unloggedPlanned: a result titled as the planned test counts even when Joint differs', () => {
+  const dog = { id: 'd1', planned_tests: ['OFA Patella', 'OFA Hips'] };
+  const e = { subject_type: 'dog', subject_id: 'd1', event_type: 'ofa_pennhip', title: 'OFA Patella', details: { joint: 'Patella', rating: 'Grade 1' } };
+  assert.deepEqual(unloggedPlanned(dog, [e], testMatchTokensOf), ['OFA Hips']);
+});

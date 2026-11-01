@@ -2100,3 +2100,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   copied text, the CSV import guide on phones, and logging completed health tests (Log
   result on planned tests, Kels's Log health test results). The family pages and /ops
   changes need a Worker deploy, then Apply pending (`0017`, `0019`) on /ops.
+- **Planned tests also match on the event title (2026-11-01).** A planned test left Planned
+  only when its name was in the type's name field (OFA: Method + Joint), so a hand-added
+  "OFA Patella" result with Joint "Patella" stayed Planned. New `eventRepo.testMatchTokensOf`
+  (name tokens + title) drives the Dog page's Planned Tests card, Health-Testing Gaps and
+  Kels's Log health test results; the test vocabulary still reads `testTokensOf`. No new
+  files. Tests: `tests/eventRepo.test.js`, `tests/healthTestLog.test.js`.
