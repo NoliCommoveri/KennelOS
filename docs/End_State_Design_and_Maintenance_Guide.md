@@ -1011,7 +1011,10 @@ checks use the unscoped set, so an answer one kennel over still counts.
 
 `pages/today.js` renders them: it filters out dismissed keys (`nudgeState.isDismissed`),
 wires each action, and adds one Dismiss button per row. Dismissals are device-local
-(`nudgeState.js`), never in a backup. While Today is open it redraws the nudges on
+(`nudgeState.js`), never in a backup. A nudge can also be snoozed (`nudgeState.snooze(key,
+untilYMD)`: hidden until that day, then back; Kels's Review my waitlist uses it for "remind
+me in a few days" on open picks). `nudges.waitlistNudgeItems()` and `extraDueItems(sales)`
+give the waitlist and extras-due nudges on their own, for that task. While Today is open it redraws the nudges on
 `CLOUD_DATA_CHANGED_EVENT` (debounced, one redraw at a time), so a family's message or
 status-page action the waitlist inbox takes in after the page loaded shows without a reload.
 
@@ -1726,7 +1729,11 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   another pup; `confirmDeposit` marks the sale paid, the pup placed, the entry placed, and
   moves on. `recordOutcome` handles passed / no response (lets go of a held pick, counts the
   pass, removes at the limit) and voided (never a pass, doesn't move on). `undoPass` reopens a
-  pass.
+  pass. `previewNextTurn(kennelId)` says who `nextTurn` would offer without offering it;
+  `extendTurn(turnId, { until })` gives an open turn a later respond-by date (after today),
+  noted on each of its offers.
+- **Backing out** (`approveBackOut`) needs the family's pending request, or `told` (`{ reason }`)
+  when she heard some other way: the same path, the request recorded as hers (`by: 'breeder'`).
 - **A lost pup** (`vocab.isLostSale`): `restoreAfterLostSale(saleId, { carry })` puts a placed
   family back in their **original place** (the accepted offer voided with its history kept,
   passes unchanged), or
@@ -3028,6 +3035,70 @@ it, so a half-made form never goes online. **The draft:** `settings.guidedFormDr
 - **"Do you have a family to put on the list now?"**: the applicant step (under "Add
   people"), asked with the new form; **Add a family** repeats.
 - Then **See my form** (the Waitlist form page), **Help me with something else**, **Back to Today**.
+
+### "Review my waitlist"
+**Editions:** Pro (`editionFlags.waitlist`). The script, `assets/waitlistReviewUI.js`, is in
+`proPages.js` and `kels.js` imports it on start; its rules, `data/waitlistReview.js`, are
+shared (Today's overdue-offer nudge words its report with `outcomeReport`). Priority 58 while
+anything is waiting (`reviewWaitlistState`: Today's waitlist nudges plus applications and
+unpaid fees), else 26.
+- **First, is there anything to review** (`readinessProblems`), for one kennel (asked with
+  several set up): not set up → it says so and offers **Set up my waitlist** / **Not now**;
+  otherwise, where the waitlist online is offered, not online (**Put my list online**),
+  online but not publishing (the Online list card's `onlineProblemText`), no form of her own
+  (`guidedForm.hasOwnForm`) or the form not taking applications online (**Set up my
+  application form**), each said, with **Keep going**. A fix hands her to that task with the
+  kennel (`handoff`), never redone here.
+- **"Here's what's waiting on you: …"** (`reviewSummary`) → **Start with the first** (every
+  step in `REVIEW_STEPS` order, each rechecked as it comes, so a pass that frees a turn
+  brings up the turn) / **Pick one** / **Not now**. Each item has **Skip for now**; the close
+  says how many were left ("it's all still on Today").
+- **The items are Today's own waitlist nudges** (`nudges.waitlistNudgeItems`), read by key
+  (`readNudgeKey`, `STEP_OF`) and scoped to the kennel; their one-tap actions run as on
+  Today (message, then `waitlistEmailUI.offerEmails`). Every other write is a
+  `waitlistActions` call, and every "email the family" is `offerEmails`.
+  1. **Requests and messages**, one family at a time, messages first: **Write back**
+     (`communicateDialog`, a note email) and **Mark read**; pause / answers / litters /
+     Companion link by the nudge's actions; an extra asked for or cancelled
+     (`approveExtraRequest`; a training package then offers **Log it**, `trainingStayEvent`;
+     a cancel offers to remove its stays still to come; a part-paid refusal offers **Decline
+     it** / **Open the sale**); a pickup time or cancel (`approvePickupRequest`, then her own
+     boarding kept → **Use it** `applyPickupBoarding`, a transport fee left → **Remove it**
+     `clearTransportFee`); their own address set up in the chat (day, time, how, miles with
+     **Get driving miles**, the fee from `transportQuote`), or past her limit **Send
+     transport options**.
+  2. **Backing out:** each request with `suggestOutcome` (from the pup's age in weeks) →
+     **Keep the deposit** / **Move the deposit** / **More options…** (refund, typed REFUND) /
+     **Decline**; a form with `backOutItems` ticked as the entry page ticks them, **Put [pup]
+     back to** Available / Health hold, and `backOutSummary` → `approveBackOut`. A pup back
+     to Available → "Offer [pup] to the next family?". Then, every time, "Do you need to
+     cancel or void any other sales?": her open and gone-home sales → the family backed out
+     (a waitlist family → the back-out form with `told`; anyone else → Cancelled), the pup
+     died / failed a health check (Voided with that reason), came back (Returned, health
+     problem or the family's choice), or something else (Cancel / Void with Other and a
+     note); then `salePrompts.promptReleasedPup` and, for a lost sale,
+     `waitlistUI.restoreLostPupDialog`, as the Sale page does.
+  3. **Offers past their deadline:** **They picked** / **The deposit came** (`pickDialog` /
+     `depositDialog`), **Count it as a pass** (`recordOutcome`, `outcomeReport`), **Record no
+     response** (the nudge's action), **Give them more time** (`extendTurn`, then the offer
+     email with the new date).
+  4. **Picks to open:** **Open picks** (the nudge's action), **Not yet, remind me in a few
+     days** (snoozes the nudge 3 days; the planned date stays), **Change the date**
+     (`accept_deposits_date`).
+  5. **A turn to offer** (`previewNextTurn`): "Next in line for … is … (wants …, waiting N
+     months)" → **Offer it** (`offerNextTurn`) / **Offer someone else** (the litter, then the
+     families with pups in it, `offerTo` with a note) / **Not yet**.
+  6. **New applications**, oldest first, with their wants and answers → **Approve** (date,
+     program, the contact as `contactMatches` suggests, their private-listing ask; then the
+     fee request or "on the list" email) / **Decline** (confirmed; the declined email) /
+     **Ask a question** (`communicateDialog`) / **Decide later**.
+  7. **Fees to check** (approved, unpaid; soonest due first) → **Received** (date, amount,
+     method, reference → `feeReceived`) / **Not yet** / **Remove them** (overdue only,
+     `markFeeExpired`); then extras payments due on waitlist families' sales
+     (`extraDueItems`) → **Paid** (today, `extraCharges.chargesWithStepPaid`, the helper the
+     Sale page's Paid on box uses) / **Not yet** / **Open the sale**.
+  8. **"Ready now?" unanswered** → **They're ready** / **Remove them**
+     (`removeForNoReadyAnswer`) / **Wait longer**; **recent removals** → **Keep it** / **Undo**.
 
 ### "Check account health"
 One look at whether her program is safe and working: her KennelOS account and this device,

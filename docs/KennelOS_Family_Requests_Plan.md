@@ -436,5 +436,5 @@ Every decision is made; the plan is ready to build in the order below.
 7. Kels: Review my waitlist picks these up in step 1 (extras, pickup times, own-address
    pickups, with their follow-ups: training stays, boarding, a leftover transport fee, the
    transport options email) and step 2 (backing out, with the items and the pup back);
-   extras payments due in step 7. Planned in `docs/KennelOS_Kels_Roadmap.md` §3.16 (its
-   questions decided 2026-11-01).
+   extras payments due in step 7. **Built 2026-11-01** (`docs/KennelOS_Kels_Roadmap.md`
+   §3.16; End-State guide §33 "Review my waitlist").

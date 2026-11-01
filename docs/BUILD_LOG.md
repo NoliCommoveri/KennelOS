@@ -2206,3 +2206,26 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `vet_summary` joins `syncRegistry.CLOUD_DOC_TYPES` (backed up like Health test). Kels menu
   card updated. Tests: `tests/dogCare.test.js`. Browser: a visit for two dogs with a PDF and
   $120 filed two vet summaries (separate files) beside the events and expenses.
+- **Kels: Review my waitlist (2026-11-01).** Roadmap §3.16, all of it (owner's choice over an
+  applicants-only slice). New `assets/waitlistReviewUI.js` (Pro, `proPages.js`) and shared
+  `data/waitlistReview.js` (`readNudgeKey`, `STEP_OF`, `REVIEW_STEPS`, `reviewSummary`,
+  `readinessProblems`, `outcomeReport`); both precached. Opens by checking the list is set up,
+  online and publishing, and her own form takes applications online, handing her to Set up
+  my waitlist / Set up my application form with buttons (asked by the owner), or Keep going.
+  Then "Here's what's waiting on you" and the eight steps (requests and messages; backing out
+  and any sale to cancel or void; offers past their deadline; picks to open; a turn to offer;
+  new applications; fees and extras payments due; "Ready now?" and removals), each item with
+  Skip for now, each step rechecked as it comes. Shared rather than copied: the items are
+  Today's waitlist nudges (`nudges.waitlistNudgeItems`, `extraDueItems`); Today's
+  overdue-offer report now comes from `outcomeReport`; the Sale page's Paid on box and Kels's
+  Paid share `extraCharges.stepWithPaidDate` / `chargesWithStepPaid`; the family page's
+  dialogs are reused (communicate, pick, deposit, sale prompts, restore). Added:
+  `waitlistActions.previewNextTurn`, `extendTurn`, `approveBackOut({ told })`, and
+  `nudgeState.snooze` / `snoozedUntil` (Today honours a snooze). Kels menu: "Review my
+  waitlist", priority 58 while anything waits. Tests: `tests/waitlistReview.test.js`. Driven
+  in the browser on the sample data plus seeded requests: readiness (not online), message
+  (Write back, Mark read), pause approved, a pass then the freed turn offered, more time,
+  open picks (joined the open turn) and snooze, an application approved then its fee
+  received, a back-out kept with the pup back, a sale voided (pup died). Not driven in the
+  browser: extra and pickup requests, own-address set-up, "Ready now?"/removals, extras due,
+  the pick/deposit dialogs.

@@ -265,6 +265,19 @@ const TASKS = [
     run: async (opts) => (await import('../assets/waitlistSetupUI.js')).runWaitlistSetupTask(chat, opts)
   },
   {
+    id: 'waitlist-review',
+    label: () => 'Review my waitlist',
+    sub: 'Requests, messages, backing out, offers and picks, applications and fees',
+    keywords: ['waitlist', 'review', 'applications', 'applicants', 'new applications', 'fees', 'fee received', 'deposits', 'picks', 'open picks',
+      'offers', 'turns', 'messages', 'backed out', 'back out', 'cancel a sale', 'void', 'pup died', 'refund', 'requests', 'extras', 'pickup',
+      'pickup time', 'transport', 'training stay', 'boarding', 'ready now', 'manage my waitlist'],
+    // Pro only (the waitlist); its script is Pro-only too, so it's imported on start.
+    available: () => editionFlags.waitlist,
+    // Up near the top while anything on the list is waiting on her, like Today's waitlist nudges.
+    priority: (s) => (s.waitlist?.waiting ? 58 : 26),
+    run: async (opts) => (await import('../assets/waitlistReviewUI.js')).runWaitlistReviewTask(chat, opts)
+  },
+  {
     id: 'form-setup',
     label: () => 'Set up my application form',
     sub: editionFlags.accounts ? 'Your questions, FAQ, the fee and how families pay' : 'Your questions, FAQ and the fee',
@@ -322,12 +335,13 @@ const TASKS = [
 const taskById = (id) => TASKS.find((t) => t.id === id);
 
 async function state() {
-  const [litters, prep, dogs, dogCare, tests] = await Promise.all([checkinState(), prepState(), dogRepo.getAll({ includeArchived: true }), dogCheckinState(), healthTestsState()]);
+  const [litters, prep, dogs, dogCare, tests, waitlist] = await Promise.all([checkinState(), prepState(), dogRepo.getAll({ includeArchived: true }), dogCheckinState(), healthTestsState(),
+    editionFlags.waitlist ? import('../assets/waitlistReviewUI.js').then((m) => m.reviewWaitlistState()).catch(() => null) : null]);
   return {
     pendingLitter: pendingLitterDraft(), pendingDogs: pendingDogsDraft(),
     pendingPeople: editionFlags.contactsSection ? pendingPeopleDraft(getGuidedPeopleDraft()) : null,
     pendingForm: editionFlags.waitlist ? pendingFormDraft(getGuidedFormDraft()) : null,
-    litters, prep, setup: { dogs }, dogs: dogCare, tests
+    litters, prep, setup: { dogs }, dogs: dogCare, tests, waitlist
   };
 }
 

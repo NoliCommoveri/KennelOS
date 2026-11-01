@@ -576,7 +576,21 @@ Puppy Record fields, now one copy), `kelsBackupSteps.cloudBackupOn`. **Decided:*
 its own; the first page after the first-run kennel setup (after the tour, or Start my
 kennel) shows a Meet Kels card whose **Try Getting Started** opens it.
 
-### 3.16 Review my waitlist: **M**, Pro (`waitlist`) — **Proposed, not decided**
+### 3.16 Review my waitlist: **M**, Pro (`waitlist`) — **Built**
+As built: End-State guide §33 ("Review my waitlist"); history in `docs/BUILD_LOG.md`.
+**Modified:** (1) it opens by checking there's something to review (asked by the owner):
+the list set up, online and publishing, her own form taking applications online; each gap
+is said, with a button that hands her to Set up my waitlist / Set up my application form,
+and **Keep going**. (2) The items are Today's own waitlist nudges, so their wording and
+one-tap actions are shared; the rest calls `waitlistActions`. (3) Three things it needed
+were added there rather than here: `previewNextTurn`, `extendTurn` ("Give them more time"),
+and `approveBackOut`'s `told` (a back-out with no request); and a snooze in `nudgeState`
+for "remind me in a few days". (4) Where the family page already has a dialog, it's used
+as is rather than redone in the chat (Write back and Ask a question: `communicateDialog`;
+They picked / The deposit came: `pickDialog` / `depositDialog`; the pup and the family's
+place after a sale ends: `salePrompts`, `restoreLostPupDialog`); every email is
+`offerEmails`, as on Today. (5) "Ask a question" is a note email (their status page shows
+it), not a separate message. The plan as first written:
 Her day-to-day waitlist work as one conversation, offered once a list is set up (priority
 high while anything is waiting on her, like the Today `waitlist-*` nudges). Every action is
 an existing `waitlistActions` call; the task adds no data. Each step is skipped when it has
