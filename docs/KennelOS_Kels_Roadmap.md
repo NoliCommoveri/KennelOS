@@ -630,8 +630,9 @@ Each step ends "Anything else here?" only where there can be more than one (as t
 preventatives loop does).
 - **Keywords:** waitlist, applications, fees, deposits, picks, offers, messages, turns,
   backed out, cancel a sale, void, pup died, refund.
-- **Open questions:** whether messages lead (proposed) or sit at the end; whether "remind me in a few days" on open picks moves `accept_deposits_date` or only
-  snoozes the nudge.
+- **Decided (2026-11-01):** messages and family requests lead (step 1); **Not yet, remind me
+  in a few days** on open picks only snoozes the `waitlist-open-picks` nudge (3 days) and
+  leaves `accept_deposits_date` as she planned it; **Change the date** is how she moves it.
 
 ## 4. Shared pieces
 

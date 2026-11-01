@@ -1803,3 +1803,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **Family Requests plan: every decision made (2026-11-01).** Asked by the owner: City / state
   is a locked, required application question while the home-distance rule is on (D17c); the
   rest follow the plan's recommendations (D3, D4b, D6, D8–D12, D15, D16, D17). Ready to build.
+- **Review my waitlist: open questions decided (2026-11-01).** On the owner's word ("use your
+  recommendations"): messages lead; "remind me in a few days" on open picks only snoozes.
+  This session's app change (the preventatives loop) rides `kennelos-shell-v88`.
