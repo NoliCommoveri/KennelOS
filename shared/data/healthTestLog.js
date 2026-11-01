@@ -70,3 +70,30 @@ export function testEvent({ dogId, name, type, date, result = '', lab = '' }) {
 export function unloggedPlanned(dog, events, tokensOf) {
   return testGapRows([dog], events.filter((e) => !e.is_archived), tokensOf)[0].missing;
 }
+
+// Each dog's completed tests as family pages show them (Waitlist: parents' health
+// tests): Map dogId → [{ name, result }], one row per test name (a retest replaces
+// the older result: the latest event_date wins), in the order first tested. A
+// result counts only when its type's result field is filled in; the name is the
+// test's name as eventRepo.testTokensOf reads it (OFA: Method + Joint, "OFA
+// Hips"), else the event title, as the Puppy Record names it. Archived events and
+// non-dog subjects are skipped. Never the lab, notes, dates or documents.
+export function completedTestsByDog(events = []) {
+  const latest = new Map(); // dogId → Map(nameKey → event)
+  const sorted = events
+    .filter((e) => e && !e.is_archived && e.subject_type === 'dog' && TEST_TYPES.includes(e.event_type))
+    .sort((a, b) => String(a.event_date || '').localeCompare(String(b.event_date || '')) || String(a.id).localeCompare(String(b.id)));
+  for (const e of sorted) {
+    const f = TEST_TYPE_FIELDS[e.event_type];
+    // eventRepo.testTokensOf's naming, kept here so this module stays pure.
+    const named = e.event_type === 'ofa_pennhip' ? [e.details?.method, e.details?.joint].filter(Boolean).join(' ') : e.details?.[f.name];
+    const name = String(named ?? '').trim() || String(e.title ?? '').trim();
+    const result = String(e.details?.[f.result] ?? '').trim();
+    if (!name || !result) continue;
+    const byName = latest.get(e.subject_id) || new Map();
+    const k = key(name);
+    byName.set(k, { name, result }); // a retest keeps the first test's place
+    latest.set(e.subject_id, byName);
+  }
+  return new Map([...latest].map(([id, byName]) => [id, [...byName.values()]]));
+}

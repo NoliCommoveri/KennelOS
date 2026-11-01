@@ -175,6 +175,10 @@ label.choice input { width: 20px; height: 20px; margin: 0; accent-color: var(--a
 details { border-top: 1px solid var(--border); padding: 10px 0; }
 details:first-child { border-top: 0; padding-top: 0; }
 summary { cursor: pointer; font-weight: 600; }
+/* A litter's parents' health testing, folded under its parents line. */
+details.parent-tests { border-top: 0; padding: 2px 0 0; }
+details.parent-tests > summary { font-weight: 500; color: var(--text-muted); }
+details.parent-tests ul.plain > li { padding: 4px 0; border-top: 0; }
 /* A card that opens and closes (the public list's See Your Details): the heading
    is the summary, with the browser's own expand arrow in front of it. */
 details.card.collapsible { border-top: 1px solid var(--border); padding: 16px; }

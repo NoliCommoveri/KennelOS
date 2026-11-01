@@ -2111,3 +2111,20 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   by the test's name field (OFA: Method + Joint) else the title. The field is now labelled
   **Health test results** (key `parentTests` unchanged, so saved picks keep). Checked in the
   browser on the sample data (Juniper's OFA Hips prints).
+- **Parents' health tests on waitlist family pages (2026-11-01, draft).** New Waitlist setting
+  `waitlist_config.parent_tests` (default off; Waitlist settings → Public list & family
+  pages, offered with the list online): every parent the family pages show (Coming up, a
+  planned heat's dam, Available Puppies, whelp notes, a turn's litters) carries `tests`
+  (`[{ name, result }]`), folded under the parents line as **Health testing**. Per-dog
+  override `Dog.waitlist_tests` (`PARENT_TESTS_ONLINE`: Always show / Never show; null =
+  follow), on the Dog page's Health-Test Summary card as **On family pages**. New pure
+  `healthTestLog.completedTestsByDog` (latest result per test name; OFA named Method + Joint;
+  never lab, notes or dates); the projection reads it through `showsParentTests`;
+  `cloudWaitlist` now also loads the three test event types. Worker: `familyPages.parentOf`
+  copies `tests` by name (80 characters, at most 20); `common.parentTestsHtml` + a few lines
+  of `family.css`. `waitlist_tests` classified `cloud` (a display choice the publishing
+  device must see); `cloudFields.js` regenerated. Waitlist Spec §8.1 gets a Modified row
+  (results readable on the server, public with the public list). No new files. Tests:
+  `tests/healthTestLog.test.js`, `tests/waitlistProjection.test.js`,
+  `tests/familyPages.test.js`, `cloud/tests/familyPages.test.js`. Needs a Worker deploy for
+  the family pages to show them.

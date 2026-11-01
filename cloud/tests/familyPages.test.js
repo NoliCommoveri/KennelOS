@@ -558,3 +558,16 @@ test('her expected prices reach a family\'s turn only, number by number', () => 
   assert.deepEqual(v.offers[0].prices, { by_registration: { limited: { male: 2800, female: null }, full: { male: 3800, female: 4500 } }, deposit: { male: 500, female: null } });
   assert.equal(JSON.stringify(v.litters).includes('3800'), false, 'not on the Available Puppies cards');
 });
+
+test('parents\' health tests: passed through as name + result, cleaned and capped; absent when none', () => {
+  const p = projection();
+  const many = Array.from({ length: 30 }, (_, i) => ({ name: `Test ${i}`, result: 'Clear', lab: 'secret-lab' }));
+  p.litters.l1.dam = { name: 'Juniper', titles: [], tests: [{ name: ' OFA Hips ', result: 'Good', date: '2026-01-01' }, { name: 'Blank', result: '' }, 'junk', { name: 'x'.repeat(200), result: 'Normal' }] };
+  p.litters.l1.sire = { name: 'Ash', titles: [], tests: many };
+  const card = listView(p).available[0];
+  assert.deepEqual(card.dam.tests, [{ name: 'OFA Hips', result: 'Good' }, { name: 'x'.repeat(80), result: 'Normal' }]);
+  assert.equal(card.sire.tests.length, 20);
+  assert.equal(JSON.stringify(card).includes('secret-lab') || JSON.stringify(card).includes('2026-01-01'), false);
+  p.litters.l1.dam = { name: 'Juniper', titles: [], tests: [] };
+  assert.equal('tests' in listView(p).available[0].dam, false);
+});

@@ -238,6 +238,14 @@ export const WAITLIST_READY_NO_ANSWER = [
   { value: 'remove_after', label: 'Wait, then remove them from the list' }
 ];
 
+// Dog.waitlist_tests: one parent's own say over whether its completed health
+// tests show on waitlist family pages, over Waitlist settings' `parent_tests`.
+// Unset (null) = follow the setting.
+export const PARENT_TESTS_ONLINE = [
+  { value: 'show', label: 'Always show' },
+  { value: 'hide', label: 'Never show' }
+];
+
 export const WAITLIST_PRIORITY = [
   { value: 'standard', label: 'Standard',        badge: 'badge-gray' },
   { value: 'ahead',    label: 'Ahead of standard', badge: 'badge-purple' }

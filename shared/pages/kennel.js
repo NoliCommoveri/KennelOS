@@ -452,12 +452,12 @@ ${group('passing', 'Passing & readiness', online ? 'Reasons families give, and "
           <label class="check-inline" style="margin-top:6px;"><input id="wl-pass-other" type="checkbox"${c.pass_other !== false ? ' checked' : ''}> Also offer "Other", with a box for their own words</label>
         </div>
 ${online ? readySettings(c) : ''}`)}
-      ${group('public', 'Public list & family pages', online ? 'Paused families, upcoming litters, Facebook, extras' : 'Paused families on the public list', `
+      ${group('public', 'Public list & family pages', online ? 'Paused families, upcoming litters, parents\' health tests, Facebook, extras' : 'Paused families on the public list', `
         <div class="field field-wide">
           <label class="check-inline"><input id="wl-show-paused" type="checkbox"${c.public_show_paused ? ' checked' : ''}> Show paused families on the public list</label>
           <span class="field-hint">They keep their number and show "Skipped until" the date their pause ends in place of what they want. Unticked, they're left off and their number is skipped. Applies to the list online and the list copied as text.</span>
         </div>
-${online ? upcomingSwitches(c) + facebookSettings(c) + extrasSettings(c) : ''}`)}
+${online ? upcomingSwitches(c) + parentTestsSetting(c) + facebookSettings(c) + extrasSettings(c) : ''}`)}
 ${group('messages', 'Messages to families', online ? '"Almost your turn" and the emails families get' : 'The "Almost your turn" message', `
         <div class="field field-wide"><label for="wl-soon-text">"Almost your turn" message</label>
           <textarea id="wl-soon-text" style="min-height:130px;">${esc(c.soon_notice_text || SOON_NOTICE_DEFAULT)}</textarea>
@@ -564,6 +564,16 @@ function upcomingSwitches(c) {
     </div>`;
 }
 
+// Parents' health tests on family pages (default off); each dog can override it
+// on its Health-Test Summary card (Dog.waitlist_tests).
+function parentTestsSetting(c) {
+  return `<div class="field field-wide">
+      <label class="check-inline"><input id="wl-parent-tests" type="checkbox"${c.parent_tests === true ? ' checked' : ''}> Show parents' health test results</label>
+      <span class="field-hint">Wherever family pages show a litter's parents (Coming up, Available Puppies, a family's turn), with a "Health testing" line under them: each completed test's name and result, the latest result when a test was repeated. Never the lab, dates, notes or documents. To show or hide one dog's results whatever this says, use "On family pages" on its Health-Test Summary card.</span>
+      <div class="inline-warn"><strong>The public list is open to anyone with its link:</strong> with Coming up or Available Puppies on the public list, these results are public too.</div>
+    </div>`;
+}
+
 // Her closed dates as removable chips (data-closed holds the date).
 function closedDateChips(dates) {
   return dates.length ? dates.map((d) => `<span class="badge badge-neutral" data-closed="${esc(d)}" style="margin:2px 4px 2px 0;">${esc(fmtDate(d))} <button type="button" class="btn btn-sm" data-act="closed-remove" aria-label="Remove ${esc(fmtDate(d))}" style="padding:0 6px;margin-left:4px;">✕</button></span>`).join('')
@@ -660,6 +670,7 @@ async function onSaveWaitlist() {
     waitlist_config.ready_no_answer = q('#wl-ready-rule').value;
     waitlist_config.ready_answer_days = num('#wl-ready-days');
   }
+  if (q('#wl-parent-tests')) waitlist_config.parent_tests = q('#wl-parent-tests').checked;
   if (els.config.querySelector('[data-wl-show]')) {
     const show = showUpcoming({});
     for (const b of els.config.querySelectorAll('[data-wl-show]')) {

@@ -52,6 +52,7 @@ export const SYNC_REGISTRY = Object.freeze({
       'color_markings', 'registry', 'registration_number', 'microchip_id', 'url',
       'planned_tests', 'disposition', 'dob_is_estimated', 'recorded_coi',
       'intended_registration', // Waitlist Spec §9
+      'waitlist_tests', // its say over its health tests on waitlist family pages; a display choice, read by whichever device publishes
       'pedigree_only' // without it a cloud restore would turn every ancestor into a kennel dog
     ],
     private: ['notes'],

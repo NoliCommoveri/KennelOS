@@ -34,7 +34,8 @@ export const CLOUD_FIELDS = {
         "sire_id",
         "status",
         "updated_at",
-        "url"
+        "url",
+        "waitlist_tests"
       ],
       "nested": {}
     },

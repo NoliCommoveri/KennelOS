@@ -184,7 +184,7 @@ export async function serveFamilyPage(request, env, url) {
 // A pairing or early litter as a page shows it (Spec §16.4): parents' call names
 // and titles, and her dates. A planned heat: its dam and the month (YYYY-MM), never
 // a day. Never where it shows or which dogs.
-// A parent as a page shows one: call name and titles.
+// A parent as a page shows one: call name and titles (parentOf, below).
 // Their pick (sent with the offer: it's no longer among the litter's available
 // pups), field by field, so their card can name it.
 function withPick(pups, o) {
@@ -194,7 +194,20 @@ function withPick(pups, o) {
   return [...pups, { id: d.id, call_name: s(d.call_name, 80) || '', sex: s(d.sex, 10), color: s(d.color, 80), registration: s(d.registration, 20) }];
 }
 
-const parentOf = (d) => ({ name: d?.name ?? '', titles: Array.isArray(d?.titles) ? d.titles : [] });
+// …and, where her device published them (her Waitlist setting or that dog's own
+// say), its completed health tests: a test's name and result, short strings only,
+// at most PARENT_TESTS_MAX. Absent when none.
+export const PARENT_TESTS_MAX = 20;
+function testsOf(list) {
+  if (!Array.isArray(list)) return [];
+  const s = (v) => (typeof v === 'string' ? v.trim().slice(0, 80) : '');
+  return list.filter((t) => t && typeof t === 'object').map((t) => ({ name: s(t.name), result: s(t.result) }))
+    .filter((t) => t.name && t.result).slice(0, PARENT_TESTS_MAX);
+}
+const parentOf = (d) => {
+  const tests = testsOf(d?.tests);
+  return { name: d?.name ?? '', titles: Array.isArray(d?.titles) ? d.titles : [], ...(tests.length ? { tests } : {}) };
+};
 
 // A litter's expected prices as her device published them, field by field: per
 // registration a male and a female price (the total), and the deposit for a male

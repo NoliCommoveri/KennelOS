@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { guessTestType, testTypeFor, testPrefill, testEvent, unloggedPlanned } from '../shared/data/healthTestLog.js';
+import { guessTestType, testTypeFor, testPrefill, testEvent, unloggedPlanned, completedTestsByDog } from '../shared/data/healthTestLog.js';
 import { testTokensOf } from '../shared/data/eventRepo.js';
 
 test('guessTestType: OFA / PennHIP, genetic, else breed-specific', () => {
@@ -56,4 +56,21 @@ test('unloggedPlanned: a result titled as the planned test counts even when Join
   const dog = { id: 'd1', planned_tests: ['OFA Patella', 'OFA Hips'] };
   const e = { subject_type: 'dog', subject_id: 'd1', event_type: 'ofa_pennhip', title: 'OFA Patella', details: { joint: 'Patella', rating: 'Grade 1' } };
   assert.deepEqual(unloggedPlanned(dog, [e], testMatchTokensOf), ['OFA Hips']);
+});
+
+test('completedTestsByDog: name and result only, a retest replaces the result in place, blanks and archived skipped', () => {
+  const ev = (id, dog, type, date, details, extra = {}) => ({ id, subject_type: 'dog', subject_id: dog, event_type: type, event_date: date, title: '', details, ...extra });
+  const m = completedTestsByDog([
+    ev('a', 'd1', 'ofa_pennhip', '2025-01-10', { joint: 'Hips', rating: 'Fair' }),
+    ev('b', 'd1', 'genetic_test', '2025-02-01', { panel_name: 'PRA-prcd', result: 'Clear', lab: 'OptiGen' }),
+    ev('c', 'd1', 'ofa_pennhip', '2026-01-10', { joint: 'hips', rating: 'Good' }),
+    ev('c2', 'd1', 'ofa_pennhip', '2026-01-12', { method: 'OFA', joint: 'Elbows', rating: 'Normal' }),
+    ev('d', 'd1', 'breed_specific_test', '2026-02-01', { test_name: 'CAER' }), // no result yet
+    ev('e', 'd1', 'breed_specific_test', '2026-03-01', { result: 'Normal' }, { title: 'BAER Hearing' }), // name from the title
+    ev('f', 'd1', 'genetic_test', '2026-04-01', { panel_name: 'DM', result: 'Carrier' }, { is_archived: true }),
+    ev('g', 'd2', 'title_earned', '2026-01-01', { title_abbreviation: 'CH' }),
+    { ...ev('h', 'd2', 'ofa_pennhip', '2026-01-01', { joint: 'Elbows', rating: 'Normal' }), subject_type: 'litter' }
+  ]);
+  assert.deepEqual(m.get('d1'), [{ name: 'hips', result: 'Good' }, { name: 'PRA-prcd', result: 'Clear' }, { name: 'OFA Elbows', result: 'Normal' }, { name: 'BAER Hearing', result: 'Normal' }]);
+  assert.equal(m.has('d2'), false);
 });

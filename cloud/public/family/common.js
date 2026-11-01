@@ -145,10 +145,21 @@ if (typeof document !== 'undefined') {
 // their titles, and her dates. Used by the public list and the status page.
 const parentText = (d) => [d?.name || '', ...(d?.titles || [])].filter(Boolean).join(' ');
 
-// "Dam: Juniper · Sire: Ash CH": a litter's parents, the same on every card.
+// The parents' completed health tests, where her device published them (her
+// Waitlist setting or a dog's own say): folded under "Health testing", a line per
+// parent ("Dam Juniper: Hips: Good · PRA-prcd: Clear"). '' when neither has any.
+export function parentTestsHtml(dam, sire) {
+  const rows = [['Dam', dam], ['Sire', sire]]
+    .filter(([, d]) => Array.isArray(d?.tests) && d.tests.length)
+    .map(([role, d]) => `<li><strong>${esc(role)} ${esc(d.name || '')}:</strong> ${d.tests.map((t) => `${esc(t.name)}: ${esc(t.result)}`).join(' · ')}</li>`);
+  return rows.length ? `<details class="small parent-tests"><summary>Health testing</summary><ul class="plain">${rows.join('')}</ul></details>` : '';
+}
+
+// "Dam: Juniper · Sire: Ash CH": a litter's parents, the same on every card, with
+// their health testing under it when shown.
 export function parentsLine(dam, sire) {
   if (!dam?.name && !sire?.name) return '';
-  return `<div class="small">Dam: ${esc(parentText(dam))} · Sire: ${esc(parentText(sire))}</div>`;
+  return `<div class="small">Dam: ${esc(parentText(dam))} · Sire: ${esc(parentText(sire))}</div>${parentTestsHtml(dam, sire)}`;
 }
 
 // One litter (or pairing) the same way everywhere a family sees one (decided
@@ -180,7 +191,7 @@ export const HEAT_DISCLAIMER = 'Heat dates are estimates: the month shown is app
 export function upcomingItemHtml(u, extra = '') {
   if (u.kind === 'planned_heat') {
     const month = fmtMonthYear(u.expected_month);
-    return litterHtml({ breed: u.breed, name: parentText(u.dam) || u.label, when: month ? `Upcoming heat · estimated around ${month}` : 'Upcoming heat', extra });
+    return litterHtml({ breed: u.breed, name: parentText(u.dam) || u.label, when: month ? `Upcoming heat · estimated around ${month}` : 'Upcoming heat', extra: parentTestsHtml(u.dam, null) + extra });
   }
   return litterHtml({ breed: u.breed, name: u.label, dam: u.dam, sire: u.sire, when: upcomingWhen(u), extra });
 }

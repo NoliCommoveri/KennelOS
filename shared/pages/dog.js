@@ -24,8 +24,9 @@ import {
   SEX, DOG_STATUS, DISPOSITION, OWNERSHIP_TYPE, PAIRING_TYPE, PAIRING_STATUS,
   REGISTRATION_TYPE, SALE_STATUS, STUD_SERVICE_DIRECTION, STUD_SERVICE_STATUS,
   LITTER_STATUS, LITTER_DELIVERY_TYPE, WHELPED_OR_LATER, EVENT_TYPES, descriptor, COI_METHOD_SUGGESTIONS, CONTRACT_TYPE, CONTRACT_STATUS,
-  SHOW_ENTRY_STATUS, TITLE_TRACKS
+  SHOW_ENTRY_STATUS, TITLE_TRACKS, PARENT_TESTS_ONLINE
 } from '../data/vocab.js';
+import { isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
 import { getShowRecord } from '../data/showPoints.js';
 import { esc, badge, fmtDate, fmtMoney, todayYMD, param, confirmModal, dogRefHtml } from '../assets/ui.js';
 import { priceForRegistrationChange } from '../data/saleDefaults.js';
@@ -1055,13 +1056,30 @@ async function renderHealthTestsSection(eventsP = null) {
       }).join('') + `</ul>`
     : `<p class="muted" style="margin:14px 0 0;">No health-test events recorded yet.</p>`;
 
+  // This dog's own say over its results on waitlist family pages (Dog.waitlist_tests),
+  // over Waitlist settings' "Show parents' health test results". A parent only:
+  // never a puppy. Saved as soon as it changes.
+  const onlineHtml = editionFlags.waitlist && isWaitlistOnlineOffered() && d.status !== 'puppy'
+    ? `<div class="field" style="margin-top:14px;"><label for="ht-online">On family pages</label>
+        <select id="ht-online"><option value="">Follow Waitlist settings</option>${PARENT_TESTS_ONLINE.map((o) => `<option value="${esc(o.value)}"${d.waitlist_tests === o.value ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}</select>
+        <span class="field-hint">Whether this dog's completed test names and results show under its name where your online waitlist shows its litters. Follow = Waitlist settings → Public list &amp; family pages → "Show parents' health test results".</span></div>`
+    : '';
+
   const bodyHtml = `
     <p class="field-hint">Recorded genetic, OFA/PennHIP, and breed-specific test results for this dog — a read-only view of what's been logged. Add or edit these in the Event History below.</p>
-    ${rowsHtml}`;
+    ${rowsHtml}${onlineHtml}`;
 
   const hasContent = tests.length > 0;
   els.healthTests.innerHTML = renderCollapsibleCard('Health-Test Summary', bodyHtml, '', { sectionKey: 'health-tests', hasContent });
   setupCollapsibleCard('health-tests');
+  els.healthTests.querySelector('#ht-online')?.addEventListener('change', async (ev) => {
+    try {
+      ctx.original = await dogRepo.update(d.id, { waitlist_tests: ev.target.value || null });
+    } catch (err) {
+      ev.target.value = ctx.original.waitlist_tests || '';
+      showError(err.message || String(err));
+    }
+  });
 }
 
 // Derived "Show record" card (Show Tracking Spec §5.1, Pro-only): progress
