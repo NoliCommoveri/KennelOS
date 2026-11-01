@@ -3,7 +3,7 @@
 > **Status: draft, nothing built.** Asked by the owner (2026-10-31). Families whose pup is
 > picked can ask for extras (photo and training packages), book a pickup time and place, see
 > her transport suggestions, and tell her they're backing out, all from their status page.
-> Decisions are in §8 (D1, D2, D4, D5, D7 and D13 decided 2026-11-01; D3, D4b, D6, D8–D12, D14–D16 open); nothing is
+> Decisions are in §8 (D1, D2, D4, D5, D7, D13 and D14 decided 2026-11-01; D3, D4b, D6, D8–D12, D15, D16 open); nothing is
 > built until the rest are answered.
 
 ## 1. Where things are now
@@ -258,6 +258,30 @@ The request shows the working: "340 miles one way × 2 (round trip) = 680 × $1.
     types **REFUND**. Her deposit policy (above) can't make it the suggested outcome.
 - The family sees the result on their page and gets an email (her template).
 
+### 7.2 Approving a back-out: she ticks what goes
+
+Approve opens one confirm listing everything tied to that pup's sale, each with a tick box:
+- **Extras**, with where each stands: "Puppy training: 50% paid, 50% due Nov 21",
+  "Photo package: not started". **Ticked to remove** only when nothing on it is paid and its
+  work hasn't started; anything paid or marked done starts **unticked (kept)**, since she's
+  owed it. Each extra gets a **Done** tick on the Sale page (`completed_date`) so she can mark
+  work finished, e.g. two weeks of training already given.
+- **A boarding stay** not started yet: ticked to remove. One under way or finished: unticked.
+- **A booked drop-off or pickup time**: ticked to remove (the time slot opens again).
+
+What a **kept** extra means after the sale is cancelled:
+- It stays on the sale with its payment steps, still **owed**: invoiceable from the Sale page,
+  with its `extra-due` reminder, and counted as anticipated income until paid. (Today a
+  cancelled sale drops everything unpaid; a kept extra is the exception, marked
+  `kept_after_cancel` by this confirm.)
+- With **Move the deposit**, kept extras stay on the old sale (that pup's work), never move to
+  the next pup's sale; the confirm says so.
+- With **Refund** (voided), a kept extra is still owed the same way, the one exception to a
+  voided sale counting nothing.
+
+The confirm ends with the outcome she chose ("Cancel the sale, keep the $500 deposit, keep
+Puppy training (50% still due), remove the drop-off on Dec 2") and **Approve**.
+
 ### 7.1 Moving a deposit: reopen their entry, not a new application
 
 Reasoning for reopening the family's existing entry (`placed` → `active`) rather than a new
@@ -301,6 +325,8 @@ new fee, the usual path) when she'd rather start over.
   (a public place) is held on the server to measure from (§5).
 - **D7. Moved deposit, place in line. Decided (2026-11-01): the end of the line**, on their
   existing entry, reopened (§7.1).
+- **D14. What approving a back-out also undoes. Decided (2026-11-01): she ticks which go**
+  (§7.2), since some extras are already done and still owed.
 - **D13. A refund on the books. Decided (2026-11-01):** the sale is voided ("Buyer backed out,
   refunded"), behind **More options…** and a typed confirm, since she doesn't plan to use it
   (§7).
@@ -341,9 +367,6 @@ new fee, the usual path) when she'd rather start over.
   (+ days), before pickup, with the balance: **proposed all four**; (b) the plan set per
   extra with a group default, as D3 (**proposed**); (c) the `extra-due` reminder from **7
   days** before.
-- **D14. What Approve on a back-out also undoes.** Their extras and any boarding stay or
-  drop-off booked for that pup: (a) removed with the same tap, listed in the confirm so she
-  sees them (**proposed**); (b) left for her to clean up; (c) she ticks which go.
 - **D15. A family's own address, saved?** The address is in the request she approves (she
   needs it for the drop-off event's location). (a) Kept on the request and the drop-off event
   only (**proposed**); (b) also added to their contact record.

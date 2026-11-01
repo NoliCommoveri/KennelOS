@@ -1793,3 +1793,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   refund on a back-out voids the sale but sits under More options with a typed confirm; extras
   get payment plans (percent steps due at an age, on approval, before pickup or with the
   balance), each step its own invoice line and income part, with an `extra-due` reminder.
+- **Family Requests plan: D14 decided (2026-11-01).** Asked by the owner: approving a back-out
+  lists the pup's extras, boarding and drop-off with tick boxes; paid or finished extras start
+  kept and stay owed (invoiceable, reminded, anticipated income) on the cancelled sale.
