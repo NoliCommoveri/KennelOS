@@ -374,9 +374,10 @@ new fee, the usual path) when she'd rather start over.
   estimate (§5).
 - **D6. Training ↔ boarding link. Decided (2026-11-01):** stored on the boarding event
   (`details.sale_id`, `details.extra_charge_id`); the sale finds its stays by query (§6).
-- **D8. Transport suggestions. Decided (2026-11-01):** her recommended list's **Getting your
-  pup home** group, always shown to families with a picked pup under its own heading, and
-  pulled into the transport options email.
+- **D8. Transport suggestions. Decided (2026-11-01):** a **Getting your pup home** list,
+  always shown to families with a picked pup under its own heading, and pulled into the
+  transport options email. **Modified (built):** "her recommended list" is her Accounts marked
+  Share with families, so the list is her accounts of the new **Transport** type.
 - **D9. Edition. Decided (2026-11-01):** Pro only (it needs the online waitlist).
 - **D10. Pickup times. Decided (2026-11-01):** per litter, with **Copy to another litter**;
   1 family per time by default (her choice per time); changes up to 2 days before (her
@@ -405,7 +406,10 @@ Every decision is made; the plan is ready to build in the order below.
 
 1. Price list groups, windows, `family_can_request`, boarding days and payment plans (her
    side only; no server). **Built 2026-11-01** (guide §21.2).
-2. Transport suggestions on the status page (D8: smallest server change).
+2. Transport suggestions on the status page (D8: smallest server change). **Built
+   2026-11-01** (guide §32 "Shared with families"): her recommended list is her Accounts
+   marked Share with families, so transport is a new account type, **Transport (flight nanny,
+   ground)**, shown under Getting your pup home and never with her recommended products.
 3. Extra requests and cancellations (status page, pending events, Approve), with payment
    plans, part-payment invoices and the `extra-due` reminder.
 4. Training packages ↔ boarding.

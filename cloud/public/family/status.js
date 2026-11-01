@@ -538,6 +538,19 @@ function recommendedHtml() {
   return card('Recommended for your puppy', `<ul class="plain">${items}</ul>`);
 }
 
+// Getting your pup home (Family Requests plan D8): her flight nannies and ground
+// transporters, for a family whose pup is picked (the server sends them only then).
+function transportHtml() {
+  const list = state.v.kennel.transport || [];
+  if (!list.length) return '';
+  const items = list.map((t) => `<li class="mt8">
+      <div><strong>${esc(t.name)}</strong></div>
+      ${t.notes ? `<p class="small mt0 pre">${esc(t.notes)}</p>` : ''}
+      ${t.link ? `<div class="small"><a href="${esc(t.link)}" target="_blank" rel="noopener noreferrer">Visit their website</a></div>` : ''}
+    </li>`).join('');
+  return card('Getting your pup home', `<p class="small muted mt0">If you live too far to pick up your puppy, these are the transport options our families have used.</p><ul class="plain">${items}</ul>`);
+}
+
 // "Message us on Facebook" (Waitlist Spec §11), when she switched it on: a link
 // to her own Page in Messenger. Nothing about it comes back here.
 function messengerHtml() {
@@ -568,6 +581,7 @@ function mineHtml() {
   if (!['applied', 'approved', 'active'].includes(f.status)) {
     parts.push(card('', `<p class="mt0">${closedText(f.status, kennel)}</p>`));
     parts.push(companionHtml(f));
+    parts.push(transportHtml());
     parts.push(recommendedHtml());
     parts.push(emailsHtml());
     return parts.join('');
@@ -601,6 +615,7 @@ function mineHtml() {
 
   for (const rows of turnsOf(v.offers)) parts.push(turnHtml(rows));
   parts.push(companionHtml(f));
+  parts.push(transportHtml());
   parts.push(readyHtml(f));
 
   if (f.status === 'active') {

@@ -1816,3 +1816,11 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   keeps the rest) and `readChargeGroups`. The Sale page's extra charge picker groups them.
   Sample data gains Photo packages and Training groups. Stored only for now; family requests
   use them from step 3. Rides `kennelos-shell-v88`. Checked in the browser at phone width.
+- **Family Requests step 2: Getting your pup home (2026-11-01).** A new account type,
+  Transport (flight nanny, ground). Shared transport accounts (`referralShare.sharedTransport`:
+  name, link or website, notes) go in the waitlist projection as `kennel.transport`, separate
+  from recommended products; the Worker (`familyPages.transportOf`) shows them only to a family
+  with an open sale, as a Getting your pup home card on the status page. The account form's
+  share hint and the card's badge follow the type. Tests in `tests/referralShare.test.js` and
+  `cloud/tests/familyPages.test.js`; the card checked in the browser with a mocked response.
+  Needs a Worker deploy for the status page.

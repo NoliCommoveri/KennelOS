@@ -148,6 +148,10 @@ export const ACCOUNT_TYPE = [
   // Stripe key (Integrations plan §4), and the only one offered as "paid via" for
   // a sale's deposit or balance, or a waitlist application fee.
   { value: 'payment_service', label: 'Payment service', badge: 'badge-green' },
+  // Flight nannies and ground transporters (Family Requests plan D8): shared with
+  // families, they show under "Getting your pup home" on the status page of a
+  // family with a picked pup, never with her recommended products.
+  { value: 'transport',   label: 'Transport (flight nanny, ground)', badge: 'badge-blue' },
   { value: 'other',       label: 'Other',               badge: 'badge-gray' }
 ];
 

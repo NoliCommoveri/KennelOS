@@ -271,6 +271,19 @@ export function recommendedOf(projection) {
   })).filter((r) => r.name && (r.link || r.code));
 }
 
+// Her transport suggestions (Family Requests plan D8): flight nannies and ground
+// transporters, as her device published them: a name, a web link (only a web
+// address) and notes; at most 20. Shown only to a family with an open sale.
+export function transportOf(projection) {
+  const list = Array.isArray(projection.kennel?.transport) ? projection.kennel.transport : [];
+  const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+  return list.slice(0, 20).map((t) => ({
+    name: str(t?.name, 120),
+    link: typeof t?.link === 'string' && REC_LINK.test(t.link) ? t.link : '',
+    notes: str(t?.notes, 1000),
+  })).filter((t) => t.name && (t.link || t.notes));
+}
+
 // Her application fee paid online (docs/KennelOS_Integrations_Plan.md §4): the
 // Pay link her device published, a web address only, with this family's id added
 // as Stripe's client_reference_id when it's a Stripe link (so her device can tell
@@ -317,6 +330,9 @@ export function statusView(projection, entryId) {
   if (recommended.length) kennel.recommended = recommended;
   // Their Companion link request: only with an open sale, placed families too.
   if (e.companion) family.companion = e.companion;
+  // Getting your pup home: only for a family with an open sale (their pup is picked).
+  const transport = e.companion?.available ? transportOf(projection) : [];
+  if (transport.length) kennel.transport = transport;
   if (!OPEN_STATUSES.includes(e.status)) return { kennel, as_of: projection.as_of ?? null, family, offers: [], litters: [], upcoming: [], public_list: [] };
 
   for (const k of ['applied_date', 'approved_date', 'position', 'prefs', 'paused_until', 'ready_from', 'listen', 'passes', 'fee_received_date', 'fee_paid_online', 'fee_due', 'requests', 'prepasses', 'place_hidden', 'pref_places', 'spent_litter_ids', 'whelp_notes', 'ready_check', 'private_name']) {

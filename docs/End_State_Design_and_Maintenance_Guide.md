@@ -1908,6 +1908,15 @@ the Worker's `familyPages.recommendedOf`), the go-home **follow-up** nudge (§19
 **Send a thank-you** on a Contact. Sending is always hers through
 `assets/messageComposer.js` (`mailto:` / `sms:` / copy); nothing goes to a server.
 
+**Transport accounts** (`account_type: 'transport'`: flight nannies, ground transporters) are
+never products: `sharedReferrals` leaves them out, and `referralShare.sharedTransport` gives
+the shared ones as `{ name, link, notes }` (the referral link, else the website as a web
+address; the instructions as notes; a name and a link or notes needed). The waitlist
+projection carries them as `kennel.transport`; the Worker (`familyPages.transportOf`, cleaned
+like `recommendedOf`) shows them only to a family whose entry has an open sale
+(`entry.companion`), as **Getting your pup home** on their status page. The account form's
+Share with families hint and the card's badge say so for this type.
+
 ### Contract forms and e-signature (plan §2.1)
 - A **Form service** account (`form_service`, e.g. Jotform) holds `contract_forms[]`
   (`{ id, form_type, label, url, form_id?, field_map? }`; types from

@@ -391,6 +391,28 @@ async function publishedWith(kennelExtra) {
   return env;
 }
 
+// --- Getting your pup home (docs/KennelOS_Family_Requests_Plan.md D8) -------------------
+
+test('transport suggestions show only to a family with an open sale, cleaned', async () => {
+  const env = await makeEnv({ ASSETS: assets });
+  const s = await breeder(env);
+  const p = projection();
+  p.kennel.transport = [
+    { name: 'Sky Paws', link: 'https://skypaws.example.com', notes: 'Call Jo at 555-0100.', extra: 'dropped' },
+    { name: 'Sneaky', link: 'javascript:alert(1)', notes: '' },
+    { name: 'Road Trip Pups', link: 'javascript:alert(1)', notes: 'Ground, Texas only' },
+  ];
+  p.entries.cy.companion = { available: true, request: null };
+  assert.equal((await call(env, 'PUT', `/waitlist/projection/${KENNEL}`, { token: s.token, body: { projection: p } })).status, 200);
+  const cy = await (await get(env, `/f/status/${tok('c')}`)).json();
+  assert.deepEqual(cy.kennel.transport, [
+    { name: 'Sky Paws', link: 'https://skypaws.example.com', notes: 'Call Jo at 555-0100.' },
+    { name: 'Road Trip Pups', link: '', notes: 'Ground, Texas only' },
+  ], 'a non-web link is dropped, one with nothing left goes, unknown fields never pass');
+  const ann = await (await get(env, `/f/status/${tok('a')}`)).json();
+  assert.equal('transport' in ann.kennel, false, 'no open sale: not shown');
+});
+
 test('the form and list can be framed only while she has embedding on, and only by the sites she listed', async () => {
   const off = await publishedWith({});
   assert.equal(ancestors(await get(off, `/apply/${KENNEL}`)), "'none'", 'off by default');

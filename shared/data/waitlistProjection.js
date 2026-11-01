@@ -29,7 +29,7 @@ import { addDaysToYMD } from './dateUtils.js';
 import { WAITLIST_OPEN_STATUSES, isOpenSale } from './vocab.js';
 import { formQuestions, formFaq, matchingPrefKeys, MATCHING_NOTICE } from './waitlistForm.js';
 import { serverEmailTemplates } from './waitlistEmails.js';
-import { sharedReferrals } from './referralShare.js';
+import { sharedReferrals, sharedTransport } from './referralShare.js';
 import { feePay, withClientRef } from './waitlistFeePay.js';
 
 export const PROJECTION_FORMAT = 1;
@@ -408,6 +408,10 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
       // Her referral links marked "Share with families" (Integrations plan §3), for
       // every family's status page: name, link, code, instructions; none = absent.
       ...(sharedReferrals(accounts).length ? { recommended: sharedReferrals(accounts) } : {}),
+      // Her Transport accounts marked "Share with families" (Family Requests plan
+      // D8): name, link, notes. The server shows them only to a family with an
+      // open sale (entry.companion); none = absent.
+      ...(sharedTransport(accounts).length ? { transport: sharedTransport(accounts) } : {}),
       ...(applyPay ? { fee_pay: { url: applyPay.url, amount: applyPay.amount, ref_param: applyPay.stripe, instructions: config.payment_instructions || '' } } : {})
     },
     // Unmasked: the server shows "Currently deciding" for whoever holds a turn when
