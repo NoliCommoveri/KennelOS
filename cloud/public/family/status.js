@@ -174,8 +174,9 @@ const REG_LABEL = { limited: 'Limited registration', full: 'Full registration', 
 // includes her surcharge; the page never splits it out). Whole dollars unless she
 // priced in cents.
 const price = (n) => (Number.isInteger(n) ? `$${n.toLocaleString('en-US')}` : money(n));
-function priceLine(p) {
+function priceLine(p, sex = null) {
   if (!p) return '';
+  if (sex) return p[sex] != null ? `<p class="small mt0 price">Price: ${esc(price(p[sex]))}</p>` : '';
   const parts = [p.male != null ? `Males ${price(p.male)}` : '', p.female != null ? `Females ${price(p.female)}` : ''].filter(Boolean);
   return parts.length ? `<p class="small mt0 price">${esc(parts.join(' · '))}</p>` : '';
 }
@@ -195,6 +196,9 @@ function turnHtml(rows) {
   const chosen = picked?.picked_dog_id || sentPick?.payload.dog_id || null;
   const actOn = canAct() && !chosen && !sentPass;
   const several = rows.length > 1;
+  // Once they've picked, the card shows just their pick (the rest can't be chosen now).
+  const mineOnly = chosen && !sentPass ? rows.filter((o) => o.pups.some((d) => d.id === chosen)).map((o) => ({ ...o, pups: o.pups.filter((d) => d.id === chosen) })) : [];
+  if (mineOnly.length) rows = mineOnly;
   const pupButtons = (o, pups) => `<div class="pups">${pups.map((d) => {
       const label = `${esc(d.call_name)} · ${esc(SEX_LABEL[d.sex] || '')}${d.color ? ` · ${esc(d.color)}` : ''}`;
       const yours = d.id === chosen ? ' <span class="badge">Your pick</span>' : '';
@@ -217,18 +221,38 @@ function turnHtml(rows) {
     const order = ['limited', 'none', 'co_own', 'full'].filter((r) => groups.has(r));
     const sectioned = order.length > 1 || groups.has('full');
     const d = o.prices.deposit || {};
-    const deposit = [d.male != null ? `Males ${price(d.male)}` : '', d.female != null ? `Females ${price(d.female)}` : ''].filter(Boolean);
+    // Their pick alone: its own sex's price and deposit.
+    const only = o.pups.length === 1 && o.pups[0].id === chosen ? o.pups[0].sex : null;
+    const deposit = only ? (d[only] != null ? [price(d[only])] : [])
+      : [d.male != null ? `Males ${price(d.male)}` : '', d.female != null ? `Females ${price(d.female)}` : ''].filter(Boolean);
     // The deposit is the same whatever the registration: once per litter, under the
     // price when there's one price line, above the sections when there are several.
-    const depositLine = deposit.length ? `<p class="small mt0 muted">Deposit: ${esc(deposit.join(' · '))}</p>` : '';
-    if (!sectioned) return `${priceLine(prices[order[0]])}${depositLine}${pupButtons(o, groups.get(order[0]))}`;
+    // (Their pick's deposit is in the Sending your deposit block below instead.)
+    const depositLine = deposit.length && !only ? `<p class="small mt0 muted">Deposit: ${esc(deposit.join(' · '))}</p>` : '';
+    if (!sectioned || only) return `${priceLine(prices[order[0]], only)}${depositLine}${pupButtons(o, groups.get(order[0]))}`;
     return depositLine + order.map((reg) => `<p class="small mt8"><strong>${esc(REG_LABEL[reg])}</strong></p>${priceLine(prices[reg])}${pupButtons(o, groups.get(reg))}`).join('');
   };
   const chosenName = rows.flatMap((o) => o.pups).find((d) => d.id === chosen)?.call_name || 'a pup';
+  const respondBy = rows.map((o) => o.respond_by_date || '').sort().reverse()[0];
+  // Once they've picked: what to send, by when, and how (her payment instructions),
+  // until her deposit request (contract, invoice) reaches them.
+  const depositBlock = () => {
+    const o = rows.find((r) => r.picked_dog_id) || rows.find((r) => r.id === sentPick?.payload.offer_id) || rows[0];
+    const pup = rows.flatMap((r) => r.pups).find((d) => d.id === chosen);
+    const amount = o.deposit_amount ?? (pup && o.prices?.deposit ? o.prices.deposit[pup.sex] ?? null : null);
+    const deadline = deadlineText(respondBy, v.kennel.time_zone);
+    return `<div class="deposit-block">
+        <h3>Sending your deposit</h3>
+        ${amount != null ? `<p class="big mt0">${esc(price(amount))}</p>` : ''}
+        ${deadline ? `<p class="mt0"><strong>${esc(deadline)}</strong></p>` : ''}
+        ${o.deposit_instructions ? `<p class="small muted mt8">How to pay:</p><p class="pre mt0 small">${esc(o.deposit_instructions)}</p>` : ''}
+        <p class="small muted">${esc(kennel)} will also send your contract and invoice.</p>
+      </div>`;
+  };
   let next;
   if (sentPass) next = `<p>You passed on ${several ? 'all of these' : 'this litter'}. ${waiting(kennel)}</p>`;
-  else if (sentPick && !picked) next = `<p>You chose ${esc(chosenName)}. ${waiting(kennel)} Send your deposit by the deadline to keep them.</p>`;
-  else if (picked) next = '<p>You picked a pup. Send your deposit by the deadline to keep them.</p>';
+  else if (sentPick && !picked) next = `<p>You chose ${esc(chosenName)}. ${waiting(kennel)} Your selection isn't final until they receive your deposit.</p>${depositBlock()}`;
+  else if (picked) next = `<p>You chose ${esc(chosenName)}. Your selection isn't final until ${esc(kennel)} receives your deposit.</p>${depositBlock()}`;
   else if (actOn && state.open === `pass:${turnId}`) {
     const p = v.family.passes;
     next = reasonForm('pass', `Pass on this turn?${p ? ` You've used ${esc(p.used)} of ${esc(p.max)} passes; this may count as one.` : ''}`,
@@ -239,13 +263,13 @@ function turnHtml(rows) {
     next = `<div class="actions mt8"><button type="button" class="pass" data-act="open" data-what="pass:${esc(turnId)}">Pass on turn</button></div>
       ${p ? `<p class="small muted mt0">${esc(p.used)} of ${esc(p.max)} passes used</p>` : ''}`;
   } else next = signedIn() ? '' : `<p>Sign in at the top of the page to choose a pup or pass, or contact ${esc(kennel)}.</p>`;
-  const respondBy = rows.map((o) => o.respond_by_date || '').sort().reverse()[0];
+  const showsDeadline = Boolean(chosen && !sentPass);
   return openCard('The wait is over!', `
-    <p class="mt0">Below are the puppies available for selection.</p>
+    <p class="mt0">${mineOnly.length ? 'Your pick:' : 'Below are the puppies available for selection.'}</p>
     ${rows.some((o) => o.prices) ? '<p class="small muted mt0">Listed prices are intended base purchase price and may not include additional fees; all prices are subject to change prior to contract signing.</p>' : ''}
     ${rows.map((o) => `<div class="turn-litter"><p class="mt0"><strong>${esc(o.litter)}</strong>${o.breed ? ` <span class="small muted">${esc(o.breed)}</span>` : ''}</p>${parentsLine(o.dam, o.sire)}${pupsOf(o)}</div>`).join('')}
     ${next}
-    ${respondBy ? `<p class="deadline"><strong>${esc(deadlineText(respondBy, v.kennel.time_zone))}</strong></p>` : ''}`, 'turn');
+    ${respondBy && !showsDeadline ? `<p class="deadline"><strong>${esc(deadlineText(respondBy, v.kennel.time_zone))}</strong></p>` : ''}`, 'turn');
 }
 
 // The family's offers as turns, oldest first.

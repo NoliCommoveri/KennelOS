@@ -2012,3 +2012,12 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   deposit (of $N, her listed deposit for that pup's sex when shown). Deadline to send the
   deposit: [the offer's respond-by date, from her days to accept and pay, as the turn card
   shows it]." Checked in the browser.
+- **Sending your deposit on the turn card (2026-11-01).** Asked by the owner: between a
+  family's pick and her deposit request they were told to send a deposit with no amount
+  or way to pay. Once they pick, the turn card shows just their pick (its price for its sex),
+  "Your selection isn't final until [kennel] receives your deposit", and a Sending your
+  deposit block: the deposit (on their sale, else her listed one), the deadline, her payment
+  instructions (already on their page for the fee), and that she'll send the contract and
+  invoice. Found while screenshotting: the picked pup dropped out of the card (it's no
+  longer available), so the offer now carries `picked_pup`. Payment links still come only in
+  her deposit request. Needs a Worker deploy. Checked in the browser.

@@ -256,3 +256,8 @@ html.embedded.theme-dark {
 /* A turn's heading and each litter's name, a couple of points larger. */
 .turn h2 { font-size: 1.3rem; }
 .turn .turn-litter > p:first-child strong { font-size: 1.15rem; }
+/* Sending your deposit (a turn card, once they've picked): set apart in the accent tint. */
+.turn .deposit-block { margin-top: 12px; padding: 14px; border-radius: var(--radius); background: var(--accent-soft); }
+.turn .deposit-block h3 { margin: 0 0 6px; font-size: 1.05rem; }
+.turn .deposit-block .big { font-size: 1.6rem; }
+.turn .deposit-block p:last-child { margin-bottom: 0; }

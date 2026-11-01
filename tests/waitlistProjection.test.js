@@ -98,7 +98,7 @@ test("a family on the list sees its place, prefs, passes and offers; nothing els
   assert.equal(e1.email, 'c-e1@example.com', "the contact's address wins over the application's");
   assert.equal(e1.fee_due, null, 'paid: no amount or instructions');
   assert.equal(e1.fee_received_date, '2026-02-11', 'fee received is readable (Q11)');
-  assert.deepEqual(e1.offers, [{ id: 'o1', turn_id: 'o1', litter_id: 'lit-1', offered_date: '2026-10-07', respond_by_date: '2026-10-10', eligible_dog_ids: ['p1', 'p2'], picked_dog_id: null }]);
+  assert.deepEqual(e1.offers, [{ id: 'o1', turn_id: 'o1', litter_id: 'lit-1', offered_date: '2026-10-07', respond_by_date: '2026-10-10', eligible_dog_ids: ['p1', 'p2'], picked_dog_id: null, deposit_instructions: 'Venmo @thornfield' }]);
   assert.deepEqual(p.entries.e2.passes, { used: 1, max: 2 });
   assert.equal(p.entries.e3.paused_until, '2026-12-01');
 });
@@ -384,4 +384,14 @@ test('a family\'s turn can show her expected prices and deposits: males and fema
   assert.equal(l.pups.find((d) => d.id === 'p2').registration, 'full');
   const off = buildProjection({ ...f, kennel: { ...f.kennel, waitlist_config: { ...(f.kennel.waitlist_config || {}), turn_prices: false } } });
   assert.equal('prices' in off.litters['lit-1'], false, 'switched off: not published');
+});
+
+test('a family who picked sees the deposit to send: on their sale, else her listed one for that pup', () => {
+  const f = fixture();
+  Object.assign(f.litters[0], { expected_deposit_male: 500, expected_deposit_female: 600 });
+  Object.assign(f.offers[0], { chosen_dog_id: 'p2', picked_date: '2026-10-08', sale_id: 's9' });
+  assert.equal(buildProjection(f).entries.e1.offers[0].deposit_amount, 600, 'no sale yet: her listed deposit for a female');
+  f.sales = [{ id: 's9', dog_id: 'p2', buyer_contact_id: 'c-e1', status: 'deposit_pending', deposit_amount: 750, kennel_id: K }];
+  assert.equal(buildProjection(f).entries.e1.offers[0].deposit_amount, 750, 'the deposit on their sale');
+  assert.deepEqual(buildProjection(f).entries.e1.offers[0].picked_pup, { id: 'p2', call_name: 'p2', sex: 'female', color: 'black', registration: null }, 'their pick, as a family may see a pup');
 });

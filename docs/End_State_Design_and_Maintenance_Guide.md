@@ -1748,7 +1748,14 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   any pup is planned for Full registration, its pups in sections by registration, each with
   its own prices and the deposit once above them; under "Listed prices are intended base
   purchase price and may not include additional fees; all prices are subject to change
-  prior to contract signing." Published pups carry `registration` (`intended_registration`). One sign-in acts on any of
+  prior to contract signing." Published pups carry `registration` (`intended_registration`).
+  Each open offer carries `deposit_instructions` (her `payment_instructions`) and, once
+  picked, `deposit_amount` (the sale's deposit, else her listed one: `depositFor`) and
+  `picked_pup` (the Worker adds it to the offer's pups: it's no longer available). After a
+  pick the turn card shows only that pup (its own price), "You chose [pup]. Your selection
+  isn't final until [kennel] receives your deposit.", and a **Sending your deposit** block
+  (amount, deadline, how to pay, "[kennel] will also send your contract and invoice").
+  The "Choose [pup]?" dialog says the same before they confirm. One sign-in acts on any of
   them (`familyFor` allows the page's entry when it shares the session entry's email;
   the action goes to the page's entry).
 - **Online form:** a form key per kennel (`waitlist_form_keys`, private;

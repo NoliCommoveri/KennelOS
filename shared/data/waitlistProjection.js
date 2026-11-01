@@ -226,7 +226,14 @@ function entryView(entry, ctx) {
         offered_date: orNull(o.offered_date),
         respond_by_date: orNull(o.respond_by_date),
         eligible_dog_ids: [...(o.eligible_dog_ids || [])],
-        picked_dog_id: orNull(o.chosen_dog_id)
+        picked_dog_id: orNull(o.chosen_dog_id),
+        // Sending the deposit (their turn card, once they pick): her payment
+        // instructions (already on their page for the fee), and the deposit on the
+        // sale their pick made, else her listed deposit for that pup.
+        deposit_instructions: ctx.config.payment_instructions || '',
+        // Their pick as a family may see it (it's no longer among the litter's
+        // available pups, so it comes with the offer).
+        ...(o.chosen_dog_id ? { deposit_amount: ctx.depositFor(o), picked_pup: ctx.pickedPup(o.chosen_dog_id) } : {})
       }))
   });
   return view;
@@ -412,6 +419,16 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
     // Each record's own pup's sale (familySale): a family back on the list for a
     // second pup gets its first pup's cards only on that pup's record.
     saleFor: (entry) => familySale(entry, sales, kennelOffers, live),
+    pickedPup: (id) => (dogsById.get(id) ? publicPup(dogsById.get(id)) : null),
+    // The deposit for a family's pick: on its sale, else her listed one for the pup.
+    depositFor: (o) => {
+      const sale = o.sale_id ? sales.find((x) => x.id === o.sale_id) : null;
+      const num = (v) => (v === '' || v == null || !Number.isFinite(Number(v)) ? null : Number(v));
+      if (num(sale?.deposit_amount) != null) return num(sale.deposit_amount);
+      const dog = dogsById.get(o.chosen_dog_id);
+      const litter = dog?.litter_id ? litters.find((l) => l.id === dog.litter_id) : null;
+      return num(expectedPricing(dog, litter).deposit_amount);
+    },
     // The pup this record is about: the one it was placed with (even once home),
     // else its own open sale's (a pick awaiting the deposit). A call name only.
     // Where this record stands, in the family's terms, for the list of their

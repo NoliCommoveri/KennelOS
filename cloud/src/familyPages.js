@@ -184,6 +184,15 @@ export async function serveFamilyPage(request, env, url) {
 // A pairing or early litter as a page shows it (Spec §16.4): parents' call names
 // and titles, and her dates. Never where it shows or which dogs.
 // A parent as a page shows one: call name and titles.
+// Their pick (sent with the offer: it's no longer among the litter's available
+// pups), field by field, so their card can name it.
+function withPick(pups, o) {
+  const d = o.picked_pup;
+  if (!o.picked_dog_id || !d || d.id !== o.picked_dog_id || pups.some((x) => x.id === d.id)) return pups;
+  const s = (v, n) => (typeof v === 'string' ? v.slice(0, n) : null);
+  return [...pups, { id: d.id, call_name: s(d.call_name, 80) || '', sex: s(d.sex, 10), color: s(d.color, 80), registration: s(d.registration, 20) }];
+}
+
 const parentOf = (d) => ({ name: d?.name ?? '', titles: Array.isArray(d?.titles) ? d.titles : [] });
 
 // A litter's expected prices as her device published them, field by field: per
@@ -471,7 +480,11 @@ export function statusView(projection, entryId) {
       offered_date: o.offered_date ?? null,
       respond_by_date: o.respond_by_date ?? null,
       picked_dog_id: o.picked_dog_id ?? null,
-      pups: (l.pups || []).filter((d) => eligible.has(d.id) || d.id === o.picked_dog_id),
+      // Sending the deposit: her payment instructions, and once they've picked, the
+      // deposit on their sale (or her listed one).
+      deposit_instructions: typeof o.deposit_instructions === 'string' ? o.deposit_instructions.slice(0, 1000) : '',
+      deposit_amount: typeof o.deposit_amount === 'number' && Number.isFinite(o.deposit_amount) && o.deposit_amount >= 0 ? o.deposit_amount : null,
+      pups: withPick((l.pups || []).filter((d) => eligible.has(d.id) || d.id === o.picked_dog_id), o),
     };
   });
   // Whether they match a litter's available pups now: a yes/no, never a place in
