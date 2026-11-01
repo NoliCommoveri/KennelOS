@@ -3,7 +3,7 @@
 > **Status: draft, nothing built.** Asked by the owner (2026-10-31). Families whose pup is
 > picked can ask for extras (photo and training packages), book a pickup time and place, see
 > her transport suggestions, and tell her they're backing out, all from their status page.
-> Decisions are in §8 (D1, D2, D4, D5 and D7 decided 2026-11-01; D3, D4b, D6, D8–D15 open); nothing is
+> Decisions are in §8 (D1, D2, D4, D5 and D7 decided 2026-11-01; D3, D4b, D6, D8–D12, D14–D16 open); nothing is
 > built until the rest are answered.
 
 ## 1. Where things are now
@@ -92,6 +92,40 @@ their sale or requested, with **Cancel** while `can_cancel_until` hasn't passed.
 turns weeks into dates from the litter's birth date), plus their current extras with
 `can_cancel_until`. No prices, no amounts. The server only compares dates to today.
 
+### 3.1 When extras are paid: due dates and part payments
+
+Today every extra is paid with the balance. An extra can instead carry a **payment plan**:
+steps that each take a percent of its amount and a due date worked out from a rule.
+
+- **On the price list** (per extra, or as the group default, as D3's windows):
+  `payment_plan: [{ percent, due }]`, the percents adding to 100. `due` is one of:
+  - **at the pup's age**: `{ at_weeks: 8 }` (from the litter's birth date);
+  - **when she approves it**: `{ on_approval: true }`, optionally `+ N days`;
+  - **before pickup**: `{ days_before_pickup: N }` (from the pup's drop-off event);
+  - **with the balance**: `{ with_balance: true }` (today's behaviour, and the default when
+    an extra has no plan).
+
+  Her training example: 50% at 8 weeks, 50% with the balance. Editing the plan in the price
+  list changes only extras approved afterwards.
+- **On the sale**, approving the extra copies the plan as dated steps:
+  `Sale.extra_charges[].payments = [{ id, percent, amount, due_date, paid_date }]` (amounts to
+  the cent, the last step taking any rounding). A step "with the balance" or "before pickup"
+  whose date isn't known yet keeps `due_date` blank and is read live (the balance due date,
+  the drop-off event) until then. She can change any date or amount on the Sale page.
+- **Income:** each step is earned on its own `paid_date`; a step without one is earned with
+  the balance, as extras are today (`incomeView`: one `extra` component per step, keyed
+  `extra:<id>:<step>`). Financials still files them all under **Extra charges**.
+- **Invoices:** the invoice generator offers each unpaid step as its own line, named "Puppy
+  training, 50% (due Nov 21)", prefilled with that step's amount and Due by date (the
+  existing `cfg` `mode: 'partial'`, `collected`, `dueDate`). Marking the invoice paid (the
+  receipt, or a payment-link payment through an integration) sets that step's `paid_date`.
+  A sale's **Send payment link** works the same way.
+- **Reminders:** a Today nudge, `extra-due`, from 7 days before a step's due date until it's
+  paid: "The Lees' 50% for Puppy training is due Nov 21" → **Make the invoice**. Kels's Pups
+  are going home lists unpaid steps with the balance.
+- **The family's page** shows no amounts or dates (D1); they get the invoice or payment link
+  by email from her, as today.
+
 ## 4. Pickup scheduler
 
 - **Her locations:** `Kennel.pickup_locations[]` = `{ id, label, address, notes,
@@ -178,8 +212,14 @@ Default wording:
 Logged in the family's Messages and emails like the others, and shown on their status page.
 `{distance}` comes from their latest address request; without one, that sentence is left out.
 
-With miles known: `Kennel.mileage_rate` (per mile, optionally a round-trip switch and free
-miles) suggests `Sale.transport_fee`, which she can change.
+With miles known, her **transport fee settings** (Waitlist settings, per kennel) suggest
+`Sale.transport_fee`, which she can change:
+- **Fee per mile** (`mileage_rate`).
+- **Calculate from:** radio buttons, **One way** / **Round trip** (`mileage_basis`; decided
+  2026-11-01: a setting, not a fixed rule). Round trip doubles the miles before the rate.
+- **Free miles** (`mileage_free_miles`, default 0), taken off before the rate.
+
+The request shows the working: "340 miles one way × 2 (round trip) = 680 × $1.50 = $1,020".
 
 ## 6. Training packages tied to boarding
 
@@ -210,8 +250,12 @@ miles) suggests `Sale.transport_fee`, which she can change.
   - **Move the deposit:** sale `cancelled`, deposit carried (`carried_payment`, now allowed
     for a cancelled sale too) to their next pick; they go to **the end of the line** (D7,
     decided), on their existing entry (§7.1).
-  - **Refund:** sale `voided`, end reason `buyer_backed_out` (a new reason, so the deposit
-    isn't income).
+  - **Refund** (D13, decided): sale `voided`, end reason `buyer_backed_out` ("Buyer backed
+    out, refunded"), so the deposit isn't income. She doesn't plan to refund, so it's built
+    so it can't be tapped by accident: not one of the main buttons, only under **More
+    options…**, and it opens a confirm that says what it does ("Their $500 deposit won't
+    count as income. Record that you refunded it?") with the Refund button off until she
+    types **REFUND**. Her deposit policy (above) can't make it the suggested outcome.
 - The family sees the result on their page and gets an email (her template).
 
 ### 7.1 Moving a deposit: reopen their entry, not a new application
@@ -257,6 +301,9 @@ new fee, the usual path) when she'd rather start over.
   (a public place) is held on the server to measure from (§5).
 - **D7. Moved deposit, place in line. Decided (2026-11-01): the end of the line**, on their
   existing entry, reopened (§7.1).
+- **D13. A refund on the books. Decided (2026-11-01):** the sale is voided ("Buyer backed out,
+  refunded"), behind **More options…** and a typed confirm, since she doesn't plan to use it
+  (§7).
 
 **Still open:**
 
@@ -281,19 +328,19 @@ new fee, the usual path) when she'd rather start over.
 - **D10. Pickup times.** (a) Per litter or kennel-wide (every litter ready then can use
   them)? **Proposed: per litter, with "copy to another litter".** (b) Families per time slot
   (default 1)? (c) Last change before the pickup: **proposed 2 days**, her setting.
-- **D11. Transport fee and the mile limit.** (a) Rate per mile, one-way or round trip
-  (**proposed round trip**, since she drives back); (b) free miles first (e.g. the first 25
-  free; **proposed: a setting, default 0**); (c) the "be in touch" limit,
+- **D11. Transport fee and the mile limit.** (a) One way or round trip: **decided
+  (2026-11-01): her setting, radio buttons** next to the fee per mile (§5). Still open:
+  (b) free miles first (**proposed: a setting, default 0**); (c) the "be in touch" limit,
   `transport_far_miles`: **proposed default 150 miles**, her setting.
 - **D12. Backing out: reasons and policy.** (a) The family's reasons: **proposed** changed our
   mind; family or money circumstances; the pup's health or temperament; timing; other (her
   list, editable). (b) Her policy as rows of reason × pup age → keep / move / refund
   (**proposed**), or one rule by age only. (c) Families see her policy text before sending:
   **proposed yes**, a box she writes in, like the extras message.
-- **D13. A refund on the books.** When she refunds a family who backed out: (a) sale
-  `voided` with a new end reason "Buyer backed out, refunded", so nothing on it counts as
-  income (**proposed**: the same rule as every voided sale); (b) `cancelled` with the
-  refund recorded as an expense.
+- **D16. Extras payment plans** (§3.1). (a) The due rules offered: at an age, on approval
+  (+ days), before pickup, with the balance: **proposed all four**; (b) the plan set per
+  extra with a group default, as D3 (**proposed**); (c) the `extra-due` reminder from **7
+  days** before.
 - **D14. What Approve on a back-out also undoes.** Their extras and any boarding stay or
   drop-off booked for that pup: (a) removed with the same tap, listed in the confirm so she
   sees them (**proposed**); (b) left for her to clean up; (c) she ticks which go.
@@ -305,7 +352,8 @@ new fee, the usual path) when she'd rather start over.
 
 1. Price list groups, windows and `family_can_request` (her side only; no server).
 2. Transport suggestions on the status page (D8: smallest server change).
-3. Extra requests and cancellations (status page, pending events, Sale page Confirm).
+3. Extra requests and cancellations (status page, pending events, Approve), with payment
+   plans, part-payment invoices and the `extra-due` reminder.
 4. Training packages ↔ boarding.
 5. Pickup locations and slots, booking; families' own addresses with Mapbox miles and the
    transport options email.

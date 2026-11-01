@@ -1788,3 +1788,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   address request), never automatically; her standard location is a public place, so it's
   held on the server to measure families' addresses from. Open questions listed in full
   (D3, D4b, D6, D8–D15).
+- **Family Requests plan: mileage basis, refunds, extras payment plans (2026-11-01).** Asked
+  by the owner: one way / round trip is a radio-button setting beside the fee per mile; a
+  refund on a back-out voids the sale but sits under More options with a typed confirm; extras
+  get payment plans (percent steps due at an age, on approval, before pickup or with the
+  balance), each step its own invoice line and income part, with an `extra-due` reminder.
