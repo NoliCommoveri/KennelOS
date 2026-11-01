@@ -3,7 +3,7 @@
 > **Status: draft, nothing built.** Asked by the owner (2026-10-31). Families whose pup is
 > picked can ask for extras (photo and training packages), book a pickup time and place, see
 > her transport suggestions, and tell her they're backing out, all from their status page.
-> Decisions are in §8 (D1, D2, D4, D5 and D7 decided 2026-11-01; D3, D4b, D6, D8–D12, D14–D16 open); nothing is
+> Decisions are in §8 (D1, D2, D4, D5, D7 and D13 decided 2026-11-01; D3, D4b, D6, D8–D12, D14–D16 open); nothing is
 > built until the rest are answered.
 
 ## 1. Where things are now
