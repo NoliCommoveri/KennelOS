@@ -190,3 +190,39 @@ export function upcomingListHtml(rows) {
   return `<ul class="plain">${rows.map((u) => `<li>${upcomingItemHtml(u)}</li>`).join('')}</ul>
     <p class="small muted">Plans can change.</p>`;
 }
+
+// The family pages' own yes/no dialog, in place of the browser's window.confirm
+// (which shows the bare site address and system styling). Mirrors the app's
+// confirmModal (shared/assets/ui.js): title, message, a primary and a cancel
+// button. Cancel, a backdrop tap and Escape all resolve false. Focus goes to the
+// primary button and returns to whatever had it when the dialog closes.
+export function confirmDialog({ title, message = '', confirmLabel = 'OK', cancelLabel = 'Cancel', danger = false }) {
+  return new Promise((resolve) => {
+    const before = document.activeElement;
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="fd-title">
+        <h2 id="fd-title">${esc(title)}</h2>
+        ${message ? `<p class="muted">${esc(message)}</p>` : ''}
+        <div class="modal-actions">
+          <button type="button" class="primary${danger ? ' danger' : ''}" data-fd="ok">${esc(confirmLabel)}</button>
+          <button type="button" class="secondary" data-fd="cancel">${esc(cancelLabel)}</button>
+        </div>
+      </div>`;
+    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); done(false); } };
+    const done = (val) => {
+      document.removeEventListener('keydown', onKey);
+      overlay.remove();
+      if (before && typeof before.focus === 'function' && before.isConnected) before.focus();
+      resolve(val);
+    };
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) done(false);
+      const b = e.target.closest('[data-fd]');
+      if (b) done(b.dataset.fd === 'ok');
+    });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(overlay);
+    overlay.querySelector('[data-fd="ok"]').focus();
+  });
+}

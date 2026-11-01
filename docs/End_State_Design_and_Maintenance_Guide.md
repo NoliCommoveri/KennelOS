@@ -709,7 +709,10 @@ A **mandatory gate**: the app isn't usable until an own kennel exists
 Demo is exempt. The owner Contact is always saved linked to that kennel.
 `resolveMyKennelId()` repairs a missing or stale `myKennelId` when exactly one own kennel
 exists (never while sample data is loaded). `showKennelSetupModal({ mode })` is
-`required` (no way out; first run) or `cancellable` (editing from Import/Export).
+`required` (no way out; first run) or `cancellable` (editing from Settings → Your kennel).
+That card also has **Open kennel settings →**, straight to `kennel.html?id=<my kennel>`
+(the kennel's Overview and Settings hub), so it isn't reached only through People →
+Kennels. It shows only where `kennel.html` ships (not Lite).
 
 ### Reset and erase (`data/appReset.js`)
 `resetApp()` clears every table and setting, leaving a never-visited state.
@@ -794,6 +797,12 @@ When in doubt: `value` = text (escaped for you), `cell` = HTML (you escape).
 `esc` (use on every user value in hand-built HTML), `badge`/`badges`, `fmtDate`, `param`,
 `confirmAction` and the modal dialogs, `wireActionMenu`. `todayYMD` is re-exported from
 `data/dateUtils.js`.
+
+**Modal rules** (written at the top of `ui.js`'s modal block): no `window.confirm`/`alert`/
+`prompt`; every `.modal-overlay` closes as cancel on a backdrop tap; Escape does what a backdrop
+tap does (one handler in `ui.js`, after the modal's own); a modal that must stay open carries
+`data-no-dismiss` and swallows backdrop clicks. The family pages follow the same rules with
+their own `confirmDialog` (`cloud/public/family/common.js`).
 
 ### Components
 - **timeline.js** — a subject's events with add/edit/archive/delete; `onChange` lets a page

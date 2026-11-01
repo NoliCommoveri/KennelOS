@@ -13,7 +13,7 @@
 // can't read them.
 import {
   esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingItemHtml, litterHtml, availableItemHtml, deadlineText, fmtShortDate,
-  SEX_LABEL, READY_LABEL, PURPOSE_LABEL, purposesText, CREDIT_LABEL
+  SEX_LABEL, READY_LABEL, PURPOSE_LABEL, purposesText, CREDIT_LABEL, confirmDialog
 } from './common.js';
 import { rememberedFamily, forgetFamily } from './session.js';
 import { seal } from './seal.js';
@@ -931,7 +931,7 @@ async function onClick(ev) {
     case 'close': state.open = null; render(); return;
     case 'pick': {
       const offer = state.v.offers.find((o) => o.id === b.dataset.offer);
-      if (!window.confirm(`Choose ${b.dataset.name}? Send your deposit by ${fmtDate(offer?.respond_by_date)} to keep them.`)) return;
+      if (!await confirmDialog({ title: `Choose ${b.dataset.name}?`, message: `Send your deposit by ${fmtDate(offer?.respond_by_date)} to keep them.`, confirmLabel: `Choose ${b.dataset.name}` })) return;
       b.disabled = true;
       await act('pick', { offer_id: b.dataset.offer, dog_id: b.dataset.dog }, `You chose ${b.dataset.name}. ${kennel} will confirm, and holds them for you meanwhile.`);
       return;
@@ -945,22 +945,22 @@ async function onClick(ev) {
       await act('ready', { answer: 'yes' }, `Thanks! ${kennel} will see that you're ready at their next update.`);
       return;
     case 'pickup_book':
-      if (!window.confirm(`Ask ${kennel} for ${b.dataset.when}? They'll confirm it.`)) return;
+      if (!await confirmDialog({ title: 'Ask for this pickup time?', message: `${b.dataset.when}. ${kennel} will confirm it.`, confirmLabel: 'Ask for this time' })) return;
       b.disabled = true;
       await act('pickup_book', { slot_id: b.dataset.id }, `Your request is on its way. ${kennel} will confirm your pickup time.`);
       return;
     case 'pickup_cancel':
-      if (!window.confirm(`Ask ${kennel} to cancel your pickup time?`)) return;
+      if (!await confirmDialog({ title: 'Cancel your pickup time?', message: `We'll ask ${kennel} to cancel it. They'll confirm.`, confirmLabel: 'Ask to cancel', cancelLabel: 'Keep it', danger: true })) return;
       b.disabled = true;
       await act('pickup_cancel', {}, `Your request is on its way. ${kennel} will confirm.`);
       return;
     case 'extra_request':
-      if (!window.confirm(`Ask ${kennel} for ${b.dataset.name}? They'll confirm it and let you know the cost and when it's due.`)) return;
+      if (!await confirmDialog({ title: `Ask for ${b.dataset.name}?`, message: `${kennel} will confirm it and let you know the cost and when it's due.`, confirmLabel: 'Send request' })) return;
       b.disabled = true;
       await act('extra_request', { list_id: b.dataset.id }, `Your request for ${b.dataset.name} is on its way. ${kennel} will confirm it.`);
       return;
     case 'extra_cancel':
-      if (!window.confirm(`Ask ${kennel} to cancel ${b.dataset.name}?`)) return;
+      if (!await confirmDialog({ title: `Cancel ${b.dataset.name}?`, message: `We'll ask ${kennel} to cancel it. They'll confirm.`, confirmLabel: 'Ask to cancel', cancelLabel: 'Keep it', danger: true })) return;
       b.disabled = true;
       await act('extra_cancel', { charge_id: b.dataset.id }, `Your request to cancel ${b.dataset.name} is on its way. ${kennel} will confirm it.`);
       return;
@@ -1014,7 +1014,7 @@ async function onSubmit(ev) {
         render();
         return;
       }
-      if (!window.confirm(`Send ${kennel} your request to back out? Nothing changes until they confirm.`)) { button.disabled = false; return; }
+      if (!await confirmDialog({ title: 'Send your request to back out?', message: `Nothing changes until ${kennel} confirms.`, confirmLabel: 'Send request', cancelLabel: 'Not now', danger: true })) { button.disabled = false; return; }
       await act('back_out', { reason_id: reasonId, reason_text: text, note: data.get('note') }, `Your request is on its way. ${kennel} will be in touch.`);
       return;
     }

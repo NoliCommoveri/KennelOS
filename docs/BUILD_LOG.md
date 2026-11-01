@@ -1906,3 +1906,18 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   "Put [pup] back to Available" (Health hold when their reason is the pup's health), ticked,
   so the pup can be offered to the next family, as the Sale page asks when a sale ends. All
   of this session's app changes ride `kennelos-shell-v88`.
+- **Styled dialogs on the family pages, and the modal rules everywhere (2026-11-01).** Asked
+  by the owner: the status page's six `window.confirm` prompts (choose a pup, ask for or
+  cancel a pickup time, ask for or cancel an extra, back out) showed the bare browser box
+  ("apply.kennelos.app says"). They now use `confirmDialog` (family `common.js` + `.modal`
+  in `family.css`), shaped like the app's `confirmModal`: a title, a message, a primary and a
+  cancel button; cancel, a backdrop tap and Escape all say no. The app had no native dialogs
+  left; the audit found modals that ignored Escape (including `ui.js`'s own confirm, alert,
+  prompt and select) and seven with no backdrop close. The rules are now written at the top
+  of `ui.js`'s modal block, with one Escape handler there (Escape = a backdrop tap on the top
+  overlay, unless its own handler already closed it, or it carries `data-no-dismiss`: the
+  required kennel setup and `openModal({ dismissible: false })`). The seven now press their
+  Cancel on a backdrop tap. Checked in the browser.
+- **Open kennel settings from Settings (2026-11-01).** Asked by the owner: Settings → Your
+  kennel has **Open kennel settings →**, straight to the kennel's Overview and Settings page,
+  so it isn't reached only through People → Kennels. Not in Lite (no `kennel.html`).
