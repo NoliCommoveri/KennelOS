@@ -1762,7 +1762,7 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   the Worker refuses `needs_extra`), their requests, `own_place` (`ownPlaceAllowed`: her override, else her
   distance rule against `home_miles`, null = unknown) and `ask_home` (unknown and no
   `home_place` at all: a place on file that couldn't be measured isn't asked again; their
-  entry's Pickup card says so and she chooses); the projection's `server`
+  entry's Pickup card says so and she can choose); the projection's `server`
   part carries her standard location's address for the Worker only. Their page's **Pickup**
   card books a time, changes or cancels it until her cutoff, suggests their own address, or
   says where they live. Events `pickup_book` / `pickup_cancel` / `pickup_address` (the
@@ -1786,8 +1786,10 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   working shown) → a drop-off and `Sale.transport_fee`; a cancel archives the pickup. Any
   other pickup still to come is archived first. Today: `waitlist-pickup-request` (a time or
   cancel: Approve / Decline; an address: Open, and **Send transport options** when far).
-  The entry page's **Pickup** card shows where they live and **Allow their own place** /
-  **Listed places only** (`own_place_override`).
+  The entry page's **Pickup** card shows where they live and a dropdown, **Can they suggest
+  their own meetup place?**: **Use my distance rule** (the default, `own_place_override`
+  null; its hint says what the rule decides for them) / **Let them suggest a place** (true) /
+  **Only my pickup times** (false).
 - **Backing out** (`docs/KennelOS_Family_Requests_Plan.md` §7; `data/backOut.js`): for a family
   with an open sale, the projection's `entry.back_out` (`{ available, request }`) and the
   kennel's `back_out_reasons` (`backOutReasons`: hers, else the defaults, plus **Something

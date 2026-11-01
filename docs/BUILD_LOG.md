@@ -1947,3 +1947,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   at every update. `ask_home` now needs no `home_place` on file; with an unmeasured place the
   entry's Pickup card says the distance couldn't be measured and she chooses. Test in
   `tests/familyPickup.test.js`.
+- **Own meetup place: a dropdown, in plain words (2026-11-01).** Asked by the owner: the
+  entry's Pickup card had three buttons (Allow their own place / Listed places only / Follow
+  my rule) that read unclearly. It's now one dropdown, **Can they suggest their own meetup
+  place?**, showing only the choice in force: **Use my distance rule** (default) / **Let them
+  suggest a place** / **Only my pickup times**, with a hint saying what it means for this
+  family (under the rule: what the rule decides and why). Same `own_place_override` values.
+  Checked in the browser.

@@ -420,14 +420,27 @@ function emailItemHtml(m) {
 // meetup place.
 function homeHtml(e) {
   if (!locationRuleOn(ctx.config) && !e.home_place && typeof e.own_place_override !== 'boolean') return '';
-  const allowed = ownPlaceAllowed(e, ctx.config);
   const where = e.home_place
-    ? `Lives in <strong>${esc(e.home_place)}</strong>${Number.isFinite(e.home_miles) ? `, about ${Math.round(e.home_miles)} miles from your standard location` : ' (not measured)'}.`
+    ? `Lives in <strong>${esc(e.home_place)}</strong>${Number.isFinite(e.home_miles) ? `, about ${Math.round(e.home_miles)} miles from your standard location` : ' (distance not measured)'}.`
     : 'Where they live isn\'t known yet; their status page asks once their pup is picked.';
-  const state = typeof e.own_place_override === 'boolean' ? ' (your choice)' : ' (your distance rule)';
+  // What her rule alone says for them, shown under "Use my distance rule".
+  const rule = ownPlaceAllowed({ ...e, own_place_override: null }, ctx.config);
+  const min = Number(ctx.config.transport_min_home_miles) || 0;
+  const ruleSays = !locationRuleOn(ctx.config) ? 'No distance set on Pickup & transport, so any family can suggest a place.'
+    : rule === true ? `They live at least ${min} miles away, so they can suggest a place.`
+      : rule === false ? `They live closer than ${min} miles, so they choose from your pickup times.`
+        : e.home_place ? 'The distance couldn\'t be measured, so for now they choose from your pickup times. Choose for them here if you like.'
+          : `Until you know where they live, they choose from your pickup times (your rule: at least ${min} miles away).`;
+  const current = typeof e.own_place_override === 'boolean' ? String(e.own_place_override) : '';
+  const opt = (value, label) => `<option value="${value}"${value === current ? ' selected' : ''}>${label}</option>`;
   return `<section class="card"><h2 style="margin-top:0;">Pickup</h2><p style="margin:0;">${where}</p>
-    <p class="field-hint">${allowed === true ? 'They can suggest their own meetup place' : allowed === false ? 'They choose from your listed places and times' : e.home_place ? 'The distance couldn\'t be measured, so they aren\'t offered their own place: choose below' : 'Waiting to hear where they live'}${allowed === null ? '' : state}.</p>
-    <span class="pill-row"><button class="btn btn-sm" data-own="true">Allow their own place</button><button class="btn btn-sm" data-own="false">Listed places only</button>${typeof e.own_place_override === 'boolean' ? '<button class="btn btn-sm" data-own="">Follow my rule</button>' : ''}</span></section>`;
+    <div class="field" style="margin-top:10px;">
+      <label for="own-place">Can they suggest their own meetup place?</label>
+      <select id="own-place">${opt('', 'Use my distance rule')}${opt('true', 'Let them suggest a place')}${opt('false', 'Only my pickup times')}</select>
+      <span class="field-hint">${current === 'true' ? 'Their status page lets them ask you to meet at an address of their own, whatever your rule says.'
+        : current === 'false' ? 'Their status page shows only your pickup times at your listed places, whatever your rule says.'
+          : ruleSays}</span>
+    </div></section>`;
 }
 
 function requestsHtml(e) {
@@ -466,7 +479,10 @@ function wireRequests(root) {
     await afterAction();
     await emailThem(approved ? 'request_approved' : 'request_declined', { request: { field: 'extra_request', request } });
   };
-  root.querySelectorAll('[data-own]').forEach((btn) => btn.addEventListener('click', () => run(() => actions.setOwnPlaceOverride(e.id, btn.dataset.own === '' ? null : btn.dataset.own === 'true'))));
+  root.querySelector('#own-place')?.addEventListener('change', (ev) => {
+    const v = ev.target.value;
+    run(() => actions.setOwnPlaceOverride(e.id, v === '' ? null : v === 'true'));
+  });
   // A pickup request (data-req "pickup|<request id>:approve|decline|transport").
   const pickup = (requestId, decision) => async () => {
     const request = (e.pickup_requests || []).find((r) => r.id === requestId);
