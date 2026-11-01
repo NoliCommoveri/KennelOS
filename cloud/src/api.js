@@ -16,6 +16,7 @@ import { cancelEmailChange, getEmailChange, requestEmailChange } from './emailCh
 import { ackInbox, claimLease, releaseLease, publishProjection, readEvents, readInbox, readProjection, sendMessage, unpublishProjection, PROJECTION_MAX_BYTES } from './waitlist.js';
 import { deleteConnection, listConnections, readIntegrationEvents } from './integrations.js';
 import { deleteDigest, getNotify, pendingPush, putNotify, startDigest, subscribePush, testPush, unsubscribePush, verifyDigest } from './notify.js';
+import { handleGeoDistance } from './geo.js';
 import { fail, json, readJson } from './lib/http.js';
 
 const FILE = /^\/files\/([^/]+)$/;
@@ -130,6 +131,9 @@ export async function handleApi(request, env, url, cors) {
   if (p === '/notify/digest' && m === 'POST') return json(await startDigest(env, auth, request, await readJson(request)), 200, cors);
   if (p === '/notify/digest/verify' && m === 'POST') return json(await verifyDigest(env, auth, await readJson(request)), 200, cors);
   if (p === '/notify/digest' && m === 'DELETE') return json(await deleteDigest(env, auth), 200, cors);
+
+  // Driving miles for a family's meetup address (docs/KennelOS_Family_Requests_Plan.md §5).
+  if (p === '/geo/distance' && m === 'POST') return json(await handleGeoDistance(env, auth, request), 200, cors);
 
   // The waitlist online, her side (Waitlist W2 Plan §2, §4–§6). Pro only.
   const projection = WL_PROJECTION.exec(p);

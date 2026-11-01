@@ -39,6 +39,8 @@ const DAY = 86400000;
 export const ACTION_KINDS = Object.freeze({
   pick: 'turn', pass: 'turn',
   leave: 'request', pause_request: 'request', listen: 'request', pref_change: 'request', companion_request: 'request',
+  extra_request: 'request', extra_cancel: 'request',
+  pickup_book: 'request', pickup_cancel: 'request', pickup_address: 'request', home_location: 'request', back_out: 'request',
   ready: 'ready',
 });
 
@@ -52,6 +54,13 @@ const LINES = {
   listen: (n) => `${n} asked to change which litters they wait for`,
   pref_change: (n) => `${n} asked to change their answers`,
   companion_request: (n) => `${n} asked for their Companion link`,
+  extra_request: (n) => `${n} asked for an extra`,
+  extra_cancel: (n) => `${n} asked to cancel an extra`,
+  pickup_book: (n) => `${n} asked for a pickup time`,
+  pickup_cancel: (n) => `${n} asked to cancel their pickup time`,
+  pickup_address: (n) => `${n} asked to meet at their own address`,
+  home_location: (n) => `${n} said where they live`,
+  back_out: (n) => `${n} asked to back out`,
   ready: (n) => `${n} answered "Ready now?"`,
   server_offer: (n) => `${n} was offered a turn: contact them`,
   server_close: (n) => `${n}'s turn closed with no response`,

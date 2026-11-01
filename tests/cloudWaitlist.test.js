@@ -428,6 +428,260 @@ test('a Companion link request (Spec §8.3): a family with a sale asks, her Toda
   assert.equal((await act('companion_request')).status, 200, 'after she sent it they can ask again');
 });
 
+test('extras (Family Requests plan §3): a family with a sale asks by name, her Approve puts it on the sale with its plan, no price ever reaches the server', async () => {
+  const { contactRepo } = await import('../shared/data/contactRepo.js');
+  const { saleRepo } = await import('../shared/data/saleRepo.js');
+  const { dogRepo } = await import('../shared/data/dogRepo.js');
+  const actions = await import('../shared/data/waitlistActions.js');
+  await breeder();
+  const k = await putOnline();
+  await kennelRepo.update(k.id, {
+    extra_charge_list: [
+      { id: 'xt', label: 'Puppy training', amount: 987.65, group: 'Training', family_can_request: true, description: 'Two weeks of basics' },
+      { id: 'xp', label: 'Gold photos', amount: 150, group: 'Photo packages' }
+    ],
+    extra_charge_groups: [{ name: 'Training', payment_plan: [{ percent: 50, due: 'at_weeks', n: 8 }, { percent: 50, due: 'with_balance' }] }],
+    waitlist_config: { ...(await kennelRepo.getById(k.id)).waitlist_config, extras_info_url: 'https://thornfield.example.com/extras' }
+  });
+  const sales = await saleRepo.getAll({ includeArchived: true });
+  const entry = (await waitlistEntryRepo.getByKennel(k.id)).find((e) => e.status === 'active' && e.contact_id
+    && !sales.some((x) => x.buyer_contact_id === e.contact_id && saleRepo.isOpenSale(x)));
+  await contactRepo.update(entry.contact_id, { email: 'extras@example.com' });
+  const dog = (await dogRepo.getAll()).find((d) => d.kennel_id === k.id && !d.date_of_death && d.litter_id);
+  await dogRepo.update(dog.id, { date_of_birth: '2026-09-01' });
+  await cw.syncWaitlistOnline();
+  const fam = await familySignIn(k.public_id, 'extras@example.com');
+  const act = (action, extra = {}) => fam.call('/f/act', { session: fam.session, status_token: fam.statusToken, action, ...extra });
+  const view = async () => (await (await worker.fetch(new Request(`http://localhost/f/status/${fam.statusToken}`), env)).json());
+
+  assert.equal('extras' in (await view()).family, false, 'no sale: no extras');
+  assert.equal((await act('extra_request', { list_id: 'xt' })).status, 409);
+
+  const sale = await saleRepo.create({ kennel_id: k.id, dog_id: dog.id, buyer_contact_id: entry.contact_id, registration_type: 'limited', status: 'deposit_pending' });
+  await cw.syncWaitlistOnline();
+  const page = await view();
+  assert.deepEqual(page.family.extras.available.map((a) => [a.id, a.name, a.group]), [['xt', 'Puppy training', 'Training']], 'only what families can ask for');
+  assert.equal(page.kennel.extras_info_url, 'https://thornfield.example.com/extras');
+  assert.match(page.kennel.extras_intro, /several paid extras/);
+  const published = raw('SELECT body FROM wl_projection')[0].body;
+  assert.equal(published.includes('987.65'), false, 'no price reaches the server');
+
+  assert.equal((await act('extra_request', { list_id: 'xp' })).status, 409, 'not offered to families');
+  assert.equal((await act('extra_request', { list_id: 'xt', note: 'Before pickup please' })).status, 200);
+  assert.equal((await act('extra_request', { list_id: 'xt' })).status, 409, 'one waiting request per extra');
+  assert.deepEqual((await cw.syncWaitlistOnline()).events, { applied: 1, noted: 0, skipped: 0 });
+  const req = (await waitlistEntryRepo.getById(entry.id)).extra_requests[0];
+  assert.deepEqual([req.kind, req.list_id, req.name, req.note, req.decided ?? null], ['add', 'xt', 'Puppy training', 'Before pickup please', null]);
+  assert.equal((await view()).family.extras.requests[0].decided, null, 'their page shows it waiting');
+
+  const { computeNudges } = await import('../shared/data/nudges.js');
+  const nudge = (await computeNudges()).find((n) => n.key === `waitlist-extra-request:${entry.id}:${req.id}`);
+  assert.deepEqual(nudge.actions.map((a) => a.label), ['Approve', 'Decline', 'Open']);
+  const done = await nudge.actions.find((a) => a.label === 'Approve').run();
+  assert.equal(done.emails[0].kind, 'request_approved');
+  const charged = (await saleRepo.getById(sale.id)).extra_charges[0];
+  assert.deepEqual([charged.label, charged.amount, charged.list_id, charged.group], ['Puppy training', 987.65, 'xt', 'Training']);
+  assert.deepEqual(charged.payments.map((st) => [st.percent, st.amount, st.due, st.due_date ?? null]),
+    [[50, 493.83, 'at_weeks', '2026-10-27'], [50, 493.82, 'with_balance', null]], '50% at 8 weeks from the birth date, 50% with the balance');
+
+  await cw.syncWaitlistOnline();
+  const after = (await view()).family.extras;
+  assert.deepEqual(after.available, [], 'on their sale now');
+  assert.deepEqual([after.current[0].name, after.current[0].can_cancel], ['Puppy training', true]);
+  assert.equal(after.requests[0].decided, 'approved');
+
+  assert.equal((await act('extra_cancel', { charge_id: after.current[0].id })).status, 200);
+  await cw.syncWaitlistOnline();
+  const cancelReq = (await waitlistEntryRepo.getById(entry.id)).extra_requests.find((r) => r.kind === 'cancel');
+  await saleRepo.update(sale.id, { extra_charges: [{ ...charged, payments: [{ ...charged.payments[0], paid_date: '2026-10-27' }, charged.payments[1]] }] });
+  await assert.rejects(actions.approveExtraRequest(entry.id, cancelReq.id), /already paid/, 'a paid part keeps it on');
+  await saleRepo.update(sale.id, { extra_charges: [charged] });
+  await actions.approveExtraRequest(entry.id, cancelReq.id);
+  assert.deepEqual((await saleRepo.getById(sale.id)).extra_charges, [], 'cancelled');
+});
+
+test('pickup (Family Requests plan §4): a family books a time and her Approve makes the pickup; their own address is measured, and her Approve sets the drop-off and fee', async () => {
+  const { contactRepo } = await import('../shared/data/contactRepo.js');
+  const { saleRepo } = await import('../shared/data/saleRepo.js');
+  const { dogRepo } = await import('../shared/data/dogRepo.js');
+  const { litterRepo } = await import('../shared/data/litterRepo.js');
+  const { eventRepo } = await import('../shared/data/eventRepo.js');
+  const actions = await import('../shared/data/waitlistActions.js');
+  await breeder();
+  const k = await putOnline();
+  await kennelRepo.update(k.id, {
+    pickup_locations: [{ id: 'std', label: 'Library', address: 'Public Library, Austin TX', is_standard: true, show_to_families: true }],
+    waitlist_config: { ...(await kennelRepo.getById(k.id)).waitlist_config, mileage_rate: 1.5, mileage_basis: 'round_trip', transport_far_miles: 150, boarding_rate: 25 }
+  });
+  const sales = await saleRepo.getAll({ includeArchived: true });
+  const entry = (await waitlistEntryRepo.getByKennel(k.id)).find((e) => e.status === 'active' && e.contact_id
+    && !sales.some((x) => x.buyer_contact_id === e.contact_id && saleRepo.isOpenSale(x)));
+  await contactRepo.update(entry.contact_id, { email: 'pickup@example.com' });
+  const dog = (await dogRepo.getAll()).find((d) => d.kennel_id === k.id && !d.date_of_death && d.litter_id);
+  const later = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  await litterRepo.update(dog.litter_id, { estimated_ready_date: later(3), pickup_slots: [
+    { id: 'x1', date: later(10), start_time: '10:00', end_time: '10:30', location_id: 'std', capacity: 1 },
+    { id: 'x2', date: later(10), start_time: '10:30', end_time: '11:00', location_id: 'std', capacity: 1 }
+  ], pickup_date_rules: [{ date: later(10), boarding: true }] });
+  const sale = await saleRepo.create({ kennel_id: k.id, dog_id: dog.id, buyer_contact_id: entry.contact_id, registration_type: 'limited', status: 'deposit_paid' });
+  await cw.syncWaitlistOnline();
+  const fam = await familySignIn(k.public_id, 'pickup@example.com');
+  const act = (action, extra = {}) => fam.call('/f/act', { session: fam.session, status_token: fam.statusToken, action, ...extra });
+  const view = async () => (await (await worker.fetch(new Request(`http://localhost/f/status/${fam.statusToken}`), env)).json());
+
+  let pk = (await view()).family.pickup;
+  assert.deepEqual(pk.slots.map((x) => [x.id, x.location.label]), [['x1', 'Library'], ['x2', 'Library']]);
+  assert.deepEqual(pk.dates, [{ date: later(10), boarding: true }], 'the day says boarding charges apply');
+  assert.equal(pk.own_place, true, 'no distance rule: any family can suggest a place');
+  assert.equal(JSON.stringify(await view()).includes('Austin'), true, 'the library is a place she shows families');
+
+  assert.equal((await act('pickup_book', { slot_id: 'x1', note: 'Morning is best' })).status, 200);
+  assert.equal((await act('pickup_book', { slot_id: 'x2' })).status, 409, 'one at a time');
+  await cw.syncWaitlistOnline();
+  const req = (await waitlistEntryRepo.getById(entry.id)).pickup_requests[0];
+  assert.deepEqual([req.kind, req.slot_id, req.place], ['slot', 'x1', 'Library']);
+  const { computeNudges } = await import('../shared/data/nudges.js');
+  const nudge = (await computeNudges()).find((n) => n.key === `waitlist-pickup-request:${entry.id}:${req.id}`);
+  await nudge.actions.find((a) => a.label === 'Approve').run();
+  const [booked] = (await eventRepo.getForSubject('dog', dog.id)).filter((e) => e.event_type === 'placement' && !e.is_archived);
+  assert.deepEqual([booked.event_date, booked.details.pickup_slot_id, booked.details.dropoff_method, booked.related_contact_id], [later(10), 'x1', 'Local pickup', entry.contact_id]);
+  let charged = await saleRepo.getById(sale.id);
+  assert.deepEqual([charged.deferred_boarding_amount, charged.deferred_boarding_frequency, charged.deferred_boarding_duration_days, charged.boarding_from_pickup], [25, 'Day', 7, true],
+    'standard boarding from the ready date to the day before pickup');
+  const stay = (await eventRepo.getForSubject('dog', dog.id)).find((e) => e.event_type === 'boarding' && !e.is_archived);
+  assert.deepEqual([stay.event_date, stay.event_end_date, stay.details.pickup_boarding], [later(3), later(9), 'yes']);
+  await cw.syncWaitlistOnline();
+  pk = (await view()).family.pickup;
+  assert.deepEqual([pk.booked.kind, pk.booked.place, pk.booked.start_time], ['slot', 'Library', '10:00']);
+
+  // Their own address, measured by the server through Mapbox (stubbed here).
+  env.MAPBOX_TOKEN = 'pk.test';
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    if (!String(url).startsWith('https://api.mapbox.com/')) return realFetch(url, init);
+    if (String(url).includes('/geocode/')) return new Response(JSON.stringify({ features: [{ geometry: { coordinates: String(url).includes('Library') ? [-97.7, 30.2] : [-96.8, 32.8] } }] }));
+    return new Response(JSON.stringify({ distances: [[315000]], durations: [[11400]] }));
+  };
+  try {
+    assert.equal((await act('pickup_address', { address: '9 Oak St, Dallas TX', date: later(12) })).status, 200);
+    const sent = (await view()).pending.find((p) => p.kind === 'pickup_address');
+    assert.deepEqual([sent.payload.miles, sent.payload.far], [195.7, true], 'measured at once: farther than her 150');
+  } finally {
+    globalThis.fetch = realFetch;
+    delete env.MAPBOX_TOKEN;
+  }
+  await cw.syncWaitlistOnline();
+  const addr = (await waitlistEntryRepo.getById(entry.id)).pickup_requests.find((r) => r.kind === 'address');
+  assert.deepEqual([addr.address, addr.miles, addr.far], ['9 Oak St, Dallas TX', 195.7, true]);
+  const far = (await computeNudges()).find((n) => n.key === `waitlist-pickup-request:${entry.id}:${addr.id}`);
+  assert.deepEqual(far.actions.map((a) => a.label), ['Open', 'Send transport options']);
+  const drafted = await far.actions[1].run();
+  assert.equal(drafted.emails[0].kind, 'transport_options');
+  const { draftFor } = await import('../shared/data/waitlistOutbox.js');
+  assert.match((await draftFor(entry.id, 'transport_options', drafted.emails[0].extra)).body, /about 196 miles from us/);
+  await actions.approvePickupRequest(entry.id, addr.id, { time: '2:00 PM', method: 'Flight nanny', fee: 587.1 });
+  const live = (await eventRepo.getForSubject('dog', dog.id)).filter((e) => e.event_type === 'placement' && !e.is_archived);
+  assert.deepEqual(live.map((e) => [e.event_date, e.details.dropoff_method, e.details.location]), [[later(12), 'Flight nanny', '9 Oak St, Dallas TX']], 'the time it replaced is archived');
+  charged = await saleRepo.getById(sale.id);
+  assert.equal(charged.transport_fee, 587.1);
+  assert.deepEqual([charged.deferred_boarding_amount ?? null, charged.boarding_from_pickup], [null, false], 'moving off the boarding date takes the charge off');
+  assert.equal((await eventRepo.getForSubject('dog', dog.id)).some((e) => e.event_type === 'boarding' && !e.is_archived), false, 'and the stay');
+
+  // Back to one of her times, on the boarding date, with her own boarding charge on the
+  // sale: nothing she typed is replaced; both are reported for her to decide.
+  await saleRepo.update(sale.id, { deferred_boarding_amount: 15, deferred_boarding_frequency: 'Week', deferred_boarding_duration_days: 2 });
+  await cw.syncWaitlistOnline();
+  assert.equal((await act('pickup_book', { slot_id: 'x2' })).status, 200);
+  await cw.syncWaitlistOnline();
+  const again = (await waitlistEntryRepo.getById(entry.id)).pickup_requests.find((r) => r.kind === 'slot' && !r.decided);
+  const res = await actions.approvePickupRequest(entry.id, again.id);
+  assert.deepEqual([res.boarding, res.boardingKept?.days, res.boardingKept?.rate, res.transportFeeLeft], [null, 7, 25, 587.1]);
+  charged = await saleRepo.getById(sale.id);
+  assert.deepEqual([charged.deferred_boarding_amount, charged.deferred_boarding_frequency, charged.transport_fee], [15, 'Week', 587.1], 'her charges stay until she says');
+  await actions.applyPickupBoarding(sale.id, res.boardingKept, res.boardingKept.rate);
+  await actions.clearTransportFee(sale.id);
+  charged = await saleRepo.getById(sale.id);
+  assert.deepEqual([charged.deferred_boarding_amount, charged.deferred_boarding_frequency, charged.deferred_boarding_duration_days, charged.boarding_from_pickup, charged.transport_fee ?? null],
+    [25, 'Day', 7, true, null], 'replaced and removed once she chose to');
+});
+
+test('backing out (Family Requests plan §7): a placed family asks, her policy suggests, she moves their deposit with what she ticked; a refund voids the sale', async () => {
+  const { contactRepo } = await import('../shared/data/contactRepo.js');
+  const { saleRepo } = await import('../shared/data/saleRepo.js');
+  const { dogRepo } = await import('../shared/data/dogRepo.js');
+  const { eventRepo } = await import('../shared/data/eventRepo.js');
+  const actions = await import('../shared/data/waitlistActions.js');
+  await breeder();
+  const k = await putOnline();
+  await kennelRepo.update(k.id, { waitlist_config: { ...(await kennelRepo.getById(k.id)).waitlist_config,
+    back_out_policy: [{ reason_id: 'changed_mind', outcome: 'move' }], back_out_policy_text: 'Tell us why; we may move your deposit.' } });
+  const sales = await saleRepo.getAll({ includeArchived: true });
+  const entry = (await waitlistEntryRepo.getByKennel(k.id)).find((e) => e.status === 'active' && e.contact_id
+    && !sales.some((x) => x.buyer_contact_id === e.contact_id && saleRepo.isOpenSale(x)));
+  const other = (await waitlistEntryRepo.getByKennel(k.id)).find((e) => e.status === 'active' && e.contact_id && e.id !== entry.id && e.contact_id !== entry.contact_id);
+  // The seed is shared with later tests: both families are put back as they were at the end.
+  const restore = async () => {
+    for (const e of [entry, other]) {
+      await waitlistEntryRepo.update(e.id, { status: e.status, placed_sale_id: e.placed_sale_id || null, position_anchor_date: e.position_anchor_date || null,
+        carried_payment: e.carried_payment || null, withdrawn_date: e.withdrawn_date || null, back_out_request: null });
+    }
+  };
+  await contactRepo.update(entry.contact_id, { email: 'backout@example.com' });
+  const pups = (await dogRepo.getAll()).filter((d) => d.kennel_id === k.id && !d.date_of_death && d.litter_id);
+  const later = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const sale = await saleRepo.create({ kennel_id: k.id, dog_id: pups[0].id, buyer_contact_id: entry.contact_id, registration_type: 'limited', status: 'deposit_paid',
+    price: 3000, deposit_amount: 500, deposit_date: later(-10), extra_charges: [
+      { id: 'tr', label: 'Puppy training', amount: 600, payments: [{ id: 'a', percent: 50, due: 'on_approval', paid_date: later(-2) }, { id: 'b', percent: 50, due: 'with_balance' }] },
+      { id: 'ph', label: 'Photos', amount: 150 }
+    ] });
+  await waitlistEntryRepo.update(entry.id, { status: 'placed', placed_sale_id: sale.id });
+  const pickup = await eventRepo.create({ subject_type: 'dog', subject_id: pups[0].id, event_type: 'placement', event_date: later(20), title: 'Puppy pickup', related_contact_id: entry.contact_id, details: {} });
+  await cw.syncWaitlistOnline();
+  const fam = await familySignIn(k.public_id, 'backout@example.com');
+  const act = (action, extra = {}) => fam.call('/f/act', { session: fam.session, status_token: fam.statusToken, action, ...extra });
+  const view = async () => (await (await worker.fetch(new Request(`http://localhost/f/status/${fam.statusToken}`), env)).json());
+
+  const page = await view();
+  assert.deepEqual(page.family.back_out, { available: true, request: null });
+  assert.equal(page.kennel.back_out_policy_text, 'Tell us why; we may move your deposit.');
+  const publishedBody = JSON.parse(raw('SELECT body FROM wl_projection')[0].body);
+  assert.equal('back_out_policy' in publishedBody.kennel, false, 'her deposit policy never reaches the server, let alone a family');
+  assert.equal(JSON.stringify(publishedBody).includes('"outcome":"move"'), false);
+  assert.equal((await act('back_out', { reason_id: 'changed_mind', note: 'Landlord said no' })).status, 200);
+  assert.equal((await act('back_out', { reason_id: 'changed_mind' })).status, 409, 'one at a time');
+  await cw.syncWaitlistOnline();
+  const req = (await waitlistEntryRepo.getById(entry.id)).back_out_request;
+  assert.deepEqual([req.reason.id, req.reason.label, req.note, req.decided ?? null], ['changed_mind', 'We changed our mind', 'Landlord said no', null]);
+  assert.equal((await saleRepo.getById(sale.id)).status, 'deposit_paid', 'nothing changes until she decides');
+  const { computeNudges } = await import('../shared/data/nudges.js');
+  assert.ok((await computeNudges()).some((n) => n.key === `waitlist-back-out:${entry.id}:${req.requested_date}`));
+
+  await dogRepo.update(pups[0].id, { disposition: 'placed' });
+  await actions.approveBackOut(entry.id, { outcome: 'move', remove: ['ph', pickup.id], pup: 'available' });
+  assert.equal((await dogRepo.getById(pups[0].id)).disposition, 'available', 'the pup can be offered again');
+  const after = await saleRepo.getById(sale.id);
+  assert.equal(after.status, 'cancelled');
+  assert.deepEqual(after.extra_charges.map((c) => [c.id, c.kept_after_cancel]), [['tr', true]], 'Photos off, the part-paid training kept and owed');
+  assert.equal((await eventRepo.getById(pickup.id)).is_archived, true, 'the pickup came off');
+  const moved = await waitlistEntryRepo.getById(entry.id);
+  assert.deepEqual([moved.status, moved.placed_sale_id, moved.position_anchor_date, moved.carried_payment.amount, moved.back_out_request.outcome],
+    ['active', null, later(0), 500, 'move'], 'back on the list at the end, the same entry, the deposit carried');
+  await cw.syncWaitlistOnline();
+  assert.equal((await view()).family.status, 'active', 'their status page and sign-in still work');
+
+  // A refund: the sale is voided, never offered back in line, and they leave the list.
+  const sale2 = await saleRepo.create({ kennel_id: k.id, dog_id: pups[1].id, buyer_contact_id: other.contact_id, registration_type: 'limited', status: 'deposit_paid', price: 3000, deposit_amount: 500, deposit_date: later(-5) });
+  await waitlistEntryRepo.update(other.id, { status: 'placed', placed_sale_id: sale2.id, back_out_request: { requested_date: later(0), reason: { id: 'timing', label: 'The timing', text: '' }, note: '' } });
+  await actions.approveBackOut(other.id, { outcome: 'refund', remove: [] });
+  const refunded = await saleRepo.getById(sale2.id);
+  assert.deepEqual([refunded.status, refunded.end_reason], ['voided', 'buyer_backed_out']);
+  assert.equal(await actions.lostSaleFamilyFor(sale2.id), null, 'not a lost pup: no "put them back in line"');
+  assert.equal((await waitlistEntryRepo.getById(other.id)).status, 'withdrawn');
+  await restore();
+  await saleRepo.archive(sale.id);
+  await saleRepo.archive(sale2.id);
+});
+
 test('only the backing device applies family actions; a new backing device starts where the last one got to', async () => {
   await breeder();
   const k = await putOnline();

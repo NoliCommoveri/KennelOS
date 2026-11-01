@@ -84,6 +84,30 @@ test('the waitlist projection carries the shared list for every status page, and
   assert.ok(!JSON.stringify(p).includes('secret') && !JSON.stringify(p).includes('me@example.com'));
 });
 
+// --- Transport suggestions (Family Requests plan D8) -----------------------------------
+
+const nanny = { id: 't1', name: 'Sky Paws Flight Nanny', account_type: 'transport', share_with_families: true,
+  website: 'skypaws.example.com', referral_instructions: 'Call Jo at 555-0100. Flies from DFW and AUS.', username: 'me@example.com', password: 'secret' };
+
+test('transport accounts are their own list: never products, with the website as the link when there is no other', () => {
+  assert.deepEqual(rs.sharedTransport([nanny]), [{ name: 'Sky Paws Flight Nanny', link: 'https://skypaws.example.com', notes: 'Call Jo at 555-0100. Flies from DFW and AUS.' }]);
+  assert.deepEqual(rs.sharedReferrals([{ ...nanny, referral_link: 'https://skypaws.example.com/ref' }]), [], 'never a recommended product');
+  assert.equal(rs.sharedTransport([{ ...nanny, referral_link: 'https://skypaws.example.com/book' }])[0].link, 'https://skypaws.example.com/book');
+  assert.deepEqual(rs.sharedTransport([{ ...nanny, share_with_families: false }, { ...nanny, is_archived: true }, { ...chewy }]), []);
+  assert.deepEqual(rs.sharedTransport([{ ...nanny, website: 'not a site', referral_instructions: '' }]), [], 'nothing to show');
+  assert.equal(rs.sharedTransport([{ ...nanny, website: 'javascript:alert(1)' }])[0].link, '', 'only a web address is a link');
+});
+
+test('the waitlist projection carries transport separately, and nothing private', () => {
+  const kennel = { id: 'k1', public_id: 'kos1_11111111-2222-4333-8444-555555555555', kennel_name: 'Thornfield', waitlist_config: { online: true } };
+  const base = { kennel, today: '2026-10-10' };
+  assert.equal('transport' in buildProjection(base).kennel, false);
+  const p = buildProjection({ ...base, accounts: [chewy, nanny] });
+  assert.deepEqual(p.kennel.transport, rs.sharedTransport([nanny]));
+  assert.deepEqual(p.kennel.recommended, rs.sharedReferrals([chewy]));
+  assert.ok(!JSON.stringify(p).includes('secret'));
+});
+
 // --- On the in-memory database: the Companion bundle and the follow-up nudge -----------
 
 let K; let pup; let buyer;

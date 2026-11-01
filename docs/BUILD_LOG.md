@@ -1757,3 +1757,152 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `docs/KennelOS_Family_Help_Plan.md`; nothing built.
 - **Family Help plan: decisions (2026-10-31).** D2 (each breeder turns Layer 2 on), D3 (the cheat sheet format) and D5 (20 questions per family a day) decided by the owner; D4 (Layer 2 after Layer 1 has been used) still open.
 - **Family Help plan: D4 decided (2026-10-31).** Layer 2 (Haiku) is a second version, after Layer 1 has been used.
+- **Kels preventatives: log more than one (2026-10-31).** Asked by the owner: Check in on my
+  dogs' preventatives step asks "Any other preventatives to log?" after each product
+  (**Log another** / **No, that's all**), each later form ticking the dogs picked last time,
+  so heartworm, flea & tick and a dewormer are each logged in turn. With none missing it asks
+  first. Also drafted **Review my waitlist** (Kels Roadmap §3.16, proposed): the order and
+  wording for messages, requests, overdue offers, open picks, turns, applications, fees,
+  "Ready now?" and lost or cancelled sales. Nothing of it built.
+- **Review my waitlist: sales step reworked (2026-10-31).** Asked by the owner: the "lost and
+  cancelled sales" report step is dropped; step 2 now asks whether she needs to cancel or void
+  any sales (backed out, pup died, failed a health check, returned) and runs the Sale page's
+  follow-ups. Still a proposal; nothing built.
+- **Family Requests plan drafted (2026-10-31).** Asked by the owner: price-list groups with
+  age windows for families requesting and cancelling extras (training packages too), pickup
+  slots and locations booked from the status page, mileage from her standard location,
+  transport (flight nanny) suggestions, training packages tied to boarding, and backing out
+  with a deposit policy by reason and age. Draft in `docs/KennelOS_Family_Requests_Plan.md`
+  with decisions D1–D9; nothing built.
+- **Family Requests plan: D4 provider decided (2026-11-01).** Asked by the owner: driving
+  miles come from Mapbox (geocoding + Matrix) through a Worker endpoint, `POST /geo/distance`,
+  storing only miles and minutes. Whether levels 1–2 ship first is still open.
+- **Family Requests plan: D1, D2, D5, D7 decided (2026-11-01).** Asked by the owner: no prices
+  on the server (a link to her own page, opened in a new tab, and her message above the extras
+  listed by name under group headings); every request waits for her approval (alert, digest,
+  nudge, one-tap Approve); families can give their own address, measured with Mapbox, with a
+  "she'll be in touch" answer and a new `transport_options` email over her mile limit; a moved
+  deposit puts them at the end of the line on their existing entry, reopened. Still a plan.
+- **Family Requests plan: transport email and standard address (2026-11-01).** Asked by the
+  owner: the `transport_options` email is one she sends with a tap (Communicate… and the
+  address request), never automatically; her standard location is a public place, so it's
+  held on the server to measure families' addresses from. Open questions listed in full
+  (D3, D4b, D6, D8–D15).
+- **Family Requests plan: mileage basis, refunds, extras payment plans (2026-11-01).** Asked
+  by the owner: one way / round trip is a radio-button setting beside the fee per mile; a
+  refund on a back-out voids the sale but sits under More options with a typed confirm; extras
+  get payment plans (percent steps due at an age, on approval, before pickup or with the
+  balance), each step its own invoice line and income part, with an `extra-due` reminder.
+- **Family Requests plan: D14 decided (2026-11-01).** Asked by the owner: approving a back-out
+  lists the pup's extras, boarding and drop-off with tick boxes; paid or finished extras start
+  kept and stay owed (invoiceable, reminded, anticipated income) on the cancelled sale.
+- **Family Requests plan: free miles and home distance (2026-11-01).** Asked by the owner:
+  "no charge under X miles", every mile charged at or over it; families may suggest their own
+  meetup place only if they live at least X miles away, measured once per family from their
+  City / state (application, contact, or asked on the status page) with Mapbox (D17 open).
+- **Family Requests plan: every decision made (2026-11-01).** Asked by the owner: City / state
+  is a locked, required application question while the home-distance rule is on (D17c); the
+  rest follow the plan's recommendations (D3, D4b, D6, D8–D12, D15, D16, D17). Ready to build.
+- **Review my waitlist: open questions decided (2026-11-01).** On the owner's word ("use your
+  recommendations"): messages lead; "remind me in a few days" on open picks only snoozes.
+  This session's app change (the preventatives loop) rides `kennelos-shell-v88`.
+- **Family Requests step 1: the price list's groups, rules and plans (2026-11-01).** The
+  Kennel page's Extra charges price list (`assets/priceListEditor.js`, new, precached) shows
+  her extras in groups, each group with its rules (ages families can ask and cancel, when
+  they're paid) and each extra with Details (group, description, families can ask, its own
+  ages, boarding days, its own plan). `extraCharges.js`: the new price-list fields,
+  `Kennel.extra_charge_groups` (private in `syncRegistry`), `PLAN_DUE`, `chargeRules`,
+  `requestWindow`, `planProblem` / `planText`, `readPriceList` (merges by id, so Kels's form
+  keeps the rest) and `readChargeGroups`. The Sale page's extra charge picker groups them.
+  Sample data gains Photo packages and Training groups. Stored only for now; family requests
+  use them from step 3. Rides `kennelos-shell-v88`. Checked in the browser at phone width.
+- **Family Requests step 2: Getting your pup home (2026-11-01).** A new account type,
+  Transport (flight nanny, ground). Shared transport accounts (`referralShare.sharedTransport`:
+  name, link or website, notes) go in the waitlist projection as `kennel.transport`, separate
+  from recommended products; the Worker (`familyPages.transportOf`) shows them only to a family
+  with an open sale, as a Getting your pup home card on the status page. The account form's
+  share hint and the card's badge follow the type. Tests in `tests/referralShare.test.js` and
+  `cloud/tests/familyPages.test.js`; the card checked in the browser with a mocked response.
+  Needs a Worker deploy for the status page.
+- **Family Requests step 3: extras requests and payment plans (2026-11-01).** Families with an
+  open sale see an Extras card on their status page: her message (Waitlist settings, default
+  in the owner's words), See our extras and prices (her https page, new tab), and the extras
+  she marked "families can ask" by name under her group headings, inside their age window,
+  with Request, and Cancel on theirs while allowed. No price reaches the server
+  (`data/familyExtras.js`, projection `entry.extras`, Worker `extrasOf` and
+  `extra_request` / `extra_cancel` checks, alerts and digest as requests). Each request
+  waits for her: a Today nudge and a Waiting for you row on the entry, Approve adds the
+  charge at her price with its payment plan as dated steps (or removes it; refused while
+  part is paid), then the request email. Payment steps: their own income parts, invoice
+  lines with their own due dates, a Paid on date on the Sale page, an `extra-due` nudge 7
+  days before. A charge picked from the price list on the Sale page gets its plan too.
+  Tests: `tests/extraCharges.test.js`, an end-to-end one in `tests/cloudWaitlist.test.js`,
+  `cloud/tests/familyActions.test.js`, `cloud/tests/familyPages.test.js`. Checked in the
+  browser (status page card with a mocked response; approve on the entry page; steps and
+  Paid on on the Sale page). Needs a Worker deploy; rides `kennelos-shell-v88`.
+- **Family Requests step 4: training packages and boarding (2026-11-01).** A price-list
+  extra's boarding days ride onto the sale's charge (approval, or picking it on the Sale
+  page). Its stay is a boarding event on the pup, reason Training (added to the
+  suggestions), linked by `details.sale_id` / `details.extra_charge_id`
+  (`goHome.trainingStayEvent`, `trainingStaysFor`, `orphanTrainingStays`). Approving it on
+  the waitlist entry offers Log the stay; approving its cancel offers Remove the stay; Today
+  has `training-stay` (one-tap log) and `training-stay-orphan` (remove) for every other
+  path. The event form keeps the link through an edit. `referenceRegistry` gains `scan`
+  entries (an unindexed dotted path), used for the stay's `details.sale_id`, so a sale with
+  a stay can't be hard-deleted. Tests in `tests/extraCharges.test.js`; the event-form edit
+  checked in the browser. Rides `kennelos-shell-v88`.
+- **Family Requests step 5: pickup places, times, own addresses, Mapbox (2026-11-01).** Her
+  pickup places and transport fee settings (Kennel page, Pickup & transport); pickup times per
+  litter (Litter page, `assets/pickupTimesPanel.js`, Pro); City / state locked and required on
+  her form while a minimum home distance is set. Families with an open sale get a Pickup card:
+  choose a time (from the ready date, or after a training stay), change or cancel until her
+  cutoff, suggest their own address (when allowed), or say where they live (when asked).
+  The Worker measures an address or home with Mapbox (`cloud/src/geo.js`, `MAPBOX_TOKEN`,
+  `POST /geo/distance`), counts unapplied bookings against a time's room, and keeps her
+  standard location server-only. Her device applies requests (`familyPickup.js`), measures
+  homes once during sync, and approves: a time → the pickup event; an address → day, time,
+  method, miles and the suggested fee (`transportFee.js`, working shown) → a drop-off and the
+  sale's transport fee. Today nudges, the entry page's Pickup card and override, and the
+  `transport_options` email (her Transport accounts, the miles). Privacy policy lists
+  Mapbox. Tests: `tests/familyPickup.test.js`, an end-to-end test in
+  `tests/cloudWaitlist.test.js` (Mapbox stubbed), `cloud/tests/familyActions.test.js`,
+  `cloud/tests/familyPages.test.js`. Checked in the browser (status page card, Kennel card,
+  Litter times, the approve form). Needs a Worker deploy and the `MAPBOX_TOKEN` secret.
+- **Pickup date rules (2026-11-01).** Asked by the owner: each pickup date on a litter can
+  require one of her extras (families see "Requires 10 week training" and can't choose that
+  day's times until it's on their sale; the Worker refuses `needs_extra`) or apply her
+  standard boarding (new `boarding_rate` setting; families see "Will result in boarding
+  charges"; approving a time that day sets the sale's deferred boarding per day from when the
+  pup could go home and logs the stay, both removed if they move to another date or cancel).
+  `Litter.pickup_date_rules`, `pickupSlots.dateRules` / `standardBoarding`, `Sale.boarding_from_pickup`.
+  Also: the event form now keeps a pickup's `pickup_slot_id` (and the boarding marker) through
+  an edit. Tests extended; checked in the browser.
+- **Pickup charges never overwrite hers (2026-11-01).** Asked by the owner: the pickup flow
+  fills the sale's existing `transport_fee` and deferred boarding fields (there was no other
+  boarding default; `boarding_rate` is the only one). The address approval form starts with
+  the fee already on the sale ("On the sale now: $250.00") and offers **Use $588.00** for the
+  suggestion; after a time or a cancel, a transport fee still on the sale is offered for
+  removal; on a boarding date, a boarding charge she typed is kept and **Use standard
+  boarding** is offered instead (Today says both in its message). `applyPickupBoarding`,
+  `clearTransportFee`; the end-to-end test covers both.
+- **Family Requests step 6: backing out (2026-11-01).** Families with an open sale can ask to
+  back out from their status page (her reasons, "Something else", a note; her policy text
+  first). Her Waitlist settings: reasons, deposit policy rows (reason × pup age → keep or
+  move), the text. Today and the entry page show the request with her policy's suggestion;
+  Keep / Move / More options (refund, typed REFUND) / Decline, each with a confirm that lists
+  extras, stays and pickups ticked or kept (part-paid or Done extras kept, still owed) and a
+  summary. Move reopens their entry at the end of the line with the deposit carried; keep and
+  refund withdraw them; refund voids the sale ("Buyer backed out, refunded"). Kept extras
+  keep their income on a released sale; the offer gets `backed_out_date` (cloud date field,
+  `cloudFields.js` regenerated) and that litter counts as spent. New `data/backOut.js`; the
+  Sale page's Done tick. Tests: `tests/backOut.test.js`, an end-to-end test in
+  `tests/cloudWaitlist.test.js`, cloud action and page tests. Checked in the browser.
+- **Backing out: one text for every family (2026-11-01).** Asked by the owner: families never
+  see her deposit policy (they never did; now a test pins that it isn't published). They all
+  read the same text she can edit, defaulting to the owner's wording (deposits are
+  non-refundable; [Kennel Name] reviews the reason for backing out and reaches out if any of it can apply to a
+  future litter), with [Kennel Name] filled in. The settings box starts with that text.
+- **Backing out puts the pup back (2026-11-01).** Asked by the owner: the back-out confirm has
+  "Put [pup] back to Available" (Health hold when their reason is the pup's health), ticked,
+  so the pup can be offered to the next family, as the Sale page asks when a sale ends. All
+  of this session's app changes ride `kennelos-shell-v88`.

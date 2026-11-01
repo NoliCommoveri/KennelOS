@@ -63,8 +63,11 @@ test('the pages carry no inline script or style (the CSP forbids them) and load 
     assert.equal(/style="/.test(text), false, `${f}: inline style`);
     // The one exception: the application form loads Cloudflare Turnstile, its spam
     // check, and only that page's CSP allows it.
+    // The status page's Directions links (Family Requests plan §4) open the family's
+    // own maps in a new tab: a link they tap, nothing the page loads.
     const outside = text.replace(/http:\/\/www\.w3\.org[^"']*/g, '')
-      .replace(f === 'apply.js' ? /https:\/\/challenges\.cloudflare\.com\/turnstile\/v0\/api\.js\?render=explicit/g : /$^/g, '');
+      .replace(f === 'apply.js' ? /https:\/\/challenges\.cloudflare\.com\/turnstile\/v0\/api\.js\?render=explicit/g : /$^/g, '')
+      .replace(f === 'status.js' ? /https:\/\/www\.google\.com\/maps\/dir\/\?/g : /$^/g, '');
     assert.equal(/https?:\/\//.test(outside), false, `${f}: an outside URL`);
     if (f.endsWith('.html')) assert.equal(/<script(?![^>]*\bsrc=)[^>]*>/.test(text), false, `${f}: inline script`);
   }

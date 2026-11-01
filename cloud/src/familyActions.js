@@ -15,13 +15,15 @@
 // Never logged: a session, a token, a message, a request body (plan §6.4).
 import { runKennelNow } from './serverMoves.js';
 import { limitBucket } from './ratelimit.js';
+import { cleanAddress, drivingDistance, geoAvailable, GEO_LIMITS } from './geo.js';
 import { sha256Hex } from './lib/crypto.js';
 import { STATUS_TOKEN } from './waitlist.js';
 import { ACTION_KINDS, notifyEvent } from './notify.js';
 import { fail, json, readJson } from './lib/http.js';
 
 export const ACTION_LIMITS = { perHourPerSession: 60, messagesPerHourPerSession: 10, messageBytes: 32 * 1024, noteChars: 500, maxPauseDays: 731 };
-export const FAMILY_ACTIONS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change', 'prepass', 'unprepass', 'ready', 'companion_request'];
+export const FAMILY_ACTIONS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change', 'prepass', 'unprepass', 'ready', 'companion_request', 'extra_request', 'extra_cancel',
+  'pickup_book', 'pickup_cancel', 'pickup_address', 'home_location', 'back_out'];
 
 const OPEN_STATUSES = ['applied', 'approved', 'active'];
 // Copies of the app's vocab (shared/data/vocab.js); tests/familyPages.test.js in
@@ -110,6 +112,83 @@ export function checkAction(action, body, { entry, projection, pending, now = ne
     if (!entry.companion?.available) fail(409, 'no_sale');
     if ((entry.companion.request && !entry.companion.request.decided) || already('companion_request')) fail(409, 'already_requested');
     return { note: cleanNote(body.note) };
+  }
+  // An extra asked for or cancelled (docs/KennelOS_Family_Requests_Plan.md §3): only
+  // what her device published to this family (entry.extras), inside its dates, one
+  // waiting request per extra. It's a request: her device applies nothing until she
+  // approves it.
+  if (action === 'extra_request' || action === 'extra_cancel') {
+    const x = entry.companion?.available && entry.extras && typeof entry.extras === 'object' ? entry.extras : fail(409, 'no_sale');
+    const today = todayUtc(now);
+    const waiting = (r) => r && !r.decided;
+    if (action === 'extra_request') {
+      const id = String(body.list_id ?? '');
+      const item = (Array.isArray(x.available) ? x.available : []).find((a) => a && a.id === id) || fail(409, 'not_listed');
+      if ((item.open_from && today < item.open_from) || (item.open_until && today > item.open_until)) fail(409, 'not_open');
+      if ((x.requests || []).some((r) => waiting(r) && r.kind === 'add' && r.list_id === id)
+        || already('extra_request', (p) => p.list_id === id)) fail(409, 'already_requested');
+      return { list_id: id, name: String(item.name ?? '').slice(0, 120), note: cleanNote(body.note) };
+    }
+    const id = String(body.charge_id ?? '');
+    const charge = (Array.isArray(x.current) ? x.current : []).find((c) => c && c.id === id) || fail(409, 'not_listed');
+    if (!charge.can_cancel || (charge.cancel_until && today > charge.cancel_until)) fail(409, 'not_open');
+    if ((x.requests || []).some((r) => waiting(r) && r.kind === 'cancel' && r.charge_id === id)
+      || already('extra_cancel', (p) => p.charge_id === id)) fail(409, 'already_requested');
+    return { charge_id: id, list_id: typeof charge.list_id === 'string' ? charge.list_id : null, name: String(charge.name ?? '').slice(0, 120), note: cleanNote(body.note) };
+  }
+  // Backing out (docs/KennelOS_Family_Requests_Plan.md §7): only with an open sale,
+  // one of her reasons ("Something else" needs a few words), one request at a time.
+  // Nothing changes until she decides.
+  if (action === 'back_out') {
+    const bo = entry.back_out?.available ? entry.back_out : fail(409, 'no_sale');
+    if ((bo.request && !bo.request.decided) || already('back_out')) fail(409, 'already_requested');
+    const reasons = Array.isArray(projection.kennel?.back_out_reasons) ? projection.kennel.back_out_reasons : [];
+    const id = String(body.reason_id ?? '');
+    if (!reasons.some((r) => r && r.id === id)) fail(400, 'reason_required');
+    const reasonText = String(body.reason_text ?? '').trim().slice(0, REASON_TEXT_MAX);
+    if (id === 'other' && !reasonText) fail(400, 'reason_required');
+    return { reason_id: id, reason_text: id === 'other' ? reasonText : '', note: cleanNote(body.note) };
+  }
+  // Pickup (docs/KennelOS_Family_Requests_Plan.md §4): a time she published to this
+  // family (entry.pickup.slots, with room left), a cancel or change before her
+  // cutoff, their own address (only when she allows them one), or where they live
+  // (only when asked). Each is a request her device applies nothing of until she
+  // approves it; the miles are measured in handleAct.
+  if (['pickup_book', 'pickup_cancel', 'pickup_address', 'home_location'].includes(action)) {
+    const pk = entry.companion?.available && entry.pickup && typeof entry.pickup === 'object' ? entry.pickup : fail(409, 'no_sale');
+    const today = todayUtc(now);
+    const note = cleanNote(body.note);
+    const waitingBook = already('pickup_book') || already('pickup_address') || (pk.requests || []).some((r) => r && !r.decided && (r.kind === 'slot' || r.kind === 'address'));
+    const canChange = !pk.booked || (pk.booked.change_until && today <= pk.booked.change_until);
+    if (action === 'pickup_book') {
+      const slot = (Array.isArray(pk.slots) ? pk.slots : []).find((x) => x && x.id === String(body.slot_id ?? '')) || fail(409, 'not_listed');
+      if (!(slot.date > today) || !(Number(slot.left) > 0)) fail(409, 'slot_full');
+      // A date that needs one of her packages first (a training package) they don't have.
+      const rule = (Array.isArray(pk.dates) ? pk.dates : []).find((d) => d && d.date === slot.date);
+      if (rule?.requires && !rule.has_it) fail(409, 'needs_extra');
+      if (waitingBook) fail(409, 'already_requested');
+      if (!canChange) fail(409, 'too_late');
+      return { slot_id: slot.id, date: slot.date, start_time: String(slot.start_time ?? ''), end_time: String(slot.end_time ?? ''), place: String(slot.location?.label ?? '').slice(0, 80), note };
+    }
+    if (action === 'pickup_cancel') {
+      if (!pk.booked) fail(409, 'not_listed');
+      if (!canChange) fail(409, 'too_late');
+      if (already('pickup_cancel')) fail(409, 'already_requested');
+      return { note };
+    }
+    if (action === 'pickup_address') {
+      if (pk.own_place !== true) fail(409, 'not_allowed');
+      const address = cleanAddress(body.address) || fail(400, 'bad_address');
+      const date = String(body.date ?? '');
+      if (date && (!YMD.test(date) || date <= today)) fail(400, 'bad_date');
+      if (waitingBook) fail(409, 'already_requested');
+      if (!canChange) fail(409, 'too_late');
+      return { address, date: date || null, note };
+    }
+    // home_location
+    if (pk.own_place !== null || !pk.ask_home) fail(409, 'not_asked');
+    if (already('home_location')) fail(409, 'already_answered');
+    return { place: cleanAddress(body.place) || fail(400, 'bad_address') };
   }
   if (!OPEN_STATUSES.includes(entry.status)) fail(409, 'not_on_list');
   // A family's turn (Waitlist Spec §16.1) is one offer row per litter sharing a
@@ -215,6 +294,21 @@ export function checkAction(action, body, { entry, projection, pending, now = ne
   }
 }
 
+// Miles from her standard location (projection.server.geo_from, never shown to a
+// family) to their place. pickup_address → { …, miles, minutes, far }; home_location
+// → { …, miles, allowed }. Unmeasured, the payload goes on without them.
+async function withMiles(env, fam, action, payload) {
+  const from = cleanAddress(fam.projection.server?.geo_from);
+  if (!from || !geoAvailable(env)) return payload;
+  await limitBucket(env, `wl-geo:${fam.entry_id}`, GEO_LIMITS.perHourPerFamily);
+  let d = null;
+  try { d = await drivingDistance(env, from, action === 'pickup_address' ? payload.address : payload.place); } catch { d = null; }
+  if (!d) return payload;
+  const pk = fam.entry.pickup;
+  if (action === 'home_location') return { ...payload, miles: d.miles, allowed: d.miles >= (Number(pk.min_home_miles) || 0) };
+  return { ...payload, miles: d.miles, minutes: d.minutes, far: Number(pk.far_miles) > 0 && d.miles > Number(pk.far_miles) };
+}
+
 // POST /f/act {session, status_token, action, …}
 export async function handleAct(env, request) {
   const body = await readJson(request, 8 * 1024);
@@ -222,7 +316,20 @@ export async function handleAct(env, request) {
   await limitBucket(env, `wl-act:${fam.entry_id}`, ACTION_LIMITS.perHourPerSession);
   const pending = await pendingFor(env, fam.public_id, fam.entry_id, fam.eventsThrough);
   const action = String(body.action ?? '');
-  const payload = checkAction(action, body, { entry: fam.entry, projection: fam.projection, pending });
+  let payload = checkAction(action, body, { entry: fam.entry, projection: fam.projection, pending });
+  // A time with room for one more: other families' bookings her device hasn't
+  // applied yet count against it too.
+  if (action === 'pickup_book') {
+    const { n } = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM wl_events WHERE public_id = ? AND entry_id != ? AND made_by = 'family' AND kind = 'pickup_book'
+         AND seq > ? AND json_extract(payload, '$.slot_id') = ?`,
+    ).bind(fam.public_id, fam.entry_id, fam.eventsThrough, payload.slot_id).first();
+    const slot = fam.entry.pickup.slots.find((x) => x.id === payload.slot_id);
+    if (Number(n) >= Number(slot.left)) fail(409, 'slot_full');
+  }
+  // Their address or where they live: measured now from her standard location, so
+  // their page answers at once. Without Mapbox (or an answer) it still goes to her.
+  if (action === 'pickup_address' || action === 'home_location') payload = await withMiles(env, fam, action, payload);
   const at = new Date().toISOString();
   const statements = [];
   if (action === 'pick') {

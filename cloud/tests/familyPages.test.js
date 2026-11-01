@@ -391,6 +391,28 @@ async function publishedWith(kennelExtra) {
   return env;
 }
 
+// --- Getting your pup home (docs/KennelOS_Family_Requests_Plan.md D8) -------------------
+
+test('transport suggestions show only to a family with an open sale, cleaned', async () => {
+  const env = await makeEnv({ ASSETS: assets });
+  const s = await breeder(env);
+  const p = projection();
+  p.kennel.transport = [
+    { name: 'Sky Paws', link: 'https://skypaws.example.com', notes: 'Call Jo at 555-0100.', extra: 'dropped' },
+    { name: 'Sneaky', link: 'javascript:alert(1)', notes: '' },
+    { name: 'Road Trip Pups', link: 'javascript:alert(1)', notes: 'Ground, Texas only' },
+  ];
+  p.entries.cy.companion = { available: true, request: null };
+  assert.equal((await call(env, 'PUT', `/waitlist/projection/${KENNEL}`, { token: s.token, body: { projection: p } })).status, 200);
+  const cy = await (await get(env, `/f/status/${tok('c')}`)).json();
+  assert.deepEqual(cy.kennel.transport, [
+    { name: 'Sky Paws', link: 'https://skypaws.example.com', notes: 'Call Jo at 555-0100.' },
+    { name: 'Road Trip Pups', link: '', notes: 'Ground, Texas only' },
+  ], 'a non-web link is dropped, one with nothing left goes, unknown fields never pass');
+  const ann = await (await get(env, `/f/status/${tok('a')}`)).json();
+  assert.equal('transport' in ann.kennel, false, 'no open sale: not shown');
+});
+
 test('the form and list can be framed only while she has embedding on, and only by the sites she listed', async () => {
   const off = await publishedWith({});
   assert.equal(ancestors(await get(off, `/apply/${KENNEL}`)), "'none'", 'off by default');
@@ -442,4 +464,63 @@ test("every family's status page shows the products she shares, placed families 
   assert.equal(cy.kennel.recommended.length, 2, 'a placed family sees them too');
   const none = await (await get(await publishedWith({}), `/f/status/${tok('a')}`)).json();
   assert.equal('recommended' in none.kennel, false);
+});
+
+test('a family\'s extras pass field by field: names and dates only, and only with an open sale', async () => {
+  const { extrasOf } = await import('../src/familyPages.js');
+  assert.equal(extrasOf(null), null);
+  assert.equal(extrasOf({ available: [], current: [], requests: [] }), null);
+  const x = extrasOf({
+    available: [{ id: 'tr', name: 'Puppy training', group: 'Training', description: 'Basics', open_from: '2026-10-20', open_until: 'soon', amount: 600 }],
+    current: [{ id: 'c1', list_id: 'gold', name: 'Gold', group: '', can_cancel: 'yes', cancel_until: null, price: 150 }],
+    requests: [{ id: 'event-1', kind: 'add', list_id: 'tr', name: 'Puppy training', requested_date: '2026-10-21', decided: 'maybe', note: 'private' }],
+  });
+  assert.deepEqual(x.available, [{ id: 'tr', name: 'Puppy training', group: 'Training', description: 'Basics', open_from: '2026-10-20', open_until: null }]);
+  assert.deepEqual(x.current, [{ id: 'c1', list_id: 'gold', name: 'Gold', group: '', can_cancel: false, cancel_until: null }]);
+  assert.deepEqual(x.requests, [{ id: 'event-1', kind: 'add', list_id: 'tr', charge_id: null, name: 'Puppy training', requested_date: '2026-10-21', decided: null, decided_date: null }]);
+  const p = projection();
+  p.entries.cy.extras = { available: [{ id: 'tr', name: 'Puppy training' }] };
+  p.kennel.extras_intro = 'Our extras';
+  p.kennel.extras_info_url = 'javascript:alert(1)';
+  assert.equal('extras' in statusView(p, 'cy').family, false, 'no open sale: none');
+  p.entries.cy.companion = { available: true, request: null };
+  const v = statusView(p, 'cy');
+  assert.equal(v.family.extras.available[0].name, 'Puppy training');
+  assert.equal(v.kennel.extras_intro, 'Our extras');
+  assert.equal('extras_info_url' in v.kennel, false, 'only an https link');
+});
+
+test("a family's pickup passes field by field; her standard location and the mile limits never do", async () => {
+  const { pickupOf } = await import('../src/familyPages.js');
+  const x = pickupOf({
+    ready_from: '2026-10-27', far_miles: 150, min_home_miles: 200, geo_from: 'secret',
+    slots: [{ id: 'x1', date: '2026-11-21', start_time: '10:00', end_time: '10:30', left: 2, location: { label: 'Library', address: '1 Main St', notes: '', id: 'a' }, capacity: 3 }],
+    booked: null, requests: [{ id: 'event-1', kind: 'address', address: '9 Oak', miles: 196.44, far: true, requested_date: '2026-11-01', note: 'private' }],
+    own_place: true, ask_home: false,
+  });
+  assert.deepEqual(Object.keys(x).sort(), ['ask_home', 'booked', 'dates', 'own_place', 'ready_from', 'requests', 'slots']);
+  assert.deepEqual(x.slots[0], { id: 'x1', date: '2026-11-21', start_time: '10:00', end_time: '10:30', left: 2, location: { label: 'Library', address: '1 Main St', notes: '' } });
+  assert.equal(x.requests[0].miles, 196.4);
+  assert.equal('note' in x.requests[0], false);
+  assert.equal(pickupOf({ slots: [], requests: [], own_place: false }), null);
+  const p = projection();
+  p.server = { geo_from: 'Library, Austin TX' };
+  p.entries.cy.companion = { available: true, request: null };
+  p.entries.cy.pickup = { slots: [], own_place: true };
+  const v = statusView(p, 'cy');
+  assert.equal(v.family.pickup.own_place, true);
+  assert.equal(JSON.stringify(v).includes('Austin'), false, 'her standard location never reaches a family');
+});
+
+test("backing out passes field by field, with her reasons and policy text, only with an open sale", () => {
+  const p = projection();
+  p.kennel.back_out_reasons = [{ id: 'timing', label: 'The timing', extra: 'x' }];
+  p.kennel.back_out_policy_text = 'Tell us why.';
+  p.entries.cy.back_out = { available: true, request: { reason: 'The timing', requested_date: '2026-11-01', decided: null, note: 'private', outcome: null } };
+  assert.equal('back_out' in statusView(p, 'cy').family, false, 'no open sale: none');
+  p.entries.cy.companion = { available: true, request: null };
+  const v = statusView(p, 'cy');
+  assert.deepEqual(v.family.back_out, { available: true, request: { reason: 'The timing', requested_date: '2026-11-01', decided: null, decided_date: null, outcome: null } });
+  assert.deepEqual(v.kennel.back_out_reasons, [{ id: 'timing', label: 'The timing' }]);
+  assert.equal(v.kennel.back_out_policy_text, 'Tell us why.');
 });

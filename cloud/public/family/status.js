@@ -538,6 +538,199 @@ function recommendedHtml() {
   return card('Recommended for your puppy', `<ul class="plain">${items}</ul>`);
 }
 
+// Extras (Family Requests plan §3): her message, her own page with the details and
+// prices (a new tab), then what they may ask for today under her group headings,
+// and what's on their sale with Cancel while they still can. Names only: prices
+// live on her page. Every request waits for her.
+const todayUtc = () => new Date().toISOString().slice(0, 10);
+function extrasHtml(f) {
+  const x = f.extras;
+  if (!x) return '';
+  const k = state.v.kennel;
+  const kennel = k.name;
+  const today = todayUtc();
+  const sentAdd = (id) => pendingOf('extra_request', (p) => p.list_id === id).length;
+  const sentCancel = (id) => pendingOf('extra_cancel', (p) => p.charge_id === id).length;
+  const req = (kind, test) => (x.requests || []).find((r) => r.kind === kind && test(r) && !r.decided);
+  const act = canActExtras();
+  const status = (text) => `<div class="small"><span class="badge warn">Requested</span> ${text}</div>`;
+  const groups = new Map();
+  const add = (g, html) => { if (!groups.has(g)) groups.set(g, []); groups.get(g).push(html); };
+  for (const c of x.current || []) {
+    const asked = sentCancel(c.id) || req('cancel', (r) => r.charge_id === c.id);
+    add(c.group, `<li class="mt8"><div><strong>${esc(c.name)}</strong> <span class="badge">Yours</span></div>
+      ${asked ? status(`to cancel. ${esc(kennel)} will confirm.`)
+        : c.can_cancel && act && (!c.cancel_until || today <= c.cancel_until)
+          ? `<div class="small">${c.cancel_until ? `You can cancel until ${esc(fmtDate(c.cancel_until))}. ` : ''}<button type="button" class="linkish small" data-act="extra_cancel" data-id="${esc(c.id)}" data-name="${esc(c.name)}">Cancel</button></div>` : ''}</li>`);
+  }
+  for (const a of x.available || []) {
+    const opens = a.open_from && today < a.open_from;
+    const asked = sentAdd(a.id) || req('add', (r) => r.list_id === a.id);
+    add(a.group, `<li class="mt8"><div><strong>${esc(a.name)}</strong></div>
+      ${a.description ? `<p class="small mt0">${esc(a.description)}</p>` : ''}
+      ${asked ? status(`${esc(kennel)} will confirm.`)
+        : opens ? `<div class="small muted">You can ask for this from ${esc(fmtDate(a.open_from))}.</div>`
+          : act ? `<div class="small">${a.open_until ? `Available to request until ${esc(fmtDate(a.open_until))}. ` : ''}<button type="button" class="secondary small" data-act="extra_request" data-id="${esc(a.id)}" data-name="${esc(a.name)}">Request</button></div>` : ''}</li>`);
+  }
+  const decided = (x.requests || []).filter((r) => r.decided).map((r) => `<li class="small">${r.decided === 'approved' ? 'Confirmed' : 'Not confirmed'}: ${r.kind === 'cancel' ? 'cancel ' : ''}${esc(r.name)} (${esc(fmtDate(r.decided_date))})</li>`);
+  const lists = [...groups.entries()].sort(([a], [b]) => (a ? 0 : 1) - (b ? 0 : 1))
+    .map(([g, items]) => `${g ? `<h3 class="mt8">${esc(g)}</h3>` : ''}<ul class="plain">${items.join('')}</ul>`).join('');
+  return card('Extras', `
+    ${k.extras_intro ? `<p class="mt0 pre">${esc(k.extras_intro)}</p>` : ''}
+    ${k.extras_info_url ? `<div class="actions"><a class="button secondary" href="${esc(k.extras_info_url)}" target="_blank" rel="noopener noreferrer">See our extras and prices</a></div>` : ''}
+    ${lists}
+    ${decided.length ? `<ul class="plain mt8">${decided.join('')}</ul>` : ''}
+    ${act ? '' : `<p class="small muted">To ask for an extra, sign in on this device with a code sent to the email on your application.</p>`}`);
+}
+const canActExtras = () => signedIn();
+
+// Pickup (Family Requests plan §4): their booking (change or cancel until her
+// cutoff), the times they may choose from, their own address when she allows one,
+// or where they live when she asks. Every choice is a request she confirms.
+const hm12 = (t) => {
+  if (!/^\d{2}:\d{2}$/.test(t || '')) return '';
+  const [h, m] = t.split(':').map(Number);
+  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+};
+const timeText = (a, b) => (a ? (b && b !== a ? `${hm12(a)}–${hm12(b)}` : hm12(a)) : '');
+const directions = (address) => `https://www.google.com/maps/dir/?${new URLSearchParams({ api: '1', destination: address })}`;
+function milesLine(miles, far, kennel) {
+  if (!Number.isFinite(miles)) return `${esc(kennel)} will confirm the time and any transport fee.`;
+  const about = `That's about ${Math.round(miles).toLocaleString('en-US')} miles from us.`;
+  return far ? `${about} ${esc(kennel)} will be in touch about whether they'll bring your puppy themselves or you'll need a flight nanny.`
+    : `${about} ${esc(kennel)} will confirm the time and any transport fee.`;
+}
+function pickupHtml(f) {
+  const pk = f.pickup;
+  if (!pk) return '';
+  const kennel = state.v.kennel.name;
+  const today = todayUtc();
+  const act = signedIn();
+  const parts = [];
+  const sentBook = pendingOf('pickup_book')[0];
+  const sentAddress = pendingOf('pickup_address')[0];
+  const sentCancel = pendingOf('pickup_cancel')[0];
+  const sentHome = pendingOf('home_location')[0];
+  const waiting = (pk.requests || []).filter((r) => !r.decided);
+  const b = pk.booked;
+  if (b) {
+    const when = `${esc(fmtDate(b.date))}${b.start_time ? `, ${esc(timeText(b.start_time, b.end_time))}` : ''}`;
+    parts.push(`<p class="mt0"><strong>Your ${b.kind === 'address' ? 'drop-off' : 'pickup'}:</strong> ${when}${b.place ? ` at ${esc(b.place)}` : ''}</p>
+      ${b.address ? `<p class="small mt0">${esc(b.address)} · <a href="${esc(directions(b.address))}" target="_blank" rel="noopener noreferrer">Directions</a></p>` : ''}`);
+    const canChange = b.change_until && today <= b.change_until;
+    if (sentCancel || waiting.some((r) => r.kind === 'cancel')) parts.push(`<p class="small"><span class="badge warn">Requested</span> to cancel. ${esc(kennel)} will confirm.</p>`);
+    else if (act && canChange && state.open !== 'pickup-change') {
+      parts.push(`<p class="small muted">You can change or cancel until ${esc(fmtDate(b.change_until))}.</p>
+        <div class="actions"><button type="button" class="secondary small" data-act="open" data-what="pickup-change">Change time</button><button type="button" class="secondary small" data-act="pickup_cancel">Cancel pickup</button></div>`);
+    }
+  }
+  // What they asked for and haven't heard back on.
+  if (sentBook) parts.push(`<p class="small"><span class="badge warn">Requested</span> ${esc(fmtDate(sentBook.payload.date))}${sentBook.payload.start_time ? `, ${esc(timeText(sentBook.payload.start_time, sentBook.payload.end_time))}` : ''}${sentBook.payload.place ? ` at ${esc(sentBook.payload.place)}` : ''}. ${esc(kennel)} will confirm.</p>`);
+  if (sentAddress) parts.push(`<p class="small"><span class="badge warn">Requested</span> ${esc(sentAddress.payload.address)}. ${milesLine(sentAddress.payload.miles, sentAddress.payload.far, kennel)}</p>`);
+  for (const r of waiting.filter((x) => x.kind !== 'cancel')) {
+    parts.push(r.kind === 'address'
+      ? `<p class="small"><span class="badge warn">Requested</span> ${esc(r.address)}. ${milesLine(r.miles, r.far, kennel)}</p>`
+      : `<p class="small"><span class="badge warn">Requested</span> ${esc(fmtDate(r.date))}${r.start_time ? `, ${esc(hm12(r.start_time))}` : ''}${r.place ? ` at ${esc(r.place)}` : ''}. ${esc(kennel)} will confirm.</p>`);
+  }
+  for (const r of (pk.requests || []).filter((x) => x.decided === 'declined')) {
+    parts.push(`<p class="small muted">${esc(kennel)} couldn't confirm ${r.kind === 'cancel' ? 'cancelling' : r.kind === 'address' ? esc(r.address) : `${esc(fmtDate(r.date))}`} (${esc(fmtDate(r.decided_date))}). Please choose again or contact them.</p>`);
+  }
+  const asking = sentBook || sentAddress || waiting.some((r) => r.kind !== 'cancel');
+  const choosing = !asking && (!b || state.open === 'pickup-change' || state.open === 'pickup-address');
+  if (choosing) {
+    const slots = (pk.slots || []).filter((sl) => sl.date > today && (!b || !(sl.date === b.date && sl.start_time === b.start_time)));
+    if (slots.length) {
+      const byDate = new Map();
+      for (const sl of slots) { if (!byDate.has(sl.date)) byDate.set(sl.date, []); byDate.get(sl.date).push(sl); }
+      parts.push(`<p class="${b ? 'small' : 'mt0'}">${b ? 'Choose a new time:' : 'Choose a pickup time.'}${pk.ready_from ? ` <span class="muted small">From ${esc(fmtDate(pk.ready_from))}, when your puppy is ready.</span>` : ''}</p>
+        ${[...byDate.entries()].map(([date, items]) => {
+          // Her rule for the date: a package they need first, or her standard boarding.
+          const rule = (pk.dates || []).find((d) => d.date === date);
+          const blocked = Boolean(rule?.requires && !rule.has_it);
+          const note = rule?.requires
+            ? `<p class="small mt0"><span class="badge ${blocked ? 'warn' : ''}">Requires ${esc(rule.requires)}</span>${blocked ? ' Ask for it on the Extras card first; once it\'s on your puppy\'s sale you can choose a time this day.' : ''}</p>`
+            : rule?.boarding ? `<p class="small mt0"><span class="badge warn">Will result in boarding charges</span> ${esc(kennel)} boards your puppy until this day.</p>` : '';
+          return `<h3 class="mt8">${esc(fmtDate(date))}</h3>${note}<ul class="plain">${items.map((sl) => `<li class="mt8">
+          <div><strong>${esc(timeText(sl.start_time, sl.end_time))}</strong> · ${esc(sl.location.label)}</div>
+          <div class="small">${esc(sl.location.address)} · <a href="${esc(directions(sl.location.address))}" target="_blank" rel="noopener noreferrer">Directions</a></div>
+          ${sl.location.notes ? `<div class="small muted">${esc(sl.location.notes)}</div>` : ''}
+          ${act && !blocked ? `<div class="mt8"><button type="button" class="secondary small" data-act="pickup_book" data-id="${esc(sl.id)}" data-when="${esc(`${fmtDate(sl.date)}, ${timeText(sl.start_time, sl.end_time)} at ${sl.location.label}${rule?.boarding ? ' (boarding charges apply)' : ''}`)}">Choose this time</button></div>` : ''}
+        </li>`).join('')}</ul>`;
+        }).join('')}`);
+    } else if (!b) {
+      parts.push(`<p class="mt0">${esc(kennel)} hasn't posted pickup times yet.</p>`);
+    }
+    if (pk.own_place && act) {
+      parts.push(state.open === 'pickup-address'
+        ? `<form data-form="pickup_address" class="mt8">
+            <label class="q">Where would you like to meet? <span class="muted small">(an address, or a place with its city)</span><input name="address" maxlength="300" required></label>
+            <label class="q">Which day works? <span class="muted small">(optional)</span><input name="date" type="date" min="${esc(today)}"></label>
+            <label class="q">Anything ${esc(kennel)} should know? <span class="muted small">(optional)</span><textarea name="note" maxlength="500"></textarea></label>
+            <div class="actions"><button class="primary" type="submit">Send</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
+          </form>`
+        : `<div class="actions mt8"><button type="button" class="linkish small" data-act="open" data-what="pickup-address">${slots.length ? 'None of these work for us' : 'Suggest a meetup place'}</button></div>`);
+    }
+  }
+  if (pk.ask_home && !sentHome && act) {
+    parts.push(`<form data-form="home_location" class="mt8">
+        <label class="q">Where do you live? <span class="muted small">City and state is enough. It helps ${esc(kennel)} plan getting your puppy to you.</span><input name="place" maxlength="120" required></label>
+        <div class="actions"><button class="primary" type="submit">Send</button></div>
+      </form>`);
+  } else if (sentHome) {
+    parts.push(`<p class="small muted">Thanks! ${esc(kennel)} will see where you live at their next update.</p>`);
+  }
+  if (!act && (pk.slots || []).length) parts.push('<p class="small muted">To choose a time, sign in on this device with a code sent to the email on your application.</p>');
+  if (!parts.length) return '';
+  return card('Pickup', parts.join(''));
+}
+
+// Backing out (Family Requests plan §7): they tell her why; her policy text first.
+// Nothing changes until she decides, and their page shows what she decided.
+function backOutHtml(f) {
+  const bo = f.back_out;
+  if (!bo?.available) return '';
+  const k = state.v.kennel;
+  const kennel = k.name;
+  const req = bo.request;
+  const sent = pendingOf('back_out')[0];
+  if (sent || (req && !req.decided)) {
+    return openCard('Backing out', `<p class="mt0"><span class="badge warn">Requested</span> ${req?.requested_date && !sent ? `on ${esc(fmtDate(req.requested_date))}. ` : ''}${esc(kennel)} will be in touch. Nothing changes until they confirm.</p>`);
+  }
+  if (req?.decided === 'approved') {
+    const what = { keep: 'Your puppy\'s sale is cancelled.', move: 'Your puppy\'s sale is cancelled and your deposit moves to another puppy; you\'re back on the waitlist.', refund: 'Your puppy\'s sale is cancelled and your deposit refunded.' }[req.outcome] || 'Confirmed.';
+    return openCard('Backing out', `<p class="mt0">${esc(kennel)} confirmed on ${esc(fmtDate(req.decided_date))}. ${esc(what)}</p>`);
+  }
+  if (!signedIn()) return '';
+  if (state.open !== 'back_out') {
+    return `<div class="actions mt8"><button type="button" class="linkish small" data-act="open" data-what="back_out">Need to back out?</button></div>
+      ${req?.decided === 'declined' ? `<p class="small muted">${esc(kennel)} didn't confirm your request (${esc(fmtDate(req.decided_date))}). Contact them with any questions.</p>` : ''}`;
+  }
+  const reasons = k.back_out_reasons || [];
+  return openCard('Backing out', `
+    ${k.back_out_policy_text ? `<p class="mt0 pre">${esc(k.back_out_policy_text)}</p>` : ''}
+    <form data-form="back_out" class="mt8">
+      <fieldset class="q"><legend>Why do you need to back out?</legend>
+        ${reasons.map((r) => `<label class="choice"><input type="radio" name="reason_id" value="${esc(r.id)}"> ${esc(r.label)}</label>`).join('')}
+      </fieldset>
+      <label class="q">A few words <span class="muted small">(needed for "${esc(reasons.find((r) => r.id === 'other')?.label || 'Something else')}")</span><input name="reason_text" maxlength="200"></label>
+      <label class="q">Anything else ${esc(kennel)} should know? <span class="muted small">(optional)</span><textarea name="note" maxlength="500"></textarea></label>
+      <div class="actions"><button class="primary danger" type="submit">Send my request</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
+    </form>`);
+}
+
+// Getting your pup home (Family Requests plan D8): her flight nannies and ground
+// transporters, for a family whose pup is picked (the server sends them only then).
+function transportHtml() {
+  const list = state.v.kennel.transport || [];
+  if (!list.length) return '';
+  const items = list.map((t) => `<li class="mt8">
+      <div><strong>${esc(t.name)}</strong></div>
+      ${t.notes ? `<p class="small mt0 pre">${esc(t.notes)}</p>` : ''}
+      ${t.link ? `<div class="small"><a href="${esc(t.link)}" target="_blank" rel="noopener noreferrer">Visit their website</a></div>` : ''}
+    </li>`).join('');
+  return card('Getting your pup home', `<p class="small muted mt0">If you live too far to pick up your puppy, these are the transport options our families have used.</p><ul class="plain">${items}</ul>`);
+}
+
 // "Message us on Facebook" (Waitlist Spec §11), when she switched it on: a link
 // to her own Page in Messenger. Nothing about it comes back here.
 function messengerHtml() {
@@ -568,8 +761,12 @@ function mineHtml() {
   if (!['applied', 'approved', 'active'].includes(f.status)) {
     parts.push(card('', `<p class="mt0">${closedText(f.status, kennel)}</p>`));
     parts.push(companionHtml(f));
+    parts.push(pickupHtml(f));
+    parts.push(extrasHtml(f));
+    parts.push(transportHtml());
     parts.push(recommendedHtml());
     parts.push(emailsHtml());
+    parts.push(backOutHtml(f));
     return parts.join('');
   }
 
@@ -601,6 +798,9 @@ function mineHtml() {
 
   for (const rows of turnsOf(v.offers)) parts.push(turnHtml(rows));
   parts.push(companionHtml(f));
+  parts.push(pickupHtml(f));
+  parts.push(extrasHtml(f));
+  parts.push(transportHtml());
   parts.push(readyHtml(f));
 
   if (f.status === 'active') {
@@ -636,6 +836,7 @@ function mineHtml() {
   parts.push(messageHtml());
   parts.push(messengerHtml());
   parts.push(recommendedHtml());
+  parts.push(backOutHtml(f));
   return parts.join('');
 }
 
@@ -663,6 +864,29 @@ const ERRORS = {
   no_sale: "There's no puppy sale on record for you right now, so there's no Companion link to send. Contact the breeder with any questions.",
   already_requested: "You've already asked. The breeder will send your link by text or email.",
   other_family: 'This device is signed in as a different family. Sign out on the waitlist page and sign in again.',
+  'pickup_book:not_listed': "That time isn't offered any more. The page now shows the times left.",
+  'pickup_book:slot_full': 'Another family just took that time. Please choose another.',
+  'pickup_book:already_requested': "You've already asked. The breeder will confirm.",
+  'back_out:already_requested': "You've already asked. The breeder will be in touch.",
+  'back_out:reason_required': 'Please choose a reason (and for "Something else", a few words).',
+  'back_out:no_sale': "There's no puppy sale on record for you right now. Contact the breeder with any questions.",
+  'pickup_book:needs_extra': 'That day needs a package on your puppy\'s sale first. Ask for it on the Extras card.',
+  'pickup_book:too_late': "It's too late to change your pickup here. Contact the breeder.",
+  'pickup_cancel:too_late': "It's too late to cancel here. Contact the breeder.",
+  'pickup_cancel:already_requested': "You've already asked to cancel. The breeder will confirm.",
+  'pickup_address:not_allowed': 'Please choose one of the listed times.',
+  'pickup_address:bad_address': 'Please type the address or place, with its city.',
+  'pickup_address:already_requested': "You've already asked. The breeder will confirm.",
+  'pickup_address:bad_date': 'Please pick a day after today.',
+  'home_location:bad_address': 'Please type your city and state.',
+  'extra_request:not_listed': "That extra isn't offered any more. The page now shows what's available.",
+  'extra_request:not_open': "That extra can't be requested today. The page now shows when it can.",
+  'extra_request:already_requested': "You've already asked for that. The breeder will confirm it.",
+  'extra_request:no_sale': "There's no puppy sale on record for you right now. Contact the breeder with any questions.",
+  'extra_cancel:not_listed': "That extra isn't on your puppy's sale any more.",
+  'extra_cancel:not_open': "It's too late to cancel that here. Contact the breeder.",
+  'extra_cancel:already_requested': "You've already asked to cancel that. The breeder will confirm it.",
+  'extra_cancel:no_sale': "There's no puppy sale on record for you right now. Contact the breeder with any questions.",
 };
 
 async function send(path, body) {
@@ -674,7 +898,7 @@ async function send(path, body) {
     state.session = null;
     state.flash = 'You were signed out on this device. Sign in again with a code to respond.';
   } else {
-    state.flash = ERRORS[code] || loadError(r, { notFound: 'Something went wrong. Please try again.' });
+    state.flash = ERRORS[`${body.action}:${code}`] || ERRORS[code] || loadError(r, { notFound: 'Something went wrong. Please try again.' });
   }
   return false;
 }
@@ -720,6 +944,26 @@ async function onClick(ev) {
       b.disabled = true;
       await act('ready', { answer: 'yes' }, `Thanks! ${kennel} will see that you're ready at their next update.`);
       return;
+    case 'pickup_book':
+      if (!window.confirm(`Ask ${kennel} for ${b.dataset.when}? They'll confirm it.`)) return;
+      b.disabled = true;
+      await act('pickup_book', { slot_id: b.dataset.id }, `Your request is on its way. ${kennel} will confirm your pickup time.`);
+      return;
+    case 'pickup_cancel':
+      if (!window.confirm(`Ask ${kennel} to cancel your pickup time?`)) return;
+      b.disabled = true;
+      await act('pickup_cancel', {}, `Your request is on its way. ${kennel} will confirm.`);
+      return;
+    case 'extra_request':
+      if (!window.confirm(`Ask ${kennel} for ${b.dataset.name}? They'll confirm it and let you know the cost and when it's due.`)) return;
+      b.disabled = true;
+      await act('extra_request', { list_id: b.dataset.id }, `Your request for ${b.dataset.name} is on its way. ${kennel} will confirm it.`);
+      return;
+    case 'extra_cancel':
+      if (!window.confirm(`Ask ${kennel} to cancel ${b.dataset.name}?`)) return;
+      b.disabled = true;
+      await act('extra_cancel', { charge_id: b.dataset.id }, `Your request to cancel ${b.dataset.name} is on its way. ${kennel} will confirm it.`);
+      return;
     case 'still_interested':
       b.disabled = true;
       await act('still_interested', {}, `Thanks! ${kennel} will see that you're still interested.`);
@@ -760,6 +1004,25 @@ async function onSubmit(ev) {
     }
     case 'pause':
       await act('pause_request', { until: data.get('until'), note: data.get('note') }, `Your pause request is on its way. ${kennel} decides; until then nothing changes.`);
+      return;
+    case 'back_out': {
+      const reasonId = String(data.get('reason_id') || '');
+      const text = String(data.get('reason_text') || '').trim();
+      if (!reasonId || (reasonId === 'other' && !text)) {
+        state.flash = reasonId ? 'Please tell us a little more.' : 'Please choose a reason.';
+        button.disabled = false;
+        render();
+        return;
+      }
+      if (!window.confirm(`Send ${kennel} your request to back out? Nothing changes until they confirm.`)) { button.disabled = false; return; }
+      await act('back_out', { reason_id: reasonId, reason_text: text, note: data.get('note') }, `Your request is on its way. ${kennel} will be in touch.`);
+      return;
+    }
+    case 'pickup_address':
+      await act('pickup_address', { address: data.get('address'), date: data.get('date') || '', note: data.get('note') }, `Your request is on its way. ${kennel} will confirm.`);
+      return;
+    case 'home_location':
+      await act('home_location', { place: data.get('place') }, `Thanks! ${kennel} will see where you live at their next update.`);
       return;
     case 'companion':
       await act('companion_request', { note: data.get('note') }, `Your request is on its way. ${kennel} will send your Companion link by text or email.`);

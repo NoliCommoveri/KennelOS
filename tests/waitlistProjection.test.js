@@ -335,7 +335,8 @@ test('the Companion link block (Spec §8.3): only for a family with an open sale
   const p = buildProjection(f);
   assert.deepEqual(p.entries.e6, {
     name: 'Family e6 Lee', email: 'c-e6@example.com', status: 'placed',
-    companion: { available: true, request: { requested_date: '2026-10-07', decided: null, decided_date: null } }
+    companion: { available: true, request: { requested_date: '2026-10-07', decided: null, decided_date: null } },
+    back_out: { available: true, request: null }
   });
   assert.deepEqual(p.entries.e1.companion, { available: true, request: null }, 'a pick held by a deposit-pending sale counts');
   for (const id of ['e2', 'e3', 'e5', 'e7']) assert.equal('companion' in p.entries[id], false, id);
