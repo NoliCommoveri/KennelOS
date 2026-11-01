@@ -94,8 +94,9 @@ export const SYNC_REGISTRY = Object.freeze({
     // Her application form's key pairs (W2 Plan §7): the private halves open every
     // online application, so they ride the private vault and file backups only.
     private: ['waitlist_form_keys',
-      // Her extra charges price list (guide §21.2): prices, private like a sale's.
-      'extra_charge_list'],
+      // Her extra charges price list (guide §21.2): prices, private like a sale's,
+      // and its groups' rules and payment plans.
+      'extra_charge_list', 'extra_charge_groups'],
     pending: []
   },
 

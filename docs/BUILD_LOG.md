@@ -1806,3 +1806,13 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **Review my waitlist: open questions decided (2026-11-01).** On the owner's word ("use your
   recommendations"): messages lead; "remind me in a few days" on open picks only snoozes.
   This session's app change (the preventatives loop) rides `kennelos-shell-v88`.
+- **Family Requests step 1: the price list's groups, rules and plans (2026-11-01).** The
+  Kennel page's Extra charges price list (`assets/priceListEditor.js`, new, precached) shows
+  her extras in groups, each group with its rules (ages families can ask and cancel, when
+  they're paid) and each extra with Details (group, description, families can ask, its own
+  ages, boarding days, its own plan). `extraCharges.js`: the new price-list fields,
+  `Kennel.extra_charge_groups` (private in `syncRegistry`), `PLAN_DUE`, `chargeRules`,
+  `requestWindow`, `planProblem` / `planText`, `readPriceList` (merges by id, so Kels's form
+  keeps the rest) and `readChargeGroups`. The Sale page's extra charge picker groups them.
+  Sample data gains Photo packages and Training groups. Stored only for now; family requests
+  use them from step 3. Rides `kennelos-shell-v88`. Checked in the browser at phone width.

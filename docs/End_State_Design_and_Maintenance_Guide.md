@@ -207,7 +207,7 @@ to the cloud unsealed).
 |---|---|---|
 | **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `registered_name`, `registration_number`, `microchip_id`, `planned_tests[]`, `recorded_coi`, `url`. `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. |
 | **Contact** | `name` | `contact_type[]`, `email`, `phone`, `facebook_profile`, `address` (also the away-board location, §19), `kennel_id` (affiliation, not scope), `waitlist_status` (kept by `waitlistEntryRepo`), `first_contact_source`, `companion_note` (shown to the recipient, §20; `notes` is private). Buyers are Contacts; there is no Buyer table. |
-| **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
+| **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `extra_charge_groups` (its groups' defaults, private, §21.2), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date` when empty). Sire ≠ dam. |
 | **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `puppies_born_*` counts, `delivery_type` (`LITTER_DELIVERY_TYPE`: natural, assisted, planned or emergency C-section; cloud; shown and asked only once the litter is Whelped or later, see Litter delivery below), per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
 | **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, `extra_charges[]` (private, §21.2), payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
@@ -1167,9 +1167,25 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
   invoice, generator, payment link, receipt and PDF print one line per charge under its name.
   The Companion page lists them and adds them to the remaining balance; the litter's Sales &
   Income panel adds them to each sale's total.
-- **Price list:** `Kennel.extra_charge_list[]` = `{ id, label, amount }`, edited on the Kennel
-  page's **Extra charges price list** section. The sale offers its own kennel's list (the dog's,
-  for a new sale; every own kennel's when neither is known). Picking one copies the name and
+- **Price list:** `Kennel.extra_charge_list[]` = `{ id, label, amount }` plus, each optional:
+  `group` (her heading: "Photo packages", "Training"), `description` (a line families see),
+  `family_can_request`, `request_from_weeks` / `request_until_weeks` / `cancel_until_weeks`
+  (the pup's age window), `boarding_days`, and `payment_plan` = `[{ percent, due, n? }]`
+  (`due` from `PLAN_DUE`: `at_weeks` (n = weeks old), `on_approval` (n = days after),
+  `before_pickup` (n = days before), `with_balance`; percents add to 100).
+  `Kennel.extra_charge_groups[]` = `{ name, request_from_weeks, request_until_weeks,
+  cancel_until_weeks, payment_plan }` holds each group's defaults; `chargeRules(item, groups)`
+  gives an extra's own value where set, else its group's, and no plan reads as all with the
+  balance. `requestWindow(item, groups, birthDate)` turns the ages into dates ("until N weeks"
+  ends the day before the pup turns N weeks). Edited on the Kennel page's **Extra charges price
+  list** section (`assets/priceListEditor.js`): a section per group with its name (renaming it
+  renames it for every extra in it) and **Rules for every extra in this group**, each extra a
+  name and price with **Details** (group, description, families can ask (with the waitlist),
+  ages, boarding days, when it's paid), **+ New group**; saved through `readPriceList` (merges
+  by id, so Kels's name-and-price form keeps the rest) and `readChargeGroups`. The rules and
+  plans are used by family requests (`docs/KennelOS_Family_Requests_Plan.md`; not built yet),
+  so today they're only stored. The sale offers its own kennel's list (the dog's, for a new
+  sale; every own kennel's when neither is known), grouped. Picking one copies the name and
   amount, so a later price change never rewrites a sale.
 - **Fee charged back:** an Account with `fee_charge_back` (a Payment service: PayPal or Zelle
   sent as business…). When a save leaves the deposit paid (`incomeView.depositPaid`) through

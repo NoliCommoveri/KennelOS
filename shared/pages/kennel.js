@@ -28,7 +28,8 @@ import { getIncomeRows, summarize } from '../data/incomeView.js';
 import { getActiveKennelId, setActiveKennel } from '../data/kennelScope.js';
 import { DOG_STATUS, LITTER_STATUS, SALE_STATUS, FEE_CREDIT_POLICY, WAITLIST_AUTO_OFFER_TRIGGER, WAITLIST_READY_NO_ANSWER } from '../data/vocab.js';
 import { editionFlags } from '../data/editionConfig.js';
-import { kennelChargeList, readExtraCharges } from '../data/extraCharges.js';
+import { kennelChargeList, readPriceList, readChargeGroups } from '../data/extraCharges.js';
+import { priceListHtml, wirePriceList, readPriceListForm } from '../assets/priceListEditor.js';
 import { isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
 import { waitlistConfig, waitlistConfigProblem, SOON_NOTICE_DEFAULT, passReasons, showUpcoming, UPCOMING_STAGES } from '../data/waitlistRules.js';
 import { EMAIL_TEMPLATE_KINDS, EMAIL_PLACEHOLDERS, DEFAULT_EMAIL_TEMPLATES, emailTemplate } from '../data/waitlistEmails.js';
@@ -607,27 +608,20 @@ async function onSavePuppyRecord() {
   } catch (err) { showError(err.message || String(err)); }
 }
 
-// Extra charges price list (guide §21.2): her usual extras (photo and video
-// packages…), each a name and a price. Stored as Kennel.extra_charge_list so it
-// rides the backup; a sale's "Add an extra charge" picks from it and copies the
-// name and price, so changing a price here never rewrites an old sale.
-function chargeRow(x = { id: '', label: '', amount: '' }) {
-  return `<div class="xc-row" data-xc-id="${esc(x.id)}" style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">
-    <input class="xc-label" type="text" value="${esc(x.label)}" placeholder="e.g. Gold photo package" style="flex:2; min-width:120px;">
-    <input class="xc-amount" type="number" min="0" step="0.01" value="${esc(x.amount)}" placeholder="$" style="flex:1; min-width:80px;">
-    <button type="button" class="btn btn-sm" data-act="remove-charge" aria-label="Remove">✕</button>
-  </div>`;
-}
-
+// Extra charges price list (guide §21.2): her usual extras (photo and training
+// packages…) in groups, each a name and a price with optional details, and each
+// group's defaults (assets/priceListEditor.js). Stored as Kennel.extra_charge_list
+// and Kennel.extra_charge_groups so they ride the backup; a sale's "Add an extra
+// charge" picks from the list and copies the name and price, so changing a price
+// here never rewrites an old sale.
 function extraChargesCard(k) {
   if (!editionFlags.extraCharges) return '';
   return `
     <section class="card" data-ks="extra-charges">
       <h2 style="margin-top:0;">Extra charges price list</h2>
-      <p class="field-hint">What you offer on top of a puppy, such as photo or video packages. On a sale, <strong>Add an extra charge</strong> picks from this list, and each one prints as its own line on the invoice.</p>
-      <div class="field" id="xc-list">${kennelChargeList(k).map(chargeRow).join('')}</div>
+      <p class="field-hint">What you offer on top of a puppy, such as photo or training packages. On a sale, <strong>Add an extra charge</strong> picks from this list, and each one prints as its own line on the invoice. Group them (Photo packages, Training…) and set rules once for a whole group.</p>
+      ${priceListHtml(k, { familyRequests: editionFlags.waitlist })}
       <div class="form-actions">
-        <button class="btn btn-sm" data-act="add-charge">+ Add one</button>
         <button class="btn btn-primary btn-sm" data-act="save-charges">Save</button>
       </div>
     </section>`;
@@ -635,15 +629,16 @@ function extraChargesCard(k) {
 
 async function onSaveCharges() {
   clearError();
-  const rows = [...els.config.querySelectorAll('#xc-list .xc-row')].map((el) => ({
-    id: el.dataset.xcId || null,
-    label: el.querySelector('.xc-label').value,
-    amount: el.querySelector('.xc-amount').value
-  }));
-  const { list, error } = readExtraCharges(rows);
+  const opts = { familyRequests: editionFlags.waitlist };
+  const card = els.config.querySelector('[data-ks="extra-charges"]');
+  const form = readPriceListForm(card, opts);
+  if (form.error) { showError(form.error); return; }
+  const { list, error } = readPriceList(form.rows, kennelChargeList(kennel));
   if (error) { showError(error); return; }
+  const { groups, error: groupError } = readChargeGroups(form.groups);
+  if (groupError) { showError(groupError); return; }
   try {
-    await kennelRepo.update(kennel.id, { extra_charge_list: list });
+    await kennelRepo.update(kennel.id, { extra_charge_list: list, extra_charge_groups: groups });
     await reloadKennel();
     renderConfig();
   } catch (err) { showError(err.message || String(err)); }
@@ -740,14 +735,8 @@ function wireConfig() {
   if (saveNudges) saveNudges.addEventListener('click', onSaveNudges);
   els.config.querySelector('[data-act="save-puppy-record"]')?.addEventListener('click', onSavePuppyRecord);
   els.config.querySelector('[data-act="save-charges"]')?.addEventListener('click', onSaveCharges);
-  els.config.querySelector('[data-act="add-charge"]')?.addEventListener('click', () => {
-    const list = els.config.querySelector('#xc-list');
-    list.insertAdjacentHTML('beforeend', chargeRow());
-    list.lastElementChild.querySelector('.xc-label').focus();
-  });
-  els.config.querySelector('#xc-list')?.addEventListener('click', (ev) => {
-    if (ev.target.closest('[data-act="remove-charge"]')) ev.target.closest('.xc-row').remove();
-  });
+  const chargesCard = els.config.querySelector('[data-ks="extra-charges"]');
+  if (chargesCard) wirePriceList(chargesCard, { familyRequests: editionFlags.waitlist });
   els.config.querySelector('[data-act="puppy-record-all"]')?.addEventListener('click', () => tickAllPuppyRecordFields(els.config));
   wirePuppyRecordFields(els.config);
   const saveWaitlist = els.config.querySelector('[data-act="save-waitlist"]');

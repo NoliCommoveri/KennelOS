@@ -9,7 +9,7 @@ import { contactRepo } from '../data/contactRepo.js';
 import { litterRepo } from '../data/litterRepo.js';
 import { accountRepo } from '../data/accountRepo.js';
 import { kennelRepo } from '../data/kennelRepo.js';
-import { saleExtraCharges, readExtraCharges, kennelChargeList, newExtraCharge, depositFeeChargeBack } from '../data/extraCharges.js';
+import { saleExtraCharges, readExtraCharges, kennelChargeList, groupedChargeList, newExtraCharge, depositFeeChargeBack } from '../data/extraCharges.js';
 import { depositPaid } from '../data/incomeView.js';
 import { feeRate, isUsableRate, processingFee, priceToNet, netOf, rateLabel, saleFeeEstimate } from '../data/processingFees.js';
 import { isOpenSale, REGISTRATION_TYPE, SALE_STATUS, RELEASED_SALE_STATUSES, TERMINAL_SALE_STATUSES, SALE_END_REASON, saleEndReasonsFor, CONTRACT_TYPE, CONTRACT_STATUS, BOARDING_FREQUENCY_OPTIONS, descriptor } from '../data/vocab.js';
@@ -329,7 +329,10 @@ function extraChargesField(s) {
       <div id="xc-rows">${rows}</div>
       <select id="xc-add" style="max-width:320px;">
         <option value="">+ Add an extra charge…</option>
-        ${presets.map((p) => `<option value="${esc(p.id)}">${esc(p.label)} (${esc(fmtMoney(p.amount))})</option>`).join('')}
+        ${groupedChargeList(presets).map(({ group, items }) => {
+          const opts = items.map((p) => `<option value="${esc(p.id)}">${esc(p.label)} (${esc(fmtMoney(p.amount))})</option>`).join('');
+          return group ? `<optgroup label="${esc(group)}">${opts}</optgroup>` : opts;
+        }).join('')}
         <option value="custom">Something else…</option>
       </select>
       <span class="field-hint">Each prints as its own line on the invoice, paid with the balance. Keep your usual ones on the Kennel page's Extra charges price list.</span>

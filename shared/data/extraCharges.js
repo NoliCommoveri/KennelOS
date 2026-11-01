@@ -7,10 +7,21 @@
 // marks the fee charged back for a deposit paid through an account set to
 // charge its fee back (Account.fee_charge_back), so it's offered only once.
 //
-// A kennel's price list (Kennel.extra_charge_list: [{ id, label, amount }]) only
-// fills the sale's line: the label and amount are copied, so changing the price
-// list never rewrites an old sale. Pure; no db.
+// A kennel's price list (Kennel.extra_charge_list) only fills the sale's line: the
+// label and amount are copied, so changing the price list never rewrites an old
+// sale. Each price-list row may also carry (Family Requests plan §3, §3.1):
+//   group                      her heading ("Photo packages", "Training")
+//   description                a line families see under the name
+//   family_can_request         families may ask for it on their status page
+//   request_from_weeks / request_until_weeks / cancel_until_weeks
+//                              the pup's age window (weeks); blank = the group's
+//   boarding_days              a package that needs the pup to stay (training)
+//   payment_plan               [{ percent, due, n? }] (PLAN_DUE); blank = the group's
+// and Kennel.extra_charge_groups: [{ name, request_from_weeks, request_until_weeks,
+// cancel_until_weeks, payment_plan }] holds each group's defaults, which a row's
+// own value overrides. Pure; no db.
 import { feeRate, isUsableRate, processingFee } from './processingFees.js';
+import { addDaysToYMD } from './dateUtils.js';
 
 const num = (v) => (v == null || v === '' ? 0 : Number(v)) || 0;
 const cents = (n) => Math.round(n * 100) / 100;
@@ -57,9 +68,199 @@ export function readExtraCharges(rows = []) {
   return { list: cleanList(rows, { mintIds: true }), error: '' };
 }
 
+// --- The price list -------------------------------------------------------------
+
+// When each part of an extra is due. `n` is weeks of age for at_weeks, days after
+// approval for on_approval (optional), days before pickup for before_pickup.
+export const PLAN_DUE = Object.freeze([
+  { value: 'at_weeks',      label: 'At age',           unit: 'weeks old',          needsN: true },
+  { value: 'on_approval',   label: 'After approval',   unit: 'days after',         needsN: false },
+  { value: 'before_pickup', label: 'Before pickup',    unit: 'days before pickup', needsN: true },
+  { value: 'with_balance',  label: 'With the balance', unit: '',                   needsN: false }
+]);
+const DUE_VALUES = PLAN_DUE.map((d) => d.value);
+export const WINDOW_FIELDS = Object.freeze(['request_from_weeks', 'request_until_weeks', 'cancel_until_weeks']);
+const PRICE_ROW_FIELDS = ['group', 'description', 'family_can_request', ...WINDOW_FIELDS, 'boarding_days', 'payment_plan'];
+
+// A whole number ≥ 0, or null for blank/anything else.
+function count(v) {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
+}
+
+// A payment plan as stored: steps with a percent above 0 and a known `due`; null
+// when there's no usable step (= use the group's, else "all with the balance").
+export function cleanPlan(plan) {
+  if (!Array.isArray(plan)) return null;
+  const out = [];
+  for (const st of plan) {
+    if (!st || typeof st !== 'object' || !DUE_VALUES.includes(st.due)) continue;
+    const percent = Math.round(num(st.percent) * 100) / 100;
+    if (!(percent > 0)) continue;
+    const step = { percent, due: st.due };
+    const n = count(st.n);
+    if (n != null && st.due !== 'with_balance') step.n = n;
+    out.push(step);
+  }
+  return out.length ? out : null;
+}
+
+// What's wrong with a plan she typed, or ''. Blank is fine (no plan).
+export function planProblem(plan) {
+  if (!Array.isArray(plan) || !plan.length) return '';
+  let total = 0;
+  for (const st of plan) {
+    const percent = num(st.percent);
+    if (!(percent > 0)) return 'Give each payment a percent above 0.';
+    const due = PLAN_DUE.find((d) => d.value === st.due);
+    if (!due) return 'Choose when each payment is due.';
+    if (due.needsN && count(st.n) == null) return `Say how many ${due.unit.split(' ')[0]} for "${due.label.toLowerCase()}".`;
+    total += percent;
+  }
+  if (Math.abs(total - 100) > 0.01) return `The payments add up to ${Math.round(total * 100) / 100}%; they need to add up to 100%.`;
+  return '';
+}
+
+// "50% at 8 weeks, 50% with the balance".
+export function planText(plan) {
+  const steps = cleanPlan(plan);
+  if (!steps) return 'All with the balance';
+  return steps.map((st) => {
+    const pct = `${st.percent}%`;
+    if (st.due === 'at_weeks') return `${pct} at ${st.n} week${st.n === 1 ? '' : 's'}`;
+    if (st.due === 'on_approval') return st.n ? `${pct} ${st.n} day${st.n === 1 ? '' : 's'} after you approve it` : `${pct} when you approve it`;
+    if (st.due === 'before_pickup') return `${pct} ${st.n} day${st.n === 1 ? '' : 's'} before pickup`;
+    return `${pct} with the balance`;
+  }).join(', ');
+}
+
+// A price list as stored: cleanList's rows plus whichever price-list fields are set.
+function cleanPriceList(list, { mintIds = false } = {}) {
+  const base = cleanList(list, { mintIds });
+  if (!Array.isArray(list)) return base;
+  const byPlace = list.filter((x) => x && typeof x === 'object' && text(x.label) && cents(num(x.amount)) > 0);
+  return base.map((row, i) => {
+    const src = byPlace[i];
+    delete row.fee_for;
+    const group = text(src.group);
+    if (group) row.group = group;
+    const description = text(src.description);
+    if (description) row.description = description.slice(0, 300);
+    if (src.family_can_request === true) row.family_can_request = true;
+    for (const k of [...WINDOW_FIELDS, 'boarding_days']) {
+      const n = count(src[k]);
+      if (n != null) row[k] = n;
+    }
+    const plan = cleanPlan(src.payment_plan);
+    if (plan) row.payment_plan = plan;
+    return row;
+  });
+}
+
 // A kennel's price list.
 export function kennelChargeList(kennel) {
-  return cleanList(kennel?.extra_charge_list);
+  return cleanPriceList(kennel?.extra_charge_list);
+}
+
+// A kennel's group defaults: one per named group, windows and plan cleaned.
+export function kennelChargeGroups(kennel) {
+  const list = Array.isArray(kennel?.extra_charge_groups) ? kennel.extra_charge_groups : [];
+  const seen = new Set();
+  const out = [];
+  for (const g of list) {
+    const name = text(g?.name);
+    if (!name || seen.has(name.toLowerCase())) continue;
+    seen.add(name.toLowerCase());
+    const row = { name };
+    for (const k of WINDOW_FIELDS) {
+      const n = count(g[k]);
+      if (n != null) row[k] = n;
+    }
+    const plan = cleanPlan(g.payment_plan);
+    if (plan) row.payment_plan = plan;
+    out.push(row);
+  }
+  return out;
+}
+
+// The price list in her groups, in the order each group first appears; extras
+// without a group come last under ''. → [{ group, items }]
+export function groupedChargeList(list) {
+  const order = [];
+  const by = new Map();
+  for (const x of list) {
+    const g = x.group || '';
+    if (!by.has(g)) { by.set(g, []); order.push(g); }
+    by.get(g).push(x);
+  }
+  const named = order.filter((g) => g);
+  return [...named, ...(by.has('') ? [''] : [])].map((group) => ({ group, items: by.get(group) }));
+}
+
+// The rules an extra follows: its own window and plan where set, else its group's.
+// → { request_from_weeks, request_until_weeks, cancel_until_weeks, payment_plan }
+// (each window null = no limit; the plan is never null: no plan = all with the balance).
+export function chargeRules(item, groups = []) {
+  const g = item?.group ? groups.find((x) => x.name.toLowerCase() === item.group.toLowerCase()) : null;
+  const out = {};
+  for (const k of WINDOW_FIELDS) out[k] = item?.[k] ?? g?.[k] ?? null;
+  out.payment_plan = cleanPlan(item?.payment_plan) || cleanPlan(g?.payment_plan) || [{ percent: 100, due: 'with_balance' }];
+  return out;
+}
+
+// The dates an extra can be asked for and cancelled, from the litter's birth date.
+// "Until N weeks" means while the pup is younger than N weeks (the last day is the
+// day before it turns N weeks); "from N weeks" starts the day it does.
+// → { open_from, open_until, cancel_until } (YYYY-MM-DD or null = no limit), or
+// null when there's no birth date to count from.
+export function requestWindow(item, groups, birthDate) {
+  if (!birthDate) return null;
+  const r = chargeRules(item, groups);
+  const at = (w) => addDaysToYMD(birthDate, w * 7);
+  return {
+    open_from: r.request_from_weeks != null ? at(r.request_from_weeks) : null,
+    open_until: r.request_until_weeks != null ? addDaysToYMD(at(r.request_until_weeks), -1) : null,
+    cancel_until: r.cancel_until_weeks != null ? addDaysToYMD(at(r.cancel_until_weeks), -1) : null
+  };
+}
+
+// The rows the price-list editor hands over, checked, merged with what's stored:
+// a row that leaves out a field (Kels's name-and-price form) keeps the stored
+// value, matched by id. → { list, error }
+export function readPriceList(rows = [], previous = []) {
+  const prev = new Map((Array.isArray(previous) ? previous : []).filter((x) => x && x.id).map((x) => [x.id, x]));
+  const { error } = readExtraCharges(rows);
+  if (error) return { list: [], error };
+  const merged = [];
+  for (const r of rows) {
+    if (!text(r.label) && text(r.amount) === '') continue;
+    const old = (r.id && prev.get(r.id)) || {};
+    const row = { id: r.id || null, label: r.label, amount: r.amount };
+    for (const k of PRICE_ROW_FIELDS) row[k] = k in r ? r[k] : old[k];
+    const name = text(r.label);
+    const from = count(row.request_from_weeks);
+    const until = count(row.request_until_weeks);
+    if (from != null && until != null && until <= from) return { list: [], error: `"${name}": the "until" age has to be after the "from" age.` };
+    const planError = planProblem(row.payment_plan);
+    if (planError) return { list: [], error: `"${name}": ${planError}` };
+    merged.push(row);
+  }
+  return { list: cleanPriceList(merged, { mintIds: true }), error: '' };
+}
+
+// The group defaults the editor hands over, checked. → { groups, error }
+export function readChargeGroups(rows = []) {
+  for (const g of rows) {
+    const name = text(g.name);
+    if (!name) continue;
+    const from = count(g.request_from_weeks);
+    const until = count(g.request_until_weeks);
+    if (from != null && until != null && until <= from) return { groups: [], error: `${name}: the "until" age has to be after the "from" age.` };
+    const planError = planProblem(g.payment_plan);
+    if (planError) return { groups: [], error: `${name}: ${planError}` };
+  }
+  return { groups: kennelChargeGroups({ extra_charge_groups: rows }), error: '' };
 }
 
 // A new charge for a sale, from a price-list entry (or blank, to type one in).

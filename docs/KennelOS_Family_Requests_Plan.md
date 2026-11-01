@@ -97,12 +97,12 @@ Today every extra is paid with the balance. An extra can instead carry a **payme
 steps that each take a percent of its amount and a due date worked out from a rule.
 
 - **On the price list** (per extra, or as the group default, as D3's windows):
-  `payment_plan: [{ percent, due }]`, the percents adding to 100. `due` is one of:
-  - **at the pup's age**: `{ at_weeks: 8 }` (from the litter's birth date);
-  - **when she approves it**: `{ on_approval: true }`, optionally `+ N days`;
-  - **before pickup**: `{ days_before_pickup: N }` (from the pup's drop-off event);
-  - **with the balance**: `{ with_balance: true }` (today's behaviour, and the default when
-    an extra has no plan).
+  `payment_plan: [{ percent, due, n? }]`, the percents adding to 100. `due` is one of:
+  - **at the pup's age**: `at_weeks`, `n` weeks old (from the litter's birth date);
+  - **when she approves it**: `on_approval`, optionally `n` days after;
+  - **before pickup**: `before_pickup`, `n` days before (from the pup's drop-off event);
+  - **with the balance**: `with_balance` (today's behaviour, and the default when an extra
+    has no plan).
 
   Her training example: 50% at 8 weeks, 50% with the balance. Editing the plan in the price
   list changes only extras approved afterwards.
@@ -403,7 +403,8 @@ Every decision is made; the plan is ready to build in the order below.
 
 ## 9. Build order
 
-1. Price list groups, windows and `family_can_request` (her side only; no server).
+1. Price list groups, windows, `family_can_request`, boarding days and payment plans (her
+   side only; no server). **Built 2026-11-01** (guide §21.2).
 2. Transport suggestions on the status page (D8: smallest server change).
 3. Extra requests and cancellations (status page, pending events, Approve), with payment
    plans, part-payment invoices and the `extra-due` reminder.
