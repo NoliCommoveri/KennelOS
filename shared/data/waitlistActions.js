@@ -1135,7 +1135,8 @@ export async function approveExtraRequest(entryId, requestId, { date = todayYMD(
       const litter = dog?.litter_id ? await litterRepo.getById(dog.litter_id) : null;
       const rules = chargeRules(item, kennelChargeGroups(kennel));
       const payments = planSteps(rules.payment_plan, item.amount, { approvalDate: date, birthDate: pupBirthDate(dog, litter) });
-      charge = { id: crypto.randomUUID(), label: item.label, amount: item.amount, list_id: item.id, ...(item.group ? { group: item.group } : {}), ...(payments ? { payments } : {}) };
+      charge = { id: crypto.randomUUID(), label: item.label, amount: item.amount, list_id: item.id, ...(item.group ? { group: item.group } : {}),
+        ...(payments ? { payments } : {}), ...(item.boarding_days ? { boarding_days: item.boarding_days } : {}) };
       await saleRepo.update(sale.id, { extra_charges: [...(sale.extra_charges || []), charge] });
       boardingDays = item.boarding_days || 0;
     }

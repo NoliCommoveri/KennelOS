@@ -373,6 +373,9 @@ and it is blocked while anything points at the record.
   be archived. `tests/referenceRegistry.test.js` checks every indexed `*kennel_id` and the
   waitlist FKs have entries.
 - A waitlist listen-only choice naming a sire or dam blocks that dog's hard delete.
+- **Unindexed paths:** an entry with `scan: true` names a dotted path in a row and is
+  counted by reading every row (`countReferences`). The one today: a training stay's
+  `events.details.sale_id` in `SALE_REFERENCES`.
 
 **When you add an FK anywhere, add its line to the registry**, or hard delete will silently
 orphan rows. A merge (§10, §33, `data/recordMerge.js`) replaces the duplicate's id in every
@@ -995,6 +998,7 @@ Kels's tidy-up doesn't suggest recording it. Its pick puppy, when the fee has on
 | `show-title` | a show track is complete with no `title_earned` event | prefilled title event |
 | `int-review` | a vendor event wasn't applied (`integration_reviews`, §32) | open the record; Done removes it |
 | `follow-up` | a pup went home 7–60 days ago (`referralShare`) | write a thank-you note |
+| `training-stay` / `training-stay-orphan` | an extra with `boarding_days` on an open sale and no boarding event linked to it (`goHome.trainingStaysFor`) / a linked stay still to come whose extra is off its sale (`orphanTrainingStays`) | **Log the stay** (`trainingStayEvent`, created at once: from the ready date or today, its days long) / **Remove the stay** (archive) |
 | `extra-due` | an extra's payment-plan step (§21.2) is due within `EXTRA_DUE_DAYS` (7) or overdue, unpaid, on an open sale whose balance isn't paid | open the sale |
 | `waitlist-*` | new applications, an offer or fee past due, a removal's undo window, planned deposit date reached (`open-picks`), "Ready now?" unanswered, family messages, and family requests (pref, pause, listen, Companion link, extras) | the matching waitlist action (§29) |
 
@@ -1197,6 +1201,13 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
   `extra:<id>:<step id>`, labelled "Name, 50%" (`stepLabel`), earned on its `paid_date` or
   else with the balance, filed on its paid date or due date; the invoice gets a line per step
   with its own Due by. The Sale page lists each step with a **Paid on** date.
+- **Training stays:** a price-list extra's `boarding_days` is copied onto the sale's charge.
+  Its stay is a `boarding` event on the pup (reason Training, titled with the extra's name,
+  `details.sale_id` + `details.extra_charge_id`; `goHome.trainingStayEvent`), the link stored
+  on the event only. Approving such an extra on the entry page offers **Log the stay**;
+  approving its cancel offers **Remove the stay**; Today covers every other path (the
+  `training-stay` nudges). The event form carries the two link keys through an edit
+  (`LINK_DETAIL_KEYS`). A stay counts as boarding for the go-home nudges like any other.
 - **Fee charged back:** an Account with `fee_charge_back` (a Payment service: PayPal or Zelle
   sent as business…). When a save leaves the deposit paid (`incomeView.depositPaid`) through
   such an account with a usable rate, and the sale didn't qualify before the save, the Sale

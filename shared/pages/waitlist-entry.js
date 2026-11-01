@@ -26,6 +26,8 @@ import { saleRepo } from '../data/saleRepo.js';
 import * as actions from '../data/waitlistActions.js';
 import { kennelChargeList, kennelChargeGroups, chargeRules, planText } from '../data/extraCharges.js';
 import { pendingExtraRequests } from '../data/familyExtras.js';
+import { trainingStaysFor, trainingStayEvent, defaultStart, readyDateOf } from '../data/goHome.js';
+import { eventRepo } from '../data/eventRepo.js';
 import { offerEmails, syncSoon, communicateDialog } from '../assets/waitlistEmailUI.js';
 import { offerSpecs, retryEmail, kennelEmailsOn, familyEmail, emailErrorText } from '../data/waitlistOutbox.js';
 import {
@@ -399,8 +401,10 @@ function wireRequests(root) {
   // An extras request (data-req "extra|<request id>:approve"), then the email saying so.
   const extra = (requestId, approved) => async () => {
     const request = (e.extra_requests || []).find((r) => r.id === requestId);
-    if (approved) await actions.approveExtraRequest(e.id, requestId);
-    else await actions.declineExtraRequest(e.id, requestId);
+    // A cancel takes the extra off: its training stay, if one is logged, is offered for removal.
+    const before = approved && request?.kind === 'cancel' ? await linkedStays(request.charge_id) : [];
+    const res = approved ? await actions.approveExtraRequest(e.id, requestId) : await actions.declineExtraRequest(e.id, requestId);
+    if (approved) await afterTrainingApproval(res, before);
     await afterAction();
     await emailThem(approved ? 'request_approved' : 'request_declined', { request: { field: 'extra_request', request } });
   };
@@ -409,6 +413,35 @@ function wireRequests(root) {
     if (kind.startsWith('extra|')) return run(extra(kind.slice(6), decision === 'approve'));
     return run(handlers[btn.dataset.req]);
   }));
+}
+
+// Training stays (Family Requests plan §6): a package the pup stays for is offered
+// as a boarding stay once it's approved; cancelling it offers to remove the stay.
+async function linkedStays(chargeId) {
+  if (!chargeId) return [];
+  const sales = ctx.entry.contact_id ? await saleRepo.getByBuyer(ctx.entry.contact_id) : [];
+  const sale = sales.find((x) => (x.extra_charges || []).some((c) => c.id === chargeId));
+  if (!sale?.dog_id) return [];
+  const charge = sale.extra_charges.find((c) => c.id === chargeId);
+  return trainingStaysFor(sale, charge, await eventRepo.getForSubject('dog', sale.dog_id));
+}
+
+async function afterTrainingApproval(res, staysBefore) {
+  if (res.kind === 'cancel') {
+    for (const stay of staysBefore) {
+      if (await confirmModal({ title: 'Remove the training stay?', message: `${stay.title || 'The stay'} (${fmtDate(stay.event_date)}${stay.event_end_date ? ` to ${fmtDate(stay.event_end_date)}` : ''}) is still on the pup's calendar.`, confirmLabel: 'Remove the stay', cancelLabel: 'Keep it' })) {
+        await eventRepo.archive(stay.id);
+      }
+    }
+    return;
+  }
+  if (!res.boardingDays || !res.sale?.dog_id || !res.charge) return;
+  const dog = await dogRepo.getById(res.sale.dog_id);
+  const litter = dog?.litter_id ? await litterRepo.getById(dog.litter_id) : null;
+  const stay = trainingStayEvent(dog, res.sale, res.charge, defaultStart(readyDateOf(litter), todayYMD()));
+  if (await confirmModal({ title: 'Log the training stay?', message: `${res.charge.label} needs ${dog.call_name || 'the pup'} to stay ${res.boardingDays} days. Log it as boarding (Training), ${fmtDate(stay.event_date)} to ${fmtDate(stay.event_end_date)}? You can change the dates on ${dog.call_name || 'the pup'}'s page.`, confirmLabel: 'Log the stay', cancelLabel: 'Not now' })) {
+    await eventRepo.create(stay);
+  }
 }
 
 // Their messages, their status-page activity and the emails she sent (History),

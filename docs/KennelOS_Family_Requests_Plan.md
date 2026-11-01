@@ -414,7 +414,10 @@ Every decision is made; the plan is ready to build in the order below.
    plans, part-payment invoices and the `extra-due` reminder. **Built 2026-11-01** (guide
    §29 "Extras", §21.2). Marking a step paid is a **Paid on** date on the Sale page; a
    receipt or a payment-link payment doesn't set it by itself yet.
-4. Training packages ↔ boarding.
+4. Training packages ↔ boarding. **Built 2026-11-01** (guide §21.2, §7): the stay is logged
+   with one tap (Today, or the entry page's confirm after Approve) rather than through the
+   event form, so the link can't be lost; the pickup scheduler's "slots after the stay" waits
+   for step 5.
 5. Pickup locations and slots, booking; where families live and who may suggest a place;
    their own addresses with Mapbox miles and the transport options email.
 6. Backing out with her deposit policy.

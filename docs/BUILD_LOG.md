@@ -1840,3 +1840,14 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `cloud/tests/familyActions.test.js`, `cloud/tests/familyPages.test.js`. Checked in the
   browser (status page card with a mocked response; approve on the entry page; steps and
   Paid on on the Sale page). Needs a Worker deploy; rides `kennelos-shell-v88`.
+- **Family Requests step 4: training packages and boarding (2026-11-01).** A price-list
+  extra's boarding days ride onto the sale's charge (approval, or picking it on the Sale
+  page). Its stay is a boarding event on the pup, reason Training (added to the
+  suggestions), linked by `details.sale_id` / `details.extra_charge_id`
+  (`goHome.trainingStayEvent`, `trainingStaysFor`, `orphanTrainingStays`). Approving it on
+  the waitlist entry offers Log the stay; approving its cancel offers Remove the stay; Today
+  has `training-stay` (one-tap log) and `training-stay-orphan` (remove) for every other
+  path. The event form keeps the link through an edit. `referenceRegistry` gains `scan`
+  entries (an unindexed dotted path), used for the stay's `details.sale_id`, so a sale with
+  a stay can't be hard-deleted. Tests in `tests/extraCharges.test.js`; the event-form edit
+  checked in the browser. Rides `kennelos-shell-v88`.

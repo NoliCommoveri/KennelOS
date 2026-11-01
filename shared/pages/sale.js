@@ -387,7 +387,7 @@ function wireExtraCharges() {
       const kennel = priceKennel();
       const dog = ctx.dogsById.get(ctx.draft.dog_id);
       const payments = planSteps(chargeRules(preset, kennelChargeGroups(kennel)).payment_plan, preset.amount, { approvalDate: todayYMD(), birthDate: dog?.date_of_birth || null });
-      Object.assign(charge, { list_id: preset.id, ...(preset.group ? { group: preset.group } : {}), ...(payments ? { payments } : {}) });
+      Object.assign(charge, { list_id: preset.id, ...(preset.group ? { group: preset.group } : {}), ...(payments ? { payments } : {}), ...(preset.boarding_days ? { boarding_days: preset.boarding_days } : {}) });
     }
     ctx.draft.extra_charges = [...ctx.draft.extra_charges, charge];
     renderEdit();

@@ -35,7 +35,7 @@ import { dogRepo } from './dogRepo.js';
 import { kennelRepo } from './kennelRepo.js';
 import { pairingRepo } from './pairingRepo.js';
 import { litterSoldDue, litterReopenDue, litterCloseDue } from './litterCheckin.js';
-import { goHomeIssue, GO_HOME_SALE_STATUSES, defaultStart, boardingEnd, boardingChargeText, PICKUP_TITLE, BOARDING_TITLE } from './goHome.js';
+import { goHomeIssue, GO_HOME_SALE_STATUSES, defaultStart, boardingEnd, boardingChargeText, PICKUP_TITLE, BOARDING_TITLE, readyDateOf, trainingStaysFor, trainingStayEvent, orphanTrainingStays } from './goHome.js';
 import { litterRepo } from './litterRepo.js';
 import { saleRepo } from './saleRepo.js';
 import { eventRepo } from './eventRepo.js';
@@ -637,6 +637,46 @@ export async function computeNudges() {
       });
     }
 
+  }
+
+  // Training stays (Family Requests plan §6): an extra on an open sale that needs
+  // the pup to stay (boarding_days) with no stay logged → log it (one tap, from the
+  // ready date, its days long, linked to the sale and the extra); a linked stay
+  // still to come whose extra was taken off its sale → remove it, or keep it.
+  if (editionFlags.extraCharges) {
+    const littersById = new Map(litters.map((l) => [l.id, l]));
+    const dogEvents = events.filter((e) => e.subject_type === 'dog' && e.event_type === 'boarding');
+    for (const sale of inScopeOnly(sales).filter((x) => !x.is_archived && isOpenSale(x))) {
+      const pup = dogsById.get(sale.dog_id);
+      if (!pup) continue;
+      for (const charge of saleExtraCharges(sale).filter((c) => c.boarding_days)) {
+        if (trainingStaysFor(sale, charge, dogEvents).length) continue;
+        const start = defaultStart(readyDateOf(littersById.get(pup.litter_id)), today);
+        const stay = trainingStayEvent(pup, sale, charge, start);
+        const name = pup.call_name || 'The pup';
+        nudges.push({
+          key: `training-stay:${sale.id}:${charge.id}`,
+          title: `${name}'s ${charge.label} needs a ${charge.boarding_days}-day stay. Log it?`,
+          detail: `It goes on ${name}'s calendar as boarding (Training), ${stay.event_date} to ${stay.event_end_date}, linked to the sale. Change the dates on ${name}'s page afterwards if you need to.`,
+          subjectHref: `sale.html?id=${encodeURIComponent(sale.id)}`,
+          actions: [{ label: 'Log the stay', run: async () => {
+            await eventRepo.create(stay);
+            return { title: 'Stay logged', message: `${name} stays with you ${stay.event_date} to ${stay.event_end_date} for ${charge.label}.` };
+          } }]
+        });
+      }
+    }
+    const salesById = new Map(sales.map((x) => [x.id, x]));
+    for (const { event, sale } of orphanTrainingStays(dogEvents, salesById, today)) {
+      const name = dogsById.get(event.subject_id)?.call_name || 'the pup';
+      nudges.push({
+        key: `training-stay-orphan:${event.id}`,
+        title: `${event.title || 'A training stay'} for ${name} is still on the calendar, but its extra is off ${sale ? 'the sale' : 'a sale that\'s gone'}`,
+        detail: `${event.event_date}${event.event_end_date ? ` to ${event.event_end_date}` : ''}. Remove the stay, or keep it (dismiss this).`,
+        subjectHref: `dog.html?id=${encodeURIComponent(event.subject_id)}`,
+        actions: [{ label: 'Remove the stay', run: async () => { await eventRepo.archive(event.id); return { title: 'Removed', message: `The stay is off ${name}'s calendar.` }; } }]
+      });
+    }
   }
 
   // A sold puppy's way home (data/goHome.js, decided 2026-10-15): from a week

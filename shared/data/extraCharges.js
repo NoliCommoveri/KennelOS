@@ -48,6 +48,10 @@ function cleanList(list, { mintIds = false } = {}) {
     if (text(x.group)) row.group = text(x.group);
     const steps = cleanSteps(x.payments, amount);
     if (steps) row.payments = steps;
+    // A package the pup stays for (training): the days copied from the price list,
+    // so its stay can be logged and linked (Family Requests plan §6).
+    const days = count(x.boarding_days);
+    if (days) row.boarding_days = days;
     out.push(row);
   }
   return out;
@@ -206,7 +210,7 @@ function cleanPriceList(list, { mintIds = false } = {}) {
   const byPlace = list.filter((x) => x && typeof x === 'object' && text(x.label) && cents(num(x.amount)) > 0);
   return base.map((row, i) => {
     const src = byPlace[i];
-    delete row.fee_for; delete row.list_id; delete row.payments;
+    delete row.fee_for; delete row.list_id; delete row.payments; delete row.boarding_days;
     const group = text(src.group);
     if (group) row.group = group;
     const description = text(src.description);

@@ -156,7 +156,7 @@ test('a price list keeps its rows\' group, details, windows and plan; a sale row
       payment_plan: [{ percent: 50, due: 'at_weeks', n: 8 }, { percent: 50, due: 'with_balance' }] }
   ]);
   assert.deepEqual(saleExtraCharges({ extra_charges: [{ id: 'x', label: 'Photos', amount: 1, group: 'G', list_id: 'a', family_can_request: true, boarding_days: 3 }] }),
-    [{ id: 'x', label: 'Photos', amount: 1, list_id: 'a', group: 'G' }], 'a sale row keeps where it came from, never the price list\'s rules');
+    [{ id: 'x', label: 'Photos', amount: 1, list_id: 'a', group: 'G', boarding_days: 3 }], 'a sale row keeps where it came from and its stay, never the price list\'s rules');
 });
 
 test('groups list in first-seen order with ungrouped last; group defaults drop blanks and duplicates', () => {
@@ -255,4 +255,41 @@ test('a family sees the extras they may ask for today and can cancel theirs insi
   const list = withExtraRequest(entry, req);
   assert.equal(withExtraRequest({ extra_requests: list }, req), null, 'the same event twice adds it once');
   assert.equal(familyExtrasView({ entry: { ...entry, extra_requests: [{ ...req, decided: 'declined', decided_date: '2026-09-01' }] }, sale, kennel, birthDate: '2026-09-01', today: '2026-10-20' }).requests.length, 0, 'an old decision drops off');
+});
+
+// --- Training stays (Family Requests plan §6) ----------------------------------------
+
+test('a training stay: a linked boarding event its days long; one whose extra is gone is an orphan', async () => {
+  const { trainingStayEvent, trainingStaysFor, orphanTrainingStays } = await import('../shared/data/goHome.js');
+  const sale = { id: 's1', extra_charges: [{ id: 'c1', label: 'Puppy training', amount: 600, boarding_days: 14 }] };
+  const stay = trainingStayEvent({ id: 'd1' }, sale, sale.extra_charges[0], '2026-11-01');
+  assert.deepEqual(stay, { subject_type: 'dog', subject_id: 'd1', event_type: 'boarding', event_date: '2026-11-01', event_end_date: '2026-11-14',
+    title: 'Puppy training', details: { boarding_reason: 'Training', sale_id: 's1', extra_charge_id: 'c1' } });
+  const ev = { ...stay, id: 'e1' };
+  assert.equal(trainingStaysFor(sale, sale.extra_charges[0], [ev, { ...ev, id: 'e2', is_archived: true }]).length, 1);
+  const salesById = new Map([['s1', sale]]);
+  assert.deepEqual(orphanTrainingStays([ev], salesById, '2026-11-02'), []);
+  assert.equal(orphanTrainingStays([ev], new Map([['s1', { ...sale, extra_charges: [] }]]), '2026-11-02')[0].event.id, 'e1');
+  assert.deepEqual(orphanTrainingStays([ev], new Map(), '2026-11-15'), [], 'a stay already over is left alone');
+});
+
+test('Today offers to log a training stay, logs it linked in one tap, and a sale with one can\'t be hard-deleted', async () => {
+  const { computeNudges } = await import('../shared/data/nudges.js');
+  const { eventRepo } = await import('../shared/data/eventRepo.js');
+  const s = await makeSale({ extra_charges: [{ id: 'tr', label: 'Puppy training', amount: 600, boarding_days: 14 }] });
+  const nudge = (await computeNudges()).find((n) => n.key === `training-stay:${s.id}:tr`);
+  assert.ok(nudge, 'a training stay to log');
+  await nudge.actions[0].run();
+  const stays = (await eventRepo.getForSubject('dog', pup.id)).filter((e) => e.details?.extra_charge_id === 'tr');
+  assert.equal(stays.length, 1);
+  assert.equal(stays[0].details.sale_id, s.id);
+  assert.equal((await computeNudges()).some((n) => n.key === `training-stay:${s.id}:tr`), false, 'logged: gone');
+  await assert.rejects(saleRepo.hardDelete(s.id), /training stay/);
+  await saleRepo.update(s.id, { extra_charges: [] });
+  const orphan = (await computeNudges()).find((n) => n.key === `training-stay-orphan:${stays[0].id}`);
+  if (stays[0].event_end_date >= new Date().toISOString().slice(0, 10)) {
+    assert.ok(orphan, 'its extra is off the sale: remove or keep');
+    await orphan.actions[0].run();
+    assert.equal((await eventRepo.getById(stays[0].id)).is_archived, true);
+  }
 });

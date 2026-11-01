@@ -461,7 +461,7 @@ export function descriptor(vocab, value) {
 // combobox surfaces these as suggestions without blocking free text.
 export const BOARDING_REASON_SUGGESTIONS = [
   'Stud service', 'Co-owner rotation', 'Foster', 'Grow-out', 'Owner travel', 'Whelp assist',
-  'With handler / show circuit', 'Other'
+  'With handler / show circuit', 'Training', 'Other'
 ];
 
 // Suggest-not-enforce starter set for a recorded COI's `method` (Stage 5, Build
