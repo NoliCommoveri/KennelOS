@@ -2166,3 +2166,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `tests/dogCare.test.js`. Driven end to end in the browser on the sample data (lists
   checked against each dog's ownership and status; a vet visit for two dogs with $85 saved
   two events and two veterinary expenses).
+- **All dogs ordered by status, sex, name (2026-11-01).** The Dogs page's All dogs list had
+  no default order; it now uses `vocab.dogListOrder`: status in `DOG_STATUS` order (Puppy,
+  Active breeding, Retired breeding, Pet home, For Sale, Deceased, External reference), then
+  Male / Female / Unknown, then name A→Z (call name, else registered name), anything
+  missing last at its level so no dog drops off. The Status and Sex columns now sort in
+  vocab order too (were alphabetical by stored value). Other tabs unchanged. Test:
+  `tests/vocab.test.js`; checked in the browser on the sample data.

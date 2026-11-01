@@ -31,6 +31,27 @@ export const DOG_STATUS = [
   { value: 'external_reference', label: 'External reference', badge: 'badge-gray' }
 ];
 
+// A value's place in a vocab list; a missing or unknown value goes after every
+// known one, so nothing drops off a sorted list.
+const rankIn = (vocab, v) => { const i = vocab.findIndex((o) => o.value === v); return i < 0 ? vocab.length : i; };
+const dogListName = (d) => String(d?.call_name || d?.registered_name || '').trim();
+
+// The All dogs roster's order: status in DOG_STATUS order, then sex in SEX order
+// (Male, Female, Unknown), then name A→Z (call name, else registered name). A
+// missing status, sex or name sorts after the rest at its level.
+export function dogListOrder(a, b) {
+  const byStatus = rankIn(DOG_STATUS, a?.status) - rankIn(DOG_STATUS, b?.status);
+  if (byStatus) return byStatus;
+  const bySex = rankIn(SEX, a?.sex) - rankIn(SEX, b?.sex);
+  if (bySex) return bySex;
+  const an = dogListName(a), bn = dogListName(b);
+  if (!an || !bn) return (an ? 0 : 1) - (bn ? 0 : 1);
+  return an.localeCompare(bn, undefined, { sensitivity: 'base' });
+}
+// The Status and Sex columns sort in vocab order too (unset last).
+export const dogStatusOrder = (a, b) => rankIn(DOG_STATUS, a?.status) - rankIn(DOG_STATUS, b?.status);
+export const dogSexOrder = (a, b) => rankIn(SEX, a?.sex) - rankIn(SEX, b?.sex);
+
 // Disposition — the breeder's intent for a dog, orthogonal to `status`
 // (life-stage). Answers "keeping or selling?" for a puppy before any Sale record
 // exists, so it can't be a `status` value (a puppy can't be both `puppy` and

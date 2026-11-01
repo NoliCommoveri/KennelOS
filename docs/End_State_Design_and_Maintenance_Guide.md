@@ -423,6 +423,12 @@ below that dog's previous weigh-in (same-day AM/PM aware) asks to confirm. The D
 breeding, retired breeding, for sale), with only the active breeding ones ticked (`cascadeTitle`,
 `cascadeSelected`); `dogs.html?logEvent=preventative&from=today` ticks only the active breeding
 dogs still missing this month's preventative and goes back to Today after saving.
+The Dogs page's **All dogs** list is ordered by `vocab.dogListOrder`: status in `DOG_STATUS`
+order (Puppy, Active breeding, Retired breeding, Pet home, For Sale, Deceased, External
+reference), then sex in `SEX` order (Male, Female, Unknown), then name A→Z (call name, else
+registered name); a missing status, sex or name sorts last at its level. Its Status and Sex
+columns sort in that vocab order too (`dogStatusOrder`, `dogSexOrder`). The other tabs keep
+their own order.
 
 Test-bearing types (`genetic_test`, `breed_specific_test`, `ofa_pennhip`) feed the test
 vocabulary through `testTokensOf(event)`; planned tests are matched against

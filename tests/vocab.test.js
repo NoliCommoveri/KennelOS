@@ -4,6 +4,7 @@
 // imported flags object (a live binding — vocab reads it at call time).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { dogListOrder, dogStatusOrder } from '../shared/data/vocab.js';
 import { EVENT_TYPES, enabledEventTypes, eventTypesFor, descriptor, defaultExpenseCategoryFor, EXPENSE_CATEGORIES, CONTACT_TYPE } from '../shared/data/vocab.js';
 import { editionFlags } from '../shared/data/editionConfig.js';
 
@@ -46,4 +47,17 @@ test('every field default on a type is one of that field\'s own options', () => 
       assert.ok(values.includes(f.default), `${t.value}.${f.key}: default "${f.default}" not in options`);
     }
   }
+});
+
+test('dogListOrder: status in its list order, then Male / Female / Unknown, then name; anything missing last', () => {
+  const d = (id, status, sex, extra = {}) => ({ id, call_name: id, status, sex, ...extra });
+  const dogs = [
+    d('Zoe', 'active_breeding', 'female'), d('ext', 'external_reference', 'male'), d('Max', 'active_breeding', 'male'),
+    d('amy', 'active_breeding', 'female'), d('Pip', 'puppy', 'female'), d('Bo', 'puppy', 'male'),
+    d('Gone', 'deceased', 'male'), d('NoSex', 'active_breeding', null), d('Odd', 'not_a_status', 'male'),
+    d('', 'active_breeding', 'female', { registered_name: 'Ch Ridge Aria' }), d('', 'active_breeding', 'female'), d('Ret', 'retired_breeding', 'female')
+  ];
+  assert.deepEqual(dogs.sort(dogListOrder).map((x) => x.call_name || x.registered_name || '(none)'),
+    ['Bo', 'Pip', 'Max', 'amy', 'Ch Ridge Aria', 'Zoe', '(none)', 'NoSex', 'Ret', 'Gone', 'ext', 'Odd']);
+  assert.ok(dogStatusOrder({ status: 'puppy' }, { status: 'for_sale' }) < 0);
 });
