@@ -2243,3 +2243,71 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   asked for exactly one. Both now ask Mapbox's Directions API for one route
   (`routes[0].distance` / `duration`), same token. Tests' Mapbox stubs updated
   (`cloud/tests/familyActions`, `ops-sections`, `tests/cloudWaitlist`). Needs a Worker deploy.
+- **Planned tests for kept pups, and for every new dog (2026-11-01).** Marking a pup Keeping
+  now offers her kennel's planned tests for its breed that it doesn't have yet (new
+  `assets/keeperTests.js`, precached): a modal on the Dog page save, Add Puppies, the Sale
+  page's disposition prompt and a pup brought back as a puppy; a chat question in Kels's
+  Prep pups and litter check-in plans and at the end of Record a litter. New dogs are now
+  seeded with the kennel's planned tests on every path, not just the Dog page and Kels's Add
+  dogs: CSV dog import, Tidy up's missing parent, Record a litter's new parent
+  (`kennelRepo.seedTestsFor` / `withSeededTests` / `testsToPlan`). Tests:
+  `tests/keeperTests.test.js`. Driven in the browser: Fern (sample data) set to Keeping on
+  the Dog page, the prompt listed her seven Boston Terrier tests, Add the tests saved them.
+  Not driven in the browser: the Kels and Litter page prompts.
+- **Credits for funds already received (2026-11-01).** A breeder who used to collect small
+  deposits before litters were born (and now collects a larger deposit around four weeks)
+  needed those early payments to count as part of a family's deposit, not all of it. Each
+  waitlist entry can hold credits (`received_credits`: amount, date, method, note, and what
+  it can pay toward: application fee, deposit, rest of the purchase price, extras/transport/
+  boarding, all ticked by default). New `data/receivedCredits.js` (precached) works out,
+  every time, how the credits are used: oldest first, fee → deposit → price → extras. Taken
+  off on the family's status page (fee and deposit; needs a Worker deploy for the page), the
+  invoice/receipt generator and default documents ("already collected" prefilled), payment
+  requests, contract balance due, the Companion balance and Financials (credited part
+  earned on the credit's date). Entry page Credits card; Fee received records the credit's
+  share (`fee_credit_amount`); pick/deposit dialogs say what it covers; lost-pup and
+  back-out carry-overs leave the credit on the entry. Both new fields private in
+  `syncRegistry`. Tests: `tests/receivedCredits.test.js`. Driven in the browser on the
+  sample data: the Credits card, the fee covered in full and in part, the family projection's
+  `fee_due`, a $200 credit on a $500 deposit (invoice: $200 already collected; ledger: $200
+  earned + $300 anticipated; balance due). Not driven: the family status page itself (server
+  render), the invoice generator modal, payment requests, the Kels paths.
+- **SW cache bumped to `kennelos-shell-v92` (2026-11-01).** This session's app changes ride
+  it: the Keeping prompt for planned tests and planned-test seeding on every way a dog is
+  added (new `assets/keeperTests.js`), and credits for funds already received (new
+  `data/receivedCredits.js`). The family status page's credit lines need a Worker deploy.
+- **Credits on receipts (2026-11-01).** Receipts used to fold a credit into "already
+  collected" and just print the line smaller. A cfg line now carries `credit` (the credit's
+  share of `collected`; the generator and the default document set it), printed as **Less
+  credit for funds already received** in the totals: a receipt shows the line whole,
+  Subtotal, the credit, then Total paid; an invoice shows it apart from any other amount
+  already collected. Old links without `credit` print as before. Checked in the browser: a
+  deposit receipt ($500 − $200 credit = $300 paid), an application fee receipt ($300 −
+  $100 = $200) and the invoice. Rides `kennelos-shell-v92`.
+- **Application fee credited toward the deposit (2026-11-01).** New waitlist setting
+  `fee_credit_toward` (Waitlist settings → Fees & payment, and Kels's fee step): a fee
+  credited to the purchase price counts toward the remaining balance (default, as before)
+  or the deposit (families send the deposit less their fee; any of the fee beyond the deposit
+  comes off the balance). The fee credit is now `{ amount, toward }` (`incomeView.feeCreditOf`
+  / `feeCreditSplit`), and it applies from the family's pick (deposit pending), not only once
+  they're placed, so it comes off the deposit before it's paid (balance mode now nets the
+  balance from the pick too). Follows through invoices (line label), the deposit dialog, the
+  family's deposit block and fee card (`deposit_fee_credit`, `credit_toward`; needs a Worker
+  deploy), the Companion balance, and the received-credits allocation. Checked in the
+  browser: $500 deposit, $300 fee toward it and a $200 credit → nothing more to send on the
+  invoice, the deposit dialog and the family page. Rides `kennelos-shell-v92`.
+- **Kels: the new settings in the waitlist flows, and pickup and transport set-up
+  (2026-11-01).** Set up my waitlist gets a **Pickup and transport** screen (new
+  `assets/pickupTransportStep.js`, Pro-only, precached): standard pickup location, fee per
+  mile, one way / round trip, no charge under, how far a family must live to suggest their
+  own meetup place, the "you'll be in touch" distance, pickup changes, boarding rate, then a
+  worked example. It's in the walk-through (after offers) and the change menu, and Kels's
+  summary gains a pickup/transport line (`waitlistRules.transportSummary`). Review my
+  waitlist offers it when a meetup request comes in with no standard location or rate. The
+  fee step asks where a credited fee counts. The applicant step (Add people, Set up my
+  waitlist's Add one by hand) takes **Money they've already paid you** as a credit, and Add
+  people's fee question uses it (covered in full → on the list from the credit's date). The
+  waitlist CSV import gains `already_paid` / `already_paid_date`. Tests: CSV, summary line.
+  Driven in the browser: the transport screen saved and its example, the applicant form's
+  new box. Not driven: Add people's covered-fee question, Review my waitlist's offer.
+  Rides `kennelos-shell-v92`.

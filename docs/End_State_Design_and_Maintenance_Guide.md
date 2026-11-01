@@ -715,6 +715,23 @@ with its breed (`preferred_test_breeds`), creating no records. Both wizards (ken
 import page and kennel setup) use `assets/breedTestPicker.js`. Breed-scoped consumers read
 `kennelRepo.testsForBreed`, so a dog only inherits tests for its breed plus untagged ones.
 
+### A dog's first planned tests, and a kept pup's (`kennelRepo`, `assets/keeperTests.js`)
+`seedTestsFor(candidate, kennels)` is the seeding kennel's panel for the dog's breed
+(`seedTestsKennel` + `testsForBreed`; owned / co-owned dogs only), and
+`withSeededTests(fields, kennels)` puts it on a new dog's fields unless they already carry
+`planned_tests` or the dog is pedigree-only. Every way a dog of hers is added seeds through
+these: the Dog page's new dog, Kels's Add dogs, Kels's Tidy up (a missing parent of hers),
+Kels's Record a litter (a new parent of hers; a brought-in pedigree-only dog isn't seeded,
+as on the Dog page) and the CSV dog import (`DOG_MAPPING.seedRecord`, from the kennels its
+preview loaded). Pups added from a litter (Add Puppies, Kels's Record a litter, Tidy up's
+missing pups) start with no plan. When a pup is marked **Keeping**, `assets/keeperTests.js`
+offers the tests it doesn't have yet (`testsToPlan`, case-insensitive): `offerKeeperTests`
+as a modal (Dog page save, Add Puppies, the Sale page's disposition prompt and a pup brought
+back as a puppy) and `askKeeperTests(chat, dogs)` in Kels (Prep pups and litter check-in's
+plans, Record a litter's finish), one question for every pup kept at once. **Add the tests**
+merges them with `dogRepo.addPlannedTests`; **Not now** leaves the plan as it is. Nothing is
+asked when there's nothing to add. Tests: `tests/keeperTests.test.js`.
+
 ### Logging completed tests (`data/healthTestLog.js`)
 Pure helpers the Dog page's Planned Tests card and Kels's "Log health test results" share.
 A test's name always goes in its type's name field (`genetic_test.panel_name`,
@@ -1184,9 +1201,20 @@ subject (`financials.js` `expenseInScope`).
   (`studFeeExpense`).
   `pick_value_amount` is a separate non-cash `pick` line, outside the cash totals and Net.
 - **Waitlist application fee** (Pro): one earned row per entry with a received fee above 0.
-  When `fee_credit_policy` is `credited_to_purchase` and the family is placed, the fee comes
-  off that sale's balance (`saleComponents(sale, feeCredit)`, `getSaleFeeCredit`) so it isn't
-  counted twice; invoices and the Companion balance show the credit.
+  When `fee_credit_policy` is `credited_to_purchase`, the fee comes off the family's sale (the
+  one they're placed with, or their pick's while the deposit is pending: `creditSale`) so it
+  isn't counted twice: off the balance, or off the deposit when her setting
+  `waitlist_config.fee_credit_toward` is `deposit` (vocab `FEE_CREDIT_TOWARD`; any of the fee
+  beyond the deposit comes off the balance). Read live for every family of the kennel. The
+  fee credit is `{ amount, toward }` (`feeCreditOf`, `feeCreditSplit`; `getSaleFeeCredit`,
+  `saleComponents(sale, feeCredit)`). Invoices label the line it comes off ("after $X
+  application fee credit"); the deposit dialog, the family's deposit block
+  (`offers[].deposit_fee_credit`, and "Credited toward your deposit" on their fee card via
+  `fee_due.credit_toward`) and the Companion balance follow it.
+- **A family's credits for funds already received** (Pro, §29 "Credits"): the credited part
+  of a sale line not yet paid is earned on the credit's date and the rest stays anticipated
+  (`saleComponents(sale, feeCredit, received)`, from `familyCredit(...).received`). Only the
+  ledger passes `received`; `incomeLineItems` keeps each line whole.
 - Vocab: `INCOME_STATES`, `INCOME_SOURCE_TYPES`, `INCOME_COMPONENTS`.
 
 **Per litter:** the Litter page shows a simple Sales & Income panel (each sale's total and
@@ -1637,6 +1665,34 @@ restored into Lite keeps its waitlist rows, dormant.
   entry of theirs claims, given to one entry only (the open one, else the newest). The
   entry page's status card says how many times the family has been on the list, which one
   you're viewing, and links the others.
+- **Credits for funds already received** (`received_credits` on the entry, private;
+  `data/receivedCredits.js`): money she collected from the family outside the app, e.g. a
+  small deposit taken before a litter was born. Each credit is `{ id, amount, date, method?,
+  note?, applies_to }`, `applies_to` from `vocab.CREDIT_USES` (application fee, deposit, rest
+  of the purchase price, extras/transport/boarding), all ticked on a new one. How a credit is
+  used is never stored: `allocateCredits` spreads the credits, oldest first, over the
+  family's charges in that order, each only toward its ticked uses; what's left is their
+  credit remaining. The charges: the fee while unpaid (`feeCharge`; once received, only
+  `fee_credit_amount`, the part a credit paid, which `waitlistActions.feeReceived` records,
+  0 for a fee paid online), then the lines of the sale the credit goes toward
+  (`familyExtras.creditSale`: `familySale`'s pick, a delivered sale included, never a
+  returned/cancelled/voided one, whose credit is theirs again), at full amounts
+  (`incomeView.saleCreditCharges`). `incomeView.familyCredit(entry, sale)` is the result;
+  `getSaleCredits(saleId)`, `getEntryCredit(entryId)` and `getCreditedByLine(source, id)`
+  load it. Taken off wherever an amount is shown to the family: their status page's fee
+  (`fee_due.amount` less `fee_due.credit`; no Pay link then, since it charges the whole fee)
+  and deposit (`offers[].deposit_credit`); the invoice/receipt generator and the default
+  document (each line's "already collected" starts at the credit's share, carried as the
+  cfg line's `credit`, which prints as its own **Less credit for funds already received**
+  total on invoices and receipts; a receipt's lines stay whole, then Subtotal, the credit
+  line, and Total paid, what they paid now); payment
+  requests (owed lines less it); `contractSend.balanceDueOn`; the Companion remaining
+  balance. In the app: the entry page's **Credits** card (Add / Edit / Remove, used and
+  remaining), the status card and Fee received (Kels's too) say what the credit covers (all
+  of it: the credit's date is prefilled), and the pick and deposit dialogs say what it pays
+  of the deposit. A lost pup's carry-over (`paidBesidesCredits`) and a back-out's moved
+  deposit carry only what was paid beyond the credit, which stays on the entry.
+  Tests: `tests/receivedCredits.test.js`.
 - **`waitlist_programs`:** her named adjustments (fee override, `ahead` priority, pauses
   allowed, passes not counted, longer response window). Only she assigns them.
 - **Settings** live in `Kennel.waitlist_config` (missing keys from
@@ -2652,7 +2708,7 @@ the litter task's outside parent); the breeder a
 contact typed Breeder linked to it by `contacts.kennel_id`, one she picked gaining the
 kennel if it had none; one new kennel and one new contact per name across the batch, the
 owner's included), an owned dog's owner her own contact (the Dog page's prefill), and her kennel's
-planned tests for the breed (`kennelRepo.seedTestsKennel` + `testsForBreed`, the Dog page's
+planned tests for the breed (`kennelRepo.withSeededTests`, the Dog page's
 seeding). Then each parent from the same batch is linked. **Resumable:** each id goes back on
 the draft as it's made. **Lite:** the cap (`CapExceededError`) stops the save; the dogs made
 so far are kept and linked, the rest aren't made, and she says who she added and shows
@@ -2756,6 +2812,9 @@ their type; one person: ticked, **Yes, add them** / **No**).
   already paid the $300.00 application fee?**:
   - **Yes, they paid:** when (not in the future) and how, then `feeReceived`: on the list from
     that day.
+  Money they'd already paid her (the applicant step's credit) pays the fee first: covering it
+  all, she asks **Put them on the list from [the credit's date]?** instead; covering part,
+  she says what's left and asks about that.
   - **Not yet:** approved, with the fee due.
   - **Not charging for this applicant:** a program that waives it (one she has, `isFeeWaived`),
     **Set up a new program** (`waitlistSetupUI.askNewProgram`, Set up my waitlist's program
@@ -2774,7 +2833,9 @@ else**, **Back to Today**.
 
 **The applicant step** (`assets/kelsApplicant.js`, Pro-only): her application in the chat (her
 questions, preferences and readiness, `assets/waitlistApplicationForm.js`), then the
-program, when they applied and her notes, saved as an application (`applied`), as the
+program, when they applied, **Money they've already paid you** (optional amount, date and
+note: a credit for funds already received, every use ticked, `receivedCredits.newCredit`)
+and her notes, saved as an application (`applied`), as the
 Waitlist entry page saves one. Set up my waitlist's **Add one by hand** and Add people both
 run it; without a contact it's linked at approval, as ever.
 
@@ -2954,12 +3015,21 @@ imports it on start. The kennel's waitlist settings, its online list and its pro
 breeder starting from nothing. Related settings are one screen each, the on/off ones as
 checkboxes, never a question apiece:
 1. **The fee:** the shared fee step (`waitlistFeeStep.askWaitlistFee`, under "Set up my
-   application form"): amount, refund policy, days to pay, how families pay, and with
+   application form"): amount, refund policy, where a credited fee counts
+   (`fee_credit_toward`: the remaining price or the deposit), days to pay, how families pay, and with
    `accounts` the payment account (one she has, Stripe connected in the chat, or another
    payment service she names) and when it's asked for.
 2. **Offers:** days to accept and pay, passes before removal, then checkboxes: no response
    counts as a pass, color matching, and every `WAITLIST_AUTO_OFFER_TRIGGER` moment (All /
    None).
+2b. **Pickup and transport** (`assets/pickupTransportStep.askPickupTransport`, Pro-only): her
+   standard pickup location (name, address, notes, shown to families; any other places kept,
+   changed on the Kennel page's Pickup places), and the transport settings
+   (`transportFee.js`): fee per mile, one way or round trip, no charge under, how far a
+   family must live to suggest their own meetup place (`transport_min_home_miles`), the
+   "you'll be in touch" distance, pickup changes until, standard boarding rate. Then a
+   worked example (`transportExample`: a family half her far limit away, at most 60 miles).
+   Also offered by Review my waitlist when a meetup request comes in before it's set.
 3. **Going online** (only where `isWaitlistOnlineOffered()`): asked first. It publishes
    through this device's cloud backup, so when that's off or signed out she offers **Turn on
    cloud backup** (`kelsBackupSteps.offerCloudBackup`, with the `CLOUD_OFF_FORM` warning:
@@ -2976,7 +3046,8 @@ checkboxes, never a question apiece:
 
 Every config save is checked by `waitlistRules.waitlistConfigProblem`, the Kennel page's
 settings card's check too. **Re-runnable:** on a kennel already set up
-(`waitlistIsSetUp`) she says what's set (`waitlistSummaryLines`) and asks which part to
+(`waitlistIsSetUp`) she says what's set (`waitlistSummaryLines`, with
+`transportSummary` once a pickup place or fee per mile is set) and asks which part to
 change. The emails, pass reasons and "Almost your turn" message keep the standard wording;
 she says where to change them. At the end she offers **Set up my application form**, handing
 it the kennel (`handoff('form-setup', { kennelId })`).
@@ -3065,8 +3136,9 @@ unpaid fees), else 26.
      it** / **Open the sale**); a pickup time or cancel (`approvePickupRequest`, then her own
      boarding kept → **Use it** `applyPickupBoarding`, a transport fee left → **Remove it**
      `clearTransportFee`); their own address set up in the chat (day, time, how, miles with
-     **Get driving miles**, the fee from `transportQuote`), or past her limit **Send
-     transport options**.
+     **Get driving miles**, the fee from `transportQuote`; with no standard location or fee
+     per mile yet, she first offers **Set it up**, the pickup and transport screen), or past
+     her limit **Send transport options**.
   2. **Backing out:** each request with `suggestOutcome` (from the pup's age in weeks) →
      **Keep the deposit** / **Move the deposit** / **More options…** (refund, typed REFUND) /
      **Decline**; a form with `backOutItems` ticked as the entry page ticks them, **Put [pup]

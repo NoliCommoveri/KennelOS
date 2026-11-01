@@ -412,6 +412,8 @@ export function feePayFor(projection, entryId) {
 function feeDueOf(d) {
   if (!d || typeof d !== 'object') return null;
   const out = { ...d };
+  // What their credit for funds already received covers of the fee.
+  if (!(typeof out.credit === 'number' && Number.isFinite(out.credit) && out.credit > 0)) delete out.credit;
   if (typeof out.pay_url !== 'string' || !REC_LINK.test(out.pay_url)) { delete out.pay_url; delete out.pay_amount; }
   return out;
 }
@@ -505,6 +507,10 @@ export function statusView(projection, entryId) {
       // deposit on their sale (or her listed one).
       deposit_instructions: typeof o.deposit_instructions === 'string' ? o.deposit_instructions.slice(0, 1000) : '',
       deposit_amount: typeof o.deposit_amount === 'number' && Number.isFinite(o.deposit_amount) && o.deposit_amount >= 0 ? o.deposit_amount : null,
+      // What their credit for funds already received covers of that deposit.
+      ...(typeof o.deposit_credit === 'number' && Number.isFinite(o.deposit_credit) && o.deposit_credit > 0 ? { deposit_credit: o.deposit_credit } : {}),
+      // Their application fee, when she credits it toward the deposit.
+      ...(typeof o.deposit_fee_credit === 'number' && Number.isFinite(o.deposit_fee_credit) && o.deposit_fee_credit > 0 ? { deposit_fee_credit: o.deposit_fee_credit } : {}),
       pups: withPick((l.pups || []).filter((d) => eligible.has(d.id) || d.id === o.picked_dog_id), o),
     };
   });
