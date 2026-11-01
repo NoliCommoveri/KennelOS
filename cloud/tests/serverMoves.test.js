@@ -247,3 +247,8 @@ test('her open days: a turn the server offers counts only the days she does busi
   assert.equal(addOpenDays('2026-11-06', 3, null), '2026-11-09', 'every day open');
   assert.equal(addOpenDays('2026-11-08', -1, noSat), '2026-11-06', 'the open day before');
 });
+
+test('her closed dates: a turn the server offers skips them too', () => {
+  assert.equal(addOpenDays('2026-11-25', 2, [0, 1, 2, 3, 4, 5], ['2026-11-26', '2026-11-27']), '2026-11-30');
+  assert.equal(addOpenDays('2026-11-25', 2, null, ['2026-11-26']), '2026-11-28');
+});

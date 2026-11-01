@@ -45,7 +45,7 @@ import { expectedPricing } from './saleDefaults.js';
 import { todayYMD } from './dateUtils.js';
 import { RELEASED_SALE_STATUSES, SALE_END_REASON, registrationsForPurposes, descriptor } from './vocab.js';
 import {
-  waitlistConfig, openDays, feeForEntry, feeDueDate, anchorDate, canUndoRemoval, passToForgive,
+  waitlistConfig, openDays, businessDays, closedDates, liveClosedDates, feeForEntry, feeDueDate, anchorDate, canUndoRemoval, passToForgive,
   respondByDate, countsAsPass, shouldRemoveForPasses, passesUsed, isPupAvailable,
   turnSpent, eligiblePupsFor, isAwaitingDeposit, canSwitchAcceptedPick, undoPassBlocker, autoOffers, closingTrigger,
   prefChangeLines, turnIdOf, turnOffers, openTurns, nextTurn, turnLittersFor, joinsOpenTurn,
@@ -1152,7 +1152,7 @@ export async function approveExtraRequest(entryId, requestId, { date = todayYMD(
       const dog = sale.dog_id ? await dogRepo.getById(sale.dog_id) : null;
       const litter = dog?.litter_id ? await litterRepo.getById(dog.litter_id) : null;
       const rules = chargeRules(item, kennelChargeGroups(kennel));
-      const payments = planSteps(rules.payment_plan, item.amount, { approvalDate: date, birthDate: pupBirthDate(dog, litter), openDays: openDays(waitlistConfig(kennel)) });
+      const payments = planSteps(rules.payment_plan, item.amount, { approvalDate: date, birthDate: pupBirthDate(dog, litter), openDays: businessDays(waitlistConfig(kennel)) });
       charge = { id: crypto.randomUUID(), label: item.label, amount: item.amount, list_id: item.id, ...(item.group ? { group: item.group } : {}),
         ...(payments ? { payments } : {}), ...(item.boarding_days ? { boarding_days: item.boarding_days } : {}) };
       await saleRepo.update(sale.id, { extra_charges: [...(sale.extra_charges || []), charge] });
@@ -1401,4 +1401,20 @@ export async function removePrepass(entryId, target) {
   const entry = await load(entryId);
   const same = (p) => (target.litter_id ? p.litter_id === target.litter_id : p.pairing_id === target.pairing_id);
   return waitlistEntryRepo.update(entryId, { prepasses: (entry.prepasses || []).filter((p) => !same(p)) });
+}
+
+// Her closed dates more than CLOSED_DATES_KEPT_DAYS (7) past drop off by themselves:
+// run when the app loads (app.js), for each of her kennels with a list. → how many
+// kennels changed.
+export async function tidyClosedDates(today = todayYMD()) {
+  let changed = 0;
+  for (const kennel of await kennelRepo.getAll()) {
+    if (!kennel.is_own_kennel || kennel.is_archived) continue;
+    const dates = closedDates(kennel.waitlist_config || {});
+    const live = liveClosedDates(dates, today);
+    if (live.length === dates.length && (kennel.waitlist_config?.closed_dates || []).length === dates.length) continue;
+    await kennelRepo.update(kennel.id, { waitlist_config: { ...(kennel.waitlist_config || {}), closed_dates: live } });
+    changed++;
+  }
+  return changed;
 }

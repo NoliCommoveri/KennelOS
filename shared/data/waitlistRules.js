@@ -37,6 +37,7 @@ export const WAITLIST_CONFIG_DEFAULTS = Object.freeze({
   color_matching: false,
   turn_prices: true, // a family's turn shows each litter's expected prices (males / females, full registration apart)
   open_days: null, // the weekdays she does business (0 = Sunday … 6 = Saturday); deadlines count only these. null = every day
+  closed_dates: [], // her blackout dates (YYYY-MM-DD), skipped like a closed weekday; dropped 7 days after they pass
   checkin_months: 6,
   soon_notice_text: '', // blank = SOON_NOTICE_DEFAULT
   public_intro_text: '', // blank = PUBLIC_INTRO_DEFAULT (the message under her public list's heading)
@@ -263,12 +264,27 @@ export function isFeeWaived(config, program) {
 // no fee window (then nothing ever expires).
 export function feeDueDate(approvedDate, config) {
   if (!approvedDate || !isSet(config.fee_due_days)) return null;
-  return addOpenDays(approvedDate, Number(config.fee_due_days), openDays(config));
+  return addOpenDays(approvedDate, Number(config.fee_due_days), businessDays(config));
 }
 
 // The weekdays she does business (0 = Sunday … 6 = Saturday): every day unless she
 // unticked some. Every deadline worked out from her day counts (deposit, fee,
 // "Ready now?", pickup changes, extras plans) counts only these (dateUtils.addOpenDays).
+// Her closed (blackout) dates, any reason: valid YYYY-MM-DD, unique, in order.
+// Dates more than CLOSED_DATES_KEPT_DAYS past are dropped (liveClosedDates).
+export const CLOSED_DATES_KEPT_DAYS = 7;
+export function closedDates(config) {
+  const list = Array.isArray(config?.closed_dates) ? config.closed_dates : [];
+  return [...new Set(list.filter((d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)))].sort();
+}
+export const liveClosedDates = (dates, today) => dates.filter((d) => d >= addDaysToYMD(today, -CLOSED_DATES_KEPT_DAYS));
+
+// Everything a deadline skips: her closed weekdays and her closed dates
+// (dateUtils.addOpenDays takes it as its calendar).
+export function businessDays(config) {
+  return { weekdays: openDays(config), closed: closedDates(config) };
+}
+
 export function openDays(config) {
   const d = Array.isArray(config?.open_days) ? [...new Set(config.open_days.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6))].sort() : [];
   return d.length ? d : [...ALL_WEEKDAYS];
@@ -280,7 +296,7 @@ export function respondByDate(offeredDate, config, program) {
   const days = program && isSet(program.respond_days_override)
     ? Number(program.respond_days_override)
     : Number(config.respond_days);
-  return addOpenDays(offeredDate, days, openDays(config));
+  return addOpenDays(offeredDate, days, businessDays(config));
 }
 
 // --- Position (Spec §6.1) -------------------------------------------------------
@@ -632,7 +648,7 @@ export function readyCheck(entry, today, config) {
   const days = Math.max(1, Number(config.ready_answer_days) || WAITLIST_CONFIG_DEFAULTS.ready_answer_days);
   return {
     asked,
-    answer_by: config.ready_no_answer === 'remove_after' ? addOpenDays(asked, days, openDays(config)) : null,
+    answer_by: config.ready_no_answer === 'remove_after' ? addOpenDays(asked, days, businessDays(config)) : null,
     answer: rc.answer === 'yes' || rc.answer === 'no' ? rc.answer : null
   };
 }
@@ -648,7 +664,7 @@ export function readyCheckLapsed(entry, today, config) {
 export function readyCheckOverdue(entry, today, config) {
   const rc = entry.status === 'active' && readyCheck(entry, today, config);
   if (!rc || rc.answer || config.ready_no_answer !== 'keep_paused') return false;
-  return today > addOpenDays(rc.asked, Math.max(1, Number(config.ready_answer_days) || WAITLIST_CONFIG_DEFAULTS.ready_answer_days), openDays(config));
+  return today > addOpenDays(rc.asked, Math.max(1, Number(config.ready_answer_days) || WAITLIST_CONFIG_DEFAULTS.ready_answer_days), businessDays(config));
 }
 
 // The readiness hold: before readyFromDate, and after it while "Ready now?" is

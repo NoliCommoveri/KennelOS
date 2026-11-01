@@ -52,7 +52,7 @@ import { goHomeDate, daysBetween, followUpMessage, sharedReferrals, FOLLOW_UP_DA
 import { saleExtraCharges, stepDueDate, stepLabel } from './extraCharges.js';
 import { waitlistProgramRepo } from './waitlistProgramRepo.js';
 import {
-  overdueTurns, overdueFees, canUndoRemoval, entryName, describeOfferChanges, waitlistConfig, openDays, autoOffers, closingTrigger,
+  overdueTurns, overdueFees, canUndoRemoval, entryName, describeOfferChanges, waitlistConfig, businessDays, autoOffers, closingTrigger,
   prefChangeSummary, prefChangeEffect, PREF_FIELD_LABEL, depositsDueLitters,
   readyCheck, readyCheckOverdue
 } from './waitlistRules.js';
@@ -845,7 +845,7 @@ export function extraDueNudges(today, sales, events, dogsById, contactsById, ken
     for (const x of saleExtraCharges(s)) {
       for (const st of x.payments || []) {
         if (st.paid_date) continue;
-        const due = stepDueDate(st, { sale: s, pickupDate: pickup.get(s.dog_id) || '', openDays: openDays(waitlistConfig(kennelsById.get(s.kennel_id))) });
+        const due = stepDueDate(st, { sale: s, pickupDate: pickup.get(s.dog_id) || '', openDays: businessDays(waitlistConfig(kennelsById.get(s.kennel_id))) });
         if (!due || due > addDaysToYMD(today, EXTRA_DUE_DAYS)) continue;
         const who = contactsById?.get(s.buyer_contact_id)?.name || 'The buyer';
         const pup = dogsById.get(s.dog_id)?.call_name || 'their pup';

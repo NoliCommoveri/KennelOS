@@ -45,21 +45,25 @@ export function addDaysToYMD(ymd, n) {
 // Days of the week, 0 = Sunday … 6 = Saturday (Date.getDay).
 export const ALL_WEEKDAYS = Object.freeze([0, 1, 2, 3, 4, 5, 6]);
 
-// n OPEN days after (or, n < 0, before) a YYYY-MM-DD date: only the weekdays in
-// `openDays` are counted, so the result never lands on a closed day (Saturday
-// closed: Friday + 3 open days = Tuesday, counting Sun, Mon, Tue). n = 0 returns the
-// date itself. Every day open (the default) is plain addDaysToYMD.
-export function addOpenDays(ymd, n, openDays = ALL_WEEKDAYS) {
-  const open = new Set(openDays);
+// n OPEN days after (or, n < 0, before) a YYYY-MM-DD date: only the weekdays she's
+// open and not her closed dates are counted, so the result never lands on a closed
+// day (Saturday closed: Friday + 3 open days = Tuesday, counting Sun, Mon, Tue).
+// `calendar` is a weekday list, or { weekdays, closed } with closed YYYY-MM-DD
+// dates (waitlistRules.businessDays). n = 0 returns the date itself. Every day open
+// and no closed dates (the default) is plain addDaysToYMD.
+export function addOpenDays(ymd, n, calendar = ALL_WEEKDAYS) {
+  const cal = Array.isArray(calendar) ? { weekdays: calendar, closed: [] } : (calendar || {});
+  const open = new Set(Array.isArray(cal.weekdays) && cal.weekdays.length ? cal.weekdays : ALL_WEEKDAYS);
+  const closed = new Set(Array.isArray(cal.closed) ? cal.closed : []);
   const days = Math.round(Number(n) || 0);
-  if (!ymd || !days || open.size === 0 || open.size === 7) return ymd ? addDaysToYMD(ymd, days) : ymd;
+  if (!ymd || !days || (open.size === 7 && !closed.size)) return ymd ? addDaysToYMD(ymd, days) : ymd;
   const step = days < 0 ? -1 : 1;
   const weekday = (x) => { const [y, m, d] = x.split('-').map(Number); return new Date(y, m - 1, d).getDay(); };
   let left = Math.abs(days);
   let at = ymd;
   while (left > 0) {
     at = addDaysToYMD(at, step);
-    if (open.has(weekday(at))) left--;
+    if (open.has(weekday(at)) && !closed.has(at)) left--;
   }
   return at;
 }

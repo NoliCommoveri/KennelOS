@@ -34,9 +34,9 @@ import { isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
 import { pickupLocations, locationsProblem } from '../data/pickupSlots.js';
 import { MILEAGE_BASIS } from '../data/transportFee.js';
 import { backOutReasons, backOutPolicy, BACK_OUT_OUTCOMES, BACK_OUT_POLICY_TEXT_DEFAULT } from '../data/backOut.js';
-import { waitlistConfig, waitlistConfigProblem, openDays, SOON_NOTICE_DEFAULT, EXTRAS_INTRO_DEFAULT, passReasons, showUpcoming, UPCOMING_STAGES } from '../data/waitlistRules.js';
+import { waitlistConfig, waitlistConfigProblem, openDays, closedDates, liveClosedDates, SOON_NOTICE_DEFAULT, EXTRAS_INTRO_DEFAULT, passReasons, showUpcoming, UPCOMING_STAGES } from '../data/waitlistRules.js';
 import { EMAIL_TEMPLATE_KINDS, EMAIL_PLACEHOLDERS, DEFAULT_EMAIL_TEMPLATES, emailTemplate } from '../data/waitlistEmails.js';
-import { esc, badge, fmtDate, fmtMoney, param } from '../assets/ui.js';
+import { esc, badge, fmtDate, fmtMoney, param, todayYMD } from '../assets/ui.js';
 import { renderExpensePanel } from '../assets/expensePanel.js';
 import { renderKennelCardSection } from '../assets/kennelCardUI.js';
 import {
@@ -426,6 +426,10 @@ ${group('turns', 'Turns & offers', 'Time to respond, passes, color matching, aut
         <div class="field field-wide"><label>Days you do business</label>
           <div class="pill-row">${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, n) => `<label class="check-inline"><input type="checkbox" data-wl-open="${n}"${openDays(c).includes(n) ? ' checked' : ''}> ${d}</label>`).join('')}</div>
           <span class="field-hint">Deadlines count only these days, so one never lands on a day you're closed: the days to accept and pay the deposit, to pay the application fee, to answer "Ready now?", to change a pickup time, and extras payment plans. Closed Saturdays: offered on a Friday with 3 days, it's due Tuesday.</span></div>
+        <div class="field field-wide"><label for="wl-closed-new">Closed dates</label>
+          <div id="wl-closed" class="pill-row">${closedDateChips(liveClosedDates(closedDates(c), todayYMD()))}</div>
+          <div class="pill-row" style="margin-top:6px;align-items:center;"><input id="wl-closed-new" type="date" style="width:auto;"><button type="button" class="btn btn-sm" data-act="closed-add">Add date</button></div>
+          <span class="field-hint">Any day you're closed, for any reason: skipped like a closed weekday. A date drops off the list by itself a week after it passes.</span></div>
         <div class="field"><label>Days to accept and pay the deposit</label><input id="wl-respond" type="number" min="1" step="1" value="${esc(c.respond_days)}">
           <span class="field-hint">From the offer. A pup they pick is held until then; no deposit in time counts as no response.</span></div>
         <div class="field"><label>Passes before removal</label><input id="wl-passes" type="number" min="1" step="1" value="${esc(c.max_passes)}"></div>
@@ -560,6 +564,12 @@ function upcomingSwitches(c) {
     </div>`;
 }
 
+// Her closed dates as removable chips (data-closed holds the date).
+function closedDateChips(dates) {
+  return dates.length ? dates.map((d) => `<span class="badge badge-neutral" data-closed="${esc(d)}" style="margin:2px 4px 2px 0;">${esc(fmtDate(d))} <button type="button" class="btn btn-sm" data-act="closed-remove" aria-label="Remove ${esc(fmtDate(d))}" style="padding:0 6px;margin-left:4px;">✕</button></span>`).join('')
+    : '<span class="faint">None yet.</span>';
+}
+
 // One editable pass reason: its label and the message the family sees.
 function reasonRow(r = { id: '', label: '', message: '' }) {
   return `<div class="card" data-reason-id="${esc(r.id)}" style="margin:6px 0;padding:10px 12px;">
@@ -587,6 +597,7 @@ async function onSaveWaitlist() {
     no_response_counts_as_pass: q('#wl-noresp').checked,
     color_matching: q('#wl-colors').checked,
     turn_prices: q('#wl-turn-prices').checked,
+    closed_dates: liveClosedDates([...els.config.querySelectorAll('[data-closed]')].map((x) => x.dataset.closed).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort(), todayYMD()),
     open_days: (() => { const d = [...els.config.querySelectorAll('[data-wl-open]')].filter((b) => b.checked).map((b) => Number(b.dataset.wlOpen)); return d.length === 7 ? null : d; })(),
     public_show_paused: q('#wl-show-paused').checked,
     auto_offer_on: [...els.config.querySelectorAll('[data-wl-auto]:checked')].map((b) => b.dataset.wlAuto),
@@ -941,6 +952,19 @@ function wireConfig() {
   els.config.querySelector('#bo-rows')?.addEventListener('click', (ev) => { if (ev.target.closest('[data-act="bo-remove"]')) ev.target.closest('.bo-row').remove(); });
   const saveWaitlist = els.config.querySelector('[data-act="save-waitlist"]');
   if (saveWaitlist) saveWaitlist.addEventListener('click', onSaveWaitlist);
+  // Closed dates: added and removed here, saved with the rest.
+  const closedList = () => [...els.config.querySelectorAll('[data-closed]')].map((x) => x.dataset.closed);
+  els.config.querySelector('[data-act="closed-add"]')?.addEventListener('click', () => {
+    const input = els.config.querySelector('#wl-closed-new');
+    if (!input.value) return;
+    els.config.querySelector('#wl-closed').innerHTML = closedDateChips([...new Set([...closedList(), input.value])].sort());
+    input.value = '';
+  });
+  els.config.querySelector('#wl-closed')?.addEventListener('click', (ev) => {
+    const chip = ev.target.closest('[data-act="closed-remove"]')?.closest('[data-closed]');
+    if (!chip) return;
+    els.config.querySelector('#wl-closed').innerHTML = closedDateChips(closedList().filter((d) => d !== chip.dataset.closed));
+  });
   els.config.querySelector('[data-act="add-reason"]')?.addEventListener('click', () => {
     els.config.querySelector('#wl-reasons').insertAdjacentHTML('beforeend', reasonRow());
   });

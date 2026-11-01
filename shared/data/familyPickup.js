@@ -15,7 +15,7 @@ import { kennelChargeList, saleExtraCharges } from './extraCharges.js';
 import { readyDateOf, pickupFor } from './goHome.js';
 import { addDaysToYMD } from './dateUtils.js';
 import { locationRuleOn } from './waitlistForm.js';
-import { openDays } from './waitlistRules.js';
+import { businessDays } from './waitlistRules.js';
 
 export const PICKUP_REQUESTS_KEPT = 30;
 export const PICKUP_REQUEST_SHOWN_DAYS = 30;
@@ -75,7 +75,7 @@ export function familyPickupView({ entry, sales, offers = [], dogsById, litters,
       kind: mine ? 'slot' : 'address', date: pickup.event_date,
       start_time: slot?.start_time || '', end_time: slot?.end_time || '',
       place: loc?.label || '', address: loc?.address || pickup.details?.location || '',
-      change_until: changeUntil(pickup.event_date, days, openDays(config))
+      change_until: changeUntil(pickup.event_date, days, businessDays(config))
     };
   }
   const requests = (Array.isArray(entry.pickup_requests) ? entry.pickup_requests : [])

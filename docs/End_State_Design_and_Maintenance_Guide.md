@@ -1575,14 +1575,18 @@ restored into Lite keeps its waitlist rows, dormant.
   (in `referenceRegistry`), `lost_picked_date`, `lost_accepted_date`.
 - **Her open days** (`waitlist_config.open_days`, weekdays 0 = Sunday … 6 = Saturday;
   null = every day; Waitlist settings → Turns & offers, **Days you do business**): every
-  deadline worked out from her day counts counts only these (`dateUtils.addOpenDays`,
-  `waitlistRules.openDays`), so none lands on a closed day: the respond-by date
+  deadline worked out from her day counts counts only these, minus her **Closed dates**
+  (`closed_dates`, YYYY-MM-DD, any reason; `closedDates`): `dateUtils.addOpenDays` with
+  `waitlistRules.businessDays(config)` = `{ weekdays, closed }`, so none lands on a closed day: the respond-by date
   (`respondByDate`), the fee's pay-by date (`feeDueDate`), "Ready now?" (`readyCheck`'s
   `answer_by`, `readyCheckOverdue`), the pickup change cutoff (`pickupSlots.changeUntil`),
   and extras plan steps "after approval" / "before pickup" (`planSteps`, `stepDueDate`).
-  The projection's kennel carries `open_days` so a turn the server offers is due the same
-  day (`serverMoves.addOpenDays`), and its fee reminder goes on the open day before. Dates
-  already set (an offer made, a fee asked for) keep theirs.
+  The projection's kennel carries `open_days` and the live `closed_dates` so a turn the
+  server offers is due the same day (`serverMoves.addOpenDays`), and its fee reminder goes
+  on the open day before. Dates already set (an offer made, a fee asked for) keep theirs.
+  A closed date more than 7 days past (`CLOSED_DATES_KEPT_DAYS`, `liveClosedDates`) is
+  dropped on save and by `waitlistActions.tidyClosedDates`, run when the app loads (not in
+  Demo).
 - **A family back on the list** (a second pup: **Re-apply**, or a new application) gets a
   new entry; the old one keeps its pup, offers and sale. Every ask that's about a pup
   (extras, pickup, backing out, the Companion link) acts on the entry's **own** pup

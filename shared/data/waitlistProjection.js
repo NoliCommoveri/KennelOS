@@ -21,7 +21,7 @@
 // message stay on her device: the page shows what was asked, never the note.
 import { expectedPricing } from './saleDefaults.js';
 import {
-  waitlistConfig, openDays, entryName, publicList, overallPositions, litterQueue, isPupAvailable, passesUsed,
+  waitlistConfig, openDays, closedDates, liveClosedDates, entryName, publicList, overallPositions, litterQueue, isPupAvailable, passesUsed,
   isManuallyPaused, readyFromDate, isReadyHeld, feeForEntry, kennelBreeds, listenParentChoices,
   rankedList, turnLittersFor, turnIdOf, passReasons, splitPrepassed, upcomingItems, showUpcoming, isListeningFor, placeHidden, prefPlaces, whelpNotes, readyCheck, publicIntroText,
   messengerLink, embedOrigins
@@ -484,6 +484,8 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
       // The weekdays she does business, so a turn the server offers counts its days
       // the way her device does (dateUtils.addOpenDays). null = every day.
       open_days: openDays(config).length === 7 ? null : openDays(config),
+      // …and her closed dates still ahead (or just past), skipped the same way.
+      closed_dates: liveClosedDates(closedDates(config), today),
       max_passes: Number(config.max_passes),
       auto_offer_on: [...config.auto_offer_on],
       // What the server sends by itself while her phone is off (W2 step 7): her

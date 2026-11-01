@@ -65,7 +65,7 @@ test('the projection has exactly its allow-listed parts', () => {
   assert.deepEqual(keysOf(p), ['as_of', 'entries', 'events_through', 'format', 'kennel', 'litters', 'public_list', 'turn_queue', 'upcoming']);
   assert.deepEqual(p.kennel, {
     public_id: kennel.public_id, name: 'Thornfield Kennels', intro: publicIntroText({}, 'Thornfield Kennels'), time_zone: 'America/Chicago',
-    respond_days: 3, open_days: null, max_passes: 2, auto_offer_on: ['no_response'],
+    respond_days: 3, open_days: null, closed_dates: [], max_passes: 2, auto_offer_on: ['no_response'],
     breeds: [], color_matching: false,
     pass_reasons: passReasons({}),
     parents: { sires: [{ id: 'sire', name: 'Ash' }], dams: [{ id: 'dam', name: 'Juniper' }] },
@@ -418,4 +418,19 @@ test('her open days: every deadline counts only the days she does business; the 
   const f = fixture();
   const p = buildProjection({ ...f, kennel: { ...f.kennel, waitlist_config: { ...f.kennel.waitlist_config, open_days: noSat } } });
   assert.deepEqual(p.kennel.open_days, noSat);
+});
+
+test('her closed dates are skipped like a closed weekday, and drop off a week after they pass', async () => {
+  const { addOpenDays } = await import('../shared/data/dateUtils.js');
+  const { respondByDate, businessDays, closedDates, liveClosedDates } = await import('../shared/data/waitlistRules.js');
+  // 2026-11-26 is a Thursday (Thanksgiving), 11-27 Friday, 11-28 Saturday.
+  const config = { respond_days: 2, open_days: [0, 1, 2, 3, 4, 5], closed_dates: ['2026-11-26', '2026-11-27', 'nonsense', '2026-11-26'] };
+  assert.deepEqual(closedDates(config), ['2026-11-26', '2026-11-27'], 'valid, unique, in order');
+  assert.equal(respondByDate('2026-11-25', config, null), '2026-11-30', 'Wed + 2: Thu, Fri closed; Sat closed weekday; Sun, Mon');
+  assert.equal(addOpenDays('2026-11-25', 2, { weekdays: [0, 1, 2, 3, 4, 5, 6], closed: ['2026-11-26'] }), '2026-11-28', 'a closed date alone');
+  assert.deepEqual(businessDays({}), { weekdays: [0, 1, 2, 3, 4, 5, 6], closed: [] });
+  assert.deepEqual(liveClosedDates(['2026-10-20', '2026-10-25', '2026-11-03'], '2026-11-01'), ['2026-10-25', '2026-11-03'], 'more than 7 days past: dropped');
+  const f = fixture();
+  const p = buildProjection({ ...f, kennel: { ...f.kennel, waitlist_config: { ...f.kennel.waitlist_config, closed_dates: ['2026-09-01', '2026-10-20'] } } });
+  assert.deepEqual(p.kennel.closed_dates, ['2026-10-20'], 'the server gets the live ones');
 });

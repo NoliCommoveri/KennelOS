@@ -2031,3 +2031,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `serverMoves.addOpenDays` (the fee reminder goes on the open day before). Dates already
   set keep theirs. The turn-prices setting's hint updated to match what it now shows.
   Needs a Worker deploy. Checked in the browser.
+- **Closed dates (2026-11-01).** Asked by the owner: a blackout list of any dates she's
+  closed, for any reason, under Days you do business (date picker, Add date, ✕ to remove).
+  Deadlines skip them like a closed weekday, on her device and for turns the server offers
+  (`closed_dates` in the projection's kennel). A date drops off by itself a week after it
+  passes: on save, and `waitlistActions.tidyClosedDates` when the app loads. Tests:
+  `tests/closedDates.test.js`, `tests/waitlistProjection.test.js`,
+  `cloud/tests/serverMoves.test.js`. Needs a Worker deploy. Checked in the browser.
