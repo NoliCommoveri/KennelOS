@@ -2038,3 +2038,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   passes: on save, and `waitlistActions.tidyClosedDates` when the app loads. Tests:
   `tests/closedDates.test.js`, `tests/waitlistProjection.test.js`,
   `cloud/tests/serverMoves.test.js`. Needs a Worker deploy. Checked in the browser.
+- **SW cache bumped to `kennelos-shell-v89` (2026-11-01).** All of this session's app
+  changes ride it (styled family dialogs and the modal rules, Open kennel settings, folded
+  Waitlist settings, the own-place dropdown, the entry Timeline, records per pup and their
+  links, turn prices and deposits, Sending your deposit, open days and closed dates). The
+  family pages and server changes need a Worker deploy.
