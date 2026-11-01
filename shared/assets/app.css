@@ -416,11 +416,12 @@ table.ih-cols td.ih-need .badge { white-space: nowrap; }
 @media (max-width: 640px) {
   table.ih-cols thead { display: none; }
   table.ih-cols, table.ih-cols tbody { display: block; }
-  table.ih-cols tr { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  table.ih-cols tr { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding: 6px 8px; border-bottom: 1px solid var(--border); }
   table.ih-cols tbody tr:last-child { border-bottom: none; }
-  table.ih-cols td { display: block; padding: 0; border: 0; }
+  /* table.data's phone padding would double the row's: none on these cells. */
+  table.data.ih-cols td { display: block; padding: 0; border: 0; }
   table.ih-cols td.ih-name { font-weight: 600; min-width: 0; }
-  table.ih-cols td.ih-text { flex: 1 1 100%; font-size: 14px; }
+  table.ih-cols td.ih-text { flex: 1 1 100%; font-size: 14px; line-height: 1.4; }
 }
 table.data th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
 table.data th.sortable:hover { background: var(--border); color: var(--text); }

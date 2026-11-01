@@ -2080,3 +2080,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   "Required for new records" pill is "New records" (the key under the table explains it);
   the header reads Need. At 640px and under, each column is one block: name and pill on one
   line, what goes in it full width below (`table.ih-cols` in `app.css`).
+- **CSV import guide tightened (2026-11-01).** Asked by the owner: on a phone, table.data's own
+  cell padding was doubling each block's; those cells now have none, and each block is 6px
+  8px with the description right under the name (about a third shorter overall).
