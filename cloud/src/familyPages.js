@@ -191,8 +191,18 @@ function withPick(pups, o) {
   const d = o.picked_pup;
   if (!o.picked_dog_id || !d || d.id !== o.picked_dog_id || pups.some((x) => x.id === d.id)) return pups;
   const s = (v, n) => (typeof v === 'string' ? v.slice(0, n) : null);
-  return [...pups, { id: d.id, call_name: s(d.call_name, 80) || '', sex: s(d.sex, 10), color: s(d.color, 80), registration: s(d.registration, 20) }];
+  return [...pups, { id: d.id, call_name: s(d.call_name, 80) || '', sex: s(d.sex, 10), color: s(d.color, 80), registration: s(d.registration, 20), ...photosOf(d.photos_url) }];
 }
+
+// A photos link her device published (a dog's, where she ticked it, or a
+// litter's): a web address only, at most 500 characters. Absent otherwise.
+const PHOTO_LINK = /^https?:\/\/[^\s"'<>]{1,500}$/i;
+export const photosOf = (v) => (typeof v === 'string' && PHOTO_LINK.test(v) ? { photos_url: v } : {});
+// The pups an offer lists, each with its photos link checked.
+const pupsOf = (pups) => pups.map((d) => {
+  const { photos_url: url, ...rest } = d || {};
+  return { ...rest, ...photosOf(url) };
+});
 
 // …and, where her device published them (her Waitlist setting or that dog's own
 // say), its completed health tests: a test's name and result, short strings only,
@@ -204,9 +214,23 @@ function testsOf(list) {
   return list.filter((t) => t && typeof t === 'object').map((t) => ({ name: s(t.name), result: s(t.result) }))
     .filter((t) => t.name && t.result).slice(0, PARENT_TESTS_MAX);
 }
+// …its registered name, and (her pedigree setting) its own sire's and dam's
+// registered names: short strings only.
+const regOf = (v) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 120) : null);
+function pedigreeOf(p) {
+  if (!p || typeof p !== 'object') return null;
+  const sire = regOf(p.sire);
+  const dam = regOf(p.dam);
+  return sire || dam ? { sire, dam } : null;
+}
 const parentOf = (d) => {
   const tests = testsOf(d?.tests);
-  return { name: d?.name ?? '', titles: Array.isArray(d?.titles) ? d.titles : [], ...(tests.length ? { tests } : {}) };
+  const reg = regOf(d?.registered_name);
+  const ped = pedigreeOf(d?.pedigree);
+  return {
+    name: d?.name ?? '', titles: Array.isArray(d?.titles) ? d.titles : [], ...(tests.length ? { tests } : {}), ...photosOf(d?.photos_url),
+    ...(reg ? { registered_name: reg } : {}), ...(ped ? { pedigree: ped } : {}),
+  };
 };
 
 // A litter's expected prices as her device published them, field by field: per
@@ -233,6 +257,7 @@ function upcomingRow(u) {
     expected_whelp_date: u.expected_whelp_date ?? null, whelp_date: u.whelp_date ?? null,
     picks_expected_date: u.picks_expected_date ?? null,
     expected_month: /^\d{4}-\d{2}$/.test(String(u.expected_month ?? '')) ? u.expected_month : null,
+    ...photosOf(u.photos_url),
   };
 }
 const upcomingOf = (projection, where) => (Array.isArray(projection.upcoming) ? projection.upcoming : []).filter((u) => u && u[where] === true);
@@ -263,9 +288,18 @@ function publicRows(projection) {
 }
 
 // A litter with open picks as the pages show it (Available Puppies): her nickname,
-// breed, parents, dates, and how many pups are still available by sex.
+// breed, parents, dates, how many pups are still available by sex, and those pups
+// by call name (with each one's photos link where she shows it), by name.
+const SEXES = ['male', 'female'];
+function cardPups(pups) {
+  return pups.filter((d) => d && typeof d === 'object').map((d) => ({
+    call_name: typeof d.call_name === 'string' ? d.call_name.slice(0, 80) : '',
+    sex: SEXES.includes(d.sex) ? d.sex : null,
+    ...photosOf(d.photos_url),
+  })).sort((a, b) => a.call_name.localeCompare(b.call_name));
+}
 function litterCard(id, l) {
-  const pups = l.pups || [];
+  const pups = Array.isArray(l.pups) ? l.pups : [];
   return {
     id,
     label: l.label ?? '',
@@ -276,16 +310,18 @@ function litterCard(id, l) {
     pups_available: pups.length,
     pups_female: pups.filter((d) => d.sex === 'female').length,
     pups_male: pups.filter((d) => d.sex === 'male').length,
+    pups: cardPups(pups),
     nickname: l.nickname ?? null,
     breed: l.breed ?? null,
     sire: parentOf(l.sire),
     dam: parentOf(l.dam),
+    ...photosOf(l.photos_url),
   };
 }
 
 // The public list: the kennel's name, the rows her device published (the one
 // holding a turn masked), the litters with open picks (Available Puppies, as on a
-// family's page: counts by sex, never a pup's name; decided 2026-10-10), and the
+// family's page: the available pups by sex, each by name; names added 2026-11-02), and the
 // pairings and early litters she shows publicly.
 export function listView(projection) {
   return {
@@ -511,7 +547,9 @@ export function statusView(projection, entryId) {
       ...(typeof o.deposit_credit === 'number' && Number.isFinite(o.deposit_credit) && o.deposit_credit > 0 ? { deposit_credit: o.deposit_credit } : {}),
       // Their application fee, when she credits it toward the deposit.
       ...(typeof o.deposit_fee_credit === 'number' && Number.isFinite(o.deposit_fee_credit) && o.deposit_fee_credit > 0 ? { deposit_fee_credit: o.deposit_fee_credit } : {}),
-      pups: withPick((l.pups || []).filter((d) => eligible.has(d.id) || d.id === o.picked_dog_id), o),
+      // The litter's photos link, where she set one.
+      ...photosOf(l.photos_url),
+      pups: pupsOf(withPick((l.pups || []).filter((d) => eligible.has(d.id) || d.id === o.picked_dog_id), o)),
     };
   });
   // Whether they match a litter's available pups now: a yes/no, never a place in

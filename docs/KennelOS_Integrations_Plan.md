@@ -544,6 +544,9 @@ D20 and D21 as recommended. Details settled in the build:
   an address she chooses on the server (e.g. a "notify me at" address in her waitlist settings,
   published in the projection, which the server already holds in plain text) — a privacy
   decision to take first. Until then the pick shows on Today, which links to the family page.
+- **Modified:** with the deposit already in (a family's carried-over deposit is paid at the
+  pick), the message thanks them for it instead of requesting it, and the invoice shows it
+  Paid. A placed family's pick can still be sent (**Send contract & invoice…**).
 
 ## 3. Referral-use notifications + thank-you messages
 

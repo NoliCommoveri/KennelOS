@@ -2311,3 +2311,72 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Driven in the browser: the transport screen saved and its example, the applicant form's
   new box. Not driven: Add people's covered-fee question, Review my waitlist's offer.
   Rides `kennelos-shell-v92`.
+- **A carried-over deposit is paid at the pick; Send and the invoice stop asking for a paid
+  deposit (2026-11-01).** Reported: a family carrying $500 from a lost pup picked again, and
+  Review sale & send asked for the $500 "due by" their deadline while the invoice showed it
+  due Immediately with the full balance. `recordPick` now gives a family with
+  `carried_payment` a deposit-paid sale and goes on to `confirmDeposit` (new `paidDate`:
+  `deposit_date` is when they paid it; the turn ends on the pick date), returning
+  `depositDone: true`; `recordOutcome('accepted')` and the family's own pick online go the
+  same way, and the pick dialog drops its "deposit is already in" box for them. The family
+  page then offers **Send contract & invoice** (also a button on a placed family's pick still
+  at deposit paid and not yet sent); for a pick already pending with a carried deposit, the
+  send first offers to mark it received. `depositRequestMessage` gains `depositPaid` (a
+  thank-you, no due date, no payment or Stripe link). Invoices: a sale's paid lines print
+  "Paid" and start as collected in full (default and Financials generator), so the balance
+  nets them out. Tests: carried pick through both paths, the paid message, the paid invoice;
+  `waitlistLostPup` updated for the one-step placement. Smoke-loaded the family and invoice
+  pages; the dialogs weren't driven in the browser. No new files; no cache bump yet.
+- **Photos links on waitlist pages, in emails, and on litters (2026-11-02).** Her request:
+  photo links wherever a dog shows on the waitlist pages, parents' photos on current and
+  upcoming litters, a litter-wide photos link, and every email to a family with a sale
+  carrying their pup's link. Decided with her: a dog's link is published only when she ticks
+  the new **Dog.photos_online** (Dog form, with the waitlist; cloud), then on the public list
+  and family pages; a litter's new **Litter.photos_url** (cloud) is published when set
+  (Litter page edit + view, a Photos column in Litters, Kels's Add a litter extras step);
+  emails get the line automatically whenever the pup has a link. Projection
+  (`photoLink`, `dogPhotosLink`, `publicPup`, `parentView`, litter views, Coming up),
+  Worker (`familyPages.photosOf` on parents, litter cards, Coming up, a turn's litter and
+  pups), pages (`common.photosLink`; links only, the CSP allows no outside images).
+  Emails: `waitlistOutbox.salePupPhotos` + `draftEmail`'s `pupPhotos` (also "almost your
+  turn" and the deposit request). `listView` rows no longer open when a link inside is
+  clicked. Waitlist Spec §8.1 gains the row. Tests: projection gating, Worker pass-through,
+  page links and escaping, email line and its cut, the sale lookup. Checked in the browser:
+  the Litters column, the Litter page row, the Dog page badge; the family pages and emails
+  weren't driven live. Needs a Worker deploy for the family pages. No new files; no cache
+  bump yet.
+- **Available Puppies names the pups, in Males / Females columns (2026-11-02).** At her
+  request (reversing 2026-10-10's counts-only rule), the public list and status pages'
+  Available Puppies show each litter's available pups by call name: Males left, Females
+  right, the label once above each, a name its photos link where she shows one, instead of
+  "1 male remaining". Worker `litterCard` gains `pups` (`cardPups`: name, sex, photos link,
+  by name); page `common.pupColumnsHtml` (+ `.pup-cols` CSS). A turn's pick buttons are
+  unchanged. Waitlist Spec §8.1 and the Available Puppies note marked Modified. Tests:
+  Worker shapes, the columns and escaping. Rendered at phone width. Needs a Worker deploy.
+- **Public list: Available Puppies and Coming up centered (2026-11-02).** Her request: the
+  text in those cards centered as on a family's status page (`family.css`
+  `#available, #upcoming`, summary marker inside). Rendered at phone width. Needs a Worker
+  deploy.
+- **Parents' registered name, pedigree and health testing in an info popup (2026-11-02).**
+  Her request: every parent's registered name where recorded; its own sire's and dam's
+  registered names behind a new setting (`waitlist_config.parent_pedigree`, off by default,
+  Waitlist settings beside the health-test one); all three behind an ⓘ by the call name,
+  shown only when one of them exists, opening a popup in her order (Registered name,
+  Pedigree, Health testing). The inline "Health testing" fold is gone
+  (`parentTestsHtml` removed). Projection `parentView` / `parentPedigree`, Worker
+  `parentOf` (`regOf`, `pedigreeOf`), pages `dogInfo` / `infoBubble` / `dogInfoDialog`.
+  Waitlist Spec §8.1 row added (modifies Q32). Tests: projection, Worker, bubble and popup
+  (escaping, order, no bubble without data). Rendered and opened/closed in the browser at
+  phone width. Needs a Worker deploy.
+- **Fix: every Dog page threw a console error ("r") (2026-11-02).** The reference registry
+  listed `waitlist_offers.lost_dog_id` (lost-pup history) without `scan: true`, but the field
+  isn't indexed, so the Dog page's reference check (and a dog's hard delete) hit a Dexie
+  `SchemaError` (minified to "r"). Marked it a scan. New test: every registry entry is
+  indexed in `db.js`, a scan, or on a compound index. Checked: the Dog page loads with no
+  error. Also confirmed every photos link opens in a new tab (family pages, Litters,
+  Litter, Dog, Companion).
+- **SW cache bumped to `kennelos-shell-v93` (2026-11-02)** for this session's batch: the
+  carried-deposit fixes (pick, Send, invoice), photos links (Dog.photos_online,
+  Litter.photos_url, emails), and the Dog page fix. The family-page changes (photos links,
+  Available Puppies names in columns, centered cards, the parent info bubble) ship with the
+  Worker deploy.
