@@ -205,7 +205,7 @@ to the cloud unsealed).
 
 | Entity | Required | Key fields and rules |
 |---|---|---|
-| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `registered_name`, `registration_number`, `microchip_id`, `planned_tests[]`, `recorded_coi`, `url` (a link to its photos). `photos_online` (boolean, default off; cloud) is this dog's say over showing `url` as a photos link on waitlist pages (§29 Online), ticked on the Dog form with the waitlist. `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `waitlist_tests` (`PARENT_TESTS_SHOWN`: `off`/`normal`/`all`, null = follow Waitlist settings' `parent_tests`) is this dog's say over which of its completed health tests show on waitlist family pages (§29 Online), set on its Health-Test Summary card. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. |
+| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `registered_name`, `registry` + `registration_number` (the main registration), `additional_registrations[]` (cloud; every other registry it's registered with: `{ registry, registration_number, registered_name }`, the name blank when it's the same; trimmed, and an entry with neither registry nor number dropped, by `dogRepo.normalizeRegistrations` on every write that carries it; edited as rows under Registration # on the Dog form, shown as Other registrations), `microchip_id`, `planned_tests[]`, `recorded_coi`, `url` (a link to its photos). `photos_online` (boolean, default off; cloud) is this dog's say over showing `url` as a photos link on waitlist pages (§29 Online), ticked on the Dog form with the waitlist. `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `waitlist_tests` (`PARENT_TESTS_SHOWN`: `off`/`normal`/`all`, null = follow Waitlist settings' `parent_tests`) is this dog's say over which of its completed health tests show on waitlist family pages (§29 Online), set on its Health-Test Summary card. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. |
 | **Contact** | `name` | `contact_type[]`, `email`, `phone`, `facebook_profile`, `address` (also the away-board location, §19), `kennel_id` (affiliation, not scope), `waitlist_status` (kept by `waitlistEntryRepo`), `first_contact_source`, `companion_note` (shown to the recipient, §20; `notes` is private). Buyers are Contacts; there is no Buyer table. |
 | **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `extra_charge_groups` (its groups' defaults, private, §21.2), `pickup_locations` (her pickup places, private, §29 Pickup), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date` when empty). Sire ≠ dam. |
@@ -487,7 +487,8 @@ trimmed) → `buildPlan(entity, rows)` → the user reviews → `commitPlan`. Th
 
 **Natural keys:** Kennel = name (a new one is always an outside kennel; an update never
 changes `is_own_kennel` or `public_id`); Dog = name + DOB **or** registration number
-(`normReg`, shared with Pedigree Import); Contact = name; Pairing = sire + dam + planned
+(`normReg`, shared with Pedigree Import; an existing dog is found by any of its registered
+names and numbers, `dogRegKeys` / `dogRegisteredNames`); Contact = name; Pairing = sire + dam + planned
 date; Litter = dam + sire + whelp date; Sale = dog + buyer + sale date; Event (dog subject)
 = dog + type + date (title breaks ties; for `show` the title always counts); StudService =
 our dog + partner dog + direction (always review on a match); Expense = `receipt_number` if
@@ -582,11 +583,13 @@ writes nothing; called with no `ask`, it makes only the certain pairs.
   - *Contact*: Same on name plus a shared email or phone (last 10 digits). Ask on a shared
     email or phone with a different name, or the same name with nothing to compare. Never
     when the emails and the phones both differ.
-  - *Dog*: Same on the same registered name (`dogSearch.nameKey`: titles, case,
-    punctuation and spacing ignored), registration number (`normReg`) or microchip; or a
-    pup of a paired litter with the same call name and sex. Ask on the same call name, breed
-    and sex (two pups pair only through their litters, never by name alone). Never,
-    whatever else agrees: known sexes differ; both have a registration number, microchip or
+  - *Dog*: Same on a registered name in common (`dogSearch.nameKey`: titles, case,
+    punctuation and spacing ignored), a registration number in common (`normReg`) — any
+    either holds, additional registrations included (`sameRegisteredName`,
+    `sameRegistration`) — or microchip; or a pup of a paired litter with the same call name
+    and sex. Ask on the same call name, breed and sex (two pups pair only through their
+    litters, never by name alone). Never, whatever else agrees: known sexes differ;
+    registration numbers conflict (`registrationsConflict`); both have a microchip or
     birthday and it differs; one is the other's parent.
   - *Pairing*: Same on dam, sire and planned date. Ask on dam and sire with dates within 21
     days or blank on one side. Never across heats.
@@ -932,8 +935,10 @@ device until it's clicked.
 browser, nothing uploaded. `data/pedigreeReader.js` uses the PDF.js text layer, or renders
 and OCRs the page. `data/pedigreeParse.js` (pure) turns positioned words into dogs by path
 (`''`, `s`, `d`, `sd`…). `data/pedigreeImport.js` plans with the CSV rules: a registration
-number (`normReg`) is the key and merges automatically; a name alone never matches (same
-name → review); an existing dog only has blanks filled and keeps its parents. New dogs are
+number (`normReg`) is the key and merges automatically (an existing dog by any number it
+holds, `dogRegKeys`); a name alone never matches (same name → review, against every
+registered name a dog holds, `dogNameKeys`; numbers flagged as differing only by
+`registrationsConflict`); an existing dog only has blanks filled and keeps its parents. New dogs are
 saved pedigree-only. In Pro a chart can also be filed as a `pedigree` Document.
 
 ---
@@ -2388,6 +2393,16 @@ so nothing takes it without her say: a mom is never filled in with a male), one 
 "nearly the same" and a breed spelled near enough or a birthday the same, a few days off or
 day and month swapped make it `likely`; a different breed (not just misspelled) or sex is a
 different dog, never offered; a clearly different number only lowers it to `possible`;
+**A dog's identity, one rule everywhere** (`dogSearch.js`): `dogRegistrationNumbers` /
+`dogRegKeys` (every number a dog holds, main first, then its `additional_registrations`;
+keys by `normReg`), `dogRegisteredNames` / `dogNameKeys` (its registered name and any an
+additional registration gives; keys by `nameKey`), `sameRegistration` and
+`sameRegisteredName` (any one in common), and `registrationsConflict` (both have numbers,
+none shared, and two of them could be one registry's: the same registry, or one not given;
+an AKC number on one and a UKC number on the other never rule a pair out). The duplicate
+scan, the tidy-up, backup restore matching, the CSV import, the pedigree import, Kels's dog
+matching (`findDogMatches`, a typed number differing only as `registrationsConflict` says)
+and Find all match dogs through these;
 `normReg`, a registration number's key everywhere (spaces, slashes, dashes and a leading
 "AKC" never count; also the CSV import's, the pedigree import's and the tidy-up's
 duplicates'); `similarNamed`, the same name match for kennels and contacts; `breedChoices`, the
@@ -3325,10 +3340,12 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
   event form clears it).
 - **No vet** (`contactsSection`): she has a dog and no live contact is tagged Vet → add her
   vet, or tag one of her contacts. Comes after the one above, which usually settles it.
-- **Duplicate dogs:** missing details are unknown, never a difference. *Certain:* the same
-  registration number, or the same registered name with no differing number. *Possible:* the
-  same call name and breed with nothing contradicting (registration number, birthday,
-  microchip, sire, dam differ only when both have them). Never: a known sex that differs,
+- **Duplicate dogs:** missing details are unknown, never a difference. *Certain:* a
+  registration number in common, or a registered name in common with no differing number
+  (any of either's, additional registrations included; §dogSearch identity rule).
+  *Possible:* the same call name and breed with nothing contradicting (birthday, microchip,
+  sire, dam differ only when both have them; registration numbers only as
+  `registrationsConflict` says). Never: a known sex that differs,
   littermates by name, a dog and its own parent or child. Archived dogs are skipped;
   pedigree-only ones are included.
 - **Duplicate contacts** (`contactsSection`): the same name (case, spacing and punctuation
@@ -3339,7 +3356,9 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
 record to keep (`suggestKeep`: in use over pedigree-only, then fuller, then older), then
 which value wins where both have one and they differ (`mergeConflicts`; a dog's ownership,
 status, kennel and owner are one choice). Blank fields fill from the other, lists join, notes
-keep both. The kept record is updated through its repo, then every id of the other is
+keep both. A dog keeps every registration either held: the other's additional registrations,
+and a main registration with a number that isn't the one kept, join `additional_registrations`
+once each (same registry and `normReg` number). The kept record is updated through its repo, then every id of the other is
 replaced with the kept one's in every record, then the other is deleted (§10); a contact's
 `waitlist_status` is recomputed. Refused: dogs of a known different sex or in each other's
 pedigree; contacts who both hold a live (applied, fee due, on the list) place on one kennel's

@@ -2384,7 +2384,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   read dogs through `dogRepo.getAll()`, which leaves pedigree-only dogs out, so a parent's
   sire and dam recorded only for its pedigree never showed (and a pedigree-only litter parent
   read "Unknown"). They now go in as `ancestors`, looked up by id only; a dog with no call
-  name goes by its registered name. Test added. Rides `kennelos-shell-v93`.
+  name goes by its registered name. Test added. Merged after the v93 bump; ships in
+  `kennelos-shell-v94`.
 - **The waitlist feed for KennelPort websites (2026-11-02).** KennelPort plan decision 21:
   a KennelPort site draws the public list in its own style. New `waitlist_config.website_feed`
   (off by default), switched on the Online list card ("Let my KennelPort website show my
@@ -2396,3 +2397,32 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   (`cloudConfig.websiteFeedLink`) once published. No new fields leave her device; no
   migration. Tests: default, projection, link, the route on and off. Needs a Worker
   deploy. Not driven in the browser.
+- **Dog: additional registrations (2026-11-02).** A dog registered with more than one
+  registry (AKC and UKC, CKC…) had room for one. New plain field
+  `Dog.additional_registrations[]` (`{ registry, registration_number, registered_name }`; no
+  schema block; old backups read fine without it), normalized by
+  `dogRepo.normalizeRegistrations`. The Dog form edits it as rows under Registration # (+ Add
+  registration / Remove); the view shows Other registrations. Classified **cloud** in
+  `syncRegistry` (same kind of data as `registry`/`registration_number`, already cloud);
+  `cloudFields.js` regenerated. Search: `dogSearch.dogRegistrationNumbers` feeds Find and
+  Kels's dog matching. Merge keeps every registration either dog held. Sample Juniper
+  carries a UKC number. Tests: `tests/dogRegistrations.test.js`. Checked in the browser
+  (demo view; add/remove rows on the form, phone width).
+- **One rule for "the same dog?" everywhere (2026-11-02).** New identity helpers in
+  `dogSearch.js` (`dogRegKeys`, `dogNameKeys`, `dogRegisteredNames`, `sameRegistration`,
+  `sameRegisteredName`, `registrationsConflict`) over every number and registered name a dog
+  holds, additional registrations included. Used by the duplicate scan (buckets and the
+  shared-details line), the tidy-up's duplicate dogs, backup restore matching
+  (`MATCH_RULES.dogs`, `dogNever`), the CSV import's dog index, the pedigree import, Kels's
+  dog matching and Find. Numbers now rule a pair out only when they could be the same
+  registry's (same registry, or one not given): an AKC number on one and a UKC number on the
+  other no longer do. Registered names compare by `dogSearch.nameKey` everywhere (the tidy-up
+  used `normName`, the pedigree import its own titles-off key). Tests added (shared rules,
+  tidy-up, scan, restore, Kels, CSV, pedigree).
+- **SW cache bumped to `kennelos-shell-v94` (2026-11-02)** for this session's batch: Dog
+  additional registrations (form, view, search, merge, cloud backup) and uniform dog matching
+  over every registration and registered name (duplicate scan, tidy-up, restore, CSV and
+  pedigree import, Kels, Find). Also carries the two app changes merged after v93: the
+  pedigree-only parents fix in the waitlist projection (PR #145/#146) and the KennelPort
+  website feed's app side (Online list and Set up my waitlist switch, `websiteFeedLink`;
+  PR #147). No new app files; `PRECACHE_URLS` unchanged.

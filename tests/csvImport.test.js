@@ -151,6 +151,16 @@ test('dog: matches an existing dog by registered_name + exact DOB, case-insensit
   assert.equal(r.decisionTarget, 'dog-1');
 });
 
+test('dog: matches by an additional registration — its number alone, or its registered name + DOB', () => {
+  const existing = { id: 'dog-9', registered_name: 'Maple Bella', call_name: 'Bella', date_of_birth: '2022-05-04', registration_number: 'SR12345601',
+    additional_registrations: [{ registry: 'UKC', registration_number: 'P1048-221', registered_name: 'Maple Belle' }] };
+  const index = dogIndex({ dogs: [existing] });
+  const byNum = dogMapping.classify(validDogRow({ registered_name: 'Someone', registration_number: 'p1048221', date_of_birth: '' }), index, 0);
+  assert.equal(byNum.match?.id, 'dog-9');
+  const byName = dogMapping.classify(validDogRow({ registered_name: 'Maple Belle', date_of_birth: '2022-05-04' }), index, 0);
+  assert.equal(byName.match?.id, 'dog-9');
+});
+
 test('dog: falls back to call_name + DOB when no registered_name is given', () => {
   const existing = { id: 'dog-2', registered_name: 'Zeus', call_name: 'Buddy', date_of_birth: '2021-01-01' };
   const index = dogIndex({ dogs: [existing] });
