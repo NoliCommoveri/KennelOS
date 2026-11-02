@@ -205,11 +205,11 @@ to the cloud unsealed).
 
 | Entity | Required | Key fields and rules |
 |---|---|---|
-| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `registered_name`, `registration_number`, `microchip_id`, `planned_tests[]`, `recorded_coi`, `url`. `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `waitlist_tests` (`PARENT_TESTS_SHOWN`: `off`/`normal`/`all`, null = follow Waitlist settings' `parent_tests`) is this dog's say over which of its completed health tests show on waitlist family pages (§29 Online), set on its Health-Test Summary card. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. |
+| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `registered_name`, `registration_number`, `microchip_id`, `planned_tests[]`, `recorded_coi`, `url` (a link to its photos). `photos_online` (boolean, default off; cloud) is this dog's say over showing `url` as a photos link on waitlist pages (§29 Online), ticked on the Dog form with the waitlist. `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `waitlist_tests` (`PARENT_TESTS_SHOWN`: `off`/`normal`/`all`, null = follow Waitlist settings' `parent_tests`) is this dog's say over which of its completed health tests show on waitlist family pages (§29 Online), set on its Health-Test Summary card. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. |
 | **Contact** | `name` | `contact_type[]`, `email`, `phone`, `facebook_profile`, `address` (also the away-board location, §19), `kennel_id` (affiliation, not scope), `waitlist_status` (kept by `waitlistEntryRepo`), `first_contact_source`, `companion_note` (shown to the recipient, §20; `notes` is private). Buyers are Contacts; there is no Buyer table. |
 | **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `extra_charge_groups` (its groups' defaults, private, §21.2), `pickup_locations` (her pickup places, private, §29 Pickup), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date` when empty). Sire ≠ dam. |
-| **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `puppies_born_*` counts, `delivery_type` (`LITTER_DELIVERY_TYPE`: natural, assisted, planned or emergency C-section; cloud; shown and asked only once the litter is Whelped or later, see Litter delivery below), per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), `pickup_slots` and `pickup_date_rules` (her pickup times and each date's rule, private, §29 Pickup), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
+| **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `photos_url` (a link to photos of the whole litter, cloud; shown on the Litter page, the Litters table's Photos column, asked in Kels's Add a litter, and on the litter's cards on waitlist pages, §29 Online), `puppies_born_*` counts, `delivery_type` (`LITTER_DELIVERY_TYPE`: natural, assisted, planned or emergency C-section; cloud; shown and asked only once the litter is Whelped or later, see Litter delivery below), per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), `pickup_slots` and `pickup_date_rules` (her pickup times and each date's rule, private, §29 Pickup), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
 | **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, `extra_charges[]` (private, §21.2), payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
 | **Contract** | `contract_type`, `kennel_id` | `status` (default `draft`), `related_sale_id`, `related_stud_service_id`; `related_dog_id` and `related_contact_id` only for `lease`/`co_own`/`foster`/`other` (forced null otherwise, `contractRepo.normalizeLinks`), `document_url`, `signed_date`, lease dates, e-sign fields and `integration_reviews` (§32), `title`, `terms_summary`. |
 | **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `direction` is **who travels** (`STUD_SERVICE_DIRECTION`: `to_partner` our dog goes to them, `to_us` their dog comes to us, `shipped` no one / AI). Whether our dog is the stud or the dam isn't stored: it's our dog's sex, else the partner's opposite (`studRules.ourRole`; `STUD_SERVICE_ROLE` for badges and filters). `sent_date` / `returned_date` are the service's two dates, labelled **Begins / Ends**. `type` (`in_person`/`ai`) is set by the repo from `direction` (shipped → ai), never asked. `pairing_id`, `fee_amount`, `fee_structure`; `pick_status` and `pick_value_amount` only for pick fee structures (forced null otherwise; with our stud the pick is our puppy, and `pick_status` claimed / waived ends Today's `studpick`, §19), `referred_by_contact_id`, invoice fields (our stud only, §24). |
@@ -1372,7 +1372,10 @@ for receipts `payment_method`/`payment_reference`); everything is rebuilt on eac
   Partial prints the collected amount; Full prints the whole amount and treats `collected`
   as already paid (an invoice subtracts it, a receipt prints the remaining balance).
 - **Invoice:** per-line Due by (prefilled from the sale's balance due date or scheduled
-  placement, read live unless she changed it; Deposit is always "Immediately"), sale
+  placement, read live unless she changed it; Deposit is "Immediately"). A sale's line
+  already paid (the ledger's earned: a deposit received, carried-over ones too, or lines
+  paid with the balance) prints "Paid" and starts as collected in full, in the default and
+  in the Financials generator, so the balance nets it out. Sale
   disclaimers as footnotes, and accepted payment methods
   (`settings.getInvoiceDefaults().acceptedMethods`, editable per document).
   **Receipt:** a Payment received box and a Paid stamp.
@@ -1642,7 +1645,7 @@ restored into Lite keeps its waitlist rows, dormant.
   `turn_id`). `counts_as_pass` is decided once, when the outcome is recorded, so later rule
   or program changes can't rewrite history. A lost pup's restore clears the pick (a voided
   or re-opened offer holds no pup) but keeps its history: `restored_date`, `lost_dog_id`
-  (in `referenceRegistry`), `lost_picked_date`, `lost_accepted_date`.
+  (in `referenceRegistry` as a `scan`: it isn't indexed), `lost_picked_date`, `lost_accepted_date`.
 - **Her open days** (`waitlist_config.open_days`, weekdays 0 = Sunday … 6 = Saturday;
   null = every day; Waitlist settings → Turns & offers, **Days you do business**): every
   deadline worked out from her day counts counts only these, minus her **Closed dates**
@@ -1783,7 +1786,13 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   deposit:** `recordPick` creates a `deposit_pending` Sale (registration and price from the
   pup and `saleDefaults.expectedPricing`) and the offer stays open; `changePick` moves it to
   another pup; `confirmDeposit` marks the sale paid, the pup placed, the entry placed, and
-  moves on. `recordOutcome` handles passed / no response (lets go of a held pick, counts the
+  moves on (`paidDate` sets the sale's `deposit_date` when the money came in earlier). A
+  family with `carried_payment` (a lost pup's money) has its deposit in already: `recordPick`
+  gives the Sale that amount as its deposit and goes straight on to `confirmDeposit` (paid on
+  `carried_payment.date`, the turn ending on the pick date), returning its result with
+  `depositDone: true` (`false` otherwise). Every path takes it: the pick dialog (which then
+  has no "deposit is already in" box), `recordOutcome('accepted')`, and a family's pick on
+  their status page. `recordOutcome` handles passed / no response (lets go of a held pick, counts the
   pass, removes at the limit) and voided (never a pass, doesn't move on). `undoPass` reopens a
   pass. `previewNextTurn(kennelId)` says who `nextTurn` would offer without offering it;
   `extendTurn(turnId, { until })` gives an open turn a later respond-by date (after today),
@@ -1794,7 +1803,7 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   family back in their **original place** (the accepted offer voided with its history kept,
   passes unchanged), or
   refreshes an open turn without the lost pup; `carry` keeps what they paid for their next
-  pick (`carried_payment`). Never automatic: the Sale page (and the family page's **End the
+  pick (`carried_payment`, paid as that pick's deposit when it's recorded). Never automatic: the Sale page (and the family page's **End the
   sale…**) asks, through `waitlistUI.restoreLostPupDialog`, after the pup-settling prompts in
   `assets/salePrompts.js`.
 
@@ -1835,7 +1844,14 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
 - **Review sale & send** (`assets/pickToSend.js`, with contracts + invoicing; Integrations
   plan §2.6): on a pick awaiting its deposit, edit the sale (incl. channel and fee), choose a
   contract form, and send one deposit-request message with the invoice PDF via the share
-  sheet or email. It marks the contract sent and stamps `deposit_request_sent_date`.
+  sheet or email. It marks the contract sent and stamps `deposit_request_sent_date`. With
+  the deposit already in (`incomeView.depositPaid`), the message thanks them for it instead
+  of asking (`depositRequestMessage`'s `depositPaid`): no due date, no payment link or Stripe
+  link, her payment instructions only for a balance. A placed family's pick whose sale is
+  still at deposit paid and wasn't sent from here gets **Send contract & invoice…** (the
+  same modal). On a pick still awaiting its deposit while the family carries one, the send
+  first offers to mark that deposit received (`confirmDeposit` with the carried amount and
+  date).
 
 ### Online (W2)
 - **Her device is the source of truth.** `data/waitlistProjection.js` builds one kennel's
@@ -1882,11 +1898,41 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   marked `Normal` (an unmarked one isn't; a retest marked Abnormal hides the test, never
   falling back to an older Normal); `all` keeps every one. The flag itself is never
   published. The Worker copies them by name (`familyPages.parentOf`: trimmed, 80 characters,
-  at most `PARENT_TESTS_MAX` = 20), and the pages fold them under the parents line as
-  **Health testing** (`common.parentTestsHtml`), so with Coming up or Available Puppies on
-  the public list they're public. The Dog page's Health-Test Summary card has **On family
+  at most `PARENT_TESTS_MAX` = 20), and the pages show them in the parent's info popup, so
+  with Coming up or Available Puppies on the public list they're public.
+  **Registered name and pedigree:** every parent carries its `registered_name` when it has
+  one, and with `waitlist_config.parent_pedigree` (default off; Waitlist settings → Public
+  list & family pages, under the health-test setting) `pedigree` `{ sire, dam }`: its own
+  sire's and dam's registered names, either null, absent when neither is known
+  (`waitlistProjection.parentPedigree`). Pedigree-only dogs, which `dogRepo.getAll` leaves
+  out, reach the projection as `ancestors` (`cloudWaitlist.projectionFor`), used only for
+  lookups by id: a parent's sire and dam, and a parent that is itself pedigree-only (named
+  by its registered name when it has no call name); never pups, parent choices or breeds. The Worker copies them as trimmed strings of 120
+  characters (`familyPages.parentOf`). **The info bubble:** an ⓘ by a parent's call name
+  (`common.infoBubble`; by a planned heat's dam's name too) only when it has a registered
+  name, a pedigree or health tests (`dogInfo`); tapping it opens a popup
+  (`dogInfoDialog`, one delegated click listener) with Registered name, Pedigree (Sire,
+  Dam) and Health testing, in that order, each only when published. The Dog page's Health-Test Summary card has **On family
   pages** (Follow Waitlist settings / Don't show / Normal results only / All results) for any
   non-puppy, offered with the waitlist and the list online.
+  **Photos links:** a dog's `url` is published as `photos_url` only when its
+  `photos_online` is ticked (`waitlistProjection.dogPhotosLink`), on every parent family
+  pages show and on each published pup (`publicPup`: a turn's pups, their pick); a litter's
+  `photos_url` on its litter view and its early-litter Coming up item. Web addresses only
+  (`photoLink`, http/https, 500 characters); no key when there's none. The Worker passes
+  each through `familyPages.photosOf` (parents, litter cards, Coming up, a turn's litter and
+  pups). The pages show links, never images (their CSP allows only their own images):
+  "Dam: Juniper (Photos)", "See the litter's photos", a heat's "Photos of Juniper", and under
+  a turn's pups "Photos: Pip · Poppy" (`common.photosLink`). Parents and litters on the
+  public list are public.
+  **Available Puppies** (public list and status pages) lists each litter's available pups
+  by name: the Worker's `litterCard` adds `pups` (`cardPups`: call name, sex, photos link;
+  by name; never an id or color) beside the counts, and `common.pupColumnsHtml` shows Males
+  in a left column and Females in a right one (a third, Puppies, for a pup of no sex), the
+  label once above each, "None left" under an empty one, each name its photos link when it
+  has one. So available pups' call names are public wherever the list shows that litter.
+  The public list's Available Puppies and Coming up cards are centered, like the status
+  page (`main.centered`), by `#available, #upcoming` in `family.css`.
   Each open offer carries `deposit_instructions` (her `payment_instructions`) and, once
   picked, `deposit_amount` (the sale's deposit, else her listed one: `depositFor`) and
   `picked_pup` (the Worker adds it to the offer's pups: it's no longer available). After a
@@ -2004,7 +2050,12 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   action a family should hear about, she's offered a drafted email (`waitlistEmailUI.offerEmails`)
   to edit or skip. Queued on the entry and posted after the publish (`sendQueuedEmails`);
   the server sends from the kennel's name at `mail.kennelos.app`, to the address in the
-  projection, never one from the device.
+  projection, never one from the device. A family with a sale (any not cancelled, voided or
+  returned: `waitlistOutbox.salePupPhotos` over `familySale`) whose pup has a `url` gets
+  "Photos of <pup>: <link>" at the end of every email drafted on her device
+  (`draftEmail`'s `facts.pupPhotos`, kept through the length cut; "almost your turn" too),
+  whatever her template says and whatever the dog's `photos_online`; the deposit request
+  (Review sale & send) carries the same line. Emails the server writes itself don't.
 - **While her phone is off** (`cloud/src/serverMoves.js`): for the moments in
   `auto_offer_on`, the server closes expired turns and offers the next family from her
   published `turn_queue`, and sends reminders (with `email_reminders`). Each move is an event

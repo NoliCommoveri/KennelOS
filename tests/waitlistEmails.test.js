@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   EMAIL_KINDS, EMAIL_TEMPLATE_KINDS, DEFAULT_EMAIL_TEMPLATES, EMAIL_SUBJECT_MAX, EMAIL_BODY_MAX,
-  draftEmail, emailTemplate, fillPlaceholders, placeholderValues, longDate, joinNames, requestPhrase, emailProblem
+  draftEmail, pupPhotosLine, emailTemplate, fillPlaceholders, placeholderValues, longDate, joinNames, requestPhrase, emailProblem
 } from '../shared/data/waitlistEmails.js';
 
 const { EMAIL_KINDS: SERVER_KINDS, MESSAGE_LIMITS } = await import('../cloud/src/waitlist.js');
@@ -85,4 +85,16 @@ test("the server fills her published templates exactly as her device does (W2 st
     const device = draftEmail(kind, facts, config);
     assert.deepEqual(fillTemplate(published[kind], facts), { subject: device.subject, body: device.body }, kind);
   }
+});
+
+test("a family with a sale whose pup has a photos link gets it at the end of every email, whatever her template", () => {
+  const facts = { kennelName: 'Thornfield', family: 'Ashley', pupPhotos: { name: 'Red collar', url: 'https://photos.example/red' } };
+  for (const kind of ['on_list', 'status_link', 'note', 'request_approved']) {
+    assert.match(draftEmail(kind, facts, {}).body, /\n\nPhotos of Red collar: https:\/\/photos\.example\/red$/, kind);
+  }
+  const mine = draftEmail('status_link', facts, { email_templates: { status_link: { subject: 'Hi', body: 'x'.repeat(EMAIL_BODY_MAX) } } });
+  assert.ok(mine.body.length <= EMAIL_BODY_MAX && mine.body.endsWith('https://photos.example/red'), 'the line survives the cut');
+  assert.equal(draftEmail('on_list', { family: 'Ashley' }, {}).body.includes('Photos of'), false, 'no link, no line');
+  assert.equal(pupPhotosLine({ name: '', url: 'https://x.example' }), 'Photos of your puppy: https://x.example');
+  assert.equal(pupPhotosLine(null), '');
 });

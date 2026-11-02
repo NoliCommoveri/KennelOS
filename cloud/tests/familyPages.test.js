@@ -98,9 +98,10 @@ test('the public list shows only her published rows, the family holding a turn a
     kennel: { name: 'Thornfield Kennels', intro: '', apply_open: false }, as_of: '2026-10-08',
     // Ann (#1) holds a turn: her row keeps its number, sex and date; not her name.
     rows: [{ ...projection().public_list[0], name: 'Currently deciding', deciding: true }, projection().public_list[1]],
-    // Litters with open picks (decided 2026-10-10): counts by sex, never a pup's name.
+    // Litters with open picks: counts by sex, and the pups by name (2026-11-02).
     available: [{ id: 'l1', label: 'Juniper × Ash', status: 'whelped', whelp_date: '2026-09-01', ready_date: '2026-10-27',
-      picks_open: true, pups_available: 2, pups_female: 1, pups_male: 1, nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] } }],
+      picks_open: true, pups_available: 2, pups_female: 1, pups_male: 1,
+      pups: [{ call_name: 'Pip', sex: 'male' }, { call_name: 'Poppy', sex: 'female' }], nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] } }],
     upcoming: []
   });
   assert.equal((await get(env, '/f/list/kos1_99999999-2222-4333-8444-555555555555')).status, 404);
@@ -122,7 +123,8 @@ test("a family's status page shows their own place and offers, never anyone else
   assert.deepEqual(v.offers, [{ id: 'o1', turn_id: 'o1', litter_id: 'l1', litter: 'Juniper × Ash', breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] }, prices: null, offered_date: '2026-10-07', respond_by_date: '2026-10-10', picked_dog_id: null, deposit_instructions: '', deposit_amount: null,
     pups: [{ id: 'p2', call_name: 'Poppy', sex: 'female', color: 'black' }] }]);
   assert.deepEqual(v.litters, [{ id: 'l1', label: 'Juniper × Ash', status: 'whelped', whelp_date: '2026-09-01', ready_date: '2026-10-27',
-    picks_open: true, pairing_id: null, pups_available: 2, pups_female: 1, pups_male: 1, nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] }, match: true }]);
+    picks_open: true, pairing_id: null, pups_available: 2, pups_female: 1, pups_male: 1,
+    pups: [{ call_name: 'Pip', sex: 'male' }, { call_name: 'Poppy', sex: 'female' }], nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] }, match: true }]);
   const text = JSON.stringify(v);
   for (const other of ['Bo Kim', 'bo@example.com', '"bo"', 'Cy Day', 'Dee Fox', 'Venmo', tok('b'), 'queue', 'open_offer_entry_id']) {
     assert.equal(text.includes(other), false, other);
@@ -156,7 +158,8 @@ test('statusView and listView are allow-lists over the projection', () => {
   p.kennel.private = 'y';
   assert.equal(JSON.stringify(statusView(p, 'ann')).includes('"x"'), false, 'an unknown field is never passed through');
   assert.deepEqual(Object.keys(listView(p)).sort(), ['as_of', 'available', 'kennel', 'rows', 'upcoming']);
-  assert.equal(JSON.stringify(listView(p)).includes('Poppy'), false, "a pup's name never reaches the public list");
+  assert.deepEqual(listView(p).available[0].pups, [{ call_name: 'Pip', sex: 'male' }, { call_name: 'Poppy', sex: 'female' }],
+    'Available Puppies names the pups (2026-11-02): name and sex only, never an id or color');
   assert.equal(JSON.stringify(listView(p)).includes('Ann L.'), false, 'the family holding a turn is masked');
   // Their turn closed (by the server, say): their name is back at once.
   p.entries.ann.offers = [];
@@ -594,4 +597,33 @@ test('parents\' health tests: passed through as name + result, cleaned and cappe
   assert.equal(JSON.stringify(card).includes('secret-lab') || JSON.stringify(card).includes('2026-01-01'), false);
   p.litters.l1.dam = { name: 'Juniper', titles: [], tests: [] };
   assert.equal('tests' in listView(p).available[0].dam, false);
+});
+
+test('photos links pass through for parents, litters and pups: web addresses only', () => {
+  const p = projection();
+  const l = p.litters.l1;
+  l.photos_url = 'https://photos.example/litter';
+  l.dam = { name: 'Juniper', titles: [], photos_url: 'https://photos.example/juniper' };
+  l.sire = { name: 'Ash', titles: [], photos_url: 'javascript:alert(1)' };
+  l.pups[1].photos_url = 'https://photos.example/poppy';
+  l.pups[0].photos_url = 'data:text/html,x';
+  const card = listView(p).available[0];
+  assert.equal(card.photos_url, 'https://photos.example/litter');
+  assert.equal(card.dam.photos_url, 'https://photos.example/juniper');
+  assert.equal('photos_url' in card.sire, false);
+  const offer = statusView(p, 'ann').offers[0];
+  assert.equal(offer.photos_url, 'https://photos.example/litter');
+  assert.equal(offer.pups[0].photos_url, 'https://photos.example/poppy');
+  assert.equal(JSON.stringify(statusView(p, 'ann')).includes('javascript:'), false);
+  assert.equal(JSON.stringify(statusView(p, 'ann')).includes('data:text'), false);
+});
+
+test("a parent's registered name and pedigree pass through as short strings only", () => {
+  const p = projection();
+  p.litters.l1.dam = { name: 'Juniper', titles: [], registered_name: "  Thornfield's Juniper ", pedigree: { sire: 'GCH Oak', dam: 7, x: 'y' }, secret: 'z' };
+  p.litters.l1.sire = { name: 'Ash', titles: [], registered_name: 42, pedigree: { sire: '', dam: null } };
+  const card = listView(p).available[0];
+  assert.deepEqual(card.dam, { name: 'Juniper', titles: [], registered_name: "Thornfield's Juniper", pedigree: { sire: 'GCH Oak', dam: null } });
+  assert.deepEqual(card.sire, { name: 'Ash', titles: [] });
+  assert.equal(statusView(p, 'ann').offers[0].dam.registered_name, "Thornfield's Juniper");
 });

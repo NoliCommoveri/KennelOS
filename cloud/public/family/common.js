@@ -145,28 +145,89 @@ if (typeof document !== 'undefined') {
 // their titles, and her dates. Used by the public list and the status page.
 const parentText = (d) => [d?.name || '', ...(d?.titles || [])].filter(Boolean).join(' ');
 
-// The parents' completed health tests, where her device published them (her
-// Waitlist setting or a dog's own say): folded under "Health testing", a line per
-// parent ("Dam Juniper: Hips: Good · PRA-prcd: Clear"). '' when neither has any.
-export function parentTestsHtml(dam, sire) {
-  const rows = [['Dam', dam], ['Sire', sire]]
-    .filter(([, d]) => Array.isArray(d?.tests) && d.tests.length)
-    .map(([role, d]) => `<li><strong>${esc(role)} ${esc(d.name || '')}:</strong> ${d.tests.map((t) => `${esc(t.name)}: ${esc(t.result)}`).join(' · ')}</li>`);
-  return rows.length ? `<details class="small parent-tests"><summary>Health testing</summary><ul class="plain">${rows.join('')}</ul></details>` : '';
+// A photos link her device published (a dog's she chose to show, or a litter's),
+// opening in a new tab. '' without one.
+export function photosLink(url, label = 'Photos') {
+  return typeof url === 'string' && /^https?:\/\//i.test(url)
+    ? `<a class="photos-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>` : '';
+}
+// What a parent's info bubble shows: its registered name, its pedigree (its own
+// sire's and dam's registered names) and its health testing, whichever her device
+// published. null when none of the three: then there's no bubble.
+export function dogInfo(d) {
+  const reg = typeof d?.registered_name === 'string' ? d.registered_name : '';
+  const ped = d?.pedigree && (d.pedigree.sire || d.pedigree.dam) ? { sire: d.pedigree.sire || '', dam: d.pedigree.dam || '' } : null;
+  const tests = Array.isArray(d?.tests) ? d.tests.filter((t) => t && t.name) : [];
+  if (!reg && !ped && !tests.length) return null;
+  return { name: d?.name || '', registered_name: reg, pedigree: ped, tests };
 }
 
-// "Dam: Juniper · Sire: Ash CH": a litter's parents, the same on every card, with
-// their health testing under it when shown.
+// The ⓘ by a parent's call name, opening dogInfoDialog. '' without anything to show.
+export function infoBubble(d) {
+  const info = dogInfo(d);
+  return info ? ` <button type="button" class="info-bubble" data-dog-info="${esc(JSON.stringify(info))}" aria-label="About ${esc(info.name || 'this dog')}" title="Registered name, pedigree and health testing">i</button>` : '';
+}
+
+// A parent's name and titles, its info bubble, then its photos link when it has one.
+const parentHtml = (d) => `${esc(parentText(d))}${infoBubble(d)}${d?.photos_url ? ` (${photosLink(d.photos_url)})` : ''}`;
+
+// The info bubble's popup: the parent's registered name, pedigree and health
+// testing, each only when published. Close, a backdrop tap and Escape close it.
+export function dogInfoHtml(info) {
+  const parts = [];
+  if (info.registered_name) parts.push(`<h3>Registered name</h3><p>${esc(info.registered_name)}</p>`);
+  if (info.pedigree) {
+    parts.push(`<h3>Pedigree</h3><dl class="info-facts">${info.pedigree.sire ? `<dt>Sire</dt><dd>${esc(info.pedigree.sire)}</dd>` : ''}${info.pedigree.dam ? `<dt>Dam</dt><dd>${esc(info.pedigree.dam)}</dd>` : ''}</dl>`);
+  }
+  if (info.tests.length) {
+    parts.push(`<h3>Health testing</h3><ul class="plain info-tests">${info.tests.map((t) => `<li>${esc(t.name)}: ${esc(t.result || '')}</li>`).join('')}</ul>`);
+  }
+  return parts.join('');
+}
+export function dogInfoDialog(info) {
+  const before = document.activeElement;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal dog-info" role="dialog" aria-modal="true" aria-labelledby="di-title">
+      <h2 id="di-title">${esc(info.name || 'About this dog')}</h2>
+      ${dogInfoHtml(info)}
+      <div class="modal-actions"><button type="button" class="secondary" data-di="close">Close</button></div>
+    </div>`;
+  const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); done(); } };
+  const done = () => {
+    document.removeEventListener('keydown', onKey);
+    overlay.remove();
+    if (before && typeof before.focus === 'function' && before.isConnected) before.focus();
+  };
+  overlay.addEventListener('click', (e) => { if (e.target === overlay || e.target.closest('[data-di]')) done(); });
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(overlay);
+  overlay.querySelector('[data-di]').focus();
+}
+// One listener for every bubble a page draws, now or later (pages re-render).
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('click', (e) => {
+    const b = e.target?.closest?.('[data-dog-info]');
+    if (!b) return;
+    e.preventDefault();
+    try { dogInfoDialog(JSON.parse(b.dataset.dogInfo)); } catch { /* a malformed bubble opens nothing */ }
+  });
+}
+
+
+// "Dam: Juniper ⓘ · Sire: Ash CH ⓘ": a litter's parents, the same on every card;
+// each one's registered name, pedigree and health testing behind its info bubble.
 export function parentsLine(dam, sire) {
   if (!dam?.name && !sire?.name) return '';
-  return `<div class="small">Dam: ${esc(parentText(dam))} · Sire: ${esc(parentText(sire))}</div>${parentTestsHtml(dam, sire)}`;
+  return `<div class="small">Dam: ${parentHtml(dam)} · Sire: ${parentHtml(sire)}</div>`;
 }
 
 // One litter (or pairing) the same way everywhere a family sees one (decided
-// 2026-10-08): the breed, its name, its parents, its dates, then any extra lines.
-export function litterHtml({ breed = null, name = '', dam = null, sire = null, when = '', extra = '' }) {
-  return `${breed ? `<div class="small muted">${esc(breed)}</div>` : ''}<div><strong>${esc(name)}</strong></div>
-    ${parentsLine(dam, sire)}${when ? `<div class="small muted">${esc(when)}</div>` : ''}${extra}`;
+// 2026-10-08): the breed, its name, its parents, its dates, the litter's photos
+// link (`photos`, when she set one), then any extra lines.
+export function litterHtml({ breed = null, name = '', nameAfter = '', dam = null, sire = null, when = '', photos = null, extra = '' }) {
+  return `${breed ? `<div class="small muted">${esc(breed)}</div>` : ''}<div><strong>${esc(name)}</strong>${nameAfter}</div>
+    ${parentsLine(dam, sire)}${when ? `<div class="small muted">${esc(when)}</div>` : ''}${photos ? `<div class="small">${photosLink(photos, 'See the litter\'s photos')}</div>` : ''}${extra}`;
 }
 
 // A Coming up item's dates: "Born 09/20/2026 · Planned offering 11/01/2026",
@@ -191,9 +252,10 @@ export const HEAT_DISCLAIMER = 'Heat dates are estimates: the month shown is app
 export function upcomingItemHtml(u, extra = '') {
   if (u.kind === 'planned_heat') {
     const month = fmtMonthYear(u.expected_month);
-    return litterHtml({ breed: u.breed, name: parentText(u.dam) || u.label, when: month ? `Upcoming heat · estimated around ${month}` : 'Upcoming heat', extra: parentTestsHtml(u.dam, null) + extra });
+    const damPhotos = u.dam?.photos_url ? `<div class="small">${photosLink(u.dam.photos_url, `Photos of ${u.dam.name || 'the dam'}`)}</div>` : '';
+    return litterHtml({ breed: u.breed, name: parentText(u.dam) || u.label, nameAfter: infoBubble(u.dam), when: month ? `Upcoming heat · estimated around ${month}` : 'Upcoming heat', extra: damPhotos + extra });
   }
-  return litterHtml({ breed: u.breed, name: u.label, dam: u.dam, sire: u.sire, when: upcomingWhen(u), extra });
+  return litterHtml({ breed: u.breed, name: u.label, dam: u.dam, sire: u.sire, when: upcomingWhen(u), photos: u.photos_url, extra });
 }
 
 // Under a Coming up list: plans can change, and heat months are estimates.
@@ -222,10 +284,25 @@ export function pupsRemaining(l) {
   return `${bits.length > 1 ? `${bits.slice(0, -1).join(', ')} and ${bits[bits.length - 1]}` : bits[0]} remaining`;
 }
 
+// The available pups in two columns, Males on the left and Females on the right,
+// the label once above each; a pup's name is its photos link when it has one. A
+// pup of no recorded sex gets a third column. Falls back to the counts
+// (pupsRemaining) for a card published without names.
+export function pupColumnsHtml(l) {
+  const pups = Array.isArray(l.pups) ? l.pups : null;
+  if (!pups) return `<div class="small">${esc(pupsRemaining(l))}</div>`;
+  if (!pups.length) return '<div class="small muted">No puppies remaining</div>';
+  const name = (d) => (d.photos_url ? photosLink(d.photos_url, d.call_name || 'Puppy') : esc(d.call_name || 'Puppy'));
+  const col = (label, list) => `<div class="pup-col"><div class="pup-col-head">${esc(label)}</div>${list.length
+    ? `<ul class="plain">${list.map((d) => `<li>${name(d)}</li>`).join('')}</ul>` : '<div class="muted">None left</div>'}</div>`;
+  const other = pups.filter((d) => d.sex !== 'male' && d.sex !== 'female');
+  return `<div class="pup-cols small">${col('Males', pups.filter((d) => d.sex === 'male'))}${col('Females', pups.filter((d) => d.sex === 'female'))}${other.length ? col('Puppies', other) : ''}</div>`;
+}
+
 // One litter with open picks (Available Puppies), the same on the public list and a
 // family's page; `extra` adds lines under it.
 export function availableItemHtml(l, extra = '') {
-  return litterHtml({ breed: l.breed, name: l.nickname || l.label, dam: l.dam, sire: l.sire, when: litterDates(l), extra: `<div class="small">${esc(pupsRemaining(l))}</div>${extra}` });
+  return litterHtml({ breed: l.breed, name: l.nickname || l.label, dam: l.dam, sire: l.sire, when: litterDates(l), photos: l.photos_url, extra: `${pupColumnsHtml(l)}${extra}` });
 }
 
 export function upcomingListHtml(rows) {
