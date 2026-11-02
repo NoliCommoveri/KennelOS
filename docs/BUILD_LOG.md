@@ -2435,3 +2435,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   prefill read through it, and the nav banner runs it on every page. The wizard now falls
   back to the name match whenever the stored contact isn't live. Tests added
   (`kennelSetupRepair.test.js`). No new files; `PRECACHE_URLS` unchanged.
+- **SW cache bumped to `kennelos-shell-v95` (2026-11-02)** for the owner contact repair
+  (`resolveMyContactId`, wizard no longer duplicates a deleted owner contact). No new app
+  files; `PRECACHE_URLS` unchanged.
