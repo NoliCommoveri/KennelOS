@@ -34,7 +34,7 @@ function entry(id, extra = {}) {
 const dam = { id: 'dam', call_name: 'Juniper', sex: 'female', kennel_id: K };
 const sire = { id: 'sire', call_name: 'Ash', sex: 'male', kennel_id: K };
 const litter = { id: 'lit-1', kennel_id: K, status: 'whelped', dam_id: 'dam', sire_id: 'sire', whelp_date: '2026-09-01', picks_opened_date: '2026-10-01', notes: 'litter note' };
-const pup = (id, sex, extra = {}) => ({ id, litter_id: 'lit-1', call_name: id, sex, color_markings: 'black', microchip: 'CHIP-SECRET', kennel_id: K, ...extra });
+const pup = (id, sex, extra = {}) => ({ id, litter_id: 'lit-1', call_name: id, sex, color_markings: 'black', microchip: 'CHIP-SECRET', kennel_id: K, disposition: 'available', ...extra });
 
 function fixture() {
   const entries = [
@@ -258,7 +258,7 @@ function upcomingFixture(show) {
   const f = fixture();
   f.kennel = { ...kennel, waitlist_config: { ...kennel.waitlist_config, show_upcoming: show } };
   const willow = { id: 'willow', call_name: 'Willow', sex: 'female', kennel_id: K };
-  f.dogs.push(willow, { id: 'sp1', litter_id: 'spring', call_name: 'Sprout', sex: 'female', kennel_id: K });
+  f.dogs.push(willow, { id: 'sp1', litter_id: 'spring', call_name: 'Sprout', sex: 'female', kennel_id: K, disposition: 'available' });
   f.litters.push(
     { id: 'spring', kennel_id: K, status: 'whelped', dam_id: 'willow', sire_id: 'sire', pairing_id: 'pr-spring', nickname: 'Spring litter', whelp_date: '2026-09-20', accept_deposits_date: '2026-10-20', notes: 'litter note' },
     { id: 'winter', kennel_id: K, status: 'expected', dam_id: 'dam', sire_id: 'sire', pairing_id: 'pr-winter', nickname: 'Winter litter' }

@@ -55,8 +55,9 @@ gathered here so they aren't re-litigated.
 - **Picks get an explicit open state:** a nullable `Litter.picks_opened_date` (§4.5).
 - **No server in W1, so no silent automatic writes.** Past-due offers and expired fee
   windows show up as one-tap **suggested actions** on Today (§6.5). She confirms them.
-- **An "available" pup** is one whose `disposition` isn't `keeping`, `placed` or
-  `health_hold` (unset and `undecided` count as available), that isn't deceased, gone home
+- **An "available" pup** (**Modified (2026-11-02):** only Available; Undecided was offered before) is one whose `disposition` is `available` (unset reads as
+  `undecided`, and an Undecided pup isn't for sale anywhere; Kels's Tidy up asks about
+  pups left unset), that isn't deceased, gone home
   (`pet_home` / `external_reference`) or archived, and that has no
   live Sale (any non-archived Sale whose status isn't `returned`/`cancelled`/`voided`).
 - **Contact.waitlist_status is kept in step (Q1)** by `waitlistEntryRepo`. The

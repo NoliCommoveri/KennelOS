@@ -41,7 +41,7 @@ const entry = (over = {}) => ({
 const litter = (over = {}) => ({ id: 'L1', kennel_id: K, pairing_id: 'P1', ...over });
 const pup = (over = {}) => ({
   id: over.id ?? `d${++n}`, litter_id: 'L1', status: 'puppy', sex: 'female', breed: 'Boston Terrier',
-  is_archived: false, ...over,
+  disposition: 'available', is_archived: false, ...over,
 });
 const offer = (over = {}) => ({
   id: over.id ?? `o${++n}`, litter_id: 'L1', kennel_id: K, outcome: 'open', is_archived: false,
@@ -142,9 +142,12 @@ test('positions are derived: removing someone ahead moves everyone behind up', (
 
 // --- Availability + preferences --------------------------------------------------------
 
-test('a pup is available unless kept back, placed, deceased, archived, or spoken for by a sale', () => {
-  assert.equal(isPupAvailable(pup()), true, 'unset disposition counts as available');
-  assert.equal(isPupAvailable(pup({ disposition: 'undecided' })), true);
+test('a pup is available only when marked Available, and not deceased, archived, or spoken for by a sale', () => {
+  assert.equal(isPupAvailable(pup()), true);
+  assert.equal(isPupAvailable(pup({ disposition: undefined })), false, 'unset reads as undecided: not for sale');
+  assert.equal(isPupAvailable(pup({ disposition: null })), false);
+  assert.equal(isPupAvailable(pup({ disposition: 'undecided' })), false, 'an Undecided pup is not for sale anywhere');
+  assert.equal(isPupAvailable(pup({ disposition: 'health_hold' })), false);
   assert.equal(isPupAvailable(pup({ disposition: 'available' })), true);
   assert.equal(isPupAvailable(pup({ disposition: 'keeping' })), false);
   assert.equal(isPupAvailable(pup({ disposition: 'placed' })), false);

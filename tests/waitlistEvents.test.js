@@ -10,7 +10,7 @@ import { listenChangeKind, listenParentChoices } from '../shared/data/waitlistRu
 const ev = (kind, payload = {}, extra = {}) => ({ seq: 7, publicId: 'kos1_x', entryId: 'e1', kind, payload, madeBy: 'family', createdAt: '2026-10-09T03:30:00.000Z', ...extra });
 const entry = (extra = {}) => ({ id: 'e1', kennel_id: 'k', status: 'active', pref_sex: 'any', listen_mode: 'all', listen_sire_ids: [], listen_dam_ids: [], ...extra });
 const offer = (extra = {}) => ({ id: 'o1', entry_id: 'e1', litter_id: 'l1', outcome: 'open', eligible_dog_ids: ['p1', 'p2'], chosen_dog_id: null, ...extra });
-const pups = [{ id: 'p1', litter_id: 'l1', call_name: 'Pip' }, { id: 'p2', litter_id: 'l1', call_name: 'Poppy' }];
+const pups = [{ id: 'p1', litter_id: 'l1', call_name: 'Pip', disposition: 'available' }, { id: 'p2', litter_id: 'l1', call_name: 'Poppy', disposition: 'available' }];
 const ctx = (extra = {}) => ({
   entry: entry(), offers: [offer()], pups, sales: [], timeZone: 'America/Chicago',
   litterLabel: () => 'Juniper × Ash', pupName: (id) => pups.find((d) => d.id === id)?.call_name || 'a pup', ...extra
@@ -142,7 +142,7 @@ test('turns: a pass closes the whole turn through any open row; one pick per tur
   assert.equal(pass.op, 'pass');
   assert.equal(pass.offerId, 'o1');
   const picked = [offer({ id: 'o1', turn_id: 't', chosen_dog_id: 'p1' }), rows[1]];
-  const pick = planFamilyEvent(ev('pick', { offer_id: 'o2', dog_id: 'p3' }), ctx({ offers: picked, pups: [...pups, { id: 'p3', litter_id: 'l2', call_name: 'Pearl' }] }));
+  const pick = planFamilyEvent(ev('pick', { offer_id: 'o2', dog_id: 'p3' }), ctx({ offers: picked, pups: [...pups, { id: 'p3', litter_id: 'l2', call_name: 'Pearl', disposition: 'available' }] }));
   assert.equal(pick.op, 'note');
   assert.match(pick.activity.body, /already recorded Pip/);
 });

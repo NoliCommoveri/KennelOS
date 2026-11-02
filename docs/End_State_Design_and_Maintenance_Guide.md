@@ -1721,7 +1721,8 @@ it computes is stored.**
   else `fee_received_date` (else `approved_date` when the fee was waived), then
   `fee_received_at` (same-day order of payment), `approved_date`, `created_at`, `id`.
 - **Available pup:** not archived, not deceased / pet home / external reference,
-  disposition not `keeping`/`placed`/`health_hold`, and no live Sale.
+  disposition `available` (unset reads as `undecided`, never offered), and no live Sale
+  (`waitlistRules.isPupAvailable`).
 - **Match:** sex, breed (case-insensitive), purposes (`pref_purposes` → registrations, must
   include the pup's `intended_registration`), and color only with `color_matching`. Unset
   on either side matches.
@@ -3324,6 +3325,10 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
   is the remembered answer.
 - **Puppy plan:** a pup with a sale not returned, cancelled or voided whose disposition isn't
   Placed → Placed.
+- **No plan:** an `owned` pup with no disposition at all and no sale going ahead
+  (`tidyRules.pupNoPlanFindings`). Blank reads as Undecided, which the waitlist never offers
+  and her website never shows as available → Available, Keeping or Still deciding
+  (Undecided).
 - **Went home:** an `owned` dog with a Delivered sale (and no newer sale going) → Pro: the
   buyer owns it (`external`, `external_reference`) or co-owns it
   (`goHome.deliveredOwnershipChanges`, as the Sale page and the check-in); Lite: leave the

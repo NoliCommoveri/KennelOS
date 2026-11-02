@@ -40,6 +40,16 @@ async function thornfield() {
   return (await kennelRepo.getAll()).find((k) => k.kennel_name.startsWith('Thornfield'));
 }
 
+// The seed's Undecided pup (Aster) isn't offered; earlier tests use up the
+// Available ones, so a test that needs one more to offer marks her Available,
+// as the breeder would once she decides to sell her.
+async function sellUndecided() {
+  const { dogRepo } = await import('../shared/data/dogRepo.js');
+  for (const d of (await dogRepo.getAll()).filter((x) => x.status === 'puppy' && x.disposition === 'undecided')) {
+    await dogRepo.update(d.id, { disposition: 'available' });
+  }
+}
+
 async function putOnline(on = true) {
   const k = await thornfield();
   return kennelRepo.update(k.id, { waitlist_config: { ...(k.waitlist_config || {}), online: on }, time_zone: 'America/Chicago' });
@@ -764,6 +774,7 @@ test('a pass with a reason and a "Not this litter" from the status page reach he
   const actions = await import('../shared/data/waitlistActions.js');
   await breeder();
   const k = await putOnline();
+  await sellUndecided();
   // Start clean: no open turns, so one can be offered.
   for (const o of (await waitlistOfferRepo.getByKennel(k.id)).filter((x) => x.outcome === 'open')) await waitlistOfferRepo.update(o.id, { outcome: 'voided' });
   let turn = null;
@@ -775,6 +786,11 @@ test('a pass with a reason and a "Not this litter" from the status page reach he
   }
   assert.ok(turn);
   const entry = await waitlistEntryRepo.getById(turn.entry_id);
+  // Earlier tests may have spent this family's passes: clear them, so this pass
+  // doesn't reach the limit and take them off the list.
+  for (const o of (await waitlistOfferRepo.getByEntry(entry.id)).filter((x) => x.counts_as_pass && x.turn_id !== turn.id)) {
+    await waitlistOfferRepo.update(o.id, { counts_as_pass: false });
+  }
   await contactRepo.update(entry.contact_id, { email: 'reasons@example.com' });
   // "Not this litter" before picks open works on what she shows on family pages (§16.4).
   const { kennelRepo } = await import('../shared/data/kennelRepo.js');
@@ -920,7 +936,11 @@ test('step 7: a deadline the server closed and the turn it offered reach her dev
   await kennelRepo.update(k.id, { waitlist_config: { ...(await thornfield()).waitlist_config, auto_offer_on: ['no_response', 'no_deposit'] } });
   const actions = await import('../shared/data/waitlistActions.js');
   const { litterRepo } = await import('../shared/data/litterRepo.js');
-  // Earlier tests used the sample's turn: give the next family one (opening picks where needed).
+  // Earlier tests used the sample's turn and its Available pups: give a born litter
+  // one more, then the next family a turn (opening picks where needed).
+  const { dogRepo } = await import('../shared/data/dogRepo.js');
+  const born = (await litterRepo.getAll()).find((x) => x.kennel_id === k.id && ['whelped', 'weaning', 'ready'].includes(x.status));
+  await dogRepo.create({ call_name: 'Extra', sex: 'female', breed: 'Boston Terrier', status: 'puppy', disposition: 'available', ownership_type: 'owned', litter_id: born.id, kennel_id: k.id, sire_id: born.sire_id, dam_id: born.dam_id });
   if (!(await waitlistOfferRepo.getByKennel(k.id)).some((o) => o.outcome === 'open')) {
     let turn = await actions.offerNextTurn(k.id);
     for (const l of (await litterRepo.getAll()).filter((x) => x.kennel_id === k.id && ['whelped', 'weaning', 'ready'].includes(x.status))) {
@@ -930,6 +950,14 @@ test('step 7: a deadline the server closed and the turn it offered reach her dev
   }
   const [open] = (await waitlistOfferRepo.getByKennel(k.id)).filter((o) => o.outcome === 'open');
   assert.ok(open, 'a turn is open');
+  // Its family may have acted in an earlier test: clear their passes, so this
+  // missed deadline isn't their last (which would take them off the list), and
+  // their activity lines, whose ids (event-<seq>) the fresh test server's numbers
+  // start over from and would be taken for this close's line.
+  for (const o of (await waitlistOfferRepo.getByEntry(open.entry_id)).filter((x) => x.counts_as_pass)) {
+    await waitlistOfferRepo.update(o.id, { counts_as_pass: false });
+  }
+  await waitlistEntryRepo.update(open.entry_id, { messages: [] });
   for (const o of (await waitlistOfferRepo.getByKennel(k.id)).filter((x) => x.outcome === 'open')) {
     await waitlistOfferRepo.update(o.id, { respond_by_date: '2026-01-02' });
   }
