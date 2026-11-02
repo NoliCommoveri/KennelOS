@@ -525,3 +525,22 @@ test("a parent's registered name always goes with it; its own sire and dam only 
   assert.equal('pedigree' in on.sire, false, 'neither parent known: nothing');
   assert.equal(JSON.stringify(on).includes('Fern'), false);
 });
+
+test('pedigree-only dogs (passed as ancestors) fill a pedigree and name a pedigree-only parent, and nothing else', () => {
+  const f = fixture();
+  f.dogs = f.dogs.map((d) => (d.id === 'dam' ? { ...d, sire_id: 'gs', dam_id: 'gd' } : d));
+  const ancestors = [
+    { id: 'gs', call_name: '', registered_name: 'GCH Oak Ridge Cassius', sex: 'male', pedigree_only: true },
+    { id: 'gd', call_name: '', registered_name: "Thornfield's Fern", sex: 'female', pedigree_only: true },
+    { id: 'stud', call_name: '', registered_name: 'CH Outside Stud', sex: 'male', pedigree_only: true, litter_id: 'lit-1' }
+  ];
+  const k = { ...kennel, waitlist_config: { ...kennel.waitlist_config, parent_pedigree: true } };
+  const without = buildProjection({ ...f, kennel: k }).litters['lit-1'];
+  assert.equal('pedigree' in without.dam, false, 'without them, nothing is known');
+  const p = buildProjection({ ...f, kennel: k, ancestors });
+  assert.deepEqual(p.litters['lit-1'].dam.pedigree, { sire: 'GCH Oak Ridge Cassius', dam: "Thornfield's Fern" });
+  assert.equal(p.litters['lit-1'].pups.some((d) => d.id === 'stud'), false, 'never a pup');
+  const studLitter = buildProjection({ ...f, kennel: k, ancestors, litters: [{ ...litter, sire_id: 'stud' }] }).litters['lit-1'];
+  assert.equal(studLitter.sire.name, 'CH Outside Stud', 'a pedigree-only parent goes by its registered name');
+  assert.equal(studLitter.label, 'Juniper × CH Outside Stud');
+});
