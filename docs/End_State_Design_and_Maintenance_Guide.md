@@ -1645,7 +1645,7 @@ restored into Lite keeps its waitlist rows, dormant.
   `turn_id`). `counts_as_pass` is decided once, when the outcome is recorded, so later rule
   or program changes can't rewrite history. A lost pup's restore clears the pick (a voided
   or re-opened offer holds no pup) but keeps its history: `restored_date`, `lost_dog_id`
-  (in `referenceRegistry`), `lost_picked_date`, `lost_accepted_date`.
+  (in `referenceRegistry` as a `scan`: it isn't indexed), `lost_picked_date`, `lost_accepted_date`.
 - **Her open days** (`waitlist_config.open_days`, weekdays 0 = Sunday … 6 = Saturday;
   null = every day; Waitlist settings → Turns & offers, **Days you do business**): every
   deadline worked out from her day counts counts only these, minus her **Closed dates**

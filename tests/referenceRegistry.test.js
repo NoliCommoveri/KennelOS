@@ -140,3 +140,23 @@ test('every kennel_id index in the schema is registered in KENNEL_REFERENCES', (
     assert.ok(registered.has(`${table}.kennel_id`), `${table}.kennel_id should be in KENNEL_REFERENCES`);
   }
 });
+
+// Regression: waitlist_offers.lost_dog_id was registered unindexed without `scan`,
+// so every Dog page's reference check threw a Dexie SchemaError (logged as "r").
+test('every registry entry is indexed in the schema, or a scan, or on a compound index', () => {
+  const source = readFileSync(new URL('../shared/data/db.js', import.meta.url), 'utf8');
+  const indexed = new Map();
+  for (const m of source.matchAll(/^\s*([a-z_]+):\s*'([^']*)'/gm)) {
+    const set = indexed.get(m[1]) || new Set();
+    for (const f of m[2].split(',')) set.add(f.trim());
+    indexed.set(m[1], set);
+  }
+  for (const [name, list] of Object.entries(registry)) {
+    if (!Array.isArray(list)) continue;
+    for (const r of list) {
+      if (r.scan || r.compoundIndex) continue;
+      const idx = r.multiEntry ? `*${r.field}` : r.field;
+      assert.ok(indexed.get(r.table)?.has(idx), `${name}: ${r.table}.${r.field} isn't indexed; index it or mark it scan: true`);
+    }
+  }
+});

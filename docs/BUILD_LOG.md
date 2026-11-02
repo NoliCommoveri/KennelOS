@@ -2368,3 +2368,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Waitlist Spec §8.1 row added (modifies Q32). Tests: projection, Worker, bubble and popup
   (escaping, order, no bubble without data). Rendered and opened/closed in the browser at
   phone width. Needs a Worker deploy.
+- **Fix: every Dog page threw a console error ("r") (2026-11-02).** The reference registry
+  listed `waitlist_offers.lost_dog_id` (lost-pup history) without `scan: true`, but the field
+  isn't indexed, so the Dog page's reference check (and a dog's hard delete) hit a Dexie
+  `SchemaError` (minified to "r"). Marked it a scan. New test: every registry entry is
+  indexed in `db.js`, a scan, or on a compound index. Checked: the Dog page loads with no
+  error. Also confirmed every photos link opens in a new tab (family pages, Litters,
+  Litter, Dog, Companion).
