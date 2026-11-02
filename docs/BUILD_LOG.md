@@ -2311,3 +2311,14 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Driven in the browser: the transport screen saved and its example, the applicant form's
   new box. Not driven: Add people's covered-fee question, Review my waitlist's offer.
   Rides `kennelos-shell-v92`.
+- **The waitlist feed for KennelPort websites (2026-11-02).** KennelPort plan decision 21:
+  a KennelPort site draws the public list in its own style. New `waitlist_config.website_feed`
+  (off by default), switched on the Online list card ("Let my KennelPort website show my
+  list in its own style") and in Set up my waitlist's Your website group; the projection
+  carries `kennel.website_feed` only while it's on. The Worker serves
+  `GET /f/site/<public_id>` (`familyPages.siteView`): the public list exactly, plus paths
+  for the list, sign-in and form; 404 `not_shared` when off; cached five minutes; its own
+  per-address read bucket; no CORS. The Online list card shows the feed address to copy
+  (`cloudConfig.websiteFeedLink`) once published. No new fields leave her device; no
+  migration. Tests: default, projection, link, the route on and off. Needs a Worker
+  deploy. Not driven in the browser.

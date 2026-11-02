@@ -5,6 +5,10 @@
 // public/family/ (the ASSETS binding), and /family/* serves their scripts and
 // styles. Their JSON is same-origin under /f/, so no CORS is opened:
 //   GET  /f/list/<public_id>   the public list (her allow-list, Spec §15.3)
+//   GET  /f/site/<public_id>   the same list for her KennelPort website to draw in its
+//                              own style, only while her projection carries
+//                              `kennel.website_feed`; read server to server, so it
+//                              has its own read limit and no CORS
 //   GET  /f/status/<token>     one family's own view, cut from the projection
 //   POST /f/code               "See Your Details", part 1: {public_id, email} → a
 //                              6-digit code to that address, if it's on the list
@@ -37,6 +41,9 @@ import { fail, json, readJson } from './lib/http.js';
 
 export const FAMILY_LIMITS = {
   readsPerHourPerIp: 600,
+  // Her website's server reads the feed a few times an hour and caches it; its own
+  // bucket, so visitors' reads from a shared address never crowd it out.
+  siteReadsPerHourPerIp: 600,
   codesPerHourPerIp: 20, codesPerHourPerEmail: 3,
   // Guessing a live code: 10 tries an hour from one connection, 300 an hour at one
   // kennel from everywhere. Against a handful of live 6-digit codes that each last
@@ -297,6 +304,15 @@ export function listView(projection) {
     available: Object.entries(projection.litters || {}).filter(([, l]) => l && l.picks_open).map(([id, l]) => litterCard(id, l)),
     upcoming: upcomingOf(projection, 'public').map(upcomingRow),
   };
+}
+
+// Her website feed (/f/site): exactly the public list, plus where her own pages
+// are, as paths on this server, so her website sends families here to sign in and
+// apply. Nothing a visitor to /list couldn't already see.
+export function siteView(projection, publicId) {
+  const view = listView(projection);
+  const id = encodeURIComponent(publicId);
+  return { ...view, links: { list: `/list/${id}`, signin: `/list/${id}#signin`, apply: view.kennel.apply_open ? `/apply/${id}` : null } };
 }
 
 // One family's own page. Their entry as published (minus their email: the page
@@ -689,6 +705,16 @@ export async function handleFamilyApi(request, env, url) {
     const found = await projectionOf(env, list[1]);
     if (!found) fail(404, 'not_found');
     return json(listView(found.projection), 200, { 'cache-control': 'public, max-age=60' });
+  }
+
+  const site = /^\/f\/site\/([^/]+)$/.exec(p);
+  if (site && m === 'GET') {
+    await limitBucket(env, `wl-site:${await ipKey(env, request)}`, FAMILY_LIMITS.siteReadsPerHourPerIp);
+    if (!PUBLIC_ID.test(site[1])) fail(404, 'not_found');
+    const found = await projectionOf(env, site[1]);
+    if (!found) fail(404, 'not_found');
+    if (found.projection.kennel?.website_feed !== true) fail(404, 'not_shared');
+    return json(siteView(found.projection, site[1]), 200, { 'cache-control': 'public, max-age=300' });
   }
 
   const status = /^\/f\/status\/([^/]+)$/.exec(p);
