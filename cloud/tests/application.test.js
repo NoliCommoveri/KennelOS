@@ -226,3 +226,22 @@ test('apply, verify and code answer a KennelPort site cross-origin; nothing else
   assert.equal((await fromSite(env, 'GET', `/f/form/${KENNEL}`)).headers.get('access-control-allow-origin'), null);
   assert.equal((await fromSite(env, 'OPTIONS', '/program', undefined)).status, 403, 'the app API stays the editions\' only');
 });
+
+test('KennelOS\'s own pages are untouched: same-origin apply and verify get no CORS headers and work as before', async () => {
+  const { env, s } = await setup();
+  const own = 'https://api.example'; // the family pages' own origin in these tests
+  for (const path of [`/list/${KENNEL}`, `/apply/${KENNEL}`]) {
+    const page = await call(env, 'GET', path, { headers: { Origin: own } });
+    assert.equal(page.headers.get('access-control-allow-origin'), null, path);
+  }
+  const res = await call(env, 'POST', `/f/apply/${KENNEL}`, { body: application(), headers: { Origin: own } });
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('access-control-allow-origin'), null);
+  const ok = await call(env, 'POST', '/f/verify', { body: { public_id: KENNEL, code: lastCode(env) }, headers: { Origin: own } });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.headers.get('access-control-allow-origin'), null);
+  assert.equal((await inbox(env, s)).length, 1);
+  const list = await call(env, 'GET', `/f/list/${KENNEL}`, { headers: { Origin: own } });
+  assert.equal(list.status, 200);
+  assert.equal((await list.json()).form, undefined, 'the public list carries no form; only the website feed does');
+});
