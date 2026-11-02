@@ -2418,3 +2418,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   other no longer do. Registered names compare by `dogSearch.nameKey` everywhere (the tidy-up
   used `normName`, the pedigree import its own titles-off key). Tests added (shared rules,
   tidy-up, scan, restore, Kels, CSV, pedigree).
+- **SW cache bumped to `kennelos-shell-v94` (2026-11-02)** for this session's batch: Dog
+  additional registrations (form, view, search, merge, cloud backup) and uniform dog matching
+  over every registration and registered name (duplicate scan, tidy-up, restore, CSV and
+  pedigree import, Kels, Find). No new app files; `PRECACHE_URLS` unchanged.
