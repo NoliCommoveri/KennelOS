@@ -5,6 +5,7 @@ export const CLOUD_FIELDS = {
   "tables": {
     "dogs": {
       "keys": [
+        "additional_registrations",
         "breed",
         "breeder_kennel_id",
         "call_name",

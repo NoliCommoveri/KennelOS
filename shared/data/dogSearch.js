@@ -38,6 +38,12 @@ export const normReg = (r) => {
   return /^[A-Z]{2}\d{8}(\d{4})?$/.test(k) ? k.slice(0, 10) : k;
 };
 
+// Every registration number a dog holds: the main one (`registration_number`)
+// first, then its additional registrations' (dogRepo.normalizeRegistrations).
+export const dogRegistrationNumbers = (d) =>
+  [d?.registration_number, ...(Array.isArray(d?.additional_registrations) ? d.additional_registrations.map((r) => r?.registration_number) : [])]
+    .map((n) => String(n ?? '').trim()).filter(Boolean);
+
 const STRENGTH_ORDER = { certain: 0, likely: 1, possible: 2 };
 
 // Number-like: 5+ letters/digits with at least 4 digits ("SR12345601", "WS-7102").
@@ -147,7 +153,7 @@ export function findDogMatches(dogs, typed = {}, { excludeIds = [] } = {}) {
   const out = [];
   for (const d of dogs) {
     if (!d || d.is_archived || excludeIds.includes(d.id)) continue;
-    const dogNums = [...new Set([d.registration_number, d.call_name, d.registered_name].flatMap(numbersIn))];
+    const dogNums = [...new Set([...dogRegistrationNumbers(d), d.call_name, d.registered_name].flatMap(numbersIn))];
     const sameNumber = typedNums.some((n) => dogNums.includes(n));
     const nearNumber = !sameNumber && typedNums.some((n) => dogNums.some((m) => Math.min(n.length, m.length) >= 6 && slips(n, m) <= 1));
     const sexOk = sexFits(typed.sex, d);

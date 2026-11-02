@@ -2396,3 +2396,15 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   (`cloudConfig.websiteFeedLink`) once published. No new fields leave her device; no
   migration. Tests: default, projection, link, the route on and off. Needs a Worker
   deploy. Not driven in the browser.
+- **Dog: additional registrations (2026-11-02).** A dog registered with more than one
+  registry (AKC and UKC, CKC…) had room for one. New plain field
+  `Dog.additional_registrations[]` (`{ registry, registration_number, registered_name }`; no
+  schema block; old backups read fine without it), normalized by
+  `dogRepo.normalizeRegistrations`. The Dog form edits it as rows under Registration # (+ Add
+  registration / Remove); the view shows Other registrations. Classified **cloud** in
+  `syncRegistry` (same kind of data as `registry`/`registration_number`, already cloud);
+  `cloudFields.js` regenerated. Search: `dogSearch.dogRegistrationNumbers` feeds Find and
+  Kels's dog matching. Merge keeps every registration either dog held. Duplicate scan,
+  restore matching, CSV import, pedigree import and puppy records still use the main
+  registration only. Sample Juniper carries a UKC number. Tests: `tests/dogRegistrations.test.js`.
+  Checked in the browser (demo view; add/remove rows on the form, phone width).
