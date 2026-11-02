@@ -52,3 +52,51 @@ test('the wizard edits her kennel and reuses her contact instead of duplicating'
   assert.equal(tables.contacts.rows.size, 1);
   assert.equal(settings.getMyContactId(), 'me');
 });
+
+test('a deleted owner contact is replaced by the one contact linked to her kennel', async () => {
+  put('kennels', { id: 'mine', kennel_name: 'A-K', is_own_kennel: true });
+  put('contacts', { id: 'new-me', name: 'Jenah Carson', kennel_id: 'mine' });
+  put('contacts', { id: 'buyer', name: 'A Buyer' });
+  settings.setMyContactId('gone');
+  assert.equal(await ks.resolveMyContactId(), 'new-me');
+  assert.equal(settings.getMyContactId(), 'new-me');
+});
+
+test('an archived owner contact is replaced; an unset one is adopted', async () => {
+  put('kennels', { id: 'mine', kennel_name: 'A-K', is_own_kennel: true });
+  put('contacts', { id: 'old-me', name: 'Jenah', kennel_id: 'mine', is_archived: true });
+  put('contacts', { id: 'new-me', name: 'Jenah Carson', kennel_id: 'mine' });
+  settings.setMyContactId('old-me');
+  assert.equal(await ks.resolveMyContactId(), 'new-me');
+  localStorage.clear();
+  assert.equal(await ks.resolveMyContactId(), 'new-me');
+});
+
+test('a live owner contact is kept; two linked contacts and no setting guess nothing', async () => {
+  put('kennels', { id: 'mine', kennel_name: 'A-K', is_own_kennel: true });
+  put('contacts', { id: 'me', name: 'Jenah', kennel_id: 'mine' });
+  put('contacts', { id: 'co', name: 'Co-owner', kennel_id: 'mine' });
+  settings.setMyContactId('me');
+  assert.equal(await ks.resolveMyContactId(), 'me');
+  localStorage.clear();
+  assert.equal(await ks.resolveMyContactId(), null);
+  assert.equal(settings.getMyContactId(), null);
+});
+
+test('never adopts a tour contact while sample data is loaded', async () => {
+  put('kennels', { id: 'tour', kennel_name: 'Thornfield', is_own_kennel: true });
+  put('contacts', { id: 'tour-owner', name: 'Tour Owner', kennel_id: 'tour' });
+  localStorage.setItem('kennelOS.sampleDataManifest', JSON.stringify({ kennels: ['tour'] }));
+  assert.equal(await ks.resolveMyContactId(), null);
+});
+
+test('the wizard adopts her contact by name when the stored owner was deleted', async () => {
+  put('kennels', { id: 'mine', kennel_name: 'A-K', is_own_kennel: true });
+  put('contacts', { id: 'me', name: 'Jenah Carson', kennel_id: 'mine' });
+  put('contacts', { id: 'co', name: 'Co-owner', kennel_id: 'mine' });
+  settings.setMyContactId('gone');
+  const { contact } = await ks.completeKennelSetup({ kennelName: 'A-K', ownerName: 'Jenah Carson' });
+  assert.equal(contact.id, 'me');
+  assert.equal(tables.contacts.rows.size, 2);
+  assert.equal(settings.getMyContactId(), 'me');
+});

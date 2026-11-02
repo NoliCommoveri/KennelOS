@@ -766,7 +766,14 @@ A **mandatory gate**: the app isn't usable until an own kennel exists
 (`shouldRequireKennelSetup()`), and `app.js` reopens the modal on every load until then.
 Demo is exempt. The owner Contact is always saved linked to that kennel.
 `resolveMyKennelId()` repairs a missing or stale `myKennelId` when exactly one own kennel
-exists (never while sample data is loaded). `showKennelSetupModal({ mode })` is
+exists (never while sample data is loaded). `resolveMyContactId()` does the same for
+`myContactId`: a missing, deleted or archived owner contact is replaced by the one live
+contact linked to that kennel, when there's exactly one (never with two or more, never
+while sample data is loaded). Invoices/receipts, Furever, Kels's Add dogs and the setup
+wizard read through it, and `renderKennelBanner()` runs it on every page so the sync readers
+(owner prefill, stud partner list) see the repaired setting. The wizard, when the stored
+owner contact isn't live, reuses a contact of the typed name linked to the kennel rather
+than creating one. `showKennelSetupModal({ mode })` is
 `required` (no way out; first run) or `cancellable` (editing from Settings → Your kennel).
 That card also has **Open kennel settings →**, straight to `kennel.html?id=<my kennel>`
 (the kennel's Overview and Settings hub), so it isn't reached only through People →
