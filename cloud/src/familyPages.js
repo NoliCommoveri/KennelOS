@@ -43,6 +43,7 @@ import { PUBLIC_ID, STATUS_TOKEN, sentEmailsFor } from './waitlist.js';
 import { handleAct, handleMessage, pendingFor, heldByOthers } from './familyActions.js';
 import { notifyEvent } from './notify.js';
 import { fail, json, readJson } from './lib/http.js';
+import { isWebsiteOrigin } from './lib/cors.js';
 
 export const FAMILY_LIMITS = {
   readsPerHourPerIp: 600,
@@ -855,16 +856,21 @@ export async function handleFamilyApi(request, env, url) {
     if (!row || row.expires_at <= now.toISOString()) fail(400, 'invalid_code');
     const statusToken = await statusTokenOf(env, publicId, row.entry_id);
     if (!statusToken) fail(400, 'invalid_code');
-    const session = randomHex(32);
+    // From her KennelPort website (its application form, KennelPort plan 3.8): the
+    // code confirms the application, but neither the status link nor a session goes
+    // back, so no page outside KennelOS ever holds the key to a family's private
+    // page. The family signs in on KennelOS's own list page to see it.
+    const fromWebsite = isWebsiteOrigin(request.headers.get('Origin'));
+    const session = fromWebsite ? null : randomHex(32);
     const confirmed = await env.DB.batch([
       env.DB.prepare('DELETE FROM wl_family_codes WHERE public_id = ? AND code_hash = ?').bind(publicId, hash),
       // The code an applicant typed confirms their application: now it reaches her.
       env.DB.prepare(
         "UPDATE wl_inbox SET confirmed_at = ? WHERE id = ? AND public_id = ? AND kind = 'application' AND confirmed_at IS NULL",
       ).bind(now.toISOString(), row.entry_id, publicId),
-      env.DB.prepare(
+      ...(session ? [env.DB.prepare(
         'INSERT INTO wl_family_sessions (token_hash, program_id, public_id, entry_id, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
-      ).bind(await sha256Hex(session), row.program_id, publicId, row.entry_id, now.toISOString(), new Date(now.getTime() + FAMILY_SESSION_MS).toISOString()),
+      ).bind(await sha256Hex(session), row.program_id, publicId, row.entry_id, now.toISOString(), new Date(now.getTime() + FAMILY_SESSION_MS).toISOString())] : []),
     ]);
     // A newly confirmed application: her alert and digest (Notifications plan §1).
     if (confirmed[1]?.meta?.changes === 1) {
@@ -872,6 +878,7 @@ export async function handleFamilyApi(request, env, url) {
       const found = await projectionOf(env, publicId);
       await notifyEvent(env, { programId: row.program_id, kind: 'application', what: 'application', name: app?.name, kennel: found?.projection.kennel?.name, entryId: row.entry_id });
     }
+    if (fromWebsite) return json({ confirmed: true, signin: `/list/${encodeURIComponent(publicId)}#signin` });
     return json({ status_token: statusToken, session, expires_at: new Date(now.getTime() + FAMILY_SESSION_MS).toISOString() });
   }
 

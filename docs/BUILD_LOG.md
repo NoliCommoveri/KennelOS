@@ -2447,3 +2447,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   (`lib/cors.js` `WEBSITE_PATHS`, `websiteCors`, `websitePreflight`); every other route is
   unchanged. Setup: add `kennelport.com` to the Turnstile widget's hostnames. Server only:
   no app files, no SW bump. Tests added (`cloud/tests/application.test.js`).
+- **No status link for her website (2026-11-02).** `/f/verify` asked from a KennelPort site
+  (`isWebsiteOrigin`) confirms the application and returns `{ confirmed, signin }` only: no
+  status token, and no family session is made. Her own pages get what they always did.
+  Tests added.

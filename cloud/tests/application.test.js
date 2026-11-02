@@ -211,10 +211,13 @@ test('apply, verify and code answer a KennelPort site cross-origin; nothing else
   const wrong = await fromSite(env, 'POST', '/f/verify', { public_id: KENNEL, code: '000000' });
   assert.equal(wrong.status, 400);
   assert.equal(wrong.headers.get('access-control-allow-origin'), SITE_ORIGIN, 'errors carry it too, so the page can read them');
+  const sessions = count(env, 'wl_family_sessions');
   const ok = await fromSite(env, 'POST', '/f/verify', { public_id: KENNEL, code: lastCode(env) });
   assert.equal(ok.status, 200);
   assert.equal(ok.headers.get('access-control-allow-origin'), SITE_ORIGIN);
-  assert.ok((await ok.json()).status_token);
+  // The website never holds the key to the family's private page, nor a session.
+  assert.deepEqual(await ok.json(), { confirmed: true, signin: `/list/${KENNEL}#signin` });
+  assert.equal(count(env, 'wl_family_sessions'), sessions, 'no session made');
   assert.equal((await inbox(env, s)).length, 1, 'the application reached her');
 
   // Other sites, and other family endpoints, get nothing.
@@ -240,6 +243,8 @@ test('KennelOS\'s own pages are untouched: same-origin apply and verify get no C
   const ok = await call(env, 'POST', '/f/verify', { body: { public_id: KENNEL, code: lastCode(env) }, headers: { Origin: own } });
   assert.equal(ok.status, 200);
   assert.equal(ok.headers.get('access-control-allow-origin'), null);
+  const body = await ok.json();
+  assert.ok(body.status_token && body.session, 'her own page still gets the status link and a session');
   assert.equal((await inbox(env, s)).length, 1);
   const list = await call(env, 'GET', `/f/list/${KENNEL}`, { headers: { Origin: own } });
   assert.equal(list.status, 200);
