@@ -2461,4 +2461,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   unset pups being offered now mark them Available; two cloud waitlist tests that shared
   the seed's families now clear the family's earlier passes and lines first. Waitlist Spec
   and End-State guide (§29 Available pup, §33 Tidy up) updated. No new files;
-  `PRECACHE_URLS` unchanged; not yet released (SW cache not bumped).
+  `PRECACHE_URLS` unchanged.
+- **SW cache bumped to `kennelos-shell-v96` (2026-11-02)** for Undecided pups not being
+  offered and Tidy up's pups with no plan. No new app files; `PRECACHE_URLS` unchanged.
