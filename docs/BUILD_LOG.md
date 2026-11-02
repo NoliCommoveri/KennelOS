@@ -2384,7 +2384,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   read dogs through `dogRepo.getAll()`, which leaves pedigree-only dogs out, so a parent's
   sire and dam recorded only for its pedigree never showed (and a pedigree-only litter parent
   read "Unknown"). They now go in as `ancestors`, looked up by id only; a dog with no call
-  name goes by its registered name. Test added. Rides `kennelos-shell-v93`.
+  name goes by its registered name. Test added. Merged after the v93 bump; ships in
+  `kennelos-shell-v94`.
 - **The waitlist feed for KennelPort websites (2026-11-02).** KennelPort plan decision 21:
   a KennelPort site draws the public list in its own style. New `waitlist_config.website_feed`
   (off by default), switched on the Online list card ("Let my KennelPort website show my
@@ -2421,4 +2422,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **SW cache bumped to `kennelos-shell-v94` (2026-11-02)** for this session's batch: Dog
   additional registrations (form, view, search, merge, cloud backup) and uniform dog matching
   over every registration and registered name (duplicate scan, tidy-up, restore, CSV and
-  pedigree import, Kels, Find). No new app files; `PRECACHE_URLS` unchanged.
+  pedigree import, Kels, Find). Also carries the two app changes merged after v93: the
+  pedigree-only parents fix in the waitlist projection (PR #145/#146) and the KennelPort
+  website feed's app side (Online list and Set up my waitlist switch, `websiteFeedLink`;
+  PR #147). No new app files; `PRECACHE_URLS` unchanged.
