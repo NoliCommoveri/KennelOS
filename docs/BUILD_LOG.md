@@ -2380,3 +2380,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Litter.photos_url, emails), and the Dog page fix. The family-page changes (photos links,
   Available Puppies names in columns, centered cards, the parent info bubble) ship with the
   Worker deploy.
+- **Fix: pedigree-only dogs missing from the parent popup (2026-11-02).** `projectionFor`
+  read dogs through `dogRepo.getAll()`, which leaves pedigree-only dogs out, so a parent's
+  sire and dam recorded only for its pedigree never showed (and a pedigree-only litter parent
+  read "Unknown"). They now go in as `ancestors`, looked up by id only; a dog with no call
+  name goes by its registered name. Test added. Rides `kennelos-shell-v93`.

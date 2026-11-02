@@ -1904,7 +1904,10 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   one, and with `waitlist_config.parent_pedigree` (default off; Waitlist settings → Public
   list & family pages, under the health-test setting) `pedigree` `{ sire, dam }`: its own
   sire's and dam's registered names, either null, absent when neither is known
-  (`waitlistProjection.parentPedigree`). The Worker copies them as trimmed strings of 120
+  (`waitlistProjection.parentPedigree`). Pedigree-only dogs, which `dogRepo.getAll` leaves
+  out, reach the projection as `ancestors` (`cloudWaitlist.projectionFor`), used only for
+  lookups by id: a parent's sire and dam, and a parent that is itself pedigree-only (named
+  by its registered name when it has no call name); never pups, parent choices or breeds. The Worker copies them as trimmed strings of 120
   characters (`familyPages.parentOf`). **The info bubble:** an ⓘ by a parent's call name
   (`common.infoBubble`; by a planned heat's dam's name too) only when it has a registered
   name, a pedigree or health tests (`dogInfo`); tapping it opens a popup
