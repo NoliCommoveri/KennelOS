@@ -2375,3 +2375,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   indexed in `db.js`, a scan, or on a compound index. Checked: the Dog page loads with no
   error. Also confirmed every photos link opens in a new tab (family pages, Litters,
   Litter, Dog, Companion).
+- **SW cache bumped to `kennelos-shell-v93` (2026-11-02)** for this session's batch: the
+  carried-deposit fixes (pick, Send, invoice), photos links (Dog.photos_online,
+  Litter.photos_url, emails), and the Dog page fix. The family-page changes (photos links,
+  Available Puppies names in columns, centered cards, the parent info bubble) ship with the
+  Worker deploy.
