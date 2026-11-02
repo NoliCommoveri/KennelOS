@@ -79,8 +79,11 @@ src/familyPages.js     the waitlist's family pages: serves public/family/ for /l
                        kennel.embed (frameAncestors; docs/KennelOS_Integrations_Plan.md §1);
                        public/family/embed.js is the script she pastes there.
                        GET /f/site/<public_id> is the same list for her KennelPort website
-                       (siteView: listView plus page links), only while her projection has
-                       kennel.website_feed; its own read bucket, no CORS
+                       (siteView: listView plus page links, and her form while she takes
+                       applications online), only while her projection has
+                       kennel.website_feed; its own read bucket, no CORS. /f/apply,
+                       /f/verify and /f/code answer KennelPort sites cross-origin
+                       (lib/cors.js WEBSITE_PATHS), so her website's form sends there
 src/familyActions.js   what a signed-in family does on their status page (POST /f/act, /f/message):
                        each action checked against her published list and recorded as an
                        event; a picked pup held (wl_holds) until her device's next publish says
@@ -117,7 +120,8 @@ src/ops.js             /ops: sign-in, migrations, health (incl. the Mapbox key),
                        outbox, notices, retention, export/import
 src/migrate.js         the runner (ported from MCCE): status, drift, atomic apply
 src/health.js          bindings, secrets present, schema version, row counts
-src/lib/cors.js        the allowed origins (Lite, Pro, localhost)
+src/lib/cors.js        the allowed origins (Lite, Pro, localhost); and KennelPort sites, for
+                       the three family endpoints her website's application form calls
 src/lib/sql.js         statement splitter (ported verbatim from MCCE)
 src/migrations/        NNNN_name.sql files + index.js, the ordered list the runner reads
 public/family/         the family pages' static files (no build step; strict CSP, so no inline

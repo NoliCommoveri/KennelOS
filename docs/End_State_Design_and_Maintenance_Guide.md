@@ -2095,6 +2095,20 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   (`FAMILY_LIMITS.siteReadsPerHourPerIp`), no CORS (read server to server). Off: 404
   `not_shared`. Nothing new leaves her device. The Online list card shows the address to
   copy (`cloudConfig.websiteFeedLink`) once the list is published.
+  While she takes applications online the feed also carries `form`: `formView`'s form
+  (everything her `/apply` page reads from `/f/form`), the preference questions' choices
+  (`familyPages.FORM_CHOICES`, kept equal to `common.js`'s labels by
+  `cloud/tests/application.test.js`) and `turnstile_site_key`. Her website draws the form
+  in its own style, seals the answers in the visitor's browser exactly as `seal.js` does,
+  and sends them straight to `POST /f/apply`, then the code to `/f/verify` (and `/f/code`
+  to resend). Those three answer KennelPort sites cross-origin (`lib/cors.js`
+  `WEBSITE_PATHS`, `isWebsiteOrigin`: `https://<one label>.kennelport.com`, KennelPort's
+  staging host, localhost; no credentials); every other family route stays same-origin.
+  Asked from a KennelPort site, `/f/verify` confirms the application but returns only
+  `{ confirmed, signin }`: no status token and no session (none is made), so no page
+  outside KennelOS holds the key to a family's private page; they sign in on `/list`.
+  The Turnstile widget lists `kennelport.com` among its hostnames, since the check runs on
+  her website.
 - `/list` and `/apply` carry Open Graph previews from the kennel name only
   (`familyPages.withPreview`).
 

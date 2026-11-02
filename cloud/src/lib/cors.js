@@ -45,3 +45,35 @@ export function preflight(request) {
     },
   });
 }
+
+// Her KennelPort website (KennelPort plan 3.8): its waitlist page draws her
+// application form and sends what a family types straight to these three family
+// endpoints, so they answer its requests too. Same-origin elsewhere: the list,
+// status and form JSON stay KennelOS's own. They take no cookie and no session,
+// so CORS lets a site do only what any program could already do; Turnstile and
+// the per-address and per-email limits are the real guard.
+export const WEBSITE_PATHS = /^\/f\/(apply\/[^/]+|verify|code)$/;
+// A KennelPort site: one label under kennelport.com, https only. Staging's
+// KennelPort runs on workers.dev. Custom domains come with Connect website.
+const KENNELPORT_SITE = /^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.kennelport\.com$/;
+export const KENNELPORT_STAGING = 'https://kennelport-staging.kennelport.workers.dev';
+
+export function isWebsiteOrigin(origin) {
+  if (!origin) return false;
+  return KENNELPORT_SITE.test(origin) || origin === KENNELPORT_STAGING || DEV_ORIGIN.test(origin);
+}
+
+export function websiteCors(request) {
+  const origin = request.headers.get('Origin');
+  if (!isWebsiteOrigin(origin)) return {};
+  return { 'access-control-allow-origin': origin, vary: 'Origin' };
+}
+
+export function websitePreflight(request) {
+  const headers = websiteCors(request);
+  if (!headers['access-control-allow-origin']) return new Response(null, { status: 403 });
+  return new Response(null, {
+    status: 204,
+    headers: { ...headers, 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'content-type', 'access-control-max-age': '86400' },
+  });
+}

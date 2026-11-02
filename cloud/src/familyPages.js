@@ -8,7 +8,12 @@
 //   GET  /f/site/<public_id>   the same list for her KennelPort website to draw in its
 //                              own style, only while her projection carries
 //                              `kennel.website_feed`; read server to server, so it
-//                              has its own read limit and no CORS
+//                              has its own read limit and no CORS. While she takes
+//                              applications online it carries her form too, which
+//                              her website draws; what a family types there is
+//                              sealed in their browser and sent straight to
+//                              /f/apply, /f/verify and /f/code, which answer her
+//                              KennelPort site cross-origin (lib/cors.js)
 //   GET  /f/status/<token>     one family's own view, cut from the projection
 //   POST /f/code               "See Your Details", part 1: {public_id, email} → a
 //                              6-digit code to that address, if it's on the list
@@ -38,6 +43,7 @@ import { PUBLIC_ID, STATUS_TOKEN, sentEmailsFor } from './waitlist.js';
 import { handleAct, handleMessage, pendingFor, heldByOthers } from './familyActions.js';
 import { notifyEvent } from './notify.js';
 import { fail, json, readJson } from './lib/http.js';
+import { isWebsiteOrigin } from './lib/cors.js';
 
 export const FAMILY_LIMITS = {
   readsPerHourPerIp: 600,
@@ -345,11 +351,30 @@ export function listView(projection) {
 // Her website feed (/f/site): exactly the public list, plus where her own pages
 // are, as paths on this server, so her website sends families here to sign in and
 // apply. Nothing a visitor to /list couldn't already see.
-export function siteView(projection, publicId) {
+// While she takes applications online, `form` is her form exactly as /f/form
+// serves it (all of it public on her /apply page), with the wording of each
+// preference's choices so her website needn't know KennelOS's vocabulary, and
+// KennelOS's Turnstile site key (the check runs on her website; KennelOS checks
+// the answer). Her website seals and sends the answers to /f/apply itself.
+export function siteView(projection, publicId, { turnstileSiteKey = null } = {}) {
   const view = listView(projection);
   const id = encodeURIComponent(publicId);
-  return { ...view, links: { list: `/list/${id}`, signin: `/list/${id}#signin`, apply: view.kennel.apply_open ? `/apply/${id}` : null } };
+  const fv = formView(projection);
+  return {
+    ...view,
+    links: { list: `/list/${id}`, signin: `/list/${id}#signin`, apply: view.kennel.apply_open ? `/apply/${id}` : null },
+    ...(fv ? { form: { ...fv.form, choices: FORM_CHOICES, turnstile_site_key: turnstileSiteKey } } : {}),
+  };
 }
+
+// The preference questions' choices, as the form page shows them. Copied from
+// public/family/common.js (SEX_LABEL, READY_LABEL, PURPOSE_LABEL), which copies
+// shared/data/vocab.js; tests/application.test.js fails if they drift.
+export const FORM_CHOICES = {
+  pref_sex: [['any', 'Either'], ['male', 'Male'], ['female', 'Female']],
+  ready_timing: [['asap', 'ASAP'], ['1_month', '1 month'], ['3_months', '3 months'], ['6_plus_months', '6+ months']],
+  pref_purposes: [['pet', 'Pet / companion'], ['performance', 'Performance sports (agility, obedience…)'], ['show', 'Show'], ['breeding', 'Breeding'], ['co_own', 'Co-own']],
+};
 
 // One family's own page. Their entry as published (minus their email: the page
 // doesn't need it and a forwarded link shouldn't show it), their offers with the
@@ -752,7 +777,7 @@ export async function handleFamilyApi(request, env, url) {
     const found = await projectionOf(env, site[1]);
     if (!found) fail(404, 'not_found');
     if (found.projection.kennel?.website_feed !== true) fail(404, 'not_shared');
-    return json(siteView(found.projection, site[1]), 200, { 'cache-control': 'public, max-age=300' });
+    return json(siteView(found.projection, site[1], { turnstileSiteKey: env.TURNSTILE_SITE_KEY || null }), 200, { 'cache-control': 'public, max-age=300' });
   }
 
   const status = /^\/f\/status\/([^/]+)$/.exec(p);
@@ -831,16 +856,21 @@ export async function handleFamilyApi(request, env, url) {
     if (!row || row.expires_at <= now.toISOString()) fail(400, 'invalid_code');
     const statusToken = await statusTokenOf(env, publicId, row.entry_id);
     if (!statusToken) fail(400, 'invalid_code');
-    const session = randomHex(32);
+    // From her KennelPort website (its application form, KennelPort plan 3.8): the
+    // code confirms the application, but neither the status link nor a session goes
+    // back, so no page outside KennelOS ever holds the key to a family's private
+    // page. The family signs in on KennelOS's own list page to see it.
+    const fromWebsite = isWebsiteOrigin(request.headers.get('Origin'));
+    const session = fromWebsite ? null : randomHex(32);
     const confirmed = await env.DB.batch([
       env.DB.prepare('DELETE FROM wl_family_codes WHERE public_id = ? AND code_hash = ?').bind(publicId, hash),
       // The code an applicant typed confirms their application: now it reaches her.
       env.DB.prepare(
         "UPDATE wl_inbox SET confirmed_at = ? WHERE id = ? AND public_id = ? AND kind = 'application' AND confirmed_at IS NULL",
       ).bind(now.toISOString(), row.entry_id, publicId),
-      env.DB.prepare(
+      ...(session ? [env.DB.prepare(
         'INSERT INTO wl_family_sessions (token_hash, program_id, public_id, entry_id, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
-      ).bind(await sha256Hex(session), row.program_id, publicId, row.entry_id, now.toISOString(), new Date(now.getTime() + FAMILY_SESSION_MS).toISOString()),
+      ).bind(await sha256Hex(session), row.program_id, publicId, row.entry_id, now.toISOString(), new Date(now.getTime() + FAMILY_SESSION_MS).toISOString())] : []),
     ]);
     // A newly confirmed application: her alert and digest (Notifications plan §1).
     if (confirmed[1]?.meta?.changes === 1) {
@@ -848,6 +878,7 @@ export async function handleFamilyApi(request, env, url) {
       const found = await projectionOf(env, publicId);
       await notifyEvent(env, { programId: row.program_id, kind: 'application', what: 'application', name: app?.name, kennel: found?.projection.kennel?.name, entryId: row.entry_id });
     }
+    if (fromWebsite) return json({ confirmed: true, signin: `/list/${encodeURIComponent(publicId)}#signin` });
     return json({ status_token: statusToken, session, expires_at: new Date(now.getTime() + FAMILY_SESSION_MS).toISOString() });
   }
 

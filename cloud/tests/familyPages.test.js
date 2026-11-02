@@ -483,8 +483,9 @@ test('her KennelPort website reads the list only while she has the feed on', asy
   assert.equal(res.headers.get('access-control-allow-origin'), null, 'read server to server: no CORS');
   const body = await res.json();
   const list = await (await get(on, `/f/list/${KENNEL}`)).json();
-  const { links, ...rest } = body;
+  const { links, form, ...rest } = body;
   assert.deepEqual(rest, list, 'exactly what the public list shows');
+  assert.equal(form, undefined, 'no form while she isn\'t taking applications online');
   assert.deepEqual(links, { list: `/list/${KENNEL}`, signin: `/list/${KENNEL}#signin`, apply: list.kennel.apply_open ? `/apply/${KENNEL}` : null });
   assert.ok(!JSON.stringify(body).includes('@'), 'no email reaches it');
 
