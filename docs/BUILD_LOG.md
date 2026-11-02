@@ -2426,3 +2426,15 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   pedigree-only parents fix in the waitlist projection (PR #145/#146) and the KennelPort
   website feed's app side (Online list and Set up my waitlist switch, `websiteFeedLink`;
   PR #147). No new app files; `PRECACHE_URLS` unchanged.
+- **Owner contact repair (2026-11-02).** A breeder whose owner contact was deleted, who then
+  made a new contact and linked it to her kennel, still had none on invoices: only the setup
+  wizard writes `myContactId`, and the wizard, finding the stored id dead, created a
+  duplicate instead of matching by name. Added `kennelSetup.resolveMyContactId()` (mirrors
+  `resolveMyKennelId`: adopts the sole live contact linked to her kennel when the setting is
+  missing, deleted or archived); invoices/receipts, Furever, Kels's Add dogs and the wizard
+  prefill read through it, and the nav banner runs it on every page. The wizard now falls
+  back to the name match whenever the stored contact isn't live. Tests added
+  (`kennelSetupRepair.test.js`). No new files; `PRECACHE_URLS` unchanged.
+- **SW cache bumped to `kennelos-shell-v95` (2026-11-02)** for the owner contact repair
+  (`resolveMyContactId`, wizard no longer duplicates a deleted owner contact). No new app
+  files; `PRECACHE_URLS` unchanged.
