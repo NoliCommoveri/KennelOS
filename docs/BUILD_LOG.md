@@ -2345,3 +2345,11 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   the Litters column, the Litter page row, the Dog page badge; the family pages and emails
   weren't driven live. Needs a Worker deploy for the family pages. No new files; no cache
   bump yet.
+- **Available Puppies names the pups, in Males / Females columns (2026-11-02).** At her
+  request (reversing 2026-10-10's counts-only rule), the public list and status pages'
+  Available Puppies show each litter's available pups by call name: Males left, Females
+  right, the label once above each, a name its photos link where she shows one, instead of
+  "1 male remaining". Worker `litterCard` gains `pups` (`cardPups`: name, sex, photos link,
+  by name); page `common.pupColumnsHtml` (+ `.pup-cols` CSS). A turn's pick buttons are
+  unchanged. Waitlist Spec §8.1 and the Available Puppies note marked Modified. Tests:
+  Worker shapes, the columns and escaping. Rendered at phone width. Needs a Worker deploy.

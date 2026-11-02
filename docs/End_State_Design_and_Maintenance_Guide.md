@@ -1913,6 +1913,12 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   "Dam: Juniper (Photos)", "See the litter's photos", a heat's "Photos of Juniper", and under
   a turn's pups "Photos: Pip · Poppy" (`common.photosLink`). Parents and litters on the
   public list are public.
+  **Available Puppies** (public list and status pages) lists each litter's available pups
+  by name: the Worker's `litterCard` adds `pups` (`cardPups`: call name, sex, photos link;
+  by name; never an id or color) beside the counts, and `common.pupColumnsHtml` shows Males
+  in a left column and Females in a right one (a third, Puppies, for a pup of no sex), the
+  label once above each, "None left" under an empty one, each name its photos link when it
+  has one. So available pups' call names are public wherever the list shows that litter.
   Each open offer carries `deposit_instructions` (her `payment_instructions`) and, once
   picked, `deposit_amount` (the sale's deposit, else her listed one: `depositFor`) and
   `picked_pup` (the Worker adds it to the offer's pups: it's no longer available). After a

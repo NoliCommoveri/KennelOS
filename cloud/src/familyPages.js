@@ -274,9 +274,18 @@ function publicRows(projection) {
 }
 
 // A litter with open picks as the pages show it (Available Puppies): her nickname,
-// breed, parents, dates, and how many pups are still available by sex.
+// breed, parents, dates, how many pups are still available by sex, and those pups
+// by call name (with each one's photos link where she shows it), by name.
+const SEXES = ['male', 'female'];
+function cardPups(pups) {
+  return pups.filter((d) => d && typeof d === 'object').map((d) => ({
+    call_name: typeof d.call_name === 'string' ? d.call_name.slice(0, 80) : '',
+    sex: SEXES.includes(d.sex) ? d.sex : null,
+    ...photosOf(d.photos_url),
+  })).sort((a, b) => a.call_name.localeCompare(b.call_name));
+}
 function litterCard(id, l) {
-  const pups = l.pups || [];
+  const pups = Array.isArray(l.pups) ? l.pups : [];
   return {
     id,
     label: l.label ?? '',
@@ -287,6 +296,7 @@ function litterCard(id, l) {
     pups_available: pups.length,
     pups_female: pups.filter((d) => d.sex === 'female').length,
     pups_male: pups.filter((d) => d.sex === 'male').length,
+    pups: cardPups(pups),
     nickname: l.nickname ?? null,
     breed: l.breed ?? null,
     sire: parentOf(l.sire),
@@ -297,7 +307,7 @@ function litterCard(id, l) {
 
 // The public list: the kennel's name, the rows her device published (the one
 // holding a turn masked), the litters with open picks (Available Puppies, as on a
-// family's page: counts by sex, never a pup's name; decided 2026-10-10), and the
+// family's page: the available pups by sex, each by name; names added 2026-11-02), and the
 // pairings and early litters she shows publicly.
 export function listView(projection) {
   return {

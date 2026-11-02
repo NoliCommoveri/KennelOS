@@ -233,10 +233,25 @@ export function pupsRemaining(l) {
   return `${bits.length > 1 ? `${bits.slice(0, -1).join(', ')} and ${bits[bits.length - 1]}` : bits[0]} remaining`;
 }
 
+// The available pups in two columns, Males on the left and Females on the right,
+// the label once above each; a pup's name is its photos link when it has one. A
+// pup of no recorded sex gets a third column. Falls back to the counts
+// (pupsRemaining) for a card published without names.
+export function pupColumnsHtml(l) {
+  const pups = Array.isArray(l.pups) ? l.pups : null;
+  if (!pups) return `<div class="small">${esc(pupsRemaining(l))}</div>`;
+  if (!pups.length) return '<div class="small muted">No puppies remaining</div>';
+  const name = (d) => (d.photos_url ? photosLink(d.photos_url, d.call_name || 'Puppy') : esc(d.call_name || 'Puppy'));
+  const col = (label, list) => `<div class="pup-col"><div class="pup-col-head">${esc(label)}</div>${list.length
+    ? `<ul class="plain">${list.map((d) => `<li>${name(d)}</li>`).join('')}</ul>` : '<div class="muted">None left</div>'}</div>`;
+  const other = pups.filter((d) => d.sex !== 'male' && d.sex !== 'female');
+  return `<div class="pup-cols small">${col('Males', pups.filter((d) => d.sex === 'male'))}${col('Females', pups.filter((d) => d.sex === 'female'))}${other.length ? col('Puppies', other) : ''}</div>`;
+}
+
 // One litter with open picks (Available Puppies), the same on the public list and a
 // family's page; `extra` adds lines under it.
 export function availableItemHtml(l, extra = '') {
-  return litterHtml({ breed: l.breed, name: l.nickname || l.label, dam: l.dam, sire: l.sire, when: litterDates(l), photos: l.photos_url, extra: `<div class="small">${esc(pupsRemaining(l))}</div>${extra}` });
+  return litterHtml({ breed: l.breed, name: l.nickname || l.label, dam: l.dam, sire: l.sire, when: litterDates(l), photos: l.photos_url, extra: `${pupColumnsHtml(l)}${extra}` });
 }
 
 export function upcomingListHtml(rows) {

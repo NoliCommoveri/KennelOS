@@ -98,9 +98,10 @@ test('the public list shows only her published rows, the family holding a turn a
     kennel: { name: 'Thornfield Kennels', intro: '', apply_open: false }, as_of: '2026-10-08',
     // Ann (#1) holds a turn: her row keeps its number, sex and date; not her name.
     rows: [{ ...projection().public_list[0], name: 'Currently deciding', deciding: true }, projection().public_list[1]],
-    // Litters with open picks (decided 2026-10-10): counts by sex, never a pup's name.
+    // Litters with open picks: counts by sex, and the pups by name (2026-11-02).
     available: [{ id: 'l1', label: 'Juniper × Ash', status: 'whelped', whelp_date: '2026-09-01', ready_date: '2026-10-27',
-      picks_open: true, pups_available: 2, pups_female: 1, pups_male: 1, nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] } }],
+      picks_open: true, pups_available: 2, pups_female: 1, pups_male: 1,
+      pups: [{ call_name: 'Pip', sex: 'male' }, { call_name: 'Poppy', sex: 'female' }], nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] } }],
     upcoming: []
   });
   assert.equal((await get(env, '/f/list/kos1_99999999-2222-4333-8444-555555555555')).status, 404);
@@ -122,7 +123,8 @@ test("a family's status page shows their own place and offers, never anyone else
   assert.deepEqual(v.offers, [{ id: 'o1', turn_id: 'o1', litter_id: 'l1', litter: 'Juniper × Ash', breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] }, prices: null, offered_date: '2026-10-07', respond_by_date: '2026-10-10', picked_dog_id: null, deposit_instructions: '', deposit_amount: null,
     pups: [{ id: 'p2', call_name: 'Poppy', sex: 'female', color: 'black' }] }]);
   assert.deepEqual(v.litters, [{ id: 'l1', label: 'Juniper × Ash', status: 'whelped', whelp_date: '2026-09-01', ready_date: '2026-10-27',
-    picks_open: true, pairing_id: null, pups_available: 2, pups_female: 1, pups_male: 1, nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] }, match: true }]);
+    picks_open: true, pairing_id: null, pups_available: 2, pups_female: 1, pups_male: 1,
+    pups: [{ call_name: 'Pip', sex: 'male' }, { call_name: 'Poppy', sex: 'female' }], nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] }, match: true }]);
   const text = JSON.stringify(v);
   for (const other of ['Bo Kim', 'bo@example.com', '"bo"', 'Cy Day', 'Dee Fox', 'Venmo', tok('b'), 'queue', 'open_offer_entry_id']) {
     assert.equal(text.includes(other), false, other);
@@ -156,7 +158,8 @@ test('statusView and listView are allow-lists over the projection', () => {
   p.kennel.private = 'y';
   assert.equal(JSON.stringify(statusView(p, 'ann')).includes('"x"'), false, 'an unknown field is never passed through');
   assert.deepEqual(Object.keys(listView(p)).sort(), ['as_of', 'available', 'kennel', 'rows', 'upcoming']);
-  assert.equal(JSON.stringify(listView(p)).includes('Poppy'), false, "a pup's name never reaches the public list");
+  assert.deepEqual(listView(p).available[0].pups, [{ call_name: 'Pip', sex: 'male' }, { call_name: 'Poppy', sex: 'female' }],
+    'Available Puppies names the pups (2026-11-02): name and sex only, never an id or color');
   assert.equal(JSON.stringify(listView(p)).includes('Ann L.'), false, 'the family holding a turn is masked');
   // Their turn closed (by the server, say): their name is back at once.
   p.entries.ann.offers = [];

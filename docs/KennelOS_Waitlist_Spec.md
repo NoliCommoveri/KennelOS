@@ -548,6 +548,7 @@ readable form** (Proposal §6). Applicants are other people. The split:
 | Position, status, offers, deadlines, litter cards | Readable (no personal details) | The status page and reminders |
 | **Public list** projection: first name, last initial, sex preference and any narrowed breed / Full registration / colors / listen-only parents (§15.3), date added, position, for `active` entries that aren't paused (§15.3) | **Readable and public** | It's published on purpose. Applicants are told on the form before they apply. |
 | Parents' completed health tests (test name + result), where she shows them (Waitlist settings, or that dog's own say: none, only results marked Normal, or all) | **Readable**, and public wherever the public list shows that litter | Family pages show them under a litter's parents. Never the lab, dates, notes or documents. **Modified:** added 2026-11-01 (not in the original table); off by default. |
+| Available pups' call names and sex on Available Puppies (public list and family pages) | **Readable and public** | She wants prospective families to see them. **Modified:** added 2026-11-02; until then the list showed counts by sex only. |
 | Photos links: a dog's link where she ticked "Show photos on waitlist pages" for it (as a parent, an offered pup or their pick), and a litter's photos link | **Readable**, and public wherever the public list shows that litter | Families see the dogs and litters. **Modified:** added 2026-11-02 (not in the original table); a dog's is off until she ticks it. Emails to a family with a sale carry their pup's link (message text, above). |
 | Invoice and receipt PDFs for a family (§15.2) | **Not on the server** (dropped from W2, 2026-10-08) | She sends them herself |
 | Fee amount + her payment instructions, **for `approved` entries only** | **Readable, in that family's status-page projection only** | The status page shows what to pay and how (§5.3). Her device removes them from the projection once the fee is received, declined or expired. They never appear in an email. |
@@ -1553,7 +1554,9 @@ Dismissing hides it; nothing opens by itself.
 > **Currently deciding** in place of the name; their sex preference and date added still show. The list shows **no family
 > count** (paused families are left off, so a count is never right), and gains an
 > **Available Puppies** section like Coming up: each litter with open picks, its pups
-> remaining by sex. And the status page shows, under the overall number, **their place for
+> remaining by sex. (**Modified:** since 2026-11-02 it names them, at her request, on the
+> public list too: Males in a left column and Females in a right one, each label once above,
+> a pup's name its photos link where she shows one.) And the status page shows, under the overall number, **their place for
 > what they want**: for each matching answer they narrowed, their place among the families
 > ahead who want the same or wider on it ("#30 for Male", "#12 for Pet / companion"), and
 > when they narrowed two or more, their place for all of them together ("#25 for your

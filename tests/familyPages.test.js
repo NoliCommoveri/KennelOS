@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import {
   SEX_LABEL, READY_LABEL, PURPOSE_LABEL, purposesText, CREDIT_LABEL, rowMatches, fmtDate, possessive, publicListHtml, esc,
-  parentsLine, parentTestsHtml, upcomingItemHtml, availableItemHtml, photosLink
+  parentsLine, parentTestsHtml, upcomingItemHtml, availableItemHtml, photosLink, pupColumnsHtml
 } from '../cloud/public/family/common.js';
 import { WAITLIST_PREF_SEX, WAITLIST_READY_TIMING, PLACEMENT_PURPOSE, FEE_CREDIT_POLICY } from '../shared/data/vocab.js';
 import { ACTION_VOCAB } from '../cloud/src/familyActions.js';
@@ -99,4 +99,17 @@ test('photos links: on a parent, a litter card and a planned heat, escaped, open
   assert.match(upcomingItemHtml({ kind: 'planned_heat', label: 'Juniper', dam, expected_month: '2027-03' }), /Photos of Juniper/);
   assert.equal(photosLink('javascript:alert(1)'), '');
   assert.equal(availableItemHtml({ label: 'X', pups_available: 0 }).includes('photos'), false);
+});
+
+test('Available Puppies: Males left, Females right, the label once above each, a name its photos link', () => {
+  const html = pupColumnsHtml({ pups: [
+    { call_name: 'Pip', sex: 'male', photos_url: 'https://photos.example/pip' },
+    { call_name: 'Poppy', sex: 'female' }, { call_name: '<b>Rue</b>', sex: 'female' }
+  ] });
+  assert.match(html, /<div class="pup-col-head">Males<\/div><ul class="plain"><li><a class="photos-link" href="https:\/\/photos\.example\/pip"[^>]*>Pip<\/a><\/li><\/ul><\/div><div class="pup-col"><div class="pup-col-head">Females<\/div>/);
+  assert.match(html, /<li>Poppy<\/li><li>&lt;b&gt;Rue&lt;\/b&gt;<\/li>/);
+  assert.equal(html.includes('Puppies</div>'), false, 'no third column without a pup of no sex');
+  assert.match(pupColumnsHtml({ pups: [{ call_name: 'Bo', sex: 'female' }] }), /Males<\/div><div class="muted">None left/);
+  assert.equal(pupColumnsHtml({ pups: [] }), '<div class="small muted">No puppies remaining</div>');
+  assert.match(pupColumnsHtml({ pups_available: 1, pups_male: 1 }), /1 male remaining/, 'a card without names keeps the counts');
 });
