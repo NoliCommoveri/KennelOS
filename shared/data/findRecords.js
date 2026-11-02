@@ -10,7 +10,7 @@
 import { DOG_STATUS, OWNERSHIP_TYPE, CONTACT_TYPE, LITTER_STATUS, SEX, EVENT_TYPES, descriptor } from './vocab.js';
 import { dogName } from './dogRepo.js';
 import { litterLabel } from './litterCheckin.js';
-import { normReg, dogRegistrationNumbers } from './dogSearch.js';
+import { normReg, dogRegistrationNumbers, dogRegisteredNames } from './dogSearch.js';
 
 const label = (vocab, v) => (v ? descriptor(vocab, v)?.label || v : '');
 const ARCHIVED = -1;
@@ -55,7 +55,7 @@ export function dogCandidates(dogs, { events = [], kennelsById = new Map(), flag
       boost: (d.is_archived ? ARCHIVED : 0) + (d.pedigree_only ? -0.3 : 0),
       numbers: [...dogRegistrationNumbers(d), d.microchip_id].filter(Boolean).map(normReg),
       levels: [
-        [d.call_name, d.registered_name, ...dogRegistrationNumbers(d), d.microchip_id],
+        [d.call_name, ...dogRegisteredNames(d), ...dogRegistrationNumbers(d), d.microchip_id],
         [['breed', d.breed], ['color', d.color_markings], ['status', label(DOG_STATUS, d.status)], ['ownership', label(OWNERSHIP_TYPE, d.ownership_type)],
           ['sex', label(SEX, d.sex)], ['kennel', kennelsById.get(d.kennel_id)?.kennel_name],
           ['bred by', kennelsById.get(d.breeder_kennel_id)?.kennel_name]].filter(([, t]) => t),

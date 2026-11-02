@@ -60,3 +60,45 @@ test('a merge keeps every registration either dog held, each once', () => {
   // Nothing to add → no change.
   assert.equal('additional_registrations' in M.mergedChanges('dog', { id: 'a' }, { id: 'b' }), false);
 });
+
+// --- One rule for "the same dog?" everywhere -----------------------------------
+
+const akc = { id: 'a', call_name: 'Bella', sex: 'female', breed: 'Beagle', registry: 'AKC', registration_number: 'SR12345601', registered_name: 'CH Maple Bella' };
+const ukcOnly = { id: 'b', call_name: 'Belle', sex: 'female', breed: 'Beagle', registry: 'UKC', registration_number: 'P1048221' };
+
+test('shared helpers: any number or registered name in common; numbers conflict only within a registry', () => {
+  const both = { ...akc, additional_registrations: [{ registry: 'UKC', registration_number: 'P1048-221', registered_name: 'Maple Belle' }] };
+  assert.deepEqual(S.dogRegKeys(both), ['SR12345601', 'P1048221']);
+  assert.deepEqual(S.dogNameKeys(both), ['maple bella', 'maple belle']);
+  assert.equal(S.sameRegistration(both, ukcOnly), true);
+  assert.equal(S.sameRegisteredName({ registered_name: 'Maple Belle' }, both), true);
+  // AKC on one, UKC on the other: says nothing.
+  assert.equal(S.registrationsConflict(akc, ukcOnly), false);
+  // The same registry, or one not given, with different numbers: a different dog.
+  assert.equal(S.registrationsConflict(akc, { registry: 'akc', registration_number: 'SR99999901' }), true);
+  assert.equal(S.registrationsConflict(akc, { registration_number: 'SR99999901' }), true);
+  assert.equal(S.registrationsConflict(akc, {}), false);
+});
+
+test('tidy-up, duplicate scan, restore and Kels all pair by an additional registration', async () => {
+  const T = await import('../shared/data/tidyRules.js');
+  const D = await import('../shared/data/duplicateScan.js');
+  const R = await import('../shared/data/restoreMatch.js');
+  const both = { ...akc, created_at: '2026-01-01', additional_registrations: [{ registry: 'UKC', registration_number: 'P1048-221' }] };
+  const other = { ...ukcOnly, created_at: '2026-01-02' };
+  assert.equal(T.compareDogs(both, other)?.strength, 'certain');
+  assert.equal(T.duplicateDogFindings([both, other]).length, 1);
+  const found = D.findDuplicates({ rows: { dogs: [both, other] }, flags: { contactsSection: true } }).filter((f) => f.table === 'dogs');
+  assert.equal(found.length, 1);
+  assert.equal(found[0].strength, 'certain');
+  assert.ok(found[0].shared.includes('registration number'));
+  assert.equal(R.MATCH_RULES.dogs(both, other, { fk: (x) => x }), 'same');
+  // AKC vs UKC numbers alone never rule a pair out; a second AKC number does.
+  assert.equal(R.dogNever(akc, ukcOnly, { fk: (x) => x }), false);
+  assert.equal(R.dogNever(akc, { ...ukcOnly, registry: 'AKC' }, { fk: (x) => x }), true);
+  // A registered name from an additional registration.
+  const byName = { id: 'c', sex: 'female', registered_name: 'Maple Belle' };
+  const withName = { ...akc, additional_registrations: [{ registry: 'UKC', registration_number: 'P1', registered_name: 'Maple Belle' }] };
+  assert.equal(T.compareDogs(withName, byName)?.strength, 'certain');
+  assert.equal(S.findDogMatches([withName], { registeredName: 'Maple Belle' })[0]?.dog.id, 'a');
+});

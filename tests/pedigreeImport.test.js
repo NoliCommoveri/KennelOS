@@ -46,6 +46,15 @@ test('the same dog across two charts merges, and the chart dogs stay linked', ()
   assert.equal(plan.rows.find((r) => r.key === sire.sireKey).name, 'Grand Sire');
 });
 
+test('a dog already in the app is matched by an additional registration number', () => {
+  const existing = [{ id: 'x2', call_name: 'Max', registry: 'UKC', registration_number: 'P1',
+    additional_registrations: [{ registry: 'AKC', registration_number: 'NP000002/01', registered_name: '' }] }];
+  const plan = planImport({ files: [file('A', [dog('', 'Pup', 'NP000001/01'), dog('s', 'Sire', 'NP000002/01')])], existing });
+  const sire = plan.rows.find((r) => r.name === 'Sire');
+  assert.equal(sire.action, 'existing');
+  assert.equal(sire.existingId, 'x2');
+});
+
 test('a numbered dog already in the app is matched automatically', () => {
   const existing = [{ id: 'x1', call_name: 'Max', registration_number: 'np 000002/01' }];
   const plan = planImport({ files: [file('A', [dog('', 'Pup', 'NP000001/01'), dog('s', 'Sire', 'NP000002/01')])], existing });

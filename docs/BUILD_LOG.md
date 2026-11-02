@@ -2404,7 +2404,17 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   registration / Remove); the view shows Other registrations. Classified **cloud** in
   `syncRegistry` (same kind of data as `registry`/`registration_number`, already cloud);
   `cloudFields.js` regenerated. Search: `dogSearch.dogRegistrationNumbers` feeds Find and
-  Kels's dog matching. Merge keeps every registration either dog held. Duplicate scan,
-  restore matching, CSV import, pedigree import and puppy records still use the main
-  registration only. Sample Juniper carries a UKC number. Tests: `tests/dogRegistrations.test.js`.
-  Checked in the browser (demo view; add/remove rows on the form, phone width).
+  Kels's dog matching. Merge keeps every registration either dog held. Sample Juniper
+  carries a UKC number. Tests: `tests/dogRegistrations.test.js`. Checked in the browser
+  (demo view; add/remove rows on the form, phone width).
+- **One rule for "the same dog?" everywhere (2026-11-02).** New identity helpers in
+  `dogSearch.js` (`dogRegKeys`, `dogNameKeys`, `dogRegisteredNames`, `sameRegistration`,
+  `sameRegisteredName`, `registrationsConflict`) over every number and registered name a dog
+  holds, additional registrations included. Used by the duplicate scan (buckets and the
+  shared-details line), the tidy-up's duplicate dogs, backup restore matching
+  (`MATCH_RULES.dogs`, `dogNever`), the CSV import's dog index, the pedigree import, Kels's
+  dog matching and Find. Numbers now rule a pair out only when they could be the same
+  registry's (same registry, or one not given): an AKC number on one and a UKC number on the
+  other no longer do. Registered names compare by `dogSearch.nameKey` everywhere (the tidy-up
+  used `normName`, the pedigree import its own titles-off key). Tests added (shared rules,
+  tidy-up, scan, restore, Kels, CSV, pedigree).

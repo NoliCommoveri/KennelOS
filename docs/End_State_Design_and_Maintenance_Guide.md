@@ -487,7 +487,8 @@ trimmed) → `buildPlan(entity, rows)` → the user reviews → `commitPlan`. Th
 
 **Natural keys:** Kennel = name (a new one is always an outside kennel; an update never
 changes `is_own_kennel` or `public_id`); Dog = name + DOB **or** registration number
-(`normReg`, shared with Pedigree Import); Contact = name; Pairing = sire + dam + planned
+(`normReg`, shared with Pedigree Import; an existing dog is found by any of its registered
+names and numbers, `dogRegKeys` / `dogRegisteredNames`); Contact = name; Pairing = sire + dam + planned
 date; Litter = dam + sire + whelp date; Sale = dog + buyer + sale date; Event (dog subject)
 = dog + type + date (title breaks ties; for `show` the title always counts); StudService =
 our dog + partner dog + direction (always review on a match); Expense = `receipt_number` if
@@ -582,11 +583,13 @@ writes nothing; called with no `ask`, it makes only the certain pairs.
   - *Contact*: Same on name plus a shared email or phone (last 10 digits). Ask on a shared
     email or phone with a different name, or the same name with nothing to compare. Never
     when the emails and the phones both differ.
-  - *Dog*: Same on the same registered name (`dogSearch.nameKey`: titles, case,
-    punctuation and spacing ignored), registration number (`normReg`) or microchip; or a
-    pup of a paired litter with the same call name and sex. Ask on the same call name, breed
-    and sex (two pups pair only through their litters, never by name alone). Never,
-    whatever else agrees: known sexes differ; both have a registration number, microchip or
+  - *Dog*: Same on a registered name in common (`dogSearch.nameKey`: titles, case,
+    punctuation and spacing ignored), a registration number in common (`normReg`) — any
+    either holds, additional registrations included (`sameRegisteredName`,
+    `sameRegistration`) — or microchip; or a pup of a paired litter with the same call name
+    and sex. Ask on the same call name, breed and sex (two pups pair only through their
+    litters, never by name alone). Never, whatever else agrees: known sexes differ;
+    registration numbers conflict (`registrationsConflict`); both have a microchip or
     birthday and it differs; one is the other's parent.
   - *Pairing*: Same on dam, sire and planned date. Ask on dam and sire with dates within 21
     days or blank on one side. Never across heats.
@@ -932,8 +935,10 @@ device until it's clicked.
 browser, nothing uploaded. `data/pedigreeReader.js` uses the PDF.js text layer, or renders
 and OCRs the page. `data/pedigreeParse.js` (pure) turns positioned words into dogs by path
 (`''`, `s`, `d`, `sd`…). `data/pedigreeImport.js` plans with the CSV rules: a registration
-number (`normReg`) is the key and merges automatically; a name alone never matches (same
-name → review); an existing dog only has blanks filled and keeps its parents. New dogs are
+number (`normReg`) is the key and merges automatically (an existing dog by any number it
+holds, `dogRegKeys`); a name alone never matches (same name → review, against every
+registered name a dog holds, `dogNameKeys`; numbers flagged as differing only by
+`registrationsConflict`); an existing dog only has blanks filled and keeps its parents. New dogs are
 saved pedigree-only. In Pro a chart can also be filed as a `pedigree` Document.
 
 ---
@@ -2388,8 +2393,16 @@ so nothing takes it without her say: a mom is never filled in with a male), one 
 "nearly the same" and a breed spelled near enough or a birthday the same, a few days off or
 day and month swapped make it `likely`; a different breed (not just misspelled) or sex is a
 different dog, never offered; a clearly different number only lowers it to `possible`;
-`dogRegistrationNumbers`, every number a dog holds (main first, then its
-`additional_registrations`), which Kels's dog matching and Find search by;
+**A dog's identity, one rule everywhere** (`dogSearch.js`): `dogRegistrationNumbers` /
+`dogRegKeys` (every number a dog holds, main first, then its `additional_registrations`;
+keys by `normReg`), `dogRegisteredNames` / `dogNameKeys` (its registered name and any an
+additional registration gives; keys by `nameKey`), `sameRegistration` and
+`sameRegisteredName` (any one in common), and `registrationsConflict` (both have numbers,
+none shared, and two of them could be one registry's: the same registry, or one not given;
+an AKC number on one and a UKC number on the other never rule a pair out). The duplicate
+scan, the tidy-up, backup restore matching, the CSV import, the pedigree import, Kels's dog
+matching (`findDogMatches`, a typed number differing only as `registrationsConflict` says)
+and Find all match dogs through these;
 `normReg`, a registration number's key everywhere (spaces, slashes, dashes and a leading
 "AKC" never count; also the CSV import's, the pedigree import's and the tidy-up's
 duplicates'); `similarNamed`, the same name match for kennels and contacts; `breedChoices`, the
@@ -3327,10 +3340,12 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
   event form clears it).
 - **No vet** (`contactsSection`): she has a dog and no live contact is tagged Vet → add her
   vet, or tag one of her contacts. Comes after the one above, which usually settles it.
-- **Duplicate dogs:** missing details are unknown, never a difference. *Certain:* the same
-  registration number, or the same registered name with no differing number. *Possible:* the
-  same call name and breed with nothing contradicting (registration number, birthday,
-  microchip, sire, dam differ only when both have them). Never: a known sex that differs,
+- **Duplicate dogs:** missing details are unknown, never a difference. *Certain:* a
+  registration number in common, or a registered name in common with no differing number
+  (any of either's, additional registrations included; §dogSearch identity rule).
+  *Possible:* the same call name and breed with nothing contradicting (birthday, microchip,
+  sire, dam differ only when both have them; registration numbers only as
+  `registrationsConflict` says). Never: a known sex that differs,
   littermates by name, a dog and its own parent or child. Archived dogs are skipped;
   pedigree-only ones are included.
 - **Duplicate contacts** (`contactsSection`): the same name (case, spacing and punctuation
