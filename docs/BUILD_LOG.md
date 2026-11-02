@@ -2385,3 +2385,14 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   sire and dam recorded only for its pedigree never showed (and a pedigree-only litter parent
   read "Unknown"). They now go in as `ancestors`, looked up by id only; a dog with no call
   name goes by its registered name. Test added. Rides `kennelos-shell-v93`.
+- **The waitlist feed for KennelPort websites (2026-11-02).** KennelPort plan decision 21:
+  a KennelPort site draws the public list in its own style. New `waitlist_config.website_feed`
+  (off by default), switched on the Online list card ("Let my KennelPort website show my
+  list in its own style") and in Set up my waitlist's Your website group; the projection
+  carries `kennel.website_feed` only while it's on. The Worker serves
+  `GET /f/site/<public_id>` (`familyPages.siteView`): the public list exactly, plus paths
+  for the list, sign-in and form; 404 `not_shared` when off; cached five minutes; its own
+  per-address read bucket; no CORS. The Online list card shows the feed address to copy
+  (`cloudConfig.websiteFeedLink`) once published. No new fields leave her device; no
+  migration. Tests: default, projection, link, the route on and off. Needs a Worker
+  deploy. Not driven in the browser.

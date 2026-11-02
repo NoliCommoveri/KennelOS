@@ -2074,6 +2074,15 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   `/list` (`familyPages.frameAncestors`; status pages are never framable). The loader
   `cloud/public/family/embed.js` inserts and sizes the iframe. Snippets:
   `cloudConfig.embedSnippet` / `applyButtonSnippet`.
+- **Her KennelPort website** (KennelPort plan §3.8, decision 21): with
+  `waitlist_config.website_feed` (off by default; **Let my KennelPort website show my list
+  in its own style**, on the Online list card and in Set up my waitlist), the projection
+  carries `kennel.website_feed: true`, and the Worker serves `GET /f/site/<public_id>`:
+  `familyPages.siteView`, exactly `listView` plus `links` (paths for the list, sign-in and
+  form), cached five minutes, its own per-address read bucket
+  (`FAMILY_LIMITS.siteReadsPerHourPerIp`), no CORS (read server to server). Off: 404
+  `not_shared`. Nothing new leaves her device. The Online list card shows the address to
+  copy (`cloudConfig.websiteFeedLink`) once the list is published.
 - `/list` and `/apply` carry Open Graph previews from the kennel name only
   (`familyPages.withPreview`).
 
@@ -3087,7 +3096,7 @@ checkboxes, never a question apiece:
    no link, each applicant typed in by hand) and goes on only once it's on. Then one screen:
    list online, applications online, reminder emails; what shows before picks open
    (`UPCOMING_STAGES` × public / family pages); "Ready now?" unanswered and its days; the
-   Facebook button and Page; her website (`embed`, addresses); the public list's message;
+   Facebook button and Page; her website (`embed`, addresses, `website_feed`); the public list's message;
    the time zone. Saved by `cloudWaitlist.saveWaitlistOnline` (the Online list card's save),
    then the public list and form links.
 4. **Programs:** as many as she likes (name, place in line, fee, days to accept, passes not

@@ -469,6 +469,30 @@ test('only plain site addresses reach the header; a list of nothing valid stays 
   assert.equal(frameAncestors({ origins: Array.from({ length: 15 }, (_, i) => `https://s${i}.com`) }).split(' ').length, 10);
 });
 
+test('her KennelPort website reads the list only while she has the feed on', async () => {
+  const off = await publishedWith({});
+  const no = await get(off, `/f/site/${KENNEL}`);
+  assert.equal(no.status, 404);
+  assert.equal((await no.json()).error, 'not_shared', 'tells her website why');
+  assert.equal((await get(off, `/f/list/${KENNEL}`)).status, 200, 'the public list itself is unchanged');
+
+  const on = await publishedWith({ website_feed: true });
+  const res = await get(on, `/f/site/${KENNEL}`);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('cache-control'), /max-age=300/);
+  assert.equal(res.headers.get('access-control-allow-origin'), null, 'read server to server: no CORS');
+  const body = await res.json();
+  const list = await (await get(on, `/f/list/${KENNEL}`)).json();
+  const { links, ...rest } = body;
+  assert.deepEqual(rest, list, 'exactly what the public list shows');
+  assert.deepEqual(links, { list: `/list/${KENNEL}`, signin: `/list/${KENNEL}#signin`, apply: list.kennel.apply_open ? `/apply/${KENNEL}` : null });
+  assert.ok(!JSON.stringify(body).includes('@'), 'no email reaches it');
+
+  assert.equal((await get(on, '/f/site/kos1_99999999-2222-4333-8444-555555555555')).status, 404, 'an unknown kennel');
+  assert.equal((await get(on, '/f/site/not-an-id')).status, 404);
+  assert.equal(FAMILY_LIMITS.siteReadsPerHourPerIp > 0, true);
+});
+
 test('the embed script and the in-frame helper are served like the pages\' other files', async () => {
   const { env } = await published();
   assert.equal(await (await get(env, '/family/embed.js')).text(), 'file:/family/embed.js');

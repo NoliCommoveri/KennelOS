@@ -55,3 +55,22 @@ test('the code to paste: a script per view with a plain link for no-script pages
   assert.ok(!/<script/.test(button));
   assert.equal(cfg.embedSnippet(null), null);
 });
+
+// --- Her KennelPort website (KennelPort plan §3.8, decision 21) ---------------------
+
+test('the website feed: off by default, published only while she has it on', () => {
+  assert.equal(WAITLIST_CONFIG_DEFAULTS.website_feed, false);
+  assert.equal('website_feed' in project({}), false);
+  assert.equal('website_feed' in project({ website_feed: false }), false);
+  assert.equal(project({ website_feed: true }).website_feed, true);
+  assert.equal('embed' in project({ website_feed: true }), false, 'separate from framing');
+});
+
+test('the website feed address', async () => {
+  globalThis.location = { hostname: 'localhost' };
+  const cfg = await import('../shared/data/cloud/cloudConfig.js');
+  const { devCloudUrl } = await import('../shared/data/editionConfig.js');
+  const id = 'kos1_11111111-2222-4333-8444-555555555555';
+  assert.equal(cfg.websiteFeedLink(id), `${devCloudUrl}/f/site/${id}`);
+  assert.equal(cfg.websiteFeedLink(null), null);
+});
