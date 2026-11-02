@@ -18,19 +18,19 @@ const form = (extra = {}) => ({
   faq: [{ id: 'f1', question: 'Price?', answer: '$2,500' }], breeds: ['Boston Terrier'], matching_keys: ['pref_sex'], matching_notice: 'Only matching pups.', color_matching: false,
   ...extra,
 });
-const projection = (formExtra = {}, entries = {}) => ({
-  format: 1, as_of: '2026-10-08', kennel: { public_id: KENNEL, name: 'Thornfield Kennels', time_zone: 'America/Chicago', form: form(formExtra) },
+const projection = (formExtra = {}, entries = {}, kennelExtra = {}) => ({
+  format: 1, as_of: '2026-10-08', kennel: { public_id: KENNEL, name: 'Thornfield Kennels', time_zone: 'America/Chicago', form: form(formExtra), ...kennelExtra },
   public_list: [], entries, litters: {},
 });
 
-async function setup(extraEnv = {}, formExtra = {}) {
+async function setup(extraEnv = {}, formExtra = {}, kennelExtra = {}) {
   const env = await makeEnv(extraEnv);
   const s = await signIn(env, 'breeder@example.com');
   const { email_hash: eh } = env.DB.raw.prepare('SELECT email_hash FROM users').get();
   env.DB.raw.prepare(`INSERT INTO pro_purchases (id, email_hash, kind, plan, status, access_until, source_updated_at, received_at)
     VALUES ('order:1', ?, 'order', 'lifetime', 'paid', NULL, ?, ?)`).run(eh, iso(), iso());
   await call(env, 'POST', '/program/backing-device', { token: s.token });
-  const pub = await call(env, 'PUT', `/waitlist/projection/${KENNEL}`, { token: s.token, body: { projection: projection(formExtra) } });
+  const pub = await call(env, 'PUT', `/waitlist/projection/${KENNEL}`, { token: s.token, body: { projection: projection(formExtra, {}, kennelExtra) } });
   assert.equal(pub.status, 200);
   return { env, s };
 }
@@ -166,4 +166,63 @@ test('an application never confirmed is removed after two days, with its link', 
   await runRetention(env);
   assert.deepEqual(env.DB.raw.prepare('SELECT name FROM wl_inbox').all().map((r) => r.name), ['Bo Kim']);
   assert.equal(count(env, 'wl_tokens'), 1);
+});
+
+// Her KennelPort website (KennelPort plan 3.8): the feed carries her form, and the
+// three endpoints its page calls answer its origin, and only those three.
+const SITE_ORIGIN = 'https://thornfield.kennelport.com';
+const fromSite = (env, method, path, body, origin = SITE_ORIGIN) => call(env, method, path, { body, headers: { Origin: origin } });
+
+test('the website feed carries her form, its choices and the Turnstile key, only while it is open', async () => {
+  const { env } = await setup({ TURNSTILE_SITE_KEY: '0xKOS' }, {}, { website_feed: true });
+  const feed = await (await call(env, 'GET', `/f/site/${KENNEL}`)).json();
+  const page = await (await call(env, 'GET', `/f/form/${KENNEL}`)).json();
+  const { choices, turnstile_site_key: key, ...rest } = feed.form;
+  assert.deepEqual(rest, page.form, 'exactly what her /apply page reads');
+  assert.equal(key, '0xKOS');
+  assert.deepEqual(choices.pref_sex[0], ['any', 'Either']);
+  assert.equal(feed.links.apply, `/apply/${KENNEL}`);
+  const closed = await setup({}, { open: false }, { website_feed: true });
+  assert.equal((await (await call(closed.env, 'GET', `/f/site/${KENNEL}`)).json()).form, undefined);
+});
+
+test('the form choices match the form page\'s own labels', async () => {
+  const { FORM_CHOICES } = await import('../src/familyPages.js');
+  const { SEX_LABEL, READY_LABEL, PURPOSE_LABEL } = await import('../public/family/common.js');
+  assert.deepEqual(Object.fromEntries(FORM_CHOICES.pref_sex), SEX_LABEL);
+  assert.deepEqual(Object.fromEntries(FORM_CHOICES.ready_timing), READY_LABEL);
+  assert.deepEqual(Object.fromEntries(FORM_CHOICES.pref_purposes), PURPOSE_LABEL);
+});
+
+test('apply, verify and code answer a KennelPort site cross-origin; nothing else does', async () => {
+  const { env, s } = await setup();
+  const pre = await fromSite(env, 'OPTIONS', `/f/apply/${KENNEL}`);
+  assert.equal(pre.status, 204);
+  assert.equal(pre.headers.get('access-control-allow-origin'), SITE_ORIGIN);
+  assert.match(pre.headers.get('access-control-allow-methods'), /POST/);
+  assert.match(pre.headers.get('access-control-allow-headers'), /content-type/);
+  assert.equal(pre.headers.get('access-control-allow-credentials'), null);
+
+  const res = await fromSite(env, 'POST', `/f/apply/${KENNEL}`, application());
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('access-control-allow-origin'), SITE_ORIGIN);
+  const again = await fromSite(env, 'POST', '/f/code', { public_id: KENNEL, email: 'ann@example.com' });
+  assert.equal(again.headers.get('access-control-allow-origin'), SITE_ORIGIN);
+  const wrong = await fromSite(env, 'POST', '/f/verify', { public_id: KENNEL, code: '000000' });
+  assert.equal(wrong.status, 400);
+  assert.equal(wrong.headers.get('access-control-allow-origin'), SITE_ORIGIN, 'errors carry it too, so the page can read them');
+  const ok = await fromSite(env, 'POST', '/f/verify', { public_id: KENNEL, code: lastCode(env) });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.headers.get('access-control-allow-origin'), SITE_ORIGIN);
+  assert.ok((await ok.json()).status_token);
+  assert.equal((await inbox(env, s)).length, 1, 'the application reached her');
+
+  // Other sites, and other family endpoints, get nothing.
+  for (const origin of ['https://evil.example', 'https://kennelport.com.evil.example', 'http://thornfield.kennelport.com', 'https://a.b.kennelport.com']) {
+    assert.equal((await fromSite(env, 'OPTIONS', `/f/apply/${KENNEL}`, undefined, origin)).status, 403, origin);
+  }
+  assert.equal((await fromSite(env, 'OPTIONS', `/f/list/${KENNEL}`)).status, 403);
+  assert.equal((await fromSite(env, 'OPTIONS', '/f/act')).status, 403);
+  assert.equal((await fromSite(env, 'GET', `/f/form/${KENNEL}`)).headers.get('access-control-allow-origin'), null);
+  assert.equal((await fromSite(env, 'OPTIONS', '/program', undefined)).status, 403, 'the app API stays the editions\' only');
 });

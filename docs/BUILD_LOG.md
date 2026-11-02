@@ -2438,3 +2438,12 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **SW cache bumped to `kennelos-shell-v95` (2026-11-02)** for the owner contact repair
   (`resolveMyContactId`, wizard no longer duplicates a deleted owner contact). No new app
   files; `PRECACHE_URLS` unchanged.
+- **Her application form on her KennelPort website (2026-11-02).** KennelPort plan 3.8: the
+  website feed (`/f/site`) carries her form while she takes applications online
+  (`formView`'s form, `FORM_CHOICES` for the preference questions, `turnstile_site_key`), so
+  her website draws it in its own style. Answers are sealed in the visitor's browser to her
+  form key and sent straight to `/f/apply`, then `/f/verify`; those and `/f/code` now answer
+  `https://<label>.kennelport.com` (and KennelPort staging) cross-origin
+  (`lib/cors.js` `WEBSITE_PATHS`, `websiteCors`, `websitePreflight`); every other route is
+  unchanged. Setup: add `kennelport.com` to the Turnstile widget's hostnames. Server only:
+  no app files, no SW bump. Tests added (`cloud/tests/application.test.js`).

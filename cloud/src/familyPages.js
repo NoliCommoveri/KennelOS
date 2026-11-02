@@ -8,7 +8,12 @@
 //   GET  /f/site/<public_id>   the same list for her KennelPort website to draw in its
 //                              own style, only while her projection carries
 //                              `kennel.website_feed`; read server to server, so it
-//                              has its own read limit and no CORS
+//                              has its own read limit and no CORS. While she takes
+//                              applications online it carries her form too, which
+//                              her website draws; what a family types there is
+//                              sealed in their browser and sent straight to
+//                              /f/apply, /f/verify and /f/code, which answer her
+//                              KennelPort site cross-origin (lib/cors.js)
 //   GET  /f/status/<token>     one family's own view, cut from the projection
 //   POST /f/code               "See Your Details", part 1: {public_id, email} → a
 //                              6-digit code to that address, if it's on the list
@@ -345,11 +350,30 @@ export function listView(projection) {
 // Her website feed (/f/site): exactly the public list, plus where her own pages
 // are, as paths on this server, so her website sends families here to sign in and
 // apply. Nothing a visitor to /list couldn't already see.
-export function siteView(projection, publicId) {
+// While she takes applications online, `form` is her form exactly as /f/form
+// serves it (all of it public on her /apply page), with the wording of each
+// preference's choices so her website needn't know KennelOS's vocabulary, and
+// KennelOS's Turnstile site key (the check runs on her website; KennelOS checks
+// the answer). Her website seals and sends the answers to /f/apply itself.
+export function siteView(projection, publicId, { turnstileSiteKey = null } = {}) {
   const view = listView(projection);
   const id = encodeURIComponent(publicId);
-  return { ...view, links: { list: `/list/${id}`, signin: `/list/${id}#signin`, apply: view.kennel.apply_open ? `/apply/${id}` : null } };
+  const fv = formView(projection);
+  return {
+    ...view,
+    links: { list: `/list/${id}`, signin: `/list/${id}#signin`, apply: view.kennel.apply_open ? `/apply/${id}` : null },
+    ...(fv ? { form: { ...fv.form, choices: FORM_CHOICES, turnstile_site_key: turnstileSiteKey } } : {}),
+  };
 }
+
+// The preference questions' choices, as the form page shows them. Copied from
+// public/family/common.js (SEX_LABEL, READY_LABEL, PURPOSE_LABEL), which copies
+// shared/data/vocab.js; tests/application.test.js fails if they drift.
+export const FORM_CHOICES = {
+  pref_sex: [['any', 'Either'], ['male', 'Male'], ['female', 'Female']],
+  ready_timing: [['asap', 'ASAP'], ['1_month', '1 month'], ['3_months', '3 months'], ['6_plus_months', '6+ months']],
+  pref_purposes: [['pet', 'Pet / companion'], ['performance', 'Performance sports (agility, obedience…)'], ['show', 'Show'], ['breeding', 'Breeding'], ['co_own', 'Co-own']],
+};
 
 // One family's own page. Their entry as published (minus their email: the page
 // doesn't need it and a forwarded link shouldn't show it), their offers with the
@@ -752,7 +776,7 @@ export async function handleFamilyApi(request, env, url) {
     const found = await projectionOf(env, site[1]);
     if (!found) fail(404, 'not_found');
     if (found.projection.kennel?.website_feed !== true) fail(404, 'not_shared');
-    return json(siteView(found.projection, site[1]), 200, { 'cache-control': 'public, max-age=300' });
+    return json(siteView(found.projection, site[1], { turnstileSiteKey: env.TURNSTILE_SITE_KEY || null }), 200, { 'cache-control': 'public, max-age=300' });
   }
 
   const status = /^\/f\/status\/([^/]+)$/.exec(p);

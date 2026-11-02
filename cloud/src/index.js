@@ -25,7 +25,7 @@ import { runRetention } from './retention.js';
 import { runWaitlistMoves } from './serverMoves.js';
 import { applyDueEmailChanges } from './emailChange.js';
 import { handleDigestOff, runDigests } from './notify.js';
-import { corsHeaders, preflight } from './lib/cors.js';
+import { corsHeaders, preflight, WEBSITE_PATHS, websiteCors, websitePreflight } from './lib/cors.js';
 import { ApiError, json } from './lib/http.js';
 
 // Must match the daily entry of `crons` in wrangler.toml (both environments).
@@ -42,9 +42,12 @@ export default {
     const page = await serveFamilyPage(request, env, url);
     if (page) return page;
 
-    if (request.method === 'OPTIONS') return preflight(request);
+    // Her KennelPort website's application form calls three family endpoints
+    // (lib/cors.js WEBSITE_PATHS); everything else answers the editions only.
+    const fromWebsite = WEBSITE_PATHS.test(url.pathname);
+    if (request.method === 'OPTIONS') return fromWebsite ? websitePreflight(request) : preflight(request);
 
-    const cors = corsHeaders(request);
+    const cors = fromWebsite ? websiteCors(request) : corsHeaders(request);
 
     try {
       // Service notices are the shutdown channel, so they're served whatever
@@ -71,7 +74,11 @@ export default {
       if (url.pathname === '/notify/off' && (request.method === 'GET' || request.method === 'POST')) return await handleDigestOff(request, env, url);
       if (url.pathname === '/webhooks/lemonsqueezy' && request.method === 'POST') return await handleWebhook(request, env);
       if (url.pathname.startsWith('/hooks/') && request.method === 'POST') return await handleHook(request, env, url);
-      if (url.pathname.startsWith('/f/')) return await handleFamilyApi(request, env, url);
+      if (url.pathname.startsWith('/f/')) {
+        const res = await handleFamilyApi(request, env, url);
+        if (fromWebsite) for (const [k, v] of Object.entries(cors)) res.headers.set(k, v);
+        return res;
+      }
 
       return await handleApi(request, env, url, cors);
     } catch (err) {
