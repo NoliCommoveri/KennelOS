@@ -2327,3 +2327,21 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   nets them out. Tests: carried pick through both paths, the paid message, the paid invoice;
   `waitlistLostPup` updated for the one-step placement. Smoke-loaded the family and invoice
   pages; the dialogs weren't driven in the browser. No new files; no cache bump yet.
+- **Photos links on waitlist pages, in emails, and on litters (2026-11-02).** Her request:
+  photo links wherever a dog shows on the waitlist pages, parents' photos on current and
+  upcoming litters, a litter-wide photos link, and every email to a family with a sale
+  carrying their pup's link. Decided with her: a dog's link is published only when she ticks
+  the new **Dog.photos_online** (Dog form, with the waitlist; cloud), then on the public list
+  and family pages; a litter's new **Litter.photos_url** (cloud) is published when set
+  (Litter page edit + view, a Photos column in Litters, Kels's Add a litter extras step);
+  emails get the line automatically whenever the pup has a link. Projection
+  (`photoLink`, `dogPhotosLink`, `publicPup`, `parentView`, litter views, Coming up),
+  Worker (`familyPages.photosOf` on parents, litter cards, Coming up, a turn's litter and
+  pups), pages (`common.photosLink`; links only, the CSP allows no outside images).
+  Emails: `waitlistOutbox.salePupPhotos` + `draftEmail`'s `pupPhotos` (also "almost your
+  turn" and the deposit request). `listView` rows no longer open when a link inside is
+  clicked. Waitlist Spec §8.1 gains the row. Tests: projection gating, Worker pass-through,
+  page links and escaping, email line and its cut, the sale lookup. Checked in the browser:
+  the Litters column, the Litter page row, the Dog page badge; the family pages and emails
+  weren't driven live. Needs a Worker deploy for the family pages. No new files; no cache
+  bump yet.

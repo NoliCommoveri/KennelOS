@@ -145,6 +145,15 @@ if (typeof document !== 'undefined') {
 // their titles, and her dates. Used by the public list and the status page.
 const parentText = (d) => [d?.name || '', ...(d?.titles || [])].filter(Boolean).join(' ');
 
+// A photos link her device published (a dog's she chose to show, or a litter's),
+// opening in a new tab. '' without one.
+export function photosLink(url, label = 'Photos') {
+  return typeof url === 'string' && /^https?:\/\//i.test(url)
+    ? `<a class="photos-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>` : '';
+}
+// A parent's name and titles, then its photos link when it has one.
+const parentHtml = (d) => `${esc(parentText(d))}${d?.photos_url ? ` (${photosLink(d.photos_url)})` : ''}`;
+
 // The parents' completed health tests, where her device published them (her
 // Waitlist setting or a dog's own say): folded under "Health testing", a line per
 // parent ("Dam Juniper: Hips: Good · PRA-prcd: Clear"). '' when neither has any.
@@ -159,14 +168,15 @@ export function parentTestsHtml(dam, sire) {
 // their health testing under it when shown.
 export function parentsLine(dam, sire) {
   if (!dam?.name && !sire?.name) return '';
-  return `<div class="small">Dam: ${esc(parentText(dam))} · Sire: ${esc(parentText(sire))}</div>${parentTestsHtml(dam, sire)}`;
+  return `<div class="small">Dam: ${parentHtml(dam)} · Sire: ${parentHtml(sire)}</div>${parentTestsHtml(dam, sire)}`;
 }
 
 // One litter (or pairing) the same way everywhere a family sees one (decided
-// 2026-10-08): the breed, its name, its parents, its dates, then any extra lines.
-export function litterHtml({ breed = null, name = '', dam = null, sire = null, when = '', extra = '' }) {
+// 2026-10-08): the breed, its name, its parents, its dates, the litter's photos
+// link (`photos`, when she set one), then any extra lines.
+export function litterHtml({ breed = null, name = '', dam = null, sire = null, when = '', photos = null, extra = '' }) {
   return `${breed ? `<div class="small muted">${esc(breed)}</div>` : ''}<div><strong>${esc(name)}</strong></div>
-    ${parentsLine(dam, sire)}${when ? `<div class="small muted">${esc(when)}</div>` : ''}${extra}`;
+    ${parentsLine(dam, sire)}${when ? `<div class="small muted">${esc(when)}</div>` : ''}${photos ? `<div class="small">${photosLink(photos, 'See the litter\'s photos')}</div>` : ''}${extra}`;
 }
 
 // A Coming up item's dates: "Born 09/20/2026 · Planned offering 11/01/2026",
@@ -191,9 +201,10 @@ export const HEAT_DISCLAIMER = 'Heat dates are estimates: the month shown is app
 export function upcomingItemHtml(u, extra = '') {
   if (u.kind === 'planned_heat') {
     const month = fmtMonthYear(u.expected_month);
-    return litterHtml({ breed: u.breed, name: parentText(u.dam) || u.label, when: month ? `Upcoming heat · estimated around ${month}` : 'Upcoming heat', extra: parentTestsHtml(u.dam, null) + extra });
+    const damPhotos = u.dam?.photos_url ? `<div class="small">${photosLink(u.dam.photos_url, `Photos of ${u.dam.name || 'the dam'}`)}</div>` : '';
+    return litterHtml({ breed: u.breed, name: parentText(u.dam) || u.label, when: month ? `Upcoming heat · estimated around ${month}` : 'Upcoming heat', extra: damPhotos + parentTestsHtml(u.dam, null) + extra });
   }
-  return litterHtml({ breed: u.breed, name: u.label, dam: u.dam, sire: u.sire, when: upcomingWhen(u), extra });
+  return litterHtml({ breed: u.breed, name: u.label, dam: u.dam, sire: u.sire, when: upcomingWhen(u), photos: u.photos_url, extra });
 }
 
 // Under a Coming up list: plans can change, and heat months are estimates.
@@ -225,7 +236,7 @@ export function pupsRemaining(l) {
 // One litter with open picks (Available Puppies), the same on the public list and a
 // family's page; `extra` adds lines under it.
 export function availableItemHtml(l, extra = '') {
-  return litterHtml({ breed: l.breed, name: l.nickname || l.label, dam: l.dam, sire: l.sire, when: litterDates(l), extra: `<div class="small">${esc(pupsRemaining(l))}</div>${extra}` });
+  return litterHtml({ breed: l.breed, name: l.nickname || l.label, dam: l.dam, sire: l.sire, when: litterDates(l), photos: l.photos_url, extra: `<div class="small">${esc(pupsRemaining(l))}</div>${extra}` });
 }
 
 export function upcomingListHtml(rows) {

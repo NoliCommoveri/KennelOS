@@ -150,3 +150,21 @@ test('the invoice shows a received deposit as paid and takes it off the balance'
   assert.equal(paid.rows.find((r) => /Deposit/.test(r.label)).due, 'Paid');
   assert.deepEqual(paid.totals.map((t) => [t.label, t.amount]), [['Subtotal', 2200], ['Less amount already collected', -500], ['Balance', 1700]]);
 });
+
+test('the deposit request carries their pup\'s photos link when it has one', () => {
+  const m = depositRequestMessage({ pupName: 'Maple', deposit: '$500.00', pupPhotos: 'https://photos.example/maple' });
+  assert.match(m.body, /Photos of Maple: https:\/\/photos\.example\/maple/);
+  assert.equal(depositRequestMessage({ pupName: 'Maple' }).body.includes('Photos'), false);
+});
+
+test("every email's photos line comes from the pup of the family's sale, while it isn't cancelled", async () => {
+  const { salePupPhotos } = await import('../shared/data/waitlistOutbox.js');
+  const entry = await waitlistEntryRepo.create({ kennel_id: K.id, contact_id: buyer.id, status: 'placed', placed_sale_id: sale.id });
+  assert.equal(await salePupPhotos(entry), null, 'no link on the pup yet');
+  await dogRepo.update(pup.id, { url: 'https://photos.example/maple' });
+  assert.deepEqual(await salePupPhotos(entry), { name: 'Maple', url: 'https://photos.example/maple' });
+  await saleRepo.update(sale.id, { status: 'delivered' });
+  assert.ok(await salePupPhotos(entry), 'gone home still counts');
+  await saleRepo.update(sale.id, { status: 'cancelled' });
+  assert.equal(await salePupPhotos(entry), null);
+});

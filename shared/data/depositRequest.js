@@ -28,6 +28,7 @@ const text = (v) => String(v ?? '').trim();
 //   contractLink   its prefilled signing link
 //   invoice        true when the invoice PDF goes with the message
 //   balance        what's due after the deposit, formatted, and balanceDue (formatted date)
+//   pupPhotos      their pup's photos link (Dog.url): a "Photos of <pup>" line
 //   kennelName     signs the message
 export function depositRequestMessage(p = {}) {
   const who = text(p.who);
@@ -53,6 +54,7 @@ export function depositRequestMessage(p = {}) {
     lines.push('', `Please review and sign your ${text(p.contractLabel) || 'contract'}. The details are already filled in:`, text(p.contractLink));
   }
   if (p.invoice) lines.push('', 'Your invoice is attached.');
+  if (text(p.pupPhotos)) lines.push('', `Photos of ${pup || 'your puppy'}: ${text(p.pupPhotos)}`);
   if (text(p.balance)) lines.push('', `The balance of ${text(p.balance)} is due${text(p.balanceDue) ? ` by ${text(p.balanceDue)}` : ' when you pick up your puppy'}.`);
   lines.push('', 'Let me know if you have any questions.', '', 'Thank you!');
   if (text(p.kennelName)) lines.push(text(p.kennelName));

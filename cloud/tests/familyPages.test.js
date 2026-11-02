@@ -571,3 +571,22 @@ test('parents\' health tests: passed through as name + result, cleaned and cappe
   p.litters.l1.dam = { name: 'Juniper', titles: [], tests: [] };
   assert.equal('tests' in listView(p).available[0].dam, false);
 });
+
+test('photos links pass through for parents, litters and pups: web addresses only', () => {
+  const p = projection();
+  const l = p.litters.l1;
+  l.photos_url = 'https://photos.example/litter';
+  l.dam = { name: 'Juniper', titles: [], photos_url: 'https://photos.example/juniper' };
+  l.sire = { name: 'Ash', titles: [], photos_url: 'javascript:alert(1)' };
+  l.pups[1].photos_url = 'https://photos.example/poppy';
+  l.pups[0].photos_url = 'data:text/html,x';
+  const card = listView(p).available[0];
+  assert.equal(card.photos_url, 'https://photos.example/litter');
+  assert.equal(card.dam.photos_url, 'https://photos.example/juniper');
+  assert.equal('photos_url' in card.sire, false);
+  const offer = statusView(p, 'ann').offers[0];
+  assert.equal(offer.photos_url, 'https://photos.example/litter');
+  assert.equal(offer.pups[0].photos_url, 'https://photos.example/poppy');
+  assert.equal(JSON.stringify(statusView(p, 'ann')).includes('javascript:'), false);
+  assert.equal(JSON.stringify(statusView(p, 'ann')).includes('data:text'), false);
+});

@@ -29,7 +29,8 @@ import { newCredit, CREDIT_USE_VALUES } from '../data/receivedCredits.js';
 import { CREDIT_USES, PAYMENT_METHODS } from '../data/vocab.js';
 import { saveCredit } from '../data/waitlistActions.js';
 import { DemoModeError } from '../data/demoMode.js';
-import { kennelEmailsOn, queueEmail } from '../data/waitlistOutbox.js';
+import { kennelEmailsOn, queueEmail, salePupPhotos } from '../data/waitlistOutbox.js';
+import { pupPhotosLine } from '../data/waitlistEmails.js';
 
 // A family's status-page link (W2 Plan §8), or null while the list isn't online
 // (or the waitlist online isn't offered here). Only builds the link: no network.
@@ -299,7 +300,11 @@ function wireSoonNotice(overlay, { kennel, send, emailOf, litterIdsOf }) {
     btn.disabled = true;
     const body = `${n.body}\n\nYour status page shows your place in line, and you can review your preferences there.`;
     try {
-      for (const r of to) await queueEmail(r.entry.id, { kind: 'almost_turn', subject: n.subject, body });
+      for (const r of to) {
+        // Their pup's photos line, like every email to a family with a sale.
+        const photos = pupPhotosLine(await salePupPhotos(r.entry));
+        await queueEmail(r.entry.id, { kind: 'almost_turn', subject: n.subject, body: photos ? `${body}\n\n${photos}` : body });
+      }
       await record(to);
       import('./waitlistEmailUI.js').then((m) => m.syncSoon()).catch(() => {});
       btn.textContent = `Sent to ${to.length} ${to.length === 1 ? 'family' : 'families'} ✓`;

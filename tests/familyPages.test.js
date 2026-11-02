@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import {
   SEX_LABEL, READY_LABEL, PURPOSE_LABEL, purposesText, CREDIT_LABEL, rowMatches, fmtDate, possessive, publicListHtml, esc,
-  parentsLine, parentTestsHtml, upcomingItemHtml
+  parentsLine, parentTestsHtml, upcomingItemHtml, availableItemHtml, photosLink
 } from '../cloud/public/family/common.js';
 import { WAITLIST_PREF_SEX, WAITLIST_READY_TIMING, PLACEMENT_PURPOSE, FEE_CREDIT_POLICY } from '../shared/data/vocab.js';
 import { ACTION_VOCAB } from '../cloud/src/familyActions.js';
@@ -89,4 +89,14 @@ test('parents\' health testing folds under the parents line, escaped; nothing wh
   assert.equal(parentsLine({ name: 'Juniper', titles: [] }, sire).includes('details'), false);
   const heat = upcomingItemHtml({ kind: 'planned_heat', label: 'Juniper', dam, expected_month: '2027-03' });
   assert.match(heat, /Dam Juniper:/, 'a planned heat shows its dam\'s testing too');
+});
+
+test('photos links: on a parent, a litter card and a planned heat, escaped, opening in a new tab', () => {
+  const dam = { name: 'Juniper', titles: [], photos_url: 'https://photos.example/j?a=1&b="2"' };
+  assert.match(parentsLine(dam, { name: 'Ash', titles: [] }), /Dam: Juniper \(<a class="photos-link" href="https:\/\/photos\.example\/j\?a=1&amp;b=&quot;2&quot;" target="_blank" rel="noopener noreferrer">Photos<\/a>\) · Sire: Ash</);
+  const card = availableItemHtml({ label: 'Juniper × Ash', dam, sire: { name: 'Ash' }, photos_url: 'https://photos.example/litter', pups_available: 1 });
+  assert.match(card, /See the litter&#39;s photos/);
+  assert.match(upcomingItemHtml({ kind: 'planned_heat', label: 'Juniper', dam, expected_month: '2027-03' }), /Photos of Juniper/);
+  assert.equal(photosLink('javascript:alert(1)'), '');
+  assert.equal(availableItemHtml({ label: 'X', pups_available: 0 }).includes('photos'), false);
 });

@@ -31,6 +31,7 @@ import { salePayAccount, salePaidVia } from '../data/paymentLinks.js';
 import { stripeConnection, makeSaleLink } from '../data/stripeLinks.js';
 import { logOwnMessage } from '../data/waitlistOutbox.js';
 import { depositPaid } from '../data/incomeView.js';
+import { photoLink } from '../data/waitlistProjection.js';
 import { todayYMD } from '../data/dateUtils.js';
 import { esc, badge, fmtDate, fmtMoney } from './ui.js';
 import { REGISTRATION_TYPE, CONTRACT_FORM_TYPE, descriptor } from '../data/vocab.js';
@@ -296,6 +297,7 @@ export async function openPickToSend({ offer, entry, contact, litterLabel = '', 
           payAccount, paymentText,
           contractLabel: chosen ? descriptor(CONTRACT_FORM_TYPE, chosen.form.form_type).label.toLowerCase() : '', contractLink: chosen?.url || '',
           invoice: true,
+          pupPhotos: photoLink(dog?.url) || '',
           balance: rest > 0 ? fmtMoney(rest) : '', balanceDue: sale.balance_due_date ? fmtDate(sale.balance_due_date) : '',
           kennelName
         });

@@ -191,8 +191,18 @@ function withPick(pups, o) {
   const d = o.picked_pup;
   if (!o.picked_dog_id || !d || d.id !== o.picked_dog_id || pups.some((x) => x.id === d.id)) return pups;
   const s = (v, n) => (typeof v === 'string' ? v.slice(0, n) : null);
-  return [...pups, { id: d.id, call_name: s(d.call_name, 80) || '', sex: s(d.sex, 10), color: s(d.color, 80), registration: s(d.registration, 20) }];
+  return [...pups, { id: d.id, call_name: s(d.call_name, 80) || '', sex: s(d.sex, 10), color: s(d.color, 80), registration: s(d.registration, 20), ...photosOf(d.photos_url) }];
 }
+
+// A photos link her device published (a dog's, where she ticked it, or a
+// litter's): a web address only, at most 500 characters. Absent otherwise.
+const PHOTO_LINK = /^https?:\/\/[^\s"'<>]{1,500}$/i;
+export const photosOf = (v) => (typeof v === 'string' && PHOTO_LINK.test(v) ? { photos_url: v } : {});
+// The pups an offer lists, each with its photos link checked.
+const pupsOf = (pups) => pups.map((d) => {
+  const { photos_url: url, ...rest } = d || {};
+  return { ...rest, ...photosOf(url) };
+});
 
 // …and, where her device published them (her Waitlist setting or that dog's own
 // say), its completed health tests: a test's name and result, short strings only,
@@ -206,7 +216,7 @@ function testsOf(list) {
 }
 const parentOf = (d) => {
   const tests = testsOf(d?.tests);
-  return { name: d?.name ?? '', titles: Array.isArray(d?.titles) ? d.titles : [], ...(tests.length ? { tests } : {}) };
+  return { name: d?.name ?? '', titles: Array.isArray(d?.titles) ? d.titles : [], ...(tests.length ? { tests } : {}), ...photosOf(d?.photos_url) };
 };
 
 // A litter's expected prices as her device published them, field by field: per
@@ -233,6 +243,7 @@ function upcomingRow(u) {
     expected_whelp_date: u.expected_whelp_date ?? null, whelp_date: u.whelp_date ?? null,
     picks_expected_date: u.picks_expected_date ?? null,
     expected_month: /^\d{4}-\d{2}$/.test(String(u.expected_month ?? '')) ? u.expected_month : null,
+    ...photosOf(u.photos_url),
   };
 }
 const upcomingOf = (projection, where) => (Array.isArray(projection.upcoming) ? projection.upcoming : []).filter((u) => u && u[where] === true);
@@ -280,6 +291,7 @@ function litterCard(id, l) {
     breed: l.breed ?? null,
     sire: parentOf(l.sire),
     dam: parentOf(l.dam),
+    ...photosOf(l.photos_url),
   };
 }
 
@@ -511,7 +523,9 @@ export function statusView(projection, entryId) {
       ...(typeof o.deposit_credit === 'number' && Number.isFinite(o.deposit_credit) && o.deposit_credit > 0 ? { deposit_credit: o.deposit_credit } : {}),
       // Their application fee, when she credits it toward the deposit.
       ...(typeof o.deposit_fee_credit === 'number' && Number.isFinite(o.deposit_fee_credit) && o.deposit_fee_credit > 0 ? { deposit_fee_credit: o.deposit_fee_credit } : {}),
-      pups: withPick((l.pups || []).filter((d) => eligible.has(d.id) || d.id === o.picked_dog_id), o),
+      // The litter's photos link, where she set one.
+      ...photosOf(l.photos_url),
+      pups: pupsOf(withPick((l.pups || []).filter((d) => eligible.has(d.id) || d.id === o.picked_dog_id), o)),
     };
   });
   // Whether they match a litter's available pups now: a yes/no, never a place in
