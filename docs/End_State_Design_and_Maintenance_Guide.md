@@ -1919,6 +1919,8 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   in a left column and Females in a right one (a third, Puppies, for a pup of no sex), the
   label once above each, "None left" under an empty one, each name its photos link when it
   has one. So available pups' call names are public wherever the list shows that litter.
+  The public list's Available Puppies and Coming up cards are centered, like the status
+  page (`main.centered`), by `#available, #upcoming` in `family.css`.
   Each open offer carries `deposit_instructions` (her `payment_instructions`) and, once
   picked, `deposit_amount` (the sale's deposit, else her listed one: `depositFor`) and
   `picked_pup` (the Worker adds it to the offer's pups: it's no longer available). After a

@@ -2353,3 +2353,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   by name); page `common.pupColumnsHtml` (+ `.pup-cols` CSS). A turn's pick buttons are
   unchanged. Waitlist Spec §8.1 and the Available Puppies note marked Modified. Tests:
   Worker shapes, the columns and escaping. Rendered at phone width. Needs a Worker deploy.
+- **Public list: Available Puppies and Coming up centered (2026-11-02).** Her request: the
+  text in those cards centered as on a family's status page (`family.css`
+  `#available, #upcoming`, summary marker inside). Rendered at phone width. Needs a Worker
+  deploy.
