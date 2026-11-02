@@ -2357,3 +2357,14 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   text in those cards centered as on a family's status page (`family.css`
   `#available, #upcoming`, summary marker inside). Rendered at phone width. Needs a Worker
   deploy.
+- **Parents' registered name, pedigree and health testing in an info popup (2026-11-02).**
+  Her request: every parent's registered name where recorded; its own sire's and dam's
+  registered names behind a new setting (`waitlist_config.parent_pedigree`, off by default,
+  Waitlist settings beside the health-test one); all three behind an ⓘ by the call name,
+  shown only when one of them exists, opening a popup in her order (Registered name,
+  Pedigree, Health testing). The inline "Health testing" fold is gone
+  (`parentTestsHtml` removed). Projection `parentView` / `parentPedigree`, Worker
+  `parentOf` (`regOf`, `pedigreeOf`), pages `dogInfo` / `infoBubble` / `dogInfoDialog`.
+  Waitlist Spec §8.1 row added (modifies Q32). Tests: projection, Worker, bubble and popup
+  (escaping, order, no bubble without data). Rendered and opened/closed in the browser at
+  phone width. Needs a Worker deploy.

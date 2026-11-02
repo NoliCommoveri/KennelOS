@@ -326,10 +326,27 @@ export function titlesByDog(events = []) {
 // Preferences, a turn): call name and earned titles, and, where she shows them,
 // its completed health tests (`tests`: [{ name, result }], absent when none or
 // hidden), and its photos link where she shows it (`photos_url`, dogPhotosLink).
+// Its registered name whenever it has one (`registered_name`), and with her
+// setting `parent_pedigree` its own sire's and dam's registered names where known
+// (`pedigree`: { sire, dam }, either null; absent when neither is known). The
+// family pages put those three behind an info bubble by the call name.
 // And a litter's breed: the dam's, else the sire's.
-const parentView = (dogsById, titles, id, testsOf = () => []) => {
+const regName = (dog) => String(dog?.registered_name ?? '').trim() || null;
+export function parentPedigree(dog, dogsById) {
+  if (!dog) return null;
+  const sire = regName(dogsById.get(dog.sire_id));
+  const dam = regName(dogsById.get(dog.dam_id));
+  return sire || dam ? { sire, dam } : null;
+}
+const parentView = (dogsById, titles, id, testsOf = () => [], { pedigree = false } = {}) => {
+  const dog = dogsById.get(id);
   const tests = testsOf(id);
-  return { name: dogsById.get(id)?.call_name || 'Unknown', titles: [...(titles.get(id) || [])], ...(tests.length ? { tests } : {}), ...withPhotos(dogPhotosLink(dogsById.get(id))) };
+  const reg = regName(dog);
+  const ped = pedigree ? parentPedigree(dog, dogsById) : null;
+  return {
+    name: dog?.call_name || 'Unknown', titles: [...(titles.get(id) || [])], ...(tests.length ? { tests } : {}), ...withPhotos(dogPhotosLink(dog)),
+    ...(reg ? { registered_name: reg } : {}), ...(ped ? { pedigree: ped } : {})
+  };
 };
 
 // Which of a dog's tests family pages show (PARENT_TESTS_SHOWN): its own say
@@ -356,7 +373,7 @@ const breedOf = (dogsById, damId, sireId) => orNull(dogsById.get(damId)?.breed |
 
 function upcomingSection(kennel, config, { litters, pairings, dogs, events, dogsById, titles, testsOf, today }) {
   const show = showUpcoming(config);
-  const parent = (id) => parentView(dogsById, titles, id, testsOf);
+  const parent = (id) => parentView(dogsById, titles, id, testsOf, { pedigree: config.parent_pedigree === true });
   const where = (u) => ({ public: show[u.stage].public, family: show[u.stage].family });
   const shown = (u) => show[u.stage].public || show[u.stage].family;
   const litterItems = upcomingItems(kennel, { litters, pairings })
@@ -415,7 +432,7 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
   const opts = { today, config, programsById };
   const titles = titlesByDog(events);
   const testsOf = parentTestsOf(dogsById, config, events);
-  const parent = (id) => parentView(dogsById, titles, id, testsOf);
+  const parent = (id) => parentView(dogsById, titles, id, testsOf, { pedigree: config.parent_pedigree === true });
 
   // Each live litter's queue tells which families match it now (Q13); a family
   // sees only that they match, never their place in it (decided 2026-10-08).

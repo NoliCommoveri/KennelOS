@@ -291,3 +291,16 @@ html.embedded.theme-dark {
 .pup-col-head { font-weight: 600; }
 .pup-col ul { margin: 2px 0 0; }
 .pup-col ul.plain > li { padding: 2px 0; border-top: 0; }
+
+/* A parent's info bubble (registered name, pedigree, health testing) and its popup. */
+button.info-bubble { display: inline-flex; align-items: center; justify-content: center; width: 1.25em; height: 1.25em; margin: 0 2px 0 4px; padding: 0;
+  border: 1px solid var(--accent); border-radius: 50%; background: none; color: var(--accent); font: italic 700 0.8em/1 Georgia, serif; cursor: pointer; vertical-align: 0.1em; }
+button.info-bubble:hover, button.info-bubble:focus-visible { background: var(--accent); color: #fff; }
+.modal.dog-info { text-align: left; }
+.modal.dog-info h3 { margin: 12px 0 4px; font-size: 0.95rem; }
+.modal.dog-info p { margin: 0; }
+.modal.dog-info .modal-actions { margin-top: 16px; }
+dl.info-facts { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 0; }
+dl.info-facts dt { font-weight: 600; }
+dl.info-facts dd { margin: 0; }
+ul.info-tests > li { padding: 2px 0; border-top: 0; }

@@ -1898,9 +1898,18 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   marked `Normal` (an unmarked one isn't; a retest marked Abnormal hides the test, never
   falling back to an older Normal); `all` keeps every one. The flag itself is never
   published. The Worker copies them by name (`familyPages.parentOf`: trimmed, 80 characters,
-  at most `PARENT_TESTS_MAX` = 20), and the pages fold them under the parents line as
-  **Health testing** (`common.parentTestsHtml`), so with Coming up or Available Puppies on
-  the public list they're public. The Dog page's Health-Test Summary card has **On family
+  at most `PARENT_TESTS_MAX` = 20), and the pages show them in the parent's info popup, so
+  with Coming up or Available Puppies on the public list they're public.
+  **Registered name and pedigree:** every parent carries its `registered_name` when it has
+  one, and with `waitlist_config.parent_pedigree` (default off; Waitlist settings → Public
+  list & family pages, under the health-test setting) `pedigree` `{ sire, dam }`: its own
+  sire's and dam's registered names, either null, absent when neither is known
+  (`waitlistProjection.parentPedigree`). The Worker copies them as trimmed strings of 120
+  characters (`familyPages.parentOf`). **The info bubble:** an ⓘ by a parent's call name
+  (`common.infoBubble`; by a planned heat's dam's name too) only when it has a registered
+  name, a pedigree or health tests (`dogInfo`); tapping it opens a popup
+  (`dogInfoDialog`, one delegated click listener) with Registered name, Pedigree (Sire,
+  Dam) and Health testing, in that order, each only when published. The Dog page's Health-Test Summary card has **On family
   pages** (Follow Waitlist settings / Don't show / Normal results only / All results) for any
   non-puppy, offered with the waitlist and the list online.
   **Photos links:** a dog's `url` is published as `photos_url` only when its

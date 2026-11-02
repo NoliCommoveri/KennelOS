@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import {
   SEX_LABEL, READY_LABEL, PURPOSE_LABEL, purposesText, CREDIT_LABEL, rowMatches, fmtDate, possessive, publicListHtml, esc,
-  parentsLine, parentTestsHtml, upcomingItemHtml, availableItemHtml, photosLink, pupColumnsHtml
+  parentsLine, upcomingItemHtml, availableItemHtml, photosLink, pupColumnsHtml, dogInfo, dogInfoHtml, infoBubble
 } from '../cloud/public/family/common.js';
 import { WAITLIST_PREF_SEX, WAITLIST_READY_TIMING, PLACEMENT_PURPOSE, FEE_CREDIT_POLICY } from '../shared/data/vocab.js';
 import { ACTION_VOCAB } from '../cloud/src/familyActions.js';
@@ -77,18 +77,26 @@ test('the pages carry no inline script or style (the CSP forbids them) and load 
   }
 });
 
-test('parents\' health testing folds under the parents line, escaped; nothing when neither parent has any', () => {
-  const dam = { name: 'Juniper', titles: ['CGC'], tests: [{ name: 'OFA Hips', result: 'Good' }, { name: 'PRA-prcd', result: '<b>Clear</b>' }] };
+test('a parent\'s registered name, pedigree and health testing sit behind an info bubble by its call name; no bubble without any', () => {
+  const dam = { name: 'Juniper', titles: ['CGC'], registered_name: 'Briar Hollow\'s Summer <Juniper>',
+    pedigree: { sire: 'GCH Oak Ridge Cassius', dam: null }, tests: [{ name: 'OFA Hips', result: 'Good' }] };
   const sire = { name: 'Ash', titles: [] };
   const html = parentsLine(dam, sire);
-  assert.match(html, /Dam: Juniper CGC · Sire: Ash/);
-  assert.match(html, /<details class="small parent-tests"><summary>Health testing<\/summary>/);
-  assert.match(html, /<strong>Dam Juniper:<\/strong> OFA Hips: Good · PRA-prcd: &lt;b&gt;Clear&lt;\/b&gt;/);
-  assert.equal(html.includes('Sire Ash:'), false, 'a parent with none shown gets no line');
-  assert.equal(parentTestsHtml(sire, { name: 'Bo', titles: [] }), '');
-  assert.equal(parentsLine({ name: 'Juniper', titles: [] }, sire).includes('details'), false);
+  assert.match(html, /Dam: Juniper CGC <button type="button" class="info-bubble" data-dog-info="[^"]+" aria-label="About Juniper"[^>]*>i<\/button> · Sire: Ash<\/div>$/);
+  assert.equal(html.includes('<details'), false, 'health testing is in the popup now');
+  assert.equal(html.includes('<Juniper>'), false, 'the bubble\'s data is escaped');
+  const info = JSON.parse(html.match(/data-dog-info="([^"]+)"/)[1].replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&'));
+  assert.deepEqual(info, { name: 'Juniper', registered_name: 'Briar Hollow\'s Summer <Juniper>', pedigree: { sire: 'GCH Oak Ridge Cassius', dam: '' }, tests: [{ name: 'OFA Hips', result: 'Good' }] });
+  const pop = dogInfoHtml(info);
+  assert.match(pop, /<h3>Registered name<\/h3><p>Briar Hollow&#39;s Summer &lt;Juniper&gt;<\/p>/);
+  assert.match(pop, /<h3>Pedigree<\/h3><dl class="info-facts"><dt>Sire<\/dt><dd>GCH Oak Ridge Cassius<\/dd><\/dl>/);
+  assert.match(pop, /<h3>Health testing<\/h3>.*OFA Hips: Good/);
+  assert.ok(pop.indexOf('Registered name') < pop.indexOf('Pedigree') && pop.indexOf('Pedigree') < pop.indexOf('Health testing'), 'in her order');
+  assert.equal(dogInfo(sire), null);
+  assert.equal(infoBubble({ name: 'Bo', titles: [], tests: [] }), '');
+  assert.equal(dogInfoHtml(dogInfo({ name: 'Bo', registered_name: 'Bo of X' })).includes('Pedigree'), false, 'only what was published');
   const heat = upcomingItemHtml({ kind: 'planned_heat', label: 'Juniper', dam, expected_month: '2027-03' });
-  assert.match(heat, /Dam Juniper:/, 'a planned heat shows its dam\'s testing too');
+  assert.match(heat, /<strong>Juniper CGC<\/strong> <button type="button" class="info-bubble"/, 'a planned heat\'s dam gets the bubble by its name');
 });
 
 test('photos links: on a parent, a litter card and a planned heat, escaped, opening in a new tab', () => {

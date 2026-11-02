@@ -214,9 +214,23 @@ function testsOf(list) {
   return list.filter((t) => t && typeof t === 'object').map((t) => ({ name: s(t.name), result: s(t.result) }))
     .filter((t) => t.name && t.result).slice(0, PARENT_TESTS_MAX);
 }
+// …its registered name, and (her pedigree setting) its own sire's and dam's
+// registered names: short strings only.
+const regOf = (v) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 120) : null);
+function pedigreeOf(p) {
+  if (!p || typeof p !== 'object') return null;
+  const sire = regOf(p.sire);
+  const dam = regOf(p.dam);
+  return sire || dam ? { sire, dam } : null;
+}
 const parentOf = (d) => {
   const tests = testsOf(d?.tests);
-  return { name: d?.name ?? '', titles: Array.isArray(d?.titles) ? d.titles : [], ...(tests.length ? { tests } : {}), ...photosOf(d?.photos_url) };
+  const reg = regOf(d?.registered_name);
+  const ped = pedigreeOf(d?.pedigree);
+  return {
+    name: d?.name ?? '', titles: Array.isArray(d?.titles) ? d.titles : [], ...(tests.length ? { tests } : {}), ...photosOf(d?.photos_url),
+    ...(reg ? { registered_name: reg } : {}), ...(ped ? { pedigree: ped } : {}),
+  };
 };
 
 // A litter's expected prices as her device published them, field by field: per

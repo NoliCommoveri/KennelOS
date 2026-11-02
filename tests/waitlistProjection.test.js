@@ -508,3 +508,20 @@ test("photos links: a dog's only when she ticked it, a litter's when she set one
   assert.equal(JSON.stringify(p).includes('photos.example/ash'), false);
   assert.equal('photos_url' in buildProjection(fixture()).litters['lit-1'], false, 'no key without a link');
 });
+
+test("a parent's registered name always goes with it; its own sire and dam only with her pedigree setting, where known", () => {
+  const f = fixture();
+  f.dogs = [
+    ...f.dogs.map((d) => (d.id === 'dam' ? { ...d, registered_name: "Thornfield's Juniper", sire_id: 'gs', dam_id: 'gd' } : d)),
+    { id: 'gs', call_name: 'Oak', registered_name: 'GCH Oak Ridge Cassius', sex: 'male' },
+    { id: 'gd', call_name: 'Fern', sex: 'female' } // no registered name: not known
+  ];
+  const off = buildProjection(f).litters['lit-1'];
+  assert.equal(off.dam.registered_name, "Thornfield's Juniper");
+  assert.equal('pedigree' in off.dam, false, 'off by default');
+  assert.equal('registered_name' in off.sire, false, 'none recorded, no key');
+  const on = buildProjection({ ...f, kennel: { ...kennel, waitlist_config: { ...kennel.waitlist_config, parent_pedigree: true } } }).litters['lit-1'];
+  assert.deepEqual(on.dam.pedigree, { sire: 'GCH Oak Ridge Cassius', dam: null });
+  assert.equal('pedigree' in on.sire, false, 'neither parent known: nothing');
+  assert.equal(JSON.stringify(on).includes('Fern'), false);
+});

@@ -593,3 +593,13 @@ test('photos links pass through for parents, litters and pups: web addresses onl
   assert.equal(JSON.stringify(statusView(p, 'ann')).includes('javascript:'), false);
   assert.equal(JSON.stringify(statusView(p, 'ann')).includes('data:text'), false);
 });
+
+test("a parent's registered name and pedigree pass through as short strings only", () => {
+  const p = projection();
+  p.litters.l1.dam = { name: 'Juniper', titles: [], registered_name: "  Thornfield's Juniper ", pedigree: { sire: 'GCH Oak', dam: 7, x: 'y' }, secret: 'z' };
+  p.litters.l1.sire = { name: 'Ash', titles: [], registered_name: 42, pedigree: { sire: '', dam: null } };
+  const card = listView(p).available[0];
+  assert.deepEqual(card.dam, { name: 'Juniper', titles: [], registered_name: "Thornfield's Juniper", pedigree: { sire: 'GCH Oak', dam: null } });
+  assert.deepEqual(card.sire, { name: 'Ash', titles: [] });
+  assert.equal(statusView(p, 'ann').offers[0].dam.registered_name, "Thornfield's Juniper");
+});
