@@ -3517,6 +3517,15 @@ KennelPort Site Manager.
 - **Where she does it:** Settings → **Your website** (`assets/websiteCard.js`: Connect
   website with the code and a device name, what's marked, Update website, Disconnect this
   device; a kennel picker with several own kennels), and Kels's **Update my website**.
+  The card's button sends straight away. Kels first goes through, in groups with tick
+  boxes (`siteExport.websiteGaps`): her own adults not marked; pups marked Keeping whose
+  litter has left the site; live litters and pairings not marked; and her breeding girls
+  with heats off (unticked to start). Then a date for each marked, born litter with no
+  accept deposits date (blank keeps it available now); then her settings: **Use my
+  KennelOS prices** on the site (`POST /v1/settings`, only where the site's facts list
+  it under `settings`), her waitlist online when the site has a waitlist page (set up
+  first; online through cloud backup), and the kennel record's website. Then the counts
+  and **Update website**.
 - **The prompts, asked, never answered for her:** a dog's status becoming Active breeding
   ("Show on your website?"); a marked litter leaving Expected with no accept deposits date
   ("When do deposits open?", since blank means available now); a marked litter going Sold

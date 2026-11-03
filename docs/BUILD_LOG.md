@@ -2519,3 +2519,11 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   there. Tests updated.
 - **SW cache bumped to `kennelos-shell-v98` (2026-11-03)** for the website puppy statuses
   (her disposition, as set) and the hand-over starting ticked. No files added or renamed.
+- **Kels's Update my website asks first (2026-11-03).** Before sending, groups with tick
+  boxes (`siteExport.websiteGaps`): her adults not on the website, kept pups whose litter
+  has left it, litters and pairings not listed, and her girls' heats (unticked). Then a
+  deposits date for any shown, born litter without one, then her settings: Use my KennelOS
+  prices (new `kennelportApi.setSiteSettings`, KennelPort's `POST /v1/settings`), her
+  waitlist online, and the kennel record's website (moved before the send). The Settings
+  card's Update website still sends straight away. Rides `kennelos-shell-v98`; no files
+  added. Tests added.

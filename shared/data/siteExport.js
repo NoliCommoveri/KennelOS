@@ -351,6 +351,36 @@ export function websiteProducts(accounts = []) {
 
 // --- the bundle ---------------------------------------------------------------
 
+// What Kels's Update my website asks about before sending (End-State guide §35),
+// in groups she ticks: records of this kennel that could be on the website and
+// aren't marked, and marked born litters with no accept deposits date.
+// - dogs: her own adults (breeding, retired, for sale) not marked;
+// - keptPups: pups marked Keeping, not marked, whose litter isn't on the website any
+//   more, so they'd be lost with it (the hand-over she missed);
+// - litters / pairings: live ones not marked (a pairing only until it's a litter);
+// - heats: her breeding girls whose coming heats don't show (heats_online off);
+// - deposits: marked litters past Expected with no accept deposits date (blank
+//   means available straight away). `marking`: ids she is about to mark, counted
+//   as marked here.
+// → { dogs, keptPups, litters, pairings, heats, deposits }, each a list of records.
+export function websiteGaps(kennel, { dogs = [], litters = [], pairings = [] }, { marking = [] } = {}) {
+  const mine = (r) => !r.is_archived && r.kennel_id === kennel.id;
+  const willMark = new Set(marking);
+  const pairingsById = new Map(pairings.map((p) => [p.id, p]));
+  const shownLitters = new Set(websiteLitters(kennel, litters, pairingsById).map((l) => l.id));
+  const ownDog = (d) => mine(d) && !d.pedigree_only && SEXES.includes(d.sex) && (d.call_name || d.registered_name);
+  const liveLitters = litters.filter((l) => mine(l) && LIVE_LITTER_STATUSES.includes(l.status));
+  const hasLitter = new Set(litters.filter((l) => !l.is_archived && l.pairing_id).map((l) => l.pairing_id));
+  return {
+    dogs: dogs.filter((d) => ownDog(d) && !isMarked(d) && ['active_breeding', 'retired_breeding', 'for_sale'].includes(d.status)),
+    keptPups: dogs.filter((d) => ownDog(d) && !isMarked(d) && d.status === 'puppy' && d.disposition === 'keeping' && d.litter_id && !shownLitters.has(d.litter_id)),
+    litters: liveLitters.filter((l) => !litterMarked(l, pairingsById)),
+    pairings: pairings.filter((p) => mine(p) && !isMarked(p) && LIVE_PAIRING_STATUSES.includes(p.status) && !hasLitter.has(p.id)),
+    heats: dogs.filter((d) => ownDog(d) && d.sex === 'female' && d.status === 'active_breeding' && !d.heats_online),
+    deposits: liveLitters.filter((l) => l.status !== 'expected' && !ymd(l.accept_deposits_date) && (litterMarked(l, pairingsById) || willMark.has(l.id)))
+  };
+}
+
 // What the website would be sent, before the caps check: the records she marked.
 // kennelportLink.js shows these counts on the Website card.
 export function websiteCounts(kennel, { dogs = [], litters = [], pairings = [], events = [], accounts = [], today }) {

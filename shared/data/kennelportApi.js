@@ -87,3 +87,7 @@ export const linkStatus = (token) => call('GET', '/v1/link', { token });
 export const stopLink = (token) => call('DELETE', '/v1/link', { token });
 
 export const sendBundle = (token, bundle) => call('POST', '/v1/bundle', { token, body: bundle });
+
+// Her settings on the website that KennelOS may change (Kels's Update my website):
+// `{ kennelos_prices }`, only to a site whose facts list it under `settings`.
+export const setSiteSettings = (token, settings) => call('POST', '/v1/settings', { token, body: settings });
