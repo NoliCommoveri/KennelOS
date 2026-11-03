@@ -211,7 +211,7 @@ function turnHtml(rows) {
   };
   const pupButtons = (o, pups, short = false) => `<div class="pups">${pups.map((d) => {
       const reg = regText(o, d, short);
-      const label = `${esc(d.call_name)} · ${esc(SEX_LABEL[d.sex] || '')}${d.color ? ` · ${esc(d.color)}` : ''}${reg ? ` · ${esc(reg)}` : ''}`;
+      const label = `${esc(d.call_name)} · ${esc(SEX_LABEL[d.sex] || '')}${d.color ? ` · ${esc(d.color)}` : ''}${reg ? ` · ${esc(reg)}` : ''}${d.registry ? ` · ${esc(d.registry)}` : ''}`;
       const yours = d.id === chosen ? ' <span class="badge">Your pick</span>' : '';
       return actOn
         ? `<button type="button" class="pup secondary" data-act="pick" data-offer="${esc(o.id)}" data-dog="${esc(d.id)}" data-name="${esc(d.call_name)}">${label}</button>`

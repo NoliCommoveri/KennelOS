@@ -116,8 +116,10 @@ function pupLink(d, kennel) {
 }
 
 // A pup as a family may see it: call name, sex, color, the registration it's
-// planned for (null: undecided, either), and its link. Nothing else.
-const publicPup = (d, kennel) => ({ id: d.id, call_name: d.call_name || '', sex: orNull(d.sex), color: orNull(d.color_markings), registration: orNull(d.intended_registration), ...pupLink(d, kennel) });
+// planned for (null: undecided, either), its registry ("AKC"; null when none),
+// and its link. Nothing else.
+const registryOf = (d) => orNull(String(d.registry ?? '').trim().slice(0, 30));
+const publicPup = (d, kennel) => ({ id: d.id, call_name: d.call_name || '', sex: orNull(d.sex), color: orNull(d.color_markings), registration: orNull(d.intended_registration), registry: registryOf(d), ...pupLink(d, kennel) });
 
 // A litter's expected prices as a family on their turn may see them (her setting
 // turn_prices): per registration the pups of it are planned for (an undecided pup

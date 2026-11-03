@@ -204,7 +204,7 @@ function withPick(pups, o) {
   const d = o.picked_pup;
   if (!o.picked_dog_id || !d || d.id !== o.picked_dog_id || pups.some((x) => x.id === d.id)) return pups;
   const s = (v, n) => (typeof v === 'string' ? v.slice(0, n) : null);
-  return [...pups, { id: d.id, call_name: s(d.call_name, 80) || '', sex: s(d.sex, 10), color: s(d.color, 80), registration: s(d.registration, 20), ...photosOf(d.photos_url), ...pageOf(d) }];
+  return [...pups, { id: d.id, call_name: s(d.call_name, 80) || '', sex: s(d.sex, 10), color: s(d.color, 80), registration: s(d.registration, 20), registry: s(d.registry, 30), ...photosOf(d.photos_url), ...pageOf(d) }];
 }
 
 // A photos link her device published (a dog's, where she ticked it, or a
@@ -215,8 +215,8 @@ export const photosOf = (v) => (typeof v === 'string' && PHOTO_LINK.test(v) ? { 
 // `page: true`: the link is the pup's page on her website, not just photos.
 const pageOf = (d) => (d?.page === true && photosOf(d.photos_url).photos_url ? { page: true } : {});
 const pupsOf = (pups) => pups.map((d) => {
-  const { photos_url: url, page, ...rest } = d || {};
-  return { ...rest, ...photosOf(url), ...pageOf(d) };
+  const { photos_url: url, page, registry, ...rest } = d || {};
+  return { ...rest, ...(typeof registry === 'string' && registry ? { registry: registry.slice(0, 30) } : {}), ...photosOf(url), ...pageOf(d) };
 });
 
 // …and, where her device published them (her Waitlist setting or that dog's own
@@ -312,6 +312,7 @@ function cardPups(pups) {
     call_name: typeof d.call_name === 'string' ? d.call_name.slice(0, 80) : '',
     sex: SEXES.includes(d.sex) ? d.sex : null,
     registration: REGISTRATIONS.includes(d.registration) ? d.registration : null,
+    registry: typeof d.registry === 'string' && d.registry ? d.registry.slice(0, 30) : null,
     ...photosOf(d.photos_url), ...pageOf(d),
   })).sort((a, b) => a.call_name.localeCompare(b.call_name));
 }

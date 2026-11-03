@@ -169,7 +169,7 @@ test('a litter shows its available pups as a family may see them, and every elig
   assert.deepEqual(l.dam, { name: 'Juniper', titles: [] });
   assert.equal(l.picks_open, true);
   assert.equal(l.open_offer_entry_id, 'e1');
-  assert.deepEqual(l.pups, [{ id: 'p1', call_name: 'p1', sex: 'male', color: 'black', registration: null }, { id: 'p2', call_name: 'p2', sex: 'female', color: 'black', registration: null }],
+  assert.deepEqual(l.pups, [{ id: 'p1', call_name: 'p1', sex: 'male', color: 'black', registration: null, registry: null }, { id: 'p2', call_name: 'p2', sex: 'female', color: 'black', registration: null, registry: null }],
     'a pup she is keeping is not shown');
   assert.equal(p.turn_queue.length, 60, 'every eligible family still to have a turn (e1 holds it, e2 passed, e3 is paused), not just the next few (Q13)');
   f.entries.find((e) => e.id === 'm0').pref_sex = 'female';
@@ -410,7 +410,7 @@ test('a family who picked sees the deposit to send: on their sale, else her list
   assert.equal(buildProjection(f).entries.e1.offers[0].deposit_amount, 600, 'no sale yet: her listed deposit for a female');
   f.sales = [{ id: 's9', dog_id: 'p2', buyer_contact_id: 'c-e1', status: 'deposit_pending', deposit_amount: 750, kennel_id: K }];
   assert.equal(buildProjection(f).entries.e1.offers[0].deposit_amount, 750, 'the deposit on their sale');
-  assert.deepEqual(buildProjection(f).entries.e1.offers[0].picked_pup, { id: 'p2', call_name: 'p2', sex: 'female', color: 'black', registration: null }, 'their pick, as a family may see a pup');
+  assert.deepEqual(buildProjection(f).entries.e1.offers[0].picked_pup, { id: 'p2', call_name: 'p2', sex: 'female', color: 'black', registration: null, registry: null }, 'their pick, as a family may see a pup');
 });
 
 test('her open days: every deadline counts only the days she does business; the server is told them', async () => {

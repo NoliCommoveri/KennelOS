@@ -109,14 +109,14 @@ test('photos links: on a parent, a litter card and a planned heat, escaped, open
   assert.equal(availableItemHtml({ label: 'X', pups_available: 0 }).includes('photos'), false);
 });
 
-test('Available Puppies: Males left, Females right, the label once above each, a name its link, then its registration when set', () => {
+test('Available Puppies: Males left, Females right, the label once above each, a name its link, then its registration and registry when set', () => {
   const html = pupColumnsHtml({ pups: [
     { call_name: 'Pip', sex: 'male', photos_url: 'https://photos.example/pip' },
-    { call_name: 'Poppy', sex: 'female', registration: 'full' }, { call_name: '<b>Rue</b>', sex: 'female' }
+    { call_name: 'Poppy', sex: 'female', registration: 'full', registry: 'AKC' }, { call_name: '<b>Rue</b>', sex: 'female', registry: 'CKC' }
   ] });
   assert.match(html, /<div class="pup-col-head">Males<\/div><ul class="plain"><li><a class="photos-link" href="https:\/\/photos\.example\/pip"[^>]*>Pip<\/a><\/li><\/ul><\/div><div class="pup-col"><div class="pup-col-head">Females<\/div>/);
   // Each with its registration when set; an undecided one (none set) shows none here.
-  assert.match(html, /<li>Poppy <span class="muted">· Full<\/span><\/li><li>&lt;b&gt;Rue&lt;\/b&gt;<\/li>/);
+  assert.match(html, /<li>Poppy <span class="muted">· Full · AKC<\/span><\/li><li>&lt;b&gt;Rue&lt;\/b&gt; <span class="muted">· CKC<\/span><\/li>/);
   assert.equal(html.includes('Puppies</div>'), false, 'no third column without a pup of no sex');
   assert.match(pupColumnsHtml({ pups: [{ call_name: 'Bo', sex: 'female' }] }), /Males<\/div><div class="muted">None left/);
   assert.equal(pupColumnsHtml({ pups: [] }), '<div class="small muted">No puppies remaining</div>');

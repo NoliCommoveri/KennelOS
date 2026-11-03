@@ -450,3 +450,16 @@ test('after an update, this device knows what it sent, and says what the next wo
   assert.deepEqual((await link.pendingWebsiteChanges(await kennelRepo.getById(k.id))).lines, ['Coach: Available → Spoken for']);
 });
 
+
+test('registry: on dogs and puppies only for a Worker that takes it (its `registry` section)', () => {
+  const dogs = [dog('willow', { registry: ' AKC ' }), dog('max', { sex: 'male' }),
+    { id: 'fern', call_name: 'Fern', sex: 'female', status: 'puppy', litter_id: 'l1', kennel_id: 'k1', registry: 'CKC', disposition: 'available' }];
+  const litters = [{ id: 'l1', kennel_id: 'k1', status: 'whelped', dam_id: 'willow', nickname: 'Spring', show_on_website: true, whelp_date: '2026-10-01' }];
+  const old = build({ dogs, litters });
+  assert.equal('registry' in old.dogs[0], false, 'an older Worker: never sent');
+  assert.equal('registry' in old.litters[0].puppies[0], false);
+  const now = build({ dogs, litters, sections: ['registry'] });
+  assert.equal(now.dogs.find((d) => d.id === 'willow').registry, 'AKC');
+  assert.equal(now.dogs.find((d) => d.id === 'max').registry, null);
+  assert.equal(now.litters[0].puppies[0].registry, 'CKC');
+});
