@@ -53,7 +53,7 @@ const projection = () => ({
   litters: {
     l1: {
       label: 'Juniper × Ash', status: 'whelped', whelp_date: '2026-09-01', ready_date: '2026-10-27', picks_open: true,
-      pups: [{ id: 'p1', call_name: 'Pip', sex: 'male', color: 'black' }, { id: 'p2', call_name: 'Poppy', sex: 'female', color: 'black' }],
+      pups: [{ id: 'p1', call_name: 'Pip', sex: 'male', color: 'black', registration: 'full', registry: 'AKC' }, { id: 'p2', call_name: 'Poppy', sex: 'female', color: 'black' }],
       open_offer_entry_id: 'ann',
       queue: [{ entry_id: 'ann', dog_ids: ['p2'] }, { entry_id: 'bo', dog_ids: ['p1', 'p2'] }],
     },
@@ -101,7 +101,7 @@ test('the public list shows only her published rows, the family holding a turn a
     // Litters with open picks: counts by sex, and the pups by name (2026-11-02).
     available: [{ id: 'l1', label: 'Juniper × Ash', status: 'whelped', whelp_date: '2026-09-01', ready_date: '2026-10-27',
       picks_open: true, pups_available: 2, pups_female: 1, pups_male: 1,
-      pups: [{ call_name: 'Pip', sex: 'male' }, { call_name: 'Poppy', sex: 'female' }], nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] } }],
+      pups: [{ call_name: 'Pip', sex: 'male', registration: 'full', registry: 'AKC' }, { call_name: 'Poppy', sex: 'female', registration: null, registry: null }], nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] } }],
     upcoming: []
   });
   assert.equal((await get(env, '/f/list/kos1_99999999-2222-4333-8444-555555555555')).status, 404);
@@ -124,7 +124,7 @@ test("a family's status page shows their own place and offers, never anyone else
     pups: [{ id: 'p2', call_name: 'Poppy', sex: 'female', color: 'black' }] }]);
   assert.deepEqual(v.litters, [{ id: 'l1', label: 'Juniper × Ash', status: 'whelped', whelp_date: '2026-09-01', ready_date: '2026-10-27',
     picks_open: true, pairing_id: null, pups_available: 2, pups_female: 1, pups_male: 1,
-    pups: [{ call_name: 'Pip', sex: 'male' }, { call_name: 'Poppy', sex: 'female' }], nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] }, match: true }]);
+    pups: [{ call_name: 'Pip', sex: 'male', registration: 'full', registry: 'AKC' }, { call_name: 'Poppy', sex: 'female', registration: null, registry: null }], nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] }, match: true }]);
   const text = JSON.stringify(v);
   for (const other of ['Bo Kim', 'bo@example.com', '"bo"', 'Cy Day', 'Dee Fox', 'Venmo', tok('b'), 'queue', 'open_offer_entry_id']) {
     assert.equal(text.includes(other), false, other);
@@ -158,7 +158,7 @@ test('statusView and listView are allow-lists over the projection', () => {
   p.kennel.private = 'y';
   assert.equal(JSON.stringify(statusView(p, 'ann')).includes('"x"'), false, 'an unknown field is never passed through');
   assert.deepEqual(Object.keys(listView(p)).sort(), ['as_of', 'available', 'kennel', 'rows', 'upcoming']);
-  assert.deepEqual(listView(p).available[0].pups, [{ call_name: 'Pip', sex: 'male' }, { call_name: 'Poppy', sex: 'female' }],
+  assert.deepEqual(listView(p).available[0].pups, [{ call_name: 'Pip', sex: 'male', registration: 'full', registry: 'AKC' }, { call_name: 'Poppy', sex: 'female', registration: null, registry: null }],
     'Available Puppies names the pups (2026-11-02): name and sex only, never an id or color');
   assert.equal(JSON.stringify(listView(p)).includes('Ann L.'), false, 'the family holding a turn is masked');
   // Their turn closed (by the server, say): their name is back at once.
@@ -627,4 +627,35 @@ test("a parent's registered name and pedigree pass through as short strings only
   assert.deepEqual(card.dam, { name: 'Juniper', titles: [], registered_name: "Thornfield's Juniper", pedigree: { sire: 'GCH Oak', dam: null } });
   assert.deepEqual(card.sire, { name: 'Ash', titles: [] });
   assert.equal(statusView(p, 'ann').offers[0].dam.registered_name, "Thornfield's Juniper");
+});
+
+test("a pup's website page passes as `page: true`, only with a link it can use", () => {
+  const p = projection();
+  p.litters.l1.pups = [
+    { id: 'p1', call_name: 'Pip', sex: 'male', photos_url: 'https://akbostons.kennelport.com/litters/gem/pip', page: true },
+    { id: 'p2', call_name: 'Poppy', sex: 'female', page: true }, // no link: no page
+    { id: 'p3', call_name: 'Rue', sex: 'female', photos_url: 'https://photos.example/rue', page: 'yes' },
+  ];
+  p.entries.ann.offers[0].eligible_dog_ids = ['p1', 'p2', 'p3'];
+  p.litters.l1.queue[0].dog_ids = ['p1', 'p2', 'p3'];
+  const card = listView(p).available[0].pups;
+  assert.deepEqual(card.map((d) => d.page ?? false), [true, false, false]);
+  const offer = statusView(p, 'ann').offers[0].pups;
+  assert.deepEqual(offer.map((d) => [d.call_name, d.page ?? false]), [['Pip', true], ['Poppy', false], ['Rue', false]]);
+});
+
+test("a litter's website page reaches its turn as `page: true`, only with a link it can use", () => {
+  const p = projection();
+  p.litters.l1.photos_url = 'https://akbostons.kennelport.com/litters/gem';
+  p.litters.l1.page = true;
+  const offer = statusView(p, 'ann').offers[0];
+  assert.deepEqual([offer.photos_url, offer.page], ['https://akbostons.kennelport.com/litters/gem', true]);
+  // A photos link she set is passed without the flag.
+  p.litters.l1.page = false;
+  assert.equal('page' in statusView(p, 'ann').offers[0], false);
+  // Claimed `page` with no usable link: dropped, so the turn can't render a dead link.
+  p.litters.l1.photos_url = 'javascript:alert(1)';
+  p.litters.l1.page = true;
+  const bad = statusView(p, 'ann').offers[0];
+  assert.deepEqual(['photos_url' in bad, 'page' in bad], [false, false]);
 });

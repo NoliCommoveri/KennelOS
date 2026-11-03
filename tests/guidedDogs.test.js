@@ -184,6 +184,7 @@ test('the save: owners, typed parents and batch parents, each made once; a secon
   g.fillFromCommon(d);
   const [mari, thistle, bramble] = d.dogs;
   mari.registered_name = 'Sunny Marigold of Elm';
+  mari.registry = ' AKC ';
   mari.date_of_birth = '2021-05-02';
   // Littermates with the same typed mom: one pedigree-only dam for both.
   mari.dam = { pick: 'new', name: 'Ch Olde Bess of Elm', regNum: '', callName: 'Bess' };
@@ -193,6 +194,8 @@ test('the save: owners, typed parents and batch parents, each made once; a secon
   thistle.ownership_type = 'external'; thistle.ownerName = 'Pat Smith';
   bramble.ownership_type = 'external'; bramble.ownerName = 'Pat  Smith';
   for (const step of g.stepsFor(d)) assert.equal(g.stepProblem(step, d, { dogs: onFile }), null, step);
+  // "Does this dog belong to any registry?": on the review, then on the dog.
+  assert.ok(g.reviewSections(d)[0].lines.includes('Registered with AKC: Sunny Marigold of Elm.'));
 
   const res = await g.saveGuidedDogs(d);
   assert.equal(res.capError, null);
@@ -208,6 +211,8 @@ test('the save: owners, typed parents and batch parents, each made once; a secon
   const m = await dogRepo.getById(mari.id);
   assert.equal(m.dam_id, bess[0].id);
   assert.equal(m.registered_name, 'Sunny Marigold of Elm');
+  assert.equal(m.registry, 'AKC');
+  assert.equal((await dogRepo.getById(bramble.id)).registry ?? null, null, 'left empty: none');
   assert.equal(m.ownership_type, 'owned');
   assert.ok(m.kennel_id, 'a dog of hers is in her kennel');
   const t = await dogRepo.getById(thistle.id);

@@ -2552,3 +2552,29 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **SW cache bumped to `kennelos-shell-v99` (2026-11-03)** for accounts and the website
   with Kels (Update my website's Recommended products group; Set up my accounts' referral
   fields and website question). No files added or renamed.
+- **Unmarked health tests show on the website (2026-11-03).** `siteExport` sends a test's
+  `normal` as null when its Normal or abnormal is not marked (was false), so KennelPort's
+  Normal results only keeps off only results marked Abnormal. The Health tests form's hint
+  says so. Test updated.
+- **Registration wherever family pages show a pup (2026-11-03).** Available Puppies
+  (public list, status pages, the embed) shows each pup's registration after its name
+  (`cardPups` now passes `registration`); a turn's pup labels end with it, prices or not,
+  and after the pick; with prices, pups are always in registration sections, even all
+  Limited. A pup with none set reads, and groups, as Limited. Tests updated.
+- **Undecided registration, and pups link to their website pages (2026-11-03).** A pup
+  with no registration set (she'd sell it either way) shows none where no prices show;
+  where they do, it's under Limited reading "Limited ($3,700 for full)" (their pick: "Price:
+  $3,000 ($3,700 for full)"), `litterPrices` adding Full's prices for it. A pup whose `url`
+  is a page on her KennelPort site links there without the photos_online tick
+  (`page: true`; "On our website: Opal's page"). `isWebsiteAddress` moved to the new pure
+  `data/websiteAddress.js` (in PRECACHE_URLS) so the projection can use it. Tests added.
+- **A turn links the litter, not each pup (2026-11-03).** On a turn a pup's name is a pick
+  button, which can't hold a link, so the per-pup "On our website: Opal's page" line under
+  the buttons is gone: a pup's page sits under its litter's (`/litters/<litter>/<pup>`), so
+  the litter's own line above the buttons is the link to give and now reads "View litter on
+  our website" where it is that page. A litter's `photos_url` carries `page: true` the way a
+  pup's does (`waitlistProjection.litterLink`, through the Worker's `pageOf`). Pup pages
+  still stand in under the buttons where that litter has no page of its own, so a turn is
+  never left without a link; a pup whose link is only photos keeps its own "Photos: Rue".
+  The two decisions moved out of `status.js` into `common.litterLinkHtml` /
+  `common.pupLinksHtml`, where they're tested. Tests added.

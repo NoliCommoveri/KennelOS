@@ -7,7 +7,8 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import {
   SEX_LABEL, READY_LABEL, PURPOSE_LABEL, purposesText, CREDIT_LABEL, rowMatches, fmtDate, possessive, publicListHtml, esc,
-  parentsLine, upcomingItemHtml, availableItemHtml, photosLink, pupColumnsHtml, dogInfo, dogInfoHtml, infoBubble
+  parentsLine, upcomingItemHtml, availableItemHtml, photosLink, pupColumnsHtml, dogInfo, dogInfoHtml, infoBubble,
+  litterLinkHtml, pupLinksHtml
 } from '../cloud/public/family/common.js';
 import { WAITLIST_PREF_SEX, WAITLIST_READY_TIMING, PLACEMENT_PURPOSE, FEE_CREDIT_POLICY } from '../shared/data/vocab.js';
 import { ACTION_VOCAB } from '../cloud/src/familyActions.js';
@@ -60,6 +61,32 @@ test('dates, possessives and escaping', () => {
   assert.match(html, /class="mine"/);
 });
 
+test("a turn's litter link: her website page says so, a photos link stays photos", () => {
+  assert.match(litterLinkHtml({ photos_url: 'https://akbostons.kennelport.com/litters/gem', page: true }),
+    /<a class="photos-link" href="https:\/\/akbostons\.kennelport\.com\/litters\/gem"[^>]*>View litter on our website<\/a>/);
+  assert.match(litterLinkHtml({ photos_url: 'https://photos.example/gem' }), />See the litter&#39;s photos<\/a>/);
+  assert.equal(litterLinkHtml({ page: true }), '', 'no link, no line');
+  assert.equal(litterLinkHtml(null), '');
+});
+
+test("a turn's pup links: the litter's page stands for every pup's, so pup pages aren't listed under the buttons", () => {
+  const pups = [
+    { call_name: 'Opal', photos_url: 'https://akbostons.kennelport.com/litters/gem/opal', page: true },
+    { call_name: 'Pip', photos_url: 'https://akbostons.kennelport.com/litters/gem/pip', page: true }
+  ];
+  // The litter has its own page: that one link covers them, so no "Opal's page · Pip's page".
+  assert.equal(pupLinksHtml({ photos_url: 'https://akbostons.kennelport.com/litters/gem', page: true }, pups), '');
+  // No litter page: the pups' own pages stand in for it, so a turn is never linkless.
+  const stand = pupLinksHtml({ photos_url: 'https://photos.example/gem' }, pups);
+  assert.match(stand, /On our website: <a[^>]*>Opal&#39;s page<\/a> · <a[^>]*>Pip&#39;s page<\/a>/);
+  assert.equal(/Photos:/.test(stand), false);
+  // A pup whose link is only photos is its own, litter page or not.
+  const mixed = pupLinksHtml({ photos_url: 'https://akbostons.kennelport.com/litters/gem', page: true },
+    [...pups, { call_name: 'Rue', photos_url: 'https://photos.example/rue' }]);
+  assert.match(mixed, /^<p class="small mt0">Photos: <a[^>]*>Rue<\/a><\/p>$/);
+  assert.equal(pupLinksHtml({ page: true }, []), '');
+});
+
 test('the pages carry no inline script or style (the CSP forbids them) and load nothing from elsewhere', () => {
   const dir = new URL('../cloud/public/family/', import.meta.url);
   for (const f of readdirSync(dir)) {
@@ -109,13 +136,14 @@ test('photos links: on a parent, a litter card and a planned heat, escaped, open
   assert.equal(availableItemHtml({ label: 'X', pups_available: 0 }).includes('photos'), false);
 });
 
-test('Available Puppies: Males left, Females right, the label once above each, a name its photos link', () => {
+test('Available Puppies: Males left, Females right, the label once above each, a name its link, then its registration and registry when set', () => {
   const html = pupColumnsHtml({ pups: [
     { call_name: 'Pip', sex: 'male', photos_url: 'https://photos.example/pip' },
-    { call_name: 'Poppy', sex: 'female' }, { call_name: '<b>Rue</b>', sex: 'female' }
+    { call_name: 'Poppy', sex: 'female', registration: 'full', registry: 'AKC' }, { call_name: '<b>Rue</b>', sex: 'female', registry: 'CKC' }
   ] });
   assert.match(html, /<div class="pup-col-head">Males<\/div><ul class="plain"><li><a class="photos-link" href="https:\/\/photos\.example\/pip"[^>]*>Pip<\/a><\/li><\/ul><\/div><div class="pup-col"><div class="pup-col-head">Females<\/div>/);
-  assert.match(html, /<li>Poppy<\/li><li>&lt;b&gt;Rue&lt;\/b&gt;<\/li>/);
+  // Each with its registration when set; an undecided one (none set) shows none here.
+  assert.match(html, /<li>Poppy <span class="muted">· Full · AKC<\/span><\/li><li>&lt;b&gt;Rue&lt;\/b&gt; <span class="muted">· CKC<\/span><\/li>/);
   assert.equal(html.includes('Puppies</div>'), false, 'no third column without a pup of no sex');
   assert.match(pupColumnsHtml({ pups: [{ call_name: 'Bo', sex: 'female' }] }), /Males<\/div><div class="muted">None left/);
   assert.equal(pupColumnsHtml({ pups: [] }), '<div class="small muted">No puppies remaining</div>');

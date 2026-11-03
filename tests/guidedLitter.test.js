@@ -90,7 +90,7 @@ test('litters with no pups and open breedings of the same parents are the candid
 test('one screen per puppy, then the sale-ready steps, then the review', () => {
   const d = birthDraft();
   const steps = g.stepsFor(d);
-  assert.deepEqual(steps.slice(steps.indexOf('count')), ['count', 'delivery', 'pup:0', 'pup:1', 'pup:2', 'plans', 'prices', 'dates', 'extras', 'review']);
+  assert.deepEqual(steps.slice(steps.indexOf('count')), ['count', 'delivery', 'pup:0', 'pup:1', 'pup:2', 'plans', 'registry', 'prices', 'dates', 'extras', 'review']);
 });
 
 test('how they were delivered: asked after the count, unless the litter already says; "later" saves nothing', async () => {
@@ -280,4 +280,21 @@ test('a new mom who is only on a pedigree is brought into use, not made twice', 
   assert.equal(nell.registered_name, 'Ch Ancestral Nell of Elm', 'the pedigree\'s name stays');
   assert.equal(nell.call_name, 'Nellie', 'her call name fills the blank');
   assert.equal(tables.dogs.rows.size, before + 3, 'only the three pups are new');
+});
+
+test('the litter\'s registry: asked once, on every pup but one planned Unregistered; none asked, none set', async () => {
+  const d = birthDraft();
+  d.registry = ' AKC ';
+  d.pups[2].intended_registration = 'none';
+  const review = g.reviewSections(d, { dam, sire }).find((s) => s.title === 'Registry');
+  assert.deepEqual(review.lines, ['AKC for every puppy but the 1 marked Unregistered.']);
+  const { litterId } = await g.saveGuidedLitter(d);
+  const pups = await dogRepo.getByLitter(litterId);
+  assert.deepEqual(pups.map((p) => [p.intended_registration || '', p.registry || '']).sort(), [['', 'AKC'], ['limited', 'AKC'], ['none', '']]);
+
+  const e = birthDraft();
+  e.registry = '';
+  const again = await g.saveGuidedLitter(e);
+  assert.ok((await dogRepo.getByLitter(again.litterId)).every((p) => !p.registry), 'left empty: no registry');
+  assert.equal(g.reviewSections(e, { dam, sire }).some((s) => s.title === 'Registry'), false);
 });

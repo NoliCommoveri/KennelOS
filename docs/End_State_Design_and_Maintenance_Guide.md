@@ -1897,9 +1897,16 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   `saleDefaults.expectedPricing` for a male and a female, the total, Full including her
   surcharge, never split out; and her expected deposit for a male and a female; never a
   sale's amount; the Worker's `pricesOf` passes them to the turn only). The turn card shows
-  per litter "Males $2,800 · Females $3,000" and "Deposit: Males $500 · Females $600"; when
-  any pup is planned for Full registration, its pups in sections by registration, each with
-  its own prices and the deposit once above them; under "Listed prices are intended base
+  per litter the deposit once ("Deposit: Males $500 · Females $600"), then its pups in
+  sections by registration (always, even when all are Limited), each "Limited
+  registration" / "Full registration" heading with its own "Males $2,800 · Females
+  $3,000"; their pick alone shows its own price. Each pup's label ends with its
+  registration ("Opal · Female · Black & white · Limited"), prices or not, before, during
+  and after the pick. An undecided pup (no `intended_registration`: she'd sell it either
+  way, and it matches every family) is under Limited, its label "Limited ($3,700 for
+  full)" (`litterPrices` adds Full's prices for it), their pick alone "Limited" with
+  "Price: $3,000 ($3,700 for full)"; where no prices show, its label names no
+  registration; under "Listed prices are intended base
   purchase price and may not include additional fees; all prices are subject to change
   prior to contract signing." Published pups carry `registration` (`intended_registration`).
   **Parents' health tests:** every parent family pages show (Coming up, a planned heat's
@@ -1936,14 +1943,28 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   each through `familyPages.photosOf` (parents, litter cards, Coming up, a turn's litter and
   pups). The pages show links, never images (their CSP allows only their own images):
   "Dam: Juniper (Photos)", "See the litter's photos", a heat's "Photos of Juniper", and under
-  a turn's pups "Photos: Pip · Poppy" (`common.photosLink`). Parents and litters on the
+  a turn's pups "Photos: Pip · Poppy" (`common.photosLink`). A pup whose `url` is a page on
+  her KennelPort website (`websiteAddress.isWebsiteAddress`: any kennelport.com address, or
+  her kennel's `website` origin) links there whatever `photos_online` says (the page is
+  public), marked `page: true` (`waitlistProjection.pupLink`; the Worker's `pageOf` passes
+  it only with a usable link). A litter's `photos_url` that is such a page is marked the
+  same way (`waitlistProjection.litterLink`), and on a turn its line reads "View litter on
+  our website" instead of "See the litter's photos" (`common.litterLinkHtml`).
+  On a turn a pup's name is a pick button, and a button can't hold a link, so the links sit
+  under the buttons (`common.pupLinksHtml`): "Photos: Pip · Poppy" for pups whose link is
+  just photos. Their pages on her website are **not** listed pup by pup there — each pup's
+  page sits under the litter's (`/litters/<litter>/<pup>`), so the litter's own "View litter
+  on our website" above the buttons is the link given (decided 2026-11-03); pup pages read
+  "On our website: Pip's page" only where that litter has no page of its own, so a turn is
+  never left without a link. Parents and litters on the
   public list are public.
   **Available Puppies** (public list and status pages) lists each litter's available pups
-  by name: the Worker's `litterCard` adds `pups` (`cardPups`: call name, sex, photos link;
-  by name; never an id or color) beside the counts, and `common.pupColumnsHtml` shows Males
-  in a left column and Females in a right one (a third, Puppies, for a pup of no sex), the
-  label once above each, "None left" under an empty one, each name its photos link when it
-  has one. So available pups' call names are public wherever the list shows that litter.
+  by name: the Worker's `litterCard` adds `pups` (`cardPups`: call name, sex, registration,
+  photos link; by name; never an id or color) beside the counts, and `common.pupColumnsHtml`
+  shows Males in a left column and Females in a right one (a third, Puppies, for a pup of no
+  sex), the label once above each, "None left" under an empty one, each name its photos link
+  when it has one, then "· Limited" / "· Full" when set (`common.pupRegistration`; an
+  undecided pup shows none, as no prices show there). So available pups' call names are public wherever the list shows that litter.
   The public list's Available Puppies and Coming up cards are centered, like the status
   page (`main.centered`), by `#available, #upcoming` in `family.css`.
   Each open offer carries `deposit_instructions` (her `payment_instructions`) and, once
@@ -3473,7 +3494,8 @@ KennelPort Site Manager.
   with `assertOnlyKeys` on every object (the allow-lists are its `*_KEYS`). What goes: her
   own kennel's marked dogs (statuses puppy, active breeding, for sale, retired, deceased;
   titles from `title_earned` events, health results from `completedTestsByDog` with the test
-  name as id); live litters (expected to ready) with her dates (`whelp_date`,
+  name as id, `normal` true for an outcome marked Normal, false for Abnormal, null when
+  not marked, which KennelPort counts as normal); live litters (expected to ready) with her dates (`whelp_date`,
   `estimated_ready_date`, `accept_deposits_date`; an expected litter's date from its
   pairing) and their puppies; marked pairings still on their way with no litter yet;
   planned heats (`websiteHeats`: the dam's `heats_online`, from 60 days ago on, one per

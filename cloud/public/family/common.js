@@ -5,6 +5,11 @@
 // of the app and can't import it); tests/familyPages.test.js in the repo root
 // fails if they drift.
 export const SEX_LABEL = { any: 'Either', male: 'Male', female: 'Female' };
+// A pup's planned registration, shown wherever a pup is. An undecided one (none
+// set: she'd sell it either way) shows nothing here; only where prices show does
+// it read "Limited ($3,700 for full)" (status.js).
+export const REG_SHORT = { limited: 'Limited', full: 'Full', co_own: 'Co-own', none: 'Unregistered' };
+export const pupRegistration = (d) => REG_SHORT[d?.registration] || '';
 export const READY_LABEL = { asap: 'ASAP', '1_month': '1 month', '3_months': '3 months', '6_plus_months': '6+ months' };
 export const PURPOSE_LABEL = {
   pet: 'Pet / companion', performance: 'Performance sports (agility, obedience…)', show: 'Show', breeding: 'Breeding', co_own: 'Co-own',
@@ -285,18 +290,41 @@ export function pupsRemaining(l) {
 }
 
 // The available pups in two columns, Males on the left and Females on the right,
-// the label once above each; a pup's name is its photos link when it has one. A
+// the label once above each; a pup's name is its link (its page on her website, or
+// its photos) when it has one, with its registration and registry after it when set. A
 // pup of no recorded sex gets a third column. Falls back to the counts
 // (pupsRemaining) for a card published without names.
 export function pupColumnsHtml(l) {
   const pups = Array.isArray(l.pups) ? l.pups : null;
   if (!pups) return `<div class="small">${esc(pupsRemaining(l))}</div>`;
   if (!pups.length) return '<div class="small muted">No puppies remaining</div>';
-  const name = (d) => (d.photos_url ? photosLink(d.photos_url, d.call_name || 'Puppy') : esc(d.call_name || 'Puppy'));
+  const name = (d) => {
+    const bits = [pupRegistration(d), d.registry].filter(Boolean);
+    return `${d.photos_url ? photosLink(d.photos_url, d.call_name || 'Puppy') : esc(d.call_name || 'Puppy')}${bits.length ? ` <span class="muted">· ${esc(bits.join(' · '))}</span>` : ''}`;
+  };
   const col = (label, list) => `<div class="pup-col"><div class="pup-col-head">${esc(label)}</div>${list.length
     ? `<ul class="plain">${list.map((d) => `<li>${name(d)}</li>`).join('')}</ul>` : '<div class="muted">None left</div>'}</div>`;
   const other = pups.filter((d) => d.sex !== 'male' && d.sex !== 'female');
   return `<div class="pup-cols small">${col('Males', pups.filter((d) => d.sex === 'male'))}${col('Females', pups.filter((d) => d.sex === 'female'))}${other.length ? col('Puppies', other) : ''}</div>`;
+}
+
+// A turn's litter link: its page on her KennelPort website (`page`, from
+// waitlistProjection.litterLink), else the photos she set. On a turn the pups' names
+// are pick buttons, and a button can't hold a link, so this line is how a family on
+// its turn follows the litter: every pup's page sits under the litter's page.
+export function litterLinkHtml(l) {
+  if (!l?.photos_url) return '';
+  return `<p class="small mt0">${photosLink(l.photos_url, l.page ? 'View litter on our website' : 'See the litter\'s photos')}</p>`;
+}
+
+// The pups' own links under a turn's pick buttons. Their pages on her website are
+// NOT listed pup by pup: the litter's link above the buttons covers them (decided
+// 2026-11-03), so they stand in for it only where that litter has no page of its
+// own. A pup whose link is just photos ("Photos: Pip · Poppy") always gets its own.
+export function pupLinksHtml(l, pups = []) {
+  const pages = l?.page ? [] : pups.filter((d) => d.photos_url && d.page).map((d) => photosLink(d.photos_url, `${d.call_name || 'Puppy'}'s page`));
+  const photos = pups.filter((d) => d.photos_url && !d.page).map((d) => photosLink(d.photos_url, d.call_name || 'Photos'));
+  return `${pages.length ? `<p class="small mt0">On our website: ${pages.join(' · ')}</p>` : ''}${photos.length ? `<p class="small mt0">Photos: ${photos.join(' · ')}</p>` : ''}`;
 }
 
 // One litter with open picks (Available Puppies), the same on the public list and a

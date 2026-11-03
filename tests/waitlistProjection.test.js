@@ -169,7 +169,7 @@ test('a litter shows its available pups as a family may see them, and every elig
   assert.deepEqual(l.dam, { name: 'Juniper', titles: [] });
   assert.equal(l.picks_open, true);
   assert.equal(l.open_offer_entry_id, 'e1');
-  assert.deepEqual(l.pups, [{ id: 'p1', call_name: 'p1', sex: 'male', color: 'black', registration: null }, { id: 'p2', call_name: 'p2', sex: 'female', color: 'black', registration: null }],
+  assert.deepEqual(l.pups, [{ id: 'p1', call_name: 'p1', sex: 'male', color: 'black', registration: null, registry: null }, { id: 'p2', call_name: 'p2', sex: 'female', color: 'black', registration: null, registry: null }],
     'a pup she is keeping is not shown');
   assert.equal(p.turn_queue.length, 60, 'every eligible family still to have a turn (e1 holds it, e2 passed, e3 is paused), not just the next few (Q13)');
   f.entries.find((e) => e.id === 'm0').pref_sex = 'female';
@@ -410,7 +410,7 @@ test('a family who picked sees the deposit to send: on their sale, else her list
   assert.equal(buildProjection(f).entries.e1.offers[0].deposit_amount, 600, 'no sale yet: her listed deposit for a female');
   f.sales = [{ id: 's9', dog_id: 'p2', buyer_contact_id: 'c-e1', status: 'deposit_pending', deposit_amount: 750, kennel_id: K }];
   assert.equal(buildProjection(f).entries.e1.offers[0].deposit_amount, 750, 'the deposit on their sale');
-  assert.deepEqual(buildProjection(f).entries.e1.offers[0].picked_pup, { id: 'p2', call_name: 'p2', sex: 'female', color: 'black', registration: null }, 'their pick, as a family may see a pup');
+  assert.deepEqual(buildProjection(f).entries.e1.offers[0].picked_pup, { id: 'p2', call_name: 'p2', sex: 'female', color: 'black', registration: null, registry: null }, 'their pick, as a family may see a pup');
 });
 
 test('her open days: every deadline counts only the days she does business; the server is told them', async () => {
@@ -507,6 +507,55 @@ test("photos links: a dog's only when she ticked it, a litter's when she set one
   assert.equal('photos_url' in l.pups.find((d) => d.id === 'p2'), false);
   assert.equal(JSON.stringify(p).includes('photos.example/ash'), false);
   assert.equal('photos_url' in buildProjection(fixture()).litters['lit-1'], false, 'no key without a link');
+});
+
+test('an undecided pup (no registration set) brings the Full prices, for its "($3,700 for full)"; all Limited, only Limited', () => {
+  const f = fixture();
+  Object.assign(f.litters.find((l) => l.id === 'lit-1'), { expected_price_male: 2800, expected_price_female: 3000, full_reg_surcharge_male: 1000, full_reg_surcharge_female: 1500 });
+  for (const d of f.dogs) if (d.litter_id === 'lit-1') d.intended_registration = null;
+  const undecided = buildProjection(f).litters['lit-1'];
+  assert.deepEqual(undecided.prices.by_registration, { full: { male: 3800, female: 4500 }, limited: { male: 2800, female: 3000 } });
+  assert.ok(undecided.pups.every((d) => d.registration === null));
+  for (const d of f.dogs) if (d.litter_id === 'lit-1') d.intended_registration = 'limited';
+  assert.deepEqual(buildProjection(f).litters['lit-1'].prices.by_registration, { limited: { male: 2800, female: 3000 } });
+});
+
+test("a pup's page on her website is its link, tick or not; another link only with photos_online", () => {
+  const f = fixture();
+  f.kennel = { ...f.kennel, website: 'https://www.akbostons.com/' };
+  f.dogs = f.dogs.map((d) => ({
+    p1: { ...d, url: 'https://akbostons.kennelport.com/litters/gem/opal' }, // KennelPort page, not ticked
+    p2: { ...d, url: 'https://www.akbostons.com/litters/gem/onyx' } // her own domain
+  }[d.id] || d));
+  const l = buildProjection(f).litters['lit-1'];
+  assert.deepEqual([l.pups.find((d) => d.id === 'p1').photos_url, l.pups.find((d) => d.id === 'p1').page], ['https://akbostons.kennelport.com/litters/gem/opal', true]);
+  assert.equal(l.pups.find((d) => d.id === 'p2').page, true);
+  // Not her website: a photos link, only where she ticked it.
+  f.dogs = f.dogs.map((d) => (d.id === 'p1' ? { ...d, url: 'https://photos.example/p1', photos_online: false } : d.id === 'p2' ? { ...d, url: 'https://photos.example/p2', photos_online: true } : d));
+  const m = buildProjection(f).litters['lit-1'];
+  assert.equal('photos_url' in m.pups.find((d) => d.id === 'p1'), false);
+  assert.deepEqual([m.pups.find((d) => d.id === 'p2').photos_url, 'page' in m.pups.find((d) => d.id === 'p2')], ['https://photos.example/p2', false]);
+});
+
+test("a litter's page on her website is marked `page: true`; a photos link she set is not", () => {
+  const f = fixture();
+  f.kennel = { ...f.kennel, website: 'https://www.akbostons.com/' };
+  f.litters = [{ ...litter, photos_url: 'https://akbostons.kennelport.com/litters/gem' }];
+  assert.deepEqual(
+    [buildProjection(f).litters['lit-1'].photos_url, buildProjection(f).litters['lit-1'].page],
+    ['https://akbostons.kennelport.com/litters/gem', true]
+  );
+  // Her own domain counts as her website too.
+  f.litters = [{ ...litter, photos_url: 'https://www.akbostons.com/litters/gem' }];
+  assert.equal(buildProjection(f).litters['lit-1'].page, true);
+  // A photos album she set herself is a photos link, not a page.
+  f.litters = [{ ...litter, photos_url: 'https://photos.example/gem' }];
+  const album = buildProjection(f).litters['lit-1'];
+  assert.deepEqual([album.photos_url, 'page' in album], ['https://photos.example/gem', false]);
+  // No link at all: neither key.
+  f.litters = [{ ...litter }];
+  const none = buildProjection(f).litters['lit-1'];
+  assert.deepEqual(['photos_url' in none, 'page' in none], [false, false]);
 });
 
 test("a parent's registered name always goes with it; its own sire and dam only with her pedigree setting, where known", () => {
