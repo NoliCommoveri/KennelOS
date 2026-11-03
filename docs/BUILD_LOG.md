@@ -2495,3 +2495,11 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   expects about a dozen breeders). Production lists `https://www.akbostonterriers.com`. Each
   needs its bare domain in the Turnstile widget's hostnames too (KennelPort Setup, Custom
   domains, step C). Server only. Tests added (`cloud/tests/application.test.js`).
+- **Recommended products on her website from her Accounts (2026-11-03).** KennelPort's new
+  Recommended products page fills from Accounts she marks **Show on website**
+  (`Account.show_on_website`, cloud; the Accounts form beside Share with families, Pro with
+  a KennelPort address; a **Shown on website** badge). `siteExport.websiteProducts`: name,
+  referral link (else website), code, and the instructions when they fit KennelPort's
+  120-character note; never logins, notes, fees or payment details; transport accounts
+  never. Sent only when the site's answer lists `products` in `sections`. The Your website
+  card and Kels count them. `cloudFields.js` regenerated. Tests added. No new files.

@@ -220,7 +220,7 @@ export async function updateWebsite(kennel, { bundleId = crypto.randomUUID(), to
   const status = await linkStatus(link.token).catch(forget);
   const site = status.site || link.site;
   const r = await records(kennel);
-  const bundle = buildSiteBundle({ kennel, ...r, today, bundleId, sentAt: new Date().toISOString(), prices: site?.kennelos_prices === true });
+  const bundle = buildSiteBundle({ kennel, ...r, today, bundleId, sentAt: new Date().toISOString(), prices: site?.kennelos_prices === true, sections: site?.sections || [] });
   const answer = await sendBundle(link.token, bundle).catch(forget);
   const after = answer.site || site;
   await noteWebsiteAnswer(kennel.id, { site: after, summary: answer.summary || { text: 'Sent.' } });

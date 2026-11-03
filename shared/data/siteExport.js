@@ -33,7 +33,7 @@ export const SITE_BUNDLE_FORMAT = 1;
 
 // KennelPort's caps (bundle.js MAX). Over one, the website would refuse the whole
 // bundle, so siteExport says so first, in words.
-export const SITE_MAX = { dogs: 200, litters: 100, puppies: 30, pairings: 50, heats: 50, health: 60, extras: 100, steps: 20, titles: 20 };
+export const SITE_MAX = { dogs: 200, litters: 100, puppies: 30, pairings: 50, heats: 50, health: 60, extras: 100, products: 50, steps: 20, titles: 20 };
 
 // The website's own heat rules (KennelPort plan 5.3), not the public list's.
 export const HEAT_KEEP_DAYS = 60; // a heat no pairing uses stays this long after its date
@@ -59,7 +59,8 @@ export class SiteExportError extends Error {
 
 // --- the allow-lists ----------------------------------------------------------
 
-export const BUNDLE_KEYS = ['format', 'bundle_id', 'kennel_id', 'sent_at', 'waitlist_public_id', 'dogs', 'litters', 'pairings', 'heats', 'extras', 'steps', 'payment'];
+export const BUNDLE_KEYS = ['format', 'bundle_id', 'kennel_id', 'sent_at', 'waitlist_public_id', 'dogs', 'litters', 'pairings', 'heats', 'extras', 'products', 'steps', 'payment'];
+export const PRODUCT_KEYS = ['id', 'name', 'link_url', 'code', 'code_note'];
 export const DOG_KEYS = ['id', 'call_name', 'registered_name', 'sex', 'date_of_birth', 'color', 'status', 'died_on', 'titles', 'health'];
 export const HEALTH_KEYS = ['id', 'test', 'result', 'normal', 'date'];
 export const LITTER_KEYS = ['id', 'pairing_id', 'name', 'dam_id', 'sire_id', 'dam_name', 'sire_name', 'expected_on', 'born_on', 'ready_on', 'deposits_on', 'prices', 'puppies'];
@@ -321,25 +322,58 @@ function extraEntries(kennel, prices) {
   });
 }
 
+// --- recommended products ------------------------------------------------------
+
+const webLink = (v) => {
+  const s = String(v ?? '').trim();
+  return s.length <= 500 && /^https?:\/\/[^\s"'<>]+$/i.test(s) ? s : null;
+};
+
+// Her Accounts marked Show on website, as the website's Recommended products: the
+// name, the referral link (else the account's website), the code, and her
+// instructions when they fit the line after the code (120 characters; longer ones
+// aren't cut, she words them in KennelPort). Copied by name: never a login, a
+// customer id, notes, fees, contract forms or payment details. Transport accounts
+// never (they're shown to a family with a picked pup, not to the public). Accounts
+// are program-wide, so every linked kennel's website gets the same ones.
+export function websiteProducts(accounts = []) {
+  return accounts
+    .filter((a) => a && !a.is_archived && a.show_on_website === true && a.account_type !== 'transport' && line(a.name, 80))
+    .sort((x, y) => String(x.name).localeCompare(String(y.name), undefined, { sensitivity: 'base' }) || String(x.id).localeCompare(String(y.id)))
+    .map((a) => {
+      const note = line(a.referral_instructions, 1000);
+      return assertOnlyKeys({
+        id: String(a.id).slice(0, 80),
+        name: line(a.name, 80),
+        link_url: webLink(a.referral_link) || webLink(a.website),
+        code: line(a.referral_code, 40),
+        code_note: note && note.length <= 120 ? note : null
+      }, PRODUCT_KEYS, 'product');
+    });
+}
+
 // --- the bundle ---------------------------------------------------------------
 
 // What the website would be sent, before the caps check: the records she marked.
 // kennelportLink.js shows these counts on the Website card.
-export function websiteCounts(kennel, { dogs = [], litters = [], pairings = [], events = [], today }) {
+export function websiteCounts(kennel, { dogs = [], litters = [], pairings = [], events = [], accounts = [], today }) {
   const pairingsById = new Map(pairings.map((p) => [p.id, p]));
   return {
     dogs: websiteDogs(kennel, dogs).length,
     litters: websiteLitters(kennel, litters, pairingsById).length,
     pairings: websitePairings(kennel, pairings, litters).length,
-    heats: websiteHeats(kennel, { dogs, events, pairings, today }).length
+    heats: websiteHeats(kennel, { dogs, events, pairings, today }).length,
+    products: websiteProducts(accounts).length
   };
 }
 
 // The bundle for ONE own kennel. `dogs`: every dog (filtered here); `events`: her
 // title_earned, heat_cycle and health-test events; `prices`: the site's Use my
 // KennelOS prices switch, from its last answer; `bundleId`: a new id per press
-// (a retry of the same press reuses it). → the bundle, every key allow-listed.
-export function buildSiteBundle({ kennel, dogs = [], litters = [], pairings = [], events = [], sales = [], offers = [], accounts = [], today, sentAt, bundleId, prices = false }) {
+// (a retry of the same press reuses it); `sections`: the optional sections the
+// site's Worker takes (its answer's `sections`), so an older one isn't sent a
+// section it would refuse the whole bundle over. → the bundle, every key allow-listed.
+export function buildSiteBundle({ kennel, dogs = [], litters = [], pairings = [], events = [], sales = [], offers = [], accounts = [], today, sentAt, bundleId, prices = false, sections = [] }) {
   if (!kennel || !kennel.id) throw new SiteExportError('Choose a kennel first.');
   if (!today) throw new Error('buildSiteBundle needs today.');
   if (!/^[\w-]{8,80}$/.test(String(bundleId ?? ''))) throw new Error('buildSiteBundle needs a bundle id.');
@@ -356,6 +390,8 @@ export function buildSiteBundle({ kennel, dogs = [], litters = [], pairings = []
     pairings: websitePairings(kennel, pairings, litters).map((p) => pairingEntry(p, dogsById)),
     heats: websiteHeats(kennel, { dogs, events, pairings, today }).map((h) => assertOnlyKeys({ ...h, dam_name: dogName(dogsById.get(h.dam_id)) }, HEAT_KEYS, 'heat'))
   };
+  const products = Array.isArray(sections) && sections.includes('products') ? websiteProducts(accounts) : null;
+  if (products && products.length > SITE_MAX.products) throw new SiteExportError(`Your website takes at most ${SITE_MAX.products} recommended products, and ${products.length} accounts are marked Show on website. Untick some, then try again.`);
   const words = { dogs: 'dogs', litters: 'litters', pairings: 'pairings', heats: 'planned heats' };
   for (const [k, list] of Object.entries(shown)) {
     if (list.length > SITE_MAX[k]) throw new SiteExportError(`Your website takes at most ${SITE_MAX[k]} ${words[k]}, and ${list.length} are marked Show on website. Untick some, then try again.`);
@@ -373,6 +409,7 @@ export function buildSiteBundle({ kennel, dogs = [], litters = [], pairings = []
     ...(config.website_feed === true && kennel.public_id ? { waitlist_public_id: kennel.public_id } : {}),
     ...shown,
     extras: extraEntries(kennel, prices),
+    ...(products ? { products } : {}),
     ...(steps.length ? { steps } : {}),
     ...(fee ? { payment: assertOnlyKeys({ application_fee: fee }, PAYMENT_KEYS, 'payment') } : {})
   };

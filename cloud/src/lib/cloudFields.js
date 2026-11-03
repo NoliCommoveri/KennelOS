@@ -293,6 +293,7 @@ export const CLOUD_FIELDS = {
         "referral_instructions",
         "referral_link",
         "share_with_families",
+        "show_on_website",
         "updated_at",
         "website"
       ],

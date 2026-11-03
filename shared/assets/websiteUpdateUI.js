@@ -25,7 +25,7 @@ export async function runWebsiteTask(chat, { onExit = () => {} } = {}) {
     kennel = linked.find((k) => k.id === id);
   }
   const c = await websiteSummary(kennel);
-  await chat.say(`Marked <strong>Show on website</strong>: ${esc([plural(c.dogs, 'dog'), plural(c.litters, 'litter'), plural(c.pairings, 'pairing'), plural(c.heats, 'planned heat')].join(', '))}. I'll send those, with each puppy's status, and your website keeps the photos and wording you gave it there. Ready?`);
+  await chat.say(`Marked <strong>Show on website</strong>: ${esc([plural(c.dogs, 'dog'), plural(c.litters, 'litter'), plural(c.pairings, 'pairing'), plural(c.heats, 'planned heat'), plural(c.products, 'recommended product')].join(', '))}. I'll send those, with each puppy's status, and your website keeps the photos and wording you gave it there. Ready?`);
   const pick = await chat.choose([{ label: 'Update website', value: 'send', primary: true }, { label: 'Not now', value: 'no' }]);
   if (pick !== 'send') return onExit('nevermind');
   await chat.say('Sending…', { typing: 400 });

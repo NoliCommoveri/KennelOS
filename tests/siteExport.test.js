@@ -175,6 +175,24 @@ test('long text is cut to what the website takes; over its caps says so in words
   assert.throws(() => build({ bundleId: 'x' }), /bundle id/);
 });
 
+test('recommended products: Accounts she marked, link and code only, never a login; only to a Worker that takes them', () => {
+  const accounts = [
+    { id: 'a1', name: 'TLC Pet Food', account_type: 'supplier', show_on_website: true, referral_link: 'https://tlcpetpro.com/r/ak', referral_code: 'AK10', referral_instructions: 'Use AK10 for 10% off.', username: 'me@x.com', password: 'hunter2', customer_id: 'C-9', notes: 'private' },
+    { id: 'a2', name: 'Chewy', account_type: 'supplier', show_on_website: true, website: 'https://chewy.com', referral_instructions: 'x'.repeat(121) },
+    { id: 'a3', name: 'Unticked', show_on_website: false, referral_link: 'https://u.example' },
+    { id: 'a4', name: 'Flight nanny', account_type: 'transport', show_on_website: true, referral_link: 'https://n.example' },
+    { id: 'a5', name: 'Archived', show_on_website: true, is_archived: true }
+  ];
+  const b = build({ accounts, sections: ['products'] });
+  assert.deepEqual(b.products, [
+    { id: 'a2', name: 'Chewy', link_url: 'https://chewy.com', code: null, code_note: null },
+    { id: 'a1', name: 'TLC Pet Food', link_url: 'https://tlcpetpro.com/r/ak', code: 'AK10', code_note: 'Use AK10 for 10% off.' }
+  ]);
+  assert.doesNotMatch(JSON.stringify(b), /hunter2|me@x\.com|C-9|private/);
+  assert.equal('products' in build({ accounts }), false, 'a Worker that doesn\'t list products isn\'t sent them');
+  assert.throws(() => build({ sections: ['products'], accounts: Array.from({ length: SITE_MAX.products + 1 }, (_, i) => ({ id: `p${i}`, name: `P${i}`, show_on_website: true })) }), /at most 50 recommended products/);
+});
+
 // --- Connect website and Update website (in-memory db, fetch stubbed) ------------
 
 let db; let link; let dogRepo; let litterRepo; let kennelRepo; let calls; let reply;

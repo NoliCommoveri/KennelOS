@@ -280,6 +280,9 @@ export const SYNC_REGISTRY = Object.freeze({
       // Whether her referral link/code shows to families (Integrations plan §3):
       // the referral fields are already cloud, made to be handed out.
       'share_with_families',
+      // Whether it shows on her KennelPort website's Recommended products page
+      // (KennelPort plan 5.3): a display choice like the four record marks.
+      'show_on_website',
       // Her contract forms (Integrations plan §2.1a, D15): type, her label and the
       // form's public share link, and for a form picked through Connect Jotform
       // (§2.1b) its form id and her field names (field_map). Nothing about anyone

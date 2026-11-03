@@ -67,7 +67,7 @@ export async function mountWebsiteCard(el) {
     } else {
       const counts = await websiteSummary(kennel);
       const marked = [
-        plural(counts.dogs, 'dog'), plural(counts.litters, 'litter'), plural(counts.pairings, 'pairing'), plural(counts.heats, 'planned heat')
+        plural(counts.dogs, 'dog'), plural(counts.litters, 'litter'), plural(counts.pairings, 'pairing'), plural(counts.heats, 'planned heat'), plural(counts.products, 'recommended product')
       ].join(', ');
       const site = link.site || {};
       // Her kennel record still names her own website (an older homepage, say):

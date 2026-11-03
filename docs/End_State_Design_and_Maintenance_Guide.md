@@ -2291,7 +2291,8 @@ and **program-wide** (not kennel-scoped).
 - **Your login** (`username`, `password` masked until Show, `customer_id`, `notes`):
   **private tier**, so they reach the cloud only inside the vault; they do ride file backups.
 - **Referral — to share** (`referral_link`, `referral_code`, `referral_instructions`): cloud
-  tier, meant to be handed out.
+  tier, meant to be handed out. `show_on_website` (cloud, Pro with a KennelPort address)
+  puts the account on her website's Recommended products page (§35).
 - **Expenses** may name the account paid through (`expenses.account_id`; the Account picker
   on both expense forms, Pro only). The card totals them, and **View expenses →** opens
   `financials.html?view=expenses&account=<id>`.
@@ -3480,7 +3481,11 @@ KennelPort Site Manager.
   nearest); her extras price list (names, groups, descriptions); How it works steps from her
   waitlist settings (`waitlistSteps`, no amounts); How to pay the application fee
   (`applicationFeePay`: her payment instructions when 200 characters or fewer, and the fee
-  account's Pay link); her public list's id while `website_feed` is on. A puppy's status is
+  account's Pay link); her public list's id while `website_feed` is on; and Recommended
+  products (`websiteProducts`): Accounts with `show_on_website`, not transport or archived,
+  as name, referral link (else website), code, and instructions when 120 characters or
+  fewer; sent only when the site's answer lists `products` in its `sections`, so an older
+  Worker isn't sent a section it would refuse. A puppy's status is
   `puppyStatus`: health hold hidden, placed (or a delivered sale) placed, a live sale or an
   open pick reserved, keeping (or grown into the program) staying, Available available,
   else undecided. **Prices** (the litter's expected price, deposit and Full surcharge per
