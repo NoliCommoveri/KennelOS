@@ -173,8 +173,8 @@ async function askWhatsMissing(chat, kennel) {
 
 // A shown litter that's born, with no accept deposits date: its puppies would show
 // as available straight away. Ask for one; blank leaves it so.
-async function askDeposits(chat, kennel) {
-  const { deposits } = await websiteGapsFor(kennel);
+async function askDeposits(chat, kennel, { only = null } = {}) {
+  const deposits = (await websiteGapsFor(kennel)).deposits.filter((l) => !only || only.includes(l.id));
   if (!deposits.length) return;
   const dogsById = new Map((await dogRepo.getAll({ includeArchived: true })).map((d) => [d.id, d]));
   const name = (l) => l.nickname || `${dogsById.get(l.dam_id)?.call_name || 'Unknown'} × ${dogsById.get(l.sire_id)?.call_name || 'Unknown'}`;
@@ -250,3 +250,44 @@ async function askSettings(chat, kennel) {
     else { await keepKennelWebsite(kennel.id); await chat.say('Okay, I\'ll leave it as it is.'); }
   }
 }
+
+// Kels's Add dogs and Record a new litter, after they save: on a device whose
+// website is linked for the kennel, offer what was just made (her own adults, the
+// litter) for the website, ticked, then a deposits date for a born litter without
+// one. It goes with her next Update my website. `dogIds`, `litterIds`: what was
+// made (or named, like a litter's parents); anything already shown, or that the
+// website can't show, is left out. → whether she marked anything.
+export async function offerWebsiteFor(chat, { dogIds = [], litterIds = [] } = {}) {
+  let marked = false;
+  for (const kennel of await ownKennels()) {
+    if (!(await getWebsiteLink(kennel.id))) continue;
+    const g = await websiteGapsFor(kennel);
+    const dogs = [...g.dogs, ...g.keptPups].filter((d) => dogIds.includes(d.id));
+    const litters = g.litters.filter((l) => litterIds.includes(l.id));
+    if (!dogs.length && !litters.length) continue;
+    const dogsById = new Map((await dogRepo.getAll({ includeArchived: true })).map((d) => [d.id, d]));
+    const dogName = (d) => esc(d?.call_name || d?.registered_name || 'Unknown');
+    const items = [...litters.map((l) => ({ id: l.id, kind: 'litter', l })), ...dogs.map((d) => ({ id: d.id, kind: 'dog', d }))];
+    // Named when there are a few ("First Down and Zoey"), else counted.
+    const names = [...litters.map((l) => (l.nickname ? `the ${esc(l.nickname)} litter` : 'the new litter')), ...dogs.map(dogName)];
+    const what = names.length <= 3
+      ? names.join(names.length === 2 ? ' and ' : ', ').replace(/, ([^,]*)$/, ', and $1')
+      : [litters.length && plural(litters.length, 'litter'), dogs.length && plural(dogs.length, 'dog')].filter(Boolean).join(' and ');
+    const ids = await askGroup(chat, {
+      title: `Your website is linked. Show ${what} on it too?${litters.length ? ' Puppies come with their litter.' : ''}`,
+      items,
+      label: (x) => (x.kind === 'litter'
+        ? `<span>${x.l.nickname ? `<strong>${esc(x.l.nickname)}</strong> ` : ''}${dogName(dogsById.get(x.l.dam_id))} × ${dogName(dogsById.get(x.l.sire_id))} <span class="muted">· litter</span></span>`
+        : `<span><strong>${dogName(x.d)}</strong></span>`),
+      submitLabel: 'Show on website'
+    });
+    if (!ids.length) continue;
+    const picked = new Set(ids);
+    await markOnWebsite({ dogs: dogs.filter((d) => picked.has(d.id)).map((d) => d.id), litters: litters.filter((l) => picked.has(l.id)).map((l) => l.id) });
+    marked = true;
+    await askDeposits(chat, kennel, { only: litters.filter((l) => picked.has(l.id)).map((l) => l.id) });
+    await chat.say('Marked. They go to your website with your next update: ask me to <strong>Update my website</strong> when you\'re ready.', { typing: 300 });
+  }
+  return marked;
+}
+
