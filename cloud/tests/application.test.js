@@ -230,6 +230,26 @@ test('apply, verify and code answer a KennelPort site cross-origin; nothing else
   assert.equal((await fromSite(env, 'OPTIONS', '/program', undefined)).status, 403, 'the app API stays the editions\' only');
 });
 
+test('a breeder\'s own domain answers once it is listed in WEBSITE_ORIGINS, and only that one', async () => {
+  const MINE = 'https://www.akbostonterriers.com';
+  const { env } = await setup({ WEBSITE_ORIGINS: ' https://www.akbostonterriers.com/ , https://www.other-breeder.com' });
+  const pre = await fromSite(env, 'OPTIONS', `/f/apply/${KENNEL}`, undefined, MINE);
+  assert.equal(pre.status, 204);
+  assert.equal(pre.headers.get('access-control-allow-origin'), MINE);
+  const res = await fromSite(env, 'POST', `/f/apply/${KENNEL}`, application(), MINE);
+  assert.equal(res.headers.get('access-control-allow-origin'), MINE);
+  // From her domain, verify confirms without a status link or a session, as from kennelport.com.
+  const ok = await fromSite(env, 'POST', '/f/verify', { public_id: KENNEL, code: lastCode(env) }, MINE);
+  assert.deepEqual(await ok.json(), { confirmed: true, signin: `/list/${KENNEL}#signin` });
+  // The bare domain (KennelPort forwards it to www.) and anything unlisted get nothing.
+  for (const origin of ['https://akbostonterriers.com', 'http://www.akbostonterriers.com', 'https://www.akbostonterriers.com.evil.example']) {
+    assert.equal((await fromSite(env, 'OPTIONS', `/f/apply/${KENNEL}`, undefined, origin)).status, 403, origin);
+  }
+  // Not listed: refused.
+  const { env: bare } = await setup();
+  assert.equal((await fromSite(bare, 'OPTIONS', `/f/apply/${KENNEL}`, undefined, MINE)).status, 403);
+});
+
 test('KennelOS\'s own pages are untouched: same-origin apply and verify get no CORS headers and work as before', async () => {
   const { env, s } = await setup();
   const own = 'https://api.example'; // the family pages' own origin in these tests

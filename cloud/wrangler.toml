@@ -114,6 +114,13 @@ binding = "FILES"
 bucket_name = "kennelos-files"
 
 [env.production.vars]
+# WEBSITE_ORIGINS: breeders' own website domains (KennelPort custom domains), which
+# may send her application form to /f/apply, /f/verify and /f/code like a
+# kennelport.com site (src/lib/cors.js). Comma-separated, https://, the exact
+# address families see (the www. one: KennelPort forwards the bare domain to it).
+# Add one line's worth per breeder, then deploy. Also add the bare domain to the
+# Turnstile widget's hostnames.
+WEBSITE_ORIGINS = "https://www.akbostonterriers.com"
 MAIL_FROM = "KennelOS <signin@kennelos.app>"
 MAIL_FAMILY_DOMAIN = "mail.kennelos.app"
 FAMILY_PAGES_ORIGIN = "https://apply.kennelos.app"

@@ -2104,12 +2104,13 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   and sends them straight to `POST /f/apply`, then the code to `/f/verify` (and `/f/code`
   to resend). Those three answer KennelPort sites cross-origin (`lib/cors.js`
   `WEBSITE_PATHS`, `isWebsiteOrigin`: `https://<one label>.kennelport.com`, KennelPort's
-  staging host, localhost; no credentials); every other family route stays same-origin.
+  staging host, localhost, and breeders' own domains listed by hand in the
+  `WEBSITE_ORIGINS` setting, comma-separated, in `cloud/wrangler.toml`; no credentials); every other family route stays same-origin.
   Asked from a KennelPort site, `/f/verify` confirms the application but returns only
   `{ confirmed, signin }`: no status token and no session (none is made), so no page
   outside KennelOS holds the key to a family's private page; they sign in on `/list`.
   The Turnstile widget lists `kennelport.com` among its hostnames, since the check runs on
-  her website.
+  her website, and each domain in `WEBSITE_ORIGINS` too.
 - `/list` and `/apply` carry Open Graph previews from the kennel name only
   (`familyPages.withPreview`).
 

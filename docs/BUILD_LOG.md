@@ -2489,3 +2489,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   place (Use / Keep mine; `kennelportLink.websiteOffer`, `useSiteAsKennelWebsite`,
   `keepKennelWebsite`). Keep mine is kept on this device per site address
   (`kept_website` on the link row), so moving to her own domain asks again. Tests added.
+- **Breeders' own domains for her application form (2026-11-03).** `lib/cors.js`
+  `isWebsiteOrigin` also takes the origins in the `WEBSITE_ORIGINS` setting (comma-separated,
+  kept by hand in `cloud/wrangler.toml`, like KennelPort's own custom domains; the owner
+  expects about a dozen breeders). Production lists `https://www.akbostonterriers.com`. Each
+  needs its bare domain in the Turnstile widget's hostnames too (KennelPort Setup, Custom
+  domains, step C). Server only. Tests added (`cloud/tests/application.test.js`).

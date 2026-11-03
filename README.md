@@ -62,8 +62,8 @@ backup, carries a program from Lite to Pro.
     training stays, pickup and backing out are built, and Kels's Review my waitlist works through them. Needs a Worker deploy and the `MAPBOX_TOKEN` secret for driving miles.
   - KennelPort website (`docs/End_State_Design_and_Maintenance_Guide.md` §35): the feed and
     Connect / Update website are built; needs a Worker deploy, a try against KennelPort
-    staging, and the service-worker cache bump. Open: her custom domain in the cloud's
-    `isWebsiteOrigin`, which needs the cloud to know it.
+    staging, and the service-worker cache bump. A breeder's own domain is added by hand to
+    `WEBSITE_ORIGINS` in `cloud/wrangler.toml` (KennelPort Setup, Custom domains, step C).
   - Duplicates: Import/Export's Scan for duplicates covers every record type. Open: Kels's
     Tidy up still checks only dogs and contacts for duplicates.
 - **Open launch items:** confirm `yearlyVariantPattern` / `lifetimeVariantPattern` against
