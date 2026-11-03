@@ -18,10 +18,8 @@ import { dogRepo } from './dogRepo.js';
 import { litterRepo } from './litterRepo.js';
 import { pairingRepo } from './pairingRepo.js';
 import { eventRepo } from './eventRepo.js';
-import { saleRepo } from './saleRepo.js';
 import { kennelRepo } from './kennelRepo.js';
 import { accountRepo } from './accountRepo.js';
-import { waitlistOfferRepo } from './waitlistOfferRepo.js';
 import { TEST_TYPES } from './healthTestLog.js';
 import { waitlistConfig, embedOrigin, EMBED_ORIGINS_MAX } from './waitlistRules.js';
 import { todayYMD } from './dateUtils.js';
@@ -135,16 +133,14 @@ export async function keepKennelWebsite(kennelId) {
 // --- the records a bundle is built from ---------------------------------------
 
 async function records(kennel) {
-  const [dogs, litters, pairings, sales, offers, accounts, events] = await Promise.all([
+  const [dogs, litters, pairings, accounts, events] = await Promise.all([
     dogRepo.getAll({ includeArchived: true }),
     litterRepo.getAll(),
     pairingRepo.getAll(),
-    saleRepo.getAll(),
-    editionFlags.waitlist ? waitlistOfferRepo.getByKennel(kennel.id) : [],
     editionFlags.accounts ? accountRepo.getAll() : [],
     Promise.all(['title_earned', 'heat_cycle', ...TEST_TYPES].map((t) => eventRepo.getByType(t))).then((lists) => lists.flat())
   ]);
-  return { dogs, litters, pairings, sales, offers, accounts, events };
+  return { dogs, litters, pairings, accounts, events };
 }
 
 // What Update website would send for this kennel, counted (the Website card).

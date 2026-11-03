@@ -27,7 +27,6 @@ import { waitlistConfig, waitlistIsSetUp } from './waitlistRules.js';
 import { feePay } from './waitlistFeePay.js';
 import { kennelChargeList } from './extraCharges.js';
 import { addDaysToYMD } from './dateUtils.js';
-import { RELEASED_SALE_STATUSES } from './vocab.js';
 
 export const SITE_BUNDLE_FORMAT = 1;
 
@@ -137,20 +136,20 @@ export function websiteDogs(kennel, dogs) {
 
 // --- puppies ------------------------------------------------------------------
 
-// A puppy's status on the website (KennelPort plan 3.6), from what she set: her
-// disposition, a sale, or a waitlist pick waiting on its deposit.
-export function puppyStatus(pup, { sales = [], offers = [] } = {}) {
-  if (pup.disposition === 'health_hold') return 'hidden';
-  if (pup.disposition === 'placed' || pup.status === 'pet_home') return 'placed';
-  const sale = sales.find((s) => s.dog_id === pup.id && !s.is_archived && !RELEASED_SALE_STATUSES.includes(s.status));
-  if (sale) return sale.status === 'delivered' ? 'placed' : 'reserved';
-  if (offers.some((o) => !o.is_archived && o.outcome === 'open' && o.chosen_dog_id === pup.id)) return 'reserved';
-  if (pup.disposition === 'keeping' || ['active_breeding', 'retired_breeding', 'for_sale'].includes(pup.status)) return 'staying';
-  if (pup.disposition === 'available') return 'available';
-  return 'undecided';
+// A puppy's status on the website (KennelPort plan 3.6): her disposition, as she
+// set it, and nothing worked out. Placed is spoken for (an open sale, still here);
+// a pup who has gone home is External and isn't sent. A waitlist pick with its
+// deposit still owed leaves her Available. A kept pup moved on to breeding (or for
+// sale) has no disposition any more (dogRepo clears it past Puppy), so she reads as
+// staying, as Keeping did.
+const DISPOSITION_ON_SITE = { available: 'available', placed: 'placed', keeping: 'staying', health_hold: 'hidden' };
+const GROWN = ['active_breeding', 'retired_breeding', 'for_sale'];
+export function puppyStatus(pup) {
+  if (GROWN.includes(pup.status)) return 'staying';
+  return DISPOSITION_ON_SITE[pup.disposition] ?? 'undecided';
 }
 
-function puppyEntries(litter, dogs, ctx) {
+function puppyEntries(litter, dogs) {
   return dogs
     .filter((d) => d.litter_id === litter.id && !d.is_archived && !['deceased', 'external_reference'].includes(d.status) && SEXES.includes(d.sex))
     .sort((a, b) => String(a.call_name || '').localeCompare(String(b.call_name || '')) || String(a.id).localeCompare(String(b.id)))
@@ -161,7 +160,7 @@ function puppyEntries(litter, dogs, ctx) {
       sex: p.sex,
       color: line(p.color_markings, 40),
       registration: REGISTRATIONS.includes(p.intended_registration) ? p.intended_registration : null,
-      status: puppyStatus(p, ctx)
+      status: puppyStatus(p)
     }, PUPPY_KEYS, 'puppy'));
 }
 
@@ -189,7 +188,7 @@ function litterPrices(litter) {
   }, PRICE_KEYS, 'prices');
 }
 
-function litterEntry(litter, { dogsById, pairingsById, dogs, prices, sales, offers }) {
+function litterEntry(litter, { dogsById, pairingsById, dogs, prices }) {
   const pairing = litter.pairing_id ? pairingsById.get(litter.pairing_id) : null;
   const born = litter.status !== 'expected';
   return assertOnlyKeys({
@@ -205,7 +204,7 @@ function litterEntry(litter, { dogsById, pairingsById, dogs, prices, sales, offe
     ready_on: born ? ymd(litter.estimated_ready_date) : null,
     deposits_on: ymd(litter.accept_deposits_date),
     prices: prices ? litterPrices(litter) : null,
-    puppies: puppyEntries(litter, dogs, { sales, offers })
+    puppies: puppyEntries(litter, dogs)
   }, LITTER_KEYS, 'litter');
 }
 
@@ -373,7 +372,7 @@ export function websiteCounts(kennel, { dogs = [], litters = [], pairings = [], 
 // (a retry of the same press reuses it); `sections`: the optional sections the
 // site's Worker takes (its answer's `sections`), so an older one isn't sent a
 // section it would refuse the whole bundle over. → the bundle, every key allow-listed.
-export function buildSiteBundle({ kennel, dogs = [], litters = [], pairings = [], events = [], sales = [], offers = [], accounts = [], today, sentAt, bundleId, prices = false, sections = [] }) {
+export function buildSiteBundle({ kennel, dogs = [], litters = [], pairings = [], events = [], accounts = [], today, sentAt, bundleId, prices = false, sections = [] }) {
   if (!kennel || !kennel.id) throw new SiteExportError('Choose a kennel first.');
   if (!today) throw new Error('buildSiteBundle needs today.');
   if (!/^[\w-]{8,80}$/.test(String(bundleId ?? ''))) throw new Error('buildSiteBundle needs a bundle id.');
@@ -382,7 +381,7 @@ export function buildSiteBundle({ kennel, dogs = [], litters = [], pairings = []
   const titles = titlesByDog(events);
   const tests = completedTestsByDog(events);
   const config = waitlistConfig(kennel);
-  const ctx = { dogsById, pairingsById, dogs, prices, sales, offers };
+  const ctx = { dogsById, pairingsById, dogs, prices };
 
   const shown = {
     dogs: websiteDogs(kennel, dogs).map((d) => dogEntry(d, titles, tests)),

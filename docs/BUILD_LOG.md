@@ -2507,3 +2507,12 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Connect / Update website, the Show on website marks (dogs, pairings, litters, accounts),
   the website prompts and Kels's Update my website. `PRECACHE_URLS` already carries the six
   new files.
+- **Website puppy statuses are her disposition (2026-11-03).** `siteExport.puppyStatus`
+  sends the disposition as set: Available, Placed (spoken for: an open sale, still here),
+  Keeping (staying), Undecided, Health hold (hidden). Sales and waitlist picks no longer
+  change it, so a pick with its deposit still owed stays Available, and a delivered pup has
+  gone External and isn't sent. One fallback kept: a pup moved on to a breeding or for-sale
+  status, whose disposition `dogRepo` clears, is sent as staying. The bundle no longer
+  reads sales or waitlist offers. KennelPort shows Placed as "Spoken for".
+- **The hand-over starts ticked (2026-11-03).** Closing a marked litter lists each kept pup
+  with "keep her on the site" ticked; she unticks any she doesn't want there. Tests updated.

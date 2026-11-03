@@ -66,6 +66,7 @@ test('a litter: her dates, its puppies with their statuses, prices only when the
     pup('d', { disposition: 'health_hold' }), pup('e', { disposition: 'available' }), pup('f', { disposition: 'available' }),
     pup('g', { disposition: 'placed' }), pup('h', { status: 'deceased' })
   ];
+  // A sale or a waitlist pick changes nothing: only her disposition counts.
   const sales = [{ id: 's1', dog_id: 'e', status: 'deposit_paid' }, { id: 's2', dog_id: 'f', status: 'cancelled' }];
   const offers = [{ id: 'o1', outcome: 'open', chosen_dog_id: 'f' }];
   const b = build({ dogs: [...dogs, ...pups], litters: [litter], sales, offers });
@@ -78,7 +79,7 @@ test('a litter: her dates, its puppies with their statuses, prices only when the
   assert.equal(l.expected_on, null);
   assert.equal(l.deposits_on, '2026-11-01');
   assert.equal(l.prices, null, 'no prices unless Use my KennelOS prices is on');
-  assert.deepEqual(Object.fromEntries(l.puppies.map((p) => [p.id, p.status])), { a: 'available', b: 'staying', c: 'undecided', d: 'hidden', e: 'reserved', f: 'reserved', g: 'placed' });
+  assert.deepEqual(Object.fromEntries(l.puppies.map((p) => [p.id, p.status])), { a: 'available', b: 'staying', c: 'undecided', d: 'hidden', e: 'available', f: 'available', g: 'placed' });
   assert.deepEqual(Object.keys(l.puppies[0]).sort(), [...PUPPY_KEYS].sort());
   assert.equal(l.puppies[0].registration, 'full');
   assert.equal(JSON.stringify(b).includes('secret'), false);
@@ -137,12 +138,14 @@ test('heats: the dam\'s heats_online, kept 60 days, a pairing uses the nearest o
   assert.deepEqual(b.heats[1], { id: 'next', dam_id: 'willow', month: '2027-01', dam_name: 'willow' });
 });
 
-test('puppy statuses say what she set (plan 3.6)', () => {
+test('puppy statuses are her disposition, as she set it (plan 3.6)', () => {
   assert.equal(puppyStatus({ id: 'p' }), 'undecided', 'no plan set counts as undecided');
-  assert.equal(puppyStatus({ id: 'p', disposition: 'available' }, { sales: [{ dog_id: 'p', status: 'delivered' }] }), 'placed');
-  assert.equal(puppyStatus({ id: 'p', disposition: 'available' }, { sales: [{ dog_id: 'p', status: 'voided' }] }), 'available');
-  assert.equal(puppyStatus({ id: 'p', disposition: 'available' }, { offers: [{ outcome: 'passed', chosen_dog_id: 'p' }] }), 'available');
-  assert.equal(puppyStatus({ id: 'p', status: 'active_breeding' }), 'staying', 'a kept pup grown up is staying');
+  assert.equal(puppyStatus({ id: 'p', disposition: 'undecided' }), 'undecided');
+  assert.equal(puppyStatus({ id: 'p', disposition: 'available' }), 'available');
+  assert.equal(puppyStatus({ id: 'p', disposition: 'placed' }), 'placed', 'spoken for');
+  assert.equal(puppyStatus({ id: 'p', disposition: 'keeping' }), 'staying');
+  assert.equal(puppyStatus({ id: 'p', disposition: 'health_hold' }), 'hidden');
+  assert.equal(puppyStatus({ id: 'p', status: 'active_breeding' }), 'staying', 'kept and grown: her disposition was cleared past Puppy');
 });
 
 test('extras: names and groups always, amounts only with prices; steps and How to pay from her waitlist', () => {
