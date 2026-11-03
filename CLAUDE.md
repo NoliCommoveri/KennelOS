@@ -67,7 +67,8 @@ the opt-in cloud API in `cloud/` (Cloudflare Worker); the app must run identical
 ## Cloud
 - Opt-in; `cloudUrl: null` must work (no requests, no cloud UI). Check `cloudConfig.isCloudAvailable()`
   first; live sync also gated by `editionFlags.liveSync`. Only `shared/data/cloud/cloudApi.js` touches the network.
-- Server: new migration = new `.sql` + its line in `cloud/src/migrations/index.js`; never edit
+- Server: new migration = new `.sql` + its line in `cloud/src/migrations/index.js`, at most one per
+  branch/merge (if the branch already adds one beyond `main`, add to that file); never edit
   applied ones; never log emails/codes/tokens/bodies. Run `cd cloud && npm test`.
 
 ## Verification
