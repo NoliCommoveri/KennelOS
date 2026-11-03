@@ -2503,3 +2503,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   120-character note; never logins, notes, fees or payment details; transport accounts
   never. Sent only when the site's answer lists `products` in `sections`. The Your website
   card and Kels count them. `cloudFields.js` regenerated. Tests added. No new files.
+- **SW cache bumped to `kennelos-shell-v97` (2026-11-03)** for her KennelPort website:
+  Connect / Update website, the Show on website marks (dogs, pairings, litters, accounts),
+  the website prompts and Kels's Update my website. `PRECACHE_URLS` already carries the six
+  new files.
