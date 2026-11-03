@@ -2515,4 +2515,5 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   status, whose disposition `dogRepo` clears, is sent as staying. The bundle no longer
   reads sales or waitlist offers. KennelPort shows Placed as "Spoken for".
 - **The hand-over starts ticked (2026-11-03).** Closing a marked litter lists each kept pup
-  with "keep her on the site" ticked; she unticks any she doesn't want there. Tests updated.
+  (marked Keeping, or moved on to breeding) with "keep her on the site" ticked; she
+  unticks any she doesn't want there. A pup moved to For sale is listed unticked. Tests updated.

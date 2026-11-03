@@ -3520,8 +3520,8 @@ KennelPort Site Manager.
 - **The prompts, asked, never answered for her:** a dog's status becoming Active breeding
   ("Show on your website?"); a marked litter leaving Expected with no accept deposits date
   ("When do deposits open?", since blank means available now); a marked litter going Sold
-  or Closed ("Take it off the website?", listing each pup she is keeping, ticked so she
-  unticks any she doesn't want there, for its own page: the hand-over, which takes its
+  or Closed ("Take it off the website?", listing each pup she is keeping (ticked, so she
+  unticks any she doesn't want there) or placing as an adult (unticked), for its own page: the hand-over, which takes its
   puppy photos in KennelPort).
 - **Puppy statuses sent** are her disposition as set (`siteExport.puppyStatus`):
   Available, Placed (spoken for), Keeping (as staying), Undecided, and Health hold (not
