@@ -174,9 +174,10 @@ const REG_LABEL = { limited: 'Limited registration', full: 'Full registration', 
 // includes her surcharge; the page never splits it out). Whole dollars unless she
 // priced in cents.
 const price = (n) => (Number.isInteger(n) ? `$${n.toLocaleString('en-US')}` : money(n));
-function priceLine(p, sex = null) {
+// `full`: the Full prices, for an undecided pick's "($3,700 for full)".
+function priceLine(p, sex = null, full = null) {
   if (!p) return '';
-  if (sex) return p[sex] != null ? `<p class="small mt0 price">Price: ${esc(price(p[sex]))}</p>` : '';
+  if (sex) return p[sex] != null ? `<p class="small mt0 price">Price: ${esc(price(p[sex]))}${full?.[sex] != null ? ` (${esc(price(full[sex]))} for full)` : ''}</p>` : '';
   const parts = [p.male != null ? `Males ${price(p.male)}` : '', p.female != null ? `Females ${price(p.female)}` : ''].filter(Boolean);
   return parts.length ? `<p class="small mt0 price">${esc(parts.join(' · '))}</p>` : '';
 }
@@ -199,21 +200,33 @@ function turnHtml(rows) {
   // Once they've picked, the card shows just their pick (the rest can't be chosen now).
   const mineOnly = chosen && !sentPass ? rows.filter((o) => o.pups.some((d) => d.id === chosen)).map((o) => ({ ...o, pups: o.pups.filter((d) => d.id === chosen) })) : [];
   if (mineOnly.length) rows = mineOnly;
-  const pupButtons = (o, pups) => `<div class="pups">${pups.map((d) => {
-      const label = `${esc(d.call_name)} · ${esc(SEX_LABEL[d.sex] || '')}${d.color ? ` · ${esc(d.color)}` : ''} · ${esc(pupRegistration(d))}`;
+  // A pup's registration on its label: its own; an undecided one (none set) reads
+  // "Limited ($3,700 for full)" where prices show, and nothing where they don't.
+  // (Their pick alone, `short`: just "Limited", its price line saying the rest.)
+  const regText = (o, d, short = false) => {
+    if (d.registration) return pupRegistration(d);
+    if (short && o.prices?.by_registration) return 'Limited';
+    const full = o.prices?.by_registration?.full?.[d.sex];
+    return o.prices?.by_registration ? `Limited${full != null ? ` (${price(full)} for full)` : ''}` : '';
+  };
+  const pupButtons = (o, pups, short = false) => `<div class="pups">${pups.map((d) => {
+      const reg = regText(o, d, short);
+      const label = `${esc(d.call_name)} · ${esc(SEX_LABEL[d.sex] || '')}${d.color ? ` · ${esc(d.color)}` : ''}${reg ? ` · ${esc(reg)}` : ''}`;
       const yours = d.id === chosen ? ' <span class="badge">Your pick</span>' : '';
       return actOn
         ? `<button type="button" class="pup secondary" data-act="pick" data-offer="${esc(o.id)}" data-dog="${esc(d.id)}" data-name="${esc(d.call_name)}">${label}</button>`
         : `<span class="pup">${label}${yours}</span>`;
     }).join('')}</div>${pupPhotos(pups)}`;
-  // The pups' photos links, where she shows them (a button can't hold a link).
+  // The pups' links (a button can't hold one): each one's page on her website, else
+  // its photos where she shows them.
   const pupPhotos = (pups) => {
-    const links = pups.filter((d) => d.photos_url).map((d) => photosLink(d.photos_url, d.call_name || 'Photos'));
-    return links.length ? `<p class="small mt0">Photos: ${links.join(' · ')}</p>` : '';
+    const pages = pups.filter((d) => d.photos_url && d.page).map((d) => photosLink(d.photos_url, `${d.call_name || 'Puppy'}'s page`));
+    const photos = pups.filter((d) => d.photos_url && !d.page).map((d) => photosLink(d.photos_url, d.call_name || 'Photos'));
+    return `${pages.length ? `<p class="small mt0">On our website: ${pages.join(' · ')}</p>` : ''}${photos.length ? `<p class="small mt0">Photos: ${photos.join(' · ')}</p>` : ''}`;
   };
   // Her expected prices (when she shows them): each registration's pups under its
-  // heading with its price line (Full's includes the surcharge); a pup with none set
-  // is under Limited. Each pup's own label names its registration, prices or not.
+  // heading with its price line (Full's includes the surcharge); an undecided pup
+  // (none set) is under Limited, its label adding what it costs with full.
   const pupsOf = (o) => {
     if (!o.pups.length) return '<p class="small muted mt0">No pups left in this litter for you.</p>';
     const prices = o.prices?.by_registration;
@@ -234,7 +247,7 @@ function turnHtml(rows) {
     // registration sections, even when all are Limited. (Their pick's deposit is in
     // the Sending your deposit block below instead.)
     const depositLine = deposit.length && !only ? `<p class="small mt0 muted">Deposit: ${esc(deposit.join(' · '))}</p>` : '';
-    if (only) return `${priceLine(prices[order[0]], only)}${depositLine}${pupButtons(o, groups.get(order[0]))}`;
+    if (only) return `${priceLine(prices[order[0]], only, o.pups[0].registration ? null : prices.full)}${depositLine}${pupButtons(o, groups.get(order[0]), true)}`;
     return depositLine + order.map((reg) => `<p class="small mt8"><strong>${esc(REG_LABEL[reg])}</strong></p>${priceLine(prices[reg])}${pupButtons(o, groups.get(reg))}`).join('');
   };
   const chosenName = rows.flatMap((o) => o.pups).find((d) => d.id === chosen)?.call_name || 'a pup';

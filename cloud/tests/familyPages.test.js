@@ -628,3 +628,18 @@ test("a parent's registered name and pedigree pass through as short strings only
   assert.deepEqual(card.sire, { name: 'Ash', titles: [] });
   assert.equal(statusView(p, 'ann').offers[0].dam.registered_name, "Thornfield's Juniper");
 });
+
+test("a pup's website page passes as `page: true`, only with a link it can use", () => {
+  const p = projection();
+  p.litters.l1.pups = [
+    { id: 'p1', call_name: 'Pip', sex: 'male', photos_url: 'https://akbostons.kennelport.com/litters/gem/pip', page: true },
+    { id: 'p2', call_name: 'Poppy', sex: 'female', page: true }, // no link: no page
+    { id: 'p3', call_name: 'Rue', sex: 'female', photos_url: 'https://photos.example/rue', page: 'yes' },
+  ];
+  p.entries.ann.offers[0].eligible_dog_ids = ['p1', 'p2', 'p3'];
+  p.litters.l1.queue[0].dog_ids = ['p1', 'p2', 'p3'];
+  const card = listView(p).available[0].pups;
+  assert.deepEqual(card.map((d) => d.page ?? false), [true, false, false]);
+  const offer = statusView(p, 'ann').offers[0].pups;
+  assert.deepEqual(offer.map((d) => [d.call_name, d.page ?? false]), [['Pip', true], ['Poppy', false], ['Rue', false]]);
+});

@@ -173,6 +173,7 @@ const PRECACHE_URLS = [
   'data/kennelportLink.js',
   'data/kennelportLinkStore.js',
   'data/siteExport.js',
+  'data/websiteAddress.js',
   'data/kelsSetup.js',
   'data/kelsFavorites.js',
   'data/kelsFind.js',

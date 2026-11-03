@@ -2561,3 +2561,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   (`cardPups` now passes `registration`); a turn's pup labels end with it, prices or not,
   and after the pick; with prices, pups are always in registration sections, even all
   Limited. A pup with none set reads, and groups, as Limited. Tests updated.
+- **Undecided registration, and pups link to their website pages (2026-11-03).** A pup
+  with no registration set (she'd sell it either way) shows none where no prices show;
+  where they do, it's under Limited reading "Limited ($3,700 for full)" (their pick: "Price:
+  $3,000 ($3,700 for full)"), `litterPrices` adding Full's prices for it. A pup whose `url`
+  is a page on her KennelPort site links there without the photos_online tick
+  (`page: true`; "On our website: Opal's page"). `isWebsiteAddress` moved to the new pure
+  `data/websiteAddress.js` (in PRECACHE_URLS) so the projection can use it. Tests added.

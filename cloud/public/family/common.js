@@ -5,10 +5,11 @@
 // of the app and can't import it); tests/familyPages.test.js in the repo root
 // fails if they drift.
 export const SEX_LABEL = { any: 'Either', male: 'Male', female: 'Female' };
-// A pup's planned registration, shown wherever a pup is; one not set yet reads as
-// Limited (the usual), as her turn's price groups count it.
+// A pup's planned registration, shown wherever a pup is. An undecided one (none
+// set: she'd sell it either way) shows nothing here; only where prices show does
+// it read "Limited ($3,700 for full)" (status.js).
 export const REG_SHORT = { limited: 'Limited', full: 'Full', co_own: 'Co-own', none: 'Unregistered' };
-export const pupRegistration = (d) => REG_SHORT[d?.registration] || REG_SHORT.limited;
+export const pupRegistration = (d) => REG_SHORT[d?.registration] || '';
 export const READY_LABEL = { asap: 'ASAP', '1_month': '1 month', '3_months': '3 months', '6_plus_months': '6+ months' };
 export const PURPOSE_LABEL = {
   pet: 'Pet / companion', performance: 'Performance sports (agility, obedience…)', show: 'Show', breeding: 'Breeding', co_own: 'Co-own',
@@ -289,15 +290,15 @@ export function pupsRemaining(l) {
 }
 
 // The available pups in two columns, Males on the left and Females on the right,
-// the label once above each; a pup's name is its photos link when it has one, with
-// its registration after it. A
+// the label once above each; a pup's name is its link (its page on her website, or
+// its photos) when it has one, with its registration after it when set. A
 // pup of no recorded sex gets a third column. Falls back to the counts
 // (pupsRemaining) for a card published without names.
 export function pupColumnsHtml(l) {
   const pups = Array.isArray(l.pups) ? l.pups : null;
   if (!pups) return `<div class="small">${esc(pupsRemaining(l))}</div>`;
   if (!pups.length) return '<div class="small muted">No puppies remaining</div>';
-  const name = (d) => `${d.photos_url ? photosLink(d.photos_url, d.call_name || 'Puppy') : esc(d.call_name || 'Puppy')} <span class="muted">· ${esc(pupRegistration(d))}</span>`;
+  const name = (d) => `${d.photos_url ? photosLink(d.photos_url, d.call_name || 'Puppy') : esc(d.call_name || 'Puppy')}${pupRegistration(d) ? ` <span class="muted">· ${esc(pupRegistration(d))}</span>` : ''}`;
   const col = (label, list) => `<div class="pup-col"><div class="pup-col-head">${esc(label)}</div>${list.length
     ? `<ul class="plain">${list.map((d) => `<li>${name(d)}</li>`).join('')}</ul>` : '<div class="muted">None left</div>'}</div>`;
   const other = pups.filter((d) => d.sex !== 'male' && d.sex !== 'female');
