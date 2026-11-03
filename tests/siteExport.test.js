@@ -463,3 +463,23 @@ test('registry: on dogs and puppies only for a Worker that takes it (its `regist
   assert.equal(now.dogs.find((d) => d.id === 'max').registry, null);
   assert.equal(now.litters[0].puppies[0].registry, 'CKC');
 });
+
+test('heat_id: a pairing, and its litter, name the heat they use, for a Worker that takes it', () => {
+  const dogs = [dog('willow', { heats_online: true }), dog('stud', { sex: 'male' })];
+  const events = [{ id: 'h1', subject_type: 'dog', subject_id: 'willow', event_type: 'heat_cycle', event_date: '2027-01-10' }];
+  const p = { id: 'p1', kennel_id: 'k1', dam_id: 'willow', sire_id: 'stud', status: 'planned', planned_date: '2027-01-15', show_on_website: true };
+  const other = { id: 'p2', kennel_id: 'k1', dam_id: 'willow', sire_id: 'stud', status: 'planned', planned_date: '2027-09-01', show_on_website: true };
+  // An older Worker isn't sent it: it would refuse the whole bundle.
+  assert.equal('heat_id' in build({ dogs, events, pairings: [p] }).pairings[0], false);
+  const b = build({ dogs, events, pairings: [p, other], sections: ['heat_id'] });
+  assert.deepEqual(b.pairings.map((x) => [x.id, x.heat_id]), [['p1', 'h1'], ['p2', null]]);
+  assert.equal(b.heats.length, 0);
+  // Whelped: the litter names its pairing's heat too, so a heat whose pairing never
+  // showed carries on as the litter.
+  const litter = { id: 'l1', kennel_id: 'k1', status: 'whelped', whelp_date: '2027-03-15', dam_id: 'willow', sire_id: 'stud', pairing_id: 'p1', show_on_website: true };
+  const c = build({ dogs, events, pairings: [p], litters: [litter], sections: ['heat_id'] });
+  assert.equal(c.litters[0].heat_id, 'h1');
+  assert.equal(build({ dogs, events, pairings: [p], litters: [litter] }).litters[0].heat_id, undefined);
+  // Not a change she's shown.
+  assert.deepEqual(bundleChanges(build({ dogs, events, pairings: [p] }), b).filter((x) => /heat/.test(x)), []);
+});

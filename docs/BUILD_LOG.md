@@ -2578,3 +2578,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   never left without a link; a pup whose link is only photos keeps its own "Photos: Rue".
   The two decisions moved out of `status.js` into `common.litterLinkHtml` /
   `common.pupLinksHtml`, where they're tested. Tests added.
+- **A pairing names the heat it uses (2026-11-03).** For a website whose Worker lists the
+  `heat_id` section, a pairing's bundle entry carries `heat_id` (the heat it uses, by the
+  website's heat rules), and a litter's carries its pairing's, so KennelPort turns the
+  website litter made from that heat into the pairing's (or the litter's, when the pairing
+  never showed) instead of hiding it and making a new one. `websiteHeats` now reads its
+  pairing match from the new `heatUse`. The link isn't listed as a change in Kels's
+  Update my website. Tests added.
