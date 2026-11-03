@@ -19,6 +19,9 @@
 //    same rules as her waitlist (isPupAvailable's dispositions).
 //  - Prices (a litter's expected prices and her extras' amounts, private in
 //    KennelOS) only while her site has Use my KennelOS prices on (`prices`).
+//    A litter's full-registration surcharge always goes (the rest blank without
+//    that switch): her site shows it where families may ask about full
+//    registration, a setting of the website's own.
 //  - Lengths are cut to what KennelPort takes, so one long name never makes the
 //    website refuse the whole update.
 import { titlesByDog } from './waitlistProjection.js';
@@ -188,6 +191,13 @@ function litterPrices(litter) {
   }, PRICE_KEYS, 'prices');
 }
 
+// Without Use my KennelOS prices: the surcharge alone, or null when there's none.
+function surchargeOnly(litter) {
+  const all = litterPrices(litter);
+  const out = Object.fromEntries(PRICE_KEYS.map((k) => [k, k.startsWith('full_reg_') ? all[k] : null]));
+  return out.full_reg_female == null && out.full_reg_male == null ? null : out;
+}
+
 function litterEntry(litter, { dogsById, pairingsById, dogs, prices }) {
   const pairing = litter.pairing_id ? pairingsById.get(litter.pairing_id) : null;
   const born = litter.status !== 'expected';
@@ -203,7 +213,7 @@ function litterEntry(litter, { dogsById, pairingsById, dogs, prices }) {
     born_on: born ? ymd(litter.whelp_date) : null,
     ready_on: born ? ymd(litter.estimated_ready_date) : null,
     deposits_on: ymd(litter.accept_deposits_date),
-    prices: prices ? litterPrices(litter) : null,
+    prices: prices ? litterPrices(litter) : surchargeOnly(litter),
     puppies: puppyEntries(litter, dogs)
   }, LITTER_KEYS, 'litter');
 }

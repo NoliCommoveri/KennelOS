@@ -3491,7 +3491,9 @@ KennelPort Site Manager.
   open pick reserved, keeping (or grown into the program) staying, Available available,
   else undecided. **Prices** (the litter's expected price, deposit and Full surcharge per
   sex, and extras' amounts, all private) go only while the site says Use my KennelOS prices
-  is on (`site.kennelos_prices`). Text is cut to KennelPort's lengths; over its caps
+  is on (`site.kennelos_prices`); without it a litter's `prices` carries only its Full
+  surcharge (null when it has none), which KennelPort shows where its litter setting lets
+  families ask about full registration. Text is cut to KennelPort's lengths; over its caps
   (`SITE_MAX`) it says so instead of sending.
 - **`data/kennelportApi.js`** is the only module that talks to KennelPort:
   `POST /v1/link` (the code), `GET` / `DELETE /v1/link`, `POST /v1/bundle`, with the token
