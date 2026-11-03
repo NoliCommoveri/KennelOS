@@ -2517,3 +2517,5 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **The hand-over starts ticked (2026-11-03).** Closing a marked litter lists each pup
   marked Keeping, with "keep her on the site" ticked; she unticks any she doesn't want
   there. Tests updated.
+- **SW cache bumped to `kennelos-shell-v98` (2026-11-03)** for the website puppy statuses
+  (her disposition, as set) and the hand-over starting ticked. No files added or renamed.
