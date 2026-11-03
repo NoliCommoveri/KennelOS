@@ -4,24 +4,26 @@
 // litters, pairings, heats), gives a deposits date to any shown litter that's born
 // without one, and checks her website settings (KennelOS prices, her waitlist
 // online, the kennel record's website). Then what's marked goes, on her say.
-// Pro with a KennelPort address only (kels.js's `available`). Connecting stays on
-// Settings' Your website card, where she types the code; that card's Update
-// website button sends straight away.
+// Pro with a KennelPort address only (kels.js's `available`). Not connected on this
+// device: Kels asks whether she has a KennelPort website, and on a yes walks her
+// through linking it (Site Manager in a new tab for the code, typed back here), the
+// same link as Settings' Your website card. That card's Update website button
+// sends straight away.
 import { esc, fmtDate } from './ui.js';
+import { kennelportLinkCodeUrl } from '../data/kennelportApi.js';
 import { ownKennels, getActiveKennelId } from '../data/kennelScope.js';
 import { kennelRepo } from '../data/kennelRepo.js';
 import { dogRepo } from '../data/dogRepo.js';
 import {
-  getWebsiteLink, websiteSummary, pendingWebsiteOffer, useSiteAsKennelWebsite, keepKennelWebsite,
+  getWebsiteLink, connectWebsite, websiteSummary, pendingWebsiteOffer, useSiteAsKennelWebsite, keepKennelWebsite,
   websiteGapsFor, markOnWebsite, setDepositsDate, websiteFacts, setWebsitePrices, KennelportError
 } from '../data/kennelportLink.js';
 import { waitlistIsSetUp } from '../data/waitlistRules.js';
 import { isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
 import { offerCloudBackup } from './kelsBackupSteps.js';
-import { pressUpdateWebsite } from './websiteCard.js';
+import { pressUpdateWebsite, guessDeviceLabel } from './websiteCard.js';
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-const settingsUrl = () => new URL('../pages/settings.html', import.meta.url).href;
 const STATUS_WORDS = { active_breeding: 'breeding', retired_breeding: 'retired', for_sale: 'for sale' };
 
 // Ask about one group: Kels's line, then a tick box per record (ticked to start
@@ -43,10 +45,9 @@ export async function runWebsiteTask(chat, { onExit = () => {} } = {}) {
   const linked = [];
   for (const k of await ownKennels()) if (await getWebsiteLink(k.id)) linked.push(k);
   if (!linked.length) {
-    await chat.say('Your website isn\'t connected on this device yet. In Settings, under <strong>Your website</strong>, type the code from KennelPort Site Manager\'s <strong>Link KennelOS</strong>. Then I can send it your dogs and litters.');
-    const go = await chat.choose([{ label: 'Open Settings', value: 'go', primary: true }, { label: 'Not now', value: 'no' }]);
-    if (go === 'go') { location.href = settingsUrl(); return; }
-    return onExit('done');
+    const k = await askToLink(chat);
+    if (!k) return onExit('done');
+    linked.push(k);
   }
   let kennel = linked.find((k) => k.id === getActiveKennelId()) || linked[0];
   if (linked.length > 1) {
@@ -67,6 +68,63 @@ export async function runWebsiteTask(chat, { onExit = () => {} } = {}) {
   if (out.ok) await chat.say(`Done! ${esc(out.text)} It's in your website's draft: open KennelPort Site Manager to check it and press Publish.`);
   else await chat.say(`That didn't go: ${esc(out.text)}${out.notLinked ? ' You can connect again in Settings, under Your website.' : ''}`);
   return onExit('done');
+}
+
+// Not connected on this device. Has she a website through KennelPort? On a yes,
+// link it here: the code from Site Manager's Link KennelOS (opened in a new tab),
+// typed in when she's back. → the linked kennel, or null.
+async function askToLink(chat) {
+  await chat.say('First things first: do you have a website through <strong>KennelPort</strong>? It\'s the website service that works with KennelOS, where you edit your site in KennelPort Site Manager.');
+  const has = await chat.choose([
+    { label: 'Yes, I have one', value: 'yes', primary: true },
+    { label: 'No', value: 'no' },
+    { label: 'I\'m not sure', value: 'unsure' }
+  ]);
+  if (has !== 'yes') {
+    await chat.say(has === 'no'
+      ? 'Okay! This is for KennelPort websites only, so there\'s nothing to send for now. Your records here are all set either way.'
+      : 'No problem. If you have one, you\'ll have had an email inviting you to KennelPort Site Manager, at manage.kennelport.com. Ask me again once you know, and I\'ll help you connect it.');
+    return null;
+  }
+  const kennels = await ownKennels();
+  if (!kennels.length) {
+    await chat.say('I need one of your own kennels to link it to first. Add your kennel on the Kennels page, then ask me again.');
+    return null;
+  }
+  let kennel = kennels.find((k) => k.id === getActiveKennelId()) || kennels[0];
+  if (kennels.length > 1) {
+    await chat.say('Which of your kennels is this website for? Each kennel links to its own website.');
+    const id = await chat.choose(kennels.map((k) => ({ label: k.kennel_name || 'Kennel', value: k.id, primary: k.id === kennel.id })));
+    kennel = kennels.find((k) => k.id === id);
+  }
+  const url = kennelportLinkCodeUrl();
+  await chat.say(`Great, let's connect it to this device, so I can send it your dogs and litters. Two steps:<br>1. Open <strong>KennelPort Site Manager</strong> in a new tab, sign in, and on <strong>Link KennelOS</strong> press <strong>Show a link code</strong>.<br>2. Come back to this tab and type the code in here. It works once, for a few minutes.`);
+  const go = await chat.choose([{ label: 'Open KennelPort Site Manager', value: 'open', primary: true }, { label: 'I have my code', value: 'have' }]);
+  // Straight after her tap, so the browser lets the new tab open.
+  if (go === 'open' && url) window.open(url, '_blank', 'noopener');
+  const res = await chat.form({
+    title: 'Type the code from Link KennelOS, and a name for this device so you can tell your devices apart there.',
+    html: `<div class="field"><label for="wu-code">Code</label><input id="wu-code" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" placeholder="ABCD-2345" maxlength="9"></div>
+      <div class="field"><label for="wu-device">This device</label><input id="wu-device" maxlength="60" value="${esc(guessDeviceLabel())}"></div>`,
+    submit: async (root) => {
+      const code = root.querySelector('#wu-code').value.trim();
+      if (!code) return 'Type the code from KennelPort Site Manager first.';
+      try {
+        return await connectWebsite(kennel, code, root.querySelector('#wu-device').value.trim());
+      } catch (err) {
+        return err instanceof KennelportError ? err.message : String(err?.message || err);
+      }
+    },
+    reply: () => 'Connected',
+    submitLabel: 'Connect',
+    cancelLabel: 'Not now'
+  });
+  if (!res.done) {
+    await chat.say('Okay. You can connect any time here, or in Settings under <strong>Your website</strong>.');
+    return null;
+  }
+  await chat.say(`Connected to <strong>${esc(res.result?.website || 'your website')}</strong>! You'll see it in Settings under Your website too. Now let's get it up to date.`);
+  return kennel;
 }
 
 // The groups of what could be on the website and isn't marked, one at a time.

@@ -2527,3 +2527,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   waitlist online, and the kennel record's website (moved before the send). The Settings
   card's Update website still sends straight away. Rides `kennelos-shell-v98`; no files
   added. Tests added.
+- **Kels links the website too (2026-11-03).** Not connected on this device, Update my
+  website asks whether she has a KennelPort website (yes / no / not sure). On a yes: which
+  kennel, KennelPort Site Manager's Link KennelOS in a new tab
+  (`kennelportApi.kennelportLinkCodeUrl`, KennelPort's `/link-kennelos`), then the code
+  and a device name typed into Kels, the same link as Settings' Your website card; then
+  on to the update.

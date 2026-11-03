@@ -3517,7 +3517,10 @@ KennelPort Site Manager.
 - **Where she does it:** Settings → **Your website** (`assets/websiteCard.js`: Connect
   website with the code and a device name, what's marked, Update website, Disconnect this
   device; a kennel picker with several own kennels), and Kels's **Update my website**.
-  The card's button sends straight away. Kels first goes through, in groups with tick
+  The card's button sends straight away. Not connected on this device, Kels first asks
+  whether she has a KennelPort website; on a yes she links it there and then (KennelPort
+  Site Manager's `/link-kennelos` in a new tab for the code, typed back into Kels: the
+  same link as the card). Kels then goes through, in groups with tick
   boxes (`siteExport.websiteGaps`): her own adults not marked; pups marked Keeping whose
   litter has left the site; live litters and pairings not marked; and her breeding girls
   with heats off (unticked to start). Then a date for each marked, born litter with no
