@@ -2544,3 +2544,11 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   the bundle it sent (`sent` on the device-only link row) for `pendingWebsiteChanges` and
   `siteExport.bundleChanges`. The add flows' website question now asks only when a website
   is linked (`anyWebsiteLink`). Tests added.
+- **Accounts and the website with Kels (2026-11-03).** Update my website asks about
+  accounts with a referral link, code or instructions not on the website (Recommended
+  products; `siteExport.websiteGaps` `accounts`, `hasReferral`). Set up my accounts takes a
+  referral link and code, and with a website linked offers an account that has any for
+  the website. Tests added.
+- **SW cache bumped to `kennelos-shell-v99` (2026-11-03)** for accounts and the website
+  with Kels (Update my website's Recommended products group; Set up my accounts' referral
+  fields and website question). No files added or renamed.
