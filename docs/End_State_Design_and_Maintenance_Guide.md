@@ -3517,9 +3517,42 @@ KennelPort Site Manager.
 - **Where she does it:** Settings → **Your website** (`assets/websiteCard.js`: Connect
   website with the code and a device name, what's marked, Update website, Disconnect this
   device; a kennel picker with several own kennels), and Kels's **Update my website**.
-- **The prompts, asked and never ticked for her:** a dog's status becoming Active breeding
+  The card's button sends straight away. Not connected on this device, Kels first asks
+  whether she has a KennelPort website; on a yes she links it there and then (KennelPort
+  Site Manager's `/link-kennelos` in a new tab for the code, typed back into Kels: the
+  same link as the card). Kels then goes through, in groups with tick
+  boxes (`siteExport.websiteGaps`): her own adults not marked; pups marked Keeping whose
+  litter has left the site; live litters and pairings not marked; and her breeding girls
+  with heats off (unticked to start). Then a date for each marked, born litter with no
+  accept deposits date (blank keeps it available now); then her settings: **Use my
+  KennelOS prices** on the site (`POST /v1/settings`, only where the site's facts list
+  it under `settings`), her waitlist online when the site has a waitlist page (set up
+  first; online through cloud backup), and the kennel record's website. Then the counts
+  and **Update website**.
+- **Adding with Kels while linked:** after Kels's Add dogs and Record a new litter save,
+  on a device whose website is linked for the kennel, Kels offers what was just made (her
+  own adults; the litter, and its parents if they're hers and not shown), ticked, then a
+  deposits date for a born litter without one (`websiteUpdateUI.offerWebsiteFor`). It goes
+  with her next Update my website.
+- **Checking for website updates after any Kels task:** on a device with a website linked
+  (`kennelportLinkStore.anyWebsiteLink`), when a task ends (kels.js `onExit`, and Add dogs /
+  Record a new litter before their last step) and an update would change what the website
+  shows, Kels asks whether to check; on a yes, the changes in words and **Update
+  website** (`websiteUpdateUI.offerWebsiteCheck`). The changes are worked out on this
+  device: each Update website keeps a copy of the bundle it sent on the link row
+  (`sent`, device-only), and `kennelportLink.pendingWebsiteChanges` compares it with the
+  bundle it would send now (`siteExport.bundleChanges`: new, changed and gone dogs,
+  litters, puppies, pairings and heats, a puppy's status as "Available → Spoken for").
+  Never sent from this device: she's offered everything marked. The same changes aren't
+  asked about twice on one page.
+- **The prompts, asked, never answered for her:** a dog's status becoming Active breeding
   ("Show on your website?"); a marked litter leaving Expected with no accept deposits date
   ("When do deposits open?", since blank means available now); a marked litter going Sold
-  or Closed ("Take it off the website?", with each pup she is keeping offered its own page,
-  the hand-over, which takes its puppy photos in KennelPort).
+  or Closed ("Take it off the website?", listing each pup marked Keeping, ticked so she
+  unticks any she doesn't want there, for its own page: the hand-over, which takes its
+  puppy photos in KennelPort).
+- **Puppy statuses sent** are her disposition as set (`siteExport.puppyStatus`):
+  Available, Placed (spoken for), Keeping (as staying), Undecided, and Health hold (not
+  sent as shown). Sales and waitlist picks don't change it, and her status field isn't
+  read (a litter closes long before a kept pup moves on from Puppy).
 

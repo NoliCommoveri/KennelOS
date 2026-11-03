@@ -7,7 +7,7 @@ import { test, before, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { installMemoryDb } from './support/memoryDb.js';
 import {
-  buildSiteBundle, puppyStatus, websiteHeats, litterMarked, waitlistSteps, applicationFeePay, line,
+  buildSiteBundle, websiteGaps, bundleChanges, puppyStatus, websiteHeats, litterMarked, waitlistSteps, applicationFeePay, line,
   BUNDLE_KEYS, DOG_KEYS, LITTER_KEYS, PUPPY_KEYS, SiteExportError, SITE_MAX
 } from '../shared/data/siteExport.js';
 
@@ -66,6 +66,7 @@ test('a litter: her dates, its puppies with their statuses, prices only when the
     pup('d', { disposition: 'health_hold' }), pup('e', { disposition: 'available' }), pup('f', { disposition: 'available' }),
     pup('g', { disposition: 'placed' }), pup('h', { status: 'deceased' })
   ];
+  // A sale or a waitlist pick changes nothing: only her disposition counts.
   const sales = [{ id: 's1', dog_id: 'e', status: 'deposit_paid' }, { id: 's2', dog_id: 'f', status: 'cancelled' }];
   const offers = [{ id: 'o1', outcome: 'open', chosen_dog_id: 'f' }];
   const b = build({ dogs: [...dogs, ...pups], litters: [litter], sales, offers });
@@ -78,7 +79,7 @@ test('a litter: her dates, its puppies with their statuses, prices only when the
   assert.equal(l.expected_on, null);
   assert.equal(l.deposits_on, '2026-11-01');
   assert.equal(l.prices, null, 'no prices unless Use my KennelOS prices is on');
-  assert.deepEqual(Object.fromEntries(l.puppies.map((p) => [p.id, p.status])), { a: 'available', b: 'staying', c: 'undecided', d: 'hidden', e: 'reserved', f: 'reserved', g: 'placed' });
+  assert.deepEqual(Object.fromEntries(l.puppies.map((p) => [p.id, p.status])), { a: 'available', b: 'staying', c: 'undecided', d: 'hidden', e: 'available', f: 'available', g: 'placed' });
   assert.deepEqual(Object.keys(l.puppies[0]).sort(), [...PUPPY_KEYS].sort());
   assert.equal(l.puppies[0].registration, 'full');
   assert.equal(JSON.stringify(b).includes('secret'), false);
@@ -137,12 +138,73 @@ test('heats: the dam\'s heats_online, kept 60 days, a pairing uses the nearest o
   assert.deepEqual(b.heats[1], { id: 'next', dam_id: 'willow', month: '2027-01', dam_name: 'willow' });
 });
 
-test('puppy statuses say what she set (plan 3.6)', () => {
+test("Kels's Update my website: what isn't on the website yet, in groups", () => {
+  const dogs = [
+    dog('willow'), dog('nova', { show_on_website: false }), dog('old', { show_on_website: false, status: 'retired_breeding' }),
+    dog('gone', { show_on_website: false, status: 'pet_home' }), dog('ped', { show_on_website: false, pedigree_only: true }),
+    dog('other', { show_on_website: false, kennel_id: 'k2' }), dog('max', { show_on_website: false, sex: 'male', heats_online: false }),
+    dog('heats', { heats_online: true }),
+    dog('fern', { status: 'puppy', show_on_website: false, disposition: 'keeping', litter_id: 'closed' }),
+    dog('moss', { status: 'puppy', show_on_website: false, disposition: 'keeping', litter_id: 'live' }),
+    dog('ivy', { status: 'puppy', show_on_website: false, disposition: 'available', litter_id: 'closed' })
+  ];
+  const litters = [
+    { id: 'live', kennel_id: 'k1', status: 'whelped', show_on_website: true, whelp_date: '2026-10-01' },
+    { id: 'closed', kennel_id: 'k1', status: 'closed', show_on_website: true },
+    { id: 'new', kennel_id: 'k1', status: 'expected', show_on_website: false },
+    { id: 'born', kennel_id: 'k1', status: 'whelped', show_on_website: false },
+    { id: 'dated', kennel_id: 'k1', status: 'ready', show_on_website: true, accept_deposits_date: '2026-11-20' },
+    { id: 'pl', kennel_id: 'k1', status: 'expected', pairing_id: 'p2' }
+  ];
+  const pairings = [
+    { id: 'p1', kennel_id: 'k1', status: 'planned', show_on_website: false },
+    { id: 'p2', kennel_id: 'k1', status: 'bred', show_on_website: false },
+    { id: 'p3', kennel_id: 'k1', status: 'cancelled', show_on_website: false },
+    { id: 'p4', kennel_id: 'k1', status: 'planned', show_on_website: true }
+  ];
+  const ids = (list) => list.map((r) => r.id);
+  const g = websiteGaps(K, { dogs, litters, pairings });
+  assert.deepEqual(ids(g.dogs), ['nova', 'old', 'max'], 'her own adults not marked; not a gone-home, pedigree-only or other kennel\'s dog');
+  assert.deepEqual(ids(g.keptPups), ['fern'], 'a pup she is keeping whose litter has left the site');
+  assert.deepEqual(ids(g.litters), ['new', 'born', 'pl'], 'live litters not marked (one follows its unmarked pairing)');
+  assert.deepEqual(ids(g.pairings), ['p1'], 'live pairings not marked and not yet a litter');
+  assert.deepEqual(ids(g.heats), ['willow', 'nova'], 'her breeding girls with heats off');
+  assert.deepEqual(ids(g.deposits), ['live'], 'a shown, born litter with no deposits date');
+  assert.deepEqual(ids(websiteGaps(K, { dogs, litters, pairings }, { marking: ['born'] }).deposits), ['live', 'born'], 'one she is adding counts');
+});
+
+test('what an update would change, in words', () => {
+  const before = {
+    dogs: [{ id: 'z', call_name: 'Zoey', status: 'active_breeding', color: 'Brindle' }, { id: 'c', call_name: 'Claire', status: 'active_breeding' }],
+    litters: [{ id: 'l', name: 'First Down', born_on: '2026-10-01', deposits_on: null, puppies: [{ id: 'p1', name: 'Coach', status: 'available' }, { id: 'p2', name: 'LB', status: 'available' }] }],
+    pairings: [{ id: 'q', dam_name: 'Claire', sire_name: 'Zeus', planned_on: '2027-01-01' }], heats: [], extras: null
+  };
+  assert.deepEqual(bundleChanges(before, structuredClone(before)), [], 'the same: nothing');
+  const after = structuredClone(before);
+  after.dogs[0].color = 'Black & white';
+  after.dogs[1].status = 'retired_breeding';
+  after.dogs.push({ id: 'n', call_name: 'Nova', status: 'active_breeding' });
+  after.litters[0].deposits_on = '2026-10-22';
+  after.litters[0].puppies[0].status = 'placed';
+  after.litters[0].puppies.pop();
+  after.pairings = [];
+  after.heats = [{ id: 'h', dam_name: 'Zoey', month: '2027-03' }];
+  after.extras = [{ id: 'x', name: 'Crate' }];
+  assert.deepEqual(bundleChanges(before, after), [
+    'Zoey: colour changed', 'Claire: now retired', 'New dog: Nova',
+    'First Down: deposits date changed', 'Coach: Available → Spoken for', 'LB: off the site',
+    'Claire × Zeus: off Coming up', "Coming up: Zoey's heat", 'Extras changed'
+  ]);
+});
+
+test('puppy statuses are her disposition, as she set it (plan 3.6)', () => {
   assert.equal(puppyStatus({ id: 'p' }), 'undecided', 'no plan set counts as undecided');
-  assert.equal(puppyStatus({ id: 'p', disposition: 'available' }, { sales: [{ dog_id: 'p', status: 'delivered' }] }), 'placed');
-  assert.equal(puppyStatus({ id: 'p', disposition: 'available' }, { sales: [{ dog_id: 'p', status: 'voided' }] }), 'available');
-  assert.equal(puppyStatus({ id: 'p', disposition: 'available' }, { offers: [{ outcome: 'passed', chosen_dog_id: 'p' }] }), 'available');
-  assert.equal(puppyStatus({ id: 'p', status: 'active_breeding' }), 'staying', 'a kept pup grown up is staying');
+  assert.equal(puppyStatus({ id: 'p', disposition: 'undecided' }), 'undecided');
+  assert.equal(puppyStatus({ id: 'p', disposition: 'available' }), 'available');
+  assert.equal(puppyStatus({ id: 'p', disposition: 'placed' }), 'placed', 'spoken for');
+  assert.equal(puppyStatus({ id: 'p', disposition: 'keeping' }), 'staying');
+  assert.equal(puppyStatus({ id: 'p', disposition: 'health_hold' }), 'hidden');
+  assert.equal(puppyStatus({ id: 'p', status: 'active_breeding' }), 'undecided', 'her status field is not read');
 });
 
 test('extras: names and groups always, amounts only with prices; steps and How to pay from her waitlist', () => {
@@ -331,3 +393,49 @@ test('her own homepage on the kennel record: asked, never replaced silently; Kee
   await link.useSiteAsKennelWebsite(k.id);
   assert.equal((await kennelRepo.getById(k.id)).website, SITE.website);
 });
+
+test("Kels's Update my website: her ticks mark records, deposits dates save, and KennelOS prices switch on the site", async () => {
+  const k = await kennelRepo.create({ kennel_name: 'Kels', is_own_kennel: true });
+  await link.connectWebsite(await kennelRepo.getById(k.id), 'abcd-2345', 'Her phone');
+  const nova = await dogRepo.create({ call_name: 'Nova', sex: 'female', breed: 'Boston Terrier', ownership_type: 'owned', status: 'active_breeding', kennel_id: k.id });
+  const max = await dogRepo.create({ call_name: 'Max', sex: 'male', breed: 'Boston Terrier', ownership_type: 'owned', status: 'active_breeding', kennel_id: k.id, show_on_website: true });
+  const litter = await litterRepo.create({ kennel_id: k.id, dam_id: nova.id, sire_id: max.id, status: 'whelped', whelp_date: '2026-10-01' });
+  let g = await link.websiteGapsFor(await kennelRepo.getById(k.id));
+  assert.deepEqual(g.dogs.map((d) => d.id), [nova.id]);
+  assert.deepEqual(g.litters.map((l) => l.id), [litter.id]);
+  await link.markOnWebsite({ dogs: [nova.id], litters: [litter.id], heats: [nova.id] });
+  assert.equal((await dogRepo.getById(nova.id)).show_on_website, true);
+  assert.equal((await dogRepo.getById(nova.id)).heats_online, true);
+  g = await link.websiteGapsFor(await kennelRepo.getById(k.id));
+  assert.deepEqual([g.dogs.length, g.litters.length, g.heats.length], [0, 0, 0]);
+  assert.deepEqual(g.deposits.map((l) => l.id), [litter.id]);
+  await link.setDepositsDate(litter.id, '2026-11-20');
+  assert.equal((await litterRepo.getById(litter.id)).accept_deposits_date, '2026-11-20');
+  assert.equal((await link.websiteGapsFor(await kennelRepo.getById(k.id))).deposits.length, 0);
+
+  const realReply = reply;
+  reply = (method, path) => (path === '/v1/settings' ? { status: 200, body: { site: { ...SITE, kennelos_prices: true, settings: ['kennelos_prices'] } } } : realReply(method, path));
+  calls = [];
+  const site = await link.setWebsitePrices(await kennelRepo.getById(k.id), true);
+  assert.deepEqual(calls.map((c) => `${c.opts.method} ${c.url.pathname}`), ['POST /v1/settings']);
+  assert.deepEqual(calls[0].body, { kennelos_prices: true });
+  assert.equal(site.kennelos_prices, true);
+  assert.equal((await link.websiteFacts(k.id)).kennelos_prices, true, 'the next Update website sends prices');
+  reply = realReply;
+});
+
+test('after an update, this device knows what it sent, and says what the next would change', async () => {
+  const k = await kennelRepo.create({ kennel_name: 'Compare', is_own_kennel: true });
+  await link.connectWebsite(await kennelRepo.getById(k.id), 'abcd-2345', 'Her phone');
+  const zoey = await dogRepo.create({ call_name: 'Zoey', sex: 'female', breed: 'Boston Terrier', ownership_type: 'owned', status: 'active_breeding', kennel_id: k.id, show_on_website: true });
+  const zeus = await dogRepo.create({ call_name: 'Zeus', sex: 'male', breed: 'Boston Terrier', ownership_type: 'owned', status: 'active_breeding', kennel_id: k.id });
+  const litter = await litterRepo.create({ kennel_id: k.id, dam_id: zoey.id, sire_id: zeus.id, nickname: 'First Down', status: 'whelped', whelp_date: '2026-10-01', show_on_website: true });
+  const coach = await dogRepo.create({ call_name: 'Coach', sex: 'female', breed: 'Boston Terrier', ownership_type: 'owned', status: 'puppy', kennel_id: k.id, litter_id: litter.id, dam_id: zoey.id, sire_id: zeus.id, disposition: 'available' });
+  assert.deepEqual(await link.pendingWebsiteChanges(await kennelRepo.getById(k.id)), { never: true }, 'never sent from here');
+  assert.equal(await link.anyWebsiteLink(), true);
+  await link.updateWebsite(await kennelRepo.getById(k.id), { bundleId: 'bundle-compare-1' });
+  assert.deepEqual(await link.pendingWebsiteChanges(await kennelRepo.getById(k.id)), { lines: [] });
+  await dogRepo.update(coach.id, { disposition: 'placed' });
+  assert.deepEqual((await link.pendingWebsiteChanges(await kennelRepo.getById(k.id))).lines, ['Coach: Available → Spoken for']);
+});
+

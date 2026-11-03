@@ -2507,3 +2507,40 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Connect / Update website, the Show on website marks (dogs, pairings, litters, accounts),
   the website prompts and Kels's Update my website. `PRECACHE_URLS` already carries the six
   new files.
+- **Website puppy statuses are her disposition (2026-11-03).** `siteExport.puppyStatus`
+  sends the disposition as set: Available, Placed (spoken for: an open sale, still here),
+  Keeping (staying), Undecided, Health hold (hidden). Sales and waitlist picks no longer
+  change it, so a pick with its deposit still owed stays Available, and a delivered pup has
+  gone External and isn't sent. Her status field isn't read: a litter closes at about 9 weeks, long
+  before a kept pup moves on from Puppy. The bundle no longer
+  reads sales or waitlist offers. KennelPort shows Placed as "Spoken for".
+- **The hand-over starts ticked (2026-11-03).** Closing a marked litter lists each pup
+  marked Keeping, with "keep her on the site" ticked; she unticks any she doesn't want
+  there. Tests updated.
+- **SW cache bumped to `kennelos-shell-v98` (2026-11-03)** for the website puppy statuses
+  (her disposition, as set) and the hand-over starting ticked. No files added or renamed.
+- **Kels's Update my website asks first (2026-11-03).** Before sending, groups with tick
+  boxes (`siteExport.websiteGaps`): her adults not on the website, kept pups whose litter
+  has left it, litters and pairings not listed, and her girls' heats (unticked). Then a
+  deposits date for any shown, born litter without one, then her settings: Use my KennelOS
+  prices (new `kennelportApi.setSiteSettings`, KennelPort's `POST /v1/settings`), her
+  waitlist online, and the kennel record's website (moved before the send). The Settings
+  card's Update website still sends straight away. Rides `kennelos-shell-v98`; no files
+  added. Tests added.
+- **Kels links the website too (2026-11-03).** Not connected on this device, Update my
+  website asks whether she has a KennelPort website (yes / no / not sure). On a yes: which
+  kennel, KennelPort Site Manager's Link KennelOS in a new tab
+  (`kennelportApi.kennelportLinkCodeUrl`, KennelPort's `/link-kennelos`), then the code
+  and a device name typed into Kels, the same link as Settings' Your website card; then
+  on to the update.
+- **Adding with Kels asks about the website (2026-11-03).** With the website linked, Kels's
+  Add dogs and Record a new litter end by offering the new records for it, ticked (a
+  litter's parents too, when hers and not shown), with the deposits date check for a born
+  litter (`websiteUpdateUI.offerWebsiteFor`). Pro with a KennelPort address only.
+- **Kels checks for website updates after a task (2026-11-03).** With a website linked on
+  the device, any Kels task that changed what it shows (selling pups, the waitlist's picks,
+  check-ins, health tests, adding dogs or litters…) ends with "Want me to check for website
+  updates?", then the changes in words and Update website. Each Update website now keeps
+  the bundle it sent (`sent` on the device-only link row) for `pendingWebsiteChanges` and
+  `siteExport.bundleChanges`. The add flows' website question now asks only when a website
+  is linked (`anyWebsiteLink`). Tests added.
