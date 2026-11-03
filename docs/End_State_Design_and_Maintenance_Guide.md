@@ -1897,9 +1897,12 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   `saleDefaults.expectedPricing` for a male and a female, the total, Full including her
   surcharge, never split out; and her expected deposit for a male and a female; never a
   sale's amount; the Worker's `pricesOf` passes them to the turn only). The turn card shows
-  per litter "Males $2,800 · Females $3,000" and "Deposit: Males $500 · Females $600"; when
-  any pup is planned for Full registration, its pups in sections by registration, each with
-  its own prices and the deposit once above them; under "Listed prices are intended base
+  per litter the deposit once ("Deposit: Males $500 · Females $600"), then its pups in
+  sections by registration (always, even when all are Limited; a pup with none set is
+  under Limited), each "Limited registration" / "Full registration" heading with its own
+  "Males $2,800 · Females $3,000"; their pick alone shows its own price. Each pup's label
+  ends with its registration ("Opal · Female · Black & white · Limited", none set reading
+  Limited), prices or not, before, during and after the pick; under "Listed prices are intended base
   purchase price and may not include additional fees; all prices are subject to change
   prior to contract signing." Published pups carry `registration` (`intended_registration`).
   **Parents' health tests:** every parent family pages show (Coming up, a planned heat's
@@ -1939,11 +1942,12 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   a turn's pups "Photos: Pip · Poppy" (`common.photosLink`). Parents and litters on the
   public list are public.
   **Available Puppies** (public list and status pages) lists each litter's available pups
-  by name: the Worker's `litterCard` adds `pups` (`cardPups`: call name, sex, photos link;
-  by name; never an id or color) beside the counts, and `common.pupColumnsHtml` shows Males
-  in a left column and Females in a right one (a third, Puppies, for a pup of no sex), the
-  label once above each, "None left" under an empty one, each name its photos link when it
-  has one. So available pups' call names are public wherever the list shows that litter.
+  by name: the Worker's `litterCard` adds `pups` (`cardPups`: call name, sex, registration,
+  photos link; by name; never an id or color) beside the counts, and `common.pupColumnsHtml`
+  shows Males in a left column and Females in a right one (a third, Puppies, for a pup of no
+  sex), the label once above each, "None left" under an empty one, each name its photos link
+  when it has one, then "· Limited" / "· Full" (`common.pupRegistration`; none set reads
+  Limited). So available pups' call names are public wherever the list shows that litter.
   The public list's Available Puppies and Coming up cards are centered, like the status
   page (`main.centered`), by `#available, #upcoming` in `family.css`.
   Each open offer carries `deposit_instructions` (her `payment_instructions`) and, once

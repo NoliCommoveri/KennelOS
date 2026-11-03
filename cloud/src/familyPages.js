@@ -302,12 +302,14 @@ function publicRows(projection) {
 
 // A litter with open picks as the pages show it (Available Puppies): her nickname,
 // breed, parents, dates, how many pups are still available by sex, and those pups
-// by call name (with each one's photos link where she shows it), by name.
+// by call name (with each one's photos link where she shows it) and the
+// registration each is planned for, by name.
 const SEXES = ['male', 'female'];
 function cardPups(pups) {
   return pups.filter((d) => d && typeof d === 'object').map((d) => ({
     call_name: typeof d.call_name === 'string' ? d.call_name.slice(0, 80) : '',
     sex: SEXES.includes(d.sex) ? d.sex : null,
+    registration: REGISTRATIONS.includes(d.registration) ? d.registration : null,
     ...photosOf(d.photos_url),
   })).sort((a, b) => a.call_name.localeCompare(b.call_name));
 }

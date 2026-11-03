@@ -2556,3 +2556,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `normal` as null when its Normal or abnormal is not marked (was false), so KennelPort's
   Normal results only keeps off only results marked Abnormal. The Health tests form's hint
   says so. Test updated.
+- **Registration wherever family pages show a pup (2026-11-03).** Available Puppies
+  (public list, status pages, the embed) shows each pup's registration after its name
+  (`cardPups` now passes `registration`); a turn's pup labels end with it, prices or not,
+  and after the pick; with prices, pups are always in registration sections, even all
+  Limited. A pup with none set reads, and groups, as Limited. Tests updated.
