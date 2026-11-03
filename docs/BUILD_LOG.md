@@ -2578,3 +2578,17 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   never left without a link; a pup whose link is only photos keeps its own "Photos: Rue".
   The two decisions moved out of `status.js` into `common.litterLinkHtml` /
   `common.pupLinksHtml`, where they're tested. Tests added.
+- **A pairing names the heat it uses (2026-11-03).** For a website whose Worker lists the
+  `heat_id` section, a pairing's bundle entry carries `heat_id` (the heat it uses, by the
+  website's heat rules), and a litter's carries its pairing's, so KennelPort turns the
+  website litter made from that heat into the pairing's (or the litter's, when the pairing
+  never showed) instead of hiding it and making a new one. `websiteHeats` now reads its
+  pairing match from the new `heatUse`. The link isn't listed as a change in Kels's
+  Update my website. Tests added.
+- **Kels's website check asks only about what the task changed (2026-11-03).** After
+  every task Kels compared the website bundle with the last one sent, so once she said
+  Not now, each later task (even one touching nothing on the website) put the same old
+  changes to her again. Kels now keeps a snapshot as a task starts
+  (`noteWebsiteBaseline`, `kennelportLink.websiteSnapshot`) and asks only when the task
+  changed what the website would show, listing only those changes and counting the
+  earlier ones still waiting (`pendingWebsiteChanges` `since` → `fresh`). Tests added.

@@ -3500,7 +3500,9 @@ KennelPort Site Manager.
   pairing) and their puppies; marked pairings still on their way with no litter yet;
   planned heats (`websiteHeats`: the dam's `heats_online`, from 60 days ago on, one per
   month, less those a pairing of hers uses: planned from 30 days before to 60 after, the
-  nearest); her extras price list (names, groups, descriptions); How it works steps from her
+  nearest, by `heatUse`; a pairing, and its litter, name that heat as `heat_id` when the
+  site's answer lists `heat_id` in its `sections`, so the website litter made from the
+  heat carries on as the pairing's); her extras price list (names, groups, descriptions); How it works steps from her
   waitlist settings (`waitlistSteps`, no amounts); How to pay the application fee
   (`applicationFeePay`: her payment instructions when 200 characters or fewer, and the fee
   account's Pay link); her public list's id while `website_feed` is on; and Recommended
@@ -3570,8 +3572,14 @@ KennelPort Site Manager.
   (`sent`, device-only), and `kennelportLink.pendingWebsiteChanges` compares it with the
   bundle it would send now (`siteExport.bundleChanges`: new, changed and gone dogs,
   litters, puppies, pairings and heats, a puppy's status as "Available → Spoken for").
-  Never sent from this device: she's offered everything marked. The same changes aren't
-  asked about twice on one page.
+  Kels asks only about what the task itself changed: as a task starts (kels.js
+  `startTask`), `websiteUpdateUI.noteWebsiteBaseline` keeps what the website would be
+  sent then (`kennelportLink.websiteSnapshot`), and afterwards `pendingWebsiteChanges`
+  with `since` gives the task's changes (`fresh`). A task that changed nothing the
+  website shows asks nothing, even with changes still waiting from before; one that did
+  lists only its own, and says how many earlier ones an update would also send. Never
+  sent from this device: she's offered everything marked, once a task changes
+  something. The same changes aren't asked about twice on one page.
 - **The prompts, asked, never answered for her:** a dog's status becoming Active breeding
   ("Show on your website?"); a marked litter leaving Expected with no accept deposits date
   ("When do deposits open?", since blank means available now); a marked litter going Sold

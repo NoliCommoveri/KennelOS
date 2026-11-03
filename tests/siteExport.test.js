@@ -448,6 +448,20 @@ test('after an update, this device knows what it sent, and says what the next wo
   assert.deepEqual(await link.pendingWebsiteChanges(await kennelRepo.getById(k.id)), { lines: [] });
   await dogRepo.update(coach.id, { disposition: 'placed' });
   assert.deepEqual((await link.pendingWebsiteChanges(await kennelRepo.getById(k.id))).lines, ['Coach: Available → Spoken for']);
+
+  // From a snapshot taken as a task starts: only what changed since, apart from
+  // what was already waiting. A task that changes nothing the website shows has
+  // nothing fresh, though Coach is still waiting.
+  const since = await link.websiteSnapshot(await kennelRepo.getById(k.id));
+  await dogRepo.update(zeus.id, { notes: 'Not on the website' });
+  let ch = await link.pendingWebsiteChanges(await kennelRepo.getById(k.id), { since });
+  assert.deepEqual(ch.fresh, []);
+  assert.deepEqual(ch.lines, ['Coach: Available → Spoken for']);
+  await dogRepo.update(zoey.id, { color_markings: 'Brindle' });
+  ch = await link.pendingWebsiteChanges(await kennelRepo.getById(k.id), { since });
+  assert.deepEqual(ch.fresh, ['Zoey: colour changed']);
+  assert.equal(ch.lines.length, 2);
+  assert.equal(await link.websiteSnapshot({ id: 'not-linked' }), null);
 });
 
 
@@ -462,4 +476,56 @@ test('registry: on dogs and puppies only for a Worker that takes it (its `regist
   assert.equal(now.dogs.find((d) => d.id === 'willow').registry, 'AKC');
   assert.equal(now.dogs.find((d) => d.id === 'max').registry, null);
   assert.equal(now.litters[0].puppies[0].registry, 'CKC');
+});
+
+test('heat_id: a pairing, and its litter, name the heat they use, for a Worker that takes it', () => {
+  const dogs = [dog('willow', { heats_online: true }), dog('stud', { sex: 'male' })];
+  const events = [{ id: 'h1', subject_type: 'dog', subject_id: 'willow', event_type: 'heat_cycle', event_date: '2027-01-10' }];
+  const p = { id: 'p1', kennel_id: 'k1', dam_id: 'willow', sire_id: 'stud', status: 'planned', planned_date: '2027-01-15', show_on_website: true };
+  const other = { id: 'p2', kennel_id: 'k1', dam_id: 'willow', sire_id: 'stud', status: 'planned', planned_date: '2027-09-01', show_on_website: true };
+  // An older Worker isn't sent it: it would refuse the whole bundle.
+  assert.equal('heat_id' in build({ dogs, events, pairings: [p] }).pairings[0], false);
+  const b = build({ dogs, events, pairings: [p, other], sections: ['heat_id'] });
+  assert.deepEqual(b.pairings.map((x) => [x.id, x.heat_id]), [['p1', 'h1'], ['p2', null]]);
+  assert.equal(b.heats.length, 0);
+  // Whelped: the litter names its pairing's heat too, so a heat whose pairing never
+  // showed carries on as the litter.
+  const litter = { id: 'l1', kennel_id: 'k1', status: 'whelped', whelp_date: '2027-03-15', dam_id: 'willow', sire_id: 'stud', pairing_id: 'p1', show_on_website: true };
+  const c = build({ dogs, events, pairings: [p], litters: [litter], sections: ['heat_id'] });
+  assert.equal(c.litters[0].heat_id, 'h1');
+  assert.equal(build({ dogs, events, pairings: [p], litters: [litter] }).litters[0].heat_id, undefined);
+  // Not a change she's shown.
+  assert.deepEqual(bundleChanges(build({ dogs, events, pairings: [p] }), b).filter((x) => /heat/.test(x)), []);
+});
+
+test("Kels's website check after a task: only what the task changed, never the same old changes again", async () => {
+  // ui.js listens on document when it loads; nothing here clicks.
+  const hadDocument = 'document' in globalThis;
+  if (!hadDocument) globalThis.document = { addEventListener() {}, querySelector: () => null, querySelectorAll: () => [] };
+  const ui = await import('../shared/assets/websiteUpdateUI.js').finally(() => { if (!hadDocument) delete globalThis.document; });
+  const { ownKennels } = await import('../shared/data/kennelScope.js');
+  for (const k of await ownKennels()) await link.disconnectWebsite(k.id).catch(() => {});
+  const k = await kennelRepo.create({ kennel_name: 'Kels check', is_own_kennel: true });
+  await link.connectWebsite(await kennelRepo.getById(k.id), 'abcd-2345', 'Her phone');
+  const ivy = await dogRepo.create({ call_name: 'Ivy', sex: 'female', breed: 'Boston Terrier', ownership_type: 'owned', status: 'active_breeding', kennel_id: k.id, show_on_website: true });
+  await link.updateWebsite(await kennelRepo.getById(k.id), { bundleId: 'bundle-kels-check-1' });
+  const said = [];
+  // Yes, check; then Not now to the update.
+  const chat = { say: async (t) => { said.push(t); }, choose: async (opts) => (opts.some((o) => o.value === 'yes') ? 'yes' : 'no') };
+
+  // Waiting from earlier (she said Not now): a task that touches nothing on the website asks nothing.
+  await dogRepo.update(ivy.id, { color_markings: 'Brindle' });
+  await ui.noteWebsiteBaseline();
+  await dogRepo.update(ivy.id, { notes: 'private' });
+  await ui.offerWebsiteCheck(chat);
+  assert.deepEqual(said, []);
+
+  // A task that does: only its change is listed, with the earlier one counted.
+  await ui.noteWebsiteBaseline();
+  await dogRepo.update(ivy.id, { registered_name: 'AK Poison Ivy' });
+  await ui.offerWebsiteCheck(chat);
+  await ui.offerWebsiteCheck(chat);
+  assert.equal(said.length, 3, 'asked once: the question, the list, then Okay');
+  assert.match(said[1], /This changes 1 thing on your website:[\s\S]*Ivy: registered name changed[\s\S]*1 earlier change still waiting/);
+  assert.doesNotMatch(said[1], /colour/);
 });

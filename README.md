@@ -42,6 +42,7 @@ backup, carries a program from Lite to Pro.
 | Furever | `docs/KennelOS_Furever_*.md`, `furever/README.md` |
 | Kels (the guided-task helper): what's next | `docs/KennelOS_Kels_Roadmap.md` (built tasks: End-State guide §33) |
 | Launch to-dos | `docs/LAUNCH_CHECKLIST.md` |
+| A review of the whole app, run over several sessions | `docs/KennelOS_Review_Plan.md` (findings in `docs/review/`) |
 | What was built when, past fixes | `docs/BUILD_LOG.md` |
 
 ## Status (2026-10-15)
