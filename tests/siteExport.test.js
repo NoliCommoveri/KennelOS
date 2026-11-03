@@ -56,7 +56,7 @@ test('titles and health results as data; a test keeps its id across a retest', (
   ]);
 });
 
-test('a litter: her dates, its puppies with their statuses, prices only when the site takes them (the surcharge always)', () => {
+test('a litter: her dates, its puppies with their statuses, prices only when the site takes them', () => {
   const dogs = [dog('willow'), dog('stud', { sex: 'male', show_on_website: false })];
   const litter = {
     id: 'l1', kennel_id: 'k1', status: 'whelped', dam_id: 'willow', sire_id: 'stud', nickname: 'Spring', pairing_id: 'p1', show_on_website: true,
@@ -81,9 +81,7 @@ test('a litter: her dates, its puppies with their statuses, prices only when the
   assert.equal(l.born_on, '2026-10-01');
   assert.equal(l.expected_on, null);
   assert.equal(l.deposits_on, '2026-11-01');
-  // Without Use my KennelOS prices: the full-registration surcharge only.
-  assert.deepEqual(l.prices, { price_female: null, price_male: null, full_reg_female: 500, full_reg_male: null, deposit_female: null, deposit_male: null });
-  assert.equal(build({ dogs: [...dogs, ...pups], litters: [{ ...litter, full_reg_surcharge_female: null }] }).litters[0].prices, null, 'no surcharge, no prices');
+  assert.equal(l.prices, null, 'no prices unless Use my KennelOS prices is on');
   assert.deepEqual(Object.fromEntries(l.puppies.map((p) => [p.id, p.status])), { a: 'available', b: 'staying', c: 'undecided', d: 'hidden', e: 'available', f: 'available', g: 'placed' });
   assert.deepEqual(Object.keys(l.puppies[0]).sort(), [...PUPPY_KEYS].sort());
   assert.equal(l.puppies[0].registration, 'full');

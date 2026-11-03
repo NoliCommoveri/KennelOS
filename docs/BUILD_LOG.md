@@ -2556,7 +2556,3 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `normal` as null when its Normal or abnormal is not marked (was false), so KennelPort's
   Normal results only keeps off only results marked Abnormal. The Health tests form's hint
   says so. Test updated.
-- **The Full surcharge always goes to the website (2026-11-03).** Without Use my KennelOS
-  prices, a litter's `prices` in the bundle carries only `full_reg_female`/`full_reg_male`
-  (null when neither is set), for KennelPort's Ask about full registration, which shows
-  it. The Website card says so. Test updated.

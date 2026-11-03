@@ -85,7 +85,7 @@ export async function mountWebsiteCard(el) {
       body = `
         ${ask}
         <p>Connected to <a href="${esc(site.website || '#')}" target="_blank" rel="noopener noreferrer">${esc(site.name || site.website || 'your website')}</a> on this device${link.device_label ? ` (“${esc(link.device_label)}”)` : ''}.</p>
-        <p class="muted">Marked Show on website: ${esc(marked)}. ${site.kennelos_prices ? 'Your litter and extras prices go too (Use my KennelOS prices is on in KennelPort).' : 'Your prices stay here (Use my KennelOS prices is off in KennelPort), all but each litter\'s full-registration surcharge, which your site shows where families may ask about full registration.'}</p>
+        <p class="muted">Marked Show on website: ${esc(marked)}. ${site.kennelos_prices ? 'Your litter and extras prices go too (Use my KennelOS prices is on in KennelPort).' : 'Your prices stay here: Use my KennelOS prices is off in KennelPort.'}</p>
         <p class="muted">${last}</p>
         <p class="muted">What you send lands in your website's draft: check it in KennelPort Site Manager, then press Publish there.</p>
         <div class="pill-row">
