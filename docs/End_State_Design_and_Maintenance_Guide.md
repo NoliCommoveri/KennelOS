@@ -3529,6 +3529,11 @@ KennelPort Site Manager.
   it under `settings`), her waitlist online when the site has a waitlist page (set up
   first; online through cloud backup), and the kennel record's website. Then the counts
   and **Update website**.
+- **Adding with Kels while linked:** after Kels's Add dogs and Record a new litter save,
+  on a device whose website is linked for the kennel, Kels offers what was just made (her
+  own adults; the litter, and its parents if they're hers and not shown), ticked, then a
+  deposits date for a born litter without one (`websiteUpdateUI.offerWebsiteFor`). It goes
+  with her next Update my website.
 - **The prompts, asked, never answered for her:** a dog's status becoming Active breeding
   ("Show on your website?"); a marked litter leaving Expected with no accept deposits date
   ("When do deposits open?", since blank means available now); a marked litter going Sold

@@ -2533,3 +2533,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   (`kennelportApi.kennelportLinkCodeUrl`, KennelPort's `/link-kennelos`), then the code
   and a device name typed into Kels, the same link as Settings' Your website card; then
   on to the update.
+- **Adding with Kels asks about the website (2026-11-03).** With the website linked, Kels's
+  Add dogs and Record a new litter end by offering the new records for it, ticked (a
+  litter's parents too, when hers and not shown), with the deposits date check for a born
+  litter (`websiteUpdateUI.offerWebsiteFor`). Pro with a KennelPort address only.
