@@ -125,10 +125,11 @@ test('demand vs supply: families counted by the waitlist matching rule; pups by 
     { pref_sex: 'male', pref_purposes: [] }
   ];
   const pups = [
-    { id: 'p1', status: 'puppy', sex: 'female', breed: 'Boxer', intended_registration: 'full' },
-    { id: 'p2', status: 'puppy', sex: 'female', breed: 'Boxer', intended_registration: 'limited' },
+    { id: 'p1', status: 'puppy', sex: 'female', breed: 'Boxer', intended_registration: 'full', disposition: 'available' },
+    { id: 'p2', status: 'puppy', sex: 'female', breed: 'Boxer', intended_registration: 'limited', disposition: 'available' },
     { id: 'p3', status: 'puppy', sex: 'male', breed: 'Boxer', intended_registration: 'limited', disposition: 'keeping' },
-    { id: 'p4', status: 'puppy', sex: 'unknown', breed: 'Boxer' }
+    { id: 'p5', status: 'puppy', sex: 'male', breed: 'Boxer', intended_registration: 'limited' },
+    { id: 'p4', status: 'puppy', sex: 'unknown', breed: 'Boxer', disposition: 'available' }
   ];
   const sales = [{ dog_id: 'p2', status: 'deposit_paid' }];
   const { rows, availableCount, unsexed } = demandSupply({ families, pups, sales, breeds: ['Boxer'] });
@@ -136,10 +137,10 @@ test('demand vs supply: families counted by the waitlist matching rule; pups by 
   assert.deepEqual([at('female', 'full').families, at('female', 'full').pups], [1, 1]);
   assert.deepEqual([at('female', 'limited').families, at('female', 'limited').pups], [1, 0], 'a sold pup is not supply');
   assert.equal(at('male', 'limited').families, 2, 'the pet family and the any-purpose male family');
-  assert.equal(at('male', 'limited').pups, 0, 'a kept pup is not supply');
+  assert.equal(at('male', 'limited').pups, 0, 'a kept pup is not supply, nor one with no plan yet (Undecided)');
   assert.equal(at('female', ''), undefined, 'no undecided pups and none asked for: no row');
   assert.equal(at('male', 'co_own'), undefined, 'nobody asked for a co-own male: the open family alone makes no row');
-  const open = demandSupply({ families: [{ pref_sex: 'any' }], pups: [{ id: 'q', status: 'puppy', sex: 'male', breed: 'Boxer' }], breeds: ['Boxer'] });
+  const open = demandSupply({ families: [{ pref_sex: 'any' }], pups: [{ id: 'q', status: 'puppy', sex: 'male', breed: 'Boxer', disposition: 'available' }], breeds: ['Boxer'] });
   assert.deepEqual(open.rows.map((r) => [r.label, r.families, r.pups]), [['Male · Registration not decided', 1, 1]]);
   assert.equal(availableCount, 2);
   assert.equal(unsexed, 1);

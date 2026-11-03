@@ -2451,3 +2451,16 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   (`isWebsiteOrigin`) confirms the application and returns `{ confirmed, signin }` only: no
   status token, and no family session is made. Her own pages get what they always did.
   Tests added.
+- **Undecided pups aren't for sale (2026-11-02).** KennelPort plan decision 10:
+  `waitlistRules.isPupAvailable` now offers only an `available` pup; unset reads as
+  `undecided` and, like Undecided, Keeping, Placed and Health hold, is held back. So the
+  waitlist, its public list's Available Puppies, turn prices and the reports agree with the
+  website. Companion already listed only Available pups. Kels's Tidy up asks about an
+  `owned` pup with no disposition and no sale going ahead (`tidyRules.pupNoPlanFindings`,
+  kind `pup-no-plan`): Available, Keeping or Still deciding. Test fixtures that relied on
+  unset pups being offered now mark them Available; two cloud waitlist tests that shared
+  the seed's families now clear the family's earlier passes and lines first. Waitlist Spec
+  and End-State guide (§29 Available pup, §33 Tidy up) updated. No new files;
+  `PRECACHE_URLS` unchanged.
+- **SW cache bumped to `kennelos-shell-v96` (2026-11-02)** for Undecided pups not being
+  offered and Tidy up's pups with no plan. No new app files; `PRECACHE_URLS` unchanged.

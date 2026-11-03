@@ -37,6 +37,15 @@ test('a pup with a sale going ahead that isn\'t Placed; released sales don\'t co
   assert.deepEqual(T.pupPlacedFindings(dogs, sales).map((f) => f.dog.id), ['a', 'd']);
 });
 
+test('a pup of hers with no plan is asked about; a plan, a sale going ahead, or not hers is not', () => {
+  const dogs = [
+    pup('a'), pup('b', { disposition: '' }), pup('c', { disposition: 'undecided' }), pup('d', { disposition: 'available' }),
+    pup('e'), pup('f', { ownership_type: 'external' }), pup('g', { is_archived: true }), pup('h', { status: 'active_breeding' }), pup('i')
+  ];
+  const sales = [{ id: 's1', dog_id: 'e', status: 'deposit_paid' }, { id: 's2', dog_id: 'i', status: 'cancelled' }];
+  assert.deepEqual(T.pupNoPlanFindings(dogs, sales).map((f) => [f.key, f.kind]), [['noplan:a', 'pup-no-plan'], ['noplan:b', 'pup-no-plan'], ['noplan:i', 'pup-no-plan']]);
+});
+
 test('a delivered dog still owned is flagged; co-owned, departed, or bought back again is not', () => {
   const sales = [
     { id: 's1', dog_id: 'a', status: 'delivered' },
@@ -209,7 +218,7 @@ test('no vet: raised when she has dogs and no live contact is tagged Vet', () =>
 });
 
 test('the vet checks are Pro (contactsSection) and come after the kennel checks', () => {
-  const base = { litters: [], pairings: [], sales: [], dogs: [pup('a')], allDogs: [pup('a')], contacts: [], kennels: [], vetEvents: [vetEvent('e1', 'Dr. Lee')], today };
+  const base = { litters: [], pairings: [], sales: [], dogs: [pup('a', { disposition: 'keeping' })], allDogs: [pup('a', { disposition: 'keeping' })], contacts: [], kennels: [], vetEvents: [vetEvent('e1', 'Dr. Lee')], today };
   assert.deepEqual(kinds(T.tidyFindings(base)), []);
   assert.deepEqual(kinds(T.tidyFindings({ ...base, flags: { contactsSection: true } })), ['event-no-vet', 'no-vet']);
 });
