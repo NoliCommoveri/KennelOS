@@ -2464,3 +2464,46 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `PRECACHE_URLS` unchanged.
 - **SW cache bumped to `kennelos-shell-v96` (2026-11-02)** for Undecided pups not being
   offered and Tidy up's pups with no plan. No new app files; `PRECACHE_URLS` unchanged.
+- **Her KennelPort website: Connect website and Update website (2026-11-03).** KennelPort
+  plan 5.5, the KennelOS side of its phase 4. The four marks (`Dog.show_on_website`,
+  `Dog.heats_online`, `Pairing.show_on_website`, `Litter.show_on_website`; cloud, classified
+  in `syncRegistry.js`, `cloudFields.js` regenerated) on the Dog, Pairing and Litter forms.
+  New: `data/siteExport.js` (the allow-listed bundle, format 1; checked against KennelPort's
+  `cleanBundle`), `data/kennelportApi.js` (the only module that talks to KennelPort),
+  `data/kennelportLinkStore.js` (the token in `device_secrets`), `data/kennelportLink.js`
+  (connect, update, disconnect; the license check; filling `dog.url`, `photos_url`, the
+  kennel's `website`, `extras_info_url`, `website_feed`, `embed_origins`),
+  `assets/websiteCard.js` (Settings → Your website) and `assets/websiteUpdateUI.js` (Kels's
+  Update my website). `kennelportUrl` / `devKennelportUrl` and `editionFlags.websiteLink` in
+  all four `editionConfig.js` (Pro on; Lite and Demo off and null). Prompts: Active breeding
+  → show on website; leaving Expected with no deposits date; Sold or Closed → off the
+  website, with kept pups offered their own page. `completedTestsByDog` now carries each
+  result's `date`. `PRECACHE_URLS` gets the six files (the two `assets/` ones Pro-only in
+  `proPages.js`). Tests: `tests/siteExport.test.js`. SW cache not bumped yet.
+  Not built: the custom-domain origin in `cloud/src/lib/cors.js` (the cloud has no record of
+  her domain yet), Kels's Record a new litter asking about the website (its litter follows
+  the pairing's mark), and the deposit's How to pay (KennelOS has no deposit instructions).
+- **The kennel record's website, asked (2026-11-03).** When the kennel record already has a
+  website she typed (her own homepage), connecting no longer leaves it unmentioned: the
+  Your website card, and Kels after Update my website, offer the KennelPort address in its
+  place (Use / Keep mine; `kennelportLink.websiteOffer`, `useSiteAsKennelWebsite`,
+  `keepKennelWebsite`). Keep mine is kept on this device per site address
+  (`kept_website` on the link row), so moving to her own domain asks again. Tests added.
+- **Breeders' own domains for her application form (2026-11-03).** `lib/cors.js`
+  `isWebsiteOrigin` also takes the origins in the `WEBSITE_ORIGINS` setting (comma-separated,
+  kept by hand in `cloud/wrangler.toml`, like KennelPort's own custom domains; the owner
+  expects about a dozen breeders). Production lists `https://www.akbostonterriers.com`. Each
+  needs its bare domain in the Turnstile widget's hostnames too (KennelPort Setup, Custom
+  domains, step C). Server only. Tests added (`cloud/tests/application.test.js`).
+- **Recommended products on her website from her Accounts (2026-11-03).** KennelPort's new
+  Recommended products page fills from Accounts she marks **Show on website**
+  (`Account.show_on_website`, cloud; the Accounts form beside Share with families, Pro with
+  a KennelPort address; a **Shown on website** badge). `siteExport.websiteProducts`: name,
+  referral link (else website), code, and the instructions when they fit KennelPort's
+  120-character note; never logins, notes, fees or payment details; transport accounts
+  never. Sent only when the site's answer lists `products` in `sections`. The Your website
+  card and Kels count them. `cloudFields.js` regenerated. Tests added. No new files.
+- **SW cache bumped to `kennelos-shell-v97` (2026-11-03)** for her KennelPort website:
+  Connect / Update website, the Show on website marks (dogs, pairings, litters, accounts),
+  the website prompts and Kels's Update my website. `PRECACHE_URLS` already carries the six
+  new files.

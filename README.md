@@ -60,9 +60,10 @@ backup, carries a program from Lite to Pro.
     Worker deploy, then check alerts on a real Android phone and an iPhone.
   - Family requests (`docs/KennelOS_Family_Requests_Plan.md`): extras, transport suggestions,
     training stays, pickup and backing out are built, and Kels's Review my waitlist works through them. Needs a Worker deploy and the `MAPBOX_TOKEN` secret for driving miles.
-  - KennelPort website feed (`website_feed`, `GET /f/site`): built; needs a Worker deploy,
-    and the service-worker cache bump is held for more changes. Open: whether the waitlist
-    should offer Undecided puppies (KennelPort plan decision 10).
+  - KennelPort website (`docs/End_State_Design_and_Maintenance_Guide.md` §35): the feed and
+    Connect / Update website are built; needs a Worker deploy and a try against KennelPort
+    staging. A breeder's own domain is added by hand to
+    `WEBSITE_ORIGINS` in `cloud/wrangler.toml` (KennelPort Setup, Custom domains, step C).
   - Duplicates: Import/Export's Scan for duplicates covers every record type. Open: Kels's
     Tidy up still checks only dogs and contacts for duplicates.
 - **Open launch items:** confirm `yearlyVariantPattern` / `lifetimeVariantPattern` against

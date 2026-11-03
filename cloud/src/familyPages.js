@@ -860,7 +860,7 @@ export async function handleFamilyApi(request, env, url) {
     // code confirms the application, but neither the status link nor a session goes
     // back, so no page outside KennelOS ever holds the key to a family's private
     // page. The family signs in on KennelOS's own list page to see it.
-    const fromWebsite = isWebsiteOrigin(request.headers.get('Origin'));
+    const fromWebsite = isWebsiteOrigin(request.headers.get('Origin'), env);
     const session = fromWebsite ? null : randomHex(32);
     const confirmed = await env.DB.batch([
       env.DB.prepare('DELETE FROM wl_family_codes WHERE public_id = ? AND code_hash = ?').bind(publicId, hash),

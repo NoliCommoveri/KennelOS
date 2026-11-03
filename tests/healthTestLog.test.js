@@ -58,7 +58,7 @@ test('unloggedPlanned: a result titled as the planned test counts even when Join
   assert.deepEqual(unloggedPlanned(dog, [e], testMatchTokensOf), ['OFA Hips']);
 });
 
-test('completedTestsByDog: name and result only, a retest replaces the result in place, blanks and archived skipped', () => {
+test('completedTestsByDog: name, result, flag and the latest date, a retest replaces the result in place, blanks and archived skipped', () => {
   const ev = (id, dog, type, date, details, extra = {}) => ({ id, subject_type: 'dog', subject_id: dog, event_type: type, event_date: date, title: '', details, ...extra });
   const m = completedTestsByDog([
     ev('a', 'd1', 'ofa_pennhip', '2025-01-10', { joint: 'Hips', rating: 'Fair' }),
@@ -71,7 +71,7 @@ test('completedTestsByDog: name and result only, a retest replaces the result in
     ev('g', 'd2', 'title_earned', '2026-01-01', { title_abbreviation: 'CH' }),
     { ...ev('h', 'd2', 'ofa_pennhip', '2026-01-01', { joint: 'Elbows', rating: 'Normal' }), subject_type: 'litter' }
   ]);
-  assert.deepEqual(m.get('d1'), [{ name: 'hips', result: 'Good', outcome: '' }, { name: 'PRA-prcd', result: 'Clear', outcome: '' }, { name: 'OFA Elbows', result: 'Normal', outcome: 'Normal' }, { name: 'BAER Hearing', result: 'Normal', outcome: '' }]);
+  assert.deepEqual(m.get('d1'), [{ name: 'hips', result: 'Good', outcome: '', date: '2026-01-10' }, { name: 'PRA-prcd', result: 'Clear', outcome: '', date: '2025-02-01' }, { name: 'OFA Elbows', result: 'Normal', outcome: 'Normal', date: '2026-01-12' }, { name: 'BAER Hearing', result: 'Normal', outcome: '', date: '2026-03-01' }]);
   assert.equal(m.has('d2'), false);
 });
 

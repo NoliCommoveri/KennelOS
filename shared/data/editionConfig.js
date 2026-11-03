@@ -35,6 +35,13 @@ export const demoUrl = null;
 export const cloudUrl = null;
 export const devCloudUrl = 'https://kennelos-api-staging.admin-kennelos.workers.dev';
 
+// Her KennelPort website (KennelPort plan 5.5; data/kennelportApi.js). Null: no
+// Connect website, no Update website, no request to KennelPort. `devKennelportUrl`
+// is KennelPort's staging Worker, used on localhost and with ?cloud=staging, like
+// devCloudUrl. Pro only (KennelPort decision 27).
+export const kennelportUrl = null;
+export const devKennelportUrl = 'https://kennelport-staging.kennelport.workers.dev';
+
 // License gate config (data/license.js). Exported so license.js's named import
 // always resolves, but the gate is OFF in this default (editionFlags.licenseGate
 // unset) — Pro's own editionConfig turns it on and supplies the real checkout URL.
@@ -112,6 +119,9 @@ export const editionFlags = {
   // Live sync between the owner's devices (Cloud Phase 2 plan §3.2). Pro only; the
   // server checks Pro itself too. Lite and Demo: false.
   liveSync: true,
+  // Her KennelPort website (KennelPort plan 5.5): the Show on website marks, Connect
+  // website and Update website. Pro only; Lite and Demo can't link (decision 27).
+  websiteLink: true,
 };
 
 // --- Navigation ------------------------------------------------------------
