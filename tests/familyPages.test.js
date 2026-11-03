@@ -7,7 +7,8 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import {
   SEX_LABEL, READY_LABEL, PURPOSE_LABEL, purposesText, CREDIT_LABEL, rowMatches, fmtDate, possessive, publicListHtml, esc,
-  parentsLine, upcomingItemHtml, availableItemHtml, photosLink, pupColumnsHtml, dogInfo, dogInfoHtml, infoBubble
+  parentsLine, upcomingItemHtml, availableItemHtml, photosLink, pupColumnsHtml, dogInfo, dogInfoHtml, infoBubble,
+  litterLinkHtml, pupLinksHtml
 } from '../cloud/public/family/common.js';
 import { WAITLIST_PREF_SEX, WAITLIST_READY_TIMING, PLACEMENT_PURPOSE, FEE_CREDIT_POLICY } from '../shared/data/vocab.js';
 import { ACTION_VOCAB } from '../cloud/src/familyActions.js';
@@ -58,6 +59,32 @@ test('dates, possessives and escaping', () => {
   assert.equal(html.includes('<img'), false, 'names are escaped');
   assert.match(html, /Their place is being held/, 'a skipped number is explained');
   assert.match(html, /class="mine"/);
+});
+
+test("a turn's litter link: her website page says so, a photos link stays photos", () => {
+  assert.match(litterLinkHtml({ photos_url: 'https://akbostons.kennelport.com/litters/gem', page: true }),
+    /<a class="photos-link" href="https:\/\/akbostons\.kennelport\.com\/litters\/gem"[^>]*>View litter on our website<\/a>/);
+  assert.match(litterLinkHtml({ photos_url: 'https://photos.example/gem' }), />See the litter&#39;s photos<\/a>/);
+  assert.equal(litterLinkHtml({ page: true }), '', 'no link, no line');
+  assert.equal(litterLinkHtml(null), '');
+});
+
+test("a turn's pup links: the litter's page stands for every pup's, so pup pages aren't listed under the buttons", () => {
+  const pups = [
+    { call_name: 'Opal', photos_url: 'https://akbostons.kennelport.com/litters/gem/opal', page: true },
+    { call_name: 'Pip', photos_url: 'https://akbostons.kennelport.com/litters/gem/pip', page: true }
+  ];
+  // The litter has its own page: that one link covers them, so no "Opal's page · Pip's page".
+  assert.equal(pupLinksHtml({ photos_url: 'https://akbostons.kennelport.com/litters/gem', page: true }, pups), '');
+  // No litter page: the pups' own pages stand in for it, so a turn is never linkless.
+  const stand = pupLinksHtml({ photos_url: 'https://photos.example/gem' }, pups);
+  assert.match(stand, /On our website: <a[^>]*>Opal&#39;s page<\/a> · <a[^>]*>Pip&#39;s page<\/a>/);
+  assert.equal(/Photos:/.test(stand), false);
+  // A pup whose link is only photos is its own, litter page or not.
+  const mixed = pupLinksHtml({ photos_url: 'https://akbostons.kennelport.com/litters/gem', page: true },
+    [...pups, { call_name: 'Rue', photos_url: 'https://photos.example/rue' }]);
+  assert.match(mixed, /^<p class="small mt0">Photos: <a[^>]*>Rue<\/a><\/p>$/);
+  assert.equal(pupLinksHtml({ page: true }, []), '');
 });
 
 test('the pages carry no inline script or style (the CSP forbids them) and load nothing from elsewhere', () => {

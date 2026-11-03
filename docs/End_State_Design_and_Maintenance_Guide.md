@@ -1947,7 +1947,16 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   her KennelPort website (`websiteAddress.isWebsiteAddress`: any kennelport.com address, or
   her kennel's `website` origin) links there whatever `photos_online` says (the page is
   public), marked `page: true` (`waitlistProjection.pupLink`; the Worker's `pageOf` passes
-  it only with a usable link); under a turn's pups those read "On our website: Pip's page". Parents and litters on the
+  it only with a usable link). A litter's `photos_url` that is such a page is marked the
+  same way (`waitlistProjection.litterLink`), and on a turn its line reads "View litter on
+  our website" instead of "See the litter's photos" (`common.litterLinkHtml`).
+  On a turn a pup's name is a pick button, and a button can't hold a link, so the links sit
+  under the buttons (`common.pupLinksHtml`): "Photos: Pip · Poppy" for pups whose link is
+  just photos. Their pages on her website are **not** listed pup by pup there — each pup's
+  page sits under the litter's (`/litters/<litter>/<pup>`), so the litter's own "View litter
+  on our website" above the buttons is the link given (decided 2026-11-03); pup pages read
+  "On our website: Pip's page" only where that litter has no page of its own, so a turn is
+  never left without a link. Parents and litters on the
   public list are public.
   **Available Puppies** (public list and status pages) lists each litter's available pups
   by name: the Worker's `litterCard` adds `pups` (`cardPups`: call name, sex, registration,

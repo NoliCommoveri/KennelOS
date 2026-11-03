@@ -643,3 +643,19 @@ test("a pup's website page passes as `page: true`, only with a link it can use",
   const offer = statusView(p, 'ann').offers[0].pups;
   assert.deepEqual(offer.map((d) => [d.call_name, d.page ?? false]), [['Pip', true], ['Poppy', false], ['Rue', false]]);
 });
+
+test("a litter's website page reaches its turn as `page: true`, only with a link it can use", () => {
+  const p = projection();
+  p.litters.l1.photos_url = 'https://akbostons.kennelport.com/litters/gem';
+  p.litters.l1.page = true;
+  const offer = statusView(p, 'ann').offers[0];
+  assert.deepEqual([offer.photos_url, offer.page], ['https://akbostons.kennelport.com/litters/gem', true]);
+  // A photos link she set is passed without the flag.
+  p.litters.l1.page = false;
+  assert.equal('page' in statusView(p, 'ann').offers[0], false);
+  // Claimed `page` with no usable link: dropped, so the turn can't render a dead link.
+  p.litters.l1.photos_url = 'javascript:alert(1)';
+  p.litters.l1.page = true;
+  const bad = statusView(p, 'ann').offers[0];
+  assert.deepEqual(['photos_url' in bad, 'page' in bad], [false, false]);
+});

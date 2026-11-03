@@ -537,6 +537,27 @@ test("a pup's page on her website is its link, tick or not; another link only wi
   assert.deepEqual([m.pups.find((d) => d.id === 'p2').photos_url, 'page' in m.pups.find((d) => d.id === 'p2')], ['https://photos.example/p2', false]);
 });
 
+test("a litter's page on her website is marked `page: true`; a photos link she set is not", () => {
+  const f = fixture();
+  f.kennel = { ...f.kennel, website: 'https://www.akbostons.com/' };
+  f.litters = [{ ...litter, photos_url: 'https://akbostons.kennelport.com/litters/gem' }];
+  assert.deepEqual(
+    [buildProjection(f).litters['lit-1'].photos_url, buildProjection(f).litters['lit-1'].page],
+    ['https://akbostons.kennelport.com/litters/gem', true]
+  );
+  // Her own domain counts as her website too.
+  f.litters = [{ ...litter, photos_url: 'https://www.akbostons.com/litters/gem' }];
+  assert.equal(buildProjection(f).litters['lit-1'].page, true);
+  // A photos album she set herself is a photos link, not a page.
+  f.litters = [{ ...litter, photos_url: 'https://photos.example/gem' }];
+  const album = buildProjection(f).litters['lit-1'];
+  assert.deepEqual([album.photos_url, 'page' in album], ['https://photos.example/gem', false]);
+  // No link at all: neither key.
+  f.litters = [{ ...litter }];
+  const none = buildProjection(f).litters['lit-1'];
+  assert.deepEqual(['photos_url' in none, 'page' in none], [false, false]);
+});
+
 test("a parent's registered name always goes with it; its own sire and dam only with her pedigree setting, where known", () => {
   const f = fixture();
   f.dogs = [

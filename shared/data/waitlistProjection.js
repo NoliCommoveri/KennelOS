@@ -115,6 +115,16 @@ function pupLink(d, kennel) {
   return withPhotos(dogPhotosLink(d));
 }
 
+// A litter's link as family pages show it: its page on her KennelPort website when
+// its `photos_url` is one (Update website fills it, and a pup's page sits under it),
+// else the photos link she set. `page: true` so a turn reads "View litter on our
+// website" rather than "See the litter's photos".
+function litterLink(litter, kennel) {
+  const url = photoLink(litter.photos_url);
+  if (!url) return {};
+  return isWebsiteAddress(url, [kennel]) ? { photos_url: url, page: true } : { photos_url: url };
+}
+
 // A pup as a family may see it: call name, sex, color, the registration it's
 // planned for (null: undecided, either), its registry ("AKC"; null when none),
 // and its link. Nothing else.
@@ -487,7 +497,7 @@ export function buildProjection({ kennel, entries = [], offers = [], programsByI
       whelp_date: orNull(litter.whelp_date),
       ready_date: orNull(litter.estimated_ready_date),
       picks_open: Boolean(litter.picks_opened_date),
-      ...withPhotos(photoLink(litter.photos_url)),
+      ...litterLink(litter, kennel),
       ...(config.turn_prices !== false ? { prices: litterPrices(litter, pups.filter((d) => isPupAvailable(d, sales))) } : {}),
       pairing_id: orNull(litter.pairing_id),
       pups: pups.filter((d) => isPupAvailable(d, sales)).sort(byId).map((d) => publicPup(d, kennel)),

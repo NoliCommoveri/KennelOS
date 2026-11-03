@@ -212,7 +212,7 @@ function withPick(pups, o) {
 const PHOTO_LINK = /^https?:\/\/[^\s"'<>]{1,500}$/i;
 export const photosOf = (v) => (typeof v === 'string' && PHOTO_LINK.test(v) ? { photos_url: v } : {});
 // The pups an offer lists, each with its photos link checked.
-// `page: true`: the link is the pup's page on her website, not just photos.
+// `page: true`: the link is that pup's (or litter's) page on her website, not just photos.
 const pageOf = (d) => (d?.page === true && photosOf(d.photos_url).photos_url ? { page: true } : {});
 const pupsOf = (pups) => pups.map((d) => {
   const { photos_url: url, page, registry, ...rest } = d || {};
@@ -593,8 +593,8 @@ export function statusView(projection, entryId) {
       ...(typeof o.deposit_credit === 'number' && Number.isFinite(o.deposit_credit) && o.deposit_credit > 0 ? { deposit_credit: o.deposit_credit } : {}),
       // Their application fee, when she credits it toward the deposit.
       ...(typeof o.deposit_fee_credit === 'number' && Number.isFinite(o.deposit_fee_credit) && o.deposit_fee_credit > 0 ? { deposit_fee_credit: o.deposit_fee_credit } : {}),
-      // The litter's photos link, where she set one.
-      ...photosOf(l.photos_url),
+      // The litter's link, where she set one, and whether it's its page on her website.
+      ...photosOf(l.photos_url), ...pageOf(l),
       pups: pupsOf(withPick((l.pups || []).filter((d) => eligible.has(d.id) || d.id === o.picked_dog_id), o)),
     };
   });

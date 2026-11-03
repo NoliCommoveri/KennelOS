@@ -308,6 +308,25 @@ export function pupColumnsHtml(l) {
   return `<div class="pup-cols small">${col('Males', pups.filter((d) => d.sex === 'male'))}${col('Females', pups.filter((d) => d.sex === 'female'))}${other.length ? col('Puppies', other) : ''}</div>`;
 }
 
+// A turn's litter link: its page on her KennelPort website (`page`, from
+// waitlistProjection.litterLink), else the photos she set. On a turn the pups' names
+// are pick buttons, and a button can't hold a link, so this line is how a family on
+// its turn follows the litter: every pup's page sits under the litter's page.
+export function litterLinkHtml(l) {
+  if (!l?.photos_url) return '';
+  return `<p class="small mt0">${photosLink(l.photos_url, l.page ? 'View litter on our website' : 'See the litter\'s photos')}</p>`;
+}
+
+// The pups' own links under a turn's pick buttons. Their pages on her website are
+// NOT listed pup by pup: the litter's link above the buttons covers them (decided
+// 2026-11-03), so they stand in for it only where that litter has no page of its
+// own. A pup whose link is just photos ("Photos: Pip · Poppy") always gets its own.
+export function pupLinksHtml(l, pups = []) {
+  const pages = l?.page ? [] : pups.filter((d) => d.photos_url && d.page).map((d) => photosLink(d.photos_url, `${d.call_name || 'Puppy'}'s page`));
+  const photos = pups.filter((d) => d.photos_url && !d.page).map((d) => photosLink(d.photos_url, d.call_name || 'Photos'));
+  return `${pages.length ? `<p class="small mt0">On our website: ${pages.join(' · ')}</p>` : ''}${photos.length ? `<p class="small mt0">Photos: ${photos.join(' · ')}</p>` : ''}`;
+}
+
 // One litter with open picks (Available Puppies), the same on the public list and a
 // family's page; `extra` adds lines under it.
 export function availableItemHtml(l, extra = '') {

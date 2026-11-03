@@ -12,7 +12,7 @@
 // Messages are sealed here, in this browser, to her key (seal.js); the server
 // can't read them.
 import {
-  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingItemHtml, upcomingFootHtml, litterHtml, availableItemHtml, deadlineText, fmtShortDate, parentsLine, photosLink,
+  esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingItemHtml, upcomingFootHtml, litterHtml, availableItemHtml, deadlineText, fmtShortDate, parentsLine, litterLinkHtml, pupLinksHtml,
   SEX_LABEL, pupRegistration, READY_LABEL, PURPOSE_LABEL, purposesText, CREDIT_LABEL, confirmDialog
 } from './common.js';
 import { rememberedFamily, forgetFamily } from './session.js';
@@ -216,14 +216,7 @@ function turnHtml(rows) {
       return actOn
         ? `<button type="button" class="pup secondary" data-act="pick" data-offer="${esc(o.id)}" data-dog="${esc(d.id)}" data-name="${esc(d.call_name)}">${label}</button>`
         : `<span class="pup">${label}${yours}</span>`;
-    }).join('')}</div>${pupPhotos(pups)}`;
-  // The pups' links (a button can't hold one): each one's page on her website, else
-  // its photos where she shows them.
-  const pupPhotos = (pups) => {
-    const pages = pups.filter((d) => d.photos_url && d.page).map((d) => photosLink(d.photos_url, `${d.call_name || 'Puppy'}'s page`));
-    const photos = pups.filter((d) => d.photos_url && !d.page).map((d) => photosLink(d.photos_url, d.call_name || 'Photos'));
-    return `${pages.length ? `<p class="small mt0">On our website: ${pages.join(' · ')}</p>` : ''}${photos.length ? `<p class="small mt0">Photos: ${photos.join(' · ')}</p>` : ''}`;
-  };
+    }).join('')}</div>${pupLinksHtml(o, pups)}`;
   // Her expected prices (when she shows them): each registration's pups under its
   // heading with its price line (Full's includes the surcharge); an undecided pup
   // (none set) is under Limited, its label adding what it costs with full.
@@ -300,7 +293,7 @@ function turnHtml(rows) {
   return openCard('The wait is over!', `
     <p class="mt0">${mineOnly.length ? 'Your pick:' : 'Below are the puppies available for selection.'}</p>
     ${rows.some((o) => o.prices) ? '<p class="small muted mt0">Listed prices are intended base purchase price and may not include additional fees; all prices are subject to change prior to contract signing.</p>' : ''}
-    ${rows.map((o) => `<div class="turn-litter"><p class="mt0"><strong>${esc(o.litter)}</strong>${o.breed ? ` <span class="small muted">${esc(o.breed)}</span>` : ''}</p>${parentsLine(o.dam, o.sire)}${o.photos_url ? `<p class="small mt0">${photosLink(o.photos_url, 'See the litter\'s photos')}</p>` : ''}${pupsOf(o)}</div>`).join('')}
+    ${rows.map((o) => `<div class="turn-litter"><p class="mt0"><strong>${esc(o.litter)}</strong>${o.breed ? ` <span class="small muted">${esc(o.breed)}</span>` : ''}</p>${parentsLine(o.dam, o.sire)}${litterLinkHtml(o)}${pupsOf(o)}</div>`).join('')}
     ${next}
     ${respondBy && !showsDeadline ? `<p class="deadline"><strong>${esc(deadlineText(respondBy, v.kennel.time_zone))}</strong></p>` : ''}`, 'turn');
 }

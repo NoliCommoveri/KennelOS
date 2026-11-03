@@ -2568,3 +2568,13 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   is a page on her KennelPort site links there without the photos_online tick
   (`page: true`; "On our website: Opal's page"). `isWebsiteAddress` moved to the new pure
   `data/websiteAddress.js` (in PRECACHE_URLS) so the projection can use it. Tests added.
+- **A turn links the litter, not each pup (2026-11-03).** On a turn a pup's name is a pick
+  button, which can't hold a link, so the per-pup "On our website: Opal's page" line under
+  the buttons is gone: a pup's page sits under its litter's (`/litters/<litter>/<pup>`), so
+  the litter's own line above the buttons is the link to give and now reads "View litter on
+  our website" where it is that page. A litter's `photos_url` carries `page: true` the way a
+  pup's does (`waitlistProjection.litterLink`, through the Worker's `pageOf`). Pup pages
+  still stand in under the buttons where that litter has no page of its own, so a turn is
+  never left without a link; a pup whose link is only photos keeps its own "Photos: Rue".
+  The two decisions moved out of `status.js` into `common.litterLinkHtml` /
+  `common.pupLinksHtml`, where they're tested. Tests added.
