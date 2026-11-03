@@ -35,6 +35,7 @@ const EXEMPT = {
   'shared/data/cloud/vaultKeyStore.js': { sites: 6, why: 'the device-only vault key, pairing request and unsaved recovery code (device_secrets): not kennel data, never in a snapshot' },
   'shared/data/stripeKeyStore.js': { sites: 2, why: 'her Stripe restricted key on this device only (device_secrets, Integrations plan §4): not kennel data, never in a snapshot' },
   'shared/data/jotformKeyStore.js': { sites: 2, why: 'her Jotform API key on this device only (device_secrets, Integrations plan §2.1b): not kennel data, never in a snapshot' },
+  'shared/data/kennelportLinkStore.js': { sites: 3, why: 'her KennelPort website link token on this device only (device_secrets, KennelPort plan 5.5): not kennel data, never in a snapshot' },
   'shared/data/syncApply.js': { sites: 2, why: 'rows pulled by live sync (Cloud Phase 2 plan §5.3): they keep their own timestamps and must not go back up; an archive-instead does call markDataChanged' },
   'shared/data/cloud/syncState.js': { sites: 3, why: 'the device-only sync_meta table (Cloud Phase 2 plan §3.4): what this device has synced, not kennel data, never in a snapshot' }
 };

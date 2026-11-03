@@ -27,6 +27,13 @@ export const demoUrl = null;
 export const cloudUrl = null;
 export const devCloudUrl = null;
 
+// Her KennelPort website (KennelPort plan 5.5; data/kennelportApi.js). Null: no
+// Connect website, no Update website, no request to KennelPort. `devKennelportUrl`
+// is KennelPort's staging Worker, used on localhost and with ?cloud=staging, like
+// devCloudUrl. Pro only (KennelPort decision 27).
+export const kennelportUrl = null;
+export const devKennelportUrl = null;
+
 // License gate config (data/license.js). Demo is a public read-only showcase and
 // must NEVER be walled, so the gate stays off (no licenseGate:true in editionFlags
 // below). Exported only so license.js's named import resolves in the Demo build.
@@ -79,6 +86,9 @@ export const editionFlags = {
   multiKennel: true,
   // Demo has no cloud at all.
   liveSync: false,
+  // Her KennelPort website (KennelPort plan 5.5): the Show on website marks, Connect
+  // website and Update website. Pro only; Lite and Demo can't link (decision 27).
+  websiteLink: false,
 };
 
 // Full nav bar (Demo shows the whole Pro app, read-only).
