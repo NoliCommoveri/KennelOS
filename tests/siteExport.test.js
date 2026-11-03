@@ -7,7 +7,7 @@ import { test, before, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { installMemoryDb } from './support/memoryDb.js';
 import {
-  buildSiteBundle, websiteGaps, puppyStatus, websiteHeats, litterMarked, waitlistSteps, applicationFeePay, line,
+  buildSiteBundle, websiteGaps, bundleChanges, puppyStatus, websiteHeats, litterMarked, waitlistSteps, applicationFeePay, line,
   BUNDLE_KEYS, DOG_KEYS, LITTER_KEYS, PUPPY_KEYS, SiteExportError, SITE_MAX
 } from '../shared/data/siteExport.js';
 
@@ -171,6 +171,30 @@ test("Kels's Update my website: what isn't on the website yet, in groups", () =>
   assert.deepEqual(ids(g.heats), ['willow', 'nova'], 'her breeding girls with heats off');
   assert.deepEqual(ids(g.deposits), ['live'], 'a shown, born litter with no deposits date');
   assert.deepEqual(ids(websiteGaps(K, { dogs, litters, pairings }, { marking: ['born'] }).deposits), ['live', 'born'], 'one she is adding counts');
+});
+
+test('what an update would change, in words', () => {
+  const before = {
+    dogs: [{ id: 'z', call_name: 'Zoey', status: 'active_breeding', color: 'Brindle' }, { id: 'c', call_name: 'Claire', status: 'active_breeding' }],
+    litters: [{ id: 'l', name: 'First Down', born_on: '2026-10-01', deposits_on: null, puppies: [{ id: 'p1', name: 'Coach', status: 'available' }, { id: 'p2', name: 'LB', status: 'available' }] }],
+    pairings: [{ id: 'q', dam_name: 'Claire', sire_name: 'Zeus', planned_on: '2027-01-01' }], heats: [], extras: null
+  };
+  assert.deepEqual(bundleChanges(before, structuredClone(before)), [], 'the same: nothing');
+  const after = structuredClone(before);
+  after.dogs[0].color = 'Black & white';
+  after.dogs[1].status = 'retired_breeding';
+  after.dogs.push({ id: 'n', call_name: 'Nova', status: 'active_breeding' });
+  after.litters[0].deposits_on = '2026-10-22';
+  after.litters[0].puppies[0].status = 'placed';
+  after.litters[0].puppies.pop();
+  after.pairings = [];
+  after.heats = [{ id: 'h', dam_name: 'Zoey', month: '2027-03' }];
+  after.extras = [{ id: 'x', name: 'Crate' }];
+  assert.deepEqual(bundleChanges(before, after), [
+    'Zoey: colour changed', 'Claire: now retired', 'New dog: Nova',
+    'First Down: deposits date changed', 'Coach: Available → Spoken for', 'LB: off the site',
+    'Claire × Zeus: off Coming up', "Coming up: Zoey's heat", 'Extras changed'
+  ]);
 });
 
 test('puppy statuses are her disposition, as she set it (plan 3.6)', () => {
@@ -399,3 +423,19 @@ test("Kels's Update my website: her ticks mark records, deposits dates save, and
   assert.equal((await link.websiteFacts(k.id)).kennelos_prices, true, 'the next Update website sends prices');
   reply = realReply;
 });
+
+test('after an update, this device knows what it sent, and says what the next would change', async () => {
+  const k = await kennelRepo.create({ kennel_name: 'Compare', is_own_kennel: true });
+  await link.connectWebsite(await kennelRepo.getById(k.id), 'abcd-2345', 'Her phone');
+  const zoey = await dogRepo.create({ call_name: 'Zoey', sex: 'female', breed: 'Boston Terrier', ownership_type: 'owned', status: 'active_breeding', kennel_id: k.id, show_on_website: true });
+  const zeus = await dogRepo.create({ call_name: 'Zeus', sex: 'male', breed: 'Boston Terrier', ownership_type: 'owned', status: 'active_breeding', kennel_id: k.id });
+  const litter = await litterRepo.create({ kennel_id: k.id, dam_id: zoey.id, sire_id: zeus.id, nickname: 'First Down', status: 'whelped', whelp_date: '2026-10-01', show_on_website: true });
+  const coach = await dogRepo.create({ call_name: 'Coach', sex: 'female', breed: 'Boston Terrier', ownership_type: 'owned', status: 'puppy', kennel_id: k.id, litter_id: litter.id, dam_id: zoey.id, sire_id: zeus.id, disposition: 'available' });
+  assert.deepEqual(await link.pendingWebsiteChanges(await kennelRepo.getById(k.id)), { never: true }, 'never sent from here');
+  assert.equal(await link.anyWebsiteLink(), true);
+  await link.updateWebsite(await kennelRepo.getById(k.id), { bundleId: 'bundle-compare-1' });
+  assert.deepEqual(await link.pendingWebsiteChanges(await kennelRepo.getById(k.id)), { lines: [] });
+  await dogRepo.update(coach.id, { disposition: 'placed' });
+  assert.deepEqual((await link.pendingWebsiteChanges(await kennelRepo.getById(k.id))).lines, ['Coach: Available → Spoken for']);
+});
+

@@ -381,6 +381,73 @@ export function websiteGaps(kennel, { dogs = [], litters = [], pairings = [] }, 
   };
 }
 
+// What an Update website would change, as lines Kels can show: `before`, the
+// bundle this device sent last; `after`, the one it would send now (each without
+// its id and time). Records match by id within a section, as on KennelPort.
+// → ["New litter: First Down", "Coach: Available → Spoken for", …], [] when the
+// same.
+const PUPPY_WORDS = { available: 'Available', placed: 'Spoken for', staying: 'Staying with us', undecided: 'Still deciding', hidden: 'Hidden', reserved: 'Reserved' };
+const DOG_WORDS = { puppy: 'up and coming', active_breeding: 'at home', for_sale: 'looking for a home', retired_breeding: 'retired', deceased: 'in memory' };
+const FIELD_WORDS = {
+  call_name: 'name', registered_name: 'registered name', sex: 'sex', date_of_birth: 'birthday', color: 'colour', died_on: 'date of death',
+  titles: 'titles', health: 'health results', name: 'name', dam_id: 'dam', sire_id: 'sire', dam_name: 'dam', sire_name: 'sire',
+  expected_on: 'expected date', born_on: 'birth date', ready_on: 'going-home date', deposits_on: 'deposits date', prices: 'prices',
+  planned_on: 'planned date', month: 'month', pairing_id: 'pairing', registration: 'registration'
+};
+const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+export function bundleChanges(before = {}, after = {}) {
+  const out = [];
+  const byId = (list) => new Map((list || []).map((r) => [r.id, r]));
+  const fields = (a, b, skip = []) => [...new Set(Object.keys({ ...a, ...b }))].filter((k) => !skip.includes(k) && !same(a[k], b[k]));
+  const words = (ks) => [...new Set(ks.map((k) => FIELD_WORDS[k] || k.replace(/_/g, ' ')))].join(', ');
+  const litterName = (l) => l.name || (l.dam_name && l.sire_name ? `${l.dam_name} × ${l.sire_name}` : l.dam_name ? `${l.dam_name}'s litter` : 'a litter');
+  const pairName = (p) => (p.dam_name && p.sire_name ? `${p.dam_name} × ${p.sire_name}` : p.dam_name || 'a pairing');
+
+  const [d0, d1] = [byId(before.dogs), byId(after.dogs)];
+  for (const [id, d] of d1) {
+    const was = d0.get(id);
+    if (!was) { out.push(`New dog: ${d.call_name}`); continue; }
+    if (was.status !== d.status) out.push(`${d.call_name}: now ${DOG_WORDS[d.status] || d.status}`);
+    const ks = fields(was, d, ['id', 'status']);
+    if (ks.length) out.push(`${d.call_name}: ${words(ks)} changed`);
+  }
+  for (const [id, d] of d0) if (!d1.has(id)) out.push(`${d.call_name}: off the site`);
+
+  const [l0, l1] = [byId(before.litters), byId(after.litters)];
+  for (const [id, l] of l1) {
+    const was = l0.get(id);
+    if (!was) { out.push(`New litter: ${litterName(l)}${l.puppies?.length ? ` (${l.puppies.length} ${l.puppies.length === 1 ? 'puppy' : 'puppies'})` : ''}`); continue; }
+    const ks = fields(was, l, ['id', 'puppies']);
+    if (ks.length) out.push(`${litterName(l)}: ${words(ks)} changed`);
+    const [p0, p1] = [byId(was.puppies), byId(l.puppies)];
+    for (const [pid, p] of p1) {
+      const pw = p0.get(pid);
+      if (!pw) { out.push(`${p.name}: new puppy in ${litterName(l)}`); continue; }
+      if (pw.status !== p.status) out.push(`${p.name}: ${PUPPY_WORDS[pw.status] || pw.status} → ${PUPPY_WORDS[p.status] || p.status}`);
+      const pk = fields(pw, p, ['id', 'status']);
+      if (pk.length) out.push(`${p.name}: ${words(pk)} changed`);
+    }
+    for (const [pid, p] of p0) if (!p1.has(pid)) out.push(`${p.name}: off the site`);
+  }
+  for (const [id, l] of l0) if (!l1.has(id)) out.push(`${litterName(l)}: off the site`);
+
+  const [q0, q1] = [byId(before.pairings), byId(after.pairings)];
+  for (const [id, p] of q1) {
+    const was = q0.get(id);
+    if (!was) out.push(`New under Coming up: ${pairName(p)}`);
+    else if (fields(was, p, ['id']).length) out.push(`${pairName(p)}: ${words(fields(was, p, ['id']))} changed`);
+  }
+  for (const [id, p] of q0) if (!q1.has(id)) out.push(`${pairName(p)}: off Coming up`);
+
+  const [h0, h1] = [byId(before.heats), byId(after.heats)];
+  for (const [id, h] of h1) if (!h0.has(id)) out.push(`Coming up: ${h.dam_name || 'a girl'}'s heat`);
+  for (const [id, h] of h0) if (!h1.has(id)) out.push(`${h.dam_name || 'A girl'}'s heat: off Coming up`);
+
+  const other = { extras: 'Extras', products: 'Recommended products', steps: 'How it works steps', payment: 'How to pay', waitlist_public_id: 'Your waitlist link' };
+  for (const [k, label] of Object.entries(other)) if (!same(before[k], after[k])) out.push(`${label} changed`);
+  return out;
+}
+
 // What the website would be sent, before the caps check: the records she marked.
 // kennelportLink.js shows these counts on the Website card.
 export function websiteCounts(kennel, { dogs = [], litters = [], pairings = [], events = [], accounts = [], today }) {

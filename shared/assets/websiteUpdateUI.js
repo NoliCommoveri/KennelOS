@@ -16,7 +16,7 @@ import { kennelRepo } from '../data/kennelRepo.js';
 import { dogRepo } from '../data/dogRepo.js';
 import {
   getWebsiteLink, connectWebsite, websiteSummary, pendingWebsiteOffer, useSiteAsKennelWebsite, keepKennelWebsite,
-  websiteGapsFor, markOnWebsite, setDepositsDate, websiteFacts, setWebsitePrices, KennelportError
+  websiteGapsFor, markOnWebsite, setDepositsDate, websiteFacts, setWebsitePrices, pendingWebsiteChanges, KennelportError
 } from '../data/kennelportLink.js';
 import { waitlistIsSetUp } from '../data/waitlistRules.js';
 import { isWaitlistOnlineOffered } from '../data/cloud/cloudConfig.js';
@@ -286,8 +286,45 @@ export async function offerWebsiteFor(chat, { dogIds = [], litterIds = [] } = {}
     await markOnWebsite({ dogs: dogs.filter((d) => picked.has(d.id)).map((d) => d.id), litters: litters.filter((l) => picked.has(l.id)).map((l) => l.id) });
     marked = true;
     await askDeposits(chat, kennel, { only: litters.filter((l) => picked.has(l.id)).map((l) => l.id) });
-    await chat.say('Marked. They go to your website with your next update: ask me to <strong>Update my website</strong> when you\'re ready.', { typing: 300 });
+    await chat.say('Marked for your website.', { typing: 300 });
   }
   return marked;
+}
+
+// After any of Kels's tasks (kels.js onExit, and Add dogs / Record a new litter
+// before their last step): when a linked website would change with an update, ask
+// whether to check; on a yes, what would change (pendingWebsiteChanges) and Update
+// website. The same changes aren't asked about twice on one page.
+const asked = new Set();
+const SHOW_LINES = 12;
+export async function offerWebsiteCheck(chat) {
+  const linked = [];
+  for (const k of await ownKennels()) if (await getWebsiteLink(k.id)) linked.push(k);
+  for (const kennel of linked) {
+    const ch = await pendingWebsiteChanges(kennel);
+    if (ch.error || (!ch.never && !ch.lines.length)) continue;
+    const key = `${kennel.id}:${ch.never ? 'never' : JSON.stringify(ch.lines)}`;
+    if (asked.has(key)) continue;
+    asked.add(key);
+    const whose = linked.length > 1 ? ` (${esc(kennel.kennel_name || 'your kennel')})` : '';
+    await chat.say(`Some of this changes what your website${whose} shows. Want me to check for website updates?`);
+    const look = await chat.choose([{ label: 'Yes, check', value: 'yes', primary: true }, { label: 'Not now', value: 'no' }]);
+    if (look !== 'yes') continue;
+    if (ch.never) {
+      const c = await websiteSummary(kennel);
+      await chat.say(`Your website hasn't been updated from this device yet, so I'd send everything you've marked: ${esc([plural(c.dogs, 'dog'), plural(c.litters, 'litter'), plural(c.pairings, 'pairing'), plural(c.heats, 'planned heat')].join(', '))}, with each puppy's status.`);
+    } else {
+      const shown = ch.lines.slice(0, SHOW_LINES);
+      const more = ch.lines.length - shown.length;
+      await chat.say(`An update would change ${plural(ch.lines.length, 'thing')} on your website:<ul class="kels-list">${shown.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>${more ? `…and ${plural(more, 'more change')}.` : ''}`);
+    }
+    const go = await chat.choose([{ label: 'Update website', value: 'send', primary: true }, { label: 'Not now', value: 'no' }]);
+    if (go !== 'send') { await chat.say('Okay. Ask me to <strong>Update my website</strong> whenever you\'re ready.', { typing: 300 }); continue; }
+    await chat.say('Sending…', { typing: 400 });
+    const out = await pressUpdateWebsite(kennel);
+    await chat.say(out.ok
+      ? `Done! ${esc(out.text)} It's in your website's draft: open KennelPort Site Manager to check it and press Publish.`
+      : `That didn't go: ${esc(out.text)}${out.notLinked ? ' You can connect again in Settings, under Your website.' : ''}`);
+  }
 }
 

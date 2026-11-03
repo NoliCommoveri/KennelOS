@@ -3534,6 +3534,17 @@ KennelPort Site Manager.
   own adults; the litter, and its parents if they're hers and not shown), ticked, then a
   deposits date for a born litter without one (`websiteUpdateUI.offerWebsiteFor`). It goes
   with her next Update my website.
+- **Checking for website updates after any Kels task:** on a device with a website linked
+  (`kennelportLinkStore.anyWebsiteLink`), when a task ends (kels.js `onExit`, and Add dogs /
+  Record a new litter before their last step) and an update would change what the website
+  shows, Kels asks whether to check; on a yes, the changes in words and **Update
+  website** (`websiteUpdateUI.offerWebsiteCheck`). The changes are worked out on this
+  device: each Update website keeps a copy of the bundle it sent on the link row
+  (`sent`, device-only), and `kennelportLink.pendingWebsiteChanges` compares it with the
+  bundle it would send now (`siteExport.bundleChanges`: new, changed and gone dogs,
+  litters, puppies, pairings and heats, a puppy's status as "Available → Spoken for").
+  Never sent from this device: she's offered everything marked. The same changes aren't
+  asked about twice on one page.
 - **The prompts, asked, never answered for her:** a dog's status becoming Active breeding
   ("Show on your website?"); a marked litter leaving Expected with no accept deposits date
   ("When do deposits open?", since blank means available now); a marked litter going Sold

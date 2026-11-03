@@ -25,11 +25,11 @@ import { waitlistConfig, embedOrigin, EMBED_ORIGINS_MAX } from './waitlistRules.
 import { todayYMD } from './dateUtils.js';
 import { isLicenseGated, evaluateLicense } from './license.js';
 import { editionFlags } from './editionConfig.js';
-import { buildSiteBundle, websiteCounts, websiteGaps } from './siteExport.js';
+import { buildSiteBundle, websiteCounts, websiteGaps, bundleChanges } from './siteExport.js';
 import { redeemLinkCode, linkStatus, stopLink, sendBundle, setSiteSettings, websiteLinkOffered, KennelportError } from './kennelportApi.js';
-import { getWebsiteLink, setWebsiteLink, noteWebsiteAnswer, clearWebsiteLink } from './kennelportLinkStore.js';
+import { getWebsiteLink, setWebsiteLink, noteWebsiteAnswer, clearWebsiteLink, anyWebsiteLink } from './kennelportLinkStore.js';
 
-export { websiteLinkOffered, KennelportError, getWebsiteLink };
+export { websiteLinkOffered, KennelportError, getWebsiteLink, anyWebsiteLink };
 
 // --- pure: what the site's answer changes here --------------------------------
 
@@ -238,6 +238,26 @@ async function licenseOk() {
   return state === 'valid' || state === 'grace';
 }
 
+// A bundle as kept for comparing: without its id and time, which differ each send.
+const sentCopy = ({ bundle_id: _id, sent_at: _at, ...rest }) => rest;
+
+// What an Update website would change now, against what this device sent last
+// (siteExport.bundleChanges): → { never: true } when this device hasn't sent yet,
+// { lines: [..] } (empty when nothing would change), or { error } when the bundle
+// can't be built (a cap she's over, say). No network.
+export async function pendingWebsiteChanges(kennel, { today = todayYMD() } = {}) {
+  const link = await getWebsiteLink(kennel?.id);
+  if (!link) return { lines: [] };
+  let now;
+  try {
+    now = sentCopy(buildSiteBundle({ kennel, ...(await records(kennel)), today, bundleId: 'compare-0000', prices: link.site?.kennelos_prices === true, sections: link.site?.sections || [] }));
+  } catch (err) {
+    return { error: err.message || String(err) };
+  }
+  if (!link.sent) return { never: true };
+  return { lines: bundleChanges(link.sent, now) };
+}
+
 // Send this kennel's website what she marked. → { summary, filled, site }:
 // KennelPort's summary ({ text, updated, created, … }), how many photos links were
 // filled or cleared here, and the site's facts. A stopped link (Unlink in
@@ -258,7 +278,7 @@ export async function updateWebsite(kennel, { bundleId = crypto.randomUUID(), to
   const bundle = buildSiteBundle({ kennel, ...r, today, bundleId, sentAt: new Date().toISOString(), prices: site?.kennelos_prices === true, sections: site?.sections || [] });
   const answer = await sendBundle(link.token, bundle).catch(forget);
   const after = answer.site || site;
-  await noteWebsiteAnswer(kennel.id, { site: after, summary: answer.summary || { text: 'Sent.' } });
+  await noteWebsiteAnswer(kennel.id, { site: after, summary: answer.summary || { text: 'Sent.' }, sent: sentCopy(bundle) });
 
   // Photos links (KennelPort plan 5.4): only this kennel's dogs and litters.
   const sites = [after, link.site].filter(Boolean);

@@ -14,7 +14,7 @@ import { contactRepo } from '../data/contactRepo.js';
 import { kennelRepo } from '../data/kennelRepo.js';
 import { ownKennels, getActiveKennelId } from '../data/kennelScope.js';
 import { editionFlags, dogCapStatus } from '../data/editionConfig.js';
-import { websiteLinkOffered } from '../data/kennelportApi.js';
+import { anyWebsiteLink } from '../data/kennelportLinkStore.js';
 import { CapExceededError } from '../data/repoBase.js';
 import { getGuidedDogsDraft, setGuidedDogsDraft, clearGuidedDogsDraft } from '../data/settings.js';
 import { DOG_STATUS, OWNERSHIP_TYPE, DOC_TYPES, VACCINE_CHECKLIST, VACCINE_GOOD_FOR, documentFieldsFor, descriptor } from '../data/vocab.js';
@@ -528,9 +528,12 @@ class DogsConversation extends StepConversation {
     if (bought.length) await this.acquisitions(bought);
     if (bought.length) await this.shots(bought);
     if (dogs.length && editionFlags.documents) await this.documents(dogs);
-    // A linked website: show them there too? (Pro with a KennelPort address.)
-    if (dogs.length && websiteLinkOffered() && !editionFlags.demoMode) {
-      await (await import('./websiteUpdateUI.js')).offerWebsiteFor(this.chat, { dogIds: dogs.map((d) => d.id) }).catch(() => {});
+    // A website linked on this device: show them there too, then check for
+    // website updates.
+    if (!editionFlags.demoMode && await anyWebsiteLink()) {
+      const w = await import('./websiteUpdateUI.js');
+      await w.offerWebsiteFor(this.chat, { dogIds: dogs.map((d) => d.id) }).catch(() => {});
+      await w.offerWebsiteCheck(this.chat).catch(() => {});
     }
     await this.finish(dogs);
   }

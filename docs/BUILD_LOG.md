@@ -2537,3 +2537,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Add dogs and Record a new litter end by offering the new records for it, ticked (a
   litter's parents too, when hers and not shown), with the deposits date check for a born
   litter (`websiteUpdateUI.offerWebsiteFor`). Pro with a KennelPort address only.
+- **Kels checks for website updates after a task (2026-11-03).** With a website linked on
+  the device, any Kels task that changed what it shows (selling pups, the waitlist's picks,
+  check-ins, health tests, adding dogs or litters…) ends with "Want me to check for website
+  updates?", then the changes in words and Update website. Each Update website now keeps
+  the bundle it sent (`sent` on the device-only link row) for `pendingWebsiteChanges` and
+  `siteExport.bundleChanges`. The add flows' website question now asks only when a website
+  is linked (`anyWebsiteLink`). Tests added.
