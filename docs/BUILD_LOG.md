@@ -2511,9 +2511,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   sends the disposition as set: Available, Placed (spoken for: an open sale, still here),
   Keeping (staying), Undecided, Health hold (hidden). Sales and waitlist picks no longer
   change it, so a pick with its deposit still owed stays Available, and a delivered pup has
-  gone External and isn't sent. One fallback kept: a pup moved on to a breeding or for-sale
-  status, whose disposition `dogRepo` clears, is sent as staying. The bundle no longer
+  gone External and isn't sent. Her status field isn't read: a litter closes at about 9 weeks, long
+  before a kept pup moves on from Puppy. The bundle no longer
   reads sales or waitlist offers. KennelPort shows Placed as "Spoken for".
-- **The hand-over starts ticked (2026-11-03).** Closing a marked litter lists each kept pup
-  (marked Keeping, or moved on to breeding) with "keep her on the site" ticked; she
-  unticks any she doesn't want there. A pup moved to For sale is listed unticked. Tests updated.
+- **The hand-over starts ticked (2026-11-03).** Closing a marked litter lists each pup
+  marked Keeping, with "keep her on the site" ticked; she unticks any she doesn't want
+  there. Tests updated.

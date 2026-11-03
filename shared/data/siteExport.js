@@ -139,13 +139,11 @@ export function websiteDogs(kennel, dogs) {
 // A puppy's status on the website (KennelPort plan 3.6): her disposition, as she
 // set it, and nothing worked out. Placed is spoken for (an open sale, still here);
 // a pup who has gone home is External and isn't sent. A waitlist pick with its
-// deposit still owed leaves her Available. A kept pup moved on to breeding (or for
-// sale) has no disposition any more (dogRepo clears it past Puppy), so she reads as
-// staying, as Keeping did.
+// deposit still owed leaves her Available. A litter closes (and leaves the site)
+// at about 9 weeks, long before a kept pup moves on from Puppy, so her status
+// field isn't read.
 const DISPOSITION_ON_SITE = { available: 'available', placed: 'placed', keeping: 'staying', health_hold: 'hidden' };
-const GROWN = ['active_breeding', 'retired_breeding', 'for_sale'];
 export function puppyStatus(pup) {
-  if (GROWN.includes(pup.status)) return 'staying';
   return DISPOSITION_ON_SITE[pup.disposition] ?? 'undecided';
 }
 

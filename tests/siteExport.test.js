@@ -145,7 +145,7 @@ test('puppy statuses are her disposition, as she set it (plan 3.6)', () => {
   assert.equal(puppyStatus({ id: 'p', disposition: 'placed' }), 'placed', 'spoken for');
   assert.equal(puppyStatus({ id: 'p', disposition: 'keeping' }), 'staying');
   assert.equal(puppyStatus({ id: 'p', disposition: 'health_hold' }), 'hidden');
-  assert.equal(puppyStatus({ id: 'p', status: 'active_breeding' }), 'staying', 'kept and grown: her disposition was cleared past Puppy');
+  assert.equal(puppyStatus({ id: 'p', status: 'active_breeding' }), 'undecided', 'her status field is not read');
 });
 
 test('extras: names and groups always, amounts only with prices; steps and How to pay from her waitlist', () => {
