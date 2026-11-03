@@ -2552,3 +2552,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **SW cache bumped to `kennelos-shell-v99` (2026-11-03)** for accounts and the website
   with Kels (Update my website's Recommended products group; Set up my accounts' referral
   fields and website question). No files added or renamed.
+- **Unmarked health tests show on the website (2026-11-03).** `siteExport` sends a test's
+  `normal` as null when its Normal or abnormal is not marked (was false), so KennelPort's
+  Normal results only keeps off only results marked Abnormal. The Health tests form's hint
+  says so. Test updated.

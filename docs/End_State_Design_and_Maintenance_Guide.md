@@ -3473,7 +3473,8 @@ KennelPort Site Manager.
   with `assertOnlyKeys` on every object (the allow-lists are its `*_KEYS`). What goes: her
   own kennel's marked dogs (statuses puppy, active breeding, for sale, retired, deceased;
   titles from `title_earned` events, health results from `completedTestsByDog` with the test
-  name as id); live litters (expected to ready) with her dates (`whelp_date`,
+  name as id, `normal` true for an outcome marked Normal, false for Abnormal, null when
+  not marked, which KennelPort counts as normal); live litters (expected to ready) with her dates (`whelp_date`,
   `estimated_ready_date`, `accept_deposits_date`; an expected litter's date from its
   pairing) and their puppies; marked pairings still on their way with no litter yet;
   planned heats (`websiteHeats`: the dam's `heats_online`, from 60 days ago on, one per

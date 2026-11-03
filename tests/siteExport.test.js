@@ -43,13 +43,16 @@ test('titles and health results as data; a test keeps its id across a retest', (
     ev('t1', 'title_earned', '2025-01-01', { title_abbreviation: 'CH' }),
     ev('h1', 'ofa_pennhip', '2025-02-01', { method: 'OFA', joint: 'Hips', rating: 'Fair', outcome: 'Normal' }),
     ev('h2', 'ofa_pennhip', '2026-02-01', { method: 'OFA', joint: 'Hips', rating: 'Good', outcome: 'Normal' }),
-    ev('h3', 'genetic_test', '2026-03-01', { panel_name: 'DM', result: 'Carrier', outcome: 'Abnormal' })
+    ev('h3', 'genetic_test', '2026-03-01', { panel_name: 'DM', result: 'Carrier', outcome: 'Abnormal' }),
+    ev('h4', 'breed_specific_test', '2026-04-01', { test_name: 'BAER', result: 'Bilateral' })
   ];
   const [d] = build({ dogs: [dog('willow')], events }).dogs;
   assert.deepEqual(d.titles, ['CH']);
   assert.deepEqual(d.health, [
     { id: 'test:ofa hips', test: 'OFA Hips', result: 'Good', normal: true, date: '2026-02-01' },
-    { id: 'test:dm', test: 'DM', result: 'Carrier', normal: false, date: '2026-03-01' }
+    { id: 'test:dm', test: 'DM', result: 'Carrier', normal: false, date: '2026-03-01' },
+    // Not marked: no claim either way (the website counts it as normal).
+    { id: 'test:baer', test: 'BAER', result: 'Bilateral', normal: null, date: '2026-04-01' }
   ]);
 });
 

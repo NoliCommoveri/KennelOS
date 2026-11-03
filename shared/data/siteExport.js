@@ -122,7 +122,9 @@ function dogEntry(dog, titles, tests) {
       id: `test:${t.name.trim().toLowerCase()}`.slice(0, 80),
       test: line(t.name, 60),
       result: line(t.result, 60),
-      normal: t.outcome === 'Normal',
+      // Marked Normal: true; Abnormal: false; not marked: null, which the website
+      // counts as normal (only a result she marked Abnormal is kept off).
+      normal: t.outcome === 'Normal' ? true : t.outcome === 'Abnormal' ? false : null,
       date: ymd(t.date)
     }, HEALTH_KEYS, 'health'))
   }, DOG_KEYS, 'dog');
