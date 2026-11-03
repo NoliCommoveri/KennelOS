@@ -2483,3 +2483,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Not built: the custom-domain origin in `cloud/src/lib/cors.js` (the cloud has no record of
   her domain yet), Kels's Record a new litter asking about the website (its litter follows
   the pairing's mark), and the deposit's How to pay (KennelOS has no deposit instructions).
+- **The kennel record's website, asked (2026-11-03).** When the kennel record already has a
+  website she typed (her own homepage), connecting no longer leaves it unmentioned: the
+  Your website card, and Kels after Update my website, offer the KennelPort address in its
+  place (Use / Keep mine; `kennelportLink.websiteOffer`, `useSiteAsKennelWebsite`,
+  `keepKennelWebsite`). Keep mine is kept on this device per site address
+  (`kept_website` on the link row), so moving to her own domain asks again. Tests added.

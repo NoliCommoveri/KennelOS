@@ -3501,7 +3501,11 @@ KennelPort Site Manager.
   `addressChanges` and `kennelChanges`: a dog's `url` and a litter's `photos_url` with its
   published page, only when blank or holding an address KennelPort wrote (any
   kennelport.com page, or her site's own address), and blanked when that page left; the
-  kennel's `website`; and in `waitlist_config` `extras_info_url` (same rule), `website_feed`
+  kennel's `website` (blank or KennelPort's own; one she typed, such as her old homepage,
+  is never replaced silently: `websiteOffer` asks on the Your website card and after Kels's
+  Update my website, **Use** or **Keep mine**, and a Keep mine is remembered on this device
+  for that site address, `kept_website`, so a new address such as her own domain asks
+  again); and in `waitlist_config` `extras_info_url` (same rule), `website_feed`
   when the site's waitlist page wants her list and it's online, and the site in
   `embed_origins` when she has listed any.
 - **Where she does it:** Settings → **Your website** (`assets/websiteCard.js`: Connect

@@ -96,6 +96,42 @@ export function kennelChanges(kennel, site, sites = []) {
   return Object.keys(changes).length ? changes : null;
 }
 
+// The kennel record's website when she typed her own (an older homepage, say):
+// never replaced silently, but offered — invoices, receipts and contract forms
+// print it, so it should be the site families find. → { current, next } to ask
+// about, or null (blank or KennelPort's own: kennelChanges fills those; already
+// the same; or she said Keep mine for this address).
+const sameAddress = (a, b) => {
+  const norm = (u) => { try { const x = new URL(String(u).trim()); return `${x.origin.toLowerCase()}${x.pathname.replace(/\/+$/, '')}${x.search}`; } catch { return String(u ?? '').trim().replace(/\/+$/, '').toLowerCase(); } };
+  return norm(a) === norm(b);
+};
+export function websiteOffer(kennel, site, { sites = [], kept = null } = {}) {
+  const current = String(kennel?.website ?? '').trim();
+  if (!site?.website || !current) return null;
+  if (sameAddress(current, site.website) || isWebsiteAddress(current, [site, ...sites])) return null;
+  if (kept && sameAddress(kept, site.website)) return null;
+  return { current, next: site.website };
+}
+
+// The offer for this kennel on this device, from its record and the link's last facts.
+export async function pendingWebsiteOffer(kennelId) {
+  const link = await getWebsiteLink(kennelId);
+  const kennel = link ? await kennelRepo.getById(kennelId) : null;
+  return kennel ? websiteOffer(kennel, link.site, { kept: link.kept_website }) : null;
+}
+
+// Her answer: use the website's address on the kennel record, or keep hers (asked
+// again only if the website's address changes, e.g. to her own domain).
+export async function useSiteAsKennelWebsite(kennelId) {
+  const link = await getWebsiteLink(kennelId);
+  if (!link?.site?.website) return;
+  await kennelRepo.update(kennelId, { website: link.site.website });
+}
+export async function keepKennelWebsite(kennelId) {
+  const link = await getWebsiteLink(kennelId);
+  if (link?.site?.website) await noteWebsiteAnswer(kennelId, { kept_website: link.site.website });
+}
+
 // --- the records a bundle is built from ---------------------------------------
 
 async function records(kennel) {

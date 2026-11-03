@@ -293,3 +293,23 @@ test('a refusal comes back in KennelPort\'s words; no network says so', async ()
   await assert.rejects(link.connectWebsite(await kennelRepo.getById(k.id), 'zzzz-zzzz', 'x'), (err) => err.kind === 'network');
   assert.equal(await link.getWebsiteLink(k.id), null);
 });
+
+test('her own homepage on the kennel record: asked, never replaced silently; Keep mine remembered per site address', async () => {
+  // Pure: what's asked about.
+  assert.deepEqual(link.websiteOffer({ website: 'https://akbostons.com' }, SITE), { current: 'https://akbostons.com', next: SITE.website });
+  assert.equal(link.websiteOffer({ website: '' }, SITE), null, 'blank: filled, not asked');
+  assert.equal(link.websiteOffer({ website: 'https://akbostons.kennelport.com' }, SITE), null, 'already it (trailing slash aside)');
+  assert.equal(link.websiteOffer({ website: 'https://old.kennelport.com/' }, SITE), null, 'KennelPort\'s own: replaced without asking');
+  assert.equal(link.websiteOffer({ website: 'https://akbostons.com' }, SITE, { kept: SITE.website }), null, 'she said Keep mine');
+  assert.ok(link.websiteOffer({ website: 'https://akbostons.com' }, { ...SITE, website: 'https://www.akbostonterriers.com/' }, { kept: SITE.website }), 'a new site address asks again');
+
+  // Connect leaves her typed homepage alone and offers; each answer does what it says.
+  const k = await kennelRepo.create({ kennel_name: 'Homepage', is_own_kennel: true, website: 'https://akbostons.com' });
+  await link.connectWebsite(await kennelRepo.getById(k.id), 'abcd-2345', 'x');
+  assert.equal((await kennelRepo.getById(k.id)).website, 'https://akbostons.com');
+  assert.deepEqual(await link.pendingWebsiteOffer(k.id), { current: 'https://akbostons.com', next: SITE.website });
+  await link.keepKennelWebsite(k.id);
+  assert.equal(await link.pendingWebsiteOffer(k.id), null);
+  await link.useSiteAsKennelWebsite(k.id);
+  assert.equal((await kennelRepo.getById(k.id)).website, SITE.website);
+});

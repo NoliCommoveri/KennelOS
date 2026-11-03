@@ -4,7 +4,7 @@
 // Settings' Your website card, where she types the code.
 import { esc } from './ui.js';
 import { ownKennels, getActiveKennelId } from '../data/kennelScope.js';
-import { getWebsiteLink, websiteSummary } from '../data/kennelportLink.js';
+import { getWebsiteLink, websiteSummary, pendingWebsiteOffer, useSiteAsKennelWebsite, keepKennelWebsite } from '../data/kennelportLink.js';
 import { pressUpdateWebsite } from './websiteCard.js';
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -32,5 +32,13 @@ export async function runWebsiteTask(chat, { onExit = () => {} } = {}) {
   const out = await pressUpdateWebsite(kennel);
   if (out.ok) await chat.say(`Done! ${esc(out.text)} It's in your website's draft: open KennelPort Site Manager to check it and press Publish.`);
   else await chat.say(`That didn't go: ${esc(out.text)}${out.notLinked ? ' You can connect again in Settings, under Your website.' : ''}`);
+  // Her kennel record still names her own website: offer the KennelPort one.
+  const offer = out.ok ? await pendingWebsiteOffer(kennel.id) : null;
+  if (offer) {
+    await chat.say(`One more thing: your kennel record's website is ${esc(offer.current)}. Should it be your KennelPort website, <strong>${esc(offer.next)}</strong>, instead? It's what your invoices, receipts and contract forms print.`);
+    const use = await chat.choose([{ label: 'Use my KennelPort website', value: 'use', primary: true }, { label: 'Keep mine', value: 'keep' }]);
+    if (use === 'use') { await useSiteAsKennelWebsite(kennel.id); await chat.say('Done, your kennel record has it now.'); }
+    else { await keepKennelWebsite(kennel.id); await chat.say('Okay, I\'ll leave it as it is.'); }
+  }
   return onExit('done');
 }

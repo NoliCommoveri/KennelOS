@@ -8,7 +8,8 @@ import { esc, fmtDate, confirmModal } from './ui.js';
 import { ownKennels, getActiveKennelId } from '../data/kennelScope.js';
 import { kennelRepo } from '../data/kennelRepo.js';
 import {
-  connectWebsite, disconnectWebsite, updateWebsite, getWebsiteLink, websiteSummary, KennelportError, LicenseLapsedError
+  connectWebsite, disconnectWebsite, updateWebsite, getWebsiteLink, websiteSummary, KennelportError, LicenseLapsedError,
+  pendingWebsiteOffer, useSiteAsKennelWebsite, keepKennelWebsite
 } from '../data/kennelportLink.js';
 import { SiteExportError } from '../data/siteExport.js';
 
@@ -69,8 +70,20 @@ export async function mountWebsiteCard(el) {
         plural(counts.dogs, 'dog'), plural(counts.litters, 'litter'), plural(counts.pairings, 'pairing'), plural(counts.heats, 'planned heat')
       ].join(', ');
       const site = link.site || {};
+      // Her kennel record still names her own website (an older homepage, say):
+      // ask once per site address whether this one takes its place.
+      const offer = await pendingWebsiteOffer(kennelId);
+      const ask = offer ? `
+        <div class="inline-warn" id="web-offer" style="margin-bottom:12px;">
+          <p style="margin:0 0 8px;">Your kennel record's website is <a href="${esc(offer.current)}" target="_blank" rel="noopener noreferrer">${esc(offer.current)}</a>. Use your KennelPort website, <strong>${esc(offer.next)}</strong>, instead? It's the address your invoices, receipts and contract forms print.</p>
+          <div class="pill-row">
+            <button class="btn btn-primary" id="web-offer-use">Use ${esc(offer.next)}</button>
+            <button class="btn" id="web-offer-keep">Keep mine</button>
+          </div>
+        </div>` : '';
       const last = link.last_sent_at ? `Last update ${fmtDate(link.last_sent_at.slice(0, 10))}: ${esc(link.last_summary?.text || 'sent')}` : 'Not updated from this device yet.';
       body = `
+        ${ask}
         <p>Connected to <a href="${esc(site.website || '#')}" target="_blank" rel="noopener noreferrer">${esc(site.name || site.website || 'your website')}</a> on this device${link.device_label ? ` (“${esc(link.device_label)}”)` : ''}.</p>
         <p class="muted">Marked Show on website: ${esc(marked)}. ${site.kennelos_prices ? 'Your litter and extras prices go too (Use my KennelOS prices is on in KennelPort).' : 'Your prices stay here: Use my KennelOS prices is off in KennelPort.'}</p>
         <p class="muted">${last}</p>
@@ -99,6 +112,18 @@ export async function mountWebsiteCard(el) {
       ev.target.disabled = true;
       ev.target.textContent = 'Sending…';
       note = await pressUpdateWebsite(kennel);
+      render();
+    });
+    el.querySelector('#web-offer-use')?.addEventListener('click', async () => {
+      try {
+        await useSiteAsKennelWebsite(kennelId);
+        note = { ok: true, text: 'Your kennel record now has your KennelPort website.' };
+      } catch (err) { note = { ok: false, text: errorText(err) }; }
+      render();
+    });
+    el.querySelector('#web-offer-keep')?.addEventListener('click', async () => {
+      await keepKennelWebsite(kennelId);
+      note = { ok: true, text: 'Kept your own website on the kennel record. You can change it any time on the Kennels page.' };
       render();
     });
     el.querySelector('#web-disconnect')?.addEventListener('click', async () => {

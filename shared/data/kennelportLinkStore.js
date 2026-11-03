@@ -6,7 +6,9 @@
 //
 // A row: { token, site: { name, website, extras_info_url, waitlist_page,
 // kennelos_prices }, device_label, linked_at, last_sent_at, last_summary }.
-// `site` is what KennelPort said last (each answer refreshes it).
+// `site` is what KennelPort said last (each answer refreshes it). `kept_website`:
+// the site address she said Keep mine to, for the kennel record's website.
+// A device choice, like the rest of the row.
 //
 // Never in exportAll, a backup, a snapshot, a sync or a restore (db.dataTables()
 // leaves device_secrets out), so a restored or synced device connects on its own.
@@ -28,12 +30,13 @@ export async function setWebsiteLink(kennelId, { token, site, device_label = '' 
 
 // After an answer from KennelPort: the site's facts, and after an Update website
 // its summary and when.
-export async function noteWebsiteAnswer(kennelId, { site, summary } = {}) {
+export async function noteWebsiteAnswer(kennelId, { site, summary, kept_website } = {}) {
   const row = await getWebsiteLink(kennelId);
   if (!row) return;
   await db.device_secrets.put({
     ...row,
     ...(site ? { site } : {}),
+    ...(kept_website ? { kept_website } : {}),
     ...(summary ? { last_summary: summary, last_sent_at: new Date().toISOString() } : {})
   });
 }
