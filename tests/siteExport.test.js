@@ -171,6 +171,14 @@ test("Kels's Update my website: what isn't on the website yet, in groups", () =>
   assert.deepEqual(ids(g.heats), ['willow', 'nova'], 'her breeding girls with heats off');
   assert.deepEqual(ids(g.deposits), ['live'], 'a shown, born litter with no deposits date');
   assert.deepEqual(ids(websiteGaps(K, { dogs, litters, pairings }, { marking: ['born'] }).deposits), ['live', 'born'], 'one she is adding counts');
+  const accounts = [
+    { id: 'chewy', name: 'Chewy', account_type: 'supplier', referral_code: 'AK10' },
+    { id: 'shown', name: 'Shown', account_type: 'supplier', referral_link: 'https://x.example', show_on_website: true },
+    { id: 'akc', name: 'AKC', account_type: 'registry' },
+    { id: 'van', name: 'Pet van', account_type: 'transport', referral_instructions: 'Book early' },
+    { id: 'old', name: 'Old', account_type: 'supplier', referral_code: 'X', is_archived: true }
+  ];
+  assert.deepEqual(ids(websiteGaps(K, { dogs, litters, pairings, accounts }).accounts), ['chewy'], 'something to share, not shown, never transport');
 });
 
 test('what an update would change, in words', () => {

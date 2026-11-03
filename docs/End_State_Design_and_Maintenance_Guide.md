@@ -3522,8 +3522,9 @@ KennelPort Site Manager.
   Site Manager's `/link-kennelos` in a new tab for the code, typed back into Kels: the
   same link as the card). Kels then goes through, in groups with tick
   boxes (`siteExport.websiteGaps`): her own adults not marked; pups marked Keeping whose
-  litter has left the site; live litters and pairings not marked; and her breeding girls
-  with heats off (unticked to start). Then a date for each marked, born litter with no
+  litter has left the site; live litters and pairings not marked; her breeding girls
+  with heats off (unticked to start); and accounts with something to share (a referral
+  link, code or instructions; never transport) not marked, for Recommended products. Then a date for each marked, born litter with no
   accept deposits date (blank keeps it available now); then her settings: **Use my
   KennelOS prices** on the site (`POST /v1/settings`, only where the site's facts list
   it under `settings`), her waitlist online when the site has a waitlist page (set up
@@ -3534,6 +3535,10 @@ KennelPort Site Manager.
   own adults; the litter, and its parents if they're hers and not shown), ticked, then a
   deposits date for a born litter without one (`websiteUpdateUI.offerWebsiteFor`). It goes
   with her next Update my website.
+- **Accounts with Kels while linked:** Set up my accounts' form takes a referral link and
+  code (not for transport accounts); after a save, an account with any referral info, on
+  a device with a website linked, is offered for Recommended products
+  (`kelsSetupUI.offerAccountOnWebsite`).
 - **Checking for website updates after any Kels task:** on a device with a website linked
   (`kennelportLinkStore.anyWebsiteLink`), when a task ends (kels.js `onExit`, and Add dogs /
   Record a new litter before their last step) and an update would change what the website
