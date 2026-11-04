@@ -2628,3 +2628,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   their source, both stopped at their first line ("Loading…" forever). Each now starts
   with a one-line `__name` stand-in. Test added.
 
+- **Credit-covered deposits keep the credit's date (2026-11-04).** When a family's credit
+  for funds already received (e.g. an early deposit taken before the litter was born)
+  covers the whole deposit, Deposit received prefills the credit's date and saves it as
+  the sale's `deposit_date` (`confirmDeposit`'s `paidDate`), matching the date the
+  ledger files the credited deposit under; the offer, placement and next family's turn
+  stay dated today so a back-dated deposit can't start the next turn already overdue.

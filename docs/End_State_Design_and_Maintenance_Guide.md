@@ -1705,7 +1705,9 @@ restored into Lite keeps its waitlist rows, dormant.
   balance. In the app: the entry page's **Credits** card (Add / Edit / Remove, used and
   remaining), the status card and Fee received (Kels's too) say what the credit covers (all
   of it: the credit's date is prefilled), and the pick and deposit dialogs say what it pays
-  of the deposit. A lost pup's carry-over (`paidBesidesCredits`) and a back-out's moved
+  of the deposit. When the credit covers the whole deposit, Deposit received prefills the
+  credit's date as the sale's `deposit_date` (`paidDate`) while the offer, placement and
+  next turn are dated today. A lost pup's carry-over (`paidBesidesCredits`) and a back-out's moved
   deposit carry only what was paid beyond the credit, which stays on the entry.
   Tests: `tests/receivedCredits.test.js`.
 - **`waitlist_programs`:** her named adjustments (fee override, `ahead` priority, pauses
