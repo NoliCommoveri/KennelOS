@@ -1745,7 +1745,14 @@ it computes is stored.**
 - **Answer changes:** every change to `PREF_CHANGE_FIELDS` after `applied` is logged in
   `pref_change_log`. A narrower answer that would affect an open offer or next-in-line
   litter asks to confirm (`prefChangeEffect`).
-- **Public list** (`publicList`): `{ position, name, pref_sex, wants_more?, added }` only.
+- **Public list** (`publicList`): `{ position, name, pref_sex, wants_more?, added, program? }` only.
+  `program` (`publicProgram`) is `{ name, about }`, only with `waitlist_config.public_show_programs`
+  on (Waitlist settings, "Show program badges on the public list"; off by default) and only
+  for an `ahead` program with a `public_description` (blank keeps a program private). Online
+  it's a badge by the name whose bubble (tap, hover or focus; below the badge) is the
+  description (`cloud/public/family/common.js`, `.program-tip`); the copied text puts the
+  name in brackets after the family's. The Worker passes it on as a name of at most 60
+  and a description of at most 600 characters, or drops it.
   `wants_more` (`publicWantsMore`, absent when empty) is what else the family narrowed, as
   short strings after the sex under "Wants": their breed only when the kennel has more than
   one (`kennelBreeds`), "Full registration" when their purposes take Full but rule out

@@ -296,9 +296,13 @@ function publicRows(projection) {
     : r)).map((r) => {
     // What else they narrowed, after the sex (her device's publicWantsMore): short
     // strings only, at most 6.
-    const { wants_more: more, ...rest } = r;
+    const { wants_more: more, program, ...rest } = r;
     const list = Array.isArray(more) ? more.filter((x) => typeof x === 'string' && x.trim()).slice(0, 6).map((x) => x.trim().slice(0, 200)) : [];
-    return list.length ? { ...rest, wants_more: list } : rest;
+    // Her `ahead` program's badge (her device's publicProgram): its name and
+    // description for families, as short strings, or nothing.
+    const name = typeof program?.name === 'string' ? program.name.trim().slice(0, 60) : '';
+    const about = typeof program?.about === 'string' ? program.about.trim().slice(0, 600) : '';
+    return { ...rest, ...(list.length ? { wants_more: list } : {}), ...(name && about ? { program: { name, about } } : {}) };
   });
 }
 

@@ -42,6 +42,12 @@ test('the turn holder\'s row: highlighted, "Currently deciding" for the name, se
   assert.match(publicListHtml([]), /No families to show right now/);
 });
 
+test('a program badge sits by the name and opens her description, escaped', () => {
+  const html = publicListHtml([{ position: 1, name: 'Ann A.', pref_sex: 'any', added: '2026-01-01', program: { name: 'Early <deposit>', about: 'Paid "early" & first' } }]);
+  assert.match(html, /<td>Ann A\. <button type="button" class="added-tip program-tip" aria-label="Early &lt;deposit&gt;: Paid &quot;early&quot; &amp; first" data-tip="Paid &quot;early&quot; &amp; first">Early &lt;deposit&gt;<\/button><\/td>/);
+  assert.equal(/program-tip/.test(publicListHtml([{ position: 1, name: 'Bo B.', pref_sex: 'any', added: '2026-01-01' }])), false);
+});
+
 test('search finds a family by name (any case, any accents), number or date added', () => {
   const row = { position: 12, name: 'Chloé M.', pref_sex: 'female', added: '2026-03-12' };
   for (const q of ['', 'chloe', 'CHLO', ' chloé ', '12', '#12', 'mar 12']) assert.equal(rowMatches(row, q), true, q);

@@ -2634,3 +2634,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   the sale's `deposit_date` (`confirmDeposit`'s `paidDate`), matching the date the
   ledger files the credited deposit under; the offer, placement and next family's turn
   stay dated today so a back-dated deposit can't start the next turn already overdue.
+- **Program badges on the public list (2026-11-04).** New Waitlist setting "Show program
+  badges on the public list" (`waitlist_config.public_show_programs`, off by default):
+  a family in an `ahead` program that has a description for families shows the program's
+  name as a badge by theirs, online and in the copied text, and tapping it shows the
+  description, so families see why someone who joined later is ahead. Standard programs
+  and ones without a description stay private. The Worker caps the badge's strings.
+  Waitlist Spec's privacy table gains the row. Tests added (client and cloud).

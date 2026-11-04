@@ -11,7 +11,7 @@ import {
   proposeQuestionImport, applyQuestionImport, columnsFor, normalizeHeader, isLocked,
   READY_TIMING_LABEL, formFaq, validateFaq, newFaqItem, matchingPrefKeys
 } from '../shared/data/waitlistForm.js';
-import { publicName, privateName, publicList, publicListText, publicWantsMore, pausedUntil } from '../shared/data/waitlistRules.js';
+import { publicName, privateName, publicList, publicListText, publicWantsMore, pausedUntil, publicProgram } from '../shared/data/waitlistRules.js';
 
 const ids = (qs) => qs.map((x) => x.id);
 let seq = 0;
@@ -261,6 +261,33 @@ test('public list: with public_show_paused, paused families show "Skipped until"
   // Off (the default): left out as before.
   assert.deepEqual(publicList(entries, K, new Map(), { today: TODAY, nameOf, config: {} }).map((r) => r.position), [1]);
   assert.equal(pausedUntil(entries[0], TODAY, null), null, 'not paused');
+});
+
+test('public list: with public_show_programs, an ahead program with a description shows as a badge', () => {
+  const programs = new Map([
+    ['early', { id: 'early', name: 'Early deposit', priority: 'ahead', public_description: 'Paid a deposit before the litter was born.', fee_override: 0, notes: 'secret' }],
+    ['quiet', { id: 'quiet', name: 'Returning buyer', priority: 'ahead', public_description: '  ' }],
+    ['fee', { id: 'fee', name: 'Military', priority: 'standard', public_description: 'Thank you for serving.' }]
+  ]);
+  const entries = [
+    e('Ann Avery', '2026-01-01', { waitlist_program_id: 'fee' }),
+    e('Bob Bell', '2026-02-01'),
+    e('Cat Cole', '2026-05-01', { waitlist_program_id: 'early' }),
+    e('Dee Dunn', '2026-04-01', { waitlist_program_id: 'quiet' })
+  ];
+  const nameOf = (x) => x.application.name;
+  const rows = publicList(entries, K, programs, { today: TODAY, nameOf, config: { public_show_programs: true } });
+  assert.deepEqual(rows.map((r) => r.name), ['Dee D.', 'Cat C.', 'Ann A.', 'Bob B.'], 'ahead programs first either way');
+  assert.deepEqual(rows[1].program, { name: 'Early deposit', about: 'Paid a deposit before the litter was born.' });
+  assert.equal('program' in rows[0], false, 'no description: stays private');
+  assert.equal('program' in rows[2], false, 'a standard program never shows');
+  assert.ok(!JSON.stringify(rows).includes('secret'));
+  assert.match(publicListText(rows, {}), /^#2 Cat C\. \(Early deposit\) · Either$/m);
+
+  // Off (the default): no badges anywhere.
+  const off = publicList(entries, K, programs, { today: TODAY, nameOf, config: {} });
+  assert.ok(off.every((r) => !('program' in r)));
+  assert.equal(publicProgram(entries[2], programs, null), null);
 });
 
 test('readiness is a locked, required question her older stored forms get back', () => {

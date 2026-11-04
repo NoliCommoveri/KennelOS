@@ -125,10 +125,14 @@ export function publicListHtml(rows, query = '', mine = null) {
   // The date added is a bubble on the ⓘ at the row's end (hover, focus or tap),
   // not a column (asked by the owner, 2026-11-01).
   const added = (r) => (r.added ? `<button type="button" class="added-tip" aria-label="Added ${esc(fmtDate(r.added))}" data-tip="Added ${esc(fmtDate(r.added))}">i</button>` : '');
+  // Her `ahead` program, when she shows them: a badge with its name; tapping it
+  // shows her description, so families see why someone who joined later is ahead.
+  const program = (r) => (r.program?.name && r.program?.about
+    ? ` <button type="button" class="added-tip program-tip" aria-label="${esc(`${r.program.name}: ${r.program.about}`)}" data-tip="${esc(r.program.about)}">${esc(r.program.name)}</button>` : '');
   const wants = (r) => [SEX_LABEL[r.pref_sex] || 'Either', ...(Array.isArray(r.wants_more) ? r.wants_more : [])].map(esc).join(' · ');
   const body = shown.map((r) => `<tr${rowClass(r) ? ` class="${rowClass(r)}"` : ''}>
       <td class="num">#${esc(r.position)}</td>
-      <td>${r.deciding ? `<em>${esc(r.name)}</em>` : esc(r.name)}${r.position === mine ? ' <span class="badge">You</span>' : ''}</td>
+      <td>${r.deciding ? `<em>${esc(r.name)}</em>` : esc(r.name)}${program(r)}${r.position === mine ? ' <span class="badge">You</span>' : ''}</td>
       <td>${r.skipped ? `<em>${esc(r.skipped_until ? `Skipped until ${fmtDate(r.skipped_until)}` : 'Skipped for now')}</em>` : wants(r)}</td>
       <td class="tip">${added(r)}</td></tr>`).join('');
   const gaps = rows.some((r, i) => r.position !== i + 1);
@@ -136,7 +140,7 @@ export function publicListHtml(rows, query = '', mine = null) {
     ${gaps ? '<p class="small muted">Note: in special circumstances, some applicant names may not be displayed above. Their place is being held, but they are not currently eligible for available pups.</p>' : ''}`;
 }
 
-// A tap on an ⓘ opens its bubble (touch screens have no hover); a tap anywhere
+// A tap on an ⓘ (or a program badge) opens its bubble (touch screens have no hover); a tap anywhere
 // else closes it. One listener for every list on the page.
 if (typeof document !== 'undefined') {
   document.addEventListener('click', (ev) => {

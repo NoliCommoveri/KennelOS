@@ -88,7 +88,7 @@ function renderForm() {
           <label class="check-inline"><input id="p-pause" type="checkbox"${p.pause_allowed ? ' checked' : ''}> These families may pause without it counting against them</label>
         </div>
         <div class="field field-wide"><label>Description for families</label><textarea id="p-public">${esc(p.public_description || '')}</textarea>
-          <span class="field-hint">Shown to families only if you fill it in. Leave blank to keep the program private.</span></div>
+          <span class="field-hint">Shown to families only if you fill it in. Leave blank to keep the program private. For a program listed ahead, it's also what families read when they tap its badge on the public list, if Waitlist settings show program badges.</span></div>
         <div class="field field-wide"><label>Private notes</label><textarea id="p-notes">${esc(p.notes || '')}</textarea></div>
       </div>
       <div class="form-actions">
