@@ -37,18 +37,28 @@ async function deletePrefix(bucket, prefix) {
   return deleted;
 }
 
-// DELETE /account {confirm: "DELETE", email?, code?}. Snapshots (with their
+// DELETE /account {confirm: "DELETE", email?, code?}. Needs a fresh sign-in
+// (auth.js), so a stolen phone can't take the owner's cloud copy with it. The
+// device's own data is untouched; her other devices hear account_deleted.
+export async function deleteAccount(env, auth, body) {
+  if (body.confirm !== 'DELETE') fail(400, 'confirm_required');
+  await requireFreshSignIn(env, auth, body);
+  // This device signs itself out; only her other devices need telling.
+  await removeAccount(env, { userId: auth.userId, programId: auth.programId }, { except: auth.tokenHash });
+  return { ok: true };
+}
+
+// Everything of one account, for DELETE /account and for /ops (a user who asked).
+// Snapshots (with their
 // vault parts), files, the vault's wraps and pairings, everything of the waitlist
 // online (published lists, status links, inbox, events, holds, emails), her vendor
 // connections (revoked at each vendor first) and their events, her notification
 // settings (the digest's address with them) and alert subscriptions, sessions, the program
-// and the user all go. The device's own data is
-// untouched. Needs a fresh sign-in (auth.js), so a stolen phone can't take the
-// owner's cloud copy with it.
-export async function deleteAccount(env, auth, body) {
-  if (body.confirm !== 'DELETE') fail(400, 'confirm_required');
-  await requireFreshSignIn(env, auth, body);
-  const p = auth.programId;
+// and the user all go. Each session's token hash is kept in account_deletions
+// (migration 0020), so a device that turns up later hears account_deleted (with
+// `erase`, it wipes itself) rather than a plain sign-out.
+export async function removeAccount(env, { userId, programId }, { erase = false, except = '' } = {}) {
+  const p = programId;
   await revokeAllConnections(env, p); // her vendor tokens, at each vendor (best effort)
   await deletePrefix(env.FILES, `snapshots/${p}/`);
   await deletePrefix(env.FILES, `files/${p}/`);
@@ -59,7 +69,7 @@ export async function deleteAccount(env, auth, body) {
     env.DB.prepare('DELETE FROM vault_wraps WHERE program_id = ?').bind(p),
     env.DB.prepare('DELETE FROM vault_pairings WHERE program_id = ?').bind(p),
     env.DB.prepare('DELETE FROM vault_handoffs WHERE program_id = ?').bind(p),
-    env.DB.prepare('DELETE FROM email_changes WHERE user_id = ?').bind(auth.userId),
+    env.DB.prepare('DELETE FROM email_changes WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM vaults WHERE program_id = ?').bind(p),
     env.DB.prepare('DELETE FROM sync_records WHERE program_id = ?').bind(p),
     env.DB.prepare('DELETE FROM sync_devices WHERE program_id = ?').bind(p),
@@ -67,14 +77,15 @@ export async function deleteAccount(env, auth, body) {
     ...deleteIntegrationStatements(env, p),
     ...deleteNotifyStatements(env, p),
     env.DB.prepare('DELETE FROM programs WHERE id = ?').bind(p),
-    env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(auth.userId),
-    env.DB.prepare('DELETE FROM device_erasures WHERE user_id = ?').bind(auth.userId),
+    env.DB.prepare('INSERT OR REPLACE INTO account_deletions (token_hash, erase, deleted_at) SELECT token_hash, ?, ? FROM sessions WHERE user_id = ? AND token_hash <> ?')
+      .bind(erase ? 1 : 0, new Date().toISOString(), userId, except),
+    env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM device_erasures WHERE user_id = ?').bind(userId),
     // Linked purchase emails go; pro_purchases stay (the store's facts about an
     // email hash, not this account's data; License Link Plan §4).
-    env.DB.prepare('DELETE FROM license_links WHERE user_id = ?').bind(auth.userId),
-    env.DB.prepare('DELETE FROM license_link_codes WHERE user_id = ?').bind(auth.userId),
-    env.DB.prepare('DELETE FROM login_codes WHERE email_hash = (SELECT email_hash FROM users WHERE id = ?)').bind(auth.userId),
-    env.DB.prepare('DELETE FROM users WHERE id = ?').bind(auth.userId),
+    env.DB.prepare('DELETE FROM license_links WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM license_link_codes WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM login_codes WHERE email_hash = (SELECT email_hash FROM users WHERE id = ?)').bind(userId),
+    env.DB.prepare('DELETE FROM users WHERE id = ?').bind(userId),
   ]);
-  return { ok: true };
 }

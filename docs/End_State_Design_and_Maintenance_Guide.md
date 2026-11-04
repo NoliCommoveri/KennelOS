@@ -2158,6 +2158,15 @@ Design: `docs/KennelOS_Cloud_Phase1_Plan.md` (backup), `docs/KennelOS_Private_Va
 - **A lost device** (`cloudDevices.js`): from another device, erase it (it wipes itself
   next time it's online: `appReset.eraseThisDevice`) and, in Pro, free its license slot.
   `app.js` runs the device check-in first thing in `boot()`, before the license gate.
+- **A deleted account** (`DELETE /account`, or `/ops` → Delete an account for a user who
+  asked): the server keeps the hash of each of its session tokens for 90 days, so a device
+  that turns up later hears `401 account_deleted {erase}` (`CloudAccountDeletedError`).
+  `cloudDevices.accountDeleted` first tells the password manager to drop every passkey of
+  that program (`vaultPasskey.forgetAllPasskeys`: WebAuthn `signalAllAcceptedCredentials`
+  with no accepted ids; the user handle is the program id; best effort), then with
+  `erase` (support asked for a fresh start) erases the device like a remote erase, and
+  without it keeps its records and drops the session. Deleting your own cloud data does the
+  passkey step on the deleting device; only her other devices are told.
 - **The vault ("Sensitive records" in the UI; `vault` in code):** an opt-in, end-to-end
   encrypted copy of the **complete** records. One AES-GCM key per program, kept unlocked on
   each device in `device_secrets` (`vaultKeyStore.js`); the server holds only wraps of it

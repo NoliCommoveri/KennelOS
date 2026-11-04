@@ -677,6 +677,64 @@ test('erase: an ack that could not reach the server is retried later', async () 
   assert.ok(env.DB.raw.prepare('SELECT confirmed_at FROM device_erasures').get().confirmed_at);
 });
 
+// --- An account deleted on purpose (by its owner, or by support at her request) -----
+
+const { removeAccount } = await import('../cloud/src/program.js');
+function recordPasskeySignals() {
+  const signals = [];
+  const had = globalThis.PublicKeyCredential;
+  globalThis.PublicKeyCredential = { ...(had || {}), signalAllAcceptedCredentials: async (o) => { signals.push(o); } };
+  return { signals, restore: () => { globalThis.PublicKeyCredential = had; } };
+}
+const userHandle = (programId) => Buffer.from(programId).toString('base64url');
+
+test('account deleted by support with erase: the device drops its passkeys, wipes itself and frees its license', async () => {
+  putProgram();
+  await signIn('breeder@example.com', 'Phone A');
+  await cb.enableBackup();
+  const { programId } = auth.currentAccount();
+  settings.setProLicense({ key: 'KEY-1', instanceId: 'inst-A', status: 'active' });
+  const user = env.DB.raw.prepare('SELECT id FROM users').get();
+  await removeAccount(env, { userId: user.id, programId }, { erase: true });
+
+  const pk = recordPasskeySignals();
+  try {
+    assert.deepEqual(await dv.checkIn({ force: true }), { erased: true, accountDeleted: true });
+    assert.deepEqual(pk.signals, [{ rpId: 'localhost', userId: userHandle(programId), allAcceptedCredentialIds: [] }]);
+    for (const t of Object.values(tables)) assert.equal(t.rows.size, 0, t.name);
+    assert.deepEqual(appKeys(), []);
+    assert.deepEqual(lemon, [{ path: '/v1/licenses/deactivate', params: { license_key: 'KEY-1', instance_id: 'inst-A' } }]);
+  } finally { pk.restore(); }
+});
+
+test('account deleted without erase: the device keeps its records, drops its passkeys and is signed out', async () => {
+  putProgram();
+  await signIn('breeder@example.com', 'Phone A');
+  await cb.enableBackup();
+  const { programId } = auth.currentAccount();
+  const user = env.DB.raw.prepare('SELECT id FROM users').get();
+  await removeAccount(env, { userId: user.id, programId });
+  const pk = recordPasskeySignals();
+  try {
+    putDog('d9');
+    settings.markDataChanged();
+    await cb.pushIfDirty();
+    await until(() => pk.signals.length === 1 && !auth.sessionToken(), 'the passkey signal and the sign-out');
+    assert.ok(tables.dogs.rows.size > 0, 'records kept');
+    assert.equal(pk.signals[0].userId, userHandle(programId));
+  } finally { pk.restore(); }
+});
+
+test('deleting your own cloud data drops the account\'s passkeys too', async () => {
+  await signIn('breeder@example.com', 'Phone A');
+  const { programId } = auth.currentAccount();
+  const pk = recordPasskeySignals();
+  try {
+    await cb.deleteCloudData();
+    assert.deepEqual(pk.signals.map((x) => x.userId), [userHandle(programId)]);
+  } finally { pk.restore(); }
+});
+
 test('erase needs a fresh sign-in: an older one is asked for a code', async () => {
   const phoneId = await lostPhoneAndLaptop();
   env.DB.raw.prepare("UPDATE sessions SET created_at = '2026-01-01T00:00:00.000Z' WHERE device_id = ?").run(auth.currentAccount().deviceId);

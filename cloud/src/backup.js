@@ -12,7 +12,8 @@
 // pairings) are not exported. Nor is sync_records (live sync's records): the
 // snapshots in R2 are the recovery copy (Phase 2 plan §6.3); sync_devices is.
 // notify_items (alerts' and digests' recent events) aren't: a week of them at most.
-// mail_counts (emails sent per month, counts only) is server state, like r2_sweep.
+// mail_counts (emails sent per month, counts only) is server state, like r2_sweep,
+// and so is account_deletions (token hashes of deleted accounts, for 90 days).
 import { migrationStatus } from './migrate.js';
 
 // Foreign-key order: parents before children.

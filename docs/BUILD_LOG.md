@@ -2598,3 +2598,16 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   routes refused to helpers, Pro without a license seat, her list of the helper's changes,
   and **Remove access**, which revokes the session, blocks new codes and wipes the helper's
   copy. Nothing built.
+- **Delete an account from /ops, and its passkeys with it (2026-11-04).** For a user who
+  made two accounts and wants to start over: `/ops` → Delete an account looks an account up
+  by email (devices, backups, vault and passkeys shown; the address never echoed) and
+  deletes it after a typed DELETE, optionally erasing its devices. `program.removeAccount`
+  is now shared by `DELETE /account` and ops, and records each session's token hash in
+  `account_deletions` (migration 0020, pruned after 90 days), so a device that turns up
+  later hears `401 account_deleted {erase}` instead of a plain sign-out. The app
+  (`CloudAccountDeletedError`, `cloudDevices.accountDeleted`) then tells the password
+  manager to drop the program's passkeys (`vaultPasskey.forgetAllPasskeys`, WebAuthn
+  `signalAllAcceptedCredentials`) and, with `erase`, wipes itself and frees its Pro
+  activation as a remote erase does. Deleting your own cloud data also drops the passkeys,
+  and only your other devices are told. Tests added (cloud and client).
+

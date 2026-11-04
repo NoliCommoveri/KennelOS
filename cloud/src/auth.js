@@ -106,7 +106,8 @@ export async function verifyCode(env, body) {
 // A device its owner asked to erase (plan §2.5) gets 401 device_erased, checked
 // BEFORE revoked and expired: the erase revokes its sessions, and a phone that
 // stayed away past its expiry must still hear it. Only the erase-ack route
-// passes `allowErased`.
+// passes `allowErased`. A token of an account deleted on purpose gets 401
+// account_deleted {erase} (program.js removeAccount, migration 0020).
 export async function authenticate(env, request, { allowErased = false } = {}) {
   const match = /^Bearer ([0-9a-f]{64})$/.exec(request.headers.get('authorization') ?? '');
   if (!match) fail(401, 'unauthorized');
@@ -118,7 +119,11 @@ export async function authenticate(env, request, { allowErased = false } = {}) {
        LEFT JOIN device_erasures e ON e.user_id = s.user_id AND e.device_id = s.device_id
       WHERE s.token_hash = ?`,
   ).bind(tokenHash).first();
-  if (!row) fail(401, 'unauthorized');
+  if (!row) {
+    const gone = await env.DB.prepare('SELECT erase FROM account_deletions WHERE token_hash = ?').bind(tokenHash).first();
+    if (gone) fail(401, 'account_deleted', { erase: gone.erase === 1 });
+    fail(401, 'unauthorized');
+  }
   const auth = {
     tokenHash, userId: row.user_id, deviceId: row.device_id, deviceLabel: row.device_label,
     programId: row.program_id, createdAt: row.created_at,

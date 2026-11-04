@@ -117,7 +117,10 @@ src/retention.js       the daily prune and GC; pickDrops is the pure rule; sweep
 src/backup.js          /ops export/import of the D1 rows (not R2)
 src/gate.js            503 {maintenance:true} until every bundled migration is applied
 src/ops.js             /ops: sign-in, migrations, health (incl. the Mapbox key), emails sent month to date,
-                       outbox, notices, retention, export/import
+                       outbox, notices, retention, export/import, and Delete an account (look up by
+                       email, then delete, optionally erasing its devices: program.js removeAccount;
+                       a deleted account's token hashes stay 90 days in account_deletions, 0020, so
+                       its devices hear 401 account_deleted {erase})
 src/migrate.js         the runner (ported from MCCE): status, drift, atomic apply
 src/health.js          bindings, secrets present, schema version, row counts
 src/lib/cors.js        the allowed origins (Lite, Pro, localhost); and KennelPort sites, for

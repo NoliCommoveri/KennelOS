@@ -13,6 +13,12 @@
 //                           another one (plan §2.5). A CloudAuthError too, so
 //                           every caller already stops; the handler registered
 //                           with setErasedHandler does the erasing.
+//   CloudAccountDeletedError — 401 account_deleted: the account was deleted on
+//                           purpose (by its owner on another device, or by
+//                           support at her request). A CloudAuthError too.
+//                           Carries `erase`: true when the device is to wipe
+//                           itself for a fresh start. The handler registered
+//                           with setAccountDeletedHandler acts on it.
 //   CloudConflictError    — 409: another device is backing up this program, or
 //                           this device's base is stale (plan §3.4). Carries
 //                           `backingDevice` and `latestSnapshotId`.
@@ -49,6 +55,9 @@ export class CloudAuthError extends CloudError {
 export class CloudErasedError extends CloudAuthError {
   constructor(opts) { super(opts); this.name = 'CloudErasedError'; }
 }
+export class CloudAccountDeletedError extends CloudAuthError {
+  constructor(opts) { super(opts); this.name = 'CloudAccountDeletedError'; this.erase = opts?.extra?.erase === true; }
+}
 export class CloudConflictError extends CloudError {
   constructor(opts) { super('Another device is backing up this program.', opts); this.name = 'CloudConflictError'; }
 }
@@ -66,7 +75,11 @@ async function readError(res) {
   const extra = body && typeof body === 'object' ? { ...body } : {};
   delete extra.error;
   const opts = { status: res.status, code, extra };
-  if (res.status === 401) return code === 'device_erased' ? new CloudErasedError(opts) : new CloudAuthError(opts);
+  if (res.status === 401) {
+    if (code === 'device_erased') return new CloudErasedError(opts);
+    if (code === 'account_deleted') return new CloudAccountDeletedError(opts);
+    return new CloudAuthError(opts);
+  }
   if (res.status === 409) return new CloudConflictError(opts);
   if (res.status === 503 && body && body.maintenance) return new CloudOfflineError('Cloud backup is in maintenance.', opts);
   if (res.status >= 500 && (!code || code === 'internal')) return new CloudOfflineError(`Cloud backup answered ${res.status}.`, opts);
@@ -104,6 +117,10 @@ async function send(path, { method = 'GET', token = null, json, body, contentTyp
     const handler = erasedHandler;
     queueMicrotask(() => { Promise.resolve(handler(token)).catch(() => {}); });
   }
+  if (err instanceof CloudAccountDeletedError && accountDeletedHandler) {
+    const handler = accountDeletedHandler;
+    queueMicrotask(() => { Promise.resolve(handler(token, err.erase)).catch(() => {}); });
+  }
   throw err;
 }
 
@@ -112,6 +129,10 @@ async function send(path, { method = 'GET', token = null, json, body, contentTyp
 // only the check-in. The token is passed because callers drop it on any 401.
 let erasedHandler = null;
 export function setErasedHandler(fn) { erasedHandler = fn; }
+
+// The same for account_deleted (cloudDevices.js registers it): (token, erase).
+let accountDeletedHandler = null;
+export function setAccountDeletedHandler(fn) { accountDeletedHandler = fn; }
 
 const getJson = async (path, opts) => (await send(path, opts)).json();
 
