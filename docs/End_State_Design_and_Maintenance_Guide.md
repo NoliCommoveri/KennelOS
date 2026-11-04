@@ -972,7 +972,12 @@ the only link.
 - Date-only fields are `YYYY-MM-DD`, compared lexicographically; "today" is local
   (`todayYMD`). Only `created_at`/`updated_at` are full ISO.
 - Money is decimal, never cents.
-- Pickers exclude archived by default. Vocabularies live only in `vocab.js`; dropdowns and
+- Pickers exclude archived by default. Every dog picker (sire/dam on the Dog, Litter and
+  Pairing forms; contract, sale, stud-service partner, heat-cycle dam, expense, document,
+  pedigree, Kels's tidy-up and Add dogs) lists dogs in one order, `dogRepo.pickerGroups`
+  drawn by `ui.dogOptgroups`: **Your dogs** (owned, co-owned), **Other dogs**, **Pedigree
+  only**, A–Z by the shown name within each, titles in front ignored. The stud-service "our
+  dog" picker (her own only) keeps males first. Vocabularies live only in `vocab.js`; dropdowns and
   badges both read it.
 
 ---
@@ -2869,7 +2874,7 @@ One dog or several in one go, the way the litter task takes several puppies. `st
    makes a new one. Changed details ask again.
 5. **Their parents** (`parents:<i>`, optional: "If you don't know yet, leave them as Not
    known"): mom and dad each **Not known**, one of the dogs being added, a dog on file of
-   that sex (same breed first), or one typed in, made pedigree-only: its **registered name**
+   that sex (grouped and A–Z, `pickerGroups`), or one typed in, made pedigree-only: its **registered name**
    (required, as the pedigree reads), registration number and call name (optional). It's
    looked up with `findDogMatches`: its number on a dog on file is that dog, picked for her
    (`resolveTypedParents`); the same name (call or registered, titles ignored, misspelled
@@ -3427,7 +3432,7 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
 - **Pups vs. litter:** a litter's pups with a blank sire/dam (fill from the litter) or a
   different one (use the litter's).
 - **No parents:** her own dog (owned, co-owned, leased in) not from one of her litters with a
-  blank sire/dam → pick a dog already on file (right sex, same breed first), or add one: hers
+  blank sire/dam → pick a dog already on file (right sex, grouped and A–Z, `pickerGroups`), or add one: hers
   (owned, in the dog's kennel; at Lite's cap she shows the usual upgrade notice, `renderUpgradeNudge`, and skips that parent) or somebody else's as a
   pedigree-only dog, asked by its registered name (required) and registration number (no
   call name). Either is looked up first with `dogSearch.findDogMatches` (both names, its

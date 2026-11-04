@@ -2748,3 +2748,11 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **Pedigree import reads the dog's microchip.** A Certified Pedigree's "Microchip:" line (or
   a header's) is saved as the chart dog's `microchip_id`, filling a blank one only. Tests
   added. Rides `kennelos-shell-v107`.
+- **One order for every dog picker.** Your dogs (owned, co-owned), then Other dogs, then
+  Pedigree only, A–Z within each (titles in front ignored, numbers in order), as labelled
+  groups: `dogRepo.pickerGroups` + `ui.dogOptgroups`. Applied to sire/dam on Dog, Litter and
+  Pairing, Contract, Sale, the stud-service partner, the heat-cycle dam, the expense dog, the
+  Documents filter and upload, the pedigree pickers, and Kels's tidy-up and Add-dogs parent
+  pickers (their "same breed first" order dropped). The stud-service "our dog" list keeps
+  males first; the waitlist's parent checkboxes are unchanged. Tests added
+  (`dogPickerOrder`). Rides `kennelos-shell-v107`.
