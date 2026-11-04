@@ -1571,7 +1571,8 @@ function renderPedigreeSection() {
       mount: document.getElementById('dog-pedigree-mount'),
       rootId: ctx.original.id,
       generations: 3,
-      onNavigate: (id) => { location.href = `pedigree.html?id=${encodeURIComponent(id)}`; }
+      onNavigate: (id) => { location.href = `pedigree.html?id=${encodeURIComponent(id)}`; },
+      editable: true
     }).then(() => {
       // dog.html?id=…#offspring (Kels's "Zeus puppies"): the list draws after the
       // page loads, so the browser's own jump to it has already missed. Once.

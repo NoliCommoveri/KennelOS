@@ -2756,3 +2756,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   pickers (their "same breed first" order dropped). The stud-service "our dog" list keeps
   males first; the waitlist's parent checkboxes are unchanged. Tests added
   (`dogPickerOrder`). Rides `kennelos-shell-v107`.
+- **Fix a spot in a pedigree.** On the Pedigree page and a dog's Pedigree card, every ancestor
+  box has a ✎ and every Unknown box a "+ Add": put a dog on file there, type in a new one (made
+  pedigree-only, or the dog already holding that registration number), or clear the spot. Never
+  a loop; a misplaced pedigree-only dog's sex is corrected when moved to a spot of the other sex
+  (refused while it still holds the other role). New `data/pedigreeEdit.js` (precached). Tests
+  added (`pedigreeEdit`). For charts the importer misread before the names-with-digits fix.

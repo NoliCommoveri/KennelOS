@@ -66,7 +66,8 @@ async function show(id) {
     mount,
     rootId: id,
     generations: Number(gensSel.value),
-    onNavigate: (nextId) => show(nextId)
+    onNavigate: (nextId) => show(nextId),
+    editable: true
   });
 }
 

@@ -210,6 +210,7 @@ const PRECACHE_URLS = [
   'data/ocr.js',
   'data/pairingRepo.js',
   'data/paymentLinks.js',
+  'data/pedigreeEdit.js',
   'data/pedigreeImport.js',
   'data/pedigreeParse.js',
   'data/pedigreeReader.js',

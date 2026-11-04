@@ -940,6 +940,17 @@ device until it's clicked.
 **The Shows page** (Pro): Upcoming and Results tabs over `eventRepo.getByType('show')`;
 **+ Add entries** creates one event per picked dog × day, skipping duplicates.
 
+**Fixing a spot in a pedigree** (`assets/pedigree.js` `editable`, on the Pedigree page and a
+dog's Pedigree card, every edition): each ancestor box has a ✎ and each Unknown box a **+ Add**,
+opening a dialog for that spot (its child's `sire_id`/`dam_id`, `data/pedigreeEdit.js`): **Put
+here** a dog on file (`spotCandidates`: the spot's sex or none, grouped and A–Z, never the child
+or a dog that would make it its own ancestor, `wouldLoop`), or **A dog not in KennelOS** typed in
+(`addNewParent`: a new pedigree-only dog of the spot's sex and the child's breed, or the dog
+already holding that registration number), or **Clear this spot** (the dog stays on file). A
+pedigree-only dog recorded as the other sex is listed last and has its sex corrected when put
+there (its sex came only from where a chart put it), refused while it's still a parent the other
+way round; a dog that isn't pedigree-only never changes sex.
+
 **Pedigree import** (`pedigree-import.html`, every edition): PDFs or images are read in the
 browser, nothing uploaded. `data/pedigreeReader.js` uses the PDF.js text layer, or renders
 and OCRs the page. `data/pedigreeParse.js` (pure) turns positioned words into dogs by path
