@@ -237,10 +237,16 @@ const MANIFEST = JSON.stringify({
   ],
 });
 
+// Wrangler bundles with esbuild's keepNames, which wraps named functions in calls to
+// a `__name` helper that exists in the Worker bundle but not in the browser. These
+// scripts are sent as their source, so each starts with a stand-in.
+const NAME_SHIM = 'var __name = function (fn) { return fn; };\n';
+const asScript = (fn) => `${NAME_SHIM}(${fn.toString()})();\n`;
+
 export const MANAGER_FILES = {
   '': { type: 'text/html; charset=utf-8', body: HTML },
-  'app.js': { type: 'text/javascript; charset=utf-8', body: `(${managerPage.toString()})();\n` },
-  'sw.js': { type: 'text/javascript; charset=utf-8', body: `(${managerWorker.toString()})();\n` },
+  'app.js': { type: 'text/javascript; charset=utf-8', body: asScript(managerPage) },
+  'sw.js': { type: 'text/javascript; charset=utf-8', body: asScript(managerWorker) },
   'manifest.webmanifest': { type: 'application/manifest+json', body: MANIFEST },
   'icon-192.png': { type: 'image/png', base64: true, body: ICON_192 },
   'icon-512.png': { type: 'image/png', base64: true, body: ICON_512 },
