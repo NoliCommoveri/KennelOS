@@ -205,9 +205,9 @@ to the cloud unsealed).
 
 | Entity | Required | Key fields and rules |
 |---|---|---|
-| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `registered_name`, `registry` + `registration_number` (the main registration), `additional_registrations[]` (cloud; every other registry it's registered with: `{ registry, registration_number, registered_name }`, the name blank when it's the same; trimmed, and an entry with neither registry nor number dropped, by `dogRepo.normalizeRegistrations` on every write that carries it; edited as rows under Registration # on the Dog form, shown as Other registrations), `microchip_id`, `planned_tests[]`, `recorded_coi`, `url` (a link to its photos). `photos_online` (boolean, default off; cloud) is this dog's say over showing `url` as a photos link on waitlist pages (§29 Online), ticked on the Dog form with the waitlist. `show_on_website` and `heats_online` (booleans, default off; cloud) are her KennelPort website's marks: this dog has a page there, and its future heats may show as a month (§35). `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `waitlist_tests` (`PARENT_TESTS_SHOWN`: `off`/`normal`/`all`, null = follow Waitlist settings' `parent_tests`) is this dog's say over which of its completed health tests show on waitlist family pages (§29 Online), set on its Health-Test Summary card. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. |
+| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `lives_with_contact_id` (cloud; which of its co-owners a `co_owned` dog lives with now, empty meaning with her; no history; `dogRepo.livesWithOk` clears it on every write once it isn't one of the dog's co-owners or the dog isn't co-owned; picked as **Lives with** on the Dog form, Me or a co-owner; decides where it shows on her website, §35), `registered_name`, `registry` + `registration_number` (the main registration), `additional_registrations[]` (cloud; every other registry it's registered with: `{ registry, registration_number, registered_name }`, the name blank when it's the same; trimmed, and an entry with neither registry nor number dropped, by `dogRepo.normalizeRegistrations` on every write that carries it; edited as rows under Registration # on the Dog form, shown as Other registrations), `microchip_id`, `planned_tests[]`, `recorded_coi`, `url` (a link to its photos). `photos_online` (boolean, default off; cloud) is this dog's say over showing `url` as a photos link on waitlist pages (§29 Online), ticked on the Dog form with the waitlist. `show_on_website` and `heats_online` (booleans, default off; cloud) are her KennelPort website's marks: this dog has a page there, and its future heats may show as a month (§35). `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `waitlist_tests` (`PARENT_TESTS_SHOWN`: `off`/`normal`/`all`, null = follow Waitlist settings' `parent_tests`) is this dog's say over which of its completed health tests show on waitlist family pages (§29 Online), set on its Health-Test Summary card. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. |
 | **Contact** | `name` | `contact_type[]`, `email`, `phone`, `facebook_profile`, `address` (also the away-board location, §19), `kennel_id` (affiliation, not scope), `waitlist_status` (kept by `waitlistEntryRepo`), `first_contact_source`, `companion_note` (shown to the recipient, §20; `notes` is private). Buyers are Contacts; there is no Buyer table. |
-| **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `extra_charge_groups` (its groups' defaults, private, §21.2), `pickup_locations` (her pickup places, private, §29 Pickup), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
+| **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `name_on_website` (boolean, default off, cloud; an outside kennel her website may name, by name and website, as a co-owned dog's kennel; ticked on the Kennels list's Edit row, Pro with the website link, §35), `kennelport_portal` (cloud; her puppy portal on KennelPort, kept from its answers: its addresses, the one-tap link's key, the families it has taken over and the facts applied; null while off, §35.1), `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `extra_charge_groups` (its groups' defaults, private, §21.2), `pickup_locations` (her pickup places, private, §29 Pickup), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date` when empty), `show_on_website` (boolean; cloud; shows under Coming up on her website, §35). Sire ≠ dam. |
 | **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `show_on_website` (boolean, cloud: this litter and its puppies on her website, §35; unset follows its pairing's), `photos_url` (a link to photos of the whole litter, cloud; shown on the Litter page, the Litters table's Photos column, asked in Kels's Add a litter, and on the litter's cards on waitlist pages, §29 Online), `puppies_born_*` counts, `delivery_type` (`LITTER_DELIVERY_TYPE`: natural, assisted, planned or emergency C-section; cloud; shown and asked only once the litter is Whelped or later, see Litter delivery below), per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), `pickup_slots` and `pickup_date_rules` (her pickup times and each date's rule, private, §29 Pickup), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
 | **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, `extra_charges[]` (private, §21.2), payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
@@ -3549,7 +3549,17 @@ KennelPort Site Manager.
   products (`websiteProducts`): Accounts with `show_on_website`, not transport or archived,
   as name, referral link (else website), code, and instructions when 120 characters or
   fewer; sent only when the site's answer lists `products` in its `sections`, so an older
-  Worker isn't sent a section it would refuse. A puppy's status is
+  Worker isn't sent a section it would refuse. **Co-owned dogs** (KennelPort's
+  `docs/Co_Owned_Dogs_Plan.md`), only when the answer lists `partner_kennels`: each dog
+  adds `co_owned`, `lives_away` (its `lives_with_contact_id` is one of its co-owners),
+  `lives_with_kennel_id` and `co_owner_kennel_ids` (`coOwnership`), and the bundle adds
+  `partner_kennels`, the kennels those name, as `{ id, name, website }`. A kennel is named
+  only when it is an outside kennel, not archived, with `name_on_website`, that a co-owner
+  belongs to (the contact's `kennel_id`; `namedKennelOf`), the one it lives with first.
+  Nothing about a co-owner as a person goes: no name, email, phone, address, contract or
+  amount. On KennelPort a dog living with a co-owner shows only in the Dogs page's
+  Co-owned section, with that kennel's logo (added there); one living with her is grouped
+  like her own. A puppy's status is
   `puppyStatus`: health hold hidden, placed (or a delivered sale) placed, a live sale or an
   open pick reserved, keeping (or grown into the program) staying, Available available,
   else undecided. **Prices** (the litter's expected price, deposit and Full surcharge per
@@ -3588,7 +3598,10 @@ KennelPort Site Manager.
   boxes (`siteExport.websiteGaps`): her own adults not marked; pups marked Keeping whose
   litter has left the site; live litters and pairings not marked; her breeding girls
   with heats off (unticked to start); and accounts with something to share (a referral
-  link, code or instructions; never transport) not marked, for Recommended products. Then a date for each marked, born litter with no
+  link, code or instructions; never transport) not marked, for Recommended products; the
+  outside kennels of her shown co-owned dogs' co-owners not ticked Name this kennel on my
+  website (unticked to start), and a line naming any shown dog living with a co-owner who
+  has no kennel (`partnerKennels`, `noKennel`). Then a date for each marked, born litter with no
   accept deposits date (blank keeps it available now); then her settings: **Use my
   KennelOS prices** on the site (`POST /v1/settings`, only where the site's facts list
   it under `settings`), her waitlist online when the site has a waitlist page (set up
@@ -3631,3 +3644,72 @@ KennelPort Site Manager.
   sent as shown). Sales and waitlist picks don't change it, and her status field isn't
   read (a litter closes long before a kept pup moves on from Puppy).
 
+### 35.1 Her puppy portal: the family feed — KennelPort's `docs/Puppy_Parent_Portal_Plan.md` §3.4
+
+**Editions:** Pro with the website link, and only for a kennel whose linked KennelPort site
+says `portal_feed: 1` in its facts (the portal is switched on there, from KennelPort's /ops).
+Nothing changes for any other kennel or breeder.
+
+- **`data/portalFeed.js`** (pure) builds KennelPort's family feed, format 1 (its
+  `worker/src/portal/feed.js`), with `assertOnlyKeys` on every object (`*_KEYS`). Each
+  family from their signed contract on: a sale of the kennel's, not archived, with a pup and
+  a buyer, and a Sale contract linked to it, status Signed with its signed date
+  (`signedContractFor`). The family is the buyer contact (`id` its contact id, `name`,
+  `emails`: the contact's and those they applied with, lower case, at most 4; `status_url`
+  their newest status page). Each sale is a placement: `puppy_id` (the Dog id, as the
+  website bundle sends pups), `puppy_name`, `contract_signed_on`, `go_home_on` (the pickup
+  event's date, else `familyPickup.pickupFrom`: the ready date or after a training stay),
+  `pickup_at` (the pickup event's `placement_time` start, read by `parseClock`, in the
+  kennel's `time_zone` by `zonedIso`; none without a time), `microchip`, `registration_no`
+  (the Dog's main number), `voided` (a voided sale's reason: died, failed_health,
+  backed_out, other; a cancelled sale is backed_out; dated by the sale's last edit),
+  `health` (vaccinations as vaccine, with lot and next due as notes; preventatives as
+  deworming; vet visits by title, never their findings; up to today, newest 40) and
+  `extras` (the sale's charges that are on her price list, as `{ id, extra_id: list_id }`,
+  never an amount). Her vet (`herVet`): the Vet contact she names most on her own dogs'
+  vet visits and surgeries, else her only Vet contact, as clinic (its name), phone and
+  address. `removed`: families, placements and health records it stood for last time
+  and not now (`known`, kept on the link row), so a deleted sale or event, or a contract
+  set back from Signed, is marked gone there (never deleted). A sale it sent stays while
+  it's released (voided, cancelled, returned) even once its contract is voided, so the
+  portal hears why. A placement goes while open, then `PORTAL_KEEP_DAYS` (60) after its
+  go-home or last edit; after that it rests (not removed). Never sent: an amount, a
+  family's phone or postal address, contract terms, sale notes, vet findings.
+- **`data/portalFeedSync.js`** sends it on its own, from each device linked to the site
+  (`startPortalFeed`, from `app.js`): on a page load at most hourly
+  (`FEED_OPEN_EVERY_MS`: the site is asked for its facts, then the feed is sent even
+  unchanged, so her Site Manager's Last from KennelOS stays fresh and the facts come back),
+  and `FEED_DELAY_MS` (20 s) after a data change when it differs from what this device sent
+  last (`portal_sent` on the link row, device-only). Never while a Pro license has lapsed.
+  `POST /v1/portal` (`kennelportApi.sendFamilyFeed`). A `portal_off` refusal, or fresh
+  facts without `portal_feed`, stop it and take the portal off the kennel; old facts on a
+  device don't. A stopped link forgets the token and the portal, as Update website does.
+  Website pages still wait for Update website.
+- **`Kennel.kennelport_portal`** (cloud; owner decision 2026-11-04) holds what the answer's
+  `portal` says, `{ url, handoff_url, handoff_key, handoff_minutes }`, plus `home` (the
+  contacts the portal has taken over: `portal_only`) and `facts` (each sale's facts as
+  applied). Cloud so whichever device publishes her waitlist puts the portal on the status
+  page, and Companion and Furever are off on every device. Not an FK: contact and sale ids
+  there are matched, never followed (no registry entry). `portalFeed.portalOn(kennel)`.
+- **The facts that come back** (the answer's `facts`), applied without asking her, each
+  once (`kennelport_portal.facts`, so a later change in KennelOS isn't undone by the
+  portal's older value; `applyPortalFacts`): `picked_up_at` moves the pup's pickup event
+  (`pickupEventFor`: its next, else its last) to that day and time in her time zone, or makes
+  one with the family on it, and marks the sale Delivered unless it ended; `microchip` sets
+  the Dog's; `died_on` marks the dog Deceased with its `date_of_death`; `portal_only` adds
+  the family to `home`. Nothing with money comes back.
+- **The status page** (the projection, `waitlistProjection.js`): while `portalOn`, a
+  record whose own sale (placed, else open) is signed and not ended carries `portal:
+  { family_id, only, pickup_on }` (`portalEntryView`); `only` once the family is in `home`,
+  the sale is Delivered, or the pickup day has passed. The key and the portal's addresses
+  go in `server.portal`, which the server never shows a family. The server (`familyPages
+  .statusView`) shows **Your puppy portal is ready** with **Open your puppy portal**, and,
+  once `only` (or `pickup_on` has passed in her time zone, so the switch never waits for her
+  device), only **Your puppy portal**. The button posts `/f/portal` (signed in on the status
+  page; `familyActions.handlePortal`), which answers a link that works once, for the
+  portal's minutes (at most 10), in KennelPort's token format: base64url JSON `{ f: the
+  contact id, x: expiry ms, n: nonce }`, a dot, and its HMAC-SHA256 under the key. Not
+  signed in: a sign-in link and the portal's own address. Companion: `companion.link:
+  false`, no Companion link request (refused on the server too).
+- **Furever** lists no pup of a kennel with the portal on (a line says why), and Kels's
+  Pups are going home doesn't offer it for them.

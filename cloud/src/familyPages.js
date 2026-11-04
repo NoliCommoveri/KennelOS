@@ -24,6 +24,8 @@
 //   POST /f/apply/<public_id>  a sealed application; held until the applicant types
 //                              the code emailed to them (then it reaches her inbox)
 //   POST /f/act, /f/message    what a signed-in family does on their page (familyActions.js)
+//   POST /f/portal             {session, status_token}: their one-tap link into her
+//                              puppy portal on KennelPort (familyActions.handlePortal)
 // A status view also lists the emails she sent that family (`emails`, step 6).
 //
 // Embedding (docs/KennelOS_Integrations_Plan.md §1): /apply and /list may be shown
@@ -40,7 +42,7 @@ import { normalizeEmail, emailHash } from './auth.js';
 import { hmacHex, sha256Hex, randomCode, randomHex } from './lib/crypto.js';
 import { assertMailAvailable, familySender, sendFamilyMessage } from './mail.js';
 import { PUBLIC_ID, STATUS_TOKEN, sentEmailsFor } from './waitlist.js';
-import { handleAct, handleMessage, pendingFor, heldByOthers } from './familyActions.js';
+import { handleAct, handleMessage, handlePortal, pendingFor, heldByOthers } from './familyActions.js';
 import { notifyEvent } from './notify.js';
 import { fail, json, readJson } from './lib/http.js';
 import { isWebsiteOrigin } from './lib/cors.js';
@@ -507,7 +509,34 @@ function feeDueOf(d) {
   return out;
 }
 
-export function statusView(projection, entryId) {
+// Her puppy portal on KennelPort (KennelPort's Puppy_Parent_Portal_Plan.md 3.4),
+// for this family: { only } while her device says their signed, live sale is in the
+// portal; `only` once the portal has taken over (her device says so, or the pickup
+// day her device published has passed in her time zone: the switch never waits for
+// her device). null without the portal's one-tap link on the server.
+export function localDay(tz, now = new Date()) {
+  try {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tz || 'UTC', year: 'numeric', month: '2-digit', day: '2-digit' })
+      .formatToParts(now).map((x) => [x.type, x.value]));
+    return `${p.year}-${p.month}-${p.day}`;
+  } catch {
+    return now.toISOString().slice(0, 10);
+  }
+}
+export function portalLink(projection) {
+  const s = projection.server?.portal;
+  const https = (u) => typeof u === 'string' && /^https:\/\/[^\s"'<>]{3,500}$/i.test(u);
+  if (!s || !https(s.handoff_url) || typeof s.handoff_key !== 'string' || !/^[0-9a-f]{64}$/.test(s.handoff_key)) return null;
+  return { url: https(s.url) ? s.url : null, handoff_url: s.handoff_url, key: s.handoff_key, minutes: Math.min(10, Math.max(1, Number(s.minutes) || 10)) };
+}
+export function portalOf(projection, e, now = new Date()) {
+  const p = e?.portal;
+  if (!p || typeof p !== 'object' || typeof p.family_id !== 'string' || !portalLink(projection)) return null;
+  const pickupOn = typeof p.pickup_on === 'string' && YMD_RE.test(p.pickup_on) ? p.pickup_on : null;
+  return { only: p.only === true || Boolean(pickupOn && pickupOn < localDay(projection.kennel?.time_zone, now)) };
+}
+
+export function statusView(projection, entryId, now = new Date()) {
   const e = projection.entries?.[entryId];
   if (!e) return null;
   const kennel = {
@@ -515,6 +544,14 @@ export function statusView(projection, entryId) {
     public_id: projection.kennel?.public_id ?? null, can_message: Boolean(projection.kennel?.message_key),
   };
   const family = { name: e.name ?? '', status: e.status };
+  // Her puppy portal: once it has taken over, their page is only its link.
+  const portal = portalOf(projection, e, now);
+  if (portal) {
+    family.portal = portal;
+    const url = portalLink(projection).url;
+    if (url) kennel.portal_url = url;
+    if (portal.only) return { kennel, as_of: projection.as_of ?? null, family, offers: [], litters: [], upcoming: [], public_list: [] };
+  }
   // Her recommended products (Integrations plan §3): for every family, placed ones
   // too (they're who it's for).
   const recommended = recommendedOf(projection);
@@ -961,6 +998,7 @@ export async function handleFamilyApi(request, env, url) {
   }
 
   if (p === '/f/act' && m === 'POST') return handleAct(env, request);
+  if (p === '/f/portal' && m === 'POST') return handlePortal(env, request);
   if (p === '/f/message' && m === 'POST') return handleMessage(env, request);
 
   fail(404, 'not_found');
