@@ -2654,3 +2654,17 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   public list, or why not (setting off, or no description). `programIconHtml`.
 - **SW cache bumped to `kennelos-shell-v103` (2026-11-04)** for this batch (credit-dated
   deposits, program icons on the public list and her pages).
+- **Co-owned dogs on her website (2026-11-04).** For KennelPort's co-owned dogs plan
+  (KennelPort `docs/Co_Owned_Dogs_Plan.md`). `Dog.lives_with_contact_id` (cloud): which
+  co-owner a co-owned dog lives with now, empty meaning with her; no history. **Lives
+  with** on the Dog form (Me or one of the co-owners chosen above), shown on the profile;
+  `dogRepo.livesWithOk` clears it once it isn't one of the dog's co-owners or the dog isn't
+  co-owned. Registered as a contact reference (scan). `Kennel.name_on_website` (cloud): an
+  outside kennel her website may name, ticked on the Kennels list's Edit row and badged
+  Named on website. `siteExport` sends, to a Worker that lists `partner_kennels`, each
+  dog's `co_owned`, `lives_away`, `lives_with_kennel_id`, `co_owner_kennel_ids`, and the
+  ticked kennels as `{ id, name, website }` (`coOwnership`, `namedKennelOf`, `webAddress`);
+  never a co-owner as a person. Kels's Update my website asks about unticked kennels and
+  names dogs living with a co-owner who has no kennel; the change list says "Nova: now
+  living with Oakridge". `cloudFields.js` regenerated. Tests added (`coOwnedWebsite`).
+  SW cache not bumped yet: asked.
