@@ -2703,3 +2703,4 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Safari on iPhone/iPad gives a date input no way to empty it, so a date of death entered by
   mistake on a living dog was stuck. Saving an empty date already worked; only the input couldn't
   be emptied.
+- **SW cache bumped to `kennelos-shell-v106` (2026-11-04)** for the clearable dog-form dates.
