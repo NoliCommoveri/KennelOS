@@ -21,6 +21,7 @@
 //   PUT    /vault/check                   an unlocked device saves the account-recovery check {keyId, check}
 //
 // Nothing here logs a wrap, a key or a request body (cloud/README.md).
+import { autoApprovalAllowed, autoPairingAllowed } from './assist.js';
 import { fail } from './lib/http.js';
 import { requireFreshSignIn } from './auth.js';
 import { limitBucket, VAULT_LIMITS } from './ratelimit.js';
@@ -40,6 +41,7 @@ const MAX_OPEN_PAIRINGS = 5;
 export const HANDOFF_MS = 60 * 60 * 1000;
 const MAX_OPEN_HANDOFFS = 5;
 const PROOF = /^[0-9a-f]{64}$/;
+const AUTO_CODE = /^[A-Za-z0-9]{8,32}$/;
 
 const nowIso = () => new Date().toISOString();
 
@@ -203,10 +205,16 @@ export async function createPairing(env, auth, body) {
   if (open >= MAX_OPEN_PAIRINGS) fail(429, 'too_many_pairings');
   const id = crypto.randomUUID();
   const expiresAt = new Date(at + PAIRING_MS).toISOString();
+  // Assisted programs (assist.js): her device and support's swap the key with no
+  // typed code, by her choice, so the asking device posts its code too. Kept only
+  // when the program is in a state that allows it.
+  const autoCode = body.autoCode !== undefined && AUTO_CODE.test(String(body.autoCode)) && (await autoPairingAllowed(env, auth))
+    ? String(body.autoCode) : null;
   await env.DB.prepare(
-    `INSERT INTO vault_pairings (id, program_id, device_id, device_label, public_key, created_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-  ).bind(id, auth.programId, auth.deviceId, label(body.label) ?? auth.deviceLabel, publicKey, new Date(at).toISOString(), expiresAt).run();
+    `INSERT INTO vault_pairings (id, program_id, device_id, device_label, public_key, created_at, expires_at, auto_code, asker_role)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).bind(id, auth.programId, auth.deviceId, label(body.label) ?? auth.deviceLabel, publicKey, new Date(at).toISOString(), expiresAt,
+    autoCode, auth.role ?? 'owner').run();
   return { pairingId: id, expiresAt };
 }
 
@@ -215,13 +223,17 @@ export async function createPairing(env, auth, body) {
 export async function listPairings(env, auth) {
   await requireVault(env, auth);
   const { results } = await env.DB.prepare(
-    `SELECT id, device_label, public_key, created_at, expires_at FROM vault_pairings
+    `SELECT id, device_label, public_key, created_at, expires_at, auto_code, asker_role FROM vault_pairings
       WHERE program_id = ? AND device_id <> ? AND approved_at IS NULL AND expires_at > ?
       ORDER BY created_at DESC`,
   ).bind(auth.programId, auth.deviceId, nowIso()).all();
+  // An automatic pairing's code goes only to the other side (support's device for
+  // hers, hers for support's) and only while the program still allows it.
+  const showAuto = results.some((p) => p.auto_code) && (await autoApprovalAllowed(env, auth));
   return {
     pairings: results.map((p) => ({
       id: p.id, deviceLabel: p.device_label, publicKey: p.public_key, createdAt: p.created_at, expiresAt: p.expires_at,
+      ...(showAuto && p.auto_code && p.asker_role !== (auth.role ?? 'owner') ? { autoCode: p.auto_code } : {}),
     })),
   };
 }

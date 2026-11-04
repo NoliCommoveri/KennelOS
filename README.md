@@ -39,6 +39,7 @@ backup, carries a program from Lite to Pro.
 | App alerts (web push) and email digests | `docs/KennelOS_Notifications_Plan.md` |
 | Kels on the family pages (help, FAQ) | `docs/KennelOS_Family_Help_Plan.md` |
 | Families asking for extras, pickup times, transport, backing out | `docs/KennelOS_Family_Requests_Plan.md` |
+| Support helping a user in her own program (assisted setup, ongoing help, the manager app) | `docs/KennelOS_Assisted_Setup_Plan.md` |
 | Furever | `docs/KennelOS_Furever_*.md`, `furever/README.md` |
 | Kels (the guided-task helper): what's next | `docs/KennelOS_Kels_Roadmap.md` (built tasks: End-State guide §33) |
 | Launch to-dos | `docs/LAUNCH_CHECKLIST.md` |
@@ -54,8 +55,9 @@ backup, carries a program from Lite to Pro.
     still need proving against a real account.
   - Cloud Phase 2 live sync: released. Next is checking it on real phones (iPhone and Android)
     on production; step 7, the live nudge, is optional. Production has every cloud migration
-    through `0016` applied; `0017` (the R2 orphan sweep's state) and `0019` (email counts for
-    /ops) are waiting to be applied from /ops after the next Worker deploy. Staging isn't in use, so deploys there aren't tracked.
+    through `0016` applied; `0017` (the R2 orphan sweep's state), `0019` (email counts for
+    /ops) and `0020` (deleted accounts' token hashes; assisted setup and the manager app) are waiting
+    to be applied from /ops after the next Worker deploy. Staging isn't in use, so deploys there aren't tracked.
   - Notifications (app alerts and the email digest): built. Next: generate the push key on
     /ops and add it as the `VAPID_PRIVATE_JWK` secret, apply migration `0018` after the
     Worker deploy, then check alerts on a real Android phone and an iPhone.

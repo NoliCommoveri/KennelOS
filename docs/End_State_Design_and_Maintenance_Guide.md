@@ -2158,6 +2158,29 @@ Design: `docs/KennelOS_Cloud_Phase1_Plan.md` (backup), `docs/KennelOS_Private_Va
 - **A lost device** (`cloudDevices.js`): from another device, erase it (it wipes itself
   next time it's online: `appReset.eraseThisDevice`) and, in Pro, free its license slot.
   `app.js` runs the device check-in first thing in `boot()`, before the license gate.
+- **A deleted account** (`DELETE /account`, or `/ops` → Delete an account for a user who
+  asked): the server keeps the hash of each of its session tokens for 90 days, so a device
+  that turns up later hears `401 account_deleted {erase}` (`CloudAccountDeletedError`).
+  `cloudDevices.accountDeleted` first tells the password manager to drop every passkey of
+  that program (`vaultPasskey.forgetAllPasskeys`: WebAuthn `signalAllAcceptedCredentials`
+  with no accepted ids; the user handle is the program id; best effort), then with
+  `erase` (support asked for a fresh start) erases the device like a remote erase, and
+  without it keeps its records and drops the session. Deleting your own cloud data does the
+  passkey step on the deleting device; only her other devices are told.
+- **Assisted setup and help** (`data/cloud/cloudAssist.js`, `assets/cloudAssistUI.js`;
+  `docs/KennelOS_Assisted_Setup_Plan.md`): KennelOS support's device signs in to a user's
+  account as a **helper** through a one-time link (`?assist=<token>`, read in `app.js`
+  before the license gate, which a helper device skips). Its session (`role: 'helper'`,
+  `helperLabel`) shows a "Helping …" bar with Hand back; `bootstrapHelper` turns on the
+  vault and sync once per program (in setup) or joins her (when she asked for help). Her
+  first sign-in on a program support set up answers `assisted`; "I already use KennelOS"
+  then runs `claimAssistedAccount` (the vault key from support's device, the join, her own
+  recovery code, `POST /assist/claimed`) in place of a restore, and `bootCloud` finishes an
+  interrupted one. Settings → Account has Get help / End help. The vault key moves by an
+  **automatic pairing** (`requestDeviceUnlock({ auto: true })` posts its code;
+  `startAssistLoops` approves the other side's every 5 s), only in the states the server
+  allows. A helper whose access ended hears `401 helper_removed`, which `cloudApi` treats
+  as `device_erased`.
 - **The vault ("Sensitive records" in the UI; `vault` in code):** an opt-in, end-to-end
   encrypted copy of the **complete** records. One AES-GCM key per program, kept unlocked on
   each device in `device_secrets` (`vaultKeyStore.js`); the server holds only wraps of it

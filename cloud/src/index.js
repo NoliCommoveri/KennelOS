@@ -2,6 +2,7 @@
 //
 // What reaches it:
 // - /ops: the operator's page, same-origin HTML, never CORS-enabled;
+// - /manager: support's installable manager app (assist.js), same-origin, likewise;
 // - preflights (OPTIONS) from the editions, answered from lib/cors.js;
 // - /notice and /health: public, and answered even in maintenance;
 // - the JSON API (api.js), behind the maintenance gate;
@@ -15,6 +16,7 @@
 //   breeder's email digests (notify.js);
 // - /notify/off: the digest email's turn-off page (notify.js).
 import { handleOps } from './ops.js';
+import { handleManager } from './assist.js';
 import { handleApi } from './api.js';
 import { schemaReady } from './gate.js';
 import { activeNotices } from './notice.js';
@@ -37,6 +39,14 @@ export default {
 
     if (url.pathname === '/ops' || url.pathname.startsWith('/ops/')) {
       return handleOps(request, env);
+    }
+
+    // Support's manager app (assist.js): same-origin, its own cookie, like /ops.
+    if (url.pathname === '/manager' || url.pathname.startsWith('/manager/')) {
+      if (url.pathname === '/manager') return Response.redirect(`${url.origin}/manager/`, 301);
+      const ready = env.DB ? await schemaReady(env.DB) : false;
+      if (!ready && url.pathname.startsWith('/manager/api/')) return json({ error: 'maintenance', maintenance: true }, 503);
+      return handleManager(request, env);
     }
 
     const page = await serveFamilyPage(request, env, url);

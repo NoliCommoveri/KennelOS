@@ -22,6 +22,8 @@ import { readCookie } from './lib/http.js';
 import { escapeHtml as esc } from './lib/html.js';
 import { importFromLemonSqueezy } from './license.js';
 import { generateVapidKeys } from './notify.js';
+import { emailHash, normalizeEmail } from './auth.js';
+import { removeAccount } from './program.js';
 
 const COOKIE = 'ops_session';
 const SESSION_SECONDS = 12 * 60 * 60;
@@ -248,7 +250,16 @@ ${purchases.length
   <tr><td>Record versions received in the last hour</td><td>${esc(sc.recentVersions)}</td></tr>
 </table>`;
 
-  return `${outbox}${mailCounts}${testEmail}${pushKeys}${license}${sync}
+  // Deleting an account for a user who asked (a fresh start): look it up first.
+  const deleteAccountForm = `<h2>Delete an account</h2>
+<p class="muted">For a user who asked, for example one who made two accounts and wants to start over. Look it up first;
+nothing is deleted until you confirm on the next page.</p>
+<form method="post" action="/ops/account/find">
+  <p><label>The account's email<br><input type="email" name="email" autocomplete="off" required></label></p>
+  <button type="submit">Look up</button>
+</form>`;
+
+  return `${outbox}${mailCounts}${testEmail}${pushKeys}${license}${sync}${deleteAccountForm}
 <h2>Service notices</h2>
 ${noticeRows ? `<table>${noticeRows}</table>` : '<p class="muted">No active notices.</p>'}
 <form method="post" action="/ops/notices">
@@ -269,6 +280,81 @@ ${noticeRows ? `<table>${noticeRows}</table>` : '<p class="muted">No active noti
   <p><label>Restore into an empty database<br><input type="file" name="file" accept="application/json"></label></p>
   <button type="submit">Import</button>
 </form>`;
+}
+
+// ---------- deleting an account for a user who asked ----------
+
+const n = async (env, sql, ...args) => (await env.DB.prepare(sql).bind(...args).first('n')) ?? 0;
+
+// What deleting it would take: the account, its devices and what the cloud holds.
+// Counts and device names only; the email is never shown back or logged.
+async function accountSummary(env, user) {
+  const program = await env.DB.prepare('SELECT id FROM programs WHERE owner_user_id = ?').bind(user.id).first();
+  const p = program?.id ?? '';
+  const { results: sessions } = await env.DB.prepare(
+    `SELECT device_id, MAX(device_label) AS label, MAX(last_seen_at) AS last_seen,
+            SUM(CASE WHEN revoked_at IS NULL AND expires_at > ? THEN 1 ELSE 0 END) AS live
+       FROM sessions WHERE user_id = ? GROUP BY device_id ORDER BY last_seen DESC`,
+  ).bind(new Date().toISOString(), user.id).all();
+  return {
+    programId: p,
+    createdAt: user.created_at,
+    devices: sessions,
+    snapshots: await n(env, "SELECT COUNT(*) AS n FROM snapshots WHERE program_id = ? AND status = 'committed'", p),
+    records: await n(env, 'SELECT COUNT(*) AS n FROM sync_records WHERE program_id = ?', p),
+    vault: !!(await env.DB.prepare('SELECT 1 AS x FROM vaults WHERE program_id = ?').bind(p).first()),
+    passkeys: await n(env, "SELECT COUNT(*) AS n FROM vault_wraps WHERE program_id = ? AND kind = 'passkey'", p),
+    waitlist: await n(env, 'SELECT COUNT(*) AS n FROM wl_projection WHERE program_id = ?', p),
+  };
+}
+
+async function findAccountPage(env, email) {
+  const address = normalizeEmail(email);
+  const user = address
+    ? await env.DB.prepare('SELECT id, created_at FROM users WHERE email_hash = ?').bind(await emailHash(env, address)).first()
+    : null;
+  if (!user) return dashboard(env, '<p class="bad">No account uses that address. Check the spelling, or try the other address she may have used.</p>');
+  const s = await accountSummary(env, user);
+  const deviceRows = s.devices.map((d) => `<tr><td>${esc(d.label ?? 'Unnamed device')}</td><td class="muted">${esc(d.last_seen ?? '—')}</td><td>${d.live ? 'signed in' : '<span class="muted">signed out</span>'}</td></tr>`).join('');
+  return page('Delete an account', `<h1>Delete an account</h1>
+<p><a href="/ops">Back to ops</a></p>
+<table>
+  <tr><td>Created</td><td>${esc(s.createdAt)}</td></tr>
+  <tr><td>Cloud backups</td><td>${esc(s.snapshots)}</td></tr>
+  <tr><td>Synced records</td><td>${esc(s.records)}</td></tr>
+  <tr><td>Private vault</td><td>${s.vault ? `on, ${esc(s.passkeys)} passkey(s)` : 'off'}</td></tr>
+  <tr><td>Waitlist online</td><td>${s.waitlist ? 'published' : 'not published'}</td></tr>
+</table>
+<h2>Devices</h2>
+${deviceRows ? `<table><tr><th>device</th><th>last seen</th><th>now</th></tr>${deviceRows}</table>` : '<p class="muted">None.</p>'}
+<h2>Delete it</h2>
+<p>Everything this account holds in the cloud goes, at once and for good: backups, synced records, files, the vault and its
+passkeys' wraps, the waitlist online, connections, alerts, sessions and the account. A Pro purchase stays on record, so the same
+email can sign up again and still have Pro.</p>
+<form method="post" action="/ops/account/delete">
+  <input type="hidden" name="user_id" value="${esc(user.id)}">
+  <p><label><input type="checkbox" name="erase" value="1" checked> Also erase its devices when they next open</label><br>
+  <span class="muted">Each device wipes its KennelOS records, frees its Pro activation and opens fresh, as an erased device
+  does. Its browser is also told to drop this account's passkeys (Chrome and Google Password Manager do; others may not). Leave
+  this off to keep what's on the devices.</span></p>
+  <p><label>Type DELETE to confirm<br><input name="confirm" autocomplete="off" required></label></p>
+  <button type="submit">Delete this account</button>
+</form>`);
+}
+
+async function deleteAccountByOps(env, form) {
+  if (String(form.get('confirm') ?? '').trim() !== 'DELETE') return dashboard(env, '<p class="bad">Nothing was deleted: type DELETE to confirm.</p>');
+  const user = await env.DB.prepare('SELECT id FROM users WHERE id = ?').bind(String(form.get('user_id') ?? '')).first();
+  if (!user) return dashboard(env, '<p class="bad">That account no longer exists.</p>');
+  const program = await env.DB.prepare('SELECT id FROM programs WHERE owner_user_id = ?').bind(user.id).first();
+  const devices = await n(env, 'SELECT COUNT(DISTINCT device_id) AS n FROM sessions WHERE user_id = ?', user.id);
+  const erase = form.get('erase') === '1';
+  await removeAccount(env, { userId: user.id, programId: program?.id ?? '' }, { erase });
+  return dashboard(env, `<p class="ok">Account deleted.${devices
+    ? erase
+      ? ` Its ${esc(devices)} device(s) will erase themselves and drop its passkeys when they next open.`
+      : ` Its ${esc(devices)} device(s) keep their records and will drop its passkeys when they next open.`
+    : ''}</p>`);
 }
 
 // ---------- routing ----------
@@ -371,6 +457,14 @@ async function route(request, env) {
   if (url.pathname === '/ops/notices/remove' && request.method === 'POST') {
     await removeNotice(env, (await request.formData()).get('id'));
     return dashboard(env, '<p class="ok">Notice removed.</p>');
+  }
+
+  if (url.pathname === '/ops/account/find' && request.method === 'POST') {
+    return findAccountPage(env, (await request.formData()).get('email'));
+  }
+
+  if (url.pathname === '/ops/account/delete' && request.method === 'POST') {
+    return deleteAccountByOps(env, await request.formData());
   }
 
   if (url.pathname === '/ops/export.json' && request.method === 'GET') {

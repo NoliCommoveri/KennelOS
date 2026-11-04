@@ -2592,3 +2592,34 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   (`noteWebsiteBaseline`, `kennelportLink.websiteSnapshot`) and asks only when the task
   changed what the website would show, listing only those changes and counting the
   earlier ones still waiting (`pendingWebsiteChanges` `since` → `fresh`). Tests added.
+- **Assisted setup planned (2026-11-04).** `docs/KennelOS_Assisted_Setup_Plan.md`: a user
+  lets KennelOS support work in her program as a helper device (a help code made on her
+  device carries her vault key, redeemed only with an `/ops` session), with owner-only
+  routes refused to helpers, Pro without a license seat, her list of the helper's changes,
+  and **Remove access**, which revokes the session, blocks new codes and wipes the helper's
+  copy. Nothing built.
+- **Delete an account from /ops, and its passkeys with it (2026-11-04).** For a user who
+  made two accounts and wants to start over: `/ops` → Delete an account looks an account up
+  by email (devices, backups, vault and passkeys shown; the address never echoed) and
+  deletes it after a typed DELETE, optionally erasing its devices. `program.removeAccount`
+  is now shared by `DELETE /account` and ops, and records each session's token hash in
+  `account_deletions` (migration 0020, pruned after 90 days), so a device that turns up
+  later hears `401 account_deleted {erase}` instead of a plain sign-out. The app
+  (`CloudAccountDeletedError`, `cloudDevices.accountDeleted`) then tells the password
+  manager to drop the program's passkeys (`vaultPasskey.forgetAllPasskeys`, WebAuthn
+  `signalAllAcceptedCredentials`) and, with `erase`, wipes itself and frees its Pro
+  activation as a remote erase does. Deleting your own cloud data also drops the passkeys,
+  and only your other devices are told. Tests added (cloud and client).
+- **Assisted setup, Get help and the manager app (2026-11-04).** Support makes a user's
+  account in a new installable manager app (`/manager/` on the cloud Worker, ops-token
+  cookie, web push), opens a one-time link in KennelOS Pro and becomes a **helper** on her
+  account (`sessions.role`, owner-only routes refused). The helper device turns on the vault
+  and sync and sets her program up; her first sign-in is `assisted`, and "I already use
+  KennelOS" runs her takeover: the vault key from support's device by an **automatic
+  pairing** (owner's choice: no typed code; the server shows the code only to the other side
+  in the states that allow it), the join, her own recovery code, then support is signed out
+  (`401 helper_removed` → the device erase). Later **Get help** in Settings → Account
+  notifies the manager app and lets support back in until either side ends it. Migration
+  0020 gains the assist tables. `docs/KennelOS_Assisted_Setup_Plan.md` rewritten to the
+  built flow. Tests added (cloud and client).
+

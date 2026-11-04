@@ -217,7 +217,7 @@ test('sign in by code: the session is stored, the device keeps its id across sig
   const again = await signIn();
   assert.equal(again.deviceId, deviceId, 'same device, same id');
   assert.equal(again.programId, first.programId);
-  assert.deepEqual(auth.currentAccount(), { email: 'breeder@example.com', programId: first.programId, deviceId, deviceLabel: 'Phone A', signedIn: true });
+  assert.deepEqual(auth.currentAccount(), { email: 'breeder@example.com', programId: first.programId, deviceId, deviceLabel: 'Phone A', signedIn: true, role: 'owner', helperLabel: null, assisted: false });
 });
 
 test('a wrong code is a CloudRequestError with the server code', async () => {
@@ -675,6 +675,160 @@ test('erase: an ack that could not reach the server is retried later', async () 
   assert.equal(await dv.finishEraseAck(), true);
   assert.deepEqual(appKeys(), []);
   assert.ok(env.DB.raw.prepare('SELECT confirmed_at FROM device_erasures').get().confirmed_at);
+});
+
+// --- An account deleted on purpose (by its owner, or by support at her request) -----
+
+const { removeAccount } = await import('../cloud/src/program.js');
+function recordPasskeySignals() {
+  const signals = [];
+  const had = globalThis.PublicKeyCredential;
+  globalThis.PublicKeyCredential = { ...(had || {}), signalAllAcceptedCredentials: async (o) => { signals.push(o); } };
+  return { signals, restore: () => { globalThis.PublicKeyCredential = had; } };
+}
+const userHandle = (programId) => Buffer.from(programId).toString('base64url');
+
+test('account deleted by support with erase: the device drops its passkeys, wipes itself and frees its license', async () => {
+  putProgram();
+  await signIn('breeder@example.com', 'Phone A');
+  await cb.enableBackup();
+  const { programId } = auth.currentAccount();
+  settings.setProLicense({ key: 'KEY-1', instanceId: 'inst-A', status: 'active' });
+  const user = env.DB.raw.prepare('SELECT id FROM users').get();
+  await removeAccount(env, { userId: user.id, programId }, { erase: true });
+
+  const pk = recordPasskeySignals();
+  try {
+    assert.deepEqual(await dv.checkIn({ force: true }), { erased: true, accountDeleted: true });
+    assert.deepEqual(pk.signals, [{ rpId: 'localhost', userId: userHandle(programId), allAcceptedCredentialIds: [] }]);
+    for (const t of Object.values(tables)) assert.equal(t.rows.size, 0, t.name);
+    assert.deepEqual(appKeys(), []);
+    assert.deepEqual(lemon, [{ path: '/v1/licenses/deactivate', params: { license_key: 'KEY-1', instance_id: 'inst-A' } }]);
+  } finally { pk.restore(); }
+});
+
+test('account deleted without erase: the device keeps its records, drops its passkeys and is signed out', async () => {
+  putProgram();
+  await signIn('breeder@example.com', 'Phone A');
+  await cb.enableBackup();
+  const { programId } = auth.currentAccount();
+  const user = env.DB.raw.prepare('SELECT id FROM users').get();
+  await removeAccount(env, { userId: user.id, programId });
+  const pk = recordPasskeySignals();
+  try {
+    putDog('d9');
+    settings.markDataChanged();
+    await cb.pushIfDirty();
+    await until(() => pk.signals.length === 1 && !auth.sessionToken(), 'the passkey signal and the sign-out');
+    assert.ok(tables.dogs.rows.size > 0, 'records kept');
+    assert.equal(pk.signals[0].userId, userHandle(programId));
+  } finally { pk.restore(); }
+});
+
+test('deleting your own cloud data drops the account\'s passkeys too', async () => {
+  await signIn('breeder@example.com', 'Phone A');
+  const { programId } = auth.currentAccount();
+  const pk = recordPasskeySignals();
+  try {
+    await cb.deleteCloudData();
+    assert.deepEqual(pk.signals.map((x) => x.userId), [userHandle(programId)]);
+  } finally { pk.restore(); }
+});
+
+// --- Assisted setup and help from KennelOS support (docs/KennelOS_Assisted_Setup_Plan.md)
+
+const vaultMod = await import('../shared/data/cloud/cloudVault.js');
+const assist = await import('../shared/data/cloud/cloudAssist.js');
+async function managerApi(path, body) {
+  const login = await worker.fetch(new Request('https://api.example/manager/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token: env.OPS_TOKEN }) }), env);
+  const cookie = login.headers.get('set-cookie').split(';')[0];
+  const res = await worker.fetch(new Request(`https://api.example/manager/api/${path}`, body === undefined ? { headers: { Cookie: cookie } }
+    : { method: 'POST', headers: { Cookie: cookie, 'content-type': 'application/json' }, body: JSON.stringify(body) }), env);
+  return res.json();
+}
+const linkToken = (link) => new URL(link).searchParams.get('assist');
+
+// Support makes Dana's account and its device (S) joins it and turns the vault on.
+async function supportSetsUp() {
+  const start = await managerApi('start', { email: 'dana@example.com', label: 'Dana' });
+  switchDevice('S');
+  const r = await assist.redeemAssistLink(linkToken(start.link), { deviceLabel: 'Laptop' });
+  assert.equal(r.state, 'setup');
+  assert.equal(assist.isHelperDevice(), true);
+  assert.equal(auth.currentAccount().helperLabel, 'Dana');
+  const setup = await vaultMod.startVaultSetup();
+  await vaultMod.finishVaultSetup(setup, { confirmation: setup.lastGroup });
+  putDog('d-support');
+  return start.programId;
+}
+
+test('assist link: only a well-formed token in the address is read, and it leaves the address bar', () => {
+  const t = 'a'.repeat(64);
+  const replaced = [];
+  const loc = { href: `https://pro.kennelos.app/?assist=${t}&x=1#top` };
+  assert.equal(assist.assistTokenInUrl(loc), t);
+  assert.equal(assist.assistTokenInUrl({ href: 'https://pro.kennelos.app/?assist=<script>' }), null);
+  assist.stripAssistToken(loc, { replaceState: (_s, _t, url) => replaced.push(url) });
+  assert.deepEqual(replaced, ['/?x=1#top']);
+});
+
+test('her takeover: her sign-in is assisted, support’s device hands her the vault key by itself, then is erased', async () => {
+  await supportSetsUp();
+  switchDevice('A');
+  await signIn('dana@example.com', "Dana's Pixel");
+  assert.equal(auth.currentAccount().assisted, true);
+  assert.equal(assist.shouldAutoApprove(await assist.assistState()), false, 'her device gives nothing in setup');
+
+  await vaultMod.requestDeviceUnlock({ auto: true });
+  switchDevice('S');
+  assert.equal(assist.shouldAutoApprove(await assist.assistState()), true, 'support’s device gives the key in setup');
+  assert.equal(await assist.autoApproveOnce(), 1);
+  switchDevice('A');
+  assert.equal((await vaultMod.pollDeviceUnlock({ merge: false })).status, 'unlocked');
+  assert.equal((await vaultMod.vaultStatus()).unlocked, true);
+
+  await assist.markClaimed();
+  assert.equal(auth.currentAccount().assisted, false, 'later sign-ins are ordinary');
+  switchDevice('S');
+  assert.deepEqual(await dv.checkIn({ force: true }), { erased: true });
+  for (const t of Object.values(tables)) assert.equal(t.rows.size, 0, t.name);
+  assert.deepEqual(appKeys(), []);
+});
+
+test('Get help: support’s new device gets the key from hers by itself, and End help erases it', async () => {
+  const programId = await supportSetsUp();
+  switchDevice('A');
+  await signIn('dana@example.com', "Dana's Pixel");
+  await vaultMod.requestDeviceUnlock({ auto: true });
+  switchDevice('S'); await assist.autoApproveOnce();
+  switchDevice('A'); await vaultMod.pollDeviceUnlock({ merge: false }); await assist.markClaimed();
+
+  assert.equal((await assist.requestHelp()).state, 'requested');
+  assert.equal(assist.shouldAutoApprove(await assist.assistState()), true, 'now her device gives the key');
+  const { link } = await managerApi('link', { programId });
+  switchDevice('T');
+  assert.equal((await assist.redeemAssistLink(linkToken(link))).state, 'helping');
+  await vaultMod.requestDeviceUnlock({ auto: true });
+  switchDevice('A');
+  assert.equal(await assist.autoApproveOnce(), 1);
+  switchDevice('T');
+  assert.equal((await vaultMod.pollDeviceUnlock({ merge: false })).status, 'unlocked');
+
+  switchDevice('A');
+  assert.equal((await assist.endHelp()).state, 'idle');
+  assert.equal(assist.shouldAutoApprove(await assist.assistState()), false);
+  switchDevice('T');
+  assert.deepEqual(await dv.checkIn({ force: true }), { erased: true });
+  assert.deepEqual(appKeys(), []);
+});
+
+test('an expired or spent assist link signs nothing in', async () => {
+  const start = await managerApi('start', { email: 'dana@example.com', label: 'Dana' });
+  switchDevice('S');
+  await assist.redeemAssistLink(linkToken(start.link));
+  switchDevice('T');
+  await assert.rejects(assist.redeemAssistLink(linkToken(start.link)), (e) => e instanceof api.CloudRequestError && e.code === 'link_expired');
+  assert.equal(auth.currentAccount(), null);
 });
 
 test('erase needs a fresh sign-in: an older one is asked for a code', async () => {

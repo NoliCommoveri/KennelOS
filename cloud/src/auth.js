@@ -2,6 +2,7 @@
 //
 // The server never keeps a readable email address: it keeps
 // HMAC(EMAIL_HMAC_KEY, normalized email). Codes and tokens are stored hashed.
+import { assistedSignIn } from './assist.js';
 import { hmacHex, sha256Hex, randomCode, randomHex, timingSafeEqual } from './lib/crypto.js';
 import { fail } from './lib/http.js';
 import { limitSignIn } from './ratelimit.js';
@@ -97,7 +98,9 @@ export async function verifyCode(env, body) {
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
   ).bind(await sha256Hex(token), user.id, deviceId, deviceLabel, nowIso, nowIso, new Date(Date.now() + SESSION_MS).toISOString()).run();
 
-  return { token, programId: program.id, deviceId };
+  // A program support set up for her (assist.js): her first sign-in takes it over.
+  const assisted = await assistedSignIn(env, program.id);
+  return { token, programId: program.id, deviceId, ...(assisted ? { assisted: true } : {}) };
 }
 
 // Every authenticated route starts here. Sliding expiry: a request more than a
@@ -106,28 +109,35 @@ export async function verifyCode(env, body) {
 // A device its owner asked to erase (plan §2.5) gets 401 device_erased, checked
 // BEFORE revoked and expired: the erase revokes its sessions, and a phone that
 // stayed away past its expiry must still hear it. Only the erase-ack route
-// passes `allowErased`.
+// passes `allowErased`. A token of an account deleted on purpose gets 401
+// account_deleted {erase} (program.js removeAccount, migration 0020).
 export async function authenticate(env, request, { allowErased = false } = {}) {
   const match = /^Bearer ([0-9a-f]{64})$/.exec(request.headers.get('authorization') ?? '');
   if (!match) fail(401, 'unauthorized');
   const tokenHash = await sha256Hex(match[1]);
   const row = await env.DB.prepare(
     `SELECT s.user_id, s.device_id, s.device_label, s.created_at, s.last_seen_at, s.expires_at, s.revoked_at,
-            p.id AS program_id, e.requested_at AS erase_requested_at
+            s.revoked_reason, s.role, p.id AS program_id, e.requested_at AS erase_requested_at
        FROM sessions s JOIN programs p ON p.owner_user_id = s.user_id
        LEFT JOIN device_erasures e ON e.user_id = s.user_id AND e.device_id = s.device_id
       WHERE s.token_hash = ?`,
   ).bind(tokenHash).first();
-  if (!row) fail(401, 'unauthorized');
+  if (!row) {
+    const gone = await env.DB.prepare('SELECT erase FROM account_deletions WHERE token_hash = ?').bind(tokenHash).first();
+    if (gone) fail(401, 'account_deleted', { erase: gone.erase === 1 });
+    fail(401, 'unauthorized');
+  }
   const auth = {
     tokenHash, userId: row.user_id, deviceId: row.device_id, deviceLabel: row.device_label,
-    programId: row.program_id, createdAt: row.created_at,
+    programId: row.program_id, createdAt: row.created_at, role: row.role === 'helper' ? 'helper' : 'owner',
   };
   if (row.erase_requested_at) {
     if (allowErased) return { ...auth, erased: true };
     fail(401, 'device_erased');
   }
   const now = Date.now();
+  // Support's helper device whose access ended (assist.js): it wipes its copy.
+  if (row.revoked_at && row.revoked_reason === 'helper_removed') fail(401, 'helper_removed');
   if (row.revoked_at || Date.parse(row.expires_at) <= now) fail(401, 'unauthorized');
 
   if (now - Date.parse(row.last_seen_at) > SLIDE_AFTER_MS) {
