@@ -48,10 +48,12 @@ const srcId = (fileId, path) => `${fileId}:${path}`;
 // only when the contact has a kennel; otherwise the chart's "Breeder: …" note on
 // the dog is the record of it.
 
-// A chart's breeder as a person's name: an all-caps name in name case
-// ("JAMIE COTTON" → "Jamie Cotton"); anything already mixed-case as printed.
+// A chart's breeder as a person's name: a leading Mr./Mrs./Ms./Miss/Dr. off, an
+// all-caps name in name case ("MR. JOHNNY W SPENCE" → "Johnny W Spence");
+// anything already mixed-case as printed.
 export function breederName(raw) {
-  const t = String(raw || '').replace(/\s+/g, ' ').trim();
+  // An honorific isn't part of the name a contact is kept (and matched) under.
+  const t = String(raw || '').replace(/\s+/g, ' ').trim().replace(/^(mr|mrs|ms|miss|dr)\.?\s+(?=\S)/i, '');
   if (!t || /[a-z]/.test(t)) return t;
   return t.toLowerCase().replace(/(^|[\s\-'’(&/])([a-z])/g, (m, a, c) => a + c.toUpperCase());
 }

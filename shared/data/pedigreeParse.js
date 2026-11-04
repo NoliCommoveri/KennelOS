@@ -284,7 +284,11 @@ export function parsePedigree(segs, page) {
     let cur = null;
     let prev = null;
     for (const s of [...c.segs].sort((a, b) => a.y - b.y)) {
-      if (isDetail(s.text)) {
+      // A line after a gap wider than a line space starts the next box, so it's
+      // that dog's name even when it reads like a detail: an all-caps name with
+      // digits in it ("MRF WIGGLES BLUE 17 50-3", "MRF WILBER 13 12-2").
+      const startsBox = !prev || s.y - (prev.y + prev.h) > Math.max(prev.h, s.h);
+      if (isDetail(s.text) && !(startsBox && !isAkcReg(s.text))) {
         if (cur) { cur.details.push(s.text); cur.bottom = Math.max(cur.bottom, s.y + s.h); }
       } else if (cur && prev && !isDetail(prev.text) && s.y - (prev.y + prev.h) < prev.h * 0.9) {
         cur.name += ` ${s.text}`;

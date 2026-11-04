@@ -189,3 +189,18 @@ test('certified details: run-on paragraph, country, CHIC, a bare trailing AKC', 
   assert.ok(isAkcReg('NP95797004'));
   assert.ok(!isAkcReg('V10142513'));
 });
+
+test('a name with digits in it ("MRF WIGGLES BLUE 17 50-3") starts its own box', () => {
+  const { words, page } = chart();
+  // Rename two boxes to all-caps names with digits, the kind that read like a detail.
+  for (const w of words) {
+    if (w.text === 'Dog SDD') w.text = 'MRF WIGGLES BLUE 17 50-3';
+    if (w.text === 'Dog DS') w.text = 'MRF WILBER 13 12-2';
+  }
+  const r = parsePedigree(wordsToSegments(words), page);
+  assert.equal(r.dogs.size, 15);
+  assert.equal(r.dogs.get('sdd').registered_name, 'MRF WIGGLES BLUE 17 50-3');
+  assert.equal(r.dogs.get('ds').registered_name, 'MRF WILBER 13 12-2');
+  assert.equal(r.dogs.get('sd').registered_name, 'Dog SD', 'the box above keeps only its own lines');
+  assert.deepEqual(r.warnings, []);
+});

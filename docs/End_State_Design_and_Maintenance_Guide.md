@@ -946,14 +946,16 @@ and OCRs the page. `data/pedigreeParse.js` (pure) turns positioned words into do
 (`''`, `s`, `d`, `sd`…). It reads the AKC Research Pedigree layout (one column per generation)
 and the AKC Certified Pedigree's (the dog's box between its sire's and dam's in the first
 column; numbers unslashed, `NP80670402 (05-24)`, stored slashed as `NP806704/02 05-24`;
-details run on across lines; colors abbreviated, `BLK BRDL & WH`, spelled out). `data/pedigreeImport.js` plans with the CSV rules: a registration
+details run on across lines; colors abbreviated, `BLK BRDL & WH`, spelled out). A line after a
+gap wider than a line space starts the next box and is read as its name, even an all-caps name
+with digits that reads like a detail (`MRF WILBER 13 12-2`). `data/pedigreeImport.js` plans with the CSV rules: a registration
 number (`normReg`) is the key and merges automatically (an existing dog by any number it
 holds, `dogRegKeys`); a name alone never matches (same name → review, against every
 registered name a dog holds, `dogNameKeys`; numbers flagged as differing only by
 `registrationsConflict`); an existing dog only has blanks filled and keeps its parents. New dogs are
 saved pedigree-only. In Pro a chart can also be filed as a `pedigree` Document. Where the
-edition has contacts (`contactsSection`), each chart's breeder (`header.breeder`, an all-caps
-name put in name case, `breederName`) is saved as a contact: **Save the breeder as** on the
+edition has contacts (`contactsSection`), each chart's breeder (`header.breeder`, a leading Mr./Mrs./Ms./Miss/Dr. dropped and an
+all-caps name put in name case, `breederName`) is saved as a contact: **Save the breeder as** on the
 file card defaults to the one contact of that name on file (`matchBreederContacts`: case,
 spacing and punctuation ignored; several → each offered), else a new one, or **Don't add a
 contact**. The contact is tagged `breeder` (`ensureType`); one new name across charts is one

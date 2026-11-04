@@ -220,6 +220,7 @@ test('an AKC number matches with or without the four digits printed after it', (
 
 test('breeder: an all-caps name is name-cased; contacts match by name, case and punctuation ignored', () => {
   assert.equal(breederName('JAMIE COTTON'), 'Jamie Cotton');
+  assert.equal(breederName('MR. JOHNNY W SPENCE'), 'Johnny W Spence', 'honorific off');
   assert.equal(breederName("MARY O'NEIL"), "Mary O'Neil");
   assert.equal(breederName('Jo deVries'), 'Jo deVries', 'mixed case kept as printed');
   const contacts = [

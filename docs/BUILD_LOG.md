@@ -2740,3 +2740,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   new contact, then matched on a second import).
 - **SW cache bumped to `kennelos-shell-v107` (2026-11-04)** for AKC Certified Pedigree import,
   the breeder contact on pedigree import and Kels's Next button on a phone.
+- **Pedigree import: names with digits, and the breeder's honorific.** An all-caps name with
+  digits ("MRF WIGGLES BLUE 17 50-3") read as a detail line and merged into the box above,
+  dropping dogs without a warning; a line after a gap wider than a line space now always starts
+  the next box as its name. The breeder's "Mr./Mrs./Ms./Miss/Dr." is dropped from the contact
+  name. Tests added. Rides `kennelos-shell-v107`.
