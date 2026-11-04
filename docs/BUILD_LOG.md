@@ -2762,3 +2762,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   a loop; a misplaced pedigree-only dog's sex is corrected when moved to a spot of the other sex
   (refused while it still holds the other role). New `data/pedigreeEdit.js` (precached). Tests
   added (`pedigreeEdit`). For charts the importer misread before the names-with-digits fix.
+- **SW cache bumped to `kennelos-shell-v108` (2026-11-04)** for pedigree import's names with
+  digits, breeder honorific and microchip, the one dog-picker order, and fixing a spot in a
+  pedigree.
