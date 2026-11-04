@@ -5,7 +5,7 @@
 import { waitlistProgramRepo, ReferenceBlockedError } from '../data/waitlistProgramRepo.js';
 import { waitlistEntryRepo } from '../data/waitlistEntryRepo.js';
 import { WAITLIST_PRIORITY, WAITLIST_PROGRAM_ICON } from '../data/vocab.js';
-import { PROGRAM_ICON_SVG } from '../assets/programIcons.js';
+import { PROGRAM_ICON_SVG, programIconHtml } from '../assets/programIcons.js';
 import { waitlistConfig } from '../data/waitlistRules.js';
 import { esc, badge, fmtMoney, param, confirmModal } from '../assets/ui.js';
 import { resolveWaitlistKennel, mountKennelPicker } from '../assets/waitlistUI.js';
@@ -58,7 +58,7 @@ function renderList() {
   }
   els.list.innerHTML = `<section class="card"><table class="data"><thead><tr><th>Program</th><th>What it changes</th><th>Families</th><th></th></tr></thead><tbody>${
     ctx.programs.map((p) => `<tr>
-      <td>${PROGRAM_ICON_SVG[p.public_icon] ? `<span class="program-icon" title="Its icon on the public list">${PROGRAM_ICON_SVG[p.public_icon]}</span> ` : ''}<strong>${esc(p.name)}</strong>${p.is_archived ? ' <span class="badge badge-gray">Archived</span>' : ''}</td>
+      <td>${programIconHtml(p) ? `${programIconHtml(p)} ` : ''}<strong>${esc(p.name)}</strong>${p.is_archived ? ' <span class="badge badge-gray">Archived</span>' : ''}</td>
       <td>${adjustments(p)}</td>
       <td>${ctx.counts.get(p.id) || none}</td>
       <td class="pill-row"><button class="btn btn-sm" data-edit="${esc(p.id)}">Edit</button></td>

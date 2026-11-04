@@ -1715,7 +1715,9 @@ restored into Lite keeps its waitlist rows, dormant.
   `public_icon` (vocab `WAITLIST_PROGRAM_ICON`: star, check, heart, ribbon, medal, shield,
   paw; cloud; optional) is what the public list shows for its families (Public list, below);
   the Programs page requires a description for families with one. The drawings are inline
-  SVG in `assets/programIcons.js`, copied in `cloud/public/family/common.js`
+  SVG in `assets/programIcons.js` (`programIconHtml` draws one in her pages: the waitlist's
+  program badge, the Programs list, and the entry's Program row, which says whether it shows
+  on the public list), copied in `cloud/public/family/common.js`
   (`tests/familyPages.test.js` pins the copy and the Worker's `PROGRAM_ICONS`).
 - **Settings** live in `Kennel.waitlist_config` (missing keys from
   `WAITLIST_CONFIG_DEFAULTS`), so they ride backups, including her application form

@@ -2649,3 +2649,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   program with an icon shows it left of the family's number; tapping it shows the
   description. The copied text uses the icon's emoji with a key below the list. The
   Worker passes on only a known icon and the description.
+- **Program icons on her own pages (2026-11-04).** The waitlist's program badge and a
+  family's Program row show the program's icon; the row says whether it shows on the
+  public list, or why not (setting off, or no description). `programIconHtml`.

@@ -12,3 +12,10 @@ export const PROGRAM_ICON_SVG = {
   shield: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="#4a6b8a" d="M12 2.5l8 3v6c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10v-6z"/></svg>',
   paw: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><g fill="#8a5a3c"><ellipse cx="6.2" cy="10" rx="2.1" ry="2.6"/><ellipse cx="10" cy="5.8" rx="2.1" ry="2.7"/><ellipse cx="14" cy="5.8" rx="2.1" ry="2.7"/><ellipse cx="17.8" cy="10" rx="2.1" ry="2.6"/><path d="M12 11c3 0 5.6 3.4 5.6 6.1 0 2.1-1.6 3.1-3.3 2.6-.9-.3-1.5-.5-2.3-.5s-1.4.2-2.3.5c-1.7.5-3.3-.5-3.3-2.6C6.4 14.4 9 11 12 11z"/></g></svg>'
 };
+
+// A program's icon in her own pages (the waitlist, a family's entry, Programs):
+// the drawing, titled with what it does, or '' without one.
+export function programIconHtml(program, title = 'Its icon on the public list') {
+  const svg = PROGRAM_ICON_SVG[program?.public_icon];
+  return svg ? `<span class="program-icon" title="${String(title).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)}">${svg}</span>` : '';
+}
