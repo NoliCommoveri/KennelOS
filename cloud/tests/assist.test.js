@@ -61,6 +61,11 @@ test('the manager app: its page and files are served, its API needs the ops toke
   assert.equal(cross.status, 403);
 });
 
+test('the manager scripts run in a browser after wrangler bundles them (its __name helper is shimmed)', async () => {
+  const { MANAGER_FILES } = await import('../src/assistApp.js');
+  for (const f of ['app.js', 'sw.js']) assert.match(MANAGER_FILES[f].body, /^var __name = function \(fn\) \{ return fn; \};/, f);
+});
+
 test('start: makes her account and a one-time link; an address with an account is refused', async () => {
   const env = await makeEnv();
   const { helper, programId } = await setUp(env);

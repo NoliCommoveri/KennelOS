@@ -2622,4 +2622,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   notifies the manager app and lets support back in until either side ends it. Migration
   0020 gains the assist tables. `docs/KennelOS_Assisted_Setup_Plan.md` rewritten to the
   built flow. Tests added (cloud and client).
+- **The manager app's scripts run after deploy (2026-11-04).** Wrangler bundles with
+  esbuild's keepNames, which wraps the page script's and service worker's named
+  functions in a `__name` helper that only exists in the Worker; sent to the browser as
+  their source, both stopped at their first line ("Loading…" forever). Each now starts
+  with a one-line `__name` stand-in. Test added.
 
