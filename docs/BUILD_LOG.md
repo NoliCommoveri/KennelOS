@@ -2738,3 +2738,5 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   if it has a kennel, that becomes the chart's dog's breeder kennel when it has none. No new
   fields. Tests added (`pedigreeImport`); tried in the browser on the Adore Mi'Amor chart (a
   new contact, then matched on a second import).
+- **SW cache bumped to `kennelos-shell-v107` (2026-11-04)** for AKC Certified Pedigree import,
+  the breeder contact on pedigree import and Kels's Next button on a phone.
