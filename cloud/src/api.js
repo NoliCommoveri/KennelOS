@@ -17,6 +17,7 @@ import { ackInbox, claimLease, releaseLease, publishProjection, readEvents, read
 import { deleteConnection, listConnections, readIntegrationEvents } from './integrations.js';
 import { deleteDigest, getNotify, pendingPush, putNotify, startDigest, subscribePush, testPush, unsubscribePush, verifyDigest } from './notify.js';
 import { handleGeoDistance } from './geo.js';
+import { handleAssistApi, redeemLink } from './assist.js';
 import { fail, json, readJson } from './lib/http.js';
 
 const FILE = /^\/files\/([^/]+)$/;
@@ -30,6 +31,20 @@ const DEVICE_ERASE = /^\/devices\/([^/]+)\/erase$/;
 const DEVICE_LICENSE = /^\/devices\/([^/]+)\/license-released$/;
 const WL_PROJECTION = /^\/waitlist\/projection\/([^/]+)$/;
 const INT_CONNECTION = /^\/integrations\/connections\/([0-9a-f-]{36})$/;
+
+// What only the account's owner may do; support's helper device gets 403
+// helper_not_allowed (docs/KennelOS_Assisted_Setup_Plan.md §5).
+const OWNER_ONLY = new Set([
+  'POST /auth/signout-others', 'DELETE /account', 'POST /account/email', 'DELETE /account/email',
+  'POST /account/license-links/start', 'POST /account/license-links/verify', 'DELETE /account/license-links',
+  'DELETE /vault', 'PUT /vault/wraps/recovery', 'POST /vault/handoffs', 'DELETE /sync',
+]);
+function ownerOnly(p, m) {
+  if (OWNER_ONLY.has(`${m} ${p}`)) return true;
+  if (DEVICE_ERASE.test(p)) return true;
+  if (VAULT_WRAP.test(p) && m === 'DELETE') return true;
+  return false;
+}
 
 function stream(object, contentType, cors) {
   return new Response(object.body, {
@@ -60,7 +75,16 @@ export async function handleApi(request, env, url, cors) {
     return json(await ackErase(env, erased, await readJson(request)), 200, cors);
   }
 
+  // Support's device opening an assist link (assist.js): the link is the proof.
+  if (p === '/assist/redeem' && m === 'POST') return json(await redeemLink(env, await readJson(request)), 200, cors);
+
   const auth = await authenticate(env, request);
+  if (auth.role === 'helper' && ownerOnly(p, m)) fail(403, 'helper_not_allowed');
+
+  if (p.startsWith('/assist/')) {
+    const out = await handleAssistApi(env, request, url, auth);
+    if (out) return json(out, 200, cors);
+  }
 
   if (p === '/auth/signout' && m === 'POST') return json(await signOut(env, auth), 200, cors);
   if (p === '/auth/signout-others' && m === 'POST') return json(await signOutOthers(env, auth, await readJson(request)), 200, cors);

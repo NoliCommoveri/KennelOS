@@ -33,6 +33,7 @@ const DAY = 24 * HOUR;
 export const KEEP_DAYS = 30;
 export const PURCHASE_KEEP_DAYS = 90;
 export const ACCOUNT_DELETION_KEEP_DAYS = 90;
+export const ASSIST_EVENTS_KEEP_DAYS = 180;
 export const WL_INBOX_KEEP_DAYS = 30;
 export const WL_EVENTS_KEEP_DAYS = 90;
 const MAX_PER_RUN = 1000; // R2 deletes at most 1000 keys per call
@@ -132,6 +133,8 @@ export async function runRetention(env, now = new Date()) {
     ).bind(iso(nowMs), iso(nowMs - KEEP_DAYS * DAY)),
     env.DB.prepare('DELETE FROM device_erasures WHERE confirmed_at < ?').bind(iso(nowMs - KEEP_DAYS * DAY)),
     env.DB.prepare('DELETE FROM account_deletions WHERE deleted_at < ?').bind(iso(nowMs - ACCOUNT_DELETION_KEEP_DAYS * DAY)),
+    env.DB.prepare('DELETE FROM assist_links WHERE expires_at < ?').bind(iso(nowMs)),
+    env.DB.prepare('DELETE FROM assist_events WHERE at < ?').bind(iso(nowMs - ASSIST_EVENTS_KEEP_DAYS * DAY)),
     env.DB.prepare('DELETE FROM vault_pairings WHERE expires_at < ?').bind(iso(nowMs)),
     env.DB.prepare('DELETE FROM vault_handoffs WHERE expires_at < ?').bind(iso(nowMs)),
     env.DB.prepare('DELETE FROM license_link_codes WHERE expires_at < ?').bind(iso(nowMs)),

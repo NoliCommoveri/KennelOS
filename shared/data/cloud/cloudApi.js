@@ -76,7 +76,9 @@ async function readError(res) {
   delete extra.error;
   const opts = { status: res.status, code, extra };
   if (res.status === 401) {
-    if (code === 'device_erased') return new CloudErasedError(opts);
+    // Support's helper device whose access ended wipes its copy exactly as an
+    // erased device does (docs/KennelOS_Assisted_Setup_Plan.md §7).
+    if (code === 'device_erased' || code === 'helper_removed') return new CloudErasedError(opts);
     if (code === 'account_deleted') return new CloudAccountDeletedError(opts);
     return new CloudAuthError(opts);
   }
@@ -239,8 +241,10 @@ export const removeVaultWrap = (token, wrapId, reauth = {}) =>
 
 // Unlocking from another device (Private Vault Plan §5.3). The new device asks:
 // → { pairingId, expiresAt }. 429 'too_many_pairings' / 'rate_limited'.
-export const createPairing = (token, { publicKey, label = null }) =>
-  getJson('/vault/pairings', { method: 'POST', token, json: { publicKey, label } });
+// `autoCode`: an assisted program's automatic pairing (the server keeps it only
+// when the program allows; docs/KennelOS_Assisted_Setup_Plan.md).
+export const createPairing = (token, { publicKey, label = null, autoCode = undefined }) =>
+  getJson('/vault/pairings', { method: 'POST', token, json: { publicKey, label, ...(autoCode ? { autoCode } : {}) } });
 // An unlocked device lists what it can approve:
 // → { pairings: [{ id, deviceLabel, publicKey, createdAt, expiresAt }] }
 export const listPairings = (token) => getJson('/vault/pairings', { token });
@@ -342,3 +346,13 @@ export const getEmailChange = (token) => getJson('/account/email', { token });
 // 409 'email_taken'; 400 'same_email', 'invalid_code', 'invalid_old_code'.
 export const changeEmail = (token, body) => getJson('/account/email', { method: 'POST', token, json: body });
 export const cancelEmailChange = (token) => getJson('/account/email', { method: 'DELETE', token });
+
+// --- Assisted setup and help from KennelOS support (docs/KennelOS_Assisted_Setup_Plan.md)
+// → { token, programId, deviceId, role: 'helper', label, state }. 400 'link_expired'.
+export const redeemAssist = ({ token, deviceId, deviceLabel }) =>
+  getJson('/assist/redeem', { method: 'POST', json: { token, deviceId, deviceLabel } });
+// → { role, state: 'setup'|'idle'|'requested'|'helping'|null, label }
+export const getAssistState = (token) => getJson('/assist/state', { token });
+export const assistClaimed = (token) => getJson('/assist/claimed', { method: 'POST', token, json: {} });
+export const requestAssistHelp = (token) => getJson('/assist/help', { method: 'POST', token, json: {} });
+export const endAssistHelp = (token) => getJson('/assist/end', { method: 'POST', token, json: {} });

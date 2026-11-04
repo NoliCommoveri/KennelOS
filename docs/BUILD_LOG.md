@@ -2610,4 +2610,16 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `signalAllAcceptedCredentials`) and, with `erase`, wipes itself and frees its Pro
   activation as a remote erase does. Deleting your own cloud data also drops the passkeys,
   and only your other devices are told. Tests added (cloud and client).
+- **Assisted setup, Get help and the manager app (2026-11-04).** Support makes a user's
+  account in a new installable manager app (`/manager/` on the cloud Worker, ops-token
+  cookie, web push), opens a one-time link in KennelOS Pro and becomes a **helper** on her
+  account (`sessions.role`, owner-only routes refused). The helper device turns on the vault
+  and sync and sets her program up; her first sign-in is `assisted`, and "I already use
+  KennelOS" runs her takeover: the vault key from support's device by an **automatic
+  pairing** (owner's choice: no typed code; the server shows the code only to the other side
+  in the states that allow it), the join, her own recovery code, then support is signed out
+  (`401 helper_removed` → the device erase). Later **Get help** in Settings → Account
+  notifies the manager app and lets support back in until either side ends it. Migration
+  0020 gains the assist tables. `docs/KennelOS_Assisted_Setup_Plan.md` rewritten to the
+  built flow. Tests added (cloud and client).
 

@@ -116,6 +116,12 @@ src/retention.js       the daily prune and GC; pickDrops is the pure rule; sweep
                        more than 1000 in one run deletes none (D1 may not be the real index)
 src/backup.js          /ops export/import of the D1 rows (not R2)
 src/gate.js            503 {maintenance:true} until every bundled migration is applied
+src/assist.js          assisted setup and help: the editions' /assist/* routes (redeem a one-time link
+                       into a helper session, state, claimed, help, end) and the manager app at
+                       /manager/ (ops-token cookie, installable, web push; files in assistApp.js and
+                       assistIcons.js). Helper sessions are sessions.role = 'helper'; api.js refuses
+                       them the owner-only routes (OWNER_ONLY). Optional var PRO_APP_URL (where the
+                       links open; default https://pro.kennelos.app). Migration 0020
 src/ops.js             /ops: sign-in, migrations, health (incl. the Mapbox key), emails sent month to date,
                        outbox, notices, retention, export/import, and Delete an account (look up by
                        email, then delete, optionally erasing its devices: program.js removeAccount;

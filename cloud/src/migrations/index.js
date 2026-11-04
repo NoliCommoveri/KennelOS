@@ -52,5 +52,5 @@ export const MIGRATIONS = [
   { id: '0017', name: 'r2_sweep', sql: r2Sweep },
   { id: '0018', name: 'notifications', sql: notifications },
   { id: '0019', name: 'mail_counts', sql: mailCounts },
-  { id: '0020', name: 'account_deletions', sql: accountDeletions },
+  { id: '0020', name: 'account_deletions_assist', sql: accountDeletions },
 ];

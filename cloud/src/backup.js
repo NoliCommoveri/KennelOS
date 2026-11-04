@@ -13,11 +13,13 @@
 // snapshots in R2 are the recovery copy (Phase 2 plan §6.3); sync_devices is.
 // notify_items (alerts' and digests' recent events) aren't: a week of them at most.
 // mail_counts (emails sent per month, counts only) is server state, like r2_sweep,
-// and so is account_deletions (token hashes of deleted accounts, for 90 days).
+// and so is account_deletions (token hashes of deleted accounts, for 90 days). Of
+// assisted setup, assist_programs is exported; its links, events and the manager's
+// push subscriptions aren't.
 import { migrationStatus } from './migrate.js';
 
 // Foreign-key order: parents before children.
-export const EXPORT_TABLES = ['users', 'programs', 'sessions', 'device_erasures', 'snapshots', 'files', 'snapshot_files', 'notices', 'vaults', 'vault_wraps',
+export const EXPORT_TABLES = ['users', 'programs', 'assist_programs', 'sessions', 'device_erasures', 'snapshots', 'files', 'snapshot_files', 'notices', 'vaults', 'vault_wraps',
   'pro_purchases', 'license_links', 'wl_projection', 'wl_tokens', 'wl_inbox', 'wl_events', 'wl_holds', 'wl_messages', 'wl_family_sessions', 'wl_senders',
   'sync_devices', 'int_connections', 'int_events', 'notify_settings', 'push_subscriptions'];
 export const FORMAT = 'kennelos-cloud-d1';
