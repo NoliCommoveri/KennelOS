@@ -89,6 +89,10 @@ export const editionFlags = {
   // Her KennelPort website (KennelPort plan 5.5): the Show on website marks, Connect
   // website and Update website. Pro only; Lite and Demo can't link (decision 27).
   websiteLink: false,
+  // Dog Cards (Shared Dogs Plan §3): send dogs, with their ancestors, tests and titles,
+  // to another breeder's KennelOS, and add or update them from one. Pro only: Lite's dog
+  // cap would make a bulk add half-fail, and Demo can't write.
+  dogCards: false,
 };
 
 // Full nav bar (Demo shows the whole Pro app, read-only).

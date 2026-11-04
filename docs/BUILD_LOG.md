@@ -2686,3 +2686,16 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   (`portalFeed`, cloud `familyPortal`).
 - **SW cache bumped to `kennelos-shell-v104` (2026-11-04)** for this batch (co-owned dogs on
   her website, the puppy portal's family feed).
+- **Dog Cards, Shared Dogs Plan phase 1 (2026-11-04).** `docs/KennelOS_Shared_Dogs_Plan.md`
+  written (Dog Cards, then live updates through the cloud, then heats and two-way questions).
+  Built phase 1 (guide §36): `dogs.public_id` (`db.version(6)`, write-once, `kosd1_` ids minted
+  on first send), `data/dogCard.js` (build, decode, preview, apply, the allow-list),
+  `events.shared_ref` for tests and titles sent again, `pages/dog-cards.html` under Sharing
+  (send several dogs by co-owner, link / code / file; receive with a preview, co-owned or
+  outside, link to a dog she typed in, lives with), **Send a dog card** on each dog's page and
+  **Add dogs from a card** on Dogs. `editionFlags.dogCards` (Pro; Lite and Demo off), Pro-only
+  page in `proPages.js`, precache entries, both fields cloud with `cloudFields.js` regenerated.
+  Tests added (`dogCard`); `cloudBackup`'s schema version is 6. Tried end to end in two browser
+  profiles (three co-owned dogs and their sire).
+- **SW cache bumped to `kennelos-shell-v105` (2026-11-04)** for Dog Cards.
+
