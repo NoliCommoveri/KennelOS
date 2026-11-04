@@ -943,7 +943,10 @@ device until it's clicked.
 **Pedigree import** (`pedigree-import.html`, every edition): PDFs or images are read in the
 browser, nothing uploaded. `data/pedigreeReader.js` uses the PDF.js text layer, or renders
 and OCRs the page. `data/pedigreeParse.js` (pure) turns positioned words into dogs by path
-(`''`, `s`, `d`, `sd`…). `data/pedigreeImport.js` plans with the CSV rules: a registration
+(`''`, `s`, `d`, `sd`…). It reads the AKC Research Pedigree layout (one column per generation)
+and the AKC Certified Pedigree's (the dog's box between its sire's and dam's in the first
+column; numbers unslashed, `NP80670402 (05-24)`, stored slashed as `NP806704/02 05-24`;
+details run on across lines; colors abbreviated, `BLK BRDL & WH`, spelled out). `data/pedigreeImport.js` plans with the CSV rules: a registration
 number (`normReg`) is the key and merges automatically (an existing dog by any number it
 holds, `dogRegKeys`); a name alone never matches (same name → review, against every
 registered name a dog holds, `dogNameKeys`; numbers flagged as differing only by

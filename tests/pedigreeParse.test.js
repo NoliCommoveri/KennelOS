@@ -117,3 +117,75 @@ test('titles come off the front of a name', () => {
   assert.deepEqual(splitTitles('GCH. CH Dog'), { name: 'Dog', titles: ['GCH', 'CH'] });
   assert.deepEqual(splitTitles('Chester'), { name: 'Chester', titles: [] });
 });
+
+// An AKC Certified Pedigree: unslashed numbers with the date in brackets,
+// abbreviated colors, details run on as one wrapped paragraph, and the dog's box
+// in the parents' column between its sire and dam, under "Sire" / "Dam" labels.
+function certified() {
+  const words = [];
+  const put = (text, x, y, h = 8) => words.push({ text, x, y, w: text.length * h * 0.5, h });
+  put('AMERICAN KENNEL CLUB · FOUNDED 1884', 20, 10, 12);
+  put('Certified Pedigree', 20, 26, 14);
+  const top = 60; const bottom = 780;
+  let n = 10000000;
+  const box = (path, g, slot) => {
+    const span = (bottom - top) / 2 ** g;
+    const x = 20 + Math.max(0, g - 1) * 220;
+    // Parents sit in the first column, a quarter of the page from each end.
+    const cy = g === 1 ? top + (bottom - top) * (slot ? 0.8 : 0.2) : top + span * (slot + 0.5);
+    put(`DOG ${path.toUpperCase() || 'ROOT'}`, x, cy - 12);
+    put(`NP${n++} (05-24) OFA46G BLK BRDL &`, x, cy - 3, 6);
+    put('WH AKC DNA V627089', x, cy + 4, 6);
+    if (path === 's') put('Sire', 0, cy + 14);
+    if (path === 'd') put('Dam', 0, cy + 14);
+  };
+  const walk = (path, g, slot) => {
+    if (g) box(path, g, slot);
+    if (g === 3) return;
+    walk(`${path}s`, g + 1, slot * 2);
+    walk(`${path}d`, g + 1, slot * 2 + 1);
+  };
+  walk('', 0, 0);
+  put("DASH'N DARLIN'S ADORE MI'AMOR", 20, 405);
+  put('NP95797004', 26, 414, 6);
+  put('BOSTON TERRIER FEMALE BRDL & WH', 26, 421, 6);
+  put('Date Whelped: 01/20/2025', 26, 428, 6);
+  put('Breeder: JAMIE COTTON', 26, 435, 6);
+  return { words, page: { width: 1000, height: 800 } };
+}
+
+test('an AKC Certified Pedigree: dog between its parents, unslashed numbers, abbreviations', () => {
+  const { words, page } = certified();
+  const r = parsePedigree(wordsToSegments(words), page);
+  assert.deepEqual(r.warnings, []);
+  assert.equal(r.dogs.size, 15);
+  const dog = r.dogs.get('');
+  assert.equal(dog.registered_name, "DASH'N DARLIN'S ADORE MI'AMOR");
+  assert.equal(dog.registration_number, 'NP957970/04');
+  assert.equal(dog.sex, 'female');
+  assert.equal(dog.date_of_birth, '2025-01-20');
+  assert.equal(dog.color_markings, 'Brindle & White');
+  assert.ok(dog.notes.includes('Breeder: JAMIE COTTON'));
+  assert.equal(r.header.breed, 'Boston Terrier');
+  for (const [path, d] of r.dogs) {
+    if (!path) continue;
+    assert.equal(d.registered_name, `DOG ${path.toUpperCase()}`, path);
+    assert.match(d.registration_number, /^NP\d{6}\/\d{2} 05-24$/);
+    assert.equal(d.registry, 'AKC');
+    assert.equal(d.color_markings, 'Black Brindle & White');
+    assert.deepEqual(d.notes, ['OFA46G', 'AKC DNA V627089']);
+  }
+});
+
+test('certified details: run-on paragraph, country, CHIC, a bare trailing AKC', () => {
+  const d = parseDetails(['NP78894701 (04-23) BLK BRDL & WH', '(SRB) AKC DNA V10076593']);
+  assert.equal(d.registration_number, 'NP788947/01 04-23');
+  assert.equal(d.color_markings, 'Black Brindle & White');
+  assert.deepEqual(d.notes, ['Registered in SRB', 'AKC DNA V10076593']);
+  const c = parseDetails(['NP03255104 (01-05) CHIC19082 BLK BRDL & WH AKC', 'DNA V324746']);
+  assert.equal(c.color_markings, 'Black Brindle & White');
+  assert.deepEqual(c.notes, ['CHIC19082', 'AKC DNA V324746']);
+  assert.equal(parseDetails(['NP37883405 (04-16) SL & WH']).color_markings, 'Seal & White');
+  assert.ok(isAkcReg('NP95797004'));
+  assert.ok(!isAkcReg('V10142513'));
+});
