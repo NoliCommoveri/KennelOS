@@ -2652,3 +2652,5 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **Program icons on her own pages (2026-11-04).** The waitlist's program badge and a
   family's Program row show the program's icon; the row says whether it shows on the
   public list, or why not (setting off, or no description). `programIconHtml`.
+- **SW cache bumped to `kennelos-shell-v103` (2026-11-04)** for this batch (credit-dated
+  deposits, program icons on the public list and her pages).
