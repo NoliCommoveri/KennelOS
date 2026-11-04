@@ -89,6 +89,13 @@ export const SYNC_REGISTRY = Object.freeze({
       // An outside kennel she lets her website name, by name and website, as a
       // co-owned dog's kennel (KennelPort's Co_Owned_Dogs_Plan.md). A display choice.
       'name_on_website',
+      // Her puppy portal on KennelPort (End-State guide §35.1; owner decision
+      // 2026-11-04): its address, the one-tap link's key KennelPort derives for her
+      // site (it dies on Unlink), the families it has taken over, and the facts it
+      // sent back that were applied. Cloud so whichever device publishes her waitlist
+      // puts Open your puppy portal on the status page, and Companion and Furever are
+      // off on every device. The key reaches the same server in the projection anyway.
+      'kennelport_portal',
       'logo_data_url', 'preferred_tests', 'preferred_breeds', 'preferred_test_breeds',
       'promote_nudge_enabled', 'promote_age_male_months', 'promote_age_female_months',
       // Her own waitlist setup: rules, application form questions, FAQ, fee and

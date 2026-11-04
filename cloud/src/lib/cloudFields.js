@@ -71,6 +71,7 @@ export const CLOUD_FIELDS = {
         "is_archived",
         "is_own_kennel",
         "kennel_name",
+        "kennelport_portal",
         "location",
         "logo_data_url",
         "name_on_website",

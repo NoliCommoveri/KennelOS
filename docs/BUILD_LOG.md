@@ -2668,3 +2668,19 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   names dogs living with a co-owner who has no kennel; the change list says "Nova: now
   living with Oakridge". `cloudFields.js` regenerated. Tests added (`coOwnedWebsite`).
   SW cache not bumped yet: asked.
+- **Puppy portal: the family feed, KennelOS's side (2026-11-04).** For KennelPort's
+  `docs/Puppy_Parent_Portal_Plan.md` phase 1 (§3.4; build chunk 3's KennelOS half).
+  `data/portalFeed.js` builds the feed, format 1: each family from their signed contract
+  on (Sale contract Signed with its date), their placements (pup, go-home, pickup time in
+  her time zone, microchip, registration number, a voided sale's reason, shots, deworming
+  and vet visits, extras by price-list id), her vet (the Vet contact on most of her dogs'
+  visits), and `removed`. `data/portalFeedSync.js` sends it on its own (a page load at most
+  hourly, and 20 s after a change that alters it) to a linked site whose facts say
+  `portal_feed: 1`; `kennelportApi.sendFamilyFeed`. The answer's portal and one-tap key go on
+  `Kennel.kennelport_portal` (cloud, owner decision); its facts are applied once each: real
+  pickup time on the pickup event and the sale Delivered, the microchip, a death after
+  pickup, and who is handed over. Status page: **Open your puppy portal** (server
+  `/f/portal` signs KennelPort's one-tap token), only **Your puppy portal** once handed
+  over, Delivered or past pickup (also on the server); Companion link request off.
+  Furever lists none of her pups. `cloudFields.js` regenerated; tests added
+  (`portalFeed`, cloud `familyPortal`). SW cache not bumped yet.

@@ -230,7 +230,7 @@ export class LicenseLapsedError extends Error {
   }
 }
 
-async function licenseOk() {
+export async function licenseOk() {
   if (!isLicenseGated()) return true;
   const { state } = await evaluateLicense();
   return state === 'valid' || state === 'grace';

@@ -552,9 +552,35 @@ function parentsFields(f) {
 // link herself, by text or email, and marks it sent. Any time after she's dealt with
 // a request they can ask again (for a fresh link).
 
+// --- Her puppy portal (KennelPort's Puppy_Parent_Portal_Plan.md 3.4) -------------------
+// From their signed contract on: Open your puppy portal, one tap (their sign-in here
+// signs them in there). Once the portal has taken over (pickup), it's all this page
+// shows: Your puppy portal.
+
+function portalHtml(f) {
+  const p = f.portal;
+  if (!p) return '';
+  const kennel = state.v.kennel.name;
+  const url = state.v.kennel.portal_url;
+  const title = p.only ? 'Your puppy portal' : 'Your puppy portal is ready';
+  const intro = p.only
+    ? `<p class="mt0">Your puppy's records, vet visit, first weeks and messages with ${esc(kennel)} are in your puppy portal now.</p>`
+    : `<p class="mt0">Your puppy's records, the go-home checklist and the first weeks are in your puppy portal. Keep using this page for your pickup, extras and anything you ask ${esc(kennel)} before pickup.</p>`;
+  let action;
+  if (signedIn()) {
+    action = '<div class="actions"><button type="button" class="primary" data-act="portal">Open your puppy portal</button></div>';
+  } else {
+    const onList = ['applied', 'approved', 'active'].includes(f.status);
+    action = `<p class="small muted">Sign in on this page and the button opens your portal signed in. Or open it and sign in there with your email.</p>
+      <div class="actions">${!onList && state.v.kennel.public_id ? `<a class="button secondary" href="/list/${encodeURIComponent(state.v.kennel.public_id)}">Sign in with a code</a>` : ''}${url ? `<a class="button secondary" href="${esc(url)}" rel="noopener noreferrer">Open your puppy portal</a>` : ''}</div>`;
+  }
+  return openCard(title, intro + action, 'portal-card');
+}
+
 function companionHtml(f) {
   const c = f.companion;
-  if (!c?.available) return '';
+  // Her puppy portal takes Companion's place (link: false).
+  if (!c?.available || c.link === false) return '';
   const kennel = state.v.kennel.name;
   const req = c.request;
   const parts = [`<p class="mt0 small">A private page with your puppy's details and updates, which ${esc(kennel)} sends you by text or email.</p>`];
@@ -881,7 +907,13 @@ function mineHtml() {
   // No badge for a family on the list: being on it is why they're here.
   const parts = f.status === 'active' ? [] : [`<p><span class="badge ${st.badge}">${esc(st.label)}</span></p>`];
   if (state.flash) parts.push(`<p class="card notice-card small" role="status">${esc(state.flash)}</p>`);
+  // Picked up: the portal has taken over, and this page is only its link.
+  if (f.portal?.only) {
+    parts.push(portalHtml(f));
+    return parts.join('');
+  }
   parts.push(recordsHtml(v));
+  parts.push(portalHtml(f));
 
   if (!['applied', 'approved', 'active'].includes(f.status)) {
     parts.push(card('', `<p class="mt0">${closedText(f.status, kennel)}</p>`));
@@ -973,6 +1005,7 @@ function mineHtml() {
 // --- Acting ------------------------------------------------------------------------
 
 const ERRORS = {
+  no_portal: 'Your puppy portal isn\'t open for you yet. Please try again later.',
   offer_closed: 'That offer has closed. The page now shows where things stand.',
   already_picked: 'You already chose a pup for this litter.',
   already_passed: 'You already passed on this litter.',
@@ -1059,6 +1092,24 @@ async function onClick(ev) {
       if (b.dataset.scroll) document.querySelector(`form[data-form="${state.open}"]`)?.scrollIntoView({ block: 'center' });
       return;
     case 'close': state.open = null; render(); return;
+    case 'portal': {
+      // A link that works once, for a few minutes: made now, followed at once.
+      b.disabled = true;
+      const r = await fetchJson('/f/portal', { method: 'POST', json: { session: state.session.session, status_token: token } });
+      if (r.ok && typeof r.body?.url === 'string' && /^https:\/\//.test(r.body.url)) {
+        window.location.assign(r.body.url);
+        return;
+      }
+      if (r.status === 401) {
+        forgetFamily(state.v.kennel.public_id);
+        state.session = null;
+        state.flash = 'You were signed out on this device. Sign in again with a code, or open your portal and sign in there with your email.';
+      } else {
+        state.flash = ERRORS[r.body?.error] || loadError(r, { notFound: 'Something went wrong. Please try again.' });
+      }
+      render();
+      return;
+    }
     case 'pick': {
       const offer = state.v.offers.find((o) => o.id === b.dataset.offer);
       // Not final until the deposit arrives; the deadline is her "days to accept and

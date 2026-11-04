@@ -13,16 +13,16 @@
 // her form key and go to the encrypted inbox, never into an event.
 //
 // Never logged: a session, a token, a message, a request body (plan §6.4).
-import { sameFamilyIds } from './familyPages.js';
+import { sameFamilyIds, portalOf, portalLink } from './familyPages.js';
 import { runKennelNow } from './serverMoves.js';
 import { limitBucket } from './ratelimit.js';
 import { cleanAddress, drivingDistance, geoAvailable, GEO_LIMITS } from './geo.js';
-import { sha256Hex } from './lib/crypto.js';
+import { sha256Hex, hmacHex, randomHex } from './lib/crypto.js';
 import { STATUS_TOKEN } from './waitlist.js';
 import { ACTION_KINDS, notifyEvent } from './notify.js';
 import { fail, json, readJson } from './lib/http.js';
 
-export const ACTION_LIMITS = { perHourPerSession: 60, messagesPerHourPerSession: 10, messageBytes: 32 * 1024, noteChars: 500, maxPauseDays: 731 };
+export const ACTION_LIMITS = { perHourPerSession: 60, portalPerHourPerSession: 30, messagesPerHourPerSession: 10, messageBytes: 32 * 1024, noteChars: 500, maxPauseDays: 731 };
 export const FAMILY_ACTIONS = ['pick', 'pass', 'still_interested', 'pause_request', 'leave', 'listen', 'pref_change', 'prepass', 'unprepass', 'ready', 'companion_request', 'extra_request', 'extra_cancel',
   'pickup_book', 'pickup_cancel', 'pickup_address', 'home_location', 'back_out'];
 
@@ -113,7 +113,8 @@ export function checkAction(action, body, { entry, projection, pending, now = ne
   // sale, whatever their list status (a placed family too), and one at a time. Her
   // device builds and sends the link; the server only passes the request on.
   if (action === 'companion_request') {
-    if (!entry.companion?.available) fail(409, 'no_sale');
+    // Her puppy portal takes Companion's place (link: false): no request then.
+    if (!entry.companion?.available || entry.companion.link === false) fail(409, 'no_sale');
     if ((entry.companion.request && !entry.companion.request.decided) || already('companion_request')) fail(409, 'already_requested');
     return { note: cleanNote(body.note) };
   }
@@ -377,4 +378,26 @@ export async function handleMessage(env, request) {
   ).bind(crypto.randomUUID(), fam.program_id, fam.public_id, fam.entry_id, fam.entry.name ?? '', key.key_id, body.sealed, at, at).run();
   await notifyEvent(env, { programId: fam.program_id, kind: 'message', what: 'message', name: fam.entry.name, kennel: fam.projection.kennel?.name, entryId: fam.entry_id });
   return json({ ok: true });
+}
+
+// POST /f/portal {session, status_token}: the family's one tap from their status page
+// into her puppy portal on KennelPort (KennelPort's Puppy_Parent_Portal_Plan.md 3.4).
+// Signed in on their status page, with a portal link her device published for
+// their record: a link that works once, for her portal's minutes (at most 10), for
+// that family only. The token is KennelPort's format: base64url JSON { f: the
+// family's KennelOS id (their contact), x: expiry ms, n: a one-time value }, a dot,
+// and its HMAC-SHA256 under the key her site gave her device. Never logged.
+const b64url = (s) => btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+export async function portalHandoffUrl(link, familyId, now = Date.now()) {
+  const body = b64url(JSON.stringify({ f: familyId, x: now + link.minutes * 60000, n: randomHex(16) }));
+  return `${link.handoff_url}?t=${body}.${await hmacHex(link.key, body)}`;
+}
+
+export async function handlePortal(env, request) {
+  const body = await readJson(request, 4 * 1024);
+  const fam = await familyFor(env, body);
+  await limitBucket(env, `wl-portal:${fam.entry_id}`, ACTION_LIMITS.portalPerHourPerSession);
+  const link = portalLink(fam.projection);
+  if (!link || !portalOf(fam.projection, fam.entry)) fail(409, 'no_portal');
+  return json({ url: await portalHandoffUrl(link, fam.entry.portal.family_id) }, 200, { 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' });
 }
