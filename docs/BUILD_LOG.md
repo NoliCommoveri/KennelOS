@@ -2765,3 +2765,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **SW cache bumped to `kennelos-shell-v108` (2026-11-04)** for pedigree import's names with
   digits, breeder honorific and microchip, the one dog-picker order, and fixing a spot in a
   pedigree.
+- **Pedigree import: a parent named "DAM …".** The Certified layout's "Sire"/"Dam" label was
+  stripped from any parent name starting with that word ("DAM PRESTIGE TINA" read as "PRESTIGE
+  TINA"); only the label as printed ("Dam", then an all-caps name) comes off now. Test added.
