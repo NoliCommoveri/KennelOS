@@ -6,11 +6,11 @@ import { test, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { installMemoryDb } from './support/memoryDb.js';
 
-let tables, planImport, commitImport, normReg, dogRepo;
+let tables, planImport, commitImport, normReg, dogRepo, breederName, matchBreederContacts;
 
 before(async () => {
   ({ tables } = await installMemoryDb());
-  ({ planImport, commitImport, normReg } = await import('../shared/data/pedigreeImport.js'));
+  ({ planImport, commitImport, normReg, breederName, matchBreederContacts } = await import('../shared/data/pedigreeImport.js'));
   ({ dogRepo } = await import('../shared/data/dogRepo.js'));
 });
 
@@ -214,4 +214,42 @@ test('an AKC number matches with or without the four digits printed after it', (
   }
   assert.equal(normReg('NP888072/07 03-25'), normReg('NP888072/07'));
   assert.notEqual(normReg('NP888072/07'), normReg('NP888072/08'));
+});
+
+// --- The chart's breeder, saved as a contact ---------------------------------------
+
+test('breeder: an all-caps name is name-cased; contacts match by name, case and punctuation ignored', () => {
+  assert.equal(breederName('JAMIE COTTON'), 'Jamie Cotton');
+  assert.equal(breederName("MARY O'NEIL"), "Mary O'Neil");
+  assert.equal(breederName('Jo deVries'), 'Jo deVries', 'mixed case kept as printed');
+  const contacts = [
+    { id: 'a', name: 'Jamie  Cotton', is_archived: false },
+    { id: 'b', name: 'jamie cotton.', is_archived: false },
+    { id: 'c', name: 'Jamie Cotton', is_archived: true },
+    { id: 'd', name: 'Jamie Cottonwood', is_archived: false }
+  ];
+  assert.deepEqual(matchBreederContacts('JAMIE COTTON', contacts).map((c) => c.id), ['a', 'b']);
+  assert.deepEqual(matchBreederContacts('', contacts), []);
+});
+
+test('commit: a new breeder name is one new contact across charts, tagged Breeder', async () => {
+  const plan = planImport({ existing: [], files: [
+    file('A', [dog('', 'Pup One', 'NP000001/01')]), file('B', [dog('', 'Pup Two', 'NP000002/01')])
+  ] });
+  const res = await commitImport(plan, { breeders: [{ fileId: 'A', name: 'JAMIE COTTON' }, { fileId: 'B', name: 'Jamie Cotton' }] });
+  assert.equal(res.contactsCreated, 1);
+  const contacts = [...tables.contacts.rows.values()];
+  assert.equal(contacts.length, 1);
+  assert.equal(contacts[0].name, 'Jamie Cotton');
+  assert.deepEqual(contacts[0].contact_type, ['breeder']);
+  assert.ok(!(await dogRepo.getById(res.subjects.A)).breeder_kennel_id, 'no kennel to link');
+});
+
+test('commit: a breeder already on file is tagged Breeder, and her kennel becomes the dog\'s breeder kennel', async () => {
+  await tables.contacts.rows.set('c1', { id: 'c1', name: 'Jamie Cotton', contact_type: ['co_owner'], kennel_id: 'k9', is_archived: false });
+  const plan = planImport({ existing: [], files: [file('A', [dog('', 'Pup', 'NP000001/01')])] });
+  const res = await commitImport(plan, { breeders: [{ fileId: 'A', contactId: 'c1' }] });
+  assert.equal(res.contactsCreated, 0);
+  assert.deepEqual(tables.contacts.rows.get('c1').contact_type, ['co_owner', 'breeder']);
+  assert.equal((await dogRepo.getById(res.subjects.A)).breeder_kennel_id, 'k9');
 });

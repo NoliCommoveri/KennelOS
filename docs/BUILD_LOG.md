@@ -2732,3 +2732,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   further down, so Back/Next at the foot of her panel sat off-screen, and the chat's own
   scrolling couldn't reach them. The card is now `100dvh` (`100vh` fallback) less
   `--assist-bar-h`, which `renderHelperBar` sets from the bar's measured height.
+- **Pedigree import saves the chart's breeder as a contact** (editions with contacts). Each
+  file card has Breeder (read from the chart, all caps put in name case) and **Save the breeder
+  as**: the contact of that name on file, a new contact, or none. The contact is tagged Breeder;
+  if it has a kennel, that becomes the chart's dog's breeder kennel when it has none. No new
+  fields. Tests added (`pedigreeImport`); tried in the browser on the Adore Mi'Amor chart (a
+  new contact, then matched on a second import).
