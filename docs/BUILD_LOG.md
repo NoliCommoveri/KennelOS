@@ -2718,3 +2718,25 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   makes no offers and is refused once they've re-applied; the fee undo also stops once they've
   been offered a turn. Today still notices only automatic removals. Tests in `waitlistUndo`
   (renamed from `waitlistWithdrawUndo`). Rides `kennelos-shell-v106`.
+
+- **Pedigree import reads AKC Certified Pedigrees.** `pedigreeParse.js` now takes the
+  Certified layout (the dog's box between its sire's and dam's in the first column, under
+  "Sire"/"Dam" labels, with a "BREED SEX COLOR" line, "Date Whelped:" and "Breeder:" under its
+  name), unslashed AKC numbers with a bracketed date (`NP80670402 (05-24)`, stored as
+  `NP806704/02 05-24`; `normReg` already matched both), details run on across lines (OFA, CHIC,
+  country, `AKC DNA`), and abbreviated colors spelled out (`BLK BRDL & WH` → Black Brindle &
+  White). Research Pedigrees read as before. Tests added (`pedigreeParse`).
+- **Kels's Next button below the fold on a phone.** The chat card was a fixed `100vh − 96px`:
+  on Android Chrome `100vh` is the screen without the address bar, and on support's device
+  the "helping … / Hand back" bar (sticky, in the page flow, two lines on a phone) pushed it
+  further down, so Back/Next at the foot of her panel sat off-screen, and the chat's own
+  scrolling couldn't reach them. The card is now `100dvh` (`100vh` fallback) less
+  `--assist-bar-h`, which `renderHelperBar` sets from the bar's measured height.
+- **Pedigree import saves the chart's breeder as a contact** (editions with contacts). Each
+  file card has Breeder (read from the chart, all caps put in name case) and **Save the breeder
+  as**: the contact of that name on file, a new contact, or none. The contact is tagged Breeder;
+  if it has a kennel, that becomes the chart's dog's breeder kennel when it has none. No new
+  fields. Tests added (`pedigreeImport`); tried in the browser on the Adore Mi'Amor chart (a
+  new contact, then matched on a second import).
+- **SW cache bumped to `kennelos-shell-v107` (2026-11-04)** for AKC Certified Pedigree import,
+  the breeder contact on pedigree import and Kels's Next button on a phone.
