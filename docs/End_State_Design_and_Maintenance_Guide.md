@@ -42,6 +42,7 @@ The shared core never checks which edition it is: it reads the two injection poi
 | License gate | No | Yes (`licenseGate`) | No |
 | Cloud backup | Yes | Yes | No (`cloudUrl: null`) |
 | Live sync | No (`liveSync: false`) | Yes | No |
+| Dog cards (§36) | No (`dogCards: false`; the page isn't shipped) | Yes | No (`dogCards: false`: Demo can't write) |
 
 The shared pages Lite keeps hide their Pro-only parts with the same flags: the invoice
 button, receipt attach, the Account picker, a sale's "Referred by", the litter foster and
@@ -205,7 +206,7 @@ to the cloud unsealed).
 
 | Entity | Required | Key fields and rules |
 |---|---|---|
-| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `lives_with_contact_id` (cloud; which of its co-owners a `co_owned` dog lives with now, empty meaning with her; no history; `dogRepo.livesWithOk` clears it on every write once it isn't one of the dog's co-owners or the dog isn't co-owned; picked as **Lives with** on the Dog form, Me or a co-owner; decides where it shows on her website, §35), `registered_name`, `registry` + `registration_number` (the main registration), `additional_registrations[]` (cloud; every other registry it's registered with: `{ registry, registration_number, registered_name }`, the name blank when it's the same; trimmed, and an entry with neither registry nor number dropped, by `dogRepo.normalizeRegistrations` on every write that carries it; edited as rows under Registration # on the Dog form, shown as Other registrations), `microchip_id`, `planned_tests[]`, `recorded_coi`, `url` (a link to its photos). `photos_online` (boolean, default off; cloud) is this dog's say over showing `url` as a photos link on waitlist pages (§29 Online), ticked on the Dog form with the waitlist. `show_on_website` and `heats_online` (booleans, default off; cloud) are her KennelPort website's marks: this dog has a page there, and its future heats may show as a month (§35). `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `waitlist_tests` (`PARENT_TESTS_SHOWN`: `off`/`normal`/`all`, null = follow Waitlist settings' `parent_tests`) is this dog's say over which of its completed health tests show on waitlist family pages (§29 Online), set on its Health-Test Summary card. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. |
+| **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `lives_with_contact_id` (cloud; which of its co-owners a `co_owned` dog lives with now, empty meaning with her; no history; `dogRepo.livesWithOk` clears it on every write once it isn't one of the dog's co-owners or the dog isn't co-owned; picked as **Lives with** on the Dog form, Me or a co-owner; decides where it shows on her website, §35), `registered_name`, `registry` + `registration_number` (the main registration), `additional_registrations[]` (cloud; every other registry it's registered with: `{ registry, registration_number, registered_name }`, the name blank when it's the same; trimmed, and an entry with neither registry nor number dropped, by `dogRepo.normalizeRegistrations` on every write that carries it; edited as rows under Registration # on the Dog form, shown as Other registrations), `microchip_id`, `planned_tests[]`, `recorded_coi`, `url` (a link to its photos). `photos_online` (boolean, default off; cloud) is this dog's say over showing `url` as a photos link on waitlist pages (§29 Online), ticked on the Dog form with the waitlist. `show_on_website` and `heats_online` (booleans, default off; cloud) are her KennelPort website's marks: this dog has a page there, and its future heats may show as a month (§35). `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `waitlist_tests` (`PARENT_TESTS_SHOWN`: `off`/`normal`/`all`, null = follow Waitlist settings' `parent_tests`) is this dog's say over which of its completed health tests show on waitlist family pages (§29 Online), set on its Health-Test Summary card. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. `public_id` (cloud; indexed, `version(6)`) is its Dog Card id, `kosd1_<uuid>`, minted when it first goes on a card or received with one, write-once (§36). |
 | **Contact** | `name` | `contact_type[]`, `email`, `phone`, `facebook_profile`, `address` (also the away-board location, §19), `kennel_id` (affiliation, not scope), `waitlist_status` (kept by `waitlistEntryRepo`), `first_contact_source`, `companion_note` (shown to the recipient, §20; `notes` is private). Buyers are Contacts; there is no Buyer table. |
 | **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `name_on_website` (boolean, default off, cloud; an outside kennel her website may name, by name and website, as a co-owned dog's kennel; ticked on the Kennels list's Edit row, Pro with the website link, §35), `kennelport_portal` (cloud; her puppy portal on KennelPort, kept from its answers: its addresses, the one-tap link's key, the families it has taken over and the facts applied; null while off, §35.1), `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `extra_charge_groups` (its groups' defaults, private, §21.2), `pickup_locations` (her pickup places, private, §29 Pickup), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date` when empty), `show_on_website` (boolean; cloud; shows under Coming up on her website, §35). Sire ≠ dam. |
@@ -213,7 +214,7 @@ to the cloud unsealed).
 | **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, `extra_charges[]` (private, §21.2), payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
 | **Contract** | `contract_type`, `kennel_id` | `status` (default `draft`), `related_sale_id`, `related_stud_service_id`; `related_dog_id` and `related_contact_id` only for `lease`/`co_own`/`foster`/`other` (forced null otherwise, `contractRepo.normalizeLinks`), `document_url`, `signed_date`, lease dates, e-sign fields and `integration_reviews` (§32), `title`, `terms_summary`. |
 | **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `direction` is **who travels** (`STUD_SERVICE_DIRECTION`: `to_partner` our dog goes to them, `to_us` their dog comes to us, `shipped` no one / AI). Whether our dog is the stud or the dam isn't stored: it's our dog's sex, else the partner's opposite (`studRules.ourRole`; `STUD_SERVICE_ROLE` for badges and filters). `sent_date` / `returned_date` are the service's two dates, labelled **Begins / Ends**. `type` (`in_person`/`ai`) is set by the repo from `direction` (shipped → ai), never asked. `pairing_id`, `fee_amount`, `fee_structure`; `pick_status` and `pick_value_amount` only for pick fee structures (forced null otherwise; with our stud the pick is our puppy, and `pick_status` claimed / waived ends Today's `studpick`, §19), `referred_by_contact_id`, invoice fields (our stud only, §24). |
-| **Event** | `subject_type`, `subject_id`, `event_type`, `event_date`, `title` | `event_end_date`, `reminder_date`, `reminder_dismissed`, `related_dog_id`, `related_contact_id`, `details{}`. No cost field: a cost becomes an Expense with `event_id` (§8, §21). |
+| **Event** | `subject_type`, `subject_id`, `event_type`, `event_date`, `title` | `event_end_date`, `reminder_date`, `reminder_dismissed`, `related_dog_id`, `related_contact_id`, `details{}`, `shared_ref` (cloud; a test or title that came on a Dog Card: `<dog public id>:<the sender's event id>`, §36). No cost field: a cost becomes an Expense with `event_id` (§8, §21). |
 | **Expense** | `subject_type` (`dog`/`litter`/`pairing`/`kennel`), `subject_id`, `amount`, `category`, `expense_date` | `event_id`, `stud_service_id` (indexed; the stud service whose fee it records, in `STUD_SERVICE_REFERENCES`; private like every expense field), `miles` × `mileage_rate` (then `amount` is derived), `vendor`, `receipt_number` (CSV re-import key, §9), `account_id`, `receipt_file_id` (deleted with the expense, §26.1), `reimbursable`/`reimbursed_date` (§21, §25). |
 | **Document** | `dog_id`, `doc_type`, `file_id` | `title`, `doc_date`, `issuer_or_lab`, `result`, `registry`, `registration_number`, `contract_id` (optional, unindexed, not in the registry), `furever_shareable` (§27). `doc_type` from `DOC_TYPES`: Pedigree, Health test, Vet summary (a visit summary, medical record or vaccine history), Registration, Contract, Other. Fields shown per type: `vocab.documentFieldsFor`. Cloud backup carries only Health test, Vet summary, Pedigree and Registration rows and their files (`syncRegistry.CLOUD_DOC_TYPES`); Contract and Other stay on the device. `hardDelete` removes its file. |
 | **File** (`files`) | `blob`, `mime`, `filename`, `size` | `thumbnail`. Always a PDF. Owned by its one Document or Expense; fetched by id only (§26.1). |
@@ -263,7 +264,8 @@ pointer.** For example: `Litter.pairing_id` (reverse `litterRepo.getForPairing`)
 index strings. `version(1)` holds every kennel table and is **frozen**. Later blocks add
 only what's new: `version(2)` the device-only `sync_meta` (§34), `version(3)`/`(4)` the
 account FKs on sales, waitlist entries and kennels (§21.1, §32), `version(5)`
-`expenses.stud_service_id` (our dam's stud fee, §21).
+`expenses.stud_service_id` (our dam's stud fee, §21), `version(6)` `dogs.public_id` (a dog's
+Dog Card id, §36).
 
 **The versioning rule.** Schema changes are additive: a new table or index goes in a new
 `db.version(N).stores({...})` block listing only what it adds, and a shipped block is never
@@ -3713,3 +3715,55 @@ Nothing changes for any other kennel or breeder.
   false`, no Companion link request (refused on the server too).
 - **Furever** lists no pup of a kennel with the portal on (a line says why), and Kels's
   Pups are going home doesn't offer it for them.
+
+---
+
+## 36. Dog Cards — `docs/KennelOS_Shared_Dogs_Plan.md`
+
+**Editions:** Pro (`editionFlags.dogCards`); not Lite (the page is in `PRO_ONLY_PAGES`) or
+Demo. `data/dogCard.js` ships to every edition, like `kennelCard.js`.
+
+One dog or a whole program, sent from one breeder's KennelOS to another's with their
+ancestors, health tests and titles, as a link (`dog-cards.html#dogcard=…`), a code or a file
+(`.kosdogs`, the same code in a text file). Offline: no server, no network call. Sending again
+updates the same dogs.
+
+- **The dog's id:** `dogs.public_id` (`dogRepo.newDogPublicId` / `isDogPublicId`,
+  `kosd1_<uuid>`), minted by `dogRepo.ensurePublicId` when a dog or ancestor first goes on a
+  card, write-once (`dogRepo.update` refuses a change, ignores a blank), unique by a repo guard.
+  `dogRepo.getByPublicId` is the match key.
+- **The allow-list** (`buildDogCard`, `decodeDogCard`, `assertOnlyKeys` on every object both
+  ways): the sending kennel's card fields; each breeder kennel named by a dog; per dog
+  `DOG_FIELDS` (call and registered name, sex, breed, birthday and whether estimated, date of
+  death, colour, registry and number, other registrations, microchip, photos link, recorded
+  COI) plus status, sire and dam by public id and breeder kennel; for the dogs sent (not
+  ancestors), their `SHARED_EVENT_TYPES` events (genetic, OFA / PennHIP, breed-specific tests,
+  titles earned) with date, title and the type's cloud detail keys (`cloudDetailKeys`). Up to
+  `ANCESTOR_GENERATIONS` (4) above each dog. Never notes, contacts, money, litters, other events,
+  documents, plans or row ids. `tests/dogCard.test.js` pins it.
+- **Preview** (`previewDogCard`, writes nothing): the sending kennel by Kennel Card rules
+  (`previewKennelCard`; one of hers refuses the card); each dog sent as `create`, `update`
+  (`dogChanges` plus how many tests and titles are new or changed), `unchanged` or `adopt` (she
+  has it as a pedigree-only ancestor from an earlier card); look-alikes she may link to (same
+  registration number, else registered name, else call name, sex and breed; only dogs with no
+  public id); ancestors as a count.
+- **Apply** (`applyDogCard`): every choice is checked before anything is written. The sending
+  kennel through `applyKennelCard` (or linked to one she picks); breeder kennels by public id,
+  else `findOrCreateOutside`. New dogs are **co-owned** with a contact (picked, or a new one
+  affiliated with the sending kennel) in one of her own kennels, **Lives with** them or her, or
+  **external**, owned by that contact in the sending kennel. Ancestors become pedigree-only dogs
+  unless she has them by public id or the same registry and number (then only her blanks are
+  filled). An existing dog gets only the card's non-blank `DOG_FIELDS`, status only to
+  Deceased, and a breeder kennel only when hers is blank; ownership, her kennel, co-owners,
+  lives with, notes and everything else stay hers. Sire and dam are set only where hers are
+  blank. Tests and titles match by `events.shared_ref` and are updated in place; one the sender
+  deleted stays.
+- **Screens:** Sharing → **Dog cards** (`pages/dog-cards.html`): Send (from kennel, a
+  co-owner filter, ticks, Make the card → link, code, Save as a file, What's on the card) and
+  Add dogs from a card (paste or open a file → the preview, with How do you hold the new dogs,
+  per-dog Add as new / Same as my … / Leave out and Lives with). **Send a dog card** on a dog's
+  page (`dog-cards.html?dog=<id>`: that dog ticked, its card made) and **Add dogs from a card**
+  on the Dogs page (`#receive`), both behind the flag.
+- **Registries:** `dogs.public_id` and `events.shared_ref` are cloud fields (random ids);
+  `cloudFields.js` regenerated. Neither is an FK.
+
