@@ -189,8 +189,11 @@ code. See Q1.
 | `ready_timing` | | `asap` / `1_month` / `3_months` / `6_plus_months`: the locked, required "soonest you can commit" answer. Anything but ASAP is a derived readiness hold (§6.3, §15.8). |
 | `paused_until` | | Optional `YYYY-MM-DD`. Paused families aren't offered; position kept (§6.3). |
 | `pause_reason` | | Short text, mainly for program pauses (§7) |
-| `removed_date`, `removed_reason` | | `second_pass` / `no_checkin_response` / `by_breeder` / `fee_expired` |
+| `removed_date`, `removed_reason` | | `second_pass` / `no_checkin_response` / `by_breeder` / `fee_expired`. **Modified:** a `by_breeder` removal now has the same 7-day undo. |
+| `expired_date` | | When she closed an approved application for an unpaid fee: a 7-day undo back to approved. |
+| `fee_received_manual` | | She marked the fee received (not an approval straight onto the list): a 7-day undo back to approved, until they're offered a turn. |
 | `withdrawn_date` | | When the family withdrew (added at W1b) |
+| `withdrawn_from` | | The status they left, when she entered the withdrawal: gives it a 7-day undo back to that status. **Modified:** withdrawals were final; the ones she enters are now undoable for 7 days. |
 | `placed_sale_id` | ✔ FK → Sale, nullable | Set when an offer is accepted |
 | `pref_change_log` | | Array `{ date, field, from, to, by }`: every change to the matching answers and readiness once past review (§15.9). |
 | `application` | | Object: the decrypted application answers (§8.2). Private tier. |
@@ -1009,7 +1012,7 @@ The "new applications badge" is a Today nudge plus the dashboard tile, not a sep
 badge.
 
 W1b choices worth knowing: removing a family by hand is final (the confirm says so; they
-re-apply), while a second-pass removal keeps its 7-day undo. Pausing and listen-only are
+re-apply), while a second-pass removal keeps its 7-day undo. **Modified:** her removal, a decline, a fee expired and a fee she marked received now have a 7-day undo too. Pausing and listen-only are
 set by her on the entry's Edit form; families can't change them until W2's status page.
 
 Hard-delete note: the multi-entry `listen_sire_ids` / `listen_dam_ids` registry

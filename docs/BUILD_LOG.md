@@ -2699,3 +2699,22 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   profiles (three co-owned dogs and their sire).
 - **SW cache bumped to `kennelos-shell-v105` (2026-11-04)** for Dog Cards.
 
+- **Clearable dates on the dog form.** Date of birth and Date of death get a **Clear** button:
+  Safari on iPhone/iPad gives a date input no way to empty it, so a date of death entered by
+  mistake on a living dog was stuck. Saving an empty date already worked; only the input couldn't
+  be emptied.
+- **SW cache bumped to `kennelos-shell-v106` (2026-11-04)** for the clearable dog-form dates.
+- **7-day undo on a withdrawal she enters.** "They withdrew" on a family's page now keeps the
+  status they left (`withdrawn_from`, new optional field, cloud like `removed_reason`, so a
+  restore inside the window can still undo it; `cloudFields.js` regenerated) and offers
+  **Undo withdrawal** for 7 days, back to that status at their old place (anchor untouched; no
+  offers made; refused once they've re-applied). Withdrawals from the family's status page and
+  back-outs stay final. Tests added (`waitlistWithdrawUndo`). Rides `kennelos-shell-v106`.
+- **7-day undos for a mistap on the waitlist.** Her own removal ("Remove them from the list"),
+  a decline, "The fee wasn't received in time" and "Fee received" can each be undone for 7
+  days from the family's page (Undo removal / Undo decline / Reopen application / Undo fee
+  received…). New optional fields `expired_date` and `fee_received_manual` (cloud, like the
+  other waitlist dates; `cloudFields.js` regenerated). Every undo keeps the family's place,
+  makes no offers and is refused once they've re-applied; the fee undo also stops once they've
+  been offered a turn. Today still notices only automatic removals. Tests in `waitlistUndo`
+  (renamed from `waitlistWithdrawUndo`). Rides `kennelos-shell-v106`.

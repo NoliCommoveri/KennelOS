@@ -329,11 +329,12 @@ test('passes are counted from frozen counts_as_pass; the second removes the fami
   assert.equal(shouldRemoveForPasses({ ...e, status: 'removed' }, offers), false, 'already off the list');
 });
 
-test('undo window is 7 days from removed_date, second-pass removals only', () => {
+test('undo window is 7 days from removed_date, for automatic removals and hers', () => {
   const removed = entry({ status: 'removed', removed_reason: 'second_pass', removed_date: '2026-09-28' });
   assert.equal(canUndoRemoval(removed, '2026-10-05'), true, 'day 7');
   assert.equal(canUndoRemoval(removed, '2026-10-06'), false, 'day 8');
-  assert.equal(canUndoRemoval({ ...removed, removed_reason: 'by_breeder' }, '2026-09-29'), false);
+  assert.equal(canUndoRemoval({ ...removed, removed_reason: 'by_breeder' }, '2026-09-29'), true, 'hers too');
+  assert.equal(canUndoRemoval({ ...removed, removed_reason: 'no_checkin_response' }, '2026-09-29'), false);
   assert.equal(canUndoRemoval(entry(), TODAY), false);
 });
 

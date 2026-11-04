@@ -313,10 +313,12 @@ export const CLOUD_FIELDS = {
         "contact_id",
         "created_at",
         "declined_date",
+        "expired_date",
         "fee_due_date",
         "fee_paid_via_account_id",
         "fee_received_at",
         "fee_received_date",
+        "fee_received_manual",
         "id",
         "is_archived",
         "kennel_id",
@@ -341,7 +343,8 @@ export const CLOUD_FIELDS = {
         "status_token",
         "updated_at",
         "waitlist_program_id",
-        "withdrawn_date"
+        "withdrawn_date",
+        "withdrawn_from"
       ],
       "nested": {
         "application": [
