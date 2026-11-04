@@ -2592,3 +2592,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   (`noteWebsiteBaseline`, `kennelportLink.websiteSnapshot`) and asks only when the task
   changed what the website would show, listing only those changes and counting the
   earlier ones still waiting (`pendingWebsiteChanges` `since` → `fresh`). Tests added.
+- **Assisted setup planned (2026-11-04).** `docs/KennelOS_Assisted_Setup_Plan.md`: a user
+  lets KennelOS support work in her program as a helper device (a help code made on her
+  device carries her vault key, redeemed only with an `/ops` session), with owner-only
+  routes refused to helpers, Pro without a license seat, her list of the helper's changes,
+  and **Remove access**, which revokes the session, blocks new codes and wipes the helper's
+  copy. Nothing built.
