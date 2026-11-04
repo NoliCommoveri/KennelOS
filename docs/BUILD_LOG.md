@@ -2667,7 +2667,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   never a co-owner as a person. Kels's Update my website asks about unticked kennels and
   names dogs living with a co-owner who has no kennel; the change list says "Nova: now
   living with Oakridge". `cloudFields.js` regenerated. Tests added (`coOwnedWebsite`).
-  SW cache not bumped yet: asked.
+  SW cache bumped with the batch below.
 - **Puppy portal: the family feed, KennelOS's side (2026-11-04).** For KennelPort's
   `docs/Puppy_Parent_Portal_Plan.md` phase 1 (§3.4; build chunk 3's KennelOS half).
   `data/portalFeed.js` builds the feed, format 1: each family from their signed contract
@@ -2683,4 +2683,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `/f/portal` signs KennelPort's one-tap token), only **Your puppy portal** once handed
   over, Delivered or past pickup (also on the server); Companion link request off.
   Furever lists none of her pups. `cloudFields.js` regenerated; tests added
-  (`portalFeed`, cloud `familyPortal`). SW cache not bumped yet.
+  (`portalFeed`, cloud `familyPortal`).
+- **SW cache bumped to `kennelos-shell-v104` (2026-11-04)** for this batch (co-owned dogs on
+  her website, the puppy portal's family feed).
