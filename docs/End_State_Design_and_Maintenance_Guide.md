@@ -1655,7 +1655,8 @@ restored into Lite keeps its waitlist rows, dormant.
   place. Many plain fields hold family requests (extras ones in `extra_requests`), messages, prepasses, the "Ready now?"
   answer, a carried payment from a lost pup and the answer-change log; `withdrawn_from` is the
   status a family left when she entered their withdrawal (null for one from their status page or
-  a back-out), which gives that withdrawal its 7-day undo; see
+  a back-out), which gives that withdrawal its 7-day undo; `expired_date` and
+  `fee_received_manual` do the same for a fee expired and a fee she marked received; see
   `waitlistEntryRepo` and `syncRegistry.js` for each one's tier.
 - **`waitlist_offers`:** one row per family per litter in a turn (rows of a turn share
   `turn_id`). `counts_as_pass` is decided once, when the outcome is recorded, so later rule
@@ -1805,13 +1806,16 @@ then bring in the answers.
 Every multi-step write: approve (links a contact she picks from `contactMatches`, §33's
 one contact rule: the same email or phone first, then the same or a near name; never
 automatically; a fee of 0 goes straight to `active`), decline, fee received (sets the place
-in line), fee expired, withdraw, remove, undo removal, undo withdrawal, undo pass, re-apply,
-move place (`setPositionAnchor`).
-- **Undo windows (7 days, `REMOVAL_UNDO_DAYS`):** an automatic removal (second pass, no
-  "Ready now?" answer; `canUndoRemoval`) and a withdrawal she entered (`withdraw` with
-  `byBreeder`; `canUndoWithdrawal`). Undoing a withdrawal puts the family back in the status
-  they left, at their old place, and is refused once they've re-applied. A withdrawal from
-  their status page, a back-out and her own removal have none.
+in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, move place
+(`setPositionAnchor`).
+- **Undo windows (7 days, `REMOVAL_UNDO_DAYS`), for a mistap:** a removal, automatic or hers
+  (`canUndoRemoval`; only a second pass forgives a pass), a withdrawal she entered (`withdraw`
+  with `byBreeder`; `canUndoWithdrawal`, back to `withdrawn_from`), a decline (`undoDecline`,
+  back to applied), a fee expired (`undoExpire`, from `expired_date`, back to approved) and a
+  fee she marked received (`undoFeeReceived`: `fee_received_manual`, counted from
+  `fee_received_at`, back to approved, and only until they're offered a turn). Each keeps the
+  family's anchor, makes no offers, and is refused once they've re-applied. A withdrawal from
+  their status page and a back-out have none. Today notices only the automatic removals.
 - **Leaving releases turns:** withdraw, remove, archive, a deposit or a second-pass removal
   void the family's open offers (never a pass; a held pick's Sale is cancelled) and move
   those litters on.

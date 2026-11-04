@@ -39,7 +39,7 @@ import { programIconHtml } from '../assets/programIcons.js';
 import { offerSpecs, retryEmail, kennelEmailsOn, familyEmail, emailErrorText } from '../data/waitlistOutbox.js';
 import {
   waitlistConfig, overallPositions, passesUsed, anchorDate, isMovedByBreeder, contactMatches, contactMatchReason,
-  entryName, canUndoRemoval, canUndoWithdrawal, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, readyCheck, rankedList, REMOVAL_UNDO_DAYS,
+  entryName, canUndoRemoval, canUndoWithdrawal, canUndoDecline, canUndoExpire, canUndoFeeReceived, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, readyCheck, rankedList, REMOVAL_UNDO_DAYS,
   eligiblePupsFor, nextFamilyForLitter, turnSpent, openTurns, turnOffers, turnIdOf, isListeningFor, isListenOnly, isPupAvailable,
   describeOfferChanges, isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker,
   kennelBreeds, resolveBreed, prefChangeEffect, autoOffers, closingTrigger, listenParentChoices,
@@ -232,6 +232,7 @@ function statusLines(e) {
     const placesLine = prefPlacesText(e, pos);
     if (placesLine) lines.push(placesLine);
     lines.push(`Passes used: ${passesUsed(e, ctx.offers)} of ${esc(ctx.config.max_passes)}.`);
+    if (canUndoFeeReceived(e, ctx.offers, today)) lines.push(`<span class="badge badge-amber">Fee marked received by mistake? You can undo it until ${esc(fmtDate(addDaysToYMD(String(e.fee_received_at).slice(0, 10), REMOVAL_UNDO_DAYS)))}, until they're offered a turn</span>`);
     const flags = entryFlags(e, today, ctx.config);
     const why = isReadyHeld(e, today, ctx.config)
       ? `${esc(readyHoldText(e, today, ctx.config))} They aren't offered pups (or charged passes) until then, and keep their place.`
@@ -250,8 +251,10 @@ function statusLines(e) {
     if (canUndoWithdrawal(e, today)) lines.push(`<span class="badge badge-amber">You can undo this until ${esc(fmtDate(addDaysToYMD(e.withdrawn_date, REMOVAL_UNDO_DAYS)))}</span>`);
   } else if (e.status === 'declined') {
     lines.push(`Declined${e.declined_date ? ` ${esc(fmtDate(e.declined_date))}` : ''}.`);
+    if (canUndoDecline(e, today)) lines.push(`<span class="badge badge-amber">You can undo this until ${esc(fmtDate(addDaysToYMD(e.declined_date, REMOVAL_UNDO_DAYS)))}</span>`);
   } else if (e.status === 'expired') {
     lines.push('The fee wasn\'t received by the pay-by date.');
+    if (canUndoExpire(e, today)) lines.push(`<span class="badge badge-amber">You can undo this until ${esc(fmtDate(addDaysToYMD(e.expired_date, REMOVAL_UNDO_DAYS)))}</span>`);
   }
   const others = otherRecordsLine(e);
   if (others) lines.push(others);
@@ -840,14 +843,14 @@ async function onApprove() {
 const LEAVE_CHOICES = {
   active: [
     { value: 'withdraw', label: 'They withdrew', hint: 'Their choice. You can undo it for 7 days; after that, coming back means a new application, a new fee and a new place.' },
-    { value: 'remove', label: 'Remove them from the list', hint: 'Your decision. This is final: to come back they would re-apply, with a new fee and a new place.' }
+    { value: 'remove', label: 'Remove them from the list', hint: 'Your decision. You can undo it for 7 days; after that, to come back they would re-apply, with a new fee and a new place.' }
   ],
   applied: [
-    { value: 'decline', label: 'Decline the application', hint: 'The application closes. No contact is created.' },
+    { value: 'decline', label: 'Decline the application', hint: 'The application closes. No contact is created. You can undo it for 7 days.' },
     { value: 'withdraw', label: 'They withdrew', hint: 'They told you they no longer want to apply. You can undo it for 7 days.' }
   ],
   approved: [
-    { value: 'expire', label: 'The fee wasn\'t received in time', hint: 'Their application closes. They can re-apply later.' },
+    { value: 'expire', label: 'The fee wasn\'t received in time', hint: 'Their application closes. You can undo it for 7 days; after that they can re-apply.' },
     { value: 'withdraw', label: 'They withdrew', hint: 'They told you they no longer want a place. You can undo it for 7 days.' }
   ]
 };
@@ -884,10 +887,24 @@ async function onLeave() {
 }
 
 async function onUndo() {
-  if (ctx.entry.status === 'withdrawn') await actions.undoWithdrawal(ctx.entry.id);
-  else await actions.undoRemoval(ctx.entry.id);
+  const e = ctx.entry;
+  if (e.status === 'declined') {
+    if (!(await confirmModal({ title: 'Undo the decline?', message: 'Their application is open again, waiting for you to approve or decline it. If they were emailed that it was declined, let them know.', confirmLabel: 'Undo decline' }))) return;
+    await actions.undoDecline(e.id);
+  } else if (e.status === 'expired') {
+    if (!(await confirmModal({ title: 'Reopen their application?', message: 'They\'re approved again, waiting for their fee. The pay-by date has passed, so mark the fee received or give them a new date on Edit.', confirmLabel: 'Reopen' }))) return;
+    await actions.undoExpire(e.id);
+  } else if (e.status === 'withdrawn') await actions.undoWithdrawal(e.id);
+  else await actions.undoRemoval(e.id);
   await afterAction();
   await reportNextInLine();
+}
+
+async function onUndoFee() {
+  const e = ctx.entry;
+  if (!(await confirmModal({ title: 'Mark the fee not received?', message: 'They go back to approved, waiting for their fee, and lose this place in line until it\'s received. If they were emailed that they\'re on the list, let them know.', confirmLabel: 'Fee not received', danger: true }))) return;
+  await actions.undoFeeReceived(e.id);
+  await afterAction();
 }
 
 async function onReapply() {
@@ -1881,7 +1898,9 @@ function interactButtons(e) {
   switch (e.status) {
     case 'applied': main = b('approve', 'Approve…', 'btn-primary'); break;
     case 'approved': main = b('fee', e.fee_amount == null ? 'Add to the list…' : 'Fee received…', 'btn-primary'); break;
-    case 'active': main = b('offer', 'Offer pups…', lost ? '' : 'btn-primary') + b('move', 'Move place…'); break;
+    case 'active': main = b('offer', 'Offer pups…', lost ? '' : 'btn-primary') + b('move', 'Move place…') + (canUndoFeeReceived(e, ctx.offers, todayYMD()) ? b('undofee', 'Undo fee received…') : ''); break;
+    case 'declined': main = (canUndoDecline(e, todayYMD()) ? b('undo', 'Undo decline', 'btn-primary') : '') + b('reapply', 'Re-apply'); break;
+    case 'expired': main = (canUndoExpire(e, todayYMD()) ? b('undo', 'Reopen application', 'btn-primary') : '') + b('reapply', 'Re-apply'); break;
     case 'removed': main = (canUndoRemoval(e, todayYMD()) ? b('undo', 'Undo removal', 'btn-primary') : '') + b('reapply', 'Re-apply'); break;
     case 'withdrawn': main = (canUndoWithdrawal(e, todayYMD()) ? b('undo', 'Undo withdrawal', 'btn-primary') : '') + b('reapply', 'Re-apply'); break;
     default: main = b('reapply', 'Re-apply');
@@ -1904,7 +1923,7 @@ function renderInteract() {
     </section>`;
   wireRequests(pane);
   wireOffers(pane);
-  const handlers = { offer: onOfferLitter, approve: onApprove, fee: onFeeReceived, move: onMove, undo: onUndo, reapply: onReapply, restore: onRestore, endsale: onEndSale, communicate: onCommunicate };
+  const handlers = { offer: onOfferLitter, approve: onApprove, fee: onFeeReceived, move: onMove, undo: onUndo, undofee: onUndoFee, reapply: onReapply, restore: onRestore, endsale: onEndSale, communicate: onCommunicate };
   pane.querySelectorAll('[data-act]').forEach((btn) => {
     btn.addEventListener('click', () => handlers[btn.dataset.act]().catch((err) => showError(err.message || String(err))));
   });

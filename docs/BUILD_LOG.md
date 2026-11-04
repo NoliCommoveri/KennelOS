@@ -2710,3 +2710,11 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   **Undo withdrawal** for 7 days, back to that status at their old place (anchor untouched; no
   offers made; refused once they've re-applied). Withdrawals from the family's status page and
   back-outs stay final. Tests added (`waitlistWithdrawUndo`). Rides `kennelos-shell-v106`.
+- **7-day undos for a mistap on the waitlist.** Her own removal ("Remove them from the list"),
+  a decline, "The fee wasn't received in time" and "Fee received" can each be undone for 7
+  days from the family's page (Undo removal / Undo decline / Reopen application / Undo fee
+  received…). New optional fields `expired_date` and `fee_received_manual` (cloud, like the
+  other waitlist dates; `cloudFields.js` regenerated). Every undo keeps the family's place,
+  makes no offers and is refused once they've re-applied; the fee undo also stops once they've
+  been offered a turn. Today still notices only automatic removals. Tests in `waitlistUndo`
+  (renamed from `waitlistWithdrawUndo`). Rides `kennelos-shell-v106`.

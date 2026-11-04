@@ -1,8 +1,9 @@
-// waitlistWithdrawUndo.test.js — the 7-day undo on a withdrawal she entered
+// waitlistUndo.test.js — the 7-day undos for a mistap: a withdrawal she entered
 // ("They withdrew" on the family's page), through the real actions and repos on
 // the in-memory database: back to the status they left at their old place, only
 // for her own entry (not one from the family's status page), only within 7 days,
-// and never once the family has re-applied.
+// and never once the family has re-applied. Then her removal, a decline, a fee
+// expired and a fee received.
 import { test, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { installMemoryDb } from './support/memoryDb.js';
@@ -67,4 +68,65 @@ test('once the family has re-applied the undo is refused, so they are never on t
   await actions.withdraw(entryId, { date: '2026-11-01', byBreeder: true });
   await actions.reapply(entryId, { date: '2026-11-02' });
   await assert.rejects(actions.undoWithdrawal(entryId, { today: '2026-11-03' }), /applied again/);
+});
+
+// --- The other undos for a mistap: her removal, a decline, a fee expired, a fee received.
+
+const newApplied = async (name) => {
+  const c = await contactRepo.create({ name, email: `${name.toLowerCase()}@example.com` });
+  return (await waitlistEntryRepo.create({ kennel_id: K.id, contact_id: c.id, status: 'applied', applied_date: '2026-10-20', pref_sex: 'any' })).id;
+};
+
+test('her removal: back on the list at their old place, no pass forgiven, 7 days', async () => {
+  await actions.removeByBreeder(entryId, { date: '2026-11-01' });
+  await assert.rejects(actions.undoRemoval(entryId, { today: '2026-11-09' }), /can no longer be undone/);
+  const back = await actions.undoRemoval(entryId, { today: '2026-11-08' });
+  assert.equal(back.status, 'active');
+  assert.equal(back.removed_reason, null);
+  assert.equal(back.position_anchor_date, '2026-01-03');
+});
+
+test('a decline: the application is open again; refused once they re-applied', async () => {
+  const id = await newApplied('Ng');
+  await actions.decline(id, { date: '2026-11-01' });
+  const back = await actions.undoDecline(id, { today: '2026-11-03' });
+  assert.equal(back.status, 'applied');
+  assert.equal(back.declined_date, null);
+  await actions.decline(id, { date: '2026-11-01' });
+  await actions.reapply(id, { date: '2026-11-02' });
+  await assert.rejects(actions.undoDecline(id, { today: '2026-11-03' }), /applied again/);
+});
+
+test('a fee expired: approved again; one closed before expired_date was kept has no undo', async () => {
+  await actions.markFeeExpired(approvedId, { date: '2026-11-01' });
+  assert.equal((await waitlistEntryRepo.getById(approvedId)).expired_date, '2026-11-01');
+  await assert.rejects(actions.undoExpire(approvedId, { today: '2026-11-09' }), /can no longer be undone/);
+  const back = await actions.undoExpire(approvedId, { today: '2026-11-08' });
+  assert.equal(back.status, 'approved');
+  assert.equal(back.expired_date, null);
+  const old = await waitlistEntryRepo.update(approvedId, { status: 'expired' });
+  assert.equal(rules.canUndoExpire(old, '2026-11-02'), false);
+});
+
+test('fee received: back to approved with the fee not received, until they are offered a turn', async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  await actions.feeReceived(approvedId, { date: '2026-10-30', amount: 250, method: 'Cash', reference: 'r1' });
+  const active = await waitlistEntryRepo.getById(approvedId);
+  assert.equal(active.status, 'active');
+  assert.equal(rules.canUndoFeeReceived(active, [], today), true);
+  assert.equal(rules.canUndoFeeReceived(active, [{ entry_id: approvedId }], today), false, 'offered a turn: no undo');
+  const back = await actions.undoFeeReceived(approvedId, { today });
+  assert.equal(back.status, 'approved');
+  assert.equal(back.fee_received_date, null);
+  assert.equal(back.fee_received_at, null);
+  assert.equal(back.fee_payment_method, '');
+  assert.equal(back.fee_amount, 250, 'the fee amount stands');
+});
+
+test('an approval that put them straight on the list (no fee) has no fee undo', async () => {
+  const id = await newApplied('Ode');
+  await kennelRepo.update(K.id, { waitlist_config: { ...K.waitlist_config, fee_amount: 0 } });
+  const e = await actions.approve(id, { date: '2026-11-01' });
+  assert.equal(e.status, 'active', 'no fee: straight on the list');
+  assert.equal(rules.canUndoFeeReceived(e, [], new Date().toISOString().slice(0, 10)), false);
 });
