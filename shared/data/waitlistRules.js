@@ -1290,6 +1290,14 @@ export function canUndoRemoval(entry, today) {
   return today <= addDaysToYMD(entry.removed_date, REMOVAL_UNDO_DAYS);
 }
 
+// The 7-day undo on a withdrawal she entered herself ("They withdrew" on the
+// family's page). Only that path stores `withdrawn_from` (the status they left);
+// a withdrawal from the family's own status page or an approved back-out has none.
+export function canUndoWithdrawal(entry, today) {
+  if (!entry || entry.is_archived || entry.status !== 'withdrawn' || !entry.withdrawn_from || !entry.withdrawn_date) return false;
+  return today <= addDaysToYMD(entry.withdrawn_date, REMOVAL_UNDO_DAYS);
+}
+
 // The offer an undo forgives: the most recent counted pass. Undo sets its
 // counts_as_pass to false, or the entry would be removed again at once (Spec §0).
 export function passToForgive(entry, offers) {

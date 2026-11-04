@@ -39,7 +39,7 @@ import { programIconHtml } from '../assets/programIcons.js';
 import { offerSpecs, retryEmail, kennelEmailsOn, familyEmail, emailErrorText } from '../data/waitlistOutbox.js';
 import {
   waitlistConfig, overallPositions, passesUsed, anchorDate, isMovedByBreeder, contactMatches, contactMatchReason,
-  entryName, canUndoRemoval, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, readyCheck, rankedList, REMOVAL_UNDO_DAYS,
+  entryName, canUndoRemoval, canUndoWithdrawal, isPaused, isManuallyPaused, isReadyHeld, readyFromDate, readyCheck, rankedList, REMOVAL_UNDO_DAYS,
   eligiblePupsFor, nextFamilyForLitter, turnSpent, openTurns, turnOffers, turnIdOf, isListeningFor, isListenOnly, isPupAvailable,
   describeOfferChanges, isAwaitingDeposit, switchablePups, canSwitchAcceptedPick, undoPassBlocker,
   kennelBreeds, resolveBreed, prefChangeEffect, autoOffers, closingTrigger, listenParentChoices,
@@ -247,6 +247,7 @@ function statusLines(e) {
     lines.push(e.placed_sale_id ? `Placed${placedPup ? ` with ${esc(dogName(placedPup))}` : ''} — <a href="sale.html?id=${encodeURIComponent(e.placed_sale_id)}">open the sale →</a>` : 'Placed.');
   } else if (e.status === 'withdrawn') {
     lines.push(`Withdrew${e.withdrawn_date ? ` ${esc(fmtDate(e.withdrawn_date))}` : ''}.`);
+    if (canUndoWithdrawal(e, today)) lines.push(`<span class="badge badge-amber">You can undo this until ${esc(fmtDate(addDaysToYMD(e.withdrawn_date, REMOVAL_UNDO_DAYS)))}</span>`);
   } else if (e.status === 'declined') {
     lines.push(`Declined${e.declined_date ? ` ${esc(fmtDate(e.declined_date))}` : ''}.`);
   } else if (e.status === 'expired') {
@@ -838,16 +839,16 @@ async function onApprove() {
 // came. Each is recorded apart, so the funnel report still tells them apart.
 const LEAVE_CHOICES = {
   active: [
-    { value: 'withdraw', label: 'They withdrew', hint: 'Their choice. Coming back means a new application, a new fee and a new place.' },
+    { value: 'withdraw', label: 'They withdrew', hint: 'Their choice. You can undo it for 7 days; after that, coming back means a new application, a new fee and a new place.' },
     { value: 'remove', label: 'Remove them from the list', hint: 'Your decision. This is final: to come back they would re-apply, with a new fee and a new place.' }
   ],
   applied: [
     { value: 'decline', label: 'Decline the application', hint: 'The application closes. No contact is created.' },
-    { value: 'withdraw', label: 'They withdrew', hint: 'They told you they no longer want to apply.' }
+    { value: 'withdraw', label: 'They withdrew', hint: 'They told you they no longer want to apply. You can undo it for 7 days.' }
   ],
   approved: [
     { value: 'expire', label: 'The fee wasn\'t received in time', hint: 'Their application closes. They can re-apply later.' },
-    { value: 'withdraw', label: 'They withdrew', hint: 'They told you they no longer want a place.' }
+    { value: 'withdraw', label: 'They withdrew', hint: 'They told you they no longer want a place. You can undo it for 7 days.' }
   ]
 };
 const leaveLabel = (e) => (e.status === 'active' ? 'Remove from list…' : 'Close application…');
@@ -869,7 +870,7 @@ async function onLeave() {
     onConfirm: async (o) => {
       did = o.querySelector('input[name="lv"]:checked')?.value;
       if (!did) throw new Error('Pick one.');
-      if (did === 'withdraw') res = await actions.withdraw(e.id);
+      if (did === 'withdraw') res = await actions.withdraw(e.id, { byBreeder: true });
       else if (did === 'remove') res = await actions.removeByBreeder(e.id);
       else if (did === 'decline') await actions.decline(e.id);
       else if (did === 'expire') await actions.markFeeExpired(e.id);
@@ -883,7 +884,8 @@ async function onLeave() {
 }
 
 async function onUndo() {
-  await actions.undoRemoval(ctx.entry.id);
+  if (ctx.entry.status === 'withdrawn') await actions.undoWithdrawal(ctx.entry.id);
+  else await actions.undoRemoval(ctx.entry.id);
   await afterAction();
   await reportNextInLine();
 }
@@ -1881,6 +1883,7 @@ function interactButtons(e) {
     case 'approved': main = b('fee', e.fee_amount == null ? 'Add to the list…' : 'Fee received…', 'btn-primary'); break;
     case 'active': main = b('offer', 'Offer pups…', lost ? '' : 'btn-primary') + b('move', 'Move place…'); break;
     case 'removed': main = (canUndoRemoval(e, todayYMD()) ? b('undo', 'Undo removal', 'btn-primary') : '') + b('reapply', 'Re-apply'); break;
+    case 'withdrawn': main = (canUndoWithdrawal(e, todayYMD()) ? b('undo', 'Undo withdrawal', 'btn-primary') : '') + b('reapply', 'Re-apply'); break;
     default: main = b('reapply', 'Re-apply');
   }
   const end = !lost && endableSale(e) ? b('endsale', 'End the sale…') : '';

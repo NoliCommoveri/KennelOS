@@ -341,7 +341,8 @@ export const CLOUD_FIELDS = {
         "status_token",
         "updated_at",
         "waitlist_program_id",
-        "withdrawn_date"
+        "withdrawn_date",
+        "withdrawn_from"
       ],
       "nested": {
         "application": [

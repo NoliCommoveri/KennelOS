@@ -1653,7 +1653,9 @@ restored into Lite keeps its waitlist rows, dormant.
   approved → active → placed`, exits `declined`/`expired`/`withdrawn`/`removed`. **Pause and
   listen-only are flags on an `active` entry**, never statuses, so narrowing never costs a
   place. Many plain fields hold family requests (extras ones in `extra_requests`), messages, prepasses, the "Ready now?"
-  answer, a carried payment from a lost pup and the answer-change log; see
+  answer, a carried payment from a lost pup and the answer-change log; `withdrawn_from` is the
+  status a family left when she entered their withdrawal (null for one from their status page or
+  a back-out), which gives that withdrawal its 7-day undo; see
   `waitlistEntryRepo` and `syncRegistry.js` for each one's tier.
 - **`waitlist_offers`:** one row per family per litter in a turn (rows of a turn share
   `turn_id`). `counts_as_pass` is decided once, when the outcome is recorded, so later rule
@@ -1803,8 +1805,13 @@ then bring in the answers.
 Every multi-step write: approve (links a contact she picks from `contactMatches`, §33's
 one contact rule: the same email or phone first, then the same or a near name; never
 automatically; a fee of 0 goes straight to `active`), decline, fee received (sets the place
-in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move place
-(`setPositionAnchor`).
+in line), fee expired, withdraw, remove, undo removal, undo withdrawal, undo pass, re-apply,
+move place (`setPositionAnchor`).
+- **Undo windows (7 days, `REMOVAL_UNDO_DAYS`):** an automatic removal (second pass, no
+  "Ready now?" answer; `canUndoRemoval`) and a withdrawal she entered (`withdraw` with
+  `byBreeder`; `canUndoWithdrawal`). Undoing a withdrawal puts the family back in the status
+  they left, at their old place, and is refused once they've re-applied. A withdrawal from
+  their status page, a back-out and her own removal have none.
 - **Leaving releases turns:** withdraw, remove, archive, a deposit or a second-pass removal
   void the family's open offers (never a pass; a held pick's Sale is cancelled) and move
   those litters on.
@@ -1812,7 +1819,7 @@ in line), fee expired, withdraw, remove, undo removal, undo pass, re-apply, move
   lists the closings that offer the next family by themselves (`accepted`, `passed`,
   `no_response`, `no_deposit`, `left`, `restored`). Otherwise the next family comes back in
   `waiting` and she offers by hand (**Open picks**, **Offer to them**, **Offer pups…**).
-  Actions on one family (approve, fee received, undo removal) never make offers.
+  Actions on one family (approve, fee received, undo removal or withdrawal) never make offers.
 - **The offer flow:** `openPicks` / `closePicks` (`Litter.picks_opened_date`), `offerNext`,
   `offerTo` (out of turn, with a note; nobody's place changes). **Accepting is pick +
   deposit:** `recordPick` creates a `deposit_pending` Sale (registration and price from the

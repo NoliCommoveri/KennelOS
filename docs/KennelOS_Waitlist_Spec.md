@@ -191,6 +191,7 @@ code. See Q1.
 | `pause_reason` | | Short text, mainly for program pauses (§7) |
 | `removed_date`, `removed_reason` | | `second_pass` / `no_checkin_response` / `by_breeder` / `fee_expired` |
 | `withdrawn_date` | | When the family withdrew (added at W1b) |
+| `withdrawn_from` | | The status they left, when she entered the withdrawal: gives it a 7-day undo back to that status. **Modified:** withdrawals were final; the ones she enters are now undoable for 7 days. |
 | `placed_sale_id` | ✔ FK → Sale, nullable | Set when an offer is accepted |
 | `pref_change_log` | | Array `{ date, field, from, to, by }`: every change to the matching answers and readiness once past review (§15.9). |
 | `application` | | Object: the decrypted application answers (§8.2). Private tier. |

@@ -47,7 +47,7 @@ import { expectedPricing } from './saleDefaults.js';
 import { todayYMD } from './dateUtils.js';
 import { RELEASED_SALE_STATUSES, SALE_END_REASON, registrationsForPurposes, descriptor } from './vocab.js';
 import {
-  waitlistConfig, openDays, businessDays, closedDates, liveClosedDates, feeForEntry, feeDueDate, anchorDate, canUndoRemoval, passToForgive,
+  waitlistConfig, openDays, businessDays, closedDates, liveClosedDates, feeForEntry, feeDueDate, anchorDate, canUndoRemoval, canUndoWithdrawal, passToForgive,
   respondByDate, countsAsPass, shouldRemoveForPasses, passesUsed, isPupAvailable,
   turnSpent, eligiblePupsFor, isAwaitingDeposit, canSwitchAcceptedPick, undoPassBlocker, autoOffers, closingTrigger,
   prefChangeLines, turnIdOf, turnOffers, openTurns, nextTurn, turnLittersFor, joinsOpenTurn,
@@ -186,12 +186,15 @@ export async function markFeeExpired(entryId) {
   return waitlistEntryRepo.update(entryId, { status: 'expired' });
 }
 
-// The family left the list themselves (they told her). Any open offer they held
-// is voided and that litter's turn moves on. Returns { entry, voided, offered }.
-export async function withdraw(entryId, { date = todayYMD(), moveOn = true } = {}) {
+// The family left the list themselves. Any open offer they held is voided and
+// that litter's turn moves on. `byBreeder`: she entered it ("They withdrew" on
+// their page), so it keeps the status they left in `withdrawn_from` and gets the
+// 7-day undo; a withdrawal from their own status page doesn't.
+// Returns { entry, voided, offered }.
+export async function withdraw(entryId, { date = todayYMD(), moveOn = true, byBreeder = false } = {}) {
   const entry = await load(entryId);
   requireStatus(entry, ['applied', 'approved', 'active'], 'withdraw');
-  const saved = await waitlistEntryRepo.update(entryId, { status: 'withdrawn', withdrawn_date: date });
+  const saved = await waitlistEntryRepo.update(entryId, { status: 'withdrawn', withdrawn_date: date, withdrawn_from: byBreeder ? entry.status : null });
   return { entry: saved, ...(await releaseOpenOffers(entryId, { date, why: 'the family withdrew from the list', moveOn })) };
 }
 
@@ -262,6 +265,21 @@ export async function undoRemoval(entryId, { today = todayYMD() } = {}) {
     });
   }
   return waitlistEntryRepo.update(entryId, { status: 'active', removed_date: null, removed_reason: null });
+}
+
+// The 7-day undo on a withdrawal she entered. Back to the status they left, with
+// their anchor untouched, so an active family is back at their old place. Makes
+// no offers (an offer voided by the withdrawal has moved on). Refused once the
+// family has re-applied, so they're never on the list twice.
+export async function undoWithdrawal(entryId, { today = todayYMD() } = {}) {
+  const entry = await load(entryId);
+  if (!canUndoWithdrawal(entry, today)) throw new Error('This withdrawal can no longer be undone.');
+  if (entry.contact_id) {
+    const again = (await waitlistEntryRepo.getAll()).find((x) => x.id !== entry.id && x.kennel_id === entry.kennel_id
+      && x.contact_id === entry.contact_id && ['applied', 'approved', 'active'].includes(x.status));
+    if (again) throw new Error('This family has applied again since, so the withdrawal can\'t be undone. Their new application is on the list.');
+  }
+  return waitlistEntryRepo.update(entryId, { status: entry.withdrawn_from, withdrawn_date: null, withdrawn_from: null });
 }
 
 // A closed run (placed, removed, withdrawn, declined, expired) → a NEW application
@@ -1441,7 +1459,7 @@ export async function approveBackOut(entryId, { outcome, remove = [], pup = null
     });
   } else {
     result.entry = await waitlistEntryRepo.update(entry.id, {
-      status: 'withdrawn', withdrawn_date: date, placed_sale_id: entry.placed_sale_id || null, back_out_request: decided,
+      status: 'withdrawn', withdrawn_date: date, withdrawn_from: null, placed_sale_id: entry.placed_sale_id || null, back_out_request: decided,
       notes: appendNote(entry.notes, `${note} ${outcome === 'refund' ? 'Deposit refunded.' : 'Deposit kept.'}`)
     });
   }

@@ -2704,3 +2704,9 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   mistake on a living dog was stuck. Saving an empty date already worked; only the input couldn't
   be emptied.
 - **SW cache bumped to `kennelos-shell-v106` (2026-11-04)** for the clearable dog-form dates.
+- **7-day undo on a withdrawal she enters.** "They withdrew" on a family's page now keeps the
+  status they left (`withdrawn_from`, new optional field, cloud like `removed_reason`, so a
+  restore inside the window can still undo it; `cloudFields.js` regenerated) and offers
+  **Undo withdrawal** for 7 days, back to that status at their old place (anchor untouched; no
+  offers made; refused once they've re-applied). Withdrawals from the family's status page and
+  back-outs stay final. Tests added (`waitlistWithdrawUndo`). Rides `kennelos-shell-v106`.
