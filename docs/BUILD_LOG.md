@@ -2699,3 +2699,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   profiles (three co-owned dogs and their sire).
 - **SW cache bumped to `kennelos-shell-v105` (2026-11-04)** for Dog Cards.
 
+- **Clearable dates on the dog form.** Date of birth and Date of death get a **Clear** button:
+  Safari on iPhone/iPad gives a date input no way to empty it, so a date of death entered by
+  mistake on a living dog was stuck. Saving an empty date already worked; only the input couldn't
+  be emptied.
