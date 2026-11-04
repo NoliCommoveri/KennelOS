@@ -2696,5 +2696,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   **Add dogs from a card** on Dogs. `editionFlags.dogCards` (Pro; Lite and Demo off), Pro-only
   page in `proPages.js`, precache entries, both fields cloud with `cloudFields.js` regenerated.
   Tests added (`dogCard`); `cloudBackup`'s schema version is 6. Tried end to end in two browser
-  profiles (three co-owned dogs and their sire). SW cache not bumped yet.
+  profiles (three co-owned dogs and their sire).
+- **SW cache bumped to `kennelos-shell-v105` (2026-11-04)** for Dog Cards.
 
