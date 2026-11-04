@@ -285,6 +285,9 @@ const upcomingOf = (projection, where) => (Array.isArray(projection.upcoming) ? 
 // shared/data/waitlistRules.js (DECIDING_LABEL); tests/familyPages.test.js in the
 // repo root fails if they drift.
 export const DECIDING_LABEL = 'Currently deciding';
+// The program icons the public list can show: shared/data/vocab.js
+// WAITLIST_PROGRAM_ICON's values (tests/familyPages.test.js fails if they drift).
+export const PROGRAM_ICONS = ['star', 'check', 'heart', 'ribbon', 'medal', 'shield', 'paw'];
 
 function publicRows(projection) {
   const rows = Array.isArray(projection.public_list) ? projection.public_list : [];
@@ -298,11 +301,11 @@ function publicRows(projection) {
     // strings only, at most 6.
     const { wants_more: more, program, ...rest } = r;
     const list = Array.isArray(more) ? more.filter((x) => typeof x === 'string' && x.trim()).slice(0, 6).map((x) => x.trim().slice(0, 200)) : [];
-    // Her `ahead` program's badge (her device's publicProgram): its name and
-    // description for families, as short strings, or nothing.
-    const name = typeof program?.name === 'string' ? program.name.trim().slice(0, 60) : '';
+    // Her program's icon (her device's publicProgram): one of PROGRAM_ICONS and her
+    // description for families, or nothing. Never the program's name.
+    const icon = PROGRAM_ICONS.includes(program?.icon) ? program.icon : '';
     const about = typeof program?.about === 'string' ? program.about.trim().slice(0, 600) : '';
-    return { ...rest, ...(list.length ? { wants_more: list } : {}), ...(name && about ? { program: { name, about } } : {}) };
+    return { ...rest, ...(list.length ? { wants_more: list } : {}), ...(icon && about ? { program: { icon, about } } : {}) };
   });
 }
 

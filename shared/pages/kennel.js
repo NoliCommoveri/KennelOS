@@ -454,14 +454,14 @@ ${group('passing', 'Passing & readiness', online ? 'Reasons families give, and "
           <label class="check-inline" style="margin-top:6px;"><input id="wl-pass-other" type="checkbox"${c.pass_other !== false ? ' checked' : ''}> Also offer "Other", with a box for their own words</label>
         </div>
 ${online ? readySettings(c) : ''}`)}
-      ${group('public', 'Public list & family pages', online ? 'Paused families, program badges, upcoming litters, parents\' health tests, Facebook, extras' : 'Paused families and program badges on the public list', `
+      ${group('public', 'Public list & family pages', online ? 'Paused families, program icons, upcoming litters, parents\' health tests, Facebook, extras' : 'Paused families and program icons on the public list', `
         <div class="field field-wide">
           <label class="check-inline"><input id="wl-show-paused" type="checkbox"${c.public_show_paused ? ' checked' : ''}> Show paused families on the public list</label>
           <span class="field-hint">They keep their number and show "Skipped until" the date their pause ends in place of what they want. Unticked, they're left off and their number is skipped. Applies to the list online and the list copied as text.</span>
         </div>
         <div class="field field-wide">
-          <label class="check-inline"><input id="wl-show-programs" type="checkbox"${c.public_show_programs ? ' checked' : ''}> Show program badges on the public list</label>
-          <span class="field-hint">A family in a program listed ahead of standard families shows its name as a badge next to theirs; tapping it shows the program's description for families, so others can see why they're ahead. Only programs with that description filled in (Waitlist programs); the rest stay private. Applies to the list online and the list copied as text.</span>
+          <label class="check-inline"><input id="wl-show-programs" type="checkbox"${c.public_show_programs ? ' checked' : ''}> Show program icons on the public list</label>
+          <span class="field-hint">A family in a program you gave an icon (Waitlist programs) shows that icon to the left of their number; tapping it shows the program's description for families, so others can see why they're ahead. The program's name never shows, and programs without an icon stay private. In the list copied as text, the icon is an emoji with its description below the list.</span>
         </div>
 ${online ? upcomingSwitches(c) + parentTestsSetting(c) + facebookSettings(c) + extrasSettings(c) : ''}`)}
 ${group('messages', 'Messages to families', online ? '"Almost your turn" and the emails families get' : 'The "Almost your turn" message', `

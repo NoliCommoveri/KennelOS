@@ -96,6 +96,7 @@ const PRECACHE_URLS = [
   'assets/waitlistEmailUI.js',
   'assets/waitlistPicksPanel.js',
   'assets/waitlistUI.js',
+  'assets/programIcons.js',
   'assets/wizardUI.js',
   'assets/icons/apple-touch-icon.png',
   'assets/icons/favicon-32.png',

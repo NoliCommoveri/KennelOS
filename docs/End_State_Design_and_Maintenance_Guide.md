@@ -1712,6 +1712,11 @@ restored into Lite keeps its waitlist rows, dormant.
   Tests: `tests/receivedCredits.test.js`.
 - **`waitlist_programs`:** her named adjustments (fee override, `ahead` priority, pauses
   allowed, passes not counted, longer response window). Only she assigns them.
+  `public_icon` (vocab `WAITLIST_PROGRAM_ICON`: star, check, heart, ribbon, medal, shield,
+  paw; cloud; optional) is what the public list shows for its families (Public list, below);
+  the Programs page requires a description for families with one. The drawings are inline
+  SVG in `assets/programIcons.js`, copied in `cloud/public/family/common.js`
+  (`tests/familyPages.test.js` pins the copy and the Worker's `PROGRAM_ICONS`).
 - **Settings** live in `Kennel.waitlist_config` (missing keys from
   `WAITLIST_CONFIG_DEFAULTS`), so they ride backups, including her application form
   (`form_questions[]`) and FAQ (`application_faq[]`).
@@ -1746,13 +1751,14 @@ it computes is stored.**
   `pref_change_log`. A narrower answer that would affect an open offer or next-in-line
   litter asks to confirm (`prefChangeEffect`).
 - **Public list** (`publicList`): `{ position, name, pref_sex, wants_more?, added, program? }` only.
-  `program` (`publicProgram`) is `{ name, about }`, only with `waitlist_config.public_show_programs`
-  on (Waitlist settings, "Show program badges on the public list"; off by default) and only
-  for an `ahead` program with a `public_description` (blank keeps a program private). Online
-  it's a badge by the name whose bubble (tap, hover or focus; below the badge) is the
-  description (`cloud/public/family/common.js`, `.program-tip`); the copied text puts the
-  name in brackets after the family's. The Worker passes it on as a name of at most 60
-  and a description of at most 600 characters, or drops it.
+  `program` (`publicProgram`) is `{ icon, about }`, only with `waitlist_config.public_show_programs`
+  on (Waitlist settings, "Show program icons on the public list"; off by default) and only
+  for a program with both a `public_icon` and a `public_description`; its name never shows.
+  Online the icon sits in its own column left of the number (there only when some row has
+  one), and its bubble (tap, hover or focus; below it) is the description
+  (`cloud/public/family/common.js`, `.program-tip`). The copied text puts the icon's emoji
+  before the number and each icon's description once below the list. The Worker passes on
+  only a known icon (`PROGRAM_ICONS`) and a description of at most 600 characters.
   `wants_more` (`publicWantsMore`, absent when empty) is what else the family narrowed, as
   short strings after the sex under "Wants": their breed only when the kennel has more than
   one (`kennelBreeds`), "Full registration" when their purposes take Full but rule out
