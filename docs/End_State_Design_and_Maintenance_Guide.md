@@ -948,7 +948,8 @@ and the AKC Certified Pedigree's (the dog's box between its sire's and dam's in 
 column; numbers unslashed, `NP80670402 (05-24)`, stored slashed as `NP806704/02 05-24`;
 details run on across lines; colors abbreviated, `BLK BRDL & WH`, spelled out). A line after a
 gap wider than a line space starts the next box and is read as its name, even an all-caps name
-with digits that reads like a detail (`MRF WILBER 13 12-2`). `data/pedigreeImport.js` plans with the CSV rules: a registration
+with digits that reads like a detail (`MRF WILBER 13 12-2`). A chart's "Microchip:" line goes on its dog (`microchip_id`, only filling a
+blank one, like every field on an existing dog). `data/pedigreeImport.js` plans with the CSV rules: a registration
 number (`normReg`) is the key and merges automatically (an existing dog by any number it
 holds, `dogRegKeys`); a name alone never matches (same name → review, against every
 registered name a dog holds, `dogNameKeys`; numbers flagged as differing only by

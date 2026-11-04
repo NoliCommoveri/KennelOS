@@ -95,7 +95,7 @@ export function planImport({ files, existing = [], edits = {}, decisions = {} })
       cands.set(key, c);
     }
     c.sources.push({ fileId: n.fileId, path: n.path });
-    for (const f of ['registered_name', 'registration_number', 'registry', 'color_markings', 'date_of_birth']) {
+    for (const f of ['registered_name', 'registration_number', 'registry', 'color_markings', 'date_of_birth', 'microchip_id']) {
       const v = n.dog[f];
       if (!v) continue;
       if (!c.fields[f]) c.fields[f] = v;
@@ -173,7 +173,7 @@ export function planImport({ files, existing = [], edits = {}, decisions = {} })
     const nm = nameKey(name);
     const row = {
       key: c.key, name, registration_number: c.fields.registration_number || '', registry: c.fields.registry || '',
-      color_markings: c.fields.color_markings || '', date_of_birth: c.fields.date_of_birth || '',
+      color_markings: c.fields.color_markings || '', date_of_birth: c.fields.date_of_birth || '', microchip_id: c.fields.microchip_id || '',
       notes: c.fields.notes || [], breed: c.breed,
       sex: c.sexes.size === 1 ? [...c.sexes][0] : (c.sexes.size ? [...c.sexes][0] : 'unknown'),
       sources: c.sources, subjectOf: c.subjectOf, issues: [...c.issues],
@@ -290,7 +290,7 @@ export async function commitImport(plan, { storeFiles = [], breeders = [] } = {}
         const ex = await dogRepo.getById(r.existingId);
         const changes = {};
         const fill = { registered_name: r.name, registration_number: r.registration_number, registry: r.registry,
-          color_markings: r.color_markings, date_of_birth: r.date_of_birth, sire_id, dam_id };
+          color_markings: r.color_markings, date_of_birth: r.date_of_birth, microchip_id: r.microchip_id, sire_id, dam_id };
         for (const [f, v] of Object.entries(fill)) if (v && !ex[f]) changes[f] = v;
         if (Object.keys(changes).length) { await dogRepo.update(ex.id, changes); updated++; }
         idOf.set(r.key, ex.id);
@@ -298,7 +298,7 @@ export async function commitImport(plan, { storeFiles = [], breeders = [] } = {}
         const d = await dogRepo.createPedigreeOnly({
           registered_name: r.name, sex: r.sex || 'unknown', breed: r.breed,
           registration_number: r.registration_number, registry: r.registry, color_markings: r.color_markings,
-          date_of_birth: r.date_of_birth || '', notes: r.notes.join('\n'), sire_id, dam_id
+          date_of_birth: r.date_of_birth || '', microchip_id: r.microchip_id || '', notes: r.notes.join('\n'), sire_id, dam_id
         });
         idOf.set(r.key, d.id);
         created++;

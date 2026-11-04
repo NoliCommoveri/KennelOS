@@ -2745,3 +2745,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   dropping dogs without a warning; a line after a gap wider than a line space now always starts
   the next box as its name. The breeder's "Mr./Mrs./Ms./Miss/Dr." is dropped from the contact
   name. Tests added. Rides `kennelos-shell-v107`.
+- **Pedigree import reads the dog's microchip.** A Certified Pedigree's "Microchip:" line (or
+  a header's) is saved as the chart dog's `microchip_id`, filling a blank one only. Tests
+  added. Rides `kennelos-shell-v107`.

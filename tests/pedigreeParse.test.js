@@ -149,8 +149,9 @@ function certified() {
   put("DASH'N DARLIN'S ADORE MI'AMOR", 20, 405);
   put('NP95797004', 26, 414, 6);
   put('BOSTON TERRIER FEMALE BRDL & WH', 26, 421, 6);
-  put('Date Whelped: 01/20/2025', 26, 428, 6);
-  put('Breeder: JAMIE COTTON', 26, 435, 6);
+  put('Microchip: 900263007514602', 26, 426, 6);
+  put('Date Whelped: 01/20/2025', 26, 433, 6);
+  put('Breeder: JAMIE COTTON', 26, 440, 6);
   return { words, page: { width: 1000, height: 800 } };
 }
 
@@ -164,6 +165,7 @@ test('an AKC Certified Pedigree: dog between its parents, unslashed numbers, abb
   assert.equal(dog.registration_number, 'NP957970/04');
   assert.equal(dog.sex, 'female');
   assert.equal(dog.date_of_birth, '2025-01-20');
+  assert.equal(dog.microchip_id, '900263007514602');
   assert.equal(dog.color_markings, 'Brindle & White');
   assert.ok(dog.notes.includes('Breeder: JAMIE COTTON'));
   assert.equal(r.header.breed, 'Boston Terrier');
