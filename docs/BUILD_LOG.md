@@ -2740,3 +2740,28 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   new contact, then matched on a second import).
 - **SW cache bumped to `kennelos-shell-v107` (2026-11-04)** for AKC Certified Pedigree import,
   the breeder contact on pedigree import and Kels's Next button on a phone.
+- **Pedigree import: names with digits, and the breeder's honorific.** An all-caps name with
+  digits ("MRF WIGGLES BLUE 17 50-3") read as a detail line and merged into the box above,
+  dropping dogs without a warning; a line after a gap wider than a line space now always starts
+  the next box as its name. The breeder's "Mr./Mrs./Ms./Miss/Dr." is dropped from the contact
+  name. Tests added. Rides `kennelos-shell-v107`.
+- **Pedigree import reads the dog's microchip.** A Certified Pedigree's "Microchip:" line (or
+  a header's) is saved as the chart dog's `microchip_id`, filling a blank one only. Tests
+  added. Rides `kennelos-shell-v107`.
+- **One order for every dog picker.** Your dogs (owned, co-owned), then Other dogs, then
+  Pedigree only, A–Z within each (titles in front ignored, numbers in order), as labelled
+  groups: `dogRepo.pickerGroups` + `ui.dogOptgroups`. Applied to sire/dam on Dog, Litter and
+  Pairing, Contract, Sale, the stud-service partner, the heat-cycle dam, the expense dog, the
+  Documents filter and upload, the pedigree pickers, and Kels's tidy-up and Add-dogs parent
+  pickers (their "same breed first" order dropped). The stud-service "our dog" list keeps
+  males first; the waitlist's parent checkboxes are unchanged. Tests added
+  (`dogPickerOrder`). Rides `kennelos-shell-v107`.
+- **Fix a spot in a pedigree.** On the Pedigree page and a dog's Pedigree card, every ancestor
+  box has a ✎ and every Unknown box a "+ Add": put a dog on file there, type in a new one (made
+  pedigree-only, or the dog already holding that registration number), or clear the spot. Never
+  a loop; a misplaced pedigree-only dog's sex is corrected when moved to a spot of the other sex
+  (refused while it still holds the other role). New `data/pedigreeEdit.js` (precached). Tests
+  added (`pedigreeEdit`). For charts the importer misread before the names-with-digits fix.
+- **SW cache bumped to `kennelos-shell-v108` (2026-11-04)** for pedigree import's names with
+  digits, breeder honorific and microchip, the one dog-picker order, and fixing a spot in a
+  pedigree.

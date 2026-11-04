@@ -149,8 +149,9 @@ function certified() {
   put("DASH'N DARLIN'S ADORE MI'AMOR", 20, 405);
   put('NP95797004', 26, 414, 6);
   put('BOSTON TERRIER FEMALE BRDL & WH', 26, 421, 6);
-  put('Date Whelped: 01/20/2025', 26, 428, 6);
-  put('Breeder: JAMIE COTTON', 26, 435, 6);
+  put('Microchip: 900263007514602', 26, 426, 6);
+  put('Date Whelped: 01/20/2025', 26, 433, 6);
+  put('Breeder: JAMIE COTTON', 26, 440, 6);
   return { words, page: { width: 1000, height: 800 } };
 }
 
@@ -164,6 +165,7 @@ test('an AKC Certified Pedigree: dog between its parents, unslashed numbers, abb
   assert.equal(dog.registration_number, 'NP957970/04');
   assert.equal(dog.sex, 'female');
   assert.equal(dog.date_of_birth, '2025-01-20');
+  assert.equal(dog.microchip_id, '900263007514602');
   assert.equal(dog.color_markings, 'Brindle & White');
   assert.ok(dog.notes.includes('Breeder: JAMIE COTTON'));
   assert.equal(r.header.breed, 'Boston Terrier');
@@ -188,4 +190,19 @@ test('certified details: run-on paragraph, country, CHIC, a bare trailing AKC', 
   assert.equal(parseDetails(['NP37883405 (04-16) SL & WH']).color_markings, 'Seal & White');
   assert.ok(isAkcReg('NP95797004'));
   assert.ok(!isAkcReg('V10142513'));
+});
+
+test('a name with digits in it ("MRF WIGGLES BLUE 17 50-3") starts its own box', () => {
+  const { words, page } = chart();
+  // Rename two boxes to all-caps names with digits, the kind that read like a detail.
+  for (const w of words) {
+    if (w.text === 'Dog SDD') w.text = 'MRF WIGGLES BLUE 17 50-3';
+    if (w.text === 'Dog DS') w.text = 'MRF WILBER 13 12-2';
+  }
+  const r = parsePedigree(wordsToSegments(words), page);
+  assert.equal(r.dogs.size, 15);
+  assert.equal(r.dogs.get('sdd').registered_name, 'MRF WIGGLES BLUE 17 50-3');
+  assert.equal(r.dogs.get('ds').registered_name, 'MRF WILBER 13 12-2');
+  assert.equal(r.dogs.get('sd').registered_name, 'Dog SD', 'the box above keeps only its own lines');
+  assert.deepEqual(r.warnings, []);
 });

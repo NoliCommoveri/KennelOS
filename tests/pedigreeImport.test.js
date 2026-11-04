@@ -220,6 +220,7 @@ test('an AKC number matches with or without the four digits printed after it', (
 
 test('breeder: an all-caps name is name-cased; contacts match by name, case and punctuation ignored', () => {
   assert.equal(breederName('JAMIE COTTON'), 'Jamie Cotton');
+  assert.equal(breederName('MR. JOHNNY W SPENCE'), 'Johnny W Spence', 'honorific off');
   assert.equal(breederName("MARY O'NEIL"), "Mary O'Neil");
   assert.equal(breederName('Jo deVries'), 'Jo deVries', 'mixed case kept as printed');
   const contacts = [
@@ -252,4 +253,17 @@ test('commit: a breeder already on file is tagged Breeder, and her kennel become
   assert.equal(res.contactsCreated, 0);
   assert.deepEqual(tables.contacts.rows.get('c1').contact_type, ['co_owner', 'breeder']);
   assert.equal((await dogRepo.getById(res.subjects.A)).breeder_kennel_id, 'k9');
+});
+
+test('commit: the chart dog\'s microchip is saved, and only fills a blank one', async () => {
+  await tables.dogs.rows.set('own', { id: 'own', call_name: 'Laire', sex: 'male', breed: 'Boston Terrier',
+    ownership_type: 'external', owner_contact_id: 'c1', status: 'external_reference', registration_number: 'NR019857/06', microchip_id: '', is_archived: false });
+  const existing = await dogRepo.getAll({ includeArchived: true, includePedigreeOnly: true });
+  const plan = planImport({ existing, files: [
+    file('A', [dog('', 'DND Laire of Legacy', 'NR019857/06', { microchip_id: '900263007514602' })]),
+    file('B', [dog('', 'New Pup', 'NP000005/01', { microchip_id: '111222333444555' })])
+  ] });
+  const res = await commitImport(plan);
+  assert.equal((await dogRepo.getById('own')).microchip_id, '900263007514602');
+  assert.equal((await dogRepo.getById(res.subjects.B)).microchip_id, '111222333444555');
 });

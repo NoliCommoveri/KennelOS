@@ -940,20 +940,34 @@ device until it's clicked.
 **The Shows page** (Pro): Upcoming and Results tabs over `eventRepo.getByType('show')`;
 **+ Add entries** creates one event per picked dog × day, skipping duplicates.
 
+**Fixing a spot in a pedigree** (`assets/pedigree.js` `editable`, on the Pedigree page and a
+dog's Pedigree card, every edition): each ancestor box has a ✎ and each Unknown box a **+ Add**,
+opening a dialog for that spot (its child's `sire_id`/`dam_id`, `data/pedigreeEdit.js`): **Put
+here** a dog on file (`spotCandidates`: the spot's sex or none, grouped and A–Z, never the child
+or a dog that would make it its own ancestor, `wouldLoop`), or **A dog not in KennelOS** typed in
+(`addNewParent`: a new pedigree-only dog of the spot's sex and the child's breed, or the dog
+already holding that registration number), or **Clear this spot** (the dog stays on file). A
+pedigree-only dog recorded as the other sex is listed last and has its sex corrected when put
+there (its sex came only from where a chart put it), refused while it's still a parent the other
+way round; a dog that isn't pedigree-only never changes sex.
+
 **Pedigree import** (`pedigree-import.html`, every edition): PDFs or images are read in the
 browser, nothing uploaded. `data/pedigreeReader.js` uses the PDF.js text layer, or renders
 and OCRs the page. `data/pedigreeParse.js` (pure) turns positioned words into dogs by path
 (`''`, `s`, `d`, `sd`…). It reads the AKC Research Pedigree layout (one column per generation)
 and the AKC Certified Pedigree's (the dog's box between its sire's and dam's in the first
 column; numbers unslashed, `NP80670402 (05-24)`, stored slashed as `NP806704/02 05-24`;
-details run on across lines; colors abbreviated, `BLK BRDL & WH`, spelled out). `data/pedigreeImport.js` plans with the CSV rules: a registration
+details run on across lines; colors abbreviated, `BLK BRDL & WH`, spelled out). A line after a
+gap wider than a line space starts the next box and is read as its name, even an all-caps name
+with digits that reads like a detail (`MRF WILBER 13 12-2`). A chart's "Microchip:" line goes on its dog (`microchip_id`, only filling a
+blank one, like every field on an existing dog). `data/pedigreeImport.js` plans with the CSV rules: a registration
 number (`normReg`) is the key and merges automatically (an existing dog by any number it
 holds, `dogRegKeys`); a name alone never matches (same name → review, against every
 registered name a dog holds, `dogNameKeys`; numbers flagged as differing only by
 `registrationsConflict`); an existing dog only has blanks filled and keeps its parents. New dogs are
 saved pedigree-only. In Pro a chart can also be filed as a `pedigree` Document. Where the
-edition has contacts (`contactsSection`), each chart's breeder (`header.breeder`, an all-caps
-name put in name case, `breederName`) is saved as a contact: **Save the breeder as** on the
+edition has contacts (`contactsSection`), each chart's breeder (`header.breeder`, a leading Mr./Mrs./Ms./Miss/Dr. dropped and an
+all-caps name put in name case, `breederName`) is saved as a contact: **Save the breeder as** on the
 file card defaults to the one contact of that name on file (`matchBreederContacts`: case,
 spacing and punctuation ignored; several → each offered), else a new one, or **Don't add a
 contact**. The contact is tagged `breeder` (`ensureType`); one new name across charts is one
@@ -969,7 +983,12 @@ the only link.
 - Date-only fields are `YYYY-MM-DD`, compared lexicographically; "today" is local
   (`todayYMD`). Only `created_at`/`updated_at` are full ISO.
 - Money is decimal, never cents.
-- Pickers exclude archived by default. Vocabularies live only in `vocab.js`; dropdowns and
+- Pickers exclude archived by default. Every dog picker (sire/dam on the Dog, Litter and
+  Pairing forms; contract, sale, stud-service partner, heat-cycle dam, expense, document,
+  pedigree, Kels's tidy-up and Add dogs) lists dogs in one order, `dogRepo.pickerGroups`
+  drawn by `ui.dogOptgroups`: **Your dogs** (owned, co-owned), **Other dogs**, **Pedigree
+  only**, A–Z by the shown name within each, titles in front ignored. The stud-service "our
+  dog" picker (her own only) keeps males first. Vocabularies live only in `vocab.js`; dropdowns and
   badges both read it.
 
 ---
@@ -2866,7 +2885,7 @@ One dog or several in one go, the way the litter task takes several puppies. `st
    makes a new one. Changed details ask again.
 5. **Their parents** (`parents:<i>`, optional: "If you don't know yet, leave them as Not
    known"): mom and dad each **Not known**, one of the dogs being added, a dog on file of
-   that sex (same breed first), or one typed in, made pedigree-only: its **registered name**
+   that sex (grouped and A–Z, `pickerGroups`), or one typed in, made pedigree-only: its **registered name**
    (required, as the pedigree reads), registration number and call name (optional). It's
    looked up with `findDogMatches`: its number on a dog on file is that dog, picked for her
    (`resolveTypedParents`); the same name (call or registered, titles ignored, misspelled
@@ -3424,7 +3443,7 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
 - **Pups vs. litter:** a litter's pups with a blank sire/dam (fill from the litter) or a
   different one (use the litter's).
 - **No parents:** her own dog (owned, co-owned, leased in) not from one of her litters with a
-  blank sire/dam → pick a dog already on file (right sex, same breed first), or add one: hers
+  blank sire/dam → pick a dog already on file (right sex, grouped and A–Z, `pickerGroups`), or add one: hers
   (owned, in the dog's kennel; at Lite's cap she shows the usual upgrade notice, `renderUpgradeNudge`, and skips that parent) or somebody else's as a
   pedigree-only dog, asked by its registered name (required) and registration number (no
   call name). Either is looked up first with `dogSearch.findDogMatches` (both names, its
