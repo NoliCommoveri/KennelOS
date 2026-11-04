@@ -11,7 +11,7 @@ import {
   proposeQuestionImport, applyQuestionImport, columnsFor, normalizeHeader, isLocked,
   READY_TIMING_LABEL, formFaq, validateFaq, newFaqItem, matchingPrefKeys
 } from '../shared/data/waitlistForm.js';
-import { publicName, privateName, publicList, publicListText, publicWantsMore, pausedUntil } from '../shared/data/waitlistRules.js';
+import { publicName, privateName, publicList, publicListText, publicWantsMore, pausedUntil, publicProgram } from '../shared/data/waitlistRules.js';
 
 const ids = (qs) => qs.map((x) => x.id);
 let seq = 0;
@@ -261,6 +261,42 @@ test('public list: with public_show_paused, paused families show "Skipped until"
   // Off (the default): left out as before.
   assert.deepEqual(publicList(entries, K, new Map(), { today: TODAY, nameOf, config: {} }).map((r) => r.position), [1]);
   assert.equal(pausedUntil(entries[0], TODAY, null), null, 'not paused');
+});
+
+test('public list: with public_show_programs, a program with an icon and a description shows its icon, never its name', () => {
+  const programs = new Map([
+    ['early', { id: 'early', name: 'Early deposit', priority: 'ahead', public_icon: 'star', public_description: 'Paid a deposit before the litter was born.', fee_override: 0, notes: 'secret' }],
+    ['quiet', { id: 'quiet', name: 'Returning buyer', priority: 'ahead', public_icon: 'heart', public_description: '  ' }],
+    ['plain', { id: 'plain', name: 'Hardship', priority: 'standard', public_description: 'Fee waived.' }],
+    ['vet', { id: 'vet', name: 'Military', priority: 'standard', public_icon: 'medal', public_description: 'Thank you for serving.' }],
+    ['odd', { id: 'odd', name: 'Odd', priority: 'ahead', public_icon: 'rocket', public_description: 'x' }]
+  ]);
+  const entries = [
+    e('Ann Avery', '2026-01-01', { waitlist_program_id: 'plain' }),
+    e('Bob Bell', '2026-02-01', { waitlist_program_id: 'vet' }),
+    e('Cat Cole', '2026-05-01', { waitlist_program_id: 'early' }),
+    e('Dee Dunn', '2026-04-01', { waitlist_program_id: 'quiet' }),
+    e('Eve Ess', '2026-06-01', { waitlist_program_id: 'odd' }),
+    e('Fay Fox', '2026-06-02', { waitlist_program_id: 'early' })
+  ];
+  const nameOf = (x) => x.application.name;
+  const rows = publicList(entries, K, programs, { today: TODAY, nameOf, config: { public_show_programs: true } });
+  const by = Object.fromEntries(rows.map((r) => [r.name, r]));
+  assert.deepEqual(by['Cat C.'].program, { icon: 'star', about: 'Paid a deposit before the litter was born.' });
+  assert.deepEqual(by['Bob B.'].program, { icon: 'medal', about: 'Thank you for serving.' }, 'any program she gave an icon');
+  for (const n of ['Dee D.', 'Ann A.', 'Eve E.']) assert.equal('program' in by[n], false, `${n}: no description, no icon, or an unknown icon`);
+  assert.ok(!/secret|Early deposit|Military|Hardship/.test(JSON.stringify(rows)), 'never the name or notes');
+
+  const text = publicListText(rows, {});
+  assert.match(text, /^⭐ #2 Cat C\. · Either$/m);
+  assert.match(text, /^#1 Dee D\. · Either$/m);
+  assert.equal(text.match(/^⭐ Paid a deposit before the litter was born\.$/gm).length, 1, 'each icon explained once, below the list');
+  assert.match(text, /^🎖️ Thank you for serving\.$/m);
+
+  // Off (the default): nothing shows.
+  const off = publicList(entries, K, programs, { today: TODAY, nameOf, config: {} });
+  assert.ok(off.every((r) => !('program' in r)));
+  assert.equal(publicProgram(entries[2], programs, null), null);
 });
 
 test('readiness is a locked, required question her older stored forms get back', () => {

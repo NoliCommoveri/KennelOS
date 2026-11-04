@@ -157,6 +157,13 @@ table.list .tip { width: 1.8em; text-align: right; padding-left: 0; }
 .added-tip:hover, .added-tip:focus-visible, .added-tip.open { color: var(--text); border-color: var(--text-muted); }
 .added-tip::after { content: attr(data-tip); position: absolute; right: 0; bottom: calc(100% + 6px); white-space: nowrap; padding: 5px 8px; border-radius: 6px; background: var(--text); color: var(--surface); font-family: var(--font); font-size: 0.8rem; font-weight: 400; font-style: normal; line-height: 1.2; box-shadow: 0 2px 6px rgba(0,0,0,0.18); opacity: 0; pointer-events: none; transition: opacity 0.12s; z-index: 5; }
 .added-tip:hover::after, .added-tip:focus-visible::after, .added-tip.open::after { opacity: 1; }
+/* A program icon: its own narrow column left of the number. Its bubble wraps (a description, not a date)
+   and opens below, from the column's left edge, so it stays on a phone's screen. */
+table.list th.mark, table.list td.mark { width: 22px; padding-left: 4px; padding-right: 0; }
+table.list td.mark { position: relative; }
+.program-tip { position: static; width: 22px; height: 22px; border: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; vertical-align: -3px; }
+.program-tip svg { display: block; }
+.program-tip::after { right: auto; left: 0; bottom: auto; top: calc(100% - 4px); white-space: normal; width: max-content; max-width: min(260px, 70vw); text-align: left; }
 ul.places { list-style: none; padding: 0; margin: 8px 0 4px; }
 ul.places li { margin: 2px 0; }
 .pups { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }

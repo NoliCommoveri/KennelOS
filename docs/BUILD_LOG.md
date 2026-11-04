@@ -2628,3 +2628,29 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   their source, both stopped at their first line ("Loading…" forever). Each now starts
   with a one-line `__name` stand-in. Test added.
 
+- **Credit-covered deposits keep the credit's date (2026-11-04).** When a family's credit
+  for funds already received (e.g. an early deposit taken before the litter was born)
+  covers the whole deposit, Deposit received prefills the credit's date and saves it as
+  the sale's `deposit_date` (`confirmDeposit`'s `paidDate`), matching the date the
+  ledger files the credited deposit under; the offer, placement and next family's turn
+  stay dated today so a back-dated deposit can't start the next turn already overdue.
+- **Program badges on the public list (2026-11-04).** New Waitlist setting "Show program
+  badges on the public list" (`waitlist_config.public_show_programs`, off by default):
+  a family in an `ahead` program that has a description for families shows the program's
+  name as a badge by theirs, online and in the copied text, and tapping it shows the
+  description, so families see why someone who joined later is ahead. Standard programs
+  and ones without a description stay private. The Worker caps the badge's strings.
+  Waitlist Spec's privacy table gains the row. Tests added (client and cloud).
+- **Program icons instead of badges (2026-11-04).** Asked by the owner: the public list
+  shows no program names. A program gains an optional `public_icon` (new vocab
+  `WAITLIST_PROGRAM_ICON`, cloud field; drawings in new `assets/programIcons.js`, a copy
+  in the family pages), picked on the Programs page (a description for families is then
+  required). With the setting (renamed "Show program icons on the public list") on, any
+  program with an icon shows it left of the family's number; tapping it shows the
+  description. The copied text uses the icon's emoji with a key below the list. The
+  Worker passes on only a known icon and the description.
+- **Program icons on her own pages (2026-11-04).** The waitlist's program badge and a
+  family's Program row show the program's icon; the row says whether it shows on the
+  public list, or why not (setting off, or no description). `programIconHtml`.
+- **SW cache bumped to `kennelos-shell-v103` (2026-11-04)** for this batch (credit-dated
+  deposits, program icons on the public list and her pages).

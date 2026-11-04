@@ -385,6 +385,7 @@ export const CLOUD_FIELDS = {
         "pause_allowed",
         "priority",
         "public_description",
+        "public_icon",
         "respond_days_override",
         "updated_at"
       ],

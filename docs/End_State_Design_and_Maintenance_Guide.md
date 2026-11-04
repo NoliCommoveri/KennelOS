@@ -1705,11 +1705,20 @@ restored into Lite keeps its waitlist rows, dormant.
   balance. In the app: the entry page's **Credits** card (Add / Edit / Remove, used and
   remaining), the status card and Fee received (Kels's too) say what the credit covers (all
   of it: the credit's date is prefilled), and the pick and deposit dialogs say what it pays
-  of the deposit. A lost pup's carry-over (`paidBesidesCredits`) and a back-out's moved
+  of the deposit. When the credit covers the whole deposit, Deposit received prefills the
+  credit's date as the sale's `deposit_date` (`paidDate`) while the offer, placement and
+  next turn are dated today. A lost pup's carry-over (`paidBesidesCredits`) and a back-out's moved
   deposit carry only what was paid beyond the credit, which stays on the entry.
   Tests: `tests/receivedCredits.test.js`.
 - **`waitlist_programs`:** her named adjustments (fee override, `ahead` priority, pauses
   allowed, passes not counted, longer response window). Only she assigns them.
+  `public_icon` (vocab `WAITLIST_PROGRAM_ICON`: star, check, heart, ribbon, medal, shield,
+  paw; cloud; optional) is what the public list shows for its families (Public list, below);
+  the Programs page requires a description for families with one. The drawings are inline
+  SVG in `assets/programIcons.js` (`programIconHtml` draws one in her pages: the waitlist's
+  program badge, the Programs list, and the entry's Program row, which says whether it shows
+  on the public list), copied in `cloud/public/family/common.js`
+  (`tests/familyPages.test.js` pins the copy and the Worker's `PROGRAM_ICONS`).
 - **Settings** live in `Kennel.waitlist_config` (missing keys from
   `WAITLIST_CONFIG_DEFAULTS`), so they ride backups, including her application form
   (`form_questions[]`) and FAQ (`application_faq[]`).
@@ -1743,7 +1752,15 @@ it computes is stored.**
 - **Answer changes:** every change to `PREF_CHANGE_FIELDS` after `applied` is logged in
   `pref_change_log`. A narrower answer that would affect an open offer or next-in-line
   litter asks to confirm (`prefChangeEffect`).
-- **Public list** (`publicList`): `{ position, name, pref_sex, wants_more?, added }` only.
+- **Public list** (`publicList`): `{ position, name, pref_sex, wants_more?, added, program? }` only.
+  `program` (`publicProgram`) is `{ icon, about }`, only with `waitlist_config.public_show_programs`
+  on (Waitlist settings, "Show program icons on the public list"; off by default) and only
+  for a program with both a `public_icon` and a `public_description`; its name never shows.
+  Online the icon sits in its own column left of the number (there only when some row has
+  one), and its bubble (tap, hover or focus; below it) is the description
+  (`cloud/public/family/common.js`, `.program-tip`). The copied text puts the icon's emoji
+  before the number and each icon's description once below the list. The Worker passes on
+  only a known icon (`PROGRAM_ICONS`) and a description of at most 600 characters.
   `wants_more` (`publicWantsMore`, absent when empty) is what else the family narrowed, as
   short strings after the sex under "Wants": their breed only when the kennel has more than
   one (`kennelBreeds`), "Full registration" when their purposes take Full but rule out

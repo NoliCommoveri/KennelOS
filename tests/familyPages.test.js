@@ -6,13 +6,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import {
-  SEX_LABEL, READY_LABEL, PURPOSE_LABEL, purposesText, CREDIT_LABEL, rowMatches, fmtDate, possessive, publicListHtml, esc,
+  SEX_LABEL, READY_LABEL, PURPOSE_LABEL, purposesText, CREDIT_LABEL, rowMatches, fmtDate, possessive, publicListHtml, esc, PROGRAM_ICON_SVG as FAMILY_ICONS,
   parentsLine, upcomingItemHtml, availableItemHtml, photosLink, pupColumnsHtml, dogInfo, dogInfoHtml, infoBubble,
   litterLinkHtml, pupLinksHtml
 } from '../cloud/public/family/common.js';
-import { WAITLIST_PREF_SEX, WAITLIST_READY_TIMING, PLACEMENT_PURPOSE, FEE_CREDIT_POLICY } from '../shared/data/vocab.js';
+import { WAITLIST_PREF_SEX, WAITLIST_READY_TIMING, PLACEMENT_PURPOSE, FEE_CREDIT_POLICY, WAITLIST_PROGRAM_ICON } from '../shared/data/vocab.js';
+import { PROGRAM_ICON_SVG as APP_ICONS } from '../shared/assets/programIcons.js';
 import { ACTION_VOCAB } from '../cloud/src/familyActions.js';
-import { DECIDING_LABEL as SERVER_DECIDING } from '../cloud/src/familyPages.js';
+import { DECIDING_LABEL as SERVER_DECIDING, PROGRAM_ICONS as SERVER_ICONS } from '../cloud/src/familyPages.js';
 import { DECIDING_LABEL } from '../shared/data/waitlistRules.js';
 
 const asMap = (vocab) => Object.fromEntries(vocab.map((v) => [v.value, v.label]));
@@ -40,6 +41,23 @@ test('the turn holder\'s row: highlighted, "Currently deciding" for the name, se
     /<td>Female · Full registration · &lt;b&gt;<\/td>/, 'what else they narrowed, escaped');
   assert.match(html, /<tr class="mine">/);
   assert.match(publicListHtml([]), /No families to show right now/);
+});
+
+test('a program icon sits left of the number and opens her description, escaped; never a name', () => {
+  const html = publicListHtml([
+    { position: 1, name: 'Ann A.', pref_sex: 'any', added: '2026-01-01', program: { icon: 'star', about: 'Paid "early" & <first>' } },
+    { position: 2, name: 'Bo B.', pref_sex: 'any', added: '2026-01-02' }
+  ]);
+  assert.match(html, /<th class="mark"><span class="sr-only">Program<\/span><\/th><th>#<\/th>/);
+  assert.match(html, /<td class="mark"><button type="button" class="added-tip program-tip" aria-label="Paid &quot;early&quot; &amp; &lt;first&gt;" data-tip="Paid &quot;early&quot; &amp; &lt;first&gt;"><svg[^]*?<\/svg><\/button><\/td><td class="num">#1<\/td>/);
+  assert.match(html, /<td class="mark"><\/td><td class="num">#2<\/td>/);
+  assert.equal(/class="mark"/.test(publicListHtml([{ position: 1, name: 'Bo B.', pref_sex: 'any', added: '2026-01-01', program: { icon: 'rocket', about: 'x' } }])), false, 'no known icon, no column');
+});
+
+test('the family pages\' program icons match the app\'s, and the server\'s list matches the vocab', () => {
+  assert.deepEqual(FAMILY_ICONS, APP_ICONS);
+  assert.deepEqual(SERVER_ICONS, WAITLIST_PROGRAM_ICON.map((i) => i.value));
+  assert.deepEqual(Object.keys(APP_ICONS), WAITLIST_PROGRAM_ICON.map((i) => i.value));
 });
 
 test('search finds a family by name (any case, any accents), number or date added', () => {

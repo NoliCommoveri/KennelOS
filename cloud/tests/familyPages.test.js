@@ -385,6 +385,19 @@ test('the public list passes on what else a family narrowed as short strings onl
   assert.equal('wants_more' in b, false);
 });
 
+test('the public list passes on a program only as a known icon and a short description', () => {
+  const p = projection();
+  p.public_list = [
+    { position: 1, name: 'Ann A.', pref_sex: 'any', added: '2026-01-01', program: { icon: 'star', name: 'Early deposit', about: ` ${'x'.repeat(700)}`, fee_override: 0 } },
+    { position: 2, name: 'Bo B.', pref_sex: 'any', added: '2026-01-02', program: { icon: 'star', about: '' } },
+    { position: 3, name: 'Cy C.', pref_sex: 'any', added: '2026-01-03', program: { icon: '<script>', about: 'x' } },
+    { position: 4, name: 'Di D.', pref_sex: 'any', added: '2026-01-04', program: 'nope' }
+  ];
+  const [a, b, c, d] = listView(p).rows;
+  assert.deepEqual(a.program, { icon: 'star', about: 'x'.repeat(600) }, 'never the name');
+  for (const r of [b, c, d]) assert.equal('program' in r, false);
+});
+
 test('Coming up on the public list holds only what she switched on for the public', () => {
   const p = projection();
   p.upcoming = [
