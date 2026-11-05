@@ -31,7 +31,8 @@ moment-specific texts stay where they are (decided, Q4).
 
 ## 2. Where it lives
 
-**Data:** `Kennel.waitlist_config.policies`, an ordered list `[{ id, heading, body }]`,
+**Data:** `Kennel.waitlist_config.policies`, an ordered list `[{ id, heading, body, topic? }]`
+(`topic`: the starter topic it came from, optional, 2.1),
 default `[]`, plus `policies_updated` (`YYYY-MM-DD`, set when she saves a change).
 
 - Same shape as `application_faq`, so the list editor, validation (heading and body both,
@@ -60,7 +61,7 @@ to show it on, and no online application to agree on.
 
 ### 2.1 The common topics: how her waitlist runs (the owner's, 2026-11-05)
 
-**Start from common topics** adds these five, each with **suggested wording built from her
+**Start from common topics** adds these six, each with **suggested wording built from her
 own waitlist settings**, read at the moment she taps it, for her to edit. Nothing is
 published until she saves, and nothing is said that her settings don't do: a sentence
 whose setting is off or blank is left out. `[Kennel]` is her kennel's name; `{…}` is read
@@ -126,6 +127,28 @@ works as a pause.
 
 The fourth sentence is the owner's default (no going back once skipped); the hint under
 it says *"If you allow a skipped family back in after their pause, say so here."*
+
+**6. Business days and closed dates.** Which days count toward a deadline, and that her
+closed dates don't.
+
+> Deadlines on our waitlist count only the days we're open for business:
+> *(`open_days` set:)* {Monday through Friday}. *(Weekdays are named as a range where they
+> run together, else listed: "Monday, Wednesday and Friday".)*
+> *(every day open:)* every day of the week, including weekends.
+> We also close for holidays and other dates through the year; those days don't count
+> either, so a deadline that would land on one moves to our next open day. Your status
+> page always shows your exact deadline.
+
+- **Her closed dates aren't written into the text** (they change through the year and the
+  words would go stale). On the family pages, a policy started from this topic shows a
+  live line under her words: *"Upcoming closed dates: Dec 24–26, Jan 1"*, from the
+  projection's `closed_dates` (already published), shown while any are ahead and left out
+  when none are.
+- To know which policy that is, a row added from a topic keeps `topic: 'days'` (each
+  starter row keeps its topic id; an optional field, ignored when absent). If she deletes
+  that row, no closed-dates line shows anywhere.
+- Hint: *"From your settings: open Monday–Friday; 3 closed dates ahead. Change them in
+  Turns & offers."*
 
 **Not in the starter set**, though she can add any heading: backing out (her own
 **Backing out** text, Q4), the fee's refund (her **Fees & payment** settings, Q4), and the
@@ -231,7 +254,8 @@ policies there beyond them** (health guarantee, spay/neuter, take-back…).
 1. `WAITLIST_CONFIG_DEFAULTS.policies = []`, `policies_updated: null`;
    `waitlistPolicies(config)` and `validatePolicies` in `waitlistForm.js` beside `formFaq`;
    `POLICY_TOPICS` and `policyStarter(topic, config, kennel)` (2.1), pure, one test per
-   setting branch (fee or none, 1 pass or more, no-response on or off, open days or all).
+   setting branch (fee or none, 1 pass or more, no-response on or off, open days or all,
+   weekdays as a range or a list).
    Tests: cleaning, validation, defaults on an old config.
 2. The locked `policies_read` question in `formQuestions` (3.1): present only with a policy,
    dropped otherwise, last, `link: 'policies'`. Tests: old saved forms with and without
@@ -246,7 +270,8 @@ policies there beyond them** (health guarantee, spay/neuter, take-back…).
 6. Projection: `kennel.policies`, `policies_updated` (absent when empty), and in the form
    section. Test: shape, absent when empty, kennels kept apart.
 7. Family pages: list card, apply section with the linked box, status card with its
-   three links and the "updated" banner. Browser-test with the local Worker (`cloud/tests/helpers/serve.mjs`) at phone
+   three links and the "updated" banner, and the live closed-dates line under a `days`
+   policy. Browser-test with the local Worker (`cloud/tests/helpers/serve.mjs`) at phone
    width, with and without policies.
 8. `/f/site` feed: `policies`; Kels Layer 1 entries.
 9. Docs: End-State guide §29 (the field, the locked question, the group, the nudge, the

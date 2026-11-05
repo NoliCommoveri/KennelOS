@@ -2726,3 +2726,5 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   name shows, preferences that match no pup are skipped, passes and not responding, one
   deadline for the pick and the deposit, pausing with no going back once skipped), each with
   suggested wording built from her own settings and a note when those settings change.
+- A sixth starter topic: business days and closed dates (her open days in words; her
+  closed dates shown live under it on the family pages rather than written into the text).
