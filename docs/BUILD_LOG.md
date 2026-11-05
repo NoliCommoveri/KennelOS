@@ -2699,3 +2699,11 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   profiles (three co-owned dogs and their sire).
 - **SW cache bumped to `kennelos-shell-v105` (2026-11-04)** for Dog Cards.
 
+
+## 2026-11-05: Waitlist policies, planned
+
+- `docs/KennelOS_Waitlist_Policies_Plan.md`: one ordered list of her policies per kennel
+  (`waitlist_config.policies`), edited in a new **Policies** group in Kennel › Waitlist
+  settings with the FAQ's editor, shown on the public list, the application and the status
+  page (with links at the turn, the deposit and backing out), in the website feed, and to
+  Kels. Five questions open for the owner. Nothing built.
