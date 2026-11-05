@@ -4,7 +4,7 @@
 > every question). The common topics (2.1) are a draft the owner is adjusting. Where a breeder's waitlist policies live in KennelOS, how she writes them,
 > where families read them (the public list, the application, their status page, her
 > KennelPort website), and the application's "I've read the policies" box. Decisions
-> marked **Open** still need the owner.
+> are recorded in section 6.
 
 ## 1. What this is
 
