@@ -2885,3 +2885,17 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   for sync; new questions on updating a website and getting help. `about.html`: the service's
   list, and the digest's readable email. README Status: the deployed features marked live.
   Not done: `privacy.html` / `terms.html` (asked).
+
+## 2026-11-05: Privacy policy and terms for the newer features
+
+- `site/privacy.html` (last updated 5 November 2026): scope (§1); the digest's readable email
+  and support's access in the short version (§2); Dog Cards and the website link (§4); §9
+  rewritten for what the online waitlist now holds (policies, shared accounts, prices,
+  deposits, credits, pickup times and places, extras, a family's pickup location and its
+  90 days); new §9a (what goes to KennelPort, website and puppy portal), §9b (alerts and the
+  digest), §9c (help from support, with the automatic key hand-over's trade-off); emails (§11);
+  Apple/Google/Mozilla and KennelPort as providers (§12); retention (§13); choices (§15).
+- `site/terms.html` (last updated 5 November 2026): scope (§1); device sync and support's
+  access (§6); the breeder's responsibility for policies, prices, extras and pickup (§8); new
+  §8a (the KennelPort website); other services (§12); alerts aren't a guarantee (§13).
+- Wording approved by the owner. KennelPort is run by KennelOS.

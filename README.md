@@ -68,9 +68,6 @@ backup, carries a program from Lite to Pro.
     `WEBSITE_ORIGINS` in `cloud/wrangler.toml` (KennelPort Setup, Custom domains, step C).
   - Waitlist policies, the program suggested by an application answer, the do-not-sell list
     and transport accounts on the website: live.
-  - Marketing site (`site/`): brought up to date with these features; `privacy.html` and
-    `terms.html` don't cover device sync, alerts and the digest (which keeps her readable
-    email), the website and portal feeds, or support's access in assisted setup yet.
   - Puppy portal (KennelPort's `docs/Puppy_Parent_Portal_Plan.md`, guide §35.1): KennelOS's
     side of phase 1 is live (the family feed sent on its own, the facts back, the status
     page's one-tap link).
