@@ -70,10 +70,10 @@ backup, carries a program from Lite to Pro.
     staging. A breeder's own domain is added by hand to
     `WEBSITE_ORIGINS` in `cloud/wrangler.toml` (KennelPort Setup, Custom domains, step C).
   - Waitlist policies (`docs/KennelOS_Waitlist_Policies_Plan.md`): built here and on
-    KennelPort's side; needs a Worker deploy (both) and the SW cache bump.
+    KennelPort's side; needs a Worker deploy (both).
   - Program suggested by an application answer, and the do-not-sell list (guide §29): built;
     the new `do_not_sell` table needs the cloud Worker deployed **before** this app build
-    ships (live sync refuses an unknown table), then the SW cache bump.
+    ships (live sync refuses an unknown table).
   - Transport accounts on the website's Getting your pup home page (KennelPort plan 3.5):
     built on both sides; needs KennelPort's Worker deployed (migration 0026) before
     transport accounts go out.

@@ -2861,3 +2861,5 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   is no longer sent (its product leaves the site on the next Update website).
   `websiteGaps.accounts` offers transport accounts with a website too. The Accounts card's
   badge and the Show on website hint say where each goes. Tests in `siteExport`.
+
+- **SW cache bumped to `kennelos-shell-v109` (2026-11-05)** for the waitlist policies, See Your Details tint, the "DAM" pedigree fix, programs suggested by an answer, the do-not-sell list and transport accounts on the website.
