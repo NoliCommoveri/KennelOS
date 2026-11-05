@@ -1,7 +1,7 @@
 # KennelOS — Waitlist Policies: plan
 
-> Status: **KennelOS side built** (2026-11-05; End-State guide §29, *Her waitlist
-> policies*). Not built: KennelPort's side (section 4) and Kels Layer 1 entries (the Family
+> Status: **built** (2026-11-05): KennelOS (End-State guide §29, *Her waitlist policies*) and
+> KennelPort's side (section 4, its BUILD_LOG). Not built: Kels Layer 1 entries (the Family
 > Help plan's Layer 1 isn't built yet). Where a breeder's waitlist policies live in KennelOS, how she writes them,
 > where families read them (the public list, the application, their status page, her
 > KennelPort website), and the application's "I've read the policies" box. Decisions
