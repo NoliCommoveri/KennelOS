@@ -2722,3 +2722,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - Policies plan: every question answered. A banner on a family's page when she changes her
   policies after they applied (until they open them); the fee and back-out texts stay
   separate; Pro only. The common topics list is the owner's to adjust.
+- Policies plan §2.1 rewritten to the owner's five topics (applications and the fee before a
+  name shows, preferences that match no pup are skipped, passes and not responding, one
+  deadline for the pick and the deposit, pausing with no going back once skipped), each with
+  suggested wording built from her own settings and a note when those settings change.

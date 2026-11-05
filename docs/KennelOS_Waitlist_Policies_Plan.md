@@ -52,32 +52,90 @@ to show it on, and no online application to agree on.
 - Rows: heading + body, up/down, delete, **+ Add a policy**: the FAQ editor's controls,
   pulled out of `pages/waitlist-form.js` into a shared asset (`assets/qaListEditor.js`) and
   used in both places.
-- **Start from common topics** (while the list is empty): adds the headings in section 2.1,
-  each with an empty body and a hint. Headings only; she writes every word, nothing is
-  invented in her name.
+- **Start from common topics** (while the list is empty): adds section 2.1's five topics
+  with suggested wording from her own settings, all editable, nothing published until she
+  saves.
 - Under the list: *"Your contract is the final word. Keep these in step with it."* and
   *"Applicants tick that they've read these (Application form)."*
 
-### 2.1 The common topics: how her waitlist runs (draft: the owner is adjusting this list)
+### 2.1 The common topics: how her waitlist runs (the owner's, 2026-11-05)
 
-Each hint names what families ask and, where it applies, **her own setting**, read live, so
-what she writes matches what KennelOS does:
+**Start from common topics** adds these five, each with **suggested wording built from her
+own waitlist settings**, read at the moment she taps it, for her to edit. Nothing is
+published until she saves, and nothing is said that her settings don't do: a sentence
+whose setting is off or blank is left out. `[Kennel]` is her kennel's name; `{…}` is read
+from `waitlist_config`. Business days are her open days (`open_days`, `closed_dates`);
+with every day open the wording says "days".
 
-| Heading | Hint (her settings filled in) |
-|---|---|
-| **Application fee** | Is it refundable? Does it come off the price? *(Your settings: $300, credited toward the deposit.)* |
-| **Your place on the list** | How order is kept: approval date, fee received, programs first. |
-| **When it's your turn** | How long they have to answer *(you give 3 days)*, how a pick is made, what happens with no answer. |
-| **Passing** | How many litters they may pass *(you allow 2)* and what happens after the last one. |
-| **Pausing and readiness** | Pausing keeps their place; a later readiness answer holds offers until then. |
-| **Deposits** | When it's due after a pick, refundable or not, what it holds. |
-| **Removal from the waitlist** | What removes a family: no answer to a turn, passes used up, false information, conduct. Whether fees are kept. |
-| **Backing out** | What they can expect if they back out *(the full words on Need to back out? stay hers in Backing out)*. |
-| **The public list** | What others see (first name, last initial, preferences) and that contact details never show. |
+**1. Applications.** Approval is at her discretion; with a fee, no name shows on the list
+until the fee is marked received.
 
-The fee hint reads `fee_amount`, `fee_credit_policy` and `fee_credit_toward`; the turn hint
-`respond_days` (and her open days); passing `max_passes`. A setting she hasn't set leaves
-its part of the hint out.
+> Every application is reviewed, and approval is at [Kennel]'s discretion.
+> *With a fee (`fee_amount` > 0):* Once you're approved, your ${fee_amount} application fee
+> *(`fee_due_days` set:)* is due within {fee_due_days} days, and it must be received and
+> marked received by us before your name appears on the waitlist. Your place in line counts
+> from the day your fee is received.
+> *No fee:* Your place in line counts from the day you're approved.
+
+**2. Preferences.** Families whose preferences match no available pup in a litter are
+skipped for it, without an offer, so every eager family is offered as quickly as possible.
+
+> So that every family on our list gets their offer as quickly as possible, a family whose
+> preferences don't match any available puppy in a litter is skipped for that litter. You
+> won't be offered a puppy from it, and being skipped this way never counts as a pass.
+> Please choose your preferences carefully: a preference that rules out most puppies can
+> mean a long wait. You can ask to change them from your status page.
+> *(`color_matching` on:)* Color preferences count too.
+
+**3. Passes and not responding.** How many passes, what happens at each, and a missed
+deadline.
+
+> When it's your turn, you can pass on a litter and keep your place.
+> *(`max_passes` = 1:)* Passing removes you from the waitlist.
+> *(`max_passes` ≥ 2:)* You can pass {max_passes − 1} time(s); your {max_passes}th pass
+> removes you from the waitlist.
+> *(`no_response_counts_as_pass` on:)* Not responding by your deadline counts as a pass.
+> *(off:)* If you don't respond by your deadline, the turn moves to the next family and
+> [Kennel] will be in touch.
+> When a family is removed, any application fee is not returned and re-joining means a
+> new application. *(Only when `fee_credit_policy` is non-refundable; otherwise the fee
+> sentence is left out, since her fee setting says otherwise.)*
+
+**4. Picking your puppy.** One deadline covers both the pick and the deposit; what happens
+if it's missed.
+
+> When it's your turn you'll have {respond_days} business days, until the end of the day
+> on your deadline ({time zone} time), to choose your puppy **and** have your deposit
+> received by [Kennel]. Choosing without the deposit received by then doesn't hold the
+> puppy.
+> *(`no_response_counts_as_pass` on:)* If both aren't done by your deadline, it counts as a
+> pass and the turn moves to the next family.
+> *(off:)* If both aren't done by your deadline, the turn moves to the next family.
+
+**5. Pausing.** A paused family is not offered pups and is skipped, even if they change
+their mind, unless they tell her before their turn; the "When will you be ready?" answer
+works as a pause.
+
+> You can pause from your status page when you're not ready for a puppy. While you're
+> paused you will **not** be offered puppies: every litter that comes up during your pause
+> skips you, and you keep your place. If you change your mind, you must let [Kennel] know
+> and have your pause ended **before** your turn comes up. A litter that has already
+> skipped you won't be offered to you afterwards.
+> Your answer to "{ready_timing question's label}" works the same way: anything but
+> "ASAP" pauses you until then.
+
+The fourth sentence is the owner's default (no going back once skipped); the hint under
+it says *"If you allow a skipped family back in after their pause, say so here."*
+
+**Not in the starter set**, though she can add any heading: backing out (her own
+**Backing out** text, Q4), the fee's refund (her **Fees & payment** settings, Q4), and the
+public list.
+
+**Hint wording** (grey, under each body while she edits): what families most often ask
+about it, and the settings it read, e.g. *"From your settings: 3 business days, 2 passes,
+no response counts as a pass."* If she later changes a setting the text quoted, the group
+shows *"Your settings changed since you wrote this: passes are now 3"* beside that
+policy, without changing her words.
 
 ## 3. Where families read it
 
@@ -172,15 +230,18 @@ policies there beyond them** (health guarantee, spay/neuter, take-back…).
 
 1. `WAITLIST_CONFIG_DEFAULTS.policies = []`, `policies_updated: null`;
    `waitlistPolicies(config)` and `validatePolicies` in `waitlistForm.js` beside `formFaq`;
-   `POLICY_TOPICS` (2.1). Tests: cleaning, validation, defaults on an old config.
+   `POLICY_TOPICS` and `policyStarter(topic, config, kennel)` (2.1), pure, one test per
+   setting branch (fee or none, 1 pass or more, no-response on or off, open days or all).
+   Tests: cleaning, validation, defaults on an old config.
 2. The locked `policies_read` question in `formQuestions` (3.1): present only with a policy,
    dropped otherwise, last, `link: 'policies'`. Tests: old saved forms with and without
    policies; deleting the last policy; a stored copy with no policies; required online,
    not on her typed-in form or CSV.
 3. Shared editor (`assets/qaListEditor.js`) out of `waitlist-form.js`; the FAQ uses it
    unchanged. New file → `shared/sw.js` `PRECACHE_URLS`.
-4. Kennel › Waitlist settings › **Policies**: editor, Start from common topics with live
-   hints, `policies_updated` on save. Kels knowledge entry.
+4. Kennel › Waitlist settings › **Policies**: editor, Start from common topics with the
+   starter wording, the hints and *"Your settings changed since you wrote this"*,
+   `policies_updated` on save. Kels knowledge entry.
 5. Today nudge (3.2) in `nudges.js`, with its test.
 6. Projection: `kennel.policies`, `policies_updated` (absent when empty), and in the form
    section. Test: shape, absent when empty, kennels kept apart.
