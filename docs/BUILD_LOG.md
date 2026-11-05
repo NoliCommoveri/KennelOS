@@ -2871,3 +2871,17 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   portal's feed while setting her up; before, it refused with "license has lapsed". Connect
   website had no license check. Test in `siteExport`. Assisted setup plan §3 and the guide
   say so. KennelPort now lets a site's editor make the link code. SW cache bump not done: asked.
+
+## 2026-11-05: Marketing site brought up to date
+
+- `site/index.html`: three new feature cards (the waitlist, devices in step, Kels), the
+  "where your data lives" line names every opt-in that sends data, the Pro card's list, Kels
+  in Getting started, and a KennelPort website callout. `pro.html`: five new cards (devices
+  in step and Get help, the KennelPort website and portal, alerts and the digest, Jotform
+  and Stripe, shows and more kennels), the waitlist card's policies, family requests and
+  do-not-sell list, Dog Cards and KennelAssistant in Share-out. `editions.html`: rows for
+  each of those, and Kels in both editions. `lite.html`: Kels included, the new Pro features
+  under What's not in Lite. `faq.html`: the phone-and-computer and two-people answers rewritten
+  for sync; new questions on updating a website and getting help. `about.html`: the service's
+  list, and the digest's readable email. README Status: the deployed features marked live.
+  Not done: `privacy.html` / `terms.html` (asked).

@@ -60,27 +60,20 @@ backup, carries a program from Lite to Pro.
     through `0016` applied; `0017` (the R2 orphan sweep's state), `0019` (email counts for
     /ops) and `0020` (deleted accounts' token hashes; assisted setup and the manager app) are waiting
     to be applied from /ops after the next Worker deploy. Staging isn't in use, so deploys there aren't tracked.
-  - Notifications (app alerts and the email digest): built. Next: generate the push key on
-    /ops and add it as the `VAPID_PRIVATE_JWK` secret, apply migration `0018` after the
-    Worker deploy, then check alerts on a real Android phone and an iPhone.
+  - Notifications (app alerts and the email digest): live.
   - Family requests (`docs/KennelOS_Family_Requests_Plan.md`): extras, transport suggestions,
-    training stays, pickup and backing out are built, and Kels's Review my waitlist works through them. Needs a Worker deploy and the `MAPBOX_TOKEN` secret for driving miles.
+    training stays, pickup and backing out are live, and Kels's Review my waitlist works through them.
   - KennelPort website (`docs/End_State_Design_and_Maintenance_Guide.md` §35): the feed and
-    Connect / Update website are built; needs a Worker deploy and a try against KennelPort
-    staging. A breeder's own domain is added by hand to
+    Connect / Update website are live. A breeder's own domain is added by hand to
     `WEBSITE_ORIGINS` in `cloud/wrangler.toml` (KennelPort Setup, Custom domains, step C).
-  - Waitlist policies (`docs/KennelOS_Waitlist_Policies_Plan.md`): built here and on
-    KennelPort's side; needs a Worker deploy (both).
-  - Program suggested by an application answer, and the do-not-sell list (guide §29): built;
-    the new `do_not_sell` table needs the cloud Worker deployed **before** this app build
-    ships (live sync refuses an unknown table).
-  - Transport accounts on the website's Getting your pup home page (KennelPort plan 3.5):
-    built on both sides; needs KennelPort's Worker deployed (migration 0026) before
-    transport accounts go out.
+  - Waitlist policies, the program suggested by an application answer, the do-not-sell list
+    and transport accounts on the website: live.
+  - Marketing site (`site/`): brought up to date with these features; `privacy.html` and
+    `terms.html` don't cover device sync, alerts and the digest (which keeps her readable
+    email), the website and portal feeds, or support's access in assisted setup yet.
   - Puppy portal (KennelPort's `docs/Puppy_Parent_Portal_Plan.md`, guide §35.1): KennelOS's
-    side of phase 1 is built (the family feed sent on its own, the facts back, the status
-    page's one-tap link). Next is phase 1's gate: one litter from signed contract to the vet
-    visit against KennelPort, after a Worker deploy.
+    side of phase 1 is live (the family feed sent on its own, the facts back, the status
+    page's one-tap link).
   - Shared dogs (`docs/KennelOS_Shared_Dogs_Plan.md`): Dog Cards (phase 1) are built. Next:
     phase 2, live updates through the cloud, after owner decisions.
   - Duplicates: Import/Export's Scan for duplicates covers every record type. Open: Kels's
