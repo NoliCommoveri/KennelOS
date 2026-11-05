@@ -2707,3 +2707,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   settings with the FAQ's editor, shown on the public list, the application and the status
   page (with links at the turn, the deposit and backing out), in the website feed, and to
   Kels. Five questions open for the owner. Nothing built.
+- Revised with the owner's answers: the common topics are about how her waitlist runs (the
+  fee, turns, passing, removal…), with hints from her own settings; her KennelPort website
+  shows them beside policies of its own; an "I've read the policies" box on the
+  application, a locked question present only while she has a policy, "policies" linking
+  back to them; a dismissible Today nudge for kennels without any. Q3–Q5 still open.
