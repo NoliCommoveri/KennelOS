@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeEnv, call, signIn } from './helpers/env.js';
 
-const { statusView, listView, FAMILY_LIMITS } = await import('../src/familyPages.js');
+const { statusView, listView, formView, FAMILY_LIMITS } = await import('../src/familyPages.js');
 
 const KENNEL = 'kos1_11111111-2222-4333-8444-555555555555';
 const tok = (c) => c.repeat(64);
@@ -671,4 +671,36 @@ test("a litter's website page reaches its turn as `page: true`, only with a link
   p.litters.l1.page = true;
   const bad = statusView(p, 'ann').offers[0];
   assert.deepEqual(['photos_url' in bad, 'page' in bad], [false, false]);
+});
+
+test('her waitlist policies: on the list, every family page, the form and her website feed; cleaned; absent when none', () => {
+  const none = projection();
+  assert.equal(listView(none).kennel.policies, undefined);
+  assert.equal(statusView(none, 'ann').kennel.policies, undefined);
+  const p = projection();
+  p.kennel.policies = [
+    { id: 'pol_a', heading: 'Applications', body: 'Approval is at our discretion.', topic: 'applications', basis: { fee_amount: 300 } },
+    { id: 'pol_d', heading: 'Business days', body: 'Deadlines count open days.', topic: 'days' },
+    { id: 'pol_x', heading: 'No body', body: '' },
+    { id: 'pol_t', heading: 'Odd topic', body: 'Kept, topic dropped.', topic: '<script>' },
+  ];
+  p.kennel.policies_updated = '2026-11-01';
+  p.kennel.closed_dates = ['2000-01-01', '2999-12-26', '2999-12-24', '2999-12-25', 'nope'];
+  const want = [
+    { id: 'pol_a', heading: 'Applications', body: 'Approval is at our discretion.', topic: 'applications' },
+    { id: 'pol_d', heading: 'Business days', body: 'Deadlines count open days.', topic: 'days' },
+    { id: 'pol_t', heading: 'Odd topic', body: 'Kept, topic dropped.' },
+  ];
+  const list = listView(p).kennel;
+  assert.deepEqual(list.policies, want, 'her editing notes (basis) never published');
+  assert.equal(list.policies_updated, '2026-11-01');
+  assert.deepEqual(list.closed_dates, ['2999-12-24', '2999-12-25', '2999-12-26'], 'only dates ahead, in order');
+  assert.deepEqual(statusView(p, 'ann').kennel.policies, want);
+  assert.deepEqual(statusView(p, 'cy').kennel.policies, want, 'a placed family too');
+  p.kennel.form = { open: true, key_id: 'fk', public_key: 'pk', questions: [{ id: 'policies_read', key: 'policies_read', label: 'Please read our waitlist policies.', type: 'checkboxes', required: true, options: ["I've read and agree to the policies"], link: 'policies' }] };
+  const form = formView(p).form;
+  assert.deepEqual(form.policies, want);
+  assert.equal(form.questions[0].link, 'policies');
+  p.kennel.policies = [want[0]];
+  assert.equal(listView(p).kennel.closed_dates, undefined, 'no business-days policy: no closed dates');
 });

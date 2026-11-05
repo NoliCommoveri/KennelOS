@@ -4,7 +4,7 @@
 // signs in with a code emailed to the address on their application, and this
 // browser remembers them for 90 days. Inside her own website (embedded.js), the
 // form and a family's status page open in a new tab instead.
-import { esc, fetchJson, fmtDate, loadError, publicListHtml, possessive, upcomingListHtml, availableItemHtml } from './common.js';
+import { esc, fetchJson, fmtDate, loadError, publicListHtml, possessive, upcomingListHtml, availableItemHtml, policiesHtml, openPolicy } from './common.js';
 import { rememberFamily, rememberedFamily, forgetFamily } from './session.js';
 import { EMBEDDED, setupEmbed, outward } from './embedded.js';
 
@@ -102,6 +102,11 @@ async function load() {
   }
   $('content').hidden = false;
   // Litters with open picks, as on a family's own page (decided 2026-10-10).
+  if (kennel.policies?.length) {
+    $('policies').innerHTML = `<summary><h2>Our Waitlist Policies</h2></summary>${kennel.policies_updated ? `<p class="small muted mt0">Updated ${esc(fmtDate(kennel.policies_updated))}</p>` : ''}${policiesHtml(kennel)}`;
+    $('policies').hidden = false;
+    if (location.hash === '#policies') openPolicy($('policies'));
+  }
   if (available.length) {
     $('available').innerHTML = `<summary><h2>Available Puppies</h2></summary><ul class="plain">${available.map((l) => `<li>${availableItemHtml(l)}</li>`).join('')}</ul>`;
     $('available').hidden = false;

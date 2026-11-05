@@ -13,7 +13,8 @@
 // can't read them.
 import {
   esc, fmtDate, money, fetchJson, loadError, publicListHtml, possessive, upcomingItemHtml, upcomingFootHtml, litterHtml, availableItemHtml, deadlineText, fmtShortDate, parentsLine, litterLinkHtml, pupLinksHtml,
-  SEX_LABEL, pupRegistration, READY_LABEL, PURPOSE_LABEL, purposesText, CREDIT_LABEL, confirmDialog
+  SEX_LABEL, pupRegistration, READY_LABEL, PURPOSE_LABEL, purposesText, CREDIT_LABEL, confirmDialog,
+  policiesHtml, policyAbout, openPolicy
 } from './common.js';
 import { rememberedFamily, forgetFamily } from './session.js';
 import { seal } from './seal.js';
@@ -273,6 +274,7 @@ function turnHtml(rows) {
         ${deadline ? `<p class="mt0"><strong>${esc(deadline)}</strong></p>` : ''}
         ${o.deposit_instructions ? `<p class="small muted mt8">How to pay:</p><p class="pre mt0 small">${esc(o.deposit_instructions)}</p>` : ''}
         <p class="small muted">${esc(kennel)} will also send your contract and invoice.</p>
+        ${policyLink('Our policy on picking and deposits', ['deposit', 'pick'])}
       </div>`;
   };
   let next;
@@ -295,6 +297,7 @@ function turnHtml(rows) {
     ${rows.some((o) => o.prices) ? '<p class="small muted mt0">Listed prices are intended base purchase price and may not include additional fees; all prices are subject to change prior to contract signing.</p>' : ''}
     ${rows.map((o) => `<div class="turn-litter"><p class="mt0"><strong>${esc(o.litter)}</strong>${o.breed ? ` <span class="small muted">${esc(o.breed)}</span>` : ''}</p>${parentsLine(o.dam, o.sire)}${litterLinkHtml(o)}${pupsOf(o)}</div>`).join('')}
     ${next}
+    ${showsDeadline ? '' : policyLink('Before you choose: our policies on picking and passing', ['pick', 'pass', 'turn'])}
     ${respondBy && !showsDeadline ? `<p class="deadline"><strong>${esc(deadlineText(respondBy, v.kennel.time_zone))}</strong></p>` : ''}`, 'turn');
 }
 
@@ -795,6 +798,41 @@ function pickupHtml(f) {
 
 // Backing out (Family Requests plan §7): they tell her why; her policy text first.
 // Nothing changes until she decides, and their page shows what she decided.
+// --- Her waitlist policies (Waitlist Policies plan §3) -------------------------------
+
+const hasPolicies = () => Boolean(state.v?.kennel?.policies?.length);
+// Which update of her policies this browser has seen (the banner's "Got it", or
+// opening them). Storage blocked or empty: the banner just stays.
+const seenKey = () => `kos-policies-seen:${state.v?.kennel?.public_id || ''}`;
+function policiesSeen() { try { return localStorage.getItem(seenKey()) || ''; } catch { return ''; } }
+function markPoliciesSeen() {
+  const at = state.v?.kennel?.policies_updated;
+  if (!at || policiesSeen() >= at) return;
+  try { localStorage.setItem(seenKey(), at); } catch { /* private window */ }
+  render();
+}
+// "Updated" banner: she changed them after they applied (they agreed to the earlier
+// wording, or none), and this browser hasn't opened them since.
+function policiesBanner(f) {
+  const at = state.v.kennel.policies_updated;
+  if (!hasPolicies() || !at || !f.applied_date || at <= f.applied_date || policiesSeen() >= at) return '';
+  return `<div class="card policies-updated" role="status"><p>${esc(state.v.kennel.name)} updated their waitlist policies on ${esc(fmtDate(at))}.</p>
+    <div class="actions mt0"><button type="button" class="secondary small" data-policy-link="">Read what changed</button><button type="button" class="linkish small" data-act="policies-seen">Got it</button></div></div>`;
+}
+function policiesCard() {
+  if (!hasPolicies()) return '';
+  const k = state.v.kennel;
+  const key = 'Our Waitlist Policies';
+  return `<details class="card collapsible" id="policies" data-key="${esc(key)}"${state.opened.has(key) ? ' open' : ''}><summary><h2>${esc(key)}</h2></summary>
+    ${k.policies_updated ? `<p class="small muted mt0">Updated ${esc(fmtDate(k.policies_updated))}</p>` : ''}${policiesHtml(k)}</details>`;
+}
+// A short link at a moment that costs money, opening the policy about it (or the card).
+function policyLink(text, words) {
+  if (!hasPolicies()) return '';
+  const p = words ? policyAbout(state.v.kennel, words) : null;
+  return `<p class="small mt8"><a href="#policies" class="policies-link" data-policy-link="${esc(p?.id || '')}">${esc(text)}</a></p>`;
+}
+
 function backOutHtml(f) {
   const bo = f.back_out;
   if (!bo?.available) return '';
@@ -817,6 +855,7 @@ function backOutHtml(f) {
   const reasons = k.back_out_reasons || [];
   return openCard('Backing out', `
     ${k.back_out_policy_text ? `<p class="mt0 pre">${esc(k.back_out_policy_text)}</p>` : ''}
+    ${policyLink('Our full waitlist policies', ['back'])}
     <form data-form="back_out" class="mt8">
       <fieldset class="q"><legend>Why do you need to back out?</legend>
         ${reasons.map((r) => `<label class="choice"><input type="radio" name="reason_id" value="${esc(r.id)}"> ${esc(r.label)}</label>`).join('')}
@@ -907,6 +946,7 @@ function mineHtml() {
   // No badge for a family on the list: being on it is why they're here.
   const parts = f.status === 'active' ? [] : [`<p><span class="badge ${st.badge}">${esc(st.label)}</span></p>`];
   if (state.flash) parts.push(`<p class="card notice-card small" role="status">${esc(state.flash)}</p>`);
+  if (!f.portal?.only) parts.push(policiesBanner(f));
   // Picked up: the portal has taken over, and this page is only its link.
   if (f.portal?.only) {
     parts.push(portalHtml(f));
@@ -923,6 +963,7 @@ function mineHtml() {
     parts.push(transportHtml());
     parts.push(recommendedHtml());
     parts.push(emailsHtml());
+    parts.push(policiesCard());
     parts.push(backOutHtml(f));
     return parts.join('');
   }
@@ -995,6 +1036,7 @@ function mineHtml() {
 
   parts.push(card('What you asked for', prefsHtml(f) + privateNameHtml(f)));
   parts.push(emailsHtml());
+  parts.push(policiesCard());
   parts.push(messageHtml());
   parts.push(messengerHtml());
   parts.push(recommendedHtml());
@@ -1311,7 +1353,13 @@ async function load() {
 
   if (!wired) {
     wired = true;
-    $('mine').addEventListener('click', (ev) => { onClick(ev).catch(() => {}); });
+    $('mine').addEventListener('click', (ev) => {
+      const link = ev.target.closest('[data-policy-link]');
+      if (link) { ev.preventDefault(); markPoliciesSeen(); openPolicy($('policies'), link.dataset.policyLink || null); return; }
+      if (ev.target.closest('[data-act="policies-seen"]')) { markPoliciesSeen(); return; }
+      onClick(ev).catch(() => {});
+    });
+    $('mine').addEventListener('toggle', (ev) => { if (ev.target.id === 'policies' && ev.target.open) markPoliciesSeen(); }, true);
     $('mine').addEventListener('submit', (ev) => { onSubmit(ev).catch(() => {}); });
     if (v.public_list.length) {
       $('tabs').hidden = false;

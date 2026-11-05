@@ -2765,3 +2765,58 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **SW cache bumped to `kennelos-shell-v108` (2026-11-04)** for pedigree import's names with
   digits, breeder honorific and microchip, the one dog-picker order, and fixing a spot in a
   pedigree.
+
+## 2026-11-05: Waitlist policies, planned
+
+- `docs/KennelOS_Waitlist_Policies_Plan.md`: one ordered list of her policies per kennel
+  (`waitlist_config.policies`), edited in a new **Policies** group in Kennel › Waitlist
+  settings with the FAQ's editor, shown on the public list, the application and the status
+  page (with links at the turn, the deposit and backing out), in the website feed, and to
+  Kels. Five questions open for the owner. Nothing built.
+- Revised with the owner's answers: the common topics are about how her waitlist runs (the
+  fee, turns, passing, removal…), with hints from her own settings; her KennelPort website
+  shows them beside policies of its own; an "I've read the policies" box on the
+  application, a locked question present only while she has a policy, "policies" linking
+  back to them; a dismissible Today nudge for kennels without any. Q3–Q5 still open.
+
+## 2026-11-05: The public list's See Your Details stands out
+
+- On the public waitlist page, **Current Applicants: See Your Details** (the card families
+  need most, among several folded cards) is tinted in the soft accent with an accent edge
+  and heading; its inputs stay on the plain surface. Uses the page's own colour tokens, so
+  light, dark and a forced theme all follow (`cloud/public/family/family.css`).
+- Policies plan: every question answered. A banner on a family's page when she changes her
+  policies after they applied (until they open them); the fee and back-out texts stay
+  separate; Pro only. The common topics list is the owner's to adjust.
+- Policies plan §2.1 rewritten to the owner's five topics (applications and the fee before a
+  name shows, preferences that match no pup are skipped, passes and not responding, one
+  deadline for the pick and the deposit, pausing with no going back once skipped), each with
+  suggested wording built from her own settings and a note when those settings change.
+- A sixth starter topic: business days and closed dates (her open days in words; her
+  closed dates shown live under it on the family pages rather than written into the text).
+
+## 2026-11-05: Waitlist policies (KennelOS side)
+
+- `waitlist_config.policies` and `policies_updated` (defaults `[]`, `null`); edited in Kennel ›
+  Waitlist settings › **Policies**, between Fees & payment and Turns & offers, only while the
+  list can go online. The FAQ's row editor moved to `assets/qaListEditor.js` and is shared.
+- **Start from common topics**: the owner's six (applications, preferences, passes and not
+  responding, picking your puppy, pausing, business days and closed dates), worded from her
+  settings by `data/waitlistPolicies.js`; each row notes when a setting it quoted changes.
+- The locked application question `policies_read` ("Please read our waitlist policies.", one
+  required box), on the form only while she has a policy; "policies" links up to them.
+- Today nudge *"Add your waitlist policies"* for kennels with the list online and none.
+- Published (`kennel.policies`, the form question's `link`), allow-listed by the Worker
+  (`policiesOf`) for the public list, status pages and the form; shown on all three: a
+  folded card, links at the turn, the deposit and backing out, an "updated" banner for
+  families who applied before her last change, and her upcoming closed dates under a
+  business-days policy.
+- Tests: `waitlistPolicies.test.js` (new), additions to `waitlistProjection` and the Worker's
+  `familyPages`. Checked in a browser at phone width: Today, the Policies group (starter,
+  hints, changed-setting note), the form editor, and the three family pages.
+- Precache: `data/waitlistPolicies.js`, `assets/qaListEditor.js` (and `app.css` changed).
+  SW cache bump not done: asked.
+- The Policies group says when its list isn't saved: after Start from common topics,
+  *"Suggestions only until you tap Save below: nothing is on your application or shown to
+  families yet"*; after any other edit, *"Not saved yet…"*. Cleared on Save.
+

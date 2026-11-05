@@ -1757,6 +1757,48 @@ restored into Lite keeps its waitlist rows, dormant.
 - **Settings** live in `Kennel.waitlist_config` (missing keys from
   `WAITLIST_CONFIG_DEFAULTS`), so they ride backups, including her application form
   (`form_questions[]`) and FAQ (`application_faq[]`).
+- **Her waitlist policies** (`docs/KennelOS_Waitlist_Policies_Plan.md`, Pro, only while the
+  list can go online): `waitlist_config.policies[]` (`{ id, heading, body, topic?, basis? }`,
+  cleaned by `waitlistForm.waitlistPolicies`, `validatePolicies` heading and body both or
+  neither) and `policies_updated` (YYYY-MM-DD, set by the Save when a heading or body
+  changed). Edited in **Kennel › Waitlist settings › Policies** (`kennel.js`, a working copy
+  `policiesDraft` redrawn on its own) with the FAQ's editor, now shared
+  (`assets/qaListEditor.js`, `.qa-*` in `app.css`). **Start from common topics**
+  (`data/waitlistPolicies.js`, pure, `tests/waitlistPolicies.test.js`) adds the owner's six
+  (`POLICY_TOPICS`: applications, preferences, passes, picking, pausing, days), each worded
+  by `policyStarter` from her settings at that moment (fee and its due days, pass limit and
+  no-response, days to choose and pay, color matching, her readiness question, open days),
+  a sentence left out when its setting is off; each row keeps `topic` and the settings it
+  quoted (`basis`). Under each row a grey hint (`policyHint`) and, when a quoted setting has
+  changed since, *"Your settings changed since this was written: …"* (`basisChanges`); her
+  words are never rewritten. Starter rows are suggestions in the editor only: nothing is stored
+  (and so nothing reaches the form or families) until her Save, and the group says so until
+  then (`policiesUnsaved`). `kennel.html?…&open=policies#waitlist-settings` opens the group.
+  - **"I've read the policies"**: the locked question `policies_read`
+    (`waitlistForm.POLICIES_READ_LOCK`: `checkboxes`, one option, required, `link:
+    'policies'`), added last by `formQuestions` only while `hasPolicies(config)`; a stored
+    copy keeps her label but is dropped while she has none, so a form saved before it never
+    asks and nothing can require a box with nothing behind it. Required online only
+    (`missingRequired` with `manualEntry: false`); her typed-in applications and CSV imports
+    don't need it; `entryQuestions` shows it only on applications that answered it. Her form
+    editor shows its box as fixed text.
+  - **Today:** `nudges.policiesNudges` — each own, unarchived kennel (in scope) with the list
+    online and no policies: *"Add your waitlist policies"*, key `waitlist-policies:<kennel
+    id>`, dismissible like every nudge, gone once one exists.
+  - **Published** (`waitlistProjection`): `kennel.policies` (id, heading, body, topic; never
+    `basis`) and `policies_updated`, absent when none; each form question carries `link`.
+    The Worker's `familyPages.policiesOf` allow-lists them (at most 30, heading 200 / body
+    5000, topic only from the six) for the public list, every status page and `/f/form`
+    (and so `/f/site`), plus her closed dates still ahead when a `days` policy exists.
+  - **Family pages** (`common.js` `policiesHtml`, `closedDatesText`, `policyAbout`,
+    `openPolicy`): the public list's folded **Our Waitlist Policies** (after See Your
+    Details); the application's, with the box's word "policies" a link that opens it
+    (`apply.js` `labelHtml`; wording without the word gets *"Read our policies"*); the status
+    page's card before Messages, links at the turn (before a pick), the deposit block and
+    Backing out (matched by heading words), and a banner *"[Kennel] updated their waitlist
+    policies on …"* while `policies_updated` is after the family's `applied_date` and this
+    browser hasn't opened them (`localStorage` `kos-policies-seen:<public_id>`, try/catch).
+    Under a `days` policy: *"Upcoming closed dates: Dec 24–26, Jan 1"*.
 
 ### Rules engine (`data/waitlistRules.js`)
 Pure: no Dexie, no clock (callers pass `today`); `tests/waitlistRules.test.js`. **Nothing

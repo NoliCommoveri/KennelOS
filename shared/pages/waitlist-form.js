@@ -15,6 +15,7 @@ import {
   proposeQuestionImport, applyQuestionImport, formFaq, validateFaq, newFaqItem, LOCKED_TYPE_LABEL
 } from '../data/waitlistForm.js';
 import { esc, param, confirmModal, alertModal } from '../assets/ui.js';
+import { qaListHtml, wireQaList } from '../assets/qaListEditor.js';
 import { resolveWaitlistKennel, mountKennelPicker } from '../assets/waitlistUI.js';
 
 const els = {
@@ -62,7 +63,9 @@ function questionHtml(x, i, total) {
     ? `<span class="faint" style="flex:0 1 auto;">${esc(LOCKED_TYPE_LABEL[x.key] || descriptor(WAITLIST_QUESTION_TYPE, x.type).label)}</span>`
     : `<select data-f="type" aria-label="Answer type">${typeOptions(x.type)}</select>`;
   const options = isChoice(x)
-    ? `<div class="field"><label>Options (one per line)</label><textarea data-f="options">${esc((x.options || []).join('\n'))}</textarea></div>`
+    ? (locked
+      ? `<div class="field"><label>Box</label><p class="field-hint" style="margin:0;">☐ ${esc((x.options || []).join(' · '))}</p></div>`
+      : `<div class="field"><label>Options (one per line)</label><textarea data-f="options">${esc((x.options || []).join('\n'))}</textarea></div>`)
     : '';
   return `<div class="wf-q" data-i="${i}">
       <div class="wf-q-head"><span class="wf-num">${i + 1}</span>${locked ? '<span title="Locked: reword only">🔒</span>' : ''}
@@ -79,46 +82,20 @@ function questionHtml(x, i, total) {
 
 // --- The FAQ -----------------------------------------------------------------------
 
+const FAQ_LIST = { name: 'faq', a: 'question', b: 'answer', aPlaceholder: "Question, e.g. What's your price range?", aLabel: 'FAQ question', bLabel: 'Answer', noun: 'FAQ', empty: 'No FAQ yet.' };
+
 function faqHtml() {
-  const items = ctx.faq.map((x, i) => `
-    <div class="wf-q" data-faq="${i}">
-      <div class="wf-q-head"><span class="wf-num">${i + 1}</span>
-        <input class="wf-label" data-ff="question" type="text" value="${esc(x.question)}" placeholder="Question, e.g. What's your price range?" aria-label="FAQ question">
-        <div class="wf-move">
-          <button class="btn btn-sm" data-faq-up="${i}" title="Move up"${i === 0 ? ' disabled' : ''}>↑</button>
-          <button class="btn btn-sm" data-faq-down="${i}" title="Move down"${i === ctx.faq.length - 1 ? ' disabled' : ''}>↓</button>
-          <button class="btn btn-sm btn-danger" data-faq-del="${i}" title="Delete this FAQ">✕</button>
-        </div></div>
-      <div class="field" style="margin-top:8px;"><label>Answer</label><textarea data-ff="answer">${esc(x.answer)}</textarea></div>
-    </div>`).join('');
   return `
     <section class="card" style="margin-bottom:16px;">
       <h2 style="margin:0;">FAQ</h2>
       <p class="field-hint" style="margin-top:4px;">Shown at the top of the application, before the questions: your usual price range, how the waitlist works, anything families always ask.</p>
-      <div id="wf-faq">${items || '<p class="faint" style="margin:8px 0 0;">No FAQ yet.</p>'}</div>
-      <div class="pill-row" style="margin-top:12px;"><button class="btn btn-sm" id="wf-faq-add">+ Add a question &amp; answer</button></div>
+      <div id="wf-faq">${qaListHtml(ctx.faq, FAQ_LIST)}</div>
+      <div class="pill-row" style="margin-top:12px;"><button class="btn btn-sm" data-qa-add="faq">+ Add a question &amp; answer</button></div>
     </section>`;
 }
 
 function wireFaq() {
-  els.body.querySelectorAll('[data-faq]').forEach((box) => {
-    const x = ctx.faq[Number(box.dataset.faq)];
-    box.querySelectorAll('[data-ff]').forEach((input) => input.addEventListener('input', () => { x[input.dataset.ff] = input.value; markDirty(); }));
-  });
-  const swap = (a, b) => { [ctx.faq[a], ctx.faq[b]] = [ctx.faq[b], ctx.faq[a]]; markDirty(); render(); };
-  els.body.querySelectorAll('[data-faq-up]').forEach((b) => b.addEventListener('click', () => swap(Number(b.dataset.faqUp), Number(b.dataset.faqUp) - 1)));
-  els.body.querySelectorAll('[data-faq-down]').forEach((b) => b.addEventListener('click', () => swap(Number(b.dataset.faqDown), Number(b.dataset.faqDown) + 1)));
-  els.body.querySelectorAll('[data-faq-del]').forEach((b) => b.addEventListener('click', () => {
-    ctx.faq.splice(Number(b.dataset.faqDel), 1);
-    markDirty();
-    render();
-  }));
-  els.body.querySelector('#wf-faq-add').addEventListener('click', () => {
-    ctx.faq.push(newFaqItem());
-    markDirty();
-    render();
-    els.body.querySelector(`[data-faq="${ctx.faq.length - 1}"] input`)?.focus();
-  });
+  wireQaList(els.body, ctx.faq, FAQ_LIST, { onChange: markDirty, rerender: render, newItem: () => newFaqItem() });
 }
 
 function render() {
