@@ -2712,3 +2712,10 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   shows them beside policies of its own; an "I've read the policies" box on the
   application, a locked question present only while she has a policy, "policies" linking
   back to them; a dismissible Today nudge for kennels without any. Q3–Q5 still open.
+
+## 2026-11-05: The public list's See Your Details stands out
+
+- On the public waitlist page, **Current Applicants: See Your Details** (the card families
+  need most, among several folded cards) is tinted in the soft accent with an accent edge
+  and heading; its inputs stay on the plain surface. Uses the page's own colour tokens, so
+  light, dark and a forced theme all follow (`cloud/public/family/family.css`).

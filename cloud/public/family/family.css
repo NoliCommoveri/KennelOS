@@ -191,6 +191,11 @@ details.parent-tests ul.plain > li { padding: 4px 0; border-top: 0; }
 details.card.collapsible { border-top: 1px solid var(--border); padding: 16px; }
 details.card.collapsible > summary h2 { display: inline; margin: 0; }
 details.card.collapsible[open] > summary { margin-bottom: 10px; }
+/* See your details: the one families need most, so it stands apart from the other
+   folded cards in a soft accent tint (its inputs stay on the plain surface). */
+details.card.collapsible#details { background: var(--accent-soft); border-color: var(--accent); }
+details.card.collapsible#details > summary h2 { color: var(--accent); }
+details.card.collapsible#details input { background: var(--surface); }
 /* "Current Applicants: See Your Details" stays on one line on 360–389px phones. */
 @media (max-width: 389px) { details.card.collapsible > summary h2 { font-size: 15.5px; } }
 /* A family's status page: everything centered (decided 2026-10-08). */
