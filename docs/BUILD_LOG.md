@@ -2899,3 +2899,5 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   access (§6); the breeder's responsibility for policies, prices, extras and pickup (§8); new
   §8a (the KennelPort website); other services (§12); alerts aren't a guarantee (§13).
 - Wording approved by the owner. KennelPort is run by KennelOS.
+
+- **SW cache bumped to `kennelos-shell-v110` (2026-11-05)** for Update website from support's helper device.
