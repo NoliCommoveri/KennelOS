@@ -206,3 +206,14 @@ test('a name with digits in it ("MRF WIGGLES BLUE 17 50-3") starts its own box',
   assert.equal(r.dogs.get('sd').registered_name, 'Dog SD', 'the box above keeps only its own lines');
   assert.deepEqual(r.warnings, []);
 });
+
+test('a parent named "DAM …" keeps its name; only a "Sire"/"Dam" label comes off', () => {
+  const { words, page } = certified();
+  for (const w of words) {
+    if (w.text === 'DOG D') w.text = 'DAM PRESTIGE TINA';
+    if (w.text === 'DOG S') w.text = 'Sire SALOGAS DAM PRESTIGE STRENGER';
+  }
+  const r = parsePedigree(wordsToSegments(words), page);
+  assert.equal(r.dogs.get('d').registered_name, 'DAM PRESTIGE TINA');
+  assert.equal(r.dogs.get('s').registered_name, 'SALOGAS DAM PRESTIGE STRENGER');
+});

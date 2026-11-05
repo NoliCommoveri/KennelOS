@@ -2820,3 +2820,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   *"Suggestions only until you tap Save below: nothing is on your application or shown to
   families yet"*; after any other edit, *"Not saved yet…"*. Cleared on Save.
 
+- **Pedigree import: a parent named "DAM …".** The Certified layout's "Sire"/"Dam" label was
+  stripped from any parent name starting with that word ("DAM PRESTIGE TINA" read as "PRESTIGE
+  TINA"); only the label as printed ("Dam", then an all-caps name) comes off now. Test added.
