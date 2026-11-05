@@ -2850,3 +2850,14 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   link, the family page before and after approval, Yes changing the fee, the Approve dialog,
   the Waitlist badges, a contact moved to the list and hidden from Contacts, the list page.
   SW cache bump not done: asked.
+
+## 2026-11-05: Transport accounts on her website's Getting your pup home page
+
+- `siteExport.websiteProducts(accounts, { transport })`: an account marked Show on website
+  goes when it has a referral link, code or instructions, or is a transport account (owner
+  rule). Transport accounts go only to a Worker listing the new `transport` section, with
+  `transport: true` and `website` (every product carries both then; `PRODUCT_TRANSPORT_KEYS`);
+  an older Worker gets the old keys and no transport. A marked account with nothing to share
+  is no longer sent (its product leaves the site on the next Update website).
+  `websiteGaps.accounts` offers transport accounts with a website too. The Accounts card's
+  badge and the Show on website hint say where each goes. Tests in `siteExport`.

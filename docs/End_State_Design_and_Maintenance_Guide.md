@@ -2470,7 +2470,11 @@ and **program-wide** (not kennel-scoped).
   **private tier**, so they reach the cloud only inside the vault; they do ride file backups.
 - **Referral — to share** (`referral_link`, `referral_code`, `referral_instructions`): cloud
   tier, meant to be handed out. `show_on_website` (cloud, Pro with a KennelPort address)
-  puts the account on her website's Recommended products page (§35).
+  puts the account on her website (§35, `siteExport.websiteProducts`) when it has a referral
+  link, code or instructions (`hasReferral`), or is a transport account: others on
+  Recommended products, transport ones (to a Worker listing the `transport` section, flagged
+  `transport` with their `website`) as badges on her Getting your pup home page, never on
+  Recommended products. A marked account with neither isn't sent.
 - **Expenses** may name the account paid through (`expenses.account_id`; the Account picker
   on both expense forms, Pro only). The card totals them, and **View expenses →** opens
   `financials.html?view=expenses&account=<id>`.
@@ -3715,7 +3719,8 @@ KennelPort Site Manager.
   boxes (`siteExport.websiteGaps`): her own adults not marked; pups marked Keeping whose
   litter has left the site; live litters and pairings not marked; her breeding girls
   with heats off (unticked to start); and accounts with something to share (a referral
-  link, code or instructions; never transport) not marked, for Recommended products; the
+  link, code or instructions, or a transport account with a website) not marked, for her
+  website's Recommended products or Getting your pup home page; the
   outside kennels of her shown co-owned dogs' co-owners not ticked Name this kennel on my
   website (unticked to start), and a line naming any shown dog living with a co-owner who
   has no kennel (`partnerKennels`, `noKennel`). Then a date for each marked, born litter with no
