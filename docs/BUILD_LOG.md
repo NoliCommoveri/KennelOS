@@ -2719,3 +2719,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   need most, among several folded cards) is tinted in the soft accent with an accent edge
   and heading; its inputs stay on the plain surface. Uses the page's own colour tokens, so
   light, dark and a forced theme all follow (`cloud/public/family/family.css`).
+- Policies plan: every question answered. A banner on a family's page when she changes her
+  policies after they applied (until they open them); the fee and back-out texts stay
+  separate; Pro only. The common topics list is the owner's to adjust.

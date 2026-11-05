@@ -1,7 +1,7 @@
 # KennelOS — Waitlist Policies: plan
 
 > Status: **plan, not built** (2026-11-05; revised the same day with the owner's answers to
-> Q1 and Q2). Where a breeder's waitlist policies live in KennelOS, how she writes them,
+> every question). The common topics (2.1) are a draft the owner is adjusting. Where a breeder's waitlist policies live in KennelOS, how she writes them,
 > where families read them (the public list, the application, their status page, her
 > KennelPort website), and the application's "I've read the policies" box. Decisions
 > marked **Open** still need the owner.
@@ -27,7 +27,7 @@ one moment:
 Nothing gathers the rules into one place a family reads and agrees to. This plan adds **one
 ordered list of waitlist policies per kennel**, shown on every family page and on her
 website, with a box on the application that says the family read them. The existing
-moment-specific texts stay where they are (Q4).
+moment-specific texts stay where they are (decided, Q4).
 
 ## 2. Where it lives
 
@@ -58,7 +58,7 @@ to show it on, and no online application to agree on.
 - Under the list: *"Your contract is the final word. Keep these in step with it."* and
   *"Applicants tick that they've read these (Application form)."*
 
-### 2.1 The common topics: how her waitlist runs
+### 2.1 The common topics: how her waitlist runs (draft: the owner is adjusting this list)
 
 Each hint names what families ask and, where it applies, **her own setting**, read live, so
 what she writes matches what KennelOS does:
@@ -96,6 +96,13 @@ non-empty, absent otherwise; also in the form section, for the application. The 
    the matching policy: their turn and pick, the deposit card, and **Need to back out?**
    (its own `back_out_policy_text` stays first, then *"Our full policies"*). Matched by
    heading words (`turn`, `deposit`, `back`); none matched = the card's top.
+   **When she's changed them** (decided, Q3): a banner at the top of My page, *"[Kennel]
+   updated their waitlist policies on Nov 5. Read what changed."*, the link opening the
+   Policies card. Shown while `policies_updated` is later than both the family's
+   `applied_date` (they agreed to today's wording) and the date this browser last opened
+   the card (`localStorage` `kos-policies-seen:<public_id>`, wrapped in try/catch: with
+   storage blocked the banner just stays). Opening the card, or **Got it** on the banner,
+   records it. Not on the public list (visitors haven't agreed to anything).
 4. **Her website feed** (`/f/site`): included (section 4).
 5. **Kels (Family Help plan):** each policy a searchable help entry, `when: anyone`, after
    the cheat sheet and her FAQ, so "is the fee refundable?" finds it.
@@ -177,8 +184,8 @@ policies there beyond them** (health guarantee, spay/neuter, take-back…).
 5. Today nudge (3.2) in `nudges.js`, with its test.
 6. Projection: `kennel.policies`, `policies_updated` (absent when empty), and in the form
    section. Test: shape, absent when empty, kennels kept apart.
-7. Family pages: list card, apply section with the linked box, status card and its three
-   links. Browser-test with the local Worker (`cloud/tests/helpers/serve.mjs`) at phone
+7. Family pages: list card, apply section with the linked box, status card with its
+   three links and the "updated" banner. Browser-test with the local Worker (`cloud/tests/helpers/serve.mjs`) at phone
    width, with and without policies.
 8. `/f/site` feed: `policies`; Kels Layer 1 entries.
 9. Docs: End-State guide §29 (the field, the locked question, the group, the nudge, the
@@ -187,17 +194,11 @@ policies there beyond them** (health guarantee, spay/neuter, take-back…).
 
 No migration and no new page.
 
-## 6. Open questions
+## 6. Decisions
 
-- **Q3 — Changed policies:** when she edits them, tell families already on the list (*"Our
-  policies were updated Nov 5"* on their page until they open the card), or only the date
-  on the card? Families who agreed at apply agreed to the earlier wording.
-- **Q4 — Fee and back-out wording:** keep the fee refund line and back-out text as their
-  own settings (recommended: they're shown at specific moments), or replace them with links
-  to the matching policies?
-- **Q5 — Lite:** Lite has no online waitlist pages, so nothing to show. Confirm Pro only.
-
-Decided 2026-11-05 (owner): **Q1** use them on her KennelPort website, and let her add more
+Decided 2026-11-05 (owner): **Q3** a banner on families' pages when she changes them (3,
+status page). **Q4** the fee refund line and the back-out text stay their own settings.
+**Q5** Pro only (Lite has no online waitlist pages). Also: **Q1** use them on her KennelPort website, and let her add more
 there (section 4). **Q2** a box on the application, "policies" linking back to them, never
 shown or required until a policy exists, and a dismissible nudge on Today (3.1, 3.2). The
 common topics are about how her waitlist runs, not general puppy policies (2.1).
