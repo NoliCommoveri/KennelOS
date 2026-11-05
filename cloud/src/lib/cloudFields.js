@@ -398,6 +398,15 @@ export const CLOUD_FIELDS = {
         "updated_at"
       ],
       "nested": {}
+    },
+    "do_not_sell": {
+      "keys": [
+        "created_at",
+        "id",
+        "is_archived",
+        "updated_at"
+      ],
+      "nested": {}
     }
   },
   "eventDetails": {

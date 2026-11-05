@@ -354,11 +354,36 @@ export function listView(projection) {
   return {
     // apply_open: she takes applications online, so the list links to her form.
     // intro: her message under the page's heading, as her device rendered it.
-    kennel: { name: projection.kennel?.name ?? '', intro: typeof projection.kennel?.intro === 'string' ? projection.kennel.intro.slice(0, 2000) : '', apply_open: Boolean(formView(projection)) },
+    kennel: { name: projection.kennel?.name ?? '', intro: typeof projection.kennel?.intro === 'string' ? projection.kennel.intro.slice(0, 2000) : '', apply_open: Boolean(formView(projection)), ...policiesOf(projection) },
     as_of: projection.as_of ?? null,
     rows: publicRows(projection),
     available: Object.entries(projection.litters || {}).filter(([, l]) => l && l.picks_open).map(([id, l]) => litterCard(id, l)),
     upcoming: upcomingOf(projection, 'public').map(upcomingRow),
+  };
+}
+
+// Her waitlist policies (Waitlist Policies plan §3), as her device published them:
+// at most 30, each a heading and plain text (the pages escape it); `topic` only from
+// her starter topics. With them, the day she last changed them, and her closed dates
+// still ahead (shown under a policy started from the business-days topic). {} = none.
+const POLICY_TOPIC_IDS = ['applications', 'preferences', 'passes', 'picking', 'pausing', 'days'];
+export function policiesOf(projection, now = new Date()) {
+  const list = Array.isArray(projection.kennel?.policies) ? projection.kennel.policies : [];
+  const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+  const policies = list.slice(0, 30).map((x, i) => ({
+    id: str(x?.id, 60) || `pol_${i + 1}`,
+    heading: str(x?.heading, 200),
+    body: str(x?.body, 5000),
+    ...(POLICY_TOPIC_IDS.includes(x?.topic) ? { topic: x.topic } : {}),
+  })).filter((x) => x.heading && x.body);
+  if (!policies.length) return {};
+  const today = now.toISOString().slice(0, 10);
+  const updated = projection.kennel?.policies_updated;
+  const closed = Array.isArray(projection.kennel?.closed_dates) ? projection.kennel.closed_dates : [];
+  return {
+    policies,
+    ...(typeof updated === 'string' && YMD_RE.test(updated) ? { policies_updated: updated } : {}),
+    ...(policies.some((x) => x.topic === 'days') ? { closed_dates: closed.filter((d) => typeof d === 'string' && YMD_RE.test(d) && d >= today).sort().slice(0, 40) } : {}),
   };
 }
 
@@ -552,6 +577,8 @@ export function statusView(projection, entryId, now = new Date()) {
     if (url) kennel.portal_url = url;
     if (portal.only) return { kennel, as_of: projection.as_of ?? null, family, offers: [], litters: [], upcoming: [], public_list: [] };
   }
+  // Her waitlist policies: every family, whatever their state.
+  Object.assign(kennel, policiesOf(projection, now));
   // Her recommended products (Integrations plan §3): for every family, placed ones
   // too (they're who it's for).
   const recommended = recommendedOf(projection);
@@ -677,6 +704,8 @@ export function formView(projection) {
       matching_keys: Array.isArray(f.matching_keys) ? f.matching_keys : [],
       matching_notice: f.matching_notice ?? '',
       color_matching: Boolean(f.color_matching),
+      // Her policies, shown on the application above its "I've read the policies" box.
+      ...policiesOf(projection),
     },
   };
 }

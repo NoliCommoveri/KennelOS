@@ -219,6 +219,7 @@ to the cloud unsealed).
 | **Document** | `dog_id`, `doc_type`, `file_id` | `title`, `doc_date`, `issuer_or_lab`, `result`, `registry`, `registration_number`, `contract_id` (optional, unindexed, not in the registry), `furever_shareable` (§27). `doc_type` from `DOC_TYPES`: Pedigree, Health test, Vet summary (a visit summary, medical record or vaccine history), Registration, Contract, Other. Fields shown per type: `vocab.documentFieldsFor`. Cloud backup carries only Health test, Vet summary, Pedigree and Registration rows and their files (`syncRegistry.CLOUD_DOC_TYPES`); Contract and Other stay on the device. `hardDelete` removes its file. |
 | **File** (`files`) | `blob`, `mime`, `filename`, `size` | `thumbnail`. Always a PDF. Owned by its one Document or Expense; fetched by id only (§26.1). |
 | **WaitlistEntry**, **WaitlistOffer**, **WaitlistProgram** | see §29 | One entry per family per time on a kennel's list; position and passes are derived, never stored. |
+| **DoNotSell** (`do_not_sell`) | a `name`, `email` or `phone` | Her do-not-sell list (§29): `reason`, `added_date`, `contact_id` (indexed; a contact moved there, hidden from the Contacts list while listed), `source_entry_id` (the application it was added from; unindexed, a `scan` registry entry). Program-wide. Every field private (`rows: 'none'`, like expenses). Taken off = archived. |
 | **Account** (`accounts`) | `name` | `account_type`, login fields (private), referral fields, fee rate, `fee_charge_back` (private, §21.2), `contract_forms[]`, `payment_link`, `payment_instructions` (§32). Program-wide, no `kennel_id`. API keys live in `device_secrets`, never on the record. |
 
 **Litter delivery.** `Litter.delivery_type` is asked only once the litter is Whelped or
@@ -265,7 +266,7 @@ index strings. `version(1)` holds every kennel table and is **frozen**. Later bl
 only what's new: `version(2)` the device-only `sync_meta` (§34), `version(3)`/`(4)` the
 account FKs on sales, waitlist entries and kennels (§21.1, §32), `version(5)`
 `expenses.stud_service_id` (our dam's stud fee, §21), `version(6)` `dogs.public_id` (a dog's
-Dog Card id, §36).
+Dog Card id, §36), `version(7)` the `do_not_sell` table (her do-not-sell list, §29).
 
 **The versioning rule.** Schema changes are additive: a new table or index goes in a new
 `db.version(N).stores({...})` block listing only what it adds, and a shipped block is never
@@ -1686,8 +1687,9 @@ restored into Lite keeps its waitlist rows, dormant.
   answer, a carried payment from a lost pup and the answer-change log; `withdrawn_from` is the
   status a family left when she entered their withdrawal (null for one from their status page or
   a back-out), which gives that withdrawal its 7-day undo; `expired_date` and
-  `fee_received_manual` do the same for a fee expired and a fee she marked received; see
-  `waitlistEntryRepo` and `syncRegistry.js` for each one's tier.
+  `fee_received_manual` do the same for a fee expired and a fee she marked received;
+  `program_suggestions_declined` (private) lists the programs she answered No to under
+  "Add to [program]?" (below); see `waitlistEntryRepo` and `syncRegistry.js` for each one's tier.
 - **`waitlist_offers`:** one row per family per litter in a turn (rows of a turn share
   `turn_id`). `counts_as_pass` is decided once, when the outcome is recorded, so later rule
   or program changes can't rewrite history. A lost pup's restore clears the pick (a voided
@@ -1757,6 +1759,78 @@ restored into Lite keeps its waitlist rows, dormant.
 - **Settings** live in `Kennel.waitlist_config` (missing keys from
   `WAITLIST_CONFIG_DEFAULTS`), so they ride backups, including her application form
   (`form_questions[]`) and FAQ (`application_faq[]`).
+- **Her waitlist policies** (`docs/KennelOS_Waitlist_Policies_Plan.md`, Pro, only while the
+  list can go online): `waitlist_config.policies[]` (`{ id, heading, body, topic?, basis? }`,
+  cleaned by `waitlistForm.waitlistPolicies`, `validatePolicies` heading and body both or
+  neither) and `policies_updated` (YYYY-MM-DD, set by the Save when a heading or body
+  changed). Edited in **Kennel › Waitlist settings › Policies** (`kennel.js`, a working copy
+  `policiesDraft` redrawn on its own) with the FAQ's editor, now shared
+  (`assets/qaListEditor.js`, `.qa-*` in `app.css`). **Start from common topics**
+  (`data/waitlistPolicies.js`, pure, `tests/waitlistPolicies.test.js`) adds the owner's six
+  (`POLICY_TOPICS`: applications, preferences, passes, picking, pausing, days), each worded
+  by `policyStarter` from her settings at that moment (fee and its due days, pass limit and
+  no-response, days to choose and pay, color matching, her readiness question, open days),
+  a sentence left out when its setting is off; each row keeps `topic` and the settings it
+  quoted (`basis`). Under each row a grey hint (`policyHint`) and, when a quoted setting has
+  changed since, *"Your settings changed since this was written: …"* (`basisChanges`); her
+  words are never rewritten. Starter rows are suggestions in the editor only: nothing is stored
+  (and so nothing reaches the form or families) until her Save, and the group says so until
+  then (`policiesUnsaved`). `kennel.html?…&open=policies#waitlist-settings` opens the group.
+  - **"I've read the policies"**: the locked question `policies_read`
+    (`waitlistForm.POLICIES_READ_LOCK`: `checkboxes`, one option, required, `link:
+    'policies'`), added last by `formQuestions` only while `hasPolicies(config)`; a stored
+    copy keeps her label but is dropped while she has none, so a form saved before it never
+    asks and nothing can require a box with nothing behind it. Required online only
+    (`missingRequired` with `manualEntry: false`); her typed-in applications and CSV imports
+    don't need it; `entryQuestions` shows it only on applications that answered it. Her form
+    editor shows its box as fixed text.
+  - **Today:** `nudges.policiesNudges` — each own, unarchived kennel (in scope) with the list
+    online and no policies: *"Add your waitlist policies"*, key `waitlist-policies:<kennel
+    id>`, dismissible like every nudge, gone once one exists.
+  - **Published** (`waitlistProjection`): `kennel.policies` (id, heading, body, topic; never
+    `basis`) and `policies_updated`, absent when none; each form question carries `link`.
+    The Worker's `familyPages.policiesOf` allow-lists them (at most 30, heading 200 / body
+    5000, topic only from the six) for the public list, every status page and `/f/form`
+    (and so `/f/site`), plus her closed dates still ahead when a `days` policy exists.
+  - **Family pages** (`common.js` `policiesHtml`, `closedDatesText`, `policyAbout`,
+    `openPolicy`): the public list's folded **Our Waitlist Policies** (after See Your
+    Details); the application's, with the box's word "policies" a link that opens it
+    (`apply.js` `labelHtml`; wording without the word gets *"Read our policies"*); the status
+    page's card before Messages, links at the turn (before a pick), the deposit block and
+    Backing out (matched by heading words), and a banner *"[Kennel] updated their waitlist
+    policies on …"* while `policies_updated` is after the family's `applied_date` and this
+    browser hasn't opened them (`localStorage` `kos-policies-seen:<public_id>`, try/catch).
+    Under a `days` policy: *"Upcoming closed dates: Dec 24–26, Jan 1"*.
+
+- **A question that suggests a program** (`data/programSuggest.js`, pure,
+  `tests/programSuggest.test.js`): on her form (`waitlist-form`, "Suggest a program"), one of
+  her own yes/no, pick-one or checkbox questions may carry `program_link: { program_id,
+  answers[] }` (kept by `waitlistForm.formQuestions` through `cleanProgramLink`: never a
+  locked question, only answers still on it; never published, since `formSection` copies
+  fields by name). `programSuggestions(entry, form, programsById)` reads her **current** form
+  against the entry's answers: one suggestion per program, only while the entry is `applied`
+  or `approved`, never for the program it's in, one she said No to, or an archived / deleted
+  one (a dangling `program_id` is ignored, so it has no registry entry). Shown as
+  **"Add to [program]?"** with a Yes / No dropdown (`Choose…` first): on the family's page
+  (Details and Interact; it counts toward Interact's badge), in the Approve dialog (Yes fills
+  its Program dropdown; left on Choose… it's asked again while the fee is due), and as a green
+  badge on the Waitlist page's new-application and fee-due rows. Yes is
+  `waitlistActions.addSuggestedProgram`: an open application takes the program; an approved
+  one also takes the program's fee (`feeForEntry`; the pay-by date kept), and a program that
+  waives it puts them on the list that day, as approving into it would. No is
+  `declineSuggestedProgram`. After fee received the prompt is gone.
+- **Her do-not-sell list** (`do_not_sell`, §4.1; rules `data/doNotSell.js`, pure, repo
+  `doNotSellRepo`, `tests/doNotSell.test.js`; Pro, a tab of Contacts: `do-not-sell.html`).
+  Added by hand (name, email, phone, reason), from a contact (**Move to do-not-sell list…**
+  on the Contact page or **Move a contact here…**; that contact leaves the Contacts list,
+  `listedContactIds`, and its page shows a Do not sell badge), or from an application (**Add
+  to do-not-sell list…** on the family's Details). `alreadyListed` refuses a second listing
+  of the same contact, email or phone. `entryDoNotSellMatches` matches an application by
+  the one contact rule (`contactSearch.findContactMatches`: same email or phone = sure, same
+  or near name = maybe) plus the listing's contact. **Warn only:** a red card on the family's
+  page (Details and Interact), a line in the Approve dialog and a badge on the Waitlist page's
+  rows ("Do not sell" / "Maybe do not sell"); nothing is declined. Each listing on the page
+  links the open applications and families that match it. Taking someone off archives the row.
 
 ### Rules engine (`data/waitlistRules.js`)
 Pure: no Dexie, no clock (callers pass `today`); `tests/waitlistRules.test.js`. **Nothing
@@ -2396,7 +2470,11 @@ and **program-wide** (not kennel-scoped).
   **private tier**, so they reach the cloud only inside the vault; they do ride file backups.
 - **Referral — to share** (`referral_link`, `referral_code`, `referral_instructions`): cloud
   tier, meant to be handed out. `show_on_website` (cloud, Pro with a KennelPort address)
-  puts the account on her website's Recommended products page (§35).
+  puts the account on her website (§35, `siteExport.websiteProducts`) when it has a referral
+  link, code or instructions (`hasReferral`), or is a transport account: others on
+  Recommended products, transport ones (to a Worker listing the `transport` section, flagged
+  `transport` with their `website`) as badges on her Getting your pup home page, never on
+  Recommended products. A marked account with neither isn't sent.
 - **Expenses** may name the account paid through (`expenses.account_id`; the Account picker
   on both expense forms, Pro only). The card totals them, and **View expenses →** opens
   `financials.html?view=expenses&account=<id>`.
@@ -3641,7 +3719,8 @@ KennelPort Site Manager.
   boxes (`siteExport.websiteGaps`): her own adults not marked; pups marked Keeping whose
   litter has left the site; live litters and pairings not marked; her breeding girls
   with heats off (unticked to start); and accounts with something to share (a referral
-  link, code or instructions; never transport) not marked, for Recommended products; the
+  link, code or instructions, or a transport account with a website) not marked, for her
+  website's Recommended products or Getting your pup home page; the
   outside kennels of her shown co-owned dogs' co-owners not ticked Name this kennel on my
   website (unticked to start), and a line naming any shown dog living with a co-owner who
   has no kennel (`partnerKennels`, `noKennel`). Then a date for each marked, born litter with no

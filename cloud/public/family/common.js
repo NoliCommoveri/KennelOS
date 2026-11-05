@@ -392,3 +392,46 @@ export function confirmDialog({ title, message = '', confirmLabel = 'OK', cancel
     overlay.querySelector('[data-fd="ok"]').focus();
   });
 }
+
+// --- Her waitlist policies (Waitlist Policies plan §3) -------------------------------
+
+// Her closed dates in words, runs of days together: "Dec 24–26, Jan 1".
+export function closedDatesText(dates = []) {
+  const days = [...new Set(dates.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d))))].sort();
+  const label = (ymd) => { const [y, m, d] = ymd.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' }); };
+  const next = (ymd) => { const [y, m, d] = ymd.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10); };
+  const runs = [];
+  for (const d of days) {
+    const last = runs.at(-1);
+    if (last && next(last.to) === d) last.to = d; else runs.push({ from: d, to: d });
+  }
+  return runs.map((r) => {
+    if (r.from === r.to) return label(r.from);
+    const sameMonth = r.from.slice(0, 7) === r.to.slice(0, 7);
+    return `${label(r.from)}–${sameMonth ? Number(r.to.slice(8)) : label(r.to)}`;
+  }).join(', ');
+}
+
+// Each policy an expander (the FAQ's look), id "policy-<id>" so a link can open one.
+// Under a policy from the business-days topic, her closed dates still ahead.
+export function policiesHtml(kennel) {
+  const list = Array.isArray(kennel?.policies) ? kennel.policies : [];
+  const closed = closedDatesText(kennel?.closed_dates || []);
+  return list.map((x) => `<details class="policy" id="policy-${esc(x.id)}"><summary>${esc(x.heading)}</summary><p class="pre">${esc(x.body)}</p>${x.topic === 'days' && closed ? `<p class="small muted closed-dates">Upcoming closed dates: ${esc(closed)}</p>` : ''}</details>`).join('');
+}
+
+// The policy whose heading speaks to this moment (e.g. ['deposit', 'pick']), or null.
+export function policyAbout(kennel, words) {
+  const list = Array.isArray(kennel?.policies) ? kennel.policies : [];
+  return list.find((x) => words.some((w) => new RegExp(`\\b${w}`, 'i').test(x.heading))) || null;
+}
+
+// Open the policies card (and one policy in it) and scroll to it. `card`: the
+// <details> holding them; `id`: a policy's id, or null for the card's top.
+export function openPolicy(card, id = null) {
+  if (!card) return;
+  card.open = true;
+  const one = id ? card.querySelector(`#policy-${CSS.escape(id)}`) : null;
+  if (one) one.open = true;
+  (one || card).scrollIntoView({ behavior: 'smooth', block: 'start' });
+}

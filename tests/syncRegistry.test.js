@@ -37,7 +37,7 @@ const KNOWN_TABLES = [
   'dogs', 'events', 'expenses', 'contacts', 'kennels', 'pairings', 'litters',
   'sales', 'contracts', 'stud_services', 'documents', 'files',
   'breed_feeding_schedules', 'waitlist_entries', 'waitlist_offers', 'waitlist_programs',
-  'accounts'
+  'accounts', 'do_not_sell'
 ];
 
 test('every db.js data table has a registry entry, and nothing else does', async () => {

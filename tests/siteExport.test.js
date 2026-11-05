@@ -181,7 +181,8 @@ test("Kels's Update my website: what isn't on the website yet, in groups", () =>
     { id: 'van', name: 'Pet van', account_type: 'transport', referral_instructions: 'Book early' },
     { id: 'old', name: 'Old', account_type: 'supplier', referral_code: 'X', is_archived: true }
   ];
-  assert.deepEqual(ids(websiteGaps(K, { dogs, litters, pairings, accounts }).accounts), ['chewy'], 'something to share, not shown, never transport');
+  assert.deepEqual(ids(websiteGaps(K, { dogs, litters, pairings, accounts }).accounts), ['chewy', 'van'], 'something to share, not shown; a transport account too');
+  assert.deepEqual(ids(websiteGaps(K, { dogs, litters, pairings, accounts: [{ id: 'bare', name: 'Bare van', account_type: 'transport' }] }).accounts), [], 'transport with nothing to link to');
 });
 
 test('what an update would change, in words', () => {
@@ -263,7 +264,28 @@ test('recommended products: Accounts she marked, link and code only, never a log
   ]);
   assert.doesNotMatch(JSON.stringify(b), /hunter2|me@x\.com|C-9|private/);
   assert.equal('products' in build({ accounts }), false, 'a Worker that doesn\'t list products isn\'t sent them');
-  assert.throws(() => build({ sections: ['products'], accounts: Array.from({ length: SITE_MAX.products + 1 }, (_, i) => ({ id: `p${i}`, name: `P${i}`, show_on_website: true })) }), /at most 50 recommended products/);
+  assert.throws(() => build({ sections: ['products'], accounts: Array.from({ length: SITE_MAX.products + 1 }, (_, i) => ({ id: `p${i}`, name: `P${i}`, show_on_website: true, referral_code: 'X' })) }), /at most 50 recommended products/);
+  // Marked but nothing to share: not sent (only referrals, or transport).
+  assert.equal(build({ sections: ['products'], accounts: [{ id: 'z', name: 'Plain shop', show_on_website: true, website: 'https://shop.example' }] }).products.length, 0);
+});
+
+test('transport accounts she marked go to a Worker that takes them, flagged, with their website', () => {
+  const accounts = [
+    { id: 't1', name: 'Sky Nanny', account_type: 'transport', show_on_website: true, website: 'skynanny.com', notes: 'private' },
+    { id: 't2', name: 'Pup Van', account_type: 'transport', show_on_website: true, website: 'https://pupvan.example', referral_link: 'https://pupvan.example/r/ak', referral_code: 'AK5' },
+    { id: 't3', name: 'Unticked van', account_type: 'transport', show_on_website: false, website: 'https://u.example' },
+    { id: 'a1', name: 'TLC', account_type: 'supplier', show_on_website: true, website: 'https://tlcpetpro.com', referral_code: 'AK10' }
+  ];
+  const b = build({ accounts, sections: ['products', 'transport'] });
+  assert.deepEqual(b.products, [
+    { id: 't2', name: 'Pup Van', link_url: 'https://pupvan.example/r/ak', code: 'AK5', code_note: null, website: 'https://pupvan.example', transport: true },
+    { id: 't1', name: 'Sky Nanny', link_url: 'https://skynanny.com', code: null, code_note: null, website: 'https://skynanny.com', transport: true },
+    { id: 'a1', name: 'TLC', link_url: 'https://tlcpetpro.com', code: 'AK10', code_note: null, website: 'https://tlcpetpro.com', transport: false }
+  ]);
+  assert.doesNotMatch(JSON.stringify(b), /private/);
+  const old = build({ accounts, sections: ['products'] });
+  assert.deepEqual(old.products.map((x) => x.id), ['a1'], 'an older Worker: no transport, and no new fields');
+  assert.deepEqual(Object.keys(old.products[0]), ['id', 'name', 'link_url', 'code', 'code_note']);
 });
 
 // --- Connect website and Update website (in-memory db, fetch stubbed) ------------

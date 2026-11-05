@@ -593,3 +593,19 @@ test('pedigree-only dogs (passed as ancestors) fill a pedigree and name a pedigr
   assert.equal(studLitter.sire.name, 'CH Outside Stud', 'a pedigree-only parent goes by its registered name');
   assert.equal(studLitter.label, 'Juniper × CH Outside Stud');
 });
+
+test('her waitlist policies are published (never her editing notes), with "I\'ve read the policies" on the form', () => {
+  const plain = buildProjection(fixture());
+  assert.equal(plain.kennel.policies, undefined, 'none: absent');
+  const f = fixture();
+  f.kennel = { ...f.kennel, waitlist_config: { ...f.kennel.waitlist_config, online_form: true, policies_updated: '2026-11-05',
+    policies: [{ id: 'pol_1', heading: 'Passes', body: 'Two passes.', topic: 'passes', basis: { max_passes: 2 } }, { heading: '', body: '' }] } };
+  const p = buildProjection({ ...f, formKey: { id: 'fk_1', public_key: 'PUB', private_key: { d: 'X' } } });
+  assert.deepEqual(p.kennel.policies, [{ id: 'pol_1', heading: 'Passes', body: 'Two passes.', topic: 'passes' }]);
+  assert.equal(p.kennel.policies_updated, '2026-11-05');
+  const box = p.kennel.form.questions.at(-1);
+  assert.equal(box.key, 'policies_read');
+  assert.equal(box.link, 'policies');
+  assert.equal(box.required, true);
+  assert.equal(JSON.stringify(p).includes('basis'), false);
+});

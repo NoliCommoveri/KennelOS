@@ -16,6 +16,7 @@ const KNOWN_TABLES = new Set([
   'dogs', 'events', 'expenses', 'contacts', 'kennels', 'pairings',
   'litters', 'sales', 'contracts', 'stud_services', 'documents', 'files',
   'waitlist_entries', 'waitlist_offers', 'waitlist_programs', 'accounts',
+  'do_not_sell', // version(7)
 ]);
 
 const SUBJECT_TYPES = new Set(['dog', 'pairing', 'litter', 'kennel']);
@@ -28,7 +29,7 @@ test('the module exports the expected registry arrays', () => {
   assert.deepEqual(names, [
     'ACCOUNT_REFERENCES', 'BREED_FEEDING_SCHEDULE_REFERENCES',
     'CONTACT_REFERENCES', 'CONTRACT_REFERENCES', 'DOCUMENT_REFERENCES',
-    'DOG_REFERENCES', 'EVENT_REFERENCES', 'EXPENSE_REFERENCES',
+    'DOG_REFERENCES', 'DO_NOT_SELL_REFERENCES', 'EVENT_REFERENCES', 'EXPENSE_REFERENCES',
     'KENNEL_REFERENCES', 'LITTER_REFERENCES', 'PAIRING_REFERENCES',
     'SALE_REFERENCES', 'STUD_SERVICE_REFERENCES',
     'WAITLIST_ENTRY_REFERENCES', 'WAITLIST_OFFER_REFERENCES', 'WAITLIST_PROGRAM_REFERENCES',
@@ -69,6 +70,16 @@ test('leaf entities declare an empty registry (nothing points at them)', () => {
   assert.deepEqual(registry.EXPENSE_REFERENCES, []);
   assert.deepEqual(registry.DOCUMENT_REFERENCES, []);
   assert.deepEqual(registry.WAITLIST_OFFER_REFERENCES, []);
+  assert.deepEqual(registry.DO_NOT_SELL_REFERENCES, []);
+});
+
+// The do-not-sell list's contact link is guarded on contacts, against its index.
+test('a do-not-sell row guards the contact it came from', () => {
+  const r = registry.CONTACT_REFERENCES.find((x) => x.table === 'do_not_sell');
+  assert.equal(r.field, 'contact_id');
+  const source = readFileSync(new URL('../shared/data/db.js', import.meta.url), 'utf8');
+  assert.match(source, /do_not_sell: 'id, contact_id, is_archived'/);
+  assert.ok(registry.WAITLIST_ENTRY_REFERENCES.find((x) => x.table === 'do_not_sell' && x.field === 'source_entry_id').scan);
 });
 
 // Waitlist Spec §4.5: every waitlist FK is registered on its target, and every

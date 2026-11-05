@@ -6,7 +6,7 @@
 // types the code emailed to them, which sends the application to her and signs
 // this browser in (See Your Details). Inside her own website (embedded.js), the
 // status page opens in a new tab instead.
-import { esc, fetchJson, loadError, possessive, SEX_LABEL, READY_LABEL, PURPOSE_LABEL } from './common.js';
+import { esc, fetchJson, loadError, possessive, SEX_LABEL, READY_LABEL, PURPOSE_LABEL, policiesHtml, openPolicy } from './common.js';
 import { seal } from './seal.js';
 import { rememberFamily } from './session.js';
 import { EMBEDDED, setupEmbed, toTop, outward } from './embedded.js';
@@ -23,6 +23,16 @@ function showError(text) {
 }
 
 const required = (q) => (q.required ? ' <span class="req" aria-label="required">*</span>' : '');
+// A question's label as HTML. "I've read the policies" (link: 'policies') makes the
+// word "policies" a link up to Our Waitlist Policies; wording without the word gets
+// "Read our policies" after it.
+let hasPolicies = false;
+function labelHtml(q) {
+  const text = esc(q.label);
+  if (q.link !== 'policies' || !hasPolicies) return text;
+  const link = (words) => `<a href="#policies" class="policies-link" data-open-policies>${words}</a>`;
+  return /\bpolicies\b/i.test(text) ? text.replace(/\bpolicies\b/i, (w) => link(w)) : `${text} ${link('Read our policies')}`;
+}
 const help = (q) => (q.help && q.type !== 'notice' ? `<p class="small muted mt0">${esc(q.help)}</p>` : '');
 const fieldId = (q) => `q_${q.id}`;
 
@@ -56,7 +66,7 @@ function fieldHtml(q, form) {
     case 'single_choice':
       return `<fieldset class="field" data-q="${esc(q.id)}" data-kind="radio"><legend class="q">${esc(q.label)}${required(q)}</legend>${help(q)}${radios(id, q.options.map((o) => [o, o]))}</fieldset>`;
     case 'checkboxes':
-      return `<fieldset class="field" data-q="${esc(q.id)}" data-kind="checkboxes"><legend class="q">${esc(q.label)}${required(q)}</legend>${help(q)}
+      return `<fieldset class="field" data-q="${esc(q.id)}" data-kind="checkboxes"><legend class="q">${labelHtml(q)}${required(q)}</legend>${help(q)}
         <div class="choices">${q.options.map((o) => `<label class="choice"><input type="checkbox" value="${esc(o)}"> ${esc(o)}</label>`).join('')}</div></fieldset>`;
     default:
       return `<div class="field">${label}${help(q)}<input id="${esc(id)}" data-q="${esc(q.id)}" type="text" maxlength="${FIELD_LIMIT.short}"${q.key === 'name' ? ' autocomplete="name"' : ''}></div>`;
@@ -212,8 +222,18 @@ async function load() {
     $('faq-items').innerHTML = view.form.faq.map((x) => `<details><summary>${esc(x.question || 'Question')}</summary><p class="pre">${esc(x.answer)}</p></details>`).join('');
     $('faq').hidden = false;
   }
+  if (view.form.policies?.length) {
+    hasPolicies = true;
+    $('policies').innerHTML = `<summary><h2>Our Waitlist Policies</h2></summary><p class="small muted mt0">Please read these before you apply. The last question asks that you have.</p>${policiesHtml(view.form)}`;
+    $('policies').hidden = false;
+  }
   renderForm(view);
   $('app-form').hidden = false;
+  document.addEventListener('click', (ev) => {
+    if (!ev.target.closest('[data-open-policies]')) return;
+    ev.preventDefault();
+    openPolicy($('policies'));
+  });
   loadTurnstile(view.turnstile_site_key).catch(() => showError('The spam check could not load. Please reload the page.'));
 
   $('app-form').addEventListener('submit', async (ev) => {
