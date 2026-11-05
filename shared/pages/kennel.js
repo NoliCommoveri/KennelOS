@@ -398,6 +398,7 @@ let openWaitlistGroups = new Set();
 // copy, redrawn on its own so adding or moving one keeps her other unsaved settings;
 // saved with the rest by the card's one Save.
 let policiesDraft = null;
+let policiesUnsaved = false; // she's changed the list since it was loaded (or saved)
 const POLICY_LIST = { name: 'policies', a: 'heading', b: 'body', aPlaceholder: 'Heading, e.g. Passes and not responding', aLabel: 'Policy heading', bLabel: 'What families read', noun: 'policy', empty: 'No policies yet. Families see none, and your application doesn\'t ask about them.' };
 function policyNote(c) {
   return (x) => {
@@ -407,7 +408,8 @@ function policyNote(c) {
   };
 }
 function policiesListHtml(c) {
-  return `${qaListHtml(policiesDraft, { ...POLICY_LIST, note: policyNote(c) })}
+  const unsaved = policiesUnsaved ? '<p class="qa-note changed" role="status">Suggestions only until you tap Save below: nothing is on your application or shown to families yet. Edit or delete any of them first.</p>' : '';
+  return `${unsaved}${qaListHtml(policiesDraft, { ...POLICY_LIST, note: policyNote(c) })}
     <div class="pill-row" style="margin-top:12px;"><button type="button" class="btn btn-sm" data-qa-add="policies">+ Add a policy</button>
       ${policiesDraft.length ? '' : '<button type="button" class="btn btn-sm btn-primary" data-act="policies-start">Start from common topics</button>'}</div>`;
 }
@@ -424,9 +426,11 @@ function wirePolicies() {
   if (!box) return;
   const c = waitlistConfig(kennel);
   const redraw = () => { box.innerHTML = policiesListHtml(c); wirePolicies(); };
-  wireQaList(box, policiesDraft, POLICY_LIST, { onChange: () => {}, rerender: redraw, newItem: () => newPolicy() });
+  const touched = () => { if (!policiesUnsaved) { policiesUnsaved = true; box.insertAdjacentHTML('afterbegin', '<p class="qa-note changed" role="status">Not saved yet: tap Save below to put these on your application and show them to families.</p>'); } };
+  wireQaList(box, policiesDraft, POLICY_LIST, { onChange: touched, rerender: redraw, newItem: () => newPolicy() });
   box.querySelector('[data-act="policies-start"]')?.addEventListener('click', () => {
     policiesDraft.push(...policyStarters(c, kennel));
+    policiesUnsaved = true;
     redraw();
   });
 }
@@ -438,6 +442,7 @@ function waitlistCard(k) {
   if (!editionFlags.waitlist) return '';
   const c = waitlistConfig(k);
   policiesDraft = waitlistPolicies(c).map((x) => ({ ...x }));
+  policiesUnsaved = false;
   const online = isWaitlistOnlineOffered();
   const policyOpts = FEE_CREDIT_POLICY.map((o) => `<option value="${esc(o.value)}"${o.value === c.fee_credit_policy ? ' selected' : ''}>${esc(o.label)}</option>`).join('');
   // Folded groups, all closed at first; one Save for the lot. A group only the

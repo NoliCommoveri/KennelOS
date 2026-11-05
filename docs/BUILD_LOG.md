@@ -2750,4 +2750,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   hints, changed-setting note), the form editor, and the three family pages.
 - Precache: `data/waitlistPolicies.js`, `assets/qaListEditor.js` (and `app.css` changed).
   SW cache bump not done: asked.
+- The Policies group says when its list isn't saved: after Start from common topics,
+  *"Suggestions only until you tap Save below: nothing is on your application or shown to
+  families yet"*; after any other edit, *"Not saved yet…"*. Cleared on Save.
 

@@ -1738,7 +1738,9 @@ restored into Lite keeps its waitlist rows, dormant.
   a sentence left out when its setting is off; each row keeps `topic` and the settings it
   quoted (`basis`). Under each row a grey hint (`policyHint`) and, when a quoted setting has
   changed since, *"Your settings changed since this was written: …"* (`basisChanges`); her
-  words are never rewritten. `kennel.html?…&open=policies#waitlist-settings` opens the group.
+  words are never rewritten. Starter rows are suggestions in the editor only: nothing is stored
+  (and so nothing reaches the form or families) until her Save, and the group says so until
+  then (`policiesUnsaved`). `kennel.html?…&open=policies#waitlist-settings` opens the group.
   - **"I've read the policies"**: the locked question `policies_read`
     (`waitlistForm.POLICIES_READ_LOCK`: `checkboxes`, one option, required, `link:
     'policies'`), added last by `formQuestions` only while `hasPolicies(config)`; a stored
