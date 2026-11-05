@@ -2863,3 +2863,11 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   badge and the Show on website hint say where each goes. Tests in `siteExport`.
 
 - **SW cache bumped to `kennelos-shell-v109` (2026-11-05)** for the waitlist policies, See Your Details tint, the "DAM" pedigree fix, programs suggested by an answer, the do-not-sell list and transport accounts on the website.
+
+## 2026-11-05: Update website from support's helper device
+
+- `kennelportLink.licenseOk` passes on a helper device (cloud session `role: 'helper'`), as
+  the app's license gate already did, so support can Update website and send the puppy
+  portal's feed while setting her up; before, it refused with "license has lapsed". Connect
+  website had no license check. Test in `siteExport`. Assisted setup plan §3 and the guide
+  say so. KennelPort now lets a site's editor make the link code. SW cache bump not done: asked.

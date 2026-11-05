@@ -551,3 +551,21 @@ test("Kels's website check after a task: only what the task changed, never the s
   assert.match(said[1], /This changes 1 thing on your website:[\s\S]*Ivy: registered name changed[\s\S]*1 earlier change still waiting/);
   assert.doesNotMatch(said[1], /colour/);
 });
+
+test('a lapsed or missing license stops Update website, except on support\'s helper device', async () => {
+  const { editionFlags } = await import('../shared/data/editionConfig.js');
+  const { setCloudSession } = await import('../shared/data/settings.js');
+  const was = editionFlags.licenseGate;
+  editionFlags.licenseGate = true;
+  try {
+    localStorage.removeItem('kennelOS.cloudSession');
+    assert.equal(await link.licenseOk(), false); // no license on this device
+    setCloudSession({ token: 't', role: 'owner' });
+    assert.equal(await link.licenseOk(), false);
+    setCloudSession({ token: 't', role: 'helper' });
+    assert.equal(await link.licenseOk(), true);
+  } finally {
+    editionFlags.licenseGate = was;
+    localStorage.removeItem('kennelOS.cloudSession');
+  }
+});

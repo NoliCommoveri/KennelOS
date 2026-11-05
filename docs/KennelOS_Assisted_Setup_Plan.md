@@ -67,7 +67,10 @@ A helper session is a session on her account with `role = 'helper'` and the labe
 `403 helper_not_allowed`: signing others out, deleting the account, changing its email,
 license links, turning the vault off, replacing the recovery wrap, removing a passkey,
 making handoff codes, turning sync off everywhere, erasing devices. On support's device the
-license gate is skipped: the server's own Pro checks use her account's entitlement.
+license gate is skipped: the server's own Pro checks use her account's entitlement. Its website checks
+skip it too: support can Connect website (with a code from KennelPort, which an editor of
+her site can make) and Update website. That link is the helper device's own: it is wiped with
+the device, and each of her devices connects with its own code.
 
 Ending help revokes the helper sessions with `revoked_reason = 'helper_removed'`; the
 device's next request hears `401 helper_removed` and runs the device erase.

@@ -3696,7 +3696,8 @@ KennelPort Site Manager.
   (`kennelport:<kennel id>`), with the site's last facts and the last summary. Never in a
   backup or the cloud: each device connects once.
 - **`data/kennelportLink.js`**: `connectWebsite` (the code → token, then the kennel's
-  settings), `updateWebsite` (license check first: a lapsed Pro sends nothing; then the
+  settings), `updateWebsite` (license check first, `licenseOk`: a lapsed Pro sends nothing;
+  support's helper device, which has no license of its own, passes like the app's gate; then the
   site's facts, the bundle, and the answer applied), `disconnectWebsite` (this device only).
   A `not_linked` answer (Unlink in KennelPort) forgets the token. What an answer fills, by
   `addressChanges` and `kennelChanges`: a dog's `url` and a litter's `photos_url` with its
