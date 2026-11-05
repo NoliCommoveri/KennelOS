@@ -1312,6 +1312,7 @@ body:has(> .kels-fab) main { padding-bottom: 104px; }
 .qa-head input.qa-a { flex: 1 1 220px; min-width: 0; }
 .qa-move { display: flex; gap: 4px; margin-left: auto; }
 .qa-row textarea { min-height: 90px; }
+#wl-policies-list .qa-row textarea { min-height: 170px; }
 .qa-note { margin: 6px 0 0; font-size: 13px; color: var(--text-muted); }
 .qa-note.changed { color: var(--warn, #8a5f17); font-weight: 600; }
 

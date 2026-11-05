@@ -2728,3 +2728,26 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   suggested wording built from her own settings and a note when those settings change.
 - A sixth starter topic: business days and closed dates (her open days in words; her
   closed dates shown live under it on the family pages rather than written into the text).
+
+## 2026-11-05: Waitlist policies (KennelOS side)
+
+- `waitlist_config.policies` and `policies_updated` (defaults `[]`, `null`); edited in Kennel ›
+  Waitlist settings › **Policies**, between Fees & payment and Turns & offers, only while the
+  list can go online. The FAQ's row editor moved to `assets/qaListEditor.js` and is shared.
+- **Start from common topics**: the owner's six (applications, preferences, passes and not
+  responding, picking your puppy, pausing, business days and closed dates), worded from her
+  settings by `data/waitlistPolicies.js`; each row notes when a setting it quoted changes.
+- The locked application question `policies_read` ("Please read our waitlist policies.", one
+  required box), on the form only while she has a policy; "policies" links up to them.
+- Today nudge *"Add your waitlist policies"* for kennels with the list online and none.
+- Published (`kennel.policies`, the form question's `link`), allow-listed by the Worker
+  (`policiesOf`) for the public list, status pages and the form; shown on all three: a
+  folded card, links at the turn, the deposit and backing out, an "updated" banner for
+  families who applied before her last change, and her upcoming closed dates under a
+  business-days policy.
+- Tests: `waitlistPolicies.test.js` (new), additions to `waitlistProjection` and the Worker's
+  `familyPages`. Checked in a browser at phone width: Today, the Policies group (starter,
+  hints, changed-setting note), the form editor, and the three family pages.
+- Precache: `data/waitlistPolicies.js`, `assets/qaListEditor.js` (and `app.css` changed).
+  SW cache bump not done: asked.
+

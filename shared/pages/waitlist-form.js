@@ -63,7 +63,9 @@ function questionHtml(x, i, total) {
     ? `<span class="faint" style="flex:0 1 auto;">${esc(LOCKED_TYPE_LABEL[x.key] || descriptor(WAITLIST_QUESTION_TYPE, x.type).label)}</span>`
     : `<select data-f="type" aria-label="Answer type">${typeOptions(x.type)}</select>`;
   const options = isChoice(x)
-    ? `<div class="field"><label>Options (one per line)</label><textarea data-f="options">${esc((x.options || []).join('\n'))}</textarea></div>`
+    ? (locked
+      ? `<div class="field"><label>Box</label><p class="field-hint" style="margin:0;">☐ ${esc((x.options || []).join(' · '))}</p></div>`
+      : `<div class="field"><label>Options (one per line)</label><textarea data-f="options">${esc((x.options || []).join('\n'))}</textarea></div>`)
     : '';
   return `<div class="wf-q" data-i="${i}">
       <div class="wf-q-head"><span class="wf-num">${i + 1}</span>${locked ? '<span title="Locked: reword only">🔒</span>' : ''}

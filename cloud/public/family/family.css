@@ -316,3 +316,18 @@ dl.info-facts { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; m
 dl.info-facts dt { font-weight: 600; }
 dl.info-facts dd { margin: 0; }
 ul.info-tests > li { padding: 2px 0; border-top: 0; }
+
+/* Her waitlist policies: one expander each, inside a folded card (list, status page)
+   or a section (application). */
+details.policy { border-top: 1px solid var(--border); padding: 10px 0; }
+details.policy:first-of-type { border-top: 0; }
+details.policy > summary { cursor: pointer; font-weight: 600; }
+details.policy[open] > summary { margin-bottom: 6px; }
+details.policy p { margin: 6px 0 0; }
+.closed-dates { font-weight: 600; }
+.policies-updated { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; background: var(--warn-soft); border-color: var(--warn); }
+.policies-updated p { margin: 0; flex: 1 1 14rem; }
+a.policies-link, button[data-policy-link].linkish { font-weight: 600; color: var(--accent); }
+/* On the centered status page the headings stay centered; what they say reads left. */
+main.centered details.policy p { text-align: left; }
+

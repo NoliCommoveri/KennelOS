@@ -166,7 +166,7 @@ test('Today\'s nudge: each own kennel with the list online and no policies; gone
   const got = policiesNudges(kennels);
   assert.deepEqual(got.map((n) => n.key), ['waitlist-policies:k1']);
   assert.match(got[0].title, /Add your waitlist policies for Thornfield/);
-  assert.equal(got[0].subjectHref, 'kennel.html?id=k1&open=policies');
+  assert.equal(got[0].subjectHref, 'kennel.html?id=k1&open=policies#waitlist-settings');
   assert.match(got[0].detail, /Until you add one, your application doesn't ask/);
   assert.deepEqual(policiesNudges(kennels, { online: false }), [], 'list not online here: nothing');
   assert.deepEqual(policiesNudges(kennels, { scopedTo: 'k2' }), [], 'scoped to a kennel with policies');

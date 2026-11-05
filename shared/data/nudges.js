@@ -942,8 +942,8 @@ export function policiesNudges(kennels, { online = true, scopedTo = null } = {})
       key: `waitlist-policies:${k.id}`,
       title: kennels.filter((x) => x.is_own_kennel && !x.is_archived).length > 1 ? `Add your waitlist policies for ${k.kennel_name || 'your kennel'}` : 'Add your waitlist policies',
       detail: 'Families on your list see them, and applicants tick that they\'ve read them. Until you add one, your application doesn\'t ask.',
-      subjectHref: `kennel.html?id=${encodeURIComponent(k.id)}&open=policies`,
-      actions: [{ label: 'Add policies', run: async () => { location.href = `kennel.html?id=${encodeURIComponent(k.id)}&open=policies`; } }]
+      subjectHref: `kennel.html?id=${encodeURIComponent(k.id)}&open=policies#waitlist-settings`,
+      actions: [{ label: 'Add policies', run: async () => { location.href = `kennel.html?id=${encodeURIComponent(k.id)}&open=policies#waitlist-settings`; } }]
     }));
 }
 

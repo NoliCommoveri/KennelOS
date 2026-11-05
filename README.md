@@ -69,6 +69,8 @@ backup, carries a program from Lite to Pro.
     Connect / Update website are built; needs a Worker deploy and a try against KennelPort
     staging. A breeder's own domain is added by hand to
     `WEBSITE_ORIGINS` in `cloud/wrangler.toml` (KennelPort Setup, Custom domains, step C).
+  - Waitlist policies (`docs/KennelOS_Waitlist_Policies_Plan.md`): built in KennelOS; needs a
+    Worker deploy. Next: her KennelPort website showing them beside its own (plan §4).
   - Puppy portal (KennelPort's `docs/Puppy_Parent_Portal_Plan.md`, guide §35.1): KennelOS's
     side of phase 1 is built (the family feed sent on its own, the facts back, the status
     page's one-tap link). Next is phase 1's gate: one litter from signed contract to the vet
