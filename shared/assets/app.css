@@ -1304,3 +1304,14 @@ body:has(> .kels-fab) main { padding-bottom: 104px; }
 .settings-group > summary .field-hint { margin: 0; }
 .settings-group[open] > summary { border-bottom: 1px solid var(--border); }
 .settings-group > .form-grid { padding: 12px; }
+
+/* qaListEditor.js: her FAQ and her waitlist policies, rows of heading + text. */
+.qa-row { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin-top: 10px; background: var(--surface); }
+.qa-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.qa-num { font-weight: 700; color: var(--text-muted); min-width: 1.6em; }
+.qa-head input.qa-a { flex: 1 1 220px; min-width: 0; }
+.qa-move { display: flex; gap: 4px; margin-left: auto; }
+.qa-row textarea { min-height: 90px; }
+.qa-note { margin: 6px 0 0; font-size: 13px; color: var(--text-muted); }
+.qa-note.changed { color: var(--warn, #8a5f17); font-weight: 600; }
+
