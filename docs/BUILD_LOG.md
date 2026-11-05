@@ -2823,3 +2823,30 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - **Pedigree import: a parent named "DAM …".** The Certified layout's "Sire"/"Dam" label was
   stripped from any parent name starting with that word ("DAM PRESTIGE TINA" read as "PRESTIGE
   TINA"); only the label as printed ("Dam", then an all-caps name) comes off now. Test added.
+
+## 2026-11-05: Programs suggested by an answer; the do-not-sell list
+
+- **A question that suggests a program.** Her own yes/no or choice question can name one of
+  her programs and the answers that suggest it (form editor, "Suggest a program";
+  `program_link` on the question, never published). The application then asks **"Add to
+  [program]?"** with a Yes / No dropdown on the family's page, in the Approve dialog (Yes fills
+  its Program) and as a badge on the Waitlist page, while it's open and while its fee is due;
+  gone once the fee is received. Yes on an approved family takes the program's fee (a waived
+  fee puts them on the list); No is kept in `program_suggestions_declined` (private).
+  `data/programSuggest.js`, `addSuggestedProgram` / `declineSuggestedProgram`. Tests
+  `programSuggest`.
+- **Do-not-sell list.** New table `do_not_sell` (`db.version(7)`; every field private, sealed
+  like expenses; registered on contacts and waitlist entries; restore match by contact, else
+  the contacts rule). New page Contacts › **Do not sell** (Pro): add by hand, move a contact
+  (it leaves the Contacts list), or add from an application; edit, take off (archive). New
+  applications are matched on name, email or phone (and the listing's contact) and warned
+  about on the family's page, the Approve dialog and the Waitlist page; never declined.
+  `data/doNotSell.js`, `data/doNotSellRepo.js`. `cloudFields.js` regenerated: the Worker must
+  be deployed before this app build, or live sync refuses the new table (`bad_table`).
+  Tests `doNotSell`, plus `referenceRegistry`, `syncRegistry`, `cloudBackup` (snapshot
+  schema 7).
+- Precache: `data/programSuggest.js`, `data/doNotSell.js`, `data/doNotSellRepo.js`,
+  `pages/do-not-sell.html` / `.js` (`app.css` changed). Checked in a browser at 390px: the form
+  link, the family page before and after approval, Yes changing the fee, the Approve dialog,
+  the Waitlist badges, a contact moved to the list and hidden from Contacts, the list page.
+  SW cache bump not done: asked.

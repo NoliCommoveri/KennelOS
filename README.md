@@ -71,6 +71,9 @@ backup, carries a program from Lite to Pro.
     `WEBSITE_ORIGINS` in `cloud/wrangler.toml` (KennelPort Setup, Custom domains, step C).
   - Waitlist policies (`docs/KennelOS_Waitlist_Policies_Plan.md`): built here and on
     KennelPort's side; needs a Worker deploy (both) and the SW cache bump.
+  - Program suggested by an application answer, and the do-not-sell list (guide §29): built;
+    the new `do_not_sell` table needs the cloud Worker deployed **before** this app build
+    ships (live sync refuses an unknown table), then the SW cache bump.
   - Puppy portal (KennelPort's `docs/Puppy_Parent_Portal_Plan.md`, guide §35.1): KennelOS's
     side of phase 1 is built (the family feed sent on its own, the facts back, the status
     page's one-tap link). Next is phase 1's gate: one litter from signed contract to the vet

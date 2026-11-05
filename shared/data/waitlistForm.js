@@ -21,6 +21,8 @@
 
 // Her wording, kept as given (decided 2026-10-06). Default text for the locked
 // notice; she can edit it but not remove it.
+import { cleanProgramLink } from './programSuggest.js';
+
 export const PUBLIC_LIST_NOTICE = 'Please note that to ensures transparency and give our applicants peace of mind that their position in line is being honored, our waitlist is publicly available for viewing by prospective and waiting families. Your contact information will never be displayed, but some data like first name and gender preference will appear on the public list once you are added.';
 
 // Types only locked questions use. `preference` answers live on the entry's pref_*
@@ -167,6 +169,11 @@ export function formQuestions(config) {
     if (locked && locked.type === 'notice' && !clean(item.help)) item.help = PUBLIC_LIST_NOTICE;
     if (!locked && isChoice(item)) item.options = (Array.isArray(raw.options) ? raw.options : []).map(clean).filter(Boolean);
     if (raw.source_header) item.source_header = clean(raw.source_header);
+    // Her link from this question to one of her programs (programSuggest.js).
+    if (!locked && raw.program_link) {
+      const link = cleanProgramLink(item, raw.program_link);
+      if (link) item.program_link = link;
+    }
     seenIds.add(id);
     if (locked) seenKeys.add(locked.key);
     out.push(item);
