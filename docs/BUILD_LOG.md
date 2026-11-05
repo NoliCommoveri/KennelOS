@@ -2863,3 +2863,41 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   badge and the Show on website hint say where each goes. Tests in `siteExport`.
 
 - **SW cache bumped to `kennelos-shell-v109` (2026-11-05)** for the waitlist policies, See Your Details tint, the "DAM" pedigree fix, programs suggested by an answer, the do-not-sell list and transport accounts on the website.
+
+## 2026-11-05: Update website from support's helper device
+
+- `kennelportLink.licenseOk` passes on a helper device (cloud session `role: 'helper'`), as
+  the app's license gate already did, so support can Update website and send the puppy
+  portal's feed while setting her up; before, it refused with "license has lapsed". Connect
+  website had no license check. Test in `siteExport`. Assisted setup plan §3 and the guide
+  say so. KennelPort now lets a site's editor make the link code. SW cache bump not done: asked.
+
+## 2026-11-05: Marketing site brought up to date
+
+- `site/index.html`: three new feature cards (the waitlist, devices in step, Kels), the
+  "where your data lives" line names every opt-in that sends data, the Pro card's list, Kels
+  in Getting started, and a KennelPort website callout. `pro.html`: five new cards (devices
+  in step and Get help, the KennelPort website and portal, alerts and the digest, Jotform
+  and Stripe, shows and more kennels), the waitlist card's policies, family requests and
+  do-not-sell list, Dog Cards and KennelAssistant in Share-out. `editions.html`: rows for
+  each of those, and Kels in both editions. `lite.html`: Kels included, the new Pro features
+  under What's not in Lite. `faq.html`: the phone-and-computer and two-people answers rewritten
+  for sync; new questions on updating a website and getting help. `about.html`: the service's
+  list, and the digest's readable email. README Status: the deployed features marked live.
+  Not done: `privacy.html` / `terms.html` (asked).
+
+## 2026-11-05: Privacy policy and terms for the newer features
+
+- `site/privacy.html` (last updated 5 November 2026): scope (§1); the digest's readable email
+  and support's access in the short version (§2); Dog Cards and the website link (§4); §9
+  rewritten for what the online waitlist now holds (policies, shared accounts, prices,
+  deposits, credits, pickup times and places, extras, a family's pickup location and its
+  90 days); new §9a (what goes to KennelPort, website and puppy portal), §9b (alerts and the
+  digest), §9c (help from support, with the automatic key hand-over's trade-off); emails (§11);
+  Apple/Google/Mozilla and KennelPort as providers (§12); retention (§13); choices (§15).
+- `site/terms.html` (last updated 5 November 2026): scope (§1); device sync and support's
+  access (§6); the breeder's responsibility for policies, prices, extras and pickup (§8); new
+  §8a (the KennelPort website); other services (§12); alerts aren't a guarantee (§13).
+- Wording approved by the owner. KennelPort is run by KennelOS.
+
+- **SW cache bumped to `kennelos-shell-v110` (2026-11-05)** for Update website from support's helper device.
