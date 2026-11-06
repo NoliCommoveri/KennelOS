@@ -2901,3 +2901,18 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - Wording approved by the owner. KennelPort is run by KennelOS.
 
 - **SW cache bumped to `kennelos-shell-v110` (2026-11-05)** for Update website from support's helper device.
+
+## 2026-11-06: a puppy's disposition to the website
+
+- The website bundle sends a puppy-status dog's `disposition` (keeping, available,
+  placed, health_hold; `undecided` when none is set), only to a Worker whose answer
+  lists the `disposition` section (KennelPort adds it in the same change), so an older
+  Worker is never sent a field it would refuse. Nothing else about which dogs go
+  changes: still those marked Show on website. KennelPort's owner now picks, per site,
+  which dispositions go on the site (From KennelOS, "Which puppy dogs go on the site");
+  the website shows none of them as words. Grown dogs never carry it.
+- Why: puppies marked Show on website stay marked when their disposition changes, so a
+  pup no longer kept still showed under Up and coming.
+- Tests: `siteExport.test.js` (sent only with the section, only on puppies, undecided
+  when unset).
+- **SW cache bumped to `kennelos-shell-v111` (2026-11-06)**, the owner's go-ahead.

@@ -3654,7 +3654,9 @@ KennelPort Site Manager.
 - **`data/siteExport.js`** (pure) builds the bundle, KennelPort's format 1, field by field
   with `assertOnlyKeys` on every object (the allow-lists are its `*_KEYS`). What goes: her
   own kennel's marked dogs (statuses puppy, active breeding, for sale, retired, deceased;
-  titles from `title_earned` events, health results from `completedTestsByDog` with the test
+  a puppy-status dog's `disposition`, `undecided` when none is set, only when the site's
+  answer lists `disposition` in its `sections`, for the website owner's rule on which
+  puppies show; titles from `title_earned` events, health results from `completedTestsByDog` with the test
   name as id, `normal` true for an outcome marked Normal, false for Abnormal, null when
   not marked, which KennelPort counts as normal); live litters (expected to ready) with her dates (`whelp_date`,
   `estimated_ready_date`, `accept_deposits_date`; an expected litter's date from its
