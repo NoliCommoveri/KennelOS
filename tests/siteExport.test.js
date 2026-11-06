@@ -500,6 +500,18 @@ test('registry: on dogs and puppies only for a Worker that takes it (its `regist
   assert.equal(now.litters[0].puppies[0].registry, 'CKC');
 });
 
+test('disposition: on a puppy-status dog only, for a Worker that takes it (its `disposition` section)', () => {
+  const dogs = [dog('willow'), dog('fern', { status: 'puppy', disposition: 'available' }), dog('moss', { status: 'puppy', disposition: 'keeping' }), dog('ivy', { status: 'puppy' })];
+  const old = build({ dogs });
+  assert.equal(old.dogs.some((d) => 'disposition' in d), false, 'an older Worker: never sent');
+  const now = build({ dogs, sections: ['disposition'] });
+  const by = (id) => now.dogs.find((d) => d.id === id);
+  assert.equal('disposition' in by('willow'), false, 'not on a grown dog');
+  assert.equal(by('fern').disposition, 'available');
+  assert.equal(by('moss').disposition, 'keeping');
+  assert.equal(by('ivy').disposition, 'undecided', 'none set reads undecided');
+});
+
 test('heat_id: a pairing, and its litter, name the heat they use, for a Worker that takes it', () => {
   const dogs = [dog('willow', { heats_online: true }), dog('stud', { sex: 'male' })];
   const events = [{ id: 'h1', subject_type: 'dog', subject_id: 'willow', event_type: 'heat_cycle', event_date: '2027-01-10' }];
