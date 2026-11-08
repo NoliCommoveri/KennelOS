@@ -195,7 +195,9 @@ export const SYNC_REGISTRY = Object.freeze({
       // A side sale (Side Sale Spec; owner approved 2026-11-08: synced with the rest of
       // the sale): the waitlist family, the deposit's due date, whether it holds the
       // pup, and the disposition to put back on a cancel.
-      'side_entry_id', 'side_deposit_due', 'side_holds_pup', 'side_prior_disposition'
+      'side_entry_id', 'side_deposit_due', 'side_holds_pup', 'side_prior_disposition',
+      // When she sent its deposit request (Review sale & send), as an offer row keeps it.
+      'side_request_sent_date'
     ],
     private: [
       'price', 'deposit_amount', 'transport_fee', 'deferred_boarding_amount',

@@ -1,6 +1,6 @@
 # KennelOS — Side Sale Spec
 
-> **Status: decided, nothing built.** Asked by the owner (2026-11-08). The breeder sells a pup
+> **Status: built (2026-11-08).** Asked by the owner (2026-11-08). The breeder sells a pup
 > to a family on her list outside the turn order: a panicked buyer who changes their mind, an
 > older pup she wants in front of someone now. To the family it looks exactly like a turn pick.
 > To the turn rules it doesn't exist. Every decision is in §9. Pro only (the waitlist is Pro).
@@ -166,3 +166,13 @@ Nov 12**. A held one shows as Not offered for that family. Conflicts show in red
 10. Public list: the side-sale family is a normal row.
 11. A pup pulled from Undecided / Keeping / Health hold is held from other families until the
     deposit or cancel, then goes back to what it was if cancelled.
+
+**Modified** (as built):
+- A family with a pending side sale isn't offered turns until it's cancelled or its deposit is
+  in (`eligiblePupsFor`), so they never hold a turn and a side sale at once.
+- One more Sale field, `side_request_sent_date` (cloud), where Review sale & send keeps its
+  date, as an offer row does.
+- A family can't pass on a card whose pup is picked (the Worker refuses a pass after a pick, as
+  for a turn), so §6's "pass on that row" never arises; backing out works as after a turn pick.
+- No "Sell to a waitlist family…" on the dog page (the picks panel and the family page cover
+  it). The two new Today nudges aren't steps of Kels's Review my waitlist.

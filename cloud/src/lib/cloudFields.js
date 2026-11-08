@@ -180,6 +180,7 @@ export const CLOUD_FIELDS = {
         "side_entry_id",
         "side_holds_pup",
         "side_prior_disposition",
+        "side_request_sent_date",
         "status",
         "updated_at"
       ],

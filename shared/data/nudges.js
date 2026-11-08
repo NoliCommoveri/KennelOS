@@ -56,10 +56,10 @@ import { waitlistProgramRepo } from './waitlistProgramRepo.js';
 import {
   overdueTurns, overdueFees, canUndoRemoval, entryName, describeOfferChanges, waitlistConfig, businessDays, autoOffers, closingTrigger,
   prefChangeSummary, prefChangeEffect, PREF_FIELD_LABEL, depositsDueLitters,
-  readyCheck, readyCheckOverdue
+  readyCheck, readyCheckOverdue, isSideSalePending, pupClaims
 } from './waitlistRules.js';
 import {
-  recordOutcome, markFeeExpired, recordReadyAnswer, undoRemoval, hasPendingRequest, markMessagesRead,
+  recordOutcome, markFeeExpired, recordReadyAnswer, undoRemoval, cancelSideSale, hasPendingRequest, markMessagesRead,
   approvePauseRequest, declinePauseRequest, approvePrefChange, declinePrefChange, approveListenChange, declineListenChange,
   markCompanionLinkSent, declineCompanionRequest, approveExtraRequest, declineExtraRequest, approvePickupRequest, declinePickupRequest
 } from './waitlistActions.js';
@@ -1053,6 +1053,40 @@ async function waitlistNudges(today, litters, dogsById, { dogs = [], sales = [] 
       detail: `Asked ${rc.asked}, when the readiness hold from their application ended. They stay paused until they answer (your setting). Contact them, or record their answer if they've told you.`,
       subjectHref: `waitlist-entry.html?id=${encodeURIComponent(e.id)}`,
       actions: [{ label: 'They\'re ready', run: async () => { await recordReadyAnswer(e.id, { answer: 'yes', date: today, by: 'breeder' }); } }]
+    });
+  }
+
+  // A side sale's deposit is past due (Side Sale Spec §4): nothing happens by itself.
+  const listedIds = new Set(entries.map((e) => e.id));
+  for (const sale of sales.filter((x) => isSideSalePending(x) && listedIds.has(x.side_entry_id) && x.side_deposit_due && x.side_deposit_due < today)) {
+    const e = entriesById.get(sale.side_entry_id);
+    const pup = dogsById.get(sale.dog_id)?.call_name || 'their pup';
+    out.push({
+      key: `waitlist-side-overdue:${e.id}:${sale.id}:${sale.side_deposit_due}`,
+      title: `${name(e)}'s deposit for ${pup} was due ${sale.side_deposit_due}`,
+      detail: `A side sale you recorded. Nothing happens by itself: record the deposit on their page if it came, or cancel the sale (they keep their place; never a pass)${sale.side_holds_pup ? ` and ${pup} goes back to what it was` : ''}.`,
+      subjectHref: `waitlist-entry.html?id=${encodeURIComponent(e.id)}`,
+      actions: [{ label: 'Cancel side sale', run: async () => {
+        const r = await cancelSideSale(sale.id, { date: today, why: 'the deposit didn\'t arrive in time' });
+        return { title: 'Side sale cancelled', message: `${name(e)} keeps their place on the list.${r.restored ? ` ${pup} is back to ${r.restored.replace('_', ' ')}.` : ''} Let them know.` };
+      } }]
+    });
+  }
+
+  // Two live claims on one pup (Side Sale Spec §5): two sales, or a sale and a turn pick.
+  const claimedDogs = new Set(sales.filter((x) => !x.is_archived && x.side_entry_id && listedIds.has(x.side_entry_id)).map((x) => x.dog_id));
+  for (const o of offers.filter((x) => !x.is_archived && x.outcome === 'open' && x.chosen_dog_id)) claimedDogs.add(o.chosen_dog_id);
+  for (const dogId of claimedDogs) {
+    const claims = pupClaims(dogId, { sales: sales.filter((x) => x.dog_id === dogId), offers });
+    if (claims.length < 2) continue;
+    const pup = dogsById.get(dogId)?.call_name || 'A pup';
+    const who = (c) => { const e = c.entry_id && entriesById.get(c.entry_id); return e ? name(e) : 'a buyer'; };
+    out.push({
+      key: `pup-two-sales:${dogId}:${claims.map((c) => c.sale_id || c.offer_id).sort().join('-')}`,
+      title: `Two sales on ${pup}`,
+      detail: `${claims.map((c) => `${who(c)} (${c.kind === 'side' ? 'side sale' : c.kind === 'pick' ? 'picked in their turn' : 'a sale'})`).join(' and ')}. Whichever deposit you record first wins; the other is ended then. Let the other family know.`,
+      subjectHref: `dog.html?id=${encodeURIComponent(dogId)}`,
+      actions: []
     });
   }
 

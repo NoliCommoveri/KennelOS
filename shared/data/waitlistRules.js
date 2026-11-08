@@ -1623,8 +1623,13 @@ export function nextTurnPrepassNote(entry, ls, { offers = [], config = WAITLIST_
   return `They said "Not this litter" to ${prepassed.length === 1 ? names : `all of these (${names})`}. "Offer to them" records their turn as a pass${counts ? ` (pass ${used} of ${max})` : ''} and offers the next family.${last}`;
 }
 
-export function describeOfferChanges({ next = null, voided = [], offered = [], waiting = [], auto_passed = [] } = {}, { nameOf, litterOf, fmtDate = (d) => d } = {}) {
+export function describeOfferChanges({ next = null, voided = [], offered = [], waiting = [], auto_passed = [], resolved = [] } = {}, { nameOf, litterOf, fmtDate = (d) => d } = {}) {
   const lines = [];
+  // A second claim on the same pup, ended by this deposit (Side Sale Spec §5).
+  for (const r of resolved) {
+    if (r.kind === 'side_cancelled') lines.push(`${nameOf(r.entry_id)}'s side sale on the same pup was cancelled. They keep their place; let them know.${r.restored ? ' The pup was put back to what it was before.' : ''}`);
+    else if (r.kind === 'pick_released') lines.push(`${nameOf(r.entry_id)} had picked the same pup: their pick was let go. ${r.voided ? 'No pup was left for them, so their turn ended (not a pass).' : 'Their turn stays open on the pups left.'} Let them know.`);
+  }
   // Families whose turn was passed at once ("Not this litter" to all of it, §16.2):
   // always said, so a pass never happens out of her sight.
   for (const a of [...auto_passed, ...((next && next.auto_passed) || [])]) {

@@ -2940,3 +2940,25 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Either switch; the alone view; a settings draft writes nothing; checks).
 - End-State guide §29: the picks preview.
 - SW cache not bumped (asked).
+
+## 2026-11-08: Side sales; Open picks from Kels and Today through the preview
+
+- **Picks preview everywhere:** Kels's litter check-in, Today's Open picks nudge and Kels's
+  Review my waitlist open picks through the preview (`waitlistPicksPanel.openPicksFromCheckin`;
+  the nudge returns `{ openPicks }` for the page to open it). Owner kept the pup inline edits.
+- **Side sales** (`docs/KennelOS_Side_Sale_Spec.md`, built): new Sale fields `side_entry_id`,
+  `side_deposit_due`, `side_holds_pup`, `side_prior_disposition`, `side_request_sent_date`
+  (cloud; `cloudFields.js` regenerated; `side_entry_id` in `referenceRegistry`).
+  `waitlistRules`: the `isPupAvailable` side rule, `isSideSalePending`, `sideSaleOf`,
+  `pupClaims`, `sideSaleBlocker`, `sideSaleIssues`, `answersToFit`; a family with a pending side
+  sale gets no turns. `waitlistActions`: `recordSideSale`, `confirmSideDeposit`,
+  `cancelSideSale`, and the other claim resolved on any deposit. Projection: the side sale in
+  the family's `offers` as a turn row with a pick, `direct: true` for the Worker only. Worker:
+  `serverMoves.openTurns` skips direct rows except for reminders; the public list doesn't mask
+  them. UI: `assets/sideSaleUI.js` (Pro-only; `sw.js`, `proPages.js`), the family page's
+  Record a side sale… and Side sale card, the picks panel's Sell to a waitlist family…, the
+  second-claim warning in the pick / switch / deposit dialogs, `pickToSend` for side sales,
+  Today nudges (overdue side deposit, two sales on a pup), the preview's side-sale lines.
+- Tests: `tests/waitlistSideSale.test.js`; cloud `serverMoves` and `familyPages` tests for
+  direct rows.
+- End-State guide §29: the side sale. SW cache not bumped (asked).

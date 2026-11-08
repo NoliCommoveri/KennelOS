@@ -97,6 +97,7 @@ const PRECACHE_URLS = [
   'assets/waitlistEmailUI.js',
   'assets/waitlistPicksPanel.js',
   'assets/picksPreviewModal.js',
+  'assets/sideSaleUI.js',
   'assets/waitlistUI.js',
   'assets/programIcons.js',
   'assets/wizardUI.js',

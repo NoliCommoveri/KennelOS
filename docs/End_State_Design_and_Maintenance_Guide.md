@@ -1840,7 +1840,32 @@ it computes is stored.**
   `fee_received_at` (same-day order of payment), `approved_date`, `created_at`, `id`.
 - **Available pup:** not archived, not deceased / pet home / external reference,
   disposition `available` (unset reads as `undecided`, never offered), and no live Sale
-  (`waitlistRules.isPupAvailable`).
+  (`waitlistRules.isPupAvailable`), except that a side sale still waiting on its deposit takes
+  the pup only when `side_holds_pup`.
+- **Side sale** (`docs/KennelOS_Side_Sale_Spec.md`): she sells a pup to a family on the list
+  outside the turn order. A deposit-pending Sale with `side_entry_id` (FK → waitlist entry,
+  `referenceRegistry`), `side_deposit_due`, `side_holds_pup` (the pup wasn't Available, so it's
+  held for them), `side_prior_disposition` (put back on a cancel) and `side_request_sent_date`
+  (Review sale & send); all cloud fields. Never a `waitlist_offers` row, so no turn rule sees
+  it and it never counts as a pass. `waitlistActions.recordSideSale` (families on the list
+  only, not while they hold the turn or have one pending; any pup but placed, gone or
+  archived; `sideSaleIssues` names what doesn't fit and she may go ahead; a non-Available pup
+  becomes Available; optional `answersToFit` and intended registration), `confirmSideDeposit`
+  (sale deposit paid, pup and family placed, no turn moves on), `cancelSideSale` (family keeps
+  their place; a held pup goes back). A family with a pending side sale gets no turns
+  (`eligiblePupsFor` → []). **Two claims on one pup** (`pupClaims`: live sales and open turn
+  picks): she's warned before a second (`waitlistUI.confirmSecondClaim`, the turn pick and
+  switch dialogs, the side sale dialog, the deposit dialogs); when one deposit is recorded the
+  other ends (`resolveOtherClaims`: a side sale cancelled; a turn pick let go, its turn open
+  on what's left or voided with nothing left, never a pass), reported through
+  `describeOfferChanges`' `resolved`. Today: an overdue side deposit (**Cancel side sale**) and
+  **Two sales on [pup]**. Pages: **Record a side sale…** and a Side sale card (Review sale &
+  send, Deposit received, Cancel) on the family's Interact tab; **Sell to a waitlist family…**
+  on the picks panel (`assets/sideSaleUI.js`, Pro-only). The projection publishes it in the
+  family's `offers` exactly as an open turn row with a pick (place hidden, same card), marked
+  `direct: true` for the Worker only: `serverMoves.openTurns` skips it (never blocks, closes or
+  moves a turn) except for reminders, and the public list doesn't mask that family as
+  deciding. The family view never carries the marker.
 - **Match:** sex, breed (case-insensitive), purposes (`pref_purposes` → registrations, must
   include the pup's `intended_registration`), and color only with `color_matching`. Unset
   on either side matches.
