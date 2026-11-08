@@ -2961,4 +2961,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Today nudges (overdue side deposit, two sales on a pup), the preview's side-sale lines.
 - Tests: `tests/waitlistSideSale.test.js`; cloud `serverMoves` and `familyPages` tests for
   direct rows.
-- End-State guide §29: the side sale. SW cache not bumped (asked).
+- End-State guide §29: the side sale.
+
+- **SW cache bumped to `kennelos-shell-v112` (2026-11-08)**, the owner's go-ahead, for the picks
+  preview and side sales.
