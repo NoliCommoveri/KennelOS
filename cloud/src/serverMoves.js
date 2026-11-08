@@ -102,10 +102,14 @@ export function fillTemplate(template, { kennelName, family, litters = [], respo
 // --- The projection, as the server reads and changes it (pure) -----------------------
 
 // Every open turn in a projection: [{ entryId, turnId, offers, respondBy, offeredDate, picked }].
-export function openTurns(projection) {
+// A row marked `direct` is a side sale (Side Sale Spec §6), not a turn: it never
+// blocks, closes or moves a turn; only the reminders (`includeDirect`) see it, so the
+// family hears about their deposit exactly as after a turn pick.
+export function openTurns(projection, { includeDirect = false } = {}) {
   const out = new Map();
   for (const [entryId, e] of Object.entries(projection.entries || {})) {
     for (const o of e.offers || []) {
+      if (o.direct && !includeDirect) continue;
       const turnId = o.turn_id || o.id;
       if (!out.has(turnId)) out.set(turnId, { entryId, turnId, offers: [], respondBy: o.respond_by_date, offeredDate: o.offered_date, picked: null });
       const t = out.get(turnId);
@@ -282,7 +286,7 @@ export async function runKennel(env, row, { now = new Date(), origin } = {}) {
 
   // 3. Reminders, each once.
   if (projection.kennel?.reminders !== false && hour >= MORNING_HOUR) {
-    for (const t of openTurns(projection)) {
+    for (const t of openTurns(projection, { includeDirect: true })) {
       if (busy.has(t.entryId) || !t.respondBy || !t.offeredDate || today > t.respondBy) continue;
       const span = daysBetween(t.offeredDate, t.respondBy);
       const facts = { litters: litterLabels(projection, t.offers.map((o) => o.litter_id)), respondBy: t.respondBy };

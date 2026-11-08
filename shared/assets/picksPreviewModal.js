@@ -317,6 +317,7 @@ function blockerText(b, n) {
     case 'gone_home': return 'Gone home';
     case 'external': return 'An outside dog now';
     case 'archived': return 'Archived';
+    case 'side_sale': return `Side sale to ${n.family(b.entry_id)}, held for them${b.due ? ` (deposit due ${fmtDate(b.due)})` : ''}`;
     case 'sale': return b.picked ? `Picked by ${n.family(b.entry_id)} in their turn (deposit pending)` : `Has a sale (${label(SALE_STATUS, b.sale_status)})`;
     default: return b.code;
   }
@@ -337,6 +338,7 @@ function pupsHtml(p, data, n, state) {
         ? `<span class="badge badge-green">Offered</span>${r.holder_id ? ` <span class="faint">in ${esc(n.family(r.holder_id))}'s turn</span>` : ''}`
         : `<span class="badge badge-gray">Not offered</span> ${esc(r.blockers.map((b) => blockerText(b, n)).join('; '))}`;
       const conflict = r.conflict ? ' <span class="badge badge-red">Two sales on this pup</span>' : '';
+      const side = (r.side || []).map((x) => `<div class="field-hint" style="margin:2px 0 0;">Side sale pending: ${n.familyLink(x.entry_id)}${x.due ? `, deposit due ${esc(fmtDate(x.due))}` : ''}</div>`).join('');
       const flags = r.flags.map((f) => `<div class="field-hint" style="margin:2px 0 0;">⚠ ${esc(PUP_FLAG[f] || f)}</div>`).join('');
       const fams = r.offered
         ? (r.families.length ? r.families.map((f, i) => `${i + 1}. ${n.familyLink(f.entry_id)}${f.holds_turn ? ' <span class="badge badge-purple">Holds the turn</span>' : ''}${f.prepassed ? ' <span class="faint">(Not this litter)</span>' : ''}`).join('<br>') : '<span class="faint">Nobody qualifies</span>')
@@ -344,7 +346,7 @@ function pupsHtml(p, data, n, state) {
       const facts = `${esc(label(SEX, dog?.sex))} · ${esc(dog?.intended_registration ? label(REGISTRATION_TYPE, dog.intended_registration) : 'no registration')}`;
       const editing = state.editPup === r.dog_id;
       const edit = editing ? pupForm(dog) : (demo ? '' : ` <button type="button" class="btn btn-sm" data-pp-edit-pup="${esc(r.dog_id)}">Edit</button>`);
-      return `<tr><td>${n.pupLink(r.dog_id)}<div class="faint">${facts}</div>${edit}</td><td>${status}${conflict}${flags}</td><td>${fams}</td></tr>`;
+      return `<tr><td>${n.pupLink(r.dog_id)}<div class="faint">${facts}</div>${edit}</td><td>${status}${conflict}${side}${flags}</td><td>${fams}</td></tr>`;
     }).join('');
     return `<h3 style="margin:16px 0 4px;font-size:15px;">${esc(n.litterName(L.litter_id))}${L.is_target ? (p.already_open ? '' : ' <span class="badge badge-blue">Opening now</span>') : ' <span class="badge badge-gray">Picks open</span>'}</h3>
       <div class="field-hint" style="margin:0 0 6px;">${sexLine('female', 'Females')}${sexLine('male', 'Males')}</div>
@@ -372,6 +374,7 @@ const FIELD_WORDS = {
 
 function reasonText(r, entry, data, n) {
   switch (r.code) {
+    case 'side_sale': return `Buying ${n.pup(r.dog_id)} (side sale${r.due ? `, deposit due ${fmtDate(r.due)}` : ''}), so not offered turns meanwhile`;
     case 'paused': return `Paused by you until ${fmtDate(r.until)}`;
     case 'ready_hold': return r.until ? `Not ready to buy until ${fmtDate(r.until)}` : 'Waiting on their "Ready now?" answer';
     case 'listening': return r.mode === 'except' ? 'Asked to skip litters from this sire or dam' : 'Only listening for litters from other sires or dams';

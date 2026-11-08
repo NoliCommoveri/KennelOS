@@ -294,7 +294,8 @@ export const PROGRAM_ICONS = ['star', 'check', 'heart', 'ribbon', 'medal', 'shie
 function publicRows(projection) {
   const rows = Array.isArray(projection.public_list) ? projection.public_list : [];
   const deciding = new Set(Object.values(projection.entries || {})
-    .filter((e) => e && e.status === 'active' && (e.offers || []).length && Number.isInteger(e.position))
+    // A side sale's row (`direct`) isn't a turn: that family's row stays theirs.
+    .filter((e) => e && e.status === 'active' && (e.offers || []).some((o) => !o.direct) && Number.isInteger(e.position))
     .map((e) => e.position));
   return rows.map((r) => (deciding.has(r.position) || r.deciding
     ? { ...r, name: DECIDING_LABEL, deciding: true }

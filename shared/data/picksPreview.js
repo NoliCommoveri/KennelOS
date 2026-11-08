@@ -14,7 +14,7 @@ import {
   eligiblePupsFor, isManuallyPaused, isReadyHeld, readyFromDate, readyCheck, isListeningFor,
   turnSpent, turnLittersFor, openTurns, joinsOpenTurn, splitPrepassed, prepassFor,
   respondByDate, countsAsPass, passesUsed, shouldRemoveForPasses, kennelBreeds, resolveBreed,
-  WHELP_NOTE_FIELDS
+  WHELP_NOTE_FIELDS, isSideSalePending, sideSaleOf, pupClaims
 } from './waitlistRules.js';
 import { RELEASED_SALE_STATUSES, cleanPurposes } from './vocab.js';
 
@@ -36,6 +36,11 @@ export function pupBlockers(dog, sales = [], offers = []) {
   const disp = dog.disposition || 'undecided';
   if (UNOFFERED_DISPOSITIONS.includes(disp)) out.push({ code: 'disposition', disposition: disp });
   for (const s of sales.filter((x) => x.dog_id === dog.id && liveSale(x))) {
+    if (isSideSalePending(s)) {
+      // An unheld side sale doesn't take the pup (it's still offered).
+      if (s.side_holds_pup) out.push({ code: 'side_sale', sale_id: s.id, entry_id: s.side_entry_id, due: s.side_deposit_due || null });
+      continue;
+    }
     const pick = offers.find((o) => !o.is_archived && o.outcome === 'open' && o.sale_id === s.id);
     out.push({ code: 'sale', sale_id: s.id, sale_status: s.status, ...(pick ? { entry_id: pick.entry_id, picked: true } : {}) });
   }
@@ -52,13 +57,8 @@ export function pupFlags(dog, config) {
   return out;
 }
 
-// Two or more live claims on one pup: live sales, and open turn picks whose sale
-// isn't one of them. → number of claims.
-export function pupClaimCount(dog, sales = [], offers = []) {
-  const saleIds = new Set(sales.filter((s) => s.dog_id === dog.id && liveSale(s)).map((s) => s.id));
-  const picks = offers.filter((o) => !o.is_archived && o.outcome === 'open' && o.chosen_dog_id === dog.id && !(o.sale_id && saleIds.has(o.sale_id)));
-  return saleIds.size + picks.length;
-}
+// Live claims on one pup (waitlistRules.pupClaims): two or more is a conflict.
+export const pupClaimCount = (dog, sales = [], offers = []) => pupClaims(dog.id, { sales, offers }).length;
 
 // The matching answers that, each on its own, rule this pup out for this family
 // (sex, breed, purposes, colors). Uses pupMatchesPrefs with every other answer
@@ -82,6 +82,8 @@ export function exclusionReasons(entry, litter, pups, sales, offers, { today, co
   const out = [];
   const here = offers.filter((o) => !o.is_archived && o.litter_id === litter.id && o.entry_id === entry.id);
   if (here.some((o) => o.outcome === 'open')) return [{ code: 'holds_turn' }];
+  const side = sideSaleOf(entry, sales);
+  if (side) out.push({ code: 'side_sale', sale_id: side.id, dog_id: side.dog_id, due: side.side_deposit_due || null });
   if (isManuallyPaused(entry, today)) out.push({ code: 'paused', until: entry.paused_until });
   if (isReadyHeld(entry, today, config)) {
     const from = readyFromDate(entry);
@@ -249,6 +251,7 @@ export function previewPicks(data, { litterId, today, view = 'combined', eitherA
           blockers: offered ? [] : pupBlockers(dog, sales, kennelOffers),
           flags: offered ? pupFlags(dog, config) : [],
           conflict: pupClaimCount(dog, sales, kennelOffers) > 1,
+          side: offered ? (sales.filter((x) => x.dog_id === dog.id && isSideSalePending(x)).map((x) => ({ sale_id: x.id, entry_id: x.side_entry_id, due: x.side_deposit_due || null }))) : [],
           holder_id: holder ? holder.entry_id : null,
           families
         };

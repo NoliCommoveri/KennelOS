@@ -252,3 +252,21 @@ test('her closed dates: a turn the server offers skips them too', () => {
   assert.equal(addOpenDays('2026-11-25', 2, [0, 1, 2, 3, 4, 5], ['2026-11-26', '2026-11-27']), '2026-11-30');
   assert.equal(addOpenDays('2026-11-25', 2, null, ['2026-11-26']), '2026-11-28');
 });
+
+test('a side sale row (direct) is never a turn: no block, no close, no "deciding"; reminders still go', async () => {
+  const p = projection();
+  p.entries.ann.offers = [];
+  p.entries.cy.offers = [{ id: 's1', turn_id: 's1', litter_id: 'l1', offered_date: '2026-10-08', respond_by_date: '2026-10-11', eligible_dog_ids: ['p2'], picked_dog_id: 'p2', direct: true }];
+  assert.equal(openTurns(p).length, 0, 'not a turn');
+  assert.equal(openTurns(p, { includeDirect: true }).length, 1, 'the reminders see it');
+  assert.equal(nextFromQueue(p).entryId, 'bo', 'it never blocks the next turn');
+  // Past its deadline with every automatic close ticked: the server leaves it to her.
+  const { env } = await published({ respondBy: '2026-10-20' });
+  const body = stored(env);
+  body.entries.ann.offers = [];
+  body.entries.cy.offers = p.entries.cy.offers;
+  env.DB.raw.prepare('UPDATE wl_projection SET body = ?').run(JSON.stringify(body));
+  await runKennel(env, row(env), NOW);
+  assert.equal(events(env).filter((e) => e.kind === 'server_close').length, 0, 'a side sale is never closed by the server');
+  assert.deepEqual(stored(env).entries.cy.offers.map((o) => o.id), ['s1']);
+});
