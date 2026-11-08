@@ -55,7 +55,7 @@ and pushed to that session's own branch, and forbids changing code, tests or
 **K4 — the cloud Worker**
 
 > Read `docs/KennelOS_Review_Plan.md` (sections 0, "Session K4") and follow it. You are
-> reviewing `cloud/src/*` (7.3k lines), its migrations and `cloud/wrangler.toml`. First
+> reviewing `cloud/src/*` (8.2k lines), its migrations and `cloud/wrangler.toml`. First
 > question: production has migrations through `0016` (and `0018`) applied, with
 > `0017`/`0019`/`0020` waiting to be applied after the next deploy — does the current Worker
 > code read anything those three add (`0020`'s `account_deletions` on the sign-in path
