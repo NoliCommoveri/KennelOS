@@ -2934,3 +2934,5 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `merged_applications` (the Timeline's line).
 - Tests: `applicationDuplicates.test.js` (matching, suggested keep, refusals, answers, fee
   credit, the merge with offers and with two contacts, a refused merge changes nothing).
+
+- **SW cache bumped to `kennelos-shell-v112` (2026-11-08)** for duplicate applications, the owner's go-ahead.
