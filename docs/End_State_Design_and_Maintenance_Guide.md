@@ -1970,7 +1970,8 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   with the flag): picks open/closed, the open turn and its actions, next up, the litter's
   queue, history. It re-reads the litter after each write.
 - **Picks preview** (`docs/KennelOS_Picks_Preview_Spec.md`): every Open picks (the picks
-  panel, the Waitlist page's litter rows) opens `assets/picksPreviewModal.js` first (Pro-only,
+  panel, the Waitlist page's litter rows, Kels's litter check-in, Today's and Kels's Review my
+  waitlist's Open picks nudge) opens `assets/picksPreviewModal.js` first (Pro-only,
   `PRO_ONLY_STANDALONE`), which opens picks only on **Open picks now**. It reruns the preview on
   fresh records first and asks again if the result changed. With picks open, the panel's
   **Who's in line…** opens it without that button. Its decisions come from
@@ -2259,7 +2260,8 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   active breeding females, as `expected_month` `YYYY-MM` only, never the day; no waiting or
   "Not this litter", and the server refuses a prepass on one); a born litter gives each family a match / review note (`whelpNotes`).
   Today suggests **Open picks** when a litter's `accept_deposits_date` arrives
-  (`depositsDueLitters`).
+  (`depositsDueLitters`); its action returns `{ openPicks: litterId }` and Today (or Kels's
+  Review my waitlist) opens the picks preview with `openPicksFromCheckin`.
 - **On her website** (Integrations plan §1): with `waitlist_config.embed`, the projection
   carries `kennel.embed.origins` and the Worker sets `frame-ancestors` for `/apply` and
   `/list` (`familyPages.frameAncestors`; status pages are never framable). The loader
@@ -3216,7 +3218,8 @@ Each thing she approves is saved at once; there is no draft.
    - When the litter can close (`litterCloseDue`, §19), that is the only litter question.
    - **Open picks** (Pro, `editionFlags.waitlist`, active families in the kennel,
      `waitlistRules.depositsDueLitters`): `waitlistPicksPanel.openPicksFromCheckin` (Pro-only,
-     imported dynamically; the panel's `openPicks` and "Email the family?"), or **move the
+     imported dynamically: the picks preview, then "Email the family?"; closing the preview
+     opens nothing), or **move the
      deposit date** (a date after today, default a week out), or **Not now**.
    - **Weaning** at 4 weeks while Whelped; **Ready** at the ready date while Weaning
      (`goHome.readyDateOf`: `estimated_ready_date`, else whelp + 56); **Sold** / **Reopen to

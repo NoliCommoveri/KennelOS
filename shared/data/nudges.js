@@ -59,7 +59,7 @@ import {
   readyCheck, readyCheckOverdue
 } from './waitlistRules.js';
 import {
-  recordOutcome, markFeeExpired, openPicks, recordReadyAnswer, undoRemoval, hasPendingRequest, markMessagesRead,
+  recordOutcome, markFeeExpired, recordReadyAnswer, undoRemoval, hasPendingRequest, markMessagesRead,
   approvePauseRequest, declinePauseRequest, approvePrefChange, declinePrefChange, approveListenChange, declineListenChange,
   markCompanionLinkSent, declineCompanionRequest, approveExtraRequest, declineExtraRequest, approvePickupRequest, declinePickupRequest
 } from './waitlistActions.js';
@@ -1064,20 +1064,13 @@ async function waitlistNudges(today, litters, dogsById, { dogs = [], sales = [] 
     out.push({
       key: `waitlist-open-picks:${l.id}:${l.accept_deposits_date}`,
       title: `${label}: you planned to start taking deposits ${l.accept_deposits_date === today ? 'today' : `on ${l.accept_deposits_date}`}. Open picks?`,
-      detail: 'Opening picks offers the next family on your list a turn (or adds this litter to the turn open now). Nothing opens by itself.',
+      detail: 'Opening picks offers the next family on your list a turn (or adds this litter to the turn open now). You\'ll see what will happen first. Nothing opens by itself.',
       subjectHref: `litter.html?id=${encodeURIComponent(l.id)}`,
+      // Opened through the picks preview (Picks Preview Spec §3): the page that runs
+      // the action (Today, Kels's Review my waitlist) opens it for `openPicks`.
       actions: [{
-        label: 'Open picks',
-        run: async () => {
-          const turn = await openPicks(l.id, { date: today });
-          if (!turn) return { title: 'Picks are open', message: 'Nobody can be offered this litter right now: another family holds the turn and isn\'t first in line for it, or nobody on the list matches its pups yet. The Litter page shows who\'s next.' };
-          const fresh = (await waitlistEntryRepo.getAll({ includeArchived: true })).find((x) => x.id === turn.entry_id);
-          const who = fresh ? name(fresh) : 'The next family';
-          const emails = offerSpecs({ next: turn });
-          return turn.joined
-            ? { title: 'Added to their turn', message: `${who} is first in line for ${label} too, so it joined their turn. Their deadline restarted: until ${turn.respond_by_date}. Let them know.`, emails }
-            : { title: 'Turn offered', message: `It's ${who}'s turn. They have until ${turn.respond_by_date} to pick a pup and send the deposit, or pass. Let them know.`, emails };
-        }
+        label: 'Open picks…',
+        run: async () => ({ openPicks: l.id })
       }]
     });
   }

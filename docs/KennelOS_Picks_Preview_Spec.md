@@ -51,8 +51,8 @@ them.
   new one and asks again rather than opening on a stale view.
 - **While picks are already open** the panel button reads **Who's in line…** and opens the
   same modal without the Open picks now button (what happens next, from where the list is).
-- **Not in scope now:** Kels's litter check-in and Today's Open picks suggestion keep their
-  current path (see §9, open item). Kels gets no new task for this.
+- **Kels's litter check-in, Today's Open picks nudge and Kels's Review my waitlist** go through
+  it too (`waitlistPicksPanel.openPicksFromCheckin`). Kels gets no new task for this.
 - **Demo:** the preview works. Editing and Open picks now are disabled.
 
 ## 4. The two views
@@ -212,10 +212,8 @@ emails are on (Online list / Waitlist settings).
 4. The Waitlist page's litter rows get it too, since they can open picks.
 5. No Kels task now.
 6. Combined view by default (litters aren't silos); "If earlier litters finish first" toggle.
-- **Open:** whether Kels's litter check-in and Today's Open picks suggestion should also go
-  through the preview (suggested yes, so picks never open unseen). They don't yet.
-- **Built, to confirm:** the pup inline edits (disposition, intended registration, sex); each
-  pup's name also links to its dog page.
+7. Kels's litter check-in and Today's Open picks go through it too (owner, 2026-11-08).
+8. Keep the pup inline edits (disposition, intended registration, sex) (owner, 2026-11-08).
 - **Modified:** no "No breed recorded" pup flag (a dog's breed is required). The checks of §5.6
   cover every family on the list, not only those in line (a misspelled breed is usually why a
   family is left out). The side-sale lines of §5.3 wait for the side sale.

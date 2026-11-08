@@ -93,14 +93,18 @@ export async function openLitterWaitlistNotice(litter) {
 }
 
 // Open picks from outside the panel: Kels's litter check-in
-// (assets/litterCheckinUI.js), when the accept-deposits date has come. The same
-// action and "Email the family?" preview as the panel's button; returns what
-// happened as { title, message } for Kels to say.
+// (assets/litterCheckinUI.js), Today's "Open picks" nudge and Kels's Review my
+// waitlist (pages/today.js, assets/waitlistReviewUI.js), when the accept-deposits
+// date has come. Through the picks preview, like the panel's button, then the same
+// "Email the family?" preview; returns what happened as { title, message }, or
+// null when she closed the preview without opening picks.
 export async function openPicksFromCheckin(litter) {
   const d = await loadData(litter);
   const familyName = (entry) => entryName(entry, d.contactsById.get(entry.contact_id));
   const heldElsewhere = openTurns(d.kennelOffers, litter.kennel_id).length > 0;
-  const turn = await actions.openPicks(litter.id);
+  const res = await openPicksPreview({ litterId: litter.id });
+  if (!res) return null;
+  const turn = res.turn;
   if (!turn) {
     return { title: 'Picks are open', message: heldElsewhere
       ? 'Another family holds the turn and isn\'t first in line for this litter, so it waits for the next turn.'

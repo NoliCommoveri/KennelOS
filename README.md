@@ -74,9 +74,7 @@ backup, carries a program from Lite to Pro.
     page's one-tap link).
   - Shared dogs (`docs/KennelOS_Shared_Dogs_Plan.md`): Dog Cards (phase 1) are built. Next:
     phase 2, live updates through the cloud, after owner decisions.
-  - Picks preview (`docs/KennelOS_Picks_Preview_Spec.md`): built. Open: whether Kels's
-    litter check-in and Today's Open picks go through it too. Side sales
-    (`docs/KennelOS_Side_Sale_Spec.md`): decided, not built.
+  - Side sales (`docs/KennelOS_Side_Sale_Spec.md`): being built.
   - Duplicates: Import/Export's Scan for duplicates covers every record type. Open: Kels's
     Tidy up still checks only dogs and contacts for duplicates.
 - **Open launch items:** confirm `yearlyVariantPattern` / `lifetimeVariantPattern` against
