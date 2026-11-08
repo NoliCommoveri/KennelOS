@@ -13,6 +13,7 @@ The KennelPort seam has its own plan and its own findings, in the KennelPort rep
 | K4 | The cloud Worker | — | — | — | — | — | — | — |
 | K5 | Vault, licence, account identity | — | — | — | — | — | — | — |
 | K6 | Waitlist engine: positions, turns, offers | — | — | — | — | — | — | — |
+| K6b | Picks preview, side sales, undo windows | — | — | — | — | — | — | — |
 | K7 | Waitlist online: applications, public list, family pages | — | — | — | — | — | — | — |
 | K8 | Family requests, pickup, transport, fees, emails | — | — | — | — | — | — | — |
 | K9 | Dogs, litters, pairings, events, nudges, Today | — | — | — | — | — | — | — |
@@ -24,6 +25,6 @@ The KennelPort seam has its own plan and its own findings, in the KennelPort rep
 | K15 | UI layer: escaping, accessibility, phone, offline | — | — | — | — | — | — | — |
 | K16 | Consolidation | — | — | — | — | — | — | `SUMMARY.md` |
 
-Baseline when the plan was written (2026-11-03): `node --test` 1490 pass,
-`cd cloud && npm test` 279 pass, `node build/assemble.mjs` succeeds. Branch
-`ccr-89772d54-uk9tma`, clean.
+Baseline when the plan was last brought up to date (2026-11-08, `0328a3f`):
+`node --test` 1639 pass, `cd cloud && npm test` 303 pass, `node build/assemble.mjs`
+succeeds. (First written 2026-11-03 at 1490 / 279.)

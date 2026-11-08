@@ -2965,3 +2965,16 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 
 - **SW cache bumped to `kennelos-shell-v112` (2026-11-08)**, the owner's go-ahead, for the picks
   preview and side sales.
+
+## 2026-11-08: Review plan brought up to date
+
+- `docs/KennelOS_Review_Plan.md` takes in the 57 commits since it was written (2026-11-03):
+  a "New since the first draft" table in §0 mapping each new feature to a session; new
+  evaluate items in K1, K2, K4, K5, K7–K15 for `version(6)`/`version(7)`, Dog Cards,
+  pedigree import and editing, account deletion and migration `0020`, assisted setup,
+  waitlist policies, programs suggested by an answer, the do-not-sell list, the puppy portal
+  feed's KennelOS side (K7 owns it; it postdates both review plans) and the rewritten privacy
+  policy and terms; a new session **K6b** (picks preview, side sales, the 7-day undos).
+  Pending-deploy list, line counts, guide section lines and the baseline refreshed
+  (1639 / 303 pass, build succeeds). `docs/review/INDEX.md` gains the K6b row;
+  `docs/review/SESSION_PROMPTS.md` updated to match. No session has run yet.
