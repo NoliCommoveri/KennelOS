@@ -40,6 +40,7 @@ backup, carries a program from Lite to Pro.
 | App alerts (web push) and email digests | `docs/KennelOS_Notifications_Plan.md` |
 | Kels on the family pages (help, FAQ) | `docs/KennelOS_Family_Help_Plan.md` |
 | Families asking for extras, pickup times, transport, backing out | `docs/KennelOS_Family_Requests_Plan.md` |
+| One family who applied twice to a waitlist (merging duplicate applications) | `docs/KennelOS_Duplicate_Applications_Plan.md` |
 | Support helping a user in her own program (assisted setup, ongoing help, the manager app) | `docs/KennelOS_Assisted_Setup_Plan.md` |
 | Furever | `docs/KennelOS_Furever_*.md`, `furever/README.md` |
 | Kels (the guided-task helper): what's next | `docs/KennelOS_Kels_Roadmap.md` (built tasks: End-State guide §33) |
@@ -74,7 +75,7 @@ backup, carries a program from Lite to Pro.
   - Shared dogs (`docs/KennelOS_Shared_Dogs_Plan.md`): Dog Cards (phase 1) are built. Next:
     phase 2, live updates through the cloud, after owner decisions.
   - Duplicates: Import/Export's Scan for duplicates covers every record type. Open: Kels's
-    Tidy up still checks only dogs and contacts for duplicates.
+    Tidy up checks only dogs, contacts and waitlist applications for duplicates.
 - **Open launch items:** confirm `yearlyVariantPattern` / `lifetimeVariantPattern` against
   the store's real variant names. Click the six site checkout links after each deploy
   (`--release` doesn't check them). See `docs/LAUNCH_CHECKLIST.md`.
