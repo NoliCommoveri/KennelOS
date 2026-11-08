@@ -7,7 +7,7 @@ The KennelPort seam has its own plan and its own findings, in the KennelPort rep
 
 | # | Session | Branch | Date | S1 | S2 | S3 | S4 | Findings |
 |---|---------|--------|------|----|----|----|----|----------|
-| K1 | Schema, repos, registries, referential integrity | — | — | — | — | — | — | — |
+| K1 | Schema, repos, registries, referential integrity | `claude/kennelos-data-foundation-review-ttllyu` | 2026-11-08 | 1 | 3 | 3 | 3 | [`K01-data-foundation.md`](findings/K01-data-foundation.md) |
 | K2 | Backup, restore, CSV import | — | — | — | — | — | — | — |
 | K3 | Cloud client: backup, sync, conflicts | — | — | — | — | — | — | — |
 | K4 | The cloud Worker | — | — | — | — | — | — | — |
