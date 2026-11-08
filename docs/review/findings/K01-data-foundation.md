@@ -14,8 +14,8 @@ Reviewed: `shared/data/db.js` (274), `repoBase.js` (130), `referenceRegistry.js`
 Contract read: End-State guide §4–§8, §14, §16; CLAUDE.md (schema, registries, cloud);
 Multi-Kennel Scope Spec §3–§7, §12; Shared Dogs Plan §3.1/§3.5; Cloud Phase 1 §5, Phase 2 §3–§5.
 
-Verified by: `node --test` (1639 pass) and `node build/assemble.mjs` green at `facb760`;
-`cd cloud && npm test` not run (no cloud files in scope). Nine throwaway scripts in my
+Verified by: the full baseline green at `facb760` — `node --test` 1639 pass,
+`cd cloud && npm test` 303 pass, `node build/assemble.mjs` succeeds. Nine throwaway scripts in my
 scratchpad (schema-restatement diff, field-use → `syncRegistry` comparison, query → index
 comparison, schema-FK → `referenceRegistry` comparison, vocab-label leakage scan, four
 behaviour harnesses on `tests/support/memoryDb.js`), plus Chromium runs against
@@ -492,8 +492,9 @@ to a waitlist family', multiEntry: false, scan: true }` to `DOG_REFERENCES` — 
 
 ## Notes, not findings
 
-- **Baseline is green** at `facb760`: `node --test` 1639 pass, `node build/assemble.mjs`
-  succeeds (lite 303 precache, pro 451, demo 445, all `…-v112`). The real Dexie database opens
+- **Baseline is green** at `facb760`: `node --test` 1639 pass, `cd cloud && npm test` 303 pass,
+  `node build/assemble.mjs` succeeds (lite 303 precache, pro 451, demo 445, all `…-v112`) —
+  exactly the plan's figures, so this session did not start red. The real Dexie database opens
   at `version(7)` with 20 tables and exactly the indexes `db.js` declares, and
   `/shared/pages/today.html` loads with no console or page errors.
 - **`do_not_sell` parity is complete** except for the duplicate scan. It is in
