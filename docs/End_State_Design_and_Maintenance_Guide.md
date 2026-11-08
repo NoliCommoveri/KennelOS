@@ -1840,7 +1840,32 @@ it computes is stored.**
   `fee_received_at` (same-day order of payment), `approved_date`, `created_at`, `id`.
 - **Available pup:** not archived, not deceased / pet home / external reference,
   disposition `available` (unset reads as `undecided`, never offered), and no live Sale
-  (`waitlistRules.isPupAvailable`).
+  (`waitlistRules.isPupAvailable`), except that a side sale still waiting on its deposit takes
+  the pup only when `side_holds_pup`.
+- **Side sale** (`docs/KennelOS_Side_Sale_Spec.md`): she sells a pup to a family on the list
+  outside the turn order. A deposit-pending Sale with `side_entry_id` (FK → waitlist entry,
+  `referenceRegistry`), `side_deposit_due`, `side_holds_pup` (the pup wasn't Available, so it's
+  held for them), `side_prior_disposition` (put back on a cancel) and `side_request_sent_date`
+  (Review sale & send); all cloud fields. Never a `waitlist_offers` row, so no turn rule sees
+  it and it never counts as a pass. `waitlistActions.recordSideSale` (families on the list
+  only, not while they hold the turn or have one pending; any pup but placed, gone or
+  archived; `sideSaleIssues` names what doesn't fit and she may go ahead; a non-Available pup
+  becomes Available; optional `answersToFit` and intended registration), `confirmSideDeposit`
+  (sale deposit paid, pup and family placed, no turn moves on), `cancelSideSale` (family keeps
+  their place; a held pup goes back). A family with a pending side sale gets no turns
+  (`eligiblePupsFor` → []). **Two claims on one pup** (`pupClaims`: live sales and open turn
+  picks): she's warned before a second (`waitlistUI.confirmSecondClaim`, the turn pick and
+  switch dialogs, the side sale dialog, the deposit dialogs); when one deposit is recorded the
+  other ends (`resolveOtherClaims`: a side sale cancelled; a turn pick let go, its turn open
+  on what's left or voided with nothing left, never a pass), reported through
+  `describeOfferChanges`' `resolved`. Today: an overdue side deposit (**Cancel side sale**) and
+  **Two sales on [pup]**. Pages: **Record a side sale…** and a Side sale card (Review sale &
+  send, Deposit received, Cancel) on the family's Interact tab; **Sell to a waitlist family…**
+  on the picks panel (`assets/sideSaleUI.js`, Pro-only). The projection publishes it in the
+  family's `offers` exactly as an open turn row with a pick (place hidden, same card), marked
+  `direct: true` for the Worker only: `serverMoves.openTurns` skips it (never blocks, closes or
+  moves a turn) except for reminders, and the public list doesn't mask that family as
+  deciding. The family view never carries the marker.
 - **Match:** sex, breed (case-insensitive), purposes (`pref_purposes` → registrations, must
   include the pup's `intended_registration`), and color only with `color_matching`. Unset
   on either side matches.
@@ -1969,6 +1994,30 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
 - **Litter page:** the **Waitlist picks** panel (`assets/waitlistPicksPanel.js`, loaded only
   with the flag): picks open/closed, the open turn and its actions, next up, the litter's
   queue, history. It re-reads the litter after each write.
+- **Picks preview** (`docs/KennelOS_Picks_Preview_Spec.md`): every Open picks (the picks
+  panel, the Waitlist page's litter rows, Kels's litter check-in, Today's and Kels's Review my
+  waitlist's Open picks nudge) opens `assets/picksPreviewModal.js` first (Pro-only,
+  `PRO_ONLY_STANDALONE`), which opens picks only on **Open picks now**. It reruns the preview on
+  fresh records first and asks again if the result changed. With picks open, the panel's
+  **Who's in line…** opens it without that button. Its decisions come from
+  `data/picksPreview.js` (pure, shared): `previewPicks(data, { litterId, today, view, eitherAs,
+  configDraft })` simulates `openPicks` / `offerNextTurn` on copies (offer, join with the
+  deadline restart, wait, "Not this litter" passes on the way, none) and lists the turn order
+  across every open litter plus this one (`view: 'combined'`; `'alone'` = this litter only,
+  marking families also in line elsewhere), every pup with why it isn't offered
+  (`pupBlockers`, mirroring `isPupAvailable`) or its setup flags (`pupFlags`), two claims on one
+  pup (`pupClaimCount`), who qualifies for each pup in order (the family holding the turn on it
+  first) and "within reach" per sex, every family left out with every reason
+  (`exclusionReasons`, following `eligiblePupsFor`; `mismatchFields` names the answers that
+  rule a pup out), families applied or with the fee not recorded, and soft checks on the
+  list's families (blank looking for, a breed not among hers, no email, no fee date). The
+  **Either** switch (`withEitherAs`) reads Either families as female or male for the lists;
+  the action line always uses their stated answers. Her turn settings (respond days, passes,
+  no response counts, color matching, open days, closed dates, automatic offers) preview live
+  as a draft and save to `waitlist_config` after `waitlistConfigProblem`; a pup's
+  disposition, intended registration and sex save from its row. `?preview=<litter id>` stays
+  in the address while it's open, so coming back from a family or pup link reopens it.
+  `tests/picksPreview.test.js` checks it against the real actions.
 - **Kennel page:** the Waitlist settings card: folded groups (`<details class="settings-group">`,
   closed at first, open ones kept across Save) under one Save: **Fees & payment**, **Turns &
   offers**, **Passing & readiness**, **Public list & family pages**, **Messages to families**,
@@ -2236,7 +2285,8 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   active breeding females, as `expected_month` `YYYY-MM` only, never the day; no waiting or
   "Not this litter", and the server refuses a prepass on one); a born litter gives each family a match / review note (`whelpNotes`).
   Today suggests **Open picks** when a litter's `accept_deposits_date` arrives
-  (`depositsDueLitters`).
+  (`depositsDueLitters`); its action returns `{ openPicks: litterId }` and Today (or Kels's
+  Review my waitlist) opens the picks preview with `openPicksFromCheckin`.
 - **On her website** (Integrations plan §1): with `waitlist_config.embed`, the projection
   carries `kennel.embed.origins` and the Worker sets `frame-ancestors` for `/apply` and
   `/list` (`familyPages.frameAncestors`; status pages are never framable). The loader
@@ -3193,7 +3243,8 @@ Each thing she approves is saved at once; there is no draft.
    - When the litter can close (`litterCloseDue`, §19), that is the only litter question.
    - **Open picks** (Pro, `editionFlags.waitlist`, active families in the kennel,
      `waitlistRules.depositsDueLitters`): `waitlistPicksPanel.openPicksFromCheckin` (Pro-only,
-     imported dynamically; the panel's `openPicks` and "Email the family?"), or **move the
+     imported dynamically: the picks preview, then "Email the family?"; closing the preview
+     opens nothing), or **move the
      deposit date** (a date after today, default a week out), or **Not now**.
    - **Weaning** at 4 weeks while Whelped; **Ready** at the ready date while Weaning
      (`goHome.readyDateOf`: `estimated_ready_date`, else whelp + 56); **Sold** / **Reopen to

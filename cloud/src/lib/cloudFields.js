@@ -176,6 +176,11 @@ export const CLOUD_FIELDS = {
         "registration_type",
         "sale_date",
         "sales_channel_account_id",
+        "side_deposit_due",
+        "side_entry_id",
+        "side_holds_pup",
+        "side_prior_disposition",
+        "side_request_sent_date",
         "status",
         "updated_at"
       ],

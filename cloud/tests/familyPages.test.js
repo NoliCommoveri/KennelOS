@@ -164,6 +164,14 @@ test('statusView and listView are allow-lists over the projection', () => {
   // Their turn closed (by the server, say): their name is back at once.
   p.entries.ann.offers = [];
   assert.equal(listView(p).rows[0].name, 'Ann L.');
+  // A side sale's row (direct) isn't a turn: their row stays theirs on the public
+  // list, and their own page draws it as a turn with a pick, with no marker.
+  p.entries.ann.offers = [{ id: 's1', turn_id: 's1', litter_id: 'l1', offered_date: '2026-10-08', respond_by_date: '2026-10-11', eligible_dog_ids: ['p1'], picked_dog_id: 'p1', direct: true }];
+  assert.equal(listView(p).rows[0].name, 'Ann L.');
+  const annView = statusView(p, 'ann');
+  assert.equal(annView.offers[0].picked_dog_id, 'p1');
+  assert.equal(JSON.stringify(annView).includes('direct'), false, 'the marker never reaches the family');
+  p.entries.ann.offers = [];
   // Their turn, their place for what they want, the litters they passed on: as published.
   p.entries.bo.place_hidden = { reason: 'turn' };
   p.entries.bo.pref_places = { all: 2, sex: 3 };
