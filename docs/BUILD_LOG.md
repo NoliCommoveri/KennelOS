@@ -2916,3 +2916,27 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - Tests: `siteExport.test.js` (sent only with the section, only on puppies, undecided
   when unset).
 - **SW cache bumped to `kennelos-shell-v111` (2026-11-06)**, the owner's go-ahead.
+
+## 2026-11-08: Picks preview, and the side sale spec
+
+- **Specs:** `docs/KennelOS_Picks_Preview_Spec.md` (built here) and
+  `docs/KennelOS_Side_Sale_Spec.md` (decided, not built), both from the owner's decisions of
+  2026-11-08. README doc map and Status updated.
+- **Picks preview:** `shared/data/picksPreview.js` (pure, shared) and
+  `shared/assets/picksPreviewModal.js` (Pro-only; `proPages.js`). Every Open picks (the Litter
+  page's picks panel, the Waitlist page's litter rows) shows it first and opens picks only on
+  **Open picks now**, after a fresh recheck. With picks open, the panel has **Who's in line…**.
+  It shows the action `openPicks` will take (offer, join with the deadline restart, wait,
+  "Not this litter" passes), the turn order across every open litter plus this one (or this
+  litter alone), every pup with why it isn't offered or its setup flags, who qualifies per pup in
+  order, within reach per sex, an **Either** switch (Either families as female / male), every
+  family left out with every reason, families not on the list yet, soft checks, and her turn
+  settings, edited and saved in place (previewed live as a draft). A pup's disposition,
+  intended registration and sex save from its row. `?preview=<litter id>` reopens it after a
+  family or pup link.
+- `app.css`: `.modal.modal-wide`. `sw.js` `PRECACHE_URLS`: both new files.
+- Tests: `tests/picksPreview.test.js` (its action matches the real `openPicks` for offer, join,
+  wait, "Not this litter" passes and none; the line equals `litterQueue`; every reason given; the
+  Either switch; the alone view; a settings draft writes nothing; checks).
+- End-State guide §29: the picks preview.
+- SW cache not bumped (asked).

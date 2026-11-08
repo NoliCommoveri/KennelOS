@@ -1969,6 +1969,29 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
 - **Litter page:** the **Waitlist picks** panel (`assets/waitlistPicksPanel.js`, loaded only
   with the flag): picks open/closed, the open turn and its actions, next up, the litter's
   queue, history. It re-reads the litter after each write.
+- **Picks preview** (`docs/KennelOS_Picks_Preview_Spec.md`): every Open picks (the picks
+  panel, the Waitlist page's litter rows) opens `assets/picksPreviewModal.js` first (Pro-only,
+  `PRO_ONLY_STANDALONE`), which opens picks only on **Open picks now**. It reruns the preview on
+  fresh records first and asks again if the result changed. With picks open, the panel's
+  **Who's in line…** opens it without that button. Its decisions come from
+  `data/picksPreview.js` (pure, shared): `previewPicks(data, { litterId, today, view, eitherAs,
+  configDraft })` simulates `openPicks` / `offerNextTurn` on copies (offer, join with the
+  deadline restart, wait, "Not this litter" passes on the way, none) and lists the turn order
+  across every open litter plus this one (`view: 'combined'`; `'alone'` = this litter only,
+  marking families also in line elsewhere), every pup with why it isn't offered
+  (`pupBlockers`, mirroring `isPupAvailable`) or its setup flags (`pupFlags`), two claims on one
+  pup (`pupClaimCount`), who qualifies for each pup in order (the family holding the turn on it
+  first) and "within reach" per sex, every family left out with every reason
+  (`exclusionReasons`, following `eligiblePupsFor`; `mismatchFields` names the answers that
+  rule a pup out), families applied or with the fee not recorded, and soft checks on the
+  list's families (blank looking for, a breed not among hers, no email, no fee date). The
+  **Either** switch (`withEitherAs`) reads Either families as female or male for the lists;
+  the action line always uses their stated answers. Her turn settings (respond days, passes,
+  no response counts, color matching, open days, closed dates, automatic offers) preview live
+  as a draft and save to `waitlist_config` after `waitlistConfigProblem`; a pup's
+  disposition, intended registration and sex save from its row. `?preview=<litter id>` stays
+  in the address while it's open, so coming back from a family or pup link reopens it.
+  `tests/picksPreview.test.js` checks it against the real actions.
 - **Kennel page:** the Waitlist settings card: folded groups (`<details class="settings-group">`,
   closed at first, open ones kept across Save) under one Save: **Fees & payment**, **Turns &
   offers**, **Passing & readiness**, **Public list & family pages**, **Messages to families**,

@@ -28,6 +28,7 @@ import { esc, badge, fmtDate, todayYMD, confirmModal, alertModal } from './ui.js
 import { openSoonNotice, pickDialog, depositDialog, changePickDialog, undoPassDialog, statusLinkFor, copyLink } from './waitlistUI.js';
 import { offerEmails } from './waitlistEmailUI.js';
 import { offerSpecs, midTurn } from '../data/waitlistOutbox.js';
+import { openPicksPreview, previewParam } from './picksPreviewModal.js';
 
 const none = '<span class="faint">—</span>';
 const QUEUE_PREVIEW = 5;
@@ -226,7 +227,7 @@ export async function renderWaitlistPicksPanel({ mount, litter, onChange = async
       <div class="row-between">
         <h2 style="margin:0;">Waitlist picks</h2>
         <div class="pill-row">${soon.some((r) => !r.inFlight) ? '<button class="btn btn-sm" data-pk="soon" title="Tell the families whose turn is coming up for these pups">Almost your turn…</button>' : ''}${picksOpen
-          ? '<button class="btn btn-sm" data-pk="close">Close picks</button>'
+          ? '<button class="btn btn-sm" data-pk="preview" title="Who\'s in line across your open litters, who\'s left out and why">Who\'s in line…</button><button class="btn btn-sm" data-pk="close">Close picks</button>'
           : `<button class="btn btn-primary btn-sm" data-pk="open"${available.length ? '' : ' disabled title="No pups available to offer."'}>Open picks</button>`}</div>
       </div>
       <p class="field-hint" style="margin:6px 0 0;">${picksOpen
@@ -246,14 +247,25 @@ export async function renderWaitlistPicksPanel({ mount, litter, onChange = async
   };
   const on = (key, fn) => mount.querySelector(`[data-pk="${key}"]`)?.addEventListener('click', run(fn));
 
+  // Open picks goes through the picks preview first (Picks Preview Spec §3): it
+  // opens them only when she taps "Open picks now" there.
   on('open', async () => {
-    const turn = await actions.openPicks(litter.id);
+    const res = await openPicksPreview({ litterId: litter.id });
+    if (!res) return;
+    const turn = res.turn;
     await alertModal(turn ? offeredMessage(turn, entriesById, familyName, d.litterName)
       : { title: 'Picks are open', message: heldElsewhere || kennelTurns.length
         ? 'Another family holds the turn and isn\'t first in line for this litter, so it waits for the next turn.'
         : 'Nobody on the list is eligible for the available pups yet. A family is offered as soon as one becomes eligible and you tap "Offer to them".' });
     if (turn && !turn.none) await offerEmails(offerSpecs({ next: turn }));
   });
+  // "Who's in line…" may save settings or a pup, so it re-renders after.
+  on('preview', async () => { await openPicksPreview({ litterId: litter.id }); });
+  // Back from fixing a family or a pup the preview linked to: reopen it.
+  if (previewParam() === litter.id && !mount.dataset.previewReopened) {
+    mount.dataset.previewReopened = '1';
+    setTimeout(() => mount.querySelector(picksOpen ? '[data-pk="preview"]' : '[data-pk="open"]')?.click(), 0);
+  }
   // Not wrapped in run(): the dialog writes nothing, so there's nothing to re-render.
   mount.querySelector('[data-pk="soon"]')?.addEventListener('click', () => openNotice(d, litter, soon, opts));
   on('close', async () => {
