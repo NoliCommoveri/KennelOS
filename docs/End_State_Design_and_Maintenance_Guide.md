@@ -78,6 +78,11 @@ seeds an empty database on load, skips first-run prompts, and shows a read-only 
   full access from the last successful `/validate`, then 30 days of a reconnect banner,
   then a wall, all reset by one successful validate. A lifetime key blocked on staleness gets a
   *reconnect* wall, never the renewal wall — `licenseGate.js`'s `isStaleLifetime`.
+  Only a network failure, a 5xx or a 429 counts as offline. The store's own "not found"
+  (a 4xx whose JSON says `valid:false`, `isGoneAnswer`: a released activation answers this
+  way) clears the cached record, so the device asks for its key again. A validate's answer is
+  cached only while the device still holds that same record (`stillHeld`): a remote erase
+  that wipes it mid-request isn't undone.
   An unlicensed load is walled. The cached activation lives
   under its own `settings.js` key (`kennelOS.proLicense`) that is deliberately **excluded
   from `clearAllSettings()`**, so Reset App keeps paid entitlement. It also keeps how many
@@ -1255,7 +1260,13 @@ subject (`financials.js` `expenseInScope`).
   `saleComponents(sale, feeCredit)`). Invoices label the line it comes off ("after $X
   application fee credit"); the deposit dialog, the family's deposit block
   (`offers[].deposit_fee_credit`, and "Credited toward your deposit" on their fee card via
-  `fee_due.credit_toward`) and the Companion balance follow it.
+  `fee_due.credit_toward`) and the Companion balance follow it. Each family's projection
+  also carries `credits` (`{ fee, fee_toward, received, deposit }` or null; the projection's
+  `creditsView`): their credited fee and what their credits can pay toward the pup after the
+  fee, whatever the sale. Their Current Position card shows it as "Credited"; their turn
+  card's deposit line and the "Choose <pup>?" dialog say what they'd send after it; and their
+  deposit block uses it while a pick they sent waits for her device (no sale yet to work it
+  out on). One helper does the sum (`depositAfterCredits` in `cloud/public/family/status.js`).
 - **A family's credits for funds already received** (Pro, §29 "Credits"): the credited part
   of a sale line not yet paid is earned on the credit's date and the rest stays anticipated
   (`saleComponents(sale, feeCredit, received)`, from `familyCredit(...).received`). Only the
