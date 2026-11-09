@@ -78,6 +78,11 @@ seeds an empty database on load, skips first-run prompts, and shows a read-only 
   full access from the last successful `/validate`, then 30 days of a reconnect banner,
   then a wall, all reset by one successful validate. A lifetime key blocked on staleness gets a
   *reconnect* wall, never the renewal wall — `licenseGate.js`'s `isStaleLifetime`.
+  Only a network failure, a 5xx or a 429 counts as offline. The store's own "not found"
+  (a 4xx whose JSON says `valid:false`, `isGoneAnswer`: a released activation answers this
+  way) clears the cached record, so the device asks for its key again. A validate's answer is
+  cached only while the device still holds that same record (`stillHeld`): a remote erase
+  that wipes it mid-request isn't undone.
   An unlicensed load is walled. The cached activation lives
   under its own `settings.js` key (`kennelOS.proLicense`) that is deliberately **excluded
   from `clearAllSettings()`**, so Reset App keeps paid entitlement. It also keeps how many
