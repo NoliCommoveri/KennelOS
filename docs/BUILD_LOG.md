@@ -2995,3 +2995,6 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   status.js, shared with the deposit block). Needs a Worker deploy for the page, and her
   device to republish.
 - Tests: `tests/waitlistProjection.test.js` (credits), cloud `familyPages` (allow-list).
+
+- **SW cache bumped to `kennelos-shell-v113` (2026-11-09)**, the owner's go-ahead, for the
+  family credits in the waitlist projection.
