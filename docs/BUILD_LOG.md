@@ -3022,4 +3022,5 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   the average per day over the 30 UTC days ending yesterday. Before 30 days have been counted,
   the average is over the counted days and says so; before `0021` is applied it says that.
 - Tests: cloud `mail` (daily row), `ops-sections` (yesterday, average, partial window).
-  Needs a Worker deploy, then Apply pending (`0021`) on /ops.
+  Needs a Worker deploy, then Apply pending (`0021`) on /ops. README Status marks every
+  migration through `0021` applied (`0017`, `0019`, `0020` confirmed by the owner; `0021` on merge).
