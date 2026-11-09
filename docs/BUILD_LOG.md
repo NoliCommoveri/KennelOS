@@ -3012,3 +3012,15 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 
 - **SW cache bumped to `kennelos-shell-v113` (2026-11-09)**, the owner's go-ahead, for the
   family credits in the waitlist projection and the released-device license fix above.
+
+## 2026-11-09: /ops shows emails sent yesterday and the 30-day daily average
+
+- Migration `0021_mail_daily` (day UTC, sent, failed, first_at; counts only, all kinds
+  together, not in the D1 export, not pruned: one row a day). `countMail` adds to it beside
+  `mail_counts`, each in its own try so a missing table never stops the other count or a send.
+- `/ops` Emails sent section gains two totals (`mail.mailDailySummary`): sent yesterday, and
+  the average per day over the 30 UTC days ending yesterday. Before 30 days have been counted,
+  the average is over the counted days and says so; before `0021` is applied it says that.
+- Tests: cloud `mail` (daily row), `ops-sections` (yesterday, average, partial window).
+  Needs a Worker deploy, then Apply pending (`0021`) on /ops. README Status marks every
+  migration through `0021` applied (`0017`, `0019`, `0020` confirmed by the owner; `0021` on merge).

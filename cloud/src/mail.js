@@ -23,20 +23,29 @@ export function mailMode(env) {
 // --- Counting what goes out (for /ops: emails sent month to date) ------------------
 //
 // Every Resend send goes through resendSend, which counts it (sent or failed) in
-// mail_counts by UTC month and kind. Counts only: never an address or a body.
-// Counting never fails a send: before migration 0019 is applied, or on any
-// database error, the count is skipped.
+// mail_counts by UTC month and kind, and in mail_daily by UTC day. Counts only:
+// never an address or a body. Counting never fails a send: before migration 0019
+// (or 0021, for the daily row) is applied, or on any database error, that count
+// is skipped.
 export const MAIL_KINDS = Object.freeze(['code', 'notice', 'digest', 'family', 'test']);
 
 export async function countMail(env, kind, ok, now = new Date()) {
+  const at = now.toISOString();
   try {
-    const at = now.toISOString();
     await env.DB.prepare(
       `INSERT INTO mail_counts (month, kind, sent, failed, first_at) VALUES (?, ?, ?, ?, ?)
        ON CONFLICT (month, kind) DO UPDATE SET sent = mail_counts.sent + excluded.sent, failed = mail_counts.failed + excluded.failed`,
     ).bind(at.slice(0, 7), kind, ok ? 1 : 0, ok ? 0 : 1, at).run();
   } catch {
     console.error('mail count skipped');
+  }
+  try {
+    await env.DB.prepare(
+      `INSERT INTO mail_daily (day, sent, failed, first_at) VALUES (?, ?, ?, ?)
+       ON CONFLICT (day) DO UPDATE SET sent = mail_daily.sent + excluded.sent, failed = mail_daily.failed + excluded.failed`,
+    ).bind(at.slice(0, 10), ok ? 1 : 0, ok ? 0 : 1, at).run();
+  } catch {
+    console.error('daily mail count skipped');
   }
 }
 
@@ -73,6 +82,33 @@ export async function mailCountsThisMonth(env, now = new Date()) {
   // Counting began with migration 0019: before then nothing was counted.
   const first = await env.DB.prepare('SELECT MIN(first_at) AS t FROM mail_counts').first('t');
   return { month, countingSince: first ?? null, kinds, sent, failed };
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Emails sent yesterday, and the average per day over the 30 days ending yesterday
+// (UTC days; sent only, all kinds). Days before daily counting began (migration
+// 0021) aren't in the average: it's over the counted days, `days` of them.
+// → { yesterday, avgPerDay, days, countingSince } or null before 0021 is applied.
+export async function mailDailySummary(env, now = new Date()) {
+  const day = (ms) => new Date(ms).toISOString().slice(0, 10);
+  const today = Date.parse(`${day(now.getTime())}T00:00:00.000Z`);
+  const yesterday = day(today - DAY_MS);
+  const windowStart = day(today - 30 * DAY_MS);
+  let rows;
+  let first;
+  try {
+    ({ results: rows } = await env.DB.prepare('SELECT day, sent FROM mail_daily WHERE day >= ? AND day <= ?').bind(windowStart, yesterday).all());
+    first = await env.DB.prepare('SELECT MIN(first_at) AS t FROM mail_daily').first('t');
+  } catch {
+    return null;
+  }
+  const yesterdaySent = Number(rows.find((r) => r.day === yesterday)?.sent) || 0;
+  const total = rows.reduce((n, r) => n + (Number(r.sent) || 0), 0);
+  // Counted days in the window: from the later of its start and the first counted day.
+  const from = first ? Math.max(Date.parse(`${windowStart}T00:00:00.000Z`), Date.parse(`${first.slice(0, 10)}T00:00:00.000Z`)) : today;
+  const days = Math.max(0, Math.round((today - from) / DAY_MS));
+  return { yesterday: yesterdaySent, avgPerDay: days ? total / days : null, days, countingSince: first ?? null };
 }
 
 export function assertMailAvailable(env) {
