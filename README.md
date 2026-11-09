@@ -59,7 +59,8 @@ backup, carries a program from Lite to Pro.
   - Cloud Phase 2 live sync: released. Next is checking it on real phones (iPhone and Android)
     on production; step 7, the live nudge, is optional. Production has every cloud migration
     through `0016` applied; `0017` (the R2 orphan sweep's state), `0019` (email counts for
-    /ops) and `0020` (deleted accounts' token hashes; assisted setup and the manager app) are waiting
+    /ops) and `0020` (deleted accounts' token hashes; assisted setup and the manager app) and `0021` (emails
+    sent per day, for /ops) are waiting
     to be applied from /ops after the next Worker deploy. Staging isn't in use, so deploys there aren't tracked.
   - Notifications (app alerts and the email digest): live.
   - Family requests (`docs/KennelOS_Family_Requests_Plan.md`): extras, transport suggestions,

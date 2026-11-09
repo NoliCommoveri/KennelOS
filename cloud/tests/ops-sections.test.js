@@ -110,6 +110,30 @@ test('emails sent month to date, by kind', async () => {
   assert.match(html, /Emails to families<\/td><td>12<\/td>/);
 });
 
+test('emails sent yesterday, and the average per day over the previous 30 days', async () => {
+  const env = await makeEnv();
+  const day = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+  const add = (d, sent) => env.DB.raw.prepare('INSERT INTO mail_daily (day, sent, failed, first_at) VALUES (?, ?, 0, ?)').run(d, sent, `${d}T08:00:00.000Z`);
+  add(day(0), 500); // today: in neither number
+  add(day(1), 7);
+  add(day(30), 53); // the oldest day in the window
+  add(day(31), 900); // before it, but counting began here, so the average covers all 30 days
+  const html = await (await ops(env, '/ops')).text();
+  assert.match(html, /Emails sent yesterday<\/td><td><strong>7<\/strong>/);
+  assert.match(html, /Average per day, previous 30 days<\/td><td><strong>2<\/strong>/, '(7 + 53) / 30');
+  assert.doesNotMatch(html, /counted so far/);
+});
+
+test('the daily average covers only the days counted so far', async () => {
+  const env = await makeEnv();
+  const day = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+  env.DB.raw.prepare('INSERT INTO mail_daily (day, sent, failed, first_at) VALUES (?, ?, 0, ?)').run(day(4), 10, `${day(4)}T08:00:00.000Z`);
+  env.DB.raw.prepare('INSERT INTO mail_daily (day, sent, failed, first_at) VALUES (?, ?, 0, ?)').run(day(1), 5, `${day(1)}T08:00:00.000Z`);
+  const html = await (await ops(env, '/ops')).text();
+  assert.match(html, /Average per day, previous 30 days<\/td><td><strong>3\.8<\/strong>/, '15 over 4 days');
+  assert.match(html, /Averaged over the 4 days counted so far/);
+});
+
 test('the Mapbox key: off without the secret, working or not with it, checked with fixed places only', async () => {
   const realFetch = globalThis.fetch;
   try {

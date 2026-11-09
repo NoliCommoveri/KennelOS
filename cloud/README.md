@@ -14,7 +14,8 @@ src/api.js             the API's routes (plan §6.1)
 src/auth.js            sign-in codes, sessions, sign out
 src/ratelimit.js       5 codes/hour per address, 30/hour per IP (both HMAC'd)
 src/mail.js            sending a code through Resend; without a key, staging's DEV_OUTBOX shows it on /ops.
-                       Every Resend send is counted in mail_counts (month, kind; counts only) for /ops.
+                       Every Resend send is counted in mail_counts (month, kind; counts only) and
+                       mail_daily (UTC day, 0021) for /ops.
                        Emails to waitlist families go out in the kennel's name from
                        MAIL_FAMILY_DOMAIN (each kennel's address claimed in wl_senders), no Reply-To
 src/files.js           content-addressed files; R2 verifies the sha256
@@ -123,6 +124,7 @@ src/assist.js          assisted setup and help: the editions' /assist/* routes (
                        them the owner-only routes (OWNER_ONLY). Optional var PRO_APP_URL (where the
                        links open; default https://pro.kennelos.app). Migration 0020
 src/ops.js             /ops: sign-in, migrations, health (incl. the Mapbox key), emails sent month to date,
+                       yesterday and the average per day over the previous 30 days,
                        outbox, notices, retention, export/import, and Delete an account (look up by
                        email, then delete, optionally erasing its devices: program.js removeAccount;
                        a deleted account's token hashes stay 90 days in account_deletions, 0020, so

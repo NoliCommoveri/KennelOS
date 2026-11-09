@@ -15,7 +15,7 @@ import { healthCheck } from './health.js';
 import { activeNotices, addNotice, removeNotice, LEVELS } from './notice.js';
 import { runRetention } from './retention.js';
 import { exportAll, importAll } from './backup.js';
-import { mailMode, sendTestEmail, mailCountsThisMonth } from './mail.js';
+import { mailMode, sendTestEmail, mailCountsThisMonth, mailDailySummary } from './mail.js';
 import { checkMapbox } from './geo.js';
 import { hmacHex, timingSafeEqual } from './lib/crypto.js';
 import { readCookie } from './lib/http.js';
@@ -193,10 +193,21 @@ silences every device until each turns alerts on again.</p>
 
   // Emails sent month to date (mail_counts, migration 0019): counts only.
   const mc = await mailCountsThisMonth(env);
+  // Per day (mail_daily, migration 0021): yesterday, and the average over the 30 days before today.
+  const md = await mailDailySummary(env);
+  const avgText = md?.avgPerDay == null ? '—' : String(Math.round(md.avgPerDay * 10) / 10);
+  const daily = !md
+    ? '<p class="muted">Daily totals start once migration 0021 is applied.</p>'
+    : `<table><tr><td>Emails sent yesterday</td><td><strong>${esc(md.yesterday)}</strong></td></tr>
+<tr><td>Average per day, previous 30 days</td><td><strong>${esc(avgText)}</strong></td></tr></table>
+<p class="muted">UTC days, sent only.${md.days < 30
+    ? ` ${md.days ? `Averaged over the ${esc(md.days)} day${md.days === 1 ? '' : 's'} counted so far` : 'Nothing to average yet'}: daily counting began ${md.countingSince ? `on ${esc(md.countingSince.slice(0, 10))}` : 'with migration 0021'}.`
+    : ''}</p>`;
   const KIND_LABEL = { code: 'Sign-in and link codes', family: 'Emails to families', digest: 'Email digests', notice: 'Account notices', test: 'Test emails' };
   const monthName = new Date(`${mc.month}-01T00:00:00Z`).toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
   const mailCounts = `<h2>Emails sent: ${esc(monthName)}, month to date</h2>
 <p><strong style="font-size:1.4rem">${esc(mc.sent)}</strong> sent${mc.failed ? ` · <span class="bad">${esc(mc.failed)} failed</span>` : ''}</p>
+${daily}
 <table><tr><th>kind</th><th>sent</th><th>failed</th></tr>${Object.entries(mc.kinds)
     .map(([k, v]) => `<tr><td>${esc(KIND_LABEL[k] ?? k)}</td><td>${esc(v.sent)}</td><td class="${v.failed ? 'bad' : 'muted'}">${esc(v.failed)}</td></tr>`).join('')}</table>
 <p class="muted">Each counts one recipient, as Resend's monthly quota does. Months are UTC.
