@@ -525,6 +525,16 @@ export function feePayFor(projection, entryId) {
   };
 }
 
+// What's credited toward their pup, as published (waitlistProjection's
+// creditsView): amounts only, or null.
+function creditsOf(c) {
+  if (!c || typeof c !== 'object') return null;
+  const amt = (v) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.round(v * 100) / 100 : 0);
+  const out = { fee: amt(c.fee), fee_toward: ['deposit', 'balance'].includes(c.fee_toward) ? c.fee_toward : null, received: amt(c.received), deposit: amt(c.deposit) };
+  if (!out.fee_toward) out.fee = 0;
+  return out.fee > 0 || out.received > 0 ? out : null;
+}
+
 // A fee_due as published, its Pay link kept only when it's a web address.
 function feeDueOf(d) {
   if (!d || typeof d !== 'object') return null;
@@ -622,6 +632,7 @@ export function statusView(projection, entryId, now = new Date()) {
     family[k] = e[k] ?? null;
   }
   family.fee_due = feeDueOf(family.fee_due);
+  family.credits = creditsOf(e.credits);
   // Asked for at the end of the application: their Pay button until they've paid.
   if (e.status === 'applied' && !e.fee_paid_online) {
     const pay = feePayFor(projection, entryId);

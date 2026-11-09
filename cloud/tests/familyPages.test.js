@@ -182,6 +182,12 @@ test('statusView and listView are allow-lists over the projection', () => {
   // "A litter you match was born" / "Review your preferences" (§16.6): as published.
   p.entries.bo.whelp_notes = [{ litter_id: 'l1', pairing_id: null, label: 'Juniper × Ash', kind: 'review', why: ['sex'] }];
   assert.deepEqual(statusView(p, 'bo').family.whelp_notes, p.entries.bo.whelp_notes);
+  // What's credited toward their pup: amounts only, cleaned; null when nothing.
+  assert.equal(statusView(p, 'bo').family.credits, null);
+  p.entries.bo.credits = { fee: 50, fee_toward: 'deposit', received: 200, deposit: 200, note: 'x' };
+  assert.deepEqual(statusView(p, 'bo').family.credits, { fee: 50, fee_toward: 'deposit', received: 200, deposit: 200 });
+  p.entries.bo.credits = { fee: 50, fee_toward: 'nope', received: -1, deposit: 'lots' };
+  assert.equal(statusView(p, 'bo').family.credits, null, 'nothing valid: nothing shown');
 });
 
 test('pairings and early litters (Spec §16.4): each where she shows it; a litter before picks open only that way', () => {

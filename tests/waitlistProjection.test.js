@@ -89,7 +89,7 @@ test('nothing private ever reaches the projection', () => {
 test("a family on the list sees its place, prefs, passes and offers; nothing else", () => {
   const p = buildProjection(fixture());
   const e1 = p.entries.e1;
-  assert.deepEqual(keysOf(e1), ['applied_date', 'approved_date', 'email', 'fee_due', 'fee_paid_online', 'fee_received_date', 'listen',
+  assert.deepEqual(keysOf(e1), ['applied_date', 'approved_date', 'credits', 'email', 'fee_due', 'fee_paid_online', 'fee_received_date', 'listen',
     'matching_litter_ids', 'name', 'offers', 'passes', 'paused_until', 'place_hidden', 'position', 'pref_places', 'prefs', 'prepasses', 'private_name', 'ready_check', 'ready_from', 'record', 'requests', 'spent_litter_ids', 'status', 'upcoming', 'whelp_notes']);
   assert.deepEqual(e1.prepasses, []);
   assert.deepEqual(e1.private_name, { on: false, request: null });
@@ -101,6 +101,22 @@ test("a family on the list sees its place, prefs, passes and offers; nothing els
   assert.deepEqual(e1.offers, [{ id: 'o1', turn_id: 'o1', litter_id: 'lit-1', offered_date: '2026-10-07', respond_by_date: '2026-10-10', eligible_dog_ids: ['p1', 'p2'], picked_dog_id: null, deposit_instructions: 'Venmo @thornfield' }]);
   assert.deepEqual(p.entries.e2.passes, { used: 1, max: 2 });
   assert.equal(p.entries.e3.paused_until, '2026-12-01');
+});
+
+test("a family's credits toward their pup: the credited fee and funds already received, before any sale", () => {
+  const f = fixture();
+  f.kennel = { ...kennel, waitlist_config: { ...kennel.waitlist_config, fee_amount: 50, fee_credit_toward: 'deposit' } };
+  // A $250 credit paid their $50 fee; the fee is credited toward the deposit.
+  f.entries[0] = entry('e1', { fee_amount: 50, fee_credit_policy: 'credited_to_purchase', fee_credit_amount: 50,
+    received_credits: [{ id: 'cr1', amount: 250, date: '2026-02-01', applies_to: ['fee', 'deposit', 'price', 'extras'] }] });
+  let p = buildProjection(f);
+  assert.deepEqual(p.entries.e1.credits, { fee: 50, fee_toward: 'deposit', received: 200, deposit: 200 });
+  assert.equal(p.entries.e2.credits, null, 'a fee not credited and no credits: nothing');
+  // Toward the balance, and a credit not ticked for the deposit.
+  f.kennel = { ...f.kennel, waitlist_config: { ...f.kennel.waitlist_config, fee_credit_toward: 'balance' } };
+  f.entries[0].received_credits[0].applies_to = ['fee', 'price'];
+  p = buildProjection(f);
+  assert.deepEqual(p.entries.e1.credits, { fee: 50, fee_toward: 'balance', received: 200, deposit: 0 });
 });
 
 test('the fee and her payment instructions show only while approved and unpaid', () => {

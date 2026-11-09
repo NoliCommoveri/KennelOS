@@ -2978,3 +2978,17 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Pending-deploy list, line counts, guide section lines and the baseline refreshed
   (1639 / 303 pass, build succeeds). `docs/review/INDEX.md` gains the K6b row;
   `docs/review/SESSION_PROMPTS.md` updated to match. No session has run yet.
+
+## 2026-11-09: Credits on the family status page
+
+- Bug: a family who picked a pup on their status page saw the full deposit ($400) although
+  their $50 application fee (credited toward the deposit) and their $200 remaining credit
+  should have come off it. The projection published `deposit_fee_credit` / `deposit_credit`
+  only once her device recorded the pick and made the sale; while the pick waited, the
+  deposit block had nothing to subtract.
+- Fix: each family's projection carries `credits` (`creditsView`: credited fee, what their
+  credits can pay toward the pup and toward a deposit); the Worker passes it through
+  (`familyPages.creditsOf`, amounts only); the deposit block falls back to it until the pick
+  is recorded. Their Current Position card gains a "Credited" row (before and while picks
+  are open). Needs a Worker deploy for the page, and her device to republish.
+- Tests: `tests/waitlistProjection.test.js` (credits), cloud `familyPages` (allow-list).

@@ -255,8 +255,14 @@ function turnHtml(rows) {
     const deadline = deadlineText(respondBy, v.kennel.time_zone);
     // Their application fee (when she credits it toward the deposit) and their
     // credit for funds already received pay part (or all) of it.
-    const feePart = amount != null && o.deposit_fee_credit > 0 ? Math.min(o.deposit_fee_credit, amount) : 0;
-    const creditPart = amount != null && o.deposit_credit > 0 ? Math.min(o.deposit_credit, amount - feePart) : 0;
+    // Until her device records the pick (a pick they sent here, waiting), there's no
+    // sale to work it out on: their credits as a whole stand in (family.credits).
+    const c = v.family.credits;
+    const recorded = Boolean(o.picked_dog_id);
+    const feeCredit = recorded ? o.deposit_fee_credit : (c?.fee_toward === 'deposit' ? c.fee : 0);
+    const depositCredit = recorded ? o.deposit_credit : c?.deposit;
+    const feePart = amount != null && feeCredit > 0 ? Math.min(feeCredit, amount) : 0;
+    const creditPart = amount != null && depositCredit > 0 ? Math.min(depositCredit, amount - feePart) : 0;
     const credit = feePart + creditPart;
     const toSend = Math.round((amount - credit) * 100) / 100;
     const less = [feePart > 0 ? `${price(feePart)} application fee` : '', creditPart > 0 ? `${price(creditPart)} already received (your credit)` : ''].filter(Boolean).join(' and ');
@@ -938,6 +944,24 @@ function recordsHtml(v) {
     ${signedIn() ? '<p class="small muted">You\'re signed in for all of them.</p>' : ''}`, 'records-card');
 }
 
+// What's credited toward their pup, on their Current Position card (before and
+// while picks are open): their application fee when she credits it to the
+// purchase price, and their credit for funds she already received.
+function creditsFactHtml(c) {
+  if (!c) return '';
+  const fee = c.fee > 0 ? c.fee : 0;
+  const received = c.received > 0 ? c.received : 0;
+  const total = Math.round((fee + received) * 100) / 100;
+  if (!(total > 0)) return '';
+  const parts = [fee ? `${price(fee)} application fee` : '', received ? `${price(received)} already received` : ''].filter(Boolean);
+  // Where it comes off: the deposit first, unless her fee goes toward the balance
+  // or their credit can't pay a deposit.
+  const toDeposit = (!fee || c.fee_toward === 'deposit') && (!received || c.deposit > 0);
+  const where = toDeposit ? 'Comes off your deposit first.'
+    : fee && c.fee_toward === 'balance' ? 'The application fee comes off your purchase price.' : '';
+  return `<dt>Credited</dt><dd>${esc(price(total))} toward your puppy${parts.length ? `<br><span class="small muted">${esc(parts.join(' + '))}</span>` : ''}${where ? `<br><span class="small muted">${esc(where)}</span>` : ''}</dd>`;
+}
+
 function mineHtml() {
   const v = state.v;
   const f = v.family;
@@ -1019,6 +1043,7 @@ function mineHtml() {
       <dl class="facts">
         ${f.fee_received_date ? `<dt>Added</dt><dd>${esc(fmtShortDate(f.fee_received_date))}</dd>` : ''}
         ${f.passes ? `<dt>Passes</dt><dd>${esc(f.passes.used)} of ${esc(f.passes.max)} used</dd>` : ''}
+        ${creditsFactHtml(f.credits)}
       </dl>
       ${placeActions(f)}`));
     parts.push(whelpNotesHtml(f));

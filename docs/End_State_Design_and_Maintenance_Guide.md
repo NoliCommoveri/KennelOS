@@ -1255,7 +1255,12 @@ subject (`financials.js` `expenseInScope`).
   `saleComponents(sale, feeCredit)`). Invoices label the line it comes off ("after $X
   application fee credit"); the deposit dialog, the family's deposit block
   (`offers[].deposit_fee_credit`, and "Credited toward your deposit" on their fee card via
-  `fee_due.credit_toward`) and the Companion balance follow it.
+  `fee_due.credit_toward`) and the Companion balance follow it. Each family's projection
+  also carries `credits` (`{ fee, fee_toward, received, deposit }` or null; the projection's
+  `creditsView`): their credited fee and what their credits can pay toward the pup after the
+  fee, whatever the sale. Their Current Position card shows it as "Credited", and their
+  deposit block uses it while a pick they sent waits for her device (no sale yet to work it
+  out on).
 - **A family's credits for funds already received** (Pro, §29 "Credits"): the credited part
   of a sale line not yet paid is earned on the credit's date and the rest stays anticipated
   (`saleComponents(sale, feeCredit, received)`, from `familyCredit(...).received`). Only the
