@@ -183,6 +183,23 @@ function priceLine(p, sex = null, full = null) {
   return parts.length ? `<p class="small mt0 price">${esc(parts.join(' · '))}</p>` : '';
 }
 
+// A deposit of `amount` less what their credits pay of it: their application fee
+// (when she credits it toward the deposit), then their credit for funds already
+// received. `rec` is the recorded pick's offer (its sale's figures); without one,
+// their credits as a whole stand in (family.credits).
+// → { feePart, creditPart, credit, toSend, less }
+function depositAfterCredits(amount, rec = null) {
+  const c = state.v.family.credits;
+  const feeCredit = rec ? rec.deposit_fee_credit : (c?.fee_toward === 'deposit' ? c.fee : 0);
+  const depositCredit = rec ? rec.deposit_credit : c?.deposit;
+  const feePart = amount != null && feeCredit > 0 ? Math.min(feeCredit, amount) : 0;
+  const creditPart = amount != null && depositCredit > 0 ? Math.min(depositCredit, amount - feePart) : 0;
+  const credit = feePart + creditPart;
+  const toSend = amount == null ? null : Math.max(0, Math.round((amount - credit) * 100) / 100);
+  const less = [feePart > 0 ? `${price(feePart)} application fee` : '', creditPart > 0 ? `${price(creditPart)} already received (your credit)` : ''].filter(Boolean).join(' and ');
+  return { feePart, creditPart, credit, toSend, less };
+}
+
 // A family's turn (Waitlist Spec §16.1): every litter it covers, in one card. They
 // choose ONE pup from any of them, or pass on all of them (only that counts as a
 // pass, and once). `rows` are the turn's offers, each one litter.
@@ -240,7 +257,17 @@ function turnHtml(rows) {
     // The deposit is the same whatever the registration: once per litter, above the
     // registration sections, even when all are Limited. (Their pick's deposit is in
     // the Sending your deposit block below instead.)
-    const depositLine = deposit.length && !only ? `<p class="small mt0 muted">Deposit: ${esc(deposit.join(' · '))}</p>` : '';
+    // With credits toward it, what they'd send (per sex when the deposits differ).
+    const after = (n) => depositAfterCredits(n);
+    const sendFor = [d.male, d.female].filter((n) => n != null && after(n).credit > 0);
+    let sendLine = '';
+    if (!only && sendFor.length) {
+      const sends = d.male != null && d.female != null && d.male !== d.female
+        ? [`Males ${price(after(d.male).toSend)}`, `Females ${price(after(d.female).toSend)}`].join(' · ')
+        : price(after(sendFor[0]).toSend);
+      sendLine = ` <br>You'd send ${esc(sends)}, after your ${esc(after(Math.max(...sendFor)).less.replace(' (your credit)', ''))}.`;
+    }
+    const depositLine = deposit.length && !only ? `<p class="small mt0 muted">Deposit: ${esc(deposit.join(' · '))}${sendLine}</p>` : '';
     if (only) return `${priceLine(prices[order[0]], only, o.pups[0].registration ? null : prices.full)}${depositLine}${pupButtons(o, groups.get(order[0]), true)}`;
     return depositLine + order.map((reg) => `<p class="small mt8"><strong>${esc(REG_LABEL[reg])}</strong></p>${priceLine(prices[reg])}${pupButtons(o, groups.get(reg))}`).join('');
   };
@@ -253,19 +280,9 @@ function turnHtml(rows) {
     const pup = rows.flatMap((r) => r.pups).find((d) => d.id === chosen);
     const amount = o.deposit_amount ?? (pup && o.prices?.deposit ? o.prices.deposit[pup.sex] ?? null : null);
     const deadline = deadlineText(respondBy, v.kennel.time_zone);
-    // Their application fee (when she credits it toward the deposit) and their
-    // credit for funds already received pay part (or all) of it.
-    // Until her device records the pick (a pick they sent here, waiting), there's no
-    // sale to work it out on: their credits as a whole stand in (family.credits).
-    const c = v.family.credits;
-    const recorded = Boolean(o.picked_dog_id);
-    const feeCredit = recorded ? o.deposit_fee_credit : (c?.fee_toward === 'deposit' ? c.fee : 0);
-    const depositCredit = recorded ? o.deposit_credit : c?.deposit;
-    const feePart = amount != null && feeCredit > 0 ? Math.min(feeCredit, amount) : 0;
-    const creditPart = amount != null && depositCredit > 0 ? Math.min(depositCredit, amount - feePart) : 0;
-    const credit = feePart + creditPart;
-    const toSend = Math.round((amount - credit) * 100) / 100;
-    const less = [feePart > 0 ? `${price(feePart)} application fee` : '', creditPart > 0 ? `${price(creditPart)} already received (your credit)` : ''].filter(Boolean).join(' and ');
+    // Their application fee and their credit pay part (or all) of it: the sale's
+    // figures once her device records the pick, their credits as a whole before.
+    const { credit, toSend, less } = depositAfterCredits(amount, o.picked_dog_id ? o : null);
     if (credit > 0 && toSend <= 0) {
       return `<div class="deposit-block">
         <h3>Your deposit</h3>
@@ -1184,7 +1201,11 @@ async function onClick(ev) {
       const pup = (offer?.pups || []).find((d) => d.id === b.dataset.dog);
       const dep = pup && offer?.prices?.deposit ? offer.prices.deposit[pup.sex] : null;
       const deadline = deadlineText(offer?.respond_by_date, state.v.kennel.time_zone).replace(/^Deadline: /, '').replace(/\u00a0/g, ' ');
-      const message = `Your selection isn't final until ${kennel} receives your deposit${dep != null ? ` of ${price(dep)}` : ''}.${deadline ? ` Deadline to send the deposit: ${deadline}.` : ''}`;
+      const cr = depositAfterCredits(dep);
+      const depText = dep == null ? '' : cr.credit > 0
+        ? ` of ${price(dep)}: you send ${price(cr.toSend)}, after your ${cr.less.replace(' (your credit)', '')}`
+        : ` of ${price(dep)}`;
+      const message = `Your selection isn't final until ${kennel} receives your deposit${depText}.${deadline ? ` Deadline to send the deposit: ${deadline}.` : ''}`;
       if (!await confirmDialog({ title: `Choose ${b.dataset.name}?`, message, confirmLabel: `Choose ${b.dataset.name}` })) return;
       b.disabled = true;
       await act('pick', { offer_id: b.dataset.offer, dog_id: b.dataset.dog }, `You chose ${b.dataset.name}. ${kennel} will confirm, and holds them for you meanwhile.`);

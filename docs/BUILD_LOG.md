@@ -2990,5 +2990,8 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   credits can pay toward the pup and toward a deposit); the Worker passes it through
   (`familyPages.creditsOf`, amounts only); the deposit block falls back to it until the pick
   is recorded. Their Current Position card gains a "Credited" row (before and while picks
-  are open). Needs a Worker deploy for the page, and her device to republish.
+  are open). Before they pick, the turn card's deposit line adds what they'd send after
+  their credits, and the "Choose <pup>?" dialog says it too (`depositAfterCredits` in
+  status.js, shared with the deposit block). Needs a Worker deploy for the page, and her
+  device to republish.
 - Tests: `tests/waitlistProjection.test.js` (credits), cloud `familyPages` (allow-list).

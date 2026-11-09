@@ -1258,9 +1258,10 @@ subject (`financials.js` `expenseInScope`).
   `fee_due.credit_toward`) and the Companion balance follow it. Each family's projection
   also carries `credits` (`{ fee, fee_toward, received, deposit }` or null; the projection's
   `creditsView`): their credited fee and what their credits can pay toward the pup after the
-  fee, whatever the sale. Their Current Position card shows it as "Credited", and their
+  fee, whatever the sale. Their Current Position card shows it as "Credited"; their turn
+  card's deposit line and the "Choose <pup>?" dialog say what they'd send after it; and their
   deposit block uses it while a pick they sent waits for her device (no sale yet to work it
-  out on).
+  out on). One helper does the sum (`depositAfterCredits` in `cloud/public/family/status.js`).
 - **A family's credits for funds already received** (Pro, §29 "Credits"): the credited part
   of a sale line not yet paid is earned on the credit's date and the rest stays anticipated
   (`saleComponents(sale, feeCredit, received)`, from `familyCredit(...).received`). Only the
