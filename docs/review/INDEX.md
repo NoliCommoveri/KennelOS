@@ -8,7 +8,7 @@ The KennelPort seam has its own plan and its own findings, in the KennelPort rep
 | # | Session | Branch | Date | S1 | S2 | S3 | S4 | Findings |
 |---|---------|--------|------|----|----|----|----|----------|
 | K1 | Schema, repos, registries, referential integrity | `claude/kennelos-data-foundation-review-ttllyu` | 2026-11-08 | 1 | 3 | 3 | 3 | [`K01-data-foundation.md`](findings/K01-data-foundation.md) |
-| K2 | Backup, restore, CSV import | — | — | — | — | — | — | — |
+| K2 | Backup, restore, CSV import | `ccr-71bf966b-bik7gj` | 2026-11-09 | 1 | 5 | 6 | 2 | [`K02-backup-import.md`](findings/K02-backup-import.md) |
 | K3 | Cloud client: backup, sync, conflicts | — | — | — | — | — | — | — |
 | K4 | The cloud Worker | — | — | — | — | — | — | — |
 | K5 | Vault, licence, account identity | — | — | — | — | — | — | — |
