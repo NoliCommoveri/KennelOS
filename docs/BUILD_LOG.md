@@ -2996,5 +2996,19 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   device to republish.
 - Tests: `tests/waitlistProjection.test.js` (credits), cloud `familyPages` (allow-list).
 
+## 2026-11-09: A released Pro device asks for its key again
+
+- Found on assisted setup: support deleted a user's account with **erase its devices**; her
+  phone erased itself and released its Lemon Squeezy activation (0/5), but reopened without
+  the key screen. Two causes in `data/license.js`: the gate's `validate` was in flight when
+  the boot check-in's erase wiped the record, and its answer wrote the record back; and on the
+  next load the store's "activation not found" (a 4xx with `valid:false`) read as offline, so
+  the cached lifetime record kept the device running for its 90-day offline window.
+- `validate` now clears the record on that answer (`isGoneAnswer`: 4xx except 429, JSON
+  `valid:false`) and caches an answer only while the device still holds the same record
+  (`stillHeld`); `evaluateLicense` returns `unactivated` when the record is gone. The renewal
+  wall's Check again goes to the activation wall in that case.
+- Tests: `tests/licenseRevalidate.test.js`. End-State guide §0.3.
+
 - **SW cache bumped to `kennelos-shell-v113` (2026-11-09)**, the owner's go-ahead, for the
-  family credits in the waitlist projection.
+  family credits in the waitlist projection and the released-device license fix above.
