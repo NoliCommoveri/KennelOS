@@ -12,7 +12,7 @@ The KennelPort seam has its own plan and its own findings, in the KennelPort rep
 | K3 | Cloud client: backup, sync, conflicts | `claude/kennelos-cloud-client-review-a6ti1s` | 2026-11-09 | 2 | 6 | 2 | 1 | [`K03-cloud-client.md`](findings/K03-cloud-client.md) |
 | K4 | The cloud Worker | `claude/kennelos-cloud-worker-review-l5z99f` | 2026-11-09 | 0 | 6 | 3 | 5 | [`K04-cloud-worker.md`](findings/K04-cloud-worker.md) |
 | K5 | Vault, licence, account identity | `claude/kennelos-k5-review-y6hzba` | 2026-11-09 | 2 | 5 | 3 | 4 | [`K05-vault-licence.md`](findings/K05-vault-licence.md) |
-| K6 | Waitlist engine: positions, turns, offers | — | — | — | — | — | — | — |
+| K6 | Waitlist engine: positions, turns, offers | `ccr-8fd56b18-848kuq` | 2026-11-10 | 0 | 3 | 7 | 3 | [`K06-waitlist-engine.md`](findings/K06-waitlist-engine.md) |
 | K6b | Picks preview, side sales, undo windows | — | — | — | — | — | — | — |
 | K7 | Waitlist online: applications, public list, family pages | — | — | — | — | — | — | — |
 | K8 | Family requests, pickup, transport, fees, emails | — | — | — | — | — | — | — |
