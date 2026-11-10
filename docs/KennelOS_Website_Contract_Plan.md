@@ -82,8 +82,9 @@ new: these aren't gaps.
   ticked Name this kennel on my website for, or a date of birth for a dog that isn't
   hers.
 - C8 sends only offspring she picked, never a buyer or where the dog lives.
-- Picks and sales still don't go. Whether the website should learn that a pup has an
-  open pick or a sale (so Reserved can be automatic) is an open question below.
+- Picks and sales don't go, and there is no `reserved` status (the owner's decision,
+  2026-11-10): a pup with an open sale is marked Placed and follows the placed rules.
+  `siteExport.js` drops the unused word from `PUPPY_WORDS`, and KennelPort stops taking it.
 
 ## Editions
 
@@ -107,11 +108,9 @@ in `PRECACHE_URLS`; ask before the SW cache bump.
 
 ## Open questions (the owner's)
 
-1. Should the website learn that a pup has an open pick or a sale, as a yes or no and
-   nothing about the family?
-2. Imported: a tick only, or a country too? How many generations still count as
+1. Imported: a tick only, or a country too? How many generations still count as
    import-descended, and can she override it on one dog?
-3. Select offspring: picked in KennelOS (assumed here) or on the website?
-4. Colour: does KennelOS get a tidy colour list beside the free text, so websites can
+2. Select offspring: picked in KennelOS (assumed here) or on the website?
+3. Colour: does KennelOS get a tidy colour list beside the free text, so websites can
    group by it?
-5. The sync class of each new field, above.
+4. The sync class of each new field, above.

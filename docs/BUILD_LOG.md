@@ -3035,4 +3035,7 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   KennelPort's `docs/plans/kennelos-contract.md`). New optional sections that send her own
   values, and four proposed Dog fields (`imported`, `import_country`, `feature_offspring`,
   `featured_offspring_ids`) whose sync class is the owner's to confirm.
+- The owner's decision the same day: no `reserved` status; a pup with an open sale is marked
+  Placed. End-State guide §35's line on `puppyStatus` said a live sale or open pick sent
+  reserved, which the code never did; corrected to what is built.
 - Docs only: no code, no schema, no app file changed. README's doc map gains the plan.

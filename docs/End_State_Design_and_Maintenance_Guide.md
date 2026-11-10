@@ -3745,9 +3745,9 @@ KennelPort Site Manager.
   amount. On KennelPort a dog living with a co-owner shows only in the Dogs page's
   Co-owned section, with that kennel's logo (added there); one living with her is grouped
   like her own. A puppy's status is
-  `puppyStatus`: health hold hidden, placed (or a delivered sale) placed, a live sale or an
-  open pick reserved, keeping (or grown into the program) staying, Available available,
-  else undecided. **Prices** (the litter's expected price, deposit and Full surcharge per
+  `puppyStatus`: her disposition and nothing worked out: health hold hidden, placed
+  placed, keeping staying, Available available, else undecided. No pick or sale is read,
+  and there is no reserved status: a pup with an open sale is marked Placed. **Prices** (the litter's expected price, deposit and Full surcharge per
   sex, and extras' amounts, all private) go only while the site says Use my KennelOS prices
   is on (`site.kennelos_prices`). Text is cut to KennelPort's lengths; over its caps
   (`SITE_MAX`) it says so instead of sending.
