@@ -3024,3 +3024,15 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
 - Tests: cloud `mail` (daily row), `ops-sections` (yesterday, average, partial window).
   Needs a Worker deploy, then Apply pending (`0021`) on /ops. README Status marks every
   migration through `0021` applied (`0017`, `0019`, `0020` confirmed by the owner; `0021` on merge).
+
+## 2026-11-10: the website contract reviewed; a plan to send raw data
+
+- Reviewed `shared/data/siteExport.js` against KennelPort's `kennelos/bundle.js` and rules:
+  where a value is worked out or worded before it is sent (a puppy's status, a litter's
+  status, titles, the How it works steps, an account's type), and what isn't sent (parents,
+  breed, test type, sold litters).
+- Plan written: `docs/KennelOS_Website_Contract_Plan.md` (KennelOS's half; the whole plan is
+  KennelPort's `docs/plans/kennelos-contract.md`). New optional sections that send her own
+  values, and four proposed Dog fields (`imported`, `import_country`, `feature_offspring`,
+  `featured_offspring_ids`) whose sync class is the owner's to confirm.
+- Docs only: no code, no schema, no app file changed. README's doc map gains the plan.
