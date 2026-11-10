@@ -14,7 +14,7 @@ The KennelPort seam has its own plan and its own findings, in the KennelPort rep
 | K5 | Vault, licence, account identity | `claude/kennelos-k5-review-y6hzba` | 2026-11-09 | 2 | 5 | 3 | 4 | [`K05-vault-licence.md`](findings/K05-vault-licence.md) |
 | K6 | Waitlist engine: positions, turns, offers | `ccr-8fd56b18-848kuq` | 2026-11-10 | 0 | 3 | 7 | 3 | [`K06-waitlist-engine.md`](findings/K06-waitlist-engine.md) |
 | K6b | Picks preview, side sales, undo windows | — | — | — | — | — | — | — |
-| K7 | Waitlist online: applications, public list, family pages | — | — | — | — | — | — | — |
+| K7 | Waitlist online: applications, public list, family pages | `ccr-30110b09-vr8rb2` | 2026-11-10 | 1 | 2 | 10 | 1 | [`K07-waitlist-online.md`](findings/K07-waitlist-online.md) |
 | K8 | Family requests, pickup, transport, fees, emails | — | — | — | — | — | — | — |
 | K9 | Dogs, litters, pairings, events, nudges, Today | — | — | — | — | — | — | — |
 | K10 | Money: sales, invoices, contracts, expenses, reports | — | — | — | — | — | — | — |
