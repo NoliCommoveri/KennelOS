@@ -16,7 +16,7 @@ The KennelPort seam has its own plan and its own findings, in the KennelPort rep
 | K6b | Picks preview, side sales, undo windows | — | — | — | — | — | — | — |
 | K7 | Waitlist online: applications, public list, family pages | `ccr-30110b09-vr8rb2` | 2026-11-10 | 1 | 2 | 10 | 1 | [`K07-waitlist-online.md`](findings/K07-waitlist-online.md) |
 | K8 | Family requests, pickup, transport, fees, emails | `ccr-0bd82d66-slnt65` | 2026-11-10 | 2 | 2 | 9 | 2 | [`K08-family-requests.md`](findings/K08-family-requests.md) |
-| K9 | Dogs, litters, pairings, events, nudges, Today | — | — | — | — | — | — | — |
+| K9 | Dogs, litters, pairings, events, nudges, Today | `ccr-fbf95967-bqp6ig` | 2026-11-10 | 1 | 2 | 7 | 3 | [`K09-dogs-litters-nudges.md`](findings/K09-dogs-litters-nudges.md) |
 | K10 | Money: sales, invoices, contracts, expenses, reports | — | — | — | — | — | — | — |
 | K11 | Kels and the guided tasks | — | — | — | — | — | — | — |
 | K12 | Integrations, accounts, notifications | — | — | — | — | — | — | — |
