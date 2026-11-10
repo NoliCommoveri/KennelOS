@@ -47,6 +47,7 @@ backup, carries a program from Lite to Pro.
 | Launch to-dos | `docs/LAUNCH_CHECKLIST.md` |
 | Sending dogs between breeders (Dog Cards, live updates) | `docs/KennelOS_Shared_Dogs_Plan.md` |
 | A review of the whole app, run over several sessions | `docs/KennelOS_Review_Plan.md` (findings in `docs/review/`) |
+| Sending raw data to her KennelPort website (plan) | `docs/KennelOS_Website_Contract_Plan.md` |
 | What was built when, past fixes | `docs/BUILD_LOG.md` |
 
 ## Status (2026-10-15)

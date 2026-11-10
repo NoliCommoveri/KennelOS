@@ -1,0 +1,116 @@
+# Website contract plan: sending raw data to KennelPort
+
+A plan from the review of the KennelOS ↔ KennelPort contract (2026-11-10). Nothing here
+is built. This is KennelOS's half; the whole plan, with KennelPort's rules, blocks and
+build order, is KennelPort's `docs/plans/kennelos-contract.md`. What is built today is
+End-State guide §35.
+
+## Why
+
+Breeders want more say over their websites: dog cards split by colour or titles, a
+status for pups born but not yet open for deposits, more kinds of accounts, pedigrees, a
+sire's or dam's best offspring, tags for imports and import-descended dogs.
+
+Several of these can't be done on the website because `shared/data/siteExport.js` works
+a value out, or writes it as words, before sending. The fix is the same each time:
+**KennelOS sends the fact, KennelPort's rules decide how a site shows it.** She still
+only marks records and presses Update website.
+
+## What stays
+
+- Format 1, the allow-lists and `assertOnlyKeys` on every object.
+- Only records she marked Show on website; a heat as a month only; prices only with Use
+  my KennelOS prices.
+- Sections: a new key goes only to a Worker whose answer lists its section, so either
+  side can be released first.
+- Nothing from a buyer, contact, note, contract or sale.
+- Pro only, and no request without a linked website.
+
+## What changes in `siteExport.js`
+
+Each row is a new optional section. Today's keys keep going out until KennelPort has
+moved to the new one.
+
+| # | Section | Today | Sent raw |
+|---|---|---|---|
+| C1 | `pup_disposition` | `puppyStatus()` maps disposition to a site word | On each litter puppy: `disposition` as she set it, null when none is set |
+| C2 | `litter_status` | Status becomes dates only (`born = status !== 'expected'`) | On each litter: `status` (`expected`, `whelped`, `weaning`, `ready`) |
+| C3 | `titles_detail` | `titlesByDog`: the abbreviation only | `titles` as `[{ abbr, organization, date }]`, from the `title_earned` events |
+| C4 | `origin` | Nothing | On a dog: `imported`, `import_country`, and `import_ancestors` (`[{ generations }]`, nearest first) |
+| C5 | `health_detail` | `completedTestsByDog`: name, result, outcome, date | Also `type` (the event type) and `verify_url` where one is held |
+| C6 | `account_type` | The type becomes one `transport` yes or no | On a product: `account_type`; which accounts go is unchanged for now |
+| C7 | `lineage` | No parents, no breed | On a dog: `breed`, `sire_id`, `dam_id`, and `ancestors` to four generations: `[{ id, path, call_name, registered_name, titles }]`, pedigree-only dogs included, by name only |
+| C8 | `offspring` | Sold and closed litters aren't sent | On a dog marked Feature offspring: the offspring she picked, `[{ id, call_name, registered_name, titles, born_on, other_parent_name }]` |
+| C9 | `waitlist_facts` | `waitlistSteps` and `applicationFeePay` write whole sentences | `{ online_form, has_fee, fee_due_days, respond_days, max_passes }`; `steps` and `payment` still go to a Worker without the section |
+
+All of it stays pure: plain records in, one object out. C4, C7 and C8 walk `sire_id` /
+`dam_id` over the dogs `kennelportLink.js` already gathers; a helper for the walk goes in
+its own pure module with a depth cap and a guard against a loop in the data.
+
+`bundleChanges` and `FIELD_WORDS` gain each new key, so Kels's list of what an update
+would change stays in her words.
+
+## New fields in KennelOS
+
+These are structural changes. Each needs the End-State guide (§35 and the Dog entity),
+`syncRegistry.js`, and, for an FK, `referenceRegistry.js`, in the same change. No new
+table or index is needed, so no new `db.version` block. All are optional with defaults,
+so backups stay backward compatible.
+
+| Field | On | Kind | Sync class (proposed) |
+|---|---|---|---|
+| `imported` | Dog | boolean, default false | cloud: a fact about the dog, like `registry` |
+| `import_country` | Dog | text, optional | cloud, the same |
+| `feature_offspring` | Dog | boolean, default false | cloud: a display choice, like `show_on_website` |
+| `featured_offspring_ids` | Dog | list of Dog ids | cloud; an FK list, so it goes in `referenceRegistry.js` |
+
+**Making a field `cloud` is a privacy decision** and is the owner's to confirm for each
+row above before it is built. Cloud fields changing means regenerating
+`cloud/src/lib/cloudFields.js`.
+
+Import-descended is never stored: it is derived from the pedigree at send time, like
+every other reverse relationship.
+
+The Dog form gains Imported (and the country) beside the registry fields, and Feature
+offspring with its picker on a breeding dog. Kels's Update my website asks about nothing
+new: these aren't gaps.
+
+## Privacy
+
+- C7 and C8 name dogs that aren't on her website and may not be hers. They go by call
+  name, registered name and titles only. Never an owner, a contact, a kennel she hasn't
+  ticked Name this kennel on my website for, or a date of birth for a dog that isn't
+  hers.
+- C8 sends only offspring she picked, never a buyer or where the dog lives.
+- Picks and sales don't go, and there is no `reserved` status (the owner's decision,
+  2026-11-10): a pup with an open sale is marked Placed and follows the placed rules.
+  `siteExport.js` drops the unused word from `PUPPY_WORDS`, and KennelPort stops taking it.
+
+## Editions
+
+The shared core stays edition-agnostic. The new fields are plain Dog fields in every
+edition; sending them is behind `editionFlags.websiteLink`, as the bundle is now. Lite
+and Demo make no request.
+
+## Building it, in steps
+
+KennelPort's steps 1 to 3 (her health order kept, the born-not-yet-open status, blocks
+over any field, picks, the Featured block) need nothing from KennelOS. KennelOS's work
+starts at KennelPort's step 4:
+
+1. **C1, C2, C5, C6:** values KennelOS already holds. `siteExport.js`, its tests, guide §35.
+2. **C3:** titles with organization and date.
+3. **C4, C7, C8:** the new Dog fields, the pedigree walk, origin, lineage, offspring.
+4. **C9:** waitlist facts.
+
+Each batch: `node --check`, `node --test`, `node build/assemble.mjs`; a new app file goes
+in `PRECACHE_URLS`; ask before the SW cache bump.
+
+## Open questions (the owner's)
+
+1. Imported: a tick only, or a country too? How many generations still count as
+   import-descended, and can she override it on one dog?
+2. Select offspring: picked in KennelOS (assumed here) or on the website?
+3. Colour: does KennelOS get a tidy colour list beside the free text, so websites can
+   group by it?
+4. The sync class of each new field, above.
