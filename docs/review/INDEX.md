@@ -18,7 +18,7 @@ The KennelPort seam has its own plan and its own findings, in the KennelPort rep
 | K8 | Family requests, pickup, transport, fees, emails | `ccr-0bd82d66-slnt65` | 2026-11-10 | 2 | 2 | 9 | 2 | [`K08-family-requests.md`](findings/K08-family-requests.md) |
 | K9 | Dogs, litters, pairings, events, nudges, Today | `ccr-fbf95967-bqp6ig` | 2026-11-10 | 1 | 2 | 7 | 3 | [`K09-dogs-litters-nudges.md`](findings/K09-dogs-litters-nudges.md) |
 | K10 | Money: sales, invoices, contracts, expenses, reports | `ccr-83676c8e-guqnur` | 2026-11-10 | 2 | 3 | 9 | 0 | [`K10-money.md`](findings/K10-money.md) |
-| K11 | Kels and the guided tasks | — | — | — | — | — | — | — |
+| K11 | Kels and the guided tasks | `claude/kennelos-k11-kels-review-6ys8tj` | 2026-11-10 | 0 | 7 | 8 | 3 | [`K11-kels.md`](findings/K11-kels.md) |
 | K12 | Integrations, accounts, notifications | `ccr-7191f2c9-wwbh7v` | 2026-11-10 | 0 | 4 | 9 | 1 | [`K12-integrations-notifications.md`](findings/K12-integrations-notifications.md) |
 | K13 | Editions, build, first run, PWA, marketing site | `ccr-4e60dfa4-04mkg9` | 2026-11-11 | 3 | 4 | 7 | 1 | [`K13-editions-build.md`](findings/K13-editions-build.md) |
 | K14 | Multi-kennel, shows, identity, Companion, Furever | `ccr-0ac931f8-yhmofp` | 2026-11-11 | 1 | 7 | 8 | 2 | [`K14-scope-companion-furever.md`](findings/K14-scope-companion-furever.md) |
