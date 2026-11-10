@@ -33,17 +33,17 @@ moved to the new one.
 
 | # | Section | Today | Sent raw |
 |---|---|---|---|
-| C1 | `pup_disposition` | `puppyStatus()` maps disposition to a site word | On each litter puppy: `disposition` as she set it, null when none is set |
+| C1 | `pup_disposition` | `puppyStatus()` maps disposition to a site word | On each litter puppy: `disposition` as she set it, null when none is set (the existing `disposition` section, on a marked puppy-status dog, sends `undecided` instead) |
 | C2 | `litter_status` | Status becomes dates only (`born = status !== 'expected'`) | On each litter: `status` (`expected`, `whelped`, `weaning`, `ready`) |
 | C3 | `titles_detail` | `titlesByDog`: the abbreviation only | `titles` as `[{ abbr, organization, date }]`, from the `title_earned` events |
-| C4 | `origin` | Nothing | On a dog: `imported`, `import_country`, and `import_ancestors` (`[{ generations }]`, nearest first) |
+| C4 | `origin` | Nothing | On a dog, and on each C7 ancestor: `imported` and `import_country`, as she set them. KennelPort works out import-descended from the ancestors |
 | C5 | `health_detail` | `completedTestsByDog`: name, result, outcome, date | Also `type` (the event type) and `verify_url` where one is held |
 | C6 | `account_type` | The type becomes one `transport` yes or no | On a product: `account_type`; which accounts go is unchanged for now |
 | C7 | `lineage` | No parents, no breed | On a dog: `breed`, `sire_id`, `dam_id`, and `ancestors` to four generations: `[{ id, path, call_name, registered_name, titles }]`, pedigree-only dogs included, by name only |
 | C8 | `offspring` | Sold and closed litters aren't sent | On a dog marked Feature offspring: the offspring she picked, `[{ id, call_name, registered_name, titles, born_on, other_parent_name }]` |
 | C9 | `waitlist_facts` | `waitlistSteps` and `applicationFeePay` write whole sentences | `{ online_form, has_fee, fee_due_days, respond_days, max_passes }`; `steps` and `payment` still go to a Worker without the section |
 
-All of it stays pure: plain records in, one object out. C4, C7 and C8 walk `sire_id` /
+All of it stays pure: plain records in, one object out. C7 and C8 walk `sire_id` /
 `dam_id` over the dogs `kennelportLink.js` already gathers; a helper for the walk goes in
 its own pure module with a depth cap and a guard against a loop in the data.
 
@@ -68,8 +68,8 @@ so backups stay backward compatible.
 row above before it is built. Cloud fields changing means regenerating
 `cloud/src/lib/cloudFields.js`.
 
-Import-descended is never stored: it is derived from the pedigree at send time, like
-every other reverse relationship.
+Import-descended is never stored or sent: KennelPort works it out from the C7 ancestors
+(four generations), so C4 goes out with C7.
 
 The Dog form gains Imported (and the country) beside the registry fields, and Feature
 offspring with its picker on a breeding dog. Kels's Update my website asks about nothing
@@ -95,12 +95,18 @@ and Demo make no request.
 ## Building it, in steps
 
 KennelPort's steps 1 to 3 (her health order kept, the born-not-yet-open status, blocks
-over any field, picks, the Featured block) need nothing from KennelOS. KennelOS's work
-starts at KennelPort's step 4:
+over any field, picks, the Featured block) need nothing from KennelOS. KennelOS's one change
+before then goes with KennelPort's step 1:
+
+0. **`reserved` out:** `siteExport.js` drops `reserved` from `PUPPY_WORDS`, with its
+   tests. No new section: `reserved` was never sent.
+
+The rest starts at KennelPort's step 4:
 
 1. **C1, C2, C5, C6:** values KennelOS already holds. `siteExport.js`, its tests, guide §35.
 2. **C3:** titles with organization and date.
 3. **C4, C7, C8:** the new Dog fields, the pedigree walk, origin, lineage, offspring.
+   C4 goes with C7.
 4. **C9:** waitlist facts.
 
 Each batch: `node --check`, `node --test`, `node build/assemble.mjs`; a new app file goes
@@ -114,3 +120,6 @@ in `PRECACHE_URLS`; ask before the SW cache bump.
 3. Colour: does KennelOS get a tidy colour list beside the free text, so websites can
    group by it?
 4. The sync class of each new field, above.
+5. Kels's list of what an update changes calls a placed pup "Spoken for"
+   (`PUPPY_WORDS.placed`), while the website's default for placed reads "Reserved". Keep
+   them different, or match one to the other?

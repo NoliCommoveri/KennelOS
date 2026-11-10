@@ -3039,3 +3039,12 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Placed. End-State guide §35's line on `puppyStatus` said a live sale or open pick sent
   reserved, which the code never did; corrected to what is built.
 - Docs only: no code, no schema, no app file changed. README's doc map gains the plan.
+
+## 2026-11-10: the website contract plan, corrected after review
+
+- `docs/KennelOS_Website_Contract_Plan.md`: C1 notes it sends null where the existing
+  `disposition` section sends `undecided`. A step 0 (with KennelPort's step 1) drops
+  `reserved` from `PUPPY_WORDS`. C4 sends only `imported` and `import_country`, on a dog
+  and each C7 ancestor; KennelPort works out import-descended, so C4 goes with C7. A new
+  open question: Kels's "Spoken for" for placed against the site's "Reserved".
+- Docs only: no code, no schema, no app file changed.
