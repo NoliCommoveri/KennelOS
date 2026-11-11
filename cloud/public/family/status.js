@@ -766,10 +766,12 @@ function pickupHtml(f) {
   }
   // What they asked for and haven't heard back on.
   if (sentBook) parts.push(`<p class="small"><span class="badge warn">Requested</span> ${esc(fmtDate(sentBook.payload.date))}${sentBook.payload.start_time ? `, ${esc(timeText(sentBook.payload.start_time, sentBook.payload.end_time))}` : ''}${sentBook.payload.place ? ` at ${esc(sentBook.payload.place)}` : ''}. ${esc(kennel)} will confirm.</p>`);
-  if (sentAddress) parts.push(`<p class="small"><span class="badge warn">Requested</span> ${esc(sentAddress.payload.address)}. ${milesLine(sentAddress.payload.miles, sentAddress.payload.far, kennel)}</p>`);
+  // Their own place, with the day and time they'd like when they gave them.
+  const meetWhen = (date, time) => `${date ? `, ${esc(fmtDate(date))}` : ''}${time ? `${date ? ' at' : ', at'} ${esc(hm12(time))}` : ''}`;
+  if (sentAddress) parts.push(`<p class="small"><span class="badge warn">Requested</span> ${esc(sentAddress.payload.address)}${meetWhen(sentAddress.payload.date, sentAddress.payload.time)}. ${milesLine(sentAddress.payload.miles, sentAddress.payload.far, kennel)}</p>`);
   for (const r of waiting.filter((x) => x.kind !== 'cancel')) {
     parts.push(r.kind === 'address'
-      ? `<p class="small"><span class="badge warn">Requested</span> ${esc(r.address)}. ${milesLine(r.miles, r.far, kennel)}</p>`
+      ? `<p class="small"><span class="badge warn">Requested</span> ${esc(r.address)}${meetWhen(r.date, r.start_time)}. ${milesLine(r.miles, r.far, kennel)}</p>`
       : `<p class="small"><span class="badge warn">Requested</span> ${esc(fmtDate(r.date))}${r.start_time ? `, ${esc(hm12(r.start_time))}` : ''}${r.place ? ` at ${esc(r.place)}` : ''}. ${esc(kennel)} will confirm.</p>`);
   }
   for (const r of (pk.requests || []).filter((x) => x.decided === 'declined')) {
@@ -782,7 +784,7 @@ function pickupHtml(f) {
     if (slots.length) {
       const byDate = new Map();
       for (const sl of slots) { if (!byDate.has(sl.date)) byDate.set(sl.date, []); byDate.get(sl.date).push(sl); }
-      parts.push(`<p class="${b ? 'small' : 'mt0'}">${b ? 'Choose a new time:' : 'Choose a pickup time.'}${pk.ready_from ? ` <span class="muted small">From ${esc(fmtDate(pk.ready_from))}, when your puppy is ready.</span>` : ''}</p>
+      parts.push(`<p class="${b ? 'small' : 'mt0'}">${b ? 'Choose a new time:' : 'Choose a pickup time.'}${pk.ready_from && pk.ready_from > today ? ` <span class="muted small">Times from ${esc(fmtDate(pk.ready_from))}.</span>` : ''}</p>
         ${[...byDate.entries()].map(([date, items]) => {
           // Her rule for the date: a package they need first, or her standard boarding.
           const rule = (pk.dates || []).find((d) => d.date === date);
@@ -805,6 +807,7 @@ function pickupHtml(f) {
         ? `<form data-form="pickup_address" class="mt8">
             <label class="q">Where would you like to meet? <span class="muted small">(an address, or a place with its city)</span><input name="address" maxlength="300" required></label>
             <label class="q">Which day works? <span class="muted small">(optional)</span><input name="date" type="date" min="${esc(today)}"></label>
+            <label class="q">What time works? <span class="muted small">(optional)</span><input name="time" type="time"></label>
             <label class="q">Anything ${esc(kennel)} should know? <span class="muted small">(optional)</span><textarea name="note" maxlength="500"></textarea></label>
             <div class="actions"><button class="primary" type="submit">Send</button><button class="secondary" type="button" data-act="close">Cancel</button></div>
           </form>`
@@ -1136,6 +1139,7 @@ const ERRORS = {
   'pickup_address:bad_address': 'Please type the address or place, with its city.',
   'pickup_address:already_requested': "You've already asked. The breeder will confirm.",
   'pickup_address:bad_date': 'Please pick a day after today.',
+  'pickup_address:bad_time': 'Please choose a time, or leave it blank.',
   'home_location:bad_address': 'Please type your city and state.',
   'extra_request:not_listed': "That extra isn't offered any more. The page now shows what's available.",
   'extra_request:not_open': "That extra can't be requested today. The page now shows when it can.",
@@ -1305,7 +1309,7 @@ async function onSubmit(ev) {
       return;
     }
     case 'pickup_address':
-      await act('pickup_address', { address: data.get('address'), date: data.get('date') || '', note: data.get('note') }, `Your request is on its way. ${kennel} will confirm.`);
+      await act('pickup_address', { address: data.get('address'), date: data.get('date') || '', time: data.get('time') || '', note: data.get('note') }, `Your request is on its way. ${kennel} will confirm.`);
       return;
     case 'home_location':
       await act('home_location', { place: data.get('place') }, `Thanks! ${kennel} will see where you live at their next update.`);

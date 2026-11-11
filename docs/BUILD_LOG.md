@@ -3217,6 +3217,59 @@ line, and the refusals that name it). Wording only. Service-worker cache rides `
   `node --test` 1712 pass; `cd cloud && npm test` 306 pass. Docs: End-State guide (public
   list cards). No new file; service-worker cache rides `v115`.
 
+## 2026-11-11: Pickup times at seven weeks; a time with their own meetup place
+
+Traced from a report: a family (a non-waitlist sale, far enough away to suggest a meetup
+place) saw "hasn't posted pickup times yet" although the litter had times. They were dated
+before the ready date (whelp + 56 days), which a family's page never listed.
+- Families now see her times from `PICKUP_EARLY_DAYS` (7) before the ready date
+  (`familyPickup.pickupFrom(…, { earlyDays })`, used by `familyPickupView`); a training
+  stay's end still wins when later. Standard boarding (`approvePickupRequest`) and the
+  portal feed still count from the ready date, so a time before it has no boarding charge.
+  Their page reads "Times from <date>." (only while that date is still ahead).
+- "None of these work for us" asks **What time works?** (optional) beside the day. The
+  Worker checks it (`HH:MM`, else `bad_time`) and passes `time`; her device keeps it as the
+  request's `start_time`. It shows on their page's Requested line, her entry's request card
+  and history, Today's nudge (`requestText`), and prefills Time in both approve screens
+  (entry page, Review my waitlist).
+- Tests: a new seven-weeks test and the time in `tests/familyPickup.test.js`,
+  `tests/cloudWaitlist.test.js` (end to end) and `cloud/tests/familyActions.test.js`.
+  `node --test` 1713 pass; `cd cloud && npm test` 306 pass. Docs: End-State guide §29
+  Pickup; Family Requests plan §4 **Modified** notes. No new file, field or schema
+  (`start_time` was already a request key).
+
+## 2026-11-11: Pickups she logs start with the family's time
+
+Every pickup event made from a family's choice now carries their time:
+- Approving their own place without a time uses the time they asked for
+  (`approvePickupRequest`'s `time` now defaults to the request's; '' still means none).
+  Approving one of her times already wrote the slot's time.
+- While a family's time or own place still waits, a pickup she logs another way starts
+  with it: `familyPickup.pickupWish` (their newest waiting slot or address: day, time, place,
+  Local pickup for a slot) and `waitlistActions.pickupWishesFor(sales)`. Today's
+  **Schedule pickup** / **No, new pickup date** open the event form with that day,
+  `placement_time`, `location` and method (titled drop-off for their own place) and say
+  so in the detail; Kels's **When's the drop-off?** (`pickupsForm`, Litter check-in and
+  Pups are going home) fills in the row and saves the place as the event's `location`
+  (`goHome.pickupEvent` takes an optional `location`). Their request still waits for her.
+- Tests: `pickupWish` in `tests/familyPickup.test.js`, the Today action's link in
+  `tests/linkedStatusNudges.test.js`, `pickupWishesFor` and the approval's time in
+  `tests/cloudWaitlist.test.js`; `pickupsForm` checked in the browser (prefill and the saved
+  event). `node --test` 1715 pass; `cd cloud && npm test` 306 pass. Docs: End-State guide
+  §19 nudges, §29 Pickup, §33 Kels (Pups are going home). No new file or field.
+
+Service-worker cache bumped to `v116` for this session's pickup changes (seven weeks, the
+meetup time, and pickups that start with the family's time).
+
+## 2026-11-11: A family-page-only entry's header on a phone
+
+Its subtitle ("<kennel> family page (not on the waitlist)") filled the header row, so the
+⋯ menu wrapped onto its own line. The subtitle is now "<kennel> family page" (the Details
+card's **Family page only** badge says they aren't on the list), and the entry page's
+header keeps ⋯ beside the title at any width (title block `flex: 1 1 0; min-width: 0`,
+actions `flex: none`). Checked at phone width (Pixel 5). `waitlist-entry.html` / `.js`;
+no new file. Service-worker cache rides `v116`.
+
 ## 2026-11-11: Firma chosen for e-sign (plan only)
 
 Researched firma.dev for step 8 of `docs/KennelOS_Integrations_Plan.md` and wrote it up as

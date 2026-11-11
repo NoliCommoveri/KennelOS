@@ -35,6 +35,7 @@ const READY = ['asap', '1_month', '3_months', '6_plus_months'];
 export const ACTION_VOCAB = Object.freeze({ SEX, PURPOSE, READY });
 const SESSION = /^[0-9a-f]{64}$/;
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
+const HM = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 const todayUtc = (now) => now.toISOString().slice(0, 10);
 const addDays = (ymd, n) => new Date(Date.parse(`${ymd}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
@@ -186,9 +187,12 @@ export function checkAction(action, body, { entry, projection, pending, now = ne
       const address = cleanAddress(body.address) || fail(400, 'bad_address');
       const date = String(body.date ?? '');
       if (date && (!YMD.test(date) || date <= today)) fail(400, 'bad_date');
+      // The time they'd like (optional), 'HH:MM' as a time box sends it.
+      const time = String(body.time ?? '');
+      if (time && !HM.test(time)) fail(400, 'bad_time');
       if (waitingBook) fail(409, 'already_requested');
       if (!canChange) fail(409, 'too_late');
-      return { address, date: date || null, note };
+      return { address, date: date || null, time: time || null, note };
     }
     // home_location
     if (pk.own_place !== null || !pk.ask_home) fail(409, 'not_asked');

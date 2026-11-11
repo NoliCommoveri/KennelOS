@@ -308,6 +308,27 @@ test('go home: schedule the pickup, log the boarding a sale charges for, and "di
   assert.equal((await nudgesFor('gohome-')).length, 0, 'delivered: settled');
 });
 
+test('go home: Schedule pickup fills in the day, time and place a family asked for on their status page', async () => {
+  const { waitlistEntryRepo } = await import('../shared/data/waitlistEntryRepo.js');
+  const buyer = await contactRepo.create({ name: 'Jamal Reed' });
+  const l = await litterRepo.create({ kennel_id: K.id, dam_id: dam.id, sire_id: sire.id, status: 'weaning', whelp_date: daysAgo(52) });
+  const cedar = await pupOf(l, { call_name: 'Cedar', sex: 'male', disposition: 'placed' });
+  const sale = await saleRepo.create({ kennel_id: K.id, dog_id: cedar.id, buyer_contact_id: buyer.id, registration_type: 'limited', status: 'deposit_paid' });
+  const day = daysAhead(9);
+  await waitlistEntryRepo.create({ kennel_id: K.id, contact_id: buyer.id, status: 'placed', placed_sale_id: sale.id, off_list: true,
+    pickup_requests: [{ id: 'r1', kind: 'address', address: '9 Oak St, Dallas TX', date: day, start_time: '14:30', requested_date: daysAgo(1) }] });
+  const [n] = await nudgesFor('gohome-schedule:');
+  assert.match(n.detail, /They asked for .*2:30 PM at 9 Oak St, Dallas TX/);
+  const real = globalThis.location;
+  globalThis.location = { href: '' };
+  try {
+    await n.actions[0].run();
+    const q = new URL(globalThis.location.href, 'http://x/').searchParams;
+    assert.deepEqual([q.get('logEvent'), q.get('logDate'), q.get('logTitle')], ['placement', day, 'Puppy drop-off']);
+    assert.deepEqual(JSON.parse(q.get('logDetails')), { placement_time: '2:30 PM', location: '9 Oak St, Dallas TX' });
+  } finally { globalThis.location = real; }
+});
+
 test('our stud\'s outside breeding (an outgoing stud service): no litter is asked for', async () => {
   const { studServiceRepo } = await import('../shared/data/studServiceRepo.js');
   const outsideDam = await dogRepo.create({ call_name: 'Juno', sex: 'female', breed: 'Boston Terrier', ownership_type: 'external', status: 'external_reference', owner_contact_id: (await contactRepo.create({ name: 'Dana Ruiz' })).id });
