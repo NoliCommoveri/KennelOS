@@ -601,6 +601,8 @@ export function statusView(projection, entryId, now = new Date()) {
     public_id: projection.kennel?.public_id ?? null, can_message: Boolean(projection.kennel?.message_key),
   };
   const family = { name: e.name ?? '', status: e.status };
+  // A family page only (Waitlist Fixes Plan E3): its words never mention a waitlist.
+  if (e.page_only === true) family.page_only = true;
   // Her puppy portal: once it has taken over, their page is only its link.
   const portal = portalOf(projection, e, now);
   if (portal) {

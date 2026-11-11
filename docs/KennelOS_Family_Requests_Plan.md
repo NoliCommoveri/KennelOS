@@ -298,6 +298,10 @@ or "18 miles: under your 25, no charge".
   page for 30 days after the sale has ended (what happened to the deposit), and each outcome
   has its own email template (`backed_out_keep` / `_move` / `_refund`) in place of "request
   approved". The reports count it as **Backed out**, never Placed.
+  **Modified (2026-11-11, Waitlist Fixes Plan K8-8, E3):** approving closes the family's
+  waiting pickup and extras requests (`decided: 'closed'`), so no decline email goes to a
+  family who's gone and the pickup time is free. A family page only (no place on the list)
+  is Keep or Refund only, never Move.
 
 ### 7.2 Approving a back-out: she ticks what goes
 

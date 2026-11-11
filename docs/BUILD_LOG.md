@@ -3140,3 +3140,39 @@ the application's name).
   names, Available Puppies, Backing out, policies banner, reports); Waitlist Spec §15.3 and
   Family Requests plan §7 **Modified** notes. No new file, no schema, no new stored field.
   Release: Worker and family pages first, then the app. Service-worker cache rides `v114`.
+
+## 2026-11-11: Waitlist fixes, step 3: family pages without the list
+
+`docs/KennelOS_Waitlist_Fixes_Plan.md` step 3 (E3, K7-9, K8-8), built as the owner decided
+(D6 their own section, D7 both fields `cloud`, D8 Keep or Refund only).
+- **Two plain fields** (no schema block; absent reads as off): `WaitlistEntry.off_list` (a
+  family page only) and `Litter.waitlist_off` (kept off the waitlist), both `cloud` in
+  `syncRegistry.js`; `cloud/src/lib/cloudFields.js` regenerated.
+- **Rules:** `isWaitlistLitter` leaves out `waitlist_off`; `isPicksOpen` (the turn rules,
+  the projection's turn queue, the server's queued turns and the picks preview never see such
+  a litter as open); `isFamilyPageOnly` / `listRecords`; `familyPageBlocker`,
+  `familyPagePlan`; `lostSaleFamily` and `deriveContactWaitlistStatus` skip family pages.
+- **Actions:** `addFamilyPage(saleId)`, `soldBeforeWaitlist(litterId)` (+ `…Plan`),
+  `putLitterOnWaitlist`, `setFamilyPageOnly(entryId, on)`; `openPicks`, `offerNext`,
+  `offerTo` refuse a `waitlist_off` litter; `approveBackOut` refuses Move for a family page.
+- **K8-8:** a back-out closes the waiting pickup and extras requests (`closeRequests`,
+  `decided: 'closed'`); `slotBookings` takes a `live` test and skips a record with no open
+  sale (Litter page's Pickup times and the family's page); closed requests aren't published.
+- **K7-9:** the Sale form's Buyer and the Side sale dialog warn about her do-not-sell list,
+  as does "Sold before the waitlist…" and "Give this family a status page".
+- **Pages:** Waitlist page **Family pages only** section (out of Closed); Litter page
+  waitlist panel **Sold before the waitlist…** and a kept-off view (family pages, Make more,
+  Put back on the waitlist); Sale page **Give this family a status page** / link to it; the
+  family's page says "Family page only", hides the public name and Move the deposit, offers
+  **Apply to the list…**, **Keep off the list (family page only)…** and its undo. Reports
+  (funnel, Applications, Waitlist Today pipeline, Offers & Removals), the year review and
+  Kels's Review my waitlist read `listRecords`.
+- **Online:** projected entries carry `page_only`; the Worker passes it as
+  `statusView.family.page_only`; the status page drops the waitlist wording for them.
+- Tests: `tests/waitlistFamilyPages.test.js` (14). `node --test` 1707 pass; `cd cloud && npm
+  test` 306 pass; `node build/assemble.mjs` succeeds. Checked in a browser at 390px: Sold
+  before the waitlist on a litter, the Waitlist page's section, the family's page, the Sale
+  page's button with a do-not-sell warning; no console errors.
+- Docs: End-State guide §29 (fields, rules, actions, surfaces, online); **Modified** notes in
+  the Fixes plan, Side Sale spec and Family Requests plan. No new file, no schema block.
+  Release: Worker and family pages first, then the app. Service-worker cache bumped to `v115`.

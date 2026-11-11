@@ -1,6 +1,6 @@
 # KennelOS — Waitlist fixes and three enhancements (plan)
 
-> **Status: steps 1 and 2 built** (`docs/BUILD_LOG.md`, 2026-11-11); steps 3–10 not started. Written 2026-11-11 from the four waitlist reviews (K6, K6b,
+> **Status: steps 1–3 built** (`docs/BUILD_LOG.md`, 2026-11-11); steps 4–10 not started. Written 2026-11-11 from the four waitlist reviews (K6, K6b,
 > K7, K8: `docs/review/findings/`) and three requests from the owner the same day. It lists
 > every finding with what happens to it, designs the three enhancements, and puts both into
 > one build order. The owner answered the decisions that shape the enhancements the same day
@@ -191,6 +191,10 @@ regenerated.
 - **A placed family's page: "Keep off the list (family page only)"**, for the families she
   already put through a side sale. Once their deposit is recorded, one tap takes them off
   every list. Undoable.
+  **Modified (built):** the undo, **Put back on the list…**, is offered only to a family that
+  was on the list (fee received), so a record made as a family page never jumps to #1.
+  "Sold before the waitlist…" lives in the Litter page's waitlist panel (its own small card
+  when the panel would otherwise be empty).
 
 `addFamilyPage(saleId)` in `waitlistActions.js` creates the record: the sale's buyer as its
 contact, `placed`, `off_list`, no application, no fee, no place. It refuses a released sale, a

@@ -151,6 +151,7 @@ export const CLOUD_FIELDS = {
         "sire_id",
         "status",
         "updated_at",
+        "waitlist_off",
         "whelp_date"
       ],
       "nested": {}
@@ -330,6 +331,7 @@ export const CLOUD_FIELDS = {
         "listen_dam_ids",
         "listen_mode",
         "listen_sire_ids",
+        "off_list",
         "paused_until",
         "placed_sale_id",
         "position_anchor_date",
