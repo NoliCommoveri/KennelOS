@@ -107,6 +107,29 @@ export function familyPickupView({ entry, sales, offers = [], dogsById, litters,
   return slots.length || booked || requests.length || own !== false ? view : null;
 }
 
+// What a family asked for that she hasn't decided yet, as a prefill for a pickup
+// she logs some other way (Today's Schedule pickup, Kels's drop-off form): their
+// newest waiting time or own place. A time's place comes from the litter's slot and
+// her places when given (`kennel`, `litter`), else its label. → null | { date, time,
+// location, method } (`time` as her pickup events write it: "10:00 AM–10:30 AM";
+// `method` 'Local pickup' for one of her times, '' for their own place: hers to choose).
+export function pickupWish(entry, { kennel = null, litter = null } = {}) {
+  const r = pendingPickupRequests(entry).filter((x) => x.kind === 'slot' || x.kind === 'address').pop();
+  if (!r) return null;
+  if (r.kind === 'address') {
+    return { date: r.date || null, time: r.start_time ? timeRange({ start_time: r.start_time }) : '', location: r.address || '', method: '' };
+  }
+  const slot = (litter?.pickup_slots || []).find((x) => x.id === r.slot_id) || null;
+  const place = slot && kennel ? pickupLocations(kennel).find((l) => l.id === slot.location_id) : null;
+  const start = slot?.start_time || r.start_time || '';
+  return {
+    date: slot?.date || r.date || null,
+    time: start ? timeRange({ start_time: start, end_time: slot?.end_time || r.end_time || '' }) : '',
+    location: place ? `${place.label}, ${place.address}` : r.place || '',
+    method: 'Local pickup'
+  };
+}
+
 // A request added once per id, oldest dropped past the cap.
 export function withPickupRequest(entry, request) {
   const list = Array.isArray(entry?.pickup_requests) ? entry.pickup_requests : [];

@@ -1111,7 +1111,7 @@ Kels's tidy-up doesn't suggest recording it. Its pick puppy, when the fee has on
 | `deceased-archive` | a puppy died in its first year (last 90 days) | Archive (Lite: Remove from program) |
 | `littersold` / `litterreopen` | a `ready` litter's roster is all placed/keeping/health hold with one placed (and it can't close yet) / a sold or closed litter has a pup available again | change litter status |
 | `litterclose` | `litterCheckin.litterCloseDue`: a born litter at any status but `closed`, no live pup `available` or `undecided` (blank = undecided; keeping, health hold and grown-up pups don't count), no open sale on any of its pups (`isOpenSale`), and one `delivered` sale. Sales come from every pup of the litter, archived ones included (`litterSalesOf`), and it's checked even when no live pup is left | close the litter |
-| `gohome-schedule` / `gohome-boarding` / `gohome-overdue` | `goHome.goHomeIssue` for a pup with a sale at `deposit_paid`/`paid_in_full`: from 7 days before the ready date, no pickup (`placement` event for that buyer, or with no contact) today or later and no boarding running / the sale has a `deferred_boarding_amount` and no boarding logged from 7 days before the ready date on / the latest pickup date has passed | the pup's event form prefilled (pickup or boarding) / `sale.html?id=…&deliver=1` |
+| `gohome-schedule` / `gohome-boarding` / `gohome-overdue` | `goHome.goHomeIssue` for a pup with a sale at `deposit_paid`/`paid_in_full`: from 7 days before the ready date, no pickup (`placement` event for that buyer, or with no contact) today or later and no boarding running / the sale has a `deferred_boarding_amount` and no boarding logged from 7 days before the ready date on / the latest pickup date has passed | the pup's event form prefilled (pickup or boarding; a pickup with the day, time and place the family asked for on their status page, when one waits: `pickupWishesFor`) / `sale.html?id=…&deliver=1` |
 | `show-title` | a show track is complete with no `title_earned` event | prefilled title event |
 | `int-review` | a vendor event wasn't applied (`integration_reviews`, §32) | open the record; Done removes it |
 | `follow-up` | a pup went home 7–60 days ago (`referralShare`) | write a thank-you note |
@@ -2365,11 +2365,18 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   `applyPickupBoarding`), and a transport fee left after a time or a cancel is reported
   (`transportFeeLeft`; the entry page offers **Remove it**, `clearTransportFee`; Today says
   so in its message); the address form starts with the fee already on the sale, with
-  **Use $N** for the suggestion; an address → a form with the day, time, method,
+  **Use $N** for the suggestion; an address → a form with the day, time (prefilled with the
+  time they asked for; `approvePickupRequest` uses that time when it's given none), method,
   miles (**Get driving miles**, **Open in Maps**) and the fee (`transportQuote`, the
   working shown) → a drop-off and `Sale.transport_fee`; a cancel archives the pickup. Any
   other pickup still to come is archived first. Today: `waitlist-pickup-request` (a time or
   cancel: Approve / Decline; an address: Open, and **Send transport options** when far).
+  A pickup she logs another way while a family's time or own place still waits
+  (`familyPickup.pickupWish`; `waitlistActions.pickupWishesFor` finds each sale's family)
+  starts with what they asked for: Today's **Schedule pickup** / **No, new pickup date**
+  (the event form's date, `placement_time`, `location` and method; the nudge's detail says
+  so) and Kels's **When's the drop-off?** (`pickupsForm`: the row's day, time and how, the
+  place saved as the event's `location`). Their request still waits for her decision.
   The entry page's **Pickup** card shows where they live and a dropdown, **Can they suggest
   their own meetup place?**: **Use my distance rule** (the default, `own_place_override`
   null; its hint says what the rule decides for them) / **Let them suggest a place** (true) /
@@ -3454,7 +3461,7 @@ The run-up to go-home day for one litter. Each fix is saved when approved; there
    | Registered name and number (optional) | the pup's `registered_name` and `registration_number` both set | both per pup, typed in the chat; a blank leaves that field as it was |
    | Shots | a `vaccination` logged | the check-in's care form (Shots) |
    | Deworming | a `preventative` logged | the check-in's care form |
-   | Drop-off date (sale) | a `placement` event for the sale's family (`goHome.pickupFor`) today or later | **When's the drop-off?**: date, time, how (`PLACEMENT_METHODS`) per pup; `goHome.pickupEvent` (titled "Puppy drop-off" unless Local pickup) |
+   | Drop-off date (sale) | a `placement` event for the sale's family (`goHome.pickupFor`) today or later | **When's the drop-off?**: date, time, how (`PLACEMENT_METHODS`) per pup, filled in from a family's waiting pickup request (`pickupWishesFor`); `goHome.pickupEvent` (titled "Puppy drop-off" unless Local pickup; the request's place as `location`) |
    | Balance (sale) | Paid in full / Delivered, a `balance_paid_date`, or a `balance_due_date` | a due date per pup (`saleRepo.update`) |
    | Contract signed (sale, Pro `contracts`) | a signed contract on the sale | **Where are the contracts at?**: a status per pup (`CONTRACT_STATUS`), and the signed date when Signed; saved on the sale's first live contract, or a new `sale` contract (title "<pup> sale contract", kennel from the sale) when it has none; "No contract yet" skips it |
    | Registration type (sale) | `registration_type` set | **How is each puppy registered?**: a `REGISTRATION_TYPE` per pup (prefilled from `intended_registration`); then, as the Sale page does, the price change for the litter's Full surcharge (`saleDefaults.priceForRegistrationChange`, asked first; a fee that was the estimate follows the price) and, for Co-own, adding the family as the pup's co-owner (asked) |

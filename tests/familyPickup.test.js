@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { transportQuote, mapsLink, aboutMiles } from '../shared/data/transportFee.js';
 import { pickupLocations, standardLocation, locationsProblem, makeSlots, cleanSlots, familySlots, slotBookings, timeRange, changeUntil, dateRules, withDateRule, ruleFor, standardBoarding } from '../shared/data/pickupSlots.js';
-import { ownPlaceAllowed, pickupFrom, familyPickupView, withPickupRequest, requestText, PICKUP_EARLY_DAYS } from '../shared/data/familyPickup.js';
+import { ownPlaceAllowed, pickupFrom, familyPickupView, withPickupRequest, requestText, PICKUP_EARLY_DAYS, pickupWish } from '../shared/data/familyPickup.js';
 import { formQuestions, DEFAULT_FORM_QUESTIONS } from '../shared/data/waitlistForm.js';
 
 test('the transport fee shows its working: round trip doubles, "no charge under" is all or nothing', () => {
@@ -147,4 +147,16 @@ test('a rule per pickup date: a package needed first, or her standard boarding, 
   ]);
   const withIt = { ...sale, extra_charges: [{ id: 'c', label: '10 week training', amount: 900, list_id: 'tr' }] };
   assert.equal(familyPickupView({ ...base, sales: [withIt] }).dates[0].has_it, true);
+});
+
+test('what a family asked for and she has not decided fills in a pickup she logs another way', () => {
+  const kennel = { pickup_locations: [{ id: 'a', label: 'Library', address: '1 Main St' }] };
+  const litter = { pickup_slots: [{ id: 'x1', date: '2026-11-21', start_time: '10:00', end_time: '10:30', location_id: 'a' }] };
+  const slotReq = { id: 'r1', kind: 'slot', slot_id: 'x1', date: '2026-11-21', start_time: '10:00', end_time: '10:30', place: 'Library', requested_date: '2026-11-01' };
+  assert.deepEqual(pickupWish({ pickup_requests: [slotReq] }, { kennel, litter }),
+    { date: '2026-11-21', time: '10:00 AM–10:30 AM', location: 'Library, 1 Main St', method: 'Local pickup' });
+  assert.equal(pickupWish({ pickup_requests: [slotReq] }).location, 'Library', 'without her places: the label');
+  const own = { id: 'r2', kind: 'address', address: '9 Oak, Dallas TX', date: '2026-11-22', start_time: '14:30', requested_date: '2026-11-02' };
+  assert.deepEqual(pickupWish({ pickup_requests: [slotReq, own] }), { date: '2026-11-22', time: '2:30 PM', location: '9 Oak, Dallas TX', method: '' }, 'the newest');
+  assert.equal(pickupWish({ pickup_requests: [{ ...own, decided: 'declined' }, { id: 'r3', kind: 'cancel', requested_date: '2026-11-03' }] }), null, 'decided, or a cancel: nothing');
 });

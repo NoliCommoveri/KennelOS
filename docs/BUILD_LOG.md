@@ -3237,3 +3237,23 @@ before the ready date (whelp + 56 days), which a family's page never listed.
   `node --test` 1713 pass; `cd cloud && npm test` 306 pass. Docs: End-State guide §29
   Pickup; Family Requests plan §4 **Modified** notes. No new file, field or schema
   (`start_time` was already a request key).
+
+## 2026-11-11: Pickups she logs start with the family's time
+
+Every pickup event made from a family's choice now carries their time:
+- Approving their own place without a time uses the time they asked for
+  (`approvePickupRequest`'s `time` now defaults to the request's; '' still means none).
+  Approving one of her times already wrote the slot's time.
+- While a family's time or own place still waits, a pickup she logs another way starts
+  with it: `familyPickup.pickupWish` (their newest waiting slot or address: day, time, place,
+  Local pickup for a slot) and `waitlistActions.pickupWishesFor(sales)`. Today's
+  **Schedule pickup** / **No, new pickup date** open the event form with that day,
+  `placement_time`, `location` and method (titled drop-off for their own place) and say
+  so in the detail; Kels's **When's the drop-off?** (`pickupsForm`, Litter check-in and
+  Pups are going home) fills in the row and saves the place as the event's `location`
+  (`goHome.pickupEvent` takes an optional `location`). Their request still waits for her.
+- Tests: `pickupWish` in `tests/familyPickup.test.js`, the Today action's link in
+  `tests/linkedStatusNudges.test.js`, `pickupWishesFor` and the approval's time in
+  `tests/cloudWaitlist.test.js`; `pickupsForm` checked in the browser (prefill and the saved
+  event). `node --test` 1715 pass; `cd cloud && npm test` 306 pass. Docs: End-State guide
+  §19 nudges, §29 Pickup, §33 Kels (Pups are going home). No new file or field.

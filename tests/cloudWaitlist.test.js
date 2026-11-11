@@ -589,9 +589,11 @@ test('pickup (Family Requests plan §4): a family books a time and her Approve m
   assert.equal(drafted.emails[0].kind, 'transport_options');
   const { draftFor } = await import('../shared/data/waitlistOutbox.js');
   assert.match((await draftFor(entry.id, 'transport_options', drafted.emails[0].extra)).body, /about 196 miles from us/);
-  await actions.approvePickupRequest(entry.id, addr.id, { time: '2:00 PM', method: 'Flight nanny', fee: 587.1 });
+  const { pickupWishesFor } = await import('../shared/data/waitlistActions.js');
+  assert.deepEqual((await pickupWishesFor([sale])).get(sale.id), { date: later(12), time: '2:30 PM', location: '9 Oak St, Dallas TX', method: '' }, 'what Today and Kels fill in');
+  await actions.approvePickupRequest(entry.id, addr.id, { method: 'Flight nanny', fee: 587.1 });
   const live = (await eventRepo.getForSubject('dog', dog.id)).filter((e) => e.event_type === 'placement' && !e.is_archived);
-  assert.deepEqual(live.map((e) => [e.event_date, e.details.dropoff_method, e.details.location]), [[later(12), 'Flight nanny', '9 Oak St, Dallas TX']], 'the time it replaced is archived');
+  assert.deepEqual(live.map((e) => [e.event_date, e.details.dropoff_method, e.details.location, e.details.placement_time]), [[later(12), 'Flight nanny', '9 Oak St, Dallas TX', '2:30 PM']], 'the time it replaced is archived; their time when she gives none');
   charged = await saleRepo.getById(sale.id);
   assert.equal(charged.transport_fee, 587.1);
   assert.deepEqual([charged.deferred_boarding_amount ?? null, charged.boarding_from_pickup], [null, false], 'moving off the boarding date takes the charge off');
