@@ -19,7 +19,7 @@ The KennelPort seam has its own plan and its own findings, in the KennelPort rep
 | K9 | Dogs, litters, pairings, events, nudges, Today | `ccr-fbf95967-bqp6ig` | 2026-11-10 | 1 | 2 | 7 | 3 | [`K09-dogs-litters-nudges.md`](findings/K09-dogs-litters-nudges.md) |
 | K10 | Money: sales, invoices, contracts, expenses, reports | `ccr-83676c8e-guqnur` | 2026-11-10 | 2 | 3 | 9 | 0 | [`K10-money.md`](findings/K10-money.md) |
 | K11 | Kels and the guided tasks | — | — | — | — | — | — | — |
-| K12 | Integrations, accounts, notifications | — | — | — | — | — | — | — |
+| K12 | Integrations, accounts, notifications | `ccr-7191f2c9-wwbh7v` | 2026-11-10 | 0 | 4 | 9 | 1 | [`K12-integrations-notifications.md`](findings/K12-integrations-notifications.md) |
 | K13 | Editions, build, first run, PWA, marketing site | — | — | — | — | — | — | — |
 | K14 | Multi-kennel, shows, identity, Companion, Furever | — | — | — | — | — | — | — |
 | K15 | UI layer: escaping, accessibility, phone, offline | — | — | — | — | — | — | — |
