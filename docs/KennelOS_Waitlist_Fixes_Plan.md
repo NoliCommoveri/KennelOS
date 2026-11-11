@@ -1,6 +1,6 @@
 # KennelOS — Waitlist fixes and three enhancements (plan)
 
-> **Status: steps 1–3 built** (`docs/BUILD_LOG.md`, 2026-11-11); steps 4–10 not started. Written 2026-11-11 from the four waitlist reviews (K6, K6b,
+> **Status: steps 1–4 built** (`docs/BUILD_LOG.md`, 2026-11-11); steps 5–10 not started. Written 2026-11-11 from the four waitlist reviews (K6, K6b,
 > K7, K8: `docs/review/findings/`) and three requests from the owner the same day. It lists
 > every finding with what happens to it, designs the three enhancements, and puts both into
 > one build order. The owner answered the decisions that shape the enhancements the same day
@@ -244,7 +244,7 @@ live before she sends E3 families to the portal.
 | **1** | **A pup leaving the available set, and side sales that outlive their family.** One check, run when a deposit lands, a side sale resolves, or a pup's disposition or status changes: any open turn left with no pup is ended without a pass. Leaving the list cancels a pending side sale. | K6-1, K6b-2, K6b-1, K6b-3, K6b-4, K6b-10 |
 | **2** | **E1 and E2**, with the rules they rest on: one numbering every reader shares, one "litter the waitlist shows", one "placed family". The Waitlist page's tables scroll in their cards and its badges format dates, since the page is being changed anyway. | E1, E2, K6-12 (item 1), K8-12, K8-7, K7-12, K7-8, K6-9, K6-10 |
 | **3** | **E3.** | E3, K7-9, K8-8 |
-| **4** | **The puppy portal says only what's true.** A returned sale is retracted; facts from the portal are checked and shown to her; disconnecting takes the portal button off. | K7-1, K7-2, K7-3, K7-14 |
+| **4** | **The puppy portal says only what's true.** A returned sale is retracted; facts from the portal are checked and shown to her; disconnecting takes the portal button off. **Modified (built):** Disconnect turns the portal off on any device's disconnect (a device can't tell it was the last); one still linked turns it back on within the hour. | K7-1, K7-2, K7-3, K7-14 |
 | **5** | **Money a family is shown.** The deposit email, backing out after paying more, a paid step that changes, a carried deposit, the fee card, the wording. | K8-1, K8-2, K8-3, K8-4, K8-10, K8-13, K6b-5, K6b-8 |
 | **6** | **One turn rule each.** The out-of-turn guard asks the real rule; one reason for "can't offer"; Kels ranks from the same map; an extension is never shortened and honours her open days; undo puts back only what it closed. | K6-6, K6-7, K6-5, K6-2, K6-8, K6-4, K6-11, K6-12 (rest), K6b-6 |
 | **7** | **The clock.** The kennel's time zone ends deadlines on her device, on the Worker and on the family's page. | K6-3, K8-9 |

@@ -3978,9 +3978,11 @@ Nothing changes for any other kennel or breeder.
   `pickup_at` (the pickup event's `placement_time` start, read by `parseClock`, in the
   kennel's `time_zone` by `zonedIso`; none without a time), `microchip`, `registration_no`
   (the Dog's main number), `voided` (a voided sale's reason: died, failed_health,
-  backed_out, other; a cancelled sale is backed_out; dated by the sale's last edit),
-  `health` (vaccinations as vaccine, with lot and next due as notes; preventatives as
-  deworming; vet visits by title, never their findings; up to today, newest 40) and
+  backed_out, other; a cancelled sale is backed_out; a returned sale is other; dated by the
+  sale's last edit, `saleEndDay`), `health` (vaccinations as vaccine, with lot and next due
+  as notes; preventatives as deworming; vet visits by title, never their findings; up to
+  today, or for a released sale up to its end day, so a returned pup's next home's records
+  never reach the family; newest 40) and
   `extras` (the sale's charges that are on her price list, as `{ id, extra_id: list_id }`,
   never an amount). Her vet (`herVet`): the Vet contact she names most on her own dogs'
   vet visits and surgeries, else her only Vet contact, as clinic (its name), phone and
@@ -3989,10 +3991,14 @@ Nothing changes for any other kennel or breeder.
   set back from Signed, is marked gone there (never deleted). A sale it sent stays while
   it's released (voided, cancelled, returned) even once its contract is voided, so the
   portal hears why. A placement goes while open, then `PORTAL_KEEP_DAYS` (60) after its
-  go-home or last edit; after that it rests (not removed). Never sent: an amount, a
+  go-home or last edit; after that a delivered one rests (not removed), and a released one
+  (voided, cancelled, returned) goes in `removed`. Never sent: an amount, a
   family's phone or postal address, contract terms, sale notes, vet findings.
-- **`data/portalFeedSync.js`** sends it on its own, from each device linked to the site
-  (`startPortalFeed`, from `app.js`): on a page load at most hourly
+- **`data/portalFeedSync.js`** sends it on its own, from a device linked to the site
+  (`startPortalFeed`, from `app.js`) that may (`mayFeedHere`: with her cloud program on, only
+  the device doing its server work, `serverWork.claimServerWork`, never one in the
+  background; with no cloud session, this device; a cloud that can't be reached doesn't stop
+  it; otherwise `skipped: 'other_device'`): on a page load at most hourly
   (`FEED_OPEN_EVERY_MS`: the site is asked for its facts, then the feed is sent even
   unchanged, so her Site Manager's Last from KennelOS stays fresh and the facts come back),
   and `FEED_DELAY_MS` (20 s) after a data change when it differs from what this device sent
@@ -4000,6 +4006,10 @@ Nothing changes for any other kennel or breeder.
   `POST /v1/portal` (`kennelportApi.sendFamilyFeed`). A `portal_off` refusal, or fresh
   facts without `portal_feed`, stop it and take the portal off the kennel; old facts on a
   device don't. A stopped link forgets the token and the portal, as Update website does.
+  **Disconnect this device** (`kennelportLink.disconnectWebsite`) also turns the portal off
+  on the kennel (`turnPortalOff`: the addresses and key cleared, `home` and `facts` kept; null
+  when there's nothing to keep), since a device can't tell whether it was the last; a device
+  still linked turns it back on with its next send. The card's confirm says so.
   Website pages still wait for Update website.
 - **`Kennel.kennelport_portal`** (cloud; owner decision 2026-11-04) holds what the answer's
   `portal` says, `{ url, handoff_url, handoff_key, handoff_minutes }`, plus `home` (the
@@ -4009,11 +4019,17 @@ Nothing changes for any other kennel or breeder.
   there are matched, never followed (no registry entry). `portalFeed.portalOn(kennel)`.
 - **The facts that come back** (the answer's `facts`), applied without asking her, each
   once (`kennelport_portal.facts`, so a later change in KennelOS isn't undone by the
-  portal's older value; `applyPortalFacts`): `picked_up_at` moves the pup's pickup event
-  (`pickupEventFor`: its next, else its last) to that day and time in her time zone, or makes
-  one with the family on it, and marks the sale Delivered unless it ended; `microchip` sets
-  the Dog's; `died_on` marks the dog Deceased with its `date_of_death`; `portal_only` adds
-  the family to `home`. Nothing with money comes back.
+  portal's older value; `applyPortalFacts`), and only when they fit: the sale is a
+  placement the feed carries now or carried before (`known`), and isn't released.
+  `picked_up_at` (its day no earlier than the sale date or the pup's birth, no later than
+  tomorrow) moves the pup's pickup event (`pickupEventFor`: its next, else its last) to that
+  day and time in her time zone, or makes one with the family on it, and marks the sale
+  Delivered; `microchip` sets the Dog's; `died_on` (on or before today, not before birth)
+  marks the dog Deceased with its `date_of_death`; `portal_only` adds the family to `home`
+  only for the sale's own buyer. Anything else is `refused`. Each applied fact leaves a
+  **Note** on the pup ("From your puppy portal", `details: { portal_fact, sale_id }`), and
+  Today shows each for 14 days (`nudges.portalFactNudges`, dismissable), with a link to
+  the sale or the dog to change it back. Nothing with money comes back.
 - **The status page** (the projection, `waitlistProjection.js`): while `portalOn`, a
   record whose own sale (placed, else open) is signed and not ended carries `portal:
   { family_id, only, pickup_on }` (`portalEntryView`); `only` once the family is in `home`,

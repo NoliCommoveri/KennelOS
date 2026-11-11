@@ -3176,3 +3176,25 @@ the application's name).
 - Docs: End-State guide §29 (fields, rules, actions, surfaces, online); **Modified** notes in
   the Fixes plan, Side Sale spec and Family Requests plan. No new file, no schema block.
   Release: Worker and family pages first, then the app. Service-worker cache bumped to `v115`.
+
+## 2026-11-11: Waitlist fixes, step 4: the puppy portal says only what's true
+
+`docs/KennelOS_Waitlist_Fixes_Plan.md` step 4 (K7-1, K7-2, K7-3, K7-14).
+- **K7-1:** `portalFeed.voidedOf` sends a returned sale as voided (`other`); a released
+  sale's health stops at its end day (`saleEndDay`), so a re-sold pup's next home's records
+  never reach the first family; a released placement that has aged out goes in `removed`
+  instead of resting in the portal.
+- **K7-2:** `applyPortalFacts` applies a fact only for a placement the feed carries (now or
+  before), on a sale not released, with dates in bounds (pickup from the sale date or birth
+  to tomorrow; a death on or before today, not before birth), and a handover only for the
+  sale's buyer; the rest come back as `refused`. Each applied fact writes a Note on the pup
+  (`details.portal_fact`), and Today shows it for 14 days (`nudges.portalFactNudges`).
+- **K7-3:** Disconnect this device (and a stopped link on Update website or prices) turns
+  the portal off on the kennel (`kennelportLink.turnPortalOff`, keeping `home` and `facts`);
+  a device still linked turns it back on with its next send. The card's confirm says so.
+- **K7-14:** the feed goes only from the device doing the cloud program's server work
+  (`portalFeedSync.mayFeedHere`); with no cloud session, as before.
+- Tests: 5 new in `tests/portalFeed.test.js` (two older ones now pick up and die on past
+  days). `node --test` 1712 pass; `cd cloud && npm test` 306 pass; `node build/assemble.mjs`
+  succeeds. Docs: End-State guide §35.1; plan status and a **Modified** note. No new file, no
+  schema. Service-worker cache rides `v115`.
