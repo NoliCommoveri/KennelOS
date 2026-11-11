@@ -64,7 +64,14 @@ src/integrations.js    vendor integrations' plumbing (docs/KennelOS_Integrations
                        /integrations/connections/:id (revokes at the vendor), GET /integrations/events,
                        and POST /hooks/<provider>/<secret> (the adapter checks the vendor's signature
                        over the raw bytes; the event is cut to EVENT_KINDS' allow-list; a retry is
-                       kept once). Providers are adapters registered by later steps; none yet. Pro
+                       kept once). Providers are adapters; Firma (src/firma.js) is the one registered. Pro
+src/firma.js           e-sign through Firma (Integrations plan §2.3a, migration 0022): her own Firma
+                       workspace on KennelOS's account (made with FIRMA_API_KEY; then her workspace's
+                       key, sealed in her connection, does everything she asks), her templates and
+                       Firma's editor token, POST /integrations/esign/send within the monthly limit
+                       (esign_sends; default 10, /ops sets it and an account's own, esign_limits),
+                       the signed-PDF link, and the adapter for POST /hooks/firma/<secret>
+                       (X-Firma-Signature HMAC; Firma's id → her contract through esign_sends). Pro
 src/familyPages.js     the waitlist's family pages: serves public/family/ for /list/<public_id> and
                        /s/<token> (ASSETS binding), their same-origin JSON under /f/ (the public
                        list, one family's status view, See Your Details: a code by email, then
@@ -181,6 +188,12 @@ tests/                 node --test against a node:sqlite stand-in for D1;
   amount, fee, date: no names, emails or documents). Vendor tokens are sealed with
   `INT_TOKEN_KEY` (set it before any provider can connect: `integrations_not_configured`
   until then); changing that secret makes every stored token unreadable, so don't.
+- **Every Firma send costs KennelOS a credit, so it is counted first.** `esign_sends` gets its
+  row before Firma is called, and only while the month (UTC) is under the program's limit. A
+  send Firma refused frees its row; one with no answer keeps it as `unknown` (its credit may be
+  spent) and /ops shows how many. Firma has no idempotency key: never retry a send blindly.
+  Firma can't delete a workspace through its API, so disconnect and account deletion only
+  remove the webhook; a deleted account's workspace is removed by hand in Firma's dashboard.
 - **Upload a document before the snapshot that references it.** Retention gives a file a
   day's grace and then collects anything no snapshot references.
 - **No `IN (?, ?, …)` over a list.** D1 allows about 100 bound parameters and the test
@@ -211,6 +224,8 @@ connected to this repo with root directory `cloud/`; and the secrets `OPS_TOKEN`
 `EMAIL_HMAC_KEY`, `RESEND_API_KEY`, (for the Pro license link) `LEMONSQUEEZY_WEBHOOK_SECRET`, and
 (for vendor integrations, Integrations plan §0) `INT_TOKEN_KEY`, a long random string,
 (for driving miles, Family Requests plan §5) `MAPBOX_TOKEN`, a Mapbox access token,
+(for e-sign, Integrations plan §2.3a) `FIRMA_API_KEY`, the master key of KennelOS's Firma
+company (staging sets `FIRMA_TEST_MODE = "true"`, so its workspaces use their free test keys),
 with the Lemon Squeezy ids in the `LS_*` vars (License Link Plan §7). Waitlist emails go out
 from `MAIL_FAMILY_DOMAIN` (`mail.kennelos.app`, its own sending domain verified in Resend;
 the same `RESEND_API_KEY` must be allowed to send from it), with links to

@@ -24,6 +24,7 @@ import { importFromLemonSqueezy } from './license.js';
 import { generateVapidKeys } from './notify.js';
 import { emailHash, normalizeEmail } from './auth.js';
 import { removeAccount } from './program.js';
+import { esignOpsSummary, setDefaultMonthlyLimit, setProgramMonthlyLimit, usage as esignUsage, ESIGN_LIMIT_MAX } from './firma.js';
 
 const COOKIE = 'ops_session';
 const SESSION_SECONDS = 12 * 60 * 60;
@@ -261,6 +262,23 @@ ${purchases.length
   <tr><td>Record versions received in the last hour</td><td>${esc(sc.recentVersions)}</td></tr>
 </table>`;
 
+  // E-sign through Firma (Integrations plan §2.3a, D26): KennelOS pays each send,
+  // so each program has a monthly limit. Counts only.
+  const es = await esignOpsSummary(env);
+  const esign = `<h2>E-sign (Firma)</h2>
+<table>
+  <tr><td>Secret <code>FIRMA_API_KEY</code> set</td><td>${yesNo(es.configured)}${es.testMode ? ' <span class="muted">(test mode: free, watermarked)</span>' : ''}</td></tr>
+  <tr><td>Firma credits left</td><td>${es.credits == null ? '<span class="muted">—</span>' : `<strong>${esc(es.credits)}</strong>`}</td></tr>
+  <tr><td>Kennels connected</td><td>${esc(es.workspaces)}</td></tr>
+  <tr><td>Contracts sent this month (UTC)</td><td>${esc(es.sendsThisMonth)}${es.unknownThisMonth ? ` <span class="bad">${esc(es.unknownThisMonth)} with no answer from Firma</span>` : ''}</td></tr>
+  <tr><td>Accounts with their own limit</td><td>${esc(es.ownLimits)}</td></tr>
+</table>
+<form method="post" action="/ops/esign-limit">
+  <p><label>Contracts each kennel may send a month<br><input type="number" name="limit" min="0" max="${ESIGN_LIMIT_MAX}" value="${esc(es.defaultLimit)}" required></label></p>
+  <p class="muted">Resets on the 1st (UTC). 0 stops sending. An account's own limit (Delete an account → Look up) replaces this for that account.</p>
+  <button type="submit">Save limit</button>
+</form>`;
+
   // Deleting an account for a user who asked (a fresh start): look it up first.
   const deleteAccountForm = `<h2>Delete an account</h2>
 <p class="muted">For a user who asked, for example one who made two accounts and wants to start over. Look it up first;
@@ -270,7 +288,7 @@ nothing is deleted until you confirm on the next page.</p>
   <button type="submit">Look up</button>
 </form>`;
 
-  return `${outbox}${mailCounts}${testEmail}${pushKeys}${license}${sync}${deleteAccountForm}
+  return `${outbox}${mailCounts}${testEmail}${pushKeys}${license}${sync}${esign}${deleteAccountForm}
 <h2>Service notices</h2>
 ${noticeRows ? `<table>${noticeRows}</table>` : '<p class="muted">No active notices.</p>'}
 <form method="post" action="/ops/notices">
@@ -316,6 +334,7 @@ async function accountSummary(env, user) {
     vault: !!(await env.DB.prepare('SELECT 1 AS x FROM vaults WHERE program_id = ?').bind(p).first()),
     passkeys: await n(env, "SELECT COUNT(*) AS n FROM vault_wraps WHERE program_id = ? AND kind = 'passkey'", p),
     waitlist: await n(env, 'SELECT COUNT(*) AS n FROM wl_projection WHERE program_id = ?', p),
+    esign: p ? await esignUsage(env, p) : null,
   };
 }
 
@@ -335,7 +354,15 @@ async function findAccountPage(env, email) {
   <tr><td>Synced records</td><td>${esc(s.records)}</td></tr>
   <tr><td>Private vault</td><td>${s.vault ? `on, ${esc(s.passkeys)} passkey(s)` : 'off'}</td></tr>
   <tr><td>Waitlist online</td><td>${s.waitlist ? 'published' : 'not published'}</td></tr>
+  ${s.esign ? `<tr><td>Contracts sent for e-signature this month</td><td>${esc(s.esign.used)} of ${esc(s.esign.limit)} ${s.esign.own ? '(its own limit)' : '(the default)'}</td></tr>` : ''}
 </table>
+${s.esign ? `<h2>E-sign limit</h2>
+<form method="post" action="/ops/account/esign-limit">
+  <input type="hidden" name="program_id" value="${esc(s.programId)}">
+  <p><label>Contracts this account may send a month<br><input type="number" name="limit" min="0" max="${ESIGN_LIMIT_MAX}" value="${s.esign.own ? esc(s.esign.limit) : ''}" placeholder="the default"></label></p>
+  <p class="muted">Leave empty to use the default.</p>
+  <button type="submit">Save</button>
+</form>` : ''}
 <h2>Devices</h2>
 ${deviceRows ? `<table><tr><th>device</th><th>last seen</th><th>now</th></tr>${deviceRows}</table>` : '<p class="muted">None.</p>'}
 <h2>Delete it</h2>
@@ -468,6 +495,29 @@ async function route(request, env) {
   if (url.pathname === '/ops/notices/remove' && request.method === 'POST') {
     await removeNotice(env, (await request.formData()).get('id'));
     return dashboard(env, '<p class="ok">Notice removed.</p>');
+  }
+
+  if (url.pathname === '/ops/esign-limit' && request.method === 'POST') {
+    try {
+      const nLimit = await setDefaultMonthlyLimit(env, String((await request.formData()).get('limit') ?? '').trim());
+      return dashboard(env, `<p class="ok">Each kennel may now send ${esc(nLimit)} contract(s) a month.</p>`);
+    } catch {
+      return dashboard(env, `<p class="bad">Nothing changed: the limit is a whole number from 0 to ${esc(ESIGN_LIMIT_MAX)}.</p>`);
+    }
+  }
+
+  if (url.pathname === '/ops/account/esign-limit' && request.method === 'POST') {
+    const form = await request.formData();
+    const program = await env.DB.prepare('SELECT id FROM programs WHERE id = ?').bind(String(form.get('program_id') ?? '')).first();
+    if (!program) return dashboard(env, '<p class="bad">That account no longer exists.</p>');
+    try {
+      const own = await setProgramMonthlyLimit(env, program.id, String(form.get('limit') ?? '').trim());
+      return dashboard(env, own === null
+        ? '<p class="ok">That account now uses the default limit.</p>'
+        : `<p class="ok">That account may now send ${esc(own)} contract(s) a month.</p>`);
+    } catch {
+      return dashboard(env, `<p class="bad">Nothing changed: the limit is a whole number from 0 to ${esc(ESIGN_LIMIT_MAX)}, or empty.</p>`);
+    }
   }
 
   if (url.pathname === '/ops/account/find' && request.method === 'POST') {

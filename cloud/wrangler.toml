@@ -77,6 +77,10 @@ LS_STORE_ID = "437121"
 LS_PRO_PRODUCT_IDS = "1244595"
 LS_YEARLY_VARIANT_IDS = "1945410"
 LS_LIFETIME_VARIANT_IDS = "1945407"
+# E-sign (src/firma.js): staging uses each Firma workspace's free test key
+# (watermarked documents, no credits spent). The secret FIRMA_API_KEY is set
+# in the dashboard, like the others.
+FIRMA_TEST_MODE = "true"
 
 # Daily retention (src/retention.js), 03:17 UTC, and hourly at :07 the waitlist's
 # own moves (src/serverMoves.js: deadlines, automatic offers, reminders). Cron runs

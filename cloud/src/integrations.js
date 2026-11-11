@@ -9,11 +9,10 @@
 //   GET    /integrations/events?since=<seq> events after this device's cursor
 //   POST   /hooks/<provider>/<secret>       a vendor's webhook (no CORS, no bearer)
 //
-// A provider is an ADAPTER registered here (steps 6 and 8 add Stripe, Square, an
-// e-sign provider): { provider, verify, toEvents, revoke? }. With none
-// registered, every /hooks/ call is 404 and nothing can be connected.
-// A connection is made by the provider's own connect flow (createConnection);
-// step 5 has no public route that makes one.
+// A provider is an ADAPTER registered here: { provider, verify, toEvents, revoke? }.
+// Firma (step 8, src/firma.js) registers itself when it is loaded. A provider
+// with no adapter answers 404 on /hooks/ and can't be connected.
+// A connection is made by the provider's own connect flow (createConnection).
 //
 // Never logged: a token, a hook secret, a webhook body (cloud/README.md).
 import { requirePro } from './license.js';
@@ -30,7 +29,8 @@ const ADAPTERS = new Map();
 // adapter: {
 //   provider: 'stripe',                                   // [a-z0-9]{2,20}
 //   verify(request, raw: Uint8Array, connection, env) → Promise<boolean>   // the vendor's signature
-//   toEvents(payload, connection) → [{ providerEventId, kind, recordType, recordId, data }]
+//   toEvents(payload, connection, env) → [{ providerEventId, kind, recordType, recordId, data }]
+//                                                         // (or a Promise of them)
 //   revoke?(env, token, connection) → Promise<void>       // best effort, on disconnect
 // }
 export function registerAdapter(adapter) {
@@ -53,6 +53,10 @@ const ymd = (v) => (typeof v === 'string' && YMD.test(v) ? v : undefined);
 export const EVENT_KINDS = {
   'contract.signed': { record: 'contract', fields: { date: ymd } },
   'contract.declined': { record: 'contract', fields: { date: ymd } },
+  // Firma (§2.3a): the request ran out of time, or was cancelled at Firma. Her
+  // device shows these on Today; they never change the contract by themselves.
+  'contract.expired': { record: 'contract', fields: { date: ymd } },
+  'contract.cancelled': { record: 'contract', fields: { date: ymd } },
   'payment.paid': {
     record: 'sale',
     fields: {
@@ -123,7 +127,7 @@ export async function createConnection(env, programId, { provider, accountRef = 
   return { id: row.id, hookPath: `/hooks/${provider}/${secret}` };
 }
 
-async function herSide(env, auth) {
+export async function herSide(env, auth) {
   await requirePro(env, auth);
   await limitBucket(env, `int:${auth.programId}`, INTEGRATION_LIMITS.callsPerHour);
 }
@@ -206,7 +210,7 @@ export async function handleHook(request, env, url, now = new Date()) {
   let payload;
   try { payload = JSON.parse(new TextDecoder().decode(raw)); } catch { fail(400, 'bad_json'); }
 
-  const events = (adapter.toEvents(payload, connection) || []).map(cleanEvent).filter(Boolean);
+  const events = ((await adapter.toEvents(payload, connection, env)) || []).map(cleanEvent).filter(Boolean);
   if (events.length) {
     await env.DB.batch(events.map((e) => env.DB.prepare(
       `INSERT OR IGNORE INTO int_events (program_id, connection_id, provider, provider_event_id, kind, record_type, record_id, payload, created_at)
@@ -225,5 +229,6 @@ export async function revokeAllConnections(env, programId) {
   for (const c of results) await revokeQuietly(env, c);
 }
 
-export const deleteIntegrationStatements = (env, programId) => ['int_events', 'int_connections']
+// esign_sends / esign_limits (migration 0022) are Firma's sends and her own limit.
+export const deleteIntegrationStatements = (env, programId) => ['int_events', 'esign_sends', 'esign_limits', 'int_connections']
   .map((t) => env.DB.prepare(`DELETE FROM ${t} WHERE program_id = ?`).bind(programId));

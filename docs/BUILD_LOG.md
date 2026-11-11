@@ -3225,3 +3225,33 @@ cloud program and the master key as the Worker secret `FIRMA_API_KEY`. That supe
 SignWell / BoldSign. **D26**: 10 sends per program per calendar month, reset the 1st (UTC),
 with the default set in `/ops`. Step 8's row, the plan status and the README Status are
 updated. No code yet; four Firma details are to be proven on a test key before the build.
+
+## 2026-11-11: Firma e-sign, step 8: the Worker
+
+`docs/KennelOS_Integrations_Plan.md` §2.3a (D25–D26).
+- **New `cloud/src/firma.js`:**
+  - Connect makes a Firma workspace per program, with its webhook and the webhook switch on.
+    Her workspace key and webhook secret are sealed in her connection.
+  - Workspace custom fields come from her device's fact list.
+  - Templates and Firma's editor token.
+  - `POST /integrations/esign/send` reserves a row in `esign_sends` under the monthly limit
+    before calling Firma.
+  - The signed-PDF link.
+  - The `/hooks/firma/<secret>` adapter: an HMAC check, with Firma's id mapped to her
+    contract.
+- **Migration `0022_esign`:** `esign_sends`, `ops_config`, `esign_limits`.
+- **`/ops`:** an "E-sign (Firma)" section with the default limit (10), credits left and sends
+  this month. Account find shows the account's count and its own limit.
+- **`integrations.js`:** `contract.expired` and `contract.cancelled` events. `toEvents` gets
+  `env` and may be async.
+- **Elsewhere in the Worker:** health (the `FIRMA_API_KEY` secret, `esign_sends` counted),
+  export (the three tables), retention (sends kept 400 days), account deletion, and staging's
+  `FIRMA_TEST_MODE`.
+- **Fixed during the build:** an unset default limit read as 0. A test caught it.
+- **Modified from the plan:** her workspace's key does her calls (the master key only sets
+  up). Firma has no API to delete a workspace, so disconnect and deletion stop only the
+  webhook.
+- **Tests:** 12 new in `cloud/tests/esign.test.js`. `cd cloud && npm test` 318 pass;
+  `node --test` 1724 pass; `node build/assemble.mjs` succeeds.
+- **Docs:** the plan's §2.3a "As built", `cloud/README.md`, README Status. No app file, so
+  no service-worker change.

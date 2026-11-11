@@ -22,6 +22,7 @@ import { schemaReady } from './gate.js';
 import { activeNotices } from './notice.js';
 import { handleWebhook } from './license.js';
 import { handleHook } from './integrations.js';
+import './firma.js'; // registers the Firma adapter for /hooks/firma/ (Integrations plan §2.3a)
 import { handleFamilyApi, serveFamilyPage } from './familyPages.js';
 import { runRetention } from './retention.js';
 import { runWaitlistMoves } from './serverMoves.js';

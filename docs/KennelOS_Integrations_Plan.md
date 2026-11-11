@@ -531,6 +531,58 @@ from D1's "her own account" for e-sign. What it means:
 - that the signer terms (workspace terms acceptance) can carry ESIGN's consumer-consent wording;
 - that `PATCH` works from the Worker (CORS lists no `PATCH`, which matters only to a browser).
 
+**As built: the Worker (2026-11-11)** (`cloud/src/firma.js`, migration `0022_esign`,
+`cloud/tests/esign.test.js`). The app side (Connect, templates, the Send dialog, the new
+event kinds on Today) is next. **Modified** from the plan above:
+- **Her workspace's own key does her calls.** The key is sealed in her connection's token, with
+  the webhook secret and webhook id. The master key `FIRMA_API_KEY` only makes the workspace,
+  makes and removes its webhook, and reads the credits for `/ops`. So Firma itself keeps one
+  program out of another's templates and documents. A template is also read with her key
+  before an editor token is made for it.
+- **Three of the four open questions were settled from Firma's OpenAPI spec:**
+  - The workspace carries its `webhook_secret`, with `rotate-secret` as the fallback. Connect
+    fails and undoes itself if it gets neither.
+  - `format_rules.prefilledData` names a key of the recipient's `custom_fields`, matched
+    case-insensitively. Her device sends the fact names and labels (`PREFILL_FIELDS`) to
+    `POST /integrations/firma/fields`, which makes them the workspace's custom fields for the
+    editor, at most 40 per call.
+  - `PATCH` matters only from a browser.
+  
+  Still open: the ESIGN consumer-consent wording in the workspace's signer terms
+  (`/workspace/{id}/signer-terms/{language}` exists).
+- **Firma has no API to delete a workspace.** Disconnect and account deletion only remove the
+  webhook. A deleted account's workspace is removed by hand in Firma's dashboard
+  (`cloud/README.md`).
+- **`esign_sends`** is keyed by our own id, with Firma's `signing_request_id` unique and filled
+  in once Firma answers.
+  - The row is reserved by a conditional insert, only while the month's count is under the
+    limit, before Firma is called.
+  - Its statuses are `sending`, `sent`, `unknown`, `completed`, `declined`, `expired` and
+    `cancelled`.
+  - A Firma refusal frees the row. A 402 (KennelOS out of credits) answers `503`. No answer
+    keeps the row as `unknown` (`502 esign_unknown`). A 409 that names a request is kept as
+    sent.
+  - A live send for the same contract answers `409 already_sent` unless the device passes
+    `resend: true`.
+  - The rows are kept 400 days, carried in the `/ops` export, and deleted with the account.
+- **Limits:** `ops_config.esign_monthly_limit` holds the default (10 when unset) and
+  `esign_limits` holds an account's own limit. The `/ops` dashboard has an "E-sign (Firma)"
+  section (credits left, kennels connected, sends this month, the default limit), and Account
+  find shows the account's count with its own limit.
+- **Events:** `contract.expired` and `contract.cancelled` are added to `EVENT_KINDS`
+  (`{ date }`). Devices older than this skip them. An adapter's `toEvents` now gets `env` and
+  may be async (Firma's looks up `esign_sends`).
+- **Routes** (Pro):
+  - `GET /integrations/firma`
+  - `POST /integrations/firma/connect`
+  - `POST /integrations/firma/fields`
+  - `GET` and `POST /integrations/firma/templates` (a base64 PDF, at most about 4.5 MB)
+  - `POST /integrations/firma/template-token`
+  - `POST /integrations/esign/send`
+  - `GET /integrations/esign/document?ref=`
+  
+  Staging sets `FIRMA_TEST_MODE = "true"`, so its workspaces keep their free test keys.
+
 ### 2.4 Data model (additive)
 On **Contract** (plain fields, no index needed, no new block; classify in `syncRegistry.js`, D9):
 - `esign_provider` (`jotform`/`docusign`/`signwell`/…), `esign_ref` (the provider's envelope /
@@ -908,7 +960,7 @@ Each step is one reviewable PR, ordered by value ÷ effort and by dependency.
 | 5 | **Integration plumbing** (§0): `int_connections`, `int_events`, hooks routes, `integrationEvents.js` reducer. **Built 2026-10-12** (§0 "As built"); the `INT_TOKEN_KEY` secret is set (2026-10-12) | Worker | M |
 | 6 | **Stripe** one-use payment links from her own restricted key, checked from her device, with the fee captured into §5; Payment service accounts and per-payment paid-via; the waitlist application fee online. **Built 2026-10-12** (§4 "As built", D22–D24). Square: not built | No (device ↔ Stripe) | L |
 | 7 | **Jotform signed → Contract signed** (§2.1). **Built 2026-10-12** (End-State guide §32, "Signed forms come back"; `data/jotformSigned.js`), webhook not built. **Revised 2026-10-11: her device checks first.** With the key on the device (4b), opening KennelOS reads recent submissions of her mapped forms (`GET /form/{id}/submissions`), matches each by its `contractRef`, and marks the Contract `signed` with the date: no server, read-only key, buyer data only Jotform → her device. A Worker webhook (Level 1) only if she wants word while the app is closed; it would carry the whole submission through the Worker, so it must keep only the reference and date | No (webhook later: Worker after 5) | S |
-| 8 | **E-sign API provider: Firma** (§2.3a, D25–D26): a workspace per program on KennelOS's account, templates in the embedded editor, send from the Worker within the monthly limit, signed back by webhook. (Was SignWell / BoldSign; Firma is the same shape at about 5¢ a send) | Worker | L |
+| 8 | **E-sign API provider: Firma** (§2.3a, D25–D26): a workspace per program on KennelOS's account, templates in the embedded editor, send from the Worker within the monthly limit, signed back by webhook. (Was SignWell / BoldSign; Firma is the same shape at about 5¢ a send). **Worker built 2026-11-11** (§2.3a "As built"); the app side is next | Worker | L |
 | 9 | Referral payouts in Financials (§3.3); network postbacks only on demand (§3.4) | Optional | S–M |
 
 Every step that adds a file updates `shared/sw.js` `PRECACHE_URLS` (Pro-only files also into
