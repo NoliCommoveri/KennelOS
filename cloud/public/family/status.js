@@ -850,7 +850,7 @@ function policiesBanner(f) {
 function policiesCard() {
   if (!hasPolicies()) return '';
   const k = state.v.kennel;
-  const key = 'Our Waitlist Policies';
+  const key = state.v.family?.page_only ? 'Our Policies' : 'Our Waitlist Policies';
   return `<details class="card collapsible" id="policies" data-key="${esc(key)}"${state.opened.has(key) ? ' open' : ''}><summary><h2>${esc(key)}</h2></summary>
     ${k.policies_updated ? `<p class="small muted mt0">Updated ${esc(fmtDate(k.policies_updated))}</p>` : ''}${policiesHtml(k)}</details>`;
 }
@@ -1405,7 +1405,8 @@ async function load() {
   state.session = v.kennel.public_id ? rememberedFamily(v.kennel.public_id) : null;
   document.title = `${v.kennel.name} Waitlist`;
   $('title').textContent = v.family.name ? `Hi, ${v.family.name.split(/\s+/)[0]}` : `${v.kennel.name} Waitlist`;
-  $('updated').textContent = `${v.kennel.name} Waitlist${v.as_of ? ` · updated ${fmtDate(v.as_of)}` : ''}`;
+  // A family page only (never on the waitlist): no "Waitlist" in the heading.
+  $('updated').textContent = `${v.kennel.name}${v.family?.page_only ? '' : ' Waitlist'}${v.as_of ? ` · updated ${fmtDate(v.as_of)}` : ''}`;
   render();
 
   if (!wired) {

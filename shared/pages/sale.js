@@ -499,7 +499,7 @@ function buyerDoNotSellText(contactId) {
 }
 function buyerDoNotSellHtml(contactId) {
   const warn = buyerDoNotSellText(contactId);
-  return warn ? `<div class="inline-warn field-wide" role="status">${esc(warn)} You can still record the sale.</div>` : '';
+  return warn ? `<div class="inline-warn field-wide" role="status">${esc(/[.!?]$/.test(warn) ? warn : `${warn}.`)} You can still record the sale.</div>` : '';
 }
 
 function field(label, inner, { required = false, hint = '', wide = false } = {}) {
@@ -745,7 +745,7 @@ async function renderHeaderActions() {
         const { addFamilyPage } = await import('../data/waitlistActions.js');
         const buyer = contactName(s.buyer_contact_id) || 'This family';
         const warn = ctx.doNotSell.length ? buyerDoNotSellText(s.buyer_contact_id) : '';
-        if (!(await confirmModal({ title: 'Give this family a status page?', message: `${buyer} get their own status page with their pickup times, extras, the puppy portal link and your messages. They aren't put on the waitlist and show on no list.${warn ? `\n\n${warn}` : ''}\n\nPublish your list (Waitlist, Publish list) to make their link.`, confirmLabel: 'Make their page' }))) return;
+        if (!(await confirmModal({ title: 'Give this family a status page?', message: `This gives ${buyer} their own status page, with their pickup times, extras, the puppy portal link and your messages. They aren't put on the waitlist and show on no list.${warn ? `\n\n${warn}` : ''}\n\nPublish your list (Waitlist, Publish list) to make their link.`, confirmLabel: 'Make their page' }))) return;
         const entry = await addFamilyPage(s.id);
         location.href = `waitlist-entry.html?id=${encodeURIComponent(entry.id)}`;
       } catch (err) { showError(err.message || String(err)); }
