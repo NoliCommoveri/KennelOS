@@ -240,7 +240,7 @@ function statusLines(e) {
     const placesLine = prefPlacesText(e, pos);
     if (placesLine) lines.push(placesLine);
     lines.push(`Passes used: ${passesUsed(e, ctx.offers)} of ${esc(ctx.config.max_passes)}.`);
-    if (canUndoFeeReceived(e, ctx.offers, today)) lines.push(`<span class="badge badge-amber">Fee marked received by mistake? You can undo it until ${esc(fmtDate(addDaysToYMD(String(e.fee_received_at).slice(0, 10), REMOVAL_UNDO_DAYS)))}, until they're offered a turn</span>`);
+    if (canUndoFeeReceived(e, ctx.offers, today, ctx.sales)) lines.push(`<span class="badge badge-amber">Fee marked received by mistake? You can undo it until ${esc(fmtDate(addDaysToYMD(String(e.fee_received_at).slice(0, 10), REMOVAL_UNDO_DAYS)))}, until they're offered a turn</span>`);
     const flags = entryFlags(e, today, ctx.config);
     const why = isReadyHeld(e, today, ctx.config)
       ? `${esc(readyHoldText(e, today, ctx.config))} They aren't offered pups (or charged passes) until then, and keep their place.`
@@ -2091,7 +2091,7 @@ function interactButtons(e) {
     case 'active': main = b('offer', 'Offer pups…', lost ? '' : 'btn-primary')
       // A side sale (Side Sale Spec): outside the turn order; not while they hold the turn or already buy one.
       + (!ctx.offers.some((o) => o.outcome === 'open' && !o.is_archived) && !sideSaleOf(e, ctx.sales) ? b('side', 'Record a side sale…') : '')
-      + b('move', 'Move place…') + (canUndoFeeReceived(e, ctx.offers, todayYMD()) ? b('undofee', 'Undo fee received…') : ''); break;
+      + b('move', 'Move place…') + (canUndoFeeReceived(e, ctx.offers, todayYMD(), ctx.sales) ? b('undofee', 'Undo fee received…') : ''); break;
     case 'declined': main = (canUndoDecline(e, todayYMD()) ? b('undo', 'Undo decline', 'btn-primary') : '') + b('reapply', 'Re-apply'); break;
     case 'expired': main = (canUndoExpire(e, todayYMD()) ? b('undo', 'Reopen application', 'btn-primary') : '') + b('reapply', 'Re-apply'); break;
     case 'removed': main = (canUndoRemoval(e, todayYMD()) ? b('undo', 'Undo removal', 'btn-primary') : '') + b('reapply', 'Re-apply'); break;

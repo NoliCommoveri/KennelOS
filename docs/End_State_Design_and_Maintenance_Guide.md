@@ -1862,9 +1862,13 @@ it computes is stored.**
   only, not while they hold the turn or have one pending; any pup but placed, gone or
   archived; `sideSaleIssues` names what doesn't fit and she may go ahead; a non-Available pup
   becomes Available; optional `answersToFit` and intended registration), `confirmSideDeposit`
-  (sale deposit paid, pup and family placed, no turn moves on), `cancelSideSale` (family keeps
-  their place; a held pup goes back). A family with a pending side sale gets no turns
-  (`eligiblePupsFor` → []). **Two claims on one pup** (`pupClaims`: live sales and open turn
+  (sale deposit paid, pup and family placed; refused for a family no longer `active`; no turn
+  moves on, unless a turn ended there: one the server gave them, moved on as `accepted`, or
+  another family's turn left with no pup, moved on as `left`), `cancelSideSale` (family keeps
+  their place; a held pup goes back). A family leaving the list loses a pending side sale
+  (below, **Leaving releases turns**). A family with a pending side sale gets no turns
+  (`eligiblePupsFor` → []), and a turn the server gave one while her phone was off isn't
+  recorded (`planServerEvent` notes it). **Two claims on one pup** (`pupClaims`: live sales and open turn
   picks): she's warned before a second (`waitlistUI.confirmSecondClaim`, the turn pick and
   switch dialogs, the side sale dialog, the deposit dialogs); when one deposit is recorded the
   other ends (`resolveOtherClaims`: a side sale cancelled; a turn pick let go, its turn open
@@ -1892,6 +1896,17 @@ it computes is stored.**
   turn made only of those is passed at once and reported (`auto_passed`).
 - **Passes:** at `max_passes` (default 2) the entry is removed (`second_pass`), with a 7-day
   undo that forgives the latest pass.
+- **A turn left with no pup** (`turnIsEmpty`, `emptiedTurns`: no pick waiting on its deposit
+  and none of the pups its rows listed, `eligible_dog_ids`, still available) ends, never as a
+  pass: `waitlistActions.endEmptiedTurns` voids its rows with a note, adds a line to the
+  family's activity, and moves the turn on as `left`. It runs after `confirmDeposit` and
+  `confirmSideDeposit`, and after any change to her data: `watchEmptiedTurns`, started by
+  `app.js` (Pro, not Demo), runs it shortly after each `CLOUD_DATA_CHANGED_EVENT` and once on
+  load, waiting while a dialog is open, and the page says whose turn ended and who's next
+  (`waitlistUI.reportEmptiedTurns`, `describeOfferChanges`' `ended`). A pass or no response
+  recorded on such a turn never counts (`recordOutcome`; `passes.empty`). The Worker neither
+  closes it at its deadline nor reminds the family (`serverMoves.turnIsEmpty`, from the
+  projection's available pups).
 - **No silent expiry:** overdue offers and fees become Today nudges (`overdueTurns`,
   `overdueFees`).
 - **Answer changes:** every change to `PREF_CHANGE_FIELDS` after `applied` is logged in
@@ -1953,12 +1968,14 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   with `byBreeder`; `canUndoWithdrawal`, back to `withdrawn_from`), a decline (`undoDecline`,
   back to applied), a fee expired (`undoExpire`, from `expired_date`, back to approved) and a
   fee she marked received (`undoFeeReceived`: `fee_received_manual`, counted from
-  `fee_received_at`, back to approved, and only until they're offered a turn). Each keeps the
+  `fee_received_at`, back to approved, and only until they're offered a turn or have a side
+  sale; `canUndoFeeReceived` needs the sales). Each keeps the
   family's anchor, makes no offers, and is refused once they've re-applied. A withdrawal from
   their status page and a back-out have none. Today notices only the automatic removals.
 - **Leaving releases turns:** withdraw, remove, archive, a deposit or a second-pass removal
   void the family's open offers (never a pass; a held pick's Sale is cancelled) and move
-  those litters on.
+  those litters on. A side sale still waiting on its deposit is cancelled too
+  (`cancelSideSale` with `leaving`: a held pup goes back), returned as `side_released`.
 - **Automatic offers are off by default**, per moment: `waitlist_config.auto_offer_on`
   lists the closings that offer the next family by themselves (`accepted`, `passed`,
   `no_response`, `no_deposit`, `left`, `restored`). Otherwise the next family comes back in
@@ -3569,8 +3586,10 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
 - **Delivery:** a live litter at Whelped or later with no `delivery_type`
   (`tidyRules.deliveryFindings`, newest first) → one tap per delivery type; "I don't remember"
   is the remembered answer.
-- **Puppy plan:** a pup with a sale not returned, cancelled or voided whose disposition isn't
-  Placed → Placed.
+- **Puppy plan:** a pup with a sale past Deposit pending and not returned, cancelled or
+  voided whose disposition isn't Placed → Placed (`tidyRules.pupPlacedFindings`). A sale still
+  waiting on its deposit isn't asked about: it may fall through, and Placed takes the pup off
+  the turn of the family holding it.
 - **No plan:** an `owned` pup with no disposition at all and no sale going ahead
   (`tidyRules.pupNoPlanFindings`). Blank reads as Undecided, which the waitlist never offers
   and her website never shows as available → Available, Keeping or Still deciding

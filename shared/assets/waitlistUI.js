@@ -686,3 +686,27 @@ export async function creditDialog({ entry, name, credit = null }) {
   return ok ? saved : null;
 }
 
+
+// A turn ended because no pup was left in it (waitlistActions.watchEmptiedTurns,
+// started by app.js after any change to her data): whose turn, and who holds the
+// turn now or is next, so she knows who to contact. Never silent.
+export async function reportEmptiedTurns(result) {
+  const [{ litterLabel }, entries, contacts, litters, dogs] = await Promise.all([
+    import('../data/litterCheckin.js'),
+    waitlistEntryRepo.getAll({ includeArchived: true }),
+    contactRepo.getAll({ includeArchived: true }),
+    litterRepo.getAll({ includeArchived: true }),
+    dogRepo.getAll({ includeArchived: true })
+  ]);
+  const entriesById = new Map(entries.map((e) => [e.id, e]));
+  const contactsById = new Map(contacts.map((c) => [c.id, c]));
+  const littersById = new Map(litters.map((l) => [l.id, l]));
+  const dogsById = new Map(dogs.map((d) => [d.id, d]));
+  const lines = describeOfferChanges(result, {
+    nameOf: (id) => { const e = entriesById.get(id); return e ? entryName(e, contactsById.get(e.contact_id)) : 'A family'; },
+    litterOf: (id) => (littersById.get(id) ? litterLabel(littersById.get(id), dogsById) : 'A litter'),
+    fmtDate
+  });
+  if (!lines.length) return;
+  await alertModal({ title: result.ended.length === 1 ? 'A turn ended: no pup left in it' : 'Turns ended: no pup left in them', message: lines.join('\n\n') });
+}

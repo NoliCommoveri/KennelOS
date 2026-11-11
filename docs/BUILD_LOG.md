@@ -3064,3 +3064,36 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `sales` and `dogs` become required there. Five decisions about the fixes stay open.
 - Docs only.
 
+
+## 2026-11-11: Waitlist fixes, step 1: a pup leaving a turn, and side sales that outlive their family
+
+`docs/KennelOS_Waitlist_Fixes_Plan.md` step 1 (K6-1, K6b-1, K6b-2, K6b-3, K6b-4, K6b-10). Each
+finding was first reproduced against the real actions, then fixed. The owner chose: check after
+every save, move the turn on as for a family leaving (`left`), and have the Worker skip emptied
+turns too.
+- **A turn left with no pup ends, never as a pass (K6-1, K6b-2).** `waitlistRules.turnIsEmpty` /
+  `emptiedTurns` (no pick waiting on its deposit, none of the listed pups still available;
+  `resolveOtherClaims` now uses it too). `waitlistActions.endEmptiedTurns` voids the rows with a
+  note, adds a family activity line and moves the turn on as `left`. Called from
+  `confirmDeposit` and `confirmSideDeposit` (returned as `ended`), and by
+  `watchEmptiedTurns`, which `app.js` starts on every page (Pro, not Demo): it runs shortly after
+  each data change and once on load, waits while a dialog is open, and the page reports it
+  (`waitlistUI.reportEmptiedTurns`). `recordOutcome` never counts a pass or no response on an
+  emptied turn (`passes.empty`). Worker: `serverMoves.turnIsEmpty`; the deadline close and the
+  reminders skip such a turn, so no "your turn closed" email goes out for it.
+- **Leaving the list cancels a pending side sale (K6b-1).** `releaseOpenOffers` cancels it
+  (`cancelSideSale` with `leaving`: a held pup goes back; no "keeps their place" line) and
+  returns `side_released`; `describeOfferChanges` says so. `confirmSideDeposit` refuses a family
+  that isn't `active`.
+- **Tidy up (K6b-3):** `pupPlacedFindings` skips sales still at Deposit pending.
+- **Undo fee received (K6b-4):** `canUndoFeeReceived(entry, offers, today, sales)`; sales
+  required; false once the family has any side sale.
+- **Server turns (K6b-10):** `planServerEvent` notes, and doesn't record, a server offer to a
+  family with a pending side sale; `confirmSideDeposit` moves the turn on (`accepted`) when it
+  voided their own turn.
+- Tests: `tests/waitlistEmptiedTurns.test.js` (22), one in `cloud/tests/serverMoves.test.js`;
+  `waitlistUndo.test.js` passes the sales. `node --test` 1672 pass; `cd cloud && npm test` 306
+  pass; `node build/assemble.mjs` succeeds. Checked in a browser: keeping a turn's only pup
+  ends the turn and the page says whose and who's next.
+- Docs: End-State guide §29 (rules, side sales, undo windows, leaving, Tidy up); Side Sale
+  spec **Modified** notes. No new file, no schema, no new field; no SW cache bump yet.

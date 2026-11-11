@@ -120,6 +120,21 @@ export function openTurns(projection, { includeDirect = false } = {}) {
   return [...out.values()];
 }
 
+// A turn with no pup left in it: no pick, and none of the pups its rows listed is
+// still among its litter's available pups. Her device ends such a turn, never as a
+// pass (waitlistActions.endEmptiedTurns), so the server neither closes it at its
+// deadline nor reminds the family about it. A litter missing from the projection
+// says nothing about its pups, so it never makes a turn read as empty.
+export function turnIsEmpty(projection, t) {
+  if (t.picked || !t.offers.length) return false;
+  return t.offers.every((o) => {
+    const l = projection.litters?.[o.litter_id];
+    if (!l) return false;
+    const available = new Set((l.pups || []).map((d) => d.id));
+    return !(o.eligible_dog_ids || []).some((id) => available.has(id));
+  });
+}
+
 // Close one family's turn in the projection (their status page stops offering it).
 export function closeTurn(projection, entryId, turnId) {
   const e = projection.entries?.[entryId];
@@ -264,7 +279,7 @@ export async function runKennel(env, row, { now = new Date(), origin } = {}) {
 
   // 2. Deadlines she lets the server close.
   for (const t of openTurns(projection)) {
-    if (!t.respondBy || today <= t.respondBy || busy.has(t.entryId)) continue;
+    if (!t.respondBy || today <= t.respondBy || busy.has(t.entryId) || turnIsEmpty(projection, t)) continue;
     const trigger = t.picked ? 'no_deposit' : 'no_response';
     if (!autoOn(projection, trigger)) continue;
     const seq = await insertEvent(env, row, {
@@ -287,7 +302,7 @@ export async function runKennel(env, row, { now = new Date(), origin } = {}) {
   // 3. Reminders, each once.
   if (projection.kennel?.reminders !== false && hour >= MORNING_HOUR) {
     for (const t of openTurns(projection, { includeDirect: true })) {
-      if (busy.has(t.entryId) || !t.respondBy || !t.offeredDate || today > t.respondBy) continue;
+      if (busy.has(t.entryId) || !t.respondBy || !t.offeredDate || today > t.respondBy || turnIsEmpty(projection, t)) continue;
       const span = daysBetween(t.offeredDate, t.respondBy);
       const facts = { litters: litterLabels(projection, t.offers.map((o) => o.litter_id)), respondBy: t.respondBy };
       const when = today === t.respondBy ? 'last' : (span >= 2 && today >= addDays(t.offeredDate, Math.floor(span / 2)) ? 'half' : null);

@@ -981,6 +981,28 @@ export function hasOpenOffer(offers, litterId) {
 // offer only becomes `accepted`, and the turn only moves on, once the deposit is in.
 export const isAwaitingDeposit = (o) => Boolean(o) && o.outcome === 'open' && Boolean(o.chosen_dog_id);
 
+// A turn with no pup left in it (Spec §6.4: "a turn that reaches them with no pup
+// matching their preferences" is never a pass). `rows`: the turn's rows. True when
+// some row is open, no open row holds a pick waiting on its deposit, and none of the
+// pups its open rows listed (`eligible_dog_ids`) is still available. Her keeping the
+// pup, a Health hold, a death, another sale or another family's deposit all end a
+// turn this way (waitlistActions.endEmptiedTurns), and a pass recorded on it never
+// counts (recordOutcome).
+export function turnIsEmpty(rows, pups, sales = []) {
+  const open = (rows || []).filter((o) => !o.is_archived && o.outcome === 'open');
+  if (!open.length || open.some(isAwaitingDeposit)) return false;
+  const byId = new Map((pups || []).map((d) => [d.id, d]));
+  return !open.some((o) => (o.eligible_dog_ids || []).some((id) => {
+    const d = byId.get(id);
+    return d && d.litter_id === o.litter_id && isPupAvailable(d, sales);
+  }));
+}
+
+// The kennel's open turns with no pup left in them (turnIsEmpty), in openTurns' shape.
+export function emptiedTurns(offers, pups, sales, kennelId) {
+  return openTurns(offers, kennelId).filter((t) => turnIsEmpty(t.offers, pups, sales));
+}
+
 // The pups a family could switch their pick to: this litter's available pups that
 // match their preferences, other than the one they hold now. Ignores list status on
 // purpose — after the deposit the family is `placed`, and a switch is still allowed
@@ -1397,10 +1419,13 @@ export function canUndoExpire(entry, today) {
 // The 7-day undo on "Fee received" (feeReceived only, which sets
 // fee_received_manual; never an approval that put them straight on the list), from
 // the day she recorded it (fee_received_at; the fee date itself may be earlier).
-// Not once they've been offered a turn: by then the list has acted on their place.
-export function canUndoFeeReceived(entry, offers, today) {
+// Not once they've been offered a turn or had a side sale: by then the list has
+// acted on their place. `sales` is required (a side sale has no offer row).
+export function canUndoFeeReceived(entry, offers, today, sales) {
+  if (!Array.isArray(sales)) throw new Error('canUndoFeeReceived needs the sales.');
   if (!entry || entry.is_archived || entry.status !== 'active' || !entry.fee_received_manual || !entry.fee_received_at) return false;
   if ((offers || []).some((o) => o.entry_id === entry.id && !o.is_archived)) return false;
+  if (sales.some((s) => s.side_entry_id === entry.id && !s.is_archived)) return false;
   return today <= addDaysToYMD(String(entry.fee_received_at).slice(0, 10), REMOVAL_UNDO_DAYS);
 }
 
@@ -1623,8 +1648,16 @@ export function nextTurnPrepassNote(entry, ls, { offers = [], config = WAITLIST_
   return `They said "Not this litter" to ${prepassed.length === 1 ? names : `all of these (${names})`}. "Offer to them" records their turn as a pass${counts ? ` (pass ${used} of ${max})` : ''} and offers the next family.${last}`;
 }
 
-export function describeOfferChanges({ next = null, voided = [], offered = [], waiting = [], auto_passed = [], resolved = [] } = {}, { nameOf, litterOf, fmtDate = (d) => d } = {}) {
+export function describeOfferChanges({ next = null, voided = [], offered = [], waiting = [], auto_passed = [], resolved = [], ended = [], side_released = [] } = {}, { nameOf, litterOf, fmtDate = (d) => d } = {}) {
   const lines = [];
+  // A side sale still waiting on its deposit, cancelled because the family left the list.
+  for (const r of side_released) {
+    lines.push(`${nameOf(r.entry_id)}'s side sale was cancelled, since they're no longer on the list.${r.restored ? ` The pup is back to ${String(r.restored).replace('_', ' ')}.` : ' The pup is free for other families again.'}`);
+  }
+  // Turns left with no pup in them, ended (never a pass).
+  for (const t of ended) {
+    lines.push(`${(t.litter_ids || []).map(litterOf).join(', ')}: ${nameOf(t.entry_id)}'s turn ended because no pup was left in it. Not a pass; they keep their place. Let them know.`);
+  }
   // A second claim on the same pup, ended by this deposit (Side Sale Spec §5).
   for (const r of resolved) {
     if (r.kind === 'side_cancelled') lines.push(`${nameOf(r.entry_id)}'s side sale on the same pup was cancelled. They keep their place; let them know.${r.restored ? ' The pup was put back to what it was before.' : ''}`);
@@ -1651,6 +1684,6 @@ export function describeOfferChanges({ next = null, voided = [], offered = [], w
       lines.push(`${litters(w)}: ${nameOf(w.entry_id)} is next${pre.length ? ` (they said "Not this litter" to ${pre.map(litterOf).join(', ')})` : ''}. No turn was offered (automatic offers are off); offer it when you're ready.`);
     }
   }
-  if (voided.length && !offered.length && !waiting.length) lines.push('Nobody else on the list is eligible for those litters right now.');
+  if ((voided.length || (ended.length && !next)) && !offered.length && !waiting.length) lines.push('Nobody else on the list is eligible for those litters right now.');
   return lines;
 }

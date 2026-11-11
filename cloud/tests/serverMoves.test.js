@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeEnv, call, signIn } from './helpers/env.js';
 
-const { localNow, addDays, addOpenDays, fillTemplate, openTurns, nextFromQueue, runKennel, runWaitlistMoves } = await import('../src/serverMoves.js');
+const { localNow, addDays, addOpenDays, fillTemplate, openTurns, nextFromQueue, runKennel, runWaitlistMoves, turnIsEmpty } = await import('../src/serverMoves.js');
 const { DAILY_CRON } = await import('../src/index.js');
 
 const KENNEL = 'kos1_11111111-2222-4333-8444-555555555555';
@@ -97,6 +97,27 @@ test('the next family comes from her published order: one turn at a time, held p
   assert.equal(nextFromQueue(p, { skip: new Set(['bo']), held: new Set(['p2']) }), null, "Cy's only pup is held");
   p.litters.l1.picks_open = false;
   assert.equal(nextFromQueue(p), null);
+});
+
+test('a turn with no pup left in it: the server neither closes it at its deadline nor reminds them', async () => {
+  const p = projection();
+  const t = openTurns(p)[0];
+  assert.equal(turnIsEmpty(p, t), false);
+  p.litters.l1.pups = [{ id: 'p3' }];
+  assert.equal(turnIsEmpty(p, openTurns(p)[0]), true, 'none of p1, p2 is still available');
+  assert.equal(turnIsEmpty(p, { ...openTurns(p)[0], picked: 'p1' }), false, 'a pick holds it');
+  delete p.litters.l1;
+  assert.equal(turnIsEmpty(p, openTurns(p)[0]), false, 'a litter not in the projection says nothing');
+
+  const env = await makeEnv({ FAMILY_PAGES_ORIGIN: 'https://apply.example' });
+  const s = await breeder(env);
+  const gone = projection();
+  gone.litters.l1.pups = [];
+  assert.equal((await call(env, 'PUT', `/waitlist/projection/${KENNEL}`, { token: s.token, body: { projection: gone } })).status, 200);
+  const c = await runKennel(env, row(env), { now: NOW, origin: 'https://apply.example' });
+  assert.deepEqual(c, { closed: 0, offered: 0, reminders: 0 });
+  assert.deepEqual(events(env), []);
+  assert.deepEqual(mails(env), [], 'no "your deadline passed" email');
 });
 
 test("a deadline she lets the server close: closed, the next family offered, both emailed, the status pages show it", async () => {
