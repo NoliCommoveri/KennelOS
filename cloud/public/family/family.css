@@ -214,9 +214,10 @@ main.centered dl.facts { display: inline-grid; text-align: left; margin: 6px aut
 main.centered ul.emails { text-align: left; }
 ul.emails li + li { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; }
 main.centered details.card.collapsible > summary { list-style-position: inside; }
-/* The public list's Available Puppies and Coming up cards: centered like the status page. */
+/* The public list's Available Puppies and Coming up cards: what's inside is centered;
+   the heading stays left like the page's other folded cards. */
 #available, #upcoming { text-align: center; }
-#available > summary, #upcoming > summary { list-style-position: inside; }
+#available > summary, #upcoming > summary { text-align: left; }
 button.linkish { font: inherit; background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; }
 #app-form .actions { margin: 16px 0 8px; }
 .mt8 { margin: 8px 0 0; }
@@ -305,9 +306,11 @@ html.embedded.theme-dark {
 .pup-col-head { font-weight: 600; }
 .pup-col ul { margin: 2px 0 0; }
 .pup-col ul.plain > li { padding: 2px 0; border-top: 0; }
+/* "None left" / "None" sit on the same line as a pup's name in the next column. */
+.pup-col-empty { margin-top: 2px; padding: 2px 0; }
 /* With reserved pups: Still Available, then Already Reserved, side by side; stacked on a phone. */
 .pup-sections { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; }
-.pup-section-head { font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted, inherit); margin-top: 6px; }
+.pup-section-head { font-weight: 600; margin-top: 6px; }
 @media (max-width: 520px) { .pup-sections { grid-template-columns: 1fr; } }
 
 /* A parent's info bubble (registered name, pedigree, health testing) and its popup. */
