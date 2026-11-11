@@ -3204,3 +3204,12 @@ the application's name).
 The owner renamed step 3's "Sold before the waitlist…" to **Non-Waitlist Sales…** (the Litter
 page's button and dialog, the kept-off panel, the Waitlist page's empty Family pages only
 line, and the refusals that name it). Wording only. Service-worker cache rides `v115`.
+
+## 2026-11-11: Firma chosen for e-sign (plan only)
+
+Researched firma.dev for step 8 of `docs/KennelOS_Integrations_Plan.md` and wrote it up as
+§2.3a. The owner decided **D25**: KennelOS holds the Firma account, with one workspace per
+cloud program and the master key as the Worker secret `FIRMA_API_KEY`. That supersedes D5's
+SignWell / BoldSign. **D26**: 10 sends per program per calendar month, reset the 1st (UTC),
+with the default set in `/ops`. Step 8's row, the plan status and the README Status are
+updated. No code yet; four Firma details are to be proven on a test key before the build.
