@@ -3,8 +3,8 @@
 > **Status: plan, nothing built.** Written 2026-11-11 from the four waitlist reviews (K6, K6b,
 > K7, K8: `docs/review/findings/`) and three requests from the owner the same day. It lists
 > every finding with what happens to it, designs the three enhancements, and puts both into
-> one build order. Decisions that are the owner's are in §2; each has a recommendation, and
-> the plan is written as if the recommendation stands.
+> one build order. The owner answered the decisions that shape the enhancements the same day
+> (§2); five about the fixes are still open, each with a recommendation the plan assumes.
 > Baseline when written (`dac8d17`): `node --test` 1649 pass, `node build/assemble.mjs` succeeds.
 
 ## 1. What this plan covers
@@ -12,7 +12,8 @@
 **The three enhancements** (the urgent part):
 
 - **E1. "Pup selected".** A family that had its turn, picked a pup and paid the deposit stays
-  on the list where it was, marked **Pup selected**, instead of dropping off.
+  on the list where it was, marked **Pup selected**, and keeps its number until the pup goes
+  home, so nobody behind it is ever pushed back when a pup is lost.
 - **E2. "Already Reserved".** The pup they bought stays on the litter's Available Puppies card,
   on the public list page and on every family's status page, in a second section,
   **Already Reserved**, under **Still Available**. Both sections show Males and Females in
@@ -25,68 +26,115 @@
 **The findings:** 52 across the four reviews (S1: 3, S2: 12, S3: 30, S4: 7), plus the notes
 worth acting on. §5 lists every one.
 
-**How they meet.** The enhancements change three rules the reviews found weak: what happens
-when a pup leaves the available set (K6-1, K6b-2), who counts as placed (K8-12, K8-7), and
-which litters the waitlist shows (K6-12, three copies of one list). Those fixes go first or
+**How they meet.** The enhancements change four rules the reviews looked at: what happens
+when a pup leaves the available set (K6-1, K6b-2), who counts as placed (K8-12, K8-7), which
+litters the waitlist shows (K6-12, three copies of one list), and how a family's number is
+worked out (K6 found it stable across every reader but one, K6-5). Those fixes go first or
 in the same step, so the new features are built on one rule each, not on a fourth copy.
 
-## 2. Decisions for the owner
+## 2. Decisions
+
+**Decided by the owner (2026-11-11):**
+
+| # | Question | Decision |
+|---|---|---|
+| D1 | E1: does a "Pup selected" family keep its number? | **Yes: the number is held.** Her worry is a family told "you're #5" who becomes #6 when a pup dies or goes on Health hold and its family comes back into line. So a family with a pup selected keeps its place and its number, and everyone behind is numbered after it. When the lost-pup family comes back, nobody's number changes. A tick may show with the number or in its place. |
+| D2 | E1: how long does it hold? | **Until the pup has safely gone home:** the sale is marked Delivered (picked up) or the pup is turned External. Then the row goes and the families behind move up one. |
+| D4 | E2: which pups show under Already Reserved? | **Pups whose disposition is Placed.** A waitlist deposit sets that by itself (`confirmDeposit`, `confirmSideDeposit`). A sale made by hand on the Sale page only asks ("Update this dog's disposition?", defaulting to Placed), and Tidy up asks again later, so there it is her answer. |
+| D5 | E2: the same rule as her website? | **Yes.** The website also works from the pup's disposition (`siteExport.puppyStatus`: Placed → placed), not from the sale. Family pages use the same rule, worded **Already Reserved**. As on the website, a pup that has died or gone home (External) isn't listed. |
+| D6 | E3: where does she find these families? | **Their own section on the Waitlist page**, with the other sections, not inside Closed. |
+| D7 | E3: do the two new fields sync between her devices? | **Yes: `cloud`** for `WaitlistEntry.off_list` and `Litter.waitlist_off`. |
+| D8 | E3: a family page family backs out, or loses its pup | **Keep or Refund only**, never "Move the deposit", and no "put them back in line". To join the list they apply. (Read from the owner's last answer, "Yes".) |
+
+**Still open** (each is assumed as recommended until the owner says otherwise):
 
 | # | Question | Recommendation |
 |---|---|---|
-| D1 | **E1: does a "Pup selected" row keep a number?** | **No number.** The row sits where the family ranks, with a tick in place of the number. Everyone still waiting keeps the real number they have today (#1 is the next family to get a turn). Keeping the old number would mean numbers stop moving up after a sale, and every place the app states a number (status page, emails, reminders, Kels, reports) would have to change meaning. |
-| D2 | **E1: how long does the row stay?** | **As long as the litter's Available Puppies card is up** (picks open, litter not yet Sold or Closed). The row and the pup's "Already Reserved" line appear and go together. Other choices: until the pup goes home, or a fixed number of days. |
-| D3 | **E1: what does the row show?** | The name as it was listed (private names stay masked), **Pup selected** in the Wants column. Never the pup's name, the date or the price. Her own Waitlist page shows the same rows and may name the pup. |
-| D4 | **E2: what counts as reserved?** | A pup whose **deposit is in** (sale Deposit paid, Paid in full or Delivered), or one marked Placed with no sale in the app. **Not** a pick still waiting for its deposit (hidden, as today, until the deposit lands or the pick lapses), and **not** a pup she's Keeping or one on Health hold. A pup that has gone home stays under Already Reserved while the card is up. |
-| D5 | **E2: the word.** Her website says **Placed** for a pup with an open sale (decided 2026-11-10: no `reserved` status). | Use **Already Reserved** on the family pages as asked; the website keeps Placed. Say so here so nobody "fixes" one to match the other. |
-| D6 | **E3: where does she find these families in her app?** "Not displayed anywhere" is read as: never on a list a family can see, never counted as waitlist families. | Their own folded card at the bottom of her Waitlist page, **Family pages only**, and a link from the Sale and the contact. |
-| D7 | **E3: two new fields sync between her devices** (`off_list` on a waitlist record, `waitlist_off` on a litter). Making a field `cloud` is a privacy decision. | **Cloud** for both: each is a yes/no with no personal data, and her devices must agree on who is on the list. |
-| D8 | **E3: if one of these families backs out**, "Move the deposit" would put them on the list. | Offer **Keep** and **Refund** only. To join the list they apply like anyone else. Same for a lost pup: no "put them back in line". |
-| D9 | **K8-2: a family backs out after paying more than the deposit.** Today Move carries only the deposit and Refund erases everything. | Show what was paid by part, and let her tick what carries or is refunded. The policy (carry, keep, refund in part) is hers. |
-| D10 | **K7-5: which policies did a family agree to?** | Seal the `policies_updated` day into each application and keep earlier wordings when she saves. Needs her yes: it stores more. |
-| D11 | **K6-3: whose clock ends a deadline?** The setup card says "11:59 pm in the kennel's time zone"; her device uses its own clock. | The kennel's time zone for the waitlist's deadlines only (turns, fees, ready checks). Everything else keeps the device's date. |
-| D12 | **K7-8: public names.** "Smith Family" lists as "Smith F.". E1 keeps names on the public list longer, so this matters more. | Build the public name from the application's own name when the contact's name is a household or "Last, First", and always show her the public form in the Approve dialog. |
+| D3 | E1: what does the row show? | The name as it was listed (private names stay masked) and **Pup selected** in the Wants column. Never the pup's name, the date or the price. Her own Waitlist page may name the pup. |
+| D9 | K8-2: a family backs out after paying more than the deposit. Today Move carries only the deposit and Refund erases everything. | Show what was paid by part, and let her tick what carries or is refunded. The policy (carry, keep, refund in part) is hers. |
+| D10 | K7-5: which policies did a family agree to? | Seal the `policies_updated` day into each application and keep earlier wordings when she saves. Needs her yes: it stores more. |
+| D11 | K6-3: whose clock ends a deadline? The setup card says "11:59 pm in the kennel's time zone"; her device uses its own clock. | The kennel's time zone for the waitlist's deadlines only (turns, fees, ready checks). Everything else keeps the device's date. |
+| D12 | K7-8: public names. "Smith Family" lists as "Smith F.". E1 keeps names on the public list longer, so this matters more. | Build the public name from the application's own name when the contact's name is a household or "Last, First", and always show her the public form in the Approve dialog. |
 
 ## 3. The enhancements
 
-### 3.1 E1 — "Pup selected" rows
+### 3.1 E1 — "Pup selected": the family keeps its place and its number
 
-**Who.** One rule, `selectedFamilies(…)` in `waitlistRules.js`: a record with status `placed`,
-not archived, not `off_list` (E3), whose `placed_sale_id` sale is live (not returned, cancelled
-or voided), and whose pup's litter is one the waitlist shows (§3.4). A family between pick and
-deposit is still on its turn and still reads **Currently deciding**, so a row goes
-Currently deciding → Pup selected with no gap. A back-out, a lost pup or a returned sale drops
-the row at once, because each releases the sale or changes the status.
+**Who holds a place.** One rule, `holdsPlace(entry, { sales, dogs })` in `waitlistRules.js`:
+a record with status `placed`, not archived, not `off_list` (E3), whose `placed_sale_id` sale
+is still open (`vocab.isOpenSale`: not Delivered, returned, cancelled or voided), and whose
+pup hasn't gone (status not deceased, pet home or External). A family placed through a side
+sale holds its place the same way. A family between pick and deposit is still on its turn and
+still reads **Currently deciding**, so a row goes Currently deciding → Pup selected with no
+gap.
 
-**Where it sits.** Ordered with `compareEntries` among the families still waiting, so it is
-where they ranked. Nothing about a waiting family's number changes: `rankedList`,
-`overallPositions` and `public_list` are untouched (K6 checked eleven readers agree on them).
+**Numbering.** Today a family's number is its rank among the families still waiting. It
+becomes its rank among **waiting families and families holding a place**, in the same order
+(`compareEntries`: program, date in line, fee time).
+
+- `rankedList` stays as it is, waiting families only. The turn rules read it (`nextTurn`,
+  `litterQueue`, `joinsOpenTurn`, the turn queue, the picks preview), and a family with a pup
+  selected must never be offered a turn.
+- A new `numberedList(entries, kennelId, programsById, { sales, dogs })` adds the holders.
+  `overallPositions`, `prefPlaces` ("#2 for a female") and `publicList` number from it.
+- **`sales` and `dogs` are required** by those three: a call without them throws. There are
+  about twenty callers (the status page, the public list, reminder emails, the entry page,
+  Kels, the picks panel and preview, the side-sale dialog, reports). One that kept numbering
+  the old way would show a family a different number on a different screen, which K6 checked
+  never happens today. A test calls every reader on one record set and asserts one answer.
+- "#5 of 7" totals count holders too, so the two numbers agree.
+
+**What moves a number, after this.**
+
+| Event | Today | After |
+|---|---|---|
+| A family ahead pays its deposit | everyone behind moves up | nobody moves |
+| That pup goes home | nothing | everyone behind moves up one |
+| That pup is lost (died, Health hold) and the family is put back in line | everyone behind moves **down** one | nobody moves: the family takes back the number it held |
+| That family backs out | nothing | everyone behind moves up one |
+
+So a number only ever goes down toward #1, except for the two things that are her own
+choice and already move families today: adding a family to a program that goes ahead, and
+moving a family by hand.
 
 **How it is published.** Additive, so nothing that reads today's list breaks:
 
-- Projection: a new `public_selected: [{ name, added, before, program? }]` beside
-  `public_list`. `before` is the number of the first waiting family ranked after them
-  (null: after everyone). Names unmasked, as `public_list` is.
-- Worker: `listView` returns `selected` beside `rows`; `statusView` returns `public_selected`
-  beside `public_list`. `rows` keeps its exact shape, so her KennelPort website (`/f/site`
-  is `listView`) and any cached page script keep working and simply don't show the new rows
-  until they learn to.
-- Family pages: `publicListHtml` (`cloud/public/family/common.js`) places each selected row
-  before the row numbered `before`. A tick in the number column, the name, *Pup selected* in
-  Wants. The "some names may not be displayed" note is still worked out from the numbered
-  rows only. Search by name finds them.
-- Her app: the Waitlist page's **On the list** card shows the same rows, unnumbered, with a
-  **Pup selected** badge and the pup's name. `publicListText` (the copy-as-text list) gains
-  a "✓ Smith J. · Pup selected" line in place.
+- `public_list` keeps its row shape. Its numbers are the new ones, so it has gaps where the
+  holders are. An older page script, and her KennelPort website (`/f/site`), then show the
+  gaps with the note they already carry: "some applicant names may not be displayed… Their
+  place is being held". That is true of these families.
+- A new `public_selected: [{ position, name, added, program? }]` beside it, names unmasked
+  as `public_list` is. `listView` returns it as `selected`, `statusView` as `public_selected`.
+- Family pages: `publicListHtml` (`cloud/public/family/common.js`) puts each selected row at
+  its number, with a tick, the name, and *Pup selected* in Wants. The "names may not be
+  displayed" note is worked out after the selected rows are in, so they don't trigger it.
+  Search by name or number finds them.
+- The Worker finds who is "Currently deciding" by number, and each waiting family's number
+  is published the new way, so that still matches.
+- Her app: the Waitlist page's **On the list** card shows the same rows at their numbers,
+  with a **Pup selected** badge and the pup's name. `publicListText` (the copy-as-text list)
+  gains "✓ #3 Smith J. · Pup selected".
 
-**Not changed.** The count beside "On the list", passes, Kels's review, reports and the turn
-rules read only waiting families.
+**Not changed.** Who gets the next turn, passes, automatic offers, and the count of families
+waiting.
 
 ### 3.2 E2 — "Already Reserved" on the Available Puppies card
 
-**Which pups.** One rule, `isPupReserved(dog, sales)` beside `isPupAvailable`: not archived,
-not deceased, and either a live sale past Deposit pending, or disposition Placed with no live
-sale (D4). A pup is never both available and reserved; a test pins that.
+**Which pups.** One rule, `isPupReserved(dog)` beside `isPupAvailable`: disposition Placed,
+not archived, not deceased and not gone home (D4, D5). It is the website's rule
+(`siteExport.puppyStatus`), kept in step by a test. A pup is never both available and
+reserved, since Available and Placed are two values of one field.
+
+What follows from that rule:
+
+- A waitlist pick with its deposit still owed is Available with a held sale: it is in
+  neither section, as today, until the deposit lands (then Placed) or the pick lapses.
+- A sale made on the Sale page shows under Already Reserved once she answers the
+  disposition prompt with Placed. If she doesn't, the pup is in neither section until Tidy up
+  asks. Step 1 changes Tidy up to ask only once the deposit is in (K6b-3).
+- A pup she's Keeping, Undecided or on Health hold is in neither section.
+- When the pup goes home it leaves the section, and its family's row leaves the list (D2), at
+  the same moment.
 
 **How it is published.** Each litter in the projection gains `reserved: [pup]`, the same
 allow-listed pup (`publicPup`: call name, sex, colour, registry, link). **`pups` is left
@@ -130,6 +178,9 @@ families were never in line.
   a `placed_sale_id` (the existing rule for placed records).
 - `Litter.waitlist_off`: this litter is kept off the waitlist.
 
+Both are classified `cloud` in `syncRegistry.js` (D7), and `cloud/src/lib/cloudFields.js` is
+regenerated.
+
 **Starting it.**
 
 - **Litter page: "Sold before the waitlist…"** One action for her case: sets `waitlist_off`,
@@ -153,10 +204,16 @@ messages from their page in her app. Their page's opening line changes from "You
 waitlist is complete" to one that doesn't mention a waitlist (`page_only` on the published
 record).
 
-**What never shows them:** the public list and its Pup selected rows (E1), the Closed card and
-its count (they get their own card, D6), the funnel, exits and days-to-placement reports,
-the year review's waitlist count, Kels's Review my waitlist. A lost pup or a back-out never
-puts them in line (D8). **Apply again** makes an ordinary application.
+**What never shows them:** the public list, its numbering and its Pup selected rows (E1: they
+hold no place, so nobody is numbered after them), the Closed section and its count, the
+funnel, exits and days-to-placement reports, the year review's waitlist count, Kels's Review
+my waitlist. A lost pup or a back-out never puts them in line (D8). **Apply again** makes an
+ordinary application.
+
+**Where she finds them (D6).** Their own section on her Waitlist page, **Family pages only**,
+beside New applications, Fee due, On the list, Litters and Closed: the family, their pup, and
+whether the pup has gone home. Each row opens the family's page. The Sale and the contact
+link to it too.
 
 **What a `waitlist_off` litter is left out of.** One helper, `waitlistLitters(kennel, litters)`
 (§3.4), so every reader agrees: Available Puppies (and Already Reserved), Coming up, "a
@@ -181,7 +238,7 @@ live before she sends E3 families to the portal.
 | Step | What | Findings in it |
 |---|---|---|
 | **1** | **A pup leaving the available set, and side sales that outlive their family.** One check, run when a deposit lands, a side sale resolves, or a pup's disposition or status changes: any open turn left with no pup is ended without a pass. Leaving the list cancels a pending side sale. | K6-1, K6b-2, K6b-1, K6b-3, K6b-4, K6b-10 |
-| **2** | **E1 and E2**, with the rules they rest on: one "litter the waitlist shows", one "placed family". The Waitlist page's tables scroll in their cards and its badges format dates, since the page is being changed anyway. | E1, E2, K6-12 (item 1), K8-12, K8-7, K7-12, K7-8, K6-9, K6-10 |
+| **2** | **E1 and E2**, with the rules they rest on: one numbering every reader shares, one "litter the waitlist shows", one "placed family". The Waitlist page's tables scroll in their cards and its badges format dates, since the page is being changed anyway. | E1, E2, K6-12 (item 1), K8-12, K8-7, K7-12, K7-8, K6-9, K6-10 |
 | **3** | **E3.** | E3, K7-9, K8-8 |
 | **4** | **The puppy portal says only what's true.** A returned sale is retracted; facts from the portal are checked and shown to her; disconnecting takes the portal button off. | K7-1, K7-2, K7-3, K7-14 |
 | **5** | **Money a family is shown.** The deposit email, backing out after paying more, a paid step that changes, a carried deposit, the fee card, the wording. | K8-1, K8-2, K8-3, K8-4, K8-10, K8-13, K6b-5, K6b-8 |
@@ -282,24 +339,30 @@ back to what it was (step 5, with K8-2); the two Side Sale spec lines that disag
 | 4 | S2 | A moved deposit is asked for again | Publish the carried amount with the family's credits | 5 |
 | 5 | S3 | Mapbox failures: jargon, no Open in Maps in Kels, a home never measured again | Plain sentences; the link in Kels's form; a failed measure isn't remembered as done | 9 |
 | 6 | S3 | Geocoding takes the first match anywhere (suspected) | `proximity` and country; refuse a low-quality match. Needs a live Mapbox check | 9 |
-| 7 | S3 | The family never sees what happened to their deposit | The decided back-out stays on their view for 30 days; its own email per outcome. With E1: their row leaves the list at the same moment | 2 |
+| 7 | S3 | The family never sees what happened to their deposit | The decided back-out stays on their view for 30 days; its own email per outcome. With E1: they stop holding their place at the same moment | 2 |
 | 8 | S3 | A back-out leaves pickup and extras requests open | Close them in `approveBackOut`; `slotBookings` skips a record with no open sale | 3 |
 | 9 | S3 | Pickup and extras dates are UTC on the family's side | The kennel's time zone on the Worker and the page | 7 |
 | 10 | S3 | Two prices on the fee card | "paying by card adds $2.07"; the plain fee as the headline | 5 |
 | 11 | S3 | A queued email goes out however old | Hold one more than a day old, or past its respond-by, for her say-so | 9 |
-| 12 | S3 | Reports count a backed-out family as Placed | One `isPlacedFamily(entry, sales)`, the rule E1's rows use too; an offer with `backed_out_date` is its own outcome | 2 |
+| 12 | S3 | Reports count a backed-out family as Placed | One `isPlacedFamily(entry, sales)`, which `holdsPlace` (E1) builds on; an offer with `backed_out_date` is its own outcome | 2 |
 | 13 | S3 | Words | As listed in the finding | 5 |
 | 14 | S4 | The last place in a time (suspected) | `approvePickupRequest` checks the room | 9 |
 | 15 | S4 | Copy to another litter drops the date rules | Copy the rules too | 9 |
 
 ## 6. What each enhancement must not break (tests to write first)
 
-- **E1.** A waiting family's number is the same with and without selected rows, on every
-  reader. A backed-out, lost or returned sale has no row. An `off_list` record has no row.
-  A private name stays masked. `rows` from `listView` is byte-for-byte what it is today.
-- **E2.** No pup is in both `pups` and `reserved`. A reserved pup is in no turn's pups, no
+- **E1.** Every reader of a family's number gives the same answer on one record set, and a
+  reader called without `sales` and `dogs` throws. A deposit ahead of a family doesn't change
+  its number; the pup going home moves it up one; a lost pup's family put back in line takes
+  the number it held and moves nobody. A backed-out or returned sale holds no place. An
+  `off_list` record holds no place. A family holding a place is never in `rankedList`, the
+  turn queue or `nextTurn`. A private name stays masked. `public_list`'s row shape is
+  unchanged.
+- **E2.** `isPupReserved` and `siteExport.puppyStatus` agree on every disposition and status.
+  No pup is in both `pups` and `reserved`. A reserved pup is in no turn's pups, no
   `eligible_dog_ids`, and not in `serverMoves`' available set. A pick awaiting its deposit is
-  in neither list. A returned sale's pup leaves `reserved`.
+  in neither list. A pup that has gone home, or been set back to Available after a returned
+  sale, leaves `reserved`.
 - **E3.** An `off_list` record never ranks, never appears in `public_list`, `public_selected`,
   the funnel or the year review. A `waitlist_off` litter is in no `litters`, `upcoming`,
   `turn_queue` or nudge, and `openPicks` on it throws. Its families' status views still carry

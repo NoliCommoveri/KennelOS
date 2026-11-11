@@ -74,8 +74,9 @@ backup, carries a program from Lite to Pro.
     page's one-tap link).
   - Shared dogs (`docs/KennelOS_Shared_Dogs_Plan.md`): Dog Cards (phase 1) are built. Next:
     phase 2, live updates through the cloud, after owner decisions.
-  - Waitlist fixes and three enhancements (`docs/KennelOS_Waitlist_Fixes_Plan.md`): planned,
-    waiting on the owner's decisions (its §2). Nothing built.
+  - Waitlist fixes and three enhancements (`docs/KennelOS_Waitlist_Fixes_Plan.md`): planned;
+    the owner decided the enhancements' questions, five about the fixes are open (its §2).
+    Nothing built.
   - Duplicates: Import/Export's Scan for duplicates covers every record type. Open: Kels's
     Tidy up still checks only dogs and contacts for duplicates.
 - **Open launch items:** confirm `yearlyVariantPattern` / `lifetimeVariantPattern` against

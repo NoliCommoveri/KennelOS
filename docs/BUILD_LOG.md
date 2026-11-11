@@ -3050,3 +3050,17 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `Litter.waitlist_off`, both proposed, sync class the owner's to confirm).
 - Twelve decisions are the owner's (the plan's §2), each with a recommendation.
 - Docs only: no code, no schema, no app file changed. README's doc map and Status gain the plan.
+
+## 2026-11-11: the owner's decisions on the waitlist fixes plan
+
+- `docs/KennelOS_Waitlist_Fixes_Plan.md` §2 records them: a family with a pup selected
+  **keeps its number** until the pup goes home (Delivered or External), so a lost pup's
+  family coming back never pushes anyone down; Already Reserved shows pups whose disposition
+  is Placed, the website's rule (`siteExport.puppyStatus`); family-page-only families get
+  their own section on the Waitlist page; `off_list` and `waitlist_off` are `cloud`; such a
+  family backing out gets Keep or Refund only.
+- §3.1 is redesigned for held numbers: `rankedList` stays waiting-only for the turn rules, a
+  new numbering over waiting and holding families feeds every reader of a number, and
+  `sales` and `dogs` become required there. Five decisions about the fixes stay open.
+- Docs only.
+
