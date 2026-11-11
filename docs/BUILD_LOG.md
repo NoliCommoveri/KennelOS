@@ -3048,3 +3048,11 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   and each C7 ancestor; KennelPort works out import-descended, so C4 goes with C7. A new
   open question: Kels's "Spoken for" for placed against the site's "Reserved".
 - Docs only: no code, no schema, no app file changed.
+
+## 2026-11-11: website contract plan: the owner's answers
+
+- `docs/KennelOS_Website_Contract_Plan.md`: Imported is a tick on the Dog form that shows
+  Country of origin, cleared when unticked. Featured offspring is KennelPort's own: C8
+  and the `feature_offspring` / `featured_offspring_ids` fields are dropped. KennelOS
+  keeps no colour list. Open: the sync class of the two import fields; "Spoken for"
+  against "Reserved". Docs only.
