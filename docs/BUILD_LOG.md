@@ -3257,3 +3257,6 @@ Every pickup event made from a family's choice now carries their time:
   `tests/cloudWaitlist.test.js`; `pickupsForm` checked in the browser (prefill and the saved
   event). `node --test` 1715 pass; `cd cloud && npm test` 306 pass. Docs: End-State guide
   §19 nudges, §29 Pickup, §33 Kels (Pups are going home). No new file or field.
+
+Service-worker cache bumped to `v116` for this session's pickup changes (seven weeks, the
+meetup time, and pickups that start with the family's time).
