@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { transportQuote, mapsLink, aboutMiles } from '../shared/data/transportFee.js';
 import { pickupLocations, standardLocation, locationsProblem, makeSlots, cleanSlots, familySlots, slotBookings, timeRange, changeUntil, dateRules, withDateRule, ruleFor, standardBoarding } from '../shared/data/pickupSlots.js';
-import { ownPlaceAllowed, pickupFrom, familyPickupView, withPickupRequest, requestText } from '../shared/data/familyPickup.js';
+import { ownPlaceAllowed, pickupFrom, familyPickupView, withPickupRequest, requestText, PICKUP_EARLY_DAYS } from '../shared/data/familyPickup.js';
 import { formQuestions, DEFAULT_FORM_QUESTIONS } from '../shared/data/waitlistForm.js';
 
 test('the transport fee shows its working: round trip doubles, "no charge under" is all or nothing', () => {
@@ -94,6 +94,24 @@ test('their times start after a training stay; their page shows the booking with
   const req = { id: 'event-1', kind: 'address', address: '9 Oak, Dallas TX', miles: 196.4, requested_date: '2026-10-20' };
   assert.equal(withPickupRequest({ pickup_requests: [req] }, req), null);
   assert.equal(requestText(req), 'to meet at 9 Oak, Dallas TX (about 196 miles)');
+  assert.equal(requestText({ ...req, date: '2026-11-22', start_time: '14:30' }), 'to meet at 9 Oak, Dallas TX on 2026-11-22 at 2:30 PM (about 196 miles)', 'the day and time they would like');
+});
+
+test('families see her times from a week before the ready date (seven weeks); boarding still counts from the ready date', () => {
+  assert.equal(PICKUP_EARLY_DAYS, 7);
+  const sale = { id: 's1', dog_id: 'p1', buyer_contact_id: 'c1', status: 'deposit_paid', kennel_id: 'k1' };
+  const slot = (id, date) => ({ id, date, start_time: '10:00', end_time: '10:30', location_id: 'a' });
+  const litter = { id: 'l1', whelp_date: '2026-09-01', pickup_slots: [slot('six', '2026-10-19'), slot('seven', '2026-10-20'), slot('eight', '2026-10-27')] };
+  assert.equal(pickupFrom(sale, litter, []), '2026-10-27', 'when the pup can go home: 8 weeks, what standard boarding counts from');
+  assert.equal(pickupFrom(sale, litter, [], { earlyDays: PICKUP_EARLY_DAYS }), '2026-10-20', 'seven weeks');
+  const base = { entry: { contact_id: 'c1', kennel_id: 'k1' }, sales: [sale], dogsById: new Map([['p1', { id: 'p1', litter_id: 'l1' }]]),
+    kennel: { pickup_locations: [{ id: 'a', label: 'Library', address: '1 Main St' }] }, config: {}, events: [], today: '2026-10-10' };
+  const v = familyPickupView({ ...base, litters: [litter] });
+  assert.deepEqual([v.ready_from, v.slots.map((s) => s.id)], ['2026-10-20', ['seven', 'eight']]);
+  const set = familyPickupView({ ...base, litters: [{ ...litter, estimated_ready_date: '2026-10-26' }] });
+  assert.deepEqual(set.slots.map((s) => s.id), ['six', 'seven', 'eight'], 'a week before her estimated ready date');
+  const stay = { id: 'b1', event_type: 'boarding', subject_id: 'p1', event_date: '2026-10-27', event_end_date: '2026-11-09', details: { sale_id: 's1', extra_charge_id: 'c1' } };
+  assert.equal(pickupFrom(sale, litter, [stay], { earlyDays: PICKUP_EARLY_DAYS }), '2026-11-10', 'a training stay is never cut short');
 });
 
 test('City / state is locked and required while her distance rule is on, and hers again when it is off', () => {

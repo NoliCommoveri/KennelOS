@@ -573,7 +573,7 @@ test('pickup (Family Requests plan §4): a family books a time and her Approve m
     return new Response(JSON.stringify({ routes: [{ distance: 315000, duration: 11400 }] }));
   };
   try {
-    assert.equal((await act('pickup_address', { address: '9 Oak St, Dallas TX', date: later(12) })).status, 200);
+    assert.equal((await act('pickup_address', { address: '9 Oak St, Dallas TX', date: later(12), time: '14:30' })).status, 200);
     const sent = (await view()).pending.find((p) => p.kind === 'pickup_address');
     assert.deepEqual([sent.payload.miles, sent.payload.far], [195.7, true], 'measured at once: farther than her 150');
   } finally {
@@ -582,7 +582,7 @@ test('pickup (Family Requests plan §4): a family books a time and her Approve m
   }
   await cw.syncWaitlistOnline();
   const addr = (await waitlistEntryRepo.getById(entry.id)).pickup_requests.find((r) => r.kind === 'address');
-  assert.deepEqual([addr.address, addr.miles, addr.far], ['9 Oak St, Dallas TX', 195.7, true]);
+  assert.deepEqual([addr.address, addr.miles, addr.far, addr.date, addr.start_time], ['9 Oak St, Dallas TX', 195.7, true, later(12), '14:30'], 'with the day and time they would like');
   const far = (await computeNudges()).find((n) => n.key === `waitlist-pickup-request:${entry.id}:${addr.id}`);
   assert.deepEqual(far.actions.map((a) => a.label), ['Open', 'Send transport options']);
   const drafted = await far.actions[1].run();

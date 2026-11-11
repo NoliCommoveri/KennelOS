@@ -2333,8 +2333,10 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   **Copy to another litter**; `Litter.pickup_slots`), each date with a rule
   (`Litter.pickup_date_rules`, `pickupSlots.dateRules`: **Requires** one of her extras, or
   **Standard boarding applies** at `waitlist_config.boarding_rate` per day). For a family with an open sale the
-  projection's `entry.pickup` (`familyPickup.familyPickupView`): times from the pup's ready
-  date or the day after its training stay (`pickupFrom`) with room left (`slotBookings`:
+  projection's `entry.pickup` (`familyPickup.familyPickupView`): times from
+  `PICKUP_EARLY_DAYS` (7) before the pup's ready date (seven weeks with the 8-week default),
+  or from the day after its training stay when that's later (`pickupFrom` with `earlyDays`;
+  `ready_from` is that first day), with room left (`slotBookings`:
   placement events with `details.pickup_slot_id` plus waiting requests), their booking with
   `change_until`, the rules on the dates they can see (`dates`: `requires` + `has_it`, or
   `boarding`; a package date's times can't be chosen until the extra is on their sale, and
@@ -2343,15 +2345,18 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   `home_place` at all: a place on file that couldn't be measured isn't asked again; their
   entry's Pickup card says so and she can choose); the projection's `server`
   part carries her standard location's address for the Worker only. Their page's **Pickup**
-  card books a time, changes or cancels it until her cutoff, suggests their own address, or
-  says where they live. Events `pickup_book` / `pickup_cancel` / `pickup_address` (the
+  card books a time, changes or cancels it until her cutoff, suggests their own address
+  (with the day and time they'd like, both optional; the Worker refuses a time that isn't
+  `HH:MM`, `bad_time`, and the request keeps it as `start_time`, prefilled as the Time when
+  she approves), or says where they live. Events `pickup_book` / `pickup_cancel` / `pickup_address` (the
   Worker counts other families' unapplied bookings against a time's room, and measures an
   address with Mapbox: `miles`, `far`) become `entry.pickup_requests`; `home_location` sets
   `home_place` / `home_miles`. Her device measures a family's home once from their
   application's City / state or contact address (`cloudWaitlist.measureHomes`, during sync).
   **Approve** (`approvePickupRequest`): a time → the pup's placement event (Local pickup,
   the time, the place, `pickup_slot_id`), and on a boarding date her standard boarding
-  (`standardBoarding`: per day from `pickupFrom` to the day before) as the sale's deferred
+  (`standardBoarding`: per day from `pickupFrom`, the ready date itself, to the day before;
+  a time before the ready date has none) as the sale's deferred
   boarding (`boarding_from_pickup` marks it) plus a logged stay (`details.pickup_boarding`),
   both taken off again (`clearPickupBoarding`) by a later approval or cancel. These fill the
   sale's existing fields (`transport_fee`; the deferred boarding amount / frequency / count),

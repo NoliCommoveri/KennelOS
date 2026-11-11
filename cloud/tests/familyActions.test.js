@@ -293,7 +293,9 @@ test('a pickup time only as published, with room, one request at a time; changes
   assert.throws(() => checkAction('pickup_book', { slot_id: 'x1' }, at('2026-11-04', { booked: { date: '2026-11-05', change_until: '2026-11-03' } })), /too_late/, 'past her cutoff');
   assert.deepEqual(checkAction('pickup_cancel', {}, at('2026-11-02', { booked: { date: '2026-11-05', change_until: '2026-11-03' } })), { note: '' });
   assert.throws(() => checkAction('pickup_address', { address: '9 Oak, Dallas TX' }, at('2026-11-01')), /not_allowed/);
-  assert.deepEqual(checkAction('pickup_address', { address: ' 9 Oak,  Dallas TX ', date: '2026-11-22' }, at('2026-11-01', { own_place: true })), { address: '9 Oak, Dallas TX', date: '2026-11-22', note: '' });
+  assert.deepEqual(checkAction('pickup_address', { address: ' 9 Oak,  Dallas TX ', date: '2026-11-22' }, at('2026-11-01', { own_place: true })), { address: '9 Oak, Dallas TX', date: '2026-11-22', time: null, note: '' });
+  assert.equal(checkAction('pickup_address', { address: '9 Oak, Dallas TX', date: '2026-11-22', time: '14:30' }, at('2026-11-01', { own_place: true })).time, '14:30', 'the time they would like');
+  assert.throws(() => checkAction('pickup_address', { address: '9 Oak, Dallas TX', time: '2pm' }, at('2026-11-01', { own_place: true })), /bad_time/);
   assert.throws(() => checkAction('pickup_address', { address: '9 Oak', date: '2026-10-01' }, at('2026-11-01', { own_place: true })), /bad_date/);
   assert.deepEqual(checkAction('home_location', { place: 'Dallas, TX' }, at('2026-11-01', { own_place: null })), { place: 'Dallas, TX' });
   assert.throws(() => checkAction('home_location', { place: 'Dallas, TX' }, at('2026-11-01', { own_place: true, ask_home: false })), /not_asked/);

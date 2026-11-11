@@ -3216,3 +3216,24 @@ line, and the refusals that name it). Wording only. Service-worker cache rides `
 - `cloud/public/family/common.js`, `family.css`; one regex in `tests/familyPages.test.js`.
   `node --test` 1712 pass; `cd cloud && npm test` 306 pass. Docs: End-State guide (public
   list cards). No new file; service-worker cache rides `v115`.
+
+## 2026-11-11: Pickup times at seven weeks; a time with their own meetup place
+
+Traced from a report: a family (a non-waitlist sale, far enough away to suggest a meetup
+place) saw "hasn't posted pickup times yet" although the litter had times. They were dated
+before the ready date (whelp + 56 days), which a family's page never listed.
+- Families now see her times from `PICKUP_EARLY_DAYS` (7) before the ready date
+  (`familyPickup.pickupFrom(…, { earlyDays })`, used by `familyPickupView`); a training
+  stay's end still wins when later. Standard boarding (`approvePickupRequest`) and the
+  portal feed still count from the ready date, so a time before it has no boarding charge.
+  Their page reads "Times from <date>." (only while that date is still ahead).
+- "None of these work for us" asks **What time works?** (optional) beside the day. The
+  Worker checks it (`HH:MM`, else `bad_time`) and passes `time`; her device keeps it as the
+  request's `start_time`. It shows on their page's Requested line, her entry's request card
+  and history, Today's nudge (`requestText`), and prefills Time in both approve screens
+  (entry page, Review my waitlist).
+- Tests: a new seven-weeks test and the time in `tests/familyPickup.test.js`,
+  `tests/cloudWaitlist.test.js` (end to end) and `cloud/tests/familyActions.test.js`.
+  `node --test` 1713 pass; `cd cloud && npm test` 306 pass. Docs: End-State guide §29
+  Pickup; Family Requests plan §4 **Modified** notes. No new file, field or schema
+  (`start_time` was already a request key).
