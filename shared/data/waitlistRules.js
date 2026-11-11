@@ -942,7 +942,7 @@ export function familyPageBlocker(sale, entries = [], offers = []) {
   return '';
 }
 
-// What "Sold before the waitlist…" would do on a litter, for her to read first:
+// What "Non-Waitlist Sales…" would do on a litter, for her to read first:
 // `rows` each pup with a live sale and a buyer ({ dog, sale, blocker }: blocker '' =
 // a family page is made), `unsold` each pup with no live sale (a pup that has gone
 // home without one isn't listed). Pups in name order.

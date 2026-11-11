@@ -157,7 +157,7 @@ Nov 12**. A held one shows as Not offered for that family. Conflicts show in red
    nothing automatic; Today flags it and she cancels (never a pass).
 4. Families on the list only. **Modified (2026-11-11, Waitlist Fixes Plan E3):** a buyer who was never in
    line doesn't need a side sale: the Sale page's **Give this family a status page** (or the
-   Litter page's **Sold before the waitlist…**) gives them a family page without the list, and
+   Litter page's **Non-Waitlist Sales…**) gives them a family page without the list, and
    a placed side-sale family can be **Kept off the list (family page only)**. The Side sale
    dialog warns when the family is on her do-not-sell list (K7-9).
 5. Any pup except Placed, external (or gone/deceased/archived). Tell her what doesn't match,

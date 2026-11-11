@@ -238,7 +238,7 @@ async function main() {
               : '<span class="faint">Not yet</span>';
         return row(e, [`<strong>${nameOf(e)}</strong>`, pup ? esc(pup.call_name || '—') : none, home]);
       }))
-    : '<div class="empty-state">No family pages. A litter sold before you used the waitlist can give its families a status page from its Litter page (Sold before the waitlist…).</div>';
+    : '<div class="empty-state">No family pages. A litter sold outside the waitlist can give its families a status page from its Litter page (Non-Waitlist Sales…).</div>';
 
   // --- Closed runs ---
   // A family with a pup selected is still on the list, not closed; a family page only

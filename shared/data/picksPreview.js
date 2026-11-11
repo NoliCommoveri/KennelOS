@@ -184,7 +184,7 @@ export function previewPicks(data, { litterId, today, view = 'combined', eitherA
   const kennelOffers = offers.filter((o) => !o.is_archived && (!o.kennel_id || o.kennel_id === kennelId));
   const base = litters.find((l) => l.id === litterId);
   if (!base) throw new Error('That litter no longer exists.');
-  if (base.waitlist_off) throw new Error('This litter is kept off the waitlist (sold before the waitlist). Put it back on the waitlist from its page first.');
+  if (base.waitlist_off) throw new Error('This litter is kept off the waitlist (Non-Waitlist Sales). Put it back on the waitlist from its page first.');
   const alreadyOpen = Boolean(base.picks_opened_date);
   const target = alreadyOpen ? base : { ...base, picks_opened_date: today };
   const kennelLitters = litters.filter((l) => l.kennel_id === kennelId && !l.is_archived && !l.waitlist_off).map((l) => (l.id === litterId ? target : l));

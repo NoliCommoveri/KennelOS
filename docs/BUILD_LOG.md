@@ -3198,3 +3198,9 @@ the application's name).
   days). `node --test` 1712 pass; `cd cloud && npm test` 306 pass; `node build/assemble.mjs`
   succeeds. Docs: End-State guide §35.1; plan status and a **Modified** note. No new file, no
   schema. Service-worker cache rides `v115`.
+
+## 2026-11-11: "Non-Waitlist Sales"
+
+The owner renamed step 3's "Sold before the waitlist…" to **Non-Waitlist Sales…** (the Litter
+page's button and dialog, the kept-off panel, the Waitlist page's empty Family pages only
+line, and the refusals that name it). Wording only. Service-worker cache rides `v115`.

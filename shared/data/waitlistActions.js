@@ -583,7 +583,7 @@ export async function offerNext(litterId, { today = todayYMD() } = {}) {
 
 // A litter kept off the waitlist (E3) is never offered: no picks, no turn.
 function assertOnWaitlist(litter) {
-  if (litter.waitlist_off) throw new Error(`${litter.nickname || 'This litter'} is kept off the waitlist (sold before the waitlist). Put it back on the waitlist from its page first.`);
+  if (litter.waitlist_off) throw new Error(`${litter.nickname || 'This litter'} is kept off the waitlist (Non-Waitlist Sales). Put it back on the waitlist from its page first.`);
 }
 
 // Offer one family a turn from their own page (Spec §15.2): the waitlist as the
@@ -1899,7 +1899,7 @@ export async function setFamilyPageOnly(entryId, on = true, { date = todayYMD() 
   });
 }
 
-// What "Sold before the waitlist…" would do on this litter (waitlistRules.familyPagePlan),
+// What "Non-Waitlist Sales…" would do on this litter (waitlistRules.familyPagePlan),
 // with each buyer's contact: { litter, rows: [{ dog, sale, contact, blocker }], unsold }.
 export async function soldBeforeWaitlistPlan(litterId) {
   const litter = await litterRepo.getById(litterId);
@@ -1913,7 +1913,7 @@ export async function soldBeforeWaitlistPlan(litterId) {
   return { litter, rows, unsold: plan.unsold };
 }
 
-// "Sold before the waitlist…" (her case): the litter is kept off the waitlist and each
+// "Non-Waitlist Sales…" (her case): the litter is kept off the waitlist and each
 // live sale of its pups with a buyer gets a family page. Refused while picks are open
 // or a family holds a turn or a side sale on it: close those first.
 // → { litter, created: [entry], skipped: [{ dog, sale, blocker }] }

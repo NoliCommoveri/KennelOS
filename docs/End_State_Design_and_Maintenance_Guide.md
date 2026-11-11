@@ -2087,7 +2087,7 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   one kennel (`?kennel=`, else scope, else busiest; `waitlistUI.resolveWaitlistKennel`).
 - **Litter page:** the **Waitlist picks** panel (`assets/waitlistPicksPanel.js`, loaded only
   with the flag): picks open/closed, the open turn and its actions, next up, the litter's
-  queue, history. It re-reads the litter after each write. **Sold before the waitlist…** shows
+  queue, history. It re-reads the litter after each write. **Non-Waitlist Sales…** shows
   there while picks aren't open and nobody holds a turn on it and a pup has a sale with a buyer
   (on its own small **Waitlist** card when the panel would be empty); its dialog lists each pup →
   buyer, any pup with no sale, and a buyer on her do-not-sell list. A `waitlist_off` litter's

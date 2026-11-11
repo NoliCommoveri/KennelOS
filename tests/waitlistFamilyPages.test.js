@@ -105,7 +105,7 @@ test('E3: familyPageBlocker refuses an ended sale, no buyer, a claimed sale; fam
 
 // --- Sold before the waitlist --------------------------------------------------------
 
-test('E3: "Sold before the waitlist" keeps the litter off and gives each buyer a family page', async () => {
+test('E3: "Non-Waitlist Sales" keeps the litter off and gives each buyer a family page', async () => {
   const res = await actions.soldBeforeWaitlist(OLD.id, { date: DAY });
   assert.equal(res.litter.waitlist_off, true);
   assert.equal(res.created.length, 2);

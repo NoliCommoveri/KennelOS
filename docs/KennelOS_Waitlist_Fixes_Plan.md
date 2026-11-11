@@ -193,7 +193,7 @@ regenerated.
   every list. Undoable.
   **Modified (built):** the undo, **Put back on the list…**, is offered only to a family that
   was on the list (fee received), so a record made as a family page never jumps to #1.
-  "Sold before the waitlist…" lives in the Litter page's waitlist panel (its own small card
+  "Sold before the waitlist…" is labelled **Non-Waitlist Sales…** (owner, 2026-11-11) and lives in the Litter page's waitlist panel (its own small card
   when the panel would otherwise be empty).
 
 `addFamilyPage(saleId)` in `waitlistActions.js` creates the record: the sale's buyer as its

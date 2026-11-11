@@ -144,18 +144,18 @@ export async function renderWaitlistPicksPanel({ mount, litter, onChange = async
 
   // Kept off the waitlist (E3): its family pages, and the way back.
   if (litter.waitlist_off) return renderKeptOff({ mount, litter, d, familyLink, onChange });
-  // "Sold before the waitlist…" (E3): while picks aren't open and nobody holds a turn
+  // "Non-Waitlist Sales…" (E3): while picks aren't open and nobody holds a turn
   // or a side sale here, and some pup has a sale with a buyer.
   const plan = familyPagePlan(litter, { pups: d.pups, sales: d.sales, entries: d.entries, offers: d.kennelOffers });
   const canSoldBefore = !picksOpen && !d.offers.some((o) => o.outcome === 'open' && !o.is_archived) && plan.rows.length > 0;
-  const soldBeforeBtn = canSoldBefore ? '<button class="btn btn-sm" data-pk="sold-before" title="These pups were sold before you used the waitlist: give their families a status page and keep this litter off the waitlist">Sold before the waitlist…</button>' : '';
+  const soldBeforeBtn = canSoldBefore ? '<button class="btn btn-sm" data-pk="sold-before" title="These pups were sold outside the waitlist: give their families a status page and keep this litter off the waitlist">Non-Waitlist Sales…</button>' : '';
 
   // Nothing to show for a kennel that has never used the waitlist on this litter.
   if (!picksOpen && !d.offers.length && !queue.length && !d.entries.some((e) => e.status === 'active')) {
     if (!canSoldBefore) { mount.innerHTML = ''; return; }
     mount.innerHTML = `<section class="card" style="margin-top:16px;">
       <div class="row-between"><h2 style="margin:0;">Waitlist</h2><div class="pill-row">${soldBeforeBtn}</div></div>
-      <p class="field-hint" style="margin:6px 0 0;">Sold these pups before you used the waitlist? Their families can still get a status page (pickup times, extras, the puppy portal link and your messages) without being on the list.</p>
+      <p class="field-hint" style="margin:6px 0 0;">Sold these pups outside the waitlist? Their families can still get a status page (pickup times, extras, the puppy portal link and your messages) without being on the list.</p>
     </section>`;
     mount.querySelector('[data-pk="sold-before"]').addEventListener('click', async () => {
       try { if (await soldBeforeDialog(litter)) await onChange(); } catch (e) { await alertModal({ title: 'Couldn\'t do that', message: e.message || String(e) }); }
@@ -393,7 +393,7 @@ export async function renderWaitlistPicksPanel({ mount, litter, onChange = async
   })));
 }
 
-// --- Sold before the waitlist (E3, Waitlist Fixes Plan §3.3) ------------------------
+// --- Non-Waitlist Sales (E3, Waitlist Fixes Plan §3.3) ------------------------
 
 // What it will do, listed first: each pup with a buyer (a family page, or why not),
 // any pup with no sale, and a buyer on her do-not-sell list (K7-9). Resolves the
@@ -406,7 +406,7 @@ async function soldBeforeDialog(litter) {
   const lines = plan.rows.map((r) => `<li><strong>${esc(r.dog.call_name || 'A pup')}</strong> → ${esc(buyer(r))}${r.blocker ? ` <span class="faint">(no new page: ${esc(r.blocker)})</span>` : ''}${dns(r) ? `<div class="inline-warn" style="margin:4px 0;">${esc(dns(r))}</div>` : ''}</li>`).join('');
   let res = null;
   const ok = await formModal({
-    title: 'Sold before the waitlist?',
+    title: 'Non-Waitlist Sales',
     bodyHtml: `<p style="margin-top:0;">This litter is kept off the waitlist: no picks or turns, and it isn't shown on your waitlist pages (Available Puppies, Coming up). ${made.length ? `${made.length === 1 ? 'Its family gets' : `${made.length} families get`} a status page without being on the list:` : 'Nobody new gets a status page:'}</p>
       <ul style="margin:4px 0 8px; padding-left:18px;">${lines}</ul>
       ${plan.unsold.length ? `<p class="field-hint">No sale yet: ${esc(plan.unsold.map((x) => x.call_name || 'a pup').join(', '))}. ${plan.unsold.length === 1 ? 'It isn\'t' : 'They aren\'t'} offered on the waitlist either; give a sale a family page from the Sale page later.</p>` : ''}
@@ -430,7 +430,7 @@ function renderKeptOff({ mount, litter, d, familyLink, onChange }) {
     <div class="row-between"><h2 style="margin:0;">Waitlist</h2><div class="pill-row">
       ${more.length ? `<button class="btn btn-sm" data-pk="sold-before" title="${esc(more.map((r) => r.dog.call_name).join(', '))}">Make ${more.length} more family page${more.length === 1 ? '' : 's'}…</button>` : ''}
       <button class="btn btn-sm" data-pk="on-waitlist">Put back on the waitlist…</button></div></div>
-    <p class="field-hint" style="margin:6px 0 0;"><span class="badge badge-blue">Kept off the waitlist</span> Sold before the waitlist: no picks or turns, and it isn't on your waitlist pages. Its families have a status page only (Pickup times below is what they book from).</p>
+    <p class="field-hint" style="margin:6px 0 0;"><span class="badge badge-blue">Kept off the waitlist</span> Non-Waitlist Sales: no picks or turns, and it isn't on your waitlist pages. Its families have a status page only (Pickup times below is what they book from).</p>
     ${pages.length ? `<ul style="margin:8px 0 0; padding-left:18px;">${pages.map((e) => `<li>${familyLink(e)}${pupName(e) ? ` · ${esc(pupName(e))}` : ''}${e.status !== 'placed' ? ' <span class="faint">(backed out)</span>' : ''}</li>`).join('')}</ul>` : '<p class="muted" style="margin:8px 0 0;">No family pages yet.</p>'}
   </section>`;
   const run = (fn) => async () => {
