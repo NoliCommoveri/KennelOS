@@ -163,7 +163,7 @@ test('Available Puppies: Males left, Females right, the label once above each, a
   // Each with its registration when set; an undecided one (none set) shows none here.
   assert.match(html, /<li>Poppy <span class="muted">· Full · AKC<\/span><\/li><li>&lt;b&gt;Rue&lt;\/b&gt; <span class="muted">· CKC<\/span><\/li>/);
   assert.equal(html.includes('Puppies</div>'), false, 'no third column without a pup of no sex');
-  assert.match(pupColumnsHtml({ pups: [{ call_name: 'Bo', sex: 'female' }] }), /Males<\/div><div class="muted">None left/);
+  assert.match(pupColumnsHtml({ pups: [{ call_name: 'Bo', sex: 'female' }] }), /Males<\/div><div class="muted pup-col-empty">None left/);
   assert.equal(pupColumnsHtml({ pups: [] }), '<div class="small muted">No puppies remaining</div>');
   assert.match(pupColumnsHtml({ pups_available: 1, pups_male: 1 }), /1 male remaining/, 'a card without names keeps the counts');
 });

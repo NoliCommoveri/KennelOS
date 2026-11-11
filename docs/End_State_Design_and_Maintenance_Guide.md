@@ -2277,8 +2277,12 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   badge once they back out), never "your time on the waitlist". They're in no `public_list`
   or `public_selected` row, and their litter (`waitlist_off`) is in no `litters`,
   `upcoming` or `turn_queue`.
-  The public list's Available Puppies and Coming up cards are centered, like the status
-  page (`main.centered`), by `#available, #upcoming` in `family.css`.
+  The public list's Available Puppies and Coming up cards center what's inside them
+  (`#available, #upcoming` in `family.css`); their headings stay left like the page's other
+  folded cards. On the status page (`main.centered`) every card's heading and content are
+  centered. The section labels (Still Available, Already Reserved) are bold in title case,
+  like the cards' other labels, and an empty column's "None left" / "None"
+  (`.pup-col-empty`) sits on the line of a pup's name in the next column.
   Each open offer carries `deposit_instructions` (her `payment_instructions`) and, once
   picked, `deposit_amount` (the sale's deposit, else her listed one: `depositFor`) and
   `picked_pup` (the Worker adds it to the offer's pups: it's no longer available). After a

@@ -3205,6 +3205,18 @@ The owner renamed step 3's "Sold before the waitlist…" to **Non-Waitlist Sales
 page's button and dialog, the kept-off panel, the Waitlist page's empty Family pages only
 line, and the refusals that name it). Wording only. Service-worker cache rides `v115`.
 
+## 2026-11-11: Family pages' Available Puppies card, aligned
+
+- Public list: the Available Puppies and Coming up headings sit left like the page's other
+  folded cards; only what's inside them stays centered. The status page (all centered) was
+  checked and needed no change.
+- Both pages: **Still Available** / **Already Reserved** lose the all-caps, letter-spaced
+  style for the cards' own bold title case; "None left" / "None" (`.pup-col-empty`) line up
+  with the pup names beside them.
+- `cloud/public/family/common.js`, `family.css`; one regex in `tests/familyPages.test.js`.
+  `node --test` 1712 pass; `cd cloud && npm test` 306 pass. Docs: End-State guide (public
+  list cards). No new file; service-worker cache rides `v115`.
+
 ## 2026-11-11: Firma chosen for e-sign (plan only)
 
 Researched firma.dev for step 8 of `docs/KennelOS_Integrations_Plan.md` and wrote it up as
