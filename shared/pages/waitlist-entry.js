@@ -1943,7 +1943,9 @@ function renderTitle() {
   }
   const e = ctx.entry;
   els.title.innerHTML = esc(entryName(e, ctx.contact)) + (e.is_archived ? ' <span class="badge badge-gray">Archived</span>' : '');
-  els.subtitle.textContent = isFamilyPageOnly(e) ? `${ctx.kennel.kennel_name} family page (not on the waitlist)` : `${ctx.kennel.kennel_name} waitlist`;
+  // Short, so the ⋯ menu keeps its place on a phone; Details' "Family page only"
+  // badge says they aren't on the list.
+  els.subtitle.textContent = isFamilyPageOnly(e) ? `${ctx.kennel.kennel_name} family page` : `${ctx.kennel.kennel_name} waitlist`;
 }
 
 // --- The three tabs (decided 2026-10-10) ---------------------------------------------

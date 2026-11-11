@@ -3260,3 +3260,12 @@ Every pickup event made from a family's choice now carries their time:
 
 Service-worker cache bumped to `v116` for this session's pickup changes (seven weeks, the
 meetup time, and pickups that start with the family's time).
+
+## 2026-11-11: A family-page-only entry's header on a phone
+
+Its subtitle ("<kennel> family page (not on the waitlist)") filled the header row, so the
+⋯ menu wrapped onto its own line. The subtitle is now "<kennel> family page" (the Details
+card's **Family page only** badge says they aren't on the list), and the entry page's
+header keeps ⋯ beside the title at any width (title block `flex: 1 1 0; min-width: 0`,
+actions `flex: none`). Checked at phone width (Pixel 5). `waitlist-entry.html` / `.js`;
+no new file. Service-worker cache rides `v116`.
