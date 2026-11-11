@@ -13,7 +13,7 @@ The KennelPort seam has its own plan and its own findings, in the KennelPort rep
 | K4 | The cloud Worker | `claude/kennelos-cloud-worker-review-l5z99f` | 2026-11-09 | 0 | 6 | 3 | 5 | [`K04-cloud-worker.md`](findings/K04-cloud-worker.md) |
 | K5 | Vault, licence, account identity | `claude/kennelos-k5-review-y6hzba` | 2026-11-09 | 2 | 5 | 3 | 4 | [`K05-vault-licence.md`](findings/K05-vault-licence.md) |
 | K6 | Waitlist engine: positions, turns, offers | `ccr-8fd56b18-848kuq` | 2026-11-10 | 0 | 3 | 7 | 3 | [`K06-waitlist-engine.md`](findings/K06-waitlist-engine.md) |
-| K6b | Picks preview, side sales, undo windows | — | — | — | — | — | — | — |
+| K6b | Picks preview, side sales, undo windows | `claude/kennelos-waitlist-review-qzhan9` | 2026-11-11 | 0 | 5 | 4 | 1 | [`K06b-picks-side-sales-undo.md`](findings/K06b-picks-side-sales-undo.md) (read only: nothing run) |
 | K7 | Waitlist online: applications, public list, family pages | `ccr-30110b09-vr8rb2` | 2026-11-10 | 1 | 2 | 10 | 1 | [`K07-waitlist-online.md`](findings/K07-waitlist-online.md) |
 | K8 | Family requests, pickup, transport, fees, emails | `ccr-0bd82d66-slnt65` | 2026-11-10 | 2 | 2 | 9 | 2 | [`K08-family-requests.md`](findings/K08-family-requests.md) |
 | K9 | Dogs, litters, pairings, events, nudges, Today | `ccr-fbf95967-bqp6ig` | 2026-11-10 | 1 | 2 | 7 | 3 | [`K09-dogs-litters-nudges.md`](findings/K09-dogs-litters-nudges.md) |
