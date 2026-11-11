@@ -3097,3 +3097,46 @@ turns too.
   ends the turn and the page says whose and who's next.
 - Docs: End-State guide §29 (rules, side sales, undo windows, leaving, Tidy up); Side Sale
   spec **Modified** notes. No new file, no schema, no new field. Service-worker cache bumped to `v114`.
+
+## 2026-11-11: Waitlist fixes, step 2: Pup selected and Already Reserved
+
+`docs/KennelOS_Waitlist_Fixes_Plan.md` step 2 (E1, E2, K6-12 item 1, K8-12, K8-7, K7-12, K7-8,
+K6-9, K6-10). The open decisions it touches were built as the plan recommends (D3: the row
+shows the listed name and "Pup selected", her own page names the pup; D12: public names from
+the application's name).
+- **E1, Pup selected.** `waitlistRules.holdsPlace` (placed, open sale, pup not gone, not
+  `off_list`) and `numberedList` (waiting + holding families, one order). `rankedList` stays
+  waiting-only for the turn rules. `overallPositions`, `prefPlaces`, `publicList` and the new
+  `publicSelected` number from `numberedList` and throw without `{ sales, dogs }`; every
+  caller passes them (status page projection, emails, Kels, picks panel and preview, side-sale
+  dialog, lost-pup dialog, Kels's Add people, Waitlist Today report, the family's page). The
+  projection publishes `public_selected`; the Worker serves it as `listView.selected` /
+  `statusView.public_selected`; `common.publicListHtml` puts the rows in at their numbers
+  with a ✓ and "Pup selected"; `publicListText` gains "✓ #3 … · Pup selected". Her Waitlist
+  page's On the list card shows them with a "Pup selected: [pup]" badge, not in Closed.
+- **E2, Already Reserved.** `isPupReserved` (disposition Placed; the website's rule, pinned
+  by a test). Projection litters gain `reserved`; `pups` stays available-only, so no turn,
+  automatic offer or price reads a reserved pup. `litterCard` passes it through; the family
+  pages' card shows Still Available and Already Reserved, Males and Females columns each,
+  stacked on a phone. Her Litters card gains a Reserved count.
+- **One rule for the waitlist's litters (K6-12 item 1):** `isWaitlistLitter` / `waitlistLitters`;
+  the copies on the Waitlist, entry and side-sale pages, Today and the projection now use it.
+- **Placed family (K8-12):** `isPlacedFamily`; the funnel, days to placement and Offers &
+  Removals count a back-out as Backed out, never Placed.
+- **A decided back-out (K8-7)** stays on the family's page for 30 days without a sale, saying
+  what happened to the deposit; three new email kinds (`backed_out_keep|move|refund`, also in
+  the Worker's `EMAIL_KINDS`) replace "request approved" for it.
+- **Policies banner (K7-12):** the applied date is published for a placed family with an
+  open sale; the banner's button reads "Read our policies".
+- **Public names (K7-8):** `publicNameParts`, `publicSourceName`; "Smith, John" → John S., "The
+  Smith Family" → S. Family; the Approve dialogs always show the public form.
+- **Waitlist page:** tables scroll in their cards (K6-10); Paused / Not ready badges format
+  their dates (K6-9).
+- Tests: `tests/waitlistPupSelected.test.js` (21); older tests pass `{ sales, dogs }` and pin
+  the new projection keys. `node --test` 1693 pass; `cd cloud && npm test` 306 pass;
+  `node build/assemble.mjs` succeeds. Checked in a browser at 390px: her Waitlist page and
+  the family pages' list and card.
+- Docs: guide §29 (Pup selected, placed family, waitlist litters, reserved pups, public
+  names, Available Puppies, Backing out, policies banner, reports); Waitlist Spec §15.3 and
+  Family Requests plan §7 **Modified** notes. No new file, no schema, no new stored field.
+  Release: Worker and family pages first, then the app. Service-worker cache rides `v114`.

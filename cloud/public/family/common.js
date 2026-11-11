@@ -117,11 +117,16 @@ export function rowMatches(row, query) {
 // deciding", highlighted, with their sex preference and date added (decided 2026-10-10).
 // A paused family (only when she shows them, waitlist_config.public_show_paused)
 // reads "Skipped until <date>" (or "Skipped for now") in place of their preference.
-export function publicListHtml(rows, query = '', mine = null) {
+// `selected`: the families with a pup selected (Waitlist Fixes Plan §3.1), put in at
+// the numbers they hold with a tick, their name and "Pup selected" under Wants. The
+// note about names not shown is worked out after they're in, so they never set it off.
+export function publicListHtml(rows, query = '', mine = null, selected = []) {
+  rows = [...rows, ...(Array.isArray(selected) ? selected : []).map((r) => ({ ...r, selected: true }))]
+    .sort((a, b) => a.position - b.position);
   const shown = rows.filter((r) => rowMatches(r, query));
   if (!rows.length) return '<p class="muted">No families to show right now.</p>';
   if (!shown.length) return `<p class="muted">No one on the list matches "${esc(query)}".</p>`;
-  const rowClass = (r) => [r.position === mine && 'mine', r.deciding && 'deciding'].filter(Boolean).join(' ');
+  const rowClass = (r) => [r.position === mine && 'mine', r.deciding && 'deciding', r.selected && 'selected'].filter(Boolean).join(' ');
   // The date added is a bubble on the ⓘ at the row's end (hover, focus or tap),
   // not a column (asked by the owner, 2026-11-01).
   const added = (r) => (r.added ? `<button type="button" class="added-tip" aria-label="Added ${esc(fmtDate(r.added))}" data-tip="Added ${esc(fmtDate(r.added))}">i</button>` : '');
@@ -133,9 +138,9 @@ export function publicListHtml(rows, query = '', mine = null) {
     ? `<button type="button" class="added-tip program-tip" aria-label="${esc(r.program.about)}" data-tip="${esc(r.program.about)}">${PROGRAM_ICON_SVG[r.program.icon]}</button>` : '');
   const wants = (r) => [SEX_LABEL[r.pref_sex] || 'Either', ...(Array.isArray(r.wants_more) ? r.wants_more : [])].map(esc).join(' · ');
   const body = shown.map((r) => `<tr${rowClass(r) ? ` class="${rowClass(r)}"` : ''}>
-      ${marks ? `<td class="mark">${program(r)}</td>` : ''}<td class="num">#${esc(r.position)}</td>
+      ${marks ? `<td class="mark">${program(r)}</td>` : ''}<td class="num">${r.selected ? '<span class="tick" aria-label="Pup selected">✓</span> ' : ''}#${esc(r.position)}</td>
       <td>${r.deciding ? `<em>${esc(r.name)}</em>` : esc(r.name)}${r.position === mine ? ' <span class="badge">You</span>' : ''}</td>
-      <td>${r.skipped ? `<em>${esc(r.skipped_until ? `Skipped until ${fmtDate(r.skipped_until)}` : 'Skipped for now')}</em>` : wants(r)}</td>
+      <td>${r.selected ? '<em>Pup selected</em>' : r.skipped ? `<em>${esc(r.skipped_until ? `Skipped until ${fmtDate(r.skipped_until)}` : 'Skipped for now')}</em>` : wants(r)}</td>
       <td class="tip">${added(r)}</td></tr>`).join('');
   const gaps = rows.some((r, i) => r.position !== i + 1);
   return `<table class="list"><thead><tr>${marks ? '<th class="mark"><span class="sr-only">Program</span></th>' : ''}<th>#</th><th>Name</th><th>Wants</th><th class="tip"><span class="sr-only">Added</span></th></tr></thead><tbody>${body}</tbody></table>
@@ -312,18 +317,27 @@ export function pupsRemaining(l) {
 // its photos) when it has one, with its registration and registry after it when set. A
 // pup of no recorded sex gets a third column. Falls back to the counts
 // (pupsRemaining) for a card published without names.
+// With any reserved pup (`l.reserved`, Waitlist Fixes Plan §3.2), two sections:
+// Still Available, then Already Reserved, each with its Males and Females columns
+// (side by side, stacked on a phone). Nothing says who reserved a pup.
 export function pupColumnsHtml(l) {
   const pups = Array.isArray(l.pups) ? l.pups : null;
+  const reserved = Array.isArray(l.reserved) ? l.reserved : [];
   if (!pups) return `<div class="small">${esc(pupsRemaining(l))}</div>`;
-  if (!pups.length) return '<div class="small muted">No puppies remaining</div>';
   const name = (d) => {
     const bits = [pupRegistration(d), d.registry].filter(Boolean);
     return `${d.photos_url ? photosLink(d.photos_url, d.call_name || 'Puppy') : esc(d.call_name || 'Puppy')}${bits.length ? ` <span class="muted">· ${esc(bits.join(' · '))}</span>` : ''}`;
   };
-  const col = (label, list) => `<div class="pup-col"><div class="pup-col-head">${esc(label)}</div>${list.length
-    ? `<ul class="plain">${list.map((d) => `<li>${name(d)}</li>`).join('')}</ul>` : '<div class="muted">None left</div>'}</div>`;
-  const other = pups.filter((d) => d.sex !== 'male' && d.sex !== 'female');
-  return `<div class="pup-cols small">${col('Males', pups.filter((d) => d.sex === 'male'))}${col('Females', pups.filter((d) => d.sex === 'female'))}${other.length ? col('Puppies', other) : ''}</div>`;
+  const col = (label, list, empty) => `<div class="pup-col"><div class="pup-col-head">${esc(label)}</div>${list.length
+    ? `<ul class="plain">${list.map((d) => `<li>${name(d)}</li>`).join('')}</ul>` : `<div class="muted">${empty}</div>`}</div>`;
+  const columns = (list, empty) => {
+    const other = list.filter((d) => d.sex !== 'male' && d.sex !== 'female');
+    return `<div class="pup-cols small">${col('Males', list.filter((d) => d.sex === 'male'), empty)}${col('Females', list.filter((d) => d.sex === 'female'), empty)}${other.length ? col('Puppies', other, empty) : ''}</div>`;
+  };
+  const available = pups.length ? columns(pups, 'None left') : '<div class="small muted">No puppies remaining</div>';
+  if (!reserved.length) return available;
+  return `<div class="pup-sections"><div class="pup-section"><div class="pup-section-head small">Still Available</div>${available}</div>
+    <div class="pup-section"><div class="pup-section-head small">Already Reserved</div>${columns(reserved, 'None')}</div></div>`;
 }
 
 // A turn's litter link: its page on her KennelPort website (`page`, from

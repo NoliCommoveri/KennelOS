@@ -21,6 +21,7 @@ import {
 import { registrationsForPurposes, cleanPurposes } from '../shared/data/vocab.js';
 
 const K = 'kennel-a';
+const NONE = { sales: [], dogs: [] }; // no family with a pup selected
 const TODAY = '2026-10-05';
 
 let n = 0;
@@ -134,10 +135,10 @@ test('a fee-waived entry with no fee date is anchored at its approval date', () 
 
 test('positions are derived: removing someone ahead moves everyone behind up', () => {
   const list = [entry({ id: 'a', fee_received_date: '2026-01-01' }), entry({ id: 'b', fee_received_date: '2026-02-01' }), entry({ id: 'c', fee_received_date: '2026-03-01' })];
-  assert.equal(overallPositions(list, K).get('c'), 3);
+  assert.equal(overallPositions(list, K, new Map(), NONE).get('c'), 3);
   list[0] = { ...list[0], status: 'placed' };
-  assert.equal(overallPositions(list, K).get('c'), 2);
-  assert.equal(overallPositions(list, K).has('a'), false);
+  assert.equal(overallPositions(list, K, new Map(), NONE).get('c'), 2);
+  assert.equal(overallPositions(list, K, new Map(), NONE).has('a'), false);
 });
 
 // --- Availability + preferences --------------------------------------------------------
@@ -273,7 +274,7 @@ test('litter queue: list order, filtered to eligible families, with per-litter p
   const q = litterQueue([fourth, third, second, first], l, pups, [], { today: TODAY });
   assert.deepEqual(q.map((x) => [x.entry.id, x.litterPosition]), [['second', 1], ['fourth', 2]]);
   // Overall position is unchanged by being skipped (listen-only never costs a place).
-  assert.equal(overallPositions([fourth, third, second, first], K).get('third'), 3);
+  assert.equal(overallPositions([fourth, third, second, first], K, new Map(), NONE).get('third'), 3);
 });
 
 test('next family: one open offer per litter; spent turns skipped; a voided offer gives the turn back', () => {
@@ -882,7 +883,7 @@ test('prefPlaces (decided 2026-10-10): their place for each answer they narrowed
     fam({ pref_sex: 'male', pref_purposes: ['pet'] }),          // the family we look at
     fam({})                                                     // all open
   ];
-  const places = prefPlaces(list, K);
+  const places = prefPlaces(list, K, new Map(), undefined, NONE);
   // f5: #5 overall. Male: f2, f3, f4 would take a male → #4. Pet: f1 and f2 (purposes
   // open) and f4 → #4 (f3 wants show only). Both: f2 and f4 → #3.
   assert.deepEqual(places.get('f5'), { all: 3, sex: 4, purposes: 4 });
@@ -891,8 +892,8 @@ test('prefPlaces (decided 2026-10-10): their place for each answer they narrowed
   assert.deepEqual(narrowedPrefFields(list[4]), ['sex', 'purposes']);
   // Colors count only while she matches on color.
   const c = [fam({ pref_colors: ['black', 'red'] }), fam({ pref_colors: ['black'] })];
-  assert.deepEqual(prefPlaces(c, K).get(c[1].id), {});
-  assert.deepEqual(prefPlaces(c, K, new Map(), { ...WAITLIST_CONFIG_DEFAULTS, color_matching: true }).get(c[1].id), { colors: 2 }, 'black and red covers black');
+  assert.deepEqual(prefPlaces(c, K, new Map(), undefined, NONE).get(c[1].id), {});
+  assert.deepEqual(prefPlaces(c, K, new Map(), { ...WAITLIST_CONFIG_DEFAULTS, color_matching: true }, NONE).get(c[1].id), { colors: 2 }, 'black and red covers black');
   assert.equal(prefCovers('colors', c[1], c[0]), false, 'black alone does not cover black and red');
   assert.equal(prefCovers('breed', entry({ pref_breed: '' }), entry({ pref_breed: 'Poodle' })), true);
   assert.equal(prefCovers('breed', entry({ pref_breed: 'poodle ' }), entry({ pref_breed: 'Poodle' })), true);

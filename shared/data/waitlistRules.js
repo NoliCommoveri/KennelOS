@@ -12,7 +12,7 @@
 // The repos store; the pages call these functions to decide what to write.
 import { addDaysToYMD, addMonthsToYMD, addOpenDays, ALL_WEEKDAYS } from './dateUtils.js';
 import { findContactMatches, contactMatchReason } from './contactSearch.js';
-import { WAITLIST_OPEN_STATUSES, WAITLIST_READY_TIMING, WAITLIST_AUTO_OFFER_TRIGGER, WAITLIST_PREF_SEX, PLACEMENT_PURPOSE, REGISTRATION_TYPE, cleanPurposes, registrationsForPurposes, RELEASED_SALE_STATUSES, isLostSale, descriptor, WAITLIST_PROGRAM_ICON } from './vocab.js';
+import { WAITLIST_OPEN_STATUSES, WAITLIST_READY_TIMING, WAITLIST_AUTO_OFFER_TRIGGER, WAITLIST_PREF_SEX, PLACEMENT_PURPOSE, REGISTRATION_TYPE, cleanPurposes, registrationsForPurposes, RELEASED_SALE_STATUSES, isLostSale, isOpenSale, descriptor, WAITLIST_PROGRAM_ICON } from './vocab.js';
 
 // --- Config (Spec §4.6) -------------------------------------------------------
 
@@ -398,10 +398,57 @@ export function rankedList(entries, kennelId, programsById = new Map()) {
     .sort((a, b) => compareEntries(a, b, programsById));
 }
 
-// Map entryId → overall position (1-based) on that kennel's list.
-export function overallPositions(entries, kennelId, programsById = new Map()) {
+// --- Placed families, and "Pup selected" (Waitlist Fixes Plan §3.1) ----------------
+
+const saleLookup = (sales) => (sales instanceof Map ? (id) => sales.get(id) : (id) => (sales || []).find((s) => s.id === id));
+const dogLookup = (dogs) => (dogs instanceof Map ? (id) => dogs.get(id) : (id) => (dogs || []).find((d) => d.id === id));
+
+// A family the list placed, for the reports and E1: a placed sale that wasn't undone
+// by a back-out or a lost pup (cancelled or voided). A returned sale still was a
+// placement. With the sale missing from `sales` (array or Map by id), its status says.
+export function isPlacedFamily(entry, sales) {
+  if (!entry || !entry.placed_sale_id) return false;
+  const sale = saleLookup(sales)(entry.placed_sale_id);
+  if (!sale) return entry.status === 'placed';
+  return !['cancelled', 'voided'].includes(sale.status);
+}
+
+// "Pup selected" (E1, decided 2026-11-11): a placed family keeps its place and its
+// number until the pup has safely gone home. True for a record that is `placed`,
+// not archived, not a family page only (`off_list`), whose placed sale is still open
+// (vocab.isOpenSale: not Delivered, returned, cancelled or voided) and whose pup
+// hasn't gone (deceased, pet home, External or archived). A family placed through a
+// side sale holds its place the same way. `sales` / `dogs`: arrays or Maps by id.
+export function holdsPlace(entry, { sales, dogs } = {}) {
+  if (!entry || entry.is_archived || entry.status !== 'placed' || entry.off_list || !entry.placed_sale_id) return false;
+  const sale = saleLookup(sales)(entry.placed_sale_id);
+  if (!isOpenSale(sale)) return false;
+  const dog = dogLookup(dogs)(sale.dog_id);
+  return !dog || (!dog.is_archived && !GONE_DOG_STATUSES.includes(dog.status));
+}
+
+function requireSalesAndDogs(opts, who) {
+  if (!opts || !(Array.isArray(opts.sales) || opts.sales instanceof Map) || !(Array.isArray(opts.dogs) || opts.dogs instanceof Map)) {
+    throw new Error(`${who} needs the sales and dogs (a family with a pup selected keeps its number).`);
+  }
+}
+
+// The list as it's NUMBERED: waiting families and families holding a place (Pup
+// selected), in one order (compareEntries). `rankedList` stays waiting-only: the turn
+// rules read it, and a family with a pup selected is never offered a turn.
+// `{ sales, dogs }` are required.
+export function numberedList(entries, kennelId, programsById = new Map(), { sales, dogs } = {}) {
+  requireSalesAndDogs({ sales, dogs }, 'numberedList');
+  return entries
+    .filter((e) => e.kennel_id === kennelId && (isOnList(e) || holdsPlace(e, { sales, dogs })))
+    .sort((a, b) => compareEntries(a, b, programsById));
+}
+
+// Map entryId → overall position (1-based) on that kennel's list, counting families
+// with a pup selected (numberedList). Its size is the "of 7" total.
+export function overallPositions(entries, kennelId, programsById = new Map(), { sales, dogs } = {}) {
   const out = new Map();
-  rankedList(entries, kennelId, programsById).forEach((e, i) => out.set(e.id, i + 1));
+  numberedList(entries, kennelId, programsById, { sales, dogs }).forEach((e, i) => out.set(e.id, i + 1));
   return out;
 }
 
@@ -450,8 +497,8 @@ export function prefCovers(field, other, mine) {
 // narrowed). Only the answers they narrowed are present, and `all` only when they
 // narrowed two or more (with one, it's the same number). Empty for a family whose
 // answers are all open: their overall place says it.
-export function prefPlaces(entries, kennelId, programsById = new Map(), config = WAITLIST_CONFIG_DEFAULTS) {
-  const ranked = rankedList(entries, kennelId, programsById);
+export function prefPlaces(entries, kennelId, programsById = new Map(), config = WAITLIST_CONFIG_DEFAULTS, { sales, dogs } = {}) {
+  const ranked = numberedList(entries, kennelId, programsById, { sales, dogs });
   const out = new Map();
   ranked.forEach((e, i) => {
     const fields = narrowedPrefFields(e, config);
@@ -496,6 +543,17 @@ export function isPupAvailable(dog, sales = []) {
   if (UNOFFERED_DISPOSITIONS.includes(dog.disposition || 'undecided')) return false;
   return !sales.some((s) => s.dog_id === dog.id && !s.is_archived && !RELEASED_SALE_STATUSES.includes(s.status)
     && !(isSideSalePending(s) && !s.side_holds_pup));
+}
+
+// "Already Reserved" (E2, decided 2026-11-11): disposition Placed, not archived, not
+// deceased and not gone home as External. Exactly the website's rule (siteExport:
+// its puppies leave out deceased and External pups, and puppyStatus reads Placed as
+// placed; a test keeps them in step). Never both available and reserved: Available
+// and Placed are two values of one field.
+export const RESERVED_GONE_STATUSES = Object.freeze(['deceased', 'external_reference']);
+export function isPupReserved(dog) {
+  if (!dog || dog.is_archived || RESERVED_GONE_STATUSES.includes(dog.status)) return false;
+  return dog.disposition === 'placed';
 }
 
 // --- Side sales (Side Sale Spec) -------------------------------------------------
@@ -845,6 +903,15 @@ export function isListenOnly(entry) {
 export const LISTEN_LIVE_LITTER = ['expected', 'whelped', 'weaning', 'ready'];
 export const LISTEN_LIVE_PAIRING = ['planned', 'bred', 'confirmed_pregnant'];
 
+// A litter the waitlist shows (one rule for the engine, the projection, Today and the
+// waitlist pages): a live stage (LISTEN_LIVE_LITTER), not archived, this kennel.
+// `kennel`: the kennel or its id (null: any kennel).
+export function isWaitlistLitter(litter, kennel = null) {
+  const kid = kennel && typeof kennel === 'object' ? kennel.id : kennel;
+  return Boolean(litter) && !litter.is_archived && LISTEN_LIVE_LITTER.includes(litter.status) && (!kid || litter.kennel_id === kid);
+}
+export const waitlistLitters = (kennel, litters) => (litters || []).filter((l) => isWaitlistLitter(l, kennel));
+
 // What a kennel has coming before picks open (Spec §16.4), one item per future
 // litter: a pairing with no litter yet, an `expected` litter (shown with its
 // pairing, decided 2026-10-08), or a whelped litter whose picks aren't open.
@@ -858,7 +925,7 @@ export function upcomingItems(kennel, { litters = [], pairings = [] } = {}) {
   const pairingsById = new Map(pairings.map((p) => [p.id, p]));
   const hasLitter = new Set(litters.filter((l) => !l.is_archived && l.pairing_id).map((l) => l.pairing_id));
   const out = [];
-  for (const l of litters.filter((x) => own(x) && LISTEN_LIVE_LITTER.includes(x.status) && !x.picks_opened_date)) {
+  for (const l of litters.filter((x) => own(x) && isWaitlistLitter(x) && !x.picks_opened_date)) {
     const pairing = (l.pairing_id && pairingsById.get(l.pairing_id)) || null;
     const early = l.status !== 'expected';
     out.push({
@@ -909,7 +976,7 @@ export function plannedHeats(kennel, { dogs = [], events = [], today } = {}) {
 // → { sires: [dog], dams: [dog] }, each sorted by call name.
 export function listenParentChoices(kennel, { dogs = [], litters = [], pairings = [], selectedSires = [], selectedDams = [] } = {}) {
   const live = (side) => new Set([
-    ...litters.filter((l) => !l.is_archived && l.kennel_id === kennel.id && LISTEN_LIVE_LITTER.includes(l.status)).map((l) => l[side]),
+    ...waitlistLitters(kennel, litters).map((l) => l[side]),
     ...pairings.filter((p) => !p.is_archived && p.kennel_id === kennel.id && LISTEN_LIVE_PAIRING.includes(p.status)).map((p) => p[side])
   ].filter(Boolean));
   const pick = (sex, side, selected) => {
@@ -1264,7 +1331,7 @@ export function soonFamiliesForKennel(entries, offers, litters, pups, sales, opt
     }
   }
   const kennelId = litters.find((l) => !l.is_archived)?.kennel_id;
-  const order = overallPositions(entries, kennelId, opts.programsById || new Map());
+  const order = new Map(rankedList(entries, kennelId, opts.programsById || new Map()).map((e, i) => [e.id, i + 1]));
   return [...byEntry.values()].sort((a, b) => (order.get(a.entry.id) || 0) - (order.get(b.entry.id) || 0));
 }
 
@@ -1490,27 +1557,62 @@ export function entryName(entry, contact) {
 
 // --- The public list (Spec §15.3) ------------------------------------------------
 
-// "Jane S." from "Jane Smith" (first word + last word's initial). One word stays as
-// is; a blank name becomes "Family". Contact details never appear (§15.3).
+// The words of a name as the public list reads it (K7-8): "Smith, John" is read as
+// "John Smith"; a leading "The" or title (Dr., Mrs. …) is dropped; a trailing
+// "Family" / "Household" is dropped and remembered (`household`), so "The Smith
+// Family" is the Smith household, never a first name "The" and a last initial "F".
+const NAME_TITLES = ['the', 'mr', 'mrs', 'ms', 'miss', 'mx', 'dr', 'prof', 'rev'];
+const HOUSEHOLD_WORDS = ['family', 'familys', 'families', 'household'];
+const bareWord = (w) => w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+export function publicNameParts(fullName) {
+  let raw = String(fullName ?? '').trim();
+  const comma = raw.match(/^([^,]+),\s*(.+)$/);
+  if (comma) raw = `${comma[2]} ${comma[1]}`;
+  const words = raw.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w));
+  while (words.length > 1 && NAME_TITLES.includes(bareWord(words[0]))) words.shift();
+  let household = false;
+  if (words.length > 1 && HOUSEHOLD_WORDS.includes(bareWord(words[words.length - 1]))) {
+    words.pop();
+    household = true;
+  }
+  return { words, household, reordered: Boolean(comma) };
+}
+const initialOf = (word) => [...word][0].toUpperCase();
+
+// "Jane S." from "Jane Smith" (first word + last word's initial), "John S." from
+// "Smith, John", "S. Family" from "The Smith Family" (no first name to show). One
+// word stays as is; a blank name becomes "Family". Contact details never appear (§15.3).
 export function publicName(fullName) {
-  const words = String(fullName ?? '').trim().split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w));
+  const { words, household } = publicNameParts(fullName);
   if (!words.length) return 'Family';
-  if (words.length === 1) return words[0];
-  const last = words[words.length - 1];
-  return `${words[0]} ${[...last][0].toUpperCase()}.`;
+  if (words.length === 1) return household ? `${initialOf(words[0])}. Family` : words[0];
+  return `${words[0]} ${initialOf(words[words.length - 1])}.`;
 }
 
 // "A***** K" from "Andrea Kim": a family she let list privately (`private_listing`,
 // asked for on the application, approved by her). The first letter, then one
-// asterisk per letter hidden, then the last initial. One word: "A*****". Blank:
-// "Family".
+// asterisk per letter hidden, then the last initial. One word: "A*****"; a household
+// ("The Smith Family"): "S**** Family". Blank: "Family".
 export function privateName(fullName) {
-  const words = String(fullName ?? '').trim().split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w));
+  const { words, household } = publicNameParts(fullName);
   if (!words.length) return 'Family';
   const first = [...words[0]];
   const masked = `${first[0].toUpperCase()}${'*'.repeat(first.length - 1)}`;
-  if (words.length === 1) return masked;
-  return `${masked} ${[...words[words.length - 1]][0].toUpperCase()}`;
+  if (words.length === 1) return household ? `${masked} Family` : masked;
+  return `${masked} ${initialOf(words[words.length - 1])}`;
+}
+
+// The name the public list is built from (K7-8): the family's name (entryName),
+// except when the linked contact is named as a household ("Smith Family") or
+// "Last, First" and the application has a name of its own: then the applicant's.
+export function publicSourceName(entry, contact) {
+  const c = String(contact?.name ?? '').trim();
+  const a = String(entry?.application?.name ?? '').trim();
+  if (c && a) {
+    const parts = publicNameParts(c);
+    if (parts.household || parts.reordered) return a;
+  }
+  return entryName(entry, contact);
 }
 
 // The name a family shows under on the public list: "Jane S.", or "J*** S" when she
@@ -1533,10 +1635,14 @@ export const listedName = (entry, fullName) => (entry && entry.private_listing ?
 // publishes rows unmasked and the server masks them as it serves the page, from
 // who holds a turn at that moment (cloud/src/familyPages.js listView), so a turn
 // the server closes or opens while her phone is off shows right away.
+// Numbers come from numberedList (`sales` and `dogs` are required): a family with a
+// pup selected keeps its number and isn't a row here (its number is a gap, as a
+// paused family's is); publicSelected gives those rows.
 export const DECIDING_LABEL = 'Currently deciding';
-export function publicList(entries, kennelId, programsById = new Map(), { today, nameOf = (e) => entryName(e, null), deciding = () => false, config = null, wantsMore = () => [] } = {}) {
-  return rankedList(entries, kennelId, programsById)
+export function publicList(entries, kennelId, programsById = new Map(), { today, nameOf = (e) => entryName(e, null), deciding = () => false, config = null, wantsMore = () => [], sales, dogs } = {}) {
+  return numberedList(entries, kennelId, programsById, { sales, dogs })
     .map((e, i) => ({ entry: e, position: i + 1 }))
+    .filter(({ entry }) => isOnList(entry))
     .map(({ entry, position }) => ({ entry, position, paused: isPaused(entry, today, config) }))
     .filter(({ paused }) => !paused || Boolean(config && config.public_show_paused))
     .map(({ entry, position, paused }) => ({
@@ -1546,6 +1652,22 @@ export function publicList(entries, kennelId, programsById = new Map(), { today,
       added: anchorDate(entry),
       ...publicProgramOf(publicProgram(entry, programsById, config)),
       ...(deciding(entry) ? { deciding: true } : {})
+    }));
+}
+
+// The families with a pup selected (E1), at their numbers: [{ position, name, added,
+// program? }]. The name as listed (private names stay masked); never the pup, a date
+// of sale or a price. Published beside public_list as `public_selected`.
+export const PUP_SELECTED_LABEL = 'Pup selected';
+export function publicSelected(entries, kennelId, programsById = new Map(), { nameOf = (e) => entryName(e, null), config = null, sales, dogs } = {}) {
+  return numberedList(entries, kennelId, programsById, { sales, dogs })
+    .map((e, i) => ({ entry: e, position: i + 1 }))
+    .filter(({ entry }) => !isOnList(entry))
+    .map(({ entry, position }) => ({
+      position,
+      name: listedName(entry, nameOf(entry)),
+      added: anchorDate(entry),
+      ...publicProgramOf(publicProgram(entry, programsById, config))
     }));
 }
 
@@ -1603,11 +1725,14 @@ const PUBLIC_SEX = { male: 'Male', female: 'Female', any: 'Either' };
 
 // The public list as plain text for a Facebook post or website (the W1 stand-in
 // for the public link). `fmtDate` formats a YYYY-MM-DD for display.
-export function publicListText(rows, { kennelName = '', today = '', fmtDate = (d) => d } = {}) {
+// `selected`: publicSelected's rows, put in at their numbers ("✓ #3 Smith J. · Pup
+// selected"), so they don't read as gaps.
+export function publicListText(rows, { kennelName = '', today = '', fmtDate = (d) => d, selected = [] } = {}) {
   const head = `${kennelName ? `${kennelName} Waitlist` : 'Waitlist'}${today ? ` (updated ${fmtDate(today)})` : ''}`;
+  rows = [...rows, ...selected.map((r) => ({ ...r, selected: true }))].sort((a, b) => a.position - b.position);
   if (!rows.length) return `${head}\nNo families to show right now.`;
   const emoji = (icon) => WAITLIST_PROGRAM_ICON.find((i) => i.value === icon)?.emoji || '';
-  const lines = rows.map((r) => `${r.program ? `${emoji(r.program.icon)} ` : ''}#${r.position} ${r.name} · ${publicWants(r, fmtDate)}`);
+  const lines = rows.map((r) => `${r.program ? `${emoji(r.program.icon)} ` : ''}${r.selected ? '✓ ' : ''}#${r.position} ${r.name} · ${r.selected ? PUP_SELECTED_LABEL : publicWants(r, fmtDate)}`);
   // Text can't be tapped: each program icon shown gets its description as a key.
   const key = [...new Map(rows.filter((r) => r.program).map((r) => [`${r.program.icon}\n${r.program.about}`, `${emoji(r.program.icon)} ${r.program.about}`])).values()];
   const gaps = rows.some((r, i) => r.position !== i + 1);

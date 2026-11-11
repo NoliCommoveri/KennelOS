@@ -840,7 +840,7 @@ function policiesBanner(f) {
   const at = state.v.kennel.policies_updated;
   if (!hasPolicies() || !at || !f.applied_date || at <= f.applied_date || policiesSeen() >= at) return '';
   return `<div class="card policies-updated" role="status"><p>${esc(state.v.kennel.name)} updated their waitlist policies on ${esc(fmtDate(at))}.</p>
-    <div class="actions mt0"><button type="button" class="secondary small" data-policy-link="">Read what changed</button><button type="button" class="linkish small" data-act="policies-seen">Got it</button></div></div>`;
+    <div class="actions mt0"><button type="button" class="secondary small" data-policy-link="">Read our policies</button><button type="button" class="linkish small" data-act="policies-seen">Got it</button></div></div>`;
 }
 function policiesCard() {
   if (!hasPolicies()) return '';
@@ -858,16 +858,22 @@ function policyLink(text, words) {
 
 function backOutHtml(f) {
   const bo = f.back_out;
-  if (!bo?.available) return '';
+  const req = bo?.request;
+  // Without an open sale, only a back-out she approved shows (what happened to
+  // their deposit), for the days a decided request stays.
+  if (!bo || (!bo.available && req?.decided !== 'approved')) return '';
   const k = state.v.kennel;
   const kennel = k.name;
-  const req = bo.request;
   const sent = pendingOf('back_out')[0];
   if (sent || (req && !req.decided)) {
     return openCard('Backing out', `<p class="mt0"><span class="badge warn">Requested</span> ${req?.requested_date && !sent ? `on ${esc(fmtDate(req.requested_date))}. ` : ''}${esc(kennel)} will be in touch. Nothing changes until they confirm.</p>`);
   }
   if (req?.decided === 'approved') {
-    const what = { keep: 'Your puppy\'s sale is cancelled.', move: 'Your puppy\'s sale is cancelled and your deposit moves to another puppy; you\'re back on the waitlist.', refund: 'Your puppy\'s sale is cancelled and your deposit refunded.' }[req.outcome] || 'Confirmed.';
+    const what = {
+      keep: 'Your puppy\'s sale is cancelled. Your deposit is kept and isn\'t refunded.',
+      move: 'Your puppy\'s sale is cancelled and your deposit moves to your next puppy. You\'re back on the waitlist.',
+      refund: 'Your puppy\'s sale is cancelled and your deposit is being refunded.'
+    }[req.outcome] || 'Confirmed.';
     return openCard('Backing out', `<p class="mt0">${esc(kennel)} confirmed on ${esc(fmtDate(req.decided_date))}. ${esc(what)}</p>`);
   }
   if (!signedIn()) return '';
@@ -1407,9 +1413,9 @@ async function load() {
     });
     $('mine').addEventListener('toggle', (ev) => { if (ev.target.id === 'policies' && ev.target.open) markPoliciesSeen(); }, true);
     $('mine').addEventListener('submit', (ev) => { onSubmit(ev).catch(() => {}); });
-    if (v.public_list.length) {
+    if (v.public_list.length || v.public_selected?.length) {
       $('tabs').hidden = false;
-      const renderList = () => { $('list').innerHTML = publicListHtml(state.v.public_list, $('search').value, state.v.family.position || null); };
+      const renderList = () => { $('list').innerHTML = publicListHtml(state.v.public_list, $('search').value, state.v.family.position || null, state.v.public_selected || []); };
       $('search').addEventListener('input', renderList);
       renderList();
       $('tab-mine').addEventListener('click', () => selectTab('mine'));
