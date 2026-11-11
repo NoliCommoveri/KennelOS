@@ -1090,6 +1090,13 @@ position is honored. It's a tab on every family's status page, plus a public lin
 post on Facebook or her website. **This reverses §1 and §8.3** ("nobody can browse the
 list"); both are marked there.
 
+**Modified (2026-11-11, Waitlist Fixes Plan §3.1–§3.2):** a family that has picked and paid
+for a pup keeps its number on the list, marked **Pup selected** (a tick, its listed name,
+never the pup), until the pup goes home, so nobody behind it is pushed back when a pup is
+lost; numbers count those families. Each litter's Available Puppies card shows the pups
+already placed under **Already Reserved**. A contact named as a household ("Smith Family") or
+"Last, First" lists by the applicant's own name ("John S.", or "S. Family" with nothing better).
+
 - ~~**No opt-in or opt-out (decided 2026-10-06).**~~ **Partly reversed 2026-10-10: an
   applicant can ask to list privately** (see "Listing privately" below); nobody can opt
   out of the list itself. Every applicant is told before

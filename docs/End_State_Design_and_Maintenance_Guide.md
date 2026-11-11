@@ -1809,7 +1809,8 @@ restored into Lite keeps its waitlist rows, dormant.
     (`apply.js` `labelHtml`; wording without the word gets *"Read our policies"*); the status
     page's card before Messages, links at the turn (before a pick), the deposit block and
     Backing out (matched by heading words), and a banner *"[Kennel] updated their waitlist
-    policies on …"* while `policies_updated` is after the family's `applied_date` and this
+    policies on …"* (**Read our policies**) while `policies_updated` is after the family's
+    `applied_date` (published for a placed family with an open sale too) and this
     browser hasn't opened them (`localStorage` `kos-policies-seen:<public_id>`, try/catch).
     Under a `days` policy: *"Upcoming closed dates: Dec 24–26, Jan 1"*.
 
@@ -1849,6 +1850,30 @@ it computes is stored.**
 - **Position** among `active` entries: `ahead` program first, then `position_anchor_date`,
   else `fee_received_date` (else `approved_date` when the fee was waived), then
   `fee_received_at` (same-day order of payment), `approved_date`, `created_at`, `id`.
+- **Pup selected** (Waitlist Fixes Plan §3.1): a family the list placed keeps its place and
+  its number until the pup has gone home. `holdsPlace(entry, { sales, dogs })`: `placed`,
+  not archived, not `off_list`, its `placed_sale_id` sale open (`vocab.isOpenSale`: not
+  Delivered, returned, cancelled or voided) and its pup not gone (deceased, pet home,
+  External, archived); a side-sale placement too. **Two lists:** `rankedList` is waiting
+  families only, and every turn rule reads it (a family with a pup selected is never
+  offered a turn); `numberedList` adds the holders in the same order (`compareEntries`), and
+  every number reads it: `overallPositions` (its size is the "of N" total), `prefPlaces`,
+  `publicList`, `publicSelected`. Those require `{ sales, dogs }` (arrays or Maps by id) and
+  throw without them, so no screen can number the old way. A deposit ahead moves nobody; the
+  pup going home (Delivered or External) moves everyone behind up one; a lost pup's family
+  put back in line (`restoreAfterLostSale`) takes back the number it held. Her app: the
+  Waitlist page's **On the list** card shows them at their numbers with a ✓ and a **Pup
+  selected: [pup]** badge (not in Closed), and their own page a "#3 of 7, Pup selected" line.
+- **Placed family** (reports): `isPlacedFamily(entry, sales)`: a `placed_sale_id` whose sale
+  wasn't cancelled or voided (a back-out or a lost pup); a returned sale still was a
+  placement. `holdsPlace` is the narrower "still holds a number".
+- **Litters the waitlist shows:** `isWaitlistLitter(litter, kennel)` / `waitlistLitters(kennel,
+  litters)`: a live stage (`LISTEN_LIVE_LITTER`: expected, whelped, weaning, ready), not
+  archived, this kennel. The projection, the Waitlist and family pages, the side-sale dialog,
+  Today and the listen-only choices all use it (`waitlistProjection.LIVE_LITTER` is the same list).
+- **Reserved pup** (Already Reserved, §3.2): `isPupReserved(dog)`: disposition Placed, not
+  archived, not deceased or External: the website's rule (`siteExport.puppyStatus` over the
+  pups it lists; a test keeps them in step). Never also available.
 - **Available pup:** not archived, not deceased / pet home / external reference,
   disposition `available` (unset reads as `undecided`, never offered), and no live Sale
   (`waitlistRules.isPupAvailable`), except that a side sale still waiting on its deposit takes
@@ -1862,9 +1887,13 @@ it computes is stored.**
   only, not while they hold the turn or have one pending; any pup but placed, gone or
   archived; `sideSaleIssues` names what doesn't fit and she may go ahead; a non-Available pup
   becomes Available; optional `answersToFit` and intended registration), `confirmSideDeposit`
-  (sale deposit paid, pup and family placed, no turn moves on), `cancelSideSale` (family keeps
-  their place; a held pup goes back). A family with a pending side sale gets no turns
-  (`eligiblePupsFor` → []). **Two claims on one pup** (`pupClaims`: live sales and open turn
+  (sale deposit paid, pup and family placed; refused for a family no longer `active`; no turn
+  moves on, unless a turn ended there: one the server gave them, moved on as `accepted`, or
+  another family's turn left with no pup, moved on as `left`), `cancelSideSale` (family keeps
+  their place; a held pup goes back). A family leaving the list loses a pending side sale
+  (below, **Leaving releases turns**). A family with a pending side sale gets no turns
+  (`eligiblePupsFor` → []), and a turn the server gave one while her phone was off isn't
+  recorded (`planServerEvent` notes it). **Two claims on one pup** (`pupClaims`: live sales and open turn
   picks): she's warned before a second (`waitlistUI.confirmSecondClaim`, the turn pick and
   switch dialogs, the side sale dialog, the deposit dialogs); when one deposit is recorded the
   other ends (`resolveOtherClaims`: a side sale cancelled; a turn pick let go, its turn open
@@ -1892,6 +1921,17 @@ it computes is stored.**
   turn made only of those is passed at once and reported (`auto_passed`).
 - **Passes:** at `max_passes` (default 2) the entry is removed (`second_pass`), with a 7-day
   undo that forgives the latest pass.
+- **A turn left with no pup** (`turnIsEmpty`, `emptiedTurns`: no pick waiting on its deposit
+  and none of the pups its rows listed, `eligible_dog_ids`, still available) ends, never as a
+  pass: `waitlistActions.endEmptiedTurns` voids its rows with a note, adds a line to the
+  family's activity, and moves the turn on as `left`. It runs after `confirmDeposit` and
+  `confirmSideDeposit`, and after any change to her data: `watchEmptiedTurns`, started by
+  `app.js` (Pro, not Demo), runs it shortly after each `CLOUD_DATA_CHANGED_EVENT` and once on
+  load, waiting while a dialog is open, and the page says whose turn ended and who's next
+  (`waitlistUI.reportEmptiedTurns`, `describeOfferChanges`' `ended`). A pass or no response
+  recorded on such a turn never counts (`recordOutcome`; `passes.empty`). The Worker neither
+  closes it at its deadline nor reminds the family (`serverMoves.turnIsEmpty`, from the
+  projection's available pups).
 - **No silent expiry:** overdue offers and fees become Today nudges (`overdueTurns`,
   `overdueFees`).
 - **Answer changes:** every change to `PREF_CHANGE_FIELDS` after `applied` is logged in
@@ -1914,7 +1954,17 @@ it computes is stored.**
   date added is an ⓘ bubble at the row's end (hover, focus or tap), not a column; the
   copied text leaves it out. The Worker passes `wants_more` on as at most 6 strings of 200
   characters. Names are
-  "First L." (`publicName`) or masked "A***** K" (`privateName`) when `private_listing`.
+  "First L." (`publicName`) or masked "A***** K" (`privateName`) when `private_listing`,
+  read through `publicNameParts`: "Smith, John" as "John Smith", a leading "The" or title
+  dropped, a trailing "Family" / "Household" read as a household ("S. Family", "S**** Family").
+  The name they're built from is `publicSourceName`: the family's name, but the application's
+  own when the linked contact is named as a household or "Last, First". Both Approve dialogs
+  (the family's page and Kels) always show the public form.
+  Numbers come from `numberedList`: a family with a pup selected isn't a row (its number is a
+  gap, read by an older page as "names not displayed", which is true of it); `publicSelected`
+  gives those rows, `{ position, name, added, program? }` (never the pup, a date of sale or a
+  price), published as `public_selected`. The copied text (`publicListText`, `selected`) puts
+  them in at their numbers ("✓ #3 Smith J. · Pup selected") before the gap note is worked out.
   **Paused families are left out and their numbers skipped**, and no family count is shown.
   With `waitlist_config.public_show_paused` on (Waitlist settings, "Show paused families on
   the public list"; off by default) they show at their number instead, as
@@ -1953,12 +2003,14 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   with `byBreeder`; `canUndoWithdrawal`, back to `withdrawn_from`), a decline (`undoDecline`,
   back to applied), a fee expired (`undoExpire`, from `expired_date`, back to approved) and a
   fee she marked received (`undoFeeReceived`: `fee_received_manual`, counted from
-  `fee_received_at`, back to approved, and only until they're offered a turn). Each keeps the
+  `fee_received_at`, back to approved, and only until they're offered a turn or have a side
+  sale; `canUndoFeeReceived` needs the sales). Each keeps the
   family's anchor, makes no offers, and is refused once they've re-applied. A withdrawal from
   their status page and a back-out have none. Today notices only the automatic removals.
 - **Leaving releases turns:** withdraw, remove, archive, a deposit or a second-pass removal
   void the family's open offers (never a pass; a held pick's Sale is cancelled) and move
-  those litters on.
+  those litters on. A side sale still waiting on its deposit is cancelled too
+  (`cancelSideSale` with `leaving`: a held pup goes back), returned as `side_released`.
 - **Automatic offers are off by default**, per moment: `waitlist_config.auto_offer_on`
   lists the closings that offer the next family by themselves (`accepted`, `passed`,
   `no_response`, `no_deposit`, `left`, `restored`). Otherwise the next family comes back in
@@ -2159,6 +2211,23 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   sex), the label once above each, "None left" under an empty one, each name its photos link
   when it has one, then "· Limited" / "· Full" when set (`common.pupRegistration`; an
   undecided pup shows none, as no prices show there). So available pups' call names are public wherever the list shows that litter.
+  **Already Reserved**: each projection litter also carries `reserved` (`isPupReserved`
+  pups, the same allow-listed `publicPup`), and the Worker's `litterCard` passes it through
+  `cardPups`. `pups` stays available pups only: a turn's pups (`statusView`, `pups` ∩
+  `eligible_dog_ids`), the Worker's automatic offers (`serverMoves.nextFromQueue`) and the
+  turn prices read `pups`, never `reserved`. With a reserved pup, `pupColumnsHtml` draws two
+  sections, **Still Available** then **Already Reserved**, each with Males and Females
+  columns (side by side; stacked under 520px, `.pup-sections`); a litter with nothing left
+  reads "No puppies remaining" over its Already Reserved columns; without one the card is as
+  before. Nothing says who reserved a pup. The Waitlist page's Litters card has a
+  **Reserved** count and keeps a litter while it has a pup available or reserved.
+  **Pup selected rows online:** `listView.selected` / `statusView.public_selected`
+  (`familyPages.selectedRows`: a positive whole number, a name of at most 80, the date, a
+  known program icon) and `common.publicListHtml(rows, query, mine, selected)` puts them in
+  at their numbers: a ✓ by the number, the name, *Pup selected* under Wants
+  (`tr.selected`); search by name or number finds them, and the "names not displayed" note
+  is worked out after they're in. `/f/site` gets `selected` and `available[].reserved` the
+  same way (KennelPort draws them when taught to).
   The public list's Available Puppies and Coming up cards are centered, like the status
   page (`main.centered`), by `#available, #upcoming` in `family.css`.
   Each open offer carries `deposit_instructions` (her `payment_instructions`) and, once
@@ -2269,7 +2338,13 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   `withdrawn`. A ticked "Put [pup] back to" sets the pup Available (or Health hold, the default for a
   health reason) so it can be offered again. The offer that gave them the pup gets `backed_out_date` (not a pass; that
   litter counts as spent), and an open turn is closed and moves on (`left`). The Sale page's
-  extras have a **Done** tick (`completed_date`).
+  extras have a **Done** tick (`completed_date`). **After she decides:** an approved back-out
+  stays on the family's page for the days a decided request does (`requestView`), with or
+  without a sale: `entry.back_out` is `{ available: false, request }` once the sale has ended
+  (no form, no reasons), and the page says what happened to the deposit (kept, moving to
+  their next pup, refunded). The email she's offered is the outcome's own
+  (`backed_out_keep` / `backed_out_move` / `backed_out_refund`, each a template she can
+  reword), not `request_approved`.
 - **Transport options email** (`transport_options`): one she sends (Communicate… for a family
   with an open sale, and an address request), never the server; placeholders `[Distance]`
   (" You're about N miles from us.", from their latest measured address) and
@@ -2509,7 +2584,10 @@ purposes (each picked counts, `purposesWanted`), parents (any / only certain / a
 certain, and the dogs named, `parentsWanted`, `parentsNamed`), breed when more than one is
 named, color when one of her kennels matches on it). **Waitlist Today** (a snapshot, no range:
 active entries in list order per kennel from `overallPositions`, paused by `isPaused`,
-waiting since `listedSince`: anchor, else fee, approval, application). **Offers & Removals**
+waiting since `listedSince`: anchor, else fee, approval, application). A family that backed out
+is never Placed (`isPlacedFamily`): the funnel puts it at Offered, days-to-placement leaves
+it out, its exit is **Backed out** (`exitGroup` `backed_out`), and its accepted offer is
+**Accepted, then backed out** (`accepted_backed_out`). **Offers & Removals**
 (one row per closed offer and per family that left, by when: accepted / passed / no-response
 shares of closed offers, families who passed at least once, and exits by `EXIT_GROUPS`;
 `RULE_REMOVAL_REASONS` (second pass, no check-in answer, no ready-check answer, fee not
@@ -3569,8 +3647,10 @@ services and her dogs are kennel-scoped, duplicates, contacts and kennels progra
 - **Delivery:** a live litter at Whelped or later with no `delivery_type`
   (`tidyRules.deliveryFindings`, newest first) → one tap per delivery type; "I don't remember"
   is the remembered answer.
-- **Puppy plan:** a pup with a sale not returned, cancelled or voided whose disposition isn't
-  Placed → Placed.
+- **Puppy plan:** a pup with a sale past Deposit pending and not returned, cancelled or
+  voided whose disposition isn't Placed → Placed (`tidyRules.pupPlacedFindings`). A sale still
+  waiting on its deposit isn't asked about: it may fall through, and Placed takes the pup off
+  the turn of the family holding it.
 - **No plan:** an `owned` pup with no disposition at all and no sale going ahead
   (`tidyRules.pupNoPlanFindings`). Blank reads as Undecided, which the waitlist never offers
   and her website never shows as available → Available, Keeping or Still deciding

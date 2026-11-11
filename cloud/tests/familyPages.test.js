@@ -101,7 +101,8 @@ test('the public list shows only her published rows, the family holding a turn a
     // Litters with open picks: counts by sex, and the pups by name (2026-11-02).
     available: [{ id: 'l1', label: 'Juniper × Ash', status: 'whelped', whelp_date: '2026-09-01', ready_date: '2026-10-27',
       picks_open: true, pups_available: 2, pups_female: 1, pups_male: 1,
-      pups: [{ call_name: 'Pip', sex: 'male', registration: 'full', registry: 'AKC' }, { call_name: 'Poppy', sex: 'female', registration: null, registry: null }], nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] } }],
+      pups: [{ call_name: 'Pip', sex: 'male', registration: 'full', registry: 'AKC' }, { call_name: 'Poppy', sex: 'female', registration: null, registry: null }], reserved: [], nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] } }],
+    selected: [],
     upcoming: []
   });
   assert.equal((await get(env, '/f/list/kos1_99999999-2222-4333-8444-555555555555')).status, 404);
@@ -113,7 +114,7 @@ test("a family's status page shows their own place and offers, never anyone else
   const res = await get(env, `/f/status/${tok('a')}`);
   assert.equal(res.status, 200);
   const v = await res.json();
-  assert.deepEqual(Object.keys(v).sort(), ['as_of', 'emails', 'family', 'kennel', 'litters', 'offers', 'pending', 'public_list', 'upcoming']);
+  assert.deepEqual(Object.keys(v).sort(), ['as_of', 'emails', 'family', 'kennel', 'litters', 'offers', 'pending', 'public_list', 'public_selected', 'upcoming']);
   assert.deepEqual(v.emails, [], 'none sent yet');
   assert.equal(v.kennel.public_id, KENNEL, 'so the page can find this browser\'s sign-in');
   assert.deepEqual(v.pending, []);
@@ -124,7 +125,7 @@ test("a family's status page shows their own place and offers, never anyone else
     pups: [{ id: 'p2', call_name: 'Poppy', sex: 'female', color: 'black' }] }]);
   assert.deepEqual(v.litters, [{ id: 'l1', label: 'Juniper × Ash', status: 'whelped', whelp_date: '2026-09-01', ready_date: '2026-10-27',
     picks_open: true, pairing_id: null, pups_available: 2, pups_female: 1, pups_male: 1,
-    pups: [{ call_name: 'Pip', sex: 'male', registration: 'full', registry: 'AKC' }, { call_name: 'Poppy', sex: 'female', registration: null, registry: null }], nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] }, match: true }]);
+    pups: [{ call_name: 'Pip', sex: 'male', registration: 'full', registry: 'AKC' }, { call_name: 'Poppy', sex: 'female', registration: null, registry: null }], reserved: [], nickname: null, breed: null, sire: { name: '', titles: [] }, dam: { name: '', titles: [] }, match: true }]);
   const text = JSON.stringify(v);
   for (const other of ['Bo Kim', 'bo@example.com', '"bo"', 'Cy Day', 'Dee Fox', 'Venmo', tok('b'), 'queue', 'open_offer_entry_id']) {
     assert.equal(text.includes(other), false, other);
@@ -157,7 +158,7 @@ test('statusView and listView are allow-lists over the projection', () => {
   p.entries.ann.secret = 'x';
   p.kennel.private = 'y';
   assert.equal(JSON.stringify(statusView(p, 'ann')).includes('"x"'), false, 'an unknown field is never passed through');
-  assert.deepEqual(Object.keys(listView(p)).sort(), ['as_of', 'available', 'kennel', 'rows', 'upcoming']);
+  assert.deepEqual(Object.keys(listView(p)).sort(), ['as_of', 'available', 'kennel', 'rows', 'selected', 'upcoming']);
   assert.deepEqual(listView(p).available[0].pups, [{ call_name: 'Pip', sex: 'male', registration: 'full', registry: 'AKC' }, { call_name: 'Poppy', sex: 'female', registration: null, registry: null }],
     'Available Puppies names the pups (2026-11-02): name and sex only, never an id or color');
   assert.equal(JSON.stringify(listView(p)).includes('Ann L.'), false, 'the family holding a turn is masked');

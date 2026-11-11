@@ -176,3 +176,12 @@ Nov 12**. A held one shows as Not offered for that family. Conflicts show in red
   for a turn), so §6's "pass on that row" never arises; backing out works as after a turn pick.
 - No "Sell to a waitlist family…" on the dog page (the picks panel and the family page cover
   it). The two new Today nudges aren't steps of Kels's Review my waitlist.
+- A family that leaves the list (withdraws, is removed, archived, or removed after their last
+  pass) has its pending side sale cancelled at once; a held pup goes back to what it was. A
+  side-sale deposit is refused for a family no longer on the list.
+- A side-sale deposit also ends a turn that hadn't picked yet when it took that turn's last pup
+  (never a pass), and the turn moves on as when a family leaves. §5 covered only a turn pick.
+- "Undo fee received" isn't offered once a family has a side sale, and a turn the server gave a
+  family with a side sale pending (her phone was off) isn't recorded; if one was, their deposit
+  ends it and the turn moves on as `accepted`.
+- Kels's Tidy up asks to mark a pup Placed only once its sale's deposit is in.

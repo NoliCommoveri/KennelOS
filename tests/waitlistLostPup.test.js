@@ -65,7 +65,7 @@ async function placeLee() {
   return saleRepo.getById(sale.id);
 }
 
-const position = async (entryId) => rules.overallPositions(await waitlistEntryRepo.getByKennel(K.id), K.id).get(entryId);
+const position = async (entryId) => rules.overallPositions(await waitlistEntryRepo.getByKennel(K.id), K.id, new Map(), { sales: await saleRepo.getAll({ includeArchived: true }), dogs: await dogRepo.getAll({ includeArchived: true }) }).get(entryId);
 
 test('only a voided sale or a health return is a lost pup', () => {
   assert.equal(rules.restoresFamily({ status: 'voided' }), true);

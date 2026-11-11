@@ -1,6 +1,6 @@
 # KennelOS — Waitlist fixes and three enhancements (plan)
 
-> **Status: plan, nothing built.** Written 2026-11-11 from the four waitlist reviews (K6, K6b,
+> **Status: steps 1 and 2 built** (`docs/BUILD_LOG.md`, 2026-11-11); steps 3–10 not started. Written 2026-11-11 from the four waitlist reviews (K6, K6b,
 > K7, K8: `docs/review/findings/`) and three requests from the owner the same day. It lists
 > every finding with what happens to it, designs the three enhancements, and puts both into
 > one build order. The owner answered the decisions that shape the enhancements the same day

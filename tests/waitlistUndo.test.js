@@ -113,8 +113,8 @@ test('fee received: back to approved with the fee not received, until they are o
   await actions.feeReceived(approvedId, { date: '2026-10-30', amount: 250, method: 'Cash', reference: 'r1' });
   const active = await waitlistEntryRepo.getById(approvedId);
   assert.equal(active.status, 'active');
-  assert.equal(rules.canUndoFeeReceived(active, [], today), true);
-  assert.equal(rules.canUndoFeeReceived(active, [{ entry_id: approvedId }], today), false, 'offered a turn: no undo');
+  assert.equal(rules.canUndoFeeReceived(active, [], today, []), true);
+  assert.equal(rules.canUndoFeeReceived(active, [{ entry_id: approvedId }], today, []), false, 'offered a turn: no undo');
   const back = await actions.undoFeeReceived(approvedId, { today });
   assert.equal(back.status, 'approved');
   assert.equal(back.fee_received_date, null);
@@ -128,5 +128,5 @@ test('an approval that put them straight on the list (no fee) has no fee undo', 
   await kennelRepo.update(K.id, { waitlist_config: { ...K.waitlist_config, fee_amount: 0 } });
   const e = await actions.approve(id, { date: '2026-11-01' });
   assert.equal(e.status, 'active', 'no fee: straight on the list');
-  assert.equal(rules.canUndoFeeReceived(e, [], new Date().toISOString().slice(0, 10)), false);
+  assert.equal(rules.canUndoFeeReceived(e, [], new Date().toISOString().slice(0, 10), []), false);
 });

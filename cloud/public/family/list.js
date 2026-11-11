@@ -84,7 +84,7 @@ async function load() {
     showError(loadError(res, { notFound: "This waitlist isn't online. The breeder may have taken it down, or the link is incomplete." }));
     return;
   }
-  const { kennel, as_of: asOf, rows, available = [], upcoming = [] } = res.body;
+  const { kennel, as_of: asOf, rows, selected = [], available = [], upcoming = [] } = res.body;
   document.title = `${kennel.name} Waitlist`;
   $('title').textContent = `${kennel.name} Waitlist`;
   if (kennel.name) $('footer').textContent = `For questions or concerns, please contact ${kennel.name}.`;
@@ -119,7 +119,7 @@ async function load() {
 
   // No family count (decided 2026-10-10): paused families are left off the list,
   // so a count of rows is never how many are on it.
-  const render = () => { $('list').innerHTML = publicListHtml(rows, $('search').value); };
+  const render = () => { $('list').innerHTML = publicListHtml(rows, $('search').value, null, selected); };
   $('search').addEventListener('input', render);
   render();
   wireSignIn(kennel);

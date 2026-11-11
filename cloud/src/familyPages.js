@@ -312,6 +312,23 @@ function publicRows(projection) {
   });
 }
 
+// The families with a pup selected (Waitlist Fixes Plan §3.1), at the numbers they
+// hold: her device's publicSelected rows (names as public_list's, private names
+// already masked). Never a pup, a date of sale or a price. Absent in an older
+// projection: [].
+function selectedRows(projection) {
+  const rows = Array.isArray(projection.public_selected) ? projection.public_selected : [];
+  return rows.filter((r) => r && Number.isInteger(r.position) && r.position > 0 && typeof r.name === 'string').slice(0, 2000).map((r) => {
+    const icon = PROGRAM_ICONS.includes(r.program?.icon) ? r.program.icon : '';
+    const about = typeof r.program?.about === 'string' ? r.program.about.trim().slice(0, 600) : '';
+    return {
+      position: r.position, name: r.name.slice(0, 80),
+      added: typeof r.added === 'string' && YMD_RE.test(r.added) ? r.added : null,
+      ...(icon && about ? { program: { icon, about } } : {}),
+    };
+  });
+}
+
 // A litter with open picks as the pages show it (Available Puppies): her nickname,
 // breed, parents, dates, how many pups are still available by sex, and those pups
 // by call name (with each one's photos link where she shows it) and the
@@ -339,6 +356,9 @@ function litterCard(id, l) {
     pups_female: pups.filter((d) => d.sex === 'female').length,
     pups_male: pups.filter((d) => d.sex === 'male').length,
     pups: cardPups(pups),
+    // Already Reserved (E2): pups whose disposition is Placed, as her device
+    // published them. Never part of a turn: turns read `pups` only.
+    reserved: cardPups(Array.isArray(l.reserved) ? l.reserved : []),
     nickname: l.nickname ?? null,
     breed: l.breed ?? null,
     sire: parentOf(l.sire),
@@ -358,6 +378,7 @@ export function listView(projection) {
     kennel: { name: projection.kennel?.name ?? '', intro: typeof projection.kennel?.intro === 'string' ? projection.kennel.intro.slice(0, 2000) : '', apply_open: Boolean(formView(projection)), ...policiesOf(projection) },
     as_of: projection.as_of ?? null,
     rows: publicRows(projection),
+    selected: selectedRows(projection),
     available: Object.entries(projection.litters || {}).filter(([, l]) => l && l.picks_open).map(([id, l]) => litterCard(id, l)),
     upcoming: upcomingOf(projection, 'public').map(upcomingRow),
   };
@@ -610,15 +631,19 @@ export function statusView(projection, entryId, now = new Date()) {
   const pickup = e.companion?.available ? pickupOf(e.pickup) : null;
   if (pickup) family.pickup = pickup;
   // Backing out (Family Requests plan §7): only with an open sale; her reasons and
-  // what she wants them to read first.
+  // what she wants them to read first. A back-out she approved shows without one
+  // (it ended the sale), for what happened to their deposit, never as a form.
+  const ymd = (v) => (typeof v === 'string' && YMD_RE.test(v) ? v : null);
+  const backOutRequest = (r) => (r && typeof r === 'object' ? {
+    reason: typeof r.reason === 'string' ? r.reason.slice(0, 200) : '', requested_date: ymd(r.requested_date),
+    decided: ['approved', 'declined'].includes(r.decided) ? r.decided : null, decided_date: ymd(r.decided_date),
+    outcome: ['keep', 'move', 'refund'].includes(r.outcome) ? r.outcome : null,
+  } : null);
+  if (e.back_out && !e.back_out.available && e.back_out.request?.decided === 'approved') {
+    family.back_out = { available: false, request: backOutRequest(e.back_out.request) };
+  }
   if (e.companion?.available && e.back_out?.available) {
-    const r = e.back_out.request;
-    const ymd = (v) => (typeof v === 'string' && YMD_RE.test(v) ? v : null);
-    family.back_out = { available: true, request: r && typeof r === 'object' ? {
-      reason: typeof r.reason === 'string' ? r.reason.slice(0, 200) : '', requested_date: ymd(r.requested_date),
-      decided: ['approved', 'declined'].includes(r.decided) ? r.decided : null, decided_date: ymd(r.decided_date),
-      outcome: ['keep', 'move', 'refund'].includes(r.outcome) ? r.outcome : null,
-    } : null };
+    family.back_out = { available: true, request: backOutRequest(e.back_out.request) };
     kennel.back_out_reasons = (Array.isArray(projection.kennel?.back_out_reasons) ? projection.kennel.back_out_reasons : []).slice(0, 20)
       .map((x) => ({ id: typeof x?.id === 'string' ? x.id.slice(0, 40) : '', label: typeof x?.label === 'string' ? x.label.slice(0, 80) : '' })).filter((x) => x.id && x.label);
     kennel.back_out_policy_text = typeof projection.kennel?.back_out_policy_text === 'string' ? projection.kennel.back_out_policy_text.slice(0, 2000) : '';
@@ -626,6 +651,9 @@ export function statusView(projection, entryId, now = new Date()) {
   // Getting your pup home: only for a family with an open sale (their pup is picked).
   const transport = e.companion?.available ? transportOf(projection) : [];
   if (transport.length) kennel.transport = transport;
+  // Her policies banner compares her last change with the day they applied: a placed
+  // family with an open sale gets the date too.
+  if (!OPEN_STATUSES.includes(e.status) && e.companion?.available && ymd(e.applied_date)) family.applied_date = e.applied_date;
   if (!OPEN_STATUSES.includes(e.status)) return { kennel, as_of: projection.as_of ?? null, family, offers: [], litters: [], upcoming: [], public_list: [] };
 
   for (const k of ['applied_date', 'approved_date', 'position', 'prefs', 'paused_until', 'ready_from', 'listen', 'passes', 'fee_received_date', 'fee_paid_online', 'fee_due', 'requests', 'prepasses', 'place_hidden', 'pref_places', 'spent_litter_ids', 'whelp_notes', 'ready_check', 'private_name']) {
@@ -697,7 +725,8 @@ export function statusView(projection, entryId, now = new Date()) {
     // A planned heat is no litter yet: nothing to wait for or pass on.
     waiting: u.kind !== 'planned_heat' && mine[u.id]?.waiting !== false, ...(u.kind === 'early_litter' ? { match: mine[u.id]?.match === true } : {}),
   })) : [];
-  return { kennel, as_of: projection.as_of ?? null, family, offers, litters: litterList, upcoming, public_list: listView(projection).rows };
+  const list = listView(projection);
+  return { kennel, as_of: projection.as_of ?? null, family, offers, litters: litterList, upcoming, public_list: list.rows, public_selected: list.selected };
 }
 
 // Her application form as the form page needs it, or null when she isn't taking

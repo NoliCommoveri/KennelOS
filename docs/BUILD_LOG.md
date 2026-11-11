@@ -3064,3 +3064,79 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   `sales` and `dogs` become required there. Five decisions about the fixes stay open.
 - Docs only.
 
+
+## 2026-11-11: Waitlist fixes, step 1: a pup leaving a turn, and side sales that outlive their family
+
+`docs/KennelOS_Waitlist_Fixes_Plan.md` step 1 (K6-1, K6b-1, K6b-2, K6b-3, K6b-4, K6b-10). Each
+finding was first reproduced against the real actions, then fixed. The owner chose: check after
+every save, move the turn on as for a family leaving (`left`), and have the Worker skip emptied
+turns too.
+- **A turn left with no pup ends, never as a pass (K6-1, K6b-2).** `waitlistRules.turnIsEmpty` /
+  `emptiedTurns` (no pick waiting on its deposit, none of the listed pups still available;
+  `resolveOtherClaims` now uses it too). `waitlistActions.endEmptiedTurns` voids the rows with a
+  note, adds a family activity line and moves the turn on as `left`. Called from
+  `confirmDeposit` and `confirmSideDeposit` (returned as `ended`), and by
+  `watchEmptiedTurns`, which `app.js` starts on every page (Pro, not Demo): it runs shortly after
+  each data change and once on load, waits while a dialog is open, and the page reports it
+  (`waitlistUI.reportEmptiedTurns`). `recordOutcome` never counts a pass or no response on an
+  emptied turn (`passes.empty`). Worker: `serverMoves.turnIsEmpty`; the deadline close and the
+  reminders skip such a turn, so no "your turn closed" email goes out for it.
+- **Leaving the list cancels a pending side sale (K6b-1).** `releaseOpenOffers` cancels it
+  (`cancelSideSale` with `leaving`: a held pup goes back; no "keeps their place" line) and
+  returns `side_released`; `describeOfferChanges` says so. `confirmSideDeposit` refuses a family
+  that isn't `active`.
+- **Tidy up (K6b-3):** `pupPlacedFindings` skips sales still at Deposit pending.
+- **Undo fee received (K6b-4):** `canUndoFeeReceived(entry, offers, today, sales)`; sales
+  required; false once the family has any side sale.
+- **Server turns (K6b-10):** `planServerEvent` notes, and doesn't record, a server offer to a
+  family with a pending side sale; `confirmSideDeposit` moves the turn on (`accepted`) when it
+  voided their own turn.
+- Tests: `tests/waitlistEmptiedTurns.test.js` (22), one in `cloud/tests/serverMoves.test.js`;
+  `waitlistUndo.test.js` passes the sales. `node --test` 1672 pass; `cd cloud && npm test` 306
+  pass; `node build/assemble.mjs` succeeds. Checked in a browser: keeping a turn's only pup
+  ends the turn and the page says whose and who's next.
+- Docs: End-State guide §29 (rules, side sales, undo windows, leaving, Tidy up); Side Sale
+  spec **Modified** notes. No new file, no schema, no new field. Service-worker cache bumped to `v114`.
+
+## 2026-11-11: Waitlist fixes, step 2: Pup selected and Already Reserved
+
+`docs/KennelOS_Waitlist_Fixes_Plan.md` step 2 (E1, E2, K6-12 item 1, K8-12, K8-7, K7-12, K7-8,
+K6-9, K6-10). The open decisions it touches were built as the plan recommends (D3: the row
+shows the listed name and "Pup selected", her own page names the pup; D12: public names from
+the application's name).
+- **E1, Pup selected.** `waitlistRules.holdsPlace` (placed, open sale, pup not gone, not
+  `off_list`) and `numberedList` (waiting + holding families, one order). `rankedList` stays
+  waiting-only for the turn rules. `overallPositions`, `prefPlaces`, `publicList` and the new
+  `publicSelected` number from `numberedList` and throw without `{ sales, dogs }`; every
+  caller passes them (status page projection, emails, Kels, picks panel and preview, side-sale
+  dialog, lost-pup dialog, Kels's Add people, Waitlist Today report, the family's page). The
+  projection publishes `public_selected`; the Worker serves it as `listView.selected` /
+  `statusView.public_selected`; `common.publicListHtml` puts the rows in at their numbers
+  with a ✓ and "Pup selected"; `publicListText` gains "✓ #3 … · Pup selected". Her Waitlist
+  page's On the list card shows them with a "Pup selected: [pup]" badge, not in Closed.
+- **E2, Already Reserved.** `isPupReserved` (disposition Placed; the website's rule, pinned
+  by a test). Projection litters gain `reserved`; `pups` stays available-only, so no turn,
+  automatic offer or price reads a reserved pup. `litterCard` passes it through; the family
+  pages' card shows Still Available and Already Reserved, Males and Females columns each,
+  stacked on a phone. Her Litters card gains a Reserved count.
+- **One rule for the waitlist's litters (K6-12 item 1):** `isWaitlistLitter` / `waitlistLitters`;
+  the copies on the Waitlist, entry and side-sale pages, Today and the projection now use it.
+- **Placed family (K8-12):** `isPlacedFamily`; the funnel, days to placement and Offers &
+  Removals count a back-out as Backed out, never Placed.
+- **A decided back-out (K8-7)** stays on the family's page for 30 days without a sale, saying
+  what happened to the deposit; three new email kinds (`backed_out_keep|move|refund`, also in
+  the Worker's `EMAIL_KINDS`) replace "request approved" for it.
+- **Policies banner (K7-12):** the applied date is published for a placed family with an
+  open sale; the banner's button reads "Read our policies".
+- **Public names (K7-8):** `publicNameParts`, `publicSourceName`; "Smith, John" → John S., "The
+  Smith Family" → S. Family; the Approve dialogs always show the public form.
+- **Waitlist page:** tables scroll in their cards (K6-10); Paused / Not ready badges format
+  their dates (K6-9).
+- Tests: `tests/waitlistPupSelected.test.js` (21); older tests pass `{ sales, dogs }` and pin
+  the new projection keys. `node --test` 1693 pass; `cd cloud && npm test` 306 pass;
+  `node build/assemble.mjs` succeeds. Checked in a browser at 390px: her Waitlist page and
+  the family pages' list and card.
+- Docs: guide §29 (Pup selected, placed family, waitlist litters, reserved pups, public
+  names, Available Puppies, Backing out, policies banner, reports); Waitlist Spec §15.3 and
+  Family Requests plan §7 **Modified** notes. No new file, no schema, no new stored field.
+  Release: Worker and family pages first, then the app. Service-worker cache rides `v114`.

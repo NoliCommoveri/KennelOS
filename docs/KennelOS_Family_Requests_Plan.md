@@ -294,6 +294,10 @@ or "18 miles: under your 25, no charge".
     count as income. Record that you refunded it?") with the Refund button off until she
     types **REFUND**. Her deposit policy (above) can't make it the suggested outcome.
 - The family sees the result on their page and gets an email (her template).
+  **Modified (2026-11-11, Waitlist Fixes Plan K8-7):** the decided back-out stays on their
+  page for 30 days after the sale has ended (what happened to the deposit), and each outcome
+  has its own email template (`backed_out_keep` / `_move` / `_refund`) in place of "request
+  approved". The reports count it as **Backed out**, never Placed.
 
 ### 7.2 Approving a back-out: she ticks what goes
 

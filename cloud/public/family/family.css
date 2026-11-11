@@ -151,6 +151,8 @@ table.list td.num { font-weight: 700; white-space: nowrap; width: 3em; font-vari
 table.list tr.mine td { background: var(--accent-soft); }
 table.list tr.deciding td { background: var(--warn-soft); }
 table.list tr.deciding td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
+/* A family with a pup selected keeps its number: a tick by it. */
+table.list tr.selected .tick { color: var(--accent); font-weight: 700; }
 /* The date added: a bubble on the ⓘ at the row's end (hover, focus or tap). */
 table.list .tip { width: 1.8em; text-align: right; padding-left: 0; }
 .added-tip { position: relative; width: 1.35em; height: 1.35em; padding: 0; border-radius: 50%; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font: italic 700 0.75rem/1 Georgia, serif; cursor: pointer; }
@@ -303,6 +305,10 @@ html.embedded.theme-dark {
 .pup-col-head { font-weight: 600; }
 .pup-col ul { margin: 2px 0 0; }
 .pup-col ul.plain > li { padding: 2px 0; border-top: 0; }
+/* With reserved pups: Still Available, then Already Reserved, side by side; stacked on a phone. */
+.pup-sections { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; }
+.pup-section-head { font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted, inherit); margin-top: 6px; }
+@media (max-width: 520px) { .pup-sections { grid-template-columns: 1fr; } }
 
 /* A parent's info bubble (registered name, pedigree, health testing) and its popup. */
 button.info-bubble { display: inline-flex; align-items: center; justify-content: center; width: 1.25em; height: 1.25em; margin: 0 2px 0 4px; padding: 0;
