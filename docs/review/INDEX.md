@@ -22,7 +22,7 @@ The KennelPort seam has its own plan and its own findings, in the KennelPort rep
 | K12 | Integrations, accounts, notifications | `ccr-7191f2c9-wwbh7v` | 2026-11-10 | 0 | 4 | 9 | 1 | [`K12-integrations-notifications.md`](findings/K12-integrations-notifications.md) |
 | K13 | Editions, build, first run, PWA, marketing site | `ccr-4e60dfa4-04mkg9` | 2026-11-11 | 3 | 4 | 7 | 1 | [`K13-editions-build.md`](findings/K13-editions-build.md) |
 | K14 | Multi-kennel, shows, identity, Companion, Furever | `ccr-0ac931f8-yhmofp` | 2026-11-11 | 1 | 7 | 8 | 2 | [`K14-scope-companion-furever.md`](findings/K14-scope-companion-furever.md) |
-| K15 | UI layer: escaping, accessibility, phone, offline | — | — | — | — | — | — | — |
+| K15 | UI layer: escaping, accessibility, phone, offline | `ccr-851139a8-181hty` | 2026-11-11 | 0 | 1 | 8 | 2 | [`K15-ui-layer.md`](findings/K15-ui-layer.md) |
 | K16 | Consolidation | — | — | — | — | — | — | `SUMMARY.md` |
 
 Baseline when the plan was last brought up to date (2026-11-08, `0328a3f`):
