@@ -24,12 +24,15 @@ all 87; a form-label audit of 11 form pages; keyboard and dialog runs on Dogs an
 page; three phone sweeps of all 87 pages (320px, 320px with long names, 390px); the newest
 screens at 320px; the public list from `cloud/public` with `/f/list` stubbed; the helper
 bar on `dist/pro` with a faked helper session and every outside request refused; four
-reports on an emulated touch phone; all 87 pages with the service worker serving and the
-network off; cloud sign-in offline on `dist/lite`; and three two-tab runs of the schema
+reports on an emulated touch phone; the waitlist entry page for all eight sample families
+(three tabs each) with every dialog its buttons open, before and after a pick, at 320px;
+all 87 pages with the service worker serving and the network off; cloud sign-in offline on `dist/lite`; and three two-tab runs of the schema
 hand-off, with `db.js` given one extra empty version block in flight. The chart palette
 went through the dataviz validator; the chart renderers through 13 edge cases in Node.
-The local server was stopped at its time limit near the end; the last four runs used a
-server started and stopped inside the command. On localhost `/shared/` offers the cloud
+The local server was stopped at its time limit near the end; the runs after that used a
+server started and stopped inside the command. Main was merged in after the first push
+(K6b's findings and `KennelOS_Waitlist_Fixes_Plan.md` had landed): no text conflict, and
+the entry-page run above is the part those two documents leave to K15. On localhost `/shared/` offers the cloud
 screens (`devCloudUrl`); a signed-out page sends nothing off the machine (checked by
 refusing and logging every outside request).
 
@@ -155,7 +158,9 @@ screen reader `aria-modal="true"` declares the page behind gone while focus is s
 it, and the dialog is announced with no name.
 **Why it matters** Every confirmation of an archive, a delete, a hand-back or a sale goes
 through these. The picks preview and the side-sale dialog (the newest two) behave the
-same.
+same, and so does every one of the 21 kinds of dialog the waitlist entry page opens: in
+none was focus inside it, and none had a name. K6b §9 says the same of the preview from
+the code.
 **What I'd do** In `mountModal`, and in one small helper the hand-built overlays call:
 remember `document.activeElement`, give the heading an id and point `aria-labelledby` at
 it, move focus to the first control, keep Tab inside, restore focus on close. Ignore a
@@ -194,7 +199,8 @@ the first screen of all 87 pages: 33 search boxes named only by a placeholder, 1
 inputs and 5 other controls with no name at all (`accounts.html` `#type-filter`, the two
 link-contract selects on Stud services, two textareas on Waitlist publish). VoiceOver
 reads "text field" 28 times down the litter form. Tapping a label doesn't put the cursor
-in its field.
+in its field. The waitlist entry page's dialogs repeat it: Review sale & send 9 of 10
+fields, Add a credit 4 of 8, Fee received 4 of 4, the side sale 3 of 4.
 **What I'd do** Add `for=` where the forms are built (the ids exist), an `aria-label` from
 the placeholder in the two list frameworks (two lines cover 33 pages), and an
 `aria-label` on the file inputs.
@@ -255,6 +261,15 @@ has no maximum height and no fixed foot.
 is 4,453px tall. She opens it to check who is first. Nothing
 at the top closes it; the backdrop is a 16px strip down each side; the two buttons are
 after the turn order, every pup, the excluded families, the checks and the settings.
+**With K6b §9** K6b read this dialog and marked its phone layout "suspected", not having
+been able to open it. Measured here, with the sample's data: it fits the width, its four
+tables are 244px wide inside the 288px dialog and nothing scrolls sideways, so the tables
+don't need a scroll box at this size (12 pups and 60 families weren't tried). The height
+is the problem. One correction to K6b §9 and to step 10 of the Waitlist Fixes Plan ("Ask
+first; Escape; tables in the scroll box"): Escape already closes the preview. `ui.js:90-101`
+sends a backdrop click to the top dialog, which is the close at `picksPreviewModal.js:77`,
+so Escape is one more way to lose an unsaved settings change, and the "ask first" has to
+cover it rather than Escape being added.
 **What I'd do** Keep the two buttons in a foot that stays on screen (and a ✕ at the top),
 and start "the settings that decide this" closed on a narrow screen.
 
@@ -368,6 +383,26 @@ reloaded), or say what is true: "Reload before you carry on."
   opens below the icon; Escape doesn't close it (a tap elsewhere does). My stubbed list
   scrolled 31px sideways with a 42-character family name; I did not check how the server
   shortens names, so that is unconfirmed.
+- **The waitlist entry page at 320px** (left to K15 by K6's "what I did not get to" and by
+  the Waitlist Fixes Plan §7). All eight sample families, Details, Interact and History:
+  24 views, none scrolls sideways. Every dialog a button on those tabs opens, 21 kinds:
+  add a credit, leaving the list, add to do-not-sell, close application, approve, fee
+  received, offer their turn, picked a pup, pick recorded, review sale & send, deposit
+  received, change pup, passed, no response, no deposit, void, undo a pass, move their
+  place, side sale, end the sale, communicate. Each is 288px wide with nothing sticking
+  out and no sideways scroll; no page threw. Five are taller than a 568px screen and
+  scroll: add a credit, offer their turn, the side sale and communicate end 22 to 180px
+  below the first screen, and Review sale & send is 1,309px. Not reached, because the sample has no family in that state: restoring a lost
+  pup, Change pup with another pup to switch to, the request dialogs (back out, pickup,
+  extras), and a History tab with a dozen offers.
+- **Hand-offs from other sessions.** K6 left "type a hostile value into a live form" to
+  this session: the scanner and the 586-value sweep cover where a value is drawn; I
+  stored the values rather than typing them, which exercises the same templates. K2
+  noted tap targets on Import/Export (25 to 30px buttons) and Dog cards (13 × 13
+  checkboxes) without filing them: the same bare 13 × 13 checkboxes are on the ten
+  busiest pages (six of them), beside the two toggles in finding 5. K3 noted that a save
+  after "Updated on another device" overwrites the pulled change; I didn't look at that
+  (finding 11 is the storage-update notice, a different one).
 - **The nav at 320px.** 52px tall on every page; the menu button is labelled, sets
   `aria-expanded`, and opens from the keyboard. Escape doesn't close it. Open, it is
   taller than a 568px screen and scrolls with the page.
@@ -416,11 +451,13 @@ reloaded), or say what is true: "Reload before you carry on."
   order.
 - **`reportView.js`, `timeline.js`, `pedigree.js`, `nav.js` line by line.** They went
   through the scanner and the browser runs; I read only the lines those pointed at.
-- **Dialogs at 320px beyond four.** Of 38 dialog markups I opened the confirm, the event
-  form, the picks preview and the side sale. The Kels tasks were scanned, not driven.
-- **Deeper states at 320px.** The phone sweeps saw each page's first screen. Edit forms
-  were audited for labels at desktop width only; the waitlist entry's other tabs and the
-  Kennel page's other 13 sections weren't opened on a phone.
+- **Dialogs at 320px beyond these.** I opened the confirm, the event form, the picks
+  preview, the side sale and the waitlist entry page's 21. Dialogs on other pages (sale,
+  litter, contract, kennel, the cloud screens) weren't opened on a phone. The Kels tasks
+  were scanned, not driven.
+- **Deeper states at 320px.** The phone sweeps saw each page's first screen, plus the
+  waitlist entry's three tabs. Edit forms were audited for labels at desktop width only;
+  the Kennel page's other 13 sections weren't opened on a phone.
 - **Lite and Demo.** The sweeps ran on `/shared/` (Pro's surface). Lite's cap banners at
   phone width, and Demo's read-only strip, weren't looked at.
 - **The policies editor in use.** Its section fits at 320px; I didn't add, edit or reorder
