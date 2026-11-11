@@ -215,7 +215,7 @@ to the cloud unsealed).
 | **Contact** | `name` | `contact_type[]`, `email`, `phone`, `facebook_profile`, `address` (also the away-board location, §19), `kennel_id` (affiliation, not scope), `waitlist_status` (kept by `waitlistEntryRepo`), `first_contact_source`, `companion_note` (shown to the recipient, §20; `notes` is private). Buyers are Contacts; there is no Buyer table. |
 | **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `name_on_website` (boolean, default off, cloud; an outside kennel her website may name, by name and website, as a co-owned dog's kennel; ticked on the Kennels list's Edit row, Pro with the website link, §35), `kennelport_portal` (cloud; her puppy portal on KennelPort, kept from its answers: its addresses, the one-tap link's key, the families it has taken over and the facts applied; null while off, §35.1), `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `extra_charge_groups` (its groups' defaults, private, §21.2), `pickup_locations` (her pickup places, private, §29 Pickup), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date` when empty), `show_on_website` (boolean; cloud; shows under Coming up on her website, §35). Sire ≠ dam. |
-| **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `show_on_website` (boolean, cloud: this litter and its puppies on her website, §35; unset follows its pairing's), `photos_url` (a link to photos of the whole litter, cloud; shown on the Litter page, the Litters table's Photos column, asked in Kels's Add a litter, and on the litter's cards on waitlist pages, §29 Online), `puppies_born_*` counts, `delivery_type` (`LITTER_DELIVERY_TYPE`: natural, assisted, planned or emergency C-section; cloud; shown and asked only once the litter is Whelped or later, see Litter delivery below), per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), `pickup_slots` and `pickup_date_rules` (her pickup times and each date's rule, private, §29 Pickup), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
+| **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `show_on_website` (boolean, cloud: this litter and its puppies on her website, §35; unset follows its pairing's), `photos_url` (a link to photos of the whole litter, cloud; shown on the Litter page, the Litters table's Photos column, asked in Kels's Add a litter, and on the litter's cards on waitlist pages, §29 Online), `puppies_born_*` counts, `delivery_type` (`LITTER_DELIVERY_TYPE`: natural, assisted, planned or emergency C-section; cloud; shown and asked only once the litter is Whelped or later, see Litter delivery below), per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), `waitlist_off` (boolean, cloud: kept off the waitlist, §29 Family pages without the list), `pickup_slots` and `pickup_date_rules` (her pickup times and each date's rule, private, §29 Pickup), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
 | **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, `extra_charges[]` (private, §21.2), payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
 | **Contract** | `contract_type`, `kennel_id` | `status` (default `draft`), `related_sale_id`, `related_stud_service_id`; `related_dog_id` and `related_contact_id` only for `lease`/`co_own`/`foster`/`other` (forced null otherwise, `contractRepo.normalizeLinks`), `document_url`, `signed_date`, lease dates, e-sign fields and `integration_reviews` (§32), `title`, `terms_summary`. |
 | **StudService** | `direction`, `our_dog_id`, `partner_dog_id`, `partner_contact_id`, `status`, `kennel_id` | `direction` is **who travels** (`STUD_SERVICE_DIRECTION`: `to_partner` our dog goes to them, `to_us` their dog comes to us, `shipped` no one / AI). Whether our dog is the stud or the dam isn't stored: it's our dog's sex, else the partner's opposite (`studRules.ourRole`; `STUD_SERVICE_ROLE` for badges and filters). `sent_date` / `returned_date` are the service's two dates, labelled **Begins / Ends**. `type` (`in_person`/`ai`) is set by the repo from `direction` (shipped → ai), never asked. `pairing_id`, `fee_amount`, `fee_structure`; `pick_status` and `pick_value_amount` only for pick fee structures (forced null otherwise; with our stud the pick is our puppy, and `pick_status` claimed / waived ends Today's `studpick`, §19), `referred_by_contact_id`, invoice fields (our stud only, §24). |
@@ -1700,7 +1700,8 @@ restored into Lite keeps its waitlist rows, dormant.
   a back-out), which gives that withdrawal its 7-day undo; `expired_date` and
   `fee_received_manual` do the same for a fee expired and a fee she marked received;
   `program_suggestions_declined` (private) lists the programs she answered No to under
-  "Add to [program]?" (below); see `waitlistEntryRepo` and `syncRegistry.js` for each one's tier.
+  "Add to [program]?" (below); `off_list` (cloud) marks a family page only (below); see
+  `waitlistEntryRepo` and `syncRegistry.js` for each one's tier.
 - **`waitlist_offers`:** one row per family per litter in a turn (rows of a turn share
   `turn_id`). `counts_as_pass` is decided once, when the outcome is recorded, so later rule
   or program changes can't rewrite history. A lost pup's restore clears the pick (a voided
@@ -1869,8 +1870,13 @@ it computes is stored.**
   placement. `holdsPlace` is the narrower "still holds a number".
 - **Litters the waitlist shows:** `isWaitlistLitter(litter, kennel)` / `waitlistLitters(kennel,
   litters)`: a live stage (`LISTEN_LIVE_LITTER`: expected, whelped, weaning, ready), not
-  archived, this kennel. The projection, the Waitlist and family pages, the side-sale dialog,
-  Today and the listen-only choices all use it (`waitlistProjection.LIVE_LITTER` is the same list).
+  archived, this kennel, not `waitlist_off`. The projection, the Waitlist and family pages, the
+  side-sale dialog, Today and the listen-only choices all use it (`waitlistProjection.LIVE_LITTER`
+  is the same list). `isPicksOpen(litter)` is the turn rules' "picks open": a `waitlist_off`
+  litter never is, even with a stale `picks_opened_date` (`turnLittersFor`, `nextTurn`, the
+  projection's turn queue, the server's queued turns, the picks preview).
+- **Family page only:** `isFamilyPageOnly(entry)` (`off_list`); `listRecords(entries)` drops
+  them for every reader that counts the waitlist's families (below).
 - **Reserved pup** (Already Reserved, §3.2): `isPupReserved(dog)`: disposition Placed, not
   archived, not deceased or External: the website's rule (`siteExport.puppyStatus` over the
   pups it lists; a test keeps them in step). Never also available.
@@ -2034,6 +2040,10 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   noted on each of its offers.
 - **Backing out** (`approveBackOut`) needs the family's pending request, or `told` (`{ reason }`)
   when she heard some other way: the same path, the request recorded as hers (`by: 'breeder'`).
+  It closes the family's waiting pickup and extras requests (`closeRequests`: `decided:
+  'closed'`, `closed_by: 'back_out'`): no email is offered for them, their page doesn't list
+  them, and `slotBookings` no longer counts the time (it also skips any record with no open
+  sale, its `live` test). A family page only can't Move the deposit (refused).
 - **A lost pup** (`vocab.isLostSale`): `restoreAfterLostSale(saleId, { carry })` puts a placed
   family back in their **original place** (the accepted offer voided with its history kept,
   passes unchanged), or
@@ -2041,10 +2051,31 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   pick (`carried_payment`, paid as that pick's deposit when it's recorded). Never automatic: the Sale page (and the family page's **End the
   sale…**) asks, through `waitlistUI.restoreLostPupDialog`, after the pup-settling prompts in
   `assets/salePrompts.js`.
+- **Family pages without the list** (Waitlist Fixes Plan E3): a family who bought before she
+  used the waitlist (or outside it) gets a status page without ever being on the list. A
+  record `placed`, `off_list: true`, `placed_sale_id` its sale, no application, fee or place
+  (`addFamilyPage(saleId)`; refused for an ended sale, a sale with no buyer, or one another
+  record claims: `waitlistRules.familyPageBlocker`). Its status link is minted on publish like
+  any record's. `soldBeforeWaitlist(litterId)` sets `Litter.waitlist_off` and makes a page for
+  each live sale of its pups with a buyer (`familyPagePlan`, read first through
+  `soldBeforeWaitlistPlan`); refused while picks are open, a turn is open on it, or a side
+  sale waits on its deposit. `putLitterOnWaitlist` undoes the litter flag only.
+  `setFamilyPageOnly(entryId, on)`: a placed family with an open sale stops (or, `on: false`,
+  starts again) holding its place. `openPicks`, `offerNext`, `offerTo` and the picks preview
+  refuse a `waitlist_off` litter. What these records get: the cards a placed family with an
+  open sale gets (pup, pickup, extras, transport, backing out, portal or Companion link,
+  policies, recommended, her messages), and `page_only` on their projected entry, so their
+  page never mentions a waitlist. What never shows them: `holdsPlace` (no number, nobody
+  numbered after them), `rankedList`, the public list and its Pup selected rows, Closed, the
+  funnel, Applications, Waitlist Today's pipeline, Offers & Removals, the year review
+  (`listRecords`), Kels's Review my waitlist, `deriveContactWaitlistStatus` (the contact is
+  never "on the waitlist"), and `lostSaleFamily` (D8: a lost pup never puts them in line; a
+  back-out is Keep or Refund). **Apply to the list…** starts an ordinary application.
 
 ### Surfaces
 - **Pages** (`proPages.js`): `waitlist` (one kennel: new applications, fee due, the ranked
-  list, Litters with "Next: <family>" and **Offer to them**, Closed; everything else under
+  list, Litters with "Next: <family>" and **Offer to them**, **Family pages only** (each
+  family page: the family, their pup, gone home or not), Closed; everything else under
   **Manage**), `waitlist-entry` (one family: Details / Interact / History tabs; its
   application fields come from `assets/waitlistApplicationForm.js`, shared with Kels; History's
   **Timeline**, newest first, is read from the entry's dates, its offers (offered, picked,
@@ -2056,7 +2087,19 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   one kennel (`?kennel=`, else scope, else busiest; `waitlistUI.resolveWaitlistKennel`).
 - **Litter page:** the **Waitlist picks** panel (`assets/waitlistPicksPanel.js`, loaded only
   with the flag): picks open/closed, the open turn and its actions, next up, the litter's
-  queue, history. It re-reads the litter after each write.
+  queue, history. It re-reads the litter after each write. **Non-Waitlist Sales…** shows
+  there while picks aren't open and nobody holds a turn on it and a pup has a sale with a buyer
+  (on its own small **Waitlist** card when the panel would be empty); its dialog lists each pup →
+  buyer, any pup with no sale, and a buyer on her do-not-sell list. A `waitlist_off` litter's
+  panel lists its family pages, **Make N more family pages…** and **Put back on the waitlist…**.
+- **Sale page** (Pro, with the waitlist): **Give this family a status page** (`addFamilyPage`)
+  when the sale can have one, else a link to the record that claims it (**Family page** /
+  **Waitlist family**). The Buyer field warns when the chosen contact is on her do-not-sell
+  list (K7-9), as the Side sale dialog does for the family; only a warning.
+- **A family's page** (`waitlist-entry`) for a family page only: "Family page only" in its
+  status, no public-list name row, no **Move the deposit** on a back-out request, **Apply to
+  the list…** in place of Re-apply. A placed family with an open sale gets **Keep off the list
+  (family page only)…**; one that was on the list (fee received) can be **Put back on the list…**.
 - **Picks preview** (`docs/KennelOS_Picks_Preview_Spec.md`): every Open picks (the picks
   panel, the Waitlist page's litter rows, Kels's litter check-in, Today's and Kels's Review my
   waitlist's Open picks nudge) opens `assets/picksPreviewModal.js` first (Pro-only,
@@ -2228,6 +2271,12 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   (`tr.selected`); search by name or number finds them, and the "names not displayed" note
   is worked out after they're in. `/f/site` gets `selected` and `available[].reserved` the
   same way (KennelPort draws them when taught to).
+  **A family page only online:** the projected entry's `page_only: true` passes through as
+  `statusView.family.page_only`; `status.js` then says "This page has your pickup times,
+  extras and messages" for placed (and "Your puppy's sale has ended" under a **Sale ended**
+  badge once they back out), never "your time on the waitlist". They're in no `public_list`
+  or `public_selected` row, and their litter (`waitlist_off`) is in no `litters`,
+  `upcoming` or `turn_queue`.
   The public list's Available Puppies and Coming up cards are centered, like the status
   page (`main.centered`), by `#available, #upcoming` in `family.css`.
   Each open offer carries `deposit_instructions` (her `payment_instructions`) and, once
@@ -3929,9 +3978,11 @@ Nothing changes for any other kennel or breeder.
   `pickup_at` (the pickup event's `placement_time` start, read by `parseClock`, in the
   kennel's `time_zone` by `zonedIso`; none without a time), `microchip`, `registration_no`
   (the Dog's main number), `voided` (a voided sale's reason: died, failed_health,
-  backed_out, other; a cancelled sale is backed_out; dated by the sale's last edit),
-  `health` (vaccinations as vaccine, with lot and next due as notes; preventatives as
-  deworming; vet visits by title, never their findings; up to today, newest 40) and
+  backed_out, other; a cancelled sale is backed_out; a returned sale is other; dated by the
+  sale's last edit, `saleEndDay`), `health` (vaccinations as vaccine, with lot and next due
+  as notes; preventatives as deworming; vet visits by title, never their findings; up to
+  today, or for a released sale up to its end day, so a returned pup's next home's records
+  never reach the family; newest 40) and
   `extras` (the sale's charges that are on her price list, as `{ id, extra_id: list_id }`,
   never an amount). Her vet (`herVet`): the Vet contact she names most on her own dogs'
   vet visits and surgeries, else her only Vet contact, as clinic (its name), phone and
@@ -3940,10 +3991,14 @@ Nothing changes for any other kennel or breeder.
   set back from Signed, is marked gone there (never deleted). A sale it sent stays while
   it's released (voided, cancelled, returned) even once its contract is voided, so the
   portal hears why. A placement goes while open, then `PORTAL_KEEP_DAYS` (60) after its
-  go-home or last edit; after that it rests (not removed). Never sent: an amount, a
+  go-home or last edit; after that a delivered one rests (not removed), and a released one
+  (voided, cancelled, returned) goes in `removed`. Never sent: an amount, a
   family's phone or postal address, contract terms, sale notes, vet findings.
-- **`data/portalFeedSync.js`** sends it on its own, from each device linked to the site
-  (`startPortalFeed`, from `app.js`): on a page load at most hourly
+- **`data/portalFeedSync.js`** sends it on its own, from a device linked to the site
+  (`startPortalFeed`, from `app.js`) that may (`mayFeedHere`: with her cloud program on, only
+  the device doing its server work, `serverWork.claimServerWork`, never one in the
+  background; with no cloud session, this device; a cloud that can't be reached doesn't stop
+  it; otherwise `skipped: 'other_device'`): on a page load at most hourly
   (`FEED_OPEN_EVERY_MS`: the site is asked for its facts, then the feed is sent even
   unchanged, so her Site Manager's Last from KennelOS stays fresh and the facts come back),
   and `FEED_DELAY_MS` (20 s) after a data change when it differs from what this device sent
@@ -3951,6 +4006,10 @@ Nothing changes for any other kennel or breeder.
   `POST /v1/portal` (`kennelportApi.sendFamilyFeed`). A `portal_off` refusal, or fresh
   facts without `portal_feed`, stop it and take the portal off the kennel; old facts on a
   device don't. A stopped link forgets the token and the portal, as Update website does.
+  **Disconnect this device** (`kennelportLink.disconnectWebsite`) also turns the portal off
+  on the kennel (`turnPortalOff`: the addresses and key cleared, `home` and `facts` kept; null
+  when there's nothing to keep), since a device can't tell whether it was the last; a device
+  still linked turns it back on with its next send. The card's confirm says so.
   Website pages still wait for Update website.
 - **`Kennel.kennelport_portal`** (cloud; owner decision 2026-11-04) holds what the answer's
   `portal` says, `{ url, handoff_url, handoff_key, handoff_minutes }`, plus `home` (the
@@ -3960,11 +4019,17 @@ Nothing changes for any other kennel or breeder.
   there are matched, never followed (no registry entry). `portalFeed.portalOn(kennel)`.
 - **The facts that come back** (the answer's `facts`), applied without asking her, each
   once (`kennelport_portal.facts`, so a later change in KennelOS isn't undone by the
-  portal's older value; `applyPortalFacts`): `picked_up_at` moves the pup's pickup event
-  (`pickupEventFor`: its next, else its last) to that day and time in her time zone, or makes
-  one with the family on it, and marks the sale Delivered unless it ended; `microchip` sets
-  the Dog's; `died_on` marks the dog Deceased with its `date_of_death`; `portal_only` adds
-  the family to `home`. Nothing with money comes back.
+  portal's older value; `applyPortalFacts`), and only when they fit: the sale is a
+  placement the feed carries now or carried before (`known`), and isn't released.
+  `picked_up_at` (its day no earlier than the sale date or the pup's birth, no later than
+  tomorrow) moves the pup's pickup event (`pickupEventFor`: its next, else its last) to that
+  day and time in her time zone, or makes one with the family on it, and marks the sale
+  Delivered; `microchip` sets the Dog's; `died_on` (on or before today, not before birth)
+  marks the dog Deceased with its `date_of_death`; `portal_only` adds the family to `home`
+  only for the sale's own buyer. Anything else is `refused`. Each applied fact leaves a
+  **Note** on the pup ("From your puppy portal", `details: { portal_fact, sale_id }`), and
+  Today shows each for 14 days (`nudges.portalFactNudges`, dismissable), with a link to
+  the sale or the dog to change it back. Nothing with money comes back.
 - **The status page** (the projection, `waitlistProjection.js`): while `portalOn`, a
   record whose own sale (placed, else open) is signed and not ended carries `portal:
   { family_id, only, pickup_on }` (`portalEntryView`); `only` once the family is in `home`,

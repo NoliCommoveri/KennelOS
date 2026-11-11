@@ -55,7 +55,12 @@ function openCard(title, body, cls = '') {
   return `<div class="card ${cls}">${title ? `<h2>${title}</h2>` : ''}${body}</div>`;
 }
 
-function closedText(status, kennel) {
+function closedText(status, kennel, pageOnly = false) {
+  // A family page only (never on the waitlist, E3): no waitlist words.
+  if (pageOnly) {
+    if (status === 'placed') return `Congratulations on your puppy from ${esc(kennel)}! This page has your pickup times, extras and messages.`;
+    if (status === 'withdrawn') return `Your puppy's sale has ended. Contact ${esc(kennel)} with any questions.`;
+  }
   switch (status) {
     case 'placed': return `Congratulations on your puppy from ${esc(kennel)}! Your time on the waitlist is complete.`;
     case 'declined': return `${esc(kennel)} wasn't able to accept this application. Please contact them with any questions.`;
@@ -845,7 +850,7 @@ function policiesBanner(f) {
 function policiesCard() {
   if (!hasPolicies()) return '';
   const k = state.v.kennel;
-  const key = 'Our Waitlist Policies';
+  const key = state.v.family?.page_only ? 'Our Policies' : 'Our Waitlist Policies';
   return `<details class="card collapsible" id="policies" data-key="${esc(key)}"${state.opened.has(key) ? ' open' : ''}><summary><h2>${esc(key)}</h2></summary>
     ${k.policies_updated ? `<p class="small muted mt0">Updated ${esc(fmtDate(k.policies_updated))}</p>` : ''}${policiesHtml(k)}</details>`;
 }
@@ -989,7 +994,7 @@ function mineHtml() {
   const v = state.v;
   const f = v.family;
   const kennel = v.kennel.name;
-  const st = STATUS[f.status] || { badge: 'plain', label: f.status };
+  const st = (f.page_only && f.status === 'withdrawn' ? { badge: 'plain', label: 'Sale ended' } : STATUS[f.status]) || { badge: 'plain', label: f.status };
   // No badge for a family on the list: being on it is why they're here.
   const parts = f.status === 'active' ? [] : [`<p><span class="badge ${st.badge}">${esc(st.label)}</span></p>`];
   if (state.flash) parts.push(`<p class="card notice-card small" role="status">${esc(state.flash)}</p>`);
@@ -1003,7 +1008,7 @@ function mineHtml() {
   parts.push(portalHtml(f));
 
   if (!['applied', 'approved', 'active'].includes(f.status)) {
-    parts.push(card('', `<p class="mt0">${closedText(f.status, kennel)}</p>`));
+    parts.push(card('', `<p class="mt0">${closedText(f.status, kennel, f.page_only)}</p>`));
     parts.push(companionHtml(f));
     parts.push(pickupHtml(f));
     parts.push(extrasHtml(f));
@@ -1400,7 +1405,8 @@ async function load() {
   state.session = v.kennel.public_id ? rememberedFamily(v.kennel.public_id) : null;
   document.title = `${v.kennel.name} Waitlist`;
   $('title').textContent = v.family.name ? `Hi, ${v.family.name.split(/\s+/)[0]}` : `${v.kennel.name} Waitlist`;
-  $('updated').textContent = `${v.kennel.name} Waitlist${v.as_of ? ` · updated ${fmtDate(v.as_of)}` : ''}`;
+  // A family page only (never on the waitlist): no "Waitlist" in the heading.
+  $('updated').textContent = `${v.kennel.name}${v.family?.page_only ? '' : ' Waitlist'}${v.as_of ? ` · updated ${fmtDate(v.as_of)}` : ''}`;
   render();
 
   if (!wired) {

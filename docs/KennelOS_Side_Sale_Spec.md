@@ -155,7 +155,11 @@ Nov 12**. A held one shows as Not offered for that family. Conflicts show in red
 2. Family-facing: identical to a turn pick. No mention of a side sale anywhere.
 3. Deposit deadline defaults to her days to pick and pay (open days counted), editable. On lapse,
    nothing automatic; Today flags it and she cancels (never a pass).
-4. Families on the list only.
+4. Families on the list only. **Modified (2026-11-11, Waitlist Fixes Plan E3):** a buyer who was never in
+   line doesn't need a side sale: the Sale page's **Give this family a status page** (or the
+   Litter page's **Non-Waitlist Sales…**) gives them a family page without the list, and
+   a placed side-sale family can be **Kept off the list (family page only)**. The Side sale
+   dialog warns when the family is on her do-not-sell list (K7-9).
 5. Any pup except Placed, external (or gone/deceased/archived). Tell her what doesn't match,
    let her do it anyway, make the updates. Ask which registration she's selling at.
 6. Refused while the family holds the real turn (use their turn).

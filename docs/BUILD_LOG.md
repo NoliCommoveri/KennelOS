@@ -3140,3 +3140,67 @@ the application's name).
   names, Available Puppies, Backing out, policies banner, reports); Waitlist Spec §15.3 and
   Family Requests plan §7 **Modified** notes. No new file, no schema, no new stored field.
   Release: Worker and family pages first, then the app. Service-worker cache rides `v114`.
+
+## 2026-11-11: Waitlist fixes, step 3: family pages without the list
+
+`docs/KennelOS_Waitlist_Fixes_Plan.md` step 3 (E3, K7-9, K8-8), built as the owner decided
+(D6 their own section, D7 both fields `cloud`, D8 Keep or Refund only).
+- **Two plain fields** (no schema block; absent reads as off): `WaitlistEntry.off_list` (a
+  family page only) and `Litter.waitlist_off` (kept off the waitlist), both `cloud` in
+  `syncRegistry.js`; `cloud/src/lib/cloudFields.js` regenerated.
+- **Rules:** `isWaitlistLitter` leaves out `waitlist_off`; `isPicksOpen` (the turn rules,
+  the projection's turn queue, the server's queued turns and the picks preview never see such
+  a litter as open); `isFamilyPageOnly` / `listRecords`; `familyPageBlocker`,
+  `familyPagePlan`; `lostSaleFamily` and `deriveContactWaitlistStatus` skip family pages.
+- **Actions:** `addFamilyPage(saleId)`, `soldBeforeWaitlist(litterId)` (+ `…Plan`),
+  `putLitterOnWaitlist`, `setFamilyPageOnly(entryId, on)`; `openPicks`, `offerNext`,
+  `offerTo` refuse a `waitlist_off` litter; `approveBackOut` refuses Move for a family page.
+- **K8-8:** a back-out closes the waiting pickup and extras requests (`closeRequests`,
+  `decided: 'closed'`); `slotBookings` takes a `live` test and skips a record with no open
+  sale (Litter page's Pickup times and the family's page); closed requests aren't published.
+- **K7-9:** the Sale form's Buyer and the Side sale dialog warn about her do-not-sell list,
+  as does "Sold before the waitlist…" and "Give this family a status page".
+- **Pages:** Waitlist page **Family pages only** section (out of Closed); Litter page
+  waitlist panel **Sold before the waitlist…** and a kept-off view (family pages, Make more,
+  Put back on the waitlist); Sale page **Give this family a status page** / link to it; the
+  family's page says "Family page only", hides the public name and Move the deposit, offers
+  **Apply to the list…**, **Keep off the list (family page only)…** and its undo. Reports
+  (funnel, Applications, Waitlist Today pipeline, Offers & Removals), the year review and
+  Kels's Review my waitlist read `listRecords`.
+- **Online:** projected entries carry `page_only`; the Worker passes it as
+  `statusView.family.page_only`; the status page drops the waitlist wording for them.
+- Tests: `tests/waitlistFamilyPages.test.js` (14). `node --test` 1707 pass; `cd cloud && npm
+  test` 306 pass; `node build/assemble.mjs` succeeds. Checked in a browser at 390px: Sold
+  before the waitlist on a litter, the Waitlist page's section, the family's page, the Sale
+  page's button with a do-not-sell warning; no console errors.
+- Docs: End-State guide §29 (fields, rules, actions, surfaces, online); **Modified** notes in
+  the Fixes plan, Side Sale spec and Family Requests plan. No new file, no schema block.
+  Release: Worker and family pages first, then the app. Service-worker cache bumped to `v115`.
+
+## 2026-11-11: Waitlist fixes, step 4: the puppy portal says only what's true
+
+`docs/KennelOS_Waitlist_Fixes_Plan.md` step 4 (K7-1, K7-2, K7-3, K7-14).
+- **K7-1:** `portalFeed.voidedOf` sends a returned sale as voided (`other`); a released
+  sale's health stops at its end day (`saleEndDay`), so a re-sold pup's next home's records
+  never reach the first family; a released placement that has aged out goes in `removed`
+  instead of resting in the portal.
+- **K7-2:** `applyPortalFacts` applies a fact only for a placement the feed carries (now or
+  before), on a sale not released, with dates in bounds (pickup from the sale date or birth
+  to tomorrow; a death on or before today, not before birth), and a handover only for the
+  sale's buyer; the rest come back as `refused`. Each applied fact writes a Note on the pup
+  (`details.portal_fact`), and Today shows it for 14 days (`nudges.portalFactNudges`).
+- **K7-3:** Disconnect this device (and a stopped link on Update website or prices) turns
+  the portal off on the kennel (`kennelportLink.turnPortalOff`, keeping `home` and `facts`);
+  a device still linked turns it back on with its next send. The card's confirm says so.
+- **K7-14:** the feed goes only from the device doing the cloud program's server work
+  (`portalFeedSync.mayFeedHere`); with no cloud session, as before.
+- Tests: 5 new in `tests/portalFeed.test.js` (two older ones now pick up and die on past
+  days). `node --test` 1712 pass; `cd cloud && npm test` 306 pass; `node build/assemble.mjs`
+  succeeds. Docs: End-State guide §35.1; plan status and a **Modified** note. No new file, no
+  schema. Service-worker cache rides `v115`.
+
+## 2026-11-11: "Non-Waitlist Sales"
+
+The owner renamed step 3's "Sold before the waitlist…" to **Non-Waitlist Sales…** (the Litter
+page's button and dialog, the kept-off panel, the Waitlist page's empty Family pages only
+line, and the refusals that name it). Wording only. Service-worker cache rides `v115`.
