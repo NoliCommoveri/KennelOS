@@ -329,15 +329,15 @@ export function pupColumnsHtml(l) {
     return `${d.photos_url ? photosLink(d.photos_url, d.call_name || 'Puppy') : esc(d.call_name || 'Puppy')}${bits.length ? ` <span class="muted">· ${esc(bits.join(' · '))}</span>` : ''}`;
   };
   const col = (label, list, empty) => `<div class="pup-col"><div class="pup-col-head">${esc(label)}</div>${list.length
-    ? `<ul class="plain">${list.map((d) => `<li>${name(d)}</li>`).join('')}</ul>` : `<div class="muted">${empty}</div>`}</div>`;
+    ? `<ul class="plain">${list.map((d) => `<li>${name(d)}</li>`).join('')}</ul>` : `<div class="muted pup-col-empty">${empty}</div>`}</div>`;
   const columns = (list, empty) => {
     const other = list.filter((d) => d.sex !== 'male' && d.sex !== 'female');
     return `<div class="pup-cols small">${col('Males', list.filter((d) => d.sex === 'male'), empty)}${col('Females', list.filter((d) => d.sex === 'female'), empty)}${other.length ? col('Puppies', other, empty) : ''}</div>`;
   };
   const available = pups.length ? columns(pups, 'None left') : '<div class="small muted">No puppies remaining</div>';
   if (!reserved.length) return available;
-  return `<div class="pup-sections"><div class="pup-section"><div class="pup-section-head small">Still Available</div>${available}</div>
-    <div class="pup-section"><div class="pup-section-head small">Already Reserved</div>${columns(reserved, 'None')}</div></div>`;
+  return `<div class="pup-sections"><div class="pup-section"><div class="pup-section-head">Still Available</div>${available}</div>
+    <div class="pup-section"><div class="pup-section-head">Already Reserved</div>${columns(reserved, 'None')}</div></div>`;
 }
 
 // A turn's litter link: its page on her KennelPort website (`page`, from
