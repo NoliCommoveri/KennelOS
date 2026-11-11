@@ -3096,4 +3096,4 @@ turns too.
   pass; `node build/assemble.mjs` succeeds. Checked in a browser: keeping a turn's only pup
   ends the turn and the page says whose and who's next.
 - Docs: End-State guide §29 (rules, side sales, undo windows, leaving, Tidy up); Side Sale
-  spec **Modified** notes. No new file, no schema, no new field; no SW cache bump yet.
+  spec **Modified** notes. No new file, no schema, no new field. Service-worker cache bumped to `v114`.
