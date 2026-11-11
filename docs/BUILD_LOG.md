@@ -3039,3 +3039,14 @@ feature. Current design lives in the plans/specs in `docs/`; the `shared/` code 
   Placed. End-State guide §35's line on `puppyStatus` said a live sale or open pick sent
   reserved, which the code never did; corrected to what is built.
 - Docs only: no code, no schema, no app file changed. README's doc map gains the plan.
+
+## 2026-11-11: a plan for the waitlist reviews' fixes and three enhancements
+
+- Plan written: `docs/KennelOS_Waitlist_Fixes_Plan.md`. It lists all 52 findings of reviews
+  K6, K6b, K7 and K8 with a fix and a build step each, and designs three requests from the
+  owner: a placed family stays on the list as **Pup selected**; its pup stays on the
+  Available Puppies card under **Already Reserved**; and a family of a litter sold before
+  the app gets a status page without being on the list (`WaitlistEntry.off_list`,
+  `Litter.waitlist_off`, both proposed, sync class the owner's to confirm).
+- Twelve decisions are the owner's (the plan's §2), each with a recommendation.
+- Docs only: no code, no schema, no app file changed. README's doc map and Status gain the plan.
