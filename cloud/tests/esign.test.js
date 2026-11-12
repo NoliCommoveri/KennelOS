@@ -388,6 +388,34 @@ test('countersign: she is the second Signer of the same request, and gets her ow
   assert.equal(fake.sends.length, 2, 'a bad countersigner never reaches Firma');
 });
 
+test('she signs first: the first Signer, the buyer second; the buyer\'s link, her link and the copy\'s email find each by place', async () => {
+  const env = await envWith({ MAIL_FROM: 'KennelOS <signin@kennelos.app>', FAMILY_PAGES_ORIGIN: 'https://apply.kennelos.app' });
+  const s = await connected(env);
+  env.RESEND_API_KEY = 're_test';
+  const r = await send(env, s, { keepCopy: true, countersigner: { name: 'Maple Ridge Labradors', email: 'Breeder@Example.com', first: true } });
+  assert.equal(r.status, 200, await r.clone().text());
+  const out = await r.json();
+  assert.deepEqual([out.countersign, out.countersignFirst], [true, true]);
+  assert.deepEqual(fake.sends[0].body.recipients.map((x) => [x.email, x.order]),
+    [['breeder@example.com', 1], ['ann@example.com', 2]]);
+  assert.equal('first' in fake.sends[0].body.recipients[0], false, 'only Firma\'s fields go');
+  assert.equal(out.signingLink, 'https://app.firma.dev/signing/su_sr_1_2', 'the buyer\'s link, not Firma\'s first signer (her)');
+  assert.equal(env.DB.raw.prepare("SELECT countersign_first FROM esign_sends WHERE signing_request_id = 'sr_1'").get().countersign_first, 1);
+
+  const link = await call(env, 'GET', '/integrations/esign/countersign?ref=sr_1', { token: s.token });
+  assert.deepEqual(await link.json(), { url: 'https://app.firma.dev/signing/su_sr_1' }, 'her link: the first Signer');
+
+  const { raw, header } = signed({ id: 'evt_1', type: 'signing_request.completed', created_at: iso(Date.now()), data: { signing_request: { id: 'sr_1', completed_at: '2026-11-12T10:00:00Z' } } });
+  assert.equal((await postHook(env, hookPathOf(env), raw, header)).status, 200);
+  assert.equal((await firma.runEsignCopies(env)).emailed, 1);
+  assert.deepEqual(fake.mails.at(-1).to, ['ann@example.com'], 'the signed copy goes to the buyer, not her');
+
+  // After the buyer is the default: an old send (no flag) is unchanged.
+  await send(env, s, { contractId: 'c-2', countersigner: { name: 'M', email: 'breeder@example.com', first: 'yes' } });
+  assert.deepEqual(fake.sends[1].body.recipients.map((x) => x.order), [1, 2]);
+  assert.equal(fake.sends[1].body.recipients[0].email, 'ann@example.com');
+});
+
 test('the monthly limit: the default from /ops, an account\'s own, and the month\'s reset', async () => {
   const env = await envWith();
   const s = await connected(env);

@@ -225,7 +225,7 @@ to the cloud unsealed).
 | **File** (`files`) | `blob`, `mime`, `filename`, `size` | `thumbnail`. Always a PDF. Owned by its one Document or Expense; fetched by id only (§26.1). |
 | **WaitlistEntry**, **WaitlistOffer**, **WaitlistProgram** | see §29 | One entry per family per time on a kennel's list; position and passes are derived, never stored. |
 | **DoNotSell** (`do_not_sell`) | a `name`, `email` or `phone` | Her do-not-sell list (§29): `reason`, `added_date`, `contact_id` (indexed; a contact moved there, hidden from the Contacts list while listed), `source_entry_id` (the application it was added from; unindexed, a `scan` registry entry). Program-wide. Every field private (`rows: 'none'`, like expenses). Taken off = archived. |
-| **Account** (`accounts`) | `name` | `account_type`, login fields (private), referral fields, fee rate, `fee_charge_back` (private, §21.2), `contract_forms[]`, `payment_link`, `payment_instructions` (§32). Program-wide, no `kennel_id`. API keys live in `device_secrets`, never on the record. |
+| **Account** (`accounts`) | `name` | `account_type`, login fields (private), referral fields, fee rate, `fee_charge_back` (private, §21.2), `contract_forms[]`, `esign_signs_default` (cloud; on the E-sign (Firma) account, whether she signs her next new template, §32), `payment_link`, `payment_instructions` (§32). Program-wide, no `kennel_id`. API keys live in `device_secrets`, never on the record. |
 
 **Litter delivery.** `Litter.delivery_type` is asked only once the litter is Whelped or
 later (`vocab.WHELPED_OR_LATER`). The Litter page hides the field before that, so a status
@@ -2802,11 +2802,16 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     The tab is opened before the await and has no `opener`.
 - **What KennelOS keeps** (`data/esignTemplates.js`):
   - Only each template's kind, as a `contract_forms` row
-    `{ id, form_type, label, provider: 'firma', template_id, countersign?, keep_copy?, extra_list_id? }`
+    `{ id, form_type, label, provider: 'firma', template_id, countersign?, countersign_first?, keep_copy?, extra_list_id? }`
     (`contractForms.isFirmaForm`; no `url`). Contract templates is the only place a row is
-    set: the Accounts page shows it and, on save, keeps it exactly as stored. `countersign: true` (the template's **I
-    countersign** tick, enabled once it has a type) means she signs it too; a retype keeps
-    it. `keep_copy: true` (its **Email the buyer the signed copy** tick) means KennelOS keeps
+    set: the Accounts page shows it and, on save, keeps it exactly as stored. Whether she
+    signs is one choice of three radio buttons per template, enabled once it has a type
+    (`esignTemplates.signsOf`, `signs`): **I sign first** (`countersign` and
+    `countersign_first` true: before the buyer), **I sign last** (`countersign` true: after
+    the buyer; a row from before the choice reads this way), **I don't sign** (neither). A
+    retype keeps it. The choice she makes is kept as `esign_signs_default` on the account,
+    and a new template (the upload form's own radios) starts with it, else **I don't
+    sign** (`esignTemplates.signsDefault`). `keep_copy: true` (its **Email the buyer the signed copy** tick) means KennelOS keeps
     the signed PDF and emails the buyer a link (below).
   - The rows live on the **E-sign (Firma)** Form service account (`FIRMA_ACCOUNT`), made the
     first time she types a template.
@@ -2836,15 +2841,20 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     (`cloudEsign.countersignerFor`: her cloud account's email, under the kennel's
     `esign_signer_name` (**Countersign as** in Contract templates, one per own kennel), else
     the contact linked to the kennel, else the kennel's name:
-    `esignTemplates.kennelSignerName`). The
-    Worker makes her the request's second Signer (`order: 2`): one request, one credit.
+    `esignTemplates.kennelSignerName`), with `first: true` on a template she signs first. The
+    Worker makes her the request's second Signer (`order: 2`), or with `first` its first
+    (`order: 1`, the buyer `order: 2`; `firma.signerOrders`), and records that on the send
+    (`esign_sends.countersign_first`, migration 0024): one request, one credit. The buyer's
+    link it returns is the buyer's place, never Firma's `first_signer` when she signs first.
+    In Firma's editor she gives that place's signer her signature field.
     The dialog says she countersigns as that email. With no account email on the device, or
     her email as the buyer's, the send is refused before Firma.
   - On a template with `keep_copy`, `sendBody` adds `keepCopy` and her kennel's name. The
     dialog says the buyer will be emailed the signed copy.
   - It marks the contract `sent` with `esign_provider: 'firma'`, `esign_ref` (Firma's
     signing request id; cloud tier), `esign_url` (the buyer's signing link), `esign_sent_date`,
-    `esign_form_label` and `esign_countersign` (cloud tier: she countersigns it).
+    `esign_form_label`, `esign_countersign` (cloud tier: she signs it) and
+    `esign_countersign_first` (cloud tier: before the buyer).
   - A second send needs **Send again** (`resend`).
   - **Preview** (`cloudEsign.previewLink`): the same `sendBody` goes to
     `POST /integrations/esign/preview`, which makes a **draft** signing request
@@ -2880,16 +2890,19 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
 - **Back:** Firma's webhook becomes `contract.signed` / `contract.declined`, applied as for
   any vendor. `contract.expired` / `contract.cancelled` become a Today review while the
   contract is still Sent (`integrationEvents.planIntegrationEvent`).
-- **Countersign** (Contract page, with `esign_countersign`, while Sent): her own signing link,
-  asked of the Worker when tapped (`cloudEsign.countersignLink`; never kept) and opened in a
-  new tab. Firma's page has her wait while the buyer hasn't signed. The contract becomes
+- **Countersign** (Contract page, with `esign_countersign`, while Sent; **Sign first** with
+  `esign_countersign_first`): her own signing link, asked of the Worker when tapped
+  (`cloudEsign.countersignLink`; never kept; the Worker picks her place from
+  `countersign_first`) and opened in a new tab. Firma's page has her wait while the signer
+  before her hasn't signed; signing first, the buyer waits for her. The contract becomes
   Signed only when both have (Firma's completed event comes once every signer is done).
 - **Signed copy** (Contract page, with `esign_ref`): a short-lived link from the Worker,
   opened in a new tab (**Copy so far** before it's signed). For a copy KennelOS kept, it's
   that copy's link (`kept: true`).
 - **Kept copies** (Worker only, D33): once Firma reports a `keepCopy` send completed, the
   hourly cron copies the signed PDF to R2 and emails the buyer a private link
-  (`/signed/<send id>/<mac>`). The buyer's email is read from Firma then, never stored. A
+  (`/signed/<send id>/<mac>`). The buyer's email is read from Firma then (the buyer's place,
+  per `countersign_first`), never stored. A
   step that fails is retried hourly for two days. The copy stays until account deletion.
 
 ### Payment services (plan §4–§5)

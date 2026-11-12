@@ -65,7 +65,7 @@ src/integrations.js    vendor integrations' plumbing (docs/KennelOS_Integrations
                        and POST /hooks/<provider>/<secret> (the adapter checks the vendor's signature
                        over the raw bytes; the event is cut to EVENT_KINDS' allow-list; a retry is
                        kept once). Providers are adapters; Firma (src/firma.js) is the one registered. Pro
-src/firma.js           e-sign through Firma (Integrations plan §2.3a, migrations 0022–0023): her own Firma
+src/firma.js           e-sign through Firma (Integrations plan §2.3a, migrations 0022–0024): her own Firma
                        workspace on KennelOS's account (made with FIRMA_API_KEY; then her workspace's
                        key, sealed in her connection, does everything she asks), her templates and
                        Firma's editor token, POST /integrations/esign/send within the monthly limit

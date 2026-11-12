@@ -3691,3 +3691,26 @@ tick box per template; buyers get an emailed link.
 - **Tests:** `cloud/tests/esign.test.js` +3. `cd cloud && npm test` 329 pass, `node --test`
   1751 pass.
 - **Docs:** End-State guide §32, Integrations plan §2.3a, launch checklist.
+
+## 2026-11-12: She can sign first
+
+- **Why (owner):** one breeder signs her contracts before sending them. The template's
+  **I countersign** tick becomes one choice of three: **I sign first / I sign last / I don't
+  sign**. A new template starts with her last choice (owner decision), else I don't sign.
+- **App:** a Firma `contract_forms` row adds `countersign_first: true` (only with
+  `countersign`; a row without it reads as last, so older builds read a first-signing row as
+  last). `esignTemplates.signsOf` / `signsDefault` / `SIGNS`; `withTemplateRow` and
+  `setTemplateType` take `signs` (the older `countersign` still works). The choice is kept on
+  the E-sign (Firma) account as `esign_signs_default` (cloud tier). `countersignerFor` adds
+  `first`; the contract keeps `esign_countersign_first` (cloud tier) and shows **Sign first**
+  instead of **Countersign**. Send dialog, sent message and composer hint say so.
+- **Worker (migration 0024):** `esign_sends.countersign_first`. Signing first, she is
+  `order: 1` and the buyer `order: 2` (`firma.signerOrders`), recipients sent in order. The
+  buyer's link returned is the buyer's place (not Firma's `first_signer`); her link
+  (`/integrations/esign/countersign`) and the kept copy's buyer email find each by place.
+- **Unproven:** that Firma holds the buyer until she has signed, and when it emails the
+  buyer. On the launch checklist.
+- **Tests:** `tests/esign.test.js` +3, `cloud/tests/esign.test.js` +1. `node --test` 1755
+  pass, `cd cloud && npm test` 330 pass.
+- **Docs:** End-State guide §5 (Account), §32; Integrations plan §2.3a, D32; launch
+  checklist; README Status; `cloud/README.md`.

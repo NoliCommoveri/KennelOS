@@ -30,7 +30,7 @@
 // its webhook signing secret and the webhook's id. Never sent to a device.
 //
 // What goes to Firma: her kennel's name (the workspace), her template PDFs, and per
-// send the signer's name and email, hers when she countersigns (D32), and the contract's facts (the allow-list her
+// send the signer's name and email, hers when she countersigns (D32, before or after the buyer), and the contract's facts (the allow-list her
 // device builds, shared/data/contractForms.js). What is kept here: ids, statuses
 // and times (esign_sends), and her kennel's name on a send whose copy is kept.
 // The signed PDFs she asked KennelOS to keep are in R2 (esign/<program>/<id>.pdf).
@@ -350,11 +350,21 @@ async function requestUsers(env, key, signingRequestId) {
 const linkOf = (u) => httpsLink(u?.signing_link) || (u?.id ? `https://app.firma.dev/signing/${encodeURIComponent(u.id)}` : null);
 const signersOf = (users) => (users || []).filter((u) => u?.designation === 'Signer');
 
+// Where the buyer and she stand in a request's signing order (D32): the buyer
+// first unless she signs first. → { buyer, hers }
+export const signerOrders = (herFirst) => (herFirst ? { buyer: 2, hers: 1 } : { buyer: 1, hers: 2 });
+
+// The Signer at `order`, else the one in that place among the Signers. → user | undefined
+const signerAt = (users, order) => {
+  const signers = signersOf(users);
+  return signers.find((u) => Number(u.order) === order) || (signers.length > 1 ? signers[order - 1] : (order === 1 ? signers[0] : undefined));
+};
+
 // The buyer's own link when Firma didn't hand it back (a send that had started
-// before an error): the first Signer of the request.
-async function signerLink(env, key, signingRequestId) {
+// before an error), or when she signs first (Firma's first signer is her).
+async function signerLink(env, key, signingRequestId, order = 1) {
   const users = await requestUsers(env, key, signingRequestId);
-  return linkOf(signersOf(users).find((u) => Number(u.order) === 1) || signersOf(users)[0] || users?.[0]);
+  return linkOf(signerAt(users, order) || (order === 1 ? users?.[0] : null));
 }
 
 // Her workspace's custom fields, as Firma lists them, or null when it didn't answer.
@@ -403,13 +413,14 @@ export function emptyPrefills(data) {
 
 // POST /integrations/esign/send
 //   { contractId, templateId, title, signer: { firstName, lastName, email },
-//     countersigner: { name, email } | absent,
+//     countersigner: { name, email, first = false } | absent,
 //     facts: { <fact>: <text> }, emailSigner = true, resend = false,
 //     keepCopy = false, kennelName }
-// → { signingRequestId, signingLink, countersign, usage }
+// → { signingRequestId, signingLink (the buyer's), countersign, countersignFirst, usage }
 //
-// With a countersigner (D32) she is the request's second Signer, after the buyer:
-// one request, so one credit. Her email comes from her device (her account's
+// With a countersigner (D32) she is the request's second Signer, after the buyer,
+// or with `first` its first, before the buyer (countersign_first on the row, so
+// the buyer and she are found again by their place): one request, so one credit. Her email comes from her device (her account's
 // email; the Worker keeps only its hash). Firma's completed webhook comes once
 // every signer has finished, so Signed means both have signed.
 //
@@ -448,7 +459,8 @@ function parseSend(body) {
     if (!name) fail(400, 'countersigner_name_required');
     if (!EMAIL.test(herEmail)) fail(400, 'countersigner_email_required');
     if (herEmail === email) fail(400, 'countersigner_is_signer');
-    countersigner = { first_name: name, email: herEmail, designation: 'Signer', order: 2 };
+    const first = body.countersigner?.first === true;
+    countersigner = { first_name: name, email: herEmail, designation: 'Signer', order: signerOrders(first).hers, first };
   }
 
   return { contractId, templateId, firstName, lastName, email, facts, title, keepCopy, kennelName, countersigner };
@@ -460,8 +472,9 @@ async function templateThere(env, key, templateId) {
   if (tpl.status === 404) fail(404, 'template_missing');
 }
 
-// Firma's body for one request: the buyer, and her as the second signer when she
-// countersigns, each with every fact under each name the template may use.
+// Firma's body for one request: the buyer, and her as a second Signer when she
+// countersigns (after the buyer, or before with `first`), in signing order, each
+// with every fact under each name the template may use.
 async function requestBody(env, key, workspaceId, { templateId, title, firstName, lastName, email, facts, countersigner }, emailSigner) {
   const rows = Object.keys(facts).length ? await customFieldRows(env, key, workspaceId) : null;
   const values = withFieldAliases(facts, rows);
@@ -471,9 +484,9 @@ async function requestBody(env, key, workspaceId, { templateId, title, firstName
       name: title,
       template_id: templateId,
       recipients: [
-        { first_name: firstName, last_name: lastName || undefined, email, designation: 'Signer', order: 1, custom_fields: values },
-        ...(countersigner ? [{ ...countersigner, custom_fields: values }] : []),
-      ],
+        { first_name: firstName, last_name: lastName || undefined, email, designation: 'Signer', order: signerOrders(countersigner?.first).buyer, custom_fields: values },
+        ...(countersigner ? [{ first_name: countersigner.first_name, email: countersigner.email, designation: 'Signer', order: countersigner.order, custom_fields: values }] : []),
+      ].sort((a, b) => a.order - b.order),
       settings: { send_signing_email: emailSigner },
     },
   };
@@ -502,10 +515,10 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
   const rowId = crypto.randomUUID();
   const at = now.toISOString();
   const reserved = await env.DB.prepare(
-    `INSERT INTO esign_sends (id, program_id, connection_id, contract_id, template_id, signing_request_id, status, sent_at, updated_at, keep_copy, kennel_name)
-     SELECT ?, ?, ?, ?, ?, NULL, 'sending', ?, ?, ?, ?
+    `INSERT INTO esign_sends (id, program_id, connection_id, contract_id, template_id, signing_request_id, status, sent_at, updated_at, keep_copy, kennel_name, countersign_first)
+     SELECT ?, ?, ?, ?, ?, NULL, 'sending', ?, ?, ?, ?, ?
       WHERE (SELECT COUNT(*) FROM esign_sends WHERE program_id = ? AND ${HELD}) < ?`,
-  ).bind(rowId, auth.programId, connection.id, contractId, templateId, at, at, keepCopy ? 1 : 0, kennelName, auth.programId, start, limit).run();
+  ).bind(rowId, auth.programId, connection.id, contractId, templateId, at, at, keepCopy ? 1 : 0, kennelName, countersigner?.first ? 1 : 0, auth.programId, start, limit).run();
   if (!reserved.meta?.changes) fail(409, 'esign_limit_reached', { usage: await usage(env, auth.programId, now) });
 
   const settle = (status, signingRequestId = null) => env.DB.prepare(
@@ -529,8 +542,11 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
     // know yet); "sent" = KennelOS sent it but Firma still left it empty.
     const sentKeys = new Set(Object.keys(values).map((k) => k.toLowerCase()));
     if (missed.length) console.warn('firma: prefilled fields left empty', missed.map((k) => `${k} (${sentKeys.has(k.toLowerCase()) ? 'sent' : 'not sent'})`).join(','));
-    const link = httpsLink(r.data?.first_signer?.signing_link) || await signerLink(env, secrets.apiKey, signingRequestId);
-    return { signingRequestId, signingLink: link, countersign: !!countersigner, keepCopy, usage: await usage(env, auth.programId, now) };
+    // Firma's first signer is the buyer, unless she signs first.
+    const herFirst = countersigner?.first === true;
+    const link = (herFirst ? null : httpsLink(r.data?.first_signer?.signing_link))
+      || await signerLink(env, secrets.apiKey, signingRequestId, signerOrders(herFirst).buyer);
+    return { signingRequestId, signingLink: link, countersign: !!countersigner, countersignFirst: herFirst, keepCopy, usage: await usage(env, auth.programId, now) };
   }
   if (r.status === 404) {
     await free();
@@ -744,13 +760,12 @@ export async function signedCopyLink(env, origin, rowId) {
   return `${String(origin || '').replace(/\/+$/, '')}/signed/${rowId}/${await copyMac(env, rowId)}`;
 }
 
-// The buyer: the request's first Signer, as Firma lists it. Read when the email
-// goes, never kept.
-async function buyerEmail(env, key, signingRequestId) {
+// The buyer: the request's first Signer as Firma lists it, or its second when she
+// signed first (countersign_first). Read when the email goes, never kept.
+async function buyerEmail(env, key, signingRequestId, herFirst = false) {
   const users = await requestUsers(env, key, signingRequestId);
   if (!users) return { ok: false, email: null };
-  const signers = signersOf(users);
-  const buyer = signers.find((u) => Number(u.order) === 1) || signers[0];
+  const buyer = signerAt(users, signerOrders(herFirst).buyer);
   const email = text(buyer?.email).toLowerCase();
   return { ok: true, email: EMAIL.test(email) ? email : null };
 }
@@ -773,7 +788,7 @@ export async function runEsignCopies(env, { now = new Date(), origin = env.FAMIL
   const out = { kept: 0, emailed: 0, noEmail: 0, failed: 0, waiting: 0 };
   if (!env.FILES || !env.INT_TOKEN_KEY || !origin) return out;
   const { results } = await env.DB.prepare(
-    `SELECT id, program_id, connection_id, signing_request_id, kennel_name, copy_status, copy_key, copy_tries
+    `SELECT id, program_id, connection_id, signing_request_id, kennel_name, copy_status, copy_key, copy_tries, countersign_first
        FROM esign_sends WHERE copy_status IN ('pending', 'kept') ORDER BY updated_at LIMIT ?`,
   ).bind(COPIES_PER_RUN).all();
   for (const row of results) {
@@ -802,7 +817,7 @@ export async function runEsignCopies(env, { now = new Date(), origin = env.FAMIL
       out.kept++;
     }
 
-    const buyer = await buyerEmail(env, apiKey, row.signing_request_id);
+    const buyer = await buyerEmail(env, apiKey, row.signing_request_id, row.countersign_first === 1);
     if (!buyer.ok) { await tried('kept'); continue; }
     if (!buyer.email) {
       await env.DB.prepare("UPDATE esign_sends SET copy_status = 'no_email', updated_at = ? WHERE id = ?").bind(at, row.id).run();
@@ -847,20 +862,21 @@ export async function serveSignedCopy(request, env, url) {
 export const esignCopyPrefix = (programId) => `esign/${programId}/`;
 
 // GET /integrations/esign/countersign?ref=<signing request id> → { url }: her own
-// signing link on a request she countersigns (D32), the second Signer. Asked for
-// when she taps Countersign, never kept. Only for a request this program sent.
+// signing link on a request she countersigns (D32): the second Signer, or the
+// first when she signs first (countersign_first). Asked for when she taps
+// Countersign (or Sign first), never kept. Only for a request this program sent.
 export async function esignCountersignLink(env, auth, url) {
   await herSide(env, auth);
   const { secrets } = await mine(env, auth);
   const ref = text(url.searchParams.get('ref'));
   if (!UUIDISH.test(ref)) fail(400, 'bad_ref');
-  const row = await env.DB.prepare('SELECT status FROM esign_sends WHERE program_id = ? AND signing_request_id = ?').bind(auth.programId, ref).first();
+  const row = await env.DB.prepare('SELECT status, countersign_first FROM esign_sends WHERE program_id = ? AND signing_request_id = ?').bind(auth.programId, ref).first();
   if (!row) fail(404, 'not_found');
   if (row.status !== 'sent') fail(409, 'esign_not_open', { status: row.status });
   const users = await requestUsers(env, secrets.apiKey, ref);
   if (!users) fail(502, 'esign_unavailable');
-  const signers = signersOf(users);
-  const hers = signers.find((u) => Number(u.order) === 2) || (signers.length > 1 ? signers.at(-1) : null);
+  // A request with one Signer has no place for her (sent without her).
+  const hers = signersOf(users).length > 1 ? signerAt(users, signerOrders(row.countersign_first === 1).hers) : null;
   const link = linkOf(hers);
   if (!link) fail(409, 'no_countersigner');
   return { url: link };

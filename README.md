@@ -61,7 +61,8 @@ backup, carries a program from Lite to Pro.
     live key (`docs/LAUNCH_CHECKLIST.md`), after migration `0022` is applied in `/ops`.
     Jotform is retired; pasted contract-form links stay as the free fallback. Her
     countersignature (D32) and kept signed copies emailed to buyers (D33, migration `0023`)
-    are built, to be proven on the same run, after `0023` is applied too.
+    are built, to be proven on the same run, after `0023` and `0024` (she signs first) are
+    applied too.
   - Cloud Phase 2 live sync: released. Next is checking it on real phones (iPhone and Android)
     on production; step 7, the live nudge, is optional. Production has every cloud migration
     through `0021` applied. Staging isn't in use, so deploys there aren't tracked.

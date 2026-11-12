@@ -335,14 +335,18 @@ and Email Routing.
   and a waitlist fee link, pay each in test mode, and check the app records them (Stripe must
   answer browser calls). Not yet exercised against the real service.
 - [ ] **Firma e-sign on production** (Integrations plan §2.3a; live company key, so each send
-  costs a credit): apply migrations `0022` and `0023` in `/ops`, then check the E-sign (Firma) section
+  costs a credit): apply migrations `0022`, `0023` and `0024` in `/ops`, then check the E-sign (Firma) section
   shows the key set and the credits. In the app: Contracts → Contract templates → Set up
   e-signing, upload a template, **Place fields** (Firma's editor opens in a new tab: check it
   loads and saves), send a contract to your own email, sign it, and check it comes back
-  Signed with its signed copy. Then countersign (D32): tick **I countersign** on a template,
+  Signed with its signed copy. Then countersign (D32): pick **I sign last** on a template,
   add a second signer with a signature field in Firma's editor, send to another email of
   yours, sign as the buyer, tap **Countersign** and sign. Check it stays Sent until you have,
   that Firma put the two of you in the right signer roles, and which emails Firma sent you.
+  Then sign first: pick **I sign first** on a template whose first signer in Firma's editor
+  has your signature field, send, tap **Sign first** and sign, then sign as the buyer. Check
+  Firma kept the buyer waiting until you'd signed, that the buyer's link KennelOS gave (Copy
+  link again) is the buyer's, not yours, and when Firma emailed the buyer.
   Then a kept copy (D33): tick **Email the buyer the signed copy**, send, sign. Within the
   hour the buyer's address should get "Your signed contract from …" with a link that opens
   the PDF, and the contract's Signed copy should open the same link. Note whether Firma also
