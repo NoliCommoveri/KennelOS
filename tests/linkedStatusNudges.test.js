@@ -373,3 +373,17 @@ test('a stud service\'s boarding ended: update its dates and status (instead of 
   assert.equal(after.type, 'in_person', 'type follows who travels');
   assert.equal((await nudgesFor('studboard:')).length, 0);
 });
+
+test('a heat logged with no end date asks "record a pairing?" three weeks after it started (K9-4)', async () => {
+  const { eventRepo } = await import('../shared/data/eventRepo.js');
+  const { todayYMD, addDaysToYMD } = await import('../shared/data/dateUtils.js');
+  const ago = (n) => addDaysToYMD(todayYMD(), -n);
+  const open = await eventRepo.create({ subject_type: 'dog', subject_id: dam.id, event_type: 'heat_cycle', event_date: ago(10), title: 'Heat cycle' });
+  assert.equal((await nudgesFor('heatpair:')).length, 0, 'still in heat');
+  await eventRepo.update(open.id, { event_date: ago(40) });
+  const [n] = await nudgesFor('heatpair:');
+  assert.equal(n?.key, `heatpair:${open.id}`);
+  assert.match(n.detail, /no end date/);
+  await pairing({ status: 'planned', expected_due_date: null, first_breeding_date: ago(30) });
+  assert.equal((await nudgesFor('heatpair:')).length, 0, 'gone once a pairing follows it');
+});

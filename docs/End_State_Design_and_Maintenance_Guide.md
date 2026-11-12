@@ -33,7 +33,7 @@ The shared core never checks which edition it is: it reads the two injection poi
 
 | | Lite (free) | Pro (paid) | Demo |
 |---|---|---|---|
-| Pages | Shared pages only: no `PRO_ONLY_PAGES` / `PRO_ONLY_STANDALONE` | All | All but Import/Export, Settings and the Assistant console (`DEMO_EXCLUDED_PAGES` in `build/assemble.mjs`) |
+| Pages | Shared pages only: no `PRO_ONLY_PAGES` / `PRO_ONLY_STANDALONE` | All | All but Import/Export, Settings and the Assistant console (`DEMO_EXCLUDED_PAGES` in `data/proPages.js`, read by `build/assemble.mjs` and Kels's Find) |
 | Feature flags (contacts, stud services, contracts, documents, companion, furever, reports, invoicing, extra charges, puppy record, foster, receipts, external ownership, assistant, feeding schedules, accounts, shows, waitlist, multi-kennel, website link) | all `false` | all `true` | all `true` |
 | Cap | 6 counting dogs, 10 litters | none (no-op hooks) | none |
 | Archive | No Archive button, no "include archived" toggles, departed dogs shown as plain text; a dog leaves by "Remove from program" | Normal | Normal |
@@ -2593,7 +2593,9 @@ already lists.
 
 **Editions:** Pro and Demo only (`editionFlags.reports`; every `*-report` page is in
 `proPages.js`). Lite keeps the shared Active Roster and Live-Birth Summary pages, with their
-charts and Print.
+charts and Print; they read only shared modules (the Live-Birth Summary's loader is its own,
+its figures `reportMath.liveBirthFigures`; `tests/liteImportGraph.test.js` checks no page Lite
+keeps imports a Pro-only file), and Lite hides the page's ← All reports.
 
 The hub (`pages/reports.*`) lists `data/reportCatalog.js` in tabs (Money / Breeding /
 Puppies / Sales & Waitlist / Shows & Stud / Dogs & Operations; `?group=`), with **Year in
@@ -2997,7 +2999,8 @@ both waitlist tasks), `assets/kelsBackupSteps.js` (`offerCloudBackup`, `offerSen
 `VAULT_WHY`, `cloudBackupOn`: turning on cloud backup and Sensitive records backup in the
 chat; the waitlist tasks, Getting Started and account health's wording), `assets/kelsSetupUI.js` +
 `data/kelsSetup.js` (Getting Started), `assets/vendorKeyUI.js` (`vendorKeyFlow`: a Stripe key connected or
-replaced in the chat; account health and the waitlist setup), `assets/kelsFindings.js` (`FindingsTask`, the
+replaced in the chat; account health and the waitlist setup; its link always opens Stripe's API
+keys page, with her account's saved website, made a full address, as a second link), `assets/kelsFindings.js` (`FindingsTask`, the
 look → raise one at a time → fix → look again loop the tidy-up and account health share:
 "Not now", a remembered "Don't ask me again" under `<prefix>:<key>` in the nudge ledger,
 "Stop for now"), `assets/prepPupsUI.js` +
@@ -3279,7 +3282,9 @@ against existing dogs, `dogSearch.findDogMatches` with its names and breed, pedi
 dogs included, so nobody is entered twice; "Yes, that's her" on a pedigree-only one brings
 it into use with her answers (`spec.bringInId`: updated, not made; the pedigree's names and
 breed stay, hers fill only blanks); outside dogs only in Pro) →
-the matching litter (`litterCandidates`) → the matching breeding (`pairingCandidates`) or when
+the matching litter (`litterCandidates`; an Expected one's whelp date is a placeholder, so it
+never prefills the birth date, and a ready date that was just its whelp date + 8 weeks
+follows the real birth date, `refreshReadyDate`) → the matching breeding (`pairingCandidates`) or when
 she was bred → the stud service (Pro, outside dad) → birth date and counts → how they were
 delivered (`delivery`: a tile per `LITTER_DELIVERY_TYPE`, or "I'll add it later", which saves
 nothing; skipped when the chosen litter already has one) → kennel (only if
@@ -3289,8 +3294,9 @@ prices (prefilled from her last priced litter of that breed, previewed with the
 
 **The save** (`saveGuidedLitter`) writes in order: new parents → litter → breeding (marked
 `whelped`, due = bred + 63) → stud service → puppies (`puppyDefaults.baseFromLitter`, as Add
-Puppies) → a "Birth weight" `weight_check` per weighed pup. In Lite the litter is written
-first so the cap refuses before anything else is made. **Resumable:** each new id goes back
+Puppies) → a "Birth weight" `weight_check` per weighed pup. In Lite a new litter is checked
+against the cap (`enforceLitterCap`) before anything is written, new parents included, so a
+refusal leaves nothing behind. **Resumable:** each new id goes back
 on the draft as it's made, so a retry never duplicates.
 
 **The draft:** `settings.guidedLitterDraft` (answers plus `history` to replay the chat;
@@ -3308,19 +3314,27 @@ One dog or several in one go, the way the litter task takes several puppies. `st
    off. Names must differ; an empty row is dropped. In Lite with no room left, she shows
    the upgrade notice in place of the task's questions.
 2. **What do they have in common?** (`common`, only with two or more dogs): breed, status,
-   whose dog, the owner (someone else's) and the kennel (with more than one own kennel; the
+   whose dog, the owner (someone else's), the co-owner (co-owned) and the kennel (with more than one own kennel; the
    active one suggested). `fillFromCommon` fills each dog's blank fields, and any still
    holding the last common answer; her own change on a dog is kept. A lone dog gets the
    defaults (Active breeding, Owned).
 3. **Each dog** (`dog:<i>`, "Tell me about Daisy (2 of 3)"): breed (required), date of birth,
-   registered name and number, color and markings, microchip, status (`statusChoices`:
-   Active / Retired breeding, Pet home, For sale, Deceased; Lite: Active / Retired breeding,
-   Deceased; a puppy belongs to a litter), whose dog (`ownershipChoices`: Owned, Co-owned,
-   and someone else's only with `externalOwnership`), the owner for someone else's (a
-   contact, or a name that becomes a new contact), the kennel with several own kennels.
+   registered name and number, color and markings, microchip, status (`statusChoices`, the
+   Dog page's by edition: Puppy, Active / Retired breeding, Pet home, For sale, Deceased,
+   External reference; Lite: Puppy, Active / Retired breeding, Deceased), whose dog
+   (`ownershipChoices`: Owned, Co-owned, and someone else's only with `externalOwnership`),
+   then what those answers need (`tidyAnswers` clears what no longer applies):
+   - a **puppy**: its plan (`dispositionChoices`: Undecided, Keeping, Available, Health
+     hold; Placed comes from a sale), required, and its intended registration (optional);
+   - someone else's dog or an **external reference** (`needsOwner`): the owner, a contact
+     or a name that becomes a new contact (typed Breeder), required. Picking External
+     reference sets whose dog to External; one marked hers is refused;
+   - a **co-owned** dog (`isCoOwned`): the co-owner, a contact (not her own) or a new name,
+     required, and **Lives with** (Me / The co-owner);
+   - the kennel with several own kennels.
    Checks she can tap past: a breed spelled unlike one her dogs have ("Did you mean Golden
    Retriever?"), a registration number in the registered-name box, a new owner like a
-   contact she has. On save, a breed matching hers but for case or spacing takes her
+   contact she has, a new co-owner the same. On save, a breed matching hers but for case or spacing takes her
    dogs' spelling. (The breeder step asks the same of a kennel or contact like one on file.)
 4. **Is this her?** (`match:<i>`, only when `findMatchesFor` finds dogs on file it may be:
    `dogSearch.findDogMatches` over every dog not archived, pedigree-only and outside ones
@@ -3351,7 +3365,9 @@ One dog or several in one go, the way the litter task takes several puppies. `st
    already in KennelOS, and **Add or take off a dog** (back to the roster).
 
 **The save** (`saveGuidedDogs`), per dog: its owner (one new contact per typed name, typed
-Breeder), its typed parents (one pedigree-only dog per name and sex, so littermates share
+Breeder), its co-owner (one new contact per typed name, shared with owners'; added to
+`co_owner_contact_ids`, and `lives_with_contact_id` when it lives with them), a puppy's
+`disposition` and `intended_registration`, its typed parents (one pedigree-only dog per name and sex, so littermates share
 it), then the dog: owned or co-owned in her kennel (`resolveKennelIdForWrite` when not
 asked), its breeder kennel (`saveBreeder`: hers; or another breeder's, a typed name
 through `kennelRepo.findOrCreateOutside`, the outside kennel on file by that name (trimmed,
@@ -3488,7 +3504,9 @@ questions, preferences and readiness, `assets/waitlistApplicationForm.js`), then
 program, when they applied, **Money they've already paid you** (optional amount, date and
 note: a credit for funds already received, every use ticked, `receivedCredits.newCredit`)
 and her notes, saved as an application (`applied`), as the
-Waitlist entry page saves one. Set up my waitlist's **Add one by hand** and Add people both
+Waitlist entry page saves one. A family matching her do-not-sell list
+(`doNotSell.entryDoNotSellMatches`) gets the entry page's warning first; a second tap on
+**Add the family** adds them anyway. Set up my waitlist's **Add one by hand** and Add people both
 run it; without a contact it's linked at approval, as ever.
 
 ### "Check in on my dogs"
@@ -3499,9 +3517,12 @@ Each thing is saved as she approves it. Every step looks only at the dogs she lo
 1. **Heats:** each of her active breeding females' predicted next heat (`dogCare`, as the
    `heatwatch` nudge) or "no heats logged yet", then "Do you want to log any heats?", one
    female at a time: a `heat_cycle` with start (the prediction if it's ahead, else today;
-   any date, future included), optional end and notes, and her new prediction.
+   any date, future included), optional end and notes, and her new prediction. A heat left
+   without an end counts as over `nudges.HEAT_OPEN_DAYS` (21) after it started, for
+   Today's `heatpair` ("record a pairing?").
 2. **Preventatives:** her own active breeding dogs (only those listed), the ones with no
-   `preventative` this month ticked; a form (product, dose, date) → one event each, then
+   `preventative` this month ticked; a form (an optional title, product, dose, date; a
+   blank title takes the product) → one event each, then
    "Any other preventatives to log?" (**Log another** / **No, that's all**), repeated, each
    later form ticking the dogs she picked last time. With none missing it asks first
    whether to log one (flea & tick, say).
@@ -3520,13 +3541,20 @@ Each thing is saved as she approves it. Every step looks only at the dogs she lo
    visits, and
    the ones another task logs, `acquisition` (Add dogs) and `placement` (Pups are going
    home); `show` only with `shows`; searchable) → one form: an optional title (a note's
-   words, required for a Note), the type's own fields (`litterCheckinUI.eventFieldInput`,
-   shared with the litter check-in's care forms; combobox options as suggestions), the date
-   (and end for a span type), **Cost per dog** (optional; one `expenseRepo.createForEvent`
+   words, required for a Note), the type's own fields (`litterCheckinUI.eventFieldsHtml`,
+   shared with the litter check-in's care forms; combobox options as suggestions), with a
+   `relatedContact` type's person (a vet, a handler, boarding's host) picked from her
+   contacts in place of the typed `contactFallback` name (`relatedContactInput`: those
+   with the type's role, `vocab.RELATED_CONTACT_ROLE`, first; **Someone new…** makes a
+   contact with that role; a picked one gains it), the date (and end for a span type),
+   **Notes** and **Remind me on** (optional; the event's `reminder_date`), **Cost per dog** (optional; one `expenseRepo.createForEvent`
    per event, the type's default category, as the event form does for several dogs) and the
    dogs (`checkinDogs`, none ticked unless only one) → one event each (`dogCare.dogEvents`:
-   titled by her title, else the type's naming field, `eventNameKey`, else its label; also
-   builds the litter check-in's care events) → "Anything else to log?" (**Log another** /
+   titled by her title, else the type's naming field, `eventNameKey`, else its label; the
+   picked contact as `related_contact_id`, dropping the typed name; also builds the litter
+   check-in's care events, whose forms (`careForm`) ask a title of their own beside the
+   named thing, the vaccine or drug, and a vet visit's vet the same way). A vet summary's
+   issuer is the picked vet's name → "Anything else to log?" (**Log another** /
    **No, that's all**). Checked by `dogEventProblem`. This is where Kels logs any other
    event; there is no separate Add new events task.
 
@@ -3631,7 +3659,7 @@ The run-up to go-home day for one litter. Each fix is saved when approved; there
    | Drop-off date (sale) | a `placement` event for the sale's family (`goHome.pickupFor`) today or later | **When's the drop-off?**: date, time, how (`PLACEMENT_METHODS`) per pup, filled in from a family's waiting pickup request (`pickupWishesFor`); `goHome.pickupEvent` (titled "Puppy drop-off" unless Local pickup; the request's place as `location`) |
    | Balance (sale) | Paid in full / Delivered, a `balance_paid_date`, or a `balance_due_date` | a due date per pup (`saleRepo.update`) |
    | Contract signed (sale, Pro `contracts`) | a signed contract on the sale | **Where are the contracts at?**: a status per pup (`CONTRACT_STATUS`), and the signed date when Signed; saved on the sale's first live contract, or a new `sale` contract (title "<pup> sale contract", kennel from the sale) when it has none; "No contract yet" skips it |
-   | Registration type (sale) | `registration_type` set | **How is each puppy registered?**: a `REGISTRATION_TYPE` per pup (prefilled from `intended_registration`); then, as the Sale page does, the price change for the litter's Full surcharge (`saleDefaults.priceForRegistrationChange`, asked first; a fee that was the estimate follows the price) and, for Co-own, adding the family as the pup's co-owner (asked) |
+   | Registration type (sale) | `registration_type` set | **How is each puppy registered?**: a `REGISTRATION_TYPE` per pup (prefilled from `intended_registration`); then, as the Sale page does, the price change for the litter's Full surcharge (`saleDefaults.priceForRegistrationChange`, asked first; a fee that was the estimate follows the price) and, for Co-own, adding the family as the pup's co-owner (asked; the pup becomes Co-owned too, `goHome.deliveredOwnershipChanges`, as the Delivered prompt writes it) |
    | Feeding schedule (Pro `feedingSchedule`, optional) | the litter's `feeding_schedule_override`, or a breed schedule for the pup's breed | **Just this litter**: the litter's feeding note typed in the chat; **For the breed**: the Feeding schedules page (a table editor) |
 
    The `placement` event ("Placement / drop-off") is the only go-home date the app keeps;
@@ -3789,7 +3817,8 @@ unpaid fees), else 26.
      it** / **Open the sale**); a pickup time or cancel (`approvePickupRequest`, then her own
      boarding kept → **Use it** `applyPickupBoarding`, a transport fee left → **Remove it**
      `clearTransportFee`); their own address set up in the chat (day, time, how, miles with
-     **Get driving miles**, the fee from `transportQuote`; with no standard location or fee
+     **Get driving miles** and **Open in Maps** (`transportFee.mapsLink`) for when measuring
+     fails, the fee from `transportQuote`; with no standard location or fee
      per mile yet, she first offers **Set it up**, the pickup and transport screen), or past
      her limit **Send transport options**.
   2. **Backing out:** each request with `suggestOutcome` (from the pup's age in weeks) →
@@ -3812,7 +3841,8 @@ unpaid fees), else 26.
      (`accept_deposits_date`).
   5. **A turn to offer** (`previewNextTurn`): "Next in line for … is … (wants …, waiting N
      months)" → **Offer it** (`offerNextTurn`) / **Offer someone else** (the litter, then the
-     families with pups in it, `offerTo` with a note) / **Not yet**.
+     families with pups in it, ranked and numbered from `waitlistProgramRepo.getMapForKennel`,
+     archived programs included, as every other reader; `offerTo` with a note) / **Not yet**.
   6. **New applications**, oldest first, with their wants and answers → **Approve** (date,
      program, the contact as `contactMatches` suggests, their private-listing ask; then the
      fee request or "on the list" email) / **Decline** (confirmed; the declined email) /

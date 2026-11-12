@@ -106,3 +106,18 @@ test('ownDogs / breedingDogs / homeDogs: only the dogs she looks after; heats an
   assert.deepEqual(preventativeGaps(dogs, [], '2026-11-01').map((d) => d.id), ['Co', 'Lease', 'Mine'], 'preventatives (also Today)');
   assert.equal(homeDogs(dogs).some((d) => d.id === 'Stud'), false, 'Log for several dogs never lists an External dog');
 });
+
+test('dogEvents: a picked vet is the related contact and replaces the typed name; notes and a reminder ride along', () => {
+  const [e] = dogEvents({
+    eventType: 'vet_visit', dogIds: ['d1'], date: '2026-11-01', details: { reason: 'Limp', vet: 'Dr Old' },
+    relatedContactId: 'c-vet', notes: ' Recheck in 2 weeks ', reminderDate: '2026-11-15'
+  });
+  assert.equal(e.related_contact_id, 'c-vet');
+  assert.equal(e.details.vet, undefined);
+  assert.equal(e.title, 'Limp');
+  assert.equal(e.notes, 'Recheck in 2 weeks');
+  assert.equal(e.reminder_date, '2026-11-15');
+  const [plain] = dogEvents({ eventType: 'vet_visit', dogIds: ['d1'], date: '2026-11-01', details: { vet: 'Dr Old' } });
+  assert.equal(plain.details.vet, 'Dr Old', 'kept when no contact is picked');
+  assert.ok(!('related_contact_id' in plain) && !('reminder_date' in plain) && !('notes' in plain));
+});

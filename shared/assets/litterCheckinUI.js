@@ -16,12 +16,13 @@
 // imported only when the edition has the waitlist.
 import { dogRepo } from '../data/dogRepo.js';
 import { litterRepo } from '../data/litterRepo.js';
+import { pairingRepo } from '../data/pairingRepo.js';
 import { saleRepo } from '../data/saleRepo.js';
 import { eventRepo } from '../data/eventRepo.js';
 import { waitlistEntryRepo } from '../data/waitlistEntryRepo.js';
 import { inScopeOnly } from '../data/kennelScope.js';
 import { editionFlags } from '../data/editionConfig.js';
-import { DISPOSITION, EVENT_TYPES, PLACEMENT_METHODS, descriptor } from '../data/vocab.js';
+import { DISPOSITION, EVENT_TYPES, PLACEMENT_METHODS, RELATED_CONTACT_ROLE, CONTACT_TYPE, descriptor } from '../data/vocab.js';
 import * as C from '../data/litterCheckin.js';
 import * as H from '../data/goHome.js';
 import { contactRepo } from '../data/contactRepo.js';
@@ -105,6 +106,10 @@ class Checkin {
 
   async pickLitter(all) {
     const dogsById = new Map((await dogRepo.getAll({ includeArchived: false })).map((d) => [d.id, d]));
+    // An Expected litter is due on its breeding's due date; its own whelp date is
+    // a placeholder until the birth (K9-3), shown only when it's still ahead.
+    const pairingsById = new Map((await pairingRepo.getAll({ includeArchived: true })).map((p) => [p.id, p]));
+    const dueOf = (l) => pairingsById.get(l.pairing_id)?.expected_due_date || (l.whelp_date && l.whelp_date >= this.today ? l.whelp_date : null);
     const counts = new Map();
     for (const d of dogsById.values()) if (d.litter_id && d.status !== 'deceased') counts.set(d.litter_id, (counts.get(d.litter_id) || 0) + 1);
     await this.chat.say('<strong>Which litter are we checking on?</strong>', { typing: 700 });
@@ -112,7 +117,7 @@ class Checkin {
       ...all.map((l) => {
         const age = C.ageText(C.ageDays(l, this.today));
         const bits = [C.statusLabel(l.status)];
-        if (l.status === 'expected') { if (l.whelp_date) bits.push(`due ${fmtDate(l.whelp_date)}`); }
+        if (l.status === 'expected') { if (dueOf(l)) bits.push(`due ${fmtDate(dueOf(l))}`); }
         else if (age) bits.push(age);
         if (counts.get(l.id)) bits.push(C.plural(counts.get(l.id), 'puppy', 'puppies'));
         return { label: C.litterLabel(l, dogsById), sub: bits.join(' · '), value: l.id };
@@ -613,15 +618,17 @@ export async function pickupsForm(chat, rows, { title = '<strong>When\'s the dro
 
 // "Health care" of one kind (C.CARE_KINDS) for `pups`, every one ticked. One
 // event per ticked pup. → chat.form's { done, result: { count, title, date } }.
-export function careForm(chat, kind, pups, today) {
+export async function careForm(chat, kind, pups, today) {
   const k = C.CARE_KINDS[kind];
   const type = descriptor(EVENT_TYPES, k.eventType);
   const span = type.duration === 'span';
-  const fields = (type.fields || []).map((f) => eventFieldInput(f, f.key === k.nameKey)).join('');
+  const contacts = type.relatedContact ? await contactRepo.getAll({ includeArchived: false }) : [];
+  const fields = eventFieldsHtml(type, contacts, k.nameKey);
   const boxes = pups.map((p, i) => `<label class="ck-check"><input type="checkbox" id="ck-pup-${i}" checked> ${pupLine(p)}</label>`).join('');
   return chat.form({
     title: `<strong>${esc(k.ask)}</strong>`,
-    html: `${fields}
+    html: `${titleInput('ck-title', type, k.nameKey)}
+      ${fields}
       <div class="ck-inline">
         ${field(span ? 'Started' : 'Date', `<input id="ck-date" type="date" value="${esc(today)}">`)}
         ${span ? field('Last dose (optional)', '<input id="ck-end" type="date">') : ''}
@@ -629,6 +636,7 @@ export function careForm(chat, kind, pups, today) {
       <p class="gl-q">Which puppies? <button type="button" class="gl-more" data-ck="all">All</button> <button type="button" class="gl-more" data-ck="none">None</button></p>
       <div class="ck-checks">${boxes}</div>`,
     wire: (root) => {
+      wireRelatedContact(root);
       root.querySelector('[data-ck="all"]').addEventListener('click', () => root.querySelectorAll('.ck-checks input').forEach((c) => { c.checked = true; }));
       root.querySelector('[data-ck="none"]').addEventListener('click', () => root.querySelectorAll('.ck-checks input').forEach((c) => { c.checked = false; }));
     },
@@ -637,9 +645,10 @@ export function careForm(chat, kind, pups, today) {
       const ids = pups.filter((p, i) => root.querySelector(`#ck-pup-${i}`).checked).map((p) => p.id);
       const details = {};
       for (const f of type.fields || []) details[f.key] = root.querySelector(`#ck-f-${f.key}`)?.value ?? '';
-      const form = { date: root.querySelector('#ck-date').value, endDate: root.querySelector('#ck-end')?.value || '', details };
-      const problem = C.careProblem(kind, ids, form);
+      const form = { date: root.querySelector('#ck-date').value, endDate: root.querySelector('#ck-end')?.value || '', title: root.querySelector('#ck-title').value, details };
+      const problem = C.careProblem(kind, ids, form) || relatedContactProblem(root, type);
       if (problem) return problem;
+      form.relatedContactId = await readRelatedContact(root, type);
       const events = C.careEvents(kind, ids, form);
       for (const e of events) await eventRepo.create(e);
       return { count: ids.length, title: events[0].title, date: form.date };
@@ -670,6 +679,66 @@ export function chipsForm(chat, pups) {
 }
 
 // --- Small HTML helpers -----------------------------------------------------------
+
+// An event's own title, beside the field that names it (a vaccine, a drug…):
+// both are hers to fill in; a blank title takes the name, as on the event form.
+export function titleInput(id, type, nameKey) {
+  const named = (type.fields || []).find((f) => f.key === nameKey);
+  return field('Title (optional)', `<input id="${id}" type="text" autocomplete="off" placeholder="${esc(type.label)}">`,
+    named ? `Shown on the timeline. Leave blank to use the ${named.label.toLowerCase()}.` : 'Shown on the timeline.');
+}
+
+// A type's details fields, with its related contact (a vet, a handler, a
+// boarding host) as a picker of her contacts in place of the plain-text name
+// field (`contactFallback`), as the event form does.
+export function eventFieldsHtml(type, contacts, nameKey) {
+  return `${type.relatedContact ? relatedContactInput(type, contacts) : ''}
+    ${(type.fields || []).filter((f) => !(type.relatedContact && f.contactFallback)).map((f) => eventFieldInput(f, f.key === nameKey)).join('')}`;
+}
+
+const contactLabel = (type) => (typeof type.relatedContact === 'string' ? type.relatedContact : 'Who with');
+
+// Her contacts, those with the type's role (her vets) first, or someone new.
+export function relatedContactInput(type, contacts) {
+  const role = RELATED_CONTACT_ROLE[type.value] || null;
+  const label = contactLabel(type);
+  const opt = (c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`;
+  const has = (c) => role && (c.contact_type || []).includes(role);
+  const sorted = [...contacts].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const tagged = sorted.filter(has);
+  const rest = sorted.filter((c) => !has(c));
+  const roleLabel = role ? (CONTACT_TYPE.find((t) => t.value === role)?.label || role) : '';
+  const groups = tagged.length
+    ? `<optgroup label="${esc(roleLabel)}s">${tagged.map(opt).join('')}</optgroup>${rest.length ? `<optgroup label="Other contacts">${rest.map(opt).join('')}</optgroup>` : ''}`
+    : rest.map(opt).join('');
+  return `${field(`${label} (optional)`, `<select id="ck-rc-pick"><option value="">None</option>${groups}<option value="__new">Someone new…</option></select>`)}
+    <div id="ck-rc-new" hidden>${field(`${label}'s name`, '<input id="ck-rc-name" type="text" autocomplete="off">', role ? `I'll add them to your contacts as a ${roleLabel.toLowerCase()}.` : 'I\'ll add them to your contacts.')}</div>`;
+}
+
+export function wireRelatedContact(root) {
+  root.querySelector('#ck-rc-pick')?.addEventListener('change', (e) => {
+    root.querySelector('#ck-rc-new').hidden = e.target.value !== '__new';
+  });
+}
+
+export function relatedContactProblem(root, type) {
+  if (root.querySelector('#ck-rc-pick')?.value !== '__new') return '';
+  return root.querySelector('#ck-rc-name').value.trim() ? '' : `Type the ${contactLabel(type).toLowerCase()}'s name, or pick None.`;
+}
+
+// → the picked contact's id, a new contact's (made with the type's role), or
+// null. A picked one gets the role too (contactRepo.ensureType).
+export async function readRelatedContact(root, type) {
+  const pick = root.querySelector('#ck-rc-pick')?.value || '';
+  if (!pick) return null;
+  const role = RELATED_CONTACT_ROLE[type.value] || null;
+  if (pick === '__new') {
+    const c = await contactRepo.create({ name: root.querySelector('#ck-rc-name').value.trim(), contact_type: role ? [role] : [] });
+    return c.id;
+  }
+  if (role) await contactRepo.ensureType(pick, role);
+  return pick;
+}
 
 export function field(labelText, inputHtml, hint = '') {
   return `<div class="field gl-field"><label>${esc(labelText)}</label>${inputHtml}${hint ? `<span class="field-hint">${esc(hint)}</span>` : ''}</div>`;

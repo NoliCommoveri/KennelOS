@@ -3691,3 +3691,57 @@ tick box per template; buyers get an emailed link.
 - **Tests:** `cloud/tests/esign.test.js` +3. `cd cloud && npm test` 329 pass, `node --test`
   1751 pass.
 - **Docs:** End-State guide §32, Integrations plan §2.3a, launch checklist.
+
+## 2026-11-12: Kels's defects from the review, and what her forms didn't ask
+
+- **From the review (`docs/review/findings/`; K11, Kels's own session, hasn't run):**
+  - **K6-5:** Review my waitlist ranks and numbers families from `getMapForKennel`, archived
+    programs included, as every other reader; its program picker still offers live ones only.
+  - **K8-5 (Kels's part):** her drop-off address form has **Open in Maps**, and a failed
+    measure says to use it.
+  - **K9-3 (Kels's part):** Record the birth on an Expected litter no longer prefills its
+    placeholder whelp date as the birth date; a ready date that was just whelp + 8 weeks
+    follows the real birth (`guidedLitter.refreshReadyDate`). The litter check-in's picker
+    shows an Expected litter as due on its breeding's due date. The root (litter.js dating
+    a litter made from its pairing today) is not in this batch.
+  - **K9-4:** a heat with no end date counts as over 21 days after it started
+    (`nudges.HEAT_OPEN_DAYS`) for `heatpair`.
+  - **K9-12:** Prep pups' "add them as a co-owner" makes the pup Co-owned too
+    (`goHome.deliveredOwnershipChanges`).
+  - **K12-10:** the Stripe key steps always open Stripe's API keys page; her saved website,
+    made a full address, is a second link.
+  - **K13-7:** Lite's Live-Birth Summary imported two Pro-only modules. It reads only shared
+    ones now (its own loader; `liveBirthFigures` moved to `reportMath.js`, re-exported by
+    `reportFigures.js`) and hides ← All reports in Lite. Kept in Lite, as guide §31 says.
+    New `tests/liteImportGraph.test.js`: no page Lite keeps reaches a Pro-only file by a
+    static import (it fails on the old page).
+  - **K13-8:** Kels's Find in Demo leaves out the pages the Demo build drops.
+    `DEMO_EXCLUDED_PAGES` moved to `proPages.js` (`isDemoExcludedPage`); `assemble.mjs` reads it.
+  - **K13-14:** Record a litter checks Lite's litter cap before writing anything, so a refused
+    litter no longer leaves a new parent behind (no test: the cap hook is Lite's module).
+  - Already fixed before this batch: K6b-3 (waitlist fixes step 1).
+- **Asked (owner):**
+  - **Add dogs** asks what the Dog page needs: statuses are the Dog page's by edition
+    (Puppy added everywhere, External reference in Pro). A puppy is asked its plan
+    (disposition, required; Placed comes from a sale) and intended registration. An external
+    reference is asked its owner (picking it sets whose dog to External; one marked hers is
+    refused). A co-owned dog is asked its co-owner (a contact or a new name, required) and
+    Lives with. Saved as `co_owner_contact_ids` / `lives_with_contact_id` /
+    `disposition` / `intended_registration`. Contacts load in Lite too (co-owners).
+  - **Logging forms:** the litter check-in's care forms (shots, deworming, medication, vet
+    visit; also Prep pups') and the dog check-in's preventatives ask a title of their own
+    beside the named thing (a blank title still takes the name). A type with a related
+    contact (vet visit, surgery, boarding, show) picks it from her contacts, those with the
+    role first (`vocab.RELATED_CONTACT_ROLE`, moved from `eventForm.js`), or **Someone
+    new…**, made with the role, in place of the typed vet name, as the event form does. The
+    dog check-in's event form adds Notes and Remind me on.
+- **Found looking for more:** Kels's add-a-family (`kelsApplicant`) never checked the
+  do-not-sell list; it now warns first, and a second tap adds them anyway.
+- **Tests:** `guidedDogs` +2 (and the edition statuses), `guidedLitter` +1, `dogCare` +1,
+  `litterCheckin` +1, `linkedStatusNudges` +1, `kelsFind` +1, `liteImportGraph` (new).
+  `node --test` 1759 pass; `node build/assemble.mjs` succeeds. Checked in a browser (sample
+  data): Add dogs' puppy, external reference and co-owned answers, and the vet visit form's
+  vet picker.
+- **Docs:** End-State guide §0 table, §31, §33 (Add dogs, Record a new litter, Check in on my
+  dogs, the applicant step, Prep pups' registration, Review my waitlist). No new app files,
+  no schema or field changes. SW cache not bumped.

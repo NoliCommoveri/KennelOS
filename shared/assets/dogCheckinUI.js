@@ -23,7 +23,8 @@ import { expenseRepo } from '../data/expenseRepo.js';
 import { editionFlags } from '../data/editionConfig.js';
 import { breedingDogs, ownDogs, heatStarts, predictNextHeat, heatForecast, preventativeGaps, monthName, otherEventTypes, dogEvents, dogEventProblem, eventNameKey, checkinDogs } from '../data/dogCare.js';
 import { daysBetween } from '../data/litterCheckin.js';
-import { field, eventFieldInput } from './litterCheckinUI.js';
+import { field, titleInput, eventFieldsHtml, wireRelatedContact, relatedContactProblem, readRelatedContact } from './litterCheckinUI.js';
+import { contactRepo } from '../data/contactRepo.js';
 import { filePicker, wireFilePicker } from './kelsSteps.js';
 import { logHealthTests, healthTestsState } from './healthTestsUI.js';
 import { DOG_STATUS, EVENT_TYPES, descriptor, defaultExpenseCategoryFor } from '../data/vocab.js';
@@ -186,7 +187,8 @@ async function preventativeForm(chat, dogs, ticked, today, first) {
   const boxes = listed.map((d, i) => `<label class="ck-check"><input type="checkbox" id="dc-dog-${i}"${ticked.has(d.id) ? ' checked' : ''}> <strong>${esc(dogName(d))}</strong>${d.status === 'active_breeding' ? '' : ` <span class="faint">${esc(descriptor(DOG_STATUS, d.status).label)}</span>`}</label>`).join('');
   return chat.form({
     title: first ? '<strong>Which preventative did they get?</strong>' : '<strong>Which one this time?</strong>',
-    html: `${field('Product', '<input id="dc-product" type="text" autocomplete="off" placeholder="e.g. Heartgard Plus, NexGard, Panacur">')}
+    html: `${titleInput('dc-title', descriptor(EVENT_TYPES, 'preventative'), 'product')}
+      ${field('Product', '<input id="dc-product" type="text" autocomplete="off" placeholder="e.g. Heartgard Plus, NexGard, Panacur">')}
       <div class="ck-inline">
         ${field('Dose (optional)', '<input id="dc-dose" type="text" autocomplete="off">')}
         ${field('Date', `<input id="dc-date" type="date" value="${esc(today)}">`)}
@@ -196,6 +198,7 @@ async function preventativeForm(chat, dogs, ticked, today, first) {
     submitLabel: 'Log it',
     cancelLabel: first ? 'Not now' : 'That\'s all',
     submit: async (root) => {
+      const title = root.querySelector('#dc-title').value.trim();
       const product = root.querySelector('#dc-product').value.trim();
       const dose = root.querySelector('#dc-dose').value.trim();
       const date = root.querySelector('#dc-date').value;
@@ -205,7 +208,7 @@ async function preventativeForm(chat, dogs, ticked, today, first) {
       if (!picked.length) return 'Tick at least one dog.';
       for (const d of picked) {
         await eventRepo.create({
-          subject_type: 'dog', subject_id: d.id, event_type: 'preventative', title: product,
+          subject_type: 'dog', subject_id: d.id, event_type: 'preventative', title: title || product,
           event_date: date, details: { product, ...(dose ? { dose } : {}) }
         });
       }
@@ -281,20 +284,24 @@ async function otherEventForm(chat, type, today, { docType = null } = {}) {
   const listed = checkinDogs(dogs);
   const span = type.duration === 'span';
   const nameKey = eventNameKey(type);
+  const contacts = type.relatedContact ? await contactRepo.getAll({ includeArchived: false }) : [];
   const boxes = listed.map((d, i) => `<label class="ck-check"><input type="checkbox" id="dc-ev-dog-${i}"${listed.length === 1 ? ' checked' : ''}> <strong>${esc(dogName(d))}</strong>${d.status === 'active_breeding' ? '' : ` <span class="faint">${d.status === 'puppy' ? 'Keeping' : esc(descriptor(DOG_STATUS, d.status).label)}</span>`}</label>`).join('');
   return chat.form({
     title: `<strong>${esc(type.label)}</strong>`,
-    html: `${field(type.value === 'note' ? 'Note' : 'Title (optional)', `<input id="dc-ev-title" type="text" autocomplete="off" placeholder="${esc(type.value === 'note' ? 'What happened?' : type.label)}">`, type.value === 'note' || !nameKey ? '' : 'Leave blank to use what you fill in below.')}
-      ${(type.fields || []).map((f) => eventFieldInput(f, f.key === nameKey)).join('')}
+    html: `${type.value === 'note' ? field('Note', '<input id="dc-ev-title" type="text" autocomplete="off" placeholder="What happened?">') : titleInput('dc-ev-title', type, nameKey)}
+      ${eventFieldsHtml(type, contacts, nameKey)}
       <div class="ck-inline">
         ${field(span ? 'Started' : 'Date', `<input id="dc-ev-date" type="date" value="${esc(today)}">`)}
         ${span ? field('Ended (optional)', '<input id="dc-ev-end" type="date">') : ''}
       </div>
+      ${type.value === 'note' ? '' : field('Notes (optional)', '<textarea id="dc-ev-notes" rows="2"></textarea>')}
+      ${field('Remind me on (optional)', '<input id="dc-ev-remind" type="date">', 'It comes up on Today\'s Reminders that day.')}
       ${field('Cost per dog (optional)', '<input id="dc-ev-cost" type="number" min="0" step="0.01" inputmode="decimal">', 'Logged to Financials against each dog.')}
       ${docType ? filePicker('dc-ev-doc', { label: 'Vet summary (optional)', hint: 'A PDF, or photos of the pages. Filed on each dog\'s page under Documents.' }) : ''}
       <p class="gl-q">Which dogs?</p>
       <div class="ck-checks">${boxes}</div>`,
     wire: (root) => {
+      wireRelatedContact(root);
       if (docType) pickedDoc = wireFilePicker(root, 'dc-ev-doc', { hint: 'A PDF, or photos of the pages. Filed on each dog\'s page under Documents.' });
     },
     submitLabel: 'Log it',
@@ -308,11 +315,15 @@ async function otherEventForm(chat, type, today, { docType = null } = {}) {
         date: root.querySelector('#dc-ev-date').value,
         endDate: root.querySelector('#dc-ev-end')?.value || '',
         title: root.querySelector('#dc-ev-title').value,
+        notes: root.querySelector('#dc-ev-notes')?.value || '',
+        reminderDate: root.querySelector('#dc-ev-remind').value,
         cost: root.querySelector('#dc-ev-cost').value,
         details
       };
-      const problem = dogEventProblem(form);
+      const problem = dogEventProblem(form) || relatedContactProblem(root, type);
       if (problem) return problem;
+      form.relatedContactId = await readRelatedContact(root, type);
+      const vet = form.relatedContactId ? (await contactRepo.getById(form.relatedContactId))?.name || '' : '';
       const amount = String(form.cost).trim() === '' ? null : Number(form.cost);
       const events = dogEvents(form);
       for (const e of events) {
@@ -324,7 +335,7 @@ async function otherEventForm(chat, type, today, { docType = null } = {}) {
         const { storeDocumentFile, createDocument } = await import('./documentModal.js');
         for (const e of events) {
           const fileId = await storeDocumentFile(doc, { title: e.title });
-          await createDocument({ dog_id: e.subject_id, doc_type: docType, title: e.title, doc_date: e.event_date, issuer_or_lab: e.details.vet || '', notes: '', file_id: fileId });
+          await createDocument({ dog_id: e.subject_id, doc_type: docType, title: e.title, doc_date: e.event_date, issuer_or_lab: vet || e.details.vet || '', notes: '', file_id: fileId });
         }
       }
       return { title: events[0].title, count: events.length, date: form.date, filed: Boolean(doc) };

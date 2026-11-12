@@ -244,12 +244,15 @@ export function lastWeighedDate(weights, pups) {
 
 // --- Care -----------------------------------------------------------------------------
 
-// One care event per chosen pup. `form`: { date, endDate?, details } with the
-// type's details already read. The title is the named thing (the drug, the
-// vaccine…), else the kind's title.
+// One care event per chosen pup. `form`: { date, endDate?, title?, details,
+// relatedContactId? } with the type's details already read. The title is what
+// she typed, else the named thing (the drug, the vaccine…), else the kind's title.
 export function careEvents(kind, pupIds, form) {
   const k = CARE_KINDS[kind];
-  return dogEvents({ eventType: k.eventType, dogIds: pupIds, date: form.date, endDate: form.endDate, details: form.details, title: form.details?.[k.nameKey], fallbackTitle: k.title });
+  return dogEvents({
+    eventType: k.eventType, dogIds: pupIds, date: form.date, endDate: form.endDate, details: form.details,
+    title: String(form.title ?? '').trim() || form.details?.[k.nameKey], fallbackTitle: k.title, relatedContactId: form.relatedContactId || null
+  });
 }
 
 // What's wrong with a care form, or ''.

@@ -149,15 +149,23 @@ const trimmed = (details) => Object.fromEntries(Object.entries(details || {})
 
 // One event per dog, each a candidate for eventRepo.create. `title`: what she
 // typed, else the type's naming field, else `fallbackTitle`, else the type's label.
-// Blank details are dropped and the rest trimmed.
-export function dogEvents({ eventType, dogIds = [], date, endDate = '', details = {}, title = '', fallbackTitle = '' }) {
+// Blank details are dropped and the rest trimmed. `relatedContactId` (a vet, a
+// handler, boarding's host: the type's relatedContact) replaces its plain-text
+// name field (`contactFallback`), as the event form does; `notes` and
+// `reminderDate` as the event form's.
+export function dogEvents({ eventType, dogIds = [], date, endDate = '', details = {}, title = '', fallbackTitle = '', relatedContactId = null, notes = '', reminderDate = '' }) {
   const typeDef = EVENT_TYPES.find((t) => t.value === eventType);
   const d = trimmed(details);
+  if (relatedContactId) for (const f of typeDef?.fields || []) if (f.contactFallback) delete d[f.key];
   const key = eventNameKey(typeDef);
   const t = String(title ?? '').trim() || (key && d[key]) || fallbackTitle || typeDef?.label || 'Event';
+  const n = String(notes ?? '').trim();
   return dogIds.map((id) => ({
     subject_type: 'dog', subject_id: id, event_type: eventType,
     event_date: date, ...(endDate ? { event_end_date: endDate } : {}),
+    ...(relatedContactId ? { related_contact_id: relatedContactId } : {}),
+    ...(reminderDate ? { reminder_date: reminderDate } : {}),
+    ...(n ? { notes: n } : {}),
     title: t, details: { ...d }
   }));
 }

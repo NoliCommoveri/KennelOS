@@ -185,3 +185,14 @@ test('a litter\'s sales include its departed (archived) pups', () => {
   const sales = [{ dog_id: 'a', status: 'delivered' }, { dog_id: 'b', status: 'delivered' }, { dog_id: 'x', status: 'delivered' }];
   assert.deepEqual(C.litterSalesOf('L', dogs, sales).map((s) => s.dog_id), ['a', 'b']);
 });
+
+test('careEvents: her own title and the named thing are separate; a blank title takes the name', () => {
+  const form = { date: '2026-11-01', title: 'Second round', details: { vaccine: 'DHPP' } };
+  const [e] = C.careEvents('vaccination', ['a'], form);
+  assert.equal(e.title, 'Second round');
+  assert.equal(e.details.vaccine, 'DHPP');
+  assert.equal(C.careEvents('vaccination', ['a'], { ...form, title: ' ' })[0].title, 'DHPP');
+  const [v] = C.careEvents('vet_visit', ['a'], { date: '2026-11-01', details: { reason: 'Check', vet: 'typed' }, relatedContactId: 'c1' });
+  assert.equal(v.related_contact_id, 'c1');
+  assert.equal(v.details.vet, undefined);
+});

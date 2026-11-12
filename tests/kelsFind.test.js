@@ -122,6 +122,14 @@ test('Lite: no Pro pages, no flags off, no people or kennels, no archived dogs',
   assert.ok(!recs.some((r) => r.group === 'A person' || r.group === 'A kennel' || r.title === 'Gone'));
 });
 
+test('Demo never offers a page its build drops (K13-8)', async () => {
+  const { isDemoExcludedPage } = await import('../shared/data/proPages.js');
+  const demo = placeCandidates({ edition: 'demo', flags: PRO, nav, kennelId: 'k1' });
+  assert.ok(demo.length > 20);
+  for (const p of demo) assert.ok(!isDemoExcludedPage(p.href.split(/[?#]/)[0]), p.href);
+  assert.ok(placeCandidates({ edition: 'pro', flags: PRO, nav, kennelId: 'k1' }).some((p) => p.href.startsWith('settings.html')));
+});
+
 test('cheat sheet: unique ids, every page exists and is precached, kennel places need a kennel', () => {
   const ids = PLACES.map((p) => p.id);
   assert.equal(new Set(ids).size, ids.length);

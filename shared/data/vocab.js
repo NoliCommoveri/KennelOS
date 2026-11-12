@@ -673,6 +673,14 @@ export const AKC_SHOW_AWARDS = [
 // plain strings or { value, label } vocab objects (the form stores `value` and
 // shows `label`). A field may carry `default`, applied only when creating an
 // event whose draft has no value for that key (a prefill wins).
+// The contact role a type's related contact is tagged with on save (Show
+// Tracking Spec §2.2): picking someone as a show's handler makes them a
+// Handler, and a vet visit's or surgery's vet a Vet. contactRepo.ensureType is a
+// no-op when the role is already there. Pickers (the event form, Kels's logging
+// forms) list contacts that already carry the role first, and a new contact
+// made there gets it.
+export const RELATED_CONTACT_ROLE = Object.freeze({ show: 'handler', vet_visit: 'vet', surgery: 'vet' });
+
 // Kels's Add dogs asks each new dog's shots from this fixed checklist, each with
 // how long it's good for: `years` sets the vaccination's `next_due` (and, when
 // she wants a reminder, its `reminder_date`); lifetime has none.
