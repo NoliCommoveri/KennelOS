@@ -2725,6 +2725,53 @@ Share with families hint and the card's badge say so for this type.
   `esign_provider = 'jotform'`, its label and its link (**Copy link again**). On app open,
   `jotformKeyStore.forgetJotformKeys` deletes any Jotform API key the device still holds.
 
+### E-sign through Firma (plan §2.3a)
+Pro with a cloud server, signed in (`cloudEsign.esignOffered` / `esignSignedIn`; nothing with
+`cloudUrl: null` or in the Demo). KennelOS holds the Firma account. The Worker makes her
+kennel a workspace and counts her sends against a monthly limit (`/ops`). Her device only sees
+ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `connectFirma`,
+`syncFirmaFields`, `listFirmaTemplates`, `createFirmaTemplate`, `firmaTemplateToken`,
+`sendForEsign`, `esignDocument`).
+- **Contract templates** (Contracts page button, or `contracts.html#templates`;
+  `assets/esignUI.openContractTemplates`):
+  - **Set up e-signing** says what goes to Firma, makes her workspace under her kennel's name,
+    then sends the fact names (`cloudEsign.factFields`, every `PREFILL_FIELDS` name once, at
+    most 40 a call) as the workspace's custom fields.
+  - She uploads a PDF (at most 4.5 MB) and picks its kind of contract.
+  - **Place fields** opens Firma's editor in a new tab: the Worker's sandboxed
+    `/esign/editor` page, with the 24-hour token in the fragment (`cloudEsign.editorLink`).
+    The tab is opened before the await and has no `opener`.
+- **What KennelOS keeps** (`data/esignTemplates.js`):
+  - Only each template's kind, as a `contract_forms` row
+    `{ id, form_type, label, provider: 'firma', template_id }`
+    (`contractForms.isFirmaForm`; no `url`).
+  - The rows live on the **E-sign (Firma)** Form service account (`FIRMA_ACCOUNT`), made the
+    first time she types a template.
+  - The template list comes from Firma, merged with the rows (`mergeTemplates`).
+  - On the Accounts page, a Firma row's type and label can be edited, or the row removed. It
+    shows **Manage** (to Contract templates) instead of a link.
+- **Send for signature** offers her typed templates (`contractSend.loadContractForms`, only
+  while signed in) beside her pasted forms, marked **E-sign**. Choosing one opens
+  `esignUI.sendWithFirma`:
+  - It shows who signs and their email, and "n of N this month".
+  - **Firma emails them** is on by default. Off, the link goes in her own message (the
+    composer).
+  - `cloudEsign.sendForEsign` sends `sendBody`: the signer, and the facts as
+    `prefillValues` gives them, as the signer's custom fields.
+  - It marks the contract `sent` with `esign_provider: 'firma'`, `esign_ref` (Firma's
+    signing request id; cloud tier), `esign_url` (the signing link), `esign_sent_date` and
+    `esign_form_label`.
+  - A second send needs **Send again** (`resend`).
+  - `cloudEsign.esignProblem` words each refusal: the limit with its reset date, Firma not
+    answering (don't resend), signed out, and so on.
+- **Pick to send** (§29): a Firma template is sent on step 2's Continue, with Firma's email
+  off (it counts then). Its link goes in the message, once per template for that modal.
+- **Back:** Firma's webhook becomes `contract.signed` / `contract.declined`, applied as for
+  any vendor. `contract.expired` / `contract.cancelled` become a Today review while the
+  contract is still Sent (`integrationEvents.planIntegrationEvent`).
+- **Signed copy** (Contract page, with `esign_ref`): a short-lived link from the Worker,
+  opened in a new tab (**Copy so far** before it's signed).
+
 ### Payment services (plan §4–§5)
 - A **Payment service** account (`payment_service`) holds `payment_link` and/or
   `payment_instructions` (cloud tier: written for buyers).

@@ -432,3 +432,23 @@ test('/ops sets the default limit and an account\'s own', async () => {
   assert.match(await (await ops('/ops/account/esign-limit', { program_id: s.programId, limit: '' })).text(), /uses the default/);
   assert.deepEqual(await firma.monthlyLimitFor(env, s.programId), { limit: 25, own: false });
 });
+
+test('the template editor page is served sandboxed, with no referrer and no caching', async () => {
+  const assets = { fetch: async (req) => {
+    const path = new URL(req.url).pathname;
+    return path.startsWith('/esign/') ? new Response(`file:${path}`, { status: 200 }) : new Response('not found', { status: 404 });
+  } };
+  const env = await makeEnv({ ASSETS: assets });
+  const get = (path) => worker.fetch(new Request(`https://api.example${path}`), env);
+  const page = await get('/esign/editor');
+  assert.equal(page.status, 200);
+  assert.equal(await page.text(), 'file:/esign/editor.html');
+  assert.match(page.headers.get('content-security-policy'), /^sandbox allow-scripts /);
+  assert.doesNotMatch(page.headers.get('content-security-policy'), /allow-same-origin/, 'an opaque origin: no cookies, no storage');
+  assert.match(page.headers.get('content-security-policy'), /frame-ancestors 'none'/);
+  assert.equal(page.headers.get('referrer-policy'), 'no-referrer');
+  assert.equal(page.headers.get('cache-control'), 'no-store');
+  assert.equal(await (await get('/esign/editor.js')).text(), 'file:/esign/editor.js');
+  assert.equal(await (await get('/esign/editor.css')).text(), 'file:/esign/editor.css');
+  for (const path of ['/esign/editor.html', '/esign/other.js', '/esign/']) assert.notEqual((await get(path)).status, 200, path);
+});

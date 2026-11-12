@@ -11,6 +11,8 @@
 // - the waitlist's family pages (familyPages.js): static pages from ASSETS,
 //   served whatever the schema state, and their same-origin JSON under /f/,
 //   behind the gate;
+// - Firma's template editor page (firma.js serveEsignEditor): a sandboxed static
+//   page from ASSETS, opened in its own tab by her device;
 // - the crons: the daily one runs retention, the hourly one the waitlist's
 //   own moves (serverMoves.js: deadlines, automatic offers, reminders) and the
 //   breeder's email digests (notify.js);
@@ -22,7 +24,8 @@ import { schemaReady } from './gate.js';
 import { activeNotices } from './notice.js';
 import { handleWebhook } from './license.js';
 import { handleHook } from './integrations.js';
-import './firma.js'; // registers the Firma adapter for /hooks/firma/ (Integrations plan §2.3a)
+// Importing firma.js registers the Firma adapter for /hooks/firma/ (Integrations plan §2.3a).
+import { serveEsignEditor } from './firma.js';
 import { handleFamilyApi, serveFamilyPage } from './familyPages.js';
 import { runRetention } from './retention.js';
 import { runWaitlistMoves } from './serverMoves.js';
@@ -50,7 +53,7 @@ export default {
       return handleManager(request, env);
     }
 
-    const page = await serveFamilyPage(request, env, url);
+    const page = await serveFamilyPage(request, env, url) || await serveEsignEditor(request, env, url);
     if (page) return page;
 
     // Her KennelPort website's application form calls three family endpoints

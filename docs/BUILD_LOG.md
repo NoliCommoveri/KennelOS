@@ -3340,3 +3340,44 @@ The owner decided to shut down Jotform (`docs/KennelOS_Integrations_Plan.md` D27
   checklist (a Firma test-key run; removing a deleted account's workspace by hand), the Kels
   roadmap, README Status.
 - **Precache:** four files removed from `shared/sw.js` `PRECACHE_URLS`; service-worker cache bumped to `v117`.
+
+## 2026-11-12: Firma e-sign, step 8: the app
+
+`docs/KennelOS_Integrations_Plan.md` §2.3a (D30, and a new **D31**: Firma's template editor runs
+in its own tab, on a sandboxed page of the Worker).
+- **Contract templates** on the Contracts page (`assets/esignUI.js`, Pro-only):
+  - Set up e-signing makes her workspace and sends the fact names as its fields.
+  - She uploads a PDF and picks its kind of contract.
+  - **Place fields** opens Firma's editor in a new tab.
+- **New `data/cloud/cloudEsign.js`:** the client for the Firma routes, `sendBody`,
+  `sendForEsign` (marks the contract Sent), the signed-copy link, and `esignProblem` for her
+  messages. Plus eight `cloudApi` wrappers.
+- **New `data/esignTemplates.js`:** each template's kind is a `contract_forms` row
+  `{ provider: 'firma', template_id }` on an "E-sign (Firma)" Form service account, made on
+  first use. `contractForms.cleanForms` keeps such rows without a link.
+- **Send for signature:**
+  - The Contract page offers her templates (marked E-sign). Firma emails the signer, or she
+    sends the link herself.
+  - Pick to send sends a template on step 2, and its link goes in her message.
+  - **Signed copy** on the Contract page.
+- **Events:** `contract.expired` and `contract.cancelled` become Today reviews.
+- **New field `esign_ref`** on Contract (cloud tier; `cloudFields.js` regenerated).
+- **Accounts page:** a Firma row's type and label can be edited. It shows **Manage**, and no
+  link.
+- **Worker:** `/esign/editor` (+ `.js`, `.css`) from `public/esign/`, sandboxed with no
+  `allow-same-origin`. The page stands in memory storage and Locks for Firma's script (it
+  needs them, and a sandboxed page refuses them). Checked in a browser that the script loads
+  and calls Firma inside the sandbox.
+- **Fixed in passing:** Pick to send's Continue re-enabled its button through
+  `e.currentTarget` after an await (always null by then).
+- **Tests:** `tests/esign.test.js` (7: the rows, the reviews, and end to end against the
+  Worker with a fake Firma: set up, upload, type, send, send again, signed back, the limit),
+  and one Worker test for the editor page.
+  - `node --test` 1716 pass. `cd cloud && npm test` 319 pass. `node build/assemble.mjs`
+    succeeds.
+  - Checked in a browser: Contract templates signed out, set up, the list, typing a template
+    and the Accounts card.
+- **Docs:** End-State guide §32 "E-sign through Firma", plan §2.3a "As built: the app" and
+  D31, `cloud/README.md`, the launch checklist (the production run), README Status.
+- **Precache:** `assets/esignUI.js`, `data/cloud/cloudEsign.js` and `data/esignTemplates.js`
+  added to `shared/sw.js` (`esignUI.js` also to `proPages.js`). Service-worker cache bumped to `v118`.

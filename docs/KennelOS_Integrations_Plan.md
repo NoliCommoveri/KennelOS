@@ -14,7 +14,8 @@
 > §2.3a (2026-11-11) makes **Firma** step 8's e-sign provider, on KennelOS's own account with a
 > monthly send limit (D25–D26). D27–D30 (2026-11-11) retire Jotform's API parts (Connect
 > Jotform, the signed check), keep pasted form links as the free fallback, and put Firma's
-> templates on the Contracts page.
+> templates on the Contracts page. D31 (2026-11-12) opens Firma's template editor in its own
+> tab, on a sandboxed page of the Worker.
 >
 > Builds on: the Worker (`cloud/`, `docs/KennelOS_Cloud_Phase1_Plan.md`), the online waitlist
 > (`docs/KennelOS_Waitlist_W2_Plan.md`, "W2 §N"), Accounts (End-State guide §32), Financials
@@ -585,6 +586,35 @@ event kinds on Today) is next. **Modified** from the plan above:
   
   Staging sets `FIRMA_TEST_MODE = "true"`, so its workspaces keep their free test keys.
 
+**As built: the app (2026-11-12)** (End-State guide §32, "E-sign through Firma";
+`data/cloud/cloudEsign.js`, `data/esignTemplates.js`, `assets/esignUI.js`,
+`cloud/public/esign/`, `tests/esign.test.js`).
+- **Contract templates** on the Contracts page (D30):
+  - **Set up e-signing** makes her workspace and sends the fact names as its custom fields.
+  - She uploads a PDF and picks its kind of contract.
+  - **Place fields** opens Firma's editor in a new tab (D31).
+- **Each template's kind** is a `contract_forms` row `{ provider: 'firma', template_id }` on an
+  "E-sign (Firma)" Form service account, made the first time she sets one. So the Accounts
+  page and Send for signature treat it like a form, without a link.
+- **Send for signature** offers her templates beside her pasted forms. On the Contract page,
+  Firma emails the signer by default (she can untick it and send the link herself). Pick to
+  send sends it on step 2 with Firma's email off, and the link goes in her message. The
+  contract keeps Firma's id in the new `esign_ref` (cloud tier: an id, no buyer details).
+- **Back:** Signed and declined apply as before. Expired and cancelled become a Today review
+  while the contract is still Sent. **Signed copy** on the Contract page opens Firma's
+  short-lived link.
+- **The editor page (D31)**, on the Worker:
+  - `/esign/editor` (+ `.js`, `.css`) from `public/esign/`, served with
+    `content-security-policy: sandbox allow-scripts …` (no `allow-same-origin`),
+    `no-referrer` and `no-store`.
+  - Firma's script needs web storage and the Locks API, which a sandboxed page refuses. The
+    page stands them in, in memory.
+  - Checked in a browser that the script loads and calls Firma inside the sandbox. A real
+    token is proven on the first production run.
+- **Modified** from the plan above:
+  - The editor isn't an iframe in the app (D31).
+  - There's no separate Connect: Set up e-signing in Contract templates is it.
+
 ### 2.4 Data model (additive)
 On **Contract** (plain fields, no index needed, no new block; classify in `syncRegistry.js`, D9):
 - `esign_provider` (`jotform`/`docusign`/`signwell`/…), `esign_ref` (the provider's envelope /
@@ -962,7 +992,7 @@ Each step is one reviewable PR, ordered by value ÷ effort and by dependency.
 | 5 | **Integration plumbing** (§0): `int_connections`, `int_events`, hooks routes, `integrationEvents.js` reducer. **Built 2026-10-12** (§0 "As built"); the `INT_TOKEN_KEY` secret is set (2026-10-12) | Worker | M |
 | 6 | **Stripe** one-use payment links from her own restricted key, checked from her device, with the fee captured into §5; Payment service accounts and per-payment paid-via; the waitlist application fee online. **Built 2026-10-12** (§4 "As built", D22–D24). Square: not built | No (device ↔ Stripe) | L |
 | 7 | **Jotform signed → Contract signed** (§2.1). **Built 2026-10-12** (End-State guide §32, "Signed forms come back"; `data/jotformSigned.js`), webhook not built. **Revised 2026-10-11: her device checks first.** With the key on the device (4b), opening KennelOS reads recent submissions of her mapped forms (`GET /form/{id}/submissions`), matches each by its `contractRef`, and marks the Contract `signed` with the date: no server, read-only key, buyer data only Jotform → her device. A Worker webhook (Level 1) only if she wants word while the app is closed; it would carry the whole submission through the Worker, so it must keep only the reference and date **Retired 2026-11-11** (D27): removed; saved form ids and field maps kept read-only (D29) | No (webhook later: Worker after 5) | S |
-| 8 | **E-sign API provider: Firma** (§2.3a, D25–D26): a workspace per program on KennelOS's account, templates in the embedded editor, send from the Worker within the monthly limit, signed back by webhook. (Was SignWell / BoldSign; Firma is the same shape at about 5¢ a send). **Worker built 2026-11-11** (§2.3a "As built"); the app side is next | Worker | L |
+| 8 | **E-sign API provider: Firma** (§2.3a, D25–D26): a workspace per program on KennelOS's account, templates in the embedded editor, send from the Worker within the monthly limit, signed back by webhook. (Was SignWell / BoldSign; Firma is the same shape at about 5¢ a send). **Worker built 2026-11-11, the app 2026-11-12** (§2.3a "As built"; End-State guide §32, "E-sign through Firma"); to be proven on production with the live key | Worker | L |
 | 9 | Referral payouts in Financials (§3.3); network postbacks only on demand (§3.4) | Optional | S–M |
 
 Every step that adds a file updates `shared/sw.js` `PRECACHE_URLS` (Pro-only files also into
@@ -1026,6 +1056,7 @@ every new FK lands in `referenceRegistry.js` + the guide; every Worker table is 
 | D27 | **Decided 2026-11-11.** Jotform: keep or retire? | **Retired.** Connect Jotform (her API key, form picking, field matching), the signed-form check and the key's health check are removed. Firma is the e-sign path. Supersedes D14's field map, D16 and step 7 |
 | D28 | **Decided 2026-11-11.** Pasted contract-form links (any form service, sent as a link with the facts in its address)? | **Kept** as the free, manual fallback beside Firma (e.g. at the monthly limit), on a Form service account as before |
 | D29 | **Decided 2026-11-11.** Jotform data already saved | **Kept, read-only.** Contracts sent through Jotform keep their label and link. A form's saved `form_id` / `field_map` stay in the data and are still used when its link is sent, but can't be re-matched. Her Jotform API keys are deleted from each device on update. No field leaves the schema or backups |
+| D31 | **Decided 2026-11-12.** Where Firma's template editor runs: it's a 7.5 MB script from api.firma.dev that runs inside the page that loads it | **In a new tab, on a page the Worker serves** (`/esign/editor`), sandboxed (an opaque origin) so Firma's code reaches neither her app's data nor the Worker's cookies (`/ops`). The 24-hour token goes in the address's fragment. Not in the app page (her whole database, and an exception to no-CDN), and not in a frame |
 | D30 | **Decided 2026-11-11.** Where she manages her Firma templates (she has no Firma login), and the site | **On the Contracts page** (a "Contract templates" button, Pro + cloud). The templates live in her Firma workspace; the app keeps each one's contract type. The marketing site names Firma instead of Jotform, and the privacy policy names Firma (EU-hosted) as the sub-processor for contracts sent for signature, for the owner to review |
 | D16 | **Decided 2026-10-11: on her device** (`device_secrets`). Where a Jotform API key lives (§2.1b): on her device or on the Worker (`int_connections`)? | Device: no central store of every breeder's key; proven in a real flow, Worker after step 5 only if Jotform blocks browser calls |
 
