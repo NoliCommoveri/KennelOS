@@ -9,6 +9,8 @@
 (function () {
   'use strict';
   var FIRMA_SCRIPT = 'https://api.firma.dev/functions/v1/embed-proxy/template-editor.js';
+  // A contract's preview (#t=…&sr=…): a draft signing request, read-only.
+  var FIRMA_SR_SCRIPT = 'https://api.firma.dev/functions/v1/embed-proxy/signing-request-editor.js';
 
   function memoryStorage() {
     var m = new Map();
@@ -35,6 +37,7 @@
   var params = new URLSearchParams(String(location.hash || '').replace(/^#/, ''));
   var token = params.get('t') || '';
   var templateId = params.get('id') || '';
+  var requestId = params.get('sr') || '';
   try { history.replaceState(null, '', location.pathname); } catch (e) { /* the fragment stays */ }
 
   function $(id) { return document.getElementById(id); }
@@ -43,7 +46,42 @@
     if (note != null && $('note')) { $('note').textContent = note; $('note').hidden = !note; }
   }
 
+  // The preview: her template with the contract's values, as the buyer will get it.
+  function startPreview() {
+    document.title = 'Preview: KennelOS contract';
+    say('Opening the preview…', '');
+    var s = document.createElement('script');
+    s.src = FIRMA_SR_SCRIPT;
+    s.onerror = function () { say('The preview didn\'t load', 'Firma couldn\'t be reached. Check your connection, then tap Preview again in KennelOS.'); };
+    s.onload = function () {
+      if (typeof window.FirmaSigningRequestEditor !== 'function') { s.onerror(); return; }
+      say('Preview: your template with this contract\'s details. Nothing has been sent.',
+        'This is a draft only you can see. Close this tab and tap Send in KennelOS when it looks right.');
+      try {
+        new window.FirmaSigningRequestEditor({
+          container: '#editor',
+          jwt: token,
+          signingRequestId: requestId,
+          readOnly: true,
+          theme: 'light',
+          height: 'calc(100vh - 80px)',
+          showCloseButton: true,
+          onClose: function () {
+            $('editor').innerHTML = '';
+            say('Closed', 'You can close this tab and go back to KennelOS.');
+            try { window.close(); } catch (e) { /* she closes it */ }
+          },
+          onError: function () { say('Something went wrong', 'The preview stopped. Tap Preview again in KennelOS for a fresh one.'); }
+        });
+      } catch (e) {
+        say('The preview didn\'t start', 'Tap Preview again in KennelOS.');
+      }
+    };
+    document.head.appendChild(s);
+  }
+
   function start() {
+    if (token && /^[A-Za-z0-9_-]{1,64}$/.test(requestId)) { startPreview(); return; }
     if (!token || !/^[A-Za-z0-9_-]{1,64}$/.test(templateId)) {
       say('Nothing to open', 'Open this from KennelOS: Contracts, Contract templates, then Place fields on a template.');
       return;

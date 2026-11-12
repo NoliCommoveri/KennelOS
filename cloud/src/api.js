@@ -17,7 +17,7 @@ import { ackInbox, claimLease, releaseLease, publishProjection, readEvents, read
 import { deleteConnection, listConnections, readIntegrationEvents } from './integrations.js';
 import {
   connectFirma, createFirmaTemplate, esignCountersignLink, esignDocument, firmaStatus, firmaTemplateToken, listFirmaTemplates,
-  sendForSignature, syncFirmaFields,
+  sendForSignature, syncFirmaFields, previewSigningRequest, discardPreview,
 } from './firma.js';
 import { deleteDigest, getNotify, pendingPush, putNotify, startDigest, subscribePush, testPush, unsubscribePush, verifyDigest } from './notify.js';
 import { handleGeoDistance } from './geo.js';
@@ -110,6 +110,8 @@ export async function handleApi(request, env, url, cors) {
   if (p === '/integrations/firma/templates' && m === 'POST') return json(await createFirmaTemplate(env, auth, await readJson(request, 6_100_000)), 200, cors);
   if (p === '/integrations/firma/template-token' && m === 'POST') return json(await firmaTemplateToken(env, auth, await readJson(request, 4 * 1024)), 200, cors);
   if (p === '/integrations/esign/send' && m === 'POST') return json(await sendForSignature(env, auth, await readJson(request, 64 * 1024)), 200, cors);
+  if (p === '/integrations/esign/preview' && m === 'POST') return json(await previewSigningRequest(env, auth, await readJson(request, 64 * 1024)), 200, cors);
+  if (p === '/integrations/esign/preview' && m === 'DELETE') return json(await discardPreview(env, auth, url), 200, cors);
   if (p === '/integrations/esign/document' && m === 'GET') return json(await esignDocument(env, auth, url), 200, cors);
   if (p === '/integrations/esign/countersign' && m === 'GET') return json(await esignCountersignLink(env, auth, url), 200, cors);
   if (p === '/program/backing-device' && m === 'POST') return json(await takeOver(env, auth), 200, cors);

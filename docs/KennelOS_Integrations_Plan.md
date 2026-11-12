@@ -628,6 +628,12 @@ event kinds on Today) is next. **Modified** from the plan above:
     page stands them in, in memory.
   - Checked in a browser that the script loads and calls Firma inside the sandbox. A real
     token is proven on the first production run.
+- **Preview** (2026-11-12, owner request): the Send dialog's Preview makes a draft signing
+  request of the same send (free: Firma charges at send) and opens it read-only in Firma's
+  embeddable signing request editor, on the Worker's sandboxed editor page. The dialog
+  discards it when it closes. *To prove on the first production run:* that a draft costs no
+  credit, that the read-only editor shows the prefilled values, and that `DELETE
+  /signing-requests/{id}` removes a draft.
 - **A template deleted in Firma's editor** (2026-11-12) stops being offered: the device
   drops its row once Firma's complete list lacks it (Contract templates, and each send
   picker), and the Worker refuses a send of it (`404 template_missing`) before it counts.

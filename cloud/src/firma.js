@@ -20,7 +20,9 @@
 //                                              link emailed to the buyer
 //   runEsignCopies (hourly cron)               copies signed PDFs to R2, emails the link
 //   POST /hooks/firma/<secret>                 Firma's webhook (integrations.js)
-//   GET  /esign/editor (+ .js, .css)           Firma's template editor, in its own tab
+//   POST /integrations/esign/preview           a draft of a send, read-only in Firma's editor
+//   DELETE /integrations/esign/preview?id=     discard that draft
+//   GET  /esign/editor (+ .js, .css)           Firma's template editor (or a draft, read-only), in its own tab
 //
 // The connection's sealed token (integrations.js) is JSON: her workspace's API key,
 // its webhook signing secret and the webhook's id. Never sent to a device.
@@ -411,10 +413,8 @@ export function emptyPrefills(data) {
 // month's count is under her limit, so two sends at once can't pass it. A send
 // Firma refused frees its row; one whose outcome is unknown keeps it (its credit
 // may be spent) and says so.
-export async function sendForSignature(env, auth, body, now = new Date()) {
-  await herSide(env, auth);
-  const { connection, secrets } = await mine(env, auth);
-
+// The send's body, checked (sendForSignature and the preview share it).
+function parseSend(body) {
   const contractId = text(body?.contractId);
   const templateId = text(body?.templateId);
   if (!UUIDISH.test(contractId)) fail(400, 'bad_contract');
@@ -443,6 +443,44 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
     if (herEmail === email) fail(400, 'countersigner_is_signer');
     countersigner = { first_name: name, email: herEmail, designation: 'Signer', order: 2 };
   }
+
+  return { contractId, templateId, firstName, lastName, email, facts, title, keepCopy, kennelName, countersigner };
+}
+
+// A template gone from her workspace (deleted in Firma's editor) → 404 template_missing.
+async function templateThere(env, key, templateId) {
+  const tpl = await firma(env, key, 'GET', `/templates/${encodeURIComponent(templateId)}`);
+  if (tpl.status === 404) fail(404, 'template_missing');
+}
+
+// Firma's body for one request: the buyer, and her as the second signer when she
+// countersigns, each with every fact under each name the template may use.
+async function requestBody(env, key, workspaceId, { templateId, title, firstName, lastName, email, facts, countersigner }, emailSigner) {
+  const rows = Object.keys(facts).length ? await customFieldRows(env, key, workspaceId) : null;
+  const values = withFieldAliases(facts, rows);
+  return {
+    values,
+    payload: {
+      name: title,
+      template_id: templateId,
+      recipients: [
+        { first_name: firstName, last_name: lastName || undefined, email, designation: 'Signer', order: 1, custom_fields: values },
+        ...(countersigner ? [{ ...countersigner, custom_fields: values }] : []),
+      ],
+      settings: { send_signing_email: emailSigner },
+    },
+  };
+}
+
+export async function sendForSignature(env, auth, body, now = new Date()) {
+  await herSide(env, auth);
+  const { connection, secrets } = await mine(env, auth);
+  const { contractId, templateId, firstName, lastName, email, facts, title, keepCopy, kennelName, countersigner } = parseSend(body);
+
+  // A template deleted in Firma's editor (her device may still offer it): refused
+  // here, before a place in the month's count is taken. Only a clear "not there"
+  // stops the send; any other answer leaves it to Firma.
+  await templateThere(env, secrets.apiKey, templateId);
 
   const live = await env.DB.prepare(
     "SELECT signing_request_id, status FROM esign_sends WHERE program_id = ? AND contract_id = ? AND status IN ('sending', 'sent', 'unknown') ORDER BY sent_at DESC LIMIT 1",
@@ -473,17 +511,9 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
 
   // The facts under each name the template may use, for both signers: a field
   // she placed for herself fills too, and a required one never blocks the send.
-  const rows = Object.keys(facts).length ? await customFieldRows(env, secrets.apiKey, connection.account_ref) : null;
-  const values = withFieldAliases(facts, rows);
-  const r = await firma(env, secrets.apiKey, 'POST', '/signing-requests/create-and-send', {
-    name: title,
-    template_id: templateId,
-    recipients: [
-      { first_name: firstName, last_name: lastName || undefined, email, designation: 'Signer', order: 1, custom_fields: values },
-      ...(countersigner ? [{ ...countersigner, custom_fields: values }] : []),
-    ],
-    settings: { send_signing_email: body?.emailSigner !== false },
-  });
+  const { values, payload } = await requestBody(env, secrets.apiKey, connection.account_ref,
+    { templateId, title, firstName, lastName, email, facts, countersigner }, body?.emailSigner !== false);
+  const r = await firma(env, secrets.apiKey, 'POST', '/signing-requests/create-and-send', payload);
 
   let signingRequestId = ok(r) ? r.data?.id : (r.status === 409 ? r.data?.signing_request_id : null);
   signingRequestId = signingRequestId ? String(signingRequestId) : null;
@@ -520,6 +550,53 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
   await settle('unknown');
   console.error('firma: send outcome unknown', r.status);
   fail(502, 'esign_unknown', { usage: await usage(env, auth.programId, now) });
+}
+
+// POST /integrations/esign/preview: the same body as a send → { previewId, token,
+// expiresAt }. A DRAFT signing request (POST /signing-requests never sends, and
+// Firma charges a credit only at send), so it's free and never counts toward her
+// month. Its token opens Firma's signing request editor read-only on the editor
+// page (#t=…&sr=…), showing her real template with this contract's values filled.
+// Nothing is kept here: her device discards the draft when its Send dialog closes
+// (DELETE below).
+export async function previewSigningRequest(env, auth, body) {
+  await herSide(env, auth);
+  const { connection, secrets } = await mine(env, auth);
+  const parsed = parseSend(body);
+  await templateThere(env, secrets.apiKey, parsed.templateId);
+  const { payload } = await requestBody(env, secrets.apiKey, connection.account_ref, parsed, false);
+  const r = await firma(env, secrets.apiKey, 'POST', '/signing-requests', payload);
+  const id = ok(r) && r.data?.id ? String(r.data.id) : null;
+  if (!id) {
+    if (r.status === 404) fail(404, 'template_missing');
+    if (r.status >= 400 && r.status < 500 && r.status !== 408 && r.status !== 429) fail(400, 'esign_refused', { code: firmaCode(r) });
+    fail(502, 'esign_unavailable');
+  }
+  const t = await firma(env, secrets.apiKey, 'POST', '/jwt/generate-signing-request', { companies_workspaces_signing_requests_id: id });
+  if (!ok(t) || typeof t.data?.jwt !== 'string') {
+    await discardDraft(env, secrets.apiKey, id);
+    fail(502, 'esign_unavailable');
+  }
+  return { previewId: id, token: t.data.jwt, expiresAt: t.data.expires_at ?? null };
+}
+
+// Only a draft in her own workspace is ever deleted: a sent request (charged, a
+// buyer's link) never is. → true when it's gone.
+async function discardDraft(env, key, id) {
+  const sr = await firma(env, key, 'GET', `/signing-requests/${encodeURIComponent(id)}`);
+  if (sr.status === 404) return true;
+  if (!ok(sr) || String(sr.data?.status ?? '').toLowerCase() !== 'draft') return false;
+  const d = await firma(env, key, 'DELETE', `/signing-requests/${encodeURIComponent(id)}`);
+  return ok(d) || d.status === 404;
+}
+
+// DELETE /integrations/esign/preview?id=<signing request id> → { discarded }.
+export async function discardPreview(env, auth, url) {
+  await herSide(env, auth);
+  const { secrets } = await mine(env, auth);
+  const id = text(url.searchParams.get('id'));
+  if (!UUIDISH.test(id)) fail(400, 'bad_ref');
+  return { discarded: await discardDraft(env, secrets.apiKey, id) };
 }
 
 // GET /integrations/esign/document?ref=<signing request id> → { url, expiresAt,

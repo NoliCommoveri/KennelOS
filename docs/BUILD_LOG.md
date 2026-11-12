@@ -3584,3 +3584,20 @@ tick box per template; buyers get an emailed link.
   Accounts page's form row shows Which extra with the saved one.
 - **Not checked:** the Contract templates window in a browser (needs a cloud sign-in).
 - **Docs:** End-State guide §32, Integrations plan §2.1a. New file in `PRECACHE_URLS`.
+
+## 2026-11-12: Preview a Firma contract before sending
+
+- **Asked:** a preview against the real template with the fields filled in.
+- **Change (Worker):** `POST /integrations/esign/preview` (the send's body, `parseSend`, shared
+  with `sendForSignature` along with `requestBody` and `templateThere`): a draft signing
+  request and a `/jwt/generate-signing-request` token; nothing stored or counted.
+  `DELETE /integrations/esign/preview?id=` deletes it only while Firma says it's a draft.
+  The editor page opens `#t=…&sr=…` in Firma's signing request editor, read-only.
+- **Change (app):** the Send dialog's **Preview** (`cloudEsign.previewLink`, opened in a new
+  tab); its drafts are discarded when the dialog closes (`discardPreview`).
+- **Unproven** (Firma's docs unreachable from the session; owner pasted the embed guide): a
+  draft is free, the read-only editor shows prefilled values, DELETE on a draft. On the
+  launch checklist.
+- **Tests:** `cloud/tests/esign.test.js` +1, `tests/esign.test.js` +1. `cd cloud && npm test`
+  326 pass, `node --test` 1744 pass.
+- **Docs:** End-State guide §32, Integrations plan §2.3a, launch checklist.

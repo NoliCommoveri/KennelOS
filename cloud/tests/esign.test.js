@@ -41,7 +41,7 @@ let fake;
 let realFetch;
 function makeFake() {
   const f = {
-    calls: [], workspaces: new Map(), webhooks: new Map(), templates: new Map(), fields: new Map(), sends: [], mails: [],
+    calls: [], workspaces: new Map(), webhooks: new Map(), templates: new Map(), drafts: new Map(), deletedDrafts: [], fields: new Map(), sends: [], mails: [],
     pdf: new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31]), downloadReply: null, buyerEmail: undefined,
     sendReply: null, // (body) => { status, data } to override create-and-send once
     nextWs: 1, nextSr: 1,
@@ -102,6 +102,22 @@ function makeFake() {
       return t && (t.ws === wsOfKey.id || t.ws === ANY_WS) ? reply(200, t) : reply(404, { code: 'NOT_FOUND' });
     }
     if (method === 'POST' && path === '/generate-template-token') return reply(201, { token: `jwt_${body.companies_workspaces_templates_id}`, expires_at: '2026-11-12T00:00:00Z' });
+    if (method === 'POST' && path === '/signing-requests') {
+      const id = `draft_${f.drafts.size + 1}`;
+      f.drafts.set(id, { id, ws: wsOfKey.id, status: 'draft', body });
+      return reply(201, { id, status: 'draft' });
+    }
+    if (method === 'POST' && path === '/jwt/generate-signing-request') {
+      return f.drafts.has(body.companies_workspaces_signing_requests_id)
+        ? reply(200, { jwt: `srjwt_${body.companies_workspaces_signing_requests_id}`, expires_at: '2026-11-19T00:00:00Z' }) : reply(404, {});
+    }
+    if ((m = /^\/signing-requests\/([^/]+)$/.exec(path)) && (method === 'GET' || method === 'DELETE')) {
+      const d = f.drafts.get(m[1]) || (f.sends.some((x) => x.id === m[1]) ? { id: m[1], ws: f.sends.find((x) => x.id === m[1]).ws, status: 'sent' } : null);
+      if (!d || d.ws !== wsOfKey.id) return reply(404, {});
+      if (method === 'GET') return reply(200, { id: d.id, status: d.status });
+      f.drafts.delete(m[1]); f.deletedDrafts.push(m[1]);
+      return reply(200, { deleted: true });
+    }
     if (method === 'POST' && path === '/signing-requests/create-and-send') {
       if (f.sendReply) { const r = f.sendReply(body); f.sendReply = null; if (r === 'network') throw new TypeError('fetch failed'); return reply(r.status, r.data); }
       const id = `sr_${f.nextSr++}`;
@@ -424,6 +440,39 @@ test('send: a template gone from Firma is refused before it counts; the list say
 
   const list = await (await call(env, 'GET', '/integrations/firma/templates', { token: s.token })).json();
   assert.equal(list.complete, true);
+});
+
+test('preview: a free draft of the send, opened by token, never counted; only a draft is ever discarded', async () => {
+  const env = await envWith();
+  const s = await connected(env);
+  fake.templates.set('tpl_1', { id: 'tpl_1', name: 'Contract', ws: ANY_WS });
+  const r = await call(env, 'POST', '/integrations/esign/preview', { token: s.token, body: {
+    contractId: CONTRACT, templateId: 'tpl_1', title: 'Puppy sale: Biscuit',
+    signer: { firstName: 'Ann', lastName: 'Lee', email: 'ann@example.com' },
+    facts: { puppyName: 'Biscuit' }, countersigner: { name: 'Jane Doe', email: 'jane@example.com' } } });
+  assert.equal(r.status, 200, await r.clone().text());
+  const out = await r.json();
+  assert.deepEqual(out, { previewId: 'draft_1', token: 'srjwt_draft_1', expiresAt: '2026-11-19T00:00:00Z' });
+  const draft = fake.drafts.get('draft_1').body;
+  assert.equal(draft.template_id, 'tpl_1');
+  assert.equal(draft.recipients[0].custom_fields.puppyName, 'Biscuit');
+  assert.equal(draft.recipients[1].first_name, 'Jane Doe', 'she\'s on it too, as on a send');
+  assert.equal(draft.settings.send_signing_email, false);
+  assert.ok(!fake.calls.some((c) => c.path === '/signing-requests/create-and-send'), 'nothing sent');
+  assert.equal(count(env, 'SELECT COUNT(*) AS n FROM esign_sends'), 0, 'never counted');
+
+  const gone = await call(env, 'POST', '/integrations/esign/preview', { token: s.token, body: {
+    contractId: CONTRACT, templateId: 'tpl_x', signer: { firstName: 'Ann', email: 'ann@example.com' } } });
+  assert.equal((await gone.json()).error, 'template_missing');
+
+  const del = await call(env, 'DELETE', '/integrations/esign/preview?id=draft_1', { token: s.token });
+  assert.deepEqual(await del.json(), { discarded: true });
+  assert.deepEqual(fake.deletedDrafts, ['draft_1']);
+
+  // A sent request is never deleted through this route.
+  const sent = await (await send(env, s)).json();
+  assert.deepEqual(await (await call(env, 'DELETE', `/integrations/esign/preview?id=${sent.signingRequestId}`, { token: s.token })).json(), { discarded: false });
+  assert.deepEqual(fake.deletedDrafts, ['draft_1']);
 });
 
 test('send failures: a refusal frees its place, an unknown outcome keeps it, a started send is kept', async () => {

@@ -11,6 +11,7 @@
 //   uploadTemplate(...)     a new template from her PDF
 //   editorLink(templateId)  Firma's editor in its own tab (the Worker's sandboxed page)
 //   sendForEsign(...)       send a contract; the contract is marked Sent
+//   previewLink(...)        a free draft of that send, read-only in Firma's editor
 //   signedCopyLink(ref)     a short-lived link to the signed PDF
 //   countersignLink(ref)    her own signing link, on a contract she countersigns (D32)
 //
@@ -174,6 +175,21 @@ export async function sendForEsign({ contract, form, facts, signer, emailSigner 
     esign_countersign: res.countersign === true
   });
   return { contract: saved, signingLink: res.signingLink || null, countersign: res.countersign === true, keepCopy: res.keepCopy === true, usage: res.usage || null };
+}
+
+// A preview of this send: her real template with the contract's values, as a
+// Firma draft (free, never counted) opened read-only on the Worker's editor page.
+// → { url, previewId }. Discard it with discardPreview once she's done.
+export async function previewLink({ contract, form, facts, signer }) {
+  const token = requireSession();
+  const res = await api.esignPreview(token, sendBody({ contract, form, facts, signer, emailSigner: false }));
+  return { url: `${cloudBaseUrl()}/esign/editor#${new URLSearchParams({ t: res.token, sr: res.previewId })}`, previewId: res.previewId };
+}
+
+// Throw a preview's draft away (best effort: a draft left behind costs nothing).
+export async function discardPreview(previewId) {
+  if (!previewId) return false;
+  try { return (await api.discardEsignPreview(requireSession(), previewId)).discarded === true; } catch { return false; }
 }
 
 // → { url, partial, status }

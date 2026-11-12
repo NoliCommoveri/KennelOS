@@ -106,7 +106,7 @@ let env; let fake; let api; let auth; let esign; let ci; let send;
 let kennelRepo; let contactRepo; let dogRepo; let saleRepo; let contractRepo; let accountRepo; let esignTemplates;
 
 function makeFake() {
-  const f = { workspaces: new Map(), fields: [], templates: new Map(), gone: new Set(), sends: [], webhookUrl: null, fieldCalls: 0 };
+  const f = { workspaces: new Map(), fields: [], templates: new Map(), gone: new Set(), drafts: new Map(), draftN: 0, sends: [], webhookUrl: null, fieldCalls: 0 };
   f.handle = async (url, init) => {
     const path = new URL(url).pathname.replace('/functions/v1/signing-request-api', '');
     const method = init.method || 'GET';
@@ -134,6 +134,13 @@ function makeFake() {
     // Deleted (in Firma's editor) = 404; one the fake never made stands in as there.
     if ((m = /^\/templates\/([^/]+)$/.exec(path))) return f.gone.has(m[1]) ? reply(404, {}) : reply(200, f.templates.get(m[1]) || { id: m[1] });
     if (method === 'POST' && path === '/generate-template-token') return reply(200, { token: 'jwt.for.editor', expires_at: '2026-11-13T00:00:00Z' });
+    if (method === 'POST' && path === '/signing-requests') { const id = `draft_${++f.draftN}`; f.drafts.set(id, body); return reply(201, { id, status: 'draft' }); }
+    if (method === 'POST' && path === '/jwt/generate-signing-request') return reply(200, { jwt: 'jwt.for.preview', expires_at: null });
+    if ((m = /^\/signing-requests\/(draft_\d+)$/.exec(path))) {
+      if (!f.drafts.has(m[1])) return reply(404, {});
+      if (method === 'GET') return reply(200, { id: m[1], status: 'draft' });
+      f.drafts.delete(m[1]); return reply(200, {});
+    }
     if (method === 'POST' && path === '/signing-requests/create-and-send') {
       if (f.refuseWith) return reply(400, { code: f.refuseWith, message: 'not for her eyes' });
       const id = `sr_${f.sends.length + 1}`;
@@ -448,4 +455,23 @@ test('her signature name: the template\'s own, else her kennel\'s setting, else 
 
   const form = { countersign: true, signer_name: '' };
   assert.deepEqual(esign.countersignerFor(form, { kennel, breeder }, { email: 'jane@example.com' }), { name: 'Jane M. Doe', email: 'jane@example.com' });
+});
+
+test('preview: her real template as a free draft, opened read-only on the editor page, then discarded', async () => {
+  await breeder();
+  await esign.setUpEsign('Maple Labs');
+  const k = await kennelRepo.create({ kennel_name: 'Maple Labs', is_own_kennel: true });
+  const buyer = await contactRepo.create({ name: 'Ann Buyer', email: 'ann@example.com' });
+  const contract = await contractRepo.create({ contract_type: 'sale', status: 'draft', title: 'Pet home', kennel_id: k.id });
+  const form = { id: 'f', form_type: 'pet_home', label: 'Pet home', provider: 'firma', template_id: 'tpl_1' };
+  const { url, previewId } = await esign.previewLink({ contract, form, facts: await send.gatherContractFacts(contract), signer: buyer });
+  const u = new URL(url);
+  assert.equal(u.pathname, '/esign/editor');
+  assert.deepEqual(Object.fromEntries(new URLSearchParams(u.hash.slice(1))), { t: 'jwt.for.preview', sr: previewId });
+  assert.equal(fake.drafts.size, 1);
+  assert.equal(fake.sends.length, 0, 'nothing sent');
+  assert.equal((await esign.esignStatus()).usage.used, 0, 'nothing counted');
+  assert.equal((await contractRepo.getById(contract.id)).status, 'draft', 'the contract is untouched');
+  assert.equal(await esign.discardPreview(previewId), true);
+  assert.equal(fake.drafts.size, 0);
 });

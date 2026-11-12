@@ -347,6 +347,10 @@ and Email Routing.
   hour the buyer's address should get "Your signed contract from …" with a link that opens
   the PDF, and the contract's Signed copy should open the same link. Note whether Firma also
   emailed a copy. Review the privacy policy's new signed-copies lines (§9d).
+  Then **Preview** in the Send dialog: it should open your template read-only in a new tab
+  with the contract's details filled in. Check in `/ops` that the credits didn't drop (a
+  draft should be free), and that closing the Send dialog removed the draft (no stray draft
+  in Firma's dashboard for the workspace).
   Set the ESIGN consumer-consent wording in the signer terms.
   Decide the monthly limit in `/ops`.
 - [ ] **A deleted account's Firma workspace** is removed by hand in Firma's dashboard within 30

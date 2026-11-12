@@ -2820,6 +2820,14 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     signing request id; cloud tier), `esign_url` (the buyer's signing link), `esign_sent_date`,
     `esign_form_label` and `esign_countersign` (cloud tier: she countersigns it).
   - A second send needs **Send again** (`resend`).
+  - **Preview** (`cloudEsign.previewLink`): the same `sendBody` goes to
+    `POST /integrations/esign/preview`, which makes a **draft** signing request
+    (`POST /signing-requests`: never sent, never charged, no `esign_sends` row, so never
+    counted) and a token for it (`/jwt/generate-signing-request`). It opens in a new tab on
+    the editor page (`/esign/editor#t=…&sr=…`), Firma's signing request editor `readOnly`: her
+    real template with this contract's values. Closing the Send dialog discards the drafts it
+    made (`DELETE /integrations/esign/preview?id=`, `cloudEsign.discardPreview`, best effort);
+    the Worker deletes only a request Firma says is still a `draft`.
   - The Worker reads the template with her key before it reserves the send: a 404 is
     `404 template_missing`, before anything counts. So is a 404 from Firma's send (the row is
     freed). The dialog then forgets that template (`esignTemplates.forgetTemplate`) and says

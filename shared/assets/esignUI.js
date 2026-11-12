@@ -14,7 +14,8 @@
 // workspace. Everything goes through data/cloud/cloudEsign.js.
 import {
   esignSignedIn, esignStatus, setUpEsign, templateList, uploadTemplate, editorLink,
-  sendForEsign, signedCopyLink, countersignLink, countersignerFor, esignProblem, TEMPLATE_MAX_BYTES
+  sendForEsign, signedCopyLink, countersignLink, countersignerFor, esignProblem, TEMPLATE_MAX_BYTES,
+  previewLink, discardPreview
 } from '../data/cloud/cloudEsign.js';
 import { mergeTemplates, setTemplateType, signingKennel, forgetMissingTemplates, forgetTemplate, kennelSignerName } from '../data/esignTemplates.js';
 import { breederFor } from '../data/contractSend.js';
@@ -277,7 +278,8 @@ export function sendWithFirma({ contract, form, facts, signer, emailChoice = tru
     const overlay = overlayOf('<h2 style="margin-top:0;">Send for e-signature</h2><p class="muted">Loading…</p>');
     const box = overlay.querySelector('.modal');
     let busy = false;
-    const done = (v) => { overlay.remove(); resolve(v); };
+    const previews = []; // drafts opened from this dialog, discarded when it closes
+    const done = (v) => { overlay.remove(); previews.splice(0).forEach((id) => { discardPreview(id); }); resolve(v); };
     overlay.addEventListener('click', (e) => { if (e.target === overlay && !busy) done(null); });
     const filled = prefillValues(form, facts).length;
     const counter = countersignerFor(form, facts);
@@ -305,11 +307,31 @@ export function sendWithFirma({ contract, form, facts, signer, emailChoice = tru
         <div id="fs-msg" role="status"></div>
         <div class="form-actions">
           <button class="btn btn-primary" id="fs-send"${full || (form.countersign && !counter) ? ' disabled' : ''}>Send</button>
+          <button class="btn" id="fs-preview" title="See your template with these details filled in. Nothing is sent or counted.">Preview</button>
           <button class="btn" id="fs-cancel">Cancel</button>
         </div>`;
       const $ = (s) => box.querySelector(s);
       $('#fs-cancel').addEventListener('click', () => { if (!busy) done(null); });
       $('#fs-send').addEventListener('click', () => go(false));
+      $('#fs-preview').addEventListener('click', preview);
+    }
+
+    // A free draft, read-only in Firma's editor in a new tab (opened before the
+    // await, so the browser counts it as the tap's).
+    async function preview() {
+      const $ = (s) => box.querySelector(s);
+      const name = $('#fs-name').value.trim();
+      const email = $('#fs-email').value.trim();
+      if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { $('#fs-msg').innerHTML = '<div class="inline-error">Add who signs and their email first: the preview is made for them.</div>'; return; }
+      $('#fs-msg').innerHTML = '<p class="field-hint">Making the preview…</p>';
+      try {
+        const opened = await openInNewTab(previewLink({ contract, form, facts, signer: { name, email } }).then((r) => { previews.push(r.previewId); return r.url; }));
+        $('#fs-msg').innerHTML = `<p class="field-hint">${opened ? 'The preview is open in a new tab: your template with these details. Nothing was sent or counted.' : 'Your browser blocked the new tab. Allow pop-ups for KennelOS, then tap Preview again.'}</p>`;
+      } catch (err) {
+        const p = esignProblem(err);
+        if (p.kind === 'template_missing') await forgetTemplate(form.template_id).catch(() => {});
+        if (box.isConnected) $('#fs-msg').innerHTML = `<div class="inline-error">${esc(p.message)}</div>`;
+      }
     }
 
     async function go(resend) {
