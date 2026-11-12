@@ -3672,3 +3672,22 @@ tick box per template; buyers get an emailed link.
   `tests/esign.test.js` +1, `tests/extraCharges.test.js`, `cloud/tests/esign.test.js`.
   `node --test` 1748 pass, `cd cloud && npm test` 326 pass.
 - **Docs:** End-State guide §21.2, §32; Integrations plan §2.1a, §2.3a.
+
+## 2026-11-12: A preview holds a place in the month; cache v123
+
+- **Why:** a preview's token isn't read-only (Firma's `readOnly` is an editor option), so for
+  7 days it could send the draft from Firma's own editor, outside her count; and a draft left
+  by a closed tab was never discarded.
+- **Change (Worker, no migration):** a preview is an `esign_sends` row with status `preview`.
+  `usage` and `/ops` leave it out; a new preview and a send's reservation count it (`HELD`),
+  so sends plus open previews never pass her limit. `settlePreview` deletes the draft and
+  frees the place, or counts a draft found sent; an unknown answer keeps the place until the
+  token is dead (8 days). It runs before each preview and send (one preview at a time), on
+  the device's discard, and hourly for previews over an hour old (`runEsignPreviews`).
+  `discardPreview` only touches a preview this program made.
+- **Unproven:** Firma's status words (`draft`; a sent request's). An unknown word is logged
+  and never counted. On the launch checklist.
+- **Service worker:** `CACHE_NAME` v123 (owner asked), for the app changes since v122.
+- **Tests:** `cloud/tests/esign.test.js` +3. `cd cloud && npm test` 329 pass, `node --test`
+  1751 pass.
+- **Docs:** End-State guide §32, Integrations plan §2.3a, launch checklist.

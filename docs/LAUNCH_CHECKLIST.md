@@ -350,7 +350,11 @@ and Email Routing.
   Then **Preview** in the Send dialog: it should open your template read-only in a new tab
   with the contract's details filled in. Check in `/ops` that the credits didn't drop (a
   draft should be free), and that closing the Send dialog removed the draft (no stray draft
-  in Firma's dashboard for the workspace).
+  in Firma's dashboard for the workspace). Check the Worker's log for "a request status
+  KennelOS does not know": Firma's word for a draft must be `draft`, and for a sent request
+  one of `firma.js` `SENT_STATES`, or a preview keeps its place until the hourly sweep can't
+  free it either. Preview once more, close the tab without closing the dialog, and within
+  two hours the `esign previews` cron line should say `freed: 1`.
   Set the ESIGN consumer-consent wording in the signer terms.
   Decide the monthly limit in `/ops`.
 - [ ] **A deleted account's Firma workspace** is removed by hand in Firma's dashboard within 30

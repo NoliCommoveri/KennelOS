@@ -44,7 +44,7 @@ function makeFake() {
     calls: [], workspaces: new Map(), webhooks: new Map(), templates: new Map(), drafts: new Map(), deletedDrafts: [], fields: new Map(), sends: [], mails: [],
     pdf: new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31]), downloadReply: null, buyerEmail: undefined,
     sendReply: null, // (body) => { status, data } to override create-and-send once
-    nextWs: 1, nextSr: 1,
+    nextWs: 1, nextSr: 1, nextDraft: 0, srDown: false,
   };
   f.fetch = async (url, init = {}) => {
     const u = new URL(url);
@@ -103,7 +103,7 @@ function makeFake() {
     }
     if (method === 'POST' && path === '/generate-template-token') return reply(201, { token: `jwt_${body.companies_workspaces_templates_id}`, expires_at: '2026-11-12T00:00:00Z' });
     if (method === 'POST' && path === '/signing-requests') {
-      const id = `draft_${f.drafts.size + 1}`;
+      const id = `draft_${++f.nextDraft}`;
       f.drafts.set(id, { id, ws: wsOfKey.id, status: 'draft', body });
       return reply(201, { id, status: 'draft' });
     }
@@ -114,6 +114,7 @@ function makeFake() {
     if ((m = /^\/signing-requests\/([^/]+)$/.exec(path)) && (method === 'GET' || method === 'DELETE')) {
       const d = f.drafts.get(m[1]) || (f.sends.some((x) => x.id === m[1]) ? { id: m[1], ws: f.sends.find((x) => x.id === m[1]).ws, status: 'sent' } : null);
       if (!d || d.ws !== wsOfKey.id) return reply(404, {});
+      if (f.srDown) return reply(500, {});
       if (method === 'GET') return reply(200, { id: d.id, status: d.status });
       f.drafts.delete(m[1]); f.deletedDrafts.push(m[1]);
       return reply(200, { deleted: true });
@@ -464,7 +465,9 @@ test('preview: a free draft of the send, opened by token, never counted; only a 
   assert.equal(draft.recipients[1].first_name, 'Jane Doe', 'she\'s on it too, as on a send');
   assert.equal(draft.settings.send_signing_email, false);
   assert.ok(!fake.calls.some((c) => c.path === '/signing-requests/create-and-send'), 'nothing sent');
-  assert.equal(count(env, 'SELECT COUNT(*) AS n FROM esign_sends'), 0, 'never counted');
+  assert.equal(count(env, "SELECT COUNT(*) AS n FROM esign_sends WHERE status != 'preview'"), 0, 'never counted');
+  assert.equal((await firma.usage(env, s.programId)).used, 0);
+  assert.equal(count(env, "SELECT COUNT(*) AS n FROM esign_sends WHERE status = 'preview' AND signing_request_id = 'draft_1'"), 1, 'it holds a place');
 
   const gone = await call(env, 'POST', '/integrations/esign/preview', { token: s.token, body: {
     contractId: CONTRACT, templateId: 'tpl_x', signer: { firstName: 'Ann', email: 'ann@example.com' } } });
@@ -473,11 +476,101 @@ test('preview: a free draft of the send, opened by token, never counted; only a 
   const del = await call(env, 'DELETE', '/integrations/esign/preview?id=draft_1', { token: s.token });
   assert.deepEqual(await del.json(), { discarded: true });
   assert.deepEqual(fake.deletedDrafts, ['draft_1']);
+  assert.equal(count(env, 'SELECT COUNT(*) AS n FROM esign_sends'), 0, 'its place is free again');
 
   // A sent request is never deleted through this route.
   const sent = await (await send(env, s)).json();
   assert.deepEqual(await (await call(env, 'DELETE', `/integrations/esign/preview?id=${sent.signingRequestId}`, { token: s.token })).json(), { discarded: false });
   assert.deepEqual(fake.deletedDrafts, ['draft_1']);
+});
+
+const preview = (env, s, extra = {}) => {
+  if (!fake.templates.has('tpl_1')) fake.templates.set('tpl_1', { id: 'tpl_1', name: 'Contract', ws: ANY_WS });
+  return call(env, 'POST', '/integrations/esign/preview', { token: s.token, body: {
+    contractId: CONTRACT, templateId: 'tpl_1', title: 'Puppy sale: Biscuit',
+    signer: { firstName: 'Ann', lastName: 'Lee', email: 'ann@example.com' }, facts: { puppyName: 'Biscuit' }, ...extra } });
+};
+const previews = (env) => count(env, "SELECT COUNT(*) AS n FROM esign_sends WHERE status = 'preview'");
+
+test('a preview holds a place: one at a time, none at the limit, and a send frees it', async () => {
+  const env = await envWith();
+  const s = await connected(env);
+  await firma.setProgramMonthlyLimit(env, s.programId, 2);
+
+  // A new preview replaces the one before it.
+  assert.equal((await preview(env, s)).status, 200);
+  assert.equal((await (await preview(env, s)).json()).previewId, 'draft_2');
+  assert.deepEqual(fake.deletedDrafts, ['draft_1']);
+  assert.equal(previews(env), 1);
+
+  // A send discards her open preview first, so it never blocks her own send.
+  assert.equal((await send(env, s)).status, 200);
+  assert.deepEqual(fake.deletedDrafts, ['draft_1', 'draft_2']);
+  assert.equal(previews(env), 0);
+  assert.equal((await firma.usage(env, s.programId)).used, 1);
+
+  // One place left: a preview takes it, and is still only a preview.
+  assert.equal((await preview(env, s)).status, 200);
+  assert.equal((await firma.usage(env, s.programId)).used, 1);
+  assert.equal((await send(env, s, { resend: true })).status, 200);
+  assert.equal((await firma.usage(env, s.programId)).used, 2);
+
+  // At the limit there's no place to hold: no preview.
+  const full = await preview(env, s);
+  assert.equal(full.status, 409);
+  assert.equal((await full.json()).error, 'esign_limit_reached');
+  assert.ok(!fake.drafts.size, 'no draft made');
+});
+
+test('a preview whose draft can\'t be discarded keeps its place, so a draft sent another way can\'t pass the limit', async () => {
+  const env = await envWith();
+  const s = await connected(env);
+  await firma.setProgramMonthlyLimit(env, s.programId, 1);
+  assert.equal((await preview(env, s)).status, 200);
+
+  // Firma doesn't answer for the draft: its place stays held, and the last place isn't sold twice.
+  fake.srDown = true;
+  const held = await send(env, s);
+  assert.equal(held.status, 409);
+  assert.equal((await held.json()).error, 'esign_limit_reached');
+  assert.equal(fake.sends.length, 0);
+  assert.equal(previews(env), 1);
+
+  // The draft was sent from Firma's own editor with its token: found, and counted as her send.
+  fake.srDown = false;
+  fake.drafts.get('draft_1').status = 'sent';
+  const after = await send(env, s);
+  assert.equal(after.status, 409, 'the month is used: the draft took the place');
+  assert.equal(previews(env), 0);
+  assert.equal((await firma.usage(env, s.programId)).used, 1);
+  assert.deepEqual(fake.deletedDrafts, [], 'a sent request is never deleted');
+});
+
+test('the hourly sweep discards previews left open; a status KennelOS doesn\'t know is never counted', async () => {
+  const env = await envWith();
+  const s = await connected(env);
+  assert.equal((await preview(env, s)).status, 200);
+  const soon = new Date(Date.now() + 10 * 60 * 1000);
+  assert.deepEqual(await firma.runEsignPreviews(env, { now: soon }), { freed: 0, counted: 0, held: 0 }, 'under an hour old: left alone');
+  const later = new Date(Date.now() + firma.PREVIEW_KEEP_MS + 60 * 1000);
+  assert.deepEqual(await firma.runEsignPreviews(env, { now: later }), { freed: 1, counted: 0, held: 0 });
+  assert.deepEqual(fake.deletedDrafts, ['draft_1']);
+  assert.equal(count(env, 'SELECT COUNT(*) AS n FROM esign_sends'), 0);
+
+  // An unknown status: held, never counted, and let go once its token is dead.
+  assert.equal((await preview(env, s)).status, 200);
+  fake.drafts.get('draft_2').status = 'something_new';
+  assert.deepEqual(await firma.runEsignPreviews(env, { now: later }), { freed: 0, counted: 0, held: 1 });
+  assert.equal((await firma.usage(env, s.programId)).used, 0);
+  const dead = new Date(Date.now() + firma.PREVIEW_TOKEN_MS + 60 * 1000);
+  assert.deepEqual(await firma.runEsignPreviews(env, { now: dead }), { freed: 1, counted: 0, held: 0 });
+  assert.deepEqual(fake.deletedDrafts, ['draft_1'], 'only a draft is ever deleted');
+
+  // A draft that was sent: the sweep counts it.
+  assert.equal((await preview(env, s)).status, 200);
+  fake.drafts.get('draft_3').status = 'completed';
+  assert.deepEqual(await firma.runEsignPreviews(env, { now: later }), { freed: 0, counted: 1, held: 0 });
+  assert.equal((await firma.usage(env, s.programId, later)).used, 1);
 });
 
 test('send failures: a refusal frees its place, an unknown outcome keeps it, a started send is kept', async () => {

@@ -632,7 +632,10 @@ event kinds on Today) is next. **Modified** from the plan above:
 - **Preview** (2026-11-12, owner request): the Send dialog's Preview makes a draft signing
   request of the same send (free: Firma charges at send) and opens it read-only in Firma's
   embeddable signing request editor, on the Worker's sandboxed editor page. The dialog
-  discards it when it closes. *To prove on the first production run:* that a draft costs no
+  discards it when it closes. Its token isn't read-only (that's the editor's setting), so a
+  preview **holds a place in her month** while open (an `esign_sends` row, status `preview`,
+  never counted): made only under her limit, discarded by a new preview, a send, the dialog
+  closing or the hourly cron, and counted if its draft is found sent. *To prove on the first production run:* that a draft costs no
   credit, that the read-only editor shows the prefilled values, and that `DELETE
   /signing-requests/{id}` removes a draft.
 - **A template deleted in Firma's editor** (2026-11-12) stops being offered: the device

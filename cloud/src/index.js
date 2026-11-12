@@ -27,7 +27,7 @@ import { activeNotices } from './notice.js';
 import { handleWebhook } from './license.js';
 import { handleHook } from './integrations.js';
 // Importing firma.js registers the Firma adapter for /hooks/firma/ (Integrations plan §2.3a).
-import { serveEsignEditor, serveSignedCopy, runEsignCopies } from './firma.js';
+import { serveEsignEditor, serveSignedCopy, runEsignCopies, runEsignPreviews } from './firma.js';
 import { handleFamilyApi, serveFamilyPage } from './familyPages.js';
 import { runRetention } from './retention.js';
 import { runWaitlistMoves } from './serverMoves.js';
@@ -124,6 +124,7 @@ export default {
         console.log('email changes', JSON.stringify(await applyDueEmailChanges(env)));
         console.log('digests', JSON.stringify(await runDigests(env)));
         console.log('esign copies', JSON.stringify(await runEsignCopies(env)));
+        console.log('esign previews', JSON.stringify(await runEsignPreviews(env)));
       }
     })());
   },

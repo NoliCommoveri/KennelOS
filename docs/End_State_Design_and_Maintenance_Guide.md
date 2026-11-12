@@ -2848,13 +2848,25 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
   - A second send needs **Send again** (`resend`).
   - **Preview** (`cloudEsign.previewLink`): the same `sendBody` goes to
     `POST /integrations/esign/preview`, which makes a **draft** signing request
-    (`POST /signing-requests`: never sent, never charged, no `esign_sends` row, so never
-    counted) and a token for it (`/jwt/generate-signing-request`). It opens in a new tab on
+    (`POST /signing-requests`: never sent, never charged, never counted as a send) and a
+    token for it (`/jwt/generate-signing-request`). It opens in a new tab on
     the editor page (`/esign/editor#t=…&sr=…`), Firma's signing request editor `readOnly`: her
-    real template with this contract's values. Closing the Send dialog discards the drafts it
-    made (`DELETE /integrations/esign/preview?id=`, `cloudEsign.discardPreview`, best effort;
-    one that comes back after the dialog closed is discarded at once);
-    the Worker deletes only a request Firma says is still a `draft`.
+    real template with this contract's values.
+    - **A preview holds a place in her month** while it's open: an `esign_sends` row with
+      status `preview` (no column of its own; `usage` and `/ops` leave it out). Read-only is
+      the editor's setting, not the token's, so for its 7 days the token could send the draft
+      from Firma's own editor. A preview is made, and a send reserved, only while her sends
+      plus open previews are under her limit (`HELD`), so however a draft is sent she can't
+      pass it. At the limit a preview is refused (`esign_limit_reached`).
+    - `firma.settlePreview` ends one: the draft is deleted (only while Firma says `draft`)
+      and the row removed; a draft found sent becomes a counted send from then (a webhook for
+      it does the same); with no clear answer, or a status word KennelOS doesn't know, the
+      row keeps its place until the token is dead (8 days).
+    - It runs for all her open previews before a new preview and before a send (one preview
+      at a time; her own preview never blocks her send), when her device closes the Send
+      dialog (`DELETE /integrations/esign/preview?id=`, `cloudEsign.discardPreview`; one that
+      comes back after the dialog closed is discarded at once), and in the hourly cron for
+      previews over an hour old (`runEsignPreviews`).
   - The Worker reads the template with her key before it reserves the send: a 404 is
     `404 template_missing`, before anything counts. So is a 404 from Firma's send (the row is
     freed). The dialog then forgets that template (`esignTemplates.forgetTemplate`) and says
