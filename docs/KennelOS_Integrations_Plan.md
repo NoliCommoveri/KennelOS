@@ -290,7 +290,9 @@ on the Accounts page →". **No form of a matching type** → the picker opens o
 - **Sale types** (`pet_home`, `breeding_rights`, `deposit`, sale `co_own`): `saleRef`,
   `buyerFirstName`, `buyerLastName`, `buyerEmail`, `buyerPhone`, `buyerAddress`, `puppyName`,
   `puppySex`, `puppyColor`, `puppyDob`, `puppyMicrochip`, `sireName`, `damName`, `breed`,
-  `registrationType`, `price`, `depositAmount`, `balanceDue`.
+  `registrationType`, `price`, `depositAmount`, `balanceDue`, and for a contract's payment
+  table `waitlistFeePaid`, `waitlistFeeCredit`, `otherPaymentsReceived`,
+  `purchaseBalanceDue` (2026-11-12; End-State guide §32).
 - **Stud service:** `studName`, `damName`, `damOwnerName`, `damOwnerEmail`, `studFee`,
   `serviceType`.
 - **Co-own / lease / foster / other:** `dogName`, `dogRegisteredName`, `dogMicrochip`,
@@ -629,7 +631,11 @@ event kinds on Today) is next. **Modified** from the plan above:
 Firma".
 - A template's **I countersign** tick (Contract templates) sets `countersign: true` on its
   `contract_forms` row. She gives the second signer its signature field in Firma's editor.
-- She signs as her **cloud account's email** (owner decision), named for her kennel. The
+- She signs as her **cloud account's email** (owner decision), named for her kennel.
+  **Modified (2026-11-12, owner decision):** under a name she chooses, one per own kennel
+  (`Kennel.esign_signer_name`, cloud tier), which a template's own **Signs as**
+  (`signer_name` on its row) overrides; unset, the contact linked to the kennel, else the
+  kennel's name. The
   device sends it as `countersigner { name, email }`. The Worker keeps only the email's hash,
   and keeps nothing of this send's emails in `esign_sends`.
 - `POST /integrations/esign/send` makes her the second Signer (`order: 2`, with the buyer's custom fields, so fields placed for her fill)

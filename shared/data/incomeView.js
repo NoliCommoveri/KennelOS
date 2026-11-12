@@ -361,6 +361,37 @@ export async function getSaleCredits(saleId) {
   return { feeCredit, credit: entry ? familyCredit(entry, sale, feeCredit) : null, entry };
 }
 
+// A contract's payment table for one sale: the purchase price only (no transport,
+// boarding or extras, which are agreed apart). Pure.
+//   feePaid     the waitlist fees actually received from the family placed with this
+//               sale (each entry's own fee_amount, whatever her fee setting says;
+//               credited or not). 0 for a sale made outside the waitlist.
+//   feeCredit   the part of those fees credited to the purchase (feeCreditsBySale).
+//   otherPaid   what's already paid toward the balance: the balance once it's marked
+//               paid, or the family's received funds (a lost pup's carry-over) left
+//               over after the deposit. Funds that covered the deposit aren't counted
+//               again here.
+//   balanceDue  what's still owed of the price at pickup.
+// → { feePaid, feeCredit, otherPaid, balanceDue }
+export function priceTable(sale, { entries = [], feeCredit = NO_FEE_CREDIT, received = null, sales = [], offers = [] } = {}) {
+  const feePaid = round2(entries
+    .filter((e) => feeReceived(e) && (e.placed_sale_id || creditSale(e, sales, offers, entries)?.id) === sale.id)
+    .reduce((t, e) => t + num(e.fee_amount), 0));
+  const parts = saleComponents({ ...sale, end_reason: null }, feeCredit, received).filter((c) => c.component === 'balance');
+  const sum = (state) => round2(parts.filter((c) => c.state === state).reduce((t, c) => t + c.amount, 0));
+  return { feePaid, feeCredit: round2(feeCreditOf(feeCredit).amount), otherPaid: sum('earned'), balanceDue: sum('anticipated') };
+}
+
+// priceTable for a sale, read from the database.
+export async function getPriceTable(sale) {
+  const ctx = await loadCreditContext();
+  if (!ctx) return priceTable(sale);
+  const feeCredit = feeCreditsBySale(ctx.entries, ctx).get(sale.id) || NO_FEE_CREDIT;
+  const entry = creditEntryFor(ctx.sales.find((s) => s.id === sale.id) || sale, ctx);
+  const received = entry ? familyCredit(entry, sale, feeCredit)?.received || null : null;
+  return priceTable(sale, { entries: ctx.entries, feeCredit, received, sales: ctx.sales, offers: ctx.offers });
+}
+
 // One entry's credits as its page shows them, with the sale they go toward.
 // → { credit (familyCredit or null), sale, feeCredit }
 export async function getEntryCredit(entryId) {

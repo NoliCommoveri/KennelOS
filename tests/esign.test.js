@@ -42,8 +42,8 @@ test('templates: the type she gave each one, set and removed on the account', ()
   const account = { id: 'acc', ...FIRMA_ACCOUNT, contract_forms: forms };
   assert.equal(firmaAccountOf([{ id: 'o', account_type: 'form_service', contract_forms: [] }, account]), account);
   assert.deepEqual(mergeTemplates([{ id: TID, name: 'Pet home v2', pageCount: 3 }, { id: 'tpl_2', name: 'New' }], [account]),
-    [{ id: TID, name: 'Pet home v2', pageCount: 3, form_type: 'breeding_rights', label: 'Pet home v2', countersign: false, keepCopy: false },
-      { id: 'tpl_2', name: 'New', pageCount: null, form_type: '', label: '', countersign: false, keepCopy: false }]);
+    [{ id: TID, name: 'Pet home v2', pageCount: 3, form_type: 'breeding_rights', label: 'Pet home v2', countersign: false, keepCopy: false, signerName: '' },
+      { id: 'tpl_2', name: 'New', pageCount: null, form_type: '', label: '', countersign: false, keepCopy: false, signerName: '' }]);
   assert.deepEqual(withTemplateRow(forms, { templateId: TID, formType: '' }), [], 'not offered: removed');
 });
 
@@ -426,4 +426,26 @@ test('a template deleted in Firma stops being offered, and a send of it is refus
   assert.equal((await esign.esignStatus()).usage.used, 0);
   await esignTemplates.forgetTemplate('tpl_1');
   assert.equal(allForms(await accountRepo.getAll()).filter(isFirmaForm).length, 0);
+});
+
+test('her signature name: the template\'s own, else her kennel\'s setting, else her contact, else the kennel', () => {
+  let forms = withTemplateRow([], { templateId: TID, name: 'Co-own', formType: 'other', countersign: true, signerName: '  Jane   Doe ' });
+  assert.equal(forms[0].signer_name, 'Jane Doe');
+  forms = withTemplateRow(forms, { templateId: TID, name: 'Co-own', formType: 'other' });
+  assert.equal(forms[0].signer_name, 'Jane Doe', 'kept through a retype');
+  assert.equal(cleanForms(forms)[0].signer_name, 'Jane Doe', 'kept by cleanForms');
+  forms = withTemplateRow(forms, { templateId: TID, name: 'Co-own', formType: 'other', signerName: '' });
+  assert.equal('signer_name' in forms[0], false, 'blank: back to the kennel');
+
+  const kennel = { kennel_name: 'Maple Labs', esign_signer_name: 'Jane M. Doe' };
+  const breeder = { name: 'Jane Doe' };
+  const { kennelSignerName, signerNameFor } = esignTemplates;
+  assert.equal(kennelSignerName(kennel, breeder), 'Jane M. Doe');
+  assert.equal(kennelSignerName({ kennel_name: 'Maple Labs' }, breeder), 'Jane Doe');
+  assert.equal(kennelSignerName({ kennel_name: 'Maple Labs' }), 'Maple Labs');
+  assert.equal(signerNameFor({ signer_name: 'J. Doe' }, kennel, breeder), 'J. Doe');
+  assert.equal(signerNameFor({}, kennel, breeder), 'Jane M. Doe');
+
+  const form = { countersign: true, signer_name: '' };
+  assert.deepEqual(esign.countersignerFor(form, { kennel, breeder }, { email: 'jane@example.com' }), { name: 'Jane M. Doe', email: 'jane@example.com' });
 });

@@ -61,6 +61,9 @@ export function cleanForms(list) {
         if (f.countersign === true) row.countersign = true;
         // KennelOS keeps the signed PDF and emails the buyer a link (D33). Absent = no.
         if (f.keep_copy === true) row.keep_copy = true;
+        // The name she countersigns this one with; absent = her kennel's setting.
+        const signer = text(f.signer_name).replace(/\s+/g, ' ').slice(0, 100);
+        if (signer) row.signer_name = signer;
         return row;
       }
       const out = {
@@ -170,9 +173,13 @@ export const PREFILL_FIELDS = {
     ['damName', 'Dam'],
     ['registrationType', 'Registration (Limited, Full…)'],
     ['pickupDate', 'Estimated pickup date (the pickup on your calendar, else the litter\'s ready date)'],
-    ['price', 'Price'],
+    ['price', 'Price (the total purchase price, with any Full registration surcharge)'],
     ['depositAmount', 'Deposit'],
-    ['balanceDue', 'Balance still due']
+    ['balanceDue', 'Balance still due (everything on the sale: with transport, boarding and extras)'],
+    ['waitlistFeePaid', 'Waitlist fee they paid (0.00 when none)'],
+    ['waitlistFeeCredit', 'Waitlist fee credited to the purchase'],
+    ['otherPaymentsReceived', 'Other payments received toward the price (beyond the deposit)'],
+    ['purchaseBalanceDue', 'Balance of the purchase price due at pickup (the price only)']
   ],
   stud_service: [
     ['studServiceRef', 'The stud service\'s reference (make it a hidden field)'],
@@ -240,7 +247,7 @@ function person(prefix, c) {
 
 // The facts to prefill, as [[name, value]] in PREFILL_FIELDS order, empties
 // dropped. `facts` holds the records the contract reaches (the caller reads
-// them): { contract, kennel, breeder, sale, buyer, puppy, sire, dam, balanceDue, pickupDate,
+// them): { contract, kennel, breeder, sale, buyer, puppy, sire, dam, balanceDue, priceTable, pickupDate,
 // studService, studDog, studDam, partner, dog, today }.
 export function prefillValues(formType, facts = {}) {
   const f = facts;
@@ -269,7 +276,10 @@ export function prefillValues(formType, facts = {}) {
       ['damName', text(f.dam?.registered_name || f.dam?.call_name)],
       ['registrationType', label(REGISTRATION_TYPE, s.registration_type)],
       ['pickupDate', text(f.pickupDate)],
-      ['price', money(s.price)], ['depositAmount', money(s.deposit_amount)], ['balanceDue', money(f.balanceDue)]
+      ['price', money(s.price)], ['depositAmount', money(s.deposit_amount)], ['balanceDue', money(f.balanceDue)],
+      // Her contract's payment table (contractSend: incomeView.getPriceTable).
+      ['waitlistFeePaid', money(f.priceTable?.feePaid)], ['waitlistFeeCredit', money(f.priceTable?.feeCredit)],
+      ['otherPaymentsReceived', money(f.priceTable?.otherPaid)], ['purchaseBalanceDue', money(f.priceTable?.balanceDue)]
     );
   }
   if (groups.includes('stud_service') && f.studService) {

@@ -3546,3 +3546,23 @@ tick box per template; buyers get an emailed link.
   template as there unless deleted). `node --test` 1731 pass, `cd cloud && npm test` 325 pass.
 - **Docs:** End-State guide §32, Integrations plan §2.3a.
 - Worker and app. No new files. SW cache not bumped yet.
+
+## 2026-11-12: Her signature name, and a contract's payment table
+
+- **Signature name (owner decision: cloud tier).** `Kennel.esign_signer_name` (one per own
+  kennel, **Your signature name** in Contract templates) and a template's own **Signs as**
+  (`signer_name` on its `contract_forms` row, shown when I countersign is ticked).
+  `esignTemplates.signerNameFor`: the template's, else the kennel's, else the contact linked
+  to the kennel, else the kennel's name. Before this she always signed as the kennel's name.
+  The Send dialog shows the name. `cloud/src/lib/cloudFields.js` regenerated.
+- **Payment table fields** (sale contracts): `waitlistFeePaid` (the fee actually received
+  from the family on this sale, each entry's own amount; 0 outside the waitlist),
+  `waitlistFeeCredit`, `otherPaymentsReceived` (a paid balance, or received funds left
+  after the deposit: never counted twice), `purchaseBalanceDue` (the price only).
+  `incomeView.priceTable` / `getPriceTable`; `contractSend.gatherContractFacts` adds
+  `priceTable`. `price` already carries the Full surcharge (it's in the sale's price).
+- **Open:** her sister to confirm Balance Due is the price only, and how the table should
+  read when the waitlist fee is credited toward the deposit.
+- **Tests:** `tests/priceTable.test.js` (new, 6), `tests/esign.test.js` +1. `node --test`
+  1738 pass, `cd cloud && npm test` 325 pass.
+- **Docs:** End-State guide §2 (Kennel), §32; Integrations plan §2.1a, §2.3a.

@@ -25,6 +25,7 @@ import { isDemo } from '../demoMode.js';
 import { contractRepo } from '../contractRepo.js';
 import { PREFILL_FIELDS, prefillValues, splitName } from '../contractForms.js';
 import { todayYMD } from '../dateUtils.js';
+import { signerNameFor } from '../esignTemplates.js';
 
 // Firma refuses a request body over about 6 MB; a PDF grows by a third as base64.
 export const TEMPLATE_MAX_BYTES = 4_500_000;
@@ -121,13 +122,14 @@ export async function editorLink(templateId) {
 }
 
 // Who countersigns a template marked so (D32): her, as her cloud account's
-// email, named for her kennel. → { name, email } | null (not her template, or no
-// account email on this device).
+// email, under the template's signer name, else her kennel's
+// (esignTemplates.signerNameFor). → { name, email } | null (not her template,
+// or no account email on this device).
 export function countersignerFor(form, facts, account = currentAccount()) {
   if (form?.countersign !== true) return null;
   const email = String(account?.email || '').trim();
   if (!email) return null;
-  return { name: String(facts?.kennel?.kennel_name || '').trim() || email, email };
+  return { name: signerNameFor(form, facts?.kennel, facts?.breeder) || email, email };
 }
 
 // What goes to Firma for one send: the signer, and the contract's facts as the

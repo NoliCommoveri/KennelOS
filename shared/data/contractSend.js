@@ -13,7 +13,7 @@ import { litterRepo } from './litterRepo.js';
 import { eventRepo } from './eventRepo.js';
 import { expectedPickupDate } from './goHome.js';
 import { accountRepo } from './accountRepo.js';
-import { incomeLineItems, paidOnSale, getSaleCredits } from './incomeView.js';
+import { incomeLineItems, paidOnSale, getSaleCredits, getPriceTable } from './incomeView.js';
 import { allForms, prefillValues, prefillUrl, formProvider, mapValues, isFirmaForm } from './contractForms.js';
 import { esignSignedIn, liveTemplateIds } from './cloud/cloudEsign.js';
 import { forgetMissingTemplates } from './esignTemplates.js';
@@ -81,6 +81,7 @@ export async function gatherContractFacts(c) {
     today,
     sale, puppy, pickupDate,
     balanceDue: sale ? await balanceDueOn(sale) : null,
+    priceTable: sale ? await getPriceTable(sale) : null,
     buyer: sale ? await get(contactRepo, sale.buyer_contact_id) : null,
     sire: puppy ? await get(dogRepo, puppy.sire_id) : null,
     dam: puppy ? await get(dogRepo, puppy.dam_id) : null,
