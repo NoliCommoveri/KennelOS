@@ -2765,7 +2765,12 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
   - **Firma emails them** is on by default. Off, the link goes in her own message (the
     composer).
   - `cloudEsign.sendForEsign` sends `sendBody`: the signer, and the facts as
-    `prefillValues` gives them, as the signer's custom fields.
+    `prefillValues` gives them, as the signer's custom fields. The Worker reads her
+    workspace's custom fields and also sends each fact under every id its custom field
+    carries (`firma.withFieldAliases`), since a field placed in the editor may name it by
+    Firma's id. A countersigner gets the same values, so a field placed for her fills and a
+    required one never blocks the send. The Worker logs a refusal's Firma code, and the keys
+    (never values) of prefilled fields a sent request left empty (`firma.emptyPrefills`).
   - On a template she countersigns, `sendBody` adds her as `countersigner`
     (`cloudEsign.countersignerFor`: her cloud account's email, named for her kennel). The
     Worker makes her the request's second Signer (`order: 2`): one request, one credit.
@@ -2778,7 +2783,9 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     `esign_form_label` and `esign_countersign` (cloud tier: she countersigns it).
   - A second send needs **Send again** (`resend`).
   - `cloudEsign.esignProblem` words each refusal: the limit with its reset date, Firma not
-    answering (don't resend), signed out, and so on.
+    answering (don't resend), signed out, and so on. A Firma refusal (`esign_refused`) names
+    Firma's own code (the body's `code`, kept on the error as `providerCode`: `CloudError`
+    never lets a body's `code` replace the Worker's).
 - **Pick to send** (§29): a Firma template is sent on step 2's Continue, with Firma's email
   off (it counts then). Its link goes in the message, once per template for that modal.
 - **Back:** Firma's webhook becomes `contract.signed` / `contract.declined`, applied as for

@@ -342,6 +342,46 @@ async function signerLink(env, key, signingRequestId) {
   return linkOf(signersOf(users).find((u) => Number(u.order) === 1) || signersOf(users)[0] || users?.[0]);
 }
 
+// Her workspace's custom fields, as Firma lists them, or null when it didn't answer.
+async function customFieldRows(env, key, accountRef) {
+  const list = await firma(env, key, 'GET', `/workspace/${encodeURIComponent(accountRef)}/custom-fields`);
+  if (!ok(list)) return null;
+  return Array.isArray(list.data) ? list.data : (list.data?.results ?? list.data?.custom_fields ?? []);
+}
+
+// A field placed in Firma's editor with its Prefilled Data set to one of her
+// custom fields is filled from the recipient's custom_fields key it names, case
+// aside (format_rules.prefilledData). The editor may name the field by an id of
+// Firma's rather than its field_name, so each fact also goes under every
+// identifier its custom field carries. Pure. → { <key>: <text> }
+export const FIELD_ALIASES = ['id', 'key', 'name', 'slug', 'variable_name', 'variable_defined_name'];
+const ALIAS = /^[A-Za-z0-9_.:-]{1,100}$/;
+export function withFieldAliases(facts, rows) {
+  const out = { ...facts };
+  const byName = new Map(Object.keys(facts).map((k) => [k.toLowerCase(), k]));
+  const taken = new Set(Object.keys(out).map((k) => k.toLowerCase()));
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const fact = byName.get(String(row?.field_name ?? '').toLowerCase());
+    if (!fact) continue;
+    for (const prop of FIELD_ALIASES) {
+      const alias = row[prop] == null ? '' : String(row[prop]);
+      if (!ALIAS.test(alias) || taken.has(alias.toLowerCase())) continue;
+      out[alias] = facts[fact];
+      taken.add(alias.toLowerCase());
+    }
+  }
+  return out;
+}
+
+// The keys of prefilled fields Firma left empty on a request it made (only the
+// keys: never a value), for the log. → [key]
+export function emptyPrefills(data) {
+  const fields = Array.isArray(data?.fields) ? data.fields : (Array.isArray(data?.signing_request?.fields) ? data.signing_request.fields : []);
+  return fields.map((f) => f?.format_rules?.prefilledData)
+    .filter((k, i) => typeof k === 'string' && ALIAS.test(k) && !text(String(fields[i]?.value ?? '')))
+    .slice(0, 40);
+}
+
 // POST /integrations/esign/send
 //   { contractId, templateId, title, signer: { firstName, lastName, email },
 //     countersigner: { name, email } | absent,
@@ -415,12 +455,16 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
   ).bind(status, signingRequestId, new Date().toISOString(), rowId).run();
   const free = () => env.DB.prepare('DELETE FROM esign_sends WHERE id = ?').bind(rowId).run();
 
+  // The facts under each name the template may use, for both signers: a field
+  // she placed for herself fills too, and a required one never blocks the send.
+  const rows = Object.keys(facts).length ? await customFieldRows(env, secrets.apiKey, connection.account_ref) : null;
+  const values = withFieldAliases(facts, rows);
   const r = await firma(env, secrets.apiKey, 'POST', '/signing-requests/create-and-send', {
     name: title,
     template_id: templateId,
     recipients: [
-      { first_name: firstName, last_name: lastName || undefined, email, designation: 'Signer', order: 1, custom_fields: facts },
-      ...(countersigner ? [countersigner] : []),
+      { first_name: firstName, last_name: lastName || undefined, email, designation: 'Signer', order: 1, custom_fields: values },
+      ...(countersigner ? [{ ...countersigner, custom_fields: values }] : []),
     ],
     settings: { send_signing_email: body?.emailSigner !== false },
   });
@@ -430,6 +474,8 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
   if (signingRequestId) {
     // Sent (or a send that had started, which Firma keeps and charges).
     await settle('sent', signingRequestId);
+    const missed = ok(r) ? emptyPrefills(r.data) : [];
+    if (missed.length) console.warn('firma: prefilled fields left empty', missed.join(','));
     const link = httpsLink(r.data?.first_signer?.signing_link) || await signerLink(env, secrets.apiKey, signingRequestId);
     return { signingRequestId, signingLink: link, countersign: !!countersigner, keepCopy, usage: await usage(env, auth.programId, now) };
   }
@@ -440,6 +486,7 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
   }
   if (r.status >= 400 && r.status < 500 && r.status !== 408 && r.status !== 409 && r.status !== 429) {
     await free();
+    console.warn('firma: send refused', r.status, firmaCode(r) ?? '');
     fail(400, 'esign_refused', { code: firmaCode(r) });
   }
   if (r.status === 429) {

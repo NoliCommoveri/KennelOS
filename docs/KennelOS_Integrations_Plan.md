@@ -552,6 +552,9 @@ event kinds on Today) is next. **Modified** from the plan above:
     case-insensitively. Her device sends the fact names and labels (`PREFILL_FIELDS`) to
     `POST /integrations/firma/fields`, which makes them the workspace's custom fields for the
     editor, at most 40 per call.
+    **Modified:** the first real sends left these fields empty. The editor's Prefilled Data
+    may store Firma's own id for a custom field rather than its `field_name`, so a send also
+    puts each fact under every id its custom field carries.
   - `PATCH` matters only from a browser.
   
   Still open: the ESIGN consumer-consent wording in the workspace's signer terms
@@ -625,7 +628,7 @@ Firma".
 - She signs as her **cloud account's email** (owner decision), named for her kennel. The
   device sends it as `countersigner { name, email }`. The Worker keeps only the email's hash,
   and keeps nothing of this send's emails in `esign_sends`.
-- `POST /integrations/esign/send` makes her the second Signer (`order: 2`, no custom fields)
+- `POST /integrations/esign/send` makes her the second Signer (`order: 2`, with the buyer's custom fields, so fields placed for her fill)
   of the same request. Firma charges per request, so it is still one credit. Refused before
   Firma: no name or email for her, or her email as the buyer's.
 - The contract gets `esign_countersign` (cloud tier, a yes/no) so any of her devices shows

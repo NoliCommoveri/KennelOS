@@ -3480,3 +3480,38 @@ tick box per template; buyers get an emailed link.
   assertion). `node --test` 1726 pass.
 - **Docs:** End-State guide §32 (Contract forms and e-signature). No new files, so no precache change.
 - **Service-worker cache bumped to `v121`** (the pickup date rides it).
+
+## 2026-11-12: A Firma refusal showed "Cloud request refused (esign_refused)."
+
+- **Bug:** the Worker sends Firma's reason as the body's `code` beside `error: 'esign_refused'`.
+  `CloudError` copied the body over its own `code`, so `esignProblem` never matched and showed
+  the raw message, without Firma's reason (seen on a countersigned Boarding Clause send).
+- **Fix:** `CloudError` keeps a body's `code` as `providerCode` and never lets it replace the
+  Worker's code. `esignProblem` names Firma's code, mentions the countersigner's signature
+  field, and words `RECIPIENT_EMAIL_SUPPRESSED` on its own. App-only: no Worker change.
+- **Tests:** `tests/esign.test.js` +1 (the fake Firma refuses). `node --test` 1727 pass,
+  `cd cloud && npm test` 322 pass.
+- **Service-worker cache bumped to `v122`:** `v121` had already shipped without this fix.
+
+## 2026-11-12: Firma templates' prefilled fields came out empty
+
+- **Seen (first real sends):** fields placed with Prefilled Data set to a KennelOS fact
+  stayed empty. A template with a second signer and prefilled fields was refused, whether
+  or not "I countersign" was ticked.
+- **Firma's docs (Field Prefilling):** a field fills from `format_rules.prefilledData`, a key
+  of the assigned recipient's `custom_fields`, matched case-insensitively. A required,
+  read-only custom-field prefill blocks the send when its recipient lacks the key. Fields made
+  from a template custom field carry an internal identifier.
+- **Likely cause:** the editor stores Firma's own id for the custom field, not the
+  `field_name` KennelOS sends. Firma keeps our `field_name`: re-syncing never duplicated a
+  label.
+- **Change (Worker):** `sendForSignature` reads the workspace's custom fields and sends each
+  fact under every id its row carries as well (`firma.withFieldAliases`). The countersigner
+  gets the same values. The log now names a refusal's Firma code, and the keys (no values)
+  of prefilled fields a sent request left empty (`firma.emptyPrefills`). That confirms the
+  cause on the next send if the guess is wrong.
+- **Tests:** `cloud/tests/esign.test.js` +2. `cd cloud && npm test` 324 pass, `node --test`
+  1729 pass.
+- **Docs:** End-State guide §32, Integrations plan §2.3a (a **Modified:** note).
+- **Not proven yet:** which identifier the editor stores. Needs a real send and the Worker log.
+- Worker only. The app is unchanged, so no service-worker bump.

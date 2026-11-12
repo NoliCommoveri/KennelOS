@@ -289,6 +289,37 @@ test('send: the buyer as Signer with the facts, on her key; a second send needs 
   }
 });
 
+test('send: each fact also goes under its custom field\'s ids, so a field the editor tied to an id fills', async () => {
+  const env = await envWith();
+  const s = await connected(env);
+  const sync = await call(env, 'POST', '/integrations/firma/fields', { token: s.token, body: { fields: [{ name: 'puppyName', label: 'Puppy\'s call name' }, { name: 'buyerPhone', label: 'Buyer\'s phone' }] } });
+  assert.equal(sync.status, 200, await sync.clone().text());
+  const r = await send(env, s);
+  assert.equal(r.status, 200, await r.clone().text());
+  assert.deepEqual(fake.sends[0].body.recipients[0].custom_fields, { puppyName: 'Biscuit', price: '2500.00', cf_0: 'Biscuit' },
+    'puppyName also as its field id; buyerPhone has no value, so nothing goes for it');
+});
+
+test('field aliases and empty prefills (pure)', () => {
+  const rows = [
+    { id: 'cf_9', field_name: 'BuyerName', field_label: 'Buyer\'s full name', variable_name: 'cf_buyer_name' },
+    { id: 'price', field_name: 'price' },
+    { id: 'has space', field_name: 'puppyName' },
+    { id: 'cf_x', field_name: 'notSent' }
+  ];
+  assert.deepEqual(firma.withFieldAliases({ buyerName: 'Ann Lee', price: '1.00', puppyName: 'Bo' }, rows),
+    { buyerName: 'Ann Lee', price: '1.00', puppyName: 'Bo', cf_9: 'Ann Lee', cf_buyer_name: 'Ann Lee' },
+    'matched case-insensitively; no duplicate keys; odd ids and unsent facts skipped');
+  assert.deepEqual(firma.withFieldAliases({ a: '1' }, null), { a: '1' }, 'no list: the facts as they are');
+  assert.deepEqual(firma.emptyPrefills({ fields: [
+    { format_rules: { prefilledData: 'cf_1' }, value: '' },
+    { format_rules: { prefilledData: 'cf_2' }, value: 'Ann' },
+    { format_rules: {} },
+    { format_rules: { prefilledData: 'phone_number' } }
+  ] }), ['cf_1', 'phone_number']);
+  assert.deepEqual(firma.emptyPrefills({}), []);
+});
+
 test('countersign: she is the second Signer of the same request, and gets her own link', async () => {
   const env = await envWith();
   const s = await connected(env);
@@ -300,7 +331,8 @@ test('countersign: she is the second Signer of the same request, and gets her ow
   assert.equal(out.usage.used, 1, 'one request, one send');
   assert.deepEqual(fake.sends[0].body.recipients.map((x) => [x.email, x.order, x.designation]),
     [['ann@example.com', 1, 'Signer'], ['breeder@example.com', 2, 'Signer']]);
-  assert.equal(fake.sends[0].body.recipients[1].custom_fields, undefined, 'the facts go with the buyer only');
+  assert.deepEqual(fake.sends[0].body.recipients[1].custom_fields, fake.sends[0].body.recipients[0].custom_fields,
+    'the facts go with both signers, so a field placed for her fills (and a required one never blocks the send)');
   assert.ok(!JSON.stringify(env.DB.raw.prepare('SELECT * FROM esign_sends').get()).includes('breeder@example.com'), 'her email not kept');
 
   const link = await call(env, 'GET', '/integrations/esign/countersign?ref=sr_1', { token: s.token });
