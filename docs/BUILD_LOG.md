@@ -3380,4 +3380,4 @@ in its own tab, on a sandboxed page of the Worker).
 - **Docs:** End-State guide §32 "E-sign through Firma", plan §2.3a "As built: the app" and
   D31, `cloud/README.md`, the launch checklist (the production run), README Status.
 - **Precache:** `assets/esignUI.js`, `data/cloud/cloudEsign.js` and `data/esignTemplates.js`
-  added to `shared/sw.js` (`esignUI.js` also to `proPages.js`). The cache isn't bumped yet.
+  added to `shared/sw.js` (`esignUI.js` also to `proPages.js`). Service-worker cache bumped to `v118`.
