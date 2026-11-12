@@ -2734,7 +2734,9 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
 `sendForEsign`, `esignDocument`, `esignCountersign`).
 - **Contract templates** (Contracts page button, or `contracts.html#templates`;
   `assets/esignUI.openContractTemplates`):
-  - **Set up e-signing** says what goes to Firma, makes her workspace under her kennel's name,
+  - **Set up e-signing** says what goes to Firma, makes her workspace under her kennel's name
+    (prefilled by `esignTemplates.signingKennel`: the kennel she's working in, else My kennel,
+    else any own kennel; never an outside one),
     then sends the fact names (`cloudEsign.factFields`, every `PREFILL_FIELDS` name once, at
     most 40 a call) as the workspace's custom fields.
   - She uploads a PDF (at most 4.5 MB) and picks its kind of contract.

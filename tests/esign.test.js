@@ -11,7 +11,7 @@ import { installMemoryDb } from './support/memoryDb.js';
 import { makeEnv, lastCode } from '../cloud/tests/helpers/env.js';
 import { worker } from '../cloud/tests/helpers/worker.js';
 import { cleanForms, isFirmaForm, allForms, PREFILL_FIELDS } from '../shared/data/contractForms.js';
-import { mergeTemplates, withTemplateRow, firmaAccountOf, FIRMA_ACCOUNT } from '../shared/data/esignTemplates.js';
+import { mergeTemplates, withTemplateRow, firmaAccountOf, FIRMA_ACCOUNT, signingKennel } from '../shared/data/esignTemplates.js';
 import { planIntegrationEvent, reviewTitle } from '../shared/data/integrationEvents.js';
 
 const TID = 'tpl_1';
@@ -70,6 +70,20 @@ test('keep the copy: its own tick on the row, independent of countersign', () =>
   forms = withTemplateRow(forms, { templateId: TID, name: 'Pet home', formType: 'pet_home', keepCopy: false });
   assert.deepEqual(['keep_copy' in forms[0], forms[0].countersign], [false, true]);
   assert.equal('keep_copy' in cleanForms([{ form_type: 'pet_home', provider: 'firma', template_id: TID, keep_copy: 1 }])[0], false);
+});
+
+test('set up names her own kennel, never a linked outside one listed first', () => {
+  const kennels = [
+    { id: 'ak', kennel_name: 'A-K Boston Terriers', is_own_kennel: false, public_id: 'kos1_x' },
+    { id: 'old', kennel_name: 'Old Name', is_own_kennel: true, is_archived: true },
+    { id: 'dd', kennel_name: "Dash'n Darlin's Boston Terriers", is_own_kennel: true },
+    { id: 'two', kennel_name: 'Second Kennel', is_own_kennel: true }
+  ];
+  assert.equal(signingKennel(kennels).id, 'dd');
+  assert.equal(signingKennel(kennels, { myId: 'two' }).id, 'two');
+  assert.equal(signingKennel(kennels, { activeId: 'two', myId: 'dd' }).id, 'two', 'the kennel she is working in first');
+  assert.equal(signingKennel(kennels, { activeId: 'ak' }).id, 'dd', 'an outside kennel never');
+  assert.equal(signingKennel(kennels.slice(0, 2)), null);
 });
 
 test('an expired or cancelled request waits on Today while the contract is still Sent', () => {
