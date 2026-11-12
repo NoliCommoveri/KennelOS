@@ -3490,4 +3490,5 @@ tick box per template; buyers get an emailed link.
   Worker's code. `esignProblem` names Firma's code, mentions the countersigner's signature
   field, and words `RECIPIENT_EMAIL_SUPPRESSED` on its own. App-only: no Worker change.
 - **Tests:** `tests/esign.test.js` +1 (the fake Firma refuses). `node --test` 1727 pass,
-  `cd cloud && npm test` 322 pass. Rides the `v121` cache bump.
+  `cd cloud && npm test` 322 pass.
+- **Service-worker cache bumped to `v122`:** `v121` had already shipped without this fix.
