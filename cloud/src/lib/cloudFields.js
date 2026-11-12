@@ -451,6 +451,12 @@ export const CLOUD_FIELDS = {
       "result",
       "test_name"
     ],
+    "screening_test": [
+      "outcome",
+      "result",
+      "test",
+      "vet"
+    ],
     "illness": [
       "diagnosis"
     ],

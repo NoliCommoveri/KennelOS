@@ -20,7 +20,7 @@
 import { existsSync, rmSync, cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PRO_ONLY_PAGES, PRO_ONLY_STANDALONE } from '../shared/data/proPages.js';
+import { PRO_ONLY_PAGES, PRO_ONLY_STANDALONE, DEMO_EXCLUDED_PAGES } from '../shared/data/proPages.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const EDITIONS = ['lite', 'pro', 'demo'];
@@ -80,7 +80,8 @@ function stemJs(htmlBasename) {
   return htmlBasename.replace(/\.html$/, '.js');
 }
 
-// Pages excluded from the Demo build: the save/export surface is stripped so an
+// Pages excluded from the Demo build (DEMO_EXCLUDED_PAGES, proPages.js, so Kels's
+// Find leaves them out too): the save/export surface is stripped so an
 // unlocked copy is a dead end (editions plan §Demo hardening #8). Excluded like a
 // Pro-only page is from Lite — the file simply isn't there, so a direct URL 404s.
 // `assistant.html` (the owner console) joins it for the same reason: its whole
@@ -89,7 +90,6 @@ function stemJs(htmlBasename) {
 // ships — that decision is open, see LAUNCH_CHECKLIST's Dropbox item.
 // `settings.html` (account, kennel setup, the tour restart, the device license)
 // came out of import-export.html, so it stays out of Demo with it.
-const DEMO_EXCLUDED_PAGES = ['import-export.html', 'settings.html', 'assistant.html'];
 
 // Files excluded from an edition. Lite drops the Pro-only pages; Demo drops the
 // save/export page; Pro ships everything.
