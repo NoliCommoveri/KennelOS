@@ -24,6 +24,9 @@ import { accountRepo } from '../data/accountRepo.js';
 import { expenseRepo } from '../data/expenseRepo.js';
 import { ACCOUNT_TYPE, CONTRACT_FORM_TYPE } from '../data/vocab.js';
 import { cleanForms, formLink, isFirmaForm, PREFILL_FIELDS } from '../data/contractForms.js';
+import { extraChoices, extraOptionsHtml } from '../data/contractAddOns.js';
+import { kennelChargeList } from '../data/extraCharges.js';
+import { kennelRepo } from '../data/kennelRepo.js';
 import { feeRate, rateLabel } from '../data/processingFees.js';
 import { sharedReferrals, sharedTransport } from '../data/referralShare.js';
 import { paymentLink } from '../data/paymentLinks.js';
@@ -45,6 +48,7 @@ const els = {
 
 let accounts = [];
 let spendByAccount = new Map(); // account id -> { total, count } over active expenses
+let extras = []; // her price-list extras an Extra agreement can be for (contractAddOns.extraChoices)
 const revealed = new Set(); // account ids whose password is showing
 
 function showError(msg) { els.msg.innerHTML = `<div class="inline-error">${esc(msg)}</div>`; }
@@ -160,6 +164,9 @@ function fieldNamesHtml() {
     ${group('Sale contracts (pet home, breeding rights, deposit, co-own sale)', PREFILL_FIELDS.sale)}
     ${group('Stud service contracts', PREFILL_FIELDS.stud_service)}
     ${group('Co-own, lease, foster and other contracts', PREFILL_FIELDS.dog)}
+    ${group('Transport agreements (with the sale contract names)', PREFILL_FIELDS.transport)}
+    ${group('Delayed pickup / boarding agreements (with the sale contract names)', PREFILL_FIELDS.boarding)}
+    ${group('Extra agreements, one per extra: the extra its form is for (with the sale contract names)', PREFILL_FIELDS.extra)}
   </details>`;
 }
 
@@ -178,6 +185,7 @@ function formRowHtml(f = {}) {
       ? `<div class="cf-meta field-hint"><span class="cf-meta-text">${esc(matchedNote(f.field_map))}</span></div>` : '';
   return `<div class="cf-row" data-id="${esc(f.id || '')}"${jf}${firma ? ` data-template-id="${esc(f.template_id)}"` : ''}>
     <select class="cf-type" aria-label="Contract form type"><option value="">Type…</option>${typeOptions}</select>
+    <select class="cf-extra" aria-label="Which extra this agreement is for"${f.form_type === 'extra' ? '' : ' hidden'}>${extraOptionsHtml(extras, f.extra_list_id || '', esc)}</select>
     <input class="cf-label" type="text" aria-label="Label" value="${esc(f.label || '')}" placeholder="Label, e.g. Pet home – in state">
     ${firma ? '' : `<input class="cf-url" type="url" aria-label="Form link" value="${esc(f.url || '')}" placeholder="https://…">`}
     <button type="button" class="btn btn-sm" data-cf-remove aria-label="Remove this form">✕</button>
@@ -236,11 +244,13 @@ function render() {
 }
 
 async function load() {
-  const [rows, expenses] = await Promise.all([
+  const [rows, expenses, kennels] = await Promise.all([
     accountRepo.getAll({ includeArchived: true }),
-    expenseRepo.getAll()
+    expenseRepo.getAll(),
+    kennelRepo.getAll()
   ]);
   accounts = rows;
+  extras = extraChoices(kennels, kennelChargeList);
   spendByAccount = new Map();
   for (const x of expenses) {
     if (!x.account_id) continue;
@@ -391,6 +401,12 @@ function openForm(existing = null) {
     const chargeBack = $('#af-chargeback-field');
     if (chargeBack) chargeBack.hidden = !isPaymentService();
   });
+  // An Extra agreement names which of her extras it's for.
+  formsBox.addEventListener('change', (e) => {
+    if (!e.target.classList.contains('cf-type')) return;
+    const pick = e.target.closest('.cf-row').querySelector('.cf-extra');
+    if (pick) pick.hidden = e.target.value !== 'extra';
+  });
   $('#af-form-add').addEventListener('click', (e) => {
     formsBox.insertAdjacentHTML('beforeend', formRowHtml());
     e.currentTarget.textContent = '+ Add another contract form';
@@ -454,6 +470,7 @@ function openForm(existing = null) {
       const f = {
         id: row.dataset.id || crypto.randomUUID(),
         form_type: row.querySelector('.cf-type').value,
+        extra_list_id: row.querySelector('.cf-extra')?.value || '',
         label: row.querySelector('.cf-label').value.trim(),
         url: row.querySelector('.cf-url')?.value.trim() || ''
       };
@@ -463,6 +480,7 @@ function openForm(existing = null) {
         f.template_id = row.dataset.templateId;
         delete f.url;
         if (!f.form_type) problems.push(`Contract form ${i + 1}: pick its type (or remove it: the template stays in Contract templates).`);
+        if (f.form_type === 'extra' && !f.extra_list_id) problems.push(`Contract form ${i + 1}: pick which extra it's for.`);
         out.push(f);
         return;
       }
@@ -473,6 +491,7 @@ function openForm(existing = null) {
       }
       if (!f.form_type && !f.label && !f.url) return;
       if (!f.form_type) problems.push(`Contract form ${i + 1}: pick its type.`);
+      if (f.form_type === 'extra' && !f.extra_list_id) problems.push(`Contract form ${i + 1}: pick which extra it's for.`);
       if (!formLink(f.url)) problems.push(`Contract form ${i + 1}: paste the form's link (starting https://).`);
       out.push(f);
     });

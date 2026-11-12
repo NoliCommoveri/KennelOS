@@ -149,7 +149,7 @@ export function sendBody({ contract, form, facts, signer, emailSigner = true, re
     templateId: form.template_id,
     title: [form.label, subject].filter(Boolean).join(': ').slice(0, 200) || contract.title || 'Contract',
     signer: { firstName, lastName, email: String(signer?.email || '').trim() },
-    facts: Object.fromEntries(prefillValues(form.form_type, facts)),
+    facts: Object.fromEntries(prefillValues(form, facts)),
     ...(countersigner ? { countersigner } : {}),
     ...(form?.keep_copy === true ? { keepCopy: true, kennelName: String(facts?.kennel?.kennel_name || '').trim() } : {}),
     emailSigner: emailSigner !== false,

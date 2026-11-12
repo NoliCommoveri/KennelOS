@@ -2708,9 +2708,29 @@ Share with families hint and the card's badge say so for this type.
 
 ### Contract forms and e-signature (plan §2.1)
 - A **Form service** account (`form_service`, any form service) holds `contract_forms[]`:
-  her pasted form links (`{ id, form_type, label, url, form_id?, field_map? }`; types from
-  `vocab.CONTRACT_FORM_TYPE`, each serving certain `CONTRACT_TYPE`s and ranked for a sale's
-  registration by `contractForms.rankForms`).
+  her pasted form links (`{ id, form_type, label, url, form_id?, field_map?, extra_list_id? }`;
+  types from `vocab.CONTRACT_FORM_TYPE`, each serving certain `CONTRACT_TYPE`s and ranked for
+  a sale's registration by `contractForms.rankForms`).
+- **A sale's separate agreements** (types with `addOn`): **Transport agreement**, **Delayed
+  pickup / boarding agreement**, and **Extra agreement**, one per extra: its row's
+  `extra_list_id` is the price-list row (`Kennel.extra_charge_list`) it's for, picked beside
+  the type on the Accounts page and in Contract templates (`contractAddOns.extraChoices`:
+  every own kennel's list). `rankForms` offers one first only when the sale has its charge
+  (`addOnApplies`: a transport fee, deferred boarding, a charge copied from that row), else
+  under Show all forms. Each fills the sale fields plus its own group
+  (`contractForms.fieldGroupsFor`), from `contractAddOns.addOnFacts` (pure; `gatherContractFacts`
+  passes it as `addOns`):
+  - transport: the fee, the drop-off's method, date, time and place (the sale's next pickup
+    event, else its latest), and the balance due date;
+  - boarding: rate, per, length, total, from the day the pup could go home to the day
+    before its pickup (else `goHome.boardingEnd`);
+  - extra (`extraFor`: the sale's charge with that `list_id`, else one typed by hand with the
+    row's name): name, price-list description, price, the payment plan in words and up to
+    four steps (`extraPayments`, due dates by `extraCharges.stepDueDate`), and for a
+    training package its stay: the linked boarding event(s) (`goHome.trainingStaysFor`), else
+    the one Today's nudge would log, from the ready date; `goHomeFrom` is the day after the
+    last stay (or the ready date). A deposit fee charge-back is no agreement.
+  `prefillValues` takes the form (not only its type) so an Extra agreement knows its extra.
 - **Send for signature** (Contract page): picks a form, builds a prefilled link
   (`contractForms.prefillValues`, an allow-list that never includes notes or terms;
   `prefillUrl` uses the form's URL prefill, no API call), and opens the composer. Using it

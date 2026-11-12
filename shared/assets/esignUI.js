@@ -18,6 +18,8 @@ import {
 } from '../data/cloud/cloudEsign.js';
 import { mergeTemplates, setTemplateType, signingKennel, forgetMissingTemplates, forgetTemplate, kennelSignerName } from '../data/esignTemplates.js';
 import { breederFor } from '../data/contractSend.js';
+import { extraChoices, extraOptionsHtml } from '../data/contractAddOns.js';
+import { kennelChargeList } from '../data/extraCharges.js';
 import { getActiveKennelId } from '../data/kennelScope.js';
 import { getMyKennelId } from '../data/settings.js';
 import { accountRepo } from '../data/accountRepo.js';
@@ -128,7 +130,9 @@ export function openContractTemplates() {
     // Her name as she countersigns, per own kennel (Kennel.esign_signer_name): a
     // template's own Signs as wins; blank falls back to the contact linked to the
     // kennel, else the kennel's name (kennelSignerName).
-    const own = (await kennelRepo.getAll()).filter((k) => k.is_own_kennel && !k.is_archived);
+    const allKennels = await kennelRepo.getAll();
+    const own = allKennels.filter((k) => k.is_own_kennel && !k.is_archived);
+    const extras = extraChoices(allKennels, kennelChargeList);
     const signers = await Promise.all(own.map(async (k) => ({ k, fallback: kennelSignerName({ ...k, esign_signer_name: '' }, await breederFor(k.id)) })));
     const active = signingKennel(own, { activeId: getActiveKennelId(), myId: getMyKennelId() });
     const activeName = signers.find((x) => x.k.id === active?.id);
@@ -138,6 +142,7 @@ export function openContractTemplates() {
     const row = (t) => `<div class="acct-row" data-tid="${esc(t.id)}" style="flex-wrap:wrap; gap:8px; padding:6px 0; border-top:1px solid var(--border,#e2e6ec);">
         <span class="acct-v" style="min-width:160px;"><strong>${esc(t.name)}</strong>${t.pageCount ? ` <span class="muted">· ${esc(t.pageCount)} page${t.pageCount === 1 ? '' : 's'}</span>` : ''}</span>
         <select class="ct-type" aria-label="What kind of contract ${esc(t.name)} is">${typeOptions(t.form_type)}</select>
+        <select class="ct-extra" aria-label="Which extra ${esc(t.name)} is for"${t.form_type === 'extra' ? '' : ' hidden'}>${extraOptionsHtml(extras, t.extraListId, esc)}</select>
         <label class="check-inline" style="display:flex; gap:6px; align-items:center;" title="You sign it too, after the buyer">
           <input type="checkbox" class="ct-flag" data-flag="countersign"${t.countersign ? ' checked' : ''}${t.form_type ? '' : ' disabled'}> I countersign</label>
         <input type="text" class="ct-signer" maxlength="100" style="max-width:200px;" aria-label="The name you sign ${esc(t.name)} with" title="The name you sign this one with. Blank = your kennel's setting below."
@@ -159,6 +164,7 @@ export function openContractTemplates() {
         <div class="field"><label for="ct-file">Contract PDF</label><input id="ct-file" type="file" accept="application/pdf,.pdf"></div>
         <div class="field"><label for="ct-name">Name</label><input id="ct-name" type="text" maxlength="200" placeholder="e.g. Pet home contract"></div>
         <div class="field"><label for="ct-newtype">Kind of contract</label><select id="ct-newtype">${typeOptions('')}</select></div>
+        <div class="field" id="ct-newextra-field" hidden><label for="ct-newextra">Which extra</label><select id="ct-newextra">${extraOptionsHtml(extras, '', esc)}</select></div>
       </div>
       <button type="button" class="btn btn-sm btn-primary" id="ct-upload" style="margin-top:8px;">Upload</button>`);
     box.querySelector('#ct-file').addEventListener('change', (e) => {
@@ -168,8 +174,14 @@ export function openContractTemplates() {
     box.querySelectorAll('.ct-type').forEach((sel) => sel.addEventListener('change', async () => {
       const tid = sel.closest('[data-tid]').dataset.tid;
       const t = rows.find((r) => r.id === tid);
+      const pick = sel.closest('[data-tid]').querySelector('.ct-extra');
+      pick.hidden = sel.value !== 'extra';
+      if (sel.value === 'extra' && !pick.value) {
+        say('<p class="field-hint">Now pick which extra it\'s for. It\'s offered on a sale that has that extra.</p>');
+        return;
+      }
       try {
-        await setTemplateType({ templateId: tid, name: t?.name, formType: sel.value });
+        await setTemplateType({ templateId: tid, name: t?.name, formType: sel.value, ...(sel.value === 'extra' ? { extraListId: pick.value } : {}) });
         sel.closest('[data-tid]').querySelectorAll('.ct-flag').forEach((tick) => { tick.disabled = !sel.value; });
         say(`<p class="field-hint">${sel.value ? `Saved: ${esc(t?.name || 'the template')} is offered for ${esc(CONTRACT_FORM_TYPE.find((x) => x.value === sel.value)?.label.toLowerCase() || 'that kind of contract')}s.` : `${esc(t?.name || 'The template')} isn't offered any more.`}</p>`);
       } catch (err) { problem(err); }
@@ -194,6 +206,17 @@ export function openContractTemplates() {
         say(`<p class="field-hint">${flagSaved[flag](tick.checked, esc(t?.name || 'this template'))}</p>`);
       } catch (err) { tick.checked = !tick.checked; problem(err); }
     }));
+    box.querySelectorAll('.ct-extra').forEach((pick) => pick.addEventListener('change', async () => {
+      const el = pick.closest('[data-tid]');
+      const t = rows.find((r) => r.id === el.dataset.tid);
+      if (!pick.value) return;
+      try {
+        await setTemplateType({ templateId: el.dataset.tid, name: t?.name, formType: 'extra', extraListId: pick.value });
+        el.querySelectorAll('.ct-flag').forEach((tick) => { tick.disabled = false; });
+        say(`<p class="field-hint">Saved: ${esc(t?.name || 'this template')} is the agreement for ${esc(extras.find((x) => x.id === pick.value)?.label || 'that extra')}, offered on a sale that has it.</p>`);
+      } catch (err) { problem(err); }
+    }));
+    box.querySelector('#ct-newtype').addEventListener('change', (e) => { box.querySelector('#ct-newextra-field').hidden = e.target.value !== 'extra'; });
     box.querySelectorAll('.ct-signer').forEach((input) => input.addEventListener('change', async () => {
       const el = input.closest('[data-tid]');
       const t = rows.find((r) => r.id === el.dataset.tid);
@@ -226,11 +249,13 @@ export function openContractTemplates() {
       const formType = box.querySelector('#ct-newtype').value;
       if (!file) { say('<div class="inline-error">Choose your contract\'s PDF first.</div>'); return; }
       if (!formType) { say('<div class="inline-error">Pick what kind of contract it is.</div>'); return; }
+      const extraListId = formType === 'extra' ? box.querySelector('#ct-newextra').value : undefined;
+      if (formType === 'extra' && !extraListId) { say('<div class="inline-error">Pick which extra it\'s for.</div>'); return; }
       busy = true; e.currentTarget.disabled = true;
       say('<p class="field-hint">Uploading…</p>');
       try {
         const t = await uploadTemplate({ name: box.querySelector('#ct-name').value, file });
-        await setTemplateType({ templateId: t.id, name: t.name, formType });
+        await setTemplateType({ templateId: t.id, name: t.name, formType, extraListId });
         busy = false;
         await drawList(await esignStatus());
         say(`<p class="field-hint">Uploaded ${esc(t.name)}. Next: <strong>Place fields</strong> on it, so the buyer has somewhere to sign.</p>`);
@@ -254,7 +279,7 @@ export function sendWithFirma({ contract, form, facts, signer, emailChoice = tru
     let busy = false;
     const done = (v) => { overlay.remove(); resolve(v); };
     overlay.addEventListener('click', (e) => { if (e.target === overlay && !busy) done(null); });
-    const filled = prefillValues(form.form_type, facts).length;
+    const filled = prefillValues(form, facts).length;
     const counter = countersignerFor(form, facts);
 
     async function draw() {

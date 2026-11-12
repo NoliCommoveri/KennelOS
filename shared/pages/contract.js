@@ -461,7 +461,7 @@ function pickForm(c, ranked, facts) {
       <span>${esc(f.label)} ${badge(CONTRACT_FORM_TYPE, f.form_type)}${isFirmaForm(f) ? ' <span class="badge badge-green">E-sign</span>' : f.account_name ? ` <span class="muted" style="font-size:13px;">· ${esc(f.account_name)}</span>` : ''}</span></label>`;
     const draw = () => {
       const firma = isFirmaForm(picked);
-      const { values, url } = firma ? { values: prefillValues(picked.form_type, facts), url: '' } : buildSignatureLink(picked, facts);
+      const { values, url } = firma ? { values: prefillValues(picked, facts), url: '' } : buildSignatureLink(picked, facts);
       overlay.innerHTML = `<div class="modal" role="dialog" aria-modal="true" style="max-width:620px;">
         <h2 style="margin-top:0;">Send for signature</h2>
         <p class="field-hint" style="margin-top:0;">Pick the form to send. ${firma ? 'The details below go to Firma with it, into the fields you placed on the template.' : 'The details below go into it, in the link itself.'}</p>

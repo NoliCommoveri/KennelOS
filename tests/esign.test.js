@@ -42,8 +42,8 @@ test('templates: the type she gave each one, set and removed on the account', ()
   const account = { id: 'acc', ...FIRMA_ACCOUNT, contract_forms: forms };
   assert.equal(firmaAccountOf([{ id: 'o', account_type: 'form_service', contract_forms: [] }, account]), account);
   assert.deepEqual(mergeTemplates([{ id: TID, name: 'Pet home v2', pageCount: 3 }, { id: 'tpl_2', name: 'New' }], [account]),
-    [{ id: TID, name: 'Pet home v2', pageCount: 3, form_type: 'breeding_rights', label: 'Pet home v2', countersign: false, keepCopy: false, signerName: '' },
-      { id: 'tpl_2', name: 'New', pageCount: null, form_type: '', label: '', countersign: false, keepCopy: false, signerName: '' }]);
+    [{ id: TID, name: 'Pet home v2', pageCount: 3, form_type: 'breeding_rights', label: 'Pet home v2', countersign: false, keepCopy: false, signerName: '', extraListId: '' },
+      { id: 'tpl_2', name: 'New', pageCount: null, form_type: '', label: '', countersign: false, keepCopy: false, signerName: '', extraListId: '' }]);
   assert.deepEqual(withTemplateRow(forms, { templateId: TID, formType: '' }), [], 'not offered: removed');
 });
 

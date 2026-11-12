@@ -136,6 +136,7 @@ const PRECACHE_URLS = [
   'data/companionExport.js',
   'data/contactRepo.js',
   'data/contractRepo.js',
+  'data/contractAddOns.js',
   'data/contractForms.js',
   'data/contractSend.js',
   'data/esignTemplates.js',

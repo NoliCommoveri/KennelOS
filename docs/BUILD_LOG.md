@@ -3566,3 +3566,21 @@ tick box per template; buyers get an emailed link.
 - **Tests:** `tests/priceTable.test.js` (new, 6), `tests/esign.test.js` +1. `node --test`
   1738 pass, `cd cloud && npm test` 325 pass.
 - **Docs:** End-State guide §2 (Kennel), §32; Integrations plan §2.1a, §2.3a.
+
+## 2026-11-12: A sale's separate agreements: transport, delayed pickup, one per extra
+
+- **Asked:** her sister sends a separate agreement for transport, for delayed pickup, and
+  for each extra she sells (her extras are training packages, boarded in place of standard
+  boarding, with their stay logged as a linked boarding event).
+- **Change:** `CONTRACT_FORM_TYPE` gains `transport`, `boarding`, `extra` (`addOn`). An Extra
+  agreement's row names its price-list extra (`extra_list_id`), picked beside the type on the
+  Accounts page and in Contract templates. New pure `data/contractAddOns.js` (`addOnFacts`,
+  `extraFor`, `extraPayments`, `extraChoices`, `extraOptionsHtml`); `gatherContractFacts`
+  adds `addOns`; `prefillValues` takes the form. `rankForms` offers a separate agreement
+  first only when the sale has its charge. 34 new field names (84 in all; a send carries at
+  most about 61).
+- **Tests:** `tests/contractAddOns.test.js` (new, 4); `tests/esign.test.js` updated.
+  `node --test` 1742 pass, `cd cloud && npm test` 325 pass. Checked in a browser: the
+  Accounts page's form row shows Which extra with the saved one.
+- **Not checked:** the Contract templates window in a browser (needs a cloud sign-in).
+- **Docs:** End-State guide §32, Integrations plan §2.1a. New file in `PRECACHE_URLS`.

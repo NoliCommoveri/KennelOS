@@ -18,6 +18,8 @@ import { allForms, prefillValues, prefillUrl, formProvider, mapValues, isFirmaFo
 import { esignSignedIn, liveTemplateIds } from './cloud/cloudEsign.js';
 import { forgetMissingTemplates } from './esignTemplates.js';
 import { todayYMD } from './dateUtils.js';
+import { addOnFacts } from './contractAddOns.js';
+import { kennelChargeList } from './extraCharges.js';
 
 // Contracts that can still go out for signature (and be sent again).
 export const SENDABLE_STATUSES = ['draft', 'sent', 'declined'];
@@ -69,19 +71,23 @@ export async function gatherContractFacts(c) {
   const theirs = ss ? await get(dogRepo, ss.partner_dog_id) : null;
   const incoming = ss ? ourRole(ss, [ours, theirs].filter(Boolean)) === 'dam' : false;
   const today = todayYMD();
-  const pickupDate = puppy ? expectedPickupDate({
-    sale, today,
-    events: await eventRepo.getForSubject('dog', puppy.id),
-    litter: await get(litterRepo, puppy.litter_id)
-  }) : '';
+  const pupEvents = puppy ? await eventRepo.getForSubject('dog', puppy.id) : [];
+  const litter = puppy ? await get(litterRepo, puppy.litter_id) : null;
+  const pickupDate = puppy ? expectedPickupDate({ sale, today, events: pupEvents, litter }) : '';
+  const kennel = await get(kennelRepo, c.kennel_id);
+  // Her separate agreements' facts (transport, boarding, each extra). Her price
+  // list is the sale's kennel's (else the contract's).
+  const priceKennel = sale?.kennel_id && sale.kennel_id !== c.kennel_id ? await get(kennelRepo, sale.kennel_id) : kennel;
+  const addOns = sale ? addOnFacts({ sale, events: pupEvents, litter, priceList: kennelChargeList(priceKennel), today }) : null;
   return {
     contract: c,
-    kennel: await get(kennelRepo, c.kennel_id),
+    kennel,
     breeder: await breederFor(c.kennel_id),
     today,
     sale, puppy, pickupDate,
     balanceDue: sale ? await balanceDueOn(sale) : null,
     priceTable: sale ? await getPriceTable(sale) : null,
+    addOns,
     buyer: sale ? await get(contactRepo, sale.buyer_contact_id) : null,
     sire: puppy ? await get(dogRepo, puppy.sire_id) : null,
     dam: puppy ? await get(dogRepo, puppy.dam_id) : null,
@@ -96,7 +102,7 @@ export async function gatherContractFacts(c) {
 // One form's prefilled link for these facts, under her field names when the form
 // was once matched through Connect Jotform (field_map, kept read-only, D29). → { values, url }.
 export function buildSignatureLink(form, facts) {
-  const values = mapValues(prefillValues(form.form_type, facts), form.field_map);
+  const values = mapValues(prefillValues(form, facts), form.field_map);
   return { values, url: prefillUrl(form.url, values) };
 }
 

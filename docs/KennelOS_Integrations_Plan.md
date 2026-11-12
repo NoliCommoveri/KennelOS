@@ -293,6 +293,14 @@ on the Accounts page →". **No form of a matching type** → the picker opens o
   `registrationType`, `price`, `depositAmount`, `balanceDue`, and for a contract's payment
   table `waitlistFeePaid`, `waitlistFeeCredit`, `otherPaymentsReceived`,
   `purchaseBalanceDue` (2026-11-12; End-State guide §32).
+- **A sale's separate agreements** (2026-11-12, owner request): `transport`, `boarding`
+  (delayed pickup) and `extra` form types. An Extra agreement is for one of her price-list
+  extras (e.g. a training package, which is boarded in place of standard boarding), named on
+  its row (`extra_list_id`). Fields: `transportFee`, `transportMethod`, `deliveryDate`,
+  `deliveryTime`, `deliveryPlace`, `transportDueDate`; `boardingRate`, `boardingPer`,
+  `boardingLength`, `boardingTotal`, `boardingStart`, `boardingEnd`; `extraName`,
+  `extraDescription`, `extraPrice`, `extraPayments`, `extraPayment1–4Amount/Due`,
+  `extraStayDays`, `extraStayStart`, `extraStayEnd`, `goHomeFrom`.
 - **Stud service:** `studName`, `damName`, `damOwnerName`, `damOwnerEmail`, `studFee`,
   `serviceType`.
 - **Co-own / lease / foster / other:** `dogName`, `dogRegisteredName`, `dogMicrochip`,
