@@ -70,7 +70,8 @@ src/firma.js           e-sign through Firma (Integrations plan §2.3a, migration
                        key, sealed in her connection, does everything she asks), her templates and
                        Firma's editor token, POST /integrations/esign/send within the monthly limit
                        (esign_sends; default 10, /ops sets it and an account's own, esign_limits),
-                       the signed-PDF link, and the adapter for POST /hooks/firma/<secret>
+                       the signed-PDF link, her own signing link when she countersigns (GET
+                       /integrations/esign/countersign, D32), and the adapter for POST /hooks/firma/<secret>
                        (X-Firma-Signature HMAC; Firma's id → her contract through esign_sends). Pro.
                        Also serves Firma's template editor page, public/esign/, at /esign/editor:
                        sandboxed (an opaque origin, so Firma's script never reaches /ops cookies),

@@ -212,6 +212,7 @@ export const CLOUD_FIELDS = {
       "keys": [
         "contract_type",
         "created_at",
+        "esign_countersign",
         "esign_form_label",
         "esign_provider",
         "esign_ref",

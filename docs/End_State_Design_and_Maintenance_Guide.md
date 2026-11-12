@@ -2731,7 +2731,7 @@ Pro with a cloud server, signed in (`cloudEsign.esignOffered` / `esignSignedIn`;
 kennel a workspace and counts her sends against a monthly limit (`/ops`). Her device only sees
 ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `connectFirma`,
 `syncFirmaFields`, `listFirmaTemplates`, `createFirmaTemplate`, `firmaTemplateToken`,
-`sendForEsign`, `esignDocument`).
+`sendForEsign`, `esignDocument`, `esignCountersign`).
 - **Contract templates** (Contracts page button, or `contracts.html#templates`;
   `assets/esignUI.openContractTemplates`):
   - **Set up e-signing** says what goes to Firma, makes her workspace under her kennel's name,
@@ -2743,8 +2743,10 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     The tab is opened before the await and has no `opener`.
 - **What KennelOS keeps** (`data/esignTemplates.js`):
   - Only each template's kind, as a `contract_forms` row
-    `{ id, form_type, label, provider: 'firma', template_id }`
-    (`contractForms.isFirmaForm`; no `url`).
+    `{ id, form_type, label, provider: 'firma', template_id, countersign? }`
+    (`contractForms.isFirmaForm`; no `url`). `countersign: true` (the template's **I
+    countersign** tick, enabled once it has a type) means she signs it too; a retype keeps
+    it.
   - The rows live on the **E-sign (Firma)** Form service account (`FIRMA_ACCOUNT`), made the
     first time she types a template.
   - The template list comes from Firma, merged with the rows (`mergeTemplates`).
@@ -2758,9 +2760,14 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     composer).
   - `cloudEsign.sendForEsign` sends `sendBody`: the signer, and the facts as
     `prefillValues` gives them, as the signer's custom fields.
+  - On a template she countersigns, `sendBody` adds her as `countersigner`
+    (`cloudEsign.countersignerFor`: her cloud account's email, named for her kennel). The
+    Worker makes her the request's second Signer (`order: 2`): one request, one credit.
+    The dialog says she countersigns as that email. With no account email on the device, or
+    her email as the buyer's, the send is refused before Firma.
   - It marks the contract `sent` with `esign_provider: 'firma'`, `esign_ref` (Firma's
-    signing request id; cloud tier), `esign_url` (the signing link), `esign_sent_date` and
-    `esign_form_label`.
+    signing request id; cloud tier), `esign_url` (the buyer's signing link), `esign_sent_date`,
+    `esign_form_label` and `esign_countersign` (cloud tier: she countersigns it).
   - A second send needs **Send again** (`resend`).
   - `cloudEsign.esignProblem` words each refusal: the limit with its reset date, Firma not
     answering (don't resend), signed out, and so on.
@@ -2769,6 +2776,10 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
 - **Back:** Firma's webhook becomes `contract.signed` / `contract.declined`, applied as for
   any vendor. `contract.expired` / `contract.cancelled` become a Today review while the
   contract is still Sent (`integrationEvents.planIntegrationEvent`).
+- **Countersign** (Contract page, with `esign_countersign`, while Sent): her own signing link,
+  asked of the Worker when tapped (`cloudEsign.countersignLink`; never kept) and opened in a
+  new tab. Firma's page has her wait while the buyer hasn't signed. The contract becomes
+  Signed only when both have (Firma's completed event comes once every signer is done).
 - **Signed copy** (Contract page, with `esign_ref`): a short-lived link from the Worker,
   opened in a new tab (**Copy so far** before it's signed).
 

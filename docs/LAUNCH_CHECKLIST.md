@@ -339,7 +339,11 @@ and Email Routing.
   shows the key set and the credits. In the app: Contracts → Contract templates → Set up
   e-signing, upload a template, **Place fields** (Firma's editor opens in a new tab: check it
   loads and saves), send a contract to your own email, sign it, and check it comes back
-  Signed with its signed copy. Set the ESIGN consumer-consent wording in the signer terms.
+  Signed with its signed copy. Then countersign (D32): tick **I countersign** on a template,
+  add a second signer with a signature field in Firma's editor, send to another email of
+  yours, sign as the buyer, tap **Countersign** and sign. Check it stays Sent until you have,
+  that Firma put the two of you in the right signer roles, and which emails Firma sent you.
+  Set the ESIGN consumer-consent wording in the signer terms.
   Decide the monthly limit in `/ops`.
 - [ ] **A deleted account's Firma workspace** is removed by hand in Firma's dashboard within 30
   days (the privacy policy promises it; Firma has no API to delete one).

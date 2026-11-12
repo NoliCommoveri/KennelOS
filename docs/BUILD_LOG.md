@@ -3394,3 +3394,30 @@ new **D32–D33**. Nothing built.
   open: how buyers reach the PDF and how long it's kept. docs.firma.dev wasn't reachable from
   the session, so the Firma questions wait for the docs or a test send on staging.
 - README Status updated.
+
+## 2026-11-12: Firma countersign (D32)
+
+`docs/KennelOS_Integrations_Plan.md` §2.3a "As built: her countersignature". Owner decisions:
+she signs as her cloud account's email; buyers will get the signed PDF as an emailed link
+(D33, not built).
+- **Contract templates:** an **I countersign** tick per template, stored as `countersign: true`
+  on its `contract_forms` row (`contractForms.cleanForms` keeps it, and a retype keeps it).
+- **Send:** `cloudEsign.sendBody` adds `countersigner { name, email }` (her account email,
+  named for her kennel). The send dialog says she countersigns, and refuses with no account
+  email on the device.
+- **Worker:** `POST /integrations/esign/send` puts her as the second Signer (`order: 2`) of the
+  same request, so it's one credit. It refuses her email as the buyer's.
+- **Worker:** new `GET /integrations/esign/countersign?ref=` returns her own signing link from
+  Firma's recipient list, never kept.
+- **Contract page:** **Countersign** while Sent on a contract with the new field
+  `esign_countersign` (cloud tier; `cloudFields.js` regenerated). It stays Sent until Firma's
+  completed event, which comes once both have signed.
+- **Tests:** Worker `esign.test.js` +1. App `tests/esign.test.js` +2: the row flag, and end
+  to end with her as second signer, her link, refusals, and Signed.
+  - `node --test` 1719 pass. `cd cloud && npm test` 320 pass. `node build/assemble.mjs`
+    succeeds. Not checked in a browser: the button needs a signed-in Pro cloud session with
+    Firma.
+- **To prove on the first production run:** how Firma maps the two recipients to the
+  template's signer roles, and its per-signer email and events (docs.firma.dev unreachable).
+- **Docs:** End-State guide §32, plan §2.3a and D32–D33, `cloud/README.md`, the launch
+  checklist, README Status. No new files, so no precache change.

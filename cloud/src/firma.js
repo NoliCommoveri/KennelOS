@@ -15,6 +15,7 @@
 //   POST /integrations/firma/template-token    a 24-hour token for Firma's editor
 //   POST /integrations/esign/send              send a contract (counts, D26)
 //   GET  /integrations/esign/document?ref=     a short-lived link to the signed PDF
+//   GET  /integrations/esign/countersign?ref=  her own signing link (D32)
 //   POST /hooks/firma/<secret>                 Firma's webhook (integrations.js)
 //   GET  /esign/editor (+ .js, .css)           Firma's template editor, in its own tab
 //
@@ -22,7 +23,7 @@
 // its webhook signing secret and the webhook's id. Never sent to a device.
 //
 // What goes to Firma: her kennel's name (the workspace), her template PDFs, and per
-// send the signer's name and email and the contract's facts (the allow-list her
+// send the signer's name and email, hers when she countersigns (D32), and the contract's facts (the allow-list her
 // device builds, shared/data/contractForms.js). What is kept here: ids, statuses
 // and times (esign_sends). Never logged: a key, a secret, a name, an email, a fact,
 // a body.
@@ -319,19 +320,33 @@ export async function firmaTemplateToken(env, auth, body) {
 const EMAIL = /^[^\s@<>"]{1,64}@[^\s@<>"]{1,190}\.[^\s@<>"]{2,}$/;
 const httpsLink = (v) => (typeof v === 'string' && /^https:\/\/[^\s"'<>]+$/.test(v) ? v : null);
 
-// The signer's own link when Firma didn't hand it back (a send that had started
+// A request's recipients, as Firma lists them, or null when Firma didn't answer.
+async function requestUsers(env, key, signingRequestId) {
+  const r = await firma(env, key, 'GET', `/signing-requests/${encodeURIComponent(signingRequestId)}/users`);
+  if (!ok(r)) return null;
+  return Array.isArray(r.data) ? r.data : (r.data?.results ?? []);
+}
+
+const linkOf = (u) => httpsLink(u?.signing_link) || (u?.id ? `https://app.firma.dev/signing/${encodeURIComponent(u.id)}` : null);
+const signersOf = (users) => (users || []).filter((u) => u?.designation === 'Signer');
+
+// The buyer's own link when Firma didn't hand it back (a send that had started
 // before an error): the first Signer of the request.
 async function signerLink(env, key, signingRequestId) {
-  const r = await firma(env, key, 'GET', `/signing-requests/${encodeURIComponent(signingRequestId)}/users`);
-  const users = Array.isArray(r.data) ? r.data : (r.data?.results ?? []);
-  const signer = users.find((u) => u?.designation === 'Signer') || users[0];
-  return httpsLink(signer?.signing_link) || (signer?.id ? `https://app.firma.dev/signing/${encodeURIComponent(signer.id)}` : null);
+  const users = await requestUsers(env, key, signingRequestId);
+  return linkOf(signersOf(users).find((u) => Number(u.order) === 1) || signersOf(users)[0] || users?.[0]);
 }
 
 // POST /integrations/esign/send
 //   { contractId, templateId, title, signer: { firstName, lastName, email },
+//     countersigner: { name, email } | absent,
 //     facts: { <fact>: <text> }, emailSigner = true, resend = false }
-// → { signingRequestId, signingLink, usage }
+// → { signingRequestId, signingLink, countersign, usage }
+//
+// With a countersigner (D32) she is the request's second Signer, after the buyer:
+// one request, so one credit. Her email comes from her device (her account's
+// email; the Worker keeps only its hash). Firma's completed webhook comes once
+// every signer has finished, so Signed means both have signed.
 //
 // A row is reserved in esign_sends BEFORE Firma is called, and only while the
 // month's count is under her limit, so two sends at once can't pass it. A send
@@ -358,6 +373,15 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
     if (FACT_NAME.test(k) && value) facts[k] = value.slice(0, 500);
   }
   const title = text(body?.title).slice(0, 200) || 'Contract';
+  let countersigner = null;
+  if (body?.countersigner != null) {
+    const name = text(body.countersigner?.name).replace(/\s+/g, ' ').slice(0, 100);
+    const herEmail = text(body.countersigner?.email).toLowerCase();
+    if (!name) fail(400, 'countersigner_name_required');
+    if (!EMAIL.test(herEmail)) fail(400, 'countersigner_email_required');
+    if (herEmail === email) fail(400, 'countersigner_is_signer');
+    countersigner = { first_name: name, email: herEmail, designation: 'Signer', order: 2 };
+  }
 
   const live = await env.DB.prepare(
     "SELECT signing_request_id, status FROM esign_sends WHERE program_id = ? AND contract_id = ? AND status IN ('sending', 'sent', 'unknown') ORDER BY sent_at DESC LIMIT 1",
@@ -383,7 +407,10 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
   const r = await firma(env, secrets.apiKey, 'POST', '/signing-requests/create-and-send', {
     name: title,
     template_id: templateId,
-    recipients: [{ first_name: firstName, last_name: lastName || undefined, email, designation: 'Signer', order: 1, custom_fields: facts }],
+    recipients: [
+      { first_name: firstName, last_name: lastName || undefined, email, designation: 'Signer', order: 1, custom_fields: facts },
+      ...(countersigner ? [countersigner] : []),
+    ],
     settings: { send_signing_email: body?.emailSigner !== false },
   });
 
@@ -393,7 +420,7 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
     // Sent (or a send that had started, which Firma keeps and charges).
     await settle('sent', signingRequestId);
     const link = httpsLink(r.data?.first_signer?.signing_link) || await signerLink(env, secrets.apiKey, signingRequestId);
-    return { signingRequestId, signingLink: link, usage: await usage(env, auth.programId, now) };
+    return { signingRequestId, signingLink: link, countersign: !!countersigner, usage: await usage(env, auth.programId, now) };
   }
   if (r.status === 402) {
     await free();
@@ -429,6 +456,26 @@ export async function esignDocument(env, auth, url) {
   const link = httpsLink(r.data?.download_url);
   if (!ok(r) || !link) fail(502, 'esign_unavailable');
   return { url: link, expiresAt: r.data.expires_at ?? null, partial: !!r.data.is_partial, status: String(r.data.status ?? '') };
+}
+
+// GET /integrations/esign/countersign?ref=<signing request id> → { url }: her own
+// signing link on a request she countersigns (D32), the second Signer. Asked for
+// when she taps Countersign, never kept. Only for a request this program sent.
+export async function esignCountersignLink(env, auth, url) {
+  await herSide(env, auth);
+  const { secrets } = await mine(env, auth);
+  const ref = text(url.searchParams.get('ref'));
+  if (!UUIDISH.test(ref)) fail(400, 'bad_ref');
+  const row = await env.DB.prepare('SELECT status FROM esign_sends WHERE program_id = ? AND signing_request_id = ?').bind(auth.programId, ref).first();
+  if (!row) fail(404, 'not_found');
+  if (row.status !== 'sent') fail(409, 'esign_not_open', { status: row.status });
+  const users = await requestUsers(env, secrets.apiKey, ref);
+  if (!users) fail(502, 'esign_unavailable');
+  const signers = signersOf(users);
+  const hers = signers.find((u) => Number(u.order) === 2) || (signers.length > 1 ? signers.at(-1) : null);
+  const link = linkOf(hers);
+  if (!link) fail(409, 'no_countersigner');
+  return { url: link };
 }
 
 // --- The template editor page (D31) ---------------------------------------------------------

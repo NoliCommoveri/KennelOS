@@ -15,8 +15,8 @@
 > monthly send limit (D25–D26). D27–D30 (2026-11-11) retire Jotform's API parts (Connect
 > Jotform, the signed check), keep pasted form links as the free fallback, and put Firma's
 > templates on the Contracts page. D31 (2026-11-12) opens Firma's template editor in its own
-> tab, on a sandboxed page of the Worker. D32–D33 (2026-11-12, planned, not built) add her
-> countersignature (a Countersign button in the app) and KennelOS keeping the signed PDFs for
+> tab, on a sandboxed page of the Worker. D32 (2026-11-12, built) adds her countersignature
+> (a Countersign button in the app); D33 (planned) has KennelOS keep the signed PDFs for
 > buyers.
 >
 > Builds on: the Worker (`cloud/`, `docs/KennelOS_Cloud_Phase1_Plan.md`), the online waitlist
@@ -508,7 +508,7 @@ from D1's "her own account" for e-sign. What it means:
   - The Worker checks the month's count (D26), then calls `POST /signing-requests/create-and-send`.
     The plain `POST /signing-requests` only makes a draft.
   - The buyer is the Signer. She can be a second Signer when the form needs her countersignature
-    (D32, planned below).
+    (D32, built: "Her countersignature" below).
   - Before any retry, the Worker records the returned id in `esign_sends`. Firma has no
     idempotency key, so an unrecorded retry would charge twice.
   - It returns the signing request id and the buyer's signing link
@@ -618,40 +618,47 @@ event kinds on Today) is next. **Modified** from the plan above:
   - The editor isn't an iframe in the app (D31).
   - There's no separate Connect: Set up e-signing in Contract templates is it.
 
-**Planned: her countersignature and the signed PDFs (D32–D33, 2026-11-12, not built).** As
-built, a send has one recipient, the buyer (`cloud/src/firma.js`), and **Signed copy** opens
+**As built: her countersignature (D32, 2026-11-12).** End-State guide §32, "E-sign through
+Firma".
+- A template's **I countersign** tick (Contract templates) sets `countersign: true` on its
+  `contract_forms` row. She gives the second signer its signature field in Firma's editor.
+- She signs as her **cloud account's email** (owner decision), named for her kennel. The
+  device sends it as `countersigner { name, email }`. The Worker keeps only the email's hash,
+  and keeps nothing of this send's emails in `esign_sends`.
+- `POST /integrations/esign/send` makes her the second Signer (`order: 2`, no custom fields)
+  of the same request. Firma charges per request, so it is still one credit. Refused before
+  Firma: no name or email for her, or her email as the buyer's.
+- The contract gets `esign_countersign` (cloud tier, a yes/no) so any of her devices shows
+  **Countersign** while it is Sent.
+- **Countersign** asks `GET /integrations/esign/countersign?ref=` for her link: the request's
+  Signer with `order: 2` from Firma's `/signing-requests/{id}/users`, never kept. `409
+  esign_not_open` once the request isn't `sent`, `409 no_countersigner` on a send without her.
+- Signed comes from `signing_request.completed`, which Firma sends once every signer is done.
+- *To prove on the first production run* (docs.firma.dev unreachable from the build session):
+  - that Firma matches the two recipients to the template's two signer roles by `order`;
+  - whether its signing email can be off for her alone. Today `send_signing_email` is per
+    request: on, she gets Firma's email too; off (Pick to send), neither does and she uses the
+    button;
+  - whether Firma has a per-signer event, so the app could say "the buyer signed, waiting on
+    you". Without one, Countersign shows for as long as the contract is Sent, and Firma's
+    page has her wait for the buyer.
+
+**Planned: the signed PDFs (D33, 2026-11-12, not built).** As built, **Signed copy** opens
 Firma's short-lived download link.
-- **Countersign (D32):**
-  - A template can be marked **"Needs my countersignature"** (on its `contract_forms` row, set
-    in Contract templates). She gives that second signer role its fields in Firma's editor.
-  - Such a send has two recipients in the one request: the buyer (`order: 1`) and her
-    (`order: 2`). Firma charges per request, so it costs no extra credit.
-  - She signs from a **Countersign** button on the Contract page, which opens her own signing
-    link. It shows while the contract is Sent.
-  - The contract stays **Sent** until both have signed. `signing_request.completed` only comes
-    once every signer has finished, so Signed already means both.
-  - *To settle:*
-    - the email she signs as (her account email, or a contract email in settings). Either way
-      it goes to Firma, so the privacy policy covers it;
-    - whether Firma's signing email can be turned off for her alone, or only for the whole
-      request. If only per request, she also gets Firma's email and can ignore it;
-    - whether Firma has a per-signer event, so the app can say "the buyer signed, waiting on
-      you" and show the button only then. Without one, the button shows for as long as the
-      contract is Sent.
 - **The signed PDF (D33):**
   - On `signing_request.completed`, the Worker fetches the PDF through Firma's download link
     and stores it in R2 under the program. This replaces the on-demand fetch proposed above.
   - **Signed copy** on the Contract page opens our copy.
   - Buyers get their copy from KennelOS, not from Firma.
   - *To settle:*
-    - how a buyer reaches it: a signed link we email, the family app (Furever), or a link in
-      her own message;
+    - the email to the buyer with a link to it (owner decision: an emailed link), and how
+      long that link lasts;
     - how long it's kept, and that account deletion removes it (the privacy policy then says
       KennelOS stores signed contracts);
     - whether Firma's own completion email can be turned off, so the buyer doesn't get two
       copies.
-- The three Firma questions are answered from docs.firma.dev (not reachable from these
-  sessions so far) or by a free test send on staging.
+- The Firma questions are answered from docs.firma.dev (not reachable from these sessions so
+  far) or by a free test send on staging.
 
 ### 2.4 Data model (additive)
 On **Contract** (plain fields, no index needed, no new block; classify in `syncRegistry.js`, D9):
@@ -1096,8 +1103,8 @@ every new FK lands in `referenceRegistry.js` + the guide; every Worker table is 
 | D29 | **Decided 2026-11-11.** Jotform data already saved | **Kept, read-only.** Contracts sent through Jotform keep their label and link. A form's saved `form_id` / `field_map` stay in the data and are still used when its link is sent, but can't be re-matched. Her Jotform API keys are deleted from each device on update. No field leaves the schema or backups |
 | D31 | **Decided 2026-11-12.** Where Firma's template editor runs: it's a 7.5 MB script from api.firma.dev that runs inside the page that loads it | **In a new tab, on a page the Worker serves** (`/esign/editor`), sandboxed (an opaque origin) so Firma's code reaches neither her app's data nor the Worker's cookies (`/ops`). The 24-hour token goes in the address's fragment. Not in the app page (her whole database, and an exception to no-CDN), and not in a frame |
 | D30 | **Decided 2026-11-11.** Where she manages her Firma templates (she has no Firma login), and the site | **On the Contracts page** (a "Contract templates" button, Pro + cloud). The templates live in her Firma workspace; the app keeps each one's contract type. The marketing site names Firma instead of Jotform, and the privacy policy names Firma (EU-hosted) as the sub-processor for contracts sent for signature, for the owner to review |
-| D32 | **Decided 2026-11-12.** Her countersignature on a Firma contract | **She signs second, in the same request** (no extra credit), from a **Countersign** button on the Contract page, for templates marked as needing it. *Open:* her signing email, Firma's per-signer email setting and events (§2.3a "Planned") |
-| D33 | **Decided 2026-11-12.** The signed PDF | **KennelOS keeps it** (copied to R2 when Firma reports completion) and makes it available to buyers. Supersedes §2.3a's on-demand fetch. *Open:* how buyers reach it, retention, Firma's completion email (§2.3a "Planned") |
+| D32 | **Decided 2026-11-12, built.** Her countersignature on a Firma contract | **She signs second, in the same request** (no extra credit), as her **cloud account's email**, from a **Countersign** button on the Contract page, for templates ticked **I countersign** (§2.3a "As built: her countersignature") |
+| D33 | **Decided 2026-11-12.** The signed PDF | **KennelOS keeps it** (copied to R2 when Firma reports completion) and **emails the buyer a link** to it. Supersedes §2.3a's on-demand fetch. *Open:* the link's life, retention, Firma's completion email (§2.3a "Planned") |
 | D16 | **Decided 2026-10-11: on her device** (`device_secrets`). Where a Jotform API key lives (§2.1b): on her device or on the Worker (`int_connections`)? | Device: no central store of every breeder's key; proven in a real flow, Worker after step 5 only if Jotform blocks browser calls |
 
 ---

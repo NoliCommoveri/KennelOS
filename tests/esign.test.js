@@ -2,7 +2,8 @@
 // step 8; D25–D26, D30–D31): her Firma templates as contract-form rows, what a
 // send carries, the reviews an expired or cancelled request leaves, and end to
 // end against the real Worker in-process with a fake Firma: set up, upload, type
-// a template, send a contract, send again, and the signed contract back.
+// a template, send a contract, send again, and the signed contract back; and her
+// countersignature (D32).
 import { test, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
@@ -41,9 +42,22 @@ test('templates: the type she gave each one, set and removed on the account', ()
   const account = { id: 'acc', ...FIRMA_ACCOUNT, contract_forms: forms };
   assert.equal(firmaAccountOf([{ id: 'o', account_type: 'form_service', contract_forms: [] }, account]), account);
   assert.deepEqual(mergeTemplates([{ id: TID, name: 'Pet home v2', pageCount: 3 }, { id: 'tpl_2', name: 'New' }], [account]),
-    [{ id: TID, name: 'Pet home v2', pageCount: 3, form_type: 'breeding_rights', label: 'Pet home v2' },
-      { id: 'tpl_2', name: 'New', pageCount: null, form_type: '', label: '' }]);
+    [{ id: TID, name: 'Pet home v2', pageCount: 3, form_type: 'breeding_rights', label: 'Pet home v2', countersign: false },
+      { id: 'tpl_2', name: 'New', pageCount: null, form_type: '', label: '', countersign: false }]);
   assert.deepEqual(withTemplateRow(forms, { templateId: TID, formType: '' }), [], 'not offered: removed');
+});
+
+test('countersign: kept on a Firma row, kept through a retype, and off unless true', () => {
+  let forms = withTemplateRow([], { templateId: TID, name: 'Pet home', formType: 'pet_home', countersign: true });
+  assert.equal(forms[0].countersign, true);
+  forms = withTemplateRow(forms, { templateId: TID, name: 'Pet home', formType: 'breeding_rights' });
+  assert.equal(forms[0].countersign, true, 'a retype keeps it');
+  assert.equal(cleanForms(forms)[0].countersign, true);
+  assert.equal(mergeTemplates([{ id: TID, name: 'Pet home' }], [{ id: 'a', account_type: 'form_service', contract_forms: forms }])[0].countersign, true);
+  forms = withTemplateRow(forms, { templateId: TID, name: 'Pet home', formType: 'breeding_rights', countersign: false });
+  assert.equal('countersign' in forms[0], false);
+  assert.equal('countersign' in cleanForms([{ form_type: 'pet_home', provider: 'firma', template_id: TID, countersign: 'yes' }])[0], false);
+  assert.equal(mergeTemplates([{ id: TID, name: 'x' }], [])[0].countersign, false);
 });
 
 test('an expired or cancelled request waits on Today while the contract is still Sent', () => {
@@ -97,6 +111,10 @@ function makeFake() {
       const id = `sr_${f.sends.length + 1}`;
       f.sends.push(body);
       return reply(201, { id, first_signer: { signing_link: `https://app.firma.dev/signing/u_${id}` } });
+    }
+    if ((m = /^\/signing-requests\/([^/]+)\/users$/.exec(path))) {
+      const body = f.sends[Number(m[1].slice(3)) - 1];
+      return reply(200, (body?.recipients || []).map((r) => ({ id: `u_${m[1]}_${r.order}`, designation: r.designation, order: r.order })));
     }
     if ((m = /^\/signing-requests\/([^/]+)\/download$/.exec(path))) return reply(200, { download_url: `https://files.firma.dev/${m[1]}.pdf`, expires_at: null, is_partial: false, status: 'completed' });
     return reply(404, { code: 'NOT_FOUND' });
@@ -244,6 +262,50 @@ test('set up, upload and type a template, send a contract, and it comes back sig
   assert.equal(signed.status, 'signed');
   assert.equal(signed.signed_date, '2026-11-14');
   assert.equal((await esign.signedCopyLink('sr_2')).url, 'https://files.firma.dev/sr_2.pdf');
+});
+
+test('countersign: she is the second signer, as her account email, and signs from her own link', async () => {
+  await breeder();
+  await esign.setUpEsign('Maple Labs');
+  const k = await kennelRepo.create({ kennel_name: 'Maple Labs', is_own_kennel: true });
+  const buyer = await contactRepo.create({ name: 'Ann Buyer', email: 'ann@example.com' });
+  const contract = await contractRepo.create({ contract_type: 'other', status: 'draft', title: 'Other', kennel_id: k.id });
+  const form = { id: 'f', form_type: 'other', label: 'Co-own', provider: 'firma', template_id: 'tpl_9', countersign: true };
+  const facts = { contract, kennel: k };
+
+  assert.deepEqual(esign.countersignerFor(form, facts), { name: 'Maple Labs', email: 'breeder@example.com' });
+  assert.equal(esign.countersignerFor({ ...form, countersign: undefined }, facts), null, 'not her template');
+  assert.throws(() => esign.sendBody({ contract, form, facts, signer: buyer, account: { email: '' } }),
+    (e) => e.code === 'countersigner_email_required' && /account's email/.test(esign.esignProblem(e).message));
+
+  const res = await esign.sendForEsign({ contract, form, facts, signer: buyer });
+  assert.equal(res.countersign, true);
+  assert.deepEqual(fake.sends[0].recipients.map((r) => [r.email, r.order, r.first_name]),
+    [['ann@example.com', 1, 'Ann'], ['breeder@example.com', 2, 'Maple Labs']]);
+  assert.equal(res.contract.esign_countersign, true);
+  assert.equal(res.contract.esign_url, 'https://app.firma.dev/signing/u_sr_1', 'the buyer\'s link on the contract, not hers');
+  assert.equal(res.usage.used, 1, 'one e-sign contract');
+  assert.deepEqual(await esign.countersignLink('sr_1'), { url: 'https://app.firma.dev/signing/u_sr_1_2' });
+
+  // Her own email as the buyer's: refused before Firma.
+  const c2 = await contractRepo.create({ contract_type: 'other', status: 'draft', title: 'Other 2', kennel_id: k.id });
+  const err = await esign.sendForEsign({ contract: c2, form, facts: { contract: c2, kennel: k }, signer: { name: 'Me', email: 'breeder@example.com' } }).catch((e) => e);
+  assert.equal(err.code, 'countersigner_is_signer');
+  assert.equal(fake.sends.length, 1);
+
+  // A template she doesn't countersign: no second signer, nothing to countersign.
+  const plain = await esign.sendForEsign({ contract: c2, form: { ...form, countersign: undefined }, facts: { contract: c2, kennel: k }, signer: buyer });
+  assert.equal(plain.contract.esign_countersign, false);
+  assert.equal(fake.sends[1].recipients.length, 1);
+  const none = await esign.countersignLink('sr_2').catch((e) => e);
+  assert.equal(none.code, 'no_countersigner');
+
+  // Signed comes once both have (Firma's completed), and the link is closed after.
+  await firmaSays('signing_request.completed', 'sr_1');
+  await ci.syncIntegrationEvents();
+  assert.equal((await contractRepo.getById(contract.id)).status, 'signed');
+  const closed = await esign.countersignLink('sr_1').catch((e) => e);
+  assert.equal(esign.esignProblem(closed).message, 'This contract isn\'t out for signature any more, so there\'s nothing to countersign.');
 });
 
 test('at the limit a send is refused with the reset date, and Firma is never called', async () => {

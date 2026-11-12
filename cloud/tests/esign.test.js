@@ -106,7 +106,9 @@ function makeFake() {
       return reply(201, { id, status: 'sent', first_signer: { id: `su_${id}`, email: body.recipients[0].email, signing_link: `https://app.firma.dev/signing/su_${id}` }, credits_remaining: 41 });
     }
     if (method === 'GET' && (m = /^\/signing-requests\/([^/]+)\/users$/.exec(path))) {
-      return reply(200, [{ id: `su_${m[1]}`, designation: 'Signer' }]);
+      const sent = f.sends.find((x) => x.id === m[1]);
+      const recipients = sent?.body.recipients || [{ order: 1 }];
+      return reply(200, recipients.map((r) => ({ id: r.order === 1 ? `su_${m[1]}` : `su_${m[1]}_${r.order}`, designation: 'Signer', order: r.order })));
     }
     if (method === 'GET' && (m = /^\/signing-requests\/([^/]+)\/download$/.exec(path))) {
       return reply(200, { status: 'finished', is_partial: false, download_url: `https://files.firma.dev/${m[1]}.pdf?sig=x`, expires_at: '2026-11-11T23:00:00Z' });
@@ -278,6 +280,46 @@ test('send: the buyer as Signer with the facts, on her key; a second send needs 
   for (const bad of [{ contractId: 'a/b' }, { templateId: '' }, { signer: { firstName: '', email: 'a@b.co' } }, { signer: { firstName: 'A', email: 'nope' } }]) {
     assert.equal((await send(env, s, bad)).status, 400, JSON.stringify(bad));
   }
+});
+
+test('countersign: she is the second Signer of the same request, and gets her own link', async () => {
+  const env = await envWith();
+  const s = await connected(env);
+  const r = await send(env, s, { countersigner: { name: 'Maple Ridge Labradors', email: 'Breeder@Example.com' } });
+  assert.equal(r.status, 200, await r.clone().text());
+  const out = await r.json();
+  assert.equal(out.countersign, true);
+  assert.equal(out.signingLink, 'https://app.firma.dev/signing/su_sr_1', 'the buyer\'s link, not hers');
+  assert.equal(out.usage.used, 1, 'one request, one send');
+  assert.deepEqual(fake.sends[0].body.recipients.map((x) => [x.email, x.order, x.designation]),
+    [['ann@example.com', 1, 'Signer'], ['breeder@example.com', 2, 'Signer']]);
+  assert.equal(fake.sends[0].body.recipients[1].custom_fields, undefined, 'the facts go with the buyer only');
+  assert.ok(!JSON.stringify(env.DB.raw.prepare('SELECT * FROM esign_sends').get()).includes('breeder@example.com'), 'her email not kept');
+
+  const link = await call(env, 'GET', '/integrations/esign/countersign?ref=sr_1', { token: s.token });
+  assert.equal(link.status, 200, await link.clone().text());
+  assert.deepEqual(await link.json(), { url: 'https://app.firma.dev/signing/su_sr_1_2' });
+
+  const s2 = await connected(env, 'other@example.com');
+  assert.equal((await call(env, 'GET', '/integrations/esign/countersign?ref=sr_1', { token: s2.token })).status, 404, 'another kennel\'s request');
+  assert.equal((await call(env, 'GET', '/integrations/esign/countersign?ref=a/b', { token: s.token })).status, 400);
+
+  // A request without her: nothing to countersign.
+  await send(env, s, { contractId: 'c-2' });
+  const none = await call(env, 'GET', '/integrations/esign/countersign?ref=sr_2', { token: s.token });
+  assert.equal(none.status, 409);
+  assert.equal((await none.json()).error, 'no_countersigner');
+
+  // Once signed (or declined, expired, cancelled) it isn't open any more.
+  env.DB.raw.prepare("UPDATE esign_sends SET status = 'completed' WHERE signing_request_id = 'sr_1'").run();
+  const closed = await call(env, 'GET', '/integrations/esign/countersign?ref=sr_1', { token: s.token });
+  assert.equal(closed.status, 409);
+  assert.deepEqual(await closed.json(), { error: 'esign_not_open', status: 'completed' });
+
+  for (const bad of [{ name: '', email: 'b@ex.com' }, { name: 'B', email: 'nope' }, { name: 'B', email: 'ann@example.com' }]) {
+    assert.equal((await send(env, s, { contractId: 'c-3', countersigner: bad })).status, 400, JSON.stringify(bad));
+  }
+  assert.equal(fake.sends.length, 2, 'a bad countersigner never reaches Firma');
 });
 
 test('the monthly limit: the default from /ops, an account\'s own, and the month\'s reset', async () => {

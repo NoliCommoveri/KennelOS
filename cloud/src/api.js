@@ -16,7 +16,7 @@ import { cancelEmailChange, getEmailChange, requestEmailChange } from './emailCh
 import { ackInbox, claimLease, releaseLease, publishProjection, readEvents, readInbox, readProjection, sendMessage, unpublishProjection, PROJECTION_MAX_BYTES } from './waitlist.js';
 import { deleteConnection, listConnections, readIntegrationEvents } from './integrations.js';
 import {
-  connectFirma, createFirmaTemplate, esignDocument, firmaStatus, firmaTemplateToken, listFirmaTemplates,
+  connectFirma, createFirmaTemplate, esignCountersignLink, esignDocument, firmaStatus, firmaTemplateToken, listFirmaTemplates,
   sendForSignature, syncFirmaFields,
 } from './firma.js';
 import { deleteDigest, getNotify, pendingPush, putNotify, startDigest, subscribePush, testPush, unsubscribePush, verifyDigest } from './notify.js';
@@ -111,6 +111,7 @@ export async function handleApi(request, env, url, cors) {
   if (p === '/integrations/firma/template-token' && m === 'POST') return json(await firmaTemplateToken(env, auth, await readJson(request, 4 * 1024)), 200, cors);
   if (p === '/integrations/esign/send' && m === 'POST') return json(await sendForSignature(env, auth, await readJson(request, 64 * 1024)), 200, cors);
   if (p === '/integrations/esign/document' && m === 'GET') return json(await esignDocument(env, auth, url), 200, cors);
+  if (p === '/integrations/esign/countersign' && m === 'GET') return json(await esignCountersignLink(env, auth, url), 200, cors);
   if (p === '/program/backing-device' && m === 'POST') return json(await takeOver(env, auth), 200, cors);
   if (p === '/devices/check-in' && m === 'POST') return json(await checkIn(env, auth, await readJson(request)), 200, cors);
   if (p === '/devices' && m === 'GET') return json(await listDevices(env, auth), 200, cors);
