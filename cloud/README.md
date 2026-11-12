@@ -71,7 +71,10 @@ src/firma.js           e-sign through Firma (Integrations plan §2.3a, migration
                        Firma's editor token, POST /integrations/esign/send within the monthly limit
                        (esign_sends; default 10, /ops sets it and an account's own, esign_limits),
                        the signed-PDF link, and the adapter for POST /hooks/firma/<secret>
-                       (X-Firma-Signature HMAC; Firma's id → her contract through esign_sends). Pro
+                       (X-Firma-Signature HMAC; Firma's id → her contract through esign_sends). Pro.
+                       Also serves Firma's template editor page, public/esign/, at /esign/editor:
+                       sandboxed (an opaque origin, so Firma's script never reaches /ops cookies),
+                       opened in its own tab by her device with the token in the fragment (D31)
 src/familyPages.js     the waitlist's family pages: serves public/family/ for /list/<public_id> and
                        /s/<token> (ASSETS binding), their same-origin JSON under /f/ (the public
                        list, one family's status view, See Your Details: a code by email, then
@@ -144,6 +147,7 @@ src/lib/sql.js         statement splitter (ported verbatim from MCCE)
 src/migrations/        NNNN_name.sql files + index.js, the ordered list the runner reads
 public/family/         the family pages' static files (no build step; strict CSP, so no inline
                        script or style); tests/familyPages.test.js in the repo root pins their labels
+public/esign/          Firma's template editor page (src/firma.js serveEsignEditor; sandboxed)
 tests/                 node --test against a node:sqlite stand-in for D1;
                        tests/helpers/serve.mjs runs the Worker locally to look at the pages
 ```

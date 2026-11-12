@@ -214,6 +214,7 @@ export const CLOUD_FIELDS = {
         "created_at",
         "esign_form_label",
         "esign_provider",
+        "esign_ref",
         "esign_sent_date",
         "id",
         "is_archived",

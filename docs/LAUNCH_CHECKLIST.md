@@ -334,10 +334,13 @@ and Email Routing.
 - [ ] **Stripe from a real browser:** connect a Stripe restricted key, make a one-time sale link
   and a waitlist fee link, pay each in test mode, and check the app records them (Stripe must
   answer browser calls). Not yet exercised against the real service.
-- [ ] **Firma e-sign on a test key** (Integrations plan §2.3a): set `FIRMA_API_KEY` on staging,
-  apply migration `0022`, connect a kennel, upload a template and place fields in Firma's
-  editor, send a contract, sign it, and check the contract comes back Signed. Set the ESIGN
-  consumer-consent wording in the signer terms. Production: decide the monthly limit in `/ops`.
+- [ ] **Firma e-sign on production** (Integrations plan §2.3a; live company key, so each send
+  costs a credit): apply migration `0022` in `/ops`, then check the E-sign (Firma) section
+  shows the key set and the credits. In the app: Contracts → Contract templates → Set up
+  e-signing, upload a template, **Place fields** (Firma's editor opens in a new tab: check it
+  loads and saves), send a contract to your own email, sign it, and check it comes back
+  Signed with its signed copy. Set the ESIGN consumer-consent wording in the signer terms.
+  Decide the monthly limit in `/ops`.
 - [ ] **A deleted account's Firma workspace** is removed by hand in Firma's dashboard within 30
   days (the privacy policy promises it; Firma has no API to delete one).
 

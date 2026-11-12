@@ -16,6 +16,7 @@
 //   POST /integrations/esign/send              send a contract (counts, D26)
 //   GET  /integrations/esign/document?ref=     a short-lived link to the signed PDF
 //   POST /hooks/firma/<secret>                 Firma's webhook (integrations.js)
+//   GET  /esign/editor (+ .js, .css)           Firma's template editor, in its own tab
 //
 // The connection's sealed token (integrations.js) is JSON: her workspace's API key,
 // its webhook signing secret and the webhook's id. Never sent to a device.
@@ -428,6 +429,35 @@ export async function esignDocument(env, auth, url) {
   const link = httpsLink(r.data?.download_url);
   if (!ok(r) || !link) fail(502, 'esign_unavailable');
   return { url: link, expiresAt: r.data.expires_at ?? null, partial: !!r.data.is_partial, status: String(r.data.status ?? '') };
+}
+
+// --- The template editor page (D31) ---------------------------------------------------------
+
+// Firma's editor is a script from api.firma.dev that runs in the page that loads
+// it. It gets a page of its own, opened in a new tab by her device with the token
+// in the fragment, and served sandboxed: an opaque origin, so Firma's code never
+// reaches this Worker's cookies (/ops, /manager) or storage, nor her app's data.
+// No script-src list: Firma's bundle loads what it needs (fonts, its own API).
+const EDITOR_FILES = {
+  '/esign/editor': ['/esign/editor.html', 'no-store'],
+  '/esign/editor.js': ['/esign/editor.js', 'public, max-age=300'],
+  '/esign/editor.css': ['/esign/editor.css', 'public, max-age=300'],
+};
+export const EDITOR_CSP = "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals; base-uri 'none'; object-src 'none'; frame-ancestors 'none'";
+
+export async function serveEsignEditor(request, env, url) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') return null;
+  const file = EDITOR_FILES[url.pathname];
+  if (!file || !env.ASSETS) return null;
+  const res = await env.ASSETS.fetch(new Request(new URL(file[0], request.url), { method: 'GET' }));
+  if (!res.ok) return null;
+  const headers = new Headers(res.headers);
+  headers.set('cache-control', file[1]);
+  headers.set('referrer-policy', 'no-referrer');
+  headers.set('x-robots-tag', 'noindex, nofollow');
+  headers.set('x-content-type-options', 'nosniff');
+  headers.set('content-security-policy', EDITOR_CSP);
+  return new Response(res.body, { status: 200, headers });
 }
 
 // --- The webhook adapter --------------------------------------------------------------------
