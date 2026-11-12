@@ -554,7 +554,8 @@ event kinds on Today) is next. **Modified** from the plan above:
     editor, at most 40 per call.
     **Modified:** the first real sends left these fields empty. The editor's Prefilled Data
     may store Firma's own id for a custom field rather than its `field_name`, so a send also
-    puts each fact under every id its custom field carries.
+    puts each fact under every id its custom field carries, and as `custom_workspace_<id>`, the
+    key the editor was seen to store.
   - `PATCH` matters only from a browser.
   
   Still open: the ESIGN consumer-consent wording in the workspace's signer terms

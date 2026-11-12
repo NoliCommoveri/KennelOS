@@ -354,6 +354,7 @@ async function customFieldRows(env, key, accountRef) {
 // aside (format_rules.prefilledData). The editor may name the field by an id of
 // Firma's rather than its field_name, so each fact also goes under every
 // identifier its custom field carries. Pure. → { <key>: <text> }
+export const WORKSPACE_FIELD_PREFIX = 'custom_workspace_';
 export const FIELD_ALIASES = ['id', 'key', 'name', 'slug', 'variable_name', 'variable_defined_name'];
 const ALIAS = /^[A-Za-z0-9_.:-]{1,100}$/;
 export function withFieldAliases(facts, rows) {
@@ -363,8 +364,11 @@ export function withFieldAliases(facts, rows) {
   for (const row of Array.isArray(rows) ? rows : []) {
     const fact = byName.get(String(row?.field_name ?? '').toLowerCase());
     if (!fact) continue;
-    for (const prop of FIELD_ALIASES) {
-      const alias = row[prop] == null ? '' : String(row[prop]);
+    // The editor names a workspace custom field `custom_workspace_<its id>` (seen
+    // on the first production sends), so that form goes too.
+    const ids = FIELD_ALIASES.map((prop) => (row[prop] == null ? '' : String(row[prop])));
+    if (row.id != null) ids.push(`${WORKSPACE_FIELD_PREFIX}${row.id}`);
+    for (const alias of ids) {
       if (!ALIAS.test(alias) || taken.has(alias.toLowerCase())) continue;
       out[alias] = facts[fact];
       taken.add(alias.toLowerCase());
@@ -475,7 +479,10 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
     // Sent (or a send that had started, which Firma keeps and charges).
     await settle('sent', signingRequestId);
     const missed = ok(r) ? emptyPrefills(r.data) : [];
-    if (missed.length) console.warn('firma: prefilled fields left empty', missed.join(','));
+    // Keys only, never values. "not sent" = no fact under that key (a name we don't
+    // know yet); "sent" = KennelOS sent it but Firma still left it empty.
+    const sentKeys = new Set(Object.keys(values).map((k) => k.toLowerCase()));
+    if (missed.length) console.warn('firma: prefilled fields left empty', missed.map((k) => `${k} (${sentKeys.has(k.toLowerCase()) ? 'sent' : 'not sent'})`).join(','));
     const link = httpsLink(r.data?.first_signer?.signing_link) || await signerLink(env, secrets.apiKey, signingRequestId);
     return { signingRequestId, signingLink: link, countersign: !!countersigner, keepCopy, usage: await usage(env, auth.programId, now) };
   }
