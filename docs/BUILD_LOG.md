@@ -3308,3 +3308,35 @@ updated. No code yet; four Firma details are to be proven on a test key before t
   `node --test` 1724 pass; `node build/assemble.mjs` succeeds.
 - **Docs:** the plan's §2.3a "As built", `cloud/README.md`, README Status. No app file, so
   no service-worker change.
+
+## 2026-11-12: Jotform retired (D27–D30)
+
+The owner decided to shut down Jotform (`docs/KennelOS_Integrations_Plan.md` D27–D30).
+- **Removed:**
+  - Connect Jotform: her API key, picking forms, matching fields (`jotformApi.js`,
+    `jotformConnect.js`, `jotformMatch.js`, the Accounts page's modals).
+  - The signed-form check: `jotformSigned.js`, the app-open check, and the Contract page's
+    **Check for signature**.
+  - Jotform from account health's key check and Kels's "replace a key" flow (now Stripe
+    only).
+  - Their tests.
+- **Kept:**
+  - Pasted contract-form links on a Form service account, as the free fallback beside Firma
+    (D28).
+  - Jotform data already saved stays read-only (D29). A form's `form_id` / `field_map` are
+    shown ("n fields matched"), saved unchanged and still used in its link. A contract sent
+    through Jotform keeps its label and link.
+  - No field leaves the schema or backups.
+- **New:** `jotformKeyStore.forgetJotformKeys`, run on app open, deletes any `jotform:`
+  device secret. One new test.
+- **Site:**
+  - pro, lite, editions and FAQ name Firma e-signing.
+  - Privacy: a new §9d (contracts sent for e-signature), a Firma row in the providers table,
+    a retention line and a "stop it" line. Jotform is gone.
+  - Terms: a new §8b (the monthly allowance, contracts are hers, keep a copy), and §12 names
+    Firma.
+  - Both pages are dated 12 November 2026, for the owner's review.
+- **Docs:** End-State guide §32 and the device-secrets lines, the editions plan, the launch
+  checklist (a Firma test-key run; removing a deleted account's workspace by hand), the Kels
+  roadmap, README Status.
+- **Precache:** four files removed from `shared/sw.js` `PRECACHE_URLS`; service-worker cache bumped to `v117`.

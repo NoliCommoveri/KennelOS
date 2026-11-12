@@ -40,7 +40,7 @@
     <div class="wrap">
       <p class="eyebrow">Privacy policy</p>
       <h1>What we hold, what we never receive, and how to delete it</h1>
-      <p>Effective 10 October 2026. Last updated 5 November 2026.</p>
+      <p>Effective 10 October 2026. Last updated 12 November 2026.</p>
     </div>
   </section>
 
@@ -63,6 +63,7 @@
               <li><a href="#website-link">Your KennelPort website (Pro)</a></li>
               <li><a href="#alerts">Alerts and the email digest (Pro)</a></li>
               <li><a href="#help">Help from KennelOS support (Pro)</a></li>
+              <li><a href="#esign">Contracts sent for e-signature (Pro)</a></li>
             </ol></li>
           <li><a href="#families">If you applied to a kennel's waitlist</a></li>
           <li><a href="#email">Emails we send</a></li>
@@ -128,9 +129,6 @@
           your key.</li>
         <li><strong>Dropbox</strong> (Pro), if you connect it: your backup file goes to a folder in
           your own Dropbox account, under Dropbox's own terms. We never see it.</li>
-        <li><strong>Jotform</strong> (Pro), if you connect it: your Jotform API key stays on that
-          device only, and the app asks Jotform, straight from your browser, for your list of forms
-          and their fields. We never see the key or your forms.</li>
         <li><strong>Stripe</strong> (Pro), if you connect it: your Stripe restricted key stays on
           that device only, and the app asks Stripe, straight from your browser, to make payment
           links and whether they were paid. Payments go to your own Stripe account. We never see
@@ -262,9 +260,31 @@
         (Settings → Account).</p>
       <ul>
         <li><strong>Setting up for you:</strong> support creates your account with your email (kept only as its keyed hash, like any account) and a name only support sees, and sets up your records from a device of its own, signed in to your account. When you sign in on your own device, your private-records key passes between your device and support's automatically, and you make your own recovery code. Then support's device is signed out and wipes its copy.</li>
-        <li><strong>Help later:</strong> while help is on, support's device is signed in to your account and can see and change every record, private details included. It can't change your email, sign-in, devices, recovery code or license, or delete your account, and it never receives your Jotform or Stripe keys, which stay on your own devices. Either of you can end it (your <strong>End help</strong>); support's device is then signed out and wipes its copy.</li>
+        <li><strong>Help later:</strong> while help is on, support's device is signed in to your account and can see and change every record, private details included. It can't change your email, sign-in, devices, recovery code or license, or delete your account, and it never receives your Stripe keys, which stay on your own devices. Either of you can end it (your <strong>End help</strong>); support's device is then signed out and wipes its copy.</li>
         <li><strong>The automatic key hand-over:</strong> normally a new device needs a code you type to receive your private-records key, so even someone who took over our server couldn't get it. During setup and while help is on, the code is passed automatically instead, so in those windows that protection is weaker. Outside them it's unchanged.</li>
         <li><strong>What we keep:</strong> the help request's state and a log of what happened (kinds and times only, such as "you asked for help"), for 180 days. Never your email address.</li>
+      </ul>
+
+      <h2 id="esign">9d. Contracts sent for e-signature (Pro)</h2>
+      <p>Off until you connect it. It uses our online service and <strong>Firma</strong>, an
+        e-signature service hosted in the European Union. KennelOS holds the account with Firma, and
+        your kennel gets its own separate space there, which no other kennel can see.</p>
+      <ul>
+        <li><strong>What goes to Firma:</strong> your kennel's name, the contract templates you
+          upload, and for each contract you send, the signer's name and email and the contract
+          details you fill in (for example the puppy, the price and the deposit). Firma emails the
+          signer their link, unless you choose to send it yourself.</li>
+        <li><strong>What Firma keeps:</strong> the contract, the signature and the signed document,
+          with its signing record (when it was viewed and signed, and the signer's network address),
+          so the signature can be proved later. Firma handles them only to provide the signing.</li>
+        <li><strong>What we keep:</strong> which of your contracts each request belongs to, its status
+          and its dates, for 400 days. Never the signer's name or email, or the contract's details.
+          We count how many contracts each kennel sends in a month.</li>
+        <li><strong>If you were sent a contract to sign</strong> through KennelOS, the kennel that sent
+          it decides how it's used; please ask them first. Our part is the above.</li>
+        <li><strong>Disconnecting</strong> stops updates from Firma. When you delete your cloud data, we
+          remove your space at Firma, with its templates and signed documents, within 30 days, so
+          download any signed copy you want to keep first.</li>
       </ul>
 
       <h2 id="families">10. If you applied to a kennel's waitlist</h2>
@@ -318,7 +338,7 @@
             <tr><th scope="row">Mapbox</th><td>Driving miles for a puppy pickup or drop-off away from the kennel</td><td>The two addresses being measured (a family's meetup place or home city, and the kennel's public pickup place), each time; we keep only the miles</td></tr>
             <tr><th scope="row">Apple, Google and Mozilla</th><td>Delivering Pro's alerts, only if you turn them on</td><td>Your device's push address; each alert carries no content</td></tr>
             <tr><th scope="row">KennelPort (run by us)</th><td>Your website and puppy portal, only if you link them</td><td>What <a href="#website-link">section 9a</a> lists</td></tr>
-            <tr><th scope="row">Jotform</th><td>Pro's contract forms, only if you connect it</td><td>Your API key and your forms, in your own account; contacted from your browser, never by us</td></tr>
+            <tr><th scope="row">Firma</th><td>Pro's contracts sent for e-signature, only if you connect it</td><td>Your kennel's name and contract templates, and for each contract sent: the signer's name and email, the contract's details, the signature and its signing record; stored in the European Union (<a href="#esign">section 9d</a>)</td></tr>
           </tbody>
         </table>
       </div>
@@ -335,6 +355,7 @@
         <li><strong>Waitlist:</strong> as in <a href="#families">section 10</a>: unconfirmed applications 2 days; delivered applications and messages 30 days after they're safely backed up; family actions 90 days; email text 90 days after sending.</li>
         <li><strong>Alerts and the digest:</strong> each event's line, 8 days. The digest address, until you turn the digest off; an unconfirmed new address, until its code expires.</li>
         <li><strong>Help from support:</strong> the one-time setup link, 15 minutes; the help log, 180 days.</li>
+        <li><strong>Contracts sent for e-signature:</strong> our record of each request (no names or details), 400 days. At Firma, your space with its templates and signed documents until you delete your cloud data, then removed within 30 days.</li>
         <li><strong>Abuse limits:</strong> we count requests per email (hashed) and per network address (also hashed, never stored as-is), per hour, and delete the counts after a day.</li>
         <li><strong>Delete my cloud data</strong> (Import/Export → Cloud backup → Account) deletes your backups, documents, devices, waitlist data and account immediately. Your records on your devices are not touched.</li>
       </ul>
@@ -353,7 +374,7 @@
         <li><strong>See and take your data:</strong> everything is in the app, and Import/Export saves all of it as a file. Email us for a copy of what our service holds about your account.</li>
         <li><strong>Correct it:</strong> edit it in the app; the next backup replaces the old copy.</li>
         <li><strong>Delete it:</strong> use Delete my cloud data, or email us.</li>
-        <li><strong>Stop it:</strong> turn off cloud backup, private backup, keeping devices in step, the online list, alerts or the digest, unlink your website, or end help from support, at any time.</li>
+        <li><strong>Stop it:</strong> turn off cloud backup, private backup, keeping devices in step, the online list, alerts or the digest, unlink your website, disconnect e-signing, or end help from support, at any time.</li>
         <li><strong>Complain:</strong> to us first, if you like, or to your local data-protection authority.</li>
       </ul>
       <p>We answer requests within 30 days. Because we don't keep your email address, we may ask

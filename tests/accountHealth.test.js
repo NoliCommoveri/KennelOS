@@ -73,7 +73,7 @@ test('Sensitive records: off, locked here, recovery code, passkey', () => {
 test('vendor keys: refused is a finding, unknown isn\'t', () => {
   const found = A.healthFindings({ ...fresh, keys: [
     { account: { id: 'a', name: 'Stripe' }, vendor: 'stripe', ok: false },
-    { account: { id: 'b', name: 'Jotform' }, vendor: 'jotform', ok: null },
+    { account: { id: 'b', name: 'Square' }, vendor: 'stripe', ok: null },
     { account: { id: 'c', name: 'Other' }, vendor: 'stripe', ok: true }
   ] }, NOW);
   assert.deepEqual(found.map((f) => f.key), ['key-rejected:stripe:a']);
@@ -107,7 +107,7 @@ test('the status report: every area she checked, good or not', () => {
       { id: 'd', label: 'Lost tablet', status: 'signed-in', erase: { requestedAt: 'x' } }
     ],
     vault: { offered: true, status: { enabled: true, unlocked: true, recovery: { createdAt: 'x' }, passkeys: [{ id: 'p' }] }, unsavedCode: false },
-    keys: [{ account: { name: 'Payments' }, vendor: 'stripe', ok: true }, { account: { name: 'Forms' }, vendor: 'jotform', ok: null }],
+    keys: [{ account: { name: 'Payments' }, vendor: 'stripe', ok: true }, { account: { name: 'Shop' }, vendor: 'stripe', ok: null }],
     waitlists: [{ kennel: { kennel_name: 'Thornfield' }, status: { online: true, signedIn: true, formOpen: true } }]
   }, (iso) => iso.slice(0, 10));
   assert.deepEqual(report.map((l) => `${l.area}: ${l.text}`), [
@@ -117,7 +117,7 @@ test('the status report: every area she checked, good or not', () => {
     'Devices: 2 signed in (this one, Ray\'s iPad)',
     'Sensitive records: backed up, unlocked here, recovery code saved, 1 passkey',
     'Payments: Stripe connected and working',
-    'Forms: Jotform couldn\'t check right now',
+    'Shop: Stripe couldn\'t check right now',
     'Thornfield waitlist: online, taking applications'
   ]);
 });
