@@ -3716,3 +3716,95 @@ tick box per template; buyers get an emailed link.
   checklist; README Status; `cloud/README.md`.
 - **Service worker:** `CACHE_NAME` v124 (owner asked). Migrations `0022`–`0024` applied on
   production (owner).
+
+## 2026-11-12: Kels's defects from the review, and what her forms didn't ask
+
+- **From the review (`docs/review/findings/`; K11, Kels's own session, hasn't run):**
+  - **K6-5:** Review my waitlist ranks and numbers families from `getMapForKennel`, archived
+    programs included, as every other reader; its program picker still offers live ones only.
+  - **K8-5 (Kels's part):** her drop-off address form has **Open in Maps**, and a failed
+    measure says to use it.
+  - **K9-3 (Kels's part):** Record the birth on an Expected litter no longer prefills its
+    placeholder whelp date as the birth date; a ready date that was just whelp + 8 weeks
+    follows the real birth (`guidedLitter.refreshReadyDate`). The litter check-in's picker
+    shows an Expected litter as due on its breeding's due date. The root (litter.js dating
+    a litter made from its pairing today) is not in this batch.
+  - **K9-4:** a heat with no end date counts as over 21 days after it started
+    (`nudges.HEAT_OPEN_DAYS`) for `heatpair`.
+  - **K9-12:** Prep pups' "add them as a co-owner" makes the pup Co-owned too
+    (`goHome.deliveredOwnershipChanges`).
+  - **K12-10:** the Stripe key steps always open Stripe's API keys page; her saved website,
+    made a full address, is a second link.
+  - **K13-7:** Lite's Live-Birth Summary imported two Pro-only modules. It reads only shared
+    ones now (its own loader; `liveBirthFigures` moved to `reportMath.js`, re-exported by
+    `reportFigures.js`) and hides ← All reports in Lite. Kept in Lite, as guide §31 says.
+    New `tests/liteImportGraph.test.js`: no page Lite keeps reaches a Pro-only file by a
+    static import (it fails on the old page).
+  - **K13-8:** Kels's Find in Demo leaves out the pages the Demo build drops.
+    `DEMO_EXCLUDED_PAGES` moved to `proPages.js` (`isDemoExcludedPage`); `assemble.mjs` reads it.
+  - **K13-14:** Record a litter checks Lite's litter cap before writing anything, so a refused
+    litter no longer leaves a new parent behind (no test: the cap hook is Lite's module).
+  - Already fixed before this batch: K6b-3 (waitlist fixes step 1).
+- **Asked (owner):**
+  - **Add dogs** asks what the Dog page needs: statuses are the Dog page's by edition
+    (Puppy added everywhere, External reference in Pro). A puppy is asked its plan
+    (disposition, required; Placed comes from a sale) and intended registration. An external
+    reference is asked its owner (picking it sets whose dog to External; one marked hers is
+    refused). A co-owned dog is asked its co-owner (a contact or a new name, required) and
+    Lives with. Saved as `co_owner_contact_ids` / `lives_with_contact_id` /
+    `disposition` / `intended_registration`. Contacts load in Lite too (co-owners).
+  - **Logging forms:** the litter check-in's care forms (shots, deworming, medication, vet
+    visit; also Prep pups') and the dog check-in's preventatives ask a title of their own
+    beside the named thing (a blank title still takes the name). A type with a related
+    contact (vet visit, surgery, boarding, show) picks it from her contacts, those with the
+    role first (`vocab.RELATED_CONTACT_ROLE`, moved from `eventForm.js`), or **Someone
+    new…**, made with the role, in place of the typed vet name, as the event form does. The
+    dog check-in's event form adds Notes and Remind me on.
+- **Found looking for more:** Kels's add-a-family (`kelsApplicant`) never checked the
+  do-not-sell list; it now warns first, and a second tap adds them anyway.
+- **Tests:** `guidedDogs` +2 (and the edition statuses), `guidedLitter` +1, `dogCare` +1,
+  `litterCheckin` +1, `linkedStatusNudges` +1, `kelsFind` +1, `liteImportGraph` (new).
+  `node --test` 1759 pass; `node build/assemble.mjs` succeeds. Checked in a browser (sample
+  data): Add dogs' puppy, external reference and co-owned answers, and the vet visit form's
+  vet picker.
+- **Docs:** End-State guide §0 table, §31, §33 (Add dogs, Record a new litter, Check in on my
+  dogs, the applicant step, Prep pups' registration, Review my waitlist). No new app files,
+  no schema or field changes. SW cache not bumped.
+
+## 2026-11-12: Screening tests, and Kels's care step (enter it once, for every dog)
+
+- **Includes** the unmerged `claude/kels-scripts-defects-mmhmwz` batch above (owner asked),
+  squashed into this one commit.
+- **Why (owner):** a routine fecal or heartworm test had nowhere to go but a vet visit's
+  free text, and Kels's health flows asked for each kind of care, dog by dog, one form at a time.
+- **New event type `screening_test`** (vocab): `test` (suggests `SCREENING_TESTS`: Fecal,
+  Heartworm, 4Dx, Giardia, Brucellosis, Bloodwork, Urinalysis), `result` (Negative /
+  Positive), Normal or abnormal, the vet (`relatedContact`, role vet). Not a health test
+  type (planned tests, waitlist results, Dog Cards stay breeding clearances). Veterinary
+  expense; on the Puppy Record (own toggle); Kels's "<dog> vet" answer. Not on family pages
+  or the portal (open question for the owner). Event `details` keys classify from vocab:
+  `cloudFields.js` regenerated.
+- **The care step** (`assets/careVisitUI.js` + `data/careVisit.js`, new): "What did they
+  have?" ticks (a vet visit, shots, screening tests, deworming or flea & tick, other
+  medication) with one date, the dogs and the vet; the visit saves there (cost, vet summary),
+  then each ticked kind's form arrives filled in. **Shots** are a checklist
+  (`VACCINE_CHOICES` + Other, each with next due, `VACCINE_NEXT_DUE`) → one vaccination per
+  shot per dog, reminders on. **Screening tests**: ticks with a result for all and
+  **Different for each dog**.
+- **Where:** Check in on my dogs' step 2 (replaces Vet visits, now before the preventatives,
+  so one given at the vet counts); vaccinations and medication leave its "Any other events"
+  list. Check in on a litter's **Health care** runs it (pups ticked, shots due in 3 weeks).
+  Pups are going home's shots fix uses the shots checklist. Log health test results offers
+  **A screening test** for the dog. `litterCheckin.CARE_KINDS` keeps only preventative and
+  medication; `careForm` moved to the care step.
+- **Tests:** `tests/careVisit.test.js` (new); `dogCare`, `litterCheckin` updated. Checked in
+  Chromium at phone width: the dog check-in (visit + shots + per-dog fecal + preventative for
+  two dogs), the litter's Health care, Log health test results' screening test.
+- **Titles kept apart from the named thing** (the batch above's logging-forms fix): the
+  care step's vet visit and each ticked shot and screening test ask an optional title of
+  their own beside the reason, vaccine or test; blank takes that name (`dogEvents`,
+  `NAME_KEYS.screening_test = 'test'`). Preventative and medication forms keep theirs.
+- **Docs:** End-State guide §(event types), §33 (the care step, Check in on my dogs, Log
+  health test results, Check in on a litter, Pups are going home, Kels's shots and vet).
+  New app files in `PRECACHE_URLS`.
+- **Service worker:** `CACHE_NAME` v125 (owner asked), for this batch and the one above.

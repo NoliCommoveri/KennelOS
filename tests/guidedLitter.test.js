@@ -298,3 +298,19 @@ test('the litter\'s registry: asked once, on every pup but one planned Unregiste
   assert.ok((await dogRepo.getByLitter(again.litterId)).every((p) => !p.registry), 'left empty: no registry');
   assert.equal(g.reviewSections(e, { dam, sire }).some((s) => s.title === 'Registry'), false);
 });
+
+test('an Expected litter\'s placeholder dates: no birth date prefilled; a derived ready date follows the real birth (K9-3)', () => {
+  const d = g.emptyDraft();
+  const litter = { id: 'L-exp', status: 'expected', whelp_date: '2026-11-02', estimated_ready_date: g.defaultReadyDate('2026-11-02') };
+  g.applyLitterChoice(d, litter, []);
+  assert.equal(d.whelpDate, '', 'the placeholder is not the birth date');
+  d.whelpDate = '2026-12-01';
+  g.refreshReadyDate(d);
+  assert.equal(d.readyDate, g.defaultReadyDate('2026-12-01'));
+  // A ready date she chose herself stays.
+  const mine = g.emptyDraft();
+  g.applyLitterChoice(mine, { ...litter, estimated_ready_date: '2027-02-14' }, []);
+  mine.whelpDate = '2026-12-01';
+  g.refreshReadyDate(mine);
+  assert.equal(mine.readyDate, '2027-02-14');
+});

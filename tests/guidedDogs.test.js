@@ -132,6 +132,66 @@ test('each dog\'s details: breed, a past birth date, status, whose, owner, kenne
   assert.equal(g.stepProblem('dog:0', d, { multiKennel: true, ownKennelIds: ['k1', 'k2'] }), null);
 });
 
+test('a puppy is asked its plan; an external reference its owner; a co-owned dog its co-owner', () => {
+  const d = rosterDraft([['Pippin', 'male']]);
+  const p = d.dogs[0];
+  p.breed = 'Golden Retriever';
+  p.kennelId = kennelId;
+  p.status = 'puppy';
+  assert.match(g.stepProblem('dog:0', d), /plan for Pippin/);
+  p.disposition = 'placed'; // comes from a sale, never picked here
+  assert.match(g.stepProblem('dog:0', d), /plan for Pippin/);
+  p.disposition = 'keeping';
+  assert.equal(g.stepProblem('dog:0', d), null);
+
+  p.status = 'external_reference';
+  g.tidyAnswers(p);
+  assert.equal(p.disposition, '', 'a plan is puppy-only');
+  assert.match(g.stepProblem('dog:0', d), /someone else's dog/, 'not one of hers');
+  p.ownership_type = 'external';
+  assert.match(g.stepProblem('dog:0', d), /owner/);
+  p.ownerName = 'Pat Smith';
+  assert.equal(g.stepProblem('dog:0', d), null);
+
+  p.status = 'active_breeding';
+  p.ownership_type = 'co_owned';
+  g.tidyAnswers(p);
+  assert.equal(p.ownerName, '', 'an owner only for someone else\'s dog');
+  assert.match(g.stepProblem('dog:0', d), /co-own Pippin with/);
+  p.coOwnerName = 'Lee Park';
+  assert.equal(g.stepProblem('dog:0', d), null);
+  assert.ok(g.reviewSections(d)[0].lines.includes('Active breeding. Co-owned with Lee Park (a new contact), living with you.'));
+  p.ownership_type = 'owned';
+  g.tidyAnswers(p);
+  assert.equal(p.coOwnerName, '');
+});
+
+test('the save: a co-owner (one contact per name) and where it lives; a puppy\'s plan and registration', async () => {
+  const contactsBefore = tables.contacts.rows.size;
+  const d = rosterDraft([['Quince', 'female'], ['Rowan', 'male'], ['Sorrel', 'female']]);
+  d.common.breed = 'Golden Retriever';
+  g.fillFromCommon(d);
+  const [q, r, s] = d.dogs;
+  q.ownership_type = 'co_owned'; q.coOwnerName = 'Lee Park'; q.livesWithCoOwner = true;
+  r.ownership_type = 'co_owned'; r.coOwnerName = 'lee  park';
+  s.status = 'puppy'; s.disposition = 'available'; s.intended_registration = 'limited';
+  for (const step of g.stepsFor(d)) assert.equal(g.stepProblem(step, d, { dogs: onFile }), null, step);
+  await g.saveGuidedDogs(d);
+  assert.equal(tables.contacts.rows.size, contactsBefore + 1);
+  const quince = await dogRepo.getById(q.id);
+  const rowan = await dogRepo.getById(r.id);
+  assert.equal(quince.ownership_type, 'co_owned');
+  assert.equal(quince.co_owner_contact_ids.length, 1);
+  assert.deepEqual(rowan.co_owner_contact_ids, quince.co_owner_contact_ids);
+  assert.equal(quince.lives_with_contact_id, quince.co_owner_contact_ids[0]);
+  assert.ok(!rowan.lives_with_contact_id);
+  const sorrel = await dogRepo.getById(s.id);
+  assert.equal(sorrel.status, 'puppy');
+  assert.equal(sorrel.disposition, 'available');
+  assert.equal(sorrel.intended_registration, 'limited');
+  assert.equal(quince.disposition ?? null, null);
+});
+
 test('parents are optional; a typed ancestor is a registered name, looked up by both names and its number', () => {
   const regDam = onFile.find((x) => x.sex === 'female' && x.registered_name);
   const d = rosterDraft([['Zinnia', 'female'], ['Quintessa', 'female']]);
@@ -287,9 +347,10 @@ test('seedTestsKennel: her dog\'s own kennel, else her only one; never an outsid
 });
 
 test('statuses and ownership follow the edition', () => {
-  assert.deepEqual(g.statusChoices({ fullDogStatuses: false }).map((s) => s.value), ['active_breeding', 'retired_breeding', 'deceased']);
+  // The Dog page's statuses, by edition.
+  assert.deepEqual(g.statusChoices({ fullDogStatuses: false }).map((s) => s.value), ['puppy', 'active_breeding', 'retired_breeding', 'deceased']);
   assert.ok(g.statusChoices({ fullDogStatuses: true }).some((s) => s.value === 'pet_home'));
-  assert.ok(!g.statusChoices({ fullDogStatuses: true }).some((s) => ['puppy', 'external_reference'].includes(s.value)));
+  assert.ok(['puppy', 'external_reference'].every((v) => g.statusChoices({ fullDogStatuses: true }).some((s) => s.value === v)));
   assert.deepEqual(g.ownershipChoices({ externalOwnership: false }).map((o) => o.value), ['owned', 'co_owned']);
   assert.deepEqual(g.ownershipChoices({ externalOwnership: true }).map((o) => o.value), ['owned', 'co_owned', 'external']);
 });
