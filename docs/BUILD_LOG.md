@@ -3714,3 +3714,5 @@ tick box per template; buyers get an emailed link.
   pass, `cd cloud && npm test` 330 pass.
 - **Docs:** End-State guide §5 (Account), §32; Integrations plan §2.3a, D32; launch
   checklist; README Status; `cloud/README.md`.
+- **Service worker:** `CACHE_NAME` v124 (owner asked). Migrations `0022`–`0024` applied on
+  production (owner).

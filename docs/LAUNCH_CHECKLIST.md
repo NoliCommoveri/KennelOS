@@ -335,7 +335,7 @@ and Email Routing.
   and a waitlist fee link, pay each in test mode, and check the app records them (Stripe must
   answer browser calls). Not yet exercised against the real service.
 - [ ] **Firma e-sign on production** (Integrations plan §2.3a; live company key, so each send
-  costs a credit): apply migrations `0022`, `0023` and `0024` in `/ops`, then check the E-sign (Firma) section
+  costs a credit): migrations `0022`, `0023` and `0024` are applied in `/ops`. Check the E-sign (Firma) section
   shows the key set and the credits. In the app: Contracts → Contract templates → Set up
   e-signing, upload a template, **Place fields** (Firma's editor opens in a new tab: check it
   loads and saves), send a contract to your own email, sign it, and check it comes back
