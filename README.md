@@ -56,8 +56,10 @@ backup, carries a program from Lite to Pro.
 - **The editions are feature-complete and live:** Lite with its cap, Pro with its license gate
   on, Demo, front doors, guided tours, marketing site, and cloud backup (Phase 1).
 - **In progress:**
-  - Integrations: next is step 8, an e-sign provider (SignWell / BoldSign). The Jotform steps
-    still need proving against a real account.
+  - Integrations: step 8, e-sign through Firma on KennelOS's own account with a monthly send
+    limit (plan §2.3a): the Worker side is built; next is the app side (Connect, templates,
+    the Send dialog). Needs the `FIRMA_API_KEY` secret and migration `0022` applied.
+    Jotform is retired; pasted contract-form links stay as the free fallback.
   - Cloud Phase 2 live sync: released. Next is checking it on real phones (iPhone and Android)
     on production; step 7, the live nudge, is optional. Production has every cloud migration
     through `0021` applied. Staging isn't in use, so deploys there aren't tracked.

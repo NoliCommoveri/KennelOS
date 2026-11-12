@@ -331,11 +331,15 @@ and Email Routing.
 - [ ] **Furever content packs on a real Google account:** in Pro, Connect Google Drive, publish a
   kennel pack and a litter pack, and check a family's Furever app receives the files (only its
   own pup's and the parents' from a litter pack). Not yet exercised against real Drive.
-- [ ] **Jotform and Stripe from a real browser:** connect a real Jotform key (Jotform must
-  answer browser calls; check the Full Name / Address prefill naming fills the form) and send a
-  contract that comes back Signed; connect a Stripe restricted key, make a one-time sale link and
-  a waitlist fee link, pay each in test mode, and check the app records them (Stripe must answer
-  browser calls). Neither has been exercised against the real service.
+- [ ] **Stripe from a real browser:** connect a Stripe restricted key, make a one-time sale link
+  and a waitlist fee link, pay each in test mode, and check the app records them (Stripe must
+  answer browser calls). Not yet exercised against the real service.
+- [ ] **Firma e-sign on a test key** (Integrations plan §2.3a): set `FIRMA_API_KEY` on staging,
+  apply migration `0022`, connect a kennel, upload a template and place fields in Firma's
+  editor, send a contract, sign it, and check the contract comes back Signed. Set the ESIGN
+  consumer-consent wording in the signer terms. Production: decide the monthly limit in `/ops`.
+- [ ] **A deleted account's Firma workspace** is removed by hand in Firma's dashboard within 30
+  days (the privacy policy promises it; Firma has no API to delete one).
 
 ## 5. Recurring (every subsequent release)
 

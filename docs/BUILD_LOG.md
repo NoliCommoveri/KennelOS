@@ -3269,3 +3269,74 @@ card's **Family page only** badge says they aren't on the list), and the entry p
 header keeps ⋯ beside the title at any width (title block `flex: 1 1 0; min-width: 0`,
 actions `flex: none`). Checked at phone width (Pixel 5). `waitlist-entry.html` / `.js`;
 no new file. Service-worker cache rides `v116`.
+
+## 2026-11-11: Firma chosen for e-sign (plan only)
+
+Researched firma.dev for step 8 of `docs/KennelOS_Integrations_Plan.md` and wrote it up as
+§2.3a. The owner decided **D25**: KennelOS holds the Firma account, with one workspace per
+cloud program and the master key as the Worker secret `FIRMA_API_KEY`. That supersedes D5's
+SignWell / BoldSign. **D26**: 10 sends per program per calendar month, reset the 1st (UTC),
+with the default set in `/ops`. Step 8's row, the plan status and the README Status are
+updated. No code yet; four Firma details are to be proven on a test key before the build.
+
+## 2026-11-11: Firma e-sign, step 8: the Worker
+
+`docs/KennelOS_Integrations_Plan.md` §2.3a (D25–D26).
+- **New `cloud/src/firma.js`:**
+  - Connect makes a Firma workspace per program, with its webhook and the webhook switch on.
+    Her workspace key and webhook secret are sealed in her connection.
+  - Workspace custom fields come from her device's fact list.
+  - Templates and Firma's editor token.
+  - `POST /integrations/esign/send` reserves a row in `esign_sends` under the monthly limit
+    before calling Firma.
+  - The signed-PDF link.
+  - The `/hooks/firma/<secret>` adapter: an HMAC check, with Firma's id mapped to her
+    contract.
+- **Migration `0022_esign`:** `esign_sends`, `ops_config`, `esign_limits`.
+- **`/ops`:** an "E-sign (Firma)" section with the default limit (10), credits left and sends
+  this month. Account find shows the account's count and its own limit.
+- **`integrations.js`:** `contract.expired` and `contract.cancelled` events. `toEvents` gets
+  `env` and may be async.
+- **Elsewhere in the Worker:** health (the `FIRMA_API_KEY` secret, `esign_sends` counted),
+  export (the three tables), retention (sends kept 400 days), account deletion, and staging's
+  `FIRMA_TEST_MODE`.
+- **Fixed during the build:** an unset default limit read as 0. A test caught it.
+- **Modified from the plan:** her workspace's key does her calls (the master key only sets
+  up). Firma has no API to delete a workspace, so disconnect and deletion stop only the
+  webhook.
+- **Tests:** 12 new in `cloud/tests/esign.test.js`. `cd cloud && npm test` 318 pass;
+  `node --test` 1724 pass; `node build/assemble.mjs` succeeds.
+- **Docs:** the plan's §2.3a "As built", `cloud/README.md`, README Status. No app file, so
+  no service-worker change.
+
+## 2026-11-12: Jotform retired (D27–D30)
+
+The owner decided to shut down Jotform (`docs/KennelOS_Integrations_Plan.md` D27–D30).
+- **Removed:**
+  - Connect Jotform: her API key, picking forms, matching fields (`jotformApi.js`,
+    `jotformConnect.js`, `jotformMatch.js`, the Accounts page's modals).
+  - The signed-form check: `jotformSigned.js`, the app-open check, and the Contract page's
+    **Check for signature**.
+  - Jotform from account health's key check and Kels's "replace a key" flow (now Stripe
+    only).
+  - Their tests.
+- **Kept:**
+  - Pasted contract-form links on a Form service account, as the free fallback beside Firma
+    (D28).
+  - Jotform data already saved stays read-only (D29). A form's `form_id` / `field_map` are
+    shown ("n fields matched"), saved unchanged and still used in its link. A contract sent
+    through Jotform keeps its label and link.
+  - No field leaves the schema or backups.
+- **New:** `jotformKeyStore.forgetJotformKeys`, run on app open, deletes any `jotform:`
+  device secret. One new test.
+- **Site:**
+  - pro, lite, editions and FAQ name Firma e-signing.
+  - Privacy: a new §9d (contracts sent for e-signature), a Firma row in the providers table,
+    a retention line and a "stop it" line. Jotform is gone.
+  - Terms: a new §8b (the monthly allowance, contracts are hers, keep a copy), and §12 names
+    Firma.
+  - Both pages are dated 12 November 2026, for the owner's review.
+- **Docs:** End-State guide §32 and the device-secrets lines, the editions plan, the launch
+  checklist (a Firma test-key run; removing a deleted account's workspace by hand), the Kels
+  roadmap, README Status.
+- **Precache:** four files removed from `shared/sw.js` `PRECACHE_URLS`; service-worker cache bumped to `v117`.

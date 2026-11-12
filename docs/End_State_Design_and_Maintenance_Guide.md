@@ -147,8 +147,8 @@ These are load-bearing. Changing any of them is a design decision, not a routine
 4. **No CDN.** Everything third-party is vendored under `vendor/` and loaded by relative
    path; the app works fully offline after first load. The online-only, opt-in exceptions
    each have one module that makes the calls: cloud backup and sync (`data/cloud/cloudApi.js`,
-   §30), Dropbox (`data/dropbox.js`, §26), Google Drive (`data/googleDrive.js`, §27), Jotform
-   (`data/jotformApi.js`) and Stripe (`data/stripeApi.js`) (§32).
+   §30), Dropbox (`data/dropbox.js`, §26), Google Drive (`data/googleDrive.js`, §27) and
+   Stripe (`data/stripeApi.js`) (§32).
 5. **One thin repo per entity**, uniform surface (see §6). New entity = new repo + new
    page; you don't reshape existing ones.
 
@@ -292,8 +292,9 @@ edited. A new plain field needs no block. JSON backups stay backward compatible 
   same, or `JSON.stringify` silently turns it into `{}`.
 
 **Device-only tables** (`db.DEVICE_ONLY_TABLES`): `device_secrets` (the unlocked vault key,
-an open unlock request, her Jotform and Stripe API keys, and her KennelPort website link token per kennel (§35), each read and written only by
-its key-store module) and `sync_meta` (§34). They're not kennel data: no registry entries,
+an open unlock request, her Stripe API keys, and her KennelPort website link token per kennel (§35), each read and written only by
+its key-store module; any `jotform:` row left from the retired Connect Jotform is deleted on app open by
+`jotformKeyStore.forgetJotformKeys`, §32) and `sync_meta` (§34). They're not kennel data: no registry entries,
 never in a backup. Code that means "the records" iterates `db.dataTables()`. Reset App and
 remote erase still clear them.
 
@@ -2664,7 +2665,7 @@ apart from removals she made).
 ## 32. Accounts (business logins & referral codes)
 
 **Editions:** Pro and Demo only (`editionFlags.accounts`). The vendor features hanging off
-Accounts (payment links, Stripe, Jotform) are Pro too. Design:
+Accounts (payment links, Stripe, contract-form links) are Pro too. Design:
 `docs/KennelOS_Integrations_Plan.md`.
 
 `pages/accounts.*` (the Storage hub's third tab) keeps her business accounts (AKC, Good Dog,
@@ -2706,8 +2707,8 @@ like `recommendedOf`) shows them only to a family whose entry has an open sale
 Share with families hint and the card's badge say so for this type.
 
 ### Contract forms and e-signature (plan §2.1)
-- A **Form service** account (`form_service`, e.g. Jotform) holds `contract_forms[]`
-  (`{ id, form_type, label, url, form_id?, field_map? }`; types from
+- A **Form service** account (`form_service`, any form service) holds `contract_forms[]`:
+  her pasted form links (`{ id, form_type, label, url, form_id?, field_map? }`; types from
   `vocab.CONTRACT_FORM_TYPE`, each serving certain `CONTRACT_TYPE`s and ranked for a sale's
   registration by `contractForms.rankForms`).
 - **Send for signature** (Contract page): picks a form, builds a prefilled link
@@ -2715,15 +2716,14 @@ Share with families hint and the card's badge say so for this type.
   `prefillUrl` uses the form's URL prefill, no API call), and opens the composer. Using it
   marks the contract `sent` with the `esign_*` fields. The breeder details come from the
   contact linked to the contract's kennel (`contractSend.breederFor`).
-- **Connect Jotform** (a key per account, **this device only**: `jotformKeyStore` in
-  `device_secrets`, never in a backup, sync or the cloud). `jotformApi.js` is the only
-  module calling Jotform, straight from the browser. Connected, she can add forms from her
-  Jotform account and **match fields** (`jotformMatch.suggestFieldMap` → `field_map`), so
-  the link carries only matched facts under her field names (`contractForms.mapValues`).
-- **Signed comes back** (`data/jotformSigned.js`): on app open (at most every 15 minutes,
-  Pro) or **Check for signature**, her device finds each Sent Jotform contract's submission by
-  its `contractRef` and applies `contract.signed` through `integrationApply`. A contract she
-  changed meanwhile becomes a Today review. Nothing else from the submission is kept.
+- **A form link has no way back:** she marks the contract Signed herself. The Accounts
+  page lists the field names a link fills (`PREFILL_FIELDS`, **Copy** each).
+- **Jotform data kept from Connect Jotform** (retired): a form picked through it keeps its
+  `form_id` and `field_map`. The Accounts page shows "n fields matched" and saves them
+  unchanged; sending it still puts only the matched facts in the link, under her field names
+  (`contractForms.mapValues`). They can't be re-matched. A contract sent through Jotform keeps
+  `esign_provider = 'jotform'`, its label and its link (**Copy link again**). On app open,
+  `jotformKeyStore.forgetJotformKeys` deletes any Jotform API key the device still holds.
 
 ### Payment services (plan §4–§5)
 - A **Payment service** account (`payment_service`) holds `payment_link` and/or
@@ -2829,7 +2829,7 @@ form), `assets/waitlistFeeStep.js` (Pro-only: the application fee and its paymen
 both waitlist tasks), `assets/kelsBackupSteps.js` (`offerCloudBackup`, `offerSensitiveRecords`,
 `VAULT_WHY`, `cloudBackupOn`: turning on cloud backup and Sensitive records backup in the
 chat; the waitlist tasks, Getting Started and account health's wording), `assets/kelsSetupUI.js` +
-`data/kelsSetup.js` (Getting Started), `assets/vendorKeyUI.js` (`vendorKeyFlow`: a Stripe or Jotform key connected or
+`data/kelsSetup.js` (Getting Started), `assets/vendorKeyUI.js` (`vendorKeyFlow`: a Stripe key connected or
 replaced in the chat; account health and the waitlist setup), `assets/kelsFindings.js` (`FindingsTask`, the
 look → raise one at a time → fix → look again loop the tidy-up and account health share:
 "Not now", a remembered "Don't ask me again" under `<prefix>:<key>` in the nudge ledger,
@@ -3678,7 +3678,7 @@ never the business Accounts page. All editions; each check only where its featur
 | `license-grace` | Pro gate on, license in grace | **Check it again now** (`evaluateLicense`), **Renew my subscription** (the checkout in a new tab, announced, then checked again), or **Use a different key** (pasted in the chat, `license.activate`) |
 | `update` | a new service worker is installing or waiting, or took over since the page loaded | reload |
 | `device-lost` | another device on the account (not erasing, not signed out on its own) unseen 60+ days | `cloudBackupUI.devicesModal()`; "It's fine, I still use it" is remembered |
-| `key-rejected` | Pro `accounts`: a Stripe / Jotform key on this device that its vendor refuses (`stripeCheckKey` / `jotformUser`, one call each, skipped offline) | **Help me replace it**, all in the chat: the steps to make a new key in a new tab (Stripe's from `stripeLinks.STRIPE_KEY_PERMISSIONS`, the list the Accounts page shows too), a link to the vendor (the account's `website`, else its API page), the account's saved username and password when it has them (the password masked until **Show**; **Copy** for each), then the new key and currency / region pasted in and checked and saved by `connectStripe` / `connectJotform`, as the Accounts page connects. "I'll do it later" leaves it for the next visit |
+| `key-rejected` | Pro `accounts`: a Stripe key on this device that Stripe refuses (`stripeCheckKey`, one call each, skipped offline) | **Help me replace it**, all in the chat: the steps to make a new key in a new tab (Stripe's from `stripeLinks.STRIPE_KEY_PERMISSIONS`, the list the Accounts page shows too), a link to the vendor (the account's `website`, else its API page), the account's saved username and password when it has them (the password masked until **Show**; **Copy** for each), then the new key and currency pasted in and checked and saved by `connectStripe`, as the Accounts page connects. "I'll do it later" leaves it for the next visit |
 | `waitlist-signed-out` / `waitlist-error` | Pro `waitlist`: a kennel's list is online, and this device isn't signed in / its last update failed | signed out: **Sign in now** (`cloudBackupUI.signInModal`); failed: why (`waitlistOnlineUI.onlineProblemText`), **Turn on cloud backup** when that's the reason, or **Try again now**. Either way she publishes at once (`syncWaitlistOnline({ force: true })`) and says how it went |
 | `vault-off` | Sensitive records offered and off | `turnOnVaultFlow()` |
 | `passkey-none` | on, passkeys supported, none added | `passkeysModal()` |
