@@ -290,7 +290,18 @@ on the Accounts page →". **No form of a matching type** → the picker opens o
 - **Sale types** (`pet_home`, `breeding_rights`, `deposit`, sale `co_own`): `saleRef`,
   `buyerFirstName`, `buyerLastName`, `buyerEmail`, `buyerPhone`, `buyerAddress`, `puppyName`,
   `puppySex`, `puppyColor`, `puppyDob`, `puppyMicrochip`, `sireName`, `damName`, `breed`,
-  `registrationType`, `price`, `depositAmount`, `balanceDue`.
+  `registrationType`, `price`, `depositAmount`, `balanceDue`, and for a contract's payment
+  table `depositDue`, `otherPaymentsReceived`,
+  `purchaseBalanceDue` (2026-11-12; End-State guide §32).
+- **A sale's separate agreements** (2026-11-12, owner request): `transport`, `boarding`
+  (delayed pickup) and `extra` form types. An Extra agreement is for one of her price-list
+  extras (e.g. a training package, which is boarded in place of standard boarding), named on
+  its row (`extra_list_id`). Fields: `transportFee`, `deliveryDate`,
+  `deliveryPlace`, `transportDueDate`; `boardingRate`, `boardingPer`,
+  `boardingLength`, `boardingTotal`, `boardingStart`, `boardingEnd`; `extraName`,
+  `extraDescription`, `extraPrice`, `extraPayments`, `extraPayment1–4Amount/Due`,
+  `extraStayDays`, `extraStayStart`, `extraStayEnd`. A boarding or training agreement is
+  dated by the sale's `pickupDate`; sending one with no pickup on the calendar asks for it.
 - **Stud service:** `studName`, `damName`, `damOwnerName`, `damOwnerEmail`, `studFee`,
   `serviceType`.
 - **Co-own / lease / foster / other:** `dogName`, `dogRegisteredName`, `dogMicrochip`,
@@ -618,6 +629,18 @@ event kinds on Today) is next. **Modified** from the plan above:
     page stands them in, in memory.
   - Checked in a browser that the script loads and calls Firma inside the sandbox. A real
     token is proven on the first production run.
+- **Preview** (2026-11-12, owner request): the Send dialog's Preview makes a draft signing
+  request of the same send (free: Firma charges at send) and opens it read-only in Firma's
+  embeddable signing request editor, on the Worker's sandboxed editor page. The dialog
+  discards it when it closes. Its token isn't read-only (that's the editor's setting), so a
+  preview **holds a place in her month** while open (an `esign_sends` row, status `preview`,
+  never counted): made only under her limit, discarded by a new preview, a send, the dialog
+  closing or the hourly cron, and counted if its draft is found sent. *To prove on the first production run:* that a draft costs no
+  credit, that the read-only editor shows the prefilled values, and that `DELETE
+  /signing-requests/{id}` removes a draft.
+- **A template deleted in Firma's editor** (2026-11-12) stops being offered: the device
+  drops its row once Firma's complete list lacks it (Contract templates, and each send
+  picker), and the Worker refuses a send of it (`404 template_missing`) before it counts.
 - **Modified** from the plan above:
   - The editor isn't an iframe in the app (D31).
   - There's no separate Connect: Set up e-signing in Contract templates is it.
@@ -626,7 +649,10 @@ event kinds on Today) is next. **Modified** from the plan above:
 Firma".
 - A template's **I countersign** tick (Contract templates) sets `countersign: true` on its
   `contract_forms` row. She gives the second signer its signature field in Firma's editor.
-- She signs as her **cloud account's email** (owner decision), named for her kennel. The
+- She signs as her **cloud account's email** (owner decision), named for her kennel.
+  **Modified (2026-11-12, owner decision):** under a name she chooses, one per own kennel
+  (`Kennel.esign_signer_name`, cloud tier); unset, the contact linked to the kennel, else the
+  kennel's name. The
   device sends it as `countersigner { name, email }`. The Worker keeps only the email's hash,
   and keeps nothing of this send's emails in `esign_sends`.
 - `POST /integrations/esign/send` makes her the second Signer (`order: 2`, with the buyer's custom fields, so fields placed for her fill)

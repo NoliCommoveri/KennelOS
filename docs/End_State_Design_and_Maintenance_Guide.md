@@ -213,7 +213,7 @@ to the cloud unsealed).
 |---|---|---|
 | **Dog** | `call_name`, `sex`, `breed`, `ownership_type`, `status`; `kennel_id` when `owned`/`co_owned` (an own kennel) | `sire_id`, `dam_id`, `litter_id`, `breeder_kennel_id` (who produced it; prefilled from an owned dam's kennel) vs `kennel_id` (who has it now; an outside kennel for `external`/`leased_in`), `owner_contact_id` (required for `external`/`leased_in`), `co_owner_contact_ids[]`, `lives_with_contact_id` (cloud; which of its co-owners a `co_owned` dog lives with now, empty meaning with her; no history; `dogRepo.livesWithOk` clears it on every write once it isn't one of the dog's co-owners or the dog isn't co-owned; picked as **Lives with** on the Dog form, Me or a co-owner; decides where it shows on her website, §35), `registered_name`, `registry` + `registration_number` (the main registration), `additional_registrations[]` (cloud; every other registry it's registered with: `{ registry, registration_number, registered_name }`, the name blank when it's the same; trimmed, and an entry with neither registry nor number dropped, by `dogRepo.normalizeRegistrations` on every write that carries it; edited as rows under Registration # on the Dog form, shown as Other registrations), `microchip_id`, `planned_tests[]`, `recorded_coi`, `url` (a link to its photos). `photos_online` (boolean, default off; cloud) is this dog's say over showing `url` as a photos link on waitlist pages (§29 Online), ticked on the Dog form with the waitlist. `show_on_website` and `heats_online` (booleans, default off; cloud) are her KennelPort website's marks: this dog has a page there, and its future heats may show as a month (§35). `disposition` (`undecided`/`keeping`/`available`/`placed`/`health_hold`) is **puppy-only**: forced null unless `status='puppy'`. `intended_registration` (`REGISTRATION_TYPE`) prefills a sale's registration and limits waitlist matches (§29); never cleared on growing up. `waitlist_tests` (`PARENT_TESTS_SHOWN`: `off`/`normal`/`all`, null = follow Waitlist settings' `parent_tests`) is this dog's say over which of its completed health tests show on waitlist family pages (§29 Online), set on its Health-Test Summary card. `pedigree_only` = a lineage-only ancestor: no owner needed, `call_name` may be blank if `registered_name` is set (`dogRepo.dogName`); every one is made by `dogRepo.createPedigreeOnly` (the pedigree import, Kels's tidy-up and Add dogs), named by its registered name, `external`, `external_reference`. `public_id` (cloud; indexed, `version(6)`) is its Dog Card id, `kosd1_<uuid>`, minted when it first goes on a card or received with one, write-once (§36). |
 | **Contact** | `name` | `contact_type[]`, `email`, `phone`, `facebook_profile`, `address` (also the away-board location, §19), `kennel_id` (affiliation, not scope), `waitlist_status` (kept by `waitlistEntryRepo`), `first_contact_source`, `companion_note` (shown to the recipient, §20; `notes` is private). Buyers are Contacts; there is no Buyer table. |
-| **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `name_on_website` (boolean, default off, cloud; an outside kennel her website may name, by name and website, as a co-owned dog's kennel; ticked on the Kennels list's Edit row, Pro with the website link, §35), `kennelport_portal` (cloud; her puppy portal on KennelPort, kept from its answers: its addresses, the one-tap link's key, the families it has taken over and the facts applied; null while off, §35.1), `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `extra_charge_groups` (its groups' defaults, private, §21.2), `pickup_locations` (her pickup places, private, §29 Pickup), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
+| **Kennel** | `kennel_name` | `is_own_kennel`, `public_id` (identity, not an FK, §28), `prefix`, `location`, `website`, `name_on_website` (boolean, default off, cloud; an outside kennel her website may name, by name and website, as a co-owned dog's kennel; ticked on the Kennels list's Edit row, Pro with the website link, §35), `kennelport_portal` (cloud; her puppy portal on KennelPort, kept from its answers: its addresses, the one-tap link's key, the families it has taken over and the facts applied; null while off, §35.1), `logo_data_url` (kept under ~300 KB, `assets/kennelSettingsFields.js` `LOGO_MAX_CHARS`), `preferred_tests[]`, `preferred_breeds[]`, `preferred_test_breeds`, promote-nudge settings (§19), `esign_signer_name` (cloud; the name she countersigns e-sign contracts with for this kennel, §32), `puppy_record_fields` (§23), `extra_charge_list` (the extra charges price list, private, §21.2), `extra_charge_groups` (its groups' defaults, private, §21.2), `pickup_locations` (her pickup places, private, §29 Pickup), `time_zone`, `waitlist_form_keys` (private), `waitlist_fee_account_id` (FK → Account), `waitlist_config` (all waitlist settings; missing keys read from `waitlistRules.WAITLIST_CONFIG_DEFAULTS`, §29). |
 | **Pairing** | `sire_id`, `dam_id`, `pairing_type`, `status`, `kennel_id` | `method`, `planned_date`, `last_observed_date`, `expected_due_date` (prefilled 63 days after `planned_date` when empty), `show_on_website` (boolean; cloud; shows under Coming up on her website, §35). Sire ≠ dam. |
 | **Litter** | `dam_id`, `sire_id`, `status`, `kennel_id` | `nickname`, `pairing_id`, `whelp_date`, `accept_deposits_date`, `estimated_ready_date` (prefilled whelp + 56 days; follows a whelp change while still the prefill), `litter_registration_number`, `show_on_website` (boolean, cloud: this litter and its puppies on her website, §35; unset follows its pairing's), `photos_url` (a link to photos of the whole litter, cloud; shown on the Litter page, the Litters table's Photos column, asked in Kels's Add a litter, and on the litter's cards on waitlist pages, §29 Online), `puppies_born_*` counts, `delivery_type` (`LITTER_DELIVERY_TYPE`: natural, assisted, planned or emergency C-section; cloud; shown and asked only once the litter is Whelped or later, see Litter delivery below), per-sex `expected_price_*` / `expected_deposit_*` / `full_reg_surcharge_*` (private; `saleDefaults.expectedPricing`), `picks_opened_date` (§29), `waitlist_off` (boolean, cloud: kept off the waitlist, §29 Family pages without the list), `pickup_slots` and `pickup_date_rules` (her pickup times and each date's rule, private, §29 Pickup), foster fields (§25), `feeding_schedule_override` (§27). Its puppies are derived (`Dog WHERE litter_id`). |
 | **Sale** | `dog_id`, `buyer_contact_id`, `registration_type`, `status`, `kennel_id` | `sale_date`, `price`, `deposit_amount`/`_date`, `balance_due_date`, `balance_paid_date`, `transport_fee`, deferred boarding (`deferred_boarding_amount`/`_frequency`/`_duration_days`, the last a count of frequency units, §21), `end_reason`/`end_note` (voided/returned only), `lead_source`, `referred_by_contact_id` (§22), invoice fields (§24), `sales_channel_account_id`, `deposit_paid_via_account_id`, `balance_paid_via_account_id`, `processing_fee_amount` (a stored snapshot, §21.1), `fee_passed_to_buyer`, `extra_charges[]` (private, §21.2), payment-link fields and `processing_fee_reports` (§32), `integration_reviews` (§19). Changing `registration_type` asks whether the Full surcharge follows (`saleDefaults.priceForRegistrationChange`). |
@@ -1327,7 +1327,10 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
   so today they're only stored. The sale offers its own kennel's list (the dog's, for a new
   sale; every own kennel's when neither is known), grouped. Picking one copies the name and
   amount, so a later price change never rewrites a sale; from the list it also copies
-  `list_id`, `group` and the plan as dated steps.
+  `list_id`, `group`, the stay's `boarding_days` and the plan as dated steps. Every way a
+  price-list extra reaches a sale (the Sale page, Kels's Prep pups, a family's approved
+  request) builds the charge with `extraCharges.chargeFromPriceList`, so each one links to
+  its price-list row the same.
 - **Payment plans on a sale:** `Sale.extra_charges[].payments` = `[{ id, percent, amount, due,
   n?, due_date?, paid_date? }]` (`planSteps`: `at_weeks` dated from the pup's birth date,
   `on_approval` from that day; `before_pickup` / `with_balance` read live by `stepDueDate`).
@@ -2708,9 +2711,49 @@ Share with families hint and the card's badge say so for this type.
 
 ### Contract forms and e-signature (plan §2.1)
 - A **Form service** account (`form_service`, any form service) holds `contract_forms[]`:
-  her pasted form links (`{ id, form_type, label, url, form_id?, field_map? }`; types from
-  `vocab.CONTRACT_FORM_TYPE`, each serving certain `CONTRACT_TYPE`s and ranked for a sale's
-  registration by `contractForms.rankForms`).
+  her pasted form links (`{ id, form_type, label, url, form_id?, field_map?, extra_list_id? }`;
+  types from `vocab.CONTRACT_FORM_TYPE`, each serving certain `CONTRACT_TYPE`s and ranked for
+  a sale's registration by `contractForms.rankForms`).
+- **A sale's separate agreements** (types with `addOn`): **Transport agreement**, **Boarding
+  agreement**, and **Extra agreement**, one per extra: its row's `extra_list_id` is the
+  price-list row (`Kennel.extra_charge_list`) it's for.
+  - **One pick for a form's kind** (`contractAddOns.formKindOptionsHtml` / `readFormKind`):
+    her contract types, and in place of the bare Extra agreement type each of her extras by
+    name ("Agreement: 2-week training", from `extraChoices`: every own kennel's list). Its
+    value is the type, or `extra:<row id>`. The Accounts page (pasted forms) and Contract
+    templates use it.
+  - `rankForms` lists the sale's own contract forms first, then a separate agreement only
+    when the sale has its charge (`addOnApplies`: a transport fee, deferred boarding, or the
+    extra the form would fill from, `extraFor`, given the sale's `addOns`), else under Show
+    all forms.
+  - **Each agreement has its own contract record** (`contractSend.contractForForm`,
+    `contractForms.agreementKey`: '' for the sale's main contract, `transport`, `boarding`,
+    `extra:<row id>`). A send uses the record she's on while nothing went out on it, or the
+    same agreement did. Once a different agreement went out on it (its `esign_form_label`
+    among her forms), the form goes out on that agreement's own sendable record for the
+    sale, else a new draft titled "<form label>: <pup>". So one being signed never marks
+    another Signed. The Contract page then opens that record; Pick to send does the same.
+  - Each fills the sale fields plus its own group (`contractForms.fieldGroupsFor`), from
+    `contractAddOns.addOnFacts` (pure; `contractSend.saleAddOns` reads the records, and
+    `gatherContractFacts` passes it as `addOns`):
+    - transport: the fee, the date and place of the sale's next pickup event (else its
+      latest), and the balance due date;
+    - boarding: rate, per, length, total, from the day the pup could go home (`pickupFrom`:
+      its ready date, or the day after its last training stay) to the day before its pickup
+      (else `goHome.boardingEnd`);
+    - extra (`extraFor`: the sale's charge with that `list_id`, else one typed by hand with
+      the row's name): name, price-list description, price, the payment plan in words and up
+      to four steps (`extraPayments`, due dates by `extraCharges.stepDueDate`), and for a
+      training package its stay: the linked boarding event(s) (`goHome.trainingStaysFor`),
+      else the one Today's nudge would log, from the ready date. A deposit fee charge-back
+      is no agreement.
+  - **The pickup date** dates a boarding agreement and a training package's agreement (the
+    sale's `pickupDate` field). Sending one with no pickup on the calendar
+    (`contractAddOns.pickupToSet`) asks for the date first, offering the day after the
+    boarding or the last stay ends; Save logs the pickup (`contractSend.logPickup`, the
+    `placement` event `goHome.pickupEvent` builds) and the facts are read again; Skip sends
+    without.
+  `prefillValues` takes the form (not only its type) so an Extra agreement knows its extra.
 - **Send for signature** (Contract page): picks a form, builds a prefilled link
   (`contractForms.prefillValues`, an allow-list that never includes notes or terms;
   `prefillUrl` uses the form's URL prefill, no API call), and opens the composer. Using it
@@ -2719,6 +2762,17 @@ Share with families hint and the card's badge say so for this type.
   A sale's `pickupDate` is `goHome.expectedPickupDate`: the pup's next pickup for that
   family on the calendar (`goHome.pickupFor`), else its latest, else the litter's ready date
   (`goHome.readyDateOf`).
+  A sale's payment table (pure `incomeView.priceTable`, from the sale's `getSaleCredits`;
+  the purchase price only: no transport, boarding or extras): `depositDue` is
+  the deposit less the fee credited toward it (`waitlist_config.fee_credit_toward` =
+  deposit) and the received funds allocated to it (each credit's **Applies to**: Deposit),
+  the same before and after the deposit is marked paid;
+  `otherPaymentsReceived` the credits and payments toward the balance (the credited fee
+  when it isn't taken off the deposit, received funds not on the deposit, a paid balance),
+  so price = deposit + `otherPaymentsReceived` + `purchaseBalanceDue` and nothing counts
+  twice (a fee their received funds paid counts only as the fee, `fee_credit_amount`); `purchaseBalanceDue` the rest of the price. `price` is the sale's price,
+  which carries any Full registration surcharge (`saleDefaults`); `balanceDue` stays
+  everything owed on the sale.
 - **A form link has no way back:** she marks the contract Signed herself. The Accounts
   page lists the field names a link fills (`PREFILL_FIELDS`, **Copy** each).
 - **Jotform data kept from Connect Jotform** (retired): a form picked through it keeps its
@@ -2748,18 +2802,25 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     The tab is opened before the await and has no `opener`.
 - **What KennelOS keeps** (`data/esignTemplates.js`):
   - Only each template's kind, as a `contract_forms` row
-    `{ id, form_type, label, provider: 'firma', template_id, countersign? }`
-    (`contractForms.isFirmaForm`; no `url`). `countersign: true` (the template's **I
+    `{ id, form_type, label, provider: 'firma', template_id, countersign?, keep_copy?, extra_list_id? }`
+    (`contractForms.isFirmaForm`; no `url`). Contract templates is the only place a row is
+    set: the Accounts page shows it and, on save, keeps it exactly as stored. `countersign: true` (the template's **I
     countersign** tick, enabled once it has a type) means she signs it too; a retype keeps
     it. `keep_copy: true` (its **Email the buyer the signed copy** tick) means KennelOS keeps
     the signed PDF and emails the buyer a link (below).
   - The rows live on the **E-sign (Firma)** Form service account (`FIRMA_ACCOUNT`), made the
     first time she types a template.
-  - The template list comes from Firma, merged with the rows (`mergeTemplates`).
+  - The template list comes from Firma, merged with the rows (`mergeTemplates`). The Worker's
+    list says `complete` (fewer than its page of 100). From a complete list, a row whose
+    template Firma no longer has (deleted in Firma's editor) is dropped from every Form
+    service account (`esignTemplates.forgetMissingTemplates`), when Contract templates opens
+    and when a send picker loads (below).
   - On the Accounts page, a Firma row's type and label can be edited, or the row removed. It
     shows **Manage** (to Contract templates) instead of a link.
 - **Send for signature** offers her typed templates (`contractSend.loadContractForms`, only
-  while signed in) beside her pasted forms, marked **E-sign**. Choosing one opens
+  while signed in, and only those still in Firma: it asks `cloudEsign.liveTemplateIds` and
+  drops the missing ones; with no complete list, offline say, it keeps them all) beside her
+  pasted forms, marked **E-sign**. Choosing one opens
   `esignUI.sendWithFirma`:
   - It shows who signs and their email, and "n of N this month".
   - **Firma emails them** is on by default. Off, the link goes in her own message (the
@@ -2772,7 +2833,10 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     required one never blocks the send. The Worker logs a refusal's Firma code, and the keys
     (never values) of prefilled fields a sent request left empty (`firma.emptyPrefills`).
   - On a template she countersigns, `sendBody` adds her as `countersigner`
-    (`cloudEsign.countersignerFor`: her cloud account's email, named for her kennel). The
+    (`cloudEsign.countersignerFor`: her cloud account's email, under the kennel's
+    `esign_signer_name` (**Countersign as** in Contract templates, one per own kennel), else
+    the contact linked to the kennel, else the kennel's name:
+    `esignTemplates.kennelSignerName`). The
     Worker makes her the request's second Signer (`order: 2`): one request, one credit.
     The dialog says she countersigns as that email. With no account email on the device, or
     her email as the buyer's, the send is refused before Firma.
@@ -2782,6 +2846,31 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     signing request id; cloud tier), `esign_url` (the buyer's signing link), `esign_sent_date`,
     `esign_form_label` and `esign_countersign` (cloud tier: she countersigns it).
   - A second send needs **Send again** (`resend`).
+  - **Preview** (`cloudEsign.previewLink`): the same `sendBody` goes to
+    `POST /integrations/esign/preview`, which makes a **draft** signing request
+    (`POST /signing-requests`: never sent, never charged, never counted as a send) and a
+    token for it (`/jwt/generate-signing-request`). It opens in a new tab on
+    the editor page (`/esign/editor#t=…&sr=…`), Firma's signing request editor `readOnly`: her
+    real template with this contract's values.
+    - **A preview holds a place in her month** while it's open: an `esign_sends` row with
+      status `preview` (no column of its own; `usage` and `/ops` leave it out). Read-only is
+      the editor's setting, not the token's, so for its 7 days the token could send the draft
+      from Firma's own editor. A preview is made, and a send reserved, only while her sends
+      plus open previews are under her limit (`HELD`), so however a draft is sent she can't
+      pass it. At the limit a preview is refused (`esign_limit_reached`).
+    - `firma.settlePreview` ends one: the draft is deleted (only while Firma says `draft`)
+      and the row removed; a draft found sent becomes a counted send from then (a webhook for
+      it does the same); with no clear answer, or a status word KennelOS doesn't know, the
+      row keeps its place until the token is dead (8 days).
+    - It runs for all her open previews before a new preview and before a send (one preview
+      at a time; her own preview never blocks her send), when her device closes the Send
+      dialog (`DELETE /integrations/esign/preview?id=`, `cloudEsign.discardPreview`; one that
+      comes back after the dialog closed is discarded at once), and in the hourly cron for
+      previews over an hour old (`runEsignPreviews`).
+  - The Worker reads the template with her key before it reserves the send: a 404 is
+    `404 template_missing`, before anything counts. So is a 404 from Firma's send (the row is
+    freed). The dialog then forgets that template (`esignTemplates.forgetTemplate`) and says
+    so; Send stays off.
   - `cloudEsign.esignProblem` words each refusal: the limit with its reset date, Firma not
     answering (don't resend), signed out, and so on. A Firma refusal (`esign_refused`) names
     Firma's own code (the body's `code`, kept on the error as `providerCode`: `CloudError`

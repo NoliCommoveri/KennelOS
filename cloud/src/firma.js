@@ -20,7 +20,11 @@
 //                                              link emailed to the buyer
 //   runEsignCopies (hourly cron)               copies signed PDFs to R2, emails the link
 //   POST /hooks/firma/<secret>                 Firma's webhook (integrations.js)
-//   GET  /esign/editor (+ .js, .css)           Firma's template editor, in its own tab
+//   POST /integrations/esign/preview           a draft of a send, read-only in Firma's editor;
+//                                              it holds a place in her month while open
+//   DELETE /integrations/esign/preview?id=     discard that draft
+//   runEsignPreviews (hourly cron)             discards previews left open
+//   GET  /esign/editor (+ .js, .css)           Firma's template editor (or a draft, read-only), in its own tab
 //
 // The connection's sealed token (integrations.js) is JSON: her workspace's API key,
 // its webhook signing secret and the webhook's id. Never sent to a device.
@@ -128,8 +132,13 @@ export async function monthlyLimitFor(env, programId) {
   return own == null ? { limit: await defaultMonthlyLimit(env), own: false } : { limit: Number(own), own: true };
 }
 
+// A send counts; a preview's row (status 'preview', below) never does. A place is
+// only free while the month's sends PLUS her open previews are under the limit
+// (HELD), so a preview's draft, sent some other way, can't take her past it.
+const HELD = "(status = 'preview' OR sent_at >= ?)";
+
 export async function sendsThisMonth(env, programId, now = new Date()) {
-  return (await env.DB.prepare('SELECT COUNT(*) AS n FROM esign_sends WHERE program_id = ? AND sent_at >= ?')
+  return (await env.DB.prepare("SELECT COUNT(*) AS n FROM esign_sends WHERE program_id = ? AND sent_at >= ? AND status != 'preview'")
     .bind(programId, monthBounds(now).start).first('n')) ?? 0;
 }
 
@@ -169,7 +178,7 @@ export async function esignOpsSummary(env, now = new Date()) {
     testMode: env.FIRMA_TEST_MODE === 'true',
     defaultLimit: await defaultMonthlyLimit(env),
     workspaces: (await env.DB.prepare("SELECT COUNT(*) AS n FROM int_connections WHERE provider = 'firma'").first('n')) ?? 0,
-    sendsThisMonth: (await env.DB.prepare('SELECT COUNT(*) AS n FROM esign_sends WHERE sent_at >= ?').bind(start).first('n')) ?? 0,
+    sendsThisMonth: (await env.DB.prepare("SELECT COUNT(*) AS n FROM esign_sends WHERE sent_at >= ? AND status != 'preview'").bind(start).first('n')) ?? 0,
     unknownThisMonth: (await env.DB.prepare("SELECT COUNT(*) AS n FROM esign_sends WHERE sent_at >= ? AND status = 'unknown'").bind(start).first('n')) ?? 0,
     ownLimits: (await env.DB.prepare('SELECT COUNT(*) AS n FROM esign_limits').first('n')) ?? 0,
     credits: null,
@@ -277,15 +286,21 @@ export async function syncFirmaFields(env, auth, body) {
 }
 
 // GET /integrations/firma/templates
+const TEMPLATE_PAGE = 100;
+
 export async function listFirmaTemplates(env, auth) {
   await herSide(env, auth);
   const { secrets } = await mine(env, auth);
-  const r = await firma(env, secrets.apiKey, 'GET', '/templates?page_size=100&sort_by=name&sort_order=asc');
+  const r = await firma(env, secrets.apiKey, 'GET', `/templates?page_size=${TEMPLATE_PAGE}&sort_by=name&sort_order=asc`);
   if (!ok(r)) fail(502, 'esign_unavailable');
+  const results = Array.isArray(r.data?.results) ? r.data.results : [];
   return {
-    templates: (r.data?.results ?? []).filter((t) => t?.id).map((t) => ({
+    templates: results.filter((t) => t?.id).map((t) => ({
       id: String(t.id), name: String(t.name ?? ''), pageCount: Number(t.page_count) || null,
     })),
+    // Every template she has, not just a first page: her device may then forget
+    // the ones that are gone (deleted in Firma's editor).
+    complete: results.length < TEMPLATE_PAGE,
   };
 }
 
@@ -405,10 +420,8 @@ export function emptyPrefills(data) {
 // month's count is under her limit, so two sends at once can't pass it. A send
 // Firma refused frees its row; one whose outcome is unknown keeps it (its credit
 // may be spent) and says so.
-export async function sendForSignature(env, auth, body, now = new Date()) {
-  await herSide(env, auth);
-  const { connection, secrets } = await mine(env, auth);
-
+// The send's body, checked (sendForSignature and the preview share it).
+function parseSend(body) {
   const contractId = text(body?.contractId);
   const templateId = text(body?.templateId);
   if (!UUIDISH.test(contractId)) fail(400, 'bad_contract');
@@ -438,10 +451,51 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
     countersigner = { first_name: name, email: herEmail, designation: 'Signer', order: 2 };
   }
 
+  return { contractId, templateId, firstName, lastName, email, facts, title, keepCopy, kennelName, countersigner };
+}
+
+// A template gone from her workspace (deleted in Firma's editor) → 404 template_missing.
+async function templateThere(env, key, templateId) {
+  const tpl = await firma(env, key, 'GET', `/templates/${encodeURIComponent(templateId)}`);
+  if (tpl.status === 404) fail(404, 'template_missing');
+}
+
+// Firma's body for one request: the buyer, and her as the second signer when she
+// countersigns, each with every fact under each name the template may use.
+async function requestBody(env, key, workspaceId, { templateId, title, firstName, lastName, email, facts, countersigner }, emailSigner) {
+  const rows = Object.keys(facts).length ? await customFieldRows(env, key, workspaceId) : null;
+  const values = withFieldAliases(facts, rows);
+  return {
+    values,
+    payload: {
+      name: title,
+      template_id: templateId,
+      recipients: [
+        { first_name: firstName, last_name: lastName || undefined, email, designation: 'Signer', order: 1, custom_fields: values },
+        ...(countersigner ? [{ ...countersigner, custom_fields: values }] : []),
+      ],
+      settings: { send_signing_email: emailSigner },
+    },
+  };
+}
+
+export async function sendForSignature(env, auth, body, now = new Date()) {
+  await herSide(env, auth);
+  const { connection, secrets } = await mine(env, auth);
+  const { contractId, templateId, firstName, lastName, email, facts, title, keepCopy, kennelName, countersigner } = parseSend(body);
+
   const live = await env.DB.prepare(
     "SELECT signing_request_id, status FROM esign_sends WHERE program_id = ? AND contract_id = ? AND status IN ('sending', 'sent', 'unknown') ORDER BY sent_at DESC LIMIT 1",
   ).bind(auth.programId, contractId).first();
   if (live && body?.resend !== true) fail(409, 'already_sent', { signingRequestId: live.signing_request_id ?? null, status: live.status });
+
+  // A template deleted in Firma's editor (her device may still offer it): refused
+  // here, before a place in the month's count is taken. Only a clear "not there"
+  // stops the send; any other answer leaves it to Firma.
+  await templateThere(env, secrets.apiKey, templateId);
+  // Sending ends previewing: her open previews go first, freeing their places
+  // (one that was sent some other way becomes a send, and counts).
+  await releasePreviews(env, secrets.apiKey, auth.programId, now);
 
   const { limit } = await monthlyLimitFor(env, auth.programId);
   const { start } = monthBounds(now);
@@ -450,7 +504,7 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
   const reserved = await env.DB.prepare(
     `INSERT INTO esign_sends (id, program_id, connection_id, contract_id, template_id, signing_request_id, status, sent_at, updated_at, keep_copy, kennel_name)
      SELECT ?, ?, ?, ?, ?, NULL, 'sending', ?, ?, ?, ?
-      WHERE (SELECT COUNT(*) FROM esign_sends WHERE program_id = ? AND sent_at >= ?) < ?`,
+      WHERE (SELECT COUNT(*) FROM esign_sends WHERE program_id = ? AND ${HELD}) < ?`,
   ).bind(rowId, auth.programId, connection.id, contractId, templateId, at, at, keepCopy ? 1 : 0, kennelName, auth.programId, start, limit).run();
   if (!reserved.meta?.changes) fail(409, 'esign_limit_reached', { usage: await usage(env, auth.programId, now) });
 
@@ -461,17 +515,9 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
 
   // The facts under each name the template may use, for both signers: a field
   // she placed for herself fills too, and a required one never blocks the send.
-  const rows = Object.keys(facts).length ? await customFieldRows(env, secrets.apiKey, connection.account_ref) : null;
-  const values = withFieldAliases(facts, rows);
-  const r = await firma(env, secrets.apiKey, 'POST', '/signing-requests/create-and-send', {
-    name: title,
-    template_id: templateId,
-    recipients: [
-      { first_name: firstName, last_name: lastName || undefined, email, designation: 'Signer', order: 1, custom_fields: values },
-      ...(countersigner ? [{ ...countersigner, custom_fields: values }] : []),
-    ],
-    settings: { send_signing_email: body?.emailSigner !== false },
-  });
+  const { values, payload } = await requestBody(env, secrets.apiKey, connection.account_ref,
+    { templateId, title, firstName, lastName, email, facts, countersigner }, body?.emailSigner !== false);
+  const r = await firma(env, secrets.apiKey, 'POST', '/signing-requests/create-and-send', payload);
 
   let signingRequestId = ok(r) ? r.data?.id : (r.status === 409 ? r.data?.signing_request_id : null);
   signingRequestId = signingRequestId ? String(signingRequestId) : null;
@@ -485,6 +531,10 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
     if (missed.length) console.warn('firma: prefilled fields left empty', missed.map((k) => `${k} (${sentKeys.has(k.toLowerCase()) ? 'sent' : 'not sent'})`).join(','));
     const link = httpsLink(r.data?.first_signer?.signing_link) || await signerLink(env, secrets.apiKey, signingRequestId);
     return { signingRequestId, signingLink: link, countersign: !!countersigner, keepCopy, usage: await usage(env, auth.programId, now) };
+  }
+  if (r.status === 404) {
+    await free();
+    fail(404, 'template_missing');
   }
   if (r.status === 402) {
     await free();
@@ -504,6 +554,153 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
   await settle('unknown');
   console.error('firma: send outcome unknown', r.status);
   fail(502, 'esign_unknown', { usage: await usage(env, auth.programId, now) });
+}
+
+// --- Preview (a draft that holds a place) -----------------------------------------------------
+
+// POST /integrations/esign/preview: the same body as a send → { previewId, token,
+// expiresAt }. A DRAFT signing request (POST /signing-requests never sends, and
+// Firma charges a credit only at send), so it's free and never counts toward her
+// month. Its token opens Firma's signing request editor read-only on the editor
+// page (#t=…&sr=…), showing her real template with this contract's values filled.
+//
+// Read-only is the editor's setting, not the token's: for 7 days the token could
+// send that draft from Firma's own editor, outside her count. So a preview HOLDS a
+// place in her month while it's open (an esign_sends row, status 'preview', never
+// counted as a send): it's made only while her sends plus open previews are under
+// her limit, and a send reserves against both. However a draft gets sent, she
+// can't pass her limit, and one found sent becomes a counted send (releasePreviews,
+// and the webhook). A new preview or a send discards her earlier previews, her
+// device discards one when its Send dialog closes (DELETE below), and the hourly
+// cron sweeps the rest (runEsignPreviews).
+export const PREVIEW_KEEP_MS = 60 * 60 * 1000; // the cron discards an older one
+export const PREVIEW_TOKEN_MS = 8 * 24 * 60 * 60 * 1000; // its token is dead (7 days): the row goes whatever Firma says
+const PREVIEW_UNMADE_MS = 2 * 60 * 1000; // a row whose draft was never made (the Worker stopped part-way)
+const PREVIEWS_PER_CALL = 5; // each is two outbound calls; a Worker's are capped
+
+// What Firma says a request is: 'draft' | 'gone' | 'sent' | 'unknown' (no answer,
+// or a status we don't know: never guessed at, so a preview is never counted on a
+// word we misread).
+const SENT_STATES = new Set(['sent', 'in_progress', 'viewed', 'signed', 'partially_signed', 'completed', 'finished', 'declined', 'expired', 'cancelled']);
+async function requestState(env, key, id) {
+  const sr = await firma(env, key, 'GET', `/signing-requests/${encodeURIComponent(id)}`);
+  if (sr.status === 404) return 'gone';
+  if (!ok(sr)) return 'unknown';
+  const status = String(sr.data?.status ?? '').toLowerCase();
+  if (status === 'draft') return 'draft';
+  if (SENT_STATES.has(status)) return 'sent';
+  if (/^[a-z_]{1,30}$/.test(status)) console.warn('firma: a request status KennelOS does not know', status);
+  return 'unknown';
+}
+
+// Only a draft in her own workspace is ever deleted: a sent request (charged, a
+// buyer's link) never is. → 'gone' | 'sent' | 'unknown'.
+async function discardDraft(env, key, id) {
+  const state = await requestState(env, key, id);
+  if (state !== 'draft') return state;
+  const d = await firma(env, key, 'DELETE', `/signing-requests/${encodeURIComponent(id)}`);
+  return ok(d) || d.status === 404 ? 'gone' : 'unknown';
+}
+
+// One preview row settled: its draft discarded and the row removed (its place is
+// free), or, when the draft turns out to have been sent, the row made a send that
+// counts from now. With no clear answer the row stays (the place stays held) until
+// its token is dead. → 'freed' | 'counted' | 'held'.
+async function settlePreview(env, key, row, now) {
+  const age = now.getTime() - new Date(row.sent_at).getTime();
+  const remove = () => env.DB.prepare("DELETE FROM esign_sends WHERE id = ? AND status = 'preview'").bind(row.id).run();
+  if (!row.signing_request_id) {
+    if (age < PREVIEW_UNMADE_MS) return 'held';
+    await remove();
+    return 'freed';
+  }
+  const state = key ? await discardDraft(env, key, row.signing_request_id) : 'unknown';
+  if (state === 'gone') { await remove(); return 'freed'; }
+  if (state === 'sent') {
+    const at = now.toISOString();
+    await env.DB.prepare("UPDATE esign_sends SET status = 'sent', sent_at = ?, updated_at = ? WHERE id = ? AND status = 'preview'").bind(at, at, row.id).run();
+    console.warn('firma: a preview draft was sent outside KennelOS; counted');
+    return 'counted';
+  }
+  if (age > PREVIEW_TOKEN_MS) { await remove(); return 'freed'; }
+  return 'held';
+}
+
+// Her open previews, settled (a new preview and a send both start here).
+async function releasePreviews(env, key, programId, now) {
+  const { results } = await env.DB.prepare(
+    "SELECT id, signing_request_id, sent_at FROM esign_sends WHERE program_id = ? AND status = 'preview' ORDER BY sent_at LIMIT ?",
+  ).bind(programId, PREVIEWS_PER_CALL).all();
+  for (const row of results) await settlePreview(env, key, row, now);
+}
+
+export async function previewSigningRequest(env, auth, body, now = new Date()) {
+  await herSide(env, auth);
+  const { connection, secrets } = await mine(env, auth);
+  const parsed = parseSend(body);
+  await templateThere(env, secrets.apiKey, parsed.templateId);
+  // One preview at a time: an earlier one's draft goes, and its place with it.
+  await releasePreviews(env, secrets.apiKey, auth.programId, now);
+
+  const { limit } = await monthlyLimitFor(env, auth.programId);
+  const rowId = crypto.randomUUID();
+  const at = now.toISOString();
+  const held = await env.DB.prepare(
+    `INSERT INTO esign_sends (id, program_id, connection_id, contract_id, template_id, signing_request_id, status, sent_at, updated_at, keep_copy, kennel_name)
+     SELECT ?, ?, ?, ?, ?, NULL, 'preview', ?, ?, 0, NULL
+      WHERE (SELECT COUNT(*) FROM esign_sends WHERE program_id = ? AND ${HELD}) < ?`,
+  ).bind(rowId, auth.programId, connection.id, parsed.contractId, parsed.templateId, at, at, auth.programId, monthBounds(now).start, limit).run();
+  if (!held.meta?.changes) fail(409, 'esign_limit_reached', { usage: await usage(env, auth.programId, now) });
+  const free = () => env.DB.prepare("DELETE FROM esign_sends WHERE id = ? AND status = 'preview'").bind(rowId).run();
+
+  const { payload } = await requestBody(env, secrets.apiKey, connection.account_ref, parsed, false);
+  const r = await firma(env, secrets.apiKey, 'POST', '/signing-requests', payload);
+  const id = ok(r) && r.data?.id ? String(r.data.id) : null;
+  if (!id) {
+    await free();
+    if (r.status === 404) fail(404, 'template_missing');
+    if (r.status >= 400 && r.status < 500 && r.status !== 408 && r.status !== 429) fail(400, 'esign_refused', { code: firmaCode(r) });
+    fail(502, 'esign_unavailable');
+  }
+  await env.DB.prepare('UPDATE esign_sends SET signing_request_id = ?, updated_at = ? WHERE id = ?').bind(id, new Date().toISOString(), rowId).run();
+  const t = await firma(env, secrets.apiKey, 'POST', '/jwt/generate-signing-request', { companies_workspaces_signing_requests_id: id });
+  if (!ok(t) || typeof t.data?.jwt !== 'string') {
+    // No token went out, so nothing can send it: the draft is discarded, or left for the sweep.
+    await settlePreview(env, secrets.apiKey, { id: rowId, signing_request_id: id, sent_at: at }, now);
+    fail(502, 'esign_unavailable');
+  }
+  return { previewId: id, token: t.data.jwt, expiresAt: t.data.expires_at ?? null };
+}
+
+// DELETE /integrations/esign/preview?id=<signing request id> → { discarded }:
+// her device, when the Send dialog closes. Only a preview this program made.
+export async function discardPreview(env, auth, url, now = new Date()) {
+  await herSide(env, auth);
+  const { secrets } = await mine(env, auth);
+  const id = text(url.searchParams.get('id'));
+  if (!UUIDISH.test(id)) fail(400, 'bad_ref');
+  const row = await env.DB.prepare("SELECT id, signing_request_id, sent_at FROM esign_sends WHERE program_id = ? AND signing_request_id = ? AND status = 'preview'")
+    .bind(auth.programId, id).first();
+  if (!row) return { discarded: false };
+  return { discarded: (await settlePreview(env, secrets.apiKey, row, now)) === 'freed' };
+}
+
+// The hourly cron: previews nobody discarded (a closed tab) are settled once
+// they're an hour old. → counts only.
+export async function runEsignPreviews(env, { now = new Date(), max = 20 } = {}) {
+  const out = { freed: 0, counted: 0, held: 0 };
+  if (!env.INT_TOKEN_KEY) return out;
+  const { results } = await env.DB.prepare(
+    "SELECT id, connection_id, signing_request_id, sent_at FROM esign_sends WHERE status = 'preview' AND sent_at < ? ORDER BY updated_at LIMIT ?",
+  ).bind(new Date(now.getTime() - PREVIEW_KEEP_MS).toISOString(), max).all();
+  for (const row of results) {
+    const connection = await env.DB.prepare('SELECT * FROM int_connections WHERE id = ?').bind(row.connection_id).first();
+    const { apiKey } = connection ? await secretsOf(env, connection) : {};
+    out[await settlePreview(env, apiKey || null, row, now)]++;
+    // Looked at: the next run starts with the ones it hasn't.
+    await env.DB.prepare("UPDATE esign_sends SET updated_at = ? WHERE id = ? AND status = 'preview'").bind(now.toISOString(), row.id).run();
+  }
+  return out;
 }
 
 // GET /integrations/esign/document?ref=<signing request id> → { url, expiresAt,

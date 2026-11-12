@@ -3527,3 +3527,167 @@ tick box per template; buyers get an emailed link.
   doesn't know).
 - **Tests:** `cloud/tests/esign.test.js` (the production key). `cd cloud && npm test` 324 pass.
 - Worker only, so no service-worker bump.
+
+## 2026-11-12: A template deleted in Firma stops being offered
+
+- **Seen:** a template deleted in Firma's editor left Contract templates but was still offered
+  by Send for signature (the Contract page and Pick to send). The list in Contract templates
+  comes from Firma; the send pickers read the template's saved `contract_forms` row, which
+  nothing removed.
+- **Change (Worker):** `GET /integrations/firma/templates` adds `complete` (fewer than its
+  page of 100). `POST /integrations/esign/send` reads the template with her key first: a 404
+  is `404 template_missing`, before a place in the month's count is reserved. A 404 from
+  Firma's send frees the place and answers the same.
+- **Change (app):** `contractSend.loadContractForms` asks `cloudEsign.liveTemplateIds` (a
+  complete list only, else null) and drops the missing templates, forgetting their rows
+  (`esignTemplates.forgetMissingTemplates`). Contract templates does the same when it opens.
+  A `template_missing` refusal forgets that template (`forgetTemplate`) and says so.
+- **Tests:** `tests/esign.test.js` +1, `cloud/tests/esign.test.js` +1 (the fakes treat a
+  template as there unless deleted). `node --test` 1731 pass, `cd cloud && npm test` 325 pass.
+- **Docs:** End-State guide §32, Integrations plan §2.3a.
+- Worker and app. No new files. SW cache not bumped yet.
+
+## 2026-11-12: Her signature name, and a contract's payment table
+
+- **Signature name (owner decision: cloud tier).** `Kennel.esign_signer_name` (one per own
+  kennel, **Your signature name** in Contract templates) and a template's own **Signs as**
+  (`signer_name` on its `contract_forms` row, shown when I countersign is ticked).
+  `esignTemplates.signerNameFor`: the template's, else the kennel's, else the contact linked
+  to the kennel, else the kennel's name. Before this she always signed as the kennel's name.
+  The Send dialog shows the name. `cloud/src/lib/cloudFields.js` regenerated.
+- **Payment table fields** (sale contracts): `waitlistFeePaid` (the fee actually received
+  from the family on this sale, each entry's own amount; 0 outside the waitlist),
+  `waitlistFeeCredit`, `otherPaymentsReceived` (a paid balance, or received funds left
+  after the deposit: never counted twice), `purchaseBalanceDue` (the price only).
+  `incomeView.priceTable` / `getPriceTable`; `contractSend.gatherContractFacts` adds
+  `priceTable`. `price` already carries the Full surcharge (it's in the sale's price).
+- **Open:** her sister to confirm Balance Due is the price only, and how the table should
+  read when the waitlist fee is credited toward the deposit.
+- **Tests:** `tests/priceTable.test.js` (new, 6), `tests/esign.test.js` +1. `node --test`
+  1738 pass, `cd cloud && npm test` 325 pass.
+- **Docs:** End-State guide §2 (Kennel), §32; Integrations plan §2.1a, §2.3a.
+
+## 2026-11-12: A sale's separate agreements: transport, delayed pickup, one per extra
+
+- **Asked:** her sister sends a separate agreement for transport, for delayed pickup, and
+  for each extra she sells (her extras are training packages, boarded in place of standard
+  boarding, with their stay logged as a linked boarding event).
+- **Change:** `CONTRACT_FORM_TYPE` gains `transport`, `boarding`, `extra` (`addOn`). An Extra
+  agreement's row names its price-list extra (`extra_list_id`), picked beside the type on the
+  Accounts page and in Contract templates. New pure `data/contractAddOns.js` (`addOnFacts`,
+  `extraFor`, `extraPayments`, `extraChoices`, `extraOptionsHtml`); `gatherContractFacts`
+  adds `addOns`; `prefillValues` takes the form. `rankForms` offers a separate agreement
+  first only when the sale has its charge. 34 new field names (84 in all; a send carries at
+  most about 61).
+- **Tests:** `tests/contractAddOns.test.js` (new, 4); `tests/esign.test.js` updated.
+  `node --test` 1742 pass, `cd cloud && npm test` 325 pass. Checked in a browser: the
+  Accounts page's form row shows Which extra with the saved one.
+- **Not checked:** the Contract templates window in a browser (needs a cloud sign-in).
+- **Docs:** End-State guide §32, Integrations plan §2.1a. New file in `PRECACHE_URLS`.
+
+## 2026-11-12: Preview a Firma contract before sending
+
+- **Asked:** a preview against the real template with the fields filled in.
+- **Change (Worker):** `POST /integrations/esign/preview` (the send's body, `parseSend`, shared
+  with `sendForSignature` along with `requestBody` and `templateThere`): a draft signing
+  request and a `/jwt/generate-signing-request` token; nothing stored or counted.
+  `DELETE /integrations/esign/preview?id=` deletes it only while Firma says it's a draft.
+  The editor page opens `#t=…&sr=…` in Firma's signing request editor, read-only.
+- **Change (app):** the Send dialog's **Preview** (`cloudEsign.previewLink`, opened in a new
+  tab); its drafts are discarded when the dialog closes (`discardPreview`).
+- **Unproven** (Firma's docs unreachable from the session; owner pasted the embed guide): a
+  draft is free, the read-only editor shows prefilled values, DELETE on a draft. On the
+  launch checklist.
+- **Tests:** `cloud/tests/esign.test.js` +1, `tests/esign.test.js` +1. `cd cloud && npm test`
+  326 pass, `node --test` 1744 pass.
+- **Docs:** End-State guide §32, Integrations plan §2.3a, launch checklist.
+
+## 2026-11-12: Deposit due (less application fee)
+
+- **Asked:** her sister's table is now Total purchase, Deposit, Deposit due (less application
+  fee), additional credits, Balance due at pickup (the waitlist fee rows go).
+- **Change:** `depositDue` (`incomeView.priceTable`): the deposit less the fee credited toward
+  it and the received funds the allocation puts on it (each credit's Applies to). The fee
+  comes off the deposit only with her waitlist setting "A credited fee counts toward:
+  Deposit". `otherPaymentsReceived` is relabelled "credits and payments toward the balance".
+  With the fee toward the deposit the table adds up: price = deposit + credits on the balance
+  + balance due.
+- **Tests:** `tests/priceTable.test.js` +1. `node --test` 1745 pass.
+- **Docs:** End-State guide §32, Integrations plan §2.1a.
+
+## 2026-11-12: A fee not on the deposit is an additional credit
+
+- **Change:** `incomeView.priceTable`'s `otherPaid` (`otherPaymentsReceived`) adds the credited
+  fee's part not taken off the deposit (her setting toward the balance, or a fee above the
+  deposit). Her table now adds up in every case: price = deposit + additional credits +
+  balance due. A credit that paid the fee counts once, as the fee (the allocation spends that
+  share on it; `fee_credit_amount`).
+- **Tests:** `tests/priceTable.test.js` +1 (six cases). `node --test` 1746 pass.
+
+## 2026-11-12: Contract sending made simpler: fewer fields, one home per setting, a record per agreement
+
+- **Asked (owner, after a review of the six commits above):** users struggle with settings in
+  many places that touch automatic logic they can't see. Simplify through the backend, labels
+  and consolidation, not explanatory copy. Drop `waitlistFeePaid`, `waitlistFeeCredit`,
+  `transportMethod`, `deliveryTime`, `goHomeFrom`. Boarding and training agreements use
+  `pickupDate`; prompt for a pickup when one isn't logged.
+- **Fields:** the five are gone (80 fact names). `priceTable` returns `{ depositDue,
+  otherPaid, balanceDue }` and no longer reads entries; `getPriceTable` is gone
+  (`gatherContractFacts` reads the sale's credits once for it and `balanceDueOn`).
+  `depositDue` now reads the same before and after the deposit is marked paid (it used the
+  ledger's unpaid-only credit marker, so a credit on the deposit vanished once it was paid).
+  Its label is under Firma's 100 characters.
+- **Pickup date:** `contractAddOns.pickupToSet`: a boarding agreement, or an extra the pup
+  stays for, sent with no pickup on the calendar asks for the date (the day after the
+  boarding or last stay ends offered), and `contractSend.logPickup` logs it. Contract page
+  and Pick to send.
+- **A record per agreement:** `contractSend.contractForForm` (`contractForms.agreementKey`).
+  Sending a second agreement from one contract record used to need "Send it again?", and the
+  first one signed marked the record Signed. Each agreement now goes out on its own record,
+  made when needed.
+- **One home, one pick:**
+  - A form's kind is one dropdown: her types, and each extra by name
+    (`formKindOptionsHtml` / `readFormKind`), in place of a type and a second "which extra".
+  - E-sign template rows are display-only on the Accounts page; saving there keeps them as
+    stored. It used to drop `countersign` and `keep_copy` (so on `main` too).
+  - The per-template `signer_name` is gone (never on `main`): one **Countersign as** per own
+    kennel (`Kennel.esign_signer_name`).
+  - `extraCharges.chargeFromPriceList` builds a price-list charge for the Sale page, Kels's
+    Prep pups and a family's approved request. Prep pups copied only the name and price, so
+    its extras had no stay nudge and no Extra agreement offered.
+  - `addOnApplies` matches an extra the way the form fills (`extraFor`), given the sale's
+    `addOns`; the picker lists the sale's own contract forms before its separate agreements.
+- **Labels:** "Boarding agreement", "Extra agreement" (the bracketed note reached a buyer's
+  deposit-request message).
+- **Worker:** a send read the template from Firma twice (a leftover of the preview refactor);
+  once now.
+- **Preview:** a draft that comes back after the Send dialog closed is discarded at once.
+- **Left open:** the preview token isn't read-only (Firma's `readOnly` is an editor option),
+  and drafts left by a closed tab aren't swept; the template list's `complete` trusts a page
+  of 100. Firma's docs weren't reachable from the session.
+- **Checked in a browser** (sample data): the Accounts form's rows and save, the picker's
+  order, the pickup prompt and its event. Contract templates needs a cloud sign-in: not
+  opened.
+- **Tests:** `tests/priceTable.test.js` rewritten (7), `tests/contractAddOns.test.js` +3,
+  `tests/esign.test.js` +1, `tests/extraCharges.test.js`, `cloud/tests/esign.test.js`.
+  `node --test` 1748 pass, `cd cloud && npm test` 326 pass.
+- **Docs:** End-State guide §21.2, §32; Integrations plan §2.1a, §2.3a.
+
+## 2026-11-12: A preview holds a place in the month; cache v123
+
+- **Why:** a preview's token isn't read-only (Firma's `readOnly` is an editor option), so for
+  7 days it could send the draft from Firma's own editor, outside her count; and a draft left
+  by a closed tab was never discarded.
+- **Change (Worker, no migration):** a preview is an `esign_sends` row with status `preview`.
+  `usage` and `/ops` leave it out; a new preview and a send's reservation count it (`HELD`),
+  so sends plus open previews never pass her limit. `settlePreview` deletes the draft and
+  frees the place, or counts a draft found sent; an unknown answer keeps the place until the
+  token is dead (8 days). It runs before each preview and send (one preview at a time), on
+  the device's discard, and hourly for previews over an hour old (`runEsignPreviews`).
+  `discardPreview` only touches a preview this program made.
+- **Unproven:** Firma's status words (`draft`; a sent request's). An unknown word is logged
+  and never counted. On the launch checklist.
+- **Service worker:** `CACHE_NAME` v123 (owner asked), for the app changes since v122.
+- **Tests:** `cloud/tests/esign.test.js` +3. `cd cloud && npm test` 329 pass, `node --test`
+  1751 pass.
+- **Docs:** End-State guide §32, Integrations plan §2.3a, launch checklist.
