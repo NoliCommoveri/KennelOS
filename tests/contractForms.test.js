@@ -90,7 +90,7 @@ const saleFacts = {
   contract: { id: 'c1', contract_type: 'sale', title: '', terms_summary: 'SECRET TERMS', notes: 'SECRET NOTE' },
   kennel, today: '2026-10-11',
   sale: { id: 's1', registration_type: 'limited', price: 3000, deposit_amount: 500, notes: 'SECRET NOTE', end_reason: 'SECRET' },
-  buyer, puppy, balanceDue: 2500,
+  buyer, puppy, balanceDue: 2500, pickupDate: '2026-07-27',
   sire: { call_name: 'Duke', registered_name: 'CH Duke' }, dam: { call_name: 'Rose' }
 };
 
@@ -113,6 +113,7 @@ test('a sale form fills the buyer, the pup and the money', () => {
   assert.equal(v.price, '3000.00');
   assert.equal(v.depositAmount, '500.00');
   assert.equal(v.balanceDue, '2500.00');
+  assert.equal(v.pickupDate, '2026-07-27');
 });
 
 test('nothing outside the allow-list gets into a link', () => {
