@@ -3381,3 +3381,16 @@ in its own tab, on a sandboxed page of the Worker).
   D31, `cloud/README.md`, the launch checklist (the production run), README Status.
 - **Precache:** `assets/esignUI.js`, `data/cloud/cloudEsign.js` and `data/esignTemplates.js`
   added to `shared/sw.js` (`esignUI.js` also to `proPages.js`). Service-worker cache bumped to `v118`.
+
+## 2026-11-12: Firma countersign and signed PDFs (plan only)
+
+`docs/KennelOS_Integrations_Plan.md` §2.3a "Planned: her countersignature and the signed PDFs",
+new **D32–D33**. Nothing built.
+- **D32:** she signs second in the same Firma request, at no extra credit, from a Countersign
+  button on the Contract page. This applies to templates marked as needing her signature.
+- **D33:** KennelOS copies the signed PDF to R2 when Firma reports completion and makes it
+  available to buyers. This replaces the on-demand fetch proposal.
+- Open: her signing email, and whether Firma's emails and events can be set per signer. Also
+  open: how buyers reach the PDF and how long it's kept. docs.firma.dev wasn't reachable from
+  the session, so the Firma questions wait for the docs or a test send on staging.
+- README Status updated.

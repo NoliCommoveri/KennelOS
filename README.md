@@ -59,7 +59,9 @@ backup, carries a program from Lite to Pro.
   - Integrations: step 8, e-sign through Firma on KennelOS's own account with a monthly send
     limit (plan §2.3a): built, Worker and app. Next is the first run on production with the
     live key (`docs/LAUNCH_CHECKLIST.md`), after migration `0022` is applied in `/ops`.
-    Jotform is retired; pasted contract-form links stay as the free fallback.
+    Jotform is retired; pasted contract-form links stay as the free fallback. Planned next:
+    her countersignature and KennelOS keeping the signed PDFs (D32–D33), with a few Firma
+    questions to settle first.
   - Cloud Phase 2 live sync: released. Next is checking it on real phones (iPhone and Android)
     on production; step 7, the live nudge, is optional. Production has every cloud migration
     through `0021` applied. Staging isn't in use, so deploys there aren't tracked.
