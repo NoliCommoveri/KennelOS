@@ -33,6 +33,7 @@ import mailCounts from './0019_mail_counts.sql';
 import accountDeletions from './0020_account_deletions.sql';
 import mailDaily from './0021_mail_daily.sql';
 import esign from './0022_esign.sql';
+import esignCopies from './0023_esign_copies.sql';
 
 export const MIGRATIONS = [
   { id: '0001', name: 'schema', sql: schema },
@@ -57,4 +58,5 @@ export const MIGRATIONS = [
   { id: '0020', name: 'account_deletions_assist', sql: accountDeletions },
   { id: '0021', name: 'mail_daily', sql: mailDaily },
   { id: '0022', name: 'esign', sql: esign },
+  { id: '0023', name: 'esign_copies', sql: esignCopies },
 ];

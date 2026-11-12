@@ -65,16 +65,21 @@ src/integrations.js    vendor integrations' plumbing (docs/KennelOS_Integrations
                        and POST /hooks/<provider>/<secret> (the adapter checks the vendor's signature
                        over the raw bytes; the event is cut to EVENT_KINDS' allow-list; a retry is
                        kept once). Providers are adapters; Firma (src/firma.js) is the one registered. Pro
-src/firma.js           e-sign through Firma (Integrations plan §2.3a, migration 0022): her own Firma
+src/firma.js           e-sign through Firma (Integrations plan §2.3a, migrations 0022–0023): her own Firma
                        workspace on KennelOS's account (made with FIRMA_API_KEY; then her workspace's
                        key, sealed in her connection, does everything she asks), her templates and
                        Firma's editor token, POST /integrations/esign/send within the monthly limit
                        (esign_sends; default 10, /ops sets it and an account's own, esign_limits),
-                       the signed-PDF link, and the adapter for POST /hooks/firma/<secret>
+                       the signed-PDF link, her own signing link when she countersigns (GET
+                       /integrations/esign/countersign, D32), and the adapter for POST /hooks/firma/<secret>
                        (X-Firma-Signature HMAC; Firma's id → her contract through esign_sends). Pro.
                        Also serves Firma's template editor page, public/esign/, at /esign/editor:
                        sandboxed (an opaque origin, so Firma's script never reaches /ops cookies),
-                       opened in its own tab by her device with the token in the fragment (D31)
+                       opened in its own tab by her device with the token in the fragment (D31).
+                       Signed copies she asks to keep (D33): runEsignCopies (hourly cron) copies
+                       each completed one to R2 (esign/<program>/<send id>.pdf) and emails the
+                       buyer a link; GET /signed/<send id>/<mac> serves it (mac = HMAC of the id
+                       with INT_TOKEN_KEY)
 src/familyPages.js     the waitlist's family pages: serves public/family/ for /list/<public_id> and
                        /s/<token> (ASSETS binding), their same-origin JSON under /f/ (the public
                        list, one family's status view, See Your Details: a code by email, then
@@ -192,6 +197,11 @@ tests/                 node --test against a node:sqlite stand-in for D1;
   amount, fee, date: no names, emails or documents). Vendor tokens are sealed with
   `INT_TOKEN_KEY` (set it before any provider can connect: `integrations_not_configured`
   until then); changing that secret makes every stored token unreadable, so don't.
+- **A kept signed copy outlives the year.** Retention keeps an `esign_sends` row with a
+  `copy_key` (the buyer's link reads it); account deletion removes `esign/<program>/` and the
+  rows. The buyer's email is read from Firma when the copy is emailed, never stored. The R2
+  sweep leaves `esign/` keys alone (it knows only `files/` and `snapshots/`). Changing
+  `INT_TOKEN_KEY` also breaks every emailed copy link.
 - **Every Firma send costs KennelOS a credit, so it is counted first.** `esign_sends` gets its
   row before Firma is called, and only while the month (UTC) is under the program's limit. A
   send Firma refused frees its row; one with no answer keeps it as `unknown` (its credit may be

@@ -12,10 +12,12 @@
 //   served whatever the schema state, and their same-origin JSON under /f/,
 //   behind the gate;
 // - Firma's template editor page (firma.js serveEsignEditor): a sandboxed static
-//   page from ASSETS, opened in its own tab by her device;
+//   page from ASSETS, opened in its own tab by her device; and /signed/, the
+//   signed copies KennelOS keeps (firma.js serveSignedCopy, D33);
 // - the crons: the daily one runs retention, the hourly one the waitlist's
 //   own moves (serverMoves.js: deadlines, automatic offers, reminders) and the
-//   breeder's email digests (notify.js);
+//   breeder's email digests (notify.js) and the signed copies to keep and
+//   email (firma.js runEsignCopies);
 // - /notify/off: the digest email's turn-off page (notify.js).
 import { handleOps } from './ops.js';
 import { handleManager } from './assist.js';
@@ -25,7 +27,7 @@ import { activeNotices } from './notice.js';
 import { handleWebhook } from './license.js';
 import { handleHook } from './integrations.js';
 // Importing firma.js registers the Firma adapter for /hooks/firma/ (Integrations plan §2.3a).
-import { serveEsignEditor } from './firma.js';
+import { serveEsignEditor, serveSignedCopy, runEsignCopies } from './firma.js';
 import { handleFamilyApi, serveFamilyPage } from './familyPages.js';
 import { runRetention } from './retention.js';
 import { runWaitlistMoves } from './serverMoves.js';
@@ -53,7 +55,7 @@ export default {
       return handleManager(request, env);
     }
 
-    const page = await serveFamilyPage(request, env, url) || await serveEsignEditor(request, env, url);
+    const page = await serveFamilyPage(request, env, url) || await serveEsignEditor(request, env, url) || await serveSignedCopy(request, env, url);
     if (page) return page;
 
     // Her KennelPort website's application form calls three family endpoints
@@ -121,6 +123,7 @@ export default {
         console.log('waitlist moves', JSON.stringify(await runWaitlistMoves(env)));
         console.log('email changes', JSON.stringify(await applyDueEmailChanges(env)));
         console.log('digests', JSON.stringify(await runDigests(env)));
+        console.log('esign copies', JSON.stringify(await runEsignCopies(env)));
       }
     })());
   },

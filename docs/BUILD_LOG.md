@@ -3381,3 +3381,76 @@ in its own tab, on a sandboxed page of the Worker).
   D31, `cloud/README.md`, the launch checklist (the production run), README Status.
 - **Precache:** `assets/esignUI.js`, `data/cloud/cloudEsign.js` and `data/esignTemplates.js`
   added to `shared/sw.js` (`esignUI.js` also to `proPages.js`). Service-worker cache bumped to `v118`.
+
+## 2026-11-12: Firma countersign and signed PDFs (plan only)
+
+`docs/KennelOS_Integrations_Plan.md` §2.3a "Planned: her countersignature and the signed PDFs",
+new **D32–D33**. Nothing built.
+- **D32:** she signs second in the same Firma request, at no extra credit, from a Countersign
+  button on the Contract page. This applies to templates marked as needing her signature.
+- **D33:** KennelOS copies the signed PDF to R2 when Firma reports completion and makes it
+  available to buyers. This replaces the on-demand fetch proposal.
+- Open: her signing email, and whether Firma's emails and events can be set per signer. Also
+  open: how buyers reach the PDF and how long it's kept. docs.firma.dev wasn't reachable from
+  the session, so the Firma questions wait for the docs or a test send on staging.
+- README Status updated.
+
+## 2026-11-12: Firma countersign (D32)
+
+`docs/KennelOS_Integrations_Plan.md` §2.3a "As built: her countersignature". Owner decisions:
+she signs as her cloud account's email; buyers will get the signed PDF as an emailed link
+(D33, not built).
+- **Contract templates:** an **I countersign** tick per template, stored as `countersign: true`
+  on its `contract_forms` row (`contractForms.cleanForms` keeps it, and a retype keeps it).
+- **Send:** `cloudEsign.sendBody` adds `countersigner { name, email }` (her account email,
+  named for her kennel). The send dialog says she countersigns, and refuses with no account
+  email on the device.
+- **Worker:** `POST /integrations/esign/send` puts her as the second Signer (`order: 2`) of the
+  same request, so it's one credit. It refuses her email as the buyer's.
+- **Worker:** new `GET /integrations/esign/countersign?ref=` returns her own signing link from
+  Firma's recipient list, never kept.
+- **Contract page:** **Countersign** while Sent on a contract with the new field
+  `esign_countersign` (cloud tier; `cloudFields.js` regenerated). It stays Sent until Firma's
+  completed event, which comes once both have signed.
+- **Tests:** Worker `esign.test.js` +1. App `tests/esign.test.js` +2: the row flag, and end
+  to end with her as second signer, her link, refusals, and Signed.
+  - `node --test` 1719 pass. `cd cloud && npm test` 320 pass. `node build/assemble.mjs`
+    succeeds. Not checked in a browser: the button needs a signed-in Pro cloud session with
+    Firma.
+- **To prove on the first production run:** how Firma maps the two recipients to the
+  template's signer roles, and its per-signer email and events (docs.firma.dev unreachable).
+- **Docs:** End-State guide §32, plan §2.3a and D32–D33, `cloud/README.md`, the launch
+  checklist, README Status. No new files, so no precache change.
+
+## 2026-11-12: Firma signed copies kept and emailed to buyers (D33)
+
+`docs/KennelOS_Integrations_Plan.md` §2.3a "As built: the signed copies". Owner decisions: a
+tick box per template; buyers get an emailed link.
+- **Contract templates:** an **Email the buyer the signed copy** tick beside I countersign,
+  stored as `keep_copy: true` on the `contract_forms` row. `sendBody` sends `keepCopy` and her
+  kennel's name, and the send dialog and the after-send note say so.
+- **Worker, migration `0023_esign_copies`:** new `esign_sends` columns `keep_copy`,
+  `kennel_name`, `copy_status`, `copy_key`, `copy_bytes`, `copy_tries`, `copied_at` and
+  `emailed_at`.
+- **Worker:** Firma's completed webhook queues a kept copy.
+- **Worker, `runEsignCopies` (hourly cron):** copies the PDF to R2
+  (`esign/<program>/<id>.pdf`), then emails the buyer a link (new `mail.js`
+  `sendSignedCopyMail`, mail kind `esign`). The buyer's email is read from Firma's recipient
+  list and never stored. A failed step is retried hourly for two days.
+- **Worker:** `GET /signed/<id>/<mac>` serves the copy. The mac is an HMAC of the id, so
+  nothing more is stored. `/integrations/esign/document` returns that link when a copy is
+  kept, so her Signed copy opens the same one.
+- **Worker:** retention keeps rows with a kept copy, and account deletion removes
+  `esign/<program>/`.
+- **Privacy policy:** `site/privacy.html` §9d and the retention list name the kept copies and
+  the email, for the owner to review.
+- **Tests:** Worker `esign.test.js` +2: the whole path; no buyer email; partial PDFs; giving
+  up. App `tests/esign.test.js` +2.
+  - `node --test` 1723 pass. `cd cloud && npm test` 322 pass. `node build/assemble.mjs`
+    succeeds. Not checked in a browser (it needs a signed-in Pro cloud session with Firma).
+- **To prove on the first production run:** Firma's recipient list carries `email`; the
+  download link is fetchable without a key; whether Firma's own completion email can be
+  turned off.
+- **Docs:** End-State guide §32, plan §2.3a and D33, `cloud/README.md`, the launch checklist,
+  README Status. No new app files, so no precache change.
+- **Service-worker cache bumped to `v119`** (countersign and kept copies ride it).

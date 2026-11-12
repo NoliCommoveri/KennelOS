@@ -15,7 +15,9 @@
 > monthly send limit (D25–D26). D27–D30 (2026-11-11) retire Jotform's API parts (Connect
 > Jotform, the signed check), keep pasted form links as the free fallback, and put Firma's
 > templates on the Contracts page. D31 (2026-11-12) opens Firma's template editor in its own
-> tab, on a sandboxed page of the Worker.
+> tab, on a sandboxed page of the Worker. D32 (2026-11-12, built) adds her countersignature
+> (a Countersign button in the app); D33 (built) has KennelOS keep the signed PDFs and email
+> buyers a link, per template.
 >
 > Builds on: the Worker (`cloud/`, `docs/KennelOS_Cloud_Phase1_Plan.md`), the online waitlist
 > (`docs/KennelOS_Waitlist_W2_Plan.md`, "W2 §N"), Accounts (End-State guide §32), Financials
@@ -505,7 +507,8 @@ from D1's "her own account" for e-sign. What it means:
   the buyer's name and email, and the facts):
   - The Worker checks the month's count (D26), then calls `POST /signing-requests/create-and-send`.
     The plain `POST /signing-requests` only makes a draft.
-  - The buyer is the Signer. She can be a second Signer when the form needs her countersignature.
+  - The buyer is the Signer. She can be a second Signer when the form needs her countersignature
+    (D32, built: "Her countersignature" below).
   - Before any retry, the Worker records the returned id in `esign_sends`. Firma has no
     idempotency key, so an unrecorded retry would charge twice.
   - It returns the signing request id and the buyer's signing link
@@ -614,6 +617,61 @@ event kinds on Today) is next. **Modified** from the plan above:
 - **Modified** from the plan above:
   - The editor isn't an iframe in the app (D31).
   - There's no separate Connect: Set up e-signing in Contract templates is it.
+
+**As built: her countersignature (D32, 2026-11-12).** End-State guide §32, "E-sign through
+Firma".
+- A template's **I countersign** tick (Contract templates) sets `countersign: true` on its
+  `contract_forms` row. She gives the second signer its signature field in Firma's editor.
+- She signs as her **cloud account's email** (owner decision), named for her kennel. The
+  device sends it as `countersigner { name, email }`. The Worker keeps only the email's hash,
+  and keeps nothing of this send's emails in `esign_sends`.
+- `POST /integrations/esign/send` makes her the second Signer (`order: 2`, no custom fields)
+  of the same request. Firma charges per request, so it is still one credit. Refused before
+  Firma: no name or email for her, or her email as the buyer's.
+- The contract gets `esign_countersign` (cloud tier, a yes/no) so any of her devices shows
+  **Countersign** while it is Sent.
+- **Countersign** asks `GET /integrations/esign/countersign?ref=` for her link: the request's
+  Signer with `order: 2` from Firma's `/signing-requests/{id}/users`, never kept. `409
+  esign_not_open` once the request isn't `sent`, `409 no_countersigner` on a send without her.
+- Signed comes from `signing_request.completed`, which Firma sends once every signer is done.
+- *To prove on the first production run* (docs.firma.dev unreachable from the build session):
+  - that Firma matches the two recipients to the template's two signer roles by `order`;
+  - whether its signing email can be off for her alone. Today `send_signing_email` is per
+    request: on, she gets Firma's email too; off (Pick to send), neither does and she uses the
+    button;
+  - whether Firma has a per-signer event, so the app could say "the buyer signed, waiting on
+    you". Without one, Countersign shows for as long as the contract is Sent, and Firma's
+    page has her wait for the buyer.
+
+**As built: the signed copies (D33, 2026-11-12).** End-State guide §32, "E-sign through
+Firma"; migration `0023_esign_copies`.
+- **Per template** (owner decision): an **Email the buyer the signed copy** tick
+  (`keep_copy: true` on its `contract_forms` row), beside I countersign. Untouched templates
+  keep Signed copy opening Firma's own short-lived link.
+- **Sending:** such a send carries `keepCopy` and her kennel's name. `esign_sends` records
+  `keep_copy` and `kennel_name`.
+- **Firma's completed webhook** queues it (`copy_status = 'pending'`).
+- **The hourly cron (`runEsignCopies`, 10 a run)**, for each queued send:
+  - It fetches the PDF through Firma's download link (never a partial one, at most 25 MB)
+    and stores it at `esign/<program>/<send id>.pdf` in R2.
+  - It reads the buyer's email from Firma's recipient list (the first Signer) and emails
+    them a link. The email comes from "<kennel> via KennelOS", mail kind `esign`. Their
+    email is never stored.
+  - A step that fails is retried hourly for 48 tries. After that the status is `failed`
+    (never copied) or `unsent` (copied, email gave up). `no_email` means Firma gave no
+    address; the copy is kept all the same.
+- **The link** is `/signed/<send id>/<mac>`, with the mac an HMAC of the id under
+  `INT_TOKEN_KEY`. Nothing more is stored, and her **Signed copy** gets the same link
+  (`kept: true`). It has no expiry: it lasts as long as the copy.
+- **Retention:** a row with a kept copy is exempt from the 400-day prune. Account deletion
+  removes `esign/<program>/` with the rows. The privacy policy (`site/privacy.html` §9d and
+  the retention list) says so, for the owner to review.
+- **Modified** from the plan above: the copy is made by the hourly cron, not inside the
+  webhook (Firma wants an answer within 5 seconds, and its PDF may not be ready yet). So a
+  buyer's email comes within the hour after the last signature.
+- *To prove on the first production run:* Firma's recipient list carries `email`; the
+  download link is fetchable without a key; whether Firma's own completion email can be
+  turned off, so the buyer doesn't get two copies.
 
 ### 2.4 Data model (additive)
 On **Contract** (plain fields, no index needed, no new block; classify in `syncRegistry.js`, D9):
@@ -1058,6 +1116,8 @@ every new FK lands in `referenceRegistry.js` + the guide; every Worker table is 
 | D29 | **Decided 2026-11-11.** Jotform data already saved | **Kept, read-only.** Contracts sent through Jotform keep their label and link. A form's saved `form_id` / `field_map` stay in the data and are still used when its link is sent, but can't be re-matched. Her Jotform API keys are deleted from each device on update. No field leaves the schema or backups |
 | D31 | **Decided 2026-11-12.** Where Firma's template editor runs: it's a 7.5 MB script from api.firma.dev that runs inside the page that loads it | **In a new tab, on a page the Worker serves** (`/esign/editor`), sandboxed (an opaque origin) so Firma's code reaches neither her app's data nor the Worker's cookies (`/ops`). The 24-hour token goes in the address's fragment. Not in the app page (her whole database, and an exception to no-CDN), and not in a frame |
 | D30 | **Decided 2026-11-11.** Where she manages her Firma templates (she has no Firma login), and the site | **On the Contracts page** (a "Contract templates" button, Pro + cloud). The templates live in her Firma workspace; the app keeps each one's contract type. The marketing site names Firma instead of Jotform, and the privacy policy names Firma (EU-hosted) as the sub-processor for contracts sent for signature, for the owner to review |
+| D32 | **Decided 2026-11-12, built.** Her countersignature on a Firma contract | **She signs second, in the same request** (no extra credit), as her **cloud account's email**, from a **Countersign** button on the Contract page, for templates ticked **I countersign** (§2.3a "As built: her countersignature") |
+| D33 | **Decided 2026-11-12, built.** The signed PDF | **Per template** (an "Email the buyer the signed copy" tick): KennelOS keeps it (R2, copied by the hourly cron once Firma reports completion) and **emails the buyer a link** to it. Kept until account deletion. Supersedes §2.3a's on-demand fetch for those templates (§2.3a "As built: the signed copies") |
 | D16 | **Decided 2026-10-11: on her device** (`device_secrets`). Where a Jotform API key lives (§2.1b): on her device or on the Worker (`int_connections`)? | Device: no central store of every breeder's key; proven in a real flow, Worker after step 5 only if Jotform blocks browser calls |
 
 ---

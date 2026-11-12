@@ -15,6 +15,10 @@
 //   POST /integrations/firma/template-token    a 24-hour token for Firma's editor
 //   POST /integrations/esign/send              send a contract (counts, D26)
 //   GET  /integrations/esign/document?ref=     a short-lived link to the signed PDF
+//   GET  /integrations/esign/countersign?ref=  her own signing link (D32)
+//   GET  /signed/<send id>/<mac>               the signed copy KennelOS keeps (D33), the
+//                                              link emailed to the buyer
+//   runEsignCopies (hourly cron)               copies signed PDFs to R2, emails the link
 //   POST /hooks/firma/<secret>                 Firma's webhook (integrations.js)
 //   GET  /esign/editor (+ .js, .css)           Firma's template editor, in its own tab
 //
@@ -22,13 +26,15 @@
 // its webhook signing secret and the webhook's id. Never sent to a device.
 //
 // What goes to Firma: her kennel's name (the workspace), her template PDFs, and per
-// send the signer's name and email and the contract's facts (the allow-list her
+// send the signer's name and email, hers when she countersigns (D32), and the contract's facts (the allow-list her
 // device builds, shared/data/contractForms.js). What is kept here: ids, statuses
-// and times (esign_sends). Never logged: a key, a secret, a name, an email, a fact,
-// a body.
+// and times (esign_sends), and her kennel's name on a send whose copy is kept.
+// The signed PDFs she asked KennelOS to keep are in R2 (esign/<program>/<id>.pdf).
+// Never logged: a key, a secret, a name, an email, a fact, a body.
 import { herSide, registerAdapter, createConnection, openToken, sealToken } from './integrations.js';
-import { hmacHexBytes, timingSafeEqual } from './lib/crypto.js';
+import { hmacHex, hmacHexBytes, timingSafeEqual } from './lib/crypto.js';
 import { fail } from './lib/http.js';
+import { sendSignedCopyMail } from './mail.js';
 
 export const FIRMA_DEFAULT_URL = 'https://api.firma.dev/functions/v1/signing-request-api';
 export const ESIGN_DEFAULT_MONTHLY_LIMIT = 10;
@@ -319,19 +325,37 @@ export async function firmaTemplateToken(env, auth, body) {
 const EMAIL = /^[^\s@<>"]{1,64}@[^\s@<>"]{1,190}\.[^\s@<>"]{2,}$/;
 const httpsLink = (v) => (typeof v === 'string' && /^https:\/\/[^\s"'<>]+$/.test(v) ? v : null);
 
-// The signer's own link when Firma didn't hand it back (a send that had started
+// A request's recipients, as Firma lists them, or null when Firma didn't answer.
+async function requestUsers(env, key, signingRequestId) {
+  const r = await firma(env, key, 'GET', `/signing-requests/${encodeURIComponent(signingRequestId)}/users`);
+  if (!ok(r)) return null;
+  return Array.isArray(r.data) ? r.data : (r.data?.results ?? []);
+}
+
+const linkOf = (u) => httpsLink(u?.signing_link) || (u?.id ? `https://app.firma.dev/signing/${encodeURIComponent(u.id)}` : null);
+const signersOf = (users) => (users || []).filter((u) => u?.designation === 'Signer');
+
+// The buyer's own link when Firma didn't hand it back (a send that had started
 // before an error): the first Signer of the request.
 async function signerLink(env, key, signingRequestId) {
-  const r = await firma(env, key, 'GET', `/signing-requests/${encodeURIComponent(signingRequestId)}/users`);
-  const users = Array.isArray(r.data) ? r.data : (r.data?.results ?? []);
-  const signer = users.find((u) => u?.designation === 'Signer') || users[0];
-  return httpsLink(signer?.signing_link) || (signer?.id ? `https://app.firma.dev/signing/${encodeURIComponent(signer.id)}` : null);
+  const users = await requestUsers(env, key, signingRequestId);
+  return linkOf(signersOf(users).find((u) => Number(u.order) === 1) || signersOf(users)[0] || users?.[0]);
 }
 
 // POST /integrations/esign/send
 //   { contractId, templateId, title, signer: { firstName, lastName, email },
-//     facts: { <fact>: <text> }, emailSigner = true, resend = false }
-// → { signingRequestId, signingLink, usage }
+//     countersigner: { name, email } | absent,
+//     facts: { <fact>: <text> }, emailSigner = true, resend = false,
+//     keepCopy = false, kennelName }
+// → { signingRequestId, signingLink, countersign, usage }
+//
+// With a countersigner (D32) she is the request's second Signer, after the buyer:
+// one request, so one credit. Her email comes from her device (her account's
+// email; the Worker keeps only its hash). Firma's completed webhook comes once
+// every signer has finished, so Signed means both have signed.
+//
+// With keepCopy (D33) the signed PDF is kept and the buyer emailed a link to it
+// once it's signed (runEsignCopies). kennelName is for that email's wording.
 //
 // A row is reserved in esign_sends BEFORE Firma is called, and only while the
 // month's count is under her limit, so two sends at once can't pass it. A send
@@ -358,6 +382,17 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
     if (FACT_NAME.test(k) && value) facts[k] = value.slice(0, 500);
   }
   const title = text(body?.title).slice(0, 200) || 'Contract';
+  const keepCopy = body?.keepCopy === true;
+  const kennelName = keepCopy ? (text(body?.kennelName).replace(/\s+/g, ' ').slice(0, 100) || null) : null;
+  let countersigner = null;
+  if (body?.countersigner != null) {
+    const name = text(body.countersigner?.name).replace(/\s+/g, ' ').slice(0, 100);
+    const herEmail = text(body.countersigner?.email).toLowerCase();
+    if (!name) fail(400, 'countersigner_name_required');
+    if (!EMAIL.test(herEmail)) fail(400, 'countersigner_email_required');
+    if (herEmail === email) fail(400, 'countersigner_is_signer');
+    countersigner = { first_name: name, email: herEmail, designation: 'Signer', order: 2 };
+  }
 
   const live = await env.DB.prepare(
     "SELECT signing_request_id, status FROM esign_sends WHERE program_id = ? AND contract_id = ? AND status IN ('sending', 'sent', 'unknown') ORDER BY sent_at DESC LIMIT 1",
@@ -369,10 +404,10 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
   const rowId = crypto.randomUUID();
   const at = now.toISOString();
   const reserved = await env.DB.prepare(
-    `INSERT INTO esign_sends (id, program_id, connection_id, contract_id, template_id, signing_request_id, status, sent_at, updated_at)
-     SELECT ?, ?, ?, ?, ?, NULL, 'sending', ?, ?
+    `INSERT INTO esign_sends (id, program_id, connection_id, contract_id, template_id, signing_request_id, status, sent_at, updated_at, keep_copy, kennel_name)
+     SELECT ?, ?, ?, ?, ?, NULL, 'sending', ?, ?, ?, ?
       WHERE (SELECT COUNT(*) FROM esign_sends WHERE program_id = ? AND sent_at >= ?) < ?`,
-  ).bind(rowId, auth.programId, connection.id, contractId, templateId, at, at, auth.programId, start, limit).run();
+  ).bind(rowId, auth.programId, connection.id, contractId, templateId, at, at, keepCopy ? 1 : 0, kennelName, auth.programId, start, limit).run();
   if (!reserved.meta?.changes) fail(409, 'esign_limit_reached', { usage: await usage(env, auth.programId, now) });
 
   const settle = (status, signingRequestId = null) => env.DB.prepare(
@@ -383,7 +418,10 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
   const r = await firma(env, secrets.apiKey, 'POST', '/signing-requests/create-and-send', {
     name: title,
     template_id: templateId,
-    recipients: [{ first_name: firstName, last_name: lastName || undefined, email, designation: 'Signer', order: 1, custom_fields: facts }],
+    recipients: [
+      { first_name: firstName, last_name: lastName || undefined, email, designation: 'Signer', order: 1, custom_fields: facts },
+      ...(countersigner ? [countersigner] : []),
+    ],
     settings: { send_signing_email: body?.emailSigner !== false },
   });
 
@@ -393,7 +431,7 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
     // Sent (or a send that had started, which Firma keeps and charges).
     await settle('sent', signingRequestId);
     const link = httpsLink(r.data?.first_signer?.signing_link) || await signerLink(env, secrets.apiKey, signingRequestId);
-    return { signingRequestId, signingLink: link, usage: await usage(env, auth.programId, now) };
+    return { signingRequestId, signingLink: link, countersign: !!countersigner, keepCopy, usage: await usage(env, auth.programId, now) };
   }
   if (r.status === 402) {
     await free();
@@ -415,20 +453,166 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
 }
 
 // GET /integrations/esign/document?ref=<signing request id> → { url, expiresAt,
-// partial, status }: Firma's short-lived link to the signed PDF (a partial copy
-// while signers are still at it). Only for a request this program sent.
+// partial, status, kept, emailedAt }: the copy KennelOS keeps when there is one
+// (D33: the same link the buyer was emailed, kept: true), else Firma's
+// short-lived link to the signed PDF (a partial copy while signers are still at
+// it). Only for a request this program sent.
 export async function esignDocument(env, auth, url) {
   await herSide(env, auth);
   const { secrets } = await mine(env, auth);
   const ref = text(url.searchParams.get('ref'));
   if (!UUIDISH.test(ref)) fail(400, 'bad_ref');
-  const row = await env.DB.prepare('SELECT 1 AS x FROM esign_sends WHERE program_id = ? AND signing_request_id = ?').bind(auth.programId, ref).first();
+  const row = await env.DB.prepare('SELECT id, copy_key, copy_status, emailed_at FROM esign_sends WHERE program_id = ? AND signing_request_id = ?').bind(auth.programId, ref).first();
   if (!row) fail(404, 'not_found');
+  if (row.copy_key) {
+    return { url: await signedCopyLink(env, url.origin, row.id), expiresAt: null, partial: false, status: 'completed', kept: true, emailedAt: row.emailed_at ?? null };
+  }
   const r = await firma(env, secrets.apiKey, 'GET', `/signing-requests/${encodeURIComponent(ref)}/download`);
   if (r.status === 503) fail(503, 'esign_pending');
   const link = httpsLink(r.data?.download_url);
   if (!ok(r) || !link) fail(502, 'esign_unavailable');
-  return { url: link, expiresAt: r.data.expires_at ?? null, partial: !!r.data.is_partial, status: String(r.data.status ?? '') };
+  return { url: link, expiresAt: r.data.expires_at ?? null, partial: !!r.data.is_partial, status: String(r.data.status ?? ''), kept: false, emailedAt: null };
+}
+
+// --- Signed copies KennelOS keeps (D33) -----------------------------------------------------
+
+export const COPY_MAX_BYTES = 25_000_000;
+export const COPY_MAX_TRIES = 48; // hourly: two days, then 'failed'
+const COPIES_PER_RUN = 10; // each is a few outbound calls; a Worker's are capped
+const copyKey = (programId, rowId) => `esign/${programId}/${rowId}.pdf`;
+const SEND_ID = /^[0-9a-f-]{36}$/;
+
+// The link's secret part: an HMAC of the send's id, so nothing more is stored
+// and her device can be given the same link. INT_TOKEN_KEY also seals her keys.
+async function copyMac(env, rowId) {
+  if (!env.INT_TOKEN_KEY) fail(503, 'integrations_not_configured');
+  return (await hmacHex(env.INT_TOKEN_KEY, `esign-copy:${rowId}`)).slice(0, 32);
+}
+
+export async function signedCopyLink(env, origin, rowId) {
+  return `${String(origin || '').replace(/\/+$/, '')}/signed/${rowId}/${await copyMac(env, rowId)}`;
+}
+
+// The buyer: the request's first Signer, as Firma lists it. Read when the email
+// goes, never kept.
+async function buyerEmail(env, key, signingRequestId) {
+  const users = await requestUsers(env, key, signingRequestId);
+  if (!users) return { ok: false, email: null };
+  const signers = signersOf(users);
+  const buyer = signers.find((u) => Number(u.order) === 1) || signers[0];
+  const email = text(buyer?.email).toLowerCase();
+  return { ok: true, email: EMAIL.test(email) ? email : null };
+}
+
+async function fetchPdf(link) {
+  let res;
+  try { res = await fetch(link); } catch { return null; }
+  if (!res.ok) return null;
+  const declared = Number(res.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > COPY_MAX_BYTES) return null;
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  if (!bytes.length || bytes.length > COPY_MAX_BYTES) return null;
+  return bytes;
+}
+
+// The hourly cron: every completed send she asked to keep is copied to R2, then
+// its buyer emailed the link. A step that fails is tried again next hour, up to
+// COPY_MAX_TRIES. → counts only.
+export async function runEsignCopies(env, { now = new Date(), origin = env.FAMILY_PAGES_ORIGIN || '' } = {}) {
+  const out = { kept: 0, emailed: 0, noEmail: 0, failed: 0, waiting: 0 };
+  if (!env.FILES || !env.INT_TOKEN_KEY || !origin) return out;
+  const { results } = await env.DB.prepare(
+    `SELECT id, program_id, connection_id, signing_request_id, kennel_name, copy_status, copy_key, copy_tries
+       FROM esign_sends WHERE copy_status IN ('pending', 'kept') ORDER BY updated_at LIMIT ?`,
+  ).bind(COPIES_PER_RUN).all();
+  for (const row of results) {
+    const at = now.toISOString();
+    const tried = async (status) => {
+      const tries = row.copy_tries + 1;
+      const next = tries >= COPY_MAX_TRIES ? (row.copy_key ? 'unsent' : 'failed') : status;
+      await env.DB.prepare('UPDATE esign_sends SET copy_tries = ?, copy_status = ?, updated_at = ? WHERE id = ?').bind(tries, next, at, row.id).run();
+      if (next === 'failed' || next === 'unsent') out.failed++; else out.waiting++;
+    };
+    const connection = await env.DB.prepare('SELECT * FROM int_connections WHERE id = ?').bind(row.connection_id).first();
+    const { apiKey } = connection ? await secretsOf(env, connection) : {};
+    if (!apiKey) { await tried(row.copy_status); continue; }
+
+    if (!row.copy_key) {
+      const d = await firma(env, apiKey, 'GET', `/signing-requests/${encodeURIComponent(row.signing_request_id)}/download`);
+      const link = ok(d) && !d.data?.is_partial ? httpsLink(d.data?.download_url) : null;
+      const bytes = link ? await fetchPdf(link) : null;
+      if (!bytes) { await tried('pending'); continue; }
+      const key = copyKey(row.program_id, row.id);
+      await env.FILES.put(key, bytes, { httpMetadata: { contentType: 'application/pdf' } });
+      await env.DB.prepare("UPDATE esign_sends SET copy_key = ?, copy_bytes = ?, copied_at = ?, copy_status = 'kept', copy_tries = 0, updated_at = ? WHERE id = ?")
+        .bind(key, bytes.length, at, at, row.id).run();
+      row.copy_key = key;
+      row.copy_tries = 0;
+      out.kept++;
+    }
+
+    const buyer = await buyerEmail(env, apiKey, row.signing_request_id);
+    if (!buyer.ok) { await tried('kept'); continue; }
+    if (!buyer.email) {
+      await env.DB.prepare("UPDATE esign_sends SET copy_status = 'no_email', updated_at = ? WHERE id = ?").bind(at, row.id).run();
+      out.noEmail++;
+      continue;
+    }
+    const sent = await sendSignedCopyMail(env, { to: buyer.email, kennelName: row.kennel_name, link: await signedCopyLink(env, origin, row.id) });
+    if (sent !== 'sent') { await tried('kept'); continue; }
+    await env.DB.prepare("UPDATE esign_sends SET copy_status = 'emailed', emailed_at = ?, updated_at = ? WHERE id = ?").bind(at, at, row.id).run();
+    out.emailed++;
+  }
+  return out;
+}
+
+// GET /signed/<send id>/<mac>: the kept PDF, for whoever has the link (the
+// buyer's email, her Signed copy). A wrong mac is a 404, the same as no copy.
+export async function serveSignedCopy(request, env, url) {
+  const m = /^\/signed\/([^/]+)\/([0-9a-f]{32})$/.exec(url.pathname);
+  if (!m) return null;
+  const notFound = () => new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain', 'cache-control': 'no-store' } });
+  if (request.method !== 'GET' && request.method !== 'HEAD') return new Response('Method not allowed', { status: 405 });
+  if (!SEND_ID.test(m[1]) || !env.FILES || !env.INT_TOKEN_KEY || !env.DB) return notFound();
+  if (!timingSafeEqual(await copyMac(env, m[1]), m[2])) return notFound();
+  const row = await env.DB.prepare('SELECT copy_key FROM esign_sends WHERE id = ?').bind(m[1]).first();
+  if (!row?.copy_key) return notFound();
+  const obj = await env.FILES.get(row.copy_key);
+  if (!obj) return notFound();
+  return new Response(request.method === 'HEAD' ? null : obj.body, {
+    status: 200,
+    headers: {
+      'content-type': 'application/pdf',
+      'content-disposition': 'inline; filename="Signed contract.pdf"',
+      'cache-control': 'private, no-store',
+      'referrer-policy': 'no-referrer',
+      'x-robots-tag': 'noindex, nofollow',
+      'x-content-type-options': 'nosniff',
+    },
+  });
+}
+
+// Account deletion: her kept copies go with her rows.
+export const esignCopyPrefix = (programId) => `esign/${programId}/`;
+
+// GET /integrations/esign/countersign?ref=<signing request id> → { url }: her own
+// signing link on a request she countersigns (D32), the second Signer. Asked for
+// when she taps Countersign, never kept. Only for a request this program sent.
+export async function esignCountersignLink(env, auth, url) {
+  await herSide(env, auth);
+  const { secrets } = await mine(env, auth);
+  const ref = text(url.searchParams.get('ref'));
+  if (!UUIDISH.test(ref)) fail(400, 'bad_ref');
+  const row = await env.DB.prepare('SELECT status FROM esign_sends WHERE program_id = ? AND signing_request_id = ?').bind(auth.programId, ref).first();
+  if (!row) fail(404, 'not_found');
+  if (row.status !== 'sent') fail(409, 'esign_not_open', { status: row.status });
+  const users = await requestUsers(env, secrets.apiKey, ref);
+  if (!users) fail(502, 'esign_unavailable');
+  const signers = signersOf(users);
+  const hers = signers.find((u) => Number(u.order) === 2) || (signers.length > 1 ? signers.at(-1) : null);
+  const link = linkOf(hers);
+  if (!link) fail(409, 'no_countersigner');
+  return { url: link };
 }
 
 // --- The template editor page (D31) ---------------------------------------------------------
@@ -505,11 +689,14 @@ export const firmaAdapter = {
     const spec = HOOK_KIND[payload?.type];
     const sr = payload?.data?.signing_request;
     if (!spec || !payload?.id || !sr?.id) return [];
-    const row = await env.DB.prepare('SELECT id, contract_id FROM esign_sends WHERE signing_request_id = ? AND connection_id = ?')
+    const row = await env.DB.prepare('SELECT id, contract_id, keep_copy, copy_status FROM esign_sends WHERE signing_request_id = ? AND connection_id = ?')
       .bind(String(sr.id), connection.id).first();
     if (!row) return [];
     const [kind, status, field] = spec;
-    await env.DB.prepare('UPDATE esign_sends SET status = ?, updated_at = ? WHERE id = ?').bind(status, new Date().toISOString(), row.id).run();
+    // A copy she asked to keep is queued for the hourly cron (runEsignCopies).
+    const queue = status === 'completed' && row.keep_copy && !row.copy_status;
+    await env.DB.prepare('UPDATE esign_sends SET status = ?, copy_status = COALESCE(?, copy_status), updated_at = ? WHERE id = ?')
+      .bind(status, queue ? 'pending' : null, new Date().toISOString(), row.id).run();
     const date = dayOf(field ? sr[field] : null, payload.created_at);
     return [{ providerEventId: String(payload.id), kind, recordType: 'contract', recordId: row.contract_id, data: date ? { date } : {} }];
   },
