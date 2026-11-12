@@ -11,7 +11,7 @@ import { installMemoryDb } from './support/memoryDb.js';
 import { makeEnv, lastCode } from '../cloud/tests/helpers/env.js';
 import { worker } from '../cloud/tests/helpers/worker.js';
 import { cleanForms, isFirmaForm, allForms, PREFILL_FIELDS } from '../shared/data/contractForms.js';
-import { mergeTemplates, withTemplateRow, firmaAccountOf, FIRMA_ACCOUNT, signingKennel } from '../shared/data/esignTemplates.js';
+import { mergeTemplates, withTemplateRow, firmaAccountOf, FIRMA_ACCOUNT, signingKennel, signsOf, signsDefault } from '../shared/data/esignTemplates.js';
 import { planIntegrationEvent, reviewTitle } from '../shared/data/integrationEvents.js';
 
 const TID = 'tpl_1';
@@ -42,8 +42,8 @@ test('templates: the type she gave each one, set and removed on the account', ()
   const account = { id: 'acc', ...FIRMA_ACCOUNT, contract_forms: forms };
   assert.equal(firmaAccountOf([{ id: 'o', account_type: 'form_service', contract_forms: [] }, account]), account);
   assert.deepEqual(mergeTemplates([{ id: TID, name: 'Pet home v2', pageCount: 3 }, { id: 'tpl_2', name: 'New' }], [account]),
-    [{ id: TID, name: 'Pet home v2', pageCount: 3, form_type: 'breeding_rights', label: 'Pet home v2', countersign: false, keepCopy: false, extraListId: '' },
-      { id: 'tpl_2', name: 'New', pageCount: null, form_type: '', label: '', countersign: false, keepCopy: false, extraListId: '' }]);
+    [{ id: TID, name: 'Pet home v2', pageCount: 3, form_type: 'breeding_rights', label: 'Pet home v2', countersign: false, signs: 'none', keepCopy: false, extraListId: '' },
+      { id: 'tpl_2', name: 'New', pageCount: null, form_type: '', label: '', countersign: false, signs: 'none', keepCopy: false, extraListId: '' }]);
   assert.deepEqual(withTemplateRow(forms, { templateId: TID, formType: '' }), [], 'not offered: removed');
 });
 
@@ -58,6 +58,27 @@ test('countersign: kept on a Firma row, kept through a retype, and off unless tr
   assert.equal('countersign' in forms[0], false);
   assert.equal('countersign' in cleanForms([{ form_type: 'pet_home', provider: 'firma', template_id: TID, countersign: 'yes' }])[0], false);
   assert.equal(mergeTemplates([{ id: TID, name: 'x' }], [])[0].countersign, false);
+});
+
+test('who signs: one choice of three on the row (none, last, first), the older yes/no still read', () => {
+  let forms = withTemplateRow([], { templateId: TID, name: 'Pet home', formType: 'pet_home', signs: 'first' });
+  assert.deepEqual([forms[0].countersign, forms[0].countersign_first, signsOf(forms[0])], [true, true, 'first']);
+  assert.equal(cleanForms(forms)[0].countersign_first, true);
+  assert.equal(mergeTemplates([{ id: TID, name: 'Pet home' }], [{ id: 'a', account_type: 'form_service', contract_forms: forms }])[0].signs, 'first');
+  forms = withTemplateRow(forms, { templateId: TID, name: 'Pet home', formType: 'breeding_rights' });
+  assert.equal(signsOf(forms[0]), 'first', 'a retype keeps it');
+  forms = withTemplateRow(forms, { templateId: TID, name: 'Pet home', formType: 'pet_home', countersign: true });
+  assert.equal(signsOf(forms[0]), 'first', 'the older yes on a first-signing row keeps first');
+  forms = withTemplateRow(forms, { templateId: TID, name: 'Pet home', formType: 'pet_home', signs: 'last' });
+  assert.deepEqual([forms[0].countersign, 'countersign_first' in forms[0]], [true, false]);
+  forms = withTemplateRow(forms, { templateId: TID, name: 'Pet home', formType: 'pet_home', signs: 'none' });
+  assert.deepEqual(['countersign' in forms[0], 'countersign_first' in forms[0]], [false, false]);
+  // First without countersign isn't a choice: read as buyer only.
+  assert.equal('countersign_first' in cleanForms([{ form_type: 'pet_home', provider: 'firma', template_id: TID, countersign_first: true }])[0], false);
+  // A row from before the choice (countersign only) is "I sign last".
+  assert.equal(signsOf({ countersign: true }), 'last');
+  // A new template starts with the last choice, else "I don't sign".
+  assert.deepEqual([signsDefault(null), signsDefault({ esign_signs_default: 'first' }), signsDefault({ esign_signs_default: 'bogus' })], ['none', 'first', 'none']);
 });
 
 test('keep the copy: its own tick on the row, independent of countersign', () => {
@@ -297,6 +318,35 @@ test('set up, upload and type a template, send a contract, and it comes back sig
   assert.equal(signed.status, 'signed');
   assert.equal(signed.signed_date, '2026-11-14');
   assert.equal((await esign.signedCopyLink('sr_2')).url, 'https://files.firma.dev/sr_2.pdf');
+});
+
+test('she signs first: the first signer, the buyer\'s link on the contract, her link from Sign first', async () => {
+  await breeder();
+  await esign.setUpEsign('Maple Labs');
+  const k = await kennelRepo.create({ kennel_name: 'Maple Labs', is_own_kennel: true });
+  const buyer = await contactRepo.create({ name: 'Ann Buyer', email: 'ann@example.com' });
+  const contract = await contractRepo.create({ contract_type: 'other', status: 'draft', title: 'Other', kennel_id: k.id });
+  const form = { id: 'f', form_type: 'other', label: 'Co-own', provider: 'firma', template_id: 'tpl_9', countersign: true, countersign_first: true };
+  const facts = { contract, kennel: k };
+  assert.deepEqual(esign.countersignerFor(form, facts), { name: 'Maple Labs', email: 'breeder@example.com', first: true });
+
+  const res = await esign.sendForEsign({ contract, form, facts, signer: buyer });
+  assert.deepEqual([res.countersign, res.countersignFirst], [true, true]);
+  assert.deepEqual(fake.sends[0].recipients.map((r) => [r.email, r.order]), [['breeder@example.com', 1], ['ann@example.com', 2]]);
+  assert.deepEqual([res.contract.esign_countersign, res.contract.esign_countersign_first], [true, true]);
+  assert.equal(res.contract.esign_url, 'https://app.firma.dev/signing/u_sr_1_2', 'the buyer\'s link, not hers');
+  assert.deepEqual(await esign.countersignLink('sr_1'), { url: 'https://app.firma.dev/signing/u_sr_1_1' });
+});
+
+test('a new template remembers her last choice of who signs', async () => {
+  await esignTemplates.setTemplateType({ templateId: 'tpl_a', name: 'A', formType: 'pet_home', signs: 'first' });
+  let account = firmaAccountOf(await accountRepo.getAll());
+  assert.equal(signsDefault(account), 'first');
+  await esignTemplates.setTemplateType({ templateId: 'tpl_a', name: 'A', formType: 'pet_home', keepCopy: true });
+  assert.equal(signsDefault(firmaAccountOf(await accountRepo.getAll())), 'first', 'another setting leaves it');
+  await esignTemplates.setTemplateType({ templateId: 'tpl_a', name: 'A', formType: 'pet_home', signs: 'none' });
+  account = firmaAccountOf(await accountRepo.getAll());
+  assert.deepEqual([signsDefault(account), signsOf(account.contract_forms[0])], ['none', 'none']);
 });
 
 test('countersign: she is the second signer, as her account email, and signs from her own link', async () => {

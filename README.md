@@ -58,13 +58,13 @@ backup, carries a program from Lite to Pro.
 - **In progress:**
   - Integrations: step 8, e-sign through Firma on KennelOS's own account with a monthly send
     limit (plan §2.3a): built, Worker and app. Next is the first run on production with the
-    live key (`docs/LAUNCH_CHECKLIST.md`), after migration `0022` is applied in `/ops`.
+    live key (`docs/LAUNCH_CHECKLIST.md`); its migrations `0022`–`0024` are applied.
     Jotform is retired; pasted contract-form links stay as the free fallback. Her
-    countersignature (D32) and kept signed copies emailed to buyers (D33, migration `0023`)
-    are built, to be proven on the same run, after `0023` is applied too.
+    countersignature (D32, before or after the buyer) and kept signed copies emailed to
+    buyers (D33) are built, to be proven on the same run.
   - Cloud Phase 2 live sync: released. Next is checking it on real phones (iPhone and Android)
     on production; step 7, the live nudge, is optional. Production has every cloud migration
-    through `0021` applied. Staging isn't in use, so deploys there aren't tracked.
+    through `0024` applied. Staging isn't in use, so deploys there aren't tracked.
   - Notifications (app alerts and the email digest): live.
   - Family requests (`docs/KennelOS_Family_Requests_Plan.md`): extras, transport suggestions,
     training stays, pickup and backing out are live, and Kels's Review my waitlist works through them.

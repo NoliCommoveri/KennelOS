@@ -649,6 +649,14 @@ event kinds on Today) is next. **Modified** from the plan above:
 Firma".
 - A template's **I countersign** tick (Contract templates) sets `countersign: true` on its
   `contract_forms` row. She gives the second signer its signature field in Firma's editor.
+- **Modified (2026-11-12, owner decision):** she can sign **first** instead. The tick is now
+  one choice of three per template, **I sign first / I sign last / I don't sign**
+  (`countersign_first: true` beside `countersign: true` for first; a row from before reads
+  as last). A new template starts with the choice she made last (Account
+  `esign_signs_default`, cloud tier), else I don't sign. Signing first, she is `order: 1`
+  and the buyer `order: 2`; the send records it (`esign_sends.countersign_first`, migration
+  0024) so her link, the buyer's link and the kept copy's email each find the right signer.
+  The contract carries `esign_countersign_first` (cloud tier) and shows **Sign first**.
 - She signs as her **cloud account's email** (owner decision), named for her kennel.
   **Modified (2026-11-12, owner decision):** under a name she chooses, one per own kennel
   (`Kennel.esign_signer_name`, cloud tier); unset, the contact linked to the kennel, else the
@@ -1146,7 +1154,7 @@ every new FK lands in `referenceRegistry.js` + the guide; every Worker table is 
 | D29 | **Decided 2026-11-11.** Jotform data already saved | **Kept, read-only.** Contracts sent through Jotform keep their label and link. A form's saved `form_id` / `field_map` stay in the data and are still used when its link is sent, but can't be re-matched. Her Jotform API keys are deleted from each device on update. No field leaves the schema or backups |
 | D31 | **Decided 2026-11-12.** Where Firma's template editor runs: it's a 7.5 MB script from api.firma.dev that runs inside the page that loads it | **In a new tab, on a page the Worker serves** (`/esign/editor`), sandboxed (an opaque origin) so Firma's code reaches neither her app's data nor the Worker's cookies (`/ops`). The 24-hour token goes in the address's fragment. Not in the app page (her whole database, and an exception to no-CDN), and not in a frame |
 | D30 | **Decided 2026-11-11.** Where she manages her Firma templates (she has no Firma login), and the site | **On the Contracts page** (a "Contract templates" button, Pro + cloud). The templates live in her Firma workspace; the app keeps each one's contract type. The marketing site names Firma instead of Jotform, and the privacy policy names Firma (EU-hosted) as the sub-processor for contracts sent for signature, for the owner to review |
-| D32 | **Decided 2026-11-12, built.** Her countersignature on a Firma contract | **She signs second, in the same request** (no extra credit), as her **cloud account's email**, from a **Countersign** button on the Contract page, for templates ticked **I countersign** (§2.3a "As built: her countersignature") |
+| D32 | **Decided 2026-11-12, built.** Her countersignature on a Firma contract | **She signs second, in the same request** (no extra credit), as her **cloud account's email**, from a **Countersign** button on the Contract page, for templates ticked **I countersign** (§2.3a "As built: her countersignature"). **Modified 2026-11-12:** or **first**, before the buyer, per template (I sign first / I sign last / I don't sign) |
 | D33 | **Decided 2026-11-12, built.** The signed PDF | **Per template** (an "Email the buyer the signed copy" tick): KennelOS keeps it (R2, copied by the hourly cron once Firma reports completion) and **emails the buyer a link** to it. Kept until account deletion. Supersedes §2.3a's on-demand fetch for those templates (§2.3a "As built: the signed copies") |
 | D16 | **Decided 2026-10-11: on her device** (`device_secrets`). Where a Jotform API key lives (§2.1b): on her device or on the Worker (`int_connections`)? | Device: no central store of every breeder's key; proven in a real flow, Worker after step 5 only if Jotform blocks browser calls |
 
