@@ -53,7 +53,8 @@ export function nextDueFrom(date, choice) {
   return c.days ? addDaysToYMD(date, c.days) : addMonthsToYMD(date, c.months);
 }
 
-// rows: [{ vaccine, nextDue }] — the ticked ones only (an Other row with its name).
+// rows: [{ vaccine, nextDue, title? }] — the ticked ones only (an Other row with
+// its name). `title`: her own title for that shot; blank takes the vaccine.
 export function vaccineProblem({ rows = [], dogIds = [], date = '' }) {
   if (!rows.length) return 'Tick at least one shot, or type its name under Other.';
   if (rows.some((r) => blank(r.vaccine))) return 'What was the other shot called?';
@@ -62,14 +63,14 @@ export function vaccineProblem({ rows = [], dogIds = [], date = '' }) {
   return '';
 }
 
-// One `vaccination` per ticked vaccine per dog, titled by the vaccine, its
+// One `vaccination` per ticked vaccine per dog, titled by her title, else the vaccine, its
 // `next_due` from the row's choice; with `remind`, that day is its reminder too,
 // so Today's Reminders brings it up.
 export function vaccineEvents({ rows = [], dogIds = [], date, lot = '', remind = false }) {
   return rows.flatMap((r) => {
     const nextDue = nextDueFrom(date, r.nextDue);
     return dogEvents({
-      eventType: 'vaccination', dogIds, date,
+      eventType: 'vaccination', dogIds, date, title: r.title,
       details: { vaccine: r.vaccine, lot_number: lot, next_due: nextDue }
     }).map((e) => (remind && nextDue ? { ...e, reminder_date: nextDue } : e));
   });
@@ -77,8 +78,9 @@ export function vaccineEvents({ rows = [], dogIds = [], date, lot = '', remind =
 
 // --- Screening tests ---------------------------------------------------------------------
 
-// tests: [{ test, result, outcome, perDog: { [dogId]: { result, outcome } } }] — the
-// ticked ones. A dog's own result, when she typed one, wins over the one for all.
+// tests: [{ test, title?, result, outcome, perDog: { [dogId]: { result, outcome } } }] —
+// the ticked ones. A dog's own result, when she typed one, wins over the one for
+// all. `title`: her own title for that test; blank takes the test's name.
 export function screeningProblem({ tests = [], dogIds = [], date = '' }) {
   if (!tests.length) return 'Tick at least one test, or type its name under Other.';
   if (tests.some((t) => blank(t.test))) return 'What was the other test called?';
@@ -101,10 +103,10 @@ export function resultFor(t, dogId) {
   };
 }
 
-// One `screening_test` per test per dog, titled by the test, the vet linked.
+// One `screening_test` per test per dog, titled by her title, else the test; the vet linked.
 export function screeningEvents({ tests = [], dogIds = [], date, relatedContactId = null }) {
   return tests.flatMap((t) => dogIds.flatMap((id) => dogEvents({
-    eventType: 'screening_test', dogIds: [id], date, relatedContactId,
+    eventType: 'screening_test', dogIds: [id], date, relatedContactId, title: t.title,
     details: { test: t.test, ...resultFor(t, id) }
   })));
 }

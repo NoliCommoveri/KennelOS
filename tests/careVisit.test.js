@@ -45,6 +45,11 @@ test('shots: one vaccination per shot per dog, next due from the choice, a remin
   assert.equal(rabies.reminder_date, undefined);
   assert.equal(rabies.details.next_due, undefined);
   assert.equal(V.vaccineEvents({ rows, dogIds: ['a'], date: '2026-11-12' })[0].reminder_date, undefined);
+  // Her own title beside the vaccine; a blank one takes the vaccine.
+  const [titled] = V.vaccineEvents({ rows: [{ vaccine: 'DHPP', title: ' Puppy shot #2 ' }], dogIds: ['a'], date: '2026-11-12' });
+  assert.equal(titled.title, 'Puppy shot #2');
+  assert.equal(titled.details.vaccine, 'DHPP');
+  assert.equal(V.vaccineEvents({ rows: [{ vaccine: 'DHPP', title: '  ' }], dogIds: ['a'], date: '2026-11-12' })[0].title, 'DHPP');
   assert.ok(V.vaccineProblem({ rows: [], dogIds: ['a'], date: '2026-11-12' }));
   assert.ok(V.vaccineProblem({ rows: [{ vaccine: ' ' }], dogIds: ['a'], date: '2026-11-12' }));
   assert.ok(V.vaccineProblem({ rows, dogIds: [], date: '2026-11-12' }));
@@ -66,6 +71,10 @@ test('screening: one event per test per dog; a dog\'s own result wins over the o
   const fb = events.find((e) => e.subject_id === 'b' && e.details.test === 'Fecal');
   assert.deepEqual(fb.details, { test: 'Fecal', result: 'Positive (giardia)', outcome: 'Abnormal' });
   assert.deepEqual(events.find((e) => e.details.test === 'Heartworm').details, { test: 'Heartworm' });
+  // Her own title beside the test's name; a blank one takes the name.
+  const [titled] = V.screeningEvents({ tests: [{ test: 'Fecal', title: 'Annual fecal', result: 'Negative' }], dogIds: ['a'], date: '2026-11-12' });
+  assert.equal(titled.title, 'Annual fecal');
+  assert.equal(titled.details.test, 'Fecal');
   assert.equal(V.screeningProblem({ tests, dogIds: ['a'], date: '2026-11-12' }), '');
   assert.ok(V.screeningProblem({ tests: [], dogIds: ['a'], date: '2026-11-12' }));
   assert.ok(V.screeningProblem({ tests: [{ test: '' }], dogIds: ['a'], date: '2026-11-12' }));

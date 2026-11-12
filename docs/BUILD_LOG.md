@@ -3800,6 +3800,11 @@ tick box per template; buyers get an emailed link.
 - **Tests:** `tests/careVisit.test.js` (new); `dogCare`, `litterCheckin` updated. Checked in
   Chromium at phone width: the dog check-in (visit + shots + per-dog fecal + preventative for
   two dogs), the litter's Health care, Log health test results' screening test.
+- **Titles kept apart from the named thing** (the batch above's logging-forms fix): the
+  care step's vet visit and each ticked shot and screening test ask an optional title of
+  their own beside the reason, vaccine or test; blank takes that name (`dogEvents`,
+  `NAME_KEYS.screening_test = 'test'`). Preventative and medication forms keep theirs.
 - **Docs:** End-State guide §(event types), §33 (the care step, Check in on my dogs, Log
   health test results, Check in on a litter, Pups are going home, Kels's shots and vet).
-  New app files in `PRECACHE_URLS`. SW cache not bumped.
+  New app files in `PRECACHE_URLS`.
+- **Service worker:** `CACHE_NAME` v125 (owner asked), for this batch and the one above.

@@ -3541,20 +3541,23 @@ check-in, `litterCheckinUI.PUP_WHO`).
    **Screening tests**, **Deworming or flea & tick**, **Other medication**; a date; the dogs
    (**All** / **None**). Ticking a visit or screening tests shows the vet picker
    (`relatedContactInput`, as below); a visit also shows Reason, Findings, **Cost per dog**
-   (one `expenseRepo.createForEvent` each, Veterinary) and, with `docType` (Documents, Pro),
+   (one `expenseRepo.createForEvent` each, Veterinary), an optional **Title** of its own
+   (`titleInput`; blank takes the reason) and, with `docType` (Documents, Pro),
    **Vet summary** filed on each dog as a `vet_summary` document (its own copy of the file,
    since a document belongs to one dog), titled and dated as the visit, the vet as issuer.
    The visit is saved here, one `vet_visit` per dog (`careStepsProblem` checks the form).
 2. **Shots** (`vaccineForm`): `vocab.VACCINE_CHOICES` (DHPP, Parvo, Rabies, Bordetella,
    Leptospirosis, Lyme, Canine influenza) as ticks, each with when it's next due
    (`VACCINE_NEXT_DUE`: 2, 3 or 4 weeks, 1 or 3 years, or not due again; a puppy's start at 3
-   weeks, rabies and a grown dog's at a year; picking one ticks its shot), an **Other shot**
+   weeks, rabies and a grown dog's at a year; picking one ticks its shot; a ticked shot opens
+   its own optional **Title**, blank taking the vaccine), an **Other shot**
    (suggesting names she's logged), date, an optional lot #, **Remind me on Today when
    they're due** (on) and the dogs → one `vaccination` per shot per dog
    (`careVisit.vaccineEvents`: titled by the vaccine, `next_due`, and that day as its
    `reminder_date` when reminded).
 3. **Screening tests** (`screeningForm`): `vocab.SCREENING_TESTS` plus every test name she's
-   typed before as ticks, and **Another test**. A ticked test shows its result (suggestions:
+   typed before as ticks, and **Another test**. A ticked test shows its own optional
+   **Title** (blank takes the test's name), its result (suggestions:
    `SCREENING_RESULTS` and her own) and Normal or abnormal for every dog; **Different for
    each dog** opens a row per ticked dog, whose own result wins (`resultFor`). Date, the vet
    (carried from step 1) and the dogs → one `screening_test` per test per dog

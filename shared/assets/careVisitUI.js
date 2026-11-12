@@ -84,6 +84,7 @@ async function stepsForm(chat, dogs, ticked, today, who, docType) {
       ${dogChecks('cv', dogs, ticked, who)}
       <div id="cv-vet" hidden>${relatedContactInput(visit, contacts)}</div>
       <div id="cv-visit" hidden>
+        ${titleInput('cv-title', visit, 'reason')}
         ${eventFieldInput(fields.reason, true)}
         ${eventFieldInput(fields.findings)}
         ${field(`Cost per ${who.one} (optional)`, '<input id="cv-cost" type="number" min="0" step="0.01" inputmode="decimal">', 'The visit\'s cost, logged to Financials against each one.')}
@@ -116,7 +117,7 @@ async function stepsForm(chat, dogs, ticked, today, who, docType) {
       let filed = false;
       if (form.steps.includes('visit')) {
         const events = dogEvents({
-          eventType: 'vet_visit', dogIds: form.dogIds, date: form.date, relatedContactId: vetId,
+          eventType: 'vet_visit', dogIds: form.dogIds, date: form.date, relatedContactId: vetId, title: root.querySelector('#cv-title').value,
           details: { reason: root.querySelector('#ck-f-reason').value, findings: root.querySelector('#ck-f-findings').value }
         });
         const amount = String(form.cost).trim() === '' ? null : Number(form.cost);
@@ -157,10 +158,13 @@ export async function vaccineForm(chat, dogs, { date, ticked = new Set(), who, p
   const datalist = uniq(typed).filter((v) => !known.has(v.toLowerCase()));
   const startDue = (v) => (pups && v !== 'Rabies' ? '3w' : '1y');
   const dueSelect = (id, label, pick) => `<select id="${id}" aria-label="${esc(label)}: next due"><option value="">Not due again</option>${VACCINE_NEXT_DUE.map((o) => `<option value="${o.value}"${o.value === pick ? ' selected' : ''}>Due ${esc(o.label.toLowerCase())}</option>`).join('')}</select>`;
+  const vaxType = descriptor(EVENT_TYPES, 'vaccination');
+  // A ticked shot opens its own title (blank takes the vaccine), as Kels's other logging forms.
   const rows = choices.map((v, i) => `<div class="ck-inline">
-      <label class="ck-check"><input type="checkbox" id="cv-vx-${i}"> <strong>${esc(v)}</strong></label>
+      <label class="ck-check"><input type="checkbox" id="cv-vx-${i}" data-vx="${i}"> <strong>${esc(v)}</strong></label>
       <div class="field gl-field">${dueSelect(`cv-vx-due-${i}`, v, startDue(v))}</div>
-    </div>`).join('');
+    </div>
+    <div id="cv-vx-tw-${i}" hidden>${titleInput(`cv-vx-title-${i}`, vaxType, 'vaccine')}</div>`).join('');
   return chat.form({
     title: `<strong>Which shots?</strong><span class="kels-lead">Tick each one they got. I'll log every ticked shot for every ticked ${esc(who.one)}.</span>`,
     html: `${rows}
@@ -168,6 +172,7 @@ export async function vaccineForm(chat, dogs, { date, ticked = new Set(), who, p
         ${field('Other shot (optional)', `<input id="cv-vx-other" type="text" autocomplete="off" list="cv-vx-dl" placeholder="e.g. Coronavirus"><datalist id="cv-vx-dl">${datalist.map((v) => `<option value="${esc(v)}"></option>`).join('')}</datalist>`)}
         ${field('Its next due', dueSelect('cv-vx-other-due', 'Other shot', pups ? '3w' : '1y'))}
       </div>
+      <div id="cv-vx-tw-other" hidden>${titleInput('cv-vx-title-other', vaxType, 'vaccine')}</div>
       <div class="ck-inline">
         ${field('Date given', `<input id="cv-vx-date" type="date" value="${esc(date)}">`)}
         ${field('Lot # (optional)', '<input id="cv-vx-lot" type="text" autocomplete="off">')}
@@ -176,21 +181,27 @@ export async function vaccineForm(chat, dogs, { date, ticked = new Set(), who, p
       ${dogChecks('cv-vx', dogs, ticked, who)}`,
     wire: (root) => {
       wireDogChecks(root, 'cv-vx');
-      // Picking a next-due ticks its shot.
-      choices.forEach((v, i) => root.querySelector(`#cv-vx-due-${i}`).addEventListener('change', () => { root.querySelector(`#cv-vx-${i}`).checked = true; }));
+      const titleFollows = (i) => { root.querySelector(`#cv-vx-tw-${i}`).hidden = !root.querySelector(`#cv-vx-${i}`).checked; };
+      choices.forEach((v, i) => {
+        root.querySelector(`#cv-vx-${i}`).addEventListener('change', () => titleFollows(i));
+        // Picking a next-due ticks its shot.
+        root.querySelector(`#cv-vx-due-${i}`).addEventListener('change', () => { root.querySelector(`#cv-vx-${i}`).checked = true; titleFollows(i); });
+      });
+      const other = root.querySelector('#cv-vx-other');
+      other.addEventListener('input', () => { root.querySelector('#cv-vx-tw-other').hidden = !other.value.trim(); });
     },
     submitLabel: 'Log shots',
     cancelLabel: 'Skip',
     submit: async (root) => {
-      const rows = choices.map((v, i) => ({ vaccine: v, nextDue: root.querySelector(`#cv-vx-due-${i}`).value, on: root.querySelector(`#cv-vx-${i}`).checked }))
+      const rows = choices.map((v, i) => ({ vaccine: v, nextDue: root.querySelector(`#cv-vx-due-${i}`).value, title: root.querySelector(`#cv-vx-title-${i}`).value, on: root.querySelector(`#cv-vx-${i}`).checked }))
         .filter((r) => r.on);
       const other = root.querySelector('#cv-vx-other').value.trim();
-      if (other) rows.push({ vaccine: other, nextDue: root.querySelector('#cv-vx-other-due').value });
+      if (other) rows.push({ vaccine: other, nextDue: root.querySelector('#cv-vx-other-due').value, title: root.querySelector('#cv-vx-title-other').value });
       const form = { rows, dogIds: checkedIds(root, 'cv-vx', dogs), date: root.querySelector('#cv-vx-date').value, lot: root.querySelector('#cv-vx-lot').value, remind: root.querySelector('#cv-vx-remind').checked };
       const problem = V.vaccineProblem(form);
       if (problem) return problem;
       for (const e of V.vaccineEvents(form)) await eventRepo.create(e);
-      return { count: form.dogIds.length, date: form.date, shots: rows.map((r) => r.vaccine) };
+      return { count: form.dogIds.length, date: form.date, shots: rows.map((r) => r.title.trim() || r.vaccine) };
     },
     reply: (r) => `${listText(r.shots)} for ${forWhom(r.count, dogs.length, who)}, ${fmtDate(r.date)}`
   });
@@ -215,6 +226,7 @@ export async function screeningForm(chat, dogs, { date, ticked = new Set(), vetI
   const outcome = (id, label) => `<select id="${id}" aria-label="${esc(label)}"><option value="">Not marked</option>${TEST_OUTCOME.map((o) => `<option>${esc(o)}</option>`).join('')}</select>`;
   const resultIn = (id, label) => `<input id="${id}" type="text" list="cv-sc-results" autocomplete="off" placeholder="e.g. Negative" aria-label="${esc(label)}">`;
   const body = (i, name) => `<div id="cv-sc-body-${i}" hidden>
+      ${titleInput(`cv-sc-title-${i}`, type, 'test')}
       <div class="ck-inline">
         ${field(dogs.length > 1 ? 'Result for all' : 'Result', resultIn(`cv-sc-res-${i}`, `${name}: result`))}
         ${field('Normal or abnormal', outcome(`cv-sc-out-${i}`, `${name}: normal or abnormal`))}
@@ -269,6 +281,7 @@ export async function screeningForm(chat, dogs, { date, ticked = new Set(), vetI
       const names = [...tests, null];
       const picked = names.map((t, i) => ({ t, i })).filter(({ i }) => root.querySelector(`#cv-sc-${i}`).checked).map(({ t, i }) => ({
         test: t ?? root.querySelector('#cv-sc-other').value.trim(),
+        title: root.querySelector(`#cv-sc-title-${i}`).value,
         result: root.querySelector(`#cv-sc-res-${i}`).value,
         outcome: root.querySelector(`#cv-sc-out-${i}`).value,
         perDog: dogs.length > 1 ? Object.fromEntries(dogs.map((d, j) => [d.id, {
@@ -281,7 +294,7 @@ export async function screeningForm(chat, dogs, { date, ticked = new Set(), vetI
       if (problem) return problem;
       const relatedContactId = await readRelatedContact(root, type);
       for (const e of V.screeningEvents({ ...form, relatedContactId })) await eventRepo.create(e);
-      return { count: form.dogIds.length, date: form.date, tests: picked.map((t) => t.test) };
+      return { count: form.dogIds.length, date: form.date, tests: picked.map((t) => t.title.trim() || t.test) };
     },
     reply: (r) => `${listText(r.tests)} for ${forWhom(r.count, dogs.length, who)}, ${fmtDate(r.date)}`
   });
