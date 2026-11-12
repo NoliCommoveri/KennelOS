@@ -84,3 +84,32 @@ export async function setTemplateType({ templateId, name, formType, countersign,
   }
   return accountRepo.update(account.id, { contract_forms: withTemplateRow(account.contract_forms, { templateId, name, formType, countersign, keepCopy }) });
 }
+
+// The forms without her Firma templates that aren't in `liveIds` any more (a
+// Set of the ids Firma has: deleted in Firma's editor). Other forms untouched.
+// Pure. → the new contract_forms list.
+export function withoutMissingTemplates(forms, liveIds) {
+  return cleanForms(forms).filter((f) => !isFirmaForm(f) || liveIds.has(f.template_id));
+}
+
+// Stop offering the templates Firma no longer has, on every account that holds
+// one. `liveIds` must be the COMPLETE set (cloudEsign.liveTemplateIds). → the
+// number of templates dropped.
+export async function forgetMissingTemplates(liveIds) {
+  if (!(liveIds instanceof Set)) return 0;
+  let dropped = 0;
+  for (const a of await accountRepo.getAll()) {
+    if (a.is_archived || a.account_type !== 'form_service') continue;
+    const before = cleanForms(a.contract_forms);
+    const after = withoutMissingTemplates(before, liveIds);
+    if (after.length === before.length) continue;
+    dropped += before.length - after.length;
+    await accountRepo.update(a.id, { contract_forms: after });
+  }
+  return dropped;
+}
+
+// Stop offering one template (Firma said it's gone at send). → the account | null.
+export function forgetTemplate(templateId) {
+  return setTemplateType({ templateId, formType: '' });
+}

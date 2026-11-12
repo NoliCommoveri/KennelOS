@@ -3527,3 +3527,22 @@ tick box per template; buyers get an emailed link.
   doesn't know).
 - **Tests:** `cloud/tests/esign.test.js` (the production key). `cd cloud && npm test` 324 pass.
 - Worker only, so no service-worker bump.
+
+## 2026-11-12: A template deleted in Firma stops being offered
+
+- **Seen:** a template deleted in Firma's editor left Contract templates but was still offered
+  by Send for signature (the Contract page and Pick to send). The list in Contract templates
+  comes from Firma; the send pickers read the template's saved `contract_forms` row, which
+  nothing removed.
+- **Change (Worker):** `GET /integrations/firma/templates` adds `complete` (fewer than its
+  page of 100). `POST /integrations/esign/send` reads the template with her key first: a 404
+  is `404 template_missing`, before a place in the month's count is reserved. A 404 from
+  Firma's send frees the place and answers the same.
+- **Change (app):** `contractSend.loadContractForms` asks `cloudEsign.liveTemplateIds` (a
+  complete list only, else null) and drops the missing templates, forgetting their rows
+  (`esignTemplates.forgetMissingTemplates`). Contract templates does the same when it opens.
+  A `template_missing` refusal forgets that template (`forgetTemplate`) and says so.
+- **Tests:** `tests/esign.test.js` +1, `cloud/tests/esign.test.js` +1 (the fakes treat a
+  template as there unless deleted). `node --test` 1731 pass, `cd cloud && npm test` 325 pass.
+- **Docs:** End-State guide §32, Integrations plan §2.3a.
+- Worker and app. No new files. SW cache not bumped yet.

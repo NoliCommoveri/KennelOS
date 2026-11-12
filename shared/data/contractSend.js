@@ -15,7 +15,8 @@ import { expectedPickupDate } from './goHome.js';
 import { accountRepo } from './accountRepo.js';
 import { incomeLineItems, paidOnSale, getSaleCredits } from './incomeView.js';
 import { allForms, prefillValues, prefillUrl, formProvider, mapValues, isFirmaForm } from './contractForms.js';
-import { esignSignedIn } from './cloud/cloudEsign.js';
+import { esignSignedIn, liveTemplateIds } from './cloud/cloudEsign.js';
+import { forgetMissingTemplates } from './esignTemplates.js';
 import { todayYMD } from './dateUtils.js';
 
 // Contracts that can still go out for signature (and be sent again).
@@ -23,9 +24,17 @@ export const SENDABLE_STATUSES = ['draft', 'sent', 'declined'];
 
 // Every saved contract form, from her Form service accounts. Her Firma templates
 // (D30) only while this device can send them (Pro, cloud, signed in).
+// A template deleted in Firma (its editor has Delete) is dropped here, before it
+// can be offered: only when Firma's list is known complete, else kept (the
+// Worker refuses a missing one before it counts).
 export async function loadContractForms() {
   const forms = allForms(await accountRepo.getAll());
-  return esignSignedIn() ? forms : forms.filter((f) => !isFirmaForm(f));
+  if (!esignSignedIn()) return forms.filter((f) => !isFirmaForm(f));
+  if (!forms.some(isFirmaForm)) return forms;
+  const live = await liveTemplateIds();
+  if (!live) return forms;
+  await forgetMissingTemplates(live);
+  return forms.filter((f) => !isFirmaForm(f) || live.has(f.template_id));
 }
 
 // What's still owed on a sale, read the way the ledger reads it.

@@ -2755,11 +2755,17 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     the signed PDF and emails the buyer a link (below).
   - The rows live on the **E-sign (Firma)** Form service account (`FIRMA_ACCOUNT`), made the
     first time she types a template.
-  - The template list comes from Firma, merged with the rows (`mergeTemplates`).
+  - The template list comes from Firma, merged with the rows (`mergeTemplates`). The Worker's
+    list says `complete` (fewer than its page of 100). From a complete list, a row whose
+    template Firma no longer has (deleted in Firma's editor) is dropped from every Form
+    service account (`esignTemplates.forgetMissingTemplates`), when Contract templates opens
+    and when a send picker loads (below).
   - On the Accounts page, a Firma row's type and label can be edited, or the row removed. It
     shows **Manage** (to Contract templates) instead of a link.
 - **Send for signature** offers her typed templates (`contractSend.loadContractForms`, only
-  while signed in) beside her pasted forms, marked **E-sign**. Choosing one opens
+  while signed in, and only those still in Firma: it asks `cloudEsign.liveTemplateIds` and
+  drops the missing ones; with no complete list, offline say, it keeps them all) beside her
+  pasted forms, marked **E-sign**. Choosing one opens
   `esignUI.sendWithFirma`:
   - It shows who signs and their email, and "n of N this month".
   - **Firma emails them** is on by default. Off, the link goes in her own message (the
@@ -2782,6 +2788,10 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     signing request id; cloud tier), `esign_url` (the buyer's signing link), `esign_sent_date`,
     `esign_form_label` and `esign_countersign` (cloud tier: she countersigns it).
   - A second send needs **Send again** (`resend`).
+  - The Worker reads the template with her key before it reserves the send: a 404 is
+    `404 template_missing`, before anything counts. So is a 404 from Firma's send (the row is
+    freed). The dialog then forgets that template (`esignTemplates.forgetTemplate`) and says
+    so; Send stays off.
   - `cloudEsign.esignProblem` words each refusal: the limit with its reset date, Firma not
     answering (don't resend), signed out, and so on. A Firma refusal (`esign_refused`) names
     Firma's own code (the body's `code`, kept on the error as `providerCode`: `CloudError`

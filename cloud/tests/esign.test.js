@@ -99,7 +99,7 @@ function makeFake() {
     }
     if (method === 'GET' && (m = /^\/templates\/([^/]+)$/.exec(path))) {
       const t = f.templates.get(m[1]);
-      return t && t.ws === wsOfKey.id ? reply(200, t) : reply(404, { code: 'NOT_FOUND' });
+      return t && (t.ws === wsOfKey.id || t.ws === ANY_WS) ? reply(200, t) : reply(404, { code: 'NOT_FOUND' });
     }
     if (method === 'POST' && path === '/generate-template-token') return reply(201, { token: `jwt_${body.companies_workspaces_templates_id}`, expires_at: '2026-11-12T00:00:00Z' });
     if (method === 'POST' && path === '/signing-requests/create-and-send') {
@@ -137,7 +137,14 @@ async function connected(env, email) {
   return s;
 }
 
-const send = (env, s, extra = {}) => call(env, 'POST', '/integrations/esign/send', {
+// A template every workspace can read by id (never listed), so a send's template check passes.
+const ANY_WS = '*';
+const send = (env, s, extra = {}) => {
+  const id = extra.templateId ?? 'tpl_1';
+  if (id && !fake.templates.has(id) && !extra.noTemplate) fake.templates.set(id, { id, name: 'Contract', ws: ANY_WS });
+  return sendRaw(env, s, extra);
+};
+const sendRaw = (env, s, { noTemplate, ...extra } = {}) => call(env, 'POST', '/integrations/esign/send', {
   token: s.token,
   body: {
     contractId: CONTRACT, templateId: 'tpl_1', title: 'Puppy sale: Biscuit',
@@ -390,6 +397,33 @@ test('the monthly limit: the default from /ops, an account\'s own, and the month
   env.DB.raw.prepare('UPDATE esign_sends SET sent_at = ?').run('2020-01-15T00:00:00.000Z');
   assert.equal((await firma.usage(env, s.programId)).used, 0);
   assert.deepEqual(firma.monthBounds(new Date('2026-12-31T23:59:00Z')), { start: '2026-12-01T00:00:00.000Z', resetsOn: '2027-01-01' });
+});
+
+test('send: a template gone from Firma is refused before it counts; the list says it is complete', async () => {
+  const env = await envWith();
+  const s = await connected(env);
+  const gone = await send(env, s, { templateId: 'tpl_deleted', noTemplate: true });
+  assert.equal(gone.status, 404);
+  assert.equal((await gone.json()).error, 'template_missing');
+  assert.equal(count(env, 'SELECT COUNT(*) AS n FROM esign_sends'), 0, 'no place taken');
+  assert.ok(!fake.calls.some((c) => c.path === '/signing-requests/create-and-send'), 'Firma never asked to send it');
+
+  // Deleted between the check and the send: Firma's 404 frees the place too.
+  fake.sendReply = () => ({ status: 404, data: { code: 'NOT_FOUND' } });
+  const late = await send(env, s);
+  assert.equal(late.status, 404);
+  assert.equal((await late.json()).error, 'template_missing');
+  assert.equal(count(env, 'SELECT COUNT(*) AS n FROM esign_sends'), 0);
+
+  // Any other answer to the check leaves the send to Firma.
+  fake.templates.delete('tpl_1');
+  const realFake = fake.fetch;
+  globalThis.fetch = async (url, init) => (/\/templates\/tpl_1$/.test(new URL(url).pathname) ? new Response('{}', { status: 500 }) : realFake(url, init));
+  assert.equal((await sendRaw(env, s)).status, 200);
+  globalThis.fetch = realFake;
+
+  const list = await (await call(env, 'GET', '/integrations/firma/templates', { token: s.token })).json();
+  assert.equal(list.complete, true);
 });
 
 test('send failures: a refusal frees its place, an unknown outcome keeps it, a started send is kept', async () => {

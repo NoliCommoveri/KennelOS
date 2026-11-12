@@ -277,15 +277,21 @@ export async function syncFirmaFields(env, auth, body) {
 }
 
 // GET /integrations/firma/templates
+const TEMPLATE_PAGE = 100;
+
 export async function listFirmaTemplates(env, auth) {
   await herSide(env, auth);
   const { secrets } = await mine(env, auth);
-  const r = await firma(env, secrets.apiKey, 'GET', '/templates?page_size=100&sort_by=name&sort_order=asc');
+  const r = await firma(env, secrets.apiKey, 'GET', `/templates?page_size=${TEMPLATE_PAGE}&sort_by=name&sort_order=asc`);
   if (!ok(r)) fail(502, 'esign_unavailable');
+  const results = Array.isArray(r.data?.results) ? r.data.results : [];
   return {
-    templates: (r.data?.results ?? []).filter((t) => t?.id).map((t) => ({
+    templates: results.filter((t) => t?.id).map((t) => ({
       id: String(t.id), name: String(t.name ?? ''), pageCount: Number(t.page_count) || null,
     })),
+    // Every template she has, not just a first page: her device may then forget
+    // the ones that are gone (deleted in Firma's editor).
+    complete: results.length < TEMPLATE_PAGE,
   };
 }
 
@@ -443,6 +449,12 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
   ).bind(auth.programId, contractId).first();
   if (live && body?.resend !== true) fail(409, 'already_sent', { signingRequestId: live.signing_request_id ?? null, status: live.status });
 
+  // A template deleted in Firma's editor (her device may still offer it): refused
+  // here, before a place in the month's count is taken. Only a clear "not there"
+  // stops the send; any other answer leaves it to Firma.
+  const tpl = await firma(env, secrets.apiKey, 'GET', `/templates/${encodeURIComponent(templateId)}`);
+  if (tpl.status === 404) fail(404, 'template_missing');
+
   const { limit } = await monthlyLimitFor(env, auth.programId);
   const { start } = monthBounds(now);
   const rowId = crypto.randomUUID();
@@ -485,6 +497,10 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
     if (missed.length) console.warn('firma: prefilled fields left empty', missed.map((k) => `${k} (${sentKeys.has(k.toLowerCase()) ? 'sent' : 'not sent'})`).join(','));
     const link = httpsLink(r.data?.first_signer?.signing_link) || await signerLink(env, secrets.apiKey, signingRequestId);
     return { signingRequestId, signingLink: link, countersign: !!countersigner, keepCopy, usage: await usage(env, auth.programId, now) };
+  }
+  if (r.status === 404) {
+    await free();
+    fail(404, 'template_missing');
   }
   if (r.status === 402) {
     await free();

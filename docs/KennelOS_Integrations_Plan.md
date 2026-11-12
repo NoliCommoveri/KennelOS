@@ -618,6 +618,9 @@ event kinds on Today) is next. **Modified** from the plan above:
     page stands them in, in memory.
   - Checked in a browser that the script loads and calls Firma inside the sandbox. A real
     token is proven on the first production run.
+- **A template deleted in Firma's editor** (2026-11-12) stops being offered: the device
+  drops its row once Firma's complete list lacks it (Contract templates, and each send
+  picker), and the Worker refuses a send of it (`404 template_missing`) before it counts.
 - **Modified** from the plan above:
   - The editor isn't an iframe in the app (D31).
   - There's no separate Connect: Set up e-signing in Contract templates is it.

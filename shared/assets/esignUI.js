@@ -13,10 +13,10 @@
 // She has no Firma login: KennelOS holds the account and her kennel gets its own
 // workspace. Everything goes through data/cloud/cloudEsign.js.
 import {
-  esignSignedIn, esignStatus, setUpEsign, templates as listTemplates, uploadTemplate, editorLink,
+  esignSignedIn, esignStatus, setUpEsign, templateList, uploadTemplate, editorLink,
   sendForEsign, signedCopyLink, countersignLink, countersignerFor, esignProblem, TEMPLATE_MAX_BYTES
 } from '../data/cloud/cloudEsign.js';
-import { mergeTemplates, setTemplateType, signingKennel } from '../data/esignTemplates.js';
+import { mergeTemplates, setTemplateType, signingKennel, forgetMissingTemplates, forgetTemplate } from '../data/esignTemplates.js';
 import { getActiveKennelId } from '../data/kennelScope.js';
 import { getMyKennelId } from '../data/settings.js';
 import { accountRepo } from '../data/accountRepo.js';
@@ -118,7 +118,12 @@ export function openContractTemplates() {
 
   async function drawList(status) {
     let rows;
-    try { rows = mergeTemplates(await listTemplates(), await accountRepo.getAll()); } catch (err) { frame(''); problem(err); return; }
+    try {
+      const { templates: list, complete } = await templateList();
+      // One deleted in Firma's editor stops being offered (only from a full list).
+      if (complete) await forgetMissingTemplates(new Set(list.map((t) => t.id)));
+      rows = mergeTemplates(list, await accountRepo.getAll());
+    } catch (err) { frame(''); problem(err); return; }
     const row = (t) => `<div class="acct-row" data-tid="${esc(t.id)}" style="flex-wrap:wrap; gap:8px; padding:6px 0; border-top:1px solid var(--border,#e2e6ec);">
         <span class="acct-v" style="min-width:160px;"><strong>${esc(t.name)}</strong>${t.pageCount ? ` <span class="muted">· ${esc(t.pageCount)} page${t.pageCount === 1 ? '' : 's'}</span>` : ''}</span>
         <select class="ct-type" aria-label="What kind of contract ${esc(t.name)} is">${typeOptions(t.form_type)}</select>
@@ -271,10 +276,11 @@ export function sendWithFirma({ contract, form, facts, signer, emailChoice = tru
           });
           if (again) { await go(true); return; }
         }
+        if (p.kind === 'template_missing') await forgetTemplate(form.template_id).catch(() => {});
         if (!box.isConnected) return;
         $('#fs-msg').innerHTML = `<div class="inline-${p.kind === 'unknown' ? 'warn' : 'error'}">${esc(p.message)}</div>`;
         $('#fs-cancel').disabled = false;
-        $('#fs-send').disabled = p.kind === 'limit' || p.kind === 'unknown';
+        $('#fs-send').disabled = p.kind === 'limit' || p.kind === 'unknown' || p.kind === 'template_missing';
       }
     }
 

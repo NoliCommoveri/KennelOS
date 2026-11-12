@@ -7,6 +7,7 @@
 //   esignStatus()           connected? and this month's { used, limit, resetsOn }
 //   setUpEsign(kennelName)  her workspace (once), then the facts her templates can fill
 //   templates()             her Firma templates
+//   liveTemplateIds()       their ids, when the list is known complete (else null)
 //   uploadTemplate(...)     a new template from her PDF
 //   editorLink(templateId)  Firma's editor in its own tab (the Worker's sandboxed page)
 //   sendForEsign(...)       send a contract; the contract is marked Sent
@@ -72,7 +73,24 @@ export async function setUpEsign(kennelName) {
 }
 
 export async function templates() {
-  return (await api.listFirmaTemplates(requireSession())).templates || [];
+  return (await templateList()).templates;
+}
+
+// → { templates, complete }: complete = every template she has (not a first
+// page), so one missing from it is gone from Firma.
+export async function templateList() {
+  const r = await api.listFirmaTemplates(requireSession());
+  return { templates: r.templates || [], complete: r.complete === true };
+}
+
+// The ids of every template in her Firma workspace, or null when that isn't
+// known for sure (offline, not set up, an older Worker, a partial list). A
+// template missing from a known set was deleted (in Firma's editor).
+export async function liveTemplateIds() {
+  try {
+    const { templates: list, complete } = await templateList();
+    return complete ? new Set(list.map((t) => t.id)) : null;
+  } catch { return null; }
 }
 
 // Base64 of a file's bytes, in chunks (a large PDF overflows one apply()).
@@ -170,7 +188,7 @@ export async function countersignLink(ref) {
 const resetText = (usage) => (usage?.resetsOn ? ` It resets on ${usage.resetsOn}.` : '');
 
 // What to tell her about a refusal. → { kind, message } where kind is
-// 'already_sent' | 'limit' | 'unknown' | 'signed_out' | 'offline' | 'other'.
+// 'already_sent' | 'limit' | 'unknown' | 'template_missing' | 'signed_out' | 'offline' | 'other'.
 export function esignProblem(err) {
   const code = err?.code;
   if (err instanceof api.CloudAuthError) return { kind: 'signed_out', message: 'Your cloud sign-in has expired. Sign in again in Settings → Cloud backup, then try again.' };
@@ -196,6 +214,7 @@ export function esignProblem(err) {
   if (code === 'countersigner_is_signer') return { kind: 'other', message: 'The signer\'s email is your own. You countersign this template, so the buyer needs their own email.' };
   if (code === 'esign_not_open') return { kind: 'other', message: 'This contract isn\'t out for signature any more, so there\'s nothing to countersign.' };
   if (code === 'no_countersigner') return { kind: 'other', message: 'This contract was sent without you as a signer, so there\'s nothing to countersign. To sign it too, mark its template "I countersign" and send it again.' };
+  if (code === 'template_missing') return { kind: 'template_missing', message: 'This template isn\'t in Firma any more (it was deleted), so KennelOS has stopped offering it. Nothing was sent or counted. Pick another, or upload it again on Contracts → Contract templates.' };
   if (code === 'too_large') return { kind: 'other', message: 'That PDF is too large for Firma. Save a smaller copy and try again.' };
   if (err instanceof api.CloudOfflineError || code === 'esign_unavailable' || code === 'esign_setup_failed') return { kind: 'offline', message: 'Couldn\'t reach Firma right now. Check your connection and try again.' };
   return { kind: 'other', message: err?.message || String(err) };
