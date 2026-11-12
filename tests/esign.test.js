@@ -42,8 +42,8 @@ test('templates: the type she gave each one, set and removed on the account', ()
   const account = { id: 'acc', ...FIRMA_ACCOUNT, contract_forms: forms };
   assert.equal(firmaAccountOf([{ id: 'o', account_type: 'form_service', contract_forms: [] }, account]), account);
   assert.deepEqual(mergeTemplates([{ id: TID, name: 'Pet home v2', pageCount: 3 }, { id: 'tpl_2', name: 'New' }], [account]),
-    [{ id: TID, name: 'Pet home v2', pageCount: 3, form_type: 'breeding_rights', label: 'Pet home v2', countersign: false, keepCopy: false, signerName: '', extraListId: '' },
-      { id: 'tpl_2', name: 'New', pageCount: null, form_type: '', label: '', countersign: false, keepCopy: false, signerName: '', extraListId: '' }]);
+    [{ id: TID, name: 'Pet home v2', pageCount: 3, form_type: 'breeding_rights', label: 'Pet home v2', countersign: false, keepCopy: false, extraListId: '' },
+      { id: 'tpl_2', name: 'New', pageCount: null, form_type: '', label: '', countersign: false, keepCopy: false, extraListId: '' }]);
   assert.deepEqual(withTemplateRow(forms, { templateId: TID, formType: '' }), [], 'not offered: removed');
 });
 
@@ -435,43 +435,66 @@ test('a template deleted in Firma stops being offered, and a send of it is refus
   assert.equal(allForms(await accountRepo.getAll()).filter(isFirmaForm).length, 0);
 });
 
-test('her signature name: the template\'s own, else her kennel\'s setting, else her contact, else the kennel', () => {
-  let forms = withTemplateRow([], { templateId: TID, name: 'Co-own', formType: 'other', countersign: true, signerName: '  Jane   Doe ' });
-  assert.equal(forms[0].signer_name, 'Jane Doe');
-  forms = withTemplateRow(forms, { templateId: TID, name: 'Co-own', formType: 'other' });
-  assert.equal(forms[0].signer_name, 'Jane Doe', 'kept through a retype');
-  assert.equal(cleanForms(forms)[0].signer_name, 'Jane Doe', 'kept by cleanForms');
-  forms = withTemplateRow(forms, { templateId: TID, name: 'Co-own', formType: 'other', signerName: '' });
-  assert.equal('signer_name' in forms[0], false, 'blank: back to the kennel');
-
+test('her signature name: her kennel\'s setting, else her contact, else the kennel', () => {
   const kennel = { kennel_name: 'Maple Labs', esign_signer_name: 'Jane M. Doe' };
   const breeder = { name: 'Jane Doe' };
-  const { kennelSignerName, signerNameFor } = esignTemplates;
+  const { kennelSignerName } = esignTemplates;
   assert.equal(kennelSignerName(kennel, breeder), 'Jane M. Doe');
   assert.equal(kennelSignerName({ kennel_name: 'Maple Labs' }, breeder), 'Jane Doe');
   assert.equal(kennelSignerName({ kennel_name: 'Maple Labs' }), 'Maple Labs');
-  assert.equal(signerNameFor({ signer_name: 'J. Doe' }, kennel, breeder), 'J. Doe');
-  assert.equal(signerNameFor({}, kennel, breeder), 'Jane M. Doe');
-
-  const form = { countersign: true, signer_name: '' };
-  assert.deepEqual(esign.countersignerFor(form, { kennel, breeder }, { email: 'jane@example.com' }), { name: 'Jane M. Doe', email: 'jane@example.com' });
+  assert.deepEqual(esign.countersignerFor({ countersign: true }, { kennel, breeder }, { email: 'jane@example.com' }), { name: 'Jane M. Doe', email: 'jane@example.com' });
+  // A template row carries no name of its own.
+  const forms = withTemplateRow([], { templateId: TID, name: 'Co-own', formType: 'other', countersign: true });
+  assert.deepEqual(Object.keys(cleanForms([{ ...forms[0], signer_name: 'J. Doe' }])[0]).sort(), ['countersign', 'form_type', 'id', 'label', 'provider', 'template_id']);
 });
 
-test('preview: her real template as a free draft, opened read-only on the editor page, then discarded', async () => {
-  await breeder();
-  await esign.setUpEsign('Maple Labs');
+test('each of a sale\'s agreements goes out on its own contract record; a pickup can be set from the send', async () => {
+  const { eventRepo } = await import('../shared/data/eventRepo.js');
+  const { pickupToSet } = await import('../shared/data/contractAddOns.js');
   const k = await kennelRepo.create({ kennel_name: 'Maple Labs', is_own_kennel: true });
   const buyer = await contactRepo.create({ name: 'Ann Buyer', email: 'ann@example.com' });
-  const contract = await contractRepo.create({ contract_type: 'sale', status: 'draft', title: 'Pet home', kennel_id: k.id });
-  const form = { id: 'f', form_type: 'pet_home', label: 'Pet home', provider: 'firma', template_id: 'tpl_1' };
-  const { url, previewId } = await esign.previewLink({ contract, form, facts: await send.gatherContractFacts(contract), signer: buyer });
-  const u = new URL(url);
-  assert.equal(u.pathname, '/esign/editor');
-  assert.deepEqual(Object.fromEntries(new URLSearchParams(u.hash.slice(1))), { t: 'jwt.for.preview', sr: previewId });
-  assert.equal(fake.drafts.size, 1);
-  assert.equal(fake.sends.length, 0, 'nothing sent');
-  assert.equal((await esign.esignStatus()).usage.used, 0, 'nothing counted');
-  assert.equal((await contractRepo.getById(contract.id)).status, 'draft', 'the contract is untouched');
-  assert.equal(await esign.discardPreview(previewId), true);
-  assert.equal(fake.drafts.size, 0);
+  const pup = await dogRepo.create({ call_name: 'Biscuit', breed: 'Labrador Retriever', sex: 'male', status: 'puppy', ownership_type: 'owned', kennel_id: k.id });
+  const sale = await saleRepo.create({ dog_id: pup.id, buyer_contact_id: buyer.id, kennel_id: k.id, status: 'deposit_paid', registration_type: 'limited', sale_date: '2026-11-01', price: 3000, deposit_amount: 500,
+    transport_fee: 450, deferred_boarding_amount: 25, deferred_boarding_frequency: 'Day', deferred_boarding_duration_days: '5' });
+  const forms = [
+    { id: 'f1', form_type: 'pet_home', label: 'Pet home' },
+    { id: 'f2', form_type: 'transport', label: 'Transport' },
+    { id: 'f3', form_type: 'boarding', label: 'Boarding' }
+  ];
+  let main = await contractRepo.create({ contract_type: 'sale', status: 'draft', title: 'Sale', kennel_id: k.id, related_sale_id: sale.id });
+
+  // Nothing has gone out on it yet: the form goes out on this record.
+  assert.equal((await send.contractForForm(main, forms[0], forms)).id, main.id);
+  main = await contractRepo.update(main.id, { status: 'sent', esign_form_label: 'Pet home' });
+  assert.equal((await send.contractForForm(main, forms[0], forms)).id, main.id, 'the same agreement again: a re-send');
+
+  // Another agreement: a record of its own, named for the form and the pup, reused until it's signed.
+  const transport = await send.contractForForm(main, forms[1], forms);
+  assert.notEqual(transport.id, main.id);
+  assert.deepEqual([transport.title, transport.status, transport.related_sale_id, transport.kennel_id], ['Transport: Biscuit', 'draft', sale.id, k.id]);
+  assert.equal((await send.contractForForm(main, forms[1], forms)).id, transport.id, 'the unsent draft is reused');
+  await contractRepo.update(transport.id, { status: 'sent', esign_form_label: 'Transport' });
+  assert.equal((await send.contractForForm(main, forms[1], forms)).id, transport.id, 'and once sent');
+  assert.equal((await send.contractForForm(await contractRepo.getById(transport.id), forms[0], forms)).id, main.id, 'from the transport record, the main contract goes out on its own');
+  await contractRepo.update(transport.id, { status: 'signed' });
+  assert.notEqual((await send.contractForForm(main, forms[1], forms)).id, transport.id, 'a signed one is never sent over');
+  assert.equal((await contractRepo.getBySale(sale.id)).length, 3);
+
+  // A contract with no sale, or one whose sent form isn't among her forms any more, is used as is.
+  const lease = await contractRepo.create({ contract_type: 'lease', status: 'sent', title: 'Lease', kennel_id: k.id, esign_form_label: 'Pet home' });
+  assert.equal((await send.contractForForm(lease, forms[1], forms)).id, lease.id);
+  const renamed = await contractRepo.update(main.id, { esign_form_label: 'Old name' });
+  assert.equal((await send.contractForForm(renamed, forms[1], forms)).id, main.id);
+
+  // The boarding agreement is dated by the pickup: none yet, so one is offered and logged.
+  let facts = await send.gatherContractFacts(main);
+  assert.equal(facts.addOns.pickupDate, '');
+  assert.equal(typeof pickupToSet(forms[2], facts.addOns), 'string');
+  await send.logPickup(sale, '2026-12-20');
+  const events = await eventRepo.getForSubject('dog', pup.id);
+  assert.deepEqual(events.map((e) => [e.event_type, e.event_date, e.related_contact_id]), [['placement', '2026-12-20', buyer.id]]);
+  facts = await send.gatherContractFacts(main);
+  assert.equal(pickupToSet(forms[2], facts.addOns), null);
+  assert.equal(facts.pickupDate, '2026-12-20');
+  assert.deepEqual(facts.priceTable, { depositDue: 500, otherPaid: 0, balanceDue: 2500 });
 });

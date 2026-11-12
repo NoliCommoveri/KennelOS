@@ -363,47 +363,26 @@ export async function getSaleCredits(saleId) {
 
 // A contract's payment table for one sale: the purchase price only (no transport,
 // boarding or extras, which are agreed apart). Pure.
-//   feePaid     the waitlist fees actually received from the family placed with this
-//               sale (each entry's own fee_amount, whatever her fee setting says;
-//               credited or not). 0 for a sale made outside the waitlist.
-//   feeCredit   the part of those fees credited to the purchase (feeCreditsBySale).
-//   depositDue  the deposit less the fee credited toward it and received funds that
-//               covered it ("Deposit due (less application fee)").
+//   depositDue  the deposit less the application fee credited toward it
+//               (feeCreditSplit) and the family's received funds counted toward it
+//               (familyCredit's allocation). The same before and after the deposit
+//               is marked paid.
 //   otherPaid   credits and payments toward the balance: the credited fee when it
 //               isn't taken off the deposit, the family's received funds (a lost pup's
 //               carry-over) not on the deposit, and the balance once it's marked paid.
 //               Nothing is counted twice: funds on the deposit are in depositDue, and
-//               funds that paid the fee only as the fee.
+//               funds that paid the fee count only as the fee (familyCredit leaves
+//               the fee out of `received`).
 //   balanceDue  what's still owed of the price at pickup.
-// → { feePaid, feeCredit, depositDue, otherPaid, balanceDue }
-export function priceTable(sale, { entries = [], feeCredit = NO_FEE_CREDIT, received = null, sales = [], offers = [] } = {}) {
-  const feePaid = round2(entries
-    .filter((e) => feeReceived(e) && (e.placed_sale_id || creditSale(e, sales, offers, entries)?.id) === sale.id)
-    .reduce((t, e) => t + num(e.fee_amount), 0));
-  const comps = saleComponents({ ...sale, end_reason: null }, feeCredit, received);
-  const parts = comps.filter((c) => c.component === 'balance');
+// So price = the deposit + otherPaid + balanceDue.
+// → { depositDue, otherPaid, balanceDue }
+export function priceTable(sale, { feeCredit = NO_FEE_CREDIT, received = null } = {}) {
+  const parts = saleComponents({ ...sale, end_reason: null }, feeCredit, received).filter((c) => c.component === 'balance');
   const sum = (state) => round2(parts.filter((c) => c.state === state).reduce((t, c) => t + c.amount, 0));
-  // The deposit less the application fee credited toward it (feeCreditSplit) and any
-  // received funds that covered it: what the family still pays as their deposit. A
-  // deposit they've already paid stays in (it isn't a credit).
-  const depositDue = round2(comps.filter((c) => c.component === 'deposit' && !c.credited).reduce((t, c) => t + c.amount, 0));
-  // The credited fee not taken off the deposit (her setting: toward the balance, or
-  // more than the deposit) is a credit toward the balance like any other, so the
-  // table adds up: price = deposit + otherPaid + balanceDue. A fee their received
-  // funds paid is in here once: the allocation spends that share on the fee
-  // (familyCredit leaves the fee out of `received`).
-  const feeOnBalance = feeCreditSplit(sale, feeCredit).balance;
-  return { feePaid, feeCredit: round2(feeCreditOf(feeCredit).amount), depositDue, otherPaid: round2(sum('earned') + feeOnBalance), balanceDue: sum('anticipated') };
-}
-
-// priceTable for a sale, read from the database.
-export async function getPriceTable(sale) {
-  const ctx = await loadCreditContext();
-  if (!ctx) return priceTable(sale);
-  const feeCredit = feeCreditsBySale(ctx.entries, ctx).get(sale.id) || NO_FEE_CREDIT;
-  const entry = creditEntryFor(ctx.sales.find((s) => s.id === sale.id) || sale, ctx);
-  const received = entry ? familyCredit(entry, sale, feeCredit)?.received || null : null;
-  return priceTable(sale, { entries: ctx.entries, feeCredit, received, sales: ctx.sales, offers: ctx.offers });
+  const split = feeCreditSplit(sale, feeCredit);
+  const deposit = Math.max(round2(num(sale.deposit_amount) - split.deposit), 0);
+  const depositDue = round2(deposit - Math.min(num(received?.byKey?.deposit), deposit));
+  return { depositDue, otherPaid: round2(sum('earned') + split.balance), balanceDue: sum('anticipated') };
 }
 
 // One entry's credits as its page shows them, with the sale they go toward.

@@ -1327,7 +1327,10 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
   so today they're only stored. The sale offers its own kennel's list (the dog's, for a new
   sale; every own kennel's when neither is known), grouped. Picking one copies the name and
   amount, so a later price change never rewrites a sale; from the list it also copies
-  `list_id`, `group` and the plan as dated steps.
+  `list_id`, `group`, the stay's `boarding_days` and the plan as dated steps. Every way a
+  price-list extra reaches a sale (the Sale page, Kels's Prep pups, a family's approved
+  request) builds the charge with `extraCharges.chargeFromPriceList`, so each one links to
+  its price-list row the same.
 - **Payment plans on a sale:** `Sale.extra_charges[].payments` = `[{ id, percent, amount, due,
   n?, due_date?, paid_date? }]` (`planSteps`: `at_weeks` dated from the pup's birth date,
   `on_approval` from that day; `before_pickup` / `with_balance` read live by `stepDueDate`).
@@ -2711,25 +2714,45 @@ Share with families hint and the card's badge say so for this type.
   her pasted form links (`{ id, form_type, label, url, form_id?, field_map?, extra_list_id? }`;
   types from `vocab.CONTRACT_FORM_TYPE`, each serving certain `CONTRACT_TYPE`s and ranked for
   a sale's registration by `contractForms.rankForms`).
-- **A sale's separate agreements** (types with `addOn`): **Transport agreement**, **Delayed
-  pickup / boarding agreement**, and **Extra agreement**, one per extra: its row's
-  `extra_list_id` is the price-list row (`Kennel.extra_charge_list`) it's for, picked beside
-  the type on the Accounts page and in Contract templates (`contractAddOns.extraChoices`:
-  every own kennel's list). `rankForms` offers one first only when the sale has its charge
-  (`addOnApplies`: a transport fee, deferred boarding, a charge copied from that row), else
-  under Show all forms. Each fills the sale fields plus its own group
-  (`contractForms.fieldGroupsFor`), from `contractAddOns.addOnFacts` (pure; `gatherContractFacts`
-  passes it as `addOns`):
-  - transport: the fee, the drop-off's method, date, time and place (the sale's next pickup
-    event, else its latest), and the balance due date;
-  - boarding: rate, per, length, total, from the day the pup could go home to the day
-    before its pickup (else `goHome.boardingEnd`);
-  - extra (`extraFor`: the sale's charge with that `list_id`, else one typed by hand with the
-    row's name): name, price-list description, price, the payment plan in words and up to
-    four steps (`extraPayments`, due dates by `extraCharges.stepDueDate`), and for a
-    training package its stay: the linked boarding event(s) (`goHome.trainingStaysFor`), else
-    the one Today's nudge would log, from the ready date; `goHomeFrom` is the day after the
-    last stay (or the ready date). A deposit fee charge-back is no agreement.
+- **A sale's separate agreements** (types with `addOn`): **Transport agreement**, **Boarding
+  agreement**, and **Extra agreement**, one per extra: its row's `extra_list_id` is the
+  price-list row (`Kennel.extra_charge_list`) it's for.
+  - **One pick for a form's kind** (`contractAddOns.formKindOptionsHtml` / `readFormKind`):
+    her contract types, and in place of the bare Extra agreement type each of her extras by
+    name ("Agreement: 2-week training", from `extraChoices`: every own kennel's list). Its
+    value is the type, or `extra:<row id>`. The Accounts page (pasted forms) and Contract
+    templates use it.
+  - `rankForms` lists the sale's own contract forms first, then a separate agreement only
+    when the sale has its charge (`addOnApplies`: a transport fee, deferred boarding, or the
+    extra the form would fill from, `extraFor`, given the sale's `addOns`), else under Show
+    all forms.
+  - **Each agreement has its own contract record** (`contractSend.contractForForm`,
+    `contractForms.agreementKey`: '' for the sale's main contract, `transport`, `boarding`,
+    `extra:<row id>`). A send uses the record she's on while nothing went out on it, or the
+    same agreement did. Once a different agreement went out on it (its `esign_form_label`
+    among her forms), the form goes out on that agreement's own sendable record for the
+    sale, else a new draft titled "<form label>: <pup>". So one being signed never marks
+    another Signed. The Contract page then opens that record; Pick to send does the same.
+  - Each fills the sale fields plus its own group (`contractForms.fieldGroupsFor`), from
+    `contractAddOns.addOnFacts` (pure; `contractSend.saleAddOns` reads the records, and
+    `gatherContractFacts` passes it as `addOns`):
+    - transport: the fee, the date and place of the sale's next pickup event (else its
+      latest), and the balance due date;
+    - boarding: rate, per, length, total, from the day the pup could go home (`pickupFrom`:
+      its ready date, or the day after its last training stay) to the day before its pickup
+      (else `goHome.boardingEnd`);
+    - extra (`extraFor`: the sale's charge with that `list_id`, else one typed by hand with
+      the row's name): name, price-list description, price, the payment plan in words and up
+      to four steps (`extraPayments`, due dates by `extraCharges.stepDueDate`), and for a
+      training package its stay: the linked boarding event(s) (`goHome.trainingStaysFor`),
+      else the one Today's nudge would log, from the ready date. A deposit fee charge-back
+      is no agreement.
+  - **The pickup date** dates a boarding agreement and a training package's agreement (the
+    sale's `pickupDate` field). Sending one with no pickup on the calendar
+    (`contractAddOns.pickupToSet`) asks for the date first, offering the day after the
+    boarding or the last stay ends; Save logs the pickup (`contractSend.logPickup`, the
+    `placement` event `goHome.pickupEvent` builds) and the facts are read again; Skip sends
+    without.
   `prefillValues` takes the form (not only its type) so an Extra agreement knows its extra.
 - **Send for signature** (Contract page): picks a form, builds a prefilled link
   (`contractForms.prefillValues`, an allow-list that never includes notes or terms;
@@ -2739,12 +2762,11 @@ Share with families hint and the card's badge say so for this type.
   A sale's `pickupDate` is `goHome.expectedPickupDate`: the pup's next pickup for that
   family on the calendar (`goHome.pickupFor`), else its latest, else the litter's ready date
   (`goHome.readyDateOf`).
-  A sale's payment table (`incomeView.getPriceTable` → pure `priceTable`, the purchase price
-  only: no transport, boarding or extras): `waitlistFeePaid` is the fee actually received
-  from the family placed with the sale (each entry's own `fee_amount`, credited or not; 0
-  outside the waitlist); `waitlistFeeCredit` the part credited to the purchase; `depositDue`
+  A sale's payment table (pure `incomeView.priceTable`, from the sale's `getSaleCredits`;
+  the purchase price only: no transport, boarding or extras): `depositDue` is
   the deposit less the fee credited toward it (`waitlist_config.fee_credit_toward` =
-  deposit) and the received funds allocated to it (each credit's **Applies to**: Deposit);
+  deposit) and the received funds allocated to it (each credit's **Applies to**: Deposit),
+  the same before and after the deposit is marked paid;
   `otherPaymentsReceived` the credits and payments toward the balance (the credited fee
   when it isn't taken off the deposit, received funds not on the deposit, a paid balance),
   so price = deposit + `otherPaymentsReceived` + `purchaseBalanceDue` and nothing counts
@@ -2780,8 +2802,9 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     The tab is opened before the await and has no `opener`.
 - **What KennelOS keeps** (`data/esignTemplates.js`):
   - Only each template's kind, as a `contract_forms` row
-    `{ id, form_type, label, provider: 'firma', template_id, countersign?, keep_copy?, signer_name? }`
-    (`contractForms.isFirmaForm`; no `url`). `countersign: true` (the template's **I
+    `{ id, form_type, label, provider: 'firma', template_id, countersign?, keep_copy?, extra_list_id? }`
+    (`contractForms.isFirmaForm`; no `url`). Contract templates is the only place a row is
+    set: the Accounts page shows it and, on save, keeps it exactly as stored. `countersign: true` (the template's **I
     countersign** tick, enabled once it has a type) means she signs it too; a retype keeps
     it. `keep_copy: true` (its **Email the buyer the signed copy** tick) means KennelOS keeps
     the signed PDF and emails the buyer a link (below).
@@ -2810,10 +2833,10 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     required one never blocks the send. The Worker logs a refusal's Firma code, and the keys
     (never values) of prefilled fields a sent request left empty (`firma.emptyPrefills`).
   - On a template she countersigns, `sendBody` adds her as `countersigner`
-    (`cloudEsign.countersignerFor`: her cloud account's email, under the template's
-    `signer_name` (its **Signs as** in Contract templates), else the kennel's
-    `esign_signer_name` (**Your signature name** there, one per own kennel), else the
-    contact linked to the kennel, else the kennel's name: `esignTemplates.signerNameFor`). The
+    (`cloudEsign.countersignerFor`: her cloud account's email, under the kennel's
+    `esign_signer_name` (**Countersign as** in Contract templates, one per own kennel), else
+    the contact linked to the kennel, else the kennel's name:
+    `esignTemplates.kennelSignerName`). The
     Worker makes her the request's second Signer (`order: 2`): one request, one credit.
     The dialog says she countersigns as that email. With no account email on the device, or
     her email as the buyer's, the send is refused before Firma.
@@ -2829,7 +2852,8 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     counted) and a token for it (`/jwt/generate-signing-request`). It opens in a new tab on
     the editor page (`/esign/editor#t=…&sr=…`), Firma's signing request editor `readOnly`: her
     real template with this contract's values. Closing the Send dialog discards the drafts it
-    made (`DELETE /integrations/esign/preview?id=`, `cloudEsign.discardPreview`, best effort);
+    made (`DELETE /integrations/esign/preview?id=`, `cloudEsign.discardPreview`, best effort;
+    one that comes back after the dialog closed is discarded at once);
     the Worker deletes only a request Firma says is still a `draft`.
   - The Worker reads the template with her key before it reserves the send: a 404 is
     `404 template_missing`, before anything counts. So is a 404 from Firma's send (the row is

@@ -5,15 +5,20 @@
 // records.
 //
 //   addOnFacts({ sale, events, litter, priceList, today }) →
-//     { transport, boarding, extras: [{ charge, row, stay }], goHomeFrom }
+//     { transport, boarding, extras: [{ charge, row, stay }], pickupDate, pickupFrom }
 //   extraFor(addOns, listId)  the sale's extra a form is for, or null
+//   pickupToSet(form, addOns) the date to offer when the agreement needs a pickup
+//                             on the calendar and there is none
 //
 // A training package (an extra with `boarding_days`) is boarded in place of standard
 // boarding: its stay is a boarding event linked to the sale and the extra
 // (goHome.trainingStaysFor). Not logged yet, the stay is the one Today's nudge would
 // log (from the ready date, or today once that has passed), marked `logged: false`.
-// The pup goes home from the later of its ready date and the day after the last stay
-// (familyPickup.pickupFrom's rule), and standard boarding runs from then.
+// The pup can go home from the later of its ready date and the day after the last
+// stay (familyPickup.pickupFrom's rule, `pickupFrom`), and standard boarding runs
+// from then to the day before its pickup. A boarding agreement and a training
+// package's agreement are dated by that pickup (the sale's `pickupDate` field), so
+// sending one with no pickup on the calendar asks for it first (pickupToSet).
 import { readyDateOf, pickupFor, defaultStart, boardingEnd, hasDeferredBoarding, trainingStaysFor, trainingStayEvent } from './goHome.js';
 import { saleExtraCharges, stepDueDate } from './extraCharges.js';
 import { addDaysToYMD } from './dateUtils.js';
@@ -55,13 +60,11 @@ export function addOnFacts({ sale, events = [], litter = null, priceList = [], t
     return { charge, row, stay: stayOf(sale, charge, events, defaultStart(ready, today)) };
   });
   const lastStay = extras.map((x) => x.stay?.end).filter(Boolean).sort().pop() || null;
-  const goHomeFrom = [ready, lastStay ? addDaysToYMD(lastStay, 1) : null].filter(Boolean).sort().pop() || '';
+  const pickupFrom = [ready, lastStay ? addDaysToYMD(lastStay, 1) : null].filter(Boolean).sort().pop() || '';
 
   const transport = {
     fee: Number(sale.transport_fee) > 0 ? Number(sale.transport_fee) : null,
-    method: text(pickup?.details?.dropoff_method),
     date: pickup?.event_date || '',
-    time: text(pickup?.details?.placement_time),
     place: text(pickup?.details?.location),
     due: text(sale.balance_due_date)
   };
@@ -71,7 +74,7 @@ export function addOnFacts({ sale, events = [], litter = null, priceList = [], t
     const n = parseInt(sale.deferred_boarding_duration_days, 10);
     const count = Number.isFinite(n) && n > 0 ? n : 1;
     const per = text(sale.deferred_boarding_frequency) || 'Day';
-    const start = goHomeFrom;
+    const start = pickupFrom;
     const end = pickup && start && pickup.event_date > start ? addDaysToYMD(pickup.event_date, -1) : boardingEnd(sale, start);
     boarding = {
       rate: Number(sale.deferred_boarding_amount), per,
@@ -80,7 +83,7 @@ export function addOnFacts({ sale, events = [], litter = null, priceList = [], t
       start, end
     };
   }
-  return { transport, boarding, extras, goHomeFrom, pickupDate: pickup?.event_date || '' };
+  return { transport, boarding, extras, pickupFrom, pickupDate: pickup?.event_date || '' };
 }
 
 // The sale's extra a form is for (its `extra_list_id`: a price-list row's id). The
@@ -90,6 +93,18 @@ export function extraFor(addOns, listId) {
   if (!addOns || !listId) return null;
   return addOns.extras.find((x) => x.charge.list_id === listId)
     || addOns.extras.find((x) => !x.charge.list_id && x.row?.id === listId) || null;
+}
+
+// A boarding agreement, and the agreement for an extra the pup stays for (a training
+// package), are dated by the pup's pickup. With none on the calendar: the date to
+// offer for it (the day after the boarding or the last stay ends; '' = none to
+// suggest). null = the form doesn't need one, or the pickup is already there.
+export function pickupToSet(form, addOns) {
+  if (!addOns || addOns.pickupDate) return null;
+  const boarding = form?.form_type === 'boarding' && addOns.boarding;
+  const stay = form?.form_type === 'extra' && extraFor(addOns, form.extra_list_id)?.stay;
+  if (!boarding && !stay) return null;
+  return boarding && boarding.end ? addDaysToYMD(boarding.end, 1) : addOns.pickupFrom;
 }
 
 // A charge's payment plan as dated steps: [{ percent, amount, due }] ('' = not
@@ -106,30 +121,43 @@ export function extraPayments(charge, sale, pickupDate = '') {
 }
 
 // Her extras an Extra agreement can be for: every own kennel's price list, each
-// row once. → [{ id, label, group, kennelName }] (kennelName only with two or
-// more own kennels). Pure.
+// row once. → [{ id, label, kennelName }] (kennelName only with two or more own
+// kennels). Pure.
 export function extraChoices(kennels, chargeList) {
   const own = (kennels || []).filter((k) => k && k.is_own_kennel && !k.is_archived);
   const out = [];
   for (const k of own) {
     for (const r of chargeList(k)) {
       if (out.some((x) => x.id === r.id)) continue;
-      out.push({ id: r.id, label: r.label, group: r.group || '', kennelName: own.length > 1 ? text(k.kennel_name) : '' });
+      out.push({ id: r.id, label: r.label, kennelName: own.length > 1 ? text(k.kennel_name) : '' });
     }
   }
   return out;
 }
 
-// The choices as <option>s, grouped (her groups, e.g. Training), the current one
-// selected; one no longer on her lists stays, marked so. `esc` from the caller.
-export function extraOptionsHtml(choices, current, esc) {
+// One pick for what kind of contract a form is: her contract types (`types`:
+// vocab.CONTRACT_FORM_TYPE), and in place of the bare Extra agreement type, each
+// of her extras by name. A value is the type, or `extra:<price-list row id>`
+// (readFormKind). The current one is selected; an extra no longer on her lists
+// stays, marked so. `esc` from the caller. → <option>s (no blank one).
+export function formKindOptionsHtml(types, choices, { formType = '', extraListId = '' } = {}, esc) {
+  const current = formType === 'extra' ? `extra:${extraListId}` : formType;
+  const opt = (value, label) => `<option value="${esc(value)}"${value === current ? ' selected' : ''}>${esc(label)}</option>`;
+  const extraType = types.find((t) => t.addOn === 'extra');
   const groups = new Map();
-  for (const c of choices) {
-    const g = [c.kennelName, c.group].filter(Boolean).join(' · ');
+  for (const c of extraType ? choices : []) {
+    const g = [`${extraType.label}s`, c.kennelName].filter(Boolean).join(' · ');
     if (!groups.has(g)) groups.set(g, []);
     groups.get(g).push(c);
   }
-  const opt = (c) => `<option value="${esc(c.id)}"${c.id === current ? ' selected' : ''}>${esc(c.label)}</option>`;
-  const gone = current && !choices.some((c) => c.id === current) ? `<option value="${esc(current)}" selected>(no longer on your price list)</option>` : '';
-  return `<option value="">Which extra?…</option>${gone}${[...groups].map(([g, list]) => (g ? `<optgroup label="${esc(g)}">${list.map(opt).join('')}</optgroup>` : list.map(opt).join(''))).join('')}`;
+  const gone = formType === 'extra' && !choices.some((c) => c.id === extraListId)
+    ? opt(current, extraListId ? 'Agreement: (no longer on your price list)' : 'Agreement: pick the extra') : '';
+  return `${types.filter((t) => t.addOn !== 'extra').map((t) => opt(t.value, t.label)).join('')}${gone}${[...groups]
+    .map(([g, list]) => `<optgroup label="${esc(g)}">${list.map((c) => opt(`extra:${c.id}`, `Agreement: ${c.label}`)).join('')}</optgroup>`).join('')}`;
+}
+
+// A picked kind back as the row's fields. → { formType, extraListId }
+export function readFormKind(value) {
+  const v = text(value);
+  return v.startsWith('extra:') ? { formType: 'extra', extraListId: v.slice(6) } : { formType: v, extraListId: '' };
 }

@@ -468,8 +468,8 @@ export const CONTRACT_FORM_TYPE = [
   // that charge (`addOn`, contractForms.rankForms). An `extra` form is for ONE of her
   // price-list extras (the row's `extra_list_id`), e.g. one training package.
   { value: 'transport',       label: 'Transport agreement',             badge: 'badge-blue',    contractTypes: ['sale'], addOn: 'transport' },
-  { value: 'boarding',        label: 'Delayed pickup / boarding agreement', badge: 'badge-amber', contractTypes: ['sale'], addOn: 'boarding' },
-  { value: 'extra',           label: 'Extra agreement (one of your extras)', badge: 'badge-green', contractTypes: ['sale'], addOn: 'extra' }
+  { value: 'boarding',        label: 'Boarding agreement',              badge: 'badge-amber',   contractTypes: ['sale'], addOn: 'boarding' },
+  { value: 'extra',           label: 'Extra agreement',                 badge: 'badge-green',   contractTypes: ['sale'], addOn: 'extra' }
 ];
 
 // Not a locked state machine (Stage4 Revision v2 §7) — moves any direction, no

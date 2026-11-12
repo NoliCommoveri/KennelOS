@@ -69,9 +69,6 @@ export function cleanForms(list) {
         if (f.countersign === true) row.countersign = true;
         // KennelOS keeps the signed PDF and emails the buyer a link (D33). Absent = no.
         if (f.keep_copy === true) row.keep_copy = true;
-        // The name she countersigns this one with; absent = her kennel's setting.
-        const signer = text(f.signer_name).replace(/\s+/g, ' ').slice(0, 100);
-        if (signer) row.signer_name = signer;
         withExtra(row, f);
         return row;
       }
@@ -124,22 +121,33 @@ export function allForms(accounts) {
 }
 
 // Does the sale have what this separate agreement is for? Its transport fee, its
-// delayed-pickup boarding, or the extra the form is for (a charge copied from that
-// price-list row; the row's label for a charge typed by hand isn't known here, so
-// that one shows under "Show all forms").
-export function addOnApplies(form, addOn, sale) {
+// deferred-pickup boarding, or the extra the form is for: the same match the form
+// fills from (contractAddOns.extraFor) when the sale's `addOns` are given, else a
+// charge copied from that price-list row.
+export function addOnApplies(form, addOn, sale, addOns = null) {
   if (!sale) return false;
   if (addOn === 'transport') return Number(sale.transport_fee) > 0;
   if (addOn === 'boarding') return Number(sale.deferred_boarding_amount) > 0;
-  if (addOn === 'extra') return !!form.extra_list_id && (Array.isArray(sale.extra_charges) ? sale.extra_charges : []).some((c) => c && c.list_id === form.extra_list_id);
-  return false;
+  if (addOn !== 'extra' || !form.extra_list_id) return false;
+  if (addOns) return Boolean(extraFor(addOns, form.extra_list_id));
+  return (Array.isArray(sale.extra_charges) ? sale.extra_charges : []).some((c) => c && c.list_id === form.extra_list_id);
+}
+
+// Which of a sale's agreements a form is: '' = its main contract, else the separate
+// agreement ('transport', 'boarding', 'extra:<price-list row id>'). Each separate
+// agreement goes out on a contract record of its own (contractSend.contractForForm).
+export function agreementKey(form) {
+  const addOn = descriptor(CONTRACT_FORM_TYPE, form?.form_type).addOn;
+  if (!addOn) return '';
+  return addOn === 'extra' ? `extra:${text(form.extra_list_id)}` : addOn;
 }
 
 // The forms for one contract, best first: `matching` = forms whose type serves
 // this contract_type, ranked by fit to the linked sale (pet home for a limited
 // registration, breeding rights for full, deposit while it's pending), then
-// label; `others` = the rest, for "Show all forms".
-export function rankForms(forms, contract, sale = null) {
+// label; `others` = the rest, for "Show all forms". `addOns`: the sale's
+// contractAddOns.addOnFacts, when the caller has them.
+export function rankForms(forms, contract, sale = null, addOns = null) {
   const order = new Map(CONTRACT_FORM_TYPE.map((t, i) => [t.value, i]));
   const fit = (f) => {
     const t = descriptor(CONTRACT_FORM_TYPE, f.form_type);
@@ -153,10 +161,12 @@ export function rankForms(forms, contract, sale = null) {
   for (const f of forms || []) {
     const t = descriptor(CONTRACT_FORM_TYPE, f.form_type);
     // A separate agreement (transport, boarding, one extra) only when the sale has it.
-    const fits = (t.contractTypes || []).includes(contract?.contract_type) && (!t.addOn || addOnApplies(f, t.addOn, sale));
+    const fits = (t.contractTypes || []).includes(contract?.contract_type) && (!t.addOn || addOnApplies(f, t.addOn, sale, addOns));
     (fits ? matching : others).push(f);
   }
-  matching.sort((a, b) => fit(b) - fit(a) || order.get(a.form_type) - order.get(b.form_type) || byLabel(a, b));
+  // The sale's own contract first, then its separate agreements.
+  const apart = (f) => (descriptor(CONTRACT_FORM_TYPE, f.form_type).addOn ? 1 : 0);
+  matching.sort((a, b) => apart(a) - apart(b) || fit(b) - fit(a) || order.get(a.form_type) - order.get(b.form_type) || byLabel(a, b));
   others.sort((a, b) => order.get(a.form_type) - order.get(b.form_type) || byLabel(a, b));
   return { matching, others };
 }
@@ -200,17 +210,13 @@ export const PREFILL_FIELDS = {
     ['price', 'Price (the total purchase price, with any Full registration surcharge)'],
     ['depositAmount', 'Deposit'],
     ['balanceDue', 'Balance still due (everything on the sale: with transport, boarding and extras)'],
-    ['depositDue', 'Deposit due, less the application fee credited toward it (and any funds already received that covered it)'],
-    ['waitlistFeePaid', 'Waitlist fee they paid (0.00 when none)'],
-    ['waitlistFeeCredit', 'Waitlist fee credited to the purchase'],
+    ['depositDue', 'Deposit still due (the deposit, less the application fee and credits counted toward it)'],
     ['otherPaymentsReceived', 'Credits and payments toward the balance, beyond what covered the deposit'],
     ['purchaseBalanceDue', 'Balance of the purchase price due at pickup (the price only)']
   ],
   transport: [
     ['transportFee', 'Transport fee'],
-    ['transportMethod', 'How the pup travels (Flight nanny, Ground transport, Local pickup…)'],
     ['deliveryDate', 'Delivery / pickup date (the one on your calendar)'],
-    ['deliveryTime', 'Delivery / pickup time'],
     ['deliveryPlace', 'Delivery / pickup place'],
     ['transportDueDate', 'When the transport fee is due (the balance due date)']
   ],
@@ -226,15 +232,14 @@ export const PREFILL_FIELDS = {
     ['extraName', 'The extra this agreement is for, as on the sale (e.g. 2-week training)'],
     ['extraDescription', 'Its description from your price list'],
     ['extraPrice', 'Its price'],
-    ['extraPayments', 'Its payment plan, in words (e.g. 50% ($300.00) due 2026-12-01; 50% ($300.00) with the balance)'],
+    ['extraPayments', 'Its payment plan, in words (e.g. 50% (300.00) due 2026-12-01; 50% (300.00) with the balance)'],
     ['extraPayment1Amount', 'First payment'], ['extraPayment1Due', 'First payment due'],
     ['extraPayment2Amount', 'Second payment'], ['extraPayment2Due', 'Second payment due'],
     ['extraPayment3Amount', 'Third payment'], ['extraPayment3Due', 'Third payment due'],
     ['extraPayment4Amount', 'Fourth payment'], ['extraPayment4Due', 'Fourth payment due'],
     ['extraStayDays', 'Days the pup stays for it (a training package)'],
     ['extraStayStart', 'Its stay starts (as logged; else from the ready date)'],
-    ['extraStayEnd', 'Its stay ends'],
-    ['goHomeFrom', 'The pup can go home from (after every training stay)']
+    ['extraStayEnd', 'Its stay ends']
   ],
   stud_service: [
     ['studServiceRef', 'The stud service\'s reference (make it a hidden field)'],
@@ -337,17 +342,16 @@ export function prefillValues(formOrType, facts = {}) {
       ['registrationType', label(REGISTRATION_TYPE, s.registration_type)],
       ['pickupDate', text(f.pickupDate)],
       ['price', money(s.price)], ['depositAmount', money(s.deposit_amount)], ['balanceDue', money(f.balanceDue)],
-      // Her contract's payment table (contractSend: incomeView.getPriceTable).
+      // Her contract's payment table (contractSend: incomeView.priceTable).
       ['depositDue', money(f.priceTable?.depositDue)],
-      ['waitlistFeePaid', money(f.priceTable?.feePaid)], ['waitlistFeeCredit', money(f.priceTable?.feeCredit)],
       ['otherPaymentsReceived', money(f.priceTable?.otherPaid)], ['purchaseBalanceDue', money(f.priceTable?.balanceDue)]
     );
   }
   const a = f.addOns;
   if (groups.includes('transport') && a) {
     const t = a.transport;
-    out.push(['transportFee', money(t.fee)], ['transportMethod', text(t.method)], ['deliveryDate', text(t.date)],
-      ['deliveryTime', text(t.time)], ['deliveryPlace', text(t.place)], ['transportDueDate', text(t.due)]);
+    out.push(['transportFee', money(t.fee)], ['deliveryDate', text(t.date)],
+      ['deliveryPlace', text(t.place)], ['transportDueDate', text(t.due)]);
   }
   if (groups.includes('boarding') && a?.boarding) {
     const b = a.boarding;
@@ -362,7 +366,6 @@ export function prefillValues(formOrType, facts = {}) {
       ['extraPayments', steps.map(stepText).join('; ')]);
     steps.slice(0, 4).forEach((st, i) => out.push([`extraPayment${i + 1}Amount`, money(st.amount)], [`extraPayment${i + 1}Due`, text(st.due)]));
     if (x.stay) out.push(['extraStayDays', text(x.charge.boarding_days)], ['extraStayStart', text(x.stay.start)], ['extraStayEnd', text(x.stay.end)]);
-    out.push(['goHomeFrom', text(a.goHomeFrom)]);
   }
   if (groups.includes('stud_service') && f.studService) {
     const ss = f.studService;

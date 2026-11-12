@@ -4,7 +4,7 @@
 import { test, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { installMemoryDb } from './support/memoryDb.js';
-import { saleExtraCharges, extraChargesTotal, readExtraCharges, kennelChargeList, newExtraCharge, depositFeeChargeBack,
+import { saleExtraCharges, extraChargesTotal, readExtraCharges, kennelChargeList, newExtraCharge, chargeFromPriceList, depositFeeChargeBack,
   kennelChargeGroups, groupedChargeList, chargeRules, requestWindow, readPriceList, readChargeGroups, planProblem, planText, cleanPlan,
   cleanSteps, planSteps, stepDueDate } from '../shared/data/extraCharges.js';
 import { familySale, familyExtrasView, withExtraRequest } from '../shared/data/familyExtras.js';
@@ -42,13 +42,23 @@ test('a form row with only a name or only an amount is an error; blank rows drop
   assert.ok(list[0].id, 'saving mints an id');
 });
 
-test('a price-list entry is copied onto the sale, not linked', () => {
-  const kennel = { extra_charge_list: [{ id: 'p1', label: 'Gold photo package', amount: 150 }] };
-  const [preset] = kennelChargeList(kennel);
-  const charge = newExtraCharge(preset);
-  assert.equal(charge.label, 'Gold photo package');
-  assert.equal(charge.amount, 150);
-  assert.notEqual(charge.id, preset.id);
+test('a price-list entry is copied onto the sale the same way wherever it\'s added', () => {
+  const kennel = {
+    extra_charge_list: [
+      { id: 'p1', label: 'Gold photo package', amount: 150 },
+      { id: 't1', label: '2-week training', amount: 600, group: 'Training', boarding_days: 14 }
+    ],
+    extra_charge_groups: [{ name: 'Training', payment_plan: [{ percent: 50, due: 'at_weeks', n: 6 }, { percent: 50, due: 'with_balance' }] }]
+  };
+  const [photos, training] = kennelChargeList(kennel);
+  const from = { groups: kennelChargeGroups(kennel), approvalDate: '2026-11-12', birthDate: '2026-10-15' };
+  const charge = chargeFromPriceList(photos, from);
+  assert.deepEqual({ label: charge.label, amount: charge.amount, list_id: charge.list_id }, { label: 'Gold photo package', amount: 150, list_id: 'p1' });
+  assert.notEqual(charge.id, photos.id, 'its own id: the price is copied, not linked');
+  assert.equal('payments' in charge, false, 'no plan: paid with the balance');
+  const stay = chargeFromPriceList(training, from);
+  assert.deepEqual([stay.list_id, stay.group, stay.boarding_days], ['t1', 'Training', 14]);
+  assert.deepEqual(stay.payments.map((st) => [st.percent, st.amount, st.due_date || st.due]), [[50, 300, '2026-11-26'], [50, 300, 'with_balance']]);
   assert.deepEqual({ label: newExtraCharge().label, amount: newExtraCharge().amount }, { label: '', amount: '' });
 });
 

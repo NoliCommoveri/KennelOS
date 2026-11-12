@@ -11,10 +11,10 @@ import { contactRepo } from './contactRepo.js';
 import { kennelRepo } from './kennelRepo.js';
 import { litterRepo } from './litterRepo.js';
 import { eventRepo } from './eventRepo.js';
-import { expectedPickupDate } from './goHome.js';
+import { expectedPickupDate, pickupEvent } from './goHome.js';
 import { accountRepo } from './accountRepo.js';
-import { incomeLineItems, paidOnSale, getSaleCredits, getPriceTable } from './incomeView.js';
-import { allForms, prefillValues, prefillUrl, formProvider, mapValues, isFirmaForm } from './contractForms.js';
+import { incomeLineItems, paidOnSale, getSaleCredits, priceTable } from './incomeView.js';
+import { allForms, prefillValues, prefillUrl, formProvider, mapValues, isFirmaForm, agreementKey } from './contractForms.js';
 import { esignSignedIn, liveTemplateIds } from './cloud/cloudEsign.js';
 import { forgetMissingTemplates } from './esignTemplates.js';
 import { todayYMD } from './dateUtils.js';
@@ -40,9 +40,10 @@ export async function loadContractForms() {
 }
 
 // What's still owed on a sale, read the way the ledger reads it.
-// The family's credits for funds already received count as paid.
-export async function balanceDueOn(sale) {
-  const { feeCredit, credit } = await getSaleCredits(sale.id);
+// The family's credits for funds already received count as paid. `credits`: the
+// sale's getSaleCredits, when the caller already has them.
+export async function balanceDueOn(sale, credits = null) {
+  const { feeCredit, credit } = credits || await getSaleCredits(sale.id);
   const total = incomeLineItems('sale', sale, { feeCredit }).reduce((t, x) => t + x.amount, 0);
   return Math.max(0, total - paidOnSale(sale, { feeCredit, received: credit?.received || null }));
 }
@@ -61,6 +62,25 @@ export async function breederFor(kennelId) {
   return rows[0] || null;
 }
 
+// A sale's separate agreements' facts (transport, boarding, each extra:
+// contractAddOns.addOnFacts), read from the database. Her price list is the
+// sale's kennel's. `have`: records the caller already read ({ puppy, events,
+// litter, kennel }). → the facts | null (no sale).
+export async function saleAddOns(sale, have = {}) {
+  if (!sale) return null;
+  const puppy = 'puppy' in have ? have.puppy : await get(dogRepo, sale.dog_id);
+  const events = 'events' in have ? have.events : (puppy ? await eventRepo.getForSubject('dog', puppy.id) : []);
+  const litter = 'litter' in have ? have.litter : (puppy ? await get(litterRepo, puppy.litter_id) : null);
+  const kennel = 'kennel' in have ? have.kennel : await get(kennelRepo, sale.kennel_id);
+  return addOnFacts({ sale, events, litter, priceList: kennelChargeList(kennel), today: todayYMD() });
+}
+
+// The pup's pickup on the calendar, with the sale's buyer (the event Kels's
+// check-in writes: goHome.pickupEvent). → the event.
+export function logPickup(sale, date) {
+  return eventRepo.create(pickupEvent({ id: sale.dog_id }, sale, date));
+}
+
 // The records a contract reaches, as contractForms.prefillValues wants them.
 export async function gatherContractFacts(c) {
   const sale = await get(saleRepo, c.related_sale_id);
@@ -75,19 +95,18 @@ export async function gatherContractFacts(c) {
   const litter = puppy ? await get(litterRepo, puppy.litter_id) : null;
   const pickupDate = puppy ? expectedPickupDate({ sale, today, events: pupEvents, litter }) : '';
   const kennel = await get(kennelRepo, c.kennel_id);
-  // Her separate agreements' facts (transport, boarding, each extra). Her price
-  // list is the sale's kennel's (else the contract's).
+  // Her price list is the sale's kennel's (else the contract's).
   const priceKennel = sale?.kennel_id && sale.kennel_id !== c.kennel_id ? await get(kennelRepo, sale.kennel_id) : kennel;
-  const addOns = sale ? addOnFacts({ sale, events: pupEvents, litter, priceList: kennelChargeList(priceKennel), today }) : null;
+  const credits = sale ? await getSaleCredits(sale.id) : null;
   return {
     contract: c,
     kennel,
     breeder: await breederFor(c.kennel_id),
     today,
     sale, puppy, pickupDate,
-    balanceDue: sale ? await balanceDueOn(sale) : null,
-    priceTable: sale ? await getPriceTable(sale) : null,
-    addOns,
+    balanceDue: sale ? await balanceDueOn(sale, credits) : null,
+    priceTable: sale ? priceTable(sale, { feeCredit: credits.feeCredit, received: credits.credit?.received || null }) : null,
+    addOns: await saleAddOns(sale, { puppy, events: pupEvents, litter, kennel: priceKennel }),
     buyer: sale ? await get(contactRepo, sale.buyer_contact_id) : null,
     sire: puppy ? await get(dogRepo, puppy.sire_id) : null,
     dam: puppy ? await get(dogRepo, puppy.dam_id) : null,
@@ -117,10 +136,39 @@ export function markContractSent(c, form, url) {
   });
 }
 
+const newestFirst = (a, b) => String(b.created_at || '').localeCompare(String(a.created_at || ''));
+
+// The contract record a form goes out on. A sale's main contract and each of its
+// separate agreements (transport, boarding, one per extra: contractForms.
+// agreementKey) have a record of their own, so one being signed never marks
+// another Signed. `contract` is the one she's sending from: it's used while
+// nothing went out on it, or the same agreement did (a re-send). Once a different
+// agreement went out on it (told by its esign_form_label among `forms`), the
+// form's own record is used: the sale's sendable one for that agreement, else a
+// new draft named for the form and the pup. → the contract.
+export async function contractForForm(contract, form, forms) {
+  if (!contract?.related_sale_id) return contract;
+  const key = agreementKey(form);
+  const keyOf = (c) => {
+    const sent = c.esign_form_label ? (forms || []).find((f) => f.label === c.esign_form_label) : null;
+    return sent ? agreementKey(sent) : null;
+  };
+  const mine = keyOf(contract);
+  if (mine === null || mine === key) return contract;
+  const sale = await get(saleRepo, contract.related_sale_id);
+  const pup = sale ? await get(dogRepo, sale.dog_id) : null;
+  const title = [form.label, pup?.call_name].filter(Boolean).join(': ');
+  const own = (await contractRepo.getBySale(contract.related_sale_id))
+    .filter((c) => !c.is_archived && c.id !== contract.id && SENDABLE_STATUSES.includes(c.status || 'draft')
+      && (keyOf(c) === key || (!c.esign_form_label && c.title === title)))
+    .sort(newestFirst);
+  return own[0] || contractRepo.create({ contract_type: 'sale', related_sale_id: contract.related_sale_id, kennel_id: contract.kennel_id, status: 'draft', title });
+}
+
 // The sale's contract to send: its newest one still sendable, else null.
 export async function openContractForSale(saleId) {
   const rows = (await contractRepo.getBySale(saleId))
     .filter((c) => !c.is_archived && SENDABLE_STATUSES.includes(c.status || 'draft'))
-    .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+    .sort(newestFirst);
   return rows[0] || null;
 }

@@ -3623,3 +3623,52 @@ tick box per template; buyers get an emailed link.
   balance due. A credit that paid the fee counts once, as the fee (the allocation spends that
   share on it; `fee_credit_amount`).
 - **Tests:** `tests/priceTable.test.js` +1 (six cases). `node --test` 1746 pass.
+
+## 2026-11-12: Contract sending made simpler: fewer fields, one home per setting, a record per agreement
+
+- **Asked (owner, after a review of the six commits above):** users struggle with settings in
+  many places that touch automatic logic they can't see. Simplify through the backend, labels
+  and consolidation, not explanatory copy. Drop `waitlistFeePaid`, `waitlistFeeCredit`,
+  `transportMethod`, `deliveryTime`, `goHomeFrom`. Boarding and training agreements use
+  `pickupDate`; prompt for a pickup when one isn't logged.
+- **Fields:** the five are gone (80 fact names). `priceTable` returns `{ depositDue,
+  otherPaid, balanceDue }` and no longer reads entries; `getPriceTable` is gone
+  (`gatherContractFacts` reads the sale's credits once for it and `balanceDueOn`).
+  `depositDue` now reads the same before and after the deposit is marked paid (it used the
+  ledger's unpaid-only credit marker, so a credit on the deposit vanished once it was paid).
+  Its label is under Firma's 100 characters.
+- **Pickup date:** `contractAddOns.pickupToSet`: a boarding agreement, or an extra the pup
+  stays for, sent with no pickup on the calendar asks for the date (the day after the
+  boarding or last stay ends offered), and `contractSend.logPickup` logs it. Contract page
+  and Pick to send.
+- **A record per agreement:** `contractSend.contractForForm` (`contractForms.agreementKey`).
+  Sending a second agreement from one contract record used to need "Send it again?", and the
+  first one signed marked the record Signed. Each agreement now goes out on its own record,
+  made when needed.
+- **One home, one pick:**
+  - A form's kind is one dropdown: her types, and each extra by name
+    (`formKindOptionsHtml` / `readFormKind`), in place of a type and a second "which extra".
+  - E-sign template rows are display-only on the Accounts page; saving there keeps them as
+    stored. It used to drop `countersign` and `keep_copy` (so on `main` too).
+  - The per-template `signer_name` is gone (never on `main`): one **Countersign as** per own
+    kennel (`Kennel.esign_signer_name`).
+  - `extraCharges.chargeFromPriceList` builds a price-list charge for the Sale page, Kels's
+    Prep pups and a family's approved request. Prep pups copied only the name and price, so
+    its extras had no stay nudge and no Extra agreement offered.
+  - `addOnApplies` matches an extra the way the form fills (`extraFor`), given the sale's
+    `addOns`; the picker lists the sale's own contract forms before its separate agreements.
+- **Labels:** "Boarding agreement", "Extra agreement" (the bracketed note reached a buyer's
+  deposit-request message).
+- **Worker:** a send read the template from Firma twice (a leftover of the preview refactor);
+  once now.
+- **Preview:** a draft that comes back after the Send dialog closed is discarded at once.
+- **Left open:** the preview token isn't read-only (Firma's `readOnly` is an editor option),
+  and drafts left by a closed tab aren't swept; the template list's `complete` trusts a page
+  of 100. Firma's docs weren't reachable from the session.
+- **Checked in a browser** (sample data): the Accounts form's rows and save, the picker's
+  order, the pickup prompt and its event. Contract templates needs a cloud sign-in: not
+  opened.
+- **Tests:** `tests/priceTable.test.js` rewritten (7), `tests/contractAddOns.test.js` +3,
+  `tests/esign.test.js` +1, `tests/extraCharges.test.js`, `cloud/tests/esign.test.js`.
+  `node --test` 1748 pass, `cd cloud && npm test` 326 pass.
+- **Docs:** End-State guide §21.2, §32; Integrations plan §2.1a, §2.3a.

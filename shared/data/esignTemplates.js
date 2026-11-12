@@ -2,7 +2,7 @@
 // §2.3a, D30). The templates themselves (the PDF and the fields placed on it) live
 // in her Firma workspace; KennelOS keeps only what kind of contract each one is,
 // as a row in a Form service Account's `contract_forms`:
-//   { id, form_type, label, provider: 'firma', template_id, countersign?, keep_copy?, signer_name?,
+//   { id, form_type, label, provider: 'firma', template_id, countersign?, keep_copy?,
 //     extra_list_id? (an Extra agreement: the price-list extra it's for) }
 // (contractForms.cleanForms). `countersign: true` = she signs it too, after the
 // buyer, from the contract's Countersign button (Integrations D32). `keep_copy:
@@ -54,17 +54,16 @@ export function mergeTemplates(templates, accounts) {
     return {
       id: t.id, name: t.name || '(untitled)', pageCount: t.pageCount ?? null,
       form_type: row?.form_type || '', label: row?.label || '',
-      countersign: row?.countersign === true, keepCopy: row?.keep_copy === true, signerName: row?.signer_name || '',
+      countersign: row?.countersign === true, keepCopy: row?.keep_copy === true,
       extraListId: row?.extra_list_id || ''
     };
   });
 }
 
 // The account's forms with this template's row set (a known type), or removed
-// (type ''). `countersign` / `keepCopy` / `signerName` left out keep what the
-// row had (signerName '' = back to her kennel's setting). Pure.
+// (type ''). `countersign` / `keepCopy` left out keep what the row had. Pure.
 // → the new contract_forms list.
-export function withTemplateRow(forms, { templateId, name, formType, countersign, keepCopy, signerName, extraListId }) {
+export function withTemplateRow(forms, { templateId, name, formType, countersign, keepCopy, extraListId }) {
   const list = cleanForms(forms);
   const i = list.findIndex((f) => isFirmaForm(f) && f.template_id === templateId);
   if (!formType || !CONTRACT_FORM_TYPE.some((t) => t.value === formType)) return i < 0 ? list : list.filter((_, j) => j !== i);
@@ -72,8 +71,6 @@ export function withTemplateRow(forms, { templateId, name, formType, countersign
   const row = { id: i < 0 ? crypto.randomUUID() : list[i].id, form_type: formType, label, provider: 'firma', template_id: templateId };
   if (countersign === undefined ? list[i]?.countersign === true : countersign === true) row.countersign = true;
   if (keepCopy === undefined ? list[i]?.keep_copy === true : keepCopy === true) row.keep_copy = true;
-  const signer = String((signerName === undefined ? list[i]?.signer_name : signerName) || '').replace(/\s+/g, ' ').trim().slice(0, 100);
-  if (signer) row.signer_name = signer;
   // An Extra agreement: the extra it's for (left out = unchanged).
   const extra = String((extraListId === undefined ? list[i]?.extra_list_id : extraListId) || '').trim();
   if (formType === 'extra' && extra) row.extra_list_id = extra;
@@ -84,13 +81,13 @@ export function withTemplateRow(forms, { templateId, name, formType, countersign
 // countersigns it, and whether KennelOS keeps and emails the signed copy (each
 // left out = unchanged). Makes the E-sign (Firma) account the
 // first time. → the account.
-export async function setTemplateType({ templateId, name, formType, countersign, keepCopy, signerName, extraListId }) {
+export async function setTemplateType({ templateId, name, formType, countersign, keepCopy, extraListId }) {
   let account = firmaAccountOf(await accountRepo.getAll());
   if (!account) {
     if (!formType) return null;
     account = await accountRepo.create({ ...FIRMA_ACCOUNT, contract_forms: [] });
   }
-  return accountRepo.update(account.id, { contract_forms: withTemplateRow(account.contract_forms, { templateId, name, formType, countersign, keepCopy, signerName, extraListId }) });
+  return accountRepo.update(account.id, { contract_forms: withTemplateRow(account.contract_forms, { templateId, name, formType, countersign, keepCopy, extraListId }) });
 }
 
 // The forms without her Firma templates that aren't in `liveIds` any more (a
@@ -128,9 +125,4 @@ export function forgetTemplate(templateId) {
 export function kennelSignerName(kennel, breeder = null) {
   const t = (v) => String(v ?? '').replace(/\s+/g, ' ').trim();
   return t(kennel?.esign_signer_name) || t(breeder?.name) || t(kennel?.kennel_name);
-}
-
-// The name on one send: the template's own, else its kennel's (above). Pure.
-export function signerNameFor(form, kennel, breeder = null) {
-  return String(form?.signer_name || '').trim() || kennelSignerName(kennel, breeder);
 }
