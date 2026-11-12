@@ -3463,4 +3463,5 @@ tick box per template; buyers get an emailed link.
 - **Fix:** new `esignTemplates.signingKennel` picks the kennel she's working in, else My
   kennel, else any own kennel that isn't archived. It never picks an outside kennel.
 - Sends were never affected: they take the contract's own kennel.
-- **Tests:** `tests/esign.test.js` +1. `node --test` 1724 pass. Rides cache `v119`.
+- **Tests:** `tests/esign.test.js` +1. `node --test` 1724 pass.
+- **Service-worker cache bumped to `v120`:** `v119` had already shipped without this fix.
