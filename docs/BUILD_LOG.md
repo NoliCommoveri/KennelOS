@@ -3601,3 +3601,16 @@ tick box per template; buyers get an emailed link.
 - **Tests:** `cloud/tests/esign.test.js` +1, `tests/esign.test.js` +1. `cd cloud && npm test`
   326 pass, `node --test` 1744 pass.
 - **Docs:** End-State guide §32, Integrations plan §2.3a, launch checklist.
+
+## 2026-11-12: Deposit due (less application fee)
+
+- **Asked:** her sister's table is now Total purchase, Deposit, Deposit due (less application
+  fee), additional credits, Balance due at pickup (the waitlist fee rows go).
+- **Change:** `depositDue` (`incomeView.priceTable`): the deposit less the fee credited toward
+  it and the received funds the allocation puts on it (each credit's Applies to). The fee
+  comes off the deposit only with her waitlist setting "A credited fee counts toward:
+  Deposit". `otherPaymentsReceived` is relabelled "credits and payments toward the balance".
+  With the fee toward the deposit the table adds up: price = deposit + credits on the balance
+  + balance due.
+- **Tests:** `tests/priceTable.test.js` +1. `node --test` 1745 pass.
+- **Docs:** End-State guide §32, Integrations plan §2.1a.

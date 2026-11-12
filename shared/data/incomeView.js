@@ -367,19 +367,26 @@ export async function getSaleCredits(saleId) {
 //               sale (each entry's own fee_amount, whatever her fee setting says;
 //               credited or not). 0 for a sale made outside the waitlist.
 //   feeCredit   the part of those fees credited to the purchase (feeCreditsBySale).
+//   depositDue  the deposit less the fee credited toward it and received funds that
+//               covered it ("Deposit due (less application fee)").
 //   otherPaid   what's already paid toward the balance: the balance once it's marked
 //               paid, or the family's received funds (a lost pup's carry-over) left
 //               over after the deposit. Funds that covered the deposit aren't counted
 //               again here.
 //   balanceDue  what's still owed of the price at pickup.
-// → { feePaid, feeCredit, otherPaid, balanceDue }
+// → { feePaid, feeCredit, depositDue, otherPaid, balanceDue }
 export function priceTable(sale, { entries = [], feeCredit = NO_FEE_CREDIT, received = null, sales = [], offers = [] } = {}) {
   const feePaid = round2(entries
     .filter((e) => feeReceived(e) && (e.placed_sale_id || creditSale(e, sales, offers, entries)?.id) === sale.id)
     .reduce((t, e) => t + num(e.fee_amount), 0));
-  const parts = saleComponents({ ...sale, end_reason: null }, feeCredit, received).filter((c) => c.component === 'balance');
+  const comps = saleComponents({ ...sale, end_reason: null }, feeCredit, received);
+  const parts = comps.filter((c) => c.component === 'balance');
   const sum = (state) => round2(parts.filter((c) => c.state === state).reduce((t, c) => t + c.amount, 0));
-  return { feePaid, feeCredit: round2(feeCreditOf(feeCredit).amount), otherPaid: sum('earned'), balanceDue: sum('anticipated') };
+  // The deposit less the application fee credited toward it (feeCreditSplit) and any
+  // received funds that covered it: what the family still pays as their deposit. A
+  // deposit they've already paid stays in (it isn't a credit).
+  const depositDue = round2(comps.filter((c) => c.component === 'deposit' && !c.credited).reduce((t, c) => t + c.amount, 0));
+  return { feePaid, feeCredit: round2(feeCreditOf(feeCredit).amount), depositDue, otherPaid: sum('earned'), balanceDue: sum('anticipated') };
 }
 
 // priceTable for a sale, read from the database.

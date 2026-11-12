@@ -200,9 +200,10 @@ export const PREFILL_FIELDS = {
     ['price', 'Price (the total purchase price, with any Full registration surcharge)'],
     ['depositAmount', 'Deposit'],
     ['balanceDue', 'Balance still due (everything on the sale: with transport, boarding and extras)'],
+    ['depositDue', 'Deposit due, less the application fee credited toward it (and any funds already received that covered it)'],
     ['waitlistFeePaid', 'Waitlist fee they paid (0.00 when none)'],
     ['waitlistFeeCredit', 'Waitlist fee credited to the purchase'],
-    ['otherPaymentsReceived', 'Other payments received toward the price (beyond the deposit)'],
+    ['otherPaymentsReceived', 'Credits and payments toward the balance, beyond what covered the deposit'],
     ['purchaseBalanceDue', 'Balance of the purchase price due at pickup (the price only)']
   ],
   transport: [
@@ -337,6 +338,7 @@ export function prefillValues(formOrType, facts = {}) {
       ['pickupDate', text(f.pickupDate)],
       ['price', money(s.price)], ['depositAmount', money(s.deposit_amount)], ['balanceDue', money(f.balanceDue)],
       // Her contract's payment table (contractSend: incomeView.getPriceTable).
+      ['depositDue', money(f.priceTable?.depositDue)],
       ['waitlistFeePaid', money(f.priceTable?.feePaid)], ['waitlistFeeCredit', money(f.priceTable?.feeCredit)],
       ['otherPaymentsReceived', money(f.priceTable?.otherPaid)], ['purchaseBalanceDue', money(f.priceTable?.balanceDue)]
     );

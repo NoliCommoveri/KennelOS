@@ -291,7 +291,7 @@ on the Accounts page →". **No form of a matching type** → the picker opens o
   `buyerFirstName`, `buyerLastName`, `buyerEmail`, `buyerPhone`, `buyerAddress`, `puppyName`,
   `puppySex`, `puppyColor`, `puppyDob`, `puppyMicrochip`, `sireName`, `damName`, `breed`,
   `registrationType`, `price`, `depositAmount`, `balanceDue`, and for a contract's payment
-  table `waitlistFeePaid`, `waitlistFeeCredit`, `otherPaymentsReceived`,
+  table `depositDue`, `waitlistFeePaid`, `waitlistFeeCredit`, `otherPaymentsReceived`,
   `purchaseBalanceDue` (2026-11-12; End-State guide §32).
 - **A sale's separate agreements** (2026-11-12, owner request): `transport`, `boarding`
   (delayed pickup) and `extra` form types. An Extra agreement is for one of her price-list

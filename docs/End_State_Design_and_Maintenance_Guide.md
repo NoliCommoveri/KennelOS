@@ -2742,7 +2742,9 @@ Share with families hint and the card's badge say so for this type.
   A sale's payment table (`incomeView.getPriceTable` → pure `priceTable`, the purchase price
   only: no transport, boarding or extras): `waitlistFeePaid` is the fee actually received
   from the family placed with the sale (each entry's own `fee_amount`, credited or not; 0
-  outside the waitlist); `waitlistFeeCredit` the part credited to the purchase;
+  outside the waitlist); `waitlistFeeCredit` the part credited to the purchase; `depositDue`
+  the deposit less the fee credited toward it (`waitlist_config.fee_credit_toward` =
+  deposit) and the received funds allocated to it (each credit's **Applies to**: Deposit);
   `otherPaymentsReceived` what's paid toward the balance (a paid balance, or the family's
   received funds left over after the deposit, so funds that covered the deposit aren't
   counted twice); `purchaseBalanceDue` the rest of the price. `price` is the sale's price,
