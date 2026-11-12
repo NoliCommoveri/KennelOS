@@ -2745,9 +2745,10 @@ Share with families hint and the card's badge say so for this type.
   outside the waitlist); `waitlistFeeCredit` the part credited to the purchase; `depositDue`
   the deposit less the fee credited toward it (`waitlist_config.fee_credit_toward` =
   deposit) and the received funds allocated to it (each credit's **Applies to**: Deposit);
-  `otherPaymentsReceived` what's paid toward the balance (a paid balance, or the family's
-  received funds left over after the deposit, so funds that covered the deposit aren't
-  counted twice); `purchaseBalanceDue` the rest of the price. `price` is the sale's price,
+  `otherPaymentsReceived` the credits and payments toward the balance (the credited fee
+  when it isn't taken off the deposit, received funds not on the deposit, a paid balance),
+  so price = deposit + `otherPaymentsReceived` + `purchaseBalanceDue` and nothing counts
+  twice (a fee their received funds paid counts only as the fee, `fee_credit_amount`); `purchaseBalanceDue` the rest of the price. `price` is the sale's price,
   which carries any Full registration surcharge (`saleDefaults`); `balanceDue` stays
   everything owed on the sale.
 - **A form link has no way back:** she marks the contract Signed herself. The Accounts

@@ -24,7 +24,7 @@ test('the fee is what this family paid (its own amount), credited or not, and on
 
 test('the credit comes off the balance, or off the deposit (then not off the balance)', () => {
   const toBalance = priceTable(sale, { entries: [entry()], feeCredit: { amount: 75, toward: 'balance' } });
-  assert.deepEqual(toBalance, { feePaid: 75, feeCredit: 75, depositDue: 500, otherPaid: 0, balanceDue: 2425 });
+  assert.deepEqual(toBalance, { feePaid: 75, feeCredit: 75, depositDue: 500, otherPaid: 75, balanceDue: 2425 });
   const toDeposit = priceTable(sale, { entries: [entry()], feeCredit: { amount: 75, toward: 'deposit' } });
   assert.deepEqual(toDeposit, { feePaid: 75, feeCredit: 75, depositDue: 425, otherPaid: 0, balanceDue: 2500 });
 });
@@ -76,4 +76,41 @@ test('deposit due: less the fee credited toward the deposit and the credits allo
   t = priceTable(sale, { feeCredit: towardDeposit, received });
   assert.deepEqual([t.depositDue, t.otherPaid, t.balanceDue], [0, 575, 1925]);
   assert.equal(Object.fromEntries(prefillValues('pet_home', { sale, priceTable: t })).depositDue, '0.00');
+});
+
+test('a fee not allowed on the deposit is an additional credit; money is counted once in every case', () => {
+  const adds = (t) => assert.equal(sale.price, sale.deposit_amount + t.otherPaid + t.balanceDue, JSON.stringify(t));
+  const toBalance = { amount: 75, toward: 'balance' };
+
+  // Fee toward the balance, no other credits.
+  let t = priceTable(sale, { feeCredit: toBalance });
+  assert.deepEqual([t.depositDue, t.otherPaid, t.balanceDue], [500, 75, 2425]); adds(t);
+
+  // Fee toward the balance plus 300 received, allowed on the deposit.
+  const e1 = entry({ received_credits: [{ id: 'c1', amount: 300, date: '2026-08-01' }] });
+  t = priceTable(sale, { feeCredit: toBalance, received: familyCredit(e1, sale, toBalance).received });
+  assert.deepEqual([t.depositDue, t.otherPaid, t.balanceDue], [200, 75, 2425]); adds(t);
+
+  // Fee toward the balance plus 300 received, NOT allowed on the deposit: fee and credit together.
+  const e2 = entry({ received_credits: [{ id: 'c1', amount: 300, date: '2026-08-01', applies_to: ['fee', 'price'] }] });
+  t = priceTable(sale, { feeCredit: toBalance, received: familyCredit(e2, sale, toBalance).received });
+  assert.deepEqual([t.depositDue, t.otherPaid, t.balanceDue], [500, 375, 2125]); adds(t);
+
+  // A credit of 400 that paid the 75 fee (recorded on the entry), the fee toward the
+  // balance: 75 counted as the fee only, the other 325 on the deposit.
+  const e3 = entry({ fee_credit_amount: 75, received_credits: [{ id: 'c1', amount: 400, date: '2026-08-01' }] });
+  const c3 = familyCredit(e3, sale, toBalance);
+  assert.equal(c3.byKey.fee, 75);
+  t = priceTable(sale, { feeCredit: toBalance, received: c3.received });
+  assert.deepEqual([t.depositDue, t.otherPaid, t.balanceDue], [175, 75, 2425]); adds(t);
+  assert.equal(500 - t.depositDue + t.otherPaid, 400, 'the 400 shows once: 325 on the deposit, 75 as the fee');
+
+  // The same, fee toward the deposit: the fee and the 325 both cover the deposit.
+  const toDeposit = { amount: 75, toward: 'deposit' };
+  t = priceTable(sale, { feeCredit: toDeposit, received: familyCredit(e3, sale, toDeposit).received });
+  assert.deepEqual([t.depositDue, t.otherPaid, t.balanceDue], [100, 0, 2500]); adds(t);
+
+  // A fee larger than the deposit: the deposit is covered, the rest is an additional credit.
+  t = priceTable({ ...sale, deposit_amount: 50 }, { feeCredit: toDeposit });
+  assert.deepEqual([t.depositDue, t.otherPaid, t.balanceDue], [0, 25, 2925]);
 });

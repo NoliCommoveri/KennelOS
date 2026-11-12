@@ -3614,3 +3614,12 @@ tick box per template; buyers get an emailed link.
   + balance due.
 - **Tests:** `tests/priceTable.test.js` +1. `node --test` 1745 pass.
 - **Docs:** End-State guide §32, Integrations plan §2.1a.
+
+## 2026-11-12: A fee not on the deposit is an additional credit
+
+- **Change:** `incomeView.priceTable`'s `otherPaid` (`otherPaymentsReceived`) adds the credited
+  fee's part not taken off the deposit (her setting toward the balance, or a fee above the
+  deposit). Her table now adds up in every case: price = deposit + additional credits +
+  balance due. A credit that paid the fee counts once, as the fee (the allocation spends that
+  share on it; `fee_credit_amount`).
+- **Tests:** `tests/priceTable.test.js` +1 (six cases). `node --test` 1746 pass.

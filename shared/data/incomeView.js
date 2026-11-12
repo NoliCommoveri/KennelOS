@@ -369,10 +369,11 @@ export async function getSaleCredits(saleId) {
 //   feeCredit   the part of those fees credited to the purchase (feeCreditsBySale).
 //   depositDue  the deposit less the fee credited toward it and received funds that
 //               covered it ("Deposit due (less application fee)").
-//   otherPaid   what's already paid toward the balance: the balance once it's marked
-//               paid, or the family's received funds (a lost pup's carry-over) left
-//               over after the deposit. Funds that covered the deposit aren't counted
-//               again here.
+//   otherPaid   credits and payments toward the balance: the credited fee when it
+//               isn't taken off the deposit, the family's received funds (a lost pup's
+//               carry-over) not on the deposit, and the balance once it's marked paid.
+//               Nothing is counted twice: funds on the deposit are in depositDue, and
+//               funds that paid the fee only as the fee.
 //   balanceDue  what's still owed of the price at pickup.
 // → { feePaid, feeCredit, depositDue, otherPaid, balanceDue }
 export function priceTable(sale, { entries = [], feeCredit = NO_FEE_CREDIT, received = null, sales = [], offers = [] } = {}) {
@@ -386,7 +387,13 @@ export function priceTable(sale, { entries = [], feeCredit = NO_FEE_CREDIT, rece
   // received funds that covered it: what the family still pays as their deposit. A
   // deposit they've already paid stays in (it isn't a credit).
   const depositDue = round2(comps.filter((c) => c.component === 'deposit' && !c.credited).reduce((t, c) => t + c.amount, 0));
-  return { feePaid, feeCredit: round2(feeCreditOf(feeCredit).amount), depositDue, otherPaid: sum('earned'), balanceDue: sum('anticipated') };
+  // The credited fee not taken off the deposit (her setting: toward the balance, or
+  // more than the deposit) is a credit toward the balance like any other, so the
+  // table adds up: price = deposit + otherPaid + balanceDue. A fee their received
+  // funds paid is in here once: the allocation spends that share on the fee
+  // (familyCredit leaves the fee out of `received`).
+  const feeOnBalance = feeCreditSplit(sale, feeCredit).balance;
+  return { feePaid, feeCredit: round2(feeCreditOf(feeCredit).amount), depositDue, otherPaid: round2(sum('earned') + feeOnBalance), balanceDue: sum('anticipated') };
 }
 
 // priceTable for a sale, read from the database.
