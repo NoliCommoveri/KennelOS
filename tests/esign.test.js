@@ -134,6 +134,7 @@ function makeFake() {
     if ((m = /^\/templates\/([^/]+)$/.exec(path))) return f.templates.has(m[1]) ? reply(200, f.templates.get(m[1])) : reply(404, {});
     if (method === 'POST' && path === '/generate-template-token') return reply(200, { token: 'jwt.for.editor', expires_at: '2026-11-13T00:00:00Z' });
     if (method === 'POST' && path === '/signing-requests/create-and-send') {
+      if (f.refuseWith) return reply(400, { code: f.refuseWith, message: 'not for her eyes' });
       const id = `sr_${f.sends.length + 1}`;
       f.sends.push(body);
       return reply(201, { id, first_signer: { signing_link: `https://app.firma.dev/signing/u_${id}` } });
@@ -348,6 +349,24 @@ test('keep the copy: a send from such a template asks the Worker to keep it, wit
   assert.equal(res.keepCopy, true);
   const row = env.DB.raw.prepare('SELECT keep_copy, kennel_name FROM esign_sends').get();
   assert.deepEqual([row.keep_copy, row.kennel_name], [1, 'Maple Labs']);
+});
+
+test('a send Firma refuses says so, with Firma\'s reason, and leaves the contract as it was', async () => {
+  await breeder();
+  await esign.setUpEsign('Maple Labs');
+  const k = await kennelRepo.create({ kennel_name: 'Maple Labs', is_own_kennel: true });
+  const contract = await contractRepo.create({ contract_type: 'other', status: 'draft', title: 'Other', kennel_id: k.id });
+  const form = { id: 'f', form_type: 'other', label: 'Other', provider: 'firma', template_id: 'tpl_9' };
+  const signer = { name: 'Bo', email: 'bo@example.com' };
+  fake.refuseWith = 'VALIDATION_ERROR';
+  const err = await esign.sendForEsign({ contract, form, facts: { contract }, signer }).catch((e) => e);
+  assert.equal(err.code, 'esign_refused', 'the Worker\'s code, not overwritten by Firma\'s');
+  assert.equal(err.providerCode, 'VALIDATION_ERROR');
+  assert.match(esign.esignProblem(err).message, /^Firma refused this \(Firma said VALIDATION_ERROR\)\. .*signature field for each signer/);
+  fake.refuseWith = 'RECIPIENT_EMAIL_SUPPRESSED';
+  const bounced = await esign.sendForEsign({ contract, form, facts: { contract }, signer }).catch((e) => e);
+  assert.match(esign.esignProblem(bounced).message, /won't email that address/);
+  assert.equal((await contractRepo.getById(contract.id)).status, 'draft');
 });
 
 test('at the limit a send is refused with the reset date, and Firma is never called', async () => {

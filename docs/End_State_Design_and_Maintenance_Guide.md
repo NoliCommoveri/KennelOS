@@ -2778,7 +2778,9 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     `esign_form_label` and `esign_countersign` (cloud tier: she countersigns it).
   - A second send needs **Send again** (`resend`).
   - `cloudEsign.esignProblem` words each refusal: the limit with its reset date, Firma not
-    answering (don't resend), signed out, and so on.
+    answering (don't resend), signed out, and so on. A Firma refusal (`esign_refused`) names
+    Firma's own code (the body's `code`, kept on the error as `providerCode`: `CloudError`
+    never lets a body's `code` replace the Worker's).
 - **Pick to send** (§29): a Firma template is sent on step 2's Continue, with Firma's email
   off (it counts then). Its link goes in the message, once per template for that modal.
 - **Back:** Firma's webhook becomes `contract.signed` / `contract.declined`, applied as for

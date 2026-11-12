@@ -3480,3 +3480,14 @@ tick box per template; buyers get an emailed link.
   assertion). `node --test` 1726 pass.
 - **Docs:** End-State guide §32 (Contract forms and e-signature). No new files, so no precache change.
 - **Service-worker cache bumped to `v121`** (the pickup date rides it).
+
+## 2026-11-12: A Firma refusal showed "Cloud request refused (esign_refused)."
+
+- **Bug:** the Worker sends Firma's reason as the body's `code` beside `error: 'esign_refused'`.
+  `CloudError` copied the body over its own `code`, so `esignProblem` never matched and showed
+  the raw message, without Firma's reason (seen on a countersigned Boarding Clause send).
+- **Fix:** `CloudError` keeps a body's `code` as `providerCode` and never lets it replace the
+  Worker's code. `esignProblem` names Firma's code, mentions the countersigner's signature
+  field, and words `RECIPIENT_EMAIL_SUPPRESSED` on its own. App-only: no Worker change.
+- **Tests:** `tests/esign.test.js` +1 (the fake Firma refuses). `node --test` 1727 pass,
+  `cd cloud && npm test` 322 pass. Rides the `v121` cache bump.
