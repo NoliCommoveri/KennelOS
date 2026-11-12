@@ -3465,3 +3465,17 @@ tick box per template; buyers get an emailed link.
 - Sends were never affected: they take the contract's own kennel.
 - **Tests:** `tests/esign.test.js` +1. `node --test` 1724 pass.
 - **Service-worker cache bumped to `v120`:** `v119` had already shipped without this fix.
+
+## 2026-11-12: Contracts fill an estimated pickup date
+
+- **Asked:** a breeder looked for an estimated pickup date among her Firma template's fields.
+  There wasn't one.
+- **Added:** the `pickupDate` fact for sale forms, used by Firma templates and pasted form
+  links alike. It's `goHome.expectedPickupDate`: the pup's next pickup for that family on the
+  calendar, else its latest, else the litter's ready date (whelp + 56 when no estimate).
+  `contractSend.gatherContractFacts` reads the pup's events and litter for it.
+- Firma's editor offers it the next time she opens **Place fields**, which re-syncs the custom
+  fields. The Accounts page's field list shows it too.
+- **Tests:** `goHome.test.js` +1, `pickToSend.test.js` +1, `contractForms.test.js` (one more
+  assertion). `node --test` 1726 pass.
+- **Docs:** End-State guide §32 (Contract forms and e-signature). No new files, so no precache change.

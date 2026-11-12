@@ -103,3 +103,15 @@ test('deliveredOwnershipChanges: External (owner set) or Co-owned (buyer added o
   assert.equal(H.deliveredOwnershipChanges(dog, ''), null);
   assert.equal(H.deliveredOwnershipChanges(null, 'external'), null);
 });
+
+test('a contract\'s pickup date: the next booked pickup, else the latest one, else the ready date', () => {
+  const ready = at(10);
+  const L = litter(ready);
+  const get = (events, s = sale()) => H.expectedPickupDate({ sale: s, events, litter: L, today });
+  assert.equal(get([]), ready, 'nothing booked: the litter\'s ready date');
+  assert.equal(get([pickup(at(20)), pickup(at(12)), pickup(at(-5))]), at(12), 'the next one from today');
+  assert.equal(get([pickup(at(-9)), pickup(at(-2))]), at(-2), 'all past: the latest');
+  assert.equal(get([pickup(at(12), { related_contact_id: 'someone else' })]), ready, 'another family\'s pickup doesn\'t count');
+  assert.equal(get([pickup(at(12), { is_archived: true }), boarding(at(12))]), ready, 'archived pickups and boarding don\'t count');
+  assert.equal(H.expectedPickupDate({ sale: sale(), events: [], litter: null, today }), '', 'no litter, nothing booked: blank');
+});

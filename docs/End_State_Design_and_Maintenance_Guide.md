@@ -2716,6 +2716,9 @@ Share with families hint and the card's badge say so for this type.
   `prefillUrl` uses the form's URL prefill, no API call), and opens the composer. Using it
   marks the contract `sent` with the `esign_*` fields. The breeder details come from the
   contact linked to the contract's kennel (`contractSend.breederFor`).
+  A sale's `pickupDate` is `goHome.expectedPickupDate`: the pup's next pickup for that
+  family on the calendar (`goHome.pickupFor`), else its latest, else the litter's ready date
+  (`goHome.readyDateOf`).
 - **A form link has no way back:** she marks the contract Signed herself. The Accounts
   page lists the field names a link fills (`PREFILL_FIELDS`, **Copy** each).
 - **Jotform data kept from Connect Jotform** (retired): a form picked through it keeps its

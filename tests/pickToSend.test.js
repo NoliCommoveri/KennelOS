@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import { installMemoryDb } from './support/memoryDb.js';
 
 let db; let kennelRepo; let dogRepo; let contactRepo; let saleRepo; let contractRepo; let accountRepo; let waitlistEntryRepo;
+let litterRepo; let eventRepo;
 let send; let depositRequestMessage; let logOwnMessage; let queuedEmails;
 
 before(async () => {
@@ -21,6 +22,8 @@ before(async () => {
   ({ contractRepo } = await import('../shared/data/contractRepo.js'));
   ({ accountRepo } = await import('../shared/data/accountRepo.js'));
   ({ waitlistEntryRepo } = await import('../shared/data/waitlistEntryRepo.js'));
+  ({ litterRepo } = await import('../shared/data/litterRepo.js'));
+  ({ eventRepo } = await import('../shared/data/eventRepo.js'));
   send = await import('../shared/data/contractSend.js');
   ({ depositRequestMessage } = await import('../shared/data/depositRequest.js'));
   ({ logOwnMessage, queuedEmails } = await import('../shared/data/waitlistOutbox.js'));
@@ -105,6 +108,18 @@ test('a sale contract\'s link carries the buyer, the pup, its parents and what\'
   assert.equal(sent.esign_form_label, 'Pet home');
   assert.match(sent.esign_sent_date, /^\d{4}-\d{2}-\d{2}$/);
   assert.equal((await send.markContractSent({ ...sent, status: 'signed' }, form, url)).status, 'signed', 'never moves a signed one back');
+});
+
+test('a sale contract fills the pickup date: the booked pickup, else the litter\'s ready date', async () => {
+  const L = await litterRepo.create({ kennel_id: K.id, dam_id: pup.dam_id, sire_id: pup.sire_id, status: 'whelped', whelp_date: '2030-01-01', estimated_ready_date: '2030-02-26' });
+  await dogRepo.update(pup.id, { litter_id: L.id });
+  const c = await contractRepo.create({ contract_type: 'sale', related_sale_id: sale.id, kennel_id: K.id, status: 'draft' });
+  assert.equal((await send.gatherContractFacts(c)).pickupDate, '2030-02-26');
+  await eventRepo.create({ subject_type: 'dog', subject_id: pup.id, event_type: 'placement', event_date: '2030-03-02', related_contact_id: buyer.id, title: 'Puppy pickup' });
+  const facts = await send.gatherContractFacts(c);
+  assert.equal(facts.pickupDate, '2030-03-02');
+  const form = { id: 'f1', form_type: 'pet_home', label: 'Pet home', url: 'https://form.jotform.com/1' };
+  assert.equal(new URL(send.buildSignatureLink(form, facts).url).searchParams.get('pickupDate'), '2030-03-02');
 });
 
 test('the message she sent herself is logged as sent and never queued for the mailer', async () => {
