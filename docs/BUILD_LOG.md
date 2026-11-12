@@ -3515,3 +3515,15 @@ tick box per template; buyers get an emailed link.
 - **Docs:** End-State guide §32, Integrations plan §2.3a (a **Modified:** note).
 - **Not proven yet:** which identifier the editor stores. Needs a real send and the Worker log.
 - Worker only. The app is unchanged, so no service-worker bump.
+
+## 2026-11-12: Firma's editor names a custom field `custom_workspace_<id>`
+
+- **Seen (production log after #198):** `firma: prefilled fields left empty
+  custom_workspace_aecb2afb-…`. The editor stores the workspace custom field's id with a
+  `custom_workspace_` prefix. #198 sent the bare id, so the field still came out empty.
+- **Change (Worker):** `firma.withFieldAliases` also sends each fact as
+  `custom_workspace_<id>` (`WORKSPACE_FIELD_PREFIX`). The empty-prefill log now marks each key
+  "sent" (sent, still empty: no value, or a Firma-side issue) or "not sent" (a name KennelOS
+  doesn't know).
+- **Tests:** `cloud/tests/esign.test.js` (the production key). `cd cloud && npm test` 324 pass.
+- Worker only, so no service-worker bump.

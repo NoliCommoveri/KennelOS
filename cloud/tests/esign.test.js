@@ -296,7 +296,7 @@ test('send: each fact also goes under its custom field\'s ids, so a field the ed
   assert.equal(sync.status, 200, await sync.clone().text());
   const r = await send(env, s);
   assert.equal(r.status, 200, await r.clone().text());
-  assert.deepEqual(fake.sends[0].body.recipients[0].custom_fields, { puppyName: 'Biscuit', price: '2500.00', cf_0: 'Biscuit' },
+  assert.deepEqual(fake.sends[0].body.recipients[0].custom_fields, { puppyName: 'Biscuit', price: '2500.00', cf_0: 'Biscuit', custom_workspace_cf_0: 'Biscuit' },
     'puppyName also as its field id; buyerPhone has no value, so nothing goes for it');
 });
 
@@ -308,9 +308,12 @@ test('field aliases and empty prefills (pure)', () => {
     { id: 'cf_x', field_name: 'notSent' }
   ];
   assert.deepEqual(firma.withFieldAliases({ buyerName: 'Ann Lee', price: '1.00', puppyName: 'Bo' }, rows),
-    { buyerName: 'Ann Lee', price: '1.00', puppyName: 'Bo', cf_9: 'Ann Lee', cf_buyer_name: 'Ann Lee' },
+    { buyerName: 'Ann Lee', price: '1.00', puppyName: 'Bo', cf_9: 'Ann Lee', cf_buyer_name: 'Ann Lee', custom_workspace_cf_9: 'Ann Lee', custom_workspace_price: '1.00' },
     'matched case-insensitively; no duplicate keys; odd ids and unsent facts skipped');
   assert.deepEqual(firma.withFieldAliases({ a: '1' }, null), { a: '1' }, 'no list: the facts as they are');
+  const uuid = 'aecb2afb-abb7-4c60-b440-82ee1bdc7144';
+  assert.equal(firma.withFieldAliases({ buyerName: 'Ann' }, [{ id: uuid, field_name: 'buyerName' }])[`custom_workspace_${uuid}`], 'Ann',
+    'the key Firma\'s editor stores for a workspace custom field (production log)');
   assert.deepEqual(firma.emptyPrefills({ fields: [
     { format_rules: { prefilledData: 'cf_1' }, value: '' },
     { format_rules: { prefilledData: 'cf_2' }, value: 'Ann' },
