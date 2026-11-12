@@ -3453,3 +3453,4 @@ tick box per template; buyers get an emailed link.
   turned off.
 - **Docs:** End-State guide §32, plan §2.3a and D33, `cloud/README.md`, the launch checklist,
   README Status. No new app files, so no precache change.
+- **Service-worker cache bumped to `v119`** (countersign and kept copies ride it).
