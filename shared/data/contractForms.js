@@ -59,6 +59,8 @@ export function cleanForms(list) {
         };
         // She signs it too, after the buyer (Integrations D32). Absent = buyer only.
         if (f.countersign === true) row.countersign = true;
+        // KennelOS keeps the signed PDF and emails the buyer a link (D33). Absent = no.
+        if (f.keep_copy === true) row.keep_copy = true;
         return row;
       }
       const out = {

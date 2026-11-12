@@ -121,7 +121,9 @@ export function openContractTemplates() {
         <span class="acct-v" style="min-width:160px;"><strong>${esc(t.name)}</strong>${t.pageCount ? ` <span class="muted">· ${esc(t.pageCount)} page${t.pageCount === 1 ? '' : 's'}</span>` : ''}</span>
         <select class="ct-type" aria-label="What kind of contract ${esc(t.name)} is">${typeOptions(t.form_type)}</select>
         <label class="check-inline" style="display:flex; gap:6px; align-items:center;" title="You sign it too, after the buyer">
-          <input type="checkbox" class="ct-counter"${t.countersign ? ' checked' : ''}${t.form_type ? '' : ' disabled'}> I countersign</label>
+          <input type="checkbox" class="ct-flag" data-flag="countersign"${t.countersign ? ' checked' : ''}${t.form_type ? '' : ' disabled'}> I countersign</label>
+        <label class="check-inline" style="display:flex; gap:6px; align-items:center;" title="KennelOS keeps the signed PDF and emails the buyer a link to it">
+          <input type="checkbox" class="ct-flag" data-flag="keepCopy"${t.keepCopy ? ' checked' : ''}${t.form_type ? '' : ' disabled'}> Email the buyer the signed copy</label>
         <button type="button" class="btn btn-sm" data-edit="${esc(t.id)}">Place fields</button>
       </div>`;
     frame(`<p class="field-hint" style="margin-top:0;">${usageLine(status.usage)} A contract's <strong>Send for signature</strong> offers the templates of its kind, beside your own contract forms.</p>
@@ -129,6 +131,7 @@ export function openContractTemplates() {
       <h3 style="font-size:15px; margin:16px 0 4px;">Add a template</h3>
       <p class="field-hint" style="margin-top:0;">Upload your contract as a PDF (up to ${Math.round(TEMPLATE_MAX_BYTES / 100_000) / 10} MB). Then <strong>Place fields</strong> opens Firma's editor in a new tab, where you put the buyer's signature, and the details KennelOS fills in (buyer, pup, price…), where they go on the page.</p>
       <p class="field-hint">If you sign your contracts too, tick <strong>I countersign</strong>, and in Firma's editor add a second signer with your signature field. The buyer signs first, then you sign from the contract's <strong>Countersign</strong> button. It's still one e-sign contract.</p>
+      <p class="field-hint">Tick <strong>Email the buyer the signed copy</strong> and, once everyone has signed, KennelOS saves the signed PDF and emails the buyer a link to it. The contract's <strong>Signed copy</strong> opens the same copy.</p>
       <div class="form-grid">
         <div class="field"><label for="ct-file">Contract PDF</label><input id="ct-file" type="file" accept="application/pdf,.pdf"></div>
         <div class="field"><label for="ct-name">Name</label><input id="ct-name" type="text" maxlength="200" placeholder="e.g. Pet home contract"></div>
@@ -144,21 +147,27 @@ export function openContractTemplates() {
       const t = rows.find((r) => r.id === tid);
       try {
         await setTemplateType({ templateId: tid, name: t?.name, formType: sel.value });
-        const tick = sel.closest('[data-tid]').querySelector('.ct-counter');
-        if (tick) tick.disabled = !sel.value;
+        sel.closest('[data-tid]').querySelectorAll('.ct-flag').forEach((tick) => { tick.disabled = !sel.value; });
         say(`<p class="field-hint">${sel.value ? `Saved: ${esc(t?.name || 'the template')} is offered for ${esc(CONTRACT_FORM_TYPE.find((x) => x.value === sel.value)?.label.toLowerCase() || 'that kind of contract')}s.` : `${esc(t?.name || 'The template')} isn't offered any more.`}</p>`);
       } catch (err) { problem(err); }
     }));
-    box.querySelectorAll('.ct-counter').forEach((tick) => tick.addEventListener('change', async () => {
+    const flagSaved = {
+      countersign: (on, name) => (on
+        ? `Saved: you countersign ${name}. In Firma's editor, give the second signer your signature field.`
+        : `Saved: only the buyer signs ${name}.`),
+      keepCopy: (on, name) => (on
+        ? `Saved: once ${name} is signed, KennelOS keeps the signed PDF and emails the buyer a link to it.`
+        : `Saved: KennelOS won't keep or email ${name}'s signed copy. Signed copy still opens Firma's.`)
+    };
+    box.querySelectorAll('.ct-flag').forEach((tick) => tick.addEventListener('change', async () => {
       const el = tick.closest('[data-tid]');
       const t = rows.find((r) => r.id === el.dataset.tid);
       const formType = el.querySelector('.ct-type').value;
+      const flag = tick.dataset.flag;
       if (!formType) { tick.checked = false; return; }
       try {
-        await setTemplateType({ templateId: el.dataset.tid, name: t?.name, formType, countersign: tick.checked });
-        say(`<p class="field-hint">${tick.checked
-          ? `Saved: you countersign ${esc(t?.name || 'this template')}. In Firma's editor, give the second signer your signature field.`
-          : `Saved: only the buyer signs ${esc(t?.name || 'this template')}.`}</p>`);
+        await setTemplateType({ templateId: el.dataset.tid, name: t?.name, formType, [flag]: tick.checked });
+        say(`<p class="field-hint">${flagSaved[flag](tick.checked, esc(t?.name || 'this template'))}</p>`);
       } catch (err) { tick.checked = !tick.checked; problem(err); }
     }));
     box.querySelectorAll('[data-edit]').forEach((btn) => btn.addEventListener('click', async () => {
@@ -222,6 +231,7 @@ export function sendWithFirma({ contract, form, facts, signer, emailChoice = tru
         ${form.countersign ? (counter
           ? `<p class="field-hint">You countersign this one, as ${esc(counter.email)}: once they've signed, tap <strong>Countersign</strong> on the contract. It's marked Signed when you both have.</p>`
           : '<div class="inline-error">You countersign this template, so KennelOS needs your cloud account\'s email. Sign in again in Settings → Cloud backup.</div>') : ''}
+        ${form.keep_copy ? '<p class="field-hint">Once everyone has signed, KennelOS saves the signed PDF and emails them a link to it.</p>' : ''}
         ${contract.esign_provider === 'firma' && contract.esign_ref ? '<p class="field-hint">This contract already went out through Firma. Sending again makes a new signing request and counts again.</p>' : ''}
         ${full ? `<div class="inline-warn">You've sent this month's ${esc(usage.limit)} e-sign contracts. It resets on ${esc(fmtDate(usage.resetsOn))}. Until then, send one of your own contract forms' links instead.</div>` : ''}
         <div id="fs-msg" role="status"></div>

@@ -2746,7 +2746,8 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     `{ id, form_type, label, provider: 'firma', template_id, countersign? }`
     (`contractForms.isFirmaForm`; no `url`). `countersign: true` (the template's **I
     countersign** tick, enabled once it has a type) means she signs it too; a retype keeps
-    it.
+    it. `keep_copy: true` (its **Email the buyer the signed copy** tick) means KennelOS keeps
+    the signed PDF and emails the buyer a link (below).
   - The rows live on the **E-sign (Firma)** Form service account (`FIRMA_ACCOUNT`), made the
     first time she types a template.
   - The template list comes from Firma, merged with the rows (`mergeTemplates`).
@@ -2765,6 +2766,8 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
     Worker makes her the request's second Signer (`order: 2`): one request, one credit.
     The dialog says she countersigns as that email. With no account email on the device, or
     her email as the buyer's, the send is refused before Firma.
+  - On a template with `keep_copy`, `sendBody` adds `keepCopy` and her kennel's name. The
+    dialog says the buyer will be emailed the signed copy.
   - It marks the contract `sent` with `esign_provider: 'firma'`, `esign_ref` (Firma's
     signing request id; cloud tier), `esign_url` (the buyer's signing link), `esign_sent_date`,
     `esign_form_label` and `esign_countersign` (cloud tier: she countersigns it).
@@ -2781,7 +2784,12 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
   new tab. Firma's page has her wait while the buyer hasn't signed. The contract becomes
   Signed only when both have (Firma's completed event comes once every signer is done).
 - **Signed copy** (Contract page, with `esign_ref`): a short-lived link from the Worker,
-  opened in a new tab (**Copy so far** before it's signed).
+  opened in a new tab (**Copy so far** before it's signed). For a copy KennelOS kept, it's
+  that copy's link (`kept: true`).
+- **Kept copies** (Worker only, D33): once Firma reports a `keepCopy` send completed, the
+  hourly cron copies the signed PDF to R2 and emails the buyer a private link
+  (`/signed/<send id>/<mac>`). The buyer's email is read from Firma then, never stored. A
+  step that fails is retried hourly for two days. The copy stays until account deletion.
 
 ### Payment services (plan §4–§5)
 - A **Payment service** account (`payment_service`) holds `payment_link` and/or

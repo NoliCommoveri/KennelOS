@@ -41,12 +41,15 @@ let fake;
 let realFetch;
 function makeFake() {
   const f = {
-    calls: [], workspaces: new Map(), webhooks: new Map(), templates: new Map(), fields: new Map(), sends: [],
+    calls: [], workspaces: new Map(), webhooks: new Map(), templates: new Map(), fields: new Map(), sends: [], mails: [],
+    pdf: new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31]), downloadReply: null, buyerEmail: undefined,
     sendReply: null, // (body) => { status, data } to override create-and-send once
     nextWs: 1, nextSr: 1,
   };
   f.fetch = async (url, init = {}) => {
     const u = new URL(url);
+    if (u.hostname === 'files.firma.dev') return new Response(f.pdf, { status: 200, headers: { 'content-type': 'application/pdf' } });
+    if (u.hostname === 'api.resend.com') { f.mails.push(JSON.parse(init.body)); return new Response('{"id":"m"}', { status: 200 }); }
     const path = u.pathname.replace('/functions/v1/signing-request-api', '');
     const method = init.method || 'GET';
     const auth = (init.headers?.authorization || '').replace(/^Bearer /, '');
@@ -108,9 +111,13 @@ function makeFake() {
     if (method === 'GET' && (m = /^\/signing-requests\/([^/]+)\/users$/.exec(path))) {
       const sent = f.sends.find((x) => x.id === m[1]);
       const recipients = sent?.body.recipients || [{ order: 1 }];
-      return reply(200, recipients.map((r) => ({ id: r.order === 1 ? `su_${m[1]}` : `su_${m[1]}_${r.order}`, designation: 'Signer', order: r.order })));
+      return reply(200, recipients.map((r) => ({
+        id: r.order === 1 ? `su_${m[1]}` : `su_${m[1]}_${r.order}`, designation: 'Signer', order: r.order,
+        email: r.order === 1 && f.buyerEmail !== undefined ? f.buyerEmail : r.email,
+      })));
     }
     if (method === 'GET' && (m = /^\/signing-requests\/([^/]+)\/download$/.exec(path))) {
+      if (f.downloadReply) return reply(f.downloadReply.status, f.downloadReply.data);
       return reply(200, { status: 'finished', is_partial: false, download_url: `https://files.firma.dev/${m[1]}.pdf?sig=x`, expires_at: '2026-11-11T23:00:00Z' });
     }
     return reply(404, { code: 'NOT_FOUND' });
@@ -421,9 +428,101 @@ test('the signed document: a short-lived link, only for her own request', async 
   const s = await connected(env);
   await send(env, s);
   const d = await (await call(env, 'GET', '/integrations/esign/document?ref=sr_1', { token: s.token })).json();
-  assert.deepEqual(d, { url: 'https://files.firma.dev/sr_1.pdf?sig=x', expiresAt: '2026-11-11T23:00:00Z', partial: false, status: 'finished' });
+  assert.deepEqual(d, { url: 'https://files.firma.dev/sr_1.pdf?sig=x', expiresAt: '2026-11-11T23:00:00Z', partial: false, status: 'finished', kept: false, emailedAt: null });
   const s2 = await connected(env, 'other@example.com');
   assert.equal((await call(env, 'GET', '/integrations/esign/document?ref=sr_1', { token: s2.token })).status, 404);
+});
+
+test('keep the copy: queued when signed, copied to R2, the buyer emailed a link, her Signed copy is ours', async () => {
+  const env = await envWith({ MAIL_FROM: 'KennelOS <signin@kennelos.app>', FAMILY_PAGES_ORIGIN: 'https://apply.kennelos.app' });
+  const s = await connected(env);
+  env.RESEND_API_KEY = 're_test'; // after sign-in, whose code the outbox holds
+  const r = await send(env, s, { keepCopy: true, kennelName: '  Maple   Ridge  ' });
+  assert.equal((await r.json()).keepCopy, true);
+  await send(env, s, { contractId: 'c-plain' });
+  const row = () => env.DB.raw.prepare("SELECT * FROM esign_sends WHERE signing_request_id = 'sr_1'").get();
+  assert.deepEqual([row().keep_copy, row().kennel_name, row().copy_status], [1, 'Maple Ridge', null]);
+
+  // Nothing to do until it's signed.
+  assert.deepEqual(await firma.runEsignCopies(env), { kept: 0, emailed: 0, noEmail: 0, failed: 0, waiting: 0 });
+
+  const hook = hookPathOf(env);
+  for (const id of ['sr_1', 'sr_2']) {
+    const { raw, header } = signed({ id: `evt_${id}`, type: 'signing_request.completed', created_at: iso(Date.now()), data: { signing_request: { id, completed_at: '2026-11-12T10:00:00Z' } } });
+    assert.equal((await postHook(env, hook, raw, header)).status, 200);
+  }
+  assert.equal(row().copy_status, 'pending');
+  assert.equal(env.DB.raw.prepare("SELECT copy_status FROM esign_sends WHERE signing_request_id = 'sr_2'").get().copy_status, null, 'not asked: not kept');
+
+  // Firma still preparing it: tried again next hour.
+  fake.downloadReply = { status: 503, data: { code: 'NOT_READY' } };
+  assert.equal((await firma.runEsignCopies(env)).waiting, 1);
+  assert.deepEqual([row().copy_status, row().copy_tries], ['pending', 1]);
+  fake.downloadReply = null;
+
+  const out = await firma.runEsignCopies(env);
+  assert.deepEqual(out, { kept: 1, emailed: 1, noEmail: 0, failed: 0, waiting: 0 });
+  assert.equal(row().copy_status, 'emailed');
+  assert.equal(row().copy_key, `esign/${s.programId}/${row().id}.pdf`);
+  assert.equal(row().copy_bytes, fake.pdf.length);
+  assert.ok(row().emailed_at);
+  assert.ok(!JSON.stringify(row()).includes('ann@example.com'), 'the buyer\'s email not kept');
+
+  assert.equal(fake.mails.length, 1);
+  const mail = fake.mails[0];
+  assert.deepEqual(mail.to, ['ann@example.com']);
+  assert.equal(mail.from, '"Maple Ridge via KennelOS" <signin@kennelos.app>');
+  assert.equal(mail.subject, 'Your signed contract from Maple Ridge');
+  const link = /https:\/\/apply\.kennelos\.app(\/signed\/[^\s]+)/.exec(mail.text)[1];
+
+  // The link serves the PDF; a changed mac or id doesn't.
+  const res = await call(env, 'GET', link);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('content-type'), 'application/pdf');
+  assert.equal(res.headers.get('cache-control'), 'private, no-store');
+  assert.deepEqual(new Uint8Array(await res.arrayBuffer()), fake.pdf);
+  assert.equal((await call(env, 'GET', link.replace(/.$/, (c) => (c === '0' ? '1' : '0')))).status, 404);
+  assert.equal((await call(env, 'GET', `/signed/${crypto.randomUUID()}/${'0'.repeat(32)}`)).status, 404);
+
+  // Her Signed copy is the same link.
+  const d = await (await call(env, 'GET', '/integrations/esign/document?ref=sr_1', { token: s.token })).json();
+  assert.equal(d.kept, true);
+  assert.ok(d.url.endsWith(link));
+  assert.equal(d.emailedAt, row().emailed_at);
+
+  // Done: the next run leaves it alone.
+  assert.deepEqual(await firma.runEsignCopies(env), { kept: 0, emailed: 0, noEmail: 0, failed: 0, waiting: 0 });
+  assert.equal(fake.mails.length, 1);
+
+  // Retention keeps a kept copy's row past the year; account deletion removes it and the PDF.
+  env.DB.raw.prepare("UPDATE esign_sends SET sent_at = '2020-01-01T00:00:00.000Z'").run();
+  await runRetention(env);
+  assert.equal(count(env, 'SELECT COUNT(*) AS n FROM esign_sends'), 1, 'the kept one only');
+  assert.ok(await env.FILES.get(row().copy_key));
+  const key = row().copy_key;
+  await removeAccount(env, { userId: env.DB.raw.prepare('SELECT owner_user_id AS u FROM programs WHERE id = ?').get(s.programId).u, programId: s.programId });
+  assert.equal(await env.FILES.get(key), null);
+  assert.equal((await call(env, 'GET', link)).status, 404);
+});
+
+test('keep the copy: no buyer email from Firma, and giving up after two days', async () => {
+  const env = await envWith({ FAMILY_PAGES_ORIGIN: 'https://apply.kennelos.app' });
+  const s = await connected(env);
+  await send(env, s, { keepCopy: true, kennelName: 'Maple' });
+  await send(env, s, { contractId: 'c-2', keepCopy: true });
+  env.DB.raw.prepare("UPDATE esign_sends SET status = 'completed', copy_status = 'pending'").run();
+  const st = (id) => env.DB.raw.prepare('SELECT copy_status, copy_key FROM esign_sends WHERE signing_request_id = ?').get(id);
+
+  fake.buyerEmail = '';
+  const out = await firma.runEsignCopies(env);
+  assert.deepEqual([out.kept, out.noEmail], [2, 2]);
+  assert.equal(st('sr_1').copy_status, 'no_email');
+  assert.ok(st('sr_1').copy_key, 'kept all the same: her Signed copy opens it');
+
+  env.DB.raw.prepare("UPDATE esign_sends SET copy_status = 'pending', copy_key = NULL, copy_tries = ? WHERE signing_request_id = 'sr_2'").run(firma.COPY_MAX_TRIES - 1);
+  fake.downloadReply = { status: 200, data: { is_partial: true, download_url: 'https://files.firma.dev/x.pdf' } };
+  assert.equal((await firma.runEsignCopies(env)).failed, 1);
+  assert.equal(st('sr_2').copy_status, 'failed', 'a partial copy is never kept, and two days of tries end it');
 });
 
 test('disconnect stops the webhook; account deletion removes her sends and limit; retention keeps a year', async () => {

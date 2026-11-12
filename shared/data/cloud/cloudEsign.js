@@ -114,7 +114,9 @@ export function countersignerFor(form, facts, account = currentAccount()) {
 
 // What goes to Firma for one send: the signer, and the contract's facts as the
 // signer's custom fields (the same allow-list a pasted form's link carries). On a
-// template she countersigns, her too, as the second signer (D32).
+// template she countersigns, her too, as the second signer (D32). On one whose
+// signed copy KennelOS keeps (D33), keepCopy and her kennel's name (the email's
+// wording).
 export function sendBody({ contract, form, facts, signer, emailSigner = true, resend = false, account = currentAccount() }) {
   const [firstName, lastName] = splitName(signer?.name || '');
   const subject = facts?.puppy?.call_name || facts?.dog?.call_name || '';
@@ -129,6 +131,7 @@ export function sendBody({ contract, form, facts, signer, emailSigner = true, re
     signer: { firstName, lastName, email: String(signer?.email || '').trim() },
     facts: Object.fromEntries(prefillValues(form.form_type, facts)),
     ...(countersigner ? { countersigner } : {}),
+    ...(form?.keep_copy === true ? { keepCopy: true, kennelName: String(facts?.kennel?.kennel_name || '').trim() } : {}),
     emailSigner: emailSigner !== false,
     resend: resend === true
   };
@@ -137,7 +140,7 @@ export function sendBody({ contract, form, facts, signer, emailSigner = true, re
 // Send it. Firma charges KennelOS for it, so it counts (D26). The contract is
 // marked Sent with Firma's reference and the signer's link, and whether she
 // countersigns it (esign_countersign, D32).
-// → { contract, signingLink, countersign, usage }. Throws the Worker's refusals (esignProblem).
+// → { contract, signingLink, countersign, keepCopy, usage }. Throws the Worker's refusals (esignProblem).
 export async function sendForEsign({ contract, form, facts, signer, emailSigner = true, resend = false }) {
   const token = requireSession();
   const res = await api.sendForEsign(token, sendBody({ contract, form, facts, signer, emailSigner, resend }));
@@ -150,7 +153,7 @@ export async function sendForEsign({ contract, form, facts, signer, emailSigner 
     esign_form_label: form.label,
     esign_countersign: res.countersign === true
   });
-  return { contract: saved, signingLink: res.signingLink || null, countersign: res.countersign === true, usage: res.usage || null };
+  return { contract: saved, signingLink: res.signingLink || null, countersign: res.countersign === true, keepCopy: res.keepCopy === true, usage: res.usage || null };
 }
 
 // → { url, partial, status }

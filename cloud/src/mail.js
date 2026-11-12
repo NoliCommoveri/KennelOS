@@ -27,7 +27,7 @@ export function mailMode(env) {
 // never an address or a body. Counting never fails a send: before migration 0019
 // (or 0021, for the daily row) is applied, or on any database error, that count
 // is skipped.
-export const MAIL_KINDS = Object.freeze(['code', 'notice', 'digest', 'family', 'test']);
+export const MAIL_KINDS = Object.freeze(['code', 'notice', 'digest', 'family', 'test', 'esign']);
 
 export async function countMail(env, kind, ok, now = new Date()) {
   const at = now.toISOString();
@@ -315,6 +315,45 @@ export async function sendDigestMail(env, { to, subject, text }) {
   if (mode === 'outbox') {
     await env.DB.prepare('INSERT INTO dev_outbox (email_hash, code, created_at) VALUES (?, ?, ?)')
       .bind('digest', 'digest', new Date().toISOString()).run();
+    return 'sent';
+  }
+  return 'off';
+}
+
+// Pure: the email that brings a buyer their signed contract (Integrations plan
+// §2.3a, D33). Plain text; the link opens the copy KennelOS keeps.
+export function signedCopyMessage({ kennelName, link }) {
+  const name = senderDisplayName(kennelName).replace(/^Waitlist$/, 'your breeder');
+  return {
+    subject: `Your signed contract from ${name}`,
+    text: `Your contract with ${name} has been signed by everyone.\n\n`
+      + `Your signed copy (PDF):\n${link}\n\n`
+      + 'Keep this email: the link opens your copy whenever you need it.\n\n'
+      + `--\nSent by KennelOS for ${name}. This address doesn't receive replies.\n`,
+  };
+}
+
+// Sends it. Never throws: → 'sent' | 'failed' | 'off'. Staging's outbox records
+// an 'esign' row (no address). The address is used only for the send, never
+// stored or logged.
+export async function sendSignedCopyMail(env, { to, kennelName, link }) {
+  const mode = mailMode(env);
+  const message = signedCopyMessage({ kennelName, link });
+  if (mode === 'resend') {
+    try {
+      const display = senderDisplayName(kennelName);
+      const address = /<([^>]+)>/.exec(env.MAIL_FROM || DEFAULT_FROM)?.[1] || 'signin@kennelos.app';
+      const res = await resendSend(env, 'esign', { from: `"${display} via KennelOS" <${address}>`, to: [to], ...message });
+      if (res.ok) return 'sent';
+      console.error('resend send failed', res.status);
+    } catch {
+      console.error('resend send failed', 0);
+    }
+    return 'failed';
+  }
+  if (mode === 'outbox') {
+    await env.DB.prepare('INSERT INTO dev_outbox (email_hash, code, created_at) VALUES (?, ?, ?)')
+      .bind('esign', 'esign', new Date().toISOString()).run();
     return 'sent';
   }
   return 'off';

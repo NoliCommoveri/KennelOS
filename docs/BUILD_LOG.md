@@ -3421,3 +3421,35 @@ she signs as her cloud account's email; buyers will get the signed PDF as an ema
   template's signer roles, and its per-signer email and events (docs.firma.dev unreachable).
 - **Docs:** End-State guide §32, plan §2.3a and D32–D33, `cloud/README.md`, the launch
   checklist, README Status. No new files, so no precache change.
+
+## 2026-11-12: Firma signed copies kept and emailed to buyers (D33)
+
+`docs/KennelOS_Integrations_Plan.md` §2.3a "As built: the signed copies". Owner decisions: a
+tick box per template; buyers get an emailed link.
+- **Contract templates:** an **Email the buyer the signed copy** tick beside I countersign,
+  stored as `keep_copy: true` on the `contract_forms` row. `sendBody` sends `keepCopy` and her
+  kennel's name, and the send dialog and the after-send note say so.
+- **Worker, migration `0023_esign_copies`:** new `esign_sends` columns `keep_copy`,
+  `kennel_name`, `copy_status`, `copy_key`, `copy_bytes`, `copy_tries`, `copied_at` and
+  `emailed_at`.
+- **Worker:** Firma's completed webhook queues a kept copy.
+- **Worker, `runEsignCopies` (hourly cron):** copies the PDF to R2
+  (`esign/<program>/<id>.pdf`), then emails the buyer a link (new `mail.js`
+  `sendSignedCopyMail`, mail kind `esign`). The buyer's email is read from Firma's recipient
+  list and never stored. A failed step is retried hourly for two days.
+- **Worker:** `GET /signed/<id>/<mac>` serves the copy. The mac is an HMAC of the id, so
+  nothing more is stored. `/integrations/esign/document` returns that link when a copy is
+  kept, so her Signed copy opens the same one.
+- **Worker:** retention keeps rows with a kept copy, and account deletion removes
+  `esign/<program>/`.
+- **Privacy policy:** `site/privacy.html` §9d and the retention list name the kept copies and
+  the email, for the owner to review.
+- **Tests:** Worker `esign.test.js` +2: the whole path; no buyer email; partial PDFs; giving
+  up. App `tests/esign.test.js` +2.
+  - `node --test` 1723 pass. `cd cloud && npm test` 322 pass. `node build/assemble.mjs`
+    succeeds. Not checked in a browser (it needs a signed-in Pro cloud session with Firma).
+- **To prove on the first production run:** Firma's recipient list carries `email`; the
+  download link is fetchable without a key; whether Firma's own completion email can be
+  turned off.
+- **Docs:** End-State guide §32, plan §2.3a and D33, `cloud/README.md`, the launch checklist,
+  README Status. No new app files, so no precache change.

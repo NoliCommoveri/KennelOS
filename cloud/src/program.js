@@ -62,6 +62,7 @@ export async function removeAccount(env, { userId, programId }, { erase = false,
   await revokeAllConnections(env, p); // her vendor tokens, at each vendor (best effort)
   await deletePrefix(env.FILES, `snapshots/${p}/`);
   await deletePrefix(env.FILES, `files/${p}/`);
+  await deletePrefix(env.FILES, `esign/${p}/`); // signed copies KennelOS kept (firma.js, D33)
   await env.DB.batch([
     env.DB.prepare('DELETE FROM snapshot_files WHERE snapshot_id IN (SELECT id FROM snapshots WHERE program_id = ?)').bind(p),
     env.DB.prepare('DELETE FROM snapshots WHERE program_id = ?').bind(p),

@@ -42,8 +42,8 @@ test('templates: the type she gave each one, set and removed on the account', ()
   const account = { id: 'acc', ...FIRMA_ACCOUNT, contract_forms: forms };
   assert.equal(firmaAccountOf([{ id: 'o', account_type: 'form_service', contract_forms: [] }, account]), account);
   assert.deepEqual(mergeTemplates([{ id: TID, name: 'Pet home v2', pageCount: 3 }, { id: 'tpl_2', name: 'New' }], [account]),
-    [{ id: TID, name: 'Pet home v2', pageCount: 3, form_type: 'breeding_rights', label: 'Pet home v2', countersign: false },
-      { id: 'tpl_2', name: 'New', pageCount: null, form_type: '', label: '', countersign: false }]);
+    [{ id: TID, name: 'Pet home v2', pageCount: 3, form_type: 'breeding_rights', label: 'Pet home v2', countersign: false, keepCopy: false },
+      { id: 'tpl_2', name: 'New', pageCount: null, form_type: '', label: '', countersign: false, keepCopy: false }]);
   assert.deepEqual(withTemplateRow(forms, { templateId: TID, formType: '' }), [], 'not offered: removed');
 });
 
@@ -58,6 +58,18 @@ test('countersign: kept on a Firma row, kept through a retype, and off unless tr
   assert.equal('countersign' in forms[0], false);
   assert.equal('countersign' in cleanForms([{ form_type: 'pet_home', provider: 'firma', template_id: TID, countersign: 'yes' }])[0], false);
   assert.equal(mergeTemplates([{ id: TID, name: 'x' }], [])[0].countersign, false);
+});
+
+test('keep the copy: its own tick on the row, independent of countersign', () => {
+  let forms = withTemplateRow([], { templateId: TID, name: 'Pet home', formType: 'pet_home', keepCopy: true });
+  assert.deepEqual([forms[0].keep_copy, 'countersign' in forms[0]], [true, false]);
+  forms = withTemplateRow(forms, { templateId: TID, name: 'Pet home', formType: 'pet_home', countersign: true });
+  assert.deepEqual([forms[0].keep_copy, forms[0].countersign], [true, true], 'setting one keeps the other');
+  assert.equal(cleanForms(forms)[0].keep_copy, true);
+  assert.equal(mergeTemplates([{ id: TID, name: 'Pet home' }], [{ id: 'a', account_type: 'form_service', contract_forms: forms }])[0].keepCopy, true);
+  forms = withTemplateRow(forms, { templateId: TID, name: 'Pet home', formType: 'pet_home', keepCopy: false });
+  assert.deepEqual(['keep_copy' in forms[0], forms[0].countersign], [false, true]);
+  assert.equal('keep_copy' in cleanForms([{ form_type: 'pet_home', provider: 'firma', template_id: TID, keep_copy: 1 }])[0], false);
 });
 
 test('an expired or cancelled request waits on Today while the contract is still Sent', () => {
@@ -306,6 +318,22 @@ test('countersign: she is the second signer, as her account email, and signs fro
   assert.equal((await contractRepo.getById(contract.id)).status, 'signed');
   const closed = await esign.countersignLink('sr_1').catch((e) => e);
   assert.equal(esign.esignProblem(closed).message, 'This contract isn\'t out for signature any more, so there\'s nothing to countersign.');
+});
+
+test('keep the copy: a send from such a template asks the Worker to keep it, with her kennel\'s name', async () => {
+  await breeder();
+  await esign.setUpEsign('Maple Labs');
+  const k = await kennelRepo.create({ kennel_name: 'Maple Labs', is_own_kennel: true });
+  const contract = await contractRepo.create({ contract_type: 'other', status: 'draft', title: 'Other', kennel_id: k.id });
+  const form = { id: 'f', form_type: 'other', label: 'Co-own', provider: 'firma', template_id: 'tpl_9', keep_copy: true };
+  const body = esign.sendBody({ contract, form, facts: { contract, kennel: k }, signer: { name: 'Ann', email: 'ann@example.com' } });
+  assert.deepEqual([body.keepCopy, body.kennelName, 'countersigner' in body], [true, 'Maple Labs', false]);
+  assert.equal('keepCopy' in esign.sendBody({ contract, form: { ...form, keep_copy: undefined }, facts: { contract }, signer: { name: 'Ann', email: 'ann@example.com' } }), false);
+
+  const res = await esign.sendForEsign({ contract, form, facts: { contract, kennel: k }, signer: { name: 'Ann', email: 'ann@example.com' } });
+  assert.equal(res.keepCopy, true);
+  const row = env.DB.raw.prepare('SELECT keep_copy, kennel_name FROM esign_sends').get();
+  assert.deepEqual([row.keep_copy, row.kennel_name], [1, 'Maple Labs']);
 });
 
 test('at the limit a send is refused with the reset date, and Firma is never called', async () => {
