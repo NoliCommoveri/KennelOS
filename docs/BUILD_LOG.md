@@ -3479,3 +3479,4 @@ tick box per template; buyers get an emailed link.
 - **Tests:** `goHome.test.js` +1, `pickToSend.test.js` +1, `contractForms.test.js` (one more
   assertion). `node --test` 1726 pass.
 - **Docs:** End-State guide §32 (Contract forms and e-signature). No new files, so no precache change.
+- **Service-worker cache bumped to `v121`** (the pickup date rides it).
