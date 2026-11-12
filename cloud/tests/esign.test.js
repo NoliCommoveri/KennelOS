@@ -440,6 +440,11 @@ test('send: a template gone from Firma is refused before it counts; the list say
 
   const list = await (await call(env, 'GET', '/integrations/firma/templates', { token: s.token })).json();
   assert.equal(list.complete, true);
+
+  // One send reads the template once.
+  fake.calls.length = 0;
+  assert.equal((await send(env, s, { resend: true })).status, 200);
+  assert.equal(fake.calls.filter((c) => c.path === '/templates/tpl_1').length, 1);
 });
 
 test('preview: a free draft of the send, opened by token, never counted; only a draft is ever discarded', async () => {

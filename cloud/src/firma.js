@@ -477,11 +477,6 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
   const { connection, secrets } = await mine(env, auth);
   const { contractId, templateId, firstName, lastName, email, facts, title, keepCopy, kennelName, countersigner } = parseSend(body);
 
-  // A template deleted in Firma's editor (her device may still offer it): refused
-  // here, before a place in the month's count is taken. Only a clear "not there"
-  // stops the send; any other answer leaves it to Firma.
-  await templateThere(env, secrets.apiKey, templateId);
-
   const live = await env.DB.prepare(
     "SELECT signing_request_id, status FROM esign_sends WHERE program_id = ? AND contract_id = ? AND status IN ('sending', 'sent', 'unknown') ORDER BY sent_at DESC LIMIT 1",
   ).bind(auth.programId, contractId).first();
@@ -490,8 +485,7 @@ export async function sendForSignature(env, auth, body, now = new Date()) {
   // A template deleted in Firma's editor (her device may still offer it): refused
   // here, before a place in the month's count is taken. Only a clear "not there"
   // stops the send; any other answer leaves it to Firma.
-  const tpl = await firma(env, secrets.apiKey, 'GET', `/templates/${encodeURIComponent(templateId)}`);
-  if (tpl.status === 404) fail(404, 'template_missing');
+  await templateThere(env, secrets.apiKey, templateId);
 
   const { limit } = await monthlyLimitFor(env, auth.programId);
   const { start } = monthBounds(now);
