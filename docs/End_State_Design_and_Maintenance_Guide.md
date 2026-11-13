@@ -386,8 +386,10 @@ and it is blocked while anything points at the record.
   waitlist FKs have entries.
 - A waitlist listen-only choice naming a sire or dam blocks that dog's hard delete.
 - **Unindexed paths:** an entry with `scan: true` names a dotted path in a row and is
-  counted by reading every row (`countReferences`). The one today: a training stay's
-  `events.details.sale_id` in `SALE_REFERENCES`.
+  counted by reading every row (`countReferences`), e.g. a training stay's
+  `events.details.sale_id` in `SALE_REFERENCES`. A path `list[].key` matches any item of
+  the list whose `key` is the id: a sale's `payments[].account_id` (§21.3) in the Account
+  references.
 
 **When you add an FK anywhere, add its line to the registry**, or hard delete will silently
 orphan rows. A merge (§10, §33, `data/recordMerge.js`) replaces the duplicate's id in every
@@ -909,6 +911,11 @@ their own `confirmDialog` (`cloud/public/family/common.js`).
   reloads the page.
 - **cloudBackupUI.js** / **cloudVaultUI.js** — every cloud screen (§30). Imported only
   dynamically and only when `isCloudAvailable()`; the vault UI only by the backup UI.
+- **paymentScheduleUI.js** — a sale's Payments card, the schedule editor, Record a payment
+  and the new-fees question, on the Sale page and the waitlist family page; the Kennel
+  page's saved schedules reuse its steps editor, and the invoice generator its Record a
+  payment (§21.3).
+- **invoiceGenerator.js** — the Invoice / Receipt generator modal (Pro, `invoicing`; §24).
 - **expensePanel.js** (§21), **puppyForm.js**, **importView.js** (§9),
   **onboardingUI.js**, **sampleDataUI.js**, **kennelSetupUI.js** (§11).
 
@@ -1037,6 +1044,10 @@ Don't assume these exist:
    cap hooks (§0).
 8. **Cloud:** nothing runs before `isCloudAvailable()`; `cloudUrl: null` makes no request.
 9. Clean UTF-8, no BOM. `node --check` touched files; `node --test` passes.
+10. **A sale's money** (what's paid, owed, due when) is read from its payment statement
+    (`paymentSchedule.paymentStatement`, loaded by `incomeView.getSaleStatement(s)`, §21.3);
+    money is spread over charges only by `allocateMoney`. No surface does its own sum; the
+    one exception left is the contract price table (`incomeView.priceTable`, §32).
 
 ---
 
@@ -1123,7 +1134,7 @@ Kels's tidy-up doesn't suggest recording it. Its pick puppy, when the fee has on
 | `litterclose` | `litterCheckin.litterCloseDue`: a born litter at any status but `closed`, no live pup `available` or `undecided` (blank = undecided; keeping, health hold and grown-up pups don't count), no open sale on any of its pups (`isOpenSale`), and one `delivered` sale. Sales come from every pup of the litter, archived ones included (`litterSalesOf`), and it's checked even when no live pup is left | close the litter |
 | `gohome-schedule` / `gohome-boarding` / `gohome-overdue` | `goHome.goHomeIssue` for a pup with a sale at `deposit_paid`/`paid_in_full`: from 7 days before the ready date, no pickup (`placement` event for that buyer, or with no contact) today or later and no boarding running / the sale has a `deferred_boarding_amount` and no boarding logged from 7 days before the ready date on / the latest pickup date has passed | the pup's event form prefilled (pickup or boarding; a pickup with the day, time and place the family asked for on their status page, when one waits: `pickupWishesFor`) / `sale.html?id=…&deliver=1` |
 | `show-title` | a show track is complete with no `title_earned` event | prefilled title event |
-| `int-review` | a vendor event wasn't applied (`integration_reviews`, §32) | open the record; Done removes it |
+| `int-review` | a vendor event wasn't applied, or a payment it recorded now covers everything on a sale not marked paid in full (`integrationApply.COVERS_ALL_REASON`, D34, §21.3) (`integration_reviews`, §32) | open the record; Done removes it |
 | `follow-up` | a pup went home 7–60 days ago (`referralShare`) | write a thank-you note |
 | `training-stay` / `training-stay-orphan` | an extra with `boarding_days` on an open sale and no boarding event linked to it (`goHome.trainingStaysFor`) / a linked stay still to come whose extra is off its sale (`orphanTrainingStays`) | **Log the stay** (`trainingStayEvent`, created at once: from the ready date or today, its days long) / **Remove the stay** (archive) |
 | `extra-due` | an extra's payment-plan step (§21.2) is due within `EXTRA_DUE_DAYS` (7) or overdue, unpaid, on an open sale whose balance isn't paid. On a sale with a payment schedule only an extra flagged `own_due_dates` (§21.3); any other is paid through the schedule (`payment-due`) | open the sale |
@@ -1264,9 +1275,11 @@ subject (`financials.js` `expenseInScope`).
   sale's statement as `getSaleStatement` does (one shared `statementOpts`), with everything
   loaded once. A balance paid date with the deposit never marked received reads as paid in
   full, the deposit included. `paidOnSale()` reads what was paid regardless of status, from
-  the statement (recorded payments count); `incomeLineItems`, `priceTable` and
-  `saleCreditCharges` still read whole lines (`saleComponents`), for payment requests and
-  contracts until plan steps 5–6.
+  the statement (recorded payments count). Three helpers still read whole lines
+  (`saleComponents`, which knows no recorded payments): `incomeLineItems` (a stud
+  service's document lines; a sale's only for `contractSend.balanceDueOn`'s total, less
+  `paidOnSale`), `saleCreditCharges` (the charges a family's credits can pay, at full
+  amounts) and `priceTable` (a contract's price table, §32).
 - **Our stud's fee** (`studRules.ourRole` = stud): earned when `completed`, anticipated while arranged/in progress.
 - **Our dam's stud fee** is money paid, so it's an Expense, never income. Saving a stud service
   of our dam that's Completed with a fee and no linked expense (new, just Completed, or the
@@ -1425,8 +1438,8 @@ payments to check (§33).
   `price`; percent of remaining: that percent of what's left after the earlier thresholds;
   amount: the previous threshold plus it; capped at the whole), filled in order, earlier money
   (fee, credits, deposit) first; a "new payments only" due date takes only payments unless
-  earlier money has nowhere else to go. → `{ ended, hasSchedule, charges, total, paid,
-  remaining, fee, received[], deposit, dueDates[], ownDated[], next }`; statuses met, due soon
+  earlier money has nowhere else to go. → `{ ended, hasSchedule, schedule, charges, total,
+  paid, remaining, fee, received[], deposit, dueDates[], ownDated[], next }`; statuses met, due soon
   (7 days), coming up, not received, no date. Fee and credit lines label "<charge> (credited)".
   A returned/cancelled/voided sale: what was paid stands, nothing owed. Each due date keeps
   `from` (which money filled it), the deposit `asked` (when it was asked for).
@@ -1458,7 +1471,8 @@ payments to check (§33).
   single due date; each row's when (an age, a date, days before pickup, at pickup), covers
   (Everything, or ticks for the price, boarding, extras, transport and each extra on the
   schedule), and kind (% of the total, % of what's left, $ counting earlier money, $ new
-  payments only), with a live preview from the statement; **Start from a saved schedule**;
+  payments only), with a live preview from the statement; **Start from a saved schedule**
+  (`scheduleFromSaved`: its steps with ids of their own, dated from the pup and pickup);
   **Remove the schedule**. Saving (`readSchedule` → `scheduleProblem`) writes the schedule and
   mirrors the final payment's date into `balance_due_date` (null when not known).
 - **New fees** (`askAboutNewFees`, D17): after a save that added a transport fee, boarding or an
@@ -1500,7 +1514,8 @@ payments to check (§33).
   a Today review (`COVERS_ALL_REASON`). Links made before schedules (`balance`) are read the
   same way.
 - **Registries:** all new fields private (`syncRegistry`); `payments[].account_id` guards an
-  Account against delete (`referenceRegistry`: a `list[].key` scan).
+  Account against delete (`referenceRegistry`: a `list[].key` scan). Not in CSV import or
+  export, like extra charges; the JSON backup carries them.
 - **Tests:** `tests/paymentScheduleIncome.test.js` (the ledger against before on every sale
   without payments, credits or a schedule; payments; D21; released and lost sales; every
   combination; `paidOnSale`; Receivables by due date), `tests/familyMoney.test.js` (§24),
@@ -2334,7 +2349,17 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   KennelOS when the list is online.
 - **Communicate…** (`waitlistEmailUI.communicateDialog`): emails that fit now, or a suggested
   message to share from her phone. KennelOS itself sends only the queued emails below.
-- **Documents:** fee receipt, puppy invoice and receipt as PDFs (§24).
+- **Payments** (the family page's Details tab, with an open sale: `familySale`, the one
+  they're placed with, their open pick's, or an open sale to the same contact that no
+  record of theirs claims): the sale's Payments
+  card, the schedule editor and Record a payment, with **Open the sale** (§21.3).
+  `afterAction` compares that sale before and after every action on the page, so approving
+  an extra, a transport fee or a pickup with boarding asks whether to adjust the schedule
+  (`askAboutNewFees`, D17).
+- **Documents** (History tab, with `invoicing`; `familyMoney.familyDocs`, §24): the
+  application fee's and the deposit's invoice and receipt, a receipt for each payment
+  received, an invoice for the next payment, each **View** or **Download PDF**, and **Make a
+  combined invoice or receipt** (the generator on this family).
 - **Fee paid online** (Pro with Accounts; Integrations plan §4): **Fee paid online via** a
   Payment service account (`kennels.waitlist_fee_account_id`), asked for at application or
   once approved (`fee_link_when`). Reusable Stripe links per fee amount
@@ -3004,7 +3029,10 @@ Share with families hint and the card's badge say so for this type.
   so price = deposit + `otherPaymentsReceived` + `purchaseBalanceDue` and nothing counts
   twice (a fee their received funds paid counts only as the fee, `fee_credit_amount`); `purchaseBalanceDue` the rest of the price. `price` is the sale's price,
   which carries any Full registration surcharge (`saleDefaults`); `balanceDue` stays
-  everything owed on the sale.
+  everything owed on the sale. The table reads whole lines (`saleComponents`), so payments
+  recorded on the sale (`Sale.payments`, §21.3) aren't in `otherPaymentsReceived` and stay
+  in `purchaseBalanceDue` until the sale is marked paid in full; `balanceDue` and the
+  schedule fields below count them.
   **The payment schedule** (Payment Schedule plan §8.1, `contractForms.scheduleValues`, from
   `facts.statement`: `gatherContractFacts` loads it with `incomeView.getSaleStatement`, as
   the Payments card does): `totalCharges` (the statement's `total`: the sale's own charges,
@@ -3016,7 +3044,7 @@ Share with families hint and the card's badge say so for this type.
   `finalPaymentAmount` / `finalPaymentDue`: the last. Each amount is what's still owed by that
   due date (its ask less the money it took, earlier money only where the due date lets it
   count: `0.00` once met); each date YYYY-MM-DD, left out while it can't be known. A
-  returned, cancelled or voided sale fills only the first two.
+  returned, cancelled or voided sale fills only `totalCharges` and `paidToDate`.
   On a sale with a schedule, an **extra agreement** for an extra paid through it (not on its
   own dates) prints its share of each due date (`contractAddOns.extraPayments` with the
   statement: `chargePieces`, so money pays the price before extras, whatever a due date
@@ -4570,7 +4598,9 @@ Nothing changes for any other kennel or breeder.
   go in `server.portal`, which the server never shows a family. The server (`familyPages
   .statusView`) shows **Your puppy portal is ready** with **Open your puppy portal**, and,
   once `only` (or `pickup_on` has passed in her time zone, so the switch never waits for her
-  device), only **Your puppy portal**. The button posts `/f/portal` (signed in on the status
+  device), only **Your puppy portal**: the page is then that link alone, so its **Your
+  payments** card (§29) goes with the rest, and the portal feed carries no amounts (Payment
+  Schedule plan D33). The button posts `/f/portal` (signed in on the status
   page; `familyActions.handlePortal`), which answers a link that works once, for the
   portal's minutes (at most 10), in KennelPort's token format: base64url JSON `{ f: the
   contact id, x: expiry ms, n: nonce }`, a dot, and its HMAC-SHA256 under the key. Not

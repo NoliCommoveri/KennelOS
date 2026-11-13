@@ -4095,3 +4095,33 @@ tick box per template; buyers get an emailed link.
   waitlist record a payment and write the pickup message, no console errors.
 - **Docs:** End-State guide §19, §21.3, §33; plan step 7 (Built, Modified), D36; README Status.
 - **Service worker:** no new files. `CACHE_NAME` v132 (owner asked).
+
+## 2026-11-13 — Payment schedules step 8: the docs, checked against the code
+
+- **Checked:** every guide section the plan names (§4, §13, §21, §24, §29, §32, §33, §35) and
+  the ones steps 1–7 touched, against `paymentSchedule.js`, `paymentScheduleUI.js`,
+  `familyMoney.js`, `invoiceGenerator.js`, `incomeView.js`, `contractForms.js`, `nudges.js`,
+  `integrationApply.js`, `waitlist-entry.js`, `kennel.js`, `referenceRegistry.js` and the
+  family status page. §4, §21.2, §24 and §33 already matched.
+- **End-State guide:** §7 (unindexed paths: `list[].key`, a sale's `payments[].account_id`;
+  "the one today" was stale), §13 Components (`paymentScheduleUI.js`, `invoiceGenerator.js`),
+  §16 invariant 10 (a sale's money from its statement, one allocator), §19 `int-review`
+  (D34's covers-everything review), §21 (which helpers still read whole lines; the "until
+  steps 5–6" note was stale), §21.3 (`schedule` in the statement, `scheduleFromSaved`, not in
+  CSV, the JSON backup carries them), §29 Surfaces (the family page's Payments card and
+  `afterAction`'s new-fees question; Documents rewritten from the old fee/invoice/receipt
+  line), §32 (the price table and recorded payments; an ended sale's two fields named),
+  §35.1 (once the portal takes over the status page, Your payments goes with the rest).
+- **Editions plan:** a tiers row for a sale's payments (all editions; Pro adds saved
+  schedules, final-payment methods, Paid via, documents); Pups are going home's row says
+  Payments and the pickup message (final-payment methods Pro only: Lite has no Kennel page).
+- **Found, not fixed (owner to decide):** `incomeView.priceTable` (contract fields
+  `otherPaymentsReceived`, `purchaseBalanceDue`) reads `saleComponents`, which knows no
+  recorded payments: a $3,000 sale with its $500 deposit and a $1,000 payment prints
+  `otherPaymentsReceived` 0.00 and `purchaseBalanceDue` 2,500.00, while `balanceDue` and the
+  schedule fields say 1,500.00 owed. Right again once marked paid in full. The status page
+  hiding Your payments once the portal takes over (pickup day passed, Delivered, or home) is
+  as built; worth a look if money can still be owed then.
+- **Docs:** plan step 8 (Built, Found); README Status.
+- **Tests:** none changed (docs only).
+- **Service worker:** no app files changed, so no `CACHE_NAME` bump.
