@@ -3987,3 +3987,26 @@ tick box per template; buyers get an emailed link.
 - **Docs:** End-State guide §21.3, §32; plan §8.1, §8.2, §10, §11; Integrations plan routes;
   launch checklist; README status.
 - **Service worker:** no new files. `CACHE_NAME` v128 (owner asked).
+
+## 2026-11-13 — An extra set "No, with the sale's schedule" now goes on the schedule
+
+- **Bug:** an extra set to *No, with the sale's schedule* that had a payment plan (its own or
+  its group's) was copied onto the sale with its plan's steps. `saleCharges` treated any
+  extra with steps that no due date named as on its own dates, so the No was ignored. The
+  schedule editor only offers the Extras tick (and a tick per extra) for extras already on
+  the schedule, so it couldn't be named, and a saved schedule's Extras cover was dropped
+  when loaded. The invoice showed the extra's step and the schedule's due date as two lines
+  on the same date.
+- **Fix:** on a sale with a schedule stored, only `own_due_dates: true` keeps an extra apart.
+  Every other extra is on the schedule (`extras`, `all` or its name), its steps not used for
+  dates. Money already paid on those steps still counts: a payment `toward` a step pays the
+  extra, and a step marked paid covers what's left of its share, never twice. With no
+  schedule, stepped extras keep their steps as before (D2). The schedule editor works out its
+  tick choices as they'll be once a schedule exists, so *Add a payment schedule* offers the
+  Extras tick. `addedFees` says "paid on its own dates" only when that's true.
+- **Tests:** `tests/paymentSchedule.test.js`: two new cases (a saved schedule's Extras
+  cover takes a stepped extra, flagged still apart, `addedFees`; old step payments counted
+  once). The combination check counts a step marked paid as money received. `node --test`
+  1,843 pass.
+- **Docs:** End-State guide §21.3; plan §3.3 (**Modified:**).
+- **Service worker:** no new files. `CACHE_NAME` v129 (owner asked).

@@ -166,6 +166,9 @@ optional, read as "not set" from older backups.
 - **An extra a due date names** (`extra:<id>`) is paid through the schedule, and its own steps
   aren't copied onto the sale.
 - **A sale with no schedule:** every extra keeps its own steps, exactly as today.
+- **Modified:** as built, any extra not flagged `own_due_dates` is on the schedule once a
+  sale has one (covered by `extras`, `all` or its name), whether or not a due date names it;
+  its own steps aren't used for dates, and anything already paid on them still counts.
 
 ### 3.4 Kennel
 
