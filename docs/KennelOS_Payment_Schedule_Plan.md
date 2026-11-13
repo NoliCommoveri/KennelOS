@@ -97,7 +97,10 @@ optional, read as "not set" from older backups.
   pickup if it's missing.
 - **No schedule stored** = one due date, `all`, 100%, on `balance_due_date` (else at
   pickup). That's exactly today's behavior.
-- `balance_due_date` stays and mirrors the last due date, so existing readers keep working.
+- `balance_due_date` stays and mirrors the last due date (written when the schedule is
+  saved, when that date is known), so existing readers keep working. On the Sale form, a
+  sale with a schedule shows the final payment's date in place of the Balance due date box
+  (D24); dates are changed in the schedule.
 
 ### 3.2 `Sale.payments`: payments received
 
@@ -112,8 +115,10 @@ optional, read as "not set" from older backups.
   boarding → extras → **transport, always last**. Transport is the last step of the handoff,
   and it's collected then even when other fees were due earlier. Credits for funds received
   use the same allocator, so every surface agrees.
-- `balance_paid_date` still means "paid in full". It's set when payments cover everything.
-  Set by hand, it still covers whatever is left, as today.
+- `balance_paid_date` still means "paid in full". Set by hand, it still covers whatever is
+  left, as today. Nothing sets it on its own (D22): when recorded payments cover everything,
+  one prompt offers to set the paid-in-full date (the last payment's) and the status Paid in
+  full.
 - `account_id` → Account: added to `referenceRegistry.js`.
 
 ### 3.2a Money carried from a lost pup (D20)
@@ -166,7 +171,8 @@ optional, read as "not set" from older backups.
 
 - `payment_schedules: [{ id, name, steps }]`: her saved schedules. The steps have the same
   shape, without dates. Choosing one copies it onto the sale, like the price list.
-- `default_payment_schedule_id`: what a new sale starts with. Unset = today's behavior.
+- No default (D23): no new sale starts with a schedule. Every schedule is added on purpose,
+  from scratch or from a saved one.
 - `final_payment_methods`: text, e.g. "Cash or Zelle only". Printed on anything for the
   final payment. Earlier payments follow her regular payment instructions.
 
@@ -229,7 +235,7 @@ paymentStatement(sale, { birthDate, pickupDate, feeCredit, credits, today }) →
 |---|---|
 | **Applicant (waitlist entry) page**, her main path | The schedule card, editor and Record a payment, for the sale they're placed with or a pick waiting on its deposit. The fee-added prompt fires here when she approves an extra, a transport fee or a pickup with boarding. |
 | **Sale page** | Same card, editor and Record a payment. |
-| **Kennel page** | **Saved payment schedules** (the editor without dates), the default, and the final-payment methods. Price list **Details**: "Paid on its own dates, never on the sale's schedule" for each extra and group. |
+| **Kennel page** | **Saved payment schedules** (the editor without typed dates or single extras) and the final-payment methods. Pro (the Kennel page is Pro); in Lite a schedule is built on the sale. Price list **Details**: "Paid on its own dates, never on the sale's schedule" for each extra and group. |
 | **Financials / money report / receivables** | One row per unpaid due date, with its own Due by. "No due date" only for a due date that can't be dated yet. |
 | **Today** | `payment-due`: from 7 days before a due date until it's met. `payment-missed`: "A scheduled payment was not marked received: *Family*, $X due Dec 4." → **Open sale**. On the sale she records the payment, types a new date, or cancels. No back-out suggestion. Replaces the balance part of today's go-home nudges. |
 | **Kels** (Pups are going home, Review my waitlist) | Asks about the next payment, not "the balance". |
@@ -393,6 +399,9 @@ Plan:
 | D19 | "Remaining" is measured against what earlier due dates asked for, so paying early doesn't shrink it. |
 | D20 | Money carried from a lost pup becomes a credit for funds received, not the new sale's deposit. |
 | D21 | A credit is held money, never income itself. A charge it covers is expected until that charge's due date, then earned on it. No credit label in Financials. A deposit date never comes from a credit's date. |
+| D22 | Nothing is marked paid on its own. When payments cover everything, one prompt offers the paid-in-full date and status. |
+| D23 | No default schedule: no new sale starts with one; every schedule is added on purpose. |
+| D24 | With a schedule, the Sale form's Balance due date box is replaced by the final payment's date. |
 | D17 | The fee-added prompt shows every time a transport fee, boarding or an extra is added, schedule or not. |
 | D13 | The generator works per family. Receipts print only recorded money. The applicant page gets one invoice and one receipt per charge. The application fee joins the generator. |
 | D14 | One number per document, as today. A typed one is saved on the sale, else on the waitlist entry. |

@@ -369,6 +369,121 @@ export function paymentStatement(sale, opts = {}) {
   return { ...base, remaining: cents(total - paid), deposit, dueDates, ownDated, next };
 }
 
+// --- Editing ----------------------------------------------------------------------------
+
+// What's wrong with due dates she typed (the editor's rows, before cleaning), or ''.
+// The last row is the final payment: everything, 100% of the total.
+// `saved`: a saved schedule's steps (no typed dates, no single extras).
+export function scheduleProblem(rows, { saved = false } = {}) {
+  if (!Array.isArray(rows) || !rows.length) return 'Add at least the final payment.';
+  for (const [i, r] of rows.entries()) {
+    const name = i === rows.length - 1 ? 'The final payment' : `Payment ${i + 1}`;
+    const due = SCHEDULE_DUE.find((d) => d.value === r?.due);
+    if (!due) return `${name}: choose when it's due.`;
+    if (saved && r.due === 'on_date') return `${name}: a saved schedule can't use a date; use an age or pickup.`;
+    if (due.needsN && count(r.n) == null) return `${name}: say how many ${due.unit.split(' ')[0]}.`;
+    if (r.due === 'at_weeks' && count(r.n) === 0) return `${name}: an age of at least 1 week.`;
+    if (r.due === 'on_date' && !ymd(r.due_date)) return `${name}: choose the date.`;
+    const covers = cleanCovers(r.covers);
+    if (!covers) return `${name}: tick what it covers.`;
+    if (saved && covers.some((c) => c.startsWith('extra:'))) return `${name}: a saved schedule can cover extras, not one extra.`;
+    const percent = num(r.percent);
+    const amount = num(r.amount);
+    if (r.percent != null && r.percent !== '') {
+      if (!(percent > 0) || percent > 100) return `${name}: a percent from 1 to 100.`;
+    } else if (!(amount > 0)) return `${name}: an amount above 0.`;
+  }
+  const last = rows[rows.length - 1];
+  if (!cleanCovers(last.covers)?.includes('all') || num(last.percent) !== 100 || last.basis === 'remaining') return 'The final payment covers everything left: 100% of everything.';
+  return '';
+}
+
+// A schedule as the editor saves it: cleaned, ids kept or minted.
+export function readSchedule(rows) {
+  const error = scheduleProblem(rows);
+  if (error) return { schedule: null, error };
+  const withIds = rows.map((r) => ({ ...r, id: text(r.id) || crypto.randomUUID() }));
+  return { schedule: cleanSchedule(withIds), error: '' };
+}
+
+// Her saved schedules (Kennel.payment_schedules): [{ id, name, steps }], each with a
+// name and at least the final payment; steps never carry a typed date or a single extra.
+export function savedSchedules(kennel) {
+  const list = Array.isArray(kennel?.payment_schedules) ? kennel.payment_schedules : [];
+  const out = [];
+  for (const x of list) {
+    const name = text(x?.name);
+    const steps = cleanSchedule(Array.isArray(x?.steps) ? x.steps.map(({ due_date: _d, ...st }) => st) : null);
+    if (!name || !x?.id || !steps || steps.some((st) => st.due === 'on_date' || st.covers.some((c) => c.startsWith('extra:')))) continue;
+    out.push({ id: x.id, name, steps });
+  }
+  return out;
+}
+
+// The saved schedules the Kennel page hands over, checked. → { list, error }
+export function readSavedSchedules(rows = []) {
+  const out = [];
+  const names = new Set();
+  for (const r of rows) {
+    const name = text(r?.name);
+    if (!name) return { list: [], error: 'Give each saved schedule a name.' };
+    if (names.has(name.toLowerCase())) return { list: [], error: `Two saved schedules are called "${name}".` };
+    names.add(name.toLowerCase());
+    const error = scheduleProblem(r.steps, { saved: true });
+    if (error) return { list: [], error: `"${name}": ${error}` };
+    out.push({ id: text(r.id) || crypto.randomUUID(), name, steps: cleanSchedule(r.steps.map((st, i) => ({ ...st, id: text(st.id) || `due${i}` }))) });
+  }
+  return { list: out, error: '' };
+}
+
+// A saved schedule copied onto a sale: its steps with ids of their own (dates follow
+// the pup and pickup until she types one).
+export const scheduleFromSaved = (saved) => saved.steps.map((st) => ({ ...st, id: crypto.randomUUID() }));
+
+// A payment as it's recorded. → the payment, or throws with what's missing.
+export function newPayment({ id = null, amount, date, method = '', account_id = '', reference = '', note = '', toward = '' }) {
+  const a = cents(num(amount));
+  if (!(a > 0)) throw new Error('Enter the amount received.');
+  if (!ymd(date)) throw new Error('Enter the date it was received.');
+  return {
+    id: id || crypto.randomUUID(), amount: a, date,
+    ...(text(method) ? { method: text(method) } : {}), ...(text(account_id) ? { account_id: text(account_id) } : {}),
+    ...(text(reference) ? { reference: text(reference) } : {}), ...(text(note) ? { note: text(note) } : {}),
+    ...(text(toward) ? { toward: text(toward) } : {})
+  };
+}
+
+// The sale's payments with one added or replaced (by id), or removed (`remove`).
+export function paymentsWith(sale, payment, { remove = false } = {}) {
+  const list = (Array.isArray(sale?.payments) ? sale.payments : []).filter((p) => p && p.id !== payment.id);
+  return remove ? list : [...list, payment];
+}
+
+// Fees just added to a sale (Payment Schedule plan §3.4, D17): a transport fee set or
+// raised, boarding added or raised, an extra not there before.
+// → [{ kind: 'transport'|'boarding'|'extra', label, own? }]
+export function addedFees(before, after) {
+  const out = [];
+  const b = before || {};
+  if (num(after?.transport_fee) > num(b.transport_fee)) out.push({ kind: 'transport', label: 'Transport fee' });
+  if (boardingTotal(after || {}) > boardingTotal(b)) out.push({ kind: 'boarding', label: 'Boarding' });
+  const had = new Set(saleExtraCharges(b).map((x) => x.id));
+  for (const x of saleExtraCharges(after)) if (!had.has(x.id)) out.push({ kind: 'extra', label: x.label, ...(x.own_due_dates || Array.isArray(x.payments) ? { own: true } : {}) });
+  return out;
+}
+
+// Everything is paid and the sale isn't marked paid in full yet (D22): offer the date
+// (the last money received) and status. → null | { date }
+export function paidInFullOffer(statement, sale) {
+  if (!statement || statement.ended || statement.remaining > 0 || !(statement.total > 0)) return null;
+  if (sale?.balance_paid_date || ['paid_in_full', 'delivered'].includes(sale?.status)) return null;
+  const date = statement.received.map((r) => r.date).filter(Boolean).sort().pop() || null;
+  return { date };
+}
+
+// The final payment's date (the schedule's last), for the sale's balance_due_date.
+export const finalDueDate = (statement) => statement?.dueDates?.[statement.dueDates.length - 1]?.date || null;
+
 // --- Words ------------------------------------------------------------------------------
 
 // What a due date covers, in words: "everything", "price and Puppy training".

@@ -8,7 +8,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   paymentStatement, cleanSchedule, defaultSchedule, scheduleOf, dueDateOf, saleCharges, coveredTotal,
-  allocateMoney, scheduleSummary, coversText
+  allocateMoney, scheduleSummary, coversText, scheduleProblem, readSchedule, savedSchedules, readSavedSchedules,
+  scheduleFromSaved, newPayment, paymentsWith, addedFees, paidInFullOffer, finalDueDate
 } from '../shared/data/paymentSchedule.js';
 import { creditsOf, feeCharge, CREDIT_USE_VALUES } from '../shared/data/receivedCredits.js';
 import { incomeLineItems } from '../shared/data/incomeView.js';
@@ -377,4 +378,99 @@ test('every combination: the statement always adds up', () => {
     else assert.equal(st.next, null, at);
   }
   assert.equal(n, 40320);
+});
+
+// --- Editing (the schedule editor, saved schedules, payments, new fees) -------------------
+
+test('scheduleProblem: what\'s missing, row by row; the last row is always everything at 100%', () => {
+  const fin = { due: 'at_pickup', covers: ['all'], percent: 100, basis: 'total' };
+  assert.equal(scheduleProblem([fin]), '');
+  assert.equal(scheduleProblem([]), 'Add at least the final payment.');
+  assert.match(scheduleProblem([{ due: 'nope', covers: ['all'], percent: 50 }, fin]), /Payment 1: choose when/);
+  assert.match(scheduleProblem([{ due: 'at_weeks', n: '', covers: ['all'], percent: 50 }, fin]), /how many weeks/);
+  assert.match(scheduleProblem([{ due: 'at_weeks', n: 0, covers: ['all'], percent: 50 }, fin]), /at least 1 week/);
+  assert.match(scheduleProblem([{ due: 'on_date', covers: ['all'], percent: 50 }, fin]), /choose the date/);
+  assert.match(scheduleProblem([{ due: 'at_pickup', covers: [], percent: 50 }, fin]), /tick what it covers/);
+  assert.match(scheduleProblem([{ due: 'at_pickup', covers: ['price'], percent: 150 }, fin]), /1 to 100/);
+  assert.match(scheduleProblem([{ due: 'at_pickup', covers: ['price'], percent: '', amount: 0 }, fin]), /amount above 0/);
+  assert.match(scheduleProblem([{ due: 'at_pickup', covers: ['price'], percent: 50 }]), /everything left/);
+  assert.match(scheduleProblem([{ ...fin, basis: 'remaining' }]), /everything left/);
+  // Saved schedules: no typed dates, no single extras.
+  assert.match(scheduleProblem([{ due: 'on_date', due_date: '2026-12-01', covers: ['all'], percent: 50 }, fin], { saved: true }), /can't use a date/);
+  assert.match(scheduleProblem([{ due: 'at_weeks', n: 8, covers: ['extra:x'], percent: 50 }, fin], { saved: true }), /not one extra/);
+});
+
+test('readSchedule: cleaned, with ids kept or minted', () => {
+  const { schedule, error } = readSchedule([
+    { id: 'keep', due: 'at_weeks', n: '8', covers: ['price'], percent: '50', amount: '' },
+    { due: 'on_date', due_date: '2026-12-01', covers: ['all'], percent: '', amount: '300', prior_funds: 'dont_count' },
+    { due: 'at_pickup', covers: ['all'], percent: 100, basis: 'total' }
+  ]);
+  assert.equal(error, '');
+  assert.equal(schedule[0].id, 'keep');
+  assert.equal(schedule[0].n, 8);
+  assert.equal(schedule[0].percent, 50);
+  assert.ok(schedule[1].id && schedule[1].id !== 'keep');
+  assert.deepEqual([schedule[1].amount, schedule[1].prior_funds], [300, 'dont_count']);
+  assert.equal(schedule.length, 3);
+  assert.equal(readSchedule([{ due: 'at_pickup', covers: ['price'], percent: 50 }]).schedule, null);
+});
+
+test('saved schedules: named, checked, copied onto a sale with ids of their own', () => {
+  const steps = [{ id: 'a', due: 'at_weeks', n: 8, covers: ['price', 'extras'], percent: 50 }, { id: 'b', due: 'at_pickup', covers: ['all'], percent: 100, basis: 'total' }];
+  const { list, error } = readSavedSchedules([{ name: 'Longer stay', steps }]);
+  assert.equal(error, '');
+  assert.equal(list[0].name, 'Longer stay');
+  assert.ok(list[0].id);
+  assert.match(readSavedSchedules([{ name: '', steps }]).error, /name/);
+  assert.match(readSavedSchedules([{ name: 'A', steps }, { name: 'a', steps }]).error, /Two saved schedules/);
+  assert.match(readSavedSchedules([{ name: 'A', steps: [steps[0]] }]).error, /"A": The final payment covers everything/);
+  // Read back from a kennel: bad ones dropped, a stray typed date ignored.
+  const kennel = { payment_schedules: [list[0], { id: 'x', name: '', steps }, { id: 'y', name: 'Dated', steps: [{ ...steps[1], due_date: '2026-12-01' }] }] };
+  const back = savedSchedules(kennel);
+  assert.deepEqual(back.map((x) => x.name), ['Longer stay', 'Dated']);
+  assert.equal(back[1].steps[0].due_date, undefined);
+  const copied = scheduleFromSaved(back[0]);
+  assert.equal(copied.length, 2);
+  assert.ok(copied.every((st, i) => st.id && st.id !== back[0].steps[i].id));
+  assert.equal(savedSchedules(null).length, 0);
+});
+
+test('newPayment and paymentsWith: amount and date required; add, replace, remove by id', () => {
+  const p = newPayment({ amount: '300', date: '2026-11-10', method: 'Zelle', account_id: '', note: ' ' });
+  assert.deepEqual(Object.keys(p).sort(), ['amount', 'date', 'id', 'method']);
+  assert.throws(() => newPayment({ amount: 0, date: '2026-11-10' }), /amount/);
+  assert.throws(() => newPayment({ amount: 5, date: '' }), /date/);
+  const sale = { payments: [{ id: 'a', amount: 100, date: '2026-11-01' }] };
+  assert.equal(paymentsWith(sale, p).length, 2);
+  assert.deepEqual(paymentsWith(sale, { id: 'a', amount: 150, date: '2026-11-01' }).map((x) => x.amount), [150]);
+  assert.deepEqual(paymentsWith(sale, { id: 'a' }, { remove: true }), []);
+  assert.equal(paymentsWith({}, p).length, 1);
+});
+
+test('addedFees: a transport fee set or raised, boarding added or raised, a new extra', () => {
+  const before = { transport_fee: 100, deferred_boarding_amount: 20, deferred_boarding_duration_days: '5', extra_charges: [{ id: 'x', label: 'Photos', amount: 150 }] };
+  assert.deepEqual(addedFees(before, before), []);
+  assert.deepEqual(addedFees(before, { ...before, transport_fee: 80 }), [], 'a lower fee isn\'t a new fee');
+  assert.deepEqual(addedFees(before, { ...before, transport_fee: 200 }).map((f) => f.kind), ['transport']);
+  assert.deepEqual(addedFees(before, { ...before, deferred_boarding_duration_days: '9' }).map((f) => f.kind), ['boarding']);
+  const more = addedFees(before, { ...before, extra_charges: [...before.extra_charges, { id: 'y', label: 'Training', amount: 600 }, { id: 'z', label: 'Video', amount: 75, own_due_dates: true }] });
+  assert.deepEqual(more.map((f) => [f.kind, f.label, !!f.own]), [['extra', 'Training', false], ['extra', 'Video', true]]);
+  assert.deepEqual(addedFees(null, { transport_fee: 50 }).map((f) => f.kind), ['transport'], 'a new sale with a fee');
+});
+
+test('paidInFullOffer: only once everything is paid and the sale isn\'t already marked', () => {
+  let s = sale({ price: 1000, deposit_amount: 500, payments: [{ id: 'p', amount: 500, date: '2026-11-11' }] });
+  assert.deepEqual(paidInFullOffer(paymentStatement(s, opts()), s), { date: '2026-11-11' });
+  s = { ...s, payments: [{ id: 'p', amount: 400, date: '2026-11-11' }] };
+  assert.equal(paidInFullOffer(paymentStatement(s, opts()), s), null);
+  s = sale({ price: 1000, status: 'paid_in_full', balance_paid_date: '2026-11-12' });
+  assert.equal(paidInFullOffer(paymentStatement(s, opts()), s), null);
+  s = sale({ price: 1000, status: 'cancelled' });
+  assert.equal(paidInFullOffer(paymentStatement(s, opts()), s), null);
+});
+
+test('finalDueDate: the last due date\'s', () => {
+  assert.equal(finalDueDate(paymentStatement(sale({ balance_due_date: '2026-12-10' }), opts())), '2026-12-10');
+  assert.equal(finalDueDate(null), null);
 });
