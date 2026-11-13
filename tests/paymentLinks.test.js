@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { paymentLink, takesPayments, paymentAccounts, salePaidVia, salePayAccount, paidViaField, paymentOptions, paymentLines, paymentRequestMessage } from '../shared/data/paymentLinks.js';
 import { depositRequestMessage } from '../shared/data/depositRequest.js';
+import { paymentStatement } from '../shared/data/paymentSchedule.js';
 
 const PS = 'payment_service';
 const stripe = { id: 's', name: 'Stripe', account_type: PS, payment_link: 'https://buy.stripe.com/abc' };
@@ -42,20 +43,37 @@ test('each part of a sale has its own paid-via account; the balance falls back t
   assert.equal(paidViaField('all'), 'balance_paid_via_account_id');
 });
 
-test('paymentOptions: the unpaid deposit, the unpaid rest, or both', () => {
-  const items = [
-    { component: 'deposit', amount: 500, state: 'anticipated' },
-    { component: 'balance', amount: 2500, state: 'anticipated' },
-    { component: 'transport', amount: 150, state: 'anticipated' }
-  ];
-  assert.deepEqual(paymentOptions(items), [
-    { key: 'deposit', label: 'Deposit', amount: 500 },
-    { key: 'balance', label: 'The rest of the price', amount: 2650 },
-    { key: 'all', label: 'Everything owed', amount: 3150 }
+test('paymentOptions: from the statement, the deposit owed, the next payment, everything owed, each once', () => {
+  const base = { status: 'deposit_pending', price: 3000, deposit_amount: 500, transport_fee: 150 };
+  const opts = { today: '2026-10-15', pickupDate: '2026-12-01', depositDueDate: '2026-10-20' };
+  assert.deepEqual(paymentOptions(paymentStatement(base, opts)), [
+    { key: 'deposit', label: 'Deposit', amount: 500, due: '2026-10-20', atPickup: false, final: false },
+    { key: 'next', label: 'Balance', amount: 2650, due: '2026-12-01', atPickup: false, final: true },
+    { key: 'all', label: 'Everything owed', amount: 3150, due: '2026-12-01', atPickup: false, final: true }
   ]);
-  const depositPaid = [{ ...items[0], state: 'earned' }, items[1]];
-  assert.deepEqual(paymentOptions(depositPaid), [{ key: 'balance', label: 'Balance', amount: 2500 }]);
-  assert.deepEqual(paymentOptions([{ ...items[0], state: 'earned' }]), []);
+  // The application fee credited toward the deposit: the deposit owed is what's left.
+  const credited = paymentOptions(paymentStatement(base, { ...opts, feeCredit: { amount: 50, toward: 'deposit', date: '2026-09-01' } }));
+  assert.equal(credited[0].amount, 450);
+  assert.equal(credited[2].amount, 3100);
+  // The deposit paid, two due dates: the next one, then everything (the final payment).
+  const sched = { ...base, status: 'deposit_paid', deposit_date: '2026-10-01',
+    payment_schedule: [{ id: 'a', due: 'on_date', due_date: '2026-11-01', covers: ['price'], percent: 50, basis: 'total' }, { id: 'b', due: 'at_pickup', covers: ['all'], percent: 100, basis: 'total' }] };
+  const o = paymentOptions(paymentStatement(sched, opts));
+  assert.deepEqual(o.map((x) => [x.key, x.amount, x.final]), [['next', 1000, false], ['all', 2650, true]], '50% of $3,000 less the $500 deposit');
+  assert.match(o[0].label, /^Next payment/);
+  // Paid down to the final payment: one option, the final payment.
+  const last = paymentOptions(paymentStatement({ ...sched, payments: [{ id: 'p', amount: 1000, date: '2026-10-20' }] }, opts));
+  assert.deepEqual(last.map((x) => [x.key, x.label, x.amount]), [['next', 'Final payment', 1650]]);
+  assert.deepEqual(paymentOptions(paymentStatement({ ...base, status: 'paid_in_full', deposit_date: '2026-10-01', balance_paid_date: '2026-11-01' }, opts)), [], 'nothing owed');
+  assert.deepEqual(paymentOptions(null), []);
+});
+
+test('paymentRequestMessage: the next or final payment, at pickup, with her final-payment methods', () => {
+  const m = paymentRequestMessage({ who: 'Ann', pupName: 'Maple', what: 'final', amount: '$1,650.00', atPickup: true, finalMethods: 'Cash or Zelle only', account: zelle });
+  assert.match(m.body, /pay the final payment of \$1,650\.00 for Maple, due at pickup\./);
+  assert.match(m.body, /For the final payment: Cash or Zelle only/);
+  assert.equal(m.subject, 'Maple: your final payment');
+  assert.match(paymentRequestMessage({ what: 'next', amount: '$1,000.00', due: 'Nov 1' }).body, /the next payment of \$1,000\.00, due by Nov 1\./);
 });
 
 test('paymentLines: the link then the instructions, or the instructions alone', () => {

@@ -466,22 +466,14 @@ is dated by `deposit_date`, which those three places can still set from a credit
    per-template fields.
 6. **Family status page, portal feed, Companion** (with Waitlist Fixes step 5); **every
    message**; Stripe payment links and integration payments.
-   **In progress (D32–D35):** built: `paymentSchedule.familyPaymentsView` /
-   `nextPaymentText`, `incomeView.getSaleStatements`, the projection's `payments` (and
-   the turn card's deposit credits) from the statement, Worker `familyPages.paymentsOf`,
-   the status page's **Your payments** card, K8-10. Left: Companion (`companionExport`
-   `remainingBalance` from the statement, `balanceDueDate` = final due date, due dates
-   added; `companion-view.html` draws them); messages (`pickToSend` deposit after
-   credits + `nextPaymentText`/`scheduleSummary` for what follows, Stripe deposit link
-   for the deposit owed: K8-1; `paymentRequestUI` options deposit / next payment /
-   everything owed from the statement, final-payment methods on the final one);
-   Stripe (new links' component `payment`; `integrationEvents.planPayment` records
-   `balance`/`payment` as a `payments` row, idempotent by reference; D34's card button
-   and Today item); docs (guide §21.3, §29, §35.1, Companion; Waitlist Spec §8.1: the
-   family's sale money is now in the projection; Waitlist Fixes plan K8-1/K8-10;
-   README; BUILD_LOG); full `node --test`, `cd cloud && npm test`,
-   `node build/assemble.mjs`, a browser check; then the SW bump (owner asked for it
-   at the end of step 6).
+   **Built (D32–D35):** the status page's **Your payments** card (`familyPaymentsView`,
+   the projection's `payments`, Worker `paymentsOf`), Companion's Payments section, Send
+   payment link's options from the statement (deposit owed / next payment / everything
+   owed, final-payment methods on the final one), the deposit request from the statement
+   (K8-1), the fee card's two prices (K8-10), Stripe links for a payment (component
+   `payment`, a `payments` row once per reference, never paid in full), D34's **Mark paid
+   in full** and Today item. **Modified:** pickup and go-home messages and Kels's messages
+   still read `balanceDueOn` (step 7, with Kels); the portal feed stays amount-free (D33).
 7. **Today nudges, Kels.**
 8. **Docs:** End-State guide (§4, §13, §21, §24, §29, §32, §33, §35), editions docs if Lite's
    surface changes, BUILD_LOG.

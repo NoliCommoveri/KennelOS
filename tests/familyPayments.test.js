@@ -180,3 +180,51 @@ test('getSaleStatements reads every sample sale exactly as getSaleStatement does
   }
   assert.equal((await getSaleStatements([])).size, 0);
 });
+
+// --- Companion and the deposit message read the same statement --------------------------
+
+test('Companion: each pup\'s balance and due dates are the statement\'s, the old fields kept for older shells', async () => {
+  const { buildFamilyBundle } = await import('../shared/data/companionExport.js');
+  const { contactRepo } = await import('../shared/data/contactRepo.js');
+  const { dogRepo } = await import('../shared/data/dogRepo.js');
+  const { isOpenSale } = await import('../shared/data/vocab.js');
+  const sales = (await saleRepo.getAll()).filter((s) => s.buyer_contact_id && s.dog_id && isOpenSale(s));
+  let checked = 0;
+  for (const s of sales) {
+    const b = await buildFamilyBundle(await contactRepo.getById(s.buyer_contact_id));
+    const dog = await dogRepo.getById(s.dog_id);
+    const pup = b.pups.find((p) => p.callName === (dog?.call_name || ''));
+    const v = familyPaymentsView((await getSaleStatement(s.id)).statement);
+    if (!pup || !v) continue;
+    checked++;
+    assert.equal(pup.remainingBalance, v.remaining, 'remainingBalance is the statement\'s');
+    assert.deepEqual(pup.payments.due, v.due);
+    assert.equal(pup.balanceDueDate, v.due.find((d) => d.final).date || s.balance_due_date || null);
+    assert.deepEqual(Object.keys(pup.payments).sort(), ['deposit', 'due', 'finalMethods', 'next', 'own', 'paid', 'received', 'remaining', 'total']);
+  }
+  assert.ok(checked > 0, 'some sample family has payments');
+});
+
+test('the deposit message (K8-1): the deposit after credits, the balance after the deposit, the schedule in words', async () => {
+  const { depositMessageMoney, depositRequestMessage } = await import('../shared/data/depositRequest.js');
+  const money = (n) => `$${n}`;
+  const opts = { today: '2026-10-15', pickupDate: '2026-12-01', depositDueDate: '2026-10-20' };
+  // Paid deposit: the balance is everything after it, never the deposit taken off twice.
+  const paid = depositMessageMoney(paymentStatement(sale(), opts), { money, depositDate: '2026-10-01' });
+  assert.deepEqual(paid, { deposit: '$500', depositCredit: '', depositPaid: '2026-10-01', balance: '$2700', balanceDue: '2026-12-01', schedule: '' });
+  // The application fee credited toward the deposit: $450 to send, said so.
+  const fee = depositMessageMoney(paymentStatement(sale({ deposit_date: null, status: 'deposit_pending' }), { ...opts, feeCredit: { amount: 50, toward: 'deposit', date: '2026-09-01' } }), { money });
+  assert.deepEqual(fee, { deposit: '$450', depositCredit: '$50', depositPaid: false, balance: '$2700', balanceDue: '2026-12-01', schedule: '' });
+  const body = depositRequestMessage({ ...fee, depositDue: 'Oct 20', finalMethods: 'Cash only' }).body;
+  assert.match(body, /Deposit: \$450 \(after \$50 already credited\), due by Oct 20\./);
+  assert.match(body, /The balance of \$2700 is due by 2026-12-01\./);
+  assert.match(body, /For the final payment: Cash only/);
+  // With a schedule: what follows, in words, in place of one balance.
+  const sched = sale({ deposit_date: null, status: 'deposit_pending',
+    payment_schedule: [{ id: 'a', due: 'on_date', due_date: '2026-11-01', covers: ['price'], percent: 50, basis: 'total' }, { id: 'b', due: 'at_pickup', covers: ['all'], percent: 100, basis: 'total' }] });
+  const m = depositMessageMoney(paymentStatement(sched, opts), { money });
+  assert.equal(m.deposit, '$500');
+  assert.match(m.schedule, /^\$1000 by 2026-11-01 .*; the rest by 2026-12-01$/);
+  assert.match(depositRequestMessage(m).body, /After the deposit: \$1000 by 2026-11-01/);
+  assert.doesNotMatch(depositRequestMessage(m).body, /The balance of/);
+});

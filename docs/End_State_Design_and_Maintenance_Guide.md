@@ -1171,7 +1171,10 @@ no-account, read-only link. Not sync, not a login, not a live view.
   pup's per-sex list price and deposit. The same for every prospect: nothing private.
 - **`family`** (a buyer with an open sale, `isOpenSale`): one card per pup on an open sale:
   names, parents, computed age (never the DOB), placement or ready date, their own sale's
-  money with a computed remaining balance (net of a credited waitlist fee, §21), contracts
+  money with its remaining balance and `balanceDueDate` (the final due date) from the
+  sale's payment statement (§21.3), and `payments` (`familyPaymentsView` plus her
+  `finalMethods`: each due date, what's been received, the next payment; drawn as a
+  Payments section in `companion-view.html`, older shells ignore it), contracts
   as `{signedDate, documentUrl}`, and a curated event history (one safe field per type for
   vaccination, preventative, weight, milestone, note; never `notes`, never
   illness/injury/evaluation).
@@ -1389,9 +1392,10 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
 
 **Editions:** all. Saved schedules and the final-payment methods are on the Kennel page,
 which is Pro. Financials, the money report, Receivables (§21, §31) and invoices and
-receipts (§24) and contracts (§32, Contract forms) read the statement. Payment requests, the
-family's page, Companion, messages and Today don't read schedules or payments yet (plan build
-steps 6–7); they still go by the deposit, `balance_due_date` and `balance_paid_date`.
+receipts (§24), contracts (§32, Contract forms), the family's status page (§29), Companion
+(§20), Send payment link and the deposit-request message (§32, §29) and Stripe payments read
+the statement. Today and Kels don't read schedules or payments yet (plan build step 7); they
+still go by the deposit, `balance_due_date` and `balance_paid_date`.
 
 - **On a sale:** `payment_schedule` (due dates `{ id, label?, due, n?, due_date?, covers,
   percent? + basis?, amount? + prior_funds? }`, vocab `SCHEDULE_DUE` / `SCHEDULE_COVERS` /
@@ -1445,7 +1449,9 @@ steps 6–7); they still go by the deposit, `balance_due_date` and `balance_paid
   step that covers what's owed on it also sets the step's `paid_date` and remembers it
   (`marks_step_paid`), so removing it clears the date. When everything is paid, one question
   offers the paid-in-full date (the last money received) and status (D22), after the dialog
-  closes.
+  closes. Whenever everything is paid and the sale isn't marked (`paidInFullOffer`), however the
+  money came in (a Stripe link included), the card shows **Mark paid in full**, the same
+  question (D34).
 - **The schedule editor** (`openScheduleEditor`): rows from the stored schedule, else the sale's
   single due date; each row's when (an age, a date, days before pickup, at pickup), covers
   (Everything, or ticks for the price, boarding, extras, transport and each extra on the
@@ -1466,6 +1472,27 @@ steps 6–7); they still go by the deposit, `balance_due_date` and `balance_paid
   pickup, no typed dates or single extras, `savedSchedules` / `readSavedSchedules`; and **How the
   final payment is paid**) and the price list's **Paid on its own dates** choice per extra and
   per group.
+- **What the family is shown** (`familyPaymentsView(statement)`, plan §7): built field by
+  field, never a copy: `total`, `paid`, `remaining`, `deposit`, `due[]` (label, date,
+  `at_pickup`, amount, owed, `final`, state), `own[]`, `received[]` (each charge each piece of
+  money paid, credits as "<charge> (credited)"; only money on the sale) and `next`. State:
+  met, next, past (its date gone by, not marked received: "Was due …", never Overdue, D35),
+  later. Read by the projection (§29, `getSaleStatements` for many sales at once, exactly as
+  `getSaleStatement`) and Companion (§20). `nextPaymentText` is the next payment in words.
+- **Messages:** Send payment link (§32, `paymentLinks.paymentOptions(statement)`): the deposit
+  still owed, the next payment (what's still owed by its date) and everything owed, each once,
+  her final-payment methods on the final one. The deposit request (§29,
+  `depositRequest.depositMessageMoney`): the deposit after credits ("after $50 already
+  credited"), what's owed after it, and with more than one due date the schedule in words in
+  place of one balance.
+- **Stripe:** a link for anything but the deposit has component `payment` (`makeSaleLink`,
+  named for the buyer by the option, "Final payment: Maple"). Paid, it becomes a row in
+  `payments` (`integrationEvents.planSalePayment`: amount, date, card, the balance's paid-via
+  account, the reference; once per reference), never paid in full (D22, D34); on a sale still
+  waiting for its deposit the deposit owed (`ctx.depositOwed`, from the statement) is marked
+  received first and the rest is the row. When that covers everything, `integrationApply` adds
+  a Today review (`COVERS_ALL_REASON`). Links made before schedules (`balance`) are read the
+  same way.
 - **Registries:** all new fields private (`syncRegistry`); `payments[].account_id` guards an
   Account against delete (`referenceRegistry`: a `list[].key` scan).
 - **Tests:** `tests/paymentScheduleIncome.test.js` (the ledger against before on every sale
@@ -2312,7 +2339,9 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   sheet or email. It marks the contract sent and stamps `deposit_request_sent_date`. With
   the deposit already in (`incomeView.depositPaid`), the message thanks them for it instead
   of asking (`depositRequestMessage`'s `depositPaid`): no due date, no payment link or Stripe
-  link, her payment instructions only for a balance. A placed family's pick whose sale is
+  link, her payment instructions only for a balance. Its money is the sale's payment
+  statement (`depositMessageMoney`, §21.3): the deposit after credits, the Stripe link for
+  that, what's owed after it (or the schedule in words), her final-payment methods. A placed family's pick whose sale is
   still at deposit paid and wasn't sent from here gets **Send contract & invoice…** (the
   same modal). On a pick still awaiting its deposit while the family carries one, the send
   first offers to mark that deposit received (`confirmDeposit` with the carried amount and
@@ -2440,6 +2469,19 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   badge once they back out), never "your time on the waitlist". They're in no `public_list`
   or `public_selected` row, and their litter (`waitlist_off`) is in no `litters`,
   `upcoming` or `turn_queue`.
+  **Their payments** (Payment Schedule plan §7): with an open sale (`companion.available`),
+  the projected entry carries `payments` (`familyPaymentsView` of the sale's statement,
+  §21.3, from `incomeView.getSaleStatements` in `cloudWaitlist.projectionFor`; plus
+  `how_to_pay`, her payment instructions, and `final_methods`). The Worker copies it field by
+  field (`familyPages.paymentsOf`: amounts, dates, her labels cut to 120, states from a fixed
+  list) into `statusView.family.payments`, and `status.js` draws **Your payments**: the next
+  payment (or Paid in full), Total / Paid / Still owed, the deposit and each due date (Paid,
+  Next, "Was due …", or when), extras on their own dates, how to pay, her final-payment
+  methods with the final payment, and what's been received. A pick's turn card takes
+  `deposit_credit` / `deposit_fee_credit` from the same statement. The KennelPort portal feed
+  (§35.1) carries no amounts (D33). The application fee card shows the fee itself as its
+  headline and, when the link charges more (her card fee passed on), "Paying by card adds $X"
+  beside the button (`fee_pay.fee`, K8-10).
   The public list's Available Puppies and Coming up cards center what's inside them
   (`#available, #upcoming` in `family.css`); their headings stay left like the page's other
   folded cards. On the status page (`main.centered`) every card's heading and content are
@@ -3121,15 +3163,18 @@ ids, links and counts. Network only through `cloudApi` (`getFirmaStatus`, `conne
   through**, a marketplace). The fee is estimated per payment from them
   (`processingFees.saleFeeEstimate`).
 - **Send payment link** (`assets/paymentRequestUI.js`, an open Sale and its invoice): pick
-  what for (`paymentLinks.paymentOptions`) and the account; with Stripe connected, a
-  **one-time Stripe link** for exactly that amount (`stripeLinks.makeSaleLink`), else the
-  account's own link and instructions.
+  what for (`paymentLinks.paymentOptions` over the sale's statement, §21.3: the deposit owed,
+  the next payment, everything owed) and the account; with Stripe connected, a **one-time
+  Stripe link** for exactly that amount (`stripeLinks.makeSaleLink`), else the account's own
+  link and instructions. The message gives the due date (or at pickup) and, on the final
+  payment, her final-payment methods.
 - **Connect Stripe:** a **restricted key** only (`rk_…`; `sk_` refused), per account, this
   device only (`stripeKeyStore`). `stripeApi.js` is the only module calling Stripe, from the
   browser; nothing goes through the Worker and the money goes to her account.
 - **Paid, by itself:** on app open (at most every 15 minutes) or **Check now**,
-  `checkStripePayments` applies a paid link through `integrationApply.js`: deposit or paid in
-  full with the date and reference, and the fee Stripe kept into `processing_fee_reports` /
+  `checkStripePayments` applies a paid link through `integrationApply.js`: the deposit
+  received, or a row in the sale's payments (§21.3, never paid in full by itself), with the
+  date and reference, and the fee Stripe kept into `processing_fee_reports` /
   `processing_fee_amount` (a fee she typed stays; the difference is a Today review). A sale
   that moved on becomes a review.
 - Vendor events from the Worker (`cloudIntegrations.js`, server work only) go through the

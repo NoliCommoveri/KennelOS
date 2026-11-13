@@ -4027,3 +4027,40 @@ tick box per template; buyers get an emailed link.
   transport line on a combined final payment now prints combined. `node --test` 1,844 pass.
 - **Docs:** End-State guide §24 invoice; plan §6.1 Modified note.
 - **Service worker:** no new files. `CACHE_NAME` v130 (owner asked).
+
+## 2026-11-13 — Payment schedules step 6: family pages, Companion, messages, Stripe payments
+
+- **Family status page (Payment Schedule plan §7, D32–D35):** `paymentSchedule.familyPaymentsView`
+  (the statement as the family sees it, field by field) and `nextPaymentText`;
+  `incomeView.getSaleStatements` (many sales at once, exactly as `getSaleStatement`); the
+  projection's `payments` and the turn card's deposit credits from the statement; Worker
+  `familyPages.paymentsOf`; `status.js` **Your payments** ("Was due …", never Overdue, D35).
+  The portal feed stays amount-free (D33).
+- **K8-10:** the application fee card's headline is the fee; "Paying by card adds $X" beside
+  the button when the link charges more.
+- **Companion:** `remainingBalance` and `balanceDueDate` (the final due date) from the
+  statement; new per-pup `payments` (with her final-payment methods), drawn as a Payments
+  section in `companion-view.html`.
+- **K8-1, the deposit request:** `depositRequest.depositMessageMoney`: the deposit after
+  credits ("after $50 already credited"), the Stripe link for that amount, what's owed after
+  the deposit (no longer the deposit taken off twice), with a schedule the schedule in words,
+  her final-payment methods.
+- **Send payment link:** `paymentLinks.paymentOptions(statement)`: deposit owed / next payment /
+  everything owed, each once; the message gives the due date or "at pickup" and, on the final
+  payment, her final-payment methods.
+- **Stripe (D34):** links beyond the deposit have component `payment` (named by the option).
+  Paid, `integrationEvents.planSalePayment` records a `payments` row (once per reference; the
+  deposit owed marked received first on a deposit-pending sale), never paid in full; a
+  payment that covers everything leaves a Today review (`integrationApply.COVERS_ALL_REASON`).
+  Old `balance` links read the same way. The Worker accepts `payment` as a component.
+  The sale's Payments card shows **Mark paid in full** whenever everything is paid and it
+  isn't marked.
+- **Left for step 7:** pickup and go-home messages and Kels still read `balanceDueOn`.
+- **Tests:** `tests/familyPayments.test.js` (view, projection, Companion, K8-1), `cloud/tests/
+  familyPayments.test.js`, `tests/paymentLinks.test.js` (options from the statement, the final
+  payment's message), `tests/cloudIntegrations.test.js` (payment rows), `tests/stripePayments.test.js`
+  (a payment link end to end, D34's Today item). `node --test` 1,859 pass; `cd cloud && npm test`
+  337 pass; `node build/assemble.mjs` builds.
+- **Docs:** End-State guide §20, §21.3, §29, §32; Waitlist Spec §8.1 (a Modified row); Waitlist
+  Fixes plan step 5 (Modified); plan step 6; README Status.
+- **Service worker:** no new files.
