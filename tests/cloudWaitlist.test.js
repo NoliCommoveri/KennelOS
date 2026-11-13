@@ -1054,6 +1054,48 @@ test('a syncing device in a background tab asks nothing', async () => {
   }
 });
 
+test('View their page: publishes first, forced, then opens their own page with her preview', async () => {
+  await breeder();
+  const k = await putOnline();
+  await cw.syncWaitlistOnline();
+  const e = (await waitlistEntryRepo.getByKennel(k.id)).find((x) => x.status_token);
+  calls.length = 0;
+  const res = await cw.statusPagePreview(await thornfield(), e.id);
+  assert.equal(res.publish.status, 'ok');
+  assert.ok(calls.includes(`PUT /waitlist/projection/${k.public_id}`), 'republished though nothing changed');
+  assert.equal(calls.at(-1), 'POST /waitlist/preview');
+  assert.equal(res.plain, false);
+  const [link, hash] = res.url.split('#');
+  assert.ok(link.endsWith(`/s/${e.status_token}`), 'their own page');
+  assert.match(hash, /^preview=\d{13}\.[0-9a-f]{64}$/);
+  // The page, asked with that preview, says so.
+  const view = await (await workerFetch(`http://localhost/f/status/${e.status_token}`, { headers: { 'x-status-preview': hash.slice(8) } })).json();
+  assert.ok(view.preview?.until);
+});
+
+test('View their page: signed out, it offers their plain link; not online, none; a background tab still publishes', async () => {
+  await breeder({ backing: false });
+  let k = await putOnline(false);
+  const e = (await waitlistEntryRepo.getByKennel(k.id))[0];
+  assert.deepEqual(await cw.statusPagePreview(await thornfield(), e.id), { url: null });
+  k = await putOnline();
+  syncingProgram();
+  globalThis.document = { visibilityState: 'hidden' };
+  try {
+    const res = await cw.statusPagePreview(await thornfield(), e.id);
+    assert.equal(res.publish.status, 'ok', 'she asked, so the hidden tab (the new one is in front) still publishes');
+    assert.equal(res.plain, false);
+  } finally {
+    delete globalThis.document;
+  }
+  await auth.signOut().catch(() => {});
+  localStorage.clear();
+  const out = await cw.statusPagePreview(await thornfield(), e.id);
+  assert.equal(out.plain, true);
+  assert.equal(out.why, 'signed-out');
+  assert.ok(out.url.endsWith(`/s/${(await waitlistEntryRepo.getById(e.id)).status_token}`));
+});
+
 test('taking the lease over from another device restarts the events cursor from the last publish', async () => {
   await breeder({ backing: false });
   await putOnline();

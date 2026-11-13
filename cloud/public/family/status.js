@@ -7,6 +7,12 @@
 // have a puppy on the way, placed or not) ask for their Companion link. Anyone with
 // only the link can look but not act: the server needs the family session.
 //
+// Her preview ("View their page" in KennelOS): the address ends #preview=<signed
+// value>, which goes to GET /f/status in a header (waitlist.js previewStatusPage).
+// While the server says it's live, the page draws as it does signed in, every
+// button and form works up to the point of sending, and nothing is sent; her own
+// browser's family sign-in, if any, is left alone.
+//
 // Every action is recorded on the server for the breeder's device, which decides
 // (W2 Plan §6): the page says what's waiting for her until her next update.
 // Messages are sealed here, in this browser, to her key (seal.js); the server
@@ -22,6 +28,8 @@ import { seal } from './seal.js';
 const $ = (id) => document.getElementById(id);
 const token = location.pathname.split('/')[2] || '';
 const MESSAGE_MAX = 5000;
+const previewValue = (/(?:^#|&)preview=([0-9]{13}\.[0-9a-f]{64})(?:&|$)/.exec(location.hash) || [])[1] || '';
+const PREVIEW_SENT = 'Preview: nothing was sent. This is where their request would go to you.';
 
 const STATUS = {
   applied: { badge: 'info', label: 'Application received' },
@@ -36,7 +44,7 @@ const STATUS = {
 
 // The page's state: the view the server sent, the browser's family session (or
 // null), and which editor is open.
-const state = { v: null, session: null, open: null, flash: '', opened: new Set() };
+const state = { v: null, session: null, preview: null, open: null, flash: '', opened: new Set() };
 
 // A litter they passed on (or let their turn lapse on) that's still being offered.
 const spentOn = (id) => (state.v.family.spent_litter_ids || []).includes(id);
@@ -75,7 +83,7 @@ function closedText(status, kennel, pageOnly = false) {
 
 const pendingOf = (kind, test = () => true) => (state.v.pending || []).filter((p) => p.kind === kind && test(p.payload || {}));
 const waiting = (kennel) => `Waiting for ${esc(kennel)} to update the list.`;
-const signedIn = () => Boolean(state.session);
+const signedIn = () => Boolean(state.session || state.preview);
 const canAct = () => signedIn() && ['applied', 'approved', 'active'].includes(state.v.family.status);
 
 function decidedLine(req, what, kennel) {
@@ -837,6 +845,7 @@ const hasPolicies = () => Boolean(state.v?.kennel?.policies?.length);
 const seenKey = () => `kos-policies-seen:${state.v?.kennel?.public_id || ''}`;
 function policiesSeen() { try { return localStorage.getItem(seenKey()) || ''; } catch { return ''; } }
 function markPoliciesSeen() {
+  if (state.preview) return; // so her look leaves the banner as the family first sees it
   const at = state.v?.kennel?.policies_updated;
   if (!at || policiesSeen() >= at) return;
   try { localStorage.setItem(seenKey(), at); } catch { /* private window */ }
@@ -932,6 +941,18 @@ function signInButton() {
   const v = state.v;
   if (signedIn() || !['applied', 'approved', 'active'].includes(v.family.status) || !v.kennel.public_id) return '';
   return `<div class="actions signin-top"><a class="button primary" href="/list/${encodeURIComponent(v.kennel.public_id)}#signin">Sign In</a></div>`;
+}
+
+// Her preview's note at the top, in place of Sign In; or, once it has ended, why
+// the page now shows as anyone with the link sees it.
+function previewBanner() {
+  if (state.preview) {
+    const first = (state.v.family.name || '').split(/\s+/)[0];
+    const until = new Date(state.preview.until).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    return `<p class="card notice small preview-note" role="note"><strong>Preview.</strong> This is ${first ? `${esc(possessive(first))} page` : 'their page'} as they see it signed in. The buttons work, but nothing is sent. The preview lasts until ${esc(until)}.</p>`;
+  }
+  if (previewValue) return '<p class="card notice small preview-note" role="note">This preview has ended, so the page shows as anyone with the link sees it. Open it again from KennelOS to see it signed in.</p>';
+  return '';
 }
 
 // A family on the list more than once (a second pup): their records, newest first,
@@ -1152,6 +1173,7 @@ const ERRORS = {
 };
 
 async function send(path, body) {
+  if (state.preview) { state.flash = PREVIEW_SENT; return false; }
   const r = await fetchJson(path, { method: 'POST', json: { session: state.session.session, status_token: token, ...body } });
   if (r.ok) return true;
   const code = r.body?.error;
@@ -1193,6 +1215,7 @@ async function onClick(ev) {
     case 'close': state.open = null; render(); return;
     case 'portal': {
       // A link that works once, for a few minutes: made now, followed at once.
+      if (state.preview) { state.flash = 'Preview: their portal opens signed in as them, so it doesn\'t open from here.'; render(); return; }
       b.disabled = true;
       const r = await fetchJson('/f/portal', { method: 'POST', json: { session: state.session.session, status_token: token } });
       if (r.ok && typeof r.body?.url === 'string' && /^https:\/\//.test(r.body.url)) {
@@ -1388,13 +1411,13 @@ function render() {
     if (d.open) state.opened.add(d.dataset.key); else state.opened.delete(d.dataset.key);
   }
   $('mine').innerHTML = mineHtml();
-  $('signin-slot').innerHTML = signInButton();
+  $('signin-slot').innerHTML = previewBanner() || signInButton();
   $('mine').hidden = $('tab-list').getAttribute('aria-selected') === 'true';
 }
 
 let wired = false;
 async function load() {
-  const res = await fetchJson(`/f/status/${encodeURIComponent(token)}`);
+  const res = await fetchJson(`/f/status/${encodeURIComponent(token)}`, previewValue ? { headers: { 'x-status-preview': previewValue } } : {});
   if (!res.ok) {
     $('error').textContent = loadError(res, { notFound: "This link doesn't work any more. The breeder may have sent you a newer one, or you can ask them for it." });
     $('error').hidden = false;
@@ -1406,7 +1429,8 @@ async function load() {
   // This browser's family session for this kennel, if it signed in. Whether it's
   // THIS family's is the server's call (other_family): a New link changes the
   // token but keeps the session, so the saved token isn't compared here.
-  state.session = v.kennel.public_id ? rememberedFamily(v.kennel.public_id) : null;
+  state.preview = v.preview?.until ? v.preview : null;
+  state.session = !state.preview && v.kennel.public_id ? rememberedFamily(v.kennel.public_id) : null;
   document.title = `${v.kennel.name} Waitlist`;
   $('title').textContent = v.family.name ? `Hi, ${v.family.name.split(/\s+/)[0]}` : `${v.kennel.name} Waitlist`;
   // A family page only (never on the waitlist): no "Waitlist" in the heading.

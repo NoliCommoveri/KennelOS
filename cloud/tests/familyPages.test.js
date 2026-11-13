@@ -719,3 +719,50 @@ test('her waitlist policies: on the list, every family page, the form and her we
   p.kennel.policies = [want[0]];
   assert.equal(listView(p).kennel.closed_dates, undefined, 'no business-days policy: no closed dates');
 });
+
+// Her "View their page" (waitlist.js previewStatusPage): a signed, short-lived preview.
+test('her preview of a family page: signed for that page only, says so, and is not their visit', async () => {
+  const { env, s } = await published();
+  const res = await call(env, 'POST', '/waitlist/preview', { token: s.token, body: { public_id: KENNEL, entry_id: 'ann' } });
+  assert.equal(res.status, 200);
+  const p = await res.json();
+  assert.equal(p.token, tok('a'), 'the token published for that family');
+  assert.match(p.preview, /^\d{13}\.[0-9a-f]{64}$/);
+  const lastUsed = () => env.DB.raw.prepare('SELECT last_used_at FROM wl_tokens WHERE token = ?').get(tok('a')).last_used_at;
+
+  const seen = await (await get(env, `/f/status/${tok('a')}`, { headers: { 'x-status-preview': p.preview } })).json();
+  assert.deepEqual(seen.preview, { until: p.until });
+  assert.equal(seen.family.name, 'Ann Lee', 'the same view the family gets');
+  assert.equal(lastUsed(), null, 'her look is not counted as their visit');
+
+  // Without it, or with one for another page, a forged one or one past its end: the plain view.
+  const plain = await (await get(env, `/f/status/${tok('a')}`)).json();
+  assert.equal(plain.preview, undefined);
+  assert.notEqual(lastUsed(), null);
+  const bo = await (await get(env, `/f/status/${tok('b')}`, { headers: { 'x-status-preview': p.preview } })).json();
+  assert.equal(bo.preview, undefined, 'signed for Ann\'s page only');
+  const forged = `${p.preview.split('.')[0]}.${'0'.repeat(64)}`;
+  assert.equal((await (await get(env, `/f/status/${tok('a')}`, { headers: { 'x-status-preview': forged } })).json()).preview, undefined);
+  const { previewUntil, PREVIEW_MS } = await import('../src/waitlist.js');
+  assert.equal(await previewUntil(env, tok('a'), p.preview, Date.parse(p.until) + 1), null, 'ended');
+  assert.equal(await previewUntil(env, tok('a'), p.preview, Date.parse(p.until) - PREVIEW_MS - 1), null, 'too far ahead');
+
+  // It never acts for the family: /f/act needs their session.
+  const acted = await call(env, 'POST', '/f/act', { body: { session: p.preview, status_token: tok('a'), action: 'still_interested' } });
+  assert.equal(acted.status, 401);
+});
+
+test('a preview needs her signed-in Pro account, her published kennel and a family with a link', async () => {
+  const { env, s } = await published();
+  assert.equal((await call(env, 'POST', '/waitlist/preview', { body: { public_id: KENNEL, entry_id: 'ann' } })).status, 401);
+  const r = (body) => call(env, 'POST', '/waitlist/preview', { token: s.token, body });
+  assert.equal((await r({ public_id: KENNEL, entry_id: 'dee' })).status, 409, 'Dee has no link');
+  assert.equal((await r({ public_id: 'kos1_99999999-2222-4333-8444-555555555555', entry_id: 'ann' })).status, 409, 'not published');
+  assert.equal((await r({ public_id: KENNEL, entry_id: 'no such/entry' })).status, 400);
+  // Another program can't preview her families.
+  const other = await signIn(env, 'other@example.com');
+  const { email_hash: eh } = env.DB.raw.prepare('SELECT email_hash FROM users ORDER BY rowid DESC LIMIT 1').get();
+  env.DB.raw.prepare(`INSERT INTO pro_purchases (id, email_hash, kind, plan, status, access_until, source_updated_at, received_at)
+    VALUES ('order:2', ?, 'order', 'lifetime', 'paid', NULL, ?, ?)`).run(eh, iso(), iso());
+  assert.equal((await call(env, 'POST', '/waitlist/preview', { token: other.token, body: { public_id: KENNEL, entry_id: 'ann' } })).status, 409, 'kennel_taken');
+});

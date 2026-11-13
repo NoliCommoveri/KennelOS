@@ -72,3 +72,20 @@ test('an account a recorded payment came in through can\'t be deleted', async ()
   assert.equal(statement.received.find((r) => r.kind === 'payment').amount, 300);
   await saleRepo.update(sale.id, { payments: [] });
 });
+
+test('Financials reads every sale as its Payments card does: anticipated (credits aside) is what the statement says is left', async () => {
+  const { getIncomeRows } = await import('../shared/data/incomeView.js');
+  const rows = (await getIncomeRows()).filter((r) => r.source_type === 'sale');
+  assert.ok(rows.length > 3);
+  for (const r of rows) {
+    const { statement } = await getSaleStatement(r.source_id);
+    if (statement.ended) continue;
+    const owed = r.components.filter((c) => c.state === 'anticipated' && !c.credited && c.component !== 'processing_fee').reduce((t, c) => t + c.amount, 0);
+    assert.equal(Math.round(owed * 100) / 100, statement.remaining, r.dog);
+  }
+  // The sample sale with a schedule: what's owed by its first due date is on that date.
+  const cedar = await cedarSale();
+  const row = rows.find((r) => r.source_id === cedar.id);
+  const first = row.components.filter((c) => c.state === 'anticipated' && c.due === daysFromToday(7));
+  assert.equal(first.reduce((t, c) => t + c.amount, 0), 900);
+});

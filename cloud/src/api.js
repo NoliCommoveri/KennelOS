@@ -13,7 +13,7 @@ import { checkRecovery, recoveryWrap, requestRecoveryEmail } from './recovery.js
 import { disableSync, enableSync, pullRecords, pushRecords, recordCursor, syncHead, MAX_PUSH_BYTES } from './sync.js';
 import { getEntitlement, removeLinks, startLink, verifyLink } from './license.js';
 import { cancelEmailChange, getEmailChange, requestEmailChange } from './emailChange.js';
-import { ackInbox, claimLease, releaseLease, publishProjection, readEvents, readInbox, readProjection, sendMessage, unpublishProjection, PROJECTION_MAX_BYTES } from './waitlist.js';
+import { ackInbox, claimLease, releaseLease, previewStatusPage, publishProjection, readEvents, readInbox, readProjection, sendMessage, unpublishProjection, PROJECTION_MAX_BYTES } from './waitlist.js';
 import { deleteConnection, listConnections, readIntegrationEvents } from './integrations.js';
 import {
   connectFirma, createFirmaTemplate, esignCountersignLink, esignDocument, firmaStatus, firmaTemplateToken, listFirmaTemplates,
@@ -188,6 +188,7 @@ export async function handleApi(request, env, url, cors) {
   if (p === '/waitlist/inbox' && m === 'GET') return json(await readInbox(env, auth, url), 200, cors);
   if (p === '/waitlist/inbox/ack' && m === 'POST') return json(await ackInbox(env, auth, await readJson(request)), 200, cors);
   if (p === '/waitlist/events' && m === 'GET') return json(await readEvents(env, auth, url), 200, cors);
+  if (p === '/waitlist/preview' && m === 'POST') return json(await previewStatusPage(env, auth, await readJson(request, 4 * 1024)), 200, cors);
   if (p === '/waitlist/messages' && m === 'POST') {
     // Links in the email open the family pages: apply.kennelos.app on production,
     // the same origin on staging.

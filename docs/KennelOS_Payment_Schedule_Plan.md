@@ -269,6 +269,11 @@ paymentStatement(sale, { birthDate, pickupDate, feeCredit, credits, today }) →
   waitlist entry when there's no sale yet. That's today's rule, extended to a document that
   covers both.
 
+**Modified:** a family is a waitlist entry and the one sale it goes toward (the family
+page's sale), or a sale no entry claims (D25). Due dates on a document are the schedule's;
+the generator no longer edits a line's Due by (D27). An invoice line prints its whole amount
+for that due date, then takes off what was paid and credited, as before.
+
 ### 6.2 The applicant page's Documents card
 
 One invoice and one receipt per charge, with no setup:
@@ -406,10 +411,18 @@ Plan:
 | D13 | The generator works per family. Receipts print only recorded money. The applicant page gets one invoice and one receipt per charge. The application fee joins the generator. |
 | D14 | One number per document, as today. A typed one is saved on the sale, else on the waitlist entry. |
 | D15 | Firma: group prefixes on workspace fields now. Per-template fields with type prefixes after the test-key check. |
+| D25 | A family in the generator is a waitlist entry and its one sale, or a sale no entry claims. Two pups bought separately are two families. |
+| D26 | The part of a charge a credit covers is not in Receivables (nothing is owed on it); it stays Anticipated in Financials until its due date. One whose due date can't be known yet is earned once the deposit is received (the deposit) or the sale is paid in full (the rest). |
+| D27 | The generator doesn't edit a line's Due by; due dates come from the schedule. |
+| D28 | "What was paid on a sale" (`paidOnSale`: the lost-pup carry-over, a contract's balance due) counts recorded payments now, ahead of steps 5 and D20. |
 
 ---
 
 ## 11. Build order
+
+**Modified:** §3.2a (D20: carried money becomes a credit; deposit dates never from a credit's
+date) belongs to no step below; it's still to build. Until then a credited deposit's income
+is dated by `deposit_date`, which those three places can still set from a credit's date.
 
 1. **`data/paymentSchedule.js` + the combination test** (§6.3), tests first. Credits move onto
    the shared allocator.
