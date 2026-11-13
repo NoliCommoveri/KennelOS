@@ -3827,5 +3827,5 @@ tick box per template; buyers get an emailed link.
   8 new contract prefills; Firma fields relabelled by group now and created per template,
   labelled by contract type, after a test-key check.
 - **D20:** money carried from a lost pup becomes a credit for funds received instead of the
-  next sale's whole deposit. Found: credited income is dated by the family's oldest credit;
-  the plan dates each part by its own credit.
+  next sale's whole deposit. **D21:** a credit is held money; a charge it covers is earned on
+  that charge's due date (today's code dates it by the family's oldest credit).
