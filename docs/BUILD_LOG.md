@@ -4095,3 +4095,70 @@ tick box per template; buyers get an emailed link.
   waitlist record a payment and write the pickup message, no console errors.
 - **Docs:** End-State guide §19, §21.3, §33; plan step 7 (Built, Modified), D36; README Status.
 - **Service worker:** no new files. `CACHE_NAME` v132 (owner asked).
+
+## 2026-11-13 — Website contract plan: the owner's answers
+
+- **Docs only.** `docs/KennelOS_Website_Contract_Plan.md` brought in line with KennelPort's
+  `docs/plans/kennelos-contract.md` and the owner's answers: featured offspring is
+  KennelPort's own (C8 `offspring`, `feature_offspring` and `featured_offspring_ids`
+  dropped); C4 sends `imported` / `import_country` on a dog and each C7 ancestor, with
+  import-descended worked out by KennelPort; no colour list in KennelOS (KennelPort builds
+  one per website from the free-text colours sent); `imported` and `import_country` are
+  cloud, like the Dog's other registration facts. Open questions marked answered.
+
+## 2026-11-13 — Website contract step 1: raw disposition, litter status, test type, account type
+
+- **`siteExport.js`:** four new optional sections, each sent only to a Worker whose answer
+  lists it: `pup_disposition` (a litter puppy's `disposition` as set, null when none or
+  unknown), `litter_status` (a litter's `status`), `health_detail` (a health result's event
+  `type`), `account_type` (a product's `account_type`, null when unknown). `status` and
+  `transport` still go. `PUPPY_WORDS` loses `reserved`; `bundleChanges` doesn't list a
+  puppy's disposition apart from its status line.
+- **`healthTestLog.completedTestsByDog`:** each result carries its `type`.
+- **Not built:** `verify_url` (C5). KennelOS holds no verification link on a test; noted in
+  the plan as Modified, for the owner.
+- **Tests:** `tests/siteExport.test.js` (two new), `tests/healthTestLog.test.js`.
+  `node --test` 1,871 pass; `node build/assemble.mjs` builds.
+- **Docs:** End-State guide §35; plan step 1 (Built, Modified); README Status.
+- **Service worker:** no new files; no cache bump yet.
+
+## 2026-11-13 — Website contract step 2: titles with organization and date
+
+- **`siteExport.js`:** the `titles_detail` section. With it, a dog's `titles` is
+  `[{ abbr, organization, date }]` (`titleDetailsByDog`, `TITLE_KEYS`): her `title_earned`
+  events in the order earned; the same title from the same organization once, at its
+  first date. Without it, the abbreviations as before.
+- **Tests:** `tests/siteExport.test.js` (one new). `node --test` 1,872 pass;
+  `node build/assemble.mjs` builds.
+- **Docs:** End-State guide §35; plan step 2 (Built); README Status.
+
+## 2026-11-13 — Website contract step 3: Imported, origin and lineage
+
+- **Dog fields:** `imported` (boolean) and `import_country` (text), both cloud like
+  `registry` (owner decision). Dog form: Imported tick beside the registrations; Country of
+  origin only while ticked, cleared on unticking; the view reads "Yes, from …".
+  `syncRegistry.js`, `cloud/src/lib/cloudFields.js` regenerated.
+- **`data/pedigreeWalk.js` (new, precached):** `ancestorsOf`, four generations, nearest
+  first, sire's side first, a loop stops its line.
+- **`siteExport.js`:** `origin` (`imported`, `import_country` only while imported) and
+  `lineage` (`breed`, `sire_id`, `dam_id`, `ancestors` by name and titles only, with the
+  origin facts on each when both go). `bundleChanges` words for the new keys.
+- **Tests:** `tests/pedigreeWalk.test.js` (new), `tests/siteExport.test.js` (one new).
+  `node --test` 1,876 pass; `cd cloud && npm test` 337 pass; `node build/assemble.mjs`
+  builds. Dog form checked in the browser on the sample data: tick, save, untick clears
+  the country; no console errors.
+- **Docs:** End-State guide Dog entity and §35; plan step 3 (Built); README Status.
+- **Service worker:** `data/pedigreeWalk.js` added to `PRECACHE_URLS`. `CACHE_NAME` v133
+  (owner asked), covering steps 1 to 3.
+
+## 2026-11-13 — Website contract step 4: waitlist facts
+
+- **`siteExport.js`:** the `waitlist_facts` section (`waitlistFacts`, `WAITLIST_FACT_KEYS`):
+  `{ online_form, has_fee, fee_due_days, respond_days, max_passes }` once her waitlist is
+  set up; never the fee amount. `steps` and `payment` still go. `bundleChanges` names it
+  Waitlist details.
+- **Not sent:** `open_days` (deadlines count only her business days); noted in the plan.
+- **Tests:** `tests/siteExport.test.js` (one new). `node --test` 1,877 pass;
+  `node build/assemble.mjs` builds.
+- **Docs:** End-State guide §35; plan step 4 (Built); README Status.
+- **Service worker:** no new files; rides v133.

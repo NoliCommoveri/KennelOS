@@ -19,6 +19,8 @@ export const CLOUD_FIELDS = {
         "dob_is_estimated",
         "heats_online",
         "id",
+        "import_country",
+        "imported",
         "intended_registration",
         "is_archived",
         "kennel_id",
