@@ -308,11 +308,16 @@ const CREDIT_USE_OF = { deposit: 'deposit', balance: 'price', transport: 'extras
 // A sale's charges a family's credit can pay, keyed like its invoice lines, at
 // their full amounts (paid or not: a credit's share of a charge doesn't move once
 // the rest is paid). None for a returned, cancelled or voided sale.
+// In the order money pays them (Payment Schedule plan D16): deposit, price, boarding,
+// extras, transport last.
+const CREDIT_ORDER = { deposit: 0, balance: 1, boarding: 2, extra: 3, transport: 4 };
 export function saleCreditCharges(sale, feeCredit = 0) {
   if (!sale || sale.is_archived || RELEASED_SALE_STATUSES.includes(sale.status)) return [];
   return saleComponents({ ...sale, status: 'deposit_pending', end_reason: null }, feeCredit)
     .filter((c) => CREDIT_USE_OF[c.component])
-    .map((c) => ({ key: c.key || c.component, use: CREDIT_USE_OF[c.component], amount: c.amount }));
+    .map((c, i) => ({ key: c.key || c.component, use: CREDIT_USE_OF[c.component], amount: c.amount, rank: CREDIT_ORDER[c.component] * 1000 + i }))
+    .sort((a, b) => a.rank - b.rank)
+    .map(({ rank: _rank, ...c }) => c);
 }
 
 // How a family's credits are used: their fee, then their sale (`sale` may be null).

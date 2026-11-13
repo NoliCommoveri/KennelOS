@@ -56,6 +56,9 @@ function cleanList(list, { mintIds = false } = {}) {
     // backed out (Family Requests plan §7.2).
     if (ymd(x.completed_date)) row.completed_date = x.completed_date;
     if (x.kept_after_cancel === true) row.kept_after_cancel = true;
+    // Paid on its own dates, never part of the sale's payment schedule (Payment
+    // Schedule plan §3.3).
+    if (x.own_due_dates === true) row.own_due_dates = true;
     out.push(row);
   }
   return out;

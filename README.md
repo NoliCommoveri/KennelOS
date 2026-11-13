@@ -85,8 +85,9 @@ backup, carries a program from Lite to Pro.
     decisions about the fixes are open (its §2).
   - Payment schedules (`docs/KennelOS_Payment_Schedule_Plan.md`): several due dates per sale,
     payments received, the per-family invoice/receipt generator and Firma fields per template.
-    Planned, every decision made; next is build step 1 (the calculation and its combination
-    test). Its money shown to families is built with Waitlist fixes step 5.
+    Step 1 built (the calculation, `data/paymentSchedule.js`, guide §21.3, nothing reads it
+    yet); next is step 2 (the sale fields, the schedule card and editor on the applicant and
+    Sale pages). Its money shown to families is built with Waitlist fixes step 5.
   - Duplicates: Import/Export's Scan for duplicates covers every record type. Open: Kels's
     Tidy up still checks only dogs and contacts for duplicates.
 - **Open launch items:** confirm `yearlyVariantPattern` / `lifetimeVariantPattern` against

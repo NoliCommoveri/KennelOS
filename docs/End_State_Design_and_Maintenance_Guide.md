@@ -1365,6 +1365,51 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
   with their fees and charge-back (`accounts`, vendor and third-party accounts); Pups are going home offers the deposit fee
   and her extras before each balance (§33).
 - **Not in CSV import/export**; the JSON backup carries both lists.
+- **Paid on its own dates:** `extra_charges[].own_due_dates: true` is kept by
+  `saleExtraCharges` and read by the payment statement (§21.3). Nothing sets it yet.
+
+### 21.3 Payment statement — `data/paymentSchedule.js` (`docs/KennelOS_Payment_Schedule_Plan.md`)
+
+**Editions:** all. Pure, no db. Built so far: the calculation and its tests only. No page,
+repo or other module reads it yet, and nothing writes `Sale.payment_schedule` or
+`Sale.payments`, so every sale reads as having no schedule and no payments.
+
+- **What it reads off a sale:** `payment_schedule` (`cleanSchedule`: due dates `{ id, label?,
+  due, n?, due_date?, covers, percent? + basis?, amount? + prior_funds? }`, vocab
+  `SCHEDULE_DUE` / `SCHEDULE_COVERS` / `SCHEDULE_BASIS` / `SCHEDULE_PRIOR_FUNDS`; the last due
+  date always covers `all` at 100%, one at pickup added if missing) and `payments` (`[{ id,
+  amount, date, method?, account_id?, toward? }]`, date order). No schedule =
+  `defaultSchedule`: everything on `balance_due_date`, else at pickup.
+- **Dates** (`dueDateOf`): a typed `due_date` wins; else from the birth date (`at_weeks`) or
+  the pickup date (`before_pickup` in open days, `at_pickup`). null = not known yet.
+- **Charges** (`saleCharges`), in the order money pays them: deposit, the rest of the price,
+  boarding, extras on the schedule, extras on their own dates, transport last. An extra is on
+  its own dates when flagged `own_due_dates` or when it has its own steps and no due date names
+  it; a named one is paid through the schedule and its steps are ignored.
+- **Pass 1, money → charges** (`moneyLedger` / `allocateMoney`): the application fee credit
+  (toward the deposit up to it, else the price), credits oldest first (their ticked uses;
+  the unpaid fee charge first when passed), the deposit marked received (what's left of it),
+  own-dated steps marked paid, payments (toward a step, or the schedule's charges only, never
+  the deposit), then "paid in full" (`balance_paid_date` or a paid status: everything left).
+  Fee and credit lines label "<charge> (credited)".
+- **Pass 2, money → due dates:** the deposit is asked first; each due date asks for a slice
+  (its threshold less the previous). Percent of total: the threshold is that percent of what it
+  covers (deposit included in `price`). Percent of remaining: that percent of what's left of
+  what it covers after the earlier thresholds. Amount: the previous threshold plus it.
+  Thresholds are capped at the whole. Money toward the schedule fills the slices in order,
+  earlier money (fee, credits, deposit) first; a "doesn't count" slice (remaining, or an amount
+  with `prior_funds: 'dont_count'`) takes only payments, unless earlier money has nowhere else
+  to go.
+- **`paymentStatement(sale, { birthDate, pickupDate, openDays, today, feeCredit, credits,
+  feeCharges, depositDueDate })`** → `{ ended, hasSchedule, charges, total, paid, remaining,
+  fee, received[], deposit, dueDates[], ownDated[], next }`. Status per due date: met, due soon
+  (7 days), upcoming, not received, no date. A returned/cancelled/voided sale: what was paid
+  stands, nothing owed.
+- **Words:** `coversText`, `scheduleSummary` (formatters passed in).
+- **Tests** (`tests/paymentSchedule.test.js`): each plan §2 pattern, the four due-date kinds,
+  transport last, labels, today's anticipated income unchanged for a sale with no schedule, and
+  every combination (40,320) of fee credit, credits, deposit, payments, schedule, extras,
+  transport/boarding and status, checked to add up.
 
 ---
 
@@ -1744,13 +1789,14 @@ restored into Lite keeps its waitlist rows, dormant.
   small deposit taken before a litter was born. Each credit is `{ id, amount, date, method?,
   note?, applies_to }`, `applies_to` from `vocab.CREDIT_USES` (application fee, deposit, rest
   of the purchase price, extras/transport/boarding), all ticked on a new one. How a credit is
-  used is never stored: `allocateCredits` spreads the credits, oldest first, over the
-  family's charges in that order, each only toward its ticked uses; what's left is their
-  credit remaining. The charges: the fee while unpaid (`feeCharge`; once received, only
+  used is never stored: `allocateCredits` (on the shared `paymentSchedule.allocateMoney`,
+  §21.3) spreads the credits, oldest first, over the family's charges in order, each only
+  toward its ticked uses; what's left is their credit remaining. The charges: the fee while unpaid (`feeCharge`; once received, only
   `fee_credit_amount`, the part a credit paid, which `waitlistActions.feeReceived` records,
   0 for a fee paid online), then the lines of the sale the credit goes toward
   (`familyExtras.creditSale`: `familySale`'s pick, a delivered sale included, never a
-  returned/cancelled/voided one, whose credit is theirs again), at full amounts
+  returned/cancelled/voided one, whose credit is theirs again), at full amounts, in the
+  order money pays them: deposit, price, boarding, extras, transport last
   (`incomeView.saleCreditCharges`). `incomeView.familyCredit(entry, sale)` is the result;
   `getSaleCredits(saleId)`, `getEntryCredit(entryId)` and `getCreditedByLine(source, id)`
   load it. Taken off wherever an amount is shown to the family: their status page's fee

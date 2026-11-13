@@ -3831,3 +3831,20 @@ tick box per template; buyers get an emailed link.
   that charge's due date (today's code dates it by the family's oldest credit).
   Found: the deposit-received dialog, picks and side sales with carried money set the
   deposit date from the credit's date; the plan has them use the ask/received date.
+
+## 2026-11-13 — Payment schedules, step 1: the calculation
+
+- **`data/paymentSchedule.js` (new, pure):** cleans a sale's `payment_schedule`, dates due
+  dates (birth date, pickup, typed), lists the sale's charges in pay order (transport last),
+  spreads money over charges (fee credit, credits, deposit, own-dated steps, payments, paid in
+  full) and over due dates (the four kinds; "doesn't count" ones take only payments), and
+  returns one statement. Not wired to any page yet; no sale stores the new fields.
+- **Credits on the shared allocator:** `receivedCredits.allocateCredits` now calls
+  `allocateMoney`; `incomeView.saleCreditCharges` orders charges deposit, price, boarding,
+  extras, transport (D16; transport was second after the price before).
+- `extraCharges.saleExtraCharges` keeps `own_due_dates`. Vocab `SCHEDULE_DUE`,
+  `SCHEDULE_COVERS`, `SCHEDULE_BASIS`, `SCHEDULE_PRIOR_FUNDS`.
+- **Tests:** `tests/paymentSchedule.test.js` (new): 24 tests, one a 40,320-combination check
+  that the statement adds up. Full suite 1,791 passing; editions build.
+- **Docs:** guide §21.2 (own-dated flag), §21.3 (new), §29 credits (order, shared allocator).
+- **Service worker:** `data/paymentSchedule.js` in `PRECACHE_URLS`. No `CACHE_NAME` bump.
