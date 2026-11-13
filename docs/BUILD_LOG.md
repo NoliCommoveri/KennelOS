@@ -4125,3 +4125,26 @@ tick box per template; buyers get an emailed link.
 - **Docs:** plan step 8 (Built, Found); README Status.
 - **Tests:** none changed (docs only).
 - **Service worker:** no app files changed, so no `CACHE_NAME` bump.
+
+## 2026-11-13 — A contract's price table counts payments recorded on the sale
+
+- **Bug (found in step 8):** `incomeView.priceTable` read whole lines (`saleComponents`),
+  which know no recorded payments, so `otherPaymentsReceived` and `purchaseBalanceDue`
+  ignored `Sale.payments` until the sale was marked paid in full ($3,000 sale, $500 deposit
+  paid, $1,000 recorded: 0.00 received and 2,500.00 due, against 1,500.00 owed everywhere
+  else).
+- **Fix:** the payments' share of the price comes from the payment statement (after the
+  credited fee; payments pay the price first, D16) and moves from `purchaseBalanceDue` to
+  `otherPaymentsReceived`, capped at what credits for funds received left of the price, so
+  nothing counts twice and price = deposit + received + balance due still holds. A
+  returned or cancelled sale keeps what was paid; a lost one counts nothing, as before.
+- **Owner:** the status page showing only the portal link once the portal takes over is
+  right: a pup isn't released until everything is paid, and it only applies to a kennel
+  with the portal on.
+- **Tests:** `tests/priceTable.test.js` (payments, several, beyond the price, with the
+  credited fee, with credits, with paid in full, toward an own-dated extra, on a schedule;
+  ended and lost sales). Checked over 20,000 random open sales (fee credit, credits, deposit,
+  payments, transport) that `purchaseBalanceDue` equals what the statement has owed on the
+  price and the table adds up to the price. `node --test` 1,871 pass.
+- **Docs:** End-State guide §16, §21, §32; plan step 8; README Status.
+- **Service worker:** no files added or renamed. `CACHE_NAME` v133 (owner asked for the bump if needed).

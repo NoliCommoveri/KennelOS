@@ -1046,8 +1046,7 @@ Don't assume these exist:
 9. Clean UTF-8, no BOM. `node --check` touched files; `node --test` passes.
 10. **A sale's money** (what's paid, owed, due when) is read from its payment statement
     (`paymentSchedule.paymentStatement`, loaded by `incomeView.getSaleStatement(s)`, §21.3);
-    money is spread over charges only by `allocateMoney`. No surface does its own sum; the
-    one exception left is the contract price table (`incomeView.priceTable`, §32).
+    money is spread over charges only by `allocateMoney`. No surface does its own sum.
 
 ---
 
@@ -1279,7 +1278,8 @@ subject (`financials.js` `expenseInScope`).
   (`saleComponents`, which knows no recorded payments): `incomeLineItems` (a stud
   service's document lines; a sale's only for `contractSend.balanceDueOn`'s total, less
   `paidOnSale`), `saleCreditCharges` (the charges a family's credits can pay, at full
-  amounts) and `priceTable` (a contract's price table, §32).
+  amounts) and `priceTable` (a contract's price table, §32, which adds the recorded
+  payments' share of the price from the statement).
 - **Our stud's fee** (`studRules.ourRole` = stud): earned when `completed`, anticipated while arranged/in progress.
 - **Our dam's stud fee** is money paid, so it's an Expense, never income. Saving a stud service
   of our dam that's Completed with a fee and no linked expense (new, just Completed, or the
@@ -3029,10 +3029,11 @@ Share with families hint and the card's badge say so for this type.
   so price = deposit + `otherPaymentsReceived` + `purchaseBalanceDue` and nothing counts
   twice (a fee their received funds paid counts only as the fee, `fee_credit_amount`); `purchaseBalanceDue` the rest of the price. `price` is the sale's price,
   which carries any Full registration surcharge (`saleDefaults`); `balanceDue` stays
-  everything owed on the sale. The table reads whole lines (`saleComponents`), so payments
-  recorded on the sale (`Sale.payments`, §21.3) aren't in `otherPaymentsReceived` and stay
-  in `purchaseBalanceDue` until the sale is marked paid in full; `balanceDue` and the
-  schedule fields below count them.
+  everything owed on the sale. Payments recorded on the sale (`Sale.payments`, §21.3) count
+  in `otherPaymentsReceived` for their share of the price, read from the payment statement
+  (after the credited fee; only what credits for funds received left of it), so
+  `purchaseBalanceDue` is what the statement still has owed on the price. A returned or
+  cancelled sale keeps what was paid; a lost one counts nothing.
   **The payment schedule** (Payment Schedule plan §8.1, `contractForms.scheduleValues`, from
   `facts.statement`: `gatherContractFacts` loads it with `incomeView.getSaleStatement`, as
   the Payments card does): `totalCharges` (the statement's `total`: the sale's own charges,

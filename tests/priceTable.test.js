@@ -67,6 +67,51 @@ test('a paid balance is a payment received, and nothing is left due', () => {
   assert.deepEqual(t, { depositDue: 500, otherPaid: 2500, balanceDue: 0 }); adds(t);
 });
 
+test('payments recorded on the sale count toward the price (Payment Schedule plan §3.2)', () => {
+  const pay = (amount, date = '2026-11-01', over = {}) => ({ id: `p${amount}${date}`, amount, date, ...over });
+  const paid = { ...sale, status: 'deposit_paid', deposit_date: '2026-10-01' };
+  // A $1,000 payment: received, and $1,500 of the price left.
+  let t = priceTable({ ...paid, payments: [pay(1000)] });
+  assert.deepEqual(t, { depositDue: 500, otherPaid: 1000, balanceDue: 1500 }); adds(t);
+  // Several payments add up; one beyond the price goes on to transport, not here.
+  t = priceTable({ ...paid, payments: [pay(1000), pay(1200, '2026-11-05')] });
+  assert.deepEqual(t, { depositDue: 500, otherPaid: 2200, balanceDue: 300 }); adds(t);
+  t = priceTable({ ...paid, payments: [pay(2800)] });
+  assert.deepEqual(t, { depositDue: 500, otherPaid: 2500, balanceDue: 0 }); adds(t);
+  // After the credited fee: the fee pays first, the payment covers the rest of it.
+  t = priceTable({ ...paid, payments: [pay(2500)] }, { feeCredit: toBalance });
+  assert.deepEqual(t, { depositDue: 500, otherPaid: 2500, balanceDue: 0 }); adds(t);
+  t = priceTable({ ...paid, payments: [pay(1000)] }, { feeCredit: toBalance });
+  assert.deepEqual(t, { depositDue: 500, otherPaid: 1075, balanceDue: 1425 }); adds(t);
+  // After credits for funds received on the price: never counted twice.
+  const e = entry({ received_credits: [{ id: 'c1', amount: 1000, date: '2026-08-01', applies_to: ['price'] }] });
+  const withPay = { ...paid, payments: [pay(1000)] };
+  t = priceTable(withPay, { received: familyCredit(e, withPay).received });
+  assert.deepEqual(t, { depositDue: 500, otherPaid: 2000, balanceDue: 500 }); adds(t);
+  t = priceTable({ ...paid, payments: [pay(2000)] }, { received: familyCredit(e, paid).received });
+  assert.deepEqual(t, { depositDue: 500, otherPaid: 2500, balanceDue: 0 }); adds(t);
+  // Marked paid in full as well: the balance once, not again for the payments.
+  t = priceTable({ ...paid, balance_paid_date: '2026-11-10', payments: [pay(1000)] });
+  assert.deepEqual(t, { depositDue: 500, otherPaid: 2500, balanceDue: 0 }); adds(t);
+  // A payment toward an extra on its own dates isn't toward the price.
+  const ownExtra = { id: 'x1', label: 'Photos', amount: 200, own_due_dates: true };
+  t = priceTable({ ...paid, extra_charges: [ownExtra], payments: [pay(200, '2026-11-01', { toward: 'extra:x1' })] });
+  assert.deepEqual(t, { depositDue: 500, otherPaid: 0, balanceDue: 2500 });
+  // A payment on a schedule pays the price the same way.
+  const sched = [{ id: 'd1', due: 'on_date', due_date: '2026-11-20', covers: ['price'], percent: 50, basis: 'total' },
+    { id: 'final', due: 'at_pickup', covers: ['all'], percent: 100, basis: 'total' }];
+  t = priceTable({ ...paid, payment_schedule: sched, payments: [pay(1000)] });
+  assert.deepEqual(t, { depositDue: 500, otherPaid: 1000, balanceDue: 1500 }); adds(t);
+});
+
+test('an ended sale keeps what was paid; a lost one counts nothing, as before', () => {
+  const pays = [{ id: 'p1', amount: 1000, date: '2026-11-01' }];
+  const base = { ...sale, deposit_date: '2026-10-01', payments: pays };
+  assert.deepEqual(priceTable({ ...base, status: 'cancelled' }), { depositDue: 500, otherPaid: 1000, balanceDue: 0 });
+  assert.deepEqual(priceTable({ ...base, status: 'returned' }), { depositDue: 500, otherPaid: 1000, balanceDue: 0 });
+  assert.deepEqual(priceTable({ ...base, status: 'voided' }), { depositDue: 500, otherPaid: 0, balanceDue: 0 });
+});
+
 test('the payment-table fields fill a sale contract, zeros included', () => {
   const v = Object.fromEntries(prefillValues('pet_home', { sale, priceTable: { depositDue: 0, otherPaid: 0, balanceDue: 2425 } }));
   assert.equal(v.depositDue, '0.00');

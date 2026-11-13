@@ -500,6 +500,7 @@ is dated by `deposit_date`, which those three places can still set from a credit
    §32 (the price table), §35.1 (Your payments goes once the portal takes over); the
    Editions plan's tiers table (a sale's payments in Lite, Pups are going home's Payments
    and pickup message).
-   **Found:** a contract's price table (`incomeView.priceTable`: `otherPaymentsReceived`,
-   `purchaseBalanceDue`) reads whole lines, so payments recorded on the sale aren't counted
-   there until it's marked paid in full. Documented as built; not fixed (owner to decide).
+   **Found and fixed (owner, 2026-11-13):** a contract's price table (`incomeView.priceTable`:
+   `otherPaymentsReceived`, `purchaseBalanceDue`) didn't count payments recorded on the
+   sale until it was marked paid in full. It now adds their share of the price from the
+   statement (guide §32).
