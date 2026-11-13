@@ -3808,3 +3808,80 @@ tick box per template; buyers get an emailed link.
   health test results, Check in on a litter, Pups are going home, Kels's shots and vet).
   New app files in `PRECACHE_URLS`.
 - **Service worker:** `CACHE_NAME` v125 (owner asked), for this batch and the one above.
+
+## 2026-11-13 — Payment schedules on a sale (plan only)
+
+- **New plan:** `docs/KennelOS_Payment_Schedule_Plan.md`, nothing built. A sale gets a general
+  `payment_schedule` (due dates by age, a typed date, before pickup or at pickup; each covers
+  some or all charges as percent of total, percent of remaining, or an amount that earlier
+  money can or can't cover) and `payments[]`. One pure statement (`data/paymentSchedule.js`)
+  feeds every money surface: Sale and applicant pages, invoices and receipts, contracts, the
+  family's page, Companion, messages, Financials, Today. No schedule = today's behavior.
+- **Found while planning:** a receipt for a paid deposit prints $0 in Full mode, and the
+  deposit receipt is missing from the applicant page when the application fee is credited
+  toward the deposit. The plan's receipts print only recorded money, with regression tests.
+- **Owner decisions D1–D19** (plan §10), among them: extras can be flagged to keep their own
+  dates outside the schedule; money pays price → boarding → extras → transport (always last);
+  the "adjust the schedule?" prompt shows every time a fee is added; credits label as
+  "Deposit (credited)"; the generator works per family and includes the application fee;
+  8 new contract prefills; Firma fields relabelled by group now and created per template,
+  labelled by contract type, after a test-key check.
+- **D20:** money carried from a lost pup becomes a credit for funds received instead of the
+  next sale's whole deposit. **D21:** a credit is held money; a charge it covers is earned on
+  that charge's due date (today's code dates it by the family's oldest credit).
+  Found: the deposit-received dialog, picks and side sales with carried money set the
+  deposit date from the credit's date; the plan has them use the ask/received date.
+
+## 2026-11-13 — Payment schedules, step 1: the calculation
+
+- **`data/paymentSchedule.js` (new, pure):** cleans a sale's `payment_schedule`, dates due
+  dates (birth date, pickup, typed), lists the sale's charges in pay order (transport last),
+  spreads money over charges (fee credit, credits, deposit, own-dated steps, payments, paid in
+  full) and over due dates (the four kinds; "doesn't count" ones take only payments), and
+  returns one statement. Not wired to any page yet; no sale stores the new fields.
+- **Credits on the shared allocator:** `receivedCredits.allocateCredits` now calls
+  `allocateMoney`; `incomeView.saleCreditCharges` orders charges deposit, price, boarding,
+  extras, transport (D16; transport was second after the price before).
+- `extraCharges.saleExtraCharges` keeps `own_due_dates`. Vocab `SCHEDULE_DUE`,
+  `SCHEDULE_COVERS`, `SCHEDULE_BASIS`, `SCHEDULE_PRIOR_FUNDS`.
+- **Tests:** `tests/paymentSchedule.test.js` (new): 24 tests, one a 40,320-combination check
+  that the statement adds up. Full suite 1,791 passing; editions build.
+- **Docs:** guide §21.2 (own-dated flag), §21.3 (new), §29 credits (order, shared allocator).
+- **Service worker:** `data/paymentSchedule.js` in `PRECACHE_URLS`. No `CACHE_NAME` bump.
+
+## 2026-11-13 — Payment schedules, step 2: the sale's Payments card, editor and payments
+
+- **Owner decisions D22–D24** (plan §10): nothing is marked paid on its own (one question
+  offers the paid-in-full date and status); no default schedule, every schedule added on
+  purpose; with a schedule, the Sale form shows the final payment's date in place of the
+  Balance due date box.
+- **Data:** Sale `payment_schedule`, `payments`; Kennel `payment_schedules`,
+  `final_payment_methods`; `own_due_dates` on price-list rows (true/false) and groups (true),
+  copied onto a sale's charge by `chargeFromPriceList`; all private. `payments[].account_id`
+  guards an Account (`referenceRegistry` scans now step into a list: `list[].key`).
+  `paymentSchedule.js`: `scheduleProblem`, `readSchedule`, `savedSchedules`,
+  `readSavedSchedules`, `scheduleFromSaved`, `newPayment`, `paymentsWith`, `addedFees`,
+  `paidInFullOffer`, `finalDueDate`; payments toward an own-dated step are paid before the
+  step's own paid date, so one that also marked it counts once. `incomeView.getSaleStatement`
+  loads a sale's statement with its dates and credits.
+- **UI (`assets/paymentScheduleUI.js`, new, all editions):** the Payments card, the schedule
+  editor (rows by age, date, before pickup, at pickup; covers; four kinds; live previews;
+  start from a saved schedule; remove), Record a payment (Edit, Remove), the paid-in-full
+  question, and the new-fees question after any save that adds a transport fee, boarding or
+  an extra.
+- **Pages:** Sale page (Payments section; the form's final payment date), waitlist family
+  page (Details tab card; every action there checks for new fees), Kennel page (Payment
+  schedules section; price list "Paid on its own dates").
+- **Sample data:** Cedar's sale has a two-date schedule; Thornfield has a saved schedule,
+  final-payment methods, and Photo packages paid on their own dates.
+- **Fixed while checking:** the schedule vocab sat between `INVOICE_LINE_LABELS` and its
+  comment (step 1); picking a saved schedule wired the editor twice; a new schedule's final
+  row started at pickup instead of the sale's balance due date, replacing her date on save.
+- **Checked** in Chromium at phone width, Pro and Lite: the card, editor, previews and
+  errors, payments, paid in full, the new-fees question on the Sale and family pages (extras
+  approved), saved schedules and the price list choice. No console errors.
+- **Tests:** `tests/paymentScheduleData.test.js` (new), `paymentSchedule` and `extraCharges`
+  added to. Full suite 1,805 passing; editions build.
+- **Docs:** guide §4.1 (Sale, Kennel), §0, §21.2, §21.3; Editions plan (Lite scope); plan D22–D24.
+- **Service worker:** `assets/paymentScheduleUI.js` in `PRECACHE_URLS`. `CACHE_NAME` v126
+  (owner asked, to merge steps 1–2), for this batch and step 1.
