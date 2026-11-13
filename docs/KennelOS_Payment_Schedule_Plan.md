@@ -116,6 +116,25 @@ optional, read as "not set" from older backups.
   Set by hand, it still covers whatever is left, as today.
 - `account_id` → Account: added to `referenceRegistry.js`.
 
+### 3.2a Money carried from a lost pup (D20)
+
+- **Today:** `restoreAfterLostSale(…, { carry })` stores `entry.carried_payment = { amount,
+  date, from_sale_id }`, and the next pick's sale takes the **whole amount as its deposit**,
+  paid on the original date (`recordPick`). A carry above the deposit shows as an inflated
+  "Deposit"; one below it leaves the rest of the deposit never asked for.
+- **Instead:** carrying adds a **credit for funds received** to the family's entry
+  (`received_credits`): amount and date as paid, note "Carried over from *pup*'s sale",
+  `from_sale_id` kept. The new sale keeps its normal deposit and price.
+- The credit pays like any credit: deposit, then price, boarding, extras, transport last.
+  It labels "Deposit (credited)" etc., counts as earlier money (D18), and prints on receipts
+  as credited money, never as a new payment.
+- **Income stays as today:** a credit is income only once it covers a sale line, and only the
+  part it covers. Leftover credit counts nowhere. **Fixed with it:** each credited part is
+  dated by the credit that paid it, not by the family's oldest credit (`credits[0].date` today).
+- **Existing data:** an entry holding a `carried_payment` reads as one credit. The field
+  stays readable (backups); new carries no longer write it.
+- Waitlist (Pro) only, like the lost-pup flow and credits.
+
 ### 3.3 Extras on their own dates
 
 - **`own_due_dates: true`** on a price-list extra (`Kennel.extra_charge_list[]`) and on a
@@ -357,6 +376,7 @@ Plan:
 | D16 | Money pays price → boarding → extras → transport. Transport is always last. |
 | D18 | "Earlier money" = application fee received, deposit, and credits (what's left after covering those, or the whole credit). A "doesn't count" due date only takes payments recorded on the sale, including an earlier payment beyond what earlier due dates asked for. |
 | D19 | "Remaining" is measured against what earlier due dates asked for, so paying early doesn't shrink it. |
+| D20 | Money carried from a lost pup becomes a credit for funds received, not the new sale's deposit. A credit is income only once it covers a sale line; each credited part is dated by its own credit. |
 | D17 | The fee-added prompt shows every time a transport fee, boarding or an extra is added, schedule or not. |
 | D13 | The generator works per family. Receipts print only recorded money. The applicant page gets one invoice and one receipt per charge. The application fee joins the generator. |
 | D14 | One number per document, as today. A typed one is saved on the sale, else on the waitlist entry. |
