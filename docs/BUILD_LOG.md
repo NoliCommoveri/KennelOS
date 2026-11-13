@@ -4064,3 +4064,34 @@ tick box per template; buyers get an emailed link.
 - **Docs:** End-State guide §20, §21.3, §29, §32; Waitlist Spec §8.1 (a Modified row); Waitlist
   Fixes plan step 5 (Modified); plan step 6; README Status.
 - **Service worker:** no new files. `CACHE_NAME` v131 (owner asked).
+
+## 2026-11-13 — Payment schedules step 7: Today nudges, Kels, the pickup message
+
+- **Decided with the owner (plan D36):** Today's payment nudges cover every open sale (no
+  schedule = its one due date); Pups are going home's Balance item becomes Payments, done
+  when nothing is owed; Review my waitlist takes payments due; Pups are going home offers a
+  pickup message. Today had no balance nudge to replace, so the payment nudges are new.
+- **Today (all editions):** `nudges.paymentDueNudges` / `paymentDueItems` over
+  `incomeView.getSaleStatements`: `payment-due` from 7 days before a due date through the
+  day, `payment-missed` once it's gone by ("A scheduled payment was not marked received: …"
+  → Open the sale; no back-out suggestion, D4). Keyed by sale, due date and date. Not the
+  deposit, not own-dated extras. `extra-due` now skips extras on a sale's schedule (they were
+  nudged by their unused steps' dates).
+- **Pups are going home:** the readiness item `balance` is **Payments** (`prepPups.readiness({
+  statement })`, the Puppy Record cover page too): done when nothing is owed; the fix records
+  payments in the chat (an amount per pup, prefilled with the next due date's ask), then
+  offers Mark paid in full. Money still owed reads the statement (what's owed in all and the
+  next payment), no longer `contractSend.balanceDueOn`. New step: a pickup message per family
+  (`goHome.pickupMessage`, `paymentSchedule.owedBy`), written in the composer for her to send.
+  Kels's menu says payments.
+- **Review my waitlist step 7:** scheduled payments due or not marked received on waitlist
+  families' sales → Received (a payment toward the schedule, then the paid-in-full question)
+  / Not yet / Open the sale; counted in the opening line.
+- **Shared:** `paymentSchedule.paidInFullChanges` (the Payments card and Kels write the same
+  thing), `owedBy`.
+- **Tests:** `tests/paymentNudges.test.js` (new), `tests/prepPups.test.js` (Payments).
+  `node --test` 1,869 pass; `node build/assemble.mjs` builds. Checked in the browser on the
+  sample data: Today shows a missed and a due payment; Pups are going home and Review my
+  waitlist record a payment and write the pickup message, no console errors.
+- **Docs:** End-State guide §19, §21.3, §33; plan step 7 (Built, Modified), D36; README Status.
+- **Service worker:** no new files. `CACHE_NAME` v132 (owner asked).

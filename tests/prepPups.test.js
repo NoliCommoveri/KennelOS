@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import * as P from '../shared/data/prepPups.js';
 import * as H from '../shared/data/goHome.js';
 import { addDaysToYMD } from '../shared/data/dateUtils.js';
+import { paymentStatement } from '../shared/data/paymentSchedule.js';
 
 const today = '2026-10-15';
 const at = (n) => addDaysToYMD(today, n);
@@ -82,11 +83,19 @@ test('drop-off date: a placement event for this family, today or later', () => {
   assert.equal(ready({ events: [ev('placement', at(9)), ev('placement', at(4))] }).pickupDate, at(4), 'the soonest');
 });
 
-test('balance: paid in full, a paid date, or a due date', () => {
+test('payments: done when nothing is owed (the statement), or marked paid in full; a due date alone isn\'t enough', () => {
+  assert.equal(ready({}).items.find((i) => i.key === 'balance').label, 'Payments');
   assert.ok(missing({}).includes('balance'));
   assert.ok(!missing({ sale: sale({ status: 'paid_in_full' }) }).includes('balance'));
   assert.ok(!missing({ sale: sale({ balance_paid_date: at(-1) }) }).includes('balance'));
-  assert.ok(!missing({ sale: sale({ balance_due_date: at(5) }) }).includes('balance'));
+  assert.ok(missing({ sale: sale({ balance_due_date: at(5) }) }).includes('balance'), 'a balance due date is when, not paid');
+  const s1 = sale({ price: 2000, deposit_amount: 500, deposit_date: at(-30), balance_due_date: at(5) });
+  const owing = paymentStatement(s1, { today });
+  const r = ready({ sale: s1, statement: owing });
+  assert.ok(r.missing.includes('balance'));
+  assert.equal(r.items.find((i) => i.key === 'balance').detail, `next $1500 by ${at(5)}`);
+  const paid = { ...s1, payments: [{ id: 'p1', amount: 1500, date: at(-1) }] };
+  assert.ok(!missing({ sale: paid, statement: paymentStatement(paid, { today }) }).includes('balance'), 'recorded payments that cover everything');
 });
 
 test('contract: one signed on the sale', () => {
