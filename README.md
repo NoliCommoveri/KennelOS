@@ -81,16 +81,18 @@ backup, carries a program from Lite to Pro.
     phase 2, live updates through the cloud, after owner decisions.
   - Waitlist fixes and three enhancements (`docs/KennelOS_Waitlist_Fixes_Plan.md`): steps
     1–4 are built (Pup selected, Already Reserved, family pages without the list, the puppy
-    portal says only what's true); next is step 5 (money a family is shown). Five
+    portal says only what's true); next is step 5 (money a family is shown; K8-1 and K8-10
+    are built with Payment schedules step 6). Five
     decisions about the fixes are open (its §2).
   - Payment schedules (`docs/KennelOS_Payment_Schedule_Plan.md`): several due dates per sale,
     payments received, the per-family invoice/receipt generator and Firma fields per template.
     Steps 1–5 built (guide §21.3, §24, §32): the calculation, the sale's Payments card and
     editor, Financials and Receivables by due date, per-family invoices and receipts, and
-    contract prefills. Open in step 5: proving the Firma relabel on a send (one field so far,
-    `docs/LAUNCH_CHECKLIST.md`), the test-key check, per-template fields. Next is step 6;
-    payment requests, family pages and messages don't read payments yet. §3.2a (lost-pup money as a credit, D20) is in no step yet. Its money
-    shown to families is built with Waitlist fixes step 5.
+    contract prefills; step 6: the family's status page, Companion, Send payment link, the
+    deposit request and Stripe payments read the statement. Open in step 5: proving the
+    Firma relabel on a send (one field so far, `docs/LAUNCH_CHECKLIST.md`), the test-key
+    check, per-template fields. Next is step 7 (Today nudges, Kels, and the pickup
+    messages). §3.2a (lost-pup money as a credit, D20) is in no step yet.
   - Duplicates: Import/Export's Scan for duplicates covers every record type. Open: Kels's
     Tidy up still checks only dogs and contacts for duplicates.
 - **Open launch items:** confirm `yearlyVariantPattern` / `lifetimeVariantPattern` against

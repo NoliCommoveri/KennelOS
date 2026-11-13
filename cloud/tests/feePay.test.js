@@ -12,7 +12,10 @@ const stripePay = { url: 'https://buy.stripe.com/fee', amount: 50, ref_param: tr
 
 test('feePayFor: a Stripe link names the family; any other link is passed as is; junk is dropped', () => {
   assert.deepEqual(feePayFor(projection(stripePay), 'entry-1'),
-    { url: 'https://buy.stripe.com/fee?client_reference_id=entry-1', amount: 50, instructions: 'Or Zelle' });
+    { url: 'https://buy.stripe.com/fee?client_reference_id=entry-1', amount: 50, fee: null, instructions: 'Or Zelle' }, 'an older device publishes no plain fee');
+  // The fee itself rides along for the headline (K8-10): the link charges more.
+  assert.equal(feePayFor(projection({ ...stripePay, amount: 52.07, fee: 50 }), 'entry-1').fee, 50);
+  assert.equal(feePayFor(projection({ ...stripePay, fee: 'x' }), 'entry-1').fee, null);
   assert.equal(feePayFor(projection({ ...stripePay, url: 'https://square.link/u/x' }), 'entry-1').url, 'https://square.link/u/x');
   assert.equal(feePayFor(projection({ ...stripePay, url: 'https://evil.example/?x=1', ref_param: true }), 'e').url, 'https://evil.example/?x=1', 'no id on a non-Stripe link');
   assert.equal(feePayFor(projection({ ...stripePay, url: 'javascript:alert(1)' }), 'e'), null);

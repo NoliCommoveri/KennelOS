@@ -439,6 +439,10 @@ docs weren't reachable when it was built. Next: one Place fields, then a test se
 | D29 | Contract `payment1` / `payment2` are the due dates before the final one; `finalPayment` is the last. Nothing prints twice. |
 | D30 | Firma relabel: built on a best guess at Firma's call, never fatal, one field (`buyerEmail`) first, proven on a send before the rest. |
 | D31 | An extra agreement for an extra paid through the schedule prints its share of each due date from the statement. |
+| D32 | Step 6 takes only the Waitlist Fixes step 5 items it overlaps: K8-1 (the deposit email from the statement) and K8-10 (the fee card's two prices). K8-2, K8-3, K8-4, K8-13, K6b-5, K6b-8 stay in Waitlist Fixes step 5. |
+| D33 | The portal feed to KennelPort stays amount-free. Families reach their payments through the status-page link the portal already shows. |
+| D34 | A paid non-deposit Stripe link becomes a row in `Sale.payments`, never paid in full by itself (D22). The prompt: the sale's Payments card shows **Mark paid in full** whenever everything is paid and the sale isn't marked (any path), and a Stripe payment that covers everything also leaves a Today item. |
+| D35 | On the family's Payments card, a due date gone by without the payment marked received reads "Was due *date*" with what's still owed: no Overdue badge. |
 
 ---
 
@@ -462,6 +466,14 @@ is dated by `deposit_date`, which those three places can still set from a credit
    per-template fields.
 6. **Family status page, portal feed, Companion** (with Waitlist Fixes step 5); **every
    message**; Stripe payment links and integration payments.
+   **Built (D32–D35):** the status page's **Your payments** card (`familyPaymentsView`,
+   the projection's `payments`, Worker `paymentsOf`), Companion's Payments section, Send
+   payment link's options from the statement (deposit owed / next payment / everything
+   owed, final-payment methods on the final one), the deposit request from the statement
+   (K8-1), the fee card's two prices (K8-10), Stripe links for a payment (component
+   `payment`, a `payments` row once per reference, never paid in full), D34's **Mark paid
+   in full** and Today item. **Modified:** pickup and go-home messages and Kels's messages
+   still read `balanceDueOn` (step 7, with Kels); the portal feed stays amount-free (D33).
 7. **Today nudges, Kels.**
 8. **Docs:** End-State guide (§4, §13, §21, §24, §29, §32, §33, §35), editions docs if Lite's
    surface changes, BUILD_LOG.

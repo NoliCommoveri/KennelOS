@@ -60,7 +60,7 @@ export const EVENT_KINDS = {
   'payment.paid': {
     record: 'sale',
     fields: {
-      component: (v) => (['deposit', 'balance'].includes(v) ? v : undefined),
+      component: (v) => (['deposit', 'balance', 'payment'].includes(v) ? v : undefined),
       amount: money, fee: money, currency: (v) => short(v, 3, /^[A-Z]{3}$/), date: ymd,
       method: (v) => short(v, 40), reference: (v) => short(v, 100, /^[\w.:-]+$/),
     },
