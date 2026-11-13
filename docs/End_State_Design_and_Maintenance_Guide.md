@@ -1564,7 +1564,11 @@ rebuilt on each view.
   (`defaultPick`: a sale's whole invoice or all its money, a waitlist link's fee).
 - **Invoice** (`documentLines`): each line ticked prints its whole amount with its Due by
   (the schedule's date; "Paid", "Immediately" for an undated deposit, "Date not set yet"),
-  or a typed partial amount "(partial)"; then Subtotal, **Less application fee credit**,
+  or a typed partial amount "(partial)". A schedule due date whose covers take in more
+  than one schedule charge (`combinedDueIds`: the price and an extra, or the final payment
+  with any extra, boarding or transport) prints as one line, **Combined Price (<due date>)**
+  ("Combined Price (Payment 1)"), its pieces' amounts added; a due date covering one charge
+  keeps that charge's name. Then Subtotal, **Less application fee credit**,
   **Less credit for funds already received**, **Less amount already collected**, and
   **Balance** (what's owed on those lines). Footnotes: the deposit's * and, on a sale
   without a schedule, the due-date note **. Payment: her accepted methods

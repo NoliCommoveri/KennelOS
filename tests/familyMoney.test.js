@@ -60,9 +60,30 @@ test('an invoice bills each line\'s whole amount, takes off what\'s paid and cre
   assert.equal(next.rows[0].marker, '', 'no standing due-date footnote with a schedule');
   // A partial amount bills only that.
   const part = documentLines(account, { doc: 'invoice', lines: [{ ref: 'transport@final', amount: 100 }] });
-  assert.deepEqual(part.rows.map((x) => [x.label, x.amount]), [['Transport Fee (partial)', 100]]);
+  // The final payment covers the price and transport, so it bills as one combined line.
+  assert.deepEqual(part.rows.map((x) => [x.label, x.amount]), [['Combined Price (Final payment) (partial)', 100]]);
   assert.equal(part.totals.at(-1).amount, 100);
   assert.equal(part.finalOnly, true, 'the final payment\'s own methods print on it');
+});
+
+test('regression: a due date covering the price and an extra bills one "Combined Price" line per due date', () => {
+  // Price $2,000, deposit $300 paid, the $50 fee credited toward the price, a $1,400 stay
+  // with its own 50/50 plan but on the sale's schedule; 50% of price and extras at 8 weeks.
+  const s = sale({ price: 2000, deposit_amount: 300, deposit_date: '2026-11-12',
+    extra_charges: [{ id: 'stay', label: '12 Week Extended Stay', amount: 1400, payments: [
+      { id: 'a', percent: 50, due: 'at_weeks', n: 7, amount: 700 }, { id: 'b', percent: 50, due: 'with_balance', amount: 700 }] }],
+    payment_schedule: [{ id: 'p1', due: 'at_weeks', n: 8, covers: ['price', 'extras'], percent: 50, basis: 'total' }, final] });
+  const entry = { id: 'e1', fee_amount: 50, fee_received_date: '2026-11-06' };
+  const { account } = family({ s, entry, credited: true, toward: 'balance' });
+  const all = invoice(account, 'sale');
+  assert.deepEqual(all.rows.map((x) => [x.label, x.amount]), [
+    ['Deposit', 300], ['Combined Price (Payment 1)', 1400], ['Combined Price (Final payment)', 1700]]);
+  const owed = invoice(account, 'owed');
+  assert.deepEqual(owed.rows.map((x) => [x.label, x.amount]), [['Combined Price (Payment 1)', 1400], ['Combined Price (Final payment)', 1700]]);
+  assert.deepEqual(owed.totals.map((t) => [t.label, t.amount]), [['Subtotal', 3100], ['Less application fee credit', -50], ['Balance', 3050]]);
+  // A price-only due date keeps the price's own name.
+  const priceOnly = family({ s: sale({ payment_schedule: [{ id: 'h', due: 'at_weeks', n: 8, covers: ['price'], percent: 50 }, final] }) }).account;
+  assert.deepEqual(invoice(priceOnly, 'owed').rows.map((x) => x.label), ['Remaining Purchase Price', 'Remaining Purchase Price']);
 });
 
 test('a receipt for one payment prints what it paid, with its date and method', () => {
