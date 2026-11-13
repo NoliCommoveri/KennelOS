@@ -4214,4 +4214,4 @@ tick box per template; buyers get an emailed link.
   payments, transport) that `purchaseBalanceDue` equals what the statement has owed on the
   price and the table adds up to the price. `node --test` 1,871 pass.
 - **Docs:** End-State guide §16, §21, §32; plan step 8; README Status.
-- **Service worker:** no files added or renamed. `CACHE_NAME` v133 (owner asked for the bump if needed).
+- **Service worker:** no files added or renamed. `CACHE_NAME` v134 (owner asked for the bump if needed): main's website work had already shipped v133.
