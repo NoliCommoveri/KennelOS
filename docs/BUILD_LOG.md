@@ -3885,3 +3885,26 @@ tick box per template; buyers get an emailed link.
 - **Docs:** guide §4.1 (Sale, Kennel), §0, §21.2, §21.3; Editions plan (Lite scope); plan D22–D24.
 - **Service worker:** `assets/paymentScheduleUI.js` in `PRECACHE_URLS`. `CACHE_NAME` v126
   (owner asked, to merge steps 1–2), for this batch and step 1.
+
+## 2026-11-13 — View their page (a family's live status page, as they see it)
+
+- **Owner asked** for a button on each family's page showing what their status page shows
+  them; both phases at once, on the Interact tab, publishing first (forced).
+- **App:** Interact's **View their page ↗** (`waitlist-entry.js`, shown with
+  `statusLinkFor`), `waitlistUI.openStatusPage` (tab opened at the tap, then pointed at the
+  page; notes for a publish that didn't work or a plain link), `cloudWaitlist.statusPagePreview`,
+  `syncWaitlistOnline({ asked })` (publishes from a tab that just went behind the new one),
+  `cloudApi.previewWaitlistPage`.
+- **Worker:** `POST /waitlist/preview` (`waitlist.previewStatusPage`, `previewUntil`,
+  `PREVIEW_MS`): a signed, hour-long preview per status token, no table, no migration.
+  `GET /f/status` adds `preview: { until }` for a live one and doesn't stamp `last_used_at`.
+- **Family page:** `status.js` reads `#preview=` and sends it as `x-status-preview`; with it
+  the page draws signed in under a Preview note and every send stops at "nothing was sent";
+  an ended one says so. `common.fetchJson` takes `headers`.
+- **Checked** in Chromium on the local Worker (`cloud/tests/helpers/serve.mjs`): the signed-in
+  turn card, Choose → "nothing was sent" with no event on the server, an ended preview.
+- **Tests:** `cloud/tests/familyPages.test.js` (preview signed per page, ended, forged, not a
+  visit, never acts; who may ask), `tests/cloudWaitlist.test.js` (forced publish then
+  preview; not online, signed out, background tab). Cloud 332, app 1,809 passing; editions build.
+- **Docs:** guide §29 (Surfaces, Online), `cloud/README.md`.
+- **Service worker:** no app file added or renamed; no bump yet.

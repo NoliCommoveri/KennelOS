@@ -2176,7 +2176,8 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   deposit request sent, accepted / passed / no response / closed, backed out; a placed sale
   with no offer on this device shows as "Placed with [pup]"), their status-page requests and
   her decisions (pause, litters, Companion link, answers, backing out, each extra and pickup;
-  a one-at-a-time request keeps only its latest), and the answer-change log),
+  a one-at-a-time request keeps only its latest), and the answer-change log; Interact's
+  **View their page ↗**, shown once the family has a link online, below),
   `waitlist-programs`, `waitlist-form`, `waitlist-publish`, `waitlist-import`. A page shows
   one kennel (`?kennel=`, else scope, else busiest; `waitlistUI.resolveWaitlistKennel`).
 - **Litter page:** the **Waitlist picks** panel (`assets/waitlistPicksPanel.js`, loaded only
@@ -2386,6 +2387,24 @@ in line), fee expired, withdraw, remove, the undos below, undo pass, re-apply, m
   The "Choose [pup]?" dialog says the same before they confirm. One sign-in acts on any of
   them (`familyFor` allows the page's entry when it shares the session entry's email;
   the action goes to the page's entry).
+- **View their page** (the family's Interact tab; `waitlistUI.openStatusPage`): their live
+  status page, in a new tab, as they see it signed in. It opens the tab at the tap, then
+  `cloudWaitlist.statusPagePreview` publishes, forced and `asked` (so the app's tab, now
+  behind the new one, still publishes on a syncing program), and asks
+  `POST /waitlist/preview` (`waitlist.previewStatusPage`: Pro, any of her devices, her
+  published kennel, a family with a link) for `{ token, preview, until }`. `preview` is
+  `<until ms>.<HMAC>` over the token and end time (`EMAIL_HMAC_KEY`, `status-preview:`
+  prefix; `PREVIEW_MS` = one hour; no table). The tab goes to `/s/<token>#preview=<value>`:
+  the fragment never reaches a server or a referrer; `status.js` sends it as the
+  `x-status-preview` header on `GET /f/status`, which then adds `preview: { until }`
+  (`previewUntil`) and doesn't stamp the token's `last_used_at`. With it the page draws as
+  signed in (ignoring any family sign-in saved in her browser), a **Preview** note in place
+  of Sign In, every button and form working up to the send, which says "Preview: nothing was
+  sent" (`send`, the portal button); the policies banner isn't marked seen. An ended or
+  forged preview reads as the plain page with "This preview has ended". It never stands in
+  for a family session (`/f/act`, `/f/message`, `/f/portal` don't read it). Signed out, or
+  the server refusing, she gets their plain link with a note that it lacks the signed-in
+  buttons; a publish that didn't work adds `onlineProblemText`.
 - **Online form:** a form key per kennel (`waitlist_form_keys`, private;
   `data/waitlistCrypto.js`). The applicant's browser seals the answers to it;
   `takeInApplications` opens them on the server-work device and makes `applied` entries

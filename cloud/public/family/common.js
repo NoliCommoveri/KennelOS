@@ -74,11 +74,11 @@ export function money(amount) {
 }
 
 // GET / POST same-origin JSON. → { ok, status, body }. Never throws.
-export async function fetchJson(path, { method = 'GET', json } = {}) {
+export async function fetchJson(path, { method = 'GET', json, headers = {} } = {}) {
   try {
     const res = await fetch(path, {
       method,
-      headers: json ? { 'content-type': 'application/json' } : {},
+      headers: json ? { 'content-type': 'application/json', ...headers } : headers,
       body: json ? JSON.stringify(json) : undefined,
       credentials: 'omit',
       referrerPolicy: 'no-referrer',

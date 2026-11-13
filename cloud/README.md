@@ -54,7 +54,9 @@ src/waitlist.js        the waitlist online, her side (docs/KennelOS_Waitlist_W2_
                        read / take offline a kennel's projection (status-page tokens move to
                        wl_tokens), the encrypted inbox and its ack, the events stream, and
                        POST /waitlist/messages: an email her device wrote, sent to the address
-                       in her published projection with the status-link footer (W2 step 6).
+                       in her published projection with the status-link footer (W2 step 6), and
+                       POST /waitlist/preview: her hour-long, signed preview of one family's status
+                       page (View their page; no table, any of her devices)
                        Writes: the backing device, or on a syncing program the holder of the
                        two-minute lease (POST / DELETE /waitlist/lease, migration 0016)
                        Pro only (requirePro); writes from the backing device only
