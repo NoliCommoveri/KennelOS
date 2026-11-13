@@ -443,6 +443,7 @@ docs weren't reachable when it was built. Next: one Place fields, then a test se
 | D33 | The portal feed to KennelPort stays amount-free. Families reach their payments through the status-page link the portal already shows. |
 | D34 | A paid non-deposit Stripe link becomes a row in `Sale.payments`, never paid in full by itself (D22). The prompt: the sale's Payments card shows **Mark paid in full** whenever everything is paid and the sale isn't marked (any path), and a Stripe payment that covers everything also leaves a Today item. |
 | D35 | On the family's Payments card, a due date gone by without the payment marked received reads "Was due *date*" with what's still owed: no Overdue badge. |
+| D36 | Step 7: Today's payment nudges cover every open sale (no schedule = its one due date). Pups are going home's Balance item becomes **Payments**, done when nothing is owed. Review my waitlist takes payments due: Received / Not yet / Open the sale. Pups are going home offers a pickup message (the day, what's owed by then, final-payment methods). |
 
 ---
 
@@ -473,7 +474,21 @@ is dated by `deposit_date`, which those three places can still set from a credit
    (K8-1), the fee card's two prices (K8-10), Stripe links for a payment (component
    `payment`, a `payments` row once per reference, never paid in full), D34's **Mark paid
    in full** and Today item. **Modified:** pickup and go-home messages and Kels's messages
-   still read `balanceDueOn` (step 7, with Kels); the portal feed stays amount-free (D33).
+   moved to step 7 (built there); the portal feed stays amount-free (D33).
 7. **Today nudges, Kels.**
+   **Built:** Today's `payment-due` (7 days before a due date through the day) and
+   `payment-missed` (its date gone by: the §5.2 wording → Open the sale) for every open sale,
+   a sale with no schedule as its one due date; `extra-due` leaves extras on a schedule to
+   them. Pups are going home: its Balance item is **Payments** (done when nothing is owed,
+   fixed by recording payments in the chat), money still owed and the next payment from the
+   statement, and a **pickup message** per family (the day, what's owed by then, the
+   final-payment methods when the final payment is part of it). Review my waitlist step 7:
+   scheduled payments due or not marked received → Received (a payment, then the paid-in-full
+   question) / Not yet / Open the sale. Nothing reads `balanceDueOn` but contracts (§8).
+   **Modified (owner, 2026-11-13):** Today had no balance part of the go-home nudges to
+   replace, so the payment nudges are new, for sales without a schedule too. They leave out
+   the deposit (the offer and side-sale nudges ask for it) and extras on their own dates
+   (`extra-due`). The waitlist emails stay money-free, so the pickup message (§7) is Kels's,
+   written in the composer for her to send.
 8. **Docs:** End-State guide (§4, §13, §21, §24, §29, §32, §33, §35), editions docs if Lite's
    surface changes, BUILD_LOG.

@@ -1090,8 +1090,8 @@ checks use the unscoped set, so an answer one kennel over still counts.
 wires each action, and adds one Dismiss button per row. Dismissals are device-local
 (`nudgeState.js`), never in a backup. A nudge can also be snoozed (`nudgeState.snooze(key,
 untilYMD)`: hidden until that day, then back; Kels's Review my waitlist uses it for "remind
-me in a few days" on open picks). `nudges.waitlistNudgeItems()` and `extraDueItems(sales)`
-give the waitlist and extras-due nudges on their own, for that task. While Today is open it redraws the nudges on
+me in a few days" on open picks). `nudges.waitlistNudgeItems()`, `extraDueItems(sales)` and
+`paymentDueItems(sales)` give the waitlist, extras-due and payment nudges on their own, for that task. While Today is open it redraws the nudges on
 `CLOUD_DATA_CHANGED_EVENT` (debounced, one redraw at a time), so a family's message or
 status-page action the waitlist inbox takes in after the page loaded shows without a reload.
 
@@ -1126,7 +1126,8 @@ Kels's tidy-up doesn't suggest recording it. Its pick puppy, when the fee has on
 | `int-review` | a vendor event wasn't applied (`integration_reviews`, §32) | open the record; Done removes it |
 | `follow-up` | a pup went home 7–60 days ago (`referralShare`) | write a thank-you note |
 | `training-stay` / `training-stay-orphan` | an extra with `boarding_days` on an open sale and no boarding event linked to it (`goHome.trainingStaysFor`) / a linked stay still to come whose extra is off its sale (`orphanTrainingStays`) | **Log the stay** (`trainingStayEvent`, created at once: from the ready date or today, its days long) / **Remove the stay** (archive) |
-| `extra-due` | an extra's payment-plan step (§21.2) is due within `EXTRA_DUE_DAYS` (7) or overdue, unpaid, on an open sale whose balance isn't paid | open the sale |
+| `extra-due` | an extra's payment-plan step (§21.2) is due within `EXTRA_DUE_DAYS` (7) or overdue, unpaid, on an open sale whose balance isn't paid. On a sale with a payment schedule only an extra flagged `own_due_dates` (§21.3); any other is paid through the schedule (`payment-due`) | open the sale |
+| `payment-due` / `payment-missed` | all editions (`paymentDueNudges`, through `paymentDueItems`: `incomeView.getSaleStatements` for the scoped open sales): a due date on a sale's payment schedule (§21.3; a sale with none stored is its one due date, the balance due date else pickup) with money still owed, from `DUE_SOON_DAYS` (7) before its date through the day ("…'s Payment 1 for Maple is due Nov 20: $900.00", what's already paid of it in the detail) / its date gone by ("A scheduled payment was not marked received: *Family*, $X due *date*."; on the sale she records it, types a new date or cancels; no back-out suggestion, D4). Key `payment-due|payment-missed:<sale>:<due id>:<date>`, so a moved date asks again. Not the deposit (offers and side sales ask for it), not extras on their own dates (`extra-due`), not a due date with no date yet. Each nudge carries `owed` | open the sale |
 | `waitlist-*` | new applications, an offer or fee past due, a removal's undo window, planned deposit date reached (`open-picks`), "Ready now?" unanswered, family messages, and family requests (pref, pause, listen, Companion link, extras, pickup, backing out) | the matching waitlist action (§29) |
 
 Litter-lifecycle rules ignore deceased pups. The same close rule runs on the Sale page: a
@@ -1380,7 +1381,7 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
   processor kept is still `processing_fee_amount` (§21.1), so the charge and the fee cancel in
   earned income. A fee on the balance itself has no later payment to ride on: she adds it as
   an extra charge before invoicing the balance. Payments recorded by an integration (§32)
-  don't ask on their own; Kels's Pups are going home asks before each balance (§33).
+  don't ask on their own; Kels's Pups are going home asks before asking each family for what they owe (§33).
 - **Kels:** Getting Started sets up the price list (`extra-charges`) and her payment services
   with their fees and charge-back (`accounts`, vendor and third-party accounts); Pups are going home offers the deposit fee
   and her extras before each balance (§33).
@@ -1394,8 +1395,9 @@ payment fee charged back), each its own invoice line. Always on a puppy sale.
 which is Pro. Financials, the money report, Receivables (§21, §31) and invoices and
 receipts (§24), contracts (§32, Contract forms), the family's status page (§29), Companion
 (§20), Send payment link and the deposit-request message (§32, §29) and Stripe payments read
-the statement. Today and Kels don't read schedules or payments yet (plan build step 7); they
-still go by the deposit, `balance_due_date` and `balance_paid_date`.
+the statement. So do Today's `payment-due` / `payment-missed` nudges (§19) and Kels: Pups are
+going home's Payments item, money still owed and pickup message, and Review my waitlist's
+payments to check (§33).
 
 - **On a sale:** `payment_schedule` (due dates `{ id, label?, due, n?, due_date?, covers,
   percent? + basis?, amount? + prior_funds? }`, vocab `SCHEDULE_DUE` / `SCHEDULE_COVERS` /
@@ -1479,6 +1481,10 @@ still go by the deposit, `balance_due_date` and `balance_paid_date`.
   met, next, past (its date gone by, not marked received: "Was due …", never Overdue, D35),
   later. Read by the projection (§29, `getSaleStatements` for many sales at once, exactly as
   `getSaleStatement`) and Companion (§20). `nextPaymentText` is the next payment in words.
+  `owedBy(statement, date)`: what's owed by a day (the deposit, due dates and own-dated
+  charges dated then or before, or not dated) and whether that includes the final payment,
+  for the pickup message (§33). `paidInFullChanges(sale, date)`: what Mark paid in full
+  writes (the date; Paid in full from a deposit status), for the Payments card and Kels.
 - **Messages:** Send payment link (§32, `paymentLinks.paymentOptions(statement)`): the deposit
   still owed, the next payment (what's still owed by its date) and everything owed, each once,
   her final-payment methods on the final one. The deposit request (§29,
@@ -1498,6 +1504,8 @@ still go by the deposit, `balance_due_date` and `balance_paid_date`.
 - **Tests:** `tests/paymentScheduleIncome.test.js` (the ledger against before on every sale
   without payments, credits or a schedule; payments; D21; released and lost sales; every
   combination; `paidOnSale`; Receivables by due date), `tests/familyMoney.test.js` (§24),
+  `tests/paymentNudges.test.js` (Today's payment nudges, `extra-due` on a schedule, Review my
+  waitlist's keys, `owedBy`, the pickup message),
   `tests/paymentSchedule.test.js` (the patterns, the four kinds, transport last,
   labels, today's anticipated income unchanged without a schedule, every combination of fee
   credit, credits, deposit, payments, schedule, extras, transport/boarding and status, and the
@@ -3956,7 +3964,7 @@ The run-up to go-home day for one litter. Each fix is saved when approved; there
    | Shots | a `vaccination` logged | the care step's shots form (`vaccineForm`, puppy series) |
    | Deworming | a `preventative` logged | the care step's preventative form (`careForm`) |
    | Drop-off date (sale) | a `placement` event for the sale's family (`goHome.pickupFor`) today or later | **When's the drop-off?**: date, time, how (`PLACEMENT_METHODS`) per pup, filled in from a family's waiting pickup request (`pickupWishesFor`); `goHome.pickupEvent` (titled "Puppy drop-off" unless Local pickup; the request's place as `location`) |
-   | Balance (sale) | Paid in full / Delivered, a `balance_paid_date`, or a `balance_due_date` | a due date per pup (`saleRepo.update`) |
+   | Payments (sale; key `balance`) | nothing owed on the sale's payment statement (§21.3, `readiness({ statement })`), or Paid in full / Delivered / a `balance_paid_date` | **What's come in?**: an amount per pup (prefilled with what its next due date still asks; its total owed and next payment as the hint), one date and how they paid; each a payment on its sale toward the schedule (`newPayment`, as Record a payment); a deposit still owed is marked received on the sale instead. Then, per sale now all paid, **Mark paid in full** asked in the chat (`paidInFullOffer`, `paidInFullChanges`, D22) |
    | Contract signed (sale, Pro `contracts`) | a signed contract on the sale | **Where are the contracts at?**: a status per pup (`CONTRACT_STATUS`), and the signed date when Signed; saved on the sale's first live contract, or a new `sale` contract (title "<pup> sale contract", kennel from the sale) when it has none; "No contract yet" skips it |
    | Registration type (sale) | `registration_type` set | **How is each puppy registered?**: a `REGISTRATION_TYPE` per pup (prefilled from `intended_registration`); then, as the Sale page does, the price change for the litter's Full surcharge (`saleDefaults.priceForRegistrationChange`, asked first; a fee that was the estimate follows the price) and, for Co-own, adding the family as the pup's co-owner (asked; the pup becomes Co-owned too, `goHome.deliveredOwnershipChanges`, as the Delivered prompt writes it) |
    | Feeding schedule (Pro `feedingSchedule`, optional) | the litter's `feeding_schedule_override`, or a breed schedule for the pup's breed | **Just this litter**: the litter's feeding note typed in the chat; **For the breed**: the Feeding schedules page (a table editor) |
@@ -3966,20 +3974,28 @@ The run-up to go-home day for one litter. Each fix is saved when approved; there
    only Furever's fallback for a pup with no drop-off event, and don't count. Every fix but
    the breed feeding schedule happens in the chat; that one leaves Kels, and she says to
    start Pups are going home again after.
-7. **Balances still owed** (Pro: `accounts` or `invoicing`): chosen pups whose sale is at
-   Deposit Pending or Deposit paid, with no `balance_paid_date` and a balance
-   (`contractSend.balanceDueOn`) above zero, listed with the amount and due date, then **Yes,
-   let's do it**. Each family in turn first gets (Pro, `extraCharges`, §21.2) the deposit's
-   fee charged back when it came through an account set to charge it back and the sale
-   doesn't carry it (`depositFeeChargeBack`, **Add it** / **Skip**), then **Did they get any
-   extras?** (her kennel's price list, less what's already on the sale, ticked; **No
-   extras**), and the new balance when either changed it. Then both, one after the other,
+7. **Money still owed** (Pro: `accounts` or `invoicing`): chosen pups whose sale is at
+   Deposit Pending or Deposit paid, with no `balance_paid_date` and money still owed on its
+   payment statement (§21.3), listed with what's owed in all and the next payment
+   (`nextPaymentText`), then **Yes, let's do it**. Each family in turn first gets (Pro,
+   `extraCharges`, §21.2) the deposit's fee charged back when it came through an account set
+   to charge it back and the sale doesn't carry it (`depositFeeChargeBack`, **Add it** /
+   **Skip**), then **Did they get any extras?** (her kennel's price list, less what's already
+   on the sale, ticked; **No extras**), and what they owe now when either changed it. Then both, one after the other,
    each with **Skip**:
    **Send a payment request** (`paymentRequestUI.openPaymentRequest`, the Sale page's;
    offered only when a Payment service takes payments, `paymentAccounts`, or has her Stripe
    key here; otherwise she says to add one on the Accounts page), then **Make an invoice**
    (`openInvoiceGenerator({ preselect, onClose })`, said first to open in a new tab; Kels
    waits for the modal to close).
+7b. **Pickup messages** (all editions): chosen pups with an open sale, a family and a pickup
+   or drop-off today or later (`readiness`'s `pickupDate`), asked once (**Write it** / **Write
+   them** / **Not now**), then one message per family in the composer
+   (`messageComposer.openComposer`: Email, Text or Copy; she sends it): `goHome.pickupMessage`
+   with the day, time (`timeRange` for a typed `HH:MM`) and place from the pickup event, a
+   drop-off worded as one, what's owed by that day (`paymentSchedule.owedBy`) and, when that
+   includes the final payment, her final-payment methods (D9); nothing owed at all says "paid
+   in full". No money line when nothing is due by then.
 8. **The end:** all done, or what's still missing per pup. Pro: the **Furever link** is
    offered (`furever.html`) when a chosen pup has an open sale; it isn't tracked, so it's
    never an item. Pro (`puppyRecord`): **Print puppy records** opens
@@ -4148,7 +4164,12 @@ unpaid fees), else 26.
      **Ask a question** (`communicateDialog`) / **Decide later**.
   7. **Fees to check** (approved, unpaid; soonest due first) → **Received** (date, amount,
      method, reference → `feeReceived`) / **Not yet** / **Remove them** (overdue only,
-     `markFeeExpired`); then extras payments due on waitlist families' sales
+     `markFeeExpired`); then scheduled payments due or not marked received on waitlist
+     families' sales (Today's `payment-due` / `payment-missed`, `paymentDueItems`, each
+     rechecked as it comes) → **Received** (date, amount prefilled with what's owed by that due
+     date, method, reference → a payment toward the schedule; then **Mark paid in full** asked
+     in the chat when that covers everything, D22) / **Not yet** / **Open the sale**; then
+     extras payments due on their sales
      (`extraDueItems`) → **Paid** (today, `extraCharges.chargesWithStepPaid`, the helper the
      Sale page's Paid on box uses) / **Not yet** / **Open the sale**.
   8. **"Ready now?" unanswered** → **They're ready** / **Remove them**
