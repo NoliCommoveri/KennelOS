@@ -4009,4 +4009,4 @@ tick box per template; buyers get an emailed link.
   once). The combination check counts a step marked paid as money received. `node --test`
   1,843 pass.
 - **Docs:** End-State guide §21.3; plan §3.3 (**Modified:**).
-- **Service worker:** no new files.
+- **Service worker:** no new files. `CACHE_NAME` v129 (owner asked).
