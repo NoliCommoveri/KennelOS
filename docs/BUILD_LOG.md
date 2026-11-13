@@ -3907,4 +3907,4 @@ tick box per template; buyers get an emailed link.
   visit, never acts; who may ask), `tests/cloudWaitlist.test.js` (forced publish then
   preview; not online, signed out, background tab). Cloud 332, app 1,809 passing; editions build.
 - **Docs:** guide §29 (Surfaces, Online), `cloud/README.md`.
-- **Service worker:** no app file added or renamed; no bump yet.
+- **Service worker:** no app file added or renamed. `CACHE_NAME` v127 (owner asked).
