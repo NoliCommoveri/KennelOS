@@ -4131,3 +4131,22 @@ tick box per template; buyers get an emailed link.
 - **Tests:** `tests/siteExport.test.js` (one new). `node --test` 1,872 pass;
   `node build/assemble.mjs` builds.
 - **Docs:** End-State guide §35; plan step 2 (Built); README Status.
+
+## 2026-11-13 — Website contract step 3: Imported, origin and lineage
+
+- **Dog fields:** `imported` (boolean) and `import_country` (text), both cloud like
+  `registry` (owner decision). Dog form: Imported tick beside the registrations; Country of
+  origin only while ticked, cleared on unticking; the view reads "Yes, from …".
+  `syncRegistry.js`, `cloud/src/lib/cloudFields.js` regenerated.
+- **`data/pedigreeWalk.js` (new, precached):** `ancestorsOf`, four generations, nearest
+  first, sire's side first, a loop stops its line.
+- **`siteExport.js`:** `origin` (`imported`, `import_country` only while imported) and
+  `lineage` (`breed`, `sire_id`, `dam_id`, `ancestors` by name and titles only, with the
+  origin facts on each when both go). `bundleChanges` words for the new keys.
+- **Tests:** `tests/pedigreeWalk.test.js` (new), `tests/siteExport.test.js` (one new).
+  `node --test` 1,876 pass; `cd cloud && npm test` 337 pass; `node build/assemble.mjs`
+  builds. Dog form checked in the browser on the sample data: tick, save, untick clears
+  the country; no console errors.
+- **Docs:** End-State guide Dog entity and §35; plan step 3 (Built); README Status.
+- **Service worker:** `data/pedigreeWalk.js` added to `PRECACHE_URLS`. `CACHE_NAME` v133
+  (owner asked), covering steps 1 to 3.

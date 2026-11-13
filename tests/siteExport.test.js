@@ -567,6 +567,41 @@ test('titles_detail: each title with its organization and date, for a Worker tha
   ]);
 });
 
+test('origin and lineage: imported facts, parents and ancestors by name only, for a Worker that takes them', () => {
+  const dogs = [
+    dog('willow', { breed: 'Border Collie', sire_id: 'rex', dam_id: 'meg', imported: false, import_country: 'Wales' }),
+    { id: 'rex', call_name: 'Rex', registered_name: 'Ch Rex of Glen', sex: 'male', pedigree_only: true, sire_id: 'old', imported: true, import_country: ' Wales ', date_of_birth: '2015-01-01', owner_contact_id: 'c1', breeder_kennel_id: 'kx', notes: 'private' },
+    { id: 'meg', call_name: 'Meg', sex: 'female', status: 'external_reference', kennel_id: 'k9', imported: true },
+    { id: 'old', registered_name: 'Glen Old Hemp', sex: 'male', pedigree_only: true, is_archived: true }
+  ];
+  const events = [{ id: 't1', subject_type: 'dog', subject_id: 'rex', event_type: 'title_earned', event_date: '2018-01-01', details: { title_abbreviation: 'CH', organization: 'KC' } }];
+  const old = build({ dogs, events });
+  assert.deepEqual(Object.keys(old.dogs[0]).sort(), [...DOG_KEYS].sort(), 'an older Worker: neither');
+
+  const origin = build({ dogs, events, sections: ['origin'] }).dogs[0];
+  assert.equal(origin.imported, false);
+  assert.equal(origin.import_country, null, 'the country only while Imported is ticked');
+  assert.equal('ancestors' in origin, false);
+
+  const lin = build({ dogs, events, sections: ['lineage'] }).dogs[0];
+  assert.equal(lin.breed, 'Border Collie');
+  assert.equal(lin.sire_id, 'rex');
+  assert.equal(lin.dam_id, 'meg');
+  assert.deepEqual(lin.ancestors, [
+    { id: 'rex', path: 'sire', call_name: 'Rex', registered_name: 'Ch Rex of Glen', titles: ['CH'] },
+    { id: 'meg', path: 'dam', call_name: 'Meg', registered_name: null, titles: [] },
+    { id: 'old', path: 'sire.sire', call_name: null, registered_name: 'Glen Old Hemp', titles: [] }
+  ]);
+  assert.equal('imported' in lin, false);
+  assert.doesNotMatch(JSON.stringify(lin), /2015-01-01|c1|kx|private/, 'never a date of birth, owner, kennel or note of a dog that is not hers');
+
+  const both = build({ dogs, events, sections: ['lineage', 'origin', 'titles_detail'] }).dogs[0];
+  assert.deepEqual(both.ancestors[0], { id: 'rex', path: 'sire', call_name: 'Rex', registered_name: 'Ch Rex of Glen', titles: [{ abbr: 'CH', organization: 'KC', date: '2018-01-01' }], imported: true, import_country: 'Wales' });
+  assert.deepEqual(both.ancestors[1].imported, true);
+  assert.equal(both.ancestors[1].import_country, null);
+  assert.equal(both.ancestors[2].imported, false);
+});
+
 test('bundleChanges: a litter status change is named once, a pup disposition rides its status line', () => {
   const dogs = [dog('willow'), { id: 'fern', call_name: 'Fern', sex: 'female', status: 'puppy', litter_id: 'l1', kennel_id: 'k1', disposition: 'available' }];
   const litter = { id: 'l1', kennel_id: 'k1', status: 'whelped', dam_id: 'willow', nickname: 'Spring', show_on_website: true, whelp_date: '2026-10-01' };

@@ -1,6 +1,6 @@
 # Website contract plan: sending raw data to KennelPort
 
-A plan from the review of the KennelOS ↔ KennelPort contract (2026-11-10). Steps 1 and 2 are
+A plan from the review of the KennelOS ↔ KennelPort contract (2026-11-10). Steps 1 to 3 are
 built (below). This is KennelOS's half; the whole plan, with KennelPort's rules, blocks and
 build order, is KennelPort's `docs/plans/kennelos-contract.md`. What is built today is
 End-State guide §35.
@@ -110,6 +110,9 @@ starts at KennelPort's step 4:
    Worker still gets the abbreviations). The same title from the same organization goes
    once, at its first date.
 3. **C4, C7:** the new Dog fields, the pedigree walk, origin, lineage.
+   **Built 2026-11-13:** `data/pedigreeWalk.js` for the walk; an ancestor's `path` is the
+   key named `path` (KennelPort's plan calls it "role path"); its `titles` follow the
+   dog's (`titles_detail` or not). At most 30 ancestors (four full generations).
 4. **C9:** waitlist facts.
 
 Each batch: `node --check`, `node --test`, `node build/assemble.mjs`; a new app file goes
