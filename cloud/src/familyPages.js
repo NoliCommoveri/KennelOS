@@ -541,9 +541,13 @@ export function feePayFor(projection, entryId) {
     }
   } catch { return null; }
   const amount = Number(f.amount);
+  // The fee itself (Waitlist Fixes K8-10): the card's headline, `amount` (what the
+  // link charges, a passed-on card fee included) on the button.
+  const fee = Number(f.fee);
   return {
     url,
     amount: Number.isFinite(amount) && amount > 0 ? amount : null,
+    fee: Number.isFinite(fee) && fee > 0 ? fee : null,
     instructions: typeof f.instructions === 'string' ? f.instructions.slice(0, 1000) : '',
   };
 }
@@ -556,6 +560,33 @@ function creditsOf(c) {
   const out = { fee: amt(c.fee), fee_toward: ['deposit', 'balance'].includes(c.fee_toward) ? c.fee_toward : null, received: amt(c.received), deposit: amt(c.deposit) };
   if (!out.fee_toward) out.fee = 0;
   return out.fee > 0 || out.received > 0 ? out : null;
+}
+
+// Their payments as her device published them (Payment Schedule plan §7,
+// paymentSchedule.familyPaymentsView), field by field: amounts, dates, her line and
+// due-date names, and her payment instructions; or null.
+const PAY_STATES = ['met', 'next', 'past', 'later'];
+export function paymentsOf(p) {
+  if (!p || typeof p !== 'object') return null;
+  const amt = (v) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v < 1e7 ? Math.round(v * 100) / 100 : 0);
+  const day = (v) => (typeof v === 'string' && YMD_RE.test(v) ? v : null);
+  const label = (v) => (typeof v === 'string' ? v.slice(0, 120) : '');
+  const state = (v) => (PAY_STATES.includes(v) ? v : 'later');
+  const list = (v, max) => (Array.isArray(v) ? v.slice(0, max).filter((x) => x && typeof x === 'object') : []);
+  const total = amt(p.total);
+  if (!(total > 0)) return null;
+  const d = p.deposit && typeof p.deposit === 'object' ? p.deposit : null;
+  const n = p.next && typeof p.next === 'object' ? p.next : null;
+  return {
+    total, paid: amt(p.paid), remaining: amt(p.remaining),
+    deposit: d ? { amount: amt(d.amount), owed: amt(d.owed), date: day(d.date), state: state(d.state) } : null,
+    due: list(p.due, 20).map((x) => ({ label: label(x.label), date: day(x.date), at_pickup: x.at_pickup === true, amount: amt(x.amount), owed: amt(x.owed), final: x.final === true, state: state(x.state) })),
+    own: list(p.own, 30).map((x) => ({ label: label(x.label), amount: amt(x.amount), owed: amt(x.owed), date: day(x.date), state: state(x.state) })),
+    received: list(p.received, 60).map((x) => ({ date: day(x.date), label: label(x.label), amount: amt(x.amount) })).filter((x) => x.amount > 0),
+    next: n ? { label: label(n.label), date: day(n.date), at_pickup: n.at_pickup === true, owed: amt(n.owed), final: n.final === true, deposit: n.deposit === true } : null,
+    how_to_pay: typeof p.how_to_pay === 'string' ? p.how_to_pay.slice(0, 1000) : '',
+    final_methods: typeof p.final_methods === 'string' ? p.final_methods.slice(0, 200) : '',
+  };
 }
 
 // A fee_due as published, its Pay link kept only when it's a web address.
@@ -634,6 +665,9 @@ export function statusView(projection, entryId, now = new Date()) {
   // only with an open sale.
   const pickup = e.companion?.available ? pickupOf(e.pickup) : null;
   if (pickup) family.pickup = pickup;
+  // Their payments: only with an open sale.
+  const payments = e.companion?.available ? paymentsOf(e.payments) : null;
+  if (payments) family.payments = payments;
   // Backing out (Family Requests plan §7): only with an open sale; her reasons and
   // what she wants them to read first. A back-out she approved shows without one
   // (it ended the sale), for what happened to their deposit, never as a form.

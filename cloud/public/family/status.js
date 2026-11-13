@@ -748,6 +748,51 @@ function milesLine(miles, far, kennel) {
   return far ? `${about} ${esc(kennel)} will be in touch about whether they'll bring your puppy themselves or you'll need a flight nanny.`
     : `${about} ${esc(kennel)} will confirm the time and any transport fee.`;
 }
+// --- Their payments (Payment Schedule plan §7) ------------------------------------
+// What their sale asks for and when, what's been paid (a credit as the line it
+// covered, "(credited)"), and what's left, from her device's statement. A date that
+// has gone by without the payment marked received reads "Was due …", never Overdue:
+// she may not have recorded it yet. Earlier payments follow her payment
+// instructions; the final payment her final-payment methods (D9).
+function payWhen(x) {
+  return x.date ? fmtDate(x.date) : x.at_pickup ? 'At pickup' : 'Date to be set';
+}
+function payRowHtml(label, x) {
+  const amount = x.state !== 'met' && x.owed > 0 && x.owed < x.amount
+    ? `${money(x.amount)}, ${money(x.owed)} left` : money(x.amount);
+  const status = x.state === 'met' ? '<span class="badge">Paid</span>'
+    : x.state === 'next' ? `<span class="badge info">Next</span> <span class="small">${esc(x.date ? `Due ${fmtDate(x.date)}` : payWhen(x))}</span>`
+      : x.state === 'past' ? `<span class="small muted">Was due ${esc(fmtDate(x.date))}</span>`
+        : `<span class="small muted">${esc(payWhen(x))}</span>`;
+  return `<li class="pay-row"><div><strong>${esc(label)}</strong><br><span class="small">${esc(amount)}</span></div><div class="pay-status">${status}</div></li>`;
+}
+function paymentsHtml(f) {
+  const p = f.payments;
+  if (!p || !(p.total > 0)) return '';
+  const n = p.next;
+  const rows = [
+    ...(p.deposit ? [payRowHtml('Deposit', p.deposit)] : []),
+    ...(p.due || []).map((d) => payRowHtml(d.label, d)),
+    ...(p.own || []).map((o) => payRowHtml(o.label, o)),
+  ];
+  const nextHtml = n && n.owed > 0
+    ? `<p class="big mt0">${esc(money(n.owed))}</p>
+      <p class="mt0">${esc(n.deposit ? 'Your deposit' : n.final ? 'Your final payment' : 'Your next payment')}${n.date ? `, due ${esc(fmtDate(n.date))}` : n.at_pickup ? ', due at pickup' : ''}.</p>`
+    : '<p class="mt0"><span class="badge">Paid in full</span> Thank you!</p>';
+  const how = n && n.owed > 0 ? [
+    p.how_to_pay ? `<p class="small muted mt8">How to pay:</p><p class="pre mt0 small">${esc(p.how_to_pay)}</p>` : '',
+    n.final && p.final_methods ? `<p class="small mt8"><strong>Final payment:</strong> ${esc(p.final_methods)}</p>` : '',
+  ].join('') : '';
+  const received = (p.received || []).length
+    ? `<p class="small muted mt8">Received</p><ul class="plain small pay-received">${p.received.map((r) => `<li>${esc(r.date ? fmtDate(r.date) : '')} · ${esc(r.label)} · ${esc(money(r.amount))}</li>`).join('')}</ul>`
+    : '';
+  const body = `${nextHtml}
+    <dl class="facts mt8"><dt>Total</dt><dd>${esc(money(p.total))}</dd><dt>Paid</dt><dd>${esc(money(p.paid))}</dd><dt>Still owed</dt><dd>${esc(money(p.remaining))}</dd></dl>
+    ${rows.length ? `<ul class="plain pay-list mt8">${rows.join('')}</ul>` : ''}
+    ${how}${received}`;
+  return n && n.owed > 0 ? openCard('Your payments', body) : card('Your payments', body);
+}
+
 function pickupHtml(f) {
   const pk = f.pickup;
   if (!pk) return '';
@@ -1014,6 +1059,13 @@ function creditsFactHtml(c) {
   return `<dt>Credited</dt><dd>${esc(price(total))} toward your puppy${parts.length ? `<br><span class="small muted">${esc(parts.join(' + '))}</span>` : ''}${where ? `<br><span class="small muted">${esc(where)}</span>` : ''}</dd>`;
 }
 
+// Paying the fee by card can cost more than the fee (her card fee passed on): one
+// line saying so beside the Pay button, so the two numbers are explained (K8-10).
+function cardAddsHtml(fee, charge) {
+  const more = Math.round((Number(charge) - Number(fee)) * 100) / 100;
+  return fee > 0 && more > 0 ? `<p class="small muted mt0">Paying by card adds ${esc(money(more))}.</p>` : '';
+}
+
 function mineHtml() {
   const v = state.v;
   const f = v.family;
@@ -1034,6 +1086,7 @@ function mineHtml() {
   if (!['applied', 'approved', 'active'].includes(f.status)) {
     parts.push(card('', `<p class="mt0">${closedText(f.status, kennel, f.page_only)}</p>`));
     parts.push(companionHtml(f));
+    parts.push(paymentsHtml(f));
     parts.push(pickupHtml(f));
     parts.push(extrasHtml(f));
     parts.push(transportHtml());
@@ -1051,8 +1104,10 @@ function mineHtml() {
       parts.push(openCard('Your application fee', `<p class="mt0">Thank you: your payment on ${esc(fmtDate(f.fee_paid_online))} was received. If ${esc(kennel)} approves your application, you join the list from that day.</p>`));
     } else if (f.fee_pay) {
       const pay = f.fee_pay;
+      const headline = pay.fee || pay.amount;
       parts.push(openCard('Your application fee', `
-        ${pay.amount ? `<p class="big mt0">${esc(money(pay.amount))}</p>` : ''}
+        ${headline ? `<p class="big mt0">${esc(money(headline))}</p>` : ''}
+        ${cardAddsHtml(pay.fee, pay.amount)}
         <p class="mt0">Paying now means that if ${esc(kennel)} approves your application, your place on the list counts from the day you paid.</p>
         <div class="actions"><a class="button primary" href="${esc(pay.url)}" target="_blank" rel="noopener noreferrer">Pay the application fee</a></div>
         ${pay.instructions ? `<p class="small muted">Or pay another way:</p><p class="pre mt0 small">${esc(pay.instructions)}</p>` : ''}`));
@@ -1070,13 +1125,14 @@ function mineHtml() {
       ${fee.credit > 0 ? `<p class="small mt0 muted">After ${esc(money(fee.credit))} already received (your credit).</p>` : ''}
       ${fee.due_date ? `<p>Please pay by <strong>${esc(fmtDate(fee.due_date))}</strong>.</p>` : ''}
       ${fee.credit_policy ? `<p class="small muted">${esc(fee.credit_toward === 'deposit' && fee.credit_policy === 'credited_to_purchase' ? 'Credited toward your deposit' : (CREDIT_LABEL[fee.credit_policy] || ''))}</p>` : ''}
-      ${fee.pay_url ? `<div class="actions"><a class="button primary" href="${esc(fee.pay_url)}" target="_blank" rel="noopener noreferrer">Pay ${esc(money(fee.pay_amount || fee.amount))} now</a></div>` : ''}
+      ${fee.pay_url ? `<div class="actions"><a class="button primary" href="${esc(fee.pay_url)}" target="_blank" rel="noopener noreferrer">Pay ${esc(money(fee.pay_amount || fee.amount))} now</a></div>${cardAddsHtml(fee.amount, fee.pay_amount)}` : ''}
       ${fee.instructions ? `<p class="small muted mt0">${fee.pay_url ? 'Or pay another way' : 'How to pay'}:</p><p class="pre mt0">${esc(fee.instructions)}</p>` : ''}
       <p class="small muted">Your place on the list is set from the day ${esc(kennel)} receives your fee.</p>`));
   }
 
   for (const rows of turnsOf(v.offers)) parts.push(turnHtml(rows));
   parts.push(companionHtml(f));
+  parts.push(paymentsHtml(f));
   parts.push(pickupHtml(f));
   parts.push(extrasHtml(f));
   parts.push(transportHtml());

@@ -85,6 +85,9 @@ dl.facts dd { margin: 0; overflow-wrap: anywhere; }
 ul.plain { list-style: none; margin: 0; padding: 0; }
 ul.plain > li { padding: 10px 0; border-top: 1px solid var(--border); }
 ul.plain > li:first-child { border-top: 0; padding-top: 0; }
+.pay-list > li.pay-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.pay-list .pay-status { flex: 0 0 auto; text-align: right; }
+ul.pay-received > li { padding: 4px 0; }
 .row { display: flex; gap: 10px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
 .pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 .tabs { display: flex; gap: 6px; margin: 14px 0 0; }
